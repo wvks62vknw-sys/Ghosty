@@ -90,6 +90,9 @@ async function signIn(ready) {
   // The service worker is blocked: once it controls the page (it claims it soon after the first load), the page's /api
   // requests no longer reach page.route, so the stand-in training status and paper files below would be bypassed by chance.
   const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 2, ...UK, serviceWorkers: 'block' });
+  // (13 Nov) No signal for the brain's own model: the phone's brain sits the papers, as this spec checks. Online sitting,
+  // in full working, is learnlane.spec's.
+  await ctx.route('**/api/school/sit-online', (r) => r.abort('internetdisconnected'));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   await page.addInitScript(engine, ready);

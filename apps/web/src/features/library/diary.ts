@@ -51,7 +51,7 @@ export function diaryPanel(): { pn: Panel; paint(): void } {
     clear(pn.body);
     pn.setStatus(list.length ? `${list.length} SEEN` : 'NONE YET', list.length ? 'ok' : 'off');
     if (!list.length) {
-      pn.body.append(empty('NONE YET', 'In the Lens, NAME IT on a bird, a plant or an insect, then tap KEEP: it is kept here with where you were. Nothing is kept by itself, and where you were stays on this phone.'));
+      pn.body.append(empty('NONE YET', 'In the Lens, NAME IT on a bird, a plant or an insect, then tap KEEP: it is kept here with where you were. Nothing is kept by itself, and where you were stays on this phone (OPEN MAP shows the spot on OpenStreetMap only when you tap it).'));
       return;
     }
     const map = diaryMap(list);

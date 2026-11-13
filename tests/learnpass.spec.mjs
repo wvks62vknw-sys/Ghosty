@@ -98,7 +98,7 @@ await section('words', async () => {
   check(SC.timeLeft(7, 1, 20, 6 * 60_000) === 'about 14 min left' && SC.timeLeft(2, 1, 20, 60_000) === '' && SC.timeLeft(19, 1, 20, 18 * 20_000) === 'under a minute left' && SC.timeLeft(1, 1, 20, 0) === '', `[S2 time left] reads "${SC.timeLeft(7, 1, 20, 6 * 60_000)}"`);
   const topics = { fractions: { got: 1, max: 6 }, ratio: { got: 2, max: 4 }, algebra: { got: 5, max: 5 }, shape: { got: 3, max: 3 } };
   check(SC.whatToRead(topics) === 'Not top grades yet. Read up on fractions and ratio next.' && SC.whatToRead({ a: { got: 2, max: 2 } }) === '', `[S3 what to read] reads "${SC.whatToRead(topics)}"`);
-  check(/^The offline brain isn’t on this phone yet/.test(SC.notKept('520 MB')) && /520 MB/.test(SC.notKept('520 MB')) && /Wi-Fi/.test(SC.notKept('520 MB')), `[S offline brain] reads "${SC.notKept('520 MB')}"`);
+  check(/^With no signal I sit papers on the offline brain, and it isn’t on this phone yet/.test(SC.notKept('520 MB')) && /520 MB/.test(SC.notKept('520 MB')) && /Wi-Fi/.test(SC.notKept('520 MB')), `[S offline brain] reads "${SC.notKept('520 MB')}"`);
   const si = nocomments(src('features/school/index.ts'));
   check(si.includes('LADDER_LINE') && si.includes('timeLeftNow(st)') && si.includes('whatToRead(r.topics)') && si.includes('notKept(sizeText(') && !/Strictly in order: a stage opens only/.test(si), '[S1 S2 S3] SCHOOL is not drawn from the words');
   // L1 · the empty shelf; L2 · a file it cannot read; L3 · no hit; L5 · a book it cannot open
@@ -352,6 +352,8 @@ for (const vp of [PHONE, PHONE2]) {
     // one in the same run, sit, hands papers in; the record is otherwise the brain's)
     const { ctx, page } = await open(vp, {
       before: async ({ ctx, page }) => {
+        // (13 Nov: with no signal for the brain's own model, the words for the phone's brain; online sitting is learnlane.spec's)
+        await ctx.route('**/api/school/sit-online', (r) => r.abort('internetdisconnected'));
         await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'gpu', { get: () => ({ requestAdapter: async () => ({ features: new Set(['shader-f16']), limits: {} }) }), configurable: true }));
         await ctx.route(/\/api\/school(\?.*)?$/, async (r) => {
           if (r.request().method() !== 'GET') return r.fallback();
@@ -369,7 +371,7 @@ for (const vp of [PHONE, PHONE2]) {
     await still(page, 'school-ladder', vp);
     // the offline brain not on this phone: said with its size before any tap
     const why = await page.evaluate(() => ({ t: document.querySelector('#pg-school .schwhy[data-state="offline"]')?.textContent ?? '' }));
-    check(/^The offline brain isn’t on this phone yet, so I can’t sit an exam\. Get it in Settings, Offline brain: \d+(\.\d+)? ?(MB|GB), on Wi-Fi\.$/.test(why.t), `${T} [S offline brain] reads "${why.t}"`);
+    check(/^With no signal I sit papers on the offline brain, and it isn’t on this phone yet\. Get it in Settings, Offline brain: \d+(\.\d+)? ?(MB|GB), on Wi-Fi\.$/.test(why.t), `${T} [S offline brain] reads "${why.t}"`);
     const empty = await page.evaluate(() => document.querySelector('#pg-school .pn [data-state="empty"]')?.textContent ?? '');
     check(/^Nothing sat yet\. SIT THE EXAM above/.test(empty), `${T} [S1 results] with nothing sat the results say "${empty}"`);
     await bar(page, `${T} [school]`, 'school');

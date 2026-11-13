@@ -18,6 +18,7 @@
  * page (`bookSignOff`). Every state is said in a sentence: no book yet, opening, not on this phone with no signal, a failure.
  */
 import { para } from '../../ui/oneline';
+import { netUnknown, secondTap, unknownNet } from '../learn/wifi';
 import type { LibraryDoc } from '../../../../../packages/shared/src/protocol';
 import type { ScreenContext, Selected } from '../../../../../packages/shared/src/awareness';
 import { lookingAt, stampFacts } from '../../shell/awareness';
@@ -818,16 +819,21 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     keep.disabled = whole || d.id.startsWith('local-');
     keep.setAttribute('aria-pressed', String(whole));
     const remove = d.builtin ? null : key('Remove from library', () => {
-      if (!shelfHooks.remove) return;
-      if (reading.get().doc === d.id) stopQuietly();
-      shelfHooks.remove(d);
-      forgetPlace(d.id);
-      void dropCover(d.id);
-      docNow = null;
-      void import('../../shell/areas').then((a) => a.navTo('library?shelf', 'pop'));
+      // (the shelf's remove-with-UNDO lives on the Library tab: opened from a link or a voice ask first, it is opened now)
+      void import('../../shell/areas').then(async (a) => {
+        if (!shelfHooks.remove) a.navTo('library?shelf', 'pop');
+        for (let i = 0; i < 30 && !shelfHooks.remove; i++) await new Promise((r) => setTimeout(r, 100));
+        if (!shelfHooks.remove) return toast('I couldn’t open your shelf to remove it. Open the Library and try again.', 'bad');
+        if (reading.get().doc === d.id) stopQuietly();
+        shelfHooks.remove(d);
+        forgetPlace(d.id);
+        void dropCover(d.id);
+        docNow = null;
+        a.navTo('library?shelf', 'pop');
+      });
     }, { label: `Remove ${d.title} from the library (you can undo it)` });
     remove?.classList.add('grd-remove');
-    const lock = 'When the screen locks: not checked on your phone yet. My own voice plays through the page’s sound and may keep going; the phone’s own voice stops, because the iPhone pauses it. Tell me what happened and I’ll say it here.';
+    const lock = 'When the screen locks: not checked on your phone yet. My own voice plays through the page’s sound and may keep going; the phone’s own voice stops, because the iPhone pauses it.';
     clear(about,
       h('div.grd-aboutrow', coverFor(d, 'big'), h('div.grd-abouttxt',
         h('b.grd-abouttitle', { dataset: { case: 'keep' } }, d.title),
@@ -837,7 +843,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
         added ? truthLine([{ text: 'Added', tone: 'strong' }, added]) : null,
         truthLine([{ text: 'On this phone', tone: 'strong' }, whole ? 'all of it · reads with no signal' : here ? `${here} of ${d.passages} passages` : d.id.startsWith('local-') ? 'only here so far' : 'not yet']))),
       h('div.grd-keys.about', keep, remove),
-      h('p.grd-cap', { dataset: { case: 'keep' } }, whole ? 'It is all on this phone, so it opens and reads aloud with no signal.' : `Keeping it here is a download of ${sizeWords(size)}: I fetch it on Wi-Fi, and wait for Wi-Fi if you are on mobile data.`),
+      h('p.grd-cap', { dataset: { case: 'keep' } }, whole ? 'It is all on this phone, so it opens and reads aloud with no signal.' : `Keeping it here is a download of ${sizeWords(size)}: I fetch it on Wi-Fi, and wait for Wi-Fi if you are on mobile data${netUnknown() ? ' (this phone does not say which it is on, so I ask you first)' : ''}.`),
       tag('How it is now'),
       h('div.grd-marks', { role: 'list', 'aria-label': 'How it is now' }, ...marksNow(d, whole).map((m) => {
         const line = truthLine([{ text: m.name, tone: 'strong' }, { text: m.mark, tone: m.mark === 'Working' ? 'on' : 'warn' }, m.why]);
@@ -855,6 +861,12 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       keeping.abort();
       keeping = null;
       void paintAbout();
+      return;
+    }
+    // (a phone that cannot tell Wi-Fi from mobile data: the first tap says so with the size; the second is his yes)
+    if (netUnknown() && !secondTap(`book:${d.id}`)) {
+      k.replaceChildren(h('span', `Tap again to fetch · ${sizeWords(size)}`));
+      toast(unknownNet(sizeWords(size)), 'warn');
       return;
     }
     keeping = new AbortController();

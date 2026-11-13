@@ -13,7 +13,7 @@ export const TRAIN_FAILED = 'Training stopped by itself. Tap TRAIN and I’ll tr
 export const TRAIN_CANNOT = 'I can’t train on this phone just now. Close other apps, then tap TRAIN.';
 
 /** A move I could not work out (the board is kept; the one way on). */
-export const MOVE_FAILED = 'I couldn’t work out my move. Tap PLAY AGAIN to start over.';
+export const MOVE_FAILED = 'I couldn’t work out my move. Tap NEW GAME to start over.';
 
 /** How a finished game is said: as that, and the key that follows it. */
 export const overWords = (over: string): string => over.replace(/\bYou win\.$/, 'You beat me.').replace(/\bI win\.$/, 'I won this one.');

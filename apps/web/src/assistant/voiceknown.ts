@@ -22,7 +22,8 @@ import { features, judgeBest, type Known, type Voiced } from './voiceprint';
 import { knownVoices } from './voicestore';
 
 /** What the brain is told about who spoke (packages/shared/src/awareness.ts `ClientContext.voice`). */
-export type Label = 'owner' | 'unknown' | { name: string };
+/** ('unsure': a voice heard and not sure of; held and treated as unknown on the phone, and said to the brain as "not sure".) */
+export type Label = 'owner' | 'unknown' | 'unsure' | { name: string };
 
 export interface Heard {
   label: Label;
@@ -30,6 +31,8 @@ export interface Heard {
   words: string;
   /** For the checks and the console only. */
   why?: string;
+  /** False when the phone heard a voice it could not be sure of (it is then labelled unknown, and "not sure" to the brain). */
+  sure?: boolean;
 }
 
 export interface Spoke {
@@ -132,8 +135,9 @@ export async function hear(snd: ReturnType<typeof takeSound>): Promise<Heard | n
   lastScore.kind = r.who.kind;
   lastScore.why = r.who.kind === 'unknown' ? r.who.why : '';
   const heard: Heard =
-    r.who.kind === 'owner' ? { label: 'owner', words: 'YOU' } : r.who.kind === 'person' ? { label: { name: r.who.name }, words: nameWords(r.who.name) } : { label: 'unknown', words: "A VOICE I DON'T KNOW", why: r.who.why };
+    r.who.kind === 'owner' ? { label: 'owner', words: 'YOU', sure: true } : r.who.kind === 'person' ? { label: { name: r.who.name }, words: nameWords(r.who.name), sure: true } : r.who.why === 'unsure' ? { label: 'unknown', words: 'NOT SURE WHO', why: r.who.why, sure: false } : { label: 'unknown', words: "A VOICE I DON'T KNOW", why: r.who.why, sure: true };
   speaker.set({ heard, held: null, at: Date.now() });
+  if (heard.label !== 'unknown') last = { label: heard.label as 'owner' | { name: string }, at: Date.now() };
   return heard;
 }
 
@@ -161,8 +165,45 @@ export function notNow(): void {
   speaker.set({ held: null });
 }
 
-/** The label a turn's context carries (voice.ts's boolean becomes it for a spoken turn that was judged). */
-export const labelOf = (h: Heard | null): Label | undefined => h?.label;
+/** The label a turn's context carries (voice.ts's boolean becomes it for a spoken turn that was judged); not sure is said so. */
+export const labelOf = (h: Heard | null): Label | undefined => (h && h.label === 'unknown' && h.sure === false ? 'unsure' : h?.label);
+
+/** The last voice the phone knew (his, or a person he introduced), and when: a typed turn tells the brain (heardNote). */
+let last: { label: 'owner' | { name: string }; at: number } | null = null;
+const HALF_HOUR = 30 * 60_000;
+
+/**
+ * WHAT THE PHONE KNOWS OF VOICES, for the brain on every app turn (FINAL ROUND, the voice lane; his "the actual chat says he has
+ * no way of recognising me"): his own voice taught to this phone or not, and on a typed turn whose voice it last knew, within
+ * half an hour, in whole minutes. Never a score; never a lock.
+ */
+export function heardNote(now = Date.now()): { taught: boolean; last?: 'owner' | { name: string }; mins?: number } {
+  const taught = known.some((k) => k.me);
+  if (!last || now - last.at > HALF_HOUR) return { taught };
+  return { taught, last: last.label, mins: Math.max(0, Math.round((now - last.at) / 60_000)) };
+}
+
+/**
+ * "Do you know it's me?", "who's talking?": answered from the tag, truly, with no model (assistant/local.ts `speaker`). `spoken`:
+ * this turn was said aloud (its tag is the one on the bar now).
+ */
+export function whoWords(spoken: boolean, now = Date.now()): string {
+  const taught = known.some((k) => k.me);
+  if (!taught) return 'I don’t know your voice yet. Teach me in Settings, under My voice: you read three sentences, and it stays on this phone. Even then it’s a courtesy, never a lock.';
+  const h = spoken ? speaker.get().heard : null;
+  const via = lastScore.via === 'model' ? ' (the voice pack judged it)' : '';
+  if (spoken && h) {
+    if (h.label === 'owner') return `Yes: that’s your voice. I recognised it on this phone, and I’m sure${via}. It never opens anything on its own: it’s a courtesy, never a lock.`;
+    if (typeof h.label === 'object') return `That sounds like ${h.label.name}, whom you introduced${via}.`;
+    return h.sure === false ? 'I’m not sure: it sounded a bit like a voice I know, not enough to say. Say a whole sentence and I’ll try again.' : 'No: that’s a voice I don’t know. I won’t say anything private until I know who it is.';
+  }
+  if (spoken) return 'I know your voice on this phone, but that was too short to judge. Say a whole sentence and I’ll tell you.';
+  const n = heardNote(now);
+  const ago = n.mins == null ? '' : n.mins < 1 ? 'just now' : `${n.mins} minute${n.mins === 1 ? '' : 's'} ago`;
+  if (n.last === 'owner') return `You typed that, so I heard no voice. I know yours on this phone: the last voice I heard, ${ago}, was you.`;
+  if (n.last) return `You typed that, so I heard no voice. The last one I heard, ${ago}, was ${n.last.name}.`;
+  return 'You typed that, so I heard no voice. I know yours on this phone: speak to me and I’ll say whether it’s you.';
+}
 
 // for the checks and the console (window.__ghosty.voiceknown, set in main.ts)
-export const probe = { speaker, grace, lastScore, graceOn, known: () => known.map((k) => ({ id: k.id, name: k.name, me: k.me, floor: k.print.floor })) };
+export const probe = { speaker, grace, lastScore, graceOn, heardNote, whoWords, known: () => known.map((k) => ({ id: k.id, name: k.name, me: k.me, floor: k.print.floor })) };

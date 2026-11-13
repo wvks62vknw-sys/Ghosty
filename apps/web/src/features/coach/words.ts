@@ -26,4 +26,4 @@ export const WORDS_MORE = 'Forty words in each of four languages, round again ev
 export const MORE_KEY = 'How it works';
 
 /** The chat phrases that open the tuner on the phone (coachAsked answers them), listed in one line. */
-export const PHRASES = ['tune my guitar', 'am I in tune', 'typing test'];
+export const PHRASES = ['tune my guitar', 'am I in tune', 'open the tuner'];

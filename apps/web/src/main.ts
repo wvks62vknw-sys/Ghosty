@@ -213,6 +213,8 @@ async function boot(): Promise<void> {
     // (once a day, a few minutes after it opens and only while it is on screen: the rooms' own throttled reads, nothing the plan would not ask)
     if (ui.get().connected) setTimeout(() => document.visibilityState === 'visible' && c.needsDailyRead() && void c.refreshChanged().catch(() => undefined), 180_000);
   }).catch(() => undefined);
+  // [recall] the phone's own index of his turns and things (features/memory/recall.ts): set up now, built at idle after Home is up
+  void import('./features/memory/recall').then((r) => r.startRecallIndex()).catch(() => undefined);
   gfx.post.flash = 0.6;
   // [lifeeasier] this open keeps its stamp fresh: the next open measures its gap from it (state/lastopen.ts)
   keepStamp();

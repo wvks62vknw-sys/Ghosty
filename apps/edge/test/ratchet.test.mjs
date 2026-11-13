@@ -164,6 +164,8 @@ export const STATES = {
   'space.fit': { dir: 'space', base: 0, now: 1 },
   'space.home': { dir: 'space', base: 2, now: 4 },
   'space.photo': { dir: 'space', base: 3, now: 3 },
+  // FINAL ROUND (MAKE lane): MATERIALS says what it needs when there is no room to work from
+  'space.materials': { dir: 'space', base: 0, now: 1 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
   'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },

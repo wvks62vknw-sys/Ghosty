@@ -60,6 +60,7 @@ import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
 import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
+import { gameSiteResponse, gameUpload } from './gamesite'; // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
@@ -412,6 +413,8 @@ export class GhostyAgent {
       if (sp && method === 'GET') {
         try {
           const site = await siteStore(this.env, this.storage).get(sp[1]!);
+          // [sites] a game from his studio, published a moment ago (KV not caught up here yet): served as its own page (gamesite.ts)
+          if (site?.game) return await gameSiteResponse(site, this.env, url.origin, `/s/${site.name}/`, sp[2] ? (url.searchParams.get('dest') ?? '') : null);
           return sp[2] ? siteFrameResponse(site, url.searchParams.get('dest')) : siteResponse(site);
         } catch (e) {
           if (!storageError(e)) throw e;
@@ -491,6 +494,8 @@ export class GhostyAgent {
       if (path.startsWith('/library')) return await this.libraryRoute(req, path, method, url);
       // [selftrain] SYSTEM → OFFLINE BRAIN TRAINING (before /train, the training ground, which would match it too)
       if (path === '/training' || path.startsWith('/training/')) return await selfTrainingRoute(req, path, method, this.trainDeps());
+      // [sites] the game open in his studio, handed over to wait for "put it on my sites" and his APPROVE; never published here (gamesite.ts)
+      if (path === '/sites/game') return await gameUpload(req, { env: this.env, storage: this.storage });
       if (path === '/school' || path.startsWith('/school/')) return await schoolRoute(req, path, method, { env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] SCHOOL (school/routes.ts)
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));

@@ -232,6 +232,8 @@ const ROOMY = { quota: 64e9, usage: 1e8, grant: true };
 async function signedIn({ memory = null, limits = GENEROUS, storage = ROOMY, userAgent = undefined } = {}) {
   const ctx = await browser.newContext({ viewport: PHONE, ...UK, ...(userAgent ? { userAgent } : {}) });
   const net = standIn(ctx);
+  // (13 Nov) No signal for the brain's own model: SCHOOL's lines here are the phone brain's (online sitting is learnlane.spec's).
+  await ctx.route('**/api/school/sit-online', (r) => r.abort('internetdisconnected'));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   await page.addInitScript(fakes, { memory, limits, pins: PINS, storage });

@@ -5,6 +5,7 @@
  *    rounds; then NOTES, five lines counted from his own answers (what landed, what to tighten).
  *  - A TALK FOR A MINUTE: he talks for a minute (or types what he would say) and gets back his filler words, his pace and the one line
  *    to cut.
+ *  - KEPT: every rehearsal he kept, newest first, each opening to his answers and the notes (read only), with DELETE (tapped twice).
  * Nothing is kept unless he taps KEEP (`ghosty.rehearsals`, on this phone only). The other side is sent to the brain quietly: no chat
  * history, no screen, no place goes with it. Every wait is said; a brain that cannot be reached is said, with TRY AGAIN.
  */
@@ -20,27 +21,18 @@ import { sections } from '../../ui/sections';
 import { panel } from '../../ui/components';
 import { askWithImage } from '../../vision/ask';
 import { canHear, hear, type Ear } from '../../further/interpret';
-import { notesOf, promptFor, ROUNDS, talkNotes, TEMPER_WORD, wordCount } from '../../further/rehearse';
+import { deleteKept, KEEP_KEY, loadKept, notesOf, promptFor, ROUNDS, saveKept, talkNotes, TEMPER_WORD, wordCount, type Kept } from '../../further/rehearse';
 
-export const KEEP_KEY = 'ghosty.rehearsals';
+export { KEEP_KEY };
 export const REHEARSE_ICON = '<circle cx="8.5" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.4"/><path d="M3.5 19c.4-3.2 2.4-5 5-5s4.6 1.8 5 5M14.5 14.4c2.6-.4 4.7 1 5.3 4.1"/>';
 
 /** What a test can read (window.__ghosty.rehearse). */
 export const rehearseState = { stage: 'idle' as 'idle' | 'waiting' | 'answering' | 'notes', round: 0, situation: '', talk: [] as { other: string; answer: string }[], notes: [] as string[], kept: 0 };
 
-interface Kept {
-  at: number;
-  situation: string;
-  answers: string[];
-  notes: string[];
-}
-const loadKept = (): Kept[] => {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEEP_KEY) ?? '[]') as Kept[];
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
+/** When a rehearsal was kept, in plain words ("13 Nov 2026, 14:05"). */
+const whenKept = (at: number): string => {
+  const d = new Date(at);
+  return `${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
 };
 
 export const rehearseTab: TabDef = {
@@ -59,12 +51,14 @@ export const rehearseTab: TabDef = {
     P.big.textContent = 'Rehearse';
     const conv = panel('A CONVERSATION', { grow: false, status: 'READY' });
     const talk = panel('A TALK FOR A MINUTE', { grow: false, status: 'READY' });
-    P.left.append(conv.el, talk.el);
+    const keptP = panel('KEPT', { grow: false, status: '' });
+    P.left.append(conv.el, talk.el, keptP.el);
     P.right.hidden = true;
     (P.big.parentElement?.querySelector('.swap') as HTMLElement | null)?.setAttribute('hidden', '');
     const secs = sections(root, 'rehearse', [
       { id: 'conversation', label: 'Conversation', match: /^A CONVERSATION/ },
       { id: 'talk', label: 'Talk', match: /^A TALK/ },
+      { id: 'kept', label: 'Kept', match: /^KEPT/ },
     ]);
 
     // ------------------------------------------------------------------------------------------------ A CONVERSATION
@@ -81,6 +75,11 @@ export const rehearseTab: TabDef = {
     send.dataset.act = 'send';
     send.dataset.case = 'keep';
     const speakKey = h('button.fxkey.rhspeak', { type: 'button', dataset: { act: 'speak', case: 'keep' }, 'aria-label': 'Hold to speak your answer' }, 'HOLD TO SPEAK') as HTMLButtonElement;
+    // (a browser that cannot hear: no key that only ever says so)
+    if (!canHear()) {
+      speakKey.hidden = true;
+      answer.placeholder = 'Your answer: type it';
+    }
     const answerBox = h('div.rhanswer', answer, h('div.row.wrap', speakKey, send));
     answerBox.hidden = true;
     const notesBox = h('div.rhnotes', { hidden: true });
@@ -120,7 +119,7 @@ export const rehearseTab: TabDef = {
         S.talk.push({ other: said, answer: '' });
         paintLines();
         S.stage = 'answering';
-        state.textContent = `Round ${S.round} of ${ROUNDS}: your turn. Answer by typing, or hold SPEAK.`;
+        state.textContent = `Round ${S.round} of ${ROUNDS}: your turn. Answer by typing${canHear() ? ', or hold SPEAK' : ''}.`;
         answerBox.hidden = false;
         answer.value = '';
         answer.focus({ preventScroll: true });
@@ -128,7 +127,7 @@ export const rehearseTab: TabDef = {
       } catch (e) {
         S.stage = 'idle';
         state.textContent = '';
-        clear(state, h('span', `${sayError(e, 'do that')} `), button('TRY AGAIN', () => void turn()));
+        clear(state, h('span', `${sayError(e, 'play the other side')} `), button('TRY AGAIN', () => void turn()));
         conv.setStatus('NOT REACHED', 'off');
       }
     };
@@ -167,11 +166,11 @@ export const rehearseTab: TabDef = {
         const all = loadKept();
         all.push({ at: Date.now(), situation: S.situation, answers: S.talk.map((t) => t.answer), notes: S.notes });
         try {
-          localStorage.setItem(KEEP_KEY, JSON.stringify(all.slice(-20)));
-          S.kept = all.length;
+          S.kept = saveKept(all).length;
           keep.disabled = true;
           keep.textContent = 'KEPT';
-          toast('Kept on this phone: the situation, your answers and the notes. The other side’s lines were not.', 'ok');
+          paintKept();
+          toast('Kept on this phone: the situation, your answers and the notes. The other side’s lines were not. They are under KEPT.', 'ok');
         } catch {
           toast('I couldn’t keep it: this phone’s storage is full or blocked.', 'bad');
         }
@@ -210,7 +209,7 @@ export const rehearseTab: TabDef = {
           state.textContent = 'That is what I heard: change anything, then SEND.';
         } else state.textContent = 'I heard nothing. Hold SPEAK and try again, or type.';
       } catch (err) {
-        state.textContent = sayError(err, 'do that');
+        state.textContent = sayError(err, 'hear you');
       }
     };
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) speakKey.addEventListener(ev, () => void letGo());
@@ -251,7 +250,7 @@ export const rehearseTab: TabDef = {
         secsIn.value = String(Math.max(1, Math.round((Date.now() - started) / 1000)));
         tState.textContent = said.value.trim() ? 'That is what I heard. CHECK IT gives your notes.' : 'I heard nothing. Try again, or type it.';
       } catch (err) {
-        tState.textContent = sayError(err, 'do that');
+        tState.textContent = sayError(err, 'hear you');
       }
     }
     const check = button('CHECK IT', () => {
@@ -269,16 +268,93 @@ export const rehearseTab: TabDef = {
     check.dataset.case = 'keep';
     talk.body.append(h('div.rhconv', said, h('div.row.wrap', startTalk), secsIn, h('div.row.wrap', check), tState, tOut));
 
+    // ------------------------------------------------------------------------------------------------ KEPT
+    // every rehearsal he tapped KEEP on, newest first: each opens to its answers and notes (read only), with DELETE (tapped twice)
+    const keptList = h('div.rhkept', { 'aria-live': 'polite' });
+    keptP.body.append(keptList);
+    let openAt = 0;
+    let armedAt = 0;
+    let armTimer = 0;
+    const disarm = () => {
+      clearTimeout(armTimer);
+      armedAt = 0;
+    };
+    function paintKept(): void {
+      const all = loadKept().slice().reverse();
+      keptP.setStatus(all.length ? `${all.length} KEPT` : 'NONE', all.length ? 'ok' : 'off');
+      if (!all.length) {
+        clear(keptList, h('p.rhnote.rhkeptnone', 'Nothing kept yet. When a rehearsal ends, KEEP puts the situation, your answers and my notes here, on this phone only.'));
+        return;
+      }
+      clear(keptList, ...all.map(keptItem));
+    }
+    function keptItem(k: Kept): HTMLElement {
+      const rounds = k.answers.filter((a) => a.trim()).length;
+      const open = openAt === k.at;
+      const head = h(
+        'button.rhkepthead',
+        { type: 'button', 'aria-expanded': String(open), dataset: { act: 'kept-open', case: 'keep' } },
+        h('b.rhkeptsit', k.situation || 'A rehearsal'),
+        h('small.rhkeptmeta', `${whenKept(k.at)} · ${rounds} round${rounds === 1 ? '' : 's'}`),
+      ) as HTMLButtonElement;
+      head.addEventListener('click', () => {
+        openAt = open ? 0 : k.at;
+        disarm();
+        paintKept();
+      });
+      const item = h('div.rhkeptitem', { dataset: { at: String(k.at) } }, head);
+      if (!open) return item;
+      const del = button(armedAt === k.at ? 'TAP AGAIN TO DELETE' : 'DELETE', () => {
+        if (armedAt !== k.at) {
+          disarm();
+          armedAt = k.at;
+          armTimer = window.setTimeout(() => {
+            armedAt = 0;
+            paintKept();
+          }, 5000);
+          paintKept();
+          return;
+        }
+        disarm();
+        try {
+          S.kept = deleteKept(k.at).length;
+          openAt = 0;
+          paintKept();
+          toast('Deleted from this phone.', 'ok');
+        } catch (e) {
+          toast(sayError(e, 'delete it'), 'bad');
+        }
+      });
+      del.dataset.act = 'kept-delete';
+      del.dataset.case = 'keep';
+      del.setAttribute('aria-label', armedAt === k.at ? 'Tap again within five seconds to delete this rehearsal' : 'Delete this rehearsal');
+      item.append(
+        h(
+          'div.rhkeptbody',
+          h('b.rhnotehead', 'YOUR ANSWERS'),
+          h('ol.rhkeptans', ...(k.answers.length ? k.answers.map((a, i) => h('li', h('small', `ROUND ${i + 1}`), a || 'No answer.')) : [h('li', 'No answers were kept.')])),
+          h('b.rhnotehead', 'MY NOTES'),
+          h('ul.rhkeptnotes', ...(k.notes.length ? k.notes.map((l) => h('li', l)) : [h('li', 'No notes were kept.')])),
+          h('div.row.wrap', del),
+          armedAt === k.at ? h('small.rhnote', 'Tap DELETE again within five seconds and it goes for good.') : '',
+        ),
+      );
+      return item;
+    }
+    paintKept();
+
     return {
       enter() {
         paintTemper();
         paintLines();
+        paintKept();
       },
       leave() {
         // nothing is kept unless he tapped KEEP: what is on screen goes
         void stopTalk();
         void letGo();
         stopSpeaking();
+        disarm();
         if (!busy) {
           Object.assign(S, { stage: 'idle', round: 0, talk: [], notes: [] });
           clear(lines);
@@ -290,6 +366,10 @@ export const rehearseTab: TabDef = {
         }
       },
       open(arg) {
+        if (arg === 'kept') {
+          paintKept();
+          return void secs.select('kept');
+        }
         const m = /^(?:situation=(.*)|talk)$/.exec(arg);
         if (!m) return;
         if (m[1] !== undefined) {

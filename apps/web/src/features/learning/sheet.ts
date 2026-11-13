@@ -50,6 +50,9 @@ import { libraryPassage, libraryRaw } from './library';
 import { hush, onVoices, sayIn, voiceReport } from './voices';
 import { sayError } from '../../ui/hisWords';
 import { waiting } from '../../ui/wait';
+import { netUnknown, secondTap, unknownNet } from '../learn/wifi';
+import { onMobileData } from '../../wiki/store';
+import { READING, sum } from '../../offline/eyesfiles';
 import { brokenRun, MATHS_LINE, MATHS_MORE, MORE_KEY, NO_STREAK, PASSAGE_WAIT, TYPING_LINE, TYPING_MORE } from './words';
 
 export type LearnWhat = 'words' | 'review' | 'draw' | 'typing' | 'hand' | 'readfast' | 'memory' | 'maths' | 'spelling' | 'firstaid' | 'plan' | 'progress';
@@ -138,7 +141,20 @@ async function readText(f: File, status: HTMLElement): Promise<string> {
     reader.terminate();
   }
 }
-function photo(label: string, onFile: (f: File) => void): HTMLElement {
+/** What the first read fetches from this site: the reader, its worker, one core build (the three are the same size) and the English model. */
+const READER_MB = Math.round(sum(READING.filter(([p]) => !/core-(simd|relaxedsimd)-/.test(p))) / 1_000_000);
+const READER_SIZE = `about ${READER_MB} MB`;
+/** True once the reading model is kept on this phone (the service worker's copy, or the Lens's eyes pack). */
+async function readerHere(): Promise<boolean> {
+  try {
+    if (typeof caches === 'undefined') return false;
+    return !!(await caches.match('/vendor/tesseract/lang/eng.traineddata.gz'));
+  } catch {
+    return false;
+  }
+}
+/** A photo key; `allow` (asked on the tap itself, before the picker) can hold the tap back. */
+function photo(label: string, onFile: (f: File) => void, allow: () => boolean = () => true): HTMLElement {
   const input = h('input', { type: 'file', accept: 'image/*', 'aria-label': label, hidden: true }) as HTMLInputElement;
   input.setAttribute('capture', 'environment');
   input.addEventListener('change', () => {
@@ -146,7 +162,7 @@ function photo(label: string, onFile: (f: File) => void): HTMLElement {
     input.value = '';
     if (f) onFile(f);
   });
-  return h('span', { style: 'display:contents' }, named(button(label, () => input.click()), label), input);
+  return h('span', { style: 'display:contents' }, named(button(label, () => allow() && input.click()), label), input);
 }
 const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string> = {}): SVGElementTagNameMap[K] => {
   const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -449,7 +465,8 @@ function typingView(a: Record<string, unknown>): HTMLElement {
   const result = note();
   const logged = note();
   const finish = async () => {
-    if (finished || !t0) return;
+    if (finished) return;
+    if (!t0) return void (result.textContent = 'Type the passage first: the clock starts at your first key.');
     finished = true;
     const t = typingScore(passage, box.value, performance.now() - t0);
     learnState.score = t.wpm;
@@ -500,10 +517,28 @@ function typingView(a: Record<string, unknown>): HTMLElement {
 
 function handView(a: Record<string, unknown>): HTMLElement {
   const line = (typeof a.sentence === 'string' && a.sentence) || HAND_SENTENCES[dayNo(ymd()) % HAND_SENTENCES.length]!;
-  const status = note('Write the line on plain paper in dark ink, then photograph it flat in good light. The photo is read on this phone and never leaves it.');
+  const INTRO = 'Write the line on plain paper in dark ink, then photograph it flat in good light. The photo is read on this phone and never leaves it.';
+  const status = note(INTRO);
   const read = h('p.pkdoc', { hidden: true });
   const result = note();
   const logged = note();
+  // (the reading model is fetched the first time only: its size said before the first read; on mobile data, or where the
+  // phone cannot tell, a second tap within 20 s is his yes)
+  let here = true;
+  void readerHere().then((k) => {
+    here = k;
+    if (!k && status.textContent === INTRO) status.textContent = `${INTRO} The first time, I fetch the reading model from Ghosty’s own site (${READER_SIZE}).`;
+  });
+  const allow = (): boolean => {
+    if (here) return true;
+    const mobile = onMobileData();
+    if (!mobile && !netUnknown()) return true;
+    if (secondTap('learning:reader')) return true;
+    status.textContent = mobile
+      ? `You’re on mobile data: the first read fetches the reading model (${READER_SIZE}). Tap PHOTOGRAPH IT again within 20 seconds to fetch it now, or wait until you’re on Wi-Fi.`
+      : unknownNet(READER_SIZE);
+    return false;
+  };
   const pick = photo('PHOTOGRAPH IT', async (f) => {
     status.textContent = 'Reading it on this phone…';
     try {
@@ -513,13 +548,14 @@ function handView(a: Record<string, unknown>): HTMLElement {
       learnState.result = l.said;
       read.hidden = false;
       read.textContent = text || '(nothing read)';
+      here = true;
       status.textContent = 'Read on this phone. What it read:';
       result.textContent = l.said;
       await logIt({ skill: 'hand', score: l.share, unit: '% legible' }, logged);
     } catch (e) {
       status.textContent = sayError(e, 'read that photo');
     }
-  });
+  }, allow);
   return h('div.pkcol', { dataset: { view: 'hand' } }, h('p.pkpass', line), status, h('div.pkrow', pick), read, result, logged);
 }
 
@@ -546,7 +582,11 @@ function readView(a: Record<string, unknown>): HTMLElement {
     ls.set('wpm', String(wpm));
   };
   cleanups.push(() => window.clearTimeout(timer));
+  // (only the newest START runs: a second tap while a passage is fetched cannot start a second word stream)
+  let runNo = 0;
+  const startKey = named(button('START', () => void start()), 'Start reading');
   const start = async () => {
+    const me = ++runNo;
     window.clearTimeout(timer);
     quiz.replaceChildren();
     result.textContent = '';
@@ -554,8 +594,16 @@ function readView(a: Record<string, unknown>): HTMLElement {
     plain.hidden = true;
     const seed = Math.floor(Math.random() * 9973);
     status.textContent = 'Getting a passage…';
-    const raw = await libraryRaw(seed);
-    const r = await run('readfast', { ...(raw ? { text: raw.slice(0, 1500) } : {}), seed, wpm });
+    startKey.disabled = true;
+    let raw: Awaited<ReturnType<typeof libraryRaw>>;
+    let r: Awaited<ReturnType<typeof run>>;
+    try {
+      raw = await libraryRaw(seed);
+      r = await run('readfast', { ...(raw ? { text: raw.slice(0, 1500) } : {}), seed, wpm });
+    } finally {
+      if (me === runNo) startKey.disabled = false;
+    }
+    if (me !== runNo) return;
     let d = r.data as ReadData | undefined;
     if (!d?.frames?.length) {
       const passage = readingFrom(raw, seed) || READ_PASSAGES[seed % READ_PASSAGES.length]!;
@@ -565,6 +613,7 @@ function readView(a: Record<string, unknown>): HTMLElement {
     status.textContent = `${data.passage.split(' ').length} words at ${wpm} a minute. Eyes on the word.`;
     let i = 0;
     const tick = () => {
+      if (me !== runNo) return;
       if (i >= data.frames.length) {
         stage.textContent = '';
         status.textContent = 'Now three questions about what you read.';
@@ -579,15 +628,21 @@ function readView(a: Record<string, unknown>): HTMLElement {
   };
   const ask = (data: ReadData) => {
     const given: number[] = [];
+    // (scored once: a tap after the last answer changes nothing, logs nothing and never moves the speed twice)
+    let scored = false;
     const rows = data.questions.map((q, qi) => {
       const opts = h('div.pkrow', { role: 'group', 'aria-label': `Question ${qi + 1}` });
       for (const [oi, o] of q.options.entries()) {
         opts.append(
           named(
             button(o, (b) => {
+              if (scored) return;
               given[qi] = oi;
               for (const x of opts.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
-              if (given.filter((x) => x !== undefined).length === data.questions.length) void score(data, given);
+              if (given.filter((x) => x !== undefined).length === data.questions.length) {
+                scored = true;
+                void score(data, given);
+              }
             }),
             `Question ${qi + 1}: ${o}`,
           ),
@@ -614,7 +669,7 @@ function readView(a: Record<string, unknown>): HTMLElement {
     { dataset: { view: 'readfast' } },
     status,
     h('div.pkrow', named(button('SLOWER', () => setSpeed(-50)), 'Slower by 50 words a minute'), speed, named(button('FASTER', () => setSpeed(50)), 'Faster by 50 words a minute')),
-    h('div.pkrow', named(button('START', () => void start()), 'Start reading')),
+    h('div.pkrow', startKey),
     stage,
     quiz,
     result,
@@ -630,7 +685,7 @@ function memoryView(a: Record<string, unknown>): HTMLElement {
   const kinds = h('div.pkrow', { role: 'group', 'aria-label': 'What to remember' });
   const names = h('textarea', { rows: 3, 'aria-label': 'Names and a cue each, like Priya - red scarf, Tom - tall, Jo - glasses', placeholder: 'Priya - red scarf, Tom - tall, Jo - glasses' }) as HTMLTextAreaElement;
   names.value = ls.get('names');
-  const namesField = h('div.pkfield', { hidden: kind !== 'names' }, h('span.pklab', 'Names and a cue you choose for each. I never look at faces or look anyone up. They are kept on this phone only, and sent to your own brain just to set the drill.'), names);
+  const namesField = h('div.pkfield', { hidden: kind !== 'names' }, h('span.pklab', 'Names and a cue you choose for each. I never look at faces or look anyone up. They are kept on this phone, and sent only to your own brain to set the drill.'), names);
   const show = h('p.pkpass', { hidden: true, 'aria-live': 'polite' });
   const answer = h('input', { type: 'text', 'aria-label': 'Your answer', autocomplete: 'off', hidden: true }) as HTMLInputElement;
   const check = named(button('CHECK', () => void score()), 'Check my answer');
@@ -712,6 +767,8 @@ function mathsView(): HTMLElement {
   let ends = 0;
   let attempt = 0;
   let live = false;
+  let skipKey: HTMLButtonElement | null = null;
+  let stopKey: HTMLButtonElement | null = null;
   cleanups.push(() => window.clearInterval(timer));
   const showSum = () => {
     q.textContent = sums[i] ? `${sums[i]!.q} =` : '';
@@ -721,6 +778,7 @@ function mathsView(): HTMLElement {
   const finish = async () => {
     if (!live) return;
     live = false;
+    if (skipKey && stopKey) skipKey.hidden = stopKey.hidden = true;
     window.clearInterval(timer);
     input.hidden = true;
     q.textContent = '';
@@ -759,6 +817,7 @@ function mathsView(): HTMLElement {
     tried = 0;
     right = 0;
     live = true;
+    if (skipKey && stopKey) skipKey.hidden = stopKey.hidden = false;
     ends = Date.now() + 5 * 60_000;
     input.hidden = false;
     status.textContent = `Level ${level}. Five minutes, as many as you can.`;
@@ -771,7 +830,11 @@ function mathsView(): HTMLElement {
     paint();
     timer = window.setInterval(paint, 250);
   };
-  return h('div.pkcol', { dataset: { view: 'maths' } }, status, more(MATHS_MORE), clockEl, q, input, h('div.pkrow', named(button('START', () => void start()), 'Start the five-minute drill'), named(button('SKIP', () => answer(true)), 'Skip this sum'), named(button('STOP', () => void finish()), 'Stop and score the drill')), result, logged);
+  // (SKIP and STOP only while a drill runs: before START and after it they would do nothing)
+  skipKey = named(button('SKIP', () => answer(true)), 'Skip this sum');
+  stopKey = named(button('STOP', () => void finish()), 'Stop and score the drill');
+  skipKey.hidden = stopKey.hidden = true;
+  return h('div.pkcol', { dataset: { view: 'maths' } }, status, more(MATHS_MORE), clockEl, q, input, h('div.pkrow', named(button('START', () => void start()), 'Start the five-minute drill'), skipKey, stopKey), result, logged);
 }
 
 // ---------------------------------------------------------------- SPELLING
@@ -921,7 +984,7 @@ function planView(): HTMLElement {
     const d = (r.data ?? {}) as PlanData;
     const plans = d.plans ?? [];
     /* state: learning.pills empty */
-    status.textContent = plans.length ? r.text : 'No plan yet. Name a skill and I make four weeks of ten minutes a day, with the day’s line in your Brief. It is a plan, not a teacher.';
+    status.textContent = plans.length ? r.text : 'No plan yet. Name a skill and I make four weeks of a few minutes a day (you choose how many), with the day’s line in your Brief. It is a plan, not a teacher.';
     draw(plans);
   };
   const make = named(

@@ -554,7 +554,8 @@ for (const vp of [PHONE, PHONE2]) {
     check(C.PHRASES.every((x) => says.split('|').includes(x)) && words(await txt(page, '#pg-convert .pkphrases')) <= 14, `${T} [C3 phrases] CONVERT lists "${says}"`);
     // C1 · a unit it does not know
     await page.locator('#pg-convert .cvtoolbtn[data-id=units]').click({ force: true, timeout: 5000 }).catch(() => undefined);
-    const q = page.locator('#pg-convert .cvtool input');
+    // (the UNIT PAD sits first since the final round; "say it" is the sentence box under it: tests/makelane.spec.mjs proves the pad)
+    const q = page.locator('#pg-convert .cvtool input.cvsayq');
     await q.fill('');
     await page.keyboard.press('Enter');
     check((await txt(page, '#pg-convert .cvans[data-state="empty"]')) === C.UNITS_HINT, `${T} [C1 units] nothing typed says "${await txt(page, '#pg-convert .cvans')}"`);

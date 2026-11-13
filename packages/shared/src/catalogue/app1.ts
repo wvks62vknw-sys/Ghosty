@@ -350,6 +350,12 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Stop', 'Enough', 'Leave it'], scene: ['talking'], cat: 'talk',
     since: '2026-10-31',
   },
+  'phrase:speaker': {
+    name: 'Do you know it’s me?', line: 'You can ask "do you know it’s me?" or "who’s talking?" and I answer from what this phone heard.',
+    more: 'With your voice taught (Settings, My voice) I know it on this phone, and say whether I’m sure. A typed message has no voice to hear, so I say that. It is a courtesy, never a lock.',
+    say: ['Do you know it’s me?', 'Who’s talking?', 'Can you recognise my voice?'], scene: ['talking'], cat: 'talk',
+    since: '2026-11-13',
+  },
   'phrase:reboot': {
     name: 'Watch me reboot', line: 'You can say "reboot" and I wake up again with my boot cinematic, right there on the phone.',
     more: 'Just the show: nothing is lost and my brain is not asked.',

@@ -35,6 +35,8 @@ import { mkdirSync, statSync } from 'node:fs';
 import { PHONE, UK, openSection, standDown } from './nav.mjs';
 import { engine, isWebKit, launch, webkitNoise } from './browser.mjs';
 
+// the colours by their plain names (packages/shared/src/colours.ts PLAIN; the final round's voice lane: "red, blue, green")
+const PLAIN_NAME = { reactor: 'blue', graphite: 'grey', ember: 'orange', gold: 'yellow', crimson: 'red', violet: 'purple', emerald: 'green', ice: 'light blue', rose: 'pink', lime: 'lime', sunset: 'peach', mono: 'white' };
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
@@ -522,7 +524,7 @@ if (!isWebKit) {
   await p5.waitForSelector('#pg-settings.listmode .scanset button.srow, #pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
   if (!(await onPlate(p5))) await openSection(p5, 'settings', 'Appearance');
   const rowSaid = await themeRowWords(p5);
-  check(rowSaid === 'Reactor · Graphite · The Scan', `[recipe] the Theme row says "${rowSaid}", not the recipe "Reactor · Graphite · The Scan"`);
+  check(rowSaid === 'Blue · Graphite · The Scan', `[recipe] the Theme row says "${rowSaid}", not the recipe "Blue · Graphite · The Scan"`);
   await themePage(p5);
   const gal = await p5.evaluate((GONE) => {
     const pn = document.querySelector('#pg-settings .pn.themepn.pushed');
@@ -550,7 +552,7 @@ if (!isWebKit) {
   check(gal.looks[0].on === 'true' && gal.looks.slice(1).every((l) => l.on === 'false'), `[gallery] the chosen look on a fresh open is not THE SCAN alone: ${gal.looks.map((l) => l.on).join()}`);
   check(gal.looks.filter((l) => l.coming).map((l) => l.key).join() === '' && gal.looks.every((l) => l.img), `[gallery] COMING is on ${gal.looks.filter((l) => l.coming).map((l) => l.key).join()} (want none: all seven are built, and a still on every card)`);
   check(/THE LOOK/i.test(gal.head) && /THE SCAN/i.test(gal.head) && /7 · each a whole HUD/.test(gal.head), `[gallery] the plate reads "${gal.head}"`);
-  check(/THE COLOUR/i.test(gal.kick) && /REACTOR/i.test(gal.kick) && /12 · YOURS TO CHANGE/i.test(gal.kick), `[gallery] the colour plate reads "${gal.kick}"`);
+  check(/THE COLOUR/i.test(gal.kick) && /BLUE/i.test(gal.kick) && /12 · YOURS TO CHANGE/i.test(gal.kick), `[gallery] the colour plate reads "${gal.kick}"`);
   check(gal.swatches.join() === TWELVE.join(), `[gallery] the colours: ${gal.swatches.join()}`);
   check(gal.absent.length === 0, `[gallery] the Theme page still has controls that left it (155, 157): ${gal.absent.join(', ')}`);
   check(gal.ask === 'Say a look, or a colour', `[gallery] the ask line reads "${gal.ask}"`);
@@ -741,7 +743,7 @@ if (!isWebKit) {
       await p10.click(sw);
       await p10.waitForTimeout(250);
       const now = await p10.evaluate((sw) => ({ theme: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, c: getComputedStyle(document.documentElement).getPropertyValue('--c').trim(), g: getComputedStyle(document.documentElement).getPropertyValue('--g-accent').trim(), on: document.querySelector(sw)?.getAttribute('aria-checked'), ring: document.querySelectorAll('#pg-settings .pn.themepn.pushed .gg-sw.on').length, kick: document.querySelector('#pg-settings .pn.themepn.pushed .gg-kick')?.textContent ?? '' }), sw);
-      check(now.theme === k && now.saved === k && now.c === want && now.g === want && now.on === 'true' && now.ring === 1 && now.kick.toLowerCase().includes(k), `[colours] ${k} did not apply at once: ${JSON.stringify({ want, ...now })}`);
+      check(now.theme === k && now.saved === k && now.c === want && now.g === want && now.on === 'true' && now.ring === 1 && now.kick.toLowerCase().includes(PLAIN_NAME[k]), `[colours] ${k} did not apply at once: ${JSON.stringify({ want, ...now })}`);
       await clearToasts(p10);
     }
     await p10.screenshot({ path: `${out}/look-${engine}-440-gallery-ember.png` });
@@ -920,11 +922,11 @@ if (!isWebKit) {
   const { c: c7, p: p7 } = await recipePhone(PHONE, { look: { ground: 'black', night: 'black', switches: { day: 'on' } }, clock: '2026-11-07T15:00:00Z' });
   await part('ground follows the day', async () => {
   const day = await state(p7);
-  check(day.ground === 'paper' && day.night === 'black' && /^Reactor · Paper till 16:\d\d · The Scan$/.test(day.words), `[day] at 15:00 in Birmingham: ${JSON.stringify({ ground: day.ground, words: day.words })}`);
+  check(day.ground === 'paper' && day.night === 'black' && /^Blue · Paper till 16:\d\d · The Scan$/.test(day.words), `[day] at 15:00 in Birmingham: ${JSON.stringify({ ground: day.ground, words: day.words })}`);
   await p7.clock.fastForward('02:00:00');
   const flipped = await until(p7, () => document.documentElement.dataset.ground === 'black', null, 8000, '[day] the ground did not flip to Black after sunset on the stand-in clock');
   const night = await state(p7);
-  check(flipped && /^Reactor · Black till 07:\d\d · The Scan$/.test(night.words) && night.saved?.ground === 'black', `[day] after sunset: ${JSON.stringify({ ground: night.ground, words: night.words })}`);
+  check(flipped && /^Blue · Black till 07:\d\d · The Scan$/.test(night.words) && night.saved?.ground === 'black', `[day] after sunset: ${JSON.stringify({ ground: night.ground, words: night.words })}`);
   notes.push(`ground follows the day on a stand-in clock: "${day.words}" at 15:00, "${night.words}" at 17:00`);
   });
   await c7.close();
