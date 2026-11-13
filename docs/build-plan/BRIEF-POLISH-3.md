@@ -80,6 +80,23 @@ apps/edge/src/watchers.ts are NOT protected.
    race): each spec that leaves state behind puts it back, with the check that proves the next spec opens clean.
    12 Nov, later: the cause was found and cut by the landing agent on TRAINING's branch (911bfcbf): Home's per-frame loop read two bounding boxes and drew the reactor and its HUD rings behind the open jump bar; it now returns at once while the bar is open. Budget untouched. What is left of 2e: confirm the runner's reading sits under 250 ms across ten runs on main, and learn.spec/voice.spec putting their state back.
 
+9. **SMALL FIXES 2f: THE MAKE PASS'S FIVE LEFTOVERS (its NEEDS HIS WORD, decided under OWNER-ISSUES 179, 12 Nov).** (a) WHAT'S NEW
+   (state/whatsnew.ts) has no line since 31 Oct, so the Workshop honestly says NOTHING NEW: the fortnight's landings written in, one line each
+   in his words, dated, from QUEUE-11-NOV's done line; from then on the landing agent adds one line per landing in the landing commit. (b) A
+   project stopped by a failure says RETRY, not RESUME (apps.spec's two reads of "RESUME" follow the new word; the check is not weaker). (c) A
+   local phrase opens the Workshop, the 3D studio, Reverse and Space ("open the workshop", "the 3-D studio", "reverse this", "plan my room"),
+   listed in each screen's words file and checked local the way the Workbench's are. (d) The Make hub's Reverse card re-cut to match Reverse's
+   one-sentence line. (e) The specs' shared preview brain: a spec that leaves numbers or state in the preview's brain puts it back at its end,
+   with the check that proves the next spec opens clean (the MAKE pass's Workbench numbers made thescan red once and homepass hung until the
+   server was restarted). NOT in this brief: GLASS and ONE INK's 40 pt controls on the studio, Space and the Workbench stay (his "GLASS
+   pixel-equal" rule); recorded in WHATS-LEFT.
+10. **SMALL FIXES 2g: THE LEARN PASS'S LEFTOVERS (its NEEDS HIS WORD, decided under OWNER-ISSUES 179, 12 Nov).** (a) SCHOOL speaks to him:
+    every "he" in features/school/* and its words file becomes "you" (school.spec's reads follow the new words; the check is not weaker);
+    the GYM's puzzles line in src/gym/stretch.ts the same. (b) A local phrase opens COURSES, the Arcade and SCHOOL ("open my courses",
+    "the arcade", "open school"), listed in each screen's words file and checked local the way the Workbench's are. (c) The GYM's league
+    rating keeps no human-scale word (it compares Ghosty to its own earlier versions only) but its helper says so in one sentence. NOT in this
+    brief: GLASS and ONE INK's control sizes on the seven LEARN screens stay (his "GLASS pixel-equal" rule).
+
 ## What must not change
 
 The first-screen budget and every other budget; GLASS pixel-equal; ONE INK's page; every control 44 pt; nothing sideways at 440 × 956 or 390 ×
