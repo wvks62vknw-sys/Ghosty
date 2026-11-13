@@ -9335,3 +9335,42 @@ html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px
 .gkask { margin-top: var(--g-s-2); }
 /* (a touch phone's `html button:not(…) { min-height: 40px !important }` is as specific: this one comes after it and wins) */
 html body .gkask button, html body .gkprops button { height: auto; min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
+
+/* [moneylane] THE MONEY APP (features/money/app.ts): the month, budgets, bills and trends. Tokens only: no hex, no rgba, no px radius. */
+.mnapp { gap: 12px; }
+.mnnav { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mnnav b { flex: 1 1 auto; min-width: 0; text-align: center; font: var(--g-t-head); color: var(--fg); overflow-wrap: anywhere; }
+.mnnav.mnhead b { text-align: left; }
+.mnnav button { flex: none; min-width: 44px; min-height: 44px; }
+.mnfigs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
+.mnfig { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); }
+.mnfig .mnname { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--l2); overflow-wrap: anywhere; }
+.mnfig .mnval { font: var(--g-t-value); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mnfig[data-tone="ok"] .mnval { color: var(--ok); }
+.mnfig[data-tone="over"] .mnval { color: var(--g-red); }
+.mnhow { display: block; font: var(--g-t-caption); color: var(--l2); overflow-wrap: anywhere; }
+.mnmeter { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.mnline { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; min-width: 0; }
+.mnline b { font: var(--g-t-head); color: var(--fg); min-width: 0; overflow-wrap: anywhere; }
+.mnline span { font: var(--g-t-reading); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mnbar { position: relative; height: 8px; border-radius: var(--g-radius-capsule); background: var(--fill2, var(--fill)); overflow: hidden; }
+.mnbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); border-radius: var(--g-radius-capsule); }
+.mnmeter[data-tone="ok"] .mnbar i { background: var(--ok); }
+.mnmeter[data-tone="soft"] .mnbar i { background: var(--amber, var(--c)); }
+.mnmeter[data-tone="over"] .mnbar i { background: var(--g-red); }
+.mnmeter .pkrow button { flex: 0 1 auto; }
+.mnsearch, .mnamount, .mnselect { min-height: 44px; min-width: 0; box-sizing: border-box; font: var(--g-t-body); }
+.mnsearch { width: 100%; }
+.mnamount { flex: 1 1 120px; }
+.mnselect { flex: 1 1 160px; }
+.mntxn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left; border-radius: var(--g-radius-cell); background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--fg); }
+.mnwhat { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.mnwhat b { font: var(--g-t-head); overflow-wrap: anywhere; }
+.mnwhat small { font: var(--g-t-caption); color: var(--l2); overflow-wrap: anywhere; }
+.mnamt { flex: none; font: var(--g-t-reading); font-variant-numeric: tabular-nums; }
+.mnamt[data-tone="in"] { color: var(--ok); }
+.mndue { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.mnchips button { flex: 0 1 auto; min-height: 44px; }
+.mnup { color: var(--amber, var(--fg)); }
+html body .mnapp :is(button, input, select) { min-height: var(--g-target, 44px) !important; }
+html body .mnnav button { min-width: var(--g-target, 44px) !important; }

@@ -21,13 +21,14 @@ import { readingIntent, stopIntent } from '../../../../packages/shared/src/inten
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
+import { moneyAsked } from '../features/money/words';
 import { bodyAsked } from '../../../../packages/shared/src/body';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { symptomOf, viewAsked } from '../car/faults';
 import { originAsked } from '../../../../packages/shared/src/social';
 import { wikiAsked } from '../wiki/words';
 import { morseAsked } from '../morse/code';
-import { PEOPLE_ASK } from '../../../../packages/shared/src/people';
+import { COMING_ASK, PEOPLE_ASK } from '../../../../packages/shared/src/people';
 import { INTERVIEW_ASK, POMO_ASK } from '../../../../packages/shared/src/work';
 import { BEAT_ASK, DRAW_ASK } from '../../../../packages/shared/src/creative';
 import { ratingAsked } from '../gym/chessrate';
@@ -79,6 +80,8 @@ export const LOCAL_ASKS = [
   { id: 'further', test: (t: string) => furtherAsked(t) },
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
   { id: 'statement', test: (t: string) => looksLikeStatement(t) || /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i.test(t.trim()) },
+  // [moneylane] "my budgets", "my subscriptions", "spending trends", "my spending": the MONEY screen opened on that page (features/money/words.ts)
+  { id: 'moneyapp', test: (t: string) => moneyAsked(t) !== null },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)
   { id: 'reps', test: (t: string) => bodyAsked(t)?.what === 'reps' },
   { id: 'run', test: (t: string) => bodyAsked(t)?.what === 'run' },
@@ -95,7 +98,7 @@ export const LOCAL_ASKS = [
   { id: 'wiki', test: (t: string) => !!wikiAsked(t) },
   { id: 'morse', test: (t: string) => !!morseAsked(t) },
   // [packs2] the people pack's who's who, on the phone (features/people); the work and creative packs' phrases follow
-  { id: 'people', test: (t: string) => PEOPLE_ASK.test(t.trim()) },
+  { id: 'people', test: (t: string) => PEOPLE_ASK.test(t.trim()) || COMING_ASK.test(t.trim()) },
   { id: 'interview', test: (t: string) => INTERVIEW_ASK.test(t.trim()) },
   { id: 'pomodoro', test: (t: string) => POMO_ASK.test(t.trim()) },
   { id: 'beat', test: (t: string) => BEAT_ASK.test(t.trim()) },

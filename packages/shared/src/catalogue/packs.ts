@@ -21,6 +21,13 @@ export const PACK_WORDS: Record<string, CatValue> = {
     say: ['Paste a statement', '(paste the statement in the chat)'], scene: ['money'], cat: 'watch', since: SINCE,
     go: { run: 'open_money' }, tryText: 'Opens the box to paste it in',
   },
+  // [moneylane] the MONEY screen as a budgeting app of its own (features/money/app.ts): its pages opened by name, with no model
+  'phrase:moneyapp': {
+    name: 'Your money app', line: 'I can open your month, your budgets, your bills and subscriptions, or your trends, from the statements you gave me.',
+    more: 'Out, in and what is left over, each budget and what it leaves a day, what is due next and what it comes to a year, and your last six months side by side. Every number says how it was worked out. No bank access, ever.',
+    say: ['My budgets', 'My subscriptions', 'Spending trends', 'My spending'], scene: ['money'], cat: 'watch', needs: ['statement'], since: '2026-11-13',
+    go: { open: 'money' }, tryText: 'Opens MONEY',
+  },
   'act:money:spent': {
     name: 'Keep what you spent', line: 'You can tell me what you spent, like "spent 12 on lunch", and I keep it for the week.',
     more: 'Kept in your brain, sorted into eating out, transport, groceries and the rest. Say "undo that" to take the last one back. Only what you tell me, never your bank.',

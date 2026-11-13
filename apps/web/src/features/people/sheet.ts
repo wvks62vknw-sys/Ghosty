@@ -11,7 +11,7 @@ import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, inWords, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
-export type PeopleWhat = 'who' | 'plan';
+export type PeopleWhat = 'who' | 'plan' | 'coming';
 interface PersonRow {
   id: string;
   name: string;
@@ -34,10 +34,10 @@ interface PlanRow {
   asked: string[];
 }
 /** Each sheet's name, as its title and as its panel on the PEOPLE screen (features/people/index.ts). */
-export const PEOPLE_TITLES: Record<PeopleWhat, string> = { who: 'YOUR PEOPLE', plan: 'GROUP PLAN' };
+export const PEOPLE_TITLES: Record<PeopleWhat, string> = { who: 'YOUR PEOPLE', plan: 'GROUP PLAN', coming: 'COMING UP' };
 const TITLES = PEOPLE_TITLES;
 
-export const peopleState = { open: '' as '' | PeopleWhat, people: [] as PersonRow[], plan: null as PlanRow | null, said: '' };
+export const peopleState = { open: '' as '' | PeopleWhat, people: [] as PersonRow[], plan: null as PlanRow | null, said: '', coming: [] as string[], shown: 0 };
 
 let open: { close(): void } | null = null;
 
@@ -49,7 +49,7 @@ const dayOf = (iso: string): string => {
 };
 
 export async function openPeople(what: string): Promise<void> {
-  const w: PeopleWhat = what === 'plan' ? 'plan' : 'who';
+  const w: PeopleWhat = what === 'plan' ? 'plan' : what === 'coming' ? 'coming' : 'who';
   open?.close();
   const { el } = peopleScreen(w);
   peopleState.open = w;
@@ -63,7 +63,7 @@ export async function openPeople(what: string): Promise<void> {
 export function peopleScreen(w: PeopleWhat): { el: HTMLElement; stop(): void } {
   const win = window as unknown as { __ghosty?: Record<string, unknown> };
   if (win.__ghosty) win.__ghosty.people = peopleState;
-  return { el: w === 'plan' ? planSheet() : whoSheet(), stop: () => undefined };
+  return { el: w === 'plan' ? planSheet() : w === 'coming' ? comingSheet() : whoSheet(), stop: () => undefined };
 }
 
 /** One brain action. `failed` when it did not land (no signal, or a silent brain): the caller says so in the page, never a toast. */
@@ -92,10 +92,18 @@ function whoSheet(): HTMLElement {
       status.textContent = text;
     }
   };
+  const find = h('input.ppfind', { type: 'search', placeholder: 'Find someone: a name, “cousin”, “fishing”', 'aria-label': 'Find someone', enterKeyHint: 'search', hidden: true }) as HTMLInputElement;
+  find.addEventListener('input', () => paint());
   const paint = () => {
+    const q = find.value.trim().toLowerCase();
+    find.hidden = peopleState.people.length < 2;
+    const sorted = [...peopleState.people].sort((a, b) => a.name.localeCompare(b.name, 'en-GB', { sensitivity: 'base' }));
+    const shown = q ? sorted.filter((p) => [p.name, p.rel, ...p.notes].some((x) => x.toLowerCase().includes(q))) : sorted;
+    peopleState.shown = shown.length;
     list.replaceChildren(
+      ...(peopleState.people.length && !shown.length ? [h('p.pknote', { dataset: { case: 'keep' } }, `No one I know matches “${find.value.trim()}”.`)] : []),
       ...(peopleState.people.length
-        ? peopleState.people.map((p) => {
+        ? shown.map((p) => {
             const more = h('div.pkcol', { hidden: true });
             const gift = h('p.pknote', { 'aria-live': 'polite' });
             const day = p.next || p.born;
@@ -110,6 +118,8 @@ function whoSheet(): HTMLElement {
                 ...(p.phone ? [button(`Copy number ${p.phone}`, () => void copy(p.phone, 'the number'))] : []),
                 ...(p.email ? [button(`Copy email ${p.email}`, () => void copy(p.email, 'the email'))] : []),
                 ...(p.address ? [button('Copy address', () => void copy(p.address, 'the address'))] : []),
+                birthdayRow(p),
+                forgetRow(p),
               );
             });
             details.setAttribute('aria-label', `Details for ${p.name}`);
@@ -130,6 +140,37 @@ function whoSheet(): HTMLElement {
         /* state: people.who empty */
         : [emptyState('Tell me about someone.', 'Type a name and one thing to remember below, or say “Sam is my cousin”.')]),
     );
+  };
+  /** His own birthday for them, kept in two taps (the brain sets the reminders a week before and on the day). */
+  const birthdayRow = (p: PersonRow): HTMLElement => {
+    const day = h('input', { type: 'text', placeholder: '14 March', 'aria-label': `${p.name}’s birthday`, enterKeyHint: 'done' }) as HTMLInputElement;
+    const keep = button(p.born ? 'Change birthday' : 'Keep birthday', async () => {
+      if (!day.value.trim()) return void stateIn(status, '', `Type ${p.name}’s birthday first, like 14 March.`);
+      const r = await say('birthday', { who: p.name, words: `${p.name}’s birthday is ${day.value.trim()}` });
+      if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', `${troubleWords(!!r.offline)} What you typed is still here.`);
+      stateIn(status, '', r.text);
+      await load();
+    });
+    keep.setAttribute('aria-label', `Keep ${p.name}’s birthday`);
+    return h('div.pkadd', day, keep);
+  };
+  /** Forget them (all of it, the birthday reminders too), asked once more first. */
+  const forgetRow = (p: PersonRow): HTMLElement => {
+    const b = button(`Forget ${p.name}`, () => {
+      const m = modal(`Forget ${p.name}?`, h('div.pkcol',
+        h('p.pknote', `Everything you told me about ${p.name} goes, with their birthday reminders. Nobody is told.`),
+        h('div.pkrow',
+          button('Keep them', () => m.close()),
+          button(`Forget ${p.name}`, async () => {
+            m.close();
+            const r = await say('forget', { who: p.name });
+            if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+            stateIn(status, '', r.text);
+            await load();
+          }, 'warn'))));
+    }, 'warn');
+    b.setAttribute('aria-label', `Forget ${p.name}`);
+    return h('div.pkrow', b);
   };
   const load = async () => {
     list.replaceChildren();
@@ -166,7 +207,7 @@ function whoSheet(): HTMLElement {
   what.addEventListener('keydown', (e) => e.key === 'Enter' && void add());
   const addBtn = button('Keep it', () => void add(), 'on');
   addBtn.setAttribute('aria-label', 'Keep what I said about them');
-  const el = h('div.pkcol', list, h('div.pkadd', name, what, addBtn), status, phrases(['who\'s who', 'Sam is my cousin']));
+  const el = h('div.pkcol', find, list, h('div.pkadd', name, what, addBtn), status, phrases(['who\'s who', 'Sam is my cousin']));
   void load();
   return el;
 }
@@ -217,5 +258,57 @@ function planSheet(): HTMLElement {
     peopleState.plan = ((r.data as { plan?: PlanRow | null } | undefined)?.plan ?? null) as PlanRow | null;
     paint();
   });
+  return el;
+}
+
+/** COMING UP: every birthday, date, plan and call he told me about, in date order, a year ahead (the brain's `coming`), and a birthday
+ * or a date kept here. Nothing is looked up and nobody is told. */
+function comingSheet(): HTMLElement {
+  const list = h('div.pkcol', { 'aria-live': 'polite' });
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Birthdays and dates you told me, a year ahead. I remind you a week before and on the day.');
+  const who = h('input', { type: 'text', placeholder: 'Mum', 'aria-label': 'Whose birthday', enterKeyHint: 'next' }) as HTMLInputElement;
+  const day = h('input', { type: 'text', placeholder: '14 March 1962', 'aria-label': 'The day of the birthday', enterKeyHint: 'done' }) as HTMLInputElement;
+  const date = h('input', { type: 'text', placeholder: 'our anniversary is 12 June', 'aria-label': 'A date to keep, in your words', enterKeyHint: 'done' }) as HTMLInputElement;
+  const load = async () => {
+    list.replaceChildren();
+    /* state: people.coming loading */
+    const done = waitFor(el, 'Opening what is coming up…');
+    const r = await say('coming', { days: 366 });
+    done();
+    if (r.failed || !r.text) {
+      const again = button('Try again', () => void load());
+      again.setAttribute('aria-label', 'Try reading what is coming up again');
+      /* state: people.coming error */
+      /* state: people.coming offline */
+      list.replaceChildren(stateLine(r.offline ? 'offline' : 'error', r.offline ? 'No signal. I read your dates when the phone is back online.' : 'My brain isn’t answering, so I can’t read your dates just now.'), again);
+      return;
+    }
+    const items = r.text.split('\n').filter((l) => /^- /.test(l)).map((l) => l.slice(2));
+    peopleState.coming = items;
+    list.replaceChildren(
+      ...(items.length
+        ? items.map((l) => {
+            const at = l.indexOf(': ');
+            const when = at > 0 ? l.slice(0, at) : '';
+            const what = at > 0 ? l.slice(at + 2) : l;
+            return h('div.pkperson', { role: 'group', 'aria-label': `${what}, ${when}`, dataset: { case: 'keep' } }, h('b', what), h('span.pklab', when));
+          })
+        /* state: people.coming empty */
+        : [emptyState('Nothing coming up', 'Keep a birthday or a date below, and I remind you a week before and on the day.')]),
+    );
+  };
+  const keep = async (args: Record<string, unknown>, action: string, clearIt: HTMLInputElement[]) => {
+    const r = await say(action, args);
+    if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', `${troubleWords(!!r.offline)} What you typed is still here.`);
+    stateIn(status, '', r.text);
+    for (const x of clearIt) x.value = '';
+    await load();
+  };
+  const addB = button('Keep birthday', () => (who.value.trim() && day.value.trim() ? void keep({ who: who.value.trim(), words: `${who.value.trim()}’s birthday is ${day.value.trim()}` }, 'birthday', [who, day]) : stateIn(status, '', 'Give me a name and the day, like Mum and 14 March.')), 'on');
+  addB.setAttribute('aria-label', 'Keep this birthday');
+  const addD = button('Keep date', () => (date.value.trim() ? void keep({ words: date.value.trim() }, 'date', [date]) : stateIn(status, '', 'Say the date first, like “our anniversary is 12 June”.')));
+  addD.setAttribute('aria-label', 'Keep this date');
+  const el = h('div.pkcol', list, h('div.lab', 'A BIRTHDAY'), h('div.pkadd', who, day), h('div.pkrow', addB), h('div.lab', 'A DATE'), date, h('div.pkrow', addD), status, phrases(['what’s coming up', 'birthdays coming']));
+  void load();
   return el;
 }

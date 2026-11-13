@@ -210,7 +210,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   await block(`money ${W}`, async () => {
     log(`money ${W}`);
     const T = `[money ${W}]`;
-    await open(page, 'money');
+    await open(page, 'money', 'Statement');
     const P = PK('money');
     check((await count(page, `${P} [data-state="empty"]`)) === 1 && /Nothing kept yet/.test(await txt(page, `${P} [data-state="empty"]`)) && /Paste one below/.test(await txt(page, `${P} [data-state="empty"]`)), `${T} M1 empty: no statement kept shows "Nothing kept yet" and the one next thing`);
     await still(page, 'money', vp);
@@ -253,10 +253,10 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     check((await waitsSince(page, n1)).some((x) => /^Opening october\.csv, \d+(\.\d)? ?(bytes|KB|MB)…$/.test(x)), `${T} M7 a file opens under its name and size: ${JSON.stringify(await waitsSince(page, n1))}`);
     // M6: no signal
     await page.evaluate(() => (window.__off = true));
-    await open(page, 'money');
+    await open(page, 'money', 'Statement');
     await page.evaluate(() => (location.hash = 'core'));
     await page.waitForTimeout(300);
-    await open(page, 'money');
+    await open(page, 'money', 'Statement');
     check((await count(page, `${P} [data-state="offline"]`)) === 1, `${T} M6 offline: the screen says what still works`);
     await page.evaluate(() => (window.__off = false));
     await bar(page, `${T} bar`, 'money');
@@ -715,7 +715,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
 {
   log('body 21');
   const { ctx, page } = await phone(PHONE, { body: 21 });
-  for (const [id, pills] of [['money', ['']], ['body', ['Reps', 'Run', 'Water']], ['kitchen', ['Timers', 'Shopping']], ['people', ['Your people']], ['work', ['To-do', 'Interview']], ['creative', ['Music', 'Poster']], ['outside', ['Walk', 'Nearby']], ['homeadmin', ['Due', 'Bills']]]) {
+  for (const [id, pills] of [['money', ['Month', 'Budgets', 'Bills', 'Trends', 'Statement']], ['body', ['Reps', 'Run', 'Water']], ['kitchen', ['Timers', 'Shopping']], ['people', ['Your people', 'Coming up']], ['work', ['To-do', 'Interview']], ['creative', ['Music', 'Poster']], ['outside', ['Walk', 'Nearby']], ['homeadmin', ['Due', 'Bills']]]) {
     for (const pill of pills) {
       await open(page, id, pill);
       await page.waitForTimeout(500);

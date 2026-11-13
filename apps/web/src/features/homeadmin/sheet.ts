@@ -182,7 +182,11 @@ function binsView(): HTMLElement {
     if (!page.value.trim()) return void stateIn(status, '', 'Paste your council’s page first.');
     show(await run('bins', { text: page.value }));
   }), 'Read the council page I pasted');
-  const moved = named(button('A collection moved', async () => show(await run('bins', { words: `bins moved ${words.value || 'to Wednesday this week'}` }))), 'Tell me a collection moved');
+  // (a collection moved says only what he typed: an empty box asks for it, never a made-up day)
+  const moved = named(button('A collection moved', async () => {
+    if (!words.value.trim()) return void stateIn(status, '', 'Type where it moved first, like “to Wednesday this week”.');
+    show(await run('bins', { words: `bins moved ${words.value.trim()}` }));
+  }), 'Tell me a collection moved');
   const el = h('div.pkcol', slot, status, words, h('div.pkrow', keep, moved), page, read);
   /* state: home.bins loading */
   const done = waitFor(el, 'Opening your bin days…');
