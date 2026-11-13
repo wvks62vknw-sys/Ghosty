@@ -15,7 +15,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { settings } from '../../state/app';
 import { sayError } from '../../ui/hisWords';
-import { exactLine, failedWords, NO, sendKey } from '../social/words';
+import { exactLine, failedWords, lengthWords, NO, sendKey } from '../social/words';
 
 /** The chat's entries with this draft's card, given its new card (its state after an answer). */
 function patchCard(card: Card): void {
@@ -74,8 +74,9 @@ function edit(d: Draft, after?: () => void): void {
   if (alt) alt.value = d.image!.alt;
   const count = h('small.drcount', { 'aria-live': 'polite' });
   const paint = () => {
-    const n = d.account === 'bluesky' ? graphemes(box.value) : [...box.value].length;
-    count.textContent = `${n} / ${max}`;
+    // counted as the brain counts it (trimmed; Bluesky's 300 are graphemes), and said in words
+    const n = d.account === 'bluesky' ? graphemes(box.value.trim()) : [...box.value.trim()].length;
+    count.textContent = lengthWords(n, max, accountInfo(d.account).name);
     count.classList.toggle('over', n > max);
   };
   box.addEventListener('input', paint);

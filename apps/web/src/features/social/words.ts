@@ -65,6 +65,8 @@ export function pictureWords(names: string[], noPictures: string[]): string {
   if (!noPictures.length) return `${andList(names)} ${names.length > 1 ? 'take' : 'takes'} one picture, with a line saying what is in it for anyone who cannot see it.`;
   return `${Cap(andList(noPictures))} ${noPictures.length > 1 ? 'take' : 'takes'} words only, so no picture can go with this one.`;
 }
+/** Under the picture: where it is kept, and for how long (the brain keeps it as long as a draft can wait). */
+export const PICTURE_KEPT = 'When you make the drafts, my brain keeps this picture for 24 hours, as long as a draft can wait, so it can go with the post.';
 export const ALT_MISSING = 'Say what is in the picture first, in a line, for anyone who cannot see it.';
 export const PICTURE_NO = (names: string[]): string => `${Cap(andList(names))} ${names.length > 1 ? 'take' : 'takes'} no pictures. Take the picture off, or untick ${names.length > 1 ? 'them' : 'it'}.`;
 export const PICTURE_KINDS = 'Only a JPEG, PNG or WebP picture can go with a post.';

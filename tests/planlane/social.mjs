@@ -113,6 +113,7 @@ export async function run(H) {
     check(/Bluesky and Mastodon take one picture/.test(await page.textContent('#pg-social .socpicl').catch(() => '')), `[${vp.width}] it says the picture can go`);
     await page.setInputFiles('#pg-social .soccompose input[type=file]', { name: 'canal.png', mimeType: 'image/png', buffer: PNG });
     await page.waitForSelector('#pg-social .soccompose img.socthumb', { timeout: 5000 }).catch(() => check(false, `[${vp.width}] the picture did not show`));
+    check(/keeps this picture for 24 hours/.test(await page.textContent('#pg-social .socpick').catch(() => '')), `[${vp.width}] it says where the picture is kept, and for how long`);
     await page.click('#pg-social .soccompose .keyrow button:has-text("2 drafts")');
     check(/Say what is in the picture first/.test(await page.textContent('#pg-social .socmsg')), `[${vp.width}] no draft without the picture's words: ${await page.textContent('#pg-social .socmsg')}`);
     check(!s.asked.some((a) => /draft|lens/.test(a)), `[${vp.width}] nothing was asked of the brain before the picture had its words`);

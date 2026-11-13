@@ -16,7 +16,7 @@ import { clear, fmt, h } from '../../core/dom';
 import { draftEl } from '../links/drafts';
 import {
   accountsWords, ALT_MISSING, COMPOSE_EMPTY, COMPOSE_NONE, COMPOSE_NOTE, composeKey, countWords, KEPT_NOTE, madeWords, PICTURE_BIG, PICTURE_KINDS,
-  PICTURE_NO, pictureWords, queueNote, QUEUE_ERROR, QUEUE_LOADING, SENT_EMPTY, SENT_ERROR, SENT_LOADING, sentNote, toWords,
+  PICTURE_KEPT, PICTURE_NO, pictureWords, queueNote, QUEUE_ERROR, QUEUE_LOADING, SENT_EMPTY, SENT_ERROR, SENT_LOADING, sentNote, toWords,
 } from './words';
 import { button, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
@@ -132,7 +132,7 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     }, 'warn');
     off.setAttribute('aria-label', 'Take the picture off the post');
     if (picture)
-      clear(picBox, h('img.socthumb', { src: picture.url, alt: alt.value.trim() || 'The picture you picked' }), h('div.lab', 'THE PICTURE, IN WORDS'), alt, h('div.keyrow.wrapit', ...(no.length ? [] : [add]), off));
+      clear(picBox, h('img.socthumb', { src: picture.url, alt: alt.value.trim() || 'The picture you picked' }), h('div.lab', 'THE PICTURE, IN WORDS'), alt, h('p.pknote.socpick', PICTURE_KEPT), h('div.keyrow.wrapit', ...(no.length ? [] : [add]), off));
     else clear(picBox, ...(c.length && !no.length ? [h('div.keyrow', add)] : []));
   };
   file.addEventListener('change', () => {
