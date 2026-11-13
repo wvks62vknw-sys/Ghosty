@@ -26,6 +26,9 @@ It sits in MAKE, under the EDITORS card as a pill called **COMIC**. It has three
   each page automatically; on comics made here the app already knows them.
 - Zoom with + and −, a pinch or a double tap, and drag to look around.
 - On a wide screen (a tablet or a computer) you see two pages side by side, with the cover on its own.
+- **RIGHT TO LEFT** reads manga the way it's meant to be read. The guided panels go right to left, a pair of pages is laid out
+  right to left, and swipes, side taps and the arrow keys turn the right way. It's remembered for that book.
+- Only the pages near the one you're on are held in memory, so a 400-page book doesn't strain the phone.
 - It remembers where you stopped, down to the panel, and opens there next time. ✕ or Escape closes it.
 
 **LIBRARY: free public-domain comics**
@@ -96,4 +99,8 @@ a COMIC card, the MAKE hub's EDITORS card has a COMIC pill, and CREATIVE's quick
   variety in names, places, gags and the odd idea. A brain-written script for any genre would be the next step. Today the
   brain's own creative tool still makes the quick four-panel strip if a request reaches it, but on the phone your comic wording
   is caught first and makes the full comic.
-- Manga right-to-left reading in the guided view is in the panel finder but not yet a switch in the reader.
+- Before merging, a separate reviewer read the code cold and found twelve real bugs, and all twelve are fixed. Among them: EDIT
+  on a phone, a library download being kept twice, folders containing a stray file, memory on long books, a double tap opening
+  two readers, half-kept comics after the phone ran out of room, and a cancelled share being reported as shared.
+- Two older specs, tabs2 and packs2, fail in this container on a push-notification error from `assistant/push.ts`. The
+  untouched final branch fails the same way here, so the cause is this container's browser, not the comic.
