@@ -262,7 +262,7 @@ export const systemTab: TabDef = {
       const line = storageLine();
       clear(stp.body);
       stp.setStatus(line.ok ? 'PROTECTED' : 'AT RISK', line.ok ? 'ok' : 'mid');
-      stp.body.append(h(`div.note.storageline${line.ok ? '.good' : '.bad'}` as 'div', line.text));
+      stp.body.append(h(`div.note.storageline${line.ok ? '.good' : '.bad'}` as 'div', `${line.text} · as of ${clockOf(Date.now())}`));
       if (!line.ok) {
         stp.body.append(
           !storageState.get().supported ? '' : button('PROTECT', async (b) => {

@@ -78,12 +78,11 @@ function clockIn(t: string): Clock | null {
 }
 
 /** The first sensible moment for a clock phrase: the soonest of am and pm still ahead (daytime first), else tomorrow's. */
-function pick(base: Date, c: Clock, dayGiven: boolean): Date {
+function pick(base: Date, c: Clock, dayGiven: boolean, now: number): Date {
   const cand = (add: number, h: number) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + add, h, c.m, 0, 0);
   const hours = c.h12 ? [c.h % 12 + 12, c.h % 12 === 0 ? 12 : c.h % 12].map((x) => x % 24) : [c.h];
   // an ambiguous hour: the daytime reading (7 to 22) comes first, the other after
   const order = c.h12 ? hours.slice().sort((a, b) => Number(!(a >= 7 && a <= 22)) - Number(!(b >= 7 && b <= 22)) || a - b) : hours;
-  const now = Date.now();
   const sameDay = order.map((h) => cand(0, h)).filter((d) => d.getTime() > now);
   if (sameDay.length) {
     // the soonest still ahead, but never a night reading when a daytime one is still to come
@@ -135,12 +134,12 @@ export function parseWhen(text: string, now = Date.now()): When | null {
   t = `${t.slice(0, c.from)} ${t.slice(c.to)}`.replace(/\s+/g, ' ').trim();
   t = t.replace(/\b(?:at|on|for|by|around)\s*$/i, '').replace(/^(?:at|on|for|by|around)\b\s*/i, '').replace(/\s+/g, ' ').trim();
   let when: Date;
-  if (day && c.h12 && day.toDateString() === base.toDateString()) when = pick(base, c, true);
+  if (day && c.h12 && day.toDateString() === base.toDateString()) when = pick(base, c, true, now);
   else if (day) {
     // another day, an hour said with no am or pm: 7 to 11 is the morning, 12 noon, 1 to 6 the afternoon
     const h = c.h12 ? (c.h === 0 ? 12 : c.h <= 6 ? c.h + 12 : c.h) : c.h;
     when = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, c.m, 0, 0);
-  } else when = pick(base, c, false);
+  } else when = pick(base, c, false, now);
   return { title: cap(t), at: when.getTime(), said: saidWhen(when.getTime(), now) };
 }
 

@@ -344,7 +344,7 @@ for (const [name, o, re, larger] of [
   const { ctx, page } = await phone({ mem: 8, cores: 8, gpu: true });
   await openEyes(page);
   check((await page.locator('#pg-settings .offeyes .wikioffer').count()) === 4 && (await page.locator('#pg-settings .offeyes .eyesize').count()) === 0, '[sizes none] a larger row or a choice is offered with no larger model');
-  check(/One size only for now: no larger free model with a clear licence is on this site yet/.test(await text(page.locator('#pg-settings .offeyes [data-eyes="one"]'))), '[sizes none] the panel does not say it is one size');
+  check(/^One size only for now: the Lens uses the one above on every phone\.$/.test(await text(page.locator('#pg-settings .offeyes [data-eyes="one"]'))) && /no larger free model with a clear licence is on this site yet/.test(await text(page.locator('#pg-settings .offeyes'))), '[sizes none] the panel does not say it is one size, with why behind its "?"');
   check(/memory 8 GB/.test(await caps(page)), `[sizes none] the phone is not read aloud: "${await caps(page)}"`);
   await ctx.close();
 }

@@ -9241,5 +9241,11 @@ html #pg-agenda .agoff { margin: var(--g-s-1) 0; }
 html[data-motion="calm"] #pg-agenda .rcundo { animation: none; }
 html[data-body="21"] #pg-agenda .rw.ev { grid-template-columns: minmax(64px, auto) 3px minmax(0, 1fr) auto; }
 html[data-body="21"] #pg-agenda .hud .sub { overflow-wrap: anywhere; white-space: normal; }
+/* the report card readable: no mark under 12 px, a kind's name wraps instead of being cut, and at the biggest text the table is two columns */
+html .reportcard .rccat, html .reportcard .rcrow.rchd { font: 500 12px/16px var(--sf); letter-spacing: .04em; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html .reportcard .rcrow { min-width: 0; }
+html .reportcard .rcrow > * { min-width: 0; overflow-wrap: anywhere; }
+html[data-body="21"] .reportcard .rcrow { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); row-gap: 2px; }
+html[data-body="21"] .reportcard :is(.rcline, .rcsum, .rclegend, .note) { overflow-wrap: anywhere; white-space: normal; }
 /* ---- end POLISH 3 ---- */
 html .watchers .wrow .k { flex: none; min-width: 58px; }

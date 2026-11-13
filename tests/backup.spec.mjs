@@ -132,7 +132,7 @@ await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 await toSystem();
 const line = await page.textContent('#pg-system .storageline');
-check(/^STORAGE: (PROTECTED( · [\d.]+ MB used)?|NOT PROTECTED — .+)$/.test(line ?? ''), `storage line not in plain words: "${line}"`);
+check(/^STORAGE: (PROTECTED( · [\d.]+ MB used)?|NOT PROTECTED — .+?)( · [\d.]+ MB used)? · as of \d\d:\d\d$/.test(line ?? ''), `storage line not in plain words, with its "as of": "${line}"`);
 if (/NOT PROTECTED/.test(line ?? '')) {
   const canAsk = await page.evaluate(() => !!navigator.storage?.persisted);
   if (canAsk) {
