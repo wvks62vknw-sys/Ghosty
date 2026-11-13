@@ -10,13 +10,13 @@
  * only his tap on that APPROVE sends it. Nothing here asks the brain to approve: the one call in the app is behind draftEl's APPROVE key.
  * His words (and the accounts he chose, and the picture's words) are kept on the phone while he writes, so leaving loses nothing.
  */
-import { ACCOUNTS, accountName, draftCard, graphemes, postProblem, type Account } from '../../../../../packages/shared/src/social';
+import { ACCOUNTS, accountInfo, accountName, draftCard, graphemes, postProblem, type Account } from '../../../../../packages/shared/src/social';
 import { brain, headers, type DraftAnswer, type SocialInfo } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
-import { draftEl } from '../links/drafts';
+import { brainRefusal, draftEl, noteMax, ownMax, socialRead } from '../links/drafts';
 import {
   accountsWords, ALT_MISSING, COMPOSE_EMPTY, COMPOSE_NONE, COMPOSE_NOTE, composeKey, countWords, KEPT_NOTE, madeWords, PICTURE_BIG, PICTURE_KINDS,
-  PICTURE_KEPT, PICTURE_NO, pictureWords, queueNote, QUEUE_ERROR, QUEUE_LOADING, SENT_EMPTY, SENT_ERROR, SENT_LOADING, sentNote, toWords,
+  PICTURE_KEPT, PICTURE_NO, PICTURE_SHRINKING, pictureWords, tooLong, queueNote, QUEUE_ERROR, QUEUE_LOADING, SENT_EMPTY, SENT_ERROR, SENT_LOADING, sentNote, toWords,
 } from './words';
 import { button, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
@@ -26,7 +26,8 @@ import { phrases } from '../lifeui';
 let held: { at: number; info: Promise<SocialInfo | null> } | null = null;
 export function socialInfo(fresh = false): Promise<SocialInfo | null> {
   if (!fresh && held && Date.now() - held.at < 3000) return held.info;
-  held = { at: Date.now(), info: brain.social().catch(() => null) };
+  // the brain's answer now (never the phone's kept copy): out of reach, every part says so
+  held = { at: Date.now(), info: socialRead().then((i) => (noteMax(i), i)).catch(() => null) };
   return held.info;
 }
 
@@ -64,7 +65,14 @@ function saveKept(k: Kept): void {
 /** The picture he picked: kept in memory until Ghosty is closed (too big for the phone's small store). */
 let picture: { blob: Blob; url: string } | null = null;
 const PICTURE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const PICTURE_MAX = 1_500_000;
+/** Bluesky's limit, the smaller of the two that take pictures: a bigger picture is made smaller (a JPEG) on the phone first. */
+const PICTURE_MAX = 1_000_000;
+/** His account's own length: his Mastodon server's (GET /social), else the fixed one. */
+const maxOf = (a: Account): number => ownMax.get(a) ?? accountInfo(a).max;
+
+/** The drafts being made right now, shared by every copy of the page (he may leave and come back while they are made). */
+let making = false;
+const madeEvents = new EventTarget();
 
 /** How an account counts a post's length (as the brain does: Bluesky's 300 are graphemes, the others letters). */
 export const lengthOn = (a: Account, text: string): number => (a === 'bluesky' ? graphemes(text.trim()) : [...text.trim()].length);
@@ -119,7 +127,7 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
   const file = h('input', { type: 'file', accept: PICTURE_TYPES.join(','), hidden: '', 'aria-hidden': 'true', tabindex: '-1' }) as HTMLInputElement;
   const chosen = () => ACCOUNTS.filter((a) => to.includes(a.id) && linkedNow.includes(a.id));
   const recount = () => {
-    const rows = chosen().map((a) => ({ name: a.name, n: lengthOn(a.id, box.value), max: a.max }));
+    const rows = chosen().map((a) => ({ name: a.name, n: lengthOn(a.id, box.value), max: maxOf(a.id) }));
     count.textContent = rows.length ? countWords(rows) : '';
     count.classList.toggle('bad', rows.some((r) => r.n > r.max));
   };
@@ -139,14 +147,26 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
       clear(picBox, h('img.socthumb', { src: picture.url, alt: alt.value.trim() || 'The picture you picked' }), h('div.lab', 'THE PICTURE, IN WORDS'), alt, h('p.pknote.socpick', PICTURE_KEPT), h('div.keyrow.wrapit', ...(no.length ? [] : [add]), off));
     else clear(picBox, ...(c.length && !no.length ? [h('div.keyrow', add)] : []));
   };
-  file.addEventListener('change', () => {
+  file.addEventListener('change', async () => {
     const f = file.files?.[0];
     file.value = '';
     if (!f) return;
     if (!PICTURE_TYPES.includes(f.type)) return void (msg.textContent = PICTURE_KINDS);
-    if (f.size > PICTURE_MAX) return void (msg.textContent = PICTURE_BIG);
+    let blob: Blob = f;
+    if (f.size > PICTURE_MAX) {
+      // a camera photo (2–5 MB) made a JPEG under 1 MB, as the Lens does before it shares, so every account that takes pictures takes it
+      msg.textContent = PICTURE_SHRINKING;
+      try {
+        const { loadImageFile, toJpegBlob } = await import('../../vision/camera');
+        blob = await toJpegBlob(await loadImageFile(f, 2048), PICTURE_MAX, 2048);
+      } catch {
+        blob = f;
+      }
+      if (gone) return;
+      if (blob.size > PICTURE_MAX) return void (msg.textContent = PICTURE_BIG);
+    }
     if (picture) URL.revokeObjectURL(picture.url);
-    picture = { blob: f, url: URL.createObjectURL(f) };
+    picture = { blob, url: URL.createObjectURL(blob) };
     msg.textContent = '';
     paintPicture();
     setTimeout(() => alt.focus(), 30);
@@ -157,10 +177,9 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
   });
   alt.addEventListener('input', keep);
 
-  let busy = false;
   const make = button(composeKey(1), () => void makeDrafts(), 'on');
   const makeDrafts = async () => {
-    if (busy) return;
+    if (making) return;
     const c = chosen();
     const text = box.value.trim();
     if (!c.length) return void (msg.textContent = toWords([]));
@@ -168,12 +187,14 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     const no = c.filter((a) => !a.pictures);
     if (picture && no.length) return void (msg.textContent = PICTURE_NO(no.map((a) => a.name)));
     if (picture && !alt.value.trim()) return void ((msg.textContent = ALT_MISSING), alt.focus());
-    // each account's own limit, said before anything is asked of the brain
+    // each account's own limit (his Mastodon server's own), said before anything is asked of the brain
     for (const a of c) {
-      const problem = postProblem(a.id, text, picture ? { id: 'here', alt: alt.value } : null);
+      const n = lengthOn(a.id, text);
+      if (n > maxOf(a.id)) return void ((msg.textContent = tooLong(a.name, n, maxOf(a.id))), box.focus());
+      const problem = postProblem(a.id, text, picture ? { id: 'here', alt: alt.value } : null, maxOf(a.id));
       if (problem) return void (msg.textContent = problem);
     }
-    busy = true;
+    making = true;
     make.disabled = true;
     msg.textContent = c.length > 1 ? `Making ${c.length} drafts…` : 'Making the draft…';
     const made: Account[] = [];
@@ -187,28 +208,39 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
           if (r.error || !r.draft) missed.push({ name: a.name, why: r.error ?? 'my brain did not make it' });
           else made.push(a.id);
         } catch (e) {
-          missed.push({ name: a.name, why: sayError(e, `make the draft for ${a.name}`) });
+          missed.push({ name: a.name, why: brainRefusal(e, `make the draft for ${a.name}`) });
         }
       }
     } catch (e) {
       missed.push(...c.map((a) => ({ name: a.name, why: sayError(e, 'keep the picture for the post') })));
     }
-    busy = false;
-    make.disabled = false;
-    msg.textContent = madeWords(made.map(accountName), missed);
+    // once, whichever copy of the page is showing now: what is kept on the phone, the picture, and the toast
     if (made.length) {
-      toast(made.length > 1 ? `${made.length} drafts made. Each waits above for your APPROVE.` : 'Draft made. It waits above for your APPROVE.', 'ok');
-      if (!missed.length) {
-        box.value = '';
-        alt.value = '';
-        if (picture) URL.revokeObjectURL(picture.url);
+      const k = loadKept();
+      saveKept(missed.length ? { ...k, to: k.to.filter((a) => !made.includes(a)) } : { text: '', alt: '', to: k.to });
+      if (!missed.length && picture) {
+        URL.revokeObjectURL(picture.url);
         picture = null;
-      } else to = to.filter((a) => !made.includes(a));
-      keep();
-      await paint(true);
+      }
+      toast(made.length > 1 ? `${made.length} drafts made. Each waits above for your APPROVE.` : 'Draft made. It waits above for your APPROVE.', 'ok');
     }
+    making = false;
+    madeEvents.dispatchEvent(new CustomEvent('made', { detail: madeWords(made.map(accountName), missed) }));
   };
+  // the live copy takes the answer: its box and accounts from what is kept, the queue read again (a retry never makes a draft twice)
+  const onMade = (ev: Event) => {
+    if (gone) return;
+    const k = loadKept();
+    box.value = k.text;
+    alt.value = k.alt;
+    to = k.to;
+    make.disabled = false;
+    msg.textContent = (ev as CustomEvent<string>).detail;
+    void paint(true);
+  };
+  madeEvents.addEventListener('made', onMade);
 
+  let first = true;
   const paintCompose = (info: SocialInfo | null) => {
     /* state: social.compose offline */
     accLine.textContent = accountsWords(info?.accounts ?? null);
@@ -218,7 +250,9 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     /* state: social.compose empty */
     if (!linkedNow.length) return void clear(compose, h('b', 'Write a post'), accLine, h('p.pknote', COMPOSE_NONE));
     to = to.filter((a) => linkedNow.includes(a));
-    if (!to.length) to = [linkedNow[0]!];
+    // the first account is chosen for him once, when nothing was kept; after that his own taps decide (none chosen is a choice too)
+    if (first && !to.length) to = [linkedNow[0]!];
+    first = false;
     const keys = ACCOUNTS.filter((a) => linkedNow.includes(a.id)).map((a) => {
       const on = to.includes(a.id);
       const b = button(a.name.replace(/^your /, 'Your '), () => {
@@ -234,6 +268,8 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     });
     where.textContent = toWords(chosen().map((a) => a.name));
     make.textContent = composeKey(chosen().length);
+    make.disabled = making;
+    if (making && !msg.textContent) msg.textContent = 'Making the drafts…';
     make.setAttribute('aria-label', `${composeKey(chosen().length)}: nothing goes out until you tap APPROVE on ${chosen().length > 1 ? 'each one' : 'it'}`);
     clear(
       compose,
@@ -255,7 +291,7 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     paintPicture();
   };
   void paint();
-  return { el: h('div.pkcol', note, list, compose, phrases(['post that to Bluesky', 'who made you?'])), stop: () => (gone = true) };
+  return { el: h('div.pkcol', note, list, compose, phrases(['post that to Bluesky', 'who made you?'])), stop: () => ((gone = true), madeEvents.removeEventListener('made', onMade)) };
 }
 
 /** What went out today: each post, follow or unfollow with its account, its time and its link. */
@@ -266,7 +302,9 @@ export function sentScreen(): { el: HTMLElement; stop(): void } {
   let gone = false;
   const paint = () => void socialInfo().then((info) => {
     if (gone) return;
-    const sent = [...(info?.sent ?? [])].sort((a, b) => b.at - a.at);
+    // today on this phone's own clock, not the day the brain answered on (a read kept from last night is not today)
+    const today = new Date().toDateString();
+    const sent = (info?.sent ?? []).filter((s) => new Date(s.at).toDateString() === today).sort((a, b) => b.at - a.at);
     /* state: social.sent error */
     /* state: social.sent empty */
     note.textContent = !info ? SENT_ERROR : sent.length ? sentNote(sent.length) : SENT_EMPTY;

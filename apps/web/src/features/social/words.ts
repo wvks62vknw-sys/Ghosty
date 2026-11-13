@@ -70,7 +70,11 @@ export const PICTURE_KEPT = 'When you make the drafts, my brain keeps this pictu
 export const ALT_MISSING = 'Say what is in the picture first, in a line, for anyone who cannot see it.';
 export const PICTURE_NO = (names: string[]): string => `${Cap(andList(names))} ${names.length > 1 ? 'take' : 'takes'} no pictures. Take the picture off, or untick ${names.length > 1 ? 'them' : 'it'}.`;
 export const PICTURE_KINDS = 'Only a JPEG, PNG or WebP picture can go with a post.';
-export const PICTURE_BIG = 'That picture is over 1.5 MB, too big to post. Pick a smaller one.';
+/** Bluesky takes pictures up to 1 MB (Mastodon more): a bigger one is made smaller on the phone first; these say when it cannot be. */
+export const PICTURE_SHRINKING = 'Making the picture small enough to post…';
+export const PICTURE_BIG = 'I could not make that picture small enough to post: Bluesky takes up to 1 MB. Pick another one.';
+/** Over an account's length, in the count line's own words (the composer and EDIT say it before the brain is asked). */
+export const tooLong = (name: string, n: number, max: number): string => `${name} takes ${max} letters at most; this is ${n}. Make it ${n - max} shorter.`;
 /** Where his words are while he writes (said under the box, so he knows nothing is lost). */
 export const KEPT_NOTE = 'Your words stay on this phone while you write, even if you leave. A picture stays until Ghosty is closed.';
 

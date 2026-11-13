@@ -270,6 +270,11 @@ test('Bluesky through the queue: a draft, APPROVE → one post (its record key f
   // too long, or a picture without its words: refused before it is a draft
   assert.match((await SO.makeDraft(d, { account: 'bluesky', text: 'x'.repeat(301), from: 'chat' })).error, /300 characters at most/);
   assert.match((await SO.makeDraft(d, { account: 'bluesky', text: 'look', image: 'abcdefghijklmnop', alt: '', from: 'chat' })).error, /needs its words/);
+  // [planlane:social] a picture over Bluesky's 1 MB: refused when the draft is made, not left to fail at his APPROVE
+  const jpeg = (n) => Object.assign(new Uint8Array(n), { 0: 0xff, 1: 0xd8, 2: 0xff }).buffer;
+  const withPic = (n) => ({ ...d, images: { get: async () => jpeg(n) } });
+  assert.match((await SO.makeDraft(withPic(1_200_000), { account: 'bluesky', text: 'look', image: 'abcdefghijklmnop', alt: 'The canal', from: 'chat' })).error, /^Bluesky takes pictures up to 1 MB; this one is 1\.2 MB\./);
+  assert.ok((await SO.makeDraft(withPic(900_000), { account: 'bluesky', text: 'look', image: 'abcdefghijklmnop', alt: 'The canal', from: 'chat' })).draft, 'a picture under 1 MB makes the draft');
 });
 
 test('Bluesky: a session that ran out is refreshed once and the read goes on; a 429 is said in his words, with the last read', async () => {
