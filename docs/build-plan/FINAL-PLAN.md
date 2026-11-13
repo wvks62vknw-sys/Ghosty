@@ -78,7 +78,7 @@ checked by two more reviewers before it counted, and each is fixed or written do
 - ALL OFF for a room covers lights, fans and TVs only: never a plain switch, and never the guarded set.
 - By chat, with no model: "which lights are on?", "turn everything off in the kitchen", "is the front door locked?", "what's the
   temperature inside?", "is anything open?". "Turn off the lights" turns off every light that is on, instead of asking "which
-  one?". A scene by name ("run movie night") goes to the brain, which asks Home Assistant.
+  one?". "Run movie night" runs that scene by its name once the house has been read on the phone.
 
 **Social → only ever behind your APPROVE**
 - WRITE A POST: to one account or several at once (one draft each, each with its own APPROVE). Each account has its own count, the
@@ -150,4 +150,8 @@ checked by two more reviewers before it counted, and each is fixed or written do
 - **The chat can't change the Agenda's to-dos from the brain's side.** The phone answers the wordings above; a question that
   reaches the brain does not see the phone's list.
 - **The sleep timer lives in the open page.** A reload ends it, and that is said.
-- **House scenes need Home Assistant reachable.** Nothing in the house runs on a schedule, by design.
+- **A Home Assistant script runs on one tap with no confirm.** Home Assistant does not say what a script does, so the phone can't
+  see a lock inside it the way it can inside a scene. Scenes with a guarded thing in them do ask.
+- **The house:** "turn on the lights" with no room still asks "which one?"; pins are per phone.
+- **Markets:** if you take a coin off your watchlist that you still hold, its price is no longer read (the screen and the chat say so).
+- **Radio:** no station detail view (codec, bitrate, homepage) yet; the sleep timer is not in the top bar.
