@@ -23,7 +23,8 @@ import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
 import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { favourites, isFavourite, pinOnHold } from './favourites';
 import { jump } from './jump';
-import { footOn, grownOn, houseOn, housePlan, openThing, orbitOn } from './house';
+import { eyeOn, footOn, grownOn, houseOn, housePlan, openThing, orbitOn } from './house';
+import { eyeRoom, type EyeCard } from '../features/core/eye/room'; // [eye] a room as the wall (BRIEF-EYE-HUD-2)
 import { panelsOf } from './orbitpanels';
 import { atHand, thingForNumber, thingLine } from './inventory';
 import { hubThings, ROOMS } from './rooms';
@@ -279,6 +280,14 @@ function hubTab(a: Area): TabDef {
       const lyFav = h('section.orblayer', { dataset: { layer: 'favourites' } });
       const lyRecent = h('section.orblayer', { dataset: { layer: 'recent' } });
       const roomEl = h('div.scanroom', band, hand, rest, lyRest, lyFav, lyRecent);
+      // THE EYE's room (BRIEF-EYE-HUD-2): the same things as the wall of feeds (features/core/eye/room.ts), drawn here only while the world is the eye
+      const eyeCards = new Map<string, EyeCard>();
+      const eyeWall = eyeRoom({
+        room,
+        order: shownThings.map((t) => t.id),
+        card: (id) => eyeCards.get(id),
+        fold: folds(a) ? { id: EDITORS_ID, pills: EDITORS.map((e) => ({ id: e.id, pill: e.pill, open: () => navTo(e.id, 'push') })) } : undefined,
+      });
       // GROWN UP's three layers (BRIEF-GROWN-UP-HUD 4; d3/hub-440.png): the recent card in front and raised, his favourites one level back, the rest
       // folded into one stack of single-line rows that open in place; the same cards, drawn here only while the world is Grown Up
       const gRecent = h('section.glylayer.glyrecent', { dataset: { layer: 'recent' } });
@@ -291,6 +300,7 @@ function hubTab(a: Area): TabDef {
         grid,
         roomEl,
         glyHub,
+        eyeWall.el,
       );
       root.append(wrap);
       // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen. Every
@@ -299,6 +309,8 @@ function hubTab(a: Area): TabDef {
       // (ME's room also holds two things that are not screens: the origin and Every screen: cards only in the room's drawing)
       const extra = a.id === 'me' ? ROOMS.find((r) => r.key === 'me')!.things.filter((t) => !t.screen).map((t) => toolCard(t.id, t.name, t.id === 'deck' ? DECK_GLYPH : ORIGIN_ICON, null, () => openThing(t))) : [];
       const everyCard = [...cards, ...extra];
+      for (const [id, name, glyph, t, tap] of areaTools(a)) eyeCards.set(id, { id, name, glyph, pin: !!t, tap });
+      for (const t of a.id === 'me' ? ROOMS.find((r) => r.key === 'me')!.things.filter((x) => !x.screen) : []) eyeCards.set(t.id, { id: t.id, name: t.name, glyph: t.id === 'deck' ? DECK_GLYPH : ORIGIN_ICON, pin: false, tap: () => openThing(t) });
       clear(grid, ...cards.map((c) => c.el));
       let drawn = '\0';
       let restOpen = false;
@@ -306,9 +318,16 @@ function hubTab(a: Area): TabDef {
         const on = houseOn();
         const orbit = orbitOn();
         const grown = grownOn();
+        const eye = eyeOn();
+        wrap.classList.toggle('eyeing', eye);
         wrap.classList.toggle('roomed', on);
         wrap.classList.toggle('orbiting', orbit);
         wrap.classList.toggle('glying', grown);
+        // THE EYE: the wall draws and diffs itself (a reading changing never rebuilds a feed under a finger)
+        if (eye) {
+          drawn = 'eye';
+          return eyeWall.paint();
+        }
         const mine = atHand(room);
         const sig = grown ? `grown:${restOpen}:${mine.map((m) => `${m.id}:${m.why}`).join(',')}` : on ? `${orbit ? 'orbit:' : ''}${mine.map((m) => `${m.id}:${m.why}`).join(',')}` : 'glass';
         if (sig === drawn) return;
@@ -428,6 +447,9 @@ function hubTab(a: Area): TabDef {
         drawn = '\0';
         paintAll();
         requestAnimationFrame(toOrb);
+        // (the wall's grain and line of sight are drawn once the page is laid out and again once it has finished arriving)
+        requestAnimationFrame(() => eyeWall.settle());
+        setTimeout(() => eyeWall.settle(), 420);
         void Promise.all([...everyCard.map((c) => c.load()), loadHubWords(a.id)]).then(() => {
           paintAll();
           requestAnimationFrame(toOrb);

@@ -7051,14 +7051,14 @@ html .eyeframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html .eyesay2 { flex: none; margin: 4px 0 0; min-height: 26px; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
   html .eyeframe[data-reply="true"] .eyesay2 { cursor: pointer; color: var(--g-ink-1); }
   /* the wall: the rooms across the top and the foot, the side feeds down both sides, tonight's the one sharp feed between them over the orb */
-  html .eyewall { flex: 1 0 auto; min-height: 400px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(52px, auto) minmax(112px, 1fr) minmax(112px, 1fr) minmax(112px, 1fr) minmax(52px, auto); grid-template-areas: "r0 r1 r2 r3" "a t t d" "b t t e" "c o o f" "r4 r5 s s"; gap: var(--g-s-half); margin-top: var(--g-s-2); }
+  html .eyewall { flex: 1 0 auto; min-height: 400px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: minmax(52px, auto) minmax(112px, 1fr) minmax(112px, 1fr) minmax(112px, 1fr) minmax(52px, auto); grid-template-areas: "r0 r1 r2 r3" "a t t d" "b t t e" "c o o f" "r4 r5 s x"; gap: var(--g-s-half); margin-top: var(--g-s-2); }
   html .eyefeed { position: relative; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; min-width: 0; box-sizing: border-box; margin: 0; padding: 0; border: var(--g-hair) var(--g-plate-edge) var(--g-line-faint); border-radius: var(--g-radius-cell); background: rgba(var(--g-canvas-rgb), .55); box-shadow: none; overflow: hidden; text-align: left; color: var(--g-ink-1); }
   html #app button.eyefeed { min-height: var(--g-target) !important; height: auto; font: var(--g-t-body) !important; letter-spacing: 0 !important; text-transform: none; }
   html .eyefeed[data-slot="a"] { grid-area: a; } html .eyefeed[data-slot="b"] { grid-area: b; } html .eyefeed[data-slot="c"] { grid-area: c; }
   html .eyefeed[data-slot="d"] { grid-area: d; } html .eyefeed[data-slot="e"] { grid-area: e; } html .eyefeed[data-slot="f"] { grid-area: f; }
   html .eyefeed[data-slot="t"] { grid-area: t; }
   html .eyefeed[data-room="see"] { grid-area: r0; } html .eyefeed[data-room="make"] { grid-area: r1; } html .eyefeed[data-room="learn"] { grid-area: r2; } html .eyefeed[data-room="plan"] { grid-area: r3; }
-  html .eyefeed[data-room="life"] { grid-area: r4; } html .eyefeed[data-room="me"] { grid-area: r5; } html .eyefeed[data-room="screens"] { grid-area: s; }
+  html .eyefeed[data-room="life"] { grid-area: r4; } html .eyefeed[data-room="me"] { grid-area: r5; } html .eyefeed[data-room="screens"] { grid-area: s; } html .eyefeed[data-slot="x"] { grid-area: x; }
   html .eyepic { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; opacity: 1; pointer-events: none; }
   html .eyefeed .eyetag { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 4px; max-width: 100%; box-sizing: border-box; padding: 2px 6px; background: var(--g-canvas); color: var(--g-ink-1); letter-spacing: .02em; text-transform: uppercase; line-height: 1.25; white-space: normal; overflow: hidden; }
   html .eyefeed .eyetag span { flex: 1 1 0; min-width: 0; overflow-wrap: break-word; }
@@ -7094,6 +7094,10 @@ html .eyeframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html .eyespeak .ic { width: 22px; height: 22px; fill: none; stroke: var(--g-ink-1); stroke-width: 2; stroke-linecap: round; }
   html #app button.eyespeak.on .ic { stroke: var(--g-accent); }
   html body.eyehome:is(.kb, .ownback) .eyeframe { padding-bottom: var(--g-s-1); }
+  /* the biggest text (BRIEF-EYE-HUD-2 item 4): the wall is taller than the page, so the ask line stands on the instruments (sticky) and the wall's rows scroll
+     under it; at the end of the scroll the last row is above it, nothing hidden. The instruments' words keep one row of seven keys: the fine size, never a clip. */
+  html .eyeframe > .eyeask.eyeask { position: sticky; bottom: 0; z-index: 5; background: linear-gradient(var(--g-plate-strong-fill), var(--g-plate-strong-fill)), var(--g-canvas); box-shadow: 0 calc(-1 * var(--g-s-1)) 0 var(--g-canvas); }
+  html[data-world="eye"]:is([data-body="19"], [data-body="21"]) body.housed:not(.inkhome) #dock .tabcap button { flex: 1 1 auto; min-width: var(--g-target); padding-left: 0; padding-right: 0; font: var(--g-t-fine) !important; letter-spacing: .02em !important; }
 }
 /* a short phone (390 × 844): the wall a little lower, so the ask line still ends above the instruments' words */
 @media (max-width: 899px) and (max-height: 880px) {
@@ -7102,6 +7106,51 @@ html .eyeframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html .eyeorb { min-height: 70px; }
   html .eyeorbhost { width: 56px; height: 56px; margin-left: -28px; }
   html .eyesight { height: calc(100% - 56px + var(--g-s-half)); }
+}
+
+/* ---- a room as the wall (BRIEF-EYE-HUD-2; features/core/eye/room.ts, eye/abilities.ts; hub-440.png): the room's things as grain feeds, the one he used last sharp in the accent box standing just above the instruments with the line of sight down to their lit key, the kick row, his favourites in bracket corners; the room's abilities one feed more */
+html .eyehub { display: none; }
+@media (max-width: 899px) {
+  html .hub.eyeing > .scanroom { display: none; }
+  html body.housed .hub.eyeing { gap: var(--g-s-1); padding-bottom: 0 !important; min-height: 100%; }
+  html .hub.eyeing > .eyehub, html #eyeabil { display: flex; }
+  html .eyehub { flex: 1 0 auto; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+  html .eyekick { flex: none; margin: 0; padding: 0 var(--g-s-half); text-transform: uppercase; color: var(--g-ink-3); }
+  html .eyehub .eyegrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(104px, auto); gap: var(--g-s-half); }
+  html .eyehub .eyefeed.fold, html .eyehub .eyefeed.abil { grid-column: 1 / -1; }
+  html .eyehub .eyefeed.abil { min-height: 56px; grid-row: auto; }
+  html #app .eyehub button.eyefeed.abil { min-height: 56px !important; }
+  html .eyehub .eyefeed { background: rgba(var(--g-canvas-rgb), .92); }
+  html .eyehub .eyefeed:not(.room, .sharp) .eyeline { -webkit-line-clamp: 3; line-clamp: 3; }
+  html .eyefeed:is([data-kind="favourite"], [data-fav="true"])::after { content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 2; background: linear-gradient(var(--g-ink-2), var(--g-ink-2)) right top / 10px var(--g-stroke) no-repeat, linear-gradient(var(--g-ink-2), var(--g-ink-2)) right top / var(--g-stroke) 10px no-repeat, linear-gradient(var(--g-ink-2), var(--g-ink-2)) left bottom / 10px var(--g-stroke) no-repeat, linear-gradient(var(--g-ink-2), var(--g-ink-2)) left bottom / var(--g-stroke) 10px no-repeat; }
+  html .eyefeed .eyestar { margin-left: auto; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+  html .eyefeed .eyeworks { flex: none; width: 6px; height: 6px; background: var(--g-amber); }
+  /* the sharp feed stands on the instruments: sticky at the foot of the page, the line of sight under it (its x is the lit key's, set from the page) */
+  html .eyehub .eyefocus { position: sticky; bottom: 0; z-index: 3; margin-top: auto; display: flex; flex-direction: column; padding-top: var(--g-s-1); background: linear-gradient(to bottom, rgba(var(--g-room-canvas-rgb), 0), var(--g-room-canvas) var(--g-s-1)); }
+  html .eyehub .eyefocus .eyefeed.sharp { min-height: 104px; max-height: 38vh; }
+  html .eyehub .eyefocus .eyesight { position: relative; left: 0; top: 0; flex: none; display: block; width: 0; height: var(--g-s-2); margin-left: var(--sx, 50%); border-left: var(--g-stroke) dashed var(--g-accent); }
+  html .eyehub .eyefocus:empty { display: none; }
+  html .eyehub .eyefeed.fold { justify-content: flex-start; gap: var(--g-s-half); padding-bottom: var(--g-s-half); }
+  html #app .eyehub button.eyefoldhead { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); width: 100%; min-height: var(--g-target) !important; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; color: var(--g-ink-1); font: var(--g-t-body) !important; }
+  html .eyehub .eyepills { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: var(--g-s-half); padding: 0 var(--g-s-half); }
+  html #app .eyehub button.eyefeed.mini { min-height: calc(var(--g-target) + var(--g-s-half)) !important; justify-content: flex-end; background: rgba(var(--g-canvas-rgb), .8); }
+  html .eyehub .eyefeed.mini .eyetag { font: var(--g-t-fine); letter-spacing: .02em; }
+  html .eyehub .eyefeed.mini .eyetag span { overflow-wrap: anywhere; }
+  html .eyehub .eyefeed.fold.sharp .eyefoldhead .eyetag { color: var(--g-accent-text); }
+  html .eyenone { margin: 0; padding: var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-2); border: var(--g-hair) dotted var(--g-line-faint); }
+  /* ABILITIES: the wall of what I can do, a layer standing on the instruments as the plan does */
+  html #eyeabil { position: fixed; z-index: 8; left: 0; right: 0; top: var(--plan-top, 0px); bottom: var(--plan-bottom, 0px); flex-direction: column; gap: var(--g-s-1); padding: max(env(safe-area-inset-top, 0px), var(--g-s-1)) var(--g-gutter) 0; box-sizing: border-box; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; background: var(--g-room-canvas); }
+  html #eyeabil .eyehead { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-2); }
+  html #app #eyeabil button.eyeback { flex: none; display: inline-flex; align-items: center; gap: var(--g-s-half); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2) 0 var(--g-s-1); border: var(--g-stroke) var(--g-plate-edge) var(--g-line); border-radius: var(--g-radius-key); background: none; box-shadow: none; font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key) !important; text-transform: uppercase; color: var(--g-ink-1); }
+  html #eyeabil .eyeback .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+  html #eyeabil .eyewalls { flex: 1 0 auto; display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+  html #eyeabil .eyefeed.ability[data-off="true"] .eyeline { color: var(--g-ink-3); }
+}
+/* the stamp's own small line while the ground starts (eye/ground.ts: only where the start is slow); it stands in the mast's own padding, so nothing moves under a finger */
+@media (max-width: 899px) {
+  html .eyemast { position: relative; }
+  html .eyemast .eyelight { position: absolute; left: 0; right: 0; bottom: 1px; margin: 0; padding: 0; text-transform: uppercase; color: var(--g-accent-text); background: var(--g-canvas); line-height: 1.1; pointer-events: none; }
+  html .eyemast .eyelight[hidden] { display: none; }
 }
 
 /* ---- the instruments: the house as seven small feeds on every screen (shell/house.ts eyeOn): a grain picture of its own and the room's word, the one he is in sharp */

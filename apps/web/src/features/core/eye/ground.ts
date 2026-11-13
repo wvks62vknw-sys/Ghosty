@@ -23,6 +23,11 @@ export const groundState = {
   interval: 0,
   cost: 0,
   since: 0,
+  /** The stamp's small line "Lighting the ground…": whether it is showing now, and how many times it has shown (once a start, on a software GL only). */
+  lighting: false,
+  said: 0,
+  /** The phone's GL is software (the start is a silent ~2 s there; a phone's GPU is tens of ms and never shows the line). */
+  soft: false,
   /** God's Eye's camera as it stands now (the checks: it is as it was once Home has let go). */
   cam: (): { lat: number; lon: number; range: number; tilt: number; hd: number } => ({ lat: globe.cam.lat, lon: globe.cam.lon, range: globe.cam.range, tilt: globe.cam.tilt, hd: globe.cam.hd }),
 };
@@ -54,6 +59,25 @@ for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => (lastInp
 const SCALE = 0.55;
 let scaleWas = 1;
 
+/** Is the engine's GL software (SwiftShader, llvmpipe, a basic renderer)? Read from the context the engine already holds; unknown is a GPU. */
+function softGL(): boolean {
+  try {
+    const gl = gfx.gl;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    return !!ext && /swiftshader|llvmpipe|softpipe|software|basic render/i.test(String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)));
+  } catch {
+    return false;
+  }
+}
+/** The stamp's small line (Home's own element, handed in at the start). */
+let light: HTMLElement | null = null;
+const lamp = (on: boolean) => {
+  if (groundState.lighting === on) return;
+  groundState.lighting = on;
+  if (on) groundState.said++;
+  if (light) light.hidden = !on;
+};
+
 const scene = {
   acc: 0,
   last: 0,
@@ -81,6 +105,7 @@ const scene = {
     globe.update(dt);
     globe.draw();
     groundState.draws++;
+    lamp(false);
     groundState.cost = groundState.cost * 0.7 + (performance.now() - now) * 0.3;
   },
 };
@@ -96,6 +121,19 @@ function begin(): void {
     if (++tries < 40) timer = window.setTimeout(begin, 1000);
     return;
   }
+  groundState.soft = softGL();
+  // a software GL compiles the globe's shaders in one silent ~2 s: the stamp says so once, and the work waits a frame or two for it to be seen
+  if (groundState.soft) {
+    lamp(true);
+    requestAnimationFrame(() => (timer = window.setTimeout(light_, 30)));
+    return;
+  }
+  light_();
+}
+
+function light_(): void {
+  timer = 0;
+  if (!document.body.classList.contains('eyehome') || groundState.on) return lamp(false);
   const c = globe.cam;
   saved = { lat: c.lat, lon: c.lon, range: c.range, hd: c.hd, tilt: c.tilt, spin: c.autoSpin, target: { ...c.target }, follow: c.follow };
   globe.init();
@@ -120,7 +158,8 @@ function begin(): void {
 }
 
 /** Home came on screen in the eye: the globe starts once the page has settled. */
-export function startGround(): void {
+export function startGround(line?: HTMLElement): void {
+  if (line) light = line;
   if (groundState.on || timer) return;
   tries = 0;
   timer = window.setTimeout(begin, AFTER_SHOWN);
@@ -130,6 +169,7 @@ export function startGround(): void {
 export function stopGround(): void {
   clearTimeout(timer);
   timer = 0;
+  lamp(false);
   document.body.classList.remove('eyeground');
   if (!groundState.on) return;
   groundState.on = false;

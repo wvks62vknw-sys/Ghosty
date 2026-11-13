@@ -58,7 +58,8 @@ async function open({ viewport = PHONE, look = EYE, book = false, pins = ['lens'
     // the stopwatch's tests (timed() below): the printed page drawn, the room's band drawn, the jump bar open with its first rows
     window.__eyeTests = {
       home: () => { const f = document.querySelector('.eyeframe'); const r = f?.getBoundingClientRect(); return document.body.classList.contains('eyehome') && !!r && r.width > 0 && !!document.querySelector('.eyeask')?.getBoundingClientRect().width; },
-      see: () => document.body.dataset.tab === 'area-see' && !!document.querySelector('#pg-area-see .roomband')?.getBoundingClientRect().width,
+      // (a room in the eye is the wall now, BRIEF-EYE-HUD-2: the budget is held to the wall's own first feed being drawn, not to The Scan's band, which the eye no longer draws)
+      see: () => document.body.dataset.tab === 'area-see' && !!document.querySelector('#pg-area-see .eyeroom .eyefeed')?.getBoundingClientRect().width && !document.querySelector('#pg-area-see .roomband')?.getClientRects().length,
       jump: () => { const p = document.querySelector('#palette.on'); const r = p?.querySelector('input')?.getBoundingClientRect(); return !!r && r.width > 0 && !!p.querySelector('.jgroup, .jempty'); },
     };
   }, { key: KEY, look, book, pins, recents, once });

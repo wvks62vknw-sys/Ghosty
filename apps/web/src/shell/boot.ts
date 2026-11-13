@@ -63,6 +63,7 @@ import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../feature
 import { resetScoreState, scoreState, startScore, type Score } from '../features/core/scan/score';
 import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
 import { worldDesc, ORB_FILL } from '../features/core/scan/world';
+import { eyeShot, type EyeShot, type EyeShotState } from '../features/core/eye/film';
 import { FEED_NAMES, type FeedId, type GuardianInfo } from '../../../../packages/shared/src/guardian';
 
 type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet';
@@ -181,6 +182,8 @@ export const bootState = {
   /** THE FILM played (the world is The Scan and Mind drew it): the descent, the things found, the orb's viewport (film.ts). */
   film: false,
   scan: null as FilmState | null,
+  /** THE EYE's last second (features/core/eye/film.ts): the wall resolving from grain, one feed sharpening into the accent box, the line of sight drawn; null in the other worlds. */
+  eyewall: null as EyeShotState | null,
   /** THE SCORE (B) under the film: whether it sounded and which cues came (score.ts); A (the one tone) when he chose it or the phone allows no sound yet. */
   score: scoreState,
 };
@@ -551,6 +554,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.budget = { hz: 0, ms: LONG_60, long: 0, gaps: [], work: 0, avg: 0, lean: '' };
   bootState.film = false;
   bootState.scan = null;
+  bootState.eyewall = null;
   const B = bootState.budget;
   if (rebooting) appIsReady = true;
   let kind = first as 'full' | 'short' | 'still' | 'flat';
@@ -581,6 +585,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const glass = h('i.bglass');
   ground.append(room, floor, glass);
   el.prepend(ground);
+  // THE EYE (BRIEF-EYE-HUD-2): its last second is the wall resolving from grain onto Home's own rectangles (features/core/eye/film.ts); created here, in the ground layer, for the eye only
+  let eyeFilm: EyeShot | null = null;
   const dot = el.querySelector<HTMLElement>('.bdot') ?? el.appendChild(h('i.bdot'));
   dot.style.left = `${cx}px`;
   dot.style.top = `${cy}px`;
@@ -607,6 +613,10 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.accent = accent;
   bootState.recipe = { theme: dd.theme ?? '', ground: dd.ground ?? '', night: dd.night ?? '', world: dd.world ?? '', floor: cs0.getPropertyValue('--g-room-canvas').trim(), glow: dd.glow ?? '' };
   const world = dd.world ?? '';
+  if (world === 'eye' && !filmWanted && innerWidth < 900) {
+    eyeFilm = eyeShot(ground, vw, vh, dpr, accent);
+    bootState.eyewall = eyeFilm.state;
+  }
   const floorTok = { pts: cs0.getPropertyValue('--g-room-points-rgb').trim() || cs0.getPropertyValue('--g-bone-rgb').trim() || '236, 232, 223', a: parseFloat(cs0.getPropertyValue('--g-floor-a')) || 0, line: cs0.getPropertyValue('--g-line').trim() || `rgba(${accent}, .4)` };
   const gutter = parseFloat(cs0.getPropertyValue('--g-gutter')) || 16;
   // (the top block sits under the status bar: styles.css places it from the safe area; One Ink's rule is drawn under it)
@@ -916,6 +926,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
         glass.style.setProperty('-webkit-backdrop-filter', f);
       }
     }
+    // (THE EYE: the wall resolving onto Home's own feeds, in the last second of the cut; the floor's grain is already there)
+    eyeFilm?.frame(T, tl, { calm, manual: !!flags().__ghostyBootManual });
     // 3. the orb: his library's points gather and the sphere resolves (the full cut); whole, fading in (the rest)
     const G = tl.orb;
     const S = tl.orb + 560;
