@@ -38,6 +38,7 @@ async function standIn(page) {
     const j = (v, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(v) });
     if (box.mode === 'dead') return r.abort();
     if (url.pathname === '/api/house' && req.method() === 'GET') {
+      if (box.mode === 'unlinked') return j({ linked: false, entities: [], line: '', marked: [], at: Date.now() });
       if (box.mode === 'boxdown') return j({ linked: true, entities: [], line: '', marked: [], at: Date.now(), error: 'I couldn’t reach your Home Assistant just now: is it on, and reachable over HTTPS from outside your house?' });
       return j({ linked: true, entities: box.entities, line: `${box.entities.filter((e) => e.domain === 'light' && e.state === 'on').length} lights on · coldest: Living room 18.5 °C`, marked: [], at: Date.now() });
     }
@@ -162,6 +163,11 @@ export async function run(H) {
     box.mode = 'dead';
     await page.locator('#pg-house .housetop button').click();
     check(await page.waitForFunction(() => /as I last saw it/.test(document.querySelector('#pg-house [data-state="offline"]')?.textContent ?? ''), null, { timeout: 8000 }).then(() => true, () => false), `${T} my brain out of reach is said as that`);
+    // not linked (yet): said as that, then his steps and the key to KEYS
+    box.mode = 'unlinked';
+    await page.locator('#pg-house .housetop button').click();
+    const un = await page.waitForSelector('#pg-house [data-state="unlinked"]', { timeout: 8000 }).then((e) => e.textContent(), () => '');
+    check(un === W.NOT_LINKED_HEAD && (await page.locator('#pg-house .housesteps li').count()) === 5 && (await page.locator('#pg-house button', { hasText: /go to keys/i }).count()) === 1 && !(await page.$('#pg-house .housecard')), `${T} unlinked is said, with the five steps and GO TO KEYS: ${un}`);
     box.mode = 'ok';
     // the chat's new wordings, on the same stood-in house
     if (vp.width === 440) {

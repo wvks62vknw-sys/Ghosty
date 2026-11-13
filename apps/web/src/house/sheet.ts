@@ -9,7 +9,7 @@
 import { clear, h } from '../core/dom';
 import { button, confirmSheet, modal, toast } from '../ui/components';
 import { DOWN_LINE, glance, HOUSE_STEPS, isDown, isOnNow, offWords, roomOff, sinceWords, stateWords, type HouseEntity } from '../../../../packages/shared/src/house';
-import { BOX_STALE, BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, PINS_KEY, READING, SCENES_NOTE } from '../features/house/words';
+import { BOX_STALE, BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, NOT_LINKED_HEAD, PINS_KEY, READING, SCENES_NOTE } from '../features/house/words';
 import { waiting } from '../ui/wait';
 import { act, houseNow, loadHouse, mark, type ActOut, type HouseView } from './api';
 
@@ -173,6 +173,7 @@ function paint(root: HTMLElement): void {
   }
   if (!v.linked) {
     clear(root,
+      h('p.houseline', { role: 'status', dataset: { state: 'unlinked' } }, NOT_LINKED_HEAD),
       h('p.houseintro', 'Anything smart in your house — lights, the heating (underfloor or central), blinds, the TV and speakers — through your own free Home Assistant box. Nothing paid is needed.'),
       h('ol.housesteps', ...HOUSE_STEPS.map((s) => h('li', s))),
       h('div.row.wrap.houseacts', btn('GO TO KEYS', 'Open SYSTEM, KEYS, to paste your address and token', () => void import('../shell/launcher').then((l) => {

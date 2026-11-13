@@ -6,6 +6,9 @@
 /** Linked, and nothing in it yet: the one next thing. */
 export const HOUSE_NONE = { head: 'Nothing in your house yet.', line: 'Add your lights and heating in Home Assistant, then tap REFRESH.' };
 
+/** Not linked yet: what that means, before the steps. */
+export const NOT_LINKED_HEAD = 'Your Home Assistant isn’t linked yet. Five steps, all free, and your lights, heating and the rest are here:';
+
 /** The house being read. */
 export const READING = 'Reading your house…';
 
