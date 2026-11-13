@@ -350,8 +350,11 @@ export function createNameMode(L: LensContext): Mode {
       L.panel.append(root, file);
       S.error = '';
       load();
-      if (opts?.still) void usePhoto(opts.still);
-      else if (photo) {
+      if (opts?.still) {
+        void usePhoto(opts.still);
+        // WHICH SPECIES from the one view: the living-thing check runs at once, as the kind the phone's own name said
+        if (opts.living) void living.nameIt(opts.living, opts.still);
+      } else if (photo) {
         L.showStill(photo);
         live.hidden = false;
       }
