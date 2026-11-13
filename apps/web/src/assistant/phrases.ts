@@ -55,6 +55,7 @@ import { gameAsked } from '../studio-game/asks';
 // [planlane] the PLAN AND HOME lane's screens by chat (each features/<screen>/asks.ts, pure)
 import { agendaAsked } from '../features/agenda/asks';
 import { radioAsked } from '../features/radio/asks';
+import { meaningOf } from '../../../../packages/shared/src/meanings';
 import { marketsAsked } from '../features/markets/asks';
 import { briefAsked } from '../features/brief/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
@@ -117,7 +118,8 @@ export const LOCAL_ASKS = [
   { id: 'water', test: (t: string) => { const a = trackAsked(t); return bodyAsked(t)?.what === 'water' || (a?.kind === 'log' && a.m === 'water'); } },
   // [packs] the kitchen pack on the phone: timers, the shopping list, the oven line (features/kitchen)
   // [planlane] the radio's sleep timer and stations before the kitchen's timers: "sleep timer 30 minutes" is the radio's (radioAsked never takes a plain timer)
-  { id: 'planradio', test: (t: string) => !!radioAsked(t) },
+  // (a wording the VOICE lane's meanings own, "play my favourite station", stays theirs: they play it the one way everywhere)
+  { id: 'planradio', test: (t: string) => !!radioAsked(t) && !meaningOf(t) },
   { id: 'timer', test: (t: string) => !!timerAsked(t) },
   // [bodylane] the pantry and the recipe book, kept on this phone (features/kitchen/larder.ts)
   { id: 'larder', test: (t: string) => larderAsked(t) },
