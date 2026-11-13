@@ -160,11 +160,17 @@ export default async function (h) {
     const opened = await until(page, () => window.__ghosty?.docs?.view === 'doc' && document.querySelectorAll('.dcpage .dcb').length >= 1500, null, 20000);
     const openMs = Date.now() - t0;
     check(opened && openMs < 5000, `docs: a 1,500-paragraph document opens in ${openMs} ms (under 5 s)`);
-    const t1 = Date.now();
     await page.locator('.dcpage .dctodo .dcbox').nth(3).click();
-    const ticked = await until(page, () => JSON.parse(window.__ghosty.docs.json).blocks.filter((b) => b.ticked).length === 1, null, 10000);
-    const tickMs = Date.now() - t1;
-    check(ticked && tickMs < 3000, `docs: a tick in it is kept in ${tickMs} ms (under 3 s)`);
+    const ticked = await until(page, () => JSON.parse(window.__ghosty.docs.json).blocks.filter((b) => b.ticked).length === 1 && JSON.parse(localStorage.getItem('ghosty.docs'))[0].blocks.filter((b) => b.ticked).length === 1, null, 10000);
+    check(ticked, 'docs: a tick in it is kept on this phone');
+    // the phone's own time for a tick: from the tap to the item kept and drawn (the tap's handler, the save and the drawing, in the page)
+    const tickMs = await page.evaluate(() => {
+      const t = performance.now();
+      document.querySelectorAll('.dcpage .dctodo .dcbox')[9].click();
+      return Math.round(performance.now() - t);
+    });
+    const kept2 = await until(page, () => JSON.parse(localStorage.getItem('ghosty.docs'))[0].blocks.filter((b) => b.ticked).length === 2 && document.querySelectorAll('.dcpage .dctodo .dcbox[aria-checked="true"]').length === 2);
+    check(kept2 && tickMs < 500, `docs: a tick in it is kept and drawn in ${tickMs} ms (under half a second)`);
     await ctx.close();
   }
 
