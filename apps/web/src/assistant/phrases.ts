@@ -50,6 +50,11 @@ import { workspaceAsked } from '../workspace/asks';
 import { photoAsked } from '../photo/asks';
 import { videoAsked } from '../video/asks';
 import { gameAsked } from '../studio-game/asks';
+// [planlane] the PLAN AND HOME lane's screens by chat (each features/<screen>/asks.ts, pure)
+import { agendaAsked } from '../features/agenda/asks';
+import { radioAsked } from '../features/radio/asks';
+import { marketsAsked } from '../features/markets/asks';
+import { briefAsked } from '../features/brief/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -141,6 +146,11 @@ export const LOCAL_ASKS = [
   { id: 'video', test: (t: string) => !!videoAsked(t) },
   // [gamestudio] the game studio (studio-game/): "make a game", "my games", "sketch a cave room with two ledges"
   { id: 'gamestudio', test: (t: string) => !!gameAsked(t) },
+  // [planlane] the agenda's to-dos and month, the radio's sleep timer and stations, markets' prices and holdings, the brief (the house has its own table above)
+  { id: 'planagenda', test: (t: string) => !!agendaAsked(t) },
+  { id: 'planradio', test: (t: string) => !!radioAsked(t) },
+  { id: 'planmarkets', test: (t: string) => !!marketsAsked(t) },
+  { id: 'planbrief', test: (t: string) => !!briefAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },

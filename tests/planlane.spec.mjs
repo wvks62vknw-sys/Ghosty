@@ -10,7 +10,7 @@
 //   BASE=http://localhost:8788 node tests/planlane.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, openSection, standDown } from './nav.mjs';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const { buildSync } = createRequire(new URL('../apps/web/package.json', import.meta.url))('esbuild');
 
@@ -20,6 +20,9 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const PHONE2 = { width: 390, height: 844 };
 const WORLDS = ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass'];
+// PLANLANE_ONLY=radio,agenda runs only those parts (tests/planlane/<name>.mjs) and skips the core checks below; unset, everything runs.
+const ONLY = (process.env.PLANLANE_ONLY ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+const core = !ONLY.length || ONLY.includes('core');
 const problems = [];
 let checks = 0;
 const t0 = Date.now();
@@ -113,6 +116,13 @@ const open = async (page, tab) => {
   await page.evaluate((t) => (location.hash = t), tab);
   await page.waitForFunction((t) => document.body.dataset.tab === t && document.querySelector(`#pg-${t}`), tab, { timeout: 15000 });
 };
+/** Say something in the chat (as he types it), on the core screen. */
+const chat = async (page, words) => {
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
+  await page.fill('#cin', words);
+  await page.keyboard.press('Enter');
+};
 /** Every visible key under `sel` that is under 44 pt, and whether the page scrolls sideways, and any word cut. */
 const fit = (page, sel) =>
   page.evaluate((sel) => {
@@ -136,7 +146,7 @@ const today = () => {
 };
 
 // ---- 2. THE AGENDA: TO-DO and MONTH, at both sizes
-for (const vp of [PHONE, PHONE2]) {
+if (core) for (const vp of [PHONE, PHONE2]) {
   const { ctx, page } = await phone(vp);
   await open(page, 'agenda');
   const pills = await page.$$eval('#pg-agenda .secpill', (b) => b.map((x) => x.textContent));
@@ -205,7 +215,7 @@ for (const vp of [PHONE, PHONE2]) {
 log('agenda, brief');
 
 // ---- 3. THE RADIO: sleep timer, RECENT, next and previous
-for (const vp of [PHONE, PHONE2]) {
+if (core) for (const vp of [PHONE, PHONE2]) {
   const { ctx, page } = await phone(vp);
   await open(page, 'radio');
   await page.waitForSelector('#pg-radio .pn.stations .rw.station', { timeout: 15000 });
@@ -239,7 +249,7 @@ for (const vp of [PHONE, PHONE2]) {
 log('radio');
 
 // ---- 4. SOCIAL: WRITE A POST makes a draft, and nothing is ever approved or sent by the page
-{
+if (core) {
   const { ctx, page } = await phone(PHONE);
   const asked = [];
   let drafts = [];
@@ -273,7 +283,7 @@ log('radio');
 log('social');
 
 // ---- 5. THE SEVEN LOOKS: the to-do list and the radio's keys hold in every world (44 pt, nothing sideways, nothing cut)
-for (const world of WORLDS) {
+if (core) for (const world of WORLDS) {
   const seed = { 'ghosty.agenda.todo': JSON.stringify([{ id: 'w1', text: 'A to-do long enough to wrap onto a second line at body twenty-one', due: today(), done: false, at: 1 }]) };
   const { ctx, page } = await phone(PHONE2, world, seed);
   await open(page, 'agenda');
@@ -290,6 +300,23 @@ for (const world of WORLDS) {
   await ctx.close();
 }
 log('seven looks');
+
+// ---- 6. THE PARTS: each screen's own checks (tests/planlane/<name>.mjs, each exporting `run(H)`), in name order, with the harness above
+const H = { browser, phone, open, fit, check, log, pure, chat, out, base, KEY, today, PHONE, PHONE2, WORLDS, RAW, TONE, DIRECTORY };
+const partsDir = new URL('./planlane/', import.meta.url);
+const parts = existsSync(partsDir) ? readdirSync(partsDir).filter((f) => f.endsWith('.mjs')).sort() : [];
+for (const f of parts) {
+  const name = f.replace(/\.mjs$/, '');
+  if (ONLY.length && !ONLY.includes(name)) continue;
+  const m = await import(new URL(f, partsDir).href);
+  const t = Date.now();
+  try {
+    await m.run(H);
+  } catch (e) {
+    check(false, `[${name}] the part stopped: ${String(e?.stack ?? e).slice(0, 400)}`);
+  }
+  log(`part ${name} (${((Date.now() - t) / 1000).toFixed(1)} s)`);
+}
 
 await browser.close();
 console.log(`${checks} checks, ${problems.length} problems`);

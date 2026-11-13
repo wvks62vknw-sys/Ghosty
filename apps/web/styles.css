@@ -9371,3 +9371,37 @@ html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px
 .gkask { margin-top: var(--g-s-2); }
 /* (a touch phone's `html button:not(…) { min-height: 40px !important }` is as specific: this one comes after it and wins) */
 html body .gkask button, html body .gkprops button { height: auto; min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
+
+/* ==== THE PLAN AND HOME LANE (FINAL ROUND, planlane): one block per screen. Tokens only (var(--…)), no hex, no rgba(), no px radius. ==== */
+/* ==== [planlane:home] ==== */
+
+/* ==== [planlane:home end] ==== */
+
+/* ==== [planlane:agenda] ==== */
+
+/* ==== [planlane:agenda end] ==== */
+
+/* ==== [planlane:brief] ==== */
+
+/* ==== [planlane:brief end] ==== */
+
+/* ==== [planlane:radio] ==== */
+
+/* ==== [planlane:radio end] ==== */
+
+/* ==== [planlane:markets] ==== */
+
+/* ==== [planlane:markets end] ==== */
+
+/* ==== [planlane:house] ==== */
+
+/* ==== [planlane:house end] ==== */
+
+/* ==== [planlane:social] ==== */
+
+/* ==== [planlane:social end] ==== */
+
+/* ==== [planlane:links] ==== */
+
+/* ==== [planlane:links end] ==== */
+
