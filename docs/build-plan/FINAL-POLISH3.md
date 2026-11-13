@@ -79,6 +79,9 @@ Branch `claude/new-session-4erjve-lane-polish3`, merged into `claude/new-session
 - **The second merge:** the money pack keeps the one-watcher system and gains the security lane's address guard. What's New keeps
   the consistency lane's lines plus POLISH 3's lines that say something different, newest first, none twice. The memory lane's
   new System line now says one sentence: "Recall index: empty; it builds while the phone sits idle."
+- **polish3.spec's own race:** section c slows the brain to check System's waits. It now does so from the first request and waits
+  on the real condition, the page built and its three waits said together, instead of a fixed sleep. Before, an answer Home had
+  already fetched could reach System first.
 - **Decided, as the brief said:** School and the Gym speak as "I" and keep doing so.
 
 ## How to try it on your phone

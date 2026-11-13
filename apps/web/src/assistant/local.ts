@@ -370,6 +370,11 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
   video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   gamestudio: async (text, opts) => packAnswer(await gameTurn(text), opts),
+  // [planlane] each screen's own turn (features/<screen>/turn.ts): done on the phone and said in one line; null lets the next table try
+  planagenda: async (text, opts) => { const r = await import('../features/agenda/turn').then((m) => m.agendaTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planradio: async (text, opts) => { const r = await import('../features/radio/turn').then((m) => m.radioTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planmarkets: async (text, opts) => { const r = await import('../features/markets/turn').then((m) => m.marketsTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planbrief: async (text, opts) => { const r = await import('../features/brief/turn').then((m) => m.briefTurn(text)); return r ? packAnswer(r, opts) : false; },
   async openscreen(text, opts) {
     const s = screenAsked(text);
     if (!s || !(await import('../shell/tabs')).go(s.tab)) return false;

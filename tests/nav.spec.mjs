@@ -314,7 +314,7 @@ if (P.on !== 'Training' || !visible(P, /^NIGHT SCHOOL/)) problems.push(`[system]
 // ===================================================================== sections: AGENDA
 await show(page, 'agenda', 2000);
 P = await pills(page, 'agenda');
-if (!P.shown || P.labels.join(',') !== 'Diary,Reminders,Spending,Calendars') problems.push(`[agenda] the pills read "${P.labels.join(', ')}"`);
+if (!P.shown || P.labels.join(',') !== 'Diary,To-do,Reminders,Spending,Calendars') problems.push(`[agenda] the pills read "${P.labels.join(', ')}"`);
 if (P.on !== 'Diary') problems.push(`[agenda] opens on "${P.on}" (want Diary: each screen remembers its own pill)`);
 if (!visible(P, /^DIARY/) || !hiddenIn(P, /^(REMINDERS|NOTIFICATIONS|SPENDING|CALENDARS)/)) problems.push(`[agenda] Diary does not show the diary alone: ${JSON.stringify(P.panels)}`);
 if (await page.locator('#pg-agenda .swap').isVisible().catch(() => false)) problems.push('[agenda] the old two-sides switch is still shown beside the pills');

@@ -379,10 +379,13 @@ for (const W of [440, 390]) {
     // 10. the training report's AVERAGE says what it averages (the test score, old brain → new)
     check(SYS.averageLine('62%', '71%') === 'test score 62% on the old brain → 71% on the new', `${T} [10 the average] reads "${SYS.averageLine('62%', '71%')}"`);
     // 3. a wait said on each page that fetches (the brain slowed down)
-    const slow = await open({ W, hash: 'core' });
-    for (const path of ['**/api/status', '**/api/training', '**/api/backup']) await slow.page.route(path, async (r) => { await new Promise((x) => setTimeout(x, 2500)); r.fallback(); });
+    // (the brain slowed from the first request, so no answer fetched while Home opened is reused by System)
+    const slow = await open({ W, hash: 'core', pre: async (p) => { for (const path of ['**/api/status', '**/api/training', '**/api/backup']) await p.route(path, async (r) => { await new Promise((x) => setTimeout(x, 2500)); r.fallback(); }); } });
     await slow.page.evaluate(() => (location.hash = 'system'));
-    await slow.page.waitForTimeout(1300);
+    // (on the real condition, never a fixed sleep: the page built, then its three waits said together while the slowed answers are still out)
+    await slow.page.waitForSelector('#pg-system .pn', { state: 'attached', timeout: 15000 }).catch(() => undefined);
+    const want3 = [SYS.WAIT.keys, SYS.WAIT.training, SYS.WAIT.backups];
+    await until(slow.page, (w) => { const said = [...document.querySelectorAll('#pg-system .waiting')].map((x) => x.dataset.wait); return w.every((x) => said.includes(x)); }, want3, 2400);
     const waits = await slow.page.evaluate(() => [...document.querySelectorAll('#pg-system .waiting')].map((x) => x.dataset.wait));
     for (const w of [SYS.WAIT.keys, SYS.WAIT.training, SYS.WAIT.backups]) check(waits.includes(w), `${T} [3 a wait said] no "${w}" while the page waits (saw ${JSON.stringify(waits)})`);
     await slow.ctx.close();

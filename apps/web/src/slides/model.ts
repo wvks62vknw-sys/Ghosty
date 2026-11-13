@@ -62,6 +62,8 @@ export interface Slide {
   notes: string;
   transition: Transition;
   builds: Build[];
+  /** Skipped in the talk (kept in the deck, its place and its number kept; PowerPoint's hidden slide). */
+  skip?: boolean;
 }
 export interface Master {
   align: 'left' | 'center';

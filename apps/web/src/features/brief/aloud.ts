@@ -11,8 +11,13 @@ import { whenQuiet } from '../../assistant/notices';
 import { speak } from '../../assistant/voice';
 import { news } from '../../data/news';
 import { WMO, temp, weather, type WeatherData } from '../../data/weather';
+import { coins, fresh, money as moneyOf } from '../../data/markets';
+import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
+import { passagesOf } from '../../library/local';
 import { settings } from '../../state/app';
-import { commuteLine, diarySentence, isoDay, leaveFor, rainClause, rainWhen, spoken, stillToday, summary, type Facts } from './day';
+import { loadTodos } from '../agenda/todo';
+import { dueToday } from '../agenda/todowords';
+import { commuteLine, diarySentence, digestDay, isoDay, leaveFor, marketsClause, rainClause, rainWhen, spoken, stillToday, summary, todoClause, tomorrowClause, tonight, type Facts } from './day';
 
 /** The day (it starts at 05:00, not midnight: a night owl's 02:00 is still yesterday's Brief) last read aloud. */
 export const ALOUD_FLAG = 'ghosty.brief.aloud';
@@ -31,19 +36,53 @@ export function mayRead(o: { on: boolean; voiceOn: boolean; hidden: boolean; fla
 const KEPT = 'ghosty.brief.wx';
 const within = <T>(p: Promise<T>, ms: number): Promise<T | null> => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null);
 
-/** The weather facts as the Brief says them (the weather feed's, else the morning's kept copy); {} when there is none. */
+/**
+ * The weather facts as the Brief says them (the weather feed's, else the morning's kept copy); {} when there is none. From 18:00
+ * (planlane:brief) the day's range has gone by: tonight's rain, then tomorrow's range and rain instead.
+ */
 export function weatherFacts(w: WeatherData | null, spokenToo: boolean, hour: number): Facts {
   const f: Facts = {};
   if (!w) return f;
   const d = w.daily;
+  const evening = hour >= 18;
   if (spokenToo) f.now = `${WMO(w.current.weather_code)}, ${temp(w.current.temperature_2m)}`;
-  if (d.temperature_2m_min.length) f.range = `${temp(d.temperature_2m_min[0]!).replace(/°[CF]$/, '')} to ${temp(d.temperature_2m_max[0]!)}`;
-  f.rain = rainClause(rainWhen(w.hourly.precipitation_probability, hour).line);
+  if (!evening && d.temperature_2m_min.length) f.range = `${temp(d.temperature_2m_min[0]!).replace(/°[CF]$/, '')} to ${temp(d.temperature_2m_max[0]!)}`;
+  const rain = rainClause(rainWhen(w.hourly.precipitation_probability, hour).line);
+  f.rain = evening ? tonight(rain) : rain;
+  if (evening && d.temperature_2m_min.length > 1) f.tomorrow = tomorrowClause(temp(d.temperature_2m_min[1]!), temp(d.temperature_2m_max[1]!), w.hourly.precipitation_probability);
   return f;
+}
+
+/** [planlane:brief] His to-dos due today or late, as the day's sentence says them (kept on this phone; '' with none). */
+export function todoFacts(now: number): string {
+  try {
+    return todoClause(dueToday(loadTodos(), now), isoDay(new Date(now)));
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * The Brief's top headlines, as the page shows them: the BBC's live feed, else this morning's digest (the phone's own copy of the
+ * library) when the feed can't be reached. An older day's digest is not said as today's news: none then.
+ */
+export async function briefHeadlines(now = Date.now(), n = 3): Promise<string[]> {
+  if (news.data?.length) return news.data.slice(0, n).map((x) => x.title);
+  const d = await within(passagesOf('m-notes_daily').then(digestDay), 3000);
+  return d && d.day === isoDay(new Date(now)) ? d.headlines.slice(0, n).map((x) => x.title) : [];
 }
 
 /** The Brief's spoken line, put together from what the phone can reach in a few seconds (the page itself need not be open). */
 export async function briefLine(now = Date.now()): Promise<string> {
+  const [f, heads] = await Promise.all([briefFacts(now, true), briefHeadlines(now)]);
+  return spoken(new Date(now), summary(f), heads);
+}
+
+/**
+ * The Brief's facts, from the same sources the page reads, each given a few seconds: the weather, the diary, his to-dos, the drive
+ * and its fuel, the money near a saved place, and the markets only from the Markets screen's own fresh prices (nothing fetched).
+ */
+export async function briefFacts(now = Date.now(), spokenToo = false): Promise<Facts> {
   const kept = (): WeatherData | null => {
     try {
       const k = JSON.parse(localStorage.getItem(KEPT) ?? 'null') as { at: number; w: WeatherData } | null;
@@ -54,22 +93,33 @@ export async function briefLine(now = Date.now()): Promise<string> {
   };
   weather.start();
   news.start();
-  const [w, mind, places] = await Promise.all([
+  const [w, mind, places, spend] = await Promise.all([
     within(weather.data ? Promise.resolve(weather.data) : weather.refresh(), 4500).then((x) => x ?? kept()),
     within(brain.mind(), 7000),
     within(brain.places().then((r) => r.places ?? []), 7000),
+    within(brain.spending(), 7000),
   ]);
-  const f = weatherFacts(w, true, new Date(now).getHours());
+  const f = weatherFacts(w, spokenToo, new Date(now).getHours());
   const items = mind ? stillToday(mind.today, now) : null;
-  if (items) f.diary = diarySentence(items);
+  if (items) f.diary = new Date(now).getHours() >= 18 ? tonight(diarySentence(items)) : diarySentence(items);
+  const todo = todoFacts(now);
+  if (todo) f.todo = todo;
   const home = places?.find((p) => p.id === 'home');
   const work = places?.find((p) => p.id === 'work');
   if (home && work && navigator.onLine !== false) {
     const c = await within(brain.commute(home, work), 7000);
     if (c) f.commute = commuteLine(c, items ? leaveFor(items, { label: work.label, query: work.query, address: work.address }, c.minutes, now) : null);
+    const fuel = c ? fuelEstimate(c.km) : null;
+    if (fuel) f.cost = fuel.line;
   }
-  const heads = (news.data ?? []).slice(0, 3).map((x) => x.title);
-  return spoken(new Date(now), summary(f), heads);
+  // (the page's paintMoney: this month's statement only, the first place it names)
+  const d = new Date(now);
+  const near = spend?.kept && spend.month === `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` && places ? nearPlaces(spend.rows, places)[0] : undefined;
+  if (near) f.money = nearShort(near);
+  const coin = fresh(coins) ? coins.data?.[0] : undefined;
+  const markets = coin ? marketsClause({ name: coin.name, price: moneyOf(coin.price, coin.cur), change: coin.change }) : '';
+  if (markets) f.markets = markets;
+  return f;
 }
 
 /**

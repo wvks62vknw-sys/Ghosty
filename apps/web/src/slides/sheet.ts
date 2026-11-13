@@ -4,7 +4,8 @@
  * reply with headings), blank, or opened from a .pptx; the deck as a vertical film of slides, a tap opening one to edit: its words in
  * a line above it (never a caret on the slide), its layout from a sheet of nine, a picture, a chart from typed numbers or the
  * Stage's last chart, a table, a shape or two, notes, a transition and the builds; the theme from one sheet repainting every slide;
- * reorder by press and drag or MOVE UP and MOVE DOWN; DUPLICATE; DELETE with UNDO; PRESENT with the notes in his hand; EXPORT as
+ * reorder by press and drag or MOVE UP and MOVE DOWN; DUPLICATE; DELETE with UNDO; SKIP IN THE TALK; FIND AND REPLACE in every slide;
+ * PRESENT with the notes in his hand (a skipped slide stepped over); EXPORT as
  * .pptx, PDF (with notes pages if he asks) and one slide as a PNG, the size said; autosave said once; reopened where he was.
  * Everything is on the phone; nothing is sent.
  */
@@ -43,7 +44,9 @@ export const slidesState = {
   view: 'list' as 'list' | 'deck' | 'slide' | 'present',
   title: '',
   theme: '',
-  slides: [] as { id: string; layout: string; title: string; body: string[]; body2: string[]; notes: string; media: string; shapes: number; builds: number; transition: string }[],
+  slides: [] as { id: string; layout: string; title: string; body: string[]; body2: string[]; notes: string; media: string; shapes: number; builds: number; transition: string; skip: boolean }[],
+  /** FIND AND REPLACE across the deck: what was last found (the slides it is on) and how many words were changed. */
+  found: { text: '', slides: [] as number[], changed: 0 },
   at: -1,
   words: 0,
   kept: 0,
@@ -58,6 +61,8 @@ export const slidesState = {
   json: '',
   proposals: [] as { line: string; old: string; now: string }[],
   present: { on: false, i: 0, step: 0, builds: 0, of: 0, notes: '', next: '', elapsed: 0, transition: '' },
+  /** The slides the last talk showed, in order (skipped ones left out). */
+  shown: [] as number[],
 };
 let current: { close(): void } | null = null;
 const still = (): boolean => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.dataset.motion === 'calm';
@@ -244,7 +249,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     slidesState.theme = d.palette ? 'file' : d.theme;
     slidesState.words = deckWords(d);
     slidesState.slides = d.slides.map((s) => ({
-      id: s.id, layout: s.layout, title: textOf(s.title), body: s.body.map(textOf), body2: s.body2.map(textOf), notes: s.notes, media: s.media?.k ?? '', shapes: s.shapes.length, builds: s.builds.length, transition: s.transition,
+      id: s.id, layout: s.layout, title: textOf(s.title), body: s.body.map(textOf), body2: s.body2.map(textOf), notes: s.notes, media: s.media?.k ?? '', shapes: s.shapes.length, builds: s.builds.length, transition: s.transition, skip: !!s.skip,
     }));
     slidesState.at = d.slides.findIndex((s) => s.id === curId);
     slidesState.undo = hist.depth;
@@ -493,6 +498,64 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       ));
   };
 
+  // ---- FIND AND REPLACE across the deck (Keynote's): titles, words, both columns, tables and notes; a word split by bold is found in each piece
+  const findPanel = (): HTMLElement => {
+    const findIn = h('input.slfind', { type: 'search', 'aria-label': 'Find in every slide', placeholder: 'Find', autocomplete: 'off', enterKeyHint: 'search' }) as HTMLInputElement;
+    const replIn = h('input.slfind', { type: 'text', 'aria-label': 'Replace with', placeholder: 'Replace with', autocomplete: 'off', enterKeyHint: 'done' }) as HTMLInputElement;
+    const hits = h('div.slhits', { 'aria-live': 'polite' });
+    findIn.value = slidesState.found.text;
+    const pattern = (): RegExp | null => {
+      const t = findIn.value.trim();
+      return t ? new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi') : null;
+    };
+    /** Every piece of words on a slide, through `f` (which counts and may change them). */
+    const through = (sl: Slide, f: (t: string) => string): Slide => {
+      const runs = (rs: Run[]): Run[] => rs.map((r) => {
+        const t = f(r.text);
+        return t === r.text ? r : { ...r, text: t };
+      });
+      const blocks = (bs: Block[]): Block[] => bs.map((b) => ({ ...b, runs: runs(b.runs), ...(b.rows ? { rows: b.rows.map((row) => row.map(runs)) } : {}) }));
+      const media = sl.media?.k === 'table' ? { ...sl.media, table: blocks([sl.media.table])[0]! } : sl.media;
+      return { ...sl, title: blocks([sl.title])[0]!, body: blocks(sl.body), body2: blocks(sl.body2), notes: f(sl.notes), ...(media ? { media } : {}) };
+    };
+    const find = (): void => {
+      flush();
+      const re = pattern();
+      clear(hits);
+      if (!re) return say('Say what to find first.');
+      const on: number[] = [];
+      let n = 0;
+      deck().slides.forEach((sl, i) => {
+        let here = 0;
+        through(sl, (t) => ((here += t.match(re)?.length ?? 0), t));
+        if (here) on.push(i + 1);
+        n += here;
+      });
+      slidesState.found = { text: findIn.value.trim(), slides: on, changed: 0 };
+      if (!n) return say(`“${findIn.value.trim()}” is not on any slide.`);
+      say(`Found ${n} time${n === 1 ? '' : 's'}, on ${on.length === 1 ? `slide ${on[0]}` : `${on.length} slides`}. Tap one to go to it.`);
+      hits.append(...on.slice(0, 24).map((k) => key(`SLIDE ${k}`, () => showSlide(deck().slides[k - 1]!.id), '', `Go to slide ${k}`)));
+    };
+    const replaceAll = (): void => {
+      flush();
+      const re = pattern();
+      if (!re) return say('Say what to find first.');
+      let n = 0;
+      const next = { ...deck(), slides: deck().slides.map((sl) => through(sl, (t) => t.replace(re, () => (n++, replIn.value)))) };
+      clear(hits);
+      if (!n) return say(`“${findIn.value.trim()}” is not on any slide.`);
+      slidesState.found = { text: findIn.value.trim(), slides: [], changed: n };
+      change(next);
+      say(`Changed ${n} time${n === 1 ? '' : 's'}, in titles, words and notes. UNDO puts them back.`);
+    };
+    findIn.addEventListener('keydown', (e) => e.key === 'Enter' && find());
+    return h('div.slpanel.slfindp',
+      h('small.slh', 'FIND AND REPLACE IN EVERY SLIDE'),
+      h('div.slrow', findIn, key('FIND', find, 'on', 'Find it')),
+      h('div.slrow', replIn, key('REPLACE ALL', replaceAll, '', 'Replace every one')),
+      hits);
+  };
+
   const exportPanel = (): HTMLElement => {
     const out = h('div.slouts', { 'aria-live': 'polite' });
     let notes = false;
@@ -542,7 +605,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       ),
       notesKey,
       out,
-      h('p.slnote', 'In the PowerPoint file a chart is its numbers, a table on the slide; animations and transitions are not carried. In the PDF and the picture each slide is drawn as a picture, the chart as it looks here.'),
+      h('p.slnote', 'In the PowerPoint file a chart is its numbers, a table on the slide; transitions and skipped slides go with it, the builds do not. In the PDF and the picture each slide is drawn as a picture, the chart as it looks here.'),
       sizeNote,
     );
   };
@@ -564,6 +627,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       new: () => h('div.slpanel', h('small.slh', 'PICK A LAYOUT'), layoutGrid('', addSlide)),
       theme: themePanel,
       export: exportPanel,
+      find: findPanel,
     };
     const open = (name: string): void => {
       shown?.remove();
@@ -579,12 +643,14 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       key('NEW SLIDE', () => open('new')),
       key('THEME', () => open('theme')),
       key('EXPORT', () => open('export')),
+      key('FIND', () => open('find'), '', 'Find and replace in every slide'),
       key('UNDO', doUndo),
       key('REDO', doRedo),
     );
     const film = h('div.slfilm', { role: 'list', 'aria-label': 'The slides, in order' });
     d.slides.forEach((s, i) => {
-      const c = h('button.slcard', { type: 'button', role: 'listitem', 'aria-label': `Slide ${i + 1}: ${slideName(s, i + 1)}. Tap to edit it; press and hold to move it.`, dataset: { id: s.id, n: String(i + 1) } }, thumb(s, i), h('span.slcap', h('b', String(i + 1)), h('span', slideName(s, i + 1))));
+      const c = h('button.slcard', { type: 'button', role: 'listitem', 'aria-label': `Slide ${i + 1}${s.skip ? ', skipped in the talk' : ''}: ${slideName(s, i + 1)}. Tap to edit it; press and hold to move it.`, dataset: { id: s.id, n: String(i + 1) } }, thumb(s, i), h('span.slcap', h('b', String(i + 1)), h('span', slideName(s, i + 1)), s.skip ? h('small.slskipped', 'SKIPPED') : ''));
+      if (s.skip) c.classList.add('skip');
       wireDrag(c, i);
       film.append(c);
     });
@@ -1232,11 +1298,28 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
           showSlide(curId);
           undoBar(`Slide ${at + 1} deleted.`);
         })),
+      h('div.slrow', (() => {
+        const b = key(s.skip ? 'SHOW IN THE TALK' : 'SKIP IN THE TALK', () => {
+          flush();
+          const dd = deck();
+          const on = !slide().skip;
+          if (on && dd.slides.filter((x) => !x.skip).length < 2) return say('The talk needs one slide at least. Show another first.');
+          change(withSlide(dd, curId, (x) => {
+            const { skip: _, ...rest } = x;
+            return on ? { ...rest, skip: true } : rest;
+          }), 'none');
+          b.textContent = on ? 'SHOW IN THE TALK' : 'SKIP IN THE TALK';
+          b.setAttribute('aria-pressed', String(on));
+          say(on ? `Slide ${indexOf(deck(), curId) + 1} is skipped in the talk; it stays in the deck and the PowerPoint file. UNDO shows it again.` : `Slide ${indexOf(deck(), curId) + 1} is in the talk again.`);
+        }, '', 'Skip this slide in the talk');
+        b.setAttribute('aria-pressed', String(!!s.skip));
+        return b;
+      })()),
       h('small.slh', 'HOW IT COMES IN'),
       trans,
       h('small.slh', 'ON A TAP IN THE TALK'),
       builds,
-      h('p.slnote', 'Transitions and builds show in the talk. The PowerPoint file does not carry them.'),
+      h('p.slnote', 'Transitions and builds show in the talk. The PowerPoint file carries the transition, not the builds.'),
     );
   }
 
@@ -1297,8 +1380,17 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     stopPresent();
     const d = deck();
     if (!d.slides.length) return;
+    // a skipped slide is left out of the talk (from a skipped one, the talk starts at the next shown one)
+    const shownAt = (k: number, dir: 1 | -1): number => {
+      for (let j = k; j >= 0 && j < d.slides.length; j += dir) if (!d.slides[j]!.skip) return j;
+      return -1;
+    };
+    let start = shownAt(Math.max(0, Math.min(d.slides.length - 1, from)), 1);
+    if (start < 0) start = shownAt(d.slides.length - 1, -1);
+    if (start < 0) return say('Every slide is skipped. Show one in the talk first (SLIDE, then SHOW IN THE TALK).');
     slidesState.view = 'present';
-    let i = Math.max(0, Math.min(d.slides.length - 1, from));
+    slidesState.shown = [start + 1];
+    let i = start;
     let step = 0;
     let ended = false;
     const t0 = Date.now();
@@ -1340,12 +1432,14 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       }
       reveal(fresh);
       count.textContent = `${i + 1} of ${d.slides.length}`;
-      const nx = d.slides[i + 1];
-      next.textContent = ended ? 'THE END OF THE DECK' : nx ? `NEXT: ${slideName(nx, i + 2)}` : step < s.builds.length ? `NEXT: ${s.builds.length - step} more on this slide` : 'THIS IS THE LAST SLIDE';
+      const nx = d.slides[shownAt(i + 1, 1)];
+      const ni = nx ? indexOf(d, nx.id) : -1;
+      next.textContent = ended ? 'THE END OF THE DECK' : nx ? `NEXT: ${slideName(nx, ni + 1)}` : step < s.builds.length ? `NEXT: ${s.builds.length - step} more on this slide` : 'THIS IS THE LAST SLIDE';
       notes.textContent = s.notes.trim() || 'No notes on this slide.';
       notes.classList.toggle('none', !s.notes.trim());
       nextKey.disabled = ended;
-      backKey.disabled = i === 0 && step === 0 && !ended;
+      backKey.disabled = shownAt(i - 1, -1) < 0 && step === 0 && !ended;
+      if (slidesState.shown[slidesState.shown.length - 1] !== i + 1) slidesState.shown = [...slidesState.shown, i + 1];
       slidesState.present = { ...slidesState.present, on: true, i, step, builds: s.builds.length, of: d.slides.length, notes: s.notes, next: next.textContent, elapsed: Math.round((Date.now() - t0) / 1000) };
     };
     function go(dir: 1 | -1): void {
@@ -1355,8 +1449,8 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
         if (step < s.builds.length) {
           step++;
           paint(true, false);
-        } else if (i < d.slides.length - 1) {
-          i++;
+        } else if (shownAt(i + 1, 1) >= 0) {
+          i = shownAt(i + 1, 1);
           step = 0;
           paint(false, true);
         } else {
@@ -1370,8 +1464,8 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       } else if (step > 0) {
         step--;
         paint(false, false);
-      } else if (i > 0) {
-        i--;
+      } else if (shownAt(i - 1, -1) >= 0) {
+        i = shownAt(i - 1, -1);
         step = d.slides[i]!.builds.length;
         paint(false, true);
       }
