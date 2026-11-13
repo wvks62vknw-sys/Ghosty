@@ -340,10 +340,15 @@ function carView(): HTMLElement {
   void run('parked', {}).then((r) => {
     done();
     if (r.failed) return void said(status, r);
-    const kept = (r.data as { parked?: unknown } | undefined)?.parked;
+    const kept = (r.data as { parked?: { label?: string; lat?: number; lon?: number; until?: number } } | undefined)?.parked;
     if (!kept) return idle();
     outsideState.car = r.text;
-    slot.replaceChildren(h('div.pkperson', { role: 'group', 'aria-label': 'Where the car is' }, h('b', 'Your car'), h('span.pklab', r.text.replace(/^The car:\s*/i, ''))));
+    // [bodylane] the time left on the ticket, and the way back to it in his maps app (his tap; nothing is sent from here)
+    const left = typeof kept.until === 'number' ? Math.round((kept.until - Date.now()) / 60_000) : null;
+    const leftWords = left == null ? '' : left > 0 ? `${left >= 60 ? `${Math.floor(left / 60)} h ${left % 60} min` : `${left} min`} left on the ticket.` : 'The paid time has run out.';
+    const dest = typeof kept.lat === 'number' && typeof kept.lon === 'number' ? `${kept.lat.toFixed(5)},${kept.lon.toFixed(5)}` : kept.label ?? '';
+    const back = dest ? named(button('Walk me back to it', () => void window.open(`https://maps.apple.com/?daddr=${encodeURIComponent(dest)}&dirflg=w`, '_blank', 'noopener')), 'Walk me back to the car in Maps') : null;
+    slot.replaceChildren(h('div.pkperson', { role: 'group', 'aria-label': 'Where the car is' }, h('b', 'Your car'), h('span.pklab', r.text.replace(/^The car:\s*/i, '')), leftWords ? h('span.pklab', { dataset: { left: String(left) } }, leftWords) : null, back ? h('div.pkrow', back) : null));
   });
   return el;
 }
