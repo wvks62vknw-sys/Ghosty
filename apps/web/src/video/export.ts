@@ -436,16 +436,20 @@ async function viaRecorder(p: Project, o: ExportOptions, c: Ctx & { mime: string
   });
   const playedAt = performance.now();
   player.play();
-  // [ci] The file runs from the recorder's start to the last picture that reached it. That last picture is drawn at the timeline's
-  // own length after the start (not when the player's end comes round, which on a slow GPU can be a third of a second either side),
-  // and the recorder stops only once it has had time to take it: two frames and at least 150 ms. Stopped 30 ms after that drawing,
-  // as it was, a phone (or CI's software GPU) drawing three pictures a second had not yet handed it over, and the file ended on an
-  // earlier picture, short of the timeline (FINAL-CI 2).
+  // [ci] The file ends at the last picture the recorder's encoder has handed on when it is stopped, and an encoder hands a picture on
+  // only once the next one has come in: the last picture drawn is lost. With the player drawing three pictures a second (CI's
+  // software GPU, or a slow phone) that cost the file up to a third of a second (54797 ms against 54902: FINAL-CI 2). So the timeline's
+  // last picture is drawn at the timeline's own length after the start, and the same picture twice more, 40 ms apart, to push it
+  // through; where nothing is held back, the file runs at most 80 ms over. Then two frames and 150 ms for it to arrive.
   const atEnd = new Promise<void>((ok) => setTimeout(ok, Math.max(0, playedAt + c.dur - performance.now())));
   await Promise.race([ended, atEnd]);
   player.pause();
   player.t = Math.min(player.t, Math.max(0, c.dur - 1));
-  player.draw();
+  for (let k = 0; k < 3; k++) {
+    await new Promise((r) => setTimeout(r, Math.max(0, playedAt + c.dur + k * 40 - performance.now())));
+    player.draw();
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+  }
   const drawnAt = performance.now();
   for (let k = 0; k < 2; k++) await new Promise((r) => requestAnimationFrame(() => r(undefined)));
   await new Promise((r) => setTimeout(r, Math.max(0, drawnAt + 150 - performance.now())));
