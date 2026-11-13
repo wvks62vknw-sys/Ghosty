@@ -91,7 +91,7 @@ export const highwaysTools: Tool[] = [
         road: { type: 'string', description: 'e.g. M6, M42, A38(M), M6 Toll' },
         lat: { type: 'number' },
         lon: { type: 'number' },
-        radius_km: { type: 'number', description: 'default 15, max 60' },
+        radius_km: { type: 'number', description: '15 near a place, else 60 (max)' },
       },
     },
     risk: 'auto',
