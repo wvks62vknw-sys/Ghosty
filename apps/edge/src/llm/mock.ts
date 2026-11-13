@@ -238,6 +238,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
           : { kind: 'none', species: '', common: '', sure: "can't tell", tell: '' };
     return { message: { role: 'assistant', content: '```json\n' + JSON.stringify(reply) + '\n```' }, model };
   }
+  // The Lens's place or artwork (features/lens/cards.ts): a clock tower is Big Ben, "probably"
+  if (/^LENS NAME A PLACE/.test(lensAsk) && imagesIn(last.content)) return { message: { role: 'assistant', content: JSON.stringify({ name: 'Big Ben', sure: 'probably' }) }, model };
   if (/^LENS WHAT'S IN IT/.test(lensAsk) && imagesIn(last.content)) {
     const meal = { foods: [{ name: 'fish in batter', grams: 150, packaged: false }, { name: 'chips', grams: 150, packaged: false }, { name: 'mushy peas', grams: 80, packaged: false }], sure: 'fairly sure' };
     return { message: { role: 'assistant', content: JSON.stringify(meal) }, model };

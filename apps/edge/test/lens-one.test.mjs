@@ -431,3 +431,57 @@ test('the Lens takes "keep it", "find this part" and "who is that" by their word
   assert.equal(F.lensWord('find this part'), 'part');
   assert.equal(F.lensWord('who is that'), 'who');
 });
+
+// ---- FINAL-LENS: the Lens knows its job (vision/jobs.ts, through frame.ts): the job for what is in view, the things in a read text
+// he can act on, and a sum worked line by line. Never a guess: what is not a sum, a number or a date is left alone.
+test('the job is decided from the frame: a face first, a shop barcode is a product, a letter, a page, text, a place, a living thing, a thing', () => {
+  assert.deepEqual(F.jobsOf({}), ['nothing']);
+  assert.equal(F.jobOf({ stranger: true, text: 'hello there' }), 'stranger');
+  assert.equal(F.jobOf({ known: true }), 'known');
+  assert.equal(F.jobOf({ code: { text: '5000159484695', format: 'ean_13' } }), 'product');
+  assert.equal(F.jobOf({ code: { text: 'https://example.org/menu', format: 'qr_code' } }), 'code');
+  assert.equal(F.jobOf({ code: { text: '5000159484695', format: 'qr_code' } }), 'code', 'digits in a QR code are no shop barcode');
+  assert.equal(F.jobOf({ text: 'Dear Sir', letter: true }), 'letter');
+  const page = Array.from({ length: 60 }, (_, i) => `word${i}`).join(' ');
+  assert.equal(F.jobOf({ text: page, textShare: 0.7 }), 'document');
+  assert.equal(F.jobOf({ text: page, textShare: 0.2 }), 'text', 'a long text small in the picture is read, not scanned');
+  assert.equal(F.jobOf({ thing: { label: 'robin', score: 0.7 } }), 'living');
+  assert.equal(F.jobOf({ thing: { label: 'potted plant', score: 0.7 } }), 'living');
+  assert.equal(F.jobOf({ thing: { label: 'clock tower', score: 0.6 } }), 'place');
+  assert.equal(F.jobOf({ thing: { label: 'painting', score: 0.6 } }), 'place');
+  assert.equal(F.jobOf({ thing: { label: 'mug', score: 0.8 } }), 'thing');
+  assert.deepEqual(F.jobsOf({ code: { text: '5000159484695', format: 'ean_13' }, thing: { label: 'mug', score: 0.8 } }), ['product', 'thing']);
+  assert.equal(F.sureWords(0.823), '82% sure');
+  assert.equal(F.sureWords(1), '99% sure', 'nothing a phone camera sees is certain');
+  assert.equal(F.ean({ text: '96385074' }), '96385074');
+  assert.equal(F.ean({ text: '12345' }), null);
+});
+
+test('a read text gives the things he can act on, in the order they stand: a date, a phone number, a link, an address, an email, a sum', () => {
+  const text = "Dr Patel's surgery\nYour appointment is on 4 December 2026 at 10:30.\nCall 0121 496 0123 or visit www.example-surgery.nhs.uk\n12 High Street\nBirmingham B1 1AA\nEmail: reception@example.org\n12 + 7 × 3 =";
+  const acts = F.textActs(text, '2026-11-13');
+  assert.deepEqual(acts.map((a) => a.kind), ['date', 'phone', 'link', 'address', 'email', 'sum']);
+  assert.equal(acts[0].value, '2026-12-04');
+  assert.equal(acts[1].value, '01214960123');
+  assert.equal(acts[2].value, 'https://www.example-surgery.nhs.uk');
+  assert.equal(acts[3].value, '12 High Street, Birmingham B1 1AA');
+  assert.equal(acts[4].value, 'reception@example.org');
+  assert.equal(acts[5].value, '33');
+  assert.deepEqual(acts[5].steps, ['7 × 3 = 21', '12 + 21 = 33']);
+  assert.equal(F.telOf('+44 (0)121 496 0123'), '+441214960123');
+  assert.equal(F.telOf('12345'), null);
+  assert.deepEqual(F.textActs('Opening hours 9:00 to 17:30, closed 25/12/2026', '2026-11-13').map((a) => a.kind), ['date'], 'a time and a date are not sums');
+  assert.deepEqual(F.textActs('SORTIE DE SECOURS', '2026-11-13'), [], 'a sign with nothing to act on gives nothing');
+});
+
+test('a sum is worked the way it is taught: brackets, powers, × and ÷, + and −; an equation and a percent too; anything else is no sum', () => {
+  assert.deepEqual(F.solve('(4 + 6) ÷ 2 - 1'), { answer: '4', steps: ['4 + 6 = 10', '10 ÷ 2 = 5', '5 − 1 = 4'] });
+  assert.deepEqual(F.solve('3^2 + 4^2'), { answer: '25', steps: ['3 ^ 2 = 9', '4 ^ 2 = 16', '9 + 16 = 25'] });
+  assert.deepEqual(F.solve('2x + 3 = 11'), { answer: 'x = 4', steps: ['2x = 11 − 3 = 8', 'x = 8 ÷ 2 = 4'] });
+  assert.deepEqual(F.solve('15% of 80'), { answer: '12', steps: ['15% = 15 ÷ 100 = 0.15', '0.15 × 80 = 12'] });
+  assert.equal(F.solve('7 x 6 =').answer, '42');
+  assert.equal(F.solve('1 / 3').answer, '0.333333');
+  assert.equal(F.solve('7 / 0'), null, 'no answer is made up for a division by nought');
+  assert.equal(F.solve('hello world'), null);
+  assert.equal(F.solve('42'), null, 'a lone number is no sum');
+});

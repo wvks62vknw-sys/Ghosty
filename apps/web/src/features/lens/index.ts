@@ -40,6 +40,7 @@ import type { LensCard } from './living';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
 import { createOneMode, oneFeed, oneSelected, oneState } from './one';
+import { cardsState } from './cards';
 import { createPeopleMode, peopleState } from './people'; // [guardian] PEOPLE: his face and the people he introduces (OWNER-ISSUES 55, 56)
 import { createShapesMode, shapesState } from '../../hands/mode'; // [restc] SHAPES: hand shapes to blueprints
 import { faces } from '../../vision/faces';
@@ -201,6 +202,8 @@ function expose(): void {
     w.__ghosty.lens = lensState;
     // the one view's tags, its budgets and its mark, for the specs
     w.__ghosty.one = oneState;
+    // the cards the one view draws for each job it understands (cards.ts), for the specs
+    w.__ghosty.cards = cardsState;
     // a fixture feed of tags for the specs, only under a test runner
     if (navigator.webdriver) w.__ghosty.oneFeed = oneFeed;
     // PEOPLE's state and the face engine (whose only way in is the live camera), for the specs
