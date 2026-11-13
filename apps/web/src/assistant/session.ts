@@ -76,7 +76,7 @@ export type Entry =
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
   /** [talk] `cool`: every model cooling down, said at once with the time the first is back (BRIEF-TALK-1A 5); `cool.ask`, when the
    *  phone's brain was awake: the question ASK MY PHONE answers there. */
-  | { kind: 'error'; text: string; ask?: string; cool?: { ask?: string } }
+  | { kind: 'error'; text: string; ask?: string; cool?: { ask?: string }; /** His words, when the send did not land: RETRY sends them again */ retry?: string }
   | { kind: 'link'; url: string; title: string }
   /** A plan design_home drew from the owner's words (features/core/homecard.ts): `id` is the kept plan's (features/space/home.ts). */
   | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number }
@@ -359,7 +359,7 @@ function handle(ev: ChatEvent): void {
     case 'error':
       vehicleTurn = false;
       // (the turn ends here: its tools still shown as running are settled by its stream, stream() below)
-      push({ kind: 'error', text: ev.message });
+      push({ kind: 'error', text: ev.message, ...(retryAsk ? { retry: retryAsk } : {}) });
       chat.set({ live: ev.message });
       // [talk] no model free at all, in a spoken turn: said aloud too, in one sentence with the time (BRIEF-TALK-1A 5)
       if (noModelError(ev.message) && spokenTurn && speakReplies && settings.get().speak) void speak(coolSaid(ev.message));
@@ -390,10 +390,13 @@ function handle(ev: ChatEvent): void {
 /**
  * `rescue`: a last try before the error is shown (the offline brain on the phone); true when it answered.
  */
+/** The words of the turn at work, for RETRY on an error card (a send that did not land). */
+let retryAsk = '';
 async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>, ask?: string): Promise<void> {
   // `ask`: a turn of the brain's, narrated from his words on (BRIEF-TALK-1A 3); without one, this phone's own work says its own.
   ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: ask === undefined ? 'thinking…' : askLine(ask) });
   const told = ask !== undefined ? narrateTurn(ask) : 0;
+  retryAsk = ask ?? '';
   // [talk] Streams can overlap (he spoke again while a turn was at work, or talked over an aside): each settles only its own
   // tools when it ends, and the screen stops being busy only when the last of them has ended.
   streams++;
@@ -414,7 +417,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       // answered on the phone
     } else if (e instanceof AuthError) {
       ui.set({ connected: false });
-      push({ kind: 'error', text: sayError(e, 'reach my brain') });
+      push({ kind: 'error', text: sayError(e, 'reach my brain'), ...(ask ? { retry: ask } : {}) });
       toast(sayError(e, 'reach the brain'), 'bad');
     } else {
       // No connection at all: answer from the library copy on this device.
@@ -428,7 +431,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
         if (speakReplies && settings.get().speak) void speak(answer.split('\n\n')[1] ?? answer, { owner: String(at), brief: true });
       } else {
         const msg = sayError(e, 'answer that');
-        push({ kind: 'error', text: msg });
+        push({ kind: 'error', text: msg, ...(ask ? { retry: ask } : {}) });
         toast(msg, 'bad');
       }
     }

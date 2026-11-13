@@ -9,7 +9,7 @@ export interface Headline {
 }
 
 export const NEWS_FEEDS: Record<string, [string, string]> = {
-  top: ['TOP', 'https://feeds.bbci.co.uk/news/rss.xml'],
+  top: ['TOP STORIES', 'https://feeds.bbci.co.uk/news/rss.xml'],
   world: ['WORLD', 'https://feeds.bbci.co.uk/news/world/rss.xml'],
   tech: ['TECH', 'https://feeds.bbci.co.uk/news/technology/rss.xml'],
   science: ['SCIENCE', 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml'],

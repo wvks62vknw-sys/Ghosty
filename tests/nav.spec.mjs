@@ -559,7 +559,7 @@ await ctx.close();
     await p.route('**/api/agenda?**', (r) => r.fulfill({ status: 503, json: { error: 'down' } }));
   },
 }));
-const PLAIN = { see: 'The world live, and the camera that understands it.', make: 'Build, take apart and plan real things.', learn: 'Courses and free games for you; the gym, school and a library for me.', plan: 'Your days, the markets, the world’s alerts and the radio.', life: 'Money, body, kitchen, people, work, creative, outside and home: the everyday, kept.' };
+const PLAIN = { see: 'The world live, and the camera that understands it.', make: 'Build, take apart and plan real things.', learn: 'Courses and free games for you, and the gym, school and library I learn from.', plan: 'Your days, the markets, the world’s alerts and the radio.', life: 'Money, body, kitchen, people, work, creative things, outside and home, all kept.' };
 for (const [a, want] of Object.entries(PLAIN)) {
   await show(page, `area-${a}`, 2500);
   const w = await page.$eval(`#pg-area-${a} .hubsub`, (e) => ({ text: e.textContent, personal: e.dataset.personal }));

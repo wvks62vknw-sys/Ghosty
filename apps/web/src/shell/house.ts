@@ -237,7 +237,10 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
       });
       return h(`section.planroom${r.key === 'home' ? '.wide' : ''}${lit(r) ? '.lit' : ''}` as 'section', { dataset: { room: r.key } }, title, ...r.things.map((t) => thingBtn(r, t, starred, recent)));
     });
-    return h('div#plan', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'The house: every room and the things in it' }, head, h('div.plangrid', ...rooms));
+    // what the amber dot means, said once on the plan (the stars and the clocks say theirs by their shape, and in each key's name for VoiceOver)
+    const dots = ROOMS.some((r) => r.things.some((t) => !!worksLine(t.id)));
+    const legend = dots ? h('p.planlegend.g-truth', { dataset: { case: 'keep' } }, h('i.ptdot', { 'aria-hidden': 'true' }), 'Amber: in the works') : null;
+    return h('div#plan', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'The house: every room and the things in it' }, head, legend, h('div.plangrid', ...rooms));
   };
   const open = () => {
     if (el || !(houseOn() || grownOn())) return;

@@ -88,10 +88,16 @@ export const briefTab: TabDef = {
       if (moneyWords) f.money = moneyWords;
       return f;
     };
+    let dayFailed = false;
     const paintSay = () => {
       const d = new Date();
       dateEl.textContent = `${greeting(d)} · ${dayName(d)}`;
-      say.textContent = summary(facts());
+      // (the line is never a blank: with nothing to say yet it says why, and what happens next)
+      const s = summary(facts());
+      /* state: brief.say empty */
+      say.textContent = s || (weather.status === 'NO FEED' && dayFailed ? 'I can’t reach the weather or your diary yet. This fills in when I can.' : '');
+      if (!s && say.textContent) say.dataset.state = 'empty';
+      else delete say.dataset.state;
     };
     // READ IT TO ME says the Brief aloud at once (no model: the greeting, the sentence, the top three headlines);
     // BRIEF ME asks Ghosty for a spoken briefing in the chat, handed the same facts so it needs no look-ups.
@@ -101,9 +107,11 @@ export const briefTab: TabDef = {
       if (reading) return void stopSpeaking();
       reading = true;
       b.textContent = 'STOP';
+      b.setAttribute('aria-label', 'Stop reading');
       void speak(spoken(new Date(), summary(facts(true)), topHeadlines())).finally(() => {
         reading = false;
         b.textContent = 'READ IT TO ME';
+        b.removeAttribute('aria-label');
       });
     }, 'brread on');
     const briefBtn = button('BRIEF ME', () => {
@@ -118,12 +126,16 @@ export const briefTab: TabDef = {
     const dp = panel('YOUR DAY', { cls: 'brday', grow: false });
     let dayItems: DayItem[] | null = null;
     const paintDay = async () => {
+      /* state: brief.day loading */
       if (dayItems === null) clear(dp.body, row(null, 'Checking your diary…', null));
       // (the one shared mind: the same picture of today the chat's context is made from)
       // (and his statements' nudges: a renewal this week, a price up, the month running hot, each said once: money/nudges.ts)
       const [mind, inbox, money] = await Promise.all([brain.mind().catch(() => null), brain.inbox().catch(() => null), brain.spending(undefined, isoDay(new Date())).catch(() => null)]);
       const items = mind ? stillToday(mind.today, Date.now()) : null;
+      dayFailed = !mind || !items;
       if (!mind || !items) {
+        /* state: brief.day error */
+        paintSay();
         dp.setStatus('CAN’T CHECK', 'mid');
         clear(dp.body, row(null, 'Your diary can’t be reached right now. It tries again when you next open the Brief.', null, { wrap: true }));
         return;
@@ -134,7 +146,8 @@ export const briefTab: TabDef = {
       const rows = dayItems.slice(0, 5).map((x) => row(x.when, x.title, x.where ?? null, { wrap: true, onClick: open }));
       if (dayItems.length > 5) rows.push(row(null, `${dayItems.length - 5} more today`, '›', { onClick: open }));
       if (!dayItems.length) {
-        rows.push(row(null, 'Nothing in your diary for the rest of today', null, { wrap: true, onClick: open }));
+        /* state: brief.day empty */
+        rows.push(row(null, 'Nothing in your diary for the rest of today. Tell me one thing and I’ll keep it.', null, { wrap: true, onClick: open }));
         const next = mind.today.next;
         if (next) rows.push(row('NEXT', next.title, next.when, { wrap: true, onClick: open }));
       }
@@ -273,7 +286,8 @@ export const briefTab: TabDef = {
       const uv = d.uv_index_max[0] ?? 0;
       wp.body.append(
         full(row('TODAY', `${temp(d.temperature_2m_min[0]!)} → ${temp(d.temperature_2m_max[0]!)}`)),
-        full(row('RAIN', rain.line)),
+        // (the forecast says where it came from: Open-Meteo's, the feed the weather is read from)
+        full(row('RAIN', rain.line, 'Open-Meteo forecast')),
         row('WIND', `${speed(c.wind_speed_10m)} ${GEO.card(c.wind_direction_10m)}`),
         row('HUMIDITY', `${c.relative_humidity_2m}%`),
         row('UV', `${uv.toFixed(0)} · ${uv < 3 ? 'low' : uv < 6 ? 'moderate' : uv < 8 ? 'high' : uv < 11 ? 'very high' : 'extreme'}`),

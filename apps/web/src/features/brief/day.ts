@@ -11,8 +11,11 @@ export const hhmm = (ms: number) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-/** "Good morning" before noon, "Good afternoon" until six, then "Good evening" (the phone's own clock). */
-export const greeting = (d: Date) => (d.getHours() < 12 ? 'Good morning' : d.getHours() < 18 ? 'Good afternoon' : 'Good evening');
+/**
+ * "Good night" before five in the morning (it is not morning yet; the boot and Home say the same), "Good morning" before noon,
+ * "Good afternoon" until six, then "Good evening" (the phone's own clock).
+ */
+export const greeting = (d: Date) => (d.getHours() < 5 ? 'Good night' : d.getHours() < 12 ? 'Good morning' : d.getHours() < 18 ? 'Good afternoon' : 'Good evening');
 
 /** "Monday 26 October". */
 export const dayName = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -138,11 +141,23 @@ export function summary(f: Facts): string {
   return parts.length ? `${parts.join('. ')}.` : '';
 }
 
-/** What READ IT TO ME says: the greeting, the day, the sentence, and the top headlines. No symbols to stumble on. */
+/** The voice's pace, in words a minute, and the most READ IT TO ME is ever allowed to take (a minute: nobody listens to more at a stove). */
+export const PACE_WPM = 150;
+export const SPOKEN_MAX_S = 60;
+export const wordCount = (t: string) => (t.trim().match(/\S+/g) ?? []).length;
+/** How long a text takes to say at the voice's pace, in seconds. */
+export const spokenSeconds = (t: string) => (wordCount(t) / PACE_WPM) * 60;
+
+/**
+ * What READ IT TO ME says: the greeting, the day, the sentence, and the top headlines. No symbols to stumble on. It never runs over
+ * SPOKEN_MAX_S at the voice's pace: the headlines go, last first, until it fits (the day's own sentence is never cut).
+ */
 export function spoken(d: Date, line: string, headlines: string[]): string {
   const said = line.replace(/°C/g, ' degrees').replace(/°F/g, ' degrees Fahrenheit').replace(/(\d+)%/g, '$1 percent').replace(/ · /g, ', ');
   const top = headlines.slice(0, 3).map((t) => t.replace(/[.!?]?$/, '.'));
-  return `${greeting(d)}. It's ${dayName(d)}. ${said}${top.length ? ` The headlines. ${top.join(' ')}` : ''}`.replace(/\s+/g, ' ').trim();
+  const make = () => `${greeting(d)}. It's ${dayName(d)}. ${said}${top.length ? ` The headlines. ${top.join(' ')}` : ''}`.replace(/\s+/g, ' ').trim();
+  while (top.length && spokenSeconds(make()) > SPOKEN_MAX_S) top.pop();
+  return make();
 }
 
 /** One passage of the library's "Fresh knowledge" notebook: heading "YYYY-MM-DD · source · TIER" (or "YYYY-MM-DD · source"). */

@@ -57,11 +57,11 @@ export function rateRow(e: Reply): HTMLElement {
     void brain.selftrain
       .rate({ at: id, up: next === undefined ? null : next === 1, question: questionFor(chat.get().entries, e), reply: e.text, ...(e.offline ? { offline: true } : {}), ...(next === undefined ? {} : { kind: next === 1 ? ('reward' as const) : ('discipline' as const), weight: 1 }) })
       .then(() => {
-        if (next === -1) toast('Thanks — Ghosty will learn a better answer to that in its weekly training', 'ok');
+        if (next === -1) toast('Thanks. I’ll learn a better answer to that in my weekly training.', 'ok');
       })
       .catch(() => {
         setRated(id, was);
-        toast("Couldn't send that rating (no connection to the brain). Try again later.", 'warn');
+        toast('I couldn’t send that rating. Try again when I can reach my brain.', 'warn');
       });
   };
   // line glyphs (route C's reply card), the same buttons in every look

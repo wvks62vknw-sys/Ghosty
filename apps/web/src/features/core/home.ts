@@ -22,6 +22,7 @@ import { navTo } from '../../shell/areas';
 import { home, ui } from '../../state/app';
 import { freeAiToday } from '../../state/status';
 import { niceCase, segRing } from '../../ui/components';
+import { NO_SIGNAL, lacksSignal, stateIn, waitFor } from '../lifeui';
 import * as gymStore from '../gym/store';
 
 const CAL = '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>';
@@ -82,6 +83,7 @@ function callout(cls: string, label: string): Callout {
   const s = h('div.s');
   return { el: h(`div.rcco.${cls}` as 'div', { dataset: { case: 'keep' } }, k, v, s), k, v, s };
 }
+/** An instrument's reading (HOMEPASS: a reading it does not have is its own words in the line under, never a dash in the value). */
 const setCo = (c: Callout, value: string, unit: string, sub: string, tone: 'live' | 'warn' | 'idle' = 'live') => {
   clear(c.v, value, unit ? h('small', unit) : null);
   c.s.textContent = sub;
@@ -216,7 +218,19 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const gymTile = h('button.rccard.rcgym', { type: 'button', dataset: { case: 'keep' }, 'aria-label': 'Gym: open it', onclick: () => navTo('gym', 'push') },
     h('span.rcthead', icon(GYM), h('b', 'Gym')), gymBody);
 
-  const below = h('div.rcbelow', today, h('div.rcpair', road, gymTile));
+  // the brain not answering, said once on Home (not once in each instrument); and the waits, said where they happen
+  /* state: core.home offline */
+  const dead = h('p.rcdead', { hidden: true, role: 'status', dataset: { state: 'offline', case: 'keep' } });
+  const waits = h('div.rcwaits', { dataset: { case: 'keep' } });
+  const below = h('div.rcbelow', dead, today, h('div.rcpair', road, gymTile), waits);
+  const deadWhy = { ai: false, up: false };
+  const paintDead = () => {
+    const gone = deadWhy.ai || deadWhy.up;
+    dead.hidden = !gone;
+    if (gone) stateIn(dead, 'offline', lacksSignal() ? NO_SIGNAL : 'My brain isn’t answering just now. What I keep on this phone still shows.');
+  };
+  /** A fetch Home makes, with what it is for (ui/wait.ts through the shared state helper). */
+  const waitOn = (words: string) => waitFor(waits, words);
 
   // ---------- painting, each part from its own source
   const paintDate = () => {
@@ -226,7 +240,7 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     const w = weather.data;
     if (!w) {
       clear(wxIcon);
-      wxText.textContent = weather.status === 'NO FEED' ? 'Weather unavailable right now' : 'Fetching the weather…';
+      wxText.textContent = weather.status === 'NO FEED' ? 'I can’t get the weather just now.' : 'Checking the weather…';
       return;
     }
     const code = w.current.weather_code;
@@ -240,9 +254,13 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const paintAi = async (force = false) => {
     if (!force && Date.now() - statusAt < 120_000) return;
     statusAt = Date.now();
+    const done = waitOn('Asking my brain how much free AI is left…');
     const s = await brain.status().catch(() => null);
+    done();
+    deadWhy.ai = !s;
+    paintDead();
     if (!s) {
-      setCo(ai, '—', '', ui.get().connected === false ? 'brain offline' : 'can’t be read now', 'idle');
+      setCo(ai, '', '', 'I haven’t asked my brain yet', 'idle');
       setArc(outer, null, true);
       Object.assign(freeAnswers, { f: null, offline: ui.get().connected === false, at: Date.now() });
       dispatchEvent(new CustomEvent('ghosty:freeai'));
@@ -260,9 +278,11 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const paintLib = async (force = false) => {
     if (!force && Date.now() - libAt < 300_000) return;
     libAt = Date.now();
+    const done = waitOn('Counting what the library holds…');
     const [l, st] = await Promise.all([brain.library().catch(() => null), brain.studyStatus().catch(() => null)]);
+    done();
     if (!l) {
-      setCo(lib, '—', '', 'can’t be read now', 'idle');
+      setCo(lib, '', '', 'I haven’t counted it yet', 'idle');
       setArc(mid, null);
       return;
     }
@@ -278,7 +298,9 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const paintSchool = async (force = false) => {
     if (!force && Date.now() - schoolAt < 600_000) return;
     schoolAt = Date.now();
+    const done = waitOn('Looking up where you are at school…');
     const j = await fetch('/api/school', { headers: headers() }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as Record<string, unknown> | null;
+    done();
     const st = j?.state as { stage?: string } | undefined;
     if (!j || !st?.stage) {
       school.el.hidden = true;
@@ -301,9 +323,13 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   // UPLINK: the round trip to the brain, measured now
   const paintUp = async () => {
     const t0 = performance.now();
+    const done = waitOn('Timing the line to my brain…');
     const ok = await brain.health();
+    done();
     const ms = Math.round(performance.now() - t0);
-    if (!ok) setCo(up, 'Off', '', navigator.onLine ? 'brain unreachable' : 'no signal', 'warn');
+    deadWhy.up = !ok;
+    paintDead();
+    if (!ok) setCo(up, 'Off', '', lacksSignal() ? 'No signal' : 'Not answering', 'warn');
     else setCo(up, String(ms), 'ms', location.protocol === 'https:' || location.hostname === 'localhost' ? 'Secure' : 'Not encrypted', ms > 800 ? 'warn' : 'live');
   };
 
@@ -317,14 +343,19 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     const end = new Date().setHours(24, 0, 0, 0);
     if (events === null) {
       todayLeft.textContent = '';
-      clear(evs, h('span.rcev.muted', h('span.nm', agendaErr ? 'Your diary can’t be reached right now' : 'Checking your diary…')));
+      /* state: core.today error */
+      /* state: core.today loading */
+      clear(evs, h('span.rcev.muted', { dataset: { state: agendaErr ? 'error' : 'loading' } }, h('span.nm', agendaErr ? 'I can’t read your diary just now.' : 'Checking your diary…')));
       return;
     }
     const left = events.filter((e) => (e.end ?? e.start) > now && e.start < end).sort((a, b) => a.start - b.start);
     todayLeft.textContent = left.length ? `${left.length} left` : '';
     if (!left.length) {
       const next = events.filter((e) => e.start >= end).sort((a, b) => a.start - b.start)[0];
-      clear(evs, h('span.rcev.muted', h('span.nm', 'Nothing more today')), next ? h('span.rcev', h('span.tm', 'Tmrw'), h('i.bar.dim'), h('span.nm.r', `${next.title}${next.allDay ? '' : ` · ${clock(next.start)}`}`)) : null);
+      // nothing at all today: the one next thing he can do (Today's empty state); something earlier that has gone by: the plain line
+      const none = !events.some((e) => e.start < end && (e.end ?? e.start) >= new Date().setHours(0, 0, 0, 0));
+      /* state: core.today empty */
+      clear(evs, h('span.rcev.muted', { dataset: { state: 'empty' } }, h('span.nm', none ? 'Nothing in your diary today. Tell me one thing and I’ll keep it.' : 'Nothing more today.')), next ? h('span.rcev', h('span.tm', 'Tmrw'), h('i.bar.dim'), h('span.nm.r', `${next.title}${next.allDay ? '' : ` · ${clock(next.start)}`}`)) : null);
       return;
     }
     clear(evs, ...left.slice(0, 2).map((e, i) => h('span.rcev', h('span.tm', e.allDay ? 'All day' : clock(e.start)), h(`i.bar${i ? '.dim' : ''}` as 'i'), h(`span.nm${i ? '.r' : ''}` as 'span', e.title), !i && !e.allDay && e.start - now < 3 * 3600_000 ? h('span.in', until(e.start, now)) : null)));
@@ -332,7 +363,9 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const loadToday = async (force = false) => {
     if (!force && Date.now() - agendaAt < 120_000) return paintToday();
     agendaAt = Date.now();
+    const done = waitOn('Reading what is left in your diary…');
     const ag = await brain.agenda(2).catch(() => null);
+    done();
     agendaErr = !ag;
     events = ag ? ag.events : events;
     paintToday();
@@ -344,10 +377,13 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     if (!force && Date.now() - roadAt < 180_000) return;
     roadAt = Date.now();
     if (!roadBody.childElementCount) clear(roadBody, h('span.rdwhy', 'Checking the roads…'));
+    const done = waitOn('Looking for incidents near home…');
     const raw = await fetch('/api/highways/events', { headers: headers() }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).catch(() => null);
+    done();
     if (!raw) {
       roadTap = null;
-      clear(roadBody, h('span.rd', h('i.idle'), h('b', 'No report')), h('span.rdwhy', ui.get().connected === false ? 'Offline: traffic needs the brain' : 'Traffic reports can’t be reached right now'));
+      /* state: core.home error */
+      clear(roadBody, h('span.rd', h('i.idle'), h('b', 'No report')), h('span.rdwhy', lacksSignal() ? 'Traffic needs a signal.' : 'I can’t reach the traffic feed.'));
       return;
     }
     const H = home();
@@ -387,12 +423,14 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   paintWx();
   paintToday();
   weather.onChange(paintWx);
-  setCo(ai, '—', '', 'measuring…', 'idle');
-  setCo(lib, '—', '', 'counting…', 'idle');
-  setCo(up, '—', '', 'measuring…', 'idle');
+  /* state: core.home loading */
+  setCo(ai, '', '', 'Checking…', 'idle');
+  setCo(lib, '', '', 'Counting…', 'idle');
+  setCo(up, '', '', 'Timing…', 'idle');
   ui.subscribe((s, p) => {
     if (s.connected !== p.connected && s.connected) {
       void paintAi(true);
+      void paintUp();
       void loadToday(true);
     }
   });

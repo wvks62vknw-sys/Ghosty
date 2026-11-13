@@ -4,6 +4,7 @@
 import { voiceTag } from './voicetag'; // [voiceknown] whose voice, on the talk bar
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
+import { pillWords } from './pill';
 import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { sfx } from '../../assistant/sfx';
 import { endIntent } from '../../../../../packages/shared/src/intent';
@@ -468,7 +469,14 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
         }
         return cool;
       }
-      const box = h('div.msg.err', h('small', e.ask ? 'KEPT ON THIS PHONE' : 'PROBLEM'), h('span', e.text));
+      /* state: core.ask error */
+      const box = h('div.msg.err', { dataset: { state: 'error' } }, h('small', e.ask ? 'KEPT ON THIS PHONE' : 'I COULDN’T'), h('span', e.text));
+      // A send that did not land: his words are still his; one tap sends them again (HOMEPASS: the ask bar's failed send)
+      if (e.retry) {
+        const again = button('RETRY', () => void send(e.retry!, { speak: settings.get().speak }), 'retry');
+        again.dataset.case = 'keep';
+        box.append(h('div.row', again));
+      }
       // A task kept on the phone that the phone could not do: the brain only by this tap, while it can be reached (OWNER-ISSUES 72).
       if (e.ask && ui.get().connected) {
         const ask = button('ASK THE BIG BRAIN', () => void askBigBrain(e.ask!), 'bigbrain');
@@ -976,7 +984,9 @@ export const coreTab: TabDef = {
       if (!ui.get().busy) stark.task(null); // nothing to show between turns (a tool left running by a broken turn is marked stopped in session.ts, so paintLog never picks it up again)
       const s = ui.get();
       reactor.state = s.busy && s.voice !== 'speaking' ? 'thinking' : s.voice;
-      stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? (s.status || 'PROCESSING').toUpperCase().slice(0, 48) : s.connected === false ? 'OFFLINE' : conversation ? 'READY' : 'ONLINE';
+      // (one state at a time: speaking, then listening, then the work in hand, then the line; a long status is cut at a word, never in one)
+      stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? pillWords(s.status || 'PROCESSING') : s.connected === false ? 'OFFLINE' : conversation ? 'READY' : 'ONLINE';
+      stateLabel.dataset.state = s.voice === 'speaking' ? 'speaking' : s.voice === 'listening' ? 'listening' : s.busy ? 'busy' : s.connected === false ? 'offline' : 'ready';
       // route C draws it as a pill: the accent while live, amber when the brain can't be reached
       stateLabel.dataset.tone = s.connected === false && !s.busy && s.voice !== 'speaking' ? 'warn' : 'live';
     };

@@ -255,8 +255,9 @@ export function bootFault(): void {
   document.body.classList.remove('booting', 'bootland', 'bootwait');
   const el = document.getElementById('boot') ?? document.body.appendChild(h('div#boot'));
   el.classList.remove('out');
+  /* state: shell.boot error */
   el.classList.add('fault');
-  el.replaceChildren(h('div.bfault', h('p', 'Ghosty couldn’t start this time.'), h('button.on', { type: 'button', onclick: () => location.reload() }, 'TRY AGAIN')));
+  el.replaceChildren(h('div.bfault', h('p', 'I couldn’t start this time.'), h('button.on', { type: 'button', onclick: () => location.reload() }, 'TRY AGAIN')));
 }
 
 /** The very start of main.ts's boot: decide what this open shows, and start it. */

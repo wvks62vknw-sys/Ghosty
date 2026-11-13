@@ -3776,7 +3776,7 @@ html #pg-brief .wxspark::before { content: 'Now · low ' attr(data-lo); left: 0;
 html #pg-brief .wxspark::after { content: 'high ' attr(data-hi) ' · 24 h'; right: 0; }
 html #pg-brief .pn.news .tabs { display: flex; gap: 8px; padding: 2px 16px 6px; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
 html #pg-brief .pn.news .tabs::-webkit-scrollbar { display: none; }
-html #pg-brief .pn.news .tabs button { flex: none; position: relative; height: 40px; min-height: 40px !important; padding: 0 14px; border-radius: 17px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html #pg-brief .pn.news .tabs button { flex: none; position: relative; height: 44px; min-height: 44px !important; padding: 0 14px; border-radius: 17px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
 html #pg-brief .pn.news .tabs button::after { content: ''; position: absolute; inset: -5px 0; }
 html #pg-brief .pn.news .tabs button.on { color: var(--c); background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
 html #pg-brief .pn.news .rw.link { margin: 0; padding: 12px 0; border-radius: 0; align-items: flex-start; gap: 12px; }
@@ -6658,10 +6658,10 @@ html #top .headstamp { display: none; }
   html #palette .jworks { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-amber); }
   html #palette .jplate .g-key { flex: none; }
   html #palette .jrows { display: flex; flex-direction: column; background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); }
-  html #palette button.jrow { display: flex; align-items: center; gap: var(--g-s-2); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2); border: 0; border-top: var(--g-hair) solid var(--g-line-faint); border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
-  html #palette button.jrow span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html #palette button:is(.jrow, .jnear) { display: flex; align-items: center; gap: var(--g-s-2); min-height: var(--g-target) !important; margin: 0; padding: 0 var(--g-s-2); border: 0; border-top: var(--g-hair) solid var(--g-line-faint); border-radius: 0; background: none; box-shadow: none; text-align: left; text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+  html #palette button:is(.jrow, .jnear) span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   html #palette button.jrow:first-child { border-top: 0; }
-  html #palette button.jrow small { min-width: 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+  html #palette button:is(.jrow, .jnear) small { min-width: 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
   html #palette button.jrow.sel { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
   html #palette button.jask { text-transform: none; display: flex; align-items: center; gap: var(--g-s-2); min-height: var(--g-target) !important; margin: 0; padding: var(--g-s-1) var(--g-s-2); border: 0; border-radius: 0; background: var(--g-plate-fill); box-shadow: none; text-align: left; color: var(--g-ink-1); }
   html #palette button.jask b { flex: none; font: var(--g-t-reading); }
@@ -8386,3 +8386,17 @@ html #pg-gym .gymboards .gb { display: flex; flex-direction: column; gap: var(--
 html #pg-gym .gymboards .gb b { font: var(--g-t-head); color: var(--g-ink-1); }
 html #pg-gym .gymboards .gb span { font: var(--g-t-reading); color: var(--g-ink-2); font-variant-numeric: var(--g-num); }
 html #pg-gym .gymboards .gbnote { font: var(--g-t-caption); color: var(--g-ink-3); }
+
+/* ==== HOMEPASS (BRIEF-QUALITY-HOME): Home's instruments, its one dead-brain line and its waits; no colour of its own ==== */
+html .rcco .v:empty { display: none; }
+html .rcdead { margin: 0; padding: 0 var(--g-s-2, 8px); font: 400 13px/18px var(--sf); color: var(--ink2); text-wrap: pretty; }
+html .rcdead[hidden], html .rcwaits:empty { display: none; }
+html .rcwaits { display: flex; flex-direction: column; }
+html .rcev.muted { height: auto; min-height: 38px; padding: 8px 0; }
+html .rcev.muted .nm { white-space: normal; overflow: visible; text-wrap: pretty; }
+html #palette .jnone { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); }
+html #plan .planlegend { flex: none; display: flex; align-items: center; gap: var(--g-s-1); margin: 0; padding: var(--g-s-half) 0; color: var(--g-ink-2); }
+html #plan .planlegend .ptdot { flex: none; width: var(--g-s-1); height: var(--g-s-1); border-radius: var(--g-radius-orb); background: var(--g-amber); }
+html .scanorbhint { margin: 0; color: var(--g-ink-2); }
+html .scanorbhint[hidden] { display: none; }
+html :is(.msg.err, .msg.cool) .row button { min-height: 44px !important; min-width: 44px; }

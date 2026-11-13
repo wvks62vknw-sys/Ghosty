@@ -385,8 +385,24 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     e.preventDefault();
     pinch(e.deltaY < 0 ? 1.3 : 0.7);
   }, { passive: false });
-  // the orb: a tap on it is a way back to the world frame (and a poke)
+  // the orb: a tap on it is a way back to the world frame (and a poke). After the tenth press I say once, in one line, that the house
+  // line under it is the other way to every room (HOMEPASS: a hint that ends is not left as a silence)
+  const orbHint = h('p.g-truth.scanorbhint', { hidden: true, role: 'status', dataset: { case: 'keep' } }, 'The house line below reaches every room.');
+  top.insertBefore(orbHint, dayRow);
+  const orbPressed = (): void => {
+    try {
+      const n = Number(localStorage.getItem('ghosty.orbpresses') ?? '0') + 1;
+      localStorage.setItem('ghosty.orbpresses', String(n));
+      if (n === 10) {
+        orbHint.hidden = false;
+        setTimeout(() => (orbHint.hidden = true), 7000);
+      }
+    } catch {
+      /* storage blocked: the line is simply not said */
+    }
+  };
   orbHost.addEventListener('click', () => {
+    orbPressed();
     currentMind()?.poke();
     if (alt !== 'whole') goAlt('whole', 'place');
     else o.onBack();

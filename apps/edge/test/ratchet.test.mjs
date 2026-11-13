@@ -65,6 +65,7 @@ test('no tracked file carries a merge-conflict marker line', () => {
 // code as it was), `now` what they draw after it: the count only goes up, a pass that adds states writes its new number here.
 import { readdirSync } from 'node:fs';
 const FEATURES = new URL('../../web/src/features/', import.meta.url);
+const SRC = new URL('../../web/src/', import.meta.url);
 export const STATES = {
   'money.statement': { dir: 'money', base: 2, now: 4 },
   'body.reps': { dir: 'body', base: 2, now: 3 },
@@ -98,28 +99,41 @@ export const STATES = {
   'home.bills': { dir: 'homeadmin', base: 2, now: 4 },
   'home.meter': { dir: 'homeadmin', base: 2, now: 4 },
   'home.things': { dir: 'homeadmin', base: 2, now: 3 },
+  // HOME (BRIEF-QUALITY-HOME): the same table, the same marker, the rows for the first screen and the line that holds the house.
+  // `at` names where the screen's files are when it is not under features/ (the shell's own). `base` is what each drew before that pass.
+  'core.home': { dir: 'core', base: 2, now: 3 },
+  'core.today': { dir: 'core', base: 3, now: 3 },
+  'core.ask': { dir: 'core', base: 1, now: 1 },
+  'brief.day': { dir: 'brief', base: 3, now: 3 },
+  'brief.say': { dir: 'brief', base: 0, now: 1 },
+  'shell.jump': { at: 'shell', dir: '', base: 1, now: 2 },
+  'shell.boot': { at: 'shell', dir: '', base: 1, now: 1 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
-function statesOf(screen, dir) {
-  const src = readdirSync(new URL(`${dir}/`, FEATURES)).filter((f) => f.endsWith('.ts')).map((f) => readFileSync(new URL(`${dir}/${f}`, FEATURES), 'utf8')).join('\n');
+function sourceOf(dir, at) {
+  const root = at ? new URL(`${at}/`, SRC) : new URL(`${dir}/`, FEATURES);
+  return readdirSync(root).filter((f) => f.endsWith('.ts')).map((f) => readFileSync(new URL(f, root), 'utf8')).join('\n');
+}
+function statesOf(screen, dir, at) {
+  const src = sourceOf(dir, at);
   const found = new Set();
   for (const m of src.matchAll(/\/\*\s*state:\s*([a-z]+\.[a-z]+)\s+(empty|loading|error|offline)\s*\*\//g)) if (m[1] === screen) found.add(m[2]);
   return [...found].sort();
 }
-test('THE STATES RATCHET: each screen of the eight packs keeps every state it has been given (equal or more, never fewer)', () => {
+test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every state it has been given (equal or more, never fewer)', () => {
   const rows = [];
-  for (const [screen, { dir, base, now }] of Object.entries(STATES)) {
-    const have = statesOf(screen, dir);
+  for (const [screen, { dir, at, base, now }] of Object.entries(STATES)) {
+    const have = statesOf(screen, dir, at);
     rows.push(`${screen}: ${base} → ${have.length} (${have.join(', ') || 'none'})`);
     assert.ok(now >= base, `${screen}: the pinned number (${now}) is under what the pass began with (${base})`);
     assert.ok(have.length >= now, `${screen} has lost a state: ${have.length} drawn (${have.join(', ')}), ${now} pinned. Put back what was drawn there (a "state: ${screen} <kind>" marker where each is drawn).`);
   }
   console.log(`states ratchet:\n${rows.join('\n')}`);
 });
-test('the state markers name real screens and real kinds, and the pack screens named here are all of them', () => {
+test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const dir of ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']) {
-    const src = readdirSync(new URL(`${dir}/`, FEATURES)).filter((f) => f.endsWith('.ts')).map((f) => readFileSync(new URL(`${dir}/${f}`, FEATURES), 'utf8')).join('\n');
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell']]) {
+    const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);
       assert.ok(KINDS.includes(m[2]), `${dir}: a state marker of kind "${m[2]}" (use ${KINDS.join(', ')})`);

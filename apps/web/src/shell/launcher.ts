@@ -139,7 +139,7 @@ export function buildLauncher(): Launcher {
   const tryBox = h('section.dktry', h('div.dkkrow', h('small.dkk', 'Try this now'), h('em', '3 picks for today')), tryRow);
   const hits = h('section.dkhits');
   const groups = h('div.dkgroups');
-  const none = h('p.dknone', 'Nothing here by that name. Press return and Ghosty will answer it.');
+  const none = h('p.dknone', 'Nothing here by that name. Press return and I’ll answer it.');
   // EVERY SCREEN as the Machine's inventory (BRIEF-SHELL-2; deck.png), in The Scan: the stamp line, the name and its way back, then FAVOURITES,
   // RECENT and each room's things with their numbers and one true line; the cards above are Glass's (the CSS shows one set)
   const stamp = stampLine(() => stampFacts(lookingAt(screenContext())));
@@ -418,7 +418,7 @@ export function buildLauncher(): Launcher {
   });
   mic.addEventListener('click', async () => {
     if (listening) return stopListening();
-    if (!voiceSupport.mic && !voiceSupport.browserStt) return void toast('No microphone access in this browser', 'warn');
+    if (!voiceSupport.mic && !voiceSupport.browserStt) return void toast('This browser won’t let me hear you. Type it instead.', 'warn');
     listening = true;
     mic.classList.add('on');
     try {
