@@ -4,6 +4,8 @@
 // time, so an assistant's tool calls never lose their results.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+// [recall] BRIEF-DEPTH-MEMORY's brain test, reached from here (the test list lives in package.json)
+import './recall.test.mjs';
 
 const C = await import('./.build/context.mjs');
 
