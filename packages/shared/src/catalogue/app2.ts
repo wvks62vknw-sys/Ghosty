@@ -29,6 +29,18 @@ export const APP_2: Record<string, CatValue> = {
     say: ['How much did I spend on food?'], scene: ['money'], cat: 'watch', needs: ['statement'],
     since: '2026-10-24',
   },
+  'panel:agenda:TO-DO': {
+    name: 'Your to-do list', line: 'You can keep a to-do list in the Agenda: give each a day, tick it off, and late ones come first.',
+    more: 'Kept on this phone. The Brief tells you what is due today, and every removal has UNDO.',
+    say: ['Open my to-do list'], scene: ['morning', 'phone'], cat: 'watch',
+    since: '2026-11-13',
+  },
+  'panel:agenda:MONTH': {
+    name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
+    more: 'This month and the next, from your diary and connected calendars, with your to-dos due marked.',
+    say: ['Show me my month'], scene: ['morning'], cat: 'watch',
+    since: '2026-11-13',
+  },
   // ---- THE BRIEF
   'panel:brief:FORESIGHT': { same: 'job:foresee' },
   'panel:brief:YOUR DAY': {
@@ -228,6 +240,12 @@ export const APP_2: Record<string, CatValue> = {
     name: 'What’s playing now', line: 'You can see what is playing now, and pause or stop it.',
     more: 'It quietens by itself while I speak, then comes back up.',
     say: ['Stop the radio'], scene: ['playing'], cat: 'play',
+  },
+  'panel:radio:RECENT': {
+    name: 'Stations you played lately', line: 'You can play again any of the last eight stations you listened to, newest first.',
+    more: 'Kept on this phone. The lock screen’s next and previous step through your favourites, or these. A sleep timer stops the radio for you.',
+    say: ['Play the radio'], scene: ['playing', 'phone'], cat: 'play',
+    since: '2026-11-13',
   },
   'panel:radio:FAVOURITES': {
     name: 'Your favourite stations', line: 'You can keep your favourite stations one tap away.',

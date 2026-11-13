@@ -22,3 +22,13 @@ export function failedWords(fault?: string): string {
 }
 /** The key that sends: APPROVE, while it waits and after it failed (every send is his tap, every time). */
 export const sendKey = (_state: string): string => APPROVE;
+
+/** WRITE A POST (the planlane pass): the composer on the queue makes a DRAFT only; it then waits above for his APPROVE like any other. */
+export const COMPOSE_NOTE = 'This makes a draft only. It waits in the queue above until you tap APPROVE.';
+export const COMPOSE_NONE = 'Link one of your accounts under Accounts first, then write here.';
+export const COMPOSE_KEY = 'MAKE THE DRAFT';
+export const COMPOSE_EMPTY = 'Write the post first';
+/** The count under the box: "212 of 300 letters" or "12 over the 300 Bluesky takes". */
+export function lengthWords(n: number, max: number, where: string): string {
+  return n <= max ? `${n} of ${max} letters` : `${n - max} over the ${max} ${where} takes`;
+}

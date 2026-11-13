@@ -1,4 +1,6 @@
 /** BRIEF tab: what he reads first in the morning — the day's diary, the drive to work, the weather in detail, headlines by section, and a spoken briefing on request. */
+import { loadTodos } from '../agenda/todo';
+import { dueToday } from '../agenda/todowords';
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { speak, stopSpeaking } from '../../assistant/voice';
@@ -120,8 +122,9 @@ export const briefTab: TabDef = {
     const briefBtn = button('BRIEF ME', () => {
       const d = new Date();
       const diary = dayItems ? (dayItems.length ? dayItems.slice(0, 6).map((x) => `${x.when} ${x.title}`).join('; ') : 'nothing') : 'not known';
+      const todos = dueToday(loadTodos(), Date.now()).slice(0, 6).map((t) => t.text).join('; ');
       go('core');
-      void send(`Give me a sharp spoken briefing in about 90 words from these facts (no need to look anything up), flagging anything that needs my attention. ${greeting(d)}, ${dayName(d)}. WEATHER: ${summary({ ...facts(true), diary: undefined, commute: undefined }) || 'not known'} DIARY TODAY: ${diary}. ${commuteWords ? `COMMUTE: ${commuteWords}. ` : ''}HEADLINES: ${topHeadlines().join(' | ') || 'none yet'}`);
+      void send(`Give me a sharp spoken briefing in about 90 words from these facts (no need to look anything up), flagging anything that needs my attention. ${greeting(d)}, ${dayName(d)}. WEATHER: ${summary({ ...facts(true), diary: undefined, commute: undefined }) || 'not known'} DIARY TODAY: ${diary}. ${todos ? `TO-DO TODAY: ${todos}. ` : ''}${commuteWords ? `COMMUTE: ${commuteWords}. ` : ''}HEADLINES: ${topHeadlines().join(' | ') || 'none yet'}`);
     }, 'brme');
     say.after(h('div.bract', readBtn, briefBtn));
     // YOUR DAY: what is left of today in the diary, the reminders still to go off and anything new in the inbox,
@@ -160,6 +163,13 @@ export const briefTab: TabDef = {
         const r = row('MONEY', n.line, '›', { wrap: true, onClick: () => goToPanel('agenda', 'SPENDING') });
         r.classList.add('brmoney');
         r.dataset.nudge = n.kind;
+        rows.push(r);
+      }
+      // [planlane] his to-dos due today or late (the agenda's TO-DO, kept on this phone): the brief and the agenda say the same
+      const todo = dueToday(loadTodos(), Date.now());
+      if (todo.length) {
+        const r = row('TO-DO', todo.length === 1 ? todo[0]!.text : `${todo.length} to do today: ${todo.slice(0, 3).map((t) => t.text).join(', ')}${todo.length > 3 ? '…' : ''}`, '›', { wrap: true, onClick: () => goToPanel('agenda', 'TO-DO') });
+        r.classList.add('brtodo');
         rows.push(r);
       }
       const unread = inbox?.unread ?? 0;
