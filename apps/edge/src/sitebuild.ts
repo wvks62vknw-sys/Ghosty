@@ -22,6 +22,7 @@
  */
 import type { Project, ProjectStep } from '../../../packages/shared/src/protocol';
 import { assemble, type Assembled } from '../../../packages/shared/src/sitekit/assemble';
+import { guardedFetch, readCappedBytes } from './netguard';
 import { briefFrom, emailOf, missing, PLACELESS } from '../../../packages/shared/src/sitekit/brief';
 import type { Hours, Service } from '../../../packages/shared/src/sitekit/types';
 import { formTarget } from '../../../packages/shared/src/sitekit/blocks/formkit';
@@ -608,8 +609,11 @@ export async function screenshot(url: string, width: number, height: number): Pr
     if (!r?.ok) return null;
     const type = (r.headers.get('content-type') ?? '').split(';')[0]!;
     if (!/^image\/(png|jpeg)$/.test(type)) return null;
-    const buf = await r.arrayBuffer();
-    if (buf.byteLength < 8_000 || buf.byteLength > 1_400_000) return null;
+    // [security] read to the limit and no further
+    const got = await readCappedBytes(r, 1_400_000);
+    if (got.cut) return null;
+    const buf = got.bytes.slice().buffer as ArrayBuffer;
+    if (buf.byteLength < 8_000) return null;
     return `data:${type};base64,${toBase64(buf)}`;
   };
   const mobile = width < 600;
@@ -617,7 +621,7 @@ export async function screenshot(url: string, width: number, height: number): Pr
   const j = ml?.ok ? ((await ml.json().catch(() => null)) as { status?: string; data?: { screenshot?: { url?: string } } } | null) : null;
   const shot = j?.status === 'success' ? j.data?.screenshot?.url : undefined;
   if (shot && /^https:\/\//.test(shot)) {
-    const d = await toData(await fetch(shot).catch(() => null));
+    const d = await toData(await guardedFetch(shot).catch(() => null));
     if (d) return d;
   }
   // thum.io answers with a "generating" picture first; a few tries a few seconds apart.

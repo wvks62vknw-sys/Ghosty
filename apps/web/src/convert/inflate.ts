@@ -37,17 +37,23 @@ function fixed(): { lit: Huff; dist: Huff } {
   return FIXED;
 }
 
-/** Raw deflate data, inflated. Throws on data that is not deflate. */
-export function inflateRaw(src: Uint8Array, sizeHint = 0): Uint8Array {
-  let out = new Uint8Array(Math.max(1024, sizeHint || src.length * 4));
+/** [security] The most one stream may inflate to: a zip bomb (a few KB claiming gigabytes) stops here, not at the phone's memory. */
+export const MAX_INFLATE = 256 * 1024 * 1024;
+
+/** Raw deflate data, inflated, to at most `max` bytes. Throws on data that is not deflate, or that inflates past `max`. */
+export function inflateRaw(src: Uint8Array, sizeHint = 0, max = MAX_INFLATE): Uint8Array {
+  // the size a zip's directory claims is only a hint: never trusted past 64 MB up front, and never past the cap
+  let out = new Uint8Array(Math.max(1024, Math.min(sizeHint || src.length * 4, max, 64 * 1024 * 1024)));
   let op = 0;
   let ip = 0;
   let bitbuf = 0;
   let bitcnt = 0;
   const need = (n: number) => {
     if (op + n <= out.length) return;
+    if (op + n > max) throw new Error('too big to open: it inflates past the limit');
     let size = out.length * 2;
     while (size < op + n) size *= 2;
+    size = Math.min(size, max);
     const grown = new Uint8Array(size);
     grown.set(out.subarray(0, op));
     out = grown;

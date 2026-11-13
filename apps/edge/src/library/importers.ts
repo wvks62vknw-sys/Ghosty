@@ -11,6 +11,7 @@
  */
 import { chunkText, type Passage } from '../../../../packages/shared/src/chunk';
 import { htmlToText } from '../tools/web';
+import { guardedFetch } from '../netguard';
 import type { ProgressFn } from '../tools/types';
 import type { GitHub } from '../github';
 import type { Library, LibraryDoc } from './store';
@@ -48,7 +49,8 @@ async function readCapped(r: Response, max = MAX_BYTES): Promise<string> {
 }
 
 async function get(url: string, accept = '*/*'): Promise<Response> {
-  const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: accept }, redirect: 'follow' });
+  // [security] an address from the chat or the Library box: public web only, every redirect hop checked before it is asked
+  const r = await guardedFetch(url, { headers: { 'User-Agent': UA, Accept: accept } });
   if (!r.ok) throw new Error(`${new URL(url).hostname} answered ${r.status}`);
   return r;
 }
