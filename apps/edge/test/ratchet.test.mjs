@@ -185,6 +185,9 @@ export const STATES = {
   // PLAN AND HOME (FINAL ROUND, planlane): the agenda's to-do list and the radio's RECENT list, new screens (base 0)
   'agenda.todo': { dir: 'agenda', base: 0, now: 1 },
   'radio.recent': { dir: 'radio', base: 0, now: 1 },
+  // [planlane:social] SOCIAL's WRITE A POST (no account linked, the brain not answering, a draft not made) and SENT TODAY (new parts, base 0)
+  'social.compose': { dir: 'social', base: 0, now: 3 },
+  'social.sent': { dir: 'social', base: 0, now: 3 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },

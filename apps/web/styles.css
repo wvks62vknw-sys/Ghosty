@@ -9398,6 +9398,18 @@ html body .gkask button, html body .gkprops button { height: auto; min-height: v
 /* ==== [planlane:house end] ==== */
 
 /* ==== [planlane:social] ==== */
+/* WRITE A POST: the box and the picture's words fill the width; the picture shown whole, never cropped; the lines wrap, never cut */
+html #pg-social .soccompose textarea, html #pg-social .soccompose input.socalt { width: 100%; box-sizing: border-box; max-width: 100%; }
+html #pg-social .soccompose .socthumb { display: block; max-width: 100%; max-height: 40vh; width: auto; height: auto; object-fit: contain; border: 1px solid var(--line2); border-radius: var(--rad); }
+html #pg-social .soccompose .pknote, html #pg-social .socsent .pklab, html #pg-social .socsent b { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html #pg-social .soccompose .soccount.bad { color: var(--r); }
+html #pg-social .soccompose .socmsg:empty, html #pg-social .soccompose .socpicl:empty, html #pg-social .soccompose .soccount:empty { display: none; }
+html #pg-social .soccompose .keyrow.wrapit { flex-wrap: wrap; }
+html #pg-social .soccompose .keyrow button[aria-pressed='false'] { opacity: .85; }
+/* SENT TODAY: OPEN IT ON … is a key his thumb can hit (44 pt) */
+html #pg-social .socsent a.socopen { display: inline-flex; align-items: center; min-height: 44px; }
+/* LINKS' account panels when the brain is not answering */
+html .pn.socialpanel .socoff { white-space: normal; }
 
 /* ==== [planlane:social end] ==== */
 

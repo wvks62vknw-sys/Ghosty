@@ -57,9 +57,10 @@ async function refuse(d: Draft, after?: () => void): Promise<void> {
   try {
     const r = await brain.socialNo(d.id);
     if (r.card) patchCard(r.card);
-    toast('Dropped: nothing went out.', 'ok');
+    if (r.error) toast(r.error, 'warn');
+    else toast('Dropped: nothing went out.', 'ok');
   } catch (e) {
-    toast(sayError(e, 'send that'), 'bad');
+    toast(sayError(e, 'drop that draft: it still waits, and nothing went out'), 'bad');
   }
   after?.();
 }
@@ -93,7 +94,7 @@ function edit(d: Draft, after?: () => void): void {
       toast('Changed: it still waits for your APPROVE.', 'ok');
       after?.();
     } catch (e) {
-      msg.textContent = sayError(e, 'send that');
+      msg.textContent = sayError(e, 'save the new words: the draft still has the old ones');
     } finally {
       b.disabled = false;
     }
@@ -155,7 +156,7 @@ register({
       const { postCard } = await import('../core/cards');
       postCard(r.card);
     } catch (e) {
-      toast(sayError(e, 'send that'), 'bad');
+      toast(sayError(e, 'make the draft'), 'bad');
     }
   },
 });
