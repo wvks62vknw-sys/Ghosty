@@ -27,6 +27,7 @@ import { fitWhy, FIT_EMPTY, gapWords, pieceName } from './words';
 import { CATALOGUE, clashes, describePlan, footprint, GRID, largestOpen, layoutOf, makeSpace, readPlan, roomsOf, snapItem, tightGaps, WALKWAY, willItFit, type Arrangement, type Item, type Plan, type Rect } from '../../space/plan';
 import { addOpening, addRoom, removeOpening, removeRoom, renameRoom, reshapeRoom, shapeOf, slideOpening, updateOpening } from '../../space/rooms';
 import { space } from '../../space/store';
+import { MATERIALS_NOTE, materialsFor, materialsWords } from '../../space/materials';
 import { spaceContext, spaceSelected } from '../../space/awareness';
 import { pieceFor, spaceHooks } from '../../space/hooks';
 import { wallRuns } from '../../studio/room';
@@ -58,9 +59,11 @@ export interface SpaceState {
   fromPhoto: FromPhotoState;
   /** DESIGN MY HOME (home.ts): the drawn plan's line, its floors, which is shown, DESIGN in progress. */
   home: HomeState;
+  /** MATERIALS: paint (litres), flooring (m²), skirting (m) and wallpaper rolls for the plan, and its head line. */
+  materials: { paint: number; flooring: number; skirting: number; rolls: number; tins: string; head: string };
 }
 
-export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState, home: { id: '', line: '', storeys: [], shown: 0, assumed: 0, drawing: false, outcome: '', offline: false } };
+export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState, home: { id: '', line: '', storeys: [], shown: 0, assumed: 0, drawing: false, outcome: '', offline: false }, materials: { paint: 0, flooring: 0, skirting: 0, rolls: 0, tins: '', head: '' } };
 
 /** A change Ghosty suggested: a whole plan, checked against the owner's. */
 interface DesignOption {
@@ -765,6 +768,25 @@ export const spaceTab: TabDef = {
       });
     })));
 
+    // ======================= MATERIALS (space/materials.ts): paint, flooring, skirting and wallpaper for the plan, a first estimate
+    const matp = panel('MATERIALS', { status: 'first estimate', cls: 'spacematerials' });
+    const matHead = h('p.spacemathead', { 'aria-live': 'polite' });
+    const matList = h('div.spacematlist');
+    const paintMaterials = () => {
+      const L = layoutOf(space.get().plan);
+      const m = materialsFor(L.rooms, L.openings, L.h);
+      const w = materialsWords(m);
+      /* state: space.materials empty */
+      matHead.textContent = w.head;
+      if (m.total.floor > 0) delete matHead.dataset.state;
+      else matHead.dataset.state = 'empty';
+      clear(matList, ...w.lines.map((l) => h('div.note', l)));
+      spaceState.materials = { paint: m.total.paint, flooring: m.total.flooring, skirting: m.total.skirting, rolls: m.total.rolls, tins: m.tins, head: w.head };
+    };
+    matp.body.append(matHead, matList, h('div.note', MATERIALS_NOTE));
+    space.subscribe(paintMaterials);
+    paintMaterials();
+
     // ======================= EXPORT
     const xp = panel('EXPORT', { cls: 'spaceexport' });
     const importIn = h('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import a plan file' });
@@ -836,7 +858,7 @@ export const spaceTab: TabDef = {
       }
     });
     P.left.append(homePanel.el, pp.el);
-    P.right.append(rp.el, photoPanel.el, dp.el, ap.el, fp.el, mp.el, msp.el, xp.el);
+    P.right.append(rp.el, photoPanel.el, dp.el, ap.el, fp.el, mp.el, matp.el, msp.el, xp.el);
 
     // ======================= drawing and dragging
     let scale = 1;

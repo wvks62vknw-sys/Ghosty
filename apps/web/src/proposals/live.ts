@@ -12,6 +12,8 @@ export interface LiveWork {
   data(): string;
   /** What the brain's tool proposed: shown as a marked change, and said in words. */
   propose(args: Record<string, unknown>): string;
+  /** [sites] Anything the brain needs before these words reach it (the game studio hands its game over for "on my sites"). */
+  ready?(words: string): Promise<void>;
 }
 const live = new Map<WorkKind, LiveWork>();
 export const setLiveWork = (kind: WorkKind, l: LiveWork | null): void => {
@@ -28,6 +30,11 @@ const SEND: Record<WorkKind, RegExp> = {
 /** What to add after his message: the open editors his words call for, as data, or ''. */
 export const openWorkData = (words = ''): string =>
   [...live.entries()].filter(([k]) => SEND[k].test(words)).map(([, l]) => l.data()).join('');
+/** [sites] What the open editors must hand over before his words go (never more than a few seconds; a miss is the brain's to say). */
+export const readyWork = async (words = ''): Promise<void> => {
+  const all = [...live.values()].map((l) => l.ready?.(words));
+  await Promise.race([Promise.allSettled(all), new Promise((r) => setTimeout(r, 8000))]);
+};
 /** The brain's proposal, to the open editor of that kind; the words that say what happened. */
 export const proposeToWork = (kind: WorkKind, args: Record<string, unknown>): string =>
   live.get(kind)?.propose(args) ?? 'The brain proposed a change, but that editor is not open here any more.';
