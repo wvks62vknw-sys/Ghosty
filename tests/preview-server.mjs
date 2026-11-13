@@ -224,6 +224,14 @@ createServer(async (req, res) => {
       res.end(JSON.stringify({ calls: houseCalls() }));
       return;
     }
+    // Test only (tests/wall.spec.mjs): the wall forgets its pair, its codes and its wrong-code wait (?reset=1), as a minute and a thirty-day
+    // clock would; the spec runs again on the same brain, as CI's retry does.
+    if (url.pathname === '/__test/wall') {
+      if (url.searchParams.get('reset') === '1') await state.storage.delete(['wall:state']);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
     // Test only: the next write of one database key fails once (tests/apps.spec.mjs stops a mini-app's publish part-way).
     if (url.pathname === '/__test/blip') {
       state.storage.blips.add(url.searchParams.get('key') ?? '');

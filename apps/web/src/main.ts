@@ -136,6 +136,8 @@ async function boot(): Promise<void> {
   mood.subscribe((s) => applyMood(s.now.kind));
   // the cinematic starts at once (in the theme's colour) and plays while everything below gets ready
   startBoot();
+  // [wall] a screen that is the wall shows it at once, over the boot (a screen with no key waits for the sign-in: the layout starts it)
+  if (ownerKey.get()) void import('./wall/screen').then((w) => w.startWall());
   const cv = document.getElementById('gl') as HTMLCanvasElement;
   gfx.init(cv);
   addEventListener('resize', () => gfx.resize());

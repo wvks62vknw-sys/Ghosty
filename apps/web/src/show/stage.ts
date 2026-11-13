@@ -25,6 +25,8 @@ import { showTrace } from './turn';
 import { waiting } from '../ui/wait';
 import { orbView } from '../shell/capsule';
 import { grownOn } from '../shell/house';
+import { WALL_SAYS } from '../../../../packages/shared/src/wall';
+import { noteShown, stageToWall, takeWallTurn, sendToWall, wallOf, wallPhone } from '../wall/phone'; // [wall] the WALL key, and "on the wall" after an ask
 
 /** What the Stage has done, for the checks (window.__ghosty.show.state()). */
 export const stageState = {
@@ -142,7 +144,7 @@ function ortho(lat: number, lon: number, lat0: number, lon0: number): [number, n
 }
 
 /** GOD'S EYE's globe, drawn from the world pack on this phone: land, the graticule, the big cities, the place lit at the centre. */
-function eyePic(lat0: number, lon0: number, label: string): SVGSVGElement {
+export function eyePic(lat0: number, lon0: number, label: string): SVGSVGElement {
   const R = 132;
   const svg = svgEl('svg', { viewBox: `${-W / 2} -150 ${W} 300`, class: 'stg-svg eye', role: 'img', 'aria-label': `God's Eye, centred on ${label}` });
   svg.append(svgEl('circle', { cx: 0, cy: 0, r: R, class: 'stg-disc' }));
@@ -212,8 +214,43 @@ function eyePic(lat0: number, lon0: number, label: string): SVGSVGElement {
   return svg;
 }
 
+/**
+ * The same map for THE WALL (wall/screen.ts): OpenStreetMap's tiles one zoom closer, each drawn at 1.5 times its size, in a grid wide
+ * enough for a 1,920 × 1,080 screen; the place in a larger reticle and its name beside it. A tile that does not load leaves its place empty.
+ */
+export function mapWidePic(lat: number, lon: number, z: number, label: string): HTMLElement {
+  const z2 = Math.min(18, Math.max(3, Math.round(z)) + 1);
+  const TILE = 384;
+  const n = 2 ** z2;
+  const wx = ((lon + 180) / 360) * n;
+  const sinLat = Math.sin((lat * Math.PI) / 180);
+  const wy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * n;
+  const cx = Math.floor(wx);
+  const cy = Math.floor(wy);
+  const layer = h('div.stgtiles');
+  let tiles = 0;
+  for (let dx = -3; dx <= 3; dx++) {
+    for (let dy = -2; dy <= 2; dy++) {
+      const ty = cy + dy;
+      if (ty < 0 || ty >= n) continue;
+      const tx = (((cx + dx) % n) + n) % n;
+      const img = h('img', { alt: '', decoding: 'async', draggable: false, src: `https://tile.openstreetmap.org/${z2}/${tx}/${ty}.png` });
+      img.style.width = img.style.height = `${TILE}px`;
+      img.style.left = `${Math.round((cx + dx - wx) * TILE)}px`;
+      img.style.top = `${Math.round((cy + dy - wy) * TILE)}px`;
+      img.addEventListener('error', () => img.remove());
+      layer.append(img);
+      tiles++;
+    }
+  }
+  stageState.drawn = { tiles };
+  const pin = svgEl('svg', { viewBox: '-20 -20 40 40', class: 'stgpin', 'aria-hidden': 'true' });
+  pin.append(svgEl('rect', { x: -14, y: -14, width: 28, height: 28, class: 'stg-box' }), svgEl('circle', { cx: 0, cy: 0, r: 4, class: 'stg-core' }));
+  return h('div.stgmap.wallmap', { role: 'img', 'aria-label': `Map of ${label}` }, layer, pin, h('span.wallplace', { dataset: { case: 'keep' } }, label), h('span.stgattr', '© OpenStreetMap'));
+}
+
 /** The reply as a page: its heading, its paragraphs and list items, set as a page with margins in the system's reading type. */
-function docPic(title: string, paras: { t: string; text: string }[]): HTMLElement {
+export function docPic(title: string, paras: { t: string; text: string }[]): HTMLElement {
   const page = h('div.stgpage.paper', { role: 'img', 'aria-label': 'The document, laid out as a page' }, h('b.stgh', title));
   let i = 0;
   for (const p of paras.filter((x, k) => !(k === 0 && x.text.trim() === title.trim()))) {
@@ -312,7 +349,7 @@ interface Sizes {
 }
 
 /** BOXES IN 3-D from parameters: lit from above and to the left with a soft shadow on its ground, its sizes on its edges, turning slowly until he touches it. */
-function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: string, sizes: Sizes): { el: SVGSVGElement; stop: () => void } {
+export function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: string, sizes: Sizes): { el: SVGSVGElement; stop: () => void } {
   const svg = svgEl('svg', { viewBox: '-180 -180 360 360', class: 'stg-svg iso', role: 'img', 'aria-label': `${label}, in 3-D: drag to turn` });
   const defs = svgEl('defs', {});
   const blur = svgEl('filter', { id: 'stgsoft', x: '-20%', y: '-20%', width: '140%', height: '140%' });
@@ -441,6 +478,27 @@ async function open(show: Show, facts: ShowFacts): Promise<void> {
   const { sceneFromPart, sceneFromRoom } = await import('../engine3d/ask');
   if (show.kind === 'room' && show.room) await run('open_studio', { engine: sceneFromRoom(show.room), title: show.title });
   else if (show.kind === 'part' && show.part) await run('open_studio', { engine: sceneFromPart(show.part.kind, show.part.dims, show.part.name), title: show.title });
+}
+
+/**
+ * The WALL key (44 pt), there while a wall is paired: it sends this picture to the wall (a kind and its data, never the screen). A kind that
+ * cannot go says so; with the brain out of reach the key says "No wall right now" and the picture stays here.
+ */
+function wallKey(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts): HTMLElement | null {
+  if (!wallPhone.get().paired || !wallOf(show, facts.reply, facts.ask)) return null;
+  const b = key('WALL', async () => {
+    const word = b.querySelector('span')!;
+    const was = word.textContent;
+    word.textContent = 'SENDING';
+    b.setAttribute('aria-busy', 'true');
+    const r = await stageToWall(show, facts.reply, facts.ask);
+    b.removeAttribute('aria-busy');
+    word.textContent = r.ok ? 'ON THE WALL' : r.why === 'offline' ? 'NO WALL RIGHT NOW' : r.why === 'none' ? 'NO WALL PAIRED' : was;
+    b.dataset.wall = r.ok ? 'sent' : r.why;
+    setTimeout(() => (word.textContent = 'WALL'), r.ok ? 2200 : 3600);
+  }, { label: 'Show this on the wall' });
+  b.dataset.wall = 'ready';
+  return b;
 }
 
 /** Where the Stage sits: above the ask line (or the dock), with the conversation shrunk above it. */
@@ -596,7 +654,7 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
     h('div.stgpic', pic),
     ...truth.map((t) => truthLine(t)),
     ...(answerEl ? [answerEl] : []),
-    h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
+    h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, wallKey(show, facts), key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
   );
   // GROWN UP: the orb is docked in the panel's top edge like a jewel, and the bezel is lit from it (styles.css `#thestage::before`): a second view of the one Mind
   if (grownOn()) {
@@ -676,10 +734,24 @@ async function presentNow(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'client
   stageState.last = show ? { kind: show.kind, id: show.id, ...('via' in show && show.via ? { via: show.via } : {}), title: show.title } : null;
   stageState.why = show ? ('via' in show && show.via ? 'its own screen drew it' : '') : 'nothing in the answer to show';
   stageState.presented++; // (counted once its verdict and its reason are both in place: a reader never sees the count moved with the last turn's reason)
+  noteShown(show, f.reply, f.ask); // [wall] what "on the wall" sends next
+  const toWall = takeWallTurn(); // [wall] asked "…, on the wall": the picture goes to the wall, and the phone's chat stays clear
+  if (!show) {
+    if (toWall) void import('../ui/components').then((c) => c.toast(WALL_SAYS.nothing));
+  }
   if (!show || ('via' in show && show.via)) {
     // a wrong promise: the room reserved for it goes back to the conversation, the way the Stage would have left
     releaseRoom();
     return show;
+  }
+  if (toWall) {
+    const r = await sendToWall(wallOf(show, f.reply, f.ask));
+    if (r.ok) {
+      releaseRoom();
+      return show;
+    }
+    // it could not go (a kind that stays on the phone, no wall, the brain out of reach): the picture stays here, and he is told
+    void import('../ui/components').then((c) => c.toast(r.said, 'bad'));
   }
   // (the country's outline needs the world pack: for a city asked by name it is already here)
   mount(show as Exclude<Show, { via: 'its screen' }>, facts, t0);

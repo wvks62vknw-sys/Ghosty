@@ -8,7 +8,8 @@ import { home, settings } from '../../state/app';
 import { presetNow, recipeEvents, recipeNow, themeKey, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
 import { looksGallery } from '../../ui/gallery';
-import { stampLine } from '../../ui/machine';
+import { key, stampLine } from '../../ui/machine';
+import { wallRole } from '../../wall/screen';
 import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { characterPanel } from './character';
@@ -16,6 +17,7 @@ import { facesBlock } from './faces'; // [guardian] PRIVACY → FACES
 import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named person and the panic phrase
 import { offlinePanel } from './offline';
 import { eyesPanel, mapsPanel, voiceModelPanel } from './packs';
+import { wallPanel } from './wall'; // [wall] THE WALL: pair the second screen
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
 import { voiceControls } from './voice';
@@ -86,7 +88,7 @@ export const settingsTab: TabDef = {
       row('EVERY SCREEN', 'Tap your initial at the top right, then Every screen. A long press opens it at once.', null, { wrap: true }),
       row('REMEMBER', 'Say "remember …" and he keeps it; Memory shows what he knows and lets you remove it.', null, { wrap: true }),
     );
-    P.right.append(goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), shortcutsPanel().el, about.el, privacy.el, help.el);
+    P.right.append(goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), wallPanel().el, shortcutsPanel().el, about.el, privacy.el, help.el);
     // Sections (ui/sections.ts; the navigation sheet): a pill for each of the list's groups, the colour first. CHARACTER has no
     // group of its own (it sits under NAME & UNITS), so it goes with You: how he talks to you, beside what he calls you.
     sections(root, 'settings', [
@@ -94,7 +96,7 @@ export const settingsTab: TabDef = {
       { id: 'you', label: 'You', match: /^NAME/ },
       { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
-      { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS)$/ },
+      { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL)$/ },
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
     ]);
 
@@ -135,7 +137,10 @@ export const settingsTab: TabDef = {
     const tvSw = switchRow('TV MODE', 'Big buttons and a focus ring you move with the arrow keys or a controller’s d-pad. On by itself on a television.', tvNow, (on) => tvSetting.set({ mode: on ? 'on' : 'off' }));
     tvSw.el.classList.add('tvsw');
     tvSetting.subscribe(() => tvSw.paint());
-    lp.body.append(tvSw.el);
+    // [wall] THIS IS THE WALL: this screen becomes the second screen of his phone (wall/screen.ts); it asks for a code and nothing else
+    const wallKey = key('THIS IS THE WALL', () => wallRole.set({ on: true }), { label: 'This screen is the wall: show me a code to pair with my phone' });
+    wallKey.classList.add('tvwallkey');
+    lp.body.append(tvSw.el, h('div.tvwallrow', h('p.note', 'A television or a laptop can be a second screen for your phone: it shows what you’re talking about, with nothing to touch.'), wallKey));
     np.body.append(h('div.lab', 'YOUR NAME'), name, units);
 
     // Whose voice and which (the brain's natural British voices, or this phone's), a SAMPLE, and barge-in: voice.ts.

@@ -20,6 +20,7 @@ import { recipeEvents } from '../state/theme';
 import { niceCase } from '../ui/components';
 import { listMode, type ListGroup } from '../ui/listmode';
 import { startTv } from '../tv'; // [restc] TV MODE: big targets, the focus ring, the d-pad; the no-3-D fallbacks
+import { startWall } from '../wall/screen'; // [wall] THE WALL: this screen as the second screen of the phone (BRIEF-MACHINE-WALL)
 
 /** The pages shown as an iOS Settings list, and their names for the back button. */
 const LISTED: Record<string, string> = { settings: 'Settings', system: 'System', links: 'Links' };
@@ -219,5 +220,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   // [restc] TV MODE (tv/index.ts): on by itself on a television or from SETTINGS → THEME; and, anywhere WebGL is missing,
   // God's Eye flat, the Studio and the 3-D games said to be hidden
   startTv();
+  // [wall] where this device was made the wall (`?wall=1`, or SETTINGS → TV MODE → THIS IS THE WALL), the wall covers the app
+  startWall();
   return { stage, buildDock };
 }

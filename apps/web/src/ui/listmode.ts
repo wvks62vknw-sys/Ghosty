@@ -65,6 +65,9 @@ const MAP: [RegExp, keyof typeof G, string][] = [
   [/^HELP$/, 'help', '#30d158'],
 ];
 
+// [wall] THE WALL wears THE LOOK's glyph and tint (a second screen is a second way of seeing)
+MAP.unshift([/^THE WALL$/, 'look', MAP[0]![2]]);
+
 export interface ListGroup {
   /** The small title above the group's card. */
   title: string;

@@ -21,6 +21,7 @@ import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { GuardianInfo, PanicSecret, WalkInfo } from '../../../../packages/shared/src/guardian';
+import type { WallInfo } from '../../../../packages/shared/src/wall';
 import type { ForesightInfo } from '../../../../packages/shared/src/foresight';
 import type { NamedCar } from '../../../../packages/shared/src/cards';
 import type { Dial, Spoken } from '../../../../packages/shared/src/cadence';
@@ -169,7 +170,7 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail/.test(path);
+const cacheable = (path: string) => !/^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -473,6 +474,12 @@ export const brain = {
   watchersStop: (id: string) => req<{ removed: boolean; watchers: WatcherInfo[] }>('DELETE', `/guardian/watchers?id=${encodeURIComponent(id)}`),
   mailInbox: () => req<{ linked: boolean; address?: string; messages: MailLine[] }>('GET', '/guardian/mail/inbox'),
   mailReply: (b: { reply_to_uid: number; subject: string; body: string; confirm: true }) => req<{ sent: boolean; to: string[] }>('POST', '/guardian/mail/send', b),
+  /** THE WALL (apps/edge/src/wall.ts): the second screen. None of it is kept for offline: a wall that cannot be reached is said so. */
+  wallInfo: () => send<WallInfo>('GET', '/guardian/wall'),
+  wallPair: (code: string) => send<WallInfo>('POST', '/guardian/wall/pair', { code }),
+  wallShow: (b: { kind: string; data: Record<string, unknown>; sentence: string; pair?: string }) => send<WallInfo>('POST', '/guardian/wall/show', b),
+  wallClear: () => send<WallInfo>('POST', '/guardian/wall/clear', {}),
+  wallLeave: (screen?: string) => send<WallInfo>('POST', '/guardian/wall/leave', screen ? { screen } : {}),
   guardianCheck: () => req<GuardianInfo & { news: string[]; clear: string[] }>('POST', '/guardian/check', {}),
   guardianPerson: (p: { name: string; telegram?: string; email?: string; sharePos: boolean; ownerName?: string }) => req<GuardianInfo>('POST', '/guardian/person', p),
   guardianPersonRemove: () => req<GuardianInfo>('DELETE', '/guardian/person'),

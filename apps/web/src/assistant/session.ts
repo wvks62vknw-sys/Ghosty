@@ -34,6 +34,7 @@ import { REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
+import { wallSplit, wallTurn } from '../wall/phone'; // [wall] THE WALL: "pair the wall", "on the wall", "clear the wall" (BRIEF-MACHINE-WALL)
 import { showBegin, showEnd, showNote } from '../show/turn'; // [showme] the Stage: what a turn brought, and the picture after the sentence (BRIEF-SHOW-ME-1)
 import { sayError } from '../ui/hisWords';
 
@@ -805,7 +806,7 @@ export async function askCloud(at: number): Promise<void> {
  * CLOUD (the question is on screen already, above the phone's answer).
  */
 export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean; here?: boolean; plain?: boolean; again?: boolean; as?: Label } = {}): Promise<void> {
-  const t = text.trim();
+  const t = wallSplit(text.trim()); // [wall] "where is Lisbon, on the wall": the ask, with this turn's picture bound for the wall
   if (!t) return;
   showBegin(t); // [showme] his next word takes the Stage away and starts this turn's tally
   // [voiceknown] the sound of this spoken turn is taken now, before anything waits (a later listen would replace it)
@@ -815,6 +816,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // answered there, on the phone — the stop and the raising readings never see them, and the brain never does.
   if (await guardTurn(t, { voice: opts.voice })) return;
   if (await faceTurn(t, opts.voice)) return;
+  // [wall] his words about the wall (pairing it, sending a picture, resting it) are answered on the phone, with no model
+  if (await wallTurn(t)) return;
   // [reader] a book read to him, by words, with no model (BRIEF-LIBRARY-READER 4): "go on" just after the book was cut (from the
   // sentence he was in), a plain "stop" while it is read (the page said; a harsh one stays the silent stop below), "read me …",
   // "carry on reading", "where were we", a chapter, a page, "just this chapter", "stop reading"
