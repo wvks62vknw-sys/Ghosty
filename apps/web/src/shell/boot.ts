@@ -126,6 +126,8 @@ const FILM_FULL_BY = 1500;
 const FILM_SHORT_BY = 2700;
 /** A cold open this soon after he last had Ghosty on screen (the phone closed it behind him) plays the short cut (FINAL-BOOT's rule). */
 export const QUICK_REOPEN_MS = 3 * 60_000;
+/** The most the short cut started at a quick reopen is quickened to make up a wait for Mind (a quarter: never rushed). */
+const QUICK_PACE = 1.25;
 /** The three feeds the guardian reads, in the order their lines come (packages/shared/src/guardian.ts). */
 const FEED_WORD: Record<FeedId, string> = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 
@@ -587,8 +589,10 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   // THE FILM: The Scan's world gets round two's film with the descent (features/core/scan/film.ts); the other worlds today's picture
   const filmWanted = dd.world === 'scan' && kind !== 'flat' && webglWorks();
   const L = filmWanted ? FILM_LINES : LINES;
-  // (a cut chosen at the start, the short one of a quick reopen or the still one, ends by its own length, a wait for Mind made up inside it)
-  const CAP = kind === 'full' ? capOf(L) : L[kind].end;
+  // (the short cut chosen at the start, a quick reopen's or a television's, aims to end by its own length, a wait for Mind made up inside
+  // it but never rushed: QUICK_PACE at most, so a late Mind ends it a little later instead; every other cut aims at the full cut's end)
+  const CAP = kind === 'short' ? L.short.end : capOf(L);
+  const startedShort = kind === 'short';
   let tl = L[kind];
   bootState.timeline = tl;
   /** Where the cut first needs Mind, and holds (the room breathing) until it is drawing: the film's scan, else the orb's gather. */
@@ -844,6 +848,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const from = needAt();
     const left = tl.end - from;
     rate = Math.max(1, left / Math.max(300, CAP - e - 1));
+    if (startedShort) rate = Math.min(rate, QUICK_PACE);
     paceE = e;
     paceT = from;
     bootState.pace = Math.round(rate * 1000) / 1000;
@@ -1218,7 +1223,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
         if (appIsReady) heroWait += gap;
         bootState.held += Math.round(gap);
         next = tl.land - 1;
-        if (e > CAP) quietHold = true;
+        if (e > capOf(L)) quietHold = true;
         // the landing then runs from the moment the app is there
         paceE = e;
         paceT = next;

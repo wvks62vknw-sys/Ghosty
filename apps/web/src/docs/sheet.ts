@@ -7,7 +7,8 @@
  * letters TRANSLITERATED by tables; exported as PDF, Word, Markdown or HTML. All on the phone but the brain's words.
  * BRIEF-EDITOR-DOCUMENTS made it the core of Word: underline, links, alignment, photos from his own photos, tables, page breaks, the
  * page's size, margins, header, footer and numbers, a live word and page count, autosave said, a Word file read and written with
- * its tables, links and pictures, and Ghosty writing into the page after the paragraph he is in.
+ * its tables, links and pictures, and Ghosty writing into the page after the paragraph he is in. The EDITORS lane added strikethrough,
+ * the highlighter (MARK) and checklists with a box to tick, each kept through Markdown, HTML, Word and the PDF.
  */
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
@@ -155,10 +156,19 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const c = counts(d);
     docsState.words = c.words;
     docsState.chars = c.chars;
-    docsState.pages = pageCount(d);
+    // the pages are a whole layout of the document: a long one is counted once he pauses, so a key or a tick stays quick
+    clearTimeout(pagesTimer);
+    if (d.blocks.length < 200) docsState.pages = pageCount(d);
+    else
+      pagesTimer = window.setTimeout(() => {
+        if (hist?.doc !== d) return;
+        docsState.pages = pageCount(d);
+        paintMeta();
+      }, 700);
     docsState.json = JSON.stringify(d);
     paintMeta();
   };
+  let pagesTimer = 0;
   const metaEl = h('p.dcmeta');
   const savedEl = h('small.dcsaved', { 'aria-live': 'polite' });
   const paintMeta = () => {
@@ -180,6 +190,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     b: boolean;
     i: boolean;
     u: boolean;
+    s: boolean;
+    hl: boolean;
     href: string;
   }
   const safeLink = (u: string): string => {
@@ -189,8 +201,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return '';
     return /@/.test(t) && !/\s|\//.test(t) ? `mailto:${t}` : `https://${t}`;
   };
-  function runsOf(node: Node, st: Marks = { b: false, i: false, u: false, href: '' }, out: Run[] = []): Run[] {
-    const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.href ? { href: m.href } : {}) });
+  function runsOf(node: Node, st: Marks = { b: false, i: false, u: false, s: false, hl: false, href: '' }, out: Run[] = []): Run[] {
+    const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.s ? { s: true } : {}), ...(m.hl ? { hl: true } : {}), ...(m.href ? { href: m.href } : {}) });
     node.childNodes.forEach((n) => {
       if (n.nodeType === Node.TEXT_NODE) out.push(mk(n.textContent ?? '', st));
       else if (n.nodeType === Node.ELEMENT_NODE) {
@@ -205,6 +217,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
             b: st.b || tag === 'B' || tag === 'STRONG' || /bold|[6-9]00/.test(el.style.fontWeight),
             i: st.i || tag === 'I' || tag === 'EM' || el.style.fontStyle === 'italic',
             u: st.u || tag === 'U' || /underline/.test(el.style.textDecorationLine || el.style.textDecoration),
+            s: st.s || tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || /line-through/.test(el.style.textDecorationLine || el.style.textDecoration),
+            hl: st.hl || tag === 'MARK',
             href: tag === 'A' ? safeLink(el.getAttribute('href') ?? '') : st.href,
           }, out);
       }
@@ -271,7 +285,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const tbl = el.closest<HTMLElement>('.dctable');
     if (tbl) return syncTable(tbl);
     const id = el.dataset.id;
-    if (!id || !el.isContentEditable) return;
+    // a paragraph already drawn again (a repaint took it off the page) has nothing newer to say
+    if (!id || !el.isConnected || !el.isContentEditable) return;
     const runs = readRuns(el);
     const b = doc().blocks.find((x) => x.id === id);
     if (!b || !plainBlock(b) || JSON.stringify(b.runs) === JSON.stringify(runs)) return;
@@ -309,6 +324,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   document.addEventListener('selectionchange', () => {
     const sel = getSelection();
     if (sel?.rangeCount && page.contains(sel.anchorNode)) lastRange = sel.getRangeAt(0).cloneRange();
+    // the choice let go of (nothing chosen anywhere): a key must not act on words chosen before
+    else if (!sel?.rangeCount) lastRange = null;
   });
 
   let cell = { id: '', r: 0, c: 0 };
@@ -383,6 +400,27 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       return h('div.dcb.dctable', { dataset: { id: b.id, t: 'table' } }, t);
     }
     const tag = b.t === 'h1' ? 'h2' : b.t === 'h2' ? 'h3' : b.t === 'h3' ? 'h4' : b.t === 'quote' ? 'blockquote' : b.t === 'ul' || b.t === 'ol' ? 'li' : 'p';
+    if (b.t === 'todo') {
+      const el = editableEl(b, 'p');
+      const box = h('button.dcbox', { type: 'button', role: 'checkbox', 'aria-checked': String(!!b.ticked), 'aria-label': `${b.ticked ? 'Done' : 'To do'}: ${textOf(b).slice(0, 40) || 'an empty item'}` }, b.ticked ? '✓' : '');
+      const row = h(`div.dctodo${b.ticked ? '.ticked' : ''}` as 'div', box, el);
+      box.addEventListener('click', () => {
+        clearTimeout(timer);
+        const runs = readRuns(el);
+        const on = !doc().blocks.find((x) => x.id === b.id)?.ticked;
+        // kept at once, and only this item drawn again (a long document is not repainted for a tick)
+        change(withBlock(doc(), b.id, (x) => ({ ...x, runs, ticked: on ? true : undefined })), false);
+        box.setAttribute('aria-checked', String(on));
+        box.setAttribute('aria-label', `${on ? 'Done' : 'To do'}: ${runs.map((r) => r.text).join('').slice(0, 40) || 'an empty item'}`);
+        box.textContent = on ? '✓' : '';
+        row.classList.toggle('ticked', on);
+        say(on ? 'Ticked. UNDO takes it back.' : 'Not done yet.');
+      });
+      return row;
+    }
+    return editableEl(b, tag);
+  };
+  const editableEl = (b: Block, tag: string): HTMLElement => {
     const el = h(`${tag}.dcb` as 'p', { contentEditable: 'true', spellcheck: true, dataset: { id: b.id, t: b.t, ...(b.align && b.align !== 'left' ? { align: b.align } : {}) } });
     if (b.t === 'right') el.classList.add('right');
     fillRuns(el, b.runs);
@@ -404,7 +442,13 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         clearTimeout(timer);
         const runs = readRuns(el);
         const [a, z] = splitRuns(runs, caretAt(el));
-        const next: Block = { ...block(b.t === 'ul' || b.t === 'ol' ? b.t : 'p', z), ...(b.align ? { align: b.align } : {}) };
+        // Enter on an empty list or checklist item ends the list (as Pages and Word do)
+        if ((b.t === 'ul' || b.t === 'ol' || b.t === 'todo') && !runs.some((r) => r.text.trim())) {
+          change(withBlock(doc(), b.id, (x) => ({ ...x, t: 'p', runs: [], ticked: undefined })));
+          elOf(b.id)?.focus();
+          return;
+        }
+        const next: Block = { ...block(b.t === 'ul' || b.t === 'ol' || b.t === 'todo' ? b.t : 'p', z), ...(b.align ? { align: b.align } : {}) };
         const d = doc();
         const k = d.blocks.findIndex((x) => x.id === b.id);
         change({ ...d, blocks: [...d.blocks.slice(0, k), { ...b, runs: a }, next, ...d.blocks.slice(k + 1)] });
@@ -444,6 +488,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         if (r.i) node = h('em', node);
         if (r.b) node = h('strong', node);
         if (r.u) node = h('u', node);
+        if (r.s) node = h('s', node);
+        if (r.hl) node = h('mark.dchl', node);
         if (r.href) node = h('a', { href: r.href, rel: 'noopener', target: '_blank' }, node);
         el.append(node);
       });
@@ -526,6 +572,57 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     }
     document.execCommand(cmd);
     sync(el);
+  };
+  /** Where a point inside a paragraph falls, as a count of its letters. */
+  const offsetIn = (el: HTMLElement, node: Node, off: number): number => {
+    const r = document.createRange();
+    r.setStart(el, 0);
+    r.setEnd(node, off);
+    const box = document.createElement('div');
+    box.append(r.cloneContents());
+    return readRuns(box).reduce((n, x) => n + x.text.length, 0);
+  };
+  const pointIn = (el: HTMLElement, at: number): [Node, number] => {
+    let left = at;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    let last: Node | null = null;
+    while (node) {
+      const len = node.textContent?.length ?? 0;
+      if (left <= len) return [node, left];
+      left -= len;
+      last = node;
+      node = walker.nextNode();
+    }
+    return last ? [last, last.textContent?.length ?? 0] : [el, el.childNodes.length];
+  };
+  /** STRIKE and HIGHLIGHT: the chosen words get the mark (or lose it, when they all have it), and stay chosen. */
+  const markWords = (what: 's' | 'hl') => {
+    const sel = getSelection();
+    const live = sel?.rangeCount && page.contains(sel.anchorNode) ? sel.getRangeAt(0) : lastRange;
+    const host = live ? (live.startContainer.nodeType === Node.ELEMENT_NODE ? (live.startContainer as HTMLElement) : live.startContainer.parentElement)?.closest<HTMLElement>('.dcb[data-id]') : null;
+    const b = host ? doc().blocks.find((x) => x.id === host.dataset.id) : undefined;
+    if (!live || live.collapsed || !host || !host.isConnected || !b || !plainBlock(b) || !host.contains(live.endContainer)) return say(host?.closest('.dctable') ? 'Strike and highlight work on a paragraph’s words; a table cell keeps bold, italic and underline.' : 'Choose the words first (press and hold, then drag).');
+    clearTimeout(timer);
+    const start = offsetIn(host, live.startContainer, live.startOffset);
+    const end = offsetIn(host, live.endContainer, live.endOffset);
+    const words = readRuns(host);
+    host.blur();
+    const [a, rest] = splitRuns(words, start);
+    const [m, z] = splitRuns(rest, end - start);
+    const all = m.length > 0 && m.every((r) => r[what]);
+    const marked = m.map((r) => ({ ...r, [what]: all ? undefined : true }));
+    change(withBlock(doc(), b.id, (x) => ({ ...x, runs: tidyRuns([...a, ...marked, ...z]) })));
+    const el = elOf(b.id);
+    if (el) {
+      el.focus();
+      const r = document.createRange();
+      r.setStart(...pointIn(el, start));
+      r.setEnd(...pointIn(el, end));
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(r);
+    }
+    say(`${what === 's' ? (all ? 'Strike taken off' : 'Struck through') : all ? 'Highlight taken off' : 'Highlighted'}. UNDO puts it back.`);
   };
   const removeBlock = (id: string) => {
     const d = doc();
@@ -694,12 +791,12 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const panels: Record<string, HTMLElement> = {
     write: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Write' },
       h('div.dcrow', key('TEXT', () => setType('p'), '', 'Plain paragraph'), key('H1', () => setType('h1'), '', 'Heading 1'), key('H2', () => setType('h2'), '', 'Heading 2'), key('H3', () => setType('h3'), '', 'Heading 3'), key('QUOTE', () => setType('quote'))),
-      h('div.dcrow', key('B', () => mark('bold'), 'dcbold', 'Bold'), key('I', () => mark('italic'), 'dcital', 'Italic'), key('U', () => mark('underline'), 'dcund', 'Underline'), key('LINK', () => {
+      h('div.dcrow', key('B', () => mark('bold'), 'dcbold', 'Bold'), key('I', () => mark('italic'), 'dcital', 'Italic'), key('U', () => mark('underline'), 'dcund', 'Underline'), key('S', () => markWords('s'), 'dcstrike', 'Strikethrough'), key('MARK', () => markWords('hl'), 'dcmark', 'Highlight'), key('LINK', () => {
         linkBox.hidden = !linkBox.hidden;
         if (!linkBox.hidden) linkIn.focus();
       })),
       linkBox,
-      h('div.dcrow', key('• LIST', () => setType('ul')), key('1. LIST', () => setType('ol'))),
+      h('div.dcrow', key('• LIST', () => setType('ul')), key('1. LIST', () => setType('ol')), key('☐ CHECKLIST', () => setType('todo'), '', 'Checklist')),
       h('div.dcrow', key('LEFT', () => setAlign('left'), '', 'Align left'), key('CENTRE', () => setAlign('center'), '', 'Centre'), key('RIGHT', () => setAlign('right'), '', 'Align right'), key('JUSTIFY', () => setAlign('justify'))),
     ),
     insert: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Insert' },

@@ -11,7 +11,7 @@ import { button, toast } from '../ui/components';
 import { sizeWords } from '../convert/bytes';
 import { encodeWav } from '../convert/audio';
 import {
-  ASPECTS, clipLen, clock, duration, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
+  ASPECTS, clipLen, clock, duplicateClip, duration, fadeCap, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
   type Aspect, type Clip, type Overlay, type Project, type Source, type TransitionKind,
 } from './model';
 import { addAudio, addMain, addPip, addTitle, copyGrade, cutRanges, splitMany } from './edit';
@@ -77,6 +77,10 @@ export const videoState = {
   best: null as null | { ms: number; clips: number; perClip: number; picks: { clip: string; from: number; to: number; reason: string; on: boolean }[]; left: { clip: string; reason: string }[]; line: string; namer: boolean; total: number },
   beat: null as null | { bpm: number; ms: number; musicMs: number; perMinute: number; said: string; moved: number; biggest: number; line: string },
   rough: false,
+  /** How many times the project has been written to the phone (a spec waits for the next one, never for a clock). */
+  saves: 0,
+  /** The change-time (`at`) of the project as last written: equal to the open project's own when every change is kept. */
+  savedAt: 0,
 };
 
 const reduced = (): boolean => !!matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -313,7 +317,9 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     videoState.line = words;
     clear(lineAct, act);
   };
-  const autosave = autosaver(() => {
+  const autosave = autosaver((written) => {
+    videoState.saves++;
+    videoState.savedAt = written.at;
     void refreshKept().then(() => noteVideos(kept.filter((k) => !k.gone).length, project.name, lengthWords(duration(project))));
     if (savedOnce) return;
     savedOnce = true;
@@ -502,6 +508,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         });
         renderStrip();
         renderTray();
+        refreshState();
       });
       tile.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), tile.click()));
       if (x.clip.id === sel && tool === 'trim') addHandles(tile, x.clip);
@@ -871,11 +878,24 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
 
   function orderTray(c: Clip): Nodes {
     const i = project.main.findIndex((x) => x.id === c.id);
+    // a move with nowhere to go would be a key that does nothing: it is greyed, its name saying why
+    const moveKey = (label: string, to: number, edge: boolean) => {
+      const b = act(label, () => commit(moveClip(project, i, to), `Moved to place ${to + 1}.`));
+      b.disabled = edge;
+      if (edge) b.setAttribute('aria-label', `${label}: this clip is already at that end`);
+      return b;
+    };
     return [
       h('p.vdsay', `Clip ${i + 1} of ${project.main.length}`),
       row(
-        act('MOVE LEFT', () => commit(moveClip(project, i, i - 1), `Moved to place ${i}.`)),
-        act('MOVE RIGHT', () => commit(moveClip(project, i, i + 1), `Moved to place ${i + 2}.`)),
+        moveKey('MOVE LEFT', i - 1, i === 0),
+        moveKey('MOVE RIGHT', i + 1, i === project.main.length - 1),
+        act('DUPLICATE CLIP', () => {
+          const d = duplicateClip(project, c.id);
+          if (!d) return;
+          sel = d.id;
+          commit(fixTransitions(d.p), `A copy of clip ${i + 1} is in place ${i + 2}, right after it. UNDO takes it out.`);
+        }),
         act('DELETE CLIP', () => {
           const was = project;
           commit(removeClip(project, c.id), 'The clip is out.');
@@ -890,7 +910,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   function transitionTray(c: Clip): Nodes {
     const i = project.main.findIndex((x) => x.id === c.id);
     const next = project.main[i + 1];
-    if (!next) return [need('This is the last clip. A transition goes between a clip and the one after it.')];
+    if (!next) return [need('This is the last clip. A transition goes between a clip and the one after it; this one can fade to black.'), ...fadeNodes(c)];
     const cap = transitionCap(c, next);
     const kinds: { id: TransitionKind; label: string }[] = [{ id: 'cut', label: 'CUT' }, { id: 'crossfade', label: 'CROSSFADE' }, { id: 'dip', label: 'DIP TO BLACK' }, { id: 'wipe', label: 'WIPE' }, { id: 'slide', label: 'SLIDE' }];
     return [
@@ -898,6 +918,25 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       choices('Transition', kinds, c.next.kind, (k) => commit(setTransition(project, i, k, c.next.len || Math.min(1000, cap)), k === 'cut' ? 'A plain cut.' : `A ${k} into clip ${i + 2}: the two clips overlap by it.`)),
       c.next.kind !== 'cut' ? stepper('Length', () => `${((selClip()?.next.len ?? 0) / 1000).toFixed(1)} s`, () => commit(setTransition(project, i, selClip()!.next.kind, (selClip()?.next.len ?? 0) - 100)), () => commit(setTransition(project, i, selClip()!.next.kind, (selClip()?.next.len ?? 0) + 100))) : null,
       note(cap < 200 ? 'These clips are too short for a transition.' : `Up to ${(cap / 1000).toFixed(1)} s: no more than half of the shorter clip.`),
+      ...fadeNodes(c),
+    ];
+  }
+  /** FADE IN and FADE OUT: this clip's picture rises from black and sinks to black, its sound with it (one second, or a third of a short clip). */
+  function fadeNodes(c: Clip): Nodes {
+    const cap = fadeCap(c);
+    if (cap < 200) return [note('This clip is too short to fade.')];
+    const len = Math.min(1000, cap);
+    const fi = c.fade?.in ?? 0;
+    const fo = c.fade?.out ?? 0;
+    const set = (inMs: number, outMs: number, words: string) =>
+      commit(editClip(c.id, (z) => { if (inMs || outMs) z.fade = { in: inMs, out: outMs }; else delete z.fade; }), words);
+    const secs = `${(len / 1000).toFixed(1)} s`;
+    return [
+      row(
+        act('FADE IN', () => set(fi ? 0 : len, fo, fi ? 'No fade in: the clip starts as it is.' : `The clip rises from black over ${secs}, its sound with it.`), fi ? 'vdchoice vdfade on' : 'vdchoice vdfade'),
+        act('FADE OUT', () => set(fi, fo ? 0 : len, fo ? 'No fade out: the clip ends as it is.' : `The clip sinks to black over ${secs}, its sound with it.`), fo ? 'vdchoice vdfade on' : 'vdchoice vdfade'),
+      ),
+      note(fi || fo ? `Fading ${[fi ? 'in' : '', fo ? 'out' : ''].filter(Boolean).join(' and ')}: tap again to take it off.` : 'FADE IN rises from black at the clip’s start; FADE OUT sinks to black at its end. The sound fades with the picture.'),
     ];
   }
 
@@ -1912,6 +1951,12 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   };
   window.addEventListener('offline', offlineLine);
   stopFns.push(() => window.removeEventListener('offline', offlineLine));
+  // the app swiped away or the phone locked inside the 200 ms before a save: the change is kept now, not lost
+  const keepNow = () => void (document.visibilityState === 'hidden' && autosave.flush());
+  const leaving = () => void autosave.flush();
+  document.addEventListener('visibilitychange', keepNow);
+  window.addEventListener('pagehide', leaving);
+  stopFns.push(() => { document.removeEventListener('visibilitychange', keepNow); window.removeEventListener('pagehide', leaving); });
 
   // ---------------------------------------------------------------- what specs and the chat can reach
   const api = {

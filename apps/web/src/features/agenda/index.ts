@@ -13,6 +13,9 @@ import { ADD_SHEET, DIARY_OFFLINE, dayLine, EMPTY_DAY, EMPTY_JOBS, parseWhen, pr
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
 import { watchersPanel } from './watchers';
+import { todoPanel } from './todo';
+import { monthPanel } from './month';
+import { AHEAD_DAYS } from './todowords';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
 
@@ -78,7 +81,7 @@ export const agendaTab: TabDef = {
     const sp = spendingPanel();
     // [lifeeasier] WATCHERS (watchers.ts) follows SPENDING and so sits under its pill: the pills stay as they were
     const wp = watchersPanel();
-    P.left.append(ep.el, cp.el, sp.el, wp.el);
+    // [planlane] TO-DO (todo.ts) and MONTH (month.ts) are made below, once what they read is declared
     const jp = panel('REMINDERS & TASKS', { cls: 'scroll' });
     const ip = panel('NOTIFICATIONS', { cls: 'scroll', footer: true });
     P.right.append(jp.el, ip.el);
@@ -87,9 +90,27 @@ export const agendaTab: TabDef = {
     const jobUndo = undoBar();
 
     let events: AgendaEventInfo[] = [];
+    // what the brain gave for the next six weeks (the month reads it); the diary lists the first fourteen days of it
+    let allEvents: AgendaEventInfo[] = [];
     let jobs: JobInfo[] = [];
     let feeds: FeedInfo[] = [];
     let errors: string[] = [];
+    // the diary read once (until then it says it is on its way), and whether what it shows is the phone's copy (the brain out of reach)
+    let loaded = false;
+    let stale = false;
+    // the event opened whole in the diary ('' for none)
+    let openEv = '';
+    /** what he has typed in the open event's change boxes (kept when the diary repaints every minute) */
+    let evDraft: { id: string; title: string; at: string; where: string } | null = null;
+    /** the minutes before an event its reminder rings (an all-day one's is set from 09:00 that day, as the brain sets it) */
+    const remindOf = (e: AgendaEventInfo, rem: { next: number } | undefined) => (rem ? Math.max(0, Math.round(((e.allDay ? e.start + 9 * 3600_000 : e.start) - rem.next) / 60_000)) : null);
+    // [planlane] TO-DO (todo.ts): his own list on this phone; MONTH (month.ts): the diary as a calendar, under it
+    const tp = todoPanel(() => {
+      mp.paint();
+      paintHero();
+    });
+    const mp = monthPanel(() => ({ events: allEvents, todos: tp.list() }));
+    P.left.append(ep.el, mp.el, tp.el, cp.el, sp.el, wp.el);
 
     // ── add event ────────────────────────────────────────────────────────
     const evTitle = h('input', { placeholder: 'New event (e.g. Dentist)', 'aria-label': 'Event title' });
@@ -138,8 +159,14 @@ export const agendaTab: TabDef = {
 
     const paintEvents = () => {
       clear(ep.body);
+      /* state: agenda.diary loading */
+      if (!loaded) return void ep.body.append(h('div.empty.wait', { dataset: { case: 'keep', state: 'loading' } }, h('b', 'Reading your diary'), h('span', 'One moment: your events and calendars are on their way.')));
+      // the brain out of reach: what is shown is the last copy on this phone, and it says so
+      /* state: agenda.diary error */
+      if (stale) ep.body.append(h('div.note.bad.agstale', { dataset: { case: 'keep', state: 'error' } }, 'I can’t reach your brain right now, so this is the last copy kept on this phone. Changes you make wait here and go when it’s back.'));
       if (errors.length) ep.body.append(h('div.note.bad', `Calendar problem: ${errors.join(' · ')}`));
       if (!events.length) {
+        /* state: agenda.diary empty */
         ep.body.append(empty('NONE', EMPTY_DAY.line, EMPTY_DAY.head));
         return;
       }
@@ -167,17 +194,107 @@ export const agendaTab: TabDef = {
           x.addEventListener('click', async () => {
             // its reminder, so UNDO brings both back
             const rem = jobs.find((j) => j.eventId === e.id);
-            await brain.deleteEvent(e.id);
+            try {
+              await brain.deleteEvent(e.id);
+            } catch (err) {
+              return toast(sayError(err, 'delete that event'), 'bad');
+            }
             void load();
             evUndo.show(`Deleted: ${e.title}`, async () => {
-              await brain.addEvent({ title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, remindMin: rem ? Math.max(0, Math.round((e.start - rem.next) / 60_000)) : null });
+              const back = { title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, notes: e.notes, remindMin: remindOf(e, rem) };
+              await brain.addEvent(back);
               toast(`Back: ${e.title}`, 'ok');
               void load();
             });
           });
         }
+        // tap an event to see it whole (and, for one in his own diary, to change it)
+        r.classList.add('evtap');
+        r.tabIndex = 0;
+        r.setAttribute('role', 'button');
+        r.setAttribute('aria-expanded', String(openEv === e.id));
+        const toggle = () => {
+          openEv = openEv === e.id ? '' : e.id;
+          evDraft = null;
+          paintEvents();
+        };
+        r.addEventListener('click', (ev) => !(ev.target as HTMLElement).closest('.del') && toggle());
+        r.addEventListener('keydown', (ev) => (ev.key === 'Enter' || ev.key === ' ') && !(ev.target as HTMLElement).closest('.del') && (ev.preventDefault(), toggle()));
         ep.body.append(r);
+        if (openEv === e.id) ep.body.append(eventCard(e));
       }
+    };
+
+    /** One event whole: its day and time, where, where it is from and its reminder; one of his own can be changed here. */
+    const eventCard = (e: AgendaEventInfo): HTMLElement => {
+      const rem = jobs.find((j) => j.eventId === e.id);
+      const remindMin = remindOf(e, rem);
+      const day = new Date(e.start).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+      // one added or changed while the brain was out of reach waits on this phone: his own, not a calendar's
+      const waiting = e.id.startsWith('local-') || e.source.startsWith('this device');
+      const mine = e.source === 'mine' || waiting;
+      const remWords = remindMin == null ? 'no reminder' : remindMin ? `reminder ${remindMin >= 60 && remindMin % 60 === 0 ? `${remindMin / 60} h` : `${remindMin} min`} before` : 'reminder at the start';
+      const card = h('div.evcard', { dataset: { case: 'keep' } },
+        h('b.evcardt', e.title),
+        h('span', e.allDay ? `${day}, all day` : `${day}, ${hm(e.start)}${e.end ? ` to ${hm(e.end)}` : ''}`),
+        e.location ? h('span', `Where: ${e.location}`) : null,
+        e.notes ? h('span', `Notes: ${e.notes}`) : null,
+        h('small', waiting ? 'In your diary, not sent yet: it goes when the brain is back.' : mine ? `In your diary · ${remWords}` : `From your calendar “${e.source}”. Change it there: Ghosty only reads it.`));
+      if (!mine) return card;
+      const d = evDraft?.id === e.id ? evDraft : null;
+      const ti = h('input', { value: d ? d.title : e.title, 'aria-label': 'Change the event', maxlength: '200' });
+      const at = h('input', { type: 'datetime-local', value: d ? d.at : localInput(e.start), 'aria-label': 'Change when it starts' });
+      const where = h('input', { value: d ? d.where : e.location ?? '', placeholder: 'Where (optional)', 'aria-label': 'Change where' });
+      for (const x of [ti, at, where]) x.addEventListener('input', () => void (evDraft = { id: e.id, title: ti.value, at: at.value, where: where.value }));
+      // (its notes go with it, both ways: a change never loses them)
+      const was = { title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, notes: e.notes, remindMin };
+      const save = async (b: HTMLButtonElement) => {
+        // one save at a time: a second Enter (or a held Go key) while the first is on its way would add the event twice
+        if (b.disabled) return;
+        const title = ti.value.trim();
+        const start = e.allDay ? new Date(new Date(at.value).setHours(0, 0, 0, 0)).getTime() : new Date(at.value).getTime();
+        if (!title || !Number.isFinite(start)) return toast('Give the event a name and a time', 'warn');
+        const now = { title, start, end: e.end ? start + (e.end - e.start) : undefined, allDay: e.allDay, location: where.value.trim() || undefined, notes: e.notes, remindMin };
+        b.disabled = true;
+        // his diary keeps no "change": the event is deleted and added again, changed (said under the keys)
+        try {
+          await brain.deleteEvent(e.id);
+        } catch (err) {
+          b.disabled = false;
+          return toast(sayError(err, 'change that event'), 'bad');
+        }
+        let made: AgendaEventInfo | null = null;
+        try {
+          made = (await brain.addEvent(now)).event;
+        } catch (err) {
+          // the new one did not go in: the old one goes back, so nothing is lost
+          await brain.addEvent(was).catch(() => undefined);
+          toast(sayError(err, 'change that event'), 'bad');
+        }
+        openEv = '';
+        evDraft = null;
+        void load();
+        if (!made) return;
+        const id = made.id;
+        evUndo.show(`Changed: ${title}`, async () => {
+          await brain.deleteEvent(id).catch(() => undefined);
+          await brain.addEvent(was);
+          toast(`Back as it was: ${e.title}`, 'ok');
+          void load();
+        });
+      };
+      const saveB = button('SAVE CHANGES', (b) => void save(b), 'on');
+      ti.addEventListener('keydown', (ev) => ev.key === 'Enter' && void save(saveB));
+      card.append(
+        h('div.keyrow.wrapit.addev.evedit', ti, at, where),
+        h('div.keyrow.wrapit', saveB, button('CLOSE', () => {
+          openEv = '';
+          evDraft = null;
+          paintEvents();
+        })),
+        h('small.note', 'Saving takes the event out of your diary and puts it back changed (the diary has no other way to change one). UNDO puts it back as it was.'),
+      );
+      return card;
     };
 
     const paintJobs = () => {
@@ -197,7 +314,11 @@ export const agendaTab: TabDef = {
         x.title = 'Cancel';
         x.setAttribute('aria-label', `Cancel ${j.title}`);
         x.addEventListener('click', async () => {
-          await brain.deleteJob(j.id);
+          try {
+            await brain.deleteJob(j.id);
+          } catch (err) {
+            return toast(sayError(err, 'cancel that reminder'), 'bad');
+          }
           void load();
           if (j.kind === 'reminder' || j.kind === 'task') {
             jobUndo.show(`Cancelled: ${j.title}`, async () => {
@@ -327,31 +448,47 @@ export const agendaTab: TabDef = {
       const line = dayLine(events, now);
       P.big.dataset.case = 'keep';
       P.big.textContent = line.first;
-      P.sub.textContent = [line.gap, `${line.left} left today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`].join(' · ');
+      // (his to-dos kept on this phone are counted too: the agenda's TO-DO)
+      const todo = tp.list().filter((t) => !t.done).length;
+      P.sub.textContent = [line.gap, `${line.left} left today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`, todo ? `${todo} to do` : ''].filter(Boolean).join(' · ');
       P.big.dataset.state = events.length ? 'shown' : 'empty';
     };
 
     const load = async () => {
       try {
-        const a = await brain.agenda(14);
-        events = a.events;
+        // the brain's api gives the copy on this phone when it cannot be reached (api/offline.ts): the copy unchanged means it was that
+        const was = offline.get().agenda;
+        const a = await brain.agenda(AHEAD_DAYS);
+        stale = was !== null && offline.get().agenda === was;
+        loaded = true;
+        allEvents = a.events;
+        const cut = new Date();
+        cut.setHours(0, 0, 0, 0);
+        events = a.events.filter((e) => e.start < cut.getTime() + 14 * 86400_000);
         jobs = a.jobs;
         feeds = a.feeds;
         errors = a.errors;
-        ep.setStatus(`${events.length}`, 'ok');
-        jp.setStatus(`${jobs.length}`, 'ok');
+        ep.setStatus(stale ? 'COPY' : `${events.length}`, stale ? 'off' : 'ok');
+        jp.setStatus(stale ? 'COPY' : `${jobs.length}`, stale ? 'off' : 'ok');
       } catch {
         ep.setStatus('OFFLINE', 'off');
         if (!events.length) {
+          loaded = true;
           paintFeeds();
-          return void clear(ep.body, h('p.note.agoff', { role: 'status', dataset: { case: 'keep', state: 'offline' } }, DIARY_OFFLINE));
+          /* state: agenda.diary offline */
+          return void clear(ep.body, h('p.note.agoff', { role: 'status', dataset: { case: 'keep', state: 'offline' } }, DIARY_OFFLINE), h('p.note', { dataset: { case: 'keep' } }, 'Your to-do list still works on this phone.'));
         }
+        stale = true;
       }
       paintEvents();
       paintJobs();
       paintFeeds();
       paintHero();
+      mp.paint();
     };
+
+    // until the diary is read it says so (not an empty list that looks like nothing is on)
+    paintEvents();
 
     const suggest = h(
       'div.keyrow.wrapit.suggest',
@@ -399,7 +536,8 @@ export const agendaTab: TabDef = {
     // Sections: the diary first (what he opens the agenda for), then reminders with the notifications they send,
     // the month's spending and the calendars he has connected.
     sections(root, 'agenda', [
-      { id: 'diary', label: 'Diary', match: /^DIARY/ },
+      { id: 'diary', label: 'Diary', match: /^(DIARY|MONTH)/ },
+      { id: 'todo', label: 'To-do', match: /^TO-DO/ },
       { id: 'reminders', label: 'Reminders', match: /^(REMINDERS|NOTIFICATIONS)/ },
       { id: 'spending', label: 'Spending', match: /^SPENDING/ },
       { id: 'calendars', label: 'Calendars', match: /^CALENDARS/ },
@@ -412,6 +550,7 @@ export const agendaTab: TabDef = {
     return {
       enter() {
         void load();
+        tp.paint();
         void sp.refresh();
         void wp.refresh();
         void pollInbox();
@@ -431,7 +570,7 @@ export const agendaTab: TabDef = {
           ...(next ? { selected: { kind: 'item', id: `event:${next.id}`, label: next.title, detail: when } } : {}),
         });
       },
-      describe: () => `Agenda: ${events.length} events in the next 14 days, ${jobs.length} reminders/tasks, ${feeds.length} calendars connected.`,
+      describe: () => `Agenda: ${events.length} events in the next 14 days, ${jobs.length} reminders/tasks, ${tp.list().filter((t) => !t.done).length} to-dos open, ${feeds.length} calendars connected.`,
     };
   },
 };

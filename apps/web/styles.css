@@ -3739,6 +3739,36 @@ html #pg-agenda .keyrow.addev > * { min-width: 0; width: 100%; }
 html #pg-agenda .keyrow.addev input[type="datetime-local"] { font-size: 15px; font-variant-numeric: tabular-nums; }
 html #pg-agenda .keyrow.addev select { font-size: 15px; }
 html #pg-agenda .keyrow.addev > button { grid-column: 1 / -1; height: 44px; min-height: 44px !important; }
+/* [planlane] TO-DO: a 44 pt tick, the words (wrapping, never cut), a 44 pt remove; late ones in amber, done ones quieter */
+html #pg-agenda .todoline { margin: 0; padding: 0 16px 6px; font: 400 15px/20px var(--sf); color: var(--ink2); }
+html #pg-agenda .todolist { display: flex; flex-direction: column; }
+html #pg-agenda .todoit { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; column-gap: 10px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+html #pg-agenda .todoit .todotx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html #pg-agenda .todoit .todotx b { font: 500 17px/22px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html #pg-agenda .todoit .todotx small { font: 400 13px/17px var(--sf); color: var(--ink3); }
+html #pg-agenda .todoit.late .todotx small { color: var(--amber); }
+html #pg-agenda .todoit.done .todotx b { color: var(--ink3); text-decoration: line-through; }
+html #pg-agenda .todoit button { width: 44px; height: 44px; min-height: 44px !important; min-width: 44px; padding: 0; }
+html #pg-agenda .todoit button.todotick { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--hair2) !important; background: none !important; }
+html #pg-agenda .todoit button.todotick.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+/* [planlane] MONTH: seven columns, each day a 44 pt key; a dot for events, a ring for a to-do due, today lit */
+html #pg-agenda .monbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; padding: 0 0 8px; }
+html #pg-agenda .monbar button { width: 44px; height: 44px; min-height: 44px !important; padding: 0; }
+html #pg-agenda .monname { text-align: center; font: 600 17px/22px var(--sf); color: var(--ink); }
+html #pg-agenda .mongrid { display: flex; flex-direction: column; gap: 2px; }
+html #pg-agenda .monrow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+html #pg-agenda .monhead span { text-align: center; font: 600 12px/20px var(--sf); color: var(--ink3); }
+html #pg-agenda .mday { position: relative; min-width: 0; width: 100%; height: 44px; min-height: 44px !important; padding: 0; font: 500 16px/1 var(--sf); font-variant-numeric: tabular-nums; color: var(--ink); background: none !important; box-shadow: none !important; }
+html #pg-agenda .mday.past { color: var(--ink3); }
+html #pg-agenda .mday.today { color: var(--c); font-weight: 700; }
+html #pg-agenda .mday.on { box-shadow: inset 0 0 0 2px var(--c) !important; border-radius: var(--rad); }
+html #pg-agenda .mday.has::after { content: ''; position: absolute; left: 50%; bottom: 6px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--c); }
+html #pg-agenda .mday.due::before { content: ''; position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--amber); }
+html #pg-agenda .monlist { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; }
+html #pg-agenda .monlist .mdayline { font: 600 15px/20px var(--sf); color: var(--ink); }
+html #pg-agenda .monev { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .monev .monwhen { color: var(--ink3); font-variant-numeric: tabular-nums; }
+html #pg-agenda .monev.todo .monwhen { color: var(--amber); }
 /* a day: its name as a header with a hairline */
 html #pg-agenda .lab.daylab { display: flex; align-items: center; gap: 10px; margin: 16px 0 2px; font: 600 13px/18px var(--sf); letter-spacing: .06em; color: var(--ink2); }
 html #pg-agenda .lab.daylab::after { content: ''; flex: 1; height: 1px; background: var(--hair); }
@@ -3934,7 +3964,7 @@ html #pg-radio .rw.station { display: grid; grid-template-columns: 44px minmax(0
 html #pg-radio .rw.station .k { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-width: 0; font: 400 19px/1 var(--sf); color: var(--ink3); letter-spacing: 0; cursor: pointer; }
 html #pg-radio .rw.station .v b { font: 600 16px/21px var(--sf); color: var(--ink); }
 html #pg-radio .rw.station .v br { display: none; }
-html #pg-radio .rw.station .v .note { display: block; font: 400 13px/17px var(--sf); color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #pg-radio .rw.station .v .note { display: block; font: 400 13px/17px var(--sf); color: var(--ink3); overflow-wrap: anywhere; } /* [planlane] the station's line wraps: no word is cut */
 html #pg-radio .rw.station .n { display: grid; place-items: center; width: 44px; height: 44px; padding-left: 2px; border-radius: 22px; font: 400 13px/1 var(--sf); color: var(--ink); background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px var(--hair); }
 html #pg-radio .rw.station.playing .n { color: #03141b; background: var(--c); box-shadow: 0 0 12px rgba(var(--cr), .45); }
 html #pg-radio .rw.station.playing .v b { color: var(--c); }
@@ -3942,6 +3972,12 @@ html #pg-radio .pn.favs .rw.station .k { color: var(--c); }
 html #pg-radio .rw.station.tuning .n { animation: rctune 1.2s ease-in-out infinite; }
 @keyframes rctune { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { html #pg-radio .rw.station.tuning .n { animation: none; } }
+/* [planlane] the sleep timer under now playing: its line, then a 44 pt key for each choice, wrapping (never sideways) */
+html #pg-radio .pn.nowp .npsleep { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hair); }
+html #pg-radio .pn.nowp .npsleepl { font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-radio .pn.nowp .keyrow.npsleepk { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0; }
+html #pg-radio .pn.nowp .keyrow.npsleepk button { flex: 1 1 auto; min-width: 72px; }
+html #pg-radio .pn.recent .keyrow button { min-height: 44px !important; height: 44px; }
 
 /* ---------- Threats (features/threats): the level, signals worst first, near you as tiles, space weather, launches, RECON ---------- */
 html #pg-threats .pn.signals .rw.link { display: grid; grid-template-columns: 3px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; min-height: 60px; margin: 0; padding: 10px 0; border-radius: 0; }
@@ -7710,6 +7746,14 @@ html .phonecard button, html #pg-system .phonecard button { height: auto; min-he
 .dcrow button[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
 .dcnum { font: var(--g-t-reading); color: var(--g-ink-1); min-width: 56px; text-align: center; }
 .dcbold { font-weight: 800; } .dcital { font-style: italic; } .dcund { text-decoration: underline; }
+.dcstrike { text-decoration: line-through; } .dcmark { box-shadow: inset 0 calc(-1 * var(--g-s-1)) 0 color-mix(in srgb, var(--g-amber) 45%, transparent); }
+.dcpage mark.dchl { background: color-mix(in srgb, var(--g-amber) 38%, transparent); color: inherit; border-radius: var(--g-radius-mark); }
+.dcpage s { text-decoration-thickness: var(--g-stroke); }
+.dcpage .dctodo { display: flex; align-items: flex-start; gap: var(--g-s-1); margin: 0 0 var(--g-s-1); min-width: 0; }
+.dcpage .dctodo > .dcb { flex: 1; min-width: 0; margin: 0; padding-top: var(--g-s-1); }
+.dcpage .dctodo.ticked > .dcb { text-decoration: line-through; color: var(--g-ink-3); }
+.dcpage .dcbox { flex: none; width: var(--g-target); height: var(--g-target); min-width: var(--g-target); min-height: var(--g-target); padding: 0; display: grid; place-items: center; border-radius: var(--g-radius-key); border: var(--g-stroke) solid var(--g-line-faint); background: transparent; color: var(--g-accent-text); font: 700 20px/1 var(--g-font-text); }
+.dcpage .dcbox[aria-checked="true"] { background: color-mix(in srgb, var(--g-accent) 22%, transparent); border-color: var(--g-accent); }
 .dcpage, .dccol { background: var(--g-plate); color: var(--g-ink-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); padding: var(--g-s-3) var(--g-s-2); font: 400 17px/1.6 var(--g-font-serif); min-width: 0; overflow-wrap: anywhere; }
 .dcpage :is(h2, h3, h4), .dccol h4 { font-family: var(--g-font-text); color: var(--g-ink-1); line-height: 1.3; margin: var(--g-s-2) 0 var(--g-s-half); }
 .dcpage h2 { font-size: 21px; } .dcpage h3 { font-size: 18px; } .dcpage h4, .dccol h4 { font-size: 16px; }
@@ -8257,6 +8301,8 @@ html .shsheet .shtab, html .shsheet .shtabs > button { flex: none; padding: 0 va
 .shcode { font: var(--g-t-reading); color: var(--g-accent-text); overflow-wrap: anywhere; }
 .shedits { margin: 0; padding-inline-start: var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-1); }
 .shedits del { color: var(--g-amber); } .shedits ins { color: var(--g-ok); text-decoration: underline; }
+.shedits li { display: flex; flex-direction: column; gap: var(--g-s-half); padding-block: var(--g-s-half); border-bottom: var(--g-hair) solid var(--g-line-faint); }
+.shedit { overflow-wrap: anywhere; }
 /* ---------------------------------------------------------------- THE WORKING ENGINE (BRIEF-WORKING-ENGINE)
    Under the bonnet-up view of the car: the cover to lift, then the strokes named as they happen with the firing order under them, REVS,
    PAUSE and STEP, TAKE APART, SECTION and MEASURE. The keys are the engine pane's own (e3tool); everything else is in the system's tokens. */
@@ -8321,6 +8367,10 @@ h3.slh { margin-top: var(--g-s-half); }
 .slcard { display: flex; flex-direction: column; gap: var(--g-s-1); width: 100%; padding: var(--g-s-1); text-align: left; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; background: var(--g-plate); }
 .slcard.slgrab { box-shadow: 0 0 0 var(--g-stroke) var(--g-accent); opacity: .85; }
 .slcard.slover { box-shadow: 0 calc(var(--g-stroke) * -2) 0 var(--g-accent); }
+.slcard.skip svg, .slcard.skip img { opacity: .45; }
+.slcap .slskipped { flex: none; margin-left: auto; padding: 0 var(--g-s-1); font: var(--g-t-caption); color: var(--g-ink-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.slhits { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+.slhits:empty { display: none; }
 .slthumb { display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: var(--g-hair) solid var(--g-line-faint); pointer-events: none; }
 .slthumb svg, .slbox svg { display: block; width: 100%; height: auto; }
 /* a slide drawn inside a key keeps its words as written (the keys show theirs in sentence case) */
@@ -8898,6 +8948,13 @@ html body .modal :is(.feltrow, .feltbody) button { min-height: 44px !important; 
 .wsblock[data-done="1"] .wsedit { color: var(--g-ink-3); text-decoration: line-through; }
 .wscheck { flex: none; width: var(--g-target); padding: 0; display: flex; align-items: center; justify-content: center; font: 700 18px/1 var(--g-font-text); }
 .wscheck[aria-checked="true"] { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.wsblock[data-t="callout"] { align-items: flex-start; gap: var(--g-s-1); padding: var(--g-s-1); border-radius: var(--g-radius-cell); background: color-mix(in srgb, var(--g-accent) 12%, transparent); border: var(--g-hair) solid color-mix(in srgb, var(--g-accent) 40%, transparent); }
+.wsblock[data-t="callout"][data-tone="tip"] { background: color-mix(in srgb, var(--g-ok) 12%, transparent); border-color: color-mix(in srgb, var(--g-ok) 45%, transparent); }
+.wsblock[data-t="callout"][data-tone="warn"] { background: color-mix(in srgb, var(--g-amber) 14%, transparent); border-color: color-mix(in srgb, var(--g-amber) 50%, transparent); }
+.wsedit.wscallout { flex: 1; min-width: 0; padding-top: var(--g-s-1); color: var(--g-ink-1); }
+.wstone { flex: none; width: var(--g-target); min-width: var(--g-target); min-height: var(--g-target); padding: 0; display: grid; place-items: center; border-radius: var(--g-radius-orb); font: 800 18px/1 var(--g-font-text); color: var(--g-accent-text); }
+.wstone[data-tone="tip"] { color: var(--g-ok); } .wstone[data-tone="warn"] { color: var(--g-amber); }
+.wsedit mark { background: color-mix(in srgb, var(--g-amber) 38%, transparent); color: inherit; }
 .wsdone { flex: none; align-self: center; font: var(--g-t-fine); color: var(--g-ink-3); }
 .wsblockkeys { flex: 0 0 100%; display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
 .wsfmt { font-weight: 800; }
@@ -9495,6 +9552,205 @@ html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px
 .gkask { margin-top: var(--g-s-2); }
 /* (a touch phone's `html button:not(…) { min-height: 40px !important }` is as specific: this one comes after it and wins) */
 html body .gkask button, html body .gkprops button { height: auto; min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
+
+/* ==== THE PLAN AND HOME LANE (FINAL ROUND, planlane): one block per screen. Tokens only (var(--…)), no hex, no rgba(), no px radius. ==== */
+/* ==== [planlane:home] ==== */
+/* Today: an event's title and a to-do are his words, so they wrap onto a second line instead of being cut with "…"; a long single word breaks only when it must */
+html body .rctoday .rcev { height: auto; min-height: 38px; padding: 8px 0; }
+html body .rctoday .rcev .nm { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+/* the Roads and Gym tiles: the road's name and the line under it wrap too (nothing on Home is cut short) */
+html body .rcbody .rd b, html body .rcbody .rdclr { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+/* ONE INK: RECENT and FAVOURITES are whole words at BODY 21 (the label grows; the words beside it move over or under) */
+html body .inkl > .g-truth { width: auto; min-width: 96px; overflow-wrap: normal; word-break: normal; white-space: nowrap; }
+/* GROWN UP and ORBIT: the hour card's "Ask me" key grows round its words at BODY 21 (a 44 pt circle cut them at the card's edge) */
+html body #app :is(button.gnhourgo, button.orbhourgo) { width: auto; min-width: var(--g-target); padding: 0 var(--g-s-1); white-space: nowrap; border-radius: var(--g-radius-capsule); }
+/* a free square's words and the hour's to-do (a sentence, not a title) are never cut by the two-line clamp */
+html body #app :is(.eyefeed.free .eyeline, .mapcell.free .mcline, .gnhour[data-kind="todo"] .gnname, .mapcell.lit[data-what="todo"] .mcname, .eyefeed.sharp[data-what="todo"] .eyename) { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; text-overflow: clip; }
+html body .orbhour { grid-template-columns: minmax(0, 1fr) auto; }
+/* GROWN UP: the hour card's kicker ("Tonight · on your to-do list") wraps at BODY 21 instead of ending in "…" */
+html body .gnhourtext .gnkick { white-space: normal; overflow: visible; text-overflow: clip; }
+
+/* ==== [planlane:home end] ==== */
+
+/* ==== [planlane:agenda] ==== */
+/* TO-DO: each to-do a row (tick, its words as a key that opens the change box, a star, remove), the change box under it */
+html #pg-agenda .todoit { display: block; padding: 6px 0; }
+html #pg-agenda .todoit .todorow { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px; align-items: center; column-gap: 8px; }
+html #pg-agenda .todoit button.todotx { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; width: 100%; min-width: 0; height: auto; min-height: 44px !important; padding: 4px 0; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; background: none !important; box-shadow: none !important; border: 0; }
+html #pg-agenda .todoit button.todotx b, html #pg-agenda .todoit button.todotx small { text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; max-width: 100%; }
+html #pg-agenda .todoit button.todostar { font: 400 22px/1 var(--sf); color: var(--ink3); background: none !important; box-shadow: none !important; }
+html #pg-agenda .todoit button.todostar.on { color: var(--amber); }
+html #pg-agenda .todoit button.todox { background: none !important; box-shadow: none !important; color: var(--ink3); }
+html #pg-agenda .todoit .todoedit { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 4px; }
+html #pg-agenda .todoit .todoedit .keyrow.addev { padding: 0; }
+html #pg-agenda .todoit .todoedit .keyrow button { width: auto; min-width: 44px; padding: 0 14px; }
+html #pg-agenda .todoviews { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 8px; }
+html #pg-agenda .todoviews button.todoview { min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .todoviews button.todoview.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+html #pg-agenda .agstale { margin: 0 0 8px; }
+html #pg-agenda .pn.todo .bd > .keyrow button { min-height: 44px !important; }
+/* DIARY: an event tapped open, whole, with its change box when it is his own */
+html #pg-agenda .rw.ev.evtap { cursor: pointer; }
+html #pg-agenda .rw.ev.evtap[aria-expanded="true"] { border-bottom-color: transparent; }
+html #pg-agenda .evcard { display: flex; flex-direction: column; gap: 6px; margin: 0 0 8px; padding: 12px 14px; border-radius: var(--rad); box-shadow: inset 0 0 0 1px var(--hair2); font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .evcard .evcardt { font: 600 17px/22px var(--sf); color: var(--ink); }
+html #pg-agenda .evcard small { font: 400 13px/18px var(--sf); color: var(--ink3); }
+html #pg-agenda .evcard .keyrow.addev { padding: 4px 0 0; }
+html #pg-agenda .evcard .keyrow button { min-height: 44px !important; padding: 0 14px; }
+/* the add and change boxes: a day-and-time box and its reminder each get the whole row (half a row cut "09:00 PM" and "15 min before") */
+html #pg-agenda .keyrow.addev > input[type="datetime-local"], html #pg-agenda .keyrow.addev:has(> input[type="datetime-local"]) > select { grid-column: 1 / -1; }
+/* MONTH → THIS WEEK: Monday to Sunday, each day a key with what it holds; today lit, gone days quieter */
+html #pg-agenda .pn.month .monwkh { display: block; padding: 16px 0 6px; font: 600 13px/18px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
+html #pg-agenda .pn.month .monweek { display: flex; flex-direction: column; gap: 2px; }
+html #pg-agenda .pn.month button.monwk { display: grid; grid-template-columns: minmax(64px, auto) minmax(0, 1fr); align-items: center; column-gap: 12px; width: 100%; min-height: 44px !important; height: auto; padding: 6px 10px; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; background: none !important; box-shadow: inset 0 -1px 0 var(--hair) !important; border-radius: 0; }
+html #pg-agenda .pn.month button.monwk b { font: 600 15px/20px var(--sf); color: var(--ink); text-transform: none; white-space: nowrap; }
+html #pg-agenda .pn.month button.monwk span { font: 400 15px/20px var(--sf); color: var(--ink2); text-transform: none; overflow-wrap: anywhere; white-space: normal; }
+html #pg-agenda .pn.month button.monwk.past b, html #pg-agenda .pn.month button.monwk.past span { color: var(--ink3); }
+html #pg-agenda .pn.month button.monwk.today b { color: var(--c); }
+html #pg-agenda .pn.month button.monwk.on { box-shadow: inset 0 0 0 2px var(--c) !important; border-radius: var(--rad); }
+
+html #pg-agenda .pn.todo .keyrow button { height: 44px; min-height: 44px !important; } /* CLEAR DONE and the rest of the list's keys at 44 pt */
+/* ==== [planlane:agenda end] ==== */
+
+/* ==== [planlane:brief] ==== */
+/* the headlines' and the weather's TRY AGAIN: a whole key, 44 pt, under the line that says what is wrong */
+html #pg-brief .brnewsdown .bract,
+html #pg-brief .pn.wx .bract { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+html #pg-brief .brnewsdown .bract button,
+html #pg-brief .pn.wx .bract button { min-height: 44px; min-width: 44px; }
+/* every key on the Brief is 44 pt in every look (The Ink's own key height rounds to 43 at BODY 21) */
+html #pg-brief :is(.bract, .tabs) button { min-height: 44px !important; }
+/* WEAR, SUN and TOMORROW are sentences: they wrap, never cut */
+html #pg-brief .pn.wx .rw.brwear .v,
+html #pg-brief .pn.wx .rw.brsun .v,
+html #pg-brief .pn.wx .rw.brtomorrow .v { white-space: normal; overflow-wrap: anywhere; }
+
+/* ==== [planlane:brief end] ==== */
+
+/* ==== [planlane:radio] ==== */
+/* a sleep timer a reload ended: said once, under now playing (the hero hides other notes) */
+html #pg-radio .pn.nowp .bd > .note.nplost { display: block; margin-top: 12px; font: 400 14px/19px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+/* FAVOURITES in his order: REORDER, then each one with its place, its name (wrapping) and ↑ ↓ (44 pt each) */
+html #pg-radio .pn.favs .favnote { display: block; margin: 4px 0 8px; font: 400 14px/19px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
+html #pg-radio .pn.favs .favmove { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+html #pg-radio .pn.favs .favmove .favno { font: 600 14px/1 var(--sf); color: var(--ink3); text-align: center; }
+html #pg-radio .pn.favs .favmove .favtx b { font: 600 16px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html #pg-radio .pn.favs .favmove .favkeys { display: flex; gap: 8px; }
+html #pg-radio .pn.favs .favmove .favkeys button { width: 44px; height: 44px; min-width: 44px; min-height: 44px !important; padding: 0; font-size: 18px; }
+html #pg-radio .pn.favs .favmove .favkeys button:disabled { opacity: .35; }
+html #pg-radio .pn.favs .keyrow.favorder { display: flex; justify-content: flex-end; padding: 8px 0 0; }
+html #pg-radio .pn.favs .keyrow.favorder button { min-height: 44px !important; height: 44px; padding: 0 16px; }
+
+/* NEAR ME: the word, his country (a 44 pt picker that takes the room), POPULAR */
+html #pg-radio .pn.stations > .keyrow.radnear { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 16px 8px; }
+html #pg-radio .pn.stations > .keyrow.radnear .lab { flex: none; margin: 0; }
+html #pg-radio .pn.stations > .keyrow.radnear select { flex: 1 1 140px; min-width: 0; height: 44px; min-height: 44px; padding: 0 12px; font: 400 16px/1 var(--sf); color: var(--ink); background: var(--fill); border: 1px solid var(--hair2); border-radius: var(--rad); }
+html #pg-radio .pn.stations > .keyrow.radnear button { flex: none; height: 44px; min-height: 44px !important; }
+html #pg-radio .pn.stations button { min-height: 44px !important; }
+/* ==== [planlane:radio end] ==== */
+
+/* ==== [planlane:markets] ==== */
+/* EDIT LIST in the crypto panel's foot: a 44 pt key; the foot wraps rather than going sideways */
+html #pg-markets .pn.coins > .ft { flex-wrap: wrap; }
+html #pg-markets .pn.coins > .ft button.mkeditl { height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: var(--rad); }
+/* YOUR COINS: the total and when it was read, each holding (its amount and today's move under its name, its worth on the right), the note */
+html #pg-markets .pn.held .mkheldtot { margin: 4px 0 6px; font: 400 15px/21px var(--sf); color: var(--ink2); }
+html #pg-markets .pn.held .mkheldtot b { font: 600 19px/25px var(--sf); color: var(--ink); }
+html #pg-markets .pn.held .rw .v small { font: 400 14px/18px var(--sf); color: var(--ink2); white-space: normal; overflow-wrap: anywhere; }
+html #pg-markets .pn.held .rw .n { white-space: nowrap; }
+html #pg-markets .pn.held .mkheldnote { margin: 8px 0 0; font: 400 13px/18px var(--sf); color: var(--ink2); }
+/* CONVERT under WHAT £1 BUYS: an amount, from, ⇄, to (each 44 pt; it wraps rather than going sideways), and the answer */
+html #pg-markets .pn.fx > .ft { display: block; }
+html #pg-markets .pn.fx .mkcv { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+html #pg-markets .pn.fx .mkcv > b { font: 600 15px var(--sf); color: var(--ink); }
+html #pg-markets .pn.fx .mkcvrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html #pg-markets .pn.fx .mkcvrow input.mkcvamt { flex: 1 1 90px; min-width: 0; min-height: 44px; font: 400 17px var(--sf); }
+html #pg-markets .pn.fx .mkcvrow select.mkcvsel { flex: 1 1 120px; min-width: 0; min-height: 44px; font: 400 16px var(--sf); color: var(--ink); background: var(--glass, transparent); border: 1px solid var(--line); border-radius: var(--rad); }
+html #pg-markets .pn.fx .mkcvrow button.mkcvswap { width: 44px; min-width: 44px; height: 44px; min-height: 44px !important; padding: 0; border-radius: var(--rad); font: 600 18px var(--sf) !important; }
+html #pg-markets .pn.fx .mkcvout { margin: 0; font: 400 15px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+/* The coin's sheet: its ranges (24H · 7D · 30D · 1Y), and what he has of it */
+html body .mkcoin .mkranges { display: flex; flex-wrap: wrap; gap: 6px; }
+html body .mkcoin .mkranges button { min-width: 56px; height: 44px; min-height: 44px !important; padding: 0 12px; border-radius: var(--rad); font: 600 15px var(--sf) !important; }
+html body .mkcoin .mkranges button[aria-pressed="true"] { color: var(--c); box-shadow: inset 0 0 0 1px var(--c) !important; }
+html body .mkcoin .mkrangebox { min-height: 160px; }
+html body .mkcoin .mkrangewait { padding: 24px 0; }
+html body .mkcoin .mkhold { display: flex; flex-direction: column; gap: 6px; padding: 12px 0 4px; border-top: 1px solid var(--hair); }
+html body .mkcoin .mkhold > b { font: 600 15px var(--sf); color: var(--ink); }
+html body .mkcoin .mkholdrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html body .mkcoin .mkholdrow input.mkamt { flex: 1 1 120px; min-width: 0; min-height: 44px; font: 400 17px var(--sf); }
+html body .mkcoin .mkholdrow .mksym { font: 600 15px var(--sf); color: var(--ink2); }
+html body .mkcoin .mkholdrow button { height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: var(--rad); }
+html body .mkcoin .mkholdrow button[hidden] { display: none; }
+html body .mkcoin .mkheldsay { margin: 0; }
+/* YOUR WATCHLIST: his coins in his order (↑ ↓ ✕, each 44 pt), then CoinGecko's search to add one */
+html body .mkedit { display: flex; flex-direction: column; gap: 10px; padding: 6px 20px 24px; }
+html body .mkedit .mknote { margin: 0; font: 400 15px/21px var(--sf); color: var(--ink2); }
+html body .mkedit .mkwlrow { display: flex; align-items: center; gap: 6px; min-height: 52px; border-bottom: 1px solid var(--hair); }
+html body .mkedit .mkwln { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+html body .mkedit .mkwln b { font: 600 16px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html body .mkedit .mkwln small { font: 400 13px var(--sf); color: var(--ink2); }
+html body .mkedit button.mkmv { width: 44px; min-width: 44px; height: 44px; min-height: 44px !important; padding: 0; border-radius: var(--rad); font: 600 18px var(--sf) !important; }
+html body .mkedit button.mkadd { height: 44px; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html body .mkedit .mksearch { display: flex; gap: 8px; }
+html body .mkedit .mksearch input { flex: 1; min-width: 0; min-height: 44px; font: 400 17px var(--sf); }
+html body .mkedit .mksearch button { height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: var(--rad); }
+
+/* ==== [planlane:markets end] ==== */
+
+/* ==== [planlane:house] ==== */
+/* the HOUSE (its screen and its sheet): every key 44 pt, the glance, the scenes, the pins, ALL OFF, a thing not answering; tokens only */
+html .house .housectl button, html .house .housetop button, html .house .housectl select, html .house .housetick { min-height: 44px; }
+html .house .housecard.guarded { box-shadow: inset 0 0 0 1px var(--g-amber); }
+html .house .houseguard { color: var(--g-amber); }
+html .house .househd { display: flex; align-items: flex-start; gap: 8px; }
+html .house .househd > .househead { flex: 1 1 auto; min-width: 0; }
+html .house .housepin { flex: none; min-width: 44px; min-height: 44px; padding: 0; background: transparent; box-shadow: none; color: var(--ink2); font: 400 20px/1 var(--sf); }
+html .house .housepin.on { color: var(--g-amber); }
+html .house .houseroom > h4 { align-items: center; flex-wrap: wrap; }
+html .house .houseroom > h4 > span { flex: 1 1 auto; min-width: 0; }
+html .house .houseoff { flex: none; min-height: 44px; }
+html .house .houseglance { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--g-radius-key); box-shadow: inset 0 0 0 1px var(--hair); }
+html .house .houseglhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+html .house .houseglhead h4, html .house .housescenes h4 { margin: 0; color: var(--ink2); font: 600 12px/1.3 var(--sf); letter-spacing: .4px; }
+html .house .houseglrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+html .house .houseglrow small { flex: 0 0 auto; min-width: 8em; color: var(--ink2); font: 600 11px/1.3 var(--sf); letter-spacing: .4px; }
+html .house .houseglrow span { flex: 1 1 12em; min-width: 0; color: var(--ink); font: 400 13.5px/1.4 var(--sf); }
+html .house .housescenes { display: flex; flex-direction: column; gap: 6px; }
+html .house .housescenerow { display: flex; flex-wrap: wrap; gap: 6px; }
+html .house .housescene { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+html .house .housescene.guarded { box-shadow: inset 0 0 0 1px var(--g-amber); }
+html .house .housescenenote, html .house .housedown { color: var(--ink2); font: 400 12px/1.35 var(--sf); }
+
+/* ==== [planlane:house end] ==== */
+
+/* ==== [planlane:social] ==== */
+/* WRITE A POST: the box and the picture's words fill the width; the picture shown whole, never cropped; the lines wrap, never cut */
+html #pg-social .soccompose textarea, html #pg-social .soccompose input.socalt { width: 100%; box-sizing: border-box; max-width: 100%; }
+html #pg-social .soccompose .socthumb { display: block; max-width: 100%; max-height: 40vh; width: auto; height: auto; object-fit: contain; border: 1px solid var(--line2); border-radius: var(--rad); }
+html #pg-social .soccompose .pknote, html #pg-social .socsent .pklab, html #pg-social .socsent b { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html #pg-social .soccompose .soccount.bad { color: var(--r); }
+html #pg-social .soccompose .socmsg:empty, html #pg-social .soccompose .socpicl:empty, html #pg-social .soccompose .soccount:empty { display: none; }
+html #pg-social .soccompose .keyrow.wrapit { flex-wrap: wrap; }
+/* the picker itself is never drawn: ADD A PICTURE opens it (a general `input { display: block }` would otherwise show it) */
+html #pg-social .soccompose input[type='file'] { display: none !important; }
+html #pg-social .soccompose .keyrow button[aria-pressed='false'] { opacity: .85; }
+/* SENT TODAY: OPEN IT ON … is a key his thumb can hit (44 pt) */
+html #pg-social .socsent a.socopen { display: inline-flex; align-items: center; min-height: 44px; }
+/* LINKS' account panels when the brain is not answering */
+html .pn.socialpanel .socoff { white-space: normal; }
+
+/* ==== [planlane:social end] ==== */
+
+/* ==== [planlane:links] ==== */
+/* LINKS: the line that says when a connection was last tested sits quietly under its note; the reason a link is not working wraps whole */
+html #pg-links .lkcheck { display: block; color: var(--l2, var(--fg)); margin: 4px 0 2px; white-space: normal; }
+html #pg-links .note.lkwhy { color: var(--amber, var(--a)); white-space: normal; overflow-wrap: anywhere; }
+html #pg-links .keyrow.wrapit { flex-wrap: wrap; }
+html #pg-links .pn .bd .keyrow button { min-height: 44px; }
+/* each device's ✕ (stop notifying it) is a 44 pt key like the rest */
+html #pg-links .rw .n.del { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0; }
+/* ==== [planlane:links end] ==== */
+
 
 /* ---- POLISH 3: the Agenda's ADD key and sheet, a finished thing dimmed, the biggest text and reduced motion ---- */
 html #pg-agenda .agaddkey { min-height: var(--g-target) !important; min-width: var(--g-target); }

@@ -84,6 +84,9 @@ export function openExport(c: ExportCtx): void {
   async function encode(): Promise<void> {
     paint();
     if (exportState.format === 'original') {
+      // (a JPEG or PNG still being made from before the tap must not land over the original's bytes when it finishes: the token moves on)
+      ++token;
+      status.textContent = '';
       blob = c.original;
       exportState.bytes = c.original.size;
       exportState.w = c.srcSize.w;
@@ -112,6 +115,8 @@ export function openExport(c: ExportCtx): void {
     paintSize();
   }
   async function out(how: 'save' | 'share'): Promise<void> {
+    // THE ORIGINAL is always the file's own bytes, whatever a late encode left in `blob`
+    if (exportState.format === 'original') blob = c.original;
     if (!blob) return;
     const name = nameOf();
     if (how === 'save') {

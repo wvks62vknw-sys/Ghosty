@@ -53,6 +53,12 @@ import { workspaceAsked } from '../workspace/asks';
 import { photoAsked } from '../photo/asks';
 import { videoAsked } from '../video/asks';
 import { gameAsked } from '../studio-game/asks';
+// [planlane] the PLAN AND HOME lane's screens by chat (each features/<screen>/asks.ts, pure)
+import { agendaAsked } from '../features/agenda/asks';
+import { radioAsked } from '../features/radio/asks';
+import { meaningOf } from '../../../../packages/shared/src/meanings';
+import { marketsAsked } from '../features/markets/asks';
+import { briefAsked } from '../features/brief/asks';
 import { screenAsked } from './screenasks';
 import { comicAsked } from '../features/comic/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
@@ -116,6 +122,9 @@ export const LOCAL_ASKS = [
   { id: 'stretch', test: (t: string) => bodyAsked(t)?.what === 'stretch' },
   { id: 'water', test: (t: string) => { const a = trackAsked(t); return bodyAsked(t)?.what === 'water' || (a?.kind === 'log' && a.m === 'water'); } },
   // [packs] the kitchen pack on the phone: timers, the shopping list, the oven line (features/kitchen)
+  // [planlane] the radio's sleep timer and stations before the kitchen's timers: "sleep timer 30 minutes" is the radio's (radioAsked never takes a plain timer)
+  // (a wording the VOICE lane's meanings own, "play my favourite station", stays theirs: they play it the one way everywhere)
+  { id: 'planradio', test: (t: string) => !!radioAsked(t) && !meaningOf(t) },
   { id: 'timer', test: (t: string) => !!timerAsked(t) },
   // [bodylane] the pantry and the recipe book, kept on this phone (features/kitchen/larder.ts)
   { id: 'larder', test: (t: string) => larderAsked(t) },
@@ -173,6 +182,11 @@ export const LOCAL_ASKS = [
   { id: 'video', test: (t: string) => !!videoAsked(t) },
   // [gamestudio] the game studio (studio-game/): "make a game", "my games", "sketch a cave room with two ledges"
   { id: 'gamestudio', test: (t: string) => !!gameAsked(t) },
+  // [planlane] the agenda's to-dos and month, the radio's sleep timer and stations, markets' prices and holdings, the brief (the house has its own table above)
+  // (the WORK screen's own words, "add to my to-do: send the invoice by Friday", stay with its list in the brain)
+  { id: 'planagenda', test: (t: string) => !/^(?:please\s+)?add to my to-?do\s*:/i.test(t.trim()) && !!agendaAsked(t) },
+  { id: 'planmarkets', test: (t: string) => !!marketsAsked(t) },
+  { id: 'planbrief', test: (t: string) => !!briefAsked(t) },
   // [polish3] the Workshop, the 3D studio, Reverse, Space, COURSES, the Arcade and SCHOOL, opened by name (assistant/screenasks.ts)
   { id: 'openscreen', test: (t: string) => !!screenAsked(t) },
   // [comic] THE COMIC (features/comic/asks.ts): "make me a comic about…", "read a comic", "import this comic", "public domain comics"
