@@ -490,3 +490,14 @@ test('the jobs of the cards by his words, in more than one wording (and nothing 
   for (const [w, want] of [['solve that', 'solve'], ['work it out', 'solve'], ["what's the answer", 'solve'], ['call that number', 'call'], ['ring it', 'call'], ['add that to my agenda', 'agenda'], ['put this date in my diary', 'agenda'], ['show that on the map', 'map'], ['where is that address', 'map'], ['what species is that', 'species'], ['what bird is this', 'species'], ['what kind of plant is that', 'species'], ['what building is that', 'place'], ['which painting is this', 'place'], ['read it aloud', 'aloud'], ['read that out loud', 'aloud'], ['copy that', 'copy'], ['copy this number', 'copy']]) assert.equal(F.lensWord(w), want, w);
   for (const w of ['do it', 'call mum', 'play music', 'what is the time', 'show me the map']) assert.equal(F.lensWord(w), null, w);
 });
+
+test('WHICH SPECIES asks as the kind the phone’s own name says: a bird, an insect, a plant (to Pl@ntNet), or other', () => {
+  assert.equal(F.livingKind('robin'), 'bird');
+  assert.equal(F.livingKind('bird'), 'bird');
+  assert.equal(F.livingKind('ladybird'), 'insect');
+  assert.equal(F.livingKind('butterfly'), 'insect');
+  assert.equal(F.livingKind('potted plant'), 'plant');
+  assert.equal(F.livingKind('sunflower'), 'plant');
+  assert.equal(F.livingKind('fox'), 'other');
+  assert.equal(F.livingKind(''), 'other');
+});

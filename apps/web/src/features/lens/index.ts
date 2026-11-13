@@ -97,6 +97,8 @@ export interface LensState {
 export interface ModeOpts {
   /** A picture to work on (a crop from SEE, a photo for READ, the picture ASK sends). */
   still?: HTMLCanvasElement;
+  /** NAME: name the living thing in `still` at once, as this kind (the one view's WHICH SPECIES: one tap, no second choice). */
+  living?: 'plant' | 'bird' | 'insect' | 'other';
   /** Capture a still from the camera on entering (HANDS → READ). */
   capture?: boolean;
   question?: string;

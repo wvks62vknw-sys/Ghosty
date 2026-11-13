@@ -315,3 +315,14 @@ function sumsIn(text: string): { text: string; at: number; answer: string; steps
   }
   return out;
 }
+
+// ---------------------------------------------------------------- which kind of living thing, for the species question
+
+/** The kind NAME's LIVING THING asks about for a name the phone gave (packages/shared/src/living.ts AskedKind): a plant goes to Pl@ntNet. */
+export function livingKind(label: string): 'plant' | 'bird' | 'insect' | 'other' {
+  const l = String(label ?? '').toLowerCase();
+  if (/\b(bird|robin|owl|duck|swan|pigeon|sparrow|blackbird|magpie|crow|gull|tit|finch|wren|heron|goose|hen|chicken|parrot|eagle|hawk)s?\b/.test(l)) return 'bird';
+  if (/\b(insect|butterfly|moth|bee|wasp|beetle|ladybird|ladybug|ant|fly|dragonfly|grasshopper|caterpillar|spider)s?\b/.test(l)) return 'insect';
+  if (/\b(plant|potted plant|flower|tree|leaf|leaves|daisy|rose|tulip|sunflower|fern|cactus|moss|shrub|bush|grass|weed|herb)s?\b/.test(l)) return 'plant';
+  return 'other';
+}

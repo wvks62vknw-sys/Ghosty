@@ -155,6 +155,64 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     }
   };
 
+  /** What a QR code holds, acted on in the card itself: a link (with SCAN's warnings), a Wi-Fi network, a contact, a number, a text, an email, a place. */
+  const codeCard = (code: string): HTMLElement => {
+    const info = classifyCode(code);
+    const more = (word = 'MORE') => key(word, () => deps.act('look'), { label: 'Everything the code holds, in SCAN' });
+    switch (info.kind) {
+      case 'url': {
+        const u = info.url;
+        const safe = !!u && (u.scheme === 'https' || u.scheme === 'http');
+        const body = h('div.lc-body', h('p.lc-line', u ? `${u.domain}${u.host !== u.domain ? ` (${u.host})` : ''}` : code.slice(0, 120)), ...(u?.warnings ?? []).map((w) => h('p.lc-warn', `Careful: ${w}`)));
+        return card('code', 'A LINK CODE', body, safe && u ? link('OPEN', u.href, `Open ${u.domain}`) : null, copy('COPY', u?.href ?? code, 'the link'), more());
+      }
+      case 'wifi': {
+        const w = info.wifi!;
+        return card('code', 'A WI-FI CODE', `Network ${w.ssid || '(no name)'}${w.security && w.security !== 'nopass' ? ` · ${w.security}` : ' · open'}${w.hidden ? ' · hidden' : ''}`, w.password ? copy('COPY PASSWORD', w.password, 'the Wi-Fi password') : null, more());
+      }
+      case 'contact': {
+        const c = info.contact!;
+        return card('code', 'A CONTACT CODE', [c.name, c.org].filter(Boolean).join(' · ') || 'A contact card', c.phones[0] ? link('CALL', `tel:${c.phones[0].replace(/[^\d+]/g, '')}`, `Call ${c.name || 'them'}`) : null, c.emails[0] ? link('WRITE', `mailto:${c.emails[0]}`, `Write to ${c.name || c.emails[0]}`) : null, more());
+      }
+      case 'phone':
+        return card('code', 'A PHONE CODE', info.phone ?? code, info.phone ? link('CALL', `tel:${info.phone.replace(/[^\d+]/g, '')}`, `Call ${info.phone}`) : null, more());
+      case 'sms': {
+        const s = info.sms!;
+        return card('code', 'A TEXT MESSAGE CODE', `To ${s.to}${s.body ? `: “${s.body.slice(0, 80)}”` : ''}`, link('TEXT', `sms:${s.to}${s.body ? `?body=${encodeURIComponent(s.body)}` : ''}`, `Text ${s.to}`), more());
+      }
+      case 'email': {
+        const e = info.email!;
+        return card('code', 'AN EMAIL CODE', `${e.to}${e.subject ? ` · “${e.subject.slice(0, 60)}”` : ''}`, link('WRITE', `mailto:${e.to}?${new URLSearchParams({ ...(e.subject ? { subject: e.subject } : {}), ...(e.body ? { body: e.body } : {}) }).toString().replace(/\+/g, '%20')}`, `Write to ${e.to}`), more());
+      }
+      case 'geo': {
+        const g = info.geo!;
+        return card('code', 'A PLACE CODE', g.label || `${g.lat.toFixed(5)}, ${g.lon.toFixed(5)}`, key('ON THE MAP', () => {
+          cardsState.done = `map: ${g.lat},${g.lon}`;
+          void import('../../commands/registry').then((m) => m.run('show_map', { lat: g.lat, lon: g.lon, place: g.label || 'the place in the code' }));
+        }, { label: 'Show the place in the code on the map' }), more());
+      }
+      default:
+        return card('code', 'A CODE', code.slice(0, 160), copy('COPY', code, 'what the code says'), more('WHAT IT HOLDS'));
+    }
+  };
+
+  /** A product as a specialist food app shows it: what it is, its grade, the figures per 100 g, the allergens, and whose data it is. */
+  const productBody = (p: LookupResult): HTMLElement => {
+    const n = p.nutrition ?? {};
+    const g = (v: number | undefined, unit: string, word: string) => (v == null ? '' : `${word} ${v < 1 ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10}${unit}`);
+    const per = [g(n.kcal, ' kcal', 'energy').replace('energy ', ''), g(n.sugars, ' g', 'sugars'), g(n.fat, ' g', 'fat'), g(n.saturates, ' g', 'saturates'), g(n.salt, ' g', 'salt'), g(n.protein, ' g', 'protein')].filter(Boolean);
+    const grades = [p.nutriscore ? `Nutri-Score ${p.nutriscore.toUpperCase()}` : '', p.ecoscore ? `Green-Score ${p.ecoscore.toUpperCase()}` : ''].filter(Boolean).join(' · ');
+    const book = p.kind === 'book' ? [p.authors?.join(', '), p.year, p.publisher, p.pages ? `${p.pages} pages` : ''].filter(Boolean).join(' · ') : '';
+    return h('div.lc-body',
+      h('p.lc-line', [p.title, p.brand, p.quantity].filter(Boolean).join(' · ')),
+      ...(book ? [h('p.lc-line', book)] : []),
+      ...(grades ? [h('p.lc-line', grades)] : []),
+      ...(per.length ? [h('p.lc-small', `Per 100 g: ${per.join(' · ')}`)] : []),
+      ...(p.allergens?.length ? [h('p.lc-warn', `Contains: ${p.allergens.join(', ')}`)] : []),
+      h('p.lc-small', `From ${p.source}${p.credit ? ` (${p.credit})` : ''}.`),
+    );
+  };
+
   const lookProduct = (code: string): void => {
     if (products.has(code) || productBusy === code) return;
     if (!last?.online) return;
@@ -244,19 +302,14 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
             cardsState.product = { state: p, name: '' };
             out.push(card('product', `A PRODUCT · ${code}`, p === 'unknown' ? 'No open database knows this barcode yet.' : 'I couldn’t reach the product databases. Tap to try in SCAN.', key('MORE ABOUT IT', () => deps.act('look'))));
           } else {
-            const name = [p.title, p.brand, p.quantity].filter(Boolean).join(' · ');
             cardsState.product = { state: 'found', name: p.title };
-            out.push(card('product', p.kind === 'book' ? 'A BOOK' : 'A PRODUCT', `${name}${p.nutriscore ? ` · Nutri-Score ${p.nutriscore.toUpperCase()}` : ''}. From ${p.source}${p.credit ? ` (${p.credit})` : ''}.`, key('MORE ABOUT IT', () => deps.act('look'))));
+            out.push(card('product', p.kind === 'book' ? 'A BOOK' : 'A PRODUCT', productBody(p), key('MORE ABOUT IT', () => deps.act('look'))));
           }
           break;
         }
-        case 'code': {
-          const info = classifyCode(code);
-          const word = info.kind === 'url' ? 'A LINK CODE' : info.kind === 'wifi' ? 'A WI-FI CODE' : info.kind === 'contact' ? 'A CONTACT CODE' : info.kind === 'phone' ? 'A PHONE CODE' : info.kind === 'email' ? 'AN EMAIL CODE' : info.kind === 'geo' ? 'A PLACE CODE' : 'A CODE';
-          const open = info.kind === 'url' && /^https?:\/\//i.test(code) ? link('OPEN', code, `Open ${code}`) : info.kind === 'phone' && info.phone ? link('CALL', `tel:${info.phone}`, 'Call the number in the code') : null;
-          out.push(card('code', word, (info.url?.host ?? info.wifi?.ssid ?? info.contact?.name ?? info.phone ?? code).slice(0, 120), open, key(open ? 'MORE' : 'WHAT IT HOLDS', () => deps.act('look'))));
+        case 'code':
+          out.push(codeCard(code));
           break;
-        }
         case 'letter':
           out.push(card('letter', 'A LETTER', 'REMIND ME and FILE are under its words above.', copy('COPY', k.text ?? '', 'the letter')));
           break;

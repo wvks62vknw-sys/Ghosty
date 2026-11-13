@@ -8,9 +8,10 @@
 //   A SIGN   in French: said to be French, translated by itself (the words only)
 //   A BILL   the letter card, and the plate's REMIND and FILE
 //   A PAGE   SCAN IT FLAT opens SCAN's document part on the frame
-//   PRODUCT  a shop barcode looked up on the open product databases through the brain; a QR link opened
+//   PRODUCT  a shop barcode looked up on the open product databases through the brain: its grade, figures per 100 g and allergens;
+//            a QR link opened; a Wi-Fi code's password copied
 //   A THING  named with how sure; MEASURE IT opens the measure
-//   LIVING   a robin: WHICH SPECIES takes the picture to NAME (the free model that sees), on his tap only
+//   LIVING   a robin: one tap on WHICH SPECIES names it European robin, Erithacus rubecula (the free model that sees), on his tap only
 //   A PLACE  a clock tower: WHAT PLACE IS THIS names it (the free model that sees) with its encyclopedia summary
 //   VOICE    "call that number" and "solve that" do the cards' jobs by his words
 //   FACES    someone he introduced by the name he gave; a stranger said plainly, never named
@@ -74,7 +75,7 @@ async function run(viewport, all) {
   page.on('pageerror', (e) => problems.push(`${T} pageerror: ${e.message}`));
   await page.addInitScript(colourCamera);
   // the open product databases and the encyclopedia, as fixtures (the brain's own routes, answered here so no outside call is made)
-  await page.route('**/api/lookup/barcode?code=5000159484695', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '5000159484695', kind: 'product', source: 'Open Food Facts', credit: 'Open Food Facts, ODbL', title: 'Digestive biscuits', brand: 'Fixture Bakery', quantity: '400 g', nutriscore: 'e' }) }));
+  await page.route('**/api/lookup/barcode?code=5000159484695', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '5000159484695', kind: 'product', source: 'Open Food Facts', credit: 'Open Food Facts, ODbL', title: 'Digestive biscuits', brand: 'Fixture Bakery', quantity: '400 g', nutriscore: 'e', nutrition: { kcal: 474, sugars: 16.6, fat: 20.9, saturates: 9.6, salt: 0.95, protein: 7.1 }, allergens: ['gluten', 'milk'] }) }));
   await page.route('**/api/aim/about?title=*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ title: 'Big Ben', extract: 'Big Ben is the nickname for the Great Bell of the Great Clock of Westminster, at the north end of the Palace of Westminster in London.', url: 'https://en.wikipedia.org/wiki/Big_Ben' }) }));
   await page.goto(base);
   await page.fill('#pair input', 'preview-owner-key-0123456789');
@@ -249,13 +250,23 @@ async function run(viewport, all) {
   await until(() => window.__ghosty.cards.product.state === 'found', null, 8000, `[product] the barcode was not looked up: ${JSON.stringify((await cards()).product)}`);
   cs = await cards();
   const prod = cs.cards.find((c) => c.job === 'product');
-  check(/Digestive biscuits · Fixture Bakery · 400 g · Nutri-Score E\. From Open Food Facts/.test(prod?.line ?? ''), `${T} [product] the card says "${prod?.line}"`);
+  // what a specialist food app shows: what it is, its grade, the figures per 100 g, the allergens, and whose data it is
+  const want = 'Digestive biscuits · Fixture Bakery · 400 gNutri-Score EPer 100 g: 474 kcal · sugars 16.6 g · fat 20.9 g · saturates 9.6 g · salt 0.95 g · protein 7.1 gContains: gluten, milkFrom Open Food Facts (Open Food Facts, ODbL).';
+  check(prod?.line === want, `${T} [product] the card says "${prod?.line}", want "${want}"`);
   await letGo();
   await reset();
   await hold([{ kind: 'code', box: { x: 200, y: 140, w: 200, h: 200 }, score: 0.95, truth: 'a code', data: { text: 'https://example.org/menu', format: 'qr_code', codeKind: 'url' } }]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'code' && c.head === 'A LINK CODE'), null, 4000, '[qr] the QR link has no card');
   await keyIn('code', 'OPEN').click();
   check((await page.evaluate(() => window.__opened)).includes('https://example.org/menu'), `${T} [qr] OPEN did not open the QR code's link`);
+  await letGo();
+  await reset();
+  // a Wi-Fi code: its network said, its password copied
+  await hold([{ kind: 'code', box: { x: 200, y: 140, w: 200, h: 200 }, score: 0.95, truth: 'a code', data: { text: 'WIFI:T:WPA;S:HomeNet;P:secret123;;', format: 'qr_code', codeKind: 'wifi' } }]);
+  await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'code' && c.head === 'A WI-FI CODE' && /^Network HomeNet · WPA/.test(c.line)), null, 4000, `[wifi] the Wi-Fi code's card: ${JSON.stringify((await cards()).cards)}`);
+  await keyIn('code', 'COPY PASSWORD').click();
+  await until(() => /copied the Wi-Fi password/i.test(window.__ghosty.cards.done), null, 3000, '[wifi] COPY PASSWORD did not copy');
+  check((await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))) === 'secret123', `${T} [wifi] the clipboard does not hold the password`);
   await letGo();
   await reset();
 
@@ -275,6 +286,10 @@ async function run(viewport, all) {
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'living' && c.head === 'A ROBIN · 78% SURE'), null, 4000, `[living] the robin's card: ${JSON.stringify((await cards()).cards.map((c) => c.head))}`);
   await keyIn('living', 'WHICH SPECIES').click();
   await until(() => window.__ghosty.lens.mode === 'name', null, 5000, '[living] WHICH SPECIES did not take the picture to NAME');
+  // one tap: the species, from the free model that sees (the test model's robin), with how sure, and nothing kept unless he saves it
+  await until(() => window.__ghosty.lens.card.what === 'living' && /European robin/.test(window.__ghosty.lens.card.text), null, 20000, `[living] the species never came: ${JSON.stringify(await page.evaluate(() => window.__ghosty.lens.card))}`);
+  const sp = await page.evaluate(() => window.__ghosty.lens.card.text);
+  check(/NAME IT · BIRD/.test(sp) && /Erithacus rubecula/.test(sp) && /SAVE/.test(sp), `${T} [living] the species card says "${sp.slice(0, 160)}"`);
   await letGo();
   await backToLens();
   await reset();

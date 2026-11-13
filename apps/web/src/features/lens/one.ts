@@ -49,7 +49,7 @@ import { waiting as putUpWait } from '../../ui/wait';
 import { createCards, type CardInput } from './cards';
 import { letterOf } from '../../../../../packages/shared/src/lifeeasier';
 import { isoDay } from '../brief/day';
-import type { JobId } from '../../vision/jobs';
+import { livingKind, type JobId } from '../../vision/jobs';
 
 /** The grey frame's width: the "text present" check and the steadiness work on this, not on the camera's pixels. */
 const GREY_W = 160;
@@ -281,7 +281,15 @@ export function createOneMode(L: LensContext): Mode {
       if (what === 'look') {
         const t = pick('code');
         if (t) void doAct(t, 'look');
-      } else if (what === 'nameit' || what === 'measure') {
+      } else if (what === 'nameit') {
+        // the species, in one tap: NAME's LIVING THING runs at once on the crop, as the kind the phone's name says (a plant to Pl@ntNet)
+        const t = pick('object');
+        const c = t ? cropOf(t) : L.still(1600);
+        if (!c) return void toast('Open the camera first', 'warn');
+        const label = (t && nodes.get(t.id)?.label) || t?.data?.label || '';
+        S.lastAction = `which species: ${label || 'the picture'}`;
+        L.setMode('name', { still: c, living: livingKind(label) });
+      } else if (what === 'measure') {
         const t = pick('object');
         if (t) void doAct(t, what);
         else if (what === 'measure') {
