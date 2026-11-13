@@ -49,6 +49,13 @@
  * thing, the landing. Home usable at 7,000 ms (the short cut about 4,800); the same six kinds, the same budget, the same skip (a tap
  * plays the landing), the same greeting rules, `__bootSeek` for the check. The world is drawn in Home's one context (mind.ts, staged
  * full-screen) and Home takes the stage at the landing, so the landing is no cut: the film's last frame is Home's first.
+ * THE FILM ON HIS PHONE (FINAL-BOOT, 13 Nov: "the boot-up cinematic is like non-existent"): the film decides its version at its scan
+ * (500 ms), the first shot that needs Mind, and holds there with the room breathing until Mind draws: by 1,500 ms the full film, by
+ * 2,700 the short cut, the wait made up by the pace so Home is still usable at 7,000; only a phone with no 3-D, or Mind later than
+ * that, gets the flat cut. It judges the phone by its own draw (a 60 Hz frame), never by the app starting underneath (the ground's
+ * stutter, a late first frame, one stalled frame); a lean sheds the trails and the refraction and keeps the film's length. A cold
+ * open under three minutes after he last had Ghosty on screen (state/lastopen.ts: the phone closed it behind him) plays the short
+ * cut, ending by its own 4,800; every other cold open, the whole film. tests/bootfilm.spec.mjs opens it with no version picked.
  */
 import { h } from '../core/dom';
 import { BOOT_DONE, currentMind, mindFor, webglWorks, type BootLook, type Mind, type MindState } from '../features/core/mind';
