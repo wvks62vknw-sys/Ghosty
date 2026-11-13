@@ -93,6 +93,25 @@ export interface Clip {
   rampSound?: 'pitch' | 'drop';
   /** VIDEO 2: the steadying's own record (the path it measured), from which the STEADY keys are made again after a trim, split or speed change. */
   steady?: SteadyRecord;
+  /** EDITORS lane: the clip fades up from black at its start and down to black at its end, picture and sound together (ms; 0 is none).
+   * Worked out from the clip's own length each frame (compose.ts, math.ts mixPlan), so a trim or a speed change keeps it right. */
+  fade?: { in: number; out: number };
+}
+
+/** The longest fade a clip takes: a third of the clip, and never more than two seconds. */
+export const fadeCap = (c: Clip): number => Math.max(0, Math.min(2000, Math.floor(clipLen(c) / 3)));
+/** How much of the picture shows `tIn` ms into the clip under its fades (1 = all of it, 0 = black). */
+export function fadeFactor(c: Clip, tIn: number): number {
+  const f = c.fade;
+  if (!f) return 1;
+  const cap = fadeCap(c);
+  const len = clipLen(c);
+  const fi = Math.min(f.in, cap);
+  const fo = Math.min(f.out, cap);
+  let v = 1;
+  if (fi > 0) v = Math.min(v, tIn / fi);
+  if (fo > 0) v = Math.min(v, (len - tIn) / fo);
+  return Math.max(0, Math.min(1, v));
 }
 export interface Title {
   text: string;

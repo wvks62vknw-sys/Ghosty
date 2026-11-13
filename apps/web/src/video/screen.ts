@@ -11,7 +11,7 @@ import { button, toast } from '../ui/components';
 import { sizeWords } from '../convert/bytes';
 import { encodeWav } from '../convert/audio';
 import {
-  ASPECTS, clipLen, clock, duplicateClip, duration, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
+  ASPECTS, clipLen, clock, duplicateClip, duration, fadeCap, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
   type Aspect, type Clip, type Overlay, type Project, type Source, type TransitionKind,
 } from './model';
 import { addAudio, addMain, addPip, addTitle, copyGrade, cutRanges, splitMany } from './edit';
@@ -502,6 +502,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         });
         renderStrip();
         renderTray();
+        refreshState();
       });
       tile.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), tile.click()));
       if (x.clip.id === sel && tool === 'trim') addHandles(tile, x.clip);
@@ -903,7 +904,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   function transitionTray(c: Clip): Nodes {
     const i = project.main.findIndex((x) => x.id === c.id);
     const next = project.main[i + 1];
-    if (!next) return [need('This is the last clip. A transition goes between a clip and the one after it.')];
+    if (!next) return [need('This is the last clip. A transition goes between a clip and the one after it; this one can fade to black.'), ...fadeNodes(c)];
     const cap = transitionCap(c, next);
     const kinds: { id: TransitionKind; label: string }[] = [{ id: 'cut', label: 'CUT' }, { id: 'crossfade', label: 'CROSSFADE' }, { id: 'dip', label: 'DIP TO BLACK' }, { id: 'wipe', label: 'WIPE' }, { id: 'slide', label: 'SLIDE' }];
     return [
@@ -911,6 +912,25 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       choices('Transition', kinds, c.next.kind, (k) => commit(setTransition(project, i, k, c.next.len || Math.min(1000, cap)), k === 'cut' ? 'A plain cut.' : `A ${k} into clip ${i + 2}: the two clips overlap by it.`)),
       c.next.kind !== 'cut' ? stepper('Length', () => `${((selClip()?.next.len ?? 0) / 1000).toFixed(1)} s`, () => commit(setTransition(project, i, selClip()!.next.kind, (selClip()?.next.len ?? 0) - 100)), () => commit(setTransition(project, i, selClip()!.next.kind, (selClip()?.next.len ?? 0) + 100))) : null,
       note(cap < 200 ? 'These clips are too short for a transition.' : `Up to ${(cap / 1000).toFixed(1)} s: no more than half of the shorter clip.`),
+      ...fadeNodes(c),
+    ];
+  }
+  /** FADE IN and FADE OUT: this clip's picture rises from black and sinks to black, its sound with it (one second, or a third of a short clip). */
+  function fadeNodes(c: Clip): Nodes {
+    const cap = fadeCap(c);
+    if (cap < 200) return [note('This clip is too short to fade.')];
+    const len = Math.min(1000, cap);
+    const fi = c.fade?.in ?? 0;
+    const fo = c.fade?.out ?? 0;
+    const set = (inMs: number, outMs: number, words: string) =>
+      commit(editClip(c.id, (z) => { if (inMs || outMs) z.fade = { in: inMs, out: outMs }; else delete z.fade; }), words);
+    const secs = `${(len / 1000).toFixed(1)} s`;
+    return [
+      row(
+        act('FADE IN', () => set(fi ? 0 : len, fo, fi ? 'No fade in: the clip starts as it is.' : `The clip rises from black over ${secs}, its sound with it.`), fi ? 'vdchoice vdfade on' : 'vdchoice vdfade'),
+        act('FADE OUT', () => set(fi, fo ? 0 : len, fo ? 'No fade out: the clip ends as it is.' : `The clip sinks to black over ${secs}, its sound with it.`), fo ? 'vdchoice vdfade on' : 'vdchoice vdfade'),
+      ),
+      note(fi || fo ? `Fading ${[fi ? 'in' : '', fo ? 'out' : ''].filter(Boolean).join(' and ')}: tap again to take it off.` : 'FADE IN rises from black at the clip’s start; FADE OUT sinks to black at its end. The sound fades with the picture.'),
     ];
   }
 

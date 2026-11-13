@@ -64,15 +64,16 @@ export default async function (h) {
     await page.click(`.vdpill[data-tool="${t}"]`);
     await page.waitForFunction((x) => document.querySelector('.vd')?.dataset.tool === x, t);
   };
+  /** A tap on the i-th clip (the strip is drawn again as the clip loads, so the tile is found at the moment of the tap). */
   const select = async (page, i) => {
-    const tile = page.locator(`.vdtile[data-index="${i}"]`);
-    await tile.scrollIntoViewIfNeeded();
-    const id = await tile.getAttribute('data-id');
-    const b = await tile.boundingBox();
-    const sb = await page.locator('.vdstrip').boundingBox();
-    const x0 = Math.max(b.x, sb.x);
-    const x1 = Math.min(b.x + b.width, sb.x + sb.width);
-    await page.mouse.click((x0 + x1) / 2, b.y + b.height / 2);
+    await page.waitForSelector(`.vdtile[data-index="${i}"]`, { timeout: 15000 });
+    const id = await page.evaluate((i) => {
+      const t = document.querySelector(`.vdtile[data-index="${i}"]`);
+      t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const r = t.getBoundingClientRect();
+      t.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
+      return t.dataset.id;
+    }, i);
     return until(page, (want) => window.__ghosty.video.state().selected === want, id, 5000);
   };
   const addClips = async (page, list) => {
@@ -116,6 +117,25 @@ export default async function (h) {
     await pill(page, 'order');
     check(await key(page, 'MOVE RIGHT').isDisabled(), 'video: MOVE RIGHT is greyed on the last clip');
     check(!(await key(page, 'MOVE LEFT').isDisabled()), 'video: MOVE LEFT is live on the last clip');
+
+    // FADE IN on the first clip: the picture rises from black (the player's own pixel, at the clip's first frame and after the fade)
+    const px = (fx, fy) => page.evaluate(([x, y]) => window.__ghosty.video.pixel(x, y), [fx, fy]);
+    const seek = (ms) => page.evaluate((t) => window.__ghosty.video.seek(t), ms);
+    const lum = (c) => (c ? c[0] + c[1] + c[2] : -1);
+    check(await select(page, 0), 'video: the first clip is chosen again');
+    await pill(page, 'transition');
+    await seek(1500);
+    const plain0 = await px(0.1, 0.1);
+    await key(page, 'FADE IN').click();
+    check(await until(page, () => !!window.__ghosty.video.project().main[0].fade?.in, null, 5000), 'video: FADE IN is kept on the clip');
+    check(/rises from black/.test(await line(page)), `video: the fade is said in his words ("${await line(page)}")`);
+    await seek(0);
+    const dark = await px(0.1, 0.1);
+    await seek(1500);
+    const lit = await px(0.1, 0.1);
+    check(lum(dark) >= 0 && lum(dark) < 60 && lum(lit) > lum(dark) + 120 && Math.abs(lum(lit) - lum(plain0)) < 40, `video: the first frame is black under FADE IN and the clip is itself after it (${dark} → ${lit}; without the fade ${plain0})`);
+    await page.click('.vdundo');
+    check(await until(page, () => !window.__ghosty.video.project().main[0].fade, null, 5000), 'video: UNDO takes the fade off');
     await ctx.close();
   }
 
