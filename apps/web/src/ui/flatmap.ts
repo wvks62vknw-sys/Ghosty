@@ -86,12 +86,17 @@ export function loadLeaflet(): Promise<typeof L> {
     s.addEventListener('error', () => fail(new Error('Leaflet did not load')));
     document.head.append(s);
   });
+  // (a load that failed is not kept: the next open tries again)
+  leaflet.catch(() => (leaflet = null));
   return leaflet;
 }
 
 const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : m < 10000 ? `${(m / 1000).toFixed(2)} km` : `${(m / 1000).toFixed(1)} km`);
 const miles = (m: number) => `${(m / 1609.344).toFixed(m < 16000 ? 2 : 1)} mi`;
-const dur = (s: number) => (s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`);
+const dur = (s: number) => {
+  const m = Math.round(s / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+};
 
 interface OsrmRoute {
   code: string;
@@ -342,7 +347,7 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
       'div.fmbtns',
       button('STREET VIEW', () => hooks.streetView({ ...here })),
       button('TRAFFIC', () => hooks.traffic({ ...here })),
-      button('ROUTE HERE', () => void routeTo(current)),
+      button('ROUTE HERE', () => void routeTo(here)),
       button('JOURNEY', () => void journeyTo(here)),
       button('ELEVATION', () => void elevation(lat, lon, out)),
       button('NEARBY', () => void wiki(lat, lon, out)),
@@ -397,7 +402,8 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
     }
   };
   const routeTo = async (to: MapSpot) => {
-    const from = gpsHere ?? home();
+    // (the route goes through the brain's proxy, which never gets live GPS: where he is goes as the square kilometre around him)
+    const from = gpsHere ? { lat: Math.round(gpsHere.lat * 100) / 100, lon: Math.round(gpsHere.lon * 100) / 100 } : home();
     const Lf = await loadLeaflet();
     if (!map) return;
     note(`Route from ${gpsHere ? 'where you are' : home().name}…`);

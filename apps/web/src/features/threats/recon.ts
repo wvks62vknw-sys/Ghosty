@@ -125,7 +125,7 @@ export function reconPanel(): HTMLElement {
       if (!r.ok) throw new Said(reconError(null, r.status, j?.error ?? ''));
       toast(`Saved to the library: ${j?.title ?? title}`, 'ok');
     } catch (e) {
-      toast(e instanceof Said ? sayError(e, 'look that up') : reconError(e), 'bad');
+      toast(sayError(e, 'save that to the library'), 'bad');
     } finally {
       save.disabled = false;
     }
