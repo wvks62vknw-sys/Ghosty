@@ -8,13 +8,17 @@
  */
 import { openDocBlock } from '../../../../packages/shared/src/opendoc';
 
-export type BlockType = 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'quote' | 'right' | 'table' | 'img' | 'pb';
+export type BlockType = 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'todo' | 'quote' | 'right' | 'table' | 'img' | 'pb';
 export interface Run {
   text: string;
   b?: boolean;
   i?: boolean;
   /** Underlined. */
   u?: boolean;
+  /** Struck through (a word crossed out, still read). */
+  s?: boolean;
+  /** Highlighted (the marker pen). */
+  hl?: boolean;
   /** A link: its address (https:, mailto: or tel:). */
   href?: string;
 }
@@ -24,6 +28,8 @@ export interface Block {
   t: BlockType;
   runs: Run[];
   align?: Align;
+  /** A checklist item (t 'todo'): ticked. */
+  ticked?: boolean;
   /** A table: rows of cells, each cell its runs (a line break inside a cell is kept). */
   rows?: Run[][][];
   /** A table whose first row is its header. */
@@ -70,8 +76,8 @@ export const newDoc = (title: string, blocks: Block[], kind: Doc['kind'] = 'docu
 
 const cellText = (c: Run[]): string => c.map((r) => r.text).join('');
 export const textOf = (b: Block): string => (b.t === 'table' ? (b.rows ?? []).map((r) => r.map(cellText).join('\t')).join('\n') : b.t === 'img' ? b.alt ?? '' : b.runs.map((r) => r.text).join(''));
-const same = (a: Run, b: Run) => !!a.b === !!b.b && !!a.i === !!b.i && !!a.u === !!b.u && (a.href ?? '') === (b.href ?? '');
-const keep = (r: Run): Run => ({ text: r.text, ...(r.b ? { b: true } : {}), ...(r.i ? { i: true } : {}), ...(r.u ? { u: true } : {}), ...(r.href ? { href: r.href } : {}) });
+const same = (a: Run, b: Run) => !!a.b === !!b.b && !!a.i === !!b.i && !!a.u === !!b.u && !!a.s === !!b.s && !!a.hl === !!b.hl && (a.href ?? '') === (b.href ?? '');
+const keep = (r: Run): Run => ({ text: r.text, ...(r.b ? { b: true } : {}), ...(r.i ? { i: true } : {}), ...(r.u ? { u: true } : {}), ...(r.s ? { s: true } : {}), ...(r.hl ? { hl: true } : {}), ...(r.href ? { href: r.href } : {}) });
 /** Words, letters and minutes of a document: what the line under its title says. */
 export function counts(d: Doc): { words: number; chars: number } {
   let words = 0;
@@ -99,13 +105,13 @@ export function tidyRuns(runs: Run[]): Run[] {
 
 // ---------------------------------------------------------------- Markdown and plain text in
 
-/** **bold**, *italic* or _italic_, ***both***, as runs (a lone star stays a star). */
+/** **bold**, *italic* or _italic_, ***both***, ~~struck~~, ==highlighted==, as runs (a lone star stays a star). */
 export function inline(md: string): Run[] {
   return inlineMd(md);
 }
 function inlineMd(md: string): Run[] {
   const out: Run[] = [];
-  const re = /(\*\*\*|___)(?=\S)([\s\S]*?\S)\1|(\*\*|__)(?=\S)([\s\S]*?\S)\3|(\*|_)(?=\S)([\s\S]*?\S)\5(?![\w*])/g;
+  const re = /(\*\*\*|___)(?=\S)([\s\S]*?\S)\1|(\*\*|__)(?=\S)([\s\S]*?\S)\3|(\*|_)(?=\S)([\s\S]*?\S)\5(?![\w*])|(?<!\\)(~~|==)(?=\S)([\s\S]*?[^\s\\])\7/g;
   let at = 0;
   for (const m of md.matchAll(re)) {
     // an underscore inside a word (snake_case) is not italic
@@ -113,11 +119,12 @@ function inlineMd(md: string): Run[] {
     if (m.index! > at) out.push({ text: md.slice(at, m.index) });
     if (m[2] !== undefined) out.push({ text: m[2], b: true, i: true });
     else if (m[4] !== undefined) out.push(...inlineMd(m[4]).map((r) => ({ ...r, b: true })));
+    else if (m[8] !== undefined) out.push(...inlineMd(m[8]).map((r) => ({ ...r, ...(m[7] === '~~' ? { s: true } : { hl: true }) })));
     else out.push(...inlineMd(m[6]!).map((r) => ({ ...r, i: true })));
     at = m.index! + m[0].length;
   }
   if (at < md.length) out.push({ text: md.slice(at) });
-  return tidyRuns(out.map((r) => ({ ...r, text: r.text.replace(/\\([*_\\#])/g, '$1') })));
+  return tidyRuns(out.map((r) => ({ ...r, text: r.text.replace(/\\([*_\\#~=])/g, '$1') })));
 }
 
 /** Markdown as blocks: # headings, - and 1. lists, > quotes; lines inside a paragraph keep their breaks. */
@@ -143,6 +150,7 @@ export function fromMarkdown(md: string, plain = false): Block[] {
       continue;
     }
     const h = /^(#{1,6})\s+(.*?)\s*#*$/.exec(line);
+    const todo = /^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/.exec(line);
     const ul = /^\s*[-*+•]\s+(.*)$/.exec(line);
     const ol = /^\s*\d{1,3}[.)]\s+(.*)$/.exec(line);
     const q = /^\s*>\s?(.*)$/.exec(line);
@@ -151,7 +159,10 @@ export function fromMarkdown(md: string, plain = false): Block[] {
       flush();
       out.push(block(h[1]!.length === 1 ? 'h1' : h[1]!.length === 2 ? 'h2' : 'h3', inline(h[2]!)));
     } else if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) flush();
-    else if (ul && !/^\s*\*\*/.test(line)) {
+    else if (todo) {
+      flush();
+      out.push({ ...block('todo', inline(todo[2]!)), ...(todo[1] !== ' ' ? { ticked: true } : {}) });
+    } else if (ul && !/^\s*\*\*/.test(line)) {
       flush();
       out.push(block('ul', inline(ul[1]!)));
     } else if (ol) {
@@ -186,9 +197,11 @@ export function fromHtml(html: string): Block[] {
     .replace(/<title\b[\s\S]*?<\/title>/gi, '');
   const out: Block[] = [];
   const lists: ('ul' | 'ol')[] = [];
-  let cur: { t: BlockType; runs: Run[] } | null = null;
+  let cur: { t: BlockType; runs: Run[]; ticked?: boolean } | null = null;
   let bold = 0;
   let ital = 0;
+  let strike = 0;
+  let mark = 0;
   let pre = 0;
   const open = (t: BlockType) => {
     close();
@@ -203,7 +216,7 @@ export function fromHtml(html: string): Block[] {
         runs[runs.length - 1]!.text = runs[runs.length - 1]!.text.replace(/[ \t]+$/, '');
       }
       const kept = tidyRuns(runs.map((r) => ({ ...r, text: r.text.replace(/[ \t]*\n[ \t]*/g, '\n') })));
-      if (kept.some((r) => r.text.trim())) out.push({ id: blockId(), t: cur.t, runs: kept });
+      if (kept.some((r) => r.text.trim())) out.push({ id: blockId(), t: cur.t, runs: kept, ...(cur.ticked ? { ticked: true } : {}) });
     }
     cur = null;
   };
@@ -214,7 +227,7 @@ export function fromHtml(html: string): Block[] {
       if (!pre) text = text.replace(/\s+/g, ' ');
       if (!text.trim() && !cur) continue;
       cur ??= { t: 'p', runs: [] };
-      (cur as { runs: Run[] }).runs.push({ text, ...(bold ? { b: true } : {}), ...(ital ? { i: true } : {}) });
+      (cur as { runs: Run[] }).runs.push({ text, ...(bold ? { b: true } : {}), ...(ital ? { i: true } : {}), ...(strike ? { s: true } : {}), ...(mark ? { hl: true } : {}) });
       continue;
     }
     const end = tok[1] === '/';
@@ -240,6 +253,13 @@ export function fromHtml(html: string): Block[] {
       (cur as { runs: Run[] }).runs.push({ text: '\n' });
     } else if (tag === 'b' || tag === 'strong') bold = Math.max(0, bold + (end ? -1 : 1));
     else if (tag === 'i' || tag === 'em') ital = Math.max(0, ital + (end ? -1 : 1));
+    else if (tag === 's' || tag === 'del' || tag === 'strike') strike = Math.max(0, strike + (end ? -1 : 1));
+    else if (tag === 'mark') mark = Math.max(0, mark + (end ? -1 : 1));
+    else if (tag === 'input' && /type\s*=\s*["']?checkbox/i.test(tok) && cur && ((cur as { t: BlockType }).t === 'ul' || (cur as { t: BlockType }).t === 'ol')) {
+      // a checklist item (a task list's box): ticked when the box is
+      (cur as { t: BlockType }).t = 'todo';
+      if (/\bchecked\b/i.test(tok)) (cur as { ticked?: boolean }).ticked = true;
+    }
     else if (tag === 'pre') {
       pre = Math.max(0, pre + (end ? -1 : 1));
       if (end) close();
@@ -264,6 +284,8 @@ const runHtml = (r: Run) => {
   if (r.i) s = `<em>${s}</em>`;
   if (r.b) s = `<strong>${s}</strong>`;
   if (r.u) s = `<u>${s}</u>`;
+  if (r.s) s = `<s>${s}</s>`;
+  if (r.hl) s = `<mark>${s}</mark>`;
   const href = r.href ? safeHref(r.href) : '';
   if (href) s = `<a href="${esc(href)}">${s}</a>`;
   return s;
@@ -274,13 +296,13 @@ export type ImageOf = (id: string) => string | null;
 /** The document as HTML: its blocks (lists grouped), and with `page` a whole page in the document style. */
 export function toHtml(d: Doc, page = false, imageOf: ImageOf = () => null): string {
   const parts: string[] = [];
-  let list: 'ul' | 'ol' | null = null;
+  let list: 'ul' | 'ol' | 'todo' | null = null;
   for (const b of d.blocks) {
     const inner = b.runs.map(runHtml).join('');
     const al = b.align && b.align !== 'left' ? ` style="text-align:${b.align === 'justify' ? 'justify' : b.align}"` : '';
     if (b.t === 'table' || b.t === 'img' || b.t === 'pb') {
       if (list) {
-        parts.push(`</${list}>`);
+        parts.push(`</${list === 'todo' ? 'ul' : list}>`);
         list = null;
       }
       if (b.t === 'pb') parts.push('<hr class="pagebreak">');
@@ -290,31 +312,33 @@ export function toHtml(d: Doc, page = false, imageOf: ImageOf = () => null): str
       } else parts.push(`<table>${(b.rows ?? []).map((r, k) => `<tr>${r.map((c) => `<${k === 0 && b.head ? 'th' : 'td'}>${c.map(runHtml).join('')}</${k === 0 && b.head ? 'th' : 'td'}>`).join('')}</tr>`).join('')}</table>`);
       continue;
     }
-    if (b.t === 'ul' || b.t === 'ol') {
+    if (b.t === 'ul' || b.t === 'ol' || b.t === 'todo') {
       if (list !== b.t) {
-        if (list) parts.push(`</${list}>`);
-        parts.push(`<${b.t}>`);
+        if (list) parts.push(`</${list === 'todo' ? 'ul' : list}>`);
+        parts.push(b.t === 'todo' ? '<ul class="todo">' : `<${b.t}>`);
         list = b.t;
       }
-      parts.push(`<li${al}>${inner}</li>`);
+      parts.push(b.t === 'todo' ? `<li${al}><input type="checkbox" disabled${b.ticked ? ' checked' : ''}> ${inner}</li>` : `<li${al}>${inner}</li>`);
       continue;
     }
     if (list) {
-      parts.push(`</${list}>`);
+      parts.push(`</${list === 'todo' ? 'ul' : list}>`);
       list = null;
     }
     parts.push(b.t === 'quote' ? `<blockquote${al}>${inner}</blockquote>` : b.t === 'right' ? '<p class="right">' + inner + '</p>' : isHeading(b.t) ? `<${b.t}${al}>${inner}</${b.t}>` : `<p${al}>${inner}</p>`);
   }
-  if (list) parts.push(`</${list}>`);
+  if (list) parts.push(`</${list === 'todo' ? 'ul' : list}>`);
   const body = parts.join('\n');
   if (!page) return body;
   const dir = d.rtl ? ' dir="rtl"' : '';
-  return `<!doctype html>\n<html lang="${d.lang ? langCode(d.lang) : 'en-GB'}"${dir}>\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${esc(d.title)}</title>\n<style>body{font:17px/1.6 Georgia,'Times New Roman',serif;max-width:40em;margin:3em auto;padding:0 1.2em;color:#111}h1,h2,h3{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.25}h1.title{font-size:1.9em}p.right{text-align:right}blockquote{border-left:3px solid #999;margin-left:0;padding-left:1em;color:#444}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #999;padding:.3em .6em;text-align:left}img{height:auto}hr.pagebreak{border:0;border-top:1px dashed #999;margin:2em 0}</style>\n</head>\n<body>\n<h1 class="title">${esc(d.title)}</h1>\n${body}\n</body>\n</html>\n`;
+  return `<!doctype html>\n<html lang="${d.lang ? langCode(d.lang) : 'en-GB'}"${dir}>\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${esc(d.title)}</title>\n<style>body{font:17px/1.6 Georgia,'Times New Roman',serif;max-width:40em;margin:3em auto;padding:0 1.2em;color:#111}h1,h2,h3{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.25}h1.title{font-size:1.9em}p.right{text-align:right}blockquote{border-left:3px solid #999;margin-left:0;padding-left:1em;color:#444}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #999;padding:.3em .6em;text-align:left}img{height:auto}hr.pagebreak{border:0;border-top:1px dashed #999;margin:2em 0}ul.todo{list-style:none;padding-left:.2em}</style>\n</head>\n<body>\n<h1 class="title">${esc(d.title)}</h1>\n${body}\n</body>\n</html>\n`;
 }
 
 const runMd = (r: Run) => {
-  const t = r.text.replace(/([*_\\])/g, '\\$1').replace(/\n/g, '  \n');
-  const m = r.b && r.i ? `***${t}***` : r.b ? `**${t}**` : r.i ? `*${t}*` : t;
+  const t = r.text.replace(/([*_\\])/g, '\\$1').replace(/([~=])(?=\1)/g, '\\$1').replace(/\n/g, '  \n');
+  let m = r.b && r.i ? `***${t}***` : r.b ? `**${t}**` : r.i ? `*${t}*` : t;
+  if (r.s) m = `~~${m}~~`;
+  if (r.hl) m = `==${m}==`;
   const href = r.href ? safeHref(r.href) : '';
   return href ? `[${m}](${href})` : m;
 };
@@ -337,8 +361,8 @@ export function toMarkdown(d: Doc, imageOf: ImageOf = () => null): string {
     }
     const prev = d.blocks[k - 1]?.t;
     n = b.t === 'ol' ? (prev === 'ol' ? n + 1 : 1) : 0;
-    const line = b.t === 'h1' ? `## ${inner}` : b.t === 'h2' ? `### ${inner}` : b.t === 'h3' ? `#### ${inner}` : b.t === 'ul' ? `- ${inner}` : b.t === 'ol' ? `${n}. ${inner}` : b.t === 'quote' ? `> ${inner}` : inner;
-    const listy = (t?: BlockType) => t === 'ul' || t === 'ol';
+    const line = b.t === 'h1' ? `## ${inner}` : b.t === 'h2' ? `### ${inner}` : b.t === 'h3' ? `#### ${inner}` : b.t === 'ul' ? `- ${inner}` : b.t === 'todo' ? `- [${b.ticked ? 'x' : ' '}] ${inner}` : b.t === 'ol' ? `${n}. ${inner}` : b.t === 'quote' ? `> ${inner}` : inner;
+    const listy = (t?: BlockType) => t === 'ul' || t === 'ol' || t === 'todo';
     if (k && !(listy(b.t) && listy(prev) && b.t === prev)) lines.push('');
     lines.push(line);
   });
@@ -353,9 +377,9 @@ export function toText(d: Doc): string {
     const inner = textOf(b);
     const prev = d.blocks[k - 1]?.t;
     n = b.t === 'ol' ? (prev === 'ol' ? n + 1 : 1) : 0;
-    const listy = (t?: BlockType) => t === 'ul' || t === 'ol';
+    const listy = (t?: BlockType) => t === 'ul' || t === 'ol' || t === 'todo';
     if (k && !(listy(b.t) && b.t === prev)) lines.push('');
-    lines.push(b.t === 'ul' ? `• ${inner}` : b.t === 'ol' ? `${n}. ${inner}` : b.t === 'quote' ? `“${inner}”` : inner);
+    lines.push(b.t === 'todo' ? `${b.ticked ? '☑' : '☐'} ${inner}` : b.t === 'ul' ? `• ${inner}` : b.t === 'ol' ? `${n}. ${inner}` : b.t === 'quote' ? `“${inner}”` : inner);
   });
   return lines.join('\n').trim() + '\n';
 }
