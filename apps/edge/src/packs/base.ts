@@ -9,6 +9,7 @@ import type { Card } from '../../../../packages/shared/src/cards';
 import type { ClientCommand } from '../../../../packages/shared/src/protocol';
 import type { PackOut } from '../../../../packages/shared/src/packs';
 import { zoneOf } from '../guardstate';
+import { guardedFetch } from '../netguard';
 import { arg, type Tool } from '../tools/types';
 
 export interface PackDeps {
@@ -33,7 +34,8 @@ export const UA = 'Mozilla/5.0 (compatible; GhostyAssistant/2.0; personal assist
 
 /** A page's text, at most `max` bytes, given up after `ms`. Throws in plain words. */
 export async function getText(d: Pick<PackDeps, 'fetch'>, url: string, max = 1_500_000, ms = 9000): Promise<string> {
-  const r = await d.fetch(url, { headers: { 'user-agent': UA, accept: 'text/html,application/json;q=0.9,*/*;q=0.5' }, redirect: 'follow', signal: AbortSignal.timeout(ms) });
+  // [security] public web only, every redirect hop checked before it is asked (a watched page is an address from the chat)
+  const r = await guardedFetch(url, { headers: { 'user-agent': UA, accept: 'text/html,application/json;q=0.9,*/*;q=0.5' }, signal: AbortSignal.timeout(ms) }, { fetcher: d.fetch });
   if (!r.ok) throw new Error(`the page answered ${r.status}`);
   if (!r.body) return '';
   const reader = r.body.getReader();
