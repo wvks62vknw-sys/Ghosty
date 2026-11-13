@@ -955,6 +955,12 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
     return;
   }
+  // [voice lane] MANY WORDINGS, ONE MEANING (assistant/meaningturn.ts): "put some tunes on", "log a pint", "kill the lights" — read
+  // to the one ability they mean, after every table had his words as said; "play something" asks which, with both as keys
+  if (!opts.cloud && !opts.plain && (await import('./meaningturn').then((m) => m.meaningTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   turnVoice = spokenTurn ? who : undefined;
@@ -1054,7 +1060,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   cloudTurn = turn;
   await stream(
     async (cb) => {
-      await brain.chat(t + openDocData() + openWorkData(t), context(), (ev) => {
+      await brain.chat(t + openDocData() + openWorkData(t) + (await import('./meaningturn').then((m) => m.meaningNote(t)).catch(() => '')), context(), (ev) => {
         lap.saw(ev.t);
         if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
         // "No model is free" before anything happened: held back, answered on the phone instead (shown as usual if that fails).

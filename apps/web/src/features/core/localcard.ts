@@ -22,8 +22,9 @@ export function localRow(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement 
   const top = (l.kind === 'can' || l.kind === 'offer') && l.go?.[0] ? abilityById(l.go[0].id) : null;
   if (top) row.append(h('span.g-truth.hmark', { dataset: { case: 'keep', mark: markFor(top).mark } }, markFor(top).mark));
   for (const g of l.go ?? []) {
-    if (g.open || g.run || g.words != null) {
-      const b = button(g.label, () => (g.open ? (g.panel ? perform({ open: g.open, panel: g.panel }) : navTo(g.open, 'push')) : g.run ? perform({ run: g.run, args: g.args ?? {} }) : intoChat(g.words ?? '')));
+    if (g.open || g.run || g.words != null || g.send) {
+      // [voice lane] `send`: the key says his answer for him (one of two meanings he was asked between)
+      const b = button(g.label, () => (g.send ? void send(g.send) : g.open ? (g.panel ? perform({ open: g.open, panel: g.panel }) : navTo(g.open, 'push')) : g.run ? perform({ run: g.run, args: g.args ?? {} }) : intoChat(g.words ?? '')));
       b.dataset.case = 'keep';
       b.classList.add('localgo');
       row.append(b);

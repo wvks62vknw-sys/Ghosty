@@ -522,7 +522,7 @@ if (!isWebKit) {
   await p5.waitForSelector('#pg-settings.listmode .scanset button.srow, #pg-settings.listmode .pn[data-row]', { timeout: 15000 }).catch(() => undefined);
   if (!(await onPlate(p5))) await openSection(p5, 'settings', 'Appearance');
   const rowSaid = await themeRowWords(p5);
-  check(rowSaid === 'Reactor · Graphite · The Scan', `[recipe] the Theme row says "${rowSaid}", not the recipe "Reactor · Graphite · The Scan"`);
+  check(rowSaid === 'Blue · Graphite · The Scan', `[recipe] the Theme row says "${rowSaid}", not the recipe "Blue · Graphite · The Scan"`);
   await themePage(p5);
   const gal = await p5.evaluate((GONE) => {
     const pn = document.querySelector('#pg-settings .pn.themepn.pushed');
@@ -920,11 +920,11 @@ if (!isWebKit) {
   const { c: c7, p: p7 } = await recipePhone(PHONE, { look: { ground: 'black', night: 'black', switches: { day: 'on' } }, clock: '2026-11-07T15:00:00Z' });
   await part('ground follows the day', async () => {
   const day = await state(p7);
-  check(day.ground === 'paper' && day.night === 'black' && /^Reactor · Paper till 16:\d\d · The Scan$/.test(day.words), `[day] at 15:00 in Birmingham: ${JSON.stringify({ ground: day.ground, words: day.words })}`);
+  check(day.ground === 'paper' && day.night === 'black' && /^Blue · Paper till 16:\d\d · The Scan$/.test(day.words), `[day] at 15:00 in Birmingham: ${JSON.stringify({ ground: day.ground, words: day.words })}`);
   await p7.clock.fastForward('02:00:00');
   const flipped = await until(p7, () => document.documentElement.dataset.ground === 'black', null, 8000, '[day] the ground did not flip to Black after sunset on the stand-in clock');
   const night = await state(p7);
-  check(flipped && /^Reactor · Black till 07:\d\d · The Scan$/.test(night.words) && night.saved?.ground === 'black', `[day] after sunset: ${JSON.stringify({ ground: night.ground, words: night.words })}`);
+  check(flipped && /^Blue · Black till 07:\d\d · The Scan$/.test(night.words) && night.saved?.ground === 'black', `[day] after sunset: ${JSON.stringify({ ground: night.ground, words: night.words })}`);
   notes.push(`ground follows the day on a stand-in clock: "${day.words}" at 15:00, "${night.words}" at 17:00`);
   });
   await c7.close();

@@ -61,20 +61,20 @@ const byName = Object.fromEntries(tokens.map((t) => [t.name, t]));
 const themes = T.parseThemes(css);
 const styles = read('../../web/styles.css');
 
-/** BRIEF-THEMES, exactly as rendered on 2 Nov (and the two before them, as they were in state/theme.ts). */
+/** BRIEF-THEMES, exactly as rendered on 2 Nov (and the two before them, as they were in state/theme.ts); named plainly since the final round (colours.ts). */
 const BRIEF = {
-  reactor: { label: 'Reactor', tag: 'Reactor cyan, bright and alive', c: '#64d2ff', pale: '#bff0ff', glow: 1 },
-  graphite: { label: 'Graphite', tag: 'Cool steel, a quieter light', c: '#9db7cc', pale: '#dbe6ef', glow: 0.55 },
-  ember: { label: 'Ember', tag: 'Forge orange, warm and bright', c: '#ff7a3d', pale: '#ffd2bd', glow: 1 },
-  gold: { label: 'Gold', tag: 'The armour’s gold, amber light', c: '#ffc53d', pale: '#ffeab8', glow: 0.95 },
-  crimson: { label: 'Crimson', tag: 'Deep red, the suit at night', c: '#ff3b4a', pale: '#ffc2c6', glow: 0.9 },
-  violet: { label: 'Violet', tag: 'Electric purple', c: '#b18cff', pale: '#e0d2ff', glow: 0.9 },
-  emerald: { label: 'Emerald', tag: 'Green glass, calm and alive', c: '#3ddc97', pale: '#bff4dc', glow: 0.85 },
-  ice: { label: 'Ice', tag: 'Pale blue-white, a low cold glow', c: '#cfe9ff', pale: '#f0f8ff', glow: 0.45 },
-  rose: { label: 'Rose', tag: 'Coral pink, soft', c: '#ff7eb6', pale: '#ffd0e4', glow: 0.8 },
+  reactor: { label: 'Blue', tag: 'Reactor cyan, bright and alive', c: '#64d2ff', pale: '#bff0ff', glow: 1 },
+  graphite: { label: 'Grey', tag: 'Cool steel, a quieter light', c: '#9db7cc', pale: '#dbe6ef', glow: 0.55 },
+  ember: { label: 'Orange', tag: 'Forge orange, warm and bright', c: '#ff7a3d', pale: '#ffd2bd', glow: 1 },
+  gold: { label: 'Yellow', tag: 'The armour’s gold, amber light', c: '#ffc53d', pale: '#ffeab8', glow: 0.95 },
+  crimson: { label: 'Red', tag: 'Deep red, the suit at night', c: '#ff3b4a', pale: '#ffc2c6', glow: 0.9 },
+  violet: { label: 'Purple', tag: 'Electric purple', c: '#b18cff', pale: '#e0d2ff', glow: 0.9 },
+  emerald: { label: 'Green', tag: 'Green glass, calm and alive', c: '#3ddc97', pale: '#bff4dc', glow: 0.85 },
+  ice: { label: 'Light blue', tag: 'Pale blue-white, a low cold glow', c: '#cfe9ff', pale: '#f0f8ff', glow: 0.45 },
+  rose: { label: 'Pink', tag: 'Coral pink, soft', c: '#ff7eb6', pale: '#ffd0e4', glow: 0.8 },
   lime: { label: 'Lime', tag: 'Acid green, the loud one', c: '#c6ff3d', pale: '#eaffb8', glow: 1 },
-  sunset: { label: 'Sunset', tag: 'Orange into pink', c: '#ff7f6e', pale: '#ffd3c8', glow: 0.9 },
-  mono: { label: 'Mono', tag: 'White light, glow off, the quietest', c: '#ffffff', pale: '#ffffff', glow: 0.25 },
+  sunset: { label: 'Peach', tag: 'Orange into pink', c: '#ff7f6e', pale: '#ffd3c8', glow: 0.9 },
+  mono: { label: 'White', tag: 'White light, glow off, the quietest', c: '#ffffff', pale: '#ffffff', glow: 0.25 },
 };
 
 const REQUIRED = [

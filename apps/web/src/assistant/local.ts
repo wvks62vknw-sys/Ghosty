@@ -46,6 +46,7 @@ import { originLines } from '../../../../packages/shared/src/social';
 import { card } from '../../../../packages/shared/src/cards';
 import { applyAsk, lookAsked } from '../../../../packages/shared/src/themes';
 import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/looks';
+import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
@@ -54,7 +55,7 @@ export interface LocalAnswer {
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
    */
-  go?: { id: string; ask: number; label: string; open?: string; panel?: string; run?: string; args?: Record<string, unknown>; words?: string }[];
+  go?: { id: string; ask: number; label: string; open?: string; panel?: string; run?: string; args?: Record<string, unknown>; words?: string; send?: string }[];
   /** [lifeeasier] Words to read aloud on a tap of READ IT TO ME ("teach me what you learned this week"). */
   read?: string;
   /** The offer to learn it, with his words, and what he said to it. */
@@ -154,7 +155,7 @@ export async function phoneDay(now = Date.now()): Promise<DayItem[]> {
 }
 
 /** One question and its answer, said here: in the chat (and aloud when he asked by voice). */
-function answer(text: string, reply: string, local: LocalAnswer, opts: { voice?: boolean; private?: boolean }): true {
+export function answer(text: string, reply: string, local: LocalAnswer, opts: { voice?: boolean; private?: boolean }): true {
   add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
   add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local, ...(opts.private ? { private: true } : {}) });
   chat.set({ live: reply });
@@ -198,6 +199,9 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (looks?.kind === 'gallery') return answer(text, `Seven looks, each a whole HUD: ${LOOKS.map((l) => `${l.name}${l.built ? '' : ' (coming)'}`).join(', ')}. Settings › Theme has them as pictures. Say a look, or a colour.`, { kind: 'look', go: [{ id: 'screen:settings', ask: -1, label: 'Open Settings', open: 'settings' }] }, opts);
     const ask = lookAsked(text) ?? (looks?.kind === 'colour' ? { colour: looks.colour } : null);
     if (!ask) return false;
+    // [voice lane] a word that is a colour and a ground both ("make it white"): one short question, both as keys; nothing changes yet
+    const two = ask.two ? TWO_WAYS[ask.two] : undefined;
+    if (two) return answer(text, two.q, { kind: 'look', go: [{ id: 'look:colour', ask: -1, label: two.a[0], send: `${ask.two} colour` }, { id: 'look:ground', ask: -1, label: two.a[1], send: `${ask.two} background` }] }, opts);
     const theme = await import('../state/theme');
     const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome() });
     theme.applyRecipe(next);
