@@ -501,3 +501,43 @@ test('WHICH SPECIES asks as the kind the phone’s own name says: a bird, an ins
   assert.equal(F.livingKind('fox'), 'other');
   assert.equal(F.livingKind(''), 'other');
 });
+
+test('what is no sum, no phone, no postcode and no link is left alone; what is one is found whole (the review’s cases)', () => {
+  const kinds = (s) => F.textActs(s, '2026-11-13').map((a) => `${a.kind}:${a.value}`);
+  // ranges, spans of years, opening hours and seasons are not sums; a sum that asks with "=" is
+  for (const s of ['1914 - 1918', 'OPEN\n9-5', '8 - 22', '9.00 - 17.00', '2024/25']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('12 - 7 ='), ['sum:5']);
+  // a homework question's number or letter is not part of the sum
+  assert.deepEqual(kinds('1) 5 x 3 ='), ['sum:15']);
+  assert.deepEqual(kinds('Q1. 12 + 7 × 3 ='), ['sum:33']);
+  assert.deepEqual(kinds('a) 2x + 3 = 11'), ['sum:x = 4']);
+  assert.deepEqual(kinds('1. 3x = 12'), ['sum:x = 4']);
+  assert.deepEqual(kinds('(a) 15% of 80'), ['sum:12']);
+  // product specs, units, ordinals and floor signs are no postcode; a real one is, with its street line only when it is one
+  for (const s of ['Samsung Galaxy S24 8GB 256GB', 'PS5 1TB Console', 'CO2 2kg', 'Vitamin B6 1mg', 'Floor 2 Room B1 2ND']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('London SW1A 1AA'), ['address:London SW1A 1AA']);
+  assert.deepEqual(kinds('Mon-Fri 9-5\nLondon SW1A 1AA'), ['address:London SW1A 1AA']);
+  assert.deepEqual(kinds('Always open\nLondon SW1A 1AA'), ['address:London SW1A 1AA']);
+  assert.deepEqual(kinds('Call 0121 496 0123\nBirmingham B1 1AA'), ['phone:01214960123', 'address:Birmingham B1 1AA']);
+  // reference numbers are no phone; a bracketed area code is one
+  for (const s of ['Order number: 0034567891', 'Invoice 0001234567', 'Customer no. 0123 456 789', 'Account no 0123456789']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('Tel: (020) 7946 0958'), ['phone:02079460958']);
+  assert.deepEqual(kinds('Phone number: 0121 496 0123'), ['phone:01214960123']);
+  // a link keeps a bracket that closes one of its own, and drops the full stop after it
+  assert.deepEqual(kinds('See https://en.wikipedia.org/wiki/Mercury_(planet) for more'), ['link:https://en.wikipedia.org/wiki/Mercury_(planet)']);
+  assert.deepEqual(kinds('(see https://example.org/a)'), ['link:https://example.org/a']);
+  assert.deepEqual(kinds('Visit www.example.org.'), ['link:https://www.example.org']);
+  // a toy and a food named after an animal are things
+  assert.equal(F.jobOf({ thing: { label: 'teddy bear', score: 0.8 } }), 'thing');
+  assert.equal(F.jobOf({ thing: { label: 'hot dog', score: 0.8 } }), 'thing');
+  assert.equal(F.jobOf({ thing: { label: 'dog', score: 0.8 } }), 'living');
+});
+
+test('a sign binds after a power and a chain of powers is worked from its top, as taught; separate powers left to right', () => {
+  assert.deepEqual(F.solve('-3^2 + 10'), { answer: '1', steps: ['3 ^ 2 = 9', '-1 × 9 = -9', '-9 + 10 = 1'] });
+  assert.equal(F.solve('-2^2').answer, '-4');
+  assert.equal(F.solve('2 x -3^2').answer, '-18');
+  assert.deepEqual(F.solve('2^3^2'), { answer: '512', steps: ['3 ^ 2 = 9', '2 ^ 9 = 512'] });
+  assert.equal(F.solve('2 ^ -1').answer, '0.5');
+  assert.equal(F.solve('1 + 2^3^2 - 4').answer, '509');
+});

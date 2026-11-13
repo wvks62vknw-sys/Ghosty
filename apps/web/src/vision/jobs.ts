@@ -40,7 +40,9 @@ const LIVING = /\b(bird|cat|dog|horse|sheep|cow|elephant|bear|zebra|giraffe|pott
 /** What a place or a work of art is called by the namer: it is then named by the free model that sees, with its encyclopedia summary. */
 const PLACE = /\b(tower|church|cathedral|abbey|mosque|temple|castle|palace|bridge|monument|statue|sculpture|fountain|lighthouse|skyscraper|building|landmark|ruins?|painting|portrait|artwork|mural|museum|stadium|arch)\b/i;
 
-export const isLiving = (label: string): boolean => LIVING.test(label);
+/** The finder's classes named after an animal that are not alive: a toy and a food. */
+const NOT_ALIVE = /\b(teddy bears?|hot dogs?|toy|plush|soft toy|statue|ornament|picture of|drawing of)\b/i;
+export const isLiving = (label: string): boolean => LIVING.test(label) && !NOT_ALIVE.test(label);
 export const isPlace = (label: string): boolean => PLACE.test(label);
 
 /** A page fills this much of the picture or more, with this many words or more: a document to scan flat, not a sign to read. */
@@ -96,18 +98,25 @@ export interface TextAct {
   steps?: string[];
 }
 
-const PHONE = /(?:\+44\s?\(?0?\)?\s?|\b0)(?:\d[\s-]?){9,10}\b/g;
-const URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"')]+[^\s<>"').,;:!?]/gi;
+const PHONE = /(?:\+44\s?\(?0?\)?\s?|\(0|\b0)(?:\d[\s)-]{0,2}){9,10}\b/g;
+/** A number labelled as a reference is no phone number ("Order number 0123 456 789"), unless the label says it is one. */
+const NOT_PHONE_LABEL = /\b(order|invoice|account|acct|customer|policy|ref|reference|membership|member|booking|tracking|serial|sort code|nhs|case|claim|meter|mpan|mprn|card|voucher|ticket|barcode|isbn|id)\b[^\n]{0,16}$/i;
+const PHONE_LABEL = /\b(tel|telephone|phone|call|ring|mobile|mob|text|fax|helpline|contact|whatsapp)\b[^\n]{0,24}$/i;
+const URL_RE = /\b(?:https?:\/\/|www\.)(?:[^\s<>"'()]|\([^\s<>"'()]*\))*(?:[^\s<>"'().,;:!?]|\([^\s<>"'()]*\))/gi;
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 /** A UK postcode (the address is the line it stands on, with the line before when that line is short). */
-const POSTCODE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
+const POSTCODE = /\b([A-PR-UWYZ][A-HK-Y]?\d[A-Z\d]?) +(\d[ABD-HJLNP-UW-Z]{2})\b/;
+/** Inward halves that are units or ordinals, not a postcode ("8GB", "1TB", "2ND"). */
+const NOT_INWARD = /^\d(?:GB|TB|ST|ND|RD|TH)$/;
+/** A line before the postcode that is part of the address: a house number first, or a street word as a word. */
+const STREET = /^\s*\d+[A-Z]?\b|\b(road|rd|street|st|lane|ln|avenue|ave|close|drive|dr|way|place|crescent|grove|gardens|terrace|court|square|hill|row|walk|mews|parade|park)\b/i;
 
 /** A phone number as a dialler takes it: +44 or 0 and the digits, nothing else. */
 export function telOf(words: string): string | null {
   const d = words.replace(/[^\d+]/g, '');
-  if (/^\+44\d{9,10}$/.test(d)) return d;
-  if (/^\+440\d{9,10}$/.test(d)) return `+44${d.slice(4)}`;
-  if (/^0\d{9,10}$/.test(d)) return d;
+  if (/^\+44[1-9]\d{8,9}$/.test(d)) return d;
+  if (/^\+440[1-9]\d{8,9}$/.test(d)) return `+44${d.slice(4)}`;
+  if (/^0[1-9]\d{8,9}$/.test(d)) return d;
   return null;
 }
 
@@ -126,17 +135,21 @@ export function textActs(text: string, today: string): TextAct[] {
   for (const m of t.matchAll(EMAIL)) add({ kind: 'email', text: m[0], value: m[0] }, m.index ?? 0, m[0].length);
   for (const m of t.matchAll(PHONE)) {
     const tel = telOf(m[0]);
-    if (tel) add({ kind: 'phone', text: m[0].trim(), value: tel }, m.index ?? 0, m[0].length);
+    const at = m.index ?? 0;
+    const lead = t.slice(Math.max(0, at - 40), at);
+    if (!tel || (NOT_PHONE_LABEL.test(lead) && !PHONE_LABEL.test(lead))) continue;
+    add({ kind: 'phone', text: m[0].trim(), value: tel }, at, m[0].length);
   }
   const lines = t.split(/\n/);
   let pos = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     const m = POSTCODE.exec(line);
-    if (m) {
-      const before = i > 0 && lines[i - 1]!.trim().length <= 40 && /\d|road|street|lane|avenue|close|drive|way|place/i.test(lines[i - 1]!) ? `${lines[i - 1]!.trim()}, ` : '';
-      const pc = `${m[1]!.toUpperCase()} ${m[2]!.toUpperCase()}`;
-      add({ kind: 'address', text: `${before}${line.trim()}`.slice(0, 120), value: `${before}${line.trim()}`.replace(m[0], pc).slice(0, 120) }, pos + (m.index ?? 0), m[0].length);
+    if (m && !NOT_INWARD.test(m[2]!)) {
+      const prev = i > 0 ? lines[i - 1]!.trim() : '';
+      // the street line goes with it only when it is one (a house number first, or a street word), never a phone or an opening time
+      const before = prev && prev.length <= 40 && STREET.test(prev) && !telOf(prev) && !/\d{1,2}[:.]\d{2}|\d\s*[-–]\s*\d/.test(prev) ? `${prev}, ` : '';
+      add({ kind: 'address', text: `${before}${line.trim()}`.slice(0, 120), value: `${before}${line.trim()}`.replace(/ +/g, ' ').slice(0, 120) }, pos + (m.index ?? 0), m[0].length);
     }
     pos += line.length + 1;
   }
@@ -209,7 +222,10 @@ export function work(expr: string): { answer: number; steps: string[] } | null {
     const k = flat[i]!;
     const prev = signed[signed.length - 1];
     if (k.t === 'op' && k.v === '-' && (!prev || prev.t === 'op' || prev.t === '(') && flat[i + 1]?.t === 'n') {
-      signed.push({ t: 'n', v: -(flat[i + 1] as { v: number }).v });
+      const n = flat[i + 1] as { v: number };
+      // a sign binds after a power, as taught: −3² is −(3²) = −9, so it is worked as −1 × 3²
+      if (flat[i + 2]?.t === 'op' && (flat[i + 2] as { v: string }).v === '^') signed.push({ t: 'n', v: -1 }, { t: 'op', v: '*' }, { t: 'n', v: n.v });
+      else signed.push({ t: 'n', v: -n.v });
       i++;
     } else signed.push(k);
   }
@@ -220,6 +236,9 @@ export function work(expr: string): { answer: number; steps: string[] } | null {
       for (let i = 0; i < list.length; i++) {
         const k = list[i]!;
         if (k.t !== 'op' || !ops.includes(k.v)) continue;
+        // a chain of powers is worked from its top (2^3^2 is 2^9): a power whose exponent is raised again waits for it
+        const nx = list[i + 2];
+        if (k.v === '^' && nx?.t === 'op' && nx.v === '^') continue;
         const a = list[i - 1];
         const b = list[i + 1];
         if (a?.t !== 'n' || b?.t !== 'n') return null;
@@ -227,7 +246,8 @@ export function work(expr: string): { answer: number; steps: string[] } | null {
         if (!Number.isFinite(v)) return null;
         steps.push(`${num(a.v)} ${SYM[k.v]} ${num(b.v)} = ${num(v)}`);
         list.splice(i - 1, 3, { t: 'n', v });
-        i -= 1;
+        // the next operator now stands where this one stood; after a power, look again from the start (a waiting power may be free)
+        i = k.v === '^' ? -1 : i - 1;
         if (++guard > 40) return null;
       }
     }
@@ -302,16 +322,21 @@ function sumsIn(text: string): { text: string; at: number; answer: string; steps
   const out: { text: string; at: number; answer: string; steps: string[] }[] = [];
   let pos = 0;
   for (const raw of text.split('\n')) {
-    const line = raw.trim();
-    const at = pos + raw.indexOf(line);
+    const whole = raw.trim();
+    const at = pos + raw.indexOf(whole);
     pos += raw.length + 1;
+    // a homework question's number or letter is not part of the sum ("1) 5 x 3 =", "Q2. 2x + 3 = 11", "(a) 15% of 80")
+    const line = whole.replace(/^(?:q(?:uestion)?\s*)?(?:\d{1,2}|[a-h])[).:]\s+|^\((?:\d{1,2}|[a-h])\)\s+/i, '');
     if (line.length < 3 || line.length > 80) continue;
+    // bare numbers joined only by a dash or a slash are a range, a span of years, opening hours or a season, not a sum
+    // ("1914 - 1918", "9-5", "9.00 - 17.00", "2024/25"), unless the line asks for the answer with "="
+    if (!line.includes('=') && /^[\d.,\s]+(?:[-–—/][\d.,\s]+)+$/.test(line)) continue;
     const looks = /\d\s*[-+×x*÷/^]\s*[\d(]|\d\s*%\s*of\s*\d|\d?[a-z]\s*[-+]\s*\d+\s*=\s*-?\d|^\d*[a-z]\s*=\s*-?\d/i.test(line);
     if (!looks) continue;
     // a date (12/03/2026), a phone number or a time is not a sum
     if (/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b|\b\d{1,2}:\d{2}\b/.test(line) || telOf(line)) continue;
     const r = solve(line);
-    if (r) out.push({ text: line, at, answer: r.answer, steps: r.steps });
+    if (r) out.push({ text: whole, at, answer: r.answer, steps: r.steps });
   }
   return out;
 }

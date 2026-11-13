@@ -300,10 +300,14 @@ export function createOneMode(L: LensContext): Mode {
         const c = L.still(1600);
         if (!c) return void toast('Open the camera first', 'warn');
         L.setMode('scan', { sub: 'document', still: c });
+      } else if (what === 'translate') {
+        // the text card's TRANSLATE: its words, and only its words, to be translated (never the picture)
+        if (needBrain('translating')) return;
+        if (ocr.text && needsTranslation(ocr.lang)) L.setMode('ask', { text: ocr.text, question: 'Translate this text into English. Tell me which language it is.', send: true });
       } else {
-        // ASK: the words of a text go as words to be translated; a thing goes with its picture, which he sends himself
-        if (ocr.state === 'read' && ocr.text && needsTranslation(ocr.lang)) return void L.setMode('ask', { text: ocr.text, question: 'Translate this text into English. Tell me which language it is.', send: true });
-        const t = pick('object') ?? pick('code');
+        // a thing card's ASK ABOUT IT: the question about that thing with its picture, which he sends himself
+        if (needBrain('asking')) return;
+        const t = pick('object');
         if (t) void doAct(t, 'ask');
         else L.setMode('ask', { still: L.still(1600) ?? undefined });
       }
@@ -649,19 +653,21 @@ export function createOneMode(L: LensContext): Mode {
     const code = list.find((t) => t.kind === 'code');
     const objs = list.filter((t) => t.kind === 'object' && (labels.get(t.id) || t.data?.label)).sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h);
     const face = list.find((t) => t.kind === 'face');
-    const read = ocr.state === 'read' ? ocr.text : '';
+    // (while the same words are read again after a small move, the cards keep them: they never blink out for the reader's second look)
+    const read = ocr.state === 'read' || (ocr.state === 'reading' && ocr.text) ? ocr.text : '';
     return {
       text: read,
       textShare: text ? (text.box.w * text.box.h) / area : 0,
       ...(code?.data?.text ? { code: { text: code.data.text, format: code.data.format } } : {}),
-      ...(objs[0] ? { thing: { label: labels.get(objs[0].id) || objs[0].data?.label || '', score: objs[0].score } } : {}),
+      ...(objs[0] ? { thing: { label: labels.get(objs[0].id) || objs[0].data?.label || '', score: objs[0].score }, thingId: objs[0].id } : {}),
       known: !!face,
       knownName: face?.data?.label ?? '',
       stranger: list.some((t) => t.kind === 'stranger'),
       letter: !!read && isLetter(read),
       lang: read ? ocr.lang.name : '',
+      langTag: read ? ocr.lang.tag : '',
       english: ocr.tr === 'done' ? ocr.translation : '',
-      reading: ocr.state === 'reading',
+      reading: ocr.state === 'reading' && !ocr.text,
       online,
       eyes: oneState.finder === 'ready',
       camera: S.camera === 'on',

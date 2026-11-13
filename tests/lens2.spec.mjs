@@ -141,8 +141,8 @@ async function run(viewport, all) {
     }, png);
   };
   for (const look of all ? LOOKS : ['scan', 'glass']) {
-    await page.evaluate((w) => (document.documentElement.dataset.world = w), look);
-    await page.waitForTimeout(150);
+    // the look changed, then two frames painted with it (the real condition: what is measured is what the screen shows in that look)
+    await page.evaluate((w) => new Promise((ok) => { document.documentElement.dataset.world = w; requestAnimationFrame(() => requestAnimationFrame(() => ok())); }), look);
     const c = await colourOf();
     check(c.filter === 'none', `${T} [colour ${look}] the video has a filter: ${c.filter}`);
     check(c.screen >= 0.6 && c.screen >= c.camera * 0.85, `${T} [colour ${look}] the picture is greyed: on screen ${c.screen}, the camera's own ${c.camera} (want true colour)`);
@@ -188,7 +188,7 @@ async function run(viewport, all) {
   const call = await keyIn('phone', 'CALL').getAttribute('href');
   check(call === 'tel:01214960123', `${T} [phone] CALL dials ${call}`);
   await keyIn('link', 'OPEN').click();
-  check((await page.evaluate(() => window.__opened)).includes('https://www.example.org'), `${T} [link] OPEN did not open https://www.example.org`);
+  check((await page.evaluate(() => window.__opened)).includes('https://www.example.org/'), `${T} [link] OPEN did not open https://www.example.org/`);
   check((await keyIn('email', 'WRITE').getAttribute('href')) === 'mailto:hello@example.org', `${T} [email] WRITE does not write to hello@example.org`);
   // by his words, with the Lens on screen: "call that number" calls it
   await page.evaluate(() => window.__ghosty.send('call that number'));
@@ -269,6 +269,11 @@ async function run(viewport, all) {
   check((await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))) === 'secret123', `${T} [wifi] the clipboard does not hold the password`);
   await letGo();
   await reset();
+  // a link that looks wrong (a bare number, not encrypted) is OPEN ANYWAY, its warnings said, as SCAN's card does
+  await hold([{ kind: 'code', box: { x: 200, y: 140, w: 200, h: 200 }, score: 0.95, truth: 'a code', data: { text: 'http://192.168.4.20/login', format: 'qr_code', codeKind: 'url' } }]);
+  await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'code' && c.keys.includes('OPEN ANYWAY') && !c.keys.includes('OPEN') && /Careful: Not secure/.test(c.line)), null, 4000, `[qr risky] the risky link's card: ${JSON.stringify((await cards()).cards)}`);
+  await letGo();
+  await reset();
 
   // ---- A THING: named with how sure; MEASURE IT
   const thing = (label, score) => ({ kind: 'object', box: { x: 180, y: 120, w: 280, h: 240 }, score, truth: `looks like a ${label}`, data: { label, named: true } });
@@ -301,6 +306,11 @@ async function run(viewport, all) {
   await until(() => window.__ghosty.cards.place.state === 'found' && window.__ghosty.cards.place.name === 'Big Ben', null, 20000, `[place] the place was not named: ${JSON.stringify((await cards()).place)}`);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'place' && c.head === 'BIG BEN' && /Great Bell/.test(c.line)), null, 3000, '[place] the card does not show the summary');
   await layout('place');
+  await letGo();
+  await reset();
+  // another clock tower (another thing in view) is not Big Ben: the answer belonged to the one it was asked about
+  await hold([{ ...thing('clock tower', 0.66), box: { x: 120, y: 80, w: 300, h: 300 } }]);
+  await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'place' && /^A CLOCK TOWER/.test(c.head) && c.keys.includes('WHAT PLACE IS THIS')), null, 4000, `[place] a second clock tower was shown as the first: ${JSON.stringify((await cards()).cards.map((c) => c.head))}`);
   await letGo();
   await reset();
 

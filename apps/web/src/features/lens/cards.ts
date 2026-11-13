@@ -16,11 +16,11 @@
  */
 import { brain, headers } from '../../api/brain';
 import { h } from '../../core/dom';
-import { toast } from '../../ui/components';
+import { confirmSheet, toast } from '../../ui/components';
 import { key } from '../../ui/machine';
 import { askWithImage } from '../../vision/ask';
 import { toJpegDataUrl } from '../../vision/camera';
-import { jobsOf, sureWords, textActs, type JobId, type Seen, type TextAct } from '../../vision/jobs';
+import { DOC_SHARE, jobsOf, sureWords, textActs, type JobId, type Seen, type TextAct } from '../../vision/jobs';
 import { classifyCode } from '../../scan/codes';
 import { longDay } from '../../../../../packages/shared/src/lifeeasier';
 import { firstJson } from '../../../../../packages/shared/src/living';
@@ -49,8 +49,11 @@ export const NO_SIGNAL_WORDS = 'No signal. I still read words, codes and things 
 export interface CardInput extends Seen {
   /** The face he introduced, by the name he gave it (never sent anywhere). */
   knownName?: string;
-  /** The language of the text, in capitals ("FRENCH"), and its English when it has been translated. */
+  /** The language of the text, in capitals ("FRENCH"), its voice tag ("fr-FR"), and its English when it has been translated. */
   lang?: string;
+  langTag?: string;
+  /** The thing's own tag (the place a WHAT PLACE IS THIS answer belongs to: that thing, never the next one with the same name). */
+  thingId?: number;
   english?: string;
   /** The Lens is still reading the text. */
   reading?: boolean;
@@ -64,7 +67,7 @@ export interface CardDeps {
   /** A crop of the thing (or the whole frame) for an act that needs the picture. */
   picture(job: JobId): HTMLCanvasElement | null;
   /** The old modes, by name: their code and cards kept. */
-  act(what: 'look' | 'nameit' | 'measure' | 'document' | 'ask'): void;
+  act(what: 'look' | 'nameit' | 'measure' | 'document' | 'askthing' | 'translate'): void;
 }
 
 const day = (): string => isoDay(new Date());
@@ -77,8 +80,8 @@ export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' 
   map: { jobs: ['address'], key: 'ON THE MAP', done: 'Finding it on the map.', none: 'I don’t see an address yet.' },
   species: { jobs: ['living'], key: 'WHICH SPECIES', done: 'Asking my model that sees for the species.', none: 'I don’t see a plant or an animal yet. Getting the eyes helps.' },
   place: { jobs: ['place'], key: 'WHAT PLACE IS THIS', done: 'Asking my model that sees which place it is.', none: 'I don’t see a building or a work of art yet. Getting the eyes helps.' },
-  aloud: { jobs: ['text', 'document'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
-  copy: { jobs: ['text', 'phone', 'link', 'email', 'letter', 'sum'], key: 'COPY', done: 'Copied.', none: 'I don’t see anything to copy yet.' },
+  aloud: { jobs: ['text', 'letter', 'document'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
+  copy: { jobs: ['text', 'letter', 'phone', 'link', 'email', 'sum', 'code'], key: 'COPY', done: 'Copying it.', none: 'I don’t see anything to copy yet.' },
 };
 
 export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardInput): void; clear(): void; press(word: keyof typeof CARD_WORDS): string } {
@@ -86,8 +89,14 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   let sig = '';
   let last: CardInput | null = null;
   const products = new Map<string, LookupResult | 'unknown' | 'failed'>();
-  const places = new Map<string, { name: string; summary: string; url: string } | 'unsure' | 'failed'>();
+  /** A place's answer belongs to the thing it was asked about (its tag), never to the next thing the namer calls the same. */
+  const places = new Map<number, { name: string; summary: string; url: string } | 'unsure' | 'failed' | 'novision'>();
+  let askingFor = -2;
   let productBusy = '';
+  /** The days he has put in the agenda from the Lens this visit: their cards say so, and do not offer it twice. */
+  const added = new Set<string>();
+  /** The words of a page once it has been a page: it stays one until it is truly smaller in the picture (no flicker at the line). */
+  let docFor = '';
 
   const card = (job: string, head: string, line: string | Node, ...keys: (HTMLElement | null)[]): HTMLElement => {
     const k = keys.filter((x): x is HTMLElement => !!x);
@@ -104,6 +113,15 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     a.addEventListener('click', () => (cardsState.done = `${word.toLowerCase()}: ${href}`));
     return a;
   };
+  /** OPEN for a link; one with warnings is OPEN ANYWAY and asks first (as SCAN's card does), the warnings said. */
+  const openKey = (href: string, domain: string, warnings: string[]): HTMLElement => {
+    if (!warnings.length) return link('OPEN', href, `Open ${domain}`);
+    return key('OPEN ANYWAY', async () => {
+      if (!(await confirmSheet(`Open ${domain}?`, warnings.join(' '), 'OPEN'))) return;
+      cardsState.done = `open: ${href}`;
+      window.open(href, '_blank', 'noopener,noreferrer');
+    }, { label: `Open ${domain} anyway: ${warnings.join(' ')}` });
+  };
   const copy = (word: string, text: string, what: string): HTMLButtonElement =>
     key(word, () => {
       void navigator.clipboard?.writeText(text).then(
@@ -117,12 +135,18 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   const actCard = (a: TextAct): HTMLElement => {
     switch (a.kind) {
       case 'date':
+        if (added.has(a.value)) {
+          const b = key('IN YOUR AGENDA', () => undefined, { label: `${longDay(a.value)} is in your agenda` });
+          b.disabled = true;
+          return card('date', `A DATE · ${longDay(a.value).toUpperCase()}`, `“${a.text}”`, b);
+        }
         return card('date', `A DATE · ${longDay(a.value).toUpperCase()}`, `“${a.text}”`, key('ADD TO AGENDA', async (b) => {
           b.disabled = true;
           const line = (last?.text ?? '').split('\n').find((l) => l.includes(a.text))?.trim() ?? a.text;
           const [y, m, d] = a.value.split('-').map(Number);
           try {
             await brain.addEvent({ title: line.slice(0, 80) || 'From the Lens', start: new Date(y!, m! - 1, d!, 9, 0).getTime(), allDay: true });
+            added.add(a.value);
             done(`In your agenda for ${longDay(a.value)}.`);
             b.querySelector('span')!.textContent = 'IN YOUR AGENDA';
           } catch {
@@ -138,13 +162,11 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           void import('../../commands/registry').then((m) => m.run('show_map', { place: a.value }));
         }, { label: `Show ${a.text} on the map` }));
       case 'link': {
-        let host = a.value;
-        try {
-          host = new URL(a.value).hostname;
-        } catch {
-          /* the words as they are */
-        }
-        return card('link', 'A LINK', host, link('OPEN', a.value, `Open ${host}`), copy('COPY', a.value, 'the link'));
+        // a link read off print gets SCAN's checks too (a look-alike address, an unencrypted page, a bare number)
+        const u = classifyCode(a.value).url;
+        const domain = u?.domain ?? a.value;
+        const body = h('div.lc-body', h('p.lc-line', u && u.host !== u.domain ? `${u.domain} (${u.host})` : domain), ...(u?.warnings ?? []).map((w) => h('p.lc-warn', `Careful: ${w}`)));
+        return card('link', 'A LINK', body, openKey(u?.href ?? a.value, domain, u?.warnings ?? []), copy('COPY', a.value, 'the link'));
       }
       case 'email':
         return card('email', 'AN EMAIL ADDRESS', a.text, link('WRITE', `mailto:${a.value}`, `Write to ${a.text}`), copy('COPY', a.text, 'the address'));
@@ -164,7 +186,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
         const u = info.url;
         const safe = !!u && (u.scheme === 'https' || u.scheme === 'http');
         const body = h('div.lc-body', h('p.lc-line', u ? `${u.domain}${u.host !== u.domain ? ` (${u.host})` : ''}` : code.slice(0, 120)), ...(u?.warnings ?? []).map((w) => h('p.lc-warn', `Careful: ${w}`)));
-        return card('code', 'A LINK CODE', body, safe && u ? link('OPEN', u.href, `Open ${u.domain}`) : null, copy('COPY', u?.href ?? code, 'the link'), more());
+        return card('code', 'A LINK CODE', body, safe && u ? openKey(u.href, u.domain, u.warnings) : null, copy('COPY', u?.href ?? code, 'the link'), more());
       }
       case 'wifi': {
         const w = info.wifi!;
@@ -220,8 +242,12 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     cardsState.product = { state: 'looking', name: '' };
     void fetch(`/api/lookup/barcode?code=${encodeURIComponent(code)}`, { headers: headers(), credentials: 'same-origin' })
       .then(async (r) => {
-        const j = (await r.json().catch(() => null)) as LookupResult | null;
-        products.set(code, r.ok && j && j.kind !== 'unknown' && j.title ? j : 'unknown');
+        const j = (await r.json().catch(() => null)) as (LookupResult & { note?: string }) | null;
+        if (r.ok && j && j.kind !== 'unknown' && j.title) return void products.set(code, j);
+        // the brain down, refused, or the databases out (their note says what failed): asked again, never "nobody knows it"
+        const outage = !r.ok || !j || /\(.*(time|fail|error|could|unreach|refus|\b[45]\d\d\b)/i.test(j.note ?? '');
+        products.set(code, outage ? 'failed' : 'unknown');
+        setTimeout(() => products.get(code) === (outage ? 'failed' : 'unknown') && products.delete(code), outage ? 30_000 : 10 * 60_000);
       })
       .catch(() => {
         products.set(code, 'failed');
@@ -241,8 +267,12 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     if (!last?.online) return void toast(NO_SIGNAL_WORDS, 'warn');
     b.disabled = true;
     const label = last.thing?.label ?? 'place';
+    const id = last.thingId ?? -1;
+    askingFor = id;
+    places.delete(id);
     cardsState.place = { state: 'asking', name: '', summary: '' };
-    b.querySelector('span')!.textContent = 'ASKING MY MODEL THAT SEES…';
+    sig = '';
+    update(last);
     try {
       const r = await askWithImage(
         'LENS NAME A PLACE: name the famous landmark, building or work of art in this photo. Answer only with JSON of two keys: name (its usual English name, as its Wikipedia article is titled) and sure (one of sure, probably, a guess, cant). If it is no known landmark or artwork, sure is cant. Never name a person.',
@@ -252,29 +282,36 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       );
       const j = firstJson(r.text) as { name?: unknown; sure?: unknown } | null;
       const name = typeof j?.name === 'string' ? j.name.trim().slice(0, 80) : '';
-      if (!name || j?.sure === 'cant') {
-        places.set(label, 'unsure');
+      if (r.noVision) places.set(id, 'novision');
+      else if (r.error && !r.text) places.set(id, 'failed');
+      else if (!name || j?.sure === 'cant') {
+        places.set(id, 'unsure');
       } else {
         const about = await fetch(`/api/aim/about?title=${encodeURIComponent(name)}`, { headers: headers(), credentials: 'same-origin' })
           .then((x) => (x.ok ? (x.json() as Promise<{ title?: string; extract?: string; url?: string }>) : null))
           .catch(() => null);
-        places.set(label, { name: about?.title || name, summary: about?.extract ?? '', url: about?.url || `https://en.wikipedia.org/wiki/${encodeURIComponent(name.replace(/ /g, '_'))}` });
+        places.set(id, { name: about?.title || name, summary: about?.extract ?? '', url: about?.url || `https://en.wikipedia.org/wiki/${encodeURIComponent(name.replace(/ /g, '_'))}` });
       }
     } catch {
-      places.set(label, 'failed');
+      places.set(id, 'failed');
     }
+    if (askingFor === id) askingFor = -2;
     sig = '';
     if (last) update(last);
   };
 
-  const update = (k: CardInput): void => {
+  const update = (k0: CardInput): void => {
+    // a page stays a page while its words stay and it is still most of the way there (0.38 of the picture, against 0.45 to become one)
+    const k = k0.text && k0.text === docFor && (k0.textShare ?? 0) >= DOC_SHARE - 0.07 ? { ...k0, textShare: Math.max(k0.textShare ?? 0, DOC_SHARE) } : k0;
     last = k;
     const jobs = k.camera ? jobsOf(k) : [];
+    docFor = jobs.includes('document') ? (k.text ?? '') : k.text === docFor ? docFor : '';
     const acts = k.text ? textActs(k.text, day()) : [];
     const code = k.code?.text ?? '';
     const prod = jobs.includes('product') ? products.get(code) : undefined;
-    const place = k.thing?.label ? places.get(k.thing.label) : undefined;
-    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, place ? 1 : 0, cardsState.place.state]);
+    const place = k.thingId != null ? places.get(k.thingId) : undefined;
+    const asking = k.thingId != null && askingFor === k.thingId;
+    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size]);
     if (s === sig) return;
     sig = s;
     cardsState.jobs = jobs;
@@ -311,10 +348,10 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           out.push(codeCard(code));
           break;
         case 'letter':
-          out.push(card('letter', 'A LETTER', 'REMIND ME and FILE are under its words above.', copy('COPY', k.text ?? '', 'the letter')));
+          out.push(card('letter', 'A LETTER', 'REMIND ME and FILE are under its words above.', key('READ ALOUD', () => speak(k.text ?? '', k.langTag || 'en-GB')), copy('COPY', k.text ?? '', 'the letter')));
           break;
         case 'document':
-          out.push(card('document', `A PAGE · ${(k.text ?? '').match(/\S+/g)?.length ?? 0} WORDS`, 'Scan it flat and keep it, or have it read to you.', key('SCAN IT FLAT', () => deps.act('document')), key('READ ALOUD', () => speak(k.text ?? '', 'en-GB'))));
+          out.push(card('document', `A PAGE · ${(k.text ?? '').match(/\S+/g)?.length ?? 0} WORDS`, 'Scan it flat and keep it, or have it read to you.', key('SCAN IT FLAT', () => deps.act('document')), key('READ ALOUD', () => speak(k.text ?? '', k.langTag || 'en-GB'))));
           break;
         case 'text': {
           const own = (k.text ?? '').replace(/\s+/g, ' ').trim();
@@ -325,8 +362,9 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
               'text',
               foreign ? `TEXT · ${k.lang}${k.english ? ' · IN ENGLISH' : ''}` : 'TEXT',
               shown.slice(0, 160) + (shown.length > 160 ? '…' : ''),
-              key('READ ALOUD', () => speak(shown, foreign && !k.english ? '' : 'en-GB')),
-              foreign && !k.english ? key('TRANSLATE', () => deps.act('ask')) : null,
+              // (in its own language's voice until it has its English)
+              key('READ ALOUD', () => speak(shown, foreign && !k.english ? k.langTag || 'en-GB' : 'en-GB')),
+              foreign && !k.english && k.online ? key('TRANSLATE', () => deps.act('translate')) : null,
               copy('COPY', shown, 'the words'),
             ),
           );
@@ -334,12 +372,16 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
         }
         case 'place': {
           const sure = sureWords(k.thing!.score);
-          if (place && typeof place === 'object') {
+          if (asking) {
+            const b = key('ASKING MY MODEL THAT SEES…', () => undefined);
+            b.disabled = true;
+            out.push(card('place', `A ${k.thing!.label.toUpperCase()} · ${sure.toUpperCase()}`, 'Asking my free model that sees which place this is…', b));
+          } else if (place && typeof place === 'object') {
             cardsState.place = { state: 'found', name: place.name, summary: place.summary };
-            out.push(card('place', place.name.toUpperCase(), place.summary ? `${place.summary.slice(0, 280)}${place.summary.length > 280 ? '…' : ''} (Wikipedia)` : 'Named by my free model that sees.', link('WIKIPEDIA', place.url, `Read about ${place.name} on Wikipedia`)));
+            out.push(card('place', place.name.toUpperCase(), place.summary ? `${place.summary.slice(0, 280)}${place.summary.length > 280 ? '…' : ''} (Wikipedia)` : 'Named by my free model that sees.', link('WIKIPEDIA', place.url, `Read about ${place.name} on Wikipedia`), k.online ? key('ASK AGAIN', (b) => void askPlace(b), { label: 'Not it? Ask my model that sees again' }) : null));
           } else {
-            const said = place === 'unsure' ? 'My model that sees couldn’t name this place for sure.' : place === 'failed' ? 'I couldn’t reach my model that sees. Try again.' : `Looks like a ${k.thing!.label} · ${sure}. Tap to have it named: the picture goes to my free model that sees.`;
-            if (place) cardsState.place = { state: place, name: '', summary: '' };
+            const said = place === 'unsure' ? 'My model that sees couldn’t name this place for sure. Try closer, or from the front.' : place === 'failed' ? 'I couldn’t reach my model that sees. Try again.' : place === 'novision' ? 'No free model that sees is reachable right now. Try again in a minute.' : `Looks like a ${k.thing!.label} · ${sure}. Tap to have it named: the picture goes to my free model that sees.`;
+            if (place) cardsState.place = { state: place === 'novision' ? 'failed' : place, name: '', summary: '' };
             out.push(card('place', `A ${k.thing!.label.toUpperCase()} · ${sure.toUpperCase()}`, k.online ? said : NO_SIGNAL_WORDS, k.online ? key('WHAT PLACE IS THIS', (b) => void askPlace(b)) : null));
           }
           break;
@@ -351,7 +393,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
         }
         case 'thing': {
           const sure = sureWords(k.thing!.score);
-          out.push(card('thing', `A ${k.thing!.label.toUpperCase()}`, `${sure} · named on this phone`, key('MEASURE IT', () => deps.act('measure')), k.online ? key('ASK ABOUT IT', () => deps.act('ask')) : null));
+          out.push(card('thing', `A ${k.thing!.label.toUpperCase()}`, `${sure} · named on this phone`, key('MEASURE IT', () => deps.act('measure')), k.online ? key('ASK ABOUT IT', () => deps.act('askthing')) : null));
           break;
         }
         case 'nothing':
@@ -392,11 +434,17 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           return w.done;
         }
       }
+      // the card is there but its key is not (no signal, already in the agenda): its own words say why
+      const there = w.jobs.map((j) => el.querySelector(`.lenscard[data-job="${j}"]`)).find(Boolean);
+      if (there) return (there.querySelector('.lc-line')?.textContent ?? '').trim() || w.none;
       return w.none;
     },
     clear() {
       sig = '';
       last = null;
+      places.clear();
+      askingFor = -2;
+      docFor = '';
       cardsState.jobs = [];
       cardsState.cards = [];
       cardsState.acts = [];
