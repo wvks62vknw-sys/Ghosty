@@ -1183,7 +1183,8 @@ export const coreTab: TabDef = {
     let logFrame = 0;
     chat.subscribe((s) => {
       const newest = s.entries.at(-1);
-      if (newest?.kind === 'user' && newest.at !== lastSent) {
+      // (and anything answered on the phone with no turn at work, such as "orbit": its line is there the moment its effect is)
+      if ((newest?.kind === 'user' && newest.at !== lastSent) || !ui.get().busy) {
         cancelAnimationFrame(logFrame);
         logFrame = 0;
         paintLog();
