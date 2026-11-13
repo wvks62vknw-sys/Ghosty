@@ -6,19 +6,37 @@
  */
 import { h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
-import { forgetTurn, KIND_WORD, turnFor, undoForgetTurn, type ThingKind } from './recall';
+import { forgetTurn, foundState, KIND_WORD, turnFor, undoForgetTurn, type ThingKind } from './recall';
 import { TURN_FORGOTTEN } from './words';
 import { chat } from '../../assistant/session';
 
-type Row = { key: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string };
+type Row = { key: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string; bid?: string };
 
-/** Open what a row found: a turn in the log, a thing in its editor. */
-export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line'>): Promise<void> {
+
+
+/** The block a tap landed on: brought to the middle of the screen and lit a moment (the editors draw their blocks with data-id). */
+function land(bid: string): void {
+  let tries = 0;
+  const look = () => {
+    const el = document.querySelector<HTMLElement>(`.dcb[data-id="${CSS.escape(bid)}"], .wsblock[data-id="${CSS.escape(bid)}"]`);
+    if (!el) return void (++tries < 30 && setTimeout(look, 100));
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('found');
+    setTimeout(() => el.classList.remove('found'), 2600);
+    foundState.landed = true;
+  };
+  look();
+}
+
+/** Open what a row found: a turn in the log, a thing in its own editor at its line. */
+export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line' | 'id'> & { bid?: string }): Promise<void> {
+  Object.assign(foundState, { kind: r.kind, id: r.id, bid: r.bid ?? '', landed: false });
   if (r.kind === 'turn') return void import('./timeline').then((m) => m.openChatAt(r.at, r.line));
-  if (r.kind === 'doc') return void import('../../docs/sheet').then((m) => m.openDocs({ what: 'list' }));
-  if (r.kind === 'page') return void import('../../workspace/sheet').then((m) => m.openWorkspace());
-  if (r.kind === 'deck') return void import('../../slides/sheet').then((m) => m.openSlides());
-  if (r.kind === 'sheet') return void import('../../sheets/sheet').then((m) => m.openSheets());
+  if (r.kind === 'doc') await import('../../docs/sheet').then((m) => m.openDocs({ id: r.id }));
+  else if (r.kind === 'page') await import('../../workspace/sheet').then((m) => m.openWorkspace({ id: r.id }));
+  else if (r.kind === 'deck') await import('../../slides/sheet').then((m) => m.openSlides({ id: r.id }));
+  else if (r.kind === 'sheet') await import('../../sheets/sheet').then((m) => m.openSheets({ id: r.id }));
+  if (r.bid) land(r.bid);
 }
 
 export function recallRows(rows: Row[]): HTMLElement {

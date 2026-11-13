@@ -176,6 +176,14 @@ async function run(vp, body) {
   check(found && kinds.includes('page') && kinds.includes('doc'), `${T} [c] FIND garden found ${JSON.stringify(kinds)}`);
   const head = await page.evaluate(() => document.querySelector('#pg-memory .recallfind .recallhead')?.textContent ?? '');
   check(/things? of yours about “garden”:/.test(head), `${T} [c] FIND's head: "${head}"`);
+  // a tap opens the page in Workspace, at the line
+  await page.locator('#pg-memory .recallfind .recallrow[data-kind="page"] .recallgo').first().click();
+  const landed = await until(page, () => window.__ghosty?.found?.kind === 'page' && window.__ghosty.found.landed && !!document.querySelector('.wsblock.found'), null, 8000);
+  check(landed, `${T} [c] a tap on the workspace page did not open it at its line: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.found))}`);
+  await page.keyboard.press('Escape').catch(() => undefined);
+  await page.waitForTimeout(400);
+  await page.evaluate(() => (location.hash = 'memory'));
+  await openSection(page, 'memory', 'Timeline');
   const s3 = await small(page, '#pg-memory .recallfind');
   check(!s3.length, `${T} [f] FIND's rows under 44 pt: ${s3.join(', ')}`);
   await box.fill('what did I ask you about the squeaky door');

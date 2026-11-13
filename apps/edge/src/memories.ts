@@ -22,7 +22,7 @@ import type { Library } from './library/store';
 import { DIARY_DOC, diaryEntries, loadProfile, looksSecret, saveProfile, type ProfileDeps } from './profile';
 import { isoLocal, safeTz, startOfDay, zoned } from './time';
 import { loadLog, LOG_KEY, type Episode } from './mind';
-import { forgetGist, restoreGist } from './recall';
+import { forgetGist, GISTS_KEY, restoreGist } from './recall';
 import type { Gist } from '../../../packages/shared/src/recall';
 import { loadMemory, MEMORY_KEY } from './tools/memory';
 
@@ -692,7 +692,8 @@ async function forgetTallied(storage: DurableObjectStorage, id: string): Promise
 
 /** The day log gone (CLEAR CONVERSATION, forget_everything): no pattern is left from what was said. Dismissals stay. */
 export async function clearPatterns(storage: DurableObjectStorage): Promise<void> {
-  await storage.delete([DAYS_KEY, FILED_KEY]);
+  // [recall] the 30 days' gists of what he asked go with the conversation (recall.ts)
+  await storage.delete([DAYS_KEY, FILED_KEY, GISTS_KEY]);
 }
 
 /** The patterns to show: the day log plus messages not yet filed, the stored memories, minus the dismissed. */

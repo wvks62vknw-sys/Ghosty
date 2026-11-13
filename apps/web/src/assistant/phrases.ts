@@ -57,7 +57,7 @@ import { learningAsked } from '../../../../packages/shared/src/learning';
 import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
-import { chaseAsked, recallAsked } from '../../../../packages/shared/src/recall';
+import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
 
 /** [recall] FIND over his own things: "find garden in my things", "search my notes for garden"; the words looked for, else null. */
 export function findAsked(text: string): string | null {
@@ -81,7 +81,7 @@ export const LOCAL_ASKS = [
   // [recall] "what did I ask you about trains?", "find garden in my things", "remind me to chase this if Sam doesn't reply by Thursday":
   // his own turns and things, answered from the phone's own index with no model (features/memory/recall.ts); a chase set on the brain
   { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null },
-  { id: 'chase', test: (t: string) => chaseAsked(t) !== null },
+  { id: 'chase', test: (t: string) => chaseAsked(t) !== null || chasingAsked(t) },
   { id: 'missed', test: (t: string) => missedAsked(t) },
   { id: 'teach', test: (t: string) => teachAsked(t) },
   { id: 'watcher', test: (t: string) => watcherAsked(t) !== null },

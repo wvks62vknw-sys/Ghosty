@@ -26,7 +26,7 @@ class Mem {
     return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined;
   }
   async put(k, v) { this.m.set(k, structuredClone(v)); }
-  async delete(k) { return this.m.delete(k); }
+  async delete(k) { return Array.isArray(k) ? k.filter((x) => this.m.delete(x)).length : this.m.delete(k); }
   async list() { return new Map(); }
 }
 
@@ -127,12 +127,32 @@ test('a forgotten turn is gone from recall and comes back with UNDO', async () =
   assert.equal((await R.recallSearch(storage, 'squeaky door', NOW, TZ)).length, 1, 'back');
 });
 
+test('FORGET from the phone, whose clock stamped the turn a moment earlier, still finds the brain\'s gist; CLEAR CONVERSATION takes them all', async () => {
+  const storage = await week();
+  const deps = { storage, library: { available: false } };
+  const hit = (await R.recallSearch(storage, 'squeaky door', NOW, TZ))[0];
+  // the phone's time for the same message: 1.5 seconds before the brain noted it
+  await Mm.changeMemory(deps, `t:${hit.at - 1500}`, 'forget', undefined, NOW);
+  assert.equal((await R.recallSearch(storage, 'squeaky door', NOW, TZ)).length, 0);
+  await Mm.changeMemory(deps, `t:${hit.at - 1500}`, 'restore', undefined, NOW + 1000);
+  assert.equal((await R.recallSearch(storage, 'squeaky door', NOW, TZ)).length, 1);
+  // a time nowhere near a turn forgets nothing
+  await assert.rejects(Mm.changeMemory(deps, `t:${hit.at - 10 * 60_000}`, 'forget', undefined, NOW), /not there/);
+  await Mm.clearPatterns(storage);
+  assert.equal((await R.loadGists(storage)).length, 0, 'CLEAR CONVERSATION and forget_everything take the gists');
+});
+
 test('a chase: said once, checked only on its morning, and the right one of its lines; without mail a dated reminder', async () => {
   // Wednesday 11 Nov 2026, 15:00: "remind me to chase this if Sam doesn't reply by Thursday"
   const asked = S.chaseAsked("remind me to chase this if Sam doesn't reply by Thursday");
   assert.deepEqual(asked, { who: 'Sam', day: 'thursday' });
   assert.deepEqual(S.chaseAsked('chase it up if they haven\'t answered by Friday'), { who: '', day: 'friday' });
   assert.equal(S.chaseAsked('chase the cat'), null);
+  for (const t of ['what are you chasing?', 'any chases', 'who am I chasing']) assert.ok(S.chasingAsked(t), t);
+  assert.ok(!S.chasingAsked('chase the cat'));
+  // "by today" said after 9 am: never a time already gone
+  const late = Date.parse('2026-11-12T15:00:00Z');
+  assert.ok(S.chaseAt('today', late, TZ) > late);
   const run = async (came) => {
     const storage = new Mem();
     await storage.put('owner:ctx', { tz: TZ });

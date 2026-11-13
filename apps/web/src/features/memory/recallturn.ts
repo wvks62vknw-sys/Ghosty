@@ -6,14 +6,14 @@
  *  - "remind me to chase this if Sam doesn't reply by Thursday": a chase on the brain (the one watcher system, kind `reply`), its
  *    one sentence back, WATCHERS under PLAN listing it.
  */
-import { chaseAsked, recallAsked } from '../../../../../packages/shared/src/recall';
+import { chaseAsked, chasingAsked, chaseDay, recallAsked } from '../../../../../packages/shared/src/recall';
 import { findAsked } from '../../assistant/phrases';
 import type { LocalAnswer } from '../../assistant/local';
 import { brain } from '../../api/brain';
 import { timeZone } from '../../state/app';
 import { sayError } from '../../ui/hisWords';
 import { buildIndex, findLocal, recallWarm } from './recall';
-import { CHASE_OFFLINE, findHead, findNone, RECALL_COLD, recallHead, recallNone } from './words';
+import { CHASE_LIST_OFFLINE, CHASE_OFFLINE, CHASING_NONE, chasingLine, findHead, findNone, RECALL_COLD, recallHead, recallNone } from './words';
 
 type Opts = { voice?: boolean; private?: boolean };
 type Answer = (text: string, reply: string, local: LocalAnswer, opts: Opts) => true;
@@ -29,7 +29,7 @@ export async function recallTurn(text: string, opts: Opts, answer: Answer): Prom
     return answer(text, RECALL_COLD, { kind: 'recall' }, opts);
   }
   const found = await findLocal(q, { turns: !!about });
-  const rows = found.map((f) => ({ key: f.key, kind: f.kind, id: f.id, title: f.title, line: f.line, at: f.at, stamp: f.stamp, day: f.day }));
+  const rows = found.map((f) => ({ key: f.key, ...(f.bid ? { bid: f.bid } : {}), kind: f.kind, id: f.id, title: f.title, line: f.line, at: f.at, stamp: f.stamp, day: f.day }));
   if (about) {
     if (!found.length) return answer(text, recallNone(about), { kind: 'recall' }, opts);
     const top = found.slice(0, 3).map((f) => `${f.day[0]!.toUpperCase()}${f.day.slice(1)} (${f.stamp}): “${f.line.slice(0, 80)}”`);
@@ -40,9 +40,16 @@ export async function recallTurn(text: string, opts: Opts, answer: Answer): Prom
 }
 
 export async function chaseTurn(text: string, opts: Opts, answer: Answer): Promise<boolean> {
+  const go: LocalAnswer['go'] = [{ id: 'screen:agenda', ask: -1, label: 'See my watchers', open: 'agenda', panel: 'WATCHERS' }];
+  // "what are you chasing?": the chases still waiting, each with its morning
+  if (chasingAsked(text)) {
+    const r = await Promise.race([brain.watchers().catch(() => null), new Promise<null>((ok) => setTimeout(() => ok(null), 6000))]);
+    if (!r) return answer(text, CHASE_LIST_OFFLINE, { kind: 'watcher' }, opts);
+    const live = r.watchers.filter((w) => w.kind === 'reply' && w.state === 'watching');
+    return answer(text, live.length ? chasingLine(live.map((w) => `${w.who || 'a reply'} by ${w.by ? chaseDay(w.by, timeZone) : 'its day'}`)) : CHASING_NONE, { kind: 'watcher', go }, opts);
+  }
   const c = chaseAsked(text);
   if (!c) return false;
-  const go: LocalAnswer['go'] = [{ id: 'screen:agenda', ask: -1, label: 'See my watchers', open: 'agenda', panel: 'WATCHERS' }];
   try {
     const r = await Promise.race([brain.chaseAdd({ kind: 'reply', who: c.who, day: c.day, about: '', tz: timeZone }), new Promise<null>((ok) => setTimeout(() => ok(null), 8000))]);
     if (!r) return answer(text, CHASE_OFFLINE, { kind: 'watcher' }, opts);

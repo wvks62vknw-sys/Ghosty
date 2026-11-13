@@ -110,14 +110,16 @@ export function contextLines(m: MindSnapshot, c: ClientContext): string[] {
   // (his own messages are in the conversation already: the day log adds what happened elsewhere)
   // [recall] BRIEF-DEPTH-MEMORY 1: his earlier asks that bear on this one (mind.ts recall) come first, and share the room the Earlier
   // line always had (HISTORY_CHARS, its longest: three 140-character episodes), so the CONTEXT block's worst case is unchanged.
+  // (a line that does not fit is left out and takes no room: `fit` keeps a line only while `floor` is still left after it)
   let room = HISTORY_CHARS;
-  const past = (m.recall ?? []).map(recallLine).filter((l) => (room -= l.length + 2) >= RECALL_HEAD.length);
+  const fit = (floor: number) => (l: string) => (room - (l.length + 2) >= floor ? ((room -= l.length + 2), true) : false);
+  const past = (m.recall ?? []).map(recallLine).filter(fit(RECALL_HEAD.length));
   if (past.length) {
     out.push(`${RECALL_HEAD}${past.join('; ')}`);
     room -= RECALL_HEAD.length;
-  } else room = HISTORY_CHARS;
+  }
   const earlier = m.recent.filter((e) => e.kind !== 'turn').slice(-3);
-  const done = m.now.tz ? earlier.map((e) => `${isoLocal(e.at, m.now.tz).slice(11)} ${e.text}`).filter((l) => (room -= l.length + 2) >= 7) : [];
+  const done = m.now.tz ? earlier.map((e) => `${isoLocal(e.at, m.now.tz).slice(11)} ${e.text}`).filter(fit(7)) : [];
   if (done.length) out.push(`Earlier: ${done.join('; ')}`);
   // 7 Nov 2026, BRIEF-AWARENESS: these two lines leave the prompt in the follow-up PR that adds the agent.ts call (his 5 Nov rule: the
   // screen rides in his message). Until then they stay, as they were; `withScreen` in context.ts is ready and waiting for that call.

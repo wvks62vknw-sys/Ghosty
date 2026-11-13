@@ -91,10 +91,13 @@ export async function recallSearch(storage: DurableObjectStorage, about: string,
   return matchGists(about, list, { now, tz, k });
 }
 
-/** MEMORY → FORGET on a turn: it leaves the gists (the caller keeps it for UNDO). The gist that went, or null. */
+/**
+ * MEMORY → FORGET on a turn: it leaves the gists (the caller keeps it for UNDO). The gist that went, or null. `at` is the turn's time
+ * as the asker knows it: the phone stamps a message a moment before the brain notes it, so the nearest gist within two minutes is it.
+ */
 export async function forgetGist(storage: DurableObjectStorage, at: number): Promise<Gist | null> {
   const list = await loadGists(storage);
-  const g = list.find((x) => x.at === at);
+  const g = list.filter((x) => Math.abs(x.at - at) <= 120_000).sort((a, b) => Math.abs(a.at - at) - Math.abs(b.at - at))[0];
   if (!g) return null;
   await storage.put(GISTS_KEY, list.filter((x) => x !== g));
   return g;

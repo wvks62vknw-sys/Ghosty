@@ -179,8 +179,13 @@ export function chaseAt(day: string, now: number, tz: string): number {
   const d = new Date(`${today}T09:00:00Z`);
   d.setUTCDate(d.getUTCDate() + add);
   const guess = d.getTime();
-  return guess - offsetMin(guess, tz) * 60_000;
+  const at = guess - offsetMin(guess, tz) * 60_000;
+  // ("by today" said after 9: three hours from now, never a moment already gone)
+  return at <= now ? now + 3 * 3600_000 : at;
 }
+
+/** "what are you chasing?", "any chases?", "who am I chasing": the list of chases. */
+export const chasingAsked = (text: string): boolean => /^(?:hey ghosty[, ]+|ghosty[, ]+)?(?:what (?:are|am) (?:you|i|we) chasing(?: for me)?|(?:any |my |show (?:me )?my |list (?:my )?)chases|who (?:am i|are you) chasing(?: for me)?)[?.!]*$/i.test(String(text ?? '').trim());
 
 const whoWord = (who: string) => who || 'them';
 /** "Thursday 9 am". */

@@ -55,3 +55,7 @@ export const CHASE_OFFLINE = 'I can’t reach my brain right now, and it is the 
 export const TURN_FORGOTTEN = 'Forgotten: it won’t come up in recall again.';
 /** SYSTEM → STORAGE's line for the index. */
 export const indexLine = (items: number, bytes: number): string => (items ? `Recall index: ${items} thing${items === 1 ? '' : 's'}, ${bytes < 1_000_000 ? `${Math.max(1, Math.round(bytes / 1000))} KB` : `${(bytes / 1_000_000).toFixed(1)} MB`}, kept only on this phone.` : 'Recall index: empty. It builds while the phone sits idle.');
+/** "what are you chasing?" */
+export const chasingLine = (items: string[]): string => `I'm chasing ${items.length === 1 ? 'one reply' : `${items.length} replies`}: ${items.join('; ')}.`;
+export const CHASING_NONE = 'I’m not chasing anything for you. Say “remind me to chase this if Sam doesn’t reply by Thursday” and I will.';
+export const CHASE_LIST_OFFLINE = 'I can’t reach my brain right now, and it is the brain that keeps the chases. Ask me again when I’m back online.';

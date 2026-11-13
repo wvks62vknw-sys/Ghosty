@@ -51,7 +51,7 @@ import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/l
 export interface LocalAnswer {
   kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
-  found?: { key: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string }[];
+  found?: { key: string; bid?: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string }[];
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).

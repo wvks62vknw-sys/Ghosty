@@ -312,7 +312,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
     }
     const hits = await R.findLocal(q, { turns: !!about });
     if (find.value !== raw) return;
-    const rows = hits.map((f) => ({ key: f.key, kind: f.kind, id: f.id, title: f.title, line: f.line, at: f.at, stamp: f.stamp, day: f.day }));
+    const rows = hits.map((f) => ({ key: f.key, ...(f.bid ? { bid: f.bid } : {}), kind: f.kind, id: f.id, title: f.title, line: f.line, at: f.at, stamp: f.stamp, day: f.day }));
     const { recallRows } = await import('./recallcard');
     clear(found, ...(hits.length ? [h('p.note.recallhead', about ? recallHead(hits.length, about) : findHead(hits.length, q)), recallRows(rows)] : [h('p.note.recallnone', about ? recallNone(about) : findNone(q))]));
   }

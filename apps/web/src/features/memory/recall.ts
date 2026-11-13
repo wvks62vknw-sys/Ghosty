@@ -37,12 +37,32 @@ export interface Thing {
   a?: string;
   /** The meaning model's numbers, once worked out at idle. */
   v?: number[];
+  /** A paragraph of a document or a workspace page: its block's id, so a tap lands on the line. */
+  bid?: string;
 }
 
 const DB = 'ghosty-recall';
+/** The most turns the index keeps (about 1 MB of text at most). */
+const MAX_TURNS = 3000;
+/** What the stores looked like at the last build: a minute's look at idle rebuilds only when it changed. */
+let lastSig = '';
+const signature = (): string => {
+  const es = chat.get().entries;
+  let n = `${es.length}:${es[es.length - 1] && 'at' in es[es.length - 1]! ? (es[es.length - 1] as { at: number }).at : 0}`;
+  for (const k of ['ghosty.docs', 'ghosty.workspace', 'ghosty.slides', 'ghosty.sheets']) {
+    try {
+      n += `:${localStorage.getItem(k)?.length ?? 0}`;
+    } catch {
+      /* nothing kept */
+    }
+  }
+  return n;
+};
 const STORE = 'things';
 const GONE = 'ghosty.recall.gone';
 
+/** What a spec reads (window.__ghosty.found): the last thing a FIND tap opened, and whether it landed on its line. */
+export const foundState = { kind: '', id: '', bid: '', landed: false };
 /** What a spec and SYSTEM → STORAGE read: window.__ghosty.recall. */
 export const recallState = { state: 'cold' as 'cold' | 'building' | 'warm', items: 0, vectors: 0, bytes: 0, builtAt: 0, ms: 0, lastQueryMs: 0 };
 
@@ -142,13 +162,20 @@ const firstLine = (t: string): string => {
 /** His documents, workspace pages, decks, spreadsheets and scanned pages: a thing per paragraph (at most 40 each). */
 function thingsFromStores(): Thing[] {
   const out: Thing[] = [];
-  const add = (kind: ThingKind, id: string, title: string, at: number, lines: string[]) => lines.slice(0, 40).forEach((text, i) => out.push({ key: `${kind}:${id}:${i}`, kind, id, title: title || 'Untitled', text: text.slice(0, 400), at }));
-  for (const d of readJson<{ id: string; title: string; at: number; blocks: { runs?: { text?: string }[]; rows?: { text?: string }[][][] }[] }[]>('ghosty.docs', [])) {
+  // (a line is its text and, for a document's or a page's paragraph, its block's id)
+  const add = (kind: ThingKind, id: string, title: string, at: number, lines: (string | [string, string])[]) =>
+    lines.slice(0, 40).forEach((l, i) => {
+      const [text, bid] = typeof l === 'string' ? [l, ''] : l;
+      out.push({ key: `${kind}:${id}:${i}`, kind, id, title: title || 'Untitled', text: text.slice(0, 400), at, ...(bid ? { bid } : {}) });
+    });
+  type B = { id?: string; runs?: { text?: string }[]; rows?: { text?: string }[][][] };
+  const blockLines = (bs: B[]): [string, string][] => bs.flatMap((b) => [runsText(b.runs), ...(b.rows ?? []).map((row) => row.map((c) => runsText(c)).join(' · '))].flatMap(paras).map((t): [string, string] => [t, b.id ?? '']));
+  for (const d of readJson<{ id: string; title: string; at: number; blocks: B[] }[]>('ghosty.docs', [])) {
     if (!d?.id || !Array.isArray(d.blocks)) continue;
-    add('doc', d.id, d.title, d.at, d.blocks.flatMap((b) => [runsText(b.runs), ...(b.rows ?? []).map((row) => row.map((c) => runsText(c)).join(' · '))]).flatMap(paras));
+    add('doc', d.id, d.title, d.at, blockLines(d.blocks));
   }
-  const ws = readJson<{ pages?: Record<string, { id: string; title: string; at: number; blocks?: { runs?: { text?: string }[] }[] }> }>('ghosty.workspace', {});
-  for (const p of Object.values(ws.pages ?? {})) if (p?.id) add('page', p.id, p.title, p.at, [p.title, ...(p.blocks ?? []).map((b) => runsText(b.runs))].flatMap(paras));
+  const ws = readJson<{ pages?: Record<string, { id: string; title: string; at: number; blocks?: B[] }> }>('ghosty.workspace', {});
+  for (const p of Object.values(ws.pages ?? {})) if (p?.id) add('page', p.id, p.title, p.at, [...paras(p.title), ...blockLines(p.blocks ?? [])]);
   for (const [key, kind] of [['ghosty.slides', 'deck'], ['ghosty.sheets', 'sheet'], ['ghosty.scan.pages', 'scan']] as const) {
     const v = readJson<unknown>(key, null);
     const list = Array.isArray(v) ? v : v && typeof v === 'object' && Array.isArray((v as { list?: unknown }).list) ? (v as { list: unknown[] }).list : [];
@@ -199,18 +226,25 @@ export function buildIndex(o: { history?: boolean } = {}): Promise<void> {
       }
     }
     turns = turns.filter((x) => !dead.has(x.key));
+    lastSig = signature();
     const fresh = [...turns, ...thingsFromStores()];
     const byKey = new Map(old.map((x) => [x.key, x]));
     const keep = new Set(fresh.map((x) => x.key));
     const changed = fresh.filter((x) => {
       const was = byKey.get(x.key);
-      if (was && was.text === x.text && was.title === x.title && was.a === x.a) return false;
+      if (was && was.text === x.text && was.title === x.title && was.a === x.a && was.bid === x.bid) return false;
       return true;
     });
     // (a turn the log dropped stays: the index is where last month's turns are found; a thing deleted from its store goes)
     const drop = old.filter((x) => !keep.has(x.key) && (x.kind !== 'turn' || dead.has(x.key))).map((x) => x.key);
-    if (changed.length || drop.length) await put(changed, drop);
-    cache = [...old.filter((x) => !drop.includes(x.key) && !changed.some((c) => c.key === x.key)), ...changed];
+    // (the index keeps at most MAX_TURNS turns: the oldest go first)
+    const allTurns = [...old.filter((x) => x.kind === 'turn' && !drop.includes(x.key) && !keep.has(x.key)), ...turns].sort((a, b) => b.at - a.at);
+    for (const x of allTurns.slice(MAX_TURNS)) if (!drop.includes(x.key)) drop.push(x.key);
+    const out = new Set(drop);
+    const write = changed.filter((x) => !out.has(x.key));
+    if (write.length || drop.length) await put(write, drop);
+    const wrote = new Set(write.map((x) => x.key));
+    cache = [...old.filter((x) => !out.has(x.key) && !wrote.has(x.key)), ...write];
     measure(cache);
     recallState.state = 'warm';
     recallState.builtAt = Date.now();
@@ -246,14 +280,14 @@ async function addMeaning(): Promise<void> {
 /** Start the index once Home is up: at idle, never before the first screen. */
 export function startRecallIndex(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (w.__ghosty) w.__ghosty.recall = recallState;
+  if (w.__ghosty) Object.assign(w.__ghosty, { recall: recallState, found: foundState });
   for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, () => (touched = Date.now()), { passive: true, capture: true });
   void (navigator as unknown as { getBattery?: () => Promise<{ level: number; charging: boolean }> }).getBattery?.().then((b) => (battery = b)).catch(() => undefined);
   const go = () => void buildIndex().catch(() => undefined);
   const idle = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
   setTimeout(() => (idle ? idle(go, { timeout: 4000 }) : go()), 2500);
   // what he adds later is read in when the phone next sits idle
-  setInterval(() => canRun() && go(), 60_000);
+  setInterval(() => canRun() && signature() !== lastSig && go(), 60_000);
 }
 
 /** SYSTEM → STORAGE's CLEAR: the index goes; it rebuilds at idle. */
@@ -275,6 +309,7 @@ export async function clearIndex(): Promise<void> {
 
 export interface Found {
   key: string;
+  bid?: string;
   kind: ThingKind;
   id: string;
   title: string;
@@ -318,7 +353,7 @@ export async function findLocal(q: string, o: { turns?: boolean; k?: number } = 
     .filter((x) => score.has(x.key))
     .sort((a, b) => score.get(b.key)! - score.get(a.key)! || b.at - a.at)
     .slice(0, o.k ?? (o.turns ? 6 : 8))
-    .map((x): Found => ({ key: x.key, kind: x.kind, id: x.id, title: x.title, line: x.kind === 'turn' ? x.text : bestLine(x.text, m), at: x.at, ...(x.via ? { via: x.via } : {}), ...(x.a ? { a: x.a } : {}), day: x.at ? dayWord(x.at, now, tz) : '', stamp: x.kind === 'turn' ? stampOf(x.at, x.via ?? 'app', tz) : KIND_WORD[x.kind] }));
+    .map((x): Found => ({ key: x.key, ...(x.bid ? { bid: x.bid } : {}), kind: x.kind, id: x.id, title: x.title, line: x.kind === 'turn' ? x.text : bestLine(x.text, m), at: x.at, ...(x.via ? { via: x.via } : {}), ...(x.a ? { a: x.a } : {}), day: x.at ? dayWord(x.at, now, tz) : '', stamp: x.kind === 'turn' ? stampOf(x.at, x.via ?? 'app', tz) : KIND_WORD[x.kind] }));
   recallState.lastQueryMs = Math.round(performance.now() - t0);
   return out;
 }
@@ -351,7 +386,18 @@ export async function undoForgetTurn(f: Pick<Found, 'key' | 'at'>): Promise<void
  * A reply that says "like you said on Tuesday": the turn it most likely means (that day, best matching his question), for the
  * RECALL chip. Null when the day word is not there or nothing on that day matches.
  */
-export async function turnFor(reply: string, question: string): Promise<Found | null> {
+const chipMemo = new Map<string, Promise<Found | null>>();
+export function turnFor(reply: string, question: string): Promise<Found | null> {
+  const said = recallSaid(reply);
+  if (!said) return Promise.resolve(null);
+  const k = `${said}|${question}`;
+  if (!chipMemo.has(k)) {
+    if (chipMemo.size > 50) chipMemo.clear();
+    chipMemo.set(k, findTurn(reply, question));
+  }
+  return chipMemo.get(k)!;
+}
+async function findTurn(reply: string, question: string): Promise<Found | null> {
   const said = recallSaid(reply);
   if (!said) return null;
   const tz = timeZone;
@@ -365,3 +411,13 @@ export async function turnFor(reply: string, question: string): Promise<Found | 
   return x ? { key: x.key, kind: 'turn', id: x.id, title: '', line: x.text, at: x.at, day: dayWord(x.at, now, tz), stamp: stampOf(x.at, x.via ?? 'app', tz) } : null;
 }
 const daysAgoOf = daysAgo;
+
+/** CLEAR CONVERSATION (assistant/session.ts): the turns leave the index with it, as they leave the brain's gists. */
+export async function clearTurns(): Promise<void> {
+  const list = await all();
+  const turns = list.filter((x) => x.kind === 'turn').map((x) => x.key);
+  if (cache) cache = cache.filter((x) => x.kind !== 'turn');
+  measure(cache ?? []);
+  await put([], turns);
+  lastSig = '';
+}
