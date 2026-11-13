@@ -142,3 +142,10 @@ turns. No face, voice, camera or speaker code is imported; a brain test checks t
   reflection.
 - The `recall` tool joins the always-on memory group. Its cost was paid by shortening that group's own descriptions.
 - A forgotten turn shows under RECENTLY FORGOTTEN as "You asked: …", with UNDO for a day like everything else.
+
+## Final checks (after merging final at 19:10 UTC)
+
+- **Typechecks:** apps/edge and apps/web both clean.
+- **Whole brain suite:** **2,166 pass, 0 fail**. That includes ratchet, knowledge, look, catalogue and recall.
+- **Prompt ceiling:** the worst case is 5,498 of 5,500, unchanged.
+- **recall spec:** "recall spec: all good" at 440, 390 and 390 with BODY 21. Recall answers warm in 32 ms.
