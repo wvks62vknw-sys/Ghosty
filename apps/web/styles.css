@@ -9255,3 +9255,27 @@ html #pg-arcade .arcmy .arcact { flex: 1 1 0; min-height: var(--g-target) !impor
 html #pg-gamestudio .gpUi button { min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
 html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px !important; }
 /* ---- end of the game studio ---- */
+
+/* ---- POLISH 3: the Agenda's ADD key and sheet, a finished thing dimmed, the biggest text and reduced motion ---- */
+html #pg-agenda .agaddkey { min-height: var(--g-target) !important; min-width: var(--g-target); }
+html #pg-agenda .secpills .agaddkey { flex: none; }
+html .agaddsheet { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html .agaddsheet input { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
+html .agaddsheet .agsay { margin: 0; overflow-wrap: anywhere; }
+html #pg-agenda .rw.ev.past { opacity: .62; }
+html #pg-agenda .rw.ev .evt, html #pg-agenda .rw.ev .evloc, html #pg-agenda .rw.wrap .v { overflow-wrap: anywhere; min-width: 0; }
+html #pg-agenda .agoff { margin: var(--g-s-1) 0; }
+@media (prefers-reduced-motion: reduce) { html #pg-agenda .rcundo, html #pg-agenda .undo, html .agaddsheet { animation: none; } }
+html[data-motion="calm"] #pg-agenda .rcundo { animation: none; }
+html[data-body="21"] #pg-agenda .rw.ev { grid-template-columns: minmax(64px, auto) 3px minmax(0, 1fr) auto; }
+html[data-body="21"] #pg-agenda .hud .sub { overflow-wrap: anywhere; white-space: normal; }
+/* the report card readable: no mark under 12 px, a kind's name wraps instead of being cut, and at the biggest text the table is two columns */
+html .reportcard .rccat, html .reportcard .rcrow.rchd { font: 500 12px/16px var(--sf); letter-spacing: .04em; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html .reportcard .rcrow { min-width: 0; }
+html .reportcard .rcrow > * { min-width: 0; overflow-wrap: anywhere; }
+html[data-body="21"] .reportcard .rcrow { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); row-gap: 2px; }
+html[data-body="21"] .reportcard :is(.rcline, .rcsum, .rclegend, .note) { overflow-wrap: anywhere; white-space: normal; }
+/* a "?" on the pages drawn in the new system reads in its ink on every ground (Paper too), never the shell's */
+html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore summary, html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore .pknote { color: var(--g-ink-2); }
+/* ---- end POLISH 3 ---- */
+html .watchers .wrow .k { flex: none; min-width: 58px; }

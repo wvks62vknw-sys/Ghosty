@@ -89,7 +89,7 @@ const EMPTY = {
 // the screens, and the empty sentence each must show when its lists are empty (null: whatever is there must be worded)
 const SCREENS = [
   ['library', null], ['memory', /Nothing remembered yet[\s\S]*Tell me about yourself/], ['workshop', /No open changes[\s\S]*Ask Ghosty to build something/],
-  ['agenda', /Nothing in the next two weeks[\s\S]*Add an event above/], ['brief', null], ['markets', null], ['radio', /No favourites yet[\s\S]*Tap ☆/],
+  ['agenda', /Nothing in the next two weeks\.[\s\S]*Tap ADD and say what and when\./], ['brief', null], ['markets', null], ['radio', /No favourites yet[\s\S]*Tap ☆/],
   ['threats', null], ['lens', null], ['learn', null], ['studio', null], ['space', null], ['reverse', null], ['school', null],
   ['gym', /No levels yet · Train all starts with \S/],
 ];

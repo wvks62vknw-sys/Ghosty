@@ -56,7 +56,7 @@ export interface WatchDeps extends Pick<GuardDeps, 'storage' | 'notify'> {
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 const nowOf = (d: Pick<WatchDeps, 'now'>) => (d.now ? d.now() : Date.now());
 export const loadWatchers = async (s: DurableObjectStorage): Promise<Watcher[]> => (await s.get<Watcher[]>(WATCHERS_KEY)) ?? [];
-const saveWatchers = (s: DurableObjectStorage, list: Watcher[]) => s.put(WATCHERS_KEY, list);
+export const saveWatchers = (s: DurableObjectStorage, list: Watcher[]) => s.put(WATCHERS_KEY, list);
 
 // ---------------------------------------------------------------- which pages
 

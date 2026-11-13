@@ -24,3 +24,6 @@ export const startFailed = (title: string): string => `I couldn’t start ${titl
 
 /** The shelf with nothing on it that plays here. */
 export const SHELF_NONE = { head: 'No games play on this phone yet.', line: 'When one does, it is here with its size, ready to GET.' };
+
+/** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
+export const PHRASES = ['the arcade'];

@@ -115,6 +115,7 @@ globalThis.fetch = async (input, init) => {
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
 const state = { storage: Object.assign(new MemStorage(), { sql: sqlStorage() }), waitUntil: () => undefined };
+let snapshotMap = null;
 const env = {
   // Same shape as production: only the password's hash is configured, and no VAULT_KEY
   // (the brain makes its own). OWNER_KEY stays here for the log line below only.
@@ -200,6 +201,26 @@ const server = createServer(async (req, res) => {
       if (url.searchParams.get('forget') === '1') await state.storage.delete(['watchers:list']);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(setWatcher(url.searchParams)));
+      return;
+    }
+    // Test only (tests/fixtures/clean.mjs): the brain's storage copied when a spec opens (GET /__test/snapshot), given back when it ends
+    // (GET /__test/restore: what the spec added and changed is named), and a short hash of it any time (GET /__test/state), so the next spec
+    // can be shown to open on what the last one found.
+    if (url.pathname === '/__test/snapshot' || url.pathname === '/__test/restore' || url.pathname === '/__test/state') {
+      const digest = (m) => createHash('sha1').update(JSON.stringify([...m].sort(([a], [b]) => (a < b ? -1 : 1)))).digest('hex').slice(0, 12);
+      const live = state.storage.m;
+      let body;
+      if (url.pathname === '/__test/snapshot') {
+        snapshotMap = new Map([...live].map(([k, v]) => [k, structuredClone(v)]));
+        body = { keys: snapshotMap.size, hash: digest(snapshotMap) };
+      } else if (url.pathname === '/__test/restore' && snapshotMap) {
+        const added = [...live.keys()].filter((k) => !snapshotMap.has(k));
+        const changed = [...snapshotMap].filter(([k, v]) => live.has(k) && JSON.stringify(live.get(k)) !== JSON.stringify(v)).map(([k]) => k);
+        state.storage.m = new Map([...snapshotMap].map(([k, v]) => [k, structuredClone(v)]));
+        body = { restored: true, added, changed };
+      } else body = { keys: live.size, hash: digest(live) };
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(body));
       return;
     }
     // Test only (tests/social.spec.mjs): what reached his accounts' stand-in APIs — each post and follow, once per APPROVE.

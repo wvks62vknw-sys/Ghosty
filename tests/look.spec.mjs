@@ -155,7 +155,7 @@ check(first.opened?.first === true, `[speed] the first open was not timed as the
 check(first.opened && first.opened.ms < BUDGET, `[speed] THE LOOK took ${first.opened?.ms} ms to open the first time (the budget is ${BUDGET} ms)`);
 check(first.section === 'marks', `[look] the first open lands on "${first.section}", not MARKS (where "tap a mark" is)`);
 const top = (await page.locator('#pg-look .glook-say').textContent().catch(() => '')) ?? '';
-check(top === 'This is how I draw everything from here. Tap a mark to see it work.', `[look] the top line: "${top}"`);
+check(top === 'This is how I draw everything from here; tap a mark to see it work.', `[look] the top line: "${top}"`);
 const stampText = (await page.locator('#pg-look .glook-head .g-stamp').getAttribute('aria-label').catch(() => '')) ?? '';
 check(/^\w{3} \d{1,2} \w{3}, \d\d:\d\d, .+, (Watching \d+ feeds?|Checking feeds|No feeds yet|Offline, feeds paused), Looking at the marks$/.test(stampText), `[look] the stamp line: "${stampText}"`);
 // the second open (built already): back to Settings and in again
