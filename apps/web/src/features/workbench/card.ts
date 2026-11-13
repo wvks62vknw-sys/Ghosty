@@ -5,7 +5,9 @@
  * no numbers.
  */
 import { h, icon } from '../../core/dom';
-import { LABEL, type Estimate } from '../../../../../packages/shared/src/workbench';
+import { estimateText, LABEL, type Estimate } from '../../../../../packages/shared/src/workbench';
+import { button } from '../../ui/components';
+import { COPY } from './words';
 import { noteWith, unitNote } from './words';
 
 /** The caution shape: a triangle with a mark in it (the shape carries the meaning as well as the words). */
@@ -38,5 +40,18 @@ export function estimateCard(e: Estimate): HTMLElement {
     if (e.changes.length) card.append(fold('WHAT WOULD CHANGE IT', h('ul', ...e.changes.map((c) => h('li', c)))));
   }
   card.append(h('p.wbcaveat', e.caveat));
+  // COPY, as a calculator app has it: the whole estimate as text, its FIRST ESTIMATE · NOT CERTIFIED line always on top
+  if (!e.problem) {
+    const said = h('small.wbcopied', { 'aria-live': 'polite' });
+    const copy = button(COPY.key, async () => {
+      try {
+        await navigator.clipboard.writeText(estimateText(e, 4000));
+        said.textContent = COPY.done;
+      } catch {
+        said.textContent = COPY.cannot;
+      }
+    }, 'wbcopy');
+    card.append(h('div.wbcopyrow', copy, said));
+  }
   return card;
 }
