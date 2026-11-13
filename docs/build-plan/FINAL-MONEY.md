@@ -73,12 +73,29 @@ Five pills: **Month · Budgets · Bills · Trends · Statement**.
   every figure equals the brain's own sum to the penny, plus search, re-filing, the month arrows, setting and taking away a budget,
   bills in date order with the HOME bill and the price rise, the trends, and every state (empty, waiting, failed, offline). It also
   checks the chat words, Coming up, search, forget-asks-first and the bins fix, BODY 21 on every page, and the seven looks (scan, map,
-  eye, orbit, grown, ink, glass). Every key is 44 pt and nothing goes sideways. It also covers the group plan form, the to-do order and the HOME bills total. It runs clean: 233 checks.
+  eye, orbit, grown, ink, glass). Every key is 44 pt and nothing goes sideways. It also covers the group plan form, the to-do order and the HOME bills total. It runs clean: 236 checks.
 - `tests/lifepass.spec.mjs` and `tests/tabs.spec.mjs` now go through the new pills, which is as strict as before or stricter: BODY 21
   now covers all five money pages and Coming up.
 - The states ratchet gained rows for money.month, money.budgets, money.bills, money.trends and people.coming, each pinned at all four
   states.
 - Tokens only: the colour ratchet went down (no new hex, rgba or pixel radius).
+
+### An adversarial review, and what it changed
+Before the last merge an independent reviewer read the lane's code cold. Its findings were fixed:
+- **Month**: the search box is made once, so a phone keyboard never loses letters while it filters. Switching months quickly can no
+  longer show the wrong month, because a late answer for a month you have left is dropped.
+- **Budgets**: "a day for the days left" counts today, so on the last day of the month it still shows.
+- **Bills**: a subscription whose last payment is more than a whole cycle old is listed under "Looks stopped" and is not added into what
+  you pay. A late HOME bill counts in the next 30 days and is said as late. A subscription paid on the 29th, 30th or 31st falls on the
+  same day next month, or on the month's last day, not on the 28th (`packages/shared/src/spending.ts`).
+- **Trends**: the month still going is labelled "so far" and is left out of the average, the dearest and the cheapest month.
+- **HOME**: a bins move needs bin days already kept, and a sentence with "every" is pointed to "Keep these bin days" instead of quietly
+  replacing them. With every bill paid, the page says "All paid" in the brain's words instead of "No bills kept yet".
+- **WORK**: a job typed into the to-do box stays there until the brain has kept it.
+- **Words**: "money" and "my money" open MONEY. COMING UP's listed phrases are ones that really open it. "What's coming up" was left to
+  the Agenda on purpose, because it more often means his week.
+- Two findings were left: "my bills" still opens HOME's bills (that screen owns the word), and the brain's bills list still sends only
+  unpaid bills, so a paid one cannot be forgotten from the page. That second one is a brain change, written here for the next pass.
 
 ## How to try it on your phone
 1. Open **LIFE → MONEY**. With nothing kept, each page says so; tap **Add a statement** and paste your bank's CSV or pick its PDF.
