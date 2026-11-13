@@ -126,8 +126,10 @@ const chat = async (page, words) => {
   await page.keyboard.press('Enter');
 };
 /** Every visible key under `sel` that is under 44 pt, and whether the page scrolls sideways, and any word cut. */
-const fit = (page, sel) =>
-  page.evaluate((sel) => {
+const fit = async (page, sel) => {
+  // (once the screen's entrance has finished: mid-way every key reads a fraction short. The real condition, never a fixed sleep.)
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
+  return page.evaluate((sel) => {
     const small = [...document.querySelectorAll(`${sel} button`)].filter((b) => {
       const r = b.getBoundingClientRect();
       return r.width && r.height && (r.width < 43.5 || r.height < 43.5) && getComputedStyle(b).visibility !== 'hidden';
@@ -141,6 +143,7 @@ const fit = (page, sel) =>
     }).map((e) => e.textContent.slice(0, 30));
     return { small, sideways: !!sideways, cut };
   }, sel);
+};
 
 const today = () => {
   const d = new Date();
