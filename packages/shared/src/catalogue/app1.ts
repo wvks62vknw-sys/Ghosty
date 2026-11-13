@@ -129,7 +129,7 @@ export const APP_1: Record<string, CatValue> = {
   },
   'screen:links': {
     name: 'Links: what I am connected to', line: 'You can link me to your email, Spotify, Telegram and your phone’s notifications here.',
-    more: 'Each one once, each one undoable. Keys for my AI brains are in SYSTEM.',
+    more: 'Each one says whether it is linked and working, with TEST where I can check it, and asks before it unlinks. Keys for my AI brains are in SYSTEM.',
     say: ['Link my email'], scene: ['talking'], cat: 'talk',
   },
   'screen:settings': {

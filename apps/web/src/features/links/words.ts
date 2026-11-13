@@ -12,8 +12,8 @@ export function codeLeft(ms: number): string {
 }
 
 export const TELEGRAM = {
-  offline: "I can't reach my brain right now.",
-  paused: "My brain's database is paused, so I can't read the Telegram link; if a chat was paired, it still works.",
+  offline: "I can't reach my brain right now, so I can't tell whether Telegram is linked. Tap TRY AGAIN when you have a signal.",
+  paused: "My brain's database is paused, so I can't read the Telegram link; if a chat was paired, it still works. Tap TRY AGAIN later.",
   noKey: "Talk to me from Telegram: send a message, a voice note or a photo, and get my reminders there too. Paste your bot's key in SYSTEM → KEYS → Telegram bot; HOW TO GET IT takes about two minutes.",
   keyNotConnected: "I have your bot's key, but I couldn't connect the bot with it. Open SYSTEM → KEYS → Telegram bot and press SAVE again.",
   /** The code's message: the three taps in order. */
@@ -65,3 +65,105 @@ export const NOTIFY_SCOPE = {
   short: 'OFF stops that kind everywhere: no phone notification, no Telegram message, no alert or voice in the app.',
   more: 'It still goes in your Agenda inbox. Always sent: what you ask for (“ping my phone…”), finished tasks and projects, and anything that went wrong.',
 };
+
+// ---- LINKS as one connections screen (FINAL ROUND): each connection says its state the same way, and the top line counts the rows
+
+/** Where a connection stands. `failing`: linked, but the last check said it does not work. `waiting`: one step left (Telegram's code). */
+export type LinkState = 'checking' | 'not' | 'waiting' | 'linked' | 'failing' | 'paused' | 'offline';
+export interface LinkRow {
+  id: string;
+  state: LinkState;
+}
+
+/** The panel's line for a state: "Linked as tony@gmail.com", "Not linked", "Linked, but not working". */
+export function stateTag(state: LinkState, who?: string | null): string {
+  switch (state) {
+    case 'checking':
+      return 'Checking…';
+    case 'not':
+      return 'Not linked';
+    case 'waiting':
+      return 'One step left';
+    case 'linked':
+      return who ? `Linked as ${who}` : 'Linked';
+    case 'failing':
+      return 'Linked, but not working';
+    case 'paused':
+      return 'Not known while paused';
+    case 'offline':
+      return 'Can’t reach my brain';
+  }
+}
+
+/** The panel's light for a state: 'ok' lit, 'mid' amber (a step for him), 'off' red (something is wrong). */
+export const stateLight = (state: LinkState): 'ok' | 'mid' | 'off' | undefined => (state === 'linked' ? 'ok' : state === 'failing' || state === 'offline' ? 'off' : state === 'checking' ? undefined : 'mid');
+
+/** The top of LINKS: how many are linked (big), and what needs him (small). Counts only the rows drawn, so it never disagrees with them. */
+export function heroWords(rows: readonly LinkRow[]): { big: string; sub: string } {
+  const n = (s: LinkState) => rows.filter((r) => r.state === s).length;
+  const linked = n('linked') + n('failing');
+  const big = n('checking') && !linked ? 'Checking…' : linked ? `${linked} linked` : 'Nothing linked yet';
+  if (n('offline')) return { big, sub: 'I can’t reach my brain, so some of these are not known. Tap TRY AGAIN in one of them when you have a signal.' };
+  const parts = [
+    n('failing') ? `${n('failing')} not working` : '',
+    n('waiting') ? `${n('waiting')} with one step left` : '',
+    n('paused') ? `${n('paused')} not known while paused` : '',
+    n('not') ? `${n('not')} not linked` : '',
+  ].filter(Boolean);
+  return { big, sub: parts.length ? parts.join(' · ') : linked ? 'Everything here is linked and working.' : 'everything Ghosty is plugged into' };
+}
+
+/** "1 model ready", "3 models ready" (never "1 models"). */
+export const modelsReady = (n: number): string => (n ? `${n} model${n === 1 ? '' : 's'} ready` : 'No models ready');
+
+/** The last time he tested a link, and what it said: kept on the phone (ghosty.links.checks). */
+export interface LinkCheck {
+  ok: boolean;
+  at: number;
+  /** Who it was linked as when tested: a check about another account says nothing about this one. */
+  who?: string;
+  /** Why it failed, already in his words. */
+  why?: string;
+}
+
+const hm = (t: number): string => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+/** "Tested just now: it works.", "Tested at 10:42: it didn’t work." */
+export function checkLine(c: LinkCheck, now = Date.now()): string {
+  const d = new Date(c.at);
+  const today = new Date(now).toDateString() === d.toDateString();
+  const when = now - c.at < 60_000 ? 'just now' : today ? `at ${hm(c.at)}` : `on ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at ${hm(c.at)}`;
+  return `Tested ${when}: ${c.ok ? 'it works.' : 'it didn’t work.'}`;
+}
+
+/** Why an email check failed, from the brain's own line, in his words with the one next step (never the server's raw text). */
+export function emailWhy(info = ''): string {
+  const i = info.toLowerCase();
+  if (/outlook|microsoft/.test(i)) return 'Microsoft does not let apps sign in to Outlook.com mail with a password. Forward your mail to a Gmail or iCloud address and link that.';
+  if (/did not answer|could not (reach|connect|talk|send)|closed the connection|network|timed? ?out/.test(i)) return 'I couldn’t reach your mail server. Check the server names, then tap CHANGE ACCOUNT; or try again in a minute.';
+  if (/server name|host name|mail servers for/.test(i)) return 'I don’t know the mail servers for that address. Tap CHANGE ACCOUNT, pick Other in PROVIDER and type both server names.';
+  if (/password|auth|login|credential|denied|reject|user ?name/.test(i)) return 'Your mail server turned down the address or the app password. Make a new app password, tap CHANGE ACCOUNT and paste it.';
+  if (/imap/.test(i)) return 'Your mail server would not let me read the inbox. Check IMAP is switched on in your mail settings, then tap CHANGE ACCOUNT.';
+  return 'I couldn’t sign in to your email with what was saved. Tap CHANGE ACCOUNT and link it again.';
+}
+
+/** Why a Spotify check failed (the brain's /spotify/test `why`), in his words with the one next step. */
+export function spotifyWhy(why?: string): string {
+  switch (why) {
+    case 'signin':
+      return 'Spotify no longer accepts my sign-in. Tap UNLINK, then link Spotify again.';
+    case 'busy':
+      return 'Spotify is busy and asked me to wait. Tap TEST again in a minute.';
+    case 'refused':
+      return 'Spotify turned the check down. Tap TEST again in a minute; if it keeps failing, unlink and link it again.';
+    case 'not':
+      return 'Spotify isn’t linked any more. Link it again below.';
+    default:
+      return 'I couldn’t reach Spotify. Tap TEST again in a minute.';
+  }
+}
+
+/** A connection's line when the brain cannot be reached: what it means and what to do. */
+export const OFFLINE_LINE = (what: string): string => `I can’t reach my brain right now, so I can’t tell whether ${what} is linked. Tap TRY AGAIN when you have a signal.`;
+/** The same while the brain's database is paused: nothing he linked is lost. */
+export const PAUSED_LINE = (what: string): string => `My brain’s database is paused, so I can’t read the ${what} link just now. If it was linked, it still works. Tap TRY AGAIN later.`;
