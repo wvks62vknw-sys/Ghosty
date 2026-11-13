@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { bundles, ctxOf, deps, fakeFetch, fixture, Mem, NOW } from './packs-kit.mjs';
 
-const B = await bundles(['src/tools/money.ts', 'src/packs/index.ts', 'src/spending.ts', '../../packages/shared/src/money.ts', '../../packages/shared/src/cards.ts', '../../packages/shared/src/packs.ts', 'src/schedule.ts']);
+const B = await bundles(['src/tools/money.ts', 'src/packs/index.ts', 'src/spending.ts', '../../packages/shared/src/money.ts', '../../packages/shared/src/cards.ts', '../../packages/shared/src/packs.ts', 'src/schedule.ts', 'src/watchers.ts']);
 const M = B['src/tools/money.ts'];
 const P = B['src/packs/index.ts'];
 const SP = B['src/spending.ts'];
@@ -17,6 +17,7 @@ const S = B['../../packages/shared/src/money.ts'];
 const C = B['../../packages/shared/src/cards.ts'];
 const K = B['../../packages/shared/src/packs.ts'];
 const J = B['src/schedule.ts'];
+const W = B['src/watchers.ts'];
 const MONZO = readFileSync(new URL('./spending/monzo.csv', import.meta.url), 'utf8');
 
 const LLOYDS_PDF = `Lloyds Bank   Classic Account   Statement 1 October 2026 to 31 October 2026
@@ -170,33 +171,55 @@ test('a trip’s fuel: litres from UK gallons at the price given, and what it as
 
 const PAGE = (price) => `<html><head><title>Kettle 1.7L | Shop</title><script type="application/ld+json">{"@type":"Product","name":"Kettle","offers":{"@type":"Offer","price":"${price}","priceCurrency":"GBP"}}</script></head><body>£999 elsewhere</body></html>`;
 
-test('a price watched: the number found on the page, a drop told once with STOP WATCHING, and UNDO stops it', async () => {
+test('a price watched: the number found on the page, stored as a watcher of kind price, a drop told once by whichever reader sees it first, and UNDO is the watchers\' STOP', async () => {
   const storage = new Mem();
   let price = '49.99';
   const fetch = fakeFetch({ 'https://shop.example/kettle': () => PAGE(price) });
   const out = await M.MONEY.watch({ url: 'https://shop.example/kettle' }, deps(storage, fetch));
-  assert.match(out.text, /^Watching Kettle 1\.7L: £49\.99 now \(read from the page’s own product data\)\. I look twice a day/);
+  assert.match(out.text, /^Watching Kettle 1\.7L: £49\.99 now \(read from the page’s own product data\)\. I look every hour and tell you once when it drops\./);
   assert.equal(out.cards[0].acts[0].label, 'UNDO');
   assert.equal(out.cards[0].acts[0].run.args.action, 'unwatch');
-  assert.ok((await J.loadJobs(storage)).some((j) => j.kind === 'follow'), 'the follow job is on the clock');
+  // One watcher system: the watchers' store has it (kind price), the old store and the old twice-a-day job do not.
+  const stored = await W.loadWatchers(storage);
+  assert.deepEqual(stored.map((w) => [w.kind, w.url, w.state, w.last.price]), [['price', 'https://shop.example/kettle', 'watching', 49.99]]);
+  assert.equal(await storage.get(M.MONEY_KEYS.watches), undefined, 'the money pack keeps no list of its own');
+  assert.ok(!(await J.loadJobs(storage)).some((j) => j.kind === 'follow'), 'no twice-a-day follow job is added');
+  // its own listing reads from the watchers' store
+  assert.match((await M.MONEY.watch({}, deps(storage, fetch))).text, /^Watching 1: Kettle 1\.7L £49\.99\./);
+  // The watchers' hourly beat reads it and tells once; the old tick (still called by the protected agent file) tells nothing more.
   const told = [];
   const tell = async (title, text, card) => told.push({ title, text, card });
+  const notes = [];
+  const wd = (at) => ({ storage, fetch, now: () => at, notify: async (n) => void notes.push(n) });
   price = '44.99';
+  assert.equal((await W.watchersTick(wd(NOW + 2 * 3_600_000))).length, 1);
   await M.followTick(deps(storage, fetch, NOW + 13 * 3_600_000), tell);
-  await M.followTick(deps(storage, fetch, NOW + 26 * 3_600_000), tell);
-  assert.equal(told.length, 1, 'told once');
-  assert.match(told[0].text, /Kettle 1\.7L is £44\.99 now, down from £49\.99/);
-  assert.equal(told[0].card.acts[0].label, 'STOP WATCHING');
-  price = '39.00';
-  await M.followTick(deps(storage, fetch, NOW + 39 * 3_600_000), tell);
-  assert.equal(told.length, 2);
+  assert.equal((await W.watchersTick(wd(NOW + 26 * 3_600_000))).length, 0, 'the second reader of the same drop tells nothing');
+  assert.equal(told.length, 0, 'the old tick tells nothing');
+  assert.equal(notes.length, 1, 'told once');
+  assert.match(notes[0].text, /Kettle 1\.7L is £44\.99 now, down from £49\.99/);
+  // an old-store watch still on a phone moves over, once, and is never told twice
+  const old = { id: 'old1', url: 'https://shop.example/old', label: 'Lamp', first: 20, last: 20, told: 20, how: 'x', at: NOW, checked: NOW };
+  await storage.put(M.MONEY_KEYS.watches, [old]);
+  await M.followTick(deps(storage, fetch, NOW + 30 * 3_600_000), tell);
+  assert.ok((await W.loadWatchers(storage)).some((w) => w.id === 'old1' && w.kind === 'price'), 'moved to the watchers store');
+  assert.deepEqual(await storage.get(M.MONEY_KEYS.watches), [], 'and left the old one');
+  assert.equal(told.length, 0);
   // how a price is read: product data, a price tag, else the first £ in the text
   assert.equal(S.priceOf('<meta property="product:price:amount" content="12.50">').price, 12.5);
   assert.equal(S.priceOf('<p>Now only &pound;7.99!</p>').how, 'the first £ price in the page’s text');
   assert.equal(S.priceOf('<p>no price</p>'), null);
-  const id = (await storage.get(M.MONEY_KEYS.watches))[0].id;
+  // a fresh watch to stop: UNDO removes it from the watchers' list (what STOP does), and the money pack's list says so too
+  await M.MONEY.watch({ url: 'https://shop.example/kettle' }, deps(storage, fetch));
+  const id = (await W.loadWatchers(storage)).find((w) => w.label === 'Kettle 1.7L' && w.state === 'watching').id;
   assert.match((await M.MONEY.unwatch({ id }, deps(storage, fetch))).text, /^Stopped watching Kettle 1\.7L/);
-  assert.ok(!(await J.loadJobs(storage)).some((j) => j.kind === 'follow'), 'nothing left to watch: the job goes');
+  assert.ok(!(await W.loadWatchers(storage)).some((w) => w.id === id), 'gone from the watchers');
+  assert.doesNotMatch((await M.MONEY.watch({}, deps(storage, fetch))).text, /Kettle/);
+  // and the other way: STOP on the list (the route) removes it from the money pack's words
+  await M.MONEY.watch({ url: 'https://shop.example/kettle' }, deps(storage, fetch));
+  const id2 = (await W.loadWatchers(storage)).find((w) => w.url === 'https://shop.example/kettle' && w.state === 'watching').id;
+  await W.watchersRoute(new Request('https://x/guardian/watchers?id=' + id2, { method: 'DELETE' }), '/guardian/watchers', 'DELETE', new URL('https://x/guardian/watchers?id=' + id2), wd(NOW));
+  assert.doesNotMatch((await M.MONEY.watch({}, deps(storage, fetch))).text, /Kettle/, 'STOP removed it from the money pack\'s list too');
   assert.match((await M.MONEY.watch({ url: 'http://shop.example/x' }, deps(storage, fetch))).text, /https:\/\//);
 });
 
