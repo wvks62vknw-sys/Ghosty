@@ -127,7 +127,7 @@ for (const [W, vp] of [[440, PHONE], [390, WIDE]]) {
     check(r && r.underStamp && r.aboveWhere, `${tag}[a] the ribbon is not under the stamp line: ${JSON.stringify(r)}`);
     check(r && r.truthSameAsStamp && r.sep === 4, `${tag}[a] the ribbon is not in the stamp's own marks (mono, four dots): ${JSON.stringify(r)}`);
     check(r && r.lines >= 1 && r.lines <= 2, `${tag}[a] the ribbon is ${r?.lines} lines (want one, two at 390): ${JSON.stringify(r)}`);
-    check(r && /^\d\d:\d\d( ·)?$/.test(r.texts[0]) && /^Threat /.test(r.texts[3]) && /^(Idle|Thinking|Training|Sitting|Making|Downloading)/.test(r.texts[4]), `${tag}[a] the ribbon's parts read oddly: ${JSON.stringify(r?.texts)}`);
+    check(r && /^\d\d:\d\d( ·)?$/.test(r.texts[0]) && /^Threat /.test(r.texts[3]) && /^[A-Z][^.…]+\.( Tap RETRY\.)?( ·)?$/.test(r.texts[4]) && !/^(Idle|Thinking)( ·)?$/.test(r.texts[4]), `${tag}[a] the ribbon's parts read oddly: ${JSON.stringify(r?.texts)}`);
     // the first screen's budget is speed2's; here only that the ribbon asked for nothing of its own
     const asks = await page.evaluate(() => performance.getEntriesByType('resource').filter((e) => /weather|forecast|ribbon/i.test(e.name) && !/open-meteo/.test(e.name)).length);
     check(asks === 0, `${tag}[a] the ribbon made a request of its own`);

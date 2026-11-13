@@ -120,6 +120,8 @@ export const ui = createStore({
   voice: 'idle' as VoiceState,
   connected: null as boolean | null,
   status: '',
+  /** When the models are back, ms since the epoch (0: none cooling): a turn waiting on them, said under the orb (features/core/orbsay.ts). */
+  coolUntil: 0,
 });
 
 const TZ_PLACES: Record<string, Place> = {

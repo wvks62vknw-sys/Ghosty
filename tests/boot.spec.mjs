@@ -149,7 +149,12 @@ const FEED_WORD = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 /** The words that may be on the cinematic: the stamp, the feeds' lines, TAP TO SKIP, the name, his greeting. */
 const STAMP = /^[A-Z]{3} \d{1,2} [A-Z]{3} · \d{2}:\d{2} · .+ · (WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED)$/;
 /** (`stamps`: the whole stamp lines seen, so a line caught mid-typing counts as the stamp too) */
-const allowed = (t, greeting, stamps, film = false) => t === 'TAP TO SKIP' || t === 'GHOSTY' || t === greeting || STAMP.test(t) || stamps.some((f) => f.startsWith(t)) || /^(FLOOD|WEATHER|CRIME) · /.test(t) || (film && FILM_WORDS.test(t));
+// (BRIEF-QUALITY-BOOT-ORB: a landing held for a late app says what it waits for, in the stamp's small type, one of three lines of shell/bootwords.ts,
+// and POLISH 1's line after six seconds held; each allowed only when __bootState says the landing really was held that long, and nothing else)
+const HOLD_LINE = /^still starting, (waiting for a signal|waiting for my brain|a moment more)\.$/i;
+const allowed = (t, greeting, stamps, film = false, b = null) => t === 'TAP TO SKIP' || t === 'GHOSTY' || t === greeting || STAMP.test(t) || stamps.some((f) => f.startsWith(t)) || /^(FLOOD|WEATHER|CRIME) · /.test(t) || (film && FILM_WORDS.test(t)) || (!!b?.holdLine && HOLD_LINE.test(t)) || ((b?.held ?? 0) > 6000 && t === 'Still waking. The signal is slow.');
+/** The stamp line with its feeds' word: watching, checking, offline, or (BRIEF-QUALITY-BOOT-ORB: CHECKING FEEDS settles at the recognition) "No feeds yet" only when no feed's line was drawn. */
+const stampShown = (texts, b) => texts.some((t) => /WATCHING \d+ FEEDS?|CHECKING FEEDS|OFFLINE, FEEDS PAUSED/.test(t) || (/NO FEEDS YET/.test(t) && (b?.feedLines ?? []).length === 0));
 const greetingFor = (page) => page.evaluate(() => {
   const hr = new Date().getHours();
   return `${hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'}, Tony.`;
@@ -292,14 +297,16 @@ async function checkWords(page, s, what, { tapped }) {
   if (!words.includes('GHOSTY')) problems.push(`full: the name never showed (saw: ${words})`);
   if (!words.includes(want)) problems.push(`full: the greeting was not "${want}" (saw: ${words})`);
   if (!words.includes('TAP TO SKIP')) problems.push(`full: TAP TO SKIP never showed (saw: ${words})`);
-  if (!v.texts.some((t) => /WATCHING \d+ FEEDS?|CHECKING FEEDS|OFFLINE, FEEDS PAUSED/.test(t))) problems.push(`full: the stamp line never showed (saw: ${words})`);
+  if (!stampShown(v.texts, s)) problems.push(`full: the stamp line never showed (saw: ${words})`);
   // (the stamp wraps whole segments onto a second line at 440 as the real component wraps: joined back before it is read)
   const joinWrapped = (lines) => lines.reduce((acc, l) => (acc.length && /^(WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED)$/.test(l) ? [...acc.slice(0, -1), `${acc.at(-1)} ${l}`] : [...acc, l]), []);
   // every line on it is one of its own (the stamp, the feeds' lines, the skip, the name, his greeting): no status line, no decoration
   const lines = v.texts.flatMap((t) => joinWrapped(t.split('\n').map((x) => x.trim()).filter(Boolean)));
   const stamps = lines.filter((t) => STAMP.test(t));
-  const extra = lines.filter((t) => !allowed(t, want, stamps, !!s?.film));
+  const extra = lines.filter((t) => !allowed(t, want, stamps, !!s?.film, s));
   if (extra.length) problems.push(`full: something else was written on it (a status line?): ${extra.join(' / ')}`);
+  // a landing held a second and a half for the app says what it waits for (never a silent frame)
+  if ((s?.held ?? 0) >= 1500 && !s?.holdLine) problems.push(`full: the landing was held ${s?.held} ms and said nothing of what it waits for`);
   await checkWords(page, s, 'full', { tapped: false });
   // it lands on Home's real MIND: the canvas that flew is the one in the hero, to the pixel
   if (!s?.mind) problems.push('full: MIND did not draw the cinematic');
@@ -422,7 +429,7 @@ async function checkWords(page, s, what, { tapped }) {
   const want = await greetingFor(page);
   if (!v.texts.join(' | ').includes(want)) problems.push(`reduce motion: no greeting (saw: ${v.texts.join(' | ')})`);
   if (!v.texts.join(' | ').includes('GHOSTY')) problems.push(`reduce motion: no name (saw: ${v.texts.join(' | ')})`);
-  if (!v.texts.some((t) => /WATCHING \d+ FEEDS?|CHECKING FEEDS|OFFLINE, FEEDS PAUSED/.test(t))) problems.push(`reduce motion: no stamp line (saw: ${v.texts.join(' | ')})`);
+  if (!stampShown(v.texts, s)) problems.push(`reduce motion: no stamp line (saw: ${v.texts.join(' | ')})`);
   // the two frames: 1,200 ms, the recognition at 600
   if (s?.kind === 'still' && (s.timeline?.end !== 1200 || s.timeline?.recognise !== 600)) problems.push(`reduce motion: the cut is ${JSON.stringify(s.timeline)} (want two frames: the recognition at 600, over at 1,200)`);
   if (s?.marks.recognise === undefined) problems.push('reduce motion: no recognition');

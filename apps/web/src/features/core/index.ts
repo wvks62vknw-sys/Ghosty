@@ -52,6 +52,7 @@ import { holdOrb } from '../further/mindmap';
 import { siteRow } from './sitecard';
 import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
+import { orbSay } from './orbsay';
 import { sayError } from '../../ui/hisWords';
 import { key } from '../../ui/machine';
 import { argWords } from '../../../../../packages/shared/src/abilities';
@@ -800,7 +801,9 @@ export const coreTab: TabDef = {
     });
     // Route C's Home (home.ts): the date and weather lines, the reactor framed by its four instruments, the
     // Today card and the two tiles.
-    const rwrap = h('div.rwrap', reactor.el);
+    // THE ORB SAYS WHAT IT IS (orbsay.ts): the first listening, thinking, speaking; the brain gone; the models cooling; the first press
+    const orbsay = orbSay();
+    const rwrap = h('div.rwrap', reactor.el, orbsay.el);
     // [further] a long hold on the orb opens MIND AS A MAP: what he knows, laid out by subject (features/further/mindmap.ts)
     holdOrb(rwrap);
     const rc = routeCHome(rwrap);
@@ -887,6 +890,7 @@ export const coreTab: TabDef = {
     setTimeout(placeChat, 0);
     // Touch the reactor: it answers with a pulse.
     reactor.el.addEventListener('pointerdown', (e) => reactor.poke(e));
+    reactor.onPress = () => orbsay.pressed(recipe().world);
     hud.append(rc.glowBox, left, center, right);
     // THE SCAN's Home (BRIEF-HUD-SCAN-1; scan/home.ts): the whole of it with the room inside, drawn when THE LOOK's world is The Scan.
     // Its frame takes the stamp line, the latest reply's line, the orb's wrap and the ask line as they are (one of each on Home).
@@ -1175,6 +1179,8 @@ export const coreTab: TabDef = {
       stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? pillWords(s.status || 'PROCESSING') : s.connected === false ? 'OFFLINE' : conversation ? 'READY' : 'ONLINE';
       stateLabel.dataset.state = s.voice === 'speaking' ? 'speaking' : s.voice === 'listening' ? 'listening' : s.busy ? 'busy' : s.connected === false ? 'offline' : 'ready';
       // route C draws it as a pill: the accent while live, amber when the brain can't be reached
+      // the old 2-D stand-in and the flat Mind go low with the brain gone (styles.css canvas.reactor[data-low]); MIND's own grey is mind.ts
+      reactor.el.dataset.low = s.connected === false ? '1' : '';
       stateLabel.dataset.tone = s.connected === false && !s.busy && s.voice !== 'speaking' ? 'warn' : 'live';
     };
     ui.subscribe(paintState);

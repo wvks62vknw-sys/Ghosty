@@ -575,6 +575,7 @@ function cooling(ms: number): void {
   const c = cloudTurn;
   if (!c || c.said || ms < COOL_SAY_MS) return;
   c.said = true;
+  ui.set({ coolUntil: Date.now() + ms });
   const phone = settings.get().offlineBrain !== 'off' && modelWarm();
   const at = backAt(ms);
   const text = phone ? `My models are all cooling down until ${at}; tap ASK MY PHONE and the brain on your phone answers now.` : `My models are all cooling down; the first is back at ${at}, and I'll answer then.`;

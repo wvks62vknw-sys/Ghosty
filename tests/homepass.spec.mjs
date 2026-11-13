@@ -74,7 +74,8 @@ async function pure(entry) {
 // THE BOOT'S FAULT and the Every screen deck's empty search: my voice, read from the files that draw them (neither can be made to happen on a healthy preview)
 {
   const src = (f) => readFileSync(new URL(`../apps/web/src/${f}`, import.meta.url), 'utf8');
-  check(src('shell/boot.ts').includes('I couldn’t start this time.') && !/Ghosty couldn’t start/.test(src('shell/boot.ts')), '[boot: the fault] the boot’s fault words are not in my voice ("I couldn’t start this time.")');
+  // (BRIEF-QUALITY-BOOT-ORB moved the words to shell/bootwords.ts, with the next thing after them; the check reads them there and that boot.ts says them from there: stronger, it also asks for "Tap to try again.")
+  check(src('shell/bootwords.ts').includes('I couldn’t start this time. Tap to try again.') && src('shell/boot.ts').includes('FAULT_WORDS') && !/Ghosty couldn’t start/.test(src('shell/boot.ts') + src('shell/bootwords.ts')), '[boot: the fault] the boot’s fault words are not in my voice ("I couldn’t start this time. Tap to try again.")');
   const rate = src('features/core/rate.ts');
   const site = src('features/core/sitecard.ts');
   check(!/Ghosty will learn|Couldn't send that rating/.test(rate) && rate.includes('I’ll learn a better answer to that in my weekly training.') && !/Not connected yet —/.test(site) && site.includes('I can’t reach my brain yet.'), '[home: reply cards’ words] the rating and PUBLISH toasts are not in my voice');
@@ -341,19 +342,23 @@ for (const vp of on('house') ? [PHONE, PHONE2] : []) {
 // ================================================================ THE BOOT AND THE ORB
 if (on('boot')) {
   log('the boot and the orb');
-  // the orb: after the tenth press the house line is said once, in one line, and not again
+  // the orb: from the first press the house line is said once, in one line, and not again (BRIEF-QUALITY-BOOT-ORB: the HOME pass left "after
+  // the tenth press" as a question; decided there, first press, once). Stronger than the tenth-press check: the line is not said before any
+  // press, is said on the first, and a second and a third press say nothing more (the hint is hidden again once it has left).
   const { ctx, page } = await phone(PHONE, { settle: 1500 });
-  await page.evaluate(() => localStorage.setItem('ghosty.orbpresses', '8'));
+  await page.evaluate(() => localStorage.removeItem('ghosty.orbpresses'));
   const orb = page.locator('.scanorb');
   const hint = () => page.evaluate(() => { const e = document.querySelector('.scanorbhint'); return { shown: !!e && !e.hidden, text: e?.textContent ?? '' }; });
   const before = await hint();
   await orb.dispatchEvent('click');
-  const ninth = await hint();
+  const first = await hint();
+  await page.evaluate(() => { const e = document.querySelector('.scanorbhint'); if (e) e.hidden = true; });
   await orb.dispatchEvent('click');
-  const tenth = await hint();
+  const second = await hint();
   await orb.dispatchEvent('click');
+  const third = await hint();
   await page.waitForTimeout(200);
-  check(!before.shown && !ninth.shown && tenth.shown && /^The house line below reaches every room\.$/.test(tenth.text), `[orb: the tenth press] before ${JSON.stringify(before)}, ninth ${JSON.stringify(ninth)}, tenth ${JSON.stringify(tenth)} (want the line said at the tenth)`);
+  check(!before.shown && first.shown && !second.shown && !third.shown && /^The house line below reaches every room\.$/.test(first.text), `[orb: the first press] before ${JSON.stringify(before)}, first ${JSON.stringify(first)}, second ${JSON.stringify(second)}, third ${JSON.stringify(third)} (want the line said at the first press, once)`);
   await ctx.close();
 }
 await browser.close();

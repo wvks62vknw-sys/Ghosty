@@ -58,6 +58,7 @@ import { tvNow } from '../tv/setting'; // [restc] a television gets the short cu
 import { lockBox, marksState, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
+import { FAULT_WORDS, HOLD_AFTER, greetingFor, holdWords, settledFeeds } from './bootwords';
 import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../features/core/scan/film';
 import { resetScoreState, scoreState, startScore, type Score } from '../features/core/scan/score';
 import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
@@ -147,6 +148,8 @@ export const bootState = {
   drawMs: -1,
   /** How long it held before landing, waiting for the app underneath and Home's hero, ms. */
   held: 0,
+  /** The line the held landing showed for a late app ('' if it never was held that long). */
+  holdLine: '',
   /** Passes of the sweep made while the film was held for a slow Home (one every 1.3 s: the last shot never stands still). */
   heldSweeps: 0,
   /** Whether Mind (three.js) drew it. */
@@ -191,14 +194,12 @@ const easeInOut = (k: number) => {
   const x = clamp(k);
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 };
-type Flags = { __ghostyBoot?: boolean; __ghostyBootKind?: Kind; __ghostyBootLean?: boolean; __ghostyBootManual?: boolean; __bootSeek?: (ms: number) => void; __bootState?: typeof bootState; __ghosty?: Record<string, unknown> };
+type Flags = { __ghostyBoot?: boolean; __ghostyBootKind?: Kind; __ghostyBootLean?: boolean; __ghostyBootManual?: boolean; __bootSeek?: (ms: number) => void; __bootFault?: () => void; __bootState?: typeof bootState; __ghosty?: Record<string, unknown> };
 const flags = () => window as unknown as Flags;
 
-/** "Good evening, Boss." from the clock and the name in Settings (Boss when there is none). */
+/** "Good evening, Tony." from the clock and the name in Settings; with none saved (or the app's own "Boss"), "Good evening." alone (bootwords.ts). */
 export function greetingLine(d = new Date()): string {
-  const hr = d.getHours();
-  const part = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
-  return `${part}, ${settings.get().name.trim() || 'Boss'}.`;
+  return greetingFor(settings.get().name, d.getHours());
 }
 
 /** "2026-08" → "Aug". */
@@ -257,13 +258,17 @@ export function bootFault(): void {
   el.classList.remove('out');
   /* state: shell.boot error */
   el.classList.add('fault');
-  el.replaceChildren(h('div.bfault', h('p', 'I couldn’t start this time.'), h('button.on', { type: 'button', onclick: () => location.reload() }, 'TRY AGAIN')));
+  // the words say the next thing and the tap does it: the button, and the whole layer behind it
+  const again = () => location.reload();
+  el.addEventListener('click', again);
+  el.replaceChildren(h('div.bfault', { role: 'alert' }, h('p', FAULT_WORDS), h('button.on', { type: 'button', onclick: again }, 'TRY AGAIN')));
 }
 
 /** The very start of main.ts's boot: decide what this open shows, and start it. */
 export function startBoot(): void {
   const f = flags();
   f.__bootState = bootState;
+  f.__bootFault = bootFault; // (a check shows the fault's words: tests/bootpass.spec.mjs)
   const el = document.getElementById('boot') ?? document.body.appendChild(h('div#boot'));
   const automated = navigator.webdriver && !f.__ghostyBoot;
   const hash = location.hash.slice(1);
@@ -535,6 +540,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.worstGap = 0;
   bootState.held = 0;
   bootState.heldSweeps = 0;
+  bootState.holdLine = '';
   bootState.said = 0;
   bootState.hudAt = -1;
   bootState.pace = 1;
@@ -586,7 +592,9 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const feeds = h('div.bfeeds');
   // a slow open (the network slow, the brain cold): after six seconds the film says so, in its own voice, and keeps moving
   const slow = h('p.bslow', { dataset: { case: 'keep' }, role: 'status', hidden: true }, 'Still waking. The signal is slow.');
-  const top = h('div.btop', stamp, greet, feeds, slow);
+  // the landing held for a late app: after a second, in the stamp's small type, what it waits for (never a frozen frame)
+  const hold = h('p.bhold.g-truth', { dataset: { case: 'keep' }, role: 'status', hidden: true });
+  const top = h('div.btop', stamp, greet, feeds, hold, slow);
   const name = h('p.bname', { dataset: { case: 'keep' } }, 'GHOSTY');
   const skip = h('p.bskip', { dataset: { case: 'keep' } }, 'Tap to skip');
   bootState.greeting = greet.textContent ?? '';
@@ -676,10 +684,12 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   void loadGuardian();
   const facts = () => stampFacts('Home');
   /** The stamp's four segments at this moment (the fifth, LOOKING AT, is Home's own once it lands). */
-  const stampNow = () => stampWords(facts()).slice(0, 4);
+  /* state: shell.boot empty */
+  const stampNow = () => stampWords(settledFeeds(facts(), T >= tl.recognise)).slice(0, 4);
   let lines: { id: FeedId; parts: TruthPart[]; el: HTMLElement }[] = [];
   let linesFrom: GuardianInfo | null | undefined;
   const refreshLines = () => {
+    /* state: shell.boot offline */
     const info = navigator.onLine === false ? null : guardian.get().info;
     if (info === linesFrom) return;
     linesFrom = info;
@@ -953,6 +963,11 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const holding = T >= tl.land - 1 && T < tl.land + 1 && bootState.held > 0 && !bootState.skipped;
     const heldFor = bootState.held;
     if (holding) bootState.heldSweeps = Math.floor(heldFor / 1300);
+    /* state: shell.boot loading */
+    const holdOn = holding && heldFor >= HOLD_AFTER;
+    if (holdOn) hold.textContent = holdWords({ online: navigator.onLine !== false, brain: ui.get().connected });
+    hold.hidden = !holdOn;
+    bootState.holdLine = holdOn ? hold.textContent ?? '' : bootState.holdLine;
     slow.hidden = !(holding && e > 6000);
     slow.style.opacity = slow.hidden ? '0' : '1';
     if (mindIn && mind) {

@@ -9,7 +9,9 @@
 import { fmt, h } from '../../core/dom';
 import { WMO, temp, weather } from '../../data/weather';
 import { liveIn } from '../../shell/areas';
-import { ui } from '../../state/app';
+import { chat, send } from '../../assistant/session';
+import { settings, ui } from '../../state/app';
+import { doingWords } from './ribbonwords';
 import { guardian } from '../../state/guardian';
 
 /** What the checks read (window.__ghosty.ribbon). */
@@ -30,21 +32,41 @@ export function threatWord(info = guardian.get().info): string {
   return active.some((a) => a.level === 1) ? 'Warning' : active.length ? 'Watch' : 'Calm';
 }
 
-/** What I am doing right now, from the live dots' own source (shell/areas.ts liveIn). */
+/** His words when the last turn did not land and RETRY can send them again, else ''. */
+export function retryText(): string {
+  const last = chat.get().entries[chat.get().entries.length - 1];
+  return !ui.get().busy && last?.kind === 'error' && !last.cool ? last.retry ?? '' : '';
+}
+
+/** How long "Done." stays after a turn that went well, ms. */
+const DONE_MS = 20_000;
+let doneAt = 0;
+/** What I am doing right now, as one sentence (ribbonwords.ts), from the live dots' own source (shell/areas.ts liveIn) and the turn's own state. */
 export function doingNow(): string {
   const l = liveIn();
-  if (l.ask) return 'Thinking';
-  if (l.learn) return /training/.test(l.learn) ? 'Training' : 'Sitting a paper';
-  if (l.make) return 'Making a report';
-  if (l.me) return 'Downloading';
-  return 'Idle';
+  const u = ui.get();
+  const last = chat.get().entries[chat.get().entries.length - 1];
+  const failed = !u.busy && last?.kind === 'error' && !last.cool;
+  const live = l.learn ? (/training/.test(l.learn) ? 'training' : 'sitting') : l.make ? 'report' : l.me ? 'download' : '';
+  return doingWords({
+    online: navigator.onLine !== false,
+    brain: u.connected,
+    busy: u.busy || !!l.ask,
+    status: u.status,
+    cool: u.busy && u.coolUntil > Date.now() ? fmt.time(new Date(u.coolUntil)) : '',
+    failed,
+    retry: failed && last?.kind === 'error' && !!last.retry,
+    done: !u.busy && !failed && Date.now() - doneAt < DONE_MS,
+    live,
+  });
 }
 
 /** The five parts, as words. `next`: Core's next event ("Dentist · 9:30 AM"), '' when there is none, null before the agenda has answered. */
 export function ribbonParts(next: string | null, d = new Date()): string[] {
   const w = weather.data;
   const sky = w ? `${temp(w.current.temperature_2m)} ${WMO(w.current.weather_code).toLowerCase()}, ${nextRain(w, d.getHours())}` : '—';
-  const thing = next === null ? '—' : next ? `Next ${next.replace(/ · /, ' ')}` : 'Nothing next';
+  /* state: core.ribbon loading */
+  const thing = next === null ? '—' : next ? `Next ${next.replace(/ · /, ' ')}` : /* state: core.ribbon empty */ 'Nothing next';
   return [fmt.time(d), sky, thing, `Threat ${threatWord().toLowerCase()}`, doingNow()];
 }
 
@@ -63,19 +85,45 @@ export function ribbon(look: 'scan' | 'ink', next: () => string | null): Ribbon 
     if (!el.isConnected) return;
     const parts = ribbonParts(next());
     ribbonState.parts = parts;
-    const s = parts.join('|');
+    const s = parts.join('|') + (retryText() ? '|retry' : '');
     if (s === sig) return;
     sig = s;
     ribbonState.text = parts.join(' · ');
     ribbonState.paints++;
-    el.replaceChildren(...parts.map((p, i) => h('span.g-truth', { dataset: { case: 'keep' } }, p, i < parts.length - 1 ? h('span.g-sep', { 'aria-hidden': 'true' }, ' ·') : null), ' '));
+    // (the last part, when RETRY can send his words again: that part is the button, 44 pt tall)
+    const again = retryText();
+    el.replaceChildren(
+      ...parts.flatMap((p, i) => {
+        const last = i === parts.length - 1;
+        const span = h('span.g-truth', { dataset: { case: 'keep' } }, p, !last ? h('span.g-sep', { 'aria-hidden': 'true' }, ' ·') : null);
+        if (last && again) {
+          span.classList.add('ribretry');
+          span.setAttribute('role', 'button');
+          span.tabIndex = 0;
+          const go = () => void send(again, { speak: settings.get().speak });
+          span.addEventListener('click', go);
+          span.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && go());
+        }
+        return [span, ' '];
+      }),
+    );
   };
   // a source changed: the weather came, the guardian answered, a turn began or ended, something started or stopped
   weather.onChange(paint);
   guardian.subscribe(paint);
-  ui.subscribe((s, p) => (s.busy !== p.busy || s.voice !== p.voice) && paint());
+  // (a turn ends well: "Done." for a moment, and the ribbon repaints when it goes)
+  ui.subscribe((s, p) => {
+    if (p.busy && !s.busy) {
+      doneAt = Date.now();
+      setTimeout(paint, DONE_MS + 100);
+    }
+    if (s.busy !== p.busy || s.voice !== p.voice || s.connected !== p.connected || s.status !== p.status || s.coolUntil !== p.coolUntil) paint();
+  });
+  chat.subscribe(paint);
+  addEventListener('online', paint);
+  addEventListener('offline', paint);
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
-  const attach = (n = 0) => (w.__ghosty ? (w.__ghosty.ribbon ??= ribbonState) : n < 150 && setTimeout(() => attach(n + 1), 100));
+  const attach = (n = 0) => (w.__ghosty ? ((w.__ghosty.ribbon ??= ribbonState), (w.__ghosty.chat ??= chat)) : n < 150 && setTimeout(() => attach(n + 1), 100));
   attach();
   return {
     el,

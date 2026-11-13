@@ -121,7 +121,13 @@ export const STATES = {
   'brief.day': { dir: 'brief', base: 3, now: 3 },
   'brief.say': { dir: 'brief', base: 0, now: 1 },
   'shell.jump': { at: 'shell', dir: '', base: 1, now: 2 },
-  'shell.boot': { at: 'shell', dir: '', base: 1, now: 1 },
+  // BRIEF-QUALITY-BOOT-ORB: the boot (the held landing's line = loading, the offline stamp = offline, No feeds yet = empty, the fault = error), the orb
+  // (its line for the first listening/thinking = loading, the brain gone = offline, the models cooling = error) and the ribbon (— = loading,
+  // Nothing next = empty, the brain gone and no signal = offline, a turn that did not land = error). The film (features/core/scan/film.ts) draws
+  // no words and no states of its own, so it has no row; its held landing is the boot's `loading`.
+  'shell.boot': { at: 'shell', dir: '', base: 1, now: 4 },
+  'core.orb': { dir: 'core', base: 1, now: 3 },
+  'core.ribbon': { dir: 'core', base: 1, now: 4 },
   // SEE (BRIEF-QUALITY-SEE): God's Eye, the Machine view, each of the Lens's modes, THREATS (the list, NEAR HOME), the offline eyes' pack rows.
   // `base` is what each drew, in words of its own, before that pass (a toast that was gone is not a state).
   'eye.globe': { dir: 'eye', base: 0, now: 1 },

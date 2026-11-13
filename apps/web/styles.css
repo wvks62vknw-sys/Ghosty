@@ -3307,6 +3307,14 @@ a.schlink { border-radius: 14px; font: 600 15px var(--sf); letter-spacing: -.01e
 .rwrap:has(> canvas.mindhero) { position: relative; }
 canvas.mindhero { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
 canvas.reactor.mindon { opacity: 0; }
+/* the brain gone: the old 2-D stand-in and the flat Mind go low too (orbsay.ts says why under it) */
+canvas.reactor[data-low="1"]:not(.mindon) { opacity: .5; }
+canvas.mindhero.lowlight { opacity: .45; transition: opacity var(--g-dur-turn, .4s); }
+/* the orb's one line under it: said once, then gone (features/core/orbsay.ts) */
+.orbsay { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; text-align: center; pointer-events: none; z-index: 2; }
+.orbsay[hidden] { display: none; }
+/* the ribbon's failed line, when RETRY can send his words again: the part is the button, 44 pt tall (features/core/ribbon.ts) */
+html .ribbon .ribretry { display: inline-flex; align-items: center; min-height: var(--g-target); cursor: pointer; }
 /* end hero: mind */
 
 /* =====================================================================
@@ -4584,12 +4592,13 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 /* the name under the box at the recognition: a reading at size, spaced out (the trailing space is balanced so it sits in the middle) */
 #boot .bname { position: absolute; z-index: 3; left: 0; right: 0; margin: 0; padding-left: .5em; text-align: center; font: var(--g-t-value); letter-spacing: .5em; color: var(--g-ink-1); text-transform: none; white-space: nowrap; opacity: 0; pointer-events: none; }
 /* a tap skips it: said once, small, where the thumb is */
-#boot .bskip { position: absolute; z-index: 3; left: 0; right: 0; bottom: calc(var(--g-safe-bottom) + 56px); margin: 0; text-align: center; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-4); opacity: 0; pointer-events: none; }
+#boot .bskip { position: absolute; z-index: 3; left: 0; right: 0; bottom: calc(var(--g-safe-bottom) + 40px); margin: 0; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-4); opacity: 0; pointer-events: none; }
 /* the app could not start: plain words and one button */
 #boot.fault { display: flex; align-items: center; justify-content: center; }
 #boot .bfault { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; text-align: center; }
 #boot .bfault p { margin: 0; font: 500 17px/1.35 var(--sf); color: var(--ink, #f4f6f8); }
 #boot .bfault button { min-width: 44px; min-height: 44px; padding: 0 22px; }
+html #boot .bfault button.on { min-height: 44px !important; }
 /* the landing: while Mind flies the HUD waits out of sight; a beat after it lands, the ribbon comes down, the tab bar
    and Home's cards slide up into place, the rest fades in (the individual translate property, so each part's own
    transform is left alone) */
@@ -8411,6 +8420,9 @@ html body.housed #deck .invnone, html body.housed :is(.invnone, .rnone) { paddin
 html body.housed :is(.invnone, .rnone) .empty { border-top: 0; padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); }
 #boot .bslow { margin: var(--g-s-1) 0 0; font: var(--g-t-say); letter-spacing: var(--g-tr-say); font-family: var(--g-face-say); color: var(--g-ink-2); text-transform: none; opacity: 0; transition: opacity var(--g-dur-turn); }
 #boot .bslow[hidden] { display: none; }
+/* the held landing's line: what the open waits for, in the stamp's small type (shell/bootwords.ts) */
+#boot .bhold { margin: var(--g-s-1) 0 0; color: var(--g-ink-2); }
+#boot .bhold[hidden] { display: none; }
 /* ==========================================================================================================================
    THE WALL (BRIEF-MACHINE-WALL; wall/screen.ts): this device as the second screen of his phone. Full screen over the app, in the world's
    own canvas and ink; every size is the wall's unit (1 percent of the screen's width or 1.78 of its height, whichever is less: 19.2 px
