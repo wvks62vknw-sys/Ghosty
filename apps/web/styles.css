@@ -6608,6 +6608,8 @@ html #top .headstamp { display: none; }
      top of the sheet (above it, with its own close) so its buttons stay in reach, the rest scrolling inside it as before */
   /* (down to the sheet's keys at most: --eye-reach is the gap from the card's top to them, eye/index.ts; LEAVE MACHINE VIEW is never under it) */
   html body.housed .hud.eye .eyeinfo { z-index: 8; max-height: min(420px, var(--eye-reach, calc(100% + 140px))); }
+  /* (and its keys, ASK GHOSTY and ✕, stand at the foot of what scrolls: a card cut short to the sheet's keys still has them in reach) */
+  html body.housed .hud.eye .eyeinfo .bd > .row.wrap:last-child { position: sticky; bottom: 0; z-index: 1; margin-top: auto; padding: var(--g-s-half) 0; background: var(--g-plate-strong); }
   html body.housed #pg-eye .hud.eye { padding-bottom: var(--g-s-half); } /* (the sheet is the globe's own bottom bar: it stands straight on the house's edge) */
   html body.housed .hud.eye .zoomrail { top: max(0px, calc(50% - 61px)); transform: none; }
   /* the viewfinders are drawn in the screen's height (vh); the house and the page's name take about 100 px more than the old bar and

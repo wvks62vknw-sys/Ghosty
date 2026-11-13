@@ -201,8 +201,17 @@ if (!only || only === 'platform') {
     const client = await ctx.newCDPSession(page);
     const pt = (b, id) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2, id });
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(b1, 1), pt(b2, 2)] });
-    await page.waitForTimeout(900);
-    const vRun = (await st(page)).vx;
+    // (the fastest it reaches while both are held, read in the page every frame for up to 4 s: a slow runner's first frames come late)
+    const vRun = await page.evaluate(() => new Promise((done) => {
+      let best = 0;
+      const t0 = performance.now();
+      const f = () => {
+        best = Math.max(best, window.__g5.handle.peek().state.vx ?? 0);
+        if (best > 105 || performance.now() - t0 > 4000) done(best);
+        else requestAnimationFrame(f);
+      };
+      requestAnimationFrame(f);
+    }));
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     check(vRun > 105, `${g} (${size.width}): RUN with ▶ goes faster than a walk (${vRun.toFixed(0)} px/s, a walk is 88)`);
     // jump: higher when held (the peak is sampled in the page, every frame, so a slow machine cannot miss it)
