@@ -125,12 +125,13 @@ export const PACK_WORDS: Record<string, CatValue> = {
     go: { run: 'open_body', args: { what: 'health' } }, tryText: 'Opens the Health import',
   },
   'act:body:water': {
-    name: 'A glass of water counted', line: 'You can tell me each glass of water, or tap +1 GLASS, and I keep today’s count.',
-    more: 'Eight glasses a day unless you set your own goal. Say "remind me" and I nudge you when you are behind, within my speak-first limit.',
-    say: ['Had a glass of water', 'How much water have I had?'], scene: ['morning', 'watching'], cat: 'do', since: SINCE,
+    name: 'Water, sleep, steps, weight and mood', line: 'You can tell me a glass, a mug, a bottle or a pint, your sleep, steps, weight or mood, and I keep it on your phone.',
+    more: 'Each is its own screen on BODY: today’s ring, the week and month as a chart, your streak. The water goal is worked out from your weight and the day’s heat, a first estimate. Water nudges come only in your nudge hours, never in your quiet hours, and stop once you’re on track. Nothing leaves the phone; not medical advice.',
+    say: ['I drank a pint', 'Log a glass of water', 'How much have I drunk?', 'I slept 7 and a half hours'], scene: ['morning', 'watching', 'phone'], cat: 'do', since: SINCE,
     go: { run: 'open_body', args: { what: 'water' } }, tryText: 'Opens today’s water',
   },
   'phrase:water': { same: 'act:body:water' },
+  'phrase:track': { same: 'act:body:water' },
   'act:body:breathe': {
     name: 'Breathe with me', line: 'I can breathe with you: box breathing or 4-7-8, a circle to follow and a buzz at each change.',
     more: 'Four rounds, about a minute. It all happens on the phone. Stop if you feel dizzy.',

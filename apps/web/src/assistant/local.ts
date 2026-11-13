@@ -216,6 +216,12 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   roomnumber: (text, opts) => import('./roomnumber').then((m) => m.roomNumberTurn(text, opts, answer)).catch(() => false),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
   statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
+  // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened
+  track: async (text, opts) => {
+    const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, ...(r.open ? { go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: r.open } }] } : {}) }, opts);
+  },
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   run: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   breathe: async (text, opts) => packAnswer(await bodyTurn(text), opts),

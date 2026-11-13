@@ -6531,6 +6531,40 @@ html body.scanhome .hud.core.logopen .scanframe > :is(.scanmarks, .scanorb, .sca
 #boot .bflash { position: absolute; inset: 0; z-index: 9; display: block; pointer-events: none; background: var(--g-ink-1); opacity: 0; mix-blend-mode: screen; }
 #boot .g-lock.bsearch { z-index: 3; }
 
+/* ---- THE BODY TRACKERS (FINAL ROUND, BODY lane; features/body/track.ts): water, sleep, steps, weight and mood. The ring,
+   the history's chart and the keys, all in tokens: the accent for what is met, ink for the rest, the line for the goal */
+html .bt .bt-hero { display: flex; align-items: center; gap: var(--g-s-2); min-width: 0; }
+html .bt .bt-ringbox { position: relative; flex: none; width: clamp(112px, 34vw, 150px); aspect-ratio: 1; }
+html .bt .bt-ring { display: block; width: 100%; height: 100%; }
+html .bt .bt-track { fill: none; stroke: var(--g-line-faint); stroke-width: 12; }
+html .bt .bt-fill { fill: none; stroke: var(--g-ink-2); stroke-width: 12; stroke-linecap: round; transition: stroke-dasharray var(--g-dur-turn) var(--g-ease-bring); }
+html .bt .bt-fill.met { stroke: var(--g-accent); }
+html .bt .bt-ringmid { position: absolute; inset: 14%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; }
+html .bt .bt-ringbig { font: var(--g-t-value); font-variant-numeric: var(--g-num); color: var(--g-ink-1); overflow-wrap: anywhere; line-height: 1.1; }
+html .bt .bt-ringsmall { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .bt .bt-herotext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .bt .bt-line { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .bt-h { margin: var(--g-s-1) 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .bt .bt-hist { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .bt .bt-chartbox { min-width: 0; }
+html .bt .bt-chart { display: block; width: 100%; height: 120px; }
+html .bt .bt-bar { fill: var(--g-ink-3); }
+html .bt .bt-bar.met { fill: var(--g-accent); }
+html .bt .bt-goal { stroke: var(--g-ink-2); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+html .bt .bt-days { display: grid; gap: 0; min-width: 0; }
+html .bt .bt-days small { text-align: center; font: var(--g-t-fine); color: var(--g-ink-3); min-width: 0; white-space: nowrap; }
+html .bt .bt-cups { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+html .bt .bt-cups button { min-height: 56px; }
+html .bt .bt-cup { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+html .bt .bt-cup small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .bt .bt-moods { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+html .bt .bt-entry { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .pkitem button, html .bt .pkadd button { min-height: var(--g-target); min-width: var(--g-target); flex: none; }
+html .bt .bt-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .bt select { min-height: var(--g-target); width: 100%; }
+html .bt .pkfield label { font: var(--g-t-caption); color: var(--g-ink-3); }
+@media (prefers-reduced-motion: reduce) { html .bt .bt-fill { transition: none; } }
+
 /* =====================================================================================================================
    THE SHELL IN THE SCAN (BRIEF-SHELL-2; shell/house.ts, jump.ts, rooms.ts, inventory.ts): the house on every screen, the plan, the
    jump bar, the stamp and the page's name, a room, Every screen and Settings, drawn in THE SCAN's language. On while the world is The

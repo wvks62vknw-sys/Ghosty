@@ -88,6 +88,11 @@ export const STATES = {
   'body.stretch': { dir: 'body', base: 0, now: 1 },
   'body.health': { dir: 'body', base: 2, now: 4 },
   'body.water': { dir: 'body', base: 2, now: 4 },
+  // FINAL ROUND, BODY lane: the four new trackers kept on the phone (features/body/track.ts), each its empty and its error
+  'body.sleep': { dir: 'body', base: 0, now: 2 },
+  'body.steps': { dir: 'body', base: 0, now: 2 },
+  'body.weight': { dir: 'body', base: 0, now: 2 },
+  'body.mood': { dir: 'body', base: 0, now: 2 },
   'kitchen.timers': { dir: 'kitchen', base: 1, now: 3 },
   'kitchen.shopping': { dir: 'kitchen', base: 2, now: 4 },
   'kitchen.plan': { dir: 'kitchen', base: 1, now: 3 },

@@ -313,12 +313,18 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     const he = await txt(page, `${P} [data-state="error"]`);
     check(/Health export/.test(he) && !/export\.xml|zip/.test(he), `${T} B8 a wrong file is said in his words: "${he}"`);
     await bar(page, `${T} health bar`, 'body');
-    // B10: water with no brain
+    // B10: water with no brain (FINAL ROUND, BODY lane: water is kept on the phone now, so it needs no brain at all): the day's
+    // amount is drawn at once, never "…", no error, and a tap keeps a glass with my brain still cut off
     await cut(page, PACKS);
     await open(page, 'body', 'Water');
-    await page.waitForTimeout(1500);
-    const wc = await txt(page, `${P} b.pkbig`);
-    check((await count(page, `${P} [data-state="error"]`)) >= 1 && wc.trim() !== '…' && !RAW.test(await txt(page, `${P} [data-state="error"]`)), `${T} B10 water with no brain says so in his words and never hangs on "…" (count: "${wc}")`);
+    await page.waitForSelector(`${P} .bt-ringbig`, { timeout: 5000 }).catch(() => undefined);
+    const wc = await txt(page, `${P} .bt-ringbig`);
+    check(/\d/.test(wc) && !wc.includes('…') && (await count(page, `${P} [data-state="error"]`)) === 0, `${T} B10 water with no brain works on the phone and never hangs on "…" (count: "${wc}")`);
+    await page.locator(`${P} button[aria-label^="Add a glass"]`).first().click().catch(() => undefined);
+    await page.waitForFunction((s) => /250 ml/.test(document.querySelector(`${s} .bt-ringbig`)?.textContent ?? ''), P, { timeout: 4000 }).catch(() => undefined);
+    const wc2 = await txt(page, `${P} .bt-ringbig`);
+    check(/^\s*250 ml\s*$/.test(wc2) && !RAW.test(await txt(page, `${P} *`)), `${T} B10 a glass is kept with no brain: "${wc2}"`);
+    await page.evaluate(() => localStorage.removeItem('ghosty.body.track'));
     await unroute(page);
     await open(page, 'body', 'Water');
     await bar(page, `${T} water bar`, 'body');

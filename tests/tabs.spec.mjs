@@ -48,7 +48,7 @@ const IN_THE_WORKS = ['coach', 'learning'];
 /** Each new screen: its area, its name as the jump bar and the deck show it, a plain word it is found by, its pills and pages. */
 const NEW = {
   money: { area: 'life', name: 'Money', word: 'statement', pills: [], pages: ['PASTE A STATEMENT'] },
-  body: { area: 'life', name: 'Body', word: 'squats', pills: ['Reps', 'Run', 'Breathe', 'Stretch', 'Health', 'Water'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'BREATHE', 'STRETCH SET', 'MY HEALTH WEEK', 'WATER TODAY'] },
+  body: { area: 'life', name: 'Body', word: 'squats', pills: ['Reps', 'Run', 'Breathe', 'Stretch', 'Health', 'Water', 'Sleep', 'Steps', 'Weight', 'Mood'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'BREATHE', 'STRETCH SET', 'MY HEALTH WEEK', 'WATER TODAY', 'SLEEP', 'STEPS', 'WEIGHT', 'MOOD'] },
   kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN'] },
   people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Group plan'], pages: ['YOUR PEOPLE', 'GROUP PLAN'] },
   work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Interview', 'Document'], pages: ['TO-DO', 'INTERVIEW PRACTICE', 'DOCUMENT'] },

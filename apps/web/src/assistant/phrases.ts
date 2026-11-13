@@ -22,6 +22,7 @@ import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { bodyAsked } from '../../../../packages/shared/src/body';
+import { trackAsked } from '../features/body/trackcore';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { symptomOf, viewAsked } from '../car/faults';
 import { originAsked } from '../../../../packages/shared/src/social';
@@ -79,6 +80,8 @@ export const LOCAL_ASKS = [
   { id: 'further', test: (t: string) => furtherAsked(t) },
   // [packs] a statement pasted in the chat: to his brain's SPENDING by the rule table, never to a model (assistant/packs.ts)
   { id: 'statement', test: (t: string) => looksLikeStatement(t) || /^(?:i want to |let me |can i )?(?:paste|add|read|send)\s+(?:in\s+)?(?:a|my)\s+(?:bank\s+)?statement[.!?]?$/i.test(t.trim()) },
+  // [bodylane] the body trackers on the phone, no model (features/body/track.ts): water, sleep, steps, weight, mood, kept and asked
+  { id: 'track', test: (t: string) => trackAsked(t) !== null },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)
   { id: 'reps', test: (t: string) => bodyAsked(t)?.what === 'reps' },
   { id: 'run', test: (t: string) => bodyAsked(t)?.what === 'run' },
