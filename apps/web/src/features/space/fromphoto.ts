@@ -142,7 +142,9 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
 
   const status = (t: string, light?: 'ok' | 'mid' | 'off') => {
     S.status = t;
-    fp.setStatus(t.length > 40 ? `${t.slice(0, 38)}…` : t, light);
+    // the header carries a short word, never a sentence cut in half (FINAL ROUND, MAKE lane): the whole line is in the notes under it
+    const head = t.split(/[:.(]/)[0]!.trim();
+    fp.setStatus(head.length <= 22 ? head : light === 'off' ? 'COULDN’T' : light === 'mid' ? 'WORKING…' : light === 'ok' ? 'DONE' : '', light);
     notes.textContent = t;
     // (loading while it works, an error when it could not, empty before anything is picked)
     notes.dataset.state = light === 'off' ? 'error' : light === 'mid' ? 'loading' : t.startsWith('PICK PHOTOS') ? 'empty' : '';
