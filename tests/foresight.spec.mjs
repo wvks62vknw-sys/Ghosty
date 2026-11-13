@@ -109,7 +109,8 @@ const openReport = async () => {
 await openReport();
 await until((s) => /LAST SCORED/.test(document.querySelector(s)?.textContent ?? '') && /YOUR QUESTIONS/i.test(document.querySelector(s)?.textContent ?? ''), rcard, 10000, `the Report card's FORESIGHT: "${await text(rcard)}"`);
 const bars = await page.$$eval(`${rcard} .forebars .bar`, (bs) => bs.map((b) => `${b.dataset.kind}:${b.querySelector('b')?.textContent}`));
-check(bars.join(' | ') === 'rain:none yet | departure:100% · 1 | commute:none yet | answer:100% · 1', `the bars: ${bars.join(' | ')}`);
+// (POLISH 3) every number with its unit: "100% right · 1 scored", "none scored yet"
+check(bars.join(' | ') === 'rain:none scored yet | departure:100% right · 1 scored | commute:none scored yet | answer:100% right · 1 scored', `the bars: ${bars.join(' | ')}`);
 const rc = await text(rcard);
 check(/✓\s*I expected the 08:12 late; it was, by 6 minutes\./.test(rc) && /✓\s*I expected rain on Saturday; you said I was right\./.test(rc), `the last scored: ${rc}`);
 check(/I expect rain by 15:00 \(70%\)/.test(rc) && /I expect the 08:12 on time \(60%\)/.test(rc), `the open ones: ${rc}`);
@@ -154,7 +155,7 @@ check(got['seed-dep']?.right === false && got['seed-dep']?.actual === '6 minutes
 await openReport();
 await until((s) => /✗\s*I expected the 08:12 on time; it was 6 minutes late\./.test(document.querySelector(s)?.textContent ?? ''), rcard, 10000, `the Report card after the day: "${await text(rcard)}"`);
 const after = await page.$$eval(`${rcard} .forebars .bar`, (bs) => bs.map((b) => `${b.dataset.kind}:${b.querySelector('b')?.textContent}`));
-check(after.join(' | ') === 'rain:100% · 1 | departure:50% · 2 | commute:none yet | answer:100% · 2', `the bars after the day: ${after.join(' | ')}`);
+check(after.join(' | ') === 'rain:100% right · 1 scored | departure:50% right · 2 scored | commute:none scored yet | answer:100% right · 2 scored', `the bars after the day: ${after.join(' | ')}`);
 await shot(rcard, 'foresight-scored');
 for (const r of await page.evaluate(() => [...document.querySelectorAll('#pg-system :is(button, .bar)')].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect().right))) if (r > PHONE.width + 1) problems.push(`something sticks out sideways (${Math.round(r)} px)`);
 
