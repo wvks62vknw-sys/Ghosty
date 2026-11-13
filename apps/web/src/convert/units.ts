@@ -96,7 +96,7 @@ const BY_WORD = new Map<string, Unit>();
 for (const u of UNITS) for (const w of u.words) BY_WORD.set(w, u);
 
 /** A unit by his word; a capital K alone is kelvin ("300 K in C"), a small k a kilometre ("5k in miles"). */
-export const unitOf = (w: string): Unit | null => (w.trim() === 'K' ? byName('K') : BY_WORD.get(w.trim().toLowerCase().replace(/\.$/, '')) ?? null);
+export const unitOf = (w: string): Unit | null => BY_WORD.get(w.trim().toLowerCase().replace(/\.$/, '')) ?? null;
 
 /** What a unit measures, said as a noun with its article ("a length"), and the plural for a list ("lengths"). */
 const KIND: Record<Dim, [string, string]> = { length: ['a length', 'lengths'], mass: ['a weight', 'weights'], volume: ['a volume', 'volumes'], area: ['an area', 'areas'], speed: ['a speed', 'speeds'], time: ['a time', 'times'], data: ['a data size', 'data sizes'], temp: ['a temperature', 'temperatures'], energy: ['an amount of energy', 'amounts of energy'], pressure: ['a pressure', 'pressures'], power: ['a power', 'powers'], fuel: ['a fuel use', 'fuel uses'] };
@@ -159,7 +159,9 @@ export interface UnitAnswer {
 
 /** A value in one unit as another of the same kind (null: different kinds, or unknown units). */
 export function convertUnits(value: number, fromWord: string, toWord: string): UnitAnswer | null {
-  return convertU(value, unitOf(fromWord), unitOf(toWord));
+  // a capital K alone is kelvin beside a temperature ("300 K in C") and a kilometre otherwise ("5K in miles", a race)
+  const k = (w: string, other: string) => (w.trim() === 'K' && unitOf(other)?.dim === 'temp' ? byName('K') : unitOf(w));
+  return convertU(value, k(fromWord, toWord), k(toWord, fromWord));
 }
 /** The same by the units' exact names (the pad's lists), so a symbol never meets a word it shares ("K" and "k"). */
 export const convertByName = (value: number, from: string, to: string): UnitAnswer | null => convertU(value, byName(from), byName(to));
