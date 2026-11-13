@@ -25,7 +25,7 @@ function unzipStored(b) {
 }
 
 export default async function (h) {
-  const { open, check, until, measure, body21, LOOKS, PHONE, SMALL } = h;
+  const { open, check, until, settle, measure, body21, LOOKS, PHONE, SMALL } = h;
   const now = Date.now();
   const mk = (id, title, parent, extra) => ({ id, title, icon: 'page', parent, blocks: [], at: now, created: now, order: 0, ...extra });
   const seed = (blocks) => ({ 'ghosty.workspace': { v: 1, versions: {}, at: now, pages: { kit: mk('kit', 'Kitchen', null, { blocks }) } } });
@@ -125,6 +125,7 @@ export default async function (h) {
     const { ctx, page } = await open({ look: r.look, viewport: r.viewport, seed: seed(page5) });
     check(await openKitchen(page) && await until(page, () => document.querySelectorAll('.wsblock[data-t="callout"]').length === 3), `workspace ${r.name}: the page opens with its three callouts`);
     if (r.big) await body21(page);
+    await settle(page);
     await measure(page, '#pg-workspace', `workspace ${r.name}`);
     await ctx.close();
   }

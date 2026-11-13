@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 
 export default async function (h) {
-  const { open, check, until, measure, body21, LOOKS, PHONE, SMALL } = h;
+  const { open, check, until, settle, measure, body21, LOOKS, PHONE, SMALL } = h;
   const docs = (page) => page.evaluate(() => JSON.parse(window.__ghosty.docs.json || 'null'));
   const goDocs = async (page) => {
     // MAKE → EDITORS → DOCUMENTS where the look draws the pill; the screen's own address where it does not
@@ -187,6 +187,7 @@ export default async function (h) {
     check(ok, `docs ${r.name}: the document opens with its checklist`);
     if (r.big) await body21(page);
     await page.locator('.dcpage .dcb', { hasText: 'Keys go' }).click();
+    await settle(page);
     await measure(page, '#pg-docs', `docs ${r.name}`);
     await ctx.close();
   }
