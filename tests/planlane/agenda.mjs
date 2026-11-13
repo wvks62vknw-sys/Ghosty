@@ -147,6 +147,31 @@ export async function run(H) {
     await page.locator('.undofloat button').first().click({ timeout: 3000 }).catch(() => check(false, `[agenda ${vp.width}] no UNDO after a change`));
     await page.waitForFunction(() => /^Buy a kettle/.test(document.querySelector('#pg-agenda .todoit[data-id="a2"] .todotx')?.innerText ?? ''), null, { timeout: 3000 }).catch(() => check(false, `[agenda ${vp.width}] UNDO did not bring the words back`));
     if (vp === PHONE) await page.screenshot({ path: `${H.out}/planlane-agenda-todo-${vp.width}.png` });
+
+    // THE DIARY: an event tapped open whole, changed (taken out and put back changed, and it says so), then UNDO; removed at the end
+    await openSection(page, 'agenda', 'Diary');
+    const name = `Spec dentist ${vp.width}`;
+    await page.fill('#pg-agenda input[aria-label="Event title"]', name);
+    await page.click('#pg-agenda .addev:has(input[aria-label="Event title"]) button');
+    const row = (n) => page.locator('#pg-agenda .rw.ev', { has: page.locator('.evt', { hasText: new RegExp(`^${n}$`) }) });
+    await row(name).first().waitFor({ timeout: 8000 }).catch(() => check(false, `[agenda ${vp.width}] the event did not go in`));
+    await row(name).first().locator('.evt').click();
+    await page.waitForSelector('#pg-agenda .evcard', { timeout: 3000 }).catch(() => check(false, `[agenda ${vp.width}] tapping the event did not open it whole`));
+    const card = (await page.textContent('#pg-agenda .evcard').catch(() => '')) ?? '';
+    check(new RegExp(`^${name}\\w+day \\d+ \\w+, \\d\\d:\\d\\dIn your diary · (reminder 15 min before|no reminder)`).test(card) && /puts it back changed/.test(card) && !RAW.test(card), `[agenda ${vp.width}] the event whole: ${card.slice(0, 160)}`);
+    check((await row(name).first().getAttribute('aria-expanded')) === 'true', `[agenda ${vp.width}] the open event says it is open`);
+    const fc = await fit(page, '#pg-agenda .evcard');
+    check(!fc.small.length && !fc.sideways && !fc.cut.length, `[agenda ${vp.width}] the open event fits: ${JSON.stringify(fc)}`);
+    await page.fill('#pg-agenda .evcard input[aria-label="Change the event"]', `${name} moved`);
+    await page.fill('#pg-agenda .evcard input[aria-label="Change where"]', 'High Street surgery');
+    await page.click('#pg-agenda .evcard button:has-text("Save changes")');
+    await row(`${name} moved`).first().waitFor({ timeout: 8000 }).catch(() => check(false, `[agenda ${vp.width}] the change did not show in the diary`));
+    check(/High Street surgery/.test(await row(`${name} moved`).first().textContent().catch(() => '')) && (await row(name).count()) === 0, `[agenda ${vp.width}] the diary has the changed event and not the old one`);
+    await page.locator('#pg-agenda .pn:has(input[aria-label="Event title"]) .undo button').first().click({ timeout: 4000 }).catch(() => check(false, `[agenda ${vp.width}] no UNDO after changing an event`));
+    await row(name).first().waitFor({ timeout: 8000 }).catch(() => check(false, `[agenda ${vp.width}] UNDO did not put the event back as it was`));
+    check((await row(`${name} moved`).count()) === 0, `[agenda ${vp.width}] UNDO took the changed one out`);
+    await row(name).first().locator('.del').click();
+    await row(name).first().waitFor({ state: 'detached', timeout: 8000 }).catch(() => check(false, `[agenda ${vp.width}] the spec's event was not removed`));
     await ctx.close();
   }
   log('agenda: the screen');

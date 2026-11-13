@@ -9394,6 +9394,14 @@ html #pg-agenda .todoviews button.todoview { min-height: 44px !important; paddin
 html #pg-agenda .todoviews button.todoview.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
 html #pg-agenda .agstale { margin: 0 0 8px; }
 html #pg-agenda .pn.todo .bd > .keyrow button { min-height: 44px !important; }
+/* DIARY: an event tapped open, whole, with its change box when it is his own */
+html #pg-agenda .rw.ev.evtap { cursor: pointer; }
+html #pg-agenda .rw.ev.evtap[aria-expanded="true"] { border-bottom-color: transparent; }
+html #pg-agenda .evcard { display: flex; flex-direction: column; gap: 6px; margin: 0 0 8px; padding: 12px 14px; border-radius: var(--rad); box-shadow: inset 0 0 0 1px var(--hair2); font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .evcard .evcardt { font: 600 17px/22px var(--sf); color: var(--ink); }
+html #pg-agenda .evcard small { font: 400 13px/18px var(--sf); color: var(--ink3); }
+html #pg-agenda .evcard .keyrow.addev { padding: 4px 0 0; }
+html #pg-agenda .evcard .keyrow button { min-height: 44px !important; padding: 0 14px; }
 
 /* ==== [planlane:agenda end] ==== */
 
