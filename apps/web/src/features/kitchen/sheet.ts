@@ -9,13 +9,14 @@ import { DAYS, mmss, timerAsked } from '../../../../../packages/shared/src/kitch
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
+import { pantryScreen, recipesScreen } from './larder';
 import { onTimers, startTimers, startedWords, stopTimer, stopTimers, timersNow } from './timers';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
 
-export type KitchenWhat = 'timers' | 'shopping' | 'plan';
+export type KitchenWhat = 'timers' | 'shopping' | 'plan' | 'pantry' | 'recipes';
 /** Each sheet's name, as its title and as its panel on the KITCHEN screen (features/kitchen/index.ts). */
-export const KITCHEN_TITLES: Record<KitchenWhat, string> = { timers: 'TIMERS', shopping: 'SHOPPING LIST', plan: 'MEAL PLAN' };
+export const KITCHEN_TITLES: Record<KitchenWhat, string> = { timers: 'TIMERS', shopping: 'SHOPPING LIST', plan: 'MEAL PLAN', pantry: 'PANTRY', recipes: 'RECIPES' };
 const TITLES = KITCHEN_TITLES;
 
 export const kitchenState = {
@@ -46,7 +47,7 @@ export async function openKitchen(what: string): Promise<void> {
 /** One sheet's page, made by its own function (the sheet's, and the KITCHEN screen's panels). */
 export function kitchenScreen(w: KitchenWhat): { el: HTMLElement; stop(): void } {
   expose();
-  return w === 'timers' ? timersSheet() : w === 'shopping' ? shoppingSheet() : planSheet();
+  return w === 'timers' ? timersSheet() : w === 'shopping' ? shoppingSheet() : w === 'pantry' ? pantryScreen() : w === 'recipes' ? recipesScreen() : planSheet();
 }
 
 /** kitchen_timer: the brain's timers (or a stop) for this phone. */
