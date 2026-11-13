@@ -773,6 +773,8 @@ export const eyeTab: TabDef = {
     });
     startRoadAhead = () => {
       machine?.leave();
+      // (the newest wins: ROAD AHEAD has the corner a card would share, so an open card closes; a tap on the globe brings one back)
+      if (selected) select(null);
       loadCameras();
       ra.start();
       raBtn.classList.add('on');
