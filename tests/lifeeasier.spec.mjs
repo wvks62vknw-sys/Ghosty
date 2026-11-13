@@ -298,11 +298,17 @@ for (const sz of SIZES) {
     await page.evaluate(() => localStorage.removeItem('ghosty.brief.aloud'));
     const p2 = await opened(ctx, base);
     const t0 = Date.now();
+    const hourAt = () => p2.evaluate(() => new Date().getHours());
+    const hour0 = await hourAt();
     const spoke = await until(p2, () => window.__said.length > 0, null, 40000);
     check(spoke, 'the first open of the day reads the Brief');
     const said = (await p2.evaluate(() => window.__said)).join(' ');
     const bootUp = await p2.evaluate(() => window.__saidBoot);
-    check(/^Good (morning|afternoon|evening)\. It's /.test(said), `it opens with the greeting and the day (${said.slice(0, 70)})`);
+    // the greeting of the hour on the phone's own clock (features/brief/day.ts): "Good night" before five, as the boot and Home say it,
+    // then morning, afternoon and evening; the hour it began reading, or the next one if it turned while it read
+    const greetOf = (hr) => (hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening');
+    const greetings = [...new Set([hour0, await hourAt()].map(greetOf))];
+    check(greetings.some((g) => said.startsWith(`${g}. It's `)), `it opens with the greeting and the day (${said.slice(0, 70)}; wanted ${greetings.join(' or ')})`);
     check(bootUp.every((b) => b === false), 'never on the first frame: the cinematic was over when it began');
     check(Date.now() - t0 < 40000, 'inside its budget after Home');
     check(/leave by \d\d:\d\d for Standup at \d\d:\d\d \(an estimate\)/.test(said), `the commute says "leave by" from the diary and the saved work, as an estimate (${said.replace(/.*?(\d+ min to work[^.]*).*/, '$1').slice(0, 120)})`);

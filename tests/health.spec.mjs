@@ -173,7 +173,10 @@ for (const [vi, viewport] of VIEWPORTS.entries()) {
     await page.waitForFunction(() => document.querySelector('.hrow[data-id="g:web"]')?.dataset.mark === 'WORKING', null, { timeout: 8000 }).catch(() => problems.push(`${tag} RETRY did not clear the failed one`));
     const back = await page.evaluate(() => document.querySelector('.hrow[data-id="g:web"] .hwhy')?.textContent ?? '');
     check(/^Back since \d\d:\d\d\.$/.test(back.trim()), `${tag} the cleared one says "${back}", wanted "Back since 14:02."`);
-    check((await top()) === `${1 + deadFeeds} thing${1 + deadFeeds === 1 ? '' : 's'} ${1 + deadFeeds === 1 ? 'needs' : 'need'} you.`, `${tag} after RETRY the top line reads "${await top()}"`);
+    // (a feed screen is counted as it stands now, on the same paint as the top line: its feed can fail in the minute since the
+    // first count — on CI the brief's feeds were still loading then, and could not be reached by RETRY)
+    const deadNow = await page.evaluate((f) => [...document.querySelectorAll('.hrow')].filter((r) => f.includes(r.dataset.id) && r.dataset.mark !== 'WORKING').length, FEEDY);
+    check((await top()) === `${1 + deadNow} thing${1 + deadNow === 1 ? '' : 's'} ${1 + deadNow === 1 ? 'needs' : 'need'} you.`, `${tag} after RETRY the top line reads "${await top()}" (wanted ${1 + deadNow}: the key, and ${deadNow} feed screen(s) that cannot read their feed; not working: ${await page.evaluate(() => [...document.querySelectorAll('.hrow')].filter((r) => r.dataset.mark !== 'WORKING').map((r) => `${r.dataset.id} ${r.dataset.mark}`).join(', '))})`);
     // (h) every control 44 pt
     const rowsSmall = await small(page, '.hfix, .hagain, .hworking > summary, .hgrouphead', 'a HEALTH key');
     check(!rowsSmall.length, `${tag} ${rowsSmall.join('; ')}`);

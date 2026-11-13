@@ -23,6 +23,7 @@ await ui.click('#pair button.on');
 await ui.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
 await ui.waitForTimeout(800);
 if (await ui.$('.logbtn')) await ui.click('.logbtn');
+const readBefore = await ui.locator('.log [data-verified]').count();
 await ui.fill('#cin', 'publish site acme-bakery');
 await ui.keyboard.press('Enter');
 // Publishing puts a page on the public internet: Ghosty asks first, one tap.
@@ -34,7 +35,12 @@ else {
   if (!/(Publish|Update) "Acme Bakery — rebuilt" \(rebuilt from acme\.example\) as a public page at .*\/s\/acme-bakery/.test(reason ?? '')) problems.push(`approval says: ${reason}`);
   await approve.tap();
 }
-const card = await ui.waitForSelector('a.sitelink', { timeout: 15000 }).catch(() => null);
+// The reply waits while the publish is read back from his list of sites (assistant/verify.ts), and the chat is drawn afresh when it
+// has been: the card is taken after that, so the tap lands on the card on screen, not on one the redraw replaced.
+const read = await ui.waitForFunction((n) => document.querySelectorAll('.log [data-verified]').length > n, readBefore, { timeout: 15000 }).then(() => ui.locator('.log [data-verified]').last(), () => null);
+if (!read) problems.push('the publish was never read back (no tick, no RETRY under the reply)');
+else if ((await read.getAttribute('data-verified')) !== 'ok') problems.push(`the publish was not found on his sites: ${await read.textContent()}`);
+const card = await ui.waitForSelector('a.sitelink', { timeout: 15000 }).then(() => ui.locator('a.sitelink').last(), () => null);
 if (!card) problems.push('no link card in the chat after publishing');
 else {
   const box = await card.boundingBox();
