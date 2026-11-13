@@ -44,7 +44,8 @@ export async function initApp(): Promise<void> {
   // (a registration that came back empty, or with no push manager: notifications are not possible here, said so, never a throw)
   if (!reg?.pushManager) {
     reg = null;
-    pushState.set({ status: 'unsupported' });
+    // (an iPhone in a Safari tab has no push manager until Ghosty is opened from the Home Screen: it is told how, as before)
+    pushState.set({ status: isIos() && !standalone() ? 'needs-install' : 'unsupported' });
     return;
   }
   const supported = 'PushManager' in window && 'Notification' in window;
