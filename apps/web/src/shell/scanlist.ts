@@ -17,7 +17,8 @@ export const SETTINGS_GROUPS: Group[] = [
   { title: 'The look', match: /^(THEME|THE LOOK|READING)/ },
   { title: 'You', match: /^(NAME|PERMISSIONS|CHARACTER|GUARDIAN|VOICE|MY VOICE|PEOPLE I)/ },
   { title: 'The brain', match: /^OFFLINE/ },
-  { title: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL)/ },
+  // [editors] WORKSPACE beside them, as the Sections pill has it (features/settings/index.ts: Ghosty)
+  { title: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL|WORKSPACE)/ },
   { title: 'About', match: /^(ABOUT|PRIVACY|HELP)/ },
 ];
 /** Each panel's name as he says it, and the one line under it (what it is for, in my voice). */
@@ -39,6 +40,7 @@ const SAID: [RegExp, string, string][] = [
   [/^LINKS/, 'Links', 'Email, Spotify and your phone'],
   [/^SHORTCUTS/, 'Shortcuts', 'Siri'],
   [/^THE WALL/, 'The wall', 'A second screen that shows what we talk about'],
+  [/^WORKSPACE/, 'Workspace', 'Your pages and databases, and where they are kept'],
   [/^ABOUT/, 'About', 'Which build this is'],
   [/^PRIVACY/, 'Privacy', 'What stays on this phone'],
   [/^HELP/, 'Help', 'Tips'],
