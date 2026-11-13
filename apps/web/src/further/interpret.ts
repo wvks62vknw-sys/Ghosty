@@ -158,3 +158,19 @@ export async function translate(text: string, to: string, from = ''): Promise<Tr
     return { text: r.text, how: 'offline' };
   }
 }
+
+/** The phrasebook: everyday lines in English, each translated from English into the other person's language and said aloud. */
+export const PHRASES: readonly string[] = [
+  'Hello.',
+  'Thank you.',
+  'Yes, please.',
+  'No, thank you.',
+  'Excuse me.',
+  'Sorry, I don’t understand.',
+  'Please speak slowly.',
+  'Where is the toilet?',
+  'How much is it?',
+  'Can I pay by card?',
+  'Help!',
+  'I need a doctor.',
+];

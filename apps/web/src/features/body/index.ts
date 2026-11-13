@@ -1,7 +1,7 @@
 /**
  * BODY (BRIEF-TABS 2; LIFE): the body pack's own screen, a pill for each of its sheet's screens (features/body/sheet.ts): reps
- * counted by the camera's pose model, the running coach on the GPS, breathing, the stretch set, the Health export's week and
- * water. Each is the sheet's own screen; the camera, the GPS and the timers start only on its START, and stop when its pill or
+ * counted by the camera's pose model, the running coach on the GPS, breathing, the stretch set, the Health export's week, and
+ * the five trackers kept on this phone: water, sleep, steps, weight and mood (features/body/track.ts). Each is the sheet's own screen; the camera, the GPS and the timers start only on its START, and stop when its pill or
  * the screen is left, as when the sheet is closed. "count my squats", "start a run", "breathe" still open the sheet.
  */
 import type { TabDef } from '../../shell/tabs';
@@ -13,25 +13,27 @@ export const bodyTab: TabDef = {
   title: 'BODY',
   icon: '<path d="M2.5 12.5h4l2.2-4.5 3.6 9 2.6-6 1.4 1.5h5.2"/>',
   scene: 'backdrop',
-  blurb: 'reps by camera · running coach · breathe · stretch · health · water',
+  blurb: 'water · sleep · steps · weight · mood · reps by camera · running coach · breathe · stretch · health',
   now: () => cardNow('body'),
   mount: (root) =>
     sheetPage(root, {
       screen: 'body',
       tag: 'LIFE // BODY',
-      sub: 'Reps, a running coach, breathing, stretches, your Health week and water.',
+      sub: 'Water, sleep, steps, weight and mood, kept on this phone; reps, a running coach, breathing, stretches and your Health week.',
       big: () => cardBig('body'),
       load: () => cardLoad('body'),
       sections: async () => {
         const m = await import('./sheet');
-        const part = (what: 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water') => ({ title: m.BODY_TITLES[what], pack: 'body', screen: what, build: () => m.bodyScreen(what) });
+        const part = (what: import('./sheet').BodyWhat) => ({ title: m.BODY_TITLES[what], pack: 'body', screen: what, build: () => m.bodyScreen(what) });
+        // (six pills at most, ui/sections.ts: each holds its rooms, drawn one under another)
         return [
-          { id: 'reps', label: 'Reps', parts: [part('reps')] },
-          { id: 'run', label: 'Run', parts: [part('run')] },
-          { id: 'breathe', label: 'Breathe', parts: [part('breathe')] },
-          { id: 'stretch', label: 'Stretch', parts: [part('stretch')] },
-          { id: 'health', label: 'Health', parts: [part('health')] },
+          // (Move first, as Reps was: the camera's START in reach when the screen opens)
+          { id: 'move', label: 'Move', parts: [part('reps'), part('run'), part('steps')] },
           { id: 'water', label: 'Water', parts: [part('water')] },
+          { id: 'sleep', label: 'Sleep', parts: [part('sleep')] },
+          { id: 'mood', label: 'Mood', parts: [part('mood'), part('breathe'), part('stretch')] },
+          { id: 'weight', label: 'Weight', parts: [part('weight')] },
+          { id: 'health', label: 'Health', parts: [part('health')] },
         ];
       },
     }),

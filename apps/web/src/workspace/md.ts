@@ -6,6 +6,7 @@
  * Anything it cannot keep is said once. Pure: apps/edge/test/workspace.test.mjs holds the round trip.
  */
 import { inline, tidyRuns, type Run } from '../docs/model';
+import { safeHref } from '../core/safeurl';
 import { importCsv, toCsv } from './csv';
 import { newDatabase } from './db';
 import {
@@ -47,7 +48,8 @@ export function mdRuns(md: string): Run[] {
   };
   for (const m of md.matchAll(re)) {
     if (m.index! > at) plain(md.slice(at, m.index));
-    if (m[2] !== undefined) plain(m[1]!, { href: m[2] });
+    // [security] an imported file's link keeps its address only when its scheme is safe (no javascript: or data: pages)
+    if (m[2] !== undefined) plain(m[1]!, safeHref(m[2]) ? { href: m[2] } : {});
     else plain(m[3]!, { u: true });
     at = m.index! + m[0].length;
   }

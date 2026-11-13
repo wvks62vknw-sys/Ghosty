@@ -11,7 +11,12 @@ export function normaliseTarget(raw: string): { target: string; kind: string } |
   if (/^https?:\/\//i.test(t)) {
     try {
       const u = new URL(t);
-      if (/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(u.hostname) || !u.hostname.includes('.')) return null;
+      if (u.username || u.password) return null;
+      // [security] the runner opens it: never a loopback, private, link-local (cloud metadata), carrier-NAT, reserved or local-network address
+      const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+      if (/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h) || !h.includes('.')) return null;
+      if (/^(0\.|169\.254\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|192\.0\.0\.|198\.1[89]\.|2(2[4-9]|[3-5]\d)\.)/.test(h) || h.includes(':')) return null;
+      if (/\.(localhost|local|internal|home\.arpa|lan|intranet|corp)$/.test(h)) return null;
       return { target: u.href, kind: 'auto' };
     } catch {
       return null;

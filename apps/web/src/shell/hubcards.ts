@@ -65,6 +65,12 @@ import { mmss } from '../../../../packages/shared/src/kitchen';
 import { bodyInst, coachInst, creativeInst, homeInst, houseInst, learningInst, linksInst, memoryInst, moneyInst, outsideInst, peopleInst, settingsInst, socialInst, systemInst, workInst } from '../ui/lifeinst';
 import { checkStorage, storageState } from '../features/system/storage';
 import { bodyState } from '../features/body/sheet';
+// [bodylane] the trackers kept on the phone: the Body card's line, and the water nudges started once the app is up
+let bodyTrack: typeof import('../features/body/track') | null = null;
+void import('../features/body/track').then((m) => {
+  bodyTrack = m;
+  m.startNudges();
+}).catch(() => undefined);
 import { CREATIVE_TITLES } from '../features/creative/sheet';
 import { saved as creativeSaved } from '../features/creative/draw';
 import { NEARS } from '../features/outside/sheet';
@@ -868,10 +874,13 @@ export const CARDS: Record<string, HubCard> = {
     },
     why: () => 'Count your squats, or start a run',
     say: () => {
+      // [bodylane] today's water and last night's sleep, from the phone's own trackers, first (features/body/track.ts)
+      const mine = bodyTrack?.homeLine() ?? '';
       const b = hubFacts.body;
-      if (!b) return '';
-      if (!b.days) return 'Nothing logged this week: count some squats, or start a run';
-      return `${b.days} active ${b.days === 1 ? 'day' : 'days'} this week, ${fmt.n(b.reps)} ${b.reps === 1 ? 'rep' : 'reps'}${b.km ? `, ${b.km} km run` : ''}`;
+      if (!b) return mine;
+      if (!b.days) return mine || 'Nothing logged this week: count some squats, or start a run';
+      const week = `${b.days} active ${b.days === 1 ? 'day' : 'days'} this week, ${fmt.n(b.reps)} ${b.reps === 1 ? 'rep' : 'reps'}${b.km ? `, ${b.km} km run` : ''}`;
+      return mine ? `${mine} · ${week}` : week;
     },
     load: loadBody,
   },

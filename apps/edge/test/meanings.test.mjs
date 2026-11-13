@@ -29,7 +29,7 @@ const P = await import('./.build/meanings/phrases.mjs');
 const tableOf = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
 
 /** Which phone table each meaning's canonical words belong to. */
-const TABLE_OF = { look: 'look', water: 'water', 'lights-on': 'house', 'lights-off': 'house', timer: 'timer', docs: 'docs', sheets: 'sheets', slides: 'slides', photo: 'photoedit', video: 'video', comic: 'comic' };
+const TABLE_OF = { look: 'look', water: 'water', 'lights-on': 'house', 'lights-off': 'house', timer: 'timer', docs: 'docs', sheets: 'sheets', slides: 'slides', photo: 'photoedit', video: 'video', money: 'moneyapp', comic: 'comic' };
 
 /** What his words end up doing on the phone: a table's id when a table takes them as said, else the meaning's id, the question, or null. */
 function route(t) {

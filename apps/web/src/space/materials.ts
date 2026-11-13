@@ -50,14 +50,15 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 /** The fewest tins (UK sizes) that hold at least `litres`, said plainly. */
 export function tinsFor(litres: number): string {
   if (!(litres > 0)) return 'none';
-  // the fewest litres over what is needed, then the fewest tins (every mix of 5 L, 2.5 L and 1 L tried)
+  // the least paint left over and the fewest tins, weighed together (every mix of 5 L, 2.5 L and 1 L tried)
   let best: [number, number, number] | null = null;
   let bestKey = Infinity;
   for (let a = 0; a <= Math.ceil(litres / 5); a++) {
     for (let b = 0; b <= 2; b++) {
       const c = Math.max(0, Math.ceil(litres - a * 5 - b * 2.5 - 1e-9));
       const total = a * 5 + b * 2.5 + c;
-      const key = total * 100 + a + b + c;
+      // each extra tin weighs as much as 1.5 L left over: a 5 L and a 1 L beat four small tins for 5.2 L (small tins cost most a litre)
+      const key = total * 100 + (a + b + c) * 150;
       if (key < bestKey) {
         bestKey = key;
         best = [a, b, c];
@@ -75,7 +76,8 @@ export function materialsFor(rooms: RoomShape[], openings: Opening[], hCm: numbe
     const floor = polyArea(room.poly) / 10000;
     const per = polyPerimeter(room.poly) / 100;
     const mine = openings.filter((o) => o.room === room.id);
-    const holes = mine.reduce((s, o) => s + (Math.max(0, o.w) / 100) * (Math.min(Math.max(0, o.h), hCm) / 100), 0);
+    // only the part of an opening below the ceiling comes off the wall (a high window's sill counts)
+    const holes = mine.reduce((s, o) => s + (Math.max(0, o.w) / 100) * (Math.max(0, Math.min(Math.max(0, o.h), hCm - Math.max(0, o.sill || 0))) / 100), 0);
     const doors = mine.filter((o) => o.type === 'door').reduce((s, o) => s + Math.max(0, o.w) / 100, 0);
     const walls = Math.max(0, per * h - holes);
     const paint = ((walls + floor) * RULES.coats) / RULES.paintM2PerLitre;

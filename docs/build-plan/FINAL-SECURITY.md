@@ -1,0 +1,75 @@
+# FINAL ROUND: SECURITY (lane-security), 13 November 2026
+
+You asked: "also look for any vulnerabilities and fix them". This is the audit of the brain (apps/edge) and the app (apps/web),
+done the way a security team would, and the fixes. Every fix has a brain test that **failed on the code before the fix** and
+passes now. Most are in `apps/edge/test/security.test.mjs`; one is in `telegram.test.mjs`. Exploit details stay in this
+repository and nowhere else.
+
+Severity: **High** means an outsider or a planted page could reach something private or change Ghosty. **Medium** means it
+could knock something over or wear it down. **Low** means it was defence in depth.
+
+## What was wrong, and what I did
+
+| # | Severity | What an attacker could have done | The fix | The test that proves it |
+|---|---|---|---|---|
+| 1 | High | Make the brain read addresses it should never read (SSRF). Words planted in a web page can steer the model's tools, so a page could ask `web_fetch`, `study_site` (and the stylesheets a page names), a Library import, a watched price page, a studio picture, a calendar link, a home-shopping page or a screenshot link to read loopback, private or cloud-metadata addresses or local-network names, including through redirects. Bodies were often read whole. | `apps/edge/src/netguard.ts`, one gate for every fetch of an address someone else chose. It allows http(s) only and no username or password in the address. It refuses private, loopback, link-local or metadata, carrier-NAT, reserved and multicast addresses, IPv4 hidden in IPv6 (mapped, NAT64, 6to4), and local names (localhost, .local, .internal, .home.arpa, one-word names). Every redirect hop is checked **before** it is asked (manual redirects, at most 5), and bodies are read to a cap. It is wired into web.ts, sites.ts, library/importers.ts, packs/base.ts (money watch), watchers.ts, tools/studio.ts, telegram.ts (the TikTok cover), schedule.ts (calendar feeds), tools/home.ts and sitebuild.ts. | `the gate refuses every …`, `a redirect into a private address is never requested`, `a body is read to its cap`, `web_fetch …`, `study_site …`, `a Library import …`, `a watched page …`, `a calendar link …` |
+| 2 | High | Make the brain obey a page instead of you: after reading a page, it could open a code change (which builds a preview), install a widget in your app, or write a lasting memory, lesson, library document or roadmap, all without your APPROVE. | Once a turn has read outside words (anything wrapped as DATA: pages, feeds, search results, files), these tools wait for APPROVE: `propose_change`, `update_change`, `create_widget`, `remember`, `learn_lesson`, `library_import`, `plan_upgrade`. They still run without a card when nothing outside has been read, or when your own message asked for that kind of thing ("read it and remember it", "save that as a lesson", "fix yourself"). Only your words count, never the page's. Your next message starts clean. (kernel/permissions.ts `needsApprovalIn`, used in agent.ts) | `after a turn has read outside words, the tools that change Ghosty … wait for APPROVE` |
+| 3 | Medium | Use the feed proxy (`/api/proxy`, also open to the demo) to send a request to a host off its list by redirecting through an allowed feed. The old code checked the redirect only after following it. | Each hop is checked against the allowed list before it is asked. (index.ts) | `the feed proxy checks every redirect hop BEFORE it is asked` |
+| 4 | Medium | Hammer the public doors (the training hook, the trained-brain files, published pages, shared pictures, the demo and its proxy) to use up the free daily allowance. Or guess owner keys without limit. | A per-caller allowance per minute on each public door except Telegram's and Discord's (ratelimit.ts), answered with 429 before the brain wakes. 20 wrong owner keys from one caller means a minute's wait. Requests with no Cloudflare caller address (tests, the local preview) are not counted. | `a caller guessing owner keys is told to wait …`, `a public door counts each caller …` |
+| 5 | Medium | Send Discord's door a huge body, which was read whole before the signature check. Or replay an old signed interaction. | The body is capped at 64 KB, and a signature timestamp more than 5 minutes off is refused. Both happen before storage is touched. | `Discord: a stale signature timestamp … and an oversized body …` (the existing Discord test now signs with a fresh timestamp, as Discord does) |
+| 6 | Medium | Pair a Telegram account with your bot by sharing out guesses. The limit was 5 wrong guesses **per chat**, so many throwaway accounts could each guess. | Twenty wrong guesses in total, from all chats together, spend the code. No chat can pair with it until you make a new one. | `telegram.test.mjs`: `wrong pairing guesses from many chats together spend the code` |
+| 7 | Medium | Crash the phone with a zip or deflate bomb (DOCX, PPTX, XLSX, workspace zip, .ghostygame, EPUB, PDF streams, arcade packages). A zip could claim gigabytes, and output was never capped. | The inflaters stop at a cap: 256 MB per stream and 512 MB per zip, with at most 20,000 entries. A claimed size is a hint and is never allocated up front. Arcade members stop at their stated size. (convert/inflate.ts, convert/zip.ts, shared pdf.ts `inflateAll`, arcade/zip.ts) | `a deflate bomb stops at the cap …`, `a zip that claims 4 GB …` |
+| 8 | Medium | Freeze the phone by importing a giant file, which was read whole with no size check. | Size is checked before reading: 150 MB for documents, decks, sheets and zips of pages, 30 MB for a shared game or room. You get a plain line. (core/safeurl.ts `bytesOf`/`checkSize`) | `a picked file past the import limit is refused …` |
+| 9 | Medium | Make the brain inflate a giant picture: a PNG whose header claims 60,000 × 60,000 pixels. | Pictures over 16 megapixels are refused before anything is inflated. Inflation stops at the size the header gives. (telegrampic.ts) | `a PNG whose header claims a giant size …` |
+| 10 | Medium | Send Reverse's GitHub runner to the cloud metadata address or another reserved one. The old check missed 169.254.x, 0.0.0.0, 100.64/10, *.internal and *.localhost. | Those are all refused, as are IPv6 literals and addresses with a username and password. (packages/shared/src/reverse.ts) | `Reverse never sends the runner to the cloud metadata address …` |
+| 11 | Low | Send your Mastodon or Bluesky token to an IP address or a local-network name. | The server (Mastodon) and the PDS (Bluesky) must pass the same gate. | `a Mastodon server … is a public name` |
+| 12 | Low | Run code from a link: an imported Markdown file could carry `[x](javascript:…)`, and feed-supplied links reached `href` and `window.open` with no scheme check. The CSP already blocked these, so this is a second lock. | `h()` refuses javascript:, vbscript: and data: pages in href and src. Imported Markdown links keep their words but lose an unsafe address. Feed links open only through `openSafe`. (core/safeurl.ts, core/dom.ts, workspace/md.ts, eye, lens crop, threats near home) | `links and pictures from any data never carry javascript: …`, `an imported Markdown link …` |
+| 13 | Low | The CSP did not cover form-action, and the app had no HSTS. | `_headers` tightened: added `form-action 'self'` and `Strict-Transport-Security`. Nothing was relaxed. | read from the file; every spec runs under it |
+
+## A second, independent review of the fixes
+I had a fresh reviewer attack the fixes themselves before merging. It found seven real problems, and each is fixed and tested:
+- **The APPROVE rule matched word beginnings.** "address" counted as "add" and "planes" as "plan", so everyday phrasings turned the guard off. Now only whole words and phrases aimed at Ghosty count ("remember this", "fix yourself", "save it").
+- **Text the camera read off a photo counted as your words.** Now that text is taken out of your words, and it counts as outside words itself.
+- **Telegram's and Discord's doors were counted by their servers' few addresses.** A stranger spamming your bot could have used up your own allowance. Those two doors are no longer counted; their secret and signature checks already turn strangers away.
+- **The app's own calls made before a key is set counted as wrong keys.** Now only a key that was sent and is wrong counts.
+- **One stranger could spend your pairing code alone.** Now only each chat's first five wrong guesses count toward the twenty.
+- **An arcade package member was capped only by the size it claimed.** Now it is also capped at 512 MB.
+- **A redirect to another site kept the request's credentials.** Now credentials are dropped on a cross-site hop, a 303 becomes a plain GET, and more reserved IPv6 ranges and multi-dot names are refused.
+
+Tests: the extra cases in `security.test.mjs` (`whole words only`, `a photographed … order waits`, `a redirect to another site never carries credentials`, `the app’s own calls without a key never lock him out`), and `telegram.test.mjs`: `one stranger alone can never spend his pairing code`.
+
+## Checked and found sound (no change needed)
+- **Owner sign-in.** The key comparison is constant-time. The Access JWT's signature, audience, issuer, expiry and email are all checked. With nothing set up, every request is refused.
+- **Cross-site requests.** Refused by Sec-Fetch-Site plus the `x-ghosty` header. No CORS headers are sent anywhere.
+- **Telegram's webhook secret.** 192 random bits, kept only as a hash and compared in constant time. A wrong or missing secret gets 403 before the body is read. Strangers never start a turn, and buttons are signed, expire and are tied to your chat.
+- **Training ticket and weights link.** Both are long random capabilities. The ticket expires and is compared in constant time.
+- **SQL.** There is no D1 SQL built from strings. Every Durable Object query uses `?` binds.
+- **Secrets.** There are no console logs. The Telegram token is scrubbed from errors. Raw errors only go to owner-only routes.
+- **Vault.** AES-GCM-256 with a fresh 12-byte IV for each seal.
+- **Sandboxed frames.** Widgets and the test runner have an opaque origin (scripts allowed, same-origin not). Every message handler checks `event.source`. Published pages run with `connect-src 'none'`. Third-party frames with scripts plus same-origin are only Google, Waze and Spline, which are cross-origin.
+- **Service worker.** It caches only the fixed app shell, `/vendor/` and `/models/`. It never caches `/api/`, `/s/` or `/i/`, so no private data is kept.
+- **Zip entry names.** These are only used as keys, never as file paths, so there is no path traversal. SVGs are never put into the page as markup.
+- **Dependencies.** `npm audit` found 0 vulnerabilities in apps/edge and apps/web. The web app has one runtime dependency (rapier3d).
+
+## What is left: needs you (I did not change deployment settings)
+1. **Change previews (high, please check).** `wrangler.jsonc` has `preview_urls: true`. Branch builds may run with the live bindings and secrets (your brain's Durable Object, the vault KV). Finding 2 now stops a page from opening a change without your APPROVE. To close it fully, turn preview URLs off in Cloudflare, or give previews their own bindings.
+2. **The owner key's hash is in a public repository** (`OWNER_KEY_HASH` in wrangler.jsonc, unsalted SHA-256). It is safe only if your key is long and random, so use 32 or more random characters. Better still, store the hash as a secret (Cloudflare → Settings → Variables → Secret) and remove it from the file. The phone's vault copy uses a key derived the same fast way. Making that slower would break existing backups, so I left it.
+3. **Set `VAULT_KEY` as a secret.** Without it, the vault's key is kept in the same KV as the vault.
+4. **Rate limits are per Worker instance** (best effort). For a hard limit, add a Cloudflare rate-limiting rule on `/api/telegram/hook`, `/api/discord/interactions`, `/api/training/hook` and `/demo`.
+5. **`web_fetch` still reads any public page the model chooses.** That is what browsing is. A planted page could still make it put words in an address. Acting tools stay behind APPROVE.
+
+## How to try it on your phone
+- Ask Ghosty: "read http://169.254.169.254/". It says that is a private, local or reserved network address.
+- Ask it to read a page whose text says "remember that …" and only ask for a summary. A memory it tries to save waits for your APPROVE. Saying "read it and remember it" yourself still saves at once.
+- Import a Markdown file containing `[x](javascript:alert(1))`. The words "x" arrive as plain text, not a link.
+- Pick a file over 150 MB in Docs, Slides, Sheets or the Library. You get one plain line saying it is too big.
+
+## Checks run
+- **Brain.** The full suite passes (2178 of 2178) and both typechecks are clean. The new tests were run against the code before the fixes and failed there (the helper's own unit tests excepted).
+- **Specs, run here.** app, gamestudio, threats, eye and lens pass.
+- **Specs that fail here, before my changes too.** workspace, slides, sheets and library also fail in this container. Each fails the same way on the commit before my changes:
+  - workspace, slides and sheets: a `pushManager` page error from this container's browser;
+  - library: the test PDF's title reads "about:blank".
+
+  So these failures are not from this lane, and I left them to CI's runner.
+

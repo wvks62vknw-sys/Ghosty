@@ -8,6 +8,7 @@
  * .pptx, PDF (with notes pages if he asks) and one slide as a PNG, the size said; autosave said once; reopened where he was.
  * Everything is on the phone; nothing is sent.
  */
+import { bytesOf } from '../core/safeurl';
 import { h, clear } from '../core/dom';
 import { button, modal } from '../ui/components';
 import { sizeWords } from '../convert/bytes';
@@ -392,7 +393,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     if (/\.key$/i.test(f.name)) return say('That is a Keynote file. In Keynote choose Share, Export To, PowerPoint, and I can open that.');
     say(`Reading ${f.name} on this phone…`);
     try {
-      const r = await readPptx(new Uint8Array(await f.arrayBuffer()), f.name, (b, m) => addImageBytes(b, m));
+      const r = await readPptx(await bytesOf(f), f.name, (b, m) => addImageBytes(b, m));
       if (!r) return say('I could not open that file. Is it a PowerPoint (.pptx) from PowerPoint or Keynote?');
       slidesState.lost = r.lost;
       startDeck(r.deck, `${r.deck.title}: ${r.deck.slides.length} slide${r.deck.slides.length === 1 ? '' : 's'} read here; nothing was sent. ${lostWords(r.lost)}`.trim());
