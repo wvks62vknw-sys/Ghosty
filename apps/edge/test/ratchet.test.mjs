@@ -58,6 +58,20 @@ test('no tracked file carries a merge-conflict marker line', () => {
   assert.deepEqual(bad, [], `merge-conflict marker lines: ${bad.join(', ')}`);
 });
 
+// [ports] The browser run has one preview brain, on 8788 (check.yml starts `node tests/preview-server.mjs` with no port). Five pass specs
+// defaulted BASE to the port their builder previewed on (8829, 8832, 8838, 8840, 8841), so on CI every page they opened was refused and the
+// combined landing's check went red on all five. A spec may take another port from BASE; its default is the run's own.
+test('every browser spec that reads BASE defaults to the run\'s preview port, 8788', () => {
+  const dir = fileURLToPath(new URL('../../../tests/', import.meta.url));
+  const bad = [];
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.spec.mjs'))) {
+    for (const m of readFileSync(join(dir, f), 'utf8').matchAll(/process\.env\.BASE \?\? '([^']*)'/g)) {
+      if (m[1] !== 'http://localhost:8788' && !(f === 'apps.spec.mjs' && m[1] === 'http://localhost:0')) bad.push(`${f}: ${m[1]}`);
+    }
+  }
+  assert.deepEqual(bad, [], `specs that would open a port the run never serves: ${bad.join(', ')}`);
+});
+
 // THE STATES RATCHET (BRIEF-QUALITY-LIFE; the same shape as the colour ratchet above, but upward): for each screen of the eight packs of
 // the LIFE room, how many of the four states (empty, loading, error, offline) are designed, read from the source by the marker kept where
 // each is drawn: a `/* state: <screen> <kind> */` comment (the element itself also carries `data-state="<kind>"`, which the lifepass spec

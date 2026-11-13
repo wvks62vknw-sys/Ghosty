@@ -14,7 +14,7 @@ const { buildSync } = createRequire(new URL('../apps/web/package.json', import.m
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
-const base = process.env.BASE ?? 'http://localhost:8832';
+const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const STILL = process.env.SEE_STILL ?? 'after';
 const PHONE2 = { width: 390, height: 844 };
