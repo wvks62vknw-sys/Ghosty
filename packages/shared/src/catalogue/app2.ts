@@ -196,6 +196,17 @@ export const APP_2: Record<string, CatValue> = {
     more: 'Handy before a trip or a foreign order. Read every ten minutes.',
     say: ['How many euros for a pound?'], scene: ['money', 'out'], cat: 'know',
   },
+  // [planlane:markets]
+  'panel:markets:YOUR COINS': {
+    name: 'What your coins are worth', line: 'You can tell me what crypto you have and see what it is worth now, and how much that moved today.',
+    more: 'Your own numbers, kept on this phone only, worked out in your currency from free public prices with the time they were read. Never advice and never a forecast.',
+    say: ['I have 0.2 bitcoin', 'What are my holdings worth?', 'How are my coins doing?'], scene: ['money'], cat: 'know', since: '2026-11-13',
+  },
+  'phrase:planmarkets': {
+    name: 'Prices and your coins, by chat', line: 'You can ask what a coin or gold is at, what your coins are worth, add a coin to your watchlist, or turn pounds into euros.',
+    more: 'From CoinGecko’s free prices, each with the time it was read. Your watchlist and holdings stay on this phone. I never say buy or sell, and never guess where a price is going.',
+    say: ['What’s bitcoin at?', 'How much is gold?', 'Add solana to my watchlist', 'Convert 50 pounds to euros'], scene: ['money'], cat: 'know', since: '2026-11-13',
+  },
   // ---- MEMORY
   'panel:memory:WHAT I REMEMBER': {
     name: 'The facts I keep', line: 'You can see every fact I keep about you, add one, or remove one with a tap.',
