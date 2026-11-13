@@ -17,7 +17,6 @@
  */
 import { AuthError, brain, headers } from '../api/brain';
 import { h, svgEl } from '../core/dom';
-import { createStore } from '../core/store';
 import { docPic, eyePic, isoPic, mapWidePic } from '../show/stage';
 import { chartPic } from '../show/chartpic';
 import { partBoxes, roomBoxesOf, roomPlanFor, type PartKind } from '../show/parts';
@@ -25,8 +24,8 @@ import { eyeGlyph, key, tag, truthLine } from '../ui/machine';
 import { WALL_SAYS, wallCheck, type WallFrame, type WallPicture } from '../../../../packages/shared/src/wall';
 import { firstThing, homeWeather } from './rest';
 
-/** Is this device the wall? Kept on it; `screen` is its own name to the brain (random, made once). */
-export const wallRole = createStore({ on: false, screen: '' }, { persist: 'ghosty.wall.role' });
+import { wallRole } from './role';
+export { wallRole };
 
 /** What a test reads: window.__ghosty.thewall. */
 export const wallState = { on: false, face: 'off' as 'off' | 'unpaired' | 'paired' | 'rest' | 'show' | 'lost' | 'signin', code: '', pair: '', kind: '', sentence: '', lost: false, polls: 0, frames: 0, shownAt: 0, left: 0, fade: false, first: '', weather: '', mountMs: 0, codeMs: 0, frameAt: 0 };
@@ -88,6 +87,7 @@ function drawPicture(p: WallPicture): { el: HTMLElement; title: string; stop: ()
         if (!page.clientHeight) return;
         page.style.removeProperty('--wall-page');
         for (let fs = 2.1; fs >= 0.85 && page.scrollHeight > page.clientHeight + 1; fs -= 0.05) page.style.setProperty('--wall-page', fs.toFixed(2));
+      };
       let seen = '';
       const ro = new ResizeObserver(([e]) => {
         const box = `${Math.round(e!.contentRect.width)}x${Math.round(e!.contentRect.height)}`;
@@ -95,7 +95,6 @@ function drawPicture(p: WallPicture): { el: HTMLElement; title: string; stop: ()
       });
       ro.observe(el);
       return { el, title: String(d.title), stop: () => ro.disconnect(), fit };
-      };
     }
     case 'room':
     case 'part': {

@@ -12,7 +12,7 @@ import { presetNow, recipeEvents, recipeNow, themeKey, THEMES } from '../../stat
 import { button, panel, row, toast } from '../../ui/components';
 import { looksGallery } from '../../ui/gallery';
 import { key, stampLine } from '../../ui/machine';
-import { wallRole } from '../../wall/screen';
+import { wallRole } from '../../wall/role';
 import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { characterPanel } from './character';

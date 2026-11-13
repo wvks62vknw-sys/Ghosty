@@ -1,7 +1,7 @@
 // Ghosty service worker: shows push notifications and keeps the interface usable offline.
 // Network first, so a newly shipped version always wins; the cache is only a fallback.
 const CACHE = 'ghosty-shell-v1';
-const SHELL = ['/', '/index.html', '/app.js', '/styles.css', '/manifest.webmanifest', '/icon-192.png'];
+const SHELL = ['/', '/index.html', '/early.js', '/app.js', '/styles.css', '/manifest.webmanifest', '/icon-192.png'];
 // Every Worker the build makes (build.mjs: dist/*.worker.js) is kept with the shell, so a game that searches in one (the board games'
 // board.worker.js), the Lens's reading and the globe's textures work from the first open with no signal. A test reads this list
 // against the build's own jobs and fails on a Worker that is missing from it.

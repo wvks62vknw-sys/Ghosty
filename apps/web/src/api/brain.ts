@@ -211,10 +211,23 @@ if (typeof addEventListener === 'function') {
   addEventListener('pageshow', () => (leaving = false));
 }
 
+/**
+ * [speed] The first screen's status and conversation, asked by public/early.js while the code was still being read: taken once each, and
+ * only when this phone still holds the key (and the key copy) they were asked with; anything else is asked afresh.
+ */
+function early(method: string, path: string): Promise<Response> | null {
+  if (method !== 'GET' || typeof window === 'undefined') return null;
+  const e = (window as unknown as { __ghostyEarly?: { key: string; sealed: string; asks: Record<string, Promise<Response> | undefined> } }).__ghostyEarly;
+  const ask = e?.asks[path];
+  if (!e || !ask) return null;
+  delete e.asks[path];
+  return e.key === ownerKey.get() && e.sealed === (keyCopy.get().sealed || '') ? ask : null;
+}
+
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const t0 = stopwatch.now();
   const json = body !== undefined ? JSON.stringify(body) : undefined;
-  const r = await fetch(`/api${path}`, {
+  const r = await (early(method, path) ?? fetch(`/api${path}`, {
     method,
     headers: headers(json !== undefined ? { 'content-type': 'application/json' } : {}),
     body: json,
@@ -222,7 +235,7 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
     // A small change sent while Ghosty is being closed or put away (an UNDO bar's change made then:
     // ui/components.ts flushUndo) still reaches the brain after the page has gone.
     keepalive: method !== 'GET' && (leaving || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) && (json?.length ?? 0) < 32_000,
-  });
+  }));
   const text = await r.text();
   // The brain's round trip, as this phone sees it (core/stopwatch.ts).
   stopwatch.trip(path, stopwatch.now() - t0);
