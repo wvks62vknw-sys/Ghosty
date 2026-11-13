@@ -176,7 +176,7 @@ next one, and a wrong name is worse than asking twice.
   - the new voice wordings, and that nothing else is taken for them.
 
   The test list is protected, so they run in the existing file. The ratchet, knowledge, look, finding, abilities and catalogue
-  tests pass. The full brain suite passed before the merge (its count is in the merge commit).
+  tests pass. The full brain suite passed on the merged tree each time final was merged in, the last time 2213 of 2213.
 - **New spec `tests/lens2.spec.mjs`, at 440 × 956 and 390 × 844.** On fixture frames it proves:
   - the true colour in all seven looks, at 440;
   - every job above, including:
@@ -189,7 +189,10 @@ next one, and a wrong name is worse than asking twice.
   - every key at 44 pt, nothing sideways and no words cut.
 
   Its word is at the end of check.yml's `all=`.
-- **Specs re-run, all clean:** lens, lifeeasier, offlineeyes, seepass and phonehw.
+- **Specs re-run, all clean:** lens, lifeeasier, offlineeyes, seepass and phonehw. They were run on my branch and again on the
+  merged tree. lens2 was run three times in a row on the merged tree, each clean. One failure on the way was the spec's own: God's
+  Eye's software globe held the animation frames the waits polled on. Its waits now poll on a timer.
+- **Merged into final** at 20:33 UTC as a fast-forward. check.yml's `all=` keeps every lane's word, with lens2 at the end.
 
 ## What is left
 
