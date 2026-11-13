@@ -1,6 +1,6 @@
 /** RADIO tab: search internet radio by name, genre or country (UK first); favourites; now playing. */
 import { fetchJson } from '../../api/feed';
-import { canSetVolume, favourites, forgetRecent, lastPlayed, pauseAudio, player, playStation, recentStations, resumeAudio, setSleep, setSleepAt, setVolume, sleepLost, stopAudio, type NowPlaying, type Why } from '../../assistant/media';
+import { canSetVolume, favourites, forgetRecent, lastPlayed, onFavourites, pauseAudio, player, playStation, recentStations, resumeAudio, setSleep, setSleepAt, setVolume, sleepLost, stopAudio, type NowPlaying, type Why } from '../../assistant/media';
 import { clear, h, icon } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
@@ -311,9 +311,9 @@ export const radioTab: TabDef = {
         h('div.npart', icon(RADIO), h('span.eq', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'))),
         h('div.nptx', h('small', kicker), h('b', shown ? shown.name : 'Nothing playing'), line ? h('span', line) : '')));
       if (!shown) return;
-      const lost = now ? null : sleepLost();
+      const lost = sleepLost();
       /* state: radio.sleep error */
-      if (lost) np.body.append(h('div.note.nplost', lostLine(lost.at, lost.name)));
+      if (lost && !now) np.body.append(h('div.note.nplost', lostLine(lost.at, shown.name)));
       if (now && state === 'error') np.body.append(h('div.note.bad', whyWords(why, now.name)));
       else if (!now && offline()) np.body.append(h('div.note.bad', 'You’re offline. Radio needs a connection.'));
       const keys: (HTMLElement | string)[] = [];
@@ -381,6 +381,12 @@ export const radioTab: TabDef = {
       paintFavs();
       paintRecent();
     });
+    // a favourite kept or taken off from the chat ("save this station") shows here at once, its star the right way round
+    onFavourites(() => {
+      paintResults();
+      paintFavs();
+      paintRecent();
+    });
     const onNet = () => {
       paintNow();
       if (!offline() && !results.length && lastQuery) void go(lastQuery, lastLabel);
@@ -405,6 +411,8 @@ export const radioTab: TabDef = {
           // the end-of-hour key names the next o'clock once this hour has gone
           const hk = np.el.querySelector<HTMLButtonElement>('.npsleepk button[aria-label*="end of this hour"]');
           if (hk && hk.textContent !== hourKey(Date.now())) paintNow();
+          // the reload's lost-timer line goes once that timer would have ended
+          else if (np.el.querySelector('.nplost') && !sleepLost()) paintNow();
         }, 30_000);
         paintFavs();
         paintRecent();
