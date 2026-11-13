@@ -166,7 +166,7 @@ All on the preview, Chromium with software graphics, at 440 × 956 (and 390 × 8
 | bootpass | Every part green except THE ORB's "five states told apart with the motion off". That part was red on the base too; it was green with my change at 19:20 UTC and red again at 19:55 on the same build. The `pushManager` page errors that were red on the base are gone. |
 | hero, octideas | Green. |
 | thescan, polish1, eyehud2 | Green, rerun after the orb change. |
-| boot, bootfilm after merging the final branch | Green. |
-| The brain suite | 2,175 of 2,175, after the merge. |
+| boot, bootfilm after merging the final branch | Green (2,204 brain tests by then). On the very first run after the preview starts, boot.spec's photographed strip twice found no feed lines at 4,300 ms (the preview's feeds not answered yet); the next run on the same build was green. In CI, boot runs well after the preview has warmed up. |
+| The brain suite | 2,204 of 2,204, after the last merge. |
 | ratchet, knowledge, look tests | 43 of 43. |
 | Typecheck | Clean. |
