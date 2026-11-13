@@ -5,7 +5,7 @@
  *    with the rule table only (no model sees it, not even the shops' names), and comes back as the month's card: the top
  *    five categories and what changed. The chat shows "a statement pasted (N lines)", never the statement itself.
  *  - BODY: "count my squats", "start a run", "breathe", "stretch with me" open the phone's own screens (features/body);
- *    "had a glass of water" is kept in my brain by its own code (POST /packs/do), no model either way.
+ *    "had a glass of water" is kept on this phone (features/body/track.ts), no model and no brain.
  *  - KITCHEN: "timer 8 minutes for the pasta" (several at once) set on this phone's clock; "shopping list" opens the list;
  *    "fan 180 in conventional?" answered here.
  */
@@ -253,17 +253,14 @@ export async function learningTurn(text: string): Promise<PackReply | null> {
   return { said: text, reply, go: again(ask.view, lesson ? { shape: lesson.id } : {}) };
 }
 
-/** The body pack's words: a screen opened here, or a glass of water kept by my brain's own code. */
+/** The body pack's words: a screen opened here, or a glass of water kept on this phone. */
 export async function bodyTurn(text: string): Promise<PackReply> {
   const ask = bodyAsked(text);
   if (!ask) return { said: text, reply: 'I didn’t catch which: say "count my squats", "start a run", "breathe" or "stretch with me".' };
   if (ask.what === 'water') {
-    try {
-      const r = await brain.packDo('body', 'water', { words: text });
-      return { said: text, reply: r.text, ...(r.cards ? { cards: r.cards } : {}) };
-    } catch {
-      return { said: text, reply: 'My brain didn’t answer, so that glass isn’t kept: try again in a moment.' };
-    }
+    // [bodylane] water is kept on this phone now (features/body/track.ts), never in my brain
+    const { add } = await import('../features/body/track');
+    return { said: text, reply: add('water', ask.glasses * 250, 'words'), go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] };
   }
   const { openBody } = await import('../features/body/sheet');
   void openBody(ask.what, ask.what === 'reps' ? { exercise: ask.exercise } : ask.what === 'breathe' ? { pattern: ask.pattern } : {});

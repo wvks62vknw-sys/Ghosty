@@ -234,12 +234,29 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     location.hash = `money?${page}`;
     return answer(text, MONEY_OPENS[page], { kind: 'pack' }, opts);
   },
+  // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened
+  track: async (text, opts) => {
+    const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, ...(r.open ? { go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: r.open } }] } : {}) }, opts);
+  },
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   run: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   breathe: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   stretch: async (text, opts) => packAnswer(await bodyTurn(text), opts),
-  water: async (text, opts) => packAnswer(await bodyTurn(text), opts),
+  // [bodylane] a drink, kept on this phone by the water tracker (features/body/track.ts), in any of his wordings
+  water: async (text, opts) => {
+    const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
+    if (r) return packAnswer({ said: text, reply: r.reply, go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] }, opts);
+    return packAnswer(await bodyTurn(text), opts);
+  },
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [bodylane] the pantry and the recipe book on this phone (features/kitchen/larder.ts)
+  larder: async (text, opts) => {
+    const r = await import('../features/kitchen/larder').then((m) => m.larderTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, go: [{ id: 'kitchen', ask: -1, label: 'Open it', run: 'open_kitchen', args: { what: r.open } }] }, opts);
+  },
   shopping: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   oven: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   // [social] FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): the page's first lines, and its card to open the whole page

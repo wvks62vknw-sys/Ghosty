@@ -170,7 +170,9 @@ const chatPhrases = [];
 async function phraseOpens(page, id, packName, tag) {
   const says = await page.evaluate((s) => document.querySelector(`#pg-${s} .pkphrases`)?.dataset.says ?? '', id);
   check(says.length > 0, `${tag}: the screen lists no phrase (.pkphrases)`);
-  check(words(await txt(page, `#pg-${id} .pkphrases`)) <= 22, `${tag}: the phrases line is over one line of words`);
+  // (each screen's phrases line on its own: a screen whose pill holds several rooms has one line for each)
+  const lines = await page.$$eval(`#pg-${id} .pkphrases`, (els) => els.map((e) => e.textContent ?? ''));
+  check(lines.length > 0 && lines.every((l) => words(l) <= 22), `${tag}: a phrases line is over one line of words: ${lines.filter((l) => words(l) > 22).join(' | ')}`);
   // (the chat's door is the same at both widths: it is opened at 440)
   if (says && page.viewportSize().width === 440) chatPhrases.push({ packName, first: says.split('|')[0], tag });
 }
@@ -268,7 +270,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   await block(`body ${W}`, async () => {
     log(`body ${W}`);
     const T = `[body ${W}]`;
-    await open(page, 'body', 'Reps');
+    await open(page, 'body', 'Move');
     const P = PK('body');
     const geom = await page.evaluate(() => ({ b: document.querySelector('.pn:not([hidden]) button[aria-label="Start counting"]')?.getBoundingClientRect().bottom ?? 9999, dock: document.querySelector('#dock')?.getBoundingClientRect().top ?? 0, off: !!document.querySelector('.pn:not([hidden]) .pkstage [data-state="empty"]') }));
     check(geom.b <= geom.dock - 4, `${T} B1 START is in reach above the dock (bottom ${Math.round(geom.b)}, dock ${Math.round(geom.dock)})`);
@@ -296,7 +298,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     check((await page.evaluate(() => window.__ghosty.body.camera)) === 'off', `${T} B2 STOP puts the camera off`);
     await bar(page, `${T} reps bar`, 'body');
     // B5, B6: the run
-    await open(page, 'body', 'Run');
+    await open(page, 'body', 'Move');
     const run = await txt(page, `${P}`);
     check(/measured by the phone/.test(run) && /min per km/.test(run), `${T} B5 a run's distance is "measured by the phone" and its pace is in min per km: ${run.slice(0, 160)}`);
     const rb = await page.$$eval(`${P} button`, (b) => b.map((x) => (x.textContent ?? '').trim()));
@@ -313,20 +315,26 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     const he = await txt(page, `${P} [data-state="error"]`);
     check(/Health export/.test(he) && !/export\.xml|zip/.test(he), `${T} B8 a wrong file is said in his words: "${he}"`);
     await bar(page, `${T} health bar`, 'body');
-    // B10: water with no brain
+    // B10: water with no brain (FINAL ROUND, BODY lane: water is kept on the phone now, so it needs no brain at all): the day's
+    // amount is drawn at once, never "…", no error, and a tap keeps a glass with my brain still cut off
     await cut(page, PACKS);
     await open(page, 'body', 'Water');
-    await page.waitForTimeout(1500);
-    const wc = await txt(page, `${P} b.pkbig`);
-    check((await count(page, `${P} [data-state="error"]`)) >= 1 && wc.trim() !== '…' && !RAW.test(await txt(page, `${P} [data-state="error"]`)), `${T} B10 water with no brain says so in his words and never hangs on "…" (count: "${wc}")`);
+    await page.waitForSelector(`${P} .bt-ringbig`, { timeout: 5000 }).catch(() => undefined);
+    const wc = await txt(page, `${P} .bt-ringbig`);
+    check(/\d/.test(wc) && !wc.includes('…') && (await count(page, `${P} [data-state="error"]`)) === 0, `${T} B10 water with no brain works on the phone and never hangs on "…" (count: "${wc}")`);
+    await page.locator(`${P} button[aria-label^="Add a glass"]`).first().click().catch(() => undefined);
+    await page.waitForFunction((s) => /250 ml/.test(document.querySelector(`${s} .bt-ringbig`)?.textContent ?? ''), P, { timeout: 4000 }).catch(() => undefined);
+    const wc2 = await txt(page, `${P} .bt-ringbig`);
+    check(/^\s*250 ml\s*$/.test(wc2) && !RAW.test(await txt(page, `${P} *`)), `${T} B10 a glass is kept with no brain: "${wc2}"`);
+    await page.evaluate(() => localStorage.removeItem('ghosty.body.track'));
     await unroute(page);
     await open(page, 'body', 'Water');
     await bar(page, `${T} water bar`, 'body');
-    await open(page, 'body', 'Breathe');
+    await open(page, 'body', 'Mood');
     await bar(page, `${T} breathe bar`, 'body');
-    await open(page, 'body', 'Stretch');
+    await open(page, 'body', 'Mood');
     await bar(page, `${T} stretch bar`, 'body');
-    await open(page, 'body', 'Reps');
+    await open(page, 'body', 'Move');
     await phraseOpens(page, 'body', 'body', `${T} B11 phrases`);
   });
 
@@ -715,7 +723,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
 {
   log('body 21');
   const { ctx, page } = await phone(PHONE, { body: 21 });
-  for (const [id, pills] of [['money', ['Month', 'Budgets', 'Bills', 'Trends', 'Statement']], ['body', ['Reps', 'Run', 'Water']], ['kitchen', ['Timers', 'Shopping']], ['people', ['Your people', 'Coming up']], ['work', ['To-do', 'Interview']], ['creative', ['Music', 'Poster']], ['outside', ['Walk', 'Nearby']], ['homeadmin', ['Due', 'Bills']]]) {
+  for (const [id, pills] of [['money', ['Month', 'Budgets', 'Bills', 'Trends', 'Statement']], ['body', ['Move', 'Water']], ['kitchen', ['Timers', 'Shopping']], ['people', ['Your people', 'Coming up']], ['work', ['To-do', 'Interview']], ['creative', ['Music', 'Poster']], ['outside', ['Walk', 'Nearby']], ['homeadmin', ['Due', 'Bills']]]) {
     for (const pill of pills) {
       await open(page, id, pill);
       await page.waitForTimeout(500);

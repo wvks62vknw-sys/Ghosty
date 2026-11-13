@@ -6,6 +6,7 @@
  * stay public for a day). Each engine is named plainly and opens in a new tab: Google Lens, Bing
  * Visual Search, Yandex Images, TinEye.
  */
+import { openSafe } from '../../core/safeurl';
 import { clear, h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { clampBox, handleAt, handlePoints, moveRect, normalizeRect, resizeRect, wholeFrame, type Box, type Handle } from '../../vision/boxes';
@@ -128,7 +129,7 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
     engineUrls(shared?.url ?? 'https://example.invalid/').map((e) => {
       const open = button('OPEN', () => {
         if (!shared) return void toast('Get a link for the engines first', 'warn');
-        window.open(e.url, '_blank', 'noopener');
+        openSafe(e.url);
       });
       open.disabled = !shared;
       return h('div.rw', h('span.k', e.name), h('span.v', e.note), open);

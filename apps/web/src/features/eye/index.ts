@@ -3,6 +3,7 @@
  * floating labels, touch/mouse gestures, the zoom rail, and live public CCTV: tap a camera
  * to watch it, and while no card is open a grid shows the four cameras nearest the view.
  */
+import { openSafe } from '../../core/safeurl';
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
@@ -399,13 +400,13 @@ export const eyeTab: TabDef = {
         R('PLACE', qk.place);
         R('DEPTH', `${qk.depth.toFixed(0)} km`);
         R('TSUNAMI', qk.tsunami ? 'ADVISORY' : 'none');
-        actions.append(button('USGS ↗', () => window.open(qk.url, '_blank', 'noopener')));
+        actions.append(button('USGS ↗', () => openSafe(qk.url)));
       } else if (s.kind === 'event') {
         const e = s.ref as NaturalEvent;
         info.title.textContent = e.catName.toUpperCase();
         info.setStatus(fmt.ago(e.t), 'mid');
         R('EVENT', e.title);
-        if (e.url) actions.append(button('SOURCE ↗', () => window.open(e.url, '_blank', 'noopener')));
+        if (e.url) actions.append(button('SOURCE ↗', () => openSafe(e.url)));
       } else if (s.kind === 'launch') {
         const l = s.ref as Launch;
         info.title.textContent = 'LAUNCH';
@@ -472,7 +473,7 @@ export const eyeTab: TabDef = {
         if (d.country) R('WHERE', d.country);
         if (d.severity) R('SEVERITY', d.severity);
         if (d.from) R('SINCE', fmt.ago(d.from));
-        if (d.url) actions.append(button('GDACS ↗', () => window.open(d.url, '_blank', 'noopener')));
+        if (d.url) actions.append(button('GDACS ↗', () => openSafe(d.url)));
       } else if (s.kind === 'buoy') {
         const b = s.ref as Buoy;
         info.title.textContent = `BUOY ${b.id}`;

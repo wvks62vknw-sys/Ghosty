@@ -3,7 +3,7 @@
  * and read back, stored or deflated (Word documents, e-books, a zip of pictures). Pure and synchronous.
  */
 import { concat, crc32, utf8 } from './bytes';
-import { inflateRaw } from './inflate';
+import { inflateRaw, MAX_INFLATE } from './inflate';
 
 /** The date fields of a zip entry (DOS time, local). */
 function dosTime(d: Date): { time: number; date: number } {
@@ -66,6 +66,10 @@ export function zipStore(files: { name: string; data: Uint8Array | string }[], w
 }
 
 /** The files in a zip, by name (stored or deflated; anything else is left out). Throws when it is not a zip. */
+/** [security] The most a whole zip may open to, and the most entries it may have (a zip bomb stops here). */
+export const MAX_UNZIP_TOTAL = 512 * 1024 * 1024;
+export const MAX_UNZIP_ENTRIES = 20_000;
+
 export function unzipSync(bytes: Uint8Array): Map<string, Uint8Array> {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let eocd = -1;
@@ -80,6 +84,8 @@ export function unzipSync(bytes: Uint8Array): Map<string, Uint8Array> {
   let p = dv.getUint32(eocd + 16, true);
   const dec = new TextDecoder();
   const out = new Map<string, Uint8Array>();
+  if (count > MAX_UNZIP_ENTRIES) throw new Error('too big to open: too many files inside');
+  let total = 0;
   for (let n = 0; n < count && p + 46 <= bytes.length; n++) {
     if (dv.getUint32(p, true) !== 0x02014b50) break;
     const method = dv.getUint16(p + 10, true);
@@ -94,12 +100,18 @@ export function unzipSync(bytes: Uint8Array): Map<string, Uint8Array> {
     if (local + 30 > bytes.length || dv.getUint32(local, true) !== 0x04034b50) continue;
     const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
     const raw = bytes.subarray(start, start + csize);
+    let got: Uint8Array | null = null;
     try {
-      if (method === 0) out.set(name, raw);
-      else if (method === 8) out.set(name, inflateRaw(raw, usize));
+      if (method === 0) got = raw;
+      else if (method === 8) got = inflateRaw(raw, usize, Math.min(MAX_INFLATE, MAX_UNZIP_TOTAL - total));
     } catch {
-      /* a damaged entry is left out; the rest still read */
+      /* a damaged (or too big) entry is left out; the rest still read */
     }
+    if (got) {
+      total += got.length;
+      out.set(name, got);
+    }
+    if (total >= MAX_UNZIP_TOTAL) throw new Error('too big to open: it inflates past the limit');
   }
   return out;
 }
