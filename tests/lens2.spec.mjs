@@ -2,10 +2,11 @@
 // fixture frames (the page's own camera plays colour bars; the one view's fixture feed, window.__ghosty.oneFeed, puts what a frame
 // holds in front of it: the words the reader read, a code, a thing with how sure, a face).
 //   COLOUR   the picture is in true colour in all seven looks: the colour on screen is the camera's own (no grey filter, no wash)
-//   STATES   the eyes not on the phone (the offer with its size, on Wi-Fi, on his tap), looking, no signal: each in his words
+//   STATES   the eyes not on the phone (the offer with its size, on Wi-Fi, never fetched without his tap), no signal: each in his words
+//            (looking and waking the eyes need the eyes downloaded: lens.spec and offlineeyes prove those)
 //   TEXT     read aloud, copied; its date ADD TO AGENDA, its number CALL, its address ON THE MAP, its link OPEN, its email WRITE
 //   A SUM    solved and shown worked; an equation too
-//   A SIGN   in French: said to be French, translated by itself (the words only)
+//   A SIGN   in French: said to be French, translated by itself, the request carrying the words and no picture
 //   A BILL   the letter card, and the plate's REMIND and FILE
 //   A PAGE   SCAN IT FLAT opens SCAN's document part on the frame
 //   PRODUCT  a shop barcode looked up on the open product databases through the brain: its grade, figures per 100 g and allergens;
@@ -76,6 +77,17 @@ async function run(viewport, all) {
   await page.addInitScript(colourCamera);
   // the open product databases and the encyclopedia, as fixtures (the brain's own routes, answered here so no outside call is made)
   await page.route('**/api/lookup/barcode?code=5000159484695', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '5000159484695', kind: 'product', source: 'Open Food Facts', credit: 'Open Food Facts, ODbL', title: 'Digestive biscuits', brand: 'Fixture Bakery', quantity: '400 g', nutriscore: 'e', nutrition: { kcal: 474, sugars: 16.6, fat: 20.9, saturates: 9.6, salt: 0.95, protein: 7.1 }, allergens: ['gluten', 'milk'] }) }));
+  // the map's geocoder (through the brain's proxy) answers with the address's place; nothing else outside is reached
+  await page.route('**/api/proxy?**', (r) => {
+    const target = new URL(r.request().url()).searchParams.get('url') ?? '';
+    if (/nominatim\.openstreetmap\.org\/search/.test(target)) return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ lat: '52.4797', lon: '-1.9026', display_name: '12 High Street, Birmingham, B1 1AA, England' }]) });
+    return r.fulfill({ status: 404, body: '' });
+  });
+  // what the Lens sends to the brain, kept to check that a sign's translation carries its words and never a picture
+  const chats = [];
+  page.on('request', (q) => {
+    if (q.method() === 'POST' && /\/api\/chat$/.test(new URL(q.url()).pathname)) chats.push(q.postData() ?? '');
+  });
   await page.route('**/api/aim/about?title=*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ title: 'Big Ben', extract: 'Big Ben is the nickname for the Great Bell of the Great Clock of Westminster, at the north end of the Palace of Westminster in London.', url: 'https://en.wikipedia.org/wiki/Big_Ben' }) }));
   await page.goto(base);
   await page.fill('#pair input', 'preview-owner-key-0123456789');
@@ -167,6 +179,7 @@ async function run(viewport, all) {
   // ---- STATES: no signal, said in his words, with nothing in view
   await feed(() => window.__ghosty.oneFeed.online(false));
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'nothing' && /No signal/.test(c.line)), null, 4000, '[states] with no signal and nothing in view, no card says so');
+  await layout('no signal');
   await feed(() => window.__ghosty.oneFeed.online(true));
 
   // ---- TEXT: an event notice; read aloud, copied, and each thing in it acted on
@@ -197,10 +210,16 @@ async function run(viewport, all) {
   await page.screenshot({ path: `${out}/lens2-text-${viewport.width}.png`, fullPage: false });
   await keyIn('address', 'ON THE MAP').click();
   await until(() => /^map: 12 High Street, Birmingham B1 1AA/.test(window.__ghosty.cards.done), null, 3000, '[address] ON THE MAP did not take the address to the map');
-  // (the map finds the place itself, through the brain's geocoder: on a runner with no outside network it says it could not; the address reaching it is the Lens's part)
   await letGo();
+  // the map opens on the place (God's Eye, the map sheet titled with it)
+  await until(() => !!document.querySelector('.modal .mapsheet') && /BIRMINGHAM/i.test(document.querySelector('.modal .mbox')?.getAttribute('aria-label') ?? ''), null, 15000, `[address] the map did not open on the address: ${await page.evaluate(() => document.querySelector('.modal .mbox')?.getAttribute('aria-label') ?? 'no sheet')}`);
+  await page.locator('.modal .mhead button', { hasText: 'CLOSE' }).first().click();
+  await until(() => !document.querySelector('.modal .mapsheet'), null, 5000, '[address] the map sheet did not close');
+  // back to the Lens, as he would: the camera opens from his tap (START, when the tab did not open it)
   await page.evaluate(() => (location.hash = 'lens'));
-  await until(() => window.__ghosty.lens.camera === 'on' && window.__ghosty.lens.mode === 'lens' && !!window.__ghosty.oneFeed, null, 20000, '[back] the Lens did not open again after the map');
+  await until(() => window.__ghosty.lens.mode === 'lens' && !!window.__ghosty.oneFeed && document.querySelector('#pg-lens .lensbar')?.offsetParent !== null, null, 15000, '[back] the Lens did not come back after the map');
+  if ((await page.evaluate(() => window.__ghosty.lens.camera)) === 'off') await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
+  await until(() => window.__ghosty.lens.camera === 'on', null, 20000, '[back] the camera did not open again after the map');
   await reset();
 
   // ---- A SUM: solved and shown worked; an equation too
@@ -222,15 +241,21 @@ async function run(viewport, all) {
   await hold([TEXT_BOX]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'text' && /FRENCH/.test(c.head)), null, 4000, `[sign] the French sign's card does not say FRENCH: ${JSON.stringify((await cards()).cards.map((c) => c.head))}`);
   await until(() => window.__ghosty.one.translate.runs >= 1, null, 8000, '[sign] the French words were not sent to be translated');
+  const sent = chats.filter((b) => /SORTIE DE SECOURS/.test(b));
+  check(sent.length >= 1, `${T} [sign] no request carried the sign's words`);
+  check(sent.every((b) => !/data:image|"images":\s*\[/.test(b)), `${T} [sign] the translation request carried a picture`);
+  await layout('sign');
   await letGo();
   await reset();
 
   // ---- A BILL: the letter card and the plate's REMIND and FILE
-  await words('BRITISH GAS\nYour balance is £84.20.\nPlease pay by 14 December 2026.\nReference 4471 2290');
+  const due = new Date(Date.now() + 30 * 86_400_000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' });
+  await words(`BRITISH GAS\nYour balance is £84.20.\nPlease pay by ${due}.\nReference 4471 2290`);
   await hold([TEXT_BOX]);
   await until(() => window.__ghosty.cards.jobs[0] === 'letter', null, 4000, `[bill] the job for a bill is ${(await cards()).jobs[0]}`);
   await until(() => [...document.querySelectorAll('#pg-lens .lensplate button')].map((b) => b.textContent.trim()).join(',').includes('REMIND'), null, 4000, '[bill] the plate does not offer REMIND');
   check((await page.locator('#pg-lens .lensplate button', { hasText: 'FILE' }).count()) === 1, `${T} [bill] the plate does not offer FILE`);
+  await layout('letter');
   await letGo();
   await reset();
 
@@ -239,6 +264,7 @@ async function run(viewport, all) {
   await words(page60);
   await hold([{ ...TEXT_BOX, box: { x: 16, y: 16, w: 608, h: 448 } }]);
   await until(() => window.__ghosty.cards.jobs[0] === 'document', null, 4000, `[page] the job for a full page is ${(await cards()).jobs[0]}`);
+  await layout('page');
   await keyIn('document', 'SCAN IT FLAT').click();
   await until(() => window.__ghosty.lens.mode === 'scan', null, 5000, '[page] SCAN IT FLAT did not open SCAN');
   await letGo();
@@ -253,10 +279,12 @@ async function run(viewport, all) {
   // what a specialist food app shows: what it is, its grade, the figures per 100 g, the allergens, and whose data it is
   const want = 'Digestive biscuits · Fixture Bakery · 400 gNutri-Score EPer 100 g: 474 kcal · sugars 16.6 g · fat 20.9 g · saturates 9.6 g · salt 0.95 g · protein 7.1 gContains: gluten, milkFrom Open Food Facts (Open Food Facts, ODbL).';
   check(prod?.line === want, `${T} [product] the card says "${prod?.line}", want "${want}"`);
+  await layout('product');
   await letGo();
   await reset();
   await hold([{ kind: 'code', box: { x: 200, y: 140, w: 200, h: 200 }, score: 0.95, truth: 'a code', data: { text: 'https://example.org/menu', format: 'qr_code', codeKind: 'url' } }]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'code' && c.head === 'A LINK CODE'), null, 4000, '[qr] the QR link has no card');
+  await layout('qr');
   await keyIn('code', 'OPEN').click();
   check((await page.evaluate(() => window.__opened)).includes('https://example.org/menu'), `${T} [qr] OPEN did not open the QR code's link`);
   await letGo();
@@ -264,6 +292,7 @@ async function run(viewport, all) {
   // a Wi-Fi code: its network said, its password copied
   await hold([{ kind: 'code', box: { x: 200, y: 140, w: 200, h: 200 }, score: 0.95, truth: 'a code', data: { text: 'WIFI:T:WPA;S:HomeNet;P:secret123;;', format: 'qr_code', codeKind: 'wifi' } }]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'code' && c.head === 'A WI-FI CODE' && /^Network HomeNet · WPA/.test(c.line)), null, 4000, `[wifi] the Wi-Fi code's card: ${JSON.stringify((await cards()).cards)}`);
+  await layout('wifi');
   await keyIn('code', 'COPY PASSWORD').click();
   await until(() => /copied the Wi-Fi password/i.test(window.__ghosty.cards.done), null, 3000, '[wifi] COPY PASSWORD did not copy');
   check((await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))) === 'secret123', `${T} [wifi] the clipboard does not hold the password`);
@@ -272,6 +301,7 @@ async function run(viewport, all) {
   // a link that looks wrong (a bare number, not encrypted) is OPEN ANYWAY, its warnings said, as SCAN's card does
   await hold([{ kind: 'code', box: { x: 200, y: 140, w: 200, h: 200 }, score: 0.95, truth: 'a code', data: { text: 'http://192.168.4.20/login', format: 'qr_code', codeKind: 'url' } }]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'code' && c.keys.includes('OPEN ANYWAY') && !c.keys.includes('OPEN') && /Careful: Not secure/.test(c.line)), null, 4000, `[qr risky] the risky link's card: ${JSON.stringify((await cards()).cards)}`);
+  await layout('risky link');
   await letGo();
   await reset();
 
@@ -279,6 +309,7 @@ async function run(viewport, all) {
   const thing = (label, score) => ({ kind: 'object', box: { x: 180, y: 120, w: 280, h: 240 }, score, truth: `looks like a ${label}`, data: { label, named: true } });
   await hold([thing('mug', 0.82)]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'thing' && c.head === 'A MUG' && /^82% sure/.test(c.line)), null, 4000, `[thing] the mug's card: ${JSON.stringify((await cards()).cards)}`);
+  await layout('thing');
   await keyIn('thing', 'MEASURE IT').click();
   await until(() => window.__ghosty.lens.mode === 'measure', null, 5000, '[thing] MEASURE IT did not open the measure');
   await letGo();
@@ -289,6 +320,7 @@ async function run(viewport, all) {
   // ---- A LIVING THING: the species, from the free model that sees, on his tap
   await hold([thing('robin', 0.78)]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'living' && c.head === 'A ROBIN · 78% SURE'), null, 4000, `[living] the robin's card: ${JSON.stringify((await cards()).cards.map((c) => c.head))}`);
+  await layout('living');
   await keyIn('living', 'WHICH SPECIES').click();
   await until(() => window.__ghosty.lens.mode === 'name', null, 5000, '[living] WHICH SPECIES did not take the picture to NAME');
   // one tap: the species, from the free model that sees (the test model's robin), with how sure, and nothing kept unless he saves it
@@ -318,10 +350,12 @@ async function run(viewport, all) {
   await hold([{ kind: 'stranger', box: { x: 220, y: 100, w: 160, h: 200 }, score: 0.9, truth: 'someone I don’t know' }]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'stranger' && /I never identify a stranger/.test(c.line)), null, 4000, '[faces] the stranger is not said plainly');
   check(!(await cards()).cards.some((c) => c.job === 'known'), `${T} [faces] a stranger was given a name`);
+  await layout('stranger');
   await letGo();
   await reset();
   await hold([{ kind: 'face', box: { x: 220, y: 100, w: 160, h: 200 }, score: 0.9, truth: 'Mum', data: { label: 'Mum' } }]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'known' && c.head === 'MUM'), null, 4000, '[faces] someone he introduced is not named as he named them');
+  await layout('face');
   await letGo();
   await reset();
 
@@ -343,5 +377,5 @@ async function run(viewport, all) {
 await run({ width: 440, height: 956 }, true);
 await run({ width: 390, height: 844 }, false);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number to call, its link opened, its email to write and its address on the map; two sums worked; a French sign said and sent as words; a bill on the letter card with REMIND and FILE; a page scanned flat; a barcode looked up on Open Food Facts and a QR link opened; a mug named 82% sure and measured; a robin taken for its species; a clock tower named Big Ben with its summary; a stranger never named and Mum named as he named her; every key 44 pt, nothing sideways, no words cut.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a bill on the letter card with REMIND and FILE; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
 process.exit(problems.length ? 1 : 0);
