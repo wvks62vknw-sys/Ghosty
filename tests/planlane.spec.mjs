@@ -147,7 +147,8 @@ const today = () => {
 };
 
 // ---- 2. THE AGENDA: TO-DO and MONTH, at both sizes
-if (core) for (const vp of [PHONE, PHONE2]) {
+// (440 only: each screen's own part below proves both sizes; this keeps the run inside CI's eight minutes)
+if (core) for (const vp of [PHONE]) {
   const { ctx, page } = await phone(vp);
   await open(page, 'agenda');
   const pills = await page.$$eval('#pg-agenda .secpill', (b) => b.map((x) => x.textContent));
@@ -216,7 +217,8 @@ if (core) for (const vp of [PHONE, PHONE2]) {
 log('agenda, brief');
 
 // ---- 3. THE RADIO: sleep timer, RECENT, next and previous
-if (core) for (const vp of [PHONE, PHONE2]) {
+// (440 only: each screen's own part below proves both sizes; this keeps the run inside CI's eight minutes)
+if (core) for (const vp of [PHONE]) {
   const { ctx, page } = await phone(vp);
   await open(page, 'radio');
   await page.waitForSelector('#pg-radio .pn.stations .rw.station', { timeout: 15000 });
@@ -284,7 +286,8 @@ if (core) {
 log('social');
 
 // ---- 5. THE SEVEN LOOKS: the to-do list and the radio's keys hold in every world (44 pt, nothing sideways, nothing cut)
-if (core) for (const world of WORLDS) {
+// (each part below runs its own screen in all seven looks, The Scan at BODY 21; this loop runs only when asked for: PLANLANE_ONLY=core,looks)
+if (core && ONLY.includes('looks')) for (const world of WORLDS) {
   const seed = { 'ghosty.agenda.todo': JSON.stringify([{ id: 'w1', text: 'A to-do long enough to wrap onto a second line at body twenty-one', due: today(), done: false, at: 1 }]) };
   // (The Scan at BODY 21: his largest text)
   const { ctx, page } = await phone(PHONE2, world, seed, world === 'scan' ? 21 : 0);
@@ -307,18 +310,24 @@ log('seven looks');
 const H = { browser, phone, open, fit, check, log, pure, chat, out, base, KEY, today, PHONE, PHONE2, WORLDS, RAW, TONE, DIRECTORY };
 const partsDir = new URL('./planlane/', import.meta.url);
 const parts = existsSync(partsDir) ? readdirSync(partsDir).filter((f) => f.endsWith('.mjs')).sort() : [];
-for (const f of parts) {
-  const name = f.replace(/\.mjs$/, '');
-  if (ONLY.length && !ONLY.includes(name)) continue;
-  const m = await import(new URL(f, partsDir).href);
-  const t = Date.now();
-  try {
-    await m.run(H);
-  } catch (e) {
-    check(false, `[${name}] the part stopped: ${String(e?.stack ?? e).slice(0, 400)}`);
+// Two lanes at once (CI's eight minutes): the parts that read his diary on the shared preview brain run one after another in the first
+// (the agenda adds and removes its own event, so Home and the Brief never see it half-way); the parts whose sources are all stood in by
+// page.route run in the second. A part named in neither joins the first.
+const LANES = [['agenda', 'home', 'brief', 'house'], ['links', 'markets', 'radio', 'social']];
+const named = parts.map((f) => f.replace(/\.mjs$/, '')).filter((n) => !ONLY.length || ONLY.includes(n));
+const lanes = [named.filter((n) => !LANES[1].includes(n)).sort((a, b) => (LANES[0].indexOf(a) + 1 || 99) - (LANES[0].indexOf(b) + 1 || 99)), LANES[1].filter((n) => named.includes(n))];
+await Promise.all(lanes.map(async (lane) => {
+  for (const name of lane) {
+    const m = await import(new URL(`${name}.mjs`, partsDir).href);
+    const t = Date.now();
+    try {
+      await m.run(H);
+    } catch (e) {
+      check(false, `[${name}] the part stopped: ${String(e?.stack ?? e).slice(0, 400)}`);
+    }
+    log(`part ${name} (${((Date.now() - t) / 1000).toFixed(1)} s)`);
   }
-  log(`part ${name} (${((Date.now() - t) / 1000).toFixed(1)} s)`);
-}
+}));
 
 await browser.close();
 console.log(`${checks} checks, ${problems.length} problems`);
