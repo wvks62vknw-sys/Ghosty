@@ -85,7 +85,10 @@ const liney = (reply: string) => reply.split('\n').filter((l) => /^\s*(?:[-*•]
 
 const simShow = (sim: Sim): Show => ({ kind: 'simulation', id: `sim:${sim.kind}:${sim.title}`, tag: 'SIMULATION', title: sim.title, truth: ['FIRST ESTIMATE', 'NOT CERTIFIED', sim.kind === 'orbit' ? 'TWO-BODY ORBIT' : 'STILL AIR, ONE POINT MASS'], sim });
 const roomShow = (room: RoomAsk): Show => ({ kind: 'room', id: `room:${room.w}x${room.d}:${room.things.map((t) => t.kind + t.n).join('')}`, tag: 'ROOM', title: `Room ${room.w / 100} × ${room.d / 100} m`, truth: [room.sized ? 'YOUR SIZE' : 'SIZE ASSUMED 4 × 3 m', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], room });
-const partShow = (part: PartAsk): Show => ({ kind: 'part', id: `part:${part.kind}:${part.dims.w}x${part.dims.d}x${part.dims.h}`, tag: 'PART', title: `${part.name} ${part.dims.w} × ${part.dims.d} × ${part.dims.h} cm`, truth: [part.given.length ? `${part.given.length === 3 ? 'ALL' : part.given.length} OF 3 SIZES YOURS` : 'DEFAULT SIZE', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], part });
+const partShow = (part: PartAsk): Show =>
+  part.kind === 'engine'
+    ? { kind: 'part', id: `part:engine${part.turbo ? ':turbo' : ''}`, tag: 'ENGINE', title: part.turbo ? 'A typical engine with a turbo' : 'A typical engine', truth: ['A TYPICAL ENGINE', 'A FIRST ESTIMATE', 'NOT YOUR EXACT ENGINE'], part }
+    : { kind: 'part', id: `part:${part.kind}:${part.dims.w}x${part.dims.d}x${part.dims.h}`, tag: 'PART', title: `${part.name} ${part.dims.w} × ${part.dims.d} × ${part.dims.h} cm`, truth: [part.given.length ? `${part.given.length === 3 ? 'ALL' : part.given.length} OF 3 SIZES YOURS` : 'DEFAULT SIZE', 'BUILT FROM PARAMETERS', 'NO FREE TEXT-TO-3D'], part };
 const chartShow = (ask: string, series: Series): Show => ({ kind: 'chart', id: `chart:${series.points.map((p) => p.label).join('|')}`, tag: 'CHART', title: chartTitle(ask), truth: [`${series.points.length} NUMBERS FROM THE ANSWER`, series.kind === 'line' ? 'IN TIME ORDER' : 'AS BARS'], series });
 /**
  * A table in the reply (a Markdown table: a header, a rule, at least two rows, two columns at least), as rows of words, or null. Cells lose their

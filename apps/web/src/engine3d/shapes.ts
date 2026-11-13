@@ -4,6 +4,7 @@
  * triangles and the glTF exporter writes the same ones, so what he sees is what he gets. Pure.
  */
 import { partBoxes, PARTS, type PartKind } from '../show/parts';
+import { engineModel, poseOf, type EngineModel } from '../car/engine';
 import type { Obj } from './scene';
 
 export interface Prim {
@@ -12,6 +13,38 @@ export interface Prim {
   c: [number, number, number];
   /** Width, height, depth, metres (a cylinder and a sphere: the diameters and the height). */
   s: [number, number, number];
+  /** A turn about its own middle (x, y, z; three's XYZ order), radians: the working engine's cylinders lie along the crank. */
+  r?: [number, number, number];
+}
+
+/** The tray's engine: a typical petrol four, standing still at the top of cylinder one's power stroke (the same model the bay turns). */
+let trayModel: EngineModel | null = null;
+const tray = () => (trayModel ??= engineModel({ make: '', model: '', silhouette: 'hatchback', size: 'M', fuel: 'petrol', year: 2012, engineCc: null }));
+
+/** The engine's parts as named groups of primitives, fitted to an object's w × d × h in cm: scaled evenly to the limiting side, centred on the footprint, base on the ground. */
+export function engineParts(o: Pick<Obj, 'w' | 'd' | 'h'>): { name: string; prims: Prim[] }[] {
+  const m = tray();
+  const box = m.box;
+  const nat = [box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]];
+  const k = Math.min(o.w / 100 / nat[0]!, o.h / 100 / nat[1]!, o.d / 100 / nat[2]!);
+  const cx = (box.min[0] + box.max[0]) / 2;
+  const cz = (box.min[2] + box.max[2]) / 2;
+  const out: { name: string; prims: Prim[] }[] = [];
+  for (const p of m.pieces) {
+    if (p.passage) continue;
+    const pose = poseOf(m, p, 0);
+    const c = Math.cos(pose.rx);
+    const sn = Math.sin(pose.rx);
+    const prims: Prim[] = p.prims.map((q) => {
+      const y = q.c[1] * c - q.c[2] * sn + pose.pos[1];
+      const z = q.c[1] * sn + q.c[2] * c + pose.pos[2];
+      const x = q.c[0] + pose.pos[0];
+      const r: [number, number, number] = [(q.r?.[0] ?? 0) + pose.rx, q.r?.[1] ?? 0, q.r?.[2] ?? 0];
+      return { t: q.t, c: [(x - cx) * k, (y - box.min[1]) * k, (z - cz) * k], s: [q.s[0] * k, q.s[1] * k, q.s[2] * k], ...(r[0] || r[1] || r[2] ? { r } : {}) };
+    });
+    out.push({ name: p.inst, prims });
+  }
+  return out;
 }
 
 const PART_KINDS = new Set<string>(PARTS.map((p) => p.kind));
@@ -30,6 +63,8 @@ export function primsOf(o: Pick<Obj, 'kind' | 'w' | 'd' | 'h'>): Prim[] {
     case 'plane':
     case 'model':
       return [{ t: 'box', c: [0, h / 2, 0], s: [w, h, d] }];
+    case 'engine':
+      return engineParts(o).flatMap((p) => p.prims);
     default:
       if (PART_KINDS.has(o.kind)) return partBoxes(o.kind as PartKind, { w: o.w, d: o.d, h: o.h }).map((b) => ({ t: 'box' as const, c: b.pos, s: b.size }));
       return [{ t: 'box', c: [0, h / 2, 0], s: [w, h, d] }];
@@ -63,8 +98,9 @@ export function triangles(prims: Prim[]): TriMesh {
     return m.positions.length / 3 - 1;
   };
   for (const p of prims) {
-    const [cx, cy, cz] = p.c;
+    const [cx, cy, cz] = p.r ? [0, 0, 0] : p.c;
     const [sx, sy, sz] = p.s;
+    const from = m.positions.length;
     if (p.t === 'box') {
       for (const f of FACES) {
         const b = f.q.map((q) => vert([cx + (q[0] * sx) / 2, cy + (q[1] * sy) / 2, cz + (q[2] * sz) / 2], f.n));
@@ -124,8 +160,32 @@ export function triangles(prims: Prim[]): TriMesh {
         }
       }
     }
+    // a turned primitive was built about its own middle: turn it (three's XYZ order: Rz first, then Ry, then Rx) and put it where it goes
+    if (p.r) turnFrom(m, from, p.r, p.c);
   }
   return m;
+}
+
+function turnFrom(m: TriMesh, from: number, r: [number, number, number], at: [number, number, number]): void {
+  const [rx, ry, rz] = r;
+  const f = (v: number[], i: number) => {
+    let x = v[i]!;
+    let y = v[i + 1]!;
+    let z = v[i + 2]!;
+    [x, y] = [x * Math.cos(rz) - y * Math.sin(rz), x * Math.sin(rz) + y * Math.cos(rz)];
+    [x, z] = [x * Math.cos(ry) + z * Math.sin(ry), -x * Math.sin(ry) + z * Math.cos(ry)];
+    [y, z] = [y * Math.cos(rx) - z * Math.sin(rx), y * Math.sin(rx) + z * Math.cos(rx)];
+    v[i] = x;
+    v[i + 1] = y;
+    v[i + 2] = z;
+  };
+  for (let i = from; i < m.positions.length; i += 3) {
+    f(m.positions, i);
+    f(m.normals, i);
+    m.positions[i] = m.positions[i]! + at[0];
+    m.positions[i + 1] = m.positions[i + 1]! + at[1];
+    m.positions[i + 2] = m.positions[i + 2]! + at[2];
+  }
 }
 
 /** The turn about the vertical an object's `rot` degrees mean, in radians (three's own sense about y). */

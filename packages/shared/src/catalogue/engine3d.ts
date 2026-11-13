@@ -12,7 +12,7 @@ export const ENGINE3D_WORDS: Record<string, CatValue> = {
     name: 'The 3-D engine',
     line: 'You can tap a shape or a piece of furniture, tap the ground to put it there, then drag its handles to move, turn and size it.',
     more: 'One finger turns the view, two fingers pinch and slide it. The library has the parametric set and a shelf of free models from Objaverse (CC0 or CC BY 4.0, each listed with its licence, its author and its download size): a model is fetched only when you tap GET, and only on Wi-Fi. Save a scene, open it again, and export it to a glTF file. Every size is a first estimate, never certified.',
-    say: ['Show me a room 4 by 3 with a desk', 'Show me a desk 140 by 70'],
+    say: ['Show me a room 4 by 3 with a desk', 'Show me a desk 140 by 70', 'How does an engine work?'],
     scene: ['making'], cat: 'build',
     since: SINCE,
   },

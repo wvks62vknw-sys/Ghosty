@@ -8,7 +8,7 @@
  */
 import { roomBoxes, type Box, type RoomItem, type RoomPlan } from '../studio/room';
 
-export type PartKind = 'table' | 'desk' | 'shelf' | 'bed' | 'sofa' | 'wardrobe' | 'chair' | 'stool' | 'bench' | 'cabinet';
+export type PartKind = 'table' | 'desk' | 'shelf' | 'bed' | 'sofa' | 'wardrobe' | 'chair' | 'stool' | 'bench' | 'cabinet' | 'engine';
 /** Width, depth, height in cm. */
 export type Dims = { w: number; d: number; h: number };
 
@@ -27,6 +27,11 @@ export const PARTS: { kind: PartKind; re: RegExp; name: string; dims: Dims }[] =
 ];
 
 const partOf = (kind: PartKind) => PARTS.find((p) => p.kind === kind)!;
+
+/** The working engine (BRIEF-WORKING-ENGINE): a part of a kind of its own, not one of the ten of a room: the car's own model (car/engine.ts) turns inside the Studio. */
+export const ENGINE_PART = { kind: 'engine' as const, name: 'Engine', dims: { w: 120, d: 60, h: 70 } };
+/** "how does an engine work", "show me the four strokes", "show me a turbo", "draw me an engine". */
+const ENGINE_ASK = /\bhow (?:does|do|would) (?:an? |the |my |a car'?s |car )?(?:car |petrol |diesel )?engines? work\b|\b(?:four|4)[ -]strokes?\b|\bstrokes? (?:of|in) (?:an? |the )?engine\b|\b(?:show|draw|build|make|picture|model|explain|open)\b.{0,24}\b(?:an? |the |my )?(?:car |petrol |diesel )?engine\b|\b(?:show|draw|explain)\b.{0,20}\bturbo(?:charger)?\b/;
 
 const MAKE = /\b(?:show|draw|design|build|make|model|picture|visuali[sz]e|render|sketch|3-?d|what (?:does|would) (?:it|that|a|an|the) .{0,30}look like|lay out|furnish)\b/i;
 const NOT = /\b(?:buy|price|cost|cheap(?:est)?|where (?:can|do) i|deliver|order|sell|how much|review|best)\b/i;
@@ -70,6 +75,8 @@ function runOf(text: string): { vals: number[]; unit: string; shown: Shown } | n
 
 export interface PartAsk {
   kind: PartKind;
+  /** The engine ask named a turbo ("show me a turbo"): it opens on a turbo engine. */
+  turbo?: boolean;
   name: string;
   dims: Dims;
   /** Which of w, d, h were his and which are the stated default. */
@@ -81,6 +88,8 @@ export interface PartAsk {
 /** "show me a desk 140 by 70": a part and its size; null for a thing not in the table, a buying question, or no making word. */
 export function partAsked(ask: string): PartAsk | null {
   const t = ask.toLowerCase().replace(/[’']/g, "'");
+  // an engine: how it works, its strokes, a turbo (a room with an engine in it is not a thing)
+  if (!NOT.test(t) && ENGINE_ASK.test(t) && !ROOM_WORD.test(t)) return { kind: 'engine', name: ENGINE_PART.name, dims: { ...ENGINE_PART.dims }, given: [], unit: 'cm', ...(/\bturbo/.test(t) ? { turbo: true } : {}) };
   if (NOT.test(t) || !MAKE.test(t)) return null;
   // a room with parts in it is a room, not a part
   const hit = PARTS.map((p) => ({ p, at: t.search(p.re) })).filter((x) => x.at >= 0).sort((a, b) => a.at - b.at);
@@ -224,6 +233,24 @@ export function partBoxes(kind: PartKind, dims: Dims): Box[] {
         box('Right door', [W / 2 - 0.01, H - 0.16, 0.02], [W / 4, 0.1 + (H - 0.1) / 2, D / 2 + 0.01]),
         ...legs(0.1, 0.03),
       ];
+    case 'engine': {
+      // the Stage's picture of the working engine: its main masses as boxes (the Studio draws the real one, turning)
+      const sump = H * 0.14;
+      const block = H * 0.34;
+      const head = H * 0.2;
+      const cover = H * 0.1;
+      return [
+        box('Sump', [W * 0.5, sump, D * 0.5], [0, sump / 2, 0]),
+        box('Block', [W * 0.56, block, D * 0.6], [0, sump + block / 2, 0]),
+        box('Head', [W * 0.56, head, D * 0.62], [0, sump + block + head / 2, 0]),
+        box('Cover', [W * 0.52, cover, D * 0.5], [0, sump + block + head + cover / 2, 0]),
+        box('Inlet manifold', [W * 0.46, H * 0.12, D * 0.16], [0, sump + block + head * 0.55, -D * 0.4]),
+        box('Exhaust manifold', [W * 0.46, H * 0.12, D * 0.14], [0, sump + block + head * 0.4, D * 0.4]),
+        box('Flywheel', [W * 0.08, H * 0.55, D * 0.8], [-W * 0.34, H * 0.3, 0]),
+        box('Pulleys', [W * 0.1, H * 0.4, D * 0.5], [W * 0.34, H * 0.3, 0]),
+        box('Alternator', [W * 0.1, H * 0.16, D * 0.2], [W * 0.4, H * 0.55, -D * 0.3]),
+      ];
+    }
   }
 }
 

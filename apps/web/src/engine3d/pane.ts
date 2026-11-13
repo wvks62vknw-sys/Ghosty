@@ -11,7 +11,7 @@ import { button, toast, undo as offerUndo } from '../ui/components';
 import { Engine } from './engine';
 import { exportGltf, type Exported } from './gltf';
 import { freeShelf, forgetFile, getWords, keptFile, keptIds, loadFree, modelFile, onMobileData, waitWords, type FreeModel } from './library';
-import { bytesWords, creditsOf, ESTIMATE, MATERIALS, newScene, PARAMETRIC, PRIMITIVES, readScene, sizeWords, type Obj, type Product, type Scene } from './scene';
+import { bytesWords, creditsOf, ESTIMATE, MATERIALS, newScene, PARAMETRIC, PRIMITIVES, readScene, sizeWords, WORKING, type Obj, type Product, type Scene } from './scene';
 import { currentScene, forgetScene, restoreScene, saveAs, savedScenes, setCurrent } from './store';
 import { project } from './camera';
 import type { Tool } from './edit';
@@ -193,7 +193,7 @@ export function enginePane(view: HTMLElement): EnginePane {
       pills.append(b);
     }
     if (shelf === 'param') {
-      clear(library, h('h3.e3h', 'LIBRARY'), pills, h('p.e3note', 'Tap one, then tap the ground. Each is built from its width, depth and height.'), h('div.e3cards', ...PRIMITIVES.map(card), ...PARAMETRIC.map(card)));
+      clear(library, h('h3.e3h', 'LIBRARY'), pills, h('p.e3note', 'Tap one, then tap the ground. Each is built from its width, depth and height.'), h('div.e3cards', ...PRIMITIVES.map(card), ...PARAMETRIC.map(card), ...WORKING.map(card)));
       return;
     }
     const q = h('input.e3q', { type: 'search', placeholder: 'chair, sofa, lamp…', value: freeQuery, 'aria-label': 'Search the free models', enterKeyHint: 'search' });
@@ -480,7 +480,7 @@ export function enginePane(view: HTMLElement): EnginePane {
     set: (id: string, p: Partial<Obj>) => engine.set(id, p),
     tool: (t: Tool) => engine.setTool(t),
     arm: (kind: string) => {
-      const p = [...PRIMITIVES, ...PARAMETRIC].find((x) => x.kind === kind);
+      const p = [...PRIMITIVES, ...PARAMETRIC, ...WORKING].find((x) => x.kind === kind);
       engine.arm(p ? { kind: p.kind, label: p.name } : null);
     },
     load: (s: unknown) => {

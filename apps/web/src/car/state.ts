@@ -20,9 +20,11 @@ export interface CarNow {
   fault: FaultPick | null;
   /** The card this car came from ("car:AB12CDE", "car:standin"). */
   card: string;
+  /** Lift the engine's cover when the bay opens (SHOW ME's "how does an engine work"). */
+  cover: boolean;
 }
 
-export const carNow = createStore<CarNow>({ spec: null, whose: '', view: 'car', fault: null, card: '' });
+export const carNow = createStore<CarNow>({ spec: null, whose: '', view: 'car', fault: null, card: '', cover: false });
 
 const records = new Map<string, VehicleAnswer>();
 

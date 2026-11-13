@@ -7,8 +7,13 @@
  * cap, the brake fluid pot on the servo at the driver's side of the bulkhead, the strut tops, the hoses, the horn, the
  * wiper motor under the scuttle. Every part carries its id (car/parts.ts BAY_IDS: this file builds each one, the type
  * says so). An electric car has a motor under the cover and none of the engine's own parts.
+ *
+ * BRIEF-WORKING-ENGINE: the engine is no longer a block with a cover: car/engine.ts and car/enginemesh.ts make a working one
+ * (every part named, the crank turning), fitted into this bay's box at the stand-in's place, and this file's build table takes
+ * its parts by id (the engine's own ids come from it; the bay's other parts are built here and hang off its box).
  */
 import { merge, mesh, tag, type Mats } from './kit';
+import { WorkingEngine } from './enginemesh';
 import { PARTS, type BayId } from './parts';
 import type { CarSpec } from './spec';
 import type { Body } from './body';
@@ -45,107 +50,68 @@ export function buildBay(L: CarLib, spec: CarSpec, M: Mats, body: Body): TObject
   group.add(shell);
 
   const ev = spec.electric;
-  // the engine block, across the bay
-  const ex = 0.47;
-  const ez = -0.08;
-  const bl = { sx: Math.min(0.42, len * 0.36), sy: Math.max(0.24, Math.min(0.46, hgt - 0.17)), sz: Math.min(0.62, hw * 0.88) };
-  const [bx, , bz] = P(ex, ez, 0);
-  const by0 = b.floor + 0.06;
-  const byTop = by0 + bl.sy;
-  const bxFront = bx + bl.sx / 2;
-  const bzR = bz + bl.sz / 2;
-  const bzL = bz - bl.sz / 2;
-  group.add(box(bl.sx, bl.sy, bl.sz, ev ? M.alu : M.block, [bx, by0 + bl.sy / 2, bz], 'engine_cover'));
+  // the working engine, in its place across the bay: its box is what the hoses, the mounts and the air pipe reach for
+  const W = new WorkingEngine(L, spec, M, b);
+  group.userData.engine = W;
+  const pl = W.place;
+  const bx = (pl.min[0] + pl.max[0]) / 2;
+  const bz = (pl.min[2] + pl.max[2]) / 2;
+  const byTop = pl.max[1] - 0.1;
+  const bxFront = pl.max[0];
+  const bzR = pl.max[2];
+  const bzL = pl.min[2];
+  const yLow = pl.min[1] + 0.13;
 
   const BUILD: Record<BayId, () => TObject3D | null> = {
-    engine_cover: () => {
-      const g = new T.Group();
-      const cover = mesh(L, new T.BoxGeometry(bl.sx * 0.9, 0.055, bl.sz * 0.92), ev ? M.plastic : M.trim);
-      cover.position.set(bx, byTop + 0.03, bz);
-      const badge = mesh(L, new T.CylinderGeometry(0.035, 0.035, 0.006, 24), M.chrome);
-      badge.position.set(bx + 0.02, byTop + 0.06, bz + bl.sz * 0.15);
-      g.add(cover, badge);
-      if (ev) {
-        // the motor's orange high-voltage cables
-        g.add(mesh(L, tubeG([[bx - 0.1, byTop - 0.02, bzR], [bx - 0.18, byTop - 0.08, bzR + 0.08], [b.rear + 0.04, byTop - 0.15, bzR + 0.1]], 0.016), M.orange));
-      }
-      g.userData.cover = true;
-      return g;
+    // the engine's own parts, from the working engine (an id it does not have, such as an electric car's plugs, is null)
+    engine_cover: () => W.take('engine_cover'),
+    oil_cap: () => W.take('oil_cap'),
+    dipstick: () => W.take('dipstick'),
+    coils: () => W.take('coils'),
+    exhaust_manifold: () => W.take('exhaust_manifold'),
+    turbo: () => W.take('turbo'),
+    drive_belt: () => W.take('drive_belt'),
+    alternator: () => W.take('alternator'),
+    aircon_compressor: () => W.take('aircon_compressor'),
+    water_pump: () => W.take('water_pump'),
+    thermostat: () => W.take('thermostat'),
+    block: () => W.take('block'),
+    head: () => W.take('head'),
+    head_gasket: () => W.take('head_gasket'),
+    piston: () => W.take('piston'),
+    piston_rings: () => W.take('piston_rings'),
+    con_rod: () => W.take('con_rod'),
+    crankshaft: () => W.take('crankshaft'),
+    flywheel: () => W.take('flywheel'),
+    camshaft: () => W.take('camshaft'),
+    inlet_valve: () => W.take('inlet_valve'),
+    exhaust_valve: () => W.take('exhaust_valve'),
+    valve_spring: () => W.take('valve_spring'),
+    timing_belt: () => W.take('timing_belt'),
+    timing_tensioner: () => W.take('timing_tensioner'),
+    inlet_manifold: () => W.take('inlet_manifold'),
+    throttle_body: () => W.take('throttle_body'),
+    intercooler_pipe: () => W.take('intercooler_pipe'),
+    oil_filter: () => W.take('oil_filter'),
+    oil_pump: () => W.take('oil_pump'),
+    plugs: () => W.take('plugs'),
+    injectors: () => W.take('injectors'),
+    fuel_rail: () => W.take('fuel_rail'),
+    oil_passages: () => W.take('oil_passages'),
+    coolant_passages: () => W.take('coolant_passages'),
+    motor: () => W.take('motor'),
+    inverter: () => W.take('inverter'),
+    charger: () => W.take('charger'),
+    coolant_loop: () => W.take('coolant_loop'),
+    engine_mount: () => box(0.1, 0.08, 0.13, M.rubber, [bx, yLow + 0.1, bzR + 0.07]),
+    top_hose: () => {
+      const t = W.anchor('thermostat') ?? W.anchor('coolant_loop') ?? [bxFront - 0.03, byTop - 0.01, bzR - 0.04];
+      return mesh(L, tubeG([[b.front - 0.06, b.floor + hgt * 0.78, hw * 0.55], [bxFront + 0.12, byTop + 0.02, hw * 0.45], t], 0.022), M.hose);
     },
-    oil_cap: () => {
-      if (ev) return null;
-      const g = new T.Group();
-      g.add(cyl(0.032, 0.012, M.yellow, [bx - 0.04, byTop + 0.064, bz - bl.sz * 0.22], 'y'), cyl(0.026, 0.024, M.trim, [bx - 0.04, byTop + 0.08, bz - bl.sz * 0.22], 'y'));
-      return g;
-    },
-    dipstick: () => {
-      if (ev) return null;
-      const g = new T.Group();
-      const ring = mesh(L, new T.TorusGeometry(0.024, 0.0065, 8, 20), M.yellow);
-      ring.position.set(bxFront + 0.015, byTop + 0.04, bz + bl.sz * 0.12);
-      g.add(ring, cyl(0.004, 0.2, M.yellow, [bxFront + 0.015, byTop - 0.07, bz + bl.sz * 0.12], 'y'));
-      return g;
-    },
-    coils: () => {
-      if (ev) return null;
-      const parts = [0, 1, 2, 3].map((k) => ({ g: new T.BoxGeometry(0.05, 0.05, 0.045), at: [bx, byTop + 0.012, bzL + bl.sz * (0.2 + 0.2 * k)] as V3 }));
-      return mesh(L, merge(L, parts), M.hose);
-    },
-    exhaust_manifold: () => {
-      if (ev) return null;
-      return box(0.035, bl.sy * 0.45, bl.sz * 0.78, M.alu, [bxFront + 0.02, by0 + bl.sy * 0.62, bz]);
-    },
-    turbo: () => {
-      if (ev) return null;
-      const g = new T.Group();
-      const snail = mesh(L, new T.TorusGeometry(0.06, 0.035, 10, 24), M.alu);
-      snail.position.set(bxFront + 0.08, by0 + bl.sy * 0.55, bzL + 0.1);
-      snail.rotation.y = Math.PI / 2;
-      g.add(snail, cyl(0.045, 0.08, M.alu, [bxFront + 0.08, by0 + bl.sy * 0.55, bzL + 0.16], 'z'));
-      return g;
-    },
-    drive_belt: () => {
-      if (ev) return null;
-      const z = bzR + 0.03;
-      const pul = belt(bx, by0, bl, z);
-      const g = new T.Group();
-      g.add(mesh(L, merge(L, pul.map((p) => ({ g: new T.CylinderGeometry(p.r, p.r, 0.03, 24), at: [p.x, p.y, z] as V3, rot: [Math.PI / 2, 0, 0] as V3 }))), M.alu));
-      // the belt round the outside of the pulleys
-      const loop: V3[] = [];
-      const cx = pul.reduce((s, p) => s + p.x, 0) / pul.length;
-      const cy = pul.reduce((s, p) => s + p.y, 0) / pul.length;
-      const order = [...pul].sort((a, c) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(c.y - cy, c.x - cx));
-      for (const p of order) {
-        const a = Math.atan2(p.y - cy, p.x - cx);
-        for (const da of [-0.6, 0, 0.6]) loop.push([p.x + Math.cos(a + da) * (p.r + 0.006), p.y + Math.sin(a + da) * (p.r + 0.006), z]);
-      }
-      g.add(mesh(L, new T.TubeGeometry(new T.CatmullRomCurve3(loop.map((p) => new T.Vector3(p[0], p[1], p[2])), true), 96, 0.006, 6, true), M.hose));
-      return g;
-    },
-    alternator: () => {
-      if (ev) return null;
-      const p = belt(bx, by0, bl, 0)[1]!;
-      return cyl(0.068, 0.13, M.alu, [p.x, p.y, bzR - 0.05], 'z');
-    },
-    aircon_compressor: () => {
-      const p = belt(bx, by0, bl, 0)[2]!;
-      return cyl(0.062, 0.14, M.steel, [p.x, p.y, bzR - 0.06], 'z');
-    },
-    water_pump: () => {
-      if (ev) return null;
-      const p = belt(bx, by0, bl, 0)[3]!;
-      return cyl(0.05, 0.05, M.alu, [p.x, p.y, bzR - 0.01], 'z');
-    },
-    thermostat: () => {
-      if (ev) return null;
-      return box(0.06, 0.05, 0.06, M.alu, [bxFront - 0.03, byTop - 0.02, bzR - 0.04]);
-    },
-    engine_mount: () => box(0.1, 0.08, 0.13, M.rubber, [bx, byTop - 0.05, bzR + 0.09]),
-    top_hose: () => mesh(L, tubeG([[b.front - 0.06, b.floor + hgt * 0.78, hw * 0.55], [bxFront + 0.12, byTop + 0.02, hw * 0.45], [bxFront - 0.03, byTop - 0.01, bzR - 0.04]], 0.022), M.hose),
     heater_hoses: () => {
       if (ev) return null;
       const g = new T.Group();
-      for (const dz of [0.05, 0.12]) g.add(mesh(L, tubeG([[bx - bl.sx / 2, by0 + bl.sy * 0.7, bz + dz], [b.rear + 0.12, by0 + bl.sy * 0.85, bz + dz + 0.05], [b.rear + 0.01, by0 + bl.sy * 0.8, bz + dz + 0.08]], 0.012), M.hose));
+      for (const dz of [0.05, 0.12]) g.add(mesh(L, tubeG([[pl.min[0], yLow + 0.2, bz + dz], [b.rear + 0.12, yLow + 0.3, bz + dz + 0.05], [b.rear + 0.01, yLow + 0.28, bz + dz + 0.08]], 0.012), M.hose));
       return g;
     },
     radiator: () => box(0.035, hgt * 0.72, hw * 1.55, M.block, [b.front - 0.06, b.floor + hgt * 0.45, 0]),
@@ -189,7 +155,8 @@ export function buildBay(L: CarLib, spec: CarSpec, M: Mats, body: Body): TObject
       const [x, , z] = P(0.27, -0.6, 0);
       const y = b.top - 0.12;
       g.add(box(0.24, 0.12, 0.26, M.plastic, [x, y, z]), box(0.245, 0.01, 0.265, M.trim, [x, y + 0.035, z]));
-      g.add(mesh(L, tubeG([[x + 0.12, y, z + 0.05], [bx, byTop + 0.05, bzL + 0.08], [bx - 0.05, byTop + 0.02, bz]], 0.035), M.plastic));
+      const t = W.anchor('throttle_body') ?? [bx - 0.05, byTop + 0.02, bz];
+      g.add(mesh(L, tubeG([[x + 0.12, y, z + 0.05], [(x + t[0]) / 2, Math.max(y, t[1]) + 0.04, (z + t[2]) / 2], t], 0.035), M.plastic));
       return g;
     },
     strut_top: () => {
@@ -250,17 +217,14 @@ export function buildBay(L: CarLib, spec: CarSpec, M: Mats, body: Body): TObject
     tag(o, id);
     group.add(o);
   }
+  // the sump and the starter are the underneath's ids (car/under.ts draws them there too); the working engine has its own in the bay
+  for (const id of ['sump', 'starter'] as const) {
+    const o = W.take(id);
+    if (o) {
+      tag(o, id);
+      group.add(o);
+    }
+  }
+  group.add(W.glowRoot);
   return group;
-}
-
-/** The pulleys at the belt end of the engine: crank, alternator, aircon pump, water pump, tensioner. */
-function belt(bx: number, by0: number, bl: { sx: number; sy: number }, z: number): { x: number; y: number; r: number; z: number }[] {
-  const f = bx + bl.sx / 2;
-  return [
-    { x: bx + 0.02, y: by0 + 0.08, r: 0.075, z },
-    { x: f + 0.02, y: by0 + bl.sy * 0.82, r: 0.034, z },
-    { x: f + 0.03, y: by0 + bl.sy * 0.35, r: 0.055, z },
-    { x: bx - 0.05, y: by0 + bl.sy * 0.75, r: 0.05, z },
-    { x: bx + 0.07, y: by0 + bl.sy * 0.55, r: 0.03, z },
-  ];
 }

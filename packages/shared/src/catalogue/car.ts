@@ -9,7 +9,7 @@ import type { CatValue } from '../catalogue';
 export const CAR_WORDS: Record<string, CatValue> = {
   'studio:sample:car': {
     name: 'Your car in 3-D', line: 'You can see a car you told me about in 3-D: its shape, colour and plate, the bonnet up, a wheel off, underneath.',
-    more: 'Built from the public facts of its plate, so it is a stand-in, and I say so: the parts are where they are on most cars like it. Turn it, pinch to zoom, tap any part for what it is, a quick check and a rough cost.',
+    more: 'Built from the public facts of its plate, so it is a stand-in, and I say so: the parts are where they are on most cars like it. Turn it, pinch to zoom, tap any part for what it is, a quick check and a rough cost. With the bonnet up, lift the engine’s cover and a typical engine for a car like yours turns, its four strokes named; every size is a first estimate.',
     say: ['Show me the car', 'Open the bonnet', 'Show me the brakes', 'What’s under it?'], scene: ['making', 'talking'], cat: 'build',
     tryText: 'Opens the 3D studio on the car', since: '2026-11-01',
   },

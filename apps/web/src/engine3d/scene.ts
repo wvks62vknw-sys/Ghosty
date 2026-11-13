@@ -51,7 +51,9 @@ export const PRIMITIVES: Product[] = [
 ];
 const PART_MAT: Partial<Record<PartKind, string>> = { sofa: 'sage', bed: 'white', wardrobe: 'white', cabinet: 'white', chair: 'oak', stool: 'oak', bench: 'oak', shelf: 'oak', desk: 'oak', table: 'oak' };
 export const PARAMETRIC: Product[] = PARTS.map((p) => ({ kind: p.kind, name: p.name, w: p.dims.w, d: p.dims.d, h: p.dims.h, mat: PART_MAT[p.kind] ?? 'oak' }));
-export const PRODUCTS: Product[] = [...PRIMITIVES, ...PARAMETRIC];
+/** The working engine (BRIEF-WORKING-ENGINE): the car's own engine model (car/engine.ts) as a thing of the tray: one stands on the ground, with its parts named, and goes out in the glTF file. */
+export const WORKING: Product[] = [{ kind: 'engine', name: 'Engine', w: 120, d: 60, h: 70, mat: 'steel' }];
+export const PRODUCTS: Product[] = [...PRIMITIVES, ...PARAMETRIC, ...WORKING];
 export const productOf = (kind: string): Product | undefined => PRODUCTS.find((p) => p.kind === kind);
 
 export interface ModelRef {
@@ -197,3 +199,6 @@ export function creditsOf(s: Scene): string[] {
 }
 
 export const ESTIMATE = 'Every size here is a first estimate, never certified.';
+
+/** The working engine's credit line (it goes with its parts into the exported file): drawn here from simple shapes, typical, not anyone's exact engine. */
+export const ENGINE_CREDIT = 'A typical engine drawn by Ghosty from simple shapes: a first estimate, not your exact engine';

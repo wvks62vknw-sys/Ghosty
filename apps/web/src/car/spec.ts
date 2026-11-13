@@ -26,6 +26,8 @@ export interface CarFacts {
   fuel?: string;
   /** A body type word when the record has one ("HATCHBACK", "ESTATE", "PANEL VAN"…). */
   body?: string;
+  /** The engine's size in cc, from the MOT record, when it gave one. */
+  engineCc?: number | null;
 }
 
 export interface Paint {
@@ -93,6 +95,8 @@ export interface CarSpec {
   bed: boolean;
   dims: CarDims;
   profile: Profile;
+  /** The engine's size in cc from the MOT record, or null (the working engine then draws a typical one for the size and fuel). */
+  engineCc: number | null;
 }
 
 // ---------------------------------------------------------------- the paints
@@ -267,6 +271,7 @@ export function factsFrom(answer: VehicleAnswer | null | undefined, plate = ''):
     colour: r.colour || r.dvla?.colour || '',
     year: r.dvla?.year ?? (firstYear ? Number(firstYear) : null),
     fuel: r.fuel,
+    engineCc: typeof r.engineCc === 'number' ? r.engineCc : typeof r.dvla?.engineCc === 'number' ? r.dvla.engineCc : null,
   };
 }
 
@@ -328,6 +333,7 @@ export function specFrom(facts: CarFacts | null, plateIfNone = ''): CarSpec {
     bed: silhouette === 'pickup',
     dims: { length: d[0], width: d[1], height: d[2], wheelbase: d[3], front: d[4], rear: +(d[0] - d[3] - d[4]).toFixed(3), clearance: d[5], tyreR: d[6], rimR: d[7], tyreW: d[8] },
     profile: PROFILES[silhouette],
+    engineCc: typeof f.engineCc === 'number' && f.engineCc > 0 ? Math.round(f.engineCc) : null,
   };
 }
 

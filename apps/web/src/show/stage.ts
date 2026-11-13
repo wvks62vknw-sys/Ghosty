@@ -483,6 +483,17 @@ async function open(show: Show, facts: ShowFacts): Promise<void> {
     if (p) openWorkbench(PANEL_OF[p.kind], p);
     return;
   }
+  // the working engine opens in the 3-D Studio on the car's bay, the cover lifted and the engine turning (BRIEF-WORKING-ENGINE)
+  if (show.kind === 'part' && show.part?.kind === 'engine') {
+    const { carNow } = await import('../car/state');
+    const { specFrom } = await import('../car/spec');
+    const now = carNow.get();
+    // the car he has on show if there is one, else a typical one (a turbo engine for "show me a turbo")
+    const spec = show.part.turbo ? specFrom({ plate: '', make: '', model: '', fuel: 'Diesel', year: 2018 }) : (now.spec ?? specFrom({ plate: '', make: '', model: '', fuel: 'Petrol', year: 2012 }));
+    carNow.set({ spec, whose: now.spec === spec ? now.whose : '', view: 'bay', fault: null, card: 'car:engine', cover: true });
+    await run('open_studio', { sample: 'car', title: show.title });
+    return;
+  }
   // a room or a part opens in the 3-D engine, as a scene he can build on (BRIEF-ENGINE-3D-1)
   const { sceneFromPart, sceneFromRoom } = await import('../engine3d/ask');
   if (show.kind === 'room' && show.room) await run('open_studio', { engine: sceneFromRoom(show.room), title: show.title });

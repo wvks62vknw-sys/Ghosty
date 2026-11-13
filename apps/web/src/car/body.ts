@@ -50,6 +50,21 @@ const smooth = (a: number, b: number, t: number) => {
   return k * k * (3 - 2 * k);
 };
 
+/** The engine bay's box, in the car's coordinates (pure: the working engine is fitted into it, and its test reads it). */
+export function bayBoxOf(spec: CarSpec): Body['bay'] {
+  const s = shell(spec);
+  const p = spec.profile;
+  const bu1 = p.ws0 - 0.012;
+  return {
+    front: s.L / 2 - 0.17,
+    rear: s.xAt(p.ws0) + 0.03,
+    halfW: s.halfW(0.2) - 0.11,
+    floor: spec.dims.clearance + 0.16,
+    top: Math.min(s.top(0.06), s.top(bu1)) - 0.03,
+    axle: s.xf,
+  };
+}
+
 /** The shape maths, apart from three.js: a section at any u, a point on the skin at any (u, j, side). */
 export function shell(spec: CarSpec) {
   const d = spec.dims;
@@ -574,14 +589,7 @@ export function buildBody(L: CarLib, spec: CarSpec, M: Mats): Body {
   add('door_window', mesh(L, patch(L, s, p.a + 0.075, (p.b || p.c) - 0.016, 10.25, 14.7, -1, 0.0025, 8, 4), M.glass));
   add('door_seal', mesh(L, patch(L, s, (p.b || p.c) - 0.0145, (p.b || p.c) - 0.0105, 3.4, 10, -1, 0.002, 1, 6), M.rubber));
 
-  const bay = {
-    front: s.L / 2 - 0.17,
-    rear: s.xAt(p.ws0) + 0.03,
-    halfW: s.halfW(0.2) - 0.11,
-    floor: d.clearance + 0.16,
-    top: Math.min(s.top(0.06), s.top(bu1)) - 0.03,
-    axle: s.xf,
-  };
+  const bay = bayBoxOf(spec);
   return {
     group,
     bonnet,
