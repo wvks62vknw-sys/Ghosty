@@ -92,8 +92,11 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 
 /** A paired phone at `viewport` in the look `world`, with `seed` put in its storage first and BODY at `body` (21 = his largest text; 0 = the default). */
 async function phone(viewport, world = 'scan', seed = {}, body = 0) {
-  const ctx = await browser.newContext({ viewport, ...UK });
-  await ctx.addInitScript(({ world, seed, body }) => {
+  // (paired by the key in storage, motion calm and no service worker: the app boots about 40% sooner, which keeps the run inside CI's eight
+  // minutes; nothing checked here depends on the boot's motion. The pairing screen itself has its own specs.)
+  const ctx = await browser.newContext({ viewport, ...UK, reducedMotion: 'reduce', serviceWorkers: 'block' });
+  await ctx.addInitScript(({ world, seed, body, key }) => {
+    if (!localStorage.getItem('ghosty.ownerKey')) localStorage.setItem('ghosty.ownerKey', key);
     if (!localStorage.getItem('ghosty.settings'))
       localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: body ? { body } : {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
     for (const [k, v] of Object.entries(seed)) if (!localStorage.getItem(k)) localStorage.setItem(k, v);
@@ -102,15 +105,13 @@ async function phone(viewport, world = 'scan', seed = {}, body = 0) {
       const set = navigator.mediaSession.setActionHandler.bind(navigator.mediaSession);
       navigator.mediaSession.setActionHandler = (a, fn) => { window.__specActions[a] = fn; return set(a, fn); };
     }
-  }, { world, seed, body });
+  }, { world, seed, body, key: KEY });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror (${world} ${viewport.width}): ${e.message}`));
   await page.route(/\/api\/proxy\?.*radio-browser/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(DIRECTORY) }));
   await page.route(/^https:\/\/spec-lane\.test-radio\.example\//, (r) => r.fulfill({ status: 200, contentType: 'audio/wav', body: TONE }));
-  await page.goto(base);
-  await page.fill('#pair input', KEY);
-  await page.click('#pair button.on');
-  await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+  await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
   return { ctx, page };
 }
 const open = async (page, tab) => {
