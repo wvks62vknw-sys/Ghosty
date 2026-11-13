@@ -16,8 +16,11 @@ export interface PdfText {
   warning?: string;
 }
 
-/** Inflate zlib ('deflate') or raw deflate data; null when nothing decodes (a corrupt tail keeps what decoded). */
-export async function inflateAll(data: Uint8Array, format: 'deflate' | 'deflate-raw'): Promise<Uint8Array | null> {
+/** [security] The most one stream may inflate to (a PDF or zip bomb stops here, not at the phone's or brain's memory). */
+export const MAX_INFLATE_ALL = 256 * 1024 * 1024;
+
+/** Inflate zlib ('deflate') or raw deflate data; null when nothing decodes, or when it inflates past `max` (a corrupt tail keeps what decoded). */
+export async function inflateAll(data: Uint8Array, format: 'deflate' | 'deflate-raw', max = MAX_INFLATE_ALL): Promise<Uint8Array | null> {
   try {
     const ds = new DecompressionStream(format);
     const writer = ds.writable.getWriter();
@@ -36,6 +39,10 @@ export async function inflateAll(data: Uint8Array, format: 'deflate' | 'deflate-
       if (r.done) break;
       parts.push(r.value);
       size += r.value.length;
+      if (size > max) {
+        reader.cancel().catch(() => undefined);
+        return null;
+      }
     }
     if (!size) return null;
     const out = new Uint8Array(size);
