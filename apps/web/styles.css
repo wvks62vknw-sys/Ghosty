@@ -9248,6 +9248,6 @@ html .reportcard .rcrow > * { min-width: 0; overflow-wrap: anywhere; }
 html[data-body="21"] .reportcard .rcrow { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); row-gap: 2px; }
 html[data-body="21"] .reportcard :is(.rcline, .rcsum, .rclegend, .note) { overflow-wrap: anywhere; white-space: normal; }
 /* a "?" on the pages drawn in the new system reads in its ink on every ground (Paper too), never the shell's */
-html :is(#pg-look, .gdial-head) .pkmore summary, html :is(#pg-look, .gdial-head) .pkmore .pknote { color: var(--g-ink-2); }
+html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore summary, html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore .pknote { color: var(--g-ink-2); }
 /* ---- end POLISH 3 ---- */
 html .watchers .wrow .k { flex: none; min-width: 58px; }
