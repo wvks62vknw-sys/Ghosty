@@ -116,6 +116,8 @@ export const LOCAL_ASKS = [
   { id: 'stretch', test: (t: string) => bodyAsked(t)?.what === 'stretch' },
   { id: 'water', test: (t: string) => { const a = trackAsked(t); return bodyAsked(t)?.what === 'water' || (a?.kind === 'log' && a.m === 'water'); } },
   // [packs] the kitchen pack on the phone: timers, the shopping list, the oven line (features/kitchen)
+  // [planlane] the radio's sleep timer and stations before the kitchen's timers: "sleep timer 30 minutes" is the radio's (radioAsked never takes a plain timer)
+  { id: 'planradio', test: (t: string) => !!radioAsked(t) },
   { id: 'timer', test: (t: string) => !!timerAsked(t) },
   // [bodylane] the pantry and the recipe book, kept on this phone (features/kitchen/larder.ts)
   { id: 'larder', test: (t: string) => larderAsked(t) },
@@ -174,8 +176,8 @@ export const LOCAL_ASKS = [
   // [gamestudio] the game studio (studio-game/): "make a game", "my games", "sketch a cave room with two ledges"
   { id: 'gamestudio', test: (t: string) => !!gameAsked(t) },
   // [planlane] the agenda's to-dos and month, the radio's sleep timer and stations, markets' prices and holdings, the brief (the house has its own table above)
-  { id: 'planagenda', test: (t: string) => !!agendaAsked(t) },
-  { id: 'planradio', test: (t: string) => !!radioAsked(t) },
+  // (the WORK screen's own words, "add to my to-do: send the invoice by Friday", stay with its list in the brain)
+  { id: 'planagenda', test: (t: string) => !/^(?:please\s+)?add to my to-?do\s*:/i.test(t.trim()) && !!agendaAsked(t) },
   { id: 'planmarkets', test: (t: string) => !!marketsAsked(t) },
   { id: 'planbrief', test: (t: string) => !!briefAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
