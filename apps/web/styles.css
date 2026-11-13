@@ -9447,6 +9447,18 @@ html body .gkask button, html body .gkprops button { height: auto; min-height: v
 
 /* ==== THE PLAN AND HOME LANE (FINAL ROUND, planlane): one block per screen. Tokens only (var(--…)), no hex, no rgba(), no px radius. ==== */
 /* ==== [planlane:home] ==== */
+/* Today: an event's title and a to-do are his words, so they wrap onto a second line instead of being cut with "…"; a long single word breaks only when it must */
+html body .rctoday .rcev { height: auto; min-height: 38px; padding: 8px 0; }
+html body .rctoday .rcev .nm { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+/* the Roads and Gym tiles: the road's name and the line under it wrap too (nothing on Home is cut short) */
+html body .rcbody .rd b, html body .rcbody .rdclr { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+/* ONE INK: RECENT and FAVOURITES are whole words at BODY 21 (the label grows; the words beside it move over or under) */
+html body .inkl > .g-truth { width: auto; min-width: 96px; overflow-wrap: normal; word-break: normal; white-space: nowrap; }
+/* GROWN UP and ORBIT: the hour card's "Ask me" key grows round its words at BODY 21 (a 44 pt circle cut them at the card's edge) */
+html body #app :is(button.gnhourgo, button.orbhourgo) { width: auto; min-width: var(--g-target); padding: 0 var(--g-s-1); white-space: nowrap; }
+html body .orbhour { grid-template-columns: minmax(0, 1fr) auto; }
+/* GROWN UP: the hour card's kicker ("Tonight · on your to-do list") wraps at BODY 21 instead of ending in "…" */
+html body .gnhourtext .gnkick { white-space: normal; overflow: visible; text-overflow: clip; }
 
 /* ==== [planlane:home end] ==== */
 
