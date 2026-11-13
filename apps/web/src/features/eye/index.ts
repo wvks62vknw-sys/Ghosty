@@ -961,6 +961,15 @@ export const eyeTab: TabDef = {
     const mid = h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail);
     const hud = h('div.hud.eye', top, mid, bot);
     root.append(hud);
+    // a tapped thing's card may lie over the top of the sheet below it (styles.css, the house): never over the sheet's keys, so LEAVE
+    // MACHINE VIEW and the rest stay pressable under it. Its reach is the gap down to the keys' top, measured as the screen's parts change size
+    const reach = () => {
+      const m = mid.getBoundingClientRect();
+      const k = btns.getBoundingClientRect();
+      if (m.height && k.height) hud.style.setProperty('--eye-reach', `${Math.max(Math.round(m.height), Math.floor(k.top - m.top - 8))}px`);
+    };
+    const reachObs = new ResizeObserver(reach);
+    for (const n of [mid, bot, btns]) reachObs.observe(n);
     // THE MACHINE VIEW (machineview.ts): a mode of this globe — his city, everything moving, his things lit, the true count.
     // Its button comes first in the bar.
     machine = createMachine({ mid, top, bot, hud, places: () => mine.list(), refreshPlaces: () => mine.refresh(), select: (p) => select(p), active: () => ui.get().tab === 'eye' });

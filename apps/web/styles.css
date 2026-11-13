@@ -6603,7 +6603,8 @@ html #top .headstamp { display: none; }
      short screen leaves less than the rail's height (it never rises under the chips) */
   /* a tapped spot's card is taller than the gap the house and the page's name leave between the chips and the sheet: it may lie over the
      top of the sheet (above it, with its own close) so its buttons stay in reach, the rest scrolling inside it as before */
-  html body.housed .hud.eye .eyeinfo { z-index: 8; max-height: min(420px, calc(100% + 140px)); }
+  /* (down to the sheet's keys at most: --eye-reach is the gap from the card's top to them, eye/index.ts; LEAVE MACHINE VIEW is never under it) */
+  html body.housed .hud.eye .eyeinfo { z-index: 8; max-height: min(420px, var(--eye-reach, calc(100% + 140px))); }
   html body.housed #pg-eye .hud.eye { padding-bottom: var(--g-s-half); } /* (the sheet is the globe's own bottom bar: it stands straight on the house's edge) */
   html body.housed .hud.eye .zoomrail { top: max(0px, calc(50% - 61px)); transform: none; }
   /* the viewfinders are drawn in the screen's height (vh); the house and the page's name take about 100 px more than the old bar and
