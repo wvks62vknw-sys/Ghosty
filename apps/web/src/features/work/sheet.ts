@@ -10,6 +10,7 @@ import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { clockNow } from '../kitchen/timers';
 import { sayError } from '../../ui/hisWords';
+import { daysTo, dueWords, emptyState, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
 export type WorkWhat = 'doc' | 'interview' | 'todo';
 /** Each sheet's name, as its title and as its panel on the WORK screen (features/work/index.ts). */
@@ -57,7 +58,8 @@ function docScreen(a: Record<string, unknown>): Screen {
   const text = String(a.text ?? '').slice(0, 20_000);
   const title = String(a.title ?? 'DOCUMENT');
   workState.doc = { title, text, done: '' };
-  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Shown for you to check. Nothing is sent unless you send it yourself.');
+  const nWords = (text.match(/\S+/g) ?? []).length;
+  const status = h('p.pknote', { 'aria-live': 'polite' }, `${nWords} word${nWords === 1 ? '' : 's'}. Shown for you to check: nothing is sent unless you send it yourself.`);
   const note = (t: string) => {
     workState.doc.done = t;
     status.textContent = t;
@@ -97,6 +99,33 @@ function docScreen(a: Record<string, unknown>): Screen {
     rowButtons.push(m);
   }
   return { el: h('div.pkcol', body, h('div.pkrow', ...rowButtons), status), stop: () => undefined };
+}
+
+interface Crit {
+  words: number;
+  secs: number;
+  wpm: number;
+  length: 'short' | 'good' | 'long';
+  numbers: number;
+  names: number;
+  example: boolean;
+  star: { situation: boolean; task: boolean; action: boolean; result: boolean };
+  fillers: [string, number][];
+  next: string;
+}
+/** The brain's critique, put in plain words for him (a time said as "62 seconds, measured by the phone"): '' when it sent none. */
+function plainCritique(d: { critique?: Crit } | undefined): string {
+  const c = d?.critique;
+  if (!c) return '';
+  const len = c.length === 'good' ? 'about right. Aim for 45 to 90 seconds.' : c.length === 'short' ? 'a bit short. Aim for 45 to 90 seconds, with a real example.' : 'a bit long. Aim for 45 to 90 seconds, with your best example.';
+  const lines = [c.secs > 0 ? `You spoke for ${c.secs} seconds, measured by the phone: ${len}` : `You wrote ${c.words} words: ${len}`];
+  if (c.secs > 0 && c.words >= 20) lines.push(`Your pace was ${c.wpm} words a minute: ${c.wpm < 110 ? 'slow, which is fine if you were thinking' : c.wpm > 170 ? 'quick, so slow down a little' : 'comfortable'}.`);
+  lines.push(`You gave ${c.numbers} number${c.numbers === 1 ? '' : 's'} and ${c.names} name${c.names === 1 ? '' : 's'}. ${c.numbers + c.names + (c.example ? 1 : 0) >= 3 ? 'That sounds real.' : 'Add a figure or a name so it sounds real.'}`);
+  const miss = ([['situation', 'what was going on'], ['task', 'what you had to do'], ['action', 'what you did'], ['result', 'what came of it']] as const).filter(([k]) => !c.star[k]).map(([, w]) => w);
+  lines.push(miss.length ? `Still missing: ${miss.join(', ')}.` : 'You covered what was going on, the job, what you did and what came of it.');
+  if (c.fillers.length) lines.push(`Filler words: ${c.fillers.slice(0, 3).map(([w, n]) => `“${w}” ${n} time${n === 1 ? '' : 's'}`).join(', ')}. A short pause says it better.`);
+  lines.push(`Next time: ${c.next}`);
+  return lines.join('\n');
 }
 
 /** Interview practice: a question, his answer timed, a plain critique, the next. */
@@ -148,15 +177,26 @@ function interviewScreen(a: Record<string, unknown>): Screen {
       return;
     }
     if (spoken) box.value = spoken;
-    status.textContent = 'Looking at it…';
+    if (lacksSignal()) {
+      /* state: work.interview offline */
+      stateIn(status, 'offline', 'No signal. I look at your answer when the phone is back online.');
+      return;
+    }
+    stateIn(status, '', '');
+    /* state: work.interview loading */
+    const done = waitFor(el, 'Looking at your answer…');
     try {
       const r = await brain.packDo('work', 'critique', { text: answer, secs });
-      out.textContent = r.text;
-      workState.interview.critique = r.text;
+      const plain = plainCritique(r.data as { critique?: Crit } | undefined) || r.text;
+      out.textContent = plain;
+      workState.interview.critique = plain;
       workState.interview.answered++;
-      status.textContent = '';
+      status.textContent = 'A rough guide from your words and your time, not a verdict on you.';
     } catch (e) {
-      status.textContent = sayError(e, 'get an answer from my brain');
+      /* state: work.interview error */
+      stateIn(status, 'error', `${sayError(e, 'get an answer from my brain')} Your answer is still here.`);
+    } finally {
+      done();
     }
   };
   const ask = button('Ask it aloud', async () => {
@@ -171,6 +211,7 @@ function interviewScreen(a: Record<string, unknown>): Screen {
   const startBtn = button('Start timing', start, 'on');
   startBtn.setAttribute('aria-label', 'Start the timer for your answer');
   const done = button('Done: how was it?', () => void finish());
+  // (the critique's wait and its answer are drawn into `el`, below)
   done.setAttribute('aria-label', 'Stop the timer and critique my answer');
   const voice = button('Answer by voice', async () => {
     if (listening) return;
@@ -194,46 +235,87 @@ function interviewScreen(a: Record<string, unknown>): Screen {
     show();
   });
   show();
-  return { el: h('div.pkcol', count, q, h('div.pkhero', time, h('span.pklab', 'on this answer')), h('div.pkrow', ask, startBtn, voice), box, h('div.pkrow', done, next), out, status), stop: () => (stopTimer(), void import('../../assistant/voice').then((v) => v.stopListening()).catch(() => undefined)) };
+  const el = h('div.pkcol', count, q, h('div.pkhero', time, h('span.pklab', 'on this answer, measured')), h('div.pkrow', ask, startBtn, voice), box, h('div.pkrow', done, next), out, status);
+  return { el, stop: () => (stopTimer(), void import('../../assistant/voice').then((v) => v.stopListening()).catch(() => undefined)) };
 }
 
 /** The to-do list, ticked on the phone and kept in my brain. */
 function todoScreen(): Screen {
   const items = h('ul.pkitems', { 'aria-label': 'To-do list' });
-  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Kept in my brain: add by voice in the chat too ("add to my to-do: send the invoice by Friday").');
+  const count = h('p.pknote.pktodocount', { dataset: { case: 'keep' }, hidden: true });
+  const slot = h('div.pkcol', { 'aria-live': 'polite' });
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Kept in my brain. Add by voice too: “add to my to-do: send the invoice by Friday”.');
+  let loaded = false;
   const act = async (words: string) => {
+    if (lacksSignal()) {
+      /* state: work.todo offline */
+      if (!loaded) slot.replaceChildren(stateLine('offline', 'No signal. Your list opens when the phone is back online.'));
+      else stateIn(status, 'offline', 'No signal. I do that when the phone is back online.');
+      paint();
+      return '';
+    }
     try {
       const r = await brain.packDo('work', 'todo', { words });
       workState.todo = ((r.data as { list?: typeof workState.todo } | undefined)?.list ?? []).map((t) => ({ text: t.text, done: !!t.done, ...(t.due ? { due: t.due } : {}) }));
+      loaded = true;
       paint();
       return r.text;
     } catch (e) {
-      status.textContent = sayError(e, 'get an answer from my brain');
+      /* state: work.todo error */
+      if (!loaded) slot.replaceChildren(stateLine('error', troubleWords(false)));
+      else stateIn(status, 'error', `${sayError(e, 'get an answer from my brain')} Nothing changed.`);
+      // (a tick the brain did not take is put back)
+      paint();
       return '';
     }
   };
   const paint = () => {
+    /* state: work.todo empty */
+    if (loaded) slot.replaceChildren(...(workState.todo.length ? [] : [emptyState('Your list is clear', 'Type the next job below.')]));
+    // [moneylane] in the order a good to-do app keeps: what is late, then today, then what is coming (soonest first), then any time, then done
+    const groupOf = (t: (typeof workState.todo)[number]): number => {
+      if (t.done) return 4;
+      const n = t.due ? daysTo(t.due) : null;
+      return n === null ? 3 : n < 0 ? 0 : n === 0 ? 1 : 2;
+    };
+    const HEADS = ['LATE', 'TODAY', 'COMING UP', 'ANY TIME', 'DONE'];
+    const sorted = workState.todo.map((t, i) => ({ t, i, g: groupOf(t) })).sort((a, b) => a.g - b.g || (a.t.due ?? '').localeCompare(b.t.due ?? '') || a.i - b.i);
+    const open = workState.todo.filter((t) => !t.done).length;
+    const late = sorted.filter((x) => x.g === 0).length;
+    count.textContent = workState.todo.length ? `${open} to do${late ? ` · ${late} late` : ''}${open < workState.todo.length ? ` · ${workState.todo.length - open} done` : ''}` : '';
+    count.hidden = !workState.todo.length;
+    let last = -1;
     items.replaceChildren(
-      ...(workState.todo.length
-        ? workState.todo.map((t) => {
-            const box = h('input', { type: 'checkbox', checked: t.done, 'aria-label': `${t.text}${t.due ? `, by ${t.due}` : ''}${t.done ? ', done' : ''}` }) as HTMLInputElement;
-            box.addEventListener('change', () => void act(`${box.checked ? 'tick' : 'untick'} ${t.text}`));
-            return h(`li.pkitem${t.done ? '.done' : ''}` as 'li', h('label', box, `${t.text}${t.due ? ` · ${t.due}` : ''}`));
-          })
-        : [h('li.pknote', 'Nothing to do. Add something below.')]),
+      ...sorted.flatMap(({ t, g }) => {
+        const when = t.due ? dueWords(t.due) || t.due : '';
+        const box = h('input', { type: 'checkbox', checked: t.done, 'aria-label': `${t.text}${when ? `, ${when}` : ''}${t.done ? ', done' : ''}` }) as HTMLInputElement;
+        box.addEventListener('change', () => void act(`${box.checked ? 'tick' : 'untick'} ${t.text}`));
+        const head = g !== last && sorted.some((x) => x.g !== g) ? [h('li.pktodohead', { role: 'presentation', dataset: { group: String(g) } }, HEADS[g]!)] : [];
+        last = g;
+        return [...head, h(`li.pkitem${t.done ? '.done' : ''}${g === 0 ? '.late' : ''}` as 'li', h('label', box, `${t.text}${when ? ` · ${when}` : ''}`))];
+      }),
     );
+    clear.hidden = !workState.todo.some((t) => t.done);
   };
   const input = h('input', { type: 'text', placeholder: 'send the invoice by Friday', 'aria-label': 'Add a job', enterKeyHint: 'done' }) as HTMLInputElement;
   const add = async () => {
     if (!input.value.trim()) return;
     const words = `add: ${input.value}`;
-    input.value = '';
-    status.textContent = await act(words);
+    const t = await act(words);
+    // (what he typed stays in the box until my brain has kept it)
+    if (t) {
+      input.value = '';
+      stateIn(status, '', t);
+    }
   };
   input.addEventListener('keydown', (e) => e.key === 'Enter' && void add());
   const addBtn = button('Add', () => void add(), 'on');
   addBtn.setAttribute('aria-label', 'Add the job');
-  void act('');
-  return { el: h('div.pkcol', h('div.pkadd', input, addBtn), items, h('div.pkrow', button('Clear done', () => void act('clear done'))), status), stop: () => undefined };
+  const clear = button('Clear done', () => void act('clear done'));
+  clear.hidden = true;
+  const el = h('div.pkcol', h('div.pkadd', input, addBtn), slot, count, items, h('div.pkrow', clear), status, phrases(['interview practice', 'add to my to-do: send the invoice by Friday']));
+  /* state: work.todo loading */
+  const done = waitFor(el, 'Opening your list…');
+  void act('').finally(done);
+  return { el, stop: () => undefined };
 }
-

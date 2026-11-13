@@ -127,8 +127,29 @@ for (const world of ['scan', 'glass', 'ink']) {
   r = await rows();
   check(r.last?.v === 'None yet' && r.last.say === 'No real run has finished yet.' && /no report card yet/.test(r.card?.say ?? '') && r.happened?.say === 'Nothing has been published.', `${tag} the empty card: ${JSON.stringify(r)}`);
   await page.screenshot({ path: `${out}/trainingreal-${world}-none.png` });
+
+  // THE FIRST CHECK of a published brain (BRIEF-KERNEL-2 item 4): kept, or rolled back by itself, with the two numbers, in the log's words
+  const checkWords = "it scored 50% on the phone's own check against 60% for the brain before it";
+  const openCard = async () => {
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.evaluate(() => (location.hash = 'system'));
+    await openPanel(page, 'system', 'OFFLINE BRAIN TRAINING');
+    await page.waitForSelector('#pg-system .selftrain .trainweekly .rw[data-weekly=happened]', { timeout: 8000 }).catch(() => problems.push(`${tag} no card`));
+  };
+  const keptLines = { ...lines, happened: `${lines.happened} First check on your phone: kept (it scored 62% on the phone's own check against 58% for the brain before it).` };
+  current = status({ last: withRun.weekly.last, lines: keptLines, dueAt: T(2026, 10, 16, 8), preflight: preflightOk });
+  await openCard();
+  r = await rows();
+  check(r.happened?.v === 'Published' && /First check on your phone: kept \(it scored 62% on the phone's own check against 58% for the brain before it\)\.$/.test(r.happened.say), `${tag} the first check kept: ${JSON.stringify(r.happened)}`);
+  const backLines = { ...lines, happened: `Published, then rolled back by itself on Mon 9 Nov, 09:30 after its first check on your phone (${checkWords}). The brain before it is in use; ROLLBACK is still yours for anything else.` };
+  current = status({ last: { ...withRun.weekly.last, outcome: 'rolled-back', rolledBack: { at: T(2026, 10, 9, 9), reason: 'worse' } }, lines: backLines, dueAt: T(2026, 10, 16, 8), preflight: preflightOk });
+  await openCard();
+  r = await rows();
+  check(r.happened?.v === 'Rolled back' && r.happened.say.includes('rolled back by itself') && r.happened.say.includes('50%') && r.happened.say.includes('60%') && r.happened.say.includes('ROLLBACK is still yours'), `${tag} the first check rolled back: ${JSON.stringify(r.happened)}`);
+  check(await page.evaluate(() => [...document.querySelectorAll('#pg-system .selftrain .trainline')].every((n) => n.scrollHeight <= n.clientHeight + 1)), `${tag} the first-check sentence is cut off`);
+  await page.screenshot({ path: `${out}/trainingreal-${world}-firstcheck.png` });
   await ctx.close();
 }
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Weekly training card clean: last real run, report card, what happened, next due and pre-flight in words; CHECK FIRST shows the step that stopped; RUN NOW says what it will do and starts nothing until confirmed; honest with no run yet; Scan, Glass and Ink at 440.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Weekly training card clean: last real run, report card, what happened, next due and pre-flight in words; CHECK FIRST shows the step that stopped; RUN NOW says what it will do and starts nothing until confirmed; honest with no run yet; the first check of a published brain shown kept, or rolled back by itself with the two numbers; Scan, Glass and Ink at 440.');
 process.exit(problems.length ? 1 : 0);

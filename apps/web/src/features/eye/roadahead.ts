@@ -3,8 +3,8 @@
  * the globe (heading up, following them); the panel shows speed and heading, the nearest
  * motorway junction, and what lies in the cone ahead — live road incidents, safety-camera sites,
  * public motorway cameras to tap (opened only when tapped: the pictures are for private viewing,
- * never streamed as a driving service), and buses nearby. Nothing about the position leaves the
- * phone; the brain only ever knows the saved home.
+ * never streamed as a driving service), and buses nearby. The position itself never leaves the
+ * phone: while the globe follows it, the feeds are asked about a centre snapped to 0.02° (eye/index.ts).
  */
 import { cams, nearestCameras, type Camera } from '../../data/cameras';
 import { enforce, ENFORCE_LABEL, type EnforceCam } from '../../data/enforce';
@@ -21,6 +21,8 @@ export interface RoadAheadDeps {
   cameraView(c: Camera): HTMLElement;
   /** Fly to and select something on the globe. */
   flyTo(lat: number, lon: number, rangeKm: number): void;
+  /** No position yet: the search is the other way in. */
+  search(): void;
 }
 
 /** The nearest motorway junction within `km`, as "M6 J6 Spaghetti Junction". */
@@ -76,8 +78,9 @@ export function createRoadAhead(deps: RoadAheadDeps): { el: HTMLElement; panel: 
     clear(p.body);
     if (!m) {
       p.setStatus(roadAhead.error ? 'NO FIX' : 'WAITING FOR GPS', roadAhead.error ? 'off' : 'mid');
-      p.body.append(h('div.note', roadAhead.error || 'Waiting for your position… allow location when the phone asks.'));
-      p.body.append(h('div.row.wrap', button('STOP', stop)));
+      /* state: eye.roadahead empty */
+      p.body.append(h('div.note', { dataset: { state: 'empty', case: 'keep' } }, roadAhead.error || 'Waiting for your position. Allow location when the phone asks, or search a place.'));
+      p.body.append(h('div.row.wrap', button('SEARCH A PLACE', () => deps.search(), 'on'), button('STOP', stop)));
       return;
     }
     p.setStatus(`GPS ±${Math.round(m.accuracy)} m · ${fmt.ago(m.t)}`, m.accuracy > 100 ? 'mid' : 'ok');
@@ -113,7 +116,7 @@ export function createRoadAhead(deps: RoadAheadDeps): { el: HTMLElement; panel: 
     if (detached) acts.append(button('RE-CENTRE', () => { detached = false; globe.cam.flyTo({ lat: m.lat, lon: m.lon, range: 3, tilt: 55, hd: hd ?? globe.cam.hd }); setTimeout(follow, 2200); }, 'on'));
     acts.append(button(headingUp ? 'NORTH UP' : 'HEADING UP', () => { headingUp = !headingUp; if (!headingUp) globe.cam.target.hd = 0; paint(); }));
     acts.append(button('STOP', stop, 'warn'));
-    p.body.append(acts, h('small.dim', 'Your position stays on this phone. Motorway pictures open only when you tap them.'));
+    p.body.append(acts, h('small.dim', 'Where you are stays on this phone: the live feeds are asked only about the area around you, to the nearest two kilometres. Motorway pictures open only when you tap them.'));
   };
 
   const showCam = (c: Camera) => {
@@ -129,7 +132,7 @@ export function createRoadAhead(deps: RoadAheadDeps): { el: HTMLElement; panel: 
 
   const start = () => {
     if (!roadAhead.start()) {
-      toast(roadAhead.error || 'No location service on this device', 'warn');
+      toast(roadAhead.error || 'This phone has no location service. Search a place above instead.', 'warn');
       return;
     }
     detached = false;

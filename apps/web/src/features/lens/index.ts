@@ -14,6 +14,7 @@
  * owner's own tap (the START button, a tap that brought the tab up), never on its own: not on a
  * reload that lands on #lens, and not because the brain called open_lens.
  */
+import { beat, draws } from '../../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
@@ -39,6 +40,7 @@ import type { LensCard } from './living';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
 import { createOneMode, oneFeed, oneSelected, oneState } from './one';
+import { cardsState } from './cards';
 import { createPeopleMode, peopleState } from './people'; // [guardian] PEOPLE: his face and the people he introduces (OWNER-ISSUES 55, 56)
 import { createShapesMode, shapesState } from '../../hands/mode'; // [restc] SHAPES: hand shapes to blueprints
 import { faces } from '../../vision/faces';
@@ -53,6 +55,9 @@ import { createSoundMode } from './sound';
 import { LENS_MODES, TILES, type LensMode } from './tiles';
 import { sayError } from '../../ui/hisWords';
 export { LENS_MODES, TILES, type LensMode };
+
+/** The bar's line while the camera is off because it would not open: the words themselves are said once, in the viewfinder. */
+const CAMERA_OFF = 'camera off · START to try again';
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -92,6 +97,8 @@ export interface LensState {
 export interface ModeOpts {
   /** A picture to work on (a crop from SEE, a photo for READ, the picture ASK sends). */
   still?: HTMLCanvasElement;
+  /** NAME: name the living thing in `still` at once, as this kind (the one view's WHICH SPECIES: one tap, no second choice). */
+  living?: 'plant' | 'bird' | 'insect' | 'other';
   /** Capture a still from the camera on entering (HANDS → READ). */
   capture?: boolean;
   question?: string;
@@ -197,6 +204,8 @@ function expose(): void {
     w.__ghosty.lens = lensState;
     // the one view's tags, its budgets and its mark, for the specs
     w.__ghosty.one = oneState;
+    // the cards the one view draws for each job it understands (cards.ts), for the specs
+    w.__ghosty.cards = cardsState;
     // a fixture feed of tags for the specs, only under a test runner
     if (navigator.webdriver) w.__ghosty.oneFeed = oneFeed;
     // PEOPLE's state and the face engine (whose only way in is the live camera), for the specs
@@ -247,7 +256,7 @@ export const lensTab: TabDef = {
   title: 'LENS',
   icon: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   scene: 'backdrop',
-  blurb: 'point it and I tag what I see · read · scan · name · ask · measure · hands · sound',
+  blurb: 'point it and I know the job: words, dates, numbers, sums, codes, products, things, plants, places, a page, people you introduced · read · translate · scan · measure · hands · sound',
   mount(root) {
     const S = lensState;
     /** What the Lens can say about the picture, in order of worth: NAME's closest names for the thing (never a person), what is
@@ -497,8 +506,9 @@ export const lensTab: TabDef = {
           S.error = cameraMessage(e);
           startBtn.textContent = 'START';
           syncBar();
-          L.status(S.error, 'off');
-          toast(S.error, 'warn');
+          // (said once, in the viewfinder; the bar only points at START. AIM and SOUND draw no viewfinder, so they get the toast)
+          L.status(CAMERA_OFF, 'off');
+          if (S.mode === 'aim' || S.mode === 'sound') toast(S.error, 'warn');
         }
       },
       stopCamera() {
@@ -597,7 +607,7 @@ export const lensTab: TabDef = {
     const cameraLine = () => {
       if (S.camera === 'on') L.status(S.frozen ? 'frozen · tap a box or an action' : 'live', S.frozen ? 'mid' : 'ok');
       else if (S.camera === 'starting') L.status('opening the camera…', 'mid');
-      else if (S.camera === 'error') L.status(S.error, 'off');
+      else if (S.camera === 'error') L.status(CAMERA_OFF, 'off');
       else L.status('camera off · START to open it', undefined);
     };
     /** No live picture and no still: say so in the viewfinder (AIM and SOUND draw their own there). */
@@ -606,14 +616,19 @@ export const lensTab: TabDef = {
       empty.hidden = !blank;
       if (!blank) return;
       const photo = ['read', 'name', 'scan', 'measure'].includes(S.mode) ? ' Or PICK PHOTO below to use one from your phone.' : '';
+      /* state: lens.camera empty */
+      /* state: lens.camera loading */
+      /* state: lens.camera error */
+      empty.dataset.state = S.camera === 'starting' ? 'loading' : S.camera === 'error' ? 'error' : 'empty';
       emptyTitle.textContent = S.camera === 'starting' ? 'Opening the camera…' : S.camera === 'error' ? 'The camera did not open' : 'Camera off';
-      emptyText.textContent = S.camera === 'starting' ? '' : S.camera === 'error' ? `${S.error}.${photo}` : S.mode === 'lens' ? 'Tap START, then point it: I tag the text, codes and things I see.' : `Tap START to look through it.${photo}`;
+      emptyText.textContent = S.camera === 'starting' ? '' : S.camera === 'error' ? `${S.error}${/[.!?]$/.test(S.error) ? '' : '.'}${photo}` : S.mode === 'lens' ? 'Tap START, then point it: I tag the text, codes and things I see.' : `Tap START to look through it.${photo}`;
     };
     syncBar();
     const photoBtn = button('PHOTO TOOLS', () => {
       if (!shown) return void toast('Take or pick a photo first', 'warn');
       S.lastAction = 'photo tools';
-      openPhotoTools({ still: shown });
+      // the photo editor (BRIEF-EDITOR-PHOTO), landing on BRAIN: its three keys are these photo tools
+      void import('../photo').then((m) => m.openPhotoEditor({ still: shown, tool: 'brain' }));
     }, 'on');
     photoBtn.hidden = true;
     photoBtn.classList.add('lensphoto');
@@ -622,7 +637,7 @@ export const lensTab: TabDef = {
       moreOpen = !moreOpen;
       syncMore();
     }, 'lensmore');
-    moreBtn.setAttribute('aria-label', 'More: the tools, hands, aim, measure, sound, shapes, people, and the acts, read, ask, name, scan, see');
+    moreBtn.setAttribute('aria-label', 'More: tell me to do something else instead: read, ask, name, scan, see, measure, people, hands, aim, sound, shapes');
     const backBtn = button('‹ LENS', () => setMode('lens'), 'on');
     backBtn.setAttribute('aria-label', 'Back to the Lens: the camera with my marks');
     backBtn.classList.add('lensback');
@@ -655,7 +670,11 @@ export const lensTab: TabDef = {
 
     // ---- the frame loop: the one scheduler, nothing of our own
     onFrame((_dt, now) => {
-      if (!L.active() || S.camera !== 'on') return;
+      // [health] the Lens draws while the camera is on: a frame that stays frozen is told (core/crash.ts)
+      const drawing = L.active() && S.camera === 'on';
+      draws('lens', drawing);
+      if (!drawing) return;
+      beat('lens');
       mode?.tick?.(now);
     });
 

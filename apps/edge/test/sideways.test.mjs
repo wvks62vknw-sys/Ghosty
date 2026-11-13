@@ -408,7 +408,7 @@ test('Telegram carries the same card as text — title · line · the deep link 
     assert.equal(await TG.telegramNotify(host, { kind: 'task', title: 'Good morning', text: morning.line, card: morning }), true);
     assert.equal(sent.at(-1), '✦ Good morning · Rain likely from 15:00 · nothing in your diary today · https://ghosty.example/#brief');
     await TG.telegramNotify(host, { kind: 'reminder', title: 'Reminder', text: 'Call Mum' });
-    assert.equal(sent.at(-1), '⏰ Reminder\nCall Mum');
+    assert.match(sent.at(-1), /^Reminder: Call Mum\nIt was due at \d\d:\d\d UTC\.$/, 'a head in words, the reminder, and when');
   } finally {
     globalThis.fetch = real;
   }

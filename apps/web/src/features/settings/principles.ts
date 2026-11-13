@@ -6,11 +6,16 @@
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, row, toast } from '../../ui/components';
+import { waiting } from '../../ui/wait';
+import { PRINCIPLES_EMPTY, PRINCIPLES_ERROR, PRINCIPLES_LOADING } from './words';
 
 export function principlesEditor(): { el: HTMLElement; refresh(): void } {
   let lines: string[] = [];
   let max = 8;
+  let loaded = false;
+  let failed = false;
   const list = h('div.princlist');
+  let host: HTMLElement;
   const input = h('input', { type: 'text', maxLength: 160, placeholder: 'A line I hold to, in your words', 'aria-label': 'A new principle', enterKeyHint: 'done' });
   const add = button('ADD', () => void save([...lines, input.value]).then((ok) => ok && (input.value = '')));
   input.addEventListener('keydown', (e) => e.key === 'Enter' && add.click());
@@ -26,7 +31,7 @@ export function principlesEditor(): { el: HTMLElement; refresh(): void } {
             r.append(x);
             return r;
           })
-        : [h('p.note.princempty', 'Nothing here yet. Give me the lines I hold to, in your own words — I keep to them even when you push.')]),
+        : [failed ? /* state: settings.principles error */ h('p.note.bad.princerr', PRINCIPLES_ERROR) : h('p.note.princempty', /* state: settings.principles empty */ PRINCIPLES_EMPTY)]),
     );
     add.disabled = lines.length >= max;
     input.disabled = lines.length >= max;
@@ -43,22 +48,34 @@ export function principlesEditor(): { el: HTMLElement; refresh(): void } {
       paint();
       return true;
     } catch (e) {
-      const said = (e as { status?: number })?.status === 400 ? "I won't keep that: it looks like a password, key or card number." : "Not saved: I can't reach my brain right now. Try again in a moment.";
+      const said = (e as { status?: number })?.status === 400 ? "I won't keep that: it looks like a password, key or card number." : "Not saved: I can't reach my brain right now; try again in a moment.";
       toast(said, 'bad');
       return false;
     }
   };
 
   const refresh = () => {
+    // a first read says what it is doing; later reads are quiet
+    /* state: settings.principles loading */
+    const done = loaded ? () => undefined : waiting(host, PRINCIPLES_LOADING);
     void brain
       .principles()
       .then((r) => {
         lines = Array.isArray(r.lines) ? r.lines : lines;
         max = r.max || max;
+        loaded = true;
+        failed = false;
+        done();
         paint();
       })
-      .catch(() => undefined); // offline: what is on screen stays
+      .catch(() => {
+        // offline: what is on screen stays, and with nothing on screen the line says why
+        done();
+        failed = !lines.length;
+        paint();
+      });
   };
   paint();
-  return { el: h('div.princ', list, h('div.keyrow.wrapit', input, add)), refresh };
+  host = h('div.princ', list, h('div.keyrow.wrapit', input, add));
+  return { el: host, refresh };
 }

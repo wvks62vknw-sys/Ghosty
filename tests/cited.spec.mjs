@@ -103,7 +103,8 @@ if (tiers[0]?.word !== 'PRIMARY' || !tiers[0]?.shown || tiers[1]?.word !== 'UNKN
 const labels = await reply.locator('.citedtext .clabel').allInnerTexts();
 if (labels.join('|') !== 'established fact|established fact|contested|contested') problems.push(`claim labels: ${JSON.stringify(labels)}`);
 const check = ((await reply.locator('.citecheck').textContent().catch(() => '')) ?? '').trim();
-if (!/^✓ 2 of 4 claims found in the sources · 2 established, 2 contested/.test(check) || !(await reply.locator('.citecheck.warn').count())) problems.push(`check line: "${check}"`);
+// (the CHAT pass: the check line in words, 2 of 4 things I said are in the sources, the 2 that are not marked, and the claims' labels counted after it)
+if (!/^2 of 4 things I said are in the sources; the 2 that aren’t are marked\. · 2 established, 2 contested/.test(check) || !(await reply.locator('.citecheck.warn').count()) || !(await reply.locator('mark.unconf').count())) problems.push(`check line: "${check}"`);
 if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) problems.push('the cited reply scrolls sideways');
 await page.screenshot({ path: `${out}/cited-phone.png` });
 
@@ -116,8 +117,9 @@ else {
   await tab.close();
 }
 await reply.locator('.citedtext .cite.miss').last().click();
-const warned = await page.locator('.toast', { hasText: 'never looked up' }).first().waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false);
-if (!warned) problems.push('a chip for a source never looked up did not warn');
+// (the CHAT pass: a sheet that stays, not a toast that goes: what to do with what the source backs, and a 44 pt key to copy its address when it has one)
+const warned = await page.locator('.modal .citedoc', { hasText: 'I never opened source' }).first().waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false);
+if (!warned) problems.push('a chip for a source never looked up did not say so');
 }
 
 // 4. after a reload the brain's history brings the chips back

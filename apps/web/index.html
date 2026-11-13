@@ -15,6 +15,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
+<!-- [speed] what the first screen asks for first (main.ts boot: the Earth data and the brain's health, asked together), asked while the page's
+     code is still being read, so their round trip is not added to it; the code's own fetch() of each takes the answer already on its way -->
+<link rel="preload" href="/data/world.json" as="fetch" crossorigin="anonymous">
+<link rel="preload" href="/api/health" as="fetch" crossorigin="anonymous">
+<!-- (and the two that need his key, by a small script of its own: public/early.js) -->
+<script src="/early.js" async></script>
 </head>
 <body>
 <canvas id="gl"></canvas>

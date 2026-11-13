@@ -74,11 +74,13 @@ const cardsOf = (page, a) => page.$$eval(`#pg-area-${a} .hubgrid > *`, (els) => 
 const barTop = (page) => page.$eval('#dock .tabcap', (e) => e.getBoundingClientRect().top);
 const num = (t) => Number(String(t ?? '').replace(/[^\d]/g, ''));
 
-// what each hub holds, every tool of its area as a card (shell/areas.ts AREAS; Ask adds Voice). Since 1 Nov, night
+// what each hub holds, every tool of its area as a card (shell/areas.ts AREAS; Ask adds Voice). Since MAKE passed ten things, the six editors
+// (DOCUMENTS, SPREADSHEETS, PRESENTATIONS, THE WORKSPACE, PHOTO, VIDEO) are one EDITORS card whose pills open each (shell/areadefs.ts EDITORS), so MAKE shows 8 cards.
+// Since 1 Nov, night
 // (BRIEF-TABS): MAKE's converter and documents are screens of their own with the house, LEARN has the learning pack and the
 // coach, and LIFE, the seventh area, its eight everyday packs
 const TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
+  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
 };
@@ -102,7 +104,8 @@ for (const [a, ids] of Object.entries(TOOLS)) {
   await page.$eval(`#pg-area-${a} .hub`, (h) => (h.scrollTop = 0));
   for (const c of cards) {
     const at = `[${a} ${c.id}]`;
-    if (c.tag !== 'BUTTON' || !c.inst) problems.push(`${at} is not one instrument card (a ${c.tag}${c.inst ? '' : ' without .inst'})`);
+    // (the EDITORS card holds the editors' pills, each a button of its own, so it is a group, not one button: checked below)
+    if (c.id === 'editors' ? c.tag !== 'DIV' || !c.inst : c.tag !== 'BUTTON' || !c.inst) problems.push(`${at} is not one instrument card (a ${c.tag}${c.inst ? '' : ' without .inst'})`);
     if (!WORDS.includes(c.status)) problems.push(`${at} status reads "${c.status}"`);
     if (!c.title) problems.push(`${at} has no line saying what it does`);
     if (c.reads.length !== 2) problems.push(`${at} has ${c.reads.length} readouts (want two)`);
@@ -126,6 +129,48 @@ for (const [a, ids] of Object.entries(TOOLS)) {
   const scroll = await page.$eval(`#pg-area-${a} .hub`, (e) => ({ sh: e.scrollHeight, ch: e.clientHeight, last: e.querySelector('.hubgrid > :last-child')?.getBoundingClientRect().bottom ?? 0 }));
   if (scroll.last > bar && scroll.sh <= scroll.ch + 1) problems.push(`[${a}] its last card is under the tab bar and the hub does not scroll (${scroll.sh} ≤ ${scroll.ch})`);
   await page.screenshot({ path: `${out}/hubcards-${a}.png` });
+}
+
+// ---- THE FOLD (BRIEF-EDITOR-WORKSPACE): past ten things the editors are one EDITORS card; MAKE shows 8 cards; the pills open each in one tap; the card's line counts
+// what lives on this phone across them; THE PLAN still numbers every screen (checked in deck.spec)
+{
+  await hub(page, 'make');
+  const f = await page.$eval('#pg-area-make .hubgrid', (g) => {
+    const card = g.querySelector('.hubtile[data-id="editors"]');
+    const pills = card ? [...card.querySelectorAll('.hubpill')].map((b) => { return { id: b.dataset.editor, text: b.textContent.trim(), w: b.offsetWidth, h: b.offsetHeight, label: b.getAttribute('aria-label') }; }) : [];
+    return { n: g.children.length, ids: [...g.children].map((c) => c.dataset.id).join(), tag: card?.tagName, pills, line: card?.querySelector('.t')?.textContent?.trim() ?? '', direct: ['docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic'].filter((id) => g.querySelector(`:scope > .hubtile[data-id="${id}"]`)) };
+  });
+  if (f.n !== 8) problems.push(`[fold] the MAKE hub shows ${f.n} cards (want 8: seven things and the EDITORS card): ${f.ids}`);
+  if (f.direct.length) problems.push(`[fold] the editors ${f.direct.join(', ')} are still cards of their own beside EDITORS`);
+  if (f.pills.map((p) => p.text).join('|') !== 'DOCUMENTS|SPREADSHEETS|PRESENTATIONS|THE WORKSPACE|PHOTO|VIDEO|GAME STUDIO|COMIC') problems.push(`[fold] the pills read ${JSON.stringify(f.pills.map((p) => p.text))}`);
+  for (const p of f.pills) {
+    if (p.w < 43.5 || p.h < 43.5) problems.push(`[fold] the ${p.text} pill is ${Math.round(p.w)}×${Math.round(p.h)} (under 44 pt)`);
+    if (!/^Open /.test(p.label ?? '')) problems.push(`[fold] the ${p.text} pill has no name for VoiceOver`);
+  }
+  if (!/^Write, calculate, present, plan/.test(f.line)) problems.push(`[fold] a phone with nothing kept: the card's line reads "${f.line}"`);
+  // each pill is one tap to its editor
+  for (const id of ['docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'comic', 'gamestudio']) {
+    await hub(page, 'make');
+    await page.click(`#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="${id}"]`);
+    await until(page, (t) => document.body.dataset.tab === t, id, 8000, `[fold] the ${id} pill did not open ${id} in one tap`);
+  }
+  // the card's body opens the editor he used last (the loop's last pill was GAME STUDIO)
+  await hub(page, 'make');
+  await page.click('#pg-area-make .hubtile[data-id="editors"] .reads');
+  await until(page, () => document.body.dataset.tab === 'gamestudio', null, 8000, '[fold] a tap on the EDITORS card’s body did not open the editor he used last');
+  // what lives on this phone across the editors: a document and a workspace page kept, then the line counts them
+  await page.evaluate(() => {
+    localStorage.setItem('ghosty.docs', JSON.stringify([{ id: 'dspec', title: 'Letter to the landlord', blocks: [{ id: 'b1', t: 'p', runs: [{ text: 'Hello' }] }], at: Date.now(), kind: 'document' }]));
+    localStorage.setItem('ghosty.workspace', JSON.stringify({ v: 1, pages: { wspec: { id: 'wspec', title: 'Kitchen', icon: 'project', parent: null, blocks: [], at: Date.now() + 5, created: Date.now(), order: 0 } }, versions: {}, at: Date.now() }));
+  });
+  await hub(page, 'make');
+  await page.waitForTimeout(3300);
+  const line = await page.$eval('#pg-area-make .hubtile[data-id="editors"] .t', (e) => e.textContent.trim());
+  if (line !== '2 things live on this phone across them') problems.push(`[fold] the card's line reads "${line}" with a document and a page kept (want "2 things live on this phone across them")`);
+  const reads = await page.$$eval('#pg-area-make .hubtile[data-id="editors"] .rd', (r) => r.map((x) => x.textContent.trim()));
+  if (!reads.some((x) => /^Kept here2$/.test(x)) || !reads.some((x) => /^NewestKitchen$/.test(x))) problems.push(`[fold] the card's readings are ${JSON.stringify(reads)}`);
+  await page.evaluate(() => { localStorage.removeItem('ghosty.docs'); localStorage.removeItem('ghosty.workspace'); });
+  await page.screenshot({ path: `${out}/hubcards-fold.png` });
 }
 
 // ---- the readouts are the app's own numbers
@@ -241,7 +286,7 @@ await g.ctx.close();
       const r = document.querySelector(`#pg-area-${a}`);
       const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
       return {
-        band: [...r.querySelectorAll('.roomband .bandret')].map((b) => ({ id: b.dataset.id, n: b.dataset.n, frame: !!b.querySelector('.g-ret-frame'), h: b.getBoundingClientRect().height, w: b.getBoundingClientRect().width })),
+        band: [...r.querySelectorAll('.roomband .bandret')].map((b) => ({ id: b.dataset.id, n: b.dataset.n, frame: !!b.querySelector('.g-ret-frame'), h: b.getBoundingClientRect().height, w: b.getBoundingClientRect().width, top: b.getBoundingClientRect().top })),
         hand: [...r.querySelectorAll('.athand .hubtile')].map((c) => ({ id: c.dataset.id, n: c.dataset.n, why: c.dataset.why, reads: [...c.querySelectorAll('.reads .rd')].filter((x) => vis(x)).length })),
         rest: [...r.querySelectorAll('.therest .hubtile')].map((c) => ({ id: c.dataset.id, n: c.dataset.n, one: c.querySelector('.one')?.textContent?.trim() ?? '', works: c.dataset.works === 'true', worksShown: vis(c.querySelector('.works b')) })),
         glassCards: [...r.querySelectorAll('.hubgrid > .hubtile')].filter(vis).length, sub: r.querySelector('.hubsub')?.textContent?.trim() ?? '', side: document.documentElement.scrollWidth > innerWidth + 1,
@@ -252,8 +297,11 @@ await g.ctx.close();
     if (everything !== ids.slice().sort().join()) problems.push(`${at} the room holds "${everything}", want every tool of the area: "${ids.slice().sort().join()}" (nothing left out)`);
     const numbered = ids.filter((i) => i !== 'voice' && i !== 'core');
     if (a !== 'ask' && room.band.length !== numbered.length) problems.push(`${at} the band has ${room.band.length} reticles for ${numbered.length} things`);
-    if (room.band.some((b, i) => b.n !== String(i + 1).padStart(2, '0') || !b.frame || b.w < 43.5 || b.h < 43.5)) problems.push(`${at} the band is not numbered 01, 02 … in order, reticled, 44 pt: ${JSON.stringify(room.band)}`);
-    if (room.band.length > 8) problems.push(`${at} the band has more than eight (${room.band.length})`);
+    // (THE PLAN numbers every screen: the EDITORS reticle keeps the number of the first editor it holds, 07, and the HOUSE after the eight is 15: the COMIC joined on 13 Nov)
+    const wantN = a === 'make' ? ['01', '02', '03', '04', '05', '06', '07', '15'] : room.band.map((_b, i) => String(i + 1).padStart(2, '0'));
+    if (room.band.some((b, i) => b.n !== wantN[i] || !b.frame || b.w < 43.5 || b.h < 43.5)) problems.push(`${at} the band is not numbered ${wantN.join(', ')} in order, reticled, 44 pt: ${JSON.stringify(room.band)}`);
+    // (a room of more than eight things takes its band on two rows, each reticle 44 pt, never sideways: checked above and below)
+    if (room.band.length > 10) problems.push(`${at} the band has more than ten (${room.band.length})`);
     if (room.glassCards) problems.push(`${at} Glass's card grid is still drawn (${room.glassCards})`);
     if (!room.sub) problems.push(`${at} the hub's one sentence is gone`);
     if (room.side) problems.push(`${at} the room scrolls sideways`);

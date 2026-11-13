@@ -55,6 +55,11 @@ export class EngineView {
   private initP: Promise<boolean> | null = null;
   private raf = 0;
   private dirty = true;
+  /** The frame loop's other work, while it has any (physics: a falling thing): given the milliseconds since the last frame, true while it wants another. */
+  tick: ((ms: number, force?: boolean) => boolean) | null = null;
+  private lastAt = 0;
+  /** How long the last frames took (the physics step, the scene brought in line and the drawing), for the pane's state: a first estimate. */
+  private took: number[] = [];
   private running = false;
   private ro: ResizeObserver | null = null;
 
@@ -361,10 +366,37 @@ export class EngineView {
     if (this.raf || !this.running) return;
     this.raf = requestAnimationFrame(() => {
       this.raf = 0;
-      if (this.running && this.dirty) {
+      if (!this.running) return;
+      const t0 = performance.now();
+      const ms = this.lastAt ? Math.min(500, t0 - this.lastAt) : 16.7;
+      const more = this.tick ? this.tick(ms) : false;
+      this.lastAt = more ? t0 : 0;
+      if (more) this.dirty = true;
+      if (this.dirty) {
         this.dirty = false;
         this.paint();
+        this.took.push(performance.now() - t0);
+        if (this.took.length > 90) this.took.shift();
       }
+      if (more) this.request();
+    });
+  }
+
+  /** Draw `n` frames back to back, each in its own animation frame with the physics world stepped in it (resting things included), and say how long each took. */
+  bench(n: number): Promise<{ n: number; median: number; max: number; mean: number }> {
+    return new Promise((done) => {
+      const each: number[] = [];
+      const go = () => {
+        const t0 = performance.now();
+        this.tick?.(16.7, true);
+        this.dirty = true;
+        this.paint();
+        each.push(performance.now() - t0);
+        if (each.length < n) return void requestAnimationFrame(go);
+        const t = [...each].sort((a, b) => a - b);
+        done({ n, median: Math.round(t[t.length >> 1]! * 10) / 10, max: Math.round(t[t.length - 1]! * 10) / 10, mean: Math.round((each.reduce((a, b) => a + b, 0) / each.length) * 10) / 10 });
+      };
+      requestAnimationFrame(go);
     });
   }
 
@@ -382,6 +414,8 @@ export class EngineView {
   }
 
   state() {
-    return { ready: !!this.renderer, error: this.error, frames: this.frames, drawn: this.drawn.size, models: [...this.models.keys()] };
+    const t = [...this.took].sort((a, b) => a - b);
+    const frameMs = t.length ? { n: t.length, median: Math.round(t[t.length >> 1]! * 10) / 10, max: Math.round(t[t.length - 1]! * 10) / 10 } : null;
+    return { ready: !!this.renderer, error: this.error, frames: this.frames, drawn: this.drawn.size, models: [...this.models.keys()], frameMs };
   }
 }

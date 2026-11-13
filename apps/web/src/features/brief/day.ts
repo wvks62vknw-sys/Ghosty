@@ -11,8 +11,11 @@ export const hhmm = (ms: number) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-/** "Good morning" before noon, "Good afternoon" until six, then "Good evening" (the phone's own clock). */
-export const greeting = (d: Date) => (d.getHours() < 12 ? 'Good morning' : d.getHours() < 18 ? 'Good afternoon' : 'Good evening');
+/**
+ * "Good night" before five in the morning (it is not morning yet; the boot and Home say the same), "Good morning" before noon,
+ * "Good afternoon" until six, then "Good evening" (the phone's own clock).
+ */
+export const greeting = (d: Date) => (d.getHours() < 5 ? 'Good night' : d.getHours() < 12 ? 'Good morning' : d.getHours() < 18 ? 'Good afternoon' : 'Good evening');
 
 /** "Monday 26 October". */
 export const dayName = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -99,6 +102,15 @@ export function commuteLine(c: { minutes: number; delayMin: number; live: boolea
   return `${base}, leave by ${hhmm(left.leave)} for ${left.title} at ${left.when}${c.live ? '' : ' (an estimate)'}`;
 }
 
+/** [planlane:brief] "1 to-do due today", "3 to-dos due today, 1 of them late" ('' with none): the agenda's TO-DO in the day's sentence. */
+export function todoClause(due: { due: string }[], today: string): string {
+  if (!due.length) return '';
+  const late = due.filter((t) => t.due && t.due < today).length;
+  const n = due.length;
+  if (late === n) return `${n} to-do${n === 1 ? '' : 's'} late`;
+  return `${n} to-do${n === 1 ? '' : 's'} due today${late ? `, ${late} of them late` : ''}`;
+}
+
 /** "2 things today, first Dentist at 09:30" — or "Nothing in your diary for the rest of today". */
 export function diarySentence(items: DayItem[]): string {
   if (!items.length) return 'Nothing in your diary for the rest of today';
@@ -129,20 +141,38 @@ export interface Facts {
   cost?: string;
   /** [further] The money line, when a merchant's saved place is known: "£62 spent near Work this week". */
   money?: string;
+  /** [planlane:brief] In the evening: tomorrowClause's words, said straight after tonight's weather. */
+  tomorrow?: string;
+  /** [planlane:brief] His to-dos due today or late (the agenda's TO-DO): "2 to-dos due today, 1 of them late". */
+  todo?: string;
+  /** [planlane:brief] marketsClause's words, only from fresh prices. */
+  markets?: string;
 }
 
 /** The hero's one plain sentence, short enough to read at a glance and to say aloud. */
 export function summary(f: Facts): string {
   const wx = [f.now, f.range ? `${f.range} today` : '', f.rain].filter(Boolean).join(', ');
-  const parts = [wx, f.diary, f.commute, f.cost, f.money].filter((x): x is string => !!x).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+  const parts = [wx, f.tomorrow, f.diary, f.todo, f.commute, f.cost, f.money, f.markets].filter((x): x is string => !!x).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
   return parts.length ? `${parts.join('. ')}.` : '';
 }
 
-/** What READ IT TO ME says: the greeting, the day, the sentence, and the top headlines. No symbols to stumble on. */
+/** The voice's pace, in words a minute, and the most READ IT TO ME is ever allowed to take (a minute: nobody listens to more at a stove). */
+export const PACE_WPM = 150;
+export const SPOKEN_MAX_S = 60;
+export const wordCount = (t: string) => (t.trim().match(/\S+/g) ?? []).length;
+/** How long a text takes to say at the voice's pace, in seconds. */
+export const spokenSeconds = (t: string) => (wordCount(t) / PACE_WPM) * 60;
+
+/**
+ * What READ IT TO ME says: the greeting, the day, the sentence, and the top headlines. No symbols to stumble on. It never runs over
+ * SPOKEN_MAX_S at the voice's pace: the headlines go, last first, until it fits (the day's own sentence is never cut).
+ */
 export function spoken(d: Date, line: string, headlines: string[]): string {
   const said = line.replace(/°C/g, ' degrees').replace(/°F/g, ' degrees Fahrenheit').replace(/(\d+)%/g, '$1 percent').replace(/ · /g, ', ');
   const top = headlines.slice(0, 3).map((t) => t.replace(/[.!?]?$/, '.'));
-  return `${greeting(d)}. It's ${dayName(d)}. ${said}${top.length ? ` The headlines. ${top.join(' ')}` : ''}`.replace(/\s+/g, ' ').trim();
+  const make = () => `${greeting(d)}. It's ${dayName(d)}. ${said}${top.length ? ` The headlines. ${top.join(' ')}` : ''}`.replace(/\s+/g, ' ').trim();
+  while (top.length && spokenSeconds(make()) > SPOKEN_MAX_S) top.pop();
+  return make();
 }
 
 /** One passage of the library's "Fresh knowledge" notebook: heading "YYYY-MM-DD · source · TIER" (or "YYYY-MM-DD · source"). */
@@ -173,4 +203,47 @@ export function digestDay(passages: DigestPassage[]): { day: string; headlines: 
     .filter((x) => x.title);
   const one = /In one line:\s*(.+)/i.exec(of('in three levels'))?.[1]?.trim() ?? '';
   return { day, headlines, oneLine: one };
+}
+
+// ---------------------------------------------------------------- the day's shape (planlane:brief): the order adapts to the hour
+
+/** From 18:00 the Brief looks ahead: the rest of tonight, then tomorrow (before 05:00 the calendar day ahead is still "today"). */
+export const eveningNow = (d: Date) => d.getHours() >= 18;
+
+/** "Tomorrow 2 to 9°C, rain likely from 09:00": tomorrow's range and its rain timing, from Open-Meteo's daily and hourly (index 24–47). */
+export function tomorrowClause(min: string, max: string, probs: number[]): string {
+  const next = probs.slice(24, 48);
+  const rain = next.length ? rainWhen(next, 0).line : '';
+  const r = /^Likely/.test(rain)
+    ? `rain ${rain.replace(/ · \d+%$/, '').replace(/^Likely now, easing by/, 'likely early, easing by').replace(/^Likely for the rest of today/, 'likely all day').replace(/^Likely/, 'likely')}`
+    : /^Small chance/.test(rain) ? 'a small chance of rain' : /^Dry/.test(rain) ? 'dry' : '';
+  return `Tomorrow ${min.replace(/°[CF]$/, '')} to ${max}${r ? `, ${r}` : ''}`;
+}
+
+/** The rain clause for the evening: "dry tonight" rather than "dry for the rest of today". */
+export const tonight = (clause: string) => clause.replace('for the rest of today', 'tonight');
+
+/**
+ * What to wear, from the forecast only (°C and km/h, as Open-Meteo gives them): the warmest it gets, how cold it feels, the rain, the
+ * wind and the sun. A plain suggestion about the weather, never about him.
+ */
+export function wearLine(o: { max: number; feels: number; rain: number; wind: number; uv: number }): string {
+  const t = Math.min(o.max, o.feels + 3);
+  const base = t < 5 ? 'A warm coat, hat and gloves' : t < 10 ? 'A warm coat' : t < 15 ? 'A jacket' : t < 20 ? 'A light layer' : 'Something light';
+  const extra = [o.rain >= 50 ? 'an umbrella' : '', o.uv >= 6 ? 'sun cream' : ''].filter(Boolean);
+  const all = extra.length ? `${base}${base.includes(',') ? ',' : ''} and ${extra.join(' and ')}` : base;
+  return `${all}${o.wind >= 40 ? ': it’s windy' : ''}`;
+}
+
+/** Where a fact came from and when it was read: "Open-Meteo · 18:57" (a time from another day says the day too). */
+export function sourceAt(name: string, at: number, now: number): string {
+  if (!at) return name;
+  const same = isoDay(new Date(at)) === isoDay(new Date(now));
+  return `${name} · ${same ? hhmm(at) : `${new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} ${hhmm(at)}`}`;
+}
+
+/** The markets in one line, only from the app's own fresh prices (the Markets screen's): "Bitcoin £71,234, up 2.10% today". */
+export function marketsClause(c: { name: string; price: string; change: number } | null): string {
+  if (!c || !Number.isFinite(c.change)) return '';
+  return `${c.name} ${c.price}, ${c.change >= 0 ? 'up' : 'down'} ${Math.abs(c.change).toFixed(1)}% in a day`;
 }

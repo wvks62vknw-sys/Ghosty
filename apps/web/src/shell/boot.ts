@@ -49,19 +49,29 @@
  * thing, the landing. Home usable at 7,000 ms (the short cut about 4,800); the same six kinds, the same budget, the same skip (a tap
  * plays the landing), the same greeting rules, `__bootSeek` for the check. The world is drawn in Home's one context (mind.ts, staged
  * full-screen) and Home takes the stage at the landing, so the landing is no cut: the film's last frame is Home's first.
+ * THE FILM ON HIS PHONE (FINAL-BOOT, 13 Nov: "the boot-up cinematic is like non-existent"): the film decides its version at its scan
+ * (500 ms), the first shot that needs Mind, and holds there with the room breathing until Mind draws: by 1,500 ms the full film, by
+ * 2,700 the short cut, the wait made up by the pace so Home is still usable at 7,000; only a phone with no 3-D, or Mind later than
+ * that, gets the flat cut. It judges the phone by its own draw (a 60 Hz frame), never by the app starting underneath (the ground's
+ * stutter, a late first frame, one stalled frame); a lean sheds the trails and the refraction and keeps the film's length. A cold
+ * open under three minutes after he last had Ghosty on screen (state/lastopen.ts: the phone closed it behind him) plays the short
+ * cut, ending by its own 4,800; every other cold open, the whole film. tests/bootfilm.spec.mjs opens it with no version picked.
  */
 import { h } from '../core/dom';
 import { BOOT_DONE, currentMind, mindFor, webglWorks, type BootLook, type Mind, type MindState } from '../features/core/mind';
 import { home, settings, ui } from '../state/app';
 import { guardian, loadGuardian } from '../state/guardian';
 import { tvNow } from '../tv/setting'; // [restc] a television gets the short cut
+import { previousOpen } from '../state/lastopen';
 import { lockBox, marksState, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
+import { FAULT_WORDS, HOLD_AFTER, greetingFor, holdWords, settledFeeds } from './bootwords';
 import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../features/core/scan/film';
 import { resetScoreState, scoreState, startScore, type Score } from '../features/core/scan/score';
 import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
 import { worldDesc, ORB_FILL } from '../features/core/scan/world';
+import { eyeShot, type EyeShot, type EyeShotState } from '../features/core/eye/film';
 import { FEED_NAMES, type FeedId, type GuardianInfo } from '../../../../packages/shared/src/guardian';
 
 type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet';
@@ -106,6 +116,18 @@ const STALL = 250;
 /** Mind (three.js) must be drawing by then for the full version, and by SHORT_BY for the short one. */
 const FULL_BY = 900;
 const SHORT_BY = 1700;
+/**
+ * THE FILM decides at its scan (the first shot that needs Mind), not at the orb: Mind must be drawing by FILM_FULL_BY for the full
+ * film and by FILM_SHORT_BY for its short cut. The wait is made up by the pace, so Home is still usable 7,000 ms after the first
+ * frame (FINAL-BOOT: the film used to decide at the orb's 2,000 ms, which is always after SHORT_BY, so every real cold open fell to
+ * the flat cut and the film never played; only the checks, which pick the version, ever saw it).
+ */
+const FILM_FULL_BY = 1500;
+const FILM_SHORT_BY = 2700;
+/** A cold open this soon after he last had Ghosty on screen (the phone closed it behind him) plays the short cut (FINAL-BOOT's rule). */
+export const QUICK_REOPEN_MS = 3 * 60_000;
+/** The most the short cut started at a quick reopen is quickened to make up a wait for Mind (a quarter: never rushed). */
+const QUICK_PACE = 1.25;
 /** The three feeds the guardian reads, in the order their lines come (packages/shared/src/guardian.ts). */
 const FEED_WORD: Record<FeedId, string> = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 
@@ -147,6 +169,8 @@ export const bootState = {
   drawMs: -1,
   /** How long it held before landing, waiting for the app underneath and Home's hero, ms. */
   held: 0,
+  /** The line the held landing showed for a late app ('' if it never was held that long). */
+  holdLine: '',
   /** Passes of the sweep made while the film was held for a slow Home (one every 1.3 s: the last shot never stands still). */
   heldSweeps: 0,
   /** Whether Mind (three.js) drew it. */
@@ -175,9 +199,15 @@ export const bootState = {
   warm: 0,
   /** How many times it has played since the page opened (a reboot adds one). */
   plays: 0,
+  /** How long ago he last had Ghosty on screen when this cold open began (ms; -1: never on this phone), and whether that was
+   *  soon enough (QUICK_REOPEN_MS) for the short cut. */
+  reopen: -1,
+  quick: false,
   /** THE FILM played (the world is The Scan and Mind drew it): the descent, the things found, the orb's viewport (film.ts). */
   film: false,
   scan: null as FilmState | null,
+  /** THE EYE's last second (features/core/eye/film.ts): the wall resolving from grain, one feed sharpening into the accent box, the line of sight drawn; null in the other worlds. */
+  eyewall: null as EyeShotState | null,
   /** THE SCORE (B) under the film: whether it sounded and which cues came (score.ts); A (the one tone) when he chose it or the phone allows no sound yet. */
   score: scoreState,
 };
@@ -191,14 +221,12 @@ const easeInOut = (k: number) => {
   const x = clamp(k);
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 };
-type Flags = { __ghostyBoot?: boolean; __ghostyBootKind?: Kind; __ghostyBootLean?: boolean; __ghostyBootManual?: boolean; __bootSeek?: (ms: number) => void; __bootState?: typeof bootState; __ghosty?: Record<string, unknown> };
+type Flags = { __ghostyBoot?: boolean; __ghostyBootKind?: Kind; __ghostyBootLean?: boolean; __ghostyBootManual?: boolean; __bootSeek?: (ms: number) => void; __bootFault?: () => void; __bootState?: typeof bootState; __ghosty?: Record<string, unknown> };
 const flags = () => window as unknown as Flags;
 
-/** "Good evening, Boss." from the clock and the name in Settings (Boss when there is none). */
+/** "Good evening, Tony." from the clock and the name in Settings; with none saved (or the app's own "Boss"), "Good evening." alone (bootwords.ts). */
 export function greetingLine(d = new Date()): string {
-  const hr = d.getHours();
-  const part = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
-  return `${part}, ${settings.get().name.trim() || 'Boss'}.`;
+  return greetingFor(settings.get().name, d.getHours());
 }
 
 /** "2026-08" → "Aug". */
@@ -255,14 +283,19 @@ export function bootFault(): void {
   document.body.classList.remove('booting', 'bootland', 'bootwait');
   const el = document.getElementById('boot') ?? document.body.appendChild(h('div#boot'));
   el.classList.remove('out');
+  /* state: shell.boot error */
   el.classList.add('fault');
-  el.replaceChildren(h('div.bfault', h('p', 'Ghosty couldn’t start this time.'), h('button.on', { type: 'button', onclick: () => location.reload() }, 'TRY AGAIN')));
+  // the words say the next thing and the tap does it: the button, and the whole layer behind it
+  const again = () => location.reload();
+  el.addEventListener('click', again);
+  el.replaceChildren(h('div.bfault', { role: 'alert' }, h('p', FAULT_WORDS), h('button.on', { type: 'button', onclick: again }, 'TRY AGAIN')));
 }
 
 /** The very start of main.ts's boot: decide what this open shows, and start it. */
 export function startBoot(): void {
   const f = flags();
   f.__bootState = bootState;
+  f.__bootFault = bootFault; // (a check shows the fault's words: tests/bootpass.spec.mjs)
   const el = document.getElementById('boot') ?? document.body.appendChild(h('div#boot'));
   const automated = navigator.webdriver && !f.__ghostyBoot;
   const hash = location.hash.slice(1);
@@ -270,7 +303,10 @@ export function startBoot(): void {
   const toHome = (!hash || hash === 'core') && !/[?&]code=/.test(location.search);
   // every cold open plays it (the page is new: nothing of the app was running); a resume never reaches here
   // [restc] on a television (TV MODE) the short cut: the orb and the words, nothing that needs WebGPU; with no 3-D at all it is the flat one
-  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() ? 'short' : 'full';
+  // a quick reopen (he had it on screen under three minutes ago, and the phone closed it behind him): the short cut, not the whole film again
+  bootState.reopen = previousOpen > 0 ? Math.max(0, Date.now() - previousOpen) : -1;
+  bootState.quick = bootState.reopen >= 0 && bootState.reopen < QUICK_REOPEN_MS;
+  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() || bootState.quick ? 'short' : 'full';
   // a check may pick which version plays (software WebGL is too slow for the full one to choose itself)
   if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm') kind = f.__ghostyBootKind;
   bootState.kind = kind;
@@ -534,6 +570,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.worstGap = 0;
   bootState.held = 0;
   bootState.heldSweeps = 0;
+  bootState.holdLine = '';
   bootState.said = 0;
   bootState.hudAt = -1;
   bootState.pace = 1;
@@ -544,6 +581,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.budget = { hz: 0, ms: LONG_60, long: 0, gaps: [], work: 0, avg: 0, lean: '' };
   bootState.film = false;
   bootState.scan = null;
+  bootState.eyewall = null;
   const B = bootState.budget;
   if (rebooting) appIsReady = true;
   let kind = first as 'full' | 'short' | 'still' | 'flat';
@@ -551,9 +589,14 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   // THE FILM: The Scan's world gets round two's film with the descent (features/core/scan/film.ts); the other worlds today's picture
   const filmWanted = dd.world === 'scan' && kind !== 'flat' && webglWorks();
   const L = filmWanted ? FILM_LINES : LINES;
-  const CAP = capOf(L);
+  // (the short cut chosen at the start, a quick reopen's or a television's, aims to end by its own length, a wait for Mind made up inside
+  // it but never rushed: QUICK_PACE at most, so a late Mind ends it a little later instead; every other cut aims at the full cut's end)
+  const CAP = kind === 'short' ? L.short.end : capOf(L);
+  const startedShort = kind === 'short';
   let tl = L[kind];
   bootState.timeline = tl;
+  /** Where the cut first needs Mind, and holds (the room breathing) until it is drawing: the film's scan, else the orb's gather. */
+  const needAt = () => (filmWanted && (kind === 'full' || kind === 'short') ? tl.floor : tl.orb);
   const vw = innerWidth;
   const vh = innerHeight;
   // under Paper the boot plays on his night ground in his colour: the layer carries the night ground's tokens and the theme's
@@ -574,6 +617,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const glass = h('i.bglass');
   ground.append(room, floor, glass);
   el.prepend(ground);
+  // THE EYE (BRIEF-EYE-HUD-2): its last second is the wall resolving from grain onto Home's own rectangles (features/core/eye/film.ts); created here, in the ground layer, for the eye only
+  let eyeFilm: EyeShot | null = null;
   const dot = el.querySelector<HTMLElement>('.bdot') ?? el.appendChild(h('i.bdot'));
   dot.style.left = `${cx}px`;
   dot.style.top = `${cy}px`;
@@ -585,7 +630,9 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const feeds = h('div.bfeeds');
   // a slow open (the network slow, the brain cold): after six seconds the film says so, in its own voice, and keeps moving
   const slow = h('p.bslow', { dataset: { case: 'keep' }, role: 'status', hidden: true }, 'Still waking. The signal is slow.');
-  const top = h('div.btop', stamp, greet, feeds, slow);
+  // the landing held for a late app: after a second, in the stamp's small type, what it waits for (never a frozen frame)
+  const hold = h('p.bhold.g-truth', { dataset: { case: 'keep' }, role: 'status', hidden: true });
+  const top = h('div.btop', stamp, greet, feeds, hold, slow);
   const name = h('p.bname', { dataset: { case: 'keep' } }, 'GHOSTY');
   const skip = h('p.bskip', { dataset: { case: 'keep' } }, 'Tap to skip');
   bootState.greeting = greet.textContent ?? '';
@@ -598,6 +645,10 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   bootState.accent = accent;
   bootState.recipe = { theme: dd.theme ?? '', ground: dd.ground ?? '', night: dd.night ?? '', world: dd.world ?? '', floor: cs0.getPropertyValue('--g-room-canvas').trim(), glow: dd.glow ?? '' };
   const world = dd.world ?? '';
+  if (world === 'eye' && !filmWanted && innerWidth < 900) {
+    eyeFilm = eyeShot(ground, vw, vh, dpr, accent);
+    bootState.eyewall = eyeFilm.state;
+  }
   const floorTok = { pts: cs0.getPropertyValue('--g-room-points-rgb').trim() || cs0.getPropertyValue('--g-bone-rgb').trim() || '236, 232, 223', a: parseFloat(cs0.getPropertyValue('--g-floor-a')) || 0, line: cs0.getPropertyValue('--g-line').trim() || `rgba(${accent}, .4)` };
   const gutter = parseFloat(cs0.getPropertyValue('--g-gutter')) || 16;
   // (the top block sits under the status bar: styles.css places it from the safe area; One Ink's rule is drawn under it)
@@ -605,7 +656,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const fctx = floor.getContext('2d');
   let floorAt = -1;
   // (the film draws the world itself: the floor forming is the scan's points, so the 2-D floor stays out of its way)
-  const floorHas = filmWanted ? false : world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass';
+  const floorHas = filmWanted ? false : world === 'scan' || world === 'map' || world === 'eye' ? floorTok.a > 0 : world === 'ink' || world === 'glass' || world === 'orbit' || world === 'grown';
   if (floorHas || filmWanted) bootState.floorDrawn = world;
 
   // Mind: the one the hero will use (woken here, or taken from the hero on a reboot)
@@ -675,10 +726,12 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   void loadGuardian();
   const facts = () => stampFacts('Home');
   /** The stamp's four segments at this moment (the fifth, LOOKING AT, is Home's own once it lands). */
-  const stampNow = () => stampWords(facts()).slice(0, 4);
+  /* state: shell.boot empty */
+  const stampNow = () => stampWords(settledFeeds(facts(), T >= tl.recognise)).slice(0, 4);
   let lines: { id: FeedId; parts: TruthPart[]; el: HTMLElement }[] = [];
   let linesFrom: GuardianInfo | null | undefined;
   const refreshLines = () => {
+    /* state: shell.boot offline */
     const info = navigator.onLine === false ? null : guardian.get().info;
     if (info === linesFrom) return;
     linesFrom = info;
@@ -760,19 +813,28 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const e = elapsed(now);
     // even the ground's breath stuttered (its frames came over a 60 Hz frame and a third apart, on average)
     const slow = gaps >= 4 && gapSum / gaps > 22;
+    // (the film judges the phone by its own draw: the ground's stutter and a late first frame are the app starting underneath, which
+    // every phone does on a cold open, not the phone failing the film; the wait for Mind is made up by the pace)
+    const late = filmWanted ? e > FILM_FULL_BY : slow || e > FULL_BY || bootState.firstFrame > 2500;
+    const tooLate = e > (filmWanted ? FILM_SHORT_BY : SHORT_BY);
     if (mindState === 'ready') {
-      if (kind === 'full' && (slow || e > FULL_BY || bootState.firstFrame > 2500) && !forced()) kind = e > SHORT_BY ? 'flat' : 'short';
+      if (kind === 'full' && late && !forced()) kind = tooLate ? 'flat' : 'short';
       else if (kind === 'full' && mind) {
-        // one draw to warm it up (its shaders), one to time: a phone that cannot draw MIND inside one of its frames
-        // gets the short version (no gather, no push-in) rather than a cinematic that stutters
+        // one draw to warm it up (its shaders), then the quicker of two timed: a phone that cannot draw MIND inside one of its frames
+        // gets the short version (no gather, no push-in) rather than a cinematic that stutters (the film: inside a 60 Hz frame,
+        // the rate Safari draws a page at)
         takeMind();
         mind.bootFrame(e / 1000, BOOT_DONE);
-        const t1 = performance.now();
-        mind.bootFrame(e / 1000, BOOT_DONE);
-        bootState.drawMs = Math.round((performance.now() - t1) * 10) / 10;
-        if (bootState.drawMs > (B.hz === 120 ? 1000 / 120 : 1000 / 60) && !forced()) kind = 'short';
+        let best = Infinity;
+        for (let i = 0; i < 2; i++) {
+          const t1 = performance.now();
+          mind.bootFrame(e / 1000, BOOT_DONE);
+          best = Math.min(best, performance.now() - t1);
+        }
+        bootState.drawMs = Math.round(best * 10) / 10;
+        if (bootState.drawMs > (B.hz === 120 && !filmWanted ? 1000 / 120 : 1000 / 60) && !forced()) kind = 'short';
       }
-    } else if (mindState === 'none' || (e > SHORT_BY && !forced())) kind = 'flat';
+    } else if (mindState === 'none' || (tooLate && !forced())) kind = 'flat';
     else return false;
     tl = L[kind];
     bootState.timeline = tl;
@@ -782,11 +844,13 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     if (kind !== 'flat') takeMind();
     // (the short cut chosen after the film began: its shots move closer together)
     if (film && kind === 'short') film.setCut(FILM_SHORT);
-    // whatever was waited, its own part still ends by 2,880 ms
-    const left = tl.end - tl.orb;
+    // whatever was waited, its own part still ends by 2,880 ms (the film's by 7,000)
+    const from = needAt();
+    const left = tl.end - from;
     rate = Math.max(1, left / Math.max(300, CAP - e - 1));
+    if (startedShort) rate = Math.min(rate, QUICK_PACE);
     paceE = e;
-    paceT = tl.orb;
+    paceT = from;
     bootState.pace = Math.round(rate * 1000) / 1000;
     decided = true;
     // from here the budget judges the cinematic's own frames (not the ground's, which share the phone with the app starting)
@@ -886,8 +950,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const seg = (a: number, b: number) => clamp((T - a) / (b - a));
     const textsOut = (1 - seg(tl.land, tl.land + 150)) * (quietHold ? 0 : 1);
     // 1. the ground: the room's light breathing in where the orb will be (held while Mind loads: it keeps breathing)
-    const held = !decided && T >= tl.orb - 1;
-    const roomOn = calm ? 1 : easeOut(seg(tl.ground, tl.floor)) * (held ? 0.88 + 0.12 * Math.sin(((e - tl.orb) / 1600) * Math.PI * 2) : 1);
+    const held = !decided && T >= needAt() - 1;
+    const roomOn = calm ? 1 : easeOut(seg(tl.ground, tl.floor)) * (held ? 0.88 + 0.12 * Math.sin(((e - needAt()) / 1600) * Math.PI * 2) : 1);
     room.style.opacity = roomOn.toFixed(3);
     // 2. the world's floor forming, drawn once per change (whole at once when nothing moves)
     const fk = calm ? 1 : seg(tl.floor, tl.floor + FLOOR_MS);
@@ -897,7 +961,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       floorAt = fkey;
       drawFloor(fctx, world, fk, vw, vh, dpr, floorTok, { x: cx, y: cy, r: 0.9 * 0.74 * (side / 2) + 5 }, { x1: gutter, x2: vw - gutter, y: topY + 24 }, kc);
       // Glass: the blur over the ground clearing as the floor's moment passes
-      if (world === 'glass') {
+      if (world === 'glass' || world === 'grown') {
         const blur = 18 * (1 - fk);
         glass.style.opacity = (1 - fk).toFixed(3);
         const f = blur > 0.2 ? `blur(${blur.toFixed(1)}px)` : '';
@@ -905,6 +969,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
         glass.style.setProperty('-webkit-backdrop-filter', f);
       }
     }
+    // (THE EYE: the wall resolving onto Home's own feeds, in the last second of the cut; the floor's grain is already there)
+    eyeFilm?.frame(T, tl, { calm, manual: !!flags().__ghostyBootManual });
     // 3. the orb: his library's points gather and the sphere resolves (the full cut); whole, fading in (the rest)
     const G = tl.orb;
     const S = tl.orb + 560;
@@ -952,6 +1018,11 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const holding = T >= tl.land - 1 && T < tl.land + 1 && bootState.held > 0 && !bootState.skipped;
     const heldFor = bootState.held;
     if (holding) bootState.heldSweeps = Math.floor(heldFor / 1300);
+    /* state: shell.boot loading */
+    const holdOn = holding && heldFor >= HOLD_AFTER;
+    if (holdOn) hold.textContent = holdWords({ online: navigator.onLine !== false, brain: ui.get().connected });
+    hold.hidden = !holdOn;
+    bootState.holdLine = holdOn ? hold.textContent ?? '' : bootState.holdLine;
     slow.hidden = !(holding && e > 6000);
     slow.style.opacity = slow.hidden ? '0' : '1';
     if (mindIn && mind) {
@@ -1059,10 +1130,14 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     if (lean || kind !== 'full' || !decided || steady() || bootState.skipped || T < tl.orb || T >= tl.land) return;
     // (a phone whose frames come a tenth of a second apart shows its quarter in eight frames: it need not wait for twenty-four;
     // one stalled frame says it alone)
+    // (the film: one stalled frame is the app starting underneath, not the phone failing the film: only the quarter counts)
     const n = recent.length;
-    if (gap < STALL && (n < LEAN_MIN || recent.reduce((a, b) => a + b, 0) < Math.min(LEAN_AT, Math.max(3, Math.ceil(n / 4))))) return;
+    const quarter = n >= LEAN_MIN && recent.reduce((a, b) => a + b, 0) >= Math.min(LEAN_AT, Math.max(3, Math.ceil(n / 4)));
+    if (!quarter && (filmWanted || gap < STALL)) return;
     lean = true;
     B.lean = bootState.phase as Phase;
+    // the film keeps its length (his seven seconds): it sheds its extras and plays on at its pace; the storyboard's cut quickens
+    if (filmWanted) return;
     paceE = elapsed(now);
     paceT = T;
     rate *= 1.5;
@@ -1140,7 +1215,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const e = elapsed(now);
     let next = Math.max(T + dt * rate, paceT + (e - paceE) * rate);
     // the ground holds until Mind is drawing (or it is clear it won't be in time)
-    if (!decided && next >= tl.orb && !decide(now)) next = tl.orb - 1;
+    if (!decided && next >= needAt() && !decide(now)) next = needAt() - 1;
     // the landing waits for the app underneath and for Home's hero; after 2,880 ms the words go and the orb turns quietly
     if (next >= tl.land && T < tl.land + 1) {
       const ready = appIsReady && (!mindIn || !!heroRect() || heroWait > 1500);
@@ -1148,7 +1223,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
         if (appIsReady) heroWait += gap;
         bootState.held += Math.round(gap);
         next = tl.land - 1;
-        if (e > CAP) quietHold = true;
+        if (e > capOf(L)) quietHold = true;
         // the landing then runs from the moment the app is there
         paceE = e;
         paceT = next;

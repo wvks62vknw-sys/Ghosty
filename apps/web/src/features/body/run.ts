@@ -6,10 +6,11 @@
  */
 import { clock, paces, runCard, runStart, runStep, runSummary, splitWords, type RunState } from '../../../../../packages/shared/src/body';
 import { h } from '../../core/dom';
-import { button, toast } from '../../ui/components';
+import { button } from '../../ui/components';
 import { speakIn } from '../../assistant/voice';
 import { brain } from '../../api/brain';
 import { bodyState, type Screen } from './sheet';
+import { phrases, stateIn } from '../lifeui';
 
 export function runScreen(): Screen {
   let s: RunState = runStart(Date.now());
@@ -18,14 +19,14 @@ export function runScreen(): Screen {
   let lock: { release(): Promise<void> } | null = null;
   const dist = h('b.pkbig', { 'aria-live': 'off' }, '0.00');
   const time = h('b.pkmid', '0:00');
-  const pace = h('span.pklab', 'pace —');
+  const pace = h('span.pklab', 'pace — now · — average (min per km)');
   const splits = h('ol.pklist', { 'aria-label': 'Kilometre splits' });
-  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Your route stays on this phone. RUN SAVED sends my brain only the distance, time and splits.');
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Your route stays on this phone. My brain gets only the distance, time and splits.');
   const paint = () => {
     dist.textContent = s.km.toFixed(2);
     time.textContent = clock(s.secs);
     const p = paces(s);
-    pace.textContent = `pace ${p.now ? clock(p.now) : '—'} now · ${p.avg ? clock(p.avg) : '—'} average (a km)`;
+    pace.textContent = `pace ${p.now ? clock(p.now) : '—'} now · ${p.avg ? clock(p.avg) : '—'} average (min per km)`;
     Object.assign(bodyState.run, { km: Math.round(s.km * 1000) / 1000, secs: Math.round(s.secs), splits: s.splits.length });
   };
   const stop = () => {
@@ -39,7 +40,8 @@ export function runScreen(): Screen {
   const start = button('Start', async () => {
     if (watch !== null) return;
     if (!navigator.geolocation) {
-      status.textContent = 'This phone has no GPS I can use here.';
+      /* state: body.run error */
+      stateIn(status, 'error', 'This phone has no GPS I can use here.');
       return;
     }
     s = runStart(Date.now());
@@ -50,7 +52,7 @@ export function runScreen(): Screen {
     } catch {
       lock = null;
     }
-    status.textContent = lock ? 'Running: keep the screen on (it stays on by itself).' : 'Running: keep the screen on — the GPS stops when the phone locks.';
+    stateIn(status, '', lock ? 'Running. The screen stays on by itself.' : 'Running. Keep the screen on: the GPS stops when the phone locks.');
     bodyState.run.on = true;
     watch = navigator.geolocation.watchPosition(
       (p) => {
@@ -65,7 +67,7 @@ export function runScreen(): Screen {
         paint();
       },
       (e) => {
-        status.textContent = e.code === 1 ? 'The phone said no to the GPS: allow location for Ghosty in Settings.' : 'The GPS lost its fix: it carries on when it finds one.';
+        stateIn(status, 'error', e.code === 1 ? 'The phone would not give me the GPS. Settings, Ghosty, Location, then press Start.' : 'The GPS lost its fix. It carries on when it finds one.');
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
     );
@@ -75,24 +77,24 @@ export function runScreen(): Screen {
     }, 1000);
   }, 'on');
   start.setAttribute('aria-label', 'Start the run');
-  const save = button('Run saved', async () => {
+  const save = button('Stop and keep', async () => {
     stop();
     const sum = runSummary(s);
     if (sum.km < 0.05) {
-      status.textContent = 'Not far enough to keep yet.';
+      stateIn(status, '', 'Not far enough to keep yet: under 50 metres, measured by the phone.');
       return;
     }
     bodyState.run.saved = true;
     void import('../core/cards').then((m) => m.postCard(runCard(sum))).catch(() => undefined);
     try {
       await brain.packDo('body', 'log', { run: sum });
-      status.textContent = `Kept: ${sum.km.toFixed(2)} km in ${clock(sum.secs)}. The route stayed on this phone.`;
+      status.textContent = `Kept: ${sum.km.toFixed(2)} km in ${clock(sum.secs)}, measured by the phone. The route stayed on this phone.`;
     } catch {
-      toast('Saved here, but my brain didn’t answer: it isn’t kept there this time.', 'warn');
+      stateIn(status, 'error', `Saved here (${sum.km.toFixed(2)} km, measured by the phone), but my brain didn’t answer, so it isn’t kept there this time.`);
     }
   });
-  save.setAttribute('aria-label', 'Run saved: keep the run');
+  save.setAttribute('aria-label', 'Stop the run and keep it');
   paint();
-  const el = h('div.pkcol', h('div.pkhero', dist, h('span.pklab', 'kilometres')), h('div.pkhero', time, pace), h('div.pkrow', start, save), splits, status);
+  const el = h('div.pkcol', h('div.pkhero', dist, h('span.pklab', 'kilometres, measured by the phone')), h('div.pkhero', time, pace), h('div.pkrow', start, save), splits, status, phrases(['start a run']));
   return { el, stop };
 }

@@ -5,6 +5,7 @@
  * (from the tool's ability: "you asked about “trains”, and I can plan door-to-door journeys…"), and his own reason when
  * his words gave one. Nothing is asked of a model (packages/shared/src/abilities.ts `whyLines`).
  */
+import { feltKey } from './feltoff';
 import { whyLines, type Trail } from '../../../../../packages/shared/src/abilities';
 import { allAbilities } from '../../abilities/registry';
 import { brain } from '../../api/brain';
@@ -82,6 +83,8 @@ export async function openWhy(at: number): Promise<void> {
     if (/^In my words: /.test(l)) return h('p.whyown', l);
     return h('p.whyask', l);
   }));
+  // [health] THAT FELT OFF, in the sheet that says why: the moment is filed with this screen and counts against this reply
+  body.append(h('div.row.feltrow', feltKey({ reply: chat.get().entries.find((x): x is Extract<Entry, { kind: 'assistant' }> => x.kind === 'assistant' && x.at === at) })));
   modal('Why I did that', body);
   // (his "I" stays a capital: the sheet's title is not put in sentence case)
   const title = [...document.querySelectorAll<HTMLElement>('.modal .mhead b')].at(-1);

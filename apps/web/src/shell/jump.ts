@@ -11,12 +11,13 @@ import { speechCaps } from '../api/brain';
 import { listen, stopListening, voiceSupport } from '../assistant/voice';
 import { toast } from '../ui/components';
 import { index, key, lockBox, recognise, release, truthLine, plate, tag } from '../ui/machine';
-import { houseOn } from './house';
+import { grownOn, houseOn, openThing } from './house';
 import { DECK } from './deckcopy';
 import { ROOMS, roomOf, thingOf } from './rooms';
+import { nearestRoom } from './near';
 import { roomWord, thingForNumber, worksLine } from './inventory';
 import { ui } from '../state/app';
-import { jumpOpen, togglePalette, type Command, type JumpCtx } from '../commands/registry';
+import { allCommands, jumpOpen, togglePalette, type Command, type JumpCtx } from '../commands/registry';
 import { sayError } from '../ui/hisWords';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -63,7 +64,7 @@ function wireMic(ctx: JumpCtx): void {
   const mic = h('button.jmic', { type: 'button', 'aria-label': 'Say it' }, icon(MIC));
   mic.addEventListener('click', async () => {
     if (jumpState.listening) return stopListening();
-    if (!voiceSupport.mic && !voiceSupport.browserStt) return void toast('No microphone access in this browser', 'warn');
+    if (!voiceSupport.mic && !voiceSupport.browserStt) return void toast('This browser won’t let me hear you. Type it instead.', 'warn');
     jumpState.listening = true;
     mic.classList.add('on');
     const say = (t: string) => {
@@ -107,7 +108,8 @@ function draw(ctx: JumpCtx): number {
     if (lately.length) out.push(group('Recent', 'Newest first', lately, ctx, CLOCK));
     if (!pins.length && !lately.length) {
       // (first use: nothing pinned and nothing opened yet: say how, and offer the first screens)
-      out.push(h('section.jgroup.jempty', { dataset: { group: 'empty' } }, plate({}, h('p.jsay', 'Nothing pinned and nothing opened yet. Hold any thing to pin it; the last ones you open wait here.'))));
+      /* state: shell.jump empty */
+      out.push(h('section.jgroup.jempty', { dataset: { group: 'empty', state: 'empty' } }, plate({}, h('p.jsay', 'Hold any thing to pin it, and the last ones you open wait here.'))));
       const some = items.map((c, i) => [c, i] as [Command, number]).filter(([c]) => c.group === 'GO').slice(0, 6);
       if (some.length) out.push(group('Screens', 'Say a word, or a number', some, ctx, ''));
     }
@@ -117,7 +119,16 @@ function draw(ctx: JumpCtx): number {
   }
   // a number said or typed is the thing it means where he is ("two" in a room)
   const num = thingForNumber(q, ui.get().tab);
-  const hit = num?.screen ? items.findIndex((c) => c.id === `tab_${num.screen}`) : -1;
+  let hit = num?.screen ? items.findIndex((c) => c.id === `tab_${num.screen}`) : -1;
+  // (the rows are ranked by their words, and a lone digit can rank other screens above the one the number means, or leave it out:
+  // "2" in LEARN is Games, whatever else has a 2 in its words. Its row is put at the head of the palette's own list, which a tap reads.)
+  if (num?.screen && hit < 0) {
+    const c = allCommands().find((x) => x.id === `tab_${num.screen}`);
+    if (c) {
+      items.unshift(c);
+      hit = 0;
+    }
+  }
   // the find: the first screen ranked (the bar's own order); else the first row that is not a question to me
   let at = hit >= 0 ? hit : items.findIndex((c) => !!screenOf(c));
   if (at < 0) at = items.findIndex((c) => c.group !== 'ASK');
@@ -160,12 +171,24 @@ function draw(ctx: JumpCtx): number {
     jumpState.found = '';
     jumpState.checked = ROOMS.map((r) => r.title).join(' · ');
     out.push(h('p.jchecked.g-truth', { dataset: { case: 'keep', checked: jumpState.checked } }, ...truthLine(['Checked home', ...ROOMS.slice(1).map((r) => r.title.toLowerCase()), { text: 'Nothing found', tone: 'warn' }]).childNodes));
+    // nothing matches: said once in his words, with the nearest room offered (one tap goes there)
+    /* state: shell.jump error */
+    const near = nearestRoom(q);
+    out.push(h('p.jnone', { role: 'status', dataset: { state: 'error', case: 'keep' } }, 'Nothing matches that.'));
+    // (nothing near enough in name: the one place that lists everything, Every screen, is offered, never a guess)
+    const offer = near ? { id: `tab_${near.screen}`, room: near.room.key, label: `${near.name} · ${near.room.title.charAt(0)}${near.room.title.slice(1).toLowerCase()}`, aria: `Nearest: ${near.name}, in ${near.room.title.charAt(0)}${near.room.title.slice(1).toLowerCase()}`, thing: thingOf(near.screen), tag: 'Nearest' } : { id: 'deck', room: 'me', label: 'Every screen · Me', aria: 'Look through every screen', thing: thingOf('deck'), tag: 'Or look' };
+    const b = h('button.it.jnear', { type: 'button', dataset: { id: offer.id, room: offer.room, case: 'keep' }, 'aria-label': offer.aria }, h('small', offer.tag), h('span', offer.label));
+    b.addEventListener('click', () => {
+      if (jumpOpen()) togglePalette();
+      if (offer.thing) openThing(offer.thing);
+    });
+    out.push(b);
     take = ask >= 0 ? ask : 0;
   }
   if (rest.length) out.push(h('div.jrows', ...rest.map(([c, i]) => row(c, i, ctx, false))));
   // (what he typed, said to me as the question it is: the way today's path takes it)
   if (ask >= 0) {
-    const a = h(`button.it.jask.${find ? 'second' : 'only'}` as 'button', { type: 'button', dataset: { id: items[ask]!.id, case: 'keep' } }, h('b', q), h('span', `Or ask me: “${q.length > 24 ? `${q.slice(0, 24)}…` : `${q}...`}” goes to me as a question`));
+    const a = h(`button.it.jask.${find ? 'second' : 'only'}` as 'button', { type: 'button', dataset: { id: items[ask]!.id, case: 'keep' } }, h('b', q), h('span', `Or ask me: “${q.length > 24 ? `${q.slice(0, 24)}…` : q}” goes to me as a question`));
     a.addEventListener('click', () => ctx.pick(ask));
     out.push(a);
   }
@@ -180,7 +203,8 @@ export function openWithMic(): void {
 }
 
 export const jump = {
-  on: houseOn,
+  // (GROWN UP's one field is the jump bar too: the same rows, ranked as they are, drawn in its own look)
+  on: () => houseOn() || grownOn(),
   draw,
 };
 

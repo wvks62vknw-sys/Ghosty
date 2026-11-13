@@ -23,6 +23,12 @@ import { lengthIn, partBoxes, roomBoxesOf, roomPlanFor, type PartKind, type Show
 import { dialsOf, simWith, type Sim } from './sim';
 import { showTrace } from './turn';
 import { waiting } from '../ui/wait';
+import { orbView } from '../shell/capsule';
+import { grownOn } from '../shell/house';
+import { WALL_SAYS } from '../../../../packages/shared/src/wall';
+import { noteShown, stageToWall, takeWallTurn, sendToWall, wallOf, wallPhone } from '../wall/phone'; // [wall] the WALL key, and "on the wall" after an ask
+import { drawingWords, noPictureWords, NO_PICTURE_BROKE } from './words';
+import { trail } from '../ui/hisWords';
 
 /** What the Stage has done, for the checks (window.__ghosty.show.state()). */
 export const stageState = {
@@ -45,6 +51,8 @@ export const stageState = {
   waitLine: '',
   /** Where the sentence stood when the room was reserved and after the Stage rose (its top), for the check that it did not move. */
   reserved: '',
+  /** The numbers of the last chart the Stage drew (the slides' INSERT, CHART takes them). */
+  lastChart: null as null | { kind: 'bars' | 'line'; points: { label: string; value: number }[]; unit: string; before: boolean },
 };
 
 const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.dataset.motion === 'calm';
@@ -90,15 +98,23 @@ export function releaseRoom(): void {
 
 /** Take the Stage away (CLOSE, Escape, his next word, leaving the screen): it leaves as quietly as it came. */
 export function clearStage(why: string): void {
+  for (const r of document.querySelectorAll('.waitroom')) r.remove(); // the room "Drawing it…" left under the sentence goes with it
   stop();
   stop = () => undefined;
   const el = document.getElementById('thestage');
   if (el) {
     if (why === 'replaced' || why === 'check' || still()) el.remove();
     else if (!el.classList.contains('leaving')) {
-      // (it keeps its place for the length of its leaving; a newer Stage takes it away at once)
+      // (it keeps its place for the length of its leaving; a newer Stage takes it away at once. ORBIT: giving the Stage back is the orb
+      // shrinking again, the same slow tide run backwards, so it stays for the tide's length. GROWN UP: the panel folds back to the orb in
+      // its top edge, a short settle)
+      const world = document.documentElement.dataset.world;
       el.classList.add('leaving');
-      setTimeout(() => el.remove(), 360);
+      if (world === 'orbit' || world === 'grown') {
+        el.dataset.leaving = 'true';
+        el.setAttribute('aria-hidden', 'true');
+      }
+      setTimeout(() => el.remove(), world === 'orbit' ? 960 : 360);
     }
   }
   if (why !== 'replaced') {
@@ -133,7 +149,7 @@ function ortho(lat: number, lon: number, lat0: number, lon0: number): [number, n
 }
 
 /** GOD'S EYE's globe, drawn from the world pack on this phone: land, the graticule, the big cities, the place lit at the centre. */
-function eyePic(lat0: number, lon0: number, label: string): SVGSVGElement {
+export function eyePic(lat0: number, lon0: number, label: string): SVGSVGElement {
   const R = 132;
   const svg = svgEl('svg', { viewBox: `${-W / 2} -150 ${W} 300`, class: 'stg-svg eye', role: 'img', 'aria-label': `God's Eye, centred on ${label}` });
   svg.append(svgEl('circle', { cx: 0, cy: 0, r: R, class: 'stg-disc' }));
@@ -203,8 +219,51 @@ function eyePic(lat0: number, lon0: number, label: string): SVGSVGElement {
   return svg;
 }
 
+/**
+ * The same map for THE WALL (wall/screen.ts): OpenStreetMap's tiles one zoom closer, each drawn at 1.5 times its size, in a grid wide
+ * enough for a 1,920 × 1,080 screen; the place in a larger reticle and its name beside it. A tile that does not load leaves its place empty.
+ */
+export function mapWidePic(lat: number, lon: number, z: number, label: string): HTMLElement {
+  const z2 = Math.min(18, Math.max(3, Math.round(z)) + 1);
+  const TILE = 384;
+  const n = 2 ** z2;
+  const wx = ((lon + 180) / 360) * n;
+  const sinLat = Math.sin((lat * Math.PI) / 180);
+  const wy = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * n;
+  const cx = Math.floor(wx);
+  const cy = Math.floor(wy);
+  const layer = h('div.stgtiles');
+  let tiles = 0;
+  for (let dx = -3; dx <= 3; dx++) {
+    for (let dy = -2; dy <= 2; dy++) {
+      const ty = cy + dy;
+      if (ty < 0 || ty >= n) continue;
+      const tx = (((cx + dx) % n) + n) % n;
+      const img = h('img', { alt: '', decoding: 'async', draggable: false, src: `https://tile.openstreetmap.org/${z2}/${tx}/${ty}.png` });
+      img.style.width = img.style.height = `${TILE}px`;
+      img.style.left = `${Math.round((cx + dx - wx) * TILE)}px`;
+      img.style.top = `${Math.round((cy + dy - wy) * TILE)}px`;
+      img.addEventListener('error', () => img.remove());
+      layer.append(img);
+      tiles++;
+    }
+  }
+  stageState.drawn = { tiles };
+  const pin = svgEl('svg', { viewBox: '-20 -20 40 40', class: 'stgpin', 'aria-hidden': 'true' });
+  pin.append(svgEl('rect', { x: -14, y: -14, width: 28, height: 28, class: 'stg-box' }), svgEl('circle', { cx: 0, cy: 0, r: 4, class: 'stg-core' }));
+  return h('div.stgmap.wallmap', { role: 'img', 'aria-label': `Map of ${label}` }, layer, pin, h('span.wallplace', { dataset: { case: 'keep' } }, label), h('span.stgattr', '© OpenStreetMap'));
+}
+
+/** The answer's own table, as a table: its header, and the first rows that fit (the rest are in the sheet OPEN makes). */
+function tablePic(rows: string[][]): HTMLElement {
+  const [head, ...rest] = rows;
+  const t = h('table.stgtable', h('thead', h('tr', ...head!.map((c) => h('th', c)))), h('tbody', ...rest.slice(0, 8).map((r) => h('tr', ...r.map((c) => h('td', c))))));
+  const wrap = h('div.stgtablewrap', t);
+  if (rest.length > 8) wrap.append(h('p.stgmore', `${rest.length - 8} more rows in the sheet`));
+  return wrap;
+}
 /** The reply as a page: its heading, its paragraphs and list items, set as a page with margins in the system's reading type. */
-function docPic(title: string, paras: { t: string; text: string }[]): HTMLElement {
+export function docPic(title: string, paras: { t: string; text: string }[]): HTMLElement {
   const page = h('div.stgpage.paper', { role: 'img', 'aria-label': 'The document, laid out as a page' }, h('b.stgh', title));
   let i = 0;
   for (const p of paras.filter((x, k) => !(k === 0 && x.text.trim() === title.trim()))) {
@@ -303,7 +362,7 @@ interface Sizes {
 }
 
 /** BOXES IN 3-D from parameters: lit from above and to the left with a soft shadow on its ground, its sizes on its edges, turning slowly until he touches it. */
-function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: string, sizes: Sizes): { el: SVGSVGElement; stop: () => void } {
+export function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: string, sizes: Sizes): { el: SVGSVGElement; stop: () => void } {
   const svg = svgEl('svg', { viewBox: '-180 -180 360 360', class: 'stg-svg iso', role: 'img', 'aria-label': `${label}, in 3-D: drag to turn` });
   const defs = svgEl('defs', {});
   const blur = svgEl('filter', { id: 'stgsoft', x: '-20%', y: '-20%', width: '140%', height: '140%' });
@@ -409,6 +468,19 @@ function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label: strin
 
 // ---------------------------------------------------------------- the Stage
 
+/** MAKE SLIDES OF IT: the document answer's headings, or the chart's numbers, as a new deck in PRESENTATIONS. */
+async function makeSlides(show: Show, facts: ShowFacts): Promise<void> {
+  const { run } = await import('../commands/registry');
+  if (show.kind === 'document') return void (await run('open_slides', { report: { text: facts.reply, title: show.title } }));
+  if (show.kind === 'chart') return void (await run('open_slides', { chart: { title: show.title, chart: { kind: show.series.kind, points: show.series.points, unit: show.series.unit, before: show.series.before } } }));
+}
+
+/** ADD TO A PROJECT: the document answer's words become a page inside a project in THE WORKSPACE. */
+async function addToProject(show: Show, facts: ShowFacts): Promise<void> {
+  const { run } = await import('../commands/registry');
+  if (show.kind === 'document') await run('open_workspace', { addDoc: { text: facts.reply, title: show.title } });
+}
+
 /** OPEN: the full screen for what the Stage shows (the map sheet, God's Eye, the document editor, the Workbench, the Studio). */
 async function open(show: Show, facts: ShowFacts): Promise<void> {
   const { run } = await import('../commands/registry');
@@ -420,6 +492,7 @@ async function open(show: Show, facts: ShowFacts): Promise<void> {
     setTimeout(() => globe.cam.flyTo({ lat: show.lat, lon: show.lon, range: 500, tilt: 0 }), 400);
     return;
   }
+  if (show.kind === 'table') return void (await run('open_sheets', { table: show.rows, title: show.title }));
   if (show.kind === 'document') return void (await run('open_docs', { doc: docFromReply(facts.reply, facts.ask, { name: facts.me?.name }) }));
   if (show.kind === 'simulation') {
     const { parseProblem, PANEL_OF } = await import('../../../../packages/shared/src/workbench');
@@ -428,10 +501,42 @@ async function open(show: Show, facts: ShowFacts): Promise<void> {
     if (p) openWorkbench(PANEL_OF[p.kind], p);
     return;
   }
+  // the working engine opens in the 3-D Studio on the car's bay, the cover lifted and the engine turning (BRIEF-WORKING-ENGINE)
+  if (show.kind === 'part' && show.part?.kind === 'engine') {
+    const { carNow } = await import('../car/state');
+    const { specFrom } = await import('../car/spec');
+    const now = carNow.get();
+    // the car he has on show if there is one, else a typical one (a turbo engine for "show me a turbo")
+    const spec = show.part.turbo ? specFrom({ plate: '', make: '', model: '', fuel: 'Diesel', year: 2018 }) : (now.spec ?? specFrom({ plate: '', make: '', model: '', fuel: 'Petrol', year: 2012 }));
+    carNow.set({ spec, whose: now.spec === spec ? now.whose : '', view: 'bay', fault: null, card: 'car:engine', cover: true });
+    await run('open_studio', { sample: 'car', title: show.title });
+    return;
+  }
   // a room or a part opens in the 3-D engine, as a scene he can build on (BRIEF-ENGINE-3D-1)
   const { sceneFromPart, sceneFromRoom } = await import('../engine3d/ask');
   if (show.kind === 'room' && show.room) await run('open_studio', { engine: sceneFromRoom(show.room), title: show.title });
   else if (show.kind === 'part' && show.part) await run('open_studio', { engine: sceneFromPart(show.part.kind, show.part.dims, show.part.name), title: show.title });
+}
+
+/**
+ * The WALL key (44 pt), there while a wall is paired: it sends this picture to the wall (a kind and its data, never the screen). A kind that
+ * cannot go says so; with the brain out of reach the key says "No wall right now" and the picture stays here.
+ */
+function wallKey(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts): HTMLElement | null {
+  if (!wallPhone.get().paired || !wallOf(show, facts.reply, facts.ask)) return null;
+  const b = key('WALL', async () => {
+    const word = b.querySelector('span')!;
+    const was = word.textContent;
+    word.textContent = 'SENDING';
+    b.setAttribute('aria-busy', 'true');
+    const r = await stageToWall(show, facts.reply, facts.ask);
+    b.removeAttribute('aria-busy');
+    word.textContent = r.ok ? 'ON THE WALL' : r.why === 'offline' ? 'NO WALL RIGHT NOW' : r.why === 'none' ? 'NO WALL PAIRED' : was;
+    b.dataset.wall = r.ok ? 'sent' : r.why;
+    setTimeout(() => (word.textContent = 'WALL'), r.ok ? 2200 : 3600);
+  }, { label: 'Show this on the wall' });
+  b.dataset.wall = 'ready';
+  return b;
 }
 
 /** Where the Stage sits: above the ask line (or the dock), with the conversation shrunk above it. */
@@ -439,6 +544,16 @@ function place(el: HTMLElement): void {
   const { bottom, hgt } = stageBox();
   el.style.setProperty('--stage-bottom', `${Math.round(bottom)}px`);
   el.style.setProperty('--stage-h', `${Math.round(hgt)}px`);
+  // ORBIT: it grows from where the orb is (Home's, at the centre of its sky, or the line's at the foot of the screen)
+  if (document.documentElement.dataset.world === 'orbit') {
+    const orb = [...document.querySelectorAll<HTMLElement>('body.orbithome .orbhost, #dock .orbbtn')].find((o) => o.getClientRects().length);
+    const r = orb?.getBoundingClientRect();
+    const e = el.getBoundingClientRect();
+    if (r && r.width) {
+      el.style.setProperty('--orb-x', `${Math.round(r.left + r.width / 2 - e.left)}px`);
+      el.style.setProperty('--orb-y', `${Math.round(r.top + r.height / 2 - e.top)}px`);
+    }
+  }
   // (a chart is as tall as it is: the conversation above it is shrunk by what it really takes)
   document.body.style.setProperty('--stageh', `${Math.round(bottom + Math.min(hgt, el.getBoundingClientRect().height || hgt) + 10)}px`);
   // (the conversation is shrunk above the Stage: its latest words stay in sight; the sentence moves only when it would be covered)
@@ -492,6 +607,7 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
       const c = chartPic(show.series, (n) => (stageState.drawn = n), () => Math.max(200, stageBox().hgt - 204));
       pic = c.el;
       relayout = c.relayout;
+      stageState.lastChart = { kind: show.series.kind, points: show.series.points.map((p) => ({ label: p.label, value: p.value })), unit: show.series.unit, before: show.series.before };
       break;
     }
     case 'eye': {
@@ -506,6 +622,9 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
       break;
     case 'document':
       pic = docPic(show.title, show.paragraphs);
+      break;
+    case 'table':
+      pic = tablePic(show.rows);
       break;
     case 'simulation': {
       const s = simPic(show.sim);
@@ -567,7 +686,9 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
       break;
     }
   }
-  el = h('section#thestage.g-plate.strong', { dataset: { kind: show.kind, id: show.id }, role: 'region', 'aria-label': `Shown: ${show.title}` });
+  // (ORBIT: a map, a globe, a chart or a simulation is a sphere grown from the orb; a document, a room or a part is a rounded page with the same lit rim)
+  const shape = show.kind === 'map' || show.kind === 'eye' || show.kind === 'chart' || show.kind === 'simulation' ? 'sphere' : 'page';
+  el = h('section#thestage.g-plate.strong', { dataset: { kind: show.kind, id: show.id, shape }, role: 'region', 'aria-label': `Shown: ${show.title}` });
   const close = () => clearStage('closed');
   const openable = show.kind !== 'chart';
   el.append(
@@ -575,8 +696,15 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
     h('div.stgpic', pic),
     ...truth.map((t) => truthLine(t)),
     ...(answerEl ? [answerEl] : []),
-    h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
+    h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, show.kind === 'document' || show.kind === 'chart' ? key('MAKE SLIDES OF IT', () => void makeSlides(show, facts), { label: `Make slides of ${show.title}` }) : null, show.kind === 'document' ? key('ADD TO A PROJECT', () => void addToProject(show, facts), { label: `Add ${show.title} to a project in my workspace` }) : null, wallKey(show, facts), key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
   );
+  // GROWN UP: the orb is docked in the panel's top edge like a jewel, and the bezel is lit from it (styles.css `#thestage::before`): a second view of the one Mind
+  if (grownOn()) {
+    const jewel = orbView(56, () => !!el.isConnected && !document.hidden);
+    el.prepend(h('div.stgjewel', { 'aria-hidden': 'true' }, h('i.stgjring'), jewel.cv));
+    jewel.start();
+    stops.push(jewel.stop);
+  }
   document.body.append(el);
   document.body.classList.add('staged');
   place(el);
@@ -618,11 +746,31 @@ export function prefetch(): void {
 export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'clients' | 'cards' | 'brain'>): Promise<Show | null> {
   // Drawing it…: said under the sentence while the picture is on its way (the world pack, his places), gone when it lands or there is none
   const logHost = document.querySelector<HTMLElement>('.hud.core .log') ?? document.querySelector<HTMLElement>('#log') ?? document.body;
-  const drawn = waiting(logHost, 'Drawing it…');
+  /* state: show.stage loading */
+  const drawn = waiting(logHost, drawingWords(f.ask));
   try {
     return await presentNow(f);
+  } catch (e) {
+    // the picture could not be drawn: said in one line, never silence (and the sentence he has stays as it was)
+    trail(e, 'draw the picture');
+    /* state: show.stage error */
+    void import('../assistant/session').then(({ chat }) => chat.set((s) => ({ entries: [...s.entries, { kind: 'error' as const, text: NO_PICTURE_BROKE, note: true }].slice(-120) })));
+    return null;
   } finally {
+    // The line goes, but its room stays until the Stage goes: at the foot of the log its going would pull
+    // the sentence above it down just as the Stage rises (the sentence holds still through the hand-over).
+    const before = logHost.scrollHeight;
     drawn();
+    const lost = before - logHost.scrollHeight;
+    if (lost > 0 && logHost !== document.body) {
+      const room = document.createElement('div');
+      room.className = 'waitroom';
+      room.setAttribute('aria-hidden', 'true');
+      room.style.height = `${lost}px`;
+      room.style.flex = 'none'; // (the log is a column that shrinks what it holds: the room keeps its height)
+      logHost.append(room);
+      // (it goes with the Stage: his next word, CLOSE, Escape; see clearStage)
+    }
   }
 }
 
@@ -648,10 +796,28 @@ async function presentNow(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'client
   stageState.last = show ? { kind: show.kind, id: show.id, ...('via' in show && show.via ? { via: show.via } : {}), title: show.title } : null;
   stageState.why = show ? ('via' in show && show.via ? 'its own screen drew it' : '') : 'nothing in the answer to show';
   stageState.presented++; // (counted once its verdict and its reason are both in place: a reader never sees the count moved with the last turn's reason)
+  noteShown(show, f.reply, f.ask); // [wall] what "on the wall" sends next
+  const toWall = takeWallTurn(); // [wall] asked "…, on the wall": the picture goes to the wall, and the phone's chat stays clear
+  if (!show) {
+    if (toWall) void import('../ui/components').then((c) => c.toast(WALL_SAYS.nothing));
+    // he asked for a picture and there is nothing to draw it from: one line of why in the log, and no plate
+    const why = noPictureWords(f.ask);
+    /* state: show.stage empty */
+    if (why) chat.set((s) => ({ entries: [...s.entries, { kind: 'error' as const, text: why, note: true }].slice(-120) }));
+  }
   if (!show || ('via' in show && show.via)) {
     // a wrong promise: the room reserved for it goes back to the conversation, the way the Stage would have left
     releaseRoom();
     return show;
+  }
+  if (toWall) {
+    const r = await sendToWall(wallOf(show, f.reply, f.ask));
+    if (r.ok) {
+      releaseRoom();
+      return show;
+    }
+    // it could not go (a kind that stays on the phone, no wall, the brain out of reach): the picture stays here, and he is told
+    void import('../ui/components').then((c) => c.toast(r.said, 'bad'));
   }
   // (the country's outline needs the world pack: for a city asked by name it is already here)
   mount(show as Exclude<Show, { via: 'its screen' }>, facts, t0);

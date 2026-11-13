@@ -241,6 +241,8 @@ export function stampLine(facts: () => StampFacts): { el: HTMLElement; refresh()
     timer = window.setTimeout(tick, 60_000 - (Date.now() % 60_000) + 50);
   };
   tick();
+  // (the signal going or coming says so at once, not at the minute: OFFLINE, FEEDS PAUSED is true the moment it is)
+  for (const ev of ['offline', 'online']) addEventListener(ev, () => el.isConnected && paint());
   return {
     el,
     refresh: paint,

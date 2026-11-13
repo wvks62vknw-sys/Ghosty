@@ -552,7 +552,7 @@ export function createSoundMode(L: LensContext): Mode {
         if (ev.t === 'tool') status(`Ghosty: ${ev.name.replace(/_/g, ' ')}…`, 'mid');
       }, { seen: S.words });
       S.reply = r.text || r.error || '';
-      replyModel.textContent = r.text ? r.model || 'GHOSTY' : 'PROBLEM';
+      replyModel.textContent = r.text ? r.model || 'GHOSTY' : 'NO ANSWER';
       replyText.textContent = S.reply;
       reply.hidden = !S.reply;
       if (S.reply) reveal(reply);

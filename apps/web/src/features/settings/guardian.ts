@@ -14,6 +14,10 @@ import { switchRow } from './switch';
 import { cars, loadCars } from '../core/cards'; // [cards] PEOPLE: the people he introduced and the cars he named (BRIEF-SIDEWAYS 2d)
 import type { NamedCar } from '../../../../../packages/shared/src/cards';
 import { sayError } from '../../ui/hisWords';
+import { GUARDIAN as G, SWITCHES, type Cut } from './words';
+
+/** A sentence, with the rest of its fact behind a "?" (never smaller type). */
+const cut = (c: Cut, cls = '') => h(`p.note${cls}` as 'p', c.short, h('details.patwhy', h('summary', { 'aria-label': 'More about this' }, '?'), h('p', c.more)));
 
 export function guardianPanel(): { el: HTMLElement; refresh(): void } {
   const p = panel('GUARDIAN', { grow: false, status: 'Not set' });
@@ -22,7 +26,7 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
   const email = h('input', { type: 'email', placeholder: 'or their email', 'aria-label': 'Their email address', maxLength: 200, autocomplete: 'off', autocapitalize: 'none' });
   const mine = h('input', { placeholder: 'Your name, as they know you', 'aria-label': 'Your name for them', maxLength: 40, autocomplete: 'off' });
   let share = false;
-  const shareSw = switchRow('Share where I am', 'My last known position goes with a walk’s message to them', () => share, (on) => (share = on));
+  const shareSw = switchRow('Share where I am', SWITCHES.share, () => share, (on) => (share = on));
   const state = h('p.note.guardstate', { dataset: { case: 'keep' } });
   const invite = h('div.guardinvite');
   const save = button('SAVE', () => void savePerson(), 'on');
@@ -37,7 +41,7 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
   phrase.addEventListener('keydown', (e) => e.key === 'Enter' && setPhrase.click());
 
   p.body.append(
-    h('p.note', 'If you don’t answer me on a walk home, or you say your panic phrase, I message one person: by Telegram once they’ve opened your bot with the invite, or from your own email. Never a text — those cost money.'),
+    cut(G.intro),
     h('div.lab', 'YOUR NAMED PERSON'),
     h('div.keyrow.wrapit', name),
     h('div.keyrow.wrapit', tg, email),
@@ -47,12 +51,12 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
     state,
     invite,
     h('div.lab', 'PANIC PHRASE'),
-    h('p.note', 'Typed or said — here, in a voice note or on Telegram — it messages them at once, with where you are when I have it. I keep only a scrambled copy, never the words.'),
+    cut(G.panic),
     h('div.keyrow.wrapit', phrase, setPhrase, dropPhrase),
     phraseState,
-    h('p.note.guardlimit', 'The honest limits: I only know where you are while I’m open, only on a walk you started, and only after you said yes once. The check-in itself runs on my brain, so “Home?” comes even if your phone is asleep.'),
+    cut(G.limits, '.guardlimit'),
     h('div.lab', 'PEOPLE'),
-    h('p.note', 'Tell me in the chat — “my dad’s car is RX15 KNG” — and the car goes under them here. Only yours and the people you introduce; a plate gives the car’s public record, never anything about who keeps it.'),
+    cut(G.people),
     people,
   );
   const paintPeople = () => {
@@ -106,13 +110,13 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
         h('span', 'Their one-tap invite: '),
         a,
         button('SHARE', () => {
-          const text = `Ghosty, my assistant, may message you if I don't answer on a walk home. Tap this once and press START: ${per.invite}`;
+          const text = `Ghosty, my assistant, may message you if I don't answer on a walk home; tap this once and press START: ${per.invite}`;
           if (navigator.share) void navigator.share({ text }).catch(() => undefined);
           else void navigator.clipboard?.writeText(text).then(() => toast('Copied: send it to them', 'ok'), () => undefined);
         }),
       );
     }
-    phraseState.textContent = info?.panic ? `Set (${info.panic.n} words). Change it by setting a new one.` : 'Not set.';
+    phraseState.textContent = info?.panic ? `Set (${info.panic.n} words); change it by setting a new one.` : 'Not set.';
     dropPhrase.disabled = !info?.panic;
   };
 

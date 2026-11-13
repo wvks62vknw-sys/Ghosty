@@ -20,7 +20,8 @@
 //      only Mind's breath;
 //   4. Reduce Motion: the two-frame version, nothing moves, 1.2 s;  5. "reboot" plays it again over Home (and SYSTEM has the
 //      line), the greeting spoken at once, once, the recognition's tone heard (he has tapped);  6. a phone that cannot keep
-//      up: long frames counted and the cinematic shortened (the short version chosen, or the full cut leaning mid-flight);
+//      up: long frames counted and the cinematic lightened (the short version chosen, or the full cut leaning mid-flight: the
+//      storyboard's cut quickens as it leans, THE FILM sheds its extras and keeps its seven seconds: FINAL-BOOT);
 //      7. automated checks (no flag) see no cinematic at all.
 // It also photographs each moment (the cinematic stepped by hand), checks what those moments draw (the floor forming, the
 // stamp typing with its cursor, the feeds' lines, the box on the orb, the name, the greeting), and prints the timings.
@@ -149,7 +150,12 @@ const FEED_WORD = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 /** The words that may be on the cinematic: the stamp, the feeds' lines, TAP TO SKIP, the name, his greeting. */
 const STAMP = /^[A-Z]{3} \d{1,2} [A-Z]{3} · \d{2}:\d{2} · .+ · (WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED)$/;
 /** (`stamps`: the whole stamp lines seen, so a line caught mid-typing counts as the stamp too) */
-const allowed = (t, greeting, stamps, film = false) => t === 'TAP TO SKIP' || t === 'GHOSTY' || t === greeting || STAMP.test(t) || stamps.some((f) => f.startsWith(t)) || /^(FLOOD|WEATHER|CRIME) · /.test(t) || (film && FILM_WORDS.test(t));
+// (BRIEF-QUALITY-BOOT-ORB: a landing held for a late app says what it waits for, in the stamp's small type, one of three lines of shell/bootwords.ts,
+// and POLISH 1's line after six seconds held; each allowed only when __bootState says the landing really was held that long, and nothing else)
+const HOLD_LINE = /^still starting, (waiting for a signal|waiting for my brain|a moment more)\.$/i;
+const allowed = (t, greeting, stamps, film = false, b = null) => t === 'TAP TO SKIP' || t === 'GHOSTY' || t === greeting || STAMP.test(t) || stamps.some((f) => f.startsWith(t)) || /^(FLOOD|WEATHER|CRIME) · /.test(t) || (film && FILM_WORDS.test(t)) || (!!b?.holdLine && HOLD_LINE.test(t)) || ((b?.held ?? 0) > 6000 && t === 'Still waking. The signal is slow.');
+/** The stamp line with its feeds' word: watching, checking, offline, or (BRIEF-QUALITY-BOOT-ORB: CHECKING FEEDS settles at the recognition) "No feeds yet" only when no feed's line was drawn. */
+const stampShown = (texts, b) => texts.some((t) => /WATCHING \d+ FEEDS?|CHECKING FEEDS|OFFLINE, FEEDS PAUSED/.test(t) || (/NO FEEDS YET/.test(t) && (b?.feedLines ?? []).length === 0));
 const greetingFor = (page) => page.evaluate(() => {
   const hr = new Date().getHours();
   return `${hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening'}, Tony.`;
@@ -292,14 +298,16 @@ async function checkWords(page, s, what, { tapped }) {
   if (!words.includes('GHOSTY')) problems.push(`full: the name never showed (saw: ${words})`);
   if (!words.includes(want)) problems.push(`full: the greeting was not "${want}" (saw: ${words})`);
   if (!words.includes('TAP TO SKIP')) problems.push(`full: TAP TO SKIP never showed (saw: ${words})`);
-  if (!v.texts.some((t) => /WATCHING \d+ FEEDS?|CHECKING FEEDS|OFFLINE, FEEDS PAUSED/.test(t))) problems.push(`full: the stamp line never showed (saw: ${words})`);
+  if (!stampShown(v.texts, s)) problems.push(`full: the stamp line never showed (saw: ${words})`);
   // (the stamp wraps whole segments onto a second line at 440 as the real component wraps: joined back before it is read)
   const joinWrapped = (lines) => lines.reduce((acc, l) => (acc.length && /^(WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED)$/.test(l) ? [...acc.slice(0, -1), `${acc.at(-1)} ${l}`] : [...acc, l]), []);
   // every line on it is one of its own (the stamp, the feeds' lines, the skip, the name, his greeting): no status line, no decoration
   const lines = v.texts.flatMap((t) => joinWrapped(t.split('\n').map((x) => x.trim()).filter(Boolean)));
   const stamps = lines.filter((t) => STAMP.test(t));
-  const extra = lines.filter((t) => !allowed(t, want, stamps, !!s?.film));
+  const extra = lines.filter((t) => !allowed(t, want, stamps, !!s?.film, s));
   if (extra.length) problems.push(`full: something else was written on it (a status line?): ${extra.join(' / ')}`);
+  // a landing held a second and a half for the app says what it waits for (never a silent frame)
+  if ((s?.held ?? 0) >= 1500 && !s?.holdLine) problems.push(`full: the landing was held ${s?.held} ms and said nothing of what it waits for`);
   await checkWords(page, s, 'full', { tapped: false });
   // it lands on Home's real MIND: the canvas that flew is the one in the hero, to the pixel
   if (!s?.mind) problems.push('full: MIND did not draw the cinematic');
@@ -422,7 +430,7 @@ async function checkWords(page, s, what, { tapped }) {
   const want = await greetingFor(page);
   if (!v.texts.join(' | ').includes(want)) problems.push(`reduce motion: no greeting (saw: ${v.texts.join(' | ')})`);
   if (!v.texts.join(' | ').includes('GHOSTY')) problems.push(`reduce motion: no name (saw: ${v.texts.join(' | ')})`);
-  if (!v.texts.some((t) => /WATCHING \d+ FEEDS?|CHECKING FEEDS|OFFLINE, FEEDS PAUSED/.test(t))) problems.push(`reduce motion: no stamp line (saw: ${v.texts.join(' | ')})`);
+  if (!stampShown(v.texts, s)) problems.push(`reduce motion: no stamp line (saw: ${v.texts.join(' | ')})`);
   // the two frames: 1,200 ms, the recognition at 600
   if (s?.kind === 'still' && (s.timeline?.end !== 1200 || s.timeline?.recognise !== 600)) problems.push(`reduce motion: the cut is ${JSON.stringify(s.timeline)} (want two frames: the recognition at 600, over at 1,200)`);
   if (s?.marks.recognise === undefined) problems.push('reduce motion: no recognition');
@@ -498,7 +506,8 @@ async function checkWords(page, s, what, { tapped }) {
 
 // ---- 6. a phone that cannot keep up (software WebGL is one): every long frame counted, and the cinematic shortened
 {
-  // left to choose for itself: the point of light already stutters here, so it picks the short version (or flat)
+  // left to choose for itself: the storyboard's cut sees the point of light stutter and picks the short version (or flat); THE FILM
+  // judges the phone by its own frames (FINAL-BOOT), so here, with every frame long, it leans mid-flight and keeps its length
   const { ctx, page } = await open();
   await page.goto(base);
   await page.waitForSelector('#boot', { state: 'detached', timeout: 40000 }).catch(() => problems.push('slow phone: it never ended'));
@@ -506,10 +515,10 @@ async function checkWords(page, s, what, { tapped }) {
   const B = s?.budget;
   if (!B || !(B.long > 0)) problems.push(`slow phone: no long frames counted (${JSON.stringify(B && { hz: B.hz, long: B.long })})`);
   if (s?.kind === 'full' && !B?.lean) problems.push('slow phone: the full cut played on, with every frame long');
-  if (s && !(s.ended - s.held <= CUT_OF(s).end + s.worstGap)) problems.push(`slow phone: it ran ${s.ended - s.held} ms (want shorter than the full cut, ${CUT_OF(s).end})`);
+  if (s && !(s.ended - s.held <= CUT_OF(s).end + s.worstGap)) problems.push(`slow phone: it ran ${s.ended - s.held} ms (want no longer than the full cut, ${CUT_OF(s).end})`);
   if (s) timings.push(`slow phone, its own choice: ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; budget ${B?.hz} Hz / ${B?.ms} ms: ${B?.long} of ${B?.gaps?.length} frames long; ended ${s.ended} ms`);
   await ctx.close();
-  // the full cut, then the phone falling behind mid-flight: it leans (no depths, trails or refraction) and quickens
+  // the full cut, then the phone falling behind mid-flight: it leans (no depths, trails or refraction); the storyboard's cut quickens, the film keeps its length
   const L = await open({ kind: 'full', lean: true });
   // every frame from the gathering on takes longer than a 60 Hz frame and a bit (as a phone that cannot keep up would)
   await L.page.addInitScript(() => {
@@ -526,7 +535,10 @@ async function checkWords(page, s, what, { tapped }) {
   await L.page.waitForSelector('#boot', { state: 'detached', timeout: 40000 }).catch(() => problems.push('lean: it never ended'));
   const l = await state(L.page);
   if (!l?.budget?.lean) problems.push(`lean: the full cut did not lean with its frames long (${l?.budget?.long} long of ${l?.budget?.gaps?.length})`);
-  if (l?.budget?.lean && !(l.pace > 1)) problems.push(`lean: it leaned but did not quicken (pace ${l.pace})`);
+  // (the storyboard's cut quickens when it leans; THE FILM keeps its length, his seven seconds (FINAL-BOOT): it sheds its extras and
+  // plays on at the pace it had, so its own part still ends at 7,000)
+  if (l?.budget?.lean && !l.film && !(l.pace > 1)) problems.push(`lean: it leaned but did not quicken (pace ${l.pace})`);
+  if (l?.budget?.lean && l.film && Math.abs(l.ended - l.held - CUT_OF(l).end) > l.worstGap + 120) problems.push(`lean: the film leaned and ran ${l.ended - l.held} ms of its own (want its whole ${CUT_OF(l).end}: a lean never cuts the film short)`);
   if (!landedOk(l?.landed)) problems.push(`lean: it did not land on the hero (${JSON.stringify(l?.landed)})`);
   if (l) timings.push(`lean: leaned at ${l.budget?.lean}, pace ${l.pace}; ${ORDER.map((p) => `${p} ${l.marks[p]}`).join(' · ')} ms; ${l.budget?.long} of ${l.budget?.gaps?.length} frames long`);
   await L.ctx.close();

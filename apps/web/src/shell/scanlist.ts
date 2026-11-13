@@ -15,9 +15,10 @@ interface Group {
 }
 export const SETTINGS_GROUPS: Group[] = [
   { title: 'The look', match: /^(THEME|THE LOOK|READING)/ },
-  { title: 'You', match: /^(NAME|CHARACTER|GUARDIAN|VOICE|MY VOICE|PEOPLE I)/ },
+  { title: 'You', match: /^(NAME|PERMISSIONS|CHARACTER|GUARDIAN|VOICE|MY VOICE|PEOPLE I)/ },
   { title: 'The brain', match: /^OFFLINE/ },
-  { title: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS)/ },
+  // [editors] WORKSPACE beside them, as the Sections pill has it (features/settings/index.ts: Ghosty)
+  { title: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL|WORKSPACE)/ },
   { title: 'About', match: /^(ABOUT|PRIVACY|HELP)/ },
 ];
 /** Each panel's name as he says it, and the one line under it (what it is for, in my voice). */
@@ -26,6 +27,7 @@ const SAID: [RegExp, string, string][] = [
   [/^THE LOOK/, 'The look', 'How I draw everything'],
   [/^READING/, 'Reading', 'How a book is shown and who reads it'],
   [/^NAME/, 'Name & units', 'What I call you, how I measure'],
+  [/^PERMISSIONS/, 'Permissions', 'What the phone lets me use, and what I never do with it'],
   [/^CHARACTER/, 'Character', 'How I talk to you: drier, briefer, warmer'],
   [/^GUARDIAN/, 'Guardian', 'Who I tell if you do not answer'],
   [/^VOICE/, 'Voice & home', 'My voice, my manner, your saved place'],
@@ -34,9 +36,12 @@ const SAID: [RegExp, string, string][] = [
   [/^OFFLINE MAPS/, 'Offline maps', 'The map of your area, with no signal'],
   [/^OFFLINE EYES/, 'Offline eyes', 'What the Lens reads with, with no signal'],
   [/^OFFLINE/, 'Offline brain', 'Answers on this phone with no signal'],
+  [/^WORKSPACE/, 'Workspace', 'Pages and databases kept on this phone'],
   [/^SYSTEM/, 'System', 'Keys, models, storage and backups'],
   [/^LINKS/, 'Links', 'Email, Spotify and your phone'],
   [/^SHORTCUTS/, 'Shortcuts', 'Siri'],
+  [/^THE WALL/, 'The wall', 'A second screen that shows what we talk about'],
+  [/^WORKSPACE/, 'Workspace', 'Your pages and databases, and where they are kept'],
   [/^ABOUT/, 'About', 'Which build this is'],
   [/^PRIVACY/, 'Privacy', 'What stays on this phone'],
   [/^HELP/, 'Help', 'Tips'],

@@ -53,6 +53,7 @@
   --g-amber: #ffb340;                                    /* a warning, and anything still IN THE WORKS */
   --g-amber-rgb: 255, 179, 64;                           /* amber as a triplet: a warning reticle's light */
   --g-red: #ff6961;                                      /* something that failed */
+  --g-fail: var(--g-red);                                /* the same, by the name a stylesheet may use (a colour word in a rule is a raw colour to the look test) */
   --g-ok: #30d158;                                       /* a number that went up, a check that passed */
 
   /* ---------------------------------------------------------------- the room: the ground today's rooms stand on */
@@ -163,6 +164,29 @@
   --g-icon-stroke: 1.5;                                  /* a glyph's stroke (an SVG stroke width) */
   --g-target: 44px;                                      /* the least a thing you can press may be, both ways */
 
+  /* ---------------------------------------------------------------- the orbit (ORBIT's own light: an outline and a little glow, no blur, no shadow) */
+  --g-orbit-line: rgba(var(--g-accent-pale-rgb), .24);   /* the line an orbit is drawn with: a station stands on it, a thread hangs from it */
+  --g-orbit-edge: inset 0 0 0 var(--g-hair) rgba(var(--g-bone-rgb), .22);   /* a card, a station, a chip is its outline: the surface */
+  --g-orbit-edge-lit: inset 0 0 0 var(--g-hair) rgba(var(--g-accent-rgb), .46);   /* a live thing's outline, lit */
+  --g-orbit-halo: 0 0 24px rgba(var(--g-accent-rgb), calc(.18 * var(--g-glow)));   /* the light a live thing gives off */
+  --g-orbit-halo-wide: 0 0 48px rgba(var(--g-accent-rgb), calc(.18 * var(--g-glow))), 0 0 120px rgba(var(--g-accent-rgb), calc(.06 * var(--g-glow)));   /* the Stage's light: it fills the room */
+  --g-orbit-disc: rgba(var(--g-canvas-rgb), .92);        /* what a station's disc and the Stage's sphere stand on: the sky, nearly */
+  --g-orbit-wash: radial-gradient(120% 110% at 0% 0%, rgba(var(--g-accent-rgb), calc(.07 * var(--g-glow))), rgba(var(--g-accent-rgb), 0) 62%);   /* a card's faint light from its corner */
+  --g-orbit-orb: 56px;                                   /* the orb when it is small: bottom left of every screen but Home, the open end of a line */
+  --g-orbit-station: 64px;                               /* a station's width on Home's ring: its 44 pt disc and its word under it */
+  --g-orbit-tide: 900ms;                                 /* the Stage growing out of the orb, and the orb returning: a slow tide */
+  --g-orbit-ease: cubic-bezier(.16, 1, .3, 1);           /* an arrival: fast out, a long settle, as a thing that grows out of the orb does */
+  /* GROWN UP's own (BRIEF-GROWN-UP-HUD; derived from the tokens above, nothing new in colour): the capsule, the layers, the Stage's bezel */
+  --g-grown-capsule: 64px;                               /* the capsule's height: the rooms key, the one field, the small Mind (a 44 pt control and its breathing room) */
+  --g-grown-mind: 48px;                                  /* the small Mind at the capsule's right end (44 pt of control, a ring round it) */
+  --g-grown-edge: inset 0 0 0 var(--g-hair) color-mix(in srgb, var(--g-ink-1) 16%, transparent);   /* a glass thing's outline: a card, the capsule, a chip */
+  --g-grown-edge-lit: inset 0 0 0 var(--g-hair) color-mix(in srgb, var(--g-accent) calc(55% * var(--g-glow) + 20%), transparent);   /* the card in front, the bezel: its outline lit in his colour */
+  --g-grown-halo: 0 0 18px color-mix(in srgb, var(--g-accent) calc(28% * var(--g-glow)), transparent);   /* the light Mind gives off round its small face */
+  --g-grown-sheet: color-mix(in srgb, var(--g-canvas) 96%, transparent);        /* what THE ROOMS layer and the jump bar are made of: glass that holds its words, the page only a hint behind it */
+  --g-grown-glass: color-mix(in srgb, var(--g-canvas) 74%, transparent);       /* what the capsule and the layer sheet are made of, under the blur */
+  --g-grown-ease: cubic-bezier(.2, .9, .25, 1);          /* a layer rising, a card coming forward: a short settle */
+  --g-grown-rise: 320ms;                                 /* the rooms layer opening, the Stage's panel folding to the orb */
+
   /* ---------------------------------------------------------------- the scan (read by the room's canvas in the shell pass) */
   --g-scan-floor: .045;                                  /* metres between the scan's points on a floor or a wall */
   --g-scan-thing: .02;                                   /* metres between the points of a thing you use: denser, so it reads first */
@@ -174,6 +198,8 @@
 /* Reduce Motion: nothing travels. The durations go to nothing, so a mark appears where it lands; the typed-out line shows
    whole, the eye holds still (ui/machine.ts and the orb read the same setting). */
 @media (prefers-reduced-motion: reduce) { :root { --g-dur-lock: 0ms; --g-dur-turn: 0ms; --g-dur-bring: 0ms; } }
+/* (ORBIT's tide, the Stage growing out of the orb, stands still too) */
+@media (prefers-reduced-motion: reduce) { html { --g-orbit-tide: 0ms; --g-grown-rise: 0ms; } }
 
 /* ---------------------------------------------------------------------------------------------------------------------
    THE THEMES: the accent block, swapped whole (BRIEF-THEMES' values exactly: the accent, its pale tint, its glow), and its
@@ -316,6 +342,24 @@
   --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: none;
 }
 
+/* Orbit (D1): no floor pattern, no blur, no shadow; a surface is a veil of light with an outline (the plate fills are the accent at
+   a few per cent), round bodies (a station, the orb, a moon) and pills, the glow on. Depth is how near a thing is to the orb. */
+:root[data-world="orbit"], [data-world="orbit"] {
+  --g-floor-mask: none; --g-floor-size: auto; --g-floor-a: 0; --g-glow: 1; --g-mark-glow: 0px; --g-face-say: var(--g-font-display);
+  --g-radius-key: 14px; --g-radius-mark: 10px; --g-radius-cell: 28px; --g-radius-chip: 14px; --g-radius-capsule: 999px;
+  --g-plate-fill: rgba(var(--g-accent-rgb), calc(.05 * var(--g-glow))); --g-plate-strong-fill: rgba(var(--g-accent-rgb), calc(.09 * var(--g-glow))); --g-plate-shadow: none; --g-front-shadow: none; --g-plate-edge: solid; --g-plate-side: 1; --g-blur: 0px;
+  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: none;
+}
+
+/* Grown Up (D3): today's look with less on it: Glass's own drawing, whole (the graphite canvas, frosted glass, radius 20 on cells and 26 on
+   capsules, the glow); what is new is how little is drawn (shell/capsule.ts, styles.css GROWN UP), never how a plate is. */
+:root[data-world="grown"], [data-world="grown"] {
+  --g-floor-mask: none; --g-floor-size: auto; --g-floor-a: 0; --g-glow: 1; --g-mark-glow: 14px; --g-face-say: var(--g-font-display);
+  --g-radius-key: 12px; --g-radius-mark: 10px; --g-radius-cell: 20px; --g-radius-chip: 12px; --g-radius-capsule: 26px;
+  --g-plate-fill: rgba(var(--g-bone-rgb), .06); --g-plate-strong-fill: rgba(var(--g-bone-rgb), .1); --g-plate-shadow: var(--g-lift-plate); --g-front-shadow: var(--g-lift-front); --g-plate-edge: solid; --g-plate-side: 1; --g-blur: 24px;
+  --g-ret-arm: 0px; --g-ret-weight: 1.5px; --g-ret-edge: solid; --g-ret-side: 1; --g-ret-sight: 0px; --g-sight-dash: none;
+}
+
 /* ---------------------------------------------------------------------------------------------------------------------
    THE SWITCHES (BRIEF-THEMES-2 4): each one visible thing, over the world (on the phone's own <html> only, so a world's tile
    still shows that world as it is). Body never goes under 17; the readings and tags grow with it, on the 4-point line.
@@ -337,6 +381,7 @@
 }
 /* calm: nothing travels (as Reduce Motion; ui/machine.ts and the eye read the same setting) */
 :root[data-motion="calm"] { --g-dur-lock: 0ms; --g-dur-turn: 0ms; --g-dur-bring: 0ms; }
+html[data-motion="calm"] { --g-orbit-tide: 0ms; --g-grown-rise: 0ms; }
 
 /* ---------------------------------------------------------------------------------------------------------------------
    THE NIGHT GROUND: the floor of the rooms still drawn in today's look (light words on dark, until the shell pass) is the

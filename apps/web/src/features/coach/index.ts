@@ -7,6 +7,9 @@
 import type { TabDef } from '../../shell/tabs';
 import { cardBig, cardLoad, cardNow } from '../../shell/cardline';
 import { sheetPage } from '../../ui/sheetpage';
+import { h } from '../../core/dom';
+import { phrases } from '../lifeui';
+import { MORE_KEY, PHRASES, WORDS_LINE, WORDS_MORE } from './words';
 
 export const coachTab: TabDef = {
   id: 'coach',
@@ -26,8 +29,14 @@ export const coachTab: TabDef = {
         const m = await import('../../coach/sheet');
         // (a practice kept lights the streak at the top, as the sheet's line does)
         // (the words of the day are a table written in: said in one plain line on that page)
-        const line = (id: string) => (id === 'words' ? { line: 'The words of the day are a starter set, typed in by hand: forty in each of four languages, ten a day, round again every four days. Not a dictionary yet.' } : {});
-        return m.COACH_TABS.map((t) => ({ id: t.id, label: t.label.charAt(0) + t.label.slice(1).toLowerCase(), parts: [{ title: t.label, pack: 'coach', screen: t.id, ...line(t.id), build: () => m.coachScreen(t.id, {}, () => void cardLoad('coach').then(inst.repaint)) }] }));
+        const line = (id: string) => (id === 'words' ? { line: WORDS_LINE } : {});
+        const make = (id: (typeof m.COACH_TABS)[number]['id']) => {
+          const s = m.coachScreen(id, {}, () => void cardLoad('coach').then(inst.repaint));
+          // (what was cut from a helper is under "How it works"; the tuner lists the chat words that open it)
+          const dress = (x: { el: HTMLElement; stop?(): void }) => ({ el: h('div', x.el, ...(id === 'words' ? [h('details.pkmore', h('summary', MORE_KEY), h('p.pknote', WORDS_MORE))] : []), ...(id === 'tuner' ? [phrases(PHRASES)] : [])), stop: x.stop });
+          return s instanceof Promise ? s.then(dress) : dress(s);
+        };
+        return m.COACH_TABS.map((t) => ({ id: t.id, label: t.label.charAt(0) + t.label.slice(1).toLowerCase(), parts: [{ title: t.label, pack: 'coach', screen: t.id, ...line(t.id), build: () => make(t.id) }] }));
       },
     });
     return inst;

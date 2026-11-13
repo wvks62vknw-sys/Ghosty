@@ -19,7 +19,7 @@ export const creativeTab: TabDef = {
     sheetPage(root, {
       screen: 'creative',
       tag: 'LIFE // CREATIVE',
-      sub: 'A song, a poster, a birthday card, a comic, a logo, a palette and drum pads, made on this phone.',
+      sub: 'A song, a poster, a card, a comic, a logo, a palette and drum pads.',
       big: () => cardBig('creative'),
       load: () => cardLoad('creative'),
       sections: async () => {

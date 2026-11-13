@@ -123,13 +123,13 @@ const cap = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);
 
 /** The month in words: the total, the top five categories, what moved since the month before (spending.ts changes). */
 export function monthWords(v: MonthView, moves: { c: Category; diff: number }[], hadBefore: boolean): string {
-  const top = v.categories.slice(0, 5).map((x) => `${x.c} ${gbp(x.spent)}`).join(', ');
+  const top = v.categories.slice(0, 5).map((x) => `${x.c} ${gbp(x.spent, true)}`).join(', ');
   const prev = monthName(prevOf(v.month));
   const total = moves.reduce((k, m) => k + m.diff, 0);
   const moved = hadBefore
-    ? [`${Math.abs(total) < 1 ? `About the same as ${prev}` : `${gbp(Math.abs(total))} ${total > 0 ? 'more' : 'less'} than ${prev}`}`, ...moves.slice(0, 2).map((m) => `${m.c} ${m.diff > 0 ? 'up' : 'down'} ${gbp(Math.abs(m.diff))}`)].join('; ')
+    ? [`${Math.abs(total) < 1 ? `About the same as ${prev}` : `${gbp(Math.abs(total), true)} ${total > 0 ? 'more' : 'less'} than ${prev}`}`, ...moves.slice(0, 2).map((m) => `${m.c} ${m.diff > 0 ? 'up' : 'down'} ${gbp(Math.abs(m.diff), true)}`)].join('; ')
     : `nothing from ${prev} to compare with yet`;
-  return `${monthName(v.month)}: ${gbp(v.out)} out${v.in ? `, ${gbp(v.in)} in` : ''}. Top five: ${top || 'nothing yet'}. Since ${prev}: ${moved}.`;
+  return `${monthName(v.month)}: ${gbp(v.out, true)} out${v.in ? `, ${gbp(v.in, true)} in` : ''}. Top five: ${top || 'nothing yet'}. Since ${prev}: ${moved}.`;
 }
 const prevOf = (month: string) => {
   const y = +month.slice(0, 4);
@@ -139,11 +139,11 @@ const prevOf = (month: string) => {
 
 /** The month as a chat card: the total in the title, the top five in the line (with the biggest move when it fits). */
 export function monthCard(v: MonthView, moves: { c: Category; diff: number }[], at = Date.now()): Card {
-  const top = v.categories.slice(0, 5).map((x) => `${cap(x.c)} ${gbp(x.spent)}`).join(' · ');
+  const top = v.categories.slice(0, 5).map((x) => `${cap(x.c)} ${gbp(x.spent, true)}`).join(' · ');
   const big = moves[0];
-  const tail = big ? ` · ${big.c} ${big.diff > 0 ? 'up' : 'down'} ${gbp(Math.abs(big.diff))}` : '';
+  const tail = big ? ` · ${big.c} ${big.diff > 0 ? 'up' : 'down'} ${gbp(Math.abs(big.diff), true)}` : '';
   return card({
-    id: `money:month:${v.month}`, kind: 'brief', at, title: `${monthName(v.month)} ${gbp(v.out)} out`,
+    id: `money:month:${v.month}`, kind: 'brief', at, title: `${monthName(v.month)} ${gbp(v.out, true)} out`,
     line: `${top}${(top + tail).length <= 110 ? tail : ''}` || 'Nothing spent yet this month',
     brief: { icon: 'diary' },
     acts: [{ label: 'OPEN SPENDING', open: { tab: 'agenda', panel: 'SPENDING' } }, { label: 'ASK', ask: 'What changed since last month?' }],

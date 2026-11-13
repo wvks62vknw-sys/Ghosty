@@ -15,6 +15,9 @@ import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, empty, modal, panel, toast, undo, undoBar, type Panel } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { dayWords, findHead, findNone, LOADING, noHitWords, OFFLINE_EMPTY, PATTERNS_EMPTY, PATTERNS_WHY, READ_FAILED, RECALL_COLD, recallHead, recallNone } from './words';
+import { recallAsked } from '../../../../../packages/shared/src/recall';
 
 const KINDS: [string, string][] = [
   ['all', 'Everything'],
@@ -26,7 +29,7 @@ const KINDS: [string, string][] = [
 ];
 
 const when = (at: number) => new Date(at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-const day = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const day = (at: number) => dayWords(at);
 const TIMES = ['', 'once', 'twice', 'three times', 'four times', 'five times', 'six times', 'seven times', 'eight times', 'nine times', 'ten times'];
 /** A fact's weight in words ("heard four times"); nothing for once (OWNER-ISSUES 75a). */
 export const heardWords = (n?: number): string => (n && n >= 2 ? `heard ${TIMES[n] ?? `${n} times`}` : '');
@@ -268,7 +271,9 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
     const locked = items.filter((m) => m.locked).length;
     p.setStatus(items.length ? `${items.length} THINGS${locked ? ` · ${locked} LOCKED` : ''}` : 'EMPTY', items.length ? 'ok' : 'mid');
     if (!list.length) {
-      p.body.append(items.length ? empty('NONE', 'Try other words, or show Everything.', 'Nothing matches') : empty('NONE', 'Tell me about yourself in a chat, or add a line under ME.', 'Nothing remembered yet'));
+      /* state: memory.timeline empty */
+      const nh = noHitWords(find.value, kindSel.value === 'all');
+      p.body.append(items.length ? empty('NONE', nh.next, nh.head) : empty('NONE', 'Tell me about yourself in a chat, or add a line under ME.', 'Nothing remembered yet'));
       return;
     }
     for (const m of list.slice(0, shown)) p.body.append(row(m));
@@ -288,19 +293,51 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   find.addEventListener('input', () => {
     shown = 30;
     paint();
+    // [recall] FIND by meaning over his turns and things on this phone, above the list (features/memory/recall.ts)
+    clearTimeout(findTimer);
+    findTimer = setTimeout(() => void findMine(find.value), 250);
   });
+  // [recall] MEMORY → FIND: the same questions as the chat ("what did I ask you about trains?", or just "garden"), the same card
+  const found = h('div.recallfind', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep' } });
+  p.el.insertBefore(found, p.body);
+  let findTimer: ReturnType<typeof setTimeout> | undefined;
+  async function findMine(raw: string): Promise<void> {
+    const about = recallAsked(raw);
+    const q = (about ?? raw).trim();
+    if (q.length < 3) return void clear(found);
+    const R = await import('./recall');
+    if (!(await R.recallWarm())) {
+      void R.buildIndex().catch(() => undefined);
+      return void clear(found, h('p.note.recallcold', RECALL_COLD));
+    }
+    const hits = await R.findLocal(q, { turns: !!about });
+    if (find.value !== raw) return;
+    const rows = hits.map((f) => ({ key: f.key, ...(f.bid ? { bid: f.bid } : {}), kind: f.kind, id: f.id, title: f.title, line: f.line, at: f.at, stamp: f.stamp, day: f.day }));
+    const { recallRows } = await import('./recallcard');
+    clear(found, ...(hits.length ? [h('p.note.recallhead', about ? recallHead(hits.length, about) : findHead(hits.length, q)), recallRows(rows)] : [h('p.note.recallnone', about ? recallNone(about) : findNone(q))]));
+  }
 
   async function refresh(): Promise<void> {
+    // a first read says what it is doing (a page of memory is a fetch he can feel)
+    /* state: memory.timeline loading */
+    const done = items.length ? () => undefined : waiting(p.el, LOADING);
     try {
       const r = await brain.memoryTimeline();
+      done();
       // An older brain (no timeline yet) answers something else: shown as empty, not as a crash.
       items = Array.isArray(r.items) ? r.items : [];
       state.patterns = Array.isArray(r.patterns) ? r.patterns : [];
       forgotten = Array.isArray(r.forgotten) ? r.forgotten : [];
       fading = Array.isArray(r.fading) ? r.fading : [];
-    } catch {
-      p.setStatus('OFFLINE', 'off');
-      if (!items.length) clear(p.body, empty('OFFLINE'));
+    } catch (e) {
+      done();
+      p.setStatus(offlineNow(e) ? 'OFFLINE' : 'NO ANSWER', 'off');
+      /* state: memory.timeline offline */
+      /* state: memory.timeline error */
+      if (!items.length) {
+        if (offlineNow(e)) clear(p.body, empty('OFFLINE', OFFLINE_EMPTY.next, OFFLINE_EMPTY.head));
+        else clear(p.body, h('div.empty.bad.memerr', h('b', { dataset: { case: 'keep' } }, READ_FAILED.head), h('span', READ_FAILED.next), button('RETRY', () => void refresh(), 'on')));
+      }
       return;
     }
     paintForgotten();
@@ -359,7 +396,7 @@ export function patternsPanel(): { el: HTMLElement; set(list: MemoryPattern[]): 
     clear(p.body);
     p.setStatus(list.length ? `${list.length}` : 'NONE YET', list.length ? 'ok' : 'mid');
     if (!list.length) {
-      p.body.append(h('div.note', 'Nothing yet. After a few days of chats I point out what keeps coming up — when you usually talk to me, topics you return to, how you say you feel — always with how often I saw it. Worked out from what is stored in your brain, never guessed.'));
+      p.body.append(h('div.note.patempty', PATTERNS_EMPTY, h('details.patwhy', h('summary', { 'aria-label': 'Why I can be trusted on this' }, '?'), h('p', PATTERNS_WHY))));
       return;
     }
     for (const pat of list) {

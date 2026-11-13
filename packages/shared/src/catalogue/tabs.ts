@@ -21,13 +21,13 @@ export const TABS_WORDS: Record<string, CatValue> = {
 
   // ---- the screens the sheets became (each its card on its hub is the same entry: below)
   'screen:money': {
-    name: 'Money: your statements, read', line: 'You can paste a bank statement and I read it in code, sort it by rules and keep the month in your brain.',
+    name: 'Money: your statements, read', line: 'You can paste a bank statement and I sort it by plain rules and keep the month in your brain.',
     more: 'Its CSV, or the text copied out of its PDF: no AI sees it, not even the shop names, and there is no bank access of any kind. The month comes back as a card with the top five categories and what changed. The rest of money is asked in the chat: what you spent this week, fuel prices, a trip budget, subscriptions.',
     say: ['Paste a statement', 'How much did I spend this month?'], scene: ['money'], cat: 'do', needs: ['statement'], since: SINCE,
   },
   'screen:body': {
     name: 'Body: reps, runs and breathing', line: 'You can have your squats counted by the camera, a run coached by the GPS, a breath paced, a stretch timed and water kept.',
-    more: 'The pose model runs on the phone and nothing leaves it; a run sends my brain only the distance, the time and the splits, never a position. Your Apple Health export is read here, in code. The camera and the GPS start only when you press START, and stop when you leave the page.',
+    more: 'The camera’s model runs on the phone and nothing leaves it; a run sends my brain only the distance, the time and the splits, never a position. Your Apple Health export is read here. The camera and the GPS start only when you press START, and stop when you leave the page.',
     say: ['Count my squats', 'Start a run', 'Breathe with me'], scene: ['phone'], cat: 'do', needs: ['camera', 'location'], since: SINCE,
   },
   'screen:kitchen': {
@@ -47,7 +47,7 @@ export const TABS_WORDS: Record<string, CatValue> = {
   },
   'screen:creative': {
     name: 'Creative: songs, posters, beats', line: 'You can make a song the phone plays, a poster, a birthday card, a comic strip, a logo, a palette and a beat.',
-    more: 'Each is laid out in code and drawn on this phone, and saved to your own downloads when you tap to save it. The song and the drum pads play through the phone’s own sound, started by your tap. Nothing is sent anywhere.',
+    more: 'Each is laid out and drawn on this phone, and saved to your own downloads when you tap to save it. The song and the drum pads play through the phone’s own sound, started by your tap. Nothing is sent anywhere.',
     say: ['Make me a beat', 'Make a poster for the car boot sale', 'What should I draw?'], scene: ['making'], cat: 'build', since: SINCE,
   },
   'screen:outside': {
@@ -56,7 +56,7 @@ export const TABS_WORDS: Record<string, CatValue> = {
     say: ['Toilets near me', 'I parked on Cannon Street', 'I’m lost'], scene: ['out'], cat: 'watch', needs: ['location'], since: SINCE,
   },
   'screen:homeadmin': {
-    name: 'Home: bins, bills and meters', line: 'You can see what is due at home, your bin days, your bills, a meter’s reading and each room’s things.',
+    name: 'Household: bins, bills, meters', line: 'You can see what is due at home, your bin days, your bills, a meter’s reading and each room’s things.',
     more: 'Tell me a bin day or photograph a bill and I keep it in my brain; the photo is read on this phone first. What is due comes in date order, and the Brief says it before the day. A meter reading shows the usage since the last one.',
     say: ['When are the bins?', 'What’s due this month?', 'Read my meter'], scene: ['money', 'morning'], cat: 'do', since: SINCE,
   },
@@ -78,18 +78,34 @@ export const TABS_WORDS: Record<string, CatValue> = {
   // (the converter and the documents had their words as MAKE's cards: their screens are the same entries)
   'screen:convert': { same: 'hub:convert' },
   'screen:docs': { same: 'hub:docs' },
+  'screen:sheets': { same: 'hub:sheets' },
+  'screen:slides': { same: 'hub:slides' },
+  'screen:workspace': { same: 'hub:workspace' },
   'screen:house': {
     name: 'House: your smart home', line: 'You can see your house as Home Assistant has it, room by room, and switch a light, set the heating or close a blind.',
     more: 'Through your own free Home Assistant box, linked once with its address and a token in SYSTEM, KEYS. Locks, alarms, garage doors and gates, and any switch you mark, ask your confirm on every tap and never act on a schedule. Everything I do there is in WHY.',
     say: ['The house', 'Turn off the lounge light'], scene: ['phone', 'watching'], cat: 'do', since: SINCE,
   },
+  'screen:gamestudio': {
+    name: 'The game studio', line: 'You can make a 2-D game on your phone, with rooms, people, quests and a save point, then play it, share it or install it.',
+    more: 'Start from a platformer, an adventure, a collect-them-all or a blank game. Paint rooms with your finger, draw sprites and tiles pixel by pixel, give people lines and a shop, build quests, and play it in place. A game stays on this phone until you share it as a .ghostygame or export it as one page that works offline. 3-D worlds, multiplayer and selling a game are not in it yet.',
+    say: ['Make a game', 'My games', 'Sketch a cave room with two ledges'], scene: ['phone', 'playing'], cat: 'build', since: '2026-11-12',
+  },
+  'phrase:gamestudio': { same: 'screen:gamestudio' },
+  'screen:comic': {
+    name: 'Comic: read and make comics', line: 'You can read your own comics, get free public-domain ones, and make a whole comic from an idea.',
+    more: 'Import a CBZ, a PDF, pictures or a folder of them; read with page turns, a guided panel-by-panel view, zoom and two pages side by side on a wide screen, and it opens where you stopped. A CBR is RAR, which no browser can open, so save it as CBZ first. The library is the Internet Archive’s public-domain comics, fetched only on your tap, on Wi-Fi, with the size said. MAKE writes and draws a comic from your idea, a cover and four pages with a cast that looks the same in every panel; change any panel, line or balloon, and save it as a CBZ or a PDF, or share it. Everything stays on this phone.',
+    say: ['Make me a comic about a cat who wants to fly', 'Read a comic', 'Public domain comics'], scene: ['phone'], cat: 'build', since: '2026-11-13',
+  },
+  'phrase:comic': { same: 'screen:comic' },
+  'hub:comic': { same: 'screen:comic' },
   // ---- the Me sheet's row for it
   'me:social': { same: 'screen:social' },
 
   // ---- their cards on their hubs (each opens its screen)
   'hub:money': { same: 'screen:money' }, 'hub:body': { same: 'screen:body' }, 'hub:kitchen': { same: 'screen:kitchen' }, 'hub:people': { same: 'screen:people' },
   'hub:work': { same: 'screen:work' }, 'hub:creative': { same: 'screen:creative' }, 'hub:outside': { same: 'screen:outside' }, 'hub:homeadmin': { same: 'screen:homeadmin' },
-  'hub:learning': { same: 'screen:learning' }, 'hub:coach': { same: 'screen:coach' }, 'hub:social': { same: 'screen:social' }, 'hub:house': { same: 'screen:house' },
+  'hub:learning': { same: 'screen:learning' }, 'hub:coach': { same: 'screen:coach' }, 'hub:social': { same: 'screen:social' }, 'hub:house': { same: 'screen:house' }, 'hub:gamestudio': { same: 'screen:gamestudio' },
   // (the Me hub's own: its screens were there with nothing on their cards)
   'hub:memory': { same: 'screen:memory' }, 'hub:settings': { same: 'screen:settings' }, 'hub:system': { same: 'screen:system' },
   'hub:links': { same: 'screen:links' },
@@ -131,9 +147,27 @@ export const TABS_WORDS: Record<string, CatValue> = {
   'deck:convert:pictures-pdfs-word-tables-and-sound': { same: 'hub:convert' },
   'deck:convert:convert-this-to-pdf': { same: 'hub:convert' },
   'deck:convert:3-5-miles-in-km': { same: 'phrase:units' },
+  'deck:photo:your-photos-kept-untouched-on-this': { same: 'hub:photo' },
+  'deck:photo:edit-a-photo': { same: 'hub:photo' },
+  'deck:photo:straighten-grade-mask-heal-and-save': { same: 'hub:photo' },
   'deck:docs:your-documents-kept-on-this-phone': { same: 'hub:docs' },
   'deck:docs:write-a-letter-to-my-landlord': { same: 'hub:docs' },
   'deck:docs:translate-my-letter-into-urdu': { same: 'hub:docs' },
+  'deck:sheets:your-spreadsheets-kept-on-this-phone': { same: 'hub:sheets' },
+  'deck:sheets:start-a-household-budget': { same: 'hub:sheets' },
+  'deck:sheets:open-an-excel-file': { same: 'hub:sheets' },
+  'deck:slides:your-decks-kept-on-this-phone': { same: 'hub:slides' },
+  'deck:slides:make-slides-from-a-report': { same: 'hub:slides' },
+  'deck:slides:open-a-powerpoint-file': { same: 'hub:slides' },
+  'deck:workspace:your-pages-kept-on-this-phone': { same: 'hub:workspace' },
+  'deck:workspace:start-a-project-a-board-notes': { same: 'hub:workspace' },
+  'deck:workspace:what-is-due-this-week-in': { same: 'hub:workspace' },
+  'deck:gamestudio:make-a-game-from-a-template': { same: 'screen:gamestudio' },
+  'deck:gamestudio:make-a-game': { same: 'screen:gamestudio' },
+  'deck:gamestudio:my-games': { same: 'screen:gamestudio' },
+  'deck:comic:make-a-comic-about-a-cat': { same: 'screen:comic' },
+  'deck:comic:read-a-comic': { same: 'screen:comic' },
+  'deck:comic:free-public-domain-comics': { same: 'screen:comic' },
   'deck:house:lights-heating-and-blinds-room-by': { same: 'screen:house' },
   'deck:house:is-the-back-door-open': { same: 'phrase:house' },
   'deck:house:whats-the-temperature-in-the-kitchen': { same: 'phrase:house' },

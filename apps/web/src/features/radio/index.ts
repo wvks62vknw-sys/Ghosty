@@ -1,13 +1,18 @@
 /** RADIO tab: search internet radio by name, genre or country (UK first); favourites; now playing. */
 import { fetchJson } from '../../api/feed';
-import { canSetVolume, favourites, lastPlayed, pauseAudio, player, playStation, resumeAudio, setVolume, stopAudio, type NowPlaying, type Why } from '../../assistant/media';
+import { canSetVolume, favourites, forgetRecent, lastPlayed, onFavourites, pauseAudio, player, playStation, recentStations, resumeAudio, setSleep, setSleepAt, setVolume, sleepLost, stopAudio, type NowPlaying, type Why } from '../../assistant/media';
 import { clear, h, icon } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, empty, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
-import { tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
+import { waiting } from '../../ui/wait';
+import { clockWords, endOfHour, FINDING, NEAR_ME, nearLabel, nearSet, hourKey, lostLine, nextStation, NO_OTHER, RECENT_EMPTY, REORDER, REORDER_DONE, REORDER_NOTE, SLEEP_CHOICES, SLEEP_OFF, sleepAtSet, sleepKey, sleepLine, sleepSet, TRY_ANOTHER, TUNING } from './words';
+import { phrases } from '../lifeui';
+import { countryWord, tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
 
+/** The countries NEAR ME offers (his own stays on the list if he chose another one before). */
+const COUNTRIES = ['GB', 'IE', 'US', 'CA', 'AU', 'NZ', 'FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'PT', 'PL', 'SE', 'NO', 'DK', 'FI', 'CH', 'AT', 'GR', 'TR', 'IN', 'PK', 'BD', 'NG', 'GH', 'KE', 'ZA', 'JM', 'AE', 'JP', 'BR', 'MX', 'AR'];
 const GENRES = ['news', 'pop', 'rock', 'jazz', 'classical', 'lofi', 'chillout', 'dance', 'hip hop', 'talk', 'ambient', 'country'];
 
 type Query = { name?: string; tag?: string; country?: string; countrycode?: string };
@@ -19,7 +24,25 @@ async function search(q: Query): Promise<NowPlaying[]> {
   u.searchParams.set('order', 'clickcount');
   u.searchParams.set('reverse', 'true');
   u.searchParams.set('limit', '80');
-  return tidyStations(await fetchJson<RawStation[]>(u.toString(), 1800));
+  return tidyStations(await fetchJson<RawStation[]>(u.toString(), 1800), homeCountry());
+}
+
+/** NEAR ME: his country (UK unless he changes it), kept on this phone. Its stations come first in every list, and it is where the radio starts. */
+const HOME = 'ghosty.radio.country';
+export function homeCountry(): string {
+  try {
+    const c = localStorage.getItem(HOME) ?? '';
+    return /^[A-Z]{2}$/.test(c) ? c : 'GB';
+  } catch {
+    return 'GB';
+  }
+}
+function setHomeCountry(code: string): void {
+  try {
+    localStorage.setItem(HOME, code);
+  } catch {
+    /* ignore */
+  }
 }
 
 const offline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -59,13 +82,17 @@ export const radioTab: TabDef = {
     P.left.append(sp.el);
     const np = panel('NOW PLAYING', { grow: false, cls: 'nowp' });
     const fp = panel('FAVOURITES', { cls: 'scroll.favs' });
-    P.right.append(np.el, fp.el);
+    // RECENT: the stations he played lately, newest first, kept on this phone (one tap plays again)
+    const rp = panel('RECENT', { cls: 'scroll.recent', grow: false });
+    P.right.append(np.el, fp.el, rp.el);
 
     const q = h('input', { placeholder: 'Station, genre or country…', 'aria-label': 'Search radio' });
     const results: NowPlaying[] = [];
     let lastLabel = '';
     let lastQuery: Query | null = null;
     let failed = false;
+    let searching = false;
+    let stopFinding: (() => void) | null = null;
     // only the newest search may fill the list (an older, slower one finishing later would replace it)
     let asked = 0;
     const go = async (query: Query, label: string): Promise<boolean> => {
@@ -78,9 +105,12 @@ export const radioTab: TabDef = {
         return false;
       }
       sp.setStatus('SEARCHING', 'mid');
+      searching = true;
+      if (!results.length) paintResults(label);
       try {
         const r = await search(query);
         if (mine !== asked) return false;
+        searching = false;
         failed = false;
         results.splice(0, results.length, ...r);
         sp.setStatus(`${r.length}`, r.length ? 'ok' : 'mid');
@@ -88,6 +118,7 @@ export const radioTab: TabDef = {
         return true;
       } catch {
         if (mine !== asked) return false;
+        searching = false;
         failed = true;
         results.length = 0;
         sp.setStatus(offline() ? 'OFFLINE' : 'NO ANSWER', 'off');
@@ -107,6 +138,24 @@ export const radioTab: TabDef = {
     sp.el.insertBefore(h('div.keyrow.wrapit', q, button('SEARCH', submit)), sp.body);
     const chips = h('div.keyrow.wrapit.chips', ...GENRES.map((g) => button(g.toUpperCase(), () => void go({ tag: g }, g))));
     sp.el.insertBefore(chips, sp.body);
+    // NEAR ME: his country's most-listened stations, one tap; the country is his to change (kept on this phone)
+    const pick = h('select', { 'aria-label': 'Your country for NEAR ME' },
+      ...COUNTRIES.map((c) => h('option', { value: c }, countryWord(c) || c)));
+    pick.value = homeCountry();
+    if (pick.value !== homeCountry()) {
+      pick.append(h('option', { value: homeCountry() }, countryWord(homeCountry()) || homeCountry()));
+      pick.value = homeCountry();
+    }
+    const nearB = button(NEAR_ME, () => void go({ countrycode: homeCountry() }, nearLabel(countryWord(homeCountry()))));
+    nearB.setAttribute('aria-label', `Popular stations in ${countryWord(homeCountry())}`);
+    pick.addEventListener('change', () => {
+      setHomeCountry(pick.value);
+      nearB.setAttribute('aria-label', `Popular stations in ${countryWord(pick.value)}`);
+      toast(nearSet(countryWord(pick.value)), 'ok');
+      void go({ countrycode: pick.value }, nearLabel(countryWord(pick.value)));
+    });
+    sp.el.insertBefore(h('div.keyrow.radnear', h('span.lab', 'NEAR ME'), pick, nearB), sp.body);
+    sp.el.insertBefore(phrases(['play BBC Radio 4', 'play some jazz']), sp.body);
 
     const play = async (s: NowPlaying) => {
       await playStation(s);
@@ -121,7 +170,7 @@ export const radioTab: TabDef = {
       const on = sounding(s);
       const p = player.get();
       const tuning = on && p.state === 'loading';
-      const line = p.now?.url === s.url ? (tuning ? 'Connecting…' : p.state === 'playing' ? 'Playing now' : p.state === 'paused' ? 'Paused' : p.state === 'error' ? 'Didn’t play' : '') : '';
+      const line = p.now?.url === s.url ? (tuning ? TUNING : p.state === 'playing' ? 'Playing now' : p.state === 'paused' ? 'Paused' : p.state === 'error' ? 'Didn’t play' : '') : '';
       const info = [line, s.info].filter(Boolean).join(' · ');
       const r = row(fav ? '★' : '☆', h('span', h('b', s.name), info ? h('br') : null, info ? h('small.note', info) : null), on ? '■' : '▶', { wrap: true, onClick: () => (sounding(s) ? stopAudio() : void play(s)) });
       r.classList.add('station');
@@ -151,8 +200,18 @@ export const radioTab: TabDef = {
     };
     const paintResults = (label = lastLabel) => {
       lastLabel = label;
+      stopFinding?.();
+      stopFinding = null;
       clear(sp.body);
       if (!results.length) {
+        /* state: radio.stations loading */
+        if (searching && !offline()) {
+          stopFinding = waiting(sp.body, FINDING);
+          return;
+        }
+        /* state: radio.stations offline */
+        /* state: radio.stations error */
+        /* state: radio.stations empty */
         if (offline()) sp.body.append(empty('OFFLINE', 'Stations come back when the phone is online. Your favourites are kept here.', 'You’re offline'));
         else if (failed) sp.body.append(empty('NONE', 'The station list didn’t answer. Tap SEARCH or a kind of radio to try again.', 'Can’t reach the station list'));
         else sp.body.append(label ? empty('NONE', 'Try another name, a kind of radio above, or a country.', `Nothing playable for “${label}”`) : empty('NONE', 'Search above or pick a kind of radio. You can also just say “play BBC Radio 4” or “play some jazz”.', 'Find a station'));
@@ -160,12 +219,61 @@ export const radioTab: TabDef = {
       }
       for (const s of results) sp.body.append(stationRow(s));
     };
+    const paintRecent = () => {
+      clear(rp.body);
+      const l = recentStations();
+      rp.setStatus(l.length ? `${l.length}` : '', 'mid');
+      /* state: radio.recent empty */
+      if (!l.length) return void rp.body.append(h('div.empty', { dataset: { case: 'keep', state: 'empty' } }, h('b', RECENT_EMPTY.head), h('span', RECENT_EMPTY.line)));
+      for (const s of l) rp.body.append(stationRow(s));
+      rp.body.append(h('div.keyrow', button('CLEAR RECENT', () => {
+        const kept = recentStations();
+        forgetRecent();
+        paintRecent();
+        undo('Cleared the stations you played lately', () => {
+          try {
+            localStorage.setItem('ghosty.radio.recent', JSON.stringify(kept));
+          } catch {
+            /* ignore */
+          }
+          paintRecent();
+        });
+      })));
+    };
+    /** FAVOURITES in his own order: REORDER shows ↑ and ↓ on each (⏭, ⏮ and "play my second favourite" follow it) */
+    let reordering = false;
+    const moveRow = (s: NowPlaying, i: number, n: number) => {
+      const up = button('↑', () => {
+        favourites.move(s.url, -1);
+        paintFavs();
+      });
+      const down = button('↓', () => {
+        favourites.move(s.url, 1);
+        paintFavs();
+      });
+      up.setAttribute('aria-label', `Move ${s.name} up`);
+      down.setAttribute('aria-label', `Move ${s.name} down`);
+      up.disabled = i === 0;
+      down.disabled = i === n - 1;
+      return h('div.favmove', h('span.favno', String(i + 1)), h('span.favtx', h('b', s.name)), h('span.favkeys', up, down));
+    };
     const paintFavs = () => {
       clear(fp.body);
       const l = favourites.list();
+      if (l.length < 2) reordering = false;
+      fp.setStatus(l.length ? `${l.length}` : '', 'mid');
       // kept on this phone, so the same words offline (the shared empty state would say "You're offline")
+      /* state: radio.favs empty */
       if (!l.length) fp.body.append(h('div.empty', { dataset: { case: 'keep' } }, h('b', 'No favourites yet'), h('span', 'Tap ☆ next to a station to keep it here.')));
-      for (const s of l) fp.body.append(stationRow(s));
+      if (reordering) {
+        fp.body.append(h('small.note.favnote', REORDER_NOTE));
+        l.forEach((s, i) => fp.body.append(moveRow(s, i, l.length)));
+      } else for (const s of l) fp.body.append(stationRow(s));
+      if (l.length > 1)
+        fp.body.append(h('div.keyrow.favorder', button(reordering ? REORDER_DONE : REORDER, () => {
+          reordering = !reordering;
+          paintFavs();
+        }, reordering ? 'on' : '')));
     };
 
     const vol = h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(player.get().volume), 'aria-label': 'Volume' });
@@ -188,7 +296,7 @@ export const radioTab: TabDef = {
           : state === 'loading'
             ? since
               ? 'Buffering…'
-              : 'Connecting…'
+              : TUNING
             : state === 'paused'
               ? 'Paused'
               : state === 'error'
@@ -203,6 +311,9 @@ export const radioTab: TabDef = {
         h('div.npart', icon(RADIO), h('span.eq', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'))),
         h('div.nptx', h('small', kicker), h('b', shown ? shown.name : 'Nothing playing'), line ? h('span', line) : '')));
       if (!shown) return;
+      const lost = sleepLost();
+      /* state: radio.sleep error */
+      if (lost && !now) np.body.append(h('div.note.nplost', lostLine(lost.at, shown.name)));
       if (now && state === 'error') np.body.append(h('div.note.bad', whyWords(why, now.name)));
       else if (!now && offline()) np.body.append(h('div.note.bad', 'You’re offline. Radio needs a connection.'));
       const keys: (HTMLElement | string)[] = [];
@@ -212,11 +323,53 @@ export const radioTab: TabDef = {
       if (!now) keys.push(button(`▶ PLAY`, () => void play(last!), 'on'));
       else if (state === 'playing' || state === 'loading') keys.push(button('❚❚ PAUSE', () => pauseAudio()), button('■ STOP', () => stopAudio(), 'warn'));
       else if (state === 'paused') keys.push(button('▶ PLAY', () => void resumeAudio(), 'on'), button('■ STOP', () => stopAudio(), 'warn'));
-      else keys.push(button(why === 'tap' ? '▶ PLAY' : '▶ TRY AGAIN', () => void resumeAudio(), 'on'), button('■ STOP', () => stopAudio(), 'warn'));
+      else {
+        keys.push(button(why === 'tap' ? '▶ PLAY' : '▶ TRY AGAIN', () => void resumeAudio(), 'on'));
+        // a station that will not play: the next one in the list, one tap (the way on, never a dead end)
+        if (why !== 'tap') {
+          keys.push(button(TRY_ANOTHER, () => {
+            const n = nextStation([...results, ...favourites.list()], now?.url);
+            if (n) void play(n);
+            else toast(NO_OTHER, 'warn');
+          }));
+        }
+        keys.push(button('■ STOP', () => stopAudio(), 'warn'));
+      }
       const kr = h('div.keyrow', ...keys);
       if (!slider) kr.classList.add('novol');
       np.body.append(kr);
+      // THE SLEEP TIMER: while a station is on, when it should go quiet and stop (one tap each; TIMER OFF takes it off)
+      if (now && state !== 'error') {
+        const { sleepAt: at, sleepKind } = player.get();
+        const t = Date.now();
+        const hourAt = endOfHour(t);
+        const hourB = button(hourKey(t), () => {
+          setSleepAt(endOfHour(Date.now()), 'hour');
+          toast(sleepAtSet(endOfHour(Date.now()), Date.now()), 'ok');
+        }, at && sleepKind === 'hour' ? 'on' : '');
+        hourB.setAttribute('aria-pressed', String(!!at && sleepKind === 'hour'));
+        hourB.setAttribute('aria-label', `Stop the radio at ${clockWords(hourAt)}, the end of this hour`);
+        np.body.append(h('div.npsleep', { dataset: { case: 'keep' } },
+          h('small.npsleepl', { 'aria-live': 'polite' }, sleepLine(at, t)),
+          h('div.keyrow.wrapit.npsleepk', { role: 'group', 'aria-label': 'Sleep timer' },
+            ...SLEEP_CHOICES.map((m) => {
+              const b = button(sleepKey(m), () => {
+                setSleep(m);
+                toast(sleepSet(m), 'ok');
+              }, at && sleepKind === String(m) ? 'on' : '');
+              b.setAttribute('aria-pressed', String(!!at && sleepKind === String(m)));
+              b.setAttribute('aria-label', `Stop the radio in ${m} minutes`);
+              return b;
+            }),
+            hourB,
+            ...(at ? [button(SLEEP_OFF, () => {
+              setSleep(0);
+              toast('Sleep timer off', 'ok');
+            })] : []))));
+      }
     };
+    // the sleep line counts down while the screen is on
+    let sleepTick = 0;
     player.subscribe(paintNow);
     // the station sounding is marked in the lists, its button a stop
     let shownKey = '';
@@ -226,6 +379,13 @@ export const radioTab: TabDef = {
       shownKey = keyOf();
       paintResults();
       paintFavs();
+      paintRecent();
+    });
+    // a favourite kept or taken off from the chat ("save this station") shows here at once, its star the right way round
+    onFavourites(() => {
+      paintResults();
+      paintFavs();
+      paintRecent();
     });
     const onNet = () => {
       paintNow();
@@ -236,13 +396,28 @@ export const radioTab: TabDef = {
     addEventListener('offline', onNet);
     paintNow();
     paintFavs();
+    paintRecent();
     paintResults();
 
     return {
+      leave() {
+        clearInterval(sleepTick);
+      },
       enter() {
+        clearInterval(sleepTick);
+        sleepTick = window.setInterval(() => {
+          const l = np.el.querySelector('.npsleepl');
+          if (l && player.get().sleepAt) l.textContent = sleepLine(player.get().sleepAt, Date.now());
+          // the end-of-hour key names the next o'clock once this hour has gone
+          const hk = np.el.querySelector<HTMLButtonElement>('.npsleepk button[aria-label*="end of this hour"]');
+          if (hk && hk.textContent !== hourKey(Date.now())) paintNow();
+          // the reload's lost-timer line goes once that timer would have ended
+          else if (np.el.querySelector('.nplost') && !sleepLost()) paintNow();
+        }, 30_000);
         paintFavs();
+        paintRecent();
         paintNow();
-        if (!results.length) void go({ tag: 'news', countrycode: 'GB' }, 'UK news');
+        if (!results.length) void go({ tag: 'news', countrycode: homeCountry() }, `${countryWord(homeCountry())} news`);
       },
       // (BRIEF-SHELL pass 1) the station
       context: () => {
@@ -253,7 +428,12 @@ export const radioTab: TabDef = {
           ...(n ? { selected: { kind: 'item', id: 'station', label: n.name, detail: p.state === 'paused' ? 'paused' : 'playing' } } : {}),
         });
       },
-      describe: () => `Radio: ${player.get().now ? `${player.get().state === 'paused' ? 'paused on' : 'playing'} ${player.get().now!.name}` : 'nothing playing'}; ${favourites.list().length} favourites.`,
+      // (his favourites in his order, so "play my second favourite" can be read off the screen; near me, his country)
+      describe: () => {
+        const f = favourites.list();
+        const favs = f.length ? `${f.length} favourites (${f.slice(0, 5).map((s, i) => `${i + 1}. ${s.name}`).join(', ')}${f.length > 5 ? ', …' : ''})` : 'no favourites';
+        return `Radio: ${player.get().now ? `${player.get().state === 'paused' ? 'paused on' : 'playing'} ${player.get().now!.name}` : 'nothing playing'}; ${favs}; near me: ${countryWord(homeCountry())}; ${player.get().sleepAt > Date.now() ? sleepLine(player.get().sleepAt, Date.now()) : 'no sleep timer'}.`;
+      },
     };
   },
 };

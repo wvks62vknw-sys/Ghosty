@@ -79,6 +79,13 @@ function manualsWeb(u) {
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  // Test only: a spec's own slow server on this machine, named as a public host (`*.loopback.test`) because the brain's
+  // network gate (apps/edge/src/netguard.ts) rightly refuses loopback addresses; only this preview maps the name back.
+  if (u.hostname.endsWith('.loopback.test')) {
+    const to = new URL(u.href);
+    to.hostname = '127.0.0.1';
+    return realFetch(to.href, init);
+  }
   // Test only: his Home Assistant box, stood in for (tests/fixtures/house-api.mjs): the bridge's every call lands here.
   const house = houseApi(u, init);
   if (house) return house;
@@ -115,6 +122,7 @@ globalThis.fetch = async (input, init) => {
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
 const state = { storage: Object.assign(new MemStorage(), { sql: sqlStorage() }), waitUntil: () => undefined };
+let snapshotMap = null;
 const env = {
   // Same shape as production: only the password's hash is configured, and no VAULT_KEY
   // (the brain makes its own). OWNER_KEY stays here for the log line below only.
@@ -180,7 +188,7 @@ env.ASSETS = {
 };
 const TYPES = { '.onnx': 'application/octet-stream', '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   try {
     // Test only: an NDJSON stream of the given lines (base64) that stays open `hold` ms before ending —
@@ -200,6 +208,26 @@ createServer(async (req, res) => {
       if (url.searchParams.get('forget') === '1') await state.storage.delete(['watchers:list']);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(setWatcher(url.searchParams)));
+      return;
+    }
+    // Test only (tests/fixtures/clean.mjs): the brain's storage copied when a spec opens (GET /__test/snapshot), given back when it ends
+    // (GET /__test/restore: what the spec added and changed is named), and a short hash of it any time (GET /__test/state), so the next spec
+    // can be shown to open on what the last one found.
+    if (url.pathname === '/__test/snapshot' || url.pathname === '/__test/restore' || url.pathname === '/__test/state') {
+      const digest = (m) => createHash('sha1').update(JSON.stringify([...m].sort(([a], [b]) => (a < b ? -1 : 1)))).digest('hex').slice(0, 12);
+      const live = state.storage.m;
+      let body;
+      if (url.pathname === '/__test/snapshot') {
+        snapshotMap = new Map([...live].map(([k, v]) => [k, structuredClone(v)]));
+        body = { keys: snapshotMap.size, hash: digest(snapshotMap) };
+      } else if (url.pathname === '/__test/restore' && snapshotMap) {
+        const added = [...live.keys()].filter((k) => !snapshotMap.has(k));
+        const changed = [...snapshotMap].filter(([k, v]) => live.has(k) && JSON.stringify(live.get(k)) !== JSON.stringify(v)).map(([k]) => k);
+        state.storage.m = new Map([...snapshotMap].map(([k, v]) => [k, structuredClone(v)]));
+        body = { restored: true, added, changed };
+      } else body = { keys: live.size, hash: digest(live) };
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(body));
       return;
     }
     // Test only (tests/social.spec.mjs): what reached his accounts' stand-in APIs — each post and follow, once per APPROVE.
@@ -222,6 +250,14 @@ createServer(async (req, res) => {
       }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ calls: houseCalls() }));
+      return;
+    }
+    // Test only (tests/wall.spec.mjs): the wall forgets its pair, its codes and its wrong-code wait (?reset=1), as a minute and a thirty-day
+    // clock would; the spec runs again on the same brain, as CI's retry does.
+    if (url.pathname === '/__test/wall') {
+      if (url.searchParams.get('reset') === '1') await state.storage.delete(['wall:state']);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
       return;
     }
     // Test only: the next write of one database key fails once (tests/apps.spec.mjs stops a mini-app's publish part-way).
@@ -355,4 +391,9 @@ createServer(async (req, res) => {
     if (!res.headersSent) res.writeHead(500);
     res.end(String(e));
   }
-}).listen(port, () => console.log(`Ghosty preview on http://localhost:${port}  (owner key: preview-owner-key-0123456789)`));
+});
+// An idle connection stays open until the browser closes it. Node's default closes one after 5 s, and a request a spec's
+// route.fetch sends on it just then dies as "socket hang up" (Playwright's fetch keeps its connections alive and reuses them
+// with no timeout of its own): the talk spec's /api/status route fell over that way on CI.
+server.keepAliveTimeout = 0;
+server.listen(port, () => console.log(`Ghosty preview on http://localhost:${port}  (owner key: preview-owner-key-0123456789)`));

@@ -22,6 +22,7 @@ import { cleanOcr, ocrSummary, titleFrom, wordRegions, type Region } from '../..
 import type { LensContext, Mode, ModeOpts } from './index';
 import { openMark } from './mark';
 import { sayError } from '../../ui/hisWords';
+import { NO_WORDS } from './words';
 
 export function createReadMode(L: LensContext): Mode {
   const S = L.state;
@@ -157,8 +158,11 @@ export function createReadMode(L: LensContext): Mode {
       if (t) void import('../core/cards').then((m) => m.lensRead(t)).catch(() => undefined);
       regions = wordRegions(r.words);
       const summary = ocrSummary(t, r.confidence);
-      sure.textContent = t ? `${summary} · edit the text, then save, copy or ask` : 'No text found: try closer, flatter, with more light';
-      L.status(summary, t ? 'ok' : 'mid');
+      /* state: lens.read empty */
+      sure.textContent = t ? `${summary} · edit the text, then save, copy or ask` : NO_WORDS;
+      if (t) delete sure.dataset.state;
+      else sure.dataset.state = 'empty';
+      L.status(t ? summary : NO_WORDS, t ? 'ok' : 'mid');
       progress.hidden = true;
       paintWords();
       // the text and SAVE / COPY / ASK sit below the viewfinder: bring them up above the tab bar

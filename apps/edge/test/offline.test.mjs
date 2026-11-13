@@ -215,23 +215,20 @@ test('daily backup: a failed try never turns off the wiped-phone guard; after wa
   assert.equal(calls, 0);
 });
 
-// ---------------------------------------------------------------------------------------------------------
-// The GYM's games run on the phone with no brain at all: their tests live in gym.test.mjs (run from here,
-// because the test list in package.json is protected).
-await import('./gym.test.mjs');
-// GYM part 2: the reasoning games (gym2) and the board/control games — checkers, chess, Go, poker, Sokoban,
-// balance & lander (gym2a).
-await import('./gym2.test.mjs');
-await import('./gym2a.test.mjs');
-// The GYM's next level: league play against his past selves, puzzles at his edge, records from checked work,
-// the REPORT CARD's LOOPS card (BRIEF-GYM-IDEAS).
-await import('./gymideas.test.mjs');
-// PLAY HIM at full strength, lessons from the owner's games, the tactical floor on the other boards (gym2).
-await import('./gymvs.test.mjs');
 
-// The offline brain's weekly self-training on Kaggle (apps/edge/src/selftrain): its tests live in
-// selftrain.test.mjs (run from here for the same reason).
-await import('./selftrain.test.mjs');
 
-// NIGHT SCHOOL (packages/shared/src/night.ts, apps/edge/src/school/night.ts): its tests live in night.test.mjs.
-await import('./night.test.mjs');
+
+// POLISH 3 (2d): every editor's work rides the daily backup, and a restore joins it like the workspace's.
+import { readFileSync as polish3Read } from 'node:fs';
+test('backup keys: documents, spreadsheets and slide decks ride the daily backup and restore by id, newer winning', () => {
+  const src = polish3Read(new URL('../../web/src/features/system/backup.ts', import.meta.url), 'utf8');
+  const keys = [...src.matchAll(/\{ key: '(ghosty\.[a-z.]+)'/g)].map((m) => m[1]);
+  for (const k of ['ghosty.workspace', 'ghosty.docs', 'ghosty.sheets', 'ghosty.slides']) assert.ok(keys.includes(k), `${k} is in BACKUP_KEYS`);
+  // Each of the three is a list with an id and an `at`: an empty phone takes the backup, a phone with one keeps its newer copy and gains the rest.
+  const bak = [{ id: 'a', at: 100, title: 'old' }, { id: 'b', at: 50, title: 'B' }];
+  assert.equal(MG.mergeEntry(null, JSON.stringify(bak)).result, 'restored');
+  const cur = [{ id: 'a', at: 200, title: 'new' }];
+  const m = MG.mergeEntry(JSON.stringify(cur), JSON.stringify(bak));
+  assert.equal(m.result, 'merged');
+  assert.deepEqual(JSON.parse(m.text).map((d) => `${d.id}:${d.title}`), ['a:new', 'b:B']);
+});

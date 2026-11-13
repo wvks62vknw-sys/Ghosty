@@ -7,9 +7,10 @@
  * question, and kept nowhere here. The state sits on window.__ghosty.outside for the specs.
  */
 import { h } from '../../core/dom';
-import { button, modal, toast } from '../../ui/components';
+import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
+import { emptyState, lacksSignal, phrases, stateIn, troubleWords, waitFor } from '../lifeui';
 
 export type OutsideWhat = 'safewalk' | 'parking' | 'toilets' | 'cash' | 'refill' | 'open' | 'car' | 'lost' | 'split';
 export type OutsideView = 'safewalk' | 'nearby' | 'car' | 'lost' | 'split';
@@ -100,28 +101,45 @@ export function outsideView(view: View, args: Record<string, unknown> = {}): HTM
   return view === 'safewalk' ? walkView(args) : view === 'nearby' ? nearView(args) : view === 'car' ? carView() : view === 'lost' ? lostView() : splitView();
 }
 
-async function run(action: string, a: Record<string, unknown>): Promise<{ text: string; data?: unknown }> {
+/** One brain action. `failed` when it did not land (no signal, or a silent brain): the page says so in its own status line. */
+async function run(action: string, a: Record<string, unknown>): Promise<{ text: string; data?: unknown; failed?: boolean; offline?: boolean }> {
+  if (lacksSignal()) return { text: '', failed: true, offline: true };
   try {
     const r = await brain.packDo('outside', action, a);
     outsideState.said = r.text;
     return r;
   } catch (e) {
-    toast(sayError(e, 'get an answer from my brain'), 'warn');
-    return { text: '' };
+    sayError(e, 'get an answer from my brain');
+    return { text: '', failed: true };
   }
+}
+/** What a brain action said, in the page's status line: its words, or why it could not (in his). */
+function said(status: HTMLElement, r: { text: string; failed?: boolean; offline?: boolean }, none = ''): void {
+  /* state: outside.nearby error */
+  /* state: outside.nearby offline */
+  /* state: outside.walk error */
+  /* state: outside.walk offline */
+  /* state: outside.car error */
+  /* state: outside.car offline */
+  /* state: outside.lost error */
+  /* state: outside.lost offline */
+  /* state: outside.split error */
+  /* state: outside.split offline */
+  if (r.failed) stateIn(status, r.offline ? 'offline' : 'error', `${troubleWords(!!r.offline)} Nothing was sent anywhere else.`);
+  else stateIn(status, '', r.text || none);
 }
 /** The phone's position, once, when he taps: used for the one question, never kept. */
 function here(status: HTMLElement): Promise<Pos | null> {
   if (!('geolocation' in navigator)) {
-    status.textContent = 'This phone won’t share where it is here: type a place instead.';
+    stateIn(status, 'error', 'This phone won’t share where it is here. Type a place instead.');
     return Promise.resolve(null);
   }
-  status.textContent = 'Asking the phone where it is, once…';
+  stateIn(status, '', 'Asking the phone where it is, once…');
   return new Promise((ok) =>
     navigator.geolocation.getCurrentPosition(
       (p) => ok({ lat: p.coords.latitude, lon: p.coords.longitude }),
       (e) => {
-        status.textContent = e.code === 1 ? 'The phone said no. Type a place instead; nothing is kept.' : 'The phone couldn’t tell where it is. Type a place instead.';
+        stateIn(status, 'error', e.code === 1 ? 'The phone would not share where it is. Settings, Ghosty, Location, or type a place instead.' : 'The phone couldn’t tell where it is. Type a place instead.');
         ok(null);
       },
       { enableHighAccuracy: false, timeout: 12_000, maximumAge: 60_000 },
@@ -132,6 +150,8 @@ function input(label: string, ph: string, value = ''): HTMLInputElement {
   return h('input', { type: 'text', placeholder: ph, 'aria-label': label, value, enterKeyHint: 'go', autocomplete: 'off' }) as HTMLInputElement;
 }
 const note = (text: string) => h('p.pknote', { 'aria-live': 'polite' }, text);
+/** What "Use where I am now" sends, said once under it: the position, for this one question, and that nothing is kept. */
+const priv = (more = '') => h('p.pknote', { dataset: { priv: '1' } }, `Where you are is sent once, for this one question. Nothing is kept${more}.`);
 const named = (b: HTMLButtonElement, label: string) => (b.setAttribute('aria-label', label), b);
 const mapsLink = (name: string, lat: number, lon: number) => {
   const a = h('a', { href: `https://maps.apple.com/?daddr=${lat.toFixed(5)},${lon.toFixed(5)}&dirflg=w`, target: '_blank', rel: 'noopener', 'aria-label': `Directions on foot to ${name}` }, 'Directions');
@@ -141,24 +161,27 @@ const mapsLink = (name: string, lat: number, lon: number) => {
 // ---------------------------------------------------------------- NEARBY
 
 function nearView(args: Record<string, unknown>): HTMLElement {
-  const status = note('Name a place, pick one you saved (home, work), or tap USE WHERE I AM NOW once. Nothing is tracked.');
+  const status = note('Name a place, pick one you saved (home, work), or use where you are now.');
   const place = input('A place to look near', 'home, work or a street', typeof args.near === 'string' ? args.near : '');
   const what = input('What kind of place is open', 'pharmacy, coffee, pub, food, shop');
   const list = h('div.pkcol', { 'aria-live': 'polite' });
   const kinds = h('div.pkrow', { role: 'group', 'aria-label': 'What to look for' });
-  const paint = () => {
-    list.replaceChildren(
-      ...(outsideState.items.length
-        ? outsideState.items.slice(0, 8).map((i) => h('div.pkperson', { role: 'group', 'aria-label': i.name }, h('b', i.name), h('span.pklab', i.line), mapsLink(i.name, i.lat, i.lon)))
-        : []),
-    );
+  const kindWord = () => (outsideState.near === 'open' ? 'places that are open' : (NEARS.find((n) => n.id === outsideState.near)?.label ?? 'places').toLowerCase());
+  /* state: outside.nearby empty */
+  const idle = () => list.replaceChildren(emptyState('Nothing looked up yet', 'Pick what you want, name a place and tap Look.'));
+  const paint = (looked: boolean) => {
+    if (!outsideState.items.length) return looked ? list.replaceChildren(emptyState('Nothing found there', 'Try a street, or another kind of place.')) : idle();
+    list.replaceChildren(...outsideState.items.slice(0, 8).map((i) => h('div.pkperson', { role: 'group', 'aria-label': i.name }, h('b', i.name), h('span.pklab', i.line), mapsLink(i.name, i.lat, i.lon))));
   };
   const look = async (pos?: Pos) => {
-    status.textContent = 'Asking the map…';
+    stateIn(status, '', '');
+    /* state: outside.nearby loading */
+    const done = waitFor(el, `Looking for ${kindWord()} near ${pos ? 'you' : place.value.trim() || 'home'}…`);
     const r = await run(outsideState.near, { ...(pos ? { lat: pos.lat, lon: pos.lon } : { near: place.value.trim() }), ...(outsideState.near === 'open' ? { what: what.value.trim() } : {}) });
+    done();
     outsideState.items = ((r.data as { items?: Item[] } | undefined)?.items ?? []).slice();
-    status.textContent = r.text || 'My brain didn’t answer.';
-    paint();
+    said(status, r, 'My brain didn’t answer.');
+    if (!r.failed) paint(true);
   };
   for (const k of NEARS) {
     const b = button(k.label, () => {
@@ -166,7 +189,7 @@ function nearView(args: Record<string, unknown>): HTMLElement {
       outsideState.items = [];
       for (const x of kinds.querySelectorAll('button')) x.setAttribute('aria-pressed', String(x.dataset.kind === k.id));
       what.hidden = k.id !== 'open';
-      paint();
+      paint(false);
     });
     b.dataset.kind = k.id;
     b.setAttribute('aria-pressed', String(outsideState.near === k.id));
@@ -180,8 +203,9 @@ function nearView(args: Record<string, unknown>): HTMLElement {
     if (p) await look(p);
   }), 'Use where I am now, once');
   place.addEventListener('keydown', (e) => e.key === 'Enter' && void look());
-  paint();
-  return h('div.pkcol', kinds, place, what, h('div.pkrow', go, tap), status, list);
+  paint(false);
+  const el = h('div.pkcol', kinds, place, what, h('div.pkrow', go, tap), priv(), status, list);
+  return el;
 }
 
 // ---------------------------------------------------------------- WALK
@@ -225,24 +249,29 @@ function mapSvg(w: Walk): SVGElement {
 }
 
 function walkView(args: Record<string, unknown>): HTMLElement {
-  const status = note('Where from, and where to (home if you leave it). I count police reports within 100 m of each way, and say “fewer reports”, never “safe”.');
+  const status = note('Say where from and where to. “Home” if you leave it out.');
   const from = input('Walk from', 'a street, a station or a saved place', typeof args.from === 'string' ? args.from : '');
   const to = input('Walk to', 'home', typeof args.to === 'string' ? args.to : '');
   const out = h('div.pkcol', { 'aria-live': 'polite' });
   let pos: Pos | null = null;
   const where = () => (pos ? { lat: pos.lat, lon: pos.lon } : { from: from.value.trim() });
   const walk = async () => {
-    status.textContent = 'Asking the map and the police data: this can take a few seconds…';
+    stateIn(status, '', '');
+    /* state: outside.walk loading */
+    const done = waitFor(el, 'Counting police reports along each way…');
     const r = await run('safewalk', { ...where(), to: to.value.trim() || 'home' });
-    status.textContent = r.text || 'My brain didn’t answer.';
+    done();
+    said(status, r, 'My brain didn’t answer.');
     const w = r.data as Walk | undefined;
     outsideState.walk = w && Array.isArray(w.routes) ? w : null;
-    out.replaceChildren(...(outsideState.walk ? [mapSvg(outsideState.walk)] : []));
+    out.replaceChildren(...(outsideState.walk ? [mapSvg(outsideState.walk), legend(outsideState.walk)] : []));
   };
   const last = async () => {
-    status.textContent = 'Asking the timetables…';
+    stateIn(status, '', '');
+    const done = waitFor(el, 'Looking at the timetables…');
     const r = await run('lasthome', { ...where(), to: to.value.trim() || 'home' });
-    status.textContent = r.text || 'My brain didn’t answer.';
+    done();
+    said(status, r, 'My brain didn’t answer.');
     out.replaceChildren();
   };
   const tap = named(button('Use where I am now', async () => {
@@ -250,75 +279,119 @@ function walkView(args: Record<string, unknown>): HTMLElement {
     if (pos) {
       from.value = '';
       from.placeholder = 'where you are now (used once)';
+      stateIn(status, '', 'Using where you are now, for this walk only.');
     }
   }), 'Use where I am now, once');
   const go = named(button('Count reports', () => void walk(), 'on'), 'Count police reports along the walk');
   const home = named(button('Last way home', () => void last()), 'Find the last train or bus home');
   to.addEventListener('keydown', (e) => e.key === 'Enter' && void walk());
-  return h('div.pkcol', from, to, h('div.pkrow', go, home), tap, status, out);
+  const el = h('div.pkcol', from, to, h('div.pkrow', go, home), tap, priv(), status, note('I count police reports within 100 m of each way, and say “fewer”, never “safe”.'), out, phrases(['toilets near me', 'I’m lost', 'I parked here']));
+  return el;
+}
+
+/** Each way, with its numbers and what they are: kilometres, minutes (about), police reports (counted, over the months the data covers). */
+function legend(w: Walk): HTMLElement {
+  return h('ul.pklist.pkroutes', { 'aria-label': 'The ways, with their numbers' }, ...w.routes.map((r, i) => h('li', `${r.label}${i === w.best ? ' (fewer reports)' : ''} · ${r.km.toFixed(1)} km · about ${r.min} minutes on foot · ${r.reports} police report${r.reports === 1 ? '' : 's'} in ${w.months.length} month${w.months.length === 1 ? '' : 's'}`)));
 }
 
 // ---------------------------------------------------------------- CAR
 
 function carView(): HTMLElement {
-  const status = note('Say where you parked, or tap USE WHERE I AM NOW to keep the spot once. I keep that spot and the time, nothing more.');
+  const status = note('Say where you parked, or use where you are now. I keep the spot and the time, nothing more.');
   const where = input('Where you parked', 'Cannon Street, or the car park’s name');
   const rule = input('A rule or note about this parking', 'free after 6, card only…');
   const until = h('input', { type: 'time', 'aria-label': 'Paid until what time' }) as HTMLInputElement;
+  const slot = h('div.pkcol', { 'aria-live': 'polite' });
   let pos: Pos | null = null;
   const tap = named(button('Use where I am now', async () => {
     pos = await here(status);
-    if (pos) status.textContent = 'Got the spot: it is kept only if you tap I PARKED HERE.';
+    if (pos) stateIn(status, '', 'Got the spot. It is kept only if you tap I parked here.');
   }), 'Use where I am now, once');
   const keep = named(button('I parked here', async () => {
     if (!where.value.trim() && !pos) {
-      status.textContent = 'Say where, or tap USE WHERE I AM NOW first.';
+      stateIn(status, '', 'Say where, or use where you are now first.');
       return;
     }
     const r = await run('parked', { ...(where.value.trim() ? { place: where.value.trim() } : {}), ...(pos ? { lat: pos.lat, lon: pos.lon } : {}), ...(rule.value.trim() ? { note: rule.value.trim() } : {}), ...(until.value ? { until: until.value } : {}) });
-    status.textContent = r.text || 'My brain didn’t answer.';
-    outsideState.car = r.text;
+    said(status, r, 'My brain didn’t answer.');
+    if (!r.failed) {
+      outsideState.car = r.text;
+      slot.replaceChildren();
+    }
     pos = null;
   }, 'on'), 'Keep where I parked');
   const ask = named(button('Where is the car?', async () => {
     const p = await here(status).catch(() => null);
     const r = await run('parked', p ? { lat: p.lat, lon: p.lon, ask: true } : {});
-    status.textContent = r.text || 'My brain didn’t answer.';
+    said(status, r, 'My brain didn’t answer.');
     outsideState.car = r.text;
   }), 'Where did I park?');
   const gone = named(button('Forget it', async () => {
     const r = await run('parked', { words: 'forget' });
-    status.textContent = r.text;
+    said(status, r);
+    if (!r.failed) idle();
   }), 'Forget where the car is');
-  return h('div.pkcol', where, rule, h('label.pkfield', h('span.pklab', 'Paid until'), until), h('div.pkrow', keep, tap), h('div.pkrow', ask, gone), status);
+  /* state: outside.car empty */
+  const idle = () => slot.replaceChildren(emptyState('No car kept yet', 'Say where you parked and tap I parked here.'));
+  const el = h('div.pkcol', slot, where, rule, h('label.pkfield', h('span.pklab', 'Paid until'), until), h('div.pkrow', keep, tap), priv(' unless you tap I parked here'), h('div.pkrow', ask, gone), status);
+  // what is kept already is read at once, so the page never claims there is no car
+  /* state: outside.car loading */
+  const done = waitFor(el, 'Looking for your car…');
+  void run('parked', {}).then((r) => {
+    done();
+    if (r.failed) return void said(status, r);
+    const kept = (r.data as { parked?: { label?: string; lat?: number; lon?: number; until?: number } } | undefined)?.parked;
+    if (!kept) return idle();
+    outsideState.car = r.text;
+    // [bodylane] the time left on the ticket, and the way back to it in his maps app (his tap; nothing is sent from here)
+    const left = typeof kept.until === 'number' ? Math.round((kept.until - Date.now()) / 60_000) : null;
+    const leftWords = left == null ? '' : left > 0 ? `${left >= 60 ? `${Math.floor(left / 60)} h ${left % 60} min` : `${left} min`} left on the ticket.` : 'The paid time has run out.';
+    const dest = typeof kept.lat === 'number' && typeof kept.lon === 'number' ? `${kept.lat.toFixed(5)},${kept.lon.toFixed(5)}` : kept.label ?? '';
+    const back = dest ? named(button('Walk me back to it', () => void window.open(`https://maps.apple.com/?daddr=${encodeURIComponent(dest)}&dirflg=w`, '_blank', 'noopener')), 'Walk me back to the car in Maps') : null;
+    slot.replaceChildren(h('div.pkperson', { role: 'group', 'aria-label': 'Where the car is' }, h('b', 'Your car'), h('span.pklab', r.text.replace(/^The car:\s*/i, '')), leftWords ? h('span.pklab', { dataset: { left: String(left) } }, leftWords) : null, back ? h('div.pkrow', back) : null));
+  });
+  return el;
 }
 
 // ---------------------------------------------------------------- LOST
 
 function lostView(): HTMLElement {
-  const status = note('Tap once. I use the spot for this one question, show the nearest place you saved and the nearest station, and the way. If you feel unsafe, call 999.');
+  const status = note('Tap once and I show the nearest place you saved, the nearest station and the way.');
   const typed = input('Or name the street or place you are at', 'the street you can see');
   const show = async (a: Record<string, unknown>) => {
-    status.textContent = 'Asking the map…';
+    stateIn(status, '', '');
+    /* state: outside.lost loading */
+    const done = waitFor(el, 'Looking for the way…');
     const r = await run('lost', a);
-    status.textContent = r.text || 'My brain didn’t answer.';
+    done();
+    said(status, r, 'My brain didn’t answer.');
   };
   const tap = named(button('Use where I am now', async () => {
     const p = await here(status);
     if (p) await show({ lat: p.lat, lon: p.lon });
   }, 'on'), 'Use where I am now, once');
   const go = named(button('Find from this name', () => void show({ near: typed.value.trim() })), 'Find my way from the place I typed');
-  return h('div.pkcol', tap, typed, go, status);
+  const el = h('div.pkcol', tap, priv(), typed, go, status, h('p.pknote', { dataset: { safety: '1' } }, 'If you feel unsafe, call 999.'));
+  return el;
 }
 
 // ---------------------------------------------------------------- SPLIT
 
 function splitView(): HTMLElement {
-  const status = note('Say it like “taxi £48, I paid, between me, Sam and Jo”, or “I paid £30, Sam paid £12, split 3 ways”. Only sums: nothing is paid or sent.');
+  const status = note('Say it like “taxi £48, I paid, between me, Sam and Jo”. Only sums: nothing is paid or sent.');
   const words = h('textarea', { rows: 3, 'aria-label': 'The fare and who shares it', placeholder: 'taxi £48, I paid, between me, Sam and Jo' }) as HTMLTextAreaElement;
   const go = named(button('Work it out', async () => {
+    if (!words.value.trim()) {
+      stateIn(status, '', 'Type the fare and who shares it first.');
+      return;
+    }
+    stateIn(status, '', '');
+    /* state: outside.split loading */
+    const done = waitFor(el, 'Working out who owes whom…');
     const r = await run('split', { words: words.value });
-    status.textContent = r.text || 'My brain didn’t answer.';
+    done();
+    said(status, r, 'My brain didn’t answer.');
   }, 'on'), 'Work out who owes whom');
-  return h('div.pkcol', words, go, status);
+  const el = h('div.pkcol', words, go, status);
+  return el;
 }

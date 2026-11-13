@@ -4,6 +4,7 @@
  * lines are used instead. Nothing is sent anywhere.
  */
 import { passageFrom } from '../../../../../packages/shared/src/learning';
+import { plainProse } from './words';
 
 /** The raw text of one passage of one document, chosen by `seed` (his own documents first, the starter shelf otherwise). */
 export async function libraryRaw(seed: number): Promise<string> {
@@ -26,9 +27,10 @@ export async function libraryRaw(seed: number): Promise<string> {
 
 /** A passage of at least `min` words from his library, or ''. */
 export async function libraryPassage(seed: number, min = 12): Promise<string> {
-  for (let k = 0; k < 4; k++) {
+  for (let k = 0; k < 8; k++) {
     const p = passageFrom(await libraryRaw(seed + k * 13), seed + k);
-    if (p.split(' ').length >= min) return p;
+    // (plain sentences only: a line of code, a route list or a note is skipped and the next tried)
+    if (p.split(' ').length >= min && plainProse(p)) return p;
   }
   return '';
 }

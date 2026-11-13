@@ -5,7 +5,7 @@
 //  - the catalogue is still made (for the brain and the checks): at least 250 things, every registry item with its words, every way in
 //    lands on a screen, a command or words this build has, what the brain serves is what the phone holds, FAVOURITES said in it;
 //  - "can you …?" by words, in the chat, answered on this phone with no model: a yes with a way to it (GO), a near miss ("Not quite")
-//    with YES and NO, "Not yet. Want me to learn it?" and YES keeps it as a learning goal (the brain, the Workshop first); a yes
+//    with YES and NO, "I can’t do that yet. Shall I learn it?" and YES keeps it as a learning goal (the brain, the Workshop first); a yes
 //    comes with chips ("can you translate signs?") and one opens where it says (backing up the phone opens System); a request ("…at 5") still goes
 //    to the brain; the chat's own controls are where the registry says;
 //  - WHY (a reply's trail in a sheet, from WHY or a long press, and "why did you do that?" typed); "what did you do today?" with no
@@ -63,7 +63,7 @@ async function canYou(page, words, asked) {
   const had = await page.evaluate(() => document.querySelectorAll('#pg-core .msg:not(.me)').length);
   await page.fill('#cin', words);
   await page.press('#cin', 'Enter');
-  await until(page, (n) => document.querySelectorAll('#pg-core .msg:not(.me)').length > n && /^(Yes\.|Not quite\.|Not yet\.)/.test([...document.querySelectorAll('#pg-core .msg:not(.me)')].at(-1)?.querySelector(':scope > span')?.textContent ?? ''), had, 10000, `"${words}" was not answered on the phone`);
+  await until(page, (n) => document.querySelectorAll('#pg-core .msg:not(.me)').length > n && /^(Yes\.|Not quite\.|I can’t do that yet\.)/.test([...document.querySelectorAll('#pg-core .msg:not(.me)')].at(-1)?.querySelector(':scope > span')?.textContent ?? ''), had, 10000, `"${words}" was not answered on the phone`);
   await page.waitForTimeout(300);
   if (asked.some((b) => b.includes(words.slice(0, 20)))) problems.push(`"${words}" went to the model`);
   return page.evaluate(() => {
@@ -128,7 +128,10 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     const nonce = () => Array.from({ length: 4 }, () => 'bcdfghjklmnpqrstvwxz'[Math.floor(Math.random() * 20)]).join('');
     const want = `${nonce()} ${nonce()}`;
     a = await canYou(page, `are you able to ${want}`, asked);
-    if (!/^Not yet\. Want me to learn it\?/.test(a.text) || !a.yes) problems.push(`"are you able to ${want}" → ${JSON.stringify(a)} (want "Not yet. Want me to learn it?")`);
+    if (!/^I can’t do that yet\. Shall I learn it\?/.test(a.text) || !a.yes) problems.push(`"are you able to ${want}" → ${JSON.stringify(a)} (want "I can’t do that yet. Shall I learn it?")`);
+    // (the CHAT pass) YES and NO are 44 pt keys
+    const tiny = await page.locator('#pg-core .msg:not(.me)').last().locator('button.learnyes, button.learnno').evaluateAll((bs) => bs.filter((b) => b.getBoundingClientRect().height < 43.5).length);
+    if (tiny) problems.push('YES or NO under "I can’t do that yet" is under 44 pt');
     await page.screenshot({ path: `${out}/abilities-notyet.png` });
     await page.locator('#pg-core .msg:not(.me)').last().locator('button.learnyes').click().catch(() => problems.push('no YES under "Not yet"'));
     await until(page, () => [...document.querySelectorAll('#pg-core .msg:not(.me) .learned')].some((n) => /On my learning list/.test(n.textContent ?? '')), null, 8000, 'YES did not record the learning goal');

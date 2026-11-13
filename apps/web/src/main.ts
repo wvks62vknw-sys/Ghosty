@@ -32,6 +32,11 @@ import { applyMood, applyRecipe, keptRecipe, settleTheme, themeState } from './s
 import { mood } from './state/mood';
 import { button, toast } from './ui/components';
 import { sayError } from './ui/hisWords';
+import { installCrashNet } from './core/crash';
+import { installPermissionRecord } from './features/settings/permissions'; // [health] crash records, never a blank
+
+installCrashNet();
+installPermissionRecord(); // [health] the last grant or refusal of each thing the phone can be asked for
 
 /**
  * Ask for the owner key on this device (only needed when Cloudflare Access isn't set up). A real
@@ -136,6 +141,8 @@ async function boot(): Promise<void> {
   mood.subscribe((s) => applyMood(s.now.kind));
   // the cinematic starts at once (in the theme's colour) and plays while everything below gets ready
   startBoot();
+  // [wall] a screen that is the wall shows it at once, over the boot (a screen with no key waits for the sign-in: the layout starts it)
+  if (ownerKey.get()) void import('./wall/screen').then((w) => w.startWall());
   const cv = document.getElementById('gl') as HTMLCanvasElement;
   gfx.init(cv);
   addEventListener('resize', () => gfx.resize());
@@ -176,6 +183,8 @@ async function boot(): Promise<void> {
   if (spotify) toast(spotify.text, spotify.ok ? 'ok' : 'warn');
   // [resta] a Siri shortcut's link (?say=, ?do=, ?open=): done on his own signed-in phone only (features/settings/shortcuts.ts)
   void import('./features/settings/shortcuts').then((s) => s.followLink(ui.get().connected || !!ownerKey.get())).catch(() => undefined);
+  // [polish3] what another app shared to Ghosty (the manifest's share_target): files to the library, words to the ask line
+  void import('./features/library/share').then((s) => s.followShared()).catch(() => undefined);
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), … (machine: the Machine's marks, so a check can lock a box on a thing: tests/hero.spec.mjs)
@@ -183,6 +192,8 @@ async function boot(): Promise<void> {
     // (a check's way of saying something on any screen: the chat's box is on Home only; the microphone says it anywhere)
     send: (t: string, voice = false) => import('./assistant/session').then((m) => m.send(t, { voice })),
     // the catalogue as this build has it, for the checks (no page shows it: BRIEF-SHELL pass 1), and FAVOURITES (shell/favourites.ts)
+    // [health] the marks, the crash records and the test hook (abilities/health.ts, core/crash.ts)
+    healthcheck: async () => (await import('./abilities/health')).healthCheck(), loadHealth: async (force = false) => (await import('./abilities/health')).loadHealth(force), crash: await import('./core/crash'), permissions: await import('./features/settings/permissions'),
     abilities: { health: async () => (await import('./abilities/registry')).catalogueHealth(Object.keys((await import('./shell/hubcards')).CARDS)), load: async () => (await import('./abilities/registry')).loadBrainSide() },
     pins: await import('./shell/favourites') };
   // NIGHT SCHOOL (night/index.ts): its clock starts here; it does nothing until it is switched on in SYSTEM.
@@ -202,6 +213,8 @@ async function boot(): Promise<void> {
     // (once a day, a few minutes after it opens and only while it is on screen: the rooms' own throttled reads, nothing the plan would not ask)
     if (ui.get().connected) setTimeout(() => document.visibilityState === 'visible' && c.needsDailyRead() && void c.refreshChanged().catch(() => undefined), 180_000);
   }).catch(() => undefined);
+  // [recall] the phone's own index of his turns and things (features/memory/recall.ts): set up now, built at idle after Home is up
+  void import('./features/memory/recall').then((r) => r.startRecallIndex()).catch(() => undefined);
   gfx.post.flash = 0.6;
   // [lifeeasier] this open keeps its stamp fresh: the next open measures its gap from it (state/lastopen.ts)
   keepStamp();

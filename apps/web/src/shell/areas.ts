@@ -23,9 +23,11 @@ import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
 import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { favourites, isFavourite, pinOnHold } from './favourites';
 import { jump } from './jump';
-import { footOn, houseOn, housePlan, openThing } from './house';
+import { eyeOn, footOn, grownOn, houseOn, housePlan, openThing, orbitOn } from './house';
+import { eyeRoom, type EyeCard } from '../features/core/eye/room'; // [eye] a room as the wall (BRIEF-EYE-HUD-2)
+import { panelsOf } from './orbitpanels';
 import { atHand, thingForNumber, thingLine } from './inventory';
-import { ROOMS } from './rooms';
+import { hubThings, ROOMS } from './rooms';
 import { recipeEvents } from '../state/theme';
 import { tag } from '../ui/machine';
 import { screenSays } from './awareness';
@@ -37,7 +39,7 @@ import { goToPanel } from '../ui/sections'; // [guardian]
 import { clockIn, FEED_NAMES, watchLine, type GuardianInfo } from '../../../../packages/shared/src/guardian'; // [guardian]
 
 // (the areas and the Me sheet's rows: pure lists the ABILITIES catalogue reads too, shell/areadefs.ts)
-import { AREAS, ME_CARDS, ME_ROWS, type Area } from './areadefs';
+import { AREAS, EDITORS, EDITORS_ID, folds, hubTabs, ME_CARDS, ME_ROWS, type Area } from './areadefs';
 import { openOrigin, ORIGIN_ICON } from '../features/me/origin'; // [social] FATHER AND THE ORIGIN
 export { AREAS, ME_CARDS, ME_ROWS, type Area };
 
@@ -54,7 +56,7 @@ export const TINT: Record<string, string> = {
   memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff',
   // [tabs] the screens the sheets became (BRIEF-TABS 2)
   money: '#30d158', body: '#ff375f', kitchen: '#ff9f0a', people: '#5ac8fa', work: '#8e8e93', creative: '#bf5af2', outside: '#34c759', homeadmin: '#ffd60a',
-  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', house: '#ffb340',
+  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', slides: '#ff9f0a', workspace: '#0a84ff', photo: '#ff9f0a', video: '#ff6482', gamestudio: '#ff9f0a', comic: '#ff453a', house: '#ffb340',
 };
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
@@ -151,11 +153,25 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   // (a room's drawing, in The Scan: the clock or the star beside its name, and its one true line for the rest of the room)
   const mark = h('i.hmark', { hidden: true, 'aria-hidden': 'true' });
   const one = h('span.one', { dataset: { case: 'keep' } });
-  const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep', ...(c?.works ? { works: 'true' } : {}) }, onclick: onTap, ...(c?.works ? { 'aria-description': `In the works: ${c.works}` } : {}) },
+  // [editors] the EDITORS card is the one card that holds buttons of its own (its pills), so it is a group, not one button: its body still opens
+  // the editor he used last, and each pill opens one editor in one tap
+  const fold = id === EDITORS_ID;
+  const pills = fold
+    ? h('span.hubpills', { role: 'group', 'aria-label': 'The editors' },
+      ...EDITORS.map((e) => {
+        const b = h('button.hubpill', { type: 'button', dataset: { editor: e.id }, 'aria-label': `Open ${e.pill.toLowerCase()}` }, e.pill) as HTMLButtonElement;
+        b.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          navTo(e.id, 'push');
+        });
+        return b;
+      }))
+    : null;
+  const el = h(fold ? 'div.hubtile.inst.fold' : 'button.hubtile.inst', { ...(fold ? { role: 'group', 'aria-label': `${name}: ${EDITORS.map((e) => e.pill.toLowerCase()).join(', ')}` } : { type: 'button' }), dataset: { id, case: 'keep', ...(c?.works ? { works: 'true' } : {}) }, onclick: onTap, ...(c?.works ? { 'aria-description': `In the works: ${c.works}` } : {}) },
     ins,
-    h('span.kick', icon(glyph), h('span.nm', name), mark, word),
-    title, works, one, reads, why, line, pinned,
-  );
+    h(name.length > 11 ? 'span.kick.long' : 'span.kick', icon(glyph), h('span.nm', name), mark, word),
+    title, works, one, reads, why, line, pinned, ...(pills ? [pills] : []),
+  ) as HTMLElement;
   // a long press pins the screen (FAVOURITES, BRIEF-SHELL): the card of a screen only (Voice is not one)
   const paintPin = () => {
     const on = isFavourite(id);
@@ -210,11 +226,23 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
 const CLOCK = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>';
 const STARM = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>';
 
+/** The EDITORS card's glyph: a page, a grid and a slide in a row. */
+const EDITORS_GLYPH = '<rect x="3.5" y="4.5" width="6" height="8" rx="1"/><rect x="10.5" y="4.5" width="6" height="8" rx="1"/><path d="M5 7.5h3M12 7.5h3M5 10h3M12 10h3M3.5 16h17M3.5 19.5h11"/>';
+/** A tap on the EDITORS card's own body opens the editor he used last (DOCUMENTS the first time); its pills open each one. */
+const openLastEditor = (): void => {
+  const last = recents.find((r) => EDITORS.some((e) => e.id === r));
+  navTo(last ?? EDITORS[0]!.id, 'push');
+};
 type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () => void];
 /** An area's tools in order (ASK adds Voice): its hub's cards and the switcher's arc. */
 function areaTools(a: Area): Tool[] {
   // (a card opens its screen as he left it, or where the screen asks: the Library's opens on its Shelf, TabDef.cardTo)
-  const tools: Tool[] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.cardTo ?? t.id, 'push')]);
+  const tools: Tool[] = hubTabs(a).map((id): Tool | null => {
+    // (the editors fold under one EDITORS card where the room holds more than ten things: shell/areadefs.ts)
+    if (id === EDITORS_ID) return [EDITORS_ID, 'Editors', EDITORS_GLYPH, null, openLastEditor];
+    const t = def(id);
+    return t ? [t.id, toolName(t), t.icon, t, () => navTo(t.cardTo ?? t.id, 'push')] : null;
+  }).filter((t): t is Tool => !!t);
   if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
   // ([reste] MAKE's two sheets, the converter and the documents, were added here by hand: since 1 Nov they are screens of
   // their own in MAKE's tabs, with the house: BRIEF-TABS 2)
@@ -237,7 +265,8 @@ function hubTab(a: Area): TabDef {
       // starred, open, with two readings each) and THE REST folded in a grid with one line each. The cards are the same cards: placed here
       // when the house is drawn (shell/house.ts houseOn), put back in the grid when it is not (Glass keeps today's hub exactly).
       const room = ROOMS.find((r) => r.area === a.id)!;
-      const band = h('div.roomband', { role: 'group', 'aria-label': `${a.title}: ${room.things.length} things`, dataset: { room: room.key } });
+      const shownThings = hubThings(room);
+      const band = h('div.roomband', { role: 'group', 'aria-label': `${a.title}: ${shownThings.length} things`, dataset: { room: room.key } });
       const handHead = h('div.rhead', tag('At hand', { count: 0 }), h('span.g-truth', 'Recent and starred'));
       const handList = h('div.handlist');
       const handNone = h('div.rnone', { dataset: { case: 'keep' } }, empty('NONE', 'Hold any thing to star it; the ones you open last wait here.', 'Nothing here yet'));
@@ -245,12 +274,33 @@ function hubTab(a: Area): TabDef {
       const restHead = h('div.rhead', tag('The rest', { count: 0 }), h('span.g-truth', { dataset: { case: 'keep' } }, 'Say a number: “open two”'));
       const restGrid = h('div.restgrid');
       const rest = h('section.therest', { dataset: { part: 'therest' } }, restHead, restGrid);
-      const roomEl = h('div.scanroom', band, hand, rest);
+      // ORBIT's layers by distance from the orb (BRIEF-ORBIT-HUD 4): the rest along an orbit line at the top, his favourites under them, the recent
+      // card nearest the orb at the bottom on its thread; the same cards, drawn here only while the world is Orbit
+      const lyRest = h('section.orblayer', { dataset: { layer: 'rest' } });
+      const lyFav = h('section.orblayer', { dataset: { layer: 'favourites' } });
+      const lyRecent = h('section.orblayer', { dataset: { layer: 'recent' } });
+      const roomEl = h('div.scanroom', band, hand, rest, lyRest, lyFav, lyRecent);
+      // THE EYE's room (BRIEF-EYE-HUD-2): the same things as the wall of feeds (features/core/eye/room.ts), drawn here only while the world is the eye
+      const eyeCards = new Map<string, EyeCard>();
+      const eyeWall = eyeRoom({
+        room,
+        order: shownThings.map((t) => t.id),
+        card: (id) => eyeCards.get(id),
+        fold: folds(a) ? { id: EDITORS_ID, pills: EDITORS.map((e) => ({ id: e.id, pill: e.pill, open: () => navTo(e.id, 'push') })) } : undefined,
+      });
+      // GROWN UP's three layers (BRIEF-GROWN-UP-HUD 4; d3/hub-440.png): the recent card in front and raised, his favourites one level back, the rest
+      // folded into one stack of single-line rows that open in place; the same cards, drawn here only while the world is Grown Up
+      const gRecent = h('section.glylayer.glyrecent', { dataset: { layer: 'recent' } });
+      const gFav = h('section.glylayer.glyfav', { dataset: { layer: 'favourites' } });
+      const gRest = h('section.glylayer.glyrest', { dataset: { layer: 'rest' } });
+      const glyHub = h('div.glyhub', gRecent, gFav, gRest);
       const wrap = h('div.hub',
         sub,
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
         grid,
         roomEl,
+        glyHub,
+        eyeWall.el,
       );
       root.append(wrap);
       // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen. Every
@@ -259,19 +309,37 @@ function hubTab(a: Area): TabDef {
       // (ME's room also holds two things that are not screens: the origin and Every screen: cards only in the room's drawing)
       const extra = a.id === 'me' ? ROOMS.find((r) => r.key === 'me')!.things.filter((t) => !t.screen).map((t) => toolCard(t.id, t.name, t.id === 'deck' ? DECK_GLYPH : ORIGIN_ICON, null, () => openThing(t))) : [];
       const everyCard = [...cards, ...extra];
+      for (const [id, name, glyph, t, tap] of areaTools(a)) eyeCards.set(id, { id, name, glyph, pin: !!t, tap });
+      for (const t of a.id === 'me' ? ROOMS.find((r) => r.key === 'me')!.things.filter((x) => !x.screen) : []) eyeCards.set(t.id, { id: t.id, name: t.name, glyph: t.id === 'deck' ? DECK_GLYPH : ORIGIN_ICON, pin: false, tap: () => openThing(t) });
       clear(grid, ...cards.map((c) => c.el));
       let drawn = '\0';
+      let restOpen = false;
       const arrange = () => {
         const on = houseOn();
+        const orbit = orbitOn();
+        const grown = grownOn();
+        const eye = eyeOn();
+        wrap.classList.toggle('eyeing', eye);
         wrap.classList.toggle('roomed', on);
+        wrap.classList.toggle('orbiting', orbit);
+        wrap.classList.toggle('glying', grown);
+        // THE EYE: the wall draws and diffs itself (a reading changing never rebuilds a feed under a finger)
+        if (eye) {
+          drawn = 'eye';
+          return eyeWall.paint();
+        }
         const mine = atHand(room);
-        const sig = on ? mine.map((m) => `${m.id}:${m.why}`).join(',') : 'glass';
+        const sig = grown ? `grown:${restOpen}:${mine.map((m) => `${m.id}:${m.why}`).join(',')}` : on ? `${orbit ? 'orbit:' : ''}${mine.map((m) => `${m.id}:${m.why}`).join(',')}` : 'glass';
         if (sig === drawn) return;
         drawn = sig;
+        if (grown) return paintGrown(mine);
         if (!on) return void clear(grid, ...cards.map((c) => c.el));
-        const num = new Map(room.things.map((t) => [t.id, t.n]));
+        if (orbit) return paintLayers(mine);
+        const num = new Map(shownThings.map((t) => [t.id, t.n]));
         const byN = (x: ToolCard, y: ToolCard) => (num.get(x.id) ?? 99) - (num.get(y.id) ?? 99);
-        const inHand = mine.map((m) => ({ c: everyCard.find((x) => x.id === m.id)!, why: m.why })).filter((m) => m.c);
+        // (an editor at hand shows as the EDITORS card, once)
+        const cardOf = (id: string): ToolCard | undefined => everyCard.find((x) => x.id === id) ?? (EDITORS.some((e) => e.id === id) ? everyCard.find((x) => x.id === EDITORS_ID) : undefined);
+        const inHand = mine.map((m) => ({ c: cardOf(m.id)!, why: m.why })).filter((m, i, all) => m.c && all.findIndex((x) => x.c === m.c) === i);
         const others = everyCard.filter((c) => !inHand.some((m) => m.c === c)).sort(byN);
         for (const m of inHand) m.c.place({ n: num.get(m.c.id), why: m.why, at: 'hand' });
         for (const c of others) c.place({ n: num.get(c.id), at: 'rest' });
@@ -283,15 +351,77 @@ function hubTab(a: Area): TabDef {
         handList.hidden = inHand.length === 0;
         hand.dataset.count = String(inHand.length);
         rest.hidden = others.length === 0;
+        // (more than eight things in a room: the band takes two rows, five and four, each reticle still a finger's)
+        band.classList.toggle('two', room.things.length > 8);
         // the band: every thing, reticled and numbered, left to right in the room's order; the ones at hand lit
         const lit = new Set(inHand.map((m) => m.c.id));
-        clear(band, ...room.things.map((t) => {
+        // (more than eight things in a room: the band takes two rows, five and four, each reticle still a finger's)
+        band.classList.toggle('two', shownThings.length > 8);
+        clear(band, ...shownThings.map((t) => {
           const card = everyCard.find((c) => c.id === t.id);
           const b = h(`button.bandret${lit.has(t.id) ? '.on' : ''}` as 'button', { type: 'button', dataset: { id: t.id, n: String(t.n).padStart(2, '0'), case: 'keep' }, 'aria-label': `${String(t.n).padStart(2, '0')} ${t.name}` },
-            h('span.g-ret-frame', { 'aria-hidden': 'true' }), icon(def(t.id)?.icon ?? (t.id === 'deck' ? DECK_GLYPH : ORIGIN_ICON), 'ic bandglyph'), h('span.g-index', String(t.n).padStart(2, '0')));
+            h('span.g-ret-frame', { 'aria-hidden': 'true' }), icon(t.id === EDITORS_ID ? EDITORS_GLYPH : def(t.id)?.icon ?? (t.id === 'deck' ? DECK_GLYPH : ORIGIN_ICON), 'ic bandglyph'), h('span.g-index', String(t.n).padStart(2, '0')));
           b.addEventListener('click', () => (card ? card.el.click() : openThing(t)));
           return b;
         }));
+      };
+      // ORBIT: three layers, nearest the orb last. The newest recent is THE recent card (with its panels as chips); his starred things are the
+      // favourites; everything else (the older recents too) is the rest, as stations along an orbit line, in the room's own order
+      const paintLayers = (mine: { id: string; why: 'recent' | 'starred' }[]) => {
+        const num = new Map(room.things.map((t) => [t.id, t.n]));
+        const byId = (id: string) => everyCard.find((x) => x.id === id);
+        const recentId = mine.find((m) => m.why === 'recent')?.id;
+        const favIds = mine.filter((m) => m.why === 'starred').map((m) => m.id);
+        const restCards = everyCard.filter((c) => c.id !== recentId && !favIds.includes(c.id)).sort((x, y) => (num.get(x.id) ?? 99) - (num.get(y.id) ?? 99));
+        const head = (cls: string, name: string, right?: Node | null) => h(`div.orbtier${cls}` as 'div', h('i', { 'aria-hidden': 'true' }), h('span', name), right ?? null);
+        const rc = recentId ? byId(recentId) : undefined;
+        if (rc) rc.place({ n: num.get(rc.id), why: 'recent', at: 'hand' });
+        for (const id of favIds) byId(id)?.place({ n: num.get(id), why: 'starred', at: 'hand' });
+        for (const c of restCards) c.place({ n: num.get(c.id), at: 'rest' });
+        const works = restCards.some((c) => CARDS[c.id]?.works);
+        clear(lyRest, head('', `Everything else · ${restCards.length}`, works ? h('em', h('b'), 'In the works') : null), h('div.orbrest', ...restCards.map((c) => c.el)));
+        lyRest.hidden = restCards.length === 0;
+        clear(lyFav, head('', 'Favourites'), favIds.length ? h('div.orbfavs', ...favIds.map((id) => byId(id)!.el)) : h('p.orbnone', { dataset: { case: 'keep' } }, 'Hold any thing to star it: it stands here.'));
+        const chips = recentId ? panelsOf(recentId) : [];
+        clear(lyRecent, head('.rec', 'Recent'), rc ? h('div.orbrecent', rc.el, chips.length ? h('div.orbchips', ...chips.map((p) => {
+          const b = h('button.orbchip', { type: 'button', dataset: { to: p.to, case: 'keep' } }, p.label);
+          b.addEventListener('click', () => navTo(p.to, 'push'));
+          return b;
+        })) : null) : h('p.orbnone', { dataset: { case: 'keep' } }, 'Nothing opened here yet: the last thing you open stands here, nearest the orb.'));
+      };
+      // GROWN UP: three layers. The newest recent is THE recent card (in front, raised, with its panels as chips); his starred things are one level back;
+      // everything else (the older recents too) is one folded stack of single-line rows, in the room's own order, that opens in place
+      const paintGrown = (mine: { id: string; why: 'recent' | 'starred' }[]) => {
+        const num = new Map(room.things.map((t) => [t.id, t.n]));
+        const byId = (id: string) => everyCard.find((x) => x.id === id);
+        const recentId = mine.find((m) => m.why === 'recent')?.id;
+        const favIds = mine.filter((m) => m.why === 'starred').map((m) => m.id);
+        const restCards = everyCard.filter((c) => c.id !== recentId && !favIds.includes(c.id)).sort((x, y) => (num.get(x.id) ?? 99) - (num.get(y.id) ?? 99));
+        const rc = recentId ? byId(recentId) : undefined;
+        if (rc) rc.place({ n: num.get(rc.id), why: 'recent', at: 'hand' });
+        for (const id of favIds) byId(id)?.place({ n: num.get(id), why: 'starred', at: 'hand' });
+        for (const c of restCards) c.place({ n: num.get(c.id), at: 'rest' });
+        const head = (name: string, right?: Node | null) => h('div.glyhead2', h('h3', name), right ?? null);
+        const chips = recentId ? panelsOf(recentId) : [];
+        clear(gRecent, head('Recent'), rc ? h('div.glyfront', rc.el, chips.length ? h('div.glychips', ...chips.map((p) => {
+          const b = h('button.glychip', { type: 'button', dataset: { to: p.to, case: 'keep' } }, h('span', p.label));
+          b.addEventListener('click', () => navTo(p.to, 'push'));
+          return b;
+        })) : null) : h('p.glynone', { dataset: { case: 'keep' } }, 'Nothing opened here yet: the last thing you open stands here, in front.'));
+        clear(gFav, head('Favourites'), favIds.length ? h('div.glyfavs', ...favIds.map((id) => byId(id)!.el)) : h('p.glynone', { dataset: { case: 'keep' } }, 'Hold any thing to star it: it stands here.'));
+        const works = restCards.some((c) => CARDS[c.id]?.works);
+        const fold = h('button.glyfold', { type: 'button', 'aria-expanded': String(restOpen), dataset: { case: 'keep' }, 'aria-label': `Everything else in ${a.title}: ${restCards.length} things, ${restOpen ? 'fold them' : 'open them'}` },
+          h('span.glyfoldh', h('b', `Everything else · ${restCards.length}`), works ? h('em', h('i'), 'In the works') : null),
+          restOpen ? null : h('span.glypreview', restCards.map((c) => room.things.find((t) => t.id === c.id)?.name ?? c.id).join(', ')),
+          icon('<path d="M6 9l6 6 6-6"/>', 'ic glycaret'));
+        fold.addEventListener('click', () => {
+          restOpen = !restOpen;
+          drawn = '\0';
+          arrange();
+        });
+        clear(gRest, fold, restOpen ? h('div.glyrows', ...restCards.map((c) => c.el)) : null);
+        gRest.hidden = restCards.length === 0;
+        gRest.dataset.open = String(restOpen);
       };
       // the line under the title: his own (his school stage and rating, his next event and his city's weather, his
       // city, his latest project) where the phone has the reading, else the plain line; never a sample
@@ -306,10 +436,24 @@ function hubTab(a: Area): TabDef {
         arrange();
       };
       let timer = 0;
+      // ORBIT: the layers nearest the orb are the ones in sight when a hub opens (the calm top of it is a scroll away)
+      const toOrb = () => {
+        if (!orbitOn()) return;
+        let n: HTMLElement | null = wrap;
+        while (n && !/(auto|scroll)/.test(getComputedStyle(n).overflowY)) n = n.parentElement;
+        if (n) n.scrollTop = n.scrollHeight;
+      };
       const paint = () => {
         drawn = '\0';
         paintAll();
-        void Promise.all([...everyCard.map((c) => c.load()), loadHubWords(a.id)]).then(paintAll);
+        requestAnimationFrame(toOrb);
+        // (the wall's grain and line of sight are drawn once the page is laid out and again once it has finished arriving)
+        requestAnimationFrame(() => eyeWall.settle());
+        setTimeout(() => eyeWall.settle(), 420);
+        void Promise.all([...everyCard.map((c) => c.load()), loadHubWords(a.id)]).then(() => {
+          paintAll();
+          requestAnimationFrame(toOrb);
+        });
         clearInterval(timer);
         timer = window.setInterval(() => (ui.get().tab === hubId(a) && !document.hidden ? paintAll() : clearInterval(timer)), 3000);
       };
@@ -352,7 +496,7 @@ addPaletteDecor({
   // The Scan's jump bar (shell/jump.ts) and a number said or typed where he is (shell/inventory.ts): both only in the house
   jump,
   typed: (text) => {
-    if (!houseOn()) return false;
+    if (!houseOn() && !grownOn()) return false;
     // "the plan" typed: the house unfolds (ONE INK has no label row to tap; the words are the way, as on every screen)
     if (/^(?:open |show |show me )?the (?:plan|house)$/i.test(text.trim())) {
       setTimeout(() => housePlan()?.open(), 0);
@@ -622,7 +766,7 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
 }
 
 /** An area's tools for the switcher's arc: the lit ones (live or training now) first, then in the hub's order. */
-function switchItems(a: Area): SwitchItem[] {
+export function switchItems(a: Area): SwitchItem[] {
   const list = areaTools(a).map(([id, name, glyph, t, tap]) => {
     const c = CARDS[id];
     const status = t?.status?.() ?? c?.status() ?? 'READY';
@@ -673,7 +817,9 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   const t = def(tab);
   if (!t) return null;
   if (tab === 'core') return { back: '', backTo: '', title: greeting() };
-  if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
+  // (ORBIT has no bar and so no Home key: a room's hub has its way back to Home, as the mock's hub has its chevron)
+  // (GROWN UP has no Home key in a bar either: the capsule's first key lists the rooms, and a hub's chevron is its way back to Home, as the mock draws it)
+  if (isHub(tab)) return orbitOn() || grownOn() ? { back: 'Home', backTo: 'core', title: a?.title ?? t.title } : { back: '', backTo: '', title: a?.title ?? t.title };
   // (SOCIAL, from the Me sheet's row since 1 Nov, is a root like Settings: Me's screens are the Me sheet's rows)
   // (in The Scan the house has ME as a room, and these are things in it: the way back is ‹ ME, to the room)
   if (tab === 'memory' || tab === 'settings' || tab === 'social') return houseOn() ? { back: 'Me', backTo: 'area-me', title: niceCase(t.title) } : { back: '', backTo: '', title: niceCase(t.title) };

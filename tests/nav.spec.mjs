@@ -270,7 +270,7 @@ const visible = (p, re) => p.panels.filter((x) => re.test(x.t)).every((x) => x.s
 const hiddenIn = (p, re) => p.panels.filter((x) => re.test(x.t)).every((x) => x.hidden && !x.shown);
 await show(page, 'system', 2500);
 let P = await pills(page, 'system');
-if (!P.shown || P.labels.join(',') !== 'Status,Report card,Training,Backup') problems.push(`[system] the pills read "${P.labels.join(', ')}" (want Status, Report card, Training, Backup)`);
+if (!P.shown || P.labels.join(',') !== 'Status,Health,Report card,Training,Backup') problems.push(`[system] the pills read "${P.labels.join(', ')}" (want Status, Health, Report card, Training, Backup)`);
 if (P.labels.length > 6) problems.push(`[system] ${P.labels.length} pills (six at most)`);
 if (P.on !== 'Status' || P.selected !== 1) problems.push(`[system] a new phone opens on "${P.on}" (want Status, the one he uses most)`);
 if (P.pillH < 44) problems.push(`[system] a pill is ${P.pillH} pt high (want 44)`);
@@ -314,7 +314,7 @@ if (P.on !== 'Training' || !visible(P, /^NIGHT SCHOOL/)) problems.push(`[system]
 // ===================================================================== sections: AGENDA
 await show(page, 'agenda', 2000);
 P = await pills(page, 'agenda');
-if (!P.shown || P.labels.join(',') !== 'Diary,Reminders,Spending,Calendars') problems.push(`[agenda] the pills read "${P.labels.join(', ')}"`);
+if (!P.shown || P.labels.join(',') !== 'Diary,To-do,Reminders,Spending,Calendars') problems.push(`[agenda] the pills read "${P.labels.join(', ')}"`);
 if (P.on !== 'Diary') problems.push(`[agenda] opens on "${P.on}" (want Diary: each screen remembers its own pill)`);
 if (!visible(P, /^DIARY/) || !hiddenIn(P, /^(REMINDERS|NOTIFICATIONS|SPENDING|CALENDARS)/)) problems.push(`[agenda] Diary does not show the diary alone: ${JSON.stringify(P.panels)}`);
 if (await page.locator('#pg-agenda .swap').isVisible().catch(() => false)) problems.push('[agenda] the old two-sides switch is still shown beside the pills');
@@ -559,7 +559,7 @@ await ctx.close();
     await p.route('**/api/agenda?**', (r) => r.fulfill({ status: 503, json: { error: 'down' } }));
   },
 }));
-const PLAIN = { see: 'The world live, and the camera that understands it.', make: 'Build, take apart and plan real things.', learn: 'Courses and free games for you; the gym, school and a library for me.', plan: 'Your days, the markets, the world’s alerts and the radio.', life: 'Money, body, kitchen, people, work, creative, outside and home: the everyday, kept.' };
+const PLAIN = { see: 'The world live, and the camera that understands it.', make: 'Build, take apart and plan real things.', learn: 'Courses and free games for you, and the gym, school and library I learn from.', plan: 'Your days, the markets, the world’s alerts and the radio.', life: 'Money, body, kitchen, people, work, creative things, outside and home, all kept.' };
 for (const [a, want] of Object.entries(PLAIN)) {
   await show(page, `area-${a}`, 2500);
   const w = await page.$eval(`#pg-area-${a} .hubsub`, (e) => ({ text: e.textContent, personal: e.dataset.personal }));
@@ -632,7 +632,7 @@ if (!graphite.dotOn || graphite.dotOn === reactor.dotOn) problems.push(`[graphit
 // ===================================================================== nothing sideways at 440 and 390; every tool on its hub
 // (the area's tools, shell/areadefs.ts: Ask adds Voice)
 const HUBS = {
-  'area-see': ['eye', 'lens', 'interpreter'], 'area-make': ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
+  'area-see': ['eye', 'lens', 'interpreter'], 'area-make': ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
   'area-learn': ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], 'area-plan': ['agenda', 'markets', 'threats', 'radio'],
   'area-life': ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
 };

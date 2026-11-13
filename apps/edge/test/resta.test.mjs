@@ -211,7 +211,7 @@ const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'library', 'school', 'ar
 test('a link opens every screen of this build, the fourteen new ones too', () => {
   const idx = readFileSync(at('../../web/src/features/index.ts'), 'utf8');
   const ids = [...idx.matchAll(/import \{ \w+ \} from '\.\/(\w+)';/g)].map((m) => /TabDef = \{\s*id: '([^']+)'/.exec(readFileSync(at(`../../web/src/features/${m[1]}/index.ts`), 'utf8'))?.[1]).filter(Boolean);
-  for (const id of ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'house']) assert.ok(ids.includes(id), `${id} is a screen of this build`);
+  for (const id of ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'house']) assert.ok(ids.includes(id), `${id} is a screen of this build`);
   for (const id of ids) {
     assert.deepEqual(L.parseLink(`?open=${id}`, { owner: true, tabs: ids }), { kind: 'open', tab: id });
     assert.deepEqual(L.parseLink(`?do=open:${id}`, { owner: true, tabs: ids }), { kind: 'do', what: { cmd: 'open', tab: id } });

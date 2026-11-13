@@ -186,10 +186,10 @@ test('the Abilities page is not a way in: no tab, no row, no card, no deck card,
 });
 
 // ---------------------------------------------------------------- THE HOUSE AND ITS PLAN (BRIEF-SHELL-2): one list for the plan, a room, Every screen and this test
-test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from the one list (shell/rooms.ts); all 48 screens are on it or inside it', () => {
+test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from the one list (shell/rooms.ts); all 55 screens are on it or inside it', () => {
   assert.deepEqual(RM.ROOMS.map((r) => r.title), ['HOME', 'SEE', 'MAKE', 'LEARN', 'PLAN', 'LIFE', 'ME']);
   const counts = Object.fromEntries(RM.ROOMS.map((r) => [r.key, r.things.length]));
-  assert.deepEqual(counts, { home: 1, see: 3, make: 8, learn: 8, plan: 4, life: 8, me: 7 });
+  assert.deepEqual(counts, { home: 1, see: 3, make: 15, learn: 8, plan: 4, life: 8, me: 7 });
   for (const r of RM.ROOMS) assert.deepEqual(r.things.map((t) => t.n), r.things.map((_, i) => i + 1), `${r.key} is numbered 01, 02, 03 in order`);
   // the things are the screens of the areas (hub order), plus the two things under ME that are not screens of their own
   for (const a of D.AREAS) {
@@ -202,8 +202,8 @@ test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from t
   const onPlan = new Set([...RM.THINGS.map((t) => t.screen).filter(Boolean), 'core', ...RM.ROOMS.map((r) => r.screen), ...Object.keys({ look: 1, reader: 1, lab: 1 })]);
   const missing = SCREENS.filter((id) => !onPlan.has(id) && !byId.get(id)?.hub);
   assert.deepEqual(missing, [], `screens on no plan: ${missing.join(', ')}`);
-  assert.equal(SCREENS.length, 48, 'the 48 screens (the interpreter, the lab and REHEARSE joined on 11 Nov)');
-  assert.equal(RM.THINGS.length, 39, 'thirty-nine numbered things: the 37 screens of the rooms, the origin and Every screen');
+  assert.equal(SCREENS.length, 55, 'the 55 screens (the interpreter, the lab and REHEARSE joined on 11 Nov; Spreadsheets, Presentations, the Workspace, Photo, Video, the Game Studio and the Comic with their landings)');
+  assert.equal(RM.THINGS.length, 46, 'forty-six numbered things: the 44 screens of the rooms, the origin and Every screen');
   console.log(`plan: 7 rooms, ${RM.THINGS.length} numbered things (${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ')}); with the 7 room keys, THE LOOK and the reader all ${SCREENS.length} screens are on it`);
   // each thing has one name, said as in the mock
   assert.deepEqual(RM.ROOMS.find((r) => r.key === 'learn').things.map((t) => t.name), ['Courses', 'Arcade', 'Gym', 'School', 'Library', 'Learning', 'Coach', 'Rehearse']);
@@ -223,7 +223,7 @@ test('the house is drawn from that one list on every screen: the plan, the jump 
   const house = read('shell/house.ts');
   assert.match(house, /import \{ ROOMS, roomOf/, 'the plan reads the rooms');
   // (the width is read on a resize, not at every call: `innerWidth` forces a layout and the house asks on every screen it enters)
-  assert.match(house, /narrow && \['scan', 'ink', 'map', 'eye'\]\.includes\(document\.documentElement\.dataset\.world \?\? ''\)/, 'the house is The Scan, The Map, The Eye or One Ink on a phone, and only those');
+  assert.match(house, /narrow && \['scan', 'ink', 'map', 'eye', 'orbit'\]\.includes\(document\.documentElement\.dataset\.world \?\? ''\)/, 'the house is The Scan, The Map, The Eye, One Ink or Orbit on a phone, and only those');
   assert.match(house, /narrow = innerWidth < 900/, 'a phone is under 900 px, read when the window resizes');
   assert.match(house, /The house · 7 rooms/);
   assert.match(read('shell/launcher.ts'), /for \(const r of ROOMS\)/, 'Every screen lists the rooms');
@@ -234,27 +234,31 @@ test('the house is drawn from that one list on every screen: the plan, the jump 
   assert.match(read('shell/scanlist.ts'), /title: 'More'/);
 });
 
-// ---------------------------------------------------------------- THE FINDING RULE IN ALL THREE WORLDS (BRIEF-ONE-INK): The Scan, One Ink, Glass
+// ---------------------------------------------------------------- THE FINDING RULE IN EVERY WORLD (BRIEF-ONE-INK, BRIEF-ORBIT-HUD): The Scan, One Ink, Orbit, Glass (The Map and The Eye keep today's bar until their own shells land)
 // The rule is proved above on the lists (the bar's areas, a hub's cards, the Me sheet, the deck, the jump bar's ranking); what each world adds is
 // only HOW the lists are drawn and reached, so the way in is checked per world from the code that draws it: every screen is still on a visible
 // list (a room is a key in the bar, its things are the room's cards: two taps), recents and favourites are two taps, and a typed word finds the rest.
-test('the finding rule holds in all five worlds: The Scan, The Map, The Eye, One Ink and Glass reach the same lists (two taps for recents and favourites, three or one typed word for the rest)', () => {
+test('the finding rule holds in all seven worlds: The Scan, The Map, The Eye, One Ink, Orbit, Grown Up and Glass reach the same lists (two taps for recents and favourites, three or one typed word for the rest)', () => {
   const house = read('shell/house.ts');
   const areas = read('shell/areas.ts');
   const ink = read('features/core/ink/home.ts');
+  const orbit = read('shell/orbit.ts');
+  const orbitHome = read('features/core/orbit/home.ts');
   const css = readFileSync(join(web, '../styles.css'), 'utf8');
   const worlds = {
     scan: { housed: /'scan'/.test(house), keys: 'the house along the bottom' },
     map: { housed: /'map'/.test(house) && /scaleOn/.test(house), keys: 'the scale' },
     eye: { housed: /'eye'/.test(house) && /eyeOn/.test(house), keys: 'the instruments' },
     ink: { housed: /=== 'ink'/.test(house), keys: 'the foot' },
+    orbit: { housed: /=== 'orbit'/.test(house), keys: 'the orb and its line' },
+    grown: { housed: /export const grownOn = /.test(house) && /=== 'grown'/.test(house), keys: 'the capsule and THE ROOMS layer' },
     glass: { housed: !/=== 'glass'/.test(house), keys: "today's bar" },
   };
   // the seven keys: the one bar is built once from the areas (six) and the house's ME key joins in the two housed worlds; Glass keeps its six
   assert.match(areas, /for \(const a of AREAS\.filter\(\(x\) => x\.id !== 'me'\)\)/, 'the bar is the areas, six keys, in every world');
   assert.match(house, /const meKey = h\('button\.scanme'/, 'the seventh room, ME, joins the bar in the housed worlds');
   assert.match(css, /html body:not\(\.housed\) #dock \.tabcap \.scanme \{ display: none; \}/, 'and Glass has no ME key in its bar');
-  assert.ok(worlds.scan.housed && worlds.map.housed && worlds.eye.housed && worlds.ink.housed && worlds.glass.housed, JSON.stringify(worlds));
+  assert.ok(worlds.scan.housed && worlds.map.housed && worlds.eye.housed && worlds.ink.housed && worlds.orbit.housed && worlds.grown.housed && worlds.glass.housed, JSON.stringify(worlds));
   // each room's hub lists its things (the same cards), in all three: a room is one tap from Home, its thing the second
   assert.match(areas, /const room = ROOMS\.find\(\(r\) => r\.area === a\.id\)!/, "a room's hub is drawn from the one list in every world");
   // recents and favourites: THE SCAN's and Glass's jump bar read pinnedAndRecent; ONE INK's Home lists the same two as words (a tap opens: two taps from Home, one from the page)
@@ -287,7 +291,45 @@ test('the finding rule holds in all five worlds: The Scan, The Map, The Eye, One
   assert.match(eye, /ROOMS\.filter\(\(r\) => r\.key !== 'home'\)/, "THE EYE's room feeds are the rooms of the one list");
   assert.match(css, /html\[data-world="eye"\] body\.eyehome #dock \.houseask \{ display: none; \}/, "THE EYE's Home draws its own ask line");
   assert.ok(!/class .*eyebar|buildInstruments|eyeRooms/.test(eye + house), 'one source: the instruments are the house, not a copy');
+  // ORBIT has no bar: the six rooms are the orb's fan (hold, slide, let go: a room's hub) and the stations on Home's ring (one tap), the bar's keys stay in the DOM
+  // for the lists above and are not drawn; recents and favourites are the orb pressed (the typed word: pinnedAndRecent) and Home's capsule (one tap on Home), a typed word
+  // finds the rest, and the plan is a tap on the line's left end
+  assert.match(orbit, /export const ORBIT_ROOMS: Area\[\] = AREAS\.filter\(\(a\) => a\.id !== 'ask'\)/, "the orb's six rooms are the areas, one source");
+  assert.match(orbit, /navTo\(roomHub\(a\), 'switch'\)/, 'a room on the fan opens its hub');
+  assert.match(orbit, /sw\.open\(orb, 'Rooms', list, \{[^}]*stay: false/, 'the fan opens from the held orb and a let-go on none is nothing');
+  assert.match(orbit, /export function pressOrb\(\): void \{[\s\S]*togglePalette\(\)/, 'a press on the orb is the typed word (the jump bar: his Recent and Starred, then what was found)');
+  assert.match(orbit, /plan\.addEventListener\('click', \(\) => housePlan\(\)\?\.toggle\(\)\)/, "the plan is a tap on the line's left end");
+  assert.match(orbitHome, /pinnedAndRecent\(\)/, "ORBIT's Home lists his recents and favourites in its capsule, from the same two lists");
+  assert.match(orbitHome, /pinOnHold\(b, t\.id\)/, 'a long press on a capsule item pins or unpins it');
+  assert.match(orbitHome, /navTo\(roomHub\(a\), 'push'\)/, 'a station opens its room: one tap from Home');
+  assert.match(areas, /isHub\(tab\)\) return orbitOn\(\)/, 'a hub has its way back to Home where there is no Home key');
+  assert.match(css, /html\[data-world="orbit"\] body\.housed #dock :is\(\.tabblur, \.tabcap, \.housekick, \.houseask\) \{ display: none !important; \}/, "ORBIT draws no bar, no label row and no ask line");
+  // GROWN UP has one capsule on every screen (the rooms key, the one field, the small Mind): THE ROOMS layer is the plan and the deck folded in, so recents and
+  // favourites are two taps from anywhere (the field's jump bar, or Home's chips: one), any screen is two (the rooms key, its chip) and any ability is a word in the field
+  const capsule = read('shell/capsule.ts');
+  const drops = read('shell/drops.ts');
+  const grownHome = read('features/core/grown/home.ts');
+  assert.match(capsule, /rooms\.addEventListener\('click', \(\) => housePlan\(\)\?\.toggle\(\)\)/, 'the rooms key opens THE ROOMS layer (the plan)');
+  assert.match(capsule, /field\.addEventListener\('click', \(\) => \{[\s\S]*togglePalette\(\)/, 'the one field is the jump bar: recents and favourites first, a typed word finds the rest');
+  assert.match(capsule, /switchItems\(a\)/, "the small Mind's hold fans the room's tools (the quick switcher)");
+  assert.match(house, /const layerChip = /, "THE ROOMS layer's screens are chips");
+  assert.match(house, /const things = r\.things\.filter\(\(t\) => t\.id !== 'deck'\)/, 'every room lists its screens (the one list), the deck being the layer itself');
+  assert.match(house, /pinnedAndRecent\(\)/, 'recent and starred are on top of the layer, from the deck\'s two lists');
+  assert.match(house, /if \(t\.id === 'deck'\) return grownOn\(\) \? thePlan\?\.open\(\) : deckOpener\(\)/, 'Every screen is THE ROOMS layer in this world');
+  assert.match(grownHome, /pinnedAndRecent\(\)/, "GROWN UP's Home lists his recents and favourites as chips, from the same two lists");
+  assert.match(grownHome, /pinOnHold\(b, t\.id\)/, 'a long press on a chip pins or unpins it');
+  assert.match(grownHome, /dots\.addEventListener\('click', \(\) => housePlan\(\)\?\.open\(\)\)/, 'the three dots are THE ROOMS layer: the rest is two taps');
+  assert.match(areas, /isHub\(tab\)\) return orbitOn\(\) \|\| grownOn\(\)/, 'a hub has its way back to Home where there is no Home key');
+  assert.match(css, /html\[data-world="grown"\] body\.grown #dock :is\(\.tabblur, \.tabcap, \.housekick, \.houseask\) \{ display: none !important; \}/, 'GROWN UP draws no tab bar, no label row and no ask line: the capsule is the one bar');
+  // what each dense screen drops is folded, never removed: its key is one tap and the things keep their place
+  assert.match(drops, /els\[0\]!\.before\(holder\)/, 'a dropped thing keeps its place: the key stands before it');
+  assert.match(css, /\[data-gdrop\]\[data-gstate="closed"\] \{ display: none !important; \}/, 'a dropped thing is only closed');
+  for (const id of ['gym', 'school', 'library', 'eye', 'settings', 'system']) assert.match(drops, new RegExp(`tab: '${id}'`), `${id} drops one thing into a fold`);
   // every screen is a thing on the plan (the rule's own test above), so in each world a screen is reached by its room's key and its card, or by its word
   const per = Object.keys(worlds).map((w) => `${w}: ${worlds[w].keys}`).join('; ');
-  console.log(`finding in five worlds: ${per}; ${RM.THINGS.length} things on one list; recents and favourites two taps in each`);
+  console.log(`finding in all seven worlds: ${per}; ${RM.THINGS.length} things on one list; recents and favourites two taps in each`);
 });
+
+// THE COMIC (FINAL ROUND, lane COMIC): its pure parts (the writer, the grids, the chat's wordings, the panel finder, the files, the library),
+// run with the rest of the suite from here, so the protected package.json's test list need not change.
+await import('./comic.test.mjs');

@@ -17,7 +17,7 @@ export function carName(spec: CarSpec | null): string {
   return !t || /^The car /i.test(t) || /^A car$/i.test(t) ? '' : t;
 }
 
-export function carContext(o: { spec: CarSpec | null; view: View; picked: string; fault: FaultPick | null }, now = Date.now()): ScreenContext {
+export function carContext(o: { spec: CarSpec | null; view: View; picked: string; fault: FaultPick | null; inst?: string }, now = Date.now()): ScreenContext {
   const f = o.fault;
   const name = carName(o.spec);
   const bits = [`the car${name ? `, ${name}` : ''}`, VIEW_WORDS[o.view]];
@@ -25,7 +25,7 @@ export function carContext(o: { spec: CarSpec | null; view: View; picked: string
   let selected: Selected | undefined;
   if (o.picked && isPart(o.picked)) {
     const at = f ? f.lit.indexOf(o.picked) : -1;
-    selected = { kind: 'part', id: o.picked, label: `the ${lower(PARTS[o.picked].name)}`, detail: at >= 0 ? `suspect ${at + 1} of ${f!.lit.length} for “${f!.symptom.title.toLowerCase()}”` : f ? 'not one of the suspects' : 'tapped, with its quick check' };
+    selected = { kind: 'part', id: o.picked, label: `the ${lower(o.inst || PARTS[o.picked].name)}`, detail: at >= 0 ? `suspect ${at + 1} of ${f!.lit.length} for “${f!.symptom.title.toLowerCase()}”` : f ? 'not one of the suspects' : 'tapped, with its quick check' };
   } else if (f) {
     selected = { kind: 'fault', id: f.symptom.id, label: `“${f.symptom.title.toLowerCase()}”`, detail: `${f.suspects.length} suspect${f.suspects.length === 1 ? '' : 's'}, most likely: ${lower(f.suspects[0]?.label ?? 'none')}` };
   }

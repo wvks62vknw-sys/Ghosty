@@ -10,6 +10,7 @@
  * OPTIONS, QUIT) opens on the pause action and is worked with the same Intent: the stick moves, FIRE or USE picks,
  * WEAPON or MAP goes back, and a yes/no question takes FIRE for yes.
  */
+import { beat } from '../../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import type { Action, Intent } from '../input';
 import { monoBuffer, openAudio, pcm8, type EngineAudio } from './audio';
 import { hasArg, takeLook, type Engine, type EngineEvents, type EngineFiles, type EngineHandle, type EngineProbe, type StartOptions } from './types';
@@ -521,6 +522,7 @@ async function boot(canvas: HTMLCanvasElement, files: EngineFiles, intent: Inten
   const loop = (t: number): void => {
     if (stopped) return;
     raf = requestAnimationFrame(loop);
+    beat('arcade');
     const dt = t - last;
     last = t;
     if (t - fpsAt >= 1000) {

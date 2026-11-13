@@ -87,8 +87,12 @@ export class Reactor {
     return this.lastGlow;
   }
 
+  /** Told on every press (core/index.ts: the orb's words). */
+  onPress: (() => void) | null = null;
+
   /** The owner touched the reactor: a pulse, a ripple and a few motes. */
   poke(_e?: PointerEvent): void {
+    this.onPress?.();
     this.mind?.poke();
     this.kick = 1;
     for (let i = 0; i < 14; i++) this.sparks.push({ a: Math.random() * TAU, r: 0.32, v: 0.4 + Math.random() * 0.5, life: 0, max: 0.6 + Math.random() * 0.6, s: 0.006 + Math.random() * 0.008 });

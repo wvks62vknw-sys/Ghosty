@@ -45,7 +45,7 @@ export const PACK3_WORDS: Record<string, CatValue> = {
   },
   'act:outside:open': {
     name: 'What is open near you', line: 'I can list what is open right now near a place, with when it closes, from the hours on the map.',
-    more: 'I read the opening hours on OpenStreetMap in code. Hours I can’t read are counted, not guessed, and bank-holiday hours can differ.',
+    more: 'I read the opening hours from OpenStreetMap. Hours I can’t read are counted, not guessed, and bank-holiday hours can differ.',
     say: ['What’s open near the Bullring?', 'Pharmacy open now near home'], scene: ['out'], cat: 'do', since: SINCE,
   },
   'act:outside:toilets': {
@@ -105,10 +105,10 @@ export const PACK3_WORDS: Record<string, CatValue> = {
   // ---------------------------------------------------------------- HOME (the group is "homeadmin": "home" is the furniture finder)
   'tool:home': { same: 'act:homeadmin:due' },
   'phrase:homeadmin': {
-    name: 'Bins, bills and what is due', line: 'You can say “when are the bins?” or “what’s due at home?” and I open the HOME sheet on that page, with no waiting.',
+    name: 'Bins, bills and what is due', line: 'You can say “when are the bins?” or “what’s due at home?” and I open the HOUSEHOLD sheet on that page, with no waiting.',
     more: 'These are answered on this phone with no model. The sheet reads from your brain: bin days, bills, renewals, services and what is due.',
     say: ['When are the bins?', 'What’s due at home?', 'My bills'], scene: ['money'], cat: 'watch', since: SINCE,
-    go: { run: 'open_homeadmin', args: { what: 'bins' } }, tryText: 'Opens the HOME sheet',
+    go: { run: 'open_homeadmin', args: { what: 'bins' } }, tryText: 'Opens the HOUSEHOLD sheet',
   },
   'act:homeadmin:bill': {
     name: 'Keep a bill from a photo', line: 'You can photograph a bill and I read the supplier, amount and due day, then remind you before it is due.',
@@ -175,7 +175,7 @@ export const PACK3_WORDS: Record<string, CatValue> = {
   },
   'act:homeadmin:inventory': {
     name: 'A room by room home inventory', line: 'You can list what is in each room, with values, and I give you a CSV for your insurer.',
-    more: 'Say the things, or photograph a room and confirm what the phone sees. Nothing is sent anywhere; the CSV is yours to copy or download in the HOME sheet.',
+    more: 'Say the things, or photograph a room and confirm what the phone sees. Nothing is sent anywhere; the CSV is yours to copy or download in the HOUSEHOLD sheet.',
     say: ['In the living room: a 55 inch TV worth £400, 2 armchairs', 'Export my inventory for my insurer'], scene: ['money', 'camera'], cat: 'watch', since: SINCE,
     go: { run: 'open_homeadmin', args: { what: 'things' } }, tryText: 'Opens the rooms page',
   },

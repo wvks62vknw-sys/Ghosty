@@ -2,6 +2,8 @@
  * Tiny DOM helpers. `h('div.panel#id', {onclick}, 'text', child)` builds elements.
  * Text is always set with textContent, so data can never inject HTML.
  */
+import { URL_PROPS } from './safeurl';
+
 type Child = Node | string | number | null | undefined | false;
 type Props = Partial<Record<string, unknown>> & { style?: Partial<CSSStyleDeclaration> | string; dataset?: Record<string, string> };
 
@@ -22,7 +24,14 @@ export function h<K extends keyof HTMLElementTagNameMap>(spec: K | `${K}.${strin
       } else if (k === 'dataset') Object.assign(el.dataset, v);
       else if (k === 'class') el.className = String(v);
       else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v as EventListener);
-      else if (k in el) (el as unknown as Record<string, unknown>)[k] = v;
+      else if (k in URL_PROPS && typeof v === 'string') {
+        // [security] a link or picture address from any data: never a javascript:, vbscript: or data: page (core/safeurl.ts)
+        const ok = URL_PROPS[k]!(v);
+        if (ok) {
+          if (k in el) (el as unknown as Record<string, unknown>)[k] = ok;
+          else el.setAttribute(k, ok);
+        }
+      } else if (k in el) (el as unknown as Record<string, unknown>)[k] = v;
       else el.setAttribute(k, String(v));
     }
   } else if (props != null) kids.unshift(props as Child);

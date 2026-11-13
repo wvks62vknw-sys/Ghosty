@@ -11,6 +11,8 @@
  * SOUND · CONTROLS, with the frame rate) and the GAMEPAD LAYER (the standard mapping, read every frame); both fill the
  * one Intent the game's engine reads.
  */
+import { netUnknown, secondTap, unknownNet } from '../learn/wifi';
+import { draws } from '../../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { type Action, BTN, gameButtons, idle, type Intent, merge, PAD_BUTTONS, readPad, type TouchButton, touchLook, touchMove } from '../../arcade/input';
@@ -21,15 +23,20 @@ import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/
 import { saveStore } from '../../arcade/engines/saves';
 import type { EngineFiles, EngineHandle, EngineProbe } from '../../arcade/engines/types';
 import { LEVELS, LEVELS_BASE, type LevelPack, needsDeh, packArgs, packReads, packWads } from '../../arcade/levels';
+import { ratingTail } from '../../arcade/games/board/rating';
+import { wordsOf as caveWords } from '../../arcade/games/cave/sim';
 import { bookOf, levelOf } from '../../arcade/games/two/skill';
 import { allScores, recordScore, recordSitting, type Score, sittingKey } from '../../arcade/scores';
 import { type EngineId, type GameData, keptAs, SHELF, type ShelfEntry } from '../../arcade/shelf';
 import { getFiles, isHere, offMobileData, onMobileData, type Progress, readKept, removeFiles, sizeWords } from '../../arcade/store';
-import type { TabDef } from '../../shell/tabs';
+import { go as goTab, type TabDef } from '../../shell/tabs';
+import { ask as studioAsk } from '../../studio-game/hub';
+import { listGames, type Meta } from '../../studio-game/store';
 import { screenSays } from '../../shell/awareness';
 import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sayError } from '../../ui/hisWords';
+import { fetchFailed, fetchMid, fetchStart, mobileData, retryKey, SHELF_NONE, startFailed } from './words';
 
 /** What the spec and Ghosty read: the game on screen, what is kept here, the engines' numbers. */
 export const arcadeState = {
@@ -86,6 +93,10 @@ const scoreWords = (engine: EngineId, sc: Score | undefined, sit: Score | undefi
   const n = (v: number) => v.toLocaleString('en-GB');
   if (engine === 'voxel') return sc ? `Most blocks changed in a visit ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
   const mine: Partial<Record<EngineId, string>> = { blocks: 'Best duel', blast: 'Best grid', flap: 'Best flight', climb: 'Best climb', beat: 'Best song', kart: 'Best race', hopper: 'Best run', arena: 'Best round' };
+  if (engine === 'cave') return sc ? `Furthest: ${caveWords(sc.best)} · last ${caveWords(sc.last)}` : 'Not played yet';
+  if (engine === 'studio') return sc ? `Your best ${n(sc.best)} points · last ${n(sc.last)}` : 'Not played yet';
+  if (engine === 'platform') return sc ? `Best run ${n(sc.best)} points · last ${n(sc.last)}` : 'Not played yet';
+  if (BOARDS.has(engine)) return sc ? `Best win at level ${n(sc.best)}` : 'Not won yet';
   if (mine[engine]) return sc ? `${mine[engine]} ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
   if (engine === 'runner') return sc ? `Best run ${n(sc.best)} · last ${n(sc.last)}` : 'Not played yet';
   if (engine === 'dos') return sc ? `Longest sitting ${timeWords(sc.best)} · last ${timeWords(sc.last)}` : 'Not played yet';
@@ -94,8 +105,11 @@ const scoreWords = (engine: EngineId, sc: Score | undefined, sit: Score | undefi
 };
 
 /** The five games with a level (games/two/skill.ts, no top one): yours and Ghosty's, on the card. */
-const LEVELLED = new Set<string>(['blocks', 'blast', 'flap', 'climb', 'beat']);
+const LEVELLED = new Set<string>(['blocks', 'blast', 'flap', 'climb', 'beat', 'platform', 'cave']);
+/** The four board games, poker and the word game: a rating for each of you (the same Glicko-2 as the GYM's chess), not a level, ends the card. */
+const BOARDS = new Set<string>(['draughts', 'othello', 'backgammon', 'connect4', 'poker', 'words']);
 const levelTail = (e: ShelfEntry): string => {
+  if (BOARDS.has(e.engine)) return ` · ${ratingTail(e.id)}`;
   if (!LEVELLED.has(e.engine)) return '';
   const b = bookOf(e.id);
   return ` · You: Level ${levelOf(b.you.r)} · Ghosty: Level ${levelOf(b.ghosty.r)}`;
@@ -201,9 +215,15 @@ export const arcadeTab: TabDef = {
     const here = new Set<string>();
     const busy = new Map<string, AbortController>();
     const status = new Map<string, string>();
+    /** What kind of line each card's status is (loading, offline, error): the page's own marks, read by the spec. */
+    const kinds = new Map<string, 'loading' | 'offline' | 'error'>();
+    /** The packages whose last fetch failed: their key reads RETRY with the size. */
+    const failed = new Set<string>();
     const shelfPanel = panel('THE SHELF', { status: `${games.length} GAME${games.length === 1 ? '' : 'S'}`, cls: 'arcshelf' });
     const grid = h('div.arcgrid', { role: 'list' });
     shelfPanel.body.append(grid);
+    /* state: arcade.shelf empty */
+    if (!games.length) shelfPanel.body.append(h('div.arcnone', { dataset: { state: 'empty', case: 'keep' } }, h('b', SHELF_NONE.head), h('span', ` ${SHELF_NONE.line}`)));
     const about = panel('HOW IT PLAYS', { cls: 'arcabout' });
     about.body.append(
       h('p.arcnote', 'Each game is fetched once, on Wi-Fi, from the Internet Archive, checked against its known checksum and kept on this phone; it plays with no connection after that.'),
@@ -215,7 +235,11 @@ export const arcadeTab: TabDef = {
     const levelsPanel = panel('THE FREE LEVELS', { status: `${packs.length} PACKS`, cls: 'arclevels' });
     const levelGrid = h('div.arcgrid', { role: 'list', 'aria-label': 'Free level packs for DOOM' });
     levelsPanel.body.append(h('p.arcnote', 'For DOOM: a dozen of the most-loved level packs fans made and gave away, from the idgames archive. Each plays over Freedoom on the same engine, so GET Freedoom on the shelf too.'), levelGrid);
-    P.left.append(shelfPanel.el, ...(packs.length ? [levelsPanel.el] : []));
+    // MY GAMES (BRIEF-EDITOR-GAME-STUDIO): what he made in the game studio, each with PLAY at once and EDIT
+    const myPanel = panel('MY GAMES', { status: '', cls: 'arcmygames' });
+    const myGrid = h('div.arcgrid', { role: 'list', 'aria-label': 'Games you made' });
+    myPanel.body.append(myGrid);
+    P.left.append(shelfPanel.el, myPanel.el, ...(packs.length ? [levelsPanel.el] : []));
     P.right.append(about.el);
 
     const ofGame = (e: ShelfEntry): CardOf => ({ id: e.id, title: e.title, at: keptAs(e), data: e.data, saves: e.saves });
@@ -260,9 +284,12 @@ export const arcadeTab: TabDef = {
         const all = allScores();
         score.textContent = scoreWords(e.engine, all[e.id], all[sittingKey(e.id)]) + levelTail(e);
         stat.textContent = status.get(e.id) ?? '';
+        if (status.get(e.id) && kinds.get(e.id)) stat.dataset.state = kinds.get(e.id)!;
+        else delete stat.dataset.state;
         bar.hidden = !getting;
         if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${e.title}`, 'stop');
         else if (kept) setAct(act, 'PLAY', 'Play', `Play ${e.title}`, 'play');
+        else if (e.data && failed.has(of.at)) setAct(act, retryKey(sizeWords(e.data.bytes)), retryKey(sizeWords(e.data.bytes)), `Retry getting ${e.title}, ${sizeWords(e.data.bytes)}, on Wi-Fi`, 'get');
         else if (e.data) setAct(act, `GET · ${sizeWords(e.data.bytes)}`, `Get · ${sizeWords(e.data.bytes)}`, `Get ${e.title}, ${sizeWords(e.data.bytes)}, on Wi-Fi`, 'get');
         clear(details,
           ...(e.data
@@ -324,8 +351,11 @@ export const arcadeTab: TabDef = {
         const all = allScores();
         score.textContent = scoreWords('doom', all[p.id], all[sittingKey(p.id)]);
         stat.textContent = status.get(key) ?? '';
+        if (status.get(key) && kinds.get(key)) stat.dataset.state = kinds.get(key)!;
+        else delete stat.dataset.state;
         bar.hidden = !getting;
         if (getting) setAct(act, 'STOP', 'Stop', `Stop getting ${busy.has(p.id) ? p.title : 'Freedoom'}`, 'stop');
+        else if (!kept && failed.has(p.id)) setAct(act, retryKey(sizeWords(p.data.bytes)), retryKey(sizeWords(p.data.bytes)), `Retry getting ${p.title}, ${sizeWords(p.data.bytes)}, on Wi-Fi`, 'get');
         else if (!kept) setAct(act, `GET · ${sizeWords(p.data.bytes)}`, `Get · ${sizeWords(p.data.bytes)}`, `Get ${p.title}, ${sizeWords(p.data.bytes)}, on Wi-Fi`, 'get');
         else if (!baseHere && baseOf?.data) setAct(act, `GET FREEDOOM · ${sizeWords(baseOf.data.bytes)}`, `Get Freedoom · ${sizeWords(baseOf.data.bytes)}`, `${p.title} plays over Freedoom: get Freedoom, ${sizeWords(baseOf.data.bytes)}, on Wi-Fi`, 'get');
         else setAct(act, 'PLAY', 'Play', `Play ${p.title}`, 'play');
@@ -365,22 +395,32 @@ export const arcadeTab: TabDef = {
     const get = async (of: CardOf, also: string[] = []) => {
       const data = of.data;
       if (!data) return; // a game made by us: nothing to fetch
+      // (a phone that cannot tell Wi-Fi from mobile data: the first tap says so with the size; the second is his yes)
+      if (netUnknown() && !secondTap(`game:${of.at}`)) {
+        for (const c of sharing(of.at)) (status.set(c.of.id, unknownNet(sizeWords(data.bytes))), c.paint());
+        return;
+      }
       const ctl = new AbortController();
       busy.set(of.at, ctl);
       // the cards this GET fills, and any that asked for it (a level pack fetching the Freedoom it plays over)
       const filling = () => [...sharing(of.at), ...also.flatMap((k) => (cards.get(k) ? [cards.get(k)!] : []))];
-      const say = (t: string) => {
+      const say = (t: string, kind?: 'loading' | 'offline' | 'error') => {
         for (const c of filling()) {
           status.set(c.of.id, t);
+          if (kind) kinds.set(c.of.id, kind);
+          else kinds.delete(c.of.id);
           c.paint();
         }
       };
+      failed.delete(of.at);
       try {
         if (onMobileData()) {
-          say(`On mobile data: it waits for Wi-Fi before fetching ${sizeWords(data.bytes)}.`);
+          /* state: arcade.shelf offline */
+          say(mobileData(sizeWords(data.bytes)), 'offline');
           await Promise.race([offMobileData(ctl.signal), new Promise((_, reject) => ctl.signal.addEventListener('abort', () => reject(new DOMException('Stopped', 'AbortError')), { once: true }))]);
         }
-        say(`Fetching ${sizeWords(data.bytes)} from the Internet Archive…`);
+        /* state: arcade.shelf loading */
+        say(fetchStart(sizeWords(data.bytes)), 'loading');
         const onProgress = (p: Progress) => {
           const pct = p.phase === 'download' ? Math.round((p.got / p.total) * 90) : p.phase === 'check' ? 92 : p.phase === 'unpack' ? 95 : 99;
           for (const c of filling()) {
@@ -388,8 +428,8 @@ export const arcadeTab: TabDef = {
             b?.style.setProperty('--p', `${pct}%`);
             b?.setAttribute('aria-valuenow', String(pct));
           }
-          const t = p.phase === 'download' ? `Fetching ${sizeWords(p.got)} of ${sizeWords(p.total)}…` : p.phase === 'check' ? 'Checking it is the right file…' : p.phase === 'unpack' ? 'Unpacking on this phone…' : 'Keeping it on this phone…';
-          if (status.get(of.id) !== t) say(t);
+          const t = p.phase === 'download' ? fetchMid(sizeWords(p.got), sizeWords(p.total), Math.min(100, Math.round((p.got / p.total) * 100))) : p.phase === 'check' ? 'Checking it is the right file…' : p.phase === 'unpack' ? 'Unpacking on this phone…' : 'Keeping it on this phone…';
+          if (status.get(of.id) !== t) say(t, 'loading');
         };
         // (`headers`: the owner's key, for Ghosty's own copy of the Archive's file, which the Worker streams to him alone)
         await getFiles({ id: of.at, data }, onProgress, { signal: ctl.signal, ownHeaders: headers });
@@ -398,7 +438,9 @@ export const arcadeTab: TabDef = {
         vibrate(15);
       } catch (err) {
         const stopped = (err as Error)?.name === 'AbortError';
-        say(stopped ? 'Stopped. Nothing was kept.' : `Could not get it: ${sayError(err, 'get that game')}`);
+        if (!stopped) failed.add(of.at);
+        /* state: arcade.shelf error */
+        say(stopped ? 'Stopped. Nothing was kept.' : fetchFailed(sayError(err, 'get that game')), stopped ? undefined : 'error');
       } finally {
         busy.delete(of.at);
         paintAll();
@@ -409,9 +451,15 @@ export const arcadeTab: TabDef = {
     const del = async (of: CardOf) => {
       const data = of.data;
       if (!data) return; // a game made by us: nothing to delete
-      await removeFiles({ id: of.at, data });
+      try {
+        await removeFiles({ id: of.at, data });
+      } catch (e) {
+        for (const c of sharing(of.at)) status.set(c.of.id, sayError(e, 'delete that game'));
+        paintAll();
+        return;
+      }
       here.delete(of.at);
-      for (const c of sharing(of.at)) status.set(c.of.id, `Deleted from this phone (${sizeWords(data.bytes)} back). GET brings it back; your saved games stay.`);
+      for (const c of sharing(of.at)) (kinds.delete(c.of.id), status.set(c.of.id, `Deleted from this phone (${sizeWords(data.bytes)} back). GET brings it back; your saved games stay.`));
       paintAll();
       hero();
     };
@@ -478,6 +526,7 @@ export const arcadeTab: TabDef = {
         arcadeState.intent = null;
         arcadeState.probe = () => null;
         paintAll();
+        void paintMine();
       };
       void (async () => {
         let handle: EngineHandle | null = null;
@@ -488,22 +537,60 @@ export const arcadeTab: TabDef = {
           await handle.quit();
           if (e.madeByUs) {
             // a game made by us keeps its own score (scores.ts), and says its own lines
-            status.set(r.card, `Played ${timeWords(seconds)}.`);
+            kinds.delete(r.card); status.set(r.card, `Played ${timeWords(seconds)}.`);
           } else if (e.engine === 'dos') {
             const best = recordScore(r.id, seconds).isBest;
-            status.set(r.card, `${e.done} ${timeWords(seconds)} this time${best ? ', your longest yet' : ''}.`);
+            kinds.delete(r.card); status.set(r.card, `${e.done} ${timeWords(seconds)} this time${best ? ', your longest yet' : ''}.`);
           } else {
             const best = recordSitting(r.id, seconds).isBest;
-            status.set(r.card, `${said.length ? `${said[said.length - 1]} ` : ''}${timeWords(seconds)} this time${best ? ', your longest sitting yet' : ''}.`);
+            kinds.delete(r.card); status.set(r.card, `${said.length ? `${said[said.length - 1]} ` : ''}${timeWords(seconds)} this time${best ? ', your longest sitting yet' : ''}.`);
           }
         } catch (err) {
-          status.set(r.card, sayError(err, 'start that game'));
+          void sayError(err, 'start that game');
+          kinds.set(r.card, 'error');
+          status.set(r.card, startFailed(r.title.charAt(0) + r.title.slice(1).toLowerCase()));
           await handle?.quit().catch(() => undefined);
         } finally {
           close();
         }
       })();
     };
+
+    // MY GAMES: the games of the studio, played by its own engine ('studio') on the arcade's frame
+    const mine = (m: Meta): ShelfEntry => ({ id: `studio-${m.id}`, title: m.name.toUpperCase(), line: 'A game you made.', engine: 'studio', data: null, madeByUs: true, controls: ['move', 'jump'], saves: true, since: '', ghosty: 'Your own game. Walk about, talk, and finish what it asks.', done: 'Your best is kept.' });
+    const paintMine = async () => {
+      myPanel.setStatus('…');
+      let failed = '';
+      const list = await listGames().catch((e) => ((failed = sayError(e, 'read your games')), [] as Meta[]));
+      if (failed) {
+        myPanel.setStatus('ERROR', 'off');
+        clear(myGrid, h('div.note', { dataset: { state: 'error' } }, failed));
+        return;
+      }
+      myPanel.setStatus(list.length ? `${list.length} GAME${list.length === 1 ? '' : 'S'}` : 'NONE YET');
+      const all = allScores();
+      clear(myGrid, ...(list.length
+        ? list.map((m) => {
+            const e = mine(m);
+            const sc = all[`studio.${m.id}`];
+            const playBtn = h('button.arcact.play', { type: 'button', 'aria-label': `Play ${m.name}`, dataset: { label: 'Play' } }, 'PLAY');
+            playBtn.addEventListener('click', () => play({ id: e.id, card: e.id, title: e.title, entry: e, reads: [], args: [`game=${m.id}`] }));
+            const editBtn = h('button.arcact.edit', { type: 'button', 'aria-label': `Edit ${m.name} in the game studio`, dataset: { label: 'Edit' } }, 'EDIT');
+            editBtn.addEventListener('click', () => {
+              studioAsk({ what: 'open', id: m.id });
+              goTab('gamestudio');
+            });
+            const stat = h('p.arcstatus', { 'aria-live': 'polite' }, status.get(e.id) ?? '');
+            return h('article.arccard.arcmy', { role: 'listitem', dataset: { game: m.id }, 'aria-label': m.name },
+              h('h4.arctitle', m.name),
+              h('p.arcline', `Made by you · ${m.rooms} room${m.rooms === 1 ? '' : 's'}${m.maker ? ` · a game by ${m.maker}` : ''}`),
+              h('p.arcscore', scoreWords('studio', sc, undefined)),
+              h('div.arcrow', playBtn, editBtn), stat);
+          })
+        : [h('p.arcnote', 'Nothing here yet. Make a game in MAKE → The game studio and it plays here.')]));
+    };
+    void paintMine();
+    window.addEventListener('ghosty:studio-imported', () => void paintMine());
 
     // what is already on this phone
     void Promise.all([...new Map([...cards.values()].map((c) => [c.of.at, c.of] as const)).values()].map(async (of) => (of.data && (await isHere({ id: of.at, data: of.data })) ? here.add(of.at) : undefined))).then(() => {
@@ -637,7 +724,9 @@ function player(e: ShelfEntry, title = e.title) {
     fpsLine.hidden = !fpsLine.textContent;
   };
   const pause = () => {
-    if (paused || !handle) return;
+    if (paused) return;
+    // (still starting: PAUSE is the way out, never a screen he is stuck behind)
+    if (!handle) return finish(clock());
     paintFps();
     paused = true;
     played = clock();
@@ -803,6 +892,7 @@ function player(e: ShelfEntry, title = e.title) {
     }
   };
   raf = requestAnimationFrame(frame);
+  draws('arcade', true);
 
   let sayTimer = 0;
   return {
@@ -828,8 +918,8 @@ function player(e: ShelfEntry, title = e.title) {
     },
     fail(message: string) {
       errBox.hidden = false;
-      if (made) {
-        // no PAUSE of the player's here: the way back is on the message
+      if (made || !handle) {
+        // no PAUSE of the player's here (or it never started): the way back is on the message
         const back = h('button.arcm.quit', { type: 'button', 'aria-label': 'Back to the shelf' }, 'BACK TO THE SHELF');
         back.addEventListener('click', () => finish(clock()));
         clear(errBox, `${title} stopped: ${message}.`, back);
@@ -839,6 +929,7 @@ function player(e: ShelfEntry, title = e.title) {
       pause();
     },
     stop() {
+      draws('arcade', false);
       cancelAnimationFrame(raf);
       clearTimeout(sayTimer);
       document.removeEventListener('visibilitychange', hidden);

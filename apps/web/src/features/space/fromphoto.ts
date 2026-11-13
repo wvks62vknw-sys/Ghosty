@@ -27,7 +27,8 @@ import { cloudOf, findFloor, joinRoom, roomFromCloud, STANCE, withScaleDoubt, ty
 import { space } from '../../space/store';
 import type { DepthMap } from '../../measure/depth3d';
 import type { Intrinsics } from '../../measure/exif';
-import { sayError } from '../../ui/hisWords';
+import { rawText, sayError } from '../../ui/hisWords';
+import { noRoomWords } from './words';
 
 type Kind = 'auto' | 'drawing' | 'room';
 
@@ -141,8 +142,12 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
 
   const status = (t: string, light?: 'ok' | 'mid' | 'off') => {
     S.status = t;
-    fp.setStatus(t.length > 40 ? `${t.slice(0, 38)}…` : t, light);
+    // the header carries a short word, never a sentence cut in half (FINAL ROUND, MAKE lane): the whole line is in the notes under it
+    const head = t.split(/[:.(]/)[0]!.trim();
+    fp.setStatus(head.length <= 22 ? head : light === 'off' ? 'COULDN’T' : light === 'mid' ? 'WORKING…' : light === 'ok' ? 'DONE' : '', light);
     notes.textContent = t;
+    // (loading while it works, an error when it could not, empty before anything is picked)
+    notes.dataset.state = light === 'off' ? 'error' : light === 'mid' ? 'loading' : t.startsWith('PICK PHOTOS') ? 'empty' : '';
   };
 
   const paint = () => {
@@ -178,6 +183,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
     const g2 = page.getContext('2d', { willReadFrequently: true });
     if (!g2) throw new Error('The picture could not be read');
     const img: Gray = { w: page.width, h: page.height, g: toGray(g2.getImageData(0, 0, page.width, page.height).data, page.width, page.height) };
+    /* state: space.photo loading */
     status('reading the sizes written on the plan…', 'mid');
     const reader = new Reader();
     let words: Parameters<typeof linesFromWords>[0] = [];
@@ -217,6 +223,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
 
   const fromRoom = async (files: File[]) => {
     const seen: Seen[] = [];
+    let why = '';
     const used = new Set<string>();
     let first: HTMLCanvasElement | null = null;
     try {
@@ -235,7 +242,8 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
         for (const u of got.fused.used) used.add(u);
         const s = roomFromCloud(cloudOf(got.D, mapK(got.K, got.D, size), 3));
         if ('error' in s) {
-          toast(`Photo ${i + 1}: ${s.error}`, 'warn');
+          // (the last reason is what the status says, in his words, if no photo gave a room: a toast would be gone before it was read)
+          why = s.error;
           continue;
         }
         // the scale's own doubt, and the depth model's shape error, widen every size
@@ -245,7 +253,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
       depthModel.release();
     }
     const size = joinRoom(seen);
-    if (!size) throw new Error('No walls could be measured in those photos: see the tips below');
+    if (!size) throw new Error(why || 'No walls could be measured in those photos');
     S.kind = 'room';
     S.room = { ...size, photos: seen.length, cues: [...used] };
     S.drawing = null;
@@ -299,7 +307,8 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
         status('Photos of the room need a 50 MB distance model, downloaded once and kept on the phone (Wi-Fi is best): DOWNLOAD to go on.', 'mid');
       } else await fromRoom(files);
     } catch (e) {
-      status(sayError(e, 'do that in the room'), 'off');
+      /* state: space.photo error */
+      status(noRoomWords(rawText(e)) ?? sayError(e, 'do that in the room'), 'off');
     } finally {
       S.busy = false;
       paint();
@@ -348,6 +357,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
   });
 
   paint();
+  /* state: space.photo empty */
   status('PICK PHOTOS: a drawn plan, or the room itself.');
   return { el: fp.el };
 }

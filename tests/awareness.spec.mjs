@@ -19,7 +19,7 @@
 //  8. THE CORE CARD in Every screen says "Looking at: …" for the screen under it, WORKING (and DEGRADED when no turn carried one).
 //  9. THE SPEED BUDGET: reading a context costs under 2 ms a time over 200 selections.
 // 10. Nothing sticks out sideways at 440 and 390 (the deck with its Core card, the reader's stamp line), every deck card 44 pt.
-// 11. EVERY SCREEN'S OWN SENTENCE (BRIEF-SHELL pass 1, OWNER-ISSUES 150 d): 37 screens opened and read, each with a sentence of its own
+// 11. EVERY SCREEN'S OWN SENTENCE (BRIEF-SHELL pass 1, OWNER-ISSUES 150 d): 39 screens opened and read, each with a sentence of its own
 //     (not the fallback), 160 characters at most, no key; eight held to their exact words, a sheet screen follows its pill.
 //   BASE=http://localhost:8788 node tests/awareness.spec.mjs [outDir]   (ONLY=plan,car,shed,reader,deck,lens,turn,core,speed,fit,screens)
 import { launch, webkitNoise } from './browser.mjs';
@@ -101,7 +101,8 @@ const logOpen = (page) => page.evaluate(() => !!document.querySelector('.hud.cor
 /** Something said on the screen that is up (the chat's box is on Home only; the microphone says it anywhere, as this does). */
 const say = (page, words) => page.evaluate((t) => window.__ghosty.send(t, false), words);
 const closeLog = () => Promise.resolve();
-const lastReply = (page) => page.evaluate(() => [...document.querySelectorAll('.msg:not(.me)')].at(-1)?.textContent ?? '');
+// the reply's own words, without its rating row: 👍 / 👎 and THAT FELT OFF beside them (features/core/rate.ts)
+const lastReply = (page) => page.evaluate(() => { const m = [...document.querySelectorAll('.msg:not(.me)')].at(-1)?.cloneNode(true); m?.querySelectorAll('.rate').forEach((r) => r.remove()); return m?.textContent ?? ''; });
 const replyMatching = (page, re) => page.waitForFunction((src) => [...document.querySelectorAll('.msg:not(.me)')].some((m) => new RegExp(src).test(m.textContent ?? '')), re.source, { timeout: 12000 }).then(() => true, () => false);
 const chatCalls = (bodies) => bodies.length;
 const wide = (page) => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || document.body.scrollWidth > innerWidth + 1);
@@ -482,7 +483,7 @@ if (part('turn') || part('deck')) {
 if (part('screens')) {
   const { ctx, page } = await open(PHONE, 'screens');
   const SCREENS = ['brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'workshop', 'learn', 'gym', 'school', 'reverse', 'workbench', 'links', 'settings', 'system', 'arcade',
-    'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'house',
+    'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'house',
     'area-ask', 'area-see', 'area-make', 'area-learn', 'area-plan', 'area-life', 'area-me'];
   const said = {};
   for (const id of SCREENS) {
@@ -503,9 +504,9 @@ if (part('screens')) {
   check(/^the gym, on .+/.test(L('gym')) && said.gym?.selected?.kind === 'item', `[screens] the gym says "${L('gym')}" ${JSON.stringify(said.gym?.selected)}`);
   check(/^settings, on appearance$/.test(L('settings')) && said.settings?.selected?.label === 'Appearance', `[screens] settings say "${L('settings')}"`);
   check(/^links, on accounts$/.test(L('links')), `[screens] links say "${L('links')}"`);
-  check(/^the money screen, open on statement$/.test(L('money')) && said.money?.selected?.kind === 'group', `[screens] money says "${L('money')}"`);
+  check(/^the money screen, open on month$/.test(L('money')) && said.money?.selected?.kind === 'group', `[screens] money says "${L('money')}"`);
   check(/^the make hub, 8 things to open$/.test(L('area-make')) && /^the learn hub, 8 things to open$/.test(L('area-learn')), `[screens] the hubs say "${L('area-make')}" and "${L('area-learn')}"`);
-  check(/^the body screen, open on reps/.test(L('body')), `[screens] body says "${L('body')}"`);
+  check(/^the body screen, open on move/.test(L('body')), `[screens] body says "${L('body')}"`);
   // a sheet screen follows its pill, and says which one
   await page.evaluate(() => (location.hash = 'body'));
   await page.waitForTimeout(500);

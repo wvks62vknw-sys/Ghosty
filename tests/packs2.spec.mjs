@@ -100,7 +100,7 @@ async function saves(page, label, W) {
   await sheet(page, 'who', W, '"who\'s who" did not open the people sheet');
   await page.waitForSelector('.modal .pkperson', { timeout: 8000 }).catch(() => problems.push(`[${W}] no one in the people sheet`));
   const row = await page.evaluate(() => document.querySelector('.modal .pkperson .pklab')?.textContent ?? '');
-  if (row !== 'birthday 14 March · loves fishing') problems.push(`[${W}] the person's line: ${row}`);
+  if (!/^birthday 14 March · (today|tomorrow|in \d+ days) · loves fishing$/.test(row)) problems.push(`[${W}] the person's line: ${row}`);
   await page.click('.modal .pk button[aria-label="Gift ideas for Dad"]');
   await until(page, () => /gift ideas/.test(window.__ghosty?.people?.said ?? '') && /fishing/.test(window.__ghosty.people.said), null, 10000, async () => `[${W}] no gift ideas from the notes: ${await page.evaluate(() => window.__ghosty?.people?.said)}`);
   if (!/not looked up/.test(await page.evaluate(() => window.__ghosty.people.said))) problems.push(`[${W}] the gift ideas did not say the prices were rough guides`);
@@ -138,9 +138,9 @@ async function saves(page, label, W) {
   await page.evaluate(() => (window.__ghostyClockOffset = 62_000));
   await page.waitForTimeout(600);
   await page.click('.modal .pk button[aria-label="Stop the timer and critique my answer"]');
-  await until(page, () => /Length: 6\d seconds/.test(window.__ghosty?.work?.interview?.critique ?? ''), null, 10000, async () => `[${W}] no critique: ${await page.evaluate(() => JSON.stringify(window.__ghosty?.work?.interview))}`);
+  await until(page, () => /You spoke for 6\d seconds, measured by the phone/.test(window.__ghosty?.work?.interview?.critique ?? ''), null, 10000, async () => `[${W}] no critique: ${await page.evaluate(() => JSON.stringify(window.__ghosty?.work?.interview))}`);
   const crit = await page.evaluate(() => window.__ghosty.work.interview.critique);
-  if (!/Specifics: .*\n.*Shape: .*\n.*Filler: none I could pick out\./s.test(crit) || !/Next time:/.test(crit)) problems.push(`[${W}] the critique's parts: ${crit}`);
+  if (!/You gave \d+ numbers? and \d+ names?\..*\n.*(Still missing|You covered).*\n.*Next time:/s.test(crit) || /^(Shape|Specifics|Filler):/m.test(crit)) problems.push(`[${W}] the critique's parts: ${crit}`);
   await page.screenshot({ path: `${out}/packs2-interview-${W}.png` });
   await closeSheet(page);
   await page.evaluate(() => (window.__ghostyClockOffset = 0));
@@ -148,7 +148,8 @@ async function saves(page, label, W) {
   log('pomodoro');
   await say(page, 'start a pomodoro');
   await until(page, () => (window.__ghosty?.timers?.() ?? []).filter((t) => /^pomodoro (focus|break)/.test(t.name)).length === 8, null, 8000, async () => `[${W}] the pomodoro timers: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.timers?.()))}`);
-  if (!/Pomodoro: 4 × 25 minutes of focus with 5-minute breaks and a 15-minute long break at the end/.test(await lastReply(page))) problems.push(`[${W}] the pomodoro reply: ${await lastReply(page)}`);
+  // (the timers are set a moment before the reply is drawn: the reply is waited for, as it is said, never read early)
+  await until(page, () => /Pomodoro: 4 × 25 minutes of focus with 5-minute breaks and a 15-minute long break at the end/.test([...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').pop() ?? ''), null, 6000, async () => `[${W}] the pomodoro reply: ${await lastReply(page)}`);
   await say(page, 'stop the pomodoro');
   await until(page, () => (window.__ghosty?.timers?.() ?? []).length === 0, null, 6000, `[${W}] the pomodoro did not stop`);
 
@@ -194,13 +195,15 @@ async function saves(page, label, W) {
   await closeSheet(page);
 
   log('comic');
-  await say(page, 'A comic about a cat who learns to drive');
+  // [comic] (FINAL ROUND, lane COMIC) the chat's "a comic about…" now makes a whole comic in COMIC (comic2 holds that); the quick
+  // four-panel strip is still CREATIVE's, opened as the brain's creative tool opens it, with the captions it writes for this ask
+  await page.evaluate(() => window.__ghosty.run('open_creative', { what: 'comic', captions: ['A cat sits in the driver’s seat.', 'Oh no, the pedals are too far away!', 'It finds a cushion and tries again.', 'Off it goes, laughing, tail out of the window.'] }));
   await sheet(page, 'comic', W, 'the comic strip did not open');
   await until(page, () => window.__ghosty?.creative?.comic?.drawn >= 1 && window.__ghosty.creative.comic.captions.length === 4, null, 12000, async () => `[${W}] the comic was not drawn: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.creative?.comic))}`);
   const caps = await page.evaluate(() => window.__ghosty.creative.comic.captions);
   if (caps[0] !== 'A cat sits in the driver’s seat.' || caps[3] !== 'Off it goes, laughing, tail out of the window.') problems.push(`[${W}] the comic's captions are not the ones the model wrote: ${JSON.stringify(caps)}`);
   if (!/^A four-panel comic: 1, /.test(await page.evaluate(() => document.querySelector('.modal canvas.pkcanvas')?.getAttribute('aria-label') ?? ''))) problems.push(`[${W}] the comic's picture has no description`);
-  if (!/Drawn by Ghosty in code: stick figures and shapes of our own/.test(await page.evaluate(() => document.querySelector('.modal .pk')?.textContent ?? ''))) problems.push(`[${W}] the comic does not say it is ours`);
+  if (!/Drawn here in simple shapes of our own/.test(await page.evaluate(() => document.querySelector('.modal .pk')?.textContent ?? ''))) problems.push(`[${W}] the comic does not say it is ours`);
   await page.screenshot({ path: `${out}/packs2-comic-${W}.png` });
   const comicPng = await saves(page, 'Save the comic strip as a PNG picture', W);
   if (!comicPng.head.startsWith('.PNG') || comicPng.bytes < 8000) problems.push(`[${W}] the comic's PNG: ${JSON.stringify(comicPng)}`);

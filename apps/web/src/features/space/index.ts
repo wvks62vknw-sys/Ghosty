@@ -23,9 +23,11 @@ import { go, type TabDef } from '../../shell/tabs';
 import { button, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { roomToPlan, planToRoom } from '../../space/roomjson';
+import { fitWhy, FIT_EMPTY, gapWords, pieceName } from './words';
 import { CATALOGUE, clashes, describePlan, footprint, GRID, largestOpen, layoutOf, makeSpace, readPlan, roomsOf, snapItem, tightGaps, WALKWAY, willItFit, type Arrangement, type Item, type Plan, type Rect } from '../../space/plan';
 import { addOpening, addRoom, removeOpening, removeRoom, renameRoom, reshapeRoom, shapeOf, slideOpening, updateOpening } from '../../space/rooms';
 import { space } from '../../space/store';
+import { MATERIALS_NOTE, materialsFor, materialsWords } from '../../space/materials';
 import { spaceContext, spaceSelected } from '../../space/awareness';
 import { pieceFor, spaceHooks } from '../../space/hooks';
 import { wallRuns } from '../../studio/room';
@@ -57,9 +59,11 @@ export interface SpaceState {
   fromPhoto: FromPhotoState;
   /** DESIGN MY HOME (home.ts): the drawn plan's line, its floors, which is shown, DESIGN in progress. */
   home: HomeState;
+  /** MATERIALS: paint (litres), flooring (m²), skirting (m) and wallpaper rolls for the plan, and its head line. */
+  materials: { paint: number; flooring: number; skirting: number; rolls: number; tins: string; head: string };
 }
 
-export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState, home: { id: '', line: '', storeys: [], shown: 0, assumed: 0, drawing: false, outcome: '', offline: false } };
+export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState, home: { id: '', line: '', storeys: [], shown: 0, assumed: 0, drawing: false, outcome: '', offline: false }, materials: { paint: 0, flooring: 0, skirting: 0, rolls: 0, tins: '', head: '' } };
 
 /** A change Ghosty suggested: a whole plan, checked against the owner's. */
 interface DesignOption {
@@ -660,11 +664,21 @@ export const spaceTab: TabDef = {
     const check = () => {
       const w = parseLength(fw.value);
       const d = parseLength(fd.value);
-      if (!w || !d) return void toast('Type its width and depth in cm', 'warn');
+      if (!w || !d) {
+        /* state: space.fit empty */
+        spaceState.fit = FIT_EMPTY;
+        fitOut.textContent = FIT_EMPTY;
+        fitOut.className = 'note spacefitout bad';
+        fitOut.dataset.state = 'empty';
+        placeBtn.hidden = true;
+        return;
+      }
+      delete fitOut.dataset.state;
       const { room, items } = space.get().plan;
       const r = willItFit(room, items, Math.round(w / 10), Math.round(d / 10), roomsOf(space.get().plan));
-      spaceState.fit = r.text;
-      fitOut.textContent = r.text;
+      const why = r.fits ? '' : fitWhy(Math.round(w / 10), Math.round(d / 10), room);
+      spaceState.fit = why ? `${r.text} ${why}` : r.text;
+      fitOut.textContent = spaceState.fit;
       fitOut.className = `note spacefitout ${r.fits ? 'good' : 'bad'}`;
       placeBtn.hidden = !r.spot;
       placeBtn.onclick = () => {
@@ -754,6 +768,25 @@ export const spaceTab: TabDef = {
       });
     })));
 
+    // ======================= MATERIALS (space/materials.ts): paint, flooring, skirting and wallpaper for the plan, a first estimate
+    const matp = panel('MATERIALS', { status: 'first estimate', cls: 'spacematerials' });
+    const matHead = h('p.spacemathead', { 'aria-live': 'polite' });
+    const matList = h('div.spacematlist');
+    const paintMaterials = () => {
+      const L = layoutOf(space.get().plan);
+      const m = materialsFor(L.rooms, L.openings, L.h);
+      const w = materialsWords(m);
+      /* state: space.materials empty */
+      matHead.textContent = w.head;
+      if (m.total.floor > 0) delete matHead.dataset.state;
+      else matHead.dataset.state = 'empty';
+      clear(matList, ...w.lines.map((l) => h('div.note', l)));
+      spaceState.materials = { paint: m.total.paint, flooring: m.total.flooring, skirting: m.total.skirting, rolls: m.total.rolls, tins: m.tins, head: w.head };
+    };
+    matp.body.append(matHead, matList, h('div.note', MATERIALS_NOTE));
+    space.subscribe(paintMaterials);
+    paintMaterials();
+
     // ======================= EXPORT
     const xp = panel('EXPORT', { cls: 'spaceexport' });
     const importIn = h('input', { type: 'file', accept: 'application/json,.json', 'aria-label': 'Import a plan file' });
@@ -825,7 +858,7 @@ export const spaceTab: TabDef = {
       }
     });
     P.left.append(homePanel.el, pp.el);
-    P.right.append(rp.el, photoPanel.el, dp.el, ap.el, fp.el, mp.el, msp.el, xp.el);
+    P.right.append(rp.el, photoPanel.el, dp.el, ap.el, fp.el, mp.el, matp.el, msp.el, xp.el);
 
     // ======================= drawing and dragging
     let scale = 1;
@@ -982,7 +1015,7 @@ export const spaceTab: TabDef = {
       rotBtn.disabled = delBtn.disabled = !sel;
       info.textContent = [
         `Open floor: ${cmText(open.w * 10)} × ${cmText(open.h * 10)}.`,
-        gaps.length ? `${gaps.length} gap${gaps.length > 1 ? 's' : ''} under ${WALKWAY} cm (red).` : `Walkways clear (≥ ${WALKWAY} cm).`,
+        gapWords(gaps, (id) => pieceName(plan.items.find((i) => i.id === id)?.label ?? ''), (cm) => cmText(cm * 10).replace(/(\d)\.0(?= )/, '$1')),
         bad.length ? `${bad.length} piece${bad.length > 1 ? 's' : ''} overlapping or outside the room.` : '',
         swing.length ? `${swing.length} piece${swing.length > 1 ? 's' : ''} where a door swings.` : '',
       ].filter(Boolean).join(' ');

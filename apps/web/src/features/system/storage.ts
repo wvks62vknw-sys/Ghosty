@@ -5,6 +5,7 @@
  * navigator.storage.persist(), and the SYSTEM tab says in plain words whether it worked.
  */
 import { createStore } from '../../core/store';
+import { withSize } from './words';
 
 export const storageState = createStore({
   /** null: not known yet. */
@@ -43,11 +44,15 @@ export const mbText = (n: number) => (n < 0 ? '' : `${n < 10 * 1024 * 1024 ? (n 
 
 /** The one line the SYSTEM tab shows. */
 export function storageLine(): { text: string; ok: boolean } {
+  const l = storageLineRaw();
+  return { text: withSize(l.text, storageState.get().usage), ok: l.ok };
+}
+function storageLineRaw(): { text: string; ok: boolean } {
   const st = storageState.get();
   if (st.persisted) return { text: `STORAGE: PROTECTED${st.usage >= 0 ? ` · ${mbText(st.usage)}` : ''}`, ok: true };
   // No way to ask (an older iPhone): a Home Screen app is still spared Safari's 7-day clear-out.
-  if (!st.supported) return { text: isIos() && !homeScreenApp() ? 'STORAGE: NOT PROTECTED — add Ghosty to your Home Screen (Share → Add to Home Screen) so iPhone keeps your data' : "STORAGE: NOT PROTECTED — this browser cannot be asked to keep Ghosty's data.", ok: false };
+  if (!st.supported) return { text: isIos() && !homeScreenApp() ? 'STORAGE: NOT PROTECTED — add Ghosty to your Home Screen so iPhone keeps your data' : "STORAGE: NOT PROTECTED — this browser cannot be asked to keep Ghosty's data.", ok: false };
   // Already a Home Screen app: Safari grants it on the next ask.
-  const how = homeScreenApp() ? `press PROTECT so ${isIos() ? 'iPhone' : 'this device'} keeps your data` : 'add Ghosty to your Home Screen (Share → Add to Home Screen) so iPhone keeps your data';
+  const how = homeScreenApp() ? `press PROTECT so ${isIos() ? 'iPhone' : 'this device'} keeps your data` : 'add Ghosty to your Home Screen so iPhone keeps your data';
   return { text: `STORAGE: NOT PROTECTED — ${how}`, ok: false };
 }

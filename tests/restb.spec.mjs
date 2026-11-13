@@ -131,7 +131,7 @@ if (want('chess')) {
   await page.locator('#pg-gym .chessrate .cractions button', { hasText: 'RESIGN' }).click();
   await until(page, () => window.__ghosty?.chessRated?.games?.you === 1, null, 10000, 'a resigned game was not rated');
   s = await state(page, 'chessRated');
-  check(/^You: about [\d,]+ · ±\d+$/.test(s.words), `his rating is on the card: "${s.words}"`);
+  check(/^You: about [\d,]+ \([a-z -]+\) · give or take \d+$/.test(s.words), `his rating is on the card: "${s.words}"`);
   const card = await page.locator('#pg-gym .gymcard[data-game="chess"] .gymrate').innerText();
   check(card === s.words, `the same words are on the chess card in the list ("${card}")`);
   // CHECK MY GAME: the engine looks at each position; the result is in plain words
@@ -156,7 +156,7 @@ if (want('chess')) {
   await page.locator('#pg-gym .chessrate .cractions button', { hasText: 'RATE ME' }).click();
   await until(page, () => window.__ghosty?.chessRated?.games?.me >= 1, null, 240000, 'RATE ME did not finish a game');
   s = await state(page, 'chessRated');
-  check(/^You: about [\d,]+ · Me: about [\d,]+ · ±\d+$/.test(s.words), `both ratings are on the card: "${s.words}"`);
+  check(/^You: about [\d,]+ \([a-z -]+\) · Me: about [\d,]+ \([a-z -]+\) · give or take \d+$/.test(s.words), `both ratings are on the card: "${s.words}"`);
   await until(page, () => window.__ghosty?.chessRated?.games?.me >= 2 || document.querySelector('#pg-gym .chessrate .crsay')?.textContent?.startsWith('I played'), null, 240000, 'RATE ME did not finish its two games');
   await page.screenshot({ path: `${out}/restb-chess-rated.png` });
   check((await sideways(page, '#pg-gym .chessrate, #pg-gym .chessrate *')).length === 0, 'nothing sticks out sideways in the rated section at 440 px');

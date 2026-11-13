@@ -18,6 +18,8 @@ import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/c
 import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { placesBlock } from './places';
+import { OFFLINE_SUB, PAGE_SUB } from './words';
+import { phrases } from '../lifeui';
 import { principlesEditor } from '../settings/principles';
 import { diaryDay, lineId, offlineNow, patternsPanel, timelinePanel, why } from './timeline';
 
@@ -56,7 +58,7 @@ export const memoryTab: TabDef = {
   mount(root) {
     // On the phone one page in sections (ui/sections.ts) instead of two sides to swap between: Me (who he is first, with
     // his places), Patterns, Timeline, Diary and Chat (what I remember, the lessons, the conversation).
-    const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'DIARY & CHAT', leftLabel: 'YOU', stack: true });
+    const P = page(root, { tag: 'NEURAL MEMORY', sub: PAGE_SUB, rightLabel: 'DIARY & CHAT', leftLabel: 'YOU', stack: true });
     // A change in the TIMELINE shows in the panels below it, and theirs in it.
     const tl = timelinePanel(() => {
       void refresh();
@@ -96,7 +98,7 @@ export const memoryTab: TabDef = {
     // With no connection, one line says so: what shows is what I knew before.
     const paintSub = () => {
       const n = facts.length + (profile ? PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0) : 0);
-      P.sub.textContent = offlineNow() ? 'You’re offline: this is what I knew before. It updates by itself when you’re back.' : `${n} ${n === 1 ? 'thing' : 'things'} I know about you`;
+      P.sub.textContent = offlineNow() ? OFFLINE_SUB : `${n} ${n === 1 ? 'thing' : 'things'} I know about you`;
       P.sub.classList.toggle('off', offlineNow());
     };
     addEventListener('offline', () => paintSub());
@@ -226,7 +228,7 @@ export const memoryTab: TabDef = {
     const pr = panel('PRINCIPLES', { status: 'your lines, in your words', cls: 'princpn' });
     const princ = principlesEditor();
     pr.body.append(princ.el);
-    P.left.append(addRow, mp.el, pr.el, pats.el, tl.el);
+    P.left.append(addRow, phrases(['remember I take my coffee black']), mp.el, pr.el, pats.el, tl.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });

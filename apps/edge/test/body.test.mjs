@@ -146,9 +146,9 @@ test('the phone reads export.zip as a stream: the directory from its end, export
   assert.equal(r.week.avgSteps, 7143);
   assert.equal(r.week.avgSleep, 420);
   assert.ok(seen.at(-1) > 0.9, 'progress reported');
-  // the xml itself reads the same; a zip with no export.xml says so
+  // the xml itself reads the same; a zip with no Health export says so, in his words
   assert.equal((await X.readExport(new File([XML], 'export.xml', { type: 'text/xml' }), '2026-11-01')).week.avgSteps, 7143);
-  await assert.rejects(X.readExport(new File([zipOf('other.txt', 'x')], 'e.zip', { type: 'application/zip' }), '2026-11-01'), /no export\.xml/);
+  await assert.rejects(X.readExport(new File([zipOf('other.txt', 'x')], 'e.zip', { type: 'application/zip' }), '2026-11-01'), /no Health export/);
 });
 
 test('water: a glass, the goal, nudges on and off, UNDO; the Brief’s line', async () => {

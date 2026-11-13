@@ -25,6 +25,7 @@
  * the points' drift), never moving the type; the type floor; the Machine's lines mono, whole segments, the dot at each end.
  * The checks read it at window.__ghosty.scan (scanState).
  */
+import { holdForFelt } from '../feltoff';
 import { h, svgEl } from '../../../core/dom';
 import { navTo, greeting } from '../../../shell/areas';
 import { settings } from '../../../state/app';
@@ -37,9 +38,13 @@ import { Scan, lerpPose, type CamPose, type V3 } from './scene';
 import { ALTITUDES, CAMERAS, FOG, MARKS, ORB_AT, ORB_FILL, marksAt, worldDesc, type Altitude, type Mark } from './world';
 import { decide, placeLine, placeNow, startSense, youAre, type PlaceNow } from './place';
 import { ribbon } from '../ribbon';
+import { PRESS_HINT } from '../orbwords';
 import { orbFx } from '../orbfx';
 import { tilt, tiltState } from '../tilt';
 import { startDay } from '../day';
+import { loadTodos } from '../../agenda/todo';
+import { dueToday } from '../../agenda/todowords';
+import { todoNeeds } from '../todaywords';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any;
@@ -115,9 +120,17 @@ export const litByHour = (d = new Date(now())) => (d.getHours() >= 17 || d.getHo
 export function sayTwo(p: PlaceNow, hr = new Date(now()).getHours()): string {
   if (p.kind === 'out') return 'Shall I plan the way back?';
   if (p.kind === 'way') return 'Shall we read till you get there?';
-  if (hr >= 17 || hr < 5) return bookNow() ? 'Nothing needs you tonight. Shall we read?' : 'Nothing needs you tonight.';
+  // [planlane:home] a to-do due today or late is something that needs him: never "Nothing needs you" over it (the Today card and
+  // the hour's thing list it)
+  let due = 0;
+  try {
+    due = dueToday(loadTodos(), now()).length;
+  } catch {
+    due = 0;
+  }
+  if (hr >= 17 || hr < 5) return due ? `${todoNeeds(due)}${bookNow() ? ' Shall we read after?' : ''}` : bookNow() ? 'Nothing needs you tonight. Shall we read?' : 'Nothing needs you tonight.';
   if (hr < 12) return 'Shall I brief you?';
-  return 'Nothing needs you right now.';
+  return due ? todoNeeds(due) : 'Nothing needs you right now.';
 }
 
 /** The book he is in (his reading places, newest first): its name, how far, when; null when none is on the go. */
@@ -189,6 +202,7 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
   kickL.addEventListener('click', () => void import('../../../shell/house').then((m) => m.housePlan()?.toggle()));
   const kickR = h('span.g-truth', 'You are home');
   const kick = h('div.scankick', { dataset: { case: 'keep' } }, kickL, kickR);
+  holdForFelt(kick); // [health] a long press on the house line: THAT FELT OFF
   const askHost = h('div.scanask');
   // the column over the world, under the greeting: what today's Home shows besides the world (the wall, the task at work, whose
   // voice, the readings), taken as they are; empty, it is nothing and the world is clear. Home's standing cards are one key away
@@ -385,8 +399,24 @@ export function scanHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption:
     e.preventDefault();
     pinch(e.deltaY < 0 ? 1.3 : 0.7);
   }, { passive: false });
-  // the orb: a tap on it is a way back to the world frame (and a poke)
+  // the orb: a tap on it is a way back to the world frame (and a poke). From the first press I say once, in one line, that the house
+  // line under it is the other way to every room (HOMEPASS: a hint that ends is not left as a silence)
+  const orbHint = h('p.g-truth.scanorbhint', { hidden: true, role: 'status', dataset: { case: 'keep' } }, PRESS_HINT);
+  top.insertBefore(orbHint, dayRow);
+  const orbPressed = (): void => {
+    try {
+      const n = Number(localStorage.getItem('ghosty.orbpresses') ?? '0') + 1;
+      localStorage.setItem('ghosty.orbpresses', String(n));
+      if (n === 1) {
+        orbHint.hidden = false;
+        setTimeout(() => (orbHint.hidden = true), 7000);
+      }
+    } catch {
+      /* storage blocked: the line is simply not said */
+    }
+  };
   orbHost.addEventListener('click', () => {
+    orbPressed();
     currentMind()?.poke();
     if (alt !== 'whole') goAlt('whole', 'place');
     else o.onBack();

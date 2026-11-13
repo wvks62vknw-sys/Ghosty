@@ -101,7 +101,7 @@ const closeSheet = (page) => page.evaluate(() => document.querySelector('.modal 
   await say(page, MONZO);
   await until(page, () => [...document.querySelectorAll('article.ccard')].some((c) => c.dataset.id?.startsWith('money:month:')), null, 20000, `[${W}] no month card after a pasted statement: ${await lastReply(page)}`);
   const m = await card(page, 'money:month:');
-  if (m && !/^October £[\d,]+ out$/.test(m.title)) problems.push(`[${W}] the month card's title: "${m.title}"`);
+  if (m && !/^October £[\d,]+\.\d{2} out$/.test(m.title)) problems.push(`[${W}] the month card's title: "${m.title}"`);
   if (m && m.line.split(' · ').length < 3) problems.push(`[${W}] the month card's line (the top five): "${m.line}"`);
   if (m && JSON.stringify(m.acts.map((x) => x.toUpperCase())) !== JSON.stringify(['OPEN SPENDING', 'ASK'])) problems.push(`[${W}] the month card's buttons: ${JSON.stringify(m.acts)}`);
   const shown = await page.evaluate(() => [...document.querySelectorAll('#pg-core .msg.me')].map((x) => x.textContent ?? '').join('\n'));

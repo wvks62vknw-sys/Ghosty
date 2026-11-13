@@ -44,8 +44,18 @@ import { listKept } from '../features/studio/catalog';
 import { benchInst, countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
 import { niceCase } from '../ui/components';
 import { convertTally } from '../convert/tally';
-import { convertInst, docsInst } from '../convert/inst';
+import { convertInst, docsInst, editorsInst, photoInst, sheetsInst, slidesInst, workspaceInst } from '../convert/inst';
 import { listDocs } from '../docs/store';
+import { listBooks } from '../sheets/store';
+import { listDecks } from '../slides/store';
+import { loadWorkspace } from '../workspace/store';
+import { isRow, live as livePages, titleOf as pageTitle } from '../workspace/model';
+import { videoInst } from '../video/inst';
+import { videoTally } from '../video/tally';
+import { gameInst } from '../studio-game/inst';
+import { comicInst } from '../features/comic/inst';
+import { comicState } from '../features/comic/state';
+import { info as studioInfo } from '../studio-game/hub';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
 import { allScores } from '../arcade/scores';
@@ -55,6 +65,12 @@ import { mmss } from '../../../../packages/shared/src/kitchen';
 import { bodyInst, coachInst, creativeInst, homeInst, houseInst, learningInst, linksInst, memoryInst, moneyInst, outsideInst, peopleInst, settingsInst, socialInst, systemInst, workInst } from '../ui/lifeinst';
 import { checkStorage, storageState } from '../features/system/storage';
 import { bodyState } from '../features/body/sheet';
+// [bodylane] the trackers kept on the phone: the Body card's line, and the water nudges started once the app is up
+let bodyTrack: typeof import('../features/body/track') | null = null;
+void import('../features/body/track').then((m) => {
+  bodyTrack = m;
+  m.startNudges();
+}).catch(() => undefined);
 import { CREATIVE_TITLES } from '../features/creative/sheet';
 import { saved as creativeSaved } from '../features/creative/draw';
 import { NEARS } from '../features/outside/sheet';
@@ -147,8 +163,24 @@ export const hubFacts = {
   learning: null as { streak: number; today: boolean; skills: number } | null,
   coach: null as { streak: number; today: boolean; passed: number } | null,
   social: null as { waiting: number; linked: boolean[] } | null,
+  /** PHOTO (BRIEF-EDITOR-PHOTO): the photos kept on this phone, from its own database (null until read). */
+  photos: null as { n: number; edited: number; last: string | null; at: number } | null,
 };
 const loadGym = every(3_000, async () => (hubFacts.gym = await gymStore.loadAll()));
+const loadPhotos = every(3_000, async () => {
+  const { listPhotos } = await import('../photo/store');
+  const all = await listPhotos();
+  hubFacts.photos = { n: all.length, edited: all.filter((p) => p.edited).length, last: all[0]?.name ?? null, at: all[0]?.at ?? 0 };
+});
+/** THE GAME STUDIO: his games kept on this phone, read from its own store into the tally the studio keeps (studio-game/hub.ts). */
+const loadStudioGames = every(3_000, async () => {
+  const { listGames } = await import('../studio-game/store');
+  const all = await listGames();
+  studioInfo.games = all.length;
+  studioInfo.last = all[0]?.name ?? '';
+  studioInfo.loaded = true;
+});
+const loadEditors = () => Promise.all([loadPhotos(), loadStudioGames()]);
 const loadArcade = every(3_000, async () => {
   const ready = await Promise.all(SHELF.map((e) => (fetched(e) ? isHere({ id: keptAs(e), data: e.data }) : true)));
   hubFacts.arcade = { here: ready.filter(Boolean).length };
@@ -297,6 +329,30 @@ const centred = (svg: Element, big: string, of: string, word: string) =>
   h('span.insc', svg, h('span.ctr', h('span', h('b.tnum', big, h('span.of', of)), h('small', word))));
 
 /* ------------------------------------------------------------------ the twenty tools */
+/** What lives on this phone across the editors (documents, spreadsheets, decks, workspace pages, photos, videos, games), and the newest one's name. */
+const editorsKept = (): { total: number; newest: string } => {
+  const all: { at: number; title: string }[] = [
+    ...listDocs().map((d) => ({ at: d.at, title: d.title })),
+    ...listBooks().map((b) => ({ at: b.at, title: b.title })),
+    ...listDecks().map((d) => ({ at: d.at, title: d.title })),
+    ...workspacePages().map((p) => ({ at: p.at, title: pageTitle(p) })),
+    // PHOTO's kept photos: counted from its own database (read by loadPhotos, which the card asks for)
+    ...Array.from({ length: hubFacts.photos?.n ?? 0 }, (_, i) => ({ at: i ? 0 : hubFacts.photos!.at, title: hubFacts.photos!.last ?? 'a photo' })),
+    // VIDEO's kept videos: counted from the tally its store keeps when a project is saved
+    ...Array.from({ length: videoTally()?.n ?? 0 }, (_, i) => ({ at: i ? 0 : videoTally()!.at, title: videoTally()!.last })),
+    // THE GAME STUDIO's kept games: counted from the tally the studio keeps (read from its store by loadEditors, which the card asks for)
+    ...Array.from({ length: studioInfo.games }, (_, i) => ({ at: 0, title: i ? 'a game' : studioInfo.last || 'a game' })),
+  ];
+  all.sort((a, b) => b.at - a.at);
+  return { total: all.length, newest: all[0]?.title ?? '' };
+};
+
+/** The pages of his workspace (not a database's rows), newest first. */
+const workspacePages = () => {
+  const w = loadWorkspace();
+  return livePages(w).filter((p) => !isRow(w, p)).sort((a, b) => b.at - a.at);
+};
+
 export const CARDS: Record<string, HubCard> = {
   core: {
     title: 'Talk to me',
@@ -462,6 +518,153 @@ export const CARDS: Record<string, HubCard> = {
       return all.length ? `${all.length} ${all.length === 1 ? 'document' : 'documents'} on this phone, the newest “${all[0]!.title}”` : '';
     },
     idle: 'No documents yet: start a new one, or open a file',
+  },
+  // [editors] MAKE → SPREADSHEETS (sheets/sheet.ts): budgets and lists with formulas that follow; kept on this phone
+  sheets: {
+    title: 'Budgets and lists',
+    status: () => 'READY',
+    instrument: sheetsInst,
+    readouts: () => {
+      const all = listBooks();
+      return [
+        { label: 'Kept here', value: all.length ? String(all.length) : null, none: 'None yet' },
+        { label: 'Last', value: all[0]?.title ?? null, none: '—' },
+      ];
+    },
+    why: () => (listBooks().length ? '' : 'Start with a household budget, or open an Excel file'),
+    say: () => {
+      const all = listBooks();
+      return all.length ? `${all.length} ${all.length === 1 ? 'spreadsheet' : 'spreadsheets'} on this phone, the newest “${all[0]!.title}”` : '';
+    },
+    idle: 'No spreadsheets yet: start a budget, or open a file',
+  },
+  // [editors] MAKE → PRESENTATIONS (slides/sheet.ts): decks from a report or from scratch, a talk with the notes in hand; kept on this phone
+  slides: {
+    title: 'Slides and talks',
+    status: () => 'READY',
+    instrument: slidesInst,
+    readouts: () => {
+      const all = listDecks();
+      return [
+        { label: 'Kept here', value: all.length ? String(all.length) : null, none: 'None yet' },
+        { label: 'Last', value: all[0]?.title ?? null, none: '—' },
+      ];
+    },
+    why: () => (listDecks().length ? '' : 'Make slides from a report, or open a PowerPoint file'),
+    say: () => {
+      const all = listDecks();
+      return all.length ? `${all.length} ${all.length === 1 ? 'deck' : 'decks'} on this phone, the newest “${all[0]!.title}”` : '';
+    },
+    idle: 'No slides yet: start from a report, or start blank',
+  },
+  // [editors] MAKE → THE WORKSPACE (workspace/sheet.ts): pages in pages, databases as boards and calendars, projects the brain reads whole; kept on this phone
+  workspace: {
+    title: 'Pages and projects',
+    status: () => 'READY',
+    instrument: workspaceInst,
+    readouts: () => {
+      const all = workspacePages();
+      return [
+        { label: 'Kept here', value: all.length ? String(all.length) : null, none: 'None yet' },
+        { label: 'Last', value: all[0] ? pageTitle(all[0]) : null, none: '—' },
+      ];
+    },
+    why: () => (workspacePages().length ? '' : 'Start a project, or start with a blank page'),
+    say: () => {
+      const all = workspacePages();
+      return all.length ? `${all.length} ${all.length === 1 ? 'page' : 'pages'} in my workspace, the newest “${pageTitle(all[0])}”` : '';
+    },
+    idle: 'No pages yet: start a project, or start blank',
+  },
+  // MAKE → PHOTO (features/photo): a non-destructive photo editor; the photos and their recipes are kept on this phone. Folded under the EDITORS card as a pill (shell/areadefs.ts), so MAKE draws no card of its own for it; the card stays in the one list like the other editors'
+  photo: {
+    title: 'Edit a photo',
+    status: () => 'READY',
+    instrument: photoInst,
+    load: loadPhotos,
+    readouts: () => {
+      const p = hubFacts.photos;
+      return [
+        { label: 'Kept here', value: p && p.n ? String(p.n) : null, none: 'None yet' },
+        { label: 'Last', value: p?.last ?? null, none: '—' },
+      ];
+    },
+    why: () => (hubFacts.photos?.n ? '' : 'Open a photo from your camera roll: your original is never touched'),
+    say: () => {
+      const p = hubFacts.photos;
+      return p && p.n ? `${p.n} ${p.n === 1 ? 'photo' : 'photos'} on this phone, ${p.edited} edited, the newest “${p.last}”` : '';
+    },
+    idle: 'No photos yet: open one from your camera roll',
+  },
+  // [editors] MAKE → EDITORS: the editors folded under one card past ten things in the room (shell/areadefs.ts); its pills open each, and its line counts what lives on this phone across them
+  editors: {
+    title: () => {
+      const n = editorsKept().total;
+      return n ? `${n.toLocaleString('en-GB')} ${n === 1 ? 'thing lives' : 'things live'} on this phone across them` : 'Write, calculate, present, plan: start any one';
+    },
+    status: () => 'READY',
+    instrument: editorsInst,
+    load: loadEditors,
+    readouts: () => {
+      const k = editorsKept();
+      return [
+        { label: 'Kept here', value: k.total ? String(k.total) : null, none: 'None yet' },
+        { label: 'Newest', value: k.newest || null, none: '—' },
+      ];
+    },
+    why: () => (editorsKept().total ? '' : 'Start with a letter, a budget, a deck or a project'),
+    say: () => {
+      const k = editorsKept();
+      return k.total ? `${k.total.toLocaleString('en-GB')} ${k.total === 1 ? 'thing' : 'things'} on this phone across my editors, the newest “${k.newest}”` : '';
+    },
+    idle: 'Nothing in the editors yet: start a letter, a budget, a deck or a project',
+  },
+  // [video] MAKE → VIDEO (video/screen.ts): the seventh full editor; the card reads the tally kept when a project is saved
+  video: {
+    title: 'Edit a video',
+    status: () => 'READY',
+    instrument: videoInst,
+    readouts: () => {
+      const t = videoTally();
+      return [
+        { label: 'Kept here', value: t ? String(t.n) : null, none: 'None yet' },
+        { label: 'Last', value: t ? t.last : null, none: '—' },
+      ];
+    },
+    why: () => (videoTally() ? '' : 'Add a clip from your phone and I’ll start a video'),
+    say: () => {
+      const t = videoTally();
+      return t ? `${t.n} ${t.n === 1 ? 'video' : 'videos'} on this phone, the newest “${t.last}”, ${t.len}` : '';
+    },
+    idle: 'No videos yet: add a clip and cut it here',
+  },
+  // [gamestudio] MAKE → THE GAME STUDIO (studio-game/): a 2-D game maker on the app's own engine; his games are kept on this phone
+  gamestudio: {
+    title: 'Make a game',
+    status: () => 'READY',
+    instrument: gameInst,
+    readouts: () => [
+      { label: 'Games', value: studioInfo.games ? String(studioInfo.games) : null, none: studioInfo.loaded ? 'None yet' : 'Not yet' },
+      { label: 'Last', value: studioInfo.last || null, none: '—' },
+    ],
+    why: () => (studioInfo.games ? '' : 'Pick a template and make one in a minute'),
+    load: async () => (await import('../studio-game/editor')).refreshInfo(),
+    say: () => (studioInfo.games ? `${studioInfo.games} ${studioInfo.games === 1 ? 'game' : 'games'} on this phone, the newest “${studioInfo.last}”` : ''),
+    idle: 'No games yet: pick a template, and make one in a minute',
+  },
+  // [comic] MAKE → COMIC (features/comic): his comics read, made, and fetched from the public domain; all kept on this phone
+  comic: {
+    title: 'Read and make comics',
+    status: () => 'READY',
+    instrument: comicInst,
+    readouts: () => [
+      { label: 'On the shelf', value: comicState.books ? String(comicState.books) : null, none: 'None yet' },
+      { label: 'Made', value: comicState.made ? String(comicState.made) : null, none: '—' },
+    ],
+    why: () => (comicState.books ? '' : 'Import a comic, get a free one, or make your own from an idea'),
+    load: async () => (await import('../features/comic/app')).countShelf(),
+    say: () => (comicState.books ? `${comicState.books} ${comicState.books === 1 ? 'comic' : 'comics'} on this phone, ${comicState.made} made by you` : ''),
+    idle: 'No comics yet: import one, get a free one, or make your own',
   },
   learn: {
     title: 'Learn anything',
@@ -671,10 +874,13 @@ export const CARDS: Record<string, HubCard> = {
     },
     why: () => 'Count your squats, or start a run',
     say: () => {
+      // [bodylane] today's water and last night's sleep, from the phone's own trackers, first (features/body/track.ts)
+      const mine = bodyTrack?.homeLine() ?? '';
       const b = hubFacts.body;
-      if (!b) return '';
-      if (!b.days) return 'Nothing logged this week: count some squats, or start a run';
-      return `${b.days} active ${b.days === 1 ? 'day' : 'days'} this week, ${fmt.n(b.reps)} ${b.reps === 1 ? 'rep' : 'reps'}${b.km ? `, ${b.km} km run` : ''}`;
+      if (!b) return mine;
+      if (!b.days) return mine || 'Nothing logged this week: count some squats, or start a run';
+      const week = `${b.days} active ${b.days === 1 ? 'day' : 'days'} this week, ${fmt.n(b.reps)} ${b.reps === 1 ? 'rep' : 'reps'}${b.km ? `, ${b.km} km run` : ''}`;
+      return mine ? `${mine} · ${week}` : week;
     },
     load: loadBody,
   },
@@ -1029,7 +1235,7 @@ export function hubWords(area: string): string {
 export function loadHubWords(area: string): Promise<unknown> {
   if (area === 'learn') return Promise.all([loadSchool(), loadGym()]);
   if (area === 'plan') return weather.refresh().catch(() => undefined);
-  if (area === 'make') return Promise.all([loadProjects(), loadKept(), loadReverse()]);
+  if (area === 'make') return Promise.all([loadProjects(), loadKept(), loadReverse(), loadPhotos()]);
   return Promise.resolve();
 }
 

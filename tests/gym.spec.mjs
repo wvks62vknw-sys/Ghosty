@@ -164,7 +164,10 @@ await page.screenshot({ path: `${out}/gym-page3.png` });
 if (engine !== 'webkit') {
   const box = await G('.gymcards').boundingBox();
   const cdp = await ctx.newCDPSession(page);
-  const y = Math.round(box.y + 90);
+  // (the middle of the part of the strip that is on screen: the Report card under the games makes the page longer, so the dot's tap
+  // scrolls the strip further up than it used to, and a fixed 90 px below its top can be above the screen)
+  const vh = await page.evaluate(() => innerHeight);
+  const y = Math.round((Math.max(box.y, 0) + Math.min(box.y + box.height, vh)) / 2);
   const finger = async (from, to) => {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from, y }] });
     for (let i = 1; i <= 10; i++) {
@@ -417,7 +420,7 @@ const seenBack = (ago) => page.evaluate((a) => new Promise((ok) => {
 await snapshotC4();
 // The first trick by taps on the real board: no four for the owner, a reason under the board after each of his moves,
 // and the page never freezes while he thinks (the worker does the thinking).
-await G('button', { hasText: 'NEW GAME' }).click();
+await G('button', { hasText: /NEW GAME|PLAY AGAIN/ }).click();
 await page.evaluate(() => {
   window.__ticks = [];
   clearInterval(window.__tick);
@@ -464,7 +467,7 @@ const oracle = (board) => page.evaluate((b) => new Promise((ok) => {
 }), board);
 let lostGame = null;
 for (let tries = 0; tries < 3 && !lostGame; tries++) {
-  await G('button', { hasText: 'NEW GAME' }).click();
+  await G('button', { hasText: /NEW GAME|PLAY AGAIN/ }).click();
   for (let i = 0; i < 21; i++) {
     const s0 = await st();
     if (s0.play.over) break;
@@ -846,7 +849,7 @@ const toList = async () => {
   await tap('maze');
   await until(() => window.__ghosty.gym.open === 'maze', 5000, 'ideas: the maze did not open');
   const edgeLine = async () => ((await G('.gymidea.edge .gymedgeline').textContent().catch(() => '')) ?? '').trim();
-  if ((await edgeLine()) !== 'Level 7½: puzzles he only just fails · solved 10 of his last 20') problems.push(`ideas: the maze's edge reads "${await edgeLine()}"`);
+  if ((await edgeLine()) !== 'Level 7½: puzzles I only just fail · solved 10 of my last 20') problems.push(`ideas: the maze's edge reads "${await edgeLine()}"`);
   // (the block is drawn afresh on every repaint: scroll its section, which stays)
   await G('section.gymideas').scrollIntoViewIfNeeded().catch(() => undefined);
   await page.screenshot({ path: `${out}/gym-ideas-edge.png` });
@@ -854,7 +857,7 @@ const toList = async () => {
   if (await until(() => (window.__ghosty.gym.edge.maze?.n ?? 0) >= 21, 15000, 'ideas: TRAIN did not make him try a puzzle at his edge')) {
     const e = (await st()).edge.maze;
     // one try from 7½ moves it a twentieth of a level: still a Level 7-and-a-bit puzzle
-    if (Math.abs(e.x - 7.5) > 0.11 || !/^Level 7(¼|½|¾)?: .+ · solved \d+ of his last 20$/.test(e.line)) problems.push(`ideas: after one more try the edge is ${e.x} ("${e.line}")`);
+    if (Math.abs(e.x - 7.5) > 0.11 || !/^Level 7(¼|½|¾)?: .+ · solved \d+ of my last 20$/.test(e.line)) problems.push(`ideas: after one more try the edge is ${e.x} ("${e.line}")`);
   }
   await G('button.gymtrain').click(); // PAUSE
   await wideCheck('ideas: the maze with its edge at 440 px');
@@ -872,7 +875,7 @@ const toList = async () => {
     if (!/^Rating \d[\d,]* · (up \d+|down \d+|no change)$/.test(onCard)) problems.push(`ideas: the tic-tac-toe card's rating reads "${onCard}"`);
     const line = ((await G('.gymidea.league .gymrateline').textContent()) ?? '').trim();
     if (line !== lg.line || !/^Rating \d[\d,]* · (up \d+|down \d+|no change) this week$/.test(line)) problems.push(`ideas: the league line reads "${line}"`);
-    const kept = ((await G('.gymidea.league small').first().textContent()) ?? '').trim();
+    const kept = ((await G('.gymidea.league small:not(.gymleaguehelp)').first().textContent()) ?? '').trim();
     if (!/^\d of 8 versions kept on this phone · \d+ KB$/.test(kept)) problems.push(`ideas: the versions line reads "${kept}"`);
     const verdict = ((await G('.gymidea.league small.verdict').textContent()) ?? '').trim();
     if (!/^Level \d+’s version (kept|thrown away): it scored [\d.]+ of \d+ against his/.test(verdict)) problems.push(`ideas: the decision reads "${verdict}"`);

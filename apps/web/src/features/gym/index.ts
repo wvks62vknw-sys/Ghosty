@@ -18,6 +18,8 @@
  * level-ups is one toast, and there is never more than one GYM toast on screen.
  */
 import { trainingPathRow } from './path';
+import { BOARD_NAMES, reportLine } from '../../arcade/games/board/rating';
+import { RATED_IDS } from '../../arcade/games/shelf6';
 import { clear, fmt, h, icon, svgEl } from '../../core/dom';
 import { heavy } from '../../core/heavy';
 import { onFrame } from '../../engine/scheduler';
@@ -42,6 +44,9 @@ import { ratedCardLine, ratedSection, leaveRated } from './chessrated';
 import { BOARDS, type Sel } from './play';
 import * as store from './store';
 import { sayError, trail } from '../../ui/hisWords';
+import { waiting as waitFor } from '../../ui/wait';
+import { phrases } from '../lifeui';
+import { AGAIN, LEAGUE_HELPER, MOVE_FAILED, NEW_GAME, overWords, PHRASES, TRAIN_CANNOT, TRAIN_FAILED, TRAIN_STOPPED, TRAIN_WAIT } from './words';
 
 /** What the tab shows, for tests and the console (window.__ghosty.gym). */
 export const gymState = {
@@ -307,16 +312,17 @@ export const gymTab: TabDef = {
           worker.onmessage = (e: MessageEvent) => onWorker(e.data as GymOut);
           worker.onerror = (e) => {
             trail(e, 'gym worker');
-            gymState.error = 'The training worker stopped.';
-            gymToast('The gym stopped: training could not run on this phone', 'bad');
+            gymState.error = TRAIN_STOPPED;
+            gymToast(TRAIN_STOPPED, 'bad');
             stopAll(false);
             training = null;
             gymState.training = '';
             paint();
           };
         } catch (e) {
-          gymState.error = sayError(e, 'run that');
-          gymToast('Training cannot run on this phone', 'bad');
+          void sayError(e, 'run that');
+          gymState.error = TRAIN_CANNOT;
+          gymToast(TRAIN_CANNOT, 'bad');
           return;
         }
       }
@@ -379,9 +385,10 @@ export const gymTab: TabDef = {
       if (!current(epochs, m.gym === 'error' ? m.id : m.rec.id, m.epoch)) return;
       if (m.gym === 'error') {
         // Training itself failed in the worker (and stopped there).
-        gymState.error = m.message || 'training failed';
-        gymState.log.push(`training error ${m.id}: ${gymState.error}`);
-        gymToast(`Training stopped: ${m.message}`, 'bad');
+        trail(m.message, 'gym training');
+        gymState.log.push(`training error ${m.id}: ${m.message || 'training failed'}`);
+        gymState.error = TRAIN_FAILED;
+        gymToast(TRAIN_FAILED, 'bad');
         if (training === m.id) {
           stopAll(false);
           training = null;
@@ -424,7 +431,7 @@ export const gymTab: TabDef = {
     // ======================= GAMES: the cards (made once, updated in place so a tap is never lost to a repaint)
     const cardsP = panel('GAMES', { cls: 'gymgames' });
     const cards = h('div.gymcards');
-    cardsP.body.append(cards);
+    cardsP.body.append(cards, phrases(PHRASES));
     // Each card (BRIEF-IRON-BUILD step 3): the game's picture as line-art (art.ts), its status word, the name and level,
     // the mastery meter with the pass mark's tick, and under it his rating (board games' league) or the next level's mark.
     const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; rate: HTMLElement; st: HTMLElement; lvl: HTMLElement; fill: HTMLElement; tick: HTMLElement; pct: HTMLElement; meter: HTMLElement; say?: HTMLElement }>();
@@ -537,6 +544,13 @@ export const gymTab: TabDef = {
     nowCard.after(h('div.gymall', lvlHead, lvlBars, allBtn, awakeSw.el, allStatus, trainingPathRow()));
     const gamesHead = h('div.gymsec', { dataset: { case: 'keep' } }, h('b', 'Games'), h('span'));
     cards.before(gamesHead);
+    // The REPORT CARD's board games (BRIEF-GAMES-5): a rating for you and one for Ghosty in each of the six he can lose to,
+    // the same Glicko-2 as the chess above. Search alone until trained; nothing learns on the phone.
+    const boardsHead = h('div.gymsec', { dataset: { case: 'keep' } }, h('b', 'Report card'), h('span', 'Board games'));
+    const boards = h('div.gymboards', { role: 'list', 'aria-label': 'Ratings in the six games he can lose to' });
+    const paintBoards = () => clear(boards, ...RATED_IDS.map((id) => h('div.gb', { role: 'listitem', dataset: { board: id } }, h('b', BOARD_NAMES[id]), h('span', reportLine(id)))), h('small.gbnote', 'In these six I search for my moves on this phone, move by move; the GYM’s training above does not reach them yet.'));
+    paintBoards();
+    cardsP.body.append(boardsHead, boards);
     // ======================= the game as a pushed screen (phones)
     const pushes = () => matchMedia('(max-width: 899px)').matches;
     let pushedGame = false;
@@ -564,6 +578,13 @@ export const gymTab: TabDef = {
     const gameP = panel('GAME', { cls: 'gymgame' });
     const learns = h('div.gymlearns');
     const status = h('div.gymstatus', { role: 'status', 'aria-live': 'polite' });
+    /** A training that stopped, said under the status in words (never the worker's own text), cleared when TRAIN is tapped again. */
+    const trainErr = h('p.gymtrainerr', { role: 'alert', hidden: true, dataset: { state: 'error', case: 'keep' } });
+    /** TRAIN's wait, said until the first results arrive (ui/wait.ts) and the progress it waits for. */
+    let trainWait: (() => void) | null = null;
+    let waitAt = 0;
+    /* state: gym.cards empty */
+    /* state: gym.cards loading */
     // Connect 4: what he says about your games — the last one, then the count (gym2)
     const saysLine = h('b');
     const saysCount = h('small');
@@ -615,10 +636,16 @@ export const gymTab: TabDef = {
     const ideas = h('section.gymideas');
     const board = h('div.gymboard');
     const secretIn = h('input', { placeholder: '', 'aria-label': 'Your secret', maxlength: '8', autocomplete: 'off', autocapitalize: 'off', spellcheck: false });
-    const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
+    // (an empty secret is said beside the box, never sent to be played)
+    const goSecret = () => {
+      const v = secretIn.value.trim();
+      if (!v) return void (secretIn.placeholder = 'Type your secret first');
+      void watch(v);
+    };
+    const secretGo = button('GO', goSecret, 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
-    gameP.body.append(hero, learns, status, says, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, ideas, chart, detail, secretRow, board);
+    gameP.body.append(hero, learns, status, trainErr, says, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, ideas, chart, detail, secretRow, board);
     P.left.append(cardsP.el);
     P.right.append(gameP.el);
 
@@ -734,6 +761,12 @@ export const gymTab: TabDef = {
         pushScreen({ back: 'Gym', label: niceCase(open.title), pop: popGame });
       }
       status.textContent = statusLine(r, open, training === open.id);
+      if (trainWait && (training !== open.id || gymState.progress > waitAt)) {
+        trainWait();
+        trainWait = null;
+      }
+      trainErr.hidden = !gymState.error || training === open.id;
+      trainErr.textContent = trainErr.hidden ? '' : gymState.error;
       says.hidden = open.id !== 'connect4';
       const c4 = gymState.c4;
       c4.screen = studying ? `You beat me at move ${studying.moves.length}. I’m studying it.` : screenLine(journal.c4);
@@ -762,7 +795,7 @@ export const gymTab: TabDef = {
         const bytes = lg.versions.reduce((t, v) => t + v.bytes, 0);
         const last = lg.verdicts.at(-1);
         parts.push(
-          h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
+          h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small.gymleaguehelp', LEAGUE_HELPER), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
         );
       }
       if (open.id === 'chess') parts.push(rated.el);
@@ -855,6 +888,8 @@ export const gymTab: TabDef = {
           (e: unknown) => {
             locking = false;
             note(sayError(e, 'keep the screen awake'));
+            // (the phone said no: the switch says so under its name, rather than staying on as if it worked)
+            awakeSw.set(prefs.awake, true, `${sayError(e, 'keep the screen awake')} Plug the phone in and keep it open instead.`);
           },
         );
       } else if (!wantAwake() && lock) {
@@ -970,6 +1005,10 @@ export const gymTab: TabDef = {
         held = '';
         const id = open.id;
         training = id;
+        gymState.error = '';
+        trainWait?.();
+        waitAt = gymState.progress;
+        trainWait = waitFor(gameP.body, TRAIN_WAIT);
         sendTrain(id);
       }
       paint();
@@ -1057,7 +1096,7 @@ export const gymTab: TabDef = {
         } else note(`study failed: ${m.error ?? 'no answer'}`);
         paint();
         // the finished game on the board gets its review
-        if (gymState.play.game === 'connect4' && gymState.play.over && open.id === 'connect4') paintPlay(gymState.play.over);
+        if (gymState.play.game === 'connect4' && gymState.play.over && open.id === 'connect4') paintPlay(overWords(gymState.play.over));
       });
       paint();
     };
@@ -1149,7 +1188,8 @@ export const gymTab: TabDef = {
     const round = async (id: string, loop: boolean, secret?: string) => {
       const m = await ask({ gym: 'watch', id, seed: Math.floor(Math.random() * 1e6), secret });
       if (m.error) {
-        clear(board, h('div.note.bad', `I couldn’t play that: ${m.error}`));
+        trail(m.error, 'gym watch');
+        clear(board, h('div.note.bad', 'I couldn’t play that one just now. Try WATCH again.'));
         if (watchOn === id) stopWatch();
         paint();
         return;
@@ -1244,7 +1284,7 @@ export const gymTab: TabDef = {
       const row = h('div.row.wrap.gymagain');
       if (choices && mine) for (const [label, mv] of choices) row.append(button(label, () => void ownerMove(mv), 'on'));
       if (big.extra && mine && !choices) row.append(button(big.extra.label, () => void ownerMove(big.extra!.move)));
-      row.append(button('NEW GAME', () => startPlay()));
+      row.append(button(pl.over ? AGAIN : NEW_GAME, () => startPlay(), pl.over ? 'on' : ''));
       clear(board, renderFrame(f, mine ? (i) => bigTap(i) : undefined), row);
       gymState.play.sel = sel.path.slice();
     };
@@ -1275,17 +1315,23 @@ export const gymTab: TabDef = {
       await afterOwner(`You played ${r.said}.`);
     };
     /** After the owner's move: is it over? If not, he answers. */
+    /** His move that could not be worked out: the worker's own text goes to the WHY trail, never to the board. */
+    const failedMove = (raw: string): string => {
+      trail(raw, 'gym move');
+      /* state: gym.cards error */
+      return MOVE_FAILED;
+    };
     const afterOwner = async (said: string) => {
       const big = BOARDS[open.id]!;
       const pl = gymState.play;
       pl.over = big.over(pl.board);
-      if (pl.over) return paintBig(pl.over);
+      if (pl.over) return paintBig(overWords(pl.over));
       pl.thinking = true;
       paintBig(`${said} Thinking…`);
       const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice() });
       pl.thinking = false;
       if (gymState.play !== pl) return;
-      if (m.error || m.move == null || m.move < -1) return paintBig(m.error ? `I couldn’t move: ${m.error}` : 'Your move.');
+      if (m.error || m.move == null || m.move < -1) return paintBig(m.error ? failedMove(m.error) : 'Your move.');
       const r = big.apply(pl.board, m.move);
       pl.board = r.state;
       last = r.cells;
@@ -1293,7 +1339,7 @@ export const gymTab: TabDef = {
       gymState.play.replies = (gymState.play.replies ?? 0) + 1;
       // his reason, when the move had one (a trick seen, a forced capture, mate)
       pl.why = m.why?.reason ?? '';
-      paintBig(pl.over ? `I played ${r.said}. ${pl.over}` : `I played ${r.said}.${pl.why ? ` ${pl.why}` : ''} Your move.`);
+      paintBig(pl.over ? `I played ${r.said}. ${overWords(pl.over)}` : `I played ${r.said}.${pl.why ? ` ${pl.why}` : ''} Your move.`);
     };
     const paintPlay = (caption: string) => {
       if (BOARDS[open.id]) return paintBig(caption);
@@ -1305,7 +1351,7 @@ export const gymTab: TabDef = {
       const said = done ? (studying === done ? `You beat me at move ${done.moves.length}. I’m studying it.` : screenLine(journal.c4)) : caption;
       const f = open.id === 'tictactoe' ? tttFrame(b, caption) : c4Frame(posFromBoard(b), said);
       const rvBox = rv.length ? h('div.gymreview', h('b', 'Review'), ...rv.map((x) => h('div', x.at ? h('span', `Move ${x.at}`) : null, h('i', x.text)))) : null;
-      clear(board, renderFrame(f, gymState.play.over || gymState.play.thinking ? undefined : (i) => void humanMove(i)), rvBox, h('div.row.wrap.gymagain', button('NEW GAME', () => startPlay())));
+      clear(board, renderFrame(f, gymState.play.over || gymState.play.thinking ? undefined : (i) => void humanMove(i)), rvBox, h('div.row.wrap.gymagain', button(gymState.play.over ? AGAIN : NEW_GAME, () => startPlay(), gymState.play.over ? 'on' : '')));
     };
     const outcome = (): string => {
       const b = gymState.play.board;
@@ -1329,14 +1375,14 @@ export const gymTab: TabDef = {
       pl.over = outcome();
       if (pl.over) {
         finishC4();
-        return paintPlay(pl.over);
+        return paintPlay(overWords(pl.over));
       }
       pl.thinking = true;
       paintPlay('Thinking…');
       const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice(), ...(gymState.limit ? { limit: gymState.limit } : {}) });
       pl.thinking = false;
       if (gymState.play !== pl) return;
-      if (m.error || m.move == null || m.move < 0) return paintPlay(m.error ? `I couldn’t move: ${m.error}` : 'Your move.');
+      if (m.error || m.move == null || m.move < 0) return paintPlay(m.error ? failedMove(m.error) : 'Your move.');
       if (open.id === 'tictactoe') pl.board[m.move] = 2;
       else {
         const p = posFromBoard(pl.board);
@@ -1349,13 +1395,14 @@ export const gymTab: TabDef = {
       finishC4();
       // his reason for the move, in his words ("I had to stop column 4."), kept with the game
       pl.why = m.why?.reason ?? '';
-      paintPlay(pl.over || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `I took square ${m.move + 1}. Your move.` : `I dropped in column ${m.move + 1}. Your move.`));
+      paintPlay((pl.over && overWords(pl.over)) || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `I took square ${m.move + 1}. Your move.` : `I dropped in column ${m.move + 1}. Your move.`));
     };
-    secretIn.addEventListener('keydown', (e) => e.key === 'Enter' && void watch(secretIn.value.trim()));
+    secretIn.addEventListener('keydown', (e) => e.key === 'Enter' && goSecret());
 
     // ======================= hidden app, or a paper being sat (heavy mode) → pause (and save); back → carry on
     const away = () => document.hidden || heavy.get().on;
     const onVisible = () => {
+      if (!document.hidden) paintBoards();
       note(`visibility ${document.visibilityState}${heavy.get().on ? ' · heavy' : ''}`);
       if (away() && training) {
         resumeOnShow = training;
@@ -1404,6 +1451,8 @@ export const gymTab: TabDef = {
     paint();
     // (Switches touched before the settings are read keep the owner's choice.)
     const fresh = { ...prefs };
+    // (until his records are read the cards are not yet his: said, never shown as wiped)
+    P.sub.textContent = 'Reading what I’ve learned…';
     ready = Promise.all([store.loadAll(), store.loadPrefs(), store.loadJournal()]).then(([all, kept, jr]) => {
       // (a game finished while this was loading is kept too)
       journal = { c4: [...jr.c4, ...journal.c4], seen: jr.seen ?? null };

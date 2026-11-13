@@ -7,7 +7,9 @@
  * The matchers are pure (the phrases registry reads `thatOne`); `thatOneTurn` is the handler (assistant/local.ts, in the table's
  * order). Each reply says in one line what it did with the selection ("The north wall: 3.2 m, how long?").
  */
-import { ESTIMATE, money, PARTS, isPart } from '../car/parts';
+import { ESTIMATE, money, PARTS, isPart, viewOf } from '../car/parts';
+import { engineModel, factsOf, partWords } from '../car/engine';
+import { carNow } from '../car/state';
 import { screenActs, screenContext } from '../shell/awareness';
 import { spaceHooks } from '../space/hooks';
 import type { Selected } from '../../../../packages/shared/src/awareness';
@@ -41,6 +43,14 @@ export async function thatOneTurn(text: string, opts: Opts, answer: Answer): Pro
     const { oneHooks } = await import('../features/lens/one');
     const said = oneHooks.act?.(that.act === 'read' ? 'read' : that.word);
     return said ? answer(text, said, { kind: 'pack' }, opts) : false;
+  }
+  // the car in 3-D: "what is this?" with a part lit is answered from its own sheet (and the numbers of this engine), with no model
+  if (that.act === 'lens' && that.word === 'what' && screen === 'studio' && sel?.kind === 'part' && isPart(sel.id)) {
+    const spec = carNow.get().spec;
+    const model = spec && viewOf(sel.id) === 'bay' ? engineModel(factsOf(spec)) : null;
+    const named = cap(sel.label.replace(/^the /i, ''));
+    const sheet = PARTS[sel.id];
+    return answer(text, `${partWords(model, sel.id, named.toLowerCase() === sheet.name.toLowerCase() ? '' : named)} A 30-second check: ${sheet.check.charAt(0).toLowerCase()}${sheet.check.slice(1)}`, { kind: 'pack' }, opts);
   }
   if (that.act === 'lens') return false;
   if (!sel) return false;

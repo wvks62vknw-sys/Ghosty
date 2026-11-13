@@ -4,10 +4,14 @@
  * street crime as police.uk publishes it (a count, never a forecast). "Nothing active" when nothing is. The brain looks
  * every hour (apps/edge/src/guardian.ts) and tells him what is new; CHECK NOW looks this minute.
  */
+import { openSafe } from '../../core/safeurl';
 import { brain } from '../../api/brain';
 import { guardian, loadGuardian, setGuardian } from '../../state/guardian';
 import { clear, h } from '../../core/dom';
 import { button, panel, row, toast } from '../../ui/components';
+import { go } from '../../shell/tabs';
+import { lacksSignal } from '../lifeui';
+import { NO_PLACES } from './words';
 import { clockIn, FEED_NAMES, watchLine, type GuardianInfo, type GuardWarning } from '../../../../../packages/shared/src/guardian';
 
 const SEV: Record<1 | 2 | 3, number> = { 1: 3, 2: 2, 3: 1 };
@@ -33,7 +37,10 @@ export function nearHomePanel(): { el: HTMLElement; refresh(): void } {
       b.disabled = false;
     }
   });
-  p.body.append(line, list, feeds, h('div.row', check));
+  // no saved place: the one next thing is to save his home, so that is the key (CHECK NOW has nothing to look at)
+  const save = button('SAVE MY HOME', () => void go('memory'), 'on');
+  save.hidden = true;
+  p.body.append(line, list, feeds, h('div.row', check, save));
 
   const warn = (w: GuardWarning, tz: string) => {
     const when = w.since > Date.now() ? `from ${clockIn(w.since, tz)}` : w.since ? `since ${clockIn(w.since, tz)}` : '';
@@ -42,18 +49,26 @@ export function nearHomePanel(): { el: HTMLElement; refresh(): void } {
 
   const paint = (info: GuardianInfo | null) => {
     if (!info) {
-      line.textContent = 'Checking…';
+      /* state: threats.nearhome loading */
+      line.textContent = lacksSignal() ? 'No signal, so I can’t check your places yet.' : 'Checking your places…';
+      line.dataset.state = lacksSignal() ? 'offline' : 'loading';
+      /* state: threats.nearhome offline */
       p.setStatus('Checking');
       return;
     }
-    line.textContent = watchLine(info);
+    delete line.dataset.state;
+    check.hidden = !info.places.length;
+    save.hidden = !!info.places.length;
+    /* state: threats.nearhome empty */
+    line.textContent = info.places.length ? watchLine(info) : NO_PLACES;
+    if (!info.places.length) line.dataset.state = 'empty';
     const active = info.places.reduce((n, x) => n + x.active.length, 0);
     p.setStatus(!info.places.length ? 'No places' : active ? `${active} active` : 'Quiet', active ? 'mid' : 'ok');
     const rows: HTMLElement[] = [];
     for (const pl of info.places) {
       if (!pl.active.length) rows.push(row(pl.label.toUpperCase(), `Nothing active near ${pl.label}.`, null, { wrap: true }));
       for (const w of pl.active) {
-        const r = row(pl.label.toUpperCase(), warn(w, info.tz), null, { wrap: true, sev: SEV[w.level], onClick: w.link ? () => window.open(w.link, '_blank', 'noopener') : undefined });
+        const r = row(pl.label.toUpperCase(), warn(w, info.tz), null, { wrap: true, sev: SEV[w.level], onClick: w.link ? () => openSafe(w.link) : undefined });
         r.dataset.feed = w.feed;
         rows.push(r);
       }
@@ -65,6 +80,9 @@ export function nearHomePanel(): { el: HTMLElement; refresh(): void } {
     }
     clear(list, ...rows);
     const bits = (['flood', 'weather', 'crime'] as const).map((f) => (info.failed[f] ? `${FEED_NAMES[f].source}: couldn’t be reached` : info.checked[f] ? `${FEED_NAMES[f].source} ${clockIn(info.checked[f]!, info.tz)}` : `${FEED_NAMES[f].source}: not yet`));
+    /* state: threats.nearhome error */
+    if (info.failed.flood || info.failed.weather || info.failed.crime) feeds.dataset.state = 'error';
+    else delete feeds.dataset.state;
     feeds.textContent = `Last looked: ${bits.join(' · ')}.`;
   };
 

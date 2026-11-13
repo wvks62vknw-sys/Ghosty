@@ -33,7 +33,7 @@ export function siteRow(info: SiteInfo): HTMLElement {
   const publish = () => {
     const s = savedSite(info.key);
     if (!s) return toast('That site is no longer on this phone.', 'bad');
-    if (!ui.get().connected || navigator.onLine === false) return toast('Not connected yet — try PUBLISH again when you are back online.', 'bad');
+    if (!ui.get().connected || navigator.onLine === false) return toast('I can’t reach my brain yet. Try PUBLISH again when you’re back online.', 'bad');
     void send(publishRequest(s), { cloud: true });
   };
   return h('div.row.siterow', button('PREVIEW', preview, 'on'), button('SAVE FILE', save), button('PUBLISH', publish));

@@ -90,6 +90,9 @@ async function signIn(ready) {
   // The service worker is blocked: once it controls the page (it claims it soon after the first load), the page's /api
   // requests no longer reach page.route, so the stand-in training status and paper files below would be bypassed by chance.
   const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 2, ...UK, serviceWorkers: 'block' });
+  // (13 Nov) No signal for the brain's own model: the phone's brain sits the papers, as this spec checks. Online sitting,
+  // in full working, is learnlane.spec's.
+  await ctx.route('**/api/school/sit-online', (r) => r.abort('internetdisconnected'));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   await page.addInitScript(engine, ready);
@@ -128,7 +131,7 @@ const before = (await page.evaluate(() => window.__ghosty?.school?.results)) ?? 
 await sec(page, 'Results');
 if (!before && !/Nothing sat yet/.test(await page.locator('#pg-school .schresults').textContent())) problems.push('RESULTS does not say nothing was sat yet');
 await sec(page, 'Weak spots');
-if (!before && !/Weak spots show after his first papers/.test(await page.locator('#pg-school .schweak').textContent())) problems.push('WEAK SPOTS does not explain itself before any paper');
+if (!before && !/Weak spots show after my first papers/.test(await page.locator('#pg-school .schweak').textContent())) problems.push('WEAK SPOTS does not explain itself before any paper');
 if (!/marked by the code[\s\S]*stronger model against the mark scheme/.test(await page.locator('#pg-school .schset').textContent())) problems.push('no honest note on how marking works');
 await sec(page, 'Ladder');
 await page.waitForTimeout(500);
@@ -188,7 +191,7 @@ if (picks.map((p) => p.id).join(',') !== STAGES.join(',')) problems.push(`placem
 if (picks.slice(0, 8).some((p) => p.off) || !picks[8].off) problems.push(`placement: nursery to university can be picked (Key Stage 3 up to write their papers), the library cannot: ${JSON.stringify(picks)}`);
 await page.locator('#pg-school .schpick button[data-stage="ks2"]').click();
 const goText = (await page.locator('#pg-school .schgo').textContent().catch(() => '')) ?? '';
-if (!/If he gets top grades, that stage and everything below it is done at once/.test(goText)) problems.push(`the placement does not say what it does: ${goText}`);
+if (!/If I get top grades, that stage and everything below it is done at once/.test(goText)) problems.push(`the placement does not say what it does: ${goText}`);
 await page.locator('#pg-school .schplace').scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/school-placement.png` });
@@ -427,7 +430,7 @@ await ctx.close();
   await page.waitForTimeout(500);
   await sec(page, 'This stage');
   const txt = await page.locator('#pg-school .schstage').textContent();
-  if (!/isn't on this phone yet/.test(txt)) problems.push(`[not downloaded] no plain words about the download: ${txt.slice(0, 200)}`);
+  if (!/isn['’]t on this phone yet/.test(txt) || !/Offline brain: \d+(\.\d+)? ?(MB|GB), on Wi-Fi/.test(txt)) problems.push(`[not downloaded] no plain words about the download, with its size: ${txt.slice(0, 200)}`);
   if (!(await page.locator('#pg-school .schstage button', { hasText: 'DOWNLOAD IT IN SETTINGS' }).isVisible())) problems.push('[not downloaded] no DOWNLOAD IT IN SETTINGS');
   if (!(await page.locator('#pg-school .schstage button', { hasText: 'SIT THE EXAM' }).isDisabled())) problems.push('[not downloaded] SIT THE EXAM is not disabled');
   await page.locator('#pg-school .schstage').scrollIntoViewIfNeeded();

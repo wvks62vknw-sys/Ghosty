@@ -4,12 +4,13 @@
 import { voiceTag } from './voicetag'; // [voiceknown] whose voice, on the talk bar
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
-import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { pillWords } from './pill';
+import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, toolWords, turn, type Entry } from '../../assistant/session';
 import { sfx } from '../../assistant/sfx';
 import { endIntent } from '../../../../../packages/shared/src/intent';
 import { CAT_WORDS } from '../../offline/trust';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
-import { heardOver, holdMic, interrupt, listen, micLevel, onMicReleased, primeSpeech, speak, speakIn, stopListening, talkHooks, voiceIn, voiceSupport } from '../../assistant/voice';
+import { heardOver, holdMic, interrupt, listen, micLevel, onCutOff, onMicReleased, primeSpeech, speak, speakIn, stopListening, talkHooks, voiceIn, voiceSupport } from '../../assistant/voice';
 import { languageName, OFFLINE_TRANSLATION_NOTE } from '../../offline/prompt';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
@@ -29,6 +30,8 @@ import { scanHome, type ScanHome } from './scan/home';
 import { inkHome, type InkHome } from './ink/home';
 import { mapHome, type MapHome } from './map/home';
 import { eyeHome, type EyeHome } from './eye/home';
+import { orbitHome, type OrbitHome } from './orbit/home';
+import { grownHome, type GrownHome } from './grown/home';
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
@@ -43,12 +46,22 @@ import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
 import { localRow } from './localcard';
+import { recallChip } from '../memory/recallcard';
+import { heldReply, verifyRow } from './verifycard'; // [health] "Setting it…", the tick, RETRY and SHOW ME
 import { holdForWhy, whyButton } from './why';
 import { holdOrb } from '../further/mindmap';
 import { siteRow } from './sitecard';
 import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
+import { orbSay } from './orbsay';
 import { sayError } from '../../ui/hisWords';
+import { key } from '../../ui/machine';
+import { argWords } from '../../../../../packages/shared/src/abilities';
+import { citedBody } from '../../cited/text';
+import { approvalAsk, approvalDone, CALLOUT, COPIED, COPY_FAILED, CUT_LABEL, dayWords, FIRST_OPEN, foldReply, NEWEST, NEWEST_LABEL, REST_OPEN, REST_SHUT, shareText, turnWords } from './words';
+import { NO_PICTURE_LABEL } from '../../show/words';
+import { MIC_BLOCKED, MIC_BROWSER, MIC_NONE, NO_SIGNAL, STILL_LISTENING_MS, TALK_WORDS, talkState } from '../../assistant/words';
+import type { CitedInfo } from '../../../../../packages/shared/src/protocol';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
@@ -69,6 +82,19 @@ const takeHere = (): boolean => {
   paintHere();
   return on;
 };
+/** The talk bar's two notes that outlast a tap (the microphone refused; the conversation ended on its own): drawn by `paintTalk` in mount(). */
+let micNote = '';
+let endedNote = false;
+let paintTalk = (): void => undefined;
+function micRefused(words: string): void {
+  micNote = words;
+  paintTalk();
+}
+function talkEnded(): void {
+  endedNote = true;
+  paintTalk();
+  setTimeout(() => ((endedNote = false), paintTalk()), 8000);
+}
 /** Listens in a row that heard nothing: after two (about 25 s of quiet) the conversation ends and the microphone goes off. */
 let quiet = 0;
 
@@ -144,7 +170,8 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
   // (a turn of an earlier conversation, finishing late, must not carry on in a later one)
   const live = () => conversation && id === convoId;
   if (!voiceSupport.mic && !voiceSupport.browserStt) {
-    toast('No microphone access in this browser', 'warn');
+    toast(MIC_BROWSER, 'warn');
+    micRefused(MIC_BROWSER);
     conversation = false;
     return;
   }
@@ -159,7 +186,8 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
     const here = settings.get().offlineBrain === 'always' || hereNext || peopleOpen();
     if (here && !voiceSupport.browserStt) {
       endConversation();
-      toast("I can't hear you on the phone alone in this browser: it has no speech recognition of its own. Type it instead.", 'warn');
+      toast(MIC_BROWSER, 'warn');
+      micRefused(MIC_BROWSER);
       return;
     }
     // The brain hears when its status says so (any status call since the app opened, not only CORE's own). The moment the
@@ -169,7 +197,8 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
     if (!text) {
       if (++quiet >= 2) {
         endConversation();
-        toast("I've stopped listening. Tap the mic when you want me.");
+        toast(TALK_WORDS.ended);
+        talkEnded();
         return;
       }
       if (live()) setTimeout(() => void voiceTurn(id), 300);
@@ -190,7 +219,10 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
     if (live()) void voiceTurn(id);
   } catch (e) {
     if (id === convoId) endConversation();
-    toast(sayError(e, 'finish that'), 'bad');
+    const said = sayError(e, 'finish that');
+    toast(said, 'bad');
+    // the microphone refused (by the browser, or by his Settings), or no signal to hear him with: said on the talk bar too, and kept there
+    if (said === MIC_BLOCKED || said === MIC_BROWSER || said === MIC_NONE || said === NO_SIGNAL) micRefused(said);
   }
 }
 
@@ -201,8 +233,11 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
  */
 export function listenNow(): void {
   if (conversation) return;
+  micNote = '';
+  endedNote = false;
   conversation = true;
   quiet = 0;
+  paintTalk();
   primeSpeech();
   // (not for a conversation kept on this phone: nothing of it goes to the brain, not even a hello)
   if (settings.get().offlineBrain !== 'always' && !hereNext) void brain.status().catch(() => undefined);
@@ -246,6 +281,7 @@ function endConversation(): void {
   holdMic(false);
   document.querySelector('#mic')?.classList.remove('on');
   ui.set({}); // repaints the state line: no longer READY
+  paintTalk();
 }
 
 /** A link to one of Ghosty's own pictures (made, or shared from the Lens): shown as the picture itself. */
@@ -257,7 +293,14 @@ function linked(text: string): HTMLElement {
   let last = 0;
   for (const m of text.matchAll(/https?:\/\/[^\s<>"')\]]+[^\s<>"')\].,;:!?]/g)) {
     out.append(text.slice(last, m.index));
-    if (PICTURE.test(m[0])) out.append(h('a.piccard', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, h('img', { src: m[0], alt: 'picture Ghosty made', loading: 'lazy' })));
+    if (PICTURE.test(m[0])) {
+      const pic = m[0];
+      out.append(h('a.piccard', { href: pic, target: '_blank', rel: 'noopener noreferrer' }, h('img', { src: pic, alt: 'picture Ghosty made', loading: 'lazy' })));
+      // EDIT IT (BRIEF-EDITOR-PHOTO): the picture opens in the photo editor, kept on this phone untouched
+      const edit = button('EDIT IT', () => void import('../../commands/registry').then(({ run }) => run('open_photo', { picture: pic })), 'piceditit');
+      edit.setAttribute('aria-label', 'Edit this picture in the photo editor');
+      out.append(edit);
+    }
     else out.append(h('a', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, m[0]));
     last = m.index! + m[0].length;
   }
@@ -284,13 +327,20 @@ function listenTap(b: HTMLElement, text: () => string): void {
     });
 }
 
-/** Under a reply: copy it, or hear it read aloud. */
-function replyActs(text: string): HTMLElement {
+const SHARE = '<path d="M12 15V4M8 7.5l4-4 4 4M5 12v6.5A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5V12"/>';
+/** A reply as plain words with its sources' addresses (a sourced one without its list and check line: they are said under the words). */
+const plainOf = (text: string, cited?: CitedInfo): string => shareText(cited ? citedBody(text) : text, cited?.citations);
+const copyWords = (words: string): void => void navigator.clipboard?.writeText(words).then(() => toast(COPIED, 'ok'), () => toast(COPY_FAILED, 'warn'));
+
+/** Under a reply: copy it as plain words, share it when the phone can, or hear it read aloud. */
+function replyActs(text: string, cited?: CitedInfo): HTMLElement {
   const copy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
-  copy.addEventListener('click', () => void navigator.clipboard?.writeText(text).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
+  copy.addEventListener('click', () => copyWords(plainOf(text, cited)));
   const hear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
-  hear.addEventListener('click', () => listenTap(hear, () => text));
-  return h('div.msgacts', copy, hear);
+  hear.addEventListener('click', () => listenTap(hear, () => (cited ? citedBody(text) : text)));
+  const share = typeof navigator.share === 'function' ? h('button.msgact.shareact', { type: 'button', 'aria-label': 'Share the reply', title: 'Share' }, icon(SHARE)) : null;
+  share?.addEventListener('click', () => void navigator.share({ text: plainOf(text, cited) }).catch(() => undefined));
+  return h('div.msgacts', copy, share, hear);
 }
 
 const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
@@ -320,6 +370,30 @@ function metaLine(e: Extract<Entry, { kind: 'assistant' }>, askedAt?: number): H
   return parts.length ? h('div.rcmeta', { dataset: { case: 'keep' } }, ...parts) : null;
 }
 
+/** The replies he has opened the rest of (by their time): the log is redrawn as things come in, and an open reply stays open. */
+const foldOpen = new Set<number>();
+/**
+ * A long reply folds past twelve lines (features/core/words.ts foldReply: never in the middle of a sentence) with "The rest" in a 44 pt
+ * key. A reply still being written is not folded (it would jump under his eyes); one cut off by the signal is folded like any other.
+ */
+function replyBody(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement[] {
+  const f = turn.get().phase === 'streaming' && chat.get().entries.at(-1) === e ? null : foldReply(e.text);
+  if (!f) return videoBody(e.text, linked);
+  const open = foldOpen.has(e.at);
+  const rest = h('span.foldrest', { hidden: !open }, ' ', ...videoBody(f.rest, linked));
+  const k = key(open ? REST_SHUT : REST_OPEN, (b) => {
+    const now = rest.hidden;
+    rest.hidden = !now;
+    if (now) foldOpen.add(e.at);
+    else foldOpen.delete(e.at);
+    b.querySelector('span')!.textContent = now ? REST_SHUT : REST_OPEN;
+    b.setAttribute('aria-expanded', String(now));
+  }, { kind: 'ghost', label: open ? 'Show less of the reply' : 'Show the rest of the reply' });
+  k.classList.add('foldkey');
+  k.setAttribute('aria-expanded', String(open));
+  return [...videoBody(f.head, linked), rest, h('div.foldrow', { dataset: { state: 'folded' } }, k)];
+}
+
 /** An ordinary reply: from the phone (a quiet chip says so), cited, or plain. */
 function plainReply(e: Extract<Entry, { kind: 'assistant' }>, askedAt?: number): HTMLElement {
   // A translation made on the phone with no signal: the language and "rough, offline", the translation, READ ALOUD in
@@ -338,7 +412,7 @@ function plainReply(e: Extract<Entry, { kind: 'assistant' }>, askedAt?: number):
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
   if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...citedReply(e.text, e.cited, linked));
   // Cut off: the owner interrupted while it was read out.
-  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', e.carried ? 'Cut off — carried on below' : 'Cut off — you interrupted') : null);
+  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...replyBody(e), e.cut ? h('span.cutchip', e.carried ? 'Cut off — carried on below' : 'Cut off — you interrupted') : null);
 }
 
 /**
@@ -409,9 +483,14 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       return h('div.msg.me', { 'data-at': String(e.at) }, h('small', settings.get().name.toUpperCase()), h('span', e.text));
     case 'assistant': {
       if (e.think) return renderThink(e);
+      if (e.held) return heldReply();
       const el = plainReply(e, askedAt);
+      // [health] what it did was read back: the tick, or RETRY and SHOW ME (verifycard.ts)
+      if (e.verify) el.append(verifyRow(e) ?? '');
       // Answered from what he knows of himself ("can you …?"): GO, DO IT, and the offer to learn it (localcard.ts).
       if (e.local) el.append(localRow(e) ?? '');
+      // [recall] "like you said on Tuesday": the RECALL chip opens that turn (features/memory/recallcard.ts)
+      else el.append(recallChip(e.text, e.at) ?? '');
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
       // [offline2] answered FIRST on this phone: ASK THE CLOUD, one tap; tapped, it stays above the cloud's answer, struck faintly
@@ -423,7 +502,7 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       const acts = h('div.rcacts');
       // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
       if (rateable(e)) acts.append(rateRow(e));
-      if (e.text && !e.offline) acts.append(replyActs(e.text));
+      if (e.text && !e.offline) acts.append(replyActs(e.text, e.cited));
       // WHY (OWNER-ISSUES 67d): what ran for this reply and why, from the chat's own trail (why.ts); a long press too
       if (!e.local) {
         (acts.querySelector('.msgacts') ?? acts).append(whyButton(e.at));
@@ -466,7 +545,15 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
         }
         return cool;
       }
-      const box = h('div.msg.err', h('small', e.ask ? 'KEPT ON THIS PHONE' : 'PROBLEM'), h('span', e.text));
+      /* state: core.ask error */
+      /* state: core.turn error */
+      const box = h('div.msg.err', { dataset: { state: e.note ? 'empty' : 'error' } }, h('small', e.note ? NO_PICTURE_LABEL : e.lost ? CUT_LABEL : e.ask ? 'KEPT ON THIS PHONE' : 'I COULDN’T'), h('span', e.text));
+      // A send that did not land: his words are still his; one tap sends them again (HOMEPASS: the ask bar's failed send)
+      if (e.retry) {
+        const again = button('RETRY', () => void send(e.retry!, { speak: settings.get().speak }), 'retry');
+        again.dataset.case = 'keep';
+        box.append(h('div.row', again));
+      }
       // A task kept on the phone that the phone could not do: the brain only by this tap, while it can be reached (OWNER-ISSUES 72).
       if (e.ask && ui.get().connected) {
         const ask = button('ASK THE BIG BRAIN', () => void askBigBrain(e.ask!), 'bigbrain');
@@ -476,9 +563,18 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       return box;
     }
     case 'approval': {
-      const box = h('div.approval', h('small', 'NEEDS YOUR APPROVAL'), h('b', e.reason));
-      if (e.state === 'waiting') box.append(h('div.row', button('APPROVE', () => void answerApproval(e.id, true), 'on'), button('DECLINE', () => void answerApproval(e.id, false), 'warn')));
-      else box.append(h('span.note', e.via === 'telegram' ? `${e.state === 'approved' ? 'Approved' : 'Not now'} on Telegram.` : e.state === 'approved' ? 'Approved.' : 'Declined.'));
+      // the exact thing asked, in words, above the two keys (and for a screen reader on each key)
+      const aw = argWords(e.args);
+      const thing = `${toolWords(e.name, e.args).replace(/[.:\s]+$/, '')}${aw ? ` (${aw})` : ''}`;
+      const box = h('div.approval', { dataset: { state: e.state } }, h('small', 'NEEDS YOUR APPROVAL'), h('b', e.reason), h('span.note.apthing', approvalAsk(thing)));
+      if (e.state === 'waiting') {
+        const yes = button('APPROVE', () => void answerApproval(e.id, true), 'on');
+        const no = button('DECLINE', () => void answerApproval(e.id, false), 'warn');
+        yes.setAttribute('aria-label', `Approve: ${thing}`);
+        no.setAttribute('aria-label', `Decline: ${thing}`);
+        for (const b of [yes, no]) b.classList.add('apkey');
+        box.append(h('div.row', yes, no));
+      } else box.append(h('span.note', approvalDone(e.state === 'approved', e.via)));
       return box;
     }
   }
@@ -489,6 +585,8 @@ let scanHud: ScanHome | null = null;
 let inkHud: InkHome | null = null;
 let mapHud: MapHome | null = null;
 let eyeHud: EyeHome | null = null;
+let orbitHud: OrbitHome | null = null;
+let grownHud: GrownHome | null = null;
 function homeContext(): ScreenContext {
   const live = chat.get().live.replace(/\s+/g, ' ').trim();
   // THE SCAN's Home says where he is (a word and a saved place's name, decided on the phone: scan/place.ts), never a coordinate
@@ -564,6 +662,7 @@ export const coreTab: TabDef = {
     onMicReleased(() => {
       conversation = false;
       mic.classList.remove('on');
+      paintTalk();
     });
     mic.addEventListener('click', () => {
       // Ghosty is talking: the tap cuts in and it listens (a conversation's loop listens next by itself).
@@ -573,6 +672,7 @@ export const coreTab: TabDef = {
         holdMic(false);
         stopListening();
         mic.classList.remove('on');
+        paintTalk();
         // [reader] the microphone let go just after he stopped a book: where we are, said once ("Page 48. I'll carry on from here.")
         void import('../library/reader').then((r) => r.micLetGo()).catch(() => undefined);
         return;
@@ -704,7 +804,9 @@ export const coreTab: TabDef = {
     });
     // Route C's Home (home.ts): the date and weather lines, the reactor framed by its four instruments, the
     // Today card and the two tiles.
-    const rwrap = h('div.rwrap', reactor.el);
+    // THE ORB SAYS WHAT IT IS (orbsay.ts): the first listening, thinking, speaking; the brain gone; the models cooling; the first press
+    const orbsay = orbSay();
+    const rwrap = h('div.rwrap', reactor.el, orbsay.el);
     // [further] a long hold on the orb opens MIND AS A MAP: what he knows, laid out by subject (features/further/mindmap.ts)
     holdOrb(rwrap);
     const rc = routeCHome(rwrap);
@@ -717,8 +819,56 @@ export const coreTab: TabDef = {
     const stamp = stampLine(() => stampFacts(lookingAt(homeContext())));
     stamp.el.classList.add('hstamp');
     guardian.subscribe(() => stamp.refresh());
+    // THE TALK BAR'S WORDS (assistant/words.ts): what the microphone and the voice are doing, in a line that reads without the animation,
+    // and STOP while I speak. Hidden when nothing is going on.
+    const talkStop = key('STOP', () => void interrupt('tap'), { kind: 'line', label: 'Stop me talking' });
+    const talkSay = h('span.tlsay');
+    const talkline = h('div#talkline', { role: 'status', 'aria-live': 'polite', hidden: true, dataset: { case: 'keep', state: 'idle' } }, talkSay, talkStop);
+    let listenSince = 0;
+    let liveAtListen = '';
+    let cutNote = false;
+    let cutAt = 0;
+    let quietTimer = 0;
+    paintTalk = () => {
+      const u = ui.get();
+      const live = chat.get().live;
+      const heard = u.voice === 'listening' && live.trim() !== '' && live !== liveAtListen;
+      // (the cut-in note stays through the moment between his voice cutting me off and the ear opening; it goes with his words or the next thing I say)
+      if (heard || u.voice === 'thinking' || (u.voice === 'speaking' && Date.now() - cutAt > 600)) cutNote = false;
+      // (a typed turn thinking is the turn line's to say; the talk bar speaks of the voice conversation only)
+      const voice = u.voice === 'thinking' && !conversation ? 'idle' : u.voice;
+      const st = talkState({ voice, heard, quietFor: u.voice === 'listening' ? Date.now() - listenSince : 0, cut: cutNote, refused: micNote, ended: endedNote });
+      /* state: core.talk error */
+      /* state: core.talk offline */
+      const words = st === 'refused' ? micNote : TALK_WORDS[st];
+      talkline.hidden = !words;
+      talkline.dataset.state = st;
+      if (talkSay.textContent !== words) talkSay.textContent = words;
+      talkStop.hidden = st !== 'speaking';
+      const on = u.voice === 'listening' || conversation;
+      mic.setAttribute('aria-pressed', String(on));
+      mic.setAttribute('aria-label', on ? 'Stop listening' : 'Talk by voice');
+    };
+    ui.subscribe((u, prev) => {
+      if (u.voice === 'listening' && prev.voice !== 'listening') {
+        /* state: core.talk loading */
+        liveAtListen = chat.get().live;
+        listenSince = Date.now();
+        clearTimeout(quietTimer);
+        quietTimer = window.setTimeout(paintTalk, STILL_LISTENING_MS + 60);
+      }
+      if (u.voice !== prev.voice) paintTalk();
+    });
+    chat.subscribe(() => paintTalk());
+    onCutOff((c) => {
+      if (c.how === 'voice') {
+        cutNote = true;
+        cutAt = Date.now();
+      }
+      paintTalk();
+    });
     const cbar = h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, hereBtn, mic);
-    const center = h('div.ccenter', stamp.el, stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, voiceTag(), cbar);
+    const center = h('div.ccenter', stamp.el, stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, voiceTag(), talkline, cbar);
     // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
     setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
     caption.append(capActs);
@@ -743,6 +893,7 @@ export const coreTab: TabDef = {
     setTimeout(placeChat, 0);
     // Touch the reactor: it answers with a pulse.
     reactor.el.addEventListener('pointerdown', (e) => reactor.poke(e));
+    reactor.onPress = () => orbsay.pressed(recipe().world);
     hud.append(rc.glowBox, left, center, right);
     // THE SCAN's Home (BRIEF-HUD-SCAN-1; scan/home.ts): the whole of it with the room inside, drawn when THE LOOK's world is The Scan.
     // Its frame takes the stamp line, the latest reply's line, the orb's wrap and the ask line as they are (one of each on Home).
@@ -760,37 +911,56 @@ export const coreTab: TabDef = {
     // it takes the stamp line and the orb's wrap as they are and gives them back when the look is another
     eyeHud = eyeHome({ orbWrap: rwrap, stamp: stamp.el, caption, mic: () => mic.click(), nextUp: () => nextUp, onBack: () => reactor.poke() });
     hud.append(eyeHud.el);
+    // ORBIT's Home (BRIEF-ORBIT-HUD; orbit/home.ts): the orb at the centre of its sky with the six rooms on a ring round it; it takes the
+    // stamp line and the orb's wrap as they are, reads the caption, and gives them back when the look is another (one of each on Home)
+    orbitHud = orbitHome({ orbWrap: rwrap, stamp: stamp.el, caption, nextUp: () => nextUp, onBack: () => reactor.poke() });
+    hud.append(orbitHud.el);
+    // GROWN UP's Home (BRIEF-GROWN-UP-HUD; grown/home.ts): the orb with its one ring, the hour's card and one row of chips; it takes the stamp line and
+    // the orb's wrap as they are, reads the caption, and gives them back when the look is another (one of each on Home)
+    grownHud = grownHome({ orbWrap: rwrap, stamp: stamp.el, caption, nextUp: () => nextUp });
+    hud.append(grownHud.el);
     const scanWanted = () => recipe().world === 'scan';
     const inkWanted = () => recipe().world === 'ink';
+    const orbitWanted = () => recipe().world === 'orbit';
+    const grownWanted = () => recipe().world === 'grown';
     hud.classList.toggle('scan', scanWanted());
     hud.classList.toggle('ink', inkWanted());
+    hud.classList.toggle('orbit', orbitWanted());
+    hud.classList.toggle('grown', grownWanted());
     recipeEvents.on('change', () => {
       const on = scanWanted();
       hud.classList.toggle('scan', on);
       hud.classList.toggle('ink', inkWanted());
+      hud.classList.toggle('orbit', orbitWanted());
+      hud.classList.toggle('grown', grownWanted());
       if (ui.get().tab !== 'core') return;
       // (one look gives the parts back before the next takes them)
       if (on) {
         inkHud?.leave();
         mapHud?.leave();
         eyeHud?.leave();
+        orbitHud?.leave();
+        grownHud?.leave();
         scanHud?.enter();
       } else {
         scanHud?.leave();
         if (inkWanted()) {
           mapHud?.leave();
           eyeHud?.leave();
+          orbitHud?.leave();
+          grownHud?.leave();
           inkHud?.enter();
         } else {
           inkHud?.leave();
-          if (recipe().world === 'map') {
-            eyeHud?.leave();
-            mapHud?.enter();
-          } else {
-            mapHud?.leave();
-            if (recipe().world === 'eye') eyeHud?.enter();
-            else eyeHud?.leave();
-          }
+          const w = recipe().world;
+          if (w !== 'map') mapHud?.leave();
+          if (w !== 'eye') eyeHud?.leave();
+          if (w !== 'orbit') orbitHud?.leave();
+          if (w !== 'grown') grownHud?.leave();
+          if (w === 'map') mapHud?.enter();
+          else if (w === 'eye') eyeHud?.enter();
+          else if (orbitWanted()) orbitHud?.enter();
+          else if (grownWanted()) grownHud?.enter();
         }
       }
     });
@@ -803,7 +973,13 @@ export const coreTab: TabDef = {
       const files = [...(e.dataTransfer?.files ?? [])];
       if (!files.length) return;
       e.preventDefault();
-      void import('../../convert/sheet').then((s) => s.openConvert(files));
+      // [video] "cut this video": a clip dropped on the chat opens the video editor with it in (video/screen.ts); the rest go to the converter
+      void import('../../video/screen').then((v) => {
+        const clips = files.filter(v.isVideoFile);
+        if (clips.length === files.length) return void v.openVideo(clips);
+        void import('../../convert/sheet').then((s) => s.openConvert(files.filter((f) => !v.isVideoFile(f))));
+        if (clips.length) void v.openVideo(clips);
+      });
     });
 
     // The caption shows the latest exchange, then fades 25 s after Ghosty has finished (it stays
@@ -822,7 +998,7 @@ export const coreTab: TabDef = {
     caption.addEventListener('click', (e) => !(e.target as HTMLElement).closest('button') && chat.set({ live: '' }));
     // the reply card's own actions: copy, listen (then "Continue in chat", placed by placeChat)
     const capCopy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
-    capCopy.addEventListener('click', () => void navigator.clipboard?.writeText(chat.get().live).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
+    capCopy.addEventListener('click', () => copyWords(chat.get().live));
     const capHear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
     capHear.addEventListener('click', () => listenTap(capHear, () => chat.get().live));
     capActs.append(capCopy, capHear);
@@ -862,6 +1038,53 @@ export const coreTab: TabDef = {
       typing = requestAnimationFrame(step);
     };
     let lastSent = -1;
+    let lastSig = '';
+    let unseen = false;
+    /** The key that brings him to the newest message, shown only while something landed that he has not seen. */
+    const newest = key(NEWEST, () => {
+      log.scrollTop = log.scrollHeight;
+      unseen = false;
+      newest.remove();
+    }, { kind: 'fill', label: NEWEST_LABEL });
+    newest.classList.add('newestkey');
+    log.addEventListener('scroll', () => {
+      if (unseen && log.scrollHeight - log.scrollTop - log.clientHeight < 80) {
+        unseen = false;
+        newest.remove();
+      }
+    }, { passive: true });
+    /** The first open: his name, what to do in one sentence, and three things he can say (each one a key that sends it). */
+    const firstOpen = (): HTMLElement => {
+      /* state: core.log empty */
+      /* state: core.log offline */
+      const offline = ui.get().connected === false || navigator.onLine === false;
+      const tries = (offline ? FIRST_OPEN.offlineTries : FIRST_OPEN.tries).map((t) => key(t, () => void send(t, { speak: settings.get().speak, here: takeHere() }), { kind: 'line', label: `Ask: ${t}` }));
+      return h('div.logfirst', { dataset: { state: 'empty' } }, h('p.note.logidle', `Here, ${settings.get().name.trim() || 'Boss'}.`), h('p.logsay', offline ? FIRST_OPEN.offlineSay : FIRST_OPEN.say), h('div.logtries', ...tries));
+    };
+    /** The one line under his words while a turn is at work (and, once he stops it, where it stays): its phase and the narration's own words. */
+    const paintTurn = () => {
+      const words = turnWords(turn.get().phase, ui.get().status);
+      let el = log.querySelector<HTMLElement>(':scope > .turnline');
+      if (!words) el?.remove();
+      else {
+        /* state: core.turn loading */
+        const atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+        if (!el) el = h('p.turnline', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep', state: 'loading' } });
+        el.dataset.phase = turn.get().phase;
+        if (el.textContent !== words) el.textContent = words;
+        if (log.lastElementChild !== el) log.append(el);
+        if (atEnd) log.scrollTop = log.scrollHeight;
+      }
+      if (unseen) log.append(newest);
+      else newest.remove();
+    };
+    // [ci] The line is painted on the next frame, once, however many times the turn moves before it: painting it there and then
+    // read the log's height straight after a change (a forced layout) inside the brain's event, before the reply was handed to the
+    // voice, and so delayed his first spoken word (FINAL-CI 1). The frame comes before anything is drawn, so nothing flickers.
+    let turnFrame = 0;
+    const paintTurnSoon = () => {
+      if (!turnFrame) turnFrame = requestAnimationFrame(() => ((turnFrame = 0), paintTurn()));
+    };
     const paintLog = () => {
       // a plan card goes under the reply it came with (homecard.ts)
       const shown = homeAfterReply(chat.get().entries.slice(-40));
@@ -897,9 +1120,8 @@ export const coreTab: TabDef = {
           if (k !== day) {
             flush();
             day = k;
-            const ago = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 864e5);
-            // "Today 18:31": the day, and the time of its first message
-            els.push(h('div.daysep', `${ago === 0 ? 'Today' : ago === 1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })} ${fmt.time(d)}`));
+            // "Today 18:31", "Yesterday 09:05", "Monday 07:40": the day as he says it (words.ts), and the time of its first message
+            els.push(h('div.daysep', `${dayWords(at)} ${fmt.time(d)}`));
           }
         }
         if (e.kind === 'activity') {
@@ -914,7 +1136,7 @@ export const coreTab: TabDef = {
       });
       flush();
       // An empty conversation reads as someone already there (OWNER-ISSUES 67a): his name, nothing to choose from.
-      if (!els.length) els.push(h('p.note.logidle', `Here, ${settings.get().name.trim() || 'Boss'}.`));
+      if (!els.length) els.push(firstOpen());
       clear(log, ...els);
       // copy / listen only under the latest reply
       [...log.querySelectorAll('.msg:not(.me)')].at(-1)?.classList.add('latest');
@@ -925,8 +1147,17 @@ export const coreTab: TabDef = {
         if (n?.matches('.msg:not(.me)')) n.append(h('span.memchip', 'Remembered'));
       }
       placeChat();
+      // a reply landing while he reads older turns leaves the page where it is, and a "newest" key says there is more
+      const sig = `${shown.length}:${shown.at(-1) && 'text' in shown.at(-1)! ? (shown.at(-1) as { text: string }).text.length : 0}`;
+      if (atEnd || sent !== lastSent) unseen = false;
+      else if (sig !== lastSig) unseen = true;
+      lastSig = sig;
       if (atEnd || sent !== lastSent) log.scrollTop = log.scrollHeight;
       lastSent = sent;
+      // (the log is itself drawn in a frame now, or for his own words: the line goes back in the same paint, never a frame later)
+      cancelAnimationFrame(turnFrame);
+      turnFrame = 0;
+      paintTurn();
       reveal(chat.get().live);
       paintCapRate();
       armFade();
@@ -936,13 +1167,30 @@ export const coreTab: TabDef = {
     };
     const paintCapRate = () => {
       const last = chat.get().entries.at(-1);
-      const done = !!chat.get().live && !ui.get().busy && last?.kind === 'assistant';
+      // (done: the turn is over AND the reply has been said. While it is read out the caption keeps no keys: in The Scan the caption
+      // lies over the orb, and THAT FELT OFF, beside the thumbs, sat on the orb's centre, so his tap to silence me opened its sheet)
+      const done = !!chat.get().live && !ui.get().busy && ui.get().voice !== 'speaking' && last?.kind === 'assistant';
       clear(capRate, ...(done && rateable(last) ? [rateRow(last)] : []),
         // [offline2] the reply card carries ASK THE CLOUD too, under an answer the phone gave first
         ...(done && last.first && !last.struck && last.text && ui.get().connected !== false ? [h('div.row.askrow', askCloudButton(last.at))] : []));
     };
-    ui.subscribe((u, prev) => void (u.busy !== prev.busy && paintCapRate()));
-    chat.subscribe(paintLog);
+    ui.subscribe((u, prev) => void ((u.busy !== prev.busy || (u.voice === 'speaking') !== (prev.voice === 'speaking')) && paintCapRate()));
+    turn.subscribe(paintTurnSoon);
+    ui.subscribe((u, prev) => void (u.status !== prev.status && paintTurnSoon()));
+    // [ci] What the conversation holds is drawn once a frame: a reply landing moves the conversation two or three times in a row (the
+    // reply, its steps settled, the turn's end), and each whole repaint of the log, there and then, held up the clip the voice had
+    // just asked for, so his first spoken word came later (FINAL-CI 1). His own words, just sent, are drawn there and then.
+    let logFrame = 0;
+    chat.subscribe((s) => {
+      // (his newest message, even when its answer came in the same breath: the reader and the phone's own answers add both at once;
+      // and anything answered on the phone with no turn at work, such as "orbit": its line is there the moment its effect is)
+      const newest = s.entries.findLast((e) => e.kind === 'user');
+      if ((newest && newest.at !== lastSent) || !ui.get().busy) {
+        cancelAnimationFrame(logFrame);
+        logFrame = 0;
+        paintLog();
+      } else if (!logFrame) logFrame = requestAnimationFrame(() => ((logFrame = 0), paintLog()));
+    });
     canThink.subscribe(paintLog);
     settings.subscribe((st, prev) => st.offlineBrain !== prev.offlineBrain && paintLog());
     recheckThink();
@@ -953,8 +1201,12 @@ export const coreTab: TabDef = {
       if (!ui.get().busy) stark.task(null); // nothing to show between turns (a tool left running by a broken turn is marked stopped in session.ts, so paintLog never picks it up again)
       const s = ui.get();
       reactor.state = s.busy && s.voice !== 'speaking' ? 'thinking' : s.voice;
-      stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? (s.status || 'PROCESSING').toUpperCase().slice(0, 48) : s.connected === false ? 'OFFLINE' : conversation ? 'READY' : 'ONLINE';
+      // (one state at a time: speaking, then listening, then the work in hand, then the line; a long status is cut at a word, never in one)
+      stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? pillWords(s.status || 'PROCESSING') : s.connected === false ? 'OFFLINE' : conversation ? 'READY' : 'ONLINE';
+      stateLabel.dataset.state = s.voice === 'speaking' ? 'speaking' : s.voice === 'listening' ? 'listening' : s.busy ? 'busy' : s.connected === false ? 'offline' : 'ready';
       // route C draws it as a pill: the accent while live, amber when the brain can't be reached
+      // the old 2-D stand-in and the flat Mind go low with the brain gone (styles.css canvas.reactor[data-low]); MIND's own grey is mind.ts
+      reactor.el.dataset.low = s.connected === false ? '1' : '';
       stateLabel.dataset.tone = s.connected === false && !s.busy && s.voice !== 'speaking' ? 'warn' : 'live';
     };
     ui.subscribe(paintState);
@@ -999,7 +1251,9 @@ export const coreTab: TabDef = {
       const model = lastModel && lastModel.kind === 'assistant' ? lastModel.model ?? '' : '';
       const ms = await latency().catch(() => null);
       note({ id: 'ai', label: 'AI LINK', value: model ? model.replace(/ · /, ' ▸ ').slice(0, 30) : 'STANDING BY', tone: 'ok' });
-      note({ id: 'uplink', label: 'UPLINK', value: ms === null ? 'OFFLINE' : `${navigator.onLine ? 'SECURE' : 'LOCAL'} · ${ms} MS`, tone: ms === null ? 'bad' : ms > 800 ? 'warn' : 'ok' });
+      /* state: core.hud error */
+      /* state: core.hud offline */
+      note({ id: 'uplink', label: 'UPLINK', value: ms === null ? (navigator.onLine === false ? CALLOUT.uplinkNoSignal : CALLOUT.uplinkDead) : `${navigator.onLine ? 'SECURE' : 'LOCAL'} · ${ms} MS`, tone: ms === null ? 'bad' : ms > 800 ? 'warn' : 'ok' });
       const w = weather.data;
       const sky = w ? WMO(w.current.weather_code).slice(0, 14) : '';
       note({ id: 'env', label: home().name.toUpperCase().slice(0, 18), value: `${fmt.time(new Date())}${w ? ` · ${temp(w.current.temperature_2m)} ${sky.toUpperCase()}` : ''}`, glance: w ? `${fmt.time(new Date())} · ${temp(w.current.temperature_2m)} ${sky}` : undefined });
@@ -1007,12 +1261,12 @@ export const coreTab: TabDef = {
       // (CHECKING / CAN'T CHECK, when the feeds cannot be read, is not a green all-clear)
       note({ id: 'threat', label: 'THREAT', value: lv.label, tone: !lv.known ? 'warn' : lv.n >= 2 ? 'bad' : lv.n === 1 ? 'warn' : 'ok' });
       const bat = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> }).getBattery?.().catch(() => null);
-      stark.set({ id: 'power', label: 'POWER', value: bat ? `${Math.round(bat.level * 100)}%${bat.charging ? ' · CHARGING' : ''}` : 'ARC · 3 GW', tone: bat && bat.level < 0.15 && !bat.charging ? 'warn' : 'ok' });
+      stark.set({ id: 'power', label: 'POWER', value: bat ? `${Math.round(bat.level * 100)}%${bat.charging ? ' · CHARGING' : ''}` : CALLOUT.powerNone, tone: bat && bat.level < 0.15 && !bat.charging ? 'warn' : 'ok' });
       // The library size changes slowly: ask every 5 minutes, not on every 15-second repaint (each ask is database reads).
       if (Date.now() - libAt > 300_000) {
         libAt = Date.now();
         const lib = await brain.library().catch(() => null);
-        libText = lib ? `${fmt.n(lib.stats.passages)} PASSAGES` : 'OFFLINE';
+        libText = lib ? `${fmt.n(lib.stats.passages)} PASSAGES` : CALLOUT.libraryDead;
       }
       stark.set({ id: 'library', label: 'LIBRARY', value: libText });
       // What is next today, for the glance under the reactor (asked every 5 minutes, like the library).
@@ -1026,6 +1280,8 @@ export const coreTab: TabDef = {
         inkHud?.refresh();
         mapHud?.refresh();
         eyeHud?.refresh();
+        orbitHud?.refresh();
+        grownHud?.refresh();
         scanHud?.refresh();
       }
     };
@@ -1063,6 +1319,8 @@ export const coreTab: TabDef = {
         else if (recipe().world === 'ink') inkHud?.enter();
         else if (recipe().world === 'map') mapHud?.enter();
         else if (recipe().world === 'eye') eyeHud?.enter();
+        else if (recipe().world === 'orbit') orbitHud?.enter();
+        else if (recipe().world === 'grown') grownHud?.enter();
         // back on the reactor with the conversation still open: the bar says so again
         if (hud.classList.contains('logopen')) setTimeout(() => pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) }), 0);
         void paintCallouts();
@@ -1087,6 +1345,8 @@ export const coreTab: TabDef = {
         inkHud?.leave();
         mapHud?.leave();
         eyeHud?.leave();
+        orbitHud?.leave();
+        grownHud?.leave();
       },
       describe: () => `Core screen. Last thing said: ${chat.get().live.slice(0, 160)}`,
       // (BRIEF-AWARENESS) the home screen and my last words, so "that" has something to mean here

@@ -37,6 +37,9 @@ const ENGINES_3D = new Set(['quake', 'voxel', 'runner', 'kart', 'hopper', 'arena
 
 /** What the d-pad moves in: the keyboard, else the top sheet or the deck, else the page with its bars. */
 function layer(): HTMLElement {
+  // [wall] a screen that is the wall has its own two keys and nothing else to move between
+  const wall = document.getElementById('thewall');
+  if (wall) return wall;
   const kb = keyboardOpen();
   if (kb) return kb;
   const sheets = [...document.querySelectorAll<HTMLElement>('.modal, #deck.on, #mesheet.on, .sheet.on, [role="dialog"]:not([hidden])')].filter((e) => e.getClientRects().length);

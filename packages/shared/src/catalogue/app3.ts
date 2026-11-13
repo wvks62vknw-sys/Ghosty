@@ -83,6 +83,11 @@ export const APP_3: Record<string, CatValue> = {
     more: 'Up to ten people, each gone by name with UNDO. I never guess a name: a voice that matches none of them is just a voice I don’t know.',
     say: ['Learn Sam’s voice'], scene: ['talking', 'phone'], cat: 'talk', since: '2026-11-07',
   },
+  'panel:settings:WORKSPACE': {
+    name: 'Where your workspace is kept', line: 'You can see that your workspace lives on this phone, and when its sealed copy was last taken.',
+    more: 'The brain keeps only the sealed copy from the daily backup and cannot open it.',
+    say: ['Where is my workspace kept?'], scene: ['phone', 'behind'], cat: 'do',
+  },
   'panel:settings:ABOUT': {
     name: 'Which version I am', line: 'You can see which version of me this is and when it was built.',
     more: 'The Me sheet says whether a newer version is ready.',
@@ -140,6 +145,12 @@ export const APP_3: Record<string, CatValue> = {
     name: 'Make more space', line: 'You can ask me for up to three better layouts of your room, each with what it frees up.',
     more: 'Moves only what can move, and keeps the walkways clear.',
     say: ['Make more space in my bedroom'], scene: ['making'], cat: 'build',
+  },
+  'panel:space:MATERIALS': {
+    name: 'Paint, flooring and wallpaper', line: 'You can see how much paint, flooring, skirting and wallpaper the rooms on your plan take.',
+    more: 'Two coats on the walls and ceilings in tins you can buy, flooring with 10% over for cuts, doors and windows taken off. A first estimate to shop with, never a quote.',
+    say: ['(open SPACE and read MATERIALS)'], scene: ['making', 'money'], cat: 'build',
+    since: '2026-11-13',
   },
   'panel:space:MEASURED': {
     name: 'Sizes from the camera', line: 'You can bring in the sizes you measured with the Lens and use them in the plan.',
@@ -354,7 +365,7 @@ export const APP_3: Record<string, CatValue> = {
   },
   "panel:workshop:WHAT'S NEW": {
     name: 'What’s new this week', line: 'You can read what changed in me this week, in plain words, once per update.',
-    more: 'At the top of the Workshop when something new has landed.',
+    more: 'At the top of the Workshop: this week’s first, earlier ones behind a key, and a line when nothing is new.',
     say: ['What’s new?'], scene: ['behind'], cat: 'do',
     since: '2026-10-23',
   },

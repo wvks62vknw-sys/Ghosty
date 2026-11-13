@@ -6,7 +6,10 @@
  */
 import type { TabDef } from '../../shell/tabs';
 import { cardBig, cardLoad, cardNow } from '../../shell/cardline';
+import { h } from '../../core/dom';
 import { sheetPage } from '../../ui/sheetpage';
+import { phrases } from '../lifeui';
+import { PHRASES } from './words';
 
 export const houseTab: TabDef = {
   id: 'house',
@@ -22,14 +25,14 @@ export const houseTab: TabDef = {
       sub: 'Your house as Home Assistant has it, room by room. Locks, alarms, gates and garage doors ask your confirm every time.',
       big: () => cardBig('house'),
       load: () => cardLoad('house'),
-      // the rooms on screen (Home Assistant's areas, by their own names): how many, and the first few
+      // the rooms on screen (Home Assistant's areas, by their own names; PINNED is not a room): how many, and the first few
       also: () => {
-        const rooms = [...document.querySelectorAll<HTMLElement>('#pg-house .houseroom')].map((r) => r.getAttribute('aria-label') ?? '').filter(Boolean);
+        const rooms = [...document.querySelectorAll<HTMLElement>('#pg-house .houseroom:not(.housepins)')].map((r) => r.getAttribute('aria-label') ?? '').filter(Boolean);
         return rooms.length ? `${rooms.length} ${rooms.length === 1 ? 'room' : 'rooms'}: ${rooms.slice(0, 3).join(', ')}` : 'no rooms yet';
       },
       sections: async () => {
         const m = await import('../../house/sheet');
-        return [{ id: 'house', label: 'House', parts: [{ title: m.HOUSE_TITLE, build: m.houseScreen }] }];
+        return [{ id: 'house', label: 'House', parts: [{ title: m.HOUSE_TITLE, build: () => { const s = m.houseScreen(); return { el: h('div', s.el, phrases(PHRASES)), stop: s.stop }; } }] }];
       },
     }),
 };

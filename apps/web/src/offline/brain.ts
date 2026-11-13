@@ -468,6 +468,9 @@ async function guarded<T>(m: ModelDef, fn: () => Promise<T> | T): Promise<T> {
     return r;
   } catch (e) {
     if (tooBig(e)) setHeld(m, 'failed');
+    // [firstcheck] the brain the training just published would not load (not for want of memory, not a dropped connection): told to the
+    // brain, which rolls back to the one before it, once (offline/firstcheck.ts)
+    else if (m.rev === offlineBrain.get().active && !/network|fetch|offline|timeout|abort/i.test(rawText(e))) void import('./firstcheck').then((f) => f.reportFirstCheck({ commit: m.rev, loaded: false })).catch(() => undefined);
     throw e;
   } finally {
     setLoading(null);

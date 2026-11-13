@@ -16,7 +16,7 @@ const outDir = fileURLToPath(new URL('../apps/web/public/deck/', import.meta.url
 mkdirSync(outDir, { recursive: true });
 // ([tabs] the fourteen sheets that became screens on 1 Nov, BRIEF-TABS 4: LIFE's eight, LEARN's two, MAKE's three, ME's one)
 const ALL_SCREENS = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 'space', 'workbench', 'learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio', 'memory', 'settings', 'system', 'links',
-  'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'house'];
+  'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'house'];
 // ONLY=workbench,lens: just those screens (a new screen's picture without re-shooting the rest)
 const SCREENS = process.env.ONLY ? ALL_SCREENS.filter((id) => process.env.ONLY.split(',').includes(id)) : ALL_SCREENS;
 // the globe, Home's Mind and the studio draw with WebGL: give them the software GPU and longer to settle

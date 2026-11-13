@@ -29,6 +29,18 @@ export const APP_2: Record<string, CatValue> = {
     say: ['How much did I spend on food?'], scene: ['money'], cat: 'watch', needs: ['statement'],
     since: '2026-10-24',
   },
+  'panel:agenda:TO-DO': {
+    name: 'Your to-do list', line: 'You can keep a to-do list in the Agenda: give each a day, tick it off, and late ones come first.',
+    more: 'Kept on this phone. Star the ones that matter, give one a repeat (every day, weekdays, week or month), tap its words to change it, and see All, Today, Upcoming or Starred. The Brief tells you what is due today, and every removal has UNDO.',
+    say: ['Open my to-do list', 'What’s on my to-do list?'], scene: ['morning', 'phone'], cat: 'watch',
+    since: '2026-11-13',
+  },
+  'panel:agenda:MONTH': {
+    name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
+    more: 'This month and the next, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
+    say: ['Show me my month', 'What’s on this month?'], scene: ['morning'], cat: 'watch',
+    since: '2026-11-13',
+  },
   // ---- THE BRIEF
   'panel:brief:FORESIGHT': { same: 'job:foresee' },
   'panel:brief:YOUR DAY': {
@@ -60,9 +72,9 @@ export const APP_2: Record<string, CatValue> = {
   'panel:core:MARKETS': { same: 'screen:markets' },
   'panel:core:HEADLINES': { same: 'panel:brief:HEADLINES' },
   // ---- GOD'S EYE
-  'panel:eye:LAYERS': {
-    name: 'The globe’s live layers', line: 'You can switch God’s eye layers on and off: planes, ships, satellites, quakes, cameras, rain, traffic.',
-    more: 'Each layer is a public live feed and says where it comes from. Ships need a free key.',
+  'panel:eye:WHAT TO SHOW': {
+    name: 'What the globe shows', line: 'You can choose what the globe shows: planes, ships, satellites, quakes, cameras, rain, traffic.',
+    more: 'Each one is a public live feed and says where it comes from. Ships need a free key.',
     say: ['Show the planes', 'Turn on the rain radar'], scene: ['out', 'watching'], cat: 'see', needs: ['key:aisstream'],
   },
   'panel:eye:TARGET': {
@@ -184,6 +196,17 @@ export const APP_2: Record<string, CatValue> = {
     more: 'Handy before a trip or a foreign order. Read every ten minutes.',
     say: ['How many euros for a pound?'], scene: ['money', 'out'], cat: 'know',
   },
+  // [planlane:markets]
+  'panel:markets:YOUR COINS': {
+    name: 'What your coins are worth', line: 'You can tell me what crypto you have and see what it is worth now, and how much that moved today.',
+    more: 'Your own numbers, kept on this phone only, worked out in your currency from free public prices with the time they were read. Never advice and never a forecast.',
+    say: ['I have 0.2 bitcoin', 'What are my holdings worth?', 'How are my coins doing?'], scene: ['money'], cat: 'know', since: '2026-11-13',
+  },
+  'phrase:planmarkets': {
+    name: 'Prices and your coins, by chat', line: 'You can ask what a coin or gold is at, what your coins are worth, add a coin to your watchlist, or turn pounds into euros.',
+    more: 'From CoinGecko’s free prices, each with the time it was read. Your watchlist and holdings stay on this phone. I never say buy or sell, and never guess where a price is going.',
+    say: ['What’s bitcoin at?', 'How much is gold?', 'Add solana to my watchlist', 'Convert 50 pounds to euros'], scene: ['money'], cat: 'know', since: '2026-11-13',
+  },
   // ---- MEMORY
   'panel:memory:WHAT I REMEMBER': {
     name: 'The facts I keep', line: 'You can see every fact I keep about you, add one, or remove one with a tap.',
@@ -226,18 +249,28 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:radio:NOW PLAYING': {
     name: 'What’s playing now', line: 'You can see what is playing now, and pause or stop it.',
-    more: 'It quietens by itself while I speak, then comes back up.',
-    say: ['Stop the radio'], scene: ['playing'], cat: 'play',
+    // [planlane:radio] the sleep timer and what's on, said in the chat (no model)
+    more: 'It quietens by itself while I speak, then comes back up. A sleep timer stops it after a while, at a time, or at the end of the hour.',
+    say: ['Stop the radio', 'Turn the radio off in 20 minutes', 'What station is this?'], scene: ['playing'], cat: 'play',
+  },
+  'panel:radio:RECENT': {
+    name: 'Stations you played lately', line: 'You can play again any of the last eight stations you listened to, newest first.',
+    more: 'Kept on this phone. The lock screen’s next and previous step through your favourites, or these. A sleep timer stops the radio for you.',
+    say: ['Play the radio'], scene: ['playing', 'phone'], cat: 'play',
+    since: '2026-11-13',
   },
   'panel:radio:FAVOURITES': {
     name: 'Your favourite stations', line: 'You can keep your favourite stations one tap away.',
-    more: 'Star a station and it stays here, on this phone.',
-    say: ['Play my favourite station'], scene: ['playing'], cat: 'play',
+    // [planlane:radio] in his own order (REORDER), stepped through and played by place from the chat
+    more: 'Star a station and it stays here, on this phone, in the order you put them.',
+    say: ['Play my favourites', 'Play my second favourite', 'Next station', 'Save this station'], scene: ['playing'], cat: 'play',
   },
+  // [planlane:radio] the radio's words answered on the phone with no model (features/radio/asks.ts): the sleep timer, what's on
+  'phrase:planradio': { same: 'panel:radio:NOW PLAYING' },
   // ---- REVERSE
   'panel:reverse:TAKE SOMETHING APART': {
     name: 'Take software apart', line: 'You can paste a website, an app package, a code project or a file link, and I take it apart.',
-    more: 'Even an app file or a program. It runs on GitHub’s free machines for three to eight minutes. Only software you own or may test.',
+    more: 'Even an app file or a program. It runs on GitHub’s free machines for three to eight minutes, and needs a free GitHub token in System, then Keys. Only software you own or may test.',
     say: ['How does this website work?'], scene: ['making'], cat: 'build', needs: ['key:github'],
   },
   'panel:reverse:YOUR REPORTS': {

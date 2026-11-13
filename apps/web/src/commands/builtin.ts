@@ -91,14 +91,15 @@ async function openTraffic(a: Record<string, unknown> | undefined): Promise<void
   openMapSheet('traffic', where);
 }
 
-export async function flyTo(args: { place?: string; lat?: number; lon?: number; range_km?: number }): Promise<boolean> {
+export async function flyTo(args: { place?: string; lat?: number; lon?: number; range_km?: number; quiet?: boolean }): Promise<boolean> {
   go('eye');
   let lat = Number(args.lat);
   let lon = Number(args.lon);
   if (args.place) {
     const p = await locatePlace(String(args.place));
     if (!p) {
-      toast(`I couldn't find ${args.place}`, 'warn');
+      // (God's Eye's own search says it under the box, with what to try; the chat's answer is the toast)
+      if (!args.quiet) toast(`I couldn't find ${args.place}`, 'warn');
       return false;
     }
     ({ lat, lon } = p);
@@ -417,7 +418,7 @@ export function registerBuiltins(): void {
       // [packs] THE BODY PACK's screens (features/body): reps by camera, the running coach, breathing, the stretch set, the
       // Health export, water — from the brain's body tool, a card's button or the chat's own words.
       id: 'open_body',
-      title: 'Body: reps, run, breathe, stretch',
+      title: 'Body: water, sleep, steps, weight, mood, reps, run, breathe, stretch',
       group: 'GO',
       run: async (a) => {
         const { openBody } = await import('../features/body/sheet');
@@ -437,7 +438,7 @@ export function registerBuiltins(): void {
     {
       // [packs] THE KITCHEN PACK's sheets (features/kitchen): the timers, the shopping list, the week's meal plan.
       id: 'open_kitchen',
-      title: 'Kitchen: timers, shopping list, meal plan',
+      title: 'Kitchen: timers, shopping list, meal plan, pantry, recipes',
       group: 'GO',
       run: async (a) => {
         const { openKitchen } = await import('../features/kitchen/sheet');
@@ -447,7 +448,7 @@ export function registerBuiltins(): void {
     {
       // [packs2] THE PEOPLE PACK's sheets (features/people): who's who, the group plan.
       id: 'open_people',
-      title: 'People: who is who, group plan',
+      title: 'People: who is who, coming up, group plan',
       group: 'GO',
       run: async (a) => {
         const { openPeople } = await import('../features/people/sheet');
@@ -517,6 +518,26 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [comic] THE COMIC (features/comic): his shelf, MAKE and the public-domain library
+      id: 'open_comic',
+      title: 'Comic: read, import and make comics',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('comic');
+      },
+    },
+    {
+      // [gamestudio] THE GAME STUDIO (studio-game/): his games, and a new one
+      id: 'open_gamestudio',
+      title: 'Game studio: make a 2-D game',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('gamestudio');
+      },
+    },
+    {
       // [reste] DOCUMENTS (docs/sheet.ts): my documents; one read, written in the chat and laid out, edited, translated.
       id: 'open_docs',
       title: 'Documents: read, write, edit, translate',
@@ -524,6 +545,107 @@ export function registerBuiltins(): void {
       run: async (a) => {
         const { openDocs } = await import('../docs/sheet');
         await openDocs(a && typeof a === 'object' ? (a as Parameters<typeof openDocs>[0]) : {});
+      },
+    },
+    {
+      // [editors] SPREADSHEETS (sheets/sheet.ts): my spreadsheets; a budget, a table from an answer, an Excel or CSV file opened.
+      id: 'open_sheets',
+      title: 'Spreadsheets: budgets and lists with formulas, Excel and CSV in and out',
+      group: 'GO',
+      run: async (a) => {
+        const { openSheets } = await import('../sheets/sheet');
+        await openSheets(a && typeof a === 'object' ? (a as Parameters<typeof openSheets>[0]) : {});
+      },
+    },
+    {
+      // [editors] PRESENTATIONS (slides/sheet.ts): my slides; a deck from a report, a document or a chart, a .pptx opened.
+      id: 'open_slides',
+      title: 'Presentations: slides, notes, a talk, PowerPoint in and out',
+      group: 'GO',
+      run: async (a) => {
+        const { openSlides } = await import('../slides/sheet');
+        await openSlides(a && typeof a === 'object' ? (a as Parameters<typeof openSlides>[0]) : {});
+      },
+    },
+    {
+      // [editors] THE WORKSPACE (workspace/sheet.ts): my workspace; a project started, a page opened, an answer added to a project, Markdown or a CSV read.
+      id: 'open_workspace',
+      title: 'The workspace: pages, boards, calendars, projects the brain reads whole',
+      group: 'GO',
+      run: async (a) => {
+        const { openWorkspace } = await import('../workspace/sheet');
+        await openWorkspace(a && typeof a === 'object' ? (a as Parameters<typeof openWorkspace>[0]) : {});
+      },
+    },
+    {
+      // PHOTO (features/photo): the photo editor, on his shelf or on a photo (the Lens's still, one of Ghosty's pictures, a kept photo).
+      id: 'open_photo',
+      title: 'Photo: edit, grade, mask, heal, crop, looks',
+      group: 'GO',
+      run: async (a) => {
+        const { openPhotoEditor } = await import('../features/photo');
+        await openPhotoEditor({
+          still: a?.still instanceof HTMLCanvasElement ? a.still : undefined,
+          picture: typeof a?.picture === 'string' ? a.picture : undefined,
+          id: typeof a?.id === 'string' ? a.id : undefined,
+          tool: typeof a?.tool === 'string' ? a.tool : undefined,
+        });
+      },
+    },
+    {
+      // [video] THE VIDEO EDITOR (video/screen.ts): MAKE's seventh full editor; clips handed over open in it.
+      id: 'open_video',
+      title: 'Video: cut, grade, score and export a video',
+      group: 'GO',
+      run: async () => {
+        const { openVideo } = await import('../video/screen');
+        await openVideo();
+      },
+    },
+    {
+      // [document] a change the brain's `document` tool proposes to the open document: marked in the editor, his tap decides (docs/live.ts)
+      id: 'document',
+      title: 'A change proposed to the open document',
+      group: 'GO',
+      run: async (a) => {
+        const { proposeToDoc } = await import('../docs/live');
+        const said = proposeToDoc(a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+        toast(said);
+      },
+    },
+    {
+      // [kernel3] a change the brain's `slides`, `videoedit`, `workspace` or `game` tool proposes to the editor that is open: marked there, his tap decides (proposals/live.ts)
+      id: 'slides',
+      title: 'A change proposed to the open deck',
+      group: 'GO',
+      run: async (a) => toast((await import('../proposals/live')).proposeToWork('slides', a && typeof a === 'object' ? (a as Record<string, unknown>) : {})),
+    },
+    {
+      id: 'videoedit',
+      title: 'A change proposed to the open video project',
+      group: 'GO',
+      run: async (a) => toast((await import('../proposals/live')).proposeToWork('video', a && typeof a === 'object' ? (a as Record<string, unknown>) : {})),
+    },
+    {
+      id: 'workspace',
+      title: 'A change proposed to the open workspace',
+      group: 'GO',
+      run: async (a) => toast((await import('../proposals/live')).proposeToWork('workspace', a && typeof a === 'object' ? (a as Record<string, unknown>) : {})),
+    },
+    {
+      id: 'game',
+      title: 'A change proposed to the open game',
+      group: 'GO',
+      run: async (a) => toast((await import('../proposals/live')).proposeToWork('game', a && typeof a === 'object' ? (a as Record<string, unknown>) : {})),
+    },
+    {
+      // [kernel3] a game the brain built from the studio's own kit: kept in the studio's library and opened there, never published (studio-game/fromchat.ts)
+      id: 'open_game',
+      title: 'Game studio: a game made from the chat',
+      group: 'GO',
+      run: async (a) => {
+        const { openMadeGame } = await import('../studio-game/fromchat');
+        toast(await openMadeGame(a && typeof a === 'object' ? (a as Record<string, unknown>) : {}));
       },
     },
     {

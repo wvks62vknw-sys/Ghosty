@@ -118,6 +118,7 @@ export const CLIENT_COMMANDS = [
   'design_changes',
   'home_plan',
   'open_photo_tools',
+  'open_photo', // the photo editor (BRIEF-EDITOR-PHOTO): his shelf, or a photo opened in it
   'open_money', // [packs] the money pack's statement box (BRIEF-PACKS-1)
   'open_body', // [packs] the body pack's screens (BRIEF-PACKS-1)
   'open_kitchen', // [packs] the kitchen pack's sheets
@@ -129,6 +130,13 @@ export const CLIENT_COMMANDS = [
   'open_work', // [packs] the work pack's documents, interview practice, rota and to-do
   'pack_card', // [packs] not run on the phone: a pack's cards ride in it, and cardsFromTool makes them the chat's live cards (BRIEF-AWARENESS: found when emit became typed)
   'open_creative', // [packs] the creative pack's song, poster, comic, card, logo, palette and beat sheets
+  'document', // [document] a change the brain proposes to the open document: shown as a marked change, his tap decides (BRIEF-KERNEL-2)
+  'slides', // [kernel3] a change the brain proposes to the open deck, marked for his tap (BRIEF-KERNEL-3)
+  'videoedit', // [kernel3] a change proposed on the open video's timeline, marked for his tap; never an export
+  'workspace', // [kernel3] a change proposed to the open workspace, marked for his tap
+  'game', // [kernel3] a change proposed to the open game, marked for his tap
+  'open_slides', // [kernel3] slides made from a report or a reply, opened as a new deck (never published)
+  'open_game', // [kernel3] a game built from the studio's own kit, kept in the studio's library and opened there (never published)
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
@@ -531,6 +539,8 @@ export interface TelegramStatus {
   token?: boolean;
   /** The brain could not tell right now (database paused, no copy reachable); the last known answer stands. */
   unknown?: boolean;
+  /** A message that did not reach Telegram (the newest; `n` of them since the last one that did), for the panel to say once. */
+  missed?: { at: number; what: 'reminder' | 'task' | 'error'; n: number };
 }
 
 export interface SpotifyStatus {

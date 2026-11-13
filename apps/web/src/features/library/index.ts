@@ -25,6 +25,7 @@ import { embedState } from '../../offline/embed';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addPhotos, addText, isPhoto } from '../../library/upload';
+import { isVideoFile } from '../../video/files';
 import type { TabDef } from '../../shell/tabs';
 import { bar, button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -34,6 +35,9 @@ import { openRights, rightsCount, rightsTopics } from '../../docs/rights';
 import { openBook, readingLine, shelfDocs, shelfHooks, shelfRow, sortShelf, type ShelfSort } from './reader';
 import { places, syncPlaces } from '../../library/place';
 import { key } from '../../ui/machine';
+import { MEANING_TIP, noHit, PHRASES, SHELF_NONE, SHELF_WAIT, unreadable } from './words';
+import { phrases } from '../lifeui';
+import { waiting } from '../../ui/wait';
 import { rawText, sayError } from '../../ui/hisWords';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
@@ -127,6 +131,14 @@ function marked(text: string, terms: string[]): Node[] {
   return out;
 }
 
+/** Files shared to Ghosty from another app (library/share.ts): taken by the Add path below once the library is built, the same as a file picked there. */
+let ingestHook: ((files: File[]) => void) | null = null;
+const sharedWaiting: File[] = [];
+export function addSharedFiles(files: File[]): void {
+  if (ingestHook) ingestHook(files);
+  else sharedWaiting.push(...files);
+}
+
 export const libraryTab: TabDef = {
   id: 'library',
   title: 'LIBRARY',
@@ -169,11 +181,37 @@ export const libraryTab: TabDef = {
     /** What went wrong, in his words: a scan with no converter says what works instead (photos are read here). */
     const failed = (line: HTMLElement, name: string, e: unknown) => {
       const m = `${rawText(e)} ${(e as { raw?: string }).raw ?? ''}`;
-      line.textContent = `✕ ${name}: ${/Workers AI/.test(m) ? 'it looks like pictures of pages (a scan), and there is no converter for scans set up. Take photos of the pages instead: the Library reads photos on this phone.' : sayError(e, 'add that')}`;
+      const said = sayError(e, 'add that');
+      // (a scan says what works; a file of a kind I do not know says what works; a lost signal or a full phone keeps its own words)
+      const generic = /^I could not add that\./.test(said);
+      line.textContent = `✕ ${/Workers AI/.test(m) || generic ? unreadable(name, /Workers AI/.test(m)) : `${name}: ${said}`}`;
       line.className = 'note bad';
+      line.dataset.state = 'error';
     };
-    const ingest = async (picked: File[]) => {
+    const ingest = async (all: File[]) => {
+      let picked = all;
+      // a game made in the game studio (a .ghostygame) is not a document: it goes to the studio, kept there as his
+      const games = all.filter((f) => /\.ghostygame$/i.test(f.name));
+      for (const f of games) {
+        const line = note(`${f.name}: opening…`);
+        try {
+          const { importBytes } = await import('../../studio-game/ed-misc');
+          const r = await importBytes(new Uint8Array(await f.arrayBuffer()));
+          line.textContent = r ? `✓ ${r.said} It is in MAKE → The game studio.` : `✕ ${f.name}: that is not a game file I can read.`;
+          line.className = r ? 'note ok done' : 'note bad';
+        } catch (e) {
+          failed(line, f.name, e);
+        }
+      }
+      picked = all.filter((f) => !/\.ghostygame$/i.test(f.name));
       // Photos of pages picked together are one document (a page per photo); every other file is its own.
+      // [video] a video file is not a thing to read: it is offered the video editor instead (OPEN IN VIDEO), the clip handed over as it is
+      for (const f of picked.filter(isVideoFile)) {
+        const l = note(`${f.name}: that’s a video, so there’s nothing to read in it. I can cut it in the video editor.`);
+        l.append(button('OPEN IN VIDEO', () => void import('../../video/screen').then((m) => m.openVideo([f])), 'libopen'));
+        l.className = 'note ok done';
+      }
+      picked = picked.filter((f) => !isVideoFile(f));
       const photos = picked.filter(isPhoto);
       const jobs: { name: string; add: (p: (t: string) => void) => Promise<{ doc: LibraryDoc; warning?: string }> }[] = [
         ...(photos.length ? [{ name: photos.length === 1 ? photos[0]!.name : `${photos.length} photos`, add: (p: (t: string) => void) => addPhotos(photos, p) }] : []),
@@ -193,6 +231,8 @@ export const libraryTab: TabDef = {
         void refresh();
       }
     };
+    ingestHook = (files) => void ingest(files);
+    if (sharedWaiting.length) void ingest(sharedWaiting.splice(0));
     fileInput.addEventListener('change', () => {
       const files = [...(fileInput.files ?? [])];
       fileInput.value = '';
@@ -241,7 +281,7 @@ export const libraryTab: TabDef = {
         line.textContent = '✓ my own source code is in the library — it is re-read after every shipped change';
         line.className = 'note ok';
       } catch (e) {
-        line.textContent = sayError(e, 'add that');
+        line.textContent = sayError(e, 'read my own code');
         line.className = 'note bad';
       }
       void refresh();
@@ -356,7 +396,7 @@ export const libraryTab: TabDef = {
         const good = r.hits.filter((x) => x.relevant || hasAll(`${x.title} ${x.heading} ${x.text}`, rareTerms(terms)));
         // a search that found something is kept for next time (RECENT), on this phone only
         if (good.length) keepRecent([t, ...recent().filter((x) => x.toLowerCase() !== t.toLowerCase())]);
-        clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.note.nohits', `Nothing in the library mentions “${t}”. Try fewer or other words${meaningComplete() ? '' : ', or turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean'}.`)]));
+        clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.nohits', { dataset: { state: 'empty', case: 'keep' } }, h('p.note', noHit(t)), meaningComplete() ? null : h('p.note', MEANING_TIP))]));
         sp.body.scrollTop = 0;
         // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
         sp.setStatus(`${good.length} passage${good.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}${isOffline() ? ' · on this phone' : ''}`, 'ok');
@@ -406,11 +446,13 @@ export const libraryTab: TabDef = {
     }, { label: `Sort your books ${how}` }));
     const sortRow = h('div.shelfsort', { role: 'group', 'aria-label': 'Sort your books' }, h('span.g-tag', { dataset: { case: 'keep' } }, 'Sort'), ...sortKeys);
     shelf.el.insertBefore(h('div.shelfhead', findRow, sortRow), shelf.body);
+    shelf.el.append(phrases(PHRASES));
     const whose = (d: LibraryDoc) => (d.builtin ? 2 : GHOSTYS.test(d.id) || d.kind === 'study' || d.kind === 'digest' ? 1 : 0);
     let othersOpen = false;
     // his shelf with nothing of his on it yet: what it is for, and the one thing to do (ADD A BOOK: the Add section)
+    /* state: library.shelf empty */
     const shelfEmpty = () => h('div.shelfempty', { dataset: { case: 'keep' } },
-      empty('NONE', 'Add a PDF, an e-book, a Word file or photos of pages: it is here with its cover, ready to read or for me to read to you.', 'No books of yours yet'),
+      empty('NONE', SHELF_NONE.line, SHELF_NONE.head),
       key('Add a book', () => secs?.select('add'), { label: 'Add a book: a PDF, an e-book, a Word file or photos of pages' }));
     const compact = (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
@@ -528,7 +570,7 @@ export const libraryTab: TabDef = {
       const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
       study.setStatus(off ? 'OFFLINE' : st.on ? 'LEARNING' : 'OFF', off ? 'off' : st.on ? 'ok' : 'mid');
       const weakest = sum.drills.skills.filter((k) => k.n >= 2).slice(0, 3).map((k) => `${k.skill} ${pct(k.right, k.n)}%`).join(' · ');
-      const lastText = !st.last ? '' : st.last.error ? `${st.last.topic} — ${st.last.error}` : st.last.kind === 'drill' ? `${st.last.topic}: ${st.last.title ?? ''}` : st.last.kind === 'digest' ? `wrote notes on ${st.last.topic}` : `read ${st.last.topic}${st.last.passages ? ` (${st.last.passages} passages)` : ''}`;
+      const lastText = !st.last ? '' : st.last.error ? `${st.last.topic}: I couldn’t read that one; I’ll try again.` : st.last.kind === 'drill' ? `${st.last.topic}: ${st.last.title ?? ''}` : st.last.kind === 'digest' ? `wrote notes on ${st.last.topic}` : `read ${st.last.topic}${st.last.passages ? ` (${st.last.passages} passages)` : ''}`;
       const fields = [...doms].sort((a, b) => Number(b.focus) - Number(a.focus) || b.read - a.read || a.name.localeCompare(b.name));
       const shown = allFields ? fields : fields.slice(0, 5);
       const focusNames = st.focus.map((id) => doms.find((d) => d.id === id)?.name ?? id);
@@ -549,7 +591,7 @@ export const libraryTab: TabDef = {
         if (row.finished && st.focus.includes(id)) await brain.study({ focus: others.length ? others.join(', ') : 'none' }).catch(() => null);
         const r = await brain.study({ focus: [id, ...others].slice(0, 5).join(', '), now: true }).catch(() => null);
         if (r?.did) toast(`${row.name}: ${r.did.reads} read just now · the rest follows on its own`, 'ok');
-        else toast('Ghosty could not be reached — try again in a moment', 'bad');
+        else toast(navigator.onLine === false ? 'You’re offline: I study when Ghosty can be reached again.' : 'I couldn’t start studying that just now. Try again in a moment.', 'bad');
         paintStudy(((await brain.studyStatus().catch(() => r)) as StudyNow | null) ?? null);
         void refresh();
       };
@@ -565,15 +607,15 @@ export const libraryTab: TabDef = {
       const today = sum.today;
       study.body.append(
         // what he is reading now, honestly: "Reading Algebra · 212 of 480 · about 40 minutes left at this pace"
-        h('div.studynow', h('b', off ? `You’re offline. When Ghosty was last reached: ${sum.status ?? (st.on ? 'learning' : 'switched off')}. He keeps reading on his side; this updates when you’re back.` : sum.status ?? (st.on ? 'Learning' : 'Switched off')), cur ? bar('NOW', cur.read / Math.max(1, cur.topics), `${cur.read}/${cur.topics}`, '#ffd24d') : ''),
+        h('div.studynow', h('b', off ? `You’re offline. When Ghosty was last reached: ${sum.status ?? (st.on ? 'learning' : 'switched off')}. He keeps reading on his side; this updates when you’re back.` : sum.status ?? (st.on ? 'Learning' : 'Switched off')), cur ? bar('NOW', cur.read / Math.max(1, cur.topics), `${cur.read}/${cur.topics}`, 'var(--a)') : ''),
         later.length ? row('THEN', later.map((d) => `${d.name} ${d.read}/${d.topics}`).join(' · '), null, { wrap: true }) : '',
         off ? '' : h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
         off ? '' : h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
         // what he learned today: three numbers, large
         h('div.studytoday', { dataset: { case: 'keep' } }, h('small', 'Learned today'),
           h('div', h('span', h('b', fmt.n(today.reads)), h('em', 'pieces read')), h('span', h('b', fmt.n(today.finished ?? 0)), h('em', 'topics finished')), h('span', h('b', fmt.n(today.digests)), h('em', 'notes written')))),
-        bar('READ', sum.read / Math.max(1, sum.topics), `${fmt.n(sum.read)} / ${fmt.n(sum.topics)} topics`, '#5ce1ff'),
-        bar('NOTES', sum.digested / Math.max(1, sum.topics), `${fmt.n(sum.digested)} written${sum.pending ? ` · ${sum.pending} waiting for a model` : ''}`, '#52f2b5'),
+        bar('READ', sum.read / Math.max(1, sum.topics), `${fmt.n(sum.read)} / ${fmt.n(sum.topics)} topics`, 'var(--c)'),
+        bar('NOTES', sum.digested / Math.max(1, sum.topics), `${fmt.n(sum.digested)} written${sum.pending ? ` · ${sum.pending} waiting for a model` : ''}`, 'var(--ok)'),
         sum.grown?.topics ? row('MORE TO READ', `${fmt.n(sum.grown.topics)} topics found in Wikipedia's outlines`, `+${fmt.n(sum.grown.latest)}`, { wrap: true }) : '',
         // from the basics up: each field is read beginner → intermediate → advanced
         sum.levels ? row('LEVELS', sum.levels.map((l) => `${l.level} ${pct(l.read, l.topics)}%`).join(' · '), null, { wrap: true }) : '',
@@ -584,7 +626,7 @@ export const libraryTab: TabDef = {
         h('div.lab', 'FIELDS'),
         // the fields as a list that picks: a tap chooses the field STUDY sends (the picker above follows)
         h('div.studyfields', ...shown.map((d) => {
-          const b = bar(`${d.focus ? '★ ' : ''}${d.finished ? '✓ ' : ''}${d.name}`, d.read / Math.max(1, d.topics), `${d.read}/${d.topics}`, d.focus ? '#ffd24d' : undefined);
+          const b = bar(`${d.focus ? '★ ' : ''}${d.finished ? '✓ ' : ''}${d.name}`, d.read / Math.max(1, d.topics), `${d.read}/${d.topics}`, d.focus ? 'var(--a)' : undefined);
           b.dataset.id = d.id;
           b.tabIndex = 0;
           b.setAttribute('role', 'button');
@@ -615,7 +657,17 @@ export const libraryTab: TabDef = {
           paintStudy(r ? ((await brain.studyStatus().catch(() => r)) as StudyNow) : null);
         })),
         off ? '' : h('div.keyrow.wrapit',
-          button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy((await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)) as StudyNow | null), st.on ? 'warn' : 'on'),
+          button(st.on ? 'TURN OFF' : 'TURN ON', async (b) => {
+            // (a failed switch keeps the panel as it was and says so; never a blank "can't be reached")
+            b.disabled = true;
+            try {
+              await brain.study({ on: !st.on });
+              paintStudy(((await brain.studyStatus().catch(() => null)) as StudyNow | null) ?? st);
+            } catch (e) {
+              toast(sayError(e, st.on ? 'switch self-study off' : 'switch self-study on'), 'bad');
+              b.disabled = false;
+            }
+          }, st.on ? 'warn' : 'on'),
           button('EXPORT TO GITHUB', async (b) => {
             // Every notebook as Markdown on the "library" branch of Ghosty's own repository: free, off the phone, readable anywhere.
             b.disabled = true;
@@ -635,7 +687,7 @@ export const libraryTab: TabDef = {
               clear(line, `✓ ${total} notebook${total === 1 ? '' : 's'} on GitHub: `, h('a', { href: r.url, target: '_blank', rel: 'noopener' }, r.url.replace(/^https:\/\//, '')));
               line.className = 'note ok';
             } catch (e) {
-              line.textContent = sayError(e, 'add that');
+              line.textContent = sayError(e, 'export your notebooks to GitHub');
               line.className = 'note bad';
             } finally {
               b.disabled = false;
@@ -664,7 +716,11 @@ export const libraryTab: TabDef = {
       }
       return r;
     };
-    const freshList = pager(fresh, 46, freshRow, () => 'NONE YET', 'Tap Digest now and he gathers today’s news, papers and events.');
+    // (offline, DIGEST NOW is off: the list says why it is empty instead of asking for a tap that cannot work)
+    const FRESH_OFF = 'You’re offline: today’s digest shows when Ghosty can be reached.';
+    let freshOff = false;
+    const freshList = pager(fresh, 46, freshRow, () => 'NONE YET', 'Tap Digest now and he gathers today’s news, papers and events.', () =>
+      freshOff ? h('div.empty.bad', { dataset: { case: 'keep', state: 'offline' } }, h('span', { dataset: { label: FRESH_OFF } }, FRESH_OFF)) : null);
     const paintFresh = async () => {
       try {
         const all: FreshItem[] = [];
@@ -677,10 +733,13 @@ export const libraryTab: TabDef = {
         }
         const day = all.reduce((d, p) => (p.heading.slice(0, 10) > d ? p.heading.slice(0, 10) : d), '');
         const today = all.filter((p) => p.heading.startsWith(day));
+        freshOff = false;
         fresh.setStatus(day || 'NOTHING YET', day ? 'ok' : 'mid');
         freshList.set(today);
       } catch {
+        freshOff = true;
         fresh.setStatus('OFFLINE', 'off');
+        freshList.set([]);
       }
     };
     const digestBtn = button('DIGEST NOW', async (b) => {
@@ -728,9 +787,14 @@ export const libraryTab: TabDef = {
     };
     // the first open: said in words until the shelf lands (a cold brain takes a few seconds), never a blank page
     if (!P.big.textContent) P.big.textContent = 'Opening the library…';
+    let firstLoad = true;
     const refresh = async (): Promise<void> => {
+      // (the shelf's first look says what it is doing when it takes a moment: never a blank panel)
+      /* state: library.shelf loading */
+      const wait = firstLoad ? (firstLoad = false, waiting(shelf.body, SHELF_WAIT)) : () => undefined;
       try {
         const r = await brain.library();
+        wait();
         const was = unreached;
         unreached = !!r.offline;
         if (was !== unreached) showReach();
@@ -743,13 +807,14 @@ export const libraryTab: TabDef = {
         paintShelf();
         paintGadgets(docs.filter((x) => !leaving.has(x.id)));
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
+        /* state: library.shelf offline */
         P.sub.textContent = r.offline
           ? `You’re offline: this is the copy on this phone (${fmt.n(r.stats.docs)} documents). It updates by itself when you’re back.`
           : `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'searched by meaning and words' : 'searched by words'}${starterReady ? '' : ' · setting up starter library…'}`;
         P.dials([
-          ['YOURS', Math.min(1, docs.filter((d) => !d.builtin).length / 50), `${docs.filter((d) => !d.builtin).length}`, '#5ce1ff'],
-          ['BUILT-IN', 1, `${docs.filter((d) => d.builtin).length}`, '#52f2b5'],
-          ['SIZE', Math.min(1, r.stats.bytes / 1e9), r.stats.bytes < 1e7 ? `${(r.stats.bytes / 1e6).toFixed(1)}MB` : `${Math.round(r.stats.bytes / 1e6)}MB`, '#ffd24d'],
+          ['YOURS', Math.min(1, docs.filter((d) => !d.builtin).length / 50), `${docs.filter((d) => !d.builtin).length}`, 'var(--c)'],
+          ['BUILT-IN', 1, `${docs.filter((d) => d.builtin).length}`, 'var(--ok)'],
+          ['SIZE', Math.min(1, r.stats.bytes / 1e9), r.stats.bytes < 1e7 ? `${(r.stats.bytes / 1e6).toFixed(1)}MB` : `${Math.round(r.stats.bytes / 1e6)}MB`, 'var(--a)'],
         ]);
         if (!starterReady && !busy.n) setTimeout(() => void refresh(), 1500); // keep filling the starter library
         // Keep this device's copy current (it answers when the brain can't), and say how much is here.
@@ -766,9 +831,11 @@ export const libraryTab: TabDef = {
           showReach();
         }
         if (P.big.textContent === 'Opening the library…') P.big.textContent = 'The library';
+        wait();
         shelf.setStatus('OFFLINE', 'off');
         clear(shelf.body);
-        shelf.body.append(h('div.note', sayError(e, 'reach my library')));
+        /* state: library.shelf error */
+        shelf.body.append(h('div.note', { dataset: { state: 'error' } }, sayError(e, 'reach my library')));
       }
     };
 

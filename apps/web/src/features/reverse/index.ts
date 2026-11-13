@@ -12,7 +12,9 @@ import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, panel, undo } from '../../ui/components';
 import { page } from '../../ui/page';
-import { rawText, sayError } from '../../ui/hisWords';
+import { rawText, sayError, trail } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { GITHUB_NOTE, jobState, OPEN_FAILED, OPENING, REPORTS_LOADING, REPORTS_NONE, RETRY, REVERSE_SUB, START_EMPTY, START_OFFLINE, START_REFUSED, START_WAIT } from './words';
 
 const CSS = `
 .mdreport { font-size: 15px; line-height: 22px; overflow-wrap: anywhere; }
@@ -40,12 +42,12 @@ const asWritten = (b: HTMLButtonElement, words: string) => ((b.dataset.label = w
 /** What a report is about, in a word or two. */
 const KIND_WORD: Record<string, string> = { web: 'Website', npm: 'Code package', repo: 'GitHub project', artifact: 'App file', auto: 'Link' };
 
-/** Where a report has got to, in his words: "Ready · 25 Oct", "Running · 3 min", "Didn't finish". */
+/** Where a report has got to, in his words, and when (features/reverse/words.ts). */
 const STATE_WORD: Record<ReverseJobInfo['status'], (j: ReverseJobInfo) => string> = {
-  done: (j) => `Ready${j.finishedAt ? ` · ${new Date(j.finishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}`,
-  failed: () => 'Didn’t finish',
-  running: (j) => `Running · ${Math.max(1, Math.round((Date.now() - j.at) / 60_000))} min`,
-  queued: () => 'Starting',
+  done: (j) => jobState(j),
+  failed: (j) => jobState(j),
+  running: (j) => jobState(j),
+  queued: (j) => jobState(j),
 };
 
 const KINDS: [string, string][] = [['auto', 'Ghosty can tell what it is'], ['web', 'A website'], ['npm', 'A code package (npm)'], ['repo', 'A GitHub project'], ['artifact', 'An app file (.apk, .exe, .zip…)']];
@@ -113,7 +115,7 @@ export const reverseTab: TabDef = {
   mount(root) {
     if (!document.getElementById('reverse-css')) document.head.append(h('style#reverse-css', CSS));
     // The top says what it is for in his words, the same words as the Make hub's card (shell/hubcards.ts).
-    const P = page(root, { tag: 'REVERSE', sub: 'Paste a link to a website, an app or a code package. Ghosty takes it apart and tells you what it is built with and what it talks to.', leftLabel: 'NEW REPORT', rightLabel: 'REPORTS', stack: true });
+    const P = page(root, { tag: 'REVERSE', sub: REVERSE_SUB, leftLabel: 'NEW REPORT', rightLabel: 'REPORTS', stack: true });
 
     // ---- new job
     const np = panel('TAKE SOMETHING APART', { grow: false });
@@ -123,31 +125,39 @@ export const reverseTab: TabDef = {
     const startBtn = button('START', () => void start(), 'on');
     // What START did, kept on screen under it (a toast is gone before it is read); the brain's words, as a sentence.
     const say = h('div.note.revsay', { role: 'status', 'aria-live': 'polite', hidden: true });
-    const tell = (msg: string) => {
+    const tell = (msg: string, state = '') => {
       say.textContent = sentence(msg);
       say.hidden = !msg;
+      if (state) say.dataset.state = state;
+      else delete say.dataset.state;
     };
     // Reverse runs on GitHub: without it nothing can start, so that is said before he types, with the way to fix it.
     const connect = asWritten(button('CONNECT GITHUB', () => go('system'), 'on'), 'Connect GitHub');
-    const gh = h('div.revgh', { hidden: true }, h('p', 'GitHub is not connected yet, so a report cannot start. Reverse runs on GitHub’s free computers: add a free GitHub token once in System → Keys.'), connect);
+    const gh = h('div.revgh', { hidden: true }, h('p', GITHUB_NOTE), connect);
     const start = async () => {
       const t = target.value.trim();
-      if (!t) return void tell('Paste a link first, like bbc.co.uk');
-      if (offline()) return void tell('You’re offline, so nothing can start. Try again when you’re back');
-      tell('');
+      /* state: reverse.start empty */
+      /* state: reverse.start offline */
+      /* state: reverse.start loading */
+      /* state: reverse.start error */
+      if (!t) return void tell(START_EMPTY, 'empty');
+      if (offline()) return void tell(START_OFFLINE, 'offline');
+      tell(START_WAIT, 'loading');
       startBtn.disabled = true;
       try {
         const r = await brain.reverseStart({ target: t, kind: kind.value, question: question.value.trim() });
         target.value = '';
         question.value = '';
         reads.hidden = true;
+        tell('');
         await refresh();
         // the new report, waiting, in place: when to expect it and that he can go
         void show(r.job.id, true);
       } catch (e) {
         const msg = rawText(e);
-        tell(sayError(e, 'start that'));
-        if (/GitHub token/i.test(msg)) gh.hidden = false;
+        const noGh = /GitHub token/i.test(msg);
+        tell(noGh ? START_REFUSED : sayError(e, 'start that'), 'error');
+        if (noGh) gh.hidden = false;
       } finally {
         startBtn.disabled = false;
       }
@@ -176,13 +186,25 @@ export const reverseTab: TabDef = {
     const offNote = h('div.note.revoff', { role: 'status', hidden: true });
     jp.body.append(offNote, list);
     let jobs: ReverseJobInfo[] = [];
+    /** The brain has answered once (until then the list says it is looking, not that there are none). */
+    let known = false;
+    /** The last look could not reach the brain: the list is not "none", it is unknown, and the line above says so. */
+    let reachFailed = false;
     let open: string | null = null;
     const viewer = panel('REPORT', { status: '', cls: 'revview' });
     viewer.el.hidden = true;
     const paint = () => {
       clear(list);
       if (!jobs.length) {
-        list.append(h('div.empty', h('b', 'No reports yet'), h('span', 'Paste a link above to begin.')));
+        /* state: reverse.reports loading */
+        /* state: reverse.reports empty */
+        if (!known) {
+          list.append(h('div.empty.wait', { dataset: { state: 'loading', case: 'keep' } }, h('b', REPORTS_LOADING)));
+          jp.setStatus('Looking', 'mid');
+          return;
+        }
+        if (reachFailed) return void jp.setStatus(offline() ? 'Offline' : 'Not reached', 'off');
+        list.append(h('div.empty', { dataset: { state: 'empty', case: 'keep' } }, h('b', REPORTS_NONE.head), h('span', REPORTS_NONE.line), h('div.row', button(REPORTS_NONE.key, () => { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); target.focus(); }, 'on'))));
         jp.setStatus('None yet', 'off');
         return;
       }
@@ -241,12 +263,14 @@ export const reverseTab: TabDef = {
       paint();
       viewer.el.hidden = false;
       clear(viewer.body);
-      viewer.body.append(h('div.note', 'Loading…'));
+      /* state: reverse.report loading */
+      const stopWait = waiting(viewer.body, OPENING);
       // On the phone the report sits under the form and the list: a tap brings it on screen (it opened out of sight).
       // After it is drawn: "Loading…" alone is too short for the page to scroll that far.
       const bringIn = () => bring && viewer.el.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       try {
         const { job } = await brain.reverseJob(id);
+        stopWait();
         clear(viewer.body);
         viewer.setStatus(STATE_WORD[job.status](job).replace(/ ·.*/, ''), job.status === 'done' ? 'ok' : job.status === 'failed' ? 'off' : 'mid');
         // the name as written (example.com, not "Example.com"), what it is and when
@@ -307,8 +331,11 @@ export const reverseTab: TabDef = {
         paint();
         bringIn();
       } catch (e) {
+        stopWait();
+        trail(e, 'open that report');
         clear(viewer.body);
-        viewer.body.append(h('div.note', sayError(e, 'open that')));
+        /* state: reverse.report error */
+        viewer.body.append(h('div.note', { role: 'alert', dataset: { state: 'error', case: 'keep' } }, OPEN_FAILED), h('div.row', button(RETRY, () => void show(id, bring), 'on')));
         bringIn();
       }
     };
@@ -316,7 +343,10 @@ export const reverseTab: TabDef = {
       try {
         // offline the brain's client answers with the list this phone last saw: said so, and nothing nudged
         jobs = (await brain.reverseJobs()).jobs;
+        known = true;
+        reachFailed = false;
         offNote.hidden = !offline();
+        /* state: reverse.reports offline */
         offNote.textContent = 'You’re offline: these are your reports as this phone last saw them. They update when you’re back.';
         paint();
         if (offline()) return void jp.setStatus('Offline', 'off');
@@ -330,13 +360,18 @@ export const reverseTab: TabDef = {
         }
         paint();
       } catch {
+        known = true;
+        reachFailed = true;
+        paint();
         jp.setStatus(offline() ? 'Offline' : 'Not reached', 'off');
         offNote.hidden = false;
+        /* state: reverse.reports error */
         offNote.textContent = offline() ? 'You’re offline. Your reports show here when you’re back.' : 'Ghosty’s brain could not be reached just now. REFRESH tries again.';
       }
     };
     jp.foot!.append(button('REFRESH', () => void refresh()));
 
+    paint();
     P.left.append(np.el, jp.el);
     P.right.append(viewer.el);
     P.big.textContent = 'See how any app works';

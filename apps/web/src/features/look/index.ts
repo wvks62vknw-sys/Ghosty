@@ -25,7 +25,7 @@ import type { TabDef } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { guardian, loadGuardian } from '../../state/guardian';
 import { PRESETS, recipe, recipeEvents, recipeNow, themeEvents } from '../../state/theme';
-import { COLOUR_LABELS, groundOf, GROUNDS, ORBIT_LINE, ROOMS_LINE, worldOf, WORLDS } from '../../../../../packages/shared/src/themes';
+import { COLOUR_LABELS, groundOf, GROUNDS, ROOMS_LINE, worldOf, WORLDS } from '../../../../../packages/shared/src/themes';
 import { lookDials } from '../../ui/dials';
 import { panel, type Panel } from '../../ui/components';
 import { heroState, mindFor, STATES, webglWorks, type Mind, type MindState } from '../core/mind';
@@ -61,6 +61,7 @@ export const lookState = {
 
 const SECTION_WORDS: Record<string, string> = { tokens: 'the tokens', type: 'the type', marks: 'the marks', mind: 'my orb', themes: 'the themes' };
 /** A token's job as a sentence on screen (the file writes it as a note: "the page: …" reads "The page: …"). */
+import { firstSentence, para, rest as restOf } from '../../ui/oneline';
 const sentence = (job: string) => job.charAt(0).toUpperCase() + job.slice(1);
 
 /** What each type style is set in, as a person would say it. */
@@ -100,7 +101,7 @@ export const lookTab: TabDef = {
     // (the screen's name is the navigation bar's large title, "The look": the head starts with the stamp under it)
     const hero = h('div.hero.glook-head',
       stamp.el,
-      h('p.glook-say', { dataset: { case: 'keep' } }, 'This is how I draw everything from here. Tap a mark to see it work.'),
+      ...para('p.glook-say', 'This is how I draw everything from here; tap a mark to see it work.'),
       states);
     /** Every stamp line on the screen, kept true together (the feeds answer, the signal goes, the minute turns). */
     const stamps = [stamp];
@@ -110,14 +111,14 @@ export const lookTab: TabDef = {
 
     const motion = matchMedia('(prefers-reduced-motion: reduce)');
     const paintStates = () => {
-      const said: [string, string][] = [];
-      if (motion.matches) said.push(['Reduce Motion', 'Reduce Motion is on, so every mark appears where it lands, the typed line shows whole and my orb holds still.']);
-      else if (document.documentElement.dataset.motion === 'calm') said.push(['Calm', 'Motion is set to calm, so every mark appears where it lands, the typed line shows whole and my orb holds still. Themes › Switches › Motion brings it back.']);
-      if (!settings.get().sounds) said.push(['Sound off', 'Interface sounds are off, so the recognition tone stays quiet. Settings › Voice & home turns them on.']);
+      const said: [string, string, string?][] = [];
+      if (motion.matches) said.push(['Reduce Motion', 'Reduce Motion is on, so every mark appears where it lands and my orb holds still.']);
+      else if (document.documentElement.dataset.motion === 'calm') said.push(['Calm', 'Motion is set to calm, so every mark appears where it lands and my orb holds still.', 'The typed line shows whole too; Themes › Switches › Motion brings it back.']);
+      if (!settings.get().sounds) said.push(['Sound off', 'Interface sounds are off, so the recognition tone stays quiet.', 'Settings › Voice & home turns them on.']);
       else if (!toneHeard()) said.push(['Tap once', 'I can play the recognition tone once you have tapped the screen.']);
       if (lookState.mind.mode === 'flat') said.push(['No 3-D', 'This browser has no 3-D, so I can’t draw my orb here; Home draws it flat too.']);
       lookState.states = said.map(([k]) => k);
-      states.replaceChildren(...said.map(([k, v]) => h('p.glook-state', { dataset: { case: 'keep' } }, h('b', k), v)));
+      states.replaceChildren(...said.flatMap(([k, v, more]) => { const [a, r] = more === undefined ? firstSentence(v) : [v, more]; return [h('p.glook-state', { dataset: { case: 'keep' } }, h('b', k), a), ...(r ? [restOf(r)] : [])]; }));
     };
 
     // ---------------------------------------------------------------- the five sections, each a panel
@@ -175,7 +176,7 @@ export const lookTab: TabDef = {
       for (const t of tokens) groups.set(t.group, [...(groups.get(t.group) ?? []), t]);
       const inks = tokens.filter((t) => /^--g-(ink-\d|line(-faint)?|accent|accent-text|amber|red|ok)$/.test(t.name));
       const worst = inks.filter((t) => t.name.startsWith('--g-ink')).map((t) => ({ t, r: Math.min(...measure(t.name)) })).sort((a, z) => a.r - z.r)[0];
-      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'Every token I draw with: its name, its value and its job. A theme changes the accent block and nothing else.'),
+      b.append(...para('p.glede', 'Every token I draw with: its name, its value and its job.', 'A theme changes the accent block and nothing else.'),
         plate({},
           tag('The floor', { tone: 'on' }),
           truthLine([`Text ${FLOOR.text}:1`, `lines ${FLOOR.line}:1`, 'nothing under 12 pt']),
@@ -200,31 +201,32 @@ export const lookTab: TabDef = {
       // the GROUND and WORLD blocks (BRIEF-THEMES-2): each block's values beside the job its token has above, the one in force marked
       const jobOf = Object.fromEntries(tokens.map((t) => [t.name, t.job]));
       const blockGroup = (title: string, lede: string, attr: 'ground' | 'world', names: readonly string[], labelOf: (k: string) => string, inForce: string) => {
-        const g = h('div.gtok-group.gblocks', { dataset: { group: title } }, tag(title, { count: names.length }), h('p.gtok-job', { dataset: { case: 'keep' } }, lede));
+        const g = h('div.gtok-group.gblocks', { dataset: { group: title } }, tag(title, { count: names.length }), ...para('p.gtok-job', lede));
         for (const bl of parseAttrBlocks(tokensCss, attr)) {
           const on = bl.key === inForce;
           const rows = names.filter((n) => bl.values[n] != null).map((n) => h('div.gbtok', { dataset: { token: n } },
             h('span.gtok-name', n), h('span.gtok-val', bl.values[n]!.length > 60 ? `${bl.values[n]!.slice(0, 57)}…` : bl.values[n]!), h('span.gtok-job', { dataset: { case: 'keep' } }, sentence(jobOf[n] ?? ''))));
           g.append(h('details.gblock', { dataset: { block: `${attr}:${bl.key}` }, ...(on ? { open: true } : {}) },
-            h('summary.gblock-head', { dataset: { case: 'keep' } }, h('span.gblock-name', labelOf(bl.key)), on ? h('span.gblock-on', 'In force') : null, h('span.gblock-note', bl.note || '')),
+            h('summary.gblock-head', { dataset: { case: 'keep' } }, h('span.gblock-name', labelOf(bl.key)), on ? h('span.gblock-on', 'In force') : null, h('span.gblock-note', firstSentence(bl.note || '')[0])),
+            ...(firstSentence(bl.note || '')[1] ? [h('p.gtok-job', { dataset: { case: 'keep' } }, firstSentence(bl.note || '')[1])] : []),
             ...rows));
         }
         b.append(g);
       };
       const r = recipe();
-      blockGroup('The grounds', 'What everything sits on: each ground swaps these surface tokens whole, held to the floor with every colour.', 'ground', GROUND_BLOCK, (k) => groundOf(k)?.label ?? k, document.documentElement.dataset.ground ?? r.ground);
-      blockGroup('The worlds', 'What each direction did, as drawing tokens: the floor, the corners, the glow, how a mark and a plate are drawn.', 'world', WORLD_BLOCK, (k) => worldOf(k)?.label ?? k, r.world);
+      blockGroup('The grounds', 'What everything sits on: each ground swaps these surface tokens whole.', 'ground', GROUND_BLOCK, (k) => groundOf(k)?.label ?? k, document.documentElement.dataset.ground ?? r.ground);
+      blockGroup('The worlds', 'What each direction did as drawing tokens: the floor, corners, glow, marks and plates.', 'world', WORLD_BLOCK, (k) => worldOf(k)?.label ?? k, r.world);
     };
 
     // ---------------------------------------------------------------- TYPE
     const SAMPLE: Record<string, string> = {
       '--g-t-display': 'The look', '--g-t-say': 'Good evening, Boss.', '--g-t-head': 'Alice’s Adventures in Wonderland',
-      '--g-t-body': 'Nothing needs you tonight. Shall we read?', '--g-t-value': '07:24 · 1,240 · 42/112', '--g-t-reading': 'Page 42 of 112 · yesterday',
+      '--g-t-body': 'Nothing needs you tonight; shall we read?', '--g-t-value': '07:24 · 1,240 · 42/112', '--g-t-reading': 'Page 42 of 112 · yesterday',
       '--g-t-tag': 'Library · 4', '--g-t-truth': 'Watching 3 feeds', '--g-t-key': 'Open', '--g-t-caption': 'A caption under a control', '--g-t-fine': '+35 since Monday',
       '--g-t-page': 'Alice was beginning to get very tired of sitting by her sister on the bank.',
     };
     const fillType = (b: HTMLElement) => {
-      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'My type, each style in its own size. Words in SF Pro, readings and tags in SF Mono, a book’s own words in New York; numbers line up.'),
+      b.append(...para('p.glede', 'My type, each style in its own size.', 'Words in SF Pro, readings and tags in SF Mono, a book’s own words in New York; numbers line up.'),
         plate({}, tag('The floor', { tone: 'on' }), truthLine(['Body 17', 'reading 15', 'tag or caption 13', 'nothing under 12']), truthLine(['Line heights on the 4-point line', 'numerals tabular'])));
       for (const t of tokens.filter((x) => x.name.startsWith('--g-t-'))) {
         const p = typeParts(t.value);
@@ -246,13 +248,13 @@ export const lookTab: TabDef = {
     const narration = () => {
       const n = feedsWatched();
       const r = recipe();
-      return `I’m watching ${home().name}. ${n == null ? 'I’m still asking the feeds.' : n === 0 ? 'No feeds have answered yet.' : `${n} ${n === 1 ? 'feed answered' : 'feeds answered'} last time I looked.`} You have me in ${COLOUR_LABELS[r.colour]}, on ${groundOf(document.documentElement.dataset.ground ?? r.ground)!.label}, in ${worldOf(r.world)!.label}.`;
+      return `I’m watching ${home().name}; ${n == null ? 'I’m still asking the feeds' : n === 0 ? 'no feeds have answered yet' : `${n} ${n === 1 ? 'feed answered' : 'feeds answered'} last time I looked`}; you have me in ${COLOUR_LABELS[r.colour]}, on ${groundOf(document.documentElement.dataset.ground ?? r.ground)!.label}, in ${worldOf(r.world)!.label}.`;
     };
     const fillMarks = (b: HTMLElement) => {
-      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'How I show you what I see. Each one is numbered, named and live: tap it.'));
+      b.append(...para('p.glede', 'How I show you what I see; each one is numbered, named and live: tap it.'));
       const block = (n: number, id: string, stage: HTMLElement, after?: Node | null) => {
         const m = MARKS.find((x) => x.id === id)!;
-        b.append(h('div.gmark', { dataset: { mark: id } }, h('div.gmark-head', index(n), tag(m.name)), h('p.gmark-rule', { dataset: { case: 'keep' } }, m.rule), stage, after ?? null));
+        b.append(h('div.gmark', { dataset: { mark: id } }, h('div.gmark-head', index(n), tag(m.name)), ...para('p.gmark-rule', m.rule), stage, after ?? null));
       };
       const theme = () => COLOUR_LABELS[recipe().colour];
       // 01 the stamp line
@@ -446,7 +448,7 @@ export const lookTab: TabDef = {
       M.lent = false;
     };
     const fillMind = (b: HTMLElement) => {
-      b.append(h('p.glede', { dataset: { case: 'keep' } }, 'My orb: the hologram of what I know, a sphere of light holding the constellation of my library, lit in your colour from the tokens, its glow following the world. The same one Home shows, borrowed while you look. Five states, each one visible change.'),
+      b.append(...para('p.glede', 'My orb: the hologram of what I know, lit in your colour from the tokens.', 'It is a sphere of light holding the constellation of my library, its glow following the world; the same one Home shows, borrowed while you look. Five states, each one visible change.'),
         h('div.gstates', ...STATES.map((st) => {
           const c = h('canvas.gstill', { width: 400, height: 400, 'aria-label': `My orb ${st.key}: ${st.line}`, role: 'img' });
           stillCanvases.set(st.key, c);
@@ -464,12 +466,12 @@ export const lookTab: TabDef = {
     const fillThemes = (b: HTMLElement) => {
       swatches = themeSwatches({ measure: true, label: 'Theme' });
       dials = lookDials({ label: 'The look’s dials' });
-      b.append(h('p.glede', { dataset: { case: 'keep' } }, `A theme is a recipe: a ground, a colour, a world and the switches. ${PRESETS.length} presets to start from; turn any dial under them and I keep it as Custom.`),
+      b.append(...para('p.glede', 'A theme is a recipe: a ground, a colour, a world and the switches.', `${PRESETS.length} presets to start from; turn any dial under them and I keep it as Custom.`),
         plate({}, tag('Held to the floor', { tone: 'on' }), truthLine([`${GROUNDS.length} grounds × ${Object.keys(COLOUR_LABELS).length} colours`, `text ${FLOOR.text}:1`, `lines ${FLOOR.line}:1`, `in all ${WORLDS.length} worlds`])),
         swatches.el,
         dials.el,
         tiltRow(),
-        plate({}, tag('Orbit'), truthLine(ORBIT_LINE), truthLine(ROOMS_LINE)));
+        plate({}, tag('Orbit'), truthLine(worldOf('orbit')!.line), truthLine(ROOMS_LINE)));
       swatches.paint();
     };
 

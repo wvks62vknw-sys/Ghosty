@@ -130,7 +130,7 @@ await page.evaluate(() => (location.hash = 'area-make'));
 await page.waitForSelector('#pg-area-make .hubtile[data-id="convert"]', { timeout: 15000 });
 // (since 1 Nov, night, every tool of MAKE is a card, DOCUMENTS and the HOUSE too, and each opens its own screen: BRIEF-TABS;
 // it was "CONVERT a card, DOCUMENTS the seventh tool in the More row", each opening its sheet)
-check(await page.locator('#pg-area-make .hubtile[data-id="docs"]').count() === 1 && await page.locator('#pg-area-make .hubtile[data-id="house"]').count() === 1 && !(await page.locator('#pg-area-make .hubmini').count()), 'MAKE: CONVERT, DOCUMENTS and the HOUSE are cards, with no More row');
+check(await page.locator('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]').count() === 1 && await page.locator('#pg-area-make .hubtile[data-id="house"]').count() === 1 && !(await page.locator('#pg-area-make .hubmini').count()), 'MAKE: CONVERT, DOCUMENTS and the HOUSE are cards, with no More row');
 await page.click('#pg-area-make .hubtile[data-id="convert"]');
 await page.waitForSelector('#pg-convert .cvsheet', { timeout: 15000 });
 check(await page.evaluate(() => document.body.dataset.tab) === 'convert', 'the CONVERT card opens the converter’s own screen');
@@ -191,8 +191,8 @@ function wordsPdf() {
   return Buffer.from(s, 'latin1');
 }
 await page.evaluate(() => (location.hash = 'area-make'));
-await page.waitForSelector('#pg-area-make .hubtile[data-id="docs"]', { timeout: 15000 });
-await page.click('#pg-area-make .hubtile[data-id="docs"]');
+await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]', { timeout: 15000 });
+await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]');
 await page.waitForSelector('#pg-docs .dcsheet', { timeout: 15000 });
 await page.setInputFiles('.dcsheet input[type=file]', { name: 'damp leaflet.pdf', mimeType: 'application/pdf', buffer: wordsPdf() });
 check(await until(page, () => window.__ghosty?.docs?.view === 'doc' && /Black mould/.test(window.__ghosty.docs.text)), 'a PDF is read as a document on the phone (pdf.js, vendored)');

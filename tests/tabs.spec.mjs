@@ -35,7 +35,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 
 // ---- what the screens and the areas hold (shell/areadefs.ts; ui/sheetpage.ts draws a screen's pages under its pills)
 const AREA_TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'house'],
+  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
@@ -47,19 +47,22 @@ const STAND_IN = { learning: { WORDS: /starter set, typed in by hand/, 'FIRST AI
 const IN_THE_WORKS = ['coach', 'learning'];
 /** Each new screen: its area, its name as the jump bar and the deck show it, a plain word it is found by, its pills and pages. */
 const NEW = {
-  money: { area: 'life', name: 'Money', word: 'statement', pills: [], pages: ['PASTE A STATEMENT'] },
-  body: { area: 'life', name: 'Body', word: 'squats', pills: ['Reps', 'Run', 'Breathe', 'Stretch', 'Health', 'Water'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'BREATHE', 'STRETCH SET', 'MY HEALTH WEEK', 'WATER TODAY'] },
-  kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN'] },
-  people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Group plan'], pages: ['YOUR PEOPLE', 'GROUP PLAN'] },
+  money: { area: 'life', name: 'Money', word: 'statement', pills: ['Month', 'Budgets', 'Bills', 'Trends', 'Statement'], pages: ['YOUR MONTH', 'BUDGETS', 'BILLS AND SUBSCRIPTIONS', 'TRENDS', 'PASTE A STATEMENT'] },
+  body: { area: 'life', name: 'Body', word: 'squats', pills: ['Move', 'Water', 'Sleep', 'Mood', 'Weight', 'Health'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'STEPS', 'WATER TODAY', 'SLEEP', 'MOOD', 'BREATHE', 'STRETCH SET', 'WEIGHT', 'MY HEALTH WEEK'] },
+  kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan', 'Pantry', 'Recipes'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN', 'PANTRY', 'RECIPES'] },
+  people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Coming up', 'Group plan'], pages: ['YOUR PEOPLE', 'COMING UP', 'GROUP PLAN'] },
   work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Interview', 'Document'], pages: ['TO-DO', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
   creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },
   outside: { area: 'life', name: 'Outside', word: 'toilets', pills: ['Walk', 'Nearby', 'My car', 'Lost', 'Split'], pages: ['WALK', 'NEARBY', 'MY CAR', 'LOST', 'SPLIT'] },
-  homeadmin: { area: 'life', name: 'Home', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS'] },
+  homeadmin: { area: 'life', name: 'Household', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS'] },
   learning: { area: 'learn', name: 'Learning', word: 'first aid', pills: ['Words', 'Draw', 'Typing', 'Drills', 'First aid', 'Plan'], pages: ['WORDS', 'CARDS', 'DRAW', 'WRITING', 'TYPING', 'READING', 'MEMORY', 'MATHS', 'SPELLING', 'FIRST AID', 'PLAN', 'STREAKS'] },
   coach: { area: 'learn', name: 'Coach', word: 'guitar', pills: ['Tuner', 'Lessons', 'Typing', 'Draw', 'Words'], pages: ['TUNER', 'LESSONS', 'TYPING', 'DRAW', 'WORDS'] },
   social: { area: 'me', name: 'Social', word: 'bluesky', pills: ['Waiting', 'Accounts', 'Origin'], pages: ['WAITING FOR YOUR APPROVE', 'SENT TODAY', 'BLUESKY', 'MASTODON', 'DISCORD', 'TELEGRAM CHANNEL', 'FATHER AND THE ORIGIN'] },
   convert: { area: 'make', name: 'Convert', word: 'pdfs', pills: [], pages: ['CONVERT'] },
   docs: { area: 'make', name: 'Documents', word: 'landlord', pills: [], pages: ['DOCUMENTS'] },
+  sheets: { area: 'make', name: 'Spreadsheets', word: 'formulas', pills: [], pages: ['SPREADSHEETS'] },
+  slides: { area: 'make', name: 'Presentations', word: 'slides', pills: [], pages: ['PRESENTATIONS'] },
+  workspace: { area: 'make', name: 'The workspace', word: 'workspace', pills: [], pages: ['THE WORKSPACE'] },
   house: { area: 'make', name: 'House', word: 'heating', pills: [], pages: ['HOUSE'] },
 };
 
@@ -116,13 +119,11 @@ const unnamed = (page, sel) => page.$$eval(`${sel} :is(button, input:not([type=h
   .filter((e) => !((e.getAttribute('aria-label') || e.getAttribute('title') || e.textContent || e.getAttribute('placeholder') || '').trim() || e.closest('label')?.textContent?.trim()))
   .slice(0, 6).map((e) => e.outerHTML.slice(0, 90)));
 /**
- * Controls a finger cannot take: under 44 pt (a box or a switch counts by the label round it). One known exception, said in the
- * report: the drum pads' step grid (CREATIVE → DRUM PADS), sixteen steps as two rows of eight, each 44 pt tall but only as wide
- * as a 390-pt phone leaves (about 31 pt), as in its sheet.
+ * Controls a finger cannot take: under 44 pt (a box or a switch counts by the label round it). No exception: the drum pads' step grid
+ * (CREATIVE → DRUM PADS) is sixteen steps as four beats of four, each a full 44 pt (BRIEF-QUALITY-LIFE).
  */
 const small = (page, sel) => page.$$eval(`${sel} :is(button, input:not([type=hidden]):not([type=file]), textarea, select, [role=button])`, (els) => els
   .filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]'))
-  .filter((e) => !(e.matches('.pkgridrow .pkstep') && e.offsetHeight >= 44))
   .map((e) => {
     const t = /^(checkbox|radio)$/.test(e.type ?? '') ? e.closest('label') ?? e : e;
     // its laid-out size (a page still landing is drawn a little smaller for a moment: that is not the target's size)
@@ -217,7 +218,8 @@ for (const viewport of [PHONE, SMALL]) {
       await page.click(`#mesheet .merow[data-id="${id}"]`).catch(() => problems.push(`${at} no row on the Me sheet`));
     } else {
       await go(page, `area-${s.area}`, 1000);
-      const card = page.locator(`#pg-area-${s.area} .hubtile[data-id="${id}"]`);
+      // (the editors sit under the one EDITORS card since the MAKE room passed ten things: their pills are one tap, shell/areadefs.ts)
+      const card = page.locator(['docs', 'sheets', 'slides', 'workspace'].includes(id) ? `#pg-area-${s.area} .hubtile[data-id="editors"] .hubpill[data-editor="${id}"]` : `#pg-area-${s.area} .hubtile[data-id="${id}"]`);
       await card.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
       await card.click({ timeout: 5000 }).catch(() => problems.push(`${at} has no card on the ${s.area} hub`));
     }
@@ -375,7 +377,7 @@ for (const viewport of [PHONE, SMALL]) {
   };
   // the home pack: the bins answered in the chat with no model, its chip opens the HOME sheet on its BINS page
   if (await say('when are the bins?', /bin/, '[chat] "when are the bins?" had no answer about the bins')) {
-    const chip = page.locator('#pg-core .msg:not(.me) :is(button, a):visible', { hasText: /^Open the HOME sheet$/i }).last();
+    const chip = page.locator('#pg-core .msg:not(.me) :is(button, a):visible', { hasText: /^Open the HOUSEHOLD sheet$/i }).last();
     if (!(await chip.count())) problems.push('[chat] the bins answer has no chip to open the HOME sheet');
     else {
       await chip.click({ timeout: 8000 }).catch(() => problems.push('[chat] the chip to open the HOME sheet could not be tapped'));

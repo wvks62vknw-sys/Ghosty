@@ -70,9 +70,10 @@ async function run(name, viewport) {
   const text = (await jp.textContent()) ?? '';
   if (!/1 RUNNING/.test(text)) problems.push(`[${name}] status should say 1 RUNNING: ${text.slice(0, 80)}`);
   if (!/1\/4/.test(text) || !/1\/3/.test(text)) problems.push(`[${name}] progress bars missing (1/4 and 1/3): ${text.slice(0, 300)}`);
-  if (!/RUNNING · a step every 20 min/.test(text) || !/PAUSED · a step every 3 min/.test(text)) problems.push(`[${name}] status and pace lines missing (in plain words: RUNNING, PAUSED)`);
+  // each project's line: its state word, where it has got to, the pace in full words (the MAKE pass: features/workshop/words.ts projectWords)
+  if (!/RUNNING · step 2 of 4 · a step every 20 minutes · /.test(text) || !/PAUSED · step 2 didn’t work · a step every 3 minutes · /.test(text)) problems.push(`[${name}] status and pace lines missing (in plain words: RUNNING, PAUSED): ${text.slice(0, 300)}`);
   // the note in plain words: what happened, what happens next, and why
-  if (!/Step 2 didn’t work 3 times, so Ghosty paused it\. RESUME tries it again\. Why: boom/.test(text)) problems.push(`[${name}] the project's note is not shown in plain words: ${text.slice(-220)}`);
+  if (!/Step 2 didn’t work 3 times, so Ghosty paused it\. RETRY tries it again\. Why: boom/.test(text)) problems.push(`[${name}] the project's note is not shown in plain words: ${text.slice(-220)}`);
   if (/\b(ACTIVE|TODO|DOING)\b|failed \(3 of 3\)/.test(text)) problems.push(`[${name}] the projects speak jargon (ACTIVE / TODO / DOING / "failed (3 of 3)")`);
   for (const [label, re] of [['NOW', /Design the pages\s*NOW/], ['TO DO', /Build the site\s*TO DO/], ['DIDN’T WORK', /Compare running costs\s*DIDN’T WORK/]]) if (!re.test(text)) problems.push(`[${name}] a step does not say ${label}`);
   const cards = jp.locator('.change.project');
@@ -80,7 +81,7 @@ async function run(name, viewport) {
   const first = cards.first();
   if (await cards.nth(1).evaluate((c) => c.classList.contains('failed'))) problems.push(`[${name}] a paused project is drawn as a failure`);
   for (const label of ['PAUSE', 'RUN NEXT NOW', 'CANCEL']) if (!(await first.locator(`button:has-text("${label}")`).count())) problems.push(`[${name}] the running project has no ${label} button`);
-  if (!(await cards.nth(1).locator('button:has-text("RESUME")').count())) problems.push(`[${name}] the paused project has no RESUME button`);
+  if (!(await cards.nth(1).locator('button:has-text("RETRY")').count()) || (await cards.nth(1).locator('button:has-text("RESUME")').count())) problems.push(`[${name}] the project stopped by a failure should have RETRY and no RESUME`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
   await page.screenshot({ path: `${out}/${name}-projects.png` });
   // a done step opens its result
@@ -90,9 +91,9 @@ async function run(name, viewport) {
   await page.keyboard.press('Escape');
   // the buttons reach the brain and the card follows
   await first.locator('button:has-text("PAUSE")').click();
-  await page.waitForFunction(() => /PAUSED · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] PAUSE did not change the card`));
+  await page.waitForFunction(() => /PAUSED · 1 of 4 done · a step every 20 minutes · /.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] PAUSE did not change the card`));
   await jp.locator('.change.project').first().locator('button:has-text("RESUME")').click();
-  await page.waitForFunction(() => /RUNNING · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RESUME did not change the card`));
+  await page.waitForFunction(() => /RUNNING · step 2 of 4 · a step every 20 minutes · /.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RESUME did not change the card`));
   await jp.locator('.change.project').first().locator('button:has-text("RUN NEXT NOW")').click();
   await page.waitForFunction(() => /2\/4/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RUN NEXT NOW did not advance the bar to 2/4`));
   // CANCEL asks first in a one-tap confirm (a cancelled project cannot be started again)

@@ -116,12 +116,12 @@ await shot('spending-empty');
 await card.locator('input[type=file]').setInputFiles({ name: 'monzo.csv', mimeType: 'text/csv', buffer: Buffer.from(MONZO) });
 await page.waitForFunction(() => window.__ghosty?.spending?.kept === 18, null, { timeout: 8000 }).catch(() => problems.push('the statement was not added'));
 const toast = await page.locator('.toast').last().textContent().catch(() => '');
-if (!/Added 18 rows from Monzo · 1 name sorted by the free AI/.test(toast ?? '')) problems.push(`the import's toast reads: ${toast}`);
+if (!/Added 18 rows from Monzo\. 1 sorted by the free AI\./.test(toast ?? '')) problems.push(`the import's toast reads: ${toast}`);
 if (brain.asked.join() !== "BOB'S BARBER") problems.push(`names for the model: ${brain.asked.join()}`);
 let t = await text();
 if (!/October 2026/.test(t)) problems.push('the card does not open on the latest month');
-if (!/£83 out · £2,100 in/.test(t)) problems.push(`the month's total reads wrong: ${t.slice(0, 200)}`);
-if (!/SUBSCRIPTIONS · £300 A YEAR/.test(t)) problems.push('no subscriptions with the yearly total');
+if (!/£83\.\d\d out · £2,100\.00 in/.test(t)) problems.push(`the month's total reads wrong: ${t.slice(0, 200)}`);
+if (!/SUBSCRIPTIONS · £299\.76 A YEAR/.test(t)) problems.push('no subscriptions with the yearly total');
 if (!/Netflix.*was £10\.99 until 05\/10/.test(t)) problems.push('the Netflix price change is not said');
 if (!/18 rows kept · up to 3,000/i.test(t)) problems.push('the rows kept and the cap are not said');
 

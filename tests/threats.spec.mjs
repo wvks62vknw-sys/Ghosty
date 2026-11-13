@@ -99,8 +99,9 @@ const text = (page, sel) => page.locator(sel).first().innerText().catch(() => ''
   if (!/^5 live signals/.test(sub)) problems.push(`[440] the live count includes events not updated for weeks: "${sub}"`);
   const list = await text(page, '#pg-threats .pn.signals');
   if (/Old Fire Last Seen/.test(list)) problems.push('[440] a wildfire last updated 60 days ago is listed as a live signal');
-  const tags = await page.$$eval('#pg-threats .pn.signals .rw .n', (els) => els.map((e) => e.textContent.trim()));
-  if (!tags.length || tags.some((t) => !/ago$|^now$/i.test(t))) problems.push(`[440] every signal should say when (quakes said their magnitude twice): ${tags.join(' | ')}`);
+  // (each row says when and from which feed: "3 hours ago, from the USGS feed")
+  const tags = await page.$$eval('#pg-threats .pn.signals .rw .when', (els) => els.map((e) => e.textContent.trim()));
+  if (!tags.length || tags.some((t) => !/^(just now|\d+ (minutes?|hours?|days?) ago), from (the USGS feed|NASA’s feed)$/.test(t))) problems.push(`[440] every signal should say when and from which feed: ${tags.join(' | ')}`);
   // space weather: NOAA's Kp file as served now
   await openSection(page, 'threats', 'Space weather');
   const sw = await text(page, '#pg-threats .pn.spacewx');

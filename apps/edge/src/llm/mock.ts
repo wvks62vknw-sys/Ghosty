@@ -201,6 +201,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
     // [packs2] After a pack's tool (people, work, creative): what it said, as it came (a draft, a letter, the lyrics' frame).
     if (lastCall && ['people', 'work', 'creative', 'outside', 'home', 'learning'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content) }, model };
+    // [kernel3] After the deck, video, workspace and game tools: what they said (a proposal is marked in the editor for him, never applied; a search's lines as they came).
+    if (lastCall && ['slides', 'videoedit', 'workspace', 'game'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content).replace(/ NOTHING is changed until[^\n]*$/, ' It is marked in your editor for you to accept or reject.').replace(/ Tell him (?:it is there|it plays)[^\n]*$/, '') }, model };
+    // [document] After the document tool: what it did, in a line (a proposal is marked in the page for him, never applied).
+    if (lastCall?.name === 'document') return { message: { role: 'assistant', content: /^Proposed/.test(textOf(last.content)) ? 'It is marked in your document: accept it or reject it there.' : textOf(last.content) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
     if (lastCall?.name === 'estimate') return { message: { role: 'assistant', content: textOf(last.content).replace(/\n\n\(Answer his question[^)]*\)$/, '') }, model };
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
@@ -234,6 +238,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
           : { kind: 'none', species: '', common: '', sure: "can't tell", tell: '' };
     return { message: { role: 'assistant', content: '```json\n' + JSON.stringify(reply) + '\n```' }, model };
   }
+  // The Lens's place or artwork (features/lens/cards.ts): a clock tower is Big Ben, "probably"
+  if (/^LENS NAME A PLACE/.test(lensAsk) && imagesIn(last.content)) return { message: { role: 'assistant', content: JSON.stringify({ name: 'Big Ben', sure: 'probably' }) }, model };
   if (/^LENS WHAT'S IN IT/.test(lensAsk) && imagesIn(last.content)) {
     const meal = { foods: [{ name: 'fish in batter', grams: 150, packaged: false }, { name: 'chips', grams: 150, packaged: false }, { name: 'mushy peas', grams: 80, packaged: false }], sure: 'fairly sure' };
     return { message: { role: 'assistant', content: JSON.stringify(meal) }, model };
@@ -252,8 +258,51 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     return { message: { role: 'assistant', content: "Here's a letter you can send:\n\n[Your name]\n12 High Street\nBirmingham B1 1AA\n\n[Date]\n\nDear Mr Khan,\n\nI am writing about the **damp** in the back bedroom of the flat. Black mould has been growing on the wall behind the wardrobe since August, and it has now spread to the ceiling. It smells, and it is affecting my health.\n\nPlease arrange for the cause to be found and repaired within 14 days.\n\nYours sincerely,\n[Your name]\n\nWant me to make it more formal?" }, model };
   }
   const docAsk = last.role === 'user' ? ownerWords(textOf(last.content)) : '';
+  // [editors] SPREADSHEETS (apps/web/src/sheets/ask.ts, the chosen cells as the turn's data): a cell explained, a formula written, words tidied
+  if (/^SHEET EXPLAIN\b/.test(docAsk)) return { message: { role: 'assistant', content: /=SUM\(/i.test(docAsk) ? 'This adds up the numbers it points at, so the total changes whenever one of them does.' : 'This holds a figure or some words typed in, with nothing worked out from other cells.' }, model };
+  if (/^SHEET FORMULA\b/.test(docAsk)) {
+    const wants = /^What he wants: (.*)$/m.exec(docAsk)?.[1] ?? '';
+    const mean = /average|mean/i.test(wants);
+    return { message: { role: 'assistant', content: `Sure, use this:\n\n${mean ? '=AVERAGE(B2:B4)' : '=SUM(B2:B4)'}\n\nIt works out ${mean ? 'the average' : 'the total'} of the three amounts above.` }, model };
+  }
+  if (/^SHEET CLEAN\b/.test(docAsk)) return { message: { role: 'assistant', content: [...docAsk.matchAll(/^\[(\d+)\] (.*)$/gm)].map((m) => `[${m[1]}] ${m[2]!.trim().replace(/\s+/g, ' ').replace(/\b([a-z])/g, (c) => c.toUpperCase())}`).join('\n') }, model };
   // [editors] DOCUMENTS writing into the page (docs/ask.ts, the document as the turn's data): new words as Markdown with its chatter, one paragraph said again
   if (/^DOCUMENT WRITE\b/.test(docAsk)) return { message: { role: 'assistant', content: "Sure, here you go:\n\n## Next steps\n\nPlease reply within 14 days. If I have not heard from you by then I will take the matter further.\n\n- Repair the **damp** at the back of the flat\n- Confirm the date of the visit\n\nWant me to make it firmer?" }, model };
+  // [document] the `document` tool (tools/document.ts; BRIEF-KERNEL-2): "make the second paragraph shorter" with a document open reads it from the
+  // turn's data (the numbered paragraphs after his message) and proposes the paragraph's first sentence; the reply says it is marked for him.
+  if (last.role === 'user' && has('document') && (m = /^make the (first|second|third|fourth|\d+)(?:st|nd|rd|th)? paragraph (?:a bit )?shorter/.exec(docAsk.toLowerCase()))) {
+    const at = ({ first: 1, second: 2, third: 3, fourth: 4 } as Record<string, number>)[m[1]!] ?? Number(m[1]);
+    const words = new RegExp(`^\\[${at}\\] (?:#{1,3} )?(.*)$`, 'm').exec(textOf(last.content))?.[1] ?? '';
+    return { message: call('document', { op: 'edit', paragraph: at, text: words.split(/(?<=[.!?])\s+/)[0] ?? words }), model };
+  }
+  // [kernel3] the deck, video, workspace and game tools (tools/editors.ts; BRIEF-KERNEL-3): each reads the open editor from the turn's data and proposes.
+  const nth = (w: string): number => ({ first: 1, second: 2, third: 3, fourth: 4, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, ten: 10 } as Record<string, number>)[w.toLowerCase()] ?? Number(w);
+  const dataLine = (re: RegExp): string => new RegExp(re.source, 'm').exec(textOf(last.content))?.[1] ?? '';
+  if (last.role === 'user' && has('slides') && (m = /^(?:please )?make slide (\w+?)(?:'s|’s|s)? title (?:a bit )?shorter/i.exec(docAsk))) {
+    const n = nth(m[1]!);
+    const title = dataLine(new RegExp(`^slide ${n} \\| layout \\w+ \\| title ("(?:[^"\\\\]|\\\\.)*")`)) ;
+    const words = (title ? (JSON.parse(title) as string) : '').split(/\s+/).filter(Boolean);
+    return { message: call('slides', { op: 'edit', slide: n, title: words.slice(0, Math.max(1, Math.ceil(words.length / 2))).join(' ') }), model };
+  }
+  // a short report with headings, for the deck tool to make slides from (the next turn's `slides` make reads this reply back from the turns)
+  if (last.role === 'user' && (m = /^write me a short report on (.+?)\.?$/i.exec(docAsk))) {
+    const t = m[1]!.replace(/^\w/, (c) => c.toUpperCase());
+    return { message: { role: 'assistant', content: `# ${t}\n\nA short look at ${m[1]}, and what to do about it.\n\n## What is happening\n${t} has got worse over the last year, and many people say they have little choice.\n\n## Why it matters\nIt costs money, it harms health, and it is slow to fix.\n\n## What you can do\n- Write to the landlord\n- Keep a diary of the problem\n- Ask the council for help` }, model };
+  }
+  if (last.role === 'user' && has('slides') && /^(?:please )?make slides? from (?:this|that|it)/i.test(docAsk)) return { message: call('slides', { op: 'make' }), model };
+  if (last.role === 'user' && has('videoedit') && (m = /^(?:please )?cut the (first|second|third|\w+) clip to the first (\w+) seconds?/i.exec(docAsk))) return { message: call('videoedit', { op: 'edit', change: 'trim', clip: nth(m[1]!), from: 0, to: nth(m[2]!) }), model };
+  if (last.role === 'user' && has('videoedit') && (m = /^(?:please )?steady the (first|second|third|\w+) clip/i.exec(docAsk))) return { message: call('videoedit', { op: 'edit', change: 'steady', clip: nth(m[1]!) }), model };
+  if (last.role === 'user' && has('videoedit') && /^(?:please )?export (?:the |my )?video/i.test(docAsk)) return { message: call('videoedit', { op: 'export' }), model };
+  if (last.role === 'user' && has('workspace') && (m = /^what did i (?:write|say|note|put) about (?:the |my )?(.+?)\??$/i.exec(docAsk))) return { message: call('workspace', { op: 'search', query: m[1] }), model };
+  if (last.role === 'user' && has('workspace') && (m = /^add ['"‘“](.+?)['"’”] to (?:the|my) (.+? list)$/i.exec(docAsk))) return { message: call('workspace', { op: 'append', page: m[2], text: m[1] }), model };
+  if (last.role === 'user' && has('game') && /^(?:please )?make the first room wider/i.test(docAsk)) {
+    const r = /^room (\S+) \| name ("(?:[^"\\]|\\.)*") \| w (\d+) \| h (\d+)/m.exec(textOf(last.content));
+    return { message: call('game', { op: 'edit', room: r ? (JSON.parse(r[2]!) as string) : 'first', w: Math.min(64, Number(r?.[3] ?? 24) + 8) }), model };
+  }
+  if (last.role === 'user' && has('game') && (m = /^(?:please )?make me an? (platformer|top-?down|adventure)(?: game)? about an? (.+?)\.?$/i.exec(docAsk))) {
+    const what = m[2]!.replace(/\b\w/g, (c) => c.toUpperCase());
+    return { message: call('game', { op: 'make', name: `${what} Run`, kind: /platformer/i.test(m[1]!) ? 'platformer' : 'topdown', world: 'hills', colour: 'Sunset', person: 'Old Badger', lines: [`Welcome, little ${m[2]}! The hills are full of coins.`, 'Bring me three and I will tell you a secret.'], quest: 'The badger’s secret' }), model };
+  }
   if (/^DOCUMENT REWRITE\b/.test(docAsk)) return { message: { role: 'assistant', content: 'Please arrange the repair within 14 days.' }, model };
   if (/^DOCUMENT (?:EDIT|TRANSLATE)\b/.test(docAsk)) {
     const paras = [...docAsk.matchAll(/^\[(\d+)\] (.*)$/gm)].map((x) => ({ n: Number(x[1]), text: x[2]! }));
@@ -308,6 +357,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   if ((m = text.match(/^build (?:me )?a website (.+)$/)) && has('build_website')) return { message: call('build_website', { request: m[0], ...(/barber/.test(m[1]!) ? { kind: 'barber', name: 'Fade & Co. Barbers', phone: '07700 900461' } : {}) }), model };
   // A mini-app for the Home Screen (tools/sites.ts build_app), so a chat-flow spec can ask for one without a model.
   if ((m = text.match(/^make me an app (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0] }), model };
+  // [sites] A game from his studio on his sites (tools/sites.ts publish_game): the chat turn the studio's key starts.
+  if ((m = text.match(/^put (.+?) on my sites$/)) && has('publish_game')) return { message: call('publish_game', { name: m[1] }), model };
   if ((m = text.match(/^unpublish site ([a-z0-9-]+)$/)) && has('unpublish_site')) return { message: call('unpublish_site', { name: m[1] }), model };
   if ((m = text.match(/^draft site ([a-z0-9-]+) part (\d)$/)) && has('draft_site')) {
     const parts = ['<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>In parts</title></head>', '<body><h1>Part two</h1>', '<p>Part three</p></body></html>'];

@@ -20,6 +20,8 @@ import { settings } from '../../state/app';
 import { button, panel } from '../../ui/components';
 import { labelRow } from './card';
 import type { TunnelIn, TunnelOut, TunnelView } from './tunnelwork';
+import { waiting } from '../../ui/wait';
+import { noteWith, TUNNEL, unitNote } from './words';
 
 export const NX = 192;
 export const NY = 96;
@@ -349,7 +351,7 @@ export function tunnelPanel(onFrame?: (o: TunnelOut) => void): Tunnel {
     const s = sys();
     const finite = Number.isFinite(o.cd) && Number.isFinite(o.cl);
     const q = 0.5 * k.rho * k.wind * k.wind * k.chord * k.span;
-    const line = (label: string, value: string, note?: string) => h('div.wbline', h('span.k', h('span', label), note ? h('small.n', note) : null), h('span.v', value));
+    const line = (label: string, value: string, note?: string) => { const n = noteWith(note, unitNote(label, value)); return h('div.wbline', h('span.k', h('span', label), n ? h('small.n', n) : null), h('span.v', value)); };
     clear(card, h('div.wbcard', { role: 'group', 'aria-label': 'Wind tunnel, first estimate, not certified' },
       labelRow(undefined, 'a 2-D, low-Reynolds lattice flow; a real wing is 3-D and turbulent'),
       h('div.wbtitle', `Wind tunnel: ${o.shapeName || 'starting'}`),
@@ -364,6 +366,27 @@ export function tunnelPanel(onFrame?: (o: TunnelOut) => void): Tunnel {
       ...(o.clamped.length || tunnelState.note ? [h('p.wbcaveat', [...o.clamped, tunnelState.note].filter(Boolean).join(' '))] : []),
       h('p.wbcaveat', caveatFor('tunnel')),
     ));
+  }
+
+  // ---------- the states of its start: the wind coming, and the wind that will not come
+  let stopWait: (() => void) | null = null;
+  let giveUp = 0;
+  const shell = (...inside: (Node | null)[]) => h('div.wbcard', { role: 'group', 'aria-label': 'Wind tunnel, first estimate, not certified' }, labelRow(undefined, 'a 2-D, low-Reynolds lattice flow; a real wing is 3-D and turbulent'), h('div.wbtitle', 'Wind tunnel'), ...inside, h('p.wbcaveat', caveatFor('tunnel')));
+  function startingCard(): void {
+    stopWait?.();
+    const body = shell();
+    clear(card, body);
+    card.dataset.state = 'loading';
+    /* state: workbench.tunnel loading */
+    stopWait = waiting(body.querySelector('.wbtitle')!.parentElement as HTMLElement, TUNNEL.starting);
+  }
+  function failCard(words: string): void {
+    stopWait?.();
+    stopWait = null;
+    clearTimeout(giveUp);
+    /* state: workbench.tunnel error */
+    card.dataset.state = 'error';
+    clear(card, shell(h('p.tunfail', { role: 'alert', dataset: { case: 'keep' } }, words), h('div.row', button(TUNNEL.retry, () => tunnel.start(), 'on'))));
   }
 
   // ---------- the worker
@@ -392,6 +415,12 @@ export function tunnelPanel(onFrame?: (o: TunnelOut) => void): Tunnel {
     tunnelState.fps = o.fps;
     tunnelState.paused = o.paused;
     if (!Number.isFinite(o.cd) || !Number.isFinite(o.cl) || !Number.isFinite(o.re)) tunnelState.nan = true;
+    if (stopWait) {
+      stopWait();
+      stopWait = null;
+      clearTimeout(giveUp);
+      delete card.dataset.state;
+    }
     draw();
     paintCard(o);
     onFrame?.(o);
@@ -418,14 +447,23 @@ export function tunnelPanel(onFrame?: (o: TunnelOut) => void): Tunnel {
       } catch {
         worker = null;
         tunnelState.running = false;
-        clear(card, h('div.note', 'The wind tunnel could not start on this phone.'));
+        failCard(TUNNEL.cannot);
         return;
       }
+      startingCard();
+      // slower than any real start under load, yet not for ever: the wind that has not come in 20 s is said so, with RETRY
+      clearTimeout(giveUp);
+      giveUp = window.setTimeout(() => {
+        if (worker && !tunnelState.ready) {
+          tunnel.stop();
+          failCard(TUNNEL.stopped);
+        }
+      }, 20000);
       worker.onmessage = onMessage;
       worker.onerror = (e) => {
         e.preventDefault();
-        tunnelState.note = 'The tunnel stopped by itself: RESET starts it again.';
         tunnel.stop();
+        failCard(TUNNEL.stopped);
       };
       send({ tunnel: 'start', nx: NX, ny: NY, shape: specOf(k, points), inlet: inletOf(k), tau: TAU, view: k.view });
       syncHeavy();
@@ -434,6 +472,9 @@ export function tunnelPanel(onFrame?: (o: TunnelOut) => void): Tunnel {
       if (!worker) return;
       worker.terminate();
       worker = null;
+      stopWait?.();
+      stopWait = null;
+      clearTimeout(giveUp);
       tunnelState.running = false;
       syncHeavy();
     },
@@ -449,7 +490,7 @@ export function tunnelPanel(onFrame?: (o: TunnelOut) => void): Tunnel {
   paintView();
   setDrawing(false);
   draw();
-  clear(card, h('div.wbcard', labelRow(undefined, 'a 2-D, low-Reynolds lattice flow; a real wing is 3-D and turbulent'), h('div.wbtitle', 'Wind tunnel: starting'), h('p.wbcaveat', caveatFor('tunnel'))));
+  clear(card, shell());
   expose();
   return tunnel;
 }

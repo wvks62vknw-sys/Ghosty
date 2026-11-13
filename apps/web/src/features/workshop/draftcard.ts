@@ -11,6 +11,8 @@ import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, pill, sandboxFrame, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { DRAFT } from './words';
 
 /** The two screens a draft is shown at: an iPhone and a laptop. */
 const SCREENS = [
@@ -54,7 +56,7 @@ function fit(frames: HTMLElement): void {
 
 /** The card for one website project; it loads its draft itself. */
 export function draftCard(projectId: string): HTMLElement {
-  const card = h('div.draftcard', h('small.note', 'Loading the website…'));
+  const card = h('div.draftcard');
   let draft: SiteDraft | null = null;
   const paint = (said = '') => {
     clear(card);
@@ -100,15 +102,35 @@ export function draftCard(projectId: string): HTMLElement {
     requestAnimationFrame(() => fit(frames));
     if ('ResizeObserver' in window) new ResizeObserver(() => fit(frames)).observe(frames);
   };
-  void brain
-    .siteDraft(projectId)
-    .then((r) => {
-      draft = r.draft;
-      paint();
-    })
-    .catch(() => {
-      clear(card);
-      card.append(h('small.note', 'The website is not ready to show yet.'));
-    });
+  /** The draft, read from the brain: said while it comes, and said in his words when it cannot (RETRY asks again). */
+  const load = () => {
+    clear(card);
+    /* state: workshop.draft loading */
+    const done = waiting(card, DRAFT.opening);
+    card.dataset.state = 'loading';
+    brain
+      .siteDraft(projectId)
+      .then((r) => {
+        done();
+        if (!r.draft) {
+          /* state: workshop.draft empty */
+          card.dataset.state = 'empty';
+          clear(card, h('p.note', DRAFT.nothing));
+          return;
+        }
+        delete card.dataset.state;
+        draft = r.draft;
+        paint();
+      })
+      .catch(() => {
+        done();
+        const off = typeof navigator !== 'undefined' && navigator.onLine === false;
+        /* state: workshop.draft error */
+        /* state: workshop.draft offline */
+        card.dataset.state = off ? 'offline' : 'error';
+        clear(card, h('p.note', off ? DRAFT.offline : DRAFT.failed), h('div.row', button(DRAFT.retry, load, 'on')));
+      });
+  };
+  load();
   return card;
 }

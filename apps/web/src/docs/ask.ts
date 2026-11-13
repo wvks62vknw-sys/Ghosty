@@ -17,7 +17,7 @@ export type Where = 'brain' | 'phone';
 const cloudOff = () => settings.get().offlineBrain === 'always';
 
 /** One question for the brain, its whole reply (the phone's own brain when the cloud is off-limits or out of reach). */
-export async function askBrain(message: string, onWords: (w: string) => void = () => undefined): Promise<{ text: string; where: Where }> {
+export async function askBrain(message: string, onWords: (w: string) => void = () => undefined, tab = 'documents'): Promise<{ text: string; where: Where }> {
   const here = async (): Promise<{ text: string; where: Where }> => {
     if (settings.get().offlineBrain === 'off' || !(await offlineReady().catch(() => false))) throw new Error(cloudOff() ? 'this phone keeps everything on it (Offline brain: always), and my offline brain isn’t downloaded yet: Settings → Offline brain' : 'I can’t reach my brain, and my offline brain isn’t on this phone');
     let raw = '';
@@ -28,7 +28,7 @@ export async function askBrain(message: string, onWords: (w: string) => void = (
   try {
     let text = '';
     let failed = '';
-    await brain.chat(message, { tz: timeZone, tab: 'documents', name: settings.get().name, now: new Date().toLocaleString('en-GB') }, (ev) => {
+    await brain.chat(message, { tz: timeZone, tab, name: settings.get().name, now: new Date().toLocaleString('en-GB') }, (ev) => {
       if (ev.t === 'text') onWords((text += (text ? '\n\n' : '') + ev.text));
       else if (ev.t === 'error') failed = ev.message;
     });
@@ -39,6 +39,27 @@ export async function askBrain(message: string, onWords: (w: string) => void = (
     if (await offlineReady().catch(() => false)) return here();
     throw e;
   }
+}
+
+/**
+ * "make the second paragraph shorter", said to the brain with the open document as the message's data (`data`: docs/model.ts
+ * openDocData): the brain's `document` tool answers with proposals, each handed to `onProposal` to be marked in the page. Nothing
+ * is applied here. The cloud only: the phone's own brain has no such tool.
+ */
+export async function tellGhosty(words: string, data: string, onProposal: (args: Record<string, unknown>) => void): Promise<{ proposed: number; text: string }> {
+  if (cloudOff()) throw new Error('this phone keeps everything on it (Offline brain: always), so my brain is not asked: use REWRITE THIS PARAGRAPH, which my offline brain can do');
+  let proposed = 0;
+  let text = '';
+  let failed = '';
+  await brain.chat(words + data, { tz: timeZone, tab: 'documents', name: settings.get().name, now: new Date().toLocaleString('en-GB') }, (ev) => {
+    if (ev.t === 'client' && ev.name === 'document') {
+      proposed++;
+      onProposal((ev.args ?? {}) as Record<string, unknown>);
+    } else if (ev.t === 'text') text += (text ? '\n\n' : '') + ev.text;
+    else if (ev.t === 'error') failed = ev.message;
+  });
+  if (!proposed && !text && failed) throw new Error(failed);
+  return { proposed, text: text.trim() };
 }
 
 /** The brain's edit of the whole document, as suggestions to accept or reject one by one. */

@@ -154,27 +154,33 @@ function rng(seed: number): () => number {
   };
 }
 
-/** The numbers each state sets: how open, how bright the rim and the nodes, how fast, how many pulses. */
-const TARGET: Record<MindState, { open: number; rim: number; bright: number; spin: number; pulses: number; pace: number; busy: number; grey: number }> = {
-  idle: { open: 0, rim: 1, bright: 1, spin: 0.09, pulses: 4, pace: 0.22, busy: 0, grey: 0 },
-  listening: { open: 1, rim: 1.6, bright: 1.25, spin: 0.12, pulses: 6, pace: 0.3, busy: 0, grey: 0 },
-  thinking: { open: 0.3, rim: 1.25, bright: 1.15, spin: 0.2, pulses: 36, pace: 1.5, busy: 0, grey: 0 },
-  speaking: { open: 0.45, rim: 1.35, bright: 1.2, spin: 0.12, pulses: 10, pace: 0.5, busy: 0, grey: 0 },
-  busy: { open: 0.15, rim: 1.1, bright: 1.05, spin: 0.1, pulses: 8, pace: 0.35, busy: 1, grey: 0 },
-  offline: { open: 0, rim: 0.6, bright: 0.55, spin: 0.04, pulses: 0, pace: 0.2, busy: 0, grey: 1 },
+/**
+ * The numbers each state sets: how open, how bright the rim and the nodes, how fast, how many pulses. `lean`: how far it tips forward, down
+ * toward the ask line (attending); `ring`: the sweep held across it in a still frame (speaking), so with the motion off each state is told
+ * apart by its light alone (BRIEF-QUALITY-BOOT-ORB: listening the open rim, thinking the pulses, speaking the sweep, attending the lean).
+ */
+const TARGET: Record<MindState, { open: number; rim: number; bright: number; spin: number; pulses: number; pace: number; busy: number; grey: number; lean: number; ring: number }> = {
+  idle: { open: 0, rim: 1, bright: 1, spin: 0.09, pulses: 4, pace: 0.22, busy: 0, grey: 0, lean: 0, ring: 0 },
+  listening: { open: 1, rim: 1.8, bright: 1.25, spin: 0.12, pulses: 6, pace: 0.3, busy: 0, grey: 0, lean: 0, ring: 0 },
+  thinking: { open: 0.3, rim: 1.45, bright: 1.3, spin: 0.2, pulses: 36, pace: 1.5, busy: 0, grey: 0, lean: 0, ring: 0 },
+  speaking: { open: 0.45, rim: 1.25, bright: 1.2, spin: 0.12, pulses: 10, pace: 0.5, busy: 0, grey: 0, lean: 0, ring: 1 },
+  busy: { open: 0.15, rim: 1.1, bright: 1.05, spin: 0.1, pulses: 8, pace: 0.35, busy: 1, grey: 0, lean: 0, ring: 0 },
+  offline: { open: 0, rim: 0.6, bright: 0.55, spin: 0.04, pulses: 0, pace: 0.2, busy: 0, grey: 1, lean: 0, ring: 0 },
   // attending (BRIEF-ORB-AND-BOOT): the reticle has landed on a thing: it holds nearly still (the turn to a third of idle's) and
   // its core brightens a step; the box in the accent round the thing is the mark that says so
-  attending: { open: 0.2, rim: 1.2, bright: 1.1, spin: 0.03, pulses: 6, pace: 0.3, busy: 0, grey: 0 },
+  attending: { open: 0.2, rim: 1.2, bright: 1.1, spin: 0.03, pulses: 6, pace: 0.3, busy: 0, grey: 0, lean: 0.55, ring: 0 },
 };
 type Params = (typeof TARGET)['idle'];
+/** What a state asks of the light: while every model is cooling and he waits, the pulses slow to a third and the pace halves (the ribbon and the orb's line say the time). */
+const targetOf = (st: MindState): Params => (st === 'thinking' && ui.get().busy && ui.get().coolUntil > Date.now() ? { ...TARGET.thinking, pulses: 12, pace: 0.6 } : TARGET[st]);
 
 /** The five states as THE LOOK names them, each one visible change, and the state of TARGET each one is ('saying' is 'speaking'). */
 export const STATES: { key: 'idle' | 'listening' | 'attending' | 'thinking' | 'saying'; name: string; state: MindState; line: string }[] = [
   { key: 'idle', name: 'Idle', state: 'idle', line: 'Turns once in about 70 s and breathes 6 %; four slow pulses on the lit links.' },
   { key: 'listening', name: 'Listening', state: 'listening', line: 'Opens 8 %, the rim 1.6× brighter; a pale ring round it grows with your voice.' },
-  { key: 'attending', name: 'Attending', state: 'attending', line: 'Holds still (the turn to a third) and brightens its core; the reticle is on the thing it attends to.' },
+  { key: 'attending', name: 'Attending', state: 'attending', line: 'Holds still (the turn to a third), leans toward the ask line and brightens its core; the reticle is on the thing it attends to.' },
   { key: 'thinking', name: 'Thinking', state: 'thinking', line: 'Thirty-six fast pulses run along the links and it turns twice as fast.' },
-  { key: 'saying', name: 'Saying', state: 'speaking', line: 'Opens half way and brightens; ten pulses keep time with the words while it speaks.' },
+  { key: 'saying', name: 'Saying', state: 'speaking', line: 'Opens half way and brightens; ten pulses keep time with the words, and with the motion off a sweep of light holds across it.' },
 ];
 
 /**
@@ -211,6 +217,8 @@ export interface BootLook {
 }
 /** The whole of Mind, as Home draws it. */
 export const BOOT_DONE: BootLook = { gather: 1, links: 1, sphere: 1, haze: 1, mer: 1, rim: 1, scale: 1, core: 1, turn: 0, push: 1, sweep: NaN, trails: 0, refract: 0 };
+/** Home's whole Mind with the sweep held just below the middle, flaring as it crosses: speaking, in a still frame. */
+const STILL_SWEEP: BootLook = { ...BOOT_DONE, sweep: -0.03, refract: 1 };
 /** Meridians round the sphere (each its own material, so the boot can light them one after another). */
 const MERIDIANS = 6;
 /** How much of the gathering a trail spans (in the gather's own 0..1). */
@@ -288,6 +296,8 @@ export class Mind {
   private st: MindState = 'idle';
   private level = 0;
   private dirty = true;
+  /** This frame is one still (reduce motion, heavy mode, THE LOOK's side-by-side): the sweep is held and the pulses show at full light. */
+  private stillFrame = false;
   private inView = true;
   private io: IntersectionObserver | null = null;
   private w = 0;
@@ -544,6 +554,7 @@ export class Mind {
       this.acc = 0;
     }
     this.dirty = false;
+    this.stillFrame = still;
     this.draw(still ? 12.5 : this.t);
   }
 
@@ -555,7 +566,10 @@ export class Mind {
     this.p = { ...TARGET[state] };
     // (listening with a voice half way up, so its ring shows; thinking a little later on the clock, so its pulses sit elsewhere than idle's)
     if (state === 'listening') this.level = 0.5;
+    const sf = this.stillFrame;
+    this.stillFrame = true;
     this.draw(state === 'thinking' ? 12.9 : 12.5);
+    this.stillFrame = sf;
     this.p = was;
     this.level = lv;
     const g = into.getContext('2d');
@@ -750,6 +764,8 @@ export class Mind {
     const st: MindState = ui.get().connected === false ? 'offline' : voice === 'idle' && attendingNow() ? 'attending' : voice === 'idle' && (this.studyBusy || !!gymState.training) ? 'busy' : voice;
     if (st !== this.st) {
       this.st = st;
+      // the brain gone: the whole light goes low (the grey alone made it no dimmer: a grey as pale as the accent), measured in tests/bootpass.spec.mjs
+      this.canvas.classList.toggle('lowlight', st === 'offline');
       heroState.state = st;
       this.changedAt = this.t;
       this.dirty = true;
@@ -769,18 +785,19 @@ export class Mind {
     heroState.loop = !still;
     if (still) {
       if (!this.dirty) return;
-      this.p = { ...TARGET[this.st] };
+      this.p = { ...targetOf(this.st) };
     } else {
       const fps = this.t - this.changedAt < 1 || this.kick > 0.01 ? moving() : 30;
       this.acc += dt;
       if (this.acc < 1 / fps - 0.002 && !this.dirty) return;
       const k = Math.min(1, this.acc * 3);
-      const tg = TARGET[this.st];
+      const tg = targetOf(this.st);
       for (const key of Object.keys(tg) as (keyof Params)[]) this.p[key] += (tg[key] - this.p[key]) * k;
       this.kick = Math.max(0, this.kick - this.acc * this.kickRate);
       this.acc = 0;
     }
     this.dirty = false;
+    this.stillFrame = still;
     this.draw(still ? 12.5 : this.t);
   }
 
@@ -1133,16 +1150,18 @@ export class Mind {
     const P = this.parts;
     const p = this.p;
     const breath = 1 + 0.06 * Math.sin(t * 1.6) + 0.25 * this.kick;
-    // the boot cinematic's look for this frame (Home's whole Mind otherwise)
-    const b = this.boot ?? BOOT_DONE;
+    // the boot cinematic's look for this frame (Home's whole Mind otherwise; speaking's still holds the sweep across it)
+    const b = this.boot ?? (this.stillFrame && p.ring > 0.5 ? STILL_SWEEP : BOOT_DONE);
     if (this.boot) this.gatherAt(b.gather);
     this.camera.position.z = this.camZ * b.push;
     // offline: everything drifts to grey
     const C = this.col;
     const tint = (c: Any) => (typeof c === 'number' ? new T.Color(c) : c.clone()).lerp(new T.Color(GREY), p.grey);
     this.spin.rotation.y = t * p.spin + b.turn;
-    this.spin.rotation.x = 0.28;
+    this.spin.rotation.x = 0.28 + p.lean;
     this.root.rotation.z = 0.08;
+    // attending's lean tips the whole orb forward, its equator ring with it, so with the motion off it reads apart from idle by its shape
+    this.root.rotation.x = 0.5 * p.lean;
     P.eq.rotation.z = -t * 0.04;
     P.tilt.rotation.z = t * 0.03;
     this.spin.scale.setScalar(1 + 0.08 * p.open);
@@ -1249,7 +1268,8 @@ export class Mind {
     this.pulses.forEach((q, i) => {
       const f = (q.off + t * q.sp * p.pace) % 1;
       q.s.position.copy(q.link[0]).lerp(q.link[1], f);
-      q.s.material.opacity = i < shown ? Math.sin(f * Math.PI) * (1 - p.grey) * b.links : 0;
+      // (a still frame shows each at full light: what is moving is told by how many there are)
+      q.s.material.opacity = i < shown ? (this.stillFrame && !this.boot ? 1 : Math.sin(f * Math.PI)) * (1 - p.grey) * b.links : 0;
       q.s.material.color.copy(tint(C.pale));
     });
     const t0 = performance.now();

@@ -5,6 +5,7 @@
  * Add a tab: create apps/web/src/features/<name>/index.ts exporting a TabDef, then add it
  * to the list in apps/web/src/features/index.ts.
  */
+import { fallenFrame, hook as crashHook } from '../core/crash';
 import { sfx } from '../assistant/sfx';
 import { h } from '../core/dom';
 import { stopwatch } from '../core/stopwatch';
@@ -14,7 +15,6 @@ import { setScene } from '../engine/scheduler';
 import { ui } from '../state/app';
 import type { Readout, StatusWord } from './hubcards';
 import type { ScreenContext } from '../../../../packages/shared/src/awareness';
-import { sayError } from '../ui/hisWords';
 
 export interface TabInstance {
   enter?(): void;
@@ -98,10 +98,12 @@ function build(def: TabDef): { root: HTMLElement; inst: TabInstance } {
     stage.append(root);
     let inst: TabInstance = {};
     try {
+      // (a check can make this screen fall over: core/crash.ts hook)
+      if (crashHook(def.id)) throw new Error('This screen fell over because a check told it to.');
       inst = def.mount(root);
     } catch (e) {
-      console.error('tab mount', def.id, e);
-      root.append(h('div.note', sayError(e, 'open that tab')));
+      // never a blank: the room's own frame with his words, RELOAD IT and HOME (core/crash.ts)
+      fallenFrame(root, def.id, e);
     }
     m = { root, inst };
     mounted.set(def.id, m);
@@ -145,8 +147,13 @@ export function go(id: string): boolean {
   } catch {
     /* ignore */
   }
-  m.inst.enter?.();
-  if (arg) m.inst.open?.(arg);
+  try {
+    m.inst.enter?.();
+    if (arg) m.inst.open?.(arg);
+  } catch (e) {
+    // a screen that fell over on opening: his words in its own frame, never a blank (core/crash.ts)
+    fallenFrame(m.root, def.id, e);
+  }
   timed();
   return true;
 }

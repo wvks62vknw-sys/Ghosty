@@ -8,6 +8,7 @@
  * Every part is moved under one `model` group (keeping where it was in the world), so taking
  * apart is just moving each part's position from `home` along its `offset`.
  */
+import { beat, draws } from '../core/crash'; // [health] a draw that stays frozen is told, never a blank
 import { explodeOffsets, ease, fmtLength, thinnestAxis, type V3 } from './explode';
 import { triangulate } from '../../../../packages/shared/src/design';
 import type { StandInPart } from '../../../../packages/shared/src/models3d';
@@ -16,6 +17,7 @@ import { EYE, lookBy, resumeWalk, walkStep, type WalkState } from './walk';
 import { splitPieces, subsetIndex } from './split';
 import { loadThree, type StudioLib, type TBufferGeometry, type TCamera, type TControls, type TMaterial, type TMesh, type TObject3D, type TPlane, type TRenderer, type TScene, type TVector3 } from './three';
 import { sayError } from '../ui/hisWords';
+import { NO_3D } from '../features/studio/words';
 
 export interface StudioPart {
   id: number;
@@ -58,6 +60,8 @@ const SPLIT_MAX_TRIS = 300_000;
 const EDGE_MAX_TRIS = 80_000;
 
 const triCount = (g: TBufferGeometry) => Math.floor((g.index ? g.index.count : (g.attributes.position?.count ?? 0)) / 3);
+/** The three ways to draw a model. */
+export type Shading = 'solid' | 'wire' | 'xray';
 const mats = (m: TMesh): TMaterial[] => (Array.isArray(m.material) ? m.material : [m.material]);
 
 export class Viewer {
@@ -77,6 +81,8 @@ export class Viewer {
   section: { axis: Axis; frac: number } | null = null;
   measuring = false;
   measure: { points: TVector3[]; distance: number | null } = { points: [], distance: null };
+  /** How the model is drawn: SOLID, WIREFRAME or X-RAY (setShading). */
+  shading: Shading = 'solid';
   error = '';
   mode: ViewMode = 'orbit';
   /** WALK: where one stands and looks; the joystick's push (−1…1 forward and to the right). */
@@ -130,7 +136,7 @@ export class Viewer {
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false });
     } catch {
-      this.error = 'This device cannot draw 3-D (WebGL is off or unavailable).';
+      this.error = NO_3D;
       return false;
     }
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -215,9 +221,11 @@ export class Viewer {
   start(): void {
     if (this.running || !this.renderer) return;
     this.running = true;
+    draws('studio', true);
     const loop = (now: number) => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
+      beat('studio');
       if (document.hidden) return;
       this.step(now);
     };
@@ -226,6 +234,7 @@ export class Viewer {
 
   stop(): void {
     this.running = false;
+    draws('studio', false);
     cancelAnimationFrame(this.raf);
   }
 
@@ -329,6 +338,7 @@ export class Viewer {
     this.info = { ...info, triangles, size: [sz.x, sz.y, sz.z] };
     this.computeOffsets();
     this.pad(Math.max(sz.x, sz.z, sz.y * 0.5));
+    if (this.shading !== 'solid') this.setShading(this.shading, true);
     this.frame();
     this.onChange();
   }
@@ -558,6 +568,35 @@ export class Viewer {
       }
     }
     x.needsUpdate = true;
+  }
+
+  // ------------------------------------------------------------------ shading (FINAL ROUND, MAKE lane)
+
+  /**
+   * How the model is drawn, as every 3-D app offers it: SOLID (as made), WIREFRAME (its triangles as lines) or X-RAY (see-through,
+   * so the parts inside show). The model's own settings are kept on each material and put back on SOLID; a highlight's copy of a
+   * material takes the same look, and a cut still cuts.
+   */
+  setShading(s: Shading, quiet = false): void {
+    this.shading = s;
+    const each = (x: TMaterial) => {
+      const ud = (x.userData ??= {}) as { shade?: { wireframe: unknown; transparent: boolean; opacity: number; depthWrite: boolean } };
+      ud.shade ??= { wireframe: x.wireframe, transparent: x.transparent, opacity: x.opacity, depthWrite: x.depthWrite };
+      const o = ud.shade;
+      x.wireframe = s === 'wire' ? true : o.wireframe;
+      x.transparent = s === 'xray' ? true : o.transparent;
+      x.opacity = s === 'xray' ? Math.min(o.opacity, 0.28) : o.opacity;
+      x.depthWrite = s === 'xray' ? false : o.depthWrite;
+      if (s === 'solid') delete ud.shade;
+      x.needsUpdate = true;
+    };
+    for (const p of this.parts)
+      p.obj.traverse((o) => {
+        const m = o as TMesh;
+        if (m.isMesh && m.material) mats(m).forEach(each);
+      });
+    for (const mat of this.orig.values()) (Array.isArray(mat) ? mat : [mat]).forEach(each);
+    if (!quiet) this.onChange();
   }
 
   // ------------------------------------------------------------------ measure

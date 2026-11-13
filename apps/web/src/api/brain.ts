@@ -16,11 +16,13 @@ import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src
 import type { MailLine, WatcherInfo } from '../../../../packages/shared/src/lifeeasier';
 import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { PackName, PackOut } from '../../../../packages/shared/src/packs';
-import type { Preflight, TrainStatus } from '../../../../packages/shared/src/selftrain';
+import type { FirstCheck, Preflight, TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { MindSnapshot } from '../../../../packages/shared/src/mind';
 import type { MeterDay } from '../../../../packages/shared/src/independence';
 import type { AbilitiesInfo, DayItem, LearningGoal, Offered, Trail } from '../../../../packages/shared/src/abilities';
 import type { GuardianInfo, PanicSecret, WalkInfo } from '../../../../packages/shared/src/guardian';
+import type { WallInfo } from '../../../../packages/shared/src/wall';
+import type { BrainHealth, FeltList } from '../../../../packages/shared/src/health'; // [health]
 import type { ForesightInfo } from '../../../../packages/shared/src/foresight';
 import type { NamedCar } from '../../../../packages/shared/src/cards';
 import type { Dial, Spoken } from '../../../../packages/shared/src/cadence';
@@ -169,7 +171,7 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail/.test(path);
+const cacheable = (path: string) => !/^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail|^\/guardian\/(?:health|feltoff)/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -209,10 +211,23 @@ if (typeof addEventListener === 'function') {
   addEventListener('pageshow', () => (leaving = false));
 }
 
+/**
+ * [speed] The first screen's status and conversation, asked by public/early.js while the code was still being read: taken once each, and
+ * only when this phone still holds the key (and the key copy) they were asked with; anything else is asked afresh.
+ */
+function early(method: string, path: string): Promise<Response> | null {
+  if (method !== 'GET' || typeof window === 'undefined') return null;
+  const e = (window as unknown as { __ghostyEarly?: { key: string; sealed: string; asks: Record<string, Promise<Response> | undefined> } }).__ghostyEarly;
+  const ask = e?.asks[path];
+  if (!e || !ask) return null;
+  delete e.asks[path];
+  return e.key === ownerKey.get() && e.sealed === (keyCopy.get().sealed || '') ? ask : null;
+}
+
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const t0 = stopwatch.now();
   const json = body !== undefined ? JSON.stringify(body) : undefined;
-  const r = await fetch(`/api${path}`, {
+  const r = await (early(method, path) ?? fetch(`/api${path}`, {
     method,
     headers: headers(json !== undefined ? { 'content-type': 'application/json' } : {}),
     body: json,
@@ -220,7 +235,7 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
     // A small change sent while Ghosty is being closed or put away (an UNDO bar's change made then:
     // ui/components.ts flushUndo) still reaches the brain after the page has gone.
     keepalive: method !== 'GET' && (leaving || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) && (json?.length ?? 0) < 32_000,
-  });
+  }));
   const text = await r.text();
   // The brain's round trip, as this phone sees it (core/stopwatch.ts).
   stopwatch.trip(path, stopwatch.now() - t0);
@@ -307,6 +322,12 @@ export const speechCaps = createStore({ stt: false, tts: false });
 
 /** The last status and library counts this phone was given (kept from the calls Home and the Me sheet make anyway): the deck's live lines read them, never fetch. */
 export const lastSeen = createStore({ status: null as BrainStatus | null, passages: null as number | null });
+
+/**
+ * A read that is never answered from the copy kept on this device (the read cache above): for what must be true now, as the
+ * read-back that checks a thing the brain says it did (assistant/verify.ts) and the health of an ability.
+ */
+export const readFresh = <T>(path: string): Promise<T> => send<T>('GET', path);
 
 export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
@@ -470,9 +491,22 @@ export const brain = {
   /** [lifeeasier] WATCHERS (apps/edge/src/watchers.ts): public pages he named; and his own email's unread, subject and sender only, and a reply sent on his SEND tap (mailtriage.ts). */
   watchers: () => req<{ watchers: WatcherInfo[]; max: number }>('GET', '/guardian/watchers'),
   watchersAdd: (b: { kind: 'price' | 'page' | 'strike'; url: string; label?: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
+  // [recall] a chase (BRIEF-DEPTH-MEMORY 3): the one watcher system, kind `reply`
+  chaseAdd: (b: { kind: 'reply'; who: string; day: string; about: string; thread?: string; from?: string; tz: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
   watchersStop: (id: string) => req<{ removed: boolean; watchers: WatcherInfo[] }>('DELETE', `/guardian/watchers?id=${encodeURIComponent(id)}`),
   mailInbox: () => req<{ linked: boolean; address?: string; messages: MailLine[] }>('GET', '/guardian/mail/inbox'),
   mailReply: (b: { reply_to_uid: number; subject: string; body: string; confirm: true }) => req<{ sent: boolean; to: string[] }>('POST', '/guardian/mail/send', b),
+  /** THE WALL (apps/edge/src/wall.ts): the second screen. None of it is kept for offline: a wall that cannot be reached is said so. */
+  wallInfo: () => send<WallInfo>('GET', '/guardian/wall'),
+  wallPair: (code: string) => send<WallInfo>('POST', '/guardian/wall/pair', { code }),
+  wallShow: (b: { kind: string; data: Record<string, unknown>; sentence: string; pair?: string }) => send<WallInfo>('POST', '/guardian/wall/show', b),
+  wallClear: () => send<WallInfo>('POST', '/guardian/wall/clear', {}),
+  wallLeave: (screen?: string) => send<WallInfo>('POST', '/guardian/wall/leave', screen ? { screen } : {}),
+  /** [health] GET /guardian/health: the brain's health in one small object (never a key's value, never an error's text); a read that is never served from the kept copy. */
+  brainHealth: () => send<BrainHealth>('GET', '/guardian/health'),
+  /** [health] "That felt off": a moment of words only (apps/edge/src/health.ts keeps the last 300). */
+  feltOff: (moment: Record<string, unknown>) => send<{ ok: boolean; id: string }>('POST', '/guardian/feltoff', moment),
+  feltList: () => send<FeltList>('GET', '/guardian/feltoff'),
   guardianCheck: () => req<GuardianInfo & { news: string[]; clear: string[] }>('POST', '/guardian/check', {}),
   guardianPerson: (p: { name: string; telegram?: string; email?: string; sharePos: boolean; ownerName?: string }) => req<GuardianInfo>('POST', '/guardian/person', p),
   guardianPersonRemove: () => req<GuardianInfo>('DELETE', '/guardian/person'),
@@ -523,6 +557,8 @@ export const brain = {
   spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),
   spotifyUnlink: () => req<{ ok: boolean }>('POST', '/spotify/unlink'),
+  /** LINKS → SPOTIFY's TEST: one read of his own Spotify profile through the saved sign-in (`why`: signin, busy, refused, not or reach). */
+  spotifyTest: () => req<{ works: boolean; name?: string | null; product?: string | null; why?: string }>('POST', '/spotify/test'),
   /** The Telegram bot (LINKS → TELEGRAM): its state, a fresh pairing code, forget the paired chat, a test message. */
   telegramStatus: () => req<TelegramStatus>('GET', '/telegram/status'),
   telegramCode: () => req<TelegramStatus>('POST', '/telegram/code'),
@@ -552,6 +588,8 @@ export const brain = {
     rollback: (why?: 'worse' | 'broken') => req<TrainStatus>('POST', '/training/rollback', why ? { why } : {}),
     /** This brain's files would not load on the phone: the brain drops it for good (the older one takes its place). */
     broken: (commit: string) => req<TrainStatus>('POST', '/training/broken', { commit }),
+    /** The first check of a brain just published to this phone (BRIEF-KERNEL-2): it loaded or not, its score on the phone's own check beside the brain before it; the brain rolls back by itself when it fails (once). */
+    firstCheck: (c: FirstCheck) => req<{ result: 'kept' | 'rolled-back' | 'waiting' | 'ignored'; why: string; status: TrainStatus }>('POST', '/training/firstcheck', c),
     use: (commit: string | null) => req<TrainStatus>('POST', '/training/use', { commit }),
     /** The base the weekly training follows (SETTINGS → OFFLINE BRAIN's picker): a new one starts a fresh chain. */
     base: (base: string) => req<TrainStatus>('POST', '/training/base', { base }),

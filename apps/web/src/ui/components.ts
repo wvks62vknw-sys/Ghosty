@@ -201,7 +201,7 @@ export function confirmSheet(title: string, words: string, yes: string): Promise
 }
 
 /** Paged list: no scrolling. Re-fits the number of rows to the panel height. */
-export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLElement, emptyText = () => 'IDLE', emptyNext?: string): { set(items: T[]): void } {
+export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLElement, emptyText = () => 'IDLE', emptyNext?: string, emptyEl?: () => HTMLElement | null): { set(items: T[]): void } {
   let items: T[] = [];
   let page = 0;
   const prev = button('‹', () => {
@@ -223,7 +223,7 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
     const pages = Math.max(1, Math.ceil(items.length / per));
     page = Math.max(0, Math.min(page, pages - 1));
     clear(p.body);
-    if (!items.length) p.body.append(empty(emptyText(), emptyNext));
+    if (!items.length) p.body.append(emptyEl?.() ?? empty(emptyText(), emptyNext));
     for (const it of items.slice(page * per, page * per + per)) {
       const r = render(it);
       r.style.minHeight = `${rowHeight - 4}px`;

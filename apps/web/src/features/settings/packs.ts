@@ -6,6 +6,7 @@
  * <month>, <size> on your phone" with DELETE (the UNDO bar holds the delete back). One download at a time. The files and the rule are
  * offline/pack.ts; the map's are offline/maps.ts, the Lens's are offline/eyes.ts.
  */
+import { firstSentence, para, rest } from '../../ui/oneline';
 import { clear, h } from '../../core/dom';
 import { capsWords, probeCaps, takesLarger } from '../../offline/capability';
 import { CANNOT, EYES_PACKS, markLens } from '../../offline/eyes';
@@ -51,7 +52,7 @@ async function fetchPack(p: PackDef): Promise<void> {
   } catch (e) {
     const stopped = (e as Error)?.name === 'AbortError';
     getting = null;
-    failed = { id: p.id, text: stopped ? 'Stopped. What came so far stays: GET carries on from there.' : sayError(e, 'get that pack') };
+    failed = { id: p.id, text: stopped ? 'Stopped; what came so far stays: GET carries on from there.' : sayError(e, 'get that pack') };
     repaintAll();
   }
 }
@@ -80,7 +81,7 @@ function packsPanel(title: string, cls: string, lead: string, packs: () => PackD
   const p = panel(title, { grow: false, cls, status: 'Checking this phone…' });
   const rows = h('div.wikioffers');
   const more = h('div.eyesizes');
-  p.body.append(h('p.note', lead), rows, more, ...foot.map((t) => h('p.note', t)));
+  p.body.append(...para('p.note', lead), rows, more, ...foot.flatMap((t) => para('p.note', t)));
   const paint = async (): Promise<void> => {
     const list = packs();
     const here = new Set<string>();
@@ -97,13 +98,15 @@ function packsPanel(title: string, cls: string, lead: string, packs: () => PackD
           was?.id === d.id && !mine
             ? `GET stopped at piece ${was.piece} of ${was.of} when Ghosty closed: GET carries on from there.`
             : gone
-              ? `${d.name} was on this phone, and iPhone has cleared some of it to make room (Ghosty did not). GET fetches only what is missing.`
+              ? `${d.name} was on this phone, and iPhone has cleared some of it to make room (Ghosty did not); GET fetches only what is missing.`
               : '';
         const on = here.has(d.id) && kept;
-        const get = button(`Get · ${size}`, () => void fetchPack(d), 'on');
+        // (a pack that stopped short offers RETRY, with its size still said before the tap)
+        const retry = failed?.id === d.id && !mine;
+        const get = button(`${retry ? 'RETRY' : 'Get'} · ${size}`, () => void fetchPack(d), 'on');
         get.dataset.case = 'keep';
         get.dataset.act = 'get';
-        get.setAttribute('aria-label', `Get ${d.name}, ${size}, on Wi-Fi`);
+        get.setAttribute('aria-label', `${retry ? 'Retry' : 'Get'} ${d.name}, ${size}, on Wi-Fi`);
         get.disabled = !!getting;
         const stop = button('STOP', () => getting?.ctl.abort());
         stop.dataset.act = 'stop';
@@ -113,15 +116,17 @@ function packsPanel(title: string, cls: string, lead: string, packs: () => PackD
         const second = largerList().some((l) => l.pack.id === d.id);
         return h(
           'div.wikioffer',
-          { dataset: { pack: d.id, state: on ? 'here' : mine ? 'getting' : 'offered', size: second ? 'larger' : 'standard' } },
+          { dataset: { pack: d.id, state: on ? 'here' : mine ? 'getting' : retry ? 'failed' : 'offered', size: second ? 'larger' : 'standard' } },
           h('b', d.name),
           second ? h('small.packsize', `Larger, ${sizeWords(d.bytes)}, for a newer phone`) : null,
-          h('span', d.what),
-          on ? h('small.packkept', { role: 'status' }, keptWords(d, kept!)) : h('small', `${size} · ${d.month} · on Wi-Fi`),
-          h('small.packlic', d.licence),
-          d.note ? h('small.note', d.note) : null,
+          h('span', firstSentence(d.what)[0]),
+          on ? h('small.packkept', { role: 'status' }, keptWords(d, kept!)) : h('small', `${size} · ${d.month} · on Wi-Fi`) /* state: settings.packs empty */,
+          // a card says what it is, what it costs and the one key: the licence and the rest of what it says are one tap away
+          rest([firstSentence(d.what)[1], d.licence, d.note].filter(Boolean).join(' ')),
           note ? h('small.note', note) : null,
+          /* state: settings.packs error */
           failed?.id === d.id ? h('small.wikierr', { role: 'alert' }, failed.text) : null,
+          /* state: settings.packs loading */
           mine ? h('div.wikiprog', { role: 'status' }, h('div.gauge', h('i', { style: { width: `${Math.round((getting!.frac || 0) * 100)}%` } })), h('small.packline', getting!.line)) : null,
           h('div.row', on ? del : mine ? stop : get),
         );
@@ -150,7 +155,7 @@ export const eyesPanel = (): Panel & { refresh(): void } =>
   packsPanel(
     'OFFLINE EYES',
     'offeyes',
-    'What the Lens reads with, kept on this phone so it works with no signal. Nothing of what it sees is ever sent. Fetched only when you tap, on Wi-Fi.',
+    'What the Lens reads with, kept on this phone so it works with no signal, and nothing of what it sees is ever sent. Fetched only when you tap, on Wi-Fi.',
     () => EYES_PACKS.flatMap((d) => [d, ...largerList().filter((l) => l.of === d.id).map((l) => l.pack)]),
     [CANNOT],
     sizesBlock,
@@ -161,9 +166,9 @@ export const voiceModelPanel = (): Panel & { refresh(): void } =>
   packsPanel(
     'VOICE MODEL',
     'offvoice',
-    'A small free model that tells voices apart, kept on this phone. Nothing you say is sent to it or from it. Fetched only when you tap, on Wi-Fi.',
+    'A small free model that tells voices apart, kept on this phone, and nothing you say is sent to it or from it. Fetched only when you tap, on Wi-Fi.',
     () => [SPEAKER_PACK],
-    ['It only ever helps me know it is you, or someone you introduced with them there. It is never a lock: a recording of you can fool it, and everything that matters still needs your tap. Without it, or with no signal, I use what I did before.'],
+    ['It is never a lock: it only helps me know it is you, or someone you introduced with them there, and everything that matters still needs your tap. A recording of you can fool it; without it, or with no signal, I use what I did before.'],
   );
 /**
  * OFFLINE EYES' sizes (offline/sizes.ts): what this phone reports, whether a larger size would be chosen for it, and for each pack that
@@ -174,8 +179,8 @@ async function sizesBlock(here: Set<string>): Promise<HTMLElement[]> {
   const caps = await probeCaps();
   const t = takesLarger(caps);
   const list = largerList();
-  const out: HTMLElement[] = [h('p.note', { dataset: { eyes: 'caps' } }, `This phone: ${capsWords(caps)}. ${t.ok ? `A larger size would be chosen for it (${t.why}).` : `A larger size is not chosen for it by itself: ${t.why}.`}`)];
-  if (!list.length) out.push(h('p.note', { dataset: { eyes: 'one' } }, 'One size only for now: no larger free model with a clear licence is on this site yet, so the Lens uses the one above on every phone.'));
+  const out: HTMLElement[] = [h('p.note', { dataset: { eyes: 'caps' } }, `This phone: ${capsWords(caps)}; ${t.ok ? `a larger size would be chosen for it (${t.why}).` : `a larger size is not chosen for it by itself: ${t.why}.`}`)];
+  if (!list.length) out.push(h('p.note', { dataset: { eyes: 'one' } }, 'One size only for now: the Lens uses the one above on every phone.'), rest('No larger free model with a clear licence is on this site yet.'));
   for (const l of list) {
     const std = EYES_PACKS.find((d) => d.id === l.of);
     const cur = sizeChoice(l.of);

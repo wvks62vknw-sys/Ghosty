@@ -9,6 +9,8 @@
  *   trail(e, where)         → put the raw text on the WHY trail
  */
 
+import { notePerm, permRowOf } from './permrecord';
+
 export type ErrorKind = 'abort' | 'network' | 'timeout' | 'permission' | 'quota' | 'notfound' | 'memory' | 'rest';
 
 /** The raw words of a thrown thing: for deciding, never for showing. */
@@ -93,8 +95,12 @@ export function sayError(e: unknown, what = 'do that'): string {
       return 'That took too long; I stopped it. Try again in a moment.';
     case 'network':
       return 'I lost the signal halfway. Try again when you have one.';
-    case 'permission':
-      return `The phone would not let me ${w}. Settings, Ghosty, and switch it on.`;
+    case 'permission': {
+      // the funnel lands it in SETTINGS → PERMISSIONS with its one line (features/settings/permissions.ts)
+      const row = permRowOf(w, rawText(e));
+      if (row) notePerm(row, 'refused', w);
+      return `The phone would not let me ${w}. Settings, Ghosty, and switch it on.${row ? ' I have noted it under Permissions.' : ''}`;
+    }
     case 'quota':
       return 'The phone has no room left for that. Free some space, then try again.';
     case 'memory':

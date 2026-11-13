@@ -163,7 +163,7 @@ check(/^Home\?/.test(await text('#walkask')), `the bar: ${await text('#walkask')
 check((await inboxCount('Home?')) === 1, '"Home?" is not in the inbox');
 await page.screenshot({ path: `${out}/guardian-home.png` });
 await page.locator('#walkask button', { hasText: "I'M HOME" }).click();
-await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /(?:^|\s|AI|s)Good\.( Night\.)?$/.test(m.textContent?.trim() ?? '')), null, 10000, `I'M HOME → ${JSON.stringify((await replies()).slice(-3))}`);
+await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /(?:^|\s|AI|s)Good\.( Night\.)?(THAT FELT OFF)?$/.test(m.textContent?.trim() ?? '')), null, 10000, `I'M HOME → ${JSON.stringify((await replies()).slice(-3))}`);
 check(!(await page.locator('#walkask').count()), 'the bar stayed after I\'M HOME');
 check((await api('/guardian')).walk?.stage === 'done', 'the walk is not over');
 

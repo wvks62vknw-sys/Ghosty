@@ -32,8 +32,10 @@ import { readScene } from '../../engine3d/scene';
 
 // (the samples and the panes: a pure list the ABILITIES catalogue reads too)
 import { PANES, SAMPLES, type Pane, type SampleId } from './samples';
+import { SHADING_NOTE, SHADINGS } from './words';
 import { sayError } from '../../ui/hisWords';
 import { waiting } from '../../ui/wait';
+import { cardCredit, CATALOGUE_DOWN, CATALOGUE_OFFLINE, fetchWords, LOADING, MAKE_MORE, MAKE_NOTE, MAKE_WAIT, NO_PHOTO, PHOTO_OFFLINE, PHOTO_WAIT, noHitWords, openFailWords, OPEN_FAIL_TRY, PHOTO_NOTE } from './words';
 export { SAMPLES, type SampleId };
 
 /** A model made from a picture, as the brain lists it (/api/m3d). */
@@ -140,9 +142,10 @@ export const studioTab: TabDef = {
   mount(root) {
     const view = h('div.studioview');
     // the first open: said at once (the lab takes a moment to wake), gone when the first scene lands
-    let opening: (() => void) | null = waiting(view, 'Opening the studio…');
+    /* state: studio.scene loading */
+    let opening: (() => void) | null = waiting(view, LOADING);
     const vtitle = h('div.studiotitle', '3D STUDIO');
-    const vstat = h('div.studiostat', 'loading the lab…');
+    const vstat = h('div.studiostat', '');
     const vmeasure = h('div.studiomeasure');
     vmeasure.hidden = true;
     const credit = h('div.studiocredit');
@@ -268,7 +271,7 @@ export const studioTab: TabDef = {
       img.dataset.src = it.thumb;
       if (seen) seen.observe(img);
       else void thumbUrl(it.thumb).then((u) => (u ? (img.src = u) : img.classList.add('none')));
-      const c = h('button.studiocard', { type: 'button', title: creditLine(it) }, img, h('span.studiocardname', it.name), h('span.studiocardby', `${it.licence} · ${it.author}`));
+      const c = h('button.studiocard', { type: 'button', title: creditLine(it) }, img, h('span.studiocardname', it.name), h('span.studiocardby', { dataset: { case: 'keep' } }, cardCredit(it)));
       c.dataset.id = it.id;
       c.addEventListener('click', () => void openItem(it));
       return c;
@@ -281,7 +284,9 @@ export const studioTab: TabDef = {
     };
     async function runSearch(q: string, group = shelfSel.value): Promise<number> {
       shelfSel.value = group;
-      catNote.textContent = catItems.length ? 'searching…' : 'opening the catalogue…';
+      catNote.textContent = catItems.length ? 'Searching…' : 'Opening the catalogue…';
+      /* state: studio.catalogue loading */
+      catNote.dataset.state = 'loading';
       const { items, note } = await loadCatalog();
       catItems = items;
       catHits = searchCatalog(items, q, { group, limit: 240 });
@@ -289,11 +294,20 @@ export const studioTab: TabDef = {
       clear(catGrid);
       paintGrid();
       const shelf = group ? ` on the ${group} shelf` : '';
-      catNote.textContent = !items.length
-        ? `The catalogue could not be opened${note ? ` (${note})` : ''}.`
-        : catHits.length
-          ? `${q.trim() ? `${catHits.length >= 240 ? '240+' : catHits.length} found${shelf}` : `${catHits.length >= 240 ? 'The first 240' : catHits.length} models${shelf}`} of ${items.length.toLocaleString('en-GB')} · tap one to open it${note ? ` · ${note}` : ''}`
-          : `Nothing called that${shelf} — MAKE · PHOTO can make one.`;
+      delete catNote.dataset.state;
+      if (!items.length) {
+        const off = typeof navigator !== 'undefined' && navigator.onLine === false;
+        /* state: studio.catalogue error */
+        /* state: studio.catalogue offline */
+        catNote.dataset.state = off ? 'offline' : 'error';
+        catNote.textContent = off ? CATALOGUE_OFFLINE : CATALOGUE_DOWN;
+      } else if (catHits.length) {
+        catNote.textContent = `${q.trim() ? `${catHits.length >= 240 ? '240+' : catHits.length} found${shelf}` : `${catHits.length >= 240 ? 'The first 240' : catHits.length} models${shelf}`} of ${items.length.toLocaleString('en-GB')} · tap one to open it${note ? ` · ${note}` : ''}`;
+      } else {
+        /* state: studio.catalogue empty */
+        catNote.dataset.state = 'empty';
+        catNote.textContent = noHitWords(q, group);
+      }
       if (!catHits.length && q.trim()) clear(catMore, button('MAKE IT', () => ((describe.value = q.trim()), show('make'), void makeAnything(q.trim()))));
       return catHits.length;
     }
@@ -301,19 +315,33 @@ export const studioTab: TabDef = {
       const lic = it ? licenceLink(creditLine(it)) : null;
       clear(creditBox, ...(it ? [h('div.studioreadout', creditLine(it)), h('div.row.wrap', h('a.studiosource', { href: it.page, target: '_blank', rel: 'noopener noreferrer' }, `ITS PAGE ON ${it.source === 'Poly Haven' ? 'POLY HAVEN' : 'SKETCHFAB'} ›`), ...(lic ? [h('a.studiosource', { href: lic.href, target: '_blank', rel: 'noopener noreferrer license' }, `THE ${lic.label} LICENCE ›`.replace('LICENCE LICENCE', 'LICENCE'))] : []))] : []));
     };
+    /** A model that would not open: said in his words under the catalogue, with TRY AGAIN and the card's own page. */
+    const openFailed = (it: CatalogItem, e: unknown) => {
+      const line = openFailWords(it.name, errText(e, `open ${it.name}`));
+      vstat.textContent = `Couldn’t open “${it.name}”`;
+      /* state: studio.scene error */
+      const box = h('div.studiofail', { role: 'alert', dataset: { state: 'error', case: 'keep' } }, h('p', line), h('div.row.wrap', button(OPEN_FAIL_TRY, () => void openItem(it), 'on'), h('a.studiosource', { href: it.page, target: '_blank', rel: 'noopener noreferrer' }, `ITS PAGE ON ${it.source === 'Poly Haven' ? 'POLY HAVEN' : 'SKETCHFAB'} ↗`)));
+      if (pane === 'models') clear(creditBox, box);
+      else toast(line, 'bad');
+    };
     async function openItem(it: CatalogItem): Promise<boolean> {
       asked = true;
-      vstat.textContent = `fetching ${it.name}…`;
+      clear(creditBox);
+      // the fetch said where he can see it, with the size where the card knows it (Poly Haven's is known only once packed)
+      const done = waiting(view, fetchWords(it.name, it.kb));
+      vstat.textContent = it.name;
       try {
-        const data = await fetchModel(it, (pct) => (vstat.textContent = `fetching ${it.name}…${pct !== null ? ` ${pct}%` : ''}`));
+        const data = await fetchModel(it, (pct) => (vstat.textContent = `${it.name}${pct !== null ? ` · ${pct}%` : ''}`));
+        done();
         // Poly Haven's models are measured in real metres; Sketchfab's are in whatever units their maker used.
         const ok = await loadAny({ kind: 'glb', data, title: it.name, metres: it.source === 'Poly Haven', credit: creditLine(it) });
         showCredit(ok ? it : null);
         return ok;
       } catch (e) {
-        vstat.textContent = errText(e, `open ${it.name}`);
-        toast(errText(e, `open ${it.name}`), 'bad');
+        openFailed(it, e);
         return false;
+      } finally {
+        done();
       }
     }
     async function openCatalogId(id: string): Promise<boolean> {
@@ -468,6 +496,15 @@ export const studioTab: TabDef = {
         h('div.note', V.info.metres ? 'Tap two points on the model: the straight-line distance between them, in real units (glTF models and rooms are in metres).' : 'Tap two points on the model: the distance in the model’s own units (a model made from a picture has no real size).'),
         h('div.row.wrap', mBtn, button('CLEAR', () => V.clearMeasure())),
         h('div.studioreadout', V.measureText() || (V.measuring ? `${V.measure.points.length} of 2 points` : '—')),
+        // VIEW (FINAL ROUND, MAKE lane): the three ways every 3-D app draws a model
+        h('div.lab', 'VIEW'),
+        h('div.note', SHADING_NOTE[V.shading]),
+        h('div.row.wrap.studioshade', ...SHADINGS.map(([id, label]) => {
+          const b = button(label, () => V.setShading(id), V.shading === id ? 'on' : '');
+          b.dataset.shade = id;
+          b.setAttribute('aria-pressed', String(V.shading === id));
+          return b;
+        })),
       );
     };
 
@@ -503,7 +540,7 @@ export const studioTab: TabDef = {
             return;
           }
         }
-        makeNote.textContent = 'Nothing real by that name — making one: a picture first, then 3-D. Usually under 2 minutes, up to about 5 when the free queue is long; keep Ghosty open (leaving the app may stop it).';
+        makeNote.textContent = MAKE_WAIT;
         const r = await fetch('/api/m3d/generate', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ prompt: t }), credentials: 'same-origin' });
         let model: MadeModel | null = null;
         let fail: { error?: string; code?: string } | null = null;
@@ -578,11 +615,19 @@ export const studioTab: TabDef = {
     });
     async function makeFromPhoto(): Promise<void> {
       if (making) return;
-      if (!photo) return void photoIn.click();
+      if (!photo) {
+        // (the key that opens the chooser says why, in place, before it does)
+        /* state: studio.photo empty */
+        makeStatus.dataset.state = 'empty';
+        makeStatus.textContent = NO_PHOTO;
+        return void photoIn.click();
+      }
+      delete makeStatus.dataset.state;
       making = true;
       makeBtn.disabled = true;
       makeStatus.classList.remove('bad');
-      makeStatus.textContent = 'Sending the photo… usually 10 seconds to 2 minutes, up to about 5 when the free queue is long; keep Ghosty open (leaving the app may stop it).';
+      /* state: studio.photo loading */
+      makeStatus.textContent = PHOTO_WAIT;
       try {
         const r = await fetch('/api/m3d?stream=1', { method: 'POST', headers: headers({ 'content-type': 'image/jpeg', 'x-title': encodeURIComponent('From a photo') }), body: photo, credentials: 'same-origin' });
         let model: MadeModel | null = null;
@@ -604,7 +649,11 @@ export const studioTab: TabDef = {
         await loadMade(m.id, m.title, m);
         void refreshMade();
       } catch (e) {
-        makeStatus.textContent = errText(e, `make that`);
+        const off = typeof navigator !== 'undefined' && navigator.onLine === false;
+        /* state: studio.photo error */
+        /* state: studio.photo offline */
+        makeStatus.dataset.state = off ? 'offline' : 'error';
+        makeStatus.textContent = off ? PHOTO_OFFLINE : errText(e, `make that`);
         makeStatus.classList.add('bad');
       } finally {
         making = false;
@@ -615,13 +664,14 @@ export const studioTab: TabDef = {
       clear(
         makePane,
         h('div.lab', 'MAKE ANYTHING'),
-        h('div.note', 'Type one thing. Ghosty opens a real model from the catalogue when there is a good one; if not, a free generator draws it and makes it 3-D (a few a day; more with a token from a FREE Hugging Face account in SYSTEM → KEYS — a token from an account that can pay is never used, so nothing is ever charged); if the generators are busy you get a simple stand-in at once.'),
+        h('div.note', MAKE_NOTE),
         h('div.keyrow', describe, makeItBtn),
         makeNote,
         drawn,
         askBox,
         h('div.lab', 'PHOTO → TEXTURED 3D'),
-        h('div.note', 'A photo of ONE object works best. The background is removed and a model with its colours is made by free models on Hugging Face (TRELLIS.2 with a free account’s token, else Stable Fast 3D). If they are busy you are told why. Kept 24 hours on the brain, and on this phone.'),
+        h('div.note', PHOTO_NOTE),
+        h('details.studiomore', h('summary', 'How it works'), ...MAKE_MORE.map((t) => h('p.note', t))),
         h('div.row.wrap', button('CHOOSE A PHOTO', () => photoIn.click()), makeBtn),
         photoIn,
         h('div.studiopics', preview, cutout),
@@ -828,8 +878,8 @@ export const studioTab: TabDef = {
         undo.disabled = !history.length;
         return true;
       } catch (e) {
+        // (said once, in the HUD line: a toast beside it would be the same words twice)
         vstat.textContent = errText(e, `open it`);
-        toast(errText(e, `open the model`), 'bad');
         return false;
       } finally {
         landed();
@@ -986,6 +1036,17 @@ export const studioTab: TabDef = {
         rooms: V.roomPlan?.rooms?.length ?? (V.info.room ? 1 : 0),
         openings: V.roomPlan?.openings?.length ?? 0,
         boxes: V.parts.length,
+        shading: V.shading,
+        // how the first part's material is drawn now (the VIEW keys change it; SOLID puts the model's own back)
+        look: (() => {
+          let x: { wireframe?: unknown; transparent: boolean; opacity: number } | null = null;
+          V.parts[0]?.obj.traverse((o) => {
+            const m = o as unknown as { isMesh?: boolean; material?: { wireframe?: unknown; transparent: boolean; opacity: number } | { wireframe?: unknown; transparent: boolean; opacity: number }[] };
+            if (!x && m.isMesh && m.material) x = Array.isArray(m.material) ? m.material[0]! : m.material;
+          });
+          const y = x as { wireframe?: unknown; transparent: boolean; opacity: number } | null;
+          return y ? { wireframe: !!y.wireframe, transparent: y.transparent, opacity: y.opacity } : null;
+        })(),
       }),
     };
     const g = window as unknown as { __ghosty?: Record<string, unknown> };
@@ -1001,6 +1062,9 @@ export const studioTab: TabDef = {
         window.addEventListener('keyup', onKey);
         void (async () => {
           if (!(await V.init())) {
+            opening?.();
+            opening = null;
+            vstat.dataset.state = 'error';
             vstat.textContent = V.error;
             return;
           }

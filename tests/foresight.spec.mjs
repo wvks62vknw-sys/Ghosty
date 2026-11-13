@@ -109,7 +109,8 @@ const openReport = async () => {
 await openReport();
 await until((s) => /LAST SCORED/.test(document.querySelector(s)?.textContent ?? '') && /YOUR QUESTIONS/i.test(document.querySelector(s)?.textContent ?? ''), rcard, 10000, `the Report card's FORESIGHT: "${await text(rcard)}"`);
 const bars = await page.$$eval(`${rcard} .forebars .bar`, (bs) => bs.map((b) => `${b.dataset.kind}:${b.querySelector('b')?.textContent}`));
-check(bars.join(' | ') === 'rain:none yet | departure:100% · 1 | commute:none yet | answer:100% · 1', `the bars: ${bars.join(' | ')}`);
+// (each bar says its number with its unit: "100% right · 1 scored", "none scored yet": the PLAN AND ME pass, features/system/words.ts)
+check(bars.join(' | ') === 'rain:none scored yet | departure:100% right · 1 scored | commute:none scored yet | answer:100% right · 1 scored', `the bars: ${bars.join(' | ')}`);
 const rc = await text(rcard);
 check(/✓\s*I expected the 08:12 late; it was, by 6 minutes\./.test(rc) && /✓\s*I expected rain on Saturday; you said I was right\./.test(rc), `the last scored: ${rc}`);
 check(/I expect rain by 15:00 \(70%\)/.test(rc) && /I expect the 08:12 on time \(60%\)/.test(rc), `the open ones: ${rc}`);
@@ -121,26 +122,31 @@ await page.evaluate(() => (location.hash = 'core'));
 await page.waitForSelector('#cin', { state: 'visible', timeout: 10000 });
 const replies = () => page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent?.replace(/\s+/g, ' ').trim() ?? ''));
 const lastReply = async () => (await replies()).at(-1) ?? '';
+// The chat is the brain's and outlives a run (CI runs a failed spec again on the same brain): each answer is looked for
+// only among the replies after the ones there when it was asked, never in an earlier run's.
+let seen = 0;
 const say = async (t) => {
+  seen = await page.locator('#pg-core .msg:not(.me)').count();
   await page.fill('#cin', t);
   await page.keyboard.press('Enter');
 };
+const answered = (re, ms, what) => until(([src, n]) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].slice(n).some((m) => new RegExp(src).test(m.textContent ?? '')), [re.source, seen], ms, what);
 const before = chats.length;
 await say('what do you expect today?');
-await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /I expect rain by 15:00 \(70%\)\.\s*I expect the 08:12 on time \(60%\)\./.test(m.textContent ?? '')), null, 10000, `"what do you expect today?" → "${await lastReply()}"`);
+await answered(/I expect rain by 15:00 \(70%\)\.\s*I expect the 08:12 on time \(60%\)\./, 10000, `"what do you expect today?" → "${await lastReply()}"`);
 await say('how often are you right?');
-await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /I've only scored 1 so far about trains\.\s*I've only scored 1 so far about your questions\./.test(m.textContent ?? '')), null, 10000, `"how often are you right?" → "${await lastReply()}"`);
+await answered(/I've only scored 1 so far about trains\.\s*I've only scored 1 so far about your questions\./, 10000, `"how often are you right?" → "${await lastReply()}"`);
 await page.waitForTimeout(500);
 check(chats.length === before, `the no-model questions went to the brain's chat ${chats.length - before} time(s)`);
 
 // ---- 4. one of his questions put on record by the model, then his word with no model
 await say('what do you reckon, will it rain tomorrow?');
-await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /On record: I expect rain \(60%\)/.test(m.textContent ?? '')), null, 20000, `the model did not put it on record: "${await lastReply()}"`);
+await answered(/On record: I expect rain \(60%\)/, 20000, `the model did not put it on record: "${await lastReply()}"`);
 check(chats.length === before + 1, 'the question for the model did not go to the chat');
 const onRecord = (await api('/foresight')).items.find((p) => p.subject === 'rain at Home tomorrow');
 check(onRecord?.kind === 'answer' && !onRecord.outcome, `the record: ${JSON.stringify(onRecord)}`);
 await say('you were right');
-await until(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /Noted: right\./.test(m.textContent ?? '')), null, 10000, `"you were right" → "${await lastReply()}"`);
+await answered(/Noted: right\./, 10000, `"you were right" → "${await lastReply()}"`);
 await page.waitForTimeout(400);
 check(chats.length === before + 1, '"you were right" went to the brain\'s chat');
 check((await api('/foresight')).items.find((p) => p.subject === 'rain at Home tomorrow')?.outcome?.how === 'owner', 'his word on the new question was not kept');
@@ -154,7 +160,7 @@ check(got['seed-dep']?.right === false && got['seed-dep']?.actual === '6 minutes
 await openReport();
 await until((s) => /✗\s*I expected the 08:12 on time; it was 6 minutes late\./.test(document.querySelector(s)?.textContent ?? ''), rcard, 10000, `the Report card after the day: "${await text(rcard)}"`);
 const after = await page.$$eval(`${rcard} .forebars .bar`, (bs) => bs.map((b) => `${b.dataset.kind}:${b.querySelector('b')?.textContent}`));
-check(after.join(' | ') === 'rain:100% · 1 | departure:50% · 2 | commute:none yet | answer:100% · 2', `the bars after the day: ${after.join(' | ')}`);
+check(after.join(' | ') === 'rain:100% right · 1 scored | departure:50% right · 2 scored | commute:none scored yet | answer:100% right · 2 scored', `the bars after the day: ${after.join(' | ')}`);
 await shot(rcard, 'foresight-scored');
 for (const r of await page.evaluate(() => [...document.querySelectorAll('#pg-system :is(button, .bar)')].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect().right))) if (r > PHONE.width + 1) problems.push(`something sticks out sideways (${Math.round(r)} px)`);
 

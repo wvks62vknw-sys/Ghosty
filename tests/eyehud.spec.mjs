@@ -58,7 +58,8 @@ async function open({ viewport = PHONE, look = EYE, book = false, pins = ['lens'
     // the stopwatch's tests (timed() below): the printed page drawn, the room's band drawn, the jump bar open with its first rows
     window.__eyeTests = {
       home: () => { const f = document.querySelector('.eyeframe'); const r = f?.getBoundingClientRect(); return document.body.classList.contains('eyehome') && !!r && r.width > 0 && !!document.querySelector('.eyeask')?.getBoundingClientRect().width; },
-      see: () => document.body.dataset.tab === 'area-see' && !!document.querySelector('#pg-area-see .roomband')?.getBoundingClientRect().width,
+      // (a room in the eye is the wall now, BRIEF-EYE-HUD-2: the budget is held to the wall's own first feed being drawn, not to The Scan's band, which the eye no longer draws)
+      see: () => document.body.dataset.tab === 'area-see' && !!document.querySelector('#pg-area-see .eyeroom .eyefeed')?.getBoundingClientRect().width && !document.querySelector('#pg-area-see .roomband')?.getClientRects().length,
       jump: () => { const p = document.querySelector('#palette.on'); const r = p?.querySelector('input')?.getBoundingClientRect(); return !!r && r.width > 0 && !!p.querySelector('.jgroup, .jempty'); },
     };
   }, { key: KEY, look, book, pins, recents, once });
@@ -127,7 +128,7 @@ const HOME_READY = () => { const f = document.querySelector('.eyeframe'); const 
   const m0 = await page.evaluate((sel) => ({ coming: !!document.querySelector(`${sel} .gg-coming`), built: document.querySelector(sel)?.dataset.built }), card('eye'));
   check(!m0.coming && m0.built === 'true', `[gallery] THE EYE's card is still COMING: ${JSON.stringify(m0)}`);
   const comings = await page.$$eval('#pg-settings .gg-look', (bs) => bs.filter((b) => b.querySelector('.gg-coming')).map((b) => b.dataset.look).join());
-  check(comings === 'orbit,grown', `[gallery] COMING is on ${comings} (want orbit,grown)`);
+  check(comings === '', `[gallery] COMING is on ${comings} (want none: ORBIT and GROWN UP are built too)`);
   await page.click(card('eye'));
   await until(page, () => document.documentElement.dataset.world === 'eye', 5000, '[gallery] a tap on THE EYE did not make the world eye');
   const said = (k) => page.evaluate((sel) => ({ on: document.querySelector(sel)?.getAttribute('aria-checked'), line: document.querySelector(`${sel} .gg-cap small`)?.textContent ?? '', head: document.querySelector('#pg-settings .pn.themepn.pushed .gg-sec')?.textContent ?? '' }), card(k));
@@ -155,6 +156,8 @@ const HOME_READY = () => { const f = document.querySelector('.eyeframe'); const 
     await page.fill('#cin', words);
     await page.press('#cin', 'Enter');
     await until(page, (w) => document.documentElement.dataset.world === w, 8000, `[words] "${words}" did not make the world ${want}`, want);
+    // (the world can switch a moment before its line is printed: wait for this ask's own answer, not the one before it)
+    await until(page, (w) => ([...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => /The (Eye|Map)/.test(t)).pop() ?? '').includes(w === 'map' ? 'The Map: on.' : 'The Eye: on.'), 8000, `[words] "${words}" never said ${want === 'map' ? 'The Map' : 'The Eye'} was on`, want);
     const wd = await page.evaluate(() => ({ colour: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, said: [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => /The (Eye|Map)/.test(t)).pop() ?? '' }));
     check(wd.colour === 'ember' && wd.saved === 'ember', `[words] "${words}" changed his colour: ${JSON.stringify(wd)}`);
     check(want === 'map' ? /The Map: on\./.test(wd.said) : /The Eye: on\./.test(wd.said), `[words] "${words}" answered "${wd.said}"`);

@@ -18,6 +18,7 @@ import { countIn, lessonsFor, lessonSecs, scoreLesson, stepsOf, TEACH, type Less
 import { hzOfName, TUNINGS, tunerReading, tuningOf, rangeOf, type Instrument } from './notes';
 import { detectPitch } from './pitch';
 import { metronome, micMessage, openMic, playNotes, type Mic } from './mic';
+import { centsWords, TUNER_LINE, TUNER_MORE, TUNER_MORE_KEY } from '../features/coach/words';
 import { dailyWords, drawPrompt, LANGUAGES, languageOf, pickText, scoreTyping, typingWords, wordMatch } from './skills';
 import { sayError } from '../ui/hisWords';
 
@@ -136,7 +137,8 @@ function tunerScreen(first: Instrument): Screen {
   const cents = h('span.cocents', '');
   const needle = h('i.coneedle');
   const gauge = h('div.cogauge', { role: 'img', 'aria-label': 'Tuning needle: the middle is in tune' }, h('i.cotick.mid'), needle);
-  const words = h('p.pknote.cowords', { 'aria-live': 'polite' }, 'Press START, then pluck a string.');
+  /* state: coach.tuner empty */
+  const words = h('p.pknote.cowords', { 'aria-live': 'polite', dataset: { state: 'empty' } }, 'Press START, then pluck a string.');
   const level = h('i.colevel');
   const strings = h('div.pkrow.costrings', { role: 'group', 'aria-label': 'Open strings' });
   const chips = h('div.pkrow', { role: 'group', 'aria-label': 'What you are tuning' });
@@ -190,7 +192,7 @@ function tunerScreen(first: Instrument): Screen {
     const t = tunerReading(hz[Math.floor(hz.length / 2)]!, tuning);
     Object.assign(coachState.tuner, { hz: Math.round(t.hz * 100) / 100, note: t.note, cents: t.off, string: t.string, inTune: t.inTune, words: t.words });
     note.textContent = t.note;
-    cents.textContent = `${t.off > 0 ? '+' : ''}${Math.round(t.off)} cents`;
+    cents.textContent = centsWords(t.off, t.inTune);
     needle.style.left = `${50 + Math.max(-50, Math.min(50, t.off)) * 0.9}%`;
     gauge.classList.toggle('ok', t.inTune);
     words.textContent = t.words;
@@ -206,10 +208,14 @@ function tunerScreen(first: Instrument): Screen {
       off = mic.onBlock(onBlock);
       coachState.tuner.on = true;
       go.textContent = 'STOP';
+      /* state: coach.tuner loading */
+      words.dataset.state = 'loading';
       words.textContent = 'Listening… pluck a string.';
     } catch (e) {
       coachState.error = micMessage(e);
+      /* state: coach.tuner error */
       words.textContent = coachState.error;
+      words.dataset.state = 'error';
     } finally {
       go.disabled = false;
     }
@@ -223,7 +229,7 @@ function tunerScreen(first: Instrument): Screen {
     go.textContent = 'START';
     reset();
   };
-  const el = h('div.cotuner', chips, h('div.cohero', note, cents), gauge, h('span.colevelbox', { role: 'img', 'aria-label': 'How loud I hear you' }, level), strings, words, h('div.pkrow', go), h('p.pknote', 'The note and how far off it is, to the nearest cent, from this phone’s microphone: no recording is kept and nothing is sent. It works with no signal. It hears one note at a time: a chord, or two strings at once, will not read.'));
+  const el = h('div.cotuner', chips, h('div.cohero', note, cents), gauge, h('span.colevelbox', { role: 'img', 'aria-label': 'How loud I hear you' }, level), strings, words, h('div.pkrow', go), h('p.pknote', TUNER_LINE), h('details.pkmore', h('summary', TUNER_MORE_KEY), h('p.pknote', TUNER_MORE)));
   return { el, stop };
 }
 

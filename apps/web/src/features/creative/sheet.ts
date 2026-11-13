@@ -14,6 +14,7 @@ import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { canvasOf, drawPrims, loadFont, measureBody, measureOn, pngOf, saveFile, saved } from './draw';
 import { sayError } from '../../ui/hisWords';
+import { emptyState, lacksSignal, phrases, sizeWords, stateIn, stateLine, waitFor } from '../lifeui';
 
 export type CreativeWhat = 'song' | 'poster' | 'birthday' | 'comic' | 'logo' | 'palette' | 'beat';
 /** Each sheet's name, as its title and as its panel on the CREATIVE screen (features/creative/index.ts). */
@@ -90,6 +91,40 @@ const bufferOf = (ctx: AudioContext, samples: Float32Array, rate: number): Audio
 };
 const RATE = 22050;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'ghosty';
+/** A download button that says its size before the tap (a file only on his tap, with the size said). */
+function sized(b: HTMLButtonElement, label: string, bytes: number, about = false): void {
+  const words = `${label} · ${about ? 'about ' : ''}${sizeWords(bytes)}`;
+  b.textContent = words;
+  b.dataset.label = words;
+}
+/** A file into his downloads on his tap, said with its size; what could not be made, in his words. */
+async function keepFile(status: HTMLElement, make: () => Promise<Blob | Uint8Array> | Blob | Uint8Array, name: string, mime: string): Promise<void> {
+  try {
+    const d = await make();
+    saveFile(d, name, mime);
+    stateIn(status, '', `Saved ${name}, ${sizeWords(d instanceof Blob ? d.size : d.byteLength)}, to your downloads.`);
+  } catch (e) {
+    creativeState.error = sayError(e, 'save that');
+    /* state: creative.poster error */
+    /* state: creative.card error */
+    /* state: creative.comic error */
+    /* state: creative.logo error */
+    /* state: creative.song error */
+    /* state: creative.beat error */
+    stateIn(status, 'error', sayError(e, 'save that'));
+  }
+}
+/** Everything here is made on this phone: with no signal, said once. */
+const offlineNote = (): HTMLElement[] => {
+  /* state: creative.song offline */
+  /* state: creative.poster offline */
+  /* state: creative.card offline */
+  /* state: creative.comic offline */
+  /* state: creative.logo offline */
+  /* state: creative.palette offline */
+  /* state: creative.beat offline */
+  return lacksSignal() ? [stateLine('offline', 'No signal needed: this is made on this phone.')] : [];
+};
 function field(label: string, el: HTMLElement): HTMLElement {
   el.setAttribute('aria-label', label);
   return h('label.pkfield', h('span.pklab', label), el);
@@ -115,6 +150,7 @@ function songScreen(a: Record<string, unknown>): Screen {
   const tempoLab = h('span.pklab');
   const info = h('p.pkcue', { 'aria-live': 'polite' });
   const list = h('ol.pklist', { 'aria-label': 'The lines of the song' });
+  const status = h('p.pknote', { 'aria-live': 'polite' });
   let song: Song;
   const build = (): Song => (lyrics.value.trim() ? makeSong({ lyrics: lyrics.value, key: key.value, mode: mode.value as Mode, tempo: +tempo.value, seed: seed || hashSeed(lyrics.value), ...(a.title ? { title: String(a.title) } : {}) }) : makeChordLoop({ key: key.value, mode: mode.value as Mode, tempo: +tempo.value, seed: seed || 1 }));
   const stop = () => {
@@ -134,7 +170,10 @@ function songScreen(a: Record<string, unknown>): Screen {
     stop();
     song = build();
     tempoLab.textContent = `${tempo.value} beats a minute`;
-    info.textContent = `${song.title}: ${song.key} ${song.mode}, ${song.bars} bars, about ${Math.round((song.beats * 60) / song.tempo)} seconds. Chords: ${chordWords(song)}`;
+    const secs = Math.round((song.beats * 60) / song.tempo);
+    info.textContent = `${song.title === `${song.key} ${song.mode} chords` ? '' : `${song.title}: `}${song.key} ${song.mode}, ${song.bars} bars, about ${secs} seconds. Chords: ${chordWords(song).replace(/\s*\([^)]*\)\s*$/, '')}`;
+    sized(wav, 'Save WAV', Math.round(((song.beats * 60) / song.tempo) * RATE) * 2 + 44, true);
+    sized(mid, 'Save MIDI', toMidi(song).byteLength);
     list.replaceChildren(...(song.lines.length ? song.lines.map((l) => h('li', l.text)) : [h('li', 'No words: a chord loop with a simple tune')]));
     Object.assign(creativeState.song, { title: song.title, key: song.key, mode: song.mode, tempo: song.tempo, seed: song.seed, bars: song.bars, notes: song.notes.length, chords: chordWords(song) });
   };
@@ -159,7 +198,7 @@ function songScreen(a: Record<string, unknown>): Screen {
       }, 200);
     } catch (e) {
       creativeState.error = sayError(e, 'make that');
-      toast('This phone wouldn’t start the sound: tap Play again.', 'warn');
+      stateIn(status, 'error', 'This phone wouldn’t start the sound. Tap Play again.');
     }
   };
   for (const el of [lyrics, key, mode, tempo]) el.addEventListener(el === lyrics || el === tempo ? 'input' : 'change', refresh);
@@ -173,15 +212,15 @@ function songScreen(a: Record<string, unknown>): Screen {
     void play();
   });
   fresh.setAttribute('aria-label', 'Make another tune from the same words');
-  const wav = button('Save WAV', () => saveFile(toWav(renderSong(song, RATE), RATE), `${slug(song.title)}.wav`, 'audio/wav'));
+  const wav = button('Save WAV', () => void keepFile(status, () => toWav(renderSong(song, RATE), RATE), `${slug(song.title)}.wav`, 'audio/wav'));
   wav.dataset.label = 'Save WAV';
   wav.setAttribute('aria-label', 'Save the song as a WAV sound file');
-  const mid = button('Save MIDI', () => saveFile(toMidi(song), `${slug(song.title)}.mid`, 'audio/midi'));
+  const mid = button('Save MIDI', () => void keepFile(status, () => toMidi(song), `${slug(song.title)}.mid`, 'audio/midi'));
   mid.dataset.label = 'Save MIDI';
   mid.setAttribute('aria-label', 'Save the song as a MIDI file');
   refresh();
   return {
-    el: h('div.pkcol', field('Words', lyrics), h('div.pkrow', field('Key', key), field('Mode', mode)), field('Tempo', h('div.pkcol', tempo, tempoLab)), info, list, h('div.pkrow', playBtn, stopBtn, fresh), h('div.pkrow', wav, mid), h('p.pknote', 'The tune and chords are made by code from your words; the same words and seed give the same song.')),
+    el: h('div.pkcol', field('Words', lyrics), h('div.pkrow', field('Key', key), field('Mode', mode)), field('Tempo', h('div.pkcol', tempo, tempoLab)), info, list, h('div.pkrow', playBtn, stopBtn, fresh), h('div.pkrow', wav, mid), status, h('p.pknote', 'The tune and chords are made from your words: the same words give the same song.'), ...offlineNote(), phrases(['make me a beat', 'a song about a rainy Monday'])),
     stop,
   };
 }
@@ -194,25 +233,33 @@ function posterScreen(a: Record<string, unknown>): Screen {
   const lines = h('textarea', { rows: 3, value: (Array.isArray(a.lines) ? (a.lines as unknown[]).map(String) : []).join('\n') }) as HTMLTextAreaElement;
   const theme = selectOf(Object.keys(THEMES), typeof a.theme === 'string' && a.theme in THEMES ? a.theme : themeFor(`${title.value} ${lines.value}`));
   const canvas = canvasOf(POSTER_W, POSTER_H, 'The poster as drawn');
+  const hint = h('div.pkcol');
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Laid out so every line stays on the page; the title is as big as fits.');
   let t = 0;
   const draw = async () => {
-    creativeState.font = await loadFont();
+    /* state: creative.poster loading */
+    const done = waitFor(el, 'Drawing it…');
+    creativeState.font = await loadFont().finally(done);
+    /* state: creative.poster empty */
+    hint.replaceChildren(...(title.value.trim() ? [] : [emptyState('Nothing to draw yet', 'Type a title and the poster draws itself.')]));
     const ctx = canvas.getContext('2d')!;
     const r = posterPrims({ title: title.value, subtitle: sub.value, lines: lines.value.split('\n'), theme: theme.value as ThemeName, seed: Number(a.seed) || hashSeed(title.value) }, measureOn(ctx));
     drawPrims(ctx, r.prims, r.w, r.h, r.theme.bg);
     const texts = r.prims.filter((p) => p.t === 'text').length;
     Object.assign(creativeState.poster, { title: title.value, theme: theme.value, lines: texts, w: r.w, h: r.h, drawn: creativeState.poster.drawn + 1 });
     canvas.setAttribute('aria-label', `The poster: ${title.value}${sub.value ? `, ${sub.value}` : ''}`);
+    void pngOf(canvas).then((b) => sized(save, 'Save PNG', b.size)).catch(() => undefined);
   };
   const later = () => {
     clearTimeout(t);
     t = window.setTimeout(() => void draw(), 120);
   };
   for (const el of [title, sub, lines, theme]) el.addEventListener(el === theme ? 'change' : 'input', later);
-  const save = button('Save PNG', async () => saveFile(await pngOf(canvas), `${slug(title.value)}-poster.png`, 'image/png'), 'on');
+  const save = button('Save PNG', () => void keepFile(status, () => pngOf(canvas), `${slug(title.value)}-poster.png`, 'image/png'), 'on');
   save.setAttribute('aria-label', 'Save the poster as a PNG picture');
+  const el = h('div.pkcol', hint, canvas, field('Title', title), field('Day and time', sub), field('Details, a line each', lines), field('Look', theme), h('div.pkrow', save), status, ...offlineNote());
   void draw();
-  return { el: h('div.pkcol', canvas, field('Title', title), field('Day and time', sub), field('Details, a line each', lines), field('Look', theme), h('div.pkrow', save), h('p.pknote', 'Laid out in code so every line stays on the page; the title is as big as fits.')), stop: () => clearTimeout(t) };
+  return { el, stop: () => clearTimeout(t) };
 }
 
 // ---------------------------------------------------------------- BIRTHDAY CARD
@@ -223,6 +270,7 @@ function cardScreen(a: Record<string, unknown>): Screen {
   const msg = h('textarea', { rows: 5, value: String(a.message ?? ''), maxLength: 400 }) as HTMLTextAreaElement;
   let side: 'front' | 'inside' = 'front';
   const canvas = canvasOf(CARD_W, CARD_H, 'The card as drawn');
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Saved to your downloads only when you tap.');
   const paint = async (c: HTMLCanvasElement, s: 'front' | 'inside') => {
     creativeState.font = await loadFont();
     const ctx = c.getContext('2d')!;
@@ -233,6 +281,7 @@ function cardScreen(a: Record<string, unknown>): Screen {
     await paint(canvas, side);
     Object.assign(creativeState.card, { side, drawn: creativeState.card.drawn + 1 });
     canvas.setAttribute('aria-label', `The ${side} of the card for ${name.value || 'you'}`);
+    void pngOf(canvas).then((b) => (sized(sf, 'Save front', b.size, true), sized(si, 'Save inside', b.size, true))).catch(() => undefined);
   };
   let t = 0;
   const later = () => {
@@ -245,9 +294,11 @@ function cardScreen(a: Record<string, unknown>): Screen {
     void draw();
   };
   const savedSide = async (s: 'front' | 'inside') => {
-    const c = canvasOf(CARD_W, CARD_H, '');
-    await paint(c, s);
-    saveFile(await pngOf(c), `${slug(name.value || 'card')}-card-${s}.png`, 'image/png');
+    await keepFile(status, async () => {
+      const c = canvasOf(CARD_W, CARD_H, '');
+      await paint(c, s);
+      return pngOf(c);
+    }, `${slug(name.value || 'card')}-card-${s}.png`, 'image/png');
   };
   const f = button('Show front', () => toggle('front'));
   const i = button('Show inside', () => toggle('inside'));
@@ -256,7 +307,7 @@ function cardScreen(a: Record<string, unknown>): Screen {
   const si = button('Save inside', () => void savedSide('inside'), 'on');
   si.setAttribute('aria-label', 'Save the inside of the card as a PNG');
   void draw();
-  return { el: h('div.pkcol', canvas, h('div.pkrow', f, i), field('Name', name), field('Age', age), field('The words inside', msg), h('div.pkrow', sf, si)), stop: () => clearTimeout(t) };
+  return { el: h('div.pkcol', canvas, h('div.pkrow', f, i), field('Name', name), field('Age', age), field('The words inside', msg), h('div.pkrow', sf, si), status, ...offlineNote()), stop: () => clearTimeout(t) };
 }
 
 // ---------------------------------------------------------------- COMIC STRIP
@@ -267,6 +318,7 @@ function comicScreen(a: Record<string, unknown>): Screen {
   const inputs = filled.map((c, i) => h('input', { type: 'text', value: c, maxLength: 110, 'aria-label': `Caption for panel ${i + 1}` }) as HTMLInputElement);
   const names = h('input', { type: 'text', value: (Array.isArray(a.names) ? (a.names as unknown[]).map(String) : []).join(', '), placeholder: 'Sam, Ali (up to three)' }) as HTMLInputElement;
   const canvas = canvasOf(COMIC_W, COMIC_H, 'The comic strip as drawn');
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Drawn here in simple shapes of our own, not anyone’s art.');
   const draw = async () => {
     creativeState.font = await loadFont();
     const ctx = canvas.getContext('2d')!;
@@ -274,6 +326,7 @@ function comicScreen(a: Record<string, unknown>): Screen {
     drawPrims(ctx, r.prims, r.w, r.h, '#fffdf7');
     Object.assign(creativeState.comic, { captions: inputs.map((i) => i.value), drawn: creativeState.comic.drawn + 1, w: r.w, h: r.h });
     canvas.setAttribute('aria-label', `A four-panel comic: ${inputs.map((i, k) => `${k + 1}, ${i.value}`).join('; ')}`);
+    void pngOf(canvas).then((b) => sized(save, 'Save PNG', b.size)).catch(() => undefined);
   };
   let t = 0;
   const later = () => {
@@ -281,10 +334,14 @@ function comicScreen(a: Record<string, unknown>): Screen {
     t = window.setTimeout(() => void draw(), 120);
   };
   for (const el of [...inputs, names]) el.addEventListener('input', later);
-  const save = button('Save PNG', async () => saveFile(await pngOf(canvas), 'comic-strip.png', 'image/png'), 'on');
+  const save = button('Save PNG', () => void keepFile(status, () => pngOf(canvas), 'comic-strip.png', 'image/png'), 'on');
   save.setAttribute('aria-label', 'Save the comic strip as a PNG picture');
+  // [comic] the four-panel strip is the quick one; a whole comic (a cover, pages, balloons, a cast kept panel to panel) and his
+  // own comics to read are THE COMIC's (features/comic), one tap away
+  const whole = button('Make a whole comic', () => void import('../../shell/tabs').then((m) => m.go('comic?make')));
+  whole.setAttribute('aria-label', 'Open Comic to make a whole comic, or read your own');
   void draw();
-  return { el: h('div.pkcol', canvas, ...inputs.map((i, k) => field(`Panel ${k + 1}`, i)), field('Characters', names), h('div.pkrow', save), h('p.pknote', 'Drawn by Ghosty in code: stick figures and shapes of our own, not anyone’s art.')), stop: () => clearTimeout(t) };
+  return { el: h('div.pkcol', canvas, ...inputs.map((i, k) => field(`Panel ${k + 1}`, i)), field('Characters', names), h('div.pkrow', save, whole), status, ...offlineNote()), stop: () => clearTimeout(t) };
 }
 
 // ---------------------------------------------------------------- LOGO
@@ -294,6 +351,7 @@ function logoScreen(a: Record<string, unknown>): Screen {
   const vibe = h('input', { type: 'text', value: String(a.vibe ?? ''), placeholder: 'calm, bold, nature, playful, premium, tech…' }) as HTMLInputElement;
   let seed = Number(a.seed) || 0;
   const canvas = canvasOf(1000, 1000, 'The logo as drawn');
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'A sketch in simple shapes: a start for a designer, not a finished brand.');
   let last: ReturnType<typeof logoPrims> | null = null;
   const draw = async () => {
     creativeState.font = await loadFont();
@@ -303,6 +361,8 @@ function logoScreen(a: Record<string, unknown>): Screen {
     drawPrims(ctx, last.prims, last.w, last.h, last.bg);
     Object.assign(creativeState.logo, { name: spec.name, icon: spec.icon, drawn: creativeState.logo.drawn + 1 });
     canvas.setAttribute('aria-label', `A logo sketch for ${spec.name}: a ${spec.shape} with ${spec.icon === 'none' ? 'a letter' : `a ${spec.icon}`}`);
+    void pngOf(canvas).then((b) => sized(png, 'Save PNG', b.size)).catch(() => undefined);
+    sized(svg, 'Save SVG', new TextEncoder().encode(primsToSvg(last.prims, last.w, last.h, last.bg)).byteLength);
   };
   let t = 0;
   const later = () => {
@@ -314,22 +374,36 @@ function logoScreen(a: Record<string, unknown>): Screen {
     seed++;
     void draw();
   });
-  const png = button('Save PNG', async () => saveFile(await pngOf(canvas), `${slug(name.value)}-logo.png`, 'image/png'), 'on');
+  const png = button('Save PNG', () => void keepFile(status, () => pngOf(canvas), `${slug(name.value)}-logo.png`, 'image/png'), 'on');
   png.setAttribute('aria-label', 'Save the logo as a PNG picture');
-  const svg = button('Save SVG', () => last && saveFile(new TextEncoder().encode(primsToSvg(last.prims, last.w, last.h, last.bg)), `${slug(name.value)}-logo.svg`, 'image/svg+xml'));
+  const svg = button('Save SVG', () => last && void keepFile(status, () => new TextEncoder().encode(primsToSvg(last!.prims, last!.w, last!.h, last!.bg)), `${slug(name.value)}-logo.svg`, 'image/svg+xml'));
   svg.dataset.label = 'Save SVG';
   svg.setAttribute('aria-label', 'Save the logo as an SVG file');
   void draw();
-  return { el: h('div.pkcol', canvas, field('Name', name), field('The feel', vibe), h('div.pkrow', other, png, svg), h('p.pknote', 'A sketch in simple shapes, made by code: a start for a designer, not a finished brand.')), stop: () => clearTimeout(t) };
+  return { el: h('div.pkcol', canvas, field('Name', name), field('The feel', vibe), h('div.pkrow', other, png, svg), status, ...offlineNote()), stop: () => clearTimeout(t) };
 }
 
 // ---------------------------------------------------------------- PALETTE
 
 function paletteScreen(a: Record<string, unknown>): Screen {
   const out = h('div.pkcol', { 'aria-live': 'polite' });
-  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Pick or take a photo: its colours are found here on the phone. The photo is never uploaded.');
+  const status = h('p.pknote', { 'aria-live': 'polite' }, 'Its colours are found here on the phone. The photo is never uploaded.');
+  const slot = h('div.pkcol');
+  /* state: creative.palette empty */
+  slot.append(emptyState('No colours yet', 'Pick or take a photo and I find its colours.'));
+  const all = button('Copy all', async () => {
+    try {
+      await navigator.clipboard.writeText(creativeState.palette.swatches.map((s) => `${s.hex} ${s.name}`).join('\n'));
+      status.textContent = 'Copied the whole palette.';
+    } catch {
+      status.textContent = creativeState.palette.swatches.map((s) => s.hex).join(' ');
+    }
+  });
+  all.setAttribute('aria-label', 'Copy every colour of the palette');
   const show = (sw: Swatch[], from: string) => {
     creativeState.palette = { swatches: sw.map((s) => ({ hex: s.hex, name: s.name, share: s.share })), from };
+    slot.replaceChildren();
+    all.hidden = !sw.length;
     out.replaceChildren(
       ...sw.map((s) => {
         const copy = button('Copy', async () => {
@@ -353,8 +427,9 @@ function paletteScreen(a: Record<string, unknown>): Screen {
     const f = file.files?.[0];
     file.value = '';
     if (!f) return;
+    /* state: creative.palette loading */
+    const done = waitFor(el, 'Reading the colours…');
     try {
-      status.textContent = 'Reading the colours…';
       const bmp = await createImageBitmap(f);
       const c = document.createElement('canvas');
       c.width = 64;
@@ -362,23 +437,20 @@ function paletteScreen(a: Record<string, unknown>): Screen {
       const ctx = c.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(bmp, 0, 0, 64, 64);
       show(paletteOf(ctx.getImageData(0, 0, 64, 64).data, 5), 'a photo');
-      status.textContent = 'These are the main colours of your photo, biggest first.';
+      stateIn(status, '', 'These are the main colours of your photo, biggest first.');
     } catch (e) {
-      status.textContent = sayError(e, 'read that picture');
+      /* state: creative.palette error */
+      stateIn(status, 'error', sayError(e, 'read that picture'));
+    } finally {
+      done();
     }
   });
   const pick = button('Pick a photo', () => file.click(), 'on');
   pick.setAttribute('aria-label', 'Pick or take a photo to take the colours from');
-  const all = button('Copy all', async () => {
-    try {
-      await navigator.clipboard.writeText(creativeState.palette.swatches.map((s) => `${s.hex} ${s.name}`).join('\n'));
-      status.textContent = 'Copied the whole palette.';
-    } catch {
-      status.textContent = creativeState.palette.swatches.map((s) => s.hex).join(' ');
-    }
-  });
-  all.setAttribute('aria-label', 'Copy every colour of the palette');
-  return { el: h('div.pkcol', h('div.pkrow', pick, all), file, out, status), stop: () => undefined };
+  all.hidden = !given.length;
+  const el = h('div.pkcol', h('div.pkrow', pick, all), file, slot, out, status, ...offlineNote());
+  if (given.length) slot.replaceChildren();
+  return { el, stop: () => undefined };
 }
 
 // ---------------------------------------------------------------- BEAT
@@ -402,6 +474,8 @@ function beatScreen(a: Record<string, unknown>): Screen {
       c.classList.toggle('on', on);
     });
     tempoLab.textContent = `${beat.bpm} beats a minute`;
+    sized(wav, 'Save WAV', Math.round(((4 * 4 * 60) / beat.bpm) * RATE) * 2 + 44, true);
+    sized(mid, 'Save MIDI', beatToMidi(beat, 4).byteLength);
     stats();
   };
   const reload = (bar: number) => {
@@ -424,10 +498,11 @@ function beatScreen(a: Record<string, unknown>): Screen {
     t0 = at;
   };
   for (const d of DRUMS) {
-    // sixteen steps as two lines of eight, so each square is big enough for a thumb
-    for (const half of [0, 1]) {
-      const rowEl = h('div.pkgridrow', h('span.pklab', half ? '' : d));
-      for (let i = half * 8; i < half * 8 + 8; i++) {
+    // sixteen steps as four beats of four, so every square is a full 44 pt for a thumb
+    grid.append(h('span.pklab.pkgridlab', d));
+    for (const quarter of [0, 1, 2, 3]) {
+      const rowEl = h('div.pkgridrow');
+      for (let i = quarter * 4; i < quarter * 4 + 4; i++) {
         const c = button(String(i + 1), () => {
           beat.rows[d][i] = !beat.rows[d][i];
           paint();
@@ -505,18 +580,19 @@ function beatScreen(a: Record<string, unknown>): Screen {
   const keep = button('Save beat', async () => {
     try {
       const r = await brain.packDo('creative', 'beat', { grid: beatGrid(beat), bpm: beat.bpm, name: beat.name || 'my beat' });
-      status.textContent = r.text.split('\n')[0] ?? 'Kept.';
+      stateIn(status, '', r.text.split('\n')[0] ?? 'Kept.');
     } catch (e) {
-      status.textContent = sayError(e, 'get an answer from my brain');
+      /* state: creative.beat error */
+      stateIn(status, 'error', sayError(e, 'get an answer from my brain'));
     }
   });
   keep.setAttribute('aria-label', 'Keep this beat in my brain');
-  const wav = button('Save WAV', () => saveFile(toWav(renderBeat(beat, 4, RATE), RATE), `${slug(beat.name)}.wav`, 'audio/wav'));
+  const wav = button('Save WAV', () => void keepFile(status, () => toWav(renderBeat(beat, 4, RATE), RATE), `${slug(beat.name)}.wav`, 'audio/wav'));
   wav.dataset.label = 'Save WAV';
   wav.setAttribute('aria-label', 'Save four bars of the beat as a WAV sound file');
-  const mid = button('Save MIDI', () => saveFile(beatToMidi(beat, 4), `${slug(beat.name)}.mid`, 'audio/midi'));
+  const mid = button('Save MIDI', () => void keepFile(status, () => beatToMidi(beat, 4), `${slug(beat.name)}.mid`, 'audio/midi'));
   mid.dataset.label = 'Save MIDI';
   mid.setAttribute('aria-label', 'Save the beat as a MIDI file');
   paint();
-  return { el: h('div.pkcol', h('div.pkrow', playB, stopB, clear), grid, pads, field('Style', style), field('Tempo', h('div.pkcol', tempo, tempoLab)), h('div.pkrow', keep, wav, mid), status, h('p.pknote', 'Tap the squares, or tap a pad along with the loop: the hit lands on the nearest sixteenth.')), stop };
+  return { el: h('div.pkcol', h('div.pkrow', playB, stopB, clear), grid, pads, field('Style', style), field('Tempo', h('div.pkcol', tempo, tempoLab)), h('div.pkrow', keep, wav, mid), status, h('p.pknote', 'Tap the squares, or tap a pad along with the loop.'), ...offlineNote()), stop };
 }

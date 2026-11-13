@@ -7,6 +7,9 @@
 import type { TabDef } from '../../shell/tabs';
 import { cardBig, cardLoad, cardNow } from '../../shell/cardline';
 import { sheetPage } from '../../ui/sheetpage';
+import { h } from '../../core/dom';
+import { phrases } from '../lifeui';
+import { FIRSTAID_LINE, MORE_KEY, PHRASES, WORDS_LINE, WORDS_MORE } from './words';
 
 export const learningTab: TabDef = {
   id: 'learning',
@@ -27,10 +30,10 @@ export const learningTab: TabDef = {
         type V = (typeof m.LEARN_VIEWS)[number]['id'];
         // (a page whose content is a table written in says so, in one plain line: IN THE WORKS on its card until it is more)
         const LINES: Partial<Record<V, string>> = {
-          words: 'These words are a starter set, typed in by hand: sixty in each of the eight languages, ten a day for six days, then round again. Not a dictionary yet.',
-          firstaid: 'These steps were typed in from the NHS’s first-aid pages, not read from them live: practise here, check nhs.uk, and in a real emergency call 999.',
+          words: WORDS_LINE,
+          firstaid: FIRSTAID_LINE,
         };
-        const part = (id: V) => ({ title: (m.LEARN_VIEWS.find((v) => v.id === id)?.label ?? id).toUpperCase(), pack: 'learning', screen: id, ...(LINES[id] ? { line: LINES[id] } : {}), build: () => m.learningView(id) });
+        const part = (id: V) => ({ title: (m.LEARN_VIEWS.find((v) => v.id === id)?.label ?? id).toUpperCase(), pack: 'learning', screen: id, ...(LINES[id] ? { line: LINES[id] } : {}), build: id === 'words' ? async () => { const s = await m.learningView(id); return { el: h('div', s.el, h('details.pkmore', h('summary', MORE_KEY), h('p.pknote', WORDS_MORE)), phrases(PHRASES)), stop: s.stop }; } : () => m.learningView(id) });
         return [
           { id: 'words', label: 'Words', parts: [part('words'), part('review')] },
           { id: 'draw', label: 'Draw', parts: [part('draw'), part('hand')] },

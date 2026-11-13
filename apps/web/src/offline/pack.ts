@@ -198,7 +198,7 @@ export async function getPack(p: PackDef, onProgress?: (g: GetProgress) => void,
     files = await p.plan(signal);
   } catch (e) {
     if ((e as Error)?.name === 'AbortError') throw e;
-    throw new Error(`I could not read what ${p.name} holds (the connection dropped, or its source is not answering). Tap GET again on Wi-Fi.`);
+    throw new Error(`I could not read what ${p.name} holds (the connection dropped, or its source is not answering). Tap RETRY on Wi-Fi.`);
   }
   if (p.shared) setPlan(p.id, files.map(keyOf));
   const cache = await caches.open(p.cache);
@@ -225,21 +225,21 @@ export async function getPack(p: PackDef, onProgress?: (g: GetProgress) => void,
         res = await fetch(f.url, { cache: 'no-store', credentials: 'omit', signal, ...(f.url.startsWith('/') ? { headers: { 'x-ghosty-pack': '1' } } : {}) });
       } catch (e) {
         if ((e as Error)?.name === 'AbortError') throw e;
-        throw new Error(`The download stopped at piece ${done + 1} of ${files.length} (the connection dropped?). Tap GET again on Wi-Fi: it carries on from there.`);
+        throw new Error(`The download stopped at piece ${done + 1} of ${files.length} (the connection dropped?). Tap RETRY on Wi-Fi: it carries on from there.`);
       }
       let buf: ArrayBuffer;
       if (res.status === 404 && f.mayBeMissing) buf = new ArrayBuffer(0);
-      else if (!res.ok) throw new Error(`The download stopped at piece ${done + 1} (the server said ${res.status}). Tap GET again on Wi-Fi: it carries on from there.`);
+      else if (!res.ok) throw new Error(`The download stopped at piece ${done + 1} (the server said ${res.status}). Tap RETRY on Wi-Fi: it carries on from there.`);
       else buf = await res.arrayBuffer();
-      if (f.bytes != null && buf.byteLength !== f.bytes) throw new Error(`Piece ${done + 1} came back the wrong size. Tap GET again on Wi-Fi: it fetches that piece again.`);
-      if (!buf.byteLength && !f.mayBeMissing) throw new Error(`Piece ${done + 1} came back empty. Tap GET again on Wi-Fi: it fetches that piece again.`);
+      if (f.bytes != null && buf.byteLength !== f.bytes) throw new Error(`Piece ${done + 1} came back the wrong size. Tap RETRY on Wi-Fi: it fetches that piece again.`);
+      if (!buf.byteLength && !f.mayBeMissing) throw new Error(`Piece ${done + 1} came back empty. Tap RETRY on Wi-Fi: it fetches that piece again.`);
       try {
         await cache.put(
           keyOf(f),
           new Response(buf, { headers: { 'content-type': res.headers.get('content-type') ?? 'application/octet-stream', 'content-length': String(buf.byteLength), ...(buf.byteLength ? {} : { [EMPTY]: '1' }) } }),
         );
       } catch (e) {
-        if ((e as Error)?.name === 'QuotaExceededError') throw new Error(`This phone has no room left for ${p.name}: free some space, then tap GET again. What is stored so far stays.`);
+        if ((e as Error)?.name === 'QuotaExceededError') throw new Error(`This phone has no room left for ${p.name}: free some space, then tap RETRY. What is stored so far stays.`);
         throw e;
       }
       got += buf.byteLength;

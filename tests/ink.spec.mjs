@@ -128,7 +128,7 @@ const HOME_READY = () => { const f = document.querySelector('.inkframe'); const 
   const ink0 = await page.evaluate((sel) => ({ coming: !!document.querySelector(`${sel} .gg-coming`), built: document.querySelector(sel)?.dataset.built, label: document.querySelector(sel)?.getAttribute('aria-label') }), card('ink'));
   check(!ink0.coming && ink0.built === 'true', `[gallery] ONE INK's card is still COMING: ${JSON.stringify(ink0)}`);
   const comings = await page.$$eval('#pg-settings .gg-look', (bs) => bs.filter((b) => b.querySelector('.gg-coming')).map((b) => b.dataset.look).join());
-  check(comings === 'orbit,grown', `[gallery] COMING is on ${comings} (want orbit,grown: THE MAP and THE EYE are built)`);
+  check(comings === '', `[gallery] COMING is on ${comings} (want none: THE MAP, THE EYE, ORBIT and GROWN UP are built)`);
   await page.click(card('ink'));
   await until(page, () => document.documentElement.dataset.world === 'ink', 5000, '[gallery] a tap on ONE INK did not make the world ink');
   const said = (k) => page.evaluate((sel) => ({ on: document.querySelector(sel)?.getAttribute('aria-checked'), line: document.querySelector(`${sel} .gg-cap small`)?.textContent ?? '', head: document.querySelector('#pg-settings .pn.themepn.pushed .gg-sec')?.textContent ?? '' }), card(k));
@@ -154,17 +154,14 @@ const HOME_READY = () => { const f = document.querySelector('.inkframe'); const 
   await until(page, () => document.body.classList.contains('scanhome'), 10000, '[words] Home did not wear The Scan before the words');
   if (!(await page.evaluate(() => !!document.querySelector('.hud.core.logopen')))) await page.locator('.logbtn:visible').first().click().catch(() => undefined);
   await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
-  // the looks still coming say their line and change nothing
-  await page.fill('#cin', 'orbit');
-  await page.press('#cin', 'Enter');
-  await page.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => (m.textContent ?? '').includes('Orbit is coming')), null, { timeout: 8000 }).catch(() => problems.push('[words] "orbit" did not say its line'));
-  check(await page.evaluate(() => document.documentElement.dataset.world === 'scan'), '[words] "orbit" changed the world');
+  // (every look is built: none answers with a coming line; checked after the words below)
   await page.fill('#cin', 'one ink');
   await page.press('#cin', 'Enter');
   await until(page, () => document.documentElement.dataset.world === 'ink', 8000, '[words] "one ink" did not make the world ink');
   const wd = await page.evaluate(() => ({ colour: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, said: [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => /One Ink/.test(t)).pop() ?? '' }));
   check(wd.colour === 'ember' && wd.saved === 'ember', `[words] "one ink" changed his colour: ${JSON.stringify(wd)}`);
   check(/One Ink: on\./.test(wd.said), `[words] "one ink" answered "${wd.said}"`);
+  check(!(await page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => /is coming/.test(m.textContent ?? '')))), '[words] a look answered that it is coming: all seven are built');
   check(!asked.length, `[words] the brain was asked ${asked.length} times for "one ink"`);
   await ctx.close();
 }

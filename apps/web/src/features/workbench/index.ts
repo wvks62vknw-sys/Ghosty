@@ -20,6 +20,8 @@ import { page } from '../../ui/page';
 import { revealPanel, sectionNow, sections } from '../../ui/sections';
 import { estimateCard } from './card';
 import { tunnelPanel, tunnelState } from './tunnel';
+import { badNumber, PHRASES } from './words';
+import { phrases } from '../lifeui';
 import { modeFor, PANELS, type Field, type Mode, type PanelSpec, type Values } from './panels';
 
 const KEY = 'ghosty.workbench';
@@ -167,6 +169,7 @@ export const workbenchTab: TabDef = {
       const modeOf = (): Mode => spec.modes.find((m) => m.id === st.mode) ?? spec.modes[0]!;
       const modes = spec.modes.length > 1 ? h('div.wbmodes', { role: 'tablist', 'aria-label': `${spec.title} kind` }) : null;
       const form = h('div.wbform');
+      const whyOf = new WeakMap<HTMLElement, HTMLElement>();
       const out = h('div.wbout', { 'aria-live': 'polite' });
       pn.body.append(...(modes ? [modes] : []), form, out);
 
@@ -239,6 +242,7 @@ export const workbenchTab: TabDef = {
             box.value = shown(f, st.v[f.key], sys);
             box.addEventListener('input', () => {
               const row = box.closest('.wbf');
+              const why = whyOf.get(box);
               if (f.type !== 'num') {
                 st.v[f.key] = box.value;
                 row?.classList.remove('bad');
@@ -248,17 +252,29 @@ export const workbenchTab: TabDef = {
               if (x === null || (x === undefined && !f.optional)) {
                 row?.classList.add('bad');
                 box.setAttribute('aria-invalid', 'true');
+                /* state: workbench.panels error */
+                /* state: workbench.panels empty */
+                if (why) {
+                  why.textContent = badNumber(f.label, box.value, unit);
+                  why.dataset.state = box.value.trim() ? 'error' : 'empty';
+                  why.hidden = false;
+                }
                 return;
               }
               row?.classList.remove('bad');
               box.removeAttribute('aria-invalid');
+              if (why) why.hidden = true;
               if (x === undefined) delete st.v[f.key];
               else st.v[f.key] = x;
               changed();
             });
             input = box;
           }
-          rows.push(h(`div.wbf${f.type === 'check' ? '.chk' : ''}` as 'div', { dataset: { key: f.key } }, h('label', { htmlFor: id }, f.label), input, h('span.wbu', { 'aria-hidden': 'true' }, unit)));
+          // a number typed wrong is said beside its field, in words (the red edge alone is a colour, and the card would still show the last good numbers)
+          const why = h('p.wbwhy', { id: `${id}-why`, role: 'alert', hidden: true, dataset: { state: 'error', case: 'keep' } });
+          input.setAttribute('aria-describedby', why.id);
+          whyOf.set(input, why);
+          rows.push(h(`div.wbf${f.type === 'check' ? '.chk' : ''}` as 'div', { dataset: { key: f.key } }, h('label', { htmlFor: id }, f.label), input, h('span.wbu', { 'aria-hidden': 'true' }, unit)), why);
         }
         clear(form, ...rows);
       };
@@ -274,6 +290,8 @@ export const workbenchTab: TabDef = {
       P.sub.textContent = `Wind tunnel: ${o.shapeName} · a 2-D first estimate, not certified`;
     });
     P.left.append(tunnel.el);
+    // the words that open it from the chat, and they do (assistant/phrases.ts answers them on the phone)
+    tunnel.el.append(phrases(PHRASES));
     for (const spec of PANELS) {
       const m = mountPanel(spec);
       mounted.push(m);

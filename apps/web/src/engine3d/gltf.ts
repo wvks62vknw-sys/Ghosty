@@ -4,8 +4,8 @@
  * ground as a node of its own. A downloaded model is written as its own shapes and base colours (the view hands them in); its
  * pictures are not carried. The asset says the sizes are first estimates and lists every credit. Pure.
  */
-import { creditsOf, ESTIMATE, materialOf, type Scene } from './scene';
-import { primsOf, triangles, turnRad } from './shapes';
+import { creditsOf, ENGINE_CREDIT, ESTIMATE, materialOf, type Scene } from './scene';
+import { engineParts, primsOf, triangles, turnRad } from './shapes';
 
 /** A loaded model's shapes in its own metres, with its own size so the object's size can scale it. */
 export interface RawMesh {
@@ -89,6 +89,14 @@ export function exportGltf(s: Scene, models: Record<string, RawModel | undefined
         chunks.push({ name: `${o.name} ${i + 1}`, positions: pos, normals: nor, indices: Array.from(rm.indices), material: matIx(o.mat, rm.colour) });
         nodes.push({ ...node, name: raw.meshes.length > 1 ? `${o.name} ${i + 1}` : o.name, mesh: chunks.length - 1 });
       });
+      continue;
+    }
+    // the working engine goes out as one named mesh for each of its parts ("Engine: Piston 2"), in the object's material
+    if (o.kind === 'engine') {
+      for (const part of engineParts(o)) {
+        chunks.push({ name: `${o.name}: ${part.name}`, ...triangles(part.prims), material: matIx(o.mat) });
+        nodes.push({ ...node, name: `${o.name}: ${part.name}`, mesh: chunks.length - 1, extras: { ...(node.extras as object), part: part.name, credit: ENGINE_CREDIT } });
+      }
       continue;
     }
     chunks.push({ name: o.name, ...triangles(primsOf(o)), material: matIx(o.mat) });

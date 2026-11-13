@@ -11,6 +11,8 @@
  * Routes (owner only):
  *   GET    /guardian          → GuardianInfo (THREATS → NEAR HOME, the Me sheet, Settings → GUARDIAN)
  *   POST   /guardian/check    → a look now (NEAR HOME's CHECK NOW)
+ *   /guardian/wall/*          → THE WALL, the second screen (wall.ts)
+ *   GET    /guardian/health   → the brain's health; POST|GET /guardian/feltoff → "that felt off" moments (health.ts)
  */
 import { clockIn, FEED_NAMES, type FeedId, type GuardianInfo, type GuardWarning, type PersonInfo, type WalkInfo } from '../../../packages/shared/src/guardian';
 import { crimeMonth, floods, metWarnings, placeArea, touches, type MetWarning } from './integrations/warnings';
@@ -20,6 +22,8 @@ import { addJob, loadJobs, removeJob } from './schedule';
 import { loadLink } from './telegram';
 import { mailRoute } from './mailtriage';
 import { watchersRoute, watchersTick } from './watchers';
+import { wallRoute } from './wall'; // [wall] the second screen: its own file, mounted here with the other feature routes
+import { healthRoute } from './health'; // [health] the brain's health and the "that felt off" moments
 import { levelWord, loadConfig, loadWalk, loadWatch, nowOf, personRoute, WATCH_KEY, zoneOf, type GuardDeps } from './guardstate';
 
 export { CONFIG_KEY, guardianMind, loadConfig, loadWalk, loadWatch, WALK_KEY, WATCH_KEY } from './guardstate';
@@ -202,6 +206,8 @@ export async function guardianInfo(d: GuardDeps): Promise<GuardianInfo> {
 export const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 
 export async function guardianRoute(req: Request, path: string, method: string, d: GuardDeps): Promise<Response> {
+  if (path === '/guardian/wall' || path.startsWith('/guardian/wall/')) return wallRoute(req, path, method, d); // [wall] THE WALL (wall.ts)
+  if (path === '/guardian/health' || path === '/guardian/feltoff') return healthRoute(req, path, method, d);
   if (path === '/guardian' && method === 'GET') return json(await guardianInfo(d));
   if (path === '/guardian/check' && method === 'POST') {
     const r = await watchTick(d, { force: true });

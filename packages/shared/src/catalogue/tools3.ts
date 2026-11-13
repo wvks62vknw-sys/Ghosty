@@ -179,4 +179,31 @@ export const TOOLS_3: Record<string, CatValue> = {
     more: 'Say "teach me…" and I plan a course from my library and Wikipedia. Each lesson ends with a check question, and flashcards come back when you are about to forget them.',
     say: ['Teach me how the stock market works', 'Quiz me on what we did yesterday'], scene: ['school'], cat: 'learn',
   },
+  // ---- the open document
+  'tool:document': {
+    name: 'Change your open document', line: 'I can read the document you have open and propose changes to it: a shorter paragraph, a fixed passage, a closing line.',
+    more: 'Open a document, then tell me what to change. Each change shows in the page as a marked change with the old words struck: you tap ACCEPT or REJECT, and nothing changes until you do. I only see the one document you have open.',
+    say: ['Make the second paragraph shorter', 'Add a closing line asking them to reply this week'], scene: ['making'], cat: 'do',
+  },
+  // ---- the open deck, video, workspace and game (BRIEF-KERNEL-3)
+  'tool:slides': {
+    name: 'Change your open slides', line: 'I can read the deck you have open and propose changes: a shorter title, a new slide, another theme. I can make slides from a report.',
+    more: 'Open a deck, then tell me what to change. Each change shows in the deck, marked, and you tap ACCEPT or REJECT: nothing changes until you do. I only see the one deck you have open. Slides I make from a report open as a new deck on your phone, never published.',
+    say: ['Make slide three’s title shorter', 'Make slides from this'], scene: ['making'], cat: 'do',
+  },
+  'tool:videoedit': {
+    name: 'Change your open video', line: 'I can read the video you have open and propose edits on its timeline: a clip cut shorter, a transition, steady, best clips, on the beat.',
+    more: 'Open a video, then tell me what to change, with lengths in seconds. Each edit is marked on the timeline and you tap ACCEPT or REJECT. I never start an export: it only starts when you tap EXPORT, with its size said first.',
+    say: ['Cut the first clip to the first five seconds', 'Steady the second clip'], scene: ['making'], cat: 'do',
+  },
+  'tool:workspace': {
+    name: 'Read and change your workspace', line: 'I can read your Workspace, find what you wrote in it, and propose changes: a block reworded, a cell filled, a line added, a new page.',
+    more: 'Ask me what you wrote about something and I answer from your own pages. Ask me to add or change something and the change is marked for you to ACCEPT or REJECT. I only see what your Workspace holds, and nothing is changed until you tap.',
+    say: ['What did I write about the garden?', 'Add buy seeds to the garden list'], scene: ['making'], cat: 'do',
+  },
+  'tool:game': {
+    name: 'Make a game for you', line: 'I can make a 2-D game in your Game Studio from its own kit, and change the one you have open.',
+    more: 'Say what you want, such as a platformer about a fox, and a game opens in the studio: rooms painted from its tiles, a hero in a colour you pick, a person who talks, a quest and a save point. It is kept on your phone, never published, and nothing in it is drawn by me. Changes to a game you have open are marked for you to accept or reject.',
+    say: ['Make me a platformer about a fox', 'Make the first room wider'], scene: ['making'], cat: 'do',
+  },
 };

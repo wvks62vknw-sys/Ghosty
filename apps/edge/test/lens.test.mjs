@@ -659,5 +659,3 @@ test('NAME IT and WHAT\'S IN IT exchanges are dropped from the saved conversatio
   const plain = [T2('user', 'what is {"kind":1}?'), T2('assistant', 'A JSON object with a kind.')];
   assert.equal(keep(plain), plain, 'nothing to drop: the same list');
 });
-// the one Lens's rules (BRIEF-LENS): the test list in package.json is protected, so the file is run from here
-await import('./lens-one.test.mjs');

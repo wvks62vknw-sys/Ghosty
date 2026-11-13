@@ -24,6 +24,8 @@ await build({
   outdir: at('./.build/selftrain'),
   outbase: at('../../..'),
   outExtension: { '.js': '.mjs' },
+  // (as npm test's own esbuild steps do: the brain's mail connects through the Worker's sockets, which only exist on Cloudflare)
+  external: ['cloudflare:sockets'],
   logLevel: 'warning',
 });
 // (assets.ts on its own too: what the brain hands to Kaggle, read back by the tests below)
@@ -2508,6 +2510,112 @@ test('a brain the phone could not load is dropped for good (the older one takes 
   assert.equal((await route(d, '/training/broken', 'POST', { commit: 'f'.repeat(40) })).active, m(2).commit, 'an unknown commit changes nothing');
 });
 
+// BRIEF-KERNEL-2 item 4: the first check of a published brain decides by itself, once, and tells him.
+async function twoBrains(extra = {}) {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  const at = d.deps.now() - 3_600_000;
+  const m = (w) => ({ week: w, label: `Ghosty (week ${w})`, repo: 'owner/ghosty-offline-brain', commit: String(w).repeat(40).slice(0, 40), at: at - (3 - w) * 86_400_000, scores: {}, chain: [], ...extra });
+  await s.put('train:models', [m(3), m(2)]);
+  await s.put('train:active', m(3).commit);
+  await s.put('train:log', [{ at, kind: 'run', week: 3, real: true, before: 0.58, after: 0.61, outcome: 'published', commit: m(3).commit, why: '3 points better on average' }]);
+  return { s, d, m };
+}
+const first = (d, body) => route(d, '/training/firstcheck', 'POST', body);
+
+test('the first check: a brain that will not load, or does not answer, rolls back at once to the one before, tells him once, writes why, keeps it on the list', async () => {
+  const { s, d, m } = await twoBrains();
+  const r = await first(d, { commit: m(3).commit, loaded: false });
+  assert.equal(r.result, 'rolled-back');
+  assert.equal(r.status.active, m(2).commit, 'the brain before it is in use');
+  assert.deepEqual(r.status.models.map((x) => x.week), [3, 2], 'kept on the list: he can put it back');
+  const ev = (await s.get('train:log'))[0];
+  assert.deepEqual([ev.kind, ev.reason, ev.auto, ev.why, ev.week], ['rollback', 'broken', true, 'it would not load on the phone', 3]);
+  assert.equal(d.notes.length, 1, 'he is told once');
+  assert.equal(d.notes[0].title, 'Offline brain training');
+  assert.match(d.notes[0].text, /^I rolled myself back to the brain before this week's: the new one would not load on the phone\. It had scored 61% in its exam against 58% for the old one\./);
+  assert.match(r.status.weekly.lines.happened, /^Published, then rolled back by itself on .* after its first check on your phone \(it would not load on the phone\)\. The brain before it is in use; ROLLBACK is still yours for anything else\.$/);
+  assert.equal(r.status.weekly.last.outcome, 'rolled-back');
+  // another report for it changes nothing and says nothing more
+  assert.equal((await first(d, { commit: m(3).commit, loaded: false })).result, 'ignored');
+  assert.equal(d.notes.length, 1);
+  // a brain that loaded but did not answer its first question
+  const b = await twoBrains();
+  assert.equal((await first(b.d, { commit: b.m(3).commit, loaded: true, answered: false })).result, 'rolled-back');
+  assert.match(b.d.notes[0].text, /did not answer the first question/);
+  // the stock build is what is left when there was no older brain
+  const only = await twoBrains();
+  await only.s.put('train:models', [only.m(3)]);
+  assert.equal((await first(only.d, { commit: only.m(3).commit, loaded: false })).status.active, null);
+});
+
+test('the first check: a score below the previous brain\'s by more than the gate\'s margin rolls back ONCE, with the two numbers; within the margin or better it is kept (logged); no score yet waits', async () => {
+  const twoBrains0 = await twoBrains();
+  const { s, d, m } = await twoBrains();
+  // loaded, nothing wrong, score still to come: nothing decided
+  assert.equal((await first(d, { commit: m(3).commit, loaded: true, answered: true })).result, 'waiting');
+  assert.equal((await s.get('train:active')), m(3).commit);
+  assert.equal(d.notes.length, 0);
+  // 20 questions: one question's worth (5 points) never decides alone (the gate's margin), so 0.55 against 0.60 is kept; two questions (10 points) is worse
+  assert.equal((await first(twoBrains0.d, { commit: twoBrains0.m(3).commit, loaded: true, answered: true, score: 0.55, previous: 0.6, asked: 20 })).result, 'kept');
+  const r = await first(d, { commit: m(3).commit, loaded: true, answered: true, score: 0.5, previous: 0.6, asked: 20 });
+  assert.equal(r.result, 'rolled-back');
+  assert.equal(r.why, "it scored 50% on the phone's own check against 60% for the brain before it");
+  assert.equal(r.status.active, m(2).commit);
+  assert.equal(d.notes.length, 1);
+  assert.equal(d.notes[0].text, "I rolled myself back to the brain before this week's: the new one scored 50% on your phone against 60% for the old one. If you would rather have the new one, choose it in SETTINGS → OFFLINE BRAIN.");
+  const log = await s.get('train:log');
+  assert.deepEqual([log[0].kind, log[0].reason, log[0].auto, log[0].score, log[0].previous], ['rollback', 'worse', true, 0.5, 0.6]);
+  // once: the same brain reported worse again does nothing (it is not even the brain in use)
+  assert.equal((await first(d, { commit: m(3).commit, loaded: true, score: 0.1, previous: 0.9, asked: 20 })).result, 'ignored');
+  assert.equal(d.notes.length, 1);
+  // within the margin (a 2-point drop over 100 questions), better, or equal: kept, the log says so, nobody is told
+  for (const [score, previous, asked] of [[0.58, 0.6, 100], [0.7, 0.6, 20], [0.6, 0.6, 20]]) {
+    const k = await twoBrains();
+    const kr = await first(k.d, { commit: k.m(3).commit, loaded: true, answered: true, score, previous, asked });
+    assert.equal(kr.result, 'kept', `${score} against ${previous}`);
+    assert.equal(kr.status.active, k.m(3).commit);
+    assert.equal(k.d.notes.length, 0);
+    assert.equal((await k.s.get('train:log'))[0].kind, 'check');
+    assert.match(kr.status.weekly.lines.happened, new RegExp(`^Published: the new brain beat the old one .* First check on your phone: kept \\(it scored ${Math.round(score * 100)}% on the phone's own check against ${Math.round(previous * 100)}% for the brain before it\\)\\.$`));
+    // decided: a later bad report cannot undo a kept brain
+    assert.equal((await first(k.d, { commit: k.m(3).commit, loaded: false })).result, 'ignored');
+    assert.equal((await k.s.get('train:active')), k.m(3).commit);
+  }
+  // not the brain in use, an unknown brain, and a report after the window are all left alone
+  const w = await twoBrains();
+  assert.equal((await first(w.d, { commit: w.m(2).commit, loaded: false })).result, 'ignored');
+  assert.equal((await first(w.d, { commit: 'f'.repeat(40), loaded: false })).result, 'ignored');
+  w.d.tick(4 * 86_400_000);
+  assert.equal((await first(w.d, { commit: w.m(3).commit, loaded: false })).result, 'ignored');
+  assert.equal(await w.s.get('train:active'), w.m(3).commit);
+});
+
+test('the first check: a brain he rolled forward by hand is left alone (never rolled back automatically twice), and the card says it stays', async () => {
+  const { s, d, m } = await twoBrains();
+  assert.equal((await first(d, { commit: m(3).commit, loaded: true, answered: true, score: 0.5, previous: 0.6, asked: 20 })).result, 'rolled-back');
+  assert.equal(await s.get('train:active'), m(2).commit);
+  // he puts the new brain back in use himself
+  const used = await route(d, '/training/use', 'POST', { commit: m(3).commit });
+  assert.equal(used.active, m(3).commit);
+  assert.equal((await s.get('train:log'))[0].kind, 'forward');
+  // its first check, bad again, changes nothing
+  const again = await first(d, { commit: m(3).commit, loaded: false });
+  assert.equal(again.result, 'ignored');
+  assert.equal(await s.get('train:active'), m(3).commit);
+  assert.equal(d.notes.length, 1, 'told once, the first time');
+  assert.equal(again.status.weekly.last.outcome, 'published');
+  assert.match(again.status.weekly.lines.happened, /It rolled back by itself on .* \(it scored 50% on the phone's own check against 60% for the brain before it\); you chose it again, so it stays\.$/);
+  // a brain he chose himself before any check is never checked either
+  const h = await twoBrains();
+  await route(h.d, '/training/use', 'POST', { commit: h.m(3).commit });
+  assert.equal((await first(h.d, { commit: h.m(3).commit, loaded: false })).result, 'ignored');
+  assert.equal(await h.s.get('train:active'), h.m(3).commit);
+  // and his own ROLLBACK tap is as before: it drops the brain for good
+  const rb = await route(h.d, '/training/rollback', 'POST', {});
+  assert.deepEqual(rb.models.map((x) => x.week), [2]);
+});
+
 test('the card in his words: no run yet, published, not kept, stopped, rolled back; the next run due, due now, under way, waiting for keys; the pre-flight line', () => {
   const NOW = Date.UTC(2026, 10, 12, 10);
   const run = (over = {}) => ({ at: NOW - DAYMS, kind: 'run', week: 4, real: true, before: 0.5, after: 0.55, areas: [{ area: 'gym', before: 0.4, after: 0.5 }, { area: 'safety', before: 0.9, after: 0.85 }], outcome: 'published', commit: 'c'.repeat(40), why: '5 points better on average', ...over });
@@ -2566,5 +2674,4 @@ test('the Sunday letter carries "What I learned this week" as one more section o
   assert.ok(letter.text.split('\n').length <= 9, 'one line, a blank, the heading and at most five');
 });
 
-await import('./sundaynote.test.mjs');
 

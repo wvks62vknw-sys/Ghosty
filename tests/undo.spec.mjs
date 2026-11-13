@@ -324,7 +324,7 @@ const rm = page.locator('#pg-system .keyblock button', { hasText: 'REMOVE' }).fi
 if (await rm.waitFor({ state: 'attached', timeout: 8000 }).then(() => true, () => false)) {
   const before = askedFor(/\/api\/keys/);
   await clickJs(rm);
-  if (await sawSheet(/wiped from Ghosty, not kept anywhere/, 'key REMOVE')) {
+  if (await sawSheet(/wiped from Ghosty, and what needs it stops until you paste the key again/, 'key REMOVE')) {
     await snap('key-remove-confirm');
     await keepIt();
     await page.waitForTimeout(300);
@@ -336,7 +336,7 @@ const forgetKey = page.locator('#pg-system button', { hasText: 'FORGET OWNER KEY
 if (!(await forgetKey.count())) await openPanel(page, 'system', 'STATUS').catch(() => undefined);
 if (await forgetKey.count()) {
   await clickJs(forgetKey.first());
-  if (await sawSheet(/stops being able to talk to Ghosty’s brain/, 'FORGET OWNER KEY')) {
+  if (await sawSheet(/This phone can’t reach my brain until you type the key again/, 'FORGET OWNER KEY')) {
     await keepIt();
     await page.waitForTimeout(300);
     if (!(await page.evaluate(() => !!localStorage.getItem('ghosty.ownerKey') || !!document.querySelector('#pg-system')))) problems.push('system: KEEP IT still forgot the owner key');

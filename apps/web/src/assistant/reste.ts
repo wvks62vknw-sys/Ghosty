@@ -7,6 +7,11 @@
  */
 import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
+import { sheetsAsked } from '../sheets/asks';
+import { slidesAsked } from '../slides/asks';
+import { workspaceAsked } from '../workspace/asks';
+import { photoAsked } from '../photo/asks';
+import { gameAsked } from '../studio-game/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import type { PackReply } from './packs';
 
@@ -46,6 +51,73 @@ export async function docsTurn(text: string): Promise<PackReply> {
   return { said: text, reply, go: [{ id: 'docs', ask: -1, label: 'Open my documents', run: 'open_docs', args: {} }] };
 }
 
+/** "my spreadsheets", "new spreadsheet", "start a household budget", "open a spreadsheet": the SPREADSHEETS sheet, open on it. */
+export async function sheetsTurn(text: string): Promise<PackReply> {
+  const ask = sheetsAsked(text) ?? { what: 'list' as const };
+  const { openSheets } = await import('../sheets/sheet');
+  void openSheets({ what: ask.what });
+  const reply =
+    ask.what === 'budget'
+      ? 'A household budget is open: twelve months and a summary, with the formulas already in. Change a rent and watch the year move.'
+      : ask.what === 'new'
+        ? 'A blank spreadsheet is open: tap a cell and type, or start with a budget.'
+        : ask.what === 'import'
+          ? 'Choose the file and I open it here: an Excel .xlsx or a CSV. Nothing is uploaded, and what I could not keep I say once.'
+          : 'My spreadsheets are open: the ones you made or opened, kept on this phone with their dates.';
+  return { said: text, reply, go: [{ id: 'sheets', ask: -1, label: 'Open my spreadsheets', run: 'open_sheets', args: {} }] };
+}
+
+/** "my slides", "new presentation", "make slides from my last answer", "open a PowerPoint file": the PRESENTATIONS sheet, open on it. */
+export async function slidesTurn(text: string): Promise<PackReply> {
+  const ask = slidesAsked(text) ?? { what: 'list' as const };
+  const { openSlides } = await import('../slides/sheet');
+  void openSlides({ what: ask.what });
+  const reply =
+    ask.what === 'new'
+      ? 'A blank deck is open: a title slide and a slide of bullets. Tap one to type into it.'
+      : ask.what === 'report'
+        ? 'Pick the report to make slides of: my last answer with headings, one of your documents, or paste one. Every slide stays yours to change.'
+        : ask.what === 'import'
+          ? 'Choose the PowerPoint file (.pptx) and I open it here. Nothing is uploaded, and what I could not keep I say once.'
+          : 'My slides are open: the decks you made or opened, kept on this phone with their dates.';
+  return { said: text, reply, go: [{ id: 'slides', ask: -1, label: 'Open my slides', run: 'open_slides', args: {} }] };
+}
+
+/** "my workspace", "start a project", "a blank page", "what is due this week in my project": THE WORKSPACE, open on it; the dates answered here from the phone. */
+export async function workspaceTurn(text: string): Promise<PackReply> {
+  const ask = workspaceAsked(text) ?? { what: 'list' as const };
+  if (ask.what === 'due') {
+    // his own dates are his data: no brain is asked, so this answers with the brain out of reach too
+    const [{ loadWorkspace }, { dueWords }, { isoOf }] = await Promise.all([import('../workspace/store'), import('../workspace/context'), import('../workspace/db')]);
+    const d = dueWords(loadWorkspace(), isoOf(new Date()));
+    return { said: text, reply: d.text, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
+  }
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({ what: ask.what });
+  const reply =
+    ask.what === 'project'
+      ? 'A project is open: a board of tasks, notes, a decisions table and a calendar of deadlines, with every word yours to change.'
+      : ask.what === 'blank'
+        ? 'A blank page is open: type its name in the line above, then write, or type “/” for more.'
+        : ask.what === 'import'
+          ? 'Choose the Markdown, the zip of a folder, or the CSV and I read it here. A CSV becomes a database. Nothing is uploaded, and what I could not keep I say once.'
+          : ask.what === 'bin'
+            ? 'The BIN is open: pages I deleted sit there for 30 days.'
+            : 'My workspace is open: your pages as a tree, your projects, search, and the pages you touched last.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
+}
+
+/** "edit a photo", "my photos": the photo editor, open on my photos. */
+export async function photoTurn(text: string): Promise<PackReply> {
+  const ask = photoAsked(text) ?? { what: 'shelf' as const };
+  const { openPhotoEditor } = await import('../features/photo');
+  void openPhotoEditor({});
+  const reply = ask.what === 'edit'
+    ? 'The photo editor is open: OPEN A PHOTO from your camera roll and I keep it here untouched, with every edit beside it.'
+    : 'My photos are open: the ones you have edited here, newest first, each kept untouched with its edits beside it. OPEN A PHOTO for another.';
+  return { said: text, reply, go: [{ id: 'photo', ask: -1, label: 'Open the photo editor', run: 'open_photo', args: {} }] };
+}
+
 /** "3.5 miles in km", "hello in base64", "decode aGVsbG8=", "1700000000 as a date": answered here. */
 export function numbersTurn(text: string): PackReply | null {
   const u = unitsAsked(text);
@@ -55,4 +127,19 @@ export function numbersTurn(text: string): PackReply | null {
   const x = unixAsked(text);
   if (x) return { said: text, reply: x.text };
   return null;
+}
+
+/** "make a game", "my games", "sketch a cave room with two ledges": the game studio, open on it (the sketch is made in the editor). */
+export async function gameTurn(text: string): Promise<PackReply> {
+  const ask = gameAsked(text) ?? { what: 'list' as const };
+  const { ask: studioAsk } = await import('../studio-game/hub');
+  const { go } = await import('../shell/tabs');
+  studioAsk(ask.what === 'sketch' ? { what: 'sketch', wish: ask.wish } : { what: ask.what });
+  go('gamestudio');
+  const reply = ask.what === 'new'
+    ? 'The game studio is open: pick a template, or blank, and you are making a game.'
+    : ask.what === 'sketch'
+      ? `I am sketching “${ask.wish}” into the room you have open: a first draft, so paint over it. If no game is open, the newest one opens.`
+      : 'These are your games, kept on this phone. Open one to change it, or play it from the arcade.';
+  return { said: text, reply, go: [{ id: 'gamestudio', ask: -1, label: 'Open the game studio', run: 'open_gamestudio', args: {} }] };
 }

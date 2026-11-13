@@ -5,7 +5,7 @@
  *    with the rule table only (no model sees it, not even the shops' names), and comes back as the month's card: the top
  *    five categories and what changed. The chat shows "a statement pasted (N lines)", never the statement itself.
  *  - BODY: "count my squats", "start a run", "breathe", "stretch with me" open the phone's own screens (features/body);
- *    "had a glass of water" is kept in my brain by its own code (POST /packs/do), no model either way.
+ *    "had a glass of water" is kept on this phone (features/body/track.ts), no model and no brain.
  *  - KITCHEN: "timer 8 minutes for the pasta" (several at once) set on this phone's clock; "shopping list" opens the list;
  *    "fan 180 in conventional?" answered here.
  */
@@ -14,6 +14,7 @@ import { monthCard, monthWords, unflatten } from '../../../../packages/shared/sr
 import { bodyAsked, EXERCISES } from '../../../../packages/shared/src/body';
 import { mmss, ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { INTERVIEW_ASK, POMO_ASK, pomodoroPlan, questionsFor } from '../../../../packages/shared/src/work';
+import { COMING_ASK } from '../../../../packages/shared/src/people';
 import { beatFromWords, DRAW_ASK, drawingPrompt } from '../../../../packages/shared/src/creative';
 import { outsideAsked, type OutsideView } from '../../../../packages/shared/src/outside';
 import { homeAsked, type HomeView } from '../../../../packages/shared/src/homeadmin';
@@ -29,6 +30,8 @@ export interface PackReply {
   reply: string;
   cards?: Card[];
   go?: { id: string; ask: number; label: string; open?: string; run?: string; args?: Record<string, unknown>; words?: string }[];
+  /** The brain could not be reached: the reply is the error in his words (the MONEY screen keeps what he pasted). */
+  failed?: boolean;
 }
 
 const prevMonth = (m: string) => (m.slice(5, 7) === '01' ? `${+m.slice(0, 4) - 1}-12` : `${m.slice(0, 4)}-${String(+m.slice(5, 7) - 1).padStart(2, '0')}`);
@@ -39,12 +42,12 @@ export async function statementOrBox(text: string): Promise<PackReply> {
   if (!PASTE_ASK.test(text.trim())) return statementTurn(text);
   const { openMoney } = await import('../features/money/sheet');
   openMoney();
-  return { said: text, reply: 'Paste it in the box (it keeps the lines), or pick the CSV or PDF your bank gave you. It goes to my brain only, read by code.' };
+  return { said: text, reply: 'Paste it in the box (it keeps the lines), or pick the CSV or PDF your bank gave you. It goes to my brain only.' };
 }
 
 export async function statementTurn(text: string): Promise<PackReply> {
   const lines = unflatten(text).split(/\r?\n/).filter((l) => l.trim()).length;
-  const said = `A statement pasted (${lines} lines): read in code on its way to my brain, never shown to a model.`;
+  const said = `A statement pasted (${lines} lines): read by plain rules on its way to my brain, never shown to a model.`;
   try {
     const r = await brain.spendingImport(text, true);
     const v = r.view;
@@ -59,13 +62,17 @@ export async function statementTurn(text: string): Promise<PackReply> {
       go: [{ id: 'spending', ask: -1, label: 'Open spending', open: 'agenda' }],
     };
   } catch (e) {
-    return { said, reply: `${sayError(e, 'keep that statement')} Nothing was sent anywhere else.` };
+    return { said, reply: `${sayError(e, 'keep that statement')} Nothing was sent anywhere else.`, failed: true };
   }
 }
 
 /** [packs2] "who's who", "my people": the people sheet (features/people), over the chat; nothing is looked up. */
 export async function peopleTurn(text: string): Promise<PackReply> {
   const { openPeople } = await import('../features/people/sheet');
+  if (COMING_ASK.test(text.trim())) {
+    void openPeople('coming');
+    return { said: text, reply: 'Here is what is coming up: the birthdays and dates you told me, a year ahead. I remind you a week before and on the day.', go: [{ id: 'people', ask: -1, label: 'Open it again', run: 'open_people', args: { what: 'coming' } }] };
+  }
   void openPeople('who');
   return { said: text, reply: 'Here are the people you’ve told me about: tap one for gift ideas or the details you gave me. I only know what you tell me, and I never look anyone up.', go: [{ id: 'people', ask: -1, label: 'Open it again', run: 'open_people', args: { what: 'who' } }] };
 }
@@ -145,11 +152,11 @@ export async function outsideTurn(text: string): Promise<PackReply> {
 
 /**
  * [packs3] The home pack's words on this phone: "when are the bins?", "what's due at home?" and "my bills" are answered from my
- * brain's own records with no model (and the HOME sheet a tap away); the meter and the rooms open their pages.
+ * brain's own records with no model (and the HOUSEHOLD sheet a tap away); the meter and the rooms open their pages.
  */
 export async function homeTurn(text: string): Promise<PackReply> {
   const view: HomeView = homeAsked(text) ?? 'due';
-  const again = [{ id: 'homeadmin', ask: -1, label: 'Open the HOME sheet', run: 'open_homeadmin', args: { what: view } }];
+  const again = [{ id: 'homeadmin', ask: -1, label: 'Open the HOUSEHOLD sheet', run: 'open_homeadmin', args: { what: view } }];
   if (view === 'bins' || view === 'due' || view === 'bills') {
     try {
       const r = await brain.packDo('homeadmin', view, view === 'due' ? { days: 14 } : {});
@@ -246,17 +253,14 @@ export async function learningTurn(text: string): Promise<PackReply | null> {
   return { said: text, reply, go: again(ask.view, lesson ? { shape: lesson.id } : {}) };
 }
 
-/** The body pack's words: a screen opened here, or a glass of water kept by my brain's own code. */
+/** The body pack's words: a screen opened here, or a glass of water kept on this phone. */
 export async function bodyTurn(text: string): Promise<PackReply> {
   const ask = bodyAsked(text);
   if (!ask) return { said: text, reply: 'I didn’t catch which: say "count my squats", "start a run", "breathe" or "stretch with me".' };
   if (ask.what === 'water') {
-    try {
-      const r = await brain.packDo('body', 'water', { words: text });
-      return { said: text, reply: r.text, ...(r.cards ? { cards: r.cards } : {}) };
-    } catch {
-      return { said: text, reply: 'My brain didn’t answer, so that glass isn’t kept: try again in a moment.' };
-    }
+    // [bodylane] water is kept on this phone now (features/body/track.ts), never in my brain
+    const { add } = await import('../features/body/track');
+    return { said: text, reply: add('water', ask.glasses * 250, 'words'), go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] };
   }
   const { openBody } = await import('../features/body/sheet');
   void openBody(ask.what, ask.what === 'reps' ? { exercise: ask.exercise } : ask.what === 'breathe' ? { pattern: ask.pattern } : {});

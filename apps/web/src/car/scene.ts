@@ -11,6 +11,8 @@
  */
 import { PARTS, isPart, viewOf, type PartId, type View } from './parts';
 import { buildBay } from './bay';
+import type { WorkingEngine } from './enginemesh';
+import { engineLine, STROKE_WORDS, firingWords, type Stroke } from './engine';
 import { buildBody, type Body } from './body';
 import { buildUnder } from './under';
 import { floorTex, glowTex, makeMats, shadowTex, type Mats } from './kit';
@@ -52,6 +54,8 @@ export interface SceneState {
   frames: number;
   /** Milliseconds between frames, and to draw one, averaged over the last second or so. */
   frameMs: number;
+  /** The 95th percentile of the last sixty gaps between frames, ms. */
+  frameP95: number;
   drawMs: number;
   picked: string;
   parts: string[];
@@ -61,6 +65,43 @@ export interface SceneState {
   lit: string[];
   pose: Pose;
   moving: boolean;
+  engine: EngineState | null;
+}
+
+/** What the working engine says about itself (BRIEF-WORKING-ENGINE): read by the pane and the spec. */
+export interface EngineState {
+  layout: string;
+  cylinders: number;
+  words: string;
+  line: string;
+  cc: number;
+  ccFrom: string;
+  bore: number;
+  stroke: number;
+  scale: number;
+  /** The crank angle, 0 to 720; the degrees turned in all; the drawn revs and whether it is still. */
+  crank: number;
+  turned: number;
+  rpm: number;
+  paused: boolean;
+  reduced: boolean;
+  /** 0 the cover on, 1 lifted. */
+  cover: number;
+  explode: number;
+  section: boolean;
+  cut: string[];
+  selected: string;
+  /** Cylinder one's stroke, the cylinders on power, the firing order. */
+  stroke1: string;
+  strokeWords: string;
+  power: number[];
+  firing: string;
+  measuring: boolean;
+  points: number;
+  cm: number | null;
+  pieces: number;
+  ids: string[];
+  parts: { inst: string; id: string; cyl: number; origin: number[]; fly: number; layer: number }[];
 }
 
 export class CarScene {
@@ -105,6 +146,16 @@ export class CarScene {
   private offWheel: TObject3D | null = null;
   private lit: { id: string; swaps: { m: TMesh; orig: TMaterial | TMaterial[]; mat: TMaterial }[]; halo: TSprite | null; pin: HTMLElement; at: TVector3 | null }[] = [];
   private haloTex: unknown = null;
+  /** The working engine (BRIEF-WORKING-ENGINE), when the bay has one, and what the view does with it. */
+  engine: WorkingEngine | null = null;
+  reduced = false;
+  private measuring = false;
+  private mpoints: TVector3[] = [];
+  private mmarks: TObject3D[] = [];
+  private mcm: number | null = null;
+  /** The pane hears the engine change (the strokes line, the readout) a few times a second. */
+  onEngine: () => void = () => undefined;
+  private engineTold = 0;
 
   constructor(host: HTMLElement) {
     this.host = host;
@@ -247,6 +298,10 @@ export class CarScene {
       car.add(corner);
     }
     this.bay = buildBay(L, spec, M, body);
+    this.engine = (this.bay.userData.engine as WorkingEngine | undefined) ?? null;
+    this.reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // reduced motion: still at top dead centre, and STEP moves it
+    if (this.engine && this.reduced) this.engine.paused = true;
     this.under = buildUnder(L, spec, M, body);
     car.add(this.bay, this.under);
     this.world!.add(car);
@@ -298,6 +353,9 @@ export class CarScene {
       });
     }
     this.unlight();
+    this.clearMeasure();
+    this.engine?.dispose();
+    this.engine = null;
     this.car = this.shadow = this.pools = null;
     this.body = null;
     this.bay = this.under = this.offWheel = null;
@@ -465,8 +523,16 @@ export class CarScene {
       this.dts.push(now - this.last);
       if (this.dts.length > 60) this.dts.shift();
     }
+    const dt = this.last ? (now - this.last) / 1000 : 0;
     this.last = now;
     this.tick(now);
+    if (this.engine && this.bay?.visible) {
+      this.engine.tick(dt, now, this.reduced);
+      if (now - this.engineTold > 120) {
+        this.engineTold = now;
+        this.onEngine();
+      }
+    }
     this.controls?.update();
     const t0 = performance.now();
     this.renderer!.render(this.scene!, this.camera!);
@@ -591,38 +657,58 @@ export class CarScene {
 
   // ------------------------------------------------------------------ tapping a part
 
-  private hitAt(cx: number, cy: number): { id: string; point: TVector3 } | null {
+  private hitAt(cx: number, cy: number): { id: string; point: TVector3; inst?: string } | null {
     if (!this.lib || !this.camera || !this.car) return null;
     const T = this.lib.T;
     const r = this.renderer!.domElement.getBoundingClientRect();
     const v = new T.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
     const ray = new T.Raycaster();
     ray.setFromCamera(v, this.camera);
+    // the casing turns see-through when the cover is lifted: a tap goes through it to the working parts inside, else to what is solid, else to the casing
+    const open = (this.engine?.cover ?? 0) > 0.5 && this.view === 'bay';
+    let inner: { id: string; point: TVector3; inst: string } | null = null;
+    let solid: { id: string; point: TVector3; inst: string } | null = null;
+    let casing: { id: string; point: TVector3; inst: string } | null = null;
     for (const hit of ray.intersectObjects([this.car], true)) {
       let o: TObject3D | null = hit.object;
       if (!visibleUp(o)) continue;
+      const ud = o.userData;
+      const inst = String(ud.inst ?? '');
+      const isInner = !!ud.inner;
+      const isShell = !!ud.shell || !!ud.ghost;
       while (o && !o.userData.part) o = o.parent;
-      if (o) return { id: String(o.userData.part), point: hit.point };
+      if (!o) continue;
+      const found = { id: String(o.userData.part), point: hit.point, inst };
+      if (!open) return found;
+      if (isInner) inner ??= found;
+      else if (isShell) casing ??= found;
+      else solid ??= found;
     }
-    return null;
+    return inner ?? solid ?? casing;
   }
 
   private tagAt: TVector3 | null = null;
 
   private tap(cx: number, cy: number): void {
     const hit = this.hitAt(cx, cy);
+    if (this.measuring) {
+      if (hit) this.addMeasure(hit.point);
+      return;
+    }
     if (!hit) {
       this.picked = '';
       this.tagEl.hidden = true;
       return;
     }
-    this.pick(hit.id, hit.point);
+    this.pick(hit.id, hit.point, hit.inst);
   }
 
   /** Name a part (a tap, or the list): its tag on the car, and whoever listens hears it. */
-  pick(id: string, at?: TVector3): void {
+  pick(id: string, at?: TVector3, inst = ''): void {
     this.picked = id;
-    const name = labelOf(id, this.spec ?? undefined);
+    // a part of the working engine is named by its own name ("Piston 2") and lit by itself
+    if (this.engine && this.view === 'bay') this.engine.select(inst);
+    const name = inst || (this.engine && this.view === 'bay' && isPart(id) ? this.engineName(id) : labelOf(id, this.spec ?? undefined));
     this.tagEl.textContent = name;
     this.tagEl.hidden = false;
     this.tagAt = at ?? this.centreOf(id);
@@ -665,7 +751,14 @@ export class CarScene {
     return { x: ((q.x + 1) / 2) * r.clientWidth, y: ((1 - q.y) / 2) * r.clientHeight };
   }
 
-  /** The middle of a part's visible objects, in the world. */
+  private engineName(id: string): string {
+    if (!isPart(id)) return labelOf(id, this.spec ?? undefined);
+    const m = this.engine!.model;
+    if (id === 'timing_belt') return m.chain ? 'Timing chain' : 'Timing belt';
+    return labelOf(id, this.spec ?? undefined);
+  }
+
+  /** The middle of a part's visible objects (its id, or one instance's name), in the world. */
   centreOf(id: string): TVector3 | null {
     if (!this.lib || !this.car) return null;
     const T = this.lib.T;
@@ -673,7 +766,7 @@ export class CarScene {
     let found = false;
     this.car.updateMatrixWorld(true);
     this.car.traverse((o) => {
-      if (o.userData.part !== id || !(o as TMesh).isMesh || !visibleUp(o)) return;
+      if ((o.userData.part !== id && o.userData.inst !== id) || !(o as TMesh).isMesh || !visibleUp(o)) return;
       const b = new T.Box3().setFromObject(o);
       if (!b.isEmpty()) {
         box.union(b);
@@ -751,6 +844,7 @@ export class CarScene {
       night: this.night,
       frames: this.frames,
       frameMs: +avg(this.dts).toFixed(1),
+      frameP95: this.dts.length ? +[...this.dts].sort((x, y) => x - y)[Math.min(this.dts.length - 1, Math.floor(this.dts.length * 0.95))]!.toFixed(1) : 0,
       drawMs: +avg(this.draws).toFixed(1),
       picked: this.picked,
       parts: this.partIds(),
@@ -759,6 +853,118 @@ export class CarScene {
       lit: this.lit.map((l) => l.id),
       pose: { ...this.pose },
       moving: !!this.move,
+      engine: this.engineState(),
+    };
+  }
+
+  // ------------------------------------------------------------------ the working engine (BRIEF-WORKING-ENGINE)
+
+  /** LIFT THE COVER, or put it back: the cover goes up and the casing turns see-through, and the engine turns. */
+  liftCover(on: boolean): void {
+    this.engine?.setCover(on, performance.now(), this.reduced);
+    this.focusEngine(on);
+    if (!on) {
+      this.engine?.select('');
+      this.setSection(false);
+      this.setExplode(0);
+      this.setMeasuring(false);
+    }
+    this.onEngine();
+  }
+  /** The camera comes in to the engine when the cover is lifted, and back to the bay when it is put back. */
+  private focusEngine(on: boolean): void {
+    const e = this.engine;
+    if (!e || !this.camera || !this.controls || this.view !== 'bay') return;
+    let cam: number[];
+    let tg: number[];
+    if (on) {
+      const { min, max } = e.place;
+      tg = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2 + 0.02, (min[2] + max[2]) / 2];
+      const r = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2;
+      const dist = this.fitDistance(r) * 0.8;
+      const d = [0.62, 0.66, 0.5];
+      const n = Math.hypot(d[0]!, d[1]!, d[2]!);
+      cam = [tg[0]! + (d[0]! / n) * dist, tg[1]! + (d[1]! / n) * dist, tg[2]! + (d[2]! / n) * dist];
+    } else [, cam, tg] = this.shot('bay');
+    const c = this.camera.position;
+    const t = this.controls.target;
+    this.move = { from: { ...this.pose }, to: this.move?.to ?? { ...this.pose }, cam0: [c.x, c.y, c.z], cam1: cam, tg0: [t.x, t.y, t.z], tg1: tg, t0: performance.now(), ms: this.reduced ? 0 : 900 };
+    this.controls.enabled = false;
+    if (this.reduced) this.tick(performance.now());
+  }
+
+  setExplode(t: number): void {
+    this.engine?.setExplode(t);
+    this.onEngine();
+  }
+  setSection(on: boolean): void {
+    this.engine?.setSection(on, this.renderer ?? undefined);
+    this.onEngine();
+  }
+  pause(on: boolean): void {
+    if (this.engine) this.engine.paused = on;
+    this.onEngine();
+  }
+  /** STEP: a quarter turn of the crank, and the picture drawn at once. */
+  stepEngine(deg = 90): void {
+    this.engine?.step(deg);
+    this.drawNow();
+    this.onEngine();
+  }
+  setRpm(rpm: number): void {
+    if (this.engine) this.engine.rpm = Math.max(600, Math.min(6000, Math.round(rpm)));
+    this.onEngine();
+  }
+  setMeasuring(on: boolean): void {
+    this.measuring = on;
+    this.clearMeasure();
+    this.onEngine();
+  }
+  private clearMeasure(): void {
+    for (const m of this.mmarks) m.parent?.remove(m);
+    this.mmarks = [];
+    this.mpoints = [];
+    this.mcm = null;
+  }
+  /** A tap in MEASURE: the first point, then the second and the length between them (cm, an estimate); a third starts again. */
+  private addMeasure(p: TVector3): void {
+    if (!this.lib || !this.world || !this.mats) return;
+    const T = this.lib.T;
+    if (this.mpoints.length >= 2) this.clearMeasure();
+    this.mpoints.push(p.clone());
+    const dot = new T.Mesh(new T.SphereGeometry(0.011, 12, 8), this.mats.yellow) as TMesh;
+    (dot as unknown as { raycast: () => void }).raycast = () => undefined;
+    dot.position.copy(p);
+    dot.renderOrder = 12;
+    this.world.add(dot);
+    this.mmarks.push(dot);
+    if (this.mpoints.length === 2) {
+      const [a, b] = this.mpoints as [TVector3, TVector3];
+      const d = a.distanceTo(b);
+      this.mcm = Math.round(d * 1000) / 10;
+      const bar = new T.Mesh(new T.BoxGeometry(0.004, 0.004, 1), this.mats.yellow) as TMesh;
+      (bar as unknown as { raycast: () => void }).raycast = () => undefined;
+      bar.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+      bar.scale.z = d;
+      bar.lookAt(b.x, b.y, b.z);
+      this.world.add(bar);
+      this.mmarks.push(bar);
+    }
+    this.onEngine();
+  }
+
+  engineState(): EngineState | null {
+    const e = this.engine;
+    if (!e) return null;
+    const m = e.model;
+    const r = e.reading();
+    const inst = e.instances();
+    return {
+      layout: m.layout, cylinders: m.cyl, words: m.words, line: engineLine(m), cc: m.cc, ccFrom: m.ccFrom, bore: +(m.bore * 1000).toFixed(1), stroke: +(m.stroke * 1000).toFixed(1), scale: +e.place.scale.toFixed(3),
+      crank: +e.theta.toFixed(1), turned: +e.turned.toFixed(1), rpm: e.rpm, paused: e.paused, reduced: this.reduced, cover: +e.cover.toFixed(2), explode: +e.explode.toFixed(2),
+      section: e.section, cut: e.cutParts(), selected: e.selected, stroke1: r.stroke, strokeWords: r.stroke ? STROKE_WORDS[r.stroke as Stroke](m.diesel) : '', power: r.power, firing: firingWords(m),
+      measuring: this.measuring, points: this.mpoints.length, cm: this.mcm, pieces: m.pieces.length, ids: [...new Set(m.pieces.map((p) => p.id))],
+      parts: inst.map((p) => ({ inst: p.inst, id: p.id, cyl: p.cyl, origin: p.origin.map((v) => +v.toFixed(4)), fly: +p.fly.toFixed(3), layer: p.layer })),
     };
   }
 

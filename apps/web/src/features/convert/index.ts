@@ -7,6 +7,8 @@
 import type { TabDef } from '../../shell/tabs';
 import { cardBig, cardLoad, cardNow } from '../../shell/cardline';
 import { sheetPage } from '../../ui/sheetpage';
+import { phrases } from '../lifeui';
+import { PHRASES } from './words';
 
 export const convertTab: TabDef = {
   id: 'convert',
@@ -32,6 +34,8 @@ export const convertTab: TabDef = {
             build: () => {
               const c = m.convertParts();
               void c.start([], {});
+              // the words that open it from the chat, and they do (assistant/phrases.ts answers them on the phone)
+              c.el.append(phrases(PHRASES));
               return { el: c.el, stop: c.stop };
             },
           }],

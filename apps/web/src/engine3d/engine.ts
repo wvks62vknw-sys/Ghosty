@@ -59,6 +59,12 @@ export class Engine {
     this.onChange();
   }
 
+  /** The scene moved by something other than his hand (a falling thing): taken at once, with no undo step of its own (the fall's end makes one). */
+  setLive(next: Scene): void {
+    this.scene = next;
+    this.changed();
+  }
+
   /** Make `next` the scene, remembering the one before for undo (unless it is the same). */
   commit(next: Scene, before: Scene = this.scene): void {
     if (next === before) return;

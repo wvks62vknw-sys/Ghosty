@@ -22,7 +22,12 @@ import { navTo } from '../../shell/areas';
 import { home, ui } from '../../state/app';
 import { freeAiToday } from '../../state/status';
 import { niceCase, segRing } from '../../ui/components';
+import { NO_SIGNAL, lacksSignal, stateIn, waitFor } from '../lifeui';
 import * as gymStore from '../gym/store';
+import { loadTodos, TODO_CHANGED } from '../agenda/todo';
+import { dueToday } from '../agenda/todowords';
+import { goToPanel, revealSection } from '../../ui/sections';
+import { TODAY_WORDS, todayAria, todayCount, todayTap, todoSummary } from './todaywords';
 
 const CAL = '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>';
 const CAR = '<path d="M5 16.5V12l1.8-4.6A2 2 0 018.7 6h6.6a2 2 0 011.9 1.4L19 12v4.5"/><path d="M4 12h16v4.5H4z"/><circle cx="7.5" cy="14.3" r=".9"/><circle cx="16.5" cy="14.3" r=".9"/><path d="M6 16.5V19M18 16.5V19"/>';
@@ -82,11 +87,18 @@ function callout(cls: string, label: string): Callout {
   const s = h('div.s');
   return { el: h(`div.rcco.${cls}` as 'div', { dataset: { case: 'keep' } }, k, v, s), k, v, s };
 }
+/** An instrument's reading (HOMEPASS: a reading it does not have is its own words in the line under, never a dash in the value). */
 const setCo = (c: Callout, value: string, unit: string, sub: string, tone: 'live' | 'warn' | 'idle' = 'live') => {
   clear(c.v, value, unit ? h('small', unit) : null);
   c.s.textContent = sub;
   c.el.dataset.tone = tone;
 };
+
+/**
+ * What is left of today's free answers, as the outer arc and its call-out read it (state/status.ts freeAiToday): GROWN UP's Home keeps this one ring
+ * on the orb and says it in a line, from this same source. `at` is when it was last read (0: not yet); `offline`: the brain could not be reached.
+ */
+export const freeAnswers: { f: ReturnType<typeof freeAiToday> | null; offline: boolean; at: number } = { f: null, offline: false, at: 0 };
 
 export interface Home {
   /** Put into the navigation bar (the date sits beside search and the avatar). */
@@ -196,7 +208,9 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   // ---------- Today
   const todayLeft = h('em');
   const evs = h('div.rcevs');
-  const today = h('button.rccard.rctoday', { type: 'button', dataset: { case: 'keep' }, 'aria-label': 'Today: open the agenda', onclick: () => navTo('agenda', 'push') },
+  // [planlane:home] a tap opens what the card shows: the to-do list when to-dos are all that is left today, else the diary
+  let todayTo: 'todo' | 'diary' = 'diary';
+  const today = h('button.rccard.rctoday', { type: 'button', dataset: { case: 'keep', to: 'diary' }, 'aria-label': todayAria('diary'), onclick: () => (todayTo === 'todo' ? goToPanel('agenda', 'TO-DO') : (navTo('agenda', 'push'), revealSection('agenda', 'DIARY'))) },
     h('span.rcthead', icon(CAL), h('b', 'Today'), todayLeft), evs);
 
   // ---------- Roads near you
@@ -210,7 +224,19 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const gymTile = h('button.rccard.rcgym', { type: 'button', dataset: { case: 'keep' }, 'aria-label': 'Gym: open it', onclick: () => navTo('gym', 'push') },
     h('span.rcthead', icon(GYM), h('b', 'Gym')), gymBody);
 
-  const below = h('div.rcbelow', today, h('div.rcpair', road, gymTile));
+  // the brain not answering, said once on Home (not once in each instrument); and the waits, said where they happen
+  /* state: core.home offline */
+  const dead = h('p.rcdead', { hidden: true, role: 'status', dataset: { state: 'offline', case: 'keep' } });
+  const waits = h('div.rcwaits', { dataset: { case: 'keep' } });
+  const below = h('div.rcbelow', dead, today, h('div.rcpair', road, gymTile), waits);
+  const deadWhy = { ai: false, up: false };
+  const paintDead = () => {
+    const gone = deadWhy.ai || deadWhy.up;
+    dead.hidden = !gone;
+    if (gone) stateIn(dead, 'offline', lacksSignal() ? NO_SIGNAL : 'My brain isn’t answering just now. What I keep on this phone still shows.');
+  };
+  /** A fetch Home makes, with what it is for (ui/wait.ts through the shared state helper). */
+  const waitOn = (words: string) => waitFor(waits, words);
 
   // ---------- painting, each part from its own source
   const paintDate = () => {
@@ -220,7 +246,7 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     const w = weather.data;
     if (!w) {
       clear(wxIcon);
-      wxText.textContent = weather.status === 'NO FEED' ? 'Weather unavailable right now' : 'Fetching the weather…';
+      wxText.textContent = weather.status === 'NO FEED' ? 'I can’t get the weather just now.' : 'Checking the weather…';
       return;
     }
     const code = w.current.weather_code;
@@ -234,13 +260,21 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const paintAi = async (force = false) => {
     if (!force && Date.now() - statusAt < 120_000) return;
     statusAt = Date.now();
+    const done = waitOn('Asking my brain how much free AI is left…');
     const s = await brain.status().catch(() => null);
+    done();
+    deadWhy.ai = !s;
+    paintDead();
     if (!s) {
-      setCo(ai, '—', '', ui.get().connected === false ? 'brain offline' : 'can’t be read now', 'idle');
+      setCo(ai, '', '', 'I haven’t asked my brain yet', 'idle');
       setArc(outer, null, true);
+      Object.assign(freeAnswers, { f: null, offline: ui.get().connected === false, at: Date.now() });
+      dispatchEvent(new CustomEvent('ghosty:freeai'));
       return;
     }
     const f = freeAiToday(s.capacity);
+    Object.assign(freeAnswers, { f, offline: false, at: Date.now() });
+    dispatchEvent(new CustomEvent('ghosty:freeai'));
     setCo(ai, f.value, f.unit, f.sub, f.tone);
     setArc(outer, f.frac, true);
     arcs.dataset.tone = f.tone;
@@ -250,9 +284,11 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const paintLib = async (force = false) => {
     if (!force && Date.now() - libAt < 300_000) return;
     libAt = Date.now();
+    const done = waitOn('Counting what the library holds…');
     const [l, st] = await Promise.all([brain.library().catch(() => null), brain.studyStatus().catch(() => null)]);
+    done();
     if (!l) {
-      setCo(lib, '—', '', 'can’t be read now', 'idle');
+      setCo(lib, '', '', 'I haven’t counted it yet', 'idle');
       setArc(mid, null);
       return;
     }
@@ -268,7 +304,9 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const paintSchool = async (force = false) => {
     if (!force && Date.now() - schoolAt < 600_000) return;
     schoolAt = Date.now();
+    const done = waitOn('Looking up where you are at school…');
     const j = await fetch('/api/school', { headers: headers() }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as Record<string, unknown> | null;
+    done();
     const st = j?.state as { stage?: string } | undefined;
     if (!j || !st?.stage) {
       school.el.hidden = true;
@@ -291,9 +329,13 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   // UPLINK: the round trip to the brain, measured now
   const paintUp = async () => {
     const t0 = performance.now();
+    const done = waitOn('Timing the line to my brain…');
     const ok = await brain.health();
+    done();
     const ms = Math.round(performance.now() - t0);
-    if (!ok) setCo(up, 'Off', '', navigator.onLine ? 'brain unreachable' : 'no signal', 'warn');
+    deadWhy.up = !ok;
+    paintDead();
+    if (!ok) setCo(up, 'Off', '', lacksSignal() ? 'No signal' : 'Not answering', 'warn');
     else setCo(up, String(ms), 'ms', location.protocol === 'https:' || location.hostname === 'localhost' ? 'Secure' : 'Not encrypted', ms > 800 ? 'warn' : 'live');
   };
 
@@ -305,24 +347,39 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const paintToday = () => {
     const now = Date.now();
     const end = new Date().setHours(24, 0, 0, 0);
+    // [planlane:home] the to-dos due today or late (the agenda's TO-DO, kept on this phone) show in every state: they need no signal
+    const due = dueToday(loadTodos(), now);
+    const td = due.length ? h('span.rcev.rctodo', h('span.tm', 'To-do'), h('i.bar.dim'), h('span.nm.r', todoSummary(due.map((t) => t.text)))) : null;
+    const left = events === null ? [] : events.filter((e) => (e.end ?? e.start) > now && e.start < end).sort((a, b) => a.start - b.start);
+    todayLeft.textContent = todayCount(left.length, due.length);
+    todayTo = todayTap(events === null ? -1 : left.length, due.length);
+    today.dataset.to = todayTo;
+    today.setAttribute('aria-label', todayAria(todayTo));
     if (events === null) {
-      todayLeft.textContent = '';
-      clear(evs, h('span.rcev.muted', h('span.nm', agendaErr ? 'Your diary can’t be reached right now' : 'Checking your diary…')));
+      const off = agendaErr && lacksSignal();
+      /* state: core.today error */
+      /* state: core.today offline */
+      /* state: core.today loading */
+      clear(evs, h('span.rcev.muted', { dataset: { state: off ? 'offline' : agendaErr ? 'error' : 'loading' } }, h('span.nm', off ? TODAY_WORDS.offline : agendaErr ? TODAY_WORDS.error : TODAY_WORDS.loading)), td);
       return;
     }
-    const left = events.filter((e) => (e.end ?? e.start) > now && e.start < end).sort((a, b) => a.start - b.start);
-    todayLeft.textContent = left.length ? `${left.length} left` : '';
     if (!left.length) {
       const next = events.filter((e) => e.start >= end).sort((a, b) => a.start - b.start)[0];
-      clear(evs, h('span.rcev.muted', h('span.nm', 'Nothing more today')), next ? h('span.rcev', h('span.tm', 'Tmrw'), h('i.bar.dim'), h('span.nm.r', `${next.title}${next.allDay ? '' : ` · ${clock(next.start)}`}`)) : null);
+      // nothing at all today: the one next thing he can do (Today's empty state); something earlier that has gone by: the plain line
+      const none = !events.some((e) => e.start < end && (e.end ?? e.start) >= new Date().setHours(0, 0, 0, 0));
+      /* state: core.today empty */
+      clear(evs, h('span.rcev.muted', { dataset: { state: 'empty' } }, h('span.nm', none ? TODAY_WORDS.emptyDay : TODAY_WORDS.nothingMore)), td, next ? h('span.rcev', h('span.tm', 'Tmrw'), h('i.bar.dim'), h('span.nm.r', `${next.title}${next.allDay ? '' : ` · ${clock(next.start)}`}`)) : null);
       return;
     }
-    clear(evs, ...left.slice(0, 2).map((e, i) => h('span.rcev', h('span.tm', e.allDay ? 'All day' : clock(e.start)), h(`i.bar${i ? '.dim' : ''}` as 'i'), h(`span.nm${i ? '.r' : ''}` as 'span', e.title), !i && !e.allDay && e.start - now < 3 * 3600_000 ? h('span.in', until(e.start, now)) : null)));
+    clear(evs, ...left.slice(0, 2).map((e, i) => h('span.rcev', h('span.tm', e.allDay ? 'All day' : clock(e.start)), h(`i.bar${i ? '.dim' : ''}` as 'i'), h(`span.nm${i ? '.r' : ''}` as 'span', e.title), !i && !e.allDay && e.start - now < 3 * 3600_000 ? h('span.in', until(e.start, now)) : null)), td);
   };
+  addEventListener(TODO_CHANGED, () => paintToday());
   const loadToday = async (force = false) => {
     if (!force && Date.now() - agendaAt < 120_000) return paintToday();
     agendaAt = Date.now();
+    const done = waitOn('Reading what is left in your diary…');
     const ag = await brain.agenda(2).catch(() => null);
+    done();
     agendaErr = !ag;
     events = ag ? ag.events : events;
     paintToday();
@@ -334,10 +391,13 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     if (!force && Date.now() - roadAt < 180_000) return;
     roadAt = Date.now();
     if (!roadBody.childElementCount) clear(roadBody, h('span.rdwhy', 'Checking the roads…'));
+    const done = waitOn('Looking for incidents near home…');
     const raw = await fetch('/api/highways/events', { headers: headers() }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).catch(() => null);
+    done();
     if (!raw) {
       roadTap = null;
-      clear(roadBody, h('span.rd', h('i.idle'), h('b', 'No report')), h('span.rdwhy', ui.get().connected === false ? 'Offline: traffic needs the brain' : 'Traffic reports can’t be reached right now'));
+      /* state: core.home error */
+      clear(roadBody, h('span.rd', h('i.idle'), h('b', 'No report')), h('span.rdwhy', lacksSignal() ? 'Traffic needs a signal.' : 'I can’t reach the traffic feed.'));
       return;
     }
     const H = home();
@@ -377,12 +437,14 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   paintWx();
   paintToday();
   weather.onChange(paintWx);
-  setCo(ai, '—', '', 'measuring…', 'idle');
-  setCo(lib, '—', '', 'counting…', 'idle');
-  setCo(up, '—', '', 'measuring…', 'idle');
+  /* state: core.home loading */
+  setCo(ai, '', '', 'Checking…', 'idle');
+  setCo(lib, '', '', 'Counting…', 'idle');
+  setCo(up, '', '', 'Timing…', 'idle');
   ui.subscribe((s, p) => {
     if (s.connected !== p.connected && s.connected) {
       void paintAi(true);
+      void paintUp();
       void loadToday(true);
     }
   });
@@ -395,7 +457,9 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     glowBox,
     tick() {
       paintDate();
-      paintToday();
+      // [planlane:home] a diary that could not be read is looked at again (at most every two minutes: TODAY_WORDS.error says so)
+      if (agendaErr) void loadToday();
+      else paintToday();
     },
     enter() {
       paintDate();

@@ -80,10 +80,64 @@ const UNITS: Unit[] = [
   U('temp', 0, '°F', ['f', '°f', 'fahrenheit', 'degrees f', 'degrees fahrenheit']),
   U('temp', 0, 'K', ['kelvin']),
 ];
+/** The kinds the converter pad offers, in the order a unit app lists them, each with its everyday name. */
+export const UNIT_KINDS: [Dim, string][] = [['length', 'Length'], ['mass', 'Weight'], ['volume', 'Volume'], ['temp', 'Temperature'], ['area', 'Area'], ['speed', 'Speed'], ['time', 'Time'], ['data', 'Data'], ['energy', 'Energy'], ['power', 'Power'], ['pressure', 'Pressure'], ['fuel', 'Fuel use']];
+export type { Dim };
+/** The units of one kind, by their names (the pad's lists). */
+export const unitsOfKind = (dim: Dim): string[] => UNITS.filter((u) => u.dim === dim).map((u) => u.name);
+/** The unit called this name exactly (names are unique: "K" is kelvin here, never a km). */
+const byName = (name: string): Unit | null => UNITS.find((u) => u.name === name) ?? null;
+/** The kind a unit name is, or null. */
+export const kindOf = (name: string): Dim | null => byName(name)?.dim ?? null;
+/** Two units the pad starts a kind on (the pair most people turn between). */
+export const KIND_PAIR: Record<Dim, [string, string]> = { length: ['mile', 'km'], mass: ['lb', 'kg'], volume: ['pint', 'litre'], temp: ['°F', '°C'], area: ['sq ft', 'm²'], speed: ['mph', 'km/h'], time: ['hour', 'minute'], data: ['GB', 'MB'], energy: ['kcal', 'kJ'], power: ['hp', 'kW'], pressure: ['psi', 'bar'], fuel: ['mpg', 'l/100km'] };
+
 const BY_WORD = new Map<string, Unit>();
 for (const u of UNITS) for (const w of u.words) BY_WORD.set(w, u);
 
+/** A unit by his word; a capital K alone is kelvin ("300 K in C"), a small k a kilometre ("5k in miles"). */
 export const unitOf = (w: string): Unit | null => BY_WORD.get(w.trim().toLowerCase().replace(/\.$/, '')) ?? null;
+
+/** What a unit measures, said as a noun with its article ("a length"), and the plural for a list ("lengths"). */
+const KIND: Record<Dim, [string, string]> = { length: ['a length', 'lengths'], mass: ['a weight', 'weights'], volume: ['a volume', 'volumes'], area: ['an area', 'areas'], speed: ['a speed', 'speeds'], time: ['a time', 'times'], data: ['a data size', 'data sizes'], temp: ['a temperature', 'temperatures'], energy: ['an amount of energy', 'amounts of energy'], pressure: ['a pressure', 'pressures'], power: ['a power', 'powers'], fuel: ['a fuel use', 'fuel uses'] };
+
+/** Edit distance, for the nearest unit he might have meant. */
+function distance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)] as number[]);
+  for (let j = 1; j <= b.length; j++) d[0]![j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length]![b.length]!;
+}
+
+/** The words of a unit he did not mean quite right: up to two the phone does know, nearest first (within three letters). */
+export function nearestUnits(word: string, n = 2, dim?: Dim): string[] {
+  const w = word.trim().toLowerCase();
+  if (w.length < 3) return [];
+  const best = new Map<string, number>();
+  for (const [k, u] of BY_WORD) {
+    if (k.length < 3 || (dim && u.dim !== dim)) continue;
+    const dist = distance(w, k);
+    if (dist <= Math.min(3, Math.floor(w.length / 2)) && dist < (best.get(u.name) ?? 9)) best.set(u.name, dist);
+  }
+  return [...best].sort((a, b) => a[1] - b[1]).slice(0, n).map(([name]) => name);
+}
+
+/**
+ * Why a unit question did not answer, in plain words: a unit it does not know (named back, with the nearest it knows, or the other units
+ * of the kind the other side is), or two units of different kinds. Null when his words are not a "3 miles in km" question at all.
+ */
+export function unitsExplain(text: string): string | null {
+  const m = ASK.exec(text.trim().replace(/\s+/g, ' '));
+  if (!m) return null;
+  const f = unitOf(m[2]!);
+  const t = unitOf(m[3]!);
+  if (f && t) return f.dim === t.dim ? null : `${m[2]!.trim()} is ${KIND[f.dim][0]} and ${m[3]!.trim()} is ${KIND[t.dim][0]}: I can only turn one into the same kind.`;
+  const bad = (f ? m[3]! : m[2]!).trim();
+  const other = f ?? t;
+  const near = nearestUnits(bad, 2, other?.dim);
+  const list = other ? UNITS.filter((u) => u.dim === other.dim).map((u) => (!/^(?:US |sq |nautical )?[a-z]{3,}$/.test(u.name) || ['kcal', 'mph', 'psi', 'mpg'].includes(u.name) ? u.name : u.plural ?? `${u.name}s`)) : [];
+  return `I don’t know “${bad}”.${near.length ? ` The nearest I know: ${near.join(' or ')}.` : ''}${!near.length && list.length ? ` I know these ${KIND[other!.dim][1]}: ${list.join(', ')}.` : ''}`;
+}
 
 const toC = (v: number, u: string) => (u === '°F' ? ((v - 32) * 5) / 9 : u === 'K' ? v - 273.15 : v);
 const fromC = (c: number, u: string) => (u === '°F' ? (c * 9) / 5 + 32 : u === 'K' ? c + 273.15 : c);
@@ -105,9 +159,21 @@ export interface UnitAnswer {
 
 /** A value in one unit as another of the same kind (null: different kinds, or unknown units). */
 export function convertUnits(value: number, fromWord: string, toWord: string): UnitAnswer | null {
-  const f = unitOf(fromWord);
-  const t = unitOf(toWord);
-  if (!f || !t || f.dim !== t.dim) return null;
+  // a capital K alone is kelvin beside a temperature ("300 K in C") and a kilometre otherwise ("5K in miles", a race)
+  const k = (w: string, other: string) => (w.trim() === 'K' && unitOf(other)?.dim === 'temp' ? byName('K') : unitOf(w));
+  return convertU(value, k(fromWord, toWord), k(toWord, fromWord));
+}
+/** The same by the units' exact names (the pad's lists), so a symbol never meets a word it shares ("K" and "k"). */
+export const convertByName = (value: number, from: string, to: string): UnitAnswer | null => convertU(value, byName(from), byName(to));
+/** One value in every unit of its kind (the pad's IN EVERY UNIT), its own unit first left out. */
+export const everyUnit = (value: number, from: string): UnitAnswer[] => {
+  const f = byName(from);
+  if (!f) return [];
+  return UNITS.filter((u) => u.dim === f.dim && u !== f).map((u) => convertU(value, f, u)).filter((x): x is UnitAnswer => !!x);
+};
+function convertU(value: number, f: Unit | null, t: Unit | null): UnitAnswer | null {
+  if (!f || !t || f.dim !== t.dim || !Number.isFinite(value)) return null;
+  if (f.dim === 'fuel' && f.name !== t.name && value === 0) return null;
   let v: number;
   if (f.dim === 'temp') v = fromC(toC(value, f.name), t.name);
   else if (f.dim === 'fuel') v = f.name === t.name ? value : 282.4809363 / value; // UK mpg and l/100km are each other's reciprocal

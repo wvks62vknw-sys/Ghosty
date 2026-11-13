@@ -143,6 +143,9 @@ folder holding the licence text and a note of where it came from:
 | `vendor/tesseract` | Tesseract.js and its core, reading text from a picture | Apache-2.0 |
 | `vendor/clip` | ONNX Runtime Web (MIT) and MobileCLIP-S0, which names what the camera sees | MIT; the MobileCLIP weights carry Apple's research-model licence: read `LICENSE-mobileclip-weights.txt` before you use your Ghosty for anything but yourself |
 | `vendor/depth` | Depth Anything V2 (the small model), for measuring | Apache-2.0 (see its README about the metric checkpoint, which carries no licence tag) |
+| `vendor/cutout` | a small cut-out model for PHOTO's SUBJECT (named in its README) (a download on a tap, on Wi-Fi) | Apache-2.0 (its LICENSE file) |
+| `vendor/erase` | an inpainting model with int8 convolution weights, the erase model for PHOTO's ERASE (named in its README) (a download on a tap, on Wi-Fi; the script that made it is in its README) | Apache-2.0 (its LICENSE file) |
+| `vendor/raw` | LibRaw as WebAssembly, the RAW reader for PHOTO (a separately fetched file, on a tap) | LGPL-2.1 or CDDL-1.0 for LibRaw (`LICENSE-libraw-lgpl-2.1.txt`, `LICENSE-libraw-cddl-1.0.txt`), MIT for the binding; no GPL part is in it |
 | `vendor/faces` | SFace, from the OpenCV Zoo | see its README and `LICENSE-sface.txt` |
 | `vendor/speaker` | the voice model (kept as two parts, joined on the phone, as the depth model is), a small speaker-verification network that tells voices apart on the phone (a courtesy signal, never a lock; fetched on a tap on Wi-Fi) | CC BY 4.0 (`LICENSE-voice-model.txt`; the source in its `README.md`) |
 | `vendor/webllm` | WebLLM, the offline brain's runtime (the model weights come from Hugging Face on a tap) | Apache-2.0 |
@@ -154,6 +157,7 @@ folder holding the licence text and a note of where it came from:
 | `vendor/sheetjs` | SheetJS Community Edition (the mini build), Excel and CSV for the converter | Apache-2.0 (`LICENCE`; `SOURCE.md`) |
 | `vendor/mammoth` | mammoth, reading Word documents for the converter and the documents | BSD-2-Clause (`LICENCE`; `SOURCE.md`) |
 | `vendor/lamejs` | lamejs (LAME in JavaScript), writing MP3 for the converter | LGPL-3.0 (`LICENCE`; `SOURCE.md`) |
+| `vendor/rapier` | Rapier (the `@dimforge/rapier3d-compat` package, WebAssembly inline), the physics of the 3-D engine: loaded only when PHYSICS is turned on (about 4.3 MB) | Apache-2.0 (`LICENSE`; `README.md`) |
 | `models` | sample 3-D models from the Khronos glTF sample assets | CC0 / CC BY 4.0, each credited where it is shown |
 
 Because the app ships GPL-licensed engines, anyone you give a copy of your deployed app to is entitled to the source of those

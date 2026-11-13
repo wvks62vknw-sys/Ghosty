@@ -6,6 +6,7 @@
 // pad.ts first: games/shelf.ts reads BTN (through this module) while it loads, so BTN must be loaded before it
 import { BTN } from './pad';
 import { GAMES3_PAD } from './games/pad3';
+import { GAMES5_PAD } from './games/pad5';
 import { GAMES4_PAD } from './games/two/pad4';
 import { GAMES2_PAD } from './games/shelf';
 import type { Control, EngineId, ShelfEntry } from './shelf';
@@ -114,6 +115,32 @@ export const PAD_BUTTONS: Record<EngineId, Partial<Record<number, Action>>> = {
   },
   get beat() {
     return GAMES4_PAD.beat;
+  },
+  get platform() {
+    return GAMES5_PAD.platform;
+  },
+  get cave() {
+    return GAMES5_PAD.cave;
+  },
+  get draughts() {
+    return GAMES5_PAD.draughts;
+  },
+  get othello() {
+    return GAMES5_PAD.othello;
+  },
+  get backgammon() {
+    return GAMES5_PAD.backgammon;
+  },
+  get connect4() {
+    return GAMES5_PAD.connect4;
+  },
+  // a game of his own from the studio: A jumps, B uses, X opens his things, START pauses
+  studio: { [BTN.A]: 'jump', [BTN.B]: 'use', [BTN.X]: 'fire', [BTN.START]: 'pause' },
+  get poker() {
+    return GAMES5_PAD.connect4;
+  },
+  get words() {
+    return GAMES5_PAD.connect4;
   },
   doom: { [BTN.RT]: 'fire', [BTN.A]: 'use', [BTN.X]: 'use', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.Y]: 'map', [BTN.SELECT]: 'map', [BTN.LT]: 'run', [BTN.START]: 'pause' },
   quake: { [BTN.RT]: 'fire', [BTN.A]: 'jump', [BTN.LT]: 'jump', [BTN.B]: 'weapon', [BTN.RB]: 'weapon', [BTN.LB]: 'weaponPrev', [BTN.X]: 'run', [BTN.START]: 'pause' },

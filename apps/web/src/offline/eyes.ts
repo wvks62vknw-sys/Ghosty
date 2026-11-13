@@ -14,7 +14,7 @@
  * A pack here marks the steps the Lens takes by itself on a phone that has fetched them (his tap on GET THE EYES, on GET THE NAMER),
  * so the next time the Lens opens it loads them from the pack without a signal.
  */
-import { DEPTH, FACES, FINDER, CODES, NAMER, READING, RUNTIME, WORKER_RUNTIME, sum, type Row } from './eyesfiles';
+import { CUTOUT, DEPTH, ERASE, FACES, FINDER, CODES, NAMER, RAWREADER, READING, RUNTIME, WORKER_RUNTIME, sum, type Row } from './eyesfiles';
 import { fromPack, getPack, isHere, keptAll, type PackDef, type PackFile } from './pack';
 
 export const EYES_CACHE = 'ghosty-eyes-v1';
@@ -31,21 +31,21 @@ export const EYES_LENS = pack(
   'eyes-lens',
   'The Lens’s eyes',
   'Finds everyday things, hands and scenes; reads printed words and QR codes and barcodes. All on the phone.',
-  'Apache-2.0 and MIT (public/vendor/VISION.md)',
+  'Apache-2.0 and MIT',
   [RUNTIME, FINDER, READING, CODES],
 );
 export const EYES_NAMER = pack(
   'eyes-name',
   'The namer',
   'Says what things look like, from a list of 4,600 everyday names. MORE NAMES (another 28,000) needs a signal the first time.',
-  'Research and non-commercial use only: his own private assistant (the licence files in public/vendor/clip); the runtime is MIT',
+  'Research and non-commercial use only, which is what this private assistant is; the runtime is MIT',
   [WORKER_RUNTIME, NAMER],
 );
 export const EYES_PEOPLE = pack(
   'eyes-people',
   'People he knows',
   'Finds a face and knows his own and the people he introduces, in person. Their numbers stay on this phone; nobody else is ever named.',
-  'Apache-2.0 (the licence files in public/vendor/faces)',
+  'Apache-2.0',
   [RUNTIME, WORKER_RUNTIME, FACES],
   'Shares the vision runtime and the worker runtime with the other packs: what is here already is not fetched again.',
 );
@@ -53,11 +53,36 @@ export const EYES_MEASURE = pack(
   'eyes-measure',
   'Measure’s distance',
   'Says how far everything in a photo is, so MEASURE can set its own scale.',
-  'The licence is stated in public/vendor/depth/README.md',
+  'Free to use; its licence is kept with the model',
   [WORKER_RUNTIME, DEPTH],
 );
 
-export const EYES_PACKS: PackDef[] = [EYES_LENS, EYES_NAMER, EYES_PEOPLE, EYES_MEASURE];
+/** PHOTO 2 (BRIEF-EDITOR-PHOTO-2): the three downloads the photo editor offers, one pack each (their sizes differ by more than ten times). */
+export const EYES_CUTOUT = pack(
+  'photo-cutout',
+  'The cut-out model',
+  'Cuts what a photo is about out from its ground, for PHOTO’s SUBJECT. On the phone; the photo never leaves it.',
+  'Apache-2.0, its licence kept with the model; the runtime is MIT',
+  [WORKER_RUNTIME, CUTOUT],
+  'Shares the worker runtime with the namer, people and distance packs: what is here already is not fetched again.',
+);
+export const EYES_ERASE = pack(
+  'photo-erase',
+  'The erase model',
+  'Fills a part of a photo you paint over with what would have been there, for PHOTO’s ERASE. On the phone; the photo never leaves it.',
+  'Apache-2.0, its licence kept with the model; the runtime is MIT',
+  [WORKER_RUNTIME, ERASE],
+  'Shares the worker runtime with the namer, people and distance packs: what is here already is not fetched again.',
+);
+export const EYES_RAW = pack(
+  'photo-raw',
+  'The RAW reader',
+  'Opens camera RAW files (CR2, CR3, NEF, ARW, DNG, RAF, ORF) in PHOTO. On the phone; the file never leaves it.',
+  'LGPL-2.1 or CDDL-1.0, a separately fetched file, its licence kept with it',
+  [RAWREADER],
+);
+
+export const EYES_PACKS: PackDef[] = [EYES_LENS, EYES_NAMER, EYES_PEOPLE, EYES_MEASURE, EYES_CUTOUT, EYES_ERASE, EYES_RAW];
 
 /** What the Lens cannot do on the phone, said plainly in the panel (never pretended). */
 export const CANNOT =

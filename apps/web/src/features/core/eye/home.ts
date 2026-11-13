@@ -16,15 +16,18 @@ import { pinOnHold } from '../../../shell/favourites';
 import { openThing } from '../../../shell/house';
 import { openChat } from '../../../shell/launcher';
 import { ROOMS, THINGS } from '../../../shell/rooms';
-import { thingLine } from '../../../shell/inventory';
 import { togglePalette } from '../../../commands/registry';
 import { settings } from '../../../state/app';
 import { currentMind } from '../mind';
 import { decide } from '../scan/place';
 import { sayTwo } from '../scan/home';
 import { hourWord, tonightEntry } from '../ink/home';
+import { openAbilities } from './abilities';
 import { drawGrain, inkOf } from './grain';
 import { startGround, stopGround } from './ground';
+import { readingOf } from './reading';
+import { ABILITIES_LINE, LIGHTING } from './words';
+import { freeSquare } from '../todaywords';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 const STAR = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>';
@@ -64,6 +67,9 @@ const SLOTS = ['a', 'd', 'b', 'e', 'c', 'f'] as const;
 
 export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: HTMLElement; mic: () => void; nextUp: () => string; onBack: () => void }): EyeHome {
   const mast = h('header.eyemast', { dataset: { case: 'keep' } });
+  // the stamp's own small line while the ground starts (eye/ground.ts shows it only where the start is slow: a software GL)
+  const light = h('p.eyelight.g-truth', { hidden: true, role: 'status', dataset: { case: 'keep' } }, LIGHTING);
+  mast.append(light);
   const say = h('p.eyesay', { dataset: { case: 'keep' } });
   const say2 = h('p.eyesay2', { dataset: { case: 'keep' } });
   const orbHost = h('div.eyeorbhost');
@@ -147,6 +153,12 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     all.addEventListener('click', () => openThing({ id: 'deck', name: 'Every screen', screen: null, n: 0 }));
     roomFeeds.set('screens', all);
     wall.append(all);
+    // ABILITIES: what I can do, as a wall of its own (eye/abilities.ts); one small feed beside Every screen
+    const abil = h('button.eyefeed.abil', { type: 'button', dataset: { slot: 'x', kind: 'abilities', case: 'keep' }, 'aria-label': 'Abilities: what I can do. Open the wall' },
+      pic('abilities'), tag(null, 'Abilities'), h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, ABILITIES_LINE));
+    abil.addEventListener('click', () => void openAbilities('home'));
+    roomFeeds.set('abilities', abil);
+    wall.append(abil);
     grain();
   };
 
@@ -165,19 +177,14 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     edgeLead.textContent = pinned.length ? ' · At the edge: ' : ' · ';
     const recents = lately.slice(0, 2);
     const favs = pinned.slice(0, 4);
-    const lines = (id: string) => {
-      try {
-        return thingLine(id);
-      } catch {
-        return '';
-      }
-    };
+    // (a feed's reading: the card's own; offline, a feed that needs the signal says its last reading and its age: eye/reading.ts)
+    const lines = (id: string) => readingOf(id);
     const sig = `${e.kind}|${e.name}|${e.line}|${word}|${recents.map((t) => t.id).join()}|${favs.map((t) => t.id).join()}|${recents.concat(favs).map((t) => lines(t.id)).join('|')}`;
     if (sig === sideKey) return;
     sideKey = sig;
     for (const n of sideEls) n.remove();
     const cells: { kind: string; id: string }[] = [];
-    const tb = h('button.eyefeed.sharp', { type: 'button', dataset: { slot: 't', kind: 'tonight', case: 'keep' }, 'aria-label': `${word}: ${e.name}. ${e.fill.label}` },
+    const tb = h('button.eyefeed.sharp', { type: 'button', dataset: { slot: 't', kind: 'tonight', what: e.kind, case: 'keep' }, 'aria-label': `${word}: ${e.name}. ${e.fill.label}` },
       h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, icon(CLOCK, 'ic eyeic'), h('span', word)),
       h('span.eyename', { dataset: { case: 'keep' } }, e.name),
       h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, e.line));
@@ -191,8 +198,12 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     SLOTS.forEach((slot, i) => {
       const it = placed[i];
       if (!it) {
+        // [planlane:home] /* state: core.home empty */ a free feed says what fills it (once), not "nothing yet" in each
+        // (slots 0-1 are the recents', 2 and up the pins': the words say what will really fill this one)
+        const role = i < 2 ? 'recent' : 'pin';
+        const say = freeSquare(role, !placed.some((q, j) => !q && j < i && j < 2 === i < 2));
         cells.push({ kind: 'free', id: '' });
-        out.push(h('div.eyefeed.free', { dataset: { slot, kind: 'free', case: 'keep' } }, h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, h('span', 'Free')), h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, 'nothing yet')));
+        out.push(h('div.eyefeed.free', { dataset: { slot, kind: 'free', role, case: 'keep' } }, h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, h('span', 'Free')), say ? h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, say) : null));
         return;
       }
       const { t, kind } = it;
@@ -252,7 +263,7 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
       take();
       paintWords();
       grain();
-      startGround();
+      startGround(light);
       clearInterval(minute);
       minute = window.setInterval(paintWords, 30_000);
     },
@@ -269,6 +280,8 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
       if (eyeState.on) paintWords();
     },
   };
+  // (offline and back: a feed that needs the signal changes its line at once)
+  for (const ev of ['offline', 'online']) addEventListener(ev, () => eyeState.on && api.refresh());
   addEventListener('resize', () => {
     if (wanted && phone() && !eyeState.on) api.enter();
     else if (eyeState.on && !phone()) {

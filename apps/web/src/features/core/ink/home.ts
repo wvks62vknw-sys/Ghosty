@@ -25,6 +25,9 @@ import { decide } from '../scan/place';
 import { ribbon } from '../ribbon';
 import { startDay } from '../day';
 import { bookName, bookNow, sayTwo, whenWord } from '../scan/home';
+import { loadTodos } from '../../agenda/todo';
+import { dueToday, dueWords } from '../../agenda/todowords';
+import { goToPanel, revealSection } from '../../../ui/sections';
 
 const LISTEN = '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9.5a3.5 3.5 0 010 5M17.5 7a7 7 0 010 10"/>';
 /** The frame is the phone's (styles.css draws it under 900 px); at a desk today's three-column Home stays as it is. */
@@ -59,8 +62,34 @@ export const hourWord = (d = new Date(now())): string => {
   return hr >= 17 || hr < 5 ? 'Tonight' : hr < 12 ? 'This morning' : 'Today';
 };
 
+/**
+ * Which of the three tonight's thing is (ORBIT's lit station and its hour card read it; tonightEntry below draws the same three for ONE INK,
+ * THE SCAN's room, THE MAP and THE EYE): the book he is in, else the next thing on his agenda (`next`: Core's next event, "Dentist · 9:30 AM",
+ * or nothing), else the Brief. Never invented.
+ */
+export const tonightKind = (next: string): 'book' | 'agenda' | 'todo' | 'brief' => (bookNow() ? 'book' : next ? 'agenda' : dueToday(loadTodos(), Date.now()).length ? 'todo' : 'brief');
+
+/**
+ * [planlane:home] The to-dos due today or late (the agenda's TO-DO, kept on this phone) as the hour's thing, when there is no book and
+ * nothing next in the diary: the first one's own words, the day it is due ("Due today", "2 days late") and how many more. Home's hour
+ * card, the Today card and the Brief's YOUR DAY all read the same list.
+ */
+export function todoEntry(): Omit<Entry, 'kind'> & { kind: 'todo' } | null {
+  const due = dueToday(loadTodos(), Date.now());
+  if (!due.length) return null;
+  const more = due.length - 1;
+  return {
+    kind: 'todo',
+    name: due[0]!.text,
+    line: [dueWords(due[0]!.due, Date.now()), more ? `${more} more to do` : ''].filter(Boolean).join(' · '),
+    right: 'To-do',
+    fill: { word: 'Open the to-do list', label: 'Open your to-do list', run: () => goToPanel('agenda', 'TO-DO') },
+    ghost: { word: 'Brief me', label: 'Brief me', run: () => navTo('brief', 'push') },
+  };
+}
+
 export interface Entry {
-  kind: 'book' | 'agenda' | 'brief';
+  kind: 'book' | 'agenda' | 'todo' | 'brief';
   name: string;
   line: string;
   right: string;
@@ -101,10 +130,12 @@ export function tonightEntry(nextUp: () => string): Entry {
       name: at > 0 ? next.slice(0, at) : next,
       line: at > 0 ? `Next on your agenda · ${next.slice(at + 3)}` : 'Next on your agenda',
       right: 'Agenda',
-      fill: { word: 'Open the agenda', label: 'Open the agenda', run: () => navTo('agenda', 'push') },
+      fill: { word: 'Open the agenda', label: 'Open the agenda', run: () => (navTo('agenda', 'push'), revealSection('agenda', 'DIARY')) },
       ghost: { word: 'Brief me', label: 'Brief me', run: () => navTo('brief', 'push') },
     };
   }
+  const todo = todoEntry();
+  if (todo) return todo;
   return {
     kind: 'brief',
     name: 'The Brief',

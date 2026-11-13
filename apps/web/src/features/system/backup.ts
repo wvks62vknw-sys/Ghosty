@@ -23,6 +23,9 @@ import { freezeStorage } from '../../core/store';
 import { deviceOnlyDocs, restoreDoc, type LocalDoc, type LocalPassage } from '../../library/local';
 import { afterTry, backupDue, backupTrusted, markDue, NOT_RESTORED, restoreEntry, type LastBackup, type MergeResult } from './merge';
 import { rawText, sayError } from '../../ui/hisWords';
+import type { Preset } from '../../photo/recipe';
+import type { RecipeCopy } from '../../photo/store';
+import type { Project } from '../../video/model';
 
 /** What goes in, and what it is called in plain words. `whole`: kept as one piece (the phone's wins if it has one). */
 export const BACKUP_KEYS: { key: string; label: string; whole?: boolean }[] = [
@@ -38,6 +41,10 @@ export const BACKUP_KEYS: { key: string; label: string; whole?: boolean }[] = [
   { key: 'ghosty.lens.morenames', label: 'Lens naming choice', whole: true },
   { key: 'ghosty.spotify.clientId', label: 'Spotify app id', whole: true },
   { key: 'ghosty.inbox.seen', label: 'which notices you have seen', whole: true },
+  { key: 'ghosty.workspace', label: 'your workspace: pages, databases and their versions' },
+  { key: 'ghosty.docs', label: 'your documents' },
+  { key: 'ghosty.sheets', label: 'your spreadsheets' },
+  { key: 'ghosty.slides', label: 'your slide decks' },
 ];
 
 /** Kept on this phone, never backed up: when the last backup ran and how it went. */
@@ -56,6 +63,22 @@ export interface Bundle {
   at: number;
   local: Record<string, string>;
   library: { doc: LocalDoc; passages: LocalPassage[] }[];
+  /** The photo editor's recipes and his own looks, and the video editor's projects: their JSON only, the photos and clips stay here (POLISH 3, 2d). */
+  editors?: Editors;
+}
+export interface Editors {
+  photos: RecipeCopy[];
+  looks: Preset[];
+  videos: Project[];
+}
+
+/** What the photo and video editors keep in this phone's own database, read for the backup (each store loaded only now). */
+async function editorsNow(): Promise<Editors> {
+  const [ph, vd] = await Promise.all([
+    import('../../photo/store').then((m) => m.recipesForBackup()).catch(() => ({ recipes: [], looks: [] })),
+    import('../../video/store').then((m) => m.projectsForBackup()).catch(() => [] as Project[]),
+  ]);
+  return { photos: ph.recipes, looks: ph.looks, videos: vd };
 }
 
 export type { LastBackup };
@@ -142,11 +165,13 @@ export async function open(s: SealedBackup, owner: string): Promise<Bundle> {
     throw new Error('This backup was locked with a different owner key, so it cannot be opened with the one on this phone.');
   }
   if (s.z === 'gzip') {
-    if (!canZip()) throw new Error('This browser is too old to open this backup (it cannot unpack it). Update iOS and try again.');
+    if (!canZip()) throw new Error('This browser is too old to open this backup (it cannot unpack it); update iOS and try again.');
     plain = await pipe(plain, new DecompressionStream('gzip'));
   }
   const b = JSON.parse(new TextDecoder().decode(plain)) as Partial<Bundle>;
-  return { v: 1, at: Number(b.at) || s.at, local: b.local && typeof b.local === 'object' ? b.local : {}, library: Array.isArray(b.library) ? b.library : [] };
+  const e = b.editors && typeof b.editors === 'object' ? b.editors : null;
+  const editors: Editors | undefined = e ? { photos: Array.isArray(e.photos) ? e.photos : [], looks: Array.isArray(e.looks) ? e.looks : [], videos: Array.isArray(e.videos) ? e.videos : [] } : undefined;
+  return { v: 1, at: Number(b.at) || s.at, local: b.local && typeof b.local === 'object' ? b.local : {}, library: Array.isArray(b.library) ? b.library : [], ...(editors ? { editors } : {}) };
 }
 
 // ---------------------------------------------------------------------------------------
@@ -167,7 +192,13 @@ export async function collect(): Promise<Bundle> {
       /* unreadable entry: left out */
     }
   }
-  return { v: 1, at: Date.now(), local, library: await deviceOnlyDocs().catch(() => []) };
+  const [library, editors] = await Promise.all([deviceOnlyDocs().catch(() => []), editorsNow()]);
+  return { v: 1, at: Date.now(), local, library, editors };
+}
+
+/** The size a backup would be if it were made now: the bundle's words, as the sealed copy carries them (base64 makes it a third more). An estimate. */
+export async function estimateSize(): Promise<number> {
+  return Math.round(JSON.stringify(await collect()).length * 1.37);
 }
 
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
@@ -176,14 +207,14 @@ export const sizeText = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.ro
 /** Back up now: bundle, seal, send. Returns a short line for the owner; throws with plain words. */
 export async function backUpNow(): Promise<string> {
   const owner = ownerKey.get();
-  if (!owner) throw new Error('Backups are locked with your owner key, and this phone signed in another way. Pair it with the owner key to turn backups on.');
+  if (!owner) throw new Error('Backups are locked with your owner key, and this phone signed in another way; pair it with the owner key to turn backups on.');
   try {
     const sealed = await seal(await collect(), owner);
     const size = JSON.stringify(sealed).length;
     if (size > MAX_BYTES) throw new Error(`This backup would be ${mb(size)}, but one backup can be at most 25 MB. Remove some documents kept only on this phone, then try again.`);
     const r = await brain.putBackup({ ...sealed, device: deviceId(), label: deviceLabel() });
     lastBackup.set(afterTry(lastBackup.get(), Date.now(), { ok: true, size: r.backup.size }));
-    return `Backed up (${sizeText(r.backup.size)}, locked with your owner key). The brain keeps this phone's last ${7} days.`;
+    return `Backed up (${sizeText(r.backup.size)}, locked with your owner key); the brain keeps this phone's last ${7} days.`;
   } catch (e) {
     const raw = rawText(e);
     const error = sayError(e, 'back up');
@@ -232,6 +263,12 @@ export interface RestoreReport {
   /** In an older backup, but never put back (merge.ts NOT_RESTORED). */
   skipped: string[];
   docs: number;
+  /** Photo edits, his own looks and video projects put back in this phone's own database. */
+  photos: number;
+  looks: number;
+  videos: number;
+  /** Photo edits in the backup whose photo is not on this phone (the photo itself is never in a backup). */
+  photosAway: number;
 }
 
 /**
@@ -243,7 +280,7 @@ export async function restore(b: BackupInfo): Promise<RestoreReport> {
   if (!owner) throw new Error('Backups open with your owner key: pair this phone with it first.');
   const { backup } = await brain.getBackup(b);
   const bundle = await open(backup, owner);
-  const out: RestoreReport = { restored: [], merged: [], same: [], skipped: [], docs: 0 };
+  const out: RestoreReport = { restored: [], merged: [], same: [], skipped: [], docs: 0, photos: 0, looks: 0, videos: 0, photosAway: 0 };
   // Older backups also carry entries that are never put back: they go through the same rule (restoreEntry).
   const entries: { key: string; label: string; whole?: boolean }[] = [...BACKUP_KEYS, ...Object.entries(NOT_RESTORED).map(([key, label]) => ({ key, label }))];
   // From here to freezeStorage() there is no await, so nothing else on the page runs in between.
@@ -275,7 +312,28 @@ export async function restore(b: BackupInfo): Promise<RestoreReport> {
   lastBackup.set({ ...(prev ?? { at: 0, ok: true }), known: true, due: true });
   freezeStorage();
   for (const { doc, passages } of bundle.library) if (await restoreDoc(doc, Array.isArray(passages) ? passages : []).catch(() => false)) out.docs++;
+  await restoreEditors(bundle.editors, out);
   return out;
+}
+
+/** The editors' part of a restore: each put back only where it is newer than this phone's, nothing here wiped (the same rule as the rest). */
+export async function restoreEditors(e: Editors | undefined, out: RestoreReport): Promise<void> {
+  if (!e) return;
+  if (e.photos.length || e.looks.length) {
+    const ph = await import('../../photo/store').catch(() => null);
+    if (ph) {
+      for (const c of e.photos) {
+        const r = await ph.restoreRecipe(c).catch(() => 'same' as const);
+        if (r === 'kept') out.photos++;
+        else if (r === 'nophoto') out.photosAway++;
+      }
+      for (const l of e.looks) if (await ph.restoreLook(l).catch(() => false)) out.looks++;
+    }
+  }
+  if (e.videos.length) {
+    const vd = await import('../../video/store').catch(() => null);
+    if (vd) for (const p of e.videos) if ((await vd.restoreProject(p).catch(() => 'same' as const)) === 'kept') out.videos++;
+  }
 }
 
 /** Restore, then reload at once; the report is shown again after the reload (takeRestoreReport). */
@@ -307,6 +365,10 @@ export function reportText(r: RestoreReport): string {
   if (r.restored.length) parts.push(`Put back: ${r.restored.join(', ')}.`);
   if (r.merged.length) parts.push(`Joined with what was here (newer wins): ${r.merged.join(', ')}.`);
   if (r.docs) parts.push(`${r.docs} document${r.docs === 1 ? '' : 's'} kept only on this phone put back in the library.`);
+  const n = (k: number, one: string) => `${k} ${one}${k === 1 ? '' : 's'}`;
+  const ed = [r.photos ? n(r.photos, 'photo edit') : '', r.looks ? `${r.looks} ${r.looks === 1 ? 'look' : 'looks'} of your own` : '', r.videos ? n(r.videos, 'video project') : ''].filter(Boolean);
+  if (ed.length) parts.push(`Put back in the editors: ${ed.join(', ')}.`);
+  if (r.photosAway) parts.push(`${n(r.photosAway, 'photo edit')} waiting for ${r.photosAway === 1 ? 'its photo' : 'their photos'}: the photos themselves stay on the phone they were taken on.`);
   if (!parts.length) parts.push('Everything in that backup was already on this phone.');
   if (r.skipped.length) parts.push(`Not taken from the backup: ${r.skipped.join(', ')}.`);
   return parts.join(' ');

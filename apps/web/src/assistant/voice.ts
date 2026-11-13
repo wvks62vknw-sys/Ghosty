@@ -35,6 +35,7 @@ export const MOOD_TONE: Partial<Record<MoodKind, { rate: number; pitch: number; 
 const tone = () => MOOD_TONE[mood.get().now.kind] ?? { rate: 1, pitch: 1, volume: 1 };
 import { brief, clean, quickFirst, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
 import { encodeWav, toMono16k } from './wav';
+import { MIC_BLOCKED, MIC_BROWSER, MIC_NONE, NO_SIGNAL } from './words';
 
 let voices: SpeechSynthesisVoice[] = [];
 const loadVoices = () => {
@@ -698,9 +699,8 @@ export const micLevel = { level: 0, spectrum: null as Uint8Array | null };
 let abortListen: ((drop?: boolean) => void) | null = null;
 
 /** What the owner is told when Ghosty cannot hear (plain words, never "Failed to fetch"). */
-const NO_SIGNAL = "No connection, so I can't hear you right now. Type it instead.";
-const MIC_BLOCKED = 'Microphone blocked. On iPhone: Settings › Safari › Microphone › Allow (or tap aA › Website Settings), then tap the mic again.';
-const NO_EARS = "I can't hear you in this browser: it has no speech recognition, and your brain can't hear until it runs on Cloudflare.";
+// (the words themselves are the talk bar's own: assistant/words.ts)
+const NO_EARS = MIC_BROWSER;
 
 function listenBrowser(onInterim: (t: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -726,7 +726,7 @@ function listenBrowser(onInterim: (t: string) => void): Promise<string> {
     // rather than starting the recogniser again and again with nothing on the screen).
     rc.onerror = (e) => {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
-      reject(new Error(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? MIC_BLOCKED : e.error === 'network' ? NO_SIGNAL : e.error === 'audio-capture' ? 'No microphone found on this device.' : "This phone couldn't turn what you said into words. Try again, or type it."));
+      reject(new Error(e.error === 'not-allowed' ? MIC_BLOCKED : e.error === 'service-not-allowed' ? MIC_BROWSER : e.error === 'network' ? NO_SIGNAL : e.error === 'audio-capture' ? MIC_NONE : 'I couldn’t turn that into words. Try again, or type it.'));
     };
     let dropped = false;
     rc.onend = () => resolve(dropped ? '' : fin.trim());
@@ -773,7 +773,7 @@ async function openMic(): Promise<Mic> {
     void ctx.close();
     const name = (e as Error)?.name;
     if (name === 'NotAllowedError' || name === 'SecurityError') throw new Error(MIC_BLOCKED);
-    if (name === 'NotFoundError') throw new Error('No microphone found on this device.');
+    if (name === 'NotFoundError') throw new Error(MIC_NONE);
     throw e;
   }
   if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined); // (never awaited: Safari holds it until a tap)
@@ -1184,7 +1184,7 @@ export async function listen(useWhisper: boolean, onInterim: (t: string) => void
   stopSpeaking();
   const offline = navigator.onLine === false;
   if (offline && useWhisper && !SRClass && !soundOnly) throw new Error(NO_SIGNAL);
-  if (soundOnly && !(voiceSupport.mic && typeof MediaRecorder !== 'undefined')) throw new Error(MIC_BLOCKED);
+  if (soundOnly && !(voiceSupport.mic && typeof MediaRecorder !== 'undefined')) throw new Error(MIC_BROWSER);
   const wasBusy = ui.get().busy;
   ui.set({ voice: 'listening' });
   try {

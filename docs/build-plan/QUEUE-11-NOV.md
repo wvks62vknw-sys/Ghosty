@@ -12,11 +12,12 @@ a run green first time; main's own run read after. The top tier reviews every di
 - [x] ENGINE 3D (on main 11 Nov, PR 83, green) · THE MAP (on main 11 Nov, PR 84, green)
 - [x] THE EYE HUD, SPEAKER, SMALL FIXES 1 (on main 12 Nov, PR 86, green) · DOCUMENTS (on main 12 Nov, PR 89, green on main's own run) ·
       TRAINING (on main 12 Nov, PR 87, e977f173, green on main's own run; carries the Home fix for the jump bar's open) ·
-      PHONE HARDWARE (on main 12 Nov, PR 90, ad89847, green on main's own run)
+      PHONE HARDWARE (on main 12 Nov, PR 90, ad89847, green on main's own run) ·
+      POLISH 1 (on main 12 Nov, PR 91, 8762f9b4, green on main's own run)
 - [ ] Landing, in order: OCTOBER IDEAS 1 · LIFE EASIER ·
-  POLISH 1 · POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
-  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE) · PHOTO 2 (builder/photo2, base 37bdc01a, head d061a0be, entry 209; lands right after PHOTO)
-- [ ] Building: GAMES 6 (poker, a word game, GAMES 5's loose ends; from 4511157a, worktree games6, port 8835) · QUALITY PASS: PLAN AND ME (from 08a5337a, worktree planmepass, port 8841) · VIDEO onto the fold (from PHOTO's fold head 0aff585c, branch builder/videofold, port 8837) · QUALITY PASS: MAKE
+  POLISH 2 · OCTOBER IDEAS 3 · ORBIT HUD · GROWN UP HUD · THE WALL · SPREADSHEETS · GAMES 5 · THE WORKING ENGINE ·
+  QUALITY PASS: LIFE · QUALITY PASS: HOME · RELIABILITY AND HEALTH · PRESENTATIONS · THE WORKSPACE · QUALITY PASS: SEE · QUALITY PASS: MAKE (builder/makepass, base 08a5337a, head 4741dc42, entry 210) · QUALITY PASS: PLAN AND ME (builder/planmepass, base 08a5337a, head 093ba13f, entry 211; union with MAKE's ratchet rows and `all=`) · QUALITY PASS: LEARN (builder/learnpass, base 4741dc42, head 7558973d, entry 212; union with MAKE's and PLAN AND ME's ratchet rows and `all=`) · PHOTO (on the fold: builder/photofold, base 16458d0a, head 0aff585c, entry 204; lands right after THE WORKSPACE) · PHOTO 2 (builder/photo2, base 37bdc01a, head d061a0be, entry 209; lands right after PHOTO) · VIDEO (on the fold: builder/videofold, base 0aff585c, head 3bcd43b6; entry 216; lands right after PHOTO 2; tabs2's 42 count stands on CI's word) · VIDEO 2 (builder/video2, base 3bcd43b6, head 0926b7cf, entry 217; land only 3bcd43b6..0926b7cf, right after VIDEO; its styles.css carries the inherited stray marker, the ORBIT landing's fix wins) · GAME STUDIO (on the fold: builder/gsfold head e2cd3f18; land only 0e605afa..e2cd3f18, the 15 commits under them are GAMES 5 scaffolding; entry 208) · GAMES 6 (builder/games6, base 4511157a, head a2f11908, entry 215; union with the fold's `all=`) · KERNEL 2 (builder/kernel2, base 8762f9b4, head de2fa3b3, entry 218; lands LAST: every `await import('./…')` line the earlier landings left in apps/edge/test is moved into package.json's test list at the landing, the `# tests` count the sum of before)
+- [ ] Building: QUALITY PASS: THE CHAT (BRIEF-QUALITY-CHAT; from the LEARN pass head 7558973d, worktree chatpass, branch builder/chatpass, port 8842; entry 213)
 
 ## The quality rule (his words, 11 Nov evening: "insane quality … even things in the past")
 Every brief from here says it and every review holds it: every state of every screen designed (empty, loading, error, offline, biggest text,
@@ -196,3 +197,57 @@ own words; the kernel's remaining call (kernel-yes.test.mjs named in the brain's
   SEE pass's head, shared with the MAKE pass; lands after the MAKE pass with the ratchet rows and the `all=` word resolved as a union). Owns
   SPENDING, THE MARKETS, THE RADIO, MEMORY, SETTINGS' pages, SYSTEM's pages, LINKS and SOCIAL (25 fixes); NOT the Agenda's, Settings' and
   System's fronts (POLISH 3's), THREATS or the packs page (the SEE pass's). Started 12 Nov when PHOTO 2 handed back.
+- 12 Nov, VIDEO's fold hand-back: builder/videofold head 3bcd43b6 (VIDEO 1–15 cherry-picked onto PHOTO's fold head, one fold commit); reviewed
+  clean (one `all=` word at the end, no model name, counts only in the tests, MAKE still 8 cards, six pills). tabs2 stayed red on the known
+  jump-bar budget so its 42 count stands on CI's word. GAME STUDIO's rebase onto 3bcd43b6 started at once (worktree gsfold, port 8837); VIDEO 2
+  (BRIEF-EDITOR-VIDEO-2, port 8839) takes the next free slot.
+- 12 Nov, the MAKE pass hand-back: builder/makepass head 4741dc42, 25 fixes plus eight beyond the brief, 264 checks green, ratchet rows only
+  rising, two tests edited and neither weaker; reviewed clean, entry 210. Its five NEEDS HIS WORD decided under 179 into POLISH 3 item 9;
+  GLASS/ONE INK 40 pt stays. LEARN pass started from 4741dc42 (worktree learnpass, port 8840, entry 212); PLAN AND ME takes 211. Mine next: 213.
+- 12 Nov, the PLAN AND ME pass hand-back: builder/planmepass head 093ba13f, 25 fixes, 211 checks green, 12 ratchet rows, three specs edited
+  and none weaker; reviewed clean, entry 211. Two of its NEEDS HIS WORD decided under 179 by his posting rule: the draft card's refuse key stays
+  NO (as Telegram's) and a failed post's key stays APPROVE. seepass/homepass/lifepass/nav could not finish under load here (the base the same):
+  CI's shards decide. VIDEO 2 started from 3bcd43b6 (worktree video2, port 8839).
+- 12 Nov, BRIEF-QUALITY-CHAT written (the eighth quality pass: the log, a turn's states, the talk bar, the Stage, the sources, the phone's
+  own answers, the guardian's words only; from the LEARN pass head; spec `chatpass`; port 8842; entry 213 when it hands back; mine next 214).
+- 12 Nov, BRIEF-QUALITY-TELEGRAM written (the ninth quality pass: every message Ghosty sends in Telegram and the pairing page; telegram.ts is
+  not protected, agent.ts's two routes untouched; from the chat pass head; spec `telegrampass`; port 8843; entry 214 when it hands back; mine
+  next 215).
+- 12 Nov, BRIEF-KERNEL-3 written (slides, videoedit, workspace and game tools for the brain under his 185 yes; the test list carried on; the
+  sites route ONLY IF he answers yes to WHATS-LEFT's question, else NOT REACHED: HIS WORD; no new `all=` word; port 8844; starts after
+  KERNEL 2, PRESENTATIONS, WORKSPACE, VIDEO, VIDEO 2 and GAME STUDIO are on main).
+- 12 Nov, GAME STUDIO's fold hand-back: builder/gsfold head e2cd3f18 (GAMES 5's 15 commits as scaffolding, then the 11 studio commits and one
+  fold commit); reviewed clean: `all=` ends `... video games5 gamestudio`, MAKE still 8 cards, seven pills, icon once (160,767 B), SITES_LINE
+  one sentence, counts 51/43/14. FOUND ON MAIN: a stray `=======` at apps/web/styles.css:7219 from PR #86 drops the `.eyesizes` rule; the
+  landing agent removes it in its next landing with a guard (ratchet.test asserts no marker lines; a brain test sweeps tracked files).
+  KERNEL 2 starts from main once POLISH 1 (#91) is green there; POLISH 3 once #92 is too.
+- 12 Nov, BRIEF-EYE-HUD-2 written (the rooms as the wall, the film for the eye, abilities as a feed, the first pass's four leftovers; spec
+  `eyehud2`; port 8845; starts after GAME STUDIO is on main). The landing agent found and removed two more lone `=======` strays of its own in
+  #92 and #93 (runs restarted); every builder branch scanned clean beyond main's inherited one; the guard goes into the first landing after
+  #91–#93 merge.
+- 12 Nov, BRIEF-QUALITY-BOOT-ORB written (the tenth quality pass: the boot's and the orb's every state, the ribbon; spec `bootpass`; port 8846;
+  starts from main once #91 and #92 are green there; the HOME pass's boot words taken as given, union at landing). Every room pass is now
+  written: chat, Telegram, EYE 2, boot and orb wait for their starts; KERNEL 2 and POLISH 3 wait for #91/#92.
+- 12 Nov, POLISH 1 merged (#91, 8762f9b); KERNEL 2 started from that main at once (worktree kernel2, port 8818); its entry number is the
+  orchestrator's reserved one. I mark POLISH 1 live when main's own run is green.
+- 12 Nov, GAMES 6 hand-back: builder/games6 head a2f11908; poker and WORDS, GAMES 5's six loose ends; the word list ENABLE (public domain,
+  terms written before the fetch) packed to 361,924 B and fetched only on his tap with the size said; reviewed clean, entry 215; mine next
+  216. Decisions under 179: the full list stays a download; "Chips, never money." stays; PICO-8/Cave Story still his word. Slot waits for #92.
+- 12 Nov, BRIEF-DEPTH-MEMORY written (PLAN-STARS pass 1b: RECALL in the prompt within the ceilings, "what did I ask you about X" on the
+  phone by meaning with the model already vendored, a `reply` watcher for a chase, his own things indexed on the phone at idle; spec `recall`;
+  port 8847; the `recall` tool goes in tools/memory.ts, not protected; starts after POLISH 3 and the PLAN AND ME pass are on main).
+- 12 Nov, LEARN pass hand-back: builder/learnpass head 7558973d (6 commits, 30 files, +1046 −91); 25 fixes, eight ratchet rows, learnpass spec
+  206 checks clean, five specs edited and none weaker, brain tests 1880/1880; reviewed clean, entry 212, queued after PLAN AND ME. Decisions
+  under 179: GLASS/ONE INK sizes stay; the GYM league rating keeps no human-scale word; School's "he" and local phrases for COURSES, the
+  Arcade and SCHOOL go to POLISH 3 as item 10 (SMALL FIXES 2g). The chat pass started from 7558973d at once (worktree chatpass, port 8842).
+- 12 Nov, VIDEO 2 hand-back: builder/video2 head 0926b7cf (8 commits, 22 files, +2908 −28); STEADY, BEST CLIPS, ON THE BEAT, REVERSE, RAMP all
+  the phone's own arithmetic, nothing vendored, no face code in video/* (a brain test proves it); video2 spec 147 ok, brain 1968/1968; reviewed
+  clean, queued after VIDEO, land only 3bcd43b6..0926b7cf. Decisions under 179: Director Mode and the extra cameras stay out (a voice model
+  download is his word); the ramp's pace is a straight line; MAKE THE CUT clears titles, pictures and subtitles with UNDO. Entry numbers fixed
+  today: VIDEO 216, VIDEO 2 217, KERNEL 2 218; mine next 219 (the orchestrator's own map covers the landings below 216).
+- 12 Nov, KERNEL 2 hand-back: builder/kernel2 head de2fa3b3 (9 commits, 51 files); the test list names its 23 imported tests (1890 before and
+  after), the `document` tool proposes only (group `doc`, op read/edit/append), physics by Rapier 0.21.0 (Apache-2.0, vendored 4,340,292 B,
+  fetched only on PHYSICS: ON, on mobile data it waits for Wi-Fi with the size: my one fix asked and made), automatic rollback after a failed
+  first check; ceilings hold (plain 5,280/5,500, tools 6,486 unchanged); reviewed clean, entry 218, lands last (the import lines the earlier
+  landings leave are folded into the list at its landing). Decisions under 179: lockfile-only install stands; the 6,500 guard reads the plain
+  turn. Slot waits for #92 green on main (POLISH 3 and the boot-and-orb pass).

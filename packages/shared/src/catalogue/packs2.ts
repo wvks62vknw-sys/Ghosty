@@ -188,7 +188,7 @@ export const PACK2_WORDS: Record<string, CatValue> = {
   'tool:creative': { same: 'act:creative:song' },
   'act:creative:song': {
     name: 'A song with a melody', line: 'You can ask for a song about anything: I write the words, make the tune and chords, and play it on your phone.',
-    more: 'The words are original and the tune is made by code from them, so the same words give the same song. Change the key and the tempo, and save it as a WAV or a MIDI file.',
+    more: 'The words are original and the tune is made from them, so the same words give the same song. Change the key and the tempo, and save it as a WAV or a MIDI file.',
     say: ['Write me a song about a rainy Monday', 'Play my last song'], scene: ['making', 'playing'], cat: 'build', since: SINCE,
     go: { ask: 'Write me a song about ', send: false },
   },
@@ -217,7 +217,7 @@ export const PACK2_WORDS: Record<string, CatValue> = {
   },
   'act:creative:comic': {
     name: 'A four-panel comic strip', line: 'You can give me a story or a joke and I draw it as four panels of stick figures, with your words as the captions.',
-    more: 'Drawn in code from shapes: stick figures with the face each caption calls for, a scene and a prop or two. It is our own simple art, not anyone’s. Save it as a PNG.',
+    more: 'Drawn from simple shapes: stick figures with the face each caption calls for, a scene and a prop or two. It is our own simple art, not anyone’s. Save it as a PNG.',
     say: ['A comic about a cat who learns to drive'], scene: ['making', 'playing'], cat: 'build', since: SINCE,
     go: { ask: 'A comic about ', send: false },
   },
@@ -239,7 +239,7 @@ export const PACK2_WORDS: Record<string, CatValue> = {
   },
   'act:creative:palette': {
     name: 'A palette from a photo', line: 'You can pick a photo and I pull its main colours out on your phone, or name a colour and I find ones that go with it.',
-    more: 'The photo stays on your phone: its colours are found there, by code. Each colour comes with its hex code and a plain name to copy. A named colour gives its opposite, neighbours and shades.',
+    more: 'The photo stays on your phone: its colours are found there. Each colour comes with its hex code and a plain name to copy. A named colour gives its opposite, neighbours and shades.',
     say: ['A palette from a photo', 'Colours that go with teal'], scene: ['making', 'camera'], cat: 'build', since: SINCE,
     go: { run: 'open_creative', args: { what: 'palette' } }, tryText: 'Opens the palette maker',
   },

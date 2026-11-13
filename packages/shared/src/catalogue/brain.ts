@@ -65,6 +65,11 @@ export const GROUP_WHY: Record<string, string> = {
   social: 'When you talk about Bluesky, Mastodon, your Discord or your Telegram channel, posting something, or following someone.',
   creative: 'When you ask for a song, a poem, a story, a poster, a comic, a birthday card, a logo, a palette, names, rhymes or a beat.',
   learning: 'When you talk about words in a language, a typing test, a maths or memory drill, reading faster, first aid, a drawing class, or a plan for a skill.',
+  doc: 'When you have a document open and ask me to shorten, fix or add to it: I mark each change for you to accept or reject.',
+  deck: 'When you have a deck open and ask me to change a slide, add one or take one out, or ask for slides made from a report.',
+  cut: 'When you have a video open and ask me to cut, swap, steady or reorder its clips, set a transition, or pick the best clips.',
+  pages: 'When you ask what you wrote in your Workspace, or ask me to add to a page, a list or a table of yours.',
+  game: 'When you ask me to make a game, such as a platformer, or to change the one open in your Game Studio.',
   homeadmin: 'When you talk about a bill, a meter reading, bin day, a warranty, a manual, the car’s MOT or insurance, planning near home, rent, or the boiler service.',
   outside: 'When you talk about a car park, the last train or bus home, a walk at night, toilets or cash near you, rain and a coat, splitting a fare, or where you parked.',
   work: 'When you talk about your CV, a job ad, a cover letter, an interview, meeting notes, a to-do, your pay after tax, your hours, a rota, or a word count.',
@@ -204,4 +209,5 @@ const MORE: Record<string, CatValue> = {
   },
 };
 
-export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE, ...PACK_WORDS, ...SOCIAL_WORDS, ...PACK2_WORDS, ...PACK3_WORDS };
+import { RECALL_BRAIN_WORDS } from './recall';
+export const BRAIN_WORDS: Record<string, CatValue> = { ...TOOLS_1, ...TOOLS_2, ...TOOLS_3, ...MORE, ...PACK_WORDS, ...SOCIAL_WORDS, ...PACK2_WORDS, ...PACK3_WORDS, ...RECALL_BRAIN_WORDS };

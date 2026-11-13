@@ -40,6 +40,8 @@ const MAP: [RegExp, keyof typeof G, string][] = [
   [/^THE LOOK$/, 'look', '#bf5af2'],
   [/^THEME/, 'brush', '#bf5af2'],
   [/^NAME/, 'person', '#98989d'],
+  [/^PERMISSIONS/, 'hand', '#98989d'],
+  [/^(HEALTH|CRASHES|FELT OFF|THE BRAIN)/, 'pulse', '#30d158'],
   [/^VOICE/, 'wave', '#ff375f'],
   [/^CHARACTER/, 'spark', '#ff9f0a'],
   [/^OFFLINE BRAIN/, 'chip', '#5e5ce6'],
@@ -64,6 +66,9 @@ const MAP: [RegExp, keyof typeof G, string][] = [
   [/^PRIVACY$/, 'hand', '#0a84ff'],
   [/^HELP$/, 'help', '#30d158'],
 ];
+
+// [wall] THE WALL wears THE LOOK's glyph and tint (a second screen is a second way of seeing)
+MAP.unshift([/^THE WALL$/, 'look', MAP[0]![2]]);
 
 export interface ListGroup {
   /** The small title above the group's card. */

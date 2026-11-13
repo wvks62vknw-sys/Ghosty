@@ -13,6 +13,7 @@ import { FrameBudget } from '../../vision/frame';
 import { classifier, detector, nextStamp, type ImageClassifierLike, type ObjectDetectorLike } from '../../vision/models';
 import type { LensContext, Mode } from './index';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
 
 export function createSeeMode(L: LensContext): Mode {
   const S = L.state;
@@ -109,6 +110,9 @@ export function createSeeMode(L: LensContext): Mode {
   const load = () => {
     loading ??= (async () => {
       const v = visit;
+      // (the first load takes a while: said where it happens, with what for)
+      /* state: lens.see loading */
+      const woken = waiting(root, 'Waking the eyes…', { as: 'tag' });
       try {
         const d = await detector.get(progress);
         // left meanwhile (leave() dropped the tasks, the Lens closed them): the next enter loads again
@@ -124,6 +128,8 @@ export function createSeeMode(L: LensContext): Mode {
         loading = null;
         S.error = sayError(e, 'find objects');
         if (S.mode === 'see') L.status(S.error, 'off');
+      } finally {
+        woken();
       }
     })();
   };

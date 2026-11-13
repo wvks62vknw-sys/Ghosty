@@ -14,6 +14,8 @@
 //  6. THE THREE WORLDS AND THE PHONE: The Scan, Glass and ONE INK at 440 × 956 and The Scan at 390 × 844: every key 44 pt, nothing sideways,
 //     every control named.
 // The benchmark (a letter with a table and a footer written, styled, exported and read back) is timed and printed.
+//     The brain's `document` tool (BRIEF-KERNEL-2): "make the second paragraph shorter" with the document open shows a marked change in the
+//     page, ACCEPT applies it and REJECT leaves the text as it was.
 //   BASE=http://localhost:8810 node tests/docs.spec.mjs [outDir]
 import { mkdirSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
@@ -59,8 +61,8 @@ const until = (page, fn, arg, ms = 15000) => page.waitForFunction(fn, arg, { tim
 const docs = (page) => page.evaluate(() => ({ ...window.__ghosty.docs, json: undefined, doc: JSON.parse(window.__ghosty.docs.json || 'null') }));
 const goDocs = async (page) => {
   await page.evaluate(() => (location.hash = 'area-make'));
-  await page.waitForSelector('#pg-area-make .hubtile[data-id="docs"]', { timeout: 15000 });
-  await page.click('#pg-area-make .hubtile[data-id="docs"]');
+  await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]', { timeout: 15000 });
+  await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]');
   await page.waitForSelector('#pg-docs .dcsheet', { timeout: 15000 });
 };
 const pill = (page, name) => page.locator('.dcpill', { hasText: new RegExp(`^${name}$`, 'i') }).click();
@@ -410,6 +412,39 @@ await page.locator('.dcwrite button', { hasText: 'REWRITE THIS PARAGRAPH' }).cli
 check(await until(page, () => (window.__ghosty.docs.suggestions ?? []).some((x) => /Please arrange the repair/.test(x.new)), null, 30000), 'REWRITE THIS PARAGRAPH brings one suggestion');
 await page.locator('.dcsug button', { hasText: 'ACCEPT' }).first().click();
 check(JSON.stringify((await docs(page)).doc).includes('Please arrange the repair within 14 days.'), 'accepted, it changes the paragraph');
+// the brain's `document` tool (BRIEF-KERNEL-2 item 2): "make the second paragraph shorter" with the document open comes back as a MARKED
+// change in the page (the old words struck, the new beside them); ACCEPT applies it, REJECT leaves the text as it was; nothing is applied silently
+{
+  const plainOf = (d) => d.blocks.filter((b) => !['table', 'img', 'pb'].includes(b.t) && (b.runs ?? []).map((r) => r.text).join('').trim()).map((b) => ({ id: b.id, text: b.runs.map((r) => r.text).join('') }));
+  const secondOf = async () => plainOf((await docs(page)).doc)[1];
+  let two = await secondOf();
+  await page.locator(`.dcpage [data-id="${two.id}"]`).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' It has got worse since October. It needs fixing now.');
+  check(await until(page, (id) => JSON.parse(window.__ghosty.docs.json).blocks.find((b) => b.id === id)?.runs.map((r) => r.text).join('').endsWith('It needs fixing now.'), two.id), 'the second paragraph has three sentences to shorten');
+  two = await secondOf();
+  const ask = async () => {
+    await page.fill('input[aria-label="What Ghosty should write into the document"]', 'make the second paragraph shorter');
+    await page.locator('.dcwrite button', { hasText: 'ASK GHOSTY' }).click();
+    return until(page, (id) => (window.__ghosty.docs.suggestions ?? []).length === 1 && (window.__ghosty.docs.suggestions[0].old.length > window.__ghosty.docs.suggestions[0].new.length), two.id, 30000);
+  };
+  check(await ask(), 'make the second paragraph shorter: a marked change in the editor');
+  s = await docs(page);
+  check(s.suggestions[0].old === two.text && s.suggestions[0].new.length > 0 && s.suggestions[0].new.length < two.text.length && two.text.startsWith(s.suggestions[0].new), 'the marked change is the second paragraph, shorter');
+  check((await secondOf()).text === two.text, 'nothing is applied until he taps: the second paragraph is as it was');
+  check(await page.locator('.dcsug del').count() > 0 && await page.locator('.dcsug ins').count() === 0, 'the old words are struck in the page');
+  check(/Ghosty marked a change in the page|marked in the page/.test(await page.locator('.dcstatus').textContent()), 'the page says a change was marked');
+  await page.screenshot({ path: `${out}/docs-tool.png` });
+  const proposed = s.suggestions[0].new;
+  await page.locator('.dcsug button', { hasText: 'ACCEPT' }).first().click();
+  check((await secondOf()).text === proposed, 'ACCEPT applies the shorter paragraph');
+  await key(page, 'UNDO').click();
+  check((await secondOf()).text === two.text, 'UNDO takes the accepted change back out');
+  check(await ask(), 'asked again: a marked change again');
+  await page.locator('.dcsug button', { hasText: 'REJECT' }).first().click();
+  check(await until(page, () => (window.__ghosty.docs.suggestions ?? []).length === 0), 'REJECT clears the marked change');
+  check((await secondOf()).text === two.text, 'REJECT leaves the text as it was');
+}
 await page.screenshot({ path: `${out}/docs-ghosty.png` });
 
 // OPEN on the Stage's letter

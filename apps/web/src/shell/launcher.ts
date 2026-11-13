@@ -12,6 +12,7 @@
  * Opens from the avatar's Me sheet ("Every screen"), a long press on the avatar, the GHOSTY logo or the M key.
  * Escape or ✕ closes it.
  */
+import { markOfScreen } from '../abilities/health';
 import { register, run } from '../commands/registry';
 import { clear, h, icon } from '../core/dom';
 import { sfx } from '../assistant/sfx';
@@ -139,7 +140,7 @@ export function buildLauncher(): Launcher {
   const tryBox = h('section.dktry', h('div.dkkrow', h('small.dkk', 'Try this now'), h('em', '3 picks for today')), tryRow);
   const hits = h('section.dkhits');
   const groups = h('div.dkgroups');
-  const none = h('p.dknone', 'Nothing here by that name. Press return and Ghosty will answer it.');
+  const none = h('p.dknone', 'Nothing here by that name. Press return and I’ll answer it.');
   // EVERY SCREEN as the Machine's inventory (BRIEF-SHELL-2; deck.png), in The Scan: the stamp line, the name and its way back, then FAVOURITES,
   // RECENT and each room's things with their numbers and one true line; the cards above are Glass's (the CSS shows one set)
   const stamp = stampLine(() => stampFacts(lookingAt(screenContext())));
@@ -218,9 +219,11 @@ export function buildLauncher(): Launcher {
     if (isFavourite(t.id)) b.dataset.pinned = 'true';
     return b;
   };
-  const canRow = (l: DeckLine) =>
+  // [health] one word after each line, the mark of the screen's ability (abilities/health.ts): never a colour alone
+  const canRow = (l: DeckLine, screen: string) =>
     h('button.dkrow', { type: 'button', dataset: { act: actKind(l.act), case: 'keep' }, onclick: () => choose(l.act) },
       h('span', l.text),
+      h('small.g-truth.hmark', { dataset: { case: 'keep', mark: markOfScreen(screen) } }, markOfScreen(screen)),
       'ask' in l.act ? h('small.dkask', 'Ask') : icon(RIGHT, 'ic dkchev'),
     );
   const detail = (t: TabDef) => {
@@ -233,7 +236,7 @@ export function buildLauncher(): Launcher {
       h('div.dkrt',
         h('span.dkhd', glyph(t), h('b', c.name)),
         h('p.dkpromise', c.promise),
-        c.can.length ? h('div.dkcan', h('small.dkk', 'You can'), ...c.can.map(canRow)) : null,
+        c.can.length ? h('div.dkcan', h('small.dkk', 'You can'), ...c.can.map((l) => canRow(l, t.id))) : null,
         c.dyk ? h('div.dkdyk', h('b', 'Did you know'), h('span', c.dyk)) : null,
         h('div.dkacts',
           h('button.dkopen', { type: 'button', dataset: { case: 'keep' }, onclick: () => choose({ open: t.id }) }, `Open ${c.name}`),
@@ -418,7 +421,7 @@ export function buildLauncher(): Launcher {
   });
   mic.addEventListener('click', async () => {
     if (listening) return stopListening();
-    if (!voiceSupport.mic && !voiceSupport.browserStt) return void toast('No microphone access in this browser', 'warn');
+    if (!voiceSupport.mic && !voiceSupport.browserStt) return void toast('This browser won’t let me hear you. Type it instead.', 'warn');
     listening = true;
     mic.classList.add('on');
     try {

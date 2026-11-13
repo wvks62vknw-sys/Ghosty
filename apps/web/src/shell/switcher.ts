@@ -31,6 +31,26 @@ export const HOLD_MS = 350;
 /** A finger closer than this to an instrument's centre is on it. */
 const REACH = 52;
 
+/**
+ * ORBIT's fan (BRIEF-ORBIT-HUD 3): the items on one arc round the orb that was held instead of the tab bar's two arcs: centre `cx, cy`, radius
+ * `r`, from the angle `from` to `to` (degrees, 90 straight up, 0 to the right). `stay: false`: lifting where the press began closes it
+ * (the orb is held to slide, not to tap: a let-go on nothing is nothing).
+ */
+export interface Fan {
+  cx: number;
+  cy: number;
+  r: number;
+  from: number;
+  to: number;
+  stay?: boolean;
+}
+
+/** Where item `i` of `n` stands on a fan (pure: the spec reads it too). */
+export function fanPlace(f: Fan, i: number, n: number): [number, number] {
+  const deg = n < 2 ? (f.from + f.to) / 2 : f.from + ((f.to - f.from) * i) / (n - 1);
+  return [Math.round(f.cx + f.r * Math.cos((deg * Math.PI) / 180)), Math.round(f.cy - f.r * Math.sin((deg * Math.PI) / 180))];
+}
+
 /** What the switcher shows, for specs (window.__ghosty.switcher). */
 export const switcherState = { open: false, area: '', items: [] as string[], on: '', opened: '' };
 
@@ -45,7 +65,7 @@ function face(el: Element | null, glyph: string): Element {
 export function buildSwitcher(): {
   el: HTMLElement;
   isOpen(): boolean;
-  open(from: HTMLElement, area: string, items: SwitchItem[]): void;
+  open(from: HTMLElement, area: string, items: SwitchItem[], fan?: Fan): void;
   /** The finger moved: light the instrument under it. */
   hover(x: number, y: number): void;
   /** The finger lifted: open the one under it, stay open on the tab it began on, or close. */
@@ -63,12 +83,13 @@ export function buildSwitcher(): {
   let area = '';
   let items: { it: SwitchItem; b: HTMLButtonElement; x: number; y: number }[] = [];
   let on = -1;
+  let fanned: Fan | null = null;
 
   const say = () => {
     const cur = items[on]?.it;
     kick.textContent = cur ? cur.name : area;
-    title.textContent = cur ? cur.line : `${items.length} ${items.length === 1 ? 'tool' : 'tools'}`;
-    hint.textContent = cur ? 'Let go to open · slide off to cancel' : 'Slide onto one and let go, or tap one';
+    title.textContent = cur ? cur.line : fanned ? 'Slide to a room and let go.' : `${items.length} ${items.length === 1 ? 'tool' : 'tools'}`;
+    hint.textContent = cur ? 'Let go to open · slide off to cancel' : fanned ? 'Let go on nothing and nothing happens' : 'Slide onto one and let go, or tap one';
     for (const [i, x] of items.entries()) x.b.classList.toggle('on', i === on);
     switcherState.on = cur?.id ?? '';
   };
@@ -77,8 +98,10 @@ export function buildSwitcher(): {
     el.hidden = true;
     el.setAttribute('aria-hidden', 'true');
     el.classList.remove('in');
+    el.removeAttribute('data-fan');
     from?.classList.remove('held');
     from = null;
+    fanned = null;
     on = -1;
     switcherState.open = false;
     removeEventListener('keydown', esc);
@@ -93,9 +116,11 @@ export function buildSwitcher(): {
   };
   el.querySelector('.swdim')!.addEventListener('click', close);
 
-  const open = (btn: HTMLElement, name: string, list: SwitchItem[]) => {
+  const open = (btn: HTMLElement, name: string, list: SwitchItem[], fan?: Fan) => {
     from = btn;
     area = name;
+    fanned = fan ?? null;
+    if (fan) el.dataset.fan = 'orbit';
     btn.classList.add('held');
     // the arc: centred on the screen above the bar, the outer ones lower; its size follows the screen's width
     const bar = btn.closest('.tabcap')?.getBoundingClientRect() ?? btn.getBoundingClientRect();
@@ -114,6 +139,7 @@ export function buildSwitcher(): {
     const two = n > 5 && cy - R2 - 36 >= 12;
     const inner = two ? Math.ceil(n / 2) : n;
     const place = (i: number): [number, number] => {
+      if (fan) return fanPlace(fan, i, n);
       const out = two && i >= inner;
       const m = out ? n - inner : inner;
       const k = out ? i - inner : i;
@@ -141,7 +167,8 @@ export function buildSwitcher(): {
       return { it, b, x, y };
     });
     const top = Math.min(...items.map((x) => x.y));
-    cap.style.top = `${Math.max(12, top - 52 - 96)}px`;
+    // (a fan's words stand beside the orb: styles.css, ORBIT; the tab bar's arc keeps them above its highest instrument)
+    cap.style.top = fan ? '' : `${Math.max(12, top - 52 - 96)}px`;
     on = -1;
     say();
     el.hidden = false;
@@ -175,9 +202,10 @@ export function buildSwitcher(): {
     if (el.hidden) return;
     const i = nearest(x, y);
     if (i >= 0) return choose(i);
-    // lifted on the tab it began on: the arc stays for a tap; anywhere else: it closes
+    // lifted on the tab it began on: the arc stays for a tap; anywhere else: it closes (a fan from the orb always closes: nothing happens)
     const r = from?.getBoundingClientRect();
-    if (r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+    const keep = !fanned || fanned.stay !== false;
+    if (keep && r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
       from?.classList.remove('held');
       on = -1;
       say();

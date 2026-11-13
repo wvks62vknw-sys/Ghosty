@@ -50,4 +50,23 @@ export const DEPTH: Row[] = [
   ['/vendor/depth/dav2-metric-indoor-small.v1.int8.onnx.part2', 10676338],
 ];
 
+/** PHOTO 2's cut-out model (a soft mask of what a photo is about), run by the worker runtime above. */
+export const CUTOUT: Row[] = [
+  ['/vendor/cutout/worker.mjs', 2254],
+  ['/vendor/cutout/cutout.v1.onnx', 4574861],
+];
+/** PHOTO 2's erase model (fills a painted part), in three parts under 25 MB, run by the worker runtime above. */
+export const ERASE: Row[] = [
+  ['/vendor/erase/worker.mjs', 2243],
+  ['/vendor/erase/erase.v1.wq8.onnx.part1', 24900000],
+  ['/vendor/erase/erase.v1.wq8.onnx.part2', 24900000],
+  ['/vendor/erase/erase.v1.wq8.onnx.part3', 5857319],
+];
+/** PHOTO 2's RAW reader (a separately fetched WebAssembly build of a free RAW decoder, its own worker). */
+export const RAWREADER: Row[] = [
+  ['/vendor/raw/worker.mjs', 3863],
+  ['/vendor/raw/libraw.mjs', 76138],
+  ['/vendor/raw/libraw.wasm', 853083],
+];
+
 export const sum = (...r: Row[][]): number => r.flat().reduce((n, [, b]) => n + b, 0);

@@ -8,7 +8,10 @@ import { buildLauncher } from './launcher';
 import { modal } from '../ui/components';
 import { go } from './tabs';
 import { buildTabBar, navInfo, navTo } from './areas';
-import { buildHouse, type House } from './house';
+import { buildHouse, grownOn, housePlan, type House } from './house';
+import { buildOrbit } from './orbit';
+import { buildCapsule } from './capsule';
+import { buildDrops } from './drops';
 import { scanList } from './scanlist';
 import { screenContext, lookingAt, stampFacts } from './awareness';
 import { stampLine } from '../ui/machine';
@@ -120,7 +123,8 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     // the reactor's greeting keeps the name as typed
     navTitle.textContent = tab === 'core' ? n?.title ?? '' : niceCase(n?.title ?? '');
     navTitle.dataset.case = 'keep';
-    navTitle.dataset.len = '';
+    // (a screen's long name — PRESENTATIONS, SPREADSHEETS — is set smaller, as a pushed page's is, rather than cut short)
+    navTitle.dataset.len = tab !== 'core' && (n?.title ?? '').length > 11 ? 'xl' : '';
   };
   // the greeting follows the clock
   setInterval(() => ui.get().tab === 'core' && !pushed && paintNav(), 60_000);
@@ -144,8 +148,16 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   const buildDock = () => {
     dock.classList.add('areas');
     document.querySelector('#top .you')?.remove();
-    paintTabBar = buildTabBar(dock, () => deck.open());
-    house = buildHouse(dock, () => deck.open());
+    // (GROWN UP has no deck page: Every screen is THE ROOMS layer, opened from the capsule's first key and wherever the deck was asked for)
+    const openDeck = () => (grownOn() ? housePlan()?.open() : deck.open());
+    paintTabBar = buildTabBar(dock, openDeck);
+    house = buildHouse(dock, openDeck);
+    // ORBIT's line (shell/orbit.ts): the orb at the open end of a thin line; drawn only while the world is Orbit on a phone
+    buildOrbit(dock);
+    // GROWN UP's capsule (shell/capsule.ts): one glass capsule at the foot of every screen; drawn only while the world is Grown Up on a phone
+    buildCapsule(dock);
+    // what each dense screen folds from its top half in this look (shell/drops.ts)
+    buildDrops();
     document.body.classList.add('tabbar');
     paintNav();
   };
@@ -208,5 +220,8 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   // [restc] TV MODE (tv/index.ts): on by itself on a television or from SETTINGS → THEME; and, anywhere WebGL is missing,
   // God's Eye flat, the Studio and the 3-D games said to be hidden
   startTv();
+  // [wall] where this device was made the wall (`?wall=1`, or SETTINGS → TV MODE → THIS IS THE WALL), the wall covers the app (wall/screen.ts, with
+  // the Stage's renderers it draws with, comes in by its own import: none of it is on the way to a phone's first screen)
+  void import('../wall/screen').then((w) => w.startWall());
   return { stage, buildDock };
 }

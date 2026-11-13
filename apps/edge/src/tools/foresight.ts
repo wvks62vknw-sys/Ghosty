@@ -12,7 +12,7 @@ import { fromZoned, zoned } from '../time';
 import { arg, type Tool, type ToolContext } from './types';
 
 /** The group's line for the model, and when its tool is described in full (his words: never always). */
-export const FORESIGHT_ABOUT = "You can put on record what you expect (foresee what: expect) when he asks what will happen — weather, roads, timetables, prices, his plans; never a person; say you'll check yourself. Your record: foresee today, record.";
+export const FORESIGHT_ABOUT = "You can put on record a forecast (foresee what: expect) when he asks what will happen — weather, roads, timetables, prices, his plans; never a person; say you'll check yourself. Your record: foresee today, record.";
 export const FORESIGHT_WHEN = /\b(?:what do you (?:think|reckon|expect)|will (?:it|the|i|my)\b|predict\w*|prediction|forecast(?!\s*(?:for|says))|how often are you right|were you right|your record|foresight|foresee)\b/i;
 
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];

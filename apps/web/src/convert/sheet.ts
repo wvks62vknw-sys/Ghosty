@@ -10,9 +10,11 @@ import { button, modal, toast } from '../ui/components';
 import { KIND_WORDS, MIME, sizeWords, VIDEO_KINDS, type Kind } from './bytes';
 import { forKinds, GROUP_WORDS, VIDEO_LINE, type Conversion } from './list';
 import { makeQr, qrPng, qrSvg, wifiText, type Ecc } from './qr';
+import { UNITS_HINT, unitsWhy, unreadable } from '../features/convert/words';
 import { base64Asked, convertUnits, dateToUnix, nice, unitOf, unitsAsked, unixAsked, unixToDate } from './units';
 import { base64ToText, textToBase64 } from './bytes';
 import { pastedTable, toCsv } from './table';
+import { unitPad } from './unitpad';
 import { encodeWav } from './audio';
 import { decodeSound, pick, runConversion, saveBlob, shareBlob, zipOf, type Output, type Picked } from './run';
 import { pdfPageCount } from './pdfpages';
@@ -110,7 +112,10 @@ export function convertParts(o: ConvertAsk = {}): { el: HTMLElement; start(files
     const offered = forKinds(kinds);
     convertState.offered = offered.map((c) => c.id);
     if (!offered.length) {
-      clear(convs, h('p.cvnote', picked.length > 1 ? 'Nothing here takes these files together: convert them one kind at a time.' : `I have no conversion for ${KIND_WORDS[kinds[0]!]}.`));
+      /* state: convert.files error */
+      /* state: convert.files empty */
+      /* state: convert.files loading */
+      clear(convs, h('p.cvnote', { dataset: { state: 'error', case: 'keep' } }, picked.length > 1 ? 'Nothing here takes these files together: convert them one kind at a time.' : kinds[0] === 'unknown' ? unreadable(picked[0]!.file.name) : `I have no conversion for ${KIND_WORDS[kinds[0]!]}.`));
       return;
     }
     const groups = [...new Set(offered.map((c) => c.group))];
@@ -271,14 +276,19 @@ export function convertParts(o: ConvertAsk = {}): { el: HTMLElement; start(files
     return [h('div.cvrow', kind, ecc), text, wifi, make, show];
   }
   function unitsTool(): HTMLElement[] {
-    const q = h('input', { type: 'text', placeholder: '3.5 miles in km', 'aria-label': 'A measurement and what to turn it into', autocomplete: 'off', enterKeyHint: 'go' }) as HTMLInputElement;
+    const q = h('input.cvsayq', { type: 'text', placeholder: '3.5 miles in km', 'aria-label': 'A measurement and what to turn it into', autocomplete: 'off', enterKeyHint: 'go' }) as HTMLInputElement;
     const ans = h('p.cvans', { 'aria-live': 'polite' });
     const go = () => {
       const r = unitsAsked(q.value);
-      ans.textContent = r ? `${r.text}.` : 'Say it like “3.5 miles in km”, “100 F in C”, “5 ft 10 in cm” or “2 pints in litres”.';
+      /* state: convert.units empty */
+      /* state: convert.units error */
+      ans.textContent = r ? `${r.text}.` : unitsWhy(q.value);
+      if (!r && q.value.trim() && ans.textContent !== UNITS_HINT) ans.dataset.state = 'error';
+      else if (!r) ans.dataset.state = 'empty';
+      else delete ans.dataset.state;
     };
     q.addEventListener('keydown', (e) => e.key === 'Enter' && go());
-    return [h('div.cvrow', q, button('CONVERT', go, 'on')), ans, h('p.cvnote', 'Lengths, weights, volumes, areas, speeds, temperatures, time, data sizes, energy, power, pressure and fuel use.')];
+    return [unitPad(), h('small.cvgh', 'OR SAY IT'), h('div.cvrow', q, button('CONVERT', go, 'on')), ans, h('p.cvnote', 'Lengths, weights, volumes, areas, speeds, temperatures, time, data sizes, energy, power, pressure and fuel use.')];
   }
   function moneyTool(): HTMLElement[] {
     const amount = h('input', { type: 'number', step: 'any', placeholder: '40', 'aria-label': 'How much', inputMode: 'decimal' }) as HTMLInputElement;
