@@ -128,6 +128,27 @@ export const STATES = {
   'threats.signals': { dir: 'threats', base: 2, now: 4 },
   'threats.nearhome': { dir: 'threats', base: 2, now: 4 },
   'settings.packs': { dir: 'settings', base: 3, now: 3 },
+  // MAKE (BRIEF-QUALITY-MAKE): the Workshop (the draft card, WHAT'S NEW, the projects), the 3D studio (the scene, the catalogue, MAKE · PHOTO,
+  // the engine's pane), REVERSE, SPACE (WILL IT FIT?, DESIGN MY HOME, a room from a photo), the Workbench (the panels, the tunnel), CONVERT, HOUSE.
+  // `base` is what each drew, in words of its own, before that pass (a toast that was gone is not a state, nor a line the page never said).
+  'workshop.draft': { dir: 'workshop', base: 2, now: 4 },
+  'workshop.whatsnew': { dir: 'workshop', base: 0, now: 1 },
+  'workshop.projects': { dir: 'workshop', base: 2, now: 3 },
+  'studio.scene': { dir: 'studio', base: 2, now: 2 },
+  'studio.catalogue': { dir: 'studio', base: 3, now: 4 },
+  'studio.photo': { dir: 'studio', base: 2, now: 4 },
+  'studio.engine': { at: 'engine3d', dir: '', base: 1, now: 1 },
+  'reverse.reports': { dir: 'reverse', base: 3, now: 4 },
+  'reverse.report': { dir: 'reverse', base: 2, now: 2 },
+  'reverse.start': { dir: 'reverse', base: 3, now: 4 },
+  'space.fit': { dir: 'space', base: 0, now: 1 },
+  'space.home': { dir: 'space', base: 2, now: 4 },
+  'space.photo': { dir: 'space', base: 3, now: 3 },
+  'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
+  'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
+  'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },
+  'convert.files': { at: 'convert', dir: '', base: 3, now: 3 },
+  'house.house': { at: 'house', dir: '', base: 4, now: 4 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {
@@ -152,7 +173,7 @@ test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every
 });
 test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings']]) {
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house']]) {
     const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);

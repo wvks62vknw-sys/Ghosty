@@ -4739,7 +4739,6 @@ html .wbf > input[type="date"], html .wbf > input[type="time"] { width: 150px; c
 html .wbf.chk > input[type="checkbox"] { width: 26px; min-height: 26px; height: 26px; margin-right: 50px; }
 html .wbf > .wbu { flex: none; width: 40px; font: 400 13px/16px var(--sf); color: var(--ink3); }
 html .wbf.bad > input { box-shadow: inset 0 0 0 1.5px var(--r); }
-html .wbf.bad > label::after { content: ' — can’t read that'; color: var(--r); }
 html .wbout { margin-top: 12px; }
 html .wbcard { padding: 2px 14px 12px; border-radius: 16px; background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px var(--hair2); }
 html .wblabel { display: flex; align-items: center; gap: 8px; min-height: 44px; font: 700 12px/16px var(--sf); letter-spacing: .08em; color: var(--amber); }
@@ -8754,3 +8753,23 @@ body.housed .eyebot .btns { padding-block: 8px; }
 /* the Lens's ENROL ME key is as tall as the rest */
 body.housed #pg-lens .people button { min-height: 44px !important; }
 /* ==== end SEE quality pass ==== */
+
+/* ==== MAKE quality pass (BRIEF-QUALITY-MAKE): the lines the workshop, the studio, reverse, space, the workbench, convert and the house say where they happen ==== */
+.wnnone, .studiofail p, .wbwhy, .tunfail { margin: 0; font: 400 13px/18px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+.studiofail { display: flex; flex-direction: column; gap: 6px; }
+.studiofail p { margin: 0; }
+.studiomore { margin: 4px 0; }
+.studiomore summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--ink2); font: 500 15px var(--sf); }
+.studiomore p { margin: 4px 0; }
+/* every control on the studio, SPACE and the Workbench is 44 pt in The Scan (the slider's hit area is its whole height; GLASS keeps the old 40) */
+body.housed #pg-studio :is(.studiobar, .studioseg, .studiopane, .studiomodes) button { min-height: 44px !important; }
+body.housed #pg-studio .studioseg button { height: 44px; }
+body.housed #pg-studio :is(.studioslider, .studiorange input[type="range"]) { height: 44px; margin: 0; }
+body.housed #pg-space button, body.housed #pg-space .lchip { min-height: 44px !important; }
+body.housed #pg-workbench input[type="range"] { height: 44px; }
+body.housed #pg-workbench button { min-height: 44px !important; }
+body.housed #pg-workbench .wbf.chk > input[type="checkbox"] { width: 44px; height: 44px; min-height: 44px; margin-right: 32px; }
+body.housed .studiocard :is(.studiocardby, .studiocardname) { text-transform: none; } /* the card's author and licence as they are written (it is a button, and a button's words are lowercased) */
+html .wbwhy { padding: 4px 0 8px; color: var(--r); }
+html .wbwhy[hidden] { display: none; }
+/* ==== end MAKE quality pass ==== */

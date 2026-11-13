@@ -101,7 +101,7 @@ await drag([tv.x + 75, tv.y + 20], [tv.x + 75, 170]);
 s = await sp();
 const gap = s.gaps.find((g) => [g.a, g.b].includes('tv') && [g.a, g.b].includes('sofa'));
 if (!gap || gap.cm < 40 || gap.cm >= 70) problems.push(`no tight gap between the sofa and the TV: ${JSON.stringify(s.gaps)} (TV at y=${byId(s, 'tv')?.y})`);
-if (!(await page.locator('#pg-space .spaceinfo', { hasText: 'under 70 cm' }).count())) problems.push('the planner does not say a gap is under 70 cm');
+if (!(await page.locator('#pg-space .spaceinfo', { hasText: /\d+ cm between the .+: under the 70 cm a walkway needs/ }).count())) problems.push('the planner does not say a gap is under 70 cm');
 await page.screenshot({ path: `${out}/space-gap.png` });
 
 // ---- add a desk from the catalogue and turn it ----

@@ -85,6 +85,47 @@ for (const u of UNITS) for (const w of u.words) BY_WORD.set(w, u);
 
 export const unitOf = (w: string): Unit | null => BY_WORD.get(w.trim().toLowerCase().replace(/\.$/, '')) ?? null;
 
+/** What a unit measures, said as a noun with its article ("a length"), and the plural for a list ("lengths"). */
+const KIND: Record<Dim, [string, string]> = { length: ['a length', 'lengths'], mass: ['a weight', 'weights'], volume: ['a volume', 'volumes'], area: ['an area', 'areas'], speed: ['a speed', 'speeds'], time: ['a time', 'times'], data: ['a data size', 'data sizes'], temp: ['a temperature', 'temperatures'], energy: ['an amount of energy', 'amounts of energy'], pressure: ['a pressure', 'pressures'], power: ['a power', 'powers'], fuel: ['a fuel use', 'fuel uses'] };
+
+/** Edit distance, for the nearest unit he might have meant. */
+function distance(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)] as number[]);
+  for (let j = 1; j <= b.length; j++) d[0]![j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length]![b.length]!;
+}
+
+/** The words of a unit he did not mean quite right: up to two the phone does know, nearest first (within three letters). */
+export function nearestUnits(word: string, n = 2, dim?: Dim): string[] {
+  const w = word.trim().toLowerCase();
+  if (w.length < 3) return [];
+  const best = new Map<string, number>();
+  for (const [k, u] of BY_WORD) {
+    if (k.length < 3 || (dim && u.dim !== dim)) continue;
+    const dist = distance(w, k);
+    if (dist <= Math.min(3, Math.floor(w.length / 2)) && dist < (best.get(u.name) ?? 9)) best.set(u.name, dist);
+  }
+  return [...best].sort((a, b) => a[1] - b[1]).slice(0, n).map(([name]) => name);
+}
+
+/**
+ * Why a unit question did not answer, in plain words: a unit it does not know (named back, with the nearest it knows, or the other units
+ * of the kind the other side is), or two units of different kinds. Null when his words are not a "3 miles in km" question at all.
+ */
+export function unitsExplain(text: string): string | null {
+  const m = ASK.exec(text.trim().replace(/\s+/g, ' '));
+  if (!m) return null;
+  const f = unitOf(m[2]!);
+  const t = unitOf(m[3]!);
+  if (f && t) return f.dim === t.dim ? null : `${m[2]!.trim()} is ${KIND[f.dim][0]} and ${m[3]!.trim()} is ${KIND[t.dim][0]}: I can only turn one into the same kind.`;
+  const bad = (f ? m[3]! : m[2]!).trim();
+  const other = f ?? t;
+  const near = nearestUnits(bad, 2, other?.dim);
+  const list = other ? UNITS.filter((u) => u.dim === other.dim).map((u) => (!/^(?:US |sq |nautical )?[a-z]{3,}$/.test(u.name) || ['kcal', 'mph', 'psi', 'mpg'].includes(u.name) ? u.name : u.plural ?? `${u.name}s`)) : [];
+  return `I don’t know “${bad}”.${near.length ? ` The nearest I know: ${near.join(' or ')}.` : ''}${!near.length && list.length ? ` I know these ${KIND[other!.dim][1]}: ${list.join(', ')}.` : ''}`;
+}
+
 const toC = (v: number, u: string) => (u === '°F' ? ((v - 32) * 5) / 9 : u === 'K' ? v - 273.15 : v);
 const fromC = (c: number, u: string) => (u === '°F' ? (c * 9) / 5 + 32 : u === 'K' ? c + 273.15 : c);
 

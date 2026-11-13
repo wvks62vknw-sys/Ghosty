@@ -154,7 +154,7 @@ if (run('b')) for (const world of WORLDS) {
   await page.evaluate(() => { window.__waits = []; window.__t = Math.round(performance.now()); location.hash = 'studio'; });
   await page.waitForFunction(() => window.__waits.some((x) => x.out && x.out > window.__t), null, { timeout: 40000 }).catch(() => undefined);
   const studio = await page.evaluate(() => ({ t: window.__t, w: window.__waits }));
-  const sw = studio.w.find((x) => /^(Building the room|Opening the model|Opening the studio)…$/.test(x.w) && x.in);
+  const sw = studio.w.find((x) => /^(Building the room|Opening the model|Loading the studio)…$/.test(x.w) && x.in);
   check(sw && sw.in - studio.t < 400, `${tag} the Studio had no waiting line up within 400 ms of opening: ${JSON.stringify(studio)}`);
   check(studio.w.some((x) => x.out), `${tag} the Studio's waiting line never went when the scene landed`);
   await ctx.close();

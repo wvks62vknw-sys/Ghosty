@@ -6,6 +6,7 @@
  */
 import { h, icon } from '../../core/dom';
 import { LABEL, type Estimate } from '../../../../../packages/shared/src/workbench';
+import { noteWith, unitNote } from './words';
 
 /** The caution shape: a triangle with a mark in it (the shape carries the meaning as well as the words). */
 const CAUTION = '<path d="M12 3.5 21.5 20h-19z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 10v4.5M12 17v.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>';
@@ -29,7 +30,7 @@ export function estimateCard(e: Estimate): HTMLElement {
     card.append(h('div.wbproblem', { role: 'alert' }, icon(CAUTION, 'wbcaut'), h('span', `${e.problem.charAt(0).toUpperCase()}${e.problem.slice(1)}.`.replace(/\.\.$/, '.'))));
   } else {
     card.append(
-      h('div.wblines', ...e.lines.map((l) => h('div.wbline', h('span.k', h('span', l.label), l.note ? h('small.n', l.note) : null), h('span.v', l.value)))),
+      h('div.wblines', ...e.lines.map((l) => { const note = noteWith(l.note, unitNote(l.label, l.value)); return h('div.wbline', h('span.k', h('span', l.label), note ? h('small.n', note) : null), h('span.v', l.value)); })),
       h('div.wbconf', { 'aria-label': `Confidence: ${e.confidence}` }, h('span.wbbars', { 'aria-hidden': 'true' }, ...[1, 2, 3].map((i) => h(`i${i <= CONF[e.confidence] ? '.on' : ''}` as 'i'))), h('span', `Confidence: ${e.confidence}`)),
     );
     if (e.assumptions.length) card.append(fold('ASSUMED', h('ul', ...e.assumptions.map((a) => h('li', a)))));

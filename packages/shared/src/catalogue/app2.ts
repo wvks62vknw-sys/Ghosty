@@ -237,7 +237,7 @@ export const APP_2: Record<string, CatValue> = {
   // ---- REVERSE
   'panel:reverse:TAKE SOMETHING APART': {
     name: 'Take software apart', line: 'You can paste a website, an app package, a code project or a file link, and I take it apart.',
-    more: 'Even an app file or a program. It runs on GitHub’s free machines for three to eight minutes. Only software you own or may test.',
+    more: 'Even an app file or a program. It runs on GitHub’s free machines for three to eight minutes, and needs a free GitHub token in System, then Keys. Only software you own or may test.',
     say: ['How does this website work?'], scene: ['making'], cat: 'build', needs: ['key:github'],
   },
   'panel:reverse:YOUR REPORTS': {

@@ -6,7 +6,10 @@
  */
 import type { TabDef } from '../../shell/tabs';
 import { cardBig, cardLoad, cardNow } from '../../shell/cardline';
+import { h } from '../../core/dom';
 import { sheetPage } from '../../ui/sheetpage';
+import { phrases } from '../lifeui';
+import { PHRASES } from './words';
 
 export const houseTab: TabDef = {
   id: 'house',
@@ -29,7 +32,7 @@ export const houseTab: TabDef = {
       },
       sections: async () => {
         const m = await import('../../house/sheet');
-        return [{ id: 'house', label: 'House', parts: [{ title: m.HOUSE_TITLE, build: m.houseScreen }] }];
+        return [{ id: 'house', label: 'House', parts: [{ title: m.HOUSE_TITLE, build: () => { const s = m.houseScreen(); return { el: h('div', s.el, phrases(PHRASES)), stop: s.stop }; } }] }];
       },
     }),
 };

@@ -369,6 +369,7 @@ export function enginePane(view: HTMLElement): EnginePane {
       offerUndo('Scene cleared', () => engine.load(was));
     }, 'e3act');
     for (const b of [save, exp, fresh]) b.dataset.case = 'keep';
+    /* state: studio.engine empty */
     clear(sceneBox, h('h3.e3h', 'THE SCENE'), nameField, h('div.e3acts', save, exp, fresh), rows.length ? h('div.e3savedlist', { role: 'list', 'aria-label': 'Saved scenes' }, ...rows) : h('p.e3note', 'Nothing saved yet. SAVE keeps this scene on this phone.'));
     if (document.activeElement !== nameField) nameField.value = engine.scene.name;
   }

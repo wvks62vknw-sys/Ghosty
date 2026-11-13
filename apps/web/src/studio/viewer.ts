@@ -17,6 +17,7 @@ import { EYE, lookBy, resumeWalk, walkStep, type WalkState } from './walk';
 import { splitPieces, subsetIndex } from './split';
 import { loadThree, type StudioLib, type TBufferGeometry, type TCamera, type TControls, type TMaterial, type TMesh, type TObject3D, type TPlane, type TRenderer, type TScene, type TVector3 } from './three';
 import { sayError } from '../ui/hisWords';
+import { NO_3D } from '../features/studio/words';
 
 export interface StudioPart {
   id: number;
@@ -131,7 +132,7 @@ export class Viewer {
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance', failIfMajorPerformanceCaveat: false });
     } catch {
-      this.error = 'This device cannot draw 3-D (WebGL is off or unavailable).';
+      this.error = NO_3D;
       return false;
     }
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));

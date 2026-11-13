@@ -9,9 +9,13 @@
 import { clear, h } from '../core/dom';
 import { button, confirmSheet, modal, toast } from '../ui/components';
 import { HOUSE_STEPS, stateWords, type HouseEntity } from '../../../../packages/shared/src/house';
+import { BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, READING } from '../features/house/words';
+import { waiting } from '../ui/wait';
 import { act, houseNow, loadHouse, mark, type ActOut, type HouseView } from './api';
 
 let open: { close(): void } | null = null;
+/** The "Reading your house…" line on show, taken down at the next paint. */
+let stopRead: (() => void) | null = null;
 /** The sheet's name (its title, and its panel on the HOUSE screen: features/house/index.ts). */
 export const HOUSE_TITLE = 'HOUSE';
 
@@ -129,8 +133,14 @@ function paint(root: HTMLElement): void {
   const st = houseNow.get();
   const v: HouseView | null = st.view;
   const refresh = btn('REFRESH', 'Read the house again', () => void loadHouse(true));
+  stopRead?.();
+  stopRead = null;
   if (!v) {
-    clear(root, h('p.note', st.offline ? 'I can’t reach my brain right now, so I can’t reach your house.' : 'Reading your house…'), refresh);
+    /* state: house.house loading */
+    /* state: house.house offline */
+    clear(root, refresh);
+    if (st.offline) root.prepend(h('p.note', { dataset: { state: 'offline', case: 'keep' }, role: 'status' }, BRAIN_OUT));
+    else stopRead = waiting(root, READING);
     return;
   }
   if (!v.linked) {
@@ -144,12 +154,16 @@ function paint(root: HTMLElement): void {
     );
     return;
   }
+  /* state: house.house empty */
+  /* state: house.house error */
   const rooms = new Map<string, HouseEntity[]>();
   for (const e of v.entities) rooms.set(e.area || 'Elsewhere', [...(rooms.get(e.area || 'Elsewhere') ?? []), e]);
   const names = [...rooms.keys()].sort((a, b) => (a === 'Elsewhere' ? 1 : b === 'Elsewhere' ? -1 : a.localeCompare(b)));
   clear(root,
     h('div.housetop', h('p.houseline', { role: 'status' }, v.line || 'Your house'), refresh),
-    v.error ? h('p.note.bad', v.error) : null,
+    st.offline ? h('p.note', { dataset: { state: 'offline', case: 'keep' }, role: 'status' }, BRAIN_STALE) : null,
+    v.error ? h('p.note.bad', { dataset: { state: 'error' } }, v.error) : null,
+    !v.entities.length ? h('div.empty', { dataset: { state: 'empty', case: 'keep' } }, h('b', HOUSE_NONE.head), h('span', HOUSE_NONE.line)) : null,
     ...names.map((room) => {
       const list = rooms.get(room)!;
       const temp = list.find((e) => e.domain === 'sensor' && (e.cls === 'temperature' || e.unit === '°C'));

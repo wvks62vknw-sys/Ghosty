@@ -19,6 +19,7 @@ import { holdsStorey, homeLine, readHomePlan, type KeptHome } from '../../space/
 import type { Plan } from '../../space/plan';
 import { planToRoom, roomToPlan } from '../../space/roomjson';
 import { space } from '../../space/store';
+import { DESIGN_BRAIN_OUT, DESIGN_EMPTY, DESIGN_KEY, DESIGN_OFFLINE } from './words';
 
 /** The three examples: a chip fills the words with one. */
 export const HOME_EXAMPLES: { label: string; words: string }[] = [
@@ -93,7 +94,10 @@ export async function seeHome3d(id?: string): Promise<void> {
   openStudio({ room: planToRoom(space.get().plan) });
 }
 
-const offline = () => ui.get().connected === false || navigator.onLine === false;
+/** The phone has no signal; or the phone has one and my brain is out of reach (two different things). */
+const phoneOff = () => navigator.onLine === false;
+const brainOut = () => !phoneOff() && ui.get().connected === false;
+const offline = () => phoneOff() || brainOut();
 const unitWords = () => (settings.get().units === 'imperial' ? 'feet and inches' : 'metres');
 
 /** What a test reads (window.__ghosty.space.home). */
@@ -134,10 +138,27 @@ export function createHomePanel(onState: (s: HomeState) => void): { el: HTMLElem
   const status = h('div.spacehomestatus', { role: 'status', 'aria-live': 'polite' });
   const result = h('div.spacehomeresult');
 
+  /** DESIGN pressed with nothing written: the one line, until he types. */
+  let emptyNote = false;
+  words.addEventListener('input', () => {
+    if (emptyNote) {
+      emptyNote = false;
+      paint();
+    }
+  });
   const design = async () => {
     const said = words.value.trim();
     if (offline()) return;
-    if (said.length < 6) return void toast('Describe your home first: the rooms, and their sizes if you know them', 'warn');
+    if (said.length < 6) {
+      // said in the card, where he is typing (a toast is gone before it is read)
+      /* state: space.home empty */
+      homePlan.set({ outcome: '', drawing: 0 });
+      emptyNote = true;
+      paint();
+      words.focus();
+      return;
+    }
+    emptyNote = false;
     if (ui.get().busy) return void toast('Ghosty is still busy with the last thing: try again in a moment', 'warn');
     clearTimeout(saveWords);
     const since = Date.now();
@@ -160,12 +181,22 @@ export function createHomePanel(onState: (s: HomeState) => void): { el: HTMLElem
     const unit = settings.get().units === 'imperial' ? 'imperial' : 'metric';
     unitLine.textContent = `Sizes shown in ${unitWords()}, as set in Settings.`;
     designBtn.disabled = off || !!st.drawing;
-    designBtn.textContent = off ? 'NEEDS THE BRAIN · OFFLINE' : st.drawing ? 'DRAWING…' : 'DESIGN';
+    const keyWords = phoneOff() ? DESIGN_KEY.offline : DESIGN_KEY.out;
+    designBtn.textContent = off ? keyWords : st.drawing ? 'DRAWING…' : 'DESIGN';
     delete designBtn.dataset.label;
-    if (off) designBtn.dataset.label = 'Needs the brain · offline';
+    if (off) designBtn.dataset.label = keyWords.charAt(0) + keyWords.slice(1).toLowerCase();
     clear(status);
-    if (off) status.append(h('span.note', 'Drawing a plan from your words needs Ghosty’s brain, and this phone is offline. Your words stay here for when you are back.'));
-    else if (st.drawing) status.append(h('span.spacehomelive', h('i'), h('span', 'Drawing… Ghosty is reading your words and working out the plan.')));
+    delete status.dataset.state;
+    /* state: space.home offline */
+    /* state: space.home error */
+    if (off) {
+      status.dataset.state = phoneOff() ? 'offline' : 'error';
+      status.append(h('span.note', phoneOff() ? DESIGN_OFFLINE : DESIGN_BRAIN_OUT));
+    } else if (emptyNote) {
+      status.dataset.state = 'empty';
+      status.append(h('span.note', DESIGN_EMPTY));
+    }
+    else if (st.drawing) /* state: space.home loading */ status.append(h('span.spacehomelive', h('i'), h('span', 'Drawing… Ghosty is reading your words and working out the plan.')));
     else if (st.outcome === 'chat') status.append(h('span.note', 'Ghosty answered in the chat instead of drawing: it may need a word more from you.'), button('OPEN CHAT', () => go('core')));
     clear(result);
     const home = st.home;

@@ -359,7 +359,7 @@ export const APP_3: Record<string, CatValue> = {
   },
   "panel:workshop:WHAT'S NEW": {
     name: 'What’s new this week', line: 'You can read what changed in me this week, in plain words, once per update.',
-    more: 'At the top of the Workshop when something new has landed.',
+    more: 'At the top of the Workshop: this week’s first, earlier ones behind a key, and a line when nothing is new.',
     say: ['What’s new?'], scene: ['behind'], cat: 'do',
     since: '2026-10-23',
   },

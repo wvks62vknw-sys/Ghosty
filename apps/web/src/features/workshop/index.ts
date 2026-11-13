@@ -24,6 +24,7 @@ import { failureReport, runTests } from '../../training/runner';
 import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
 import { draftCard } from './draftcard';
 import { draftedPanel } from './selfdraft';
+import { earlierWords, newCount, NOTHING_NEW, offlineWords, PROJECT_WORD, projectWords, PROJECTS_NONE, splitWeek } from './words';
 import { sayError } from '../../ui/hisWords';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
@@ -31,8 +32,7 @@ const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS O
 const unreachable = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
 /** Why something did not happen, in plain words (never "Failed to fetch"). */
 const why = (e: unknown) => (unreachable(e) ? 'you’re offline, or Ghosty can’t be reached. Try again when you’re back online' : sayError(e, 'reach the workshop'));
-/** A project and its steps in plain words (the brain's own names are active / todo / doing / failed). */
-const PROJECT_WORD: Record<Project['status'], string> = { active: 'RUNNING', paused: 'PAUSED', done: 'FINISHED', cancelled: 'CANCELLED' };
+/** A step in plain words (the brain's own names are todo / doing / failed). */
 const STEP_WORD: Record<ProjectStep['status'], string> = { done: 'DONE', doing: 'NOW', todo: 'TO DO', failed: 'DIDN’T WORK' };
 /** Why a step went wrong, said plainly when it is a common one. */
 const plainWhy = (m: string) => (/\b429\b|rate.?limit|quota|too many requests/i.test(m) ? 'the free AI was busy' : /time(d)? ?out|took too long/i.test(m) ? 'it took too long' : m);
@@ -169,6 +169,9 @@ export const workshopTab: TabDef = {
     let projects: Project[] = [];
     /** The list has answered at least once (until then the panel says Loading, not "Nothing running"). */
     let projectsKnown = false;
+    /** The last look at the projects found no connection, and when it last answered. */
+    let projectsOff = false;
+    let projectsAt = 0;
     /** Each website's DRAFT card, kept between repaints (the list repaints every 15 s while a project runs). */
     const draftCards = new Map<string, HTMLElement>();
     /** Finished projects whose steps the owner opened (a finished one shows folded: what it made first, then SHOW STEPS). */
@@ -190,17 +193,22 @@ export const workshopTab: TabDef = {
     };
     const paintProjects = () => {
       clear(jp.body);
+      if (projectsOff && projects.length) jp.body.append(h('p.note', { dataset: { state: 'offline', case: 'keep' }, role: 'status' }, offlineWords(projectsAt)));
       const running = projects.filter((p) => p.status === 'active').length;
       jp.setStatus(projects.length ? (running ? `${running} RUNNING` : `${projects.length}`) : '', running ? 'ok' : projects.some((p) => p.status === 'paused') ? 'mid' : 'ok');
       if (!projects.length) {
-        jp.body.append(projectsKnown ? empty('NONE', 'Ask Ghosty for something that takes days — “research the options over the next few days, then build it” — and it works through a plan step by step on its own, a step every few minutes, without burning through a day’s free models.', 'Nothing running') : empty('LOADING'));
+        /* state: workshop.projects loading */
+        /* state: workshop.projects empty */
+        /* state: workshop.projects offline */
+        if (!projectsKnown) jp.body.append(empty('LOADING'));
+        else if (projectsOff) jp.body.append(h('div.empty.bad', { dataset: { state: 'offline', case: 'keep' } }, h('b', offlineWords(projectsAt))));
+        else jp.body.append(h('div.empty', { dataset: { state: 'empty', case: 'keep' } }, h('b', PROJECTS_NONE.head), h('span', PROJECTS_NONE.line), h('div.row', button(PROJECTS_NONE.key, () => { input.scrollIntoView({ block: 'center', behavior: 'smooth' }); input.focus(); }, 'on'))));
         return;
       }
       for (const p of projects) {
         const done = p.steps.filter((s) => s.status === 'done').length;
         // a mini-app (build_app) runs its five steps in one go; anything else at its pace
-        const pace = p.kind === 'app' ? 'a mini-app, built in one go' : p.pace === 'fast' ? 'a step every 3 min' : 'a step every 20 min';
-        const ct = h('div.ct', h('b', p.title), h('small', `${PROJECT_WORD[p.status]} · ${pace} · ${fmt.ago(p.updated)}`));
+        const ct = h('div.ct', h('b', p.title), h('small', projectWords(p)));
         // the live step: the one running, else the next one
         const now = p.status === 'active' ? (p.steps.find((s) => s.status === 'doing') ?? p.steps.find((s) => s.status === 'todo')) : undefined;
         if (now) ct.append(h('small.pnow', `NOW: step ${now.n} · ${now.title}`));
@@ -284,8 +292,13 @@ export const workshopTab: TabDef = {
       try {
         projects = (await brain.projects()).projects;
         projectsKnown = true;
-      } catch {
-        /* paused or offline: the last list stays */
+        // (the brain's client hands back the last list it kept while there is no signal: said as that, with when it was from)
+        projectsOff = typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (!projectsOff) projectsAt = Date.now();
+      } catch (e) {
+        /* paused or offline: the last list stays; with none kept the panel says no signal and when it last answered */
+        projectsOff = unreachable(e);
+        if (projectsOff) projectsKnown = true;
       }
       paintProjects();
     };
@@ -380,16 +393,17 @@ export const workshopTab: TabDef = {
     const kp = panel('KERNEL LOCK', { grow: false });
     // WHAT'S NEW: this week's merges, once per build (state/whatsnew.ts), above everything else until GOT IT
     if (whatsNewDue()) {
-      const wn = panel("WHAT'S NEW", { grow: false, cls: 'whatsnew', status: `${WHATS_NEW.length} THIS WEEK` });
-      // Route C: a card — the newest three, "Show all" for the rest, GOT IT as a small pill in its corner.
-      const rows = WHATS_NEW.map((n, i) => h(`div.wnrow${i >= 3 ? '.more' : ''}` as 'div', { dataset: { case: 'keep' } }, h('b', n.title), h('span', n.line)));
-      const all = h('button.wnall', { type: 'button', dataset: { case: 'keep' }, 'aria-expanded': 'false' }, `Show all ${WHATS_NEW.length}`);
-      all.hidden = WHATS_NEW.length <= 3;
+      // this week's, then the earlier ones behind a key that says how many (never "11 THIS WEEK" for a fortnight's news)
+      const { week, earlier } = splitWeek(WHATS_NEW);
+      const wn = panel("WHAT'S NEW", { grow: false, cls: 'whatsnew', status: newCount(week.length) });
+      const rows = [...week, ...earlier].map((n, i) => h(`div.wnrow${i >= week.length ? '.more' : ''}` as 'div', { dataset: { case: 'keep' } }, h('b', n.title), h('span', n.line)));
+      const all = h('button.wnall', { type: 'button', dataset: { case: 'keep' }, 'aria-expanded': 'false' }, earlierWords(earlier.length, false));
+      all.hidden = !earlier.length;
       all.addEventListener('click', () => {
         const open = !wn.el.classList.contains('wnopen');
         wn.el.classList.toggle('wnopen', open);
         all.setAttribute('aria-expanded', String(open));
-        all.textContent = open ? 'Show fewer' : `Show all ${WHATS_NEW.length}`;
+        all.textContent = earlierWords(earlier.length, open);
       });
       const got = button('GOT IT', () => {
         whatsNewSeen();
@@ -397,6 +411,8 @@ export const workshopTab: TabDef = {
       }, 'on wngot');
       got.dataset.label = 'Got it';
       wn.el.querySelector('h3')?.append(got);
+      /* state: workshop.whatsnew empty */
+      if (!week.length) wn.body.append(h('p.wnnone', { dataset: { state: 'empty', case: 'keep' }, role: 'status' }, NOTHING_NEW));
       wn.body.append(...rows, all);
       P.left.append(wn.el);
     }
