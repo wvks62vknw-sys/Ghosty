@@ -845,7 +845,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
         const src = b.img ? image(b.img) : null;
         row1.append(h('figure.wsfig', src ? h('img', { src, alt: b.alt ?? '' }) : h('div.wsnopic', 'A picture that is not on this phone any more'), h('figcaption', b.alt ?? '')), blockKeys(b, i));
       } else {
-        const ed = h(`div.wsedit.${b.t}` as 'div', { contentEditable: 'true', spellcheck: true, role: 'textbox', 'aria-multiline': 'true', 'aria-label': b.t === 'todo' ? 'A to-do' : b.t.startsWith('h') ? 'A heading' : 'A line of the page', dataset: { t: b.t, ph: i === 0 && !b.runs.length ? 'Type here, or “/” for more' : '' } });
+        const ed = h(`div.wsedit.${b.t === 'callout' ? 'wscallout' : b.t}` as 'div', { contentEditable: 'true', spellcheck: true, role: 'textbox', 'aria-multiline': 'true', 'aria-label': b.t === 'todo' ? 'A to-do' : b.t === 'callout' ? 'A callout' : b.t.startsWith('h') ? 'A heading' : 'A line of the page', dataset: { t: b.t, ph: i === 0 && !b.runs.length ? 'Type here, or “/” for more' : '' } });
         fillRuns(ed, b.runs);
         let tm = 0;
         const sync = (): void => {

@@ -105,13 +105,13 @@ export function tidyRuns(runs: Run[]): Run[] {
 
 // ---------------------------------------------------------------- Markdown and plain text in
 
-/** **bold**, *italic* or _italic_, ***both***, ~~struck~~, ==highlighted==, as runs (a lone star stays a star). */
+/** **bold**, *italic* or _italic_, ***both***, ~~struck~~, ==highlighted==, [a link](https://…), as runs (a lone star stays a star). */
 export function inline(md: string): Run[] {
   return inlineMd(md);
 }
 function inlineMd(md: string): Run[] {
   const out: Run[] = [];
-  const re = /(\*\*\*|___)(?=\S)([\s\S]*?\S)\1|(\*\*|__)(?=\S)([\s\S]*?\S)\3|(\*|_)(?=\S)([\s\S]*?\S)\5(?![\w*])|(?<!\\)(~~|==)(?=\S)([\s\S]*?[^\s\\])\7/g;
+  const re = /(\*\*\*|___)(?=\S)([\s\S]*?\S)\1|(\*\*|__)(?=\S)([\s\S]*?\S)\3|(\*|_)(?=\S)([\s\S]*?\S)\5(?![\w*])|(?<!\\)(~~|==)(?=\S)([\s\S]*?[^\s\\])\7|\[((?:[^\]\\]|\\.)+)\]\(((?:https?:|mailto:|tel:)[^)\s]+)\)/g;
   let at = 0;
   for (const m of md.matchAll(re)) {
     // an underscore inside a word (snake_case) is not italic
@@ -119,6 +119,7 @@ function inlineMd(md: string): Run[] {
     if (m.index! > at) out.push({ text: md.slice(at, m.index) });
     if (m[2] !== undefined) out.push({ text: m[2], b: true, i: true });
     else if (m[4] !== undefined) out.push(...inlineMd(m[4]).map((r) => ({ ...r, b: true })));
+    else if (m[10] !== undefined) out.push(...inlineMd(m[9]!).map((r) => ({ ...r, href: m[10]! })));
     else if (m[8] !== undefined) out.push(...inlineMd(m[8]).map((r) => ({ ...r, ...(m[7] === '~~' ? { s: true } : { hl: true }) })));
     else out.push(...inlineMd(m[6]!).map((r) => ({ ...r, i: true })));
     at = m.index! + m[0].length;
@@ -202,6 +203,7 @@ export function fromHtml(html: string): Block[] {
   let ital = 0;
   let strike = 0;
   let mark = 0;
+  let href = '';
   let pre = 0;
   const open = (t: BlockType) => {
     close();
@@ -227,7 +229,7 @@ export function fromHtml(html: string): Block[] {
       if (!pre) text = text.replace(/\s+/g, ' ');
       if (!text.trim() && !cur) continue;
       cur ??= { t: 'p', runs: [] };
-      (cur as { runs: Run[] }).runs.push({ text, ...(bold ? { b: true } : {}), ...(ital ? { i: true } : {}), ...(strike ? { s: true } : {}), ...(mark ? { hl: true } : {}) });
+      (cur as { runs: Run[] }).runs.push({ text, ...(bold ? { b: true } : {}), ...(ital ? { i: true } : {}), ...(strike ? { s: true } : {}), ...(mark ? { hl: true } : {}), ...(href ? { href } : {}) });
       continue;
     }
     const end = tok[1] === '/';
@@ -255,6 +257,7 @@ export function fromHtml(html: string): Block[] {
     else if (tag === 'i' || tag === 'em') ital = Math.max(0, ital + (end ? -1 : 1));
     else if (tag === 's' || tag === 'del' || tag === 'strike') strike = Math.max(0, strike + (end ? -1 : 1));
     else if (tag === 'mark') mark = Math.max(0, mark + (end ? -1 : 1));
+    else if (tag === 'a') href = end ? '' : safeHref(entities(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(tok)?.slice(1).find((x) => x !== undefined) ?? ''));
     else if (tag === 'input' && /type\s*=\s*["']?checkbox/i.test(tok) && cur && ((cur as { t: BlockType }).t === 'ul' || (cur as { t: BlockType }).t === 'ol')) {
       // a checklist item (a task list's box): ticked when the box is
       (cur as { t: BlockType }).t = 'todo';

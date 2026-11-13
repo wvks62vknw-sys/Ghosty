@@ -7,7 +7,8 @@
  * letters TRANSLITERATED by tables; exported as PDF, Word, Markdown or HTML. All on the phone but the brain's words.
  * BRIEF-EDITOR-DOCUMENTS made it the core of Word: underline, links, alignment, photos from his own photos, tables, page breaks, the
  * page's size, margins, header, footer and numbers, a live word and page count, autosave said, a Word file read and written with
- * its tables, links and pictures, and Ghosty writing into the page after the paragraph he is in.
+ * its tables, links and pictures, and Ghosty writing into the page after the paragraph he is in. The EDITORS lane added strikethrough,
+ * the highlighter (MARK) and checklists with a box to tick, each kept through Markdown, HTML, Word and the PDF.
  */
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
