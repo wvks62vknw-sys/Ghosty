@@ -67,11 +67,12 @@ better ever sat a paper, even with signal.
   - REMOVE works from any way in.
   - No raw study error, and its colours are tokens.
   - EXPORT and READ MY OWN CODE name what failed.
+  - FRESH TODAY says you're offline instead of telling you to tap a key that is switched off.
   - The self-study switch keeps the panel when it fails.
   - The reader's screen-lock line keeps no promise it can't keep.
-- **Learning.** The reading quiz scores once. SKIP and STOP show only during a drill. DONE says why it waits. The privacy line
+- **Learning.** The first photo read says its download (about 6 MB, from Ghosty's own site) and, on mobile data, asks for a second tap. Speed reading can't run two passages at once. The reading quiz scores once. SKIP and STOP show only during a drill. DONE says why it waits. The privacy line
   and the plan line now say what they do.
-- **Courses.** The quiz no longer claims flashcards it couldn't make. When another course's exam is open, RESUME THAT EXAM
+- **Courses.** The course list says ON THIS PHONE when it is offline. The quiz no longer claims flashcards it couldn't make. When another course's exam is open, RESUME THAT EXAM
   takes you to it.
 - **Rehearse and the coach.** They name what failed ("hear you", "play the other side"). The coach's tuner page no longer
   offers "typing test".
@@ -115,7 +116,5 @@ better ever sat a paper, even with signal.
 - These were found and not done:
   - Rehearse keeps your rehearsals but has no list to reread them.
   - The interpreter has no copy key.
-  - The first photo read in learning loads its reading model without saying the size. It comes from Ghosty's own site, on
-    your tap.
 - Making each screen into a full rival of the best dedicated app was more than one afternoon. This round made every screen
   keep its word. A deeper rebuild of each one is the next step.
