@@ -114,7 +114,8 @@ await section('words', async () => {
   // P5 · a refusal in his words stays whole (space.spec's own check was red on the base: 400 cm read as an error code)
   const HW = await pure('apps/web/src/ui/hisWords.ts');
   const rr = src('space/rooms.ts');
-  check(rr.includes('{ refuse: true })') && /would run into/.test(HW.sayError(Object.assign(new Error('Room 1 at 600 × 400 cm would run into Room 2: move or resize Room 2 first'), { refuse: true }), 'do that in the room')), '[P5 refusal] growing a room into the next says "I could not do that" instead of why');
+  // (rooms.ts marks it through POLISH 1's helper, inHisWords, which is the same mark: the throw itself and the helper are both checked)
+  check(/throw inHisWords\(`\$\{room\.name\} at \$\{W\} × \$\{D\} cm would run into/.test(rr) && /would run into/.test(HW.sayError(HW.inHisWords('Room 1 at 600 × 400 cm would run into Room 2: move or resize Room 2 first'), 'do that in the room')), '[P5 refusal] growing a room into the next says "I could not do that" instead of why');
   // B1 · a wrong number beside its field; B2 · no number without its unit; B3/B4 · the tunnel
   check(B.badNumber('Span', 'abc', 'm') === '“abc” isn’t a number I can read. Type the span in m, like 12.' && B.badNumber('Span', '', 'm') === 'Span is empty. Type a number in m.', `[B1 wrong input] reads "${B.badNumber('Span', 'abc', 'm')}"`);
   check(B.unitNote('Cl', '0.499') === 'a coefficient, no unit' && B.unitNote('Slenderness KL/r', '76.6') === 'a ratio, no unit' && B.unitNote('Max moment', '3.75 kNm') === '' && B.unitNote('Steps', '147') === '' && B.noteWith('the lattice’s', 'a ratio, no unit') === 'the lattice’s · a ratio, no unit', '[B2 units] a bare number does not say it has no unit');
