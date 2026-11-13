@@ -6,7 +6,7 @@ export const clockOf = (t: number): string => new Date(t).toLocaleTimeString('en
 export const dayOf = (t: number): string => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
 /** What each page that fetches says while it waits. */
-export const WAIT = { loops: 'Reading this week…', ledger: 'Reading what I learned…', foresight: 'Reading my record…' };
+export const WAIT = { loops: 'Reading this week…', ledger: 'Reading what I learned…', foresight: 'Reading my record…', keys: 'Looking at my keys and models…', training: 'Reading my training record…', backups: 'Looking for backups…', status: 'Asking my brain how it is…' };
 
 /** LOOPS' line: since when, as of when, what it shows (one line). */
 export const loopsHead = (since: number, now: number): string => `This week, since ${dayOf(since)}, as of ${clockOf(now)}: what each loop practised, improved and threw out.`;
@@ -23,3 +23,63 @@ export const withSize = (text: string, usageBytes: number): string => {
   const mb = usageBytes / 1024 / 1024;
   return `${text} · ${mb < 10 ? mb.toFixed(1).replace(/\.0$/, '') : Math.round(mb)} MB used`;
 };
+
+// ---------------------------------------------------------------- POLISH 3: the System pass
+
+/** What the top of SYSTEM needs to be honest about, from the brain's own status (nothing here asks the network). */
+export interface Facts {
+  /** The brain answered. */
+  reached: boolean;
+  /** Models ready now, and keys added. */
+  models: number;
+  keys: number;
+  /** Keys marked NEEDED that are not set. */
+  needed: number;
+  /** The database meter's level (1 and over: memory is paused) and when it resets. */
+  meter?: { level: number; resetAt: number };
+  /** Every free AI allowance used up until (ms), when they all are. */
+  allFullUntil?: number;
+  /** The clock of this reading. */
+  at: number;
+}
+
+/** ONE HONEST LINE at the top: WORKING, or the first thing that is not, in his words, with when it was read. */
+export function honestLine(f: Facts): { big: string; sub: string; ok: boolean } {
+  const asOf = `as of ${clockOf(f.at)}`;
+  if (!f.reached) return { big: 'NOT WORKING', sub: `I can’t reach my brain, so nothing here is current (${asOf}).`, ok: false };
+  if (f.needed > 0) return { big: 'NOT WORKING', sub: `Add the ${f.needed === 1 ? 'key' : `${f.needed} keys`} under NEEDED in KEYS to get started (${asOf}).`, ok: false };
+  if (!f.models) return { big: 'NOT WORKING', sub: `No AI model is ready: check your keys under KEYS (${asOf}).`, ok: false };
+  if (f.meter && f.meter.level >= 1) return { big: 'NOT WORKING', sub: `My memory is paused until ${clockOf(f.meter.resetAt)}; the AI still answers (${asOf}).`, ok: false };
+  if (f.allFullUntil) return { big: 'WORKING', sub: `Every free AI is used up until ${clockOf(f.allFullUntil)} (${asOf}).`, ok: true };
+  return { big: 'WORKING', sub: `${f.models} model${f.models === 1 ? '' : 's'} ready and ${f.keys} key${f.keys === 1 ? '' : 's'} added (${asOf}).`, ok: true };
+}
+
+/** The AI room's numbers, each with its unit: requests. */
+export const roomNow = (left: number, per: number): string => `room now ${left} of ${per} requests a minute`;
+export const roomToday = (used: string, of: string | null): string => `used today ${used}${of ? ` of ${of}` : ''} requests`;
+
+/** The database meter's value with units and as-of: rows read and written today, of the day's allowance. */
+export const meterValue = (reads: string, readsOf: string, rp: string, writes: string, writesOf: string, wp: string, at: number): string =>
+  `${reads} of ${readsOf} rows read (${rp}) · ${writes} of ${writesOf} rows written (${wp}) a day, as of ${clockOf(at)}`;
+
+/** The size a backup would be, said on its key before the tap (an estimate: what is sealed is a little more than the words). */
+export const backupKey = (sizeText: string): string => `BACK UP NOW · about ${sizeText}`;
+
+/** The database's biggest users in his words: what used it, rows read and rows written (never "route:library 111r/304w"). */
+export const biggestLine = (by: { label: string; r: number; w: number }[], n: (x: number) => string = String): string =>
+  by.slice(0, 3).map((b) => `${b.label.replace(/^[a-z]+:/, '').replace(/^\/?$/, 'the app')} ${n(b.r)} rows read, ${n(b.w)} written`).join(' · ');
+
+/** HEALTH's KEYS row: how many of how many are added and which; the ones not added are behind its "?" (never a list of twenty names). */
+export const keysLine = (have: string[], missing: string[], asOf: string): string => {
+  // the missing ones named too (the first three, in the order the keys are listed, the needed ones first), so a gap is plain
+  const gap = missing.length ? `${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ` and ${missing.length - 3} more` : ''}` : '';
+  return have.length
+    ? `${have.length} of ${have.length + missing.length} added: ${have.join(', ')}${gap ? `; not yet: ${gap}` : ''} (${asOf}).`
+    : `None of the ${missing.length} added yet: ${gap} (${asOf}).`;
+};
+
+/** The frame rate with its units: frames a second, and the size the scene is drawn at. */
+export const frameLine = (fps: number, scale: number): string => `${Math.round(fps)} frames a second, drawn at ${Math.round(scale * 100)}% size`;
+
+/** The training report's average: the test score, the old brain against the new. */
+export const averageLine = (before: string, after: string): string => `test score ${before} on the old brain → ${after} on the new`;

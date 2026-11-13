@@ -1150,7 +1150,10 @@ button.markchip { border-color: var(--ok); font-weight: 600; }
 @media (hover: none) {
   input, textarea, select { font-size: 16px !important; }
   .vcform .vcinput { font-size: 20px !important; }
-  html button:not(.scanthumb button, .maplibregl-ctrl button) { min-height: 40px !important; }
+  /* (POLISH 3, 2d: measured on every screen at 390 and 440, 13 Nov: ten keys sat at exactly 40 because of this rule (System's three,
+     the interpreter's five, rehearse's and photo's one each); the rule now holds the 44 pt token instead, so they are made right here,
+     not one by one. A key drawn at its own fixed size has its own, more specific rule and is not moved.) */
+  html button:not(.scanthumb button, .maplibregl-ctrl button) { min-height: var(--g-target) !important; }
 }
 
 /* =====================================================================
@@ -9493,6 +9496,29 @@ html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px
 /* (a touch phone's `html button:not(…) { min-height: 40px !important }` is as specific: this one comes after it and wins) */
 html body .gkask button, html body .gkprops button { height: auto; min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
 
+/* ---- POLISH 3: the Agenda's ADD key and sheet, a finished thing dimmed, the biggest text and reduced motion ---- */
+html #pg-agenda .agaddkey { min-height: var(--g-target) !important; min-width: var(--g-target); }
+html #pg-agenda .secpills .agaddkey { flex: none; }
+html .agaddsheet { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html .agaddsheet input { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
+html .agaddsheet .agsay { margin: 0; overflow-wrap: anywhere; }
+html #pg-agenda .rw.ev.past { opacity: .62; }
+html #pg-agenda .rw.ev .evt, html #pg-agenda .rw.ev .evloc, html #pg-agenda .rw.wrap .v { overflow-wrap: anywhere; min-width: 0; }
+html #pg-agenda .agoff { margin: var(--g-s-1) 0; }
+@media (prefers-reduced-motion: reduce) { html #pg-agenda .rcundo, html #pg-agenda .undo, html .agaddsheet { animation: none; } }
+html[data-motion="calm"] #pg-agenda .rcundo { animation: none; }
+html[data-body="21"] #pg-agenda .rw.ev { grid-template-columns: minmax(64px, auto) 3px minmax(0, 1fr) auto; }
+html[data-body="21"] #pg-agenda .hud .sub { overflow-wrap: anywhere; white-space: normal; }
+/* the report card readable: no mark under 12 px, a kind's name wraps instead of being cut, and at the biggest text the table is two columns */
+html .reportcard .rccat, html .reportcard .rcrow.rchd { font: 500 12px/16px var(--sf); letter-spacing: .04em; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html .reportcard .rcrow { min-width: 0; }
+html .reportcard .rcrow > * { min-width: 0; overflow-wrap: anywhere; }
+html[data-body="21"] .reportcard .rcrow { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); row-gap: 2px; }
+html[data-body="21"] .reportcard :is(.rcline, .rcsum, .rclegend, .note) { overflow-wrap: anywhere; white-space: normal; }
+/* a "?" on the pages drawn in the new system reads in its ink on every ground (Paper too), never the shell's */
+html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore summary, html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore .pknote { color: var(--g-ink-2); }
+/* ---- end POLISH 3 ---- */
+html .watchers .wrow .k { flex: none; min-width: 58px; }
 /* [moneylane] THE MONEY APP (features/money/app.ts): the month, budgets, bills and trends. Tokens only: no hex, no rgba, no px radius. */
 .mnapp { gap: 12px; }
 .mnnav { display: flex; align-items: center; gap: 8px; min-width: 0; }

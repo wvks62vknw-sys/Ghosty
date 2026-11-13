@@ -57,6 +57,9 @@ export const MAKE_WAIT = 'Nothing real by that name, so I’m making one: a pict
 export const PHOTO_WAIT = 'Sending the photo. About a minute, sometimes five. Keep Ghosty open.';
 export const PHOTO_OFFLINE = 'No signal, so I can’t make it. Your photo stays here for when you have one.';
 
+/** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
+export const PHRASES = ['the 3-D studio'];
+
 /** VIEW (FINAL ROUND, MAKE lane): the three ways the studio draws a model, as every 3-D app offers them, and what each is for. */
 export const SHADINGS: ['solid' | 'wire' | 'xray', string][] = [['solid', 'SOLID'], ['wire', 'WIREFRAME'], ['xray', 'X-RAY']];
 export const SHADING_NOTE: Record<'solid' | 'wire' | 'xray', string> = {

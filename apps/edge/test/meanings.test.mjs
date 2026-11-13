@@ -12,7 +12,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts') },
+  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts'), screenasks: at('../../web/src/assistant/screenasks.ts') },
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -24,6 +24,7 @@ const M = await import('./.build/meanings/meanings.mjs');
 const C = await import('./.build/meanings/colours.mjs');
 const TH = await import('./.build/meanings/themes.mjs');
 const P = await import('./.build/meanings/phrases.mjs');
+const SA = await import('./.build/meanings/screenasks.mjs');
 
 /** The table that answers words first on the phone (assistant/local.ts localTurn's order), or null. */
 const tableOf = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
@@ -74,9 +75,12 @@ const W = {
 const EXPECT = { 'water-pint': 'water' };
 /** The wrappings round a request, which change nothing of what is asked. */
 const WRAP = [(b) => b, (b) => `please ${b}`, (b) => `${b} please`, (b) => `ghosty, ${b}`, (b) => `hey ghosty ${b}`, (b) => `${b} mate`, (b) => `${b[0].toUpperCase()}${b.slice(1)}!`];
-const accepts = (want, r) => {
+/** (POLISH 3) The meanings that open a screen, and that screen: a plain "open the arcade" is taken first by the phone's open-a-screen table, which opens the same screen. */
+const SCREEN_OF = { games: 'arcade', learn: 'learn' };
+const accepts = (want, r, t = '') => {
   if (!r) return false;
   if (r.by === 'meaning') return r.id === want;
+  if (r.by === 'table' && r.id === 'openscreen') return !!SCREEN_OF[want] && SA.screenAsked(t)?.tab === SCREEN_OF[want];
   if (r.by === 'table') return TABLE_OF[want] === r.id;
   return false;
 };
@@ -91,7 +95,7 @@ test('hundreds of wordings, each to its one ability, through the phone’s own o
         const t = wrap(base);
         n++;
         const r = route(t);
-        if (!accepts(want, r)) wrong.push(`"${t}" → ${r ? `${r.by} ${r.id}` : 'nothing'} (want ${want})`);
+        if (!accepts(want, r, t)) wrong.push(`"${t}" → ${r ? `${r.by} ${r.id}` : 'nothing'} (want ${want})`);
       }
   }
   console.log(`MEASURED meanings: ${n} wordings over ${Object.keys(W).length} abilities, ${n - wrong.length} right`);
@@ -165,7 +169,7 @@ test('words that could mean two things ask one short question, with both as keys
   const src = readFileSync(at('../../web/src/assistant/meaningturn.ts'), 'utf8');
   for (const [id, words] of [...src.matchAll(/^\s+'?([\w ]+)'?: '([^']+)',$/gm)].map((m) => [m[1], m[2]])) {
     const r = route(words);
-    assert.ok(r && r.by !== 'two' && (r.id === id || TABLE_OF[id] === r.id), `the ${id} key's words "${words}" → ${JSON.stringify(r && r.id)}`);
+    assert.ok(r && r.by !== 'two' && (r.id === id || TABLE_OF[id] === r.id || accepts(id, r, words)), `the ${id} key's words "${words}" → ${JSON.stringify(r && r.id)}`);
   }
 });
 
