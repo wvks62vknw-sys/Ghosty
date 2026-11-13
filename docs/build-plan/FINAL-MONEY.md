@@ -90,10 +90,9 @@ Five pills: **Month · Budgets · Bills · Trends · Statement**.
 7. **PEOPLE → Coming up**: keep "Mum, 14 March". Then on **Your people**, open her details and try **Forget** (it asks first).
 
 ## What is left
-- **Fixed outside my lane, on purpose:** `assistant/push.ts` (the SYSTEM AND SETTINGS lane's) read `reg.pushManager` when a browser
-  that blocks service workers returned no registration. That threw a page error, which turned the tabs, packs2 and packs3 specs red in
-  this container. It now treats a missing registration as "this browser cannot receive notifications", which it already said for an
-  unsupported browser. It is one guard, and nothing else in that file changed.
+- **The push crash:** `assistant/push.ts` read `reg.pushManager` when a browser that blocks service workers returned no registration,
+  which turned the tabs, packs2 and packs3 specs red. I fixed it with one guard; the VOICE lane fixed the same line at the same time, and
+  the merge keeps their version.
 - Creative had a lighter pass: I read every key on its pages and found none dead and no promise its code does not keep, so it was not changed. Work's interview and document pages were read the same way and not changed. A deeper specialist pass on those pages (for example, a CV builder or a song maker) is the next step. The comic belongs
   to the COMIC lane and was not touched.
 - The Agenda's SPENDING card (the PLAN lane's) still draws its category bars with its own grandfathered colours. The MONEY screen uses
