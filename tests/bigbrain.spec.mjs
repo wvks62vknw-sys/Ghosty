@@ -623,7 +623,7 @@ check(/READY/.test((await fp.locator('#pg-settings .pn.offbrain h3').textContent
 check((await text(fp, '.obkeep .obhere')) === 'On this phone: Qwen3 0.6B whole (352 MB) · Qwen3.5 0.8B whole (447 MB).', `after a new service worker: "${await text(fp, '.obkeep .obhere')}"`);
 await fp.evaluate(() => window.__webllmLoad('Qwen3.5-0.8B-q4f16_1-MLC'));
 check((await fp.evaluate(() => window.__webllmMissed.length)) === 0 && fresh.net.hits.length === freshHits, `after a new service worker, WebLLM's lookups fetched: ${fresh.net.hits.slice(freshHits)}`);
-check((await fp.locator('#pg-settings .offbrain .obkeep > div').allTextContents()).includes('Kept for good: yes. The phone will not clear Ghosty’s downloads to make space.'), 'the phone\'s answer (granted) on the panel');
+check((await fp.locator('#pg-settings .offbrain .obkeep > div').allTextContents()).includes('Kept for good: yes; the phone will not clear Ghosty’s downloads to make space.'), 'the phone\'s answer (granted) on the panel');
 await shot(fp, 'kept-after-new-version');
 
 // ---- 9. the biggest brain's download in parts (pieces of 1.5 MB here, parts of 500 KB: three parts a piece)
@@ -699,7 +699,7 @@ await tp.locator('#pg-settings .offbrain > .bd > .keyrow button', { hasText: 'DO
 await tp.waitForFunction(() => /READY/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => problems.push('the 0.6B did not download (tight phone)'));
 check((await tp.evaluate(() => window.__persistAsked)) - askedBefore === 1, `persist() asked once for two downloads: ${askedBefore} → ${await tp.evaluate(() => window.__persistAsked)}`);
 const keepLines = await tp.locator('#pg-settings .offbrain .obkeep > div').allTextContents();
-check(keepLines.includes('Kept for good: no. The phone may clear downloaded brains when it runs short of space.'), `the phone's answer (not granted) on the panel: ${JSON.stringify(keepLines)}`);
+check(keepLines.includes('Kept for good: no; the phone may clear downloaded brains when it runs short of space.'), `the phone's answer (not granted) on the panel: ${JSON.stringify(keepLines)}`);
 check(keepLines.includes('This is Safari: a brain stays where it was downloaded (Safari and the Home Screen app each keep their own), so use Ghosty from one of them.'), `Safari and the Home Screen app: ${JSON.stringify(keepLines)}`);
 // pieces gone between opens (the phone cleared them): named, not a silent new download
 await tp.evaluate(async () => {

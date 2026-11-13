@@ -56,3 +56,6 @@ export const MAKE_MORE = [
 export const MAKE_WAIT = 'Nothing real by that name, so I’m making one: a picture first, then 3-D. About two minutes, sometimes five. Keep Ghosty open.';
 export const PHOTO_WAIT = 'Sending the photo. About a minute, sometimes five. Keep Ghosty open.';
 export const PHOTO_OFFLINE = 'No signal, so I can’t make it. Your photo stays here for when you have one.';
+
+/** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
+export const PHRASES = ['the 3-D studio'];

@@ -236,3 +236,54 @@ test('the state markers name real screens and real kinds, and the screens named 
     }
   }
 });
+
+// THE WORDS RATCHET (POLISH 3; the same shape as the colour ratchet: the old shape goes down, never grows): for each of the four screens that
+// were cut to one sentence, how many string literals over 90 characters its files hold (comments left out; a template counts by its own
+// text outside ${ }). `base` is what each held on the code before POLISH 3 (read from it), `now` what it holds after: equal or lower from then on.
+// A sentence that is long on purpose goes behind its "?" in two literals (ui/oneline.ts para), never back into one.
+export function longLiterals(src, min = 90) {
+  const out = [];
+  const n = src.length;
+  let i = 0;
+  function code(stopAtBrace) {
+    let depth = 0;
+    while (i < n) {
+      const c = src[i], d = src[i + 1];
+      if (c === '/' && d === '/') { while (i < n && src[i] !== '\n') i++; continue; }
+      if (c === '/' && d === '*') { i = src.indexOf('*/', i + 2); i = i < 0 ? n : i + 2; continue; }
+      if (c === "'" || c === '"') { const q = c; let s = ''; i++; while (i < n && src[i] !== q && src[i] !== '\n') { if (src[i] === '\\') { s += src[i + 1]; i += 2; } else s += src[i++]; } i++; if (s.length > min) out.push(s); continue; }
+      if (c === '`') { i++; template(); continue; }
+      if (c === '{') depth++;
+      if (c === '}') { if (stopAtBrace && depth === 0) { i++; return; } depth--; }
+      i++;
+    }
+  }
+  function template() {
+    let s = '';
+    while (i < n && src[i] !== '`') {
+      if (src[i] === '\\') { s += src[i + 1]; i += 2; continue; }
+      if (src[i] === '$' && src[i + 1] === '{') { i += 2; code(true); continue; }
+      s += src[i++];
+    }
+    i++;
+    if (s.length > min) out.push(s);
+  }
+  code(false);
+  return out;
+}
+export const WORDS = {
+  settings: { files: () => readdirSync(new URL('settings/', FEATURES)).filter((f) => f.endsWith('.ts') && f !== 'packs.ts').map((f) => `settings/${f}`), base: 67, now: 61 },
+  system: { files: () => readdirSync(new URL('system/', FEATURES)).filter((f) => f.endsWith('.ts')).map((f) => `system/${f}`), base: 57, now: 40 },
+  look: { files: () => ['look/index.ts'], base: 13, now: 6 },
+  packs: { files: () => ['settings/packs.ts'], base: 7, now: 6 },
+};
+test('THE WORDS RATCHET: Settings, System, the Theme page and the packs\' cards hold no more long literals than they were cut to', () => {
+  const rows = [];
+  for (const [screen, { files, base, now }] of Object.entries(WORDS)) {
+    const have = files().reduce((t, f) => t + longLiterals(readFileSync(new URL(f, FEATURES), 'utf8')).length, 0);
+    rows.push(`${screen}: ${base} → ${have} (pinned ${now})`);
+    assert.ok(now <= base, `${screen}: the pinned number (${now}) is over what the pass began with (${base})`);
+    assert.ok(have <= now, `${screen} has ${have} string literals over 90 characters, ${now} pinned: cut the new one to a sentence (its fact behind a "?": ui/oneline.ts)`);
+  }
+  console.log(`words ratchet:\n${rows.join('\n')}`);
+});

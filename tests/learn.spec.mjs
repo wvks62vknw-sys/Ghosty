@@ -12,6 +12,7 @@
 // (resumed with the same deadline and the answers kept), finished: the grade, the weak lesson with REVISE, the
 // result on the map; a second exam left to run out is marked by itself. Nothing sticks out sideways; the
 // security policy blocks nothing.
+import { brainBefore, brainAfter } from './fixtures/clean.mjs';
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
@@ -21,6 +22,8 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
+// (POLISH 3) the preview's brain as this spec found it: put back at the end, and the next spec shown to open on it
+const cleanBrain = await brainBefore(process.env.BASE ?? 'http://localhost:8788');
 const ctx = await browser.newContext({
   viewport: PHONE,
   ...UK,
@@ -363,6 +366,7 @@ const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.screenshot({ path: `${out}/learn-final.png` });
 
+problems.push(...(await brainAfter(process.env.BASE ?? 'http://localhost:8788', cleanBrain)));
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `LEARN run clean at 440 × 956: "teach me photosynthesis" planned a course of two units and opened its map (pace, what to know first, mastery 0%), lesson 1 read in its six parts with its sources and TRY IT answered, NEXT went on, the streak started and the one line became a card for tomorrow, a quiz with SURE / THINK SO / GUESSING before each mark scored 2 / 3 (the short answer marked by the brain), the map showed lesson 1 QUIZ PASSED and the calibration line, REVISE on the map rated the sure miss AGAIN then GOOD offline, the course, cards and lessons stayed on the phone offline, a lesson finished offline counted, on reconnect the brain's copy matched the phone's, and the exam on a faked clock kept its deadline through leaving and a reload, was marked with its grade and weak lesson (REVISE showed its cards, the map its result), and a second one left to run out marked itself.`);
 process.exit(problems.length ? 1 : 0);

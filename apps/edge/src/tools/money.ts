@@ -10,7 +10,6 @@ import { card } from '../../../../packages/shared/src/cards';
 import {
   advance,
   cheapestNear,
-  dropped,
   FUEL_FEEDS,
   FUEL_NAMES,
   fuelCard,
@@ -49,14 +48,14 @@ import { addDays, daysBetween, listWords, moneyIn, pounds, prettyDay, shortId } 
 import { monthName } from '../../../../packages/shared/src/spending';
 import { getJson, getText, load, packTool, save, todayOf, wordsOf, type ActionFn, type PackDeps } from '../packs/base';
 import { notSavedYet, savedPlace } from '../places';
-import { addJob, loadJobs, removeJob } from '../schedule';
 import { monthMoves, spendingSummary } from '../spending';
+import { addJob } from '../schedule';
 import { fromZoned } from '../time';
+import { loadWatchers, MAX_WATCHERS, saveWatchers, whyNot, type Watcher } from '../watchers';
 import { arg, type Tool } from './types';
 
 export const MONEY_KEYS = { spent: 'money:spent', watches: 'money:watches', subs: 'money:subs', payday: 'money:payday', warranties: 'money:warranties' } as const;
 const MAX_SPENT = 500;
-const MAX_WATCHES = 20;
 
 /** When the group is described in full: his words about money. */
 export const MONEY_WHEN =
@@ -151,17 +150,20 @@ const trip: ActionFn = async (a, d) => {
   return { text: `${Math.round(dist)} miles at ${mpg} mpg is about ${t.litres} litres: ${pounds(t.cost)} at ${pence}p a litre (${from}). Assumed: UK gallons (4.546 litres), the car’s mpg as you said it, one way.` };
 };
 
-async function ensureFollowJob(d: PackDeps): Promise<void> {
-  if ((await loadJobs(d.storage)).some((j) => j.kind === 'follow')) return;
-  await addJob(d.storage, { kind: 'follow', title: 'Price watch', text: 'The pages you asked me to watch: I look twice a day and tell you when a price drops (money pack).', next: d.now() + 12 * 3_600_000, tz: d.tz }, d.now());
-}
+/** A price watcher of the one watchers' store, as the money pack's own words and card know it. */
+const asWatch = (w: Watcher): Watch => ({ id: w.id, url: w.url, label: w.label, first: w.last.price ?? 0, last: w.last.price ?? 0, told: w.last.price ?? 0, how: 'the page', at: w.created, checked: w.checked });
+/** The price watches that are still being watched, from the watchers' store (the money pack keeps none of its own any more). */
+const priceWatches = async (d: PackDeps): Promise<Watcher[]> => (await loadWatchers(d.storage)).filter((w) => w.kind === 'price' && w.state === 'watching');
 
 const watch: ActionFn = async (a, d) => {
   const url = arg.str(a, 'url', false).trim() || (/https?:\/\/\S+/.exec(wordsOf(a))?.[0] ?? '');
-  const list = await load<Watch[]>(d, MONEY_KEYS.watches, []);
-  if (!url) return { text: list.length ? `Watching ${list.length}: ${list.map((w) => `${w.label} ${pounds(w.last)} (from ${pounds(w.first)})`).join('; ')}.` : 'Not watching any prices. Send me a product page and say "watch the price".' };
+  const list = await priceWatches(d);
+  if (!url) return { text: list.length ? `Watching ${list.length}: ${list.map((w) => `${w.label} ${pounds(w.last.price ?? 0)}`).join('; ')}.` : 'Not watching any prices. Send me a product page and say "watch the price".' };
   if (!/^https:\/\//i.test(url)) return { text: 'Send the page’s full https:// address and I’ll watch it.' };
-  if (list.length >= MAX_WATCHES) return { text: `I’m watching ${MAX_WATCHES} pages already: stop one first.` };
+  const bad = whyNot(url);
+  if (bad) return { text: bad };
+  const all = await loadWatchers(d.storage);
+  if (all.filter((w) => w.state === 'watching').length >= MAX_WATCHERS) return { text: `I’m watching ${MAX_WATCHERS} pages already: stop one first.` };
   let html: string;
   try {
     html = await getText(d, url);
@@ -170,42 +172,37 @@ const watch: ActionFn = async (a, d) => {
   }
   const p = priceOf(html);
   if (!p) return { text: 'I couldn’t find a price on that page, so there is nothing to watch. Try the product’s own page.' };
-  const w: Watch = { id: shortId(), url, label: pageLabel(html, url), first: p.price, last: p.price, told: p.price, how: p.how, at: d.now(), checked: d.now() };
-  await save(d, MONEY_KEYS.watches, [...list.filter((x) => x.url !== url), w]);
-  await ensureFollowJob(d);
-  return { text: `Watching ${w.label}: ${pounds(w.last)} now (read from ${p.how}). I look twice a day and tell you when it drops. UNDO stops it.`, cards: [watchCard(w, 'set', d.now())] };
+  // One watcher system: stored as a watcher of kind `price` (watchers.ts reads it on the hourly beat, tells it once, MIN_GAP keeps the shop safe).
+  const w: Watcher = { id: shortId(), kind: 'price', url, label: pageLabel(html, url), created: d.now(), checked: d.now(), ok: true, last: { price: p.price }, state: 'watching' };
+  await saveWatchers(d.storage, [...all.filter((x) => x.url !== url || x.kind !== 'price'), w]);
+  return { text: `Watching ${w.label}: ${pounds(p.price)} now (read from ${p.how}). I look every hour and tell you once when it drops. UNDO stops it.`, cards: [watchCard({ ...asWatch(w), how: p.how }, 'set', d.now())] };
 };
 
 const unwatch: ActionFn = async (a, d) => {
   const id = arg.str(a, 'id', false);
   const words = wordsOf(a).toLowerCase();
-  const list = await load<Watch[]>(d, MONEY_KEYS.watches, []);
+  const list = await priceWatches(d);
   const w = list.find((x) => x.id === id) ?? list.find((x) => words && (x.label.toLowerCase().includes(words) || words.includes(x.label.toLowerCase().split(' ')[0]!))) ?? (list.length === 1 ? list[0] : undefined);
   if (!w) return { text: list.length ? `Which one? ${list.map((x) => x.label).join('; ')}.` : 'Not watching any prices.' };
-  const left = list.filter((x) => x.id !== w.id);
-  await save(d, MONEY_KEYS.watches, left);
-  if (!left.length) for (const j of (await loadJobs(d.storage)).filter((j) => j.kind === 'follow')) await removeJob(d.storage, j.id);
-  return { text: `Stopped watching ${w.label} (it was ${pounds(w.last)}).` };
+  // The same removal as STOP on the WATCHERS list (DELETE /guardian/watchers).
+  await saveWatchers(d.storage, (await loadWatchers(d.storage)).filter((x) => x.id !== w.id));
+  return { text: `Stopped watching ${w.label} (it was ${pounds(w.last.price ?? 0)}).` };
 };
 
-/** The follow job's look (agent.ts): each watched page read again; a drop told once, with its card. Returns the next look. */
-export async function followTick(d: PackDeps, tell: (title: string, text: string, c: ReturnType<typeof watchCard>) => Promise<unknown>): Promise<number> {
-  const list = await load<Watch[]>(d, MONEY_KEYS.watches, []);
-  for (const w of list) {
-    try {
-      const p = priceOf(await getText(d, w.url));
-      w.checked = d.now();
-      if (!p) continue;
-      w.last = p.price;
-      if (dropped(w, p.price)) {
-        await tell('Price dropped', `${w.label} is ${pounds(p.price)} now, down from ${pounds(w.told)}: ${w.url}`, watchCard(w, 'drop', d.now()));
-        w.told = p.price;
-      } else if (p.price > w.told) w.told = Math.max(w.told, Math.min(p.price, w.first));
-    } catch {
-      /* a page that did not answer: next time */
-    }
+/**
+ * The old follow job's look (agent.ts, protected, still calls this): the twice-a-day job is no longer added, and one that is still on the
+ * clock only carries any price watch of the old store over to the watchers' store, once, and tells nothing: the watchers' hourly beat
+ * (watchers.ts) is the one reader and the one telling, so a drop is never told twice. Returns the next look.
+ */
+export async function followTick(d: PackDeps, _tell: (title: string, text: string, c: ReturnType<typeof watchCard>) => Promise<unknown>): Promise<number> {
+  const old = await load<Watch[]>(d, MONEY_KEYS.watches, []);
+  if (old.length) {
+    const all = await loadWatchers(d.storage);
+    const room = Math.max(0, MAX_WATCHERS - all.filter((w) => w.state === 'watching').length);
+    const moved: Watcher[] = old.filter((w) => !all.some((x) => x.url === w.url && x.kind === 'price')).slice(0, room).map((w) => ({ id: w.id, kind: 'price', url: w.url, label: w.label, created: w.at, checked: w.checked, ok: true, last: { price: Math.min(w.told, w.last) }, state: 'watching' }));
+    if (moved.length) await saveWatchers(d.storage, [...all, ...moved]);
+    await save(d, MONEY_KEYS.watches, []);
   }
-  await save(d, MONEY_KEYS.watches, list);
   return d.now() + 12 * 3_600_000;
 }
 

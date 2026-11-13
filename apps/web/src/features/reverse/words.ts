@@ -39,3 +39,6 @@ export const START_OFFLINE = 'You’re offline, so nothing can start. Try again 
 
 /** The screen's one line: what it is for, and what comes back. */
 export const REVERSE_SUB = 'Paste a link and I take it apart: what it is built with, and what it talks to.';
+
+/** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
+export const PHRASES = ['reverse this'];
