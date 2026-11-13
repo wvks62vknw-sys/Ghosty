@@ -212,7 +212,8 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
   const paintCompose = (info: SocialInfo | null) => {
     /* state: social.compose offline */
     accLine.textContent = accountsWords(info?.accounts ?? null);
-    if (!info) return void clear(compose, h('b', 'Write a post'), accLine, ...(box.value.trim() ? [h('p.pknote', KEPT_NOTE)] : []));
+    // the brain not answering: he can still write (kept on the phone); the drafts are made when it answers again
+    if (!info) return void clear(compose, h('b', 'Write a post'), accLine, box, h('p.pknote.sockept', KEPT_NOTE), h('div.keyrow', button('TRY AGAIN', () => void paint(true))));
     linkedNow = info.accounts.filter((a) => a.who).map((a) => a.id);
     /* state: social.compose empty */
     if (!linkedNow.length) return void clear(compose, h('b', 'Write a post'), accLine, h('p.pknote', COMPOSE_NONE));

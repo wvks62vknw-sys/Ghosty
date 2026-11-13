@@ -162,6 +162,8 @@ export async function run(H) {
     await page.waitForFunction(() => /can’t reach my brain/.test(document.querySelector('#pg-social .pknote')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => check(false, 'the queue did not say the brain is not answering'));
     check(/can’t reach my brain/.test(await page.textContent('#pg-social .socacc').catch(() => '')), 'the composer says the brain is not answering');
     check(/stay on this phone/.test(await page.textContent('#pg-social .soccompose').catch(() => '')), 'and that his words are still kept');
+    check((await page.inputValue('#pg-social .soccompose textarea').catch(() => '')) === 'Words written before the signal went', 'his words are still in the box, and he can go on writing');
+    check(!!(await page.$('#pg-social .soccompose button:has-text("Try again")')) && !(await page.$('#pg-social .soccompose button:has-text("Make")')), 'TRY AGAIN, and no MAKE THE DRAFT while the brain cannot take it');
     await openSection(page, 'social', 'Accounts');
     await page.waitForSelector('#pg-social .socoff', { timeout: 8000 }).catch(() => check(false, 'the account panels did not say the brain is not answering'));
     const off = await page.$$eval('#pg-social .pn.socialpanel', (p) => p.map((x) => ({ off: !!x.querySelector('.socoff'), form: !!x.querySelector('input'), retry: [...x.querySelectorAll('button')].some((b) => /try again/i.test(b.textContent)) })));
