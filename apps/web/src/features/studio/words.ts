@@ -56,3 +56,11 @@ export const MAKE_MORE = [
 export const MAKE_WAIT = 'Nothing real by that name, so I’m making one: a picture first, then 3-D. About two minutes, sometimes five. Keep Ghosty open.';
 export const PHOTO_WAIT = 'Sending the photo. About a minute, sometimes five. Keep Ghosty open.';
 export const PHOTO_OFFLINE = 'No signal, so I can’t make it. Your photo stays here for when you have one.';
+
+/** VIEW (FINAL ROUND, MAKE lane): the three ways the studio draws a model, as every 3-D app offers them, and what each is for. */
+export const SHADINGS: ['solid' | 'wire' | 'xray', string][] = [['solid', 'SOLID'], ['wire', 'WIREFRAME'], ['xray', 'X-RAY']];
+export const SHADING_NOTE: Record<'solid' | 'wire' | 'xray', string> = {
+  solid: 'Solid: the model as it was made, its colours and its light.',
+  wire: 'Wireframe: every triangle as a line, to see how it is built.',
+  xray: 'X-ray: see-through, so the parts inside show.',
+};
