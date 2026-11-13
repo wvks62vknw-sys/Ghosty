@@ -215,6 +215,13 @@ export const learnTab: TabDef = {
 
     // ======================= COURSES
     const cp = panel('COURSES', { cls: 'learncourses' });
+    /** Whether the last sync with the brain went through (the COURSES count is said only then). */
+    let syncOk = true;
+    const syncNow = (): Promise<boolean> =>
+      L.sync().then((ok) => {
+        syncOk = ok;
+        return ok;
+      });
     // ======================= START A COURSE
     const np = panel('START A COURSE', { cls: 'learnnew' });
     const topicIn = h('input', { placeholder: 'What do you want to learn?', 'aria-label': 'Topic to learn', maxlength: '120' });
@@ -291,7 +298,9 @@ export const learnTab: TabDef = {
 
     const paintCourses = () => {
       const s = L.learn.get();
-      cp.setStatus(s.synced ? `${s.courses.length}` : 'ON THIS PHONE', s.synced ? 'ok' : 'mid');
+      // (a count only while the brain answers: offline, or after a sync that failed, the courses are the phone's own copy)
+      const live = !!s.synced && syncOk && navigator.onLine !== false;
+      cp.setStatus(live ? `${s.courses.length}` : 'ON THIS PHONE', live ? 'ok' : 'mid');
       clear(cp.body);
       if (!s.courses.length) {
         const none = empty('NONE', 'Start one below, or just say “teach me photosynthesis”.', 'No courses yet');
@@ -544,7 +553,7 @@ export const learnTab: TabDef = {
           h('div.row.wrap.learnbar', button('NEW QUIZ', () => void startQuiz(q.course !== 'general' ? { course: q.course } : { topic: q.topic }), 'on'), L.dueCards().length ? button('REVISE', () => showRevise({ limit: 10 })) : '', q.course !== 'general' ? button('BACK TO COURSE', () => void showCourse(q.course)) : ''),
         );
         // The brain's score for the course, now that every answer is in.
-        void L.sync().then(() => paintAll());
+        void syncNow().then(() => paintAll());
         paintAll();
         return;
       }
@@ -736,7 +745,7 @@ export const learnTab: TabDef = {
       }
       showExamResult(r, e.exam);
       paintAll();
-      void L.sync().then(() => paintAll());
+      void syncNow().then(() => paintAll());
     };
 
     const showExamResult = (r: ExamMarked, exam: { course: string; title: string; questions: QuizQuestion[] }) => {
@@ -817,7 +826,7 @@ export const learnTab: TabDef = {
 
     const handle = (a: Record<string, unknown>) => {
       const id = typeof a.course === 'string' ? a.course : '';
-      void L.sync().then(() => {
+      void syncNow().then(() => {
         paintAll();
         if (typeof a.quiz === 'string') void L.quizById(a.quiz).then((q) => (q ? showQuiz(q) : toast('That quiz is no longer kept', 'warn')));
         else if (a.view === 'revise') showRevise({ limit: 10 });
@@ -851,7 +860,7 @@ export const learnTab: TabDef = {
         paintAll();
         // An exam left open: back on its question with the time that is really left (or marked, if it ran out).
         if (view === 'exam' && L.learn.get().exam) runExam();
-        void L.sync().then(() => {
+        void syncNow().then(() => {
           paintAll();
           if (view === 'home') showHome();
         });

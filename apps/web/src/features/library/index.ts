@@ -706,7 +706,11 @@ export const libraryTab: TabDef = {
       }
       return r;
     };
-    const freshList = pager(fresh, 46, freshRow, () => 'NONE YET', 'Tap Digest now and he gathers today’s news, papers and events.');
+    // (offline, DIGEST NOW is off: the list says why it is empty instead of asking for a tap that cannot work)
+    const FRESH_OFF = 'You’re offline: today’s digest shows when Ghosty can be reached.';
+    let freshOff = false;
+    const freshList = pager(fresh, 46, freshRow, () => 'NONE YET', 'Tap Digest now and he gathers today’s news, papers and events.', () =>
+      freshOff ? h('div.empty.bad', { dataset: { case: 'keep', state: 'offline' } }, h('span', { dataset: { label: FRESH_OFF } }, FRESH_OFF)) : null);
     const paintFresh = async () => {
       try {
         const all: FreshItem[] = [];
@@ -719,10 +723,13 @@ export const libraryTab: TabDef = {
         }
         const day = all.reduce((d, p) => (p.heading.slice(0, 10) > d ? p.heading.slice(0, 10) : d), '');
         const today = all.filter((p) => p.heading.startsWith(day));
+        freshOff = false;
         fresh.setStatus(day || 'NOTHING YET', day ? 'ok' : 'mid');
         freshList.set(today);
       } catch {
+        freshOff = true;
         fresh.setStatus('OFFLINE', 'off');
+        freshList.set([]);
       }
     };
     const digestBtn = button('DIGEST NOW', async (b) => {
