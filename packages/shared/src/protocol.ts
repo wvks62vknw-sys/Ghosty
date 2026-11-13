@@ -131,6 +131,12 @@ export const CLIENT_COMMANDS = [
   'pack_card', // [packs] not run on the phone: a pack's cards ride in it, and cardsFromTool makes them the chat's live cards (BRIEF-AWARENESS: found when emit became typed)
   'open_creative', // [packs] the creative pack's song, poster, comic, card, logo, palette and beat sheets
   'document', // [document] a change the brain proposes to the open document: shown as a marked change, his tap decides (BRIEF-KERNEL-2)
+  'slides', // [kernel3] a change the brain proposes to the open deck, marked for his tap (BRIEF-KERNEL-3)
+  'videoedit', // [kernel3] a change proposed on the open video's timeline, marked for his tap; never an export
+  'workspace', // [kernel3] a change proposed to the open workspace, marked for his tap
+  'game', // [kernel3] a change proposed to the open game, marked for his tap
+  'open_slides', // [kernel3] slides made from a report or a reply, opened as a new deck (never published)
+  'open_game', // [kernel3] a game built from the studio's own kit, kept in the studio's library and opened there (never published)
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

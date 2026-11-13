@@ -1,6 +1,8 @@
 // BRIEF-EDITOR-VIDEO (the seventh full editor) on the preview, at 440 × 956 and 390 × 844. It needs GL and the recorder: run it
 // WITHOUT NO_GL_SHOTS (the machine's software GL makes it slow), alone:
 //   BASE=http://localhost:8834 timeout 600 node tests/video.spec.mjs tests/.shots
+// (q) BRIEF-KERNEL-3, the brain's `videoedit` tool through ASK GHOSTY: "cut the first clip to the first five seconds" shows one proposal on the timeline (said in seconds, the clip marked), REJECT leaves the video,
+// ACCEPT trims it as one undo step, UNDO puts it back; "export my video" is refused in his words and starts nothing.
 // The BENCHMARK (PROGRAMME-EDITORS 7) is the 440 run: four clips of fifteen seconds drawn by this spec (1280 × 720, a moving shape, a
 // distinct colour and a 1 kHz tone each, made on the preview through the MediaRecorder path and kept in the shots folder, never
 // committed) are added, one trimmed, one split at a SCENES cut, ordered, joined by a crossfade and a wipe, two graded (one with a .cube
@@ -343,6 +345,40 @@ async function run(size, full) {
   check(await page.$eval('.vdcanvas', (c) => c.height <= c.width ? (() => { const g = document.createElement('canvas'); return true; })() : false), `${tag} (p) landscape stays landscape`);
   await looked('four clips on the strip');
   await page.screenshot({ path: `${out}/video-${size.width}-strip.png` });
+
+  // ---------------------------------------------------------------- (q) the brain's `videoedit` tool (BRIEF-KERNEL-3): a proposal on the timeline, his tap decides; an export is only ever his tap
+  {
+    const secs = full ? 5 : 2;
+    const askBox = 'input[aria-label="What Ghosty should change in the video"]';
+    const ask = async (words) => {
+      await page.fill(askBox, words);
+      await page.locator('.vd .gkask button').filter({ hasText: /ask ghosty/i }).click();
+    };
+    const marks = () => page.locator('.vd .gkprop').count();
+    const len00 = await length();
+    const depth00 = (await state()).history;
+    await ask(`cut the first clip to the first ${full ? 'five' : 'two'} seconds`);
+    check(await until(page, () => document.querySelectorAll('.vd .gkprop').length === 1, null, 25000), `${tag} (q) "cut the first clip to the first ${full ? 'five' : 'two'} seconds" shows one proposal`);
+    check((await length()) === len00 && (await state()).history === depth00 && (await proj()).main[0].out - (await proj()).main[0].in > secs * 1000 + 500, `${tag} (q) nothing is applied yet: the timeline and the history are as they were`);
+    check(new RegExp(`Clip 1: keep 0 seconds to ${secs} seconds of its`).test(await page.locator('.vd .gkprop .gkline').first().textContent()), `${tag} (q) the proposal says it in seconds with their word: "${await page.locator('.vd .gkprop .gkline').first().textContent()}"`);
+    check((await page.locator('.vdtile.vdprop').count()) === 1 && (await page.locator('.vdtile.vdprop').getAttribute('data-index')) === '0', `${tag} (q) the clip it is about is marked on the timeline`);
+    // REJECT leaves it
+    await page.locator('.vd .gkprop button').filter({ hasText: /^reject$/i }).click();
+    check((await marks()) === 0 && (await length()) === len00 && (await page.locator('.vdtile.vdprop').count()) === 0, `${tag} (q) REJECT leaves the video and clears the mark`);
+    // ACCEPT trims, one undo step; UNDO puts it back
+    await ask(`cut the first clip to the first ${full ? 'five' : 'two'} seconds`);
+    await until(page, () => document.querySelectorAll('.vd .gkprop').length === 1, null, 25000);
+    await page.locator('.vd .gkprop button').filter({ hasText: /^accept$/i }).click();
+    check(await until(page, (d) => window.__ghosty.video.state().length < d.l - d.drop, { l: len00, drop: full ? 1500 : 500 }, 25000), `${tag} (q) ACCEPT trims the clip`);
+    const w0 = (await where())[0];
+    check(Math.abs(w0.len - secs * 1000) < 80 && (await state()).history === depth00 + 1, `${tag} (q) the first clip is ${w0.len} ms, about ${secs} s, and it is one undo step`);
+    await press('UNDO');
+    check(await until(page, (l) => Math.abs(window.__ghosty.video.state().length - l) < 5, len00, 25000), `${tag} (q) UNDO puts the clip back (${await length()} ms)`);
+    // an export is never started by the tool: the sentence he sees, nothing proposed
+    await ask('export my video');
+    check(await lineHas(/I never start an export/, 25000) && (await marks()) === 0, `${tag} (q) "export my video" is refused in his words and starts nothing: "${(await line()).slice(0, 90)}"`);
+    check(await page.evaluate(() => !window.__ghosty.video.state().lastExport), `${tag} (q) no export was made`);
+  }
 
   // ---------------------------------------------------------------- (c) TRIM by the handle, SPLIT, SPEED
   await pill('trim');

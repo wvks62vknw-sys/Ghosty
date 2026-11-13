@@ -14,6 +14,8 @@
 //  (i) IMPORT of a hand-built .pptx keeps its text and says what it could not keep; an old .ppt and a damaged file are told in words;
 //  (j) autosave said once; the deck reopens where it was;
 //  (k) the Stage's MAKE SLIDES OF IT on a document answer lands in a new deck;
+//  (m) the brain's `slides` tool (BRIEF-KERNEL-3): ASK GHOSTY shows a marked change (the old words struck), REJECT leaves the deck, ACCEPT applies it as one undo step, UNDO puts it back;
+//      "make slides from this" on a report in the chat opens a deck made from it;
 //  (l) the three worlds (The Scan, Glass, ONE INK), BODY 21: clips nothing, every control 44 pt, nothing sideways, the slide upright at 16:9 in the width.
 // The benchmark (a ten-slide deck from a report, themed, two slides moved, a picture, notes on three, presented, exported and read back) is timed
 // and printed, with each step's time.
@@ -646,6 +648,61 @@ let pptxBytes;
 }
 await ctx.close();
 times.total = Date.now() - T0;
+
+// ======================================================================== (m) the brain's `slides` tool (BRIEF-KERNEL-3): marked changes his tap decides, and slides made from a reply
+{
+  const { ctx: c3, page: p3 } = await open();
+  await goSlides(p3);
+  await key(p3, 'START FROM A REPORT').click();
+  await p3.fill('.slreport textarea', REPORT);
+  await key(p3, 'MAKE SLIDES OF THIS').click();
+  check(await until(p3, () => window.__ghosty.slides.view === 'deck' && window.__ghosty.slides.slides.length >= 10), '(m) a deck of ten and more is open');
+  const ask = async (words) => {
+    await p3.fill('input[aria-label="What Ghosty should change in the deck"]', words);
+    await sh(p3).locator('.gkask button', { hasText: /ask ghosty/i }).click();
+  };
+  const marks = () => sh(p3).locator('.gkprop').count();
+  const before = (await S(p3)).slides[2].title;
+  const depth0 = (await S(p3)).undo;
+  await ask("make slide three's title shorter");
+  check(await until(p3, () => document.querySelectorAll('.slsheet .gkprop').length === 1, null, 20000), `(m) "make slide three's title shorter" shows one marked change`);
+  const one = (await S(p3));
+  check(one.slides[2].title === before && one.undo === depth0, 'nothing is applied yet: the title and the history are as they were');
+  const pr = one.proposals[0];
+  check(pr.old === before && pr.now.length > 0 && pr.now.length < before.length && before.startsWith(pr.now), `the marked change is slide three's title, shorter: "${pr.old}" to "${pr.now}"`);
+  check((await sh(p3).locator('.gkprop del').count()) >= 1 && /nothing changes until you accept/i.test(await sh(p3).locator('.gkprops').textContent()), 'the old words are struck and the bar says nothing changes until he accepts');
+  check(await sh(p3).locator('.slcard.slprop').count() === 1, 'the slide the change is about is marked in the film');
+  // REJECT leaves it
+  await sh(p3).locator('.gkprop button', { hasText: /^reject$/i }).click();
+  check((await marks()) === 0 && (await S(p3)).slides[2].title === before && (await S(p3)).undo === depth0, 'REJECT leaves the title and the history as they were');
+  // ACCEPT applies it, one undo step
+  await ask("make slide three's title shorter");
+  await until(p3, () => document.querySelectorAll('.slsheet .gkprop').length === 1, null, 20000);
+  await sh(p3).locator('.gkprop button', { hasText: /^accept$/i }).click();
+  check(await until(p3, (t) => window.__ghosty.slides.slides[2].title !== t, before), 'ACCEPT applies the shorter title');
+  const acc = await S(p3);
+  check(acc.slides[2].title === pr.now && acc.undo === depth0 + 1 && (await marks()) === 0, `it is the proposed title, one undo step, and the mark is gone ("${acc.slides[2].title}")`);
+  await key(p3, 'UNDO').click();
+  check(await until(p3, (t) => window.__ghosty.slides.slides[2].title === t, before), 'UNDO puts the old title back');
+  // "make slides from this" on a report: the real brain's tool opens a deck (nothing published)
+  await p3.evaluate(() => (location.hash = 'core'));
+  await p3.waitForSelector('#cin', { state: 'visible', timeout: 15000 }).catch(async () => { await p3.locator('.logbtn:visible').first().click().catch(() => undefined); });
+  for (let i = 0; i < 6 && !(await p3.locator('#cin:visible').count()); i++) {
+    await p3.locator('.logbtn:visible').first().click({ timeout: 2000 }).catch(() => undefined);
+    await p3.evaluate(() => document.querySelector('.logbtn')?.click());
+    await p3.waitForTimeout(500);
+  }
+  await p3.fill('#cin', 'write me a short report on the damp in flats');
+  await p3.keyboard.press('Enter');
+  check(await until(p3, () => /What you can do/.test(document.body.innerText), null, 25000), '(m) a report with headings is in the chat');
+  await p3.fill('#cin', 'please make slides from this');
+  await p3.keyboard.press('Enter');
+  check(await until(p3, () => !!document.querySelector('.modal .slsheet') && window.__ghosty.slides.view === 'deck' && window.__ghosty.slides.title === 'The damp in flats' && window.__ghosty.slides.slides.length >= 4, null, 30000), '"make slides from this" on a report opens a deck made from it');
+  const made = await S(p3);
+  check(JSON.stringify(made.slides.map((x) => x.title).filter((t) => /^(The damp in flats|What is happening|Why it matters|What you can do)$/.test(t))) === JSON.stringify(['The damp in flats', 'What is happening', 'Why it matters', 'What you can do']), `a slide for the title and each heading, in order: ${made.slides.map((x) => x.title).join(' | ')}`);
+  await p3.screenshot({ path: `${out}/slides-tool.png` });
+  await c3.close();
+}
 
 // ======================================================================== (l) the phone: both widths, BODY 21
 const measure = async (pg, where) => {

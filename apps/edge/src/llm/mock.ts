@@ -201,6 +201,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     if (lastCall?.name === 'social') return { message: { role: 'assistant', content: textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/ Say that in a line; never say it was posted\.$/, '').slice(0, 1500) }, model };
     // [packs2] After a pack's tool (people, work, creative): what it said, as it came (a draft, a letter, the lyrics' frame).
     if (lastCall && ['people', 'work', 'creative', 'outside', 'home', 'learning'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content) }, model };
+    // [kernel3] After the deck, video, workspace and game tools: what they said (a proposal is marked in the editor for him, never applied; a search's lines as they came).
+    if (lastCall && ['slides', 'videoedit', 'workspace', 'game'].includes(lastCall.name)) return { message: { role: 'assistant', content: textOf(last.content).replace(/ NOTHING is changed until[^\n]*$/, ' It is marked in your editor for you to accept or reject.').replace(/ Tell him (?:it is there|it plays)[^\n]*$/, '') }, model };
     // [document] After the document tool: what it did, in a line (a proposal is marked in the page for him, never applied).
     if (lastCall?.name === 'document') return { message: { role: 'assistant', content: /^Proposed/.test(textOf(last.content)) ? 'It is marked in your document: accept it or reject it there.' : textOf(last.content) }, model };
     // [workbench] After estimate: the estimate as it came, the line for the model off (its caveat last and whole).
@@ -270,6 +272,34 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
     const at = ({ first: 1, second: 2, third: 3, fourth: 4 } as Record<string, number>)[m[1]!] ?? Number(m[1]);
     const words = new RegExp(`^\\[${at}\\] (?:#{1,3} )?(.*)$`, 'm').exec(textOf(last.content))?.[1] ?? '';
     return { message: call('document', { op: 'edit', paragraph: at, text: words.split(/(?<=[.!?])\s+/)[0] ?? words }), model };
+  }
+  // [kernel3] the deck, video, workspace and game tools (tools/editors.ts; BRIEF-KERNEL-3): each reads the open editor from the turn's data and proposes.
+  const nth = (w: string): number => ({ first: 1, second: 2, third: 3, fourth: 4, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, ten: 10 } as Record<string, number>)[w.toLowerCase()] ?? Number(w);
+  const dataLine = (re: RegExp): string => new RegExp(re.source, 'm').exec(textOf(last.content))?.[1] ?? '';
+  if (last.role === 'user' && has('slides') && (m = /^(?:please )?make slide (\w+?)(?:'s|’s|s)? title (?:a bit )?shorter/i.exec(docAsk))) {
+    const n = nth(m[1]!);
+    const title = dataLine(new RegExp(`^slide ${n} \\| layout \\w+ \\| title ("(?:[^"\\\\]|\\\\.)*")`)) ;
+    const words = (title ? (JSON.parse(title) as string) : '').split(/\s+/).filter(Boolean);
+    return { message: call('slides', { op: 'edit', slide: n, title: words.slice(0, Math.max(1, Math.ceil(words.length / 2))).join(' ') }), model };
+  }
+  // a short report with headings, for the deck tool to make slides from (the next turn's `slides` make reads this reply back from the turns)
+  if (last.role === 'user' && (m = /^write me a short report on (.+?)\.?$/i.exec(docAsk))) {
+    const t = m[1]!.replace(/^\w/, (c) => c.toUpperCase());
+    return { message: { role: 'assistant', content: `# ${t}\n\nA short look at ${m[1]}, and what to do about it.\n\n## What is happening\n${t} has got worse over the last year, and many people say they have little choice.\n\n## Why it matters\nIt costs money, it harms health, and it is slow to fix.\n\n## What you can do\n- Write to the landlord\n- Keep a diary of the problem\n- Ask the council for help` }, model };
+  }
+  if (last.role === 'user' && has('slides') && /^(?:please )?make slides? from (?:this|that|it)/i.test(docAsk)) return { message: call('slides', { op: 'make' }), model };
+  if (last.role === 'user' && has('videoedit') && (m = /^(?:please )?cut the (first|second|third|\w+) clip to the first (\w+) seconds?/i.exec(docAsk))) return { message: call('videoedit', { op: 'edit', change: 'trim', clip: nth(m[1]!), from: 0, to: nth(m[2]!) }), model };
+  if (last.role === 'user' && has('videoedit') && (m = /^(?:please )?steady the (first|second|third|\w+) clip/i.exec(docAsk))) return { message: call('videoedit', { op: 'edit', change: 'steady', clip: nth(m[1]!) }), model };
+  if (last.role === 'user' && has('videoedit') && /^(?:please )?export (?:the |my )?video/i.test(docAsk)) return { message: call('videoedit', { op: 'export' }), model };
+  if (last.role === 'user' && has('workspace') && (m = /^what did i (?:write|say|note|put) about (?:the |my )?(.+?)\??$/i.exec(docAsk))) return { message: call('workspace', { op: 'search', query: m[1] }), model };
+  if (last.role === 'user' && has('workspace') && (m = /^add ['"‘“](.+?)['"’”] to (?:the|my) (.+? list)$/i.exec(docAsk))) return { message: call('workspace', { op: 'append', page: m[2], text: m[1] }), model };
+  if (last.role === 'user' && has('game') && /^(?:please )?make the first room wider/i.test(docAsk)) {
+    const r = /^room (\S+) \| name ("(?:[^"\\]|\\.)*") \| w (\d+) \| h (\d+)/m.exec(textOf(last.content));
+    return { message: call('game', { op: 'edit', room: r ? (JSON.parse(r[2]!) as string) : 'first', w: Math.min(64, Number(r?.[3] ?? 24) + 8) }), model };
+  }
+  if (last.role === 'user' && has('game') && (m = /^(?:please )?make me an? (platformer|top-?down|adventure)(?: game)? about an? (.+?)\.?$/i.exec(docAsk))) {
+    const what = m[2]!.replace(/\b\w/g, (c) => c.toUpperCase());
+    return { message: call('game', { op: 'make', name: `${what} Run`, kind: /platformer/i.test(m[1]!) ? 'platformer' : 'topdown', world: 'hills', colour: 'Sunset', person: 'Old Badger', lines: [`Welcome, little ${m[2]}! The hills are full of coins.`, 'Bring me three and I will tell you a secret.'], quest: 'The badger’s secret' }), model };
   }
   if (/^DOCUMENT REWRITE\b/.test(docAsk)) return { message: { role: 'assistant', content: 'Please arrange the repair within 14 days.' }, model };
   if (/^DOCUMENT (?:EDIT|TRANSLATE)\b/.test(docAsk)) {

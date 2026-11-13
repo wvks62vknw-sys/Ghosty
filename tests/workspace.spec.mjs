@@ -12,6 +12,7 @@
 //  (i) EXPORT the zip with the size said, its Markdown read back by the app's own importer; IMPORT a CSV says its kinds;
 //  (j) autosave said once; the page reopens where it was;
 //  (k) the Stage's ADD TO A PROJECT on a document answer lands as a page inside the project;
+//  (m) the brain's `workspace` tool (BRIEF-KERNEL-3): "what did I write about the garden?" answered from his own page; "add 'buy seeds' to the garden list" shows one marked change, REJECT leaves the list, ACCEPT adds the row as one undo step;
 //  (l) the three worlds, both widths, BODY 21: clips nothing, every control 44 pt, nothing sideways, every control named;
 //  and THE BENCHMARK: the PROJECT seeded, twelve tasks with dates, four moved across the board by drag, three documents from MY DOCUMENTS linked, then a week run
 //  in a minute (the page's clock advanced a day at a time, 30 edits a day, a reload after each day, the phone's storage made to fail on day four): every one of
@@ -736,6 +737,51 @@ const bench = {};
   check(bench.median < 1500, `the time per edit to “Saved”: median ${bench.median} ms (95th ${bench.p95}, longest ${bench.max}); the 200 ms rule is in it`);
   console.log(`benchmark (a project of a board, a calendar and three linked documents, worked for a week): ${DAYS * PER} edits, median ${bench.median} ms to “Saved”, 95th ${bench.p95} ms, longest ${bench.max} ms; the store is ${(size / 1024).toFixed(1)} KB of ${(8_000_000 / 1_000_000).toFixed(0)} MB; ${bench.total} ms in all with the spec’s own typing and reloads`);
   await bc.close();
+}
+
+// ======================================================================== (m) the brain's `workspace` tool (BRIEF-KERNEL-3): an answer from his own page; a marked change his tap decides
+{
+  const now = Date.now();
+  const b = (id, t, text, extra = {}) => ({ id, t, runs: [{ text }], ...extra });
+  const pg = (id, title, order, extra = {}) => ({ id, title, icon: 'page', parent: null, blocks: [], at: now, created: now, order, ...extra });
+  const seedWs = {
+    v: 1,
+    at: now,
+    versions: {},
+    pages: {
+      wgarden: pg('wgarden', 'Garden', 0, { blocks: [b('b1', 'h1', 'Garden'), b('b2', 'p', 'The beans did well by the fence; the tomatoes need more sun.'), b('b3', 'todo', 'Order compost', { done: 0 })] }),
+      wlist: pg('wlist', 'Garden list', 1, { icon: 'table', db: { props: [{ id: 'pw', name: 'Water', kind: 'text' }, { id: 'ps', name: 'Sun', kind: 'text' }], views: [{ id: 'vt', name: 'TABLE', kind: 'table', hidden: [] }] } }),
+      wr1: pg('wr1', 'Tomato', 0, { parent: 'wlist', vals: { pw: 'daily', ps: 'full sun' } }),
+      wr2: pg('wr2', 'Beans', 1, { parent: 'wlist', vals: { pw: 'weekly', ps: 'part shade' } }),
+      wholiday: pg('wholiday', 'Holiday', 2, { blocks: [b('b4', 'p', 'Book the ferry in March.')] }),
+    },
+  };
+  const { ctx: c3, page: p3 } = await open({ seed: { 'ghosty.workspace': seedWs } });
+  await goWorkspace(p3);
+  const ask = async (words) => {
+    await p3.fill('input[aria-label="What Ghosty should change in the workspace"]', words);
+    await sh(p3).locator('.gkask button', { hasText: /ask ghosty/i }).click();
+  };
+  const rows = async () => Object.values((await store(p3)).pages).filter((x) => x.parent === 'wlist' && !x.deleted).map((x) => x.title);
+  await ask('what did I write about the garden?');
+  check(await until(p3, () => /tomatoes need more sun/.test(window.__ghosty.workspace.said), null, 25000), '(m) "what did I write about the garden?" is answered from his own page');
+  check((await sh(p3).locator('.gkprop').count()) === 0, 'a question changes nothing and marks nothing');
+  const said = (await S(p3)).said;
+  check(/PAGE 1 "Garden"/.test(said) && /TABLE 2 "Garden list"/.test(said) && /tomatoes need more sun/.test(said), `the answer is the Garden page with its words, and the Garden list: ${said.slice(0, 120)}`);
+  const undo0 = (await S(p3)).undo;
+  await ask("add 'buy seeds' to the garden list");
+  check(await until(p3, () => document.querySelectorAll('.wssheet .gkprop').length === 1, null, 25000), `(m) "add 'buy seeds' to the garden list" shows one marked change`);
+  check(JSON.stringify(await rows()) === JSON.stringify(['Tomato', 'Beans']) && (await S(p3)).undo === undo0, 'nothing is added yet: the rows and the history are as they were');
+  check(/new row in .Garden list./i.test(await sh(p3).locator('.gkline').first().textContent()) && /buy seeds/.test(await sh(p3).locator('.gkprop .dcdiff').first().textContent()), 'the change says it is a new row in the Garden list, with its words');
+  await sh(p3).locator('.gkprop button', { hasText: /^reject$/i }).click();
+  check((await sh(p3).locator('.gkprop').count()) === 0 && JSON.stringify(await rows()) === JSON.stringify(['Tomato', 'Beans']), 'REJECT leaves the list as it was');
+  await ask("add 'buy seeds' to the garden list");
+  await until(p3, () => document.querySelectorAll('.wssheet .gkprop').length === 1, null, 25000);
+  await sh(p3).locator('.gkprop button', { hasText: /^accept$/i }).click();
+  check(await until(p3, () => JSON.parse(localStorage.getItem('ghosty.workspace')).pages && Object.values(JSON.parse(localStorage.getItem('ghosty.workspace')).pages).some((x) => x.parent === 'wlist' && x.title === 'buy seeds'), null, 10000), 'ACCEPT adds the row "buy seeds" to the Garden list');
+  check((await S(p3)).undo === undo0 + 1, 'it is one undo step');
+  await p3.screenshot({ path: `${out}/workspace-tool.png` });
+  await c3.close();
 }
 
 // ======================================================================== (l) the phone: both widths, three worlds, BODY 21

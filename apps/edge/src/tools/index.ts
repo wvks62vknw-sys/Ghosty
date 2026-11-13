@@ -57,8 +57,9 @@ import { outsideTools, OUTSIDE_ABOUT, OUTSIDE_WHEN } from './outside'; // [packs
 import { homeAdminTools, HOME_ABOUT, HOME_WHEN } from './homeadmin'; // [packs3] the home pack (its group is "homeadmin": "home" is the furniture finder)
 import { learningTools, LEARNING_ABOUT, LEARNING_WHEN } from './learning'; // [packs3] the learning pack (practice skills beside the LEARN tab)
 import { documentTools, DOCUMENT_ABOUT, DOCUMENT_WHEN } from './document'; // [document] the one open document (BRIEF-KERNEL-2)
+import { slidesTools, SLIDES_ABOUT, SLIDES_WHEN, videoeditTools, VIDEOEDIT_ABOUT, VIDEOEDIT_WHEN, workspaceTools, WORKSPACE_ABOUT, WORKSPACE_WHEN, gameTools, GAME_ABOUT, GAME_WHEN } from './editors'; // [slides] [videoedit] [workspace] [game] the open deck, video, workspace and the studio (BRIEF-KERNEL-3)
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools, ...socialTools, ...peopleTools, ...workTools, ...creativeTools, ...outsideTools, ...homeAdminTools, ...learningTools, ...documentTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs] [social] [packs2] [packs3]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools, ...guardianTools, ...foresightTools, ...workbenchTools, ...moneyTools, ...bodyTools, ...kitchenTools, ...socialTools, ...peopleTools, ...workTools, ...creativeTools, ...outsideTools, ...homeAdminTools, ...learningTools, ...documentTools, ...slidesTools, ...videoeditTools, ...workspaceTools, ...gameTools]; // [photo] [places] [guardian] [foresight] [workbench] [packs] [social] [packs2] [packs3]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -105,7 +106,10 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: uiTools,
     when: 'always',
     // (", open his camera" was " and open his camera": 3 characters for the kitchen pack's "kitchen pack" on the plain turn, BRIEF-PACKS-1)
-    about: 'You can drive the app (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow his drive (road_ahead), open his camera (open_lens).',
+    // (BRIEF-KERNEL-3: the four editors' tools are named off as "deck: slides", "cut: videoedit", "pages: workspace" and "game: game" (56 characters
+    //  with their line breaks); this line's parenthesis of tool names, " (open_tab, fly_to, set_layer, set_theme, set_sensor_mode)", 58 in all, paid for them.
+    //  All five tools are still offered whole: the group is always on, so this line need not list them)
+    about: 'You can drive the app, follow his drive (road_ahead), open his camera (open_lens).',
   },
   {
     name: 'widgets',
@@ -340,6 +344,14 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { name: 'learning', tools: learningTools, when: LEARNING_WHEN, about: LEARNING_ABOUT, short: 'learning pack' },
   // [document] the one document open on his phone: its proposals are marked changes he accepts or rejects (BRIEF-KERNEL-2)
   { name: 'doc', tools: documentTools, when: DOCUMENT_WHEN, about: DOCUMENT_ABOUT },
+  // [deck] the one deck open on his phone: its proposals are marked changes he accepts or rejects (BRIEF-KERNEL-3)
+  { name: 'deck', tools: slidesTools, when: SLIDES_WHEN, about: SLIDES_ABOUT },
+  // [cut] the one video project open on his phone: proposals on the timeline, never an export (BRIEF-KERNEL-3)
+  { name: 'cut', tools: videoeditTools, when: VIDEOEDIT_WHEN, about: VIDEOEDIT_ABOUT },
+  // [pages] the workspace open on his phone: read and search from his own pages, changes only proposed (BRIEF-KERNEL-3)
+  { name: 'pages', tools: workspaceTools, when: WORKSPACE_WHEN, about: WORKSPACE_ABOUT },
+  // [game] a game made from the studio's own kit and the one open in it: kept on the phone, never published, changes only proposed (BRIEF-KERNEL-3)
+  { name: 'game', tools: gameTools, when: GAME_WHEN, about: GAME_ABOUT },
 ];
 
 /** Groups that are always on while the conversation is about building things. */

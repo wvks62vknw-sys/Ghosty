@@ -28,6 +28,10 @@ import { lostWords, readPptx } from './pptxread';
 import { canvasMeasure, paletteOf, slideSvg } from './render';
 import { getDeck, keepWhere, listDecks, removeDeck, saveDeck, where, whenWords } from './store';
 import { THEME_KEYS, THEMES } from './themes';
+import { bullets, slideTitle } from './model';
+import { openWorkBlock, q } from '../../../../packages/shared/src/openwork';
+import { setLiveWork } from '../proposals/live';
+import { askBox, proposalBar } from '../proposals/bar';
 
 const PPTX_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 export const SLIDES_TITLE = 'PRESENTATIONS';
@@ -51,6 +55,7 @@ export const slidesState = {
   panel: 'words',
   undo: 0,
   json: '',
+  proposals: [] as { line: string; old: string; now: string }[],
   present: { on: false, i: 0, step: 0, builds: 0, of: 0, notes: '', next: '', elapsed: 0, transition: '' },
 };
 let current: { close(): void } | null = null;
@@ -232,6 +237,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
   };
   const paintState = (): void => {
     if (!hist) return;
+    askEl.hidden = false;
     const d = deck();
     slidesState.title = d.title;
     slidesState.theme = d.palette ? 'file' : d.theme;
@@ -350,6 +356,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     keepWhere('', '');
     tidy();
     hist = null;
+    sync();
     const decks = listDecks();
     slidesState.kept = decks.length;
     reportBox.hidden = true;
@@ -1401,7 +1408,61 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
   }
 
   // ---------------------------------------------------------------- open
-  const root = h('div.slsheet', status, view, fileIn, photoIn);
+  // ---------------------------------------------------------------- Ghosty's marked changes (BRIEF-KERNEL-3): the brain's `slides` tool proposes, his tap decides
+  const props = proposalBar(() => {
+    slidesState.proposals = props.list();
+  }, (words) => say(words));
+  const dataOf = (): string => {
+    if (!hist) return '';
+    const d = deck();
+    return openWorkBlock('slides', `deck | title ${q(d.title)} | slides ${d.slides.length} | theme ${d.palette ? 'file' : d.theme}`, d.slides.map((s, i) => `slide ${i + 1} | layout ${s.layout} | title ${q(textOf(s.title))}${s.body.map((b) => ` | b ${q(textOf(b))}`).join('')}`));
+  };
+  const gone = (): never => {
+    throw Object.assign(new Error('That slide is not in the deck any more, so I left it alone.'), { refuse: true });
+  };
+  const proposeHere = (a: Record<string, unknown>): string => {
+    if (!hist) return 'No deck is open.';
+    const d = deck();
+    const n = typeof a.slide === 'number' ? a.slide : 0;
+    const target = d.slides[n - 1];
+    const text = typeof a.text === 'string' ? a.text : '';
+    const mark = (id: string) => (on: boolean): void => void view.querySelectorAll<HTMLElement>(`.slcard[data-id="${id}"]`).forEach((c) => c.classList.toggle('slprop', on));
+    const again = (id: string): Slide => deck().slides.find((x) => x.id === id) ?? gone();
+    if (a.change === 'title' && target) {
+      const id = target.id;
+      props.add({ line: `Slide ${n}'s title`, old: slideTitle(target), now: text, mark: mark(id), accept: () => change(withSlide(deck(), id, (sl) => ({ ...again(id), title: { ...sl.title, runs: [{ text }] } }))) });
+    } else if (a.change === 'body' && target) {
+      const id = target.id;
+      const lines = text.split('\n').filter(Boolean);
+      props.add({ line: `Slide ${n}'s words`, old: plainOf(target.body), now: lines.join('\n'), mark: mark(id), accept: () => change(withSlide(deck(), id, (sl) => ({ ...again(id), body: lines.map((l) => block(defaultKind(sl.layout), l)) }))) });
+    } else if (a.change === 'remove' && target) {
+      const id = target.id;
+      props.add({ line: `Take slide ${n} out`, old: slideTitle(target), now: '', mark: mark(id), accept: () => change(removeSlide(deck(), again(id).id)) });
+    } else if (a.change === 'add') {
+      const after = typeof a.after === 'number' ? Math.max(0, Math.min(d.slides.length, a.after)) : d.slides.length;
+      const title = typeof a.title === 'string' ? a.title : '';
+      const lines = (typeof a.body === 'string' ? a.body : '').split('\n').filter(Boolean);
+      props.add({ line: `A new slide after slide ${after}`, old: '', now: [title, ...lines].filter(Boolean).join('\n'), accept: () => change(insertSlide(deck(), after, newSlide('bullets', { title: block('h1', title), body: bullets(lines) }))) });
+    } else if (a.change === 'theme' && typeof a.theme === 'string' && (THEME_KEYS as readonly string[]).includes(a.theme)) {
+      const k = a.theme;
+      props.add({ line: `The ${THEMES[k]!.name} theme for every slide`, old: THEMES[d.palette ? 'ghosty' : d.theme]?.name ?? d.theme, now: THEMES[k]!.name, accept: () => change({ ...deck(), theme: k, palette: undefined }) });
+    } else {
+      const f = 'I could not place that change in the deck.';
+      say(f);
+      return f;
+    }
+    const words = 'Ghosty marked a change: ACCEPT applies it, REJECT leaves your slides as they were.';
+    say(words);
+    return words;
+  };
+  const askEl = askBox('slides', 'the deck', dataOf, proposeHere, (w) => say(w), () => flush());
+  const sync = (): void => {
+    askEl.hidden = !hist;
+    if (!hist) props.clear();
+  };
+  const root = h('div.slsheet', status, props.el, view, askEl, fileIn, photoIn);
+  sync();
+  setLiveWork('slides', { data: dataOf, propose: proposeHere });
   const start = async (o: SlidesAsk): Promise<void> => {
     if (o.deck) {
       hist = new History(o.deck);
@@ -1443,6 +1504,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     stop: () => {
       flush();
       stopPresent();
+      setLiveWork('slides', null);
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', flush);
     },

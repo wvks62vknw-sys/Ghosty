@@ -41,6 +41,8 @@ import { readBack, ruleFor, SAY_NO, type Rule, type Verified } from './verify'; 
 import { openDocData } from '../docs/live'; // [document] the document open in the editor goes with his message, as data (BRIEF-KERNEL-2)
 import { withoutOpenDoc } from '../../../../packages/shared/src/opendoc';
 import { SIGNAL_WENT, type Phase } from '../features/core/words';
+import { withoutOpenWork } from '../../../../packages/shared/src/openwork';
+import { openWorkData } from '../proposals/live'; // [kernel3] a deck, video, workspace or game open in its editor goes with his message, as data (BRIEF-KERNEL-3)
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -1052,7 +1054,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   cloudTurn = turn;
   await stream(
     async (cb) => {
-      await brain.chat(t + openDocData(), context(), (ev) => {
+      await brain.chat(t + openDocData() + openWorkData(t), context(), (ev) => {
         lap.saw(ev.t);
         if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
         // "No model is free" before anything happened: held back, answered on the phone instead (shown as usual if that fails).
@@ -1172,7 +1174,7 @@ export async function loadHistory(ahead?: Promise<HistoryReply | null>): Promise
   try {
     const h = (await ahead) ?? (await brain.history());
     const entries: Entry[] = h.turns.slice(-30).flatMap((t): Entry[] => {
-      if (t.role === 'user') return [{ kind: 'user', text: withoutOpenDoc(t.text), at: t.at }];
+      if (t.role === 'user') return [{ kind: 'user', text: withoutOpenWork(withoutOpenDoc(t.text)), at: t.at }];
       // A page published in that turn keeps its live-link card under the reply.
       return [{ kind: 'assistant', text: t.text, at: t.at, model: t.model, ...(t.cited ? { cited: t.cited } : {}) }, ...(t.link ? [{ kind: 'link', url: t.link.url, title: t.link.title } as Entry] : [])];
     });

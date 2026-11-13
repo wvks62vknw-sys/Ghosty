@@ -8,7 +8,8 @@
 // said and the file read back equal, IMPORT lists it; (i) AS AN APP: the size said and under the target, the manifest, the policy
 // pinning one script by its hash, the exported page running on its own, and the sites path's result said; (j) the ARCADE's MY GAMES
 // row with PLAY and EDIT; (k) "Saved" said, the editor reopens on the same room, UNDO after a delete; (l) every control 44 pt,
-// nothing sideways, BODY 21 clips nothing, the pixel editor's cells at least 22 pt at 390. Each step of the benchmark is timed.
+// nothing sideways, BODY 21 clips nothing, the pixel editor's cells at least 22 pt at 390; (m) "make me a platformer about a fox" in the chat (the brain's `game` tool, BRIEF-KERNEL-3) opens the studio on a
+// new game of the studio's own kit that plays from the ARCADE. Each step of the benchmark is timed.
 //   BASE=http://localhost:8835 node tests/gamestudio.spec.mjs tests/.shots
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -575,6 +576,53 @@ for (const size of [PHONE, { width: 390, height: 844 }].filter((z) => !process.e
   }
   await page.evaluate(() => delete document.documentElement.dataset.body);
   check(errors.length === 0, `${W}: no page error${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
+  await ctx.close();
+}
+// (m) the brain's `game` tool (BRIEF-KERNEL-3): "make me a platformer about a fox" in the chat opens the studio on a new game, built from the studio's own kit and kept in the library; it plays from the ARCADE. (Its own context: the games above are counted at two.)
+if (!process.env.ONLY || process.env.ONLY === '440') {
+  const { ctx, page, errors } = await open(PHONE);
+  console.log('\n== (m) a game made from the chat');
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
+  await page.fill('#cin', 'make me a platformer about a fox');
+  await page.keyboard.press('Enter');
+  check(await until(page, () => location.hash.startsWith('#gamestudio') && document.querySelector('#pg-gamestudio .stPills') && window.__ghostyStudio?.game?.().name === 'Fox Run', null, 30000), '(m) "make me a platformer about a fox" opens the studio on a new game, Fox Run');
+  const g = await S(page, (S) => {
+    const x = S.game();
+    const count = (c) => x.rooms.reduce((n, r) => n + r.rows.reduce((m, row) => m + [...row].filter((ch) => ch === c).length, 0), 0);
+    return { name: x.name, kind: x.kind, rooms: x.rooms.length, sprites: x.sprites.length, npcs: x.npcs.map((n) => [n.name, n.lines.length]), quests: x.quests.length, saves: count('V'), starts: count('P'), tiles: x.tiles.length };
+  });
+  check(g.kind === 'platformer' && g.rooms >= 1 && g.sprites >= 1 && g.npcs.length === 1 && g.npcs[0][0] === 'Old Badger' && g.npcs[0][1] === 2 && g.quests === 1 && g.saves >= 1 && g.starts >= 1 && g.tiles === 0, `(m) it has a room, a sprite, a person who talks, one quest, a save point and none of its own tiles: ${JSON.stringify(g)}`);
+  check(await page.locator('#pg-gamestudio .stTitle').textContent().then((t) => t === 'Fox Run'), '(m) the studio is open on it, to edit');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${out}/gs-fox.png` });
+  // it is in the library, and plays from the ARCADE
+  await page.evaluate(() => (location.hash = 'arcade'));
+  await page.waitForSelector('#pg-arcade .arcmy', { timeout: 10000 });
+  const mine = await page.$$eval('#pg-arcade .arcmy', (c) => c.map((x) => ({ t: x.querySelector('.arctitle')?.textContent, btns: [...x.querySelectorAll('button')].map((b) => b.textContent) })));
+  check(mine.length === 1 && /Fox Run/.test(mine[0].t) && mine[0].btns.join() === 'PLAY,EDIT', `(m) the ARCADE's MY GAMES row lists Fox Run with PLAY and EDIT: ${JSON.stringify(mine)}`);
+  await click(page, '#pg-arcade .arcmy .arcact.play');
+  check(await until(page, () => document.querySelector('.g2ui .g2btn[data-id="play"], .g2ui .g2btn[data-id="new-game"], .g2ui .g2btn[data-id="continue"]'), null, 20000), '(m) PLAY from the ARCADE opens the game\'s own menu: it plays');
+  await page.evaluate(() => [...document.querySelectorAll('.g2menu .g2btns button')].find((b) => /Quit/.test(b.textContent))?.click());
+  // the open game: "make the first room wider" through ASK GHOSTY is a marked change; REJECT leaves it, ACCEPT resizes the room as one undo step
+  await click(page, '#pg-arcade .arcmy .arcact.edit');
+  await until(page, () => location.hash.startsWith('#gamestudio') && document.querySelector('#pg-gamestudio .stPills'), null, 15000);
+  const wide0 = await S(page, (S) => [S.game().rooms[0].w, S.undoDepth()]);
+  const ask = async () => {
+    await page.fill('input[aria-label="What Ghosty should change in the game"]', 'make the first room wider');
+    await page.locator('#pg-gamestudio .gkask button').filter({ hasText: /ask ghosty/i }).click();
+  };
+  await ask();
+  check(await until(page, () => document.querySelectorAll('#pg-gamestudio .gkprop').length === 1, null, 25000), '(m) "make the first room wider" shows one marked change');
+  check((await S(page, (S) => [S.game().rooms[0].w, S.undoDepth()])).join() === wide0.join() && new RegExp(`from ${wide0[0]} × \\d+ to ${wide0[0] + 8} × \\d+ tiles`).test(await page.locator('#pg-gamestudio .gkprop .gkline').first().textContent()), `(m) nothing is applied yet, and it says ${wide0[0]} to ${wide0[0] + 8} tiles`);
+  await page.locator('#pg-gamestudio .gkprop button').filter({ hasText: /^reject$/i }).click();
+  check((await page.locator('#pg-gamestudio .gkprop').count()) === 0 && (await S(page, (S) => S.game().rooms[0].w)) === wide0[0], '(m) REJECT leaves the room as it was');
+  await ask();
+  await until(page, () => document.querySelectorAll('#pg-gamestudio .gkprop').length === 1, null, 25000);
+  await page.locator('#pg-gamestudio .gkprop button').filter({ hasText: /^accept$/i }).click();
+  check(await until(page, (w) => window.__ghostyStudio.game().rooms[0].w === w, wide0[0] + 8, 8000), `(m) ACCEPT makes the room ${wide0[0] + 8} tiles wide`);
+  check((await S(page, (S) => S.undoDepth())) === wide0[1] + 1, '(m) it is one undo step');
+  check(errors.length === 0, `(m) no page error${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   await ctx.close();
 }
 console.log(`\nbenchmark: ${times.join(' · ')}`);

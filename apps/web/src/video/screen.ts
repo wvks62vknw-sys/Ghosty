@@ -11,10 +11,13 @@ import { button, toast } from '../ui/components';
 import { sizeWords } from '../convert/bytes';
 import { encodeWav } from '../convert/audio';
 import {
-  ASPECTS, clipLen, clock, duration, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, splitAt, trimClip, uid, transitionCap,
+  ASPECTS, clipLen, clock, duration, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
   type Aspect, type Clip, type Overlay, type Project, type Source, type TransitionKind,
 } from './model';
 import { addAudio, addMain, addPip, addTitle, copyGrade, cutRanges, splitMany } from './edit';
+import { openWorkBlock, q, secondsWord } from '../../../../packages/shared/src/openwork';
+import { setLiveWork } from '../proposals/live';
+import { askBox, proposalBar } from '../proposals/bar';
 import { Feeder, Player, CODEC_LINE, probe } from './preview';
 import { parseCube, LutError } from './lut';
 import { cuesFromWords, pieces, toSrt, toVtt } from './subs';
@@ -167,7 +170,142 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   const pills = h('div.vdpills', { role: 'tablist', 'aria-label': 'Tools' });
   const tray = h('div.vdtray', { role: 'tabpanel' });
   const empty = h('div.vdempty');
-  const root = h('div.vd', { dataset: { tool: 'trim' } }, h('div.vdbar', nameIn, undoB, redoB, saved), h('div.vdlinerow', line, lineAct), titleLine, stageWrap, h('div.vdtransport', playB, timeEl, scrub), h('div.vdstripbar', addB, zoomRow), strip, empty, pills, tray, addIn);
+  // ---------------------------------------------------------------- Ghosty's marked changes (BRIEF-KERNEL-3): the brain's `videoedit` tool proposes on the timeline, his tap decides; the export is only ever his tap
+  const marked = new Set<string>();
+  const props = proposalBar(() => undefined, (words) => say(words));
+  const markClips = (ids: string[]) => (on: boolean): void => {
+    for (const id of ids) (on ? marked.add(id) : marked.delete(id));
+    renderStrip();
+  };
+  const dataOf = (): string => {
+    const srcName = (id: string): string => project.sources[id]?.name ?? 'clip';
+    return openWorkBlock('video', `video | name ${q(project.name)} | clips ${project.main.length} | len ${duration(project)}`, [
+      ...project.main.map((c, i) => `clip ${i + 1} | src ${q(srcName(c.src))} | in ${Math.round(c.in)} | out ${Math.round(c.out)} | len ${Math.round(clipLen(c))} | speed ${c.speed} | flags ${[c.reverse ? 'reversed' : '', c.steady ? 'steadied' : '', c.tr.keys.speed?.length ? 'ramped' : ''].filter(Boolean).join(',')} | next ${c.next.kind} | nextlen ${Math.round(c.next.len)}`),
+      ...project.music.map((m) => `music ${m.id} | name ${q(srcName(m.src))} | start ${Math.round(m.start)} | len ${Math.round(m.len)}`),
+      ...Object.values(project.sources).filter((x) => x.kind === 'audio').map((x) => `audio ${x.id} | name ${q(x.name)} | len ${Math.round(x.dur)}`),
+      ...(project.subs.length ? [`subs ${project.subs.length} | first ${q(project.subs[0]!.text)}`] : []),
+    ]);
+  };
+  const proposeHere = (a: Record<string, unknown>): string => {
+    const n = typeof a.clip === 'number' ? a.clip : 0;
+    const c = project.main[n - 1];
+    const fail = (): string => {
+      const f = 'I could not place that change in the video.';
+      say(f);
+      return f;
+    };
+    const stillThere = (id: string): Clip => project.main.find((x) => x.id === id) ?? (() => { throw Object.assign(new Error('That clip is not in the video any more, so I left it alone.'), { refuse: true }); })();
+    const sec = (v: unknown): number => Math.round(Number(v) * 1000);
+    switch (a.change) {
+      case 'trim': {
+        if (!c) return fail();
+        const id = c.id;
+        const from = sec(a.from ?? 0);
+        const to = sec(a.to);
+        props.add({ line: `Clip ${n}: keep ${secondsWord(from)} to ${secondsWord(to)} of its ${secondsWord(clipLen(c))}`, mark: markClips([id]), accept: () => {
+          const z = stillThere(id);
+          const p1 = sourceTime(z, from);
+          const p2 = sourceTime(z, to);
+          commit(trimClip(project, id, Math.round(Math.min(p1, p2)), Math.round(Math.max(p1, p2))), `Clip ${n} is ${secondsWord(to - from)} now. UNDO puts it back.`);
+        }, said: '' });
+        break;
+      }
+      case 'swap': {
+        const m = typeof a.with === 'number' ? a.with : 0;
+        const d = project.main[m - 1];
+        if (!c || !d) return fail();
+        const ids: [string, string] = [c.id, d.id];
+        props.add({ line: `Swap clips ${n} and ${m}`, mark: markClips(ids), accept: () => {
+          const q2 = structuredClone(project);
+          const i = q2.main.findIndex((x) => x.id === ids[0]);
+          const j = q2.main.findIndex((x) => x.id === ids[1]);
+          if (i < 0 || j < 0) stillThere('');
+          [q2.main[i], q2.main[j]] = [q2.main[j]!, q2.main[i]!];
+          commit(fixTransitions(q2), `Clips ${n} and ${m} swapped.`);
+        }, said: '' });
+        break;
+      }
+      case 'remove': {
+        if (!c) return fail();
+        const id = c.id;
+        props.add({ line: `Take clip ${n} (${secondsWord(clipLen(c))}) out`, mark: markClips([id]), accept: () => {
+          stillThere(id);
+          commit(removeClip(project, id), `Clip ${n} is out of the video; the original is still on your phone.`);
+          sel = '';
+        }, said: '' });
+        break;
+      }
+      case 'transition': {
+        if (!c) return fail();
+        const id = c.id;
+        const kind = String(a.kind) as 'cut' | 'crossfade' | 'dip' | 'wipe' | 'slide';
+        const len = sec(a.seconds ?? 0);
+        props.add({ line: kind === 'cut' ? `A plain cut from clip ${n} to clip ${n + 1}` : `A ${kind} of ${secondsWord(len)} from clip ${n} to clip ${n + 1}`, mark: markClips([id]), accept: () => {
+          stillThere(id);
+          const i = project.main.findIndex((x) => x.id === id);
+          commit(setTransition(project, i, kind, kind === 'cut' ? 0 : len), kind === 'cut' ? 'A plain cut.' : `A ${kind} of ${secondsWord(project.main[i]!.next.len)} (never more than half the shorter clip).`);
+        }, said: '' });
+        break;
+      }
+      case 'music': {
+        const src = Object.values(project.sources).find((x) => x.kind === 'audio' && x.name === a.track);
+        if (!src) return fail();
+        props.add({ line: `${src.name} (${secondsWord(src.dur)}) as the music`, accept: () => {
+          const r = addAudio(project, 'music', src, 0);
+          r.p.music = r.p.music.filter((m) => m.id === r.id);
+          commit(r.p, `${src.name} is the music now.`);
+        }, said: '' });
+        break;
+      }
+      case 'subtitles': {
+        if (a.on === true) props.add({ line: 'Write the subtitles from the clip’s sound', accept: () => { pick('subtitles'); say('The SUBTITLES tray is open: tap FROM MY BRAIN to write them (the clip’s sound goes to my brain only then).'); }, said: '' });
+        else props.add({ line: `Take the ${project.subs.length} subtitle line${project.subs.length === 1 ? '' : 's'} off`, accept: () => commit({ ...structuredClone(project), subs: [] }, 'The subtitles are off. UNDO puts them back.'), said: '' });
+        break;
+      }
+      case 'steady': {
+        if (!c) return fail();
+        const id = c.id;
+        props.add({ line: `Steady clip ${n} (${secondsWord(clipLen(c))}) on your phone`, mark: markClips([id]), accept: () => { stillThere(id); sel = id; pick('speed'); void runSteady(id, c.steady?.strength ?? 0.5); }, said: '' });
+        break;
+      }
+      case 'best': {
+        const secs = Number(a.seconds);
+        props.add({ line: `Choose the best ${secondsWord(secs * 1000)} from the clips (you tick the stretches before the cut is made)`, accept: () => { bestTarget = secs; pick('scenes'); void runBest(); }, said: '' });
+        break;
+      }
+      case 'beat':
+        props.add({ line: 'Move the cuts on to the music’s beat', accept: () => { pick('sound'); void runSnap(); }, said: '' });
+        break;
+      case 'reverse': {
+        if (!c) return fail();
+        const id = c.id;
+        props.add({ line: `Play clip ${n} (${secondsWord(clipLen(c))}) backwards`, mark: markClips([id]), accept: () => {
+          stillThere(id);
+          commit(fixTransitions(editClip(id, (z) => { z.reverse = !z.reverse; if (z.steady) rekey(z); })), 'The clip plays backwards. UNDO puts it back.');
+        }, said: '' });
+        break;
+      }
+      case 'ramp': {
+        if (!c) return fail();
+        const id = c.id;
+        const to = Number(a.ramp_to);
+        props.add({ line: `A ramp on clip ${n} from 1× to ${to}×`, mark: markClips([id]), accept: () => {
+          const z = stillThere(id);
+          const span = z.out - z.in;
+          commit(fixTransitions(editClip(id, (y) => { y.tr.keys.speed = [{ t: 0, v: 1 }, { t: span, v: to }]; if (y.steady) rekey(y); })), `A ramp from 1× to ${to}×: the clip is ${lengthWords(clipLen(project.main.find((x) => x.id === id)!))}. UNDO puts it back.`);
+        }, said: '' });
+        break;
+      }
+      default:
+        return fail();
+    }
+    const words = 'Ghosty marked a change on the timeline: ACCEPT applies it, REJECT leaves your video as it was. Nothing exports until you tap EXPORT.';
+    say(words);
+    return words;
+  };
+  const askEl = askBox('video', 'the video', dataOf, proposeHere, (w) => say(w));
+  const root = h('div.vd', { dataset: { tool: 'trim' } }, h('div.vdbar', nameIn, undoB, redoB, saved), h('div.vdlinerow', line, lineAct), props.el, titleLine, stageWrap, h('div.vdtransport', playB, timeEl, scrub), h('div.vdstripbar', addB, zoomRow), strip, empty, pills, tray, askEl, addIn);
+  setLiveWork('video', { data: dataOf, propose: proposeHere });
 
   // ---------------------------------------------------------------- saying
   const say = (words: string, act?: HTMLElement | null) => {
@@ -349,6 +487,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         style: { left: `${(x.start / 1000) * pps}px`, width: `${Math.max(56, (x.len / 1000) * pps)}px` },
       });
       if (x.clip.id === sel) tile.classList.add('on');
+      if (marked.has(x.clip.id)) tile.classList.add('vdprop');
       void posterUrl(x.clip.src).then((u) => u && (tile.style.backgroundImage = `url(${u})`));
       tile.append(h('b', `${x.index + 1}`), h('small', lengthWords(x.len)));
       if (x.tin) tile.append(h('i.vdtr', { 'aria-hidden': 'true', title: x.tin.kind }, { crossfade: '⨯', dip: '◐', wipe: '▶', slide: '⇥', cut: '' }[x.tin.kind] ?? ''));
@@ -1847,6 +1986,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     },
     stop() {
       stopped = true;
+      setLiveWork('video', null);
       videoState.open = false;
       recording?.stop();
       steadying && (steadying.cancelled = true);

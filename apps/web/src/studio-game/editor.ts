@@ -15,6 +15,9 @@ import { thumbnail } from './draw';
 import { info, takeAsks, type StudioAsk } from './hub';
 import { clone, firstRoom, type Game, History, hardProblems, problems, resizeRoom, TEMPLATES, template, type TemplateId, Refused } from './model';
 import { autosave, getGame, keeps, listGames, type Meta, putGame, removeGame, room } from './store';
+import { openWorkBlock, q } from '../../../../packages/shared/src/openwork';
+import { setLiveWork } from '../proposals/live';
+import { askBox, proposalBar } from '../proposals/bar';
 
 const LAST = 'ghosty.studio.last';
 const lastOpen = (): { id: string; room: string; tab: Tab } | null => {
@@ -215,6 +218,49 @@ export function mountStudio(host: { left: HTMLElement; right: HTMLElement; big: 
   const probs = h('div.stProbs');
   clear(game.body, head, pillsEl, probs, said, body);
 
+  // ---------------------------------------------------------------- Ghosty's marked changes (BRIEF-KERNEL-3): the brain's `game` tool proposes, his tap decides
+  const props = proposalBar(() => undefined, say);
+  const dataOf = (): string => {
+    if (!hist) return '';
+    const g = hist.game;
+    return openWorkBlock('game', `game | name ${q(g.name)} | kind ${g.kind}`, [
+      ...g.rooms.map((r) => `room ${r.id} | name ${q(r.name)} | w ${r.w} | h ${r.h}`),
+      ...g.npcs.map((n) => `person ${n.id} | name ${q(n.name)}${n.lines.map((l) => ` | line ${q(l.text)}`).join('')}`),
+      ...g.quests.map((x) => `quest ${x.id} | name ${q(x.name)} | steps ${x.steps.length}${x.reward.line ? ` | reward ${q(x.reward.line)}` : ''}`),
+    ]);
+  };
+  const proposeHere = (a: Record<string, unknown>): string => {
+    if (!hist) return 'No game is open.';
+    const g = hist.game;
+    const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+    const gone = (what: string): never => {
+      throw Object.assign(new Error(`That ${what} is not in the game any more, so I left it alone.`), { refuse: true });
+    };
+    if (a.change === 'room' && g.rooms.some((r) => r.id === a.room)) {
+      const id = str(a.room);
+      const w = Number(a.w);
+      const hh = Number(a.h);
+      props.add({ line: `Resize “${str(a.name)}” from ${Number(a.oldW)} × ${Number(a.oldH)} to ${w} × ${hh} tiles`, accept: () => void (attempt(ctx, (x) => resizeRoom(x.rooms.find((r) => r.id === id) ?? gone('room'), w, hh)) || undefined) });
+    } else if (a.change === 'dialogue' && g.npcs.some((n) => n.id === a.person)) {
+      const id = str(a.person);
+      const lines = Array.isArray(a.lines) ? a.lines.map((l) => str(l)).filter(Boolean).slice(0, 8) : [];
+      props.add({ line: `What ${str(a.name)} says`, old: str(a.old).replace(/\n/g, ' / '), now: lines.join(' / '), accept: () => void attempt(ctx, (x) => void ((x.npcs.find((n) => n.id === id) ?? gone('person')).lines = lines.map((text) => ({ text, once: false })))) });
+    } else if (a.change === 'quest' && g.quests.some((x) => x.id === a.quest)) {
+      const id = str(a.quest);
+      props.add({ line: 'The quest’s name', old: str(a.old), now: str(a.text), accept: () => void attempt(ctx, (x) => void ((x.quests.find((z) => z.id === id) ?? gone('quest')).name = str(a.text).slice(0, 40))) });
+    } else {
+      const f = 'I could not place that change in the game.';
+      say(f);
+      return f;
+    }
+    const words = 'Ghosty marked a change: ACCEPT applies it, REJECT leaves your game as it was.';
+    say(words);
+    return words;
+  };
+  const askEl = askBox('game', 'the game', dataOf, proposeHere, say);
+  game.body.insertBefore(props.el, body);
+  game.body.insertBefore(askEl, body);
+
   function paintEditor() {
     if (!hist || !current) return;
     const g = hist.game;
@@ -262,6 +308,8 @@ export function mountStudio(host: { left: HTMLElement; right: HTMLElement; big: 
     game.el.hidden = false;
     paintEditor();
     wire(g);
+    props.clear();
+    setLiveWork('game', { data: dataOf, propose: proposeHere });
     return true;
   }
   async function closeGame() {
@@ -269,6 +317,8 @@ export function mountStudio(host: { left: HTMLElement; right: HTMLElement; big: 
     for (const f of leave.splice(0)) f();
     hist = null;
     current = null;
+    props.clear();
+    setLiveWork('game', null);
     setLast(null);
     game.el.hidden = true;
     shelf.el.hidden = false;
@@ -343,6 +393,7 @@ export function mountStudio(host: { left: HTMLElement; right: HTMLElement; big: 
   return {
     stop() {
       stopAsks();
+      setLiveWork('game', null);
       void saver.flush();
       for (const f of leave.splice(0)) f();
     },

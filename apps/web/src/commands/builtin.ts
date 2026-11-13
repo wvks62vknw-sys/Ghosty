@@ -604,6 +604,41 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [kernel3] a change the brain's `slides`, `videoedit`, `workspace` or `game` tool proposes to the editor that is open: marked there, his tap decides (proposals/live.ts)
+      id: 'slides',
+      title: 'A change proposed to the open deck',
+      group: 'GO',
+      run: async (a) => toast((await import('../proposals/live')).proposeToWork('slides', a && typeof a === 'object' ? (a as Record<string, unknown>) : {})),
+    },
+    {
+      id: 'videoedit',
+      title: 'A change proposed to the open video project',
+      group: 'GO',
+      run: async (a) => toast((await import('../proposals/live')).proposeToWork('video', a && typeof a === 'object' ? (a as Record<string, unknown>) : {})),
+    },
+    {
+      id: 'workspace',
+      title: 'A change proposed to the open workspace',
+      group: 'GO',
+      run: async (a) => toast((await import('../proposals/live')).proposeToWork('workspace', a && typeof a === 'object' ? (a as Record<string, unknown>) : {})),
+    },
+    {
+      id: 'game',
+      title: 'A change proposed to the open game',
+      group: 'GO',
+      run: async (a) => toast((await import('../proposals/live')).proposeToWork('game', a && typeof a === 'object' ? (a as Record<string, unknown>) : {})),
+    },
+    {
+      // [kernel3] a game the brain built from the studio's own kit: kept in the studio's library and opened there, never published (studio-game/fromchat.ts)
+      id: 'open_game',
+      title: 'Game studio: a game made from the chat',
+      group: 'GO',
+      run: async (a) => {
+        const { openMadeGame } = await import('../studio-game/fromchat');
+        toast(await openMadeGame(a && typeof a === 'object' ? (a as Record<string, unknown>) : {}));
+      },
+    },
+    {
       // [packs3] THE OUTSIDE PACK's sheet (features/outside): a safer walk, what is near, where I parked, lost, a fare split.
       id: 'open_outside',
       title: 'Outside: walk, car parks, toilets, cash, car, lost',

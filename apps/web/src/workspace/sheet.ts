@@ -19,7 +19,10 @@ import { askBrain } from '../docs/ask';
 import { fromMarkdown, newTable, tidyRuns, type Block, type Run } from '../docs/model';
 import { caretAt, fillRuns, placeCaret, readRuns, safeLink, splitRuns } from './runs';
 import { dueWords, askMessage, flatten, sizeLine } from './context';
-import { dateWords, isoOf, newDatabase } from './db';
+import { addRow, dateTyped, dateWords, isoOf, newDatabase, propNamed, setVal, shown } from './db';
+import { openWorkBlock, q } from '../../../../packages/shared/src/openwork';
+import { setLiveWork } from '../proposals/live';
+import { askBox, proposalBar } from '../proposals/bar';
 import { exportTree, importFiles } from './md';
 import { searchWs } from './search';
 import { agoWords, restoreVersion, snapshot, versionsOf } from './versions';
@@ -125,7 +128,108 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
   const view = h('div.wsview0');
   const fileIn = h('input', { type: 'file', hidden: true, multiple: true, accept: '.md,.markdown,.txt,.csv,.zip,text/markdown,text/csv,application/zip', 'aria-label': 'Choose Markdown, CSV or a zip to read' }) as HTMLInputElement;
   const photoIn = h('input', { type: 'file', hidden: true, accept: 'image/*', 'aria-label': 'Choose a photo for the page' }) as HTMLInputElement;
-  const el = h('div.wssheet', status, h('div.wsline', savedEl, flash), metaEl, view, fileIn, photoIn);
+  // ---------------------------------------------------------------- Ghosty's marked changes (BRIEF-KERNEL-3): the brain's `workspace` tool proposes, his tap decides
+  const props = proposalBar(() => undefined, (words) => say(words));
+  /** The pages in the order the tree shows them (rows left out: a database's rows are its own lines). */
+  const ordered = (): Page[] => {
+    const out: Page[] = [];
+    const walk = (parent: string | null, guard = 0): void => {
+      if (guard > 12) return;
+      for (const p of children(ws(), parent)) {
+        if (isRow(ws(), p)) continue;
+        out.push(p);
+        walk(p.id, guard + 1);
+      }
+    };
+    walk(null);
+    return out;
+  };
+  const dataOf = (): string => {
+    const w = ws();
+    const lines: string[] = [];
+    ordered().forEach((p, i) => {
+      const n = i + 1;
+      if (p.db) {
+        lines.push(`table ${n} | title ${q(titleOf(p))}${p.db.props.map((x) => ` | col ${q(x.name)}`).join('')}`);
+        rowsOf(w, p.id).forEach((r, k) => lines.push(`row ${n}.${k + 1} | title ${q(titleOf(r))}${p.db!.props.map((x) => ` | v ${q(shown(w, p.id, r, x).text)}`).join('')}`));
+      } else lines.push(`page ${n} | title ${q(titleOf(p))}`);
+      p.blocks.forEach((b, k) => {
+        const t = wText(b, w).trim();
+        if (t && b.t !== 'view') lines.push(`block ${n}.${k + 1} | t ${b.t} | text ${q(t.slice(0, 400))}${b.t === 'todo' ? ` | done ${b.done ? 1 : 0}` : ''}`);
+      });
+    });
+    return openWorkBlock('workspace', `workspace | pages ${lines.filter((l) => /^(page|table) /.test(l)).length}`, lines);
+  };
+  const byName = (title: string): Page | undefined => {
+    const k = title.trim().toLowerCase();
+    return ordered().find((p) => titleOf(p).toLowerCase() === k) ?? ordered().find((p) => k && titleOf(p).toLowerCase().includes(k));
+  };
+  const goneW = (what: string): never => {
+    throw Object.assign(new Error(`That ${what} is not in the workspace any more, so I left it alone.`), { refuse: true });
+  };
+  const proposeHere = (a: Record<string, unknown>): string => {
+    const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+    const text = str(a.text);
+    const page = byName(str(a.page));
+    const fail = (): string => {
+      const f = 'I could not place that change in the workspace.';
+      say(f);
+      return f;
+    };
+    if (a.change === 'block' && page) {
+      const b = page.blocks[Number(a.block) - 1];
+      if (!b) return fail();
+      const pid = page.id;
+      const bid = b.id;
+      props.add({ line: `A block of “${titleOf(page)}”`, old: wText(b, ws()), now: text, accept: () => {
+        if (!ws().pages[pid]?.blocks.some((x) => x.id === bid)) goneW('block');
+        change(setRuns(ws(), pid, bid, [{ text }]), 'all');
+      } });
+    } else if (a.change === 'cell' && page?.db) {
+      const rowTitle = str(a.row).trim().toLowerCase();
+      const row = rowsOf(ws(), page.id).find((r) => titleOf(r).toLowerCase() === rowTitle);
+      const colName = str(a.column);
+      const prop = colName.toLowerCase() === 'name' ? null : propNamed(page.db, colName);
+      if (!row || (!prop && colName.toLowerCase() !== 'name')) return fail();
+      const rid = row.id;
+      props.add({ line: `“${colName}” of “${titleOf(row)}” in “${titleOf(page)}”`, old: str(a.old), now: text, accept: () => {
+        if (!ws().pages[rid]) goneW('row');
+        if (!prop) return change(setTitle(ws(), rid, text), 'all');
+        let v: string | number | boolean | null = text;
+        if (prop.kind === 'number') {
+          v = Number(text.replace(/[^\d.-]/g, ''));
+          if (!Number.isFinite(v)) throw Object.assign(new Error(`“${text}” is not a number, so I left “${prop.name}” alone.`), { refuse: true });
+        } else if (prop.kind === 'check') v = /^(?:yes|true|done|ticked|x|1)$/i.test(text.trim());
+        else if (prop.kind === 'date') {
+          v = dateTyped(text);
+          if (!v) throw Object.assign(new Error(`I could not read “${text}” as a date, so I left “${prop.name}” alone.`), { refuse: true });
+        } else if (!['text', 'select', 'person'].includes(prop.kind)) throw Object.assign(new Error(`“${prop.name}” is worked out or linked, so I left it alone.`), { refuse: true });
+        change(setVal(ws(), rid, prop.id, v), 'all');
+      } });
+    } else if (a.change === 'append' && page) {
+      const pid = page.id;
+      const last = page.blocks[page.blocks.length - 1];
+      props.add({ line: page.db ? `A new row in “${titleOf(page)}”` : `At the end of “${titleOf(page)}”`, old: '', now: text, accept: () => {
+        if (!ws().pages[pid]) goneW('page');
+        if (page.db) change(addRow(ws(), pid, text).ws, 'all');
+        else change(insertBlock(ws(), pid, wblock(last?.t === 'todo' ? 'todo' : last?.t === 'ul' ? 'ul' : 'p', text)), 'all');
+      } });
+    } else if (a.change === 'page') {
+      const parent = str(a.parent) ? byName(str(a.parent)) : undefined;
+      if (str(a.parent) && !parent) return fail();
+      const title = str(a.title).slice(0, 120);
+      props.add({ line: `A new page “${title}”${parent ? ` under “${titleOf(parent)}”` : ''}`, old: '', now: text, accept: () => {
+        const r = newPage(ws(), { title, parent: parent ? parent.id : null, blocks: text ? text.split(/\n{2,}|\n/).filter(Boolean).map((t) => wblock('p', t)) : [], from: 'made with Ghosty' });
+        change(r.ws, 'all');
+      } });
+    } else return fail();
+    const words = 'Ghosty marked a change: ACCEPT applies it, REJECT leaves your pages as they were.';
+    say(words);
+    return words;
+  };
+  const askEl = askBox('workspace', 'the workspace', dataOf, proposeHere, (w) => say(w), () => flush());
+  const el = h('div.wssheet', status, h('div.wsline', savedEl, flash), metaEl, props.el, view, askEl, fileIn, photoIn);
+  setLiveWork('workspace', { data: dataOf, propose: proposeHere });
 
   function purgeAndLoad(): Workspace {
     return loadWorkspace();
@@ -1171,6 +1275,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
   };
   const stop = (): void => {
     flush();
+    setLiveWork('workspace', null);
     clearTimeout(timer);
     clearTimeout(retry);
     document.removeEventListener('visibilitychange', onHide);
