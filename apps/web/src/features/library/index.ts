@@ -131,14 +131,6 @@ function marked(text: string, terms: string[]): Node[] {
   return out;
 }
 
-/** Files shared to Ghosty from another app (library/share.ts): taken by the Add path below once the library is built, the same as a file picked there. */
-let ingestHook: ((files: File[]) => void) | null = null;
-const sharedWaiting: File[] = [];
-export function addSharedFiles(files: File[]): void {
-  if (ingestHook) ingestHook(files);
-  else sharedWaiting.push(...files);
-}
-
 export const libraryTab: TabDef = {
   id: 'library',
   title: 'LIBRARY',
@@ -231,8 +223,6 @@ export const libraryTab: TabDef = {
         void refresh();
       }
     };
-    ingestHook = (files) => void ingest(files);
-    if (sharedWaiting.length) void ingest(sharedWaiting.splice(0));
     fileInput.addEventListener('change', () => {
       const files = [...(fileInput.files ?? [])];
       fileInput.value = '';

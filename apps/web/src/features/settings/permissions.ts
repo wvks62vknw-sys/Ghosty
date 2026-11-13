@@ -9,7 +9,6 @@
 import { clear, h } from '../../core/dom';
 import { lastPerm, lastRefusal, notePerm, type PermRow } from '../../ui/permrecord';
 import { panel, type Panel } from '../../ui/components';
-import { rest } from '../../ui/oneline';
 import { checkStorage, homeScreenApp, storageState } from '../system/storage';
 
 interface Spec {
@@ -23,18 +22,18 @@ interface Spec {
   how: string;
 }
 
-const SETTINGS = 'In Settings, Ghosty, switch it on:';
+const SETTINGS = 'Settings, Ghosty, then switch it on. If Ghosty is not in that list, Settings, Apps, Safari, then the address Ghosty is on.';
 
 export const PERMS: Spec[] = [
-  { id: 'camera', name: 'Camera', api: 'camera', row: 'camera', uses: 'The Lens: reading, scanning, translating and naming what you point it at.', never: 'I never name a stranger from their face; the faces and voices I know are yours and people you introduce.', how: `${SETTINGS} Camera.` },
-  { id: 'microphone', name: 'Microphone', api: 'microphone', row: 'microphone', uses: 'Talking to me, dictation and the sound modes of the Lens.', never: 'I never listen in the background, and your voice is never a lock on its own.', how: `${SETTINGS} Microphone.` },
-  { id: 'location', name: 'Location', api: 'geolocation', row: 'location', uses: 'Where you are on the map, the nearest things, and a walk home that you start.', never: 'Your live position never reaches my brain: it gets the name of a saved place, never coordinates.', how: `${SETTINGS} Location.` },
-  { id: 'notifications', name: 'Notifications', api: 'notifications', row: 'notifications', uses: 'Telling you when a reminder, a warning near your places or a watcher goes off.', never: 'I never send adverts, and I never do anything that could cost you money.', how: `${SETTINGS} Notifications, once Ghosty is on your Home Screen.` },
-  { id: 'motion', name: 'Motion', row: 'motion', uses: 'Tilt to look around, and the level in the measuring tools.', never: 'It stays on the phone; I never record how you move.', how: `${SETTINGS} Motion and Orientation, which Safari asks once.` },
-  { id: 'clipboard', name: 'Clipboard', api: 'clipboard-read', row: 'clipboard', uses: 'Pasting into my box when you press paste, and copying a reply when you press copy.', never: 'I never read what you copied without your tap.', how: 'Safari asks each time I paste; there is no setting to change.' },
-  { id: 'storage', name: 'Kept storage', uses: 'Stopping Safari clearing what lives only on this phone (courses, cards, plans) after seven days unused.', never: 'I only use the room for your own things, and your daily backup can bring them back if it is cleared anyway.', how: 'Add Ghosty to your Home Screen, open it from there, then press PROTECT in System.' },
-  { id: 'homescreen', name: 'Home Screen app', uses: 'Opening full screen, and Safari sparing what Ghosty keeps.', never: 'Adding it changes nothing about what I can see.', how: 'Share, then Add to Home Screen; to remove it, press and hold its icon and choose Remove App.' },
-  { id: 'wifi', name: 'Downloads on Wi-Fi', uses: 'Big files (a brain on the phone, maps, models) come only when you tap, with their size said first.', never: 'I never download by myself, and never on mobile data.', how: 'This is always on; there is nothing to switch.' },
+  { id: 'camera', name: 'Camera', api: 'camera', row: 'camera', uses: 'The Lens: reading, scanning, translating and naming what you point it at.', never: 'I never name a stranger from their face. Faces and voices I know are only yours and the people you introduce, and they stay on this phone.', how: `${SETTINGS} Choose Camera.` },
+  { id: 'microphone', name: 'Microphone', api: 'microphone', row: 'microphone', uses: 'Talking to me, dictation and the sound modes of the Lens.', never: 'I never listen in the background, and your voice is never a lock on its own: it can say who is talking, never let anyone in.', how: `${SETTINGS} Choose Microphone.` },
+  { id: 'location', name: 'Location', api: 'geolocation', row: 'location', uses: 'Where you are on the map, the nearest things, and a walk home that you start.', never: 'Your live position never reaches my brain: it gets the name of a saved place, never coordinates.', how: `${SETTINGS} Choose Location.` },
+  { id: 'notifications', name: 'Notifications', api: 'notifications', row: 'notifications', uses: 'Telling you when a reminder, a warning near your places or a watcher goes off.', never: 'I never send adverts, and I never do anything that could cost you money.', how: `${SETTINGS} Choose Notifications. They only work once Ghosty is on your Home Screen.` },
+  { id: 'motion', name: 'Motion', row: 'motion', uses: 'Tilt to look around, and the level in the measuring tools.', never: 'It stays on the phone. I never record how you move.', how: `${SETTINGS} Choose Motion and Orientation. Safari asks once, the first time I use tilt.` },
+  { id: 'clipboard', name: 'Clipboard', api: 'clipboard-read', row: 'clipboard', uses: 'Pasting into my box when you press paste, and copying a reply when you press copy.', never: 'I never read what you copied without your tap.', how: 'Safari asks each time I paste. There is no setting to change.' },
+  { id: 'storage', name: 'Kept storage', uses: 'Stopping Safari clearing what lives only on this phone (courses, cards, plans) after seven days unused.', never: 'I only use the room for your own things, and your daily backup can bring them back if it is cleared anyway.', how: 'Add Ghosty to your Home Screen (Share, then Add to Home Screen), open it from there, then press PROTECT in System.' },
+  { id: 'homescreen', name: 'Home Screen app', uses: 'Opening full screen, and Safari sparing what Ghosty keeps.', never: 'Adding it changes nothing about what I can see.', how: 'Share, then Add to Home Screen. To remove it, press and hold its icon and choose Remove App.' },
+  { id: 'wifi', name: 'Downloads on Wi-Fi', uses: 'Big files (a brain on the phone, maps, models) come only when you tap, with their size said first.', never: 'I never download by myself, and never on mobile data.', how: 'This is always on. There is nothing to switch.' },
 ];
 
 /** The browser's own answer for one thing, or null where Safari does not give one. */
@@ -76,12 +75,12 @@ export function permissionsPanel(): Panel & { refresh(): void } {
   const refused = h('p.g-truth.permrefused', { role: 'status', dataset: { case: 'keep' } });
   refused.hidden = true;
   const box = h('div.permlist');
-  p.body.append(h('p.note', { dataset: { case: 'keep' } }, 'Everything the phone can be asked for, what I use it for and what I never do with it.'), rest('If Ghosty is not in that list, go to Settings, Apps, Safari, then the address Ghosty is on. Nothing here asks for anything: it only looks. Faces and voices I know stay on this phone, and your daily backup can bring back what Safari clears.'), refused, box);
+  p.body.append(h('p.note', { dataset: { case: 'keep' } }, 'Everything the phone can be asked for, what I use it for, and what I never do with it. Nothing here asks for anything: it only looks.'), refused, box);
   async function refresh(): Promise<void> {
     const r = lastRefusal();
     const recent = r && Date.now() - r.at < 7 * 86_400_000;
     refused.hidden = !recent;
-    if (recent) refused.textContent = `The phone refused ${ago(r.at)}${r.doing ? ` when I tried to ${r.doing}` : ''}; it is the ${PERMS.find((x) => x.row === r.row)?.name ?? r.row} row below, with how to change it.`;
+    if (recent) refused.textContent = `The phone refused ${ago(r.at)}${r.doing ? ` when I tried to ${r.doing}` : ''}. It is the ${PERMS.find((x) => x.row === r.row)?.name ?? r.row} row below, with how to change it.`;
     const states = await Promise.all(PERMS.map((s) => stateOf(s)));
     clear(box);
     PERMS.forEach((s, i) => {

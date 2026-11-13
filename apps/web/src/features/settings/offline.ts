@@ -39,7 +39,6 @@ import { bar, button, confirmSheet, panel, toast, undo, type Panel } from '../..
 import { meaningBlock } from './meaning';
 import { independenceBlock } from '../system/independence';
 import { sayError } from '../../ui/hisWords';
-import { para } from '../../ui/oneline';
 
 /** The device's memory when the browser says it (Chrome, at most 8); Safari does not, and the picker uses the 18 Pro Max's 12 GB. */
 const deviceGB = (): number | null => {
@@ -163,7 +162,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
       () =>
         offlineReply(
           [
-            { role: 'system', content: 'You are Ghosty, a friendly assistant; answer in one short line.' },
+            { role: 'system', content: 'You are Ghosty, a friendly assistant. Answer in one short line.' },
             { role: 'user', content: 'Say hello in five words.' },
           ],
           (t) => {
@@ -222,7 +221,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     const rung = MODELS.findIndex((x) => heldKey(x) === heldKey(m));
     const below = rung < 0 ? undefined : MODELS.slice(rung + 1).find((x) => here.includes(x.id));
     const comeBack = isBigger(m) ? ` on the ${shortName(MODELS[0]!)}` : below ? ` on the ${shortName(below)}` : '';
-    const asking = confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory; if the phone cannot hold it, Ghosty will close and come back${comeBack}.`, 'LOAD IT');
+    const asking = confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory. If the phone cannot hold it, Ghosty will close and come back${comeBack}.`, 'LOAD IT');
     keepTitle();
     const yes = await asking;
     if (yes) approveLoad(m);
@@ -275,7 +274,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     const resume = readLog()?.model === m.id;
     const yes = resume
       ? await confirmSheet('Carry on downloading?', `Carry on getting ${m.label}? The pieces already on this phone are kept; the rest of about ${sizeText(m.mb)} comes now, so only on Wi-Fi.`, 'CARRY ON')
-      : await confirmSheet('Download this brain?', [`Download ${m.label}? About ${sizeText(m.mb)}, once, so only on Wi-Fi.`, 'It is only stored: nothing is loaded until you tap USE.', `USE first checks this phone can run it (about ${memText(m.vram)} of memory when running); if it cannot, ${MODELS[0]!.label} takes over.`].join(' '), 'DOWNLOAD');
+      : await confirmSheet('Download this brain?', `Download ${m.label}? About ${sizeText(m.mb)}, once, so only on Wi-Fi. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it (it needs about ${memText(m.vram)} of memory when running; if your phone cannot give it that, ${MODELS[0]!.label} takes over).`, 'DOWNLOAD');
     if (!yes || offlineBrain.get().busy) return;
     void getBrain(m.id, (frac, text) => paintProgress(frac, text))
       .then(() => toast(`${m.label} is on this phone: tap Use to load it`, 'ok'))
@@ -388,8 +387,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     const lines: string[] = [];
     if (kept.cacheless) lines.push('This browser gives Ghosty no Cache storage, so a brain cannot be kept here: it would download every time.');
     else lines.push(onPhoneLine(kept.kept), ...kept.gone);
-    if (kept.persisted === true) lines.push('Kept for good: yes; the phone will not clear Ghosty’s downloads to make space.');
-    else if (kept.persisted === false) lines.push('Kept for good: no; the phone may clear downloaded brains when it runs short of space.');
+    if (kept.persisted === true) lines.push('Kept for good: yes. The phone will not clear Ghosty’s downloads to make space.');
+    else if (kept.persisted === false) lines.push('Kept for good: no. The phone may clear downloaded brains when it runs short of space.');
     if (isIos()) lines.push(`This is ${homeScreenApp() ? 'the Home Screen app' : 'Safari'}: a brain stays where it was downloaded (Safari and the Home Screen app each keep their own), so use Ghosty from one of them.`);
     clear(keep, ...lines.map((l, i) => h(`div${i === 0 ? '.obhere' : kept!.gone.includes(l) ? '.obgone' : ''}` as 'div', l)));
     keep.hidden = false;
@@ -412,7 +411,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     which.value = currentModel().id;
     which.hidden = list.length <= stock.length;
     const best = list.find((m) => m.rev === s.active);
-    news.textContent = best && best.id !== s.model ? `NEW: ${best.label} is the recommended brain, and it tested better than the one it was trained from; choose it above, then DOWNLOAD (about ${sizeText(best.mb)}, on Wi-Fi).` : '';
+    news.textContent = best && best.id !== s.model ? `NEW: ${best.label} is the recommended brain (it did better in its test than the brain it was trained from). Choose it above, then DOWNLOAD (about ${sizeText(best.mb)}, on Wi-Fi).` : '';
     news.hidden = !news.textContent;
   }
 
@@ -425,10 +424,10 @@ export function offlinePanel(): Panel & { refresh(): void } {
     if (!ok) state.textContent = state.textContent || 'Not available on this device.';
     else if (s.busy === 'download') {
       const g = offlineModels().find((x) => x.id === s.getting) ?? m;
-      state.textContent = `Downloading ${g.label} (about ${sizeText(g.mb)})… keep Ghosty open, on Wi-Fi; nothing is loaded into memory while it downloads.`;
+      state.textContent = `Downloading ${g.label} (about ${sizeText(g.mb)})… keep Ghosty open, on Wi-Fi. Nothing is loaded into memory while it downloads.`;
     } else if (s.busy === 'load') state.textContent = `Loading ${m.label} into graphics memory…`;
-    else if (ready) state.textContent = `Ready on this phone: ${m.label} (${sizeText(m.mb)}); Ghosty can talk with no signal.`;
-    else state.textContent = `Not downloaded: about ${sizeText(m.mb)}, once, on Wi-Fi; afterwards Ghosty can talk with no connection.`;
+    else if (ready) state.textContent = `Ready on this phone: ${m.label} (${sizeText(m.mb)}). Ghosty can talk with no signal.`;
+    else state.textContent = `Not downloaded. About ${sizeText(m.mb)}, once: use Wi-Fi. Afterwards Ghosty can talk with no connection.`;
     p.setStatus(ok ? (ready ? 'READY' : s.busy ? 'BUSY' : 'NOT DOWNLOADED') : 'UNSUPPORTED', ok ? (ready ? 'ok' : 'mid') : 'off');
     // A phone that cannot run it: the row shows why instead of a dead end.
     p.el.querySelector<HTMLElement>(':scope > h3 small')!.dataset.label = ok ? p.el.querySelector<HTMLElement>(':scope > h3 small')!.dataset.label ?? '' : 'Not on this phone';
@@ -471,7 +470,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
         return h(`li.trustrow${r.trusted ? '.on' : ''}` as 'li', { 'aria-label': `${CAT_WORDS[r.cat].label}: ${grade} on ${r.items} questions. ${r.trusted ? 'Answered on this phone first' : 'The cloud answers first'}: ${r.why}.` },
           h('b', CAT_WORDS[r.cat].label), h('span.trustgrade', r.pct === null ? '—' : grade), h('span.trustn', `${r.items} q`), h('span.trustis', r.trusted ? 'ON PHONE' : 'CLOUD'), h('small.trustwhy', r.why));
       })),
-      ...para('div.note.small', 'Everything else is the cloud’s: search, tools, long thinking and anything that acts, and anything that names a time or a place or asks me to remind, send or search. Under each answer I give first, ASK THE CLOUD asks it again there; three of those in a week and that kind goes back to the cloud until the next report card.'),
+      h('div.note.small', 'Everything else is the cloud’s: search, tools, long thinking and anything that acts, and anything that names a time or a place or asks me to remind, send or search. Under each answer I give first, ASK THE CLOUD asks it again there; three of those in a week and that kind goes back to the cloud until the next report card.'),
     );
   }
   const trustBox = h('div.trustbox', h('div.lab', 'TRUST'), h('label.trustbar', dialSays, dial), trustRows);
@@ -488,7 +487,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     void (async () => {
       const sup = await offlineSupport();
       ok = sup.ok;
-      if (!ok) state.textContent = `${sup.reason.replace(/\.$/, ';')} Ghosty still answers from the cloud brain and your library.`.replace('; Ghosty','; Ghosty');
+      if (!ok) state.textContent = `${sup.reason} Ghosty still answers from the cloud brain and your library.`;
       ready = ok && (await offlineReady());
       here = ok ? await brainsHere() : [];
       kept = ok ? await keptHere().catch(() => null) : null;
@@ -515,10 +514,10 @@ export function offlinePanel(): Panel & { refresh(): void } {
     independenceBlock(),
     // What it is for (OWNER-ISSUES 46: "the big brain without straining my phone"): online he already has far bigger
     // free brains; this one is for no signal. No size here: the brain in use says its own above.
-    ...para('div.note.obwhat', 'For when there is no signal. Online, Ghosty answers with far bigger brains, free, and nothing on this phone strains. This one runs on the phone itself, free and private: no tools or live news, but it knows your memory, your agenda and the library copy.'),
+    h('div.note.obwhat', 'For when there is no signal. Online, Ghosty answers with far bigger brains, free, and nothing on this phone strains. This one runs on the phone itself, free and private: no tools or live news, but it knows your memory, your agenda and the library copy.'),
     pick,
     // What a bigger brain costs and gains, in one line, and where the truth is found.
-    ...para('div.note.obcost', 'A bigger brain here answers better with no signal, but costs a bigger download, more of the phone’s memory and a slower first word. Whether it really fits is only known on your phone: choose it, then tap TEST after it loads.'),
+    h('div.note.obcost', 'A bigger brain here answers better with no signal, but costs a bigger download, more of the phone’s memory and a slower first word. Whether it really fits is only known on your phone: choose it, then tap TEST after it loads.'),
     // Search by meaning: the library on this phone found by what passages mean (its own small model, ~70 MB).
     meaningBlock(),
   );

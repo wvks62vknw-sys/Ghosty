@@ -16,7 +16,6 @@
 // with nothing written down, is YOU; another voice is "a voice I don't know" and held for GO ON (answered as unknown), the hour's grace,
 // introduced as Sam with her yes aloud and is SAM; the score within 300 ms; DELETE with UNDO; nothing in localStorage or on the network.
 //   node tests/voice.spec.mjs [outDir]
-import { brainBefore, brainAfter } from './fixtures/clean.mjs';
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { DESKTOP, PHONE, UK, openPanel } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
@@ -27,8 +26,6 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const problems = [];
-// (POLISH 3) the preview's brain as this spec found it: put back at the end, and the next spec shown to open on it
-const cleanBrain = await brainBefore(process.env.BASE ?? 'http://localhost:8788');
 
 /**
  * Tap the mic and speak only once Ghosty can hear. The recogniser (voice.ts listenWhisper) spends its first 20 animation
@@ -899,7 +896,6 @@ const watchEars = () => {
   await ctx.close();
 }
 if (!isWebKit) await voiceKnown({ base, out, problems });
-problems.push(...(await brainAfter(process.env.BASE ?? 'http://localhost:8788', cleanBrain)));
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : "Voice run clean: Ghosty's voice, the engine switch, the picture card, the voice picker and barge-in, and a conversation that keeps listening while a turn is still thinking (and gives up after two quiet listens).");
 process.exit(problems.length ? 1 : 0);

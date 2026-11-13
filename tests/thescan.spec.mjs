@@ -214,7 +214,7 @@ const whereLine = (page) => page.evaluate(() => document.querySelector('.scanwhe
   await openPanel(page, 'settings', 'VOICE & HOME');
   const rows = await page.evaluate(() => ({ sense: document.querySelector('#pg-settings .setsw[data-id="placesense"]')?.getAttribute('aria-checked'), score: document.querySelector('#pg-settings .setsw[data-id="bootscore"]')?.getAttribute('aria-checked'), senseWords: document.querySelector('#pg-settings .setsw[data-id="placesense"]')?.textContent ?? '' }));
   check(rows.sense === 'true' && rows.score === 'true', `[switch] the rows in Settings → Voice & home: ${JSON.stringify(rows)} (want both on by default)`);
-  check(/[Nn]ever sent/.test(rows.senseWords), `[switch] the row does not say never sent: "${rows.senseWords.slice(0, 120)}"`);
+  check(/Never sent/.test(rows.senseWords), `[switch] the row does not say never sent: "${rows.senseWords.slice(0, 120)}"`);
   await page.click('#pg-settings .setsw[data-id="placesense"]').catch(() => problems.push('[switch] no switch to tap'));
   await page.evaluate(() => (location.hash = 'core'));
   await until(page, () => document.body.dataset.tab === 'core' && window.__ghosty.scan.on, 10000, '[switch] Home did not come back');

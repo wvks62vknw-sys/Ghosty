@@ -194,7 +194,7 @@ async function runBuild(ctx: Ctx, job: AppJob): Promise<string> {
         st.status = 'failed';
         p.status = 'paused';
         p.fails++;
-        p.note = `step ${st.n} "${st.title}" stopped: ${msg.replace(/ — call build_app again.*$/, '').slice(0, 200)}. RETRY carries on from here.`;
+        p.note = `step ${st.n} "${st.title}" stopped: ${msg.replace(/ — call build_app again.*$/, '').slice(0, 200)}. RESUME carries on from here.`;
       }, i);
       throw e;
     }

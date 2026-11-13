@@ -439,12 +439,11 @@ log('// ── 5. from the chat: Workshop → PROJECTS');
     else {
       const c = card('App: Darts', '.paused');
       const text = (await c.textContent()) ?? '';
-      if (!/3\/5/.test(text) || !/step 4 "Publish" stopped: .*storage blip.*RETRY carries on from here/.test(text)) fail(`PROJECTS: the stopped build: ${text.slice(0, 240)}`);
+      if (!/3\/5/.test(text) || !/step 4 "Publish" stopped: .*storage blip.*RESUME carries on from here/.test(text)) fail(`PROJECTS: the stopped build: ${text.slice(0, 240)}`);
       await c.scrollIntoViewIfNeeded();
       await ui.screenshot({ path: `${out}/apps-project-paused.png` });
-      if (await c.locator('button:has-text("RESUME")').count()) fail('PROJECTS: a build stopped by a failure still offers RESUME (it says RETRY)');
-      await c.locator('button:has-text("RETRY")').click();
-      if (!(await until('App: Darts', /RUNNING[\s\S]*NOW: step 4 · Publish/, 4000, false))) fail('PROJECTS: after RETRY the card does not show the step it runs now');
+      await c.locator('button:has-text("RESUME")').click();
+      if (!(await until('App: Darts', /RUNNING[\s\S]*NOW: step 4 · Publish/, 4000, false))) fail('PROJECTS: after RESUME the card does not show the step it runs now');
       else await ui.screenshot({ path: `${out}/apps-project-resumed.png` });
       if (!(await count('App: Darts', '.passed', dartsDone + 1, 45000))) fail('PROJECTS: the resumed build did not finish');
       else {

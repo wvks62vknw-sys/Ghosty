@@ -9,8 +9,7 @@ import { sayError } from '../../ui/hisWords';
 import { watcherStands, type WatcherInfo } from '../../../../../packages/shared/src/lifeeasier';
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
-import { button, panel, row, toast } from '../../ui/components';
-import { more } from '../lifeui';
+import { button, panel, toast } from '../../ui/components';
 
 const clock = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 const day = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -55,15 +54,14 @@ export function watchersPanel(): { el: HTMLElement; refresh(): Promise<void> } {
             const b = button('STOP', (btn) => void stop(x, btn), 'wstop');
             b.setAttribute('aria-label', x.state === 'watching' ? `Stop watching ${x.label}` : `Remove ${x.label} from the list`);
             b.dataset.label = 'Stop';
-            // the Agenda's own grammar: the time first (when it last looked, or told), the thing, its key last: the same row as a diary line
-            const at = x.state === 'told' && x.toldAt ? x.toldAt : x.checked;
-            const r = row(at ? clock(at) : '--:--', h('span.wtxt', h('b', x.label), h('small', watcherStands(x, Date.now(), clock, day)), h('small.wurl', x.url.replace(/^https?:\/\//, '').slice(0, 60))), null, { wrap: true });
-            r.classList.add('wrow');
-            Object.assign(r.dataset, { id: x.id, kind: x.kind, state: x.state, case: 'keep' });
-            r.append(b);
-            return r;
+            return h(
+              'div.wrow',
+              { dataset: { id: x.id, kind: x.kind, state: x.state, case: 'keep' } },
+              h('span.wtxt', h('b', x.label), h('small', watcherStands(x, Date.now(), clock, day)), h('small.wurl', x.url.replace(/^https?:\/\//, '').slice(0, 60))),
+              b,
+            );
           })
-        : [h('p.note.wempty', { dataset: { case: 'keep' } }, 'Nothing watched. Paste a page’s address below.')]),
+        : [h('p.note.wempty', { dataset: { case: 'keep' } }, 'I’m not watching anything. Say “tell me when this price drops” with a page’s address in the chat, or paste one below.')]),
     );
   };
 
@@ -98,8 +96,7 @@ export function watchersPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     }),
   );
   p.body.append(
-    h('p.note', 'I look at each page every hour and tell you once.'),
-    more('Public pages only: never a login, never a person’s page. Say “tell me when this price drops” with a page’s address in the chat, or paste one below.'),
+    h('p.note', 'I look at each page every hour and tell you once when it changes the way you asked. Public pages only: never a login, never a person’s page.'),
     list,
     h('div.lab', 'WATCH A PAGE'),
     url,

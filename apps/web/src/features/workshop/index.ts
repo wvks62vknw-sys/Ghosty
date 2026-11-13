@@ -40,19 +40,17 @@ const plainWhy = (m: string) => (/\b429\b|rate.?limit|quota|too many requests/i.
 function projectNote(p: Pick<Project, 'note' | 'status'>): string {
   const n = p.note ?? '';
   const failed = n.match(/^step (\d+) failed \((\d+) of (\d+)\): ([\s\S]*)$/);
-  if (failed) return p.status === 'paused' ? `Step ${failed[1]} didn’t work ${failed[3]} times, so Ghosty paused it. RETRY tries it again. Why: ${plainWhy(failed[4]!)}` : `Step ${failed[1]} didn’t work (try ${failed[2]} of ${failed[3]}): Ghosty tries again by itself in a few minutes. Why: ${plainWhy(failed[4]!)}`;
+  if (failed) return p.status === 'paused' ? `Step ${failed[1]} didn’t work ${failed[3]} times, so Ghosty paused it. RESUME tries it again. Why: ${plainWhy(failed[4]!)}` : `Step ${failed[1]} didn’t work (try ${failed[2]} of ${failed[3]}): Ghosty tries again by itself in a few minutes. Why: ${plainWhy(failed[4]!)}`;
   if (/^waiting for a free model/.test(n)) return 'Waiting for a free AI: Ghosty carries on by itself as soon as one is free.';
   return n;
 }
-/** A project the brain paused because a step kept failing (its note says so): its key says RETRY. One paused by hand says RESUME. */
-const stoppedByFailure = (p: Pick<Project, 'note' | 'status'>): boolean => p.status === 'paused' && /^step \d+ (?:failed \(|"[^"]*" stopped:)/.test(p.note ?? '');
 /** What RUN NEXT NOW did, in plain words. */
 const RUN_SAID: Record<string, string> = {
   step: 'Step done',
   done: 'Step done: the project is finished',
   waiting: 'Waiting: no AI is free right now (or Ghosty is busy); it tries again by itself',
   retry: 'That step didn’t work: Ghosty tries it again by itself in a few minutes',
-  paused: 'That step didn’t work again, so the project is paused: RETRY tries again',
+  paused: 'That step didn’t work again, so the project is paused: RESUME tries again',
   nothing: 'Nothing to run: this project isn’t running',
 };
 /**
@@ -284,7 +282,7 @@ export const workshopTab: TabDef = {
           (lead.childElementCount ? lead : ct).after(actions);
         }
         if (p.status === 'active') actions.append(button('PAUSE', act(p.id, 'pause')), button('RUN NEXT NOW', act(p.id, 'run'), 'on'));
-        if (p.status === 'paused') actions.append(button(stoppedByFailure(p) ? 'RETRY' : 'RESUME', act(p.id, 'resume'), 'on'), button('RUN NEXT NOW', act(p.id, 'run')));
+        if (p.status === 'paused') actions.append(button('RESUME', act(p.id, 'resume'), 'on'), button('RUN NEXT NOW', act(p.id, 'run')));
         if (p.status === 'active' || p.status === 'paused') actions.append(button('CANCEL', act(p.id, 'cancel', `“${p.title}” stops for good: it cannot be started again (ask Ghosty for it afresh). What it already produced stays in the library.`), 'warn'));
         if (actions.childElementCount && !finished) card.append(actions);
         jp.body.append(card);

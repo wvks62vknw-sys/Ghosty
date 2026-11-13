@@ -849,7 +849,7 @@ const toList = async () => {
   await tap('maze');
   await until(() => window.__ghosty.gym.open === 'maze', 5000, 'ideas: the maze did not open');
   const edgeLine = async () => ((await G('.gymidea.edge .gymedgeline').textContent().catch(() => '')) ?? '').trim();
-  if ((await edgeLine()) !== 'Level 7½: puzzles I only just fail · solved 10 of my last 20') problems.push(`ideas: the maze's edge reads "${await edgeLine()}"`);
+  if ((await edgeLine()) !== 'Level 7½: puzzles he only just fails · solved 10 of his last 20') problems.push(`ideas: the maze's edge reads "${await edgeLine()}"`);
   // (the block is drawn afresh on every repaint: scroll its section, which stays)
   await G('section.gymideas').scrollIntoViewIfNeeded().catch(() => undefined);
   await page.screenshot({ path: `${out}/gym-ideas-edge.png` });
@@ -857,7 +857,7 @@ const toList = async () => {
   if (await until(() => (window.__ghosty.gym.edge.maze?.n ?? 0) >= 21, 15000, 'ideas: TRAIN did not make him try a puzzle at his edge')) {
     const e = (await st()).edge.maze;
     // one try from 7½ moves it a twentieth of a level: still a Level 7-and-a-bit puzzle
-    if (Math.abs(e.x - 7.5) > 0.11 || !/^Level 7(¼|½|¾)?: .+ · solved \d+ of my last 20$/.test(e.line)) problems.push(`ideas: after one more try the edge is ${e.x} ("${e.line}")`);
+    if (Math.abs(e.x - 7.5) > 0.11 || !/^Level 7(¼|½|¾)?: .+ · solved \d+ of his last 20$/.test(e.line)) problems.push(`ideas: after one more try the edge is ${e.x} ("${e.line}")`);
   }
   await G('button.gymtrain').click(); // PAUSE
   await wideCheck('ideas: the maze with its edge at 440 px');

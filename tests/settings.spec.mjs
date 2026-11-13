@@ -74,10 +74,10 @@ await vp.locator('button', { hasText: 'SET HOME' }).click();
 await page.waitForTimeout(300);
 check(/Type a city first/.test(await toasts()), `SET HOME with an empty box: "${await toasts()}"`);
 await vp.locator('button', { hasText: 'USE GPS' }).click();
-await page.waitForFunction(() => /not allowed your location|Couldn’t find where you are/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 12000 }).catch(() => undefined);
+await page.waitForFunction(() => /isn’t allowed your location|Couldn’t find where you are/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 12000 }).catch(() => undefined);
 const gpsSaid = await toasts();
-check(/Finding where you are|not allowed your location|Couldn’t find where you are/.test(gpsSaid), `USE GPS said nothing useful: "${gpsSaid}"`);
-check(/Privacy & Security, Location Services, Safari Websites|Couldn’t find where you are/.test(gpsSaid), `USE GPS refused does not say how to allow it: "${gpsSaid}"`);
+check(/Finding where you are|isn’t allowed your location|Couldn’t find where you are/.test(gpsSaid), `USE GPS said nothing useful: "${gpsSaid}"`);
+check(/Settings › Privacy & Security › Location Services|Couldn’t find where you are/.test(gpsSaid), `USE GPS refused does not say how to allow it: "${gpsSaid}"`);
 check((await page.evaluate(() => window.__ghosty.settings.get().home?.name ?? 'London')) === homeName, 'home changed although nothing was chosen');
 
 // ---- 3. HELP and ABOUT in today's words

@@ -14,16 +14,6 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
-  { day: '2026-11-13', title: 'Games of your own', line: 'Make → Game studio: build a game from the studio’s kit and play it. Poker and Words now play against Ghosty in the Gym, and the platformer, the cave and four board games are rated there.' },
-  { day: '2026-11-13', title: 'Photo and video editors', line: 'Edit photos on your phone, including RAW photos, cut-outs and removing an object, and cut video with steady, best clips, on the beat, reverse and a speed ramp. Each download waits for your tap on Wi-Fi.' },
-  { day: '2026-11-13', title: 'Documents, sheets, slides, pages', line: 'The Editors card in Make has a document, a spreadsheet (with .xlsx in and out), a slide deck (with PowerPoint in and out) and pages with databases, all kept on this phone.' },
-  { day: '2026-11-13', title: 'Every screen says what is happening', line: 'Home, the packs, the Workshop, Settings, System, Links, the learning screens and the camera screens now say every wait and every problem in plain words, one line each.' },
-  { day: '2026-11-13', title: 'Is it working?', line: 'Every ability has a mark for whether it works, the brain’s health is one tap away, and “that felt off” tells me to look.' },
-  { day: '2026-11-13', title: 'The two looks', line: 'The orb now opens the Mind, and Grown up shows today with less on it. Both are whole screens of their own.' },
-  { day: '2026-11-13', title: 'The wall', line: 'Put a screen of mine on the TV or a second display, and keep it going.' },
-  { day: '2026-11-12', title: 'Training and the phone’s own parts', line: 'Training runs and reports in plain words; the phone’s camera, microphone, motion and battery are used where they help; the speaker is only ever you or people you introduce.' },
-  { day: '2026-11-12', title: 'Documents', line: 'Write a document, import one, export it, and turn a report into a deck.' },
-  { day: '2026-11-11', title: 'The map and God’s Eye', line: 'The map is a screen of its own, and the Eye shows every camera and what I can see in one view.' },
   { day: '2026-10-31', title: 'Sources, weighed', line: 'Cited answers now say how far each source can be trusted (PRIMARY, CREDIBLE, PRESS, REFERENCE, LEAD) and label every claim: established fact, documented allegation, contested, rumour. Questions about genocide, war crimes, the courts or a cover-up are cited without asking, and the morning digest now reads the UN, the ICC, GOV.UK and the investigative newsrooms too.' },
   { day: '2026-10-31', title: 'The Workbench', line: 'Make → Workbench: first engineering estimates on your phone — a live wind tunnel (draw your own shape), beams, gears, engines, wings and cars, orbits, heat loss, sun and shadow, circuits. Every number says how it was worked out, and that it is a first estimate, never certified.' },
   { day: '2026-10-24', title: 'One look, your colour', line: 'The new look is now the only look. Settings → Theme changes its colour: Reactor, the cyan you know, or Graphite, a cooler and quieter steel. Mind and every screen follow at once.' },

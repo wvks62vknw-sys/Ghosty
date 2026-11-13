@@ -38,6 +38,3 @@ export function wrongAnswer(letter: string, choice: string, why: string | undefi
 export function cantMark(answer: string): string {
   return `I can’t mark that without my brain, so it isn’t counted. The answer: ${answer}.`;
 }
-
-/** The chat words that open this screen, answered on the phone with no model (assistant/screenasks.ts). */
-export const PHRASES = ['open my courses'];

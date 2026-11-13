@@ -86,8 +86,3 @@ export const NO_SIGNAL = 'No signal. What you type waits here until the phone is
 
 /** A pack's brain call that did not land: no signal, or a brain that is silent, in his words. */
 export const troubleWords = (offline: boolean): string => (offline ? 'No signal. Try again when the phone is back online.' : 'My brain isn’t answering just now. Try again in a moment.');
-
-/** A "?" for the fact a one-sentence line leaves out (POLISH 3): a tap on it opens the rest, right under the line. 44 pt like every key. */
-export function more(text: string, key = 'WHY'): HTMLElement {
-  return h('details.pkmore', h('summary', key), h('p.pknote', { dataset: { case: 'keep' } }, text));
-}

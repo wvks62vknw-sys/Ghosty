@@ -6,7 +6,6 @@
  */
 import { calibrationLine, expectLine, FORE_KINDS, kindWord, proofLine, type ForesightInfo } from '../../../../../packages/shared/src/foresight';
 import { clear, h } from '../../core/dom';
-import { more } from '../lifeui';
 import { loadForesight } from '../../state/foresight';
 import { bar, panel, row, type Panel } from '../../ui/components';
 import { tagged, verdictButtons } from '../brief/foresight';
@@ -45,7 +44,7 @@ export function foresightPanel(): Panel & { refresh(): void } {
         if (x.kind === 'answer') parts.push(verdictButtons(x, draw, true));
       }
     } else parts.push(h('div.note', info.items.length ? 'Nothing open: everything made so far has been scored.' : 'Nothing yet: I make the day’s predictions each morning at six.'));
-    parts.push(h('div.note.small.forefoot', 'Scored only against the feeds and your own word, and never changed afterwards.'), ...(info.notes.length ? [more(info.notes.join(' '))] : []));
+    parts.push(h('div.note.small.forefoot', ['Scored only against the feeds and your own word, and never changed afterwards.', ...info.notes].join(' ')));
     clear(p.body, ...parts);
   };
   const refresh = () => {

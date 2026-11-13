@@ -1,6 +1,5 @@
 /** SETTINGS tab: theme (seven looks and the twelve colours), THE LOOK (how everything is drawn), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location, the offline brain and the packs for no signal (offline maps, offline eyes). (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
 import { clear, fmt, h } from '../../core/dom';
-import { para, rest } from '../../ui/oneline';
 import { agoWords } from '../../workspace/versions';
 import { lastBackupAt } from '../../workspace/store';
 import { BUILD } from '../../state/build';
@@ -82,8 +81,8 @@ export const settingsTab: TabDef = {
     // [guardian] FACES: his own and the people he introduced, on this phone only, each gone in one tap
     const fb = facesBlock();
     privacy.body.append(
-      h('p.note', 'What you tell me, what I remember and your keys are kept only in your own Cloudflare account and on this phone.'),
-      ...para('p.note', 'Questions go only to the AI services you added keys for, with just the words needed. Memory never keeps passwords or what I read online.'),
+      h('p.note', 'What you tell Ghosty, what he remembers and your keys are kept in your own Cloudflare account and on this phone — nowhere else.'),
+      h('p.note', 'Questions go to the AI services you added keys for, and only the words needed to answer them. Memory never keeps passwords or what he read online.'),
       fb.el,
     );
     const help = panel('HELP', { grow: false, status: 'Tips' });
@@ -91,14 +90,14 @@ export const settingsTab: TabDef = {
       // (nothing on screen is a reactor any more, and there is one look: OWNER-ISSUES 45, BRIEF-ONE-LOOK)
       row('ASK', 'Tap Ask at the bottom, then type, or tap the microphone and talk.', null, { wrap: true }),
       row('SEARCH', 'The magnifier at the top finds any screen or place, or asks Ghosty.', null, { wrap: true }),
-      row('EVERY SCREEN', 'Tap your initial at the top right, then Every screen; a long press opens it at once.', null, { wrap: true }),
+      row('EVERY SCREEN', 'Tap your initial at the top right, then Every screen. A long press opens it at once.', null, { wrap: true }),
       row('REMEMBER', 'Say "remember …" and he keeps it; Memory shows what he knows and lets you remove it.', null, { wrap: true }),
     );
     // [editors] THE WORKSPACE keeps its pages on this phone; "synced to the brain" means the daily encrypted backup, and this one line says when it last ran
     const wsp = panel('WORKSPACE', { grow: false, status: 'On this phone' });
     const paintWs = (): void => {
       const when = lastBackupAt();
-      clear(wsp.body, row('SYNCED', when ? `My workspace is on this phone; the brain keeps only a sealed copy, last taken ${agoWords(when)}. I cannot open it.` : 'My workspace is on this phone; no backup has been taken yet, so the brain has no copy; SYSTEM takes one.', null, { wrap: true }));
+      clear(wsp.body, row('SYNCED', when ? `My workspace is on this phone; the brain keeps only a sealed copy, last taken ${agoWords(when)}. I cannot open it.` : 'My workspace is on this phone; no backup has been taken yet, so the brain has no copy. SYSTEM takes one.', null, { wrap: true }));
     };
     paintWs();
     P.right.append(wsp.el, goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), wallPanel().el, shortcutsPanel().el, about.el, privacy.el, help.el);
@@ -147,13 +146,13 @@ export const settingsTab: TabDef = {
       paintThemes();
     });
     // [restc] TV MODE (tv/): big buttons, a focus ring, the arrow keys or a controller's d-pad; on by itself on a television
-    const tvSw = switchRow('TV MODE', 'Big buttons and a focus ring for a controller; on by itself on a television.', tvNow, (on) => tvSetting.set({ mode: on ? 'on' : 'off' }));
+    const tvSw = switchRow('TV MODE', 'Big buttons and a focus ring you move with the arrow keys or a controller’s d-pad. On by itself on a television.', tvNow, (on) => tvSetting.set({ mode: on ? 'on' : 'off' }));
     tvSw.el.classList.add('tvsw');
     tvSetting.subscribe(() => tvSw.paint());
     // [wall] THIS IS THE WALL: this screen becomes the second screen of his phone (wall/screen.ts); it asks for a code and nothing else
     const wallKey = key('THIS IS THE WALL', () => wallRole.set({ on: true }), { label: 'This screen is the wall: show me a code to pair with my phone' });
     wallKey.classList.add('tvwallkey');
-    lp.body.append(tvSw.el, rest('You move the focus ring with the arrow keys or a controller’s d-pad.'), h('div.tvwallrow', h('p.note', 'A television or a laptop can be a second screen for your phone.'), wallKey), rest('It shows what you’re talking about, with nothing to touch.'));
+    lp.body.append(tvSw.el, h('div.tvwallrow', h('p.note', 'A television or a laptop can be a second screen for your phone: it shows what you’re talking about, with nothing to touch.'), wallKey));
     np.body.append(h('div.lab', 'YOUR NAME'), name, units);
 
     // Whose voice and which (the brain's natural British voices, or this phone's), a SAMPLE, and barge-in: voice.ts.
@@ -161,7 +160,7 @@ export const settingsTab: TabDef = {
     // On/off settings are switches (switch.ts), not drop-downs.
     const sfx = switchRow('Interface sounds', 'Soft clicks when you tap', () => settings.get().sounds, (on) => settings.set({ sounds: on }));
     // THE SCORE (BRIEF-HUD-SCAN-1 7): B, the short score under the boot (a pad, a tick per thing found, the tone on the lock); off, A: the one tone alone
-    const score = switchRow('The boot’s score', 'A short score under the boot, made on this phone; off, the one tone alone.', () => settings.get().bootScore !== false, (on) => settings.set({ bootScore: on }));
+    const score = switchRow('The boot’s score', 'A short score under the boot, made on this phone: a low pad, a tick for each thing I find, the tone when I lock on. Off, the one tone alone.', () => settings.get().bootScore !== false, (on) => settings.set({ bootScore: on }));
     score.el.dataset.id = 'bootscore';
     const motion = switchRow('Tilt phone to look around', 'The 3D scenes follow the phone', () => settings.get().motion, (on) => settings.set({ motion: on }));
     // HOME: where home is now, said in full (it was only in the box's placeholder, cut off at "Home city (now Lonc").
@@ -191,19 +190,19 @@ export const settingsTab: TabDef = {
         },
         (e) => {
           b.disabled = false;
-          toast(e.code === 1 ? 'I’m not allowed your location: in iPhone Settings, Privacy & Security, Location Services, Safari Websites, allow it, or type the city.' : 'Couldn’t find where you are just now: try again outside, or type the city.', 'warn');
+          toast(e.code === 1 ? 'Ghosty isn’t allowed your location: on the iPhone, Settings › Privacy & Security › Location Services › Safari Websites. Or type the city.' : 'Couldn’t find where you are just now: try again outside, or type the city.', 'warn');
         },
         { timeout: 8000 },
       );
     });
     paintHome();
     // HOME KNOWS WHERE HE IS (BRIEF-HUD-SCAN-1 5; OWNER-ISSUES 158: on): the one switch; off, Home says SAVED PLACE ONLY
-    const sense = switchRow('Home knows where you are', 'Decided on this phone from the hour, your saved place and its own sense; never sent anywhere.', () => settings.get().placeSense !== false, (on) => settings.set({ placeSense: on }));
+    const sense = switchRow('Home knows where you are', 'Decided on this phone from the hour, your saved place and the phone’s own sense where you have allowed it. Never sent anywhere: my brain gets a word at most, with your question.', () => settings.get().placeSense !== false, (on) => settings.set({ placeSense: on }));
     sense.el.dataset.id = 'placesense';
     // SHOW ME (BRIEF-KERNEL-YES 5; OWNER-ISSUES 173): the Stage under a reply, on by default; off, no picture under any reply
-    const showMe = switchRow('Show me', 'A picture under the answer when there is one to show (a map, bars, a page, a part); off, never.', () => settings.get().showMe !== false, (on) => settings.set({ showMe: on }));
+    const showMe = switchRow('Show me', 'A picture under the answer when there is one to show (a map, bars, a page, a part). Off, never.', () => settings.get().showMe !== false, (on) => settings.set({ showMe: on }));
     showMe.el.dataset.id = 'showme';
-    vp.body.append(...vc.nodes, sfx.el, score.el, rest('The score is a low pad, a tick for each thing I find and the tone when I lock on.'), motion.el, showMe.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps), sense.el, rest('My brain gets a word at most, with your question, never where you are.'));
+    vp.body.append(...vc.nodes, sfx.el, score.el, motion.el, showMe.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps), sense.el);
 
     paintHead();
     // The profile row follows every change, whether a swatch was tapped here, the name or units were edited,

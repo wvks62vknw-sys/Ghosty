@@ -13,7 +13,6 @@ import { clear, h } from '../../core/dom';
 import { settings, ui } from '../../state/app';
 import { button } from '../../ui/components';
 import { switchRow } from './switch';
-import { firstSentence, rest } from '../../ui/oneline';
 import { IOS_TIP as TIP, SWITCHES } from './words';
 
 const IOS_TIP = TIP;
@@ -22,7 +21,6 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
   const engine = h('select', { 'aria-label': 'Voice engine' }, h('option', { value: 'auto' }, 'Best British voice available (automatic)'), h('option', { value: 'ghosty' }, "Ghosty's own voice (from the brain)"), h('option', { value: 'phone' }, "This phone's voice"));
   const voice = h('select', { 'aria-label': 'Voice' });
   const note = h('div.note.vnow');
-  const noteMore = h('div.vmore');
   const now = h('div.note.vlast');
   const sample = button('SAMPLE', async (b) => {
     if (ui.get().voice === 'speaking') {
@@ -40,7 +38,7 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
   const barge = switchRow('Talk over Ghosty to interrupt', SWITCHES.barge, () => settings.get().bargeIn, (on) => settings.set({ bargeIn: on }));
 
   // (BRIEF-OCT-IDEAS-1 5: a word in my voice when a tap starts something that takes a moment: assistant/acks.ts)
-  const ack = switchRow('A word when I start something', 'I say “On it.” when you tap something that takes a moment; needs Voice on.', () => settings.get().sayStart !== false, (on) => settings.set({ sayStart: on }));
+  const ack = switchRow('A word when I start something', 'I say “On it.” when you tap something that takes a moment. Needs Voice on.', () => settings.get().sayStart !== false, (on) => settings.set({ sayStart: on }));
   ack.el.dataset.id = 'saystart';
   // [lifeeasier] the Brief said aloud once a day, after Home lands (features/brief/aloud.ts): off until he turns it on
   const aloud = switchRow('Read me the Brief on the first open of the day', 'After Home lands, once a day, with the voice on', () => settings.get().briefAloud, (on) => settings.set({ briefAloud: on }));
@@ -61,7 +59,7 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
     }
     const natural = naturalPhoneVoice();
     const brainSpeaks = speechCaps.get().tts;
-    const full =
+    note.textContent =
       s.voiceEngine === 'auto'
         ? brainSpeaks
           ? `Ghosty's natural British voice (Draco) while today's free share lasts, then ${natural ? `${natural.name} on this phone` : 'the plain voice'}.${natural ? '' : ` ${IOS_TIP}`}`
@@ -71,9 +69,6 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
           : natural
             ? 'Free, unlimited and works offline.'
             : `Free, unlimited and works offline. ${IOS_TIP}`;
-    const [first, more] = firstSentence(full);
-    note.textContent = first;
-    clear(noteMore, ...(more ? [rest(more)] : []));
     barge.paint();
     ack.paint();
     aloud.paint();
@@ -102,5 +97,5 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
     /* no speech synthesis */
   }
   speechCaps.subscribe(fill);
-  return { nodes: [h('div.lab', 'VOICE'), engine, h('div.keyrow.wrapit', voice, sample), note, noteMore, now, barge.el, ack.el, aloud.el], refresh: fill };
+  return { nodes: [h('div.lab', 'VOICE'), engine, h('div.keyrow.wrapit', voice, sample), note, now, barge.el, ack.el, aloud.el], refresh: fill };
 }

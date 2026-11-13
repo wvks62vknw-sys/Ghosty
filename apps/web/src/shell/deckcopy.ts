@@ -12,7 +12,6 @@
  */
 import { META as GAMES } from '../gym/meta';
 import { home } from '../state/app';
-import { REVERSE_SUB } from '../features/reverse/words';
 
 /** What a YOU CAN line, or a TRY THIS NOW pick, does when it is tapped. */
 export type DeckAct =
@@ -143,7 +142,7 @@ export const DECK: Record<string, DeckScreen> = {
   },
   reverse: {
     name: 'Reverse',
-    promise: REVERSE_SUB,
+    promise: 'Paste a link: see how any app or site works',
     can: [
       { text: 'A website, an npm package or a GitHub project', act: { open: 'reverse' } },
       { text: 'Even an .apk or an .exe', act: { open: 'reverse' } },

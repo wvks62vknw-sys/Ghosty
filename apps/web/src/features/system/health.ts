@@ -21,8 +21,6 @@ import { goToPanel } from '../../ui/sections';
 import { button, empty, panel, row, type Panel } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 import { waiting } from '../../ui/wait';
-import { more } from '../lifeui';
-import { keysLine } from './words';
 import { BUILD } from '../../state/build';
 import { feltSheet } from '../core/feltoff';
 
@@ -125,7 +123,7 @@ export function healthPanels(): { panels: Panel[]; refresh(force?: boolean): voi
     const at = st.at || Date.now();
     if (!st.reach || !b) {
       bp.setStatus('CANNOT BE REACHED', 'mid');
-      brainBox.append(row('BRAIN', 'I cannot reach my brain right now; what is kept on this phone still works.', null, { tone: 'dn', wrap: true }));
+      brainBox.append(row('BRAIN', 'I cannot reach my brain right now. What is kept on this phone still works.', null, { tone: 'dn', wrap: true }));
       if (b) brainBox.append(row('LAST HEARD', `my last account was at ${clockOf(st.at)} on ${day(st.at)}.`, null, { wrap: true }));
       return;
     }
@@ -141,10 +139,9 @@ export function healthPanels(): { panels: Panel[]; refresh(force?: boolean): voi
     }
     const have = b.keys.filter((k) => k.set).map((k) => k.label);
     const miss = b.keys.filter((k) => !k.set).map((k) => k.label);
-    lines.push(['KEYS', keysLine(have, miss.length, asOf(at))]);
+    lines.push(['KEYS', `${have.length ? `I have ${have.join(', ')}.` : 'I have none of my keys yet.'}${miss.length ? ` Missing: ${miss.join(', ')}.` : ''} (${asOf(at)}).`]);
     if (b.gpu) lines.push(['TRAINING', `My weekly training job had ${fmt.n(b.gpu.left, 1)} of ${fmt.n(b.gpu.total, 1)} free GPU hours left${b.gpu.at ? ` when it last started, ${day(b.gpu.at)}` : ''} (${asOf(at)}).`]);
     for (const [k, v] of lines) brainBox.append(row(k, v, null, { wrap: true }));
-    if (miss.length) brainBox.append(more(`Not added yet: ${miss.join(', ')}.`, 'WHICH'));
   };
   bp.body.append(brainBox);
 

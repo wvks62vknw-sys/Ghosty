@@ -217,18 +217,3 @@ test('daily backup: a failed try never turns off the wiped-phone guard; after wa
 
 
 
-
-// POLISH 3 (2d): every editor's work rides the daily backup, and a restore joins it like the workspace's.
-import { readFileSync as polish3Read } from 'node:fs';
-test('backup keys: documents, spreadsheets and slide decks ride the daily backup and restore by id, newer winning', () => {
-  const src = polish3Read(new URL('../../web/src/features/system/backup.ts', import.meta.url), 'utf8');
-  const keys = [...src.matchAll(/\{ key: '(ghosty\.[a-z.]+)'/g)].map((m) => m[1]);
-  for (const k of ['ghosty.workspace', 'ghosty.docs', 'ghosty.sheets', 'ghosty.slides']) assert.ok(keys.includes(k), `${k} is in BACKUP_KEYS`);
-  // Each of the three is a list with an id and an `at`: an empty phone takes the backup, a phone with one keeps its newer copy and gains the rest.
-  const bak = [{ id: 'a', at: 100, title: 'old' }, { id: 'b', at: 50, title: 'B' }];
-  assert.equal(MG.mergeEntry(null, JSON.stringify(bak)).result, 'restored');
-  const cur = [{ id: 'a', at: 200, title: 'new' }];
-  const m = MG.mergeEntry(JSON.stringify(cur), JSON.stringify(bak));
-  assert.equal(m.result, 'merged');
-  assert.deepEqual(JSON.parse(m.text).map((d) => `${d.id}:${d.title}`), ['a:new', 'b:B']);
-});

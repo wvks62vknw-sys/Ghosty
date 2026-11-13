@@ -54,10 +54,10 @@ export function embedSupport(): Promise<{ ok: boolean; reason: string }> {
   if (testEmbedder()) return Promise.resolve({ ok: true, reason: 'test embedder' });
   support ??= (async () => {
     const gpu = (navigator as unknown as { gpu?: Gpu }).gpu;
-    if (!gpu) return { ok: false, reason: 'Search by meaning needs WebGPU: on iPhone, iOS 26 or newer; searches use keywords.' };
-    if (typeof caches === 'undefined' || typeof Worker === 'undefined') return { ok: false, reason: 'This browser cannot keep the download (no Cache storage or workers); searches use keywords.' };
+    if (!gpu) return { ok: false, reason: 'Search by meaning needs WebGPU: on iPhone, iOS 26 or newer. Searches use keywords.' };
+    if (typeof caches === 'undefined' || typeof Worker === 'undefined') return { ok: false, reason: 'This browser cannot keep the download (no Cache storage or workers). Searches use keywords.' };
     const adapter = await gpu.requestAdapter().catch(() => null);
-    if (!adapter) return { ok: false, reason: "WebGPU is here but this device's graphics chip isn't available to it; searches use keywords." };
+    if (!adapter) return { ok: false, reason: "WebGPU is here but this device's graphics chip isn't available to it. Searches use keywords." };
     return { ok: true, reason: 'WebGPU ready' };
   })();
   return support;

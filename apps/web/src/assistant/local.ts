@@ -44,7 +44,6 @@ import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
 import { originLines } from '../../../../packages/shared/src/social';
 import { card } from '../../../../packages/shared/src/cards';
-import { screenAsked } from './screenasks';
 import { applyAsk, lookAsked } from '../../../../packages/shared/src/themes';
 import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/looks';
 
@@ -335,11 +334,6 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
   video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   gamestudio: async (text, opts) => packAnswer(await gameTurn(text), opts),
-  async openscreen(text, opts) {
-    const s = screenAsked(text);
-    if (!s || !(await import('../shell/tabs')).go(s.tab)) return false;
-    return answer(text, `${s.name[0]!.toUpperCase()}${s.name.slice(1)} is open.`, { kind: 'pack' }, opts);
-  },
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
   unixtime: (text, opts) => numberAnswer(text, opts),

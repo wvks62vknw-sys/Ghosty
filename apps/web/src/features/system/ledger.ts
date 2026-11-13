@@ -7,7 +7,6 @@
  */
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
-import { more } from '../lifeui';
 import { metaById } from '../../gym/meta';
 import { niceCase, panel, type Panel } from '../../ui/components';
 import { waiting } from '../../ui/wait';
@@ -32,7 +31,7 @@ export function ledgerPanel(): Panel & { refresh(): void } {
   const p = panel('WHAT I LEARNED TO DO', { grow: false, cls: 'ledger' });
   const head = h('div.note.ledhead');
   const list = h('div.ledlines');
-  p.body.append(head, list, h('div.note.small', 'Only ever more demanding: a level I reach is kept, and a new brain must pass its exam.'), more('LOOPS has the numbers; on Sunday morning this comes as a note.'));
+  p.body.append(head, list, h('div.note.small', 'Only ever more demanding: a GYM level I reach is kept, and a new brain counts only when it passes its exam. LOOPS has the numbers. On Sunday morning this comes as a note.'));
 
   const paint = (r: { lines: string[]; since: number } | null) => {
     if (!r) {

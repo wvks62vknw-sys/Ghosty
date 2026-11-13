@@ -6,7 +6,6 @@
  * iOS lets no web page add a shortcut. `followLink` (called by main.ts once Ghosty is up) does what a link asks, on the
  * owner's own signed-in phone only.
  */
-import { para } from '../../ui/oneline';
 import { h } from '../../core/dom';
 import { tabs } from '../../shell/tabs';
 import { button, panel, toast, type Panel } from '../../ui/components';
@@ -57,7 +56,7 @@ export function shortcutsPanel(): Panel {
   const listenUrl = shortcutUrl(origin(), LISTEN.ask);
   const listenCopy = button('COPY', (btn) => void copy(listenUrl, btn), 'on');
   listenCopy.setAttribute('aria-label', `Copy the link for ${LISTEN.name}`);
-  const listen = h('div.sclisten', { dataset: { name: LISTEN.name } }, h('b', `“${LISTEN.name}”`), h('span', LISTEN.does), urlEl(listenUrl), h('div.row', listenCopy), ...para('p.note', NO_BACKGROUND));
+  const listen = h('div.sclisten', { dataset: { name: LISTEN.name } }, h('b', `“${LISTEN.name}”`), h('span', LISTEN.does), urlEl(listenUrl), h('div.row', listenCopy), h('p.note', NO_BACKGROUND));
   // [lifeeasier] "Hey Siri, ask Ghosty …" and the share sheet's "Send to Ghosty": each with its GET and its one-line how-to
   const siri = (k: 'ask' | 'add') => {
     const r = SIRI[k];
@@ -98,7 +97,7 @@ export function shortcutsPanel(): Panel {
     listen,
     siri('ask'),
     siri('add'),
-    ...para('p.note', 'A shortcut opens Ghosty in Safari: sign in there once (Passwords fills your key). Words that would start something, like a reminder, wait in the chat box for your send.'),
+    h('p.note', 'A shortcut opens Ghosty in Safari: sign in there once (Passwords fills your key). Words that would start something, like a reminder, wait in the chat box for your send.'),
     gallery,
     h('div.scown', h('b', 'MAKE YOUR OWN'), h('div.row', pick, words), made, h('div.row', copyMine)),
   );
@@ -173,12 +172,12 @@ async function fileShared(text: string, isUrl: boolean): Promise<void> {
       /* the page could not be read: the link itself is kept below */
     }
     if (await note(`Link from ${host(text)}`, text)) toast(`I couldn’t read that page, so I kept the link on your Shelf (${host(text)}).`, 'ok');
-    else toast('I couldn’t file that just now: the brain isn’t answering; share it again when you’re back online.', 'warn');
+    else toast('I couldn’t file that just now: the brain isn’t answering. Share it again when you’re back online.', 'warn');
     return;
   }
   const first = text.split('\n')[0]!.trim().slice(0, 60) || 'Shared note';
   if (await note(first, text)) toast(`On your Shelf: ${first}.`, 'ok');
-  else toast('I couldn’t file that just now: the brain isn’t answering; share it again when you’re back online.', 'warn');
+  else toast('I couldn’t file that just now: the brain isn’t answering. Share it again when you’re back online.', 'warn');
 }
 
 async function doCommand(d: DoCmd, L: typeof import('../../shell/launcher')): Promise<void> {

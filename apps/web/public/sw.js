@@ -33,31 +33,9 @@ function tellPages(path) {
   return undefined;
 }
 
-// SHARE TO GHOSTY (the manifest's share_target): another app's share sheet POSTs the shared title, words, link and files here. They
-// are kept in this phone's own database (never sent anywhere), and the page is opened with one marker (?shared=<id>) where the library
-// takes the files and the chat's box takes the words. The answer is a redirect, so Back never repeats the POST.
-function keepShared(form) {
-  const item = { id: String(Date.now()), at: Date.now(), title: String(form.get('title') || ''), text: String(form.get('text') || ''), url: String(form.get('url') || ''), files: form.getAll('files').filter((f) => typeof f !== 'string' && f.size > 0).map((f) => ({ name: f.name, type: f.type, blob: f })) };
-  return new Promise((resolve) => {
-    const open = indexedDB.open('ghosty-share', 1);
-    open.onupgradeneeded = () => open.result.createObjectStore('items', { keyPath: 'id' });
-    open.onerror = () => resolve(item.id);
-    open.onsuccess = () => {
-      const tx = open.result.transaction('items', 'readwrite');
-      tx.objectStore('items').put(item);
-      tx.oncomplete = () => resolve(item.id);
-      tx.onerror = () => resolve(item.id);
-    };
-  });
-}
-
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  if (req.method === 'POST' && url.origin === self.location.origin && url.pathname === '/share-target') {
-    e.respondWith(req.formData().then(keepShared).catch(() => 'x').then((id) => Response.redirect(`/?shared=${encodeURIComponent(id)}#core`, 303)));
-    return;
-  }
   // Never touch the brain's API, published pages (/s/…), shared pictures (/i/…) or anything off-site.
   if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/')) return;
   if (url.pathname.startsWith('/vendor/') || url.pathname.startsWith('/models/')) {

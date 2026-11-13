@@ -72,7 +72,7 @@ export function edgeLabel(x: number): string {
 export const EDGE_SPAN: Record<string, number> = { maze: 1, sokoban: 3, sudoku: 3 };
 export const EDGE_GAMES = Object.keys(EDGE_SPAN);
 
-/** "Level 7½: puzzles I only just fail · solved 11 of my last 20" ('' before a try). */
+/** "Level 7½: puzzles he only just fails · solved 11 of his last 20" ('' before a try). */
 export function edgeLine(e: EdgeState | null | undefined): string {
   if (!e?.tries.length) return '';
   const k = e.tries.reduce((a, b) => a + b, 0);
@@ -81,17 +81,17 @@ export function edgeLine(e: EdgeState | null | undefined): string {
   const top = e.x >= e.level + (e.span ?? 1) - 0.02;
   const what =
     e.tries.length < MIN_TRIES
-      ? 'finding the puzzles I only just fail'
+      ? 'finding the puzzles he only just fails'
       : rate > EDGE_HIGH
         ? top
-          ? 'I solve most even at the hardest I make'
-          : 'I solve most: they are getting harder'
+          ? 'he solves most even at the hardest he makes'
+          : 'he solves most: they are getting harder'
         : rate < EDGE_LOW
           ? e.x <= e.level
-            ? 'my own level’s puzzles are still hard for me'
-            : 'I fail most: they are getting easier'
-          : 'puzzles I only just fail';
-  return `${at}: ${what} · solved ${k} of my last ${e.tries.length}`;
+            ? 'his own level’s puzzles are still hard for him'
+            : 'he fails most: they are getting easier'
+          : 'puzzles he only just fails';
+  return `${at}: ${what} · solved ${k} of his last ${e.tries.length}`;
 }
 
 /**

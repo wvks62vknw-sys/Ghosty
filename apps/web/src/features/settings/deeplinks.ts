@@ -164,7 +164,7 @@ export interface Ready {
  * [talk] The shortcut for talking (BRIEF-TALK-1A 6; STARS 16): Siri straight into a conversation. The SHORTCUTS panel shows it
  * on its own, first, above the gallery.
  */
-export const LISTEN: Ready = { name: 'Ghosty listen', does: 'Opens Ghosty listening: say what you want, then carry on talking; no tap.', ask: { do: 'listen' } };
+export const LISTEN: Ready = { name: 'Ghosty listen', does: 'Opens Ghosty listening: say what you want, then carry on talking. No tap.', ask: { do: 'listen' } };
 
 /**
  * [lifeeasier] The two that save a tap (BRIEF-OCT-IDEAS-2 1): "Hey Siri, ask Ghosty …" (Siri dictates the words, the Shortcut puts
@@ -174,7 +174,7 @@ export const LISTEN: Ready = { name: 'Ghosty listen', does: 'Opens Ghosty listen
 export const SIRI: { ask: Ready & { how: string }; add: Ready & { how: string } } = {
   ask: {
     name: 'Ask Ghosty',
-    does: 'Siri hears your words and Ghosty answers them at once: “Hey Siri, ask Ghosty what’s the weather.”',
+    does: 'Siri hears your words, Ghosty opens and answers them at once. “Hey Siri, ask Ghosty what’s the weather.”',
     ask: { ask: '' },
     how: 'GET copies the link and opens Shortcuts: add Dictate Text, then URL Encode, then Open URLs with the link and the encoded text after it.',
   },
@@ -203,7 +203,7 @@ export const READY: Ready[] = [
 ];
 
 /** The plain steps, said once in the panel. */
-export const STEPS = 'Shortcuts → + → Add Action → Open URLs → paste the link → name it (the name is what you say) → Done, then say “Hey Siri, Ghosty timer”.';
+export const STEPS = 'Shortcuts → + → Add Action → Open URLs → paste the link → name it (the name is what you say) → Done. Then: “Hey Siri, Ghosty timer”.';
 /**
  * [talk] And the truth about listening (BRIEF-TALK-1A 6; STARS 16): iPhone lets no web page listen in the background or from
  * the lock screen; the nearest is Siri opening Ghosty, listening.

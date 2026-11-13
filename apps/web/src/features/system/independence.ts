@@ -14,7 +14,6 @@
 import { meterLine, ownShare, trendLine, weekOf, weeksOf } from '../../../../../packages/shared/src/independence';
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
-import { more } from '../lifeui';
 import { goToPanel } from '../../ui/sections';
 import { brainDays, meter, phoneDay } from '../../core/independence';
 import { settings } from '../../state/app';
@@ -50,11 +49,10 @@ export function independenceBlock(): HTMLElement & { paint(): void } {
           ? stopped.length
             ? 'Nothing you ask leaves this phone. What stopped for want of the cloud this week:'
             : 'Nothing you ask leaves this phone, and nothing has stopped for want of the cloud this week.'
-          : 'Set WHEN THE PHONE ANSWERS to Always in Settings and nothing you ask leaves this phone.',
+          : 'Set Settings → Offline brain → WHEN THE PHONE ANSWERS to Always and nothing you ask leaves this phone: what still needs the cloud is listed here.',
       ),
       ...(always ? stopped.slice(0, 8).map((x) => row(when(x.at), h('span', x.q, h('small.indwhy', ` · ${x.why}`)), null, { wrap: true })) : []),
-      h('div.note.small.indhow', 'Counted on this phone, from the line each answer carries.'),
-      more('What you ask on Telegram is answered in the cloud and is not counted here yet. What still needs the cloud is listed under SOVEREIGN MODE.'),
+      h('div.note.small.indhow', 'Counted on this phone, from the line each answer carries. What you ask on Telegram is answered in the cloud and is not counted here yet.'),
     );
   };
   meter.subscribe(paint);
@@ -128,8 +126,7 @@ export function independencePanel(): Panel {
     cats,
     phrases(['how independent are you?']),
     h('div.note.indtruth', 'SOVEREIGN MODE is the plain name for Always (Settings → Offline brain → WHEN THE PHONE ANSWERS): the cloud is off-limits; what I can’t do here, I say I can’t.'),
-    h('div.note.small.indceiling', 'A phone alone will likely never match the biggest cloud brains on the hardest reasoning.'),
-    more('One honest limit, said once: that is physics (memory, power, energy), not a lack of training. Your own brains, your tools and the library on this phone do more of what you need every week, and the cloud stays a rare fallback you can switch off.'),
+    h('div.note.small.indceiling', 'One honest limit, said once: a phone alone will likely never match the very biggest cloud brains on the hardest, newest reasoning. That is physics (memory, power, energy), not a lack of training. Your own brains, your tools and the library on this phone do more of what you need every week, and the cloud stays a rare fallback you can switch off.'),
   );
   meter.subscribe(paint);
   trust.subscribe(paint);
@@ -171,6 +168,6 @@ export function independenceTurn(): string {
   setTimeout(open, 250);
   const w = spanOf(meter.get().days, phoneDay(), 7);
   return w.pct === null
-    ? 'Nothing asked in the last seven days yet, so there is nothing to count; the meter is open: System → Independence.'
-    : `The last seven days, ${w.pct}% of what you asked stayed on your own brains (${w.own} of ${w.total}); the rest is on the sheet: System → Independence.`;
+    ? 'Nothing asked in the last seven days yet, so there is nothing to count. The meter is open: System → Independence.'
+    : `The last seven days, ${w.pct}% of what you asked stayed on your own brains (${w.own} of ${w.total}). The rest is on the sheet: System → Independence.`;
 }

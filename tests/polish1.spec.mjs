@@ -134,13 +134,14 @@ if (run('b')) for (const world of WORLDS) {
     const t = Math.round(performance.now());
     const p = window.__ghosty.show.present({ ask: 'where is Lisbon', reply: 'Lisbon is in Portugal.', tools: [], clients: [], cards: [] });
     await new Promise((r) => setTimeout(r, 400));
-    const mid = !!document.querySelector('[data-wait="Drawing it…"]');
+    // ("where is Lisbon" is a map, so the Stage says "Drawing the map…": the CHAT pass names what it draws, show/words.ts drawingWords)
+    const mid = !!document.querySelector('[data-wait="Drawing the map…"]');
     await p;
     await new Promise((r) => setTimeout(r, 100));
-    return { t, mid, shown: !!document.getElementById('thestage'), still: !!document.querySelector('[data-wait="Drawing it…"]'), w: window.__waits.filter((x) => x.w === 'Drawing it…') };
+    return { t, mid, shown: !!document.getElementById('thestage'), still: !!document.querySelector('[data-wait="Drawing the map…"]'), w: window.__waits.filter((x) => x.w === 'Drawing the map…') };
   });
-  check(stage.mid && stage.w[0] && stage.w[0].in - stage.t < 400, `${tag} the Stage put no "Drawing it…" up within 400 ms: ${JSON.stringify(stage)}`);
-  check(stage.shown && !stage.still && stage.w.some((x) => x.out), `${tag} the Stage's "Drawing it…" did not go when the picture landed: ${JSON.stringify(stage)}`);
+  check(stage.mid && stage.w[0] && stage.w[0].in - stage.t < 400, `${tag} the Stage put no "Drawing the map…" up within 400 ms: ${JSON.stringify(stage)}`);
+  check(stage.shown && !stage.still && stage.w.some((x) => x.out), `${tag} the Stage's "Drawing the map…" did not go when the picture landed: ${JSON.stringify(stage)}`);
   // the Lens: GET THE EYES is kept on this phone, so it wakes them; the first tag is LOOKING… until a real one lands
   await page.evaluate(() => { window.__waits = []; window.__t = Math.round(performance.now()); location.hash = 'lens'; });
   await page.waitForFunction(() => window.__waits.some((x) => x.w === 'Waking the eyes…') && window.__waits.some((x) => x.out), null, { timeout: 40000 }).catch(() => undefined);

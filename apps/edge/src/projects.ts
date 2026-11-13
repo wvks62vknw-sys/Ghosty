@@ -397,7 +397,7 @@ export async function runProjectStep(deps: ProjectDeps, job: Job): Promise<{ did
         p.status = 'paused';
         await saveProject(deps, p);
         await removeJob(storage, job.id);
-        await deps.notify({ kind: 'error', title: `${p.title} · paused`, text: `Step ${step.n} "${step.title}" failed ${MAX_FAILS} times (${msg.slice(0, 200)}). Say "carry on" or press RETRY in the Workshop to try it again, or change the plan.` });
+        await deps.notify({ kind: 'error', title: `${p.title} · paused`, text: `Step ${step.n} "${step.title}" failed ${MAX_FAILS} times (${msg.slice(0, 200)}). Say "carry on" or press RESUME in the Workshop to try it again, or change the plan.` });
         return { did: 'paused', project: p };
       }
       await saveProject(deps, p);

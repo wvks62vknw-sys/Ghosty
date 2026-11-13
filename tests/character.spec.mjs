@@ -62,7 +62,7 @@ check(d.fire?.label === 'HOW FIERY' && d.fire.steps.join('|') === 'MILD|FIRM|FIE
 check(/^CHARACTER: sharp, dry, quietly confident, warm underneath\. Plain British English\./.test((await told()) ?? ''), `default words: ${await told()}`);
 // how he sounds, in plain words, first; the exact words he is given one tap away (not a wall of prompt text)
 const nowLine = () => page.locator('#pg-settings .character .charnow').textContent().catch(() => '');
-check((await nowLine()) === 'Now: dry, warm, firm, answers as long as yours, as he comes; the app, the voice, Telegram and notifications all sound like this.', `the plain line: "${await nowLine()}"`);
+check((await nowLine()) === 'Now: dry, warm, firm, answers as long as yours, as he comes. The app, the voice, Telegram and notifications all sound like this.', `the plain line: "${await nowLine()}"`);
 check(!(await page.locator('#pg-settings .character .charsays').isVisible()) && (await page.locator('#pg-settings .character details.charwords summary').textContent()) === 'The exact words Ghosty is given', 'the exact words are folded behind "The exact words Ghosty is given"');
 await page.locator('#pg-settings .character').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/character-${engine}-default.png` });
