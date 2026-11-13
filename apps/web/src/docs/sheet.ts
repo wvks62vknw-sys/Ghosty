@@ -275,7 +275,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const tbl = el.closest<HTMLElement>('.dctable');
     if (tbl) return syncTable(tbl);
     const id = el.dataset.id;
-    if (!id || !el.isContentEditable) return;
+    // a paragraph already drawn again (a repaint took it off the page) has nothing newer to say
+    if (!id || !el.isConnected || !el.isContentEditable) return;
     const runs = readRuns(el);
     const b = doc().blocks.find((x) => x.id === id);
     if (!b || !plainBlock(b) || JSON.stringify(b.runs) === JSON.stringify(runs)) return;
@@ -582,11 +583,13 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const live = sel?.rangeCount && page.contains(sel.anchorNode) ? sel.getRangeAt(0) : lastRange;
     const host = live ? (live.startContainer.nodeType === Node.ELEMENT_NODE ? (live.startContainer as HTMLElement) : live.startContainer.parentElement)?.closest<HTMLElement>('.dcb[data-id]') : null;
     const b = host ? doc().blocks.find((x) => x.id === host.dataset.id) : undefined;
-    if (!live || live.collapsed || !host || !b || !plainBlock(b) || !host.contains(live.endContainer)) return say(host?.closest('.dctable') ? 'Strike and highlight work on a paragraph’s words; a table cell keeps bold, italic and underline.' : 'Choose the words first (press and hold, then drag).');
+    if (!live || live.collapsed || !host || !host.isConnected || !b || !plainBlock(b) || !host.contains(live.endContainer)) return say(host?.closest('.dctable') ? 'Strike and highlight work on a paragraph’s words; a table cell keeps bold, italic and underline.' : 'Choose the words first (press and hold, then drag).');
     clearTimeout(timer);
     const start = offsetIn(host, live.startContainer, live.startOffset);
     const end = offsetIn(host, live.endContainer, live.endOffset);
-    const [a, rest] = splitRuns(readRuns(host), start);
+    const words = readRuns(host);
+    host.blur();
+    const [a, rest] = splitRuns(words, start);
     const [m, z] = splitRuns(rest, end - start);
     const all = m.length > 0 && m.every((r) => r[what]);
     const marked = m.map((r) => ({ ...r, [what]: all ? undefined : true }));
