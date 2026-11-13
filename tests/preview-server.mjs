@@ -19,6 +19,10 @@ const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
 const port = Number(process.argv[2] ?? 8788);
 const brainPath = process.env.BRAIN_BUNDLE ?? join(root, 'apps/edge/test/.build/brain.mjs');
+// [security] The specs serve their own slow fixture pages on 127.0.0.1 (talk, progress). The brain's address gate allows
+// loopback — and only loopback — when this process-level flag is set before the brain loads. Nothing a request carries can
+// set it, and the deployed Worker never has it (apps/edge/src/netguard.ts).
+globalThis.__ghostyTestLoopback = true;
 const mod = await import(pathToFileURL(brainPath).href);
 
 class MemStorage {

@@ -345,3 +345,26 @@ test('[security] the app’s own calls without a key never lock him out; only wr
   assert.equal((await ask(env.OWNER_KEY)).status, 400, 'his right key still gets through');
   RL.resetLimits();
 });
+
+test('[security] loopback (only 127.0.0.1, ::1 and localhost) is readable only with the test harness flag set before the brain loads; private and metadata addresses never', async () => {
+  const LOOP = ['http://127.0.0.1:9000/a', 'http://[::1]:9000/', 'http://localhost:9000/x'];
+  const NEVER = ['http://169.254.169.254/latest/meta-data/', 'http://10.0.0.5/', 'http://192.168.1.1/', 'http://127.0.0.2/', 'http://foo.localhost/', 'http://[::ffff:127.0.0.1]/'];
+  // without the flag (this test process never sets it before NG loaded)
+  assert.equal(globalThis.__ghostyTestLoopback, undefined);
+  for (const u of [...LOOP, ...NEVER]) assert.ok(NG.unsafeUrl(u), `refused without the flag: ${u}`);
+  // setting it later does nothing: it is read once, when the module loads
+  globalThis.__ghostyTestLoopback = true;
+  try {
+    assert.ok(NG.unsafeUrl(LOOP[0]), 'a flag set after load is ignored');
+    // a fresh copy loaded with the flag on: loopback passes, nothing else does
+    const fresh = await import(`./.build/security/netguard.mjs?flag=${Date.now()}`);
+    for (const u of LOOP) assert.equal(fresh.unsafeUrl(u), '', `allowed with the flag: ${u}`);
+    for (const u of NEVER) assert.ok(fresh.unsafeUrl(u), `still refused with the flag: ${u}`);
+    // and a truthy look-alike is not the flag
+    globalThis.__ghostyTestLoopback = 'true';
+    const lookalike = await import(`./.build/security/netguard.mjs?str=${Date.now()}`);
+    assert.ok(lookalike.unsafeUrl(LOOP[0]), 'only the boolean true counts');
+  } finally {
+    delete globalThis.__ghostyTestLoopback;
+  }
+});

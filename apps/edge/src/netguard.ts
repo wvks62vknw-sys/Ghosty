@@ -11,6 +11,15 @@
  */
 import { isPrivateIp } from './integrations/recon';
 
+/**
+ * [security] A test harness's own machine (exactly 127.0.0.1, ::1 and localhost) may be read ONLY when the harness set this
+ * process-level flag before the brain loaded (tests/preview-server.mjs does, so the specs' slow fixture pages on 127.0.0.1
+ * work). It is read once, when this module loads: no request, header, environment variable or binding can set it, and the
+ * deployed Worker never has it. Private ranges and the metadata address stay refused even with it on.
+ */
+const TEST_LOOPBACK = (globalThis as { __ghostyTestLoopback?: unknown }).__ghostyTestLoopback === true;
+const TEST_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
+
 const LOCAL_NAME = /^localhost$|\.(localhost|local|internal|home\.arpa|lan|intranet|corp)$/i;
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
 
@@ -26,6 +35,7 @@ export function unsafeUrl(raw: string): string {
   if (u.username || u.password) return 'an address with a username or password in it is not read';
   const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
   if (!host) return 'that address has no host';
+  if (TEST_LOOPBACK && TEST_HOSTS.has(host)) return '';
   const v6 = host.includes(':');
   if (IPV4.test(host) || v6) {
     if (isPrivateIp(host) || reservedExtra(host)) return 'that is a private, local or reserved network address';
