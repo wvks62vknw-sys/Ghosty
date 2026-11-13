@@ -24,7 +24,7 @@ import { freeAiToday } from '../../state/status';
 import { niceCase, segRing } from '../../ui/components';
 import { NO_SIGNAL, lacksSignal, stateIn, waitFor } from '../lifeui';
 import * as gymStore from '../gym/store';
-import { loadTodos } from '../agenda/todo';
+import { loadTodos, TODO_CHANGED } from '../agenda/todo';
 import { dueToday } from '../agenda/todowords';
 
 const CAL = '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>';
@@ -370,6 +370,7 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     if (!due.length) return null;
     return h('span.rcev.rctodo', h('span.tm', 'To-do'), h('i.bar.dim'), h('span.nm.r', due.length === 1 ? due[0]!.text : `${due.length} due: ${due.slice(0, 2).map((t) => t.text).join(', ')}`));
   };
+  addEventListener(TODO_CHANGED, () => paintToday());
   const loadToday = async (force = false) => {
     if (!force && Date.now() - agendaAt < 120_000) return paintToday();
     agendaAt = Date.now();

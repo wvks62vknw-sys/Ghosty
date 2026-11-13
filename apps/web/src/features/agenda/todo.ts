@@ -8,6 +8,8 @@ import { button, panel, toast, undo } from '../../ui/components';
 import { dayOf, dueWords, sortTodos, TODO_ALL_DONE, TODO_EMPTY, TODO_NEED_TEXT, todoLine, daysTo, type Todo } from './todowords';
 
 const KEY = 'ghosty.agenda.todo';
+/** Said on the window whenever the list changes. */
+export const TODO_CHANGED = 'ghosty:todo';
 export function loadTodos(): Todo[] {
   try {
     const l = JSON.parse(localStorage.getItem(KEY) ?? '[]') as Todo[];
@@ -19,6 +21,8 @@ export function loadTodos(): Todo[] {
 function saveTodos(l: Todo[]): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(l.slice(0, 300)));
+    // Home's Today card and the Brief read the list: they repaint on this
+    dispatchEvent(new Event(TODO_CHANGED));
   } catch {
     toast('This phone would not keep the list (its storage is full or blocked)', 'warn');
   }

@@ -180,7 +180,7 @@ for (const vp of [PHONE, PHONE2]) {
   check(/Renew the passport/.test(said ?? ''), `[${vp.width}] the brief's YOUR DAY says the to-do due today: ${said}`);
   // HOME's Today card says it too, when the diary has room (the preview's diary is empty)
   await open(page, 'core');
-  const homeSaid = await page.waitForSelector('.rctoday .rctodo', { timeout: 15000 }).then((e) => e.textContent(), () => '');
+  const homeSaid = await page.waitForSelector('.rctoday .rctodo', { state: 'attached', timeout: 15000 }).then((e) => e.textContent(), () => '');
   check(/Renew the passport/.test(homeSaid ?? ''), `[${vp.width}] Home's Today card says the to-do due today: ${homeSaid}`);
   // THE MONTH: today lit, a tap on a day says it in words
   await open(page, 'agenda');
