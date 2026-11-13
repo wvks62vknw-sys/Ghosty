@@ -53,8 +53,8 @@ export function nightPanel(): Panel {
   const plan = h(
     'ol.steps.nightplan',
     h('li', { dataset: { part: 'school' } }, h('b', 'School practice'), ` — my weak spots at my stage, each question checked twice; stops after ${NIGHT_LIMITS.practice} questions.`),
-    h('li', { dataset: { part: 'gym' } }, h('b', 'Gym'), ` — TRAIN ALL, the least mastered game first, for at most ${hours(NIGHT_LIMITS.gymMs)}.`),
-    h('li', { dataset: { part: 'study' } }, h('b', 'Study'), ' — STUDY ALL, the library’s queue, until the night ends.'),
+    h('li', { dataset: { part: 'gym' } }, h('b', 'Gym'), ` — TRAIN ALL, the least mastered game first; stops after ${hours(NIGHT_LIMITS.gymMs)}, or with ${hours(NIGHT_LIMITS.studyMs).replace('1 hour', 'an hour')} of the night left.`),
+    h('li', { dataset: { part: 'study' } }, h('b', 'Study'), ' — STUDY ALL, the library’s queue, until the end of the night.'),
   );
   const honest = h('div.note.small.nightios');
   const extra = h('div.nightextra');
@@ -86,7 +86,7 @@ export function nightPanel(): Panel {
     }
     clear(
       honest,
-      'On an iPhone, leave Ghosty open and the phone plugged in.',
+      'On an iPhone, leave Ghosty open on the screen and the phone plugged in.',
       more('The screen stays on, dimmed (tap it to see Ghosty). Closing Ghosty or locking the phone pauses the plan, because nothing runs with the screen off, and it carries on when Ghosty is back on screen. Without the phone, the brain does its own part in the same hours: writing and checking practice questions with the free online AIs, and the library’s study. Each night goes school practice first, then the gym, then the library, and what I get wrong goes first into the weekly training.'),
     );
     clear(extra);
