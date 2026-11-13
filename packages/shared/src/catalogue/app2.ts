@@ -31,14 +31,14 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:agenda:TO-DO': {
     name: 'Your to-do list', line: 'You can keep a to-do list in the Agenda: give each a day, tick it off, and late ones come first.',
-    more: 'Kept on this phone. The Brief tells you what is due today, and every removal has UNDO.',
-    say: ['Open my to-do list'], scene: ['morning', 'phone'], cat: 'watch',
+    more: 'Kept on this phone. Star the ones that matter, give one a repeat (every day, weekdays, week or month), tap its words to change it, and see All, Today, Upcoming or Starred. The Brief tells you what is due today, and every removal has UNDO.',
+    say: ['Open my to-do list', 'What’s on my to-do list?'], scene: ['morning', 'phone'], cat: 'watch',
     since: '2026-11-13',
   },
   'panel:agenda:MONTH': {
     name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
-    more: 'This month and the next, from your diary and connected calendars, with your to-dos due marked.',
-    say: ['Show me my month'], scene: ['morning'], cat: 'watch',
+    more: 'This month and the next, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
+    say: ['Show me my month', 'What’s on this month?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-13',
   },
   // ---- THE BRIEF
