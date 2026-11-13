@@ -55,6 +55,7 @@ import { BOOT_DONE, currentMind, mindFor, webglWorks, type BootLook, type Mind, 
 import { home, settings, ui } from '../state/app';
 import { guardian, loadGuardian } from '../state/guardian';
 import { tvNow } from '../tv/setting'; // [restc] a television gets the short cut
+import { previousOpen } from '../state/lastopen';
 import { lockBox, marksState, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
@@ -108,6 +109,16 @@ const STALL = 250;
 /** Mind (three.js) must be drawing by then for the full version, and by SHORT_BY for the short one. */
 const FULL_BY = 900;
 const SHORT_BY = 1700;
+/**
+ * THE FILM decides at its scan (the first shot that needs Mind), not at the orb: Mind must be drawing by FILM_FULL_BY for the full
+ * film and by FILM_SHORT_BY for its short cut. The wait is made up by the pace, so Home is still usable 7,000 ms after the first
+ * frame (FINAL-BOOT: the film used to decide at the orb's 2,000 ms, which is always after SHORT_BY, so every real cold open fell to
+ * the flat cut and the film never played; only the checks, which pick the version, ever saw it).
+ */
+const FILM_FULL_BY = 1500;
+const FILM_SHORT_BY = 2700;
+/** A cold open this soon after he last had Ghosty on screen (the phone closed it behind him) plays the short cut (FINAL-BOOT's rule). */
+export const QUICK_REOPEN_MS = 3 * 60_000;
 /** The three feeds the guardian reads, in the order their lines come (packages/shared/src/guardian.ts). */
 const FEED_WORD: Record<FeedId, string> = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 
@@ -179,6 +190,10 @@ export const bootState = {
   warm: 0,
   /** How many times it has played since the page opened (a reboot adds one). */
   plays: 0,
+  /** How long ago he last had Ghosty on screen when this cold open began (ms; -1: never on this phone), and whether that was
+   *  soon enough (QUICK_REOPEN_MS) for the short cut. */
+  reopen: -1,
+  quick: false,
   /** THE FILM played (the world is The Scan and Mind drew it): the descent, the things found, the orb's viewport (film.ts). */
   film: false,
   scan: null as FilmState | null,
@@ -279,7 +294,10 @@ export function startBoot(): void {
   const toHome = (!hash || hash === 'core') && !/[?&]code=/.test(location.search);
   // every cold open plays it (the page is new: nothing of the app was running); a resume never reaches here
   // [restc] on a television (TV MODE) the short cut: the orb and the words, nothing that needs WebGPU; with no 3-D at all it is the flat one
-  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() ? 'short' : 'full';
+  // a quick reopen (he had it on screen under three minutes ago, and the phone closed it behind him): the short cut, not the whole film again
+  bootState.reopen = previousOpen > 0 ? Math.max(0, Date.now() - previousOpen) : -1;
+  bootState.quick = bootState.reopen >= 0 && bootState.reopen < QUICK_REOPEN_MS;
+  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() || bootState.quick ? 'short' : 'full';
   // a check may pick which version plays (software WebGL is too slow for the full one to choose itself)
   if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm') kind = f.__ghostyBootKind;
   bootState.kind = kind;
@@ -562,9 +580,12 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   // THE FILM: The Scan's world gets round two's film with the descent (features/core/scan/film.ts); the other worlds today's picture
   const filmWanted = dd.world === 'scan' && kind !== 'flat' && webglWorks();
   const L = filmWanted ? FILM_LINES : LINES;
-  const CAP = capOf(L);
+  // (a cut chosen at the start, the short one of a quick reopen or the still one, ends by its own length, a wait for Mind made up inside it)
+  const CAP = kind === 'full' ? capOf(L) : L[kind].end;
   let tl = L[kind];
   bootState.timeline = tl;
+  /** Where the cut first needs Mind, and holds (the room breathing) until it is drawing: the film's scan, else the orb's gather. */
+  const needAt = () => (filmWanted && (kind === 'full' || kind === 'short') ? tl.floor : tl.orb);
   const vw = innerWidth;
   const vh = innerHeight;
   // under Paper the boot plays on his night ground in his colour: the layer carries the night ground's tokens and the theme's
@@ -781,19 +802,28 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const e = elapsed(now);
     // even the ground's breath stuttered (its frames came over a 60 Hz frame and a third apart, on average)
     const slow = gaps >= 4 && gapSum / gaps > 22;
+    // (the film judges the phone by its own draw: the ground's stutter and a late first frame are the app starting underneath, which
+    // every phone does on a cold open, not the phone failing the film; the wait for Mind is made up by the pace)
+    const late = filmWanted ? e > FILM_FULL_BY : slow || e > FULL_BY || bootState.firstFrame > 2500;
+    const tooLate = e > (filmWanted ? FILM_SHORT_BY : SHORT_BY);
     if (mindState === 'ready') {
-      if (kind === 'full' && (slow || e > FULL_BY || bootState.firstFrame > 2500) && !forced()) kind = e > SHORT_BY ? 'flat' : 'short';
+      if (kind === 'full' && late && !forced()) kind = tooLate ? 'flat' : 'short';
       else if (kind === 'full' && mind) {
-        // one draw to warm it up (its shaders), one to time: a phone that cannot draw MIND inside one of its frames
-        // gets the short version (no gather, no push-in) rather than a cinematic that stutters
+        // one draw to warm it up (its shaders), then the quicker of two timed: a phone that cannot draw MIND inside one of its frames
+        // gets the short version (no gather, no push-in) rather than a cinematic that stutters (the film: inside a 60 Hz frame,
+        // the rate Safari draws a page at)
         takeMind();
         mind.bootFrame(e / 1000, BOOT_DONE);
-        const t1 = performance.now();
-        mind.bootFrame(e / 1000, BOOT_DONE);
-        bootState.drawMs = Math.round((performance.now() - t1) * 10) / 10;
-        if (bootState.drawMs > (B.hz === 120 ? 1000 / 120 : 1000 / 60) && !forced()) kind = 'short';
+        let best = Infinity;
+        for (let i = 0; i < 2; i++) {
+          const t1 = performance.now();
+          mind.bootFrame(e / 1000, BOOT_DONE);
+          best = Math.min(best, performance.now() - t1);
+        }
+        bootState.drawMs = Math.round(best * 10) / 10;
+        if (bootState.drawMs > (B.hz === 120 && !filmWanted ? 1000 / 120 : 1000 / 60) && !forced()) kind = 'short';
       }
-    } else if (mindState === 'none' || (e > SHORT_BY && !forced())) kind = 'flat';
+    } else if (mindState === 'none' || (tooLate && !forced())) kind = 'flat';
     else return false;
     tl = L[kind];
     bootState.timeline = tl;
@@ -803,11 +833,12 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     if (kind !== 'flat') takeMind();
     // (the short cut chosen after the film began: its shots move closer together)
     if (film && kind === 'short') film.setCut(FILM_SHORT);
-    // whatever was waited, its own part still ends by 2,880 ms
-    const left = tl.end - tl.orb;
+    // whatever was waited, its own part still ends by 2,880 ms (the film's by 7,000)
+    const from = needAt();
+    const left = tl.end - from;
     rate = Math.max(1, left / Math.max(300, CAP - e - 1));
     paceE = e;
-    paceT = tl.orb;
+    paceT = from;
     bootState.pace = Math.round(rate * 1000) / 1000;
     decided = true;
     // from here the budget judges the cinematic's own frames (not the ground's, which share the phone with the app starting)
@@ -907,8 +938,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const seg = (a: number, b: number) => clamp((T - a) / (b - a));
     const textsOut = (1 - seg(tl.land, tl.land + 150)) * (quietHold ? 0 : 1);
     // 1. the ground: the room's light breathing in where the orb will be (held while Mind loads: it keeps breathing)
-    const held = !decided && T >= tl.orb - 1;
-    const roomOn = calm ? 1 : easeOut(seg(tl.ground, tl.floor)) * (held ? 0.88 + 0.12 * Math.sin(((e - tl.orb) / 1600) * Math.PI * 2) : 1);
+    const held = !decided && T >= needAt() - 1;
+    const roomOn = calm ? 1 : easeOut(seg(tl.ground, tl.floor)) * (held ? 0.88 + 0.12 * Math.sin(((e - needAt()) / 1600) * Math.PI * 2) : 1);
     room.style.opacity = roomOn.toFixed(3);
     // 2. the world's floor forming, drawn once per change (whole at once when nothing moves)
     const fk = calm ? 1 : seg(tl.floor, tl.floor + FLOOR_MS);
@@ -1087,10 +1118,14 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     if (lean || kind !== 'full' || !decided || steady() || bootState.skipped || T < tl.orb || T >= tl.land) return;
     // (a phone whose frames come a tenth of a second apart shows its quarter in eight frames: it need not wait for twenty-four;
     // one stalled frame says it alone)
+    // (the film: one stalled frame is the app starting underneath, not the phone failing the film: only the quarter counts)
     const n = recent.length;
-    if (gap < STALL && (n < LEAN_MIN || recent.reduce((a, b) => a + b, 0) < Math.min(LEAN_AT, Math.max(3, Math.ceil(n / 4))))) return;
+    const quarter = n >= LEAN_MIN && recent.reduce((a, b) => a + b, 0) >= Math.min(LEAN_AT, Math.max(3, Math.ceil(n / 4)));
+    if (!quarter && (filmWanted || gap < STALL)) return;
     lean = true;
     B.lean = bootState.phase as Phase;
+    // the film keeps its length (his seven seconds): it sheds its extras and plays on at its pace; the storyboard's cut quickens
+    if (filmWanted) return;
     paceE = elapsed(now);
     paceT = T;
     rate *= 1.5;
@@ -1168,7 +1203,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const e = elapsed(now);
     let next = Math.max(T + dt * rate, paceT + (e - paceE) * rate);
     // the ground holds until Mind is drawing (or it is clear it won't be in time)
-    if (!decided && next >= tl.orb && !decide(now)) next = tl.orb - 1;
+    if (!decided && next >= needAt() && !decide(now)) next = needAt() - 1;
     // the landing waits for the app underneath and for Home's hero; after 2,880 ms the words go and the orb turns quietly
     if (next >= tl.land && T < tl.land + 1) {
       const ready = appIsReady && (!mindIn || !!heroRect() || heroWait > 1500);
