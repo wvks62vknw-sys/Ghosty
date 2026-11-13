@@ -248,7 +248,7 @@ export const lookTab: TabDef = {
     const narration = () => {
       const n = feedsWatched();
       const r = recipe();
-      return `I’m watching ${home().name}. ${n == null ? 'I’m still asking the feeds.' : n === 0 ? 'No feeds have answered yet.' : `${n} ${n === 1 ? 'feed answered' : 'feeds answered'} last time I looked.`} You have me in ${COLOUR_LABELS[r.colour]}, on ${groundOf(document.documentElement.dataset.ground ?? r.ground)!.label}, in ${worldOf(r.world)!.label}.`;
+      return `I’m watching ${home().name}; ${n == null ? 'I’m still asking the feeds' : n === 0 ? 'no feeds have answered yet' : `${n} ${n === 1 ? 'feed answered' : 'feeds answered'} last time I looked`}; you have me in ${COLOUR_LABELS[r.colour]}, on ${groundOf(document.documentElement.dataset.ground ?? r.ground)!.label}, in ${worldOf(r.world)!.label}.`;
     };
     const fillMarks = (b: HTMLElement) => {
       b.append(...para('p.glede', 'How I show you what I see; each one is numbered, named and live: tap it.'));

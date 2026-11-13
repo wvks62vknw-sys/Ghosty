@@ -57,12 +57,12 @@ export function tiltRow(): HTMLElement {
     btn.setAttribute('aria-label', on ? 'Switch the HUD tilt off' : 'Permit the HUD to tilt with the phone');
     btn.setAttribute('aria-pressed', String(on));
     said.textContent = on
-      ? 'On. Tilt the phone on Home.'
+      ? 'On: tilt the phone on Home.'
       : tiltState.answer === 'denied'
-        ? 'The phone said no. Safari › Settings › Motion & Orientation Access turns it on; then tap PERMIT again.'
+        ? 'The phone said no; Safari › Settings › Motion & Orientation Access turns it on, then tap PERMIT again.'
         : tiltState.answer === 'unsupported'
           ? 'This browser has no motion sensor, so the HUD cannot tilt here.'
-          : 'Off. PERMIT asks the phone once.';
+          : 'Off: PERMIT asks the phone once.';
   };
   settings.subscribe((s, p) => s.hudTilt !== p.hudTilt && paint());
   paint();

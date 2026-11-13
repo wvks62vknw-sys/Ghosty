@@ -33,7 +33,7 @@ export function switchLine(k: SwitchKey, r: Recipe, now = Date.now()): string {
     return `${dl.day ? `Paper till ${clockWords(dl.flipAt)}, then ${night}` : `${night} till ${clockWords(dl.flipAt)}, then Paper`}. ${savedHome() ? 'From your home’s sun times, never your live location.' : 'No home saved, so 08:00 to 18:00.'}`;
   }
   if (k === 'body' && r.switches.body !== 17) return `${opt.line} It reaches the pages I draw in the new system now; every room follows with the shell.`;
-  if (k === 'sound' && r.switches.sound !== 'off' && !settings.get().sounds) return `${opt.line} Your interface sounds are off, so you hear nothing until you turn them on in Voice & home.`;
+  if (k === 'sound' && r.switches.sound !== 'off' && !settings.get().sounds) return `${opt.line.replace(/\.$/, ';')} your interface sounds are off, so you hear nothing until you turn them on in Voice & home.`;
   return opt.line;
 }
 

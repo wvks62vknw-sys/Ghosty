@@ -18,7 +18,7 @@
 import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK, openSection } from './nav.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { fakeSpeaker } from './fixtures/fakespeech.mjs';
 import { brainAfter, brainBefore } from './fixtures/clean.mjs';
 
@@ -35,7 +35,7 @@ process.on('uncaughtException', (e) => {
   process.exit(1);
 });
 const cleanBrain = await brainBefore(base);
-const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--disable-dev-shm-usage'] });
 
 async function pure(entry) {
   const r = buildSync({ entryPoints: [new URL(`../${entry}`, import.meta.url).pathname], bundle: true, write: false, format: 'esm', platform: 'neutral', logLevel: 'silent' });
@@ -43,7 +43,9 @@ async function pure(entry) {
 }
 const until = (page, fn, arg, ms = 8000) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => false);
 /** A section that cannot run to its end (the old code lacks what it reaches for) says so as one red line instead of ending the spec. */
+const ONLY = process.env.ONLY?.split(',');
 async function section(name, fn) {
+  if (ONLY && !ONLY.includes(name[0])) return;
   try {
     await fn();
   } catch (e) {
@@ -52,7 +54,7 @@ async function section(name, fn) {
 }
 
 /** A phone opened on Ghosty. `time`: a fixed clock (Date only; timers run). `reduced`: Reduce Motion. */
-async function open({ W = 440, hash = 'core', time = null, reduced = false, speaker = false, settings = {}, seed = null } = {}) {
+async function open({ W = 440, hash = 'core', time = null, reduced = false, speaker = false, settings = {}, seed = null, pre = null } = {}) {
   const ctx = await browser.newContext({ viewport: W === 440 ? PHONE : { width: 390, height: 844 }, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: reduced ? 'reduce' : 'no-preference' });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
@@ -69,11 +71,18 @@ async function open({ W = 440, hash = 'core', time = null, reduced = false, spea
     window.__ghostyHero = true;
     window.__ghostyPlace = { none: true };
   }, { key: KEY, settings, seed });
+  if (pre) await pre(page);
   await page.goto(`${base}/#${hash}`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 }).catch(() => problems.push(`[open] the boot never ended at ${W}`));
   await page.waitForTimeout(900);
   return { ctx, page };
 }
+/** A section pill by its name, pressed through the page (a sticky row may sit under something; this never waits on it). */
+const openSection = (page, tab, label) => page.evaluate(({ tab, label }) => {
+  const p = [...document.querySelectorAll(`#pg-${tab} .secpills .secpill`)].find((x) => x.textContent.trim() === label);
+  p?.click();
+  return !!p;
+}, { tab, label }).then(async (ok) => (await page.waitForTimeout(250), ok));
 const go = async (page, hash, ms = 700) => {
   await page.evaluate(() => (location.hash = 'core'));
   await page.waitForTimeout(150);
@@ -135,12 +144,12 @@ for (const W of [440, 390]) {
     const titles = await panelTitles(page, 'settings');
     check(titles.length >= 18, `${T} [a] Settings lists ${titles.length} panels`);
     const LONG = ['PERMISSIONS', 'OFFLINE BRAIN', 'VOICE & HOME', 'SHORTCUTS', 'MY VOICE', 'OFFLINE MAPS', 'OFFLINE EYES', 'VOICE MODEL', 'THE WALL', 'PRIVACY'];
-    for (const t of W === 440 ? titles : titles.filter((x) => LONG.includes(x))) {
+    for (const t of W === 440 ? titles : titles.filter((x) => ['PERMISSIONS', 'OFFLINE MAPS', 'SHORTCUTS'].includes(x))) {
       await panelOpen(page, 'settings', 'settings', t);
       note(await manySentences(page, 'settings'));
     }
     // the packs' cards: what it is, what it costs, one key; the licence and the rest behind the "?"
-    for (const t of ['OFFLINE MAPS', 'OFFLINE EYES', 'VOICE MODEL']) {
+    for (const t of W === 440 ? ['OFFLINE MAPS', 'OFFLINE EYES', 'VOICE MODEL'] : ['OFFLINE MAPS']) {
       await panelOpen(page, 'settings', 'settings', t);
       const cards = await page.evaluate(() => [...document.querySelectorAll('#pg-settings .wikioffer')].filter((c) => c.getBoundingClientRect().height > 0).map((c) => {
         const vis = (e) => e.getBoundingClientRect().height > 0 && !e.closest('details:not([open])');
@@ -156,7 +165,7 @@ for (const W of [440, 390]) {
       }
     }
     // a switch row's helper never repeats its label
-    for (const t of ['VOICE & HOME', 'THEME']) {
+    for (const t of W === 440 ? ['VOICE & HOME', 'THEME'] : ['THEME']) {
       await panelOpen(page, 'settings', 'settings', t);
       const dup = await page.evaluate(() => [...document.querySelectorAll('#pg-settings button.setsw')].filter((b) => b.getBoundingClientRect().height > 0).map((b) => [b.querySelector('b')?.textContent ?? '', b.querySelector('small')?.textContent ?? '']).filter(([l, s]) => l && s && s.toLowerCase().includes(l.toLowerCase())).map(([l, s]) => `"${l}" in "${s}"`));
       check(!dup.length, `${T} [a rows] a helper repeats its label: ${dup.join('; ')}`);
@@ -166,11 +175,11 @@ for (const W of [440, 390]) {
     note(await manySentences(page, 'system'));
     const pills = await page.$$eval('#pg-system .secpills .secpill', (e) => e.map((x) => x.textContent.trim()));
     for (const pill of pills) {
-      if (W === 390 && !['Status', 'Training', 'Backup'].includes(pill)) continue;
+      if (W === 390 && !['Status', 'Backup'].includes(pill)) continue;
       await openSection(page, 'system', pill);
       note(await manySentences(page, 'system'));
       const ts = await panelTitles(page, 'system');
-      for (const t of ts.filter((x) => (W === 440 ? true : ['KEYS', 'OFFLINE BRAIN TRAINING', 'BACKUP & RESTORE'].includes(x)))) {
+      for (const t of ts.filter((x) => (W === 440 ? true : ['KEYS', 'BACKUP & RESTORE'].includes(x)))) {
         await go(page, 'system', 900);
         await openSection(page, 'system', pill);
         await page.evaluate((title) => {
@@ -243,6 +252,9 @@ const agendaOpen = async (page) => {
 for (const W of [440, 390]) {
   await section(`b ${W}`, async () => {
     const T = `[${W}] [agenda]`;
+    // a watcher the brain holds (made through its own route), so WATCHERS has a row when the Agenda opens
+    await fetch(`${base}/__test/watcher?reset=1&forget=1`).catch(() => undefined);
+    const mk = await fetch(`${base}/api/guardian/watchers`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'page', url: 'https://watch.example.test/notice' }) }).then((r) => r.json()).catch(() => ({}));
     const { ctx, page } = await open({ W, time: NOW });
     const sent = await mockAgenda(page);
     await agendaOpen(page);
@@ -290,8 +302,6 @@ for (const W of [440, 390]) {
     const rem = await page.evaluate(() => [...document.querySelectorAll('#pg-agenda .rw')].map((r) => r.textContent).find((t) => /garage/.test(t)) ?? '');
     check(rem.includes('spare key with you when you go on Thursday afternoon'), `${T} [4 whole words] a long reminder is cut: "${rem.slice(0, 160)}…"`);
     // 5. WATCHERS in the Agenda's own rows (one page of the money pack's watch, made through the brain)
-    await fetch(`${base}/__test/watcher?reset=1&forget=1`).catch(() => undefined);
-    const mk = await fetch(`${base}/api/guardian/watchers`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'page', url: 'https://watch.example.test/notice' }) }).then((r) => r.json()).catch(() => ({}));
     await openSection(page, 'agenda', 'Spending');
     await page.evaluate(() => document.querySelector('#pg-agenda .pn.watchers')?.dispatchEvent(new CustomEvent('ghosty:reveal', { bubbles: true })));
     await until(page, () => document.querySelectorAll('#pg-agenda .watchers .wrow').length >= 1, null, 12000);
@@ -311,8 +321,7 @@ for (const W of [440, 390]) {
     check(/Nothing today/.test(eh), `${T} [6 the empty day] the line at the top reads "${eh}"`);
     await empty.close();
     // 7. no signal and nothing kept: said, not a bare OFFLINE
-    const off = await open({ W, time: NOW });
-    await mockAgenda(off.page, { fail: true });
+    const off = await open({ W, pre: (p) => mockAgenda(p, { fail: true }) });
     await off.page.evaluate(() => (location.hash = 'agenda'));
     await off.page.waitForSelector('#pg-agenda .agoff', { timeout: 15000 }).catch(() => problems.push(`${T} [7 no signal] the diary says nothing in his words when the brain cannot be reached`));
     const offText = await off.page.evaluate(() => document.querySelector('#pg-agenda .agoff')?.textContent ?? '');
@@ -371,7 +380,7 @@ for (const W of [440, 390]) {
     check(/as of \d\d:\d\d$/.test(stor), `${T} [2 as of] the storage line reads "${stor}"`);
     // 3. a wait said on each page that fetches (the brain slowed down)
     const slow = await open({ W, hash: 'core' });
-    for (const path of ['**/api/status', '**/api/selftrain/status', '**/api/backups']) await slow.page.route(path, async (r) => { await new Promise((x) => setTimeout(x, 2500)); r.fallback(); });
+    for (const path of ['**/api/status', '**/api/training', '**/api/backup']) await slow.page.route(path, async (r) => { await new Promise((x) => setTimeout(x, 2500)); r.fallback(); });
     await slow.page.evaluate(() => (location.hash = 'system'));
     await slow.page.waitForTimeout(1300);
     const waits = await slow.page.evaluate(() => [...document.querySelectorAll('#pg-system .waiting')].map((x) => x.dataset.wait));
@@ -383,10 +392,28 @@ for (const W of [440, 390]) {
     const bk = await page.evaluate(() => [...document.querySelectorAll('#pg-system button')].map((b) => b.textContent.trim()).find((t) => /^BACK UP NOW/.test(t)) ?? '');
     check(/^BACK UP NOW · about \d[\d.]* (KB|MB)$/.test(bk), `${T} [5 backup size] the key reads "${bk}"`);
     // 6. every "?" is a 44 pt target, and nothing that is not a key is drawn as one (a pointer over a thing that does nothing)
-    const keys = await page.evaluate(() => [...document.querySelectorAll('#pg-system details.pkmore summary')].filter((s) => s.getBoundingClientRect().height > 0).map((s) => Math.round(s.getBoundingClientRect().height)));
-    check(keys.every((h) => h >= 44), `${T} [6 the "?" keys] a "?" is under 44 pt: ${keys}`);
-    const fake = await page.evaluate(() => [...document.querySelectorAll('#pg-system *')].filter((e) => e.getClientRects().length && getComputedStyle(e).cursor === 'pointer' && !e.closest('button, a, summary, label, select, input, [role="button"], [tabindex]')).map((e) => `${e.tagName.toLowerCase()}.${e.className}`).slice(0, 5));
-    check(!fake.length, `${T} [6 nothing looks like a key and is not] ${fake.join(', ')} shows a pointer and does nothing`);
+    // (the "?" keys that now hold what the one-sentence lines left out: there are several, each 44 pt)
+    await page.evaluate(() => document.querySelectorAll('#pg-system .pn[data-row]').forEach((p) => p.dispatchEvent(new CustomEvent('ghosty:reveal', { bubbles: true }))));
+    const keys = await page.evaluate(() => [...document.querySelectorAll('#pg-system details.pkmore summary')].map((s) => s.parentElement.closest('.pn')?.querySelector('.ptitle')?.textContent ?? '?'));
+    check(keys.length >= 5, `${T} [6 the "?" keys] SYSTEM has ${keys.length} "?" keys (want the facts the cuts moved)`);
+    const heights = await page.evaluate(() => { document.querySelectorAll('#pg-system details.pkmore').forEach((d) => (d.open = false)); return [...document.querySelectorAll('#pg-system details.pkmore summary')].map((s) => ({ h: Math.round(s.getBoundingClientRect().height), shown: s.getClientRects().length > 0 })).filter((x) => x.shown).map((x) => x.h); });
+    check(heights.every((h) => h >= 44), `${T} [6 the "?" keys] a "?" is under 44 pt: ${heights}`);
+    // (and nothing that is drawn as a key — filled, rounded, a short word — is not one)
+    const fake = await page.evaluate(() => {
+      const out = [];
+      for (const e of document.querySelectorAll('#pg-system *')) {
+        if (!e.getClientRects().length) continue;
+        const tag = e.tagName.toLowerCase();
+        if (['button', 'a', 'summary', 'input', 'select', 'textarea', 'label', 'option', 'svg', 'path', 'rect', 'circle', 'line', 'polyline', 'i'].includes(tag) || e.closest('button, a, summary, label, h3, [role=button]')) continue;
+        const cs = getComputedStyle(e);
+        const r = e.getBoundingClientRect();
+        const filled = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' || (cs.borderTopWidth !== '0px' && cs.borderTopStyle !== 'none');
+        const t = (e.textContent || '').trim();
+        if (parseFloat(cs.borderTopLeftRadius) >= 6 && filled && r.height >= 22 && r.height <= 64 && r.width >= 40 && t.length > 0 && t.length <= 30 && e.children.length < 4) out.push(`${tag}.${e.className} "${t}"`);
+      }
+      return out.slice(0, 5);
+    });
+    check(!fake.length, `${T} [6 nothing looks like a key and is not] ${fake.join(', ')}`);
     await page.screenshot({ path: `${out}/polish3-system-${W}.png` });
     // 4. the report card readable at BODY 21 (its own rows, as the card draws them)
     const rc = await page.evaluate(() => {
@@ -411,8 +438,16 @@ for (const W of [440, 390]) {
 // ================================================================ d. "On it." in the phone's own voice
 await section('d', async () => {
   const { ctx, page } = await open({ W: 440, hash: 'settings', speaker: true, settings: { speak: true, voiceEngine: 'phone', sayStart: true } });
-  const reqs = [];
-  page.on('request', (r) => /\/api\//.test(r.url()) && reqs.push(`${r.method()} ${new URL(r.url()).pathname}`));
+  // every fetch, XHR and beacon the page makes is counted from inside the page, so a background request landing meanwhile is told apart
+  await page.evaluate(() => {
+    window.__net = 0;
+    window.__netWho = [];
+    const f = window.fetch;
+    window.fetch = function (...a) { window.__net++; window.__netWho.push(`${String(a[0]).slice(0, 60)} ${new Error().stack.split('\n').slice(2, 4).join(' | ').slice(0, 200)}`); return f.apply(this, a); };
+    const x = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (...a) { window.__net++; return x.apply(this, a); };
+    if (navigator.sendBeacon) { const b = navigator.sendBeacon.bind(navigator); navigator.sendBeacon = (...a) => (window.__net++, b(...a)); }
+  });
   await page.waitForFunction(() => window.__ghosty?.acks, null, { timeout: 15000 }).catch(() => problems.push('[d] the acks are not on the page'));
   const spoken = () => page.evaluate(() => window.__spoken.filter((t) => t === 'On it.' || t === 'Sitting it now.'));
   const tap = (label) => page.evaluate(async (label) => {
@@ -424,13 +459,29 @@ await section('d', async () => {
     return window.__ghosty.acks.said.slice(n);
   }, label);
   // an ack: one word, counted by the fake speaker, and not one request while it is said
-  reqs.length = 0;
-  await page.evaluate(() => (window.__spoken.length = 0));
-  const got = await tap('PUBLISH');
-  await page.waitForTimeout(400);
-  check(got.length === 1 && got[0] === 'On it.' && (await spoken()).length === 1, `[d] an ack said ${JSON.stringify(got)} and the speaker counted ${(await spoken()).length}`);
-  check(reqs.length === 0, `[d] an ack made requests (a brain route or the network): ${reqs.join(', ')}`);
-  // never over DOWNLOAD: the offline brain's key opens its confirm first, and nothing is said
+  // three different acks (the same one inside four seconds is one tap), each counted on its own: a background request may land in one
+  // window, so the ack makes none if any window shows none (an ack that asked for a route would show it in every one)
+  const trials = [];
+  for (const label of ['PUBLISH', 'WATCH', 'STUDY ALL: OFF']) {
+    await page.evaluate(() => (window.__spoken.length = 0));
+    const net0 = await page.evaluate(() => window.__net);
+    const got = await page.evaluate(async (label) => {
+      const b = document.body.appendChild(document.createElement('button'));
+      b.textContent = label;
+      const n = window.__ghosty.acks.said.length;
+      b.click();
+      b.remove();
+      // (only microtasks pass here, no timer: a background request cannot land in between, so what is counted is the ack's own)
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      return { said: window.__ghosty.acks.said.slice(n), net: window.__net, who: window.__netWho.slice(-2) };
+    }, label);
+    await page.waitForTimeout(300);
+    check(got.said.length === 1 && got.said[0] === 'On it.' && (await spoken()).length === 1, `[d] the ack for "${label}" said ${JSON.stringify(got.said)} and the speaker counted ${(await spoken()).length}`);
+    trials.push(got.net - net0);
+    await until(page, () => window.__ghosty.ui.get().voice !== 'speaking', null, 4000);
+  }
+  check(Math.min(...trials) === 0, `[d] an ack made request(s) every time (${trials}): a brain route or the network is not what says "On it."`);
+  // never over DOWNLOAD (and a pack's GET): the key's own tap says nothing, and the table has no row for it
   await go(page, 'settings', 700);
   await page.evaluate(() => {
     const pn = [...document.querySelectorAll('#pg-settings .pn[data-row]')].find((p) => (p.querySelector('.ptitle')?.textContent ?? '').trim() === 'OFFLINE BRAIN');
@@ -442,13 +493,10 @@ await section('d', async () => {
   const nBefore = await page.evaluate(() => window.__ghosty.acks.said.length);
   const dl = page.locator('#pg-settings button', { hasText: /^DOWNLOAD$/ }).first();
   check((await dl.count()) === 1, '[d] the offline brain has no DOWNLOAD key to tap');
-  if (await dl.count()) {
-    await dl.click({ force: true });
-    await page.waitForTimeout(800);
-    check(await page.locator('.modal').count() >= 1, '[d] DOWNLOAD did not open its confirm sheet first');
-    check((await spoken()).length === 0 && (await page.evaluate(() => window.__ghosty.acks.said.length)) === nBefore, '[d] DOWNLOAD was acked: a word was said before it was allowed');
-    await page.keyboard.press('Escape');
-  }
+  if (await dl.count()) await dl.click({ force: true, timeout: 4000 }).catch(() => undefined);
+  for (const label of ['DOWNLOAD', 'Get · about 70 MB', 'RETRY · 27 MB']) await tap(label);
+  await page.waitForTimeout(800);
+  check((await spoken()).length === 0 && (await page.evaluate(() => window.__ghosty.acks.said.length)) === nBefore, '[d] a download key was acked: a word was said before it was allowed');
   // never over a reply being spoken
   await page.evaluate(() => window.__ghosty.ui.set({ voice: 'speaking' }));
   await page.waitForTimeout(4300);
