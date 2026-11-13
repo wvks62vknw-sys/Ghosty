@@ -681,4 +681,4 @@ await section('h', async () => {
 problems.push(...(await brainAfter(base, cleanBrain)));
 await browser.close();
 if (problems.length) process.exitCode = 1;
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'POLISH 3 run clean at 440 × 956 and 390 × 844: one sentence a screen on Settings, System, the Theme page and the packs\' cards; the Agenda\'s ten fixes and the System screen\'s; "On it." in the phone\'s own voice and never over DOWNLOAD; one watcher system; Share to Ghosty; the Make and Learn leftovers; the photo and video editors' work in the daily backup.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'POLISH 3 run clean at 440 × 956 and 390 × 844: one sentence a screen on Settings, System, the Theme page and the packs\' cards; the Agenda\'s ten fixes and the System screen\'s; "On it." in the phone\'s own voice and never over DOWNLOAD; one watcher system; Share to Ghosty; the Make and Learn leftovers; the photo and video editors\' work in the daily backup.');
