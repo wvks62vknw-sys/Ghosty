@@ -6,7 +6,7 @@
  * not been asked for (NEEDS HIS WORD in the report). Nothing looks for or names a face; nothing leaves the phone.
  */
 import { clamp, smoothstep } from './math';
-import { alphaSizeFor, blankAlpha, type Alpha } from './alpha';
+import { alphaAt, alphaSizeFor, blankAlpha, type Alpha } from './alpha';
 import { DEPTH, FINDER, RUNTIME, WORKER_RUNTIME, sum } from '../offline/eyesfiles';
 
 /** What the two packs weigh together, in bytes (the shared runtime counted once). */
@@ -103,4 +103,73 @@ export async function cutSubject(canvas: HTMLCanvasElement, step: (words: string
     out.data[j * w + i] = Math.round(s / 9);
   }
   return { alpha: out, box: boxFound };
+}
+
+// ---------------------------------------------------------------- REFINE WITH DEPTH (BRIEF-EDITOR-PHOTO-2)
+
+/** What MEASURE'S DISTANCE weighs on its own, in bytes (the cut-out model's mask is refined with it, not made from it). */
+export const DEPTH_BYTES = sum(WORKER_RUNTIME, DEPTH);
+
+/** Is MEASURE'S DISTANCE kept on this phone? The words for the tray say what is missing when it is not. */
+export async function depthState(): Promise<SubjectState> {
+  try {
+    const { EYES_MEASURE, eyesHere } = await import('../offline/eyes');
+    if (await eyesHere(EYES_MEASURE)) return { ready: true, words: 'MEASURE’S DISTANCE is on this phone: I can refine the cut with how far things are.' };
+  } catch {
+    /* said below */
+  }
+  return { ready: false, words: `To refine with depth I need MEASURE’S DISTANCE kept on this phone (${sizeIn(DEPTH_BYTES)}; Settings, the Lens’s eyes, on Wi-Fi). The cut stays as it is.` };
+}
+
+/**
+ * The cut-out model's mask kept only where it is about as far away as the subject itself (the depth model, MEASURE'S DISTANCE): the
+ * depth of the subject is the median over what the mask holds firmly, and what lies clearly behind it goes. A first cut can stay in
+ * front of a wall the model took in; a mask that holds nothing firmly comes back as it was.
+ */
+export async function refineWithDepth(canvas: HTMLCanvasElement, alpha: Alpha, step: (words: string) => void): Promise<Alpha> {
+  const side = Math.min(640, Math.max(alpha.w, alpha.h));
+  const k = side / Math.max(canvas.width, canvas.height);
+  const small = document.createElement('canvas');
+  small.width = Math.max(2, Math.round(canvas.width * k));
+  small.height = Math.max(2, Math.round(canvas.height * k));
+  small.getContext('2d')!.drawImage(canvas, 0, 0, small.width, small.height);
+  const { depthModel } = await import('../measure/depth');
+  await depthModel.load((s) => step(s.charAt(0).toUpperCase() + s.slice(1)));
+  step('Working out how far each part is…');
+  let depth;
+  try {
+    depth = await depthModel.run(small, { w: small.width, h: small.height });
+  } finally {
+    depthModel.release();
+  }
+  const at = (u: number, v: number): number => {
+    const x = clamp(u * depth.w - 0.5, 0, depth.w - 1);
+    const y = clamp(v * depth.h - 0.5, 0, depth.h - 1);
+    const x0 = Math.floor(x);
+    const y0 = Math.floor(y);
+    const x1 = Math.min(depth.w - 1, x0 + 1);
+    const y1 = Math.min(depth.h - 1, y0 + 1);
+    const fx = x - x0;
+    const fy = y - y0;
+    const d = depth.data;
+    return (d[y0 * depth.w + x0]! * (1 - fx) + d[y0 * depth.w + x1]! * fx) * (1 - fy) + (d[y1 * depth.w + x0]! * (1 - fx) + d[y1 * depth.w + x1]! * fx) * fy;
+  };
+  const firm: number[] = [];
+  for (let j = 0; j < 24; j++) for (let i = 0; i < 24; i++) {
+    const u = (i + 0.5) / 24;
+    const v = (j + 0.5) / 24;
+    if (alphaAt(alpha, u, v) > 0.7) firm.push(at(u, v));
+  }
+  if (firm.length < 6) return alpha;
+  firm.sort((a, b) => a - b);
+  const d0 = firm[Math.floor(firm.length / 2)]!;
+  const out = blankAlpha(alpha.w, alpha.h);
+  for (let j = 0; j < alpha.h; j++)
+    for (let i = 0; i < alpha.w; i++) {
+      const u = (i + 0.5) / alpha.w;
+      const v = (j + 0.5) / alpha.h;
+      const near = 1 - smoothstep(d0 * 1.12 + 0.05, d0 * 1.45 + 0.2, at(u, v));
+      out.data[j * alpha.w + i] = Math.round(alpha.data[j * alpha.w + i]! * clamp(near));
+    }
+  return out;
 }

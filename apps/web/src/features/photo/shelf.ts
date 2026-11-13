@@ -11,8 +11,11 @@ import { sizeWords } from '../../convert/bytes';
 import { saveBlob, shareBlob, zipOf, type Output } from '../../convert/run';
 import { exportCanvas, PhotoGL, srcOf } from '../../photo/gpu';
 import { openPhoto, RAW_LINE } from '../../photo/load';
+import { applyPatches } from '../../photo/patch';
+import { packSize } from '../../photo/packget';
+import { packOffer } from './packui';
 import { applyPreset, LOOKS, type Preset } from '../../photo/recipe';
-import { getLayer, getOriginal, getRecipe, getMeta, keepPhoto, listMyLooks, listPhotos, removePhoto, roomFor, saveRecipe, storeState, type PhotoMeta } from '../../photo/store';
+import { getDecoded, getLayer, getOriginal, getRecipe, getMeta, keepPhoto, listMyLooks, listPhotos, removePhoto, roomFor, saveRecipe, storeState, type PhotoMeta } from '../../photo/store';
 import { MAX_BYTES, MAX_PHOTOS, megabytes } from '../../photo/room';
 import { thousands } from './slider';
 import { peState } from './editor';
@@ -46,7 +49,9 @@ export function shelf(open: (id: string) => void): Shelf {
     h('b', 'No photos yet'),
     h('p', 'Open one from your camera roll. I keep it here untouched, with every edit beside it, and you can come back to any of them.'));
   const room = h('p.g-truth.peroom');
-  const input = h('input', { type: 'file', accept: 'image/*,.heic,.heif,.dng', multiple: true, hidden: true, 'aria-label': 'Open a photo' }) as HTMLInputElement;
+  /** A RAW shared in with no reader kept: the size and GET sit here until it is. */
+  const rawBox = h('div.perawshelf');
+  const input = h('input', { type: 'file', accept: 'image/*,.heic,.heif,.dng,.cr2,.cr3,.nef,.nrw,.arw,.raf,.orf,.rw2,.pef,.srw', multiple: true, hidden: true, 'aria-label': 'Open a photo' }) as HTMLInputElement;
   const openB = button('OPEN A PHOTO', () => input.click(), 'on peopen');
   const batchB = button('BATCH', () => setBatch(!shelfState.batch), 'pebatchb');
   const bar = h('div.pebatchbar', { hidden: true, role: 'toolbar', 'aria-label': 'Batch' });
@@ -55,7 +60,7 @@ export function shelf(open: (id: string) => void): Shelf {
     h('p.pesub', 'A photo editor on this phone: light, colour, curves, masks, healing, crops and looks, and your original never touched.'),
     h('div.perow.pekeys', openB, batchB, input),
   );
-  const el = h('div.peshelf', { dataset: { view: 'shelf' } }, head, msg, empty, grid, room, bar);
+  const el = h('div.peshelf', { dataset: { view: 'shelf' } }, head, msg, rawBox, empty, grid, room, bar);
   let items: PhotoMeta[] = [];
   const urls: string[] = [];
 
@@ -171,23 +176,34 @@ export function shelf(open: (id: string) => void): Shelf {
   async function take(files: File[]): Promise<void> {
     let first = '';
     let n = 0;
+    const needReader: File[] = [];
+    rawBox.replaceChildren();
     for (const f of files) {
       say(`Opening ${f.name}…`);
       try {
-        const o = await openPhoto(f, f.name);
+        const o = await openPhoto(f, f.name, { say });
         if (!(await makeRoom(f.size))) continue;
-        const kept = await keepPhoto(f, f.name, { w: o.w, h: o.h });
+        const kept = await keepPhoto(f, f.name, { w: o.w, h: o.h }, o.raw ? { decoded: o.decoded ?? null, info: { make: o.raw.make, model: o.raw.model, half: o.raw.half, stops: o.raw.stops } } : undefined);
         n++;
         if (!first) first = kept.meta.id;
       } catch (e) {
+        if ((e as Error)?.name === 'RawNeedsReader') {
+          needReader.push(f);
+          continue;
+        }
         const words = rawText(e);
         // (a sentence of our own, in his words, is said whole; anything else goes through the one error voice)
         say(words.startsWith('I can') || words.startsWith('That') ? words : sayError(e, `open ${f.name}`));
         toast(msg.textContent ?? '', words === RAW_LINE ? 'warn' : 'bad');
       }
     }
+    if (needReader.length) {
+      // a RAW and no reader kept: its size and GET; the RAW opens by itself when the reader is here
+      say(`${needReader.length === 1 ? needReader[0]!.name : `${needReader.length} RAW files`}: this is a RAW. To open it I need the RAW reader (${packSize('raw')}): GET`);
+      rawBox.replaceChildren(packOffer('raw', () => void take(needReader)));
+    }
     if (first) {
-      say('');
+      if (!needReader.length) say('');
       open(first);
     } else if (!n && !msg.textContent) say('Nothing opened.');
     await show();
@@ -295,7 +311,7 @@ export function shelf(open: (id: string) => void): Shelf {
         try {
           const blob = await getOriginal(p.id);
           if (!blob) throw new Error('the original is gone');
-          const opened = await openPhoto(blob, p.name);
+          const opened = await openPhoto(blob, p.name, { decoded: (await getDecoded(p.id))?.blob ?? null });
           const rec0 = (await getRecipe(p.id)) ?? undefined;
           if (!rec0) throw new Error('its recipe is gone');
           const rec = applyPreset(rec0, look);
@@ -306,11 +322,13 @@ export function shelf(open: (id: string) => void): Shelf {
             else rec.layer = null;
           }
           await saveRecipe(p.id, rec);
+          // the erase model's fills are part of the photo's own edit: laid over the original before the look is drawn
+          const working = applyPatches(opened.canvas, rec.patches);
           if (gl) {
-            gl.setSource(opened.canvas);
+            gl.setSource(working);
             gl.setLayer(layer);
           }
-          const drawn = await exportCanvas(gl, () => srcOf(opened.canvas), rec, { w: opened.w, h: opened.h }, layer ? () => srcOf(layer!) : null, (d, of) => {
+          const drawn = await exportCanvas(gl, () => srcOf(working), rec, { w: opened.w, h: opened.h }, layer ? () => srcOf(layer!) : null, (d, of) => {
             status.textContent = `${R.words}: drawing ${d} of ${of}… ${i} done, ${sizeWords(R.bytes)} so far`;
           });
           const out = await new Promise<Blob | null>((ok) => drawn.canvas.toBlob(ok, 'image/jpeg', quality / 100));

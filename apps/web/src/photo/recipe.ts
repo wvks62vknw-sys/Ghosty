@@ -60,6 +60,8 @@ export interface Mask {
   /** A brush's or the subject's alpha picture (photo/alpha.ts), or '' when nothing is painted yet. */
   alpha: string;
   adj: MaskGrade;
+  /** SUBJECT only: which cut this is, "model" (the cut-out model) or "depth" (the first cut from depth and the finder). An old mask has none. */
+  cut?: 'model' | 'depth';
 }
 
 export type Blend = 'normal' | 'multiply' | 'screen' | 'overlay' | 'softlight';
@@ -86,6 +88,18 @@ export interface Heal {
   dy: number;
   /** 0..1: how much of the edge is feathered. */
   feather: number;
+}
+
+/**
+ * A part of the photo filled by the erase model (BRIEF-EDITOR-PHOTO-2): a rectangle of the original's frame (0..1) and the picture that
+ * lies in it, kept under an id (photo/patch.ts). An old recipe has none.
+ */
+export interface Patch {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export interface Crop {
@@ -120,6 +134,8 @@ export interface Recipe {
   masks: Mask[];
   layer: Layer | null;
   heals: Heal[];
+  /** The erase model's fills (BRIEF-EDITOR-PHOTO-2), laid over the original before anything else. Absent in a recipe from before. */
+  patches?: Patch[];
 }
 
 export const NEUTRAL_K = 6500;
@@ -178,7 +194,8 @@ export const curveIsIdentity = (c: CurvePts): boolean => c.length === 2 && c[0]!
 /** Does the recipe change the photo at all? (EXPORT of an untouched photo says so.) */
 export function isUntouched(r: Recipe): boolean {
   const n = newRecipe();
-  return sameRecipe({ ...r, effects: { ...r.effects, seed: 1 } }, { ...n, effects: { ...n.effects, seed: 1 } });
+  // a recipe with an empty list of erase fills is as untouched as one from before there were any
+  return sameRecipe({ ...r, patches: r.patches?.length ? r.patches : undefined, effects: { ...r.effects, seed: 1 } }, { ...n, effects: { ...n.effects, seed: 1 } });
 }
 
 // ----------------------------------------------------------------- the history

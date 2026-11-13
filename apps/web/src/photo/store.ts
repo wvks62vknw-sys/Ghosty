@@ -7,6 +7,7 @@
  * Nothing here is sent anywhere.
  */
 import { forgetAlphas, getAlpha, putAlpha, type Alpha } from './alpha';
+import { getPatch, putPatch, type PatchPic } from './patch';
 import { cloneRecipe, newRecipe, type Preset, type Recipe } from './recipe';
 import { room, type Kept, type Room } from './room';
 
@@ -24,6 +25,12 @@ interface Row extends PhotoMeta {
   original: Blob;
   recipe: Recipe;
   alphas: Record<string, { w: number; h: number; data: Uint8Array }>;
+  /** The erase model's fills the recipe names (BRIEF-EDITOR-PHOTO-2). */
+  patches?: Record<string, { w: number; h: number; data: Uint8ClampedArray }>;
+  /** A RAW's lossless 16-bit picture, kept beside the RAW's bytes (the RAW stays the original of record). */
+  decoded?: Blob | null;
+  /** What the RAW reader said about it. */
+  rawInfo?: { make: string; model: string; half: boolean; stops: number } | null;
 }
 interface LayerRow {
   id: string;
@@ -114,12 +121,12 @@ export async function roomFor(bytes: number): Promise<Room> {
 }
 
 /** Keep a photo: its bytes untouched, a fresh recipe. The oldest that would not fit are let go (named in `dropped`). */
-export async function keepPhoto(original: Blob, name: string, size: { w: number; h: number }): Promise<{ meta: PhotoMeta; dropped: Kept[]; room: Room }> {
+export async function keepPhoto(original: Blob, name: string, size: { w: number; h: number }, raw?: { decoded: Blob | null; info: Row['rawInfo'] }): Promise<{ meta: PhotoMeta; dropped: Kept[]; room: Room }> {
   const r = await roomFor(original.size);
   if (r.tooBig) throw new Error(r.words);
   for (const d of r.drop) await removePhoto(d.id);
   const id = `p${Date.now().toString(36)}${Math.floor(Math.random() * 1e5).toString(36)}`;
-  const row: Row = { id, name, at: Date.now(), bytes: original.size, type: original.type || 'image/jpeg', w: size.w, h: size.h, edited: false, thumb: null, original, recipe: newRecipe(), alphas: {} };
+  const row: Row = { id, name, at: Date.now(), bytes: original.size, type: original.type || 'image/jpeg', w: size.w, h: size.h, edited: false, thumb: null, original, recipe: newRecipe(), alphas: {}, patches: {}, decoded: raw?.decoded ?? null, rawInfo: raw?.info ?? null };
   await put('photos', row, mem.photos, id);
   return { meta: meta(row), dropped: r.drop, room: r };
 }
@@ -136,6 +143,12 @@ async function row(id: string): Promise<Row | null> {
 export async function getOriginal(id: string): Promise<Blob | null> {
   return (await row(id))?.original ?? null;
 }
+/** A RAW's kept 16-bit picture, and what the reader said about it (null for any other photo). */
+export async function getDecoded(id: string): Promise<{ blob: Blob | null; info: Row['rawInfo'] } | null> {
+  const r = await row(id);
+  if (!r || !r.rawInfo) return null;
+  return { blob: r.decoded ?? null, info: r.rawInfo };
+}
 export async function getMeta(id: string): Promise<PhotoMeta | null> {
   const r = await row(id);
   return r ? meta(r) : null;
@@ -146,6 +159,7 @@ export async function getRecipe(id: string): Promise<Recipe | null> {
   const r = await row(id);
   if (!r) return null;
   for (const [k, a] of Object.entries(r.alphas ?? {})) putAlpha({ w: a.w, h: a.h, data: a.data }, k);
+  for (const [k, p] of Object.entries(r.patches ?? {})) putPatch({ w: p.w, h: p.h, data: p.data }, k);
   return { ...newRecipe(), ...r.recipe };
 }
 
@@ -161,8 +175,14 @@ export async function saveRecipe(id: string, recipe: Recipe, opts: { thumb?: Blo
     const a: Alpha | null = getAlpha(n);
     if (a) alphas[n] = { w: a.w, h: a.h, data: a.data };
   }
+  const patchNames = new Set<string>((recipe.patches ?? []).map((p) => p.id));
+  const patches: NonNullable<Row['patches']> = {};
+  for (const n of patchNames) {
+    const p: PatchPic | null = getPatch(n);
+    if (p) patches[n] = { w: p.w, h: p.h, data: p.data };
+  }
   const edited = JSON.stringify(recipe) !== JSON.stringify(newRecipe());
-  await put('photos', { ...r, recipe: cloneRecipe(recipe), alphas, edited, at: Date.now(), thumb: opts.thumb ?? r.thumb, tool: opts.tool ?? r.tool }, mem.photos, id);
+  await put('photos', { ...r, recipe: cloneRecipe(recipe), alphas, patches, edited, at: Date.now(), thumb: opts.thumb ?? r.thumb, tool: opts.tool ?? r.tool }, mem.photos, id);
   forgetAlphas(names);
   return true;
 }

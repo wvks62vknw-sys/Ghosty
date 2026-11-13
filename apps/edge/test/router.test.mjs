@@ -771,6 +771,7 @@ await import('./health.test.mjs'); // [health] the marks, the brain's health obj
 await import('./slides.test.mjs');
 await import('./workspace.test.mjs');
 await import('./photoedit.test.mjs');
+await import('./photo2.test.mjs');
 
 // [speed] BRIEF-SPEED-5, offender 4: a completion read the health, the order and the model lists (once for each provider) and opened
 // each key one behind another, then waited for its two bookkeeping writes in turn (170 ms at 5 ms a call, 12 reads and 9 key openings

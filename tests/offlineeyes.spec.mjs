@@ -3,8 +3,8 @@
 // every address of a pack's GET is answered by a route here (from the repository's own files, or cut short on purpose); the preview
 // stands in for the site. The service worker is ON (the Lens loads its runtime and models through it), and the offline part is the
 // browser's own offline mode: the app is reloaded with no network at all, so only what the service worker and the packs hold can load.
-//  1. the pins in offline/eyes.ts are held to the files on disk (every byte count), and the four packs add up to what is said;
-//  2. SETTINGS → OFFLINE EYES: four packs offered, each with its size said ("Get · 47 MB"), its licence, "on Wi-Fi"; the panel says what
+//  1. the pins in offline/eyes.ts are held to the files on disk (every byte count), and the seven packs (the Lens’s four and PHOTO 2’s three) add up to what is said;
+//  2. SETTINGS → OFFLINE EYES: seven packs offered, each with its size said ("Get · 47 MB"), its licence, "on Wi-Fi"; the panel says what
 //     cannot run on the phone (ASK, plant, bird and insect names, a meal's contents); nothing was fetched by looking;
 //  3. MOBILE DATA: a tap fetches nothing and says it waits for Wi-Fi; Wi-Fi comes and it starts by itself;
 //  4. THE LENS'S EYES: a file that comes back the wrong size stops it ("came back the wrong size... carries on from there"), GET again
@@ -47,6 +47,10 @@ const PACKS = {
   'eyes-name': [F.WORKER_RUNTIME, F.NAMER],
   'eyes-people': [F.RUNTIME, F.WORKER_RUNTIME, F.FACES],
   'eyes-measure': [F.WORKER_RUNTIME, F.DEPTH],
+  // PHOTO 2 (BRIEF-EDITOR-PHOTO-2): the cut-out model, the erase model and the RAW reader
+  'photo-cutout': [F.WORKER_RUNTIME, F.CUTOUT],
+  'photo-erase': [F.WORKER_RUNTIME, F.ERASE],
+  'photo-raw': [F.RAWREADER],
 };
 const FILES = new Map();
 for (const g of Object.values(F).filter(Array.isArray)) for (const [url, bytes] of g) FILES.set(url, bytes);
@@ -149,14 +153,14 @@ const waitBoot = (page) => page.waitForSelector('#boot', { state: 'detached', ti
 {
   const { ctx, page, st } = await phone();
   await openEyes(page);
-  // 2. the four packs offered with their sizes, licences and what cannot run
+  // 2. the seven packs offered with their sizes, licences and what cannot run
   const panel = ((await page.locator('#pg-settings .offeyes').innerText()) ?? '').replace(/\s+/g, ' ');
-  for (const [id, name] of [['eyes-lens', 'The Lens’s eyes'], ['eyes-name', 'The namer'], ['eyes-people', 'People he knows'], ['eyes-measure', 'Measure’s distance']]) {
+  for (const [id, name] of [['eyes-lens', 'The Lens’s eyes'], ['eyes-name', 'The namer'], ['eyes-people', 'People he knows'], ['eyes-measure', 'Measure’s distance'], ['photo-cutout', 'The cut-out model'], ['photo-erase', 'The erase model'], ['photo-raw', 'The RAW reader']]) {
     const t = await rowText(page, id);
     check(t.includes(name), `[offer] ${id} is not named "${name}": ${t.slice(0, 80)}`);
     check(new RegExp(`Get · ${sizeWords(packBytes(id)).replace(/[.]/g, '\\.')}`, 'i').test(t), `[offer] ${id}: the size on the button is not ${sizeWords(packBytes(id))}: ${t.slice(0, 220)}`);
     check(/on Wi-Fi/.test(t), `[offer] ${id} does not say on Wi-Fi`);
-    check(/Apache|MIT|Research use only|licen|LICEN/.test(t), `[offer] ${id} has no licence`);
+    check(/Apache|MIT|LGPL|Research use only|licen|LICEN/.test(t), `[offer] ${id} has no licence`);
     check((await row(page, id).locator('button[data-act="get"]').getAttribute('aria-label')) === `Get ${name}, ${sizeWords(packBytes(id))}, on Wi-Fi`, `[offer] ${id}: the button's VoiceOver label`);
   }
   check(/Needs a signal, and says so: ASK about a picture, the plant, bird and insect names, a meal’s contents/.test(panel), '[offer] the panel does not say what cannot run on the phone');
@@ -291,7 +295,7 @@ for (const world of ['scan', 'glass', 'ink']) {
     check((await sideways(page, '#pg-settings *')).length === 0, `${tag} something sticks out sideways: ${(await sideways(page, '#pg-settings *')).join(', ')}`);
     const tiny = await small(page, '#pg-settings .offeyes button');
     check(tiny.length === 0, `${tag} a key under 44 pt: ${tiny.join(', ')}`);
-    check((await page.locator('#pg-settings .offeyes .wikioffer').count()) === 4, `${tag} the four packs are not offered`);
+    check((await page.locator('#pg-settings .offeyes .wikioffer').count()) === 7, `${tag} the seven packs are not offered`);
     await page.screenshot({ path: `${out}/eyes-${world}-${vp.width}.png` });
     await ctx.close();
   }
@@ -302,4 +306,4 @@ if (problems.length) {
   console.error(`OFFLINE EYES: ${problems.length} problem(s):\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`ok: OFFLINE EYES - four packs offered with their sizes, licences and what cannot run, waits for Wi-Fi, a short file stops it and GET again carries on, kept in ghosty-eyes-v1, the app reloads with no network and the Lens loads its finder from the pack (and its key works offline), DELETE with UNDO, the shared runtime kept, three worlds at 440 and 390 (${notes.join('; ')})`);
+console.log(`ok: OFFLINE EYES - seven packs offered with their sizes, licences and what cannot run, waits for Wi-Fi, a short file stops it and GET again carries on, kept in ghosty-eyes-v1, the app reloads with no network and the Lens loads its finder from the pack (and its key works offline), DELETE with UNDO, the shared runtime kept, three worlds at 440 and 390 (${notes.join('; ')})`);

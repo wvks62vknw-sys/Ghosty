@@ -10,12 +10,16 @@ import { fitCrop, applyPreset, BLENDS, HSL_NAMES, LOOKS, MAX_MASKS, newMask, new
 import { putAlpha } from '../../photo/alpha';
 import { keepLayer, listMyLooks, removeLayer, removeMyLook, saveMyLook } from '../../photo/store';
 import { openPhoto } from '../../photo/load';
-import { cutSubject, SUBJECT_LINE, subjectState } from '../../photo/subject';
+import { cutSubject, depthState, refineWithDepth, SUBJECT_LINE, subjectState } from '../../photo/subject';
+import { CUT_FROM_DEPTH, CUT_FROM_MODEL } from '../../photo/matting';
+import { packHere, packSize } from '../../photo/packget';
+import { OFFER, packOffer } from './packui';
+import { alphaSizeFor, blankAlpha, coverage, getAlpha } from '../../photo/alpha';
 import { peState, type Ed } from './editor';
 import { curvesUi } from './curves';
 import { signed, slider, thousands } from './slider';
 
-export type Tool = 'looks' | 'light' | 'color' | 'curves' | 'detail' | 'crop' | 'masks' | 'heal' | 'layer' | 'effects' | 'brain';
+export type Tool = 'looks' | 'light' | 'color' | 'curves' | 'detail' | 'crop' | 'masks' | 'heal' | 'erase' | 'layer' | 'effects' | 'brain';
 export const TOOLS: [Tool, string][] = [
   ['looks', 'LOOKS'],
   ['light', 'LIGHT'],
@@ -25,6 +29,7 @@ export const TOOLS: [Tool, string][] = [
   ['crop', 'CROP'],
   ['masks', 'MASKS'],
   ['heal', 'HEAL'],
+  ['erase', 'ERASE'],
   ['layer', 'LAYER'],
   ['effects', 'EFFECTS'],
   ['brain', 'BRAIN'],
@@ -90,6 +95,8 @@ export function buildTray(tool: Tool, ed: Ed): HTMLElement {
       return masks(ed, false);
     case 'heal':
       return heal(ed);
+    case 'erase':
+      return erase(ed);
     case 'layer':
       return layer(ed);
     case 'effects':
@@ -432,8 +439,22 @@ function masks(ed: Ed, forLayer: boolean): HTMLElement {
         slider({ id: 'brushsize', label: 'Brush size', min: 0.005, max: 0.15, step: 0.005, rest: 0.04, value: ed.sel.size, say: (v) => `size ${Math.round(v * 200)}`, live: (v) => (ed.sel.size = v), keep: () => undefined }).el,
         h('p.g-truth', ed.sel.brush ? 'DRAW ON THE PHOTO. HOLD TO SEE THE ORIGINAL' : 'TAP PAINT, THEN DRAW ON THE PHOTO'))
     : null;
-  const subjectBox = sub ? h('div.pesubjectbox', h('p.g-truth.pesubject', SUBJECT_LINE.toUpperCase()), h('p.pnote.pesubjectline', { id: 'pe-subject-line' }), button('MAKE THE CUT', () => void subject(ed, m))) : null;
-  if (sub) void subjectState().then((s) => ((document.getElementById('pe-subject-line') as HTMLElement | null)?.replaceChildren(s.words)));
+  const cutLine = m.cut === 'model' ? CUT_FROM_MODEL : m.cut === 'depth' ? CUT_FROM_DEPTH : SUBJECT_LINE;
+  const offerSlot = sub ? h('div.pecutoffer') : null;
+  const subjectBox = sub
+    ? h('div.pesubjectbox',
+        h('p.g-truth.pesubject', { dataset: { cut: m.cut ?? 'none' } }, cutLine.toUpperCase()),
+        h('p.pnote.pesubjectline', { id: 'pe-subject-line' }),
+        h('div.perow.pekeys', button('MAKE THE CUT', () => void subject(ed, m), 'on'), m.cut === 'model' ? button('REFINE WITH DEPTH', () => void refine(ed, m)) : null),
+        offerSlot)
+    : null;
+  if (sub) {
+    void subjectState().then((s) => ((document.getElementById('pe-subject-line') as HTMLElement | null)?.replaceChildren(s.words)));
+    // the cut-out model, not kept: the size and GET (the first cut stays until it is here)
+    void packHere('cutout').then((here) => {
+      if (!here) offerSlot?.append(packOffer('cutout', () => ed.refreshTray(), 'Until then the first cut stays, and the brush fixes either.'));
+    });
+  }
   const feather = m.kind === 'radial' ? numberSlider(ed, { id: 'm-feather', label: 'Soft edge', min: 2, max: 100, step: 1, rest: 60, get: () => Math.round(m.feather * 100), set: (_r, v) => (m.feather = v / 100), say: (v) => `${Math.round(v)}` }) : null;
   return h('div.petrayin',
     forLayer ? null : rows,
@@ -464,30 +485,111 @@ function placed(ed: Ed, m: Mask): Mask {
   return m;
 }
 
+let saidCutoutOffer = false;
+const cap = (w: string): string => w.charAt(0).toUpperCase() + w.slice(1);
+
+let cutting = false;
 async function subject(ed: Ed, m: Mask): Promise<void> {
-  const s = await subjectState();
-  const line = document.getElementById('pe-subject-line');
-  if (!s.ready) {
-    if (line) line.textContent = s.words;
-    ed.say('The cut needs two things kept on this phone; paint it by hand until then.');
+  // one cut at a time: a second tap while the first runs is the same wish
+  if (cutting) return;
+  cutting = true;
+  try {
+    await subjectNow(ed, m);
+  } finally {
+    cutting = false;
+  }
+}
+
+async function subjectNow(ed: Ed, m: Mask): Promise<void> {
+  const line = (): HTMLElement | null => document.getElementById('pe-subject-line');
+  const tell = (w: string): void => {
+    ed.say(w);
+    const l = line();
+    if (l) l.textContent = w;
+  };
+  const orig = ed.orig;
+  if (!orig) return;
+  const [here, st] = await Promise.all([packHere('cutout'), subjectState()]);
+  let why = '';
+  if (here) {
+    try {
+      const { cutWithModel } = await import('../../photo/matting');
+      const { alpha, ms } = await cutWithModel(orig, (w) => tell(cap(w)));
+      ed.live(() => {
+        m.alpha = putAlpha(alpha);
+        m.cut = 'model';
+      });
+      ed.keep('Subject cut');
+      ed.sel.brush = false;
+      ed.sel.showMask = true;
+      peState.cutFrom = 'model';
+      peState.cutMs = Math.round(ms);
+      ed.refreshTray();
+      ed.overlay();
+      ed.say(`${CUT_FROM_MODEL} It took ${(ms / 1000).toFixed(1)} s.`);
+      return;
+    } catch (e) {
+      // never a silent fallback: its line, and the first cut that is used instead
+      why = sayError(e, 'run the cut-out model');
+      peState.cutFail = why;
+    }
+  } else if (!saidCutoutOffer) {
+    saidCutoutOffer = true;
+    ed.say(OFFER.cutout(packSize('cutout')));
+  }
+  if (!st.ready) {
+    const l = line();
+    const lead = why ? `${why} ` : '';
+    if (l) l.textContent = `${lead}${st.words}`;
+    ed.say(`${lead}The first cut needs two things kept on this phone; paint it by hand until then.`);
     return;
   }
   try {
-    const orig = ed.orig;
-    if (!orig) return;
-    const { alpha, box } = await cutSubject(orig, (w) => {
-      ed.say(w);
-      if (line) line.textContent = w;
+    const { alpha, box } = await cutSubject(orig, (w) => tell(w));
+    ed.live(() => {
+      m.alpha = putAlpha(alpha);
+      m.cut = 'depth';
     });
-    ed.live(() => (m.alpha = putAlpha(alpha)));
     ed.keep('Subject cut');
     ed.sel.brush = false;
     ed.sel.showMask = true;
+    peState.cutFrom = 'depth';
     ed.refreshTray();
     ed.overlay();
-    ed.say(box ? `${SUBJECT_LINE}` : `${SUBJECT_LINE} I found no one thing, so I took the middle.`);
+    const lead = why ? `The cut-out model would not run (${why}), so I used the first cut. ` : '';
+    ed.say(`${lead}${CUT_FROM_DEPTH}${box ? '' : ' I found no one thing, so I took the middle.'}`);
   } catch (e) {
     ed.say(`${sayError(e, 'make the cut')} Paint it by hand with the brush.`);
+  }
+}
+
+/** The cut-out model's mask, kept where it is as near as the subject (MEASURE'S DISTANCE). */
+async function refine(ed: Ed, m: Mask): Promise<void> {
+  const l = document.getElementById('pe-subject-line');
+  const orig = ed.orig;
+  const a = m.alpha ? getAlpha(m.alpha) : null;
+  if (!orig || !a) return;
+  const st = await depthState();
+  if (!st.ready) {
+    if (l) l.textContent = st.words;
+    ed.say(st.words);
+    return;
+  }
+  try {
+    const out = await refineWithDepth(orig, a, (w) => {
+      ed.say(w);
+      if (l) l.textContent = w;
+    });
+    ed.live(() => {
+      m.alpha = putAlpha(out);
+    });
+    ed.keep('Cut refined with depth');
+    ed.sel.showMask = true;
+    ed.refreshTray();
+    ed.overlay();
+    ed.say('Refined with how far things are: what lies clearly behind the subject is out of the cut. Paint to fix it.');
+  } catch (e) {
+    ed.say(`${sayError(e, 'refine it with depth')} The cut stays as it was.`);
   }
 }
 
@@ -532,6 +634,67 @@ function heal(ed: Ed): HTMLElement {
     h('p.g-truth', 'THE APP’S OWN CLONE HEAL, FEATHERED. NO MODEL, NOTHING SENT'),
   );
 }
+
+// ---------------------------------------------------------------- ERASE
+/** The brain's ERASE (the PHOTO TOOLS, as before), kept in this tray as BRAIN ERASE: the fallback with no erase model. */
+function brainErase(ed: Ed, line: HTMLElement): HTMLButtonElement {
+  const off = ui.get().connected === false;
+  const b = button(h('span', h('b', 'BRAIN ERASE'), h('em', off ? 'needs the brain' : 'by your brain')), () => {
+    if (ui.get().connected === false) return void (line.textContent = 'BRAIN ERASE NEEDS THE BRAIN; ERASE ON THIS PHONE DOES NOT');
+    void (async () => {
+      line.textContent = 'GETTING THE PHOTO READY…';
+      const still = await ed.snapshot(1024);
+      const { openPhotoTools } = await import('../lens/photo');
+      openPhotoTools({ still, job: 'erase' });
+      peState.erasedBy = 'brain';
+      line.textContent = 'ERASE BY YOUR BRAIN: THE PHOTO TOOLS ARE OPEN. THE PHOTO WENT TO THE BRAIN ONLY WHEN YOU PRESSED THEIR BUTTON';
+    })();
+  }, 'pebrain');
+  b.dataset.job = 'erase';
+  b.dataset.act = 'brain-erase';
+  b.disabled = off;
+  return b;
+}
+
+function erase(ed: Ed): HTMLElement {
+  const root = h('div.petrayin', h('p.g-truth.peeraseline', { role: 'status' }, 'CHECKING THIS PHONE…'));
+  const line = (): HTMLElement => root.querySelector<HTMLElement>('.peeraseline')!;
+  void packHere('erase').then((here) => {
+    const status = h('p.g-truth.peeraseline', { role: 'status', 'aria-live': 'polite' }, peState.erasedBy === 'phone' ? `ERASED ON THIS PHONE${peState.eraseMs ? ` IN ${(peState.eraseMs / 1000).toFixed(1)} S` : ''}. UNDO TAKES IT BACK` : peState.erasedBy === 'brain' ? 'ERASE BY YOUR BRAIN: THE PHOTO TOOLS ARE OPEN' : here ? 'PAINT OVER WHAT TO TAKE AWAY, THEN ERASE. I FILL IT ON THIS PHONE: THE PHOTO NEVER LEAVES IT' : OFFER.erase(packSize('erase')).toUpperCase());
+    root.replaceChildren();
+    if (!here) {
+      root.append(status, packOffer('erase', () => ed.refreshTray(), 'Until then BRAIN ERASE does it by your brain (the photo goes to it only when you press its button).'), brainErase(ed, status));
+      if (!erasedOffered) {
+        erasedOffered = true;
+        ed.say(OFFER.erase(packSize('erase')));
+      }
+      return;
+    }
+    const has = ed.holeCoverage() > 0;
+    const subjectMask = ed.r.masks.find((m) => m.kind === 'subject' && m.alpha);
+    const go = button(ed.erasing() ? 'ERASING…' : 'ERASE', () => void ed.erase(), 'on');
+    go.dataset.act = 'erase';
+    go.disabled = !has || ed.erasing();
+    const use = button('USE THE SUBJECT MASK', () => {
+      if (subjectMask) ed.useSubjectAsHole(subjectMask);
+    });
+    use.dataset.act = 'use-subject';
+    use.disabled = !subjectMask || ed.erasing();
+    root.append(
+      status,
+      h('div.perow.pekeys', { role: 'group', 'aria-label': 'The brush' },
+        button('ADD', () => ((ed.sel.erase = false), (ed.sel.brush = true), ed.refreshTray()), ed.sel.erase ? '' : 'on'),
+        button('RUB OUT', () => ((ed.sel.erase = true), (ed.sel.brush = true), ed.refreshTray()), ed.sel.erase ? 'on' : ''),
+        button('CLEAR', () => ed.clearHole())),
+      slider({ id: 'erasesize', label: 'Brush size', min: 0.005, max: 0.15, step: 0.005, rest: 0.04, value: ed.sel.size, say: (v) => `size ${Math.round(v * 200)}`, live: (v) => (ed.sel.size = v), keep: () => undefined }).el,
+      h('div.perow.pekeys', use, go),
+      h('p.pnote', has ? 'Painted. A big hole is filled in parts, one after another.' : 'Draw on the photo over a mark, a wire, a bin. Or use what SUBJECT cut out.'),
+      brainErase(ed, line()),
+    );
+  });
+  return root;
+}
+let erasedOffered = false;
 
 // ---------------------------------------------------------------- LAYER
 function layer(ed: Ed): HTMLElement {

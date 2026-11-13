@@ -13,7 +13,11 @@ import { geoOf, maskAt, renderCpu, type Src } from '../../photo/cpu';
 import { compare, exportCanvas, PhotoGL, srcOf, type View } from '../../photo/gpu';
 import { mapIn, mapOut } from '../../photo/math';
 import { cloneRecipe, frameSize, newMask, newRecipe, outputSize, RecipeHistory, type Mask, type Recipe } from '../../photo/recipe';
-import { getLayer, getMeta, getOriginal, getRecipe, listMyLooks, rememberLast, saveRecipe, storeState } from '../../photo/store';
+import { getDecoded, getLayer, getMeta, getOriginal, getRecipe, listMyLooks, rememberLast, saveRecipe, storeState } from '../../photo/store';
+import { applyPatches, forgetPatches, getPatch, patchKey } from '../../photo/patch';
+import { coverage, type Alpha } from '../../photo/alpha';
+import { packOffer } from './packui';
+import { packSize } from '../../photo/packget';
 import { openPhoto } from '../../photo/load';
 import { stroke as alphaStroke, getAlpha, putAlpha, alphaSizeFor, blankAlpha } from '../../photo/alpha';
 import { buildTray, TOOLS, type Tool } from './trays';
@@ -64,6 +68,21 @@ export const peState = {
   persistent: true,
   looks: [] as string[],
   offline: false,
+  /** Which cut SUBJECT made last ("model" or "depth"), how long the model took (ms), and the reason the model did not run, when it did not. */
+  cutFrom: '' as '' | 'model' | 'depth',
+  cutMs: 0,
+  cutFail: '',
+  /** Which erase ran last ("phone" or "brain"), how long it took (ms), true while it runs, and the reason the model did not run. */
+  erasedBy: '' as '' | 'phone' | 'brain',
+  eraseMs: 0,
+  erasing: false,
+  eraseFail: '',
+  erases: 0,
+  /** Spec hook: what each erase fill holds now (its rectangle in the original's frame, its size, how much of it is opaque and its mean colour). */
+  patches: null as null | (() => { x: number; y: number; w: number; h: number; pw: number; ph: number; opaque: number; mean: number[] }[]),
+  /** The RAW opened on this screen: what the reader said (empty for any other photo). */
+  raw: '',
+  rawMs: 0,
 };
 
 export interface Ed {
@@ -98,6 +117,12 @@ export interface Ed {
   maskOf(): Mask | null;
   holdOriginal(on: boolean): void;
   cropFrame(): { w: number; h: number };
+  /** ERASE (BRIEF-EDITOR-PHOTO-2): how much of the picture the hole covers (0..1), whether the model is running, the run, and the hole's own helpers. */
+  holeCoverage(): number;
+  erasing(): boolean;
+  erase(): Promise<void>;
+  useSubjectAsHole(m: Mask): void;
+  clearHole(): void;
 }
 
 export interface PhotoEditor {
@@ -118,6 +143,8 @@ const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, a: Record<string, s
   return e;
 };
 const HOLD_SAID = 'ghosty.photo.holdsaid';
+/** The photos a RAW was said for on this visit (said once). */
+const rawSaid = new Set<string>();
 
 export function photoEditor(onShelf: () => void): PhotoEditor {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
@@ -169,6 +196,13 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   let gl: PhotoGL | null = null;
   let useGl = false;
   let orig: HTMLCanvasElement | null = null;
+  /** The photo as it was opened, untouched; `orig` is this with the erase model's patches laid over it (the same canvas when there are none). */
+  let base: HTMLCanvasElement | null = null;
+  let appliedKey = '';
+  /** The part painted to be erased: a brush picture of its own, never in the recipe. */
+  const holeMask: Mask = newMask('brush', 0);
+  let holeKeep: Alpha | null = null;
+  let erasingNow = false;
   let layerCanvas: HTMLCanvasElement | null = null;
   let srcSize = { w: 1, h: 1 };
   let recipe: Recipe = newRecipe();
@@ -320,6 +354,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     if (!r) return;
     recipe = r;
     syncLayer();
+    syncPatches();
     refreshTray();
     syncHistoryUi();
     draw();
@@ -343,6 +378,94 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   let sayTimer = 0;
 
   // ---------------------------------------------------------------- the layer
+  // ---------------------------------------------------------------- the erase model's fills (BRIEF-EDITOR-PHOTO-2)
+  /** The working picture is the original with the recipe's patches laid over it: made again when the patches change (an erase, an undo, a redo). */
+  function syncPatches(): void {
+    const key = patchKey(recipe.patches);
+    if (key === appliedKey || !base) return;
+    appliedKey = key;
+    rebuildSource();
+  }
+  function rebuildSource(): void {
+    if (!base) return;
+    orig = applyPatches(base, recipe.patches);
+    cpuProxy = null;
+    cpuFull = null;
+    proxyCache = null;
+    if (gl && useGl) {
+      const info = gl.setSource(holding ? base : orig);
+      peState.scaled = info.scaled;
+    }
+  }
+  const holeAlpha = (): Alpha | null => (holeMask.alpha ? getAlpha(holeMask.alpha) : null);
+  function keepHole(): void {
+    const a = holeAlpha();
+    holeKeep = a ? { w: a.w, h: a.h, data: a.data.slice() } : null;
+  }
+  function useSubjectAsHole(m: Mask): void {
+    const a = m.alpha ? getAlpha(m.alpha) : null;
+    if (!a) return;
+    holeMask.alpha = putAlpha({ w: a.w, h: a.h, data: a.data.slice() });
+    keepHole();
+    sel.showMask = true;
+    sel.brush = true;
+    overlayNow();
+    refreshTray();
+    draw();
+  }
+  function clearHole(): void {
+    holeMask.alpha = '';
+    holeKeep = null;
+    overlayNow();
+    refreshTray();
+    draw();
+  }
+  /** A wait that stays until it is over (say() lets go of its words after a few seconds; a long wait must not). */
+  function waitLine(words: string): void {
+    clearTimeout(sayTimer);
+    peState.status = words;
+    busy.textContent = words;
+    busy.hidden = !words;
+  }
+  async function erase(): Promise<void> {
+    if (erasingNow || !orig || !base) return;
+    const hole = holeAlpha();
+    if (!hole || coverage(hole) <= 0) return say('Paint over what to take away first.');
+    if ((recipe.patches?.length ?? 0) >= 12) return say('That is as many erases as I keep on one photo: twelve. Export it and start again from the result.');
+    erasingNow = true;
+    peState.erasing = true;
+    peState.eraseFail = '';
+    refreshTray();
+    try {
+      const { eraseHole, erasePlanWords } = await import('../../photo/inpaint');
+      const plan = erasePlanWords(hole, srcSize.w, srcSize.h);
+      waitLine(plan?.line ?? 'Erasing…');
+      const res = await eraseHole(orig, hole, (w) => waitLine(w.startsWith('Erasing') ? `${w}${plan ? ` · about ${plan.seconds} s` : ''}` : w.charAt(0).toUpperCase() + w.slice(1)));
+      live((r) => {
+        (r.patches ??= []).push(res.patch);
+      });
+      keep('Erased on this phone');
+      syncPatches();
+      holeMask.alpha = '';
+      holeKeep = null;
+      peState.erasedBy = 'phone';
+      peState.eraseMs = Math.round(res.ms);
+      peState.erases++;
+      say(`Erased on this phone in ${(res.ms / 1000).toFixed(1)} s. UNDO takes it back.`);
+    } catch (e) {
+      // never a silent fallback: its line, and what is still there to use
+      const why = sayError(e, 'run the erase model');
+      peState.eraseFail = why;
+      say(`${why} Nothing changed. BRAIN ERASE is the other way, and it asks for your tap.`);
+    } finally {
+      erasingNow = false;
+      peState.erasing = false;
+      refreshTray();
+      overlayNow();
+      draw();
+    }
+  }
+
   function syncLayer(): void {
     // the layer picture follows the recipe (an undo may have taken it away)
     if (!recipe.layer && layerCanvas) {
@@ -361,6 +484,8 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   function holdOriginal(on: boolean): void {
     if (holding === on) return;
     holding = on;
+    // with erase fills in the picture the original is the one without them
+    if (gl && useGl && base && orig && base !== orig) gl.setSource(on ? base : orig);
     peState.held = on;
     beforeTag.hidden = !on;
     el.classList.toggle('held', on);
@@ -408,6 +533,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   const line = (a: { x: number; y: number }, b: { x: number; y: number }, cls = 'pel') => over.append(svgEl('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: cls }));
 
   function currentMask(): Mask | null {
+    if (tool === 'erase') return holeMask;
     if (tool === 'layer') return recipe.layer?.mask ?? null;
     return recipe.masks.find((m) => m.id === sel.mask) ?? null;
   }
@@ -737,7 +863,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   }
 
   // ---------------------------------------------------------------- the brush
-  const paintingActive = (): boolean => (tool === 'masks' || tool === 'layer') && sel.brush && !!currentMask() && ['brush', 'subject'].includes(currentMask()!.kind) && !holding;
+  const paintingActive = (): boolean => (tool === 'masks' || tool === 'layer' || tool === 'erase') && sel.brush && !!currentMask() && ['brush', 'subject'].includes(currentMask()!.kind) && !holding;
   function paintStart(e: PointerEvent): void {
     const m = currentMask();
     if (!m) return;
@@ -768,6 +894,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     const { work, mask } = painting;
     // the picture is kept under a name of its own, so UNDO has the one before
     mask.alpha = putAlpha({ w: work.w, h: work.h, data: work.data.slice() });
+    if (mask === holeMask) keepHole();
     painting = null;
     keep(sel.erase ? 'Brush erased' : 'Brush painted');
     if (sel.showMask) overlayNow();
@@ -848,7 +975,11 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
       b.classList.toggle('on', id2 === t);
       b.setAttribute('aria-selected', String(id2 === t));
     }
-    if (t !== 'masks' && t !== 'layer') {
+    if (t === 'erase') {
+      sel.brush = true;
+      sel.showMask = true;
+      sel.erase = false;
+    } else if (t !== 'masks' && t !== 'layer') {
       sel.brush = false;
       sel.showMask = false;
     }
@@ -882,6 +1013,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
       thumb = null;
     }
     const ok = await saveRecipe(id, recipe, { thumb, tool });
+    if (holeKeep && holeMask.alpha && !getAlpha(holeMask.alpha)) putAlpha(holeKeep, holeMask.alpha);
     peState.persistent = storeState.persistent;
     if (!ok) return;
     peState.saves++;
@@ -1020,6 +1152,14 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     maskOf: currentMask,
     holdOriginal,
     cropFrame,
+    holeCoverage: () => {
+      const a = holeAlpha();
+      return a ? coverage(a) : 0;
+    },
+    erasing: () => erasingNow,
+    erase,
+    useSubjectAsHole,
+    clearHole,
   };
   Object.defineProperty(ed, 'srcSize', { get: () => srcSize });
   Object.defineProperty(ed, 'orig', { get: () => orig });
@@ -1032,6 +1172,19 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     view = { zoom: 1, cx: 0.5, cy: 0.5 };
     draw();
   };
+
+  peState.patches = () =>
+    (recipe.patches ?? []).map((p) => {
+      const pic = getPatch(p.id);
+      let a = 0;
+      const m = [0, 0, 0];
+      if (pic) for (let i = 0; i < pic.w * pic.h; i++) {
+        a += pic.data[i * 4 + 3]! / 255;
+        for (let c = 0; c < 3; c++) m[c] = m[c]! + pic.data[i * 4 + c]! * (pic.data[i * 4 + 3]! / 255);
+      }
+      const n = Math.max(1e-6, a);
+      return { x: p.x, y: p.y, w: p.w, h: p.h, pw: pic?.w ?? 0, ph: pic?.h ?? 0, opaque: pic ? Math.round((a / (pic.w * pic.h)) * 1000) / 1000 : 0, mean: m.map((v) => Math.round(v / n)) };
+    });
 
   // spec hooks (documented in peState): where a point of the original is on the screen now, and the colour drawn there
   const shown = (): HTMLCanvasElement => (useGl ? glCanvas : cpuCanvas);
@@ -1108,7 +1261,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     if (!el.hidden && tool === 'brain') refreshTray();
   });
 
-  return {
+  const editorApi: PhotoEditor = {
     el,
     isOpen: () => !el.hidden,
     tool: (t) => {
@@ -1131,15 +1284,25 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
         const meta = await getMeta(photo);
         const blob = await getOriginal(photo);
         if (!meta || !blob) throw new Error('I can’t find that photo any more.');
-        const opened = await openPhoto(blob, meta.name);
+        const kept = await getDecoded(photo);
+        const opened = await openPhoto(blob, meta.name, { decoded: kept?.blob ?? null, say: (w) => ((busy.hidden = false), (busy.textContent = w)) });
         if (gen !== generation) return;
-        orig = opened.canvas;
+        forgetPatches(new Set());
+        stage.querySelector('.perawoffer')?.remove();
+        if (opened.raw && kept?.info) Object.assign(opened.raw, { make: kept.info.make, model: kept.info.model, half: kept.info.half });
+        Object.assign(peState, { cutFrom: '', cutMs: 0, cutFail: '', erasedBy: '', eraseMs: 0, erasing: false, eraseFail: '' });
+        base = opened.canvas;
+        orig = base;
+        holeMask.alpha = '';
+        holeKeep = null;
         srcSize = { w: opened.w, h: opened.h };
         cpuProxy = null;
         cpuFull = null;
         proxyCache = null;
         layerSrc = null;
         recipe = (await getRecipe(photo)) ?? newRecipe();
+        appliedKey = patchKey(recipe.patches);
+        orig = applyPatches(base, recipe.patches);
         layerCanvas = null;
         if (recipe.layer) {
           const lb = await getLayer(recipe.layer.photo);
@@ -1171,7 +1334,12 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
         const startTool = wanted ?? (last && last.id === photo && TOOLS.some(([t]) => t === last.tool) ? (last.tool as Tool) : tool);
         setTool(startTool);
         peState.looks = (await listMyLooks()).map((l) => l.name);
-        if (peState.scaled) say(`This photo is bigger than this phone can hold as one picture (${gl!.caps.maxTexture} px a side), so I edit it a little smaller; the original stays as it was.`);
+        peState.raw = opened.raw ? `${[opened.raw.make, opened.raw.model].filter(Boolean).join(' ') || 'a camera'} · ${(opened.w * opened.h / 1e6).toFixed(1)} megapixels${opened.raw.half ? ' · half size' : ''}` : '';
+        peState.rawMs = Math.round(opened.raw?.ms ?? 0);
+        if (opened.raw && !rawSaid.has(photo)) {
+          rawSaid.add(photo);
+          say(`This is a RAW from ${peState.raw}. I read it with the camera’s own white balance${opened.raw.ms ? ` in ${(opened.raw.ms / 1000).toFixed(1)} s` : ''}; the RAW file stays as it is and EXPORT ORIGINAL gives it back.`);
+        } else if (peState.scaled) say(`This photo is bigger than this phone can hold as one picture (${gl!.caps.maxTexture} px a side), so I edit it a little smaller; the original stays as it was.`);
         else if (!storeState.persistent) say('This phone is keeping nothing for me (a private window?), so your edits last until you leave.');
         sayHoldIntro();
         void import('../../photo/store').then((s) => s.rememberLast(photo, tool));
@@ -1182,7 +1350,13 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
         busy.hidden = false;
         busy.textContent = sayError(e, 'open the photo');
         peState.status = busy.textContent;
-        toast(busy.textContent, 'bad');
+        if ((e as Error)?.name === 'RawNeedsReader') {
+          // a RAW and no reader kept: the size and GET, here, on the stage; the photo opens when it is here
+          stage.querySelector('.perawoffer')?.remove();
+          stage.append(h('div.perawoffer', packOffer('raw', () => void editorApi.load(photo, wanted))));
+          peState.status = `This is a RAW. To open it I need the RAW reader (${packSize('raw')}): GET`;
+          busy.textContent = peState.status;
+        } else toast(busy.textContent, 'bad');
       }
     },
     unload() {
@@ -1191,6 +1365,8 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
       peState.open = false;
       generation++;
       holdOriginal(false);
+      forgetPatches(new Set());
+      base = null;
       orig = null;
       layerCanvas = null;
       cpuFull = null;
@@ -1199,6 +1375,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
       layerSrc = null;
     },
   };
+  return editorApi;
 }
 
 export { cloneRecipe };
