@@ -1,5 +1,5 @@
 /**
- * The MAKE hub's instruments for the converter and the documents (shell/hubcards.ts), drawn in the hub's own line style
+ * The MAKE hub's instruments for the converter, the documents and the slides (shell/hubcards.ts), drawn in the hub's own line style
  * (ui/instruments.ts: `ln`, `ln2`, `lit`): a file turning into another, and a page of words with a heading.
  */
 import { svgEl } from '../core/dom';
@@ -17,6 +17,14 @@ export function convertInst(): SVGSVGElement {
     path('ln', 'M26 14h28l10 10v54H26z'), path('ln2', 'M54 14v10h10'), path('ln2', 'M33 40h22M33 48h22M33 56h14'),
     path('lit', 'M72 46h18M84 39l7 7-7 7'),
     path('ln', 'M98 14h28l10 10v54H98z'), path('ln2', 'M126 14v10h10'), path('ln2', 'M106 36h22v24h-22z'),
+  );
+}
+
+/** A slide: its frame, a title lit, a few lines and a picture, the talk's pointer under it. */
+export function slidesInst(): SVGSVGElement {
+  return art(
+    path('ln', 'M28 10h104v60H28z'), path('lit', 'M38 22h46'), path('ln2', 'M38 34h36M38 42h30M38 50h34'), path('ln2', 'M92 32h30v24H92z'), path('ln2', 'M92 56l9-9 7 6 6-5'),
+    path('ln2', 'M80 70v10M60 82h40'),
   );
 }
 

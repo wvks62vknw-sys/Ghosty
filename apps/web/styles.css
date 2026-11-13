@@ -5729,7 +5729,7 @@ canvas.buildplan { display: block; max-width: 100%; }
 /* ---------------------------------------------------------------- [tabs] EVERY FEATURE A SCREEN (BRIEF-TABS; OWNER-ISSUES 119)
    A sheet's pages on a screen of their own (ui/sheetpage.ts): the panel is the page's frame, so the sheet's own padding and
    scroller step aside (the page scrolls as one, under the pills). */
-.sheetpg .pn > .bd > :is(.pk, .cvsheet, .dcsheet) { flex: none; padding: 0; overflow: visible; }
+.sheetpg .pn > .bd > :is(.pk, .cvsheet, .dcsheet, .slsheet) { flex: none; padding: 0; overflow: visible; }
 .sheetpg .pn > .bd > .house { padding: 0; }
 /* every control on these screens takes a finger, 44 pt: the app-wide touch rule draws a button 40 pt (and a box 43), so these
    are given the few points more here (the sheets over the chat are drawn as they were) */
@@ -8121,6 +8121,114 @@ html .carmeasured:empty, html .carmotion:empty { display: none; }
 html .carmeasured { font: var(--g-t-caption); color: var(--g-accent-text); }
 html .carnums { margin: 0; padding-left: 1.1em; }
 html .carnums li { margin: 0; }
+/* ---------------------------------------------------------------- PRESENTATIONS: the editor and the talk (BRIEF-EDITOR-PRESENTATIONS)
+   A slide is drawn in its deck's own colours (slides/render.ts), in a frame of the world's plate; every key is 44 pt; the film of slides
+   is one column at the phone's width. Motion: a transition and a build only where the phone allows motion. */
+.slsheet { flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-1); }
+.slbar, .slrow, .sltools, .slpills { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); min-width: 0; }
+.slbar button, .slrow button, .slpanel button, .slpill, .slpkey { min-height: var(--g-target); min-width: var(--g-target); }
+html .slpresent button { min-height: var(--g-target) !important; min-width: var(--g-target); }
+.slrow input, .slrow select, .slpanel input[type="text"], .slpanel select { flex: 1 1 140px; min-height: var(--g-target); min-width: 0; max-width: 100%; box-sizing: border-box; font: 400 16px/1.3 var(--g-font-text); }
+.slview { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.slh { margin: var(--g-s-half) 0 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); }
+h3.slh { margin-top: var(--g-s-half); }
+.slstatus, .slnote, .slmeta { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+.slstatus:empty { display: none; }
+.slstatus button { margin-inline-start: var(--g-s-1); }
+.slsavedrow { display: flex; align-items: center; gap: var(--g-s-1); min-height: 20px; }
+.slsaved { font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); overflow-wrap: anywhere; }
+.slflash { font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); color: var(--g-ok); opacity: 0; }
+.slflash.go { animation: slsaved 2.6s var(--g-ease, ease) 1 both; }
+@keyframes slsaved { 0% { opacity: 0; } 12% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+.sllist { display: flex; flex-direction: column; gap: var(--g-s-1); }
+.slopen { display: block; width: 100%; text-align: left; padding: var(--g-s-1) var(--g-s-2); min-height: 52px; }
+.sldeck { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sldeck b { font: var(--g-t-head); overflow-wrap: anywhere; text-transform: none; letter-spacing: 0; }
+.sldeck small { font: var(--g-t-caption); color: var(--g-ink-3); text-transform: none; letter-spacing: 0; }
+.slreport { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.slreport[hidden], .slpanel[hidden] { display: none; }
+.slpaste, .slnotes { width: 100%; box-sizing: border-box; min-height: 120px; padding: var(--g-s-1); font: 400 16px/1.45 var(--g-font-text); color: var(--g-ink-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); resize: vertical; }
+.sltitle { width: 100%; box-sizing: border-box; min-height: 48px; font: 700 22px/1.25 var(--g-font-text); color: var(--g-ink-1); background: transparent; border: 0; border-bottom: var(--g-hair) solid var(--g-line-faint); padding: var(--g-s-half) 2px; }
+.slrow button[aria-pressed="true"], .slpill[aria-selected="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
+.slfilm { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--g-s-2); }
+@media (min-width: 720px) { .slfilm { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.slcard { display: flex; flex-direction: column; gap: var(--g-s-1); width: 100%; padding: var(--g-s-1); text-align: left; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; background: var(--g-plate); }
+.slcard.slgrab { box-shadow: 0 0 0 var(--g-stroke) var(--g-accent); opacity: .85; }
+.slcard.slover { box-shadow: 0 calc(var(--g-stroke) * -2) 0 var(--g-accent); }
+.slthumb { display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: var(--g-hair) solid var(--g-line-faint); pointer-events: none; }
+.slthumb svg, .slbox svg { display: block; width: 100%; height: auto; }
+/* a slide drawn inside a key keeps its words as written (the keys show theirs in sentence case) */
+html .slsheet .slthumb, html .slsheet .slthumb * { text-transform: none; letter-spacing: normal; }
+.slcap { display: flex; align-items: baseline; gap: var(--g-s-1); min-width: 0; font: var(--g-t-body); text-transform: none; letter-spacing: 0; }
+.slcap b { flex: none; font: var(--g-t-reading); color: var(--g-accent-text); }
+.slcap small { display: block; font: var(--g-t-caption); color: var(--g-ink-3); }
+.slcap span { overflow-wrap: anywhere; min-width: 0; }
+.slnav { justify-content: space-between; }
+.slcount { font: var(--g-t-reading); color: var(--g-ink-2); }
+.slzoom { overflow: auto; max-height: 70dvh; border: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate); touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }
+.slbox { cursor: pointer; }
+.slsvg .slel { cursor: pointer; }
+.slpills { gap: 0; flex-wrap: wrap; }
+.slpill { flex: 1 1 auto; min-width: 76px; padding-inline: var(--g-s-1); }
+html .slsheet :is(button, .slcap, .slcap *, .sldeck, .sldeck *) { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.slpanel { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.sllayouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); }
+@media (min-width: 720px) { .sllayouts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.sllayout { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-half); text-align: left; min-height: var(--g-target); }
+.sllayout[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.slswatches { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); }
+.slswatch { display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target); padding: var(--g-s-half) var(--g-s-1); text-align: left; text-transform: none; letter-spacing: 0; }
+.slswatch[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.slchips { display: inline-flex; flex: none; border: var(--g-hair) solid var(--g-line-faint); }
+.slchips i { display: block; width: 14px; height: 24px; }
+.sledit { display: flex; flex-direction: column; gap: var(--g-s-half); counter-reset: sl; }
+.slline { position: relative; min-height: 48px; box-sizing: border-box; padding: 12px 12px 12px 30px; font: 400 17px/1.4 var(--g-font-text); color: var(--g-ink-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); outline: none; overflow-wrap: anywhere; white-space: pre-wrap; }
+.slline:focus { box-shadow: 0 0 0 var(--g-stroke) rgba(var(--g-accent-rgb), .6); }
+.slline[data-t="p"], .slline[data-t="h1"] { padding-left: 12px; }
+.slline[data-t="h1"] { font-weight: 700; font-size: 20px; }
+.slline[data-t="ul"]::before { content: '•'; position: absolute; left: 12px; color: var(--g-accent-text); }
+.slline[data-t="ol"] { counter-increment: sl; }
+.slline[data-t="ol"]::before { content: counter(sl) '.'; position: absolute; left: 6px; color: var(--g-accent-text); font: var(--g-t-reading); }
+.slline a { color: var(--g-accent-text); text-decoration: underline; }
+.sllink[hidden] { display: none; }
+.slsub { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.slchart { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.slcrow input { flex: 1 1 100px; }
+.sltable { display: grid; gap: var(--g-s-half); overflow-x: auto; }
+.sltable input { min-width: 0; box-sizing: border-box; min-height: var(--g-target); font: 400 16px/1.3 var(--g-font-text); }
+.slshape { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.slbuilds { display: flex; flex-direction: column; gap: var(--g-s-1); }
+.slbuild { display: flex; flex-direction: column; gap: var(--g-s-half); font: var(--g-t-body); }
+.slouts { display: flex; flex-direction: column; gap: var(--g-s-1); }
+/* on its own screen the card's line over the page says it already (in the sheet over the chat it does not) */
+.sheetpg .slempty { display: none; }
+/* a card's long name (Presentations) is set with no tracking, and its status goes under it before the name is cut short */
+html .hubtile .kick.long { flex-wrap: wrap; row-gap: 0; }
+html .hubtile .kick.long .nm { letter-spacing: 0; }
+/* the talk: the slide, his notes and the next title in his hand */
+.slpresent { position: fixed; inset: 0; z-index: 300; display: flex; flex-direction: column; gap: var(--g-s-1); padding: calc(var(--g-s-1) + env(safe-area-inset-top, 0px)) calc(var(--g-s-2) + env(safe-area-inset-right, 0px)) calc(var(--g-s-1) + env(safe-area-inset-bottom, 0px)) calc(var(--g-s-2) + env(safe-area-inset-left, 0px)); background: var(--g-canvas); color: var(--g-ink-1); box-sizing: border-box; overflow: hidden; }
+.slptop { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); }
+.sltime { font: var(--g-t-value); color: var(--g-accent-text); }
+.slpstage { flex: none; display: flex; justify-content: center; }
+.slpbox { width: min(100%, calc((100dvh - 330px) * 16 / 9)); aspect-ratio: 16 / 9; overflow: hidden; border: var(--g-hair) solid var(--g-line-faint); cursor: pointer; touch-action: manipulation; }
+.slpbox svg { display: block; width: 100%; height: 100%; }
+.slnext { margin: 0; font: var(--g-t-truth); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); overflow-wrap: anywhere; }
+.slpnotes { flex: 1 1 auto; min-height: 60px; overflow-y: auto; padding: var(--g-s-1); font: 400 20px/1.5 var(--g-font-text); color: var(--g-ink-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); white-space: pre-wrap; overflow-wrap: anywhere; }
+.slpnotes.none { color: var(--g-ink-4); }
+.slpkeys { display: grid; grid-template-columns: 1fr 1fr; gap: var(--g-s-1); }
+.slpkey { min-height: 56px; }
+.slhid { opacity: 0; visibility: hidden; }
+.slin-appear { animation: slappear .01s both; }
+.slin-fade { animation: slfadein .5s var(--g-ease, ease) both; }
+.slin-rise { animation: slrise .55s var(--g-ease, ease) both; }
+.sltr-fade { animation: slfadein .45s var(--g-ease, ease) both; }
+.sltr-push { animation: slpush .4s var(--g-ease, ease) both; }
+@keyframes slappear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slfadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slrise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@keyframes slpush { from { transform: translateX(14%); opacity: .2; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .slin-appear, .slin-fade, .slin-rise, .sltr-fade, .sltr-push, .slflash.go { animation: none; } .slflash.go { opacity: 1; } }
+html[data-motion="calm"] :is(.slin-appear, .slin-fade, .slin-rise, .sltr-fade, .sltr-push) { animation: none; }
 /* ==== end THE SYSTEM ==== */
 
 /* ---------------------------------------------------------------------------------------------------------------------------

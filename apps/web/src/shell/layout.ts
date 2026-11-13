@@ -124,7 +124,8 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     // the reactor's greeting keeps the name as typed
     navTitle.textContent = tab === 'core' ? n?.title ?? '' : niceCase(n?.title ?? '');
     navTitle.dataset.case = 'keep';
-    navTitle.dataset.len = '';
+    // (a screen's long name — PRESENTATIONS, SPREADSHEETS — is set smaller, as a pushed page's is, rather than cut short)
+    navTitle.dataset.len = tab !== 'core' && (n?.title ?? '').length > 11 ? 'xl' : '';
   };
   // the greeting follows the clock
   setInterval(() => ui.get().tab === 'core' && !pushed && paintNav(), 60_000);

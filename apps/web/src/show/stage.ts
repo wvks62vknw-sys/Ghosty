@@ -49,6 +49,8 @@ export const stageState = {
   waitLine: '',
   /** Where the sentence stood when the room was reserved and after the Stage rose (its top), for the check that it did not move. */
   reserved: '',
+  /** The numbers of the last chart the Stage drew (the slides' INSERT, CHART takes them). */
+  lastChart: null as null | { kind: 'bars' | 'line'; points: { label: string; value: number }[]; unit: string; before: boolean },
 };
 
 const still = () => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.dataset.motion === 'calm';
@@ -463,6 +465,13 @@ export function isoPic(boxes: ReturnType<typeof partBoxes>, room: boolean, label
 
 // ---------------------------------------------------------------- the Stage
 
+/** MAKE SLIDES OF IT: the document answer's headings, or the chart's numbers, as a new deck in PRESENTATIONS. */
+async function makeSlides(show: Show, facts: ShowFacts): Promise<void> {
+  const { run } = await import('../commands/registry');
+  if (show.kind === 'document') return void (await run('open_slides', { report: { text: facts.reply, title: show.title } }));
+  if (show.kind === 'chart') return void (await run('open_slides', { chart: { title: show.title, chart: { kind: show.series.kind, points: show.series.points, unit: show.series.unit, before: show.series.before } } }));
+}
+
 /** OPEN: the full screen for what the Stage shows (the map sheet, God's Eye, the document editor, the Workbench, the Studio). */
 async function open(show: Show, facts: ShowFacts): Promise<void> {
   const { run } = await import('../commands/registry');
@@ -589,6 +598,7 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
       const c = chartPic(show.series, (n) => (stageState.drawn = n), () => Math.max(200, stageBox().hgt - 204));
       pic = c.el;
       relayout = c.relayout;
+      stageState.lastChart = { kind: show.series.kind, points: show.series.points.map((p) => ({ label: p.label, value: p.value })), unit: show.series.unit, before: show.series.before };
       break;
     }
     case 'eye': {
@@ -677,7 +687,7 @@ function mount(show: Exclude<Show, { via: 'its screen' }>, facts: ShowFacts, t0:
     h('div.stgpic', pic),
     ...truth.map((t) => truthLine(t)),
     ...(answerEl ? [answerEl] : []),
-    h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, wallKey(show, facts), key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
+    h('div.stgkeys', openable ? key('OPEN', () => void open(show, facts), { label: `Open ${show.title}` }) : null, show.kind === 'document' || show.kind === 'chart' ? key('MAKE SLIDES OF IT', () => void makeSlides(show, facts), { label: `Make slides of ${show.title}` }) : null, wallKey(show, facts), key('CLOSE', close, { kind: 'ghost', label: 'Close' })),
   );
   // GROWN UP: the orb is docked in the panel's top edge like a jewel, and the bezel is lit from it (styles.css `#thestage::before`): a second view of the one Mind
   if (grownOn()) {

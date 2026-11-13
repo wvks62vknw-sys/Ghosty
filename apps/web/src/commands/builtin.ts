@@ -537,6 +537,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [editors] PRESENTATIONS (slides/sheet.ts): my slides; a deck from a report, a document or a chart, a .pptx opened.
+      id: 'open_slides',
+      title: 'Presentations: slides, notes, a talk, PowerPoint in and out',
+      group: 'GO',
+      run: async (a) => {
+        const { openSlides } = await import('../slides/sheet');
+        await openSlides(a && typeof a === 'object' ? (a as Parameters<typeof openSlides>[0]) : {});
+      },
+    },
+    {
       // [packs3] THE OUTSIDE PACK's sheet (features/outside): a safer walk, what is near, where I parked, lost, a fare split.
       id: 'open_outside',
       title: 'Outside: walk, car parks, toilets, cash, car, lost',

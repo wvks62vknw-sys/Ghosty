@@ -24,7 +24,7 @@ export interface Extracted {
 const CODE_EXT = /\.(js|mjs|cjs|ts|tsx|jsx|py|rs|go|c|h|cc|cpp|hpp|java|kt|swift|rb|php|cs|scala|lua|sh|bash|sql|r|m|dart|zig|ex|exs|hs|ml|clj|vue|svelte)$/i;
 const TEXT_EXT = /\.(txt|md|markdown|mdx|rst|csv|tsv|json|jsonl|yaml|yml|toml|ini|log|xml|tex|org|adoc)$/i;
 
-export const ACCEPT = 'image/*,.heic,.pdf,.docx,.epub,.html,.htm,.txt,.md,.markdown,.mdx,.rst,.csv,.tsv,.json,.jsonl,.yaml,.yml,.toml,.xml,.tex,.log,.ini,.org,.adoc,.js,.mjs,.ts,.tsx,.jsx,.py,.rs,.go,.c,.h,.cc,.cpp,.hpp,.java,.kt,.swift,.rb,.php,.cs,.scala,.lua,.sh,.sql,.r,.dart,.zig,.vue,.svelte';
+export const ACCEPT = 'image/*,.heic,.pdf,.docx,.pptx,.epub,.html,.htm,.txt,.md,.markdown,.mdx,.rst,.csv,.tsv,.json,.jsonl,.yaml,.yml,.toml,.xml,.tex,.log,.ini,.org,.adoc,.js,.mjs,.ts,.tsx,.jsx,.py,.rs,.go,.c,.h,.cc,.cpp,.hpp,.java,.kt,.swift,.rb,.php,.cs,.scala,.lua,.sh,.sql,.r,.dart,.zig,.vue,.svelte';
 
 const stem = (name: string) => name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || name;
 
@@ -33,11 +33,12 @@ export async function extractFile(file: File): Promise<Extracted> {
   const lower = name.toLowerCase();
   if (lower.endsWith('.pdf') || file.type === 'application/pdf') return extractPdf(new Uint8Array(await file.arrayBuffer()), stem(name));
   if (lower.endsWith('.docx')) return extractDocx(new Uint8Array(await file.arrayBuffer()), stem(name));
+  if (lower.endsWith('.pptx')) return extractPptx(new Uint8Array(await file.arrayBuffer()), stem(name));
   if (lower.endsWith('.epub')) return extractEpub(new Uint8Array(await file.arrayBuffer()), stem(name));
   if (/\.html?$/.test(lower) || file.type === 'text/html') return extractHtml(await file.text(), stem(name));
   if (CODE_EXT.test(lower)) return { title: name, pages: [await file.text()], kind: 'code', code: true };
   if (TEXT_EXT.test(lower) || file.type.startsWith('text/') || !file.type) return { title: stem(name), pages: textPages(await file.text()), kind: lower.endsWith('.md') ? 'notes' : 'text' };
-  throw new Error(`can't read ${name} — supported: PDF, Word (.docx), e-books (.epub), web pages, text, Markdown, CSV/JSON and code`);
+  throw new Error(`can't read ${name} — supported: PDF, Word (.docx), PowerPoint (.pptx), e-books (.epub), web pages, text, Markdown, CSV/JSON and code`);
 }
 
 /**
@@ -131,6 +132,19 @@ const xmlText = (s: string) =>
     .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d)))
     .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
     .replace(/&amp;/g, '&');
+
+/**
+ * A PowerPoint deck as a shelf book (BRIEF-EDITOR-PRESENTATIONS: a .pptx shared to the library reads like any document): a page for
+ * each slide, its title, its words and its speaker notes, by the same reader PRESENTATIONS opens a deck with (slides/pptxread.ts).
+ */
+export async function extractPptx(bytes: Uint8Array, fallbackTitle: string): Promise<Extracted> {
+  const { readPptx } = await import('../slides/pptxread');
+  const { slideWords } = await import('../slides/model');
+  const r = await readPptx(bytes, `${fallbackTitle}.pptx`, async () => null);
+  if (!r) throw new Error('this PowerPoint file has no slides I can read');
+  const pages = r.deck.slides.map((s, i) => [`Slide ${i + 1}`, ...slideWords(s), ...(s.notes.trim() ? [`Notes: ${s.notes.trim()}`] : [])].join('\n'));
+  return { title: r.deck.title || fallbackTitle, pages, kind: 'document' };
+}
 
 export async function extractDocx(bytes: Uint8Array, fallbackTitle: string): Promise<Extracted> {
   const files = await unzip(bytes);

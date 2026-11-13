@@ -16,7 +16,7 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const SMALL = { width: 390, height: 844 };
 const AREA_TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'house'],
+  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
@@ -132,7 +132,7 @@ for (const viewport of [PHONE, SMALL]) {
     if (t === 'settings' && h.field !== 'Find a setting') problems.push(`[${W}] the Settings field says "${h.field}"`);
     for (const x of await sideways(page, '#dock *, #top *')) problems.push(`[${W} ${t}] the house or the top sticks out sideways: ${x}`);
   }
-  // 2. THE PLAN: one tap on THE HOUSE; 7 rooms, 37 things numbered in 7 rooms, the room he is in lit, favourites starred, in the works dotted; a tap goes there
+  // 2. THE PLAN: one tap on THE HOUSE; 7 rooms, 38 things numbered in 7 rooms, the room he is in lit, favourites starred, in the works dotted; a tap goes there
   await go(page, 'area-learn', 1000);
   await page.click('#dock .housebtn');
   await page.waitForSelector('#plan .planroom', { timeout: 5000 }).catch(() => problems.push(`[${W}] THE HOUSE did not unfold the plan`));
@@ -143,7 +143,7 @@ for (const viewport of [PHONE, SMALL]) {
     small: [...document.querySelectorAll('#plan button')].filter((b) => { const r = b.getBoundingClientRect(); return r.height < 43.5; }).length, expanded: document.querySelector('#dock .housebtn')?.getAttribute('aria-expanded'),
     names: [...document.querySelectorAll('#plan .planroom[data-room="learn"] .ptname')].map((x) => x.textContent).join(),
   }));
-  if (plan.rooms.join() !== 'home,see,make,learn,plan,life,me' || plan.things !== 39 || plan.lit !== 'learn') problems.push(`[${W}] the plan: ${JSON.stringify(plan)} (want 7 rooms, 39 numbered things, Learn lit)`);
+  if (plan.rooms.join() !== 'home,see,make,learn,plan,life,me' || plan.things !== 41 || plan.lit !== 'learn') problems.push(`[${W}] the plan: ${JSON.stringify(plan)} (want 7 rooms, 41 numbered things, Learn lit)`);
   if (plan.learn !== '1:learn,2:arcade,3:gym,4:school,5:library,6:learning,7:coach,8:rehearse' || plan.names !== 'Courses,Arcade,Gym,School,Library,Learning,Coach,Rehearse') problems.push(`[${W}] Learn's things on the plan: ${plan.learn} / ${plan.names}`);
   if (plan.starred.join() !== 'learn,gym' && plan.starred.join() !== 'gym,learn') problems.push(`[${W}] the plan stars ${plan.starred} (his favourites: gym, courses)`);
   if (plan.works.sort().join() !== 'coach,learning') problems.push(`[${W}] the plan dots IN THE WORKS on ${plan.works}`);

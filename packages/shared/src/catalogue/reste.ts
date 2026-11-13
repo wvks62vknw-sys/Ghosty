@@ -35,6 +35,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_sheets' }, tryText: 'Opens my spreadsheets',
   },
   'phrase:sheets': { same: 'hub:sheets' },
+  'hub:slides': {
+    name: 'Slides and talks',
+    line: 'You can make a deck of slides from a report, or from scratch, give the talk with your notes in your hand, and send it as a PowerPoint file.',
+    more: 'Make slides of a research answer, one of your documents or any reply with headings: a slide for each heading, a chart where there are numbers, the sources last. Change the words in the line above a slide, add a picture, a chart from numbers you type, a table or a shape, pick a theme and every slide repaints. Press and hold a slide to move it. When you give the talk the slide, your notes and the next title are on the phone, and a tap brings in the next part. I save a .pptx that opens in PowerPoint or Keynote, a PDF or a picture of one slide, and open someone’s .pptx here, saying once what I could not keep.',
+    say: ['My slides', 'Make slides from a report', 'Open a PowerPoint file'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-12',
+    go: { run: 'open_slides' }, tryText: 'Opens my slides',
+  },
+  'phrase:slides': { same: 'hub:slides' },
   'panel:library:RIGHTS AND LAW': {
     name: 'Your rights, from the documents',
     line: 'You can open what the law and the courts actually say: your rights in the UK, and the rulings and findings in the news.',

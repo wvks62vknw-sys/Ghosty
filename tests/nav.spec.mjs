@@ -632,7 +632,7 @@ if (!graphite.dotOn || graphite.dotOn === reactor.dotOn) problems.push(`[graphit
 // ===================================================================== nothing sideways at 440 and 390; every tool on its hub
 // (the area's tools, shell/areadefs.ts: Ask adds Voice)
 const HUBS = {
-  'area-see': ['eye', 'lens', 'interpreter'], 'area-make': ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'house'],
+  'area-see': ['eye', 'lens', 'interpreter'], 'area-make': ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'house'],
   'area-learn': ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], 'area-plan': ['agenda', 'markets', 'threats', 'radio'],
   'area-life': ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
 };

@@ -43,7 +43,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -438,6 +438,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Open an Excel file', act: { ask: 'Open a spreadsheet' } },
     ],
     dyk: 'Change a rent in March and the month, the summary and the year all move at once.',
+  },
+  slides: {
+    name: 'Presentations',
+    promise: 'Slides, with your notes in your hand',
+    can: [
+      { text: 'Your decks, kept on this phone', act: { open: 'slides' } },
+      { text: 'Make slides from a report', act: { ask: 'Make slides from a report' } },
+      { text: 'Open a PowerPoint file', act: { ask: 'Open a PowerPoint file' } },
+    ],
+    dyk: 'Press and hold a slide to move it; in the talk your notes and the next title are on the phone, not on the slide.',
   },
   house: {
     name: 'House',

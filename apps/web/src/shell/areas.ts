@@ -55,7 +55,7 @@ export const TINT: Record<string, string> = {
   memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff',
   // [tabs] the screens the sheets became (BRIEF-TABS 2)
   money: '#30d158', body: '#ff375f', kitchen: '#ff9f0a', people: '#5ac8fa', work: '#8e8e93', creative: '#bf5af2', outside: '#34c759', homeadmin: '#ffd60a',
-  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', house: '#ffb340',
+  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', slides: '#ff9f0a', house: '#ffb340',
 };
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
@@ -154,7 +154,7 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   const one = h('span.one', { dataset: { case: 'keep' } });
   const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep', ...(c?.works ? { works: 'true' } : {}) }, onclick: onTap, ...(c?.works ? { 'aria-description': `In the works: ${c.works}` } : {}) },
     ins,
-    h('span.kick', icon(glyph), h('span.nm', name), mark, word),
+    h(name.length > 11 ? 'span.kick.long' : 'span.kick', icon(glyph), h('span.nm', name), mark, word),
     title, works, one, reads, why, line, pinned,
   );
   // a long press pins the screen (FAVOURITES, BRIEF-SHELL): the card of a screen only (Voice is not one)
@@ -303,6 +303,8 @@ function hubTab(a: Area): TabDef {
         handList.hidden = inHand.length === 0;
         hand.dataset.count = String(inHand.length);
         rest.hidden = others.length === 0;
+        // (more than eight things in a room: the band takes two rows, five and four, each reticle still a finger's)
+        band.classList.toggle('two', room.things.length > 8);
         // the band: every thing, reticled and numbered, left to right in the room's order; the ones at hand lit
         const lit = new Set(inHand.map((m) => m.c.id));
         // (more than eight things in a room: the band takes two rows, five and four, each reticle still a finger's)

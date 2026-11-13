@@ -8,6 +8,7 @@
 import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
+import { slidesAsked } from '../slides/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import type { PackReply } from './packs';
 
@@ -61,6 +62,22 @@ export async function sheetsTurn(text: string): Promise<PackReply> {
           ? 'Choose the file and I open it here: an Excel .xlsx or a CSV. Nothing is uploaded, and what I could not keep I say once.'
           : 'My spreadsheets are open: the ones you made or opened, kept on this phone with their dates.';
   return { said: text, reply, go: [{ id: 'sheets', ask: -1, label: 'Open my spreadsheets', run: 'open_sheets', args: {} }] };
+}
+
+/** "my slides", "new presentation", "make slides from my last answer", "open a PowerPoint file": the PRESENTATIONS sheet, open on it. */
+export async function slidesTurn(text: string): Promise<PackReply> {
+  const ask = slidesAsked(text) ?? { what: 'list' as const };
+  const { openSlides } = await import('../slides/sheet');
+  void openSlides({ what: ask.what });
+  const reply =
+    ask.what === 'new'
+      ? 'A blank deck is open: a title slide and a slide of bullets. Tap one to type into it.'
+      : ask.what === 'report'
+        ? 'Pick the report to make slides of: my last answer with headings, one of your documents, or paste one. Every slide stays yours to change.'
+        : ask.what === 'import'
+          ? 'Choose the PowerPoint file (.pptx) and I open it here. Nothing is uploaded, and what I could not keep I say once.'
+          : 'My slides are open: the decks you made or opened, kept on this phone with their dates.';
+  return { said: text, reply, go: [{ id: 'slides', ask: -1, label: 'Open my slides', run: 'open_slides', args: {} }] };
 }
 
 /** "3.5 miles in km", "hello in base64", "decode aGVsbG8=", "1700000000 as a date": answered here. */

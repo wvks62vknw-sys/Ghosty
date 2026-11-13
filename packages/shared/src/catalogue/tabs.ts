@@ -79,6 +79,7 @@ export const TABS_WORDS: Record<string, CatValue> = {
   'screen:convert': { same: 'hub:convert' },
   'screen:docs': { same: 'hub:docs' },
   'screen:sheets': { same: 'hub:sheets' },
+  'screen:slides': { same: 'hub:slides' },
   'screen:house': {
     name: 'House: your smart home', line: 'You can see your house as Home Assistant has it, room by room, and switch a light, set the heating or close a blind.',
     more: 'Through your own free Home Assistant box, linked once with its address and a token in SYSTEM, KEYS. Locks, alarms, garage doors and gates, and any switch you mark, ask your confirm on every tap and never act on a schedule. Everything I do there is in WHY.',
@@ -138,6 +139,9 @@ export const TABS_WORDS: Record<string, CatValue> = {
   'deck:sheets:your-spreadsheets-kept-on-this-phone': { same: 'hub:sheets' },
   'deck:sheets:start-a-household-budget': { same: 'hub:sheets' },
   'deck:sheets:open-an-excel-file': { same: 'hub:sheets' },
+  'deck:slides:your-decks-kept-on-this-phone': { same: 'hub:slides' },
+  'deck:slides:make-slides-from-a-report': { same: 'hub:slides' },
+  'deck:slides:open-a-powerpoint-file': { same: 'hub:slides' },
   'deck:house:lights-heating-and-blinds-room-by': { same: 'screen:house' },
   'deck:house:is-the-back-door-open': { same: 'phrase:house' },
   'deck:house:whats-the-temperature-in-the-kitchen': { same: 'phrase:house' },
