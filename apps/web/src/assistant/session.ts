@@ -1206,6 +1206,8 @@ export function clearConversation(): void {
       await brain.clearHistory();
       // What Ghosty noticed from the conversation (the patterns' day log) goes with it.
       await brain.clearPatterns().catch(() => undefined);
+      // [recall] and from the phone's own recall index (features/memory/recall.ts)
+      await import('../features/memory/recall').then((r) => r.clearTurns()).catch(() => undefined);
     },
   );
 }

@@ -49,7 +49,9 @@ import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/l
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall';
+  /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
+  found?: { key: string; bid?: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string }[];
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
    * command to run (`run` with `args`), or words to put in the chat box (`words`).
@@ -154,7 +156,7 @@ export async function phoneDay(now = Date.now()): Promise<DayItem[]> {
 }
 
 /** One question and its answer, said here: in the chat (and aloud when he asked by voice). */
-function answer(text: string, reply: string, local: LocalAnswer, opts: { voice?: boolean; private?: boolean }): true {
+export function answer(text: string, reply: string, local: LocalAnswer, opts: { voice?: boolean; private?: boolean }): true {
   add({ kind: 'user', text, at: stamp(), ...(opts.private ? { private: true } : {}) });
   add({ kind: 'assistant', text: reply, at: stamp(), model: DIRECT, local, ...(opts.private ? { private: true } : {}) });
   chat.set({ live: reply });
@@ -211,6 +213,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   // [lifeeasier] WHAT DID I MISS?, TEACH ME WHAT YOU LEARNED and WATCHERS: from his own records and the pages he names, no model (assistant/life.ts)
   missed: (text, opts) => import('./life').then((m) => m.missedTurn(text, opts, answer)).catch(() => false),
   teach: (text, opts) => import('./life').then((m) => m.teachTurn(text, opts, answer)).catch(() => false),
+  recall: (text, opts) => import('../features/memory/recallturn').then((m) => m.recallTurn(text, opts, answer)).catch(() => false),
+  chase: (text, opts) => import('../features/memory/recallturn').then((m) => m.chaseTurn(text, opts, answer)).catch(() => false),
   watcher: (text, opts) => import('./life').then((m) => m.watcherTurn(text, opts, answer)).catch(() => false),
   // [shell2] a number said where he is ("open two"): that thing of the room he is in, or his starred and recent; nothing there, the next table, then the brain
   roomnumber: (text, opts) => import('./roomnumber').then((m) => m.roomNumberTurn(text, opts, answer)).catch(() => false),

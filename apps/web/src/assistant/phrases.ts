@@ -57,6 +57,14 @@ import { learningAsked } from '../../../../packages/shared/src/learning';
 import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
+import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
+
+/** [recall] FIND over his own things: "find garden in my things", "search my notes for garden"; the words looked for, else null. */
+export function findAsked(text: string): string | null {
+  const t = text.replace(/\s+/g, ' ').trim().replace(/[?.!]+$/, '');
+  const m = /^(?:find|search(?: for)?|look for) (.+?) (?:in|across|through) (?:all )?my (?:things|stuff|notes|documents|docs|files|pages|workspace)$/i.exec(t) ?? /^search (?:all )?my (?:things|stuff|notes|documents|docs|files|pages|workspace) for (.+)$/i.exec(t);
+  return m ? m[1]!.trim() : null;
+}
 
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
@@ -70,6 +78,10 @@ export const LOCAL_ASKS = [
   // [shell2] "open two", "go to number three", "open learn 5": a number said where he is opens that thing (shell/rooms.ts numbers, assistant/roomnumber.ts); only with a verb, so a bare "2" in a conversation is not taken
   { id: 'roomnumber', test: (t: string) => /^(?:ok(?:ay)?[, ]+|please[, ]+)?(?:open|go to|show|take me to)\b/i.test(t.trim()) && (numberIn(t) !== null || roomNumberIn(t) !== null) },
   // [lifeeasier] "what did I miss?", "teach me what you learned this week", "tell me when this price drops": his own records and the pages he names (assistant/life.ts)
+  // [recall] "what did I ask you about trains?", "find garden in my things", "remind me to chase this if Sam doesn't reply by Thursday":
+  // his own turns and things, answered from the phone's own index with no model (features/memory/recall.ts); a chase set on the brain
+  { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null },
+  { id: 'chase', test: (t: string) => chaseAsked(t) !== null || chasingAsked(t) },
   { id: 'missed', test: (t: string) => missedAsked(t) },
   { id: 'teach', test: (t: string) => teachAsked(t) },
   { id: 'watcher', test: (t: string) => watcherAsked(t) !== null },
