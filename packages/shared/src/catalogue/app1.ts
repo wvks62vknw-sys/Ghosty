@@ -399,4 +399,12 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Can you translate signs?', 'Can you check my car’s MOT?'], scene: ['talking'], cat: 'talk',
     since: '2026-10-31',
   },
+  // [planlane:brief] the day asked for in the chat, answered on the phone from the Brief's own facts (features/brief/asks.ts, turn.ts)
+  'phrase:planbrief': {
+    name: 'Your day in one line', line: 'You can say "good morning" or "give me the rundown" and I open the Brief and say your day in one line.',
+    more: 'No AI needed: the weather (tonight and tomorrow in the evening), what is left in your diary, your to-dos due today and the drive to work, from the same facts the Brief shows. "Brief me on" a subject still goes to my brain.',
+    say: ['Good morning', 'What’s my day look like?', 'Give me the rundown', 'What do I need to know today?'], scene: ['morning'], cat: 'know',
+    go: { open: 'brief' }, tryText: 'Opens the Brief and says your day in one line',
+    since: '2026-11-13',
+  },
 };

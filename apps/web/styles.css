@@ -9382,6 +9382,17 @@ html body .gkask button, html body .gkprops button { height: auto; min-height: v
 /* ==== [planlane:agenda end] ==== */
 
 /* ==== [planlane:brief] ==== */
+/* the headlines' and the weather's TRY AGAIN: a whole key, 44 pt, under the line that says what is wrong */
+html #pg-brief .brnewsdown .bract,
+html #pg-brief .pn.wx .bract { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+html #pg-brief .brnewsdown .bract button,
+html #pg-brief .pn.wx .bract button { min-height: 44px; min-width: 44px; }
+/* every key on the Brief is 44 pt in every look (The Ink's own key height rounds to 43 at BODY 21) */
+html #pg-brief :is(.bract, .tabs) button { min-height: 44px !important; }
+/* WEAR, SUN and TOMORROW are sentences: they wrap, never cut */
+html #pg-brief .pn.wx .rw.brwear .v,
+html #pg-brief .pn.wx .rw.brsun .v,
+html #pg-brief .pn.wx .rw.brtomorrow .v { white-space: normal; overflow-wrap: anywhere; }
 
 /* ==== [planlane:brief end] ==== */
 

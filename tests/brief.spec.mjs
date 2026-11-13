@@ -298,7 +298,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
   const sub = await text(page, '#pg-brief .hero .sub');
   check(5, /The weather can’t be reached right now|Getting the weather/.test(sub), `with no weather at all the hero says "${sub}"`);
   const invite = page.locator('#pg-brief .pn.commute .rw.link');
-  check(8, /Save home and work in Memory → Me → Places/.test((await invite.textContent({ timeout: 3000 }).catch(() => '')) ?? ''), 'no line on where to save home and work');
+  check(8, /Save home and work in Memory → ME → PLACES/.test((await invite.textContent({ timeout: 3000 }).catch(() => '')) ?? ''), 'no line on where to save home and work');
   const ih = await invite.evaluate((r) => r.getBoundingClientRect().height, null, { timeout: 3000 }).catch(() => 0);
   check(8, ih >= 44, `the line to save places is ${ih} px tall`);
   await page.screenshot({ path: `${out}/brief-nothing.png` });
