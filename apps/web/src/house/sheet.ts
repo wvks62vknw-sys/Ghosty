@@ -8,8 +8,8 @@
  */
 import { clear, h } from '../core/dom';
 import { button, confirmSheet, modal, toast } from '../ui/components';
-import { HOUSE_STEPS, stateWords, type HouseEntity } from '../../../../packages/shared/src/house';
-import { BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, READING } from '../features/house/words';
+import { DOWN_LINE, glance, HOUSE_STEPS, isDown, isOnNow, offWords, roomOff, sinceWords, stateWords, type HouseEntity } from '../../../../packages/shared/src/house';
+import { BOX_STALE, BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, PINS_KEY, READING, SCENES_NOTE } from '../features/house/words';
 import { waiting } from '../ui/wait';
 import { act, houseNow, loadHouse, mark, type ActOut, type HouseView } from './api';
 
@@ -21,18 +21,42 @@ export const HOUSE_TITLE = 'HOUSE';
 
 const VERBS: Record<string, string> = { turn_on: 'turn on', turn_off: 'turn off', toggle: 'switch', open_cover: 'open', close_cover: 'close', stop_cover: 'stop', set_cover_position: 'move', lock: 'lock', unlock: 'unlock', open: 'open', alarm_disarm: 'disarm', alarm_arm_home: 'arm', alarm_arm_away: 'arm', media_play: 'play', media_pause: 'pause', set_temperature: 'set', set_hvac_mode: 'set', start: 'start', return_to_base: 'send home' };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const ago = (ms: number) => {
-  if (!ms) return '';
-  const m = Math.round((Date.now() - ms) / 60000);
-  return m < 1 ? 'changed just now' : m < 60 ? `changed ${m} min ago` : m < 1440 ? `changed ${Math.round(m / 60)} h ago` : `changed ${Math.round(m / 1440)} days ago`;
-};
+
+/** His pinned things (kept on the phone, his own): shown first, in the order he pinned them. */
+export function pins(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(PINS_KEY) ?? '[]') as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 40) : [];
+  } catch {
+    return [];
+  }
+}
+function setPin(id: string, on: boolean): void {
+  const now = pins().filter((x) => x !== id);
+  try {
+    localStorage.setItem(PINS_KEY, JSON.stringify(on ? [...now, id] : now));
+  } catch {
+    /* storage refused (a private window): the pin lasts until the page closes */
+  }
+  houseNow.set({});
+}
+
+/** ALL OFF: each light, fan and TV on in the room ('' the whole house), one after another; never the guarded set, never a switch. */
+async function allOff(list: HouseEntity[], room: string): Promise<void> {
+  const done: string[] = [];
+  const failed: string[] = [];
+  for (const c of roomOff(list, room)) ((await act(c.entity.id, c.service, {}, { origin: 'tap', why: `ALL OFF${room ? ` in the ${room}` : ''} on the HOUSE sheet` })).ok ? done : failed).push(c.entity.name);
+  toast(offWords(room, done, failed), failed.length ? 'warn' : 'ok');
+}
 
 /** One action from his tap: the guarded set asks his confirm first, every time. */
 export async function houseDo(e: Pick<HouseEntity, 'id' | 'name' | 'domain'> & { guarded?: boolean }, service: string, data: Record<string, unknown> = {}, said = ''): Promise<ActOut | null> {
   let confirm = false;
   if (e.guarded) {
-    const verb = VERBS[service] ?? service.replace(/_/g, ' ');
-    const ok = await confirmSheet(`${cap(verb)} the ${e.name}?`, `The ${e.name} is in the guarded set (a lock, an alarm, a garage door or gate, or a switch you marked): it needs your tap and this confirm every time, and no scheduled job ever touches it.`, `${verb.toUpperCase()} IT`);
+    const verb = e.domain === 'scene' ? 'run' : (VERBS[service] ?? service.replace(/_/g, ' '));
+    const ok = e.domain === 'scene'
+      ? await confirmSheet(`Run ${e.name}?`, `${e.name} sets a lock, the alarm, a garage door or gate, or a switch you marked: it needs your tap and this confirm every time, and no scheduled job ever runs it.`, 'RUN IT')
+      : await confirmSheet(`${cap(verb)} the ${e.name}?`, `The ${e.name} is in the guarded set (a lock, an alarm, a garage door or gate, or a switch you marked): it needs your tap and this confirm every time, and no scheduled job ever touches it.`, `${verb.toUpperCase()} IT`);
     if (!ok) return null;
     confirm = true;
   }
@@ -121,11 +145,15 @@ function card(e: HouseEntity, marked: string[]): HTMLElement {
       break;
     default:
   }
-  const when = ago(e.changed);
-  return h(`div.housecard${e.guarded ? '.guarded' : ''}` as 'div', { dataset: { entity: e.id, domain: e.domain }, role: 'group', 'aria-label': `${n}: ${stateWords(e)}${e.guarded ? ', needs your tap and a confirm' : ''}` },
-    h('div.househead', h('b', n), h('span.housestate', stateWords(e)), when ? h('small', when) : null),
+  const when = sinceWords(e);
+  const down = isDown(e);
+  const pinned = pins().includes(e.id);
+  const pin = btn(pinned ? '★' : '☆', pinned ? `Unpin the ${n}` : `Pin the ${n} to the top`, () => setPin(e.id, !pinned), `housepin${pinned ? ' on' : ''}`);
+  pin.setAttribute('aria-pressed', String(pinned));
+  return h(`div.housecard${e.guarded ? '.guarded' : ''}${down ? '.down' : ''}` as 'div', { dataset: { entity: e.id, domain: e.domain }, role: 'group', 'aria-label': `${n}: ${stateWords(e)}${e.guarded ? ', needs your tap and a confirm' : ''}` },
+    h('div.househd', h('div.househead', h('b', n), h('span.housestate', stateWords(e)), when && !down ? h('small', when) : null), pin),
     e.guarded ? h('small.houseguard', 'Your tap and a confirm, every time; never a scheduled job') : null,
-    ctl.length ? h('div.housectl', ...ctl) : null,
+    down ? h('small.housedown', DOWN_LINE) : ctl.length ? h('div.housectl', ...ctl) : null,
   );
 }
 
@@ -154,22 +182,50 @@ function paint(root: HTMLElement): void {
     );
     return;
   }
-  /* state: house.house empty */
-  /* state: house.house error */
+  const list = v.entities;
+  const room = (e: HouseEntity) => e.area || 'Elsewhere';
   const rooms = new Map<string, HouseEntity[]>();
-  for (const e of v.entities) rooms.set(e.area || 'Elsewhere', [...(rooms.get(e.area || 'Elsewhere') ?? []), e]);
+  for (const e of list) if (e.domain !== 'scene' && e.domain !== 'script') rooms.set(room(e), [...(rooms.get(room(e)) ?? []), e]);
   const names = [...rooms.keys()].sort((a, b) => (a === 'Elsewhere' ? 1 : b === 'Elsewhere' ? -1 : a.localeCompare(b)));
+  const scenes = list.filter((e) => e.domain === 'scene' || e.domain === 'script');
+  const mine = pins();
+  const pinned = mine.map((id) => list.find((e) => e.id === id)).filter((e): e is HouseEntity => !!e);
+  const offKey = (where: string, label: string) => {
+    const b = btn('ALL OFF', label, () => void allOff(list, where), 'houseoff');
+    return b;
+  };
+  const glanceRows = glance(list);
+  const anyOn = list.some(isOnNow);
   clear(root,
     h('div.housetop', h('p.houseline', { role: 'status' }, v.line || 'Your house'), refresh),
     st.offline ? h('p.note', { dataset: { state: 'offline', case: 'keep' }, role: 'status' }, BRAIN_STALE) : null,
-    v.error ? h('p.note.bad', { dataset: { state: 'error' } }, v.error) : null,
-    !v.entities.length ? h('div.empty', { dataset: { state: 'empty', case: 'keep' } }, h('b', HOUSE_NONE.head), h('span', HOUSE_NONE.line)) : null,
-    ...names.map((room) => {
-      const list = rooms.get(room)!;
-      const temp = list.find((e) => e.domain === 'sensor' && (e.cls === 'temperature' || e.unit === '°C'));
-      return h('section.houseroom', { 'aria-label': room }, h('h4', h('span', room), temp ? h('small', stateWords(temp)) : null), ...list.map((e) => card(e, v.marked)));
+    /* state: house.house error */
+    v.error ? h('p.note.bad', { dataset: { state: 'error', case: 'keep' }, role: 'status' }, v.stale ? `${v.error} ${BOX_STALE}` : v.error) : null,
+    /* state: house.house empty */
+    !list.length && !v.error ? h('div.empty', { dataset: { state: 'empty', case: 'keep' } }, h('b', HOUSE_NONE.head), h('span', HOUSE_NONE.line)) : null,
+    glanceRows.length
+      ? h('section.houseglance', { 'aria-label': 'Your house at a glance' },
+          h('div.houseglhead', h('h4', 'AT A GLANCE'), anyOn ? offKey('', 'Turn off every light, fan and TV on in the house (never a lock, the alarm, a garage door or a switch)') : null),
+          ...glanceRows.map((g) => h(`div.houseglrow.gl-${g.key}` as 'div', { dataset: { glance: g.key } }, h('small', g.label), h('span', g.line))))
+      : null,
+    scenes.length
+      ? h('section.housescenes', { 'aria-label': 'Scenes and scripts' },
+          h('h4', 'SCENES'),
+          h('div.housescenerow', ...scenes.map((e) => {
+            const b = btn(e.name, `Run ${e.name}${e.guarded ? ' (asks your confirm)' : ''}`, () => void houseDo(e, 'turn_on'), `housescene${e.guarded ? ' guarded' : ''}`);
+            b.dataset.entity = e.id;
+            return b;
+          })),
+          h('small.housescenenote', SCENES_NOTE))
+      : null,
+    pinned.length ? h('section.houseroom.housepins', { 'aria-label': 'Pinned' }, h('h4', h('span', 'PINNED')), ...pinned.map((e) => card(e, v.marked))) : null,
+    ...names.map((r) => {
+      const things = rooms.get(r)!;
+      const temp = things.find((e) => e.domain === 'sensor' && (e.cls === 'temperature' || e.unit === '°C'));
+      const on = r !== 'Elsewhere' && roomOff(things, '').length > 0;
+      return h('section.houseroom', { 'aria-label': r }, h('h4', h('span', r), temp ? h('small', stateWords(temp)) : null, on ? offKey(r, `Turn off every light, fan and TV on in the ${r}`) : null), ...things.map((e) => card(e, v.marked)));
     }),
-    h('p.note.housefoot', 'Locks, alarms, garage doors and gates — and any switch you mark — need your tap and a confirm, every time, and never act on a schedule. Everything I do here is in WHY and in “what did you do today”.'),
+    h('p.note.housefoot', 'Locks, alarms, garage doors and gates — and any switch you mark — need your tap and a confirm, every time, and never act on a schedule. A scene that sets one asks too. ALL OFF turns off lights, fans and TVs only. Everything I do here is in WHY and in “what did you do today”.'),
   );
 }
 

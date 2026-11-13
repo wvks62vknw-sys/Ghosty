@@ -18,7 +18,7 @@
  * acted here as a job (`houseJob`), and the guarded set refused. A brain turn about the house gets its state as a fact for
  * that turn only (`houseTurnFacts`); the morning's piece may carry one line (`morningHouseLine`). No model is asked here.
  */
-import { houseAsked, houseFacts, houseLine, isGuarded, morningHouse, NOT_LINKED, policy, resolveAsk, shapeCall, doneWords, domainOf, toEntity, trailTool, HOUSE_WORDS, type HaState, type HouseEntity, type Origin } from '../../../packages/shared/src/house';
+import { houseAsked, houseFacts, houseLine, isGuarded, morningHouse, NOT_LINKED, offWords, policy, resolveAsk, shapeCall, doneWords, domainOf, toEntity, trailTool, HOUSE_WORDS, type HaState, type HouseEntity, type Origin } from '../../../packages/shared/src/house';
 import type { Vault } from './kernel/vault';
 import { keepTrail } from './why';
 
@@ -200,7 +200,7 @@ export async function houseAct(d: HouseDeps, req: { entity: string; service: str
  */
 export async function houseJob(d: HouseDeps, job: { text: string; title: string }): Promise<string | null> {
   const ask = houseAsked(job.text);
-  if (!ask || ask.kind === 'sheet' || ask.kind === 'is' || ask.kind === 'temp') return null;
+  if (!ask || ['sheet', 'is', 'temp', 'lightson', 'opens', 'inside'].includes(ask.kind)) return null;
   if (!(await linkOf(d))) return `“${job.title}” is for your house, and your Home Assistant isn’t linked: ${NOT_LINKED}`;
   let view: HouseView;
   try {
@@ -209,6 +209,13 @@ export async function houseJob(d: HouseDeps, job: { text: string; title: string 
     return e instanceof HouseError ? e.message : 'I couldn’t read your house just now.';
   }
   const r = resolveAsk(ask, view.entities, view.marked, nowOf(d));
+  if (r.kind === 'many') {
+    // ALL OFF on a schedule: lights, fans and TVs only (never the guarded set, never a switch), each one kept in WHY
+    const done: string[] = [];
+    const failed: string[] = [];
+    for (const c of r.calls) ((await houseAct(d, { entity: c.entity.id, service: c.service, origin: 'job', why: `your scheduled job “${job.title.slice(0, 80)}”` })).ok ? done : failed).push(c.entity.name);
+    return offWords(r.room ? r.room.charAt(0).toUpperCase() + r.room.slice(1) : '', done, failed);
+  }
   if (r.kind !== 'act') return `“${job.title}”: ${r.text} Nothing was done.`;
   const out = await houseAct(d, { entity: r.entity.id, service: r.service, data: r.data, origin: 'job', why: `your scheduled job “${job.title.slice(0, 80)}”` });
   return out.text;

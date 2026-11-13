@@ -15,6 +15,8 @@ export interface HouseView {
   marked: string[];
   at: number;
   error?: string;
+  /** His box did not answer, and these are his things as last read. */
+  stale?: boolean;
 }
 export interface ActOut {
   ok: boolean;
@@ -34,7 +36,10 @@ export async function loadHouse(fresh = false): Promise<HouseView | null> {
   try {
     const r = await fetch(`/api/house${fresh ? '?fresh=1' : ''}`, { headers: headers(), credentials: 'same-origin', cache: 'no-store' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const v = (await r.json()) as HouseView;
+    let v = (await r.json()) as HouseView;
+    // his box out of reach (or turning the token away): keep his things as last read, said as that, rather than an empty house
+    const last = houseNow.get().view;
+    if (v.error && !v.entities.length && last?.linked && last.entities.length) v = { ...v, entities: last.entities, line: last.line, stale: true };
     setHouseNames([...v.entities.map((e) => e.name), ...v.entities.map((e) => e.area).filter(Boolean)]);
     houseNow.set({ view: v, at: Date.now(), offline: false });
     return v;

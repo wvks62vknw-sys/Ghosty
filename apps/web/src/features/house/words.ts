@@ -15,5 +15,14 @@ export const BRAIN_OUT = 'I can’t reach my brain right now, so I can’t reach
 /** My brain out of reach with a house already read: what is shown is what I last saw. */
 export const BRAIN_STALE = 'I can’t reach my brain right now, so this is your house as I last saw it.';
 
-/** The chat phrases that open the house on the phone, listed in one line. */
-export const PHRASES = ['the house', 'how’s the house'];
+/** His box out of reach with a house already read: the last read stays up, said as that. */
+export const BOX_STALE = 'This is your house as I last saw it.';
+
+/** Under the scenes: what a tap does, and what still asks. */
+export const SCENES_NOTE = 'Your own scenes and scripts from Home Assistant: a tap runs one. A scene that sets a lock, the alarm or a garage door asks your confirm first.';
+
+/** Where his pinned things are kept (on this phone, his own). */
+export const PINS_KEY = 'ghosty.house.pins';
+
+/** The chat phrases that work for the house, listed in one line. */
+export const PHRASES = ['the house', 'how’s the house', 'which lights are on?', 'turn everything off in the kitchen', 'what’s the temperature inside?', 'is anything open?'];
