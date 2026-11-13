@@ -6551,6 +6551,9 @@ html #top .headstamp { display: none; }
   /* the world ends there too: the globe's canvas stops where the house begins, so the camera's centre (the Machine view's home, a
      tapped spot) lands in the open sky between the chips and the sheet, not under the sheet; the Scan's Home keeps its own frame */
   html body.housed:not(.scanhome, .inkhome, .orbithome) #gl { height: calc(100% - var(--dockh)); } /* (a canvas is a replaced element: `height: auto` would take its own ratio, so the height is said) */
+  /* ORBIT: the sky's canvas keeps Home's size on a hub and every screen but the globe's, under the orb's line as on Home: a canvas that changes
+     size is drawn again from nothing (its buffers made anew), the slowest thing a room's opening could do on a phone that draws in software */
+  html[data-world="orbit"] body.housed:not([data-scene="globe"]) #gl { height: 100%; }
   /* toasts and the undo pill stack from above the ask line: above the whole house on a room's screen; on Home (its ask line is its
      own, over a house of 44 pt keys) 22 px higher than the old bar's floor */
   html body.housed:not(.scanhome, .inkhome, .orbithome) #toasts { bottom: calc(var(--dockh) + var(--g-s-1)); }
