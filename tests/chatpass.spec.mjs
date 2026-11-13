@@ -688,7 +688,8 @@ for (const vp of [PHONE, PHONE2]) {
     await still(page, 'stage-picture', vp);
     check(!(await sideways(page)), `[${W}] [stage] sideways`);
     await page.click('#thestage .stgkeys button[aria-label="Close"]');
-    check((await page.locator('#thestage').count()) === 0, `[${W}] [stage: its close] CLOSE took the Stage away`);
+    // (the Stage leaves by fading, 360 ms, then is gone: stage.ts clearStage)
+    check(await page.waitForFunction(() => !document.getElementById('thestage'), null, { timeout: 3000 }).then(() => true, () => false), `[${W}] [stage: its close] CLOSE did not take the Stage away`);
     // a picture asked for with no data to draw it: one line of why, never an empty plate
     await stub(page, [[150, { t: 'text', text: 'There is nothing to chart there.' }], [50, { t: 'done', model: 'Mock · scripted' }]]);
     await sendText(page, 'draw a chart of nothing');
