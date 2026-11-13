@@ -19,7 +19,7 @@ const PER = { btc: 1, usd: 80671.78, gbp: 60317.65, eur: 72002.63, jpy: 12654575
 const RATES = JSON.stringify({ rates: Object.fromEntries(Object.entries(PER).map(([k, v]) => [k, { name: k, unit: k, value: v, type: 'fiat' }])) });
 
 /** CoinGecko stood in on this page: `st.asked` keeps what was asked, `st.failYear` makes the 1 Y range fail. */
-async function standIn(page) {
+async function routes(page) {
   const st = { asked: [], failYear: false, chat: [] };
   await page.route('**/api/proxy?**', (r) => {
     const t = new URL(new URL(r.request().url()).searchParams.get('url') ?? 'about:blank');
@@ -54,11 +54,28 @@ async function standIn(page) {
     st.chat.push(r.request().postData() ?? '');
     return r.abort();
   });
-  // (the phone read the real prices while it paired: read again, through the stand-ins only)
-  await page.reload();
-  await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
   return st;
 }
+/** H.phone, with CoinGecko stood in before the page's first request (so no real price is ever read): the same look, BODY and seed. */
+async function phone(H, viewport, world, seed, body) {
+  const ctx = await H.browser.newContext({ viewport, locale: 'en-GB', timezoneId: 'Europe/London' });
+  await ctx.addInitScript(({ world, seed, body }) => {
+    if (!localStorage.getItem('ghosty.settings'))
+      localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: body ? { body } : {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
+    for (const [k, v] of Object.entries(seed)) if (!localStorage.getItem(k)) localStorage.setItem(k, v);
+  }, { world, seed, body });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => H.check(false, `[markets ${world} ${viewport.width}] pageerror: ${e.message}`));
+  const st = await routes(page);
+  await page.goto(H.base);
+  await page.fill('#pair input', H.KEY);
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+  return { ctx, page, st };
+}
+
+/** The screen's or the sheet's entrance scales it in: measured once its keys have their laid-out size (the real condition, no fixed sleep). */
+const settled = (page, sel) => page.waitForFunction((sel) => [...document.querySelectorAll(sel)].every((b) => !b.offsetHeight || b.getBoundingClientRect().height >= b.offsetHeight - 0.5), sel, { timeout: 4000 }).catch(() => undefined);
 const lastReply = (page) => page.evaluate(() => [...document.querySelectorAll('.msg:not(.me)')].pop()?.innerText.replace(/\s+/g, ' ') ?? '');
 async function say(H, page, words, want, tag) {
   const before = await page.evaluate(() => document.querySelectorAll('.msg:not(.me)').length);
@@ -103,18 +120,28 @@ export async function run(H) {
   // ---- 2. at both sizes, BODY 21: YOUR COINS, EDIT LIST, the sheet's ranges and what he has, kept across a reload
   for (const vp of [H.PHONE, H.PHONE2]) {
     const tag = `markets ${vp.width}`;
-    const { ctx, page } = await H.phone(vp, 'scan', { 'ghosty.markets.holdings': JSON.stringify({ bitcoin: 0.5 }) }, 21);
-    const st = await standIn(page);
+    const { ctx, page, st } = await phone(H, vp, 'scan', { 'ghosty.markets.holdings': JSON.stringify({ bitcoin: 0.5 }) }, 21);
     await H.open(page, 'markets');
     await page.waitForFunction(() => document.querySelectorAll('#pg-markets .pn.coins .rw.link').length >= 8, null, { timeout: 15000 }).catch(() => check(false, `[${tag}] the coins never showed`));
     // YOUR COINS
     await page.waitForFunction(() => /30,205\.50/.test(document.querySelector('#pg-markets .pn.held')?.innerText ?? ''), null, { timeout: 8000 }).catch(() => undefined);
     const held = (await page.textContent('#pg-markets .pn.held').catch(() => '')).replace(/\s+/g, ' ');
     check(/Bitcoin/.test(held) && /0\.5 BTC/.test(held) && /£30,205\.50/.test(held) && /up £60\.29/.test(held) && /As of \d\d:\d\d/.test(held) && /never advice/.test(held) && !H.RAW.test(held), `[${tag}] YOUR COINS says the holding, its worth, today's move and when: ${held.slice(0, 260)}`);
+    await settled(page, '#pg-markets button');
     const fh = await H.fit(page, '#pg-markets .pn.held');
     check(!fh.small.length && !fh.sideways && !fh.cut.length, `[${tag}] YOUR COINS fits: ${JSON.stringify(fh)}`);
     const fc = await H.fit(page, '#pg-markets .pn.coins');
     check(!fc.small.length && !fc.sideways && !fc.cut.length, `[${tag}] CRYPTO with EDIT LIST fits: ${JSON.stringify(fc)}`);
+    // CONVERT under WHAT £1 BUYS: with the rates already read, and ⇄
+    await page.fill('#pg-markets .pn.fx input.mkcvamt', '50');
+    await page.waitForFunction(() => /^£50\.00 is €59\.69 \(£1 buys €1\.1937\)\. As of \d\d:\d\d\.$/.test(document.querySelector('#pg-markets .mkcvout')?.textContent ?? ''), null, { timeout: 5000 }).catch(async () => check(false, `[${tag}] the converter's answer: ${await page.textContent('#pg-markets .mkcvout')}`));
+    await page.click('#pg-markets .pn.fx button.mkcvswap');
+    check(/^€50\.00 is £41\.89 /.test(await page.textContent('#pg-markets .mkcvout')), `[${tag}] ⇄ swapped the currencies: ${await page.textContent('#pg-markets .mkcvout')}`);
+    await page.click('#pg-markets .pn.fx button.mkcvswap');
+    const fx = await H.fit(page, '#pg-markets .pn.fx');
+    check(!fx.small.length && !fx.sideways && !fx.cut.length, `[${tag}] CONVERT fits: ${JSON.stringify(fx)}`);
+    const sel = await page.$$eval('#pg-markets .pn.fx :is(select, input)', (e) => e.map((x) => Math.round(x.getBoundingClientRect().height)));
+    check(sel.every((n) => n >= 44), `[${tag}] the converter's boxes are 44 pt: ${sel.join(', ')}`);
     if (vp === H.PHONE) await page.screenshot({ path: `${H.out}/planlane-markets-${vp.width}.png` });
 
     // EDIT LIST: ↑, ✕ with UNDO, search and ADD
@@ -126,8 +153,8 @@ export async function run(H) {
     check((await names()).slice(0, 2).join(',') === 'Ethereum,Bitcoin', `[${tag}] ↑ moved Ethereum up: ${(await names()).join(',')}`);
     await page.click('.modal button[aria-label="Take Dogecoin off the list"]');
     check(!(await names()).includes('Dogecoin'), `[${tag}] ✕ took Dogecoin off`);
-    const undoBtn = page.locator('.undofloat button').first();
-    await undoBtn.click({ timeout: 3000 }).catch(() => check(false, `[${tag}] no UNDO after ✕`));
+    const undoBtn = page.locator('.undofloat:not([hidden]) button', { hasText: /undo/i }).first();
+    await undoBtn.click({ timeout: 8000 }).catch(() => check(false, `[${tag}] no UNDO after ✕`));
     await page.waitForFunction(() => [...document.querySelectorAll('.modal .mkwl .mkwlrow b')].some((b) => b.textContent === 'Dogecoin'), null, { timeout: 3000 }).catch(() => check(false, `[${tag}] UNDO did not put Dogecoin back`));
     await page.fill('.modal .mkedit input.mkq', 'polka');
     await page.click('.modal .mkedit button.mkfind');
@@ -138,6 +165,7 @@ export async function run(H) {
     await page.fill('.modal .mkedit input.mkq', 'zzzz');
     await page.click('.modal .mkedit button.mkfind');
     await page.waitForFunction(() => /No coin called “zzzz”/.test(document.querySelector('.modal .mkfound')?.textContent ?? ''), null, { timeout: 5000 }).catch(async () => check(false, `[${tag}] a search with nothing found is not said: ${await page.textContent('.modal .mkfound')}`));
+    await settled(page, '.modal button');
     const fe = await H.fit(page, '.modal .mkedit');
     check(!fe.small.length && !fe.sideways && !fe.cut.length, `[${tag}] YOUR WATCHLIST fits: ${JSON.stringify(fe)}`);
     await page.click('.modal .mhead button');
@@ -149,17 +177,18 @@ export async function run(H) {
     await page.locator('#pg-markets .pn.coins .rw.link', { has: page.locator('.k', { hasText: /^BTC$/ }) }).click();
     await page.waitForSelector('.modal .mkcoin .mkranges button', { timeout: 5000 }).catch(() => check(false, `[${tag}] the coin's sheet has no ranges`));
     const keys = await page.$$eval('.modal .mkranges button', (b) => b.map((x) => `${x.textContent}${x.getAttribute('aria-pressed') === 'true' ? '*' : ''}`).join(','));
-    check(keys === '24 H,7 D*,30 D,1 Y', `[${tag}] the ranges, 7 D first: ${keys}`);
-    await page.click('.modal .mkranges button:has-text("30 D")');
+    check(keys === '24H,7D*,30D,1Y', `[${tag}] the ranges, 7 D first: ${keys}`);
+    await page.click('.modal .mkranges button:has-text("30D")');
     await page.waitForFunction(() => /30 days ago/.test(document.querySelector('.modal .mkrangebox')?.textContent ?? ''), null, { timeout: 5000 }).catch(async () => check(false, `[${tag}] 30 D did not draw: ${await page.textContent('.modal .mkrangebox')}`));
     check(/Over 30 days: (up|down) \d+\.\d\d%\./.test(await page.textContent('.modal .mkover')), `[${tag}] the change over 30 days is said: ${await page.textContent('.modal .mkover')}`);
     check(st.asked.some((u) => /\/coins\/bitcoin\/market_chart\?vs_currency=gbp&days=30/.test(u)), `[${tag}] 30 D read CoinGecko's free market_chart`);
     st.failYear = true;
-    await page.click('.modal .mkranges button:has-text("1 Y")');
+    await page.click('.modal .mkranges button:has-text("1Y")');
     await page.waitForFunction(() => /didn’t send this range/.test(document.querySelector('.modal .mkrangebox')?.textContent ?? ''), null, { timeout: 8000 }).catch(async () => check(false, `[${tag}] a range that failed is not said: ${await page.textContent('.modal .mkrangebox')}`));
     await page.fill('.modal .mkcoin input.mkamt', '0.25');
     await page.click('.modal .mkcoin button.mksave');
     await page.waitForFunction(() => /0\.25 BTC is £15,102\.75 now/.test(document.querySelector('.modal .mkheldsay')?.textContent ?? ''), null, { timeout: 3000 }).catch(async () => check(false, `[${tag}] SAVE did not say the holding: ${await page.textContent('.modal .mkheldsay')}`));
+    await settled(page, '.modal button');
     const fs = await H.fit(page, '.modal .mkcoin');
     check(!fs.small.length && !fs.sideways && !fs.cut.length, `[${tag}] the coin's sheet fits: ${JSON.stringify(fs)}`);
     if (vp === H.PHONE) await page.screenshot({ path: `${H.out}/planlane-markets-coin-${vp.width}.png` });
@@ -176,8 +205,7 @@ export async function run(H) {
 
   // ---- 3. the chat, with no model
   {
-    const { ctx, page } = await H.phone(H.PHONE, 'scan', {}, 0);
-    const st = await standIn(page);
+    const { ctx, page, st } = await phone(H, H.PHONE, 'scan', {}, 0);
     await H.open(page, 'markets');
     await page.waitForFunction(() => document.querySelectorAll('#pg-markets .pn.coins .rw.link').length >= 8, null, { timeout: 15000 }).catch(() => undefined);
     await say(H, page, "what's bitcoin at", /^.*Bitcoin is £60,411, up 0\.20% over 24 hours\. As of \d\d:\d\d, from CoinGecko\./, 'chat');
@@ -199,10 +227,10 @@ export async function run(H) {
 
   // ---- 4. the seven looks: YOUR COINS, the list and the coin's sheet hold in every world (The Scan at BODY 21)
   for (const world of H.WORLDS) {
-    const { ctx, page } = await H.phone(H.PHONE2, world, { 'ghosty.markets.holdings': JSON.stringify({ bitcoin: 0.5, ethereum: 1.25 }) }, world === 'scan' ? 21 : 0);
-    await standIn(page);
+    const { ctx, page } = await phone(H, H.PHONE2, world, { 'ghosty.markets.holdings': JSON.stringify({ bitcoin: 0.5, ethereum: 1.25 }) }, world === 'scan' ? 21 : 0);
     await H.open(page, 'markets');
     await page.waitForFunction(() => /£30,205\.50/.test(document.querySelector('#pg-markets .pn.held')?.innerText ?? ''), null, { timeout: 15000 }).catch(() => check(false, `[${world}] YOUR COINS did not fill`));
+    await settled(page, '#pg-markets button');
     const a = await H.fit(page, '#pg-markets .pn.held');
     const b = await H.fit(page, '#pg-markets .pn.coins');
     check(!a.small.length && !a.sideways && !a.cut.length && !b.small.length && !b.sideways && !b.cut.length, `[${world}] MARKETS fits: ${JSON.stringify({ a, b })}`);
@@ -210,7 +238,7 @@ export async function run(H) {
     check(colours && colours.color !== colours.bg, `[${world}] the total is drawn in a colour of the look: ${JSON.stringify(colours)}`);
     await page.click('#pg-markets .pn.held .rw.link >> nth=0');
     await page.waitForSelector('.modal .mkcoin .mkhold', { timeout: 5000 }).catch(() => check(false, `[${world}] the holding did not open its coin`));
-    await page.waitForTimeout(700); // (the sheet's entrance: measured once it has settled)
+    await settled(page, '.modal button');
     const s = await H.fit(page, '.modal .mkcoin');
     check(!s.small.length && !s.sideways && !s.cut.length, `[${world}] the coin's sheet fits: ${JSON.stringify(s)}`);
     await ctx.close();

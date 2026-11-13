@@ -108,7 +108,7 @@ export function sheetAsOf(live: boolean, why: string, at: number, now: number): 
 export const WEEK_EMPTY = 'I have not read a week of prices for this one yet. It fills in as I read more.';
 /** A range of the chart being read, and one that could not be. */
 export const RANGE_LOADING = 'Reading the prices for this range from CoinGecko…';
-export const RANGE_ERROR = 'CoinGecko didn’t send this range just now. Tap the range again to retry, or pick 7 D.';
+export const RANGE_ERROR = 'CoinGecko didn’t send this range just now. Tap the range again to retry, or pick 7D.';
 export const RANGE_OFFLINE = 'You’re offline, so only the last 7 days are here. The other ranges come back with a signal.';
 /** A gold, silver or currency row not read yet. */
 export const NOT_READ = 'not read yet';
@@ -124,3 +124,12 @@ export const SEARCH_NONE = (q: string): string => `No coin called “${q}” on 
 export const SEARCH_ERROR = 'CoinGecko’s search didn’t answer. Tap SEARCH to try again.';
 export const SEARCH_OFFLINE = 'You’re offline. Search works again with a signal.';
 export const WATCH_FULL = (n: number): string => `Your watchlist holds ${n} coins at most. Take one off to add another.`;
+
+/** An amount of money with its sign, to the penny: £50.00 · €59.69 · CHF 55.17. */
+export const fxCash = (x: number, sign: string): string => `${sign}${x.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** The converter's answer: "£50.00 is €59.69 (£1 buys €1.1937)". */
+export const convertLine = (amount: number, fromSign: string, toSign: string, x: number): string =>
+  `${fxCash(amount, fromSign)} is ${fxCash(amount * x, toSign)} (${fromSign.trim()}1 buys ${toSign}${x.toLocaleString('en-GB', { minimumFractionDigits: 4, maximumFractionDigits: 4 })})`;
+/** The converter before the rates are read, and with no amount. */
+export const CONVERT_WAIT = 'The converter works as soon as CoinGecko’s rates are read.';
+export const CONVERT_NEED = 'Put in an amount, like 100.';

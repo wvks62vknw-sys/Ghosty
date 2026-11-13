@@ -189,10 +189,10 @@ export async function searchCoins(q: string): Promise<Watched[]> {
 
 /** The ranges a coin's chart can show, as CoinGecko's free market_chart takes them (days). */
 export const RANGES = [
-  { key: '24 H', days: 1, from: '24 hours ago', label: '24 hours' },
-  { key: '7 D', days: 7, from: '7 days ago', label: '7 days' },
-  { key: '30 D', days: 30, from: '30 days ago', label: '30 days' },
-  { key: '1 Y', days: 365, from: 'A year ago', label: 'a year' },
+  { key: '24H', days: 1, from: '24 hours ago', label: '24 hours' },
+  { key: '7D', days: 7, from: '7 days ago', label: '7 days' },
+  { key: '30D', days: 30, from: '30 days ago', label: '30 days' },
+  { key: '1Y', days: 365, from: 'A year ago', label: 'a year' },
 ] as const;
 export type Range = (typeof RANGES)[number];
 /** A coin's prices over `days`, oldest first, in `cur` (CoinGecko's free market_chart; the proxy keeps it a while). */

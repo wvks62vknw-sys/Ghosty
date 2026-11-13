@@ -7,7 +7,7 @@ import type { PackReply } from '../../assistant/packs';
 import { clock, coins, fresh, FX, loadHoldings, loadWatch, ounce, priceOf, rate, rates, saveWatch, searchCoins, setHolding, WATCH_MAX, type Coin, type Watched } from '../../data/markets';
 import { settings } from '../../state/app';
 import { marketsAsked, type CoinName } from './asks';
-import { amountWords, asOfLine, cash, heldLine, HOLD_NOTE, money, moved, totalLine, worth, WATCH_FULL, type Held } from './words';
+import { amountWords, asOfLine, cash, convertLine, heldLine, HOLD_NOTE, money, moved, totalLine, worth, WATCH_FULL, type Held } from './words';
 
 const GO = [{ id: 'screen:markets', ask: -1, label: 'Open Markets', open: 'markets' }];
 const within = <T>(p: Promise<T>, ms = 8000): Promise<T | null> => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null);
@@ -21,7 +21,6 @@ function when(f: { status: string; data: unknown; at: number }, at: number): str
 }
 const sign = (code: string): string => FX.find(([c]) => c === code)?.[2] ?? `${code.toUpperCase()} `;
 const fxName = (code: string): string => FX.find(([c]) => c === code)?.[1] ?? code.toUpperCase();
-const amountOf = (x: number, code: string): string => `${sign(code)}${x.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** His coins with today's prices (null: no prices at all). */
 async function held(): Promise<{ list: Held[]; missing: string[]; at: number } | null> {
@@ -85,7 +84,7 @@ export async function marketsTurn(text: string): Promise<PackReply | null> {
     const r = rates.data;
     const x = r ? rate(r, ask.from, ask.to) : null;
     if (x == null) return { said, reply: r ? `CoinGecko’s rates don’t have ${fxName(ask.from === 'gbp' ? ask.to : ask.from)} in them, so I can’t work that one out.` : NO_PRICES, go: GO, failed: !r };
-    return { said, reply: `${amountOf(ask.amount, ask.from)} is ${amountOf(ask.amount * x, ask.to)} (${sign(ask.from)}1 buys ${sign(ask.to)}${x.toLocaleString('en-GB', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}). ${when(rates, rates.at)}`, go: GO };
+    return { said, reply: `${convertLine(ask.amount, sign(ask.from), sign(ask.to), x)}. ${when(rates, rates.at)}`, go: GO };
   }
 
   if (ask.what === 'holdings') {

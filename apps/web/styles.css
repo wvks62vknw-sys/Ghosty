@@ -9399,7 +9399,16 @@ html #pg-markets .pn.held .mkheldtot b { font: 600 19px/25px var(--sf); color: v
 html #pg-markets .pn.held .rw .v small { font: 400 14px/18px var(--sf); color: var(--ink2); white-space: normal; overflow-wrap: anywhere; }
 html #pg-markets .pn.held .rw .n { white-space: nowrap; }
 html #pg-markets .pn.held .mkheldnote { margin: 8px 0 0; font: 400 13px/18px var(--sf); color: var(--ink2); }
-/* The coin's sheet: its ranges (24 H · 7 D · 30 D · 1 Y), and what he has of it */
+/* CONVERT under WHAT £1 BUYS: an amount, from, ⇄, to (each 44 pt; it wraps rather than going sideways), and the answer */
+html #pg-markets .pn.fx > .ft { display: block; }
+html #pg-markets .pn.fx .mkcv { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+html #pg-markets .pn.fx .mkcv > b { font: 600 15px var(--sf); color: var(--ink); }
+html #pg-markets .pn.fx .mkcvrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html #pg-markets .pn.fx .mkcvrow input.mkcvamt { flex: 1 1 90px; min-width: 0; min-height: 44px; font: 400 17px var(--sf); }
+html #pg-markets .pn.fx .mkcvrow select.mkcvsel { flex: 1 1 120px; min-width: 0; min-height: 44px; font: 400 16px var(--sf); color: var(--ink); background: var(--glass, transparent); border: 1px solid var(--line); border-radius: var(--rad); }
+html #pg-markets .pn.fx .mkcvrow button.mkcvswap { width: 44px; min-width: 44px; height: 44px; min-height: 44px !important; padding: 0; border-radius: var(--rad); font: 600 18px var(--sf) !important; }
+html #pg-markets .pn.fx .mkcvout { margin: 0; font: 400 15px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+/* The coin's sheet: its ranges (24H · 7D · 30D · 1Y), and what he has of it */
 html body .mkcoin .mkranges { display: flex; flex-wrap: wrap; gap: 6px; }
 html body .mkcoin .mkranges button { min-width: 56px; height: 44px; min-height: 44px !important; padding: 0 12px; border-radius: var(--rad); font: 600 15px var(--sf) !important; }
 html body .mkcoin .mkranges button[aria-pressed="true"] { color: var(--c); box-shadow: inset 0 0 0 1px var(--c) !important; }

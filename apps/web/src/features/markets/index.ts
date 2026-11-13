@@ -14,7 +14,7 @@ import { sparkInst } from '../../ui/instruments';
 import { page } from '../../ui/page';
 import { sayError } from '../../ui/hisWords';
 import {
-  amountIn, amountWords, asOfLine, cash, HOLD_EMPTY, HOLD_EMPTY_NEXT, HOLD_NOTE, movedMoney, NOT_READ, RANGE_ERROR, RANGE_LOADING, RANGE_OFFLINE, RETRY, RETRYING,
+  amountIn, amountWords, asOfLine, cash, CONVERT_NEED, CONVERT_WAIT, convertLine, HOLD_EMPTY, HOLD_EMPTY_NEXT, HOLD_NOTE, movedMoney, NOT_READ, RANGE_ERROR, RANGE_LOADING, RANGE_OFFLINE, RETRY, RETRYING,
   SEARCH_ERROR, SEARCH_HINT, SEARCH_LOADING, SEARCH_NONE, SEARCH_OFFLINE, sheetAsOf, totalLine, WATCH_EMPTY, WATCH_EMPTY_NEXT, WATCH_FULL, WEEK_EMPTY, worth, type Held,
 } from './words';
 import { waiting } from '../../ui/wait';
@@ -95,6 +95,7 @@ function openCoin(c: Coin, s: { live: boolean; asOf: string; why: string; at: nu
   const keys = RANGES.map((r) => {
     const k = button(r.key, () => show(r));
     k.dataset.days = String(r.days);
+    k.dataset.case = 'keep'; // ("24H", as markets apps write it, not "24 h")
     k.setAttribute('aria-label', `Show ${r.label}`);
     return k;
   });
@@ -302,7 +303,8 @@ export const marketsTab: TabDef = {
     edit.setAttribute('aria-label', 'Edit your watchlist: add, take off or move coins');
     cp.foot!.append(h('span.mkcurl', 'Prices in'), h('div.mkcur', { role: 'group', 'aria-label': 'Currency' }, ...curBtns), edit);
     // YOUR COINS: what he holds (his own numbers, kept on this phone), worth now in his currency and today's move. Never advice.
-    const hp = panel('YOUR COINS', { cls: 'held', grow: false });
+    // (not a fixed panel: that class is "fx", which the currency panel's own checks read)
+    const hp = panel('YOUR COINS', { cls: 'held' });
     const paintHeld = () => {
       const h0 = loadHoldings();
       const ids = Object.keys(h0);
@@ -332,11 +334,51 @@ export const marketsTab: TabDef = {
     // GOLD & SILVER and CURRENCY: one free call (CoinGecko's exchange rates), worked out in his currency.
     const mp = panel('GOLD & SILVER', { cls: 'metals', grow: false });
     // (both from CoinGecko, read every ten minutes)
-    const fp = panel('WHAT £1 BUYS', { cls: 'fx', grow: false });
+    const fp = panel('WHAT £1 BUYS', { cls: 'fx', grow: false, footer: true });
+    // THE CONVERTER under it: any amount from one of these currencies to another, with the rates already read (no other call)
+    const CV_KEY = 'ghosty.markets.convert';
+    const cvWas = (() => {
+      try {
+        return JSON.parse(localStorage.getItem(CV_KEY) ?? 'null') as { a?: string; from?: string; to?: string } | null;
+      } catch {
+        return null;
+      }
+    })();
+    const cvAmt = h('input.mkcvamt', { inputmode: 'decimal', value: cvWas?.a ?? '100', 'aria-label': 'Amount to convert', maxlength: '16' });
+    const sel = (label: string, v: string) => {
+      const s = h('select.mkcvsel', { 'aria-label': label }, ...FX.map(([c, n]) => h('option', { value: c }, n)));
+      s.value = FX.some(([c]) => c === v) ? v : 'gbp';
+      return s;
+    };
+    const cvFrom = sel('Convert from', cvWas?.from ?? settings.get().currency);
+    const cvTo = sel('Convert to', cvWas?.to ?? (settings.get().currency === 'eur' ? 'gbp' : 'eur'));
+    const cvOut = h('p.mkcvout', { role: 'status', dataset: { case: 'keep' } });
+    const paintCv = () => {
+      const r = rates.data;
+      const v = amountIn(cvAmt.value);
+      const signOf = (c: string) => FX.find(([x]) => x === c)?.[2] ?? `${c.toUpperCase()} `;
+      const x = r ? rate(r, cvFrom.value, cvTo.value) : null;
+      cvOut.textContent = !r ? CONVERT_WAIT : v == null ? CONVERT_NEED : x == null ? NOT_READ : `${convertLine(v, signOf(cvFrom.value), signOf(cvTo.value), x)}. ${asOfLine(rates.at, Date.now(), fresh(rates))}`;
+      try {
+        localStorage.setItem(CV_KEY, JSON.stringify({ a: cvAmt.value, from: cvFrom.value, to: cvTo.value }));
+      } catch {
+        /* (a per-phone convenience: the converter works without it) */
+      }
+    };
+    const swap = button('⇄', () => {
+      [cvFrom.value, cvTo.value] = [cvTo.value, cvFrom.value];
+      paintCv();
+    }, 'mkcvswap');
+    swap.setAttribute('aria-label', 'Swap the two currencies');
+    for (const el of [cvAmt, cvFrom, cvTo]) el.addEventListener('input', paintCv);
+    fp.foot!.append(h('div.mkcv', h('b', 'Convert'), h('div.mkcvrow', cvAmt, cvFrom, swap, cvTo), cvOut));
     const paintRates = () => {
       const r = rates.data;
       const cur = settings.get().currency;
-      if (!r) return void [mp, fp].forEach((p) => clear(p.body, nothing(rates)));
+      if (!r) {
+        paintCv();
+        return void [mp, fp].forEach((p) => clear(p.body, nothing(rates)));
+      }
       clear(mp.body, ...(['xau', 'xag'] as const).map((m) => {
         const x = ounce(r, m, cur);
         return row(null, m === 'xau' ? 'Gold' : 'Silver', x == null ? NOT_READ : `${money(x, cur)} an ounce`);
@@ -347,6 +389,7 @@ export const marketsTab: TabDef = {
         return row(null, name, x == null ? NOT_READ : fxAmount(x, sign));
       }));
       fp.title.textContent = `WHAT ${mine[2].trim()}1 BUYS`;
+      paintCv();
     };
     P.right.append(mp.el, fp.el);
     // When the prices were read, and whether they can still be called current: every panel says "as of 14:02";
@@ -416,6 +459,9 @@ export const marketsTab: TabDef = {
       paintRates();
       if (none) cp.setStatus('YOUR LIST IS EMPTY', 'mid');
       else stamp(cp, cs);
+      // (his holdings' worth is as old as the prices it is worked out from)
+      if (Object.keys(loadHoldings()).length && !none) stamp(hp, cs);
+      else hp.setStatus('ON THIS PHONE', 'mid');
       const rs = state(rates, rates.at);
       stamp(mp, rs);
       stamp(fp, rs);
