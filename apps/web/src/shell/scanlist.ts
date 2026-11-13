@@ -17,7 +17,7 @@ export const SETTINGS_GROUPS: Group[] = [
   { title: 'The look', match: /^(THEME|THE LOOK|READING)/ },
   { title: 'You', match: /^(NAME|PERMISSIONS|CHARACTER|GUARDIAN|VOICE|MY VOICE|PEOPLE I)/ },
   { title: 'The brain', match: /^OFFLINE/ },
-  { title: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL)/ },
+  { title: 'Ghosty', match: /^(WORKSPACE|SYSTEM|LINKS|SHORTCUTS|THE WALL)/ },
   { title: 'About', match: /^(ABOUT|PRIVACY|HELP)/ },
 ];
 /** Each panel's name as he says it, and the one line under it (what it is for, in my voice). */
@@ -35,6 +35,7 @@ const SAID: [RegExp, string, string][] = [
   [/^OFFLINE MAPS/, 'Offline maps', 'The map of your area, with no signal'],
   [/^OFFLINE EYES/, 'Offline eyes', 'What the Lens reads with, with no signal'],
   [/^OFFLINE/, 'Offline brain', 'Answers on this phone with no signal'],
+  [/^WORKSPACE/, 'Workspace', 'Pages and databases kept on this phone'],
   [/^SYSTEM/, 'System', 'Keys, models, storage and backups'],
   [/^LINKS/, 'Links', 'Email, Spotify and your phone'],
   [/^SHORTCUTS/, 'Shortcuts', 'Siri'],
