@@ -21,7 +21,7 @@ const safe = (t: string): string => (t.trim() || 'Untitled').replace(/[\\/:*?"<>
 
 // ---------------------------------------------------------------- runs as Markdown
 
-const escText = (s: string): string => s.replace(/\\/g, '\\\\').replace(/\*/g, '\\*').replace(/_/g, '\\_').replace(/\[/g, '\\[').replace(/</g, '\\<');
+const escText = (s: string): string => s.replace(/\\/g, '\\\\').replace(/\*/g, '\\*').replace(/_/g, '\\_').replace(/\[/g, '\\[').replace(/</g, '\\<').replace(/([~=])(?=\1)/g, '\\$1'); // (a doubled ~ or = is a mark in Markdown: "a==b" must come back as written)
 const runMd = (r: Run): string => {
   let t = escText(r.text);
   if (!t) return '';
@@ -35,7 +35,7 @@ const runMd = (r: Run): string => {
   return t;
 };
 const lineMd = (runs: Run[]): string => runs.map(runMd).join('').replace(/\n/g, '  \n');
-const unesc = (s: string): string => s.replace(/\\([\\*_\[<#>+-])/g, '$1');
+const unesc = (s: string): string => s.replace(/\\([\\*_\[<#>+~=-])/g, '$1');
 /** Markdown's inline marks as runs (links, underline, bold, italic). */
 export function mdRuns(md: string): Run[] {
   const out: Run[] = [];

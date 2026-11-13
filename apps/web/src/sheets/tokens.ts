@@ -247,17 +247,24 @@ export function moveLinesIn(f: string, home: string, target: string, axis: 'r' |
     return [lo2, hi2];
   };
   let changed = false;
-  const bad = (t: { sheetSrc?: string }) => {
+  // (a bare #REF!: "'Sheet 2'!#REF!" would not read back, and a formula that cannot be read is never moved again)
+  const bad = (_t: { sheetSrc?: string }) => {
     changed = true;
-    return `${t.sheetSrc ?? ''}#REF!`;
+    return '#REF!';
+  };
+  /** After an insert, a range whose end is pushed off the sheet keeps its last line (as Excel does); a single cell pushed off is gone. */
+  const fit = (e: [number, number] | null, range: boolean): [number, number] | null => {
+    if (!e) return null;
+    if (e[1] < max) return e;
+    return n > 0 && range && e[0] < max ? [e[0], max - 1] : null;
   };
   const out = toks.map((t) => {
     if (t.t === 'ref' && mine(t.sheet)) {
       const k = axis;
       const a0 = t.a[k];
       const b0 = t.b ? t.b[k] : a0;
-      const e = edges(Math.min(a0, b0), Math.max(a0, b0));
-      if (!e || e[1] >= max) return bad(t);
+      const e = fit(edges(Math.min(a0, b0), Math.max(a0, b0)), !!t.b);
+      if (!e) return bad(t);
       const [lo, hi] = e;
       if (lo === Math.min(a0, b0) && hi === Math.max(a0, b0)) return t.src;
       changed = true;
@@ -268,8 +275,8 @@ export function moveLinesIn(f: string, home: string, target: string, axis: 'r' |
     if (t.t === 'colrange' && axis === 'c' && mine(t.sheet)) {
       const lo0 = Math.min(t.c1, t.c2);
       const hi0 = Math.max(t.c1, t.c2);
-      const e = edges(lo0, hi0);
-      if (!e || e[1] >= max) return bad(t);
+      const e = fit(edges(lo0, hi0), true);
+      if (!e) return bad(t);
       if (e[0] === lo0 && e[1] === hi0) return t.src;
       changed = true;
       return `${t.sheetSrc ?? ''}${t.abs1 ? '$' : ''}${colName(e[0])}:${t.abs2 ? '$' : ''}${colName(e[1])}`;

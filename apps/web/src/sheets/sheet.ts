@@ -511,7 +511,9 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     const g = rectOf(A, B);
     const r = autoSum(book(), eng!, si(), g);
     if (!r) return say('No numbers above or beside to add up. Choose the numbers, or the cell under them.');
-    commit(r.book, r.cells);
+    // (the engine marks cells as "Sheet!A1": a bare address would leave what leans on the total unrecalculated)
+    const sn = sheet().name;
+    commit(r.book, r.cells.map((a) => `${sn}!${a}`));
     if (r.cells.length === 1) {
       A = posOf(r.cells[0]!);
       B = A;

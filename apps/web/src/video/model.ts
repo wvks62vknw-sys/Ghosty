@@ -366,6 +366,11 @@ export function duplicateClip(p: Project, id: string): { p: Project; id: string 
   const c = q.main[i]!;
   const copy: Clip = { ...clone(c), id: uid() };
   c.next = { kind: 'cut', len: 0 };
+  // (the pair plays as the one clip did: the fade up stays on the first, the fade down moves to the copy, so no dip to black between them)
+  if (c.fade) {
+    copy.fade = { in: 0, out: c.fade.out };
+    c.fade = { in: c.fade.in, out: 0 };
+  }
   q.main.splice(i + 1, 0, copy);
   return { p: q, id: copy.id };
 }

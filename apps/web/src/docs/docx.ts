@@ -57,9 +57,10 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
   const mediaOf = new Map<string, string>();
   let drawing = 0;
 
+  // (w:rPr's children in the schema's own order, strike before highlight before u, or a strict reader calls the file unreadable)
   const runXml = (r: Run, header = false): string => {
     const href = r.href ? safeHref(r.href) : '';
-    const props = `${href ? '<w:rStyle w:val="Hyperlink"/>' : ''}${r.b || header ? '<w:b/>' : ''}${r.i ? '<w:i/>' : ''}${r.u && !href ? '<w:u w:val="single"/>' : ''}${r.s ? '<w:strike/>' : ''}${r.hl ? '<w:highlight w:val="yellow"/>' : ''}${rtl ? '<w:rtl/>' : ''}`;
+    const props = `${href ? '<w:rStyle w:val="Hyperlink"/>' : ''}${r.b || header ? '<w:b/>' : ''}${r.i ? '<w:i/>' : ''}${r.s ? '<w:strike/>' : ''}${r.hl ? '<w:highlight w:val="yellow"/>' : ''}${r.u && !href ? '<w:u w:val="single"/>' : ''}${rtl ? '<w:rtl/>' : ''}`;
     const pr = props ? `<w:rPr>${props}</w:rPr>` : '';
     const body = r.text
       .split('\n')

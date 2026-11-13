@@ -336,7 +336,8 @@ export async function readPptx(bytes: Uint8Array, name: string, keep: KeepImage)
     if (tree) await walk(tree, c, f);
     if (f.numbers) anyNumber = true;
     if (has(root, 'timing')) lose(c, 'animations');
-    const trEl = first(root, 'transition');
+    // (PowerPoint 2010 and later wrap it in mc:AlternateContent, a Choice and a Fallback: then it is not a direct child, so look deeper)
+    const trEl = first(root, 'transition') ?? find(root, 'transition');
     const transition: Slide['transition'] = first(trEl, 'fade') ? 'fade' : first(trEl, 'push') ? 'push' : 'none';
     if (trEl && transition === 'none' && kids(trEl).length) lose(c, 'its transition');
     const skip = attr(root, 'show') === '0' || attr(root, 'show') === 'false';
