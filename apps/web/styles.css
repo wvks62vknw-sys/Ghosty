@@ -7114,6 +7114,7 @@ html .eyeframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html[data-world="eye"] #plan .planroom.lit .planroomhead { color: var(--g-accent-text); }
   html[data-world="eye"] body.housed :is(.scanset, .jplate, #plan .plangrid) { border-style: var(--g-plate-edge); }
 }
+/* =====================================================================================================================
    ORBIT: THE FIFTH WHOLE HUD (BRIEF-ORBIT-HUD; docs/build-plan/mockups/directions/d1/; shell/orbit.ts, features/core/orbit/home.ts,
    shell/areas.ts hubs). On while THE LOOK's world is Orbit on a phone. No bar anywhere: the orb is the way in. Home is the orb at the
    centre of its sky (body.orbithome) with the six rooms on a ring round it; on every other screen the orb sits bottom-left as the open
