@@ -756,7 +756,28 @@ export async function present(f: Pick<ShowFacts, 'ask' | 'reply' | 'tools' | 'cl
     void import('../assistant/session').then(({ chat }) => chat.set((s) => ({ entries: [...s.entries, { kind: 'error' as const, text: NO_PICTURE_BROKE, note: true }].slice(-120) })));
     return null;
   } finally {
+    // The line goes, but its room stays until the conversation next changes: at the foot of the log its going would pull
+    // the sentence above it down just as the Stage rises (the sentence holds still through the hand-over).
+    const before = logHost.scrollHeight;
     drawn();
+    const lost = before - logHost.scrollHeight;
+    if (lost > 0 && logHost !== document.body) {
+      const room = document.createElement('div');
+      room.className = 'waitroom';
+      room.setAttribute('aria-hidden', 'true');
+      room.style.height = `${lost}px`;
+      room.style.flex = 'none'; // (the log is a column that shrinks what it holds: the room keeps its height)
+      logHost.append(room);
+      // (gone with the next line of the conversation: a new entry, not the reply's own late touches)
+      void import('../assistant/session').then(({ chat }) => {
+        const n = chat.get().entries.length;
+        const off = chat.subscribe((s) => {
+          if (s.entries.length === n) return;
+          room.remove();
+          off();
+        });
+      });
+    }
   }
 }
 
