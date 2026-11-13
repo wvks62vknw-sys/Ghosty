@@ -92,8 +92,7 @@ async function phone(viewport, o = {}) {
   const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block' });
   const page = await ctx.newPage();
   page.setDefaultTimeout(6000);
-  // (assistant/push.ts reads a service worker's registration that a blocked worker never gives: the SYSTEM lane's, reported in FINAL-MONEY.md)
-  page.on('pageerror', (e) => webkitNoise(e) || /reading 'pushManager'/.test(e.message) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
   await page.addInitScript(({ key, body, look }) => {
     localStorage.setItem('ghosty.ownerKey', key);
     localStorage.setItem('ghosty.themes1', '1');
