@@ -90,16 +90,13 @@ function el(): HTMLAudioElement {
   return audio;
 }
 
-/** The list ⏭/⏮ steps through, fixed at the first step (a step's own play must not reorder it); a station picked any other way ends it. */
-let stepping: NowPlaying[] | null = null;
-
-export async function playStation(s: NowPlaying, o: { stepped?: boolean } = {}): Promise<boolean> {
-  if (!o.stepped) stepping = null;
+export async function playStation(s: NowPlaying): Promise<boolean> {
   const t = ++turn;
   clearTimeout(tuneTimer);
   if (player.get().now?.url !== s.url) player.set({ since: 0 });
   rememberLast(s);
   rememberRecent(s);
+  lostSleep = null; // he played again: the reload's lost timer is no longer news
   if (!/^https:\/\//i.test(s.url)) {
     player.set({ now: s, state: 'error', why: 'refused' });
     return false;
@@ -286,22 +283,39 @@ export function sleepLost(): { at: number; name: string } | null {
   return lostSleep;
 }
 
-/** The station after (or before) the one on, in his favourites, else the ones he played lately: the lock screen's ⏭ and ⏮. */
+/** The stations he played lately as they stood when he began to step through them: playing one moves it to the front of RECENT,
+ * so stepping through the live list would swap the newest two for ever. Kept while the station on air is one of them. */
+let stepRecents: NowPlaying[] = [];
+/** The station after (or before) the one on, in his favourites, else the ones he played lately: the lock screen's ⏭ and ⏮.
+ * Through the ones he played lately (newest first), ⏮ "previous" is the one he played before this one, ⏭ "next" the other way round. */
 export function stepStation(dir: 1 | -1): NowPlaying | null {
-  const l = stepping ?? (favourites.list().length > 1 ? favourites.list() : recentStations());
-  stepping = l;
+  const url = player.get().now?.url;
+  if (favourites.list().length > 1) {
+    const l = favourites.list();
+    const at = l.findIndex((s) => s.url === url);
+    return l[(at < 0 ? (dir > 0 ? 0 : l.length - 1) : at + dir + l.length) % l.length] ?? null;
+  }
+  if (!url || !stepRecents.some((s) => s.url === url)) stepRecents = recentStations();
+  const l = stepRecents;
   if (!l.length) return null;
-  const at = l.findIndex((s) => s.url === player.get().now?.url);
-  return l[(at < 0 ? (dir > 0 ? 0 : l.length - 1) : at + dir + l.length) % l.length] ?? null;
+  const at = l.findIndex((s) => s.url === url);
+  return l[at < 0 ? 0 : (at - dir + l.length) % l.length] ?? null;
 }
 
 const FAV = 'ghosty.radio.favs';
+/** Who to tell when his favourites change (the Radio's lists and stars), whether the change came from a tap or from the chat. */
+const favWatchers = new Set<() => void>();
+export function onFavourites(fn: () => void): () => void {
+  favWatchers.add(fn);
+  return () => favWatchers.delete(fn);
+}
 function saveFavs(l: NowPlaying[]): void {
   try {
     localStorage.setItem(FAV, JSON.stringify(l.slice(0, 40)));
   } catch {
     /* ignore */
   }
+  for (const fn of favWatchers) fn();
 }
 export const favourites = {
   list(): NowPlaying[] {
@@ -360,7 +374,7 @@ if (session) {
   // ⏭ and ⏮ on the lock screen and AirPods: the next or previous of his favourites (the ones he played lately when he has none)
   const step = (dir: 1 | -1) => {
     const n = stepStation(dir);
-    if (n && n.url !== player.get().now?.url) void playStation(n, { stepped: true });
+    if (n && n.url !== player.get().now?.url) void playStation(n);
   };
   on('nexttrack', () => step(1));
   on('previoustrack', () => step(-1));

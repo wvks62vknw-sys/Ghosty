@@ -46,8 +46,6 @@ export async function run(H) {
   const A = await H.pure('apps/web/src/features/radio/asks.ts');
   const W = await H.pure('apps/web/src/features/radio/words.ts');
   const want = {
-    'sleep timer 30 minutes': { what: 'sleep', min: 30 },
-    'Set a sleep timer for an hour': { what: 'sleep', min: 60 },
     'turn the radio off in 20 minutes': { what: 'sleep', min: 20 },
     'stop the radio in half an hour please': { what: 'sleep', min: 30 },
     'stop the radio at 11': { what: 'sleepAt', h: 11, m: 0, half: '' },
@@ -55,7 +53,8 @@ export async function run(H) {
     'radio off at 11:30pm': { what: 'sleepAt', h: 11, m: 30, half: 'pm' },
     'sleep timer till midnight': { what: 'sleepAt', h: 0, m: 0, half: '' },
     'stop the radio at the end of the hour': { what: 'sleepHour' },
-    'cancel the sleep timer': { what: 'sleepOff' },
+    'remove the sleep timer': { what: 'sleepOff' },
+    "don't stop the radio": { what: 'sleepOff' },
     'sleep timer off': { what: 'sleepOff' },
     'how long until the radio stops?': { what: 'sleepLeft' },
     'when does the radio stop': { what: 'sleepLeft' },
@@ -66,16 +65,25 @@ export async function run(H) {
     'play my second favourite': { what: 'fav', n: 2 },
     'play favourite number 3': { what: 'fav', n: 3 },
     'save this station': { what: 'save' },
-    'add this to my favourites': { what: 'save' },
-    'remove this from my favourites': { what: 'unsave' },
-    "what's playing": { what: 'now' },
+    'add this to my favourites': { what: 'save', loose: true },
+    'remove this from my favourites': { what: 'unsave', loose: true },
+    'remove this station from my favourites': { what: 'unsave' },
+    "what's playing": { what: 'now', loose: true },
     'what station is this?': { what: 'now' },
-    'what am I listening to': { what: 'now' },
+    "what's on the radio": { what: 'now' },
+    'what am I listening to': { what: 'now', loose: true },
   };
   for (const [w, r] of Object.entries(want)) check(JSON.stringify(A.radioAsked(w)) === JSON.stringify(r), `radioAsked("${w}") = ${JSON.stringify(A.radioAsked(w))}, wanted ${JSON.stringify(r)}`);
   // the VOICE lane's meanings and the brain's play_radio are left alone
-  for (const w of ['play music', 'play the radio', 'stop the radio', 'open the radio', 'play BBC Radio 4', 'play some jazz', 'turn the radio off', 'set a timer for 10 minutes', 'next song', "what's playing on spotify", 'stop'])
+  // and a bare "it", "this" or "one" is whatever is on screen or the brain's ("save this" on a document, "skip it" on Spotify)
+  for (const w of ['play music', 'play the radio', 'stop the radio', 'open the radio', 'play BBC Radio 4', 'play some jazz', 'turn the radio off', 'set a timer for 10 minutes', 'next song', "what's playing on spotify", 'stop',
+    'play my favourite station', 'please play my favourite station', 'Play my favourite station!', 'hey ghosty play my favourite station', 'play my last station',
+    'when will it stop', 'when does it end', 'how long until it goes off', 'turn it off in 20 minutes', 'stop it at 11', 'end it in 5 minutes',
+    'save this', 'keep this', 'keep this one', 'bookmark this', 'star this', 'skip it', 'skip this', 'next one', 'skip one', 'back one', 'previous one', 'no music', 'no radio'])
     check(A.radioAsked(w) === null, `radioAsked("${w}") is left to its owner: ${JSON.stringify(A.radioAsked(w))}`);
+  // the kitchen's timer table comes first and takes these (a kitchen timer named "sleep"): the radio never claims them in its words
+  const K = await H.pure('packages/shared/src/kitchen.ts').catch(() => null);
+  if (K?.timerAsked) for (const w of ['sleep timer 30 minutes', 'cancel the sleep timer']) check(K.timerAsked(w) !== null, `the kitchen takes "${w}" (so the radio's replies never suggest it)`);
   const t0 = new Date(2026, 10, 13, 22, 15).getTime();
   check(W.endOfHour(t0) === new Date(2026, 10, 13, 23, 0).getTime() && W.hourKey(t0) === 'AT 23:00', `the end of the hour at 22:15: ${W.hourKey(t0)}`);
   check(W.nextClock(11, 0, t0) === new Date(2026, 10, 13, 23, 0).getTime(), '"at 11" at 22:15 is 23:00 tonight');
@@ -91,8 +99,16 @@ export async function run(H) {
     const { ctx, page } = await radioPhone(H, vp, 'scan', { 'ghosty.radio.favs': FAVS });
     await H.open(page, 'radio');
     await page.waitForSelector('#pg-radio .pn.stations .rw.station', { timeout: 15000 });
-    // "what's playing" with nothing on, then the sleep timer with nothing on: said, nothing set
-    await say(H, page, "what's playing", /Nothing is playing\.?/);
+    // "what station is this" with nothing on, then the sleep timer with nothing on: said, nothing set
+    await say(H, page, 'what station is this', /Nothing is playing\.?/);
+    if (vp === H.PHONE) {
+      // "what's playing" names no radio: with the radio off it is the brain's (Spotify's now playing), never the radio's "Nothing is playing"
+      const n0 = await page.evaluate(() => document.querySelectorAll('#pg-core .msg:not(.me)').length);
+      await H.chat(page, "what's playing");
+      await page.waitForFunction((n) => document.querySelectorAll('#pg-core .msg:not(.me)').length > n, n0, { timeout: 15000 }).catch(() => undefined);
+      const r = await lastReply(page);
+      check(!/^Nothing is playing|The last station was/.test(r), `"what's playing" with the radio off is left to the brain: ${r.slice(0, 160)}`);
+    }
     await say(H, page, 'turn the radio off in 20 minutes', /nothing to stop/);
     // his favourites by place, from the chat
     await say(H, page, 'play my second favourite', /Playing Spec Lane Two, your second favourite/);
@@ -109,7 +125,7 @@ export async function run(H) {
     check(/^Stops at \d\d:\d\d · UK/.test(artist), `[${vp.width}] the lock screen's line says when it stops: ${artist}`);
     await say(H, page, 'stop the radio at 11', /Sleep timer set: the radio goes quiet at 11:00 \(in |Sleep timer set: the radio goes quiet at 23:00 \(in /);
     await say(H, page, 'sleep timer off', /Sleep timer off: Spec Lane Two keeps playing/);
-    await say(H, page, 'how long until the radio stops', /There is no sleep timer/);
+    await say(H, page, 'how long until the radio stops', /There is no sleep timer: .* Say “turn the radio off in 30 minutes” to set one\./);
     await say(H, page, "what's playing", /Spec Lane Two is on air|Tuning in to Spec Lane Two/);
     await say(H, page, 'save this station', /already in your favourites \(your second\)/);
     // the screen agrees with the chat: AT hh:00 (the end of this hour) lit when tapped, its line said
@@ -154,6 +170,44 @@ export async function run(H) {
     await ctx.close();
   }
   log('radio: the phone');
+
+  // ---- NEXT and PREVIOUS through the stations he played lately (no favourites): a fixed order, every one reached; a favourite saved
+  // from the chat shows on the open Radio at once; the reload's line names the station shown and goes once he plays again
+  {
+    const vp = H.PHONE2;
+    const R = (n) => ({ name: `Lane ${n}`, url: `https://spec-lane.test-radio.example/${n.toLowerCase()}`, info: 'UK · News · 128 kbps' });
+    const { ctx, page } = await radioPhone(H, vp, 'scan', { 'ghosty.radio.recent': JSON.stringify([R('C'), R('B'), R('A')]) });
+    await H.open(page, 'radio');
+    const walk = [['next station', 'Next', 'C'], ['previous station', 'Back', 'B'], ['previous station', 'Back', 'A'], ['next station', 'Next', 'B'], ['next station', 'Next', 'C']];
+    for (const [w, k, n] of walk) {
+      await say(H, page, w, new RegExp(`${k}: Lane ${n} \\(from your stations you played lately\\)`));
+      check(await titled(page, `Lane ${n}`), `[recents] "${w}" plays Lane ${n}`);
+    }
+    await onAir(page);
+    await say(H, page, 'turn the radio off in 20 minutes', /Sleep timer set/);
+    await say(H, page, 'save this station', /Saved Lane C to your favourites/);
+    const favNow = await page.$eval('#pg-radio .pn.favs', (e) => e.textContent ?? '').catch(() => '');
+    check(/Lane C/.test(favNow), `[recents] the Radio's FAVOURITES shows the station saved from the chat without opening it again: ${favNow.slice(0, 120)}`);
+    const star = await page.$$eval('#pg-radio button[aria-label="Keep Lane C in favourites"]', (b) => b.length).catch(() => -1);
+    check(star === 0, `[recents] no star on the Radio still offers to keep Lane C: ${star}`);
+    await say(H, page, 'remove this station from my favourites', /Took Lane C off your favourites/);
+    check(!/Lane C/.test(await page.$eval('#pg-radio .pn.favs', (e) => e.textContent ?? '').catch(() => '')), '[recents] taken off FAVOURITES at once');
+    await say(H, page, 'previous station', /Back: Lane B/);
+    check(await titled(page, 'Lane B'), '[recents] stepped to Lane B with the timer still set');
+    await page.reload();
+    await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+    await H.open(page, 'radio');
+    const lost = await page.waitForSelector('#pg-radio .pn.nowp .nplost', { timeout: 8000 }).then((e) => e.textContent(), () => '');
+    check(/^The page reloaded, so Lane B stopped/.test(lost ?? ''), `[recents] the reload's line names the station shown (Lane B, not Lane C where the timer was set): ${lost}`);
+    await say(H, page, 'next station', /Next: Lane/);
+    await onAir(page);
+    await page.evaluate(() => window.__specActions.stop?.());
+    await H.open(page, 'radio');
+    await page.waitForTimeout(500);
+    check(!(await page.$('#pg-radio .pn.nowp .nplost')), '[recents] after he played again and stopped, the reload\'s line does not come back');
+    await ctx.close();
+  }
+  log('radio: next and previous through recents');
 
   // ---- NEAR ME: the UK unless he changes it, kept on the phone, and where the radio starts
   {

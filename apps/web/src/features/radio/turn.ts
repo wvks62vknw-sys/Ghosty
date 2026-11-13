@@ -26,13 +26,14 @@ async function act(ask: RadioAsk): Promise<string> {
       return sleepAtSet(at, now);
     }
     case 'sleepOff': {
-      if (!p.sleepAt) return p.now ? `There is no sleep timer set: ${p.now.name} plays until you stop it.` : 'There is no sleep timer set.';
+      const stays = p.now ? (p.state === 'paused' ? `${p.now.name} is paused and stays on until you stop it` : `${p.now.name} keeps playing until you stop it`) : '';
+      if (!p.sleepAt) return stays ? `There is no sleep timer set: ${stays}.` : 'There is no sleep timer set.';
       setSleepAt(0);
-      return p.now ? `Sleep timer off: ${p.now.name} keeps playing until you stop it.` : 'Sleep timer off.';
+      return stays ? `Sleep timer off: ${stays}.` : 'Sleep timer off.';
     }
     case 'sleepLeft': {
       if (!p.now) return 'Nothing is playing, so there is no sleep timer.';
-      if (!p.sleepAt || p.sleepAt <= now) return `There is no sleep timer: ${p.now.name} plays until you stop it. Say “sleep timer 30 minutes” to set one.`;
+      if (!p.sleepAt || p.sleepAt <= now) return `There is no sleep timer: ${p.now.name} plays until you stop it. Say “turn the radio off in 30 minutes” to set one.`;
       return `${p.now.name} stops at ${clockWords(p.sleepAt)}, in ${inWords(p.sleepAt - now)}.`;
     }
     case 'step': {
@@ -83,5 +84,7 @@ async function act(ask: RadioAsk): Promise<string> {
 export async function radioTurn(text: string): Promise<PackReply | null> {
   const ask = radioAsked(text);
   if (!ask) return null;
+  // words that do not name the radio ("what's playing", "add this to my favourites") are the radio's only while a station is on
+  if ('loose' in ask && ask.loose && !on()) return null;
   return { said: text, reply: await act(ask), go: OPEN };
 }

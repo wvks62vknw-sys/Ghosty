@@ -263,7 +263,7 @@ export const APP_2: Record<string, CatValue> = {
     name: 'Your favourite stations', line: 'You can keep your favourite stations one tap away.',
     // [planlane:radio] in his own order (REORDER), stepped through and played by place from the chat
     more: 'Star a station and it stays here, on this phone, in the order you put them.',
-    say: ['Play my favourite station', 'Play my second favourite', 'Next station', 'Save this station'], scene: ['playing'], cat: 'play',
+    say: ['Play my favourites', 'Play my second favourite', 'Next station', 'Save this station'], scene: ['playing'], cat: 'play',
   },
   // [planlane:radio] the radio's words answered on the phone with no model (features/radio/asks.ts): the sleep timer, what's on
   'phrase:planradio': { same: 'panel:radio:NOW PLAYING' },

@@ -9538,6 +9538,7 @@ html #pg-radio .pn.stations > .keyrow.radnear { display: flex; flex-wrap: wrap; 
 html #pg-radio .pn.stations > .keyrow.radnear .lab { flex: none; margin: 0; }
 html #pg-radio .pn.stations > .keyrow.radnear select { flex: 1 1 140px; min-width: 0; height: 44px; min-height: 44px; padding: 0 12px; font: 400 16px/1 var(--sf); color: var(--ink); background: var(--fill); border: 1px solid var(--hair2); border-radius: var(--rad); }
 html #pg-radio .pn.stations > .keyrow.radnear button { flex: none; height: 44px; min-height: 44px !important; }
+html #pg-radio .pn.stations button { min-height: 44px !important; }
 /* ==== [planlane:radio end] ==== */
 
 /* ==== [planlane:markets] ==== */
