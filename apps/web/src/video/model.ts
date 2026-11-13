@@ -6,6 +6,9 @@
  * brain test proves it on numbers.
  */
 
+import { pictureAt, playTime, speedAt as speedKeyAt, type SpeedKey } from './ramp';
+import { rekey, type SteadyRecord } from './steadymath';
+
 export type Aspect = 'project' | '9:16' | '1:1' | '4:5' | '16:9';
 export type TransitionKind = 'cut' | 'crossfade' | 'dip' | 'wipe' | 'slide';
 export type Channel = 'x' | 'y' | 'scale' | 'rot' | 'opacity';
@@ -15,6 +18,8 @@ export interface Key {
   v: number;
   ease?: boolean;
 }
+/** A speed ramp's key: see ramp.ts (`t` is milliseconds into the picture, in the direction it plays). */
+export type KeyChannel = Channel | 'speed';
 export interface Transform {
   /** Position of the centre, in fractions of the picture's width and height from the middle (-0.5 to 0.5 is on screen). */
   x: number;
@@ -23,7 +28,7 @@ export interface Transform {
   /** Degrees. */
   rot: number;
   opacity: number;
-  keys: Partial<Record<Channel, Key[]>>;
+  keys: Partial<Record<KeyChannel, Key[]>>;
 }
 export interface Grade {
   /** Stops (-3 to 3). */
@@ -82,6 +87,12 @@ export interface Clip {
   chroma?: Chroma;
   /** The transition into the NEXT clip (the main track only). */
   next: Transition;
+  /** VIDEO 2: plays backwards (the picture's end first). */
+  reverse?: boolean;
+  /** VIDEO 2: the sound of a speed ramp: pitched with the speed (the default) or dropped. */
+  rampSound?: 'pitch' | 'drop';
+  /** VIDEO 2: the steadying's own record (the path it measured), from which the STEADY keys are made again after a trim, split or speed change. */
+  steady?: SteadyRecord;
 }
 export interface Title {
   text: string;
@@ -180,11 +191,22 @@ export function newClip(src: Source): Clip {
   };
 }
 
-/** How long a clip lasts on the timeline: its stretch of the source divided by its speed. A clip at 2× over 10 s is 5 s. */
-export const clipLen = (c: Pick<Clip, 'in' | 'out' | 'speed'>): number => (c.out - c.in) / c.speed;
+type Timed = Pick<Clip, 'in' | 'out' | 'speed'> & { tr?: Transform; reverse?: boolean };
+const rampKeys = (c: Timed): SpeedKey[] => (c.tr?.keys.speed ?? []) as SpeedKey[];
 
-/** The source time (ms) shown at `t` ms into the clip: in + t × speed. */
-export const sourceTime = (c: Pick<Clip, 'in' | 'speed'>, tIn: number): number => c.in + tIn * c.speed;
+/** How long a clip lasts on the timeline: its stretch of the source divided by its speed (a ramp's keys change that: ramp.ts). A clip at 2× over 10 s is 5 s. */
+export const clipLen = (c: Timed): number => {
+  const k = rampKeys(c);
+  return k.length ? playTime(k, c.out - c.in, c.out - c.in) / c.speed : (c.out - c.in) / c.speed;
+};
+
+/** The source time (ms) shown at `t` ms into the clip: in + t × speed (through the ramp's keys, and from the out point backwards on a reversed clip). */
+export const sourceTime = (c: Timed, tIn: number): number => {
+  const k = rampKeys(c);
+  const span = c.out - c.in;
+  const u = k.length ? pictureAt(k, tIn * c.speed, span) : tIn * c.speed;
+  return c.reverse ? c.out - u : c.in + u;
+};
 
 /** A transition's length cannot be longer than half of either clip it joins. */
 export function transitionCap(a: Clip, b: Clip | undefined): number {
@@ -242,21 +264,43 @@ export function shape(p: Pick<Project, 'aspect' | 'w' | 'h'>, long = 1920): { w:
 // ---------------------------------------------------------------- editing: each returns a changed copy
 const clone = <T,>(x: T): T => structuredClone(x);
 
-/** Split the main clip at timeline time `t` into two (nothing when it falls within 100 ms of an edge). */
+/** Split the main clip at timeline time `t` into two (nothing when it falls within 100 ms of an edge, or on a ramp that is also reversed). */
 export function splitAt(p: Project, t: number): Project | null {
   const pl = place(p.main);
   const x = pl.find((q) => t > q.start + 100 && t < q.start + q.len - 100 && (!q.tin || t > q.start + q.tin.len));
   if (!x) return null;
   const q = clone(p);
   const c = q.main[x.index]!;
+  const ramp = (c.tr.keys.speed ?? []) as SpeedKey[];
+  if (c.reverse && ramp.length) return null;
   const cut = Math.round(sourceTime(c, t - x.start));
-  const second: Clip = { ...clone(c), id: uid(), in: cut };
+  // how much picture the first half plays, in the direction it plays (the second half's ramp keys start there)
+  const played = c.reverse ? c.out - cut : cut - c.in;
+  const second: Clip = { ...clone(c), id: uid() };
   second.tr = flatTransform();
-  c.out = cut;
+  if (c.reverse) {
+    second.out = cut;
+    c.in = cut;
+  } else {
+    second.in = cut;
+    c.out = cut;
+  }
+  if (ramp.length) {
+    const keys = ramp.map((k) => ({ ...k, t: k.t - played })).filter((k) => k.t > 0);
+    keys.unshift({ t: 0, v: speedKeyAt(ramp, played) });
+    second.tr.keys.speed = keys;
+  }
+  delete second.steady;
   const nextT = c.next;
   c.next = { kind: 'cut', len: 0 };
   second.next = nextT;
   q.main.splice(x.index + 1, 0, second);
+  if (c.steady) {
+    // both halves keep the whole path's steadying (its crop too, so the two match at the cut)
+    second.steady = clone(c.steady);
+    rekey(c);
+    rekey(second);
+  }
   return q;
 }
 
@@ -269,6 +313,7 @@ export function trimClip(p: Project, id: string, inMs: number, outMs: number): P
   const z = Math.min(src.dur, Math.max(outMs, a + 100));
   c.in = Math.round(a);
   c.out = Math.round(z);
+  if (c.steady) rekey(c);
   c.next.len = Math.min(c.next.len, transitionCap(c, q.main[q.main.indexOf(c) + 1]));
   return q;
 }
@@ -278,6 +323,7 @@ export function setSpeed(p: Project, id: string, speed: number): Project | null 
   const c = q.main.find((x) => x.id === id);
   if (!c) return null;
   c.speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, Math.round(speed * 100) / 100));
+  if (c.steady) rekey(c);
   c.next.len = Math.min(c.next.len, transitionCap(c, q.main[q.main.indexOf(c) + 1]));
   return q;
 }

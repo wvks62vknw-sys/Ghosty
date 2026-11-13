@@ -25,8 +25,16 @@ import { decodeAudio, renderMix } from './mix';
 import { Reader } from './reader';
 import { MAX_BYTES, autosaver, binProject, bytesOfProject, importZip, listProjects, loadProject, posterBlob, projectZip, putSource, removeProject, room, saveProject, sourceBlob, type Kept } from './store';
 import { choices, name, slider, stepper } from './ui';
+import { Crunch } from './crunch';
+import { STEADY_MAX_MS, costWords, restrength, steadyClip, steadyGuess } from './steady';
+import { unsteady, rekey } from './steadymath';
+import { choose, leftReason, reason, type Pick_ } from './bestmath';
+import { cutFromTicks, nameWords, scoreClips, unitLen, type Scored, type Tick } from './best';
+import { findBeats, movedWords, onTimeline, snapToBeats, type Beats } from './beat';
+import { tempoWords } from './beatmath';
+import { EYES_NAMER, eyesHere, eyesKept } from '../offline/eyes';
 import { transformAt } from './math';
-import { planFrame } from './compose';
+import { buildSpec, planFrame } from './compose';
 import { ui } from '../state/app';
 import { noteVideos } from './tally';
 import { handTo, isVideoFile, takeHanded } from './files';
@@ -60,6 +68,12 @@ export const videoState = {
   proxyAfter: 120_000,
   cuts: [] as number[],
   pauses: [] as Pause[],
+  /** VIDEO 2: what each pass measured, for the specs and the report. */
+  steady: null as null | { ms: number; clipMs: number; perSecond: number; loses: number; window: number; frames: number; said: string; readMs: number; workMs: number; lagMs: number },
+  steadyWhy: '',
+  best: null as null | { ms: number; clips: number; perClip: number; picks: { clip: string; from: number; to: number; reason: string; on: boolean }[]; left: { clip: string; reason: string }[]; line: string; namer: boolean; total: number },
+  beat: null as null | { bpm: number; ms: number; musicMs: number; perMinute: number; said: string; moved: number; biggest: number; line: string },
+  rough: false,
 };
 
 const reduced = (): boolean => !!matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -101,13 +115,21 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   let savedOnce = false;
 
   const feeder = new Feeder();
+  // VIDEO 2: the one worker for the steadying, the scores and the beat (made when first asked), and what each has found
+  const crunch = new Crunch();
+  let steadying: { cancelled: boolean } | null = null;
+  let beats: (Beats & { src: string }) | null = null;
+  let scored: Scored | null = null;
+  let bestTarget = 30;
+  let bestPick: { picks: (Pick_ & { on: boolean; word: string | null })[]; left: { unit: Pick_['unit']; why: string }[]; short: number } | null = null;
+  let bestBusy: { cancelled: boolean } | null = null;
   const canvas = h('canvas.vdcanvas', { 'aria-label': 'The picture at this moment', role: 'img' }) as HTMLCanvasElement;
   let player: Player | null = null;
   // (the picture's engine is made when there is a clip to draw: an empty editor opens at once, and its shaders are not compiled for nothing)
   const ensurePlayer = () => (player ??= makePlayer());
   const makePlayer = (): Player | null => {
     try {
-      const p = new Player(canvas, feeder, project, { audio: true, still: reduced(), onTick: onTick, onEnd: () => renderTransport(), onLost: () => say('The picture’s engine was reset by the phone; I’m starting it again.') });
+      const p = new Player(canvas, feeder, project, { audio: true, still: reduced(), onTick: onTick, onEnd: () => renderTransport(), onLost: () => say('The picture’s engine was reset by the phone; I’m starting it again.'), onRough: () => { videoState.rough = true; say('A reversed clip plays roughly here, because the phone cannot play backwards: it seeks to each picture. The file I make is exact.'); } });
       p.blobOf = (id) => blobFor(id, true);
       return p;
     } catch {
@@ -549,9 +571,11 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     return [
       h('p.vdsay', `The playhead is at ${clock(t, true)}.`),
       act('SPLIT AT THE PLAYHEAD', () => {
-        const n = splitAt(project, t);
+        // (where the playhead is now, not where it was when this tray was drawn)
+        const at = player?.t ?? t;
+        const n = splitAt(project, at);
         if (!n) return say('I can’t split there: it’s too near the edge of a clip, or in a transition.');
-        commit(n, `Split at ${clock(t, true)}: now ${n.main.length} clips.`);
+        commit(n, `Split at ${clock(at, true)}: now ${n.main.length} clips.`);
       }, 'on'),
       note('Move the playhead with the scrub bar, then split. The two halves can be sped, graded and moved on their own.'),
     ];
@@ -564,7 +588,126 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       choices('Speed', [0.25, 0.5, 1, 1.5, 2, 3, 4].map((v) => ({ id: v, label: `${v}×` })), c.speed, (v) => commit(setSpeed(project, c.id, v), `${words(v)}.`)),
       slider({ label: 'Speed', min: 0.25, max: 4, step: 0.05, value: c.speed, say: (v) => `${v.toFixed(2)}×`, change: (v) => commit(setSpeed(project, c.id, v)), reset: 1 }),
       note('One speed for the whole clip, from a quarter to four times. Its sound speeds up or slows with it.'),
+      h('h4.vdh', 'STEADY'),
+      ...steadyNodes(c),
+      h('h4.vdh', 'REVERSE AND RAMP'),
+      ...reverseRampNodes(c),
     ];
+  }
+
+  // ---------------------------------------------------------------- STEADY, REVERSE and RAMP (VIDEO 2)
+  const replaceClip = (id: string, next: Clip): Project => {
+    const q = structuredClone(project);
+    const i = q.main.findIndex((x) => x.id === id);
+    if (i >= 0) q.main[i] = next;
+    return fixTransitions(q);
+  };
+  /** A transition is never longer than half of either clip it joins (a ramp or a steadying changes a clip's length). */
+  const fixTransitions = (q: Project): Project => {
+    for (let i = 0; i < q.main.length; i++) {
+      const c = q.main[i]!;
+      c.next.len = Math.min(c.next.len, transitionCap(c, q.main[i + 1]));
+      if (c.next.kind !== 'cut' && c.next.len < 100) c.next = { kind: 'cut', len: 0 };
+    }
+    if (q.main.length) q.main[q.main.length - 1]!.next = { kind: 'cut', len: 0 };
+    return q;
+  };
+  const failed = (e: unknown, again: () => void, what: string) => {
+    const dead = crunch.dead;
+    say(dead ? `${dead} Nothing was changed.` : sayError(e, what), act('RETRY', () => (crunch.revive(), again()), 'vdinline'));
+  };
+  function steadyNodes(c: Clip): Nodes {
+    const out: Nodes = [];
+    const span = c.out - c.in;
+    const guess = steadyGuess(span, project.fps);
+    if (steadying) {
+      out.push(act('STOP STEADYING', () => steadying && (steadying.cancelled = true), 'vdstop'));
+      return out;
+    }
+    out.push(h('p.vdsay.vdsteadysay', c.steady ? `Steadied: ${costWords(c, c.steady.strength)} (the camera’s path averaged over ${c.steady.window ? (c.steady.window / c.steady.fps).toFixed(1) : '1.3'} s).` : `Takes about ${guess} s for this clip, on the phone.`));
+    out.push(act('STEADY', () => void runSteady(c.id, c.steady?.strength ?? 0.5), c.steady ? 'vdsteady' : 'on vdsteady'));
+    if (c.steady) {
+      const r = c.steady;
+      out.push(slider({
+        label: 'Steadier', min: 0.1, max: 1, step: 0.05, value: r.strength, reset: 0.5,
+        say: (v) => costWords(c, v),
+        input: (v) => live((q) => { const z = q.main.find((m) => m.id === c.id); if (z?.steady) { z.steady.strength = v; rekey(z); } }),
+        change: (v) => commit(replaceClip(c.id, restrength(c, v)), `Steadier: ${costWords(c, v)}.`),
+      }));
+      out.push(row(
+        act('STEADY AGAIN', () => void runSteady(c.id, r.strength)),
+        act('TAKE THE STEADYING OFF', () => commit(editClip(c.id, (z) => unsteady(z)), 'The steadying is off: the clip is as it was.')),
+      ));
+    }
+    out.push(note('I measure how the camera moved between neighbouring frames, smooth that path, and lay the difference on the clip as keys. A slow pan stays; the shake goes, and the edges are cropped to hide the picture’s moving border. All on the phone.'));
+    return out;
+  }
+  async function runSteady(id: string, strength: number) {
+    const c = project.main.find((x) => x.id === id);
+    if (!c || steadying) return;
+    player?.pause();
+    const run = { cancelled: false };
+    steadying = run;
+    renderTray();
+    const clipMs = c.out - c.in;
+    if (clipMs > STEADY_MAX_MS) {
+      steadying = null;
+      renderTray();
+      return say(`That clip is ${lengthWords(clipMs)} long. I steady up to ${lengthWords(STEADY_MAX_MS)} at a time: trim it or split it, and steady each part.`);
+    }
+    say(`Steadying… about ${steadyGuess(clipMs, project.fps)} s`);
+    const again = () => void runSteady(id, strength);
+    try {
+      const r = await steadyClip(project, c, strength, await blobFor(c.src, false), feeder, crunch, {
+        cancel: run,
+        onProgress: (done, of, left) => say(`Steadying… ${done} of ${of} frames, about ${Math.max(1, Math.round(left))} s left`),
+      });
+      if (!r.ok) {
+        videoState.steadyWhy = r.why;
+        if (!r.cancelled && crunch.dead) failed(new Error(r.why), again, 'steady it');
+        else say(r.why);
+      } else {
+        const said = `Steadier: loses ${r.loses}% at the edges. Steadied in ${Math.max(1, Math.round(r.ms / 1000))} s; undo takes it off.`;
+        videoState.steady = { ms: r.ms, clipMs: r.clipMs, perSecond: r.ms / 1000 / Math.max(0.1, r.clipMs / 1000), loses: r.loses, window: r.window, frames: r.frames, said, readMs: r.readMs, workMs: r.workMs, lagMs: r.lagMs };
+        videoState.steadyWhy = '';
+        steadying = null;
+        commit(replaceClip(id, r.clip), said);
+      }
+    } catch (e) {
+      failed(e, again, 'steady it');
+    } finally {
+      steadying = null;
+      renderTray();
+    }
+  }
+  function reverseRampNodes(c: Clip): Nodes {
+    const span = c.out - c.in;
+    const ramp = (c.tr.keys.speed ?? []) as { t: number; v: number }[];
+    const before = lengthWords(clipLen(c));
+    const out: Nodes = [];
+    out.push(row(
+      act('REVERSE', () => {
+        const next = editClip(c.id, (z) => { z.reverse = !z.reverse; if (z.steady) rekey(z); });
+        commit(fixTransitions(next), c.reverse ? 'This clip plays forwards again.' : 'This clip plays backwards. The preview seeks backwards and will be rough until you export; the file is exact.');
+      }, c.reverse ? 'vdchoice on' : 'vdchoice'),
+      act('RAMP', () => {
+        if (ramp.length) return say(`The ramp makes this clip ${lengthWords(clipLen(c))}: change its two ends below.`);
+        const next = editClip(c.id, (z) => { z.tr.keys.speed = [{ t: 0, v: 1 }, { t: span, v: 2 }]; if (z.steady) rekey(z); });
+        const z = next.main.find((m) => m.id === c.id)!;
+        commit(fixTransitions(next), `A ramp from 1× to 2×: this clip is ${lengthWords(clipLen(z))} (it was ${before}).`);
+      }, ramp.length ? 'vdchoice on' : 'vdchoice'),
+    ));
+    if (c.reverse) out.push(h('p.vdsay', 'Playing backwards: the picture’s end first.'));
+    if (ramp.length) {
+      const set = (i: 0 | 1, v: number, say_ = true) => commit(fixTransitions(editClip(c.id, (z) => { const k = z.tr.keys.speed!; k[i === 0 ? 0 : k.length - 1]!.v = v; if (z.steady) rekey(z); })), say_ ? `The ramp makes this clip ${lengthWords(clipLen(editClip(c.id, (z) => { const k = z.tr.keys.speed!; k[i === 0 ? 0 : k.length - 1]!.v = v; }).main.find((m) => m.id === c.id)!))} (it is ${before}).` : undefined);
+      out.push(h('p.vdsay.vdrampsay', `The ramp makes this clip ${before}: ${ramp[0]!.v.toFixed(2)}× at the start, ${ramp[ramp.length - 1]!.v.toFixed(2)}× at the end.`));
+      out.push(slider({ label: 'Ramp starts at', min: 0.25, max: 4, step: 0.05, value: ramp[0]!.v, say: (v) => `${v.toFixed(2)}×`, change: (v) => set(0, v), reset: 1 }));
+      out.push(slider({ label: 'Ramp ends at', min: 0.25, max: 4, step: 0.05, value: ramp[ramp.length - 1]!.v, say: (v) => `${v.toFixed(2)}×`, change: (v) => set(1, v), reset: 2 }));
+      out.push(choices('The sound in a ramp', [{ id: 'pitch', label: 'SOUND PITCHED' }, { id: 'drop', label: 'SOUND DROPPED' }], c.rampSound ?? 'pitch', (v) => commit(editClip(c.id, (z) => (z.rampSound = v)), v === 'drop' ? 'The ramped clip plays without its sound.' : 'The sound rises and falls in pitch with the speed.')));
+      out.push(act('TAKE THE RAMP OFF', () => commit(fixTransitions(editClip(c.id, (z) => { delete z.tr.keys.speed; delete z.rampSound; if (z.steady) rekey(z); })), 'The ramp is off: one speed again.')));
+    }
+    out.push(note('REVERSE plays the clip backwards. RAMP changes the speed along the clip: the length it makes is said above, and the sound follows it or is dropped.'));
+    return out;
   }
 
   function orderTray(c: Clip): Nodes {
@@ -752,6 +895,10 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         act('TAKE THE MUSIC OUT', () => commit({ ...structuredClone(project), music: project.music.filter((z) => z.id !== a.id) }, 'The music is out.')),
       ));
     }
+    out.push(h('h4.vdh', 'ON THE BEAT'));
+    out.push(h('p.vdsay.vdbeatsay', videoState.beat?.line ?? (project.music.length ? 'I can find the music’s beat and cut to it.' : 'I need music on the timeline to find its beat: add some above.')));
+    out.push(row(act('ON THE BEAT', () => void runBeat(), 'on vdbeat'), act('SNAP TO THE BEAT', () => void runSnap(), 'vdsnap')));
+    out.push(note('I find the beat in the music on the phone, and SNAP TO THE BEAT moves each cut to its nearest beat if one is within 0.4 s. UNDO puts them back.'));
     out.push(h('h4.vdh', 'YOUR VOICE'));
     const level = h('div.vdlevel', { 'aria-hidden': 'true' }, h('i'));
     const recKey = act(recording ? 'STOP' : 'RECORD A VOICE-OVER', () => void record(recKey, level), recording ? 'vdrec on' : 'vdrec');
@@ -761,6 +908,62 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     out.push(slider({ label: 'Music drops under your voice by', min: 0, max: 24, step: 1, value: project.duck, say: (v) => (v === 0 ? 'not at all' : `${v} dB`), change: (v) => commit({ ...structuredClone(project), duck: v }, v ? `The music drops ${v} dB under your voice, and comes back after.` : 'The music keeps its level under your voice.'), reset: 12 }));
     out.push(note('Use headphones to record over the music; the picture plays silently while you speak.'));
     return out;
+  }
+
+  // ---------------------------------------------------------------- ON THE BEAT (VIDEO 2)
+  async function ensureBeats(): Promise<(Beats & { src: string }) | null> {
+    const m = project.music[0];
+    if (!m) return null;
+    if (beats && beats.src === m.src) return beats;
+    await player?.loadSound();
+    const buf = player?.buffers.get(m.src);
+    if (!buf) throw new Error('that music would not open');
+    say(`Listening for the beat… about ${Math.max(1, Math.round(buf.duration * 0.05))} s`);
+    const b = await findBeats(buf, crunch);
+    if (!b) return null;
+    beats = { ...b, src: m.src };
+    const line = `The music is at ${tempoWords(b.tempo.bpm)}, found in ${(b.ms / 1000).toFixed(1)} s.`;
+    videoState.beat = { bpm: b.tempo.bpm, ms: b.ms, musicMs: b.musicMs, perMinute: b.ms / 1000 / Math.max(1 / 60, b.musicMs / 60_000), said: line, moved: 0, biggest: 0, line };
+    return beats;
+  }
+  async function runBeat() {
+    if (!project.music.length) {
+      const l = 'I need music on the timeline to find its beat: add some with ADD MUSIC above.';
+      videoState.beat = { ...(videoState.beat ?? { bpm: 0, ms: 0, musicMs: 0, perMinute: 0, said: '', moved: 0, biggest: 0 }), line: l };
+      say(l);
+      return renderTray();
+    }
+    try {
+      const b = await ensureBeats();
+      if (!b) {
+        const l = 'I couldn’t find a steady beat in this music, so I’ve left the cuts where they are.';
+        videoState.beat = { ...(videoState.beat ?? { bpm: 0, ms: 0, musicMs: 0, perMinute: 0, said: '', moved: 0, biggest: 0 }), line: l };
+        say(l);
+      } else say(`${videoState.beat!.line} SNAP TO THE BEAT moves each cut onto one.`);
+      renderTray();
+    } catch (e) {
+      failed(e, () => void runBeat(), 'find the beat');
+    }
+  }
+  async function runSnap() {
+    if (!project.music.length) return void runBeat();
+    try {
+      const b = await ensureBeats();
+      if (!b) return void runBeat();
+      if (project.main.length < 2) return say('There are no cuts to move: add a second clip first.');
+      const r = snapToBeats(project, onTimeline(b, project.music[0]!));
+      if (!r.moved.length) {
+        const l = `Every cut is already on a beat, or more than 0.4 s from the nearest one${r.stuck ? `; ${r.stuck} could not move for want of picture to move into` : ''}.`;
+        videoState.beat = { ...videoState.beat!, moved: 0, biggest: 0, line: l };
+        say(l);
+        return renderTray();
+      }
+      const l = `${movedWords(r.moved.length, r.biggest)}${r.stuck ? `; ${r.stuck} more had no picture to move into` : ''}. UNDO puts them back.`;
+      videoState.beat = { ...videoState.beat!, moved: r.moved.length, biggest: r.biggest, line: l };
+      commit(r.p, l);
+    } catch (e) {
+      failed(e, () => void runSnap(), 'snap the cuts');
+    }
   }
 
   async function record(key: HTMLButtonElement, level: HTMLElement) {
@@ -991,7 +1194,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     out.push(row(
       act('KEY AT THE PLAYHEAD', () => commit(editClip(c.id, (z) => { for (const k of CH) upsert(z, k.k, transformAt(z.tr, tIn)[k.k], tIn); }), `A key at ${clock(tIn, true)} into the clip. Move the playhead, change a slider, and it moves between the keys.`)),
       act('SMOOTH THE KEYS', () => commit(editClip(c.id, (z) => { for (const k of CH) for (const key of z.tr.keys[k.k] ?? []) key.ease = true; }), 'The moves between keys ease in and out.')),
-      act('CLEAR THE KEYS', () => commit(editClip(c.id, (z) => (z.tr.keys = {})), 'The keys are cleared.')),
+      act('CLEAR THE KEYS', () => commit(fixTransitions(editClip(c.id, (z) => { const sp = z.tr.keys.speed; z.tr.keys = sp ? { speed: sp } : {}; delete z.steady; })), 'The keys are cleared (a speed ramp stays; take it off under SPEED).')),
     ));
     return out;
   }
@@ -1084,7 +1287,112 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         commit(r.made ? r.p : null, `Split at ${r.made} cut${r.made === 1 ? '' : 's'}: the video is as long as it was.`);
       }) : null,
       note('I compare the colours of the picture four times a second; a big jump is a cut. It works on the phone, with nothing sent.'),
+      h('h4.vdh', 'BEST CLIPS'),
+      ...bestNodes(),
     ];
+  }
+
+  // ---------------------------------------------------------------- BEST CLIPS (VIDEO 2)
+  const namerLine = 'Without the namer kept, I choose by sharpness, light and variety alone.';
+  const clipNo = (id: string): number => project.main.findIndex((c) => c.id === id) + 1;
+  const pickTotal = (): number => (bestPick ? bestPick.picks.filter((x) => x.on).reduce((n, x) => n + (x.to - x.from) / (project.main.find((c) => c.id === x.unit.clip)?.speed ?? 1), 0) : 0);
+  function bestNodes(): Nodes {
+    if (!project.main.length) return [need('Add a clip first.')];
+    const out: Nodes = [];
+    const typed = ![15, 30, 60].includes(bestTarget);
+    out.push(choices('How long', [{ id: 15, label: '15 S' }, { id: 30, label: '30 S' }, { id: 60, label: '60 S' }], typed ? 0 : bestTarget, (v) => { bestTarget = v; bestPick = null; renderTray(); }));
+    const inp = h('input.vdtitlein.vdtarget', { type: 'number', inputMode: 'numeric', min: '3', max: '600', value: String(bestTarget), 'aria-label': 'Length in seconds', placeholder: 'Or type the seconds' }) as HTMLInputElement;
+    inp.addEventListener('change', () => {
+      const v = Math.round(Number(inp.value));
+      bestTarget = Number.isFinite(v) && v >= 3 ? Math.min(600, v) : bestTarget;
+      bestPick = null;
+      renderTray();
+    });
+    out.push(h('div.vdrow', h('label.vdlabel', 'Seconds'), inp));
+    if (bestBusy) {
+      out.push(act('STOP', () => bestBusy && (bestBusy.cancelled = true), 'vdstop'));
+      return out;
+    }
+    out.push(act('BEST CLIPS', () => void runBest(), 'on vdbest'));
+    if (bestPick) {
+      const bp = bestPick;
+      const total = pickTotal();
+      out.push(h('p.vdsay.vdbestline', videoState.best?.line ?? ''));
+      if (!(eyesKept(EYES_NAMER.id))) out.push(h('p.vdnote.vdnamer', namerLine));
+      if (!bp.picks.length) out.push(h('p.vdsay', 'Nothing to choose from here: every clip is blurred, too dark or too bright.'));
+      bp.picks.forEach((x, i) => {
+        const why = `${reason(x, i === 0)}${x.word ? `: ${x.word}` : ''}`;
+        const b = act(`${x.on ? '☑' : '☐'}  Clip ${clipNo(x.unit.clip)} · ${clock(x.from, true)}–${clock(x.to, true)} · ${why}`, () => { x.on = !x.on; refreshBest(); renderTray(); }, `vdchoice vdlist vdtick${x.on ? ' on' : ''}`);
+        b.setAttribute('role', 'checkbox');
+        b.setAttribute('aria-checked', String(x.on));
+        b.setAttribute('aria-label', `Clip ${clipNo(x.unit.clip)}, ${clock(x.from, true)} to ${clock(x.to, true)}: ${why}`);
+        out.push(b);
+      });
+      for (const l of bp.left) out.push(h('p.vdnote.vdleft', `Clip ${clipNo(l.unit.clip)} · ${clock(l.unit.from, true)}–${clock(l.unit.to, true)} · ${leftReason(l)}`));
+      if (bp.picks.length) {
+        out.push(h('p.vdsay.vdbesttotal', `${bp.picks.filter((x) => x.on).length} picked: ${lengthWords(total)}${project.music.length ? ', each a whole number of beats long once the music’s beat is found' : ''}.`));
+        out.push(act('MAKE THE CUT', () => void makeCut(), 'on vdcut'));
+      }
+    }
+    out.push(note('I score each stretch by how sharp it is, how well lit, how it moves and how different it looks from what I have already picked, never by who is in it. Your clips stay as they are; MAKE THE CUT builds from the ticks, and UNDO puts it all back.'));
+    return out;
+  }
+  function refreshBest() {
+    if (!bestPick || !videoState.best) return;
+    videoState.best.picks = bestPick.picks.map((x) => ({ clip: x.unit.clip, from: x.from, to: x.to, reason: reason(x, false), on: x.on }));
+  }
+  async function runBest() {
+    if (bestBusy) return;
+    player?.pause();
+    const run = { cancelled: false };
+    bestBusy = run;
+    renderTray();
+    say(`Looking at your clips… about ${Math.max(2, Math.round(project.main.reduce((n, c) => n + (c.out - c.in) / 1000, 0) * 0.4))} s`);
+    try {
+      const sc = await scoreClips(project, (id) => blobFor(id, false), feeder, crunch, {
+        cancel: run,
+        onProgress: (i, of, left) => say(`Looking at clip ${i} of ${of}… about ${Math.max(1, Math.round(left))} s left`),
+      });
+      if (run.cancelled) return say('Stopped. Nothing was changed.');
+      scored = sc;
+      const r = choose(sc.units, bestTarget * 1000, unitLen(project));
+      const namer = eyesKept(EYES_NAMER.id) && (await eyesHere(EYES_NAMER).catch(() => false));
+      const words = namer ? await nameWords(r.picks.map((x) => sc.frames.get(x.unit)!), true) : r.picks.map(() => null);
+      bestPick = { picks: r.picks.map((x, i) => ({ ...x, on: true, word: words[i] ?? null })), left: r.left, short: r.short };
+      const got = r.picks.reduce((n, x) => n + unitLen(project)({ ...x.unit, from: x.from, to: x.to }), 0);
+      const line = !r.picks.length
+        ? 'Nothing to choose from here.'
+        : r.short >= 1000
+          ? `Only ${lengthWords(got)} is worth choosing from, short of the ${bestTarget} s you asked for: ${r.picks.length} stretch${r.picks.length === 1 ? '' : 'es'}, with the rest left out below.`
+          : `I picked ${lengthWords(got)} for your ${bestTarget} s: ${r.picks.length} stretch${r.picks.length === 1 ? '' : 'es'}. Untick any you don’t want.`;
+      videoState.best = { ms: sc.ms, clips: sc.clips, perClip: sc.ms / Math.max(1, sc.clips), picks: [], left: r.left.map((l) => ({ clip: l.unit.clip, reason: leftReason(l) })), line, namer, total: got };
+      refreshBest();
+      say(line);
+    } catch (e) {
+      failed(e, () => void runBest(), 'look at the clips');
+    } finally {
+      bestBusy = null;
+      renderTray();
+    }
+  }
+  async function makeCut() {
+    if (!bestPick) return;
+    const ticks: Tick[] = bestPick.picks.filter((x) => x.on).map((x) => ({ clip: x.unit.clip, from: x.from, to: x.to }));
+    if (!ticks.length) return say('Tick at least one stretch first.');
+    let beat: { period: number; first: number } | undefined;
+    if (project.music.length) {
+      try {
+        const b = await ensureBeats();
+        if (b) beat = { period: 60_000 / b.tempo.bpm, first: b.beats[0] ?? 0 };
+      } catch (e) {
+        return failed(e, () => void makeCut(), 'find the music’s beat');
+      }
+    }
+    const next = cutFromTicks(project, ticks, beat);
+    if (!next) return say('I couldn’t build a cut from those.');
+    bestPick = null;
+    sel = '';
+    commit(fixTransitions(next), `Made the cut: ${lengthWords(duration(next))} from ${ticks.length} stretch${ticks.length === 1 ? '' : 'es'}${beat ? `, each a whole number of beats at ${tempoWords(60_000 / beat.period)}` : ''}. Your clips are untouched; UNDO puts everything back (titles and subtitles too).`);
   }
   async function analyseQuiet() {
     await player?.loadSound();
@@ -1190,7 +1498,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     }
     out.push(row(go, stop), prog, words, result);
     if (lastExport) showResult(result, lastExport);
-    out.push(note('Not in this version: steadying shaky video, picking the best clips, matching music, a speed ramp, playing backwards and several cameras. Each needs a model or heavy work the phone cannot do inside the frame budget; I’ve said so rather than fake them.'));
+    out.push(note('Not in this version: Director Mode (following who is speaking would take a model that tells voices apart, a download I would ask you for first) and several cameras (syncing them by sound and a second timeline would take a day’s work). I’ve said so rather than fake them.'));
     return out;
   }
   function showResult(into: HTMLElement, r: Exported) {
@@ -1222,6 +1530,9 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     project = p;
     hist = new History(project);
     sel = '';
+    bestPick = null;
+    scored = null;
+    beats = null;
     selOv = '';
     if (project.main.length) ensurePlayer();
     await loadSources();
@@ -1251,6 +1562,9 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     project = newProject();
     hist = new History(project);
     sel = '';
+    bestPick = null;
+    scored = null;
+    beats = null;
     player?.setProject(project);
     renderAll();
     await player?.seek(0).catch(() => undefined);
@@ -1479,6 +1793,17 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     maxTexture: () => player?.gpu.maxTexture ?? 0,
     drawn: () => player?.drawn ?? 0,
     still: () => reduced(),
+    /** VIDEO 2: the centre of the near-white mark on the picture as drawn (the spec's own measure of a shake), or null. */
+    whiteCentre: () => player?.gpu.whiteCentre() ?? null,
+    /** The transform the export would draw the main clip with at `t`: the same plan and spec it uses. */
+    exportSpecAt: (t: number) => {
+      const plan = planFrame(project, t);
+      const spec = buildSpec(plan, project, () => ({ el: canvas, w: 1280, h: 720 }), null);
+      const m = spec.main;
+      return m ? { x: m.x, y: m.y, rot: m.rot, scale: m.scale } : null;
+    },
+    /** Make a mark's steady record from outside (the spec's reading of what was measured). */
+    crunchDead: () => crunch.dead,
   };
   // (the page's handle for specs may be made a moment after a screen opened straight from the address)
   let hooks = 0;
@@ -1511,6 +1836,9 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       stopped = true;
       videoState.open = false;
       recording?.stop();
+      steadying && (steadying.cancelled = true);
+      bestBusy && (bestBusy.cancelled = true);
+      crunch.close();
       player?.pause();
       void autosave.flush();
       for (const f of stopFns) f();

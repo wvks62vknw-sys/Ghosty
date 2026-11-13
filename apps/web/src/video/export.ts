@@ -62,6 +62,9 @@ const encoders = () => {
   return w;
 };
 
+/** How many pictures a reversed clip's cache holds: about 96 MB of them, from eight to ninety. */
+export const reverseChunk = (w: number, h: number): number => Math.max(8, Math.min(90, Math.floor((96 * 1024 * 1024) / Math.max(1, w * h * 4))));
+
 /** Which path this phone takes, checked once (VideoEncoder and AudioEncoder `isConfigSupported`, then the recorder's types). */
 let chosen: Promise<PathInfo> | null = null;
 export function choosePath(w = 1920, h = 1080, fps = 30): Promise<PathInfo> {
@@ -191,7 +194,30 @@ interface Ctx {
 /** The export's frames: a clip's own reader (WebCodecs decode, in turn) where its file can be read that way, else the phone's player seeking. */
 class Pull {
   private readers = new Map<string, Reader | null>();
-  constructor(private blobOf: (src: string) => Promise<Blob | null>, private feeder: Feeder) {}
+  /** A reversed clip's frames: the chunk of the source before the time asked for, kept as bitmaps and handed out backwards. */
+  private revs = new Map<string, { lo: number; hi: number; maps: ImageBitmap[] }>();
+  constructor(private blobOf: (src: string) => Promise<Blob | null>, private feeder: Feeder, private step = 33) {}
+  private async reversed(l: LayerPlan, r: Reader): Promise<{ el: CanvasImageSource; w: number; h: number; done(): void }> {
+    let c = this.revs.get(l.clip.id);
+    const ms = l.srcMs;
+    if (!c || ms < c.lo || ms > c.hi) {
+      for (const m of c?.maps ?? []) m.close();
+      // the cache holds what room it has: about 96 MB of bitmaps, never fewer than eight pictures
+      const n = reverseChunk(r.w, r.h);
+      const hi = Math.min(l.clip.out, ms + this.step);
+      const lo = Math.max(l.clip.in, hi - n * this.step);
+      const maps: ImageBitmap[] = [];
+      for (let t = lo; t <= hi + 0.5; t += this.step) {
+        const f = await r.frameAt(t);
+        maps.push(await createImageBitmap(f as unknown as ImageBitmapSource));
+        f.close();
+      }
+      c = { lo, hi, maps };
+      this.revs.set(l.clip.id, c);
+    }
+    const i = Math.min(c.maps.length - 1, Math.max(0, Math.round((ms - c.lo) / this.step)));
+    return { el: c.maps[i]!, w: r.w, h: r.h, done: () => undefined };
+  }
   async layer(l: LayerPlan): Promise<{ el: CanvasImageSource; w: number; h: number; done(): void }> {
     let r = this.readers.get(l.clip.id);
     if (r === undefined) {
@@ -199,6 +225,7 @@ class Pull {
       r = b ? await Reader.open(b) : null;
       this.readers.set(l.clip.id, r);
     }
+    if (r && l.clip.reverse) return this.reversed(l, r);
     if (r) {
       const f = await r.frameAt(l.srcMs);
       return { el: f as unknown as CanvasImageSource, w: r.w, h: r.h, done: () => f.close() };
@@ -212,11 +239,15 @@ class Pull {
     for (const [id, r] of this.readers) if (!ids.has(id) && r) {
       r.close();
       this.readers.set(id, null);
+      for (const m of this.revs.get(id)?.maps ?? []) m.close();
+      this.revs.delete(id);
     }
   }
   dispose(): void {
     for (const r of this.readers.values()) r?.close();
     this.readers.clear();
+    for (const c of this.revs.values()) for (const m of c.maps) m.close();
+    this.revs.clear();
   }
   /** How many clips were read by WebCodecs. */
   get decoded(): number {
@@ -233,7 +264,7 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
   const text = document.createElement('canvas');
   text.width = c.s.w;
   text.height = c.s.h;
-  const pull = new Pull(o.blobOf, c.feeder);
+  const pull = new Pull(o.blobOf, c.feeder, 1000 / Math.max(10, c.fps));
   const n = Math.max(1, Math.round((c.dur / 1000) * c.fps));
   const quality = o.quality;
   const vsamples: VideoSample[] = [];

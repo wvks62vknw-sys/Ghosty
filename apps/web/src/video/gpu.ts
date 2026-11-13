@@ -385,6 +385,28 @@ export class Gpu {
     return n;
   }
 
+  /** The centre (fractions from the top left) and size of the near-white pixels on the whole picture: where a bright mark sits as drawn. */
+  whiteCentre(): { cx: number; cy: number; n: number } | null {
+    const gl = this.gl;
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    const px = new Uint8Array(W * H * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let n = 0;
+    let sx = 0;
+    let sy = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (px[i]! > 225 && px[i + 1]! > 225 && px[i + 2]! > 225) {
+        n++;
+        sx += x;
+        sy += H - 1 - y;
+      }
+    }
+    return n ? { cx: sx / n / W, cy: sy / n / H, n } : null;
+  }
+
   dispose(): void {
     this.gl.getExtension('WEBGL_lose_context')?.loseContext();
   }

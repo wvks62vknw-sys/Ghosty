@@ -119,7 +119,10 @@ export class Reader {
         for (let i = 0; i < idx; i++) this.queue[i]!.close();
         this.queue.splice(0, idx);
         this.lastTs = this.queue[0]!.timestamp;
-        return this.queue[0]!.clone();
+        const out = this.queue[0]!.clone();
+        // (the decoder works on while the caller works on this frame: a few more samples are fed now, as long as the pictures waiting are few)
+        if (this.dec.decodeQueueSize < 8 && this.queue.length < 24 && this.next < this.order.length) this.feed(4);
+        return out;
       }
       if (this.dec.decodeQueueSize < 12 && this.next < this.order.length) this.feed(6);
       if (spins > 4000) throw new Error('the decoder gave no frame');

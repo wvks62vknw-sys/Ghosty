@@ -10,6 +10,7 @@ import { buildMix, decodeAudio, type Buffers, type Built } from './mix';
 import { buildSpec, endOf, paintText, planFrame, type FramePlan } from './compose';
 import { shape, type Project, type Source } from './model';
 import { lutBytes, type Lut } from './lut';
+import { speedNow } from './math';
 
 export const CODEC_LINE = 'Your phone can’t read this clip’s codec; a copy from Photos usually works.';
 
@@ -152,6 +153,8 @@ export interface PlayerOptions {
   onEnd?(): void;
   /** The context was lost. */
   onLost?(): void;
+  /** A reversed clip is playing: the preview seeks backwards and is rough (said once). */
+  onRough?(): void;
 }
 
 export class Player {
@@ -172,6 +175,7 @@ export class Player {
   /** The picture plays without its sound (a voice-over being recorded over it). */
   silent = false;
   drawn = 0;
+  private roughSaid = false;
   /** The luts already sent to the GPU. */
   private lutDone = new Set<string>();
 
@@ -254,10 +258,14 @@ export class Player {
   }
 
   /** Put the playhead at `ms`, bring every needed element to its frame and draw. */
+  private seekSeq = 0;
   async seek(ms: number): Promise<void> {
+    const mine = ++this.seekSeq;
     this.t = Math.min(Math.max(0, ms), Math.max(0, this.end));
     const plan = planFrame(this.project, this.t);
     await Promise.all(plan.layers.map((l) => this.feeder.seek(l.clip.src, l.srcMs)));
+    // (a seek made after this one has the picture now: an earlier one finishing late must not draw over it)
+    if (mine !== this.seekSeq) return;
     // (the second half of a transition's elements are not playing: they are held on their frame)
     this.draw();
   }
@@ -320,8 +328,18 @@ export class Player {
         if (!e) continue;
         keep.add(l.clip.src);
         const want = l.srcMs / 1000;
-        const rate = l.clip.speed;
-        if (e.v.playbackRate !== rate) e.v.playbackRate = rate;
+        if (l.clip.reverse) {
+          // a phone's player cannot play backwards: it is held and sought to each picture (rough, and said once); the export is exact
+          if (!e.v.paused) e.v.pause();
+          if (!this.roughSaid) {
+            this.roughSaid = true;
+            this.o.onRough?.();
+          }
+          if (!e.v.seeking && Math.abs(e.v.currentTime - want) > 0.03) e.v.currentTime = want;
+          continue;
+        }
+        const rate = Math.min(16, Math.max(0.25, speedNow(l.clip, l.tIn)));
+        if (Math.abs(e.v.playbackRate - rate) > 0.01) e.v.playbackRate = rate;
         if (e.v.paused || Math.abs(e.v.currentTime - want) > 0.12) {
           e.v.currentTime = want;
           void e.v.play().catch(() => undefined);

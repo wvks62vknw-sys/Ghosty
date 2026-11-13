@@ -3,6 +3,8 @@
  * distance, and the audio mix as a plan of gains over time (the live player and the export both read the same plan).
  */
 import { clipLen, place, type Channel, type Clip, type Key, type Project, type TransitionKind, type Transform } from './model';
+import { pictureAt, playTime, speedAt, type SpeedKey } from './ramp';
+export { paceAt, pictureAt, playTime, speedAt, type SpeedKey } from './ramp';
 
 export const smooth = (x: number): number => {
   const t = Math.min(1, Math.max(0, x));
@@ -93,6 +95,12 @@ export interface Strand {
   in: number;
   span: number;
   speed: number;
+  /** Timeline length played (ms): span / speed, or a ramp's own. */
+  len: number;
+  /** Plays backwards (a reversed clip: the sound is read from a reversed copy). */
+  rev?: boolean;
+  /** A speed ramp's playback rate along the timeline: [timeline ms, rate] pairs (the sound pitched with it). */
+  rate?: [number, number][];
   /** Gain automation: [timeline ms, gain] pairs, joined by straight lines. */
   gain: [number, number][];
 }
@@ -111,7 +119,13 @@ export function mixPlan(p: Project): Strand[] {
     const fin = x.tin ? x.tin.len : 8;
     const fout = next?.tin ? next.tin.len : 8;
     g.push([x.start, x.tin ? 0 : v], [x.start + fin, v], [x.start + x.len - fout, v], [x.start + x.len, next?.tin ? 0 : v]);
-    out.push({ kind: 'clip', id: x.clip.id, src: x.clip.src, start: x.start, in: x.clip.in, span: x.clip.out - x.clip.in, speed: x.clip.speed, gain: g });
+    const ramp = (x.clip.tr.keys.speed ?? []) as SpeedKey[];
+    // a ramp with its sound dropped plays none; a pitched one follows the speed (sampled every 100 ms of the clip's own time)
+    if (ramp.length && x.clip.rampSound === 'drop') continue;
+    const strand: Strand = { kind: 'clip', id: x.clip.id, src: x.clip.src, start: x.start, in: x.clip.in, span: x.clip.out - x.clip.in, speed: x.clip.speed, len: x.len, gain: g };
+    if (x.clip.reverse) strand.rev = true;
+    if (ramp.length) strand.rate = rateAlong(x.clip, x.start, x.len);
+    out.push(strand);
   }
   const voiceSpans = p.voice.map((v) => ({ start: v.start, end: v.start + v.len }));
   const item = (kind: 'music' | 'voice', a: Project['music'][number]): Strand => {
@@ -128,7 +142,7 @@ export function mixPlan(p: Project): Strand[] {
       g.push([end - a.fadeOut, a.gain]);
     }
     g.push([end, a.fadeOut > 0 ? 0 : g[g.length - 1]![1]]);
-    return { kind, id: a.id, src: a.src, start: a.start, in: a.in, span: a.len, speed: 1, gain: g };
+    return { kind, id: a.id, src: a.src, start: a.start, in: a.in, span: a.len, speed: 1, len: a.len, gain: g };
   };
   for (const a of p.music) out.push(item('music', a));
   for (const a of p.voice) out.push(item('voice', a));
@@ -152,3 +166,24 @@ export const pieceLength = (p: Project): number => place(p.main).reduce((m, x) =
 
 /** The length of a clip, for words. */
 export { clipLen };
+
+/** A ramped clip's playback rate along the timeline, a point every 100 ms (the speed at that picture, times the clip's own). */
+export function rateAlong(c: Clip, start: number, len: number): [number, number][] {
+  const ramp = (c.tr.keys.speed ?? []) as SpeedKey[];
+  const span = c.out - c.in;
+  const out: [number, number][] = [];
+  for (let t = 0; t <= len + 99; t += 100) {
+    const tt = Math.min(t, len);
+    const u = pictureAt(ramp, tt * c.speed, span);
+    out.push([start + tt, speedAt(ramp, u) * c.speed]);
+    if (t >= len) break;
+  }
+  return out;
+}
+/** The speed a clip plays at, `t` ms into it (its own speed times the ramp's there). */
+export function speedNow(c: Clip, t: number): number {
+  const ramp = (c.tr.keys.speed ?? []) as SpeedKey[];
+  if (!ramp.length) return c.speed;
+  return speedAt(ramp, pictureAt(ramp, t * c.speed, c.out - c.in)) * c.speed;
+}
+export { playTime as rampPlayTime };

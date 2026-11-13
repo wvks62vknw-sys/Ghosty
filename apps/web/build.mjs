@@ -36,6 +36,8 @@ const jobs = [
   { ...common, entryPoints: ['src/workers/lens.worker.ts'], outfile: 'dist/lens.worker.js', format: 'iife' },
   // the board games' search (Ghosty's thinking), off the main thread
   { ...common, entryPoints: ['src/workers/board.worker.ts'], outfile: 'dist/board.worker.js', format: 'iife' },
+  // VIDEO 2: the steadying's block matching, the best clips' scores and the beat's spectrum, off the main thread
+  { ...common, entryPoints: ['src/workers/steady.worker.ts'], outfile: 'dist/steady.worker.js', format: 'iife' },
 ];
 
 if (watch) {
