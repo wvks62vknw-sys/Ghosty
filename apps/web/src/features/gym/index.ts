@@ -46,7 +46,7 @@ import * as store from './store';
 import { sayError, trail } from '../../ui/hisWords';
 import { waiting as waitFor } from '../../ui/wait';
 import { phrases } from '../lifeui';
-import { AGAIN, MOVE_FAILED, NEW_GAME, overWords, PHRASES, TRAIN_CANNOT, TRAIN_FAILED, TRAIN_STOPPED, TRAIN_WAIT } from './words';
+import { AGAIN, LEAGUE_HELPER, MOVE_FAILED, NEW_GAME, overWords, PHRASES, TRAIN_CANNOT, TRAIN_FAILED, TRAIN_STOPPED, TRAIN_WAIT } from './words';
 
 /** What the tab shows, for tests and the console (window.__ghosty.gym). */
 export const gymState = {
@@ -789,7 +789,7 @@ export const gymTab: TabDef = {
         const bytes = lg.versions.reduce((t, v) => t + v.bytes, 0);
         const last = lg.verdicts.at(-1);
         parts.push(
-          h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
+          h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small.gymleaguehelp', LEAGUE_HELPER), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
         );
       }
       if (open.id === 'chess') parts.push(rated.el);

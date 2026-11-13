@@ -72,7 +72,7 @@ async function run(name, viewport) {
   if (!/1\/4/.test(text) || !/1\/3/.test(text)) problems.push(`[${name}] progress bars missing (1/4 and 1/3): ${text.slice(0, 300)}`);
   if (!/RUNNING · a step every 20 min/.test(text) || !/PAUSED · a step every 3 min/.test(text)) problems.push(`[${name}] status and pace lines missing (in plain words: RUNNING, PAUSED)`);
   // the note in plain words: what happened, what happens next, and why
-  if (!/Step 2 didn’t work 3 times, so Ghosty paused it\. RESUME tries it again\. Why: boom/.test(text)) problems.push(`[${name}] the project's note is not shown in plain words: ${text.slice(-220)}`);
+  if (!/Step 2 didn’t work 3 times, so Ghosty paused it\. RETRY tries it again\. Why: boom/.test(text)) problems.push(`[${name}] the project's note is not shown in plain words: ${text.slice(-220)}`);
   if (/\b(ACTIVE|TODO|DOING)\b|failed \(3 of 3\)/.test(text)) problems.push(`[${name}] the projects speak jargon (ACTIVE / TODO / DOING / "failed (3 of 3)")`);
   for (const [label, re] of [['NOW', /Design the pages\s*NOW/], ['TO DO', /Build the site\s*TO DO/], ['DIDN’T WORK', /Compare running costs\s*DIDN’T WORK/]]) if (!re.test(text)) problems.push(`[${name}] a step does not say ${label}`);
   const cards = jp.locator('.change.project');
@@ -80,7 +80,7 @@ async function run(name, viewport) {
   const first = cards.first();
   if (await cards.nth(1).evaluate((c) => c.classList.contains('failed'))) problems.push(`[${name}] a paused project is drawn as a failure`);
   for (const label of ['PAUSE', 'RUN NEXT NOW', 'CANCEL']) if (!(await first.locator(`button:has-text("${label}")`).count())) problems.push(`[${name}] the running project has no ${label} button`);
-  if (!(await cards.nth(1).locator('button:has-text("RESUME")').count())) problems.push(`[${name}] the paused project has no RESUME button`);
+  if (!(await cards.nth(1).locator('button:has-text("RETRY")').count()) || (await cards.nth(1).locator('button:has-text("RESUME")').count())) problems.push(`[${name}] the project stopped by a failure should have RETRY and no RESUME`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
   await page.screenshot({ path: `${out}/${name}-projects.png` });
   // a done step opens its result

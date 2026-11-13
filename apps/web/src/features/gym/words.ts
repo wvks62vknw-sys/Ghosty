@@ -38,3 +38,6 @@ export function chessLine(you: number | null, me: number | null, rd: number): st
 
 /** The chat phrase that opens the chess rating on the phone (the one local ask the GYM has), listed in one line. */
 export const PHRASES = ['my chess rating'];
+
+/** The league's one helper sentence: the rating has no human-scale word and compares only with my own earlier versions. */
+export const LEAGUE_HELPER = 'This rating compares me only with my own earlier versions, never with people.';

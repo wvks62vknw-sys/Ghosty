@@ -364,7 +364,7 @@ export const schoolTab: TabDef = {
             h('div.schliveh', h('b', st.line || 'Sitting…'), h('small.schleft', { dataset: { case: 'keep' } }, [timeLeftNow(st), `${subjectName(st.subject)}${st.left.length ? ` · then ${st.left.length} more` : ''}`].filter(Boolean).join(' · '))),
             st.of ? bar('PAPER', st.n / st.of, `${st.n}/${st.of}`) : null,
             st.brain ? h('div.note.schbrain', st.brain) : null,
-            h('div.note', 'Keep Ghosty open while he sits it. STOP hands in the answers so far.'),
+            h('div.note', 'Keep Ghosty open while I sit it. STOP hands in the answers so far.'),
           )
         : getting
           ? h('div.schlive.schgetting',
@@ -419,7 +419,7 @@ export const schoolTab: TabDef = {
         blocked
           ? blocked
           : can === false
-          ? 'This phone cannot run the offline brain, so he cannot sit exams on it.'
+          ? 'This phone cannot run the offline brain, so I cannot sit exams on it.'
           : p?.none
             ? re ? '' : NO_BRAIN
             : tapM
@@ -432,7 +432,7 @@ export const schoolTab: TabDef = {
       const row = v.stages.find((s) => s.id === cur.stage);
       clear(
         stageP.body,
-        h('div.schhead', h('b', short(cur.label)), h('small', `${row?.years ?? ''} · his stage now`)),
+        h('div.schhead', h('b', short(cur.label)), h('small', `${row?.years ?? ''} · my stage now`)),
         resume,
         h('div.note.schpass', `To move up: ${cur.pass}.${row && /scaled score|grade|A\*/.test(cur.pass) ? ' Until the official papers come, the papers Ghosty writes count with their top band (85%+).' : ''} ${done} of ${cur.subjects.length} subjects at top grades.`),
         h('div.schsubs', ...rows),
@@ -477,7 +477,7 @@ export const schoolTab: TabDef = {
       const go2 = pick
         ? pick.papers
           ? h('div.schgo',
-              h('div.note', `${short(pick.label)}: ${pick.subjects.length} papers (${pick.subjects.map((x) => `${subjectName(x)}${from(pick.id, x) === 'official' ? ' — official' : ''}`).join(', ')}). If he gets top grades, that stage and everything below it is done at once.`),
+              h('div.note', `${short(pick.label)}: ${pick.subjects.length} papers (${pick.subjects.map((x) => `${subjectName(x)}${from(pick.id, x) === 'official' ? ' — official' : ''}`).join(', ')}). If I get top grades, that stage and everything below it is done at once.`),
               named(button(`SIT ${short(pick.label).toUpperCase()}`, () => {
                 placementOpen = false;
                 start(pick.id, pick.subjects);
@@ -495,7 +495,7 @@ export const schoolTab: TabDef = {
             )
           : h('div.schgo', writeBlock(pick.id))
         : null;
-      clear(placeP.body, h('div.note', 'He may sit any stage straight away. If he gets top grades, that stage and everything below it is done at once — training time goes only where he fails. Moving up still needs every subject.'), h('div.keyrow', placeBtn), list, go2);
+      clear(placeP.body, h('div.note', 'I may sit any stage straight away. If I get top grades, that stage and everything below it is done at once — training time goes only where I fail. Moving up still needs every subject.'), h('div.keyrow', placeBtn), list, go2);
       schoolState.placement = placementOpen ? v.stages.map((s) => s.id) : [];
     }
 
@@ -503,15 +503,15 @@ export const schoolTab: TabDef = {
     function paintWeak(v: WiredView): void {
       // What the weekly training practises for them (school/practice.ts on the brain): "practising: 3 weak spots · 24 items checked this week".
       const practice = v.practice ? h('div.schpractice', v.practice.line) : null;
-      if (!v.weak.length) return void clear(weakP.body, h('div.note', v.state.results.length ? 'No weak spots: every topic so far got full marks.' : 'Weak spots show after his first papers: the topics where he lost the most marks.'), practice);
-      clear(weakP.body, ...v.weak.map((w) => bar(w.topic.toUpperCase(), (w.of - w.lost) / Math.max(1, w.of), `${w.of - w.lost}/${w.of}`)), practice, h('div.note', `Share of marks he got in each topic, worst first, across his recent papers.${v.practice ? ' The weekly training practises his weak spots with checked questions (never a paper’s own).' : ''}`));
+      if (!v.weak.length) return void clear(weakP.body, h('div.note', v.state.results.length ? 'No weak spots: every topic so far got full marks.' : 'Weak spots show after my first papers: the topics where I lost the most marks.'), practice);
+      clear(weakP.body, ...v.weak.map((w) => bar(w.topic.toUpperCase(), (w.of - w.lost) / Math.max(1, w.of), `${w.of - w.lost}/${w.of}`)), practice, h('div.note', `Share of marks I got in each topic, worst first, across his recent papers.${v.practice ? ' The weekly training practises my weak spots with checked questions (never a paper’s own).' : ''}`));
     }
 
     // ======================= results
     function paintResults(v: StageView): void {
       const rs = v.state.results;
       /* state: school.ladder empty */
-      if (!rs.length) return void clear(resultsP.body, h('div.note', { dataset: { state: 'empty' } }, 'Nothing sat yet. SIT THE EXAM above sets him this stage’s papers, one subject at a time.'));
+      if (!rs.length) return void clear(resultsP.body, h('div.note', { dataset: { state: 'empty' } }, 'Nothing sat yet. SIT THE EXAM above sets me this stage’s papers, one subject at a time.'));
       clear(
         resultsP.body,
         h('div.schlist', ...rs.slice(0, 20).map((r) =>
@@ -533,7 +533,7 @@ export const schoolTab: TabDef = {
           const passages = d.paper.passages ?? [];
           clear(
             body,
-            h('div.schpaperhd', h('b', `${res.grade} · ${res.raw}/${res.max}`), h('small', `${d.paper.official ? `Official paper: ${d.paper.title.split(' · official ')[1] ?? d.paper.title}` : d.from === 'bank' ? 'Written by Ghosty from his checked question bank' : 'Written by Ghosty in the same style'} · sat ${day(res.at)} on ${res.where === 'phone' ? 'this phone' : 'the free GPU'} · ${res.model.split('@')[0]}`)),
+            h('div.schpaperhd', h('b', `${res.grade} · ${res.raw}/${res.max}`), h('small', `${d.paper.official ? `Official paper: ${d.paper.title.split(' · official ')[1] ?? d.paper.title}` : d.from === 'bank' ? 'Written by Ghosty from my checked question bank' : 'Written by Ghosty in the same style'} · sat ${day(res.at)} on ${res.where === 'phone' ? 'this phone' : 'the free GPU'} · ${res.model.split('@')[0]}`)),
             res.boundary ? h('div.schbound', res.boundary) : null,
             d.paper.boundaries ? h('div.note', `Boundaries: ${d.paper.boundaries}.`) : null,
             d.paper.leftOut?.length
@@ -603,7 +603,7 @@ export const schoolTab: TabDef = {
         return d;
       });
       clear(offP.body,
-        h('div.note', 'The real papers, from the Standards and Testing Agency and the exam boards’ own sites: free, with their mark schemes and real boundaries. FETCH reads one on this phone; Ghosty turns it into a paper he sits once. They stay private: never shared, never put in the library, never used for training. Questions that need a picture are left out, with their marks, and the boundaries scaled to match.'),
+        h('div.note', 'The real papers, from the Standards and Testing Agency and the exam boards’ own sites: free, with their mark schemes and real boundaries. FETCH reads one on this phone; Ghosty turns it into a paper I sit once. They stay private: never shared, never put in the library, never used for training. Questions that need a picture are left out, with their marks, and the boundaries scaled to match.'),
         ...groups);
       const fetched = official.filter((o) => o.status === 'ready').length;
       offP.setStatus(Object.keys(work.get().fetching).length || official.some((o) => o.status === 'reading') ? 'READING' : `${fetched}/${official.length} FETCHED`, fetched ? 'ok' : 'off');
@@ -640,7 +640,7 @@ export const schoolTab: TabDef = {
         setP.body,
         h('div.keyrow', nightly, h('span.note', v.state.nightly ? 'One notification in the morning when something happened: a paper sat, a stage passed, marks in.' : 'No school notifications.')),
         h('div.lab', 'HOW MARKING WORKS'),
-        h('div.note.schhow', 'Exact answers (numbers, letters, multiple choice) are marked by the code. Written answers are marked by a stronger model against the mark scheme — you can spot-check every one under RESULTS. A paper still waiting for a marker has no final grade, so it cannot pass a stage. Official papers are graded against their real boundaries (the STA’s scaled scores, the boards’ grade boundaries); papers Ghosty writes use the same grade scale. Papers are never used to train him.'),
+        h('div.note.schhow', 'Exact answers (numbers, letters, multiple choice) are marked by the code. Written answers are marked by a stronger model against the mark scheme — you can spot-check every one under RESULTS. A paper still waiting for a marker has no final grade, so it cannot pass a stage. Official papers are graded against their real boundaries (the STA’s scaled scores, the boards’ grade boundaries); papers Ghosty writes use the same grade scale. Papers are never used to train me.'),
       );
     }
 
@@ -654,10 +654,10 @@ export const schoolTab: TabDef = {
       schoolState.resume = st.resume?.line ?? '';
       if (!view) {
         P.big.textContent = 'School';
-        P.sub.textContent = schoolState.error ? 'The school record cannot be shown right now' : 'Looking up his record…';
+        P.sub.textContent = schoolState.error ? 'The school record cannot be shown right now' : 'Looking up my record…';
         /* state: school.ladder error */
         /* state: school.ladder loading */
-        clear(ladderP.body, h('div.note', { dataset: { state: schoolState.error ? 'error' : 'loading' } }, schoolState.error ? `Ghosty could not be reached, so the school record can't be shown: ${schoolState.error}` : 'Asking Ghosty for his school record…'));
+        clear(ladderP.body, h('div.note', { dataset: { state: schoolState.error ? 'error' : 'loading' } }, schoolState.error ? `Ghosty could not be reached, so the school record can't be shown: ${schoolState.error}` : 'Looking up my school record…'));
         return;
       }
       const v = view;
@@ -753,7 +753,7 @@ export const schoolTab: TabDef = {
           readingNow[r.id] = res.book.parts ? `${r.kind === 'book' ? 'part' : 'section'} ${res.book.part} of ${res.book.parts}` : '…';
           paintReading();
           if (res.done) {
-            toast(`${r.title}: read ✓ — it is in his library now`, 'ok');
+            toast(`${r.title}: read ✓ — it is in your library now`, 'ok');
             break;
           }
           if (!shown) break;
@@ -805,7 +805,7 @@ export const schoolTab: TabDef = {
       const live = readingNow[r.id];
       const state = r.status === 'read' ? `Read ✓ ${r.readAt ? day(r.readAt) : ''}`.trim() : live !== undefined ? `Reading · ${live}` : r.status === 'reading' ? `Reading · ${r.kind === 'book' ? 'part' : 'section'} ${r.part} of ${r.parts || '?'}` : r.borrowed ? 'Borrowed · not read yet' : '';
       const c = r.check;
-      const checkLine = c ? `Reading check: ${c.raw}/${c.max} (${c.pct}%) · ${c.passed ? 'passed ✓' : 'not passed'}${c.purpose === 'borrow' ? (c.passed ? ' · borrowed' : ' · locked until he moves up') : ''}` : '';
+      const checkLine = c ? `Reading check: ${c.raw}/${c.max} (${c.pct}%) · ${c.passed ? 'passed ✓' : 'not passed'}${c.purpose === 'borrow' ? (c.passed ? ' · borrowed' : ' · locked until I move up') : ''}` : '';
       const busy = sitting.get().busy || !!checkLive;
       const btns: HTMLElement[] = [];
       if (!r.ingest) btns.push(h('a.schlink', { href: r.url, target: '_blank', rel: 'noopener noreferrer' }, 'OPEN THE LINK'));
@@ -842,7 +842,7 @@ export const schoolTab: TabDef = {
 
     function paintReading(): void {
       if (!reading) {
-        clear(readP.body, h('div.note', readingError ? `The reading shelf could not be shown: ${readingError}` : 'Looking up his reading…'));
+        clear(readP.body, h('div.note', readingError ? `The reading shelf could not be shown: ${readingError}` : 'Looking up my reading…'));
         schoolStateReading(null);
         return;
       }
@@ -858,7 +858,7 @@ export const schoolTab: TabDef = {
       const readCount = v.read.length;
       clear(
         readP.body,
-        h('div.note', `His shelf at ${v.label}: books to read now, like a real pupil — public-domain classics (in the UK, their authors died before ${v.publicDomainBefore}) and open textbooks. READ puts one in his library, chapter by chapter. SIT THE READING CHECK: ten questions on the book’s own words, sat on this phone and marked exactly; ${Math.round(v.pass * 100)}% passes. Checks never count towards passing a stage.`),
+        h('div.note', `My shelf at ${v.label}: books to read now, like a real pupil — public-domain classics (in the UK, their authors died before ${v.publicDomainBefore}) and open textbooks. READ puts one in your library, chapter by chapter. SIT THE READING CHECK: ten questions on the book’s own words, sat on this phone and marked exactly; ${Math.round(v.pass * 100)}% passes. Checks never count towards passing a stage.`),
         live,
         lastCheck && !checkLive ? h(`div.schbookck.schlast${lastCheck.passed ? '.ok' : '.no'}` as 'div', lastCheck.line) : null,
         h('div.schbooks', ...v.shelf.map((r) => bookRow(r, false))),
