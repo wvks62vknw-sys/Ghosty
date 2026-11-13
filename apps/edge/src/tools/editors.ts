@@ -469,5 +469,5 @@ export const gameTools: Tool[] = [
     },
   },
 ];
-export const GAME_ABOUT = 'You can make a game in his Game Studio from its own kit (game: make), and read or change the open one (read, edit): kept in his library, never published by you (only publish_game, with his APPROVE); a change is only proposed.';
+export const GAME_ABOUT = 'You can make a game in his Game Studio from its own kit (game: make), and read or change the open one (read, edit): kept in his library (on his sites only by publish_game, his APPROVE); a change is only proposed.';
 export const GAME_WHEN = WORK_WHEN.game;
