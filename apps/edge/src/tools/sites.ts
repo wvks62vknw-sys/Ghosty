@@ -21,6 +21,8 @@ import { durableDelete, durableGet, durablePut } from '../kv';
 import { siteApproval, startSiteBuild } from '../sitebuild';
 import { formTarget } from '../../../../packages/shared/src/sitekit/blocks/formkit';
 import { checkHtml, refusal } from './check';
+import { gameApproval, publishGame } from '../gamesite';
+import type { Game } from '../../../web/src/studio-game/model';
 import { arg, clip, type Tool } from './types';
 import { readCapped, UA } from './web';
 
@@ -47,6 +49,11 @@ export interface Site {
    * Only that exact origin is ever let into the page's policy (pagePolicy), checked again when it is served.
    */
   formAction?: string;
+  /**
+   * A game from his Game Studio (publish_game, gamesite.ts): the game as data. It is served as a page of its own at /s/<name>/,
+   * composed on each visit from this and the studio's own player (never from anything stored as code), with its manifest and icon.
+   */
+  game?: Game;
 }
 /** One line of the list of published pages. */
 export interface SiteEntry {
@@ -56,6 +63,7 @@ export interface SiteEntry {
   at: number;
   bytes: number;
   app?: boolean;
+  game?: boolean;
 }
 /** A page sent in parts (draft_site) before it is published. */
 interface Draft {
@@ -93,7 +101,7 @@ export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: Durable
       // The page is live now; the list is for finding it again, so a hiccup here is not a failure.
       try {
         const entries = (await list()).filter((e) => e.name !== site.name);
-        entries.unshift({ name: site.name, title: site.title, source: site.source, at: site.at, bytes: site.html.length, ...(site.app ? { app: true } : {}) });
+        entries.unshift({ name: site.name, title: site.title, source: site.source, at: site.at, bytes: site.game ? JSON.stringify(site.game).length : site.html.length, ...(site.app ? { app: true } : {}), ...(site.game ? { game: true } : {}) });
         await saveList(entries);
       } catch {
         /* listed next time */
@@ -340,6 +348,8 @@ export function prepareSite(htmlIn: string, source: string, opts: { formAction?:
   return { html, notes };
 }
 
+/** A game is served by the Worker straight from KV (index.ts, gamesite.ts); this answers only where KV is not bound. */
+const gameResting = () => new Response('<!doctype html><meta name="viewport" content="width=device-width"><title>Ghosty</title><p style="font:16px system-ui;padding:24px">This game is resting. Try again in a minute.</p>', { status: 503, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '60' } });
 const notFound = () => new Response('<!doctype html><meta name="viewport" content="width=device-width"><title>Not found</title><p style="font:16px system-ui;padding:24px">This page doesn\'t exist (any more).</p>', { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } });
 const common = { 'x-robots-tag': 'noindex, nofollow', 'referrer-policy': 'no-referrer', 'cache-control': 'public, max-age=60', 'x-content-type-options': 'nosniff' };
 
@@ -380,6 +390,7 @@ export function previewTags(html: string): string {
 export function siteResponse(site: Site | undefined): Response {
   if (!site) return notFound();
   if (site.app) return appResponse(site, site.app);
+  if (site.game) return gameResting();
   const host = hostOf(site.source);
   const label = host ? `Rebuilt by Ghosty from ${esc(host)} · not the official site` : 'Built by Ghosty';
   const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#02070d"><title>${esc(site.title)}</title>${previewTags(site.html)}
@@ -411,6 +422,7 @@ export function pagePolicy(site: Pick<Site, 'formAction'> | undefined): string {
 export function siteFrameResponse(site: Site | undefined, dest: string | null): Response {
   if (!site) return notFound();
   if (site.app) return appAsset(site, site.app, dest);
+  if (site.game) return gameResting();
   // Anything but a load into Ghosty's frame (including browsers that don't say): go to the page with the bar.
   if (dest !== 'iframe') return new Response(null, { status: 302, headers: { location: `/s/${site.name}`, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest' } });
   // Never reused for a direct visit: the answer depends on how it is loaded.
@@ -661,6 +673,20 @@ export const siteTools: Tool[] = [
     },
   },
   {
+    name: 'publish_game',
+    description:
+      "Put the game open in his Game Studio on his sites (\"put Fox on my sites\"): an installable page at …/s/<name>/ that plays offline and keeps its saves. He approves it every time. Give him the link as returned. UNDO: unpublish_site.",
+    parameters: { type: 'object', properties: { name: { type: 'string', description: "the game's name, as he said it" } } },
+    risk: 'confirm', // it goes on the public internet: his APPROVE, every time; the run publishes only what the approval kept
+    approval: (a, ctx) => gameApproval(a, ctx, (n) => siteStore(ctx.env, ctx.storage).get(n), (n) => siteLink(ctx.origin, ctx.env, n)),
+    async run(a, ctx) {
+      const store = siteStore(ctx.env, ctx.storage);
+      const r = await publishGame(a, ctx, (name, game) => store.put({ name, title: game.name, html: '', source: '', at: Date.now(), game }), (n) => siteLink(ctx.origin, ctx.env, n));
+      ctx.emit({ t: 'client', name: 'show_link', args: { url: r.link, title: r.title } });
+      return `Published "${r.title}" — live now at ${r.link} (a game: Share → Add to Home Screen installs it; it plays offline and keeps its saves on that phone). Give him this exact link.`;
+    },
+  },
+  {
     name: 'list_sites',
     description: "The pages Ghosty has published (name, link, title, when, size). Use it when the owner asks what is online, wants a link again, or wants something updated or taken down.",
     parameters: { type: 'object', properties: {} },
@@ -669,7 +695,7 @@ export const siteTools: Tool[] = [
     async run(_a, ctx) {
       const entries = await siteStore(ctx.env, ctx.storage).list();
       if (!entries.length) return 'Nothing is published yet.';
-      return `${entries.length} published page${entries.length === 1 ? '' : 's'}:\n${entries.map((e) => `- ${siteLink(ctx.origin, ctx.env, e.name)}${e.app ? '/' : ''} — "${e.title}"${e.app ? ' (mini-app)' : ''}${e.source ? ` (from ${hostOf(e.source)})` : ''}, ${when(e.at)} UTC, ${kb(e.bytes)}`).join('\n')}`;
+      return `${entries.length} published page${entries.length === 1 ? '' : 's'}:\n${entries.map((e) => `- ${siteLink(ctx.origin, ctx.env, e.name)}${e.app || e.game ? '/' : ''} — "${e.title}"${e.app ? ' (mini-app)' : e.game ? ' (game)' : ''}${e.source ? ` (from ${hostOf(e.source)})` : ''}, ${when(e.at)} UTC, ${kb(e.bytes)}`).join('\n')}`;
     },
   },
   {

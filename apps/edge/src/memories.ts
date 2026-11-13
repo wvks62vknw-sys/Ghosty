@@ -22,6 +22,8 @@ import type { Library } from './library/store';
 import { DIARY_DOC, diaryEntries, loadProfile, looksSecret, saveProfile, type ProfileDeps } from './profile';
 import { isoLocal, safeTz, startOfDay, zoned } from './time';
 import { loadLog, LOG_KEY, type Episode } from './mind';
+import { forgetGist, GISTS_KEY, restoreGist } from './recall';
+import type { Gist } from '../../../packages/shared/src/recall';
 import { loadMemory, MEMORY_KEY } from './tools/memory';
 
 export const META_KEY = 'profile:meta';
@@ -175,6 +177,8 @@ interface Forgotten {
   label?: string;
   lesson?: Lesson;
   diary?: { heading: string; text: string; locked: boolean };
+  /** [recall] One turn's gist (recall.ts), forgotten from RECALL and "what did I ask you about X?". */
+  gist?: Gist;
 }
 
 export class MemoryError extends Error {
@@ -215,8 +219,16 @@ export async function changeMemory(deps: Pick<ProfileDeps, 'storage' | 'library'
   const { storage, library } = deps;
   const kind = id.slice(0, 2);
   const key = id.slice(2);
-  if (!key || !['p:', 'f:', 'd:', 'l:'].includes(kind)) throw new MemoryError(400, 'unknown memory');
+  if (!key || !['p:', 'f:', 'd:', 'l:', 't:'].includes(kind)) throw new MemoryError(400, 'unknown memory');
   if (op === 'restore') return restore(deps, id, now);
+  // [recall] a turn (id `t:<its time>`): FORGET takes it out of the 30 days' gists, kept a day for UNDO; nothing else is done to one
+  if (kind === 't:') {
+    if (op !== 'forget') throw new MemoryError(400, 'a turn can only be forgotten');
+    const g = await forgetGist(storage, Number(key));
+    if (!g) throw new MemoryError(404, 'that turn is not there any more');
+    await stash(storage, { id, gone: now, gist: g });
+    return null;
+  }
   // KEEP (MEMORY's FADING list): a fact he wants kept is heard again — it weighs more and stops fading
   if (op === 'keep' && kind === 'f:') {
     const facts = await loadMemory(storage);
@@ -347,6 +359,8 @@ export async function stashForgottenFacts(storage: DurableObjectStorage, facts: 
 }
 
 const kindOf = (f: Forgotten): MemoryKind => (f.profile ? 'profile' : f.fact || f.facts ? 'fact' : f.lesson ? 'lesson' : 'diary');
+/** [recall] A forgotten turn as RECENTLY FORGOTTEN says it. */
+const gistText = (g: Gist): string => `You asked: “${g.q}”`;
 
 /** RECENTLY FORGOTTEN: what UNDO can still bring back, newest first. */
 export async function recentlyForgotten(storage: DurableObjectStorage, now = Date.now()): Promise<ForgottenItem[]> {
@@ -354,7 +368,7 @@ export async function recentlyForgotten(storage: DurableObjectStorage, now = Dat
     .map((f): ForgottenItem => ({
       id: f.id,
       kind: kindOf(f),
-      text: f.profile?.text ?? f.fact?.text ?? f.lesson?.text ?? f.diary?.text ?? f.label ?? (f.facts ? `Everything I remembered (${f.facts.length} facts)` : ''),
+      text: f.profile?.text ?? f.fact?.text ?? f.lesson?.text ?? f.diary?.text ?? (f.gist ? gistText(f.gist) : undefined) ?? f.label ?? (f.facts ? `Everything I remembered (${f.facts.length} facts)` : ''),
       gone: f.gone,
       ...(f.facts ? { count: f.facts.length } : {}),
     }))
@@ -390,12 +404,14 @@ async function restore(deps: Pick<ProfileDeps, 'storage' | 'library'>, id: strin
     const lessons = await loadLessons(storage);
     if (!lessons.some((x) => x.id === f.lesson!.id)) lessons.push(f.lesson);
     await storage.put(LESSONS_KEY, lessons);
+  } else if (f.gist) {
+    await restoreGist(storage, f.gist, now);
   } else if (f.diary) {
     await writeDiary(library, f.diary.heading, f.diary.text);
     if (f.diary.locked) await storage.put(DIARY_LOCKS_KEY, [...new Set([...((await storage.get<string[]>(DIARY_LOCKS_KEY)) ?? []), f.diary.heading])]);
   }
   await storage.put(FORGOTTEN_KEY, list.filter((x) => x !== f));
-  if (f.facts) return null;
+  if (f.facts || f.gist) return null;
   return (await timeline(deps)).find((x) => x.id === (f.profile ? `p:${lineKey(f.profile.text)}` : id)) ?? null;
 }
 
@@ -676,7 +692,8 @@ async function forgetTallied(storage: DurableObjectStorage, id: string): Promise
 
 /** The day log gone (CLEAR CONVERSATION, forget_everything): no pattern is left from what was said. Dismissals stay. */
 export async function clearPatterns(storage: DurableObjectStorage): Promise<void> {
-  await storage.delete([DAYS_KEY, FILED_KEY]);
+  // [recall] the 30 days' gists of what he asked go with the conversation (recall.ts)
+  await storage.delete([DAYS_KEY, FILED_KEY, GISTS_KEY]);
 }
 
 /** The patterns to show: the day log plus messages not yet filed, the stored memories, minus the dismissed. */

@@ -15,6 +15,7 @@ import { PLAY_CSS } from './app';
 import { fileName, MIME, readFile, sizeWords, writeGame } from './share';
 import { getPage, keepPage, listPages, putGame, removePage, type PageMeta } from './store';
 import { bars, eightBars, parseTune, PRESETS, startTune } from './tune';
+import { askWords, handOver, sitesLine } from './sites';
 
 // ---------------------------------------------------------------- RULES
 export function rulesPill(ctx: Ctx): HTMLElement {
@@ -240,8 +241,8 @@ export const loadPlayer = (): Promise<string> =>
     throw e;
   }));
 
-/** Why PUT IT ON MY SITES cannot be done from here, and what stops it, in plain words. */
-export const SITES_LINE = 'I can’t put this on your sites yet: that needs a change to my server, which needs your word. The file in the library is yours.';
+/** PUT IT ON MY SITES: the sentence that starts the chat turn (studio-game/sites.ts); his APPROVE there, every time. */
+export { sitesLine } from './sites';
 
 export function appPill(ctx: Ctx): HTMLElement {
   const g = ctx.game();
@@ -250,6 +251,7 @@ export function appPill(ctx: Ctx): HTMLElement {
   const size = h('p.stNote.stSize', { 'aria-live': 'polite' }, 'Measuring the page…');
   const lib = h('div.stLib');
   const sites = h('div.stSites', { 'aria-live': 'polite' });
+  let handing = false;
   let html = '';
   const measure = async () => {
     try {
@@ -301,8 +303,22 @@ export function appPill(ctx: Ctx): HTMLElement {
       }, 'pri', 'Export the game as one page, kept in the library')),
     section('In the library', lib),
     section('Put it on my sites',
-      note(navigator.onLine === false ? 'You are offline. Everything here works; putting it on your sites waits for a connection, and says so then.' : `Your sites are the public pages I publish for you at /s/<name>. This game would be ${addressOf(g)}.`),
-      btn('Put it on my sites', () => sites.replaceChildren(h('p.stWarn', SITES_LINE), note('Until then the file in the library is yours: save it, or open it from your Files.')), '', 'Put the page on my sites'),
+      note(navigator.onLine === false ? 'You are offline. Everything here works; putting it on your sites waits for a connection, and says so then.' : `Your sites are the public pages I publish for you at /s/<name>. This game would be ${addressOf(g)}: it installs to a Home Screen, plays offline and keeps its saves on the phone that plays it.`),
+      h('p.stNote.stSitesLine', sitesLine(g.name)),
+      btn('Put it on my sites', async () => {
+        if (handing) return; // a second tap while the first is on its way asks nothing twice
+        const now = ctx.game();
+        const stop = hardProblems(now)[0];
+        if (stop) return void sites.replaceChildren(h('p.stWarn', `Fix this first: ${stop.text}`));
+        sites.replaceChildren(note('Handing the game to my brain…'));
+        handing = true;
+        const r = await handOver(now).finally(() => (handing = false));
+        if ('error' in r) return void sites.replaceChildren(h('p.stWarn', r.error), note('Nothing went on your sites. The file in the library is yours.'));
+        sites.replaceChildren(note(`“${now.name}” is with me, waiting for your word. I’ve asked in the chat: tap APPROVE there and I’ll give you its link (it would be ${r.link}).`));
+        const [{ send }, { openChat }] = await Promise.all([import('../assistant/session'), import('../shell/launcher')]);
+        openChat();
+        void send(askWords(now));
+      }, '', 'Put the page on my sites'),
       sites),
   );
   const w = window as unknown as { __ghostyStudio?: Record<string, unknown> };

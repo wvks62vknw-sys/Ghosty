@@ -18,6 +18,7 @@ import { clone, firstRoom, type Game, History, hardProblems, problems, resizeRoo
 import { autosave, getGame, keeps, listGames, type Meta, putGame, removeGame, room } from './store';
 import { openWorkBlock, q } from '../../../../packages/shared/src/openwork';
 import { setLiveWork } from '../proposals/live';
+import { handOver, ON_SITES } from './sites';
 import { askBox, proposalBar } from '../proposals/bar';
 
 const LAST = 'ghosty.studio.last';
@@ -310,7 +311,7 @@ export function mountStudio(host: { left: HTMLElement; right: HTMLElement; big: 
     paintEditor();
     wire(g);
     props.clear();
-    setLiveWork('game', { data: dataOf, propose: proposeHere });
+    setLiveWork('game', { data: dataOf, propose: proposeHere, ready: async (words) => void (hist && ON_SITES.test(words) && (await handOver(hist.game))) });
     return true;
   }
   async function closeGame() {
