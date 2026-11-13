@@ -12,6 +12,9 @@ import { button, empty, panel, row, toast, undo, undoBar } from '../../ui/compon
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
 import { watchersPanel } from './watchers';
+import { todoPanel } from './todo';
+import { monthPanel } from './month';
+import { AHEAD_DAYS } from './todowords';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
 
@@ -77,7 +80,7 @@ export const agendaTab: TabDef = {
     const sp = spendingPanel();
     // [lifeeasier] WATCHERS (watchers.ts) follows SPENDING and so sits under its pill: the pills stay as they were
     const wp = watchersPanel();
-    P.left.append(ep.el, cp.el, sp.el, wp.el);
+    // [planlane] TO-DO (todo.ts) and MONTH (month.ts) are made below, once what they read is declared
     const jp = panel('REMINDERS & TASKS', { cls: 'scroll' });
     const ip = panel('NOTIFICATIONS', { cls: 'scroll', footer: true });
     P.right.append(jp.el, ip.el);
@@ -86,9 +89,18 @@ export const agendaTab: TabDef = {
     const jobUndo = undoBar();
 
     let events: AgendaEventInfo[] = [];
+    // what the brain gave for the next six weeks (the month reads it); the diary lists the first fourteen days of it
+    let allEvents: AgendaEventInfo[] = [];
     let jobs: JobInfo[] = [];
     let feeds: FeedInfo[] = [];
     let errors: string[] = [];
+    // [planlane] TO-DO (todo.ts): his own list on this phone; MONTH (month.ts): the diary as a calendar, under it
+    const tp = todoPanel(() => {
+      mp.paint();
+      paintHero();
+    });
+    const mp = monthPanel(() => ({ events: allEvents, todos: tp.list() }));
+    P.left.append(ep.el, mp.el, tp.el, cp.el, sp.el, wp.el);
 
     // ── add event ────────────────────────────────────────────────────────
     const evTitle = h('input', { placeholder: 'New event (e.g. Dentist)', 'aria-label': 'Event title' });
@@ -137,7 +149,7 @@ export const agendaTab: TabDef = {
       clear(ep.body);
       if (errors.length) ep.body.append(h('div.note.bad', `Calendar problem: ${errors.join(' · ')}`));
       if (!events.length) {
-        ep.body.append(empty('NONE', 'Add an event above, connect a calendar below, or just tell Ghosty: “add dinner with Sam on Friday at 7”.', 'Nothing in the next two weeks'));
+        ep.body.append(empty('NONE', 'Add an event above, connect a calendar under Calendars, or just tell Ghosty: “add dinner with Sam on Friday at 7”.', 'Nothing in the next two weeks'));
         return;
       }
       let lastDay = '';
@@ -161,7 +173,11 @@ export const agendaTab: TabDef = {
           x.addEventListener('click', async () => {
             // its reminder, so UNDO brings both back
             const rem = jobs.find((j) => j.eventId === e.id);
-            await brain.deleteEvent(e.id);
+            try {
+              await brain.deleteEvent(e.id);
+            } catch (err) {
+              return toast(sayError(err, 'delete that event'), 'bad');
+            }
             void load();
             evUndo.show(`Deleted: ${e.title}`, async () => {
               await brain.addEvent({ title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, remindMin: rem ? Math.max(0, Math.round((e.start - rem.next) / 60_000)) : null });
@@ -191,7 +207,11 @@ export const agendaTab: TabDef = {
         x.title = 'Cancel';
         x.setAttribute('aria-label', `Cancel ${j.title}`);
         x.addEventListener('click', async () => {
-          await brain.deleteJob(j.id);
+          try {
+            await brain.deleteJob(j.id);
+          } catch (err) {
+            return toast(sayError(err, 'cancel that reminder'), 'bad');
+          }
           void load();
           if (j.kind === 'reminder' || j.kind === 'task') {
             jobUndo.show(`Cancelled: ${j.title}`, async () => {
@@ -324,15 +344,20 @@ export const agendaTab: TabDef = {
       const dayWord = day === 'TODAY' ? 'Today' : day === 'TOMORROW' ? 'Tomorrow' : day.charAt(0) + day.slice(1).toLowerCase().replace(/ (\w)(\w+)$/, (_x, a: string, b: string) => ` ${a.toUpperCase()}${b}`);
       P.big.dataset.case = 'keep';
       P.big.textContent = next ? next.title : 'All clear';
+      const todo = tp.list().filter((t) => !t.done).length;
+      const todoBit = todo ? `${todo} to do` : '';
       P.sub.textContent = next
-        ? [`${dayWord} ${hm(next.start)}`, until(next.start), `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`].filter(Boolean).join(' · ')
-        : `Nothing coming up · ${today} ${today === 1 ? 'event' : 'events'} today · ${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`;
+        ? [`${dayWord} ${hm(next.start)}`, until(next.start), `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`, todoBit].filter(Boolean).join(' · ')
+        : [`Nothing coming up`, `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`, todoBit].filter(Boolean).join(' · ');
     };
 
     const load = async () => {
       try {
-        const a = await brain.agenda(14);
-        events = a.events;
+        const a = await brain.agenda(AHEAD_DAYS);
+        allEvents = a.events;
+        const cut = new Date();
+        cut.setHours(0, 0, 0, 0);
+        events = a.events.filter((e) => e.start < cut.getTime() + 14 * 86400_000);
         jobs = a.jobs;
         feeds = a.feeds;
         errors = a.errors;
@@ -349,6 +374,7 @@ export const agendaTab: TabDef = {
       paintJobs();
       paintFeeds();
       paintHero();
+      mp.paint();
     };
 
     const suggest = h(
@@ -362,7 +388,8 @@ export const agendaTab: TabDef = {
     // Sections: the diary first (what he opens the agenda for), then reminders with the notifications they send,
     // the month's spending and the calendars he has connected.
     sections(root, 'agenda', [
-      { id: 'diary', label: 'Diary', match: /^DIARY/ },
+      { id: 'diary', label: 'Diary', match: /^(DIARY|MONTH)/ },
+      { id: 'todo', label: 'To-do', match: /^TO-DO/ },
       { id: 'reminders', label: 'Reminders', match: /^(REMINDERS|NOTIFICATIONS)/ },
       { id: 'spending', label: 'Spending', match: /^SPENDING/ },
       { id: 'calendars', label: 'Calendars', match: /^CALENDARS/ },
@@ -372,6 +399,7 @@ export const agendaTab: TabDef = {
     return {
       enter() {
         void load();
+        tp.paint();
         void sp.refresh();
         void wp.refresh();
         void pollInbox();
@@ -391,7 +419,7 @@ export const agendaTab: TabDef = {
           ...(next ? { selected: { kind: 'item', id: `event:${next.id}`, label: next.title, detail: when } } : {}),
         });
       },
-      describe: () => `Agenda: ${events.length} events in the next 14 days, ${jobs.length} reminders/tasks, ${feeds.length} calendars connected.`,
+      describe: () => `Agenda: ${events.length} events in the next 14 days, ${jobs.length} reminders/tasks, ${tp.list().filter((t) => !t.done).length} to-dos open, ${feeds.length} calendars connected.`,
     };
   },
 };

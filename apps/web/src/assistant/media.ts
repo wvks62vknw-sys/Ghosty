@@ -23,6 +23,8 @@ export const player = createStore({
   /** when this station started playing (ms), 0 before it has */
   since: 0,
   why: '' as Why,
+  /** when the sleep timer ends the radio (ms), 0 when none is set */
+  sleepAt: 0,
 });
 
 /** A station that has not started after this long is said to be not answering. */
@@ -90,6 +92,7 @@ export async function playStation(s: NowPlaying): Promise<boolean> {
   clearTimeout(tuneTimer);
   if (player.get().now?.url !== s.url) player.set({ since: 0 });
   rememberLast(s);
+  rememberRecent(s);
   if (!/^https:\/\//i.test(s.url)) {
     player.set({ now: s, state: 'error', why: 'refused' });
     return false;
@@ -132,7 +135,8 @@ export function resumeAudio(): Promise<boolean> {
 export function stopAudio(): void {
   turn++;
   clearTimeout(tuneTimer);
-  player.set({ now: null, state: 'idle', since: 0, why: '' });
+  clearSleep();
+  player.set({ now: null, state: 'idle', since: 0, why: '', sleepAt: 0 });
   if (audio) {
     audio.pause();
     audio.removeAttribute('src');
@@ -182,6 +186,68 @@ export function lastPlayed(): NowPlaying | null {
   } catch {
     return null;
   }
+}
+
+/** The stations he played lately, newest first (eight, kept on this phone): RECENT on the Radio tab. */
+const RECENT = 'ghosty.radio.recent';
+function rememberRecent(s: NowPlaying): void {
+  try {
+    const l = recentStations().filter((x) => x.url !== s.url);
+    l.unshift({ name: s.name, url: s.url, info: s.info });
+    localStorage.setItem(RECENT, JSON.stringify(l.slice(0, 8)));
+  } catch {
+    /* ignore */
+  }
+}
+export function recentStations(): NowPlaying[] {
+  try {
+    const l = JSON.parse(localStorage.getItem(RECENT) ?? '[]') as NowPlaying[];
+    return Array.isArray(l) ? l.filter((s) => s && typeof s.url === 'string' && typeof s.name === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+export function forgetRecent(): void {
+  try {
+    localStorage.removeItem(RECENT);
+  } catch {
+    /* ignore */
+  }
+}
+
+// THE SLEEP TIMER: the radio goes quiet over its last 20 seconds, then stops. Kept in this page only (a reload is a new night).
+const FADE_MS = 20_000;
+let sleepTimer = 0;
+let fadeTimer = 0;
+function clearSleep(): void {
+  clearTimeout(sleepTimer);
+  clearInterval(fadeTimer);
+  sleepTimer = fadeTimer = 0;
+  if (audio) audio.volume = player.get().volume;
+}
+/** Stop the radio in `min` minutes (0 takes the timer off). */
+export function setSleep(min: number): void {
+  clearSleep();
+  if (!min || !player.get().now) return void player.set({ sleepAt: 0 });
+  const at = Date.now() + min * 60_000;
+  player.set({ sleepAt: at });
+  sleepTimer = window.setTimeout(() => {
+    const v0 = audio?.volume ?? 0;
+    const t0 = Date.now();
+    fadeTimer = window.setInterval(() => {
+      const k = Math.max(0, 1 - (Date.now() - t0) / FADE_MS);
+      if (audio) audio.volume = v0 * k;
+      if (k <= 0) stopAudio();
+    }, 250);
+  }, Math.max(0, at - Date.now() - FADE_MS));
+}
+
+/** The station after (or before) the one on, in his favourites, else the ones he played lately: the lock screen's ⏭ and ⏮. */
+export function stepStation(dir: 1 | -1): NowPlaying | null {
+  const l = favourites.list().length > 1 ? favourites.list() : recentStations();
+  if (!l.length) return null;
+  const at = l.findIndex((s) => s.url === player.get().now?.url);
+  return l[(at < 0 ? (dir > 0 ? 0 : l.length - 1) : at + dir + l.length) % l.length] ?? null;
 }
 
 const FAV = 'ghosty.radio.favs';
@@ -236,6 +302,13 @@ if (session) {
   on('play', () => void resumeAudio());
   on('pause', () => pauseAudio());
   on('stop', () => stopAudio());
+  // ⏭ and ⏮ on the lock screen and AirPods: the next or previous of his favourites (the ones he played lately when he has none)
+  const step = (dir: 1 | -1) => {
+    const n = stepStation(dir);
+    if (n && n.url !== player.get().now?.url) void playStation(n);
+  };
+  on('nexttrack', () => step(1));
+  on('previoustrack', () => step(-1));
   let shown = '';
   player.subscribe((p) => {
     const key = p.now ? `${p.now.url}|${p.now.name}` : '';

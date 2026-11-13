@@ -1,13 +1,13 @@
 /** RADIO tab: search internet radio by name, genre or country (UK first); favourites; now playing. */
 import { fetchJson } from '../../api/feed';
-import { canSetVolume, favourites, lastPlayed, pauseAudio, player, playStation, resumeAudio, setVolume, stopAudio, type NowPlaying, type Why } from '../../assistant/media';
+import { canSetVolume, favourites, forgetRecent, lastPlayed, pauseAudio, player, playStation, recentStations, resumeAudio, setSleep, setVolume, stopAudio, type NowPlaying, type Why } from '../../assistant/media';
 import { clear, h, icon } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, empty, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { waiting } from '../../ui/wait';
-import { FINDING, nextStation, NO_OTHER, TRY_ANOTHER, TUNING } from './words';
+import { FINDING, nextStation, NO_OTHER, RECENT_EMPTY, SLEEP_CHOICES, SLEEP_OFF, sleepKey, sleepLine, sleepSet, TRY_ANOTHER, TUNING } from './words';
 import { phrases } from '../lifeui';
 import { tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
 
@@ -62,7 +62,9 @@ export const radioTab: TabDef = {
     P.left.append(sp.el);
     const np = panel('NOW PLAYING', { grow: false, cls: 'nowp' });
     const fp = panel('FAVOURITES', { cls: 'scroll.favs' });
-    P.right.append(np.el, fp.el);
+    // RECENT: the stations he played lately, newest first, kept on this phone (one tap plays again)
+    const rp = panel('RECENT', { cls: 'scroll.recent', grow: false });
+    P.right.append(np.el, fp.el, rp.el);
 
     const q = h('input', { placeholder: 'Station, genre or country…', 'aria-label': 'Search radio' });
     const results: NowPlaying[] = [];
@@ -180,6 +182,27 @@ export const radioTab: TabDef = {
       }
       for (const s of results) sp.body.append(stationRow(s));
     };
+    const paintRecent = () => {
+      clear(rp.body);
+      const l = recentStations();
+      rp.setStatus(l.length ? `${l.length}` : '', 'mid');
+      /* state: radio.recent empty */
+      if (!l.length) return void rp.body.append(h('div.empty', { dataset: { case: 'keep', state: 'empty' } }, h('b', RECENT_EMPTY.head), h('span', RECENT_EMPTY.line)));
+      for (const s of l) rp.body.append(stationRow(s));
+      rp.body.append(h('div.keyrow', button('CLEAR RECENT', () => {
+        const kept = recentStations();
+        forgetRecent();
+        paintRecent();
+        undo('Cleared the stations you played lately', () => {
+          try {
+            localStorage.setItem('ghosty.radio.recent', JSON.stringify(kept));
+          } catch {
+            /* ignore */
+          }
+          paintRecent();
+        });
+      })));
+    };
     const paintFavs = () => {
       clear(fp.body);
       const l = favourites.list();
@@ -190,6 +213,8 @@ export const radioTab: TabDef = {
 
     const vol = h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(player.get().volume), 'aria-label': 'Volume' });
     vol.addEventListener('input', () => setVolume(Number(vol.value)));
+    /** the sleep timer's key he tapped last (lit while the timer runs) */
+    let sleepChosen = 0;
     const RADIO = '<rect x="3" y="8" width="18" height="12" rx="2.5"/><path d="M7 8l10-5"/><circle cx="15.5" cy="14" r="3"/><path d="M6.5 12.5h4M6.5 15.5h4"/>';
     const paintNow = () => {
       const { now, state, since, why } = player.get();
@@ -247,7 +272,31 @@ export const radioTab: TabDef = {
       const kr = h('div.keyrow', ...keys);
       if (!slider) kr.classList.add('novol');
       np.body.append(kr);
+      // THE SLEEP TIMER: while a station is on, when it should go quiet and stop (one tap each; TIMER OFF takes it off)
+      if (now && state !== 'error') {
+        const at = player.get().sleepAt;
+        np.body.append(h('div.npsleep', { dataset: { case: 'keep' } },
+          h('small.npsleepl', { 'aria-live': 'polite' }, sleepLine(at, Date.now())),
+          h('div.keyrow.wrapit.npsleepk', { role: 'group', 'aria-label': 'Sleep timer' },
+            ...SLEEP_CHOICES.map((m) => {
+              const b = button(sleepKey(m), () => {
+                sleepChosen = m;
+                setSleep(m);
+                toast(sleepSet(m), 'ok');
+              }, at && sleepChosen === m ? 'on' : '');
+              b.setAttribute('aria-pressed', String(!!at && sleepChosen === m));
+              b.setAttribute('aria-label', `Stop the radio in ${m} minutes`);
+              return b;
+            }),
+            ...(at ? [button(SLEEP_OFF, () => {
+              sleepChosen = 0;
+              setSleep(0);
+              toast('Sleep timer off', 'ok');
+            })] : []))));
+      }
     };
+    // the sleep line counts down while the screen is on
+    let sleepTick = 0;
     player.subscribe(paintNow);
     // the station sounding is marked in the lists, its button a stop
     let shownKey = '';
@@ -257,6 +306,7 @@ export const radioTab: TabDef = {
       shownKey = keyOf();
       paintResults();
       paintFavs();
+      paintRecent();
     });
     const onNet = () => {
       paintNow();
@@ -267,11 +317,21 @@ export const radioTab: TabDef = {
     addEventListener('offline', onNet);
     paintNow();
     paintFavs();
+    paintRecent();
     paintResults();
 
     return {
+      leave() {
+        clearInterval(sleepTick);
+      },
       enter() {
+        clearInterval(sleepTick);
+        sleepTick = window.setInterval(() => {
+          const l = np.el.querySelector('.npsleepl');
+          if (l && player.get().sleepAt) l.textContent = sleepLine(player.get().sleepAt, Date.now());
+        }, 30_000);
         paintFavs();
+        paintRecent();
         paintNow();
         if (!results.length) void go({ tag: 'news', countrycode: 'GB' }, 'UK news');
       },
@@ -284,7 +344,7 @@ export const radioTab: TabDef = {
           ...(n ? { selected: { kind: 'item', id: 'station', label: n.name, detail: p.state === 'paused' ? 'paused' : 'playing' } } : {}),
         });
       },
-      describe: () => `Radio: ${player.get().now ? `${player.get().state === 'paused' ? 'paused on' : 'playing'} ${player.get().now!.name}` : 'nothing playing'}; ${favourites.list().length} favourites.`,
+      describe: () => `Radio: ${player.get().now ? `${player.get().state === 'paused' ? 'paused on' : 'playing'} ${player.get().now!.name}` : 'nothing playing'}; ${favourites.list().length} favourites; ${player.get().sleepAt > Date.now() ? sleepLine(player.get().sleepAt, Date.now()) : 'no sleep timer'}.`,
     };
   },
 };

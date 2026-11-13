@@ -182,6 +182,9 @@ export const STATES = {
   'links.account': { dir: 'links', base: 1, now: 2 },
   'links.notes': { dir: 'links', base: 1, now: 2 },
   'social.queue': { dir: 'social', base: 3, now: 4 },
+  // PLAN AND HOME (FINAL ROUND, planlane): the agenda's to-do list and the radio's RECENT list, new screens (base 0)
+  'agenda.todo': { dir: 'agenda', base: 0, now: 1 },
+  'radio.recent': { dir: 'radio', base: 0, now: 1 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },

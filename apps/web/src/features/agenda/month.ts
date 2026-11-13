@@ -1,0 +1,75 @@
+/**
+ * MONTH (the planlane pass): the agenda as a calendar. This month as a grid, Monday first; a day with events has a dot, a day with
+ * a to-do due a ring, today is lit. Tap a day and its events and to-dos are listed under the grid. ‹ and › step a month (this one
+ * and the next: the diary reads 42 days ahead); a day past that range or gone says so instead of looking empty.
+ */
+import type { AgendaEventInfo } from '../../../../../packages/shared/src/protocol';
+import { clear, fmt, h } from '../../core/dom';
+import { button, panel } from '../../ui/components';
+import { AHEAD_DAYS, beyondWords, dayLine, dayOf, monthGrid, pastWords, WEEKDAY_NAMES, WEEKDAYS, type Todo } from './todowords';
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[] }): { el: HTMLElement; paint(): void } {
+  const p = panel('MONTH', { grow: false, cls: 'month' });
+  const now0 = new Date();
+  let shift = 0; // 0 this month, 1 the next
+  let picked = dayOf(Date.now());
+  const paint = () => {
+    const { events, todos } = get();
+    const base = new Date(now0.getFullYear(), now0.getMonth() + shift, 1);
+    const y = base.getFullYear();
+    const m = base.getMonth();
+    const byDay = new Map<string, AgendaEventInfo[]>();
+    for (const e of events) {
+      const k = dayOf(e.start);
+      byDay.set(k, [...(byDay.get(k) ?? []), e]);
+    }
+    const dueDays = new Map<string, number>();
+    for (const t of todos) if (!t.done && t.due) dueDays.set(t.due, (dueDays.get(t.due) ?? 0) + 1);
+    const today = dayOf(Date.now());
+    const prev = button('‹', () => {
+      shift = 0;
+      paint();
+    }, 'monnav');
+    prev.setAttribute('aria-label', 'This month');
+    prev.disabled = shift === 0;
+    const next = button('›', () => {
+      shift = 1;
+      paint();
+    }, 'monnav');
+    next.setAttribute('aria-label', 'Next month');
+    next.disabled = shift === 1;
+    const grid = h('div.mongrid', { role: 'grid', 'aria-label': `${MONTHS[m]} ${y}` },
+      h('div.monrow.monhead', { role: 'row' }, ...WEEKDAYS.map((d, i) => h('span', { role: 'columnheader', 'aria-label': WEEKDAY_NAMES[i] }, d))),
+      ...monthGrid(y, m).map((w) => h('div.monrow', { role: 'row' }, ...w.map((d) => {
+        if (d == null) return h('span.mday.out', { role: 'gridcell' });
+        const k = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const n = byDay.get(k)?.length ?? 0;
+        const due = dueDays.get(k) ?? 0;
+        const b = button(String(d), () => {
+          picked = k;
+          paint();
+        }, `mday${k === today ? ' today' : ''}${k === picked ? ' on' : ''}${n ? ' has' : ''}${due ? ' due' : ''}${k < today ? ' past' : ''}`);
+        b.setAttribute('role', 'gridcell');
+        b.setAttribute('aria-label', dayLine(new Date(y, m, d).getTime(), n, due));
+        b.setAttribute('aria-selected', String(k === picked));
+        return b;
+      }))));
+    // the day picked, said under the grid with what is on it
+    const [py, pm, pd] = picked.split('-').map(Number);
+    const pt = new Date(py!, pm! - 1, pd!).getTime();
+    const evs = (byDay.get(picked) ?? []).sort((a, b) => a.start - b.start);
+    const tds = todos.filter((t) => !t.done && t.due === picked);
+    const far = pt > Date.now() + AHEAD_DAYS * 86400_000;
+    const gone = picked < today;
+    const list = h('div.monlist', { 'aria-live': 'polite' },
+      h('b.mdayline', { dataset: { case: 'keep' } }, dayLine(pt, evs.length, tds.length)),
+      ...(gone && !evs.length ? [h('small.note', pastWords)] : far && !evs.length ? [h('small.note', beyondWords)] : []),
+      ...evs.map((e) => h('div.monev', { dataset: { case: 'keep' } }, h('span.monwhen', e.allDay ? 'All day' : fmt.time(new Date(e.start))), h('span', e.title, e.location ? ` · ${e.location}` : ''))),
+      ...tds.map((t) => h('div.monev.todo', { dataset: { case: 'keep' } }, h('span.monwhen', 'To-do'), h('span', t.text))));
+    clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), grid, list);
+  };
+  paint();
+  return { el: p.el, paint };
+}

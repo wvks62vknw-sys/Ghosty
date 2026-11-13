@@ -3711,6 +3711,36 @@ html #pg-agenda .keyrow.addev > * { min-width: 0; width: 100%; }
 html #pg-agenda .keyrow.addev input[type="datetime-local"] { font-size: 15px; font-variant-numeric: tabular-nums; }
 html #pg-agenda .keyrow.addev select { font-size: 15px; }
 html #pg-agenda .keyrow.addev > button { grid-column: 1 / -1; height: 44px; min-height: 44px !important; }
+/* [planlane] TO-DO: a 44 pt tick, the words (wrapping, never cut), a 44 pt remove; late ones in amber, done ones quieter */
+html #pg-agenda .todoline { margin: 0; padding: 0 16px 6px; font: 400 15px/20px var(--sf); color: var(--ink2); }
+html #pg-agenda .todolist { display: flex; flex-direction: column; }
+html #pg-agenda .todoit { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; column-gap: 10px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+html #pg-agenda .todoit .todotx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html #pg-agenda .todoit .todotx b { font: 500 17px/22px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html #pg-agenda .todoit .todotx small { font: 400 13px/17px var(--sf); color: var(--ink3); }
+html #pg-agenda .todoit.late .todotx small { color: var(--amber); }
+html #pg-agenda .todoit.done .todotx b { color: var(--ink3); text-decoration: line-through; }
+html #pg-agenda .todoit button { width: 44px; height: 44px; min-height: 44px !important; min-width: 44px; padding: 0; }
+html #pg-agenda .todoit button.todotick { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--hair2) !important; background: none !important; }
+html #pg-agenda .todoit button.todotick.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+/* [planlane] MONTH: seven columns, each day a 44 pt key; a dot for events, a ring for a to-do due, today lit */
+html #pg-agenda .monbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; padding: 0 0 8px; }
+html #pg-agenda .monbar button { width: 44px; height: 44px; min-height: 44px !important; padding: 0; }
+html #pg-agenda .monname { text-align: center; font: 600 17px/22px var(--sf); color: var(--ink); }
+html #pg-agenda .mongrid { display: flex; flex-direction: column; gap: 2px; }
+html #pg-agenda .monrow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+html #pg-agenda .monhead span { text-align: center; font: 600 12px/20px var(--sf); color: var(--ink3); }
+html #pg-agenda .mday { position: relative; min-width: 0; width: 100%; height: 44px; min-height: 44px !important; padding: 0; font: 500 16px/1 var(--sf); font-variant-numeric: tabular-nums; color: var(--ink); background: none !important; box-shadow: none !important; }
+html #pg-agenda .mday.past { color: var(--ink3); }
+html #pg-agenda .mday.today { color: var(--c); font-weight: 700; }
+html #pg-agenda .mday.on { box-shadow: inset 0 0 0 2px var(--c) !important; border-radius: var(--rad); }
+html #pg-agenda .mday.has::after { content: ''; position: absolute; left: 50%; bottom: 6px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--c); }
+html #pg-agenda .mday.due::before { content: ''; position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--amber); }
+html #pg-agenda .monlist { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; }
+html #pg-agenda .monlist .mdayline { font: 600 15px/20px var(--sf); color: var(--ink); }
+html #pg-agenda .monev { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .monev .monwhen { color: var(--ink3); font-variant-numeric: tabular-nums; }
+html #pg-agenda .monev.todo .monwhen { color: var(--amber); }
 /* a day: its name as a header with a hairline */
 html #pg-agenda .lab.daylab { display: flex; align-items: center; gap: 10px; margin: 16px 0 2px; font: 600 13px/18px var(--sf); letter-spacing: .06em; color: var(--ink2); }
 html #pg-agenda .lab.daylab::after { content: ''; flex: 1; height: 1px; background: var(--hair); }
@@ -3914,6 +3944,11 @@ html #pg-radio .pn.favs .rw.station .k { color: var(--c); }
 html #pg-radio .rw.station.tuning .n { animation: rctune 1.2s ease-in-out infinite; }
 @keyframes rctune { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { html #pg-radio .rw.station.tuning .n { animation: none; } }
+/* [planlane] the sleep timer under now playing: its line, then a 44 pt key for each choice, wrapping (never sideways) */
+html #pg-radio .pn.nowp .npsleep { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hair); }
+html #pg-radio .pn.nowp .npsleepl { font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-radio .pn.nowp .keyrow.npsleepk { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0; }
+html #pg-radio .pn.nowp .keyrow.npsleepk button { flex: 1 1 auto; min-width: 72px; }
 
 /* ---------- Threats (features/threats): the level, signals worst first, near you as tiles, space weather, launches, RECON ---------- */
 html #pg-threats .pn.signals .rw.link { display: grid; grid-template-columns: 3px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; min-height: 60px; margin: 0; padding: 10px 0; border-radius: 0; }
