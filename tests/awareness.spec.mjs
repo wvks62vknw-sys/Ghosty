@@ -101,7 +101,8 @@ const logOpen = (page) => page.evaluate(() => !!document.querySelector('.hud.cor
 /** Something said on the screen that is up (the chat's box is on Home only; the microphone says it anywhere, as this does). */
 const say = (page, words) => page.evaluate((t) => window.__ghosty.send(t, false), words);
 const closeLog = () => Promise.resolve();
-const lastReply = (page) => page.evaluate(() => [...document.querySelectorAll('.msg:not(.me)')].at(-1)?.textContent ?? '');
+// the reply's own words, without its rating row: 👍 / 👎 and THAT FELT OFF beside them (features/core/rate.ts)
+const lastReply = (page) => page.evaluate(() => { const m = [...document.querySelectorAll('.msg:not(.me)')].at(-1)?.cloneNode(true); m?.querySelectorAll('.rate').forEach((r) => r.remove()); return m?.textContent ?? ''; });
 const replyMatching = (page, re) => page.waitForFunction((src) => [...document.querySelectorAll('.msg:not(.me)')].some((m) => new RegExp(src).test(m.textContent ?? '')), re.source, { timeout: 12000 }).then(() => true, () => false);
 const chatCalls = (bodies) => bodies.length;
 const wide = (page) => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || document.body.scrollWidth > innerWidth + 1);
