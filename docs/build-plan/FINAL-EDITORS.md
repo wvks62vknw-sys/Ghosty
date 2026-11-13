@@ -53,6 +53,24 @@ photo with video. A separate reviewer then read all of the changes looking for f
 
   Everywhere it checks that every key is 44 pt, nothing goes sideways and no words are cut.
 
+### What the separate review caught, and what was fixed before the merge
+- **Spreadsheets: AutoSum.** A new total did not recalculate the cells that depended on it. Fixed.
+- **Spreadsheets: deleting rows on another sheet.** Deleting rows that another sheet's formula pointed at left a #REF! that the
+  formula could not read back. After that, the formula's other references stopped following later changes. It is now a plain #REF!,
+  and the rest of the formula keeps moving.
+- **Spreadsheets: whole columns.** Inserting a row broke a whole-column range such as A1:A10000. The range now stays whole, as in
+  Excel.
+- **Presentations:** transitions in files from PowerPoint 2010 and later were missed. Fixed.
+- **Documents: Word files.** A Word file with underline plus strike or highlight wrote its styles in an order that a strict reader
+  rejects. Fixed.
+- **Workspace: double marks.** A line like `a==b` was turned into highlighted text when it was exported to Markdown and read back in.
+  It now comes back exactly as written.
+- **Video: duplicating a clip.** Duplicating a clip with a fade-out made the picture dip to black between the clip and its copy. The
+  fade-out now moves to the copy.
+- New brain tests cover the spreadsheet fixes.
+- Left for later: AutoSum over several columns writes into the row under the selection even when that row already holds something.
+  UNDO takes it back.
+
 ### Spreadsheets
 **What was wrong:**
 - There was no way to insert or delete rows or columns.
