@@ -30,6 +30,9 @@ export function socialInfo(fresh = false): Promise<SocialInfo | null> {
   return held.info;
 }
 
+/** A fresh read was made (after his APPROVE, NO or a new draft): SENT TODAY, shown beside the queue, paints from it too. */
+const fresh = new EventTarget();
+
 /** The drafts still waiting for his APPROVE (or a failed send that waits again), across his accounts. */
 export const waiting = (info: SocialInfo | null) => (info?.drafts ?? []).filter((d) => (d.state === 'waiting' || d.state === 'failed') && Date.now() <= d.expires);
 
@@ -82,9 +85,10 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
   /* state: social.queue loading */
   const note = h('p.pknote', QUEUE_LOADING);
   let gone = false;
-  const paint = async (fresh = false) => {
-    const info = await socialInfo(fresh);
+  const paint = async (again = false) => {
+    const info = await socialInfo(again);
     if (gone) return;
+    if (again) fresh.dispatchEvent(new Event('read'));
     const w = waiting(info).sort((a, b) => b.at - a.at);
     /* state: social.queue offline */
     /* state: social.queue empty */
@@ -259,7 +263,7 @@ export function sentScreen(): { el: HTMLElement; stop(): void } {
   /* state: social.sent loading */
   const note = h('p.pknote.socsentl', SENT_LOADING);
   let gone = false;
-  void socialInfo().then((info) => {
+  const paint = () => void socialInfo().then((info) => {
     if (gone) return;
     const sent = [...(info?.sent ?? [])].sort((a, b) => b.at - a.at);
     /* state: social.sent error */
@@ -271,5 +275,8 @@ export function sentScreen(): { el: HTMLElement; stop(): void } {
       s.link ? h('a.lnk.socopen', { href: s.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': `Open it on ${accountName(s.account)}` }, `Open it on ${accountName(s.account)} ↗`) : null,
     )));
   });
-  return { el: h('div.pkcol', note, list), stop: () => (gone = true) };
+  paint();
+  // what went out a moment ago shows here at once, not on the next visit
+  fresh.addEventListener('read', paint);
+  return { el: h('div.pkcol', note, list), stop: () => ((gone = true), fresh.removeEventListener('read', paint)) };
 }

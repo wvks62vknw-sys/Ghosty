@@ -25,6 +25,7 @@ const SENT = [{ at: Date.now() - 3600_000, account: 'bluesky', kind: 'post', tex
 async function standIn(page, { offline = false } = {}) {
   const asked = [];
   const drafts = [];
+  const sent = [...SENT];
   const bodies = [];
   let n = 0;
   await page.route(/\/api\/(social|lens\/share)(\/|\?|$)/, async (r) => {
@@ -32,7 +33,7 @@ async function standIn(page, { offline = false } = {}) {
     const m = r.request().method();
     asked.push(`${m} ${u.pathname}`);
     if (offline) return r.abort('internetdisconnected');
-    if (u.pathname === '/api/social' && m === 'GET') return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ accounts: ACCOUNTS, drafts, sent: SENT }) });
+    if (u.pathname === '/api/social' && m === 'GET') return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ accounts: ACCOUNTS, drafts, sent }) });
     if (u.pathname === '/api/lens/share') return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 'SpecPicture00001', url: 'https://ghosty.example/i/SpecPicture00001', expires: Date.now() + 86400_000, type: 'image/png' }) });
     if (u.pathname === '/api/social/draft') {
       const b = JSON.parse(r.request().postData() ?? '{}');
@@ -44,8 +45,9 @@ async function standIn(page, { offline = false } = {}) {
     if (u.pathname === '/api/social/approve') {
       const { id } = JSON.parse(r.request().postData() ?? '{}');
       const d = drafts.find((x) => x.id === id);
-      if (d) Object.assign(d, { state: 'sent', link: 'https://bsky.app/profile/spec.bsky.social/post/3kspec2' });
-      return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ draft: d, said: `Posted on Bluesky: ${d?.link}` }) });
+      if (d) Object.assign(d, { state: 'sent', link: d.account === 'mastodon' ? 'https://mastodon.social/@spec/113' : 'https://bsky.app/profile/spec.bsky.social/post/3kspec2' });
+      if (d) sent.push({ at: Date.now(), account: d.account, kind: 'post', text: d.text, link: d.link });
+      return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ draft: d, said: `Posted: ${d?.link}` }) });
     }
     return r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"not in this spec"}' });
   });
@@ -141,10 +143,11 @@ export async function run(H) {
     await page.waitForFunction(() => /1 waiting for your APPROVE/.test(document.querySelector('#pg-social .pknote')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
     check(s.asked.filter((a) => /approve/.test(a)).length === 1, `[${vp.width}] one tap, one approve: ${s.asked.filter((a) => /approve/.test(a)).join(', ')}`);
     // SENT TODAY: what went out with its link, a key at 44 pt
-    const sent = await page.textContent('#pg-social .socsentl').catch(() => '');
-    check(/went out today, each after your APPROVE/.test(sent ?? ''), `[${vp.width}] SENT TODAY says it: ${sent}`);
-    const lk = await page.$eval('#pg-social a.socopen', (a) => ({ t: a.textContent, h: a.getBoundingClientRect().height, href: a.getAttribute('href') })).catch(() => null);
-    check(lk && /Open it on Bluesky/.test(lk.t) && lk.h >= 43.5 && /^https:\/\/bsky\.app\//.test(lk.href), `[${vp.width}] the link to what went out: ${JSON.stringify(lk)}`);
+    await page.waitForFunction(() => document.querySelectorAll('#pg-social .socsent').length === 2, null, { timeout: 8000 }).catch(() => undefined);
+    const sentLine = await page.textContent('#pg-social .socsentl').catch(() => '');
+    check(sentLine === '2 things went out today, each after your APPROVE:', `[${vp.width}] SENT TODAY shows what his APPROVE just sent, at once: ${sentLine}`);
+    const lk = await page.$$eval('#pg-social a.socopen', (a) => a.map((x) => ({ t: x.textContent, h: x.getBoundingClientRect().height, href: x.getAttribute('href') }))).catch(() => []);
+    check(lk.length === 2 && lk.every((x) => x.h >= 43.5 && (/on Bluesky/.test(x.t) ? /^https:\/\/bsky\.app\//.test(x.href) : /on Mastodon/.test(x.t) && /^https:\/\/mastodon\.social\//.test(x.href))), `[${vp.width}] each one links to where it went out, at 44 pt: ${JSON.stringify(lk)}`);
     const fp = await fit(page, '#pg-social');
     check(!fp.small.length && !fp.sideways && !fp.cut.length, `[${vp.width}] SOCIAL fits at BODY 21: ${JSON.stringify(fp)}`);
     await ctx.close();
