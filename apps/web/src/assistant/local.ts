@@ -236,7 +236,12 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   run: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   breathe: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   stretch: async (text, opts) => packAnswer(await bodyTurn(text), opts),
-  water: async (text, opts) => packAnswer(await bodyTurn(text), opts),
+  // [bodylane] a drink, kept on this phone by the water tracker (features/body/track.ts), in any of his wordings
+  water: async (text, opts) => {
+    const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
+    if (r) return packAnswer({ said: text, reply: r.reply, go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] }, opts);
+    return packAnswer(await bodyTurn(text), opts);
+  },
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   // [bodylane] the pantry and the recipe book on this phone (features/kitchen/larder.ts)
   larder: async (text, opts) => {

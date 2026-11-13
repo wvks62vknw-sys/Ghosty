@@ -95,7 +95,8 @@ number is labelled a first estimate, never medical advice.
   the other way: with my brain cut off, the amount is drawn at once (never "…"), there is no error, and a glass is kept.
 - **tabs.spec** lists the new pills and pages: BODY's six (Water, Sleep, Move, Mood, Weight, Health) and its ten pages, and KITCHEN's Pantry and Recipes. **lifepass** opens the camera, the run, breathing and stretching through their new pills, Move and Mood, with every check as before.
 - **The ratchet** gains rows for the new screens' states (body.sleep, steps, weight and mood; kitchen.pantry and recipes).
-- **The catalogue** describes water and the trackers as they really are now, and adds the pantry.
+- **The catalogue** describes water and the trackers as they really are now, and the pantry beside the recipe book.
+- **The voice lane's meanings.** A drink logged in any of its wordings ("please log a cup of water", "hey ghosty log a glass") lands on the `water` table, as the voice lane's meanings test expects. That table now keeps the drink on the phone through the tracker. Every other tracker wording goes to the `track` table.
 
 ## How to try it on his phone
 1. Open BODY, then Water. Tap Pint and the ring moves.
