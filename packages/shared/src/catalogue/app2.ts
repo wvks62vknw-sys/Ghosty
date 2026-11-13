@@ -238,8 +238,9 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:radio:NOW PLAYING': {
     name: 'What’s playing now', line: 'You can see what is playing now, and pause or stop it.',
-    more: 'It quietens by itself while I speak, then comes back up.',
-    say: ['Stop the radio'], scene: ['playing'], cat: 'play',
+    // [planlane:radio] the sleep timer and what's on, said in the chat (no model)
+    more: 'It quietens by itself while I speak, then comes back up. A sleep timer stops it after a while, at a time, or at the end of the hour.',
+    say: ['Stop the radio', 'Turn the radio off in 20 minutes', 'What station is this?'], scene: ['playing'], cat: 'play',
   },
   'panel:radio:RECENT': {
     name: 'Stations you played lately', line: 'You can play again any of the last eight stations you listened to, newest first.',
@@ -249,9 +250,12 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:radio:FAVOURITES': {
     name: 'Your favourite stations', line: 'You can keep your favourite stations one tap away.',
-    more: 'Star a station and it stays here, on this phone.',
-    say: ['Play my favourite station'], scene: ['playing'], cat: 'play',
+    // [planlane:radio] in his own order (REORDER), stepped through and played by place from the chat
+    more: 'Star a station and it stays here, on this phone, in the order you put them.',
+    say: ['Play my favourite station', 'Play my second favourite', 'Next station', 'Save this station'], scene: ['playing'], cat: 'play',
   },
+  // [planlane:radio] the radio's words answered on the phone with no model (features/radio/asks.ts): the sleep timer, what's on
+  'phrase:planradio': { same: 'panel:radio:NOW PLAYING' },
   // ---- REVERSE
   'panel:reverse:TAKE SOMETHING APART': {
     name: 'Take software apart', line: 'You can paste a website, an app package, a code project or a file link, and I take it apart.',
