@@ -68,17 +68,29 @@ export function orbFx(): OrbFx {
     return ui.get().voice === 'listening' ? micLevel.spectrum : null;
   };
 
+  // the pulse: its own small tick as well as the frame's, so a frame that the world's drawing holds up (software GL on a loaded runner draws
+  // one in seconds) does not stop the glow breathing: the glow is a variable, not a drawing
+  let lastStill = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pulse = (t: number, still: boolean) => {
+    const think = !still && thinkingNow(t);
+    orbFxState.thinking = think;
+    const breath = think ? 0.5 - 0.5 * Math.cos(2 * Math.PI * BREATH_HZ * ((t - since) / 1000)) : 0;
+    if (Math.abs(breath - orbFxState.breath) > 0.002 || (!think && orbFxState.breath)) {
+      orbFxState.breath = Math.round(breath * 1000) / 1000;
+      el.style.setProperty('--g-orb-breath', String(orbFxState.breath));
+    }
+  };
+  const tick = setInterval(() => {
+    if (!el.isConnected) return;
+    if (ui.get().busy || orbFxState.breath || orbFxState.thinking) pulse(performance.now(), lastStill);
+  }, 60);
+  void tick;
+
   return {
     el,
     frame(t, still, size) {
-      // the pulse
-      const think = !still && thinkingNow(t);
-      orbFxState.thinking = think;
-      const breath = think ? 0.5 - 0.5 * Math.cos(2 * Math.PI * BREATH_HZ * ((t - since) / 1000)) : 0;
-      if (Math.abs(breath - orbFxState.breath) > 0.002 || (!think && orbFxState.breath)) {
-        orbFxState.breath = Math.round(breath * 1000) / 1000;
-        el.style.setProperty('--g-orb-breath', String(orbFxState.breath));
-      }
+      lastStill = still;
+      pulse(t, still);
       // the ring
       const bins = still ? null : spectrum();
       const on = !!bins && bins.length > 0;
