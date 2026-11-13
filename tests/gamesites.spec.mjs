@@ -60,7 +60,7 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
   check(await until(page, () => document.querySelector('#pg-gamestudio .stSitesLine'), null, 8000), `${W}: (b) AS AN APP is open`);
   const line = await page.locator('#pg-gamestudio .stSitesLine').textContent();
   check(line === `Ask me in the chat: “put ${name} on my sites” and I’ll ask your APPROVE.`, `${W}: (b) PUT IT ON MY SITES says the sentence that starts the chat turn: ${line}`);
-  const said = await page.evaluate(() => document.querySelector('#pg-gamestudio .stSites')?.closest('section, .stSection, div')?.textContent ?? '');
+  const said = await page.evaluate(() => document.querySelector('#pg-gamestudio .stSites')?.closest('section.stSec')?.textContent ?? '');
   check(/installs to a Home Screen, plays offline and keeps its saves/.test(said) && !/can’t put this on your sites yet/.test(said), `${W}: (b) it says what the page will be, and no longer that it cannot`);
   // (i) the studio's keys: 44 pt, nothing sideways, BODY 21 clips nothing
   for (const body of ['', '21']) {
@@ -86,7 +86,7 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
     await ctx.close();
     continue;
   }
-  const asked = await page.evaluate((n) => [...document.querySelectorAll('#log .msg, #log .user, #log *')].some((e) => e.children.length === 0 && e.textContent.trim() === `Put ${n} on my sites`), name);
+  const asked = await page.evaluate((n) => (document.querySelector('#pg-core')?.textContent ?? '').includes(`Put ${n} on my sites`), name);
   check(asked, `${W}: (c) his words in the chat are "Put ${name} on my sites"`);
   const reason = await card.evaluate((b) => b.closest('.approval')?.textContent ?? '');
   const slug = reason.match(/\/s\/([a-z0-9-]+)\/\?/)?.[1] ?? '';
@@ -99,7 +99,7 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
 
   // (d) APPROVE: the link given, the page live
   await card.tap();
-  check(await until(page, (s) => [...document.querySelectorAll('#log a, #log *')].some((e) => (e.getAttribute?.('href') ?? e.textContent ?? '').includes(`/s/${s}/`)), slug, 30000), `${W}: (d) after APPROVE the chat gives the link /s/${slug}/`);
+  check(await until(page, (s) => document.querySelector(`#pg-core a.sitelink[href$="/s/${s}/"]`), slug, 30000), `${W}: (d) after APPROVE the chat gives the link /s/${slug}/, as a card he taps`);
   let live = null;
   for (let i = 0; i < 40 && !live; i++) {
     const r = await page.request.get(link, { headers: { 'sec-fetch-dest': 'document' } });
