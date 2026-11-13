@@ -68,7 +68,18 @@ Everything is in `shell/boot.ts`. Nothing about the film's look or its cut chang
    - Switching away and straight back (the app still alive) is not a cold open. It gets Mind's one breath, as before.
    - "When you were last here" is the stamp Ghosty already keeps on the phone (`state/lastopen.ts`). Nothing is sent.
    - The short cut ends by its own 4.8 seconds, even when Mind is late.
-5. **Unchanged, and checked:**
+5. **bootpass was already red on the round's base, so I made it green.** It is on this lane's list to keep green.
+   - **The orb's five states with Reduce Motion on.** Idle and attending looked almost the same: about 2.4 of 255 apart in the orb's square,
+     and the check wants 5. The changes, in `features/core/mind.ts`:
+     - attending's lean now tips the whole orb forward, its equator ring with it (before, only the inner constellation tipped);
+     - thinking's rim and light are a step up;
+     - listening's open rim is a step wider;
+     - speaking's held sweep sits on the equator, where its refraction shows.
+
+     Every pair of states is now at least 5 apart at both widths. Nothing changes with motion on except these same light levels.
+   - **A page error with service workers switched off.** A browser like that has no push. `assistant/push.ts` now says "unsupported" there
+     instead of throwing.
+6. **Unchanged, and checked:**
    - a tap skips straight to the landing;
    - Reduce Motion gets the calm still version: two frames, 1.2 s, nothing travelling. It now ends by its own 1.2 s even when Mind is late.
    - the landing hands the orb to Home's real Mind in the hero's box to the pixel, with the house and the ask line sliding in a beat later.
@@ -138,4 +149,15 @@ version it chose (`kind`), whether the film drew (`film`), its length (`ended`) 
 
 ## The checks' runs
 
-PENDING
+All on the preview, Chromium with software graphics, at 440 × 956 (and 390 × 844 where the spec has it):
+
+| Check | Result |
+| --- | --- |
+| bootfilm (new) | Green. Red on the code before the fix: every check failed, and it played `flat`. |
+| boot | Green, with the updated lean check. |
+| bootpass | Green. Red on the base: the orb's states, and the `pushManager` page error. |
+| hero, octideas | Green. |
+| thescan, polish1, eyehud2 | Green, rerun after the orb change. |
+| The brain suite | 2,153 of 2,153. |
+| ratchet, knowledge, look tests | 43 of 43. |
+| Typecheck | Clean. |
