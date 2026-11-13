@@ -16,7 +16,8 @@ import { go } from '../../shell/tabs';
 import { button, empty, modal, panel, toast, undo, undoBar, type Panel } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 import { waiting } from '../../ui/wait';
-import { dayWords, LOADING, noHitWords, OFFLINE_EMPTY, PATTERNS_EMPTY, PATTERNS_WHY, READ_FAILED } from './words';
+import { dayWords, findHead, findNone, LOADING, noHitWords, OFFLINE_EMPTY, PATTERNS_EMPTY, PATTERNS_WHY, READ_FAILED, RECALL_COLD, recallHead, recallNone } from './words';
+import { recallAsked } from '../../../../../packages/shared/src/recall';
 
 const KINDS: [string, string][] = [
   ['all', 'Everything'],
@@ -292,7 +293,29 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   find.addEventListener('input', () => {
     shown = 30;
     paint();
+    // [recall] FIND by meaning over his turns and things on this phone, above the list (features/memory/recall.ts)
+    clearTimeout(findTimer);
+    findTimer = setTimeout(() => void findMine(find.value), 250);
   });
+  // [recall] MEMORY → FIND: the same questions as the chat ("what did I ask you about trains?", or just "garden"), the same card
+  const found = h('div.recallfind', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep' } });
+  p.el.insertBefore(found, p.body);
+  let findTimer: ReturnType<typeof setTimeout> | undefined;
+  async function findMine(raw: string): Promise<void> {
+    const about = recallAsked(raw);
+    const q = (about ?? raw).trim();
+    if (q.length < 3) return void clear(found);
+    const R = await import('./recall');
+    if (!(await R.recallWarm())) {
+      void R.buildIndex().catch(() => undefined);
+      return void clear(found, h('p.note.recallcold', RECALL_COLD));
+    }
+    const hits = await R.findLocal(q, { turns: !!about });
+    if (find.value !== raw) return;
+    const rows = hits.map((f) => ({ key: f.key, kind: f.kind, id: f.id, title: f.title, line: f.line, at: f.at, stamp: f.stamp, day: f.day }));
+    const { recallRows } = await import('./recallcard');
+    clear(found, ...(hits.length ? [h('p.note.recallhead', about ? recallHead(hits.length, about) : findHead(hits.length, q)), recallRows(rows)] : [h('p.note.recallnone', about ? recallNone(about) : findNone(q))]));
+  }
 
   async function refresh(): Promise<void> {
     // a first read says what it is doing (a page of memory is a fetch he can feel)

@@ -38,8 +38,10 @@ export async function addFact(storage: DurableObjectStorage, text: string, src?:
 export const memoryTools: Tool[] = [
   {
     name: 'remember',
-    description: 'Save a lasting fact about your owner (preferences, people, plans, details they told you). Only facts the OWNER told you — never things you read on the web.',
-    parameters: { type: 'object', properties: { text: { type: 'string', description: 'The fact, as one short sentence.' } }, required: ['text'] },
+    // ([recall] condensed by 145 characters, with forget's, forget_everything's and list_memory's, to pay for `recall`'s spec inside the
+    //  plain turn's tool-description ceiling, 6,500: prompt.test and document.test)
+    description: 'Save a lasting fact, in one short sentence, that the OWNER told you; never one read on the web.',
+    parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
     risk: 'auto',
     async run(a, ctx) {
       // Saved during a chat: the Memory tab shows the owner's message from this moment as its source.
@@ -49,7 +51,7 @@ export const memoryTools: Tool[] = [
   },
   {
     name: 'forget',
-    description: 'Delete a remembered fact by its id or by matching text.',
+    description: 'Drop a fact by its id or words.',
     parameters: { type: 'object', properties: { id_or_text: { type: 'string' } }, required: ['id_or_text'] },
     risk: 'auto',
     async run(a, ctx) {
@@ -70,7 +72,7 @@ export const memoryTools: Tool[] = [
   },
   {
     name: 'forget_everything',
-    description: 'Erase every remembered fact about the owner. Only when the owner explicitly asks. Needs approval.',
+    description: 'Erase every fact; only when he asks.',
     parameters: { type: 'object', properties: {} },
     risk: 'confirm',
     async run(_a, ctx) {
@@ -87,7 +89,7 @@ export const memoryTools: Tool[] = [
   },
   {
     name: 'list_memory',
-    description: 'List everything you remember about your owner, with ids.',
+    description: 'List his facts, with ids.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
     pure: true,
@@ -102,8 +104,8 @@ export const memoryTools: Tool[] = [
   {
     // [recall] BRIEF-DEPTH-MEMORY 2c: "what did I ask you about X?" over the 30 days of his turns, the app's and Telegram's alike
     name: 'recall',
-    description: 'Find what the owner asked you before, by his words: "what did I ask you about X", "when did I mention X". Returns the matching turns with their day and channel.',
-    parameters: { type: 'object', properties: { about: { type: 'string', description: 'What he is looking for, in his words.' } }, required: ['about'] },
+    description: 'Find what he asked you before ("what did I ask you about X"): day and channel.',
+    parameters: { type: 'object', properties: { about: { type: 'string' } }, required: ['about'] },
     risk: 'auto',
     pure: true,
     async run(a, ctx) {
