@@ -9338,3 +9338,9 @@ html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px
 .gkask { margin-top: var(--g-s-2); }
 /* (a touch phone's `html button:not(…) { min-height: 40px !important }` is as specific: this one comes after it and wins) */
 html body .gkask button, html body .gkprops button { height: auto; min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
+
+/* ===== FINAL ROUND · THE LEARN LANE (13 Nov): every key 44 pt on the reader, rehearse, the lab and the interpreter; at the
+   biggest text (BODY 21) the GYM's card names wrap instead of being cut with an ellipsis. Tokens only. */
+html :is(#pg-reader, #pg-rehearse, #pg-lab, #pg-interpreter, #pg-library, #pg-learning, #pg-coach) button { min-height: 44px !important; min-width: 44px; } /* (the phone-wide hover:none rule holds buttons at 40 px) */
+html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard :is(.gymname, .gymsay) { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard .gymrl :is(.gymrate, .gymnext), html:is([data-body="19"], [data-body="21"]) #pg-gym .gymlvhd .k { white-space: normal; overflow: visible; text-overflow: clip; }

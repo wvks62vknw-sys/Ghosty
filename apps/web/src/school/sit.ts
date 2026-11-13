@@ -503,7 +503,7 @@ export function stopSitting(): void {
   ctl?.abort();
 }
 
-export const notDownloaded = "The offline brain isn't on this phone yet, so he can't sit an exam: download it in Settings → Offline brain (on Wi-Fi).";
+export const notDownloaded = "With no signal, papers are sat on the offline brain, and it isn't on this phone yet: download it in Settings → Offline brain (on Wi-Fi).";
 
 /** The model itself failed (WebGPU lost its device, its memory ran out, its worker ended), not one question. */
 const GONE = /device|lost|memory|OOM|allocat|not loaded|dispos|destroy|stopped|terminat/i;
