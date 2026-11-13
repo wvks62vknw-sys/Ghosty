@@ -227,12 +227,21 @@ async function talkPage(name, { tts = true, viewport = PHONE, keepInbox = false,
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   if (before) await before(page);
   const io = { heard: [], stt: [], statusSeen: 0 };
+  // (a check that ends closes its page while the page's own status poll may be on its way: that one is let go, never thrown out of
+  // the run as "socket hang up" or "Response has been disposed"; one that fails while the page is open is a problem)
+  let closing = false;
+  const close = ctx.close.bind(ctx);
+  ctx.close = (...a) => ((closing = true), close(...a));
   await ctx.route('**/api/status', async (route) => {
-    const r = await route.fetch();
-    const j = await r.json();
-    j.speech = { stt: true, tts };
-    io.statusSeen++;
-    await route.fulfill({ response: r, headers: { ...r.headers(), 'content-type': 'application/json' }, body: JSON.stringify(j) });
+    try {
+      const r = await route.fetch();
+      const j = await r.json();
+      j.speech = { stt: true, tts };
+      io.statusSeen++;
+      await route.fulfill({ response: r, headers: { ...r.headers(), 'content-type': 'application/json' }, body: JSON.stringify(j) });
+    } catch (e) {
+      if (!closing) problems.push(`[${name}] the page's status read failed on its way: ${(e?.message ?? '').split('\n')[0]}`);
+    }
   });
   await ctx.route('**/api/tts', async (route) => {
     const text = JSON.parse(route.request().postData() ?? '{}').text ?? '';
@@ -288,6 +297,14 @@ const replyClips = (page, from) =>
   }, from);
 /** What went to Ghosty's voice after `from`. */
 const ttsSince = (page, from) => page.evaluate((t0) => window.__talk.tts.filter((x) => x.at >= t0), from);
+/** Every clip asked for after `from` has played to its end and the ear is open again: a reply said through, not just begun (a
+ *  carrying on is four sentences, about fifteen seconds of voice at 15 characters a second). */
+const saidThrough = (page, from, timeout = 45000) =>
+  page.waitForFunction((t) => {
+    const asked = window.__talk.tts.filter((x) => x.at > t).length;
+    const clips = window.__talk.clips.filter((c) => c.at > t && c.dur > 0.3);
+    return asked > 0 && clips.filter((c) => c.ev === 'ended').length >= asked && window.__ghosty.ui.get().voice === 'listening';
+  }, from, { timeout }).then(() => true, () => false);
 
 // ================================================================ 1. FIRST SPOKEN WORD
 const ASK = (what) => `talk to me about ${what} ${RUN}`;
@@ -431,7 +448,9 @@ if (part('spoken')) {
     const twice = (await ttsSince(page, again + 300)).map((x) => x.text).join(' ');
     if (!/^…?\s*as I was saying,/i.test(twice)) problems.push(`[${name}] a second "go on" did not carry on: "${twice.slice(0, 80) || '(nothing said)'}"`);
     if (/as I was saying,.*as I was saying/i.test(twice)) problems.push(`[${name}] carried on with the bridge twice: "${twice.slice(0, 100)}"`);
-    await waitVoice(page, 'listening', 20000);
+    // (said through before the next ask: the ear is open again while that carrying on is still being fetched, so "listening" alone
+    // let the ask below start over it on a slow runner, and its tap cut the carrying on instead of the reply about the hills)
+    if (!(await saidThrough(page, again + 300))) problems.push(`[${name}] the second carrying on was not said through: ${JSON.stringify(await page.evaluate((t) => window.__talk.clips.filter((c) => c.at > t).map((c) => c.ev), again))}`);
   }
 
   // 2c. a new ask after a cut: the cut reply stays as it is, the ask is answered, and the brain knows what he heard
@@ -440,17 +459,31 @@ if (part('spoken')) {
   io.heard.push(ASK('the hills'));
   const t1 = await speakFor(page, 700);
   await page.waitForFunction((t) => window.__talk.clips.filter((c) => c.at >= t && c.ev === 'playing' && c.dur > 0.3).length >= 2, t1, { timeout: 20000 }).catch(() => problems.push(`[${name}] the second piece about the hills never played`));
-  await page.waitForTimeout(300);
-  const heardPiece = (await ttsSince(page, t1))[0]?.text ?? '';
+  // The tap lands in a piece while it plays, with time left in it: never in the gap between two, nor in a piece's last moment (the
+  // second piece, "It is older than it looks.", lasts under two seconds: a slow runner's fixed 300 ms and the click after it ran
+  // into the third, and the check below then took what he really heard for more than he did).
   const box = await page.locator('#pg-core .rwrap').boundingBox();
+  await page.waitForFunction((t) => {
+    const el = document.getElementById('gvoice');
+    const cs = window.__talk.clips.filter((c) => c.at >= t && c.dur > 0.3);
+    return cs.filter((c) => c.ev === 'playing').length >= 2 && cs.at(-1)?.ev === 'playing' && !!el && !el.paused && el.currentTime > 0.3 && el.duration - el.currentTime > 0.8;
+  }, t1, { timeout: 20000 }).catch(() => problems.push(`[${name}] no piece about the hills was playing to tap`));
   const tapAt = await page.evaluate(() => performance.now());
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   const tapSilence = await page.waitForFunction((t) => {
     const p = window.__talk.clips.filter((c) => c.ev === 'pause' && c.at >= t)[0];
-    return p ? p.at - t : 0;
+    return p ? Math.max(0.1, p.at - t) : 0;
   }, tapAt, { timeout: 2000 }).then((h) => h.jsonValue(), () => -1);
   measured.tapToSilence = tapSilence;
   if (tapSilence < 0 || tapSilence > 150) problems.push(`[${name}] a tap took ${ms(tapSilence)} to silence him`);
+  // what he heard: every piece that began before the tap silenced him, but the one it silenced (the pieces in the order they were asked for)
+  // (a clip that ends by itself fires 'pause' too, before 'ended': the silence is the first pause after the tap)
+  const { pieces, begun } = await page.evaluate(([t, tap]) => {
+    const stop = window.__talk.clips.find((c) => c.ev === 'pause' && c.at >= tap)?.at ?? performance.now();
+    return { pieces: window.__talk.tts.filter((x) => x.at >= t).map((x) => x.text), begun: window.__talk.clips.filter((c) => c.at >= t && c.at <= stop && c.dur > 0.3 && c.ev === 'playing').length };
+  }, [t1, tapAt]);
+  const heardPieces = pieces.slice(0, Math.max(1, begun - 1));
+  const cutPieceHills = pieces[Math.max(1, begun - 1)] ?? '';
   await waitVoice(page, 'listening', 8000);
   await settle(page);
   io.heard.push('what did I hear?');
@@ -458,8 +491,9 @@ if (part('spoken')) {
   if (!(await seen(page, /You heard only: "/, 15000))) problems.push(`[${name}] the brain was not told what he heard of the cut reply (${await page.evaluate(() => [...document.querySelectorAll('#pg-core .log .msg:not(.me)')].at(-1)?.textContent ?? '')})`);
   else {
     const said = await page.evaluate(() => [...document.querySelectorAll('#pg-core .log .msg:not(.me)')].map((m) => m.textContent ?? '').findLast((t) => t.includes('You heard only')) ?? '');
-    if (!said.includes(heardPiece.slice(0, 25))) problems.push(`[${name}] the brain was told he heard "${said.slice(0, 120)}", not "${heardPiece}"`);
-    if (/older than it looks/.test(said)) problems.push(`[${name}] the brain was told he heard more than he did`);
+    const missing = heardPieces.filter((p) => !said.includes(p.slice(0, 25)));
+    if (missing.length) problems.push(`[${name}] the brain was told he heard "${said.slice(0, 160)}", not "${heardPieces.join(' ')}"`);
+    if (cutPieceHills && said.includes(cutPieceHills.slice(0, 20))) problems.push(`[${name}] the brain was told he heard more than he did: "${cutPieceHills}" was cut, and told as heard`);
   }
   if (await page.evaluate(() => document.body.innerText.includes('Mock reply to: what did I hear'))) problems.push(`[${name}] the new ask was taken for something else`);
   await page.click('#mic').catch(() => undefined);

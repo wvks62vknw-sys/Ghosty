@@ -984,12 +984,14 @@ export const coreTab: TabDef = {
     };
     const paintCapRate = () => {
       const last = chat.get().entries.at(-1);
-      const done = !!chat.get().live && !ui.get().busy && last?.kind === 'assistant';
+      // (done: the turn is over AND the reply has been said. While it is read out the caption keeps no keys: in The Scan the caption
+      // lies over the orb, and THAT FELT OFF, beside the thumbs, sat on the orb's centre, so his tap to silence me opened its sheet)
+      const done = !!chat.get().live && !ui.get().busy && ui.get().voice !== 'speaking' && last?.kind === 'assistant';
       clear(capRate, ...(done && rateable(last) ? [rateRow(last)] : []),
         // [offline2] the reply card carries ASK THE CLOUD too, under an answer the phone gave first
         ...(done && last.first && !last.struck && last.text && ui.get().connected !== false ? [h('div.row.askrow', askCloudButton(last.at))] : []));
     };
-    ui.subscribe((u, prev) => void (u.busy !== prev.busy && paintCapRate()));
+    ui.subscribe((u, prev) => void ((u.busy !== prev.busy || (u.voice === 'speaking') !== (prev.voice === 'speaking')) && paintCapRate()));
     chat.subscribe(paintLog);
     canThink.subscribe(paintLog);
     settings.subscribe((st, prev) => st.offlineBrain !== prev.offlineBrain && paintLog());

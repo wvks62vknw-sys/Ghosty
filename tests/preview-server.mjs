@@ -180,7 +180,7 @@ env.ASSETS = {
 };
 const TYPES = { '.onnx': 'application/octet-stream', '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   try {
     // Test only: an NDJSON stream of the given lines (base64) that stays open `hold` ms before ending —
@@ -363,4 +363,9 @@ createServer(async (req, res) => {
     if (!res.headersSent) res.writeHead(500);
     res.end(String(e));
   }
-}).listen(port, () => console.log(`Ghosty preview on http://localhost:${port}  (owner key: preview-owner-key-0123456789)`));
+});
+// An idle connection stays open until the browser closes it. Node's default closes one after 5 s, and a request a spec's
+// route.fetch sends on it just then dies as "socket hang up" (Playwright's fetch keeps its connections alive and reuses them
+// with no timeout of its own): the talk spec's /api/status route fell over that way on CI.
+server.keepAliveTimeout = 0;
+server.listen(port, () => console.log(`Ghosty preview on http://localhost:${port}  (owner key: preview-owner-key-0123456789)`));
