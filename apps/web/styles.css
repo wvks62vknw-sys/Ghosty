@@ -591,6 +591,28 @@ canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
 .camgrid[hidden] { display: none; }
 .eyeinfo .camview.big { margin-bottom: 6px; }
 @media (max-width: 700px) { .camgrid { width: 62vw; } }
+/* THE BAND (lane SEE, 13 Nov; features/eye/index.ts reach()): the card, the CCTV grid, the layers sheet, ROAD AHEAD and the zoom rail live in one
+   measured band, from the foot of the search, its chips and his places down to the sheet's keys; never over the chips or the keys, in any look,
+   with the house on or off. One corner, one thing: the newest wins (a card folds the sheet and closes LOOK; the sheet or LOOK opened hides the card
+   until it folds). */
+html .hud.eye .eyeinfo { top: var(--eye-band-top, 0px); max-height: min(420px, var(--eye-reach, 100%)); display: flex; flex-direction: column; }
+html .hud.eye .eyeinfo[hidden] { display: none; }
+html .hud.eye .eyeinfo > .bd { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+html .hud.eye .eyelay:not(.min) { top: var(--eye-band-top, 0px); max-height: var(--eye-band-h, 100%); }
+html .hud.eye .camgrid { max-height: var(--eye-grid-h, none); }
+html .hud.eye .roadahead { max-height: var(--eye-grid-h, 62%); }
+html .hud.eye .zoomrail { top: max(var(--eye-band-top, 0px), calc(50% - 61px)); transform: none; }
+html .hud.eye:has(.eyelay:not(.min)) :is(.eyeinfo, .camgrid, .roadahead),
+html .hud.eye:has(.lookmenu:not([hidden])) :is(.eyeinfo, .camgrid, .roadahead),
+html .hud.eye:has(.eyeinfo:not([hidden])) .roadahead { display: none; }
+html .hud.eye.eyecovered .eyebot .readout { visibility: hidden; }
+/* every key on the card and the sheet 44 pt, in every look (the card's were 40, Glass's MACHINE VIEW 40) */
+html body #pg-eye :is(.eyeinfo button, .eyebot .btns > button) { min-height: var(--g-target) !important; min-width: var(--g-target); }
+/* the card's keys: one row at its foot, ASK GHOSTY and ✕ first, the rest beside them (a short card still shows its picture and its words) */
+html .hud.eye .eyeinfo .bd > .row.wrap:last-child { position: sticky; bottom: 0; z-index: 1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: auto; padding: var(--g-s-half) 0; background: var(--g-plate-strong); }
+html .hud.eye .eyeinfo .bd > .row.wrap:last-child::-webkit-scrollbar { display: none; }
+html .hud.eye .eyeinfo .bd > .row.wrap:last-child > button { flex: none; }
+html .hud.eye .eyeinfo .bd > .row.wrap:last-child > button:nth-last-child(-n+2) { order: -1; }
 
 /* Training ground */
 .trainnow { font: 400 10.5px var(--m); color: var(--c); min-height: 14px; margin: 6px 0; }

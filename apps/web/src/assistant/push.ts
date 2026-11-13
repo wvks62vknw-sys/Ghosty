@@ -48,7 +48,8 @@ export async function initApp(): Promise<void> {
     return;
   }
   if (Notification.permission === 'denied') return pushState.set({ status: 'blocked' });
-  const sub = await reg.pushManager.getSubscription().catch(() => null);
+  // (no worker: a private window, or one the browser blocked; nothing to read, and nothing to crash on)
+  const sub = (await reg?.pushManager?.getSubscription().catch(() => null)) ?? null;
   pushState.set({ status: sub && Notification.permission === 'granted' ? 'on' : 'off' });
   // Re-send an existing subscription (the brain may have dropped it, or this is a new brain).
   if (sub && Notification.permission === 'granted') void brain.pushSubscribe(sub.toJSON(), deviceLabel()).catch(() => undefined);

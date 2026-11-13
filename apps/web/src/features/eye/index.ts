@@ -131,7 +131,8 @@ function describe(sel: Pickable): string {
       return `road incident: ${i.title || `${i.road} ${i.direction}`} — ${i.reason}${i.delayS ? `, ${delayWords(i.delayS)} delay` : ''}${i.normalBy ? `; ${i.normalBy}` : ''} (National Highways)`;
     }
     case 'me':
-      return `the owner's own position (ROAD AHEAD), ${(r as unknown as Me).lat.toFixed(4)}, ${(r as unknown as Me).lon.toFixed(4)}`;
+      // (his own position stays on the phone: the brain never gets live GPS, so neither ASK GHOSTY nor the screen's context carries it)
+      return `the owner's own position (ROAD AHEAD; it stays on the phone, so no coordinates here)`;
     case 'crime': {
       const c = r as unknown as Crime;
       return `a reported crime (${crimeLabel(c.category).toLowerCase()}) on or near ${c.street || 'an unnamed street'} in ${c.month}${c.outcome ? `, outcome: ${c.outcome.toLowerCase()}` : ''} (police.uk open data)`;
@@ -614,8 +615,15 @@ export const eyeTab: TabDef = {
       }
       stopCamViews(p?.kind === 'cam' ? (p.ref as Camera).id : null);
       gridKey = '';
+      // one corner, one thing: the newest wins. A card opening folds the layers sheet and closes the LOOK menu (each comes back at a tap)
+      if (p) {
+        closeLook();
+        if (!lay.el.classList.contains('min')) lay.el.classList.add('min');
+      }
       paintInfo();
+      paintGrid();
       measureSky();
+      requestAnimationFrame(() => reach());
     }
 
     // ---------- live camera views ----------
@@ -701,16 +709,19 @@ export const eyeTab: TabDef = {
     grid.el.classList.add('camgrid');
     grid.el.hidden = true;
     let gridKey = '';
+    let gridMax = 4;
+    let gridRoom = 0;
     const paintGrid = () => {
       // where the view is going (not where a fly-to animation happens to be right now)
       const T = globe.cam.target;
       // Only while no card is open: on a phone the grid and a card share the same corner (the card's ASK GHOSTY and ✕ went under it).
       const show = globe.vis.cams && T.range < 1500 && cams.list.length > 0 && !selected;
-      const near = show ? nearestCameras(T.lat, T.lon, 4, Math.max(30, T.range)) : [];
+      // as many as the band holds: four, else one row of two, else none (the cameras stay on the globe as dots)
+      const near = show && gridMax ? nearestCameras(T.lat, T.lon, gridMax, Math.max(30, T.range)) : [];
       // cameras on, close enough to look, and none near: one line instead of nothing (the panel is there only while that is so)
-      const none = show && !near.length;
+      const none = show && gridMax > 0 && !near.length;
       grid.el.hidden = !near.length && !none;
-      const key = none ? 'none' : near.map((c) => c.id).join();
+      const key = none ? 'none' : `${gridMax}:${near.map((c) => c.id).join()}`;
       if (key === gridKey) return;
       gridKey = key;
       for (const el of [...grid.body.children]) {
@@ -735,6 +746,13 @@ export const eyeTab: TabDef = {
         tile.append(h('span.camname', c.name));
         tile.addEventListener('click', () => select({ kind: 'cam', ref: c, w: GEO.ecef(c.lat, c.lon, 0.08) }, true));
         grid.body.append(tile);
+      }
+      // measured: taller than the room between the chips and the readout, it gives up a row (and the next band change tries four again)
+      const room = mid.getBoundingClientRect().height - band.top;
+      if (room > 0 && grid.el.getBoundingClientRect().height > room + 1 && gridMax > 0) {
+        gridMax = gridMax > 2 ? 2 : 0;
+        gridKey = '';
+        paintGrid();
       }
     };
     camEvents.on('change', () => {
@@ -904,15 +922,25 @@ export const eyeTab: TabDef = {
     );
 
     // ---------- zoom rail ----------
+    // held, it zooms smoothly; a tap (or VoiceOver's activate, or a key) is one step in or out
     let hold = 0;
-    const zIn = button('+', () => undefined);
-    const zOut = button('−', () => undefined);
+    let pressedAt = 0;
+    const step = (dir: -1 | 1) => () => {
+      if (pressedAt && performance.now() - pressedAt > 300) return;
+      globe.cam.zoom(dir < 0 ? 0.6 : 1.67, ...crosshair());
+    };
+    const zIn = button('+', step(-1));
+    const zOut = button('−', step(1));
+    zIn.setAttribute('aria-label', 'Zoom in');
+    zOut.setAttribute('aria-label', 'Zoom out');
     for (const [b, dir] of [[zIn, -1], [zOut, 1]] as const) {
       b.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         hold = dir;
+        pressedAt = performance.now();
       });
       for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => (hold = 0));
+      b.addEventListener('click', () => (pressedAt = 0));
     }
     const zLabel = h('small');
     const rail = h('div.zoomrail', zIn, zLabel, zOut);
@@ -963,13 +991,46 @@ export const eyeTab: TabDef = {
     root.append(hud);
     // a tapped thing's card may lie over the top of the sheet below it (styles.css, the house): never over the sheet's keys, so LEAVE
     // MACHINE VIEW and the rest stay pressable under it. Its reach is the gap down to the keys' top, measured as the screen's parts change size
+    // THE BAND (lane SEE, 13 Nov): every floating thing over the globe (the card, the CCTV grid, the layers sheet, ROAD AHEAD, the zoom
+    // rail) lives in one measured band: from the foot of whatever the top shows (the search, its note, the chips, his places) down to
+    // the top of the sheet's keys (or the Machine view's line over them). Measured as the house measures, never a fixed offset, so
+    // nothing lies over the chips or the keys in any look, with the house on or off, at 440 or 390.
+    const band = { top: 0, bottom: 0 };
+    const seen = (e: Element | null): e is HTMLElement => !!e && e instanceof HTMLElement && !e.hidden && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
     const reach = () => {
       const m = mid.getBoundingClientRect();
       const k = btns.getBoundingClientRect();
-      if (m.height && k.height) hud.style.setProperty('--eye-reach', `${Math.max(Math.round(m.height), Math.floor(k.top - m.top - 8))}px`);
+      if (!m.height || !k.height) return;
+      let foot = m.top;
+      for (const e of top.querySelectorAll(':scope > *, :scope .eyechips > .lchip:not(.ico)')) if (seen(e)) foot = Math.max(foot, e.getBoundingClientRect().bottom);
+      let floor = k.top;
+      const mv = bot.querySelector('.mchview');
+      if (seen(mv)) floor = Math.min(floor, mv.getBoundingClientRect().top);
+      band.top = Math.max(0, Math.ceil(foot - m.top + 4));
+      band.bottom = Math.max(band.top + 44, Math.floor(floor - m.top - 8));
+      const hs = hud.style;
+      const set = (n: string, v: number) => hs.getPropertyValue(n) !== `${v}px` && hs.setProperty(n, `${v}px`);
+      set('--eye-band-top', band.top);
+      set('--eye-band-h', band.bottom - band.top);
+      set('--eye-grid-h', Math.max(0, Math.round(m.height) - band.top));
+      set('--eye-reach', Math.max(0, band.bottom - band.top));
+      // the room for the grid changed: it tries four again (and steps down, measured, if they do not fit)
+      const room = Math.round(m.height) - band.top;
+      if (Math.abs(room - gridRoom) > 2) {
+        gridRoom = room;
+        gridMax = 4;
+        gridKey = '';
+      }
+      fitAfter();
+    };
+    /** After the band: the card may reach past the readout down to the keys; then the readout steps aside (it never shows through it). */
+    const fitAfter = () => {
+      const r = readout.getBoundingClientRect();
+      const covered = r.height > 0 && [info.el, lay.el].some((i) => seen(i) && !i.classList.contains('min') && i.getBoundingClientRect().bottom > r.top + 1);
+      if (hud.classList.contains('eyecovered') !== covered) hud.classList.toggle('eyecovered', covered);
     };
     const reachObs = new ResizeObserver(reach);
-    for (const n of [mid, bot, btns]) reachObs.observe(n);
+    for (const n of [mid, bot, btns, top, info.el, lay.el]) reachObs.observe(n);
     // THE MACHINE VIEW (machineview.ts): a mode of this globe — his city, everything moving, his things lit, the true count.
     // Its button comes first in the bar.
     machine = createMachine({ mid, top, bot, hud, places: () => mine.list(), refreshPlaces: () => mine.refresh(), select: (p) => select(p), active: () => ui.get().tab === 'eye' });
@@ -1324,7 +1385,7 @@ export const eyeTab: TabDef = {
       open(arg: string) {
         if (arg === 'machine') void machine?.enter();
       },
-      describe: () => `${machine?.describe() ? `${machine.describe()} ` : ''}${cams.list.length ? `${cams.list.length} public cameras on the globe (${[...cams.sources].join(', ')}). ` : ''}God's Eye globe at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft, ${ships.list.size} ships, ${disasters.data?.length ?? 0} GDACS disasters, ${alerts.data?.length ?? 0} US weather alerts loaded.`,
+      describe: () => `${machine?.describe() ? `${machine.describe()} ` : ''}${cams.list.length ? `${cams.list.length} public cameras on the globe (${[...cams.sources].join(', ')}). ` : ''}God's Eye globe ${roadAhead.on ? 'following the phone (ROAD AHEAD; where he is stays on the phone)' : `at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}`}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft, ${ships.list.size} ships, ${disasters.data?.length ?? 0} GDACS disasters, ${alerts.data?.length ?? 0} US weather alerts loaded.`,
       // what is open and picked (BRIEF-AWARENESS): the globe or the machine view, and the thing he tapped, said as describe() says it
       context: (): ScreenContext => {
         const said = selected ? describe(selected) : '';
