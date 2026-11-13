@@ -81,3 +81,16 @@ What this lane covers: God's Eye, the Machine view, THREATS, the map, the camera
 
 - **The journey's map with no signal** (the offline pack, drawn in 3D) does not draw the journey's line yet, and its "look here on the map" steps do nothing there. Fixing it needs the map sheet to hand over the map once it exists, so I left it rather than half-do it.
 - **The aircraft feed outside ROAD AHEAD** is still asked about the centre of the view. That is where you are looking, not where you are, so I kept it.
+
+## How it was checked
+
+- **Before and after merging final:**
+  - both typechecks;
+  - the whole brain suite: 2175 pass and 0 fail after the merge, including the ratchet, knowledge and look checks.
+- **Browser specs run green:**
+  - the lane's own: seelane (216 checks, about 3 minutes);
+  - the ones the brief names: eye, machine, eyehud, eyehud2, maphud and seepass;
+  - the others that reach the files I touched: threats, streetview, cameras, westmidlands, intel, places, car, measure, journey, map, routec and ui.
+- **Two specs went red once and were green when run again on their own:**
+  - maphud and eyehud, each with one red, when they ran in parallel with other specs.
+- **One spec showed a real clash, now fixed:** westmidlands. ROAD AHEAD was hidden behind a card that had been left open. Starting ROAD AHEAD now closes the card, so the newest wins.
