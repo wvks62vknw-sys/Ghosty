@@ -4927,6 +4927,14 @@ html .spaceprice .v { flex: none; font: 600 16px/20px var(--sf); color: var(--in
 html .spacepricetotal { margin: 8px 0; font: 600 15px/20px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
 html .spacebudget { overflow-wrap: anywhere; }
 html #pg-space .spaceprices button, html #pg-space .spacephototap button, html #pg-studio .studioqueue button, html #pg-studio .studiomeanwhile button { min-height: 44px; }
+/* NEXT ROUND (MAKE lane, make.u5): named Workbench projects; and the 3D studio's waiting list, a row a job */
+html .wbproj, html .studiojob { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-bottom: 1px solid var(--hair); min-width: 0; }
+html .wbprojtext, html .studiojobtext { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+html .wbprojtext b, html .studiojobtext b { font: 600 15px/20px var(--sf); color: var(--ink); }
+html .wbprojtext small { font: 400 12px/16px var(--sf); color: var(--ink3); }
+html .wbprojsaid, html .wbprojnone { overflow-wrap: anywhere; }
+html #pg-workbench .wb-projects button { min-height: 44px; }
+html .studioqueue, html .studiomeanwhile { margin-top: 8px; min-width: 0; }
 /* NEXT ROUND (MAKE lane, make.u6): the curve behind an answer, drawn under its numbers; words around the picture wrap, never cut */
 html .wbcurve { margin: 10px 0 2px; padding: 10px 0 0; border-top: 1px solid var(--hair); min-width: 0; }
 html .wbctitle { font: 700 12px/16px var(--sf); letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); overflow-wrap: anywhere; }
@@ -10285,6 +10293,12 @@ html .dcminebox .dcrow input { flex: 1 1 auto; min-width: 0; min-height: var(--g
 html .rcundo.undofloat.wordbar { flex-wrap: wrap; }
 html .rcundo.undofloat.wordbar span { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
 html .rcundo.undofloat.wordbar button { height: auto; min-height: 44px !important; padding: 0 18px; }
+/* BY THE CLOCK (features/settings/lookclock.ts): the day's look, the night's, and when calm starts */
+html .lookclock .lcrows { display: flex; flex-direction: column; gap: var(--g-s-1); margin-top: var(--g-s-1); }
+html .lookclock .lcrows[hidden] { display: none; }
+html .lookclock .lcrow { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); flex-wrap: wrap; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); }
+html .lookclock .lcsel { min-height: var(--g-target); min-width: 9em; max-width: 100%; font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); }
+html .lookclock .lab { color: var(--g-ink-2); }
 /* LEARN · READY STARTS (learn.s3, learn.s4): driving theory, car mechanics, home electrics and first aid, one tap to fill the topic */
 html .learnstarts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; min-width: 0; }
 html .learnstarts button { min-height: 44px; }
