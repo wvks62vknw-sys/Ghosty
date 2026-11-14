@@ -9875,3 +9875,15 @@ html .recallidx .recallindex, html .recallfind .note { flex: 1 1 12em; min-width
 html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
 /* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
 html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
+
+/* ---- NEXT ROUND · SYSTEM AND SETTINGS: OFFLINE READY (features/system/offlineready.ts): the number, its bar, the next download, each piece. Tokens only. */
+html .offready .ordyhead { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html .offready .ordyhead b { font: var(--g-t-value); color: var(--g-ink-1); margin-right: var(--g-s-half); }
+html .offready .ordybar { position: relative; height: var(--g-s-1); margin: var(--g-s-1) 0; border-radius: var(--g-radius-key); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); overflow: hidden; }
+html .offready .ordybar > i { position: absolute; inset: 0 auto 0 0; background: var(--g-accent); border-radius: inherit; }
+html .offready .ordynext { margin: 0 0 var(--g-s-1); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .offready .ordyrow .ordyv { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html .offready .ordyrow .ordyv b { font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .offready .ordyrow .ordyv small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .offready .ordyrow .k { flex: none; min-width: 64px; }
+@media (prefers-reduced-motion: no-preference) { html .offready .ordybar > i { transition: width .4s ease; } }

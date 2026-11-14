@@ -15,6 +15,7 @@ import { foresightPanel } from './foresight';
 import { loopsPanel } from './loops';
 import { reportCardPanel } from './reportcard';
 import { independencePanel } from './independence';
+import { offlineReadyPanel } from './offlineready';
 import { healthPanels } from './health'; // [health] SYSTEM → HEALTH
 import { backupName, backUpNow, estimateSize, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
@@ -45,6 +46,8 @@ export const systemTab: TabDef = {
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
+    // [next] OFFLINE READY (offlineready.ts): how much works with no signal now, and the one download that helps most
+    const orp = offlineReadyPanel();
     // What the offline brain on this phone can do, measured here (reportcard.ts), and its weekly self-training (training.ts).
     const rc = reportCardPanel();
     // Every loop he practises in, on one card: what it practised, what improved, what was rejected (loops.ts).
@@ -60,14 +63,14 @@ export const systemTab: TabDef = {
     const ip = independencePanel();
     // [health] HEALTH: a mark on every ability, the crash records, what felt off and the brain's own page (health.ts)
     const hl = healthPanels();
-    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, lg.el, fsp.el, lp.el, tp.el, np.el, ip.el, ...hl.panels.map((x) => x.el));
+    P.left.append(sp.el, kp.el, mp.el, rp.el, orp.el, rc.el, lg.el, fsp.el, lp.el, tp.el, np.el, ip.el, ...hl.panels.map((x) => x.el));
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
     P.right.append(stp.el, bkp.el);
     // Sections (ui/sections.ts; the navigation sheet): a pill each for the status and the brain's keys (what he opens
     // System for, so first), the offline brain's report card and loops, its training and Night School, and the backup.
     sections(root, 'system', [
-      { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|GITHUB)/ },
+      { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|OFFLINE READY|GITHUB)/ },
       { id: 'health', label: 'Health', match: /^(HEALTH|CRASHES|FELT OFF|THE BRAIN)/ },
       { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|WHAT I LEARNED|FORESIGHT|LOOPS|INDEPENDENCE)/ },
       { id: 'training', label: 'Training', match: /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/ },
@@ -420,6 +423,7 @@ export const systemTab: TabDef = {
         void load();
         void checkVersion();
         hl.refresh();
+        orp.refresh();
         tp.refresh();
         lp.refresh();
         lg.refresh();

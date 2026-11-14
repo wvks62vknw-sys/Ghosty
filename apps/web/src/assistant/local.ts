@@ -189,6 +189,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   speaker: (text, opts) => import('./voiceknown').then((v) => answer(text, v.whoWords(!!opts.voice), { kind: 'can', go: [{ id: 'screen:settings', ask: -1, label: 'My voice', open: 'settings' }] }, opts)),
   // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)
   independent: async (text, opts) => answer(text, await import('../features/system/independence').then((m) => m.independenceTurn()), { kind: 'pack' }, opts),
+  // [next] "how ready are you offline?": the number, what is here and the one download that helps most (system/offlineready.ts)
+  offlineready: async (text, opts) => answer(text, await import('../features/system/offlineready').then((m) => m.readyTurn()), { kind: 'pack' }, opts),
   // [themes2] THE LOOK BY WORDS (BRIEF-THEMES-2 6): "black background", "lighter", "paper", "the scan", "calm", "bigger text",
   // "follow the day", a switch or a colour by name: applied at once, said in a sentence (what changed, what stayed), no model
   async look(text, opts) {

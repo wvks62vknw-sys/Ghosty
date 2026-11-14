@@ -275,3 +275,48 @@ test('fail closed: a kept task stops with an explanation when the phone cannot a
     globalThis.fetch = realFetch;
   }
 });
+
+// ---- NEXT ROUND (polish3.u10): how ready Ghosty is offline: the number, the next download, what the phone cannot run, his words
+await build({ entryPoints: [at('../../web/src/offline/readywords.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/offline2/readywords.mjs'), logLevel: 'error' });
+const RW = await import('./.build/offline2/readywords.mjs');
+const piecesOf = (held = [], cannot = []) => RW.PIECES.map((p) => ({ ...p, bytes: p.id === 'brain' ? 352e6 : p.id === 'map' ? 120e6 : 20e6, size: p.id === 'brain' ? '352 MB' : p.id === 'map' ? 'about 120 MB' : '20 MB', held: held.includes(p.id), can: !cannot.includes(p.id), ...(cannot.includes(p.id) ? { why: 'no WebGPU here' } : {}) }));
+
+test('offline readiness: the weights add up to 100, every piece names what it keeps working and where it is fetched', () => {
+  assert.equal(RW.PIECES.reduce((n, p) => n + p.weight, 0), 100);
+  for (const p of RW.PIECES) {
+    assert.ok(p.gives.length > 8 && p.name.length > 3, p.id);
+    assert.equal(p.where.tab, 'settings', p.id);
+    assert.ok(['OFFLINE BRAIN', 'OFFLINE MAPS', 'OFFLINE EYES', 'VOICE MODEL'].includes(p.where.panel), `${p.id} → ${p.where.panel}`);
+  }
+});
+
+test('offline readiness: nothing here is 0% with the brain next; everything here is 100% with nothing next', () => {
+  const none = RW.scoreOf(piecesOf());
+  assert.equal(none.pct, 0);
+  assert.equal(none.next.id, 'brain');
+  assert.equal(none.nextPct, 34);
+  assert.equal(RW.readyHead(none), '0% works with no signal');
+  assert.equal(RW.readyNext(none), 'Next: The offline brain, 352 MB on Wi-Fi, for answers, the interpreter’s translations and School papers (34% after).');
+  const all = RW.scoreOf(piecesOf(RW.PIECES.map((p) => p.id)));
+  assert.equal(all.pct, 100);
+  assert.equal(all.next, null);
+  assert.equal(RW.readyNext(all), 'Everything this phone can keep is here, so I work with no signal.');
+});
+
+test('offline readiness: the next download is the heaviest missing piece, and what the phone cannot run is left out of the count', () => {
+  const r = RW.scoreOf(piecesOf(['brain']));
+  assert.equal(r.pct, 34);
+  assert.ok(['map', 'eyes-lens'].includes(r.next.id), r.next.id);
+  // the map and the Lens weigh the same: the smaller download goes first
+  assert.equal(r.next.id, 'eyes-lens');
+  const noGpu = RW.scoreOf(piecesOf(['map'], ['brain', 'meaning']));
+  assert.equal(noGpu.pct, Math.round((15 / 58) * 100));
+  assert.deepEqual(noGpu.cannot.map((p) => p.id), ['brain', 'meaning']);
+  assert.ok(!noGpu.missing.some((p) => p.id === 'brain'), 'a piece this phone cannot run is never offered');
+  assert.match(RW.readySay(RW.scoreOf(piecesOf(['brain', 'map']))), /^49% works with no signal right now\. Here: the offline brain, the offline map\. Next: The Lens’s eyes, 20 MB on Wi-Fi/);
+});
+
+test('offline readiness: his ways of asking are heard, and nothing else is taken', () => {
+  for (const t of ['how ready are you offline?', 'How ready are you with no signal', 'what works offline?', 'What still works with no internet?', 'offline readiness', 'show me the offline readiness score', 'Ghosty, how offline-ready are you?', 'are you ready for no signal?']) assert.ok(RW.READY_ASK.test(t), t);
+  for (const t of ['download the offline brain', 'go offline', 'offline maps', 'how independent are you?', 'are you ready?', 'what works?']) assert.ok(!RW.READY_ASK.test(t), t);
+});
