@@ -286,8 +286,8 @@ async function run(viewport, all) {
   await words('Wyjście ewakuacyjne\nNie blokować drzwi');
   await hold([TEXT_BOX]);
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'text' && c.head === 'TEXT' && c.keys.includes('TRANSLATE')), null, 4000, `[unnamed] a Polish sign has no TRANSLATE: ${JSON.stringify((await cards()).cards.map((c) => [c.head, c.keys]))}`);
-  check(!chats.some((b) => /Wyj/.test(b)), `${T} [unnamed] the words went before he asked`);
-  await keyIn('text', 'TRANSLATE').click();
+  check(!chats.some((b) => /Wyj/.test(b)), `${T} [unnamed] the words went before he asked: ${JSON.stringify(await page.evaluate(() => window.__ghosty.one.translate))}`);
+  await keyIn('text', 'TRANSLATE').click({ timeout: 5000 }).catch(async () => problems.push(`${T} [unnamed] no TRANSLATE to tap: ${JSON.stringify(await page.evaluate(() => ({ cards: window.__ghosty.cards.cards, ocr: window.__ghosty.one.ocr, tr: window.__ghosty.one.translate })))}`));
   await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'text' && c.head === 'TEXT · IN ENGLISH' && /^Emergency exit\. Do not block the door\./.test(c.line)), null, 8000, `[unnamed] the English is not on the card: ${JSON.stringify((await cards()).cards.map((c) => [c.head, c.line]))}`);
   const polish = chats.filter((b) => /Wyj/.test(b));
   check(polish.length === 1 && !/data:image/.test(polish[0]), `${T} [unnamed] the Polish went ${polish.length} time(s), and no picture: ${!/data:image/.test(polish[0] ?? '')}`);

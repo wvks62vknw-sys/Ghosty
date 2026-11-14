@@ -752,6 +752,12 @@ export function createOneMode(L: LensContext): Mode {
       const r = await askWithImage(menu ? 'Translate each line into English. Reply with exactly one line of English for each line, in the same order, and nothing else.' : 'Translate this into English. Reply with the English words only.', null, undefined, { scan: menu ? ocr.lines.join('\n') : text, quiet: true, bare: true, signal: ctl.signal });
       if (v !== visit) return;
       const got = r.text.trim();
+      // the words in view changed while these were out (he moved to the next sign): their English is kept for when they come
+      // back, and never laid over other words
+      if (ocr.text !== text) {
+        if (got && !r.error && !menu) translated.set(text, got);
+        return;
+      }
       if (menu && got && !r.error) {
         ocr.lineEn = pairLines(ocr.lines, got);
         oneState.lines = { count: ocr.lines.length, english: ocr.lineEn ?? [], drawn: 0 };
@@ -768,13 +774,15 @@ export function createOneMode(L: LensContext): Mode {
         oneState.translate.state = 'failed';
       }
     } catch {
-      if (v !== visit) return;
+      if (v !== visit || ocr.text !== text) return;
       ocr.tr = 'failed';
       oneState.translate.state = 'failed';
     } finally {
       window.clearTimeout(timer);
-      sentEl.hidden = true;
-      oneState.translate.sent = false;
+      if (ocr.text === text || ocr.tr !== 'sending') {
+        sentEl.hidden = true;
+        oneState.translate.sent = false;
+      }
     }
   };
 
