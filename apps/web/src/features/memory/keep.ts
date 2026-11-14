@@ -249,6 +249,15 @@ export function keepPanel(): Panel & { refresh(): Promise<void> } {
       paint();
     });
   };
+  const weekChart = (w: WeekReview) => {
+    const bar = (label: string, n: number, max: number, tone = '') =>
+      h('div.keepbar', { dataset: { tone, case: 'keep' }, role: 'img', 'aria-label': `${label}: ${n}` }, h('span.keepbarlab', label), h('span.keepbartrack', h('i', { style: `width:${Math.max(4, Math.round((n / Math.max(1, max)) * 100))}%` })), h('b.keepbarn', String(n)));
+    const tmax = Math.max(1, ...w.topics.map((t) => t.n));
+    const dmax = Math.max(1, w.finished.length, w.open.length);
+    return h('div.keepchart', { dataset: { case: 'keep' } },
+      ...(w.topics.length ? [h('small.keepchartlab', K.CHART_TOPICS), ...w.topics.map((t) => bar(t.word, t.n, tmax))] : []),
+      h('small.keepchartlab', K.CHART_DONE), bar(K.CHART_FINISHED, w.finished.length, dmax, 'ok'), bar(K.CHART_OPEN, w.open.length, dmax, 'mid'));
+  };
   type Row = { key: string; kind: 'turn'; id: string; title: string; line: string; at: number; stamp: string; day: string };
   let extra: { pinned: Row[]; onThisDay: Row[] } = { pinned: [], onThisDay: [] };
   const paint = () => {
@@ -298,6 +307,8 @@ export function keepPanel(): Panel & { refresh(): Promise<void> } {
       ...(extra.onThisDay.length ? [head(K.H_ON_THIS_DAY), ...extra.onThisDay.map((f) => h('div.keeprow', { dataset: { kind: 'onthisday', case: 'keep' } }, h('span.keeptxt', h('b', `“${f.line.slice(0, 120)}”`), h('small', f.stamp)), h('span.keepkeys', key('OPEN', `Open the chat of ${f.day}`, () => void import('./recallcard').then((c) => c.openFound(f))))))] : []),
       head(K.H_WEEK),
       ...(s.lines.length ? s.lines.map((l) => h('p.keepweek', l)) : [h('p.note.keepempty', K.WEEK_EMPTY)]),
+      // [journal] APPS ROUND (Your word: a chart for his week): what he asked about most, and finished against still open, as bars
+      ...(s.week && (s.week.topics.length || s.week.finished.length || s.week.open.length) ? [weekChart(s.week)] : []),
       ...(s.queue.length ? [h('p.note.keepqueue', K.queued(s.queue.length))] : []),
     );
   };
