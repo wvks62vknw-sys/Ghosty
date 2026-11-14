@@ -207,6 +207,8 @@ for (const vp of [PHONE, PHONE2]) {
     await go(page, 'learn');
     const row = page.locator('#pg-learn button.learncourse').first();
     check(await row.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U2] the course is not listed`);
+    // U3 · MY LEARNING MAP: the course's line, and the next thing (its misses, once the course is on the phone)
+    check(await until(page, () => [...document.querySelectorAll('#pg-learn .pn.learnmapall .lmrow')].some((r) => /Light and leaves/.test(r.textContent ?? '')), null, 8000), `${T} [U3] MY LEARNING MAP has no line for the course: "${await page.locator('#pg-learn .pn.learnmapall').textContent().catch(() => '')}"`);
     await row.click();
     const today = await until(page, () => !!document.querySelector('#pg-learn .learntoday[data-kind="misses"]'), null, 10000);
     check(today, `${T} [U2 TODAY] no TODAY card for a course with misses`);
@@ -299,6 +301,8 @@ for (const vp of [PHONE, PHONE2]) {
   try {
     await go(page, 'rehearse');
     const langs = await page.$$eval('#pg-rehearse select.rhlang option', (os) => os.map((o) => [o.value, o.textContent]));
+    const modes = await page.$$eval('#pg-rehearse select.rhmode option', (os) => os.map((o) => o.value));
+    check(JSON.stringify(modes) === '["talk","debate"]', `${T} [S8] WHAT KIND offers ${JSON.stringify(modes)}`);
     check(langs[0]?.[0] === 'en' && langs.some(([v, t]) => v === 'es' && /^Spanish: practise speaking it$/.test(t ?? '')) && langs.some(([v]) => v === 'fr'), `${T} [S2] the language picker offers ${JSON.stringify(langs.slice(0, 4))}`);
     // a talk's numbers are kept and charted; what was said is not
     await openSection(page, 'rehearse', 'Talk').catch(() => undefined);
@@ -313,6 +317,33 @@ for (const vp of [PHONE, PHONE2]) {
     await bar(page, `${T} [S2 U12 rehearse]`, 'rehearse');
   } catch (e) {
     check(false, `${T} [S2 U12] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
+// ================================================================ S12 · revision days up to an exam: shown first, nothing added before ADD
+{
+  const T = '[440]';
+  const { ctx, page } = await phone(PHONE);
+  const added = [];
+  try {
+    await ctx.route('**/api/agenda/events', (r) => (r.request().method() === 'POST' ? (added.push(JSON.parse(r.request().postData() ?? '{}')), r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: { id: `e${added.length}`, title: 'x', start: 0 } }) })) : r.fallback()));
+    await go(page, 'learning');
+    await page.locator('#pg-learning .secpill[data-sec="plan"]').click({ force: true });
+    const subj = page.locator('#pg-learning .pkrevision input[type="text"]');
+    check(await subj.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [S12] no REVISION UP TO AN EXAM`);
+    const day = await page.evaluate(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(Date.now() + 16 * 86400000));
+    await subj.fill('driving theory');
+    await page.locator('#pg-learning .pkrevision input[type="date"]').fill(day);
+    check(await until(page, () => document.querySelectorAll('#pg-learning .pkrevlist li').length >= 10, null, 5000), `${T} [S12] no sessions listed for an exam in 16 days`);
+    const n = await page.locator('#pg-learning .pkrevlist li').count();
+    check(added.length === 0, `${T} [S12] something went in his days before ADD`);
+    await page.locator('#pg-learning .pkrevision button', { hasText: new RegExp(`^ADD ${n} SESSIONS TO MY DAYS$`, 'i') }).click();
+    check(await until(page, () => /^In your days: \d+ sessions of revision for driving theory, each with a reminder ten minutes before\.$/.test(document.querySelector('#pg-learning .pkrevision .pknote')?.textContent ?? ''), null, 10000), `${T} [S12] the line after ADD: "${await page.locator('#pg-learning .pkrevision .pknote').textContent().catch(() => '')}"`);
+    check(added.length === n && added.every((e) => e.title === 'Revise: driving theory' && e.remindMin === 10 && e.end - e.start === 20 * 60000), `${T} [S12] what went in: ${added.length} of ${n}, ${JSON.stringify(added[0])}`);
+    await bar(page, `${T} [S12 learning plan]`, 'learning');
+  } catch (e) {
+    check(false, `${T} [S12] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
   }
   await ctx.close();
 }
