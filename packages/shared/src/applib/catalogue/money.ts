@@ -290,34 +290,6 @@ export const MONEY: AppDef[] = [
     ],
   },
   {
-    id: 'wishlist', name: 'Wishlist', family: 'money', glyph: 'gift', archetype: 'log',
-    pitch: 'Things you want with price, priority and link, so you buy on purpose.',
-    keywords: ['wishlist', 'wish list', 'want', 'gift ideas', 'shopping', 'later'],
-    tour: ['Add something you want with its price and a link.', 'Wait a while, then mark it Bought or Skip.', 'The total shows what the whole list would cost.'],
-    log: {
-      fields: [
-        fd('item', 'Item', 'text', { required: true }),
-        fd('price', 'Price', 'money'),
-        fd('priority', 'Priority', 'choice', { options: ['Must', 'Nice', 'Someday'] }),
-        fd('status', 'Status', 'choice', { options: ['Waiting', 'Saving', 'Bought', 'Skip'] }),
-        fd('added', 'Added', 'date', { default: 'today' }),
-        fd('link', 'Link', 'link'),
-        fd('photo', 'Photo', 'photo'),
-      ],
-      title: 'item', sub: '{priority} · {status}', meta: 'price', date: 'added', sort: { field: 'added', dir: 'desc' }, group: 'status',
-      stats: [
-        { label: 'List Total', kind: 'sum', field: 'price', period: 'all' },
-        { label: 'Items', kind: 'count', period: 'all' },
-      ],
-      views: ['gallery', 'board', 'list'],
-    },
-    sample: [
-      { item: 'Cast iron casserole dish', price: 65, priority: 'Nice', status: 'Waiting', added: '2026-10-20' },
-      { item: 'Hiking boots', price: 130, priority: 'Must', status: 'Saving', added: '2026-10-02' },
-      { item: 'Coffee grinder', price: 48, priority: 'Someday', status: 'Waiting', added: '2026-11-04' },
-    ],
-  },
-  {
     id: 'pocket-money', name: 'Pocket Money', family: 'money', glyph: 'baby', archetype: 'log',
     pitch: 'Each child’s pocket money paid, spent and saved, kept straight week by week.',
     keywords: ['pocket money', 'allowance', 'kids', 'children', 'chores', 'savings'],
@@ -426,6 +398,104 @@ export const MONEY: AppDef[] = [
   },
 
   // ——— Loans, savings and property sums ———
+  {
+    id: 'savings-tax', name: 'Savings Tax', family: 'money', glyph: 'bank', archetype: 'calc',
+    pitch: 'Tax on savings interest after the starting rate and Personal Savings Allowance.',
+    keywords: ['savings tax', 'interest', 'personal savings allowance', 'bank interest', 'psa', 'tax'],
+    tour: ['Put in your other income, such as salary or pension.', 'Add the interest you expect this tax year outside ISAs.', 'See the tax-free parts used and any tax left to pay.'],
+    calc: {
+      inputs: [
+        inp('income', 'Other Income', 30000, { unit: '£', min: 0, step: 500 }),
+        inp('interest', 'Interest', 1500, { unit: '£', min: 0, step: 50 }),
+      ],
+      outputs: [
+        money('starting', 'Starting Rate Band', 'max(0, 5000 - max(0, income - 12570))', 0),
+        money('psa', 'Savings Allowance', 'if(income + interest <= 50270, 1000, if(income + interest <= 125140, 500, 0))', 0),
+        money('taxable', 'Taxable Interest', 'max(0, interest - max(0, 12570 - income) - starting - psa)'),
+        money('tax', 'Tax', 'taxable * if(income + interest <= 50270, 0.2, if(income + interest <= 125140, 0.4, 0.45))'),
+      ],
+      tests: [
+        { in: { income: 30000, interest: 1500 }, out: { starting: 0, psa: 1000, tax: 100 } },
+        { in: { income: 13000, interest: 3000 }, out: { starting: 4570, tax: 0 } },
+        { in: { income: 60000, interest: 1000 }, out: { psa: 500, tax: 200 } },
+      ],
+      estimate: true,
+      source: 'GOV.UK Tax on savings interest: £5,000 starting rate and the £1,000 or £500 Personal Savings Allowance',
+    },
+  },
+  {
+    id: 'child-benefit-charge', name: 'Child Benefit Tax', family: 'money', glyph: 'baby', archetype: 'calc',
+    pitch: 'The High Income Child Benefit Charge on income between £60,000 and £80,000.',
+    keywords: ['child benefit', 'hicbc', 'high income', 'tax charge', 'children', 'benefit'],
+    tour: ['Put in the higher earner’s adjusted net income.', 'Add the Child Benefit the family gets in a year.', 'One percent is taken back for every £200 over £60,000.'],
+    calc: {
+      inputs: [
+        inp('ani', 'Adjusted Income', 70000, { unit: '£', min: 0, step: 500 }),
+        inp('benefit', 'Child Benefit', 2000, { unit: '£ a year', min: 0, step: 10 }),
+      ],
+      outputs: [
+        out('pct', 'Taken Back', 'min(100, floor(max(0, ani - 60000) / 200))', { unit: '%', dp: 0 }),
+        money('charge', 'Charge', 'benefit * pct / 100'),
+        money('kept', 'Kept', 'benefit - charge'),
+      ],
+      tests: [
+        { in: { ani: 70000, benefit: 2000 }, out: { pct: 50, charge: 1000, kept: 1000 } },
+        { in: { ani: 85000, benefit: 2000 }, out: { pct: 100, charge: 2000 } },
+        { in: { ani: 59000, benefit: 1400 }, out: { charge: 0 } },
+      ],
+      estimate: true,
+      source: 'GOV.UK High Income Child Benefit Charge: 1% for every £200 of income over £60,000',
+    },
+  },
+  {
+    id: 'emergency-fund', name: 'Emergency Fund', family: 'money', glyph: 'shield', archetype: 'calc',
+    pitch: 'How many months your savings would cover, and the gap to your safety-net goal.',
+    keywords: ['emergency fund', 'rainy day', 'safety net', 'savings goal', 'months covered', 'buffer'],
+    tour: ['Put in what your essential bills come to each month.', 'Pick how many months you want covered; three to six is common.', 'Add what you have saved to see the months covered and the gap.'],
+    calc: {
+      inputs: [
+        inp('essentials', 'Essentials', 1500, { unit: '£ a month', min: 1, step: 50 }),
+        inp('months', 'Months Wanted', 3, { min: 1, max: 12 }),
+        inp('saved', 'Saved', 2500, { unit: '£', min: 0, step: 100 }),
+        inp('monthly', 'Saving Monthly', 200, { unit: '£', min: 0, step: 10 }),
+      ],
+      outputs: [
+        money('target', 'Goal', 'essentials * months', 0),
+        out('covered', 'Months Covered', 'saved / essentials', { dp: 1 }),
+        money('gap', 'Still To Save', 'max(0, target - saved)', 0),
+        out('wait', 'Months To Goal', 'if(monthly > 0, ceil(gap / monthly), 0)', { dp: 0 }),
+      ],
+      tests: [
+        { in: { essentials: 1500, months: 3, saved: 2500, monthly: 200 }, out: { target: 4500, covered: 1.67, gap: 2000, wait: 10 } },
+        { in: { essentials: 1000, months: 6, saved: 7000, monthly: 0 }, out: { covered: 7, gap: 0 } },
+      ],
+      source: 'MoneyHelper emergency savings guide: essential costs × the months you want covered',
+    },
+  },
+  {
+    id: 'gas-units', name: 'Gas Units', family: 'money', glyph: 'fire', archetype: 'calc',
+    pitch: 'Turn gas meter units into kWh and cost, as your bill does.',
+    keywords: ['gas', 'kwh', 'meter units', 'cubic metres', 'gas bill', 'calorific value'],
+    tour: ['Take this reading from the last one to get the units used.', 'Pick a metric or an older imperial meter.', 'Your bill gives the calorific value and the price per kWh.'],
+    calc: {
+      inputs: [
+        inp('units', 'Units Used', 100, { min: 0 }),
+        inp('meter', 'Meter', 1, { choices: [{ label: 'Metric (m³)', value: 1 }, { label: 'Imperial (100 ft³)', value: 2.83 }] }),
+        inp('cv', 'Calorific Value', 39.5, { unit: 'MJ per m³', min: 30, max: 45, step: 0.1 }),
+        inp('price', 'Unit Price', 6, { unit: 'p per kWh', min: 0, step: 0.01 }),
+      ],
+      outputs: [
+        out('kwh', 'Energy', 'units * meter * 1.02264 * cv / 3.6', { unit: 'kWh', dp: 1 }),
+        money('cost', 'Cost', 'kwh * price / 100'),
+      ],
+      tests: [
+        { in: { units: 100, meter: 1, cv: 39.5, price: 6 }, out: { kwh: 1122.06, cost: 67.32 } },
+        { in: { units: 10, meter: 2.83, cv: 39.5, price: 6 }, out: { kwh: 317.54 } },
+      ],
+      estimate: true,
+      source: 'Gas (Calculation of Thermal Energy) Regulations 1996: m³ × 1.02264 × calorific value ÷ 3.6',
+    },
+  },
   {
     id: 'mortgage-calc', name: 'Mortgage', family: 'money', glyph: 'home', from: 'money.4', archetype: 'calc',
     pitch: 'Monthly repayment, interest-only cost and total interest for any mortgage.',
@@ -808,30 +878,6 @@ export const MONEY: AppDef[] = [
     },
   },
   {
-    id: 'mileage-allowance', name: 'Mileage Claim', family: 'money', glyph: 'car', from: 'money.13', archetype: 'calc',
-    pitch: 'What you can claim for business miles at HMRC’s approved mileage rates.',
-    keywords: ['mileage', 'business miles', '45p', 'hmrc', 'expenses', 'travel claim'],
-    tour: ['Pick the vehicle and put in this tax year’s business miles.', 'Cars and vans get 45p a mile up to 10,000, then 25p.', 'Use the figure for an employer claim or Self Assessment.'],
-    calc: {
-      inputs: [
-        inp('miles', 'Business Miles', 12000, { unit: 'miles', min: 0, step: 10 }),
-        inp('vehicle', 'Vehicle', 1, { choices: [{ label: 'Car or van', value: 1 }, { label: 'Motorcycle', value: 2 }, { label: 'Bicycle', value: 3 }] }),
-        inp('paid', 'Already Paid', 0, { unit: 'p a mile', min: 0, max: 45 }),
-      ],
-      outputs: [
-        money('claim', 'Approved Amount', 'if(vehicle == 1, min(miles, 10000) * 0.45 + max(0, miles - 10000) * 0.25, if(vehicle == 2, miles * 0.24, miles * 0.2))'),
-        money('relief', 'Left To Claim', 'max(0, claim - miles * paid / 100)'),
-      ],
-      tests: [
-        { in: { miles: 12000, vehicle: 1, paid: 0 }, out: { claim: 5000, relief: 5000 } },
-        { in: { miles: 100, vehicle: 3, paid: 0 }, out: { claim: 20 } },
-        { in: { miles: 5000, vehicle: 1, paid: 30 }, out: { claim: 2250, relief: 750 } },
-      ],
-      estimate: true,
-      source: 'HMRC approved mileage allowance payments: 45p then 25p (cars), 24p (motorcycles), 20p (bicycles)',
-    },
-  },
-  {
     id: 'gift-aid', name: 'Gift Aid', family: 'money', glyph: 'heart', archetype: 'calc',
     pitch: 'What a charity gets with Gift Aid and the relief a higher-rate payer can claim.',
     keywords: ['gift aid', 'donation', 'charity', 'tax relief', 'higher rate', 'giving'],
@@ -987,36 +1033,6 @@ export const MONEY: AppDef[] = [
     ],
   },
   {
-    id: 'clients', name: 'Clients', family: 'money', glyph: 'people', from: 'money.20', archetype: 'log',
-    pitch: 'Every customer on one card with their stage, value and next follow-up.',
-    keywords: ['clients', 'customers', 'crm', 'leads', 'follow up', 'pipeline'],
-    tour: ['Add a client with only what they have told you.', 'Drag them across the board from Lead to Paid.', 'Set a follow-up date and you get a nudge that morning.'],
-    log: {
-      fields: [
-        fd('name', 'Name', 'text', { required: true }),
-        fd('company', 'Company', 'text'),
-        fd('phone', 'Phone', 'text'),
-        fd('email', 'Email', 'text'),
-        fd('stage', 'Stage', 'choice', { options: ['Lead', 'Quoted', 'Won', 'Paid', 'Dormant'], default: 'Lead' }),
-        fd('value', 'Value', 'money'),
-        fd('followup', 'Follow Up', 'date'),
-        fd('notes', 'Notes', 'long'),
-      ],
-      title: 'name', sub: '{company} · {stage}', meta: 'value', date: 'followup', sort: { field: 'followup', dir: 'asc' }, group: 'stage',
-      stats: [
-        { label: 'Clients', kind: 'count', period: 'all' },
-        { label: 'Pipeline', kind: 'sum', field: 'value', period: 'all' },
-      ],
-      views: ['board', 'list', 'calendar'],
-      remind: { field: 'followup', words: 'Follow up with {name}' },
-    },
-    sample: [
-      { name: 'Priya Shah', company: 'Harbour Cafe', stage: 'Won', value: 1200, followup: '2026-11-20', notes: 'Wants a spring menu in February' },
-      { name: 'Tom Reid', company: 'Greenway Lettings', stage: 'Quoted', value: 2400, followup: '2026-11-17' },
-      { name: 'Grace Lee', company: 'Oak Street Dental', stage: 'Lead', value: 600, followup: '2026-11-18', notes: 'Met at the business breakfast' },
-    ],
-  },
-  {
     id: 'business-books', name: 'Business Books', family: 'money', glyph: 'book', from: 'money.16', archetype: 'log',
     pitch: 'Sole-trader income and costs in HMRC’s categories, with profit worked out live.',
     keywords: ['books', 'bookkeeping', 'sole trader', 'income', 'expenses', 'profit'],
@@ -1043,34 +1059,6 @@ export const MONEY: AppDef[] = [
       { date: '2026-11-06', what: 'Website hosting', amount: -9.99, category: 'Phone And Web' },
       { date: '2026-11-08', what: 'Train to client meeting', amount: -24.6, category: 'Travel' },
       { date: '2026-11-10', what: 'Payment from Greenway Lettings', amount: 600, category: 'Sales' },
-    ],
-  },
-  {
-    id: 'timesheet', name: 'Timesheet', family: 'money', glyph: 'clock', archetype: 'log',
-    pitch: 'Hours by client and job, totalled for the week so every invoice is right.',
-    keywords: ['timesheet', 'hours', 'billable', 'time tracking', 'freelance', 'clients'],
-    tour: ['Add the hours you worked with the client and the job.', 'Tick Billed once it is on an invoice.', 'The ring shows this week against the hours you aim for.'],
-    log: {
-      fields: [
-        fd('date', 'Date', 'date', { default: 'today', required: true }),
-        fd('client', 'Client', 'text', { required: true }),
-        fd('task', 'Task', 'text'),
-        fd('hours', 'Hours', 'number', { required: true, step: 0.25, min: 0, unit: 'h' }),
-        fd('billed', 'Billed', 'check'),
-      ],
-      title: 'client', sub: 'task', meta: 'hours', date: 'date', sort: { field: 'date', dir: 'desc' },
-      stats: [
-        { label: 'This Week', kind: 'sum', field: 'hours', period: 'week', goal: 30, dir: 'reach' },
-        { label: 'This Month', kind: 'sum', field: 'hours', period: 'month' },
-        { label: 'Clients', kind: 'distinct', field: 'client', period: 'month' },
-      ],
-      chart: { field: 'hours', kind: 'bar', period: 'week' },
-      views: ['list', 'calendar'],
-    },
-    sample: [
-      { date: '2026-11-12', client: 'Greenway Lettings', task: 'Page layouts', hours: 5.5, billed: false },
-      { date: '2026-11-11', client: 'Harbour Cafe', task: 'Menu changes', hours: 2, billed: false },
-      { date: '2026-11-10', client: 'Greenway Lettings', task: 'Kick-off and wireframes', hours: 4, billed: true },
     ],
   },
   {
@@ -1135,38 +1123,6 @@ export const MONEY: AppDef[] = [
     ],
   },
   {
-    id: 'job-tracker', name: 'Job Tracker', family: 'money', glyph: 'case', from: 'money.52', archetype: 'log',
-    pitch: 'Every job you are chasing from saved to offer, with closing dates never missed.',
-    keywords: ['job search', 'applications', 'jobs', 'interview', 'career', 'tracker'],
-    tour: ['Save a job with its link, salary and closing date.', 'Drag it across the board as you apply and hear back.', 'You get a nudge on the closing date for any not yet sent.'],
-    log: {
-      fields: [
-        fd('role', 'Role', 'text', { required: true }),
-        fd('employer', 'Employer', 'text', { required: true }),
-        fd('salary', 'Salary', 'money'),
-        fd('location', 'Location', 'text'),
-        fd('remote', 'Working', 'choice', { options: ['Office', 'Hybrid', 'Remote'] }),
-        fd('closes', 'Closes', 'date'),
-        fd('stage', 'Stage', 'choice', { options: ['Saved', 'Applied', 'Interview', 'Offer', 'Closed'], default: 'Saved' }),
-        fd('link', 'Advert', 'link'),
-        fd('notes', 'Notes', 'long'),
-      ],
-      title: 'role', sub: '{employer} · {location}', meta: 'salary', date: 'closes', sort: { field: 'closes', dir: 'asc' }, group: 'stage',
-      stats: [
-        { label: 'Applied Month', kind: 'count', period: 'month' },
-        { label: 'Active', kind: 'count', period: 'all' },
-        { label: 'Top Salary', kind: 'max', field: 'salary', period: 'all' },
-      ],
-      views: ['board', 'list', 'calendar'],
-      remind: { field: 'closes', words: 'Applications for {role} close today' },
-    },
-    sample: [
-      { role: 'Project Coordinator', employer: 'City council', salary: 34000, location: 'Leeds', remote: 'Hybrid', closes: '2026-11-24', stage: 'Saved' },
-      { role: 'Operations Manager', employer: 'Regional charity', salary: 41000, location: 'York', remote: 'Hybrid', closes: '2026-11-19', stage: 'Applied' },
-      { role: 'Office Lead', employer: 'Design studio', salary: 36500, location: 'Remote', remote: 'Remote', closes: '2026-11-30', stage: 'Interview' },
-    ],
-  },
-  {
     id: 'interview-prep', name: 'Interview Prep', family: 'money', glyph: 'chat', from: 'money.54', archetype: 'guide',
     pitch: 'How to prepare and answer well, from the National Careers Service’s public advice.',
     keywords: ['interview', 'star method', 'questions', 'job interview', 'prepare', 'answers'],
@@ -1190,33 +1146,6 @@ export const MONEY: AppDef[] = [
     keywords: ['interview practice', 'answers', 'rehearse', 'timer', 'speaking', 'star'],
     tour: ['Read a question, then use the thinking time to plan with STAR.', 'Answer out loud for two minutes; the chime tells you to wrap up.', 'Use the review time to note what to tighten next round.'],
     timer: { steps: [{ name: 'Think', secs: 30 }, { name: 'Answer', secs: 120 }, { name: 'Review', secs: 30 }], rounds: 5 },
-  },
-  {
-    id: 'day-rate', name: 'Day Rate', family: 'money', glyph: 'calc', from: 'money.24', archetype: 'calc',
-    pitch: 'The day and hour rate you need to reach your income after costs and time off.',
-    keywords: ['day rate', 'hourly rate', 'freelance', 'pricing', 'charge', 'contractor'],
-    tour: ['Put in the yearly income you want before tax and your yearly costs.', 'Set weeks off and how much of your time is billable.', 'See the day and hour rate that gets you there.'],
-    calc: {
-      inputs: [
-        inp('income', 'Wanted Income', 45000, { unit: '£', min: 0, step: 1000 }),
-        inp('costs', 'Yearly Costs', 5000, { unit: '£', min: 0, step: 100 }),
-        inp('weeksoff', 'Weeks Off', 6, { min: 0, max: 30 }),
-        inp('days', 'Days A Week', 5, { min: 1, max: 7 }),
-        inp('billable', 'Billable Time', 75, { unit: '%', min: 10, max: 100, step: 5 }),
-        inp('hours', 'Hours A Day', 7.5, { min: 1, max: 12, step: 0.5 }),
-      ],
-      outputs: [
-        out('billdays', 'Billable Days', '(52 - weeksoff) * days * billable / 100', { dp: 0 }),
-        money('day', 'Day Rate', '(income + costs) / billdays'),
-        money('hour', 'Hour Rate', 'day / hours'),
-      ],
-      tests: [
-        { in: { income: 45000, costs: 5000, weeksoff: 6, days: 5, billable: 75, hours: 7.5 }, out: { billdays: 172.5, day: 289.86, hour: 38.65 } },
-        { in: { income: 30000, costs: 0, weeksoff: 2, days: 5, billable: 100, hours: 8 }, out: { billdays: 250, day: 120, hour: 15 } },
-      ],
-      estimate: true,
-      source: 'Cost-plus rate method: (income + costs) ÷ billable days, as in the UK government’s Business Support guides',
-    },
   },
   {
     id: 'margin-markup', name: 'Margin & Markup', family: 'money', glyph: 'tag', from: 'money.24', archetype: 'calc',
@@ -1356,29 +1285,6 @@ export const MONEY: AppDef[] = [
     },
   },
   {
-    id: 'holiday-days', name: 'Holiday Days', family: 'money', glyph: 'sun', from: 'money.56', archetype: 'calc',
-    pitch: 'Your statutory paid holiday, for set days a week or irregular hours.',
-    keywords: ['holiday', 'annual leave', 'entitlement', 'part time', 'irregular hours', 'work rights'],
-    tour: ['Put in the days you work each week for a fixed pattern.', 'Or put in hours worked in a pay period for irregular hours.', 'Your contract may give more; this is the legal minimum.'],
-    calc: {
-      inputs: [
-        inp('days', 'Days A Week', 5, { min: 0, max: 7, step: 0.5 }),
-        inp('hours', 'Irregular Hours', 0, { unit: 'h', min: 0, step: 1 }),
-      ],
-      outputs: [
-        out('leave', 'Days A Year', 'min(days * 5.6, 28)', { dp: 1 }),
-        out('accrued', 'Holiday Hours Earned', 'hours * 0.1207', { unit: 'h', dp: 2 }),
-      ],
-      tests: [
-        { in: { days: 5, hours: 0 }, out: { leave: 28 } },
-        { in: { days: 3, hours: 100 }, out: { leave: 16.8, accrued: 12.07 } },
-        { in: { days: 6, hours: 0 }, out: { leave: 28 } },
-      ],
-      estimate: true,
-      source: 'GOV.UK Holiday entitlement: 5.6 weeks capped at 28 days; 12.07% of hours for irregular hours',
-    },
-  },
-  {
     id: 'sick-pay', name: 'Sick Pay', family: 'money', glyph: 'pill', from: 'money.56', archetype: 'calc',
     pitch: 'Statutory Sick Pay for 2026 to 2027 from your weekly earnings and days off.',
     keywords: ['sick pay', 'ssp', 'off sick', 'statutory', 'illness', 'work rights'],
@@ -1422,26 +1328,6 @@ export const MONEY: AppDef[] = [
       ],
       estimate: true,
       source: 'GOV.UK National Minimum Wage and National Living Wage rates from 1 April 2026',
-    },
-  },
-  {
-    id: 'notice-period', name: 'Notice Period', family: 'money', glyph: 'calendar', from: 'money.56', archetype: 'calc',
-    pitch: 'The minimum notice an employer must give you and you must give them.',
-    keywords: ['notice', 'notice period', 'resign', 'dismissal', 'statutory', 'work rights'],
-    tour: ['Put in how long you have worked there, in years.', 'See the legal minimum notice each way.', 'Your contract may set longer notice; this is the floor.'],
-    calc: {
-      inputs: [inp('years', 'Years Worked', 5, { min: 0, max: 50, step: 0.5 })],
-      outputs: [
-        out('employer', 'Employer Gives', 'if(years < 1 / 12, 0, if(years < 2, 1, min(floor(years), 12)))', { unit: 'weeks', dp: 0 }),
-        out('you', 'You Give', 'if(years < 1 / 12, 0, 1)', { unit: 'weeks', dp: 0 }),
-      ],
-      tests: [
-        { in: { years: 5 }, out: { employer: 5, you: 1 } },
-        { in: { years: 1 }, out: { employer: 1 } },
-        { in: { years: 15 }, out: { employer: 12 } },
-      ],
-      estimate: true,
-      source: 'GOV.UK Handing in your notice and Dismissal: statutory minimum notice periods',
     },
   },
 
