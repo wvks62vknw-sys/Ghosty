@@ -23,9 +23,9 @@ export const PACK_WORDS: Record<string, CatValue> = {
   },
   // [moneylane] the MONEY screen as a budgeting app of its own (features/money/app.ts): its pages opened by name, with no model
   'phrase:moneyapp': {
-    name: 'Your money app', line: 'I can open your month, your budgets, your bills and subscriptions, or your trends, from the statements you gave me.',
-    more: 'Out, in and what is left over, each budget and what it leaves a day, what is due next and what it comes to a year, and your last six months side by side. Every number says how it was worked out. No bank access, ever.',
-    say: ['My budgets', 'My subscriptions', 'Spending trends', 'My spending'], scene: ['money'], cat: 'watch', needs: ['statement'], since: '2026-11-13',
+    name: 'Your money app', line: 'I can open safe to spend until payday, your month, budgets, goals, bills, money calendar, trends or your year in money.',
+    more: 'Safe to spend is what is left until payday after the bills still due. Out, in and left over, each budget and goal, what is due on which day, shared household bills, and your year looked back on. Every number says how it was worked out. Sums, never a forecast. No bank access, ever.',
+    say: ['Safe to spend', 'Money calendar', 'Savings goals', 'My budgets'], scene: ['money'], cat: 'watch', needs: ['statement'], since: '2026-11-13',
     go: { open: 'money' }, tryText: 'Opens MONEY',
   },
   'act:money:spent': {

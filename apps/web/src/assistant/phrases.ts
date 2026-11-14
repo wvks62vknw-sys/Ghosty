@@ -15,6 +15,7 @@
  * "this is Sam" is the Lens's while PEOPLE is open (features/lens/people.ts).
  */
 import { canYouAsked, todayAsked, whyAsked } from '../../../../packages/shared/src/abilities';
+import { openingAsked } from '../shell/bootwords';
 import { foresightAsked, rightSaid } from '../../../../packages/shared/src/foresight';
 import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/src/guardian';
 import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
@@ -64,6 +65,7 @@ import { marketsAsked } from '../features/markets/asks';
 import { briefAsked } from '../features/brief/asks';
 import { screenAsked } from './screenasks';
 import { comicAsked } from '../features/comic/asks';
+import { securityAsked } from '../features/security/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -111,6 +113,9 @@ export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.
 export const LOCAL_ASKS = [
   { id: 'carview', test: (t: string) => viewAsked(t) !== null },
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
+  // [boot] "short opening", "the full film every time", "opening once a day", "how did the opening run?", "Sam's turn": the opening's own
+  // words, answered on the phone (shell/bootwords.ts openingAsked)
+  { id: 'opening', test: (t: string) => openingAsked(t) !== null },
   // [voice lane] "do you know it's me?": from the phone's own tag (before "can you…?" could call it an ability he lacks)
   { id: 'speaker', test: (t: string) => SPEAKER_ASK.test(t.trim().replace(/[’]/g, "'")) },
   // [voice lane] HIS OWN WORDINGS (voice.u1, assistant/learnwords.ts): a wording he taught opens its screen before any table reads it;
@@ -232,6 +237,8 @@ export const LOCAL_ASKS = [
   { id: 'openscreen', test: (t: string) => !!screenAsked(t) },
   // [comic] THE COMIC (features/comic/asks.ts): "make me a comic about…", "read a comic", "import this comic", "public domain comics"
   { id: 'comic', test: (t: string) => !!comicAsked(t) },
+  // [security] SECURITY (features/security/asks.ts): "lock everything", "has my password leaked?", "show my approvals", "how safe am I?"
+  { id: 'security', test: (t: string) => !!securityAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },

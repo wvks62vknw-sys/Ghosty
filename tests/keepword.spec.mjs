@@ -32,12 +32,37 @@ const yesterday = londonNoon - DAY;
 const dow = (new Date(londonNoon).getUTCDay() + 6) % 7; // Monday 0
 const lastWeekWed = londonNoon - (dow + 5) * DAY;
 const now = Date.now();
+// this day last month, at noon (none on a day the month before did not have, like the 31st)
+const monthAgo = (() => {
+  const d = new Date(londonNoon);
+  const want = d.getUTCDate();
+  d.setUTCMonth(d.getUTCMonth() - 1);
+  return d.getUTCDate() === want ? d.getTime() : 0;
+})();
 const TURNS = [
   { at: now - 3 * 3600_000 > londonNoon - 12 * 3600_000 ? now - 3 * 3600_000 : now - 60_000 * 30, q: 'how do I fix a squeaky door?', a: 'I couldn’t find anything useful on that.' },
   { at: yesterday, q: "what's the best paint for a fence", a: 'An oil-based wood stain lasts longest.' },
   { at: lastWeekWed, q: 'are there trains to York on Saturday', a: 'Yes, every half hour from New Street.' },
   { at: lastWeekWed - 14 * DAY, q: 'trains to Bristol next month', a: 'From £24 if you book ahead.' },
+  { at: yesterday - 3 * 3600_000, q: 'why is my Octopus Energy bill so high this month', a: 'It is 12% up on the same month last year.' },
+  { at: yesterday - 5 * 3600_000, q: 'the hedge at the back has grown over the footpath again', a: 'The council can ask the owner to cut it back.' },
+  ...(monthAgo ? [{ at: monthAgo, q: 'what time does the tip open on Sundays', a: 'From 9 until 4.' }] : []),
 ];
+// (j) a bill on his HOME screen, from the same supplier as one of his questions
+const H = { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' };
+const pk = (pack, action, args = {}) => fetch(`${base}/api/packs/do`, { method: 'POST', headers: H, body: JSON.stringify({ pack, action, args }) }).then((r) => r.json()).catch(() => ({}));
+{
+  const had = (await pk('homeadmin', 'bills', {})).data?.bills ?? [];
+  await Promise.all(had.filter((b) => /octopus/i.test(b.supplier ?? '')).map((b) => pk('homeadmin', 'paid', { id: b.id, remove: true })));
+  const due = new Date(Date.now() + 9 * DAY).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  await pk('homeadmin', 'bill', { text: `Octopus Energy\nElectricity bill\nAmount due £84.20\nPay by ${due}` });
+  // (the bills page draws once a statement is kept: one line of one, if none is kept yet)
+  const kept = await fetch(`${base}/api/profile/spending`, { headers: H }).then((r) => r.json()).catch(() => ({}));
+  if (!kept?.kept) {
+    const ym = new Date().toISOString().slice(0, 7);
+    await fetch(`${base}/api/profile/spending/import`, { method: 'POST', headers: H, body: JSON.stringify({ csv: `Date,Description,Amount\n${ym}-01,TESCO STORES,-12.40\n`, rulesOnly: true }) }).catch(() => undefined);
+  }
+}
 
 const fit = (page, sel) =>
   page.evaluate((sel) => {
@@ -61,6 +86,12 @@ async function run(vp, body) {
     if (!localStorage.getItem('ghosty.keep.seeded')) {
       localStorage.setItem('ghosty.keep.seeded', '1');
       localStorage.setItem('ghosty.chat', JSON.stringify({ entries: turns.flatMap((t) => [{ kind: 'user', text: t.q, at: t.at }, { kind: 'assistant', text: t.a, at: t.at + 4000 }]) }));
+      // (l) a letter he read with the Lens yesterday
+      localStorage.setItem('ghosty.lens.read', JSON.stringify([{ at: Date.now() - 86_400_000, text: 'PENALTY CHARGE NOTICE. Westshire Council. A penalty charge of £70 is now payable for parking in a restricted zone on Mill Lane. Pay within 14 days and it is reduced to £35.' }]));
+      // (k) a letter of his
+      localStorage.setItem('ghosty.docs', JSON.stringify([{ id: 'doc-council', title: 'Letter to the council', kind: 'letter', at: Date.now() - 86_400_000, blocks: [{ id: 'b1', t: 'p', runs: [{ text: 'Dear Sir or Madam,' }] }, { id: 'b2', t: 'p', runs: [{ text: 'I am writing about the path behind my house.' }] }] }]));
+      // (i) a workbook of his, its match four rows down
+      localStorage.setItem('ghosty.sheets', JSON.stringify([{ id: 'bk-bills', title: 'House bills', at: Date.now() - 86_400_000, sheets: [{ name: 'Sheet1', cells: { A1: { v: 'Item' }, B1: { v: 'Cost' }, A2: { v: 'Council tax' }, B2: { v: 160 }, A3: { v: 'Water' }, B3: { v: 38 }, A4: { v: 'Boiler service' }, B4: { v: 95 } }, widths: {}, heights: {}, frozen: false }], names: {}, charts: [], view: { sheet: 0, sel: 'A1' } }]));
     }
     window.__ghostyHero = true;
     window.__ghostyPlace = { none: true };
@@ -132,7 +163,7 @@ async function run(vp, body) {
 
     // (e) the day rebuilt, and recall kept to last week
     const day = await ask('what did I do yesterday?', /Yesterday: /);
-    check(/Yesterday: you asked “what's the best paint for a fence/.test(day), `${T} [e day] said "${day}"`);
+    check(/^.*Yesterday: .*you asked “what's the best paint for a fence/.test(day) && !/York|Bristol|squeaky/.test(day.split('FORGET')[0]), `${T} [e day] said "${day}"`);
     const dated = await ask('what did I ask last week about trains?', /about “trains”/);
     check(/York/.test(dated) && !/Bristol/.test(dated), `${T} [e last week] said "${dated}"`);
 
@@ -175,7 +206,101 @@ async function run(vp, body) {
     await page.unroute(/\/api\/guardian\/watchers$/);
   }
 
-  // (f) MEMORY → YOUR WORD
+  // (i) FIND lands on the cell (memory.u9): MEMORY's search for "boiler service" finds the workbook's row; a tap opens it at A4
+  if (!body) {
+    await page.evaluate(() => (location.hash = 'memory'));
+    await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
+    await openSection(page, 'memory', 'Timeline');
+    const box = page.locator('#pg-memory input[type=search]').first();
+    await box.fill('boiler service');
+    const row = page.locator('#pg-memory .recallfind .recallrow[data-kind="sheet"] .recallgo').first();
+    const seen = await row.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false);
+    check(seen, `${T} [i] FIND did not find the workbook's row`);
+    if (seen) {
+      await row.click();
+      const landed = await page.waitForFunction(() => window.__ghosty?.sheets?.view === 'book' && window.__ghosty.sheets.sel === 'A4', null, { timeout: 10000 }).then(() => true, () => false);
+      check(landed, `${T} [i] the workbook did not open at A4: ${JSON.stringify(await page.evaluate(() => ({ view: window.__ghosty?.sheets?.view, sel: window.__ghosty?.sheets?.sel })))}`);
+      await page.keyboard.press('Escape').catch(() => undefined);
+      await page.waitForFunction(() => !document.querySelector('.modal'), null, { timeout: 5000 }).catch(() => undefined);
+    }
+    await box.fill('');
+  }
+
+  // (j) a bill shows what he asked about it before (memory.c3), one tap from the exchange
+  if (!body) {
+    await page.evaluate(() => (location.hash = 'money'));
+    await page.waitForSelector('#pg-money', { state: 'attached', timeout: 10000 });
+    await openSection(page, 'money', 'Bills');
+    const asked = page.locator('#pg-money .mndue[data-kind="bill"] .mnasked').first();
+    const seen = await asked.waitFor({ state: 'visible', timeout: 12000 }).then(() => true, () => false);
+    check(seen && /^You asked me about this yesterday ›$/.test((await asked.textContent()) ?? ''), `${T} [j] under the bill: "${seen ? await asked.textContent() : '(nothing)'}"`);
+    if (seen) {
+      const box = await asked.boundingBox();
+      check(box && box.height >= 43.5, `${T} [j] the line is ${box?.height} pt high`);
+      await asked.click();
+      const shown = await page.waitForFunction(() => /You: why is my Octopus Energy bill so high/.test(document.querySelector('.modal .exchange')?.textContent ?? ''), null, { timeout: 6000 }).then(() => true, () => false);
+      check(shown, `${T} [j] the tap did not show the exchange`);
+      await page.keyboard.press('Escape').catch(() => undefined);
+    }
+  }
+
+  // (k) his past words while he writes (memory.c1): in the letter, FROM WHAT YOU SAID finds the hedge, and PUT IT IN puts it in the letter
+  if (!body) {
+    await page.evaluate(() => (location.hash = 'memory'));
+    await openSection(page, 'memory', 'Timeline');
+    const box = page.locator('#pg-memory input[type=search]').first();
+    await box.fill('path behind my house');
+    const doc = page.locator('#pg-memory .recallfind .recallrow[data-kind="doc"] .recallgo').first();
+    if (await doc.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false)) {
+      await doc.click();
+      const mineIn = page.locator('.dcminebox input').first();
+      const up = await mineIn.waitFor({ state: 'attached', timeout: 10000 }).then(() => true, () => false);
+      check(up, `${T} [k] the letter has no FROM WHAT YOU SAID`);
+      if (up) {
+        await mineIn.scrollIntoViewIfNeeded().catch(() => undefined);
+        await mineIn.fill('the hedge');
+        await page.locator('.dcminebox button', { hasText: 'SEARCH MY WORDS' }).click();
+        const line = page.locator('.dcminebox .dcmine').filter({ hasText: 'grown over the footpath' }).first();
+        const found = await line.waitFor({ state: 'visible', timeout: 6000 }).then(() => true, () => false);
+        check(found, `${T} [k] FROM WHAT YOU SAID did not find the hedge: "${await page.evaluate(() => document.querySelector('.dcminebox')?.textContent ?? '')}"`);
+        if (found) {
+          const put = line.locator('button');
+          const bx = await put.boundingBox();
+          check(bx && bx.height >= 43.5 && bx.width >= 43.5, `${T} [k] PUT IT IN is ${bx?.width}×${bx?.height}`);
+          await put.click();
+          const inDoc = await page.waitForFunction(() => [...document.querySelectorAll('.dcpage .dcb')].some((b) => /grown over the footpath again/.test(b.textContent ?? '')), null, { timeout: 6000 }).then(() => true, () => false);
+          check(inDoc, `${T} [k] PUT IT IN did not put the words in the letter`);
+        }
+      }
+      await page.keyboard.press('Escape').catch(() => undefined);
+      await page.waitForFunction(() => !document.querySelector('.modal'), null, { timeout: 5000 }).catch(() => undefined);
+    } else check(false, `${T} [k] FIND did not find the letter`);
+    await box.fill('');
+  }
+
+  // (l) the letter he photographed (memory.s1): FIND "parking fine" finds what the Lens read, and a tap shows it whole
+  if (!body) {
+    await page.evaluate(() => (location.hash = 'memory'));
+    await openSection(page, 'memory', 'Timeline');
+    const box = page.locator('#pg-memory input[type=search]').first();
+    await box.fill('parking penalty charge');
+    const row = page.locator('#pg-memory .recallfind .recallrow[data-kind="scan"] .recallgo').first();
+    const seen = await row.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false);
+    check(seen && /Read with the Lens/.test((await row.textContent()) ?? ''), `${T} [l] FIND did not find the letter the Lens read: "${await page.evaluate(() => document.querySelector('#pg-memory .recallfind')?.textContent?.slice(0, 200) ?? '')}"`);
+    if (seen) {
+      await row.click();
+      const whole = await page.waitForFunction(() => /Mill Lane/.test(document.querySelector('.modal .exchange')?.textContent ?? '') && /the photo itself was not kept/.test(document.querySelector('.modal .exchange')?.textContent ?? ''), null, { timeout: 6000 }).then(() => true, () => false);
+      check(whole, `${T} [l] the tap did not show what the Lens read`);
+      await page.keyboard.press('Escape').catch(() => undefined);
+    }
+    await box.fill('');
+  }
+
+  // (f) MEMORY → YOUR WORD (with one chat pinned, as the exchange card's PIN keeps it)
+  if (!body) await page.evaluate((k) => localStorage.setItem('ghosty.recall.pinned', JSON.stringify([k])), `t:${TURNS[0].at}`);
+  // (from Home, so MEMORY is entered afresh and reads what is pinned)
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForFunction(() => document.body.dataset.tab === 'core', null, { timeout: 8000 }).catch(() => undefined);
   await page.evaluate(() => (location.hash = 'memory'));
   await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
   await openSection(page, 'memory', 'Your word');
@@ -184,6 +309,14 @@ async function run(vp, body) {
   check(shown, `${T} [f] YOUR WORD did not show: "${panelText.slice(0, 200)}"`);
   for (const [what, re] of [['the heading', /You said you’d/], ['the place', /The spare key in the blue tin/], ['the reason', /The canal flat: it(?:'|’)s quieter/], ['the week', /Your week/]]) check(re.test(panelText), `${T} [f] ${what} is not in YOUR WORD: "${panelText.slice(0, 260)}"`);
   check(/send Jo the photos/.test(panelText), `${T} [f] the promise is not in YOUR WORD (open or done)`);
+  // (n) a chat he pinned (the exchange card's PIN) is listed under "Chats you pinned" with UNPIN (the sweep: Apple Notes' pinned)
+  if (!body) {
+    const pinned = await page.waitForFunction(() => /Chats you pinned.*how do I fix a squeaky door/.test(document.querySelector('#pg-memory .pn.keep')?.textContent ?? ''), null, { timeout: 8000 }).then(() => true, () => false);
+    check(pinned, `${T} [n] the pinned chat is not listed in YOUR WORD: ${JSON.stringify(await page.evaluate(() => ({ pins: localStorage.getItem('ghosty.recall.pinned'), heads: [...document.querySelectorAll('#pg-memory .pn.keep .keephead')].map((x) => x.textContent) })))} ${await page.evaluate(() => new Promise((ok) => { const r = indexedDB.open('ghosty-recall', 1); r.onsuccess = () => { const q = r.result.transaction('things').objectStore('things').getAllKeys(); q.onsuccess = () => ok(q.result.filter((k) => String(k).startsWith('t:')).join(',')); }; }))}`);
+    check(await page.locator('#pg-memory .pn.keep .keeprow[data-kind="pinned"] button', { hasText: 'UNPIN' }).count() > 0, `${T} [n] no UNPIN on the pinned chat`);
+    // (o) on this day last month (Day One's), when the month before had this day
+    if (monthAgo) check(/On this day last month.*what time does the tip open on Sundays/.test(await page.evaluate(() => document.querySelector('#pg-memory .pn.keep')?.textContent ?? '')), `${T} [o] "On this day last month" is not in YOUR WORD`);
+  }
   const f = await fit(page, '#pg-memory .pn.keep');
   check(!f.small.length, `${T} [f] under 44 pt: ${f.small.join(', ')}`);
   check(!f.sideways, `${T} [f] the page goes sideways`);
@@ -194,6 +327,33 @@ async function run(vp, body) {
 
 for (const vp of [PHONE, PHONE2]) await run(vp, 0);
 await run(PHONE2, 21);
+
+// (m) YOUR WORD in all seven looks at 390: drawn, every key 44 pt, nothing sideways, no word cut
+for (const world of ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass']) {
+  const T = `[390 ${world}]`;
+  const ctx = await browser.newContext({ viewport: PHONE2, ...UK, reducedMotion: 'reduce' });
+  await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`${T} pageerror: ${e.message}`));
+  await page.addInitScript(({ key, world }) => {
+    localStorage.setItem('ghosty.ownerKey', key);
+    localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: {} }, home: { name: 'London', lat: 51.5, lon: -0.12 } }));
+    window.__ghostyHero = true;
+    window.__ghostyPlace = { none: true };
+  }, { key: KEY, world });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await page.evaluate(() => (location.hash = 'memory'));
+  await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
+  await openSection(page, 'memory', 'Your word');
+  const shown = await page.waitForFunction(() => window.__ghosty?.keep?.state === 'shown', null, { timeout: 12000 }).then(() => true, () => false);
+  check(shown, `${T} [m] YOUR WORD did not show`);
+  const f = await fit(page, '#pg-memory .pn.keep');
+  check(!f.small.length, `${T} [m] under 44 pt: ${f.small.join(', ')}`);
+  check(!f.sideways, `${T} [m] the page goes sideways`);
+  check(!f.cut.length, `${T} [m] words cut: ${JSON.stringify(f.cut)}`);
+  await ctx.close();
+}
 
 await browser.close();
 if (problems.length) {

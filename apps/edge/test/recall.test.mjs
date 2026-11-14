@@ -231,6 +231,26 @@ test('the next round: a chase holds for a second look ("and again Monday"), a pa
   assert.equal((await R.recallSearch(st, 'boiler code', NOW + 10 * D, TZ)).length, 1, 'still there on day 35');
 });
 
+test('recall by meaning on the brain (memory.u1): "the trip north" finds his "trains to Leeds" through the free embedding; none, and words stand', async () => {
+  const storage = await week();
+  // a stand-in for the embedding: "trip north" and "trains to Leeds" point the same way, everything else elsewhere
+  const vec = (t) => (/leeds|trip north/i.test(t) ? [1, 0, 0] : /door|hinge/i.test(t) ? [0, 1, 0] : [0, 0, 1]);
+  const env = { AI: { run: async (_m, input) => ({ data: input.text.map(vec) }) } };
+  const hits = await R.meaningSearch(env, storage, 'the trip north', NOW, TZ);
+  assert.equal(hits.length, 1);
+  assert.match(hits[0].q, /trains to Leeds/);
+  assert.equal(hits[0].day, 'on Tuesday');
+  assert.deepEqual(await R.meaningSearch({}, storage, 'the trip north', NOW, TZ), [], 'no Workers AI: nothing by meaning');
+  const tool = T.memoryTools.find((t) => t.name === 'recall');
+  const RealNow = Date.now;
+  Date.now = () => NOW;
+  try {
+    assert.match(await tool.run({ about: 'the trip north' }, { storage, env }), /he asked “what are the trains to Leeds tomorrow morning”/);
+  } finally {
+    Date.now = RealNow;
+  }
+});
+
 test('"what did I ask you about X?" in its wordings; the RECALL chip\'s words; nothing about anyone he never named', () => {
   for (const [t, about] of [['what did I ask you about trains?', 'trains'], ['When did I mention the boiler', 'boiler'], ['did I tell you about my knee', 'knee'], ['find where I said garden', 'garden'], ['what have I asked you about Leeds', 'Leeds']]) assert.equal(S.recallAsked(t), about, t);
   for (const t of ['what did you do today?', 'what trains go to Leeds', 'tell me about trains']) assert.equal(S.recallAsked(t), null, t);

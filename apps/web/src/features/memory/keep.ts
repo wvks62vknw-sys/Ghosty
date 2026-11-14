@@ -200,6 +200,8 @@ export function keepPanel(): Panel & { refresh(): Promise<void> } {
       else b.disabled = false;
     }, 'warn');
 
+  type Row = { key: string; kind: 'turn'; id: string; title: string; line: string; at: number; stamp: string; day: string };
+  let extra: { pinned: Row[]; onThisDay: Row[] } = { pinned: [], onThisDay: [] };
   const paint = () => {
     const s = keepStore.get();
     const promises = open();
@@ -239,12 +241,34 @@ export function keepPanel(): Panel & { refresh(): Promise<void> } {
       ...(where.length ? where.map((it) => row(it, [forget(it)], `${cap(it.what)} ${it.detail ?? ''}`, K.saidOn(day(it.at), it.via))) : [h('p.note.keepempty', K.WHERE_EMPTY)]),
       head(K.H_WHY),
       ...(why.length ? why.map((it) => row(it, [forget(it)], `${cap(it.what)}: ${it.detail ?? ''}`, K.saidOn(day(it.at), it.via))) : [h('p.note.keepempty', K.WHY_EMPTY)]),
+      // [recall] the sweep (Apple Notes' pinned, Day One's on this day): his pinned chats, and what he asked on this day last month
+      ...(extra.pinned.length ? [head(K.H_PINNED), ...extra.pinned.map((f) => h('div.keeprow', { dataset: { kind: 'pinned', case: 'keep' } }, h('span.keeptxt', h('b', `“${f.line.slice(0, 120)}”`), h('small', f.stamp)), h('span.keepkeys', key('OPEN', `Open the chat of ${f.day}`, () => void import('./recallcard').then((c) => c.openFound(f))), key('UNPIN', `Unpin the chat of ${f.day}`, async () => {
+        await import('./recall').then((R) => R.pinTurn({ key: f.key, at: f.at }, false));
+        void loadExtra();
+      }))))] : []),
+      ...(extra.onThisDay.length ? [head(K.H_ON_THIS_DAY), ...extra.onThisDay.map((f) => h('div.keeprow', { dataset: { kind: 'onthisday', case: 'keep' } }, h('span.keeptxt', h('b', `“${f.line.slice(0, 120)}”`), h('small', f.stamp)), h('span.keepkeys', key('OPEN', `Open the chat of ${f.day}`, () => void import('./recallcard').then((c) => c.openFound(f))))))] : []),
       head(K.H_WEEK),
       ...(s.lines.length ? s.lines.map((l) => h('p.keepweek', l)) : [h('p.note.keepempty', K.WEEK_EMPTY)]),
       ...(s.queue.length ? [h('p.note.keepqueue', K.queued(s.queue.length))] : []),
     );
   };
   keepStore.subscribe(paint);
+  // (the pinned chats and last month's day come from the phone's own index: read when the panel is, painted with the rest)
+  const loadExtra = async () => {
+    const R = await import('./recall');
+    // (a build under way, after a new message: waited for, so the lists are whole)
+    if (!(await R.recallWarm())) await R.buildIndex().catch(() => undefined);
+    const all = (await R.allThings()).filter((x) => x.kind === 'turn');
+    const row = (x: (typeof all)[number]): Row => ({ key: x.key, kind: 'turn', id: x.id, title: '', line: x.text, at: x.at, stamp: stampOf(x.at, x.via ?? 'app', timeZone), day: day(x.at) });
+    const d = new Date();
+    const lastMonth = new Date(d.getFullYear(), d.getMonth() - 1, d.getDate());
+    const from = lastMonth.getTime();
+    extra = {
+      pinned: all.filter((x) => R.isPinned(x.key)).sort((a, b) => b.at - a.at).slice(0, 10).map(row),
+      onThisDay: lastMonth.getDate() === d.getDate() ? all.filter((x) => x.at >= from && x.at < from + 86_400_000).sort((a, b) => a.at - b.at).slice(0, 3).map(row) : [],
+    };
+    paint();
+  };
 
   const state = (cls: string, head: string, line: string, retry = false) => {
     const el = h(`div.empty.${cls}` as 'div', { dataset: { case: 'keep' } }, h('b', head), h('span', line));
@@ -265,9 +289,11 @@ export function keepPanel(): Panel & { refresh(): Promise<void> } {
       return;
     }
     paint();
+    void loadExtra();
     if (!ok) p.setStatus('OFFLINE', 'off');
   };
   addEventListener('online', () => void refreshKeep());
+  addEventListener('ghosty:pins', () => void loadExtra());
   return Object.assign(p, { refresh });
 }
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

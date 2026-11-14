@@ -308,7 +308,7 @@ for (const vp of [PHONE, PHONE2]) {
     await openSection(page, 'memory', 'Patterns');
     const pe = await page.$eval('#pg-memory .pats .patempty', (e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('') + (e.querySelector('details.patwhy') ? '?' : '')).catch(() => '');
     check(!pe || (words(pe.replace(/\?/g, '')) <= 20 && /\?/.test(pe)), `${T} [M4 patterns] the empty state reads "${pe}"`);
-    await openSection(page, 'memory', 'Me');
+    await openSection(page, 'memory', 'About you');
     await bar(page, `${T} [memory]`, 'memory');
     await still(page, 'memory', vp);
     await ctx.close();

@@ -54,3 +54,45 @@ export function lastRefusal(): { row: PermRow; at: number; doing: string } | und
   const top = hits[0];
   return top ? { row: top[0], at: top[1].at, doing: top[1].doing ?? '' } : undefined;
 }
+
+// ---------------------------------------------------------------- A LOG OF CAMERA, MIC AND LOCATION USE (NEXT ROUND, polish3.u9)
+/** One time the camera, the microphone or the position was actually used, and on which screen; kept on this phone only. */
+export interface PermUse {
+  what: 'camera' | 'microphone' | 'location';
+  /** The screen it was used on (its id, as the address has it). */
+  screen: string;
+  at: number;
+}
+const USE_KEY = 'ghosty.perm.used';
+export const USE_MAX = 60;
+
+export function usesKept(): PermUse[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(USE_KEY) ?? '[]') as PermUse[];
+    return Array.isArray(v) ? v.filter((x) => x && typeof x.at === 'number' && typeof x.what === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** One use noted (the same thing on the same screen within a minute is one use, so a watch of the position is not a flood). */
+export function noteUse(what: PermUse['what'], now = Date.now()): void {
+  try {
+    const screen = (typeof document !== 'undefined' && document.body?.dataset.tab) || 'core';
+    const all = usesKept();
+    const last = all[all.length - 1];
+    if (last && last.what === what && last.screen === screen && now - last.at < 60_000) return;
+    all.push({ what, screen, at: now });
+    localStorage.setItem(USE_KEY, JSON.stringify(all.slice(-USE_MAX)));
+  } catch {
+    /* storage unavailable: nothing kept */
+  }
+}
+
+export function clearUses(): void {
+  try {
+    localStorage.removeItem(USE_KEY);
+  } catch {
+    /* nothing kept */
+  }
+}

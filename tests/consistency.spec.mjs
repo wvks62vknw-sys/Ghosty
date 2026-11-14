@@ -13,7 +13,7 @@
 //   node tests/consistency.spec.mjs [outDir]   (ONLY=claims,keys,names,about,counts,deadkeys,errors)
 import { launch, webkitNoise } from './browser.mjs';
 import { UK, standDown } from './nav.mjs';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const { buildSync } = createRequire(new URL('../apps/web/package.json', import.meta.url))('esbuild');
 
@@ -81,7 +81,22 @@ if (on('names')) {
   for (const [id, d] of Object.entries(DECK)) byName.set(d.name.toLowerCase(), [...(byName.get(d.name.toLowerCase()) ?? []), id]);
   for (const [name, ids] of byName) check(ids.length === 1, `[names] "${name}" names ${ids.length} screens: ${ids.join(', ')}`);
   // the first screen is "Home" wherever he is told where a thing lives (abilities/registry.ts screenName): no other screen is
-  check(!byName.has('home'), `[names] the deck calls ${byName.get('home')} "Home", the first screen's name`);
+  check((byName.get('home') ?? []).join() === 'core', `[names] "Home" names ${byName.get('home')}, not the first screen alone`);
+  // one name end to end (FINAL-ROUND's names left over, NEXT-ROUND u1): each screen's own title is its deck name (the "THE" of a
+  // title aside), and no second name is made for it in the bar
+  const titles = {};
+  for (const f of readdirSync(new URL('../apps/web/src/features', import.meta.url))) {
+    let s = '';
+    try { s = src(`apps/web/src/features/${f}/index.ts`); } catch { continue; }
+    for (const m of s.matchAll(/TabDef = \{\s*id: '([^']+)',[\s\S]*?title: '([^']+)'/g)) titles[m[1]] = m[2];
+  }
+  const norm = (s) => s.toLowerCase().replace(/^the /, '').replace(/’/g, "'");
+  for (const [id, d] of Object.entries(DECK)) {
+    if (!titles[id]) continue;
+    check(norm(titles[id]) === norm(d.name), `[names] ${id} is "${titles[id]}" on its own screen and "${d.name}" in the deck`);
+  }
+  const alias = /const ALIAS: Record<string, string> = \{([^}]*)\}/.exec(src('apps/web/src/shell/areas.ts'))?.[1] ?? '';
+  check(!alias.trim(), `[names] the bar gives screens a second name: {${alias.trim()}}`);
 }
 
 // ---------------------------------------------------------------- [about] every group's line in his voice is a sentence

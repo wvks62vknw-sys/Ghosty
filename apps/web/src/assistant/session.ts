@@ -36,6 +36,7 @@ import { NOTE_ASK, REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
+import { approvalSpoken } from '../features/security/locks'; // [security] security.c4
 import { wallSplit, wallTurn } from '../wall/phone'; // [wall] THE WALL: "pair the wall", "on the wall", "clear the wall" (BRIEF-MACHINE-WALL)
 import { showBegin, showEnd, showNote } from '../show/turn'; // [showme] the Stage: what a turn brought, and the picture after the sentence (BRIEF-SHOW-ME-1)
 import { sayError } from '../ui/hisWords';
@@ -349,7 +350,11 @@ function handle(ev: ChatEvent): void {
       approvalAsked = true;
       push({ kind: 'approval', id: ev.id, name: ev.name, reason: ev.reason, args: ev.args, state: 'waiting' });
       followApproval(ev.id);
-      if (speakReplies && settings.get().speak) void speak(ev.reason);
+      // [security] read aloud exactly what will happen, and that the tap is his (security.c4: his voice is never a lock on its own)
+      if (speakReplies && settings.get().speak) {
+        const aw = argWords(ev.args);
+        void speak(approvalSpoken(ev.reason, `${toolWords(ev.name, ev.args)}${aw ? ` (${aw})` : ''}`));
+      }
       break;
     case 'text': {
       narr.replied = true; // (no aside once the reply has begun: it is said instead)
@@ -907,6 +912,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   const t = wallSplit(text.trim()); // [wall] "where is Lisbon, on the wall": the ask, with this turn's picture bound for the wall
   if (!t) return;
   showBegin(t); // [showme] his next word takes the Stage away and starts this turn's tally
+  void import('./tour').then((m) => m.stopTour()).catch(() => undefined); // [consistency] a new word of his ends a guided tour
   theirsNow = false; // [voice lane] (set again below once the voice is judged)
   // [voiceknown] the sound of this spoken turn is taken now, before anything waits (a later listen would replace it)
   const snd = opts.voice ? takeSound() : null;
@@ -979,6 +985,16 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   await flushUndo();
   // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
   const localPriv = settings.get().offlineBrain === 'always' || !!opts.here;
+  // [consistency] HIS OWN ROUTINES (assistant/routines.ts): one word of his runs a few things in turn, on the phone, with no model
+  if (!opts.cloud && !opts.plain && !opts.again && ((await import('./routineturn').then((m) => m.routineTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false)) || (await import('./tour').then((m) => m.tourTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false)))) {
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
+  // [consistency] THE HELP DESK (assistant/helpdesk.ts): "how do I …?" with the exact taps and TRY IT; "what can I say here?"
+  if (!opts.cloud && !opts.plain && (await import('./helpdesk').then((m) => m.helpTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
   if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: localPriv, who }))) {
     // [offline2] answered on the phone with no model: his own, on the independence meter too
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });

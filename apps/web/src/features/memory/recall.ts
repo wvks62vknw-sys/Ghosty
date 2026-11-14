@@ -17,6 +17,7 @@
 import { dayWord, daysAgo, matchGists, recallSaid, daysFor, stampOf, type Gist } from '../../../../../packages/shared/src/recall';
 import { cosine, normalise, wordMatcher } from '../../../../../packages/shared/src/meaning';
 import { chat } from '../../assistant/session';
+import { findPlates, mentionsPlate, redactPlates } from '../../../../../packages/shared/src/plates';
 import { brain } from '../../api/brain';
 import { runIndex } from '../../library/idle';
 import { embedState, embedTexts } from '../../offline/embed';
@@ -49,7 +50,7 @@ let lastSig = '';
 const signature = (): string => {
   const es = chat.get().entries;
   let n = `${es.length}:${es[es.length - 1] && 'at' in es[es.length - 1]! ? (es[es.length - 1] as { at: number }).at : 0}`;
-  for (const k of ['ghosty.docs', 'ghosty.workspace', 'ghosty.slides', 'ghosty.sheets', 'ghosty.agenda.todo']) {
+  for (const k of ['ghosty.docs', 'ghosty.workspace', 'ghosty.slides', 'ghosty.sheets', 'ghosty.agenda.todo', 'ghosty.lens.read']) {
     try {
       n += `:${localStorage.getItem(k)?.length ?? 0}`;
     } catch {
@@ -177,7 +178,32 @@ function thingsFromStores(): Thing[] {
   }
   const ws = readJson<{ pages?: Record<string, { id: string; title: string; at: number; blocks?: B[] }> }>('ghosty.workspace', {});
   for (const p of Object.values(ws.pages ?? {})) if (p?.id) add('page', p.id, p.title, p.at, [...paras(p.title), ...blockLines(p.blocks ?? [])]);
-  for (const [key, kind] of [['ghosty.slides', 'deck'], ['ghosty.sheets', 'sheet'], ['ghosty.scan.pages', 'scan']] as const) {
+  // [recall] memory.u9: a spreadsheet's rows, each with the address of its first cell ("0!B4": sheet 1, cell B4), and a deck's slides, each
+  // with its slide's id, so a tap lands on the cell or the slide
+  for (const b of readJson<{ id: string; title: string; at: number; sheets?: { name: string; cells?: Record<string, { v?: unknown }> }[] }[]>('ghosty.sheets', [])) {
+    if (!b?.id || !Array.isArray(b.sheets)) continue;
+    const lines: [string, string][] = [];
+    b.sheets.forEach((sh, si) => {
+      const rows = new Map<number, { col: string; v: string }[]>();
+      for (const [ad, c] of Object.entries(sh.cells ?? {})) {
+        const m = /^([A-Z]+)(\d+)$/.exec(ad);
+        const v = c?.v;
+        if (!m || v == null || typeof v === 'object' || v === '') continue;
+        const r = Number(m[2]);
+        rows.set(r, [...(rows.get(r) ?? []), { col: m[1]!, v: String(v) }]);
+      }
+      for (const [r, cs] of [...rows].sort((x, y) => x[0] - y[0])) {
+        cs.sort((x, y) => x.col.length - y.col.length || x.col.localeCompare(y.col));
+        lines.push([`${b.sheets!.length > 1 ? `${sh.name}: ` : ''}${cs.map((c) => c.v).join(' · ')}`, `${si}!${cs[0]!.col}${r}`]);
+      }
+    });
+    add('sheet', b.id, b.title, b.at, lines);
+  }
+  for (const d of readJson<{ id: string; title: string; at: number; slides?: { id: string; title?: { runs?: { text?: string }[] }; body?: { runs?: { text?: string }[] }[]; body2?: { runs?: { text?: string }[] }[]; notes?: string }[] }[]>('ghosty.slides', [])) {
+    if (!d?.id || !Array.isArray(d.slides)) continue;
+    add('deck', d.id, d.title, d.at, d.slides.map((sl): [string, string] => [[runsText(sl.title?.runs), ...(sl.body ?? []).map((x) => runsText(x.runs)), ...(sl.body2 ?? []).map((x) => runsText(x.runs)), sl.notes ?? ''].filter(Boolean).join(' · ').slice(0, 400), sl.id]).filter(([t]) => t.length > 2));
+  }
+  for (const [key, kind] of [['ghosty.scan.pages', 'scan']] as const) {
     const v = readJson<unknown>(key, null);
     const list = Array.isArray(v) ? v : v && typeof v === 'object' && Array.isArray((v as { list?: unknown }).list) ? (v as { list: unknown[] }).list : [];
     for (const x of list as Record<string, unknown>[]) {
@@ -236,7 +262,7 @@ export function buildIndex(o: { history?: boolean } = {}): Promise<void> {
     }
     turns = turns.filter((x) => !dead.has(x.key));
     lastSig = signature();
-    const fresh = [...turns, ...thingsFromStores(), ...linksAndTodos()];
+    const fresh = [...turns, ...thingsFromStores(), ...linksAndTodos(), ...lensReads()];
     const byKey = new Map(old.map((x) => [x.key, x]));
     const keep = new Set(fresh.map((x) => x.key));
     const changed = fresh.filter((x) => {
@@ -389,7 +415,7 @@ export async function findLocal(q: string, o: { turns?: boolean; k?: number } = 
 }
 const bestLine = (text: string, m: ReturnType<typeof wordMatcher>): string => (text.length > 160 && m ? (text.split(/(?<=[.!?])\s+/).find((s) => m(s.toLowerCase()).words > 0) ?? text).slice(0, 160) : text.slice(0, 160));
 
-export const KIND_WORD: Record<ThingKind, string> = { turn: 'Chat', doc: 'Document', page: 'Workspace page', deck: 'Deck', sheet: 'Spreadsheet', scan: 'Scanned page', link: 'Saved link', todo: 'To-do', book: 'Library' };
+export const KIND_WORD: Record<ThingKind, string> = { turn: 'Chat', doc: 'Document', page: 'Workspace page', deck: 'Deck', sheet: 'Spreadsheet', scan: 'Read with the Lens', link: 'Saved link', todo: 'To-do', book: 'Library' };
 
 /** RECALL → FORGET on a turn: out of the index now, and out of the brain's gists (UNDO within the day brings both back). */
 export async function forgetTurn(f: Pick<Found, 'key' | 'at'>): Promise<void> {
@@ -478,6 +504,36 @@ export async function pinTurn(f: { key: string; at: number }, on: boolean): Prom
   } catch {
     /* the phone keeps nothing: the brain's pin still holds */
   }
+  // (YOUR WORD's "Chats you pinned" follows at once)
+  dispatchEvent(new Event('ghosty:pins'));
   await brain.memoryChange(`t:${f.at}`, on ? 'lock' : 'unlock').catch(() => undefined);
   return on;
+}
+
+// ---------------------------------------------------------------- [recall] memory.s1: what the Lens read, findable
+
+const READS = 'ghosty.lens.read';
+/** What the Lens read from a photo of his, kept on this phone only (the newest 60, a number plate never kept: "[plate]"), for FIND. */
+export function keepRead(text: string): void {
+  let t = text.replace(/\s+/g, ' ').trim().slice(0, 1500);
+  if (t.length < 12) return;
+  if (mentionsPlate(t)) t = redactPlates(t, findPlates(t.toUpperCase()));
+  const list = readJson<{ at: number; text: string }[]>(READS, []).filter((x) => x && x.text !== t);
+  list.unshift({ at: Date.now(), text: t });
+  try {
+    localStorage.setItem(READS, JSON.stringify(list.slice(0, 60)));
+  } catch {
+    /* the phone keeps nothing: nothing is indexed */
+  }
+  lastSig = '';
+}
+/** The Lens's reads as things: a paragraph each, titled by the day it read them. */
+function lensReads(): Thing[] {
+  const out: Thing[] = [];
+  for (const r of readJson<{ at: number; text: string }[]>(READS, [])) {
+    if (!r?.text) continue;
+    const title = `Read with the Lens · ${new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+    r.text.split(/(?<=[.!?])\s+(?=[A-Z])/).reduce<string[]>((acc, s) => (acc.length && (acc[acc.length - 1]!.length + s.length) < 300 ? [...acc.slice(0, -1), `${acc[acc.length - 1]} ${s}`] : [...acc, s]), []).slice(0, 10).forEach((p, i) => out.push({ key: `scan:${r.at}:${i}`, kind: 'scan', id: String(r.at), title, text: p, at: r.at }));
+  }
+  return out;
 }

@@ -37,4 +37,18 @@ export const SECURITY_WORDS: Record<string, CatValue> = {
     more: 'Settings → Security. Type it, tap CHECK: the box empties at once, the fingerprint is made on the phone, and the rest of the match happens here too. Nothing is kept.',
     say: ['Has my password leaked?', 'Check a password'], scene: ['behind'], cat: 'do', since: SINCE,
   },
+  'panel:security:LOCK EVERYTHING': {
+    name: 'One tap to lock everything',
+    line: 'You can lock everything in one tap: Telegram unpaired, and nothing that publishes, sends, pays or ships runs until you unlock.',
+    more: 'Settings → Security, or say "lock everything". It stays locked until you unlock it there with your owner key; pair Telegram again in Links afterwards.',
+    say: ['Lock everything', 'Panic button'], scene: ['behind'], cat: 'do', since: SINCE,
+  },
+  'panel:security:CHECK A LINK': {
+    name: 'Check a link first',
+    line: 'You can paste a link or a message and see where it really goes and any scam signs, from public records, before you open it.',
+    more: 'Settings → Security. Nothing is opened: the address is checked against public lists of scam sites and look-alike names, with no key.',
+    say: ['Check this link', 'Is this link safe?'], scene: ['behind'], cat: 'do', since: SINCE,
+  },
+  // "lock everything", "has my password leaked?", "show my approvals", "how safe am I?": answered on the phone, the screen opened
+  'phrase:security': { same: 'screen:security' },
 };

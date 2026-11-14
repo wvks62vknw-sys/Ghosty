@@ -169,7 +169,7 @@ for (const world of WORLDS) {
 for (const vp of [PHONE2]) {
   const W = vp.width;
   log(`${W}: the backup as a file`);
-  const { ctx, page } = await phone(vp, { store: { 'ghosty.radio.favs': JSON.stringify([{ id: 'sn-test', name: 'Spec Radio' }]) } });
+  const { ctx, page } = await phone(vp, { store: { 'ghosty.radio.favs': JSON.stringify([{ id: 'sn-test', name: 'Spec Radio' }]), 'ghosty.docs': JSON.stringify([{ id: 'dspec1', title: 'Spec Letter', blocks: [{ id: 'b1', t: 'h1', runs: [{ text: 'Dear Spec' }] }, { id: 'b2', t: 'p', runs: [{ text: 'Hello from the spec.' }] }], at: Date.now(), kind: 'document' }]) } });
   await openSystem(page, 'BACKUP');
   const save = page.locator('#pg-system button[data-act="backupfile"]');
   check(await save.waitFor({ timeout: 15000 }).then(() => true, () => false), `[${W}] [b] no SAVE AS A FILE`);
@@ -186,6 +186,15 @@ for (const vp of [PHONE2]) {
   check(doc?.kind === 'ghosty-backup' && typeof doc?.sealed?.ct === 'string' && !body.includes('Spec Radio'), `[${W}] [b] the file is not the locked copy (or shows its contents): ${body.slice(0, 120)}`);
   const said = await until(page, () => /^Saved ghosty-backup-.+\.json \(\d+(\.\d)? (KB|MB)\), locked with your owner key; keep it in Files or iCloud Drive\.$/.test(document.querySelector('#pg-system .backupmsg')?.textContent ?? ''), null, 10000);
   check(said, `[${W}] [b] after SAVE it says "${await text(page, '#pg-system .backupmsg')}"`);
+  // (polish3.s3) EXPORT EVERYTHING: one zip of ordinary files, its README first, said with its name and size
+  const dl2 = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+  await page.locator('#pg-system button[data-act="exportall"]').click().catch(() => problems.push(`[${W}] [b] no EXPORT EVERYTHING`));
+  const z = await dl2;
+  const zname = z?.suggestedFilename() ?? '';
+  const zpath = z ? await z.path().catch(() => null) : null;
+  const zbytes = zpath ? readFileSync(zpath).toString('latin1') : '';
+  check(/^ghosty-everything-\d{4}-\d\d-\d\d\.zip$/.test(zname) && zbytes.startsWith('PK') && zbytes.includes('README.txt') && /Everything of yours from Ghosty, in ordinary files/.test(zbytes) && /Documents: 1 Word file\./.test(zbytes) && zbytes.includes('Documents/Spec Letter.docx') && /Workspace: \d+ pages? as Markdown/.test(zbytes), `[${W}] [b] the export is "${zname}" (${zbytes.length} bytes)`);
+  check(await until(page, () => /^Saved ghosty-everything-.+\.zip \(\d+(\.\d)? (KB|MB)\): Word, Excel, PowerPoint, Markdown and a memory document\.$/.test(document.querySelector('#pg-system .backupmsg')?.textContent ?? ''), null, 10000), `[${W}] [b] after EXPORT EVERYTHING it says "${await text(page, '#pg-system .backupmsg')}"`);
   // a file that is not a backup is refused in his words
   await page.locator('#pg-system .backupfile input[type=file]').setInputFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') });
   check(await until(page, () => /isn’t one of my backups/.test(document.querySelector('#pg-system .backupmsg')?.textContent ?? ''), null, 8000), `[${W}] [b] a wrong file says "${await text(page, '#pg-system .backupmsg')}"`);
@@ -304,6 +313,113 @@ for (const vp of [PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================== e. WHAT I KEEP ABOUT YOU (polish3.s2, memory.s6)
+for (const vp of [PHONE, PHONE2]) {
+  const W = vp.width;
+  log(`${W}: what I keep about you`);
+  const { ctx, page } = await phone(vp);
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForSelector('#pg-settings .pn', { state: 'attached', timeout: 30000 });
+  await openPanel(page, 'settings', 'PRIVACY');
+  check(await until(page, () => document.querySelectorAll('#pg-settings .keptblock .keptkind').length >= 2, null, 15000), `[${W}] [e] no WHAT I KEEP ABOUT YOU: "${await text(page, '#pg-settings .keptblock')}"`);
+  const kinds = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#pg-settings .keptblock .keptkind')].map((k) => [k.dataset.kind, (k.querySelector('.rw .v')?.textContent ?? '').trim()])));
+  check(/^(Nothing remembered yet|\d+ things? remembered, in your brain)$/.test(kinds.memory ?? '') && /^(No places saved|\d+ places? saved: .+)$/.test(kinds.places ?? ''), `[${W}] [e] memory and places read ${JSON.stringify(kinds)}`);
+  check(kinds.faces === 'No faces kept' && kinds.voices === 'No voices kept', `[${W}] [e] faces and voices on a fresh phone read ${JSON.stringify([kinds.faces, kinds.voices])}`);
+  await fit(page, `[${W}] [e]`, '#pg-settings .keptblock');
+  if (W === 390) {
+    const dl = page.waitForEvent('download', { timeout: 20000 }).catch(() => null);
+    await page.locator('#pg-settings button[data-act="exportmemory"]').click();
+    const d = await dl;
+    const name = d?.suggestedFilename() ?? '';
+    const path = d ? await d.path().catch(() => null) : null;
+    const doc = path ? readFileSync(path, 'utf8') : '';
+    check(/^ghosty-memory-\d{4}-\d\d-\d\d\.txt$/.test(name) && /^What Ghosty remembers about you\nWritten on \d{1,2} \w{3} \d{4}: \d+ things?\.\n/.test(doc), `[${W}] [e] the memory document: "${name}" ${JSON.stringify(doc.slice(0, 120))}`);
+    // a face on this phone is counted, and FORGET ALL FACES asks first, then they go
+    await page.evaluate(() => new Promise((ok) => {
+      const r = indexedDB.open('ghosty-faces', 1);
+      r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('people')) r.result.createObjectStore('people', { keyPath: 'id' }); };
+      r.onsuccess = () => {
+        const db = r.result;
+        const names = [...db.objectStoreNames];
+        if (!names.length) return ok(false);
+        const t = db.transaction(names[0], 'readwrite');
+        t.objectStore(names[0]).put({ id: 'me', name: 'You', me: true, looks: [Array.from({ length: 128 }, (_, i) => (i % 7) / 7)], at: Date.now() });
+        t.oncomplete = () => ok(true);
+        t.onerror = () => ok(false);
+      };
+      r.onerror = () => ok(false);
+    }));
+    await page.click('#top .navback').catch(() => undefined);
+    await openPanel(page, 'settings', 'PRIVACY');
+    const faceLine = await until(page, () => /^Your face, on this phone only$/.test(document.querySelector('#pg-settings .keptkind[data-kind="faces"] .rw .v')?.textContent?.trim() ?? ''), null, 10000);
+    check(faceLine, `[${W}] [e] a kept face reads "${await text(page, '#pg-settings .keptkind[data-kind="faces"] .rw .v')}"`);
+    if (faceLine) {
+      await page.locator('#pg-settings button[data-act="forgetfaces"]').click();
+      check(await page.locator('.modal button.sureyes').waitFor({ timeout: 5000 }).then(() => true, () => false), `[${W}] [e] FORGET ALL FACES did not ask first`);
+      await page.locator('.modal button.sureyes').click();
+      check(await until(page, () => document.querySelector('#pg-settings .keptkind[data-kind="faces"] .rw .v')?.textContent?.trim() === 'No faces kept', null, 10000), `[${W}] [e] the face did not go: "${await text(page, '#pg-settings .keptkind[data-kind="faces"] .rw .v')}"`);
+    }
+  }
+  await ctx.close();
+}
+
+// ================================================================== f. A SCREEN THAT GOT SLOWER (polish3.u11)
+{
+  log('390: slower since the update');
+  // the build this preview serves (build.mjs writes it into the app), and screen timings kept from an older one
+  const sha = ([...readFileSync(new URL('../apps/web/dist/app.js', import.meta.url), 'utf8').matchAll(/sha:"([^"]+)"/g)].map((m) => m[1]).find((x) => x !== 'dev')) ?? 'dev';
+  const { ctx, page } = await phone(PHONE2);
+  const seeded = await page.evaluate((sha) => new Promise((ok) => {
+    const r = indexedDB.open('ghosty-speed');
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('kv')) r.result.createObjectStore('kv'); };
+    r.onsuccess = () => {
+      const db = r.result;
+      const tab = (ms, b) => ({ k: 'tab', at: Date.now() - 60000, id: 'agenda', title: 'AGENDA', ms, b });
+      const t = db.transaction('kv', 'readwrite');
+      t.objectStore('kv').put([...[100, 110, 105, 100].map((ms) => tab(ms, 'spec-older-build')), ...[400, 420, 410].map((ms) => tab(ms, sha))], 'samples');
+      t.oncomplete = () => { db.close(); ok(true); };
+      t.onerror = () => ok(false);
+    };
+    r.onerror = () => ok(false);
+  }), sha);
+  check(seeded, '[f] the timings could not be seeded');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await openSystem(page, 'STATUS');
+  const ok = await until(page, () => /^Slower since the update/.test(document.querySelector('#pg-system .spdrow[data-speed="slower"]')?.textContent ?? ''), null, 15000);
+  const words = await text(page, '#pg-system .spdrow[data-speed="slower"]');
+  check(ok && /Agenda 0\.4 s, was 0\.1 s/i.test(words), `[f] the SPEED card says "${words}"`);
+  await fit(page, '[390] [f]', '#pg-system .spdrow[data-speed="slower"]');
+  await ctx.close();
+}
+
+// ================================================================== g. A LOG OF CAMERA, MIC AND LOCATION USE (polish3.u9)
+{
+  log('390: what was used, and where');
+  const { ctx, page } = await phone(PHONE2);
+  await ctx.grantPermissions(['geolocation'], { origin: base }).catch(() => undefined);
+  await ctx.setGeolocation({ latitude: 52.48, longitude: -1.9 }).catch(() => undefined);
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForSelector('#pg-settings .pn', { state: 'attached', timeout: 30000 });
+  await openPanel(page, 'settings', 'PERMISSIONS');
+  check(await until(page, () => /^USED RECENTLY/.test(document.querySelector('#pg-settings .permused')?.textContent ?? ''), null, 10000), `[390] [g] no USED RECENTLY: "${await text(page, '#pg-settings .permused')}"`);
+  check(/Nothing used yet: the camera, microphone and location have not been used\./.test(await text(page, '#pg-settings .permused')), `[390] [g] the empty list reads "${await text(page, '#pg-settings .permused')}"`);
+  // the position used on the Brief (as the app asks for it), then the list names it and the screen
+  await page.evaluate(() => (location.hash = 'brief'));
+  await page.waitForSelector('#pg-brief', { state: 'attached', timeout: 20000 });
+  await until(page, () => document.body.dataset.tab === 'brief', null, 10000);
+  const got = await page.evaluate(() => new Promise((ok) => navigator.geolocation.getCurrentPosition(() => ok(true), () => ok(false), { timeout: 5000 })));
+  check(got, '[390] [g] the test could not use the position');
+  await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'PERMISSIONS');
+  const row1 = await until(page, () => [...document.querySelectorAll('#pg-settings .permuse1')].some((r) => /^Location · Brief · \w{3} \d{1,2} \w{3}, \d\d:\d\d$/.test((r.textContent ?? '').trim())), null, 10000);
+  check(row1, `[390] [g] the use reads "${await text(page, '#pg-settings .permuse1')}"`);
+  await fit(page, '[390] [g]', '#pg-settings .permused');
+  await page.locator('#pg-settings button[data-act="clearuses"]').click().catch(() => problems.push('[390] [g] no CLEAR THE LIST'));
+  check(await until(page, () => /Nothing used yet/.test(document.querySelector('#pg-settings .permused')?.textContent ?? ''), null, 5000), '[390] [g] CLEAR THE LIST did not clear it');
+  await ctx.close();
+}
+
 // ================================================================== c. A HEADS-UP
 for (const vp of [PHONE, PHONE2]) {
   const W = vp.width;
@@ -331,4 +447,4 @@ const secs = ((Date.now() - t0) / 1000).toFixed(0);
 if (problems.length) {
   process.exitCode = 1;
   console.log(`PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}`);
-} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, and a heads-up told once.`);
+} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, everything exported as ordinary files, the comics and games you made in the backup, the saver holding a download and switched by voice, what I keep about you with its forget keys and the memory document, a screen that got slower since the update, the log of what the camera, microphone and location were used for, and a heads-up told once.`);

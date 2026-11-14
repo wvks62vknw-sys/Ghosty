@@ -103,6 +103,8 @@ export const LOOK_WORDS: Record<string, CatValue> = {
   'theme:switch:motion': sw('Calm or alive motion', 'You can make me calm: my eye holds still, lines appear whole, boxes land where they land.', 'Calm'),
   'theme:switch:sound': sw('A tone, a click or silence', 'You can choose what you hear when I recognise a thing: a tone, a click, or nothing.', 'The click sound'),
   'theme:switch:day': sw('Ground follows the day', 'You can have Paper by day and your night ground after sunset, from your home’s sun times.', 'Follow the day'),
+  // [voice lane] (voice.s5)
+  'theme:switch:safe': sw('Colour-blind safe colours', 'You can have failures, successes and warnings in orange, sky blue and yellow, never red against green.', 'Colour-blind mode on'),
   // ---- the six directions seen along the way: each a preset
   'theme:preset:scan': preset('The Scan, as rendered', 'You can have The Scan as you saw it: true black, the field of points, no glow.', 'The direction you picked, exactly as it was drawn: Black, Reactor, The Scan, glow off. Tap it in THE LOOK → THEMES, or just say it.', 'The scan'),
   'theme:preset:map': preset('The Map on Slate', 'You can have The Map: Slate, the plotting grid and square pins round what I watch.', 'Slate, Reactor and The Map. The grid sits behind every screen; plates have dashed edges and square corners.', 'The map'),
