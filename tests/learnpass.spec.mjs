@@ -138,6 +138,8 @@ async function phone(viewport, o = {}) {
   const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block' });
   await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
   const page = await ctx.newPage();
+  // (CPU_SLOW=4 runs it on a phone four times slower, to prove a fix for a race)
+  if (Number(process.env.CPU_SLOW) > 1) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.CPU_SLOW) });
   page.setDefaultTimeout(8000);
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
   await page.addInitScript(({ key, body, refuseMic }) => {
@@ -309,10 +311,12 @@ for (const vp of [PHONE, PHONE2]) {
     await still(page, 'gym-cards', vp);
     const ph = await page.evaluate(() => document.querySelector('#pg-gym .pkphrases')?.dataset.says ?? '');
     check(GY.PHRASES.every((x) => ph.split('|').includes(x)), `${T} [G3 phrases] the GYM lists "${ph}"`);
+    // (each key is waited for until it shows, never a fixed pause: a slow runner draws later)
+    await page.locator('#pg-gym .gymcard[data-game="maze"]').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#pg-gym .gymcard[data-game="maze"]').click({ force: true });
-    await page.waitForTimeout(600);
+    await page.locator('#pg-gym button.gymtrain').first().waitFor({ state: 'visible', timeout: 10000 });
     // G1 · TRAIN's wait said at once, gone when the first results are in
-    await page.locator('#pg-gym button.gymtrain').click({ force: true });
+    await page.locator('#pg-gym button.gymtrain:visible').first().click({ force: true });
     check(await until(page, (w) => (window.__waits ?? []).includes(w), GY.TRAIN_WAIT, 3000), `${T} [G1 train] TRAIN said nothing while it started: waits ${(await waits(page)).filter((x) => /train/i.test(x)).join(' | ')}`);
     const tt0 = Date.now();
     check(await until(page, (w) => !document.querySelector(`#pg-gym [data-wait="${w}"]`) && (window.__ghosty?.gym?.progress ?? 0) > 0, GY.TRAIN_WAIT, 25000), `${T} [G1 train] the wait is still up (or no result came) after 25 s`);
@@ -321,10 +325,10 @@ for (const vp of [PHONE, PHONE2]) {
     await bar(page, `${T} [G controls]`, 'gym');
     // G4 · a finished game said as that, with PLAY AGAIN
     await page.click('#top .navback').catch(() => undefined);
-    await page.waitForTimeout(400);
+    await page.locator('#pg-gym .gymcard[data-game="tictactoe"]').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#pg-gym .gymcard[data-game="tictactoe"]').click({ force: true });
-    await page.waitForTimeout(500);
-    await page.locator('#pg-gym button', { hasText: /^play him$/i }).click({ force: true });
+    await page.locator('#pg-gym button:visible', { hasText: /^play him$/i }).first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#pg-gym button:visible', { hasText: /^play him$/i }).first().click({ force: true });
     await page.waitForTimeout(600);
     let again = false;
     for (let i = 0; i < 14 && !again; i++) {
@@ -390,6 +394,9 @@ for (const vp of [PHONE, PHONE2]) {
     let dead = false;
     const { ctx, page } = await open(vp, {
       before: async ({ ctx }) => {
+        // (L5's book must not open: its passages never come, so the phone never makes its own copy of it either; the copy
+        // is made in the background, and a copy made before the tap would open the book from the phone)
+        await ctx.route(/\/api\/library\/docs\/[^/]+\/passages/, (r) => r.abort());
         await ctx.route('**/api/library', async (r) => {
           if (r.request().method() === 'GET' && dead) return r.abort();
           if (r.request().method() === 'GET') await new Promise((x) => setTimeout(x, 700));
@@ -426,11 +433,11 @@ for (const vp of [PHONE, PHONE2]) {
     check(/^✕ I can’t read “mystery\.xyz”\. PDFs, Word files, e-books, text and photos of pages all work\.$/.test(await txt(page, '#pg-library .note.bad[data-state="error"]')), `${T} [L2 unreadable] reads "${await txt(page, '#pg-library .note.bad[data-state="error"]')}"`);
     // L5 · a book the reader cannot open: his words and TRY AGAIN
     await page.locator('#pg-library .secpill[data-sec="shelf"]').click({ force: true });
-    await page.waitForTimeout(400);
-    await ctx.route(/\/api\/library\/docs\/[^/]+\/passages/, (r) => r.abort());
-    await page.locator('#pg-library .shelffold').click({ force: true });
-    await page.waitForTimeout(400);
-    const book = page.locator('#pg-library .shelf .rw:has(.libtile)').first();
+    // (the fold holds Ghosty's notebooks first, which other specs on a shared brain may have made, then the built-in books)
+    await until(page, () => !!document.querySelector('#pg-library .shelffold'), null, 10000);
+    if ((await page.locator('#pg-library .shelffold').getAttribute('aria-expanded').catch(() => null)) !== 'true') await page.locator('#pg-library .shelffold').click({ force: true });
+    await until(page, () => !!document.querySelector('#pg-library .shelf .rw[data-whose="builtin"]:has(.libtile)'), null, 10000);
+    const book = page.locator('#pg-library .shelf .rw[data-whose="builtin"]:has(.libtile)').first();
     check((await book.count()) > 0, `${T} [L5 reader] no built-in book on the shelf to open`);
     if (await book.count()) {
       await book.click({ force: true });
