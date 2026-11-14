@@ -26,7 +26,8 @@ import { cost, neurons } from '../neurons';
 
 export type { LibraryDoc, LibraryHit };
 
-const EMBED_MODEL = '@cf/baai/bge-small-en-v1.5';
+/** (exported, unchanged, so recall's meaning search uses the very same free embedding: recall.ts meaningSearch) */
+export const EMBED_MODEL = '@cf/baai/bge-small-en-v1.5';
 const MAX_PASSAGES_PER_CALL = 40;
 const MAX_PASSAGE_CHARS = 4000;
 
