@@ -50,7 +50,7 @@ async function phone(viewport, asked) {
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
   await page.evaluate(() => {
-    for (const k of ['ghosty.translate.history', 'ghosty.translate.book', 'ghosty.translate.trip', 'ghosty.translate.pair']) localStorage.removeItem(k);
+    for (const k of ['ghosty.translate.history', 'ghosty.translate.book', 'ghosty.translate.trip', 'ghosty.translate.pair', 'ghosty.translate.seen']) localStorage.removeItem(k);
   });
   return { ctx, page };
 }
@@ -75,6 +75,10 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await until(page, () => document.querySelector('#pg-translate #tlxin'), null, 8000, `[${W}] [screen] the box did not draw`);
   check(await page.evaluate(() => /^Type or paste above/.test(document.querySelector('#pg-translate .tlxstate')?.textContent ?? '')), `[${W}] [empty] the empty state does not say what to do`);
   check(JSON.stringify(await page.$$eval('#pg-translate .tlxseg:not(.tlxstyle) button', (b) => b.map((x) => x.textContent.trim()))) === '["TRANSLATE","PHRASEBOOK","HISTORY"]', `[${W}] [screen] the three views`);
+  // ---- the first run: the App Kit's three-step tour, once
+  check(await page.evaluate(() => /^1 of 3/.test(document.querySelector('#pg-translate .ak-tour')?.textContent ?? '') && !document.querySelector('#pg-translate .ak-tour').hidden), `[${W}] [tour] the first run's tour does not show step 1 of 3`);
+  for (let i = 0; i < 3; i++) await page.click('#pg-translate .ak-tour button');
+  check(await page.evaluate(() => document.querySelector('#pg-translate .ak-tour').hidden && localStorage.getItem('ghosty.translate.seen') === 'true'), `[${W}] [tour] GOT IT did not end the tour for good`);
 
   // ---- answers as he types, finds the language, other ways to say it
   await page.evaluate(() => { const s = document.querySelector('#tlxto'); s.value = 'es'; s.dispatchEvent(new Event('change')); });
@@ -147,21 +151,25 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check(hist.includes('es') && hist.includes('ru'), `[${W}] [history] not kept on the phone: ${JSON.stringify(hist)}`);
   await page.fill('#tlxsearch', 'gde');
   await page.fill('#tlxsearch', 'вокзал');
-  check(await page.evaluate(() => document.querySelectorAll('#pg-translate .tlxview:not([hidden]) .tlxrow').length === 1), `[${W}] [history] the search did not find the one`);
+  check(await page.evaluate(() => document.querySelectorAll('#pg-translate .tlxview:not([hidden]) .ak-row').length === 1), `[${W}] [history] the search did not find the one`);
+  await page.fill('#tlxsearch', 'zzzz');
+  check(await page.evaluate(() => /^No translations match “zzzz”\.$/.test(document.querySelector('#pg-translate .tlxview:not([hidden]) .ak-state p')?.textContent ?? '')), `[${W}] [history] no match is not said`);
   await page.fill('#tlxsearch', '');
   await tapKey(page, 'CLEAR HISTORY');
-  check(await page.evaluate(() => window.__ghosty.translate.history.length === 0 && /^No translations yet/.test(document.querySelector('#pg-translate .tlxview:not([hidden]) .tlxempty')?.textContent ?? '')), `[${W}] [history] CLEAR HISTORY did not clear it, or the empty state is not said`);
+  check(await page.evaluate(() => window.__ghosty.translate.history.length === 0 && /^No translations yet/.test(document.querySelector('#pg-translate .tlxview:not([hidden]) .ak-state p')?.textContent ?? '')), `[${W}] [history] CLEAR HISTORY did not clear it, or the empty state is not said`);
   await page.click('#undo button, .undo button').catch(() => undefined);
   await until(page, () => window.__ghosty.translate.history.length >= 2, null, 4000, `[${W}] [history] the undo did not bring it back`);
-  await page.click('#pg-translate .tlxview:not([hidden]) .tlxrow button:last-child');
+  for (const s of await small(page)) check(false, `[${W}] [history] a key under 44 pt: ${s}`);
+  await page.click('#pg-translate .tlxview:not([hidden]) .ak-row .ak-rowmain');
   check(await page.evaluate(() => window.__ghosty.translate.view === 'translate' && document.querySelector('#tlxin').value.length > 0), `[${W}] [history] OPEN did not bring it back into the box`);
 
   // ---- a failure is said in his words, never raw
   await ctx.route('**/api/translate', (route) => route.abort('internetdisconnected'));
   await page.fill('#tlxin', 'Good morning');
   await until(page, () => window.__ghosty.translate.state === 'failed' || window.__ghosty.translate.state === 'done', null, 10000, `[${W}] [no signal] nothing was said`);
-  const said = await page.evaluate(() => document.querySelector('#pg-translate .tlxstate')?.textContent ?? '');
+  const said = await page.evaluate(() => document.querySelector('#pg-translate .ak-state.ak-error p')?.textContent ?? document.querySelector('#pg-translate .tlxstate')?.textContent ?? '');
   check(/\.$/.test(said) && !/TypeError|fetch|HTTP|undefined/.test(said), `[${W}] [no signal] the words: "${said}"`);
+  check(await page.evaluate(() => window.__ghosty.translate.state !== 'failed' || !!document.querySelector('#pg-translate .ak-state.ak-error button')), `[${W}] [no signal] the error has no TRY AGAIN`);
 
   // ---- CONVERSATION and CAMERA one tap away
   await tapKey(page, 'CONVERSATION');
