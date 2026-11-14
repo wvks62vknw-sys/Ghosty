@@ -148,7 +148,7 @@ test('a layered PSD: the header, and every layer kept with its name, blend mode,
   const bytes = X.psdOf(w, h, [
     { name: 'Paper', rgba: rgba(255), opacity: 1, visible: true, blend: 'source-over' },
     { name: 'Ink', rgba: rgba(10), opacity: 0.5, visible: false, blend: 'multiply' },
-    { name: 'Glow', rgba: rgba(90), opacity: 1, visible: true, blend: 'screen' },
+    { name: 'Glow', rgba: rgba(90), opacity: 1, visible: true, blend: 'screen', clip: true },
   ], rgba(128));
   const info = X.psdInfo(bytes);
   assert.deepEqual(info, { w, h, layers: ['Paper', 'Ink', 'Glow'], blends: ['norm', 'mul ', 'scrn'] });
@@ -168,5 +168,6 @@ test('a layered PSD: the header, and every layer kept with its name, blend mode,
   assert.deepEqual(back.layers.map((l) => [l.name, l.blend, Math.round(l.opacity * 100), l.visible, l.w, l.h]), [['Paper', 'source-over', 100, true, 4, 3], ['Ink', 'multiply', 50, false, 4, 3], ['Glow', 'screen', 100, true, 4, 3]]);
   assert.deepEqual([...back.layers[1].rgba.subarray(0, 4)], [10, 0, 0, 200]);
   assert.deepEqual([back.w, back.h], [w, h]);
+  assert.deepEqual(back.layers.map((l) => l.clip), [false, false, true], 'a clipping mask is kept');
   assert.match(X.readPsd(new Uint8Array(40)).why, /not a PSD/);
 });

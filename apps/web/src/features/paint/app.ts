@@ -199,6 +199,7 @@ async function openFile(f: File): Promise<string> {
         if (L.blend !== 'source-over') p.setProp(p.layer.id, 'blend', L.blend);
         if (L.opacity < 1) p.setProp(p.layer.id, 'opacity', Math.round(L.opacity * 100) / 100);
         if (!L.visible) p.setProp(p.layer.id, 'visible', false);
+        if (L.clip && p.layers.length > 1) p.setProp(p.layer.id, 'clip', true);
       }
     }, true);
   }

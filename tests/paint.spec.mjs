@@ -221,6 +221,11 @@ async function run(viewport) {
   await page.click('.pxstudio button[aria-label^="Alpha lock"]');
   s = await S(page);
   check(s.layers[2].blend === 'multiply' && s.layers[2].alphaLock, `[${W}] the layer's blend mode and alpha lock are kept`);
+  await page.click('.pxstudio button[aria-label^="Clipping mask"]');
+  s = await S(page);
+  check(s.layers[2].clip === true, `[${W}] CLIPPING MASK clips the layer to the one under it`);
+  await page.click('.pxstudio button[aria-label^="Clipping mask"]');
+  check((await S(page)).layers[2].clip === false, `[${W}] and lets it go again`);
   await bar(page, `[${W}] the layers panel`, '.pxstudio');
   await page.click('.pxstudio .pxsheet button[aria-label^="Close"]');
   // alpha lock: a stroke on the empty locked layer leaves nothing

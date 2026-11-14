@@ -12,7 +12,7 @@ import { zipStore } from '../../convert/zip';
 export async function saveLayers(p: Painting): Promise<SavedLayer[]> {
   const out: SavedLayer[] = [];
   for (const L of p.layers) {
-    out.push({ id: L.id, name: L.name, png: await blobOf(L.c), mask: L.mask ? await blobOf(L.mask) : undefined, blend: L.blend, opacity: L.opacity, visible: L.visible, alphaLock: L.alphaLock, reference: L.reference });
+    out.push({ id: L.id, name: L.name, png: await blobOf(L.c), mask: L.mask ? await blobOf(L.mask) : undefined, blend: L.blend, opacity: L.opacity, visible: L.visible, alphaLock: L.alphaLock, reference: L.reference, ...(L.clip ? { clip: true } : {}) });
   }
   return out;
 }
@@ -29,7 +29,7 @@ export async function openBody(w: number, h: number, paper: string, layers: Save
   const p = new Painting(w, h);
   p.paper = paper;
   for (const s of layers) {
-    const L: Layer = { id: s.id, name: s.name, c: mk(w, h), blend: s.blend as GlobalCompositeOperation, opacity: s.opacity, visible: s.visible, alphaLock: s.alphaLock, reference: s.reference, mask: null };
+    const L: Layer = { id: s.id, name: s.name, c: mk(w, h), blend: s.blend as GlobalCompositeOperation, opacity: s.opacity, visible: s.visible, alphaLock: s.alphaLock, reference: s.reference, ...(s.clip ? { clip: true } : {}), mask: null };
     await drawBlob(L.c, s.png);
     if (s.mask) { L.mask = mk(w, h); await drawBlob(L.mask, s.mask); }
     p.layers.push(L);
@@ -64,7 +64,7 @@ export function psdBlob(p: Painting): Blob {
   for (const L of p.layers) {
     let src = L.c;
     if (L.mask) { src = mk(p.w, p.h); const g = src.getContext('2d')!; g.drawImage(L.c, 0, 0); g.globalCompositeOperation = 'destination-in'; g.drawImage(L.mask, 0, 0); }
-    layers.push({ name: L.name, rgba: data(src), opacity: L.opacity, visible: L.visible, blend: L.blend });
+    layers.push({ name: L.name, rgba: data(src), opacity: L.opacity, visible: L.visible, blend: L.blend, clip: !!L.clip });
   }
   const bytes = psdOf(p.w, p.h, layers, data(p.composite(mk(p.w, p.h), { paper: true })));
   return new Blob([bytes as BlobPart], { type: 'image/vnd.adobe.photoshop' });

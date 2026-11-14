@@ -21,7 +21,7 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - Once the pencil has touched the glass, a resting palm never draws.
   - Two fingers pinch to zoom and turn. A two-finger tap undoes, a three-finger tap redoes. A keyboard works too.
 - **Layers** (up to 12):
-  - sixteen blend modes, opacity and alpha lock;
+  - sixteen blend modes, opacity, alpha lock and a clipping mask (kept in the PSD too);
   - a mask (the brush hides, the eraser brings back);
   - a reference layer, so the fill bucket stops at its lines;
   - new, duplicate, up, down, merge down, clear, delete and rename;
