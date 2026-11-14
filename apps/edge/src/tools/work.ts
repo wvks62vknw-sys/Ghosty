@@ -265,7 +265,16 @@ async function todoOp(op: string, a: Record<string, unknown>, d: PackDeps, list:
     if (typeof a.project === 'string') {
       const pr = projectOk(a.project);
       if (pr) x.project = pr;
-      else delete x.project;
+      else {
+        delete x.project;
+        delete x.section;
+      }
+    }
+    // (a section is part of its project: none without one)
+    if (typeof a.section === 'string') {
+      const se = projectOk(a.section);
+      if (se && x.project) x.section = se;
+      else delete x.section;
     }
     if (Array.isArray(a.tags)) {
       const tg = tagsOk(a.tags);

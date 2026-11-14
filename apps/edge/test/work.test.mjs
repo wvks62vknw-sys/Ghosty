@@ -657,3 +657,18 @@ test('todo (planlane4:tasks): notes and steps (a checklist inside a to-do), kept
   const m = W.mergeTodos([{ id: 'a', text: 'Buy paint', at: 1 }], [{ id: 'b', text: 'buy paint', notes: 'Matt white', steps: [{ id: 'k', text: 'Brushes' }] }], 5);
   assert.deepEqual([m.list[0].notes, m.list[0].steps?.[0]?.text], ['Matt white', 'Brushes']);
 });
+
+test('todo (planlane4:tasks): a section of a project, kept by add, edit, merge and a repeat; none without a project', async () => {
+  const storage = new Mem();
+  let r = await run(storage, 'todo', { op: 'add', item: { id: 'tk', text: 'Fix the tap', project: 'Home', section: 'Kitchen', due: '2026-11-02', every: 'weekly' } });
+  assert.deepEqual([r.data.hit.project, r.data.hit.section], ['Home', 'Kitchen']);
+  assert.equal((await run(storage, 'todo', { op: 'add', item: { id: 'tn', text: 'No project', section: 'Kitchen' } })).data.hit.section, undefined);
+  r = await run(storage, 'todo', { op: 'edit', id: 'tk', section: 'Bathroom' });
+  assert.equal(r.data.hit.section, 'Bathroom');
+  r = await run(storage, 'todo', { op: 'tick', id: 'tk', nextId: 'tk2' });
+  assert.equal(r.data.next.section, 'Bathroom');
+  r = await run(storage, 'todo', { op: 'edit', id: 'tk2', project: '' });
+  assert.deepEqual([r.data.hit.project, r.data.hit.section], [undefined, undefined]);
+  const m = W.mergeTodos([{ id: 'a', text: 'Paint the hall', at: 1 }], [{ id: 'b', text: 'paint the hall', project: 'Home', section: 'Hall' }], 5);
+  assert.deepEqual([m.list[0].project, m.list[0].section], ['Home', 'Hall']);
+});

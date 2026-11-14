@@ -9,6 +9,8 @@
 //     opens an item; the diary on its way, out of reach, and nothing in two weeks, each said.
 //  5. SUBTASKS AND NOTES: a to-do opened has its notes and a checklist (add, tick, remove, with UNDO), "2/5" on its row, all by the
 //     brain's edit.
+//  6. PROJECTS WITH SECTIONS, AND TAGS: PROJECTS lists each project and tag with its count; a project's page is grouped by section;
+//     the section from the change box and from quick add ("#Home/Kitchen").
 // Every part at 440 × 956 and 390 × 844, BODY 21; 44 pt keys, nothing sideways, no word cut; the seven looks for what is drawn.
 import { openSection } from '../nav.mjs';
 
@@ -374,6 +376,68 @@ export async function run(H) {
   }
   log('tasks: steps and notes');
 
+  // ---- 8. PROJECTS WITH SECTIONS, AND TAGS: each project and tag with its count; a project's page grouped by section; the section in
+  // the change box and in quick add ("#Home/Kitchen")
+  {
+    const r = Q.quickParse('Fix the tap #Home/Kitchen @diy', '2026-11-14', '14:00');
+    check(r.text === 'Fix the tap' && r.project === 'Home' && r.section === 'Kitchen' && Q.quickLine(r) === '#Home / Kitchen · @diy', `[tasks pure] "#Home/Kitchen" is a project and its section: ${JSON.stringify(r)}`);
+    const L = [
+      { id: 'a', text: 'A', due: '', done: false, at: 1, project: 'Home', section: 'Kitchen' },
+      { id: 'b', text: 'B', due: '', done: false, at: 2, project: 'home' },
+      { id: 'c', text: 'C', due: '', done: false, at: 3, project: 'Home', section: 'Garden', tags: ['diy'] },
+      { id: 'd', text: 'D', due: '', done: false, at: 4, tags: ['diy', 'phone'] },
+      { id: 'e', text: 'E', due: '', done: true, at: 5, project: 'Work' },
+    ];
+    const pr = T.projectsOf(L, Date.now());
+    check(JSON.stringify(pr.projects.map((x) => [x.name, x.open, x.sections])) === '[["Home",3,2]]' && pr.loose === 1 && pr.tags.map((x) => `${x.name}${x.open}`).join() === 'diy2,phone1', `[tasks pure] projects and tags with their counts (a done one is not counted): ${JSON.stringify(pr)}`);
+    check(T.bySection(L, 'HOME', Date.now()).map((g) => `${g.section}:${g.todos.map((t) => t.id).join('')}`).join(' ') === ':b Garden:c Kitchen:a' && T.projectSub(pr.projects[0]) === '2 sections', '[tasks pure] a project grouped by section, those in none first, then by name');
+  }
+  await brain({ words: 'clear my to-do list' });
+  await brain({ op: 'add', item: { id: 'tj1', text: 'Fix the dripping tap', project: 'Home', section: 'Kitchen' } });
+  await brain({ op: 'add', item: { id: 'tj2', text: 'Descale the kettle', project: 'Home', section: 'Kitchen', tags: ['diy'] } });
+  await brain({ op: 'add', item: { id: 'tj3', text: 'Book the boiler service', project: 'Home', due: addDay(today, -1) } });
+  await brain({ op: 'add', item: { id: 'tj4', text: 'Send the invoice', project: 'Work', tags: ['phone'] } });
+  await brain({ op: 'add', item: { id: 'tj5', text: 'Buy stamps' } });
+  {
+    const { ctx, page } = await phone(PHONE2, 'scan', {}, 21);
+    await open(page, 'agenda');
+    await openSection(page, 'agenda', 'To-do');
+    await page.waitForSelector('#pg-agenda .todoit[data-id="tj5"]', { timeout: 8000 }).catch(() => check(false, '[tasks projects] the list did not arrive'));
+    await page.click('#pg-agenda .todoviews button:has-text("Projects")');
+    const rows = () => page.$$eval('#pg-agenda .tdproj .ak-row', (r) => r.map((x) => [x.querySelector('.ak-rowtitle')?.textContent, x.querySelector('.ak-rowsub')?.textContent ?? '', x.querySelector('.ak-rowmeta')?.textContent].join('|')));
+    await page.waitForSelector('#pg-agenda .tdproj .ak-row', { timeout: 3000 }).catch(() => undefined);
+    check((await rows()).join(' / ') === 'Home|1 late · 1 section|3 / Work||1 / @diy||1 / @phone||1', `[tasks projects] each project and tag with its count: ${(await rows()).join(' / ')}`);
+    check(/^1 more in no project: All has them\.$/.test((await page.textContent('#pg-agenda .tdproj .tdupquiet').catch(() => '')) ?? ''), '[tasks projects] the to-dos in no project are said');
+    const fp = await fit(page, '#pg-agenda .pn.todo');
+    check(!fp.small.length && !fp.sideways && !fp.cut.length, `[tasks projects 390] PROJECTS fits: ${JSON.stringify(fp)}`);
+    await page.click('#pg-agenda .tdproj .ak-row[data-id="project:Home"] button.ak-rowmain');
+    const groups = () => page.$$eval('#pg-agenda .tdproj .tdupday', (g) => g.map((x) => `${x.querySelector('.tduphead')?.textContent ?? ''}:${[...x.querySelectorAll('.todoit')].map((t) => t.dataset.id).join(',')}`));
+    await page.waitForSelector('#pg-agenda .tdprojname', { timeout: 3000 }).catch(() => undefined);
+    check((await page.textContent('#pg-agenda .tdprojname')) === 'Home' && (await groups()).join(' ') === 'No section:tj3 Kitchen:tj1,tj2', `[tasks projects] the Home page, grouped by section: ${(await groups()).join(' ')}`);
+    const fg = await fit(page, '#pg-agenda .pn.todo');
+    check(!fg.small.length && !fg.sideways && !fg.cut.length, `[tasks projects 390] a project's page fits: ${JSON.stringify(fg)}`);
+    await page.screenshot({ path: `${H.out}/planlane4-tasks-project-390.png` });
+    // the section from the change box: the boiler goes in a section of its own
+    await page.click('#pg-agenda .tdproj .todoit[data-id="tj3"] button.todotx');
+    await page.fill('#pg-agenda .todoedit input[aria-label="Section"]', 'Heating');
+    await page.click('#pg-agenda .todoedit button:has-text("Save")');
+    const l = await until(brainList, (x) => x.find((t) => t.id === 'tj3')?.section === 'Heating');
+    check(l.find((t) => t.id === 'tj3')?.section === 'Heating', `[tasks projects] the section reaches the brain: ${JSON.stringify(l.find((t) => t.id === 'tj3'))}`);
+    await page.waitForFunction(() => [...document.querySelectorAll('#pg-agenda .tdproj .tduphead')].some((x) => x.textContent === 'Heating'), null, { timeout: 4000 }).catch(() => undefined);
+    check((await groups()).join(' ') === 'Heating:tj3 Kitchen:tj1,tj2', `[tasks projects] the page follows, its sections by name: ${(await groups()).join(' ')}`);
+    // back, then a tag's page
+    await page.click('#pg-agenda .tdproj button.tdprojback');
+    await page.click('#pg-agenda .tdproj .ak-row[data-id="tag:phone"] button.ak-rowmain');
+    await page.waitForFunction(() => document.querySelector('#pg-agenda .tdprojname')?.textContent === '@phone', null, { timeout: 3000 }).catch(() => undefined);
+    check((await groups()).join(' ') === ':tj4', `[tasks projects] the @phone page: ${(await groups()).join(' ')}`);
+    // a project whose to-dos are all ticked says so
+    await page.click('#pg-agenda .tdproj .todoit[data-id="tj4"] button.todotick');
+    const done = await page.waitForSelector('#pg-agenda .tdprojnone[data-state="empty"]', { timeout: 4000 }).then((e) => e.textContent(), () => '');
+    check(done === 'Nothing open in @phone: everything here is done.', `[tasks projects] all ticked, said: ${done}`);
+    await ctx.close();
+  }
+  log('tasks: projects');
+
   // ---- 9. 390 × 844, BODY 21, the seven looks: a timed P2 to-do with its project, tags, notes and checklist open, and quick add's chips
   await brain({ op: 'add', item: { id: 'tlook', text: 'Ring the dentist about the crown', due: tomorrow, time: '16:00', p: 2, project: 'Health', tags: ['phone'], notes: 'Ask about the temporary crown and the cost.', steps: [{ id: 'k1', text: 'Find the appointment letter', done: true }, { id: 'k2', text: 'Ask about the cost' }] } });
   {
@@ -396,6 +460,14 @@ export async function run(H) {
       });
       check(c.chip && c.flag && c.chip !== c.bg && c.flag !== c.bg, `[tasks ${world}] the chips and the flag are drawn in colours of the look: ${JSON.stringify(c)}`);
       if (world === 'ink' || world === 'glass') await page.screenshot({ path: `${H.out}/planlane4-tasks-${world}-390.png` });
+      // PROJECTS and a project's page in the same look, then back to All with the open to-do
+      await page.click('#pg-agenda .todoviews button:has-text("Projects")');
+      await page.click('#pg-agenda .tdproj .ak-row[data-id="project:Health"] button.ak-rowmain').catch(() => check(false, `[tasks ${world}] no Health project`));
+      await page.waitForSelector('#pg-agenda .tdprojname', { timeout: 3000 }).catch(() => undefined);
+      const fpj = await fit(page, '#pg-agenda .pn.todo');
+      const pc = await page.evaluate(() => ({ bg: getComputedStyle(document.body).backgroundColor, head: getComputedStyle(document.querySelector('#pg-agenda .tdprojname') ?? document.body).color }));
+      check(!fpj.small.length && !fpj.sideways && !fpj.cut.length && pc.head !== pc.bg, `[tasks ${world} 390] a project's page fits, in a colour of the look: ${JSON.stringify({ fpj, pc })}`);
+      await page.click('#pg-agenda .todoviews button:has-text("All")');
     }
     await ctx.close();
   }

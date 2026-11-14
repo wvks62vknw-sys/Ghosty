@@ -24,8 +24,9 @@ export interface Todo {
   time?: string;
   /** [planlane4:tasks] its priority when P2 or P3 (P1 is the star, kept so in the brain too; none is P4) */
   p?: 2 | 3;
-  /** [planlane4:tasks] its project ("Home") and tags ("phone"), his own words */
+  /** [planlane4:tasks] its project ("Home"), the section of that project ("Kitchen") and its tags ("phone"), his own words */
   project?: string;
+  section?: string;
   tags?: string[];
   /** [planlane4:tasks] its notes, and its steps (a checklist inside it, each ticked on its own) */
   notes?: string;
@@ -126,7 +127,44 @@ export function sortTodos(l: readonly Todo[], now = Date.now()): Todo[] {
 }
 
 /** [planlane4:tasks] Its project and tags as the row says them: "#Home · @phone". */
-export const tagWords = (t: Pick<Todo, 'project' | 'tags'>): string => [t.project ? `#${t.project}` : '', ...(t.tags ?? []).map((x) => `@${x}`)].filter(Boolean).join(' · ');
+export const tagWords = (t: Pick<Todo, 'project' | 'section' | 'tags'>): string => [t.project ? `#${t.project}${t.section ? ` / ${t.section}` : ''}` : '', ...(t.tags ?? []).map((x) => `@${x}`)].filter(Boolean).join(' · ');
+
+/** [planlane4:tasks] PROJECTS: each project with its open to-dos (by name, his casing as first typed), then its tags, with counts. */
+export interface ProjectRow { name: string; open: number; late: number; today: number; sections: number }
+export function projectsOf(l: readonly Todo[], now: number): { projects: ProjectRow[]; loose: number; tags: { name: string; open: number }[] } {
+  const open = l.filter((t) => !t.done);
+  const by = new Map<string, { name: string; list: Todo[] }>();
+  for (const t of open) {
+    if (!t.project) continue;
+    const k = t.project.toLowerCase();
+    if (!by.has(k)) by.set(k, { name: t.project, list: [] });
+    by.get(k)!.list.push(t);
+  }
+  const projects = [...by.values()].map(({ name, list }) => ({
+    name, open: list.length, late: list.filter((t) => t.due && daysTo(t.due, now) < 0).length, today: list.filter((t) => t.due && daysTo(t.due, now) === 0).length,
+    sections: new Set(list.map((t) => (t.section ?? '').toLowerCase()).filter(Boolean)).size,
+  })).sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
+  const tags = new Map<string, number>();
+  for (const t of open) for (const g of t.tags ?? []) tags.set(g, (tags.get(g) ?? 0) + 1);
+  return { projects, loose: open.filter((t) => !t.project).length, tags: [...tags].map(([name, n]) => ({ name, open: n })).sort((a, b) => a.name.localeCompare(b.name, 'en-GB')) };
+}
+/** A project's line in PROJECTS: "1 late · 2 due today · 2 sections"; '' when there is nothing to say. */
+export const projectSub = (p: ProjectRow): string =>
+  [p.late ? `${p.late} late` : '', p.today ? `${p.today} due today` : '', p.sections ? `${p.sections} ${p.sections === 1 ? 'section' : 'sections'}` : ''].filter(Boolean).join(' · ');
+/** A project's page: its open to-dos in the list's order, grouped by section (those in none first, then each section by name, so the
+ * sections stay where they are whatever falls due). */
+export function bySection(l: readonly Todo[], project: string, now: number): { section: string; todos: Todo[] }[] {
+  const mine = sortTodos(l.filter((t) => !t.done && (t.project ?? '').toLowerCase() === project.toLowerCase()), now);
+  const out: { section: string; todos: Todo[] }[] = [];
+  for (const t of [...mine.filter((x) => !x.section), ...mine.filter((x) => x.section)]) {
+    const k = t.section ?? '';
+    let g = out.find((x) => x.section.toLowerCase() === k.toLowerCase());
+    if (!g) out.push((g = { section: k, todos: [] }));
+    g.todos.push(t);
+  }
+  return out.sort((a, b) => (!a.section ? -1 : !b.section ? 1 : a.section.localeCompare(b.section, 'en-GB')));
+}
+export const PROJECT_DONE = (name: string): string => `Nothing open in ${name}: everything here is done.`;
 
 /** The list's line: "3 to do · 1 late · 2 done" or the empty words. */
 export function todoLine(l: readonly Todo[], now: number): string {
@@ -139,11 +177,12 @@ export function todoLine(l: readonly Todo[], now: number): string {
 }
 
 /** The views of the list: everything, what is due today (and late), what has a day ahead, P1 (the starred ones). */
-export type TodoView = 'all' | 'today' | 'upcoming' | 'starred';
-export const VIEWS: [TodoView, string][] = [['all', 'All'], ['today', 'Today'], ['upcoming', 'Upcoming'], ['starred', 'P1']];
+export type TodoView = 'all' | 'today' | 'upcoming' | 'starred' | 'projects';
+export const VIEWS: [TodoView, string][] = [['all', 'All'], ['today', 'Today'], ['upcoming', 'Upcoming'], ['starred', 'P1'], ['projects', 'Projects']];
 export function inView(t: Todo, v: TodoView, now: number): boolean {
   if (v === 'all') return true;
   if (v === 'starred') return !!t.star;
+  if (v === 'projects') return !t.done && (!!t.project || !!t.tags?.length);
   if (v === 'today') return !t.done ? !!t.due && daysTo(t.due, now) <= 0 : !!t.doneAt && dayOf(t.doneAt) === dayOf(now);
   return !t.done && !!t.due && daysTo(t.due, now) > 0;
 }
@@ -152,6 +191,7 @@ export const VIEW_EMPTY: Record<Exclude<TodoView, 'all'>, string> = {
   today: 'Nothing due today. Tap All to see the rest.',
   upcoming: 'Nothing with a day ahead. Give a to-do a day and it shows here.',
   starred: 'Nothing at priority 1. Tap the flag on a to-do that matters, or type p1 as you add it.',
+  projects: 'No projects or tags yet. Type #Home or @phone as you add a to-do, or give one a project in its change box.',
 };
 
 /** His words for a to-do, made plain for matching ("I've done the passport" finds "Renew passport"). */

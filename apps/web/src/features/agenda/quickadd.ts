@@ -1,7 +1,7 @@
 /**
  * [planlane4:tasks] QUICK ADD: one line typed as he would say it, read into a to-do, pure (the spec imports this file; no DOM, no
  * storage). "Call the bank tomorrow at 3pm p1 #Home @phone" is the words "Call the bank", due tomorrow, ringing at 15:00, priority 1,
- * in the project Home, tagged phone. It also reads "every Monday", "next Friday", "in 3 days", "by the 20th", "daily", "at half 4".
+ * in the project Home, tagged phone; "#Home/Kitchen" is the project Home, its section Kitchen. It also reads "every Monday", "next Friday", "in 3 days", "by the 20th", "daily", "at half 4".
  * Each thing it understood is a chip under the field before ADD; a chip tapped is dropped (its words stay in the to-do's words).
  * Days are London days: the caller gives today and the time now as London has them (londonNow).
  */
@@ -21,6 +21,8 @@ export interface Quick {
   /** 1 to 3, or 0 for none (P4) */
   p: 0 | 1 | 2 | 3;
   project: string;
+  /** the section of its project ("#Home/Kitchen"), or '' */
+  section: string;
   tags: string[];
   every?: Every;
   bits: QuickBit[];
@@ -103,7 +105,7 @@ export function dayFrom(words: string, today: string): string {
 const DUE = new RegExp(`(^|\\s)((?:(?:by|on|for|due|before|until)\\s+)?(the day after tomorrow|tomorrow|tmrw|today|tonight|next week|(?:this )?weekend|end of (?:the )?month|in (?:\\d{1,3}|an?|one|two|three|four|five|six|seven|eight|nine|ten) (?:days?|weeks?)|(?:next |this )?${FULLDAY}|(?:next|this) ${SHORTDAY}|the ${ORD}(?: of ${MONTH})?|${ORD} (?:of )?${MONTH}|${MONTH} ${ORD}|\\d{1,2}(?:st|nd|rd|th)))${END}`, 'i');
 const EVERY_RX = new RegExp(`(^|\\s)((?:every|each) (?:day|weekday|week|month|${FULLDAY}|${SHORTDAY})|daily|weekly|monthly|on weekdays|weekdays)${END}`, 'i');
 const PRIO = /(^|\s)p([1-4])(?=$|[\s,.!?;])/i;
-const PROJECT = /(^|\s)#([\p{L}\d][\p{L}\d_-]{0,29})/u;
+const PROJECT = /(^|\s)#([\p{L}\d][\p{L}\d_-]{0,29})(?:\/([\p{L}\d][\p{L}\d_-]{0,29}))?/u;
 const TAG = /(^|\s)@([\p{L}\d][\p{L}\d_-]{0,29})/gu;
 const BARE_TIME = /(^|\s)(?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\s?(am|pm)(?=$|[\s,.!?;])|(^|\s)(?:at\s+)?([01]?\d|2[0-3]):([0-5]\d)(?=$|[\s,.!?;])/i;
 const EVERY_LABEL: Record<Every, string> = { daily: 'Every day', weekdays: 'Weekdays', weekly: 'Every week', monthly: 'Every month' };
@@ -115,7 +117,7 @@ const EVERY_LABEL: Record<Every, string> = { daily: 'Every day', weekdays: 'Week
 export function quickParse(input: string, today: string, hm: string, drop: ReadonlySet<string> = new Set()): Quick {
   let s = ` ${input.replace(/\s+/g, ' ').trim()} `;
   const bits: QuickBit[] = [];
-  const out: Quick = { text: '', due: '', time: '', p: 0, project: '', tags: [], bits };
+  const out: Quick = { text: '', due: '', time: '', p: 0, project: '', section: '', tags: [], bits };
   const cut = (m: RegExpExecArray, lead = m[1] ?? '') => {
     s = `${s.slice(0, m.index)}${lead ? ' ' : ''} ${s.slice(m.index + m[0].length)}`;
   };
@@ -131,7 +133,8 @@ export function quickParse(input: string, today: string, hm: string, drop: Reado
   let m = PROJECT.exec(s);
   if (m && !drop.has('project')) {
     out.project = m[2]!;
-    bits.push({ kind: 'project', key: 'project', label: `#${out.project}` });
+    out.section = m[3] ?? '';
+    bits.push({ kind: 'project', key: 'project', label: `#${out.project}${out.section ? ` / ${out.section}` : ''}` });
     cut(m);
   }
   // the priority (p1 … p4; p4 is none, said as such)

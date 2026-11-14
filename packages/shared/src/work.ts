@@ -419,8 +419,9 @@ export interface Todo {
   /** [planlane4:tasks] its priority when it is P2 or P3; P1 is the old star (`high`, so a phone or a screen that knows only the star
    * still reads and sets it), and none is P4 */
   p?: 2 | 3;
-  /** [planlane4:tasks] the project it belongs to ("Home") and its tags ("phone", "errands"), his own words */
+  /** [planlane4:tasks] the project it belongs to ("Home"), the section of that project ("Kitchen") and its tags ("phone"), his own words */
   project?: string;
+  section?: string;
   tags?: string[];
   /** [planlane4:tasks] its notes, and its steps (a checklist inside it: each ticked on its own; "2/5" on the row) */
   notes?: string;
@@ -499,12 +500,13 @@ export function todoFrom(x: unknown, now: number): Todo | null {
   // (P1 and the star are one: a P set wins, else the star reads as P1)
   const p = prioOk(o.p) || (o.high || o.star ? 1 : 0);
   const project = projectOk(o.project);
+  const section = project ? projectOk(o.section) : '';
   const tags = tagsOk(o.tags);
   const notes = notesOk(o.notes);
   const steps = stepsOk(o.steps);
   return {
     id: idOk(o.id) || shortId(), text, ...(due ? { due } : {}), ...(p === 1 ? { high: true } : {}), ...(o.done ? { done: true, ...(doneAt ? { doneAt } : {}) } : {}), at, ...(every ? { every } : {}), ...(time ? { time } : {}),
-    ...(p === 2 || p === 3 ? { p } : {}), ...(project ? { project } : {}), ...(tags.length ? { tags } : {}), ...(notes ? { notes } : {}), ...(steps.length ? { steps } : {}),
+    ...(p === 2 || p === 3 ? { p } : {}), ...(project ? { project } : {}), ...(section ? { section } : {}), ...(tags.length ? { tags } : {}), ...(notes ? { notes } : {}), ...(steps.length ? { steps } : {}),
   };
 }
 /** Tick one off (or back on). A repeating one ticked off makes its next one; ticked back on, that next one goes again (while it
@@ -522,7 +524,7 @@ export function tickTodoIn(list: Todo[], id: string, today: string, now: number,
     if (x.every) {
       next = {
         id: nextId && /^[\w-]{1,40}$/.test(nextId) && !list.some((y) => y.id === nextId) ? nextId : shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}), ...(x.time ? { time: x.time } : {}),
-        ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}),
+        ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.section ? { section: x.section } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}),
         // (its notes go with it, and its steps start again unticked)
         ...(x.notes ? { notes: x.notes } : {}), ...(x.steps?.length ? { steps: x.steps.map((st) => ({ id: shortId(), text: st.text })) } : {}),
       };
@@ -560,7 +562,10 @@ export function mergeTodos(list: Todo[], items: unknown[], now: number): { list:
       // [planlane4:tasks] the higher priority of the two, and a project and tags this one lacks
       if (t.high) delete same.p;
       else if (t.p && prioOf(t) < prioOf(same)) same.p = t.p;
-      if (!same.project && t.project) same.project = t.project;
+      if (!same.project && t.project) {
+        same.project = t.project;
+        if (t.section) same.section = t.section;
+      }
       if (t.tags?.length) same.tags = [...new Set([...(same.tags ?? []), ...t.tags])].slice(0, 8);
       if (!same.notes && t.notes) same.notes = t.notes;
       if (!same.steps?.length && t.steps?.length) same.steps = t.steps;

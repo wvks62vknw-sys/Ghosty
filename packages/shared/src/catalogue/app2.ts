@@ -31,7 +31,7 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:agenda:TO-DO': {
     name: 'Your to-do list', line: 'You can keep a to-do list in the Agenda: give each a day, tick it off, and late ones come first.',
-    more: 'One list with WORK’s to-do and the chat, kept in my brain with a copy on this phone for no signal. Type it as you would say it (“Call the bank tomorrow at 3pm p1 #Home @phone”) and chips show what I understood. Flag the ones that matter (P1 to P3), give one a time it rings or a repeat, tap it for its notes and a checklist of steps, and see All, Today, Upcoming (the next two weeks with your diary) or P1. Every change has UNDO.',
+    more: 'One list with WORK’s to-do and the chat, kept in my brain with a copy on this phone for no signal. Type it as you would say it (“Call the bank tomorrow at 3pm p1 #Home @phone”) and chips show what I understood. Flag the ones that matter (P1 to P3), give one a time it rings or a repeat, tap it for its notes and a checklist of steps, and see All, Today, Upcoming (the next two weeks with your diary), P1 or Projects (each project by section, and each tag). Every change has UNDO.',
     say: ['Open my to-do list', 'What’s on my to-do list?'], scene: ['morning', 'phone'], cat: 'watch',
     since: '2026-11-13',
   },

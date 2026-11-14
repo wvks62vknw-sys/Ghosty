@@ -19,7 +19,7 @@ import { listRow, skeleton, stateCard } from '../../ui/appkit';
 import {
   dayOf, dueWords, EVERY, everyWords, inView, nextDue, sortTodos, TODO_ALL_DONE, TODO_EMPTY, TODO_NEED_TEXT, todoLine, todoWaitWords, daysTo, VIEW_EMPTY, VIEWS,
   ringDayOf, RING_OFF, whenWords, prioOf, PRIOS, tagWords, upcoming, upDayWords, upEventWhen, quietWords, UP_EMPTY, UP_LOADING, UP_NOCOPY, UP_OFFLINE,
-  stepsWords, STEPS_EMPTY,
+  stepsWords, STEPS_EMPTY, projectsOf, projectSub, bySection, PROJECT_DONE,
   type UpEvent, type Step,
   type Every, type Todo, type TodoView,
 } from './todowords';
@@ -53,7 +53,7 @@ const newId = () => `t${Date.now().toString(36)}${Math.random().toString(36).sli
 const OUTBOX = 'ghosty.agenda.todo.outbox';
 /** set once the list this phone kept on its own has joined the brain's */
 const JOINED = 'ghosty.agenda.todo.one';
-type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string; time?: string; p?: number; project?: string; tags?: string[]; notes?: string; steps?: Step[] } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
+type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string; time?: string; p?: number; project?: string; section?: string; tags?: string[]; notes?: string; steps?: Step[] } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
 const readJson = <T,>(k: string, d: T): T => {
   try {
     return (JSON.parse(localStorage.getItem(k) ?? 'null') as T) ?? d;
@@ -80,12 +80,12 @@ function queue(op: TodoOp): void {
   void syncTodos(true);
 }
 /** The brain's to-do (its own shape: high is the star) as this phone's. */
-type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string; time?: string; p?: number; project?: string; tags?: string[]; notes?: string; steps?: Step[] };
+type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string; time?: string; p?: number; project?: string; section?: string; tags?: string[]; notes?: string; steps?: Step[] };
 const fromBrain = (t: BrainTodo): Todo => ({
   id: t.id, text: t.text, due: t.due ?? '', done: !!t.done, at: t.at,
   ...(t.doneAt ? { doneAt: t.doneAt } : {}), ...(t.nextId ? { nextId: t.nextId } : {}), ...(t.high ? { star: true } : {}), ...(t.every ? { every: t.every } : {}),
   ...(typeof t.time === 'string' && /^\d\d:\d\d$/.test(t.time) ? { time: t.time } : {}),
-  ...(!t.high && (t.p === 2 || t.p === 3) ? { p: t.p } : {}), ...(typeof t.project === 'string' && t.project ? { project: t.project } : {}),
+  ...(!t.high && (t.p === 2 || t.p === 3) ? { p: t.p } : {}), ...(typeof t.project === 'string' && t.project ? { project: t.project, ...(typeof t.section === 'string' && t.section ? { section: t.section } : {}) } : {}),
   ...(Array.isArray(t.tags) && t.tags.length ? { tags: t.tags.filter((x) => typeof x === 'string') } : {}),
   ...(typeof t.notes === 'string' && t.notes ? { notes: t.notes } : {}),
   ...(Array.isArray(t.steps) && t.steps.length ? { steps: t.steps.filter((s) => s && typeof s.id === 'string' && typeof s.text === 'string').map((s) => ({ id: s.id, text: s.text, ...(s.done ? { done: true } : {}) })) } : {}),
@@ -168,12 +168,12 @@ if (typeof addEventListener === 'function') {
 
 /** Add a to-do (the box, or the chat): the one added, or null when this phone would not keep it. [planlane4:tasks] `time` ("15:00")
  * makes it ring at that time on its day (one with a time and no day rings today while the time is ahead, else tomorrow). */
-export function addTodo(text: string, due = '', every?: Every, star?: boolean, time = '', more: Pick<Todo, 'p' | 'project' | 'tags'> = {}): Todo | null {
+export function addTodo(text: string, due = '', every?: Every, star?: boolean, time = '', more: Pick<Todo, 'p' | 'project' | 'section' | 'tags'> = {}): Todo | null {
   // (a repeating one with no day starts today: "water the plants every day" is due today)
   const day = due || (time ? ringDayOf(time, Date.now()) : every ? dayOf(Date.now()) : '');
   const t: Todo = {
     id: newId(), text: text.trim().slice(0, 200), due: day, done: false, at: Date.now(), ...(every ? { every } : {}), ...(star ? { star: true } : {}), ...(time ? { time } : {}),
-    ...(!star && more.p ? { p: more.p } : {}), ...(more.project ? { project: more.project } : {}), ...(more.tags?.length ? { tags: more.tags } : {}),
+    ...(!star && more.p ? { p: more.p } : {}), ...(more.project ? { project: more.project, ...(more.section ? { section: more.section } : {}) } : {}), ...(more.tags?.length ? { tags: more.tags } : {}),
   };
   const l = loadTodos();
   l.push(t);
@@ -193,7 +193,7 @@ export function tickTodo(id: string): { done: boolean; next: Todo | null } | nul
   let next: Todo | null = null;
   if (x.done && x.every) {
     next = { id: newId(), text: x.text, due: nextDue(x.due, x.every, Date.now()), done: false, at: Date.now(), every: x.every, ...(x.star ? { star: true } : {}), ...(x.time ? { time: x.time } : {}),
-      ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}),
+      ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.section ? { section: x.section } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}),
       ...(x.notes ? { notes: x.notes } : {}), ...(x.steps?.length ? { steps: x.steps.map((s) => ({ id: newId(), text: s.text })) } : {}) };
     l.push(next);
     x.nextId = next.id;
@@ -241,7 +241,7 @@ export function clearDone(): number {
 }
 /** Change a to-do's words, day, repeat, star, the time it rings ('' takes the ring off), [planlane4:tasks] its priority (`prio`, 1 to
  * 4: 1 is the star), project or tags. */
-export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 'every' | 'star' | 'time' | 'project' | 'tags' | 'notes' | 'steps'>> & { prio?: number }): boolean {
+export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 'every' | 'star' | 'time' | 'project' | 'section' | 'tags' | 'notes' | 'steps'>> & { prio?: number }): boolean {
   const l = loadTodos();
   const x = l.find((y) => y.id === id);
   if (!x) return false;
@@ -257,6 +257,7 @@ export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 
   if (!x.star) delete x.star;
   if (!x.time) delete x.time;
   if (!x.project) delete x.project;
+  if (!x.section || !x.project) delete x.section;
   if (!x.tags?.length) delete x.tags;
   if (!x.notes) delete x.notes;
   if (!x.steps?.length) delete x.steps;
@@ -269,7 +270,7 @@ export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 
     ...('every' in patch ? { every: x.every ?? '' } : {}), ...('star' in patch ? { high: !!x.star } : {}),
     ...('time' in patch ? { time: x.time ?? '' } : {}),
     ...(prio !== undefined ? { p: prioOf(x), high: !!x.star } : {}),
-    ...('project' in patch ? { project: x.project ?? '' } : {}), ...('tags' in patch ? { tags: x.tags ?? [] } : {}),
+    ...('project' in patch ? { project: x.project ?? '' } : {}), ...('section' in patch || 'project' in patch ? { section: x.section ?? '' } : {}), ...('tags' in patch ? { tags: x.tags ?? [] } : {}),
     ...('notes' in patch ? { notes: x.notes ?? '' } : {}), ...('steps' in patch ? { steps: x.steps ?? [] } : {}),
   });
   return true;
@@ -302,7 +303,9 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
   let view: TodoView = loadView();
   /** the to-do whose words are open to change (one at a time), and what he has typed there so far (kept across repaints) */
   let editing = '';
-  let draft: { id: string; text: string; due: string; every: string; time: string; prio: string; project: string; tags: string; notes: string } | null = null;
+  let draft: { id: string; text: string; due: string; every: string; time: string; prio: string; project: string; section: string; tags: string; notes: string } | null = null;
+  /** [planlane4:tasks] PROJECTS: the project or tag whose page is open ('' for the list of them) */
+  let proj: { kind: 'project' | 'tag'; name: string } | null = null;
   /** [planlane4:tasks] what he is typing as the next step, and whether the step box (not the words) has the focus after a repaint */
   let stepDraft = '';
   let stepFocus = false;
@@ -336,7 +339,7 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     /* state: agenda.quickadd error */
     if (!v) return toast(TODO_NEED_TEXT, 'warn');
     addTodo(v, due.value || q.due, ((rep.value || q.every) || undefined) as Every | undefined, q.p === 1 || undefined, q.time, {
-      ...(q.p === 2 || q.p === 3 ? { p: q.p } : {}), ...(q.project ? { project: q.project } : {}), ...(q.tags.length ? { tags: q.tags } : {}),
+      ...(q.p === 2 || q.p === 3 ? { p: q.p } : {}), ...(q.project ? { project: q.project, ...(q.section ? { section: q.section } : {}) } : {}), ...(q.tags.length ? { tags: q.tags } : {}),
     });
     text.value = '';
     dropped = new Set();
@@ -365,6 +368,7 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
   p.el.insertBefore(views, p.body);
   const setView = (v: TodoView) => {
     view = v;
+    proj = null;
     try {
       localStorage.setItem(VIEW_KEY, v);
     } catch {
@@ -384,12 +388,13 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     const pr = h('select', { 'aria-label': 'Priority' }, ...PRIOS.map(([k, w]) => h('option', { value: String(k) }, w)));
     pr.value = d ? d.prio : String(prioOf(t));
     const pj = h('input', { value: d ? d.project : t.project ?? '', 'aria-label': 'Project', placeholder: 'Project (e.g. Home)', maxlength: '40' });
+    const se = h('input', { value: d ? d.section : t.section ?? '', 'aria-label': 'Section', placeholder: 'Section (e.g. Kitchen)', maxlength: '40' });
     const tg = h('input', { value: d ? d.tags : (t.tags ?? []).join(' '), 'aria-label': 'Tags', placeholder: 'Tags (e.g. phone)', maxlength: '120' });
     // [planlane4:tasks] its notes (kept with SAVE) and its checklist (each step's change kept at once, with UNDO)
     const nt = h('textarea', { 'aria-label': 'Notes', placeholder: 'Notes', rows: '3', maxlength: '2000' });
     nt.value = d ? d.notes : t.notes ?? '';
-    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value, time: tm.value, prio: pr.value, project: pj.value, tags: tg.value, notes: nt.value });
-    for (const x of [tx, dd, tm, rp, pr, pj, tg, nt]) x.addEventListener('input', keep);
+    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value, time: tm.value, prio: pr.value, project: pj.value, section: se.value, tags: tg.value, notes: nt.value });
+    for (const x of [tx, dd, tm, rp, pr, pj, se, tg, nt]) x.addEventListener('input', keep);
     const steps = t.steps ?? [];
     const setSteps = (next: Step[], said: string) => {
       const was = steps.map((s) => ({ ...s }));
@@ -429,9 +434,9 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
       if (!v) return toast(TODO_NEED_TEXT, 'warn');
       editing = '';
       draft = null;
-      const was = { text: t.text, due: t.due, every: t.every, prio: prioOf(t), time: t.time ?? '', project: t.project ?? '', tags: t.tags ?? [], notes: t.notes ?? '' };
+      const was = { text: t.text, due: t.due, every: t.every, prio: prioOf(t), time: t.time ?? '', project: t.project ?? '', section: t.section ?? '', tags: t.tags ?? [], notes: t.notes ?? '' };
       const tags = [...new Set(tg.value.split(/[\s,]+/).map((x) => x.replace(/^@+/, '').toLowerCase().slice(0, 30)).filter(Boolean))].slice(0, 8);
-      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined, time: tm.value || '', prio: Number(pr.value) || 4, project: pj.value.replace(/^#+/, '').trim().slice(0, 40), tags, notes: nt.value.trim().slice(0, 2000) })) return paint();
+      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined, time: tm.value || '', prio: Number(pr.value) || 4, project: pj.value.replace(/^#+/, '').trim().slice(0, 40), section: se.value.trim().slice(0, 40), tags, notes: nt.value.trim().slice(0, 2000) })) return paint();
       undo(`Changed: ${v}`, () => void editTodo(t.id, was));
     };
     tx.addEventListener('keydown', (e) => e.key === 'Enter' && save());
@@ -439,7 +444,7 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     stepFocus = false;
     queueMicrotask(() => (focusStep ? stepIn : tx).focus());
     return h('div.todoedit', { dataset: { case: 'keep' } },
-      h('div.keyrow.wrapit.addev', tx, dd, tm, rp, pr, pj, tg),
+      h('div.keyrow.wrapit.addev', tx, dd, tm, rp, pr, pj, se, tg),
       h('div.tdnotes', nt),
       checklist,
       h('div.keyrow.wrapit', button('SAVE', save, 'on'), button('CANCEL', () => {
@@ -495,7 +500,7 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     views.hidden = !all.length;
     for (const [v, label] of VIEWS) {
       const n = all.filter((t) => !t.done && inView(t, v, now)).length;
-      const b = button(v === 'all' || !n ? label : `${label} ${n}`, () => setView(v), `todoview${v === view ? ' on' : ''}`);
+      const b = button(v === 'all' || v === 'projects' || !n ? label : `${label} ${n}`, () => setView(v), `todoview${v === view ? ' on' : ''}`);
       b.setAttribute('aria-pressed', String(v === view));
       views.append(b);
     }
@@ -503,6 +508,8 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     if (!all.length) return void p.body.append(h('div.empty', { dataset: { case: 'keep', state: 'empty' } }, h('b', TODO_EMPTY.head), h('span', TODO_EMPTY.line)));
     // [planlane4:tasks] UPCOMING: the next fourteen days, each with its events and to-dos, then Later
     if (view === 'upcoming') return paintUpcoming(all, now);
+    // [planlane4:tasks] PROJECTS: each project and tag with its count; a tap opens its page, grouped by section
+    if (view === 'projects') return paintProjects(all, now);
     const l = all.filter((t) => inView(t, view, now));
     if (!open && view === 'all') p.body.append(h('p.todoline.alldone', TODO_ALL_DONE));
     if (!l.length && view !== 'all') p.body.append(h('div.empty', { dataset: { case: 'keep', state: 'empty' } }, h('b', 'Nothing here'), h('span', VIEW_EMPTY[view])));
@@ -551,6 +558,42 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     flush();
     if (up.later.length) group('Later', up.later.map(item));
     p.body.append(box);
+  };
+  const paintProjects = (all: Todo[], now: number) => {
+    const box = h('div.tdproj', { dataset: { case: 'keep' } });
+    p.body.append(box);
+    const open = (k: 'project' | 'tag', name: string) => () => {
+      proj = { kind: k, name };
+      paint();
+      p.body.querySelector('.tdprojback')?.scrollIntoView({ block: 'nearest' });
+    };
+    if (proj) {
+      const back = button('All projects', () => {
+        proj = null;
+        paint();
+      }, 'tdprojback');
+      back.setAttribute('aria-label', 'Back to all projects');
+      const name = proj.kind === 'project' ? proj.name : `@${proj.name}`;
+      box.append(h('div.tdprojtop', back, h('b.tdprojname', { role: 'heading', 'aria-level': '3' }, name)));
+      const groups = proj.kind === 'project' ? bySection(all, proj.name, now) : [{ section: '', todos: sortTodos(all.filter((t) => !t.done && t.tags?.includes(proj!.name)), now) }];
+      /* state: agenda.projects empty */
+      if (!groups.some((g) => g.todos.length)) return void box.append(h('div.tdprojnone', { dataset: { state: 'empty' } }, stateCard('empty', PROJECT_DONE(name))));
+      const named = groups.some((g) => g.section);
+      for (const g of groups) {
+        const head = g.section || (named ? 'No section' : '');
+        box.append(h('div.tdupday', head ? h('b.tduphead', { role: 'heading', 'aria-level': '4' }, head) : null, h('div.tduprows', { role: 'list', 'aria-label': head || name }, ...g.todos.map(item))));
+      }
+      return;
+    }
+    const pr = projectsOf(all, now);
+    if (!pr.projects.length && !pr.tags.length) return void box.append(h('div.tdprojnone', { dataset: { state: 'empty' } }, stateCard('empty', VIEW_EMPTY.projects)));
+    if (pr.projects.length) {
+      const rows = pr.projects.map((x) => listRow({ id: `project:${x.name}`, title: x.name, sub: projectSub(x), meta: String(x.open) }, { onTap: open('project', x.name) }));
+      if (pr.loose) rows.push(h('p.tdupquiet', `${pr.loose} more in no project: All has them.`));
+      box.append(h('div.tdupday', h('b.tduphead', { role: 'heading', 'aria-level': '3' }, 'Projects'), h('div.tduprows', { role: 'list', 'aria-label': 'Projects' }, ...rows)));
+    }
+    if (pr.tags.length)
+      box.append(h('div.tdupday', h('b.tduphead', { role: 'heading', 'aria-level': '3' }, 'Tags'), h('div.tduprows', { role: 'list', 'aria-label': 'Tags' }, ...pr.tags.map((x) => listRow({ id: `tag:${x.name}`, title: `@${x.name}`, meta: String(x.open) }, { onTap: open('tag', x.name) })))));
   };
   // every change (here, from the chat, an UNDO) repaints the list, the month and the agenda's top line
   addEventListener(TODO_CHANGED, () => {

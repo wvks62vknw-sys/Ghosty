@@ -10637,18 +10637,18 @@ html #pg-agenda .todoit button.todostar.tdp4 { color: var(--ink3); }
 html #pg-agenda .todoline.tdringoff { padding-top: 8px; overflow-wrap: anywhere; }
 html #pg-agenda .todoit .todoedit select, html #pg-agenda .todoit .todoedit input { min-width: 0; max-width: 100%; }
 /* UPCOMING (the to-do list's view of the next fourteen days): a heading per day, its events as kit rows and its to-dos, quiet days in one line */
-html #pg-agenda .tdup { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html #pg-agenda :is(.tdup, .tdproj) { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
 html #pg-agenda .tdupday { display: flex; flex-direction: column; min-width: 0; }
 html #pg-agenda .tdupday .tduphead { display: block; padding: 10px 0 4px; font: 600 15px/20px var(--sf); color: var(--c); text-transform: none; overflow-wrap: anywhere; border-bottom: 1px solid var(--hair); }
 html #pg-agenda .tduprows { display: flex; flex-direction: column; min-width: 0; }
 html #pg-agenda .tdupquiet { margin: 0; padding: 6px 0; font: 400 14px/19px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
 html #pg-agenda .tdupnote { padding: 0 0 4px; overflow-wrap: anywhere; }
-html #pg-agenda .tdup .ak-row { border-bottom: 1px solid var(--hair); }
-html #pg-agenda .tdup button.ak-rowmain { width: 100%; height: auto; min-height: 44px !important; padding: 6px 0; background: none !important; box-shadow: none !important; border: 0; text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; justify-content: center; }
-html #pg-agenda .tdup .ak-rowmain :is(.ak-rowtitle, .ak-rowsub) { text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; max-width: 100%; }
-html #pg-agenda .tdup .ak-rowmain .ak-rowtitle { font: 500 17px/22px var(--sf); color: var(--ink); }
-html #pg-agenda .tdup .ak-rowmain .ak-rowsub { font: 400 13px/17px var(--sf); color: var(--ink3); }
-html #pg-agenda .tdupempty .ak-state { padding: 8px 0; }
+html #pg-agenda :is(.tdup, .tdproj) .ak-row { border-bottom: 1px solid var(--hair); }
+html #pg-agenda :is(.tdup, .tdproj) button.ak-rowmain { width: 100%; height: auto; min-height: 44px !important; padding: 6px 0; background: none !important; box-shadow: none !important; border: 0; text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; justify-content: center; }
+html #pg-agenda :is(.tdup, .tdproj) .ak-rowmain :is(.ak-rowtitle, .ak-rowsub) { text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; max-width: 100%; }
+html #pg-agenda :is(.tdup, .tdproj) .ak-rowmain .ak-rowtitle { font: 500 17px/22px var(--sf); color: var(--ink); }
+html #pg-agenda :is(.tdup, .tdproj) .ak-rowmain .ak-rowsub { font: 400 13px/17px var(--sf); color: var(--ink3); }
+html #pg-agenda :is(.tdupempty, .tdprojnone) .ak-state { padding: 8px 0; }
 /* a to-do opened: its notes and its checklist (each step a tick, its words and a remove key, 44 pt) */
 html #pg-agenda .todoit .todoedit .tdnotes textarea { display: block; width: 100%; box-sizing: border-box; min-height: 88px; padding: 10px 12px; font: 400 17px/22px var(--sf); color: var(--ink); background: none; border: 1px solid var(--hair2); border-radius: var(--g-radius-key); resize: vertical; text-transform: none; }
 html #pg-agenda .todoit .todoedit .tdsteps { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -10659,4 +10659,9 @@ html #pg-agenda .todoit .todoedit .tdstep .tdsteptx { font: 400 16px/21px var(--
 html #pg-agenda .todoit .todoedit .tdstep.done .tdsteptx { color: var(--ink3); text-decoration: line-through; }
 html #pg-agenda .todoit .todoedit .tdstepnone .ak-state { padding: 4px 0; }
 html #pg-agenda .todoit .todoedit .keyrow.tdstepadd { padding: 0; }
+/* PROJECTS (a view of the to-do list): each project and tag with its count; a project's page with a way back, grouped by section */
+html #pg-agenda .tdproj .ak-rowmeta { font: 500 15px/20px var(--sf); color: var(--ink2); padding: 0 4px; }
+html #pg-agenda .tdprojtop { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); padding: 4px 0; min-width: 0; }
+html #pg-agenda .tdprojtop button.tdprojback { width: auto; min-height: 44px !important; min-width: 44px; padding: 0 14px; text-transform: none; letter-spacing: normal; white-space: normal; }
+html #pg-agenda .tdprojtop .tdprojname { font: 600 20px/26px var(--sf); color: var(--ink); text-transform: none; overflow-wrap: anywhere; min-width: 0; }
 /* ==== [planlane4:tasks end] ==== */

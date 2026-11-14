@@ -17,6 +17,7 @@ export interface NewThing {
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
   // [planlane4:tasks] THE APPS ROUND, CALENDAR AND TASKS: the to-do side (docs/build-plan/apps/plan.md)
+  { day: '2026-11-14', title: 'Projects, sections and tags', line: 'Type “#Home/Kitchen @phone” as you add a to-do, or set them in its change box. To-do → PROJECTS lists each project and tag with its count; tap one for its page, grouped by section.' },
   { day: '2026-11-14', title: 'Checklists and notes inside a to-do', line: 'Tap a to-do: under its day, time and priority are its notes and a checklist. Add steps, tick them one by one (the row shows “2/5”), remove one, and UNDO any of it.' },
   { day: '2026-11-14', title: 'Upcoming: your next two weeks', line: 'Agenda → To-do → UPCOMING: each of the next fourteen days with its events and its to-dos, quiet days in one line, then Later. Tap an event to open it in the diary.' },
   { day: '2026-11-14', title: 'Quick add reads your words', line: 'Agenda → To-do: type “Call the bank tomorrow at 3pm p1 #Home @phone” and chips show the day, time, priority, project and tags before ADD. Tap a chip to keep it as words.' },
