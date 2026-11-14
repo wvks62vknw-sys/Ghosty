@@ -90,6 +90,10 @@ export const PRICES = {
   adhesive: { name: 'Grab adhesive, 310 ml tube', unit: 'tube', gbp: 5.5 },
   preserver: { name: 'Exterior wood treatment, 5 litre tin', unit: 'tin', gbp: 32 },
   emulsion: { name: 'Emulsion paint, 5 litre tin', unit: 'tin', gbp: 28 },
+  // NEXT ROUND (MAKE lane): the smaller tins and a wallpaper roll, for SPACE's MATERIALS (same month, same honesty)
+  emulsion25: { name: 'Emulsion paint, 2.5 litre tin', unit: 'tin', gbp: 17 },
+  emulsion1: { name: 'Emulsion paint, 1 litre tin', unit: 'tin', gbp: 9 },
+  wallpaper: { name: 'Wallpaper, standard roll 10.05 m × 53 cm', unit: 'roll', gbp: 14 },
   varnish: { name: 'Clear satin varnish, 750 ml tin', unit: 'tin', gbp: 14 },
   carpet: { name: 'Carpet and underlay, fitted', unit: 'm²', gbp: 32 },
   laminate: { name: 'Laminate flooring 8 mm with underlay', unit: 'm²', gbp: 22 },

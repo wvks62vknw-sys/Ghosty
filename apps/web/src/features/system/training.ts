@@ -22,6 +22,7 @@ import { sayError } from '../../ui/hisWords';
 import { more } from '../lifeui';
 import { waiting } from '../../ui/wait';
 import { averageLine, WAIT } from './words';
+import { historyBlock, noteWeek } from './trainhistory';
 
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
@@ -242,6 +243,9 @@ export function trainingPanel(): Panel & { refresh(): void } {
     if (r) {
       p.body.append(h('div.lab.trainweek', `WEEK ${r.week}${r.scratch ? ' · RETRAINED FROM SCRATCH' : ''}${r.finishedAt ? ` · ${when(r.finishedAt)}` : ''}`));
       if (Object.keys(r.before ?? {}).length) p.body.append(scores(r, s.previous));
+      // [next] every finished week's scores, kept here as each report arrives, drawn week by week (trainhistory.ts)
+      noteWeek(s.previous);
+      p.body.append(historyBlock(noteWeek(r)));
       p.body.append(details(r));
     } else if (keysOk) p.body.append(h('div.note', 'No run yet: the first starts on its own, or press TRAIN NOW.'));
     // Honest: until a run has come back, none of this has worked for real.

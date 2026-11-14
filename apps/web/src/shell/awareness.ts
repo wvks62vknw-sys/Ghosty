@@ -91,6 +91,11 @@ export function askFromHere(): void {
   const c = screenContext();
   asked = c.screen === 'core' ? null : { ctx: c, at: Date.now() };
 }
+/** [consistency] The screen a question was asked from (the jump bar's "Or ask me", the deck), without using it up. */
+export function askedFrom(): string | null {
+  const a = asked;
+  return a && Date.now() - a.at < 8000 && ui.get().tab === 'core' ? a.ctx.screen : null;
+}
 function askedScreen(): ScreenContext | null {
   const a = asked;
   asked = null;

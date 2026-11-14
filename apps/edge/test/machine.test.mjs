@@ -31,7 +31,7 @@ test('the count line, in his voice: the numbers, the incidents, the all-clear or
   assert.equal(M.countLine({ ...c, air: 2117 }).split('.')[1], ' 2,117 aircraft, 188 buses and trams, 2 ships, 9 satellites overhead; 3 road incidents');
   assert.equal(M.hubLine(c), 'WATCHING · 41 AIR · 188 TRANSIT');
   assert.equal(M.hubLine({ air: 3, transit: null }), 'WATCHING · 3 AIR · NO LIVE BUSES');
-  assert.match(M.NO_HOME, /^Save home in Memory → ME → PLACES and I'll watch your city; for now this is the phone's home\.$/);
+  assert.match(M.NO_HOME, /^Save home in Memory → ABOUT YOU → PLACES and I'll watch your city; for now this is the phone's home\.$/);
 });
 
 test('the radius: what is within 25 km of the frame\'s centre, by where each is now; the nearest first', () => {

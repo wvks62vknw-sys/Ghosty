@@ -13,7 +13,7 @@ import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, phrases, sizeWords, stateIn, stateLine, waitFor } from '../lifeui';
 
-export const moneyState = { open: false, read: 0, reply: '' };
+export const moneyState = { open: false, read: 0, reply: '', nudge: false };
 /** The sheet's one page, by name (its title, and its panel on the MONEY screen: features/money/index.ts). */
 export const STATEMENT_TITLE = 'PASTE A STATEMENT';
 
@@ -102,6 +102,25 @@ export function statementScreen(): { el: HTMLElement; stop(): void } {
   go.setAttribute('aria-label', 'Read the pasted statement');
   const pick = button('Pick a file', () => file.click());
   pick.setAttribute('aria-label', 'Pick the statement as a CSV or PDF file');
-  const el = h('div.pkcol', slot, body, h('div.pkrow', go, pick), status, phrases(['paste a statement']));
+  // [moneynext] money.u8: a reminder on the 2nd of each month to add last month's statement, only when he turns it on
+  const remind = button('Remind me on the 2nd', () => void setNudge(remind.getAttribute('aria-pressed') === 'true' ? 'off' : 'on'));
+  remind.setAttribute('aria-label', 'Remind me on the 2nd of each month to add a statement');
+  remind.hidden = true;
+  const setNudge = async (op: '' | 'on' | 'off') => {
+    if (lacksSignal()) return void (op && stateIn(status, 'offline', 'No signal. Try again when the phone is back online.'));
+    try {
+      const r = await brain.packDo('money', 'nudge', op ? { op } : {});
+      const on = (r.data as { on?: boolean } | undefined)?.on === true;
+      moneyState.nudge = on;
+      remind.hidden = false;
+      remind.setAttribute('aria-pressed', String(on));
+      remind.textContent = on ? 'Reminder on the 2nd: on' : 'Remind me on the 2nd';
+      if (op) stateIn(status, '', r.text);
+    } catch (e) {
+      if (op) stateIn(status, 'error', sayError(e, 'set that reminder'));
+    }
+  };
+  void setNudge('');
+  const el = h('div.pkcol', slot, body, h('div.pkrow', go, pick), h('div.pkrow', remind), status, phrases(['paste a statement']));
   return { el, stop: () => undefined };
 }

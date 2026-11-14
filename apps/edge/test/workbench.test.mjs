@@ -413,3 +413,70 @@ test('the brain’s estimate tool: his words through the shared solvers, fields 
   assert.match(t, /far past any stall/);
   assert.match(t, /First estimate, not certified/);
 });
+
+// THE CURVE BEHIND AN ANSWER (NEXT ROUND, make.u6): each curve is the same solver run again (or a beam's own deflection along
+// its span), so its points agree with the card; the heat-by-month bars are worked by hand; every note says first estimate.
+test('curves: the shape behind each answer agrees with the card, and every one says first estimate, not certified', () => {
+  const at = Date.UTC(2026, 5, 21, 12);
+  const curve = (k, raw = {}, sys = 'metric') => W.curveOf(W.solve(k, raw, sys, at), raw, sys, at);
+  // a 3 m simply supported beam, 5 kN in the middle: zero at both supports, the most sag (PL³/48EI, 0.201 mm) in the middle
+  const beam = curve('beam', { span: 3, load: 5000 });
+  assert.equal(beam.points.length, 41);
+  assert.equal(beam.points[0].y, 0);
+  assert.ok(Math.abs(beam.points[40].y) < 1e-9, 'no sag at the far support');
+  close(beam.points[20].y, 0.2009, 0.01, 'the middle sags PL³/48EI');
+  close(beam.mark.y, 0.2009, 0.01, 'the mark is the card\'s max deflection');
+  assert.equal(beam.y.unit, 'mm');
+  assert.match(beam.limit.label, /^span\/250: 12 mm$/);
+  // symmetric for a load in the middle
+  close(beam.points[10].y, beam.points[30].y, 1e-9, 'symmetric');
+  // a cantilever sags most at its free end
+  const cant = curve('beam', { span: 2, load: 1000, support: 'cantilever' });
+  assert.equal(Math.max(...cant.points.map((p) => p.y)), cant.points[40].y);
+  // the car: the power at his own speed is on the curve, and power rises with speed
+  const car = curve('car', { speed: 31.2928 });
+  const card = W.solve('car', { speed: 31.2928 }, 'metric', at);
+  close(car.mark.y, card.values.total / 1000, 1e-9, 'the mark is the card\'s power');
+  assert.equal(car.x.unit, 'km/h');
+  for (let i = 1; i < car.points.length; i++) assert.ok(car.points[i].y > car.points[i - 1].y, 'power rises with speed');
+  assert.equal(curve('car', { speed: 31.2928 }, 'imperial').x.unit, 'mph');
+  // the wing stops at the stall rather than drawing past it
+  const wing = curve('wing');
+  const stall = W.solve('wing', {}, 'metric', at).values.stall * 180 / Math.PI;
+  assert.ok(wing.points.every((p) => p.x <= stall + 1e-9), 'nothing drawn past the stall');
+  // the projectile: in still air (no drag) 45° goes furthest
+  const proj = curve('projectile', { speed: 20, drag: false });
+  const best = proj.points.reduce((a, b) => (b.y > a.y ? b : a));
+  assert.equal(Math.round(best.x), 45);
+  close(best.y, (20 * 20) / 9.80665, 0.001, 'v²/g at 45°');
+  // heat by month, worked by hand: H 50 W/K, 21 °C inside, 3 K free: January 4.4 °C → 50 × 13.6 × 24 × 31 ÷ 1000 = 505.92 kWh; July 16.1 °C → 50 × 1.9 × 24 × 31 ÷ 1000 = 70.68; at 19 °C inside, July needs none
+  const months = W.heatByMonth(50, 294.15);
+  assert.equal(months.length, 12);
+  close(months[0].kwh, 505.92, 1e-9, 'January');
+  close(months[6].kwh, 70.68, 1e-9, 'July');
+  assert.equal(W.heatByMonth(50, 292.15)[6].kwh, 0, 'at 19 °C inside, July needs no heating');
+  const heat = curve('heat');
+  assert.ok(heat.bars && heat.points.length === 12 && heat.points[0].label === 'Jan');
+  assert.match(heat.note, /Met Office's UK monthly averages \(1991–2020\)/);
+  assert.match(heat.note, /never a bill/);
+  // the sun: below the horizon at midnight, highest near noon on midsummer's day in Birmingham (about 61°)
+  const sun = curve('sun', { at, tz: 'Europe/London' });
+  assert.ok(sun.points[0].y < 0, 'below the horizon at midnight');
+  const top = sun.points.reduce((a, b) => (b.y > a.y ? b : a));
+  within(top.y, 59, 62, 'the sun at its highest');
+  within(top.x, 12.5, 13.5, 'about 1 pm in summer time');
+  // the RC charge: 63.2 % at one time constant, 99.3 % at five
+  const rc = curve('circuit', { mode: 'rc', r: 10000, c: 0.0001 });
+  close(rc.points[rc.points.length - 1].y, 99.326, 0.001, '5 τ');
+  assert.equal(rc.x.unit, 's');
+  // every kind with a shape has a curve; a ratio alone has none; a problem has none
+  for (const k of ['beam', 'column', 'car', 'wing', 'fall', 'projectile', 'orbit', 'bike', 'heat', 'sun']) {
+    const c = curve(k);
+    assert.ok(c && c.points.length >= 3, `${k} draws a curve`);
+    assert.match(c.note, /^First estimate, not certified: /, `${k}: its note`);
+    assert.ok(c.points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)), `${k}: every point a number`);
+  }
+  assert.equal(curve('gears'), null);
+  assert.equal(curve('wing', { alpha: 1 }), null, 'past the stall: a problem, no curve');
+  assert.equal(W.curveOf(W.solve('beam', { span: 'abc' }), { span: 'abc' }).points.length, 41, 'loose words fall back to the defaults, never a throw');
+});

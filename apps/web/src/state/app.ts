@@ -64,6 +64,12 @@ export interface Settings {
   placeSense: boolean;
   /** THE SCORE (BRIEF-HUD-SCAN-1 7; OWNER-ISSUES 158): B, the short score under the boot's film (on); off, A: the one tone alone, as today. */
   bootScore: boolean;
+  /** THE OPENING'S LENGTH (NEXT ROUND boot.u4): the whole film every time, the short cut every time, or the whole film on the day's first open. */
+  bootLength: 'full' | 'short' | 'daily';
+  /** HIS OWN OPENING LINES (boot.s9): one a line; empty, the greeting by the hour. Several take turns. Kept on this phone. */
+  bootLines: string;
+  /** A GUEST HE NAMED (boot.s7): "Sam's turn" greets Sam by name on the next opening, once, only someone he has introduced; until then, ms. */
+  bootGuest: { name: string; until: number };
   /** SHOW ME (BRIEF-KERNEL-YES 5; OWNER-ISSUES 173): the Stage under a reply (show/turn.ts `mayShow`); off, no Stage ever. On by default. */
   showMe: boolean;
   /** THE HUD TILTS WITH THE PHONE (BRIEF-OCT-IDEAS-1 2; THE LOOK): the Scan's layers follow the phone's tilt and a light follows the touch across a plate. Off until he permits it. */
@@ -103,6 +109,9 @@ export const settings = createStore<Settings>(
     deckGroup: '',
     placeSense: true,
     bootScore: true,
+    bootLength: 'full',
+    bootLines: '',
+    bootGuest: { name: '', until: 0 },
     showMe: true,
     hudTilt: false,
     sayStart: true,

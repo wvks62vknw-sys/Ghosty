@@ -59,7 +59,7 @@ test('cards from tool results: places → MAP (postcode, distance, a route), a k
   assert.equal(r.line, '8.4 km · about 21 min by car');
   assert.equal(r.map.path.length, 48, 'a long route is thinned for the picture');
   assert.deepEqual(r.map.path[0], [52.4, -1.9]);
-  const [kept] = C.cardsFromTool({ name: 'remember_place', args: {}, at: AT, result: 'Kept Home: 12 Acacia Avenue, Birmingham B13 9AB. Journeys, directions and the Brief use it now; it is in Memory → ME → PLACES (only in his memory, nowhere else).' });
+  const [kept] = C.cardsFromTool({ name: 'remember_place', args: {}, at: AT, result: 'Kept Home: 12 Acacia Avenue, Birmingham B13 9AB. Journeys, directions and the Brief use it now; it is in Memory → ABOUT YOU → PLACES (only in his memory, nowhere else).' });
   assert.equal(kept.kind, 'place');
   assert.equal(kept.title, 'Home saved');
   assert.equal(kept.line, '12 Acacia Avenue, Birmingham B13 9AB');

@@ -7,8 +7,9 @@
  * Nothing on this page asks for a permission; it only looks.
  */
 import { clear, h } from '../../core/dom';
-import { lastPerm, lastRefusal, notePerm, type PermRow } from '../../ui/permrecord';
-import { panel, type Panel } from '../../ui/components';
+import { clearUses, lastPerm, lastRefusal, notePerm, noteUse, USE_MAX, usesKept, type PermRow } from '../../ui/permrecord';
+import { button, panel, type Panel } from '../../ui/components';
+import { tabs } from '../../shell/tabs';
 import { rest } from '../../ui/oneline';
 import { checkStorage, homeScreenApp, storageState } from '../system/storage';
 
@@ -71,11 +72,33 @@ export async function stateOf(s: Spec): Promise<string> {
   return 'Not asked yet';
 }
 
+/** A screen's name as he reads it: "THE LOOK" → "The look". */
+const niceScreen = (t: string): string => (t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t);
+
 export function permissionsPanel(): Panel & { refresh(): void } {
   const p = panel('PERMISSIONS', { grow: false, status: `${PERMS.length} THINGS`, cls: 'permpn' });
   const refused = h('p.g-truth.permrefused', { role: 'status', dataset: { case: 'keep' } });
   refused.hidden = true;
   const box = h('div.permlist');
+  // [next] USED RECENTLY: every time the camera, the microphone or the position was actually used, and where (ui/permrecord.ts)
+  const used = h('div.permused');
+  const paintUsed = () => {
+    const list = usesKept().slice().reverse();
+    const names = new Map(tabs().map((t) => [t.id, t.title]));
+    const word = { camera: 'Camera', microphone: 'Microphone', location: 'Location' } as const;
+    const when = (t: number) => new Date(t).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const clr = button('CLEAR THE LIST', () => {
+      clearUses();
+      paintUsed();
+    });
+    clr.dataset.act = 'clearuses';
+    used.replaceChildren(
+      h('div.lab', 'USED RECENTLY'),
+      ...(list.length
+        ? [...list.slice(0, 20).map((u) => h('div.permuse1', { dataset: { what: u.what, case: 'keep' } }, h('b', word[u.what]), h('span', ` · ${niceScreen(names.get(u.screen) ?? u.screen)} · ${when(u.at)}`))), h('p.note.small', { dataset: { case: 'keep' } }, `Kept on this phone only: the last ${USE_MAX} uses.`), h('div.keyrow', clr)]
+        : [h('p.note', { dataset: { case: 'keep' } }, 'Nothing used yet: the camera, microphone and location have not been used.')]),
+    );
+  };
   p.body.append(h('p.note', { dataset: { case: 'keep' } }, 'Everything the phone can be asked for, what I use it for and what I never do with it.'), rest('If Ghosty is not in that list, go to Settings, Apps, Safari, then the address Ghosty is on. Nothing here asks for anything: it only looks. Faces and voices I know stay on this phone, and your daily backup can bring back what Safari clears.'), refused, box);
   async function refresh(): Promise<void> {
     const r = lastRefusal();
@@ -93,9 +116,11 @@ export function permissionsPanel(): Panel & { refresh(): void } {
         h('p.permhow', { dataset: { case: 'keep' } }, h('span.g-truth', 'TO CHANGE IT'), ' ', s.how)));
     });
   }
+  p.body.append(used);
+  paintUsed();
   void refresh();
   // looked at again each time the page is opened (the row for a refusal that happened meanwhile)
-  p.el.addEventListener('ghosty:reveal', () => void refresh());
+  p.el.addEventListener('ghosty:reveal', () => (paintUsed(), void refresh()));
   p.el.querySelector('h3')?.addEventListener('click', () => void refresh());
   return Object.assign(p, { refresh: () => void refresh() });
 }
@@ -120,7 +145,11 @@ export function installPermissionRecord(): void {
         const rows: PermRow[] = [...(c?.video ? ['camera' as const] : []), ...(c?.audio ? ['microphone' as const] : [])];
         try {
           const s = await orig(c);
-          for (const r of rows) notePerm(r, 'allowed');
+          for (const r of rows) {
+            notePerm(r, 'allowed');
+            // [next] the use itself, on this screen, for USED RECENTLY (ui/permrecord.ts)
+            if (r === 'camera' || r === 'microphone') noteUse(r);
+          }
           return s;
         } catch (e) {
           if (refusedName(e)) for (const r of rows) notePerm(r, 'refused', r === 'camera' ? 'open the camera' : 'listen');
@@ -132,11 +161,11 @@ export function installPermissionRecord(): void {
     if (geo) {
       const wrap = (fn: Geolocation['getCurrentPosition']) =>
         function (this: Geolocation, ok: PositionCallback, bad?: PositionErrorCallback | null, o?: PositionOptions) {
-          return fn.call(this, (p) => (notePerm('location', 'allowed'), ok(p)), (er) => ((er?.code === 1 && notePerm('location', 'refused', 'find where you are')), bad?.(er)), o);
+          return fn.call(this, (p) => (notePerm('location', 'allowed'), noteUse('location'), ok(p)), (er) => ((er?.code === 1 && notePerm('location', 'refused', 'find where you are')), bad?.(er)), o);
         };
       geo.getCurrentPosition = wrap(geo.getCurrentPosition.bind(geo)) as Geolocation['getCurrentPosition'];
       const watch = geo.watchPosition.bind(geo);
-      geo.watchPosition = ((ok: PositionCallback, bad?: PositionErrorCallback | null, o?: PositionOptions) => watch((p) => (notePerm('location', 'allowed'), ok(p)), (er) => ((er?.code === 1 && notePerm('location', 'refused', 'find where you are')), bad?.(er)), o)) as Geolocation['watchPosition'];
+      geo.watchPosition = ((ok: PositionCallback, bad?: PositionErrorCallback | null, o?: PositionOptions) => watch((p) => (notePerm('location', 'allowed'), noteUse('location'), ok(p)), (er) => ((er?.code === 1 && notePerm('location', 'refused', 'find where you are')), bad?.(er)), o)) as Geolocation['watchPosition'];
     }
     const N = (globalThis as { Notification?: typeof Notification }).Notification;
     if (N?.requestPermission) {

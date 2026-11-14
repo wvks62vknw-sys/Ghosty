@@ -151,9 +151,10 @@ const FEED_WORD = { flood: 'Flood', weather: 'Weather', crime: 'Crime' };
 const STAMP = /^[A-Z]{3} \d{1,2} [A-Z]{3} · \d{2}:\d{2} · .+ · (WATCHING \d+ FEEDS?|CHECKING FEEDS|NO FEEDS YET|OFFLINE, FEEDS PAUSED)$/;
 /** (`stamps`: the whole stamp lines seen, so a line caught mid-typing counts as the stamp too) */
 // (BRIEF-QUALITY-BOOT-ORB: a landing held for a late app says what it waits for, in the stamp's small type, one of three lines of shell/bootwords.ts,
-// and POLISH 1's line after six seconds held; each allowed only when __bootState says the landing really was held that long, and nothing else)
+// and POLISH 1's line after six seconds held; each allowed only when __bootState says the landing really was held that long, and nothing else;
+// NEXT ROUND: what matters today (boot.u2) and the offline line (boot.s10), each only as the very line __bootState says it showed)
 const HOLD_LINE = /^still starting, (waiting for a signal|waiting for my brain|a moment more)\.$/i;
-const allowed = (t, greeting, stamps, film = false, b = null) => t === 'TAP TO SKIP' || t === 'GHOSTY' || t === greeting || STAMP.test(t) || stamps.some((f) => f.startsWith(t)) || /^(FLOOD|WEATHER|CRIME) · /.test(t) || (film && FILM_WORDS.test(t)) || (!!b?.holdLine && HOLD_LINE.test(t)) || ((b?.held ?? 0) > 6000 && t === 'Still waking. The signal is slow.');
+const allowed = (t, greeting, stamps, film = false, b = null) => t === 'TAP TO SKIP' || t === 'GHOSTY' || t === greeting || STAMP.test(t) || stamps.some((f) => f.startsWith(t)) || /^(FLOOD|WEATHER|CRIME) · /.test(t) || (film && FILM_WORDS.test(t)) || (!!b?.holdLine && HOLD_LINE.test(t)) || ((b?.held ?? 0) > 6000 && t === 'Still waking. The signal is slow.') || (!!b?.todayLine && t.toUpperCase() === b.todayLine.toUpperCase()) || (!!b?.offlineLine && t.toUpperCase() === b.offlineLine.toUpperCase());
 /** The stamp line with its feeds' word: watching, checking, offline, or (BRIEF-QUALITY-BOOT-ORB: CHECKING FEEDS settles at the recognition) "No feeds yet" only when no feed's line was drawn. */
 const stampShown = (texts, b) => texts.some((t) => /WATCHING \d+ FEEDS?|CHECKING FEEDS|OFFLINE, FEEDS PAUSED/.test(t) || (/NO FEEDS YET/.test(t) && (b?.feedLines ?? []).length === 0));
 const greetingFor = (page) => page.evaluate(() => {
