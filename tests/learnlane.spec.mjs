@@ -321,6 +321,39 @@ for (const vp of [PHONE, PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================ S7 · memory palace: his places and things paired, hidden, walked back and scored
+{
+  const T = '[440]';
+  const { ctx, page } = await phone(PHONE);
+  try {
+    await go(page, 'learning');
+    await page.locator('#pg-learning .secpill[data-sec="drills"]').click({ force: true });
+    const box = page.locator('#pg-learning .pkpalacebox');
+    check(await box.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [S7] no MEMORY PALACE under the memory drills`);
+    await box.locator('textarea').nth(0).fill('front door, hall mirror, stairs');
+    await box.locator('textarea').nth(1).fill('milk, call the garage, bin day');
+    await box.locator('button', { hasText: /^START THE WALK$/i }).click();
+    check(await until(page, () => document.querySelectorAll('#pg-learning .pkpalacebox .pkpairs li').length === 3, null, 5000), `${T} [S7] the three pairs were not shown`);
+    check(/^front door: milk/i.test(await box.locator('.pkpairs li').first().textContent()), `${T} [S7] the first pair: "${await box.locator('.pkpairs li').first().textContent()}"`);
+    await box.locator('button', { hasText: /^I HAVE PICTURED THEM$/i }).click();
+    check(await until(page, () => !document.querySelector('#pg-learning .pkpalacebox .pkpairs') && document.querySelectorAll('#pg-learning .pkpalacebox input[type="text"]').length === 3, null, 5000), `${T} [S7] the things stayed on screen for the walk back`);
+    const ins = box.locator('input[type="text"]');
+    await ins.nth(0).fill('Milk');
+    await ins.nth(1).fill('the garage');
+    await ins.nth(2).fill('recycling');
+    await box.locator('button', { hasText: /^CHECK$/i }).click();
+    check(await until(page, () => window.__ghosty?.palace?.step === 'done' && window.__ghosty.palace.right === 2 && window.__ghosty.palace.of === 3, null, 5000), `${T} [S7] the score: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.palace))}`);
+    check(/^2 of 3 remembered\.$/.test(await box.locator('.pkpass').textContent()), `${T} [S7] the line after CHECK`);
+    check(await until(page, () => /^Logged /.test(document.querySelector('#pg-learning .pkpalacebox > p.pknote:last-child, #pg-learning .pkpalacebox > :last-child')?.textContent ?? ''), null, 10000), `${T} [S7] the walk was not logged with his streak`);
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.palace') ?? '{}'));
+    check(kept.places === 'front door, hall mirror, stairs', `${T} [S7] his places were not kept on the phone`);
+    await bar(page, `${T} [S7 memory palace]`, 'learning');
+  } catch (e) {
+    check(false, `${T} [S7] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
 // ================================================================ S12 · revision days up to an exam: shown first, nothing added before ADD
 {
   const T = '[440]';

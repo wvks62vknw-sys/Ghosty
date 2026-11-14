@@ -719,7 +719,7 @@ html body .rain .raincontrols button { flex: none; min-height: var(--g-target) !
 .svwhere b { font: 500 10px var(--d); letter-spacing: .16em; color: var(--c); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .svwhere small { font: 400 9px var(--m); letter-spacing: .1em; color: var(--mute); white-space: nowrap; }
 .svframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #000; }
-.svnote { padding: 5px 10px calc(env(safe-area-inset-bottom, 0px) + 6px); font: 400 10px/1.4 var(--b); color: var(--mute); background: rgba(var(--bgr), .92); border-top: 1px solid var(--line); }
+.svnote { padding: 5px 10px calc(env(safe-area-inset-bottom, 0px) + 6px); font: 400 10px/1.4 var(--b); color: var(--mute); background: rgba(var(--bgr), .92); border-top: 1px solid var(--hair); }
 
 /* ---------- the 3D map (ui/map3d.ts): MapLibre in Ghosty's colours ---------- */
 .map3d { flex: 1 1 auto; min-height: 220px; position: relative; z-index: 0; background: #02070d; }
@@ -10062,7 +10062,7 @@ html .rcundo.undofloat.wordbar { flex-wrap: wrap; }
 html .rcundo.undofloat.wordbar span { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
 html .rcundo.undofloat.wordbar button { height: auto; min-height: 44px !important; padding: 0 18px; }
 /* LEARN · READY STARTS (learn.s3, learn.s4): driving theory, car mechanics, home electrics and first aid, one tap to fill the topic */
-html .learnstarts { gap: 6px; margin: 6px 0; }
+html .learnstarts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; min-width: 0; }
 html .learnstarts button { min-height: 44px; }
 /* READER · HIGHLIGHTS AND NOTES (learn.u4): his marks in the text, the bar when he selects, and the list under ABOUT */
 html mark.grd-hl { background: var(--g-accent-wash, var(--thin)); color: inherit; box-shadow: inset 0 -2px 0 var(--acc); border-radius: var(--g-radius-mark); }
@@ -10077,3 +10077,9 @@ html button.grd-noterow small { color: var(--mute); }
 html .qaloud { display: flex; flex-direction: column; gap: 14px; }
 html .qaline { font-size: 22px; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
 html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px; }
+
+/* MEMORY PALACE (learn.s7): his places and things, each pair to picture, then walk back */
+.pkpalacebox { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hair); }
+.pkpalacebox textarea, .pkpalacebox input { width: 100%; min-height: 44px; font: inherit; }
+.pkpairs { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 8px; }
+.pkpairs li small { display: block; color: var(--mute); }

@@ -965,3 +965,15 @@ test('quiz me aloud (learn.c6): what he says is read as a choice: a letter, how 
   assert.equal(AW.choiceOf('banana', ch), -1);
   assert.equal(AW.choiceOf('F', ch), -1, 'a letter past the choices is no answer');
 });
+
+test('memory palace (learn.s7): each thing goes to a place in order (only as many as there are places); a recall counts when his words hold the thing, a/the and case aside', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/features/learning/palacepairs.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/palacepairs.mjs'), logLevel: 'warning' });
+  const P = await import('./.build/palacepairs.mjs');
+  const pairs = P.palacePairs(['front door', ' hall mirror ', '', 'stairs'], ['Milk', 'call the garage', 'bin day', 'eggs']);
+  assert.deepEqual(pairs.map((x) => [x.place, x.item]), [['front door', 'Milk'], ['hall mirror', 'call the garage'], ['stairs', 'bin day']]);
+  assert.match(pairs[0].picture, /^Picture milk at the front door/);
+  assert.equal(P.palaceScore(pairs, ['some milk', 'Call the Garage!', 'recycling']), 2);
+  assert.equal(P.palaceScore(pairs, ['', 'the', '']), 0, 'blank or only “the” is nothing');
+});

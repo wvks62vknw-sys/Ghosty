@@ -274,7 +274,7 @@ export const learnTab: TabDef = {
     topicIn.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
     // [learn.s3, learn.s4] ready starts: driving theory from the public Highway Code, and trade basics (figures marked first estimates)
     const STARTS: [string, string][] = [['Driving theory', 'driving theory from the Highway Code'], ['Car mechanics', 'car mechanics basics'], ['Home electrics', 'home electrics basics'], ['First aid', 'first aid basics']];
-    const starts = h('div.row.wrap.learnstarts', { role: 'group', 'aria-label': 'Ready starts' }, ...STARTS.map(([label, topic]) => {
+    const starts = h('div.learnstarts', { role: 'group', 'aria-label': 'Ready starts' }, ...STARTS.map(([label, topic]) => {
       const b = button(label.toUpperCase(), () => {
         topicIn.value = topic;
         topicIn.focus();

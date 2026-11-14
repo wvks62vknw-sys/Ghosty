@@ -172,6 +172,8 @@ const calib = await L('.learnfact.calib').innerText().catch(() => '');
 if (!/CALIBRATION\s+Sure and right 0 of 1 · Thought so and right 1 of 1 · Guessed and right 1 of 1/.test(calib)) problems.push(`the calibration line says "${calib}"`);
 if (!/QUIZ PASSED · quiz 75% · 1 card due/.test(await L('.learnlesson[data-n="1"] small').innerText())) problems.push(`stop 1 says "${await L('.learnlesson[data-n="1"] small').innerText()}"`);
 // the guessed right answer still made a card (back tomorrow); the sure wrong one is due now, at quality 1
+// (the phone keeps its store a moment after a change: wait for both quiz cards to be kept, then check them exactly)
+await until(() => (JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}').cards ?? []).filter((c) => /green pigment|Which gas/.test(c.front)).length >= 2, 5000, 'the quiz’s two cards were not both kept on the phone');
 const qcards = await page.evaluate(() => (JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}').cards ?? []).filter((c) => !/Sum it up/.test(c.front)).map((c) => ({ front: c.front.split('\n')[0], ef: c.ef, interval: c.interval, lesson: c.lesson })));
 if (!qcards.some((c) => /green pigment/.test(c.front) && c.interval === 1) || !qcards.some((c) => /Which gas/.test(c.front) && c.ef === 1.96 && c.lesson === 1)) problems.push(`the quiz's cards are ${JSON.stringify(qcards)}`);
 await until(() => document.querySelector('#pg-learn .learncourse .learncinfo small')?.textContent?.includes('1/5 read'), 8000, `the course list does not show lesson 1 read: ${await L('.learncourse .learncinfo small').first().textContent().catch(() => '?')}`);
