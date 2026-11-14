@@ -35,9 +35,15 @@ async function open(world = 'glass') {
   return { ctx, page };
 }
 // (in-page, after the Library has loaded its lanes' files)
+// (a game opens on its launcher, THE PRO ROUND: its PLAY starts the board, so a run goes on from there)
 const go = async (page, hash) => {
   await page.evaluate((h) => (location.hash = h), hash);
   await page.waitForTimeout(600);
+  if (await page.locator('.al-launch .al-playkey').count()) {
+    for (let i = 0; i < 3; i++) await page.locator('.ak-tour button').click({ timeout: 300 }).catch(() => {});
+    await page.locator('.al-launch .al-playkey').click();
+    await page.waitForTimeout(300);
+  }
 };
 const fit = (page) => page.evaluate(() => {
   const scope = document.querySelector('.al-pro-frame .ak-app') ?? document.querySelector('.ak-app') ?? document.body;

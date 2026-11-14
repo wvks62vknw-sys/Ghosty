@@ -42,7 +42,7 @@ const FIX = {
     sample: [{ name: 'Rioja Reserva', year: 2018, colour: 'Red', price: 14.5, bottles: 3, drinkby: day(0) }, { name: 'Chablis', year: 2021, colour: 'White', price: 18, bottles: 2, drinkby: day(-2) }, { name: 'Provence', year: 2023, colour: 'Rosé', price: 11, bottles: 1, drinkby: day(30) }],
   },
   checklist: { id: 'spec-morning', name: 'Spec Morning', family: 'life', glyph: 'check', archetype: 'checklist', pitch: 'A calm morning routine, ticked off one step at a time.', keywords: ['spec morning'], tour: T, checklist: { sections: [{ name: 'Wake', items: ['Water', 'Stretch'] }, { name: 'Out', items: ['Keys', 'Wallet', 'Phone'] }], repeat: 'daily' } },
-  calc: { id: 'spec-bmi', name: 'Spec BMI', family: 'body', glyph: 'heart', archetype: 'calc', pitch: 'Your body mass index from your height and your weight.', keywords: ['spec bmi'], tour: T, calc: { inputs: [{ id: 'kg', label: 'Weight', unit: 'kg', default: 70 }, { id: 'cm', label: 'Height', unit: 'cm', default: 175 }, { id: 'sex', label: 'Who', default: 1, choices: [{ label: 'Adult', value: 1 }, { label: 'Child', value: 0 }] }], outputs: [{ id: 'bmi', label: 'BMI', expr: 'kg / (cm / 100) ^ 2', dp: 1 }, { id: 'band', label: 'Over 25', expr: 'if(bmi > 25, 1, 0)', dp: 0 }], tests: [{ in: { kg: 70, cm: 175 }, out: { bmi: 22.86 } }, { in: { kg: 90, cm: 180 }, out: { bmi: 27.78 } }], estimate: true, source: 'NHS BMI formula' } },
+  calc: { id: 'spec-bmi', name: 'Spec BMI', family: 'body', glyph: 'heart', archetype: 'calc', pitch: 'Your body mass index from your height and your weight.', keywords: ['spec bmi'], tour: T, calc: { inputs: [{ id: 'kg', label: 'Weight', unit: 'kg', default: 70 }, { id: 'cm', label: 'Height', unit: 'cm', default: 175 }, { id: 'sex', label: 'Who', default: 1, choices: [{ label: 'Adult', value: 1 }, { label: 'Child', value: 0 }] }], outputs: [{ id: 'bmi', label: 'BMI', expr: 'kg / (cm / 100) ^ 2', dp: 1 }, { id: 'band', label: 'Over 25', expr: 'if(bmi > 25, 1, 0)', dp: 0 }, { id: 'to', label: 'To 25', expr: 'bmi - 25', dp: 1 }], tests: [{ in: { kg: 70, cm: 175 }, out: { bmi: 22.86 } }, { in: { kg: 90, cm: 180 }, out: { bmi: 27.78 } }], estimate: true, source: 'NHS BMI formula' } },
   timer: { id: 'spec-intervals', name: 'Spec Intervals', family: 'body', glyph: 'timer', archetype: 'timer', pitch: 'Short hard efforts with rests between, timed for you.', keywords: ['spec intervals'], tour: T, timer: { steps: [{ name: 'Work', secs: 2 }, { name: 'Rest', secs: 1 }], rounds: 2 } },
   deck: { id: 'spec-capitals', name: 'Spec Capitals', family: 'learn', glyph: 'globe', archetype: 'deck', pitch: 'The capital cities of Europe, learnt a few at a time.', keywords: ['spec capitals'], tour: T, deck: { cards: [{ q: 'France', a: 'Paris' }, { q: 'Spain', a: 'Madrid' }, { q: 'Italy', a: 'Rome' }, { q: 'Norway', a: 'Oslo' }], mode: 'srs' } },
   counter: { id: 'spec-tally', name: 'Spec Tally', family: 'tools', glyph: 'plus', archetype: 'counter', pitch: 'Count anything with one tap, and start again each day.', keywords: ['spec tally'], tour: T, counter: { names: ['Laps', 'Glasses'], step: 1, reset: 'daily' } },
@@ -175,16 +175,18 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
   await page.click(`${A} .ak-tools button:has-text("Clear ticks")`);
   check(/^0 of 5$/.test(await page.textContent(`${A} .al-progress b`)), '[checklist] CLEAR TICKS did not clear');
 
-  // calc: live as he types, the estimate and the source, KEEP
+  // calc: the answer first, live as he types (the number box beside each slider), the estimate and the source, KEEP to the history
   await tryApp(page, FIX.calc);
   check(await page.textContent(`${A} .al-out[data-output="bmi"] .al-outval`) === '22.9', `[calc] the first answer: ${await page.textContent(`${A} .al-out[data-output="bmi"] .al-outval`)}`);
-  await page.fill(`${A} .al-field[data-input="kg"] input`, '90');
-  await page.fill(`${A} .al-field[data-input="cm"] input`, '180');
+  check(await page.locator(`${A} .al-hero[data-output="bmi"]`).count() === 1, '[calc] the first answer is not the big one');
+  await page.fill(`${A} .al-field[data-input="kg"] input[type=number]`, '90');
+  await page.fill(`${A} .al-field[data-input="cm"] input[type=number]`, '180');
   check(await page.textContent(`${A} .al-out[data-output="bmi"] .al-outval`) === '27.8', `[calc] live: ${await page.textContent(`${A} .al-out[data-output="bmi"] .al-outval`)}`);
-  check(await page.textContent(`${A} .al-out[data-output="band"] .al-outval`) === '1', '[calc] an output reading an earlier one');
+  check(await page.textContent(`${A} .al-out[data-output="to"] .al-outval`) === '2.8', '[calc] an output reading an earlier one');
+  check(await page.locator(`${A} .al-out[data-output="band"]`).count() === 0 && !/Over 25/.test(await page.textContent(`${A} .ak-body`)), '[calc] a yes-or-no output shows as a bare number');
   check(await page.locator(`${A} .al-estimate`).textContent() === 'A first estimate, never certified.' && /NHS BMI formula/.test(await page.textContent(`${A} .al-source`)), '[calc] the estimate or source line is missing');
   await page.click(`${A} .ak-tools button:has-text("Keep")`);
-  check(/BMI: 27.8/.test(await page.textContent(`${A} .ak-body`)), '[calc] KEEP kept nothing');
+  check(/BMI: 27.8/.test(await page.textContent(`${A} .al-history`)), '[calc] KEEP kept nothing');
 
   // timer: start, steps, a reload keeps it running, the session kept
   await tryApp(page, FIX.timer);
