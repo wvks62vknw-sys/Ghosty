@@ -6,7 +6,7 @@
 import { languageAsked } from './model';
 
 export interface DocsAsk {
-  what: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'scan' | 'receipt' | 'fill';
+  what: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'scan' | 'receipt' | 'fill' | 'merge';
   language?: string;
 }
 
@@ -27,11 +27,18 @@ export function fillAsked(text: string): boolean {
   return /^(?:fill (?:in |out )?(?:and sign )?|sign )(?:a |an |the |this |my )?(?:pdf(?: form)?|form(?: in pdf)?|pdf document)(?: and sign it)?$/i.test(t) || /^(?:fill|sign) (?:a |this )?(?:pdf|form) without printing(?: it)?$/i.test(t);
 }
 
+/** [editors.s2] "mail merge", "a copy of this letter for everyone in my spreadsheet". */
+export function mergeAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '').replace(/^(?:please |ghosty,? |can you |could you |i want to |help me )+/i, '');
+  return /^(?:do |start |open )?(?:a )?mail ?merge(?: (?:my|this|the) letter)?(?: (?:from|with) (?:my |a )?spreadsheet)?$/i.test(t) || /^(?:make|send out|print|do) (?:a copy of )?(?:this|my|the) letter (?:for|to) (?:everyone|every(?: one| name| person| row)|each (?:name|person|row)) (?:in|on|from) (?:my|the|a) (?:spreadsheet|sheet|list)$/i.test(t);
+}
+
 export function docsAsked(text: string): DocsAsk | null {
   const t = text.trim().replace(/[.!?]+$/, '');
   const paper = paperAsked(t);
   if (paper) return paper;
   if (fillAsked(t)) return { what: 'fill' };
+  if (mergeAsked(t)) return { what: 'merge' };
   if (/^(?:open |show )?(?:me )?(?:my )?(?:documents?|docs)$|^(?:open )?(?:the )?document (?:reader|writer|editor)$/i.test(t)) return { what: 'list' };
   if (/^(?:new|start a|make a(?: new)?|write a(?: new)?) (?:blank )?document$/i.test(t)) return { what: 'new' };
   if (/^(?:read|open) (?:a|my|this) (?:document|file|pdf|word (?:file|document)|e-?book)(?: (?:to|for) me)?$/i.test(t)) return { what: 'open' };

@@ -7834,6 +7834,13 @@ html .pprsheet .pdftick { flex: none; width: var(--g-target); height: var(--g-ta
 .pdftick[aria-checked="true"] { background: color-mix(in srgb, var(--g-accent) 22%, transparent); border-color: var(--g-accent); }
 .pdfcannot { margin: 0; font: var(--g-t-caption); color: var(--g-amber); overflow-wrap: anywhere; }
 .pdfpad { display: block; width: 100%; aspect-ratio: 3 / 1; touch-action: none; background: var(--g-plate-fill); border: var(--g-stroke) dashed var(--g-line-faint); border-radius: var(--g-radius-key); }
+.dcmergebox[hidden] { display: none; }
+.dcmerge { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); background: var(--g-plate); min-width: 0; }
+.dcmerge .cvbtns button, .dcmergecols button { min-height: var(--g-target); min-width: var(--g-target); }
+.dcmergecols button { text-transform: none; letter-spacing: 0; font-family: var(--g-font-mono, var(--g-font-text)); }
+.dcmergeprev { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1) var(--g-s-2); border-inline-start: var(--g-stroke) solid var(--g-line-faint); font: 400 15px/1.5 var(--g-font-serif); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.dcmergeprev:empty { display: none; }
+.dcmergeprev p { margin: 0; white-space: pre-wrap; }
 .pprsheet button[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
 /* ===================================================================================================================   FURTHER (BRIEF-OCT-IDEAS-3): the interpreter's two halves, the orb's map of what I know, the lab's pages, WALK ME THROUGH IT's pointer,
    REHEARSE and the diary. Every colour, size and duration is a token; every key is the target's size; reduced motion stills the pulse.

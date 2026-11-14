@@ -46,7 +46,7 @@ import { whatCanAsked } from './words';
 import { numberIn, roomNumberIn } from '../shell/rooms';
 import { houseAsked } from '../../../../packages/shared/src/house';
 import { convertAsked } from '../convert/asks';
-import { docsAsked, fillAsked, paperAsked } from '../docs/asks';
+import { docsAsked, fillAsked, mergeAsked, paperAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
 import { voiceNoteAsked, workspaceAsked } from '../workspace/asks';
@@ -178,6 +178,8 @@ export const LOCAL_ASKS = [
   { id: 'docspaper', test: (t: string) => !!paperAsked(t) },
   // [editors.s12] fill in and sign a PDF form (docs/pdfformui.ts)
   { id: 'docsfill', test: (t: string) => fillAsked(t) },
+  // [editors.s2] mail merge: one letter, a copy for every row of a spreadsheet (docs/mergeui.ts)
+  { id: 'docsmerge', test: (t: string) => mergeAsked(t) },
   { id: 'docs', test: (t: string) => !!docsAsked(t) },
   { id: 'sheets', test: (t: string) => !!sheetsAsked(t) },
   { id: 'slides', test: (t: string) => !!slidesAsked(t) },

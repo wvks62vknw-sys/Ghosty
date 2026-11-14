@@ -48,6 +48,11 @@ export async function docsTurn(text: string): Promise<PackReply> {
       : 'The scanner is open on DOCUMENT: capture the receipt, KEEP PAGE, READ ALL, then RECEIPT TO SPREADSHEET. You check the date, shop and total, and ADD ROW puts them in your Receipts spreadsheet, kept on this phone.';
     return { said: text, reply, go: [{ id: 'docspaper', ask: -1, label: 'Open the scanner', run: 'open_lens', args: { mode: 'document' } }] };
   }
+  if (ask.what === 'merge') {
+    const { openDocs } = await import('../docs/sheet');
+    void openDocs({ what: 'merge' });
+    return { said: text, reply: 'Mail merge is open on your latest document: choose the spreadsheet of names, tap where each name goes and its column’s key, step through the copies, then ONE PDF, ONE WORD FILE or SEPARATE FILES. Nothing is sent anywhere.', go: [{ id: 'docsmerge', ask: -1, label: 'Open mail merge', run: 'open_docs', args: { what: 'merge' } }] };
+  }
   if (ask.what === 'fill') {
     const { openPdfForm } = await import('../docs/pdfformui');
     openPdfForm();

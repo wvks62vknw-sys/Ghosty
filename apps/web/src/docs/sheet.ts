@@ -61,7 +61,7 @@ const cased = (b: HTMLButtonElement, words = b.textContent ?? ''): HTMLButtonEle
 
 /** The sheet's name (its title, and its panel on the DOCUMENTS screen: features/docs/index.ts). */
 export const DOCS_TITLE = 'DOCUMENTS';
-type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill'; language?: string };
+type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill' | 'merge'; language?: string };
 
 /** The sheet: a document to open (one read here, a chat reply laid out), or MY DOCUMENTS. */
 export async function openDocs(o: DocsAsk = {}): Promise<void> {
@@ -186,6 +186,10 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const contentsBox = h('div.dccontents');
   findBox.hidden = true;
   contentsBox.hidden = true;
+  // [editors.s2] MAIL MERGE: the letter's {{fields}} filled from a spreadsheet's rows (docs/mergeui.ts), opened on its key
+  const mergeHolder = h('div.dcmergebox');
+  mergeHolder.hidden = true;
+  let merge: { el: HTMLElement; refresh(): void } | null = null;
 
   interface Marks {
     b: boolean;
@@ -635,6 +639,25 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const near = rest[Math.min(k, rest.length - 1)];
     if (near) elOf(near.id)?.focus();
     paintContext();
+  };
+
+  /** Words put where the caret is (or was) in the paragraph he is in: a mail merge's {{field}}. */
+  const insertText = (t: string): boolean => {
+    const el = elOf(focused);
+    if (!el || !el.isContentEditable) {
+      say('Tap where it goes in the letter first.');
+      return false;
+    }
+    el.focus();
+    const sel = getSelection();
+    if (lastRange && el.contains(lastRange.startContainer)) {
+      sel?.removeAllRanges();
+      sel?.addRange(lastRange);
+    }
+    document.execCommand('insertText', false, t);
+    clearTimeout(timer);
+    sync(el);
+    return true;
   };
 
   // ---------------------------------------------------------------- the formatting keys: WRITE, INSERT, PAGE, LINK
@@ -1123,6 +1146,15 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         findBox.hidden = !findBox.hidden;
         if (!findBox.hidden) findIn_.focus();
       }),
+      button('MAIL MERGE', async () => {
+        mergeHolder.hidden = !mergeHolder.hidden;
+        if (mergeHolder.hidden) return;
+        if (!merge) {
+          const { mergePanel } = await import('./mergeui');
+          merge = mergePanel({ doc, flush, say, insertText });
+          clear(mergeHolder, merge.el);
+        } else merge.refresh();
+      }),
       button('UNDO', () => {
         if (!hist!.canUndo) return say('Nothing to undo.');
         flush();
@@ -1138,7 +1170,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }),
     );
     // the keys keep the words chosen (a tap on them does not take the focus off the paragraph)
-    for (const bar of [tools, pills, ...Object.values(panels)]) {
+    for (const bar of [tools, pills, mergeHolder, ...Object.values(panels)]) {
       bar.addEventListener('pointerdown', (e) => {
         if ((e.target as HTMLElement).closest('button')) e.preventDefault();
       });
@@ -1149,7 +1181,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const sc = scriptOf(d.blocks.map(textOf).join(' '));
     if (sc) scriptPick.value = sc.id;
     const lets = h('div.dcasks', h('small.cvgh', 'LETTERS'), h('div.dcrow', scriptPick, cased(button('TO LATIN', () => letters('to')), 'To Latin'), cased(button('FROM LATIN', () => letters('from')), 'From Latin')), h('small.dcnote', THE_LINE));
-    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
+    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, mergeHolder, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
       removeDoc(doc().id);
       say(`Removed “${doc().title}” from this phone.`);
       showList();
@@ -1213,7 +1245,16 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }
     } else if (o.id && getDoc(o.id)) showDoc(getDoc(o.id)!);
     else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
-    else if (o.what === 'fill') {
+    else if (o.what === 'merge') {
+      const d = listDocs()[0];
+      if (!d) {
+        showList();
+        say('Write the letter first (NEW, or ask me to write one), with {{Name}} where each name goes; then MAIL MERGE.');
+      } else {
+        showDoc(d);
+        [...view.querySelectorAll<HTMLButtonElement>('.dctools button')].find((b) => b.textContent === 'MAIL MERGE')?.click();
+      }
+    } else if (o.what === 'fill') {
       showList();
       const { openPdfForm } = await import('./pdfformui');
       openPdfForm();

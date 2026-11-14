@@ -44,6 +44,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'money', 'phone'], cat: 'do', since: '2026-11-14',
     go: { run: 'open_docs', args: { what: 'fill' } }, tryText: 'Opens fill and sign',
   },
+  // [editors.s2] mail merge
+  'phrase:docsmerge': {
+    name: 'One letter for every name',
+    line: 'You can write one letter and get a copy for every name and address in a spreadsheet, as one PDF, one Word file or a file each.',
+    more: 'In a document, MAIL MERGE: choose your spreadsheet (its first row names the columns, like Name and Address), tap where each name goes and the column’s key, and step through the copies to check them. A field with no column is said. Nothing is sent anywhere; the files are made here for you to print or share.',
+    say: ['Mail merge', 'Make this letter for everyone in my spreadsheet', 'Mail merge my letter from a spreadsheet'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'merge' } }, tryText: 'Opens mail merge',
+  },
   'hub:sheets': {
     name: 'Budgets and lists with formulas',
     line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',
