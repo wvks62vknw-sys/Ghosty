@@ -10,6 +10,7 @@
 import { zipStore } from '../convert/zip';
 import { isColour, pageOf, TEXT_COLOURS, type Align, type Block, type Doc, type Run } from './model';
 import { anchorOf, wordParas, type Comment } from './comments';
+import { rprParts, spacingXml, stylesXml, type ParaFormat } from './styles';
 
 const x = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -43,6 +44,7 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
   const textW = pw - 2 * mar;
   // relationships of document.xml: styles, numbering, then links, pictures, header and footer as they are met
   const rels: string[] = [`<Relationship Id="rId1" Type="${REL}/styles" Target="styles.xml"/>`, `<Relationship Id="rId2" Type="${REL}/numbering" Target="numbering.xml"/>`];
+  if (d.track) rels.push(`<Relationship Id="rIdSettings" Type="${REL}/settings" Target="settings.xml"/>`);
   let rid = 2;
   const links = new Map<string, string>();
   const linkId = (href: string) => {
@@ -59,14 +61,22 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
   let drawing = 0;
 
   // (w:rPr's children in the schema's own order, strike before highlight before u, or a strict reader calls the file unreadable)
+  // [docspro] a paragraph's own format (font, size, colour, weight) goes on each of its runs; a tracked change in w:ins / w:del
+  let fmtNow: ParaFormat = {};
+  let change = 0;
+  const when = (ms?: number) => new Date(ms || d.at || Date.now()).toISOString().replace(/\.\d+Z$/, 'Z');
   const runXml = (r: Run, header = false): string => {
     const href = r.href ? safeHref(r.href) : '';
-    const props = `${href ? '<w:rStyle w:val="Hyperlink"/>' : ''}${r.b || header ? '<w:b/>' : ''}${r.i ? '<w:i/>' : ''}${r.s ? '<w:strike/>' : ''}${isColour(r.c) && !href ? `<w:color w:val="${TEXT_COLOURS[r.c].word}"/>` : ''}${r.hl ? '<w:highlight w:val="yellow"/>' : ''}${r.u && !href ? '<w:u w:val="single"/>' : ''}${rtl ? '<w:rtl/>' : ''}`;
+    const f = rprParts(fmtNow);
+    const colour = isColour(r.c) && !href ? `<w:color w:val="${TEXT_COLOURS[r.c].word}"/>` : href ? '' : f.color;
+    const props = `${href ? '<w:rStyle w:val="Hyperlink"/>' : ''}${f.fonts}${r.b || header ? '<w:b/>' : f.b}${r.i ? '<w:i/>' : f.i}${r.s ? '<w:strike/>' : ''}${colour}${f.sz}${r.hl ? '<w:highlight w:val="yellow"/>' : ''}${r.u && !href ? '<w:u w:val="single"/>' : ''}${rtl ? '<w:rtl/>' : ''}`;
     const pr = props ? `<w:rPr>${props}</w:rPr>` : '';
-    const body = r.text
+    const del = r.tc === 'del';
+    let body = r.text
       .split('\n')
-      .map((line, k) => `<w:r>${pr}${k ? '<w:br/>' : ''}<w:t xml:space="preserve">${x(line)}</w:t></w:r>`)
+      .map((line, k) => `<w:r>${pr}${k ? '<w:br/>' : ''}<w:${del ? 'delText' : 't'} xml:space="preserve">${x(line)}</w:${del ? 'delText' : 't'}></w:r>`)
       .join('');
+    if (r.tc) body = `<w:${r.tc} w:id="${900 + ++change}" w:author="${x(author || 'Me')}" w:date="${when(r.tat)}">${body}</w:${r.tc}>`;
     return href ? `<w:hyperlink r:id="${linkId(href)}" w:history="1">${body}</w:hyperlink>` : body;
   };
   const runs = (rs: Run[], header = false) => rs.map((r) => runXml(r, header)).join('');
@@ -144,6 +154,7 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
     let ppr = '';
     if (b.t === 'h1' || b.t === 'h2' || b.t === 'h3') ppr = `<w:pStyle w:val="Heading${b.t[1]}"/>`;
     else if (b.t === 'quote') ppr = '<w:pStyle w:val="Quote"/>';
+    else if (b.t === 'caption') ppr = '<w:pStyle w:val="Caption"/>';
     else if (b.t === 'ul') ppr = '<w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>';
     else if (b.t === 'ol') {
       if (d.blocks[k - 1]?.t !== 'ol') {
@@ -156,7 +167,13 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
     // a checklist item: its box drawn as the letter Word and Pages read back (☐ / ☑)
     const box = b.t === 'todo' ? `<w:r><w:t xml:space="preserve">${b.ticked ? '☑' : '☐'} </w:t></w:r>` : '';
     const here = cmtsIn.get(b.id);
-    paras.push(`<w:p><w:pPr>${ppr}${bidi}${align}</w:pPr>${box}${here ? runsMarked(b.runs, here) : runs(b.runs)}</w:p>`);
+    // its own format: the spacing on the paragraph, the rest on the paragraph's mark and on every run
+    fmtNow = b.fmt ?? {};
+    const own = rprParts(fmtNow);
+    const mark = `${own.fonts}${own.b}${own.i}${own.color}${own.sz}`;
+    const body = here ? runsMarked(b.runs, here) : runs(b.runs);
+    paras.push(`<w:p><w:pPr>${ppr}${bidi}${spacingXml(fmtNow)}${align}${mark ? `<w:rPr>${mark}</w:rPr>` : ''}</w:pPr>${box}${body}</w:p>`);
+    fmtNow = {};
   });
 
   // the head and the foot of the page
@@ -186,8 +203,8 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
   const document = `${XML}<w:document ${W}><w:body>${paras.join('')}<w:sectPr>${sect}<w:pgSz w:w="${pw}" w:h="${ph}"${pg.landscape ? ' w:orient="landscape"' : ''}/><w:pgMar w:top="${mar}" w:right="${mar}" w:bottom="${mar}" w:left="${mar}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr></w:body></w:document>`;
 
   const style = (id: string, name: string, body: string, next = '') => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="Normal"/>${next ? `<w:next w:val="${next}"/>` : ''}<w:qFormat/>${body}</w:style>`;
-  const heading = (n: number, size: number) => style(`Heading${n}`, `heading ${n}`, `<w:pPr><w:keepNext/><w:spacing w:before="${n === 1 ? 360 : 240}" w:after="120"/><w:outlineLvl w:val="${n - 1}"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:b/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>`, 'Normal');
-  const styles = `${XML}<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Georgia" w:hAnsi="Georgia" w:cs="Arial"/><w:sz w:val="23"/><w:szCs w:val="23"/><w:lang w:val="en-GB"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>${style('Title', 'Title', '<w:pPr><w:spacing w:after="240"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:b/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr>', 'Normal')}${heading(1, 32)}${heading(2, 27)}${heading(3, 24)}${style('Quote', 'Quote', '<w:pPr><w:ind w:left="567"/></w:pPr><w:rPr><w:i/><w:color w:val="444444"/></w:rPr>')}${style('ListParagraph', 'List Paragraph', '<w:pPr><w:spacing w:after="60"/><w:ind w:left="720"/><w:contextualSpacing/></w:pPr>')}${style('Header', 'header', '<w:pPr><w:spacing w:after="0"/></w:pPr>')}${style('CommentText', 'annotation text', '<w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>')}<w:style w:type="character" w:styleId="CommentReference"><w:name w:val="annotation reference"/><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>${style('Footer', 'footer', '<w:pPr><w:spacing w:after="0"/></w:pPr>')}</w:styles>`;
+  // [docspro] his named styles (Title, Heading 1 to 3, Body as Normal, Quote, Caption) as real Word styles, with the house ones
+  const styles = `${XML}<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Georgia" w:hAnsi="Georgia" w:cs="Arial"/><w:sz w:val="23"/><w:szCs w:val="23"/><w:lang w:val="en-GB"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>${stylesXml(d)}<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>${style('ListParagraph', 'List Paragraph', '<w:pPr><w:spacing w:after="60"/><w:ind w:left="720"/><w:contextualSpacing/></w:pPr>')}${style('Header', 'header', '<w:pPr><w:spacing w:after="0"/></w:pPr>')}${style('CommentText', 'annotation text', '<w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>')}<w:style w:type="character" w:styleId="CommentReference"><w:name w:val="annotation reference"/><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>${style('Footer', 'footer', '<w:pPr><w:spacing w:after="0"/></w:pPr>')}</w:styles>`;
   const level = (fmt: string, text: string) => `<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="${fmt}"/><w:lvlText w:val="${text}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>`;
   const numbering = `${XML}<w:numbering ${W}><w:abstractNum w:abstractNumId="0">${level('bullet', '•')}</w:abstractNum><w:abstractNum w:abstractNumId="1">${level('decimal', '%1.')}</w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>${nums.map((n) => `<w:num w:numId="${n}"><w:abstractNumId w:val="1"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`).join('')}</w:numbering>`;
   const now = new Date(d.at || Date.now()).toISOString().replace(/\.\d+Z$/, 'Z');
@@ -196,13 +213,14 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
   return zipStore([
     {
       name: '[Content_Types].xml',
-      data: `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${media.length ? '<Default Extension="jpeg" ContentType="image/jpeg"/>' : ''}${ct('word/document.xml', 'document.main')}${ct('word/styles.xml', 'styles')}${ct('word/numbering.xml', 'numbering')}${parts.map((p) => ct(p.name, p.type)).join('')}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`,
+      data: `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${media.length ? '<Default Extension="jpeg" ContentType="image/jpeg"/>' : ''}${ct('word/document.xml', 'document.main')}${ct('word/styles.xml', 'styles')}${ct('word/numbering.xml', 'numbering')}${d.track ? ct('word/settings.xml', 'settings') : ''}${parts.map((p) => ct(p.name, p.type)).join('')}<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`,
     },
     { name: '_rels/.rels', data: `${XML}<Relationships xmlns="${RELP}"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="${RELP}/metadata/core-properties" Target="docProps/core.xml"/></Relationships>` },
     { name: 'word/_rels/document.xml.rels', data: `${XML}<Relationships xmlns="${RELP}">${rels.join('')}</Relationships>` },
     { name: 'word/document.xml', data: document },
     { name: 'word/styles.xml', data: styles },
     { name: 'word/numbering.xml', data: numbering },
+    ...(d.track ? [{ name: 'word/settings.xml', data: `${XML}<w:settings ${W}><w:trackRevisions/></w:settings>` }] : []),
     ...parts.map((p) => ({ name: p.name, data: p.data })),
     ...media.map((m) => ({ name: `word/media/${m.name}`, data: m.data })),
     { name: 'docProps/core.xml', data: core },

@@ -53,3 +53,19 @@ export function list(o: Record<string, unknown> | undefined, key: string): strin
   const v = o?.[key];
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim()) : [];
 }
+
+/** A word list from the options: `words` (or another key) directly, or `themes` with a list under each theme's name
+ * (only the chosen `theme` when one is set). */
+export function themed(o: Record<string, unknown> | undefined, key = 'words'): string[] {
+  const direct = list(o, key);
+  if (direct.length) return direct;
+  const themes = list(o, 'themes');
+  const chosen = typeof o?.theme === 'string' && themes.includes(o.theme) ? [o.theme] : themes;
+  return chosen.flatMap((t) => list(o, t));
+}
+
+/** The first of several option names that is set (aliases: lives for misses, perRound for count…). */
+export function alias(o: Record<string, unknown> | undefined, keys: string[]): unknown {
+  for (const k of keys) if (o?.[k] !== undefined) return o[k];
+  return undefined;
+}
