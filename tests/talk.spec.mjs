@@ -648,6 +648,11 @@ if (part('convo')) {
   // his last word to Ghosty's first, turn after turn of a running conversation: within the second
   if (!(median <= 1000)) problems.push(`[${name}] the first word came a median ${ms(median)} after he stopped speaking (${firstWords.join(', ')} ms; budget 1,000 ms)`);
   if (answered < 10) problems.push(`[${name}] ${answered} of ten turns answered with no tap`);
+  // [ci] NEXT ci.u3: the SPEED card's voice line is timed on the phone itself, and agrees with this check's own clock
+  const vs = await page.evaluate(() => window.__ghosty.stopwatch?.summary().then((x) => ({ voice: x.voice, line: x.lines.find((l) => l.startsWith('Voice:')) ?? '' })) ?? null);
+  if (!vs?.voice?.first || vs.voice.first.n < 8 || !vs.voice.reopen || vs.voice.reopen.n < 8) problems.push(`[${name}] the SPEED card's voice timings were not kept for the ten turns: ${JSON.stringify(vs)}`);
+  else if (Math.abs(vs.voice.first.median - median) > 300) problems.push(`[${name}] the phone timed its first word at ${vs.voice.first.median} ms, this check at ${median} ms (want within 300 ms)`);
+  console.log(`[${name}] the SPEED card says: "${vs?.line}"`);
   if (noTick.length) problems.push(`[${name}] no soft "heard" tick on turn ${noTick.join(', ')} (want one each time he finishes speaking)`);
   console.log(`[${name}] the "heard" tick came ${heardAt.join(', ')} ms after he stopped`);
   if ((await page.evaluate(() => window.__mic.calls)) !== 1) problems.push(`[${name}] the microphone was asked for ${await page.evaluate(() => window.__mic.calls)} times in one conversation`);

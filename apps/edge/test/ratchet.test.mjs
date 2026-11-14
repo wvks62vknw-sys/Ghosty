@@ -164,7 +164,10 @@ export const STATES = {
   'lens.name': { dir: 'lens', base: 0, now: 2 },
   'lens.people': { dir: 'lens', base: 0, now: 2 },
   'lens.measure': { dir: 'lens', base: 1, now: 1 },
-  'lens.photo': { dir: 'lens', base: 1, now: 1 },
+  // PHOTO TOOLS: a job the free online tools did not do (BACKGROUND offers the cut-out on this phone; SHARPER and ERASE say they wait)
+  'lens.photo': { dir: 'lens', base: 1, now: 2 },
+  // [lens.u6] SCAN's DOCUMENT AUTO, new (base 0): no page in view, holding still, a page it could not keep, no signal (and none needed)
+  'lens.scan': { dir: 'lens', base: 0, now: 4 },
   'threats.signals': { dir: 'threats', base: 2, now: 4 },
   'threats.nearhome': { dir: 'threats', base: 2, now: 4 },
   'settings.packs': { dir: 'settings', base: 3, now: 3 },
@@ -186,6 +189,8 @@ export const STATES = {
   'space.photo': { dir: 'space', base: 3, now: 3 },
   // FINAL ROUND (MAKE lane): MATERIALS says what it needs when there is no room to work from
   'space.materials': { dir: 'space', base: 0, now: 1 },
+  // NEXT ROUND (MAKE lane): MATERIALS' makeover set against his own statements, all four states (new, so base 0)
+  'space.budget': { dir: 'space', base: 0, now: 4 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
   'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },

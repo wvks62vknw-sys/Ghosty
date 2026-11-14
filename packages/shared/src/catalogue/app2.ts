@@ -122,11 +122,21 @@ export const APP_2: Record<string, CatValue> = {
     more: 'I plan the course from my library and Wikipedia, at your level, a little a day.',
     say: ['Teach me Spanish', 'Teach me how electricity works'], scene: ['school'], cat: 'learn',
   },
+  'panel:learn:MY LEARNING MAP': {
+    name: 'One map of what you know', line: 'You can see in one picture what you have learned: courses, books, speaking and revision, and what to try next.',
+    more: 'Drawn from what this phone already keeps, told from your own numbers. The next thing is the lesson your misses point at, or the book you are furthest into.',
+    say: ['(in COURSES, look under MY LEARNING MAP)'], scene: ['school'], cat: 'learn',
+  },
   // ---- THE LIBRARY
   'panel:library:ADD KNOWLEDGE': {
     name: 'Add books and PDFs', line: 'You can give me books, PDFs, Word files, links or photos of pages to read and keep.',
     more: 'Read on this phone with no AI; a scanned page is read by a free service. Then it is searchable for good.',
     say: ['(tap ADD and pick a file)'], scene: ['school'], cat: 'learn',
+  },
+  'panel:library:CLASSICS': {
+    name: 'Free classics for your shelf', line: 'You can browse thousands of free public-domain books and add one to your shelf with a tap.',
+    more: 'Project Gutenberg’s most read and a search by title or author, plus Standard Ebooks’ newest free releases. Each book’s size is said first, and it comes only on your tap, on Wi-Fi.',
+    say: ['(in the Library, under ADD, tap SHOW THE FREE CLASSICS)'], scene: ['school'], cat: 'learn',
   },
   'panel:library:ASK THE LIBRARY': {
     name: 'Search the library by meaning', line: 'You can search my whole library by meaning or by keywords, even with no signal.',
