@@ -308,6 +308,33 @@ async function run(vp, body) {
 for (const vp of [PHONE, PHONE2]) await run(vp, 0);
 await run(PHONE2, 21);
 
+// (m) YOUR WORD in all seven looks at 390: drawn, every key 44 pt, nothing sideways, no word cut
+for (const world of ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass']) {
+  const T = `[390 ${world}]`;
+  const ctx = await browser.newContext({ viewport: PHONE2, ...UK, reducedMotion: 'reduce' });
+  await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`${T} pageerror: ${e.message}`));
+  await page.addInitScript(({ key, world }) => {
+    localStorage.setItem('ghosty.ownerKey', key);
+    localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: {} }, home: { name: 'London', lat: 51.5, lon: -0.12 } }));
+    window.__ghostyHero = true;
+    window.__ghostyPlace = { none: true };
+  }, { key: KEY, world });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await page.evaluate(() => (location.hash = 'memory'));
+  await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
+  await openSection(page, 'memory', 'Your word');
+  const shown = await page.waitForFunction(() => window.__ghosty?.keep?.state === 'shown', null, { timeout: 12000 }).then(() => true, () => false);
+  check(shown, `${T} [m] YOUR WORD did not show`);
+  const f = await fit(page, '#pg-memory .pn.keep');
+  check(!f.small.length, `${T} [m] under 44 pt: ${f.small.join(', ')}`);
+  check(!f.sideways, `${T} [m] the page goes sideways`);
+  check(!f.cut.length, `${T} [m] words cut: ${JSON.stringify(f.cut)}`);
+  await ctx.close();
+}
+
 await browser.close();
 if (problems.length) {
   console.log(`keepword spec: ${problems.length} problem(s)`);
