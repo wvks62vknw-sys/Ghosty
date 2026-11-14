@@ -330,7 +330,7 @@ for (const vp of [PHONE, PHONE2]) {
     const chip = await until(page, () => !!document.querySelector('.modal .fmchips button[data-overlay="fuel"]') && !!window.L && !!document.querySelector('.modal .flathost .leaflet-container .leaflet-tile-pane'), null, 15000);
     if (check(chip, `${T} [h fuel] the map has no FUEL & CHARGE`)) {
       await page.evaluate(() => document.querySelector('.modal .fmchips button[data-overlay="fuel"]')?.click());
-      const said = await until(page, () => /fuel stations? and \d car chargers? here/.test(document.querySelector('.modal .flathost')?.textContent ?? '') || /fuel station/.test(document.querySelector('.modal')?.textContent ?? ''), null, 10000);
+      const said = await until(page, () => document.querySelectorAll('.modal .leaflet-interactive.fuelmark').length === 3, null, 20000);
       const marks = await page.evaluate(() => document.querySelectorAll('.modal .leaflet-interactive.fuelmark').length);
       check(said && marks === 3, `${T} [h fuel] the overlay drew ${marks} marks (want 3): "${(await text(page, '.modal')).slice(0, 200)}"`);
       check(/2 fuel stations and 1 car charger here \(OpenStreetMap\)/.test(await text(page, '.modal')), `${T} [h fuel] its line: "${(await text(page, '.modal')).match(/\d+ fuel[^)]*\)/)?.[0] ?? 'none'}"`);

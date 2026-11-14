@@ -16,6 +16,10 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [moneyapps] money, effortless
+  { day: '2026-11-14', title: 'All your statements at once', line: 'MONEY → Statement → Pick files: choose many at once, CSV, OFX, QIF or PDF from any bank. Each says what it kept, and payments you already had are left out. Each shop on Month now has its own page.' },
+  // [see] the APPS ROUND: the weather app
+  { day: '2026-11-14', title: 'Weather, an app of its own', line: 'Say “weather app” or tap OPEN WEATHER in the Brief: the next hour’s rain, a 24-hour graph, ten days, the details, the air and pollen, for every saved place and any city you add.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },

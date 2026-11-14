@@ -78,6 +78,7 @@ import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
 import { TRIP_ASK } from '../ui/tripwords';
+import { WEATHER_ASK } from '../weather/words';
 import { RAIN_ASK, setAsked, WALL_ASK } from '../features/eye/sets';
 import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
 
@@ -209,6 +210,8 @@ export const LOCAL_ASKS = [
   // [see] his wall of up to nine public cameras: "my camera wall", "show my cameras" (features/eye/wall.ts)
   // [see] the full-screen rain radar: "rain radar", "show me the rain map", "replay the rain" (features/eye/rain.ts)
   { id: 'rainradar', test: (t: string) => RAIN_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
+  // [see] the WEATHER app: "weather app", "open the weather", "10 day forecast" (weather/app.ts)
+  { id: 'weatherapp', test: (t: string) => WEATHER_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) || !!diyAsked(t) },
