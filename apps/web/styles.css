@@ -10095,7 +10095,11 @@ html #pg-links .rw .n.del { display: grid; place-items: center; min-width: 44px;
 
 /* ---- POLISH 3: the Agenda's ADD key and sheet, a finished thing dimmed, the biggest text and reduced motion ---- */
 html #pg-agenda .agaddkey { min-height: var(--g-target) !important; min-width: var(--g-target); }
-html #pg-agenda .secpills .agaddkey { flex: none; }
+/* (ADD is the one action in the pills' row: set apart from the last pill, held whole at the row's end when the row scrolls (390), on a
+   ground of its own so the pills passing under it do not show through) */
+html #pg-agenda .secpills .agaddkey { position: sticky; right: 0; z-index: 1; margin-left: var(--g-s-1); background: color-mix(in srgb, var(--g-accent) 13%, var(--g-canvas)); }
+/* (and on the phone it is only there: the copy under the day's line, two keys 16 pt apart, shows on the wide screen, which has no pills) */
+html #pg-agenda .hud.secs > .hero > .agaddkey { display: none; }
 html .agaddsheet { display: flex; flex-direction: column; gap: var(--g-s-1); }
 html .agaddsheet input { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
 html .agaddsheet .agsay { margin: 0; overflow-wrap: anywhere; }
@@ -10240,8 +10244,8 @@ html #pg-agenda .todowait[hidden] { display: none; }
 /* TIMELINE: TODAY / TOMORROW / PLAN MY WEEK keys; the free gaps in words; all-day and to-dos at the top; the hours, sized in em so the
    day grows with his text (BODY 21) and never needs a fixed height; two at once side by side; the line at now */
 html #pg-agenda .pn.timeline .tlbar { padding: 0 0 8px; gap: 6px; }
-html #pg-agenda .pn.timeline .tlbar button.tlkey { width: auto; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
-html #pg-agenda .pn.timeline .tlbar button.tlkey.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+/* (the keys take the screen's own key and its lit look, as ADD beside them does: no corner or ring of their own) */
+html #pg-agenda .pn.timeline .tlbar button.tlkey { width: auto; min-height: 44px !important; padding: 0 14px; }
 html #pg-agenda .pn.timeline .tlfree { display: flex; flex-direction: column; gap: 4px; padding: 2px 0 8px; }
 html #pg-agenda .pn.timeline .tlgap { color: var(--ink); overflow-wrap: anywhere; }
 html #pg-agenda .pn.timeline .tlgap::before { content: ''; display: inline-block; width: .55em; height: .55em; margin-right: .5em; border-radius: 50%; background: var(--g-ok); vertical-align: .08em; }
