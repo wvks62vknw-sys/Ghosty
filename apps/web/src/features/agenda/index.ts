@@ -70,7 +70,8 @@ export const agendaTab: TabDef = {
   title: 'AGENDA',
   icon: '<rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4M7.5 13h3M13.5 13h3M7.5 16.5h3"/>',
   scene: 'backdrop',
-  blurb: 'calendar · reminders · scheduled tasks',
+  // (the jump bar finds a screen by these words too: "calendar", "to-do", "tasks", "upcoming", "projects" all open the Agenda)
+  blurb: 'calendar · to-do list and tasks · upcoming · projects · reminders · scheduled tasks',
   // the next timed event this phone was last given (api/offline.ts keeps it): "Dentist · in 54 min"
   now() {
     const t = Date.now();
