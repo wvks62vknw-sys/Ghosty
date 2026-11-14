@@ -10,6 +10,7 @@ import { clear, fmt, h } from '../../core/dom';
 import { button, panel } from '../../ui/components';
 import { AHEAD_DAYS, beyondWords, dayLine, dayOf, monthGrid, pastWords, WEEKDAY_NAMES, WEEKDAYS, weekWords, type Todo } from './todowords';
 import { yearView } from './year';
+import { calendarsKey, calendarsOf, colourOf, hiddenWords, visible } from './calendars';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -51,10 +52,11 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
         // (read's own guard: a month read once is kept, one that failed is read again only after a step, never by a paint)
         read: (y, m) => {
           read(y, m);
-          return months.get(`${y}-${String(m + 1).padStart(2, '0')}`);
+          const r = months.get(`${y}-${String(m + 1).padStart(2, '0')}`);
+          return Array.isArray(r) ? visible(r) : r;
         },
-        extra: get().events,
-        colour: () => 'var(--g-accent)',
+        extra: visible(get().events),
+        colour: (e) => colourOf(e.source),
         step: (n) => {
           years += n;
           again = true;
@@ -93,7 +95,9 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
     const d1 = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate() + AHEAD_DAYS).getTime();
     // (by id, once: an event still running that began before today is in both reads)
     const have = new Set(get().events.map((e) => e.id));
-    const events = [...(Array.isArray(own) ? own.filter((e) => !have.has(e.id) && (e.start < d0 || e.start >= d1)) : []), ...get().events];
+    // [planlane4:calendar] only the calendars he shows
+    const all = [...(Array.isArray(own) ? own.filter((e) => !have.has(e.id) && (e.start < d0 || e.start >= d1)) : []), ...get().events];
+    const events = visible(all);
     const byDay = new Map<string, AgendaEventInfo[]>();
     for (const e of events) {
       const k = dayOf(e.start);
@@ -133,6 +137,9 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
           paint();
         }, `mday${k === today ? ' today' : ''}${k === picked ? ' on' : ''}${n ? ' has' : ''}${due ? ' due' : ''}${k < today ? ' past' : ''}`);
         b.setAttribute('role', 'gridcell');
+        // [planlane4:calendar] the dot in its first event's calendar colour
+        const first = byDay.get(k)?.[0];
+        if (first) b.style.setProperty('--agdot', colourOf(first.source));
         b.setAttribute('aria-label', dayLine(new Date(y, m, d).getTime(), n, due));
         b.setAttribute('aria-selected', String(k === picked));
         return b;
@@ -153,7 +160,7 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
     const list = h('div.monlist', { 'aria-live': 'polite' },
       h('b.mdayline', { dataset: { case: 'keep' } }, dayLine(pt, evs.length, tds.length)),
       ...(gone && !evs.length ? [h('small.note', pastWords)] : far && !evs.length ? [h('small.note', beyondWords)] : []),
-      ...evs.map((e) => h('div.monev', { dataset: { case: 'keep' } }, h('span.monwhen', e.allDay ? 'All day' : fmt.time(new Date(e.start))), h('span', e.title, e.location ? ` · ${e.location}` : ''))),
+      ...evs.map((e) => h('div.monev', { dataset: { case: 'keep' }, style: `--agdot:${colourOf(e.source)}` }, h('span.monwhen', e.allDay ? 'All day' : fmt.time(new Date(e.start))), h('span', e.title, e.location ? ` · ${e.location}` : ''))),
       ...tds.map((t) => h('div.monev.todo', { dataset: { case: 'keep' } }, h('span.monwhen', 'To-do'), h('span', t.text))));
     // THIS WEEK (Monday to Sunday), each day with what it holds in a line; a tap shows the day whole under the grid
     const week = h('div.monweek', { role: 'list', 'aria-label': 'This week' });
@@ -190,8 +197,13 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
       paint();
     }, 'monyear');
     yearKey.setAttribute('aria-label', `The year ${y}, month by month`);
-    clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), h('div.keyrow.monhomerow', ...(home ? [home] : []), yearKey), ...(said ? [said] : []), grid, list, h('b.monwkh', 'This week'), week);
+    // [planlane4:calendar] CALENDARS beside YEAR, and the calendars hidden said in a line
+    const hid = hiddenWords(calendarsOf(all));
+    const calKey = calendarsKey(() => ({ events: all, loaded: true, offline: false }), 'moncal');
+    clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), h('div.keyrow.monhomerow', ...(home ? [home] : []), yearKey, calKey), ...(said ? [said] : []), ...(hid ? [h('small.note.agcalhid', { dataset: { case: 'keep' } }, hid)] : []), grid, list, h('b.monwkh', 'This week'), week);
   };
+  // [planlane4:calendar] a calendar shown, hidden or coloured
+  addEventListener('ghosty:calendars', () => paint());
   // "show me next month" from the chat (turn.ts)
   addEventListener('ghosty:month', (e) => {
     shift = (e as CustomEvent<{ next?: boolean }>).detail?.next ? 1 : 0;

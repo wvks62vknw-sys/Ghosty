@@ -1,4 +1,8 @@
 // THE CALENDAR (planlane4:calendar): drag to move on the timeline, EARLIER / LATER keys, the year, colour calendars to show or hide.
+//  - COLOUR CALENDARS: the CALENDARS sheet lists his diary and the feed, a colour picked marks the feed's event, a hidden calendar leaves the
+//    timeline, the diary and the month (said where it is left out) and is kept on the phone; shown again; no signal, only his diary, and a
+//    change the phone could not keep, each said in his words;
+//  - ANY YEAR: YEAR's twelve months, a dot on a day with events, today marked, ‹ › without limit, THIS YEAR, a month opened, every state;
 //  - the pure sums: a drag's new start on the quarter hour, a day on by the calendar, the words of where it goes;
 //  - at 440 × 956 and 390 × 844, BODY 21: one of his own events tomorrow (put in the shared preview brain and taken out at the end) and one
 //    calendar feed's event (stood in on the agenda read by page.route: the preview brain has no feed);
@@ -61,6 +65,8 @@ export async function run(H) {
       return { s1: at(10), e1: at(11), f1: at(13), fe1: at(14), day2: at(10, 0, 2) };
     });
     const title = `Spec cal ${W} gym`;
+    // (one an earlier run left behind, if it stopped half-way, out first: this part's events are its own)
+    for (const e of (await api(page, 'GET', '/agenda?days=6').catch(() => null))?.events ?? []) if (/^Spec cal /.test(e.title)) await api(page, 'DELETE', `/agenda/events/${e.id}`);
     const r1 = await api(page, 'POST', '/agenda/events', { title, start: tm.s1, end: tm.e1, remindMin: 15, tz: 'Europe/London' });
     const id = r1?.event?.id;
     check(!!id, `${tag} his event went in: ${JSON.stringify(r1).slice(0, 160)}`);
@@ -230,6 +236,97 @@ export async function run(H) {
       await openSection(page, 'agenda', 'Diary');
       await page.click('#pg-agenda .pn.timeline button.tlkey:has-text("TOMORROW")');
       await evSel(title).waitFor({ timeout: 8000 }).catch(() => undefined);
+    }
+
+    // ---- COLOUR CALENDARS TO SHOW OR HIDE: the CALENDARS sheet, a colour picked, a calendar hidden from every view and shown again
+    {
+      if (!(await page.$('#pg-agenda .pn.timeline button.tlkey.on:has-text("TOMORROW")'))) await page.click('#pg-agenda .pn.timeline button.tlkey:has-text("TOMORROW")');
+      await evSel('Spec match').waitFor({ timeout: 8000 }).catch(() => check(false, `${tag} the feed's event is not laid out before CALENDARS`));
+      const key = page.locator('#pg-agenda .pn.timeline button.calkey');
+      check((await key.textContent()) === 'CALENDARS', `${tag} the CALENDARS key: ${await key.textContent()}`);
+      await key.click();
+      await page.waitForSelector('.mbox .calsheet .calrow', { timeout: 5000 }).catch(() => check(false, `${tag} the CALENDARS sheet did not open`));
+      const rows = await page.$$eval('.mbox .calsheet .calrow', (r) => r.map((x) => ({ cal: x.dataset.cal, name: x.querySelector('.calname')?.textContent, sub: x.querySelector('.calsub')?.textContent, on: x.querySelector('.caltoggle')?.textContent })));
+      const mineRow = rows.find((r) => r.cal === 'mine');
+      const feedRow = rows.find((r) => r.cal === FEED);
+      check(rows[0]?.cal === 'mine' && mineRow?.name === 'Your diary' && /^(\d+ coming up|Nothing coming up) · you can move and change these$/.test(mineRow?.sub ?? '') && mineRow?.on === 'SHOWN', `${tag} his diary first, said: ${JSON.stringify(mineRow)}`);
+      check(feedRow?.name === FEED && feedRow?.sub === '1 coming up · read only' && feedRow?.on === 'SHOWN', `${tag} the feed listed, read only: ${JSON.stringify(feedRow)}`);
+      const fs = await fit(page, '.modal .calsheet');
+      check(!fs.small.length && !fs.sideways && !fs.cut.length, `${tag} the CALENDARS sheet fits: ${JSON.stringify(fs)}`);
+      await page.locator('.mbox').screenshot({ path: `${H.out}/planlane4-calendar-calendars-${W}.png` }).catch(() => undefined);
+      // a colour picked for the feed: it marks its event on the timeline
+      const red = `.mbox .calsheet .calrow[data-cal="${FEED}"] button.calswatch[aria-label^="Red"]`;
+      await page.click(red);
+      check((await page.getAttribute(red, 'aria-checked')) === 'true' && (await page.getAttribute(red, 'aria-label')) === 'Red, in use', `${tag} Red picked, said in use`);
+      const cv = await evSel('Spec match').evaluate((b) => b.style.getPropertyValue('--c')).catch(() => '');
+      const sh = await page.evaluate(() => [...document.querySelectorAll('#pg-agenda .pn.timeline .tlev')].map((b) => getComputedStyle(b).boxShadow));
+      check(cv === 'var(--g-red)' && new Set(sh).size > 1, `${tag} the feed's event in its colour on the timeline: ${cv}`);
+      // hidden: out of the timeline, the diary and the month, and said
+      await page.click(`.mbox .calsheet .calrow[data-cal="${FEED}"] button.caltoggle`);
+      const tg = await page.$eval(`.mbox .calsheet .calrow[data-cal="${FEED}"]`, (r) => ({ t: r.querySelector('.caltoggle').textContent, a: r.querySelector('.caltoggle').getAttribute('aria-checked'), sub: r.querySelector('.calsub').textContent }));
+      check(tg.t === 'HIDDEN' && tg.a === 'false' && tg.sub === 'Hidden from the timeline, the month, the year and the diary.', `${tag} the switch says HIDDEN: ${JSON.stringify(tg)}`);
+      await page.click('.mbox .mhead button');
+      await page.waitForFunction(() => ![...document.querySelectorAll('#pg-agenda .pn.timeline .tlev .tltitle')].some((b) => b.textContent === 'Spec match'), null, { timeout: 4000 }).catch(() => check(false, `${tag} the hidden feed's event is still on the timeline`));
+      const hid = await page.textContent('#pg-agenda .pn.timeline .agcalhid').catch(() => '');
+      check(hid === `Hidden: ${FEED}. CALENDARS shows it again.`, `${tag} the timeline says what is hidden: ${hid}`);
+      check((await key.textContent()) === 'CALENDARS · 1 HIDDEN', `${tag} the key says how many are hidden: ${await key.textContent()}`);
+      check(!(await page.$$eval('#pg-agenda .rw.ev .evt', (e) => e.some((x) => x.textContent === 'Spec match'))) && (await page.$$eval('#pg-agenda .rw.ev .evt', (e, t) => e.some((x) => x.textContent === t), title)), `${tag} the diary leaves the hidden feed out, his own kept`);
+      check((await page.textContent('#pg-agenda .pn.month .agcalhid').catch(() => '')) === `Hidden: ${FEED}. CALENDARS shows it again.`, `${tag} the month says it too`);
+      const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.agenda.calendars') ?? '{}'));
+      check(kept[FEED]?.hidden === true && kept[FEED]?.colour === 'red', `${tag} kept on this phone: ${JSON.stringify(kept)}`);
+      const edge = await page.locator('#pg-agenda .rw.ev', { has: page.locator('.evt', { hasText: new RegExp(`^${title}$`) }) }).first().evaluate((r) => r.style.getPropertyValue('--agcal')).catch(() => '');
+      check(edge === 'var(--g-accent)', `${tag} his diary's rows in his diary's colour: ${edge}`);
+      // shown again, from the month's CALENDARS
+      await page.click('#pg-agenda .pn.month button.calkey');
+      await page.click(`.mbox .calsheet .calrow[data-cal="${FEED}"] button.caltoggle`);
+      await page.click('.mbox .mhead button');
+      await evSel('Spec match').waitFor({ timeout: 4000 }).catch(() => check(false, `${tag} shown again, the feed's event is not back`));
+      check(!(await page.$('#pg-agenda .pn.timeline .agcalhid')) && (await key.textContent()) === 'CALENDARS', `${tag} shown again: nothing said hidden`);
+      // the phone could not keep it (storage full or private): said
+      if (vp === PHONE2) {
+        await page.evaluate(() => {
+          const o = Storage.prototype.setItem;
+          window.__specSet = o;
+          Storage.prototype.setItem = function (k, v) {
+            if (k === 'ghosty.agenda.calendars') throw new Error('QuotaExceededError');
+            return o.call(this, k, v);
+          };
+        });
+        await key.click();
+        await page.click(`.mbox .calsheet .calrow[data-cal="${FEED}"] button.calswatch[aria-label^="Amber"]`);
+        const err = await page.waitForSelector('.mbox .calsheet .calsay[data-state="error"]', { timeout: 3000 }).then((e) => e.textContent(), () => '');
+        check(err === 'This phone could not keep that (its storage is full or private), so it lasts until Ghosty is closed.', `${tag} a change the phone could not keep says so: ${err}`);
+        await page.evaluate(() => (Storage.prototype.setItem = window.__specSet));
+        await page.click(`.mbox .calsheet .calrow[data-cal="${FEED}"] button.calswatch[aria-label^="Red"]`);
+        check(!(await page.$('.mbox .calsheet .calsay[data-state="error"]')), `${tag} kept again: the error goes`);
+        await page.click('.mbox .mhead button');
+      }
+      // no signal: the sheet lists what the phone's copy has, and says so
+      if (vp === PHONE) {
+        await page.route(/\/api\/agenda(\?|$)/, (r) => r.abort('internetdisconnected'));
+        await open(page, 'core');
+        await open(page, 'agenda');
+        await openSection(page, 'agenda', 'Diary');
+        await page.waitForSelector('#pg-agenda .pn.timeline .tlcopy', { timeout: 10000 }).catch(() => check(false, `${tag} the timeline did not say it is the copy`));
+        await key.click();
+        const off = await page.waitForSelector('.mbox .calsheet .calsay[data-state="offline"]', { timeout: 4000 }).then((e) => e.textContent(), () => '');
+        check(off === 'I can’t reach your brain, so this lists the calendars in the copy on this phone. Colours and switches still work: they live on this phone.', `${tag} no signal: said: ${off}`);
+        check(!!(await page.$(`.mbox .calsheet .calrow[data-cal="${FEED}"]`)), `${tag} no signal: the feed still listed from the copy`);
+        await page.click('.mbox .mhead button');
+        await page.unroute(/\/api\/agenda(\?|$)/);
+      }
+      // only his own diary (no feed linked): said, with what to do
+      if (vp === PHONE2) {
+        await ctx.unroute(/\/api\/agenda\?/);
+        await open(page, 'core');
+        await open(page, 'agenda');
+        await openSection(page, 'agenda', 'Diary');
+        await page.waitForFunction(() => ![...document.querySelectorAll('#pg-agenda .pn.timeline .tlev .tltitle')].some((b) => b.textContent === 'Spec match'), null, { timeout: 8000 }).catch(() => undefined);
+        await key.click();
+        const none = await page.waitForSelector('.mbox .calsheet .calsay[data-state="empty"]', { timeout: 4000 }).then((e) => e.textContent(), () => '');
+        check(none === 'Only your own diary so far. Link a calendar under Calendars (its secret iCal link) and it shows here with a colour of its own.', `${tag} only his diary: said: ${none}`);
+        await page.click('.mbox .mhead button');
+      }
     }
 
     // ---- ANY YEAR: YEAR in the month, twelve small months, a dot on a day with events, today marked, ‹ › without limit, a month opens

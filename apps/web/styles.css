@@ -10603,6 +10603,35 @@ html #pg-agenda .pn.month .yrdays .yrday.past { color: var(--ink3); }
 html #pg-agenda .pn.month .yrdays .yrday.has::after { content: ''; position: absolute; left: 50%; bottom: 0; width: .36em; height: .36em; margin-left: -.18em; border-radius: 50%; background: var(--c); }
 html #pg-agenda .pn.month .yrdays .yrday.today { color: var(--g-canvas, var(--ink)); background: var(--acc); border-radius: var(--rad); font-weight: 700; }
 html #pg-agenda .pn.month .yrhint { display: block; padding: var(--g-s-1) 0 0; color: var(--ink2); overflow-wrap: anywhere; }
+/* COLOUR CALENDARS (features/agenda/calendars.ts): each event in its calendar's colour wherever it is drawn (the timeline sets --c on the
+   event itself; the diary's edge bar, the month's dot and its day list read --agcal / --agdot); CALENDARS keys; the sheet's rows, each with
+   a 44 pt colour key per palette colour and a SHOWN / HIDDEN switch; a hidden calendar said in a line where it is left out */
+html #pg-agenda button.calkey { width: auto; min-height: var(--g-target) !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda button.calkey.some { color: var(--amber); }
+html #pg-agenda .agcalhid { margin: 0 0 var(--g-s-1); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda small.agcalhid { display: block; }
+html #pg-agenda .rw.ev.agcal::before { background: var(--agcal); }
+html #pg-agenda .pn.month .mday.has::after { background: var(--agdot, var(--c)); }
+html #pg-agenda .pn.month .monev:not(.todo) { border-left: 3px solid var(--agdot, var(--ink4)); padding-left: 6px; }
+html #pg-agenda .agcalrow { padding: var(--g-s-half) 0; }
+html #pg-agenda button.agcalopen { width: auto; min-height: var(--g-target) !important; padding: 0 14px; }
+html .mbox .calsheet { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; padding: 0 var(--g-s-2) var(--g-s-2); }
+html .mbox .calsheet .callist { display: flex; flex-direction: column; }
+html .mbox .calsheet .calrow { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: var(--g-hair) solid var(--hair); min-width: 0; }
+html .mbox .calsheet .calhead { display: flex; align-items: center; gap: var(--g-s-1); min-width: 0; }
+html .mbox .calsheet .caldot { flex: none; width: .8em; height: .8em; border-radius: 50%; background: var(--c); }
+html .mbox .calsheet .calname { flex: 1 1 auto; min-width: 0; color: var(--ink); overflow-wrap: anywhere; }
+html .mbox .calsheet .calrow.off :is(.calname, .caldot) { opacity: .55; }
+html .mbox .calsheet .calsub { color: var(--ink2); overflow-wrap: anywhere; }
+html .mbox .calsheet button.caltoggle { flex: none; width: auto; min-height: var(--g-target) !important; padding: 0 14px; border-radius: var(--rad); }
+html .mbox .calsheet button.caltoggle.on { color: var(--acc); box-shadow: inset 0 0 0 var(--g-stroke) var(--acc) !important; }
+html .mbox .calsheet .calswatches { display: flex; flex-wrap: wrap; gap: 6px; }
+html .mbox .calsheet button.calswatch { position: relative; display: inline-flex; align-items: center; justify-content: center; width: var(--g-target); min-width: var(--g-target); height: var(--g-target); min-height: var(--g-target) !important; padding: 0; border-radius: 50%; background: none !important; box-shadow: none !important; }
+html .mbox .calsheet .calchip { width: 26px; height: 26px; border-radius: 50%; background: var(--c); }
+html .mbox .calsheet button.calswatch.on .calchip { box-shadow: 0 0 0 3px var(--g-canvas, var(--thick)), 0 0 0 5px var(--c); }
+html .mbox .calsheet .calcheck { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--g-canvas, var(--ink)); font-weight: 700; pointer-events: none; }
+html .mbox .calsheet .calsay { margin: 0; overflow-wrap: anywhere; }
+html .mbox .calsheet .calfoot { color: var(--ink2); overflow-wrap: anywhere; }
 /* ==== [planlane4:calendar end] ==== */
 /* =====================================================================================================================
    THE APP KIT (APPS ROUND, consistency; ui/appkit.ts): the frame every app is built from. One header, one scroll area, the keys at

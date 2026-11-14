@@ -17,6 +17,7 @@ export interface NewThing {
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
   // [planlane4:calendar] THE APPS ROUND, CALENDAR: drag to move, the year, colour calendars (features/agenda/drag.ts, year.ts, calendars.ts)
+  { day: '2026-11-14', title: 'Colour calendars to show or hide', line: 'AGENDA → TIMELINE or MONTH → CALENDARS: give your diary and each linked calendar a colour, and hide one from the timeline, the month, the year and the diary with a tap.' },
   { day: '2026-11-14', title: 'Any year at a glance', line: 'AGENDA → Diary → MONTH → YEAR: the twelve months of any year, a dot on each day with something on and today marked. Step ‹ › as far as you like; tap a month to open it.' },
   { day: '2026-11-14', title: 'Drag to move an event', line: 'AGENDA → Diary → TIMELINE: hold one of your events and drag it to a new time, in 15-minute steps, with UNDO. Or tap it and use EARLIER, LATER or A DAY LATER.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)

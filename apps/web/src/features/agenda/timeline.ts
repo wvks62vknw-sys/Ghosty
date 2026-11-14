@@ -10,6 +10,7 @@ import { patchEvent } from '../../api/offline';
 import { clear, fmt, h } from '../../core/dom';
 import { button, panel, undoBar } from '../../ui/components';
 import { attachDrag, dragStart, movable, moveTo, readOnlyWords, STEP } from './drag';
+import { calendarsKey, calendarsOf, colourOf, hiddenWords, visible } from './calendars';
 import { dueOn, loadTodos } from './todo';
 import { dayOf } from './todowords';
 import { longGap } from './words';
@@ -171,6 +172,8 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
     const b = button('', () => pick(e.id), cls);
     b.dataset.case = 'keep';
     b.dataset.id = e.id;
+    // [planlane4:calendar] its calendar's colour (calendars.ts)
+    b.style.setProperty('--c', colourOf(e.source));
     b.append(h('span.tlwhen', label), h('b.tltitle', e.title), e.location ? h('small.tlwhere', e.location) : '');
     b.setAttribute('aria-label', `${e.title}, ${label}${e.location ? `, at ${e.location}` : ''}. Tap to see it whole or change it.${cls.startsWith('tlev') ? movable(e) ? ' Hold and drag to move it.' : ` From ${e.source}, read only.` : ''}`);
     return b;
@@ -210,7 +213,7 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
       const label = `${hm(e.start)}${e.end ? `–${hm(e.end)}` : ''}`;
       const b = evRow(e, `tlev${endOf(e) <= now ? ' past' : ''}${e.start <= now && endOf(e) > now ? ' live' : ''}`, label);
       b.setAttribute('role', 'listitem');
-      b.style.cssText = `top:${pct(e.start)};--tlh:calc(${pct(endOf(e))} - ${pct(e.start)});left:calc(var(--tlgut) + (100% - var(--tlgut)) * ${col / cols});width:calc((100% - var(--tlgut)) / ${cols})`;
+      b.style.cssText = `top:${pct(e.start)};--tlh:calc(${pct(endOf(e))} - ${pct(e.start)});left:calc(var(--tlgut) + (100% - var(--tlgut)) * ${col / cols});width:calc((100% - var(--tlgut)) / ${cols});--c:${colourOf(e.source)}`;
       // [planlane4:calendar] hold and drag to a new time, in 15-minute steps inside the hours drawn (a feed's says it is read only)
       b.classList.toggle('agmine', movable(e));
       attachDrag(b, {
@@ -250,7 +253,9 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
   };
 
   const paint = () => {
-    const { events: got, loaded, offline, hasCopy } = get();
+    const { events: all, loaded, offline, hasCopy } = get();
+    // [planlane4:calendar] only the calendars he shows (CALENDARS), the rest said in a line
+    const got = visible(all);
     // [planlane4:calendar] a move on its way is drawn where it was dropped until the diary read has it there
     for (const [id, s] of moving) if (!got.some((e) => e.id === id && e.start !== s)) moving.delete(id);
     const events = moving.size ? got.map((e) => (moving.has(e.id) ? patchEvent(e, { start: moving.get(e.id)! }) : e)) : got;
@@ -260,7 +265,7 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
       b.setAttribute('aria-pressed', String(view === v));
       return b;
     });
-    const bar = h('div.keyrow.wrapit.tlbar', ...keys);
+    const bar = h('div.keyrow.wrapit.tlbar', ...keys, calendarsKey(() => ({ events: get().events, loaded: get().loaded, offline: get().offline }), 'tlcal'));
     /* state: agenda.timeline loading */
     if (!loaded) return void clear(p.body, bar, h('p.note.wait', { dataset: { case: 'keep', state: 'loading' } }, 'Reading your diary to lay out the day.'));
     // no diary at all (the brain out of reach, no copy on this phone): no free time is guessed, only his to-dos due are shown
@@ -273,11 +278,15 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
     /* state: agenda.timeline offline */
     const note = offline ? [h('p.note.bad.tlcopy', { dataset: { case: 'keep', state: 'offline' } }, !blind ? 'Laid out from the last copy of your diary on this phone: I can’t reach your brain right now.' : 'I can’t reach your brain and this phone has no copy of your diary yet, so only your to-dos show here. It fills in when I can.')] : [];
     const heard = said ? [h('p.note.tlmovesay', { role: 'status', dataset: { case: 'keep' } }, said)] : [];
+    const hid = hiddenWords(calendarsOf(all));
+    if (hid) heard.push(h('p.note.agcalhid', { dataset: { case: 'keep' } }, hid));
     clear(p.body, bar, ...note, ...heard, ...body);
   };
   // his list changed somewhere (the TO-DO panel, the chat): the to-dos beside the day follow it
   // (the list's own change signal, by its name: todo.ts is the list's to change, so only its read functions are imported)
   addEventListener('ghosty:todo', () => paint());
+  // [planlane4:calendar] a calendar shown, hidden or coloured
+  addEventListener('ghosty:calendars', () => paint());
   // "plan my week" / "show my day" from elsewhere (the chat's lines): open that view
   addEventListener('ghosty:timeline', (e) => {
     const v = (e as CustomEvent<{ view?: View }>).detail?.view;
