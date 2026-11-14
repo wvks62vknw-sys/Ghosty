@@ -123,3 +123,7 @@ export const clockWords = (ms: number): string => {
 };
 /** The longest note: ten minutes (twenty-four pieces for the hearing route). */
 export const MAX_NOTE_MS = 10 * 60_000;
+
+/** Whether a voice note's recording (and what was heard in it) may be let go: only once its page or document was really kept. When the
+ *  phone would not keep it, the recording stays so TIDY IT NOW can try again (the second review's find, 14 Nov). */
+export const letGoOfRecording = (made: { ok: boolean }): boolean => made.ok === true;
