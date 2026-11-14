@@ -10997,7 +10997,6 @@ html .al-imp-route path { fill: none; stroke: var(--g-accent); stroke-width: 1.6
 html .al-imp-splits { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 html .al-imp-again summary { min-height: var(--g-target); display: flex; align-items: center; font: var(--g-t-caption); color: var(--g-ink-2); cursor: pointer; }
 html body .ak-app .al-imp :is(.al-imp-lead, .al-imp-fine, .al-imp-how, .al-imp-rank) { text-transform: none !important; }
-=======
 
 /* =====================================================================================================================
    THE APP LIBRARY: GAMES (PLAY & MAKE lane; features/applib/games): the game frame (score bar, stage, keys, pause cover,
