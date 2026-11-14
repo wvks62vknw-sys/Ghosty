@@ -607,3 +607,6 @@ test('a mini-app build that failed or was cut short carries on from its record w
   assert.match(ran.project.steps[4].result, /^"Ideas" is live at https:\/\/ghosty\.example\/s\/ideas\//);
   assert.equal((await K.siteStore(ctx.env, storage).get('ideas')).title, 'Ideas');
 });
+
+// THE APP LIBRARY's importers (the DATA lane) run with this suite.
+await import('./applibdata.test.mjs');
