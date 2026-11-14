@@ -3,6 +3,7 @@
 //     the kart's goal stays shut until its three gates, every gem wins, the clock running out loses, a crate on a pad scores.
 //   PLAY (P): a template plays in one tap on three.js and Rapier, under software rendering; the stick and JUMP are read at once; the
 //     player reaching a coin and the flag scores and wins; PLAY AGAIN races the last run's ghost; the frame-rate guard holds detail down.
+//   DESCRIBE (D): "a night platformer with 10 coins and low gravity" drafted as three marked changes, one rejected, the rest made.
 //   EDIT (E): a thing added on the grid, moved and coloured; a rule added and said as a sentence; kept on the phone after a reload.
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, openSection, standDown } from './nav.mjs';
@@ -148,6 +149,16 @@ await section('words', async () => {
   const g = M.template('platformer', 1);
   const t = M.addThing(g, 'crate', { x: 2.4, z: -1.6 });
   check(t.x === 2 && t.z === -2 && t.y === 0.5 && t.body === 'dynamic', `[L11 grid] a crate lands on the grid: ${JSON.stringify(t)}`);
+  // DESCRIBE A GAME: the words read into a template and its changes; only what he accepts is made
+  const d = M.draftFromWords('a night platformer with 10 coins and low gravity');
+  const kinds = d.changes.map((c) => c.kind).sort().join(',');
+  check(d.kind === 'platformer' && kinds === 'count,gravity,sky' && d.changes.find((c) => c.kind === 'count').n === 10, `[L13 draft] ${JSON.stringify(d)}`);
+  const all = M.makeDraft(d, new Set(d.changes.map((c) => c.id)), 1);
+  const noGrav = M.makeDraft(d, new Set(d.changes.filter((c) => c.kind !== 'gravity').map((c) => c.id)), 1);
+  check(all.things.filter((t) => t.kind === 'coin').length === 10 && all.gravity === 1.62 && all.sky === 0x0d1620 && noGrav.gravity === 9.81, `[L14 accept] all: ${all.things.filter((t) => t.kind === 'coin').length} coins, gravity ${all.gravity}; gravity rejected: ${noGrav.gravity}`);
+  const race = M.draftFromWords('race round a track for 2 minutes');
+  check(race.kind === 'kart' && race.changes.some((c) => c.kind === 'time' && c.n === 120), `[L15 race] ${JSON.stringify(race)}`);
+  check(M.draftFromWords('hi') === null && M.draftFromWords('something fun').kind === 'platformer', '[L16 vague] too short is nothing; no kind named is a platformer');
   check(M.readGames('nonsense').length === 0 && M.readGames(JSON.stringify([g, { id: 1 }])).length === 1, '[L12 read] what is not a game is left out');
 });
 
@@ -209,6 +220,11 @@ for (const vp of [PHONE, PHONE2]) {
     await page.locator('#pg-gamestudio .gs3edit button', { hasText: '+ ADD A RULE' }).click();
     check((await page.evaluate(() => window.__ghosty.game3d.games[0].rules.length)) === rules + 1 && /When the player touches a coin, add 1 to the score\./.test(await lastRule(page)), `${T} [E4 rule] "${await lastRule(page)}"`);
     await bar(page, `${T} [E bar]`, 'gamestudio', '#pg-gamestudio .gs3edit');
+    // PLAY FROM HERE: the run starts just above the thing picked
+    const from = await page.evaluate(() => window.__ghosty.game3d.games[0].things.find((x) => x.id === window.__ghosty.game3d.selected));
+    await page.locator('#pg-gamestudio .gs3thing button', { hasText: 'PLAY FROM HERE' }).click();
+    check(await until(page, (f) => { const i = window.__ghosty.game3d.run?.info; return i?.mode === 'play' && Math.abs(i.player.x - f.x) < 1.5 && Math.abs(i.player.z - f.z) < 1.5; }, from, 60000), `${T} [E7 from here] the run did not start at the coin: ${JSON.stringify(await info(page))} vs ${JSON.stringify(from)}`);
+    await page.locator('#pg-gamestudio .gs3top button', { hasText: 'STOP' }).click();
     const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.game3d'))[0]);
     check(kept.things.length === before + 1 && kept.rules.length === rules + 1, `${T} [E5 kept] the phone holds ${kept.things.length} things, ${kept.rules.length} rules`);
     await page.evaluate(() => (location.hash = 'core'));
@@ -224,6 +240,20 @@ await section('kinds', async () => {
   const { ctx, page } = await phone(PHONE);
   await go(page, 'gamestudio');
   await until(page, () => document.querySelectorAll('#pg-gamestudio .gs3card').length === 6, null, 30000);
+  // DESCRIBE A GAME on the page: the draft's three marked changes, one rejected, MAKE IT makes and plays the rest
+  await page.locator('#pg-gamestudio input[aria-label="Describe a game"]').fill('a night platformer with 10 coins and low gravity');
+  await page.locator('#pg-gamestudio .gs3shelf button', { hasText: 'DRAFT IT' }).click();
+  check(await until(page, () => document.querySelectorAll('#pg-gamestudio .gs3draft [data-change][data-state=accepted]').length === 3, null, 5000), `[D1 draft] "${await text(page, '#pg-gamestudio .gs3draft')}"`);
+  await bar(page, '[440] [D bar]', 'gamestudio', '#pg-gamestudio .gs3shelf');
+  const grav = await page.evaluate(() => window.__ghosty.game3d.draft.changes.find((c) => c.kind === 'gravity').id);
+  await page.locator(`#pg-gamestudio .gs3draft button[data-change=${grav}]`).click();
+  check((await page.locator(`#pg-gamestudio .gs3draft [data-change=${grav}][data-state=rejected]`).count()) === 1, '[D2 reject] the gravity change is not shown rejected');
+  await page.locator('#pg-gamestudio .gs3draft button', { hasText: 'MAKE IT' }).click();
+  check(await until(page, () => window.__ghosty.game3d.run?.info?.mode === 'play', null, 60000), `[D3 make] the draft did not play: ${JSON.stringify(await info(page))}`);
+  const made = await page.evaluate(() => window.__ghosty.game3d.games[0]);
+  check(made.things.filter((t) => t.kind === 'coin').length === 10 && made.gravity === 9.81 && made.sky === 0x0d1620, `[D3 made] ${made.things.filter((t) => t.kind === 'coin').length} coins, gravity ${made.gravity}, sky ${made.sky}`);
+  await page.locator('#pg-gamestudio .gs3top button', { hasText: 'STOP' }).click();
+  await until(page, () => window.__ghosty.game3d.view === 'shelf', null, 10000);
   for (const kind of ['explorer', 'kart', 'puzzle', 'marble', 'shooter']) {
     log(`plays: ${kind}`);
     const ok = await play(page, kind);
