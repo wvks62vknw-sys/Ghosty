@@ -7182,8 +7182,8 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html[data-world="ink"] #plan .planthing .g-index { color: var(--g-ink-3); }
   /* the stamp and the page's name on every screen: the title in the serif, a rule under the stamp */
   html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle { font: var(--g-print-title); letter-spacing: -.01em; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { font-size: 28px; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="xl"] { font-size: 22px; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { font-size: 28px; line-height: 1.15; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="xl"] { font-size: 22px; line-height: 1.15; }
   html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .headstamp { padding-bottom: var(--g-s-1); border-bottom: var(--g-stroke) solid var(--g-ink-1); }
   /* rules instead of boxes: a plate is a rule above and below, a key keeps its edge */
   html[data-world="ink"] body.housed .g-plate, html[data-world="ink"] body.housed .jplate { border-width: var(--g-hair) 0; }
