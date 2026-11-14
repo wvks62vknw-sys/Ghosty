@@ -495,6 +495,8 @@ await section('looks', async () => {
     log(`look ${world}`);
     const { ctx, page } = await phone(PHONE, { world, store: WB_STORE });
     await go(page, 'workbench');
+    // (under load the pills come a little after the page: tapped once the Workbench says it is ready)
+    await until(page, () => window.__ghosty?.workbench?.ready === true && !!document.querySelector('#pg-workbench .secpill[data-sec="structure"]')?.getClientRects().length, null, 30000);
     await openSection(page, 'workbench', 'Structure');
     await until(page, () => !!document.querySelector('#pg-workbench .wb-beam .wbcurve'), null, 15000);
     await bar(page, `[440] [${world}] [C]`, 'workbench', '#pg-workbench .wb-beam .wbcurve');
