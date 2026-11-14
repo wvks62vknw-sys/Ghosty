@@ -87,6 +87,14 @@ every time, and nothing is bought.
 - Your note is said on the APPROVE card and written on the page as text, never as markup. The front page shows once on each phone.
 - The page's one style is still pinned by its hash in the page's security rules.
 
+### 14. High scores for each game (`sites.u10`)
+- Each phone that plays a game on your sites keeps its own top ten, beside the game's saves under the game's own key: a score, whether
+  it was finished, and the day. No names are asked for and nothing is sent.
+- GAME OVER and YOU DID IT say where the run landed ("Score 470: a new best!"); HIGH SCORES on the title card and the end screen opens
+  the table, and **SHARE MY BEST** draws a 1080 px picture of the best score on the phone for its share sheet (or saves it).
+- The score is the same sum the arcade already used (ten a coin, fifty a quest, two hundred for the end), moved where the page's player
+  can reach it.
+
 ## How to try it on your phone
 1. **Your photos:**
    - Workshop → Made → PHOTOS FOR YOUR SITES → ADD PHOTOS, and pick three photos of your place.
@@ -112,6 +120,7 @@ every time, and nothing is bought.
 11. **A sheet:** SHEETS → NEW, type a heading and a few items in column A → DATA → AS AN APP ON MY HOME SCREEN → APPROVE.
 12. **A menu:** SHEETS → NEW, dishes in column A and prices in column B → DATA → AS A MENU PAGE ON MY SITES → APPROVE.
 13. **A game's front page:** Game Studio → a game → PUT IT ON MY SITES → APPROVE, then open its link on another phone.
+14. **High scores:** play that game to the end twice, then HIGH SCORES → SHARE MY BEST.
 
 ## Tests
 - **Brain test:** `apps/edge/test/sitephotos.test.mjs`, named in the test list, 10 tests. It covers:
@@ -131,7 +140,8 @@ every time, and nothing is bought.
   home page listing exactly the pages you chose, the QR code and an A4 poster, CHECK, a sheet made into a list app, and a sheet
   made into a menu page.
 - **gamesites:** a brain test for the front page (name, how to play, a picture per room, his note as text, the style's hash), and
-  gamesites.spec checks the front page on the phone (44 pt PLAY, gone after PLAY, shown once).
+  gamesites.spec checks the front page on the phone (44 pt PLAY, gone after PLAY, shown once); a brain test for the high-score table
+  (top ten, highest first, where a run landed, the card's words) and gamesites.spec's (r) for the table and the shared picture.
   The spec can be run again on the same brain.
 - **nav.spec:** its Workshop "Made" section now also checks PHOTOS FOR YOUR SITES.
 
@@ -153,7 +163,6 @@ The rest of section 5 is not built yet (each would be its own whole piece):
 - a private visitor count (u3);
 - sites in more languages (u5);
 - more mini-app kinds (u7, with recipe timers);
-- a high-score table (u10);
 - comics as a reader page (s5);
 - Workshop tools as apps (s10);
 - hours from your agenda (c1);
