@@ -155,6 +155,15 @@ for (const [vp, tag] of [[PHONE, '440'], [PHONE2, '390']]) {
       await page.keyboard.press('Escape');
       await until(page, () => !document.querySelector('.modal .arcpage'));
     }
+    // a free DOOM level pack has its page too
+    if (await page.$('#pg-arcade .arcpack .arcopen')) {
+      await page.click('#pg-arcade .arcpack .arcopen');
+      await page.waitForSelector('.modal .arcpage', { timeout: 10000 });
+      const pp = await page.evaluate(() => ({ act: document.querySelector('.modal .arcpageact')?.textContent ?? '', lic: document.querySelector('.modal [data-sec="licence and credit"]')?.textContent ?? '', ghosty: document.querySelector('.modal .arcghost')?.textContent ?? '' }));
+      check(/^GET · /.test(pp.act) && /Licence/.test(pp.lic) && /A level pack by .+, over Freedoom/.test(pp.ghosty), `${tag} pack page: ${JSON.stringify(pp).slice(0, 200)}`);
+      await page.keyboard.press('Escape');
+      await until(page, () => !document.querySelector('.modal .arcpage'));
+    } else check(false, `${tag}: the free level packs have no page`);
     if (doom && tag === '440') {
       // ASK GHOSTY: the page closes and the chat is asked about this game
       await page.click(`#pg-arcade .arccard[data-id="${doom}"] .arcopen`);
