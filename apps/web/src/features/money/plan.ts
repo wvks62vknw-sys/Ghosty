@@ -34,6 +34,7 @@ export const moneyPlan = {
   year: '',
   watches: [] as string[],
   car: '',
+  shop: '',
   rules: [] as string[],
   state: {} as Record<string, string>,
 };
@@ -221,6 +222,54 @@ export function openRules(after: () => void): void {
   };
   modal('YOUR SORTING RULES', h('div.pk', { dataset: { pack: 'money', screen: 'rules' } }, h('div.pkcol', body, status)));
   void run('');
+}
+
+// ---------------------------------------------------------------- A SHOP'S PAGE (money, effortless)
+
+/** One shop: every payment there across his statements, a bar for each month, the average, and where every payment there is filed. */
+export function openShop(k: string, after: () => void): void {
+  expose();
+  const body = h('div.pkcol.mnapp', { 'aria-live': 'polite' });
+  const status = h('p.pknote', { 'aria-live': 'polite' });
+  const name = cap(k.toLowerCase());
+  type ShopData = { rows: { d: string; t: string; a: number; c: Category }[]; months: { month: string; out: number; n: number }[]; total: number; average: number; first: string; last: string; rule: Category | null; category: Category | null };
+  const paint = (x: ShopData) => {
+    moneyPlan.shop = `${k} ${x.rows.length} ${p2(x.total)}`;
+    const most = Math.max(1, ...x.months.map((m) => m.out));
+    const pick = h('select.mnselect', { 'aria-label': `Where every ${name} payment goes` }, ...CATEGORIES.map((c) => h('option', { value: c, selected: c === (x.rule ?? x.category) }, cap(c)))) as HTMLSelectElement;
+    pick.addEventListener('change', async () => {
+      try {
+        const r = await act<{ rules: unknown[] }>('rules', { op: 'change', k, c: pick.value });
+        stateIn(status, '', r.text);
+        after();
+        void load();
+      } catch (e) {
+        stateIn(status, 'error', sayError(e, 'file it'));
+      }
+    });
+    body.replaceChildren(
+      h('div.mnfigs',
+        figure('In all', p2(x.total), `${plural(x.rows.length, 'payment')} since ${x.first ? dayWords(x.first) : 'your first statement'}.`, '', 'div.mnsfig'),
+        figure('A month', p2(x.average), `Over the ${plural(x.months.length, 'month')} you paid there.`, '', 'div.mnsfig')),
+      h('div.lab', 'MONTH BY MONTH'),
+      ...x.months.map((m) => meter(`${monthName(m.month)} ${m.month.slice(0, 4)}`, p2(m.out), m.out / most, 'soft', plural(m.n, 'payment'))),
+      h('div.lab', 'FILED AS'),
+      h('div.pkrow', pick),
+      h('small.mnhow', x.rule ? 'Your own rule: every payment here goes there.' : 'Sorted by the usual rules. Pick another and every payment here follows.'),
+      h('div.lab', 'EVERY PAYMENT'),
+      ...x.rows.slice(0, 60).map((r) => h('div.mnline.mnplace', { dataset: { case: 'keep' } }, h('b', dayWords(r.d)), h('span', r.a > 0 ? `+${p2(r.a)}` : p2(-r.a)))),
+    );
+  };
+  const load = async () => {
+    if (lacksSignal()) return void body.replaceChildren(stateLine('offline', 'No signal. This shop’s page comes back when the phone is online.'));
+    try {
+      paint((await act<ShopData>('shop', { k })).data);
+    } catch (e) {
+      body.replaceChildren(stateLine('error', sayError(e, 'open this shop')), h('div.pkrow', label(button('Try again', () => void load()), 'Try opening this shop again')));
+    }
+  };
+  modal(name.slice(0, 30).toUpperCase(), h('div.pk', { dataset: { pack: 'money', screen: 'shop' } }, h('div.pkcol', body, status)));
+  void load();
 }
 
 // ---------------------------------------------------------------- CALENDAR
