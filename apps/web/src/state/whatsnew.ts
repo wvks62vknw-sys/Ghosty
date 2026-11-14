@@ -24,6 +24,9 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Say goodnight', line: 'Say “goodnight” (or “night night”, “time for bed”): the screen winds down, the night look comes on, your lights go off, the radio gets a 30-minute sleep timer, sleep tracking starts and I tell you tomorrow’s first event. Locks, the alarm, garage doors and gates are only listed, each with a LOCK UP key that needs your tap and a confirm. After six, the Brief has a GOODNIGHT key too.' },
   // [planlane2:onelist] (plan.u1)
   { day: '2026-11-14', title: 'One to-do list', line: 'The Agenda’s TO-DO, WORK’s to-do, the Brief, Home and the chat now share one list, kept in my brain with a copy on your phone for no signal. Your phone’s old list joined it once.' },
+  // [planlane2:timeline] the day by the hour, PLAN MY WEEK, any month, and an event changed in place
+  { day: '2026-11-14', title: 'Your day by the hour', line: 'Agenda → Diary → TIMELINE: today and tomorrow by the hour, your free gaps said in words, a line at now, and PLAN MY WEEK with each day’s free time.' },
+  { day: '2026-11-14', title: 'Change an event properly', line: 'Tap an event: change its time, end, place, ALL DAY and reminder in place, and its reminder moves with it. The month now steps to any month, back or on.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

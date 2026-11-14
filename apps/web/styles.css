@@ -9884,6 +9884,45 @@ html #pg-agenda .todowait[hidden] { display: none; }
 /* ==== [planlane2:onelist end] ==== */
 
 /* ==== [planlane2:timeline] ==== */
+/* TIMELINE: TODAY / TOMORROW / PLAN MY WEEK keys; the free gaps in words; all-day and to-dos at the top; the hours, sized in em so the
+   day grows with his text (BODY 21) and never needs a fixed height; two at once side by side; the line at now */
+html #pg-agenda .pn.timeline .tlbar { padding: 0 0 8px; gap: 6px; }
+html #pg-agenda .pn.timeline .tlbar button.tlkey { width: auto; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .pn.timeline .tlbar button.tlkey.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+html #pg-agenda .pn.timeline .tlfree { display: flex; flex-direction: column; gap: 4px; padding: 2px 0 8px; }
+html #pg-agenda .pn.timeline .tlgap { color: var(--ink); overflow-wrap: anywhere; }
+html #pg-agenda .pn.timeline .tlgap::before { content: ''; display: inline-block; width: .55em; height: .55em; margin-right: .5em; border-radius: 50%; background: var(--g-ok); vertical-align: .08em; }
+html #pg-agenda .pn.timeline .tlallday, html #pg-agenda .pn.timeline .tltodo { display: flex; flex-direction: column; gap: 4px; padding: 0 0 8px; }
+html #pg-agenda .pn.timeline :is(button.tlad, button.tlwev) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; column-gap: .6em; row-gap: 2px; width: 100%; height: auto; min-height: 44px !important; padding: 6px 10px; text-align: left; border-radius: var(--rad); background: color-mix(in srgb, var(--c) 12%, transparent) !important; box-shadow: inset 3px 0 0 var(--c) !important; }
+html #pg-agenda .pn.timeline .tltd { display: flex; flex-wrap: wrap; column-gap: .6em; color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .pn.timeline .tlwhen { color: var(--ink3); font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: normal; white-space: nowrap; }
+html #pg-agenda .pn.timeline .tltd .tlwhen { color: var(--amber); }
+html #pg-agenda .pn.timeline :is(.tltitle, .tlwhere) { text-transform: none; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; text-align: left; color: var(--ink); }
+html #pg-agenda .pn.timeline .tlwhere { color: var(--ink2); font-weight: 400; }
+html #pg-agenda .pn.timeline .tlgrid { --tlgut: 3.4em; position: relative; height: calc(var(--tlhours) * 3.6em); margin: 6px 0 4px; }
+html #pg-agenda .pn.timeline .tlhour { position: absolute; left: 0; right: 0; height: 0; font-size: .8em; color: var(--ink3); font-variant-numeric: tabular-nums; }
+html #pg-agenda .pn.timeline .tlhour::after { content: ''; position: absolute; left: 4em; right: 0; top: 0; border-top: 1px solid var(--hair); }
+html #pg-agenda .pn.timeline .tlband { position: absolute; left: var(--tlgut); right: 0; background: color-mix(in srgb, var(--g-ok) 9%, transparent); pointer-events: none; }
+html #pg-agenda .pn.timeline button.tlev { position: absolute; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 0; height: auto; min-height: max(44px, var(--tlh)) !important; padding: 4px 8px; text-align: left; border-radius: var(--rad); border: 1px solid var(--g-canvas, transparent); background: color-mix(in srgb, var(--c) 20%, var(--g-canvas, transparent)) !important; box-shadow: inset 3px 0 0 var(--c) !important; overflow: visible; }
+html #pg-agenda .pn.timeline button.tlev.past { opacity: .62; }
+html #pg-agenda .pn.timeline button.tlev.live { box-shadow: inset 3px 0 0 var(--c), 0 0 0 2px var(--c) !important; }
+html #pg-agenda .pn.timeline .tlnow { position: absolute; z-index: 2; left: var(--tlgut); right: 0; height: 0; border-top: 2px solid var(--g-fail); pointer-events: none; }
+html #pg-agenda .pn.timeline .tlnow b { position: absolute; right: 0; top: -.75em; padding: 0 .4em; font-size: .75em; line-height: 1.5; color: var(--g-canvas, var(--ink)); background: var(--g-fail); border-radius: var(--rad); font-variant-numeric: tabular-nums; }
+html #pg-agenda .pn.timeline .tlweekline { margin: 0 0 8px; color: var(--ink); }
+html #pg-agenda .pn.timeline .tlweek { display: flex; flex-direction: column; gap: 10px; }
+html #pg-agenda .pn.timeline .tlday { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--hair); }
+html #pg-agenda .pn.timeline .tldayname { color: var(--ink); }
+html #pg-agenda .pn.timeline .tlwfree { color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .pn.timeline .tlempty { margin: 0 0 6px; }
+/* the change box's ALL DAY and reminder pickers; the month's THIS MONTH key and its reading line */
+html #pg-agenda .evcard .evpick { gap: 6px; }
+html #pg-agenda .evcard .evpick button.evallday { width: auto; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .evcard .evpick button.evallday.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+html #pg-agenda .evcard .evpick select { min-height: 44px; flex: 1 1 12em; min-width: 0; }
+html #pg-agenda .evcard .evedit input:disabled { opacity: .5; }
+html #pg-agenda .pn.month .monhomerow { justify-content: center; padding: 0 0 6px; }
+html #pg-agenda .pn.month button.monhome { width: auto; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .pn.month .monread { display: block; padding: 0 0 6px; }
 
 /* ==== [planlane2:timeline end] ==== */
 

@@ -171,7 +171,9 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail|^\/guardian\/(?:health|feltoff)/.test(path);
+// (the diary's reads are not kept here: brain.agenda keeps its own copy and says when it shows it, and a month read (&from=) is never
+// shown as fresh from an old read)
+const cacheable = (path: string) => !/^\/agenda\?|^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail|^\/guardian\/(?:health|feltoff)/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -527,6 +529,11 @@ export const brain = {
   agenda: (days = 14) => req<{ tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] }>('GET', `/agenda?days=${days}&tz=${encodeURIComponent(TZ)}`),
   addEvent: (e: { title: string; start: number; end?: number; allDay?: boolean; location?: string; remindMin?: number | null }) => req<{ event: AgendaEventInfo }>('POST', '/agenda/events', { ...e, tz: TZ }),
   deleteEvent: (id: string) => req('DELETE', `/agenda/events/${encodeURIComponent(id)}`),
+  // [planlane2:timeline] change one of his events in place (its reminder moves with it; null clears end, place or reminder)
+  editEvent: (id: string, e: { title?: string; start?: number; end?: number | null; allDay?: boolean; location?: string | null; notes?: string | null; remindMin?: number | null }) =>
+    req<{ event: AgendaEventInfo }>('POST', `/agenda/events/${encodeURIComponent(id)}`, { ...e, tz: TZ }),
+  // [planlane2:timeline] any month's days, read for the month view alone (never kept as the phone's copy of the diary)
+  agendaFrom: (from: number, days: number) => req<{ tz: string; events: AgendaEventInfo[]; errors: string[] }>('GET', `/agenda?days=${days}&from=${from}&tz=${encodeURIComponent(TZ)}`),
   addJob: (j: { kind: 'reminder' | 'task'; title?: string; text: string; at: number; repeat: JobInfo['repeat'] }) => req<{ job: JobInfo }>('POST', '/jobs', { ...j, tz: TZ }),
   deleteJob: (id: string) => req('DELETE', `/jobs/${encodeURIComponent(id)}`),
   runJob: (id: string) => req<{ item: InboxEntry }>('POST', `/jobs/${encodeURIComponent(id)}/run`),

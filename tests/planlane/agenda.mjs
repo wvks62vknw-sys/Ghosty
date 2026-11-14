@@ -121,7 +121,8 @@ export async function run(H) {
     await reply('show my month', /^\w+ \(from today\): \d+ events?/);
     await page.waitForFunction(() => document.body.dataset.tab === 'agenda' && !!document.querySelector('#pg-agenda .pn.month')?.offsetParent, null, { timeout: 5000 }).catch(() => check(false, '[agenda chat] "show my month" did not open the month'));
     await reply('show me next month', /^\w+: \d+ events?/);
-    check(await page.evaluate(() => /\d{4}/.test(document.querySelector('#pg-agenda .monname')?.textContent ?? '') && document.querySelector('#pg-agenda .monbar button[aria-label="Next month"]')?.disabled === true), '[agenda chat] "next month" turns the month on to it');
+    // (the month steps any way now: "next month" shows next month by its name, with THIS MONTH to come home)
+    check(await page.evaluate(() => { const n = new Date(); const d = new Date(n.getFullYear(), n.getMonth() + 1, 1); return document.querySelector('#pg-agenda .monname')?.textContent === `${d.toLocaleDateString('en-GB', { month: 'long' })} ${d.getFullYear()}` && !!document.querySelector('#pg-agenda .pn.month button.monhome'); }), '[agenda chat] "next month" turns the month on to it');
     await ctx.close();
   }
   log('agenda: chat');
@@ -193,7 +194,7 @@ export async function run(H) {
     await row(name).first().locator('.evt').click();
     await page.waitForSelector('#pg-agenda .evcard', { timeout: 3000 }).catch(() => check(false, `[agenda ${vp.width}] tapping the event did not open it whole`));
     const card = (await page.textContent('#pg-agenda .evcard').catch(() => '')) ?? '';
-    check(new RegExp(`^${name}\\w+day \\d+ \\w+, \\d\\d:\\d\\dIn your diary · (reminder 15 min before|no reminder)`).test(card) && /puts it back changed/.test(card) && !RAW.test(card), `[agenda ${vp.width}] the event whole: ${card.slice(0, 160)}`);
+    check(new RegExp(`^${name}\\w+day \\d+ \\w+, \\d\\d:\\d\\dIn your diary · (reminder 15 min before|no reminder)`).test(card) && /Saving changes it in place, and its reminder moves with it\. UNDO puts it back as it was\./.test(card) && !RAW.test(card), `[agenda ${vp.width}] the event whole: ${card.slice(0, 160)}`);
     check((await row(name).first().getAttribute('aria-expanded')) === 'true', `[agenda ${vp.width}] the open event says it is open`);
     const fc = await fit(page, '#pg-agenda .evcard');
     check(!fc.small.length && !fc.sideways && !fc.cut.length, `[agenda ${vp.width}] the open event fits: ${JSON.stringify(fc)}`);

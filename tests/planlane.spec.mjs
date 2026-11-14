@@ -245,7 +245,9 @@ if (core) for (const vp of [PHONE]) {
   check(/^\w+day \d+ \w+: /.test(dline2 ?? ''), `[${vp.width}] a tapped day is said: ${dline2}`);
   await page.click('#pg-agenda .monbar button[aria-label="Next month"]');
   const nm = await page.textContent('#pg-agenda .monname');
-  check(nm !== null && !(await page.isDisabled('#pg-agenda .monbar button[aria-label="This month"]')), `[${vp.width}] › steps to the next month: ${nm}`);
+  // (‹ and › step any month now: › shows next month by its name, and THIS MONTH comes home)
+  const nmWant = await page.evaluate(() => { const n = new Date(); const d = new Date(n.getFullYear(), n.getMonth() + 1, 1); return `${d.toLocaleDateString('en-GB', { month: 'long' })} ${d.getFullYear()}`; });
+  check(nm === nmWant && !(await page.isDisabled('#pg-agenda .monbar button[aria-label="Last month"]')) && !!(await page.$('#pg-agenda .pn.month button.monhome')), `[${vp.width}] › steps to the next month: ${nm}`);
   const fm = await fit(page, '#pg-agenda .pn.month');
   check(!fm.small.length && !fm.sideways && !fm.cut.length, `[${vp.width}] MONTH fits: ${JSON.stringify(fm)}`);
   if (vp === PHONE) await page.screenshot({ path: `${out}/planlane-month-${vp.width}.png` });

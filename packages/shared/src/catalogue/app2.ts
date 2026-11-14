@@ -37,9 +37,16 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:agenda:MONTH': {
     name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
-    more: 'This month and the next, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
+    more: 'Any month, back or on with ‹ and ›, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
     say: ['Show me my month', 'What’s on this month?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-13',
+  },
+  // [planlane2:timeline] the day by the hour and PLAN MY WEEK (features/agenda/timeline.ts)
+  'panel:agenda:TIMELINE': {
+    name: 'Your day by the hour', line: 'You can see today and tomorrow by the hour, with your free gaps said in words, and plan your week.',
+    more: 'Two things at once sit side by side, all-day ones and your to-dos due sit at the top, and a line marks now. PLAN MY WEEK lays out the next seven days with each day’s free time, worked out on your phone. Tap an event to change it in place.',
+    say: ['Plan my week', 'When am I free tomorrow?'], scene: ['morning'], cat: 'watch',
+    since: '2026-11-14',
   },
   // ---- THE BRIEF
   'panel:brief:FORESIGHT': { same: 'job:foresee' },
