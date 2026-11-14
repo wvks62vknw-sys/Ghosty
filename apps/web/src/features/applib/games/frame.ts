@@ -319,7 +319,8 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
         showBest();
         const head = o.words ?? (o.won ? 'Well played.' : 'Game over.');
         const tail = isBest ? `A new best: ${fmtNum(o.score)}.` : o.won ? `Score ${fmtNum(o.score)}.` : '';
-        clear(cover, h('div.al-gend', h('b.al-gendhead', head), tail ? h('p.al-gcovertext', tail) : null), key('Play again', () => restart(), { kind: 'fill' }));
+        const record = `Played ${kept.played} · won ${Math.round((kept.won / kept.played) * 100)}%${kept.bestStreak > 1 ? ` · longest streak ${kept.bestStreak}` : ''}`;
+        clear(cover, h('div.al-gend', h('b.al-gendhead', head), tail ? h('p.al-gcovertext', tail) : null, h('small.al-gstat', record)), key('Play again', () => restart(), { kind: 'fill' }));
         cover.hidden = false;
         k.notice(isBest ? `A new best in ${kind === 'reaction' ? 'reaction time' : 'score'}.` : head, { tone: o.won ? 'ok' : undefined });
       },

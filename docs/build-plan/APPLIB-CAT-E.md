@@ -19,9 +19,9 @@ names. UK rates are for the 2026 to 2027 tax year (6 April 2026 to 5 April 2027)
 - **Guides:** help finder, interview prep, dashboard lights and gov services.
 - **Timer:** answer practice.
 
-**Utilities: 41 apps.**
+**Utilities: 46 apps.**
 
-- **Sums:** take-home pay (income tax with the allowance taper, NI, pension, student loan plans 1, 2, 4 and 5, postgraduate), VAT, tip and split, discount, percent sums, unit price, trip fuel cost, pay converter, ratio scaler, shift hours, currency sums, speed and time, height by angle, password strength and screen density.
+- **Sums:** take-home pay (income tax with the allowance taper, NI, pension, student loan plans 1, 2, 4 and 5, postgraduate), VAT, tip and split, discount, percent sums, unit price, trip fuel cost, pay converter, ratio scaler, shift hours, currency sums, speed and time, height by angle, password strength, screen density, room area, ladder angle, average, fractions and bulb swap.
 - **Converters:** length, weight, volume, area, speed, temperature, data size, pressure, energy, power, time units and angles.
 - **Timers:** deep work, screen break, power nap and tidy sprint.
 - **Counters:** tally counter, lap counter, door count and stock take.
