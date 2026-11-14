@@ -21,6 +21,9 @@ import { revealPanel, sectionNow, sections } from '../../ui/sections';
 import { estimateCard } from './card';
 import { curveOf, type Curve } from '../../../../../packages/shared/src/workbench/curves';
 import { tunnelPanel, tunnelState } from './tunnel';
+import { projectsPanel, type Project } from './projects';
+import { diyPanel, diyState } from './diy';
+import type { JobId } from './diyjobs';
 import { badNumber, PHRASES } from './words';
 import { phrases } from '../lifeui';
 import { modeFor, PANELS, type Field, type Mode, type PanelSpec, type Values } from './panels';
@@ -75,9 +78,21 @@ export const workbenchState = {
   curves: {} as Record<string, Curve | null>,
   /** Each panel's mode and values (SI). */
   values: {} as Record<string, PanelState>,
+  /** The named project last opened ('' when none). */
+  project: '' as string,
+  /** DIY JOBS: the job and its plan. */
+  diy: diyState,
 };
 
 let api: { fill(panel: Panel | '', problem: Problem | null): Estimate | null } | null = null;
+let diyApi: ((job: JobId | null) => void) | null = null;
+
+/** From the chat: the Workbench opened on DIY JOBS, on `job` when his words named one ("put up a shelf"). */
+export function openDiy(job: JobId | null): boolean {
+  if (!go('workbench?diy')) return false;
+  diyApi?.(job);
+  return !!diyApi;
+}
 
 /**
  * From the chat: the Workbench opened on `panel` and, with a problem from his words, its form filled from them; the estimate
@@ -303,12 +318,55 @@ export const workbenchTab: TabDef = {
       mounted.push(m);
       (['beam', 'column', 'gears', 'engine'].includes(spec.id) ? P.left : P.right).append(m.el);
     }
+    // PROJECTS (make.u5): every panel's numbers saved under his own name, and opened again just as they were
+    const projects = projectsPanel({
+      snapshot: () => {
+        const panels: Record<string, { mode: string; v: Record<string, unknown> }> = {};
+        for (const m of mounted) {
+          const st = workbenchState.values[m.spec.id];
+          if (st) panels[m.spec.id] = { mode: st.mode, v: { ...st.v } };
+        }
+        const e = workbenchState.estimates[workbenchState.panel];
+        const first = e && !e.problem ? e.lines[0] : undefined;
+        return { panels, gist: e ? `${e.title}${first ? ` · ${first.value}` : ''}` : '', last: workbenchState.panel || undefined };
+      },
+      restore: (pr: Project) => {
+        for (const m of mounted) {
+          const snap = pr.panels[m.spec.id];
+          const st = workbenchState.values[m.spec.id];
+          if (!snap || !st || !m.spec.modes.some((x) => x.id === snap.mode)) continue;
+          st.mode = snap.mode;
+          st.v = { ...snap.v } as typeof st.v;
+          saved.panels[m.spec.id] = st;
+          m.render();
+          m.estimate();
+        }
+        if (pr.last && mounted.some((m) => m.spec.id === pr.last)) {
+          saved.last = pr.last;
+          touched(pr.last);
+          workbenchState.panel = pr.last;
+        }
+        save(saved);
+        workbenchState.project = pr.name;
+        paintSection();
+      },
+    });
+    P.right.append(projects.el);
+    // DIY JOBS (make.s3): "put up a shelf" → the load check, the tools, the materials and the steps
+    const diy = diyPanel();
+    P.right.append(diy.el);
+    diyApi = (job) => {
+      diy.open(job);
+      revealPanel(diy.el);
+      requestAnimationFrame(() => diy.el.scrollIntoView({ block: 'start', behavior: 'instant' as ScrollBehavior }));
+    };
     const secs = sections(root, 'workbench', [
       { id: 'tunnel', label: 'Wind tunnel', match: /^WIND TUNNEL/ },
       { id: 'structure', label: 'Structure', match: /^(BEAM|COLUMN)/ },
       { id: 'drive', label: 'Drive', match: /^(GEARS|ENGINE)/ },
       { id: 'flight', label: 'Flight', match: /^(WING|PROJECTILE|ORBIT)/ },
       { id: 'home', label: 'Home', match: /^(HEAT|SUN|CIRCUIT)/ },
+      { id: 'projects', label: 'Projects', match: /^(PROJECTS|DIY)/ },
     ]);
     workbenchState.panel = saved.last ?? 'beam';
     const phone = matchMedia('(max-width: 899px)');
@@ -408,6 +466,11 @@ export const workbenchTab: TabDef = {
         syncTunnel();
       },
       open(arg) {
+        if (arg === 'diy') return diyApi?.(null);
+        if (arg === 'projects') {
+          revealPanel(projects.el);
+          return void requestAnimationFrame(() => projects.el.scrollIntoView({ block: 'start', behavior: 'instant' as ScrollBehavior }));
+        }
         if (arg === 'tunnel' || PANELS.some((p) => p.id === arg)) show(arg);
       },
       // (BRIEF-SHELL pass 1) the page open and the estimate on it

@@ -296,7 +296,7 @@ test('offline readiness: nothing here is 0% with the brain next; everything here
   assert.equal(none.next.id, 'brain');
   assert.equal(none.nextPct, 34);
   assert.equal(RW.readyHead(none), '0% works with no signal');
-  assert.equal(RW.readyNext(none), 'Next: The offline brain, 352 MB on Wi-Fi, for answers, the interpreter’s translations and School papers (34% after).');
+  assert.equal(RW.readyNext(none), 'Next: The offline brain, 352 MB on Wi-Fi, for answers, Interpret’s translations and School papers (34% after).');
   const all = RW.scoreOf(piecesOf(RW.PIECES.map((p) => p.id)));
   assert.equal(all.pct, 100);
   assert.equal(all.next, null);

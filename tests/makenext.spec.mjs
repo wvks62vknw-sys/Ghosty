@@ -9,6 +9,8 @@
 //     those walls; the sizes say ROUGH above MATERIALS until one wall's real length is typed.
 //   MATERIALS' PRICES (M): typical UK prices beside paint, flooring and skirting from Design a build's table, LAMINATE or CARPET,
 //     the total and wallpaper instead, "not quotes"; SET AGAINST MY SPENDING sets the makeover against his own last three months.
+//   NAMED PROJECTS and DIY JOBS (W): every panel's numbers saved as "the shed beam" and opened back exactly; "put up a shelf" gives
+//     the board checked as a beam, each fixing's share with a margin of two, the tools, the materials and the steps.
 //   THE BAR (every one of them): every key 44 pt, nothing sideways, no word cut, at both sizes, at BODY 21, and in all seven looks.
 //   BASE=http://localhost:8788 node tests/makenext.spec.mjs [outDir]
 //   BASE=http://localhost:8788 node tests/makelane.spec.mjs [outDir]
@@ -93,6 +95,9 @@ const go = async (page, id) => {
 const text = (page, sel) => page.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.getClientRects().length).map((e) => (e.textContent ?? '').replace(/\s+/g, ' ').trim()).join(' | '), sel);
 /** Every key in `root` at 44 pt, nothing sideways on the page, no word cut inside `root`, no raw string. */
 async function bar(page, tag, id, root) {
+  // the screen finishes opening first: it scales in from 98.5 % (.pg.on, proswitch), so on a slow runner a 44 pt key measured
+  // mid-animation reads 43 (CI's ink flake on #119); the sizes are read once the screen is still
+  await page.waitForFunction((t) => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target === document.querySelector(`#pg-${t}`)), id, { timeout: 5000 }).catch(() => undefined);
   const r = await page.evaluate(({ t, root }) => {
     const vis = (e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]');
     const els = [...document.querySelectorAll(root)];
@@ -409,6 +414,64 @@ for (const vp of [PHONE, PHONE2]) {
     await ctx.close();
   });
 }
+
+// ================================================================ W · NAMED WORKBENCH PROJECTS and THE DIY JOB PLANNER
+const DJ = await pure('apps/web/src/features/workbench/diyjobs.ts');
+await section('words', async () => {
+  log('diy, by hand');
+  check(DJ.diyAsked('put up a shelf')?.job === 'shelf' && DJ.diyAsked('how do I mount my TV on the wall')?.job === 'tv' && DJ.diyAsked('hang a mirror')?.job === 'picture' && DJ.diyAsked('fit a curtain pole')?.job === 'pole' && DJ.diyAsked('DIY planner')?.job === null && DJ.diyAsked('put up with it') === null && DJ.diyAsked('what is a shelf') === null, '[W1 words] the jobs his words name');
+  // a 0.9 m pine shelf, 200 × 18 mm, on 2 brackets, 25 kg a metre: 22.5 kg + the board 420 × 0.9 × 0.2 × 0.018 = 1.36 kg, so 23.9 kg;
+  // each bracket 11.9 kg; each of its two fixings 5.97 kg, twice that for the margin: 11.9 kg, so rate for 12 kg
+  const p = DJ.planJob('shelf', {});
+  check(Math.abs(p.fixing.perFixingKg - 11.93) < 0.02 && p.fixing.lines[2].value === '12 kg or more', `[W2 shelf] ${JSON.stringify(p.fixing)}`);
+  check(p.beam && !p.beam.estimate.problem && p.beam.estimate.kind === 'beam' && p.assumed.length === 6, `[W2 beam] the board is checked as a beam: ${p.beam?.estimate.title} (${p.assumed.length} taken)`);
+  const tv = DJ.planJob('tv', { kg: 20 });
+  // 20 kg on 4 fixings: 5 kg each, 10 with the margin; the top pair pull out 20 × 0.08 ÷ 0.2 ÷ 2 = 4 kg, 8 with the margin
+  check(tv.fixing.lines[0].value === '10 kg with the margin' && tv.fixing.lines[1].value === '8 kg with the margin', `[W3 tv] ${JSON.stringify(tv.fixing.lines)}`);
+  check(/first estimate, never certified/.test(DJ.DIY_NOTE) && /not quotes/.test(DJ.DIY_NOTE), '[W4 honest] the note');
+});
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  await section('projects', async () => {
+    log(`projects and diy ${vp.width}`);
+    const { ctx, page } = await phone(vp, { store: WB_STORE });
+    await go(page, 'workbench');
+    await openSection(page, 'workbench', 'Projects');
+    check(await until(page, () => !!document.querySelector('#pg-workbench .wb-projects .wbprojnone')?.getClientRects().length, null, 15000), `${T} [W5 empty] no empty line in PROJECTS`);
+    await page.locator('#pg-workbench .wb-projects input').fill('the shed beam');
+    await page.locator('#pg-workbench .wb-projects button', { hasText: 'SAVE' }).click();
+    check(await until(page, () => /the shed beam/.test(document.querySelector('#pg-workbench .wb-projects .wbproj')?.textContent ?? ''), null, 5000), `${T} [W6 saved] "${await text(page, '#pg-workbench .wb-projects')}"`);
+    // change the beam, then OPEN the project: every number back as it was (3 m: 0.201 mm)
+    await openSection(page, 'workbench', 'Structure');
+    await page.locator('#wb-beam-beam-span').fill('5');
+    check(await until(page, () => /^Beam: 5 m/.test(window.__ghosty.workbench.estimates.beam?.title ?? ''), null, 5000), `${T} [W7 changed] the beam did not change`);
+    await openSection(page, 'workbench', 'Projects');
+    await page.locator('#pg-workbench .wb-projects .wbproj button', { hasText: 'OPEN' }).click();
+    check(await until(page, () => /^Beam: 3 m/.test(window.__ghosty.workbench.estimates.beam?.title ?? '') && window.__ghosty.workbench.project === 'the shed beam', null, 5000), `${T} [W8 opened] the beam reads "${await page.evaluate(() => window.__ghosty.workbench.estimates.beam?.title)}"`);
+    check(await page.evaluate(() => document.querySelector('#wb-beam-beam-span')?.value === '3'), `${T} [W8 form] the span box does not say 3`);
+    await bar(page, `${T} [W projects bar]`, 'workbench', '#pg-workbench .wb-projects');
+    // DIY JOBS: the shelf by default: its beam card with its curve, the fixings, tools, materials with prices, steps
+    const diy = '#pg-workbench .wb-diy';
+    check(await until(page, (s) => !!document.querySelector(`${s} .wbcard .wbcurve`) && !!document.querySelector(`${s} .wbdiyfix`), diy, 10000), `${T} [W9 shelf] no load check under DIY JOBS`);
+    const dt = await page.evaluate((s) => document.querySelector(`${s} .wbdiyout`)?.innerText.replace(/\s+/g, ' ') ?? '', diy);
+    check(/A 0\.9 m shelf on 2 brackets/.test(dt) && /Each fixing to rate for 12 kg or more/.test(dt) && /TOOLS/.test(dt) && /MATERIALS/.test(dt) && /STEPS/.test(dt) && /first estimate, never certified/.test(dt), `${T} [W9 words] "${dt.slice(0, 300)}"`);
+    await page.locator(`${diy} button[data-job=tv]`).click();
+    await page.locator('#wb-diy-tv-kg').fill('20');
+    check(await until(page, () => window.__ghosty.workbench.diy.plan?.id === 'tv' && /10 kg with the margin/.test(document.querySelector('#pg-workbench .wb-diy .wbdiyfix')?.textContent ?? ''), null, 5000), `${T} [W10 tv] "${await text(page, `${diy} .wbdiyfix`)}"`);
+    await bar(page, `${T} [W diy bar]`, 'workbench', diy);
+    await ctx.close();
+  });
+}
+// the chat: "put up a shelf" opens DIY JOBS on the shelf, with no model
+await section('projects', async () => {
+  log('diy from the chat');
+  const { ctx, page } = await phone(PHONE);
+  await go(page, 'workbench');
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.evaluate(() => window.__ghosty.send('put up a shelf', false));
+  check(await until(page, () => document.body.dataset.tab === 'workbench' && window.__ghosty.workbench?.diy?.plan?.id === 'shelf', null, 15000), `[W11 chat] "put up a shelf" did not open DIY JOBS on the shelf`);
+  await ctx.close();
+});
 
 // ================================================================ BODY 21 and the seven looks
 await section('body21', async () => {

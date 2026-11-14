@@ -5,8 +5,9 @@
  * workspace sharing what it did not touch), so undo is a step back and a snapshot is cheap. Pure: apps/edge/test/workspace.test.mjs.
  */
 import { blockId, tidyRuns, type Block, type Run } from '../docs/model';
+import type { MindNode } from './mind';
 
-export type WType = Block['t'] | 'todo' | 'link' | 'view' | 'callout';
+export type WType = Block['t'] | 'todo' | 'link' | 'view' | 'callout' | 'toggle' | 'mind';
 /** A callout's kind: a note, a tip, or a warning (its mark and its tint). */
 export type Tone = 'note' | 'tip' | 'warn';
 export const TONES: Tone[] = ['note', 'tip', 'warn'];
@@ -28,6 +29,14 @@ export interface WBlock extends Omit<Block, 't'> {
   tone?: Tone;
   /** His own words to himself on this block, dated. */
   comments?: Comment[];
+  /** Inside a toggle: that toggle's block id (folded away with it). */
+  under?: string;
+  /** A toggle: folded shut (its blocks out of sight). */
+  folded?: boolean;
+  /** A synced block: its group's id; every block of the group, on any page, holds the same words. */
+  sync?: string;
+  /** A mind map: its ideas (editors.s8). */
+  mind?: MindNode[];
 }
 
 export type PropKind = 'text' | 'number' | 'select' | 'multi' | 'date' | 'check' | 'person' | 'relation' | 'rollup' | 'formula';
@@ -148,6 +157,7 @@ export function wText(b: WBlock, ws?: Workspace, docTitle?: (id: string) => stri
     return t ?? b.runs.map((r) => r.text).join('');
   }
   if (b.t === 'view') return ws?.pages[b.db ?? '']?.title ?? '';
+  if (b.t === 'mind') return (b.mind ?? []).map((n) => n.text).join('\n');
   return b.runs.map((r) => r.text).join('');
 }
 
@@ -313,7 +323,9 @@ export function duplicatePage(ws: Workspace, id: string): { ws: Workspace; id: s
     copy.id = map.get(x.id)!;
     copy.created = now;
     copy.at = now;
-    copy.blocks = copy.blocks.map((b) => ({ ...b, id: blockId(), ...(b.db && map.has(b.db) ? { db: map.get(b.db)! } : {}) }));
+    // (new block ids; a line inside a toggle follows its toggle's new id)
+    const bids = new Map(copy.blocks.map((b) => [b.id, blockId()]));
+    copy.blocks = copy.blocks.map((b) => ({ ...b, id: bids.get(b.id)!, ...(b.db && map.has(b.db) ? { db: map.get(b.db)! } : {}), ...(b.under ? { under: bids.get(b.under) ?? b.under } : {}) }));
     if (x.id === id) {
       copy.title = `${x.title.trim() || 'Untitled'} copy`;
       copy.order = nextOrder(ws, x.parent);
@@ -440,3 +452,94 @@ export class History {
     return this.now;
   }
 }
+
+// ---------------------------------------------------------------- toggles and synced blocks (editors.u6)
+
+/** The blocks out of sight: inside a folded toggle, at any depth (a toggle inside a folded one is hidden with its own blocks). */
+export function hiddenBlocks(bs: WBlock[]): Set<string> {
+  const by = new Map(bs.map((b) => [b.id, b]));
+  const out = new Set<string>();
+  for (const b of bs) {
+    let at = b.under;
+    const seen = new Set<string>();
+    while (at && !seen.has(at)) {
+      seen.add(at);
+      const t = by.get(at);
+      if (!t) break;
+      if (t.folded) {
+        out.add(b.id);
+        break;
+      }
+      at = t.under;
+    }
+  }
+  return out;
+}
+/** How deep inside toggles a block sits (0: not inside one). */
+export function toggleDepth(bs: WBlock[], b: WBlock): number {
+  let n = 0;
+  let at = b.under;
+  const seen = new Set<string>();
+  while (at && !seen.has(at) && n < 8) {
+    seen.add(at);
+    const t = bs.find((x) => x.id === at);
+    if (!t) break;
+    n++;
+    at = t.under;
+  }
+  return n;
+}
+/** A toggle folded or opened. */
+export const foldToggle = (ws: Workspace, id: string, bid: string, folded: boolean): Workspace => patchBlock(ws, id, bid, (b) => ({ ...b, folded: folded || undefined }));
+/** A block and everything inside it (a toggle's blocks, at any depth). */
+export function withInside(bs: WBlock[], bid: string): Set<string> {
+  const out = new Set([bid]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const b of bs) if (b.under && out.has(b.under) && !out.has(b.id)) {
+      out.add(b.id);
+      grew = true;
+    }
+  }
+  return out;
+}
+/** A line inside a toggle, after the last of its blocks; the toggle opens. */
+export function addInside(ws: Workspace, id: string, toggle: string, nb: WBlock): Workspace {
+  const p = ws.pages[id];
+  if (!p) return ws;
+  const inside = withInside(p.blocks, toggle);
+  let last = toggle;
+  for (const b of p.blocks) if (inside.has(b.id)) last = b.id;
+  return insertBlock(foldToggle(ws, id, toggle, false), id, { ...nb, under: toggle }, last);
+}
+
+export const syncId = (): string => uid('s');
+/** Where a synced group shows: each live page holding one of its blocks. */
+export const syncPages = (ws: Workspace, sync: string): Page[] => live(ws).filter((p) => p.blocks.some((b) => b.sync === sync));
+/** New words for a synced block: every block of its group, on every page, gets them (one change, so one UNDO). */
+export function syncRuns(ws: Workspace, sync: string, runs: Run[]): Workspace {
+  const clean = tidyRuns(runs);
+  let out = ws;
+  for (const p of syncPages(ws, sync)) out = withBlocks(out, p.id, (bs) => bs.map((b) => (b.sync === sync ? { ...b, runs: clean } : b)));
+  return out;
+}
+/** A block shown on another page too: it joins (or starts) a synced group, and a copy of it goes at the end of `to`. */
+export function syncTo(ws: Workspace, id: string, bid: string, to: string): { ws: Workspace; sync: string; error?: string } {
+  const b = ws.pages[id]?.blocks.find((x) => x.id === bid);
+  const target = ws.pages[to];
+  if (!b) return { ws, sync: '', error: 'That block is not here any more.' };
+  if (!target || target.deleted) return { ws, sync: '', error: 'That page is not here any more.' };
+  if (!['p', 'h1', 'h2', 'h3', 'ul', 'ol', 'quote', 'todo', 'callout', 'right'].includes(b.t)) return { ws, sync: '', error: 'Only a line of words can be synced: a heading, a line, a list item, a to-do, a quotation or a callout.' };
+  const sync = b.sync ?? syncId();
+  if (target.blocks.some((x) => x.sync === sync)) return { ws, sync, error: `It is already on “${titleOf(target)}”.` };
+  let out = b.sync ? ws : patchBlock(ws, id, bid, (x) => ({ ...x, sync }));
+  const { comments: _c, under: _u, done: _d, ...rest } = b;
+  out = withBlocks(out, to, (bs) => [...bs, { ...rest, id: blockId(), sync }]);
+  return { ws: out, sync };
+}
+/** This one block lets go of its group (the others stay synced). */
+export const unsync = (ws: Workspace, id: string, bid: string): Workspace => patchBlock(ws, id, bid, (b) => {
+  const { sync: _s, ...rest } = b;
+  return rest;
+});

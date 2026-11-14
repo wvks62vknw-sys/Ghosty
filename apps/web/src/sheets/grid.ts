@@ -32,6 +32,8 @@ export interface GridHost {
   setZoom(z: number): void;
   /** A key pressed on the grid (the host decides). */
   key(e: KeyboardEvent): void;
+  /** What the colour rules make of each cell on the active sheet (rules.ts). */
+  marks?(): Map<string, { tone?: number; bar?: number; scale?: number }>;
 }
 export interface Grid {
   el: HTMLElement;
@@ -141,6 +143,18 @@ export function makeGrid(host: GridHost): Grid {
     if (x?.b) el1.dataset.b = '1';
     if (x?.i) el1.dataset.i = '1';
     if (x?.fill) el1.dataset.fill = String(x.fill);
+    const m = host.marks?.().get(a);
+    if (m) {
+      if (m.tone) el1.dataset.cf = String(m.tone);
+      if (m.bar !== undefined) {
+        el1.dataset.bar = '1';
+        el1.style.setProperty('--shbar', m.bar.toFixed(3));
+      }
+      if (m.scale !== undefined) {
+        el1.dataset.scale = '1';
+        el1.style.setProperty('--shscale', `${Math.round(m.scale * 100)}%`);
+      }
+    }
     el1.setAttribute('aria-label', `${a}${el1.textContent ? `: ${el1.textContent}` : ', empty'}`);
     return el1;
   };

@@ -11,6 +11,7 @@
 //   YEAR      the year's totals and the PRINT key. WATCHES: a price watch made there, with its price, its move and when it last read.
 //   HOME      a paid bill stays under PAID with what its supplier cost this year, and can be forgotten; PAPERS keeps a warranty with
 //             its receipt's photo on the phone and a reminder, and a household paper with its renewal date.
+//   MEETINGS  an agenda kept, notes taken in it, summed up from his notes and kept with it.
 //   JOBS      an application kept with a follow-up reminder, its stage moved, forgotten.
 //   PEOPLE    one note changed, a gift idea kept and bought with its price, his own photo of someone kept on the phone only; a
 //             birthday in COMING UP gets a message drafted in his voice, never sent; two group plans at once, each answered.
@@ -336,6 +337,12 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await page.fill(`${Hp} input[aria-label="The day you bought it"]`, bought);
       await page.fill(`${Hp} input[aria-label="How many months the warranty runs"]`, '24');
       await page.fill(`${Hp} input[aria-label="Where you bought it"]`, 'Currys');
+      // with no signal, a keep that fails leaves what he typed
+      await page.evaluate(() => (window.__off = true));
+      await page.click(`${Hp} button[aria-label="Keep this warranty"]`);
+      await page.waitForTimeout(300);
+      check((await page.inputValue(`${Hp} input[aria-label="What it is"]`)) === 'washing machine' && (await page.inputValue(`${Hp} input[aria-label="How many months the warranty runs"]`)) === '24', 'PAPERS a failed keep leaves what he typed');
+      await page.evaluate(() => (window.__off = false));
       await page.click(`${Hp} button[aria-label="Keep this warranty"]`);
       check(await until(page, () => (window.__ghosty.homeadmin.warranties ?? []).some((w) => /^washing machine \d{4}-\d\d-\d\d$/.test(w)), null, 10000), `PAPERS a warranty kept with its end date: ${JSON.stringify(await page.evaluate(() => window.__ghosty.homeadmin.warranties))}`);
       check(/I’ll remind you on/.test(await txt(page, `${Hp} p.pknote[aria-live]`)), 'PAPERS a reminder is set before it runs out');
@@ -426,6 +433,30 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       check(await until(page, () => !(window.__ghosty.jobs?.jobs ?? []).length, null, 10000), 'JOBS forgotten');
     });
 
+    await block('meetings', async () => {
+      log('meetings');
+      await page.evaluate(() => localStorage.removeItem('ghosty.work.meetings'));
+      await open(page, 'work', 'Meetings');
+      const Wm = PK('work');
+      await page.waitForSelector(`${Wm} button[aria-label="Keep this meeting"]`, { timeout: 8000 });
+      check(/No meetings yet/.test(await txt(page, `${Wm} [data-state="empty"]`)), 'MEETINGS with none it says how to start');
+      await page.fill(`${Wm} input[aria-label="What the meeting is"]`, 'Team catch-up');
+      await page.fill(`${Wm} textarea[aria-label="The agenda, one point a line"]`, 'the rota\nthe new starter');
+      await page.click(`${Wm} button[aria-label="Keep this meeting"]`);
+      check(await until(page, () => (window.__ghosty.meetings?.list ?? []).includes('Team catch-up')), 'MEETINGS kept with its agenda');
+      await page.click(`${Wm} button[aria-label="Open Team catch-up"]`);
+      await page.waitForSelector('.modal textarea[aria-label="Notes for Team catch-up"]', { timeout: 5000 });
+      await page.fill('.modal textarea[aria-label="Notes for Team catch-up"]', 'Agreed: the rota changes from Monday. I will send the plan by Friday. Sam to meet the new starter.');
+      await page.waitForTimeout(400);
+      await bar(page, 'MEETINGS bar', 'work', '.modal .pk');
+      await page.click('.modal button[aria-label="Sum up Team catch-up"]');
+      check(await until(page, () => window.__ghosty.meetings?.summed >= 1, null, 10000) && /rota/i.test(await txt(page, '.modal pre.pkdoc')), `MEETINGS summed up from his notes: "${(await txt(page, '.modal pre.pkdoc')).slice(0, 120)}"`);
+      await page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
+      check(await until(page, () => (window.__ghosty.meetings?.list ?? []).includes('Team catch-up summed')), 'MEETINGS the summary is kept with it');
+      await page.click(`${Wm} button[aria-label="Forget Team catch-up"]`);
+      await page.evaluate(() => localStorage.removeItem('ghosty.work.library'));
+    });
+
     await block('people', async () => {
       log('people');
       await pk('people', 'forget', { who: 'Sam' });
@@ -452,7 +483,12 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await (await chooser).setFiles({ name: 'sam.png', mimeType: 'image/png', buffer: png });
       check(await until(page, () => !!document.querySelector('.ppphoto'), null, 10000) && /kept on this phone only/.test(await txt(page, `${Pp} p.pknote[aria-live]`)), 'PEOPLE his own photo of someone, kept on the phone only');
       await bar(page, 'PEOPLE bar', 'people');
-      await page.click(`${Pp} button[aria-label="Take away your photo of Sam"]`);
+      // forgetting Sam on the screen takes his photo off the phone too
+      await page.click(`${Pp} button[aria-label="Forget Sam"]`);
+      await page.locator('.modal button:has-text("Forget Sam")').click();
+      check(await until(page, () => !(window.__ghosty.people.people ?? []).some((p) => p.name === 'Sam'), null, 10000), 'PEOPLE Sam forgotten on his say');
+      const left = await page.evaluate(() => new Promise((ok) => { const r = indexedDB.open('ghosty-receipts', 1); r.onsuccess = () => { const g = r.result.transaction('photos').objectStore('photos').get('person:sam'); g.onsuccess = () => ok(!!g.result); g.onerror = () => ok(true); }; r.onerror = () => ok(true); }));
+      check(!left, 'PEOPLE forgetting someone takes his own photo of them off the phone');
       // a birthday in COMING UP: a message drafted in his voice, for him to send himself
       const on = new Date(Date.now() + 8 * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
       await pk('people', 'birthday', { who: 'Sam', words: `Sam birthday ${on}` });
