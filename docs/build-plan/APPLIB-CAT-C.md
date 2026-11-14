@@ -19,7 +19,7 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
 - Knowledge decks: Planets, Bones of the Body, Morse Code, Major System, Fallacies, History Dates, British Monarchs, the four Capitals decks, Latin Phrases, Word Roots, Git Commands, Big O.
 - Logs and lists: Reading List, Study Log, Vocabulary Book, Lab Notebook, Language Daily, Exam Day.
 
-**Travel & world (59 apps).**
+**Travel & world (58 apps).**
 - From the list, with `from`:
   - Trips (world.13), Tickets & Passes (world.16), Car Logbook (world.45), Trip Spend (world.23), Packing (world.15).
   - Travel Papers (world.17): the document and renewal half.
@@ -30,7 +30,6 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
   - Currency: at his own rate, plus any card fee.
   - Tip and Split, Travel Units (Weights and Measures Act 1985 definitions).
   - Fuel Cost, Fuel Economy, EV Charge Cost.
-  - Mileage Claim: HMRC approved rates.
   - Great Circle (haversine), Walking Time (Naismith), Summit Temperature (ICAO lapse rate), Wind Chill (JAG/TI index).
 - Phrasebooks for 16 languages, each in its own script with a romanisation after non-Latin scripts: French, Spanish, German, Italian, Portuguese, Dutch, Greek, Turkish, Polish, Russian, Arabic, Urdu, Hindi, Japanese, Mandarin, Korean.
 - Decks: Phonetic Alphabet, World Currencies, Dialling Codes, Emergency Numbers, Driving Sides.
@@ -51,6 +50,7 @@ Other lanes had already landed apps doing the same job, so mine were dropped:
 - Games: Times Tables.
 - Developer & maker: Ohm's Law, LED Resistor, HTTP Status Codes.
 - Family & life: Bucket List, Travel Journal.
+- Money: Mileage Claim (the same job as its Mileage Allowance).
 
 ## Needs its own build
 

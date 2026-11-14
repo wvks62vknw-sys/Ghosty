@@ -466,31 +466,6 @@ export const WORLD: AppDef[] = [
     },
   },
   {
-    id: 'mileage-claim', name: 'Mileage Claim', family: 'world', glyph: 'receipt', archetype: 'calc',
-    pitch: 'Business mileage at the approved rates for the tax year, car, motorbike or bike.',
-    keywords: ['mileage', 'claim', 'business', 'expenses', 'tax', 'allowance'],
-    tour: ['Type your business miles so far this tax year and pick the vehicle.', 'Cars get the higher rate for the first 10,000 miles only.', 'Add colleagues carried for the passenger rate.'],
-    calc: {
-      source: 'HMRC approved mileage allowance payments (GOV.UK): cars and vans 45p a mile for the first 10,000 miles, 25p after; motorcycles 24p; bicycles 20p; passengers 5p',
-      estimate: true,
-      inputs: [
-        { id: 'miles', label: 'Business miles', default: 12000, min: 0 },
-        { id: 'kind', label: 'Vehicle', default: 1, choices: [{ label: 'Car or van', value: 1 }, { label: 'Motorcycle', value: 2 }, { label: 'Bicycle', value: 3 }] },
-        { id: 'pax', label: 'Passengers', default: 0, min: 0, step: 1 },
-      ],
-      outputs: [
-        { id: 'base', label: 'Allowance', expr: 'if(kind == 1, 0.45*min(miles, 10000) + 0.25*max(miles - 10000, 0), if(kind == 2, 0.24*miles, 0.20*miles))', format: 'money' },
-        { id: 'extra', label: 'Passenger rate', expr: 'if(kind == 1, 0.05*pax*miles, 0)', format: 'money' },
-        { id: 'total', label: 'Total', expr: 'base + extra', format: 'money' },
-      ],
-      tests: [
-        { in: { miles: 12000, kind: 1, pax: 0 }, out: { base: 5000, extra: 0, total: 5000 } },
-        { in: { miles: 3000, kind: 3, pax: 0 }, out: { base: 600, total: 600 } },
-        { in: { miles: 1000, kind: 1, pax: 1 }, out: { base: 450, extra: 50, total: 500 } },
-      ],
-    },
-  },
-  {
     id: 'great-circle', name: 'Great Circle', family: 'world', glyph: 'compass', archetype: 'calc',
     pitch: 'The shortest distance and the starting bearing between two points on Earth.',
     keywords: ['distance', 'great', 'circle', 'bearing', 'latitude', 'longitude'],
