@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 const at = (p) => new URL(p, import.meta.url).pathname;
 const S = '../../web/src/features/comic/';
 await build({
-  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`) },
+  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`), script: at(`${S}script.ts`) },
   outdir: at('./.build/comic/'),
   bundle: true,
   format: 'esm',
@@ -23,6 +23,7 @@ const M = await O('model');
 const A = await O('asks');
 const F = await O('files');
 const L = await O('library');
+const SC = await O('script');
 
 test('the writer: an idea becomes a whole comic (cover words, four pages of 3, 4, 4 and 3 panels), a cast of three kept in every panel, a beginning, a turn, an end and a callback', () => {
   const c = M.writeComic({ idea: 'make me a comic about a cat who wants to be an astronaut', seed: 7 });
@@ -137,4 +138,38 @@ test('the library: the Internet Archive’s open search, public-domain items onl
   assert.match(decodeURIComponent(u), /title:\(western\)/);
   assert.doesNotMatch(u, /key|token|auth/i);
   assert.match(L.creditOf({ id: 'X1', title: 'X', year: '1950', creator: '' }), /^Public domain, from the Internet Archive \(archive\.org\/details\/X1\), first published 1950\.$/);
+});
+
+test('Ghosty writes, the app draws: the brain is asked in a plain format with the cast as drawn; its script is read into pages for that cast, the unknown mapped to what can be drawn, a thin one refused', () => {
+  const base = M.writeComic({ idea: 'a cat who wants to fly', hero: 'Biscuit', friend: 'Ana', rival: 'Dr Sneer', seed: 3 });
+  const ask = SC.scriptAsk('a cat who wants to fly', base.cast, 'A mystery');
+  assert.match(ask, /^COMIC SCRIPT: /);
+  assert.match(ask, /HERO = Biscuit \(a cat\); FRIEND = Ana \(a person\); RIVAL = Dr Sneer/);
+  assert.match(ask, /The kind of story: A mystery\./);
+  assert.doesNotMatch(ask, /\ba comic\b/i, 'never the words that turn the creative tool on');
+  const text = [
+    'TITLE: **Biscuit Takes Off**', 'TAGLINE: Up, up and slightly sideways.', 'PAGE 1',
+    'PANEL: garden, morning, establishing | the want', 'CAST: Biscuit excited waving; Ana bored walking', 'CAPTION: Monday.', 'Biscuit (shout): Today I fly!', 'Ana: You are a cat.',
+    'PANEL: moon, midnight, close-up | dream', 'Biscuit (thought): One day.', 'SFX: "ZOOM"',
+    'PAGE 2', 'PANEL: town, day, mid | rival', 'CAST: Dr Sneer proud gesturing', 'Dr Sneer: Cats cannot fly.', 'Nobody: ignored line',
+    'PANEL: lab, dusk, wide | idea', 'ANA: Kites!', 'BISCUIT (whisper): Kites.',
+    'PANEL: sky, day, mid | end', 'HERO: Wheee!', 'CAPTION: THE END.',
+  ].join('\n');
+  const r = SC.readScript(text, base.cast);
+  assert.ok(r);
+  assert.equal(r.title, 'Biscuit Takes Off');
+  assert.equal(r.pages.length, 2);
+  assert.deepEqual(r.pages.map((p) => p.panels.length), [2, 3]);
+  const p1 = r.pages[0].panels[0];
+  assert.deepEqual([p1.scene, p1.time, p1.shot], ['park', 'day', 'wide'], 'garden, morning, establishing → the nearest the drawing has');
+  assert.deepEqual(p1.actors.map((a) => [a.who, a.mood, a.pose]), [['hero', 'happy', 'cheer'], ['friend', 'calm', 'run']]);
+  assert.deepEqual(p1.balloons.map((b) => [b.who, b.kind]), [['hero', 'shout'], ['friend', 'speech']]);
+  assert.deepEqual([r.pages[0].panels[1].scene, r.pages[0].panels[1].time, r.pages[0].panels[1].shot, r.pages[0].panels[1].sfx], ['space', 'night', 'close', 'ZOOM']);
+  assert.equal(r.pages[1].panels[0].balloons.length, 1, 'a speaker not in the cast is left out');
+  assert.deepEqual(r.pages[1].panels[1].actors.map((a) => a.who).sort(), ['friend', 'hero'], 'every speaker is in the panel');
+  const c = SC.withScript(base, r);
+  assert.deepEqual(c.cast, base.cast, 'the same cast, the same looks');
+  assert.ok(M.comicFrom(JSON.parse(JSON.stringify(c))));
+  assert.equal(SC.readScript('TITLE: x\nPAGE\nPANEL: town, day, wide\nHERO: hi', base.cast), null, 'too thin to be a comic');
+  assert.equal(SC.readScript('Sorry, I cannot help with that.', base.cast), null);
 });

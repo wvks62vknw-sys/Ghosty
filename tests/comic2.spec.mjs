@@ -303,17 +303,17 @@ for (const vp of [PHONE, PHONE2]) {
 
   // (d) a comic made from the chat
   await chat(page, 'make me a comic about a cat who wants to be an astronaut');
-  check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.id && window.__ghosty.comic.editing.pages === 4, null, 15000), `${T} (d) the chat's words make a whole comic and open it`);
+  check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.id && window.__ghosty.comic.editing.pages === 4 && window.__ghosty.comic.editing.by === 'brain', null, 15000), `${T} (d) the chat's words make a whole comic and open it`);
   st = await C(page);
   check(st.editing.cast.length === 3 && st.editing.page === 0, `${T} (d) a cast of three (${st.editing.cast.join(', ')}) and the cover first`);
   check(/a cat who wants to be an astronaut/.test(await page.evaluate(() => [...document.querySelectorAll('#pg-comic .chatmsg, .log .msg, .log')].map((e) => e.textContent).join(' ')).catch(() => '')) || true, `${T} (d) the chat says what was made`);
   const cover = await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'));
-  check(/^The cover: /.test(cover) && /In which .+ tries to be an astronaut/.test(cover), `${T} (d) the cover has a title and its tagline: "${cover.slice(0, 90)}"`);
+  check(/^The cover: /.test(cover) && /Written for you: a cat who wants to be an astronaut/.test(cover), `${T} (d) the cover has a title and its tagline: "${cover.slice(0, 90)}"`);
   await page.click('#pg-comic button[aria-label="Next page"]');
   check(await until(page, () => window.__ghosty.comic.editing.page === 1 && window.__ghosty.comic.editing.panels === 3), `${T} (d) page 1 has three panels`);
   const p1 = await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'));
   const hero = st.editing.cast[0];
-  check(p1.includes(`${hero}: Today is the day. Today I become an astronaut!`), `${T} (d) the hero says what they want: "${p1.slice(0, 120)}"`);
+  check(p1.includes(`${hero}: Today everything changes!`), `${T} (d) the hero says what they want: "${p1.slice(0, 120)}"`);
   // the whole story: a beginning, the turn, the end
   const story = [];
   for (let i = 0; i < 4; i++) {
@@ -322,7 +322,7 @@ for (const vp of [PHONE, PHONE2]) {
     await page.waitForTimeout(60);
   }
   const all = story.join(' ');
-  check(/Attempt number one/.test(all) && /worst idea I have ever heard/.test(all) && /THE END/.test(all) && (all.match(/Who put that there\?/g) ?? []).length === 2, `${T} (d) the story has its tries, its turn, its end and its callback`);
+  check(/toaster/.test(story[0]) && /upside down/i.test(all) && /THE END/.test(all) && /take back everything I said about the toaster/.test(story[3]) && /Where can I get a diagram\?/.test(all), `${T} (d) Ghosty's script has its setup, its turn, its end and its callback, drawn with the same cast`);
   // edit a panel's line: tap the first panel of page 1
   await page.click('#pg-comic button[aria-label="Previous page"]');
   await page.click('#pg-comic button[aria-label="Previous page"]');
@@ -336,8 +336,35 @@ for (const vp of [PHONE, PHONE2]) {
   check(await until(page, () => /To the moon, or at least the shed roof!/.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (d) a line changed redraws the page`);
   await page.locator('#pg-comic .cxpanel input[aria-label="Sound effect"]').fill('BOING!');
   check(await until(page, () => /BOING!/.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (d) a sound effect added`);
+  // undo and redo (comic.u4): the line typed above, taken back and put back
+  await page.click('#pg-comic button[aria-label="Undo the last change"]');
+  check(await until(page, () => !/BOING!/.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))) && /To the moon, or at least the shed roof!/.test(await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (d) UNDO takes back the last change (the sound effect) and keeps the one before`);
+  await page.click('#pg-comic button[aria-label="Redo what was undone"]');
+  check(await until(page, () => /BOING!/.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (d) REDO puts it back`);
+  // a finger drags a balloon (comic.u5)
+  {
+    await page.locator('#pg-comic .cxpage').scrollIntoViewIfNeeded();
+    const bx = (await C(page)).editing.boxes[0];
+    const r = await page.locator('#pg-comic .cxpage').boundingBox();
+    const k = r.width / 1000;
+    const sx = r.x + (bx.x + bx.w / 2) * k;
+    const sy = r.y + (bx.y + bx.h / 2) * k;
+    await page.mouse.move(sx, sy);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(sx + i * 6, sy + i * 8);
+    await page.mouse.up();
+    check(await until(page, (y0) => window.__ghosty.comic.editing.dragged >= 1 && window.__ghosty.comic.editing.boxes[0] && window.__ghosty.comic.editing.boxes[0].y > y0 + 20, bx.y), `${T} (d) a balloon dragged with a finger moves (and stays moved)`);
+  }
+  // his own photo behind the panel (comic.u7)
+  {
+    const chooser = page.waitForEvent('filechooser', { timeout: 8000 });
+    await page.click('#pg-comic button[aria-label="Put one of my own photos behind this panel"]');
+    await (await chooser).setFiles({ name: 'kitchen.png', mimeType: 'image/png', buffer: pagePng(320, 240, [[10, 10, 300, 220]], [200, 120, 60]) });
+    check(await until(page, () => window.__ghosty.comic.editing.photo === true && /Your photo is behind this panel/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `${T} (d) MY PHOTO BEHIND IT puts his photo behind the panel, kept on the phone`);
+  }
+  const b0 = (await C(page)).editing.balloons;
   await page.click('#pg-comic button[aria-label="Add a speech balloon to this panel"]');
-  check(await until(page, () => window.__ghosty.comic.editing.balloons >= 6), `${T} (d) ADD A LINE adds a balloon`);
+  check(await until(page, (n) => window.__ghosty.comic.editing.balloons === n + 1, b0), `${T} (d) ADD A LINE adds a balloon`);
   await page.click('#pg-comic button[aria-label="Add a panel to this page"]');
   check(await until(page, () => window.__ghosty.comic.editing.panels === 4), `${T} (d) ADD PANEL makes four`);
   await page.click('#pg-comic button[aria-label="Change this page’s panel grid"]');
@@ -361,6 +388,29 @@ for (const vp of [PHONE, PHONE2]) {
   await until(page, () => !document.querySelector('.cxread'));
   await goComic(page, 'shelf');
   check(await until(page, () => window.__ghosty.comic.made === 1 && window.__ghosty.comic.books === 4), `${T} (d) the made comic is on the shelf, kept`);
+
+  // the phone's own writer (when he picks it, or with no signal): the beats of the local story
+  if (vp.width === 440) {
+    await goComic(page, 'make');
+    if (await page.$('#pg-comic button[aria-label="Start a new comic from an idea"]')) await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
+    await page.selectOption('#pg-comic select[aria-label="Who writes it"]', 'phone');
+    await page.fill('#pg-comic textarea', 'a cat who wants to be an astronaut');
+    await page.click('#pg-comic button[aria-label="Make a whole comic from this idea"]');
+    check(await until(page, () => window.__ghosty.comic.editing.by === 'phone' && window.__ghosty.comic.editing.pages === 4), `${T} (d) WRITTEN HERE ON THE PHONE makes it with no brain`);
+    const words = [];
+    for (let i = 0; i < 5; i++) {
+      words.push(await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label')));
+      await page.click('#pg-comic button[aria-label="Next page"]');
+    }
+    const w = words.join(' ');
+    check(/Today I become an astronaut!/.test(w) && /Attempt number one/.test(w) && /worst idea I have ever heard/.test(w) && (w.match(/Who put that there\?/g) ?? []).length === 2, `${T} (d) the phone's story has its want, its tries, its turn and its callback`);
+    await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
+    await page.selectOption('#pg-comic select[aria-label="Who writes it"]', 'ghosty');
+    await ctx.setOffline(true);
+    await page.click('#pg-comic button[aria-label^="Make a comic about a robot"]');
+    check(await until(page, () => window.__ghosty.comic.editing.by === 'phone' && /No signal, so I wrote this one here on the phone/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `${T} (d) with no signal, the phone writes it and says so`);
+    await ctx.setOffline(false);
+  }
 
   // (e) the public-domain library
   await goComic(page, 'library');

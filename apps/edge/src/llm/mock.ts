@@ -80,6 +80,31 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   }
   // His length (persona.ts lengthBand): as long as the prompt's band says, in the cadence a free model wraps it in
   // (the router's polish takes that off), and as a bulleted list when it is long — said as a sentence when he asked for none.
+  // [comic] THE COMIC's "Ghosty writes, the app draws" (apps/web/src/features/comic/script.ts): a script in its plain format, for
+  // his idea and the cast the phone already drew, with a setup on page one that pays off on the last page.
+  if (last.role === 'user' && /^comic script:/i.test(ownerWords(textOf(last.content)).trim())) {
+    const said = ownerWords(textOf(last.content));
+    const idea = /about: (.+?)\.\n/i.exec(said)?.[1] ?? 'a day out';
+    const name = (role: string) => new RegExp(`${role} = ([^(;]+?) \\(`).exec(said)?.[1]?.trim() ?? role;
+    const [H, F, V] = [name('HERO'), name('FRIEND'), name('RIVAL')];
+    const script = [
+      `TITLE: ${H} and the Very Big Idea`, `TAGLINE: Written for you: ${idea}.`,
+      'PAGE', 'PANEL: town, day, wide | the want', 'CAST: HERO happy cheer', `CAPTION: Our story: ${idea}.`, 'HERO (shout): Today everything changes!',
+      'PANEL: town, day, mid | the friend doubts', 'CAST: HERO smug point; FRIEND think stand', 'FRIEND: You said that about the toaster.', 'HERO: The toaster was a learning experience.',
+      'PANEL: home, day, close | the plan', 'CAST: HERO smug point', 'HERO: I have a plan. It has a diagram.', 'SFX: TA-DA!',
+      'PAGE', 'PANEL: park, day, wide | it goes wrong', 'CAST: HERO shock fall; FRIEND calm stand', 'SFX: KA-BOOM!', 'FRIEND: The diagram did not mention that.',
+      'PANEL: park, day, mid | try again', 'CAST: HERO angry stand; FRIEND think stand', 'HERO: Fine. Plan B. Same diagram, louder.',
+      'PANEL: park, day, mid | worse', 'CAST: HERO shock sit', 'SFX: SPLAT!', 'HERO (whisper): …Louder was a mistake.',
+      'PANEL: park, dusk, mid | the rival', 'CAST: RIVAL smug point; HERO sad sit', `RIVAL: Give up, ${H}. Some of us are just naturals.`,
+      'PAGE', 'PANEL: home, night, wide | the low point', 'CAST: HERO sad sit', 'CAPTION: That night.', 'HERO: Maybe the toaster was right about me.',
+      'PANEL: home, night, mid | the idea', 'CAST: FRIEND happy point; HERO think sit', 'FRIEND: What if we turn the diagram upside down?', 'HERO (thought): …That could work.',
+      'PANEL: home, night, close | the decision', 'CAST: HERO happy cheer', 'HERO (shout): Upside down it is!',
+      'PAGE', 'PANEL: town, day, wide | it works', 'CAST: HERO happy jump; RIVAL shock stand', 'SFX: WHOOSH!', 'HERO (shout): Upside down! Obviously!',
+      'PANEL: town, dusk, mid | friends', 'CAST: HERO happy cheer; FRIEND happy stand', 'FRIEND: I take back everything I said about the toaster.',
+      'PANEL: town, dusk, mid | the payoff', 'CAST: RIVAL shock sit', 'RIVAL: …Where can I get a diagram?', 'CAPTION: THE END.',
+    ].join('\n');
+    return { message: { role: 'assistant', content: script }, model };
+  }
   if (/^pineapple on pizza\b/.test(owner)) {
     const short = system.includes('He writes short: reply in a line or two.');
     const body = short ? 'It works: sweet against salt.' : 'It works, and here is why:\n- sweet against salt\n- the acid cuts the cheese\n- the ham carries both';

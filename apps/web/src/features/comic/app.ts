@@ -12,13 +12,35 @@ import { clear, h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, sizeWords, stateLine } from '../lifeui';
-import { drawCover, drawPage, hitOf, type Drawn } from './art';
+import { drawCover, drawPage, hitOf, photosReady, type Drawn } from './art';
 import { cbzOf, importFiles, panelsOf, pdfOf, sniff } from './files';
 import { creditOf, fetchPd, fileOf, onMobileData, PD_QUERY, searchPd, type PdFile, type PdItem } from './library';
 import { blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
 import { openReader, type ReadSource } from './reader';
 import { allMade, bookOf, books, dropBook, keepBook, keepMade, madeOf, pageOf, shelfInfo, updateBook, type Book } from './store';
 import { comicState } from './state';
+import { readScript, scriptAsk, withScript } from './script';
+import { askBrain } from '../../docs/ask';
+
+const WRITERS = ['ghosty', 'phone'] as const;
+type Writer = (typeof WRITERS)[number];
+const savedWriter = (): Writer => {
+  try {
+    return localStorage.getItem('ghosty.comic.writer') === 'phone' ? 'phone' : 'ghosty';
+  } catch {
+    return 'ghosty';
+  }
+};
+const keepWriter = (w: Writer) => {
+  try {
+    localStorage.setItem('ghosty.comic.writer', w);
+  } catch {
+    /* (kept for this visit only) */
+  }
+};
+/** The kinds of story Ghosty can be asked for. */
+export const STYLES = ['', 'mystery', 'space', 'heist', 'spooky', 'sports', 'romance', 'superhero'] as const;
+export const STYLE_NAMES: Record<string, string> = { '': 'Any kind', mystery: 'A mystery', space: 'A space adventure', heist: 'A heist', spooky: 'Something spooky', sports: 'A sports final', romance: 'A romance', superhero: 'A superhero story' };
 
 void PD_QUERY;
 const sel = <T extends string>(label: string, options: readonly T[], value: T, on: (v: T) => void, names?: Record<string, string>): HTMLLabelElement => {
@@ -53,7 +75,8 @@ function saveBlob(data: Blob | Uint8Array, name: string, mime: string): void {
 const fileName = (t: string) => (t.replace(/[^\p{L}\p{N} _-]+/gu, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'comic');
 
 // ---------------------------------------------------------------- a made comic's pages as pictures
-const pagePic = (c: Comic, n: number): Promise<Blob> => {
+const pagePic = async (c: Comic, n: number): Promise<Blob> => {
+  await photosReady(c);
   const cv = document.createElement('canvas');
   if (n === 0) drawCover(cv, c);
   else drawPage(cv, c, c.pages[n - 1]!, n - 1);
@@ -259,7 +282,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     if (page === 0) {
       drawCover(canvas, c);
       drawn = { panels: [{ x: 0, y: 0, w: PAGE_W, h: PAGE_H }], balloons: [] };
-    } else drawn = drawPage(canvas, c, c.pages[page - 1]!, page - 1);
+    } else drawn = drawPage(canvas, c, c.pages[page - 1]!, page - 1, () => soon());
     // the chosen panel and balloon, ringed
     const ctx = canvas.getContext('2d')!;
     if (page > 0 && panel >= 0 && drawn.panels[panel]) {
@@ -279,6 +302,8 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     const pg = page > 0 ? c.pages[page - 1]! : null;
     canvas.setAttribute('aria-label', page === 0 ? `The cover: ${c.title}. ${c.tagline}` : `Page ${page} of ${c.pages.length}: ${pg!.panels.map((p, i) => `panel ${i + 1}, ${[p.caption, ...p.balloons.map((b) => `${c.cast.find((m) => m.id === b.who)?.name ?? ''}: ${b.text}`), p.sfx].filter(Boolean).join('; ')}`).join('. ')}`);
     where.textContent = page === 0 ? `The cover · ${c.pages.length} pages after it` : `Page ${page} of ${c.pages.length} · ${pg!.panels.length} panels${panel >= 0 ? ` · panel ${panel + 1} chosen` : ' · tap a panel to change it'}`;
+    comicState.editing.boxes = drawn.balloons.filter((q) => q.panel === panel).map((q) => ({ id: q.id, ...q.box }));
+    comicState.editing.photo = !!(page > 0 && panel >= 0 && c.pages[page - 1]?.panels[panel]?.photo);
     Object.assign(comicState.editing, { id: c.id, title: c.title, pages: c.pages.length, page, panel, balloon, drawn: comicState.editing.drawn + 1, panels: pg?.panels.length ?? 0, balloons: pg ? pg.panels.reduce((n, p) => n + p.balloons.length, 0) : 0, cast: c.cast.map((m) => m.name) });
   };
   const soon = () => {
@@ -289,24 +314,154 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       keep();
     }, 140);
   };
+  // ---- undo and redo: the comic as it was before each change (a burst of typing in one box is one step)
+  const undo: string[] = [];
+  const redo: string[] = [];
+  let was = '';
+  let wasAt = 0;
+  let wasIn: Element | null = null;
+  const remember = (burst: boolean) => {
+    if (!cur) return;
+    const now = JSON.stringify(cur);
+    if (now === was) return;
+    // (one box typed in without a pause is one step; another box, or a pause, is a new one)
+    const inBox = burst ? document.activeElement : null;
+    const same = burst && inBox === wasIn && Date.now() - wasAt < 1500 && undo.length;
+    wasIn = inBox;
+    if (!same) {
+      undo.push(was);
+      if (undo.length > 80) undo.shift();
+    }
+    redo.length = 0;
+    was = now;
+    wasAt = Date.now();
+    comicState.editing.undo = undo.length;
+    comicState.editing.redo = 0;
+  };
+  const back = (from: string[], to: string[]) => {
+    const prev = from.pop();
+    if (!cur || prev === undefined) return;
+    to.push(JSON.stringify(cur));
+    const c = comicFrom(JSON.parse(prev));
+    if (!c) return;
+    cur = c;
+    was = prev;
+    wasAt = 0;
+    page = Math.min(page, c.pages.length);
+    panel = Math.min(panel, (c.pages[page - 1]?.panels.length ?? 0) - 1);
+    balloon = '';
+    comicState.editing.undo = undo.length;
+    comicState.editing.redo = redo.length;
+    redraw();
+    keep();
+    paintEditor();
+  };
   const changed = (full = false) => {
+    remember(!full);
     if (full) {
       redraw();
       keep();
       paintEditor();
     } else soon();
   };
-  canvas.addEventListener('click', (e) => {
-    if (!cur || !drawn) return;
+  // a tap picks a panel (and the balloon under the finger); once a panel is picked, a finger drags its balloons, its people and
+  // its sound effect (the page scrolls as usual until then)
+  const at = (e: PointerEvent | MouseEvent) => {
     const r = canvas.getBoundingClientRect();
-    const hit = hitOf(drawn, ((e.clientX - r.left) / r.width) * PAGE_W, ((e.clientY - r.top) / r.height) * PAGE_H);
+    return { x: ((e.clientX - r.left) / r.width) * PAGE_W, y: ((e.clientY - r.top) / r.height) * PAGE_H };
+  };
+  let drag: { kind: 'balloon' | 'actor' | 'sfx'; id: string; x0: number; y0: number; base: [number, number]; moved: boolean } | null = null;
+  let dragged = false;
+  canvas.addEventListener('pointerdown', (e) => {
+    dragged = false;
+    if (!cur || !drawn || page === 0 || panel < 0) return;
+    const p0 = at(e);
+    const hit = hitOf(drawn, p0.x, p0.y);
+    if (hit.panel !== panel) return;
+    const pn = cur.pages[page - 1]!.panels[panel]!;
+    const box = drawn.panels[panel]!;
+    if (hit.balloon) {
+      const b = pn.balloons.find((q) => q.id === hit.balloon)!;
+      drag = { kind: 'balloon', id: b.id, x0: p0.x, y0: p0.y, base: [b.dx ?? 0, b.dy ?? 0], moved: false };
+    } else if (hit.sfx) {
+      const s0 = drawn.sfxs?.find((q) => q.panel === panel)?.box;
+      drag = { kind: 'sfx', id: '', x0: p0.x, y0: p0.y, base: pn.sfxAt ?? (s0 ? [(s0.x + s0.w / 2 - box.x) / box.w, (s0.y + s0.h / 2 - box.y) / box.h] : [0.5, 0.5]), moved: false };
+    } else if (hit.actor) {
+      const a = pn.actors.find((q) => q.who === hit.actor)!;
+      drag = { kind: 'actor', id: a.who, x0: p0.x, y0: p0.y, base: [a.x, 0], moved: false };
+    } else return;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  let frame = 0;
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drag || !cur) return;
+    const p1 = at(e);
+    const dx = p1.x - drag.x0;
+    const dy = p1.y - drag.y0;
+    if (!drag.moved && Math.hypot(dx, dy) < 8) return;
+    drag.moved = true;
+    e.preventDefault();
+    const pn = cur.pages[page - 1]!.panels[panel]!;
+    const box = drawn!.panels[panel]!;
+    if (drag.kind === 'balloon') {
+      const b = pn.balloons.find((q) => q.id === drag!.id);
+      if (b) {
+        b.dx = Math.round(drag.base[0] + dx);
+        b.dy = Math.round(drag.base[1] + dy);
+        balloon = b.id;
+      }
+    } else if (drag.kind === 'sfx') pn.sfxAt = [Math.max(0.05, Math.min(0.95, drag.base[0] + dx / box.w)), Math.max(0.05, Math.min(0.95, drag.base[1] + dy / box.h))];
+    else {
+      const a = pn.actors.find((q) => q.who === drag!.id);
+      if (a) a.x = Math.max(0.08, Math.min(0.92, drag.base[0] + dx / box.w));
+    }
+    if (!frame) frame = requestAnimationFrame(() => ((frame = 0), redraw()));
+  });
+  const drop = () => {
+    if (drag?.moved) {
+      dragged = true;
+      comicState.editing.dragged++;
+      changed(true);
+    }
+    drag = null;
+  };
+  canvas.addEventListener('pointerup', drop);
+  canvas.addEventListener('pointercancel', drop);
+  canvas.addEventListener('click', (e) => {
+    if (!cur || !drawn || dragged) return;
+    const p0 = at(e);
+    const hit = hitOf(drawn, p0.x, p0.y);
     if (page === 0) return;
     panel = hit.panel;
     balloon = hit.balloon;
+    canvas.classList.toggle('cxdrag', panel >= 0);
     redraw();
     paintEditor();
     editBox.querySelector<HTMLElement>(balloon ? `[data-balloon="${balloon}"] textarea` : '.cxpanel input')?.focus({ preventScroll: true });
   });
+  // his photo behind a panel: picked on the phone, made small (a JPEG up to 1,000 pixels), kept inside the comic
+  const pickPhoto = (p: Panel) => {
+    const input = h('input', { type: 'file', accept: 'image/*' }) as HTMLInputElement;
+    input.addEventListener('change', async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      try {
+        const bm = await createImageBitmap(f);
+        const k = Math.min(1, 1000 / Math.max(bm.width, bm.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(bm.width * k));
+        cv.height = Math.max(1, Math.round(bm.height * k));
+        cv.getContext('2d')!.drawImage(bm, 0, 0, cv.width, cv.height);
+        bm.close();
+        p.photo = cv.toDataURL('image/jpeg', 0.82);
+        changed(true);
+        clear(status, h('span', { dataset: { state: 'done' } }, 'Your photo is behind this panel, kept inside the comic on this phone.'));
+      } catch (e) {
+        clear(status, stateLine('error', sayError(e, 'use that photo')));
+      }
+    });
+    input.click();
+  };
 
   // ---- the editor's parts
   const panelEditor = (c: Comic, p: Panel): HTMLElement => {
@@ -344,6 +499,14 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       p.beat ? h('p.cxsmall', `What it is for: ${p.beat}`) : null,
       text('Caption', p.caption, (v) => ((p.caption = v), changed()), { max: 140, place: 'Meanwhile…' }),
       text('Sound effect', p.sfx, (v) => ((p.sfx = v), changed()), { max: 24, place: 'KA-BOOM!' }),
+      h('div.cxrow',
+        key(p.photo ? 'Change my photo' : 'My photo behind it', () => pickPhoto(p), 'Put one of my own photos behind this panel'),
+        p.photo ? key('Remove photo', () => ((p.photo = undefined), changed(true)), 'Take the photo away from behind this panel') : null,
+        p.sfxAt || p.balloons.some((b) => b.dx || b.dy) ? key('Put things back', () => {
+          p.sfxAt = undefined;
+          for (const b of p.balloons) b.dx = b.dy = undefined;
+          changed(true);
+        }, 'Put the balloons and the sound effect back where they were laid out') : null),
       h('div.cxrow', sel('Place', SCENES, p.scene, (v) => ((p.scene = v), changed())), sel('Time', TIMES, p.time, (v) => ((p.time = v), changed())), sel('Shot', SHOTS, p.shot, (v) => ((p.shot = v), changed()))),
       h('h4.cxsub', 'Who is in it'), ...castRows,
       h('h4.cxsub', 'What they say'), ...p.balloons.map(balloonRow),
@@ -378,7 +541,12 @@ export function makePart(): { el: HTMLElement; stop(): void } {
   const paintEditor = () => {
     const c = cur;
     if (!c) return;
+    const undoKey = key('Undo', () => back(undo, redo), 'Undo the last change');
+    undoKey.disabled = !undo.length;
+    const redoKey = key('Redo', () => back(redo, undo), 'Redo what was undone');
+    redoKey.disabled = !redo.length;
     const pageKeys = h('div.cxrow',
+      undoKey, redoKey,
       key('‹ Page', () => ((page = Math.max(0, page - 1)), (panel = -1), changed(true)), 'Previous page'),
       key('Page ›', () => ((page = Math.min(c.pages.length, page + 1)), (panel = -1), changed(true)), 'Next page'),
       page > 0 ? key('Grid', () => {
@@ -463,28 +631,39 @@ export function makePart(): { el: HTMLElement; stop(): void } {
   };
 
   // ---- the idea
-  const idea = { words: '', hero: '', friend: '', rival: '' };
+  const idea = { words: '', hero: '', friend: '', rival: '', style: '', writer: savedWriter() };
   const paintIdea = () => {
     /* state: comic.maker empty */
-    const make = key('Make my comic', () => start(), 'Make a whole comic from this idea');
+    const make = key('Make my comic', () => void start(), 'Make a whole comic from this idea');
     const ideaBox = text('What is it about?', idea.words, (v) => (idea.words = v), { area: true, max: 300, place: 'a cat who wants to be an astronaut' });
     const tries = ['a cat who wants to be an astronaut', 'a robot who can’t dance', 'my dog Rex tries to catch the postman', 'a ghost who is scared of the dark'].map((t) => key(t, () => {
       idea.words = t;
-      start();
+      void start();
     }, `Make a comic about ${t}`, 'cxtry'));
     clear(root,
       h('p.cxsmall', 'Say an idea and I write it and draw it: a cover, four pages, a hero, a friend and a rival who look the same in every panel, a beginning, a turn and an end. Then change anything.'),
       ideaBox,
       h('details.cxnames', h('summary', 'Names (or leave them to me)'),
         text('Hero', idea.hero, (v) => (idea.hero = v), { max: 24 }), text('Friend', idea.friend, (v) => (idea.friend = v), { max: 24 }), text('Rival', idea.rival, (v) => (idea.rival = v), { max: 24 })),
+      h('div.cxrow',
+        sel('Who writes it', WRITERS, idea.writer, (v) => {
+          idea.writer = v;
+          keepWriter(v);
+        }, { ghosty: 'Ghosty writes it (my brain)', phone: 'Written here on the phone' }),
+        sel('Kind of story', STYLES, idea.style as (typeof STYLES)[number], (v) => (idea.style = v), STYLE_NAMES)),
       h('div.cxrow', make),
       h('p.cxsmall', 'Or try one:'), h('div.cxtries', ...tries),
-      h('p.cxsmall', 'Drawn on this phone by Ghosty’s own drawing, so it is free, works with no signal, and every character stays the same panel to panel.'),
+      h('p.cxsmall', 'Ghosty writes the story for your exact idea; the drawing is done on this phone, so every character stays the same panel to panel. With no signal, the phone writes it.'),
     );
     comicState.editing.id = '';
   };
   const show = (c: Comic, at = 1) => {
     cur = c;
+    undo.length = 0;
+    redo.length = 0;
+    was = JSON.stringify(c);
+    comicState.editing.undo = 0;
+    comicState.editing.redo = 0;
     page = at;
     panel = -1;
     balloon = '';
@@ -492,16 +671,48 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     redraw();
     paintEditor();
   };
-  const start = (words = idea.words) => {
+  let writing = 0;
+  const start = async (words = idea.words) => {
     const w = words.trim() || 'a cat who wants to be an astronaut';
-    const c = writeComic({ idea: w, hero: idea.hero.trim(), friend: idea.friend.trim(), rival: idea.rival.trim() });
+    const local = writeComic({ idea: w, hero: idea.hero.trim(), friend: idea.friend.trim(), rival: idea.rival.trim() });
+    let c = local;
+    let by: 'brain' | 'phone' = 'phone';
+    let why = '';
+    if (idea.writer === 'ghosty' && !lacksSignal()) {
+      const ticket = ++writing;
+      comicState.editing.writing = true;
+      /* state: comic.maker loading */
+      clear(root, stateLine('loading', `Ghosty is writing your comic about ${w.slice(0, 80)}…`), h('div.cxrow', key('Write it here instead', () => {
+        writing++;
+        comicState.editing.writing = false;
+        finish(local, 'phone', '');
+      }, 'Stop waiting and write it here on the phone')));
+      try {
+        const r = await askBrain(scriptAsk(w, local.cast, STYLE_NAMES[idea.style] && idea.style ? STYLE_NAMES[idea.style] : ''), () => undefined, 'comic');
+        if (ticket !== writing) return;
+        const s = readScript(r.text, local.cast);
+        if (s) {
+          c = withScript(local, s);
+          by = 'brain';
+        } else why = 'Ghosty’s script didn’t come back in a shape I can draw, so I wrote this one here on the phone.';
+      } catch (e) {
+        if (ticket !== writing) return;
+        why = `${sayError(e, 'reach my brain')} So I wrote this one here on the phone.`;
+      }
+      comicState.editing.writing = false;
+    } else if (idea.writer === 'ghosty') why = 'No signal, so I wrote this one here on the phone.';
+    finish(c, by, why);
+  };
+  const finish = (c: Comic, by: 'brain' | 'phone', why: string) => {
     comicState.last = c.title;
+    comicState.editing.by = by;
     show(c, 0);
     keep();
-    clear(status, h('span', { dataset: { state: 'done' } }, `“${c.title}” is made: the cover and ${c.pages.length} pages, kept on this phone. Tap a panel to change it, or read it full screen.`));
+    /* state: comic.maker offline */
+    clear(status, h('span', { dataset: { state: 'done' } }, `${why ? `${why} ` : ''}“${c.title}” is made: the cover and ${c.pages.length} pages${by === 'brain' ? ', written by Ghosty for your idea and drawn here' : ''}, kept on this phone. Tap a panel to change it, or read it full screen.`));
     paintEditor();
   };
-  hooks.make = (w) => start(w);
+  hooks.make = (w) => void start(w);
   hooks.edit = (id) => void madeOf(id).then((x) => {
     const c = comicFrom(x);
     if (c) show(c, 1);
@@ -510,7 +721,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
   if (pending.make) {
     const w = pending.make;
     pending.make = undefined;
-    start(w);
+    void start(w);
   } else if (pending.edit) {
     const id = pending.edit;
     pending.edit = undefined;
