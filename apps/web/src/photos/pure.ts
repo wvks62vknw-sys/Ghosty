@@ -40,6 +40,8 @@ export interface Item {
   labels: string[];
   /** Words read in it, on the phone. */
   text: string;
+  /** Its words have been looked for (found or not), so READ THE WORDS does not read it again. */
+  textRead?: boolean;
   /** A video's length in seconds. */
   secs?: number;
   /** One of the sample photos a first run shows (REMOVE SAMPLES takes them all away). */
