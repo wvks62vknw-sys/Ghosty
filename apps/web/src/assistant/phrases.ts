@@ -18,6 +18,7 @@ import { canYouAsked, todayAsked, whyAsked } from '../../../../packages/shared/s
 import { foresightAsked, rightSaid } from '../../../../packages/shared/src/foresight';
 import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/src/guardian';
 import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
+import { learnedAsked, learnedFor, storedLearned } from '../../../../packages/shared/src/learned';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
@@ -40,6 +41,8 @@ import { tvAsked } from '../tv/detect';
 import { lookAsked } from '../../../../packages/shared/src/themes';
 import { looksAsked } from '../../../../packages/shared/src/looks';
 import { INDEPENDENT_ASK } from '../offline/trust';
+import { READY_ASK } from '../offline/readywords';
+import { saverAsked } from '../state/saver';
 import { buildAsked } from '../build/words';
 import { thatOne } from './thatwords';
 import { whatCanAsked } from './words';
@@ -69,6 +72,8 @@ import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
+import { TRIP_ASK } from '../ui/tripwords';
+import { RAIN_ASK, setAsked, WALL_ASK } from '../features/eye/sets';
 import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
 
 /** [keep] Does his message ask about his word (the same test as features/memory/keep.ts keepAsked, kept pure here)? */
@@ -94,6 +99,12 @@ export function findAsked(text: string): string | null {
  */
 export const SPEAKER_ASK = /^(?:(?:hey |ok |so )?(?:ghosty,? )?)(?:do you (?:know|recognise|recognize) (?:it's|its|it is|that it's|that its) me|(?:do|can|could) you (?:know|recognise|recognize|tell|hear) (?:my voice|it's me|its me|it is me|who i am|who's (?:talking|speaking)|who is (?:talking|speaking)|me by my voice|me from my voice|that it's me)|do you know (?:my voice|who's talking|who is talking|who's speaking|who is speaking|who i am|me)|who(?:'s| is) (?:talking|speaking)(?: (?:now|to you|right now))?|whose voice (?:is (?:this|that)|was that|is it)|(?:is|was) (?:that|this|it) me(?: (?:talking|speaking))?|did you recognise (?:me|my voice)|did you recognize (?:me|my voice)|how do you know it's me|are you sure it's me|who said that|who am i to you|recognise me|recognize me)[?.!]*$/i;
 
+/**
+ * [voice lane] SPOKEN NOTES KEPT AS HIS (voice.s9, with ci.s4): "note: buy milk", "note to self, call the garage", "jot this down: …".
+ * Said aloud and sure it was him: kept in his memory marked "by you"; typed: kept; another voice or not sure: not kept, and said why.
+ */
+export const NOTE_ASK = /^(?:(?:hey |ok )?(?:ghosty,? )?)(?:note to self|take a note|make a note|quick note|voice note|a note|jot (?:this |that )?down|write (?:this |that )?down|note)[:,.]?\s+(?:that\s+)?(.{2,300})$/i;
+
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
 
@@ -102,6 +113,10 @@ export const LOCAL_ASKS = [
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
   // [voice lane] "do you know it's me?": from the phone's own tag (before "can you…?" could call it an ability he lacks)
   { id: 'speaker', test: (t: string) => SPEAKER_ASK.test(t.trim().replace(/[’]/g, "'")) },
+  // [voice lane] HIS OWN WORDINGS (voice.u1, assistant/learnwords.ts): a wording he taught opens its screen before any table reads it;
+  // "my wordings" lists them; "forget the wording …" forgets one
+  { id: 'voicenote', test: (t: string) => NOTE_ASK.test(t.trim()) },
+  { id: 'learned', test: (t: string) => !!learnedAsked(t) || !!learnedFor(storedLearned(), t) },
   // [awareness] "make that wall longer", "add a wardrobe there", "find me a replacement", "open that one": the words that point at what is
   // selected on the screen, acted on here with no model (assistant/thatone.ts); when nothing fitting is selected the next table, then the brain
   { id: 'thatone', test: (t: string) => thatOne(t) !== null },
@@ -164,6 +179,10 @@ export const LOCAL_ASKS = [
   { id: 'tvmode', test: (t: string) => tvAsked(t) !== null },
   // [offline2] "how independent are you?": the INDEPENDENCE sheet (features/system/independence.ts), and the week said
   { id: 'independent', test: (t: string) => INDEPENDENT_ASK.test(t.trim()) },
+  // [next] "how ready are you offline?": SYSTEM → OFFLINE READY opened, and the number and the next download said (system/offlineready.ts)
+  { id: 'offlineready', test: (t: string) => READY_ASK.test(t.trim()) },
+  // [next] "turn on the saver", "pause big downloads": SETTINGS → SAVER switched (state/saver.ts)
+  { id: 'saver', test: (t: string) => saverAsked(t) !== null },
   // [restd] DESIGN A BUILD with no model: "design me a shed three by two", "show me the build", "price the roof", "make it 4 by 3"
   { id: 'build', test: (t: string) => !!buildAsked(t) },
   // [restd] his house through his own Home Assistant, with no model: "turn off the hall light", "set the heating to 21"
@@ -173,6 +192,14 @@ export const LOCAL_ASKS = [
   { id: 'homeadmin', test: (t: string) => homeAsked(t) !== null },
   // (and while a typing test is up in the chat's own box, what he sends next: features/learning/typing.ts)
   { id: 'learning', test: (t: string) => typingPending() || learningAsked(t) !== null },
+  // [see] TRIP MODE: the next appointment to the whole journey (ui/tripsheet.ts)
+  { id: 'trip', test: (t: string) => TRIP_ASK.test(t.trim()) },
+  // [see] a one-tap layer set on God's Eye: "commute view", "storm layers", "sky mode" (features/eye/sets.ts)
+  { id: 'layerset', test: (t: string) => setAsked(t) !== null },
+  // [see] his wall of up to nine public cameras: "my camera wall", "show my cameras" (features/eye/wall.ts)
+  // [see] the full-screen rain radar: "rain radar", "show me the rain map", "replay the rain" (features/eye/rain.ts)
+  { id: 'rainradar', test: (t: string) => RAIN_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
+  { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

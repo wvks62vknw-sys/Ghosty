@@ -275,3 +275,86 @@ test('fail closed: a kept task stops with an explanation when the phone cannot a
     globalThis.fetch = realFetch;
   }
 });
+
+// ---- NEXT ROUND (polish3.u10): how ready Ghosty is offline: the number, the next download, what the phone cannot run, his words
+await build({ entryPoints: [at('../../web/src/offline/readywords.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/offline2/readywords.mjs'), logLevel: 'error' });
+const RW = await import('./.build/offline2/readywords.mjs');
+const piecesOf = (held = [], cannot = []) => RW.PIECES.map((p) => ({ ...p, bytes: p.id === 'brain' ? 352e6 : p.id === 'map' ? 120e6 : 20e6, size: p.id === 'brain' ? '352 MB' : p.id === 'map' ? 'about 120 MB' : '20 MB', held: held.includes(p.id), can: !cannot.includes(p.id), ...(cannot.includes(p.id) ? { why: 'no WebGPU here' } : {}) }));
+
+test('offline readiness: the weights add up to 100, every piece names what it keeps working and where it is fetched', () => {
+  assert.equal(RW.PIECES.reduce((n, p) => n + p.weight, 0), 100);
+  for (const p of RW.PIECES) {
+    assert.ok(p.gives.length > 8 && p.name.length > 3, p.id);
+    assert.equal(p.where.tab, 'settings', p.id);
+    assert.ok(['OFFLINE BRAIN', 'OFFLINE MAPS', 'OFFLINE EYES', 'VOICE MODEL'].includes(p.where.panel), `${p.id} → ${p.where.panel}`);
+  }
+});
+
+test('offline readiness: nothing here is 0% with the brain next; everything here is 100% with nothing next', () => {
+  const none = RW.scoreOf(piecesOf());
+  assert.equal(none.pct, 0);
+  assert.equal(none.next.id, 'brain');
+  assert.equal(none.nextPct, 34);
+  assert.equal(RW.readyHead(none), '0% works with no signal');
+  assert.equal(RW.readyNext(none), 'Next: The offline brain, 352 MB on Wi-Fi, for answers, the interpreter’s translations and School papers (34% after).');
+  const all = RW.scoreOf(piecesOf(RW.PIECES.map((p) => p.id)));
+  assert.equal(all.pct, 100);
+  assert.equal(all.next, null);
+  assert.equal(RW.readyNext(all), 'Everything this phone can keep is here, so I work with no signal.');
+});
+
+test('offline readiness: the next download is the heaviest missing piece, and what the phone cannot run is left out of the count', () => {
+  const r = RW.scoreOf(piecesOf(['brain']));
+  assert.equal(r.pct, 34);
+  assert.ok(['map', 'eyes-lens'].includes(r.next.id), r.next.id);
+  // the map and the Lens weigh the same: the smaller download goes first
+  assert.equal(r.next.id, 'eyes-lens');
+  const noGpu = RW.scoreOf(piecesOf(['map'], ['brain', 'meaning']));
+  assert.equal(noGpu.pct, Math.round((15 / 58) * 100));
+  assert.deepEqual(noGpu.cannot.map((p) => p.id), ['brain', 'meaning']);
+  assert.ok(!noGpu.missing.some((p) => p.id === 'brain'), 'a piece this phone cannot run is never offered');
+  assert.match(RW.readySay(RW.scoreOf(piecesOf(['brain', 'map']))), /^49% works with no signal right now\. Here: the offline brain, the offline map\. Next: The Lens’s eyes, 20 MB on Wi-Fi/);
+});
+
+test('offline readiness: his ways of asking are heard, and nothing else is taken', () => {
+  for (const t of ['how ready are you offline?', 'How ready are you with no signal', 'what works offline?', 'What still works with no internet?', 'offline readiness', 'show me the offline readiness score', 'Ghosty, how offline-ready are you?', 'are you ready for no signal?']) assert.ok(RW.READY_ASK.test(t), t);
+  for (const t of ['download the offline brain', 'go offline', 'offline maps', 'how independent are you?', 'are you ready?', 'what works?']) assert.ok(!RW.READY_ASK.test(t), t);
+});
+
+// ---- NEXT ROUND (polish3.s9): a heads-up before an allowance runs out or when a key starts failing, told once a day
+await build({ entryPoints: [at('../../web/src/state/keyshealth.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/offline2/keyshealth.mjs'), logLevel: 'error' });
+const KH = await import('./.build/offline2/keyshealth.mjs');
+test('keys health: a failing key, a provider out or nearly out, and the database nearly full are each said with what to do', () => {
+  const now = Date.UTC(2026, 10, 14, 10, 0);
+  const st = { models: [{ provider: 'groq', model: 'x', state: 'dead', info: 'The key was refused.' }, { provider: 'gemini', model: 'y', state: 'ok', info: '' }],
+    capacity: { summary: '', providers: [{ provider: 'gemini', state: 'busy', roomNow: 2, perMinute: 10, usedToday: 430, perDay: 500, resetAt: now + 3600e3 }, { provider: 'mistral', state: 'out', roomNow: 0, perMinute: 2, usedToday: 50, perDay: 50, resetAt: null, backAt: now + 7200e3 }, { provider: 'cerebras', state: 'ready', roomNow: 30, perMinute: 30, usedToday: 3, perDay: 1000, resetAt: null }] },
+    meter: { day: '2026-11-14', reads: 0, writes: 0, by: [], limits: { reads: 1, writes: 1 }, level: 0.9, resetAt: now + 5 * 3600e3 } };
+  const list = KH.headsUps(st, now);
+  assert.deepEqual(list.map((x) => x.id.split(':')[0]), ['dead', 'near', 'out', 'db']);
+  assert.equal(list[0].text, 'Groq’s key has stopped working: The key was refused.');
+  assert.match(list[0].fix, /^System, Keys: paste a fresh key/);
+  assert.match(list[1].text, /^Gemini has used 430 of its 500 free calls today; it resets at \d\d:\d\d\.$/);
+  assert.match(list[2].text, /^Mistral has no free room left today; it comes back at \d\d:\d\d\.$/);
+  assert.match(list[3].text, /^My free database allowance is 90% used today; it resets at \d\d:\d\d\.$/);
+  assert.ok(!list.some((x) => /cerebras/i.test(x.text)), 'a provider with room says nothing');
+  assert.deepEqual(KH.headsUps(null, now), []);
+  assert.deepEqual(KH.headsUps({ models: [], meter: { ...st.meter, level: 1.2 } }, now), [], 'a database already paused is the top bar’s, not a heads-up');
+});
+
+// ---- NEXT ROUND (polish3.s1): the saver's words, heard and switched
+await build({ entryPoints: [at('../../web/src/state/saver.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/offline2/saver.mjs'), logLevel: 'error' });
+// (the phone's store saves through window's timers: Node has the same ones on globalThis)
+globalThis.window ??= globalThis;
+const SV = await import('./.build/offline2/saver.mjs');
+test('the saver: his ways of saying on and off are heard, nothing else is taken, and what it holds back is listed', () => {
+  for (const t of ['turn on the saver', 'Switch the saver on', 'saver on', 'pause big downloads', 'Pause the downloads and the feeds please']) assert.equal(SV.saverAsked(t), true, t);
+  for (const t of ['turn off the saver', 'saver off', 'resume downloads', 'unpause the big downloads']) assert.equal(SV.saverAsked(t), false, t);
+  for (const t of ['download the offline brain', 'save this', 'pause the radio', 'what is the saver?']) assert.equal(SV.saverAsked(t), null, t);
+  assert.equal(SV.saverTurn('turn on the saver'), 'Saver is on: big downloads and the background feeds wait until you turn it off.');
+  assert.equal(SV.held('The namer'), true);
+  assert.equal(SV.held('The namer'), true);
+  assert.deepEqual(SV.saver.get().paused, ['The namer'], 'each thing held back is listed once');
+  assert.equal(SV.saverTurn('saver off'), 'Saver is off: downloads and the feeds run as usual.');
+  assert.equal(SV.held('The namer'), false);
+  assert.deepEqual(SV.saver.get().paused, []);
+});

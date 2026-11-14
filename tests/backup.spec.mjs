@@ -222,8 +222,14 @@ await page.evaluate(() => {
     }
   }, 20);
 });
-const reloaded = page.waitForEvent('load', { timeout: 30000 }).then(() => true, () => false);
 await page.click(`${mineRow} button:has-text("RESTORE")`);
+// (NEXT ROUND, polish3.u4) RESTORE first shows what it would bring back, each thing ticked, before anything is written
+const sheet = page.locator('.modal .rpsheet');
+check(await sheet.waitFor({ timeout: 15000 }).then(() => true, () => false), 'RESTORE did not show what it would bring back first');
+const items = await page.evaluate(() => [...document.querySelectorAll('.modal .rpsheet .rpitem')].map((x) => ({ words: (x.textContent ?? '').replace(/\s+/g, ' '), result: x.dataset.result, on: x.getAttribute('aria-checked') })));
+check(items.some((x) => /courses, lessons and flashcards/.test(x.words) && x.result !== 'same' && x.on === 'true') && items.some((x) => /space plan/.test(x.words)) && items.some((x) => /1 document kept only on that phone/.test(x.words)), `the preview lists: ${JSON.stringify(items).slice(0, 400)}`);
+const reloaded = page.waitForEvent('load', { timeout: 30000 }).then(() => true, () => false);
+await page.locator('.modal .rpsheet button.sureyes').click();
 check(await reloaded, 'Ghosty did not reload after the restore');
 await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 await toSystem();

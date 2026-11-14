@@ -233,7 +233,8 @@ export async function voiceKnown({ base, out, problems, tag = 'voiceknown' }) {
   // ================================================================ 2. another voice (B): the hold, GO ON, the hour, then introduced as Sam
   {
     const { ctx, page, seen } = await launch(fileOf('B', 1), 'B');
-    seen.said = 'what is on my calendar';
+    // (nothing of his in it: his calendar, money or messages asked in a voice it doesn't know are kept on the phone, never sent — voice.s1)
+    seen.said = 'who painted the mona lisa';
     const held = () => page.evaluate(() => !!document.querySelector('#voicetag .vt-ask'));
     if (!(await speakTurn(page, 'unknown'))) bad(`another voice did not show A VOICE I DON'T KNOW (tag "${await tagWho(page)}", ${JSON.stringify(await lastScore(page))})`);
     else {
@@ -259,7 +260,7 @@ export async function voiceKnown({ base, out, problems, tag = 'voiceknown' }) {
     if (!(await speakTurn(page, 'unknown'))) bad('the second turn of the other voice was not held');
     else {
       await page.click('#voicetag button:has-text("GO ON")');
-      if (!(await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: what is on my calendar'), null, { timeout: 15000 }).then(() => true, () => false))) bad('GO ON did not send the turn');
+      if (!(await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: who painted the mona lisa'), null, { timeout: 15000 }).then(() => true, () => false))) bad('GO ON did not send the turn');
       const c = seen.chats.at(-1);
       if (c?.voice !== 'unknown') bad(`GO ON sent the turn as voice ${JSON.stringify(c?.voice)} (want "unknown": I say nothing private to it)`);
     }

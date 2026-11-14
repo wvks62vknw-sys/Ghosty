@@ -147,7 +147,8 @@ function turnsFromLog(): Thing[] {
   const out: Thing[] = [];
   for (let i = 0; i < es.length; i++) {
     const e = es[i]!;
-    if (e.kind !== 'user' || !e.text.trim()) continue;
+    // ([voice lane] a turn someone else said is theirs, never part of his recall: voice.c5)
+    if (e.kind !== 'user' || !e.text.trim() || e.theirs) continue;
     const r = es.slice(i + 1, i + 6).find((x) => x.kind === 'assistant' || x.kind === 'user');
     const a = r && r.kind === 'assistant' ? firstLine(r.text) : '';
     out.push({ key: `t:${e.at}`, kind: 'turn', id: String(e.at), title: '', text: e.text.replace(/\s+/g, ' ').trim().slice(0, 400), at: e.at, via: 'app', ...(a ? { a } : {}) });
