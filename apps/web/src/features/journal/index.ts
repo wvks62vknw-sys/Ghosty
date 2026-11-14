@@ -25,7 +25,7 @@ const ICON = '<path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H
 const TONES: Tone[] = ['accent', 'amber', 'green', 'pink', 'violet'];
 
 /** What a spec reads: window.__ghosty.journal. */
-export const journalState = { entries: 0, shown: 0, locked: false, open: '' as string, streak: 0, state: 'idle' as 'idle' | 'shown' | 'empty' | 'locked' };
+export const journalState = { map: 0, entries: 0, shown: 0, locked: false, open: '' as string, streak: 0, state: 'idle' as 'idle' | 'shown' | 'empty' | 'locked' };
 
 let data: JournalData = load();
 const keep = (): boolean => {
@@ -378,11 +378,54 @@ export const journalTab: TabDef = {
 
     // ---------------------------------------------------------------- PLACES
     const pp = panel('PLACES', { cls: 'jnplaces', status: '' });
+    const mapBox = h('div.jnmap', { hidden: true, role: 'img', 'aria-label': 'A map of your saved places with entries' });
+    let mapOn = false;
+    let theMap: L.Map | null = null;
+    /** The map of his SAVED places that have entries (a dot each, its count), drawn on his tap only (it loads map tiles). */
+    const drawMap = async (by: Map<string, Entry[]>) => {
+      try {
+        const [Lf, F, r] = await Promise.all([import('../../ui/flatmap').then((m) => m.loadLeaflet()), import('../../ui/flatmap'), brain.places()]);
+        const pins = r.places.filter((p) => by.has(p.label));
+        if (!pins.length) {
+          clear(mapBox, h('p.note', J.MAP_NONE));
+          return;
+        }
+        clear(mapBox);
+        theMap?.remove();
+        const host = h('div.jnmaphost');
+        mapBox.append(host);
+        const dark = F.STYLES.find((x) => x.id === 'dark')!;
+        theMap = Lf.map(host, { zoomControl: false, attributionControl: true });
+        Lf.tileLayer(dark.url(''), dark.options).addTo(theMap);
+        const pts: [number, number][] = [];
+        for (const p of pins) {
+          const n = by.get(p.label)!.length;
+          Lf.circleMarker([p.lat, p.lon], { radius: 6 + Math.min(10, n * 2), weight: 2 }).addTo(theMap).bindTooltip(`${p.label} · ${n}`, { permanent: true, direction: 'top' });
+          pts.push([p.lat, p.lon]);
+        }
+        if (pts.length === 1) theMap.setView(pts[0]!, 14);
+        else {
+          const lat = pts.map((x) => x[0]);
+          const lon = pts.map((x) => x[1]);
+          theMap.fitBounds(Lf.latLngBounds([Math.min(...lat), Math.min(...lon)], [Math.max(...lat), Math.max(...lon)]), { padding: [30, 30] });
+        }
+        journalState.map = pins.length;
+      } catch (e) {
+        clear(mapBox, h('p.note', sayError(e, 'draw the map')));
+      }
+    };
     const paintPlaces = () => {
       const by = new Map<string, Entry[]>();
       for (const e of live(data)) if (e.place) by.set(e.place, [...(by.get(e.place) ?? []), e]);
       pp.setStatus(by.size ? `${by.size}` : '', 'ok');
-      clear(pp.body, ...(by.size ? [...by].sort((a, b) => b[1].length - a[1].length).flatMap(([p, es]) => [h('h4.jnmonth', `${p} · ${es.length}`), ...es.slice(0, 5).map(entryRow)]) : [h('p.note.jnempty', J.PLACES_EMPTY)]));
+      const mapKey = button(mapOn ? J.MAP_HIDE : J.MAP_SHOW, () => {
+        mapOn = !mapOn;
+        mapBox.hidden = !mapOn;
+        mapKey.textContent = mapOn ? J.MAP_HIDE : J.MAP_SHOW;
+        if (mapOn) void drawMap(by);
+      });
+      clear(pp.body, ...(by.size ? [h('div.row.wrap', mapKey), mapBox, ...[...by].sort((a, b) => b[1].length - a[1].length).flatMap(([p, es]) => [h('h4.jnmonth', `${p} · ${es.length}`), ...es.slice(0, 5).map(entryRow)])] : [h('p.note.jnempty', J.PLACES_EMPTY)]));
+      if (mapOn && by.size) void drawMap(by);
     };
 
     // ---------------------------------------------------------------- SETTINGS: journals, the lock, the nudge, the book, the bin
