@@ -12,7 +12,7 @@ import { offline } from '../../api/offline';
 import { chat, clearConversation } from '../../assistant/session';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { swipeToDelete } from '../../ui/swipe';
-import type { TabDef } from '../../shell/tabs';
+import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -230,7 +230,12 @@ export const memoryTab: TabDef = {
     const pr = panel('PRINCIPLES', { status: 'your lines, in your words', cls: 'princpn' });
     const princ = principlesEditor();
     pr.body.append(princ.el);
-    P.left.append(addRow, phrases(['remember I take my coffee black']), mp.el, pr.el, pats.el, tl.el);
+    // [journal] JOURNAL (APPS ROUND): his own writing, its own screen, a row here
+    const jrow = panel('JOURNAL', { grow: false, status: 'Your own words, on this phone' });
+    jrow.el.dataset.go = 'journal';
+    jrow.el.classList.add('gorow');
+    jrow.body.append(h('p.note', 'Write, add photos and a voice note, look back on this day. Kept here, locked with Face ID if you like.'), button('OPEN MY JOURNAL', () => go('journal'), 'on'));
+    P.left.append(addRow, phrases(['remember I take my coffee black']), jrow.el, mp.el, pr.el, pats.el, tl.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
@@ -312,7 +317,7 @@ export const memoryTab: TabDef = {
     const kp = keepPanel();
     P.right.append(dp.el, fp.el, lp.el, cp.el, kp.el);
     sections(root, 'memory', [
-      { id: 'me', label: 'About you', match: /^(?:ABOUT YOU|PRINCIPLES)$/ },
+      { id: 'me', label: 'About you', match: /^(?:ABOUT YOU|PRINCIPLES|JOURNAL)$/ },
       { id: 'patterns', label: 'Patterns', match: /^PATTERNS/ },
       { id: 'timeline', label: 'Timeline', match: /^TIMELINE/ },
       { id: 'diary', label: 'Diary', match: /^DIARY/ },

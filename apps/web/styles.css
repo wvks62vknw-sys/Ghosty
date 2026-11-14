@@ -10570,3 +10570,49 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 @media (max-width: 899px) {
   html #pg-studio, html #pg-studio .hud, html #pg-studio .hud .col { transform-style: flat; }
 }
+
+/* JOURNAL (APPS ROUND, MEMORY lane): his own writing; every class `jn…`, colours from the tokens only */
+#pg-journal { --jn-tone: var(--g-accent); }
+#pg-journal [data-tone="amber"] { --jn-tone: var(--g-amber); }
+#pg-journal [data-tone="green"] { --jn-tone: var(--g-ok); }
+#pg-journal [data-tone="pink"] { --jn-tone: var(--g-red); }
+#pg-journal [data-tone="violet"] { --jn-tone: var(--g-accent-pale); }
+#pg-journal .jnbar { display: flex; gap: var(--g-s-1); flex-wrap: wrap; }
+#pg-journal .jnnew { min-height: var(--g-target); flex: 1 1 12em; }
+#pg-journal .jnsearch input, #pg-journal .jnsettings input, #pg-journal .jneditor input, #pg-journal .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
+#pg-journal .jnsearch { margin: var(--g-s-1) 0; }
+#pg-journal .jnchips { gap: var(--g-s-half); margin-bottom: var(--g-s-1); }
+#pg-journal .jnchips button[data-tone]:not([data-tone=""]) { box-shadow: inset 3px 0 0 var(--jn-tone); }
+#pg-journal .jntour { display: flex; flex-direction: column; gap: var(--g-s-half); margin: var(--g-s-1) 0; padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+#pg-journal .jnsteps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: var(--g-s-half); color: var(--g-ink-2); }
+#pg-journal .jnlist { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+#pg-journal .jnmonth { margin: var(--g-s-2) 0 var(--g-s-half); font: var(--g-t-caption); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+#pg-journal button.jnrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when thumb" "text thumb"; gap: 2px var(--g-s-1); align-items: start; width: 100%; min-height: var(--g-target); padding: var(--g-s-1); text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; background: var(--g-plate-fill); border: 0; border-left: 3px solid var(--jn-tone); border-radius: var(--g-radius-key); color: var(--g-ink-1); box-shadow: none; }
+#pg-journal .jnwhen { grid-area: when; display: flex; flex-wrap: wrap; gap: var(--g-s-half); align-items: baseline; min-width: 0; }
+#pg-journal .jnwhen small { color: var(--g-ink-3); overflow-wrap: anywhere; }
+#pg-journal .jntext { grid-area: text; color: var(--g-ink-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; min-width: 0; }
+#pg-journal .jnthumb { grid-area: thumb; width: 56px; height: 56px; object-fit: cover; border-radius: var(--g-radius-key); }
+#pg-journal .jncalnav { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); }
+#pg-journal .jncalnav button { min-width: var(--g-target); min-height: var(--g-target); }
+#pg-journal .jncalgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-top: var(--g-s-1); }
+#pg-journal .jncalhd { text-align: center; font: var(--g-t-caption); color: var(--g-ink-3); }
+#pg-journal button.jncalday { min-width: 0; min-height: var(--g-target); padding: 0; position: relative; text-transform: none; letter-spacing: normal; }
+#pg-journal button.jncalday[data-has]::after { content: ""; position: absolute; left: 50%; bottom: 6px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--g-accent); }
+#pg-journal .jnjournal { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); padding: var(--g-s-half) 0; border-left: 3px solid var(--jn-tone); padding-left: var(--g-s-1); }
+#pg-journal .jnbin { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half); }
+#pg-journal .jnbin .jntext { flex: 1 1 12em; }
+#pg-journal .jnlock { display: flex; flex-direction: column; gap: var(--g-s-1); align-items: flex-start; }
+.jneditor { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+.jneditor input, .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
+.jneditor .jnmeta > * { flex: 1 1 10em; }
+.jneditor .jntextarea { width: 100%; min-height: 10em; font: var(--g-t-body); line-height: 1.55; color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: var(--g-s-1); box-sizing: border-box; resize: vertical; }
+.jneditor .jnprompt { margin: 0; font-style: italic; color: var(--g-accent-text); }
+.jneditor .jnprompt:empty { display: none; }
+.jneditor .jnlab { font: var(--g-t-caption); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); margin-top: var(--g-s-half); }
+.jneditor .jnmoods button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--g-accent); color: var(--g-accent-text); }
+.jneditor .jnphoto { width: 72px; height: 72px; object-fit: cover; border-radius: var(--g-radius-key); }
+.jneditor .jnvoice audio { max-width: 100%; }
+.jneditor .jnkeys button { min-height: var(--g-target); }
+#pg-journal .pn.jnhid, #pg-journal.jnlocked .secpills { display: none !important; }
+#pg-journal .jnlock { margin: var(--g-s-1) 0; }
+#pg-journal button, .jneditor button { min-height: var(--g-target); }

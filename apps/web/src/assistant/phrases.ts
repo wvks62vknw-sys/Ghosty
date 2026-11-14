@@ -68,6 +68,7 @@ import { briefAsked } from '../features/brief/asks';
 import { screenAsked } from './screenasks';
 import { comicAsked } from '../features/comic/asks';
 import { securityAsked } from '../features/security/asks';
+import { journalAsked } from '../features/journal/words';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -113,6 +114,8 @@ export const NOTE_ASK = /^(?:(?:hey |ok )?(?:ghosty,? )?)(?:note to self|take a 
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
 
 export const LOCAL_ASKS = [
+  // [journal] JOURNAL (features/journal/words.ts): "new journal entry", "add to my journal: …", "dear diary, …", "open my journal" (first: his own words go to his own page)
+  { id: 'journal', test: (t: string) => !!journalAsked(t) },
   { id: 'carview', test: (t: string) => viewAsked(t) !== null },
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
   // [boot] "short opening", "the full film every time", "opening once a day", "how did the opening run?", "Sam's turn": the opening's own
