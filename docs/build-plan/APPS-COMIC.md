@@ -75,7 +75,7 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
 6. In COMIC → Make, tap a panel, then **DRAW ON IT**. Also try **ANGLED GUTTERS**.
 
 ## Checks
-- **paint** (new spec word, about 66 s in my container) covers the real app at 440 and 390:
+- **paint** (new spec word, about 75 s in my container, 164 checks) covers the real app at 440 and 390:
   - the sample and the tour;
   - a stroke, UNDO, REDO and the two-finger undo;
   - pencil pressure making a wider line, and the palm rejected after the pencil;
@@ -92,7 +92,8 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - the fill stopping at lines, the wand's traced outline, photo outlines and comic art;
   - the PSD writer and reader, with PackBits.
 - **The comic test** also covers ComicInfo.xml, the new balloons and the angled gutters.
-- **The full brain suite** passes.
+- **The full brain suite** passes (2,484 tests on the merged branch).
+- On the merged branch, hubcards and awareness pass too. deck now fails only on the APP LIBRARY's and TRANSLATE's new screens (`apps` in Home, `translate`), which belong to those lanes.
 - I updated other specs to the new truth: MAKE holds sixteen and the EDITORS pills end with PAINT (deck, hubcards, awareness, deckshots). The plan count is now 58 screens.
 
 ## What's left
