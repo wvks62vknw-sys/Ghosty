@@ -82,6 +82,8 @@ export const agendaTab: TabDef = {
     // On the phone one page in sections (ui/sections.ts) instead of two sides to swap between.
     const P = page(root, { tag: 'AGENDA', rightLabel: 'REMINDERS & INBOX', leftLabel: 'DIARY', stack: true });
     const ep = panel('DIARY · NEXT 14 DAYS', { cls: 'scroll' });
+    // (a phrase after the dot, not a name: drawn in sentence case like every other heading here; the title itself, which the pills match, stays)
+    ep.title.dataset.label = 'Diary · next 14 days';
     const cp = panel('CALENDARS', { grow: false, cls: 'scroll.feeds' });
     // SPENDING (spending.ts): the statements he adds himself, under his diary — the month's money is part of its plan.
     const sp = spendingPanel();
@@ -540,8 +542,9 @@ export const agendaTab: TabDef = {
         jobs = a.jobs;
         feeds = a.feeds;
         errors = a.errors;
-        ep.setStatus(stale ? 'COPY' : `${events.length}`, stale ? 'off' : 'ok');
-        jp.setStatus(stale ? 'COPY' : `${jobs.length}`, stale ? 'off' : 'ok');
+        // (no bare 0 beside an empty list: the list's own empty line says it)
+        ep.setStatus(stale ? 'COPY' : events.length ? `${events.length}` : '', stale ? 'off' : 'ok');
+        jp.setStatus(stale ? 'COPY' : jobs.length ? `${jobs.length}` : '', stale ? 'off' : 'ok');
       } catch {
         ep.setStatus('OFFLINE', 'off');
         if (!events.length) {
