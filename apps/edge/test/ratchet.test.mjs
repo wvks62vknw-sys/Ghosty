@@ -187,6 +187,8 @@ export const STATES = {
   // NEXT ROUND (MAKE lane): MATERIALS' makeover set against his own statements, all four states (new, so base 0)
   'space.budget': { dir: 'space', base: 0, now: 4 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
+  // NEXT ROUND (MAKE lane): named Workbench projects, its empty list said in his words (new, so base 0)
+  'workbench.projects': { dir: 'workbench', base: 0, now: 1 },
   'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },
   'convert.files': { at: 'convert', dir: '', base: 3, now: 3 },

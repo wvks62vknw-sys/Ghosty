@@ -4918,6 +4918,14 @@ html .spaceprice .v { flex: none; font: 600 16px/20px var(--sf); color: var(--in
 html .spacepricetotal { margin: 8px 0; font: 600 15px/20px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
 html .spacebudget { overflow-wrap: anywhere; }
 html #pg-space .spaceprices button, html #pg-space .spacephototap button, html #pg-studio .studioqueue button, html #pg-studio .studiomeanwhile button { min-height: 44px; }
+/* NEXT ROUND (MAKE lane, make.u5): named Workbench projects; and the 3D studio's waiting list, a row a job */
+html .wbproj, html .studiojob { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-bottom: 1px solid var(--hair); min-width: 0; }
+html .wbprojtext, html .studiojobtext { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+html .wbprojtext b, html .studiojobtext b { font: 600 15px/20px var(--sf); color: var(--ink); }
+html .wbprojtext small { font: 400 12px/16px var(--sf); color: var(--ink3); }
+html .wbprojsaid, html .wbprojnone { overflow-wrap: anywhere; }
+html #pg-workbench .wb-projects button { min-height: 44px; }
+html .studioqueue, html .studiomeanwhile { margin-top: 8px; min-width: 0; }
 /* NEXT ROUND (MAKE lane, make.u6): the curve behind an answer, drawn under its numbers; words around the picture wrap, never cut */
 html .wbcurve { margin: 10px 0 2px; padding: 10px 0 0; border-top: 1px solid var(--hair); min-width: 0; }
 html .wbctitle { font: 700 12px/16px var(--sf); letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); overflow-wrap: anywhere; }

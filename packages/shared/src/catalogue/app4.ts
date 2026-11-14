@@ -312,6 +312,7 @@ export const APP_4: Record<string, CatValue> = {
   'section:workbench:drive': { same: 'panel:workbench:GEARS' },
   'section:workbench:flight': { same: 'panel:workbench:WING & CAR' },
   'section:workbench:home': { same: 'panel:workbench:HEAT' },
+  'section:workbench:projects': { same: 'panel:workbench:PROJECTS' },
   'section:agenda:diary': { same: 'panel:agenda:DIARY · NEXT 14 DAYS' },
   'section:agenda:todo': { same: 'panel:agenda:TO-DO' },
   'section:agenda:reminders': { same: 'panel:agenda:REMINDERS & TASKS' },

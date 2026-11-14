@@ -20,6 +20,7 @@ import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/
 import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { learnedAsked, learnedFor, storedLearned } from '../../../../packages/shared/src/learned';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
+import { diyAsked } from '../features/workbench/diyjobs';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { moneyAsked } from '../features/money/words';
@@ -201,7 +202,7 @@ export const LOCAL_ASKS = [
   { id: 'rainradar', test: (t: string) => RAIN_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
-  { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
+  { id: 'workbench', test: (t: string) => !!workbenchAsked(t) || !!diyAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
   { id: 'right', test: (t: string) => !!rightSaid(t) },
   { id: 'today', test: (t: string) => todayAsked(t) },

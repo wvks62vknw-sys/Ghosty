@@ -72,6 +72,7 @@ export const WHATS_NEW: NewThing[] = [
   // [voice lane] the final round, unsaid until now
   { day: '2026-11-13', title: 'Say it your way, colours by name', line: '“Put some tunes on”, “log a pint” or “give us a shout in ten minutes” just work; “make it red” changes my colour, and every colour now has a plain name. Ask “do you know it’s me?” and I answer from what this phone heard.' },
   // NEXT ROUND, MAKE lane
+  { day: '2026-11-14', title: 'Workbench projects and DIY jobs', line: 'Make → Workbench → PROJECTS: save every number as “the shed beam” and open it later just as it was. Say “put up a shelf” for the tools, materials, steps and a load check, each a first estimate.' },
   { day: '2026-11-14', title: 'The curve behind a Workbench answer', line: 'Make → Workbench: under the numbers, the shape of the answer: how a beam sags along its span, the power a car needs as it speeds up, a room’s heat month by month, the sun through the day. Each a first estimate, never certified.' },
   { day: '2026-11-14', title: 'Prices on your paint and flooring', line: 'Make → Space → MATERIALS: a typical UK price beside the paint, the flooring (laminate or carpet) and the skirting, the total, and SET AGAINST MY SPENDING to see it beside your usual month from your own statements. First estimates, never quotes.' },
   { day: '2026-11-14', title: 'Doors and windows from room photos', line: 'Make → Space → FROM PHOTO: after photos of the room, tap its outline where each door and window is. The sizes say ROUGH until you type one wall’s real length.' },

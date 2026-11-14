@@ -246,6 +246,19 @@ export const APP_3: Record<string, CatValue> = {
     say: ['Check bbc.co.uk'], scene: ['watching'], cat: 'watch',
   },
   // ---- THE WORKBENCH (a first estimate each, never certified)
+  // NEXT ROUND (MAKE lane): named projects and the DIY job planner, on the Workbench's PROJECTS section
+  'panel:workbench:PROJECTS': {
+    name: 'Save my Workbench projects', line: 'You can save a set of Workbench answers under a name, like “the shed beam”, and open it later with every number as you left it.',
+    more: 'Kept on your phone. Each answer is worked out again when it opens: still a first estimate, never certified.',
+    say: ['Workbench projects'], scene: ['making'], cat: 'build',
+    since: '2026-11-14',
+  },
+  'panel:workbench:DIY JOBS': {
+    name: 'Plan a DIY job', line: 'You can say “put up a shelf” and get the tools, the materials, the steps and a first-estimate load check.',
+    more: 'A shelf, a TV on the wall, a curtain pole or a picture: the board or pole checked as a beam, each fixing’s share of the weight with a margin, typical prices. Never a fitter’s sign-off.',
+    say: ['Put up a shelf', 'Mount my TV on the wall', 'Hang a mirror'], scene: ['making'], cat: 'build',
+    since: '2026-11-14',
+  },
   'panel:workbench:WIND TUNNEL': {
     name: 'A wind tunnel on your phone', line: 'You can watch air flow round a wing, a car or a shape you draw, live, with its lift and drag.',
     more: 'A 2-D flow worked out on your phone: change the wing’s camber, thickness and angle as it runs. A first estimate, never certified.',
