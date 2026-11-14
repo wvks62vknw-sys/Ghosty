@@ -68,7 +68,7 @@ import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
 import { FAULT_WORDS, FILM_SHOTS, HOLD_AFTER, STORY_SHOTS, greetingFor, holdWords, lengthFor, offlineLine, openingLine, ownLines, settledFeeds, shotWords, type BootRun } from './bootwords';
 import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../features/core/scan/film';
-import { resetScoreState, scoreState, startScore, type Score } from '../features/core/scan/score';
+import { resetScoreState, scoreState, scoreTuning, startScore, type Score } from '../features/core/scan/score';
 import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
 import { worldDesc, ORB_FILL } from '../features/core/scan/world';
 import { eyeShot, type EyeShot, type EyeShotState } from '../features/core/eye/film';
@@ -846,7 +846,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   // THE SOUND: under the film, B, the short score (his Sounds setting and the platform's cold-open rule honoured by score.ts, said nowhere);
   // A, the one tone, when he chose it; today's hum under the other worlds' picture
   resetScoreState();
-  const score: Score | null = filmWanted && settings.get().bootScore !== false ? startScore() : null;
+  // (in his colour's key, with the hour's texture: boot.u7)
+  const score: Score | null = filmWanted && settings.get().bootScore !== false ? startScore(scoreTuning(dd.theme ?? 'reactor', new Date().getHours())) : null;
   if (score?.on) bootState.sound = true;
   const stopSound = score ? () => score.stop() : hum(tl);
   let said = false;
@@ -1065,6 +1066,15 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     }
   };
   el.addEventListener('pointerdown', skipIt);
+  // (as the best launches: a key skips it too, Escape, Enter or the space bar, and VoiceOver is told what this is and how to skip it;
+  // never while the director's mode steps it by hand)
+  const onKey = (e: KeyboardEvent) => {
+    if (done) return removeEventListener('keydown', onKey);
+    if (!flags().__ghostyBootManual && (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ')) skipIt(e);
+  };
+  addEventListener('keydown', onKey);
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-label', 'Ghosty is starting. Tap anywhere to skip.');
 
   /** The recognition: the box snaps onto the orb's box with the tone, once (ui/machine.ts recognise: the lock's duration and
    *  curve from the tokens, the sound set's own tone on top of his sound setting). */

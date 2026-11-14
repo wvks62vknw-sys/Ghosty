@@ -339,6 +339,31 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   await o.ctx.close();
 }
 
+// g. the score in his colour's key (boot.u7): after a real tap (iOS allows no sound before one) "reboot" plays the score, in Blue's key
+//    (A) with the hour's texture; in Orange it plays three semitones up; at night the third goes minor
+{
+  const { ctx, page } = await open({ set: { sounds: true, bootScore: true } });
+  await page.goto(base);
+  await ended(page, 'score');
+  await page.touchscreen.tap(220, 300).catch(() => undefined);
+  const tuneOf = async (what) => {
+    await page.evaluate(() => window.__ghosty.send('reboot'));
+    await page.waitForFunction(() => !!window.__bootState?.score?.tuning, null, { timeout: 20000 }).catch(() => problems.push(`score: ${what}: no score played after a tap`));
+    const t = await page.evaluate(() => ({ ...window.__bootState.score.tuning, on: window.__bootState.score.on, hr: new Date().getHours() }));
+    await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+    return t;
+  };
+  const a = await tuneOf('Blue');
+  const night = a.hr < 6 || a.hr >= 21;
+  if (!a.on || a.key !== 0 || Math.abs(a.third - (night ? 1.1892 : 1.2599)) > 1e-4 || a.minor !== night) problems.push(`score: in Blue at ${a.hr}:00 it played ${JSON.stringify(a)} (want key 0, ${night ? 'the minor third at night' : 'the major third by day'})`);
+  await page.evaluate(() => window.__ghosty.run('set_theme', { theme: 'ember' }));
+  const b = await tuneOf('Orange');
+  if (!b.on || b.key !== 3 || Math.abs(b.ratio - Math.pow(2, 3 / 12)) > 1e-6) problems.push(`score: in Orange it played ${JSON.stringify(b)} (want three semitones up)`);
+  report.push(`score: Blue key ${a.key} bright ${a.bright}, Orange key ${b.key}`);
+  await ctx.close();
+}
+
 await browser.close();
 for (const r of report) console.log(`  ${r}`);
 if (problems.length) {
