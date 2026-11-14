@@ -108,3 +108,11 @@ A small "generator" archetype (passwords, passphrases, dice, coins, picks from a
 - Calcs return 0 for "never" in a few places (debt payoff when the payment is below the interest, break-even when the price does not beat the cost). The output labels say so through the tour.
 - `ceil` on exact products is wrapped in `round(x, 6)` where floating-point dust could add one (overpayments, stud wall boards).
 - Password strength shows the years to guess as a power of ten, because the true figure overflows any display.
+- The engine shows a calc's first output as its headline and uses it for KEEP, so every calc leads with its main answer. A small `lead()` helper in each file moves that output to the front and writes the earlier outputs it reads into its expression, so runCalc's order still holds.
+- Meter Readings is a plain dated log of readings with photos. Household (the `homeadmin` screen) is the full screen for bins, bills and what is due. If the ENGINE lane thinks they overlap, Meter Readings is the one to drop.
+
+## Checked in the preview
+
+All 131 apps opened at `#apps/<id>` with no page or console errors. Screenshots of a log (Receipts), a board (Invoices), calcs (Take-Home Pay, Paint Calculator, Length), a checklist, a guide, a counter and a timer looked right at 440 wide. After that pass:
+- board rows no longer repeat their column name;
+- collections with no sample photos open as a list rather than a gallery.
