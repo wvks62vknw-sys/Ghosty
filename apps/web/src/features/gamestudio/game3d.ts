@@ -64,6 +64,14 @@ function keepGhost(id: string, path: { x: number; y: number; z: number }[]): voi
   }
 }
 
+let opener: ((wish?: string) => void) | null = null;
+let pendingWish: string | undefined | null = null;
+/** From the chat: 3-D GAMES shown, and his description drafted there when he gave one. */
+export function open3d(wish?: string): void {
+  if (opener) opener(wish);
+  else pendingWish = wish;
+}
+
 export function game3dPanel(): HTMLElement {
   const pn = panel('3-D GAMES', { cls: 'gs3', grow: false });
   game3dState.games = loadGames();
@@ -340,6 +348,8 @@ export function game3dPanel(): HTMLElement {
         h('div.wbf', h('label', 'Name'), name),
         h('div.lab', 'THE WORLD'),
         h('div.wbf', h('label', 'Sky'), sel('The sky', [['0d1620', 'Night'], ['3a6f9c', 'Day'], ['c8743a', 'Sunset'], ['10202a', 'Forest']], g.sky.toString(16).padStart(6, '0'), (v) => ((g.sky = parseInt(v, 16)), changed()))),
+        h('div.wbf', h('label', 'Fog'), sel('The fog', [['0', 'None'], ['0.012', 'Light'], ['0.03', 'Thick'], ['0.06', 'Dense']], String(g.fog), (v) => ((g.fog = Number(v)), changed()))),
+        h('div.wbf', h('label', 'Sunlight'), sel('The sunlight', [['0.5', 'Dim'], ['1.5', 'Normal'], ['2.3', 'Bright']], String(g.light ?? 1.5), (v) => ((g.light = Number(v)), changed()))),
         h('div.wbf', h('label', 'Gravity'), num('Gravity, metres a second squared', g.gravity, (v) => ((g.gravity = Math.max(0, Math.min(30, v))), changed())), h('span.wbu', 'm/s²')),
         h('div.wbf', h('label', 'Clock'), num('Seconds on the clock (0 for none)', g.time, (v) => ((g.time = Math.max(0, Math.round(v))), changed()), '5'), h('span.wbu', 's')),
         h('div.lab', `THE STAGE · ${g.things.length} THINGS`),
@@ -415,6 +425,19 @@ export function game3dPanel(): HTMLElement {
 
   paintShelf();
   paintMine();
+  opener = (wish) => {
+    if (game3dState.view !== 'shelf') close();
+    if (wish) {
+      said.value = wish;
+      draftIt();
+    }
+    requestAnimationFrame(() => pn.el.scrollIntoView({ block: 'start', behavior: 'instant' as ScrollBehavior }));
+  };
+  if (pendingWish !== null) {
+    const w = pendingWish;
+    pendingWish = null;
+    setTimeout(() => opener?.(w ?? undefined), 0);
+  }
   return pn.el;
 }
 

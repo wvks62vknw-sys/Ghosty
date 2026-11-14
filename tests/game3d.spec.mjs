@@ -240,6 +240,11 @@ await section('kinds', async () => {
   const { ctx, page } = await phone(PHONE);
   await go(page, 'gamestudio');
   await until(page, () => document.querySelectorAll('#pg-gamestudio .gs3card').length === 6, null, 30000);
+  // from the chat: "make a 3d kart race for 3 minutes" opens 3-D GAMES with the draft waiting there
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.evaluate(() => window.__ghosty.send('make a 3d kart race for 3 minutes', false));
+  check(await until(page, () => document.body.dataset.tab === 'gamestudio' && window.__ghosty.game3d?.draft?.kind === 'kart' && window.__ghosty.game3d.draft.changes.some((c) => c.kind === 'time' && c.n === 180), null, 20000), `[C1 chat] the draft from the chat: ${JSON.stringify(await page.evaluate(() => window.__ghosty.game3d?.draft))}`);
+  await page.locator('#pg-gamestudio .gs3draft button', { hasText: 'CANCEL' }).click();
   // DESCRIBE A GAME on the page: the draft's three marked changes, one rejected, MAKE IT makes and plays the rest
   await page.locator('#pg-gamestudio input[aria-label="Describe a game"]').fill('a night platformer with 10 coins and low gravity');
   await page.locator('#pg-gamestudio .gs3shelf button', { hasText: 'DRAFT IT' }).click();

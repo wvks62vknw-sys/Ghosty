@@ -54,6 +54,8 @@ export interface Game3D {
   camera: 'third' | 'first' | 'chase' | 'top';
   sky: number;
   fog: number;
+  /** The sun's brightness, 0.3 (dusk) to 2.5 (noon); absent: 1.5. */
+  light?: number;
   /** Seconds on the clock (0: no clock). */
   time: number;
   /** Lives (0: no lives). */
