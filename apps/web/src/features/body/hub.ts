@@ -15,6 +15,7 @@ import { h, svgEl } from '../../core/dom';
 import { button } from '../../ui/components';
 import { emptyState, lacksSignal, phrases, sizeWords, stateIn, stateLine, waitFor } from '../lifeui';
 import { sayError } from '../../ui/hisWords';
+import { listRow, skeleton } from '../../ui/appkit';
 import {
   addDays, avgOver, dayKey, emptyHub, fmt, highlights, HUB_METRICS, hubDays, mendHub, metricOf, NOT_ADVICE_HUB, parseTotals, RANGES, ringsOf, sampleHub, seriesOf, smoothed,
   type HubData, type HubKey, type RangeId,
@@ -299,7 +300,8 @@ export function hubScreen(): { el: HTMLElement; stop(): void } {
         h('div.hh-legend', ...(['deep', 'core', 'rem', 'awake'] as const).map((s) => h('small', h(`i.hh-key.${s}` as 'i'), ` ${s === 'rem' ? 'REM' : s[0]!.toUpperCase() + s.slice(1)} ${fmt(s, ln[s] ?? 0)}`))));
     }
     // workouts
-    if (d.workouts.length) kids.push(h('h3.bt-h', 'Workouts'), h('ul.pkitems', { dataset: { workouts: String(d.workouts.length) } }, ...d.workouts.slice(-6).reverse().map((w) => h('li.pkitem', h('span.bt-entry', h('b', `${w.kind} · ${w.min} min`), h('small', ` · ${new Date(`${w.d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${w.km ? ` · ${w.km} km` : ''}${w.kcal ? ` · ${w.kcal} kcal` : ''}`))))));
+    // (the App Kit's list rows)
+    if (d.workouts.length) kids.push(h('h3.bt-h', 'Workouts'), h('div.hh-workouts', { role: 'list', dataset: { workouts: String(d.workouts.length) } }, ...d.workouts.slice(-6).reverse().map((w, i) => listRow({ id: `w${i}`, title: `${w.kind} · ${w.min} min`, sub: [w.km ? `${w.km} km` : '', w.kcal ? `${w.kcal} kcal` : ''].filter(Boolean).join(' · ') || undefined, meta: new Date(`${w.d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) } as Parameters<typeof listRow>[0]))));
     kids.push(inBox(d));
     if (d.sample) {
       const clear = button('Clear the sample', () => {
@@ -384,7 +386,11 @@ export function hubScreen(): { el: HTMLElement; stop(): void } {
       const own = loadHub();
       const from = own.sample || !own.through ? addDays(today(), -3650) : addDays(own.through, -1);
       /* state: body.hub loading */
-      const done = waitFor(el, `Reading your Health export, ${sizeWords(f.size)}${own.through && !own.sample ? ', only the days since the last time' : ''}…`);
+      const done0 = waitFor(el, `Reading your Health export, ${sizeWords(f.size)}${own.through && !own.sample ? ', only the days since the last time' : ''}…`);
+      // (the App Kit's skeleton rows under the cards while it reads, so nothing jumps when the days land)
+      const skel = skeleton(3, 'Reading your Health export');
+      el.querySelector('.hh-cards')?.after(skel);
+      const done = () => (done0(), skel.remove());
       try {
         const { readHubExport } = await import('./export');
         const acc = await readHubExport(f, from, (x) => (status.textContent = `${Math.round(x * 100)}% read`));

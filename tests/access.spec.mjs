@@ -5,6 +5,8 @@
 // - The words grow, nothing pokes out sideways, and every key stays 44 pt.
 // - OFF puts back the switches he had before, not the defaults.
 // - Said in the chat ("accessibility on" / "accessibility off"), answered on the phone with no model.
+// - SPEAK SCREEN: "read the screen" reads the screen he is on (here Settings) in page order, its name first, never the keys, in the
+//   phone's own voice, and the reply shows the same words (captions for what is spoken).
 import { launch } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
@@ -85,6 +87,25 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   check((await html(page)).body === '21', '[chat] "accessibility on" did not set the body to 21');
   await say('accessibility off', /Accessibility off: your own switches are back/);
   check((await html(page)).body === '19', '[chat] "accessibility off" did not put his 19 back');
+
+  // ---- SPEAK SCREEN: "read the screen", asked from Settings through the jump bar's "Or ask me" (Settings is what "the screen" means)
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForFunction(() => document.body.dataset.tab === 'settings', null, { timeout: 15000 });
+  await page.waitForTimeout(600);
+  await page.keyboard.press('Control+KeyK');
+  await page.waitForSelector('#palette.on input', { timeout: 5000 });
+  await page.fill('#palette input', 'read the screen');
+  // (the ask row: "Or ask me" in the house's worlds, "Ask Ghosty: …" in Glass)
+  const askRow = page.locator('#palette .jask, #palette .it:has(small:text-is("ASK"))').first();
+  await askRow.waitFor({ timeout: 5000 });
+  await askRow.click();
+  // (the reply as it stands once its words have all come in: the words shown are the words read)
+  const read = await page.waitForFunction(() => { const sp = window.__ghosty.speakscreen; return [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => (m.textContent ?? '').replace(/\s+/g, ' ').trim()).find((x) => /(?:Reading Settings in this phone’s own voice|This phone has no voice to read with, so here are the words on Settings)/.test(x) && x.includes(sp.text.slice(0, 60).replace(/\s+/g, ' '))) ?? null; }, null, { timeout: 12000 }).then((h) => h.jsonValue(), () => null);
+  const sp = await page.evaluate(() => ({ ...window.__ghosty.speakscreen }));
+  check(!!read && sp.tab === 'settings' && sp.pieces >= 3 && /^Settings\. /.test(sp.text), `[speak] "read the screen" from Settings: ${JSON.stringify({ read: read?.slice(0, 120), ...sp, text: sp.text.slice(0, 120) })}`);
+  // (the words shown are the words read: captions for what is spoken; and never a key's name)
+  check(!!read && read.includes(sp.text.slice(0, 60)), '[speak] the reply does not show the words it reads');
+  check(!/\bOFF\b.*\bON\b|SEARCH|CANCEL/.test(sp.text.slice(0, 200)), `[speak] it read the keys: ${sp.text.slice(0, 200)}`);
   await ctx.close();
 }
 

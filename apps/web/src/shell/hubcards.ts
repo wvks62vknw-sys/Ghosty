@@ -55,6 +55,8 @@ import { videoTally } from '../video/tally';
 import { gameInst } from '../studio-game/inst';
 import { comicInst } from '../features/comic/inst';
 import { comicState } from '../features/comic/state';
+import { paintInst } from '../features/paint/inst';
+import { paintState } from '../features/paint/state';
 import { info as studioInfo } from '../studio-game/hub';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
@@ -666,6 +668,20 @@ export const CARDS: Record<string, HubCard> = {
     say: () => (comicState.books ? `${comicState.books} ${comicState.books === 1 ? 'comic' : 'comics'} on this phone, ${comicState.made} made by you` : ''),
     idle: 'No comics yet: import one, get a free one, or make your own',
   },
+  // [paint] MAKE → PAINT (features/paint): his paintings, colouring pages and the studio; all kept on this phone
+  paint: {
+    title: 'Draw and paint',
+    status: () => 'READY',
+    instrument: paintInst,
+    readouts: () => [
+      { label: 'Paintings', value: paintState.count ? String(paintState.count) : null, none: 'None yet' },
+      { label: 'Deleted', value: paintState.bin ? String(paintState.bin) : null, none: '—' },
+    ],
+    why: () => (paintState.count ? '' : 'Start a painting or a colouring page'),
+    load: async () => (await import('../features/paint/app')).countGallery(),
+    say: () => (paintState.count ? `${paintState.count} ${paintState.count === 1 ? 'painting' : 'paintings'} on this phone` : ''),
+    idle: 'No paintings yet: start one, or pick a colouring page',
+  },
   learn: {
     title: 'Learn anything',
     status: () => 'READY',
@@ -1062,6 +1078,29 @@ export const CARDS: Record<string, HubCard> = {
       ];
     },
     why: () => 'Hold a key and speak; nothing is recorded',
+  },
+  // [apps.voice] TRANSLATE: the language it translates into, and the phrasebook he keeps (both on this phone)
+  translate: {
+    title: 'Type, paste or speak',
+    status: () => 'READY',
+    instrument: () => voiceInst(false),
+    readouts: () => {
+      let to = 'es';
+      let starred = 0;
+      try {
+        const p = JSON.parse(localStorage.getItem('ghosty.translate.pair') ?? '{}') as { to?: string };
+        if (typeof p.to === 'string' && p.to) to = p.to;
+        const b = JSON.parse(localStorage.getItem('ghosty.translate.book') ?? '[]') as unknown[];
+        starred = Array.isArray(b) ? b.length : 0;
+      } catch {
+        /* storage refused or not JSON: the defaults */
+      }
+      return [
+        { label: 'Into', value: langName(to) },
+        { label: 'Starred', value: starred ? String(starred) : null, unit: starred === 1 ? 'phrase' : 'phrases', none: 'None yet' },
+      ];
+    },
+    why: () => 'Finds the language as you type',
   },
   rehearse: {
     title: 'Practise a hard talk',
