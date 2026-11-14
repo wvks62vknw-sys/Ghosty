@@ -10,7 +10,7 @@
 //      entries are hidden;
 //  (h) KEEP IN TOUCH in People: add, mark caught up, take off, each with UNDO, and a nudge set on the brain;
 //  (i) GIFTS in People: idea to bought, a budget and over it, a gift received with its thank-you, UNDO;
-//  (j) YOUR PEOPLE imports a contacts file and exports everyone as one .vcf; (k) the group plan goes to the Calendar as one .ics;
+//  (j) YOUR PEOPLE imports a contacts file and exports everyone as one .vcf; (k) the group plan goes to the Calendar as one .ics; (l) groups filter YOUR PEOPLE;
 //  (g) Memory has a JOURNAL row that opens it; every key 44 pt, nothing sideways, nothing cut, in all seven looks at 390.
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/journal.spec.mjs [outDir]
@@ -317,6 +317,16 @@ for (const vp of [PHONE, PHONE2]) {
   await page.waitForFunction((s) => window.__ghosty?.people?.people?.filter((p) => p.name.includes(`Vcard${s}`)).length === 2, stamp, { timeout: 10000 }).catch(async () => problems.push(`${T} [j] the two people are not in YOUR PEOPLE: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.people?.people?.map((p) => p.name)))}`));
   const priya = await page.evaluate((s) => window.__ghosty.people.people.find((p) => p.name === `Priya Vcard${s}`), stamp);
   check(priya?.phone?.replace(/\s/g, '') === '07700900123' && /06-12$/.test(priya?.born ?? ''), `${T} [j] Priya kept as ${JSON.stringify(priya)}`);
+  // (l) groups: Priya in "family", then the family chip shows only her
+  const priyaRow = page.locator('#pg-people .pkperson, #pg-people .pkcol', { hasText: `Priya Vcard${stamp}` }).filter({ has: page.locator('button', { hasText: /^Details$/ }) }).last();
+  await priyaRow.locator('button', { hasText: /^Details$/ }).first().click().catch(() => problems.push(`${T} [l] no Details for Priya`));
+  const gbox = page.locator(`#pg-people input[aria-label="Groups for Priya Vcard${stamp}"]`);
+  await gbox.fill(`family, school ${stamp}`).catch(() => problems.push(`${T} [l] no groups box`));
+  await page.locator(`#pg-people button[aria-label="Keep the groups for Priya Vcard${stamp}"]`).click().catch(() => undefined);
+  await page.locator('#pg-people .ppgroups button', { hasText: `school ${stamp}` }).click().catch(() => problems.push(`${T} [l] no chip for the group`));
+  await page.waitForFunction(() => window.__ghosty.people.shown === 1, null, { timeout: 5000 }).catch(async () => problems.push(`${T} [l] the group chip shows ${await page.evaluate(() => window.__ghosty.people.shown)}`));
+  await page.locator('#pg-people .ppgroups button', { hasText: 'Everyone' }).click().catch(() => undefined);
+  await page.evaluate(() => localStorage.removeItem('ghosty.people.groups'));
   const dl = page.waitForEvent('download', { timeout: 8000 }).catch(() => null);
   await page.locator('#pg-people .ppvcf button', { hasText: /Export all/i }).click();
   const d = await dl;

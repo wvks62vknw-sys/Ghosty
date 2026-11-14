@@ -11634,3 +11634,7 @@ html .al-gmerge .al-gtile.al-gbump { animation: al-gbump 180ms ease-out 100ms; }
 .keepbar[data-tone="ok"] .keepbartrack i { background-color: var(--g-ok); }
 .keepbar[data-tone="mid"] .keepbartrack i { background-color: var(--g-amber); }
 .keepbarn { font-variant-numeric: tabular-nums; color: var(--g-ink-1); }
+.ppgroups { flex-wrap: wrap; gap: var(--g-s-half); }
+.ppgroups button, .ppgrouprow button { min-height: var(--g-target); }
+.ppgrouprow { flex-wrap: wrap; gap: var(--g-s-half); }
+.ppgrouprow input { flex: 1 1 12em; min-width: 0; min-height: var(--g-target); }
