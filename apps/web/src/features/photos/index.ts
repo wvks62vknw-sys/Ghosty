@@ -34,7 +34,7 @@ export const photosState = {
   selecting: false,
   selected: [] as string[],
   viewer: '' as string,
-  search: { q: '', results: 0, naming: '' as '' | 'none' | 'needs' | 'ready' | 'working' | 'done' },
+  search: { q: '', results: 0, naming: '' as '' | 'none' | 'needs' | 'ready' | 'working' | 'done', reading: '' as '' | 'needs' | 'working' | 'done' },
   albums: [] as { id: string; name: string; count: number }[],
   dupes: 0,
   deleted: 0,
@@ -107,11 +107,52 @@ export const photosTab: TabDef = {
     const addBtn = button('ADD PHOTOS', () => picker.click(), 'phx-add');
     addBtn.setAttribute('aria-label', 'Add photos and videos from your phone');
     const selBtn = button('SELECT', () => setSelecting(!photosState.selecting), 'phx-select');
+    const moreBtn = button('MORE', () => void more(), 'phx-more');
+    moreBtn.setAttribute('aria-label', 'Settings, storage, help and Ghosty for Photos');
     const selBar = h('div.phx-selbar', { hidden: true });
-    const bar = h('div.phx-bar', addBtn, selBtn);
+    const bar = h('div.phx-bar', addBtn, selBtn, moreBtn);
     const app = h('div.phx', h('div.phx-top', line, segRow), body, selBar, bar, picker);
     // one scroll area for the screen (as THE LOOK and the reader have): the bar sticks above the house
     root.append(h('div.hud.phxhud', app));
+
+    // ---- MORE: settings with good defaults, storage, a short help page, and Ghosty about what is open
+    const more = async () => {
+      const set = photoSettings();
+      const r = await L.room();
+      const toggle = (label: string, k: keyof PhotoSettings, line: string) => {
+        const b = h('button.phx-row', { type: 'button', role: 'switch', 'aria-checked': String(set[k]), dataset: { case: 'keep', set: k } }, h('span.phx-rowname', label), h('span.phx-rownote', set[k] ? 'On' : 'Off'));
+        b.addEventListener('click', () => {
+          set[k] = !set[k];
+          savePhotoSettings(set);
+          b.setAttribute('aria-checked', String(set[k]));
+          b.querySelector('.phx-rownote')!.textContent = set[k] ? 'On' : 'Off';
+        });
+        return h('div', b, h('p.phx-small', line));
+      };
+      const used = `${libraryLine(list)}${r.quota ? ` · this phone lets the app keep up to about ${Math.round(r.quota / 1e9)} GB` : ''}`;
+      const sheet = modal('PHOTOS', h('div.phx-sheet',
+        h('h3.phx-h', 'Settings'),
+        toggle('Name new photos on this phone', 'autoName', 'When the Lens’s namer is on this phone, each photo you add is named here so search finds what’s in it. Nothing is sent.'),
+        toggle('Read words in new photos', 'autoRead', 'Each photo you add is read for words (a sign, a menu, a ticket) on this phone. Off by default: it takes a few seconds a photo.'),
+        h('h3.phx-h', 'Storage'),
+        h('p.phx-small', used),
+        h('h3.phx-h', 'Help'),
+        h('p.phx-small', 'ADD PHOTOS brings photos and videos in from your phone’s library; each is kept as it came, on this phone only. Tap one to see it full screen; SELECT to act on several. Deleted photos wait 30 days in Albums → Recently deleted. Search knows dates (“last summer”), kinds (“videos”) and, once named, what’s in a photo (“dog on a beach”). Where a photo was taken is shown to you and never sent.'),
+        h('div.phx-keys',
+          button('ASK GHOSTY', async () => {
+            sheet.close();
+            const { askInBox } = await import('../core/cards');
+            askInBox(`About my photos (${libraryLine(list)}): `);
+          }),
+          ...(list.some((i) => i.sample) ? [button('REMOVE SAMPLES', async () => {
+            sheet.close();
+            const n = await L.removeSamples();
+            say(`${n} sample photos removed.`);
+          })] : []),
+          button('DONE', () => sheet.close()),
+        ),
+      ));
+    };
 
     // ---- bringing photos in
     const bringIn = async (files: File[]) => {
@@ -120,6 +161,13 @@ export const photosTab: TabDef = {
       const n = r.added.length;
       say(n ? `${n} ${n === 1 ? 'item' : 'items'} in your library, kept on this phone.${r.failed.length ? ` ${r.failed.length} this phone could not read.` : ''}` : 'This phone could not read those. A JPEG, HEIC, PNG or a video works.', n ? 'ok' : 'warn');
       void draw();
+      // his settings: new photos named (only when the namer is already on this phone: never a download by itself) and read
+      const set = photoSettings();
+      if (n && set.autoName) {
+        const { eyesKept, EYES_NAMER } = await import('../../offline/eyes');
+        if (eyesKept(EYES_NAMER.id)) void L.nameAll().catch(() => undefined);
+      }
+      if (n && set.autoRead) void L.readAllText().catch(() => undefined);
     };
 
     // ---- selection
@@ -365,13 +413,13 @@ export const photosTab: TabDef = {
         const withThem = (n: string) => live.filter((i) => (i.people ?? []).includes(n));
         return [
           backRow('People', 'albums'),
-          h('p.phx-small', 'Only you and the people you’ve introduced, by the names you gave them. Anyone else is only ever “a person”, and nobody is looked up.'),
+          h('p.phx-small', 'Only you and the people you’ve introduced, by the names you gave them. Open a photo and tap WHO’S IN IT to say who is in it. Faces in your photos are never scanned (the face finder looks only through the live camera), anyone else stays “a person”, and nobody is looked up.'),
           names.length
             ? h('div.phx-rows', ...names.map((n) => row(n, withThem(n).length ? String(withThem(n).length) : 'not in a photo yet', () => {
                 query = n;
                 go('search', '');
               })))
-            : empty('Nobody introduced yet', 'Introduce yourself or someone you know in the Lens (FACES): then the photos they’re in can be found by name, on this phone.'),
+            : empty('Nobody introduced yet', 'Introduce yourself or someone you know in the Lens (FACES). Then WHO’S IN IT on a photo lets you say they’re in it, and search finds them by name.'),
         ];
       }
       if (sub === 'places') {
@@ -443,6 +491,7 @@ export const photosTab: TabDef = {
     });
     const results = h('div.phx-results');
     const namingLine = h('div.phx-naming');
+    const readingLine = h('div.phx-naming.phx-reading');
     const searchView = (): HTMLElement[] => {
       searchIn.value = query;
       void drawNaming();
@@ -454,7 +503,8 @@ export const photosTab: TabDef = {
         searchIn.value = l;
         void drawSearchResults();
       }, 'phx-chip'));
-      return [h('div.phx-searchrow', searchIn), ...(chips.length ? [h('div.phx-chips', ...chips)] : []), namingLine, results];
+      drawReading();
+      return [h('div.phx-searchrow', searchIn), ...(chips.length ? [h('div.phx-chips', ...chips)] : []), namingLine, readingLine, results];
     };
     const drawSearchResults = async () => {
       const q = parseQuery(query, Date.now());
@@ -497,6 +547,58 @@ export const photosTab: TabDef = {
         }
       });
       namingLine.replaceChildren(h('p.phx-small', kept ? `${unnamed} ${unnamed === 1 ? 'photo isn’t' : 'photos aren’t'} named yet. NAME MY PHOTOS looks at each one on this phone, so search finds what’s in them. Nothing is sent.` : `To find what’s in your photos, I name each one on this phone with the Lens’s namer: a ${NAMER_SIZE} download, once, only on Wi-Fi, when you tap. Nothing of your photos is sent.`), goName);
+    };
+
+    /** The words in his photos, read on this phone with the Lens's reader, on his tap. */
+    const drawReading = () => {
+      const unread = visible(list).filter((i) => i.kind === 'photo' && !i.textRead).length;
+      photosState.search.reading = unread ? 'needs' : 'done';
+      if (!unread) return void readingLine.replaceChildren();
+      const go = button('READ THE WORDS IN MY PHOTOS', async (b) => {
+        b.disabled = true;
+        photosState.search.reading = 'working';
+        try {
+          const r = await L.readAllText((d, of) => (readingLine.querySelector('.phx-small')!.textContent = `Reading ${d} of ${of} on this phone…`));
+          photosState.search.reading = 'done';
+          say(`${r.read} ${r.read === 1 ? 'photo' : 'photos'} read on this phone; ${r.withWords} had words in them. Search finds those words now.`);
+        } catch (e) {
+          b.disabled = false;
+          photosState.search.reading = 'needs';
+          say(sayError(e, 'read the words in your photos'), 'warn');
+        }
+      });
+      readingLine.replaceChildren(h('p.phx-small', `${unread} ${unread === 1 ? 'photo hasn’t' : 'photos haven’t'} been read for words yet (a sign, a menu, a ticket). This reads them on this phone; nothing is sent.`), go);
+    };
+
+    /** Who is in a photo, as he says: only the people he introduced, by the names he gave; nobody is found or named for him. */
+    const whoIsIn = async (it: Item) => {
+      let names: string[] = [];
+      try {
+        const { knownFaces } = await import('../../vision/facestore');
+        names = (await knownFaces()).map((p) => p.name).filter(Boolean);
+      } catch {
+        names = [];
+      }
+      if (!names.length) return void say('Only people you’ve introduced can be named here. Introduce yourself or someone in the Lens (FACES) first.', 'warn');
+      const chosen = new Set(it.people ?? []);
+      const rows = names.map((n) => {
+        const b = h('button.phx-row', { type: 'button', role: 'checkbox', 'aria-checked': String(chosen.has(n)), dataset: { case: 'keep', name: n } }, h('span.phx-rowname', n), h('span.phx-chev', { 'aria-hidden': 'true' }, chosen.has(n) ? '✓' : ''));
+        b.addEventListener('click', () => {
+          if (chosen.has(n)) chosen.delete(n);
+          else chosen.add(n);
+          b.setAttribute('aria-checked', String(chosen.has(n)));
+          b.querySelector('.phx-chev')!.textContent = chosen.has(n) ? '✓' : '';
+        });
+        return b;
+      });
+      const sheet = modal('WHO’S IN IT', h('div.phx-sheet', h('p.phx-small', 'Tick who is in this photo. Only people you’ve introduced are listed; anyone else stays “a person”.'), h('div.phx-rows', ...rows), h('div.phx-keys', button('KEEP', async () => {
+        sheet.close();
+        const before = it.people ?? [];
+        await L.setPeople([it.id], [...chosen]);
+        undo(chosen.size ? `In this photo: ${[...chosen].join(', ')}.` : 'Nobody named in this photo.', () => L.setPeople([it.id], before));
+        await refresh();
+        void drawViewer();
+      }), button('CANCEL', () => sheet.close()))));
     };
 
     // ---- the viewer: one photo full screen, swipe or ‹ › for the next
@@ -557,6 +659,7 @@ export const photosTab: TabDef = {
               await openPhotoEditor({ files: [new File([b], it.name, { type: it.type })] });
             })] : []),
             button('ALBUM', () => void pickAlbum([it.id])),
+            ...(it.kind === 'photo' ? [button('WHO’S IN IT', () => void whoIsIn(it))] : []),
             button('SHARE', async () => {
               const b = await L.blobOf(it.id);
               if (!b) return;
@@ -718,6 +821,28 @@ export const photosTab: TabDef = {
     } as TabInstance;
   },
 };
+
+/** His settings for Photos, kept on this phone (good defaults: name new photos when the namer is here; reading words is his choice). */
+interface PhotoSettings {
+  autoName: boolean;
+  autoRead: boolean;
+}
+const SETTINGS_KEY = 'ghosty.photos.settings';
+function photoSettings(): PhotoSettings {
+  try {
+    const v = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<PhotoSettings>;
+    return { autoName: v.autoName !== false, autoRead: v.autoRead === true };
+  } catch {
+    return { autoName: true, autoRead: false };
+  }
+}
+function savePhotoSettings(s: PhotoSettings): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch {
+    /* a private window: the defaults stand */
+  }
+}
 
 /** A soft, slow score for a memory (two warm chords, made here with the phone's own sound), on his tap only; quiet and short. */
 function softScore(): { stop(): void } {

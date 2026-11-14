@@ -1,5 +1,6 @@
 /**
- * The SIMON board. Options (GameConfig.options): pads (3 to 6, default 4), speed (ms a pad lights, 250 to 900, default 520).
+ * The SIMON board. Options (GameConfig.options): pads (3 to 6, default 4), speed (ms a pad lights, 250 to 900, default 520; a
+ * number under 10 is a multiplier, so 1.5 is half as fast again).
  * Watch the pads light, then tap them back in order. Each round adds one. A soft tone plays per pad when sound is allowed.
  */
 import { h } from '../../../core/dom';
@@ -11,7 +12,8 @@ const NOTES = [329.6, 392, 440, 523.3, 587.3, 659.3];
 
 export const simon: Board = (p) => {
   const pads = num(p.opts, 'pads', 4, 3, 6);
-  const speed = num(p.opts, 'speed', 520, 250, 900);
+  const raw = typeof p.opts.speed === 'number' ? p.opts.speed : 520;
+  const speed = Math.min(900, Math.max(250, Math.round(raw < 10 ? 520 / Math.max(0.5, raw) : raw)));
   const r = rng(p.seed());
   const s = S.start(pads, r);
   let showing = true;
