@@ -11,6 +11,7 @@
 //   YEAR      the year's totals and the PRINT key. WATCHES: a price watch made there, with its price, its move and when it last read.
 //   HOME      a paid bill stays under PAID with what its supplier cost this year, and can be forgotten; PAPERS keeps a warranty with
 //             its receipt's photo on the phone and a reminder, and a household paper with its renewal date.
+//   MEETINGS  an agenda kept, notes taken in it, summed up from his notes and kept with it.
 //   JOBS      an application kept with a follow-up reminder, its stage moved, forgotten.
 //   PEOPLE    one note changed, a gift idea kept and bought with its price, his own photo of someone kept on the phone only; a
 //             birthday in COMING UP gets a message drafted in his voice, never sent; two group plans at once, each answered.
@@ -424,6 +425,30 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await bar(page, 'JOBS bar', 'work');
       await page.click(`${Wj} button[aria-label="Forget Warehouse supervisor"]`);
       check(await until(page, () => !(window.__ghosty.jobs?.jobs ?? []).length, null, 10000), 'JOBS forgotten');
+    });
+
+    await block('meetings', async () => {
+      log('meetings');
+      await page.evaluate(() => localStorage.removeItem('ghosty.work.meetings'));
+      await open(page, 'work', 'Meetings');
+      const Wm = PK('work');
+      await page.waitForSelector(`${Wm} button[aria-label="Keep this meeting"]`, { timeout: 8000 });
+      check(/No meetings yet/.test(await txt(page, `${Wm} [data-state="empty"]`)), 'MEETINGS with none it says how to start');
+      await page.fill(`${Wm} input[aria-label="What the meeting is"]`, 'Team catch-up');
+      await page.fill(`${Wm} textarea[aria-label="The agenda, one point a line"]`, 'the rota\nthe new starter');
+      await page.click(`${Wm} button[aria-label="Keep this meeting"]`);
+      check(await until(page, () => (window.__ghosty.meetings?.list ?? []).includes('Team catch-up')), 'MEETINGS kept with its agenda');
+      await page.click(`${Wm} button[aria-label="Open Team catch-up"]`);
+      await page.waitForSelector('.modal textarea[aria-label="Notes for Team catch-up"]', { timeout: 5000 });
+      await page.fill('.modal textarea[aria-label="Notes for Team catch-up"]', 'Agreed: the rota changes from Monday. I will send the plan by Friday. Sam to meet the new starter.');
+      await page.waitForTimeout(400);
+      await bar(page, 'MEETINGS bar', 'work', '.modal .pk');
+      await page.click('.modal button[aria-label="Sum up Team catch-up"]');
+      check(await until(page, () => window.__ghosty.meetings?.summed >= 1, null, 10000) && /rota/i.test(await txt(page, '.modal pre.pkdoc')), `MEETINGS summed up from his notes: "${(await txt(page, '.modal pre.pkdoc')).slice(0, 120)}"`);
+      await page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
+      check(await until(page, () => (window.__ghosty.meetings?.list ?? []).includes('Team catch-up summed')), 'MEETINGS the summary is kept with it');
+      await page.click(`${Wm} button[aria-label="Forget Team catch-up"]`);
+      await page.evaluate(() => localStorage.removeItem('ghosty.work.library'));
     });
 
     await block('people', async () => {
