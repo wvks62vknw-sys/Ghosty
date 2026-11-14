@@ -614,10 +614,12 @@ export const siteTools: Tool[] = [
       // [sites] a Learn course's cards as the app (learnapp.ts, sites.c2): the cards stay out of the card's arguments
       const l = await withLearn(a, ctx);
       const r = await appApproval(l.args, ctx);
-      return l.said ? { args: { ...a, link_name: r.args.link_name }, reason: `${r.reason}${l.said}` } : r;
+      // pinned to the course and the cards it counted: run builds only those (review fix)
+      return l.said ? { args: { ...a, link_name: r.args.link_name, ...l.pin }, reason: `${r.reason}${l.said}` } : r;
     },
     async run(a, ctx) {
       if (a.change === true) return changeApp(a, ctx);
+      if (typeof a.from_learn === 'string' && a.from_learn.trim() && typeof a.learn_id !== 'string') throw new Error('those Learn cards were not the ones approved: ask again');
       return buildApp((await withLearn(a, ctx)).args, ctx);
     },
   },
