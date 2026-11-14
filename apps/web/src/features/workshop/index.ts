@@ -26,6 +26,10 @@ import { draftCard } from './draftcard';
 import { draftedPanel } from './selfdraft';
 import { earlierWords, newCount, NOTHING_NEW, offlineWords, PROJECT_WORD, projectWords, PROJECTS_NONE, splitWeek } from './words';
 import { sayError } from '../../ui/hisWords';
+import { mountSitePhotos } from '../../sites/photos';
+import { restoreSite } from '../../sites/versions';
+import { choose, chosen, HOME_TITLE, homePage } from '../../sites/home';
+import { putOnSites } from '../../sites/handover';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 /** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
@@ -391,6 +395,9 @@ export const workshopTab: TabDef = {
     const wp = panel('WIDGETS', { status: '' });
     // published pages (publish_site): every live link, to open, copy or take down
     const pp = panel('PUBLISHED PAGES', { status: '' });
+    // [sites] his own photos for the sites I build him (sites/photos.ts): resized and stripped on the phone
+    const php = panel('PHOTOS FOR YOUR SITES', { status: '' });
+    mountSitePhotos(php);
     // kernel
     const kp = panel('KERNEL LOCK', { grow: false });
     // WHAT'S NEW: this week's merges, once per build (state/whatsnew.ts), above everything else until GOT IT
@@ -512,14 +519,14 @@ export const workshopTab: TabDef = {
     tp.body.append(tStats, tNow, tLog);
     tp.foot!.append(tLevel, startBtn);
     // what he made first (his pages and apps, his widgets), then the versions; the coding practice and the lock last
-    P.right.append(pp.el, wp.el, vp.el, tp.el, kp.el);
+    P.right.append(pp.el, php.el, wp.el, vp.el, tp.el, kp.el);
     // Sections: what he asks for and the projects that run for days first, then the ideas and the roadmap, the changes
     // to ship or roll back (with the kernel lock), what he made (his pages and widgets) and the coding practice.
     sections(root, 'workshop', [
       { id: 'build', label: 'Build', match: /^(TELL GHOSTY|PROJECTS|THE LAB)/ },
       { id: 'ideas', label: 'Ideas', match: /^(UPGRADE|DRAFTED)/ },
       { id: 'changes', label: 'Changes', match: /^(PROPOSED|VERSIONS|KERNEL)/ },
-      { id: 'made', label: 'Made', match: /^(WIDGETS|PUBLISHED)/ },
+      { id: 'made', label: 'Made', match: /^(WIDGETS|PUBLISHED|PHOTOS FOR)/ },
       { id: 'training', label: 'Training', match: /^TRAINING/ },
     ]);
 
@@ -539,6 +546,20 @@ export const workshopTab: TabDef = {
         pp.body.append(!sitesKnown ? empty('LOADING') : empty('NONE', 'Ask Ghosty to “make me a website for…” or to rebuild one from a link: it goes live at a public link here.', 'Nothing published yet'));
         return;
       }
+      // [sites] ONE HOME PAGE FOR YOUR SITES (sites.u8): the pages he chose, as one link, after his APPROVE in the chat
+      const onHome = new Set(chosen());
+      const homeSites = sites.filter((x) => onHome.has(x.name));
+      const urlOf = (x: PublishedSite) => `${siteUrl(x.name)}${x.app || x.game ? '/' : ''}`;
+      const homeSaid = h('p.note.sitehomesaid', { 'aria-live': 'polite' });
+      const homeKey = button(homeSites.length ? `PUBLISH MY HOME PAGE (${homeSites.length})` : 'PUBLISH MY HOME PAGE', async (b) => {
+        if (!homeSites.length) return void (homeSaid.textContent = 'Tick ON MY HOME PAGE on the pages you want on it first.');
+        b.disabled = true;
+        const r = await putOnSites(HOME_TITLE, homePage(homeSites, urlOf), 'home');
+        b.disabled = false;
+        homeSaid.textContent = r.said;
+      }, homeSites.length ? 'on' : '');
+      homeKey.setAttribute('aria-label', 'Publish my home page: one link listing the pages I chose');
+      pp.body.append(h('div.sitehome', h('p.note', 'One link for everything you publish: tick ON MY HOME PAGE on the pages you want on it, then publish it. Only those pages are listed.'), h('div.keyrow', homeKey), homeSaid));
       for (const s of sites) {
         const open = h('a.sitelink', { href: siteUrl(s.name), target: '_blank', rel: 'noopener' }, h('b', s.title), h('small', `${siteUrl(s.name).replace(/^https?:\/\//, '')} · ${fmt.ago(s.at)} · ${Math.max(1, Math.round(s.bytes / 1024))} KB${s.source ? ` · from ${s.source.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}` : ''}`));
         const copy = button('COPY LINK', async () => {
@@ -561,7 +582,28 @@ export const workshopTab: TabDef = {
             toast(`Could not take it down: ${why(e)}`, 'warn');
           }
         }, 'warn');
-        pp.body.append(h('div.site', open, h('div.keyrow', copy, down)));
+        // [sites] UNDO LAST UPDATE (sites.u2): the version before the last update put back, after his confirm, as UNPUBLISH is
+        const back = s.versions
+          ? button('UNDO LAST UPDATE', async () => {
+              if (!(await confirmSheet('Put back the earlier version?', `“${s.title}” goes back to how it was before its last update, at the same link. What is live now is kept, so you can undo this too.`, 'PUT IT BACK'))) return;
+              try {
+                const r = await restoreSite(s.name);
+                sites = sites.map((x) => (x.name === s.name ? { ...x, title: r.title, at: r.at, versions: r.versions } : x));
+                toast(`${r.title}: the earlier version is live again`, 'ok');
+                paintSites();
+              } catch (e) {
+                toast(sayError(e, 'put the earlier version back'), 'warn');
+              }
+            })
+          : null;
+        back?.setAttribute('aria-label', `Undo the last update to ${s.title}`);
+        const home = button(onHome.has(s.name) ? 'ON MY HOME PAGE ✓' : 'ON MY HOME PAGE', () => {
+          choose(s.name, !onHome.has(s.name));
+          paintSites();
+        }, onHome.has(s.name) ? 'on' : '');
+        home.setAttribute('aria-pressed', String(onHome.has(s.name)));
+        home.setAttribute('aria-label', `${s.title} on my home page`);
+        pp.body.append(h('div.site', { dataset: { site: s.name } }, open, h('div.keyrow', copy, back, home, down)));
       }
     };
     /** Self-editing set up on the brain (GitHub): null until the change list first answers. */

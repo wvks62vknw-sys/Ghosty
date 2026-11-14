@@ -1,0 +1,287 @@
+{
+ "lane": "voice (his voice, many wordings, plain colours)",
+ "features": [
+  {
+   "name": "My voice (teach Ghosty your voice)",
+   "where": "SETTINGS → VOICE & HOME → MY VOICE",
+   "say": [
+    "Do you know my voice?",
+    "Teach you my voice"
+   ],
+   "does": "You read three sentences once; the phone learns your voice and keeps it on this phone only.",
+   "status": "works",
+   "note": "Better with the voice pack fetched on your tap; works without it."
+  },
+  {
+   "name": "People I've introduced",
+   "where": "SETTINGS → VOICE & HOME → PEOPLE I'VE INTRODUCED",
+   "say": [
+    "This is Sam",
+    "Who have I introduced?"
+   ],
+   "does": "Someone you introduce says yes aloud and reads three sentences; Ghosty then knows their voice by name.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Who's talking, on the talk bar",
+   "where": "Home → talk bar, after you speak",
+   "say": [
+    "(just speak)"
+   ],
+   "does": "After each spoken turn the bar shows YOU, a name, NOT SURE WHO or A VOICE I DON'T KNOW; an unknown voice is held with GO ON / NOT NOW, and IT'S FINE FOR AN HOUR stops the asking.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "The chat knows it's you",
+   "where": "Any chat turn",
+   "say": [
+    "Do you know it's me?",
+    "Who's talking?",
+    "Can you recognise my voice?"
+   ],
+   "does": "Every turn tells the brain what the phone really heard (you, not sure, a stranger, typed, or not taught yet), so it answers truly and never says it can't recognise you.",
+   "status": "works",
+   "note": "Telegram voice notes aren't scored: the phone isn't there to hear them."
+  },
+  {
+   "name": "Never a lock",
+   "where": "Everywhere",
+   "say": [
+    "Approve it"
+   ],
+   "does": "Your voice never opens, pays or approves anything; the tap always does.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Many wordings, one meaning",
+   "where": "Chat or voice, anywhere",
+   "say": [
+    "Put some tunes on",
+    "Log a pint",
+    "Give us a shout in ten minutes"
+   ],
+   "does": "Plain, slangy and British ways of asking reach the right ability: radio, water, lights, timers, map, Lens, comic, documents, sheets, slides, photos, videos, arcade, board games, weather, news, settings, the look, agenda, money, library, learn.",
+   "status": "works",
+   "note": "Proven on 2,282 wordings. Telegram still relies on the brain's own word match for music."
+  },
+  {
+   "name": "Asks when it's one of two",
+   "where": "Chat or voice",
+   "say": [
+    "Play something",
+    "Lights off",
+    "Make it white"
+   ],
+   "does": "One short question with both answers as keys (music or a game; room lights or a dark screen; white light or a white page); nothing happens until you tap.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Play music → the radio",
+   "where": "Chat or voice",
+   "say": [
+    "Play music",
+    "I want to hear something",
+    "Kill the music"
+   ],
+   "does": "Plays your last station or first favourite; with none, opens Radio to pick one; stops it on request.",
+   "status": "works",
+   "note": "A genre or a station by name (\"play some jazz\") goes to the brain."
+  },
+  {
+   "name": "Colours named plainly",
+   "where": "SETTINGS → THEME, THE LOOK, SLIDES themes",
+   "say": [
+    "Make it red",
+    "Change the colour to blue",
+    "Crimson theme"
+   ],
+   "does": "Twelve colours shown as Blue, Grey, Orange, Yellow, Red, Purple, Green, Light blue, Pink, Lime, Peach, White; old names and synonyms (crimson, navy, emerald, teal…) all work, and the reply says what changed.",
+   "status": "works",
+   "note": "Game studio sprite colours (Night, Moss…) keep scene names."
+  },
+  {
+   "name": "The look by words",
+   "where": "Chat or voice",
+   "say": [
+    "Dark theme",
+    "Change the colour",
+    "Make yourself green"
+   ],
+   "does": "Grounds, looks, switches and colours changed by words on the phone with no AI; \"change the colour\" opens THE LOOK and says how to pick one.",
+   "status": "works",
+   "note": ""
+  }
+ ],
+ "upward": [
+  {
+   "idea": "Learn his own words",
+   "why": "When he says something new and then taps the screen he meant, Ghosty offers to remember that wording, so next time it just works.",
+   "builds_on": "Many wordings layer + the two-way question keys",
+   "effort": "M"
+  },
+  {
+   "idea": "Wordings for every screen, not just the top 26",
+   "why": "Every room in the app answers in more than one wording, as the final round asked.",
+   "builds_on": "Meanings table and its 2,282-wording test",
+   "effort": "M"
+  },
+  {
+   "idea": "Numbers and amounts in any wording",
+   "why": "\"Log half a litre\", \"two glasses\", \"a quarter of an hour\" are understood exactly, not rounded.",
+   "builds_on": "The timer and water readers in the meanings layer",
+   "effort": "S"
+  },
+  {
+   "idea": "Voice that keeps up as he changes",
+   "why": "His voice print refreshes itself gently from turns it is sure of (cold, tired, outside), so NOT SURE WHO comes up less.",
+   "builds_on": "Voice print, the voice pack judge",
+   "effort": "M"
+  },
+  {
+   "idea": "Say why it wasn't sure",
+   "why": "\"Too short\", \"too noisy\" or \"sounded like two people\", in plain words, so he knows to say a full sentence.",
+   "builds_on": "The judge's own reasons",
+   "effort": "S"
+  },
+  {
+   "idea": "Your own colour",
+   "why": "\"Make it the colour of my car\" or a colour picked from a photo becomes a thirteenth colour, named plainly (\"dark teal\").",
+   "builds_on": "Colour names + the accent tokens",
+   "effort": "M"
+  },
+  {
+   "idea": "Shades by words",
+   "why": "\"A bit darker red\", \"softer blue\", \"brighter\" nudge the colour, and the reply names the new shade.",
+   "builds_on": "Colour names + the look by words",
+   "effort": "M"
+  },
+  {
+   "idea": "Colour for the room he's in",
+   "why": "\"Make the money screen green\" keeps one colour per room, still named plainly.",
+   "builds_on": "Recipe and accent per page",
+   "effort": "M"
+  },
+  {
+   "idea": "Undo by words for the look",
+   "why": "\"Put it back\" or \"the one before\" returns the last colour or look.",
+   "builds_on": "The look's saved recipe",
+   "effort": "S"
+  },
+  {
+   "idea": "Meanings in every language he speaks",
+   "why": "\"Pon música\" or Urdu wordings reach the same abilities.",
+   "builds_on": "Meanings table, interpreter",
+   "effort": "L"
+  },
+  {
+   "idea": "Meanings on Telegram too",
+   "why": "\"Put some tunes on\" from Telegram queues the radio for when he opens the phone, and the rest work there as they do in the app.",
+   "builds_on": "Meanings layer + Telegram turn",
+   "effort": "M"
+  },
+  {
+   "idea": "A sure-voice greeting",
+   "why": "When he's recognised for sure at the start of the day, a one-line \"Morning, it's you\" with the Brief.",
+   "builds_on": "Speaker line + the Brief",
+   "effort": "S"
+  }
+ ],
+ "sideways": [
+  {
+   "idea": "Quiet household mode",
+   "why": "When a voice he introduced is talking, Ghosty keeps his private things (money, health, messages) out of the answer automatically.",
+   "builds_on": "Speaker tag + people he introduced",
+   "effort": "M"
+  },
+  {
+   "idea": "Per-person settings",
+   "why": "Sam's timers, Sam's radio station, Sam's colour, chosen by the voice he introduced, never a stranger's.",
+   "builds_on": "People I've introduced + meanings",
+   "effort": "L"
+  },
+  {
+   "idea": "\"What can I say here?\"",
+   "why": "Each screen lists three wordings that work on it, taken from the meanings table, so he never has to guess.",
+   "builds_on": "Meanings table + the room you're in",
+   "effort": "S"
+  },
+  {
+   "idea": "Wording search for every feature",
+   "why": "Type or say anything vague and see the top three abilities it could mean, each a key.",
+   "builds_on": "Meanings layer + abilities catalogue",
+   "effort": "M"
+  },
+  {
+   "idea": "Colour-blind friendly looks",
+   "why": "Plain-named colours checked for contrast, with a \"colour-blind safe\" switch that picks distinguishable pairs.",
+   "builds_on": "Colour names + the contrast checker",
+   "effort": "M"
+  },
+  {
+   "idea": "Colours for lights at home",
+   "why": "\"Make the lights red\" uses the same plain names for his Home Assistant bulbs.",
+   "builds_on": "Colour names + house control",
+   "effort": "S"
+  },
+  {
+   "idea": "Spoken shortcuts he makes",
+   "why": "\"When I say 'movie time', dim the lights and play nothing\": his own phrases chained to abilities.",
+   "builds_on": "Meanings layer + house + radio",
+   "effort": "M"
+  },
+  {
+   "idea": "Wake word on this phone",
+   "why": "\"Ghosty\" said aloud starts listening, judged on the phone; still never a lock.",
+   "builds_on": "Voice pack + the microphone path",
+   "effort": "L"
+  },
+  {
+   "idea": "Voice notes kept as his own",
+   "why": "Short spoken notes saved with \"by you\" from the speaker tag, for the diary and memory.",
+   "builds_on": "Speaker tag + memory",
+   "effort": "S"
+  },
+  {
+   "idea": "Mood colour on request",
+   "why": "\"Calm colours\" or \"focus colours\" pick a plain-named colour and look together.",
+   "builds_on": "Colour names + the looks",
+   "effort": "S"
+  }
+ ],
+ "cross": [
+  {
+   "idea": "Radio by meaning with favourites by name",
+   "with": "PLAN AND HOME (radio)",
+   "why": "\"Put on my morning station\" plays the favourite he named."
+  },
+  {
+   "idea": "Water and timers by any wording, said back as cards",
+   "with": "BODY AND KITCHEN",
+   "why": "\"Necked a pint\" or \"eggs for 6 minutes\" lands on the right card at once."
+  },
+  {
+   "idea": "Comic and slides colours by plain names",
+   "with": "COMIC / EDITORS",
+   "why": "\"Make the speech bubbles red\" or \"slides in navy\" use the same colour words."
+  },
+  {
+   "idea": "Lens by meaning",
+   "with": "LENS",
+   "why": "\"What's this thing?\" or \"have a look at this\" opens the one point-and-know lens, already in the right mode."
+  },
+  {
+   "idea": "Recall who said it",
+   "with": "MEMORY",
+   "why": "\"What did Sam ask you yesterday?\" uses the speaker tag on remembered turns (only people he introduced)."
+  },
+  {
+   "idea": "Guardian on an unknown voice",
+   "with": "SECURITY",
+   "why": "A voice it doesn't know asking for money or messages gets the scam check line automatically."
+  }
+ ]
+}

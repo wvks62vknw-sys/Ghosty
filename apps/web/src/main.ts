@@ -135,7 +135,7 @@ onLocalReminder((title, text) => {
 async function boot(): Promise<void> {
   // his recipe as this phone keeps it (BRIEF-THEMES-2): the colour, the ground, the world, the switches; a phone from before
   // opens in Graphite + its colour + The Scan
-  applyRecipe(keptRecipe(settleTheme()));
+  applyRecipe(keptRecipe(settleTheme()), { remember: false }); // (the start is not a change to put back)
   // his mood on the whole interface (state/mood.ts → theme.ts applyMood): a live overlay on the accent, never saved
   applyMood(mood.get().now.kind);
   mood.subscribe((s) => applyMood(s.now.kind));
@@ -183,14 +183,16 @@ async function boot(): Promise<void> {
   if (spotify) toast(spotify.text, spotify.ok ? 'ok' : 'warn');
   // [resta] a Siri shortcut's link (?say=, ?do=, ?open=): done on his own signed-in phone only (features/settings/shortcuts.ts)
   void import('./features/settings/shortcuts').then((s) => s.followLink(ui.get().connected || !!ownerKey.get())).catch(() => undefined);
+  // [next] a heads-up once when a free allowance is nearly used up or a key starts failing (state/keyshealth.ts)
+  void Promise.all([import('./state/keyshealth'), import('./api/brain')]).then(([k, b]) => b.lastSeen.subscribe((s) => { for (const x of k.untold(k.headsUps(s.status))) toast(`${x.text} ${x.fix}`, x.tone === 'bad' ? 'bad' : 'warn'); })).catch(() => undefined);
   // [polish3] what another app shared to Ghosty (the manifest's share_target): files to the library, words to the ask line
   void import('./features/library/share').then((s) => s.followShared()).catch(() => undefined);
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), … (machine: the Machine's marks, so a check can lock a box on a thing: tests/hero.spec.mjs)
-  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState, mood, theme: themeState, machine: await import('./ui/machine'), awareness: await import('./shell/awareness'), voiceknown: (await import('./assistant/voiceknown')).probe,
+  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState, mood, theme: themeState, machine: await import('./ui/machine'), awareness: await import('./shell/awareness'), voiceknown: (await import('./assistant/voiceknown')).probe, learnwords: (await import('./assistant/learnwords')).probe,
     // (a check's way of saying something on any screen: the chat's box is on Home only; the microphone says it anywhere)
-    send: (t: string, voice = false) => import('./assistant/session').then((m) => m.send(t, { voice })),
+    send: (t: string, voice = false, as?: 'owner' | 'unknown' | 'unsure' | { name: string }) => import('./assistant/session').then((m) => m.send(t, { voice, ...(as ? { as } : {}) })),
     // the catalogue as this build has it, for the checks (no page shows it: BRIEF-SHELL pass 1), and FAVOURITES (shell/favourites.ts)
     // [health] the marks, the crash records and the test hook (abilities/health.ts, core/crash.ts)
     healthcheck: async () => (await import('./abilities/health')).healthCheck(), loadHealth: async (force = false) => (await import('./abilities/health')).loadHealth(force), crash: await import('./core/crash'), permissions: await import('./features/settings/permissions'),

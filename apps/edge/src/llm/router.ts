@@ -90,6 +90,9 @@ const WARM_AT = 0.8;
 const WARM_EVERY_MS = 60_000;
 
 /** No model answered: the message for the owner, and how long until the first one is back (Infinity when none is coming back). */
+/** [ci] How long the scripted model takes to write each sentence of a long reply (a quick real model's pace). */
+const MOCK_SENTENCE_MS = 300;
+
 export class RouterError extends Error {
   constructor(
     message: string,
@@ -379,7 +382,7 @@ export class Router {
   }
 
   /** The scripted mock (tests and the preview), timed like a real call so the SPEED card has something to show there. */
-  private async mockTimed(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, lane: Priority, avoid?: string, onWait?: (text: string) => void): Promise<{ message: Msg; model: string }> {
+  private async mockTimed(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, lane: Priority, avoid?: string, onWait?: (text: string) => void, onDelta?: (text: string, restart?: boolean) => void): Promise<{ message: Msg; model: string }> {
     this.speed.callStart(signal);
     const t0 = Date.now();
     try {
@@ -393,6 +396,17 @@ export class Router {
       }
       if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
       const r = await mockComplete(messages, tools, avoid);
+      // [ci] "talk to me about …" (the talk checks' long reply) is written the way a real model writes it: a sentence about every
+      // MOCK_SENTENCE_MS, sent on as it comes, so the phone's voice can start on the first (NEXT ci.u1) while the rest is written
+      const said = typeof r.message.content === 'string' ? r.message.content : '';
+      if (onDelta && lane === 'chat' && !r.message.tool_calls?.length && last?.role === 'user' && /^talk to me about /i.test(ownerWords(textOf(last.content)))) {
+        const pieces = said.match(/[^.!?]+[.!?]+\s*/g) ?? [said];
+        for (let i = 0; i < pieces.length && !signal?.aborted; i++) {
+          if (i) await sleep(MOCK_SENTENCE_MS, signal);
+          onDelta(pieces[i]!);
+        }
+        if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
+      }
       const ms = Date.now() - t0;
       this.speed.model({ provider: 'Mock', model: 'scripted', first: ms, ms, wait: 0, ok: true, chat: lane === 'chat' });
       this.speed.callEnd(signal, { wait: 0, model: ms, tools: (r.message.tool_calls ?? []).map((c) => c.function.name) });
@@ -410,7 +424,7 @@ export class Router {
    * temperature and room for longer replies.
    */
   async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: CallOptions = {}): Promise<{ message: Msg; model: string }> {
-    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await this.mockTimed(messages, tools, signal, opts.priority ?? 'chat', opts.avoid, opts.onWait));
+    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await this.mockTimed(messages, tools, signal, opts.priority ?? 'chat', opts.avoid, opts.onWait, opts.onDelta));
     await this.quota.load();
     const lane: Priority = opts.priority ?? 'chat';
     const small = opts.tier ? opts.tier === 'small' : !!opts.cheap;

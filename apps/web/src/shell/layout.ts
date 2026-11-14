@@ -32,7 +32,7 @@ const GROUPS: Record<string, ListGroup[]> = {
     { title: 'You', match: /^NAME/ },
     // (BRIEF-VOICE-KNOWN: MY VOICE and PEOPLE I'VE INTRODUCED sit in this group too, or the sheet draws the group twice: the ui spec)
     { title: 'Voice and home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/, foot: 'The offline brain answers on this phone when there is no signal.' },
-    { title: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
+    { title: 'Ghosty', match: /^(SECURITY|SYSTEM|LINKS)$/ },
     { title: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
   ],
   system: [

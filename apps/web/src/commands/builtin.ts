@@ -719,6 +719,20 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [see] a one-tap layer set on God's Eye (features/eye/sets.ts): COMMUTE, STORM or SKY
+      id: 'layer_set',
+      title: 'Layer set on God’s Eye',
+      hidden: true,
+      run: async (a) => {
+        go('eye');
+        const { pickLayerSet } = await import('../features/eye');
+        const k = String(a?.set ?? '') as 'commute' | 'storm' | 'sky';
+        for (let i = 0; i < 20 && !pickLayerSet; i++) await new Promise((r) => setTimeout(r, 150));
+        const fresh = (await import('../features/eye')).pickLayerSet;
+        if (fresh && ['commute', 'storm', 'sky'].includes(k)) toast(fresh(k), 'ok');
+      },
+    },
+    {
       id: 'set_theme',
       title: 'Set theme',
       hidden: true,

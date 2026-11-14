@@ -577,7 +577,12 @@ for (const vp of [PHONE, PHONE2]) {
         `[${W}] [approval: the exact thing asked] ${JSON.stringify(a)} (want "${want}" above two 44 pt keys, each named for the thing)`);
       await still(page, allow ? 'approval-yes' : 'approval-asked', vp);
       await page.click(`.log .approval button.apkey >> nth=${allow ? 0 : 1}`);
-      await until(page, () => !!document.querySelector('.log .approval:not([data-state="waiting"])'), null, 5000);
+      if (allow) {
+        // [security] a post counts down first: TAKE IT BACK and its words on the card, then the answer goes (security.u5)
+        const tb = await page.evaluate(() => { const b = document.querySelector('.log .approval'); const k = b?.querySelector('button.apback'); const r = k?.getBoundingClientRect(); return { state: b?.dataset.takeback, words: b?.querySelector('.aptakeback')?.textContent ?? '', key: k?.textContent?.trim(), h: r?.height ?? 0, w: r?.width ?? 0 }; });
+        check(tb.state === 'counting' && /^Approved\. It leaves in [1-4] seconds?: TAKE IT BACK stops it\.$/.test(tb.words) && tb.key === 'TAKE IT BACK' && tb.h >= 43.5 && tb.w >= 43.5, `[${W}] [approval: a few seconds to take it back] ${JSON.stringify(tb)}`);
+      }
+      await until(page, () => !!document.querySelector('.log .approval:not([data-state="waiting"])'), null, allow ? 12000 : 5000);
       const done = await page.evaluate(() => { const b = document.querySelector('.log .approval'); return { state: b?.dataset.state, note: b?.querySelector('.note:not(.apthing)')?.textContent, keys: b?.querySelectorAll('button.apkey').length }; });
       check(done.note === CW.approvalDone(allow) && done.state === (allow ? 'approved' : 'declined') && !done.keys, `[${W}] [approval: answered ${allow ? 'yes' : 'no'}] ${JSON.stringify(done)} (want "${CW.approvalDone(allow)}")`);
       await ctx.close();

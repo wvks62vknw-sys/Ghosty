@@ -78,7 +78,7 @@ export function judgeEmb(known: KnownEmb[], emb: number[]): { who: Who; d: numbe
   if (inside.length === 1 && (!second || best.c - second.c >= MARGIN || second.k === best.k)) {
     return { who: best.k.me ? { kind: 'owner' } : { kind: 'person', id: best.k.id, name: best.k.name }, d: best.c };
   }
-  if (inside.length > 1) return { who: { kind: 'unknown', why: 'unsure' }, d: best.c };
+  if (inside.length > 1) return { who: { kind: 'unknown', why: 'unsure', two: true }, d: best.c };
   return { who: { kind: 'unknown', why: near.every((n) => n.c < REJECT) ? 'voice' : 'unsure' }, d: best.c };
 }
 
