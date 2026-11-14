@@ -67,15 +67,21 @@ function tipOf(kind: TipKind, hardness: number): HTMLCanvasElement {
   if (hit) return hit;
   const c = mk(TIP, TIP), g = ctx2(c), r = TIP / 2;
   const rnd = seeded(kind.length * 977 + Math.round(hardness * 100));
+  if (kind === 'bristle') {
+    // thick paint: a body of colour, with the bristles' streaks through it
+    const body = g.createRadialGradient(r, r, 0, r, r, r * 0.95);
+    body.addColorStop(0, 'rgba(255,255,255,0.6)'); body.addColorStop(0.8, 'rgba(255,255,255,0.5)'); body.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = body; g.beginPath(); g.arc(r, r, r, 0, Math.PI * 2); g.fill();
+  }
   if (kind === 'grain' || kind === 'spray' || kind === 'bristle') {
-    const dots = kind === 'grain' ? 900 : kind === 'spray' ? 1400 : 26;
+    const dots = kind === 'grain' ? 900 : kind === 'spray' ? 1400 : 70;
     g.fillStyle = '#fff';
     for (let i = 0; i < dots; i++) {
       const a = rnd() * Math.PI * 2;
       const d = kind === 'spray' ? Math.sqrt(-2 * Math.log(rnd() + 1e-6)) * r * 0.32 : Math.sqrt(rnd()) * r * 0.92;
       if (d > r) continue;
-      const s = kind === 'bristle' ? r * (0.1 + rnd() * 0.12) : kind === 'grain' ? 1.6 + rnd() * 2.2 : 1 + rnd() * 1.4;
-      g.globalAlpha = kind === 'bristle' ? 0.55 + rnd() * 0.45 : 0.35 + rnd() * 0.65;
+      const s = kind === 'bristle' ? r * (0.08 + rnd() * 0.1) : kind === 'grain' ? 1.6 + rnd() * 2.2 : 1 + rnd() * 1.4;
+      g.globalAlpha = kind === 'bristle' ? 0.7 + rnd() * 0.3 : 0.35 + rnd() * 0.65;
       g.beginPath(); g.arc(r + Math.cos(a) * d, r + Math.sin(a) * d, s, 0, Math.PI * 2); g.fill();
     }
   } else {
@@ -459,6 +465,7 @@ export class Painting {
       g.globalAlpha = b.opacity * 0.8; g.globalCompositeOperation = lock ? 'source-atop' : b.mode === 'multiply' ? 'multiply' : 'source-over';
       g.drawImage(this.wet, 0, 0);
       g.globalAlpha = b.wetEdge;
+      g.drawImage(this.scratch2, 0, 0);
       g.drawImage(this.scratch2, 0, 0);
     } else {
       g.globalAlpha = tool === 'brush' ? b.opacity : Math.max(0.05, b.opacity);

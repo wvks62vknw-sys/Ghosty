@@ -31,5 +31,6 @@ export const hangman: Board = (p) => {
     p.score(H.score(g), `${g.max - g.misses} misses left`);
   }
   draw();
+  p.keep(g);
   return pad.stop;
 };

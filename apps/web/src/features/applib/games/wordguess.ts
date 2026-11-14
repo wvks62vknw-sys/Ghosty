@@ -95,5 +95,6 @@ export const wordguess: Board = (p) => {
   };
   window.addEventListener('keydown', keyd);
   draw();
+  p.keep({ answer, guesses, typing });
   return () => window.removeEventListener('keydown', keyd);
 };

@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [lens] THE APPS ROUND: Photos
+  { day: '2026-11-14', title: 'Photos, your own library', line: 'Photo → MY LIBRARY: your photos and videos in one private library on this phone, with albums, favourites, a 30-day Recently deleted, duplicates found, search by what’s in them, and memories that play as a short film.' },
   // [polish3] APPS ROUND, THE ARCADE, console-class (docs/build-plan/APPS-POLISH3.md)
   { day: '2026-11-14', title: 'A page for every game', line: 'In the ARCADE, tap a game’s title: its screenshots, how to play by touch, controller and keyboard, your record, its trophies, and its licence and credit.' },
   { day: '2026-11-14', title: 'Continue Playing and the Trophy Room', line: 'The ARCADE now opens on the games you played lately, and THE TROPHY ROOM counts what you earned: five for every game, yours included.' },
