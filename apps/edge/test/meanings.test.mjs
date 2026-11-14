@@ -74,6 +74,8 @@ const W = {
   money: ['show me my money', 'open my finances', 'check my spending', 'how much have I spent', "where's my money gone", 'open my budget', 'check my bank', 'show my accounts'],
   library: ['open the library', 'show me my books', 'take me to my bookshelf', 'read a book', 'I want to read a book', 'open my reading list', 'read me a book'],
   look: ['change the colour', 'change the theme', 'pick a colour', 'show me the colours', 'open the themes', 'change your colour'],
+  materials: ['how much paint for my lounge', 'how much paint do I need for the bedroom', 'how many tins of paint for my kitchen', 'paint calculator', 'wallpaper for my hall', 'how much flooring for the lounge'],
+  cameras: ['cameras on the M6', 'show me the cameras on the m6', 'traffic cameras near birmingham', 'any cameras on the A38', "what's the traffic like on the M5"],
   learn: ['open learn', 'show me the lessons', 'teach me something', 'learn something new', 'I want to learn something', 'take me to the courses', 'help me learn something'],
 };
 const EXPECT = { 'water-pint': 'water' };
@@ -328,4 +330,55 @@ test('volumes said any everyday way are logged exactly, with his own cup sizes w
   for (const t of ['I had half a litre of wine', 'a pint of lager', 'log a pint of milk']) assert.notEqual(W(t)?.m, 'water', `"${t}" is not water`);
   assert.equal(AM.mlWords(500), '500 ml');
   assert.equal(AM.mlWords(1500), '1.5 litres');
+});
+
+// ---------------------------------------------------------------- every screen by its everyday names (NEXT ROUND, voice.u2)
+
+test('every screen of the app opens from several everyday wordings, through the phone’s own order', () => {
+  const idx = readFileSync(at('../../web/src/features/index.ts'), 'utf8');
+  const tabs = new Set();
+  for (const m of idx.matchAll(/import \{ \w+ \} from '\.\/(\w+)';/g)) {
+    const id = /TabDef = \{\s*id: '([^']+)'/.exec(readFileSync(at(`../../web/src/features/${m[1]}/index.ts`), 'utf8'));
+    if (id) tabs.add(id[1]);
+  }
+  const listed = new Set(M.SCREENS.map((x) => x.tab));
+  for (const t of tabs) assert.ok(listed.has(t), `the ${t} screen has its everyday names`);
+  for (const x of M.SCREENS) assert.ok(tabs.has(x.tab), `${x.tab} is a real screen`);
+  const VERBS = ['open the', 'show me the', 'take me to the', 'bring up my', 'I need the', 'go to'];
+  const SCREEN_VERBS = ['open the', 'show me the', 'bring up my', 'pull up the', 'open my'];
+  let n = 0;
+  const wrong = [];
+  for (const sc of M.SCREENS) {
+    assert.ok(sc.names.length >= 3, `${sc.tab} has at least three names`);
+    for (const name of sc.names)
+      for (const v of sc.place ? SCREEN_VERBS : VERBS) {
+        const t = `${v} ${name.replace(/^(?:the|my|your) /, '')}`;
+        n++;
+        // a table that takes it first must be about that screen's own thing; else the meaning must open that screen
+        if (tableOf(t)) continue;
+        const m = M.meaningOf(t);
+        const opens = m && !M.isTwo(m) && (m.open === sc.tab || (m.say && tableOf(m.say)) || m.brain || m.act);
+        if (!opens && !(m && M.isTwo(m))) wrong.push(`"${t}" → ${JSON.stringify(m && (m.open ?? m.id ?? m.q))} (want ${sc.tab})`);
+      }
+  }
+  console.log(`MEASURED screens: ${n} wordings over ${M.SCREENS.length} screens`);
+  assert.deepEqual(wrong.slice(0, 20), [], `${wrong.length} wrong`);
+  // the distinctive names work on their own; a plain word on its own is left to the conversation
+  assert.equal(M.screenOf("god's eye")?.tab, 'eye');
+  assert.equal(M.screenOf('game studio')?.tab, 'gamestudio');
+  assert.equal(M.screenOf('floor plan')?.tab, 'space');
+  for (const t of ['money', 'people', 'work', 'body', 'outside', 'social', 'system', 'home', 'memory', 'books']) assert.equal(M.screenOf(t), null, `"${t}" alone is not a screen ask`);
+  for (const t of ['open the door', 'show me the money you owe', 'take me to the airport', 'I need the toilet roll', 'go to sleep']) assert.equal(M.screenOf(t), null, `"${t}" is not a screen`);
+  // a screen named like a real place opens only with a screen's verb, or with "screen", "page", "app"; a trip there is the brain's
+  for (const t of ['take me to school', 'go to work', 'where is the library', 'take me to the gym', 'I need the bank', 'go to the kitchen', 'find the library']) assert.equal(M.screenOf(t), null, `"${t}" is a trip, not a screen`);
+  for (const [t, tab] of [['open the gym', 'gym'], ['show me the library', 'library'], ['go to the school page', 'school'], ['take me to the work screen', 'work'], ['bring up the kitchen', 'kitchen']]) assert.equal(M.screenOf(t)?.tab, tab, t);
+});
+
+test('paint for a room opens SPACE on MATERIALS, and cameras on a road go to the brain with the meaning noted (make.c6, see.c6)', () => {
+  const p = M.meaningOf('how much paint for my lounge');
+  assert.deepEqual([p.open, p.panel], ['space', 'MATERIALS']);
+  assert.match(p.line, /first estimates\. Draw or pick the lounge on the plan/);
+  assert.equal(M.meaningOf('paint calculator').line, 'Materials are open: paint, flooring, skirting and wallpaper for your plan, first estimates.');
+  assert.equal(M.meantNote(M.meaningOf('cameras on the M6')), '\n\n(The phone read this as: show the traffic cameras on the m6.)');
+  assert.equal(M.meaningOf('is it raining at home')?.id, 'weather');
 });

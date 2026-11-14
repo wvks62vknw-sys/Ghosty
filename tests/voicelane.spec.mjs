@@ -154,6 +154,15 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   for (const s of await small(page)) check(false, `[${W}] [meanings] a key under 44 pt: ${s}`);
   await tap(page, 'A GAME');
   check(await page.waitForFunction(() => /arcade/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [meanings] A GAME did not open the arcade (${await page.evaluate(() => location.hash)})`);
+  // [voice.u2] every screen by its everyday names; paint for a room opens SPACE on MATERIALS (make.c6)
+  await say(page, 'bring up the game maker', /^Opening the Game Studio\.$/, `[${W}] [screens] the game maker`);
+  check(await page.waitForFunction(() => /gamestudio/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] the game maker did not open (${await page.evaluate(() => location.hash)})`);
+  await say(page, 'open the translator', /^Opening the Interpreter\.$/, `[${W}] [screens] the translator`);
+  check(await page.waitForFunction(() => /interpreter/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] the translator did not open (${await page.evaluate(() => location.hash)})`);
+  r = await say(page, 'how much paint for my lounge', /^Materials are open: paint, flooring, skirting and wallpaper for your plan, first estimates\. Draw or pick the lounge on the plan/, `[${W}] [screens] paint for the lounge`);
+  check(await page.waitForFunction(() => /space/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] paint did not open Space (${await page.evaluate(() => location.hash)})`);
+  check(await page.waitForFunction(() => [...document.querySelectorAll('#pg-space .pn')].some((p) => /^MATERIALS/i.test(p.querySelector('.ptitle')?.textContent ?? '') && p.getClientRects().length > 0), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] MATERIALS was not shown`);
+  check(!toBrain('how much paint'), `[${W}] [screens] paint went to the model`);
   await say(page, 'show me the map', /^Opening the map\.$/, `[${W}] [meanings] the map`);
   check(await page.waitForFunction(() => /eye/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [meanings] the map did not open (${await page.evaluate(() => location.hash)})`);
   check((await theme(page)) === 'reactor', `[${W}] [meanings] "show me the map" changed the look`);
