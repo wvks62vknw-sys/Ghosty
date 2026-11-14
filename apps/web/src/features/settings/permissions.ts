@@ -86,7 +86,11 @@ export function permissionsPanel(): Panel & { refresh(): void } {
     const list = usesKept().slice().reverse();
     const names = new Map(tabs().map((t) => [t.id, t.title]));
     const word = { camera: 'Camera', microphone: 'Microphone', location: 'Location' } as const;
-    const when = (t: number) => new Date(t).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    // Built from its parts, so it reads "Sat 14 Nov, 12:29" in every browser: engines' date tables disagree on the commas.
+    const when = (t: number) => {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+      return `${p.weekday} ${p.day} ${p.month}, ${p.hour}:${p.minute}`;
+    };
     const clr = button('CLEAR THE LIST', () => {
       clearUses();
       paintUsed();

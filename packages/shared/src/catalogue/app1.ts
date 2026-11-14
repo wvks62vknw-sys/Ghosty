@@ -373,6 +373,8 @@ export const APP_1: Record<string, CatValue> = {
     go: { open: 'apps' }, tryText: 'Opens the Library',
     since: '2026-11-14',
   },
+  // (Home → APPS, the Library's hub card: the same thing as the screen)
+  'hub:apps': { same: 'screen:apps' },
   'deck:apps:find-an-app-for-anything': { same: 'screen:apps' },
   'deck:apps:open-an-app-by-saying-its': { same: 'screen:apps' },
   'deck:apps:pin-your-favourite-apps-to-home': { same: 'screen:apps' },

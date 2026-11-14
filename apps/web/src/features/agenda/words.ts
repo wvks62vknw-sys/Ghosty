@@ -103,7 +103,7 @@ export function saidWhen(at: number, now = Date.now()): string {
   const hm = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   if (key(d) === key(t)) return `Today ${hm}`;
   if (key(d) === key(tm)) return `Tomorrow ${hm}`;
-  return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} ${hm}`;
+  return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')} ${hm}`;
 }
 
 /**

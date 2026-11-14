@@ -351,7 +351,7 @@ function whoSheet(): HTMLElement {
   addBtn.setAttribute('aria-label', 'Keep what I said about them');
   // [journal] APPS ROUND (Your people: vCard import and export, features/people/vcard.ts): his contacts file read on the phone and kept
   // on his brain through the pack's own words; everyone written out as one .vcf for the phone's Contacts
-  const vcfIn = h('input', { type: 'file', accept: '.vcf,text/vcard,text/x-vcard', hidden: true }) as HTMLInputElement;
+  const vcfIn = h('input', { type: 'file', accept: '.vcf,text/vcard,text/x-vcard', hidden: true, 'aria-label': 'A contacts file (.vcf) to read' }) as HTMLInputElement;
   vcfIn.addEventListener('change', async () => {
     const f = vcfIn.files?.[0];
     vcfIn.value = '';

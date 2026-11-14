@@ -13,7 +13,7 @@ import { tagged, verdictButtons } from '../brief/foresight';
 import { waiting } from '../../ui/wait';
 import { foreValue, WAIT } from './words';
 
-const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
 
 export function foresightPanel(): Panel & { refresh(): void } {
   const p = panel('FORESIGHT', { grow: false, cls: 'foresightrc' });

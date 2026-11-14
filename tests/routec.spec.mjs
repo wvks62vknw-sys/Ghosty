@@ -279,6 +279,14 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       const after = await radar();
       if (after.chip !== String(after.vis) || after.vis === before.vis) problems.push(`[${W} eye] the Radar chip and the layer disagree: ${JSON.stringify({ before, after })}`);
       await page.click('#pg-eye .eyechips button[data-layer="radar"]');
+      // (this spec's own turns above went to the brain less than half a minute ago, so opening God's Eye now is read as "the screen he
+      // meant" and the learned-wordings bar asks for 15 s over the bottom of the screen: he answers it, NO, and the targets are measured)
+      const offer = await page.evaluate(() => (document.querySelector('#wordbar:not([hidden])') ? { ...window.__ghosty.learnwords.offered } : null));
+      if (offer) {
+        if (offer.tab !== 'eye' || !/flat whites|my day look like/.test(offer.words)) problems.push(`[${W} eye] the wordings bar offers something this spec never said: ${JSON.stringify(offer)}`);
+        await page.locator('#wordbar button', { hasText: /^NO$/ }).click();
+        if (!(await page.waitForSelector('#wordbar', { state: 'hidden', timeout: 3000 }).then(() => true, () => false))) problems.push(`[${W} eye] NO did not put the wordings bar away`);
+      }
       for (const t of await target44(page, '#pg-eye .eyechips button, #pg-eye .bgroup button, #pg-eye .zoomrail button, #top .navback')) problems.push(`[${W} eye] under a 44 pt target: ${t}`);
     }
     if (tab === 'gym') {

@@ -330,8 +330,10 @@ for (const W of [440, 390]) {
     await page.fill('#pg-agenda .addev input[aria-label="Event title"]', 'Too late');
     await page.fill('#pg-agenda .addev input[aria-label="Event start"]', '2026-11-13T08:00');
     await page.locator('#pg-agenda .addev button', { hasText: /^ADD$/ }).first().click();
+    // (every toast on screen: the "Added: Dentist" one from fix 2 can still be up above the refusal on a slow machine)
+    await until(page, () => [...document.querySelectorAll('.toast')].some((t) => /That time has gone/.test(t.textContent ?? '')), null, 5000);
     await page.waitForTimeout(500);
-    const toast = await page.evaluate(() => document.querySelector('.toast')?.textContent ?? '');
+    const toast = await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | '));
     check(sent.events.length === before && /That time has gone/.test(toast), `${T} [8 a time that has gone] sent ${sent.events.length - before} and said "${toast}"`);
     // 10. the biggest text and calm motion
     await page.evaluate(() => (document.documentElement.dataset.body = '21'));

@@ -37,7 +37,7 @@ export function revisionBox(): HTMLElement {
     revisionState.days = plan;
     if (!plan.length) return void (say.textContent = 'That is tomorrow: no days left to spread revision over. Good luck!');
     say.textContent = `${plan.length} sessions of ${mins.value} minutes at ${time.value}, every other day at first and every day in the last week, none on the day itself.`;
-    list.append(...plan.map((d) => h('li', new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }))));
+    list.append(...plan.map((d) => h('li', new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', ''))));
     add.textContent = `ADD ${plan.length} SESSIONS TO MY DAYS`;
     add.hidden = false;
   };

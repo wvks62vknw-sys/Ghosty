@@ -141,7 +141,7 @@ const hm = (t: number): string => new Date(t).toLocaleTimeString('en-GB', { hour
 export function checkLine(c: LinkCheck, now = Date.now()): string {
   const d = new Date(c.at);
   const today = new Date(now).toDateString() === d.toDateString();
-  const when = now - c.at < 60_000 ? 'just now' : today ? `at ${hm(c.at)}` : `on ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at ${hm(c.at)}`;
+  const when = now - c.at < 60_000 ? 'just now' : today ? `at ${hm(c.at)}` : `on ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')} at ${hm(c.at)}`;
   return `Tested ${when}: ${c.ok ? 'it works.' : 'it didn’t work.'}`;
 }
 

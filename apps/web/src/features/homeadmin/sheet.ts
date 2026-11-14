@@ -100,7 +100,7 @@ function said(status: HTMLElement, r: { text: string; failed?: boolean; offline?
 }
 const note = (text: string) => h('p.pknote', { 'aria-live': 'polite' }, text);
 /** A day as he says it ("Wed 11 Nov"), not as the brain keeps it ("2026-11-11"). */
-const niceDay = (ymd: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(ymd) ? new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : ymd);
+const niceDay = (ymd: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(ymd) ? new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '') : ymd);
 const named = (b: HTMLButtonElement, label: string) => (b.setAttribute('aria-label', label), b);
 function area(label: string, ph: string, rows = 3): HTMLTextAreaElement {
   return h('textarea', { rows, 'aria-label': label, placeholder: ph }) as HTMLTextAreaElement;

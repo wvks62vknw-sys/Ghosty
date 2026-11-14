@@ -21,7 +21,7 @@ interface JobRow {
 const STAGE_SAY: Record<string, string> = { applied: 'Applied', interview: 'Interview', offer: 'Offer', rejected: 'Turned down', withdrawn: 'Withdrawn' };
 export const jobsState = { jobs: [] as string[], state: '' };
 
-const nice = (ymd: string) => new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const nice = (ymd: string) => new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
 const label = (b: HTMLButtonElement, l: string) => (b.setAttribute('aria-label', l), b);
 
 export function jobsScreen(): { el: HTMLElement; stop(): void } {

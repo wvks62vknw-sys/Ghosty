@@ -261,8 +261,13 @@ if (run('e')) {
     // the library answers at once (the orb is drawn from it, as tests/boot.spec.mjs stubs it); everything else the first screen waits for is seven seconds late
     const LIB = { docs: [], stats: { docs: 12, passages: 4186, chars: 0, bytes: 0, vectors: 0 }, starterReady: true, vectors: false };
     await page.route('**/api/library', (r) => (r.request().method() === 'GET' ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(LIB) }) : r.continue()));
+    // (seven seconds late at least, and late until the film has been held at its landing for 2.6 s: on a software GL the film spends
+    // its first seconds holding at the ground while Mind loads, reaches the landing near seven seconds, and a fixed delay then barely
+    // held it at all; the open is slow on any machine this way. Released once the film is gone, and after 25 s whatever happens.)
     await page.route(/\/api\/(?!library)/, async (r) => {
+      const t = Date.now();
       await new Promise((x) => setTimeout(x, 7000));
+      while (Date.now() - t < 25000 && !(await page.evaluate(() => !document.getElementById('boot') || (window.__bootState?.held ?? 0) >= 2600).catch(() => true))) await new Promise((x) => setTimeout(x, 200));
       r.continue().catch(() => undefined);
     });
     await page.goto(base, { waitUntil: 'domcontentloaded' });

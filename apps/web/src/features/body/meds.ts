@@ -247,7 +247,7 @@ export function medsScreen(): { el: HTMLElement; stop(): void } {
       del.setAttribute('aria-label', `Remove ${m.name}`);
       kids.push(h('details.pkmore.bm-med', { dataset: { med: m.name, days: r ? String(r.days) : '' } },
         h('summary', `${m.name}${r ? ` · ${r.days <= 7 ? 'refill soon, ' : ''}about ${r.days} day${r.days === 1 ? '' : 's'} left` : ''}`),
-        h('p.pknote', `${m.dose ? `${m.dose}, ` : ''}at ${m.times.join(' and ')}.${m.stock != null ? ` ${m.stock} in the packet, ${m.per} a dose.` : ' Not counted: add how many you have to see when to refill.'}${r ? ` At your times it lasts until about ${new Date(`${r.by}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}.` : ''}`),
+        h('p.pknote', `${m.dose ? `${m.dose}, ` : ''}at ${m.times.join(' and ')}.${m.stock != null ? ` ${m.stock} in the packet, ${m.per} a dose.` : ' Not counted: add how many you have to see when to refill.'}${r ? ` At your times it lasts until about ${new Date(`${r.by}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')}.` : ''}`),
         h('div.pkadd', refill, got), h('div.pkrow', del)));
     }
     kids.push(addForm(), lockBox(data));

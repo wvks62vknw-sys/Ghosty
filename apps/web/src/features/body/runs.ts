@@ -106,7 +106,7 @@ export function historyBox(): HTMLElement {
         h('div.bc-cell', h('small', 'Quickest km'), h('b', b.km1 == null ? '—' : clock(b.km1)), h('small', 'from your splits')),
         h('div.bc-cell', h('small', 'Quickest 5 km'), h('b', b.km5 == null ? '—' : clock(b.km5)), h('small', b.km5 == null ? 'a 5 km run sets it' : 'from your splits'))),
       h('ul.pkitems', ...runs.slice(0, 10).map((r) => {
-        const k = button(h('span.bt-entry', h('b', `${new Date(r.at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${r.km.toFixed(2)} km`), h('small', ` · ${clock(r.secs)} · ${clock(r.secs / Math.max(0.001, r.km))} min per km`)), () => {
+        const k = button(h('span.bt-entry', h('b', `${new Date(r.at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')} · ${r.km.toFixed(2)} km`), h('small', ` · ${clock(r.secs)} · ${clock(r.secs / Math.max(0.001, r.km))} min per km`)), () => {
           open = r.id;
           draw();
         }, r.id === cur.id ? 'on' : '');

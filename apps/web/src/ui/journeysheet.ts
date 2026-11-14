@@ -52,7 +52,7 @@ const offline = () => typeof navigator !== 'undefined' && navigator.onLine === f
 export function plannedWhen(at: number): string {
   const d = new Date(at);
   const t = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  return new Date().toDateString() === d.toDateString() ? `today at ${t}` : `on ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at ${t}`;
+  return new Date().toDateString() === d.toDateString() ? `today at ${t}` : `on ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')} at ${t}`;
 }
 /* state: journey.kept offline */
 export const keptWords = (at: number): string => `No signal: this journey was planned ${plannedWhen(at)}, so its times may be out of date.`;

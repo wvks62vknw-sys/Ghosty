@@ -143,7 +143,7 @@ export function fastScreen() {
     });
     const st = fastStreak();
     kids.push(h('div.pkrow', go), h('div.pkfield', h('label', 'Your target'), target), h('p.pknote', { dataset: { faststreak: String(st) } }, st ? `${st} day${st === 1 ? '' : 's'} in a row with your target met.` : 'Your streak starts with the first fast that meets your target.'));
-    if (f.log.length) kids.push(h('section', { 'aria-label': 'Past fasts' }, h('h3.bt-h', 'Past fasts'), h('ul.pkitems', ...f.log.slice(-8).reverse().map((x) => h('li.pkitem', h('span.bt-entry', `${new Date(x.end).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${dur(x.end - x.start)}${x.end - x.start >= f.target * 3_600_000 ? ' · target met' : ''}`))))));
+    if (f.log.length) kids.push(h('section', { 'aria-label': 'Past fasts' }, h('h3.bt-h', 'Past fasts'), h('ul.pkitems', ...f.log.slice(-8).reverse().map((x) => h('li.pkitem', h('span.bt-entry', `${new Date(x.end).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')} · ${dur(x.end - x.start)}${x.end - x.start >= f.target * 3_600_000 ? ' · target met' : ''}`))))));
     kids.push(h('p.pknote', { 'aria-live': 'polite', dataset: { say: '' } }), phrases(['start a fast', 'end my fast', 'how long have I been fasting?']), h('p.pknote', 'Kept on this phone only. Not medical advice: if you have a health condition, ask your doctor before fasting.'));
     return kids;
   }, 30_000);

@@ -65,7 +65,7 @@ export function openTrip(e: TripEvent): void {
   // (what the sheet found, for the specs: window.__ghosty.trip, as the Lens and the Machine view give theirs)
   const g = (window as unknown as { __ghosty?: Record<string, unknown> }).__ghosty;
   if (g) g.trip = tripState;
-  const head = h('div.triphead', h('b', e.title), h('span', `${new Date(e.start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at ${hm(e.start)} · ${W.tripIn(e.start - Date.now())}`), e.location ? h('span.tripwhere', e.location) : null);
+  const head = h('div.triphead', h('b', e.title), h('span', `${new Date(e.start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')} at ${hm(e.start)} · ${W.tripIn(e.start - Date.now())}`), e.location ? h('span.tripwhere', e.location) : null);
   const leave = h('div.tripsec', { dataset: { sec: 'leave' } }, h('div.lab', 'WHEN TO LEAVE'), h('p.note', { dataset: { state: 'loading', case: 'keep' } }, W.TRIP_PLANNING));
   const sky = h('div.tripsec', { dataset: { sec: 'weather' } }, h('div.lab', 'WEATHER WHEN YOU ARRIVE'));
   const roads = h('div.tripsec', { dataset: { sec: 'roads' } }, h('div.lab', 'ROAD REPORTS ALONG THE WAY'));

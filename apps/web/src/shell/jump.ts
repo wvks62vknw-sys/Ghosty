@@ -35,6 +35,9 @@ let lastFind = '';
 
 /** The words of a thing's screen id in a command ("tab_radio" → "radio"). */
 const screenOf = (c: Command) => (/^tab_/.test(c.id) ? c.id.replace(/^tab_/, '') : '');
+/** A question put to me ("what is the weather like", "is it going to rain"), not the way to a screen ("where do I…", "how do I…") or an
+ *  order ("show me the weather"): the screen its words point at still heads the bar, one tap on OPEN, but Enter asks me. */
+const QUESTION = /^(what|what's|whats|why|who|whose|when|which|is|are|was|were|will|would|could|can|should|does|do|did|has|have|am)\b/i;
 
 function chip(c: Command, i: number, n: number, ctx: JumpCtx, glyph: string | null): HTMLElement {
   const b = h('button.it.jchip', { type: 'button', dataset: { id: c.id, group: c.group ?? '', case: 'keep' }, 'aria-label': `${String(n).padStart(2, '0')} ${c.title}` },
@@ -150,9 +153,11 @@ function draw(ctx: JumpCtx): number {
   // [consistency] u5: a sentence ("where do I paste a bank statement") is read for the screen it means, as the chat reads it, and that
   // screen heads the bar; a word or two stays the bar's own search
   jumpState.sentence = '';
+  let asked = false;
   if (hit < 0) {
     const s = screenForSentence(q, (id) => allCommands().some((c) => c.id === `tab_${id}`));
     if (s) {
+      asked = s.by === 'words' && QUESTION.test(q.trim());
       hit = items.findIndex((c) => c.id === `tab_${s.screen}`);
       if (hit < 0) {
         const c = allCommands().find((x) => x.id === `tab_${s.screen}`);
@@ -199,7 +204,7 @@ function draw(ctx: JumpCtx): number {
       lastFind = id;
       requestAnimationFrame(() => void recognise(box!, p, { name, again: true, onLock: () => (jumpState.locks += 1) }));
     } else requestAnimationFrame(() => void recognise(box!, p, { name }));
-    take = at;
+    take = asked && at === hit && ask >= 0 ? ask : at;
   } else {
     release(box!);
     lastFind = '';

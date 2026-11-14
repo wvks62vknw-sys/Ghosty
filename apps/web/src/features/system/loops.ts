@@ -21,7 +21,7 @@ import { waiting } from '../../ui/wait';
 import { loopsHead, WAIT } from './words';
 
 const WEEK = 7 * 86_400_000;
-const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
 
 /** What the card shows, for specs (window.__ghosty.loops). */
 export const loopsState = { rows: [] as LoopRow[], brain: false, since: 0, loads: 0 };

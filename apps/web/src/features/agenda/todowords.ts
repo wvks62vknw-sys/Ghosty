@@ -85,7 +85,7 @@ export function dueWords(due: string, now: number): string {
   if (n === 1) return 'Due tomorrow';
   if (n < 0) return `${-n} ${n === -1 ? 'day' : 'days'} late`;
   const [y, m, d] = due.split('-').map(Number);
-  return `Due ${new Date(y!, m! - 1, d!).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`;
+  return `Due ${new Date(y!, m! - 1, d!).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')}`;
 }
 
 /** [planlane4:tasks] A to-do's day and time in his words, for its row: "Due today · rings at 15:00", "Due today · rang at 09:00" (its

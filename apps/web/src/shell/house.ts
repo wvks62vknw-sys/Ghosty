@@ -325,11 +325,18 @@ export function buildHouse(dock: HTMLElement, openDeck: () => void): House {
   addEventListener('resize', paint);
   // the page ends where the house begins: its measured height is --dockh (the keys, the ask line and the home indicator's room)
   if (typeof ResizeObserver !== 'undefined') {
+    // Set on the next frame, not inside the observer: --dockh resizes the screens and the backdrop canvas, which sit higher in
+    // the page than the dock and were already measured this frame (Chromium then reports a ResizeObserver loop as a page error).
+    let queued = 0;
     new ResizeObserver(() => {
-      const bs = document.body.style;
-      const h = Math.round(dock.getBoundingClientRect().height);
-      if ((houseOn() || grownOn()) && h > 0) bs.setProperty('--dockh', `${h}px`);
-      else bs.removeProperty('--dockh');
+      if (queued) return;
+      queued = requestAnimationFrame(() => {
+        queued = 0;
+        const bs = document.body.style;
+        const h = Math.round(dock.getBoundingClientRect().height);
+        if ((houseOn() || grownOn()) && h > 0) bs.setProperty('--dockh', `${h}px`);
+        else bs.removeProperty('--dockh');
+      });
     }).observe(dock);
   }
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
