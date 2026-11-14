@@ -13,7 +13,7 @@ import { tabCommand } from './rank';
 import { DECK } from '../shell/deckcopy';
 import { askFromHere } from '../shell/awareness';
 import { ui } from '../state/app';
-import { applyPreset, applyRecipe, applyTheme, PRESETS, recipe, savedHome, THEMES } from '../state/theme';
+import { applyPreset, applyRecipe, applyTheme, easyArgs, PRESETS, recipe, savedHome, THEMES } from '../state/theme';
 import { applyAsk, GROUNDS, lookAsked, WORLDS } from '../../../../packages/shared/src/themes';
 import { keepWidget } from '../state/widgets';
 import { enqueue, type NewEvent, type NewJob } from '../api/offline';
@@ -528,6 +528,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [paint] PAINT (features/paint): his paintings, colouring pages and the studio
+      id: 'open_paint',
+      title: 'Paint: draw and paint, colouring pages',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('paint');
+      },
+    },
+    {
       // [gamestudio] THE GAME STUDIO (studio-game/): his games, and a new one
       id: 'open_gamestudio',
       title: 'Game studio: make a 2-D game',
@@ -746,7 +756,7 @@ export function registerBuiltins(): void {
         if (hit) return applyTheme(hit[0]);
         const ask = lookAsked(raw) ?? lookAsked(`${raw} background`) ?? lookAsked(`switch to ${raw}`);
         if (ask) {
-          const { recipe: next, said } = applyAsk(recipe(), ask, { now: Date.now(), home: savedHome() });
+          const { recipe: next, said } = applyAsk(recipe(), ask, { now: Date.now(), home: savedHome(), ...easyArgs(ask) });
           applyRecipe(next);
           return toast(said, 'ok');
         }
