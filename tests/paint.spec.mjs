@@ -288,6 +288,12 @@ async function run(viewport) {
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   const inked = await page.evaluate(() => window.__ghosty.paintInked());
   check(inked[1] > 10 && inked[1] < 20000 && (await S(page)).undo === 1, `[${W}] FILL fills the centre of the mandala up to its lines, on the colour layer (${inked[1]} cells)`);
+  // the magic wand: BY COLOUR selects the filled centre with a tap
+  await tool(page, 'Select');
+  await page.click('.pxstudio button[aria-label="Select an area of one colour with a tap"]');
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.evaluate(() => { const st = document.querySelector('.pxstudio .pxstage'); const r = st.getBoundingClientRect(); const d = window.__ghosty.paintDoc(); const e = (k) => st.dispatchEvent(new PointerEvent(k, { pointerId: 9, pointerType: 'touch', bubbles: true, clientX: r.left + d.tx + 600 * d.s, clientY: r.top + d.ty + 800 * d.s, pressure: 0.5, buttons: k === 'pointerup' ? 0 : 1 })); e('pointerdown'); e('pointerup'); });
+  check((await S(page)).selection, `[${W}] BY COLOUR selects the filled centre with a tap (${(await S(page)).note})`);
   await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
   await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
 

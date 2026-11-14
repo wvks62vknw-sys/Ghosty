@@ -8,7 +8,8 @@
  */
 import { brushOf, dabOf, seeded, type Brush, type TipKind } from './brushes';
 import { dabsAlong, mirrored, taperAt, type Pt, type Symmetry } from './stroke';
-import { floodMask } from './pixels';
+import { floodMask, traceOutline } from './pixels';
+import { simplify } from './stroke';
 
 export const BLENDS: { id: GlobalCompositeOperation; name: string }[] = [
   { id: 'source-over', name: 'Normal' }, { id: 'multiply', name: 'Multiply' }, { id: 'screen', name: 'Screen' }, { id: 'overlay', name: 'Overlay' },
@@ -695,6 +696,20 @@ export class Painting {
     s.globalCompositeOperation = tool === 'erase' ? 'destination-out' : L.alphaLock ? 'source-atop' : b.mode === 'multiply' ? 'multiply' : 'source-over';
     s.drawImage(this.wet, 0, 0);
     s.restore();
+  }
+
+  /** The magic wand: the area of like colour round a point of what he sees, as a selection outline. */
+  wand(x: number, y: number, tol = 28): Sel {
+    const c = this.composite(this.scratch, {});
+    const data = ctx2(c).getImageData(0, 0, this.w, this.h).data;
+    const got = floodMask(data, this.w, this.h, x, y, tol, 1);
+    if (!got) return null;
+    const ring = traceOutline(got.mask, this.w, this.h);
+    if (ring.length < 6) return null;
+    const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i < ring.length; i += 2) pts.push({ x: ring[i]!, y: ring[i + 1]! });
+    const s = simplify(pts, 1.2);
+    return s.length >= 3 ? { pts: s.flatMap((q) => [q.x, q.y]), inv: false } : null;
   }
 
   /** The colour at a point of the whole picture (the eyedropper). */
