@@ -217,3 +217,58 @@ test('[security] has this password leaked: only five characters of the fingerpri
   assert.equal(r.status, 200);
   assert.equal((await SEC.securityRoute('/security/pwned/password', 'GET', { env: {}, storage: new MemStorage(), previews: null, fetcher })).status, 404, 'a whole password in the path is never even read');
 });
+
+test('[security] approvals in the Brief: yesterday’s answers by his own calendar day, and anything still waiting', () => {
+  const now = new Date(2026, 10, 14, 8, 0).getTime();
+  const at = (d, h) => new Date(2026, 10, d, h, 0).getTime();
+  const list = [
+    { tool: 'send_email', what: 'a', allow: true, from: 'phone', at: at(13, 23) },
+    { tool: 'post', what: 'b', allow: false, from: 'telegram', at: at(13, 9), after: 'https://x.example/' },
+    { tool: 'send_email', what: 'c', allow: true, from: 'phone', at: at(14, 7) },
+    { tool: 'send_email', what: 'd', allow: true, from: 'phone', at: at(12, 22) },
+  ];
+  assert.equal(LK.approvalsDigest(list, 0, now), 'Yesterday you approved 1 and turned down 1, one after I read a page.');
+  assert.equal(LK.approvalsDigest(list, 2, now), 'Yesterday you approved 1 and turned down 1, one after I read a page. 2 still waiting for your APPROVE.');
+  assert.equal(LK.approvalsDigest([], 1, now), '1 still waiting for your APPROVE.');
+  assert.equal(LK.approvalsDigest([list[2]], 0, now), '', 'today’s answers wait for tomorrow’s Brief');
+});
+
+test('[security] an approval read aloud while talking says exactly what will happen and that the tap is his; it never says a spoken yes will do', () => {
+  const said = LK.approvalSpoken('Send an email to Sam about Friday?', 'Sending an email (to: sam@example.com · subject: Friday).');
+  assert.equal(said, 'Send an email to Sam about Friday? If you approve, I’ll do exactly this: Sending an email (to: sam@example.com · subject: Friday). Tap APPROVE on the card when you’re sure; your voice alone never approves.');
+  assert.match(LK.approvalSpoken('Allow send email', 'Sending an email'), /^Allow send email\. If you approve/);
+  assert.doesNotMatch(said, /say yes|say approve/i);
+});
+
+test('[security] lock everything: nothing that publishes runs (no approval even asked); tools that only read still do; unlock brings it all back', async () => {
+  {
+    const locked = await (await call('/api/security/lock', { method: 'POST', body: '{}' })).json();
+    assert.equal(locked.locked, true);
+    assert.ok(locked.at > 0);
+    assert.ok((await (await call('/api/security')).json()).lockedAt > 0);
+    const ev = await chat('publish site lockcheck saying hello');
+    assert.ok(!ev.some((e) => e.t === 'approval'), 'no approval is even asked while locked');
+    const res = ev.find((e) => e.t === 'tool_result' && e.name === 'publish_site');
+    assert.ok(res && res.ok === false && /Ghosty is locked/.test(res.summary), JSON.stringify(res));
+    // tools that only read still run
+    assert.ok((await chat('remember the lock test')).some((e) => e.t === 'tool' || e.t === 'text'));
+    assert.equal((await (await call('/api/security/unlock', { method: 'POST', body: '{}' })).json()).locked, false);
+    assert.equal((await (await call('/api/security')).json()).lockedAt, null);
+    const after = await chat('publish site lockcheck saying hello');
+    assert.ok(after.some((e) => e.t === 'approval'), 'unlocked: publishing asks for APPROVE again');
+  }
+});
+
+test('[security] check a link: the guardian’s check, for a pasted link or message only, the words and the verdict back, nothing else', async () => {
+  const seen = [];
+  const checkLink = async (t) => (seen.push(t), { verdict: 'scam', words: 'This looks like a scam.\n• The address imitates Royal Mail.', links: ['https://royalmaii-parcel.example/'] });
+  const route = (body) => SEC.securityRoute('/security/linkcheck', 'POST', { env: {}, storage: new MemStorage(), previews: null, checkLink, body: async () => body });
+  const r = await route({ text: 'Your parcel is waiting: https://royalmaii-parcel.example/pay' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { verdict: 'scam', words: 'This looks like a scam.\n• The address imitates Royal Mail.', links: ['https://royalmaii-parcel.example/'] });
+  assert.equal((await route({ text: 'hello there' })).status, 400, 'no link: nothing checked');
+  assert.equal((await route(null)).status, 400);
+  assert.equal(seen.length, 1);
+  await route({ text: `https://x.example/ ${'y'.repeat(10_000)}` });
+  assert.ok(seen[1].length <= 4000, 'a huge paste is cut, never sent whole');
+});

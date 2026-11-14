@@ -76,6 +76,47 @@ free classics, and lessons can be heard, quizzed and argued with out loud. Every
 - **Your speaking, week by week** (`learn.u12`). Each one-minute talk in Rehearse now keeps only its numbers on this phone: pace
   and filler words, never what you said. A chart shows the last eight weeks, with one line on the change since your first week.
 
+- **One map of everything you know** (`learn.u3`). **MY LEARNING MAP** on COURSES shows one picture, drawn from what the phone
+  already keeps:
+  - a bar for each course's mastery;
+  - your reading (books read to the end, ones part way);
+  - your speaking;
+  - your revision booklets.
+
+  It also names the one thing to try next: the lesson your misses point at, or the book you're furthest into.
+- **Highlights and notes in your books** (`learn.u4`). Select a sentence in the reader and tap **HIGHLIGHT**, or **HIGHLIGHT AND
+  NOTE** to add your own words. The words stay marked. ABOUT lists every highlight with where it is, and a tap takes you there.
+  **EXPORT NOTES** gives them all as one Markdown file, and **COPY NOTES** copies them. They are kept on this phone.
+- **Debate practice** (`learn.s8`). In Rehearse, choose **A DEBATE** under WHAT KIND and give your side. Ghosty argues the other
+  side for three rounds, then gives your strongest point, your weakest, and one thing for next time.
+- **Book club and spoken summaries** (`learn.s5`, `learn.s6`). The reader's CHAPTERS gains:
+  - **BOOK CLUB ON THIS CHAPTER:** three questions from the chapter's own words, and a short talk about your answers.
+  - **SUMMARY ALOUD:** about a minute's summary, shown and read out.
+- **Revision days up to an exam** (`learn.s12`). Under Learning's PLAN, give the exam, its date, a time and a session length.
+  - The sessions are listed first: every other day at first, every day in the last week, none on the day itself.
+  - **ADD** puts them in your days, each with a reminder ten minutes before. It is the brain's own reminder, so it reaches a
+    locked phone.
+  - **TAKE THEM OUT** removes them.
+- **Driving theory and trade courses** (`learn.s3`, `learn.s4`). START A COURSE has four ready starts: driving theory from the
+  public Highway Code, car mechanics, home electrics and first aid. A lesson on mechanics, electrics or building says every
+  figure is a first estimate, never certified, and to use a qualified person for anything dangerous.
+- **Quiz me aloud, hands-free** (`learn.c6`). **QUIZ ME ALOUD** under COURSES asks your own course questions aloud and hears your
+  answer: a letter, "the second one", or the answer's words. It says whether you were right, then moves on. A big STOP ends it.
+  It runs with no signal, and nothing you say is kept.
+- **Memory palace** (`learn.s7`). Under Learning's DRILLS, MEMORY has a **MEMORY PALACE**:
+  - Put each thing to remember at a place on a walk through your home, and picture it there.
+  - Then walk back and say what is at each place. It is scored and logged with your streak.
+  - Your places stay on this phone.
+- **The Gym's chip line tells the truth** (`learn.u10`). It now says: "TIME IT trains on the graphics chip (WebGPU); the long
+  training runs on the processor."
+
+## Fixed this round
+- **The learn spec's lost quiz card.** It was a race: a sync already on its way brought back the brain's copy from before the
+  third answer's card, and replaced the phone's cards with it. A card kept on the phone after that copy was asked for now stays.
+  The spec also waits until both cards are kept, then checks them as strictly as before. It is proved by 5 runs in a row, and 2
+  more with the CPU slowed 4× (`CPU_SLOW=4`).
+- **learnpass C1.** The ready starts sit in their own group, so the START row holds only START.
+
 ## How to try it on your phone
 1. **Courses.** Open a course you've quizzed in. Under the summary, the TODAY card names a lesson. Tap **QUIZ ME ON MY
    MISSES**.
@@ -93,19 +134,13 @@ free classics, and lessons can be heard, quizzed and argued with out loud. Every
 - **Puzzle of the day in the Brief** (`learn.s9`). The PLAN lane is building the Brief's one line per room this round. The
   puzzle joins it once that has landed, so the two don't collide.
 - These were not reached this round:
-  - `learn.u3` one map of everything you know
-  - `learn.u4` highlights and notes in books
-  - `learn.u7` interpreter phrasebooks per country, and kept conversations
+  - `learn.u7` phrasebooks per country in Interpret, and kept conversations
   - `learn.u8` offline translation packs
   - `learn.u9` the Gym explaining its moves
-  - `learn.u10` the Gym's chip line
   - `learn.u14` (done above, as the reading check sat online)
   - `learn.u15` weekly lab re-runs
-  - `learn.s3` to `s8` and `s11` (driving theory, trade courses, book club, spoken summaries, memory palace, debate practice,
-    sign language)
-  - `learn.s12` revision days up to an exam
+  - `learn.s11` sign language
   - `learn.c3` games you make in the Gym
-  - `learn.c6` quiz me while I drive
 - **The specialist sweep against Duolingo, Khan Academy, Anki, Apple Books, Kindle, Lichess, Brilliant and Speak.**
   - Done this round:
     - Mistake-driven review (Anki, Duolingo)
@@ -114,8 +149,8 @@ free classics, and lessons can be heard, quizzed and argued with out loud. Every
     - Speaking practice in another language (Speak)
     - Worked solutions (Khan Academy, Brilliant)
     - Progress charts (Speak)
+    - Highlights and notes with export (Kindle)
+    - A mastery map (Khan Academy)
   - Next:
-    - Highlights and notes (Kindle)
     - Move explanations (Lichess)
     - Streak freezes and daily goals (Duolingo)
-    - A mastery map (Khan Academy)

@@ -169,7 +169,7 @@ for (const world of WORLDS) {
 for (const vp of [PHONE2]) {
   const W = vp.width;
   log(`${W}: the backup as a file`);
-  const { ctx, page } = await phone(vp, { store: { 'ghosty.radio.favs': JSON.stringify([{ id: 'sn-test', name: 'Spec Radio' }]) } });
+  const { ctx, page } = await phone(vp, { store: { 'ghosty.radio.favs': JSON.stringify([{ id: 'sn-test', name: 'Spec Radio' }]), 'ghosty.docs': JSON.stringify([{ id: 'dspec1', title: 'Spec Letter', blocks: [{ id: 'b1', t: 'h1', runs: [{ text: 'Dear Spec' }] }, { id: 'b2', t: 'p', runs: [{ text: 'Hello from the spec.' }] }], at: Date.now(), kind: 'document' }]) } });
   await openSystem(page, 'BACKUP');
   const save = page.locator('#pg-system button[data-act="backupfile"]');
   check(await save.waitFor({ timeout: 15000 }).then(() => true, () => false), `[${W}] [b] no SAVE AS A FILE`);
@@ -186,6 +186,15 @@ for (const vp of [PHONE2]) {
   check(doc?.kind === 'ghosty-backup' && typeof doc?.sealed?.ct === 'string' && !body.includes('Spec Radio'), `[${W}] [b] the file is not the locked copy (or shows its contents): ${body.slice(0, 120)}`);
   const said = await until(page, () => /^Saved ghosty-backup-.+\.json \(\d+(\.\d)? (KB|MB)\), locked with your owner key; keep it in Files or iCloud Drive\.$/.test(document.querySelector('#pg-system .backupmsg')?.textContent ?? ''), null, 10000);
   check(said, `[${W}] [b] after SAVE it says "${await text(page, '#pg-system .backupmsg')}"`);
+  // (polish3.s3) EXPORT EVERYTHING: one zip of ordinary files, its README first, said with its name and size
+  const dl2 = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+  await page.locator('#pg-system button[data-act="exportall"]').click().catch(() => problems.push(`[${W}] [b] no EXPORT EVERYTHING`));
+  const z = await dl2;
+  const zname = z?.suggestedFilename() ?? '';
+  const zpath = z ? await z.path().catch(() => null) : null;
+  const zbytes = zpath ? readFileSync(zpath).toString('latin1') : '';
+  check(/^ghosty-everything-\d{4}-\d\d-\d\d\.zip$/.test(zname) && zbytes.startsWith('PK') && zbytes.includes('README.txt') && /Everything of yours from Ghosty, in ordinary files/.test(zbytes) && /Documents: 1 Word file\./.test(zbytes) && zbytes.includes('Documents/Spec Letter.docx') && /Workspace: \d+ pages? as Markdown/.test(zbytes), `[${W}] [b] the export is "${zname}" (${zbytes.length} bytes)`);
+  check(await until(page, () => /^Saved ghosty-everything-.+\.zip \(\d+(\.\d)? (KB|MB)\): Word, Excel, PowerPoint, Markdown and a memory document\.$/.test(document.querySelector('#pg-system .backupmsg')?.textContent ?? ''), null, 10000), `[${W}] [b] after EXPORT EVERYTHING it says "${await text(page, '#pg-system .backupmsg')}"`);
   // a file that is not a backup is refused in his words
   await page.locator('#pg-system .backupfile input[type=file]').setInputFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') });
   check(await until(page, () => /isn’t one of my backups/.test(document.querySelector('#pg-system .backupmsg')?.textContent ?? ''), null, 8000), `[${W}] [b] a wrong file says "${await text(page, '#pg-system .backupmsg')}"`);
@@ -411,6 +420,34 @@ for (const vp of [PHONE, PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================== i. LOOKS THAT CHANGE BY THE CLOCK (polish3.u7)
+{
+  log('390: the look by the clock');
+  const { ctx, page } = await phone(PHONE2, { world: 'scan' });
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForSelector('#pg-settings .pn', { state: 'attached', timeout: 30000 });
+  await openPanel(page, 'settings', 'THEME');
+  const sw = page.locator('#pg-settings button.setsw[data-act="lookclock"]');
+  check(await sw.waitFor({ timeout: 10000 }).then(() => true, () => false), '[390] [i] no Change the look by the clock');
+  check((await sw.getAttribute('aria-checked')) === 'false' && (await page.locator('#pg-settings .lookclock .lcrows').isHidden()), '[390] [i] it does not start off, its choices put away');
+  await sw.click();
+  check(await page.locator('#pg-settings .lookclock .lcrows').isVisible(), '[390] [i] on, its choices are not shown');
+  // (the same look by day and by night, so the hour of the run cannot change the answer)
+  await page.selectOption('#pg-settings select[data-clock="day"]', 'ink');
+  await page.selectOption('#pg-settings select[data-clock="night"]', 'ink');
+  check(await until(page, () => document.documentElement.dataset.world === 'ink', null, 8000), `[390] [i] the look did not follow the clock: world "${await page.evaluate(() => document.documentElement.dataset.world)}"`);
+  // calm from midnight to 07:00: calm only in those hours (the run's own hour decides which is right)
+  await page.selectOption('#pg-settings select[data-clock="calm"]', '0');
+  const hour = await page.evaluate(() => new Date().getHours());
+  const wantCalm = hour < 7;
+  check(await until(page, (w) => (document.documentElement.dataset.motion === 'calm') === w, wantCalm, 8000), `[390] [i] at ${hour}:00 motion is "${await page.evaluate(() => document.documentElement.dataset.motion)}" (calm ${wantCalm})`);
+  await fit(page, '[390] [i]', '#pg-settings .lookclock');
+  // off: the look stays as it is now, and the choices go away
+  await sw.click();
+  check((await sw.getAttribute('aria-checked')) === 'false' && (await page.evaluate(() => document.documentElement.dataset.world)) === 'ink', '[390] [i] off did not keep the look as it was');
+  await ctx.close();
+}
+
 // ================================================================== c. A HEADS-UP
 for (const vp of [PHONE, PHONE2]) {
   const W = vp.width;
@@ -438,4 +475,4 @@ const secs = ((Date.now() - t0) / 1000).toFixed(0);
 if (problems.length) {
   process.exitCode = 1;
   console.log(`PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}`);
-} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, what I keep about you with its forget keys and the memory document, a screen that got slower since the update, the log of what the camera, microphone and location were used for, and a heads-up told once.`);
+} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, everything exported as ordinary files, the comics and games you made in the backup, the saver holding a download and switched by voice, what I keep about you with its forget keys and the memory document, a screen that got slower since the update, the log of what the camera, microphone and location were used for, the look by the clock, and a heads-up told once.`);

@@ -21,6 +21,7 @@ import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/
 import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { learnedAsked, learnedFor, storedLearned } from '../../../../packages/shared/src/learned';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
+import { diyAsked } from '../features/workbench/diyjobs';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { moneyAsked } from '../features/money/words';
@@ -66,6 +67,7 @@ import { marketsAsked } from '../features/markets/asks';
 import { briefAsked } from '../features/brief/asks';
 import { screenAsked } from './screenasks';
 import { comicAsked } from '../features/comic/asks';
+import { securityAsked } from '../features/security/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -208,7 +210,7 @@ export const LOCAL_ASKS = [
   { id: 'rainradar', test: (t: string) => RAIN_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
-  { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
+  { id: 'workbench', test: (t: string) => !!workbenchAsked(t) || !!diyAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
   { id: 'right', test: (t: string) => !!rightSaid(t) },
   { id: 'today', test: (t: string) => todayAsked(t) },
@@ -239,6 +241,8 @@ export const LOCAL_ASKS = [
   { id: 'openscreen', test: (t: string) => !!screenAsked(t) },
   // [comic] THE COMIC (features/comic/asks.ts): "make me a comic about…", "read a comic", "import this comic", "public domain comics"
   { id: 'comic', test: (t: string) => !!comicAsked(t) },
+  // [security] SECURITY (features/security/asks.ts): "lock everything", "has my password leaked?", "show my approvals", "how safe am I?"
+  { id: 'security', test: (t: string) => !!securityAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },

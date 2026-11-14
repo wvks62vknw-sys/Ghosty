@@ -51,7 +51,7 @@ const NEW = {
   body: { area: 'life', name: 'Body', word: 'squats', pills: ['Move', 'Water', 'Sleep', 'Mood', 'Weight', 'Health'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'STEPS', 'GYM LOG', 'SIX-WEEK PLANS', 'WATER TODAY', 'SLEEP', 'FASTING', 'MOOD', 'BREATHE', 'STRETCH SET', 'WEIGHT', 'MEASUREMENTS', 'MY HEALTH WEEK', 'TABLETS', 'YOUR WEEK', 'SYMPTOM DIARY'] },
   kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan', 'Pantry', 'Recipes'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN', 'PANTRY', 'RECIPES'] },
   people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Coming up', 'Group plan'], pages: ['YOUR PEOPLE', 'COMING UP', 'GROUP PLAN'] },
-  work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Jobs', 'Interview', 'Document'], pages: ['TO-DO', 'JOB APPLICATIONS', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
+  work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Jobs', 'Meetings', 'Interview', 'Document'], pages: ['TO-DO', 'JOB APPLICATIONS', 'MEETINGS', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
   creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },
   outside: { area: 'life', name: 'Outside', word: 'toilets', pills: ['Walk', 'Nearby', 'My car', 'Lost', 'Split'], pages: ['WALK', 'NEARBY', 'MY CAR', 'LOST', 'SPLIT'] },
   homeadmin: { area: 'life', name: 'Household', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms', 'Papers'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS', 'PAPERS'] },

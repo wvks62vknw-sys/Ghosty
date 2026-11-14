@@ -25,7 +25,8 @@ import { ANSWER_DAYS, foresightAsked, foresightWords, notedWords, rightSaid } fr
 import { loadForesight, resolveForesight } from '../state/foresight';
 import { machineState } from '../features/eye/machine';
 import { estimateText, workbenchAsked } from '../../../../packages/shared/src/workbench';
-import { openWorkbench } from '../features/workbench/index';
+import { openDiy, openWorkbench, workbenchState } from '../features/workbench/index';
+import { diyAsked } from '../features/workbench/diyjobs';
 import { PANELS as BENCH } from '../features/workbench/panels';
 import { settings, timeZone, ui } from '../state/app';
 import { lastReplyAt, resolveTrail } from '../features/core/why';
@@ -439,6 +440,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   },
   // the Workbench: a panel opened, or his problem filled in and answered on the phone (no model, no request)
   workbench(text, opts) {
+    // (NEXT ROUND, MAKE lane) a DIY job in his words: the Workbench's DIY JOBS, on that job
+    const job = diyAsked(text);
+    if (job) {
+      openDiy(job.job);
+      const p = workbenchState.diy.plan;
+      return answer(text, job.job && p ? `${p.title}: the load check, the tools, the materials and the steps are on the Workbench. Each fixing to rate for: ${p.fixing.lines[p.fixing.lines.length - 1]!.value}. A first estimate, never certified.` : 'The Workbench is open on DIY JOBS: a shelf, a TV on the wall, a curtain pole or a picture. Each with its load check, tools, materials and steps.', { kind: 'workbench' }, opts);
+    }
     const bench = workbenchAsked(text);
     if (!bench) return false;
     const e = openWorkbench(bench.panel, bench.problem);
@@ -489,6 +497,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     return answer(text, `${s.name[0]!.toUpperCase()}${s.name.slice(1)} is open.`, { kind: 'pack' }, opts);
   },
   // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
+  // [security] SECURITY: the screen opened at the right place, and one line (features/security/asks.ts); the lock is always his tap
+  security: async (text, opts) => {
+    const m = await import('../features/security/asks');
+    const k = m.securityAsked(text) ?? 'locks';
+    location.hash = k === 'lock' ? 'security?lock' : k === 'leaked' ? 'security?leaked' : 'security';
+    return answer(text, m.SECURITY_SAID[k], { kind: 'can', go: [{ id: 'screen:security', ask: -1, label: 'Security', open: 'security' }] }, opts);
+  },
   comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),

@@ -210,6 +210,38 @@ test('agenda events with a reminder, listed together with the jobs', async () =>
   assert.equal(b.jobs.length, 0, "deleting the event deletes its reminder");
 });
 
+// [planlane2:timeline] an event changed IN PLACE: the same id, only what was given changes, and its reminder moves with it
+test('an event is changed in place and its reminder follows it', async () => {
+  const start = Math.ceil((Date.now() + 3 * 86400_000) / 3600_000) * 3600_000;
+  const made = await (await call('/api/agenda/events', { method: 'POST', body: JSON.stringify({ title: 'Dentist', start, end: start + 3600_000, location: 'High St', remindMin: 15, tz: TZ }) })).json();
+  const id = made.event.id;
+  const later = start + 2 * 3600_000;
+  const r = await call(`/api/agenda/events/${id}`, { method: 'POST', body: JSON.stringify({ title: 'Dentist (check-up)', start: later, tz: TZ }) });
+  assert.equal(r.status, 200, await r.clone().text());
+  const a = await (await call(`/api/agenda?days=7&tz=${encodeURIComponent(TZ)}`)).json();
+  assert.equal(a.events.length, 1, 'changed, not added again');
+  assert.equal(a.events[0].id, id, 'the same event');
+  assert.equal(a.events[0].title, 'Dentist (check-up)');
+  assert.equal(a.events[0].end - a.events[0].start, 3600_000, 'it keeps its length when only the start moves');
+  assert.equal(a.events[0].location, 'High St', 'what was not given stays');
+  assert.equal(a.jobs.length, 1);
+  assert.equal(a.jobs[0].next, later - 15 * 60_000, 'its reminder moved with it, the same lead');
+  assert.equal(a.jobs[0].eventId, id);
+  // all day, an hour's lead, the place cleared
+  const [y, m, d] = T.isoLocal(start, TZ).slice(0, 10).split('-').map(Number);
+  await call(`/api/agenda/events/${id}`, { method: 'POST', body: JSON.stringify({ allDay: true, start: T.fromZoned(y, m, d, 0, 0, TZ), end: null, location: null, remindMin: 60, tz: TZ }) });
+  const b = await (await call(`/api/agenda?days=7&tz=${encodeURIComponent(TZ)}`)).json();
+  assert.equal(b.events[0].allDay, true);
+  assert.equal(b.events[0].location, undefined, 'the place cleared');
+  assert.equal(b.jobs[0].next, b.events[0].start + 9 * 3600_000 - 3600_000, "an all-day event's reminder is from 09:00");
+  // no reminder
+  await call(`/api/agenda/events/${id}`, { method: 'POST', body: JSON.stringify({ remindMin: null, tz: TZ }) });
+  assert.equal((await (await call('/api/agenda')).json()).jobs.length, 0, 'the reminder is gone');
+  const nf = await call('/api/agenda/events/nosuchevent', { method: 'POST', body: JSON.stringify({ title: 'x' }) });
+  assert.equal(nf.status, 404);
+  await call(`/api/agenda/events/${id}`, { method: 'DELETE' });
+});
+
 test('calendar links must be public https addresses', async () => {
   for (const url of ['http://example.com/cal.ics', 'https://localhost/x.ics', 'https://10.0.0.1/x.ics', 'nonsense']) {
     const r = await call('/api/feeds', { method: 'POST', body: JSON.stringify({ name: 'x', url }) });

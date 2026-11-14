@@ -129,7 +129,8 @@ export interface Choice {
 
 /** The words, in one place (tests/phonehw.spec.mjs holds them). */
 export const WORDS = {
-  gpu: 'Training on the graphics chip (WebGPU).',
+  // (learn.u10: the screen tells the truth first: TIME IT runs on the graphics chip, the GYM's long training on the processor)
+  gpu: 'TIME IT trains on the graphics chip (WebGPU); the long training runs on the processor.',
   cpu: (why: string) => `Training on the processor: ${why}.`,
   stopped: (why: string) => `Training moved to the processor: WebGPU stopped (${why}).`,
 };

@@ -917,3 +917,63 @@ test('revision days up to an exam (learn.s12): every other day while more than a
   assert.equal(new Date(RD.londonAt('2026-12-01', '18:30')).toISOString(), '2026-12-01T18:30:00.000Z');
   assert.equal(new Date(RD.londonAt('2026-07-01', '18:30')).toISOString(), '2026-07-01T17:30:00.000Z');
 });
+
+test('trade courses (learn.s4): a lesson on mechanics, electrics or building says every figure is a first estimate, never certified; other lessons do not', () => {
+  const lesson = { n: 1, title: 'Brakes', goal: 'g' };
+  const car = T.LESSON_PROMPT({ title: 'Car mechanics basics', topic: 'car mechanics basics', level: 'beginner', minutes: 10, lessons: [lesson] }, lesson);
+  assert.match(car, /first estimate, never certified/);
+  assert.match(car, /check the maker's figure/);
+  const poems = T.LESSON_PROMPT({ title: 'Romantic poetry', topic: 'romantic poetry', level: 'beginner', minutes: 10, lessons: [lesson] }, lesson);
+  assert.doesNotMatch(poems, /first estimate/);
+});
+
+test('highlights and notes (learn.u4): a paragraph split into plain and marked parts; overlapping highlights join, keeping his notes; every note exported as Markdown with where it is', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/library/highlights.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/highlights.mjs'), logLevel: 'warning' });
+  globalThis.window ??= globalThis;
+  const HL = await import('./.build/highlights.mjs');
+  assert.deepEqual(HL.hlParts('The cat sat on the mat.', [{ start: 4, end: 7, id: 'a' }, { start: 19, end: 22, id: 'b' }]), [{ text: 'The ' }, { text: 'cat', id: 'a' }, { text: ' sat on the ' }, { text: 'mat', id: 'b' }, { text: '.' }]);
+  assert.deepEqual(HL.hlParts('Short.', [{ start: 2, end: 99, id: 'x' }]), [{ text: 'Sh' }, { text: 'ort.', id: 'x' }], 'a range past the end is clipped');
+  const a = HL.addHighlight('d1', { n: 3, at: 0, start: 4, end: 10, text: 'cat sat', note: 'nice', where: 'Chapter 1' });
+  const b = HL.addHighlight('d1', { n: 3, at: 0, start: 8, end: 16, text: 'sat on the', note: 'and this' });
+  assert.equal(b.id, a.id, 'an overlapping highlight joins the one there');
+  assert.deepEqual([b.start, b.end, b.note], [4, 16, 'and this · nice']);
+  HL.addHighlight('d1', { n: 1, at: 0, start: 0, end: 5, text: 'First', where: 'Chapter 1' });
+  const list = HL.highlightsOf('d1');
+  assert.deepEqual(list.map((x) => x.n), [1, 3], 'in the book’s order');
+  const md = HL.notesMarkdown('The Hobbit', list);
+  assert.match(md, /^# The Hobbit\n\nMy highlights and notes \(2\), from Ghosty\.\n\n> First\n\n\*Chapter 1\*\n\n> /);
+  assert.match(md, /and this · nice/);
+  HL.removeHighlight('d1', a.id);
+  assert.equal(HL.highlightsOf('d1').length, 1);
+});
+
+test('quiz me aloud (learn.c6): what he says is read as a choice: a letter, how it sounds, an ordinal, or the answer’s own words; nothing heard is no answer', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/features/learn/aloudwords.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/aloudwords.mjs'), logLevel: 'warning' });
+  const AW = await import('./.build/aloudwords.mjs');
+  const ch = ['Oxygen', 'Carbon dioxide', 'Nitrogen', 'Helium'];
+  assert.equal(AW.choiceOf('B', ch), 1);
+  assert.equal(AW.choiceOf('bee', ch), 1);
+  assert.equal(AW.choiceOf("it's C", ch), 2);
+  assert.equal(AW.choiceOf('the answer is a', ch), 0);
+  assert.equal(AW.choiceOf('the fourth one', ch), 3);
+  assert.equal(AW.choiceOf('I think carbon dioxide', ch), 1);
+  assert.equal(AW.choiceOf('', ch), -1);
+  assert.equal(AW.choiceOf('banana', ch), -1);
+  assert.equal(AW.choiceOf('F', ch), -1, 'a letter past the choices is no answer');
+});
+
+test('memory palace (learn.s7): each thing goes to a place in order (only as many as there are places); a recall counts when his words hold the thing, a/the and case aside', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/features/learning/palacepairs.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/palacepairs.mjs'), logLevel: 'warning' });
+  const P = await import('./.build/palacepairs.mjs');
+  const pairs = P.palacePairs(['front door', ' hall mirror ', '', 'stairs'], ['Milk', 'call the garage', 'bin day', 'eggs']);
+  assert.deepEqual(pairs.map((x) => [x.place, x.item]), [['front door', 'Milk'], ['hall mirror', 'call the garage'], ['stairs', 'bin day']]);
+  assert.match(pairs[0].picture, /^Picture milk at the front door/);
+  assert.equal(P.palaceScore(pairs, ['some milk', 'Call the Garage!', 'recycling']), 2);
+  assert.equal(P.palaceScore(pairs, ['', 'the', '']), 0, 'blank or only “the” is nothing');
+});

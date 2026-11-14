@@ -41,6 +41,7 @@ import { go, type TabInstance } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { guardian, loadGuardian } from '../../state/guardian';
 import { toast, type Panel } from '../../ui/components';
+import { addHighlight, highlightsOf, hlParts, notesMarkdown, removeHighlight } from '../../library/highlights';
 import { ask as clubAsk, chapterText, clubPrompt, clubReplyPrompt, questionsOf, summaryPrompt } from '../../library/club';
 import { index, key, lockBox, plate, recognise, release, stampLine, tag, truthLine, typedLine, type StampFacts, type TruthPart } from '../../ui/machine';
 import type { Sections } from '../../ui/sections';
@@ -233,7 +234,7 @@ export function readingControls(): HTMLElement {
       h('p.grd-cap', { dataset: { case: 'keep' } }, 'Night text follows your theme: always light on the graphite, with your theme’s colour for what I attend to.'),
       tag('Listening'),
       h('div.grd-keys.speed', ...speeds),
-      h('p.grd-cap', { dataset: { case: 'keep' } }, `Speed ${sp}× for the phone’s voice${p.bookVoice ? ' (my own voice keeps its pace)' : ''}. It takes effect the next time I start reading.`),
+      h('p.grd-cap', { dataset: { case: 'keep' } }, `Speed ${sp}× for the phone’s voice${p.bookVoice ? ' (my own voice keeps its pace)' : ''}, from the next time I start reading.`),
       h('div.grd-keys.sleep', ...sleeps),
       h('p.grd-cap.grd-sleepline', { dataset: { case: 'keep' } }, sleepLine),
       pick ? h('label.grd-voicerow', h('span.lab', `Voice for ${doc!.title.split(/\s*[:—–]\s+/)[0]}`), pick) : doc ? h('p.grd-cap', { dataset: { case: 'keep' } }, 'This phone lists no English voices to choose from, so the usual voice reads.') : h('p.grd-cap', { dataset: { case: 'keep' } }, 'Open a book to choose a voice for it.'),
@@ -416,7 +417,10 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       if (para.head) el.append(h('h3.grd-ch', { dataset: { case: 'keep', at: String(para.at) } }, para.text));
       else {
         const t = h('p.grd-tx', { dataset: { case: 'keep', at: String(para.at) } });
-        for (const part of markParts(para.text, terms)) t.append(part.mark ? h('mark', part.text) : part.text);
+        // [learn.u4] his highlights in this paragraph (a search's marks take the paragraph while it is found)
+        const hs = !terms.length && doc ? highlightsOf(doc.id).filter((x) => x.n === p.n && x.at === para.at) : [];
+        if (hs.length) for (const part of hlParts(para.text, hs)) t.append(part.id ? h('mark.grd-hl', { dataset: { hl: part.id } }, part.text) : part.text);
+        else for (const part of markParts(para.text, terms)) t.append(part.mark ? h('mark', part.text) : part.text);
         el.append(t);
       }
     }
@@ -884,6 +888,98 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     ];
   };
   let keeping: AbortController | null = null;
+  // ---------------------------------------------------------------- [learn.u4] HIGHLIGHTS AND NOTES
+  /** The bar that comes up when he selects words in the book: HIGHLIGHT, or HIGHLIGHT AND NOTE (his own words with it). */
+  const hlBar = h('div.grd-hlbar', { hidden: true, role: 'toolbar', 'aria-label': 'Highlight' });
+  document.body.append(hlBar);
+  let picked: { n: number; at: number; start: number; end: number; text: string } | null = null;
+  const redraw = (n: number) => {
+    if (!book) return;
+    const fresh = drawPassage(book.passages[n]!);
+    els[n]?.replaceWith(fresh);
+    els[n] = fresh;
+  };
+  const whereOf = (n: number): string => {
+    if (!book) return '';
+    const c = book.chapters[book.passages[n]?.chapter ?? 0];
+    const pg = book.passages[n]?.page;
+    return [c?.title ?? '', pg && book.hasPages ? `page ${pg}` : ''].filter(Boolean).join(', ');
+  };
+  const keepPick = (note?: string) => {
+    if (!picked || !doc) return;
+    const x = addHighlight(doc.id, { ...picked, ...(note?.trim() ? { note: note.trim() } : {}), where: whereOf(picked.n) });
+    window.getSelection()?.removeAllRanges();
+    hlBar.hidden = true;
+    redraw(picked.n);
+    picked = null;
+    toast(x.note ? 'Highlighted, with your note: it is under ABOUT' : 'Highlighted: every one is under ABOUT', 'ok');
+    void paintAbout();
+  };
+  const showBar = () => {
+    const note = h('textarea.grd-hlnote', { rows: 2, 'aria-label': 'Your note', placeholder: 'Your note', hidden: true }) as HTMLTextAreaElement;
+    const save = key('Save note', () => keepPick(note.value), { label: 'Save the highlight with your note' });
+    save.hidden = true;
+    const hl = key('Highlight', () => keepPick(), { label: 'Highlight what you selected' });
+    const withNote = key('Highlight and note', () => {
+      note.hidden = false;
+      save.hidden = false;
+      withNote.hidden = true;
+      hl.hidden = true;
+      note.focus();
+    }, { label: 'Highlight it and add a note' });
+    const close = key('Close', () => ((hlBar.hidden = true), (picked = null)), { label: 'Close' });
+    clear(hlBar, h('div.grd-keys', hl, withNote, save, close), note);
+    hlBar.hidden = false;
+  };
+  document.addEventListener('selectionchange', () => {
+    if (!doc || !book || book.code) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return void (!hlBar.querySelector('textarea:not([hidden])') && (hlBar.hidden = true));
+    const range = sel.getRangeAt(0);
+    const pa = (range.startContainer.nodeType === 1 ? range.startContainer as Element : range.startContainer.parentElement)?.closest('p.grd-tx');
+    const pb = (range.endContainer.nodeType === 1 ? range.endContainer as Element : range.endContainer.parentElement)?.closest('p.grd-tx');
+    if (!pa || pa !== pb || !flow.contains(pa)) return;
+    const pre = document.createRange();
+    pre.setStart(pa, 0);
+    pre.setEnd(range.startContainer, range.startOffset);
+    const start = pre.toString().length;
+    const text = range.toString();
+    if (text.trim().length < 3) return;
+    const n = Number((pa.closest('.grd-p') as HTMLElement | null)?.dataset.n);
+    if (!Number.isFinite(n)) return;
+    picked = { n, at: Number((pa as HTMLElement).dataset.at) || 0, start, end: start + text.length, text: text.trim().slice(0, 600) };
+    if (hlBar.hidden) showBar();
+  });
+  /** ABOUT's list: every highlight in the book, a tap goes there, LET GO removes one; EXPORT NOTES and COPY. */
+  const notesList = (): HTMLElement => {
+    if (!doc) return h('div');
+    const d = doc;
+    const hs = highlightsOf(d.id);
+    if (!hs.length) return h('div.grd-notes', tag('Your highlights'), h('p.grd-cap', { dataset: { case: 'keep' } }, 'None yet. Select a sentence in the book and tap HIGHLIGHT, or HIGHLIGHT AND NOTE to add your own words. They are kept on this phone.'));
+    const md = () => notesMarkdown(d.title, highlightsOf(d.id));
+    const exportKey = key('Export notes', () => {
+      const url = URL.createObjectURL(new Blob([md()], { type: 'text/markdown' }));
+      const a = h('a', { href: url, download: `${d.title.replace(/[^\w\s-]+/g, '').trim().slice(0, 60) || 'notes'} - notes.md` }) as HTMLAnchorElement;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }, { label: `Export every highlight and note in ${d.title} as one file` });
+    const copyKey = key('Copy notes', () => void navigator.clipboard.writeText(md()).then(() => toast('Your notes are copied', 'ok'), (e) => toast(sayError(e, 'copy your notes'), 'bad')), { label: 'Copy every highlight and note' });
+    return h('div.grd-notes', tag(`Your highlights · ${hs.length}`),
+      ...hs.map((x) => {
+        const go = h('button.grd-noterow', { type: 'button', dataset: { case: 'keep', hl: x.id }, 'aria-label': `Go to: ${x.text.slice(0, 60)}` }, h('q', x.text), x.note ? h('small', x.note) : null, x.where ? h('small.grd-notewhere', x.where) : null);
+        go.addEventListener('click', () => jump(x.n, x.at + x.start));
+        const drop = key('Let go', () => {
+          removeHighlight(d.id, x.id);
+          redraw(x.n);
+          void paintAbout();
+        }, { label: `Let go of the highlight: ${x.text.slice(0, 40)}` });
+        return h('div.grd-note', go, drop);
+      }),
+      h('div.grd-keys', exportKey, copyKey));
+  };
+  addEventListener('hashchange', () => ((hlBar.hidden = true), (picked = null)));
   const paintAbout = async () => {
     if (!doc) {
       clear(about, h('p.grd-cap', { dataset: { case: 'keep' } }, 'Open a book and what it is, where it came from and how to keep it are here.'));
@@ -935,6 +1031,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       tag('Who reads it'),
       h('p.grd-cap', { dataset: { case: 'keep' } }, readingPrefs.get().bookVoice ? `My own voice, about an hour a day (${Math.max(0, Math.round(bookVoiceLeft() / 60))} minutes left today); then the phone’s voice carries on, and I say so.` : 'The phone’s own voice. Settings › Reading › His voice for books lets my own voice read about an hour a day.'),
       h('p.grd-cap', { dataset: { case: 'keep' } }, lock));
+    about.append(notesList());
   };
   /** KEEP ON THIS PHONE: on his tap, the whole book here (on Wi-Fi; on mobile data it waits, said, until Wi-Fi). */
   const keepHere = async (d: LibraryDoc, size: number, k: HTMLButtonElement) => {
