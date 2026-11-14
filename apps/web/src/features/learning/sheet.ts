@@ -10,6 +10,7 @@
  * STREAKS: every skill's run and best. The drills run on this phone (packages/shared/src/learning.ts); the deck, the log, the plans
  * and the slips are kept in his own brain (POST /packs/do, no model). The state sits on window.__ghosty.learning for the specs.
  */
+import { palaceBox } from './palace';
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
@@ -747,7 +748,10 @@ function memoryView(a: Record<string, unknown>): HTMLElement {
     check.hidden = true;
     await logIt({ skill: 'memory', score: s.right, of: s.of, kind, level: drill.level, unit: 'items' }, logged);
   };
-  return h('div.pkcol', { dataset: { view: 'memory' } }, kinds, namesField, status, show, answer, h('div.pkrow', named(button('START', () => void start()), 'Start the memory drill'), check), result, logged);
+  const palaceLogged = note();
+  const palace = palaceBox((score, of) => void logIt({ skill: 'memory', score, of, kind: 'palace', unit: 'items' }, palaceLogged));
+  palace.append(palaceLogged);
+  return h('div.pkcol', { dataset: { view: 'memory' } }, kinds, namesField, status, show, answer, h('div.pkrow', named(button('START', () => void start()), 'Start the memory drill'), check), result, logged, palace);
 }
 
 // ---------------------------------------------------------------- MATHS
