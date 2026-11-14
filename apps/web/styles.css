@@ -10654,6 +10654,51 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
   html #pg-studio, html #pg-studio .hud, html #pg-studio .hud .col { transform-style: flat; }
 }
 
+/* JOURNAL (APPS ROUND, MEMORY lane): his own writing; every class `jn…`, colours from the tokens only */
+#pg-journal { --jn-tone: var(--g-accent); }
+#pg-journal [data-tone="amber"] { --jn-tone: var(--g-amber); }
+#pg-journal [data-tone="green"] { --jn-tone: var(--g-ok); }
+#pg-journal [data-tone="pink"] { --jn-tone: var(--g-red); }
+#pg-journal [data-tone="violet"] { --jn-tone: var(--g-accent-pale); }
+#pg-journal .jnbar { display: flex; gap: var(--g-s-1); flex-wrap: wrap; }
+#pg-journal .jnnew { min-height: var(--g-target); flex: 1 1 12em; }
+#pg-journal .jnsearch input, #pg-journal .jnsettings input, #pg-journal .jneditor input, #pg-journal .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
+#pg-journal .jnsearch { margin: var(--g-s-1) 0; }
+#pg-journal .jnchips { gap: var(--g-s-half); margin-bottom: var(--g-s-1); }
+#pg-journal .jnchips button[data-tone]:not([data-tone=""]) { box-shadow: inset 3px 0 0 var(--jn-tone); }
+#pg-journal .jntour { display: flex; flex-direction: column; gap: var(--g-s-half); margin: var(--g-s-1) 0; padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+#pg-journal .jnsteps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: var(--g-s-half); color: var(--g-ink-2); }
+#pg-journal .jnlist { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+#pg-journal .jnmonth { margin: var(--g-s-2) 0 var(--g-s-half); font: var(--g-t-caption); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+#pg-journal button.jnrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when thumb" "text thumb"; gap: 2px var(--g-s-1); align-items: start; width: 100%; min-height: var(--g-target); padding: var(--g-s-1); text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; background: var(--g-plate-fill); border: 0; border-left: 3px solid var(--jn-tone); border-radius: var(--g-radius-key); color: var(--g-ink-1); box-shadow: none; }
+#pg-journal .jnwhen { grid-area: when; display: flex; flex-wrap: wrap; gap: var(--g-s-half); align-items: baseline; min-width: 0; }
+#pg-journal .jnwhen small { color: var(--g-ink-3); overflow-wrap: anywhere; }
+#pg-journal .jntext { grid-area: text; color: var(--g-ink-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; min-width: 0; }
+#pg-journal .jnthumb { grid-area: thumb; width: 56px; height: 56px; object-fit: cover; border-radius: var(--g-radius-key); }
+#pg-journal .jncalnav { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); }
+#pg-journal .jncalnav button { min-width: var(--g-target); min-height: var(--g-target); }
+#pg-journal .jncalgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-top: var(--g-s-1); }
+#pg-journal .jncalhd { text-align: center; font: var(--g-t-caption); color: var(--g-ink-3); }
+#pg-journal button.jncalday { min-width: 0; min-height: var(--g-target); padding: 0; position: relative; text-transform: none; letter-spacing: normal; }
+#pg-journal button.jncalday[data-has]::after { content: ""; position: absolute; left: 50%; bottom: 6px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--g-accent); }
+#pg-journal .jnjournal { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); padding: var(--g-s-half) 0; border-left: 3px solid var(--jn-tone); padding-left: var(--g-s-1); }
+#pg-journal .jnbin { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half); }
+#pg-journal .jnbin .jntext { flex: 1 1 12em; }
+#pg-journal .jnlock { display: flex; flex-direction: column; gap: var(--g-s-1); align-items: flex-start; }
+.jneditor { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+.jneditor input, .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
+.jneditor .jnmeta > * { flex: 1 1 10em; }
+.jneditor .jntextarea { width: 100%; min-height: 10em; font: var(--g-t-body); line-height: 1.55; color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: var(--g-s-1); box-sizing: border-box; resize: vertical; }
+.jneditor .jnprompt { margin: 0; font-style: italic; color: var(--g-accent-text); }
+.jneditor .jnprompt:empty { display: none; }
+.jneditor .jnlab { font: var(--g-t-caption); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); margin-top: var(--g-s-half); }
+.jneditor .jnmoods button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--g-accent); color: var(--g-accent-text); }
+.jneditor .jnphoto { width: 72px; height: 72px; object-fit: cover; border-radius: var(--g-radius-key); }
+.jneditor .jnvoice audio { max-width: 100%; }
+.jneditor .jnkeys button { min-height: var(--g-target); }
+#pg-journal .pn.jnhid, #pg-journal.jnlocked .secpills { display: none !important; }
+#pg-journal .jnlock { margin: var(--g-s-1) 0; }
+#pg-journal button, .jneditor button { min-height: var(--g-target); }
 /* =====================================================================================================================
    THE APP KIT (APPS ROUND, consistency; ui/appkit.ts): the frame every app is built from. One header, one scroll area, the keys at
    the bottom, one calm place for notices under the header, every state in plain words. Every class is ak-, every colour a token.
@@ -10703,3 +10748,28 @@ html body .ak-app :is(.ak-rowmain, .ak-hkey, .ak-rowdel, .ak-switch) { backgroun
 html body .ak-app :is(.ak-rowsub, .ak-rowtitle, .ak-tour p, .ak-state p, .ak-notice) { text-transform: none !important; }
 html body .ak-app .ak-rowmain:active, html body .ak-app .ak-hkey:active, html body .ak-app .ak-rowdel:active { background: var(--g-plate-fill) !important; }
 html body .ak-app .ak-rowmain, html body .ak-app .ak-rowmain > * { white-space: normal; max-width: 100%; }
+/* APPS ROUND (MAKE lane): GAME STUDIO 3D, every rule under the Game Studio's page and its own gs3 prefix */
+html #pg-gamestudio .gs3cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-1); margin: 6px 0 12px; }
+html #pg-gamestudio .gs3card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: var(--g-target); padding: 10px 12px; text-align: left; border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: inset 0 0 0 1px var(--g-hair); color: var(--g-ink-1); }
+html #pg-gamestudio .gs3card b { font: 600 15px/20px var(--sf); }
+html #pg-gamestudio .gs3card span { font: 400 13px/18px var(--sf); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3game, html #pg-gamestudio .gs3rule, html #pg-gamestudio .gs3thing { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 0; border-bottom: 1px solid var(--g-hair); min-width: 0; }
+html #pg-gamestudio .gs3gametext { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3gametext small { color: var(--g-ink-3); }
+html #pg-gamestudio .gs3rulewords { flex: 1 1 100%; margin: 0; font: 500 14px/19px var(--sf); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3 button, html #pg-gamestudio .gs3 select, html #pg-gamestudio .gs3 input { min-height: var(--g-target); }
+html #pg-gamestudio .gs3top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 4px 0 8px; }
+html #pg-gamestudio .gs3top b { font: 600 16px/20px var(--sf); color: var(--g-ink-1); }
+html #pg-gamestudio .gs3top span { flex: 1 1 140px; font: 400 13px/18px var(--sf); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3frame { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 70vh; border-radius: var(--g-radius-key); overflow: hidden; background: var(--g-canvas); touch-action: none; }
+html #pg-gamestudio .gs3view { position: absolute; inset: 0; }
+html #pg-gamestudio canvas.gs3canvas { display: block; width: 100%; height: 100%; }
+html #pg-gamestudio .gs3hud { position: absolute; top: 8px; left: 10px; right: 10px; font: 600 14px/18px var(--sf); color: var(--g-ink-1); text-shadow: 0 1px 2px var(--g-canvas); pointer-events: none; }
+html #pg-gamestudio .gs3said { position: absolute; top: 30px; left: 10px; right: 10px; font: 400 13px/18px var(--sf); color: var(--g-ink-2); pointer-events: none; overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3stick { position: absolute; left: 14px; bottom: 14px; width: 120px; height: 120px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--g-hair); background: var(--g-plate-fill); touch-action: none; display: grid; place-items: center; }
+html #pg-gamestudio .gs3knob { display: block; width: 52px; height: 52px; border-radius: 50%; background: var(--g-accent); opacity: .8; pointer-events: none; }
+html #pg-gamestudio .gs3act { position: absolute; right: 16px; bottom: 30px; width: 84px; height: 84px; min-height: var(--g-target); border-radius: 50%; font: 700 14px/1 var(--sf); letter-spacing: .06em; background: var(--g-accent); color: var(--g-canvas); touch-action: none; }
+html #pg-gamestudio .gs3banner { position: absolute; left: 10%; right: 10%; top: 30%; padding: 14px; border-radius: var(--g-radius-key); background: var(--g-canvas); box-shadow: inset 0 0 0 1px var(--g-hair); text-align: center; }
+html #pg-gamestudio .gs3banner b { display: block; margin-bottom: 8px; font: 600 18px/24px var(--sf); color: var(--g-ink-1); }
+html #pg-gamestudio .gs3things, html #pg-gamestudio .gs3add, html #pg-gamestudio .gs3nudge { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: anywhere; }
