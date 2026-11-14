@@ -55,14 +55,10 @@ async function standIn(page) {
   return box;
 }
 
-const reply = (page) => page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].at(-1)?.textContent ?? '');
-async function said(H, page, words, re, ms = 15000) {
-  const before = await page.evaluate(() => document.querySelectorAll('#pg-core .msg:not(.me)').length);
-  await H.chat(page, words);
-  const ok = await page
-    .waitForFunction(({ n, src }) => { const all = [...document.querySelectorAll('#pg-core .msg:not(.me)')]; return all.length > n && new RegExp(src).test(all.at(-1)?.textContent ?? ''); }, { n: before, src: re.source }, { timeout: ms })
-    .then(() => true, () => false);
-  return { ok, text: await reply(page) };
+async function said(H, page, words, re, ms = 20000) {
+  // (the reply to these words: the first after his own message that matches, waited for on that condition: H.ask)
+  const { ok, text } = await H.ask(page, words, re, ms);
+  return { ok, text };
 }
 
 export async function run(H) {
@@ -172,7 +168,8 @@ export async function run(H) {
     const conf = await page.evaluate(() => `${[...document.querySelectorAll('body *')].some((e) => !e.children.length && e.textContent.trim() === 'Run Goodnight?') ? 'Run Goodnight? ' : ''}${document.querySelector('.confirm.sure')?.textContent ?? ''}`);
     check(sheetUp && /^Run Goodnight\? Goodnight sets a lock/.test(conf) && box.calls.length === 0, `${T} Goodnight (it sets the lock) asks his confirm before anything: ${conf.slice(0, 160)}`);
     await page.getByRole('button', { name: /^run it$/i }).click({ timeout: 5000 }).catch(() => undefined);
-    await page.waitForTimeout(500);
+    // (the real condition: his house is asked once, within 8 s; polled, never a fixed sleep)
+    for (const t0 = Date.now(); box.calls.length < 1 && Date.now() - t0 < 8000; ) await new Promise((r) => setTimeout(r, 100));
     check(box.calls.length === 1 && box.calls[0].entity === 'scene.goodnight' && box.calls[0].confirm === true, `${T} confirmed, Goodnight runs with his confirm: ${JSON.stringify(box.calls)}`);
     box.calls.length = 0;
     // pin the hall light: PINNED at the top, kept on the phone through a reload

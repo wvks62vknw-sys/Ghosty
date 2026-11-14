@@ -39,8 +39,15 @@ function bigPng(w = 760, hgt = 760) {
   ihdr.set([8, 2, 0, 0, 0], 8);
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
-const YESTERDAY = { at: Date.now() - 30 * 3600_000, account: 'bluesky', kind: 'post', text: 'A post from yesterday evening.', link: 'https://bsky.app/profile/spec.bsky.social/post/3kold' };
-const SENT = [YESTERDAY, { at: Date.now() - 3600_000, account: 'bluesky', kind: 'post', text: 'A post that went out this morning, after his APPROVE.', link: 'https://bsky.app/profile/spec.bsky.social/post/3kspec' }];
+// (the phone's day is London's, as the spec's phone is: "today" and "yesterday" are anchored to London's midnight, so a run just after
+// midnight never finds this morning's post in yesterday)
+const sinceMidnight = (() => {
+  const [h, m, sec] = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number);
+  return ((h * 60 + m) * 60 + sec) * 1000;
+})();
+const MIDNIGHT = Date.now() - sinceMidnight;
+const YESTERDAY = { at: MIDNIGHT - 6 * 3600_000, account: 'bluesky', kind: 'post', text: 'A post from yesterday evening.', link: 'https://bsky.app/profile/spec.bsky.social/post/3kold' };
+const SENT = [YESTERDAY, { at: MIDNIGHT + Math.floor(sinceMidnight / 2), account: 'bluesky', kind: 'post', text: 'A post that went out this morning, after his APPROVE.', link: 'https://bsky.app/profile/spec.bsky.social/post/3kspec' }];
 
 /** Stand in for his accounts: GET /social, POST /social/draft (kept), /social/approve (recorded), /lens/share (a picture id). */
 async function standIn(page, { offline = false, accounts = ACCOUNTS } = {}) {
@@ -166,10 +173,10 @@ export async function run(H) {
     // nothing approved by the page: then his one tap on one APPROVE asks once, for that draft only
     check(!s.asked.some((a) => /approve/.test(a)), `[${vp.width}] the page never asked to approve: ${s.asked.join(', ')}`);
     await page.locator('#pg-social .socq .draftcard').first().locator('button', { hasText: /approve/i }).click();
-    await page.waitForFunction(() => /1 waiting for your APPROVE/.test(document.querySelector('#pg-social .pknote')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+    await page.waitForFunction(() => /1 waiting for your APPROVE/.test(document.querySelector('#pg-social .pknote')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => undefined);
     check(s.asked.filter((a) => /approve/.test(a)).length === 1, `[${vp.width}] one tap, one approve: ${s.asked.filter((a) => /approve/.test(a)).join(', ')}`);
     // SENT TODAY: what went out with its link, a key at 44 pt
-    await page.waitForFunction(() => document.querySelectorAll('#pg-social .socsent').length === 2, null, { timeout: 8000 }).catch(() => undefined);
+    await page.waitForFunction(() => document.querySelectorAll('#pg-social .socsent').length === 2, null, { timeout: 20000 }).catch(() => undefined);
     const sentLine = await page.textContent('#pg-social .socsentl').catch(() => '');
     check(sentLine === '2 things went out today, each after your APPROVE:', `[${vp.width}] SENT TODAY shows what his APPROVE just sent, at once: ${sentLine}`);
     const lk = await page.$$eval('#pg-social a.socopen', (a) => a.map((x) => ({ t: x.textContent, h: x.getBoundingClientRect().height, href: x.getAttribute('href') }))).catch(() => []);
@@ -212,7 +219,8 @@ export async function run(H) {
     await open(page, 'social');
     await page.waitForSelector('#pg-social .soccompose textarea', { timeout: 15000 }).catch(() => check(false, 'no WRITE A POST box'));
     // SENT TODAY: yesterday's post is not "today"
-    await page.waitForFunction(() => /went out today/.test(document.querySelector('#pg-social .socsentl')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+    // (the real condition: the read has come back with what went out; the empty line, "Nothing went out today", is not it)
+    await page.waitForFunction(() => /^(?:One thing|\d+ things) went out today/.test(document.querySelector('#pg-social .socsentl')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => undefined);
     check((await page.textContent('#pg-social .socsentl').catch(() => '')) === 'One thing went out today, each after your APPROVE:', `SENT TODAY counts only today's: ${await page.textContent('#pg-social .socsentl').catch(() => '')}`);
     // his Mastodon server takes 1000: 700 letters is fine, counted against his server's own number, and the draft is made
     const long = 'a'.repeat(700);

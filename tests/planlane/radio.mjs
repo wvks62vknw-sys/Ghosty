@@ -8,16 +8,10 @@ const FAVS = JSON.stringify([
   { name: 'Spec Lane FM', url: 'https://spec-lane.test-radio.example/one', info: 'UK · News · 128 kbps' },
   { name: 'Spec Lane Two', url: 'https://spec-lane.test-radio.example/two', info: 'UK · News · 128 kbps' },
 ]);
-const lastReply = (page) => page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').pop() ?? '');
 /** Say it in the chat and wait for a reply that matches `re`; the reply. */
 async function say(H, page, words, re) {
-  const before = await page.evaluate(() => document.querySelectorAll('#pg-core .msg:not(.me)').length).catch(() => 0);
-  await H.chat(page, words);
-  const ok = await page.waitForFunction(({ n, src }) => {
-    const l = [...document.querySelectorAll('#pg-core .msg:not(.me)')];
-    return l.length > n && new RegExp(src).test(l.at(-1)?.textContent ?? '');
-  }, { n: before, src: re.source }, { timeout: 12000 }).then(() => true, () => false);
-  const r = await lastReply(page);
+  // (the reply to these words: the first after his own message that matches, waited for on that condition: H.ask)
+  const { ok, text: r } = await H.ask(page, words, re);
   H.check(ok && !H.RAW.test(r), `chat "${words}" → ${re}: ${r.slice(0, 200)}`);
   return r;
 }
@@ -103,10 +97,8 @@ export async function run(H) {
     await say(H, page, 'what station is this', /Nothing is playing\.?/);
     if (vp === H.PHONE) {
       // "what's playing" names no radio: with the radio off it is the brain's (Spotify's now playing), never the radio's "Nothing is playing"
-      const n0 = await page.evaluate(() => document.querySelectorAll('#pg-core .msg:not(.me)').length);
-      await H.chat(page, "what's playing");
-      await page.waitForFunction((n) => document.querySelectorAll('#pg-core .msg:not(.me)').length > n, n0, { timeout: 15000 }).catch(() => undefined);
-      const r = await lastReply(page);
+      // (any reply to these words, the first after his own message)
+      const { text: r } = await H.ask(page, "what's playing");
       check(!/^Nothing is playing|The last station was/.test(r), `"what's playing" with the radio off is left to the brain: ${r.slice(0, 160)}`);
     }
     await say(H, page, 'turn the radio off in 20 minutes', /nothing to stop/);
@@ -203,7 +195,8 @@ export async function run(H) {
     await onAir(page);
     await page.evaluate(() => window.__specActions.stop?.());
     await H.open(page, 'radio');
-    await page.waitForTimeout(500);
+    // (the real condition: now playing drawn after the stop, before its lost-timer line is looked for)
+    await page.waitForFunction(() => !!document.querySelector('#pg-radio .pn.nowp .nphero') && !/ON AIR/i.test(document.querySelector('#pg-radio .pn.nowp .nptx small')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
     check(!(await page.$('#pg-radio .pn.nowp .nplost')), '[recents] after he played again and stopped, the reload\'s line does not come back');
     await ctx.close();
   }
