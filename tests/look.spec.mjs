@@ -158,7 +158,11 @@ check(first.opened && first.opened.ms < BUDGET, `[speed] THE LOOK took ${first.o
 check(first.section === 'marks', `[look] the first open lands on "${first.section}", not MARKS (where "tap a mark" is)`);
 const top = (await page.locator('#pg-look .glook-say').textContent().catch(() => '')) ?? '';
 check(top === 'This is how I draw everything from here; tap a mark to see it work.', `[look] the top line: "${top}"`);
-const stampText = (await page.locator('#pg-look .glook-head .g-stamp').getAttribute('aria-label').catch(() => '')) ?? '';
+// the stamp line he sees, said once: the head's own where the shell draws none (Glass), the shell's in the house, never both
+const shownStamps = (p) => p.evaluate(() => [...document.querySelectorAll('#pg-look .glook-head > .g-stamp, #top .headstamp')].filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => e.getAttribute('aria-label') ?? ''));
+const stamps0 = await shownStamps(page);
+check(stamps0.length === 1, `[look] ${stamps0.length} stamp lines shown at the top of THE LOOK (want one): ${JSON.stringify(stamps0)}`);
+const stampText = stamps0[0] ?? '';
 check(/^\w{3} \d{1,2} \w{3}, \d\d:\d\d, .+, (Watching \d+ feeds?|Checking feeds|No feeds yet|Offline, feeds paused), Looking at the marks$/.test(stampText), `[look] the stamp line: "${stampText}"`);
 // the second open (built already): back to Settings and in again
 await page.click('#top .navback');
@@ -174,6 +178,9 @@ notes.push(`THE LOOK opens in ${first.opened?.ms} ms the first time (built then)
 
 // ======================================================================== 2. every section, and 5. at 440
 await openLookSection(page, 'tokens');
+// (the one stamp line follows the section chosen: it never stays on the marks while the tokens show)
+const stamps1 = await shownStamps(page);
+check(stamps1.length === 1 && /, Looking at the tokens$/.test(stamps1[0] ?? ''), `[look] on TOKENS the stamp lines shown read ${JSON.stringify(stamps1)}`);
 const tok = await page.evaluate(() => ({ rows: document.querySelectorAll('#pg-look .gtok').length, jobs: [...document.querySelectorAll('#pg-look .gtok .gtok-job')].filter((j) => j.textContent.trim().length > 10).length, groups: document.querySelectorAll('#pg-look .gtok-group').length, canvas: document.querySelector('#pg-look .gtok[data-token="--g-canvas"] .gtok-val')?.textContent }));
 const tokenCount = Number((await page.locator('#pg-look .pn[data-sec="tokens"] > h3 small').getAttribute('data-label').catch(() => '0'))?.match(/\d+/)?.[0] ?? 0);
 check(tok.rows >= 75 && tok.rows === tokenCount && tok.jobs === tok.rows && tok.groups >= 10, `[tokens] ${JSON.stringify({ ...tok, tokenCount })}`);

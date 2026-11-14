@@ -25,7 +25,7 @@ body { position: fixed; inset: 0; }
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; background: var(--bg); }
 body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 3; }
 #app { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; pointer-events: none; padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
-#app button, #app input, #app textarea, #app select, #app a, #app .pn, #app .rw.link { pointer-events: auto; }
+#app button, #app input, #app textarea, #app select, #app a, #app summary, #app .pn, #app .rw.link { pointer-events: auto; }
 ::selection { color: #fff; }
 ::-webkit-scrollbar-thumb { background: rgba(var(--cr), .18); border-radius: 3px; } ::-webkit-scrollbar-track { background: transparent; }
 
@@ -6867,6 +6867,8 @@ html #top .headstamp { display: none; }
   /* the top: the stamp line, then the page's name in the system's display type, with its way back and the keys at the right */
   html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top { padding: var(--g-s-2) var(--g-gutter) 0; gap: var(--g-s-half) var(--g-s-1); align-items: center; }
   html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .headstamp { display: block; flex: 1 1 100%; order: -5; padding: 0 var(--g-s-half); }
+  /* (THE LOOK's head carries its own stamp line, for Glass, which draws none: here the shell's is on, so it is said once) */
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #pg-look .glook-head > .g-stamp { display: none; }
   html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle { display: block; flex: 1 1 0; order: -4; min-width: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { font-size: 28px; }
   /* a long title (a panel's "Phone · App & Notifications") is said whole on two lines, never cut with dots */
