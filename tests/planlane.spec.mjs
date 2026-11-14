@@ -88,10 +88,18 @@ const DIRECTORY = [
   { name: 'Spec Lane FM', url_resolved: 'https://spec-lane.test-radio.example/one', country: 'UK', countrycode: 'GB', tags: 'news', codec: 'MP3', bitrate: 128 },
   { name: 'Spec Lane Two', url_resolved: 'https://spec-lane.test-radio.example/two', country: 'UK', countrycode: 'GB', tags: 'news', codec: 'MP3', bitrate: 128 },
 ];
+/** [planlane2:onelist] the one to-do list in the preview brain, emptied (as a page that brings its own list needs). */
+async function clearOneList() {
+  const r = await fetch(`${base}/api/packs/do`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': KEY }, body: JSON.stringify({ pack: 'work', action: 'todo', args: { words: 'clear my to-do list' } }) });
+  if (!r.ok) throw new Error(`the preview brain would not clear the one to-do list (${r.status})`);
+}
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--autoplay-policy=no-user-gesture-required'] });
 
 /** A paired phone at `viewport` in the look `world`, with `seed` put in its storage first and BODY at `body` (21 = his largest text; 0 = the default). */
 async function phone(viewport, world = 'scan', seed = {}, body = 0) {
+  // [planlane2:onelist] the to-do list is one list kept in the brain, with this phone's copy: a page that brings its own list starts
+  // the brain's empty, so the list it brings is the whole of the one list (it joins the brain's on the first open)
+  if (Object.hasOwn(seed, 'ghosty.agenda.todo')) await clearOneList();
   // (paired by the key in storage, motion calm and no service worker: the app boots about 40% sooner, which keeps the run inside CI's eight
   // minutes; nothing checked here depends on the boot's motion. The pairing screen itself has its own specs.)
   const ctx = await browser.newContext({ viewport, ...UK, reducedMotion: 'reduce', serviceWorkers: 'block' });
@@ -358,6 +366,8 @@ await Promise.all(lanes.map(async (lane) => {
   }
 }));
 
+// [planlane2:onelist] the one to-do list left empty for the specs after this one (they share the preview brain)
+await clearOneList().catch(() => undefined);
 await browser.close();
 console.log(`${checks} checks, ${problems.length} problems`);
 if (problems.length) {

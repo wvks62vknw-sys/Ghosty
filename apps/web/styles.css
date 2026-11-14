@@ -9878,7 +9878,9 @@ html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-off
 
 /* ==== THE PLAN AND HOME LANE, NEXT ROUND (planlane2): new blocks. Tokens only (var(--…)), no hex, no rgba(), no px radius. ==== */
 /* ==== [planlane2:onelist] ==== */
-
+/* changes kept on this phone, still to reach the one list (no signal): said under the list's line, in the warning ink */
+html #pg-agenda .todowait { margin: 0; padding: 0 16px 6px; font: 400 15px/20px var(--sf); color: var(--amber); overflow-wrap: anywhere; }
+html #pg-agenda .todowait[hidden] { display: none; }
 /* ==== [planlane2:onelist end] ==== */
 
 /* ==== [planlane2:timeline] ==== */
