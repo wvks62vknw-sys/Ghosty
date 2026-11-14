@@ -21,7 +21,18 @@ export interface Run {
   hl?: boolean;
   /** A link: its address (https:, mailto: or tel:). */
   href?: string;
+  /** Its colour, by name (WRITE → COLOUR): red, blue, green or orange; left out, the page's own ink. */
+  c?: TextColour;
 }
+/** [sweep] The text colours, by name, and what a file writes for each (Word's RRGGBB, a web page's colour name, the PDF's red, green, blue). */
+export type TextColour = 'red' | 'blue' | 'green' | 'orange';
+export const TEXT_COLOURS: Record<TextColour, { word: string; web: string; rgb: [number, number, number] }> = {
+  red: { word: 'C00000', web: 'firebrick', rgb: [0.75, 0, 0] },
+  blue: { word: '1F5FBF', web: 'royalblue', rgb: [0.12, 0.37, 0.75] },
+  green: { word: '2E7D32', web: 'seagreen', rgb: [0.18, 0.49, 0.2] },
+  orange: { word: 'E65100', web: 'darkorange', rgb: [0.9, 0.32, 0] },
+};
+export const isColour = (c: unknown): c is TextColour => typeof c === 'string' && c in TEXT_COLOURS;
 export type Align = 'left' | 'center' | 'right' | 'justify';
 export interface Block {
   id: string;
@@ -67,6 +78,8 @@ export interface Doc {
   from?: string;
   /** The page's setup (left out: A4, normal margins, numbers on). */
   page?: PageSetup;
+  /** His word count goal (Pages' and Word's targets): the line under the title counts towards it. */
+  goal?: number;
   /** Comments on words, with their replies (docs/comments.ts). */
   comments?: import('./comments').Comment[];
 }
@@ -78,8 +91,8 @@ export const newDoc = (title: string, blocks: Block[], kind: Doc['kind'] = 'docu
 
 const cellText = (c: Run[]): string => c.map((r) => r.text).join('');
 export const textOf = (b: Block): string => (b.t === 'table' ? (b.rows ?? []).map((r) => r.map(cellText).join('\t')).join('\n') : b.t === 'img' ? b.alt ?? '' : b.runs.map((r) => r.text).join(''));
-const same = (a: Run, b: Run) => !!a.b === !!b.b && !!a.i === !!b.i && !!a.u === !!b.u && !!a.s === !!b.s && !!a.hl === !!b.hl && (a.href ?? '') === (b.href ?? '');
-const keep = (r: Run): Run => ({ text: r.text, ...(r.b ? { b: true } : {}), ...(r.i ? { i: true } : {}), ...(r.u ? { u: true } : {}), ...(r.s ? { s: true } : {}), ...(r.hl ? { hl: true } : {}), ...(r.href ? { href: r.href } : {}) });
+const same = (a: Run, b: Run) => !!a.b === !!b.b && !!a.i === !!b.i && !!a.u === !!b.u && !!a.s === !!b.s && !!a.hl === !!b.hl && (a.href ?? '') === (b.href ?? '') && (a.c ?? '') === (b.c ?? '');
+const keep = (r: Run): Run => ({ text: r.text, ...(r.b ? { b: true } : {}), ...(r.i ? { i: true } : {}), ...(r.u ? { u: true } : {}), ...(r.s ? { s: true } : {}), ...(r.hl ? { hl: true } : {}), ...(r.href ? { href: r.href } : {}), ...(isColour(r.c) ? { c: r.c } : {}) });
 /** Words, letters and minutes of a document: what the line under its title says. */
 export function counts(d: Doc): { words: number; chars: number } {
   let words = 0;
@@ -291,6 +304,7 @@ const runHtml = (r: Run) => {
   if (r.u) s = `<u>${s}</u>`;
   if (r.s) s = `<s>${s}</s>`;
   if (r.hl) s = `<mark>${s}</mark>`;
+  if (isColour(r.c)) s = `<span style="color:${TEXT_COLOURS[r.c].web}">${s}</span>`;
   const href = r.href ? safeHref(r.href) : '';
   if (href) s = `<a href="${esc(href)}">${s}</a>`;
   return s;
@@ -466,7 +480,10 @@ export class History {
   }
   /** A change: what was before goes on the undo stack. */
   push(next: Doc): Doc {
-    this.back.push(JSON.stringify(this.now));
+    // a "change" that changes nothing is no step to undo (a paragraph read back the same after a mark, a key pressed twice)
+    const was = JSON.stringify(this.now);
+    if (JSON.stringify({ ...next, at: this.now.at }) === was) return this.now;
+    this.back.push(was);
     if (this.back.length > 60) this.back.shift();
     this.fwd = [];
     this.now = { ...next, at: Date.now() };

@@ -28,6 +28,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Give a talk with a TV', line: 'Presentations → PRESENT → ON A TV: the slide on the second screen, and on your phone this slide, the next one, your notes and the time.' },
   { day: '2026-11-14', title: 'Slide builds go to PowerPoint', line: 'Presentations: what comes in on a tap, and the new MAGIC MOVE between slides, are kept in the PowerPoint file as its own animations and Morph, and come back when you open one.' },
   // [editors paper] the next round's paper tools
+  { day: '2026-11-14', title: 'Coloured words', line: 'In a document choose some words, then WRITE → COLOUR: red, blue, green or orange, kept in the Word file, the PDF and the web page.' },
+  { day: '2026-11-14', title: 'Documents: a goal, a copy, a search', line: 'Set a word goal in PAGE and the line under the title counts towards it; it also says how many words you have chosen. MAKE A COPY duplicates a document, and MY DOCUMENTS has a search.' },
   { day: '2026-11-14', title: 'Move whole sections', line: 'In a document, CONTENTS now has ▲ and ▼ by every heading: a section moves with everything under it, in one step UNDO takes back.' },
   { day: '2026-11-14', title: 'Comments on your words', line: 'In a document choose some words, then WRITE → COMMENT. Reply, resolve, or ASK GHOSTY about that one sentence. Comments stay with the document and go into Word files as Word comments.' },
   { day: '2026-11-14', title: 'Mail merge', line: 'In a document, MAIL MERGE: one letter with {{Name}} fields and a spreadsheet of names gives a copy for every row, as one PDF, one Word file or a file each.' },

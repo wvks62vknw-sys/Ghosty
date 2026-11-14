@@ -75,8 +75,9 @@ export default async function (h) {
   await until(page, () => /Phone/.test(JSON.parse(window.__ghosty.docs.json).blocks[2].runs.map((r) => r.text).join('')));
   await page.locator('#pg-docs .dcmerge button', { hasText: 'NEXT ›' }).click();
   check(await until(page, () => /\{\{Phone\}\} is not a column/.test(document.querySelector('#pg-docs .dcmerge')?.textContent ?? '')), 'merge: a field with no column is said');
-  await page.locator('#pg-docs .dctools button', { hasText: /^UNDO$/ }).click();
-  check(await until(page, () => !/Phone/.test(JSON.parse(window.__ghosty.docs.json).blocks[2].runs.map((r) => r.text).join(''))), 'merge: UNDO takes it out of the letter');
+  // (typing is kept in steps as he pauses, as Word and Pages undo it: UNDO until the words he typed are gone, never past them)
+  for (let k = 0; k < 4 && /Phone/.test(await page.evaluate(() => window.__ghosty.docs.json)); k++) await page.locator('#pg-docs .dctools button', { hasText: /^UNDO$/ }).click();
+  check(await until(page, () => !/Phone/.test(JSON.parse(window.__ghosty.docs.json).blocks[2].runs.map((r) => r.text).join('')) && JSON.parse(window.__ghosty.docs.json).blocks[2].runs.map((r) => r.text).join('') === 'Coming from {{Town}}'), 'merge: UNDO takes it out of the letter, {{Town}} kept');
 
   // 3. stepping the copies
   await page.locator('#pg-docs .dctools button', { hasText: 'MAIL MERGE' }).click();

@@ -8,7 +8,7 @@
  * that is not ours.
  */
 import { zipStore } from '../convert/zip';
-import { pageOf, type Align, type Block, type Doc, type Run } from './model';
+import { isColour, pageOf, TEXT_COLOURS, type Align, type Block, type Doc, type Run } from './model';
 import { anchorOf, wordParas, type Comment } from './comments';
 
 const x = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -61,7 +61,7 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
   // (w:rPr's children in the schema's own order, strike before highlight before u, or a strict reader calls the file unreadable)
   const runXml = (r: Run, header = false): string => {
     const href = r.href ? safeHref(r.href) : '';
-    const props = `${href ? '<w:rStyle w:val="Hyperlink"/>' : ''}${r.b || header ? '<w:b/>' : ''}${r.i ? '<w:i/>' : ''}${r.s ? '<w:strike/>' : ''}${r.hl ? '<w:highlight w:val="yellow"/>' : ''}${r.u && !href ? '<w:u w:val="single"/>' : ''}${rtl ? '<w:rtl/>' : ''}`;
+    const props = `${href ? '<w:rStyle w:val="Hyperlink"/>' : ''}${r.b || header ? '<w:b/>' : ''}${r.i ? '<w:i/>' : ''}${r.s ? '<w:strike/>' : ''}${isColour(r.c) && !href ? `<w:color w:val="${TEXT_COLOURS[r.c].word}"/>` : ''}${r.hl ? '<w:highlight w:val="yellow"/>' : ''}${r.u && !href ? '<w:u w:val="single"/>' : ''}${rtl ? '<w:rtl/>' : ''}`;
     const pr = props ? `<w:rPr>${props}</w:rPr>` : '';
     const body = r.text
       .split('\n')

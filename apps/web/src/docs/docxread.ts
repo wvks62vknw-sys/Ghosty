@@ -10,7 +10,7 @@
  */
 import { unzipSync } from '../convert/zip';
 import { addImageBytes } from './images';
-import { block, blockId, newDoc, textOf, tidyRuns, titled, type Align, type Block, type Doc, type PageSetup, type Run } from './model';
+import { block, blockId, newDoc, textOf, tidyRuns, titled, TEXT_COLOURS, type Align, type Block, type Doc, type PageSetup, type Run, type TextColour } from './model';
 import { commentId, fromWordParas, type Comment } from './comments';
 
 const dec = new TextDecoder();
@@ -30,6 +30,19 @@ const attr = (el: Element | null | undefined, local: string): string => {
   return '';
 };
 const MIMES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp' };
+/** A Word text colour as one of ours: the nearest of red, blue, green and orange when it is clearly one of them; black, grey and "auto" are the page's ink. */
+const colourOf = (hex: string): TextColour | undefined => {
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return undefined;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number];
+  if (Math.max(r, g, b) - Math.min(r, g, b) < 0.25) return undefined;
+  let best: TextColour | undefined;
+  let bestD = 0.5;
+  for (const [name, v] of Object.entries(TEXT_COLOURS) as [TextColour, { rgb: [number, number, number] }][]) {
+    const dd = Math.hypot(v.rgb[0] - r, v.rgb[1] - g, v.rgb[2] - b);
+    if (dd < bestD) (bestD = dd), (best = name);
+  }
+  return best;
+};
 const on = (el: Element | null): boolean => !!el && !/^(?:0|false|off|none)$/i.test(attr(el, 'val'));
 const norm = (p: string): string => {
   const out: string[] = [];
@@ -162,9 +175,9 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
         if (ln === 'r') {
           const rp = first(c, 'rPr');
           const hlv = attr(first(rp, 'highlight'), 'val');
-          const run = { b: on(first(rp, 'b')), i: on(first(rp, 'i')), u: on(first(rp, 'u')), s: on(first(rp, 'strike')) || on(first(rp, 'dstrike')), hl: !!hlv && hlv !== 'none' };
+          const run = { b: on(first(rp, 'b')), i: on(first(rp, 'i')), u: on(first(rp, 'u')), s: on(first(rp, 'strike')) || on(first(rp, 'dstrike')), hl: !!hlv && hlv !== 'none', c: colourOf(attr(first(rp, 'color'), 'val')) };
           for (const k of kids(c)) {
-            if (k.localName === 't') out.push({ text: k.textContent ?? '', ...(run.b ? { b: true } : {}), ...(run.i ? { i: true } : {}), ...(run.u && !link ? { u: true } : {}), ...(run.s ? { s: true } : {}), ...(run.hl ? { hl: true } : {}), ...(link ? { href: link } : {}) });
+            if (k.localName === 't') out.push({ text: k.textContent ?? '', ...(run.b ? { b: true } : {}), ...(run.i ? { i: true } : {}), ...(run.u && !link ? { u: true } : {}), ...(run.s ? { s: true } : {}), ...(run.hl ? { hl: true } : {}), ...(link ? { href: link } : {}), ...(run.c && !link ? { c: run.c } : {}) });
             else if (k.localName === 'tab') out.push({ text: '    ' });
             else if (k.localName === 'br') out.push({ text: attr(k, 'type') === 'page' ? '\f' : '\n' });
             else if (k.localName === 'noBreakHyphen') out.push({ text: '-' });

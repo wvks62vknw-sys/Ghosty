@@ -7838,6 +7838,8 @@ html .phonecard button, html #pg-system .phonecard button { height: auto; min-he
    The page is the world's own plate and ink, never a white sheet; every key is 44 pt; the pills are WRITE, INSERT, PAGE. */
 .dcsheet { flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-1); }
 .dcbar, .dcrow, .dctools, .dcpills { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); min-width: 0; }
+/* (the sheet is a column that scrolls: its rows keep their height, or a long list squeezes the keys under 44 pt) */
+.dcsheet > *, .dcview > * { flex-shrink: 0; }
 .dcbar button, .dcrow button, .dctools button, .dcexport button, .dcasks button, .dcpill, .dccontents button { min-height: var(--g-target); min-width: var(--g-target); }
 .dcrow input, .dcrow select { flex: 1 1 140px; min-height: var(--g-target); min-width: 0; max-width: 100%; box-sizing: border-box; font: 400 16px/1.3 var(--g-font-text); }
 .dcview { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
@@ -7945,6 +7947,8 @@ html .pprsheet .pdftick { flex: none; width: var(--g-target); height: var(--g-ta
 .dcmergeprev:empty { display: none; }
 .dcmergeprev p { margin: 0; white-space: pre-wrap; }
 .dccmtbox[hidden] { display: none; }
+.dcsearch { flex: 1 1 200px; }
+.dccolours[hidden] { display: none; }
 .dccomments { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); background: var(--g-plate); min-width: 0; }
 .dccomments button, .dccmtnew button { min-height: var(--g-target); min-width: var(--g-target); }
 .dccmtnew:empty { display: none; }
@@ -8704,6 +8708,11 @@ html :is(.log, #talkline, #thestage, .citedoc, .modal) button.g-key, html #app .
 /* ==== TELEGRAM pass: LINKS → TELEGRAM's keys (NEW CODE, OPEN THE BOT, TEST, UNPAIR, SYSTEM → KEYS) and the keys of a one-tap sheet (KEEP IT / UNPAIR, UNLINK…) are 44 pt, which the phone-wide 40 px rule held them under ==== */
 html .tgbody button, html .modal .confirm.sure button { min-height: var(--g-target) !important; height: auto; }
 /* ==== end THE SYSTEM ==== */
+/* DOCUMENTS' text colours (NEXT ROUND sweep), by number, each a token of the world's own */
+.dcpage .dctc[data-tc="1"], .dccolours [data-tc="1"] { color: var(--g-red); }
+.dcpage .dctc[data-tc="2"], .dccolours [data-tc="2"] { color: var(--g-accent-text); }
+.dcpage .dctc[data-tc="3"], .dccolours [data-tc="3"] { color: var(--g-ok); }
+.dcpage .dctc[data-tc="4"], .dccolours [data-tc="4"] { color: var(--g-amber); }
 
 /* ---------------------------------------------------------------------------------------------------------------------------
    THE ONE LENS (BRIEF-LENS): the Machine's marks laid over the camera. A tag is a thin reticle round the thing (the box from the
