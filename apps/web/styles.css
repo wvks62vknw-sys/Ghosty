@@ -10984,6 +10984,7 @@ html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: an
 .gflist { display: flex; flex-direction: column; gap: var(--g-s-half); }
 .gflist .ak-row.gfowed .ak-rowmeta { color: var(--g-amber); }
 .gflist .ak-row.gfdone .ak-rowmeta { color: var(--g-ink-3); }
+/* =====================================================================================================================
    THE APP LIBRARY: the importer (DATA lane; features/applib/importer.ts). The panel at the top of a "Your data" app: the steps
    to get his file, the progress bar, the top list over any span and a route's shape. Every class al-imp, every colour a token.
    ===================================================================================================================== */
