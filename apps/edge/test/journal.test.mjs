@@ -99,7 +99,11 @@ test('journal: a photo’s own place is read on the phone and only names the nea
   assert.equal(await S.photoGps(new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])])), null, 'not a JPEG');
   assert.equal(await S.photoGps(new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])])), null, 'no EXIF');
   const ui = readFileSync(at('../../web/src/features/journal/index.ts'), 'utf8');
-  assert.ok(!/\.lat\b|\.lon\b/.test(ui.replace(/saved = r\.places;/, '')), 'the screen never keeps a position');
+  // (the map pins SAVED places by their own coordinates; an entry never holds a position)
+  assert.ok(!/\b(?:e|entry|was)\.(?:lat|lon)\b|\be\.(?:lat|lon)\s*=/.test(ui), 'the screen never writes a position into an entry');
+  const store = readFileSync(at('../../web/src/features/journal/store.ts'), 'utf8');
+  const entry = store.slice(store.indexOf('export interface Entry'), store.indexOf('export interface JournalPrefs'));
+  assert.ok(!/\b(?:lat|lon|gps|position)\b/i.test(entry), 'an entry has no field for a position');
 });
 
 test('keep in touch: due words, the order (most over first) and the due count, from the dates he marked alone', async () => {
