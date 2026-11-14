@@ -278,8 +278,12 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
     for (let i = 0; i < 60 && !/milk/i.test(listHtml); i++) { const r = await page.request.get(`${base}/s/${listSlug}/`, { headers: { 'sec-fetch-dest': 'document' } }); listHtml = r.status() === 200 ? await r.text() : ''; if (!/milk/i.test(listHtml)) await page.waitForTimeout(250); }
     check(/milk/i.test(listHtml) && /eggs/i.test(listHtml) && /bread/i.test(listHtml) && !/shopping"\s*,\s*"/i.test(listHtml.match(/"items":\[[^\]]*\]/)?.[0] ?? ''), `${W}: (o) the app at /s/${listSlug}/ holds the sheet's rows, not its heading`);
     // (p) a menu or price list page from the sheet (sites.s6): prices in column B, AS A MENU PAGE ON MY SITES, APPROVE
+    // back to the same sheet the way he gets there (Make → the Sheets pill), which opens on the book he was in
+    await page.evaluate(() => (location.hash = 'area-make'));
+    await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="sheets"]', { timeout: 15000 });
+    await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="sheets"]');
+    await page.waitForFunction(() => window.__ghosty?.sheets?.view === 'book', null, { timeout: 15000 });
     for (const [a, t] of [['B1', 'Price'], ['B2', '1.2'], ['B3', '2'], ['B4', '1.5']]) {
-      await page.evaluate(() => (location.hash = 'sheets'));
       await page.locator(`.shsheet .shc[data-a="${a}"]`).first().click();
       await page.locator('.shline').fill(t);
       await page.locator('.shline').press('Enter');
