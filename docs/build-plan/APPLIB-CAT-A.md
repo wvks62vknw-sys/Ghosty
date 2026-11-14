@@ -5,7 +5,7 @@ Lane `claude/new-session-4erjve-lane-applib-a`. Files: `packages/shared/src/appl
 
 ## What landed
 
-**94 apps: 47 Office and 47 Maker.**
+**93 apps: 46 Office and 47 Maker.**
 
 ### Office from the owner's list (16)
 
@@ -19,7 +19,7 @@ Lane `claude/new-session-4erjve-lane-applib-a`. Files: `packages/shared/src/appl
 | office.30 | Checklists | checklist | Moving house, a car check before its test (the GOV.UK things-you-can-check list), and a move-in inventory. |
 | office.34 | Projects | log | Tasks with project, status board, priority, due date reminders, milestone and progress. |
 | office.35 | Goals | log | Key results with target, current, progress, status board and check-in reminders. |
-| office.36 | Event Planner | log | Dated jobs by category, with an estimate-against-actual budget. The guest list is its own app (Guest List). |
+| office.36 | Event Planner | log | Dated jobs by category, with an estimate-against-actual budget. Guests are the Life family's Guest List. |
 | office.37 | Timesheet | log | Entries with project, client, length, billable flag and rate. A 37.5-hour weekly ring and CSV out. |
 | office.38 | Shifts | log | Shifts on the calendar with kind, break, overtime and bank holiday. Weekly hours. Pay is worked out in Overtime Pay. |
 | office.40 | Snippets | log | Replies with short code, folder and [blanks]. |
@@ -28,8 +28,8 @@ Lane `claude/new-session-4erjve-lane-applib-a`. Files: `packages/shared/src/appl
 | office.50 | Highlights | log | Passages with source, page, theme and stars, in a gallery. The file import is the DATA lane's job. |
 | office.52 | Books | log | Shelves board, covers gallery, pages and a 24-books-a-year ring. |
 
-### Office invented (31)
-- **Logs:** Client Pipeline, Job Hunt, Decision Log, Expense Claims, Mileage Log, Leave Tracker, Brag Book, Idea Bank, Priority Matrix, Standup Notes, Guest List, CPD Log, Waiting For.
+### Office invented (30)
+- **Logs:** Client Pipeline, Job Hunt, Decision Log, Expense Claims, Mileage Log, Leave Tracker, Brag Book, Idea Bank, Priority Matrix, Standup Notes, CPD Log, Waiting For.
 - **Calcs:**
   - Overtime Pay, Holiday Allowance and Notice Period, from GOV.UK and the Employment Rights Act s.86;
   - Mileage Rates, from the HMRC approved mileage allowance;
