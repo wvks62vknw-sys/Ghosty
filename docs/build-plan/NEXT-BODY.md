@@ -52,7 +52,7 @@ check.yml's `all=`.
 - **Patterns.** For example: "On the 10 days you walked 8,000 steps or more, you slept 60 min longer that night on average than
   on the 10 days you walked less." These come only from your own last 60 days, and only when each side has at least three
   days. They are always said as what happened, never as advice or a forecast.
-- In the chat: "how was my week?", "my sleep score", "any patterns?".
+- In the chat: "how was my body this week?", "my body review", "my sleep score", "any patterns?".
 
 ### 6. Mood with tags and a line (body.u13)
 - **Mood** now has tags (work, family, friends, exercise, outdoors, slept badly, stressed, unwell, rest) and a line of your own

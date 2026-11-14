@@ -212,7 +212,7 @@ export async function weekScreen(): Promise<{ el: HTMLElement; stop(): void }> {
       /* state: body.week error */
       kids.push(stateLine('error', t.failedNow()));
     }
-    kids.push(status, phrases(['how was my week?', 'my sleep score', 'any patterns?']), h('p.pknote', `Kept on this phone only. ${ROUGH}`));
+    kids.push(status, phrases(['how was my body this week?', 'my sleep score', 'any patterns?']), h('p.pknote', `Kept on this phone only. ${ROUGH}`));
     const open = new Set([...el.querySelectorAll('details[open]')].map((x) => x.className));
     el.replaceChildren(...kids);
     el.querySelectorAll('details').forEach((x) => open.has(x.className) && ((x as HTMLDetailsElement).open = true));

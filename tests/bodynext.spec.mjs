@@ -315,8 +315,8 @@ for (const vp of VIEWPORTS) {
   check(await until(page, (s) => /On your good days this month: family \(1\)/.test(document.querySelector(`${s} [data-goodtags]`)?.textContent ?? ''), MD), `${T} the tags of good days: "${await txt(page, `${MD} [data-goodtags]`)}"`);
   await bar(page, `${T} mood tags`, 'body');
   if (vp.width === 440) {
-    let r = await ask(page, 'how was my week?', /The last 7 days: .*Best day/);
-    check(r.ok, `${T} "how was my week?": "${r.text.slice(0, 160)}"`);
+    let r = await ask(page, 'how was my body this week?', /The last 7 days: .*Best day/);
+    check(r.ok, `${T} "how was my body this week?": "${r.text.slice(0, 160)}"`);
     r = await ask(page, 'my sleep score', /Your sleep score: \d+ out of 100/);
     check(r.ok, `${T} "my sleep score": "${r.text.slice(0, 160)}"`);
     r = await ask(page, 'any patterns?', /slept 60 min longer/);
