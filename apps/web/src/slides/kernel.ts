@@ -8,3 +8,4 @@ export * from './pptx';
 export * from './pptxread';
 export * from './fromreport';
 export * from './anim';
+export * from './free';

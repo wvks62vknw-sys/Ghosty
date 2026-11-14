@@ -15,8 +15,8 @@ The boards register as the engine's `game` renderer (`games/index.ts` calls `reg
 |---|---|---|
 | sudoku | A removal is kept only while the puzzle has exactly one solution. Clashes are shown, with notes and a hint. | difficulty, mistakes, daily |
 | mines | Mines are laid after the first tap, away from it and its neighbours, so the first tap always opens an area. Chording and long-press flags. | rows, cols, mines |
-| merge | Tiles join once per swipe. Undo the last swipe. Play can go on past the target. | size, target |
-| solitaire | Every deal is played out by a solver before it is dealt; the first winnable deal from the seed is used (20 of 20 sampled deals won). Tap-to-move, undo, home all, auto-finish. | draw (1 or 3) |
+| merge | Tiles join once per swipe. Play can go on past the target. | size, target |
+| solitaire | Every deal is played out by a solver before it is dealt; the first winnable deal from the seed is used (20 of 20 sampled deals won). Tap-to-move, home all, auto-finish. | draw (1 or 3) |
 | wordguess | Repeated letters are marked fairly. A 550-word British list. The daily word is the same all day. A strict mode is optional. | words, tries, daily, strict |
 | nonogram | A picture is kept only if line logic alone solves it, so no guessing is ever needed. Drag to paint; cross mode; finished clues grey out. | size, density, daily |
 | pairs | Every pair is dealt twice. A miss turns back; the score is turns over pairs. | pairs, cols |
@@ -38,7 +38,8 @@ The boards register as the engine's `game` renderer (`games/index.ts` calls `reg
 - the live score and a line beside it, the best kept on the phone, and the streak (wins in a row);
 - PAUSE hides the board;
 - the game is kept after every move under `ghosty.app.<id>.play`, so a reload, a call or a locked phone comes back to the same game, paused, with RESUME;
-- the end card says when it is a new best, with PLAY AGAIN.
+- the end card says when it is a new best, with PLAY AGAIN;
+- the kit's own UNDO and REDO keys at the bottom take a move back and forward, up to 50 moves, from the kept snapshots. This works in sudoku, mines, merge, solitaire, nonogram, slide and lights. It is never offered for a guess in a word game, a memory flip or a real-time move, where taking a move back would be a cheat.
 
 **Real time:** snake and blocks draw on a canvas at the phone's pixel ratio, on `requestAnimationFrame`. Everything else uses DOM grids. All colours are world tokens, read again from the tokens on pause and resume.
 

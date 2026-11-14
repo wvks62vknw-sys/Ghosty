@@ -7,8 +7,9 @@
  * structure kept. Pure: apps/edge/test/reste.test.mjs.
  */
 import { openDocBlock } from '../../../../packages/shared/src/opendoc';
+import { effective, STYLE_IDS, styleOf, type ParaFormat, type ParaStyle, type StyleId } from './styles';
 
-export type BlockType = 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'todo' | 'quote' | 'right' | 'table' | 'img' | 'pb';
+export type BlockType = 'h1' | 'h2' | 'h3' | 'p' | 'ul' | 'ol' | 'todo' | 'quote' | 'right' | 'table' | 'img' | 'pb' | 'caption';
 export interface Run {
   text: string;
   b?: boolean;
@@ -23,6 +24,9 @@ export interface Run {
   href?: string;
   /** Its colour, by name (WRITE → COLOUR): red, blue, green or orange; left out, the page's own ink. */
   c?: TextColour;
+  /** [docspro] His own tracked change (TRACK CHANGES): words he put in, or took out (still shown, struck), and when. */
+  tc?: 'ins' | 'del';
+  tat?: number;
 }
 /** [sweep] The text colours, by name, and what a file writes for each (Word's RRGGBB, a web page's colour name, the PDF's red, green, blue). */
 export type TextColour = 'red' | 'blue' | 'green' | 'orange';
@@ -51,6 +55,8 @@ export interface Block {
   w?: number;
   iw?: number;
   ih?: number;
+  /** [docspro] The paragraph's own format on top of its named style (docs/styles.ts). */
+  fmt?: import('./styles').ParaFormat;
 }
 /** How the page is set (Word's Layout tab): size, margins, direction, the numbers and the lines at its head and foot. */
 export interface PageSetup {
@@ -82,6 +88,10 @@ export interface Doc {
   goal?: number;
   /** Comments on words, with their replies (docs/comments.ts). */
   comments?: import('./comments').Comment[];
+  /** [docspro] His named styles, only what he changed (docs/styles.ts). */
+  styles?: Partial<Record<import('./styles').StyleId, import('./styles').ParaFormat>>;
+  /** [docspro] TRACK CHANGES is on: what he types and deletes is marked (docs/track.ts). */
+  track?: boolean;
 }
 
 let seq = 0;
@@ -91,8 +101,8 @@ export const newDoc = (title: string, blocks: Block[], kind: Doc['kind'] = 'docu
 
 const cellText = (c: Run[]): string => c.map((r) => r.text).join('');
 export const textOf = (b: Block): string => (b.t === 'table' ? (b.rows ?? []).map((r) => r.map(cellText).join('\t')).join('\n') : b.t === 'img' ? b.alt ?? '' : b.runs.map((r) => r.text).join(''));
-const same = (a: Run, b: Run) => !!a.b === !!b.b && !!a.i === !!b.i && !!a.u === !!b.u && !!a.s === !!b.s && !!a.hl === !!b.hl && (a.href ?? '') === (b.href ?? '') && (a.c ?? '') === (b.c ?? '');
-const keep = (r: Run): Run => ({ text: r.text, ...(r.b ? { b: true } : {}), ...(r.i ? { i: true } : {}), ...(r.u ? { u: true } : {}), ...(r.s ? { s: true } : {}), ...(r.hl ? { hl: true } : {}), ...(r.href ? { href: r.href } : {}), ...(isColour(r.c) ? { c: r.c } : {}) });
+const same = (a: Run, b: Run) => !!a.b === !!b.b && !!a.i === !!b.i && !!a.u === !!b.u && !!a.s === !!b.s && !!a.hl === !!b.hl && (a.href ?? '') === (b.href ?? '') && (a.c ?? '') === (b.c ?? '') && (a.tc ?? '') === (b.tc ?? '');
+const keep = (r: Run): Run => ({ text: r.text, ...(r.b ? { b: true } : {}), ...(r.i ? { i: true } : {}), ...(r.u ? { u: true } : {}), ...(r.s ? { s: true } : {}), ...(r.hl ? { hl: true } : {}), ...(r.href ? { href: r.href } : {}), ...(isColour(r.c) ? { c: r.c } : {}), ...(r.tc === 'ins' || r.tc === 'del' ? { tc: r.tc, ...(r.tat ? { tat: r.tat } : {}) } : {}) });
 /** Words, letters and minutes of a document: what the line under its title says. */
 export function counts(d: Doc): { words: number; chars: number } {
   let words = 0;
@@ -307,8 +317,27 @@ const runHtml = (r: Run) => {
   if (isColour(r.c)) s = `<span style="color:${TEXT_COLOURS[r.c].web}">${s}</span>`;
   const href = r.href ? safeHref(r.href) : '';
   if (href) s = `<a href="${esc(href)}">${s}</a>`;
+  // [docspro] his tracked changes, as a web page marks them
+  if (r.tc) s = `<${r.tc}${r.tat ? ` datetime="${new Date(r.tat).toISOString()}"` : ''}>${s}</${r.tc}>`;
   return s;
 };
+/** [docspro] A named style or a paragraph's own format as CSS (font families every phone has, colours by name). */
+const CSS_FONT = { serif: "Georgia,'Times New Roman',serif", sans: "-apple-system,'Helvetica Neue',Arial,sans-serif", rounded: "ui-rounded,'SF Pro Rounded','Arial Rounded MT Bold',sans-serif", mono: "ui-monospace,Menlo,'Courier New',monospace" } as const;
+export function styleCss(f: ParaFormat, base = 11.5): string {
+  const out: string[] = [];
+  if (f.font) out.push(`font-family:${CSS_FONT[f.font]}`);
+  if (f.size !== undefined) out.push(`font-size:${+(f.size / base).toFixed(3)}em`);
+  if (f.bold !== undefined) out.push(`font-weight:${f.bold ? 700 : 400}`);
+  if (f.italic !== undefined) out.push(`font-style:${f.italic ? 'italic' : 'normal'}`);
+  if (f.colour !== undefined) out.push(`color:${f.colour === 'ink' ? 'inherit' : f.colour === 'grey' ? 'dimgray' : TEXT_COLOURS[f.colour].web}`);
+  if (f.line !== undefined) out.push(`line-height:${+(1.35 * f.line).toFixed(3)}`);
+  const sz = f.size ?? 11.5;
+  if (f.before !== undefined) out.push(`margin-top:${+(f.before / sz).toFixed(3)}em`);
+  if (f.after !== undefined) out.push(`margin-bottom:${+(f.after / sz).toFixed(3)}em`);
+  return out.join(';');
+}
+const HTML_SEL: Record<StyleId, string> = { title: 'h1.title', h1: 'h1:not(.title)', h2: 'h2', h3: 'h3', p: 'p,li', quote: 'blockquote', caption: 'p.caption' };
+const pageStyles = (d: Doc): string => STYLE_IDS.map((id) => `${HTML_SEL[id]}{${styleCss(styleOf(d, id) as ParaStyle, 11.5)}}`).join('');
 /** A picture's address in an export: its own bytes as a data address (the editor has them in its store). */
 export type ImageOf = (id: string) => string | null;
 
@@ -318,7 +347,8 @@ export function toHtml(d: Doc, page = false, imageOf: ImageOf = () => null): str
   let list: 'ul' | 'ol' | 'todo' | null = null;
   for (const b of d.blocks) {
     const inner = b.runs.map(runHtml).join('');
-    const al = b.align && b.align !== 'left' ? ` style="text-align:${b.align === 'justify' ? 'justify' : b.align}"` : '';
+    const own = b.fmt ? styleCss(b.fmt, effective(d, b).size) : '';
+    const al = (b.align && b.align !== 'left') || own ? ` style="${[b.align && b.align !== 'left' ? `text-align:${b.align}` : '', own].filter(Boolean).join(';')}"` : '';
     if (b.t === 'table' || b.t === 'img' || b.t === 'pb') {
       if (list) {
         parts.push(`</${list === 'todo' ? 'ul' : list}>`);
@@ -344,13 +374,13 @@ export function toHtml(d: Doc, page = false, imageOf: ImageOf = () => null): str
       parts.push(`</${list === 'todo' ? 'ul' : list}>`);
       list = null;
     }
-    parts.push(b.t === 'quote' ? `<blockquote${al}>${inner}</blockquote>` : b.t === 'right' ? '<p class="right">' + inner + '</p>' : isHeading(b.t) ? `<${b.t}${al}>${inner}</${b.t}>` : `<p${al}>${inner}</p>`);
+    parts.push(b.t === 'quote' ? `<blockquote${al}>${inner}</blockquote>` : b.t === 'caption' ? `<p class="caption"${al}>${inner}</p>` : b.t === 'right' ? `<p class="right"${al}>` + inner + '</p>' : isHeading(b.t) ? `<${b.t}${al}>${inner}</${b.t}>` : `<p${al}>${inner}</p>`);
   }
   if (list) parts.push(`</${list === 'todo' ? 'ul' : list}>`);
   const body = parts.join('\n');
   if (!page) return body;
   const dir = d.rtl ? ' dir="rtl"' : '';
-  return `<!doctype html>\n<html lang="${d.lang ? langCode(d.lang) : 'en-GB'}"${dir}>\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${esc(d.title)}</title>\n<style>body{font:17px/1.6 Georgia,'Times New Roman',serif;max-width:40em;margin:3em auto;padding:0 1.2em;color:#111}h1,h2,h3{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.25}h1.title{font-size:1.9em}p.right{text-align:right}blockquote{border-left:3px solid #999;margin-left:0;padding-left:1em;color:#444}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #999;padding:.3em .6em;text-align:left}img{height:auto}hr.pagebreak{border:0;border-top:1px dashed #999;margin:2em 0}ul.todo{list-style:none;padding-left:.2em}</style>\n</head>\n<body>\n<h1 class="title">${esc(d.title)}</h1>\n${body}\n</body>\n</html>\n`;
+  return `<!doctype html>\n<html lang="${d.lang ? langCode(d.lang) : 'en-GB'}"${dir}>\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>${esc(d.title)}</title>\n<style>body{font:17px/1.6 Georgia,'Times New Roman',serif;max-width:40em;margin:3em auto;padding:0 1.2em;color:#111}h1,h2,h3{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;line-height:1.25}h1.title{font-size:1.9em}p.right{text-align:right}blockquote{border-left:3px solid #999;margin-left:0;padding-left:1em;color:#444}table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #999;padding:.3em .6em;text-align:left}img{height:auto}hr.pagebreak{border:0;border-top:1px dashed #999;margin:2em 0}ul.todo{list-style:none;padding-left:.2em}ins{text-decoration:underline;color:seagreen}del{color:firebrick}${pageStyles(d)}</style>\n</head>\n<body>\n<h1 class="title">${esc(d.title)}</h1>\n${body}\n</body>\n</html>\n`;
 }
 
 const runMd = (r: Run) => {
@@ -366,7 +396,7 @@ export function toMarkdown(d: Doc, imageOf: ImageOf = () => null): string {
   const lines: string[] = [`# ${d.title}`, ''];
   let n = 0;
   d.blocks.forEach((b, k) => {
-    const inner = b.runs.map(runMd).join('');
+    const inner = b.runs.filter((r) => r.tc !== 'del').map(runMd).join('');
     if (b.t === 'table' || b.t === 'img' || b.t === 'pb') {
       if (k) lines.push('');
       if (b.t === 'pb') lines.push('---');
@@ -393,7 +423,7 @@ export function toText(d: Doc): string {
   const lines: string[] = [d.title, ''];
   let n = 0;
   d.blocks.forEach((b, k) => {
-    const inner = textOf(b);
+    const inner = b.t === 'table' || b.t === 'img' ? textOf(b) : b.runs.filter((r) => r.tc !== 'del').map((r) => r.text).join('');
     const prev = d.blocks[k - 1]?.t;
     n = b.t === 'ol' ? (prev === 'ol' ? n + 1 : 1) : 0;
     const listy = (t?: BlockType) => t === 'ul' || t === 'ol' || t === 'todo';

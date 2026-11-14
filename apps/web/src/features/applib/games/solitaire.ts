@@ -1,26 +1,24 @@
 /**
- * The SOLITAIRE board. Options (GameConfig.options): draw (1 or 3, default 1).
+ * The SOLITAIRE board. Options (GameConfig.options): draw (1 or 3, default 1), draws (a picker), daily.
  * Tap a card and it goes where it can (home first, then a column); if it can go nowhere it is picked up, and the next
  * tap on a column or a home puts it there. Tap the stock to turn cards. Every deal has been won by the solver first.
  */
 import { h, clear } from '../../../core/dom';
 import * as S from '../../../../../../packages/shared/src/applib/games/solitaire';
-import { num } from '../../../../../../packages/shared/src/applib/games/rng';
+import { bool, num } from '../../../../../../packages/shared/src/applib/games/rng';
 import { type Board, fmtTime } from './frame';
 
 type Pick = { from: S.Loc; count: number } | null;
 
 export const solitaire: Board = (p) => {
   const draw = (num(p.opts, 'draw', 1, 1, 3) === 3 ? 3 : 1) as 1 | 3;
-  let s: S.Sol = (p.resume as S.Sol | null) ?? S.deal(p.seed(), draw);
-  const history: S.Sol[] = [];
+  let s: S.Sol = (p.resume as S.Sol | null) ?? S.deal(p.seed(bool(p.opts, 'daily', false)), draw);
   let pick: Pick = null;
   let finishing = 0;
   const top = h('div.al-gsoltop');
   const cols = h('div.al-gsolcols');
   p.stage.append(top, cols);
   p.keys([
-    { word: 'Undo move', run: undo, label: 'Undo the last move' },
     { word: 'Home all', run: () => act(() => S.sweepHome(s) > 0), label: 'Send every card that can go home' },
   ]);
 
@@ -31,10 +29,7 @@ export const solitaire: Board = (p) => {
 
   function act(fn: () => boolean): void {
     if (p.paused()) return;
-    const before = S.clone(s);
     if (fn()) {
-      history.push(before);
-      if (history.length > 60) history.shift();
       pick = null;
       after();
     } else render();
@@ -86,14 +81,6 @@ export const solitaire: Board = (p) => {
       pick = null;
       render();
     }
-  }
-  function undo(): void {
-    const prev = history.pop();
-    if (!prev || p.paused()) return p.notice('Nothing to undo.');
-    s = prev;
-    pick = null;
-    render();
-    p.keep(s);
   }
   function render(): void {
     const stock = h('button.al-gpile', { type: 'button', 'aria-label': s.stock.length ? 'Turn the stock' : 'Turn the waste over' }, s.stock.length ? cardEl(0, false) : h('span.al-gpileempty', '↺'));

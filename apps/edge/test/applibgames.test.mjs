@@ -355,6 +355,32 @@ test('dots: closing a box scores and keeps the turn; the fair phone takes a free
   assert.equal(s.me + s.cpu, 9);
 });
 
+test('the options the catalogue sets: themes, aliases, text pairs, backwards words, times tables, expert sudoku', () => {
+  const o = { themes: ['Birds', 'Trees'], Birds: ['robin', 'wren'], Trees: ['oak', 'ash'] };
+  assert.deepEqual(R.themed(o), ['robin', 'wren', 'oak', 'ash']);
+  assert.deepEqual(R.themed({ ...o, theme: 'Trees' }), ['oak', 'ash']);
+  assert.deepEqual(R.themed({ words: ['one'], ...o }), ['one']);
+  assert.equal(R.alias({ lives: 5 }, ['misses', 'lives']), 5);
+  const p = G.pairs.deal(2, 4);
+  const f = G.pairs.faces(p, ['France|Paris', 'Spain|Madrid']);
+  for (const id of [0, 1]) {
+    const shown = p.cards.map((c, i) => (c === id ? f[i] : null)).filter(Boolean).sort();
+    assert.deepEqual(shown, id === 0 ? ['France', 'Paris'] : ['Madrid', 'Spain'], 'the two halves of a pair');
+  }
+  const g = G.wordgrid.build(['robin', 'wren', 'heron', 'finch', 'raven', 'swift'], 10, 6, true, 9, true);
+  for (const w of g.words) assert.equal(w.cells.map((c) => g.letters[c]).join(''), w.word);
+  assert.ok(g.words.some((w) => w.cells[1] - w.cells[0] < 0), 'some words run backwards');
+  const r = R.rng(3);
+  for (let k = 0; k < 50; k++) {
+    const q = G.sprint.sum(r, '×', 12, [7]);
+    assert.match(q.text, /^7 × \d+$/);
+  }
+  const x = G.sudoku.generate(5, 'expert');
+  assert.equal(G.sudoku.countSolutions(x.puzzle, 2), 1);
+  assert.ok(x.clues <= 30, `expert clues ${x.clues}`);
+  assert.ok(G.sudoku.score('expert', 300, 0, 0) > G.sudoku.score('hard', 300, 0, 0));
+});
+
 // ── App Maker (packages/shared/src/applib/draft.ts) ───────────────────────────────
 
 const taken = () => D.LIBRARY.map((a) => a.id);

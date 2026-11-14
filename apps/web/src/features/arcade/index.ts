@@ -243,6 +243,23 @@ export const arcadeTab: TabDef = {
     const failed = new Set<string>();
     const shelfPanel = panel('THE SHELF', { status: `${games.length} GAME${games.length === 1 ? '' : 'S'}`, cls: 'arcshelf' });
     const grid = h('div.arcgrid', { role: 'list' });
+    // SEARCH THE SHELF (APPS ROUND): by a game's name or its line, as he types; nothing matching says so, with CLEAR SEARCH
+    const find = h('input.arcfind', { type: 'search', placeholder: 'Search the games', 'aria-label': 'Search the games', autocomplete: 'off', enterKeyHint: 'search' }) as HTMLInputElement;
+    const noMatch = h('div.arcnomatch', { hidden: true, dataset: { state: 'empty', case: 'keep' } });
+    const filter = () => {
+      const q = find.value.trim().toLowerCase();
+      let shown = 0;
+      for (const c of grid.querySelectorAll<HTMLElement>('.arccard')) {
+        const hit = !q || `${c.querySelector('.arctitle')?.textContent ?? ''} ${c.querySelector('.arcline')?.textContent ?? ''}`.toLowerCase().includes(q);
+        c.hidden = !hit;
+        if (hit) shown++;
+      }
+      noMatch.hidden = !q || shown > 0;
+      if (q && !shown) clear(noMatch, h('p.arcnote', `No games match “${find.value.trim()}”.`), button('CLEAR SEARCH', () => ((find.value = ''), filter())));
+      shelfPanel.setStatus(q ? `${shown} OF ${games.length}` : `${games.length} GAME${games.length === 1 ? '' : 'S'}`);
+    };
+    find.addEventListener('input', filter);
+    if (games.length > 6) shelfPanel.body.append(find, noMatch);
     shelfPanel.body.append(grid);
     /* state: arcade.shelf empty */
     if (!games.length) shelfPanel.body.append(h('div.arcnone', { dataset: { state: 'empty', case: 'keep' } }, h('b', SHELF_NONE.head), h('span', ` ${SHELF_NONE.line}`)));

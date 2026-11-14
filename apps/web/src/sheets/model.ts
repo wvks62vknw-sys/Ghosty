@@ -27,7 +27,23 @@ export interface Fmt {
   fill?: 1 | 2 | 3 | 4 | 5;
   /** A number shown without thousands separators (as a file may have it). */
   k?: 1;
+  /** More number formats (the pro edition): a time, a date with the time, a long date, dollars, euros, accounting. */
+  nx?: NumMore;
+  /** Borders: 1 top, 2 right, 4 bottom, 8 left (added together). */
+  bd?: number;
+  /** The words wrap onto more lines in the cell. */
+  w?: 1;
 }
+export type NumMore = 'time' | 'datetime' | 'longdate' | 'usd' | 'eur' | 'accounting';
+/** The more number formats, as Excel's codes. */
+export const NUM_MORE: Record<NumMore, string> = {
+  time: 'hh:mm',
+  datetime: 'd mmm yyyy hh:mm',
+  longdate: 'dddd d mmmm yyyy',
+  usd: '$#,##0.00',
+  eur: '€#,##0.00',
+  accounting: '_-£* #,##0.00_-;-£* #,##0.00_-;_-£* "-"??_-;_-@_-',
+};
 export interface Cell {
   v?: Val;
   f?: string;
@@ -47,15 +63,58 @@ export interface Sheet {
   filter?: Filter | null;
   /** Colour by rules (rules.ts), first first. */
   rules?: Rule[];
+  /** Little charts drawn inside a cell (Excel's sparklines): the cell, the numbers it draws, line or columns. */
+  sparks?: Spark[];
+  /** Input checks on cells (Excel's data validation): a drop-down list, a tick box, a date. */
+  checks?: Check[];
+  /** Merged cells, each a range ("A1:C1"): the top-left cell shows across all of them. */
+  merges?: string[];
+  /** Ranges styled as tables: a header row and banded rows, in one of the house's colours. */
+  tables?: TableStyle[];
 }
+export interface Spark {
+  at: string;
+  range: string;
+  kind: 'line' | 'column';
+  tone?: 1 | 2 | 3 | 4 | 5;
+}
+export interface Check {
+  range: string;
+  kind: 'list' | 'tick' | 'date';
+  /** The choices of a list. */
+  items?: string[];
+}
+export interface TableStyle {
+  range: string;
+  tone: 1 | 2 | 3 | 4 | 5;
+  header: boolean;
+  banded: boolean;
+}
+export type ChartKind = 'bars' | 'line' | 'column' | 'pie' | 'scatter' | 'area' | 'stackedbar' | 'stackedcol' | 'combo';
+export const CHART_KINDS: ChartKind[] = ['column', 'bars', 'line', 'area', 'pie', 'scatter', 'stackedcol', 'stackedbar', 'combo'];
+/** Each kind in his words. */
+export const CHART_WORDS: Record<ChartKind, string> = {
+  bars: 'bar', line: 'line', column: 'column', pie: 'pie', scatter: 'scatter', area: 'area', stackedbar: 'stacked bar', stackedcol: 'stacked column', combo: 'line and column',
+};
 export interface Chart {
   id: string;
   sheet: string;
-  kind: 'bars' | 'line';
+  kind: ChartKind;
   title: string;
-  /** Where its labels are ("A2:A13") and where its numbers are ("D2:D13"), on its own sheet. */
+  /** Where its labels are ("A2:A13") and where its numbers are ("D2:D13"), on its own sheet. A scatter's labels are its x numbers. */
   labels: string | null;
   values: string;
+  /** More columns of numbers over the same labels (stacked, combo's line, several lines), each a range like values. */
+  more?: string[];
+  /** The series' names (the column heads), first for values, then for each of more. */
+  names?: string[];
+  /** The key that names each series (or each slice of a pie); shown unless false. */
+  legend?: boolean;
+  /** The words along the bottom and up the side. */
+  xTitle?: string;
+  yTitle?: string;
+  /** The first series' colour, one of the house's five (the rest follow in order). */
+  tone?: 1 | 2 | 3 | 4 | 5;
 }
 export interface Book {
   id: string;
@@ -130,6 +189,7 @@ export function entry(text: string): Cell | null {
 
 /** The Excel format code a format stands for. */
 export function fmtCode(x: Fmt | undefined): string {
+  if (x?.nx && NUM_MORE[x.nx]) return NUM_MORE[x.nx];
   if (!x?.n) return 'General';
   const d = x.d ?? 2;
   const dec = d > 0 ? `.${'0'.repeat(d)}` : '';
@@ -152,6 +212,7 @@ export function formatValue(v: Val, x?: Fmt): string {
   if (isErr(v)) return v.e;
   if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
   if (typeof v === 'string') return v;
+  if (x?.nx) return applyCode(v, fmtCode(x));
   if (!x?.n || x.n === 'text') return general(v);
   return applyCode(v, fmtCode(x));
 }
@@ -324,6 +385,18 @@ export function removeSheet(b: Book, name: string): Book {
   return { ...b, at: Date.now(), sheets, names, charts: b.charts.filter((c) => c.sheet !== gone), view: { ...b.view, sheet: Math.min(b.view.sheet, sheets.length - 1) } };
 }
 export const addChart = (b: Book, c: Omit<Chart, 'id'>): Book => ({ ...b, at: Date.now(), charts: [...b.charts, { ...c, id: uid() }] });
+/** A chart changed in place (its kind, title, legend, axis words, colour, cells). */
+export const updateChart = (b: Book, id: string, patch: Partial<Omit<Chart, 'id'>>): Book => ({ ...b, at: Date.now(), charts: b.charts.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+/** A sheet changed in one of its pro parts (sparks, checks, merges, tables). */
+export function setSheetPart<K extends 'sparks' | 'checks' | 'merges' | 'tables'>(b: Book, sheet: string | number, key: K, list: Sheet[K]): Book {
+  const i = sheetOf(b, sheet);
+  const s = b.sheets[i];
+  if (!s) return b;
+  const next = { ...s };
+  if (!list || !(list as unknown[]).length) delete next[key];
+  else next[key] = list;
+  return withSheet(b, i, next);
+}
 export const removeChart = (b: Book, id: string): Book => ({ ...b, at: Date.now(), charts: b.charts.filter((c) => c.id !== id) });
 export const retitle = (b: Book, title: string): Book => ({ ...b, title, at: Date.now() });
 export const looking = (b: Book, view: Partial<Book['view']>): Book => ({ ...b, view: { ...b.view, ...view } });

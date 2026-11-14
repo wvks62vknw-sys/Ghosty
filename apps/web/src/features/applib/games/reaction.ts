@@ -1,5 +1,5 @@
 /**
- * The REACTION board. Options (GameConfig.options): rounds (3 to 10, default 5), minMs (default 1200), maxMs (default 4000).
+ * The REACTION board. Options (GameConfig.options): rounds, tries or bestOf (3 to 10, default 5), minMs (default 1200), maxMs (default 4000).
  * Tap the panel when it changes. A tap too soon is an early start and the round is taken again. Lower is better.
  */
 import { h, clear } from '../../../core/dom';
@@ -8,7 +8,7 @@ import { num, rng } from '../../../../../../packages/shared/src/applib/games/rng
 import type { Board } from './frame';
 
 export const reaction: Board = (p) => {
-  const rounds = num(p.opts, 'rounds', 5, 3, 10);
+  const rounds = num(p.opts, p.opts.rounds !== undefined ? 'rounds' : p.opts.tries !== undefined ? 'tries' : 'bestOf', 5, 3, 10);
   const minMs = num(p.opts, 'minMs', 1200, 500, 5000);
   const maxMs = num(p.opts, 'maxMs', 4000, minMs, 8000);
   const r = rng(p.seed());
