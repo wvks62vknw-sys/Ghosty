@@ -13,7 +13,7 @@ Lane `claude/new-session-4erjve-lane-applib-a`. Files: `packages/shared/src/appl
 |---|---|---|---|
 | office.41 | Day Planner | log | Time blocks with start and estimate. The ring warns past 8 hours today. Calendar and board views. |
 | office.49 | Read Later | log | Links with site, minutes, status, tags and highlights. Minutes queued. |
-| office.1 | Writer | log | Scenes as cards (chapter, viewpoint, synopsis, status, words, draft). A board corkboard, a weekly word goal and a writing streak. |
+| office.1 | Writer | log | Scenes as cards (chapter, viewpoint, synopsis, status, words, draft). A board corkboard and a weekly word goal. |
 | office.5 | Citations | log | Sources with every Harvard part. Each row reads as a reference: "Author (Year) Title", "Place: Publisher". |
 | office.24 | Capture | log | One line first, a kind later. An inbox grouped by what each line becomes. |
 | office.30 | Checklists | checklist | Moving house, a car check before its test (the GOV.UK things-you-can-check list), and a move-in inventory. |
@@ -140,3 +140,7 @@ Lane `claude/new-session-4erjve-lane-applib-a`. Files: `packages/shared/src/appl
 
   Result: 0 problems.
 - The validator (`apps/edge/test/applib.test.mjs`) is run at each landing once it is on the integration branch.
+
+## Polish on the phone (390 wide)
+- Day Planner, Resistor Bands, Focus Sessions, HTTP Status and Books opened in the preview. Each had no page error and nothing sideways.
+- A fourth stat wrapped onto a row of its own, so every log keeps three stats: Writer, Projects, Habits, Books and Timesheet each lost their last one.

@@ -34,8 +34,6 @@ const ELS = ELEMENTS.split(',').map((s, i) => {
   const [sym = '', name = ''] = s.split(' ');
   return { z: i + 1, sym, name };
 });
-const GASES = new Set(['H', 'He', 'N', 'O', 'F', 'Ne', 'Cl', 'Ar', 'Kr', 'Xe', 'Rn']);
-const LIQUIDS = new Set(['Br', 'Hg']);
 function place(z: number): { period: number; group?: number; block: string; series?: string } {
   const ends = [2, 10, 18, 36, 54, 86, 118];
   const period = ends.findIndex((e) => z <= e) + 1;
@@ -51,19 +49,12 @@ function place(z: number): { period: number; group?: number; block: string; seri
   const group = pos - 14;
   return { period, group, block: group <= 12 ? 'd' : 'p' };
 }
-function stateOf(z: number, sym: string): string {
-  const known = z <= 84 || z === 86 || (z >= 88 && z <= 96);
-  if (!known) return 'Made only a few atoms at a time, so its bulk state is not known.';
-  if (GASES.has(sym)) return 'A gas at room temperature.';
-  if (LIQUIDS.has(sym)) return 'A liquid at room temperature.';
-  return 'A solid at room temperature.';
-}
 const ELEMENT_SECTIONS = ELS.map(({ z, sym, name }) => {
   const p = place(z);
   const where = p.series ? `Period ${p.period}, ${a(p.series)}.` : `Period ${p.period}, group ${p.group}, ${p.block}-block.`;
   return {
     title: `${z} ${name} (${sym})`,
-    body: `Symbol ${sym}, atomic number ${z}. ${where} ${stateOf(z, sym)}`,
+    body: `Symbol ${sym}, atomic number ${z}. ${where}`,
     tags: [sym.toLowerCase(), `period ${p.period}`, ...(p.series ? [p.series] : [`${p.block}-block`, `group ${p.group}`])],
   };
 });
@@ -103,10 +94,10 @@ export const LEARN: AppDef[] = [
   /* ===================== From the owner's list ===================== */
   {
     id: 'periodic-table', name: 'Periodic Table', family: 'learn', glyph: 'atom', archetype: 'guide', from: 'learn.19',
-    pitch: 'All 118 elements with symbol, group, period, block and state, offline.',
+    pitch: 'All 118 elements with symbol, atomic number, group, period and block, offline.',
     keywords: ['periodic', 'elements', 'chemistry', 'table', 'atoms'],
     tour: ['Search a name, a symbol or a number: "Fe", "26" or "iron".', 'Search "group 18" or "d-block" to see a whole family at once.', 'Pair it with Element Cards to learn the symbols for good.'],
-    guide: { sections: ELEMENT_SECTIONS, source: { name: 'IUPAC Periodic Table of Elements', url: 'https://iupac.org/what-we-do/periodic-table-of-elements/' } },
+    guide: { sections: ELEMENT_SECTIONS, source: { name: 'Wikipedia, List of chemical elements', url: 'https://en.wikipedia.org/wiki/List_of_chemical_elements' } },
   },
   {
     id: 'music-theory', name: 'Music Theory', family: 'learn', glyph: 'music', archetype: 'deck', from: 'learn.36',
@@ -221,11 +212,11 @@ export const LEARN: AppDef[] = [
         'A red ring sign=Tells you what you must not do;The only upside-down triangle sign=Give way;' +
         'The only octagonal sign=Stop;Motorway direction signs are=Blue;Primary route signs are=Green;' +
         'Local route signs are=White with a black border;A flashing amber light at a pelican crossing=Give way to anyone on the crossing, then go if clear;' +
-        'Order of traffic lights after red=Red and amber, then green;What amber alone means=Stop, unless stopping would cause a crash;' +
+        'Order of traffic lights after red=Red and amber, then green;What amber alone means=Stop at the stop line, unless you are so close that pulling up might cause a collision;' +
         'Double white lines with the line nearest you solid=Do not cross or straddle it;' +
         'Double yellow lines at the kerb=No waiting at any time;Minimum tyre tread for cars=1.6 mm across the central three-quarters;' +
         'Break advised on a long drive=At least 15 minutes after every two hours;' +
-        'Youngest age to drive a car on the road=17;When to use dipped headlights=When visibility is seriously reduced and at night;' +
+        'Youngest age to drive a car on the road=17;When you must use headlights=When visibility is seriously reduced;' +
         'Use of fog lights=Only when visibility is seriously reduced, generally under 100 metres;' +
         'A hard shoulder is for=Emergencies only, unless signs open it as a lane;' +
         'Rule H1 of the hierarchy=Those who can do the greatest harm have the greatest responsibility;' +
@@ -1035,34 +1026,6 @@ export const LEARN: AppDef[] = [
     keywords: ['elements', 'symbols', 'chemistry', 'periodic', 'cards'],
     tour: ['Each card shows a symbol; say the element and its number.', 'The tricky ones come from Latin: Na sodium, Fe iron, Pb lead.', 'Start with the first twenty, which come up most.'],
     deck: { mode: 'srs', cards: ELS.map(({ z, sym, name }) => ({ q: sym, a: `${name}, atomic number ${z}` })) },
-  },
-  {
-    id: 'si-units', name: 'SI Units', family: 'learn', glyph: 'ruler', archetype: 'guide',
-    pitch: 'The seven SI base units, the common derived units and every prefix.',
-    keywords: ['si', 'units', 'metric', 'prefixes', 'measurement', 'science'],
-    tour: ['Search a unit or a symbol: "kelvin", "Pa" or "mega".', 'Each derived unit shows what it is made from.', 'Prefixes run from quecto to quetta.'],
-    guide: {
-      source: { name: 'BIPM, The International System of Units', url: 'https://www.bipm.org/en/measurement-units' },
-      sections: [
-        { title: 'Metre (m)', body: 'Base unit of length. Defined by fixing the speed of light in a vacuum at 299,792,458 m/s.', tags: ['length', 'base'] },
-        { title: 'Kilogram (kg)', body: 'Base unit of mass. Defined by fixing the Planck constant at 6.626 070 15 × 10⁻³⁴ J s.', tags: ['mass', 'base'] },
-        { title: 'Second (s)', body: 'Base unit of time. Defined by fixing the caesium-133 hyperfine frequency at 9,192,631,770 Hz.', tags: ['time', 'base'] },
-        { title: 'Ampere (A)', body: 'Base unit of electric current. Defined by fixing the elementary charge at 1.602 176 634 × 10⁻¹⁹ C.', tags: ['current', 'base'] },
-        { title: 'Kelvin (K)', body: 'Base unit of temperature. Defined by fixing the Boltzmann constant at 1.380 649 × 10⁻²³ J/K. 0 °C is 273.15 K.', tags: ['temperature', 'base'] },
-        { title: 'Mole (mol)', body: 'Base unit of amount of substance. One mole holds exactly 6.022 140 76 × 10²³ entities.', tags: ['amount', 'base'] },
-        { title: 'Candela (cd)', body: 'Base unit of luminous intensity, defined from a fixed luminous efficacy of 683 lm/W at 540 THz.', tags: ['light', 'base'] },
-        { title: 'Newton (N)', body: 'Force. 1 N = 1 kg m/s², the force that accelerates one kilogram by one metre per second squared.', tags: ['force', 'derived'] },
-        { title: 'Joule (J)', body: 'Energy. 1 J = 1 N m, the work done by one newton over one metre.', tags: ['energy', 'derived'] },
-        { title: 'Watt (W)', body: 'Power. 1 W = 1 J/s.', tags: ['power', 'derived'] },
-        { title: 'Pascal (Pa)', body: 'Pressure. 1 Pa = 1 N/m². Standard atmospheric pressure is 101,325 Pa.', tags: ['pressure', 'derived'] },
-        { title: 'Hertz (Hz)', body: 'Frequency. 1 Hz = one cycle per second.', tags: ['frequency', 'derived'] },
-        { title: 'Coulomb (C)', body: 'Electric charge. 1 C = 1 A s.', tags: ['charge', 'derived'] },
-        { title: 'Volt (V)', body: 'Electric potential difference. 1 V = 1 W/A.', tags: ['voltage', 'derived'] },
-        { title: 'Ohm (Ω)', body: 'Electrical resistance. 1 Ω = 1 V/A.', tags: ['resistance', 'derived'] },
-        { title: 'Large prefixes', body: 'deca (da) 10¹, hecto (h) 10², kilo (k) 10³, mega (M) 10⁶, giga (G) 10⁹, tera (T) 10¹², peta (P) 10¹⁵, exa (E) 10¹⁸, zetta (Z) 10²¹, yotta (Y) 10²⁴, ronna (R) 10²⁷, quetta (Q) 10³⁰.', tags: ['prefix', 'kilo', 'mega', 'giga'] },
-        { title: 'Small prefixes', body: 'deci (d) 10⁻¹, centi (c) 10⁻², milli (m) 10⁻³, micro (µ) 10⁻⁶, nano (n) 10⁻⁹, pico (p) 10⁻¹², femto (f) 10⁻¹⁵, atto (a) 10⁻¹⁸, zepto (z) 10⁻²¹, yocto (y) 10⁻²⁴, ronto (r) 10⁻²⁷, quecto (q) 10⁻³⁰.', tags: ['prefix', 'milli', 'micro', 'nano'] },
-      ],
-    },
   },
   {
     id: 'physical-constants', name: 'Constants', family: 'learn', glyph: 'atom', archetype: 'deck',
