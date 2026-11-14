@@ -4,6 +4,7 @@
  * device (`ghosty.whatsNew`, the build's commit). Add a line here with every merge worth telling him about.
  */
 import { BUILD } from './build';
+import { CATALOGUE, isSame } from '../../../../packages/shared/src/catalogue';
 
 export interface NewThing {
   /** The day it was merged (YYYY-MM-DD). */
@@ -13,7 +14,12 @@ export interface NewThing {
   line: string;
 }
 
+/** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  { day: '2026-11-14', title: 'Your own one-word routines', line: 'Settings → ROUTINES: make one word, like “morning”, run a few things in turn. Say it or type it. Anything that would send still waits for your APPROVE.' },
+  { day: '2026-11-14', title: 'Ask how, and get the taps', line: 'Ask “how do I paste a bank statement?” and I give the exact taps with TRY IT; “what can I say here?” gives that screen’s own words. The search understands whole sentences too.' },
+  { day: '2026-11-14', title: 'A tour of the house', line: 'Say “show me around” and I walk you through the seven rooms, with one thing to try in each. The search does sums as you type, too.' },
+  { day: '2026-11-14', title: 'One name for every screen', line: 'Courses, Interpret, Game Studio, Home, FACES in the Lens, ABOUT YOU in Memory: each called the same in the bar, the search, the lists and my speech.' },
   // [moneynext] money and papers handled for you (NEXT-MONEY)
   { day: '2026-11-14', title: 'Safe to spend until payday', line: 'Life → MONEY: tell me your payday and the top of your month shows what is safe to spend until then, after the bills still due. Plain sums, not a forecast.' },
   { day: '2026-11-14', title: 'A money calendar, goals and your year', line: 'MONEY → CALENDAR puts every bill and payday on its day; BUDGETS keeps savings goals with what each needs a month; TRENDS adds your year in money, ready to print.' },
@@ -106,11 +112,11 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Doors and windows from room photos', line: 'Make → Space → FROM PHOTO: after photos of the room, tap its outline where each door and window is. The sizes say ROUGH until you type one wall’s real length.' },
   { day: '2026-11-14', title: '3D made from words, even when the makers are busy', line: 'Make → 3D studio → MAKE: when the free makers are busy, your model waits on the phone and is made by itself while Ghosty is open; meanwhile it offers real models near it, and says when yours is ready.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
+  { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and GAME STUDIO, each a pill of its own, each kept on your phone.' },
   // [comic] the final round's comic, unsaid until now
   { day: '2026-11-13', title: 'Comics, read and made', line: 'Make → EDITORS → COMIC: read your own CBZ and PDF comics panel by panel, get free public-domain ones from the Internet Archive on Wi-Fi, and make a whole comic from an idea.' },
-  { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },
-  { day: '2026-11-13', title: 'Games of your own', line: 'THE GAME STUDIO makes a game from its own kit; it plays in the Arcade under MY GAMES. In the GYM you can play me at poker and WORDS too.' },
+  { day: '2026-11-13', title: 'Games of your own', line: 'GAME STUDIO makes a game from its own kit; it plays in the Arcade under MY GAMES. In the GYM you can play me at poker and WORDS too.' },
   { day: '2026-11-13', title: 'I can work on what you have open', line: 'Ask me about the deck, the video, the workspace or the game you have open: I read it, and any change I make is only proposed, marked for you to accept or reject.' },
   { day: '2026-11-13', title: 'Chat and Telegram in my own words', line: 'The chat, its states and the talk bar, and everything I say in Telegram, now in one plain voice.' },
   { day: '2026-11-13', title: 'THE WALL and THE EYE', line: 'THE WALL fits your words to the television; THE EYE draws the room as the wall, with the ask line at the biggest text.' },
@@ -133,6 +139,31 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
 ];
+
+/**
+ * [consistency] u2, WHAT'S NEW WRITES ITSELF: every ability arrives in the catalogue with the day it came (its `since`), so the list
+ * says the new ones by itself, a line a day for the last fortnight, even when no one wrote a line by hand.
+ */
+export const AUTO_DAYS = 14;
+export function fromCatalogue(now = Date.now()): NewThing[] {
+  const from = new Date(now - AUTO_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const today = new Date(now).toISOString().slice(0, 10);
+  const byDay = new Map<string, string[]>();
+  for (const v of Object.values(CATALOGUE)) {
+    if (!v || isSame(v) || !v.since || v.since < from || v.since > today) continue;
+    byDay.set(v.since, [...(byDay.get(v.since) ?? []), v.name]);
+  }
+  // (an ability that already has its own line by hand that day is said once, there)
+  const said = new Set(WHATS_NEW.map((x) => `${x.day}|${x.title.toLowerCase()}`));
+  return [...byDay].map(([day, names]) => [day, [...new Set(names)].filter((x) => !said.has(`${day}|${x.toLowerCase()}`))] as const).filter(([, n]) => n.length).map(([day, n]) => {
+    return { day, title: n.length === 1 ? 'Something new I can do' : `${n.length} new things I can do`, line: `${n.slice(0, 5).join(', ')}${n.length > 5 ? `, and ${n.length - 5} more` : ''}. Ask me “can you …?” about any of them.` };
+  });
+}
+
+/** What the Workshop shows: the lines written by hand, then each day's new abilities said by the catalogue, newest first (in place,
+ *  so every lane keeps adding its lines to the one list above as before). */
+WHATS_NEW.push(...fromCatalogue());
+WHATS_NEW.sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
 
 const KEY = 'ghosty.whatsNew';
 
