@@ -74,12 +74,13 @@ export async function zipEntries(file: BlobLike): Promise<ZipEntry[]> {
   return out;
 }
 
-/** One entry's bytes as a stream (inflated when deflated). */
-export async function zipStream(file: BlobLike, e: ZipEntry): Promise<ReadableStream<Uint8Array>> {
+/** One entry's bytes as a stream (inflated when deflated); `count` hears how many stored bytes have been read. */
+export async function zipStream(file: BlobLike, e: ZipEntry, count?: (n: number) => void): Promise<ReadableStream<Uint8Array>> {
   const lh = new DataView(await file.slice(e.offset, e.offset + 30).arrayBuffer());
   if (u32(lh, 0) !== 0x04034b50) throw new Error('bad zip entry');
   const start = e.offset + 30 + u16(lh, 26) + u16(lh, 28);
-  const raw = file.slice(start, start + e.compSize).stream();
+  let raw = file.slice(start, start + e.compSize).stream();
+  if (count) raw = raw.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({ transform(c, ctl) { count(c.length); ctl.enqueue(c); } }));
   if (e.method === 0) return raw;
   if (e.method !== 8) throw new Error('unsupported zip method');
   return raw.pipeThrough(new DecompressionStream('deflate-raw') as unknown as TransformStream<Uint8Array, Uint8Array>);

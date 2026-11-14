@@ -17,7 +17,8 @@ export interface FileIn extends BlobLike {
 export interface Part {
   name: string;
   size: number;
-  stream(): Promise<ReadableStream<Uint8Array>>;
+  /** The bytes; `count` (for a zipped part) hears the stored bytes read, so progress follows the file, not the unzipped text. */
+  stream(count?: (n: number) => void): Promise<ReadableStream<Uint8Array>>;
 }
 
 export class Cancelled extends Error {
@@ -31,7 +32,7 @@ export async function parts(file: FileIn, accept: (name: string) => boolean): Pr
     const all = await zipEntries(file);
     return all
       .filter((e) => !/(^|\/)(__MACOSX|\.)/.test(e.name) && accept(e.name.toLowerCase()))
-      .map((e) => ({ name: e.name, size: e.compSize, stream: () => zipStream(file, e) }));
+      .map((e) => ({ name: e.name, size: e.compSize, stream: (count?: (n: number) => void) => zipStream(file, e, count) }));
   }
   if (head[0] === 0x1f && head[1] === 0x8b) {
     return [{ name: file.name.replace(/\.gz$/i, ''), size: file.size, stream: async () => file.stream().pipeThrough(new DecompressionStream('gzip') as unknown as TransformStream<Uint8Array, Uint8Array>) }];
@@ -41,19 +42,20 @@ export async function parts(file: FileIn, accept: (name: string) => boolean): Pr
 
 /**
  * Reads the parts one after another, chunk by chunk, calling `each` with every chunk of bytes. Progress is the share
- * of the parts' stored sizes read (compressed bytes are not counted exactly, so a zipped part moves in steps).
+ * of the parts' stored sizes read (a zipped part counts its stored bytes as they are read, so the bar follows the file).
  */
 export async function readParts(ps: Part[], ctx: ReadCtx, each: (chunk: Uint8Array, part: Part) => void, partEnd?: (part: Part) => void): Promise<void> {
   const total = ps.reduce((n, p) => n + p.size, 0) || 1;
   let before = 0;
   for (const p of ps) {
-    const reader = (await p.stream()).getReader();
+    let stored = -1;
+    const reader = (await p.stream((n) => (stored = Math.max(0, stored) + n))).getReader();
     let got = 0;
     for (;;) {
       if (ctx.signal?.aborted) { void reader.cancel(); throw new Cancelled(); }
       const { done, value } = await reader.read();
       if (done) break;
-      got += value.length;
+      got = stored >= 0 ? stored : got + value.length;
       each(value, p);
       ctx.progress?.(Math.min(1, (before + Math.min(got, p.size)) / total));
     }
