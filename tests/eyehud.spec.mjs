@@ -156,6 +156,8 @@ const HOME_READY = () => { const f = document.querySelector('.eyeframe'); const 
     await page.fill('#cin', words);
     await page.press('#cin', 'Enter');
     await until(page, (w) => document.documentElement.dataset.world === w, 8000, `[words] "${words}" did not make the world ${want}`, want);
+    // (the world can switch a moment before its line is printed: wait for this ask's own answer, not the one before it)
+    await until(page, (w) => ([...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => /The (Eye|Map)/.test(t)).pop() ?? '').includes(w === 'map' ? 'The Map: on.' : 'The Eye: on.'), 8000, `[words] "${words}" never said ${want === 'map' ? 'The Map' : 'The Eye'} was on`, want);
     const wd = await page.evaluate(() => ({ colour: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, said: [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').filter((t) => /The (Eye|Map)/.test(t)).pop() ?? '' }));
     check(wd.colour === 'ember' && wd.saved === 'ember', `[words] "${words}" changed his colour: ${JSON.stringify(wd)}`);
     check(want === 'map' ? /The Map: on\./.test(wd.said) : /The Eye: on\./.test(wd.said), `[words] "${words}" answered "${wd.said}"`);

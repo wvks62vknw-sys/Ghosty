@@ -173,9 +173,11 @@ const small = (page, sel) =>
   const t0 = await rowText(page);
   check(/The West Midlands map/.test(t0), `[offer] the row is not named: ${t0.slice(0, 120)}`);
   check(new RegExp(`Get · about ${sizeWords(M.estimate(MAXZ)).replace(/[.]/g, '\\.')}`, 'i').test(t0), `[offer] the size on the button is not "about ${sizeWords(M.estimate(MAXZ))}": ${t0.slice(0, 200)}`);
-  check(/OpenStreetMap/.test(t0) && /ODbL/.test(t0), '[offer] the licence is not said');
+  // (POLISH 3: the licence is one tap away, behind the card's WHY: it is in the card's words, read whether WHY is open or not)
+  const all0 = ((await mapRow(page).textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ');
+  check(/OpenStreetMap/.test(all0) && /ODbL/.test(all0), '[offer] the licence is not said');
   check(/on Wi-Fi/.test(t0), '[offer] "on Wi-Fi" is not said');
-  check(/Needs a signal, and says so/.test(await page.locator('#pg-settings .offmaps').innerText()), '[offer] what needs a signal is not said');
+  check(/Needs a signal, and says so/.test((await page.locator('#pg-settings .offmaps').textContent()) ?? ''), '[offer] what needs a signal is not said');
   check(st.seen.length === 0, `[offer] looking at the offer fetched ${st.seen.length} addresses`);
   check((await mapRow(page).locator('button[data-act="get"]').getAttribute('aria-label')) === `Get The West Midlands map, about ${sizeWords(M.estimate(MAXZ))}, on Wi-Fi`, '[offer] the button has no VoiceOver label with the size');
   await shot(page, `${out}/maps-offered.png`);

@@ -23,7 +23,7 @@ export function nowLine(p: PersonaSettings): string {
   const same = p.dry === DEFAULT_PERSONA.dry && p.brief === DEFAULT_PERSONA.brief && p.warm === DEFAULT_PERSONA.warm && p.fire === DEFAULT_PERSONA.fire;
   // HOW BRIEF's default follows his own length (persona.ts lengthBand)
   const length = p.brief === 1 ? 'answers as long as yours' : `${step('brief')} answers`;
-  return `Now: ${step('dry')}, ${step('warm')}, ${step('fire')}, ${length}${same ? ', as he comes' : ''}. The app, the voice, Telegram and notifications all sound like this.`;
+  return `Now: ${step('dry')}, ${step('warm')}, ${step('fire')}, ${length}${same ? ', as he comes' : ''}; the app, the voice, Telegram and notifications all sound like this.`;
 }
 
 export function characterPanel(): Panel & { refresh(): void } {
@@ -70,7 +70,7 @@ export function characterPanel(): Panel & { refresh(): void } {
       paint();
       state.textContent = '';
       // In his words, never the browser's (SMALL-GAPS A).
-      toast("Not saved: I can't reach my brain right now. Try again in a moment.", 'bad');
+      toast("Not saved: I can't reach my brain right now; try again in a moment.", 'bad');
     }
   };
 
@@ -92,14 +92,14 @@ export function characterPanel(): Panel & { refresh(): void } {
       }),
     );
     const said = speak ? speak.today.filter((s) => !s.held && !s.danger).length : 0;
-    speakNow.textContent = `${DIALS.find((d) => d.id === on)!.says}${speak ? ` Today: ${said} said${speak.stopped ? '; you said stop, so I’m quiet until tomorrow' : ''}.` : ''}`;
+    speakNow.textContent = `${DIALS.find((d) => d.id === on)!.says.replace(/\.$/, '')}${speak ? `; today ${said} said${speak.stopped ? ', and you said stop, so I’m quiet until tomorrow' : ''}.` : '.'}`;
   };
   const setSpeak = async (dial: Dial) => {
     try {
       speak = await brain.setSpeakDial(dial);
       paintSpeak();
     } catch {
-      toast("Not saved: I can't reach my brain right now. Try again in a moment.", 'bad');
+      toast("Not saved: I can't reach my brain right now; try again in a moment.", 'bad');
     }
   };
   // His PRINCIPLES (OWNER-ISSUES 64, 69b): the lines he holds me to, in his words — the same editor as MEMORY's.

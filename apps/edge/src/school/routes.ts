@@ -44,6 +44,7 @@ import { fileRemote, gapBySubject, loadRemote, remoteStatus, remoteView, sitRemo
 import { fileResponse, loadAllOfficial, loadOfficial, officialById, officialKey, officialName, officialRow, officialTick, OFFICIAL, OFFICIAL_HOSTS, saveText, type OfficialRecord } from './official';
 import { hasPapers, makePaper, paperId, PAPER_SEED_FLOOR, PAPER_STAGES, stageName, type SchoolPaper } from './papers';
 import { trustView } from './trust';
+import { sitOnlineRoute, type Sit } from './online';
 import { addNews, applyResult, ladder, latestFor, loadPaper, loadState, newsFor, nextUp, PAPER_PREFIX, reportLine, saveState, savePaper, type PaperRecord, type SchoolState, type Store } from './state';
 
 export interface SchoolDeps extends Store {
@@ -51,6 +52,8 @@ export interface SchoolDeps extends Store {
   ask?: Ask;
   /** MARK MY WORK's marker: the owner is waiting, so the cheap model in his own lane, waiting a few seconds for room. */
   askNow?: Ask;
+  /** The brain's own model sitting a question in full working (school/online.ts); absent: the phone sits every paper. */
+  sit?: Sit;
   /** The writer and checker of banks and the reader of official papers (the best model, background lane, never waiting). */
   write?: Ask;
   /** How the brain fetches an official paper's file (tests pass a stand-in). */
@@ -412,13 +415,14 @@ export async function handleSchool(req: Request, path: string, method: string, d
         const given = (a as { given?: unknown })?.given;
         if (it && typeof given === 'string') rec.given[it.id] = keepGiven(it, given);
       }
-      if (typeof body.model === 'string' && body.model.trim()) rec.model = body.model.trim().slice(0, 80);
+      // (a paper the brain's own model began online and this phone carried on, with no signal: both are named)
+      if (typeof body.model === 'string' && body.model.trim()) rec.model = rec.where === 'online' && rec.model && !rec.model.endsWith('then this phone') ? `${rec.model.slice(0, 60)} · then this phone` : rec.where === 'online' ? rec.model : body.model.trim().slice(0, 80);
       if (body.final === false) {
         await savePaper(d, rec);
         return json({ saved: Object.keys(rec.given).length, of: rec.paper.items.length });
       }
       const marks = await markPaper(rec.paper, rec.given, stageName(rec.paper.stage), d.ask);
-      const result: PaperResult = score(rec.paper, marks, { at: now, where: 'phone', model: rec.model ?? 'stock' });
+      const result: PaperResult = score(rec.paper, marks, { at: now, where: rec.where ?? 'phone', model: rec.model ?? 'stock' });
       rec.result = result;
       await savePaper(d, rec);
       const st = await loadState(d);
@@ -447,6 +451,9 @@ export async function handleSchool(req: Request, path: string, method: string, d
     });
     return json(await view(d, st));
   }
+
+  // [13 Nov] A question sat by the brain's own model, in full working (school/online.ts): the phone's SIT asks this first.
+  if (path === '/school/sit-online') return sitOnlineRoute(method, body, d, (fn) => serial(d, fn));
 
   // [school 2b] A paper sat on Kaggle's free GPU by the same weights (school/remote.ts; selftrain/cycle.ts runs it): set
   // through POST /school/sit above, so it is the paper the phone would get; then its status, and the gap per subject.

@@ -158,7 +158,9 @@ if (!only || only === 'arcade') {
   check(lines.length === 6 && ['Draughts', 'Othello', 'Backgammon', 'Connect 4', 'Poker', 'Words'].every((n, i) => lines[i].startsWith(n)), `the six are Draughts, Othello, Backgammon, Connect 4, Poker, Words (${lines.map((l) => l.slice(0, 20)).join(' | ')})`);
   check(/You: 1,180 · Ghosty: 1,420 · ±\d+ · 6 games: 2 won, 0 drawn, 4 lost/.test(lines[0] ?? ''), `Draughts' line is honest about games and doubt ("${lines[0]}")`);
   check(/not rated yet/.test(lines[1] ?? '') && /You: 1,200 · Ghosty: 1,200/.test(lines[1] ?? ''), 'Othello is not rated yet, and says so');
-  check((await page.locator('#pg-gym .gbnote').innerText()).includes('search alone until the GYM trains him'), 'the Report card says plainly he is search alone until trained');
+  // (the learn lane's words since 13 Nov: the GYM's own training does not reach these six; he searches on the phone, move by move)
+  const gbnote = await page.locator('#pg-gym .gbnote').innerText();
+  check(gbnote.includes('I search for my moves on this phone') && gbnote.includes('training above does not reach them yet'), `the Report card says plainly he searches on the phone and the GYM's training does not reach these games yet ("${gbnote}")`);
   await shot(page, 'gym-report-440');
   const gw = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
   check(!gw, 'the GYM sticks out nowhere at 440 × 956');

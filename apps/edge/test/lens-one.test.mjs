@@ -431,3 +431,141 @@ test('the Lens takes "keep it", "find this part" and "who is that" by their word
   assert.equal(F.lensWord('find this part'), 'part');
   assert.equal(F.lensWord('who is that'), 'who');
 });
+
+// ---- FINAL-LENS: the Lens knows its job (vision/jobs.ts, through frame.ts): the job for what is in view, the things in a read text
+// he can act on, and a sum worked line by line. Never a guess: what is not a sum, a number or a date is left alone.
+test('the job is decided from the frame: a face first, a shop barcode is a product, a letter, a page, text, a place, a living thing, a thing', () => {
+  assert.deepEqual(F.jobsOf({}), ['nothing']);
+  assert.equal(F.jobOf({ stranger: true, text: 'hello there' }), 'stranger');
+  assert.equal(F.jobOf({ known: true }), 'known');
+  assert.equal(F.jobOf({ code: { text: '5000159484695', format: 'ean_13' } }), 'product');
+  assert.equal(F.jobOf({ code: { text: 'https://example.org/menu', format: 'qr_code' } }), 'code');
+  assert.equal(F.jobOf({ code: { text: '5000159484695', format: 'qr_code' } }), 'code', 'digits in a QR code are no shop barcode');
+  assert.equal(F.jobOf({ text: 'Dear Sir', letter: true }), 'letter');
+  const page = Array.from({ length: 60 }, (_, i) => `word${i}`).join(' ');
+  assert.equal(F.jobOf({ text: page, textShare: 0.7 }), 'document');
+  assert.equal(F.jobOf({ text: page, textShare: 0.2 }), 'text', 'a long text small in the picture is read, not scanned');
+  assert.equal(F.jobOf({ thing: { label: 'robin', score: 0.7 } }), 'living');
+  assert.equal(F.jobOf({ thing: { label: 'potted plant', score: 0.7 } }), 'living');
+  assert.equal(F.jobOf({ thing: { label: 'clock tower', score: 0.6 } }), 'place');
+  assert.equal(F.jobOf({ thing: { label: 'painting', score: 0.6 } }), 'place');
+  assert.equal(F.jobOf({ thing: { label: 'mug', score: 0.8 } }), 'thing');
+  assert.deepEqual(F.jobsOf({ code: { text: '5000159484695', format: 'ean_13' }, thing: { label: 'mug', score: 0.8 } }), ['product', 'thing']);
+  assert.equal(F.sureWords(0.823), '82% sure');
+  assert.equal(F.sureWords(1), '99% sure', 'nothing a phone camera sees is certain');
+  assert.equal(F.ean({ text: '96385074' }), '96385074');
+  assert.equal(F.ean({ text: '12345' }), null);
+});
+
+test('a read text gives the things he can act on, in the order they stand: a date, a phone number, a link, an address, an email, a sum', () => {
+  const text = "Dr Patel's surgery\nYour appointment is on 4 December 2026 at 10:30.\nCall 0121 496 0123 or visit www.example-surgery.nhs.uk\n12 High Street\nBirmingham B1 1AA\nEmail: reception@example.org\n12 + 7 × 3 =";
+  const acts = F.textActs(text, '2026-11-13');
+  assert.deepEqual(acts.map((a) => a.kind), ['date', 'phone', 'link', 'address', 'email', 'sum']);
+  assert.equal(acts[0].value, '2026-12-04');
+  assert.equal(acts[1].value, '01214960123');
+  assert.equal(acts[2].value, 'https://www.example-surgery.nhs.uk');
+  assert.equal(acts[3].value, '12 High Street, Birmingham B1 1AA');
+  assert.equal(acts[4].value, 'reception@example.org');
+  assert.equal(acts[5].value, '33');
+  assert.deepEqual(acts[5].steps, ['7 × 3 = 21', '12 + 21 = 33']);
+  assert.equal(F.telOf('+44 (0)121 496 0123'), '+441214960123');
+  assert.equal(F.telOf('12345'), null);
+  assert.deepEqual(F.textActs('Opening hours 9:00 to 17:30, closed 25/12/2026', '2026-11-13').map((a) => a.kind), ['date'], 'a time and a date are not sums');
+  assert.deepEqual(F.textActs('SORTIE DE SECOURS', '2026-11-13'), [], 'a sign with nothing to act on gives nothing');
+});
+
+test('a sum is worked the way it is taught: brackets, powers, × and ÷, + and −; an equation and a percent too; anything else is no sum', () => {
+  assert.deepEqual(F.solve('(4 + 6) ÷ 2 - 1'), { answer: '4', steps: ['4 + 6 = 10', '10 ÷ 2 = 5', '5 − 1 = 4'] });
+  assert.deepEqual(F.solve('3^2 + 4^2'), { answer: '25', steps: ['3 ^ 2 = 9', '4 ^ 2 = 16', '9 + 16 = 25'] });
+  assert.deepEqual(F.solve('2x + 3 = 11'), { answer: 'x = 4', steps: ['2x = 11 − 3 = 8', 'x = 8 ÷ 2 = 4'] });
+  assert.deepEqual(F.solve('15% of 80'), { answer: '12', steps: ['15% = 15 ÷ 100 = 0.15', '0.15 × 80 = 12'] });
+  assert.equal(F.solve('7 x 6 =').answer, '42');
+  assert.equal(F.solve('1 / 3').answer, '0.333333');
+  assert.equal(F.solve('7 / 0'), null, 'no answer is made up for a division by nought');
+  assert.equal(F.solve('hello world'), null);
+  assert.equal(F.solve('42'), null, 'a lone number is no sum');
+});
+
+test('the jobs of the cards by his words, in more than one wording (and nothing else taken for them)', () => {
+  for (const [w, want] of [['solve that', 'solve'], ['work it out', 'solve'], ["what's the answer", 'solve'], ['call that number', 'call'], ['ring it', 'call'], ['add that to my agenda', 'agenda'], ['put this date in my diary', 'agenda'], ['show that on the map', 'map'], ['where is that address', 'map'], ['what species is that', 'species'], ['what bird is this', 'species'], ['what kind of plant is that', 'species'], ['what building is that', 'place'], ['which painting is this', 'place'], ['read it aloud', 'aloud'], ['read that out loud', 'aloud'], ['copy that', 'copy'], ['copy this number', 'copy']]) assert.equal(F.lensWord(w), want, w);
+  for (const w of ['do it', 'call mum', 'play music', 'what is the time', 'show me the map']) assert.equal(F.lensWord(w), null, w);
+});
+
+test('WHICH SPECIES asks as the kind the phone’s own name says: a bird, an insect, a plant (to Pl@ntNet), or other', () => {
+  assert.equal(F.livingKind('robin'), 'bird');
+  assert.equal(F.livingKind('bird'), 'bird');
+  assert.equal(F.livingKind('ladybird'), 'insect');
+  assert.equal(F.livingKind('butterfly'), 'insect');
+  assert.equal(F.livingKind('potted plant'), 'plant');
+  assert.equal(F.livingKind('sunflower'), 'plant');
+  assert.equal(F.livingKind('fox'), 'other');
+  assert.equal(F.livingKind(''), 'other');
+});
+
+test('what is no sum, no phone, no postcode and no link is left alone; what is one is found whole (the review’s cases)', () => {
+  const kinds = (s) => F.textActs(s, '2026-11-13').map((a) => `${a.kind}:${a.value}`);
+  // ranges, spans of years, opening hours and seasons are not sums; a sum that asks with "=" is
+  for (const s of ['1914 - 1918', 'OPEN\n9-5', '8 - 22', '9.00 - 17.00', '2024/25']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('12 - 7 ='), ['sum:5']);
+  // a homework question's number or letter is not part of the sum
+  assert.deepEqual(kinds('1) 5 x 3 ='), ['sum:15']);
+  assert.deepEqual(kinds('Q1. 12 + 7 × 3 ='), ['sum:33']);
+  assert.deepEqual(kinds('a) 2x + 3 = 11'), ['sum:x = 4']);
+  assert.deepEqual(kinds('1. 3x = 12'), ['sum:x = 4']);
+  assert.deepEqual(kinds('(a) 15% of 80'), ['sum:12']);
+  // product specs, units, ordinals and floor signs are no postcode; a real one is, with its street line only when it is one
+  for (const s of ['Samsung Galaxy S24 8GB 256GB', 'PS5 1TB Console', 'CO2 2kg', 'Vitamin B6 1mg', 'Floor 2 Room B1 2ND']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('London SW1A 1AA'), ['address:London SW1A 1AA']);
+  assert.deepEqual(kinds('Mon-Fri 9-5\nLondon SW1A 1AA'), ['address:London SW1A 1AA']);
+  assert.deepEqual(kinds('Always open\nLondon SW1A 1AA'), ['address:London SW1A 1AA']);
+  assert.deepEqual(kinds('Call 0121 496 0123\nBirmingham B1 1AA'), ['phone:01214960123', 'address:Birmingham B1 1AA']);
+  // reference numbers are no phone; a bracketed area code is one
+  for (const s of ['Order number: 0034567891', 'Invoice 0001234567', 'Customer no. 0123 456 789', 'Account no 0123456789']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('Tel: (020) 7946 0958'), ['phone:02079460958']);
+  assert.deepEqual(kinds('Phone number: 0121 496 0123'), ['phone:01214960123']);
+  // a link keeps a bracket that closes one of its own, and drops the full stop after it
+  assert.deepEqual(kinds('See https://en.wikipedia.org/wiki/Mercury_(planet) for more'), ['link:https://en.wikipedia.org/wiki/Mercury_(planet)']);
+  assert.deepEqual(kinds('(see https://example.org/a)'), ['link:https://example.org/a']);
+  assert.deepEqual(kinds('Visit www.example.org.'), ['link:https://www.example.org']);
+  // a toy and a food named after an animal are things
+  assert.equal(F.jobOf({ thing: { label: 'teddy bear', score: 0.8 } }), 'thing');
+  assert.equal(F.jobOf({ thing: { label: 'hot dog', score: 0.8 } }), 'thing');
+  assert.equal(F.jobOf({ thing: { label: 'dog', score: 0.8 } }), 'living');
+});
+
+test('a sign binds after a power and a chain of powers is worked from its top, as taught; separate powers left to right', () => {
+  assert.deepEqual(F.solve('-3^2 + 10'), { answer: '1', steps: ['-(3 ^ 2) = -9', '-9 + 10 = 1'] });
+  // the sign waits on its number until the power is worked, wherever the number stands
+  assert.deepEqual(F.solve('10 ÷ -2^2'), { answer: '-2.5', steps: ['-(2 ^ 2) = -4', '10 ÷ -4 = -2.5'] });
+  assert.equal(F.solve('100 / -10^2 =').answer, '-1');
+  assert.equal(F.solve('2^-3^2').answer, '0.001953');
+  assert.equal(F.solve('-2^3^2').answer, '-512');
+  assert.deepEqual(F.solve('(-3)^2'), { answer: '9', steps: ['(-3) ^ 2 = 9'] });
+  assert.equal(F.solve('-2^2').answer, '-4');
+  assert.equal(F.solve('2 x -3^2').answer, '-18');
+  assert.deepEqual(F.solve('2^3^2'), { answer: '512', steps: ['3 ^ 2 = 9', '2 ^ 9 = 512'] });
+  assert.equal(F.solve('2 ^ -1').answer, '0.5');
+  assert.equal(F.solve('1 + 2^3^2 - 4').answer, '509');
+});
+
+test('a phone number is one unless a reference’s label stands right before it (on its line, or ending the line above)', () => {
+  const kinds = (s) => F.textActs(s, '2026-11-13').map((a) => `${a.kind}:${a.value}`);
+  // the service numbers on a bill or a letter are phones (the second review's cases)
+  for (const [s, tel] of [['Customer Services 0800 123 4567', '08001234567'], ['Customer Services: 0345 300 0000', '03453000000'], ['Booking hotline 0161 496 0000', '01614960000'], ['Card services 0345 300 0000', '03453000000'], ['Policy enquiries 0345 300 0000', '03453000000'], ['NHS England: 0300 311 2233', '03003112233'], ['Our ref: JS/123 T: 0161 496 0000', '01614960000'], ['Questions about your bill?\nCustomer Services 0800 123 4567', '08001234567'], ['Tel (0121) 496 0123', '01214960123']]) assert.deepEqual(kinds(s), [`phone:${tel}`], s);
+  // a stray digit after a number is not swallowed into it
+  assert.deepEqual(kinds('Crimestoppers 0800 555 111  7 days a week'), ['phone:0800555111']);
+  // references: the label right before, on the line above, after a bracketed aside, or after an earlier phone on the same line
+  for (const s of ['Account number\n0123 456 7890', 'Order number:\n01234567890', 'Account number (please quote): 0123456789', 'Your account number is 0123456789', 'Booking reference: 0161 496 0000', 'Customer number: 0123 456 7890']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('Tel 0800 123 4567 Account 0123456789'), ['phone:08001234567']);
+  assert.deepEqual(kinds('ACCOUNT NUMBER\n0123 456 7890\nCALL 0161 496 0000'), ['phone:01614960000']);
+});
+
+test('a postcode is a real area’s, in any case, with a space or none; never a storage size or a room; the street line goes with it', () => {
+  const kinds = (s) => F.textActs(s, '2026-11-13').map((a) => `${a.kind}:${a.value}`);
+  for (const [s, v] of [['Birmingham B33 8TH', 'Birmingham B33 8TH'], ['Leeds LS2 7RD', 'Leeds LS2 7RD'], ['Leeds LS1 1ST', 'Leeds LS1 1ST'], ['london sw1a 1aa', 'london SW1A 1AA'], ['London SW1A1AA', 'London SW1A 1AA'], ['London SW1A 1AA', 'London SW1A 1AA'], ['EC1A 1BB', 'EC1A 1BB'], ['W1A 0AX', 'W1A 0AX']]) assert.deepEqual(kinds(s), [`address:${v}`], s);
+  assert.equal(kinds('Galaxy S24 8GB to Leeds LS1 4AP').length, 1, 'a storage size before a real postcode does not hide it');
+  for (const s of ['PS5 1TB Console', 'Floor 2 Room B1 2ND', 'Samsung Galaxy S24 8GB 256GB']) assert.deepEqual(kinds(s), [], s);
+  assert.deepEqual(kinds('10-12 High Street\nLeeds LS1 6DT'), ['address:10-12 High Street, Leeds LS1 6DT']);
+  assert.deepEqual(kinds('Flat 2.01, 5 High St\nLeeds LS1 6DT'), ['address:Flat 2.01, 5 High St, Leeds LS1 6DT']);
+  assert.deepEqual(kinds('Dr Jane Patel\nLeeds LS1 4AP'), ['address:Leeds LS1 4AP'], 'a person’s title is no street');
+});

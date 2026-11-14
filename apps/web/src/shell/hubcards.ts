@@ -53,6 +53,8 @@ import { isRow, live as livePages, titleOf as pageTitle } from '../workspace/mod
 import { videoInst } from '../video/inst';
 import { videoTally } from '../video/tally';
 import { gameInst } from '../studio-game/inst';
+import { comicInst } from '../features/comic/inst';
+import { comicState } from '../features/comic/state';
 import { info as studioInfo } from '../studio-game/hub';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
@@ -63,6 +65,12 @@ import { mmss } from '../../../../packages/shared/src/kitchen';
 import { bodyInst, coachInst, creativeInst, homeInst, houseInst, learningInst, linksInst, memoryInst, moneyInst, outsideInst, peopleInst, settingsInst, socialInst, systemInst, workInst } from '../ui/lifeinst';
 import { checkStorage, storageState } from '../features/system/storage';
 import { bodyState } from '../features/body/sheet';
+// [bodylane] the trackers kept on the phone: the Body card's line, and the water nudges started once the app is up
+let bodyTrack: typeof import('../features/body/track') | null = null;
+void import('../features/body/track').then((m) => {
+  bodyTrack = m;
+  m.startNudges();
+}).catch(() => undefined);
 import { CREATIVE_TITLES } from '../features/creative/sheet';
 import { saved as creativeSaved } from '../features/creative/draw';
 import { NEARS } from '../features/outside/sheet';
@@ -644,6 +652,20 @@ export const CARDS: Record<string, HubCard> = {
     say: () => (studioInfo.games ? `${studioInfo.games} ${studioInfo.games === 1 ? 'game' : 'games'} on this phone, the newest “${studioInfo.last}”` : ''),
     idle: 'No games yet: pick a template, and make one in a minute',
   },
+  // [comic] MAKE → COMIC (features/comic): his comics read, made, and fetched from the public domain; all kept on this phone
+  comic: {
+    title: 'Read and make comics',
+    status: () => 'READY',
+    instrument: comicInst,
+    readouts: () => [
+      { label: 'On the shelf', value: comicState.books ? String(comicState.books) : null, none: 'None yet' },
+      { label: 'Made', value: comicState.made ? String(comicState.made) : null, none: '—' },
+    ],
+    why: () => (comicState.books ? '' : 'Import a comic, get a free one, or make your own from an idea'),
+    load: async () => (await import('../features/comic/app')).countShelf(),
+    say: () => (comicState.books ? `${comicState.books} ${comicState.books === 1 ? 'comic' : 'comics'} on this phone, ${comicState.made} made by you` : ''),
+    idle: 'No comics yet: import one, get a free one, or make your own',
+  },
   learn: {
     title: 'Learn anything',
     status: () => 'READY',
@@ -852,10 +874,13 @@ export const CARDS: Record<string, HubCard> = {
     },
     why: () => 'Count your squats, or start a run',
     say: () => {
+      // [bodylane] today's water and last night's sleep, from the phone's own trackers, first (features/body/track.ts)
+      const mine = bodyTrack?.homeLine() ?? '';
       const b = hubFacts.body;
-      if (!b) return '';
-      if (!b.days) return 'Nothing logged this week: count some squats, or start a run';
-      return `${b.days} active ${b.days === 1 ? 'day' : 'days'} this week, ${fmt.n(b.reps)} ${b.reps === 1 ? 'rep' : 'reps'}${b.km ? `, ${b.km} km run` : ''}`;
+      if (!b) return mine;
+      if (!b.days) return mine || 'Nothing logged this week: count some squats, or start a run';
+      const week = `${b.days} active ${b.days === 1 ? 'day' : 'days'} this week, ${fmt.n(b.reps)} ${b.reps === 1 ? 'rep' : 'reps'}${b.km ? `, ${b.km} km run` : ''}`;
+      return mine ? `${mine} · ${week}` : week;
     },
     load: loadBody,
   },

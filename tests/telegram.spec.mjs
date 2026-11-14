@@ -63,7 +63,7 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   let t = await panelText();
   if (!t) problems.push(`[${name}] no TELEGRAM panel in LINKS`);
   else {
-    if (t.status !== 'NOT CONNECTED') problems.push(`[${name}] not-connected status reads "${t.status}"`);
+    if (t.status !== 'Not linked') problems.push(`[${name}] not-connected status reads "${t.status}"`);
     if (!/SYSTEM → KEYS → Telegram bot/.test(t.body)) problems.push(`[${name}] not-connected note does not point at SYSTEM → KEYS`);
   }
   await shot(`${name}-telegram-none.png`);
@@ -72,7 +72,7 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   state = WAITING;
   await open();
   t = await panelText();
-  if (t.status !== 'WAITING FOR PAIRING') problems.push(`[${name}] waiting status reads "${t.status}"`);
+  if (t.status !== 'One step left: send the code') problems.push(`[${name}] waiting status reads "${t.status}"`);
   if (t.code !== '482913') problems.push(`[${name}] the pairing code is not shown big (got "${t.code}")`);
   if (!/@GhostyTestBot/.test(t.body) || !/tap START/.test(t.body)) problems.push(`[${name}] the waiting note does not say which bot to open and to tap START`);
   if (!/valid for about 1[34] minutes/.test(t.body)) problems.push(`[${name}] no countdown on the code: ${t.body.slice(0, 200)}`);
@@ -92,13 +92,14 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   state = PAIRED;
   await open();
   t = await panelText();
-  if (!/^PAIRED/.test(t.status)) problems.push(`[${name}] paired status reads "${t.status}"`);
+  if (t.status !== 'Linked as @GhostyTestBot') problems.push(`[${name}] paired status reads "${t.status}"`);
   if (!/PAIRED WITH\s*Sam/.test(t.body)) problems.push(`[${name}] paired panel does not name Sam: ${t.body.slice(0, 160)}`);
   for (const b of ['TEST', 'UNPAIR']) if (!t.buttons.includes(b)) problems.push(`[${name}] paired panel lacks ${b}`);
   // no NEW CODE while paired: a code the owner could not see would only let a stranger take the chat over (UNPAIR makes one)
   if (t.buttons.includes('NEW CODE')) problems.push(`[${name}] paired panel offers NEW CODE`);
   const hero = await page.evaluate(() => document.querySelector('#pg-links .bigv')?.textContent ?? '');
-  if (!/\/ 7 ONLINE/.test(hero)) problems.push(`[${name}] the hero does not count Telegram: "${hero}"`);
+  // (FINAL ROUND: the hero counts the rows that are linked, in words: "2 linked")
+  if (!/^[1-9]\d* linked$/.test(hero)) problems.push(`[${name}] the hero does not count Telegram: "${hero}"`);
   await shot(`${name}-telegram-paired.png`);
   await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn button')].find((b) => b.textContent === 'TEST')?.click());
   await page.waitForFunction(() => /Look in your Telegram/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => problems.push(`[${name}] TEST showed no confirmation`));

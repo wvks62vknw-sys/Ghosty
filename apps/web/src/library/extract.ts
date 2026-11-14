@@ -5,6 +5,7 @@
  * read; the Library tab then asks the brain to convert them (Workers AI, no key). The PDF reader itself is
  * shared with the brain (packages/shared/src/pdf.ts: the brain reads gadget manuals with it).
  */
+import { checkSize } from '../core/safeurl';
 import { extractPdf, inflateAll } from '../../../../packages/shared/src/pdf';
 
 export { extractPdf };
@@ -29,6 +30,8 @@ export const ACCEPT = 'image/*,video/*,.mp4,.mov,.m4v,.webm,.heic,.pdf,.docx,.pp
 const stem = (name: string) => name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || name;
 
 export async function extractFile(file: File): Promise<Extracted> {
+  // [security] the size is checked before a byte is read (a phone tab is not a server)
+  checkSize(file);
   const name = file.name;
   const lower = name.toLowerCase();
   if (lower.endsWith('.pdf') || file.type === 'application/pdf') return extractPdf(new Uint8Array(await file.arrayBuffer()), stem(name));

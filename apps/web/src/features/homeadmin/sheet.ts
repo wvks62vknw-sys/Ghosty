@@ -22,7 +22,7 @@ interface BillRow {
   due: string;
   paid?: string;
 }
-/** The sheet's pages (its row of buttons, and the HOME screen's pills: features/homeadmin/index.ts). */
+/** The sheet's pages (its row of buttons, and the HOUSEHOLD screen's pills: features/homeadmin/index.ts). */
 export const HOME_VIEWS: { id: HomeWhat; label: string }[] = [
   { id: 'due', label: 'Due' },
   { id: 'bins', label: 'Bins' },
@@ -60,7 +60,7 @@ export async function openHomeadmin(what: string): Promise<void> {
   show(v);
 }
 
-/** One page of the sheet, made by its own function (the sheet's, and the HOME screen's panels). */
+/** One page of the sheet, made by its own function (the sheet's, and the HOUSEHOLD screen's panels). */
 export function homeView(view: HomeWhat): HTMLElement {
   const win = window as unknown as { __ghosty?: Record<string, unknown> };
   if (win.__ghosty) win.__ghosty.homeadmin = homeState;
@@ -166,9 +166,12 @@ function binsView(): HTMLElement {
   const slot = h('div.pkcol', { 'aria-live': 'polite' });
   const words = area('Your bin days, in your words', 'bins are Tuesday, recycling every other Tuesday, next recycling is 10 November', 2);
   const page = area('Your council’s bin page, pasted', 'paste the page: Recycling: 3 Nov, 17 Nov…', 3);
+  /** Whether my brain holds his bin days: a collection can only move once there are days to move. */
+  let known = false;
   const show = (r: { text: string; failed?: boolean; offline?: boolean }) => {
     if (r.failed) return void said(status, r);
     const unknown = /^I don.t know your bin days/i.test(r.text);
+    known = !unknown && !/^Forgot your bin days/i.test(r.text);
     /* state: home.bins empty */
     slot.replaceChildren(...(unknown ? [emptyState('No bin days yet', 'Tell me once, like “bins are Tuesday, recycling every other Tuesday”, or paste your council’s page.')] : []));
     stateIn(status, '', unknown ? '' : r.text || 'My brain didn’t answer.');
@@ -182,7 +185,13 @@ function binsView(): HTMLElement {
     if (!page.value.trim()) return void stateIn(status, '', 'Paste your council’s page first.');
     show(await run('bins', { text: page.value }));
   }), 'Read the council page I pasted');
-  const moved = named(button('A collection moved', async () => show(await run('bins', { words: `bins moved ${words.value || 'to Wednesday this week'}` }))), 'Tell me a collection moved');
+  // (a collection moved says only what he typed: an empty box asks for it, never a made-up day)
+  const moved = named(button('A collection moved', async () => {
+    if (!words.value.trim()) return void stateIn(status, '', 'Type where it moved first, like “to Wednesday this week”.');
+    if (!known) return void stateIn(status, '', 'Tell me your bin days first with “Keep these bin days”; then a collection can move.');
+    if (/\bevery\b/i.test(words.value)) return void stateIn(status, '', 'That reads as new bin days: tap “Keep these bin days” for those, or type only where this one moved.');
+    show(await run('bins', { words: `bins moved ${words.value.trim()}` }));
+  }), 'Tell me a collection moved');
   const el = h('div.pkcol', slot, status, words, h('div.pkrow', keep, moved), page, read);
   /* state: home.bins loading */
   const done = waitFor(el, 'Opening your bin days…');
@@ -198,11 +207,17 @@ function billsView(): HTMLElement {
   const list = h('div.pkcol', { 'aria-live': 'polite' });
   const paste = area('The text of a bill, pasted', 'Amount due £84.20 … Pay by 14 November 2026', 4);
   let loaded = false;
+  let allPaid = '';
   const paint = () => {
     /* state: home.bills empty */
-    slot.replaceChildren(...(loaded && !homeState.bills.length ? [emptyState('No bills kept yet', 'Photograph one or paste its text below.')] : []));
+    slot.replaceChildren(...(loaded && !homeState.bills.length ? [allPaid ? emptyState('All paid', allPaid) : emptyState('No bills kept yet', 'Photograph one or paste its text below.')] : []));
+    // [moneylane] what is still to pay first, soonest first, then what is paid; with what the unpaid ones come to
+    const order = [...homeState.bills].sort((a, b) => Number(!!a.paid) - Number(!!b.paid) || (a.due || '9999').localeCompare(b.due || '9999'));
+    const unpaid = order.filter((b) => !b.paid);
+    const owe = unpaid.reduce((k, b) => k + (Number.isFinite(b.amount) ? b.amount : 0), 0);
     list.replaceChildren(
-      ...homeState.bills.slice(0, 10).map((b) =>
+      ...(unpaid.length ? [h('p.pknote.pkbilltotal', { dataset: { case: 'keep' } }, `£${owe.toFixed(2)} still to pay across ${unpaid.length} bill${unpaid.length === 1 ? '' : 's'}, from the bills you showed me.`)] : []),
+      ...order.slice(0, 10).map((b) =>
         h('div.pkperson', { role: 'group', 'aria-label': `${b.supplier} ${b.amount} pounds, ${b.due ? dueWords(b.due) || `due ${niceDay(b.due)}` : 'no due date'}` }, h('b', `${b.supplier} £${b.amount.toFixed(2)}`),
           h('span.pklab', `${b.kind}${b.due ? ` · ${dueWords(b.due) || `due ${niceDay(b.due)}`} · ${niceDay(b.due)}` : ''}${b.paid ? ` · paid ${niceDay(b.paid)}` : ''} · from the bill you showed me`),
           h('div.pkrow',
@@ -215,6 +230,8 @@ function billsView(): HTMLElement {
     const r = await run('bills', {});
     if (r.failed) return void (first && said(status, r));
     homeState.bills = ((r.data as { bills?: BillRow[] } | undefined)?.bills ?? []).slice();
+    // (every bill marked paid is not "no bills": my brain says so in its own words, and that is what shows)
+    allPaid = /^Nothing unpaid/i.test(r.text) ? r.text : '';
     loaded = true;
     paint();
   };

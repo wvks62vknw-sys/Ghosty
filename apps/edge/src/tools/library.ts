@@ -41,7 +41,7 @@ export const libraryTools: Tool[] = [
     name: 'library_import',
     description:
       'Add knowledge to your library permanently, without AI: a web page or text file (https://…), an arXiv paper ("1706.03762"), a CVE record ("CVE-2021-44228"), a public GitHub repository ("owner/repo", 30 files at a time), a whole Project Gutenberg book ("gutenberg 1342", chapter by chapter, a part at a time), or "self" = YOUR OWN source code (25 files at a time). Pass offset to continue a long one. PDFs, Word files and e-books are added by the owner in the Library tab.',
-    parameters: { type: 'object', properties: { source: { type: 'string' }, offset: { type: 'number', description: 'GitHub only: continue from this file number' } }, required: ['source'] },
+    parameters: { type: 'object', properties: { source: { type: 'string' }, offset: { type: 'number', description: 'continue a long import from here' } }, required: ['source'] },
     risk: 'auto',
     async run(a, ctx) {
       const l = lib(ctx);

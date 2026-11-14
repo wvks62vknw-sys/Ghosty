@@ -12,8 +12,8 @@ export const LIGHTING = 'Lighting the ground…';
 /** An ability on the wall, in his voice: the registry's own line already says it ("I can …", "I see through your camera …"); a line the brain wrote as "You can …" is his now. */
 export const iCan = (line: string): string => line.replace(/\s+/g, ' ').trim().replace(/^You can /, 'I can ');
 
-/** Home's ABILITIES feed's line on the wall. */
-export const ABILITIES_LINE = 'I can …';
+/** Home's ABILITIES feed's line on the wall ([planlane:home] whole words: a line that ends in "…" reads as a word cut short). */
+export const ABILITIES_LINE = 'What I can do';
 
 /** The abilities wall's kick row: `Looking at what I can do in Learn · 6 feeds`. */
 export const lookingAbilities = (room: string, n: number): string => `Looking at what I can do${room ? ` in ${room.charAt(0)}${room.slice(1).toLowerCase()}` : ''} · ${n} ${n === 1 ? 'feed' : 'feeds'}`;

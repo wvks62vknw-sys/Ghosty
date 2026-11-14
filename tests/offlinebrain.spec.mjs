@@ -110,10 +110,11 @@ async function run(name, viewport) {
   await pn.waitFor({ state: 'attached', timeout: 10000 });
   await openPanel(page, 'settings', 'OFFLINE');
   await page.waitForFunction(() => /NOT DOWNLOADED/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the panel does not say NOT DOWNLOADED`));
-  if (!/About 352 MB, once: use Wi-Fi/.test((await pn.textContent()) ?? '')) problems.push(`[${name}] no size and Wi-Fi advice`);
+  if (!/Not downloaded: about 352 MB, once, on Wi-Fi; afterwards Ghosty can talk with no connection\./.test((await pn.textContent()) ?? '')) problems.push(`[${name}] no size and Wi-Fi advice`);
   // What it is for (OWNER-ISSUES 46): online the far bigger free brains answer; this one is for no signal. No stale size.
-  const what = (await pn.locator('.obwhat').textContent().catch(() => '')) ?? '';
-  if (!/^For when there is no signal\. Online, Ghosty answers with far bigger brains, free/.test(what) || /352 MB/.test(what)) problems.push(`[${name}] the panel does not say what the phone brain is for: "${what}"`);
+  // (POLISH 3: the line says one sentence; the rest is behind its WHY, right under it, read whole)
+  const what = (await pn.locator('.obwhat').evaluate((e) => `${e.textContent ?? ''} ${e.nextElementSibling?.matches('details.pkmore') ? e.nextElementSibling.textContent ?? '' : ''}`).catch(() => '')) ?? '';
+  if (!/^For when there is no signal\. WHY ?Online, Ghosty answers with far bigger brains, free/.test(what) || /352 MB/.test(what)) problems.push(`[${name}] the panel does not say what the phone brain is for: "${what}"`);
   const modes = await pn.locator('select[aria-label="Offline brain mode"] option').allTextContents();
   if (modes.join(' | ') !== 'Only when needed (no signal) | Always (never online) | Never') problems.push(`[${name}] the mode reads: ${modes.join(' | ')}`);
   // and each choice fits the box at 440 (a longer wording was cut off: "… only when needed (no s")

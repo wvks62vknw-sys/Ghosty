@@ -10,6 +10,8 @@ interface Marks {
   b: boolean;
   i: boolean;
   u: boolean;
+  s: boolean;
+  hl: boolean;
   href: string;
 }
 export const safeLink = (u: string): string => {
@@ -19,8 +21,8 @@ export const safeLink = (u: string): string => {
   if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return '';
   return /@/.test(t) && !/\s|\//.test(t) ? `mailto:${t}` : `https://${t}`;
 };
-export function runsOf(node: Node, st: Marks = { b: false, i: false, u: false, href: '' }, out: Run[] = []): Run[] {
-  const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.href ? { href: m.href } : {}) });
+export function runsOf(node: Node, st: Marks = { b: false, i: false, u: false, s: false, hl: false, href: '' }, out: Run[] = []): Run[] {
+  const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.s ? { s: true } : {}), ...(m.hl ? { hl: true } : {}), ...(m.href ? { href: m.href } : {}) });
   node.childNodes.forEach((n) => {
     if (n.nodeType === Node.TEXT_NODE) out.push(mk(n.textContent ?? '', st));
     else if (n.nodeType === Node.ELEMENT_NODE) {
@@ -35,6 +37,8 @@ export function runsOf(node: Node, st: Marks = { b: false, i: false, u: false, h
           b: st.b || tag === 'B' || tag === 'STRONG' || /bold|[6-9]00/.test(el.style.fontWeight),
           i: st.i || tag === 'I' || tag === 'EM' || el.style.fontStyle === 'italic',
           u: st.u || tag === 'U' || /underline/.test(el.style.textDecorationLine || el.style.textDecoration),
+          s: st.s || tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || /line-through/.test(el.style.textDecorationLine || el.style.textDecoration),
+          hl: st.hl || tag === 'MARK',
           href: tag === 'A' ? safeLink(el.getAttribute('href') ?? '') : st.href,
         }, out);
     }
@@ -57,6 +61,8 @@ export function fillRuns(el: HTMLElement, runs: Run[]): void {
       if (r.b) node = h('b', node);
       if (r.i) node = h('i', node);
       if (r.u) node = h('u', node);
+      if (r.s) node = h('s', node);
+      if (r.hl) node = h('mark', node);
       if (r.href) node = h('a', { href: r.href }, node);
       el.append(node);
     });

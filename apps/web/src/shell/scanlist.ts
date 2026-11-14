@@ -36,6 +36,7 @@ const SAID: [RegExp, string, string][] = [
   [/^OFFLINE MAPS/, 'Offline maps', 'The map of your area, with no signal'],
   [/^OFFLINE EYES/, 'Offline eyes', 'What the Lens reads with, with no signal'],
   [/^OFFLINE/, 'Offline brain', 'Answers on this phone with no signal'],
+  [/^WORKSPACE/, 'Workspace', 'Pages and databases kept on this phone'],
   [/^SYSTEM/, 'System', 'Keys, models, storage and backups'],
   [/^LINKS/, 'Links', 'Email, Spotify and your phone'],
   [/^SHORTCUTS/, 'Shortcuts', 'Siri'],

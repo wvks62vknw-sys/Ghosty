@@ -218,9 +218,9 @@ const { ctx, page } = await open();
   check(sample.length === 10 && sample.every((s) => s[0] === 'rgb(243, 239, 230)'), `every slide’s ground is Paper’s (rgb(243, 239, 230)): ${[...new Set(sample.map((s) => s[0]))].join(' ')}`);
   check(sample.slice(1, 4).every((s) => s[1] === 'rgb(53, 92, 107)'), `the accent rule on slides 2 to 4 is Paper’s ink-blue: ${sample.slice(1, 4).map((s) => s[1]).join(' ')}`);
   await page.screenshot({ path: `${out}/slides-paper.png` });
-  await page.locator('.slswatch', { hasText: 'Ember' }).click();
+  await page.locator('.slswatch', { hasText: 'Orange' }).click();
   const after = await page.evaluate(() => [...document.querySelectorAll('.slcard')].map((c) => getComputedStyle(c.querySelector('svg > rect:nth-of-type(2)')).fill));
-  check(after.slice(1, 4).every((x) => x === 'rgb(255, 122, 61)'), `Ember repaints them again (rgb(255, 122, 61)): ${after.slice(1, 4).join(' ')}`);
+  check(after.slice(1, 4).every((x) => x === 'rgb(255, 122, 61)'), `Orange (it was Ember) repaints them again (rgb(255, 122, 61)): ${after.slice(1, 4).join(' ')}`);
   await key(page, 'THEME').click();
 }
 

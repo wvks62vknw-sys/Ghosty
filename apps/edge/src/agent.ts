@@ -12,7 +12,7 @@ import { GitHub } from './github';
 import { collectAis, type AisShip } from './ais';
 import { loadReverseJobs, refreshReverse, removeReverse, startReverse } from './tools/reverse'; // [reverse]
 import { KEYS, keyDefs, testKey } from './keys';
-import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
+import { asData, BACKGROUND_BLOCKED, needsApproval, needsApprovalIn } from './kernel/permissions';
 import { Vault } from './kernel/vault';
 import { storageError } from './kv';
 import { Meter } from './meter';
@@ -1043,10 +1043,10 @@ export class GhostyAgent {
       let args = safeArgs(call.function.arguments);
       let result: string;
       let ok = true;
-      if (tool && needsApproval(tool) && i === 0 && first === 'declined') {
+      if (tool && needsApprovalIn(tool, ctx) && i === 0 && first === 'declined') {
         result = 'The owner declined this action. Do not retry it unless they ask again.';
         ok = false;
-      } else if (tool && needsApproval(tool) && !(i === 0 && first === 'approved')) {
+      } else if (tool && needsApprovalIn(tool, ctx) && !(i === 0 && first === 'approved')) {
         let reason = describe(tool.name, args);
         try {
           if (tool.approval) ({ reason, args } = await tool.approval(args, tctx));
@@ -1152,7 +1152,8 @@ export class GhostyAgent {
   private async runCalls(ctx: Msg[], calls: ToolCall[], client: ClientContext, emit: (ev: ChatEvent) => void, first?: 'approved' | 'declined'): Promise<boolean> {
     const tctx = this.toolContext(emit);
     const code = codingTurn(ctx);
-    if (calls.length > 1 && !first && calls.every(pureCall)) {
+    // [security] a guarded tool after outside words this turn never joins a parallel batch: it goes the approval way below
+    if (calls.length > 1 && !first && calls.every(pureCall) && !calls.some((c) => { const t = toolByName.get(c.function.name); return !!t && needsApprovalIn(t, ctx); })) {
       const results = await Promise.all(calls.map((call) => this.runOne(call, toolByName.get(call.function.name)!, safeArgs(call.function.arguments), tctx, emit, code)));
       // The model reads them in the order it asked for them, whichever finished first.
       calls.forEach((call, i) => ctx.push(toolMsg(call, results[i]!)));
@@ -1172,7 +1173,7 @@ export class GhostyAgent {
       } else if (i === 0 && first === 'declined') {
         result = 'The owner declined this action. Do not retry it unless they ask again.';
         emit({ t: 'tool_result', id: call.id, name: tool.name, ok: false, summary: 'declined by you' });
-      } else if (needsApproval(tool) && !(i === 0 && first === 'approved')) {
+      } else if (needsApprovalIn(tool, ctx) && !(i === 0 && first === 'approved')) {
         // Work out exactly what is being approved (e.g. pin the commit to merge) BEFORE asking.
         let reason = describe(tool.name, args);
         let pinned = args;
@@ -1803,7 +1804,8 @@ export class GhostyAgent {
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
         } else if (job.kind === 'follow') {
-          // [packs] The money pack's price watches (tools/money.ts): each page read again, a drop told once; twice a day.
+          // [packs] The home pack's planning watch, and the money pack's one-time move of any old price watch to WATCHERS (tools/money.ts
+          // followTick: it reads and tells nothing; WATCHERS' hourly beat is the one reader of a price, so a drop is told once). POLISH 3, his yes.
           const next = await packsTick(this.packsDeps());
           await finishJob(this.storage, job.id, 'looked');
           await setNext(this.storage, job.id, next);
