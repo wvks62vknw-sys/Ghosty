@@ -11,13 +11,14 @@ import { page } from '../../ui/page';
 
 export const gamestudioTab: TabDef = {
   id: 'gamestudio',
-  title: 'THE GAME STUDIO',
+  // [consistency] one name: GAME STUDIO, as its pill, the deck and his words say it
+  title: 'GAME STUDIO',
   icon: '<rect x="2.5" y="6.5" width="19" height="11" rx="3"/><path d="M7 10v4M5 12h4"/><path d="M14 10.5h3M14 13.5h3"/><path d="M5 20.5h14"/>',
   scene: 'backdrop',
   blurb: 'make a 2-D game · play it · share it',
   now: () => (info.games ? `${info.games} game${info.games === 1 ? '' : 's'}${info.last ? `, the newest “${info.last}”` : ''}` : ''),
   mount(root) {
-    const P = page(root, { tag: 'MAKE // THE GAME STUDIO', sub: '', leftLabel: 'GAMES', rightLabel: '?' });
+    const P = page(root, { tag: 'MAKE // GAME STUDIO', sub: '', leftLabel: 'GAMES', rightLabel: '?' });
     root.classList.add('studiopg');
     P.big.dataset.case = 'keep';
     let studio: import('../../studio-game/editor').Studio | null = null;
@@ -41,7 +42,7 @@ export const gamestudioTab: TabDef = {
         const said = studio?.context() ?? 'the game studio';
         return screenSays('gamestudio', 'The game studio', said, { looking: said.match(/editing (“[^”]*”)/)?.[1]?.slice(0, 80) ?? 'my games' });
       },
-      describe: () => `MAKE // THE GAME STUDIO: ${studio?.context() ?? 'opening'}.`,
+      describe: () => `MAKE // GAME STUDIO: ${studio?.context() ?? 'opening'}.`,
     };
   },
 };

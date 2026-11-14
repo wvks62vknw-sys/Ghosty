@@ -282,7 +282,7 @@ export const lensTab: TabDef = {
       ...(S.mode === 'lens' ? { selected: oneSelected() } : {}),
       // what the stamp line says it is looking at (the one source: a letter, two people, nothing yet), kinds and never who
       ...(S.mode === 'lens' ? { looking: oneState.looking } : {}),
-      line: S.mode === 'lens' ? oneLine() : S.mode === 'people' ? 'the Lens on PEOPLE' : [`the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}`].concat(saidBits(80)).join('; '),
+      line: S.mode === 'lens' ? oneLine() : S.mode === 'people' ? 'the Lens on FACES' : [`the Lens in ${S.mode.toUpperCase()} mode${S.frozen ? ', frozen' : ''}`].concat(saidBits(80)).join('; '),
       at: Date.now(),
     });
     const stamp = stampLine(() => stampFacts(lookingAt(context())));

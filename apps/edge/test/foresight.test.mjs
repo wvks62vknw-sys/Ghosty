@@ -353,7 +353,7 @@ test('the job: no TomTom key → no commute; a walk to work → no departure, sa
   assert.equal(late.ledger().items.length, 0);
   assert.equal(late.calls.length, 0);
   const none = await F.foresightInfo(kit({ places: [] }).d);
-  assert.deepEqual(none.notes, ["Save Home in Memory → ME → PLACES and I'll predict the rain there every morning."]);
+  assert.deepEqual(none.notes, ["Save Home in Memory → ABOUT YOU → PLACES and I'll predict the rain there every morning."]);
 });
 
 test('his word on his own questions: right, wrong or unknown; a feed-scored one is never changed; a person is never recorded', async () => {
@@ -459,7 +459,7 @@ test('the brain: GET /api/foresight, POST /api/foresight/resolve, one standing f
   const empty = await call('/foresight');
   assert.equal(empty.status, 200);
   assert.deepEqual(empty.body.items, []);
-  assert.deepEqual(empty.body.notes, ["Save Home in Memory → ME → PLACES and I'll predict the rain there every morning."]);
+  assert.deepEqual(empty.body.notes, ["Save Home in Memory → ABOUT YOU → PLACES and I'll predict the rain there every morning."]);
   assert.equal(empty.body.score, 'I keep score: nothing scored yet.');
   assert.deepEqual(Object.keys(empty.body.calibration), ['rain', 'departure', 'commute', 'answer', 'all']);
   const jobs = (state.storage.m.get('jobs') ?? []).filter((j) => j.kind === 'foresee');
