@@ -29,6 +29,8 @@ import {
 } from './model';
 import { sayError } from '../ui/hisWords';
 import { run } from '../commands/registry';
+import { commentsPanel } from './commentsui';
+import { anchorOf, commentsOf } from './comments';
 
 export const docsState = {
   open: false,
@@ -61,7 +63,7 @@ const cased = (b: HTMLButtonElement, words = b.textContent ?? ''): HTMLButtonEle
 
 /** The sheet's name (its title, and its panel on the DOCUMENTS screen: features/docs/index.ts). */
 export const DOCS_TITLE = 'DOCUMENTS';
-type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill' | 'merge'; language?: string };
+type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill' | 'merge' | 'comments'; language?: string };
 
 /** The sheet: a document to open (one read here, a chat reply laid out), or MY DOCUMENTS. */
 export async function openDocs(o: DocsAsk = {}): Promise<void> {
@@ -168,6 +170,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }, 700);
     docsState.json = JSON.stringify(d);
     paintMeta();
+    paintCommentMarks();
   };
   let pagesTimer = 0;
   const metaEl = h('p.dcmeta');
@@ -190,6 +193,57 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const mergeHolder = h('div.dcmergebox');
   mergeHolder.hidden = true;
   let merge: { el: HTMLElement; refresh(): void } | null = null;
+  // [editors.u1] comments on words: the panel (docs/commentsui.ts) made on first use, the words drawn marked in the page
+  const commentsHolder = h('div.dccmtbox');
+  commentsHolder.hidden = true;
+  let cmts: ReturnType<typeof commentsPanel> | null = null;
+  const commentsUi = () => {
+    cmts ??= commentsPanel({
+      doc,
+      change: (d) => {
+        change(d);
+        cmts?.paint();
+      },
+      say,
+      show: (id, start, end) => {
+        const el = elOf(id);
+        if (!el) return;
+        el.focus();
+        const r = document.createRange();
+        r.setStart(...pointIn(el, start));
+        r.setEnd(...pointIn(el, end));
+        getSelection()?.removeAllRanges();
+        getSelection()?.addRange(r);
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      },
+      ask: (m) => askBrain(m),
+    });
+    if (!commentsHolder.contains(cmts.el)) clear(commentsHolder, cmts.el);
+    return cmts;
+  };
+  /** The words of every open comment drawn marked in the page (the browser's own highlights: the page's words are not touched). */
+  const paintCommentMarks = () => {
+    const reg = (globalThis as unknown as { CSS?: { highlights?: Map<string, unknown> } }).CSS?.highlights;
+    const HL = (globalThis as unknown as { Highlight?: new (...r: Range[]) => unknown }).Highlight;
+    if (!reg || !HL || !hist) return;
+    const ranges: Range[] = [];
+    for (const c of commentsOf(doc())) {
+      if (c.resolved) continue;
+      const at = anchorOf(doc(), c);
+      const el = at ? elOf(at.block) : null;
+      if (!at || !el) continue;
+      try {
+        const r = document.createRange();
+        r.setStart(...pointIn(el, at.start));
+        r.setEnd(...pointIn(el, at.end));
+        ranges.push(r);
+      } catch {
+        /* words drawn differently this moment: marked on the next paint */
+      }
+    }
+    if (ranges.length) reg.set('dccmt', new HL(...ranges));
+    else reg.delete('dccmt');
+  };
 
   interface Marks {
     b: boolean;
@@ -601,6 +655,25 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     }
     return last ? [last, last.textContent?.length ?? 0] : [el, el.childNodes.length];
   };
+  /** The words chosen in one paragraph, as its letters from and to (null when none are chosen there). */
+  const chosenWords = (): { block: string; start: number; end: number } | null => {
+    const sel = getSelection();
+    const live = sel?.rangeCount && page.contains(sel.anchorNode) ? sel.getRangeAt(0) : lastRange;
+    const host = live ? (live.startContainer.nodeType === Node.ELEMENT_NODE ? (live.startContainer as HTMLElement) : live.startContainer.parentElement)?.closest<HTMLElement>('.dcb[data-id]') : null;
+    const b = host ? doc().blocks.find((x) => x.id === host.dataset.id) : undefined;
+    if (!live || live.collapsed || !host || !b || !plainBlock(b) || !host.contains(live.endContainer)) return null;
+    sync(host);
+    const start = offsetIn(host, live.startContainer, live.startOffset);
+    const end = offsetIn(host, live.endContainer, live.endOffset);
+    return end > start ? { block: b.id, start, end } : null;
+  };
+  const commentOnChosen = () => {
+    const at = chosenWords();
+    if (!at) return say('Choose the words to comment on first (press and hold, then drag), then COMMENT.');
+    commentsHolder.hidden = false;
+    commentsUi().startNew(at);
+    say('Type your comment on those words, then ADD COMMENT.');
+  };
   /** STRIKE and HIGHLIGHT: the chosen words get the mark (or lose it, when they all have it), and stay chosen. */
   const markWords = (what: 's' | 'hl') => {
     const sel = getSelection();
@@ -815,7 +888,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const panels: Record<string, HTMLElement> = {
     write: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Write' },
       h('div.dcrow', key('TEXT', () => setType('p'), '', 'Plain paragraph'), key('H1', () => setType('h1'), '', 'Heading 1'), key('H2', () => setType('h2'), '', 'Heading 2'), key('H3', () => setType('h3'), '', 'Heading 3'), key('QUOTE', () => setType('quote'))),
-      h('div.dcrow', key('B', () => mark('bold'), 'dcbold', 'Bold'), key('I', () => mark('italic'), 'dcital', 'Italic'), key('U', () => mark('underline'), 'dcund', 'Underline'), key('S', () => markWords('s'), 'dcstrike', 'Strikethrough'), key('MARK', () => markWords('hl'), 'dcmark', 'Highlight'), key('LINK', () => {
+      h('div.dcrow', key('B', () => mark('bold'), 'dcbold', 'Bold'), key('I', () => mark('italic'), 'dcital', 'Italic'), key('U', () => mark('underline'), 'dcund', 'Underline'), key('S', () => markWords('s'), 'dcstrike', 'Strikethrough'), key('MARK', () => markWords('hl'), 'dcmark', 'Highlight'), key('COMMENT', () => commentOnChosen(), '', 'Comment on the chosen words'), key('LINK', () => {
         linkBox.hidden = !linkBox.hidden;
         if (!linkBox.hidden) linkIn.focus();
       })),
@@ -1146,6 +1219,10 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         findBox.hidden = !findBox.hidden;
         if (!findBox.hidden) findIn_.focus();
       }),
+      button('COMMENTS', () => {
+        commentsHolder.hidden = !commentsHolder.hidden;
+        if (!commentsHolder.hidden) commentsUi().paint();
+      }),
       button('MAIL MERGE', async () => {
         mergeHolder.hidden = !mergeHolder.hidden;
         if (mergeHolder.hidden) return;
@@ -1181,13 +1258,15 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const sc = scriptOf(d.blocks.map(textOf).join(' '));
     if (sc) scriptPick.value = sc.id;
     const lets = h('div.dcasks', h('small.cvgh', 'LETTERS'), h('div.dcrow', scriptPick, cased(button('TO LATIN', () => letters('to')), 'To Latin'), cased(button('FROM LATIN', () => letters('from')), 'From Latin')), h('small.dcnote', THE_LINE));
-    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, mergeHolder, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
+    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, mergeHolder, commentsHolder, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
       removeDoc(doc().id);
       say(`Removed “${doc().title}” from this phone.`);
       showList();
     })));
     showPanel(docsState.panel in panels ? docsState.panel : 'write');
     paintSuggestions();
+    if (cmts && !commentsHolder.hidden) cmts.paint();
+    paintCommentMarks();
     if (focused) {
       const f = elOf(focused);
       if (f && document.activeElement !== f && f.matches('figure,hr')) f.focus({ preventScroll: true });
@@ -1245,7 +1324,17 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }
     } else if (o.id && getDoc(o.id)) showDoc(getDoc(o.id)!);
     else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
-    else if (o.what === 'merge') {
+    else if (o.what === 'comments') {
+      const d = listDocs()[0];
+      if (!d) {
+        showList();
+        say('No documents yet to comment on: NEW, or open a file, then choose some words and COMMENT.');
+      } else {
+        showDoc(d);
+        commentsHolder.hidden = false;
+        commentsUi().paint();
+      }
+    } else if (o.what === 'merge') {
       const d = listDocs()[0];
       if (!d) {
         showList();

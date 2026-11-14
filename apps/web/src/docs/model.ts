@@ -67,6 +67,8 @@ export interface Doc {
   from?: string;
   /** The page's setup (left out: A4, normal margins, numbers on). */
   page?: PageSetup;
+  /** Comments on words, with their replies (docs/comments.ts). */
+  comments?: import('./comments').Comment[];
 }
 
 let seq = 0;

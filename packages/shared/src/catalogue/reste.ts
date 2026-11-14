@@ -53,6 +53,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
     go: { run: 'open_docs', args: { what: 'merge' } }, tryText: 'Opens mail merge',
   },
+  // [editors.u1] comments on words
+  'phrase:docscomments': {
+    name: 'Comments on your words',
+    line: 'You can leave comments on any words in a document, reply to them, resolve them, and ask me about that one sentence.',
+    more: 'Choose some words and press COMMENT in WRITE: the words are marked in the page and the comment sits in COMMENTS, with replies. ASK GHOSTY sends only that sentence and the comment, and my answer comes as a reply, never as a change. Resolved ones fold away. Comments are kept with the document on this phone and go into a Word file as Word comments.',
+    say: ['Show the comments on my document', 'Comment on my letter', 'My document’s comments'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'comments' } }, tryText: 'Opens the comments',
+  },
   'hub:sheets': {
     name: 'Budgets and lists with formulas',
     line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',

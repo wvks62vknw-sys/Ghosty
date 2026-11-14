@@ -48,6 +48,11 @@ export async function docsTurn(text: string): Promise<PackReply> {
       : 'The scanner is open on DOCUMENT: capture the receipt, KEEP PAGE, READ ALL, then RECEIPT TO SPREADSHEET. You check the date, shop and total, and ADD ROW puts them in your Receipts spreadsheet, kept on this phone.';
     return { said: text, reply, go: [{ id: 'docspaper', ask: -1, label: 'Open the scanner', run: 'open_lens', args: { mode: 'document' } }] };
   }
+  if (ask.what === 'comments') {
+    const { openDocs } = await import('../docs/sheet');
+    void openDocs({ what: 'comments' });
+    return { said: text, reply: 'Your latest document is open with its comments: choose some words and WRITE → COMMENT to add one; reply, resolve, or ASK GHOSTY about that one sentence.', go: [{ id: 'docscomments', ask: -1, label: 'Open the comments', run: 'open_docs', args: { what: 'comments' } }] };
+  }
   if (ask.what === 'merge') {
     const { openDocs } = await import('../docs/sheet');
     void openDocs({ what: 'merge' });

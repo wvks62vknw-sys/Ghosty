@@ -6,7 +6,7 @@
 import { languageAsked } from './model';
 
 export interface DocsAsk {
-  what: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'scan' | 'receipt' | 'fill' | 'merge';
+  what: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'scan' | 'receipt' | 'fill' | 'merge' | 'comments';
   language?: string;
 }
 
@@ -33,12 +33,19 @@ export function mergeAsked(text: string): boolean {
   return /^(?:do |start |open )?(?:a )?mail ?merge(?: (?:my|this|the) letter)?(?: (?:from|with) (?:my |a )?spreadsheet)?$/i.test(t) || /^(?:make|send out|print|do) (?:a copy of )?(?:this|my|the) letter (?:for|to) (?:everyone|every(?: one| name| person| row)|each (?:name|person|row)) (?:in|on|from) (?:my|the|a) (?:spreadsheet|sheet|list)$/i.test(t);
 }
 
+/** [editors.u1] "show the comments on my document", "comment on my letter", "my document's comments". */
+export function commentsAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '').replace(/^(?:please |ghosty,? |can you |could you |i want to |let me )+/i, '');
+  return /^(?:show |open |read |see )?(?:me )?(?:the |my )?comments (?:on|in) (?:my|the|this) (?:document|letter|doc)$/i.test(t) || /^(?:my|the) (?:document|letter)['’]s comments$/i.test(t) || /^(?:add a |leave a )?comment on (?:my|the|this) (?:document|letter|doc)$/i.test(t);
+}
+
 export function docsAsked(text: string): DocsAsk | null {
   const t = text.trim().replace(/[.!?]+$/, '');
   const paper = paperAsked(t);
   if (paper) return paper;
   if (fillAsked(t)) return { what: 'fill' };
   if (mergeAsked(t)) return { what: 'merge' };
+  if (commentsAsked(t)) return { what: 'comments' };
   if (/^(?:open |show )?(?:me )?(?:my )?(?:documents?|docs)$|^(?:open )?(?:the )?document (?:reader|writer|editor)$/i.test(t)) return { what: 'list' };
   if (/^(?:new|start a|make a(?: new)?|write a(?: new)?) (?:blank )?document$/i.test(t)) return { what: 'new' };
   if (/^(?:read|open) (?:a|my|this) (?:document|file|pdf|word (?:file|document)|e-?book)(?: (?:to|for) me)?$/i.test(t)) return { what: 'open' };

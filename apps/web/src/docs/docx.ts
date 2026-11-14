@@ -9,6 +9,7 @@
  */
 import { zipStore } from '../convert/zip';
 import { pageOf, type Align, type Block, type Doc, type Run } from './model';
+import { anchorOf, wordParas, type Comment } from './comments';
 
 const x = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -103,6 +104,35 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
     return `<w:tbl><w:tblPr><w:tblW w:w="${cw * cols}" w:type="dxa"/><w:tblBorders>${['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(edge).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${Array.from({ length: cols }, () => `<w:gridCol w:w="${cw}"/>`).join('')}</w:tblGrid>${trs.join('')}</w:tbl><w:p/>`;
   };
 
+  // [editors.u1] comments on words: each paragraph's runs split where a comment starts and ends, marked as Word comments
+  const cmts = (d.comments ?? []).map((c) => ({ c, at: anchorOf(d, c) })).filter((x): x is { c: Comment; at: NonNullable<ReturnType<typeof anchorOf>> } => !!x.at);
+  const cmtsIn = new Map<string, { n: number; start: number; end: number }[]>();
+  cmts.forEach(({ at }, n) => cmtsIn.set(at.block, [...(cmtsIn.get(at.block) ?? []), { n, start: at.start, end: at.end }]));
+  const runsMarked = (rs: Run[], list: { n: number; start: number; end: number }[]): string => {
+    const cuts = [...new Set(list.flatMap((m) => [m.start, m.end]))].sort((a, b) => a - b);
+    const out: string[] = [];
+    let pos = 0;
+    const marks = (p: number) => {
+      for (const m of list) if (m.end === p && m.end > m.start) out.push(`<w:commentRangeEnd w:id="${m.n}"/><w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:commentReference w:id="${m.n}"/></w:r>`);
+      for (const m of list) if (m.start === p) out.push(`<w:commentRangeStart w:id="${m.n}"/>`);
+    };
+    marks(0);
+    for (const r of rs) {
+      let t = r.text;
+      let at = pos;
+      for (const c of cuts) {
+        if (c <= at || c >= pos + r.text.length) continue;
+        out.push(runXml({ ...r, text: t.slice(0, c - at) }));
+        t = t.slice(c - at);
+        at = c;
+        marks(c);
+      }
+      if (t) out.push(runXml({ ...r, text: t }));
+      pos += r.text.length;
+      if (cuts.includes(pos)) marks(pos);
+    }
+    return out.join('');
+  };
   const paras: string[] = [`<w:p><w:pPr><w:pStyle w:val="Title"/>${bidi}</w:pPr>${runs([{ text: d.title }])}</w:p>`];
   // each numbered list its own numbering, so each counts from 1
   const nums: number[] = [];
@@ -125,7 +155,8 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
     const align = b.t === 'right' ? `<w:jc w:val="${rtl ? 'left' : 'right'}"/>` : jc(b.align);
     // a checklist item: its box drawn as the letter Word and Pages read back (☐ / ☑)
     const box = b.t === 'todo' ? `<w:r><w:t xml:space="preserve">${b.ticked ? '☑' : '☐'} </w:t></w:r>` : '';
-    paras.push(`<w:p><w:pPr>${ppr}${bidi}${align}</w:pPr>${box}${runs(b.runs)}</w:p>`);
+    const here = cmtsIn.get(b.id);
+    paras.push(`<w:p><w:pPr>${ppr}${bidi}${align}</w:pPr>${box}${here ? runsMarked(b.runs, here) : runs(b.runs)}</w:p>`);
   });
 
   // the head and the foot of the page
@@ -145,11 +176,18 @@ export function docxFrom(d: Doc, author = '', imageBytes: (id: string) => Uint8A
     parts.push({ name: 'word/footer1.xml', type: 'footer', data: `${XML}<w:ftr ${W}><w:p><w:pPr><w:pStyle w:val="Footer"/><w:jc w:val="center"/></w:pPr>${body}</w:p></w:ftr>` });
     sect += '<w:footerReference w:type="default" r:id="rIdFoot"/>';
   }
+  if (cmts.length) {
+    const who = x(author || 'Me');
+    const initials = x((author || 'Me').split(/\s+/).map((w) => w[0] ?? '').join('').slice(0, 3).toUpperCase());
+    const when = (ms: number) => new Date(ms || d.at || Date.now()).toISOString().replace(/\.\d+Z$/, 'Z');
+    rels.push(`<Relationship Id="rIdComments" Type="${REL}/comments" Target="comments.xml"/>`);
+    parts.push({ name: 'word/comments.xml', type: 'comments', data: `${XML}<w:comments ${W}>${cmts.map(({ c }, n) => `<w:comment w:id="${n}" w:author="${c.author ? x(c.author) : who}" w:date="${when(c.at)}" w:initials="${initials}">${wordParas(c, author || 'Me').map((t, k) => `<w:p><w:pPr><w:pStyle w:val="CommentText"/></w:pPr>${k ? '' : '<w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:annotationRef/></w:r>'}<w:r><w:t xml:space="preserve">${x(t)}</w:t></w:r></w:p>`).join('')}</w:comment>`).join('')}</w:comments>` });
+  }
   const document = `${XML}<w:document ${W}><w:body>${paras.join('')}<w:sectPr>${sect}<w:pgSz w:w="${pw}" w:h="${ph}"${pg.landscape ? ' w:orient="landscape"' : ''}/><w:pgMar w:top="${mar}" w:right="${mar}" w:bottom="${mar}" w:left="${mar}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr></w:body></w:document>`;
 
   const style = (id: string, name: string, body: string, next = '') => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="Normal"/>${next ? `<w:next w:val="${next}"/>` : ''}<w:qFormat/>${body}</w:style>`;
   const heading = (n: number, size: number) => style(`Heading${n}`, `heading ${n}`, `<w:pPr><w:keepNext/><w:spacing w:before="${n === 1 ? 360 : 240}" w:after="120"/><w:outlineLvl w:val="${n - 1}"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:b/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>`, 'Normal');
-  const styles = `${XML}<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Georgia" w:hAnsi="Georgia" w:cs="Arial"/><w:sz w:val="23"/><w:szCs w:val="23"/><w:lang w:val="en-GB"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>${style('Title', 'Title', '<w:pPr><w:spacing w:after="240"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:b/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr>', 'Normal')}${heading(1, 32)}${heading(2, 27)}${heading(3, 24)}${style('Quote', 'Quote', '<w:pPr><w:ind w:left="567"/></w:pPr><w:rPr><w:i/><w:color w:val="444444"/></w:rPr>')}${style('ListParagraph', 'List Paragraph', '<w:pPr><w:spacing w:after="60"/><w:ind w:left="720"/><w:contextualSpacing/></w:pPr>')}${style('Header', 'header', '<w:pPr><w:spacing w:after="0"/></w:pPr>')}${style('Footer', 'footer', '<w:pPr><w:spacing w:after="0"/></w:pPr>')}</w:styles>`;
+  const styles = `${XML}<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Georgia" w:hAnsi="Georgia" w:cs="Arial"/><w:sz w:val="23"/><w:szCs w:val="23"/><w:lang w:val="en-GB"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>${style('Title', 'Title', '<w:pPr><w:spacing w:after="240"/></w:pPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:b/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr>', 'Normal')}${heading(1, 32)}${heading(2, 27)}${heading(3, 24)}${style('Quote', 'Quote', '<w:pPr><w:ind w:left="567"/></w:pPr><w:rPr><w:i/><w:color w:val="444444"/></w:rPr>')}${style('ListParagraph', 'List Paragraph', '<w:pPr><w:spacing w:after="60"/><w:ind w:left="720"/><w:contextualSpacing/></w:pPr>')}${style('Header', 'header', '<w:pPr><w:spacing w:after="0"/></w:pPr>')}${style('CommentText', 'annotation text', '<w:rPr><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>')}<w:style w:type="character" w:styleId="CommentReference"><w:name w:val="annotation reference"/><w:rPr><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:style>${style('Footer', 'footer', '<w:pPr><w:spacing w:after="0"/></w:pPr>')}</w:styles>`;
   const level = (fmt: string, text: string) => `<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="${fmt}"/><w:lvlText w:val="${text}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>`;
   const numbering = `${XML}<w:numbering ${W}><w:abstractNum w:abstractNumId="0">${level('bullet', '•')}</w:abstractNum><w:abstractNum w:abstractNumId="1">${level('decimal', '%1.')}</w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>${nums.map((n) => `<w:num w:numId="${n}"><w:abstractNumId w:val="1"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`).join('')}</w:numbering>`;
   const now = new Date(d.at || Date.now()).toISOString().replace(/\.\d+Z$/, 'Z');
