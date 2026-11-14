@@ -1,9 +1,11 @@
 /**
  * MONTH (the planlane pass): the agenda as a calendar. This month as a grid, Monday first; a day with events has a dot, a day with
- * a to-do due a ring, today is lit. Tap a day and its events and to-dos are listed under the grid. ‹ and › step a month (this one
- * and the next: the diary reads 42 days ahead); a day past that range or gone says so instead of looking empty.
+ * a to-do due a ring, today is lit. Tap a day and its events and to-dos are listed under the grid. ‹ and › step a month back or on,
+ * as far as he likes [planlane2:timeline]: each month reads its own days from the brain (GET /agenda?from=&days=), kept for the visit,
+ * and says so when it can't (then it shows what the diary already has, and a day outside that says so instead of looking empty).
  */
 import type { AgendaEventInfo } from '../../../../../packages/shared/src/protocol';
+import { brain } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { button, panel } from '../../ui/components';
 import { AHEAD_DAYS, beyondWords, dayLine, dayOf, monthGrid, pastWords, WEEKDAY_NAMES, WEEKDAYS, weekWords, type Todo } from './todowords';
@@ -12,15 +14,37 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[] }): { el: HTMLElement; paint(): void } {
   const p = panel('MONTH', { grow: false, cls: 'month' });
-  let shift = 0; // 0 this month, 1 the next
+  let shift = 0; // months from this one: -1 the last, 1 the next, as far either way as he steps
   let picked = dayOf(Date.now());
+  // [planlane2:timeline] each month's own days, read once per visit ('YYYY-MM' → its events, or 'failed', or on its way)
+  const months = new Map<string, AgendaEventInfo[] | 'failed' | 'reading'>();
+  // (a month whose read failed is tried again only when he steps to it, never in a loop of paints)
+  let again = false;
+  const read = (y: number, m: number) => {
+    const k = `${y}-${String(m + 1).padStart(2, '0')}`;
+    const was = months.get(k);
+    if (was !== undefined && !(was === 'failed' && again)) return;
+    months.set(k, 'reading');
+    const from = new Date(y, m, 1).getTime();
+    const days = Math.round((new Date(y, m + 1, 1).getTime() - from) / 86400_000);
+    brain.agendaFrom(from, days).then((r) => months.set(k, r.events), () => months.set(k, 'failed')).finally(() => paint());
+  };
   const paint = () => {
-    const { events, todos } = get();
+    const { todos } = get();
     // (today read at each paint: a page left open past midnight moves on with the day)
     const now0 = new Date();
     const base = new Date(now0.getFullYear(), now0.getMonth() + shift, 1);
     const y = base.getFullYear();
     const m = base.getMonth();
+    const mk = `${y}-${String(m + 1).padStart(2, '0')}`;
+    read(y, m);
+    again = false;
+    const own = months.get(mk);
+    // what the diary already has (today on, for its six weeks: always the freshest, a change shows at once), and this month's own
+    // read for the days outside that
+    const d0 = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate()).getTime();
+    const d1 = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate() + AHEAD_DAYS).getTime();
+    const events = [...(Array.isArray(own) ? own.filter((e) => e.start < d0 || e.start >= d1) : []), ...get().events];
     const byDay = new Map<string, AgendaEventInfo[]>();
     for (const e of events) {
       const k = dayOf(e.start);
@@ -30,17 +54,24 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
     for (const t of todos) if (!t.done && t.due) dueDays.set(t.due, (dueDays.get(t.due) ?? 0) + 1);
     const today = dayOf(Date.now());
     const prev = button('‹', () => {
-      shift = 0;
+      shift--;
+      again = true;
       paint();
     }, 'monnav');
-    prev.setAttribute('aria-label', 'This month');
-    prev.disabled = shift === 0;
+    prev.setAttribute('aria-label', 'Last month');
     const next = button('›', () => {
-      shift = 1;
+      shift++;
+      again = true;
       paint();
     }, 'monnav');
     next.setAttribute('aria-label', 'Next month');
-    next.disabled = shift === 1;
+    // back to this month in one tap, once he has stepped away from it
+    const home = shift ? button('THIS MONTH', () => {
+      shift = 0;
+      picked = dayOf(Date.now());
+      again = true;
+      paint();
+    }, 'monhome') : null;
     const grid = h('div.mongrid', { role: 'grid', 'aria-label': `${MONTHS[m]} ${y}` },
       h('div.monrow.monhead', { role: 'row' }, ...WEEKDAYS.map((d, i) => h('span', { role: 'columnheader', 'aria-label': WEEKDAY_NAMES[i] }, d))),
       ...monthGrid(y, m).map((w) => h('div.monrow', { role: 'row' }, ...w.map((d) => {
@@ -65,8 +96,10 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
     // (the brain reads from the start of today for AHEAD_DAYS days: the day that starts at that edge is already outside it)
     const startToday = new Date();
     startToday.setHours(0, 0, 0, 0);
-    const far = pt >= startToday.getTime() + AHEAD_DAYS * 86400_000;
-    const gone = picked < today;
+    // (this month read whole: a day of it, gone or far, is said as it is; only when its read failed is the diary's six weeks the edge)
+    const whole = Array.isArray(own) && picked.slice(0, 7) === mk;
+    const far = !whole && pt >= startToday.getTime() + AHEAD_DAYS * 86400_000;
+    const gone = !whole && picked < today;
     const list = h('div.monlist', { 'aria-live': 'polite' },
       h('b.mdayline', { dataset: { case: 'keep' } }, dayLine(pt, evs.length, tds.length)),
       ...(gone && !evs.length ? [h('small.note', pastWords)] : far && !evs.length ? [h('small.note', beyondWords)] : []),
@@ -82,7 +115,7 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
       const dt = todos.filter((t) => !t.done && t.due === k);
       const b = button('', () => {
         picked = k;
-        if (k.slice(0, 7) !== `${y}-${String(m + 1).padStart(2, '0')}`) shift = k > today ? 1 : 0;
+        if (k.slice(0, 7) !== mk) shift = (d.getFullYear() - now0.getFullYear()) * 12 + d.getMonth() - now0.getMonth();
         paint();
       }, `monwk${k === today ? ' today' : ''}${k === picked ? ' on' : ''}${k < today ? ' past' : ''}`);
       b.setAttribute('role', 'listitem');
@@ -94,11 +127,18 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
         h('span', gone ? 'Gone' : weekWords(de.map((e) => `${e.title}${e.allDay ? '' : ` ${fmt.time(new Date(e.start))}`}`), dt.length)));
       week.append(b);
     }
-    clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), grid, list, h('b.monwkh', 'This week'), week);
+    /* state: agenda.monthread loading */
+    /* state: agenda.monthread error */
+    const said = own === 'reading' ? h('small.note.monread', { dataset: { case: 'keep', state: 'loading' } }, `Reading ${MONTHS[m]}’s days…`)
+      : own === 'failed' ? h('small.note.bad.monread', { dataset: { case: 'keep', state: 'error' } }, `I couldn’t read ${MONTHS[m]}’s days from your brain, so this shows only what your diary already has. Step away and back to try again.`)
+      : null;
+    clear(p.body, h('div.keyrow.monbar', prev, h('span.monname', { dataset: { case: 'keep' } }, `${MONTHS[m]} ${y}`), next), ...(home ? [h('div.keyrow.monhomerow', home)] : []), ...(said ? [said] : []), grid, list, h('b.monwkh', 'This week'), week);
   };
   // "show me next month" from the chat (turn.ts)
   addEventListener('ghosty:month', (e) => {
     shift = (e as CustomEvent<{ next?: boolean }>).detail?.next ? 1 : 0;
+    // (a month that failed is read again when it is asked for)
+    again = true;
     const n = new Date();
     picked = shift ? dayOf(new Date(n.getFullYear(), n.getMonth() + 1, 1).getTime()) : dayOf(n.getTime());
     paint();
