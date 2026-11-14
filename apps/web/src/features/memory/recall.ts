@@ -23,7 +23,7 @@ import { runIndex } from '../../library/idle';
 import { embedState, embedTexts } from '../../offline/embed';
 import { timeZone } from '../../state/app';
 
-export type ThingKind = 'turn' | 'doc' | 'page' | 'deck' | 'sheet' | 'scan' | 'link' | 'todo' | 'book';
+export type ThingKind = 'turn' | 'doc' | 'page' | 'deck' | 'sheet' | 'scan' | 'link' | 'todo' | 'book' | 'journal';
 /** One indexed thing: a turn, or a paragraph of one of his things. */
 export interface Thing {
   key: string;
@@ -50,7 +50,7 @@ let lastSig = '';
 const signature = (): string => {
   const es = chat.get().entries;
   let n = `${es.length}:${es[es.length - 1] && 'at' in es[es.length - 1]! ? (es[es.length - 1] as { at: number }).at : 0}`;
-  for (const k of ['ghosty.docs', 'ghosty.workspace', 'ghosty.slides', 'ghosty.sheets', 'ghosty.agenda.todo', 'ghosty.lens.read']) {
+  for (const k of ['ghosty.docs', 'ghosty.workspace', 'ghosty.slides', 'ghosty.sheets', 'ghosty.agenda.todo', 'ghosty.lens.read', 'ghosty.journal']) {
     try {
       n += `:${localStorage.getItem(k)?.length ?? 0}`;
     } catch {
@@ -172,6 +172,9 @@ function thingsFromStores(): Thing[] {
     });
   type B = { id?: string; runs?: { text?: string }[]; rows?: { text?: string }[][][] };
   const blockLines = (bs: B[]): [string, string][] => bs.flatMap((b) => [runsText(b.runs), ...(b.rows ?? []).map((row) => row.map((c) => runsText(c)).join(' · '))].flatMap(paras).map((t): [string, string] => [t, b.id ?? '']));
+  // [journal] his journal's entries, one thing each, only while its lock is off (a locked journal is never copied into the index)
+  const jn = readJson<{ prefs?: { lock?: boolean }; entries?: { id: string; at: number; text: string; place?: string; deleted?: number; sample?: boolean }[] }>('ghosty.journal', {});
+  if (!jn.prefs?.lock) for (const e of jn.entries ?? []) if (e?.id && !e.deleted && !e.sample && e.text) add('journal', e.id, `Journal, ${new Date(e.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`, e.at, [...paras(e.text)]);
   for (const d of readJson<{ id: string; title: string; at: number; blocks: B[] }[]>('ghosty.docs', [])) {
     if (!d?.id || !Array.isArray(d.blocks)) continue;
     add('doc', d.id, d.title, d.at, blockLines(d.blocks));
@@ -415,7 +418,7 @@ export async function findLocal(q: string, o: { turns?: boolean; k?: number } = 
 }
 const bestLine = (text: string, m: ReturnType<typeof wordMatcher>): string => (text.length > 160 && m ? (text.split(/(?<=[.!?])\s+/).find((s) => m(s.toLowerCase()).words > 0) ?? text).slice(0, 160) : text.slice(0, 160));
 
-export const KIND_WORD: Record<ThingKind, string> = { turn: 'Chat', doc: 'Document', page: 'Workspace page', deck: 'Deck', sheet: 'Spreadsheet', scan: 'Read with the Lens', link: 'Saved link', todo: 'To-do', book: 'Library' };
+export const KIND_WORD: Record<ThingKind, string> = { turn: 'Chat', doc: 'Document', page: 'Workspace page', deck: 'Deck', sheet: 'Spreadsheet', scan: 'Read with the Lens', link: 'Saved link', todo: 'To-do', book: 'Library', journal: 'Journal' };
 
 /** RECALL → FORGET on a turn: out of the index now, and out of the brain's gists (UNDO within the day brings both back). */
 export async function forgetTurn(f: Pick<Found, 'key' | 'at'>): Promise<void> {
