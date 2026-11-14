@@ -1,5 +1,5 @@
 /** BRIEF tab: what he reads first in the morning — the day's diary, the drive to work, the weather in detail, headlines by section, and a spoken briefing on request. */
-import { loadTodos, TODO_CHANGED } from '../agenda/todo';
+import { loadTodos, syncTodos, TODO_CHANGED } from '../agenda/todo';
 import { dueToday } from '../agenda/todowords';
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
@@ -171,14 +171,15 @@ export const briefTab: TabDef = {
         rows.push(row('NEXT', next.title, next.when, { wrap: true, onClick: open }));
       }
       // [packs] the packs' lines (BRIEF-PACKS-1): payday, a renewal tomorrow, a warranty ending, water so far…
-      for (const l of mind.packs ?? []) rows.push(row(null, l, null, { wrap: true }));
+      // ([planlane2:onelist] the work pack's "To-do: 2 due today" is the same one list as the TO-DO row below, which names them)
+      for (const l of (mind.packs ?? []).filter((x) => !/^To-do: /.test(x))) rows.push(row(null, l, null, { wrap: true }));
       for (const n of briefNudges(money?.nudges ?? [], isoDay(new Date()))) {
         const r = row('MONEY', n.line, '›', { wrap: true, onClick: () => goToPanel('agenda', 'SPENDING') });
         r.classList.add('brmoney');
         r.dataset.nudge = n.kind;
         rows.push(r);
       }
-      // [planlane] his to-dos due today or late (the agenda's TO-DO, kept on this phone): the brief and the agenda say the same
+      // [planlane] his to-dos due today or late (the one to-do list's copy on this phone): the brief and the agenda say the same
       const todo = dueToday(loadTodos(), Date.now());
       if (todo.length) {
         const r = row('TO-DO', todo.length === 1 ? todo[0]!.text : `${todo.length} to do today: ${todo.slice(0, 3).map((t) => t.text).join(', ')}${todo.length > 3 ? '…' : ''}`, '›', { wrap: true, onClick: () => goToPanel('agenda', 'TO-DO') });
@@ -441,6 +442,8 @@ export const briefTab: TabDef = {
       paintSay();
       if (dayItems !== null) void paintDay();
     });
+    // [planlane2:onelist] the one list (the brain's) brought up to date here (a change repaints through the line above)
+    void syncTodos();
     air.onChange(paintWeather);
     news.onChange(paintNews);
     paintWeather();

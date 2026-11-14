@@ -77,7 +77,8 @@ export async function run(H) {
 
   // ---- 2. by chat, at 440 × 956, BODY 21 (the preview's diary is empty)
   {
-    const { ctx, page } = await phone(PHONE, 'scan', {}, 21);
+    // (an empty list of its own: the one list in the brain starts empty too)
+    const { ctx, page } = await phone(PHONE, 'scan', { 'ghosty.agenda.todo': '[]' }, 21);
     const reply = async (words, re) => {
       // (his own message found by its words AND the time it was sent, so an earlier one with the same words is never taken for it)
       const t0 = await page.evaluate(() => Date.now());

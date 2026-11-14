@@ -14,6 +14,8 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [planlane2:onelist] (plan.u1)
+  { day: '2026-11-14', title: 'One to-do list', line: 'The Agenda’s TO-DO, WORK’s to-do, the Brief, Home and the chat now share one list, kept in my brain with a copy on your phone for no signal. Your phone’s old list joined it once.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

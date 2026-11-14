@@ -10,6 +10,7 @@ import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { clockNow } from '../kitchen/timers';
 import { sayError } from '../../ui/hisWords';
+import { adoptTodos, syncTodos } from '../agenda/todo';
 import { daysTo, dueWords, emptyState, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
 export type WorkWhat = 'doc' | 'interview' | 'todo';
@@ -239,7 +240,7 @@ function interviewScreen(a: Record<string, unknown>): Screen {
   return { el, stop: () => (stopTimer(), void import('../../assistant/voice').then((v) => v.stopListening()).catch(() => undefined)) };
 }
 
-/** The to-do list, ticked on the phone and kept in my brain. */
+/** The to-do list, ticked on the phone and kept in my brain: the one list the Agenda's TO-DO, Home and the Brief read too. */
 function todoScreen(): Screen {
   const items = h('ul.pkitems', { 'aria-label': 'To-do list' });
   const count = h('p.pknote.pktodocount', { dataset: { case: 'keep' }, hidden: true });
@@ -257,6 +258,8 @@ function todoScreen(): Screen {
     try {
       const r = await brain.packDo('work', 'todo', { words });
       workState.todo = ((r.data as { list?: typeof workState.todo } | undefined)?.list ?? []).map((t) => ({ text: t.text, done: !!t.done, ...(t.due ? { due: t.due } : {}) }));
+      // [planlane2:onelist] the same one list as the Agenda's TO-DO, Home and the Brief: their copy on this phone follows
+      adoptTodos((r.data as { list?: unknown } | undefined)?.list);
       loaded = true;
       paint();
       return r.text;
@@ -316,6 +319,7 @@ function todoScreen(): Screen {
   const el = h('div.pkcol', h('div.pkadd', input, addBtn), slot, count, items, h('div.pkrow', clear), status, phrases(['interview practice', 'add to my to-do: send the invoice by Friday']));
   /* state: work.todo loading */
   const done = waitFor(el, 'Opening your list…');
-  void act('').finally(done);
+  // ([planlane2:onelist] changes made on the Agenda with no signal go first, so this screen opens on the one list as it is)
+  void syncTodos(true).finally(() => void act('').finally(done));
   return { el, stop: () => undefined };
 }

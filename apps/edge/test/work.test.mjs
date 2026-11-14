@@ -249,6 +249,10 @@ test('todo (ONELIST): the one list by id: add (idempotent), star, repeat, tick m
   assert.equal(r.data.next.due, '2026-11-02');
   assert.equal(r.data.next.every, 'weekdays');
   assert.equal((await storage.get('work:todo')).length, 3);
+  // the phone names the next one's id (so a tick on it made with no signal lands too)
+  r = await run(storage, 'todo', { op: 'untick', id: 'tplants' });
+  r = await run(storage, 'todo', { op: 'tick', id: 'tplants', nextId: 'tphone1' });
+  assert.equal(r.data.next.id, 'tphone1');
   // ticked back on: the next one it made goes again
   r = await run(storage, 'todo', { op: 'untick', id: 'tplants' });
   assert.equal(r.text, 'Back on the list: Water the plants.');

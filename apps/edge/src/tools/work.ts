@@ -206,7 +206,7 @@ async function todoOp(op: string, a: Record<string, unknown>, d: PackDeps, list:
   // (gone already: a change made on another screen, or one sent twice from the outbox; said, never an error)
   if (!x) return same('That one is not on your list any more.');
   if (op === 'tick' || op === 'untick') {
-    const r = tickTodoIn(list, id, today, now, op === 'tick');
+    const r = tickTodoIn(list, id, today, now, op === 'tick', arg.str(a, 'nextId', false));
     return kept(r!.list, `${op === 'tick' ? 'Ticked off' : 'Back on the list'}: ${x.text}.`, { hit: r!.t, next: r!.next });
   }
   if (op === 'remove') return kept(list.filter((y) => y.id !== id), `Removed: ${x.text}.`, { hit: x });

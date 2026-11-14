@@ -452,7 +452,7 @@ export function todoFrom(x: unknown, now: number): Todo | null {
 }
 /** Tick one off (or back on). A repeating one ticked off makes its next one; ticked back on, that next one goes again (while it
  * is still open and unchanged). */
-export function tickTodoIn(list: Todo[], id: string, today: string, now: number, done?: boolean): { list: Todo[]; t: Todo; next: Todo | null } | null {
+export function tickTodoIn(list: Todo[], id: string, today: string, now: number, done?: boolean, nextId?: string): { list: Todo[]; t: Todo; next: Todo | null } | null {
   const x = list.find((y) => y.id === id);
   if (!x) return null;
   const want = done ?? !x.done;
@@ -463,7 +463,7 @@ export function tickTodoIn(list: Todo[], id: string, today: string, now: number,
     x.done = true;
     x.doneAt = now;
     if (x.every) {
-      next = { id: shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}) };
+      next = { id: nextId && /^[\w-]{1,40}$/.test(nextId) && !list.some((y) => y.id === nextId) ? nextId : shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}) };
       out = [...list, next];
       x.nextId = next.id;
     }

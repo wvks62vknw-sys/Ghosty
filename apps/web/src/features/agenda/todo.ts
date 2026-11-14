@@ -4,11 +4,17 @@
  * day. Late ones come first, then the starred ones; the done ones go to the bottom with CLEAR DONE. ALL · TODAY · UPCOMING · STARRED
  * narrow the list. Every removal has UNDO. The words and the order are in todowords.ts (pure, the spec reads them); the chat works
  * the same list through the functions below (turn.ts).
+ *
+ * ONELIST (plan.u1): this is a COPY of the one list, which the brain keeps (the work pack's to-do: WORK's screen, the Brief and
+ * the chat's "add to my to-do: …" read and change the same one). Every change here shows at once, goes in an outbox kept on this
+ * phone, and is sent to the brain by id in order (now, or when the signal is back); then the brain's list replaces this copy. The
+ * first time, the list this phone kept on its own joins the brain's once (no duplicates, nothing lost), said in one line.
  */
 import { clear, h } from '../../core/dom';
+import { brain } from '../../api/brain';
 import { button, panel, toast, undo } from '../../ui/components';
 import {
-  dayOf, dueWords, EVERY, everyWords, inView, nextDue, sortTodos, TODO_ALL_DONE, TODO_EMPTY, TODO_NEED_TEXT, todoLine, daysTo, VIEW_EMPTY, VIEWS,
+  dayOf, dueWords, EVERY, everyWords, inView, nextDue, sortTodos, TODO_ALL_DONE, TODO_EMPTY, TODO_NEED_TEXT, todoLine, todoWaitWords, daysTo, VIEW_EMPTY, VIEWS,
   type Every, type Todo, type TodoView,
 } from './todowords';
 
@@ -37,13 +43,127 @@ export function saveTodos(l: Todo[]): boolean {
 }
 const newId = () => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
+// ---------------------------------------------------------------- ONELIST: the copy, the outbox, the one list in the brain
+const OUTBOX = 'ghosty.agenda.todo.outbox';
+/** set once the list this phone kept on its own has joined the brain's */
+const JOINED = 'ghosty.agenda.todo.one';
+type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
+const readJson = <T,>(k: string, d: T): T => {
+  try {
+    return (JSON.parse(localStorage.getItem(k) ?? 'null') as T) ?? d;
+  } catch {
+    return d;
+  }
+};
+const writeKey = (k: string, v: string | null) => {
+  try {
+    if (v === null) localStorage.removeItem(k);
+    else localStorage.setItem(k, v);
+  } catch {
+    /* kept on the next change */
+  }
+};
+const outbox = (): TodoOp[] => {
+  const l = readJson<TodoOp[]>(OUTBOX, []);
+  return Array.isArray(l) ? l : [];
+};
+/** How many changes made here are still to reach the brain (the panel says so). */
+export const todoUnsent = (): number => outbox().length;
+function queue(op: TodoOp): void {
+  writeKey(OUTBOX, JSON.stringify([...outbox(), op].slice(-200)));
+  void syncTodos(true);
+}
+/** The brain's to-do (its own shape: high is the star) as this phone's. */
+type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string };
+const fromBrain = (t: BrainTodo): Todo => ({
+  id: t.id, text: t.text, due: t.due ?? '', done: !!t.done, at: t.at,
+  ...(t.doneAt ? { doneAt: t.doneAt } : {}), ...(t.nextId ? { nextId: t.nextId } : {}), ...(t.high ? { star: true } : {}), ...(t.every ? { every: t.every } : {}),
+});
+/** The brain's list (from any screen that read it: WORK's too) becomes this phone's copy, unless changes made here are still to go
+ * (then they are sent first, and the list read again). */
+export function adoptTodos(list: unknown): void {
+  if (!Array.isArray(list)) return;
+  if (outbox().length) return void syncTodos(true);
+  const mine = (list as BrainTodo[]).filter((t) => t && typeof t.id === 'string' && typeof t.text === 'string').map(fromBrain);
+  const now = loadTodos();
+  const same = (a: Todo[]) => JSON.stringify([...a].sort((x, y) => (x.id < y.id ? -1 : 1)));
+  if (same(mine) !== same(now)) saveTodos(mine);
+}
+let syncing: Promise<boolean> | null = null;
+let again = false;
+let lastSync = 0;
+let trouble = false;
+/** Said on the window when a send to the brain has ended (the panel says what is still waiting). */
+export const TODO_SYNCED = 'ghosty:todosync';
+/** Changes made here that have not reached the one list yet, because there is no signal or the brain did not answer. */
+export const todoWaiting = (): number => (trouble || (typeof navigator !== 'undefined' && navigator.onLine === false) ? outbox().length : 0);
+/** Send what changed here, then read the one list back. True when the copy now matches the brain; false with no signal or no
+ * answer (the copy and the outbox wait, and go on the next change, the next open, or when the signal is back). */
+export function syncTodos(force = false): Promise<boolean> {
+  if (syncing) {
+    again ||= force;
+    return syncing;
+  }
+  if (!force && Date.now() - lastSync < 20_000) return Promise.resolve(true);
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    dispatchEvent(new Event(TODO_SYNCED));
+    return Promise.resolve(false);
+  }
+  syncing = (async () => {
+    if (!readJson<boolean>(JOINED, false)) {
+      const mine = loadTodos();
+      if (mine.length) {
+        const r = await brain.packDo('work', 'todo', { op: 'merge', items: mine });
+        const n = Number((r.data as { added?: number } | undefined)?.added ?? 0);
+        toast(n ? `One to-do list now: ${n} from this phone joined the one WORK and the chat use.` : 'One to-do list now: WORK and the chat already had everything on this phone.', 'ok');
+      }
+      writeKey(JOINED, 'true');
+    }
+    let list: unknown = null;
+    for (let round = 0; round < 3; round++) {
+      for (let op = outbox()[0]; op; op = outbox()[0]) {
+        await brain.packDo('work', 'todo', op as unknown as Record<string, unknown>);
+        // (sent: off the outbox; a change made meanwhile stays behind it)
+        const left = outbox();
+        writeKey(OUTBOX, left.length > 1 ? JSON.stringify(left.slice(1)) : null);
+      }
+      const r = await brain.packDo('work', 'todo', { op: 'list' });
+      list = (r.data as { list?: unknown } | undefined)?.list;
+      if (!outbox().length) break;
+    }
+    lastSync = Date.now();
+    trouble = false;
+    adoptTodos(list);
+    return true;
+  })()
+    .catch(() => {
+      trouble = true;
+      return false;
+    })
+    .finally(() => {
+      syncing = null;
+      dispatchEvent(new Event(TODO_SYNCED));
+      if (again) {
+        again = false;
+        void syncTodos(true);
+      }
+    });
+  return syncing;
+}
+if (typeof addEventListener === 'function') {
+  addEventListener('online', () => void syncTodos(true));
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void syncTodos());
+}
+
 /** Add a to-do (the box, or the chat): the one added, or null when this phone would not keep it. */
 export function addTodo(text: string, due = '', every?: Every, star?: boolean): Todo | null {
   // (a repeating one with no day starts today: "water the plants every day" is due today)
   const t: Todo = { id: newId(), text: text.trim().slice(0, 200), due: due || (every ? dayOf(Date.now()) : ''), done: false, at: Date.now(), ...(every ? { every } : {}), ...(star ? { star: true } : {}) };
   const l = loadTodos();
   l.push(t);
-  return saveTodos(l) ? t : null;
+  if (!saveTodos(l)) return null;
+  queue({ op: 'add', item: t });
+  return t;
 }
 /** Tick one off (or back on). A repeating one ticked off makes its next one, due on its next day: that one is returned. Ticked back
  * on, the next one it made goes again (while it is still open and unchanged), so a mis-tap never leaves two. Null when it was not
@@ -64,7 +184,10 @@ export function tickTodo(id: string): { done: boolean; next: Todo | null } | nul
     if (n && !n.done && n.text === x.text && n.every === x.every) l = l.filter((y) => y !== n);
     delete x.nextId;
   }
-  return saveTodos(l) ? { done: x.done, next } : null;
+  if (!saveTodos(l)) return null;
+  // (the next one keeps the same id in the brain, so a tick made with no signal and then one on the next one both land)
+  queue(x.done ? { op: 'tick', id, ...(next ? { nextId: next.id } : {}) } : { op: 'untick', id });
+  return { done: x.done, next };
 }
 /** Take one off the list, with UNDO (it goes back where it was). False when it was not there. */
 export function removeTodo(id: string): boolean {
@@ -73,10 +196,12 @@ export function removeTodo(id: string): boolean {
   if (at < 0) return false;
   const [t] = l.splice(at, 1);
   if (!saveTodos(l)) return false;
+  queue({ op: 'remove', id });
   undo(`Removed: ${t!.text}`, () => {
     const now = loadTodos();
-    if (!now.some((y) => y.id === t!.id)) now.splice(Math.min(at, now.length), 0, t!);
-    saveTodos(now);
+    if (now.some((y) => y.id === t!.id)) return;
+    now.splice(Math.min(at, now.length), 0, t!);
+    if (saveTodos(now)) queue({ op: 'add', item: t! });
   });
   return true;
 }
@@ -87,10 +212,12 @@ export function clearDone(): number {
   const n = gone.length;
   if (!n) return 0;
   if (!saveTodos(loadTodos().filter((t) => !t.done))) return -1;
+  queue({ op: 'clear_done' });
   undo(`Cleared ${n} done`, () => {
     const now = loadTodos();
     const have = new Set(now.map((t) => t.id));
-    void saveTodos([...now, ...gone.filter((t) => !have.has(t.id))]);
+    const back = gone.filter((t) => !have.has(t.id));
+    if (saveTodos([...now, ...back])) queue({ op: 'merge', items: back });
   });
   return n;
 }
@@ -102,7 +229,13 @@ export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 
   Object.assign(x, patch);
   if (!x.every) delete x.every;
   if (!x.star) delete x.star;
-  return saveTodos(l);
+  if (!saveTodos(l)) return false;
+  queue({
+    op: 'edit', id,
+    ...('text' in patch ? { text: x.text } : {}), ...('due' in patch ? { due: x.due } : {}),
+    ...('every' in patch ? { every: x.every ?? '' } : {}), ...('star' in patch ? { high: !!x.star } : {}),
+  });
+  return true;
 }
 
 const everySelect = (v: Every | '' = '') => {
@@ -142,6 +275,16 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
   p.el.insertBefore(h('div.keyrow.wrapit.addev.todoadd', text, due, rep, button('ADD', add)), p.body);
   const line = h('p.todoline', { 'aria-live': 'polite', dataset: { case: 'keep' } });
   p.el.insertBefore(line, p.body);
+  // ONELIST: changes made with no signal are kept here and said; they go to the one list when the signal is back
+  const waiting = h('p.todowait', { 'aria-live': 'polite', dataset: { case: 'keep', state: 'offline' }, hidden: true });
+  p.el.insertBefore(waiting, p.body);
+  const paintWaiting = () => {
+    const n = todoWaiting();
+    waiting.hidden = !n;
+    /* state: agenda.todo offline */
+    waiting.textContent = n ? todoWaitWords(n, typeof navigator !== 'undefined' && navigator.onLine === false) : '';
+  };
+  for (const ev of [TODO_SYNCED, 'online', 'offline']) addEventListener(ev, paintWaiting);
   const views = h('div.keyrow.wrapit.todoviews', { role: 'group', 'aria-label': 'Show' });
   p.el.insertBefore(views, p.body);
   const setView = (v: TodoView) => {
@@ -242,6 +385,8 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     onChange();
   });
   paint();
+  // the one list, read from the brain as the agenda opens (changes made here with no signal go first)
+  void syncTodos(true);
   return { el: p.el, paint, list: loadTodos };
 }
 
