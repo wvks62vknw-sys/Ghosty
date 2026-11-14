@@ -424,6 +424,16 @@ test('App Maker: every field type can be added, moved, changed and removed, and 
   assert.ok(!d.log.stats.some((s) => s.field === 'money'), 'a stat on a removed field goes too');
   assert.ok(!d.log.views.includes('board') || d.log.group, 'no board without a group');
   valid({ ...d, log: { ...d.log, views: D.possibleViews(d.log).filter((v) => d.log.views.includes(v)) } });
+  // a field's type changes in place, and what read it as the old type goes
+  let t = D.addField(D.blank('log', 'Types', taken()), 'Cost', 'number');
+  t = D.addStat(t, { label: 'Total cost', kind: 'sum', field: 'cost' });
+  t = D.changeField(t, 'cost', { type: 'choice' });
+  assert.deepEqual(t.log.fields.find((f) => f.id === 'cost').options, ['First', 'Second', 'Third']);
+  assert.ok(!t.log.stats.some((s) => s.field === 'cost'), 'a total of a choice makes no sense, so it goes');
+  valid(t);
+  t = D.changeField(t, 'date', { type: 'text' });
+  assert.ok(!t.log.views.includes('calendar'));
+  valid(t);
   const g = D.setGlyph(D.rename(d, 'record shelf'), 'music');
   assert.equal(g.name, 'Record Shelf');
   assert.equal(g.glyph, 'music');
@@ -462,6 +472,10 @@ test('App Maker: "make me an app for my vinyl" and other words become a first dr
     ['make me a word search puzzle game', 'game', 'Word Search'],
     ['an app for my houseplants', 'log', 'Plants'],
     ['an app for my fishing trips', 'log', 'Fishing'],
+    ['keep track of my watches', 'log', 'Watches'],
+    ['an app for my old cameras and lenses', 'log', 'Cameras'],
+    ['a log of coffee beans I have tried', 'log', 'Coffee Beans'],
+    ['my video game backlog', 'log', 'Video Games'],
     ['a daily habits tracker: read, stretch, no phone after ten', 'checklist', 'Habits'],
   ];
   for (const [words, arch, inName] of cases) {

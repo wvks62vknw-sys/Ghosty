@@ -25,7 +25,7 @@ function phrasebook(id: string, lang: string, keywords: string[], answers: strin
     pitch: `The ${lang} phrases a traveller needs most, written in ${lang} as it is read.`,
     keywords: [lang.toLowerCase(), 'phrases', 'phrasebook', ...keywords],
     tour: ['Each card is one phrase; say it aloud before you turn it.', tip, 'Ten minutes a day the week before you go is enough.'],
-    deck: { mode: 'srs', cards: PHRASES.map((q, i) => ({ q, a: answers[i] })) },
+    deck: { mode: 'srs', cards: PHRASES.map((q, i) => ({ q, a: answers[i] ?? '' })) },
   };
 }
 
@@ -33,11 +33,15 @@ function phrasebook(id: string, lang: string, keywords: string[], answers: strin
 const ZONES: { label: string; value: number }[] = [
   ['Honolulu (UTC−10)', -10], ['Los Angeles, winter (UTC−8)', -8], ['Los Angeles, summer (UTC−7)', -7],
   ['New York, winter (UTC−5)', -5], ['New York, summer (UTC−4)', -4], ['São Paulo (UTC−3)', -3],
-  ['London, winter (UTC+0)', 0], ['London, summer (UTC+1)', 1], ['Paris, summer (UTC+2)', 2],
+  ['London, winter (UTC+0)', 0], ['London summer, Paris winter (UTC+1)', 1], ['Paris, summer (UTC+2)', 2],
   ['Istanbul, Moscow (UTC+3)', 3], ['Dubai (UTC+4)', 4], ['Karachi (UTC+5)', 5], ['Delhi (UTC+5:30)', 5.5],
   ['Dhaka (UTC+6)', 6], ['Bangkok (UTC+7)', 7], ['Beijing, Singapore (UTC+8)', 8], ['Tokyo (UTC+9)', 9],
   ['Sydney, winter (UTC+10)', 10], ['Sydney, summer (UTC+11)', 11], ['Auckland, summer (UTC+13)', 13],
 ].map(([label, value]) => ({ label: label as string, value: value as number }));
+
+/** The sixteen compass points, 22.5 degrees apart. */
+const COMPASS: Card[] = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+  .map((p, i) => ({ q: p, a: `${i * 22.5}°` }));
 
 export const WORLD: AppDef[] = [
   /* ===================== From the owner's list ===================== */
@@ -498,7 +502,7 @@ export const WORLD: AppDef[] = [
     keywords: ['walking', 'time', 'hike', 'naismith', 'climb', 'hills'],
     tour: ['Type the distance and the total climb from the map.', 'The rule allows 5 km an hour plus an hour for every 600 m up.', 'Add your breaks, and turn back in time to beat the dark.'],
     calc: {
-      source: 'Naismith\'s rule: 5 km per hour, plus 1 hour for every 600 m of ascent (Mountaineering Scotland)',
+      source: 'Naismith\'s rule (W. W. Naismith, 1892), in its metric form: 5 km per hour, plus 1 hour for every 600 m of ascent',
       estimate: true,
       inputs: [
         { id: 'km', label: 'Distance', unit: 'km', default: 10, min: 0, step: 0.1 },
@@ -1048,5 +1052,105 @@ export const WORLD: AppDef[] = [
     keywords: ['driving', 'break', 'tired', 'long', 'drive', 'timer'],
     tour: ['Start it as you pull away; it chimes when a break is due.', 'The Highway Code advises at least 15 minutes every two hours.', 'If you feel sleepy before then, stop somewhere safe.'],
     timer: { rounds: 4, steps: [{ name: 'Drive', secs: 7200 }, { name: 'Break', secs: 900 }] },
+  },
+  /* ===================== More ===================== */
+  {
+    id: 'daylight', name: 'Daylight', family: 'world', glyph: 'sun', archetype: 'calc',
+    pitch: 'Sunrise, sunset and day length for any place and day of the year.',
+    keywords: ['sunrise', 'sunset', 'daylight', 'sun', 'dark', 'hours'],
+    tour: ['Type the place, the day of the year and the UTC offset.', 'Day 172 is about 21 June; day 355 is about 21 December.', 'Plan walks to be off the hill well before sunset.'],
+    calc: {
+      source: 'Solar declination, equation of time and sunrise hour angle with 0.833° refraction (PVEducation, "Solar Time" and "Elevation Angle")',
+      estimate: true,
+      inputs: [
+        { id: 'lat', label: 'Latitude', unit: '°', default: 51.5074, min: -65, max: 65, step: 0.0001 },
+        { id: 'lon', label: 'Longitude', unit: '°', default: -0.1278, min: -180, max: 180, step: 0.0001 },
+        { id: 'n', label: 'Year day', default: 172, min: 1, max: 365, step: 1 },
+        { id: 'tz', label: 'UTC offset', unit: 'h', default: 1, min: -12, max: 14, step: 0.5 },
+      ],
+      outputs: [
+        { id: 'b', label: 'B angle', expr: '360/365*(n - 81)', dp: 3 },
+        { id: 'eot', label: 'Time equation', expr: '9.87*sin(2*b) - 7.53*cos(b) - 1.5*sin(b)', unit: 'min', dp: 2 },
+        { id: 'dec', label: 'Declination', expr: '23.45*sin(360/365*(284 + n))', unit: '°', dp: 2 },
+        { id: 'w', label: 'Hour angle', expr: 'acos(clamp((sin(-0.833) - sin(lat)*sin(dec)) / (cos(lat)*cos(dec)), -1, 1))', unit: '°', dp: 2 },
+        { id: 'noon', label: 'Solar noon', expr: '12 - lon/15 - eot/60 + tz', unit: 'h', dp: 2 },
+        { id: 'rise', label: 'Sunrise', expr: '(noon - w/15) * 60', format: 'duration', dp: 0 },
+        { id: 'set', label: 'Sunset', expr: '(noon + w/15) * 60', format: 'duration', dp: 0 },
+        { id: 'len', label: 'Day length', expr: '2*w/15*60', format: 'duration', dp: 0 },
+      ],
+      tests: [
+        { in: { lat: 51.5074, lon: -0.1278, n: 172, tz: 1 }, out: { rise: 282.7, set: 1281.2, len: 998.5 } },
+        { in: { lat: 51.5074, lon: -0.1278, n: 355, tz: 0 }, out: { rise: 484.5, set: 953.8, len: 469.3 } },
+      ],
+    },
+  },
+  {
+    id: 'sailing-terms', name: 'Sailing Terms', family: 'world', glyph: 'anchor', archetype: 'deck',
+    pitch: 'The words of the sea, port to starboard and fathom to galley, learned for good.',
+    keywords: ['sailing', 'nautical', 'boat', 'terms', 'sea'],
+    tour: ['Each card is one word you will hear on any boat.', 'Port and left both have four letters: that is the trick.', 'Missed cards come back sooner.'],
+    deck: {
+      mode: 'srs',
+      cards: list(
+        'Port=The left side, facing forward;Starboard=The right side, facing forward;Bow=The front of the boat;' +
+        'Stern=The back of the boat;Aft=Towards the back;Beam=The boat\'s widest point;Keel=The backbone along the bottom of the hull;' +
+        'Helm=Where the boat is steered;Galley=The kitchen;Head=The toilet;Windward=The side the wind blows from;' +
+        'Leeward=The side sheltered from the wind;Knot=One nautical mile an hour;Nautical mile=1,852 metres;Fathom=Six feet of depth;' +
+        'Port light colour=Red;Starboard light colour=Green;Bulkhead=An upright wall inside the hull',
+      ),
+    },
+  },
+  {
+    id: 'compass-points', name: 'Compass Points', family: 'world', glyph: 'compass', archetype: 'deck',
+    pitch: 'All sixteen compass points and their bearings in degrees.',
+    keywords: ['compass', 'bearings', 'directions', 'navigation', 'map'],
+    tour: ['Each card shows a point; say its bearing.', 'Each step round the rose is 22.5 degrees.', 'NNE is between north and north-east.'],
+    deck: { mode: 'srs', cards: COMPASS },
+  },
+  {
+    id: 'world-languages', name: 'World Languages', family: 'world', glyph: 'chat', archetype: 'deck',
+    pitch: 'The official languages of countries you might visit, so you know what to learn.',
+    keywords: ['languages', 'countries', 'official', 'travel', 'geography'],
+    tour: ['Each card names a country; say its official languages.', 'Several countries have more than one: Switzerland has four.', 'Missed cards come back sooner.'],
+    deck: {
+      mode: 'srs',
+      cards: list(
+        'Brazil=Portuguese;Argentina=Spanish;Switzerland=German, French, Italian and Romansh;Belgium=Dutch, French and German;' +
+        'Canada=English and French;Pakistan=Urdu and English;India=Hindi and English, with 22 scheduled languages;Iran=Persian;' +
+        'Egypt=Arabic;Austria=German;Kenya=Swahili and English;Philippines=Filipino and English;Malaysia=Malay;' +
+        'Indonesia=Indonesian;Vietnam=Vietnamese;Bangladesh=Bengali;Afghanistan=Pashto and Dari;Ireland=Irish and English;' +
+        'Finland=Finnish and Swedish;Morocco=Arabic and Amazigh;Sri Lanka=Sinhala and Tamil;Singapore=English, Malay, Mandarin and Tamil;' +
+        'Luxembourg=Luxembourgish, French and German',
+      ),
+    },
+  },
+  {
+    id: 'beach-day', name: 'Beach Day', family: 'world', glyph: 'wave', archetype: 'checklist',
+    pitch: 'Everything for a day at the beach, from sun cream to the tide times.',
+    keywords: ['beach', 'seaside', 'checklist', 'summer', 'swimming'],
+    tour: ['Tick it through before you leave the house.', 'Check the tide times: some beaches vanish at high tide.', 'Swim where lifeguards patrol, between the flags.'],
+    checklist: {
+      repeat: 'never',
+      sections: [
+        { name: 'Before you go', items: ['Check the tide times', 'Check the weather', 'Find a lifeguarded beach'] },
+        { name: 'Bag', items: ['Sun cream', 'Hats and sunglasses', 'Towels', 'Swimwear', 'Water and snacks', 'Windbreak or shade', 'Bags for rubbish'] },
+        { name: 'Leaving', items: ['All litter packed up', 'Rinse off the sand', 'Count the towels'] },
+      ],
+    },
+  },
+  {
+    id: 'ski-trip', name: 'Ski Trip', family: 'world', glyph: 'mountain', archetype: 'checklist',
+    pitch: 'The ski trip list: clothing layers, kit, passes and the things people forget.',
+    keywords: ['ski', 'snowboard', 'snow', 'checklist', 'winter', 'trip'],
+    tour: ['Tick each thing as it goes in the bag.', 'Layers beat one thick coat: base, mid and shell.', 'Check your insurance covers winter sports.'],
+    checklist: {
+      repeat: 'never',
+      sections: [
+        { name: 'Papers', items: ['Passport', 'Insurance with winter sports cover', 'GHIC', 'Lift pass booking', 'Ski hire booking'] },
+        { name: 'Clothing', items: ['Thermal base layers', 'Fleece mid layer', 'Ski jacket', 'Ski trousers', 'Ski socks', 'Gloves and liners', 'Neck warmer', 'Hat'] },
+        { name: 'Kit', items: ['Helmet', 'Goggles', 'Sunglasses', 'High-factor sun cream and lip balm', 'Small backpack'] },
+        { name: 'Evenings', items: ['Snow boots', 'Swimwear for the pool', 'Phone charger and adapter'] },
+      ],
+    },
   },
 ];
