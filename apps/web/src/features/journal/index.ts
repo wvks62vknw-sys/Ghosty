@@ -298,6 +298,15 @@ export const journalTab: TabDef = {
         }
         m.close();
       }, 'warn');
+      // the one way an entry leaves the phone: his tap, the entry's words sent to me in the chat
+      const askKey = button(J.ASK_ME, async () => {
+        commit();
+        if (!e.text.trim()) return void text.focus();
+        m.close();
+        location.hash = 'core';
+        const { send } = await import('../../assistant/session');
+        void send(`About my journal entry of ${day(e.at)}: "${e.text.trim().slice(0, 1500)}"`);
+      });
       const done = button(J.SAVE, () => {
         commit();
         m.close();
@@ -305,7 +314,7 @@ export const journalTab: TabDef = {
       const body = h('div.jneditor', { dataset: { case: 'keep' } },
         h('div.row.wrap.jnmeta', jsel, when), wx, promptLine, text, h('div.row.wrap', pk, talk), h('small.jnlab', 'MOOD'), moods,
         h('small.jnlab', 'PLACE'), place, placesList, h('small.jnlab', 'PHOTOS'), photos, h('div.row.wrap', button(J.PHOTO, () => fileIn.click()), fileIn),
-        h('small.jnlab', 'VOICE'), voiceBox, said, h('div.row.wrap.jnkeys', done, ...(was ? [del] : [])));
+        h('small.jnlab', 'VOICE'), voiceBox, said, h('div.row.wrap.jnkeys', done, askKey, ...(was ? [del] : [])), h('p.note', J.ASK_NOTE));
       const m = modal(was ? day(e.at) : 'New entry', body, () => {
         commit();
         journalState.open = '';

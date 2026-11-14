@@ -63,6 +63,8 @@ test('journal: nothing in its code reads a position or sends his words to the br
     assert.ok(!/brain\.(?:chat|send|remember|ask)\b|fetch\(/.test(src), `${f} sends something`);
   }
   const ui = readFileSync(at('../../web/src/features/journal/index.ts'), 'utf8');
+  assert.equal((ui.match(/\bsend\(/g) ?? []).length, 1, 'one way out: his tap on ASK GHOSTY ABOUT IT');
+  assert.match(ui, /const askKey = button\(J\.ASK_ME, async \(\) => \{[\s\S]{0,300}void send\(`About my journal entry/, 'the entry goes to the chat only from that key');
   assert.match(ui, /brain\.addJob\(\{ kind: 'reminder', title: 'Journal', text: 'A line in your journal\?'/, 'the nudge carries no words of his');
 });
 

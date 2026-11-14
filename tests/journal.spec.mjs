@@ -4,7 +4,7 @@
 //      search finds it by a word, and says so plainly when nothing matches;
 //  (c) "add to my journal: …" in the chat opens a new entry with his words in it, kept;
 //  (d) the calendar dots today; ON THIS DAY shows the entry from this day last year; PLACES groups by the place he gave;
-//  (e) DELETE has UNDO, and RECENTLY DELETED brings an entry back;
+//  (e) DELETE has UNDO, and RECENTLY DELETED brings an entry back; ASK GHOSTY ABOUT IT sends that one entry to the chat;
 //  (f) LOCK WITH FACE ID makes a passkey (a virtual authenticator here); leaving locks it; UNLOCK opens it again; while it is locked the
 //      entries are hidden;
 //  (g) Memory has a JOURNAL row that opens it; every key 44 pt, nothing sideways, nothing cut, in all seven looks at 390.
@@ -164,6 +164,13 @@ async function run(vp, body) {
     await page.locator('#pg-journal .jnbin button', { hasText: 'RESTORE' }).click();
     await page.waitForFunction(() => window.__ghosty.journal.entries === 2, null, { timeout: 3000 }).catch(async () => problems.push(`${T} [e] RESTORE left ${JSON.stringify(await page.evaluate(J))}`));
 
+    // (e2) ASK GHOSTY ABOUT IT: that one entry goes to the chat, on his tap
+    await openSection(page, 'journal', 'Entries');
+    await page.locator('#pg-journal .jnrow', { hasText: 'Primrose' }).first().click();
+    await page.locator('.jneditor button', { hasText: 'ASK GHOSTY ABOUT IT' }).click();
+    await page.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg.me')].some((m) => /About my journal entry of .*Primrose Hill/.test(m.textContent ?? '')), null, { timeout: 8000 }).catch(async () => problems.push(`${T} [e2] the entry did not reach the chat`));
+    await toJournal(page);
+    await openSection(page, 'journal', 'Settings');
     // (f) the lock: a passkey made on a virtual authenticator, locked on leaving, opened again
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('WebAuthn.enable');
