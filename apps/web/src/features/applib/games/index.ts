@@ -8,6 +8,7 @@ import type { KitApp } from '../../../ui/appkit';
 import { stateCard } from '../../../ui/appkit';
 import { clear } from '../../../core/dom';
 import { type Board, frame } from './frame';
+export { playLine, playState } from './frame';
 import { registerRenderer } from '../registry';
 import { sudoku } from './sudoku';
 import { mines } from './mines';

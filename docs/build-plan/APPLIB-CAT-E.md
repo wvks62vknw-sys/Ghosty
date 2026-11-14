@@ -7,7 +7,7 @@ names. UK rates are for the 2026 to 2027 tax year (6 April 2026 to 5 April 2027)
 
 ## What landed
 
-**Money & home: 85 apps.**
+**Money & home: 82 apps.**
 
 - **Logs:** receipts, envelope budget, net worth, subscriptions, spending diary, savings pots, IOUs, meter readings, home inventory, pocket money, giving log, payslips, invoices, quotes, business books, stock and orders, business posts, sales log, post room, better deals, claim it, price book, big purchase, returns tracker, home upkeep, appliances, storage boxes, renting, DIY projects, renovation budget, car shortlist, fuel log and parking log.
 - **Calcs:** monthly budget, coin count, savings tax, child benefit charge, emergency fund and gas units.
@@ -16,7 +16,7 @@ names. UK rates are for the 2026 to 2027 tax year (6 April 2026 to 5 April 2027)
 - **Home and car:** energy use, charging cost and car costs.
 - **Build:** paint, tiles and slabs, flooring, wallpaper, concrete (with a 1:2:4 mix), gravel, topsoil and mulch, turf, bricks, fence, stud wall, timber and loft insulation.
 - **Checklists:** tax return list, moving house and used car check.
-- **Guides:** help finder, interview prep, dashboard lights and gov services.
+- **Guide:** interview prep.
 - **Timer:** answer practice.
 
 **Utilities: 46 apps.**
@@ -108,3 +108,15 @@ A small "generator" archetype (passwords, passphrases, dice, coins, picks from a
 - Calcs return 0 for "never" in a few places (debt payoff when the payment is below the interest, break-even when the price does not beat the cost). The output labels say so through the tour.
 - `ceil` on exact products is wrapped in `round(x, 6)` where floating-point dust could add one (overpayments, stud wall boards).
 - Password strength shows the years to guess as a power of ten, because the true figure overflows any display.
+- The engine shows a calc's first output as its headline and uses it for KEEP, so every calc leads with its main answer. A small `lead()` helper in each file moves that output to the front and writes the earlier outputs it reads into its expression, so runCalc's order still holds.
+- Meter Readings is a plain dated log of readings with photos. Household (the `homeadmin` screen) is the full screen for bins, bills and what is due. If the ENGINE lane thinks they overlap, Meter Readings is the one to drop.
+
+## Checked in the preview
+
+All 128 apps opened at `#apps/<id>` with no page or console errors. Screenshots of a log (Receipts), a board (Invoices), calcs (Take-Home Pay, Paint Calculator, Length), a checklist, a guide, a counter and a timer looked right at 440 wide. After that pass:
+- board rows no longer repeat their column name;
+- collections with no sample photos open as a list rather than a gallery.
+
+## Held back at the stop
+
+Help Finder (money.10), Dashboard Lights (money.49) and Gov Services (money.59) were taken out before the stop. Each guide's facts are right, but they come from several GOV.UK pages or a vehicle handbook, not from the one live page the guide format names as its source. Each can come back as several guides with one page each. Every money, build and energy calc carries `estimate: true`.

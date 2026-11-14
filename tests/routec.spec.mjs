@@ -316,7 +316,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
   if (!/All good|Needs a look|Brain offline/.test(me.ok ?? '')) problems.push(`[${W} me] the Status line reads "${me.ok}"`);
   // (restated 1 Nov 2026, night, OWNER-ISSUES 119, BRIEF-TABS: SOCIAL, his own accounts and the posts waiting for his APPROVE,
   // became a screen of Me with its row after Abilities; it was "memory, settings, system, links, abilities, origin, deck")
-  if (me.rows.join(',') !== 'memory,settings,system,links,social,origin,area-me,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
+  if (me.rows.join(',') !== 'memory,files,settings,system,links,social,origin,area-me,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
   // his mood (OWNER-ISSUES 70b, 63): a shape and a word, never colour alone (whatever this preview brain feels now)
   if (!me.mood?.shape || !/^(?:Calm|Focused|Protective|Pleased|Cross|Subdued)$/.test(me.mood.word ?? '') || me.mood.word.toLowerCase() !== me.mood.kind) problems.push(`[${W} me] the mood reads ${JSON.stringify(me.mood)}`);
   for (const s of await sideways(page, '#mesheet *')) problems.push(`[${W} me] sticks out sideways: ${s}`);

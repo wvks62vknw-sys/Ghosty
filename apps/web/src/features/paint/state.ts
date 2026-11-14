@@ -14,7 +14,7 @@ export const paintState = {
   sym: 'off' as string,
   quick: '',
   pressure: { last: 0, kind: '' as string },
-  layers: [] as { id: string; name: string; blend: string; opacity: number; visible: boolean; alphaLock: boolean; reference: boolean; mask: boolean }[],
+  layers: [] as { id: string; name: string; blend: string; opacity: number; visible: boolean; alphaLock: boolean; reference: boolean; clip: boolean; mask: boolean }[],
   cur: 0,
   undo: 0,
   redo: 0,

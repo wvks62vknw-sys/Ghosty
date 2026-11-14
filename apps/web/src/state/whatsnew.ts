@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [files] THE APPS ROUND, lane BOOT
+  { day: '2026-11-14', title: 'Files: everything in one place', line: 'Me → FILES: every document, sheet, deck, photo, video, game, comic and file you bring in. Search inside them, star, tag and file them in folders, share as Word, Excel or PowerPoint or one zip, and deleted things wait 30 days.' },
   // [lens] THE APPS ROUND: Photos
   { day: '2026-11-14', title: 'Photos, your own library', line: 'Photo → MY LIBRARY: your photos and videos in one private library on this phone, with albums, favourites, a 30-day Recently deleted, duplicates found, search by what’s in them, and memories that play as a short film.' },
   // [polish3] APPS ROUND, THE ARCADE, console-class (docs/build-plan/APPS-POLISH3.md)

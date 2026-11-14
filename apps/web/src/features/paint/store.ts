@@ -15,6 +15,7 @@ export interface SavedLayer {
   visible: boolean;
   alphaLock: boolean;
   reference: boolean;
+  clip?: boolean;
 }
 export interface Art {
   id: string;
