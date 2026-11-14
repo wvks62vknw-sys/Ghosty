@@ -24,3 +24,5 @@ export function setAsked(text: string): SetKey | null {
   if (!m) return null;
   return m[1] === 'commuting' ? 'commute' : m[1] === 'weather' ? 'storm' : (m[1] as SetKey);
 }
+/** His words for his camera wall (wall.ts): "my camera wall", "show my cameras", "open the camera wall". */
+export const WALL_ASK = /^(?:(?:hey |ok )?(?:ghosty,? )?)(?:(?:show|open|give)(?: me)? )?(?:my|the) (?:camera wall|wall of cameras|cameras wall|pinned cameras)$|^(?:(?:show|open)(?: me)? )?my cameras$|^camera wall$/i;

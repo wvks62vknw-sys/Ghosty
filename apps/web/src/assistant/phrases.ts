@@ -72,7 +72,7 @@ import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
 import { TRIP_ASK } from '../ui/tripwords';
-import { setAsked } from '../features/eye/sets';
+import { setAsked, WALL_ASK } from '../features/eye/sets';
 import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
 
 /** [keep] Does his message ask about his word (the same test as features/memory/keep.ts keepAsked, kept pure here)? */
@@ -185,6 +185,8 @@ export const LOCAL_ASKS = [
   { id: 'trip', test: (t: string) => TRIP_ASK.test(t.trim()) },
   // [see] a one-tap layer set on God's Eye: "commute view", "storm layers", "sky mode" (features/eye/sets.ts)
   { id: 'layerset', test: (t: string) => setAsked(t) !== null },
+  // [see] his wall of up to nine public cameras: "my camera wall", "show my cameras" (features/eye/wall.ts)
+  { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

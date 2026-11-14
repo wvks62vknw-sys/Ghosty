@@ -8,11 +8,13 @@
 //      cannot plan and offers the kept one, which opens on the offline map with "its times may be out of date";
 //   c. the words: every wording of TRIP MODE and of the layer sets is one meaning (read from the very source the page is built from);
 //   d. GOD'S EYE (see.u3, see.u6): COMMUTE, STORM and SKY each set their layers in one tap; a search for "BAW" lists every matching
-//      flight to pick from (a tap opens its card), an exact call sign goes straight to it; every key 44 pt.
+//      flight to pick from (a tap opens its card), an exact call sign goes straight to it; every key 44 pt;
+//   e. YOUR CAMERA WALL (see.u2): PIN TO WALL on a camera's card keeps it on the phone; WALL in the bar opens the wall, its tile live;
+//      EDIT and TAKE OFF empty it, said in his words; "my camera wall" is its wording.
 //   BASE=http://localhost:8788 node tests/seetrip.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const { buildSync } = createRequire(new URL('../apps/web/package.json', import.meta.url))('esbuild');
 
@@ -135,6 +137,8 @@ const bar = (page, scope) =>
 
 const W = await pure('apps/web/src/ui/tripwords.ts');
 const S = await pure('apps/web/src/features/eye/sets.ts');
+// (the wall's empty line, read from the very source the page shows it from)
+const WALL_EMPTY = /export const WALL_EMPTY = '([^']+)'/.exec(readFileSync(new URL('../apps/web/src/features/eye/wall.ts', import.meta.url), 'utf8'))?.[1] ?? '';
 
 // c. the words (one meaning, many wordings; nothing else taken)
 {
@@ -148,6 +152,8 @@ const S = await pure('apps/web/src/features/eye/sets.ts');
   const want = { 'commute view': 'commute', 'show me the storm layers': 'storm', 'Sky mode': 'sky', 'weather view': 'storm', 'switch to the commute set': 'commute' };
   for (const [t, k] of Object.entries(want)) check(S.setAsked(t) === k, `[c words] "${t}" is not the ${k} set (${S.setAsked(t)})`);
   for (const t of ['what is the weather', 'sky news', 'storm in a teacup']) check(S.setAsked(t) === null, `[c words] "${t}" was taken as a layer set`);
+  for (const t of ['my camera wall', 'show my cameras', 'open the camera wall', 'camera wall']) check(S.WALL_ASK.test(t), `[c words] "${t}" is not the camera wall`);
+  for (const t of ['the wall', 'show me the cameras on the Strand', 'wall mode']) check(!S.WALL_ASK.test(t), `[c words] "${t}" was taken as the camera wall`);
 }
 
 for (const vp of [PHONE, PHONE2]) {
@@ -229,6 +235,35 @@ for (const vp of [PHONE, PHONE2]) {
       check(await until(page, () => /EIN154/.test(document.querySelector('#pg-eye .eyeinfo:not([hidden])')?.textContent ?? '') && document.querySelector('#pg-eye .searchlist').hidden, null, 5000), `${T} [d search] an exact call sign did not go straight to its card`);
       await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyeinfo button')].find((x) => x.textContent.trim() === '✕')?.click());
     }
+  }
+  // e. the camera wall: pin the Strand's camera, open the wall, take it off
+  {
+    await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'cams', on: true }));
+    await page.evaluate(() => { const c = window.__ghosty.globe.cam; c.fly = null; c.follow = null; Object.assign(c, { lat: 51.511, lon: -0.123, range: 3 }); c.target = { lat: 51.511, lon: -0.123, range: 3, tilt: 0, hd: 0 }; });
+    const grid = await until(page, () => document.querySelectorAll('#pg-eye .camgrid:not([hidden]) .camview').length > 0, null, 30000);
+    if (check(grid, `${T} [e wall] the cameras' grid never showed on the Strand`)) {
+      await page.evaluate(() => document.querySelector('#pg-eye .camgrid:not([hidden]) .camview')?.click());
+      const pin = await until(page, () => !!document.querySelector('#pg-eye .eyeinfo:not([hidden]) button[data-act="pin"]'), null, 8000);
+      if (check(pin, `${T} [e wall] the camera's card has no PIN TO WALL`)) {
+        await page.evaluate(() => document.querySelector('#pg-eye .eyeinfo button[data-act="pin"]')?.click());
+        check(/on your wall/i.test(await text(page, '#pg-eye .eyeinfo button[data-act="pin"]')), `${T} [e wall] PIN TO WALL did not say it is on the wall: "${await text(page, '#pg-eye .eyeinfo button[data-act="pin"]')}"`);
+        const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.eye.wall') ?? '[]'));
+        check(kept.length === 1 && /Strand/.test(kept[0].name), `${T} [e wall] the wall kept: ${JSON.stringify(kept).slice(0, 120)}`);
+        await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyeinfo button')].find((x) => x.textContent.trim() === '✕')?.click());
+        await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyebot .btns button')].find((b) => /^wall$/i.test((b.dataset.label || b.textContent).trim()))?.click());
+        const live = await until(page, () => window.__ghosty?.wall?.open && document.querySelectorAll('.wall .walltile').length === 1 && !document.querySelector('.wall .wallstamp[data-state]'), null, 10000);
+        check(live, `${T} [e wall] the wall did not show its camera live: "${await text(page, '.wall')}"`);
+        await still(page);
+        const b = await bar(page, '.wall');
+        check(!b.length, `${T} [e wall] ${b.join(', ')}`);
+        if (vp === PHONE) await page.screenshot({ path: `${out}/seetrip-wall-${vp.width}.png` }).catch(() => undefined);
+        await page.evaluate(() => document.querySelector('.wall button[data-act="edit"]')?.click());
+        await page.evaluate(() => document.querySelector('.wall button[data-act="off"]')?.click());
+        check(await until(page, (w) => document.querySelector('.wall .wallnote')?.textContent === w, WALL_EMPTY, 5000), `${T} [e wall] the empty wall reads "${await text(page, '.wall .wallnote')}"`);
+        await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+      }
+    }
+    await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'cams', on: false }));
   }
   // b. no signal: the planner offers the kept journey, which opens with its warning
   await ctx.setOffline(true);

@@ -57,6 +57,7 @@ import { fetchImage } from '../../api/feed';
 import { waiting } from '../../ui/wait';
 import { phrases } from '../lifeui';
 import { LAYER_SETS, type SetKey } from './sets';
+import { onWall, openWall, togglePin, type Pinned } from './wall';
 import { cardWords, noCamerasWords, noFindWords, noSignalFindWords, CAM_DOWN, CAM_CONNECTING, CLIP_DOWN, STREAM_DOWN } from './words';
 
 /** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
@@ -67,6 +68,8 @@ export let startRoadAhead: (() => void) | null = null;
 export let stopRoadAhead: (() => void) | null = null;
 /** A one-tap layer set (sets.ts) picked by words while God's Eye is mounted: returns what it said. */
 export let pickLayerSet: ((k: SetKey) => string) | null = null;
+/** Open his camera wall (wall.ts) while God's Eye is mounted. */
+export let openCameraWall: (() => void) | null = null;
 
 let layersInstalled = false;
 function installLayers(): void {
@@ -525,7 +528,13 @@ export const eyeTab: TabDef = {
           if (next) select({ kind: 'cam', ref: next, w: GEO.ecef(next.lat, next.lon, 0.08) }, true);
           else toast('No other camera nearby', 'warn');
         };
-        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), button('STREET VIEW', () => void openStreetView({ lat: c.lat, lon: c.lon, name: c.name })));
+        // his wall of public cameras (wall.ts): pinned here, up to nine, kept on the phone
+        const pin = button(onWall(c.id) ? 'ON YOUR WALL ✓' : 'PIN TO WALL', () => {
+          toast(togglePin(c), 'ok');
+          pin.textContent = onWall(c.id) ? 'ON YOUR WALL ✓' : 'PIN TO WALL';
+        });
+        pin.dataset.act = 'pin';
+        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), pin, button('STREET VIEW', () => void openStreetView({ lat: c.lat, lon: c.lon, name: c.name })));
       } else if (s.kind === 'ship') {
         const v = s.ref as Ship;
         info.title.textContent = (v.name || `MMSI ${v.mmsi}`).toUpperCase();
@@ -860,6 +869,14 @@ export const eyeTab: TabDef = {
       raBtn.classList.remove('on');
     };
     const raBtn = button('ROAD AHEAD', () => (ra.on ? stopRoadAhead!() : startRoadAhead!()));
+    // the wall: a tile tapped opens that camera live here (from the camera lists when they have it, else from what was pinned)
+    const watchPinned = (p: Pinned) => {
+      loadCameras();
+      globe.vis = { ...globe.vis, cams: true };
+      const c = cams.list.find((x) => x.id === p.id) ?? ({ ...p } as Camera);
+      select({ kind: 'cam', ref: c, w: GEO.ecef(c.lat, c.lon, 0.08) }, true);
+    };
+    openCameraWall = () => openWall(watchPinned);
     openNearestCamera = (lat, lon, maxKm = 40) => {
       loadCameras();
       if (inCalifornia(lat, lon)) loadCalifornia();
@@ -968,6 +985,7 @@ export const eyeTab: TabDef = {
       HOME: '<path d="M4.5 11L12 4.5l7.5 6.5V19a1.5 1.5 0 01-1.5 1.5h-3.5V15h-5v5.5H6A1.5 1.5 0 014.5 19z"/>',
       NORTH: '<circle cx="12" cy="12" r="8.5"/><path d="M12 6.5l2.6 7H9.4z"/><path d="M9.4 13.5L12 17.5l2.6-4" opacity=".5"/>',
       TILT: '<path d="M3.5 18.5h17L16 8H8z"/><path d="M9.5 13.5h5"/>',
+      WALL: '<rect x="3.5" y="4.5" width="7" height="6" rx="1.2"/><rect x="13.5" y="4.5" width="7" height="6" rx="1.2"/><rect x="3.5" y="13.5" width="7" height="6" rx="1.2"/><rect x="13.5" y="13.5" width="7" height="6" rx="1.2"/>',
     };
     const glyphed = (b: HTMLButtonElement) => {
       const t = (b.textContent ?? '').trim();
@@ -997,6 +1015,7 @@ export const eyeTab: TabDef = {
         'div.bgroup',
         h('small.bcap', 'VIEW'),
         glyphed(lookBtn),
+        glyphed(button('WALL', () => openCameraWall?.())),
         glyphed(button('HOME', () => {
           const L = home();
           globe.cam.flyTo({ lat: L.lat, lon: L.lon, range: 300, tilt: 0, hd: 0 });
