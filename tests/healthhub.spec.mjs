@@ -239,6 +239,14 @@ for (const vp of VIEWPORTS) {
   await page.locator(`${KT} button[aria-label="One more minute on the pasta timer"]`).click();
   check(await until(page, () => window.__ghosty.timers().some((t) => t.name === 'pasta' && t.left > 650)), '[440] +1 MIN adds a minute');
   check(await until(page, () => window.__ghosty.lockpush.sent.filter((x) => /pasta/.test(x.text)).length === 2, null, 8000), '[440] and the lock-screen ring moves with it');
+  // the stopwatch: start, a lap 65 seconds on (the phone's clock moved), stop
+  await page.locator(`${KT} button[aria-label="Start the stopwatch"]`).click();
+  await page.evaluate(() => (window.__ghostyClockOffset = (window.__ghostyClockOffset || 0) + 65000));
+  await page.locator(`${KT} button[aria-label="Mark a lap"]`).click();
+  await page.locator(`${KT} button[aria-label="Stop the stopwatch"]`).click();
+  check(await until(page, () => window.__ghosty.stopwatch.laps === 1 && window.__ghosty.stopwatch.ms >= 65000 && window.__ghosty.stopwatch.ms < 70000), `[440] the stopwatch keeps a lap and stops: ${JSON.stringify(await page.evaluate(() => window.__ghosty.stopwatch))}`);
+  check(/Lap 1: 1:0\d\.\d/.test(await txt(page, `${KT} .kt-laps`)), `[440] the lap is listed: "${await txt(page, `${KT} .kt-laps`)}"`);
+  await page.evaluate(() => (window.__ghostyClockOffset = 0));
   await bar(page, '[440] timers', 'kitchen');
   await page.evaluate(() => window.__ghosty.timers().forEach(() => undefined));
   await ctx.close();

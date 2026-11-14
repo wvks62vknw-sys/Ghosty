@@ -63,6 +63,67 @@ export function timerCommand(a: Record<string, unknown>): void {
   if (list.length) toast(`Timer${list.length === 1 ? '' : 's'}: ${startedWords(startTimers(list))}.`, 'ok');
 }
 
+/** THE STOPWATCH (APPS ROUND): start, stop, lap and reset, kept on this phone (\`ghosty:stopwatch\`) so a reload carries on. */
+function stopwatch(): { el: HTMLElement; stop(): void } {
+  type SW = { start: number | null; acc: number; laps: number[] };
+  const load = (): SW => {
+    try {
+      const v = JSON.parse(localStorage.getItem('ghosty:stopwatch') ?? 'null') as SW | null;
+      return v && Array.isArray(v.laps) ? { start: typeof v.start === 'number' ? v.start : null, acc: Number(v.acc) || 0, laps: v.laps.filter((x) => typeof x === 'number').slice(-50) } : { start: null, acc: 0, laps: [] };
+    } catch {
+      return { start: null, acc: 0, laps: [] };
+    }
+  };
+  let sw = load();
+  const keepSw = () => {
+    try {
+      localStorage.setItem('ghosty:stopwatch', JSON.stringify(sw));
+    } catch {
+      /* it still runs */
+    }
+  };
+  const nowMs = () => Date.now() + (navigator.webdriver ? Number((window as unknown as { __ghostyClockOffset?: number }).__ghostyClockOffset) || 0 : 0);
+  const total = () => sw.acc + (sw.start != null ? nowMs() - sw.start : 0);
+  const show = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}.${Math.floor((ms % 1000) / 100)}`;
+  const face = h('b.kt-swface', { role: 'timer', 'aria-label': 'Stopwatch' }, show(total()));
+  const laps = h('ol.pklist.kt-laps', { 'aria-label': 'Laps' });
+  const go = button('Start', () => {
+    if (sw.start == null) sw.start = nowMs();
+    else {
+      sw.acc = total();
+      sw.start = null;
+    }
+    keepSw();
+    paint();
+  }, 'on');
+  const lap = button('Lap', () => {
+    if (sw.start == null) return;
+    sw.laps.push(total());
+    keepSw();
+    paint();
+  });
+  const reset = button('Reset', () => {
+    sw = { start: null, acc: 0, laps: [] };
+    keepSw();
+    paint();
+  });
+  const paint = () => {
+    face.textContent = show(total());
+    go.textContent = sw.start == null ? (total() ? 'Carry on' : 'Start') : 'Stop';
+    go.setAttribute('aria-label', sw.start == null ? 'Start the stopwatch' : 'Stop the stopwatch');
+    lap.disabled = sw.start == null;
+    laps.replaceChildren(...sw.laps.map((t, i) => h('li', { dataset: { lap: String(i + 1) } }, `Lap ${i + 1}: ${show(t - (i ? sw.laps[i - 1]! : 0))} (${show(t)})`)).reverse());
+    stopwatchState.ms = total();
+    stopwatchState.laps = sw.laps.length;
+  };
+  lap.setAttribute('aria-label', 'Mark a lap');
+  reset.setAttribute('aria-label', 'Reset the stopwatch');
+  const tick = window.setInterval(() => sw.start != null && (face.textContent = show(total())), 100);
+  paint();
+  return { el: h('section.kt-sw', { 'aria-label': 'Stopwatch' }, h('h3.kl-h', 'Stopwatch'), face, h('div.pkrow', go, lap, reset), laps), stop: () => window.clearInterval(tick) };
+}
+export const stopwatchState = { ms: 0, laps: 0 };
+
 function timersSheet(): { el: HTMLElement; stop(): void } {
   const rows = h('div.pkcol', { 'aria-live': 'polite' });
   // the cards stand as they are between ticks (a card rebuilt each quarter second loses the tap that is on its way): the
@@ -132,8 +193,13 @@ function timersSheet(): { el: HTMLElement; stop(): void } {
   paint();
   /* state: kitchen.timers offline */
   const net = lacksSignal() ? [stateLine('offline', 'No signal needed: timers run on this phone.')] : [];
+  const sw = stopwatch();
   const el = h('div.pkcol', rows, h('div.pkadd', input, set), presets, msg, h('p.pknote', 'They ring here, and one of a minute or more on your lock screen too, through my push (only its end time and name go there).'), h('div.pkrow', all), ...net, phrases(['shopping list', 'timer 8 minutes for the pasta']));
-  return { el, stop: off };
+  el.append(sw.el);
+  return { el, stop: () => {
+    off();
+    sw.stop();
+  } };
 }
 
 function shoppingSheet(): { el: HTMLElement; stop(): void } {
@@ -350,5 +416,6 @@ export function exposeKitchen(): void {
   if (!w.__ghosty) return;
   w.__ghosty.kitchen = kitchenState;
   w.__ghosty.timers = () => timersNow();
+  w.__ghosty.stopwatch = stopwatchState;
 }
 const expose = exposeKitchen;
