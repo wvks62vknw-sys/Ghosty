@@ -53,6 +53,8 @@ export const journalTab: TabDef = {
     if (w.__ghosty) w.__ghosty.journal = journalState;
     const P = page(root, { tag: J.TITLE, sub: J.SUB, leftLabel: 'WRITE', rightLabel: 'LOOK BACK', stack: true });
     let unlocked = false;
+    /** The entry open in its sheet, closed (and kept) when Ghosty goes to the background. */
+    let openSheet: { close(): void } | null = null;
     let query = '';
     let only = '';
 
@@ -336,7 +338,9 @@ export const journalTab: TabDef = {
       const m = modal(was ? day(e.at) : 'New entry', body, () => {
         commit();
         journalState.open = '';
+        if (openSheet === m) openSheet = null;
       });
+      openSheet = m;
       if (words) changed();
       setTimeout(() => text.focus(), 50);
     };
@@ -534,8 +538,9 @@ export const journalTab: TabDef = {
       const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
       const html = `<!doctype html><meta charset="utf-8"><title>My journal ${y}</title><style>body{font:16px/1.6 Georgia,serif;max-width:40em;margin:3em auto;padding:0 1em}h1{font-size:2em}h2{font-size:1.1em;margin-top:2.5em;page-break-after:avoid}p{white-space:pre-wrap}img{max-width:30%;margin:.3em}small{color:GrayText}@media print{h2{break-before:auto}}</style><h1>My journal, ${y}</h1>${es.map((e) => `<h2>${esc(day(e.at))}</h2><small>${esc([e.place, e.mood ? J.MOODS[e.mood - 1] : '', e.weather].filter(Boolean).join(' · '))}</small>${e.prompt ? `<p><i>${esc(e.prompt)}</i></p>` : ''}<p>${esc(e.text)}</p>${e.photos.map((p) => `<img src="${p.thumb}" alt="">`).join('')}`).join('')}`;
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-      const win = window.open(url, '_blank', 'noopener');
-      if (!win) toast('Allow pop-ups for Ghosty to see the book, then Print → Save as PDF.', 'warn');
+      const win = window.open(url, '_blank');
+      if (win) win.opener = null;
+      else toast('Allow pop-ups for Ghosty to see the book, then Print → Save as PDF.', 'warn');
     };
 
     // ---------------------------------------------------------------- the lock over everything
@@ -560,7 +565,10 @@ export const journalTab: TabDef = {
     };
     // (it locks again when Ghosty goes to the background or he leaves the journal)
     addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') unlocked = false;
+      if (document.visibilityState !== 'hidden') return;
+      unlocked = false;
+      openSheet?.close(); // (its close keeps the entry first)
+      paintLock();
     });
 
     const paintAll = () => {

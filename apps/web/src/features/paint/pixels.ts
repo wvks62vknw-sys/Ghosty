@@ -274,6 +274,8 @@ export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: 
   if (v.getUint16(4) !== 1) return { why: 'That is a large-document PSB, which I can’t open yet.' };
   const h = v.getUint32(14), w = v.getUint32(18), depth = v.getUint16(22), mode = v.getUint16(24);
   if (depth !== 8 || mode !== 3) return { why: 'That PSD is not 8-bit RGB (it may be 16-bit or CMYK), which I can’t open yet. Save it as 8-bit RGB and try again.' };
+  // (bounded before anything is allocated: a tiny hostile file must never ask the phone for gigabytes)
+  if (w * h > 4096 * 4096) return { why: `That PSD is ${w} × ${h}, larger than this phone can paint on (up to 4096 × 4096).` };
   let at = 26;
   at += 4 + v.getUint32(at);
   at += 4 + v.getUint32(at);
@@ -281,6 +283,7 @@ export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: 
   if (lmEnd <= at) return { w, h, layers: [] };
   at += 4;
   const n = Math.abs(v.getInt16(at)); at += 2;
+  if (n > 256) return { why: `That PSD has ${n} layers, more than this phone can paint with (up to 256).` };
   const BLEND = Object.fromEntries(Object.entries(PSD_BLEND).map(([k, val]) => [val, k]));
   const recs: { name: string; top: number; left: number; bottom: number; right: number; chans: { id: number; len: number }[]; blend: string; opacity: number; visible: boolean; clip: boolean }[] = [];
   for (let i = 0; i < n; i++) {
@@ -311,8 +314,12 @@ export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: 
     recs.push({ name: name.replace(/\0+$/, '') || `Layer ${i + 1}`, top, left, bottom, right, chans, blend: BLEND[key] ?? 'source-over', opacity, visible: !(flags & 2), clip });
   }
   const layers = [];
+  let total = 0;
   for (const r of recs) {
     const lw = Math.max(0, r.right - r.left), lh = Math.max(0, r.bottom - r.top);
+    // (a layer may hang off the picture's edges, so it is bounded by the largest canvas, and all the layers together by six of them)
+    total += lw * lh;
+    if (lw > 8192 || lh > 8192 || lw * lh > 4096 * 4096 || total > 6 * 4096 * 4096) return { why: 'That PSD’s layers are larger than this phone can open. Flatten or crop it, save it and try again.' };
     const rgba = new Uint8ClampedArray(lw * lh * 4);
     if (!lw || !lh) rgba.fill(0);
     let hasAlpha = false;

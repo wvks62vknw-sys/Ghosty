@@ -330,7 +330,7 @@ export const MONEY: AppDef[] = [
     id: 'giving-log', name: 'Giving Log', family: 'money', glyph: 'heart', archetype: 'log',
     pitch: 'Every donation with its Gift Aid noted, ready for your tax return.',
     keywords: ['donations', 'charity', 'gift aid', 'giving', 'tax relief', 'causes'],
-    tour: ['Add each donation and tick Gift Aid when you declared it.', 'The year total is what higher-rate payers can claim relief on.', 'Group by cause to see where your giving goes.'],
+    tour: ['Add each donation and tick Gift Aid when you declared it.', 'Higher-rate payers can claim extra relief on the gifts with Gift Aid.', 'Group by cause to see where your giving goes.'],
     log: {
       fields: [
         fd('charity', 'Charity', 'text', { required: true }),
@@ -423,12 +423,13 @@ export const MONEY: AppDef[] = [
         money('starting', 'Starting Rate Band', 'max(0, 5000 - max(0, income - 12570))', 0),
         money('psa', 'Savings Allowance', 'if(income + interest <= 50270, 1000, if(income + interest <= 125140, 500, 0))', 0),
         money('taxable', 'Taxable Interest', 'max(0, interest - max(0, 12570 - income) - starting - psa)'),
-        money('tax', 'Tax', 'taxable * if(income + interest <= 50270, 0.2, if(income + interest <= 125140, 0.4, 0.45))'),
+        money('tax', 'Tax', 'max(0, min(income + interest, 50270) - (income + interest - taxable)) * 0.2 + max(0, min(income + interest, 125140) - max(income + interest - taxable, 50270)) * 0.4 + max(0, income + interest - max(income + interest - taxable, 125140)) * 0.45'),
       ]),
       tests: [
         { in: { income: 30000, interest: 1500 }, out: { starting: 0, psa: 1000, tax: 100 } },
         { in: { income: 13000, interest: 3000 }, out: { starting: 4570, tax: 0 } },
         { in: { income: 60000, interest: 1000 }, out: { psa: 500, tax: 200 } },
+        { in: { income: 49000, interest: 2000 }, out: { psa: 500, taxable: 1500, tax: 446 } },
       ],
       estimate: true,
       source: 'GOV.UK Tax on savings interest: £5,000 starting rate and the £1,000 or £500 Personal Savings Allowance',
@@ -758,7 +759,7 @@ export const MONEY: AppDef[] = [
         money('lump', 'Tax-Free Part', 'min(final * 0.25, 268275)', 0),
       ]),
       tests: [
-        { in: { pot: 20000, mine: 200, employer: 150, growth: 5, years: 25, infl: 2 }, out: { gross: 400, final: 302021, real: 184314, lump: 75505 } },
+        { in: { pot: 20000, mine: 200, employer: 150, growth: 5, years: 25, infl: 2 }, out: { gross: 400, final: 302021, real: 184091, lump: 75505 } },
         { in: { pot: 0, mine: 100, employer: 50, growth: 4, years: 30, infl: 0 }, out: { final: 119922, real: 119922 } },
       ],
       estimate: true,
@@ -847,7 +848,7 @@ export const MONEY: AppDef[] = [
     id: 'gains-tax', name: 'Gains Tax', family: 'money', glyph: 'chart', from: 'money.19', archetype: 'calc',
     pitch: 'A first estimate of Capital Gains Tax on shares, coins or property gains.',
     keywords: ['capital gains', 'cgt', 'shares', 'crypto', 'gains tax', 'exempt amount'],
-    tour: ['Put in your total gains for the tax year, after losses.', 'Add your taxable income so the right rate is used.', 'The £3,000 exempt amount is taken off first.'],
+    tour: ['Put in your total gains for the tax year, after losses.', 'Add your other income before tax so the right rate is used.', 'The £3,000 exempt amount is taken off first.'],
     calc: {
       inputs: [
         inp('gains', 'Gains', 13000, { unit: '£', min: 0, step: 100 }),
@@ -940,9 +941,9 @@ export const MONEY: AppDef[] = [
       views: ['list', 'calendar'],
     },
     sample: [
-      { date: '2026-10-28', gross: 2750, tax: 340.6, ni: 112.96, pension: 137.5, loan: 0, net: 2158.94, code: '1257L' },
-      { date: '2026-09-26', gross: 2750, tax: 340.6, ni: 112.96, pension: 137.5, loan: 0, net: 2158.94, code: '1257L' },
-      { date: '2026-08-28', gross: 2900, tax: 370.6, ni: 124.96, pension: 145, loan: 0, net: 2259.44, code: '1257L' },
+      { date: '2026-10-28', gross: 2750, tax: 340.6, ni: 136.16, pension: 137.5, loan: 0, net: 2135.74, code: '1257L' },
+      { date: '2026-09-26', gross: 2750, tax: 340.6, ni: 136.16, pension: 137.5, loan: 0, net: 2135.74, code: '1257L' },
+      { date: '2026-08-28', gross: 2900, tax: 370.6, ni: 148.16, pension: 145, loan: 0, net: 2236.24, code: '1257L' },
     ],
   },
   {

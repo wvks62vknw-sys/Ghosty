@@ -298,7 +298,7 @@ export const importerRenderer = (root: HTMLElement, def: AppDef, k: KitApp): (()
     w.onmessage = (ev: MessageEvent<ImportReply>) => {
       const m = ev.data;
       if (m.kind === 'progress') drawProgress((done - queue.length - 1 + m.f) / done, cancel);
-      else if (m.kind === 'done') { got.push(...m.records); next(); }
+      else if (m.kind === 'done') { for (const rec of m.records) got.push(rec); next(); }
       else { w.terminate(); worker = null; drawIdle(); k.notice(m.words, { tone: 'warn' }); }
     };
     w.onerror = () => { w.terminate(); worker = null; drawIdle(); k.notice('That file could not be read.', { tone: 'warn' }); };
