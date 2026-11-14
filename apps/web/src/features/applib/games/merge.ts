@@ -66,5 +66,6 @@ export const merge: Board = (p) => {
     p.score(score, `Best tile ${M.best(b)}`);
   }
   draw();
+  p.keep({ b, score, seed, n, reached });
   return unswipe;
 };

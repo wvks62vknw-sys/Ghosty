@@ -137,5 +137,6 @@ export const solitaire: Board = (p) => {
     p.score(home * 10, `${home} of 52 home · ${s.moves} moves`);
   }
   render();
+  p.keep(s);
   return () => clearInterval(finishing);
 };

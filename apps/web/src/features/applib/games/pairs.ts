@@ -64,5 +64,6 @@ export const pairs: Board = (p) => {
     p.score(0, `${g.turns} turns · ${g.gone.filter(Boolean).length / 2} of ${count} pairs`);
   }
   draw();
+  p.keep({ ...g, up: [] });
   return () => clearTimeout(wait);
 };
