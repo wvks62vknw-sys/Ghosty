@@ -22,6 +22,7 @@ import {
   hoursWords,
   keysOf,
   mailtoOf,
+  mergeTodos,
   MAX_TEXT,
   meetingNotes,
   meetingWords,
@@ -41,7 +42,11 @@ import {
   rotaWords,
   textStats,
   textWords,
+  tickTodoIn,
   todoCard,
+  todoFrom,
+  TODO_EVERY,
+  TODO_MAX,
   todoOrder,
   todosFrom,
   todoWords,
@@ -49,6 +54,7 @@ import {
   type Hours,
   type Rota,
   type Todo,
+  type TodoEvery,
 } from '../../../../packages/shared/src/work';
 import { card } from '../../../../packages/shared/src/cards';
 import { loadJobs } from '../schedule';
@@ -167,11 +173,69 @@ const meeting: ActionFn = async (a, d) => {
   };
 };
 
+/** ONELIST (plan.u1): the phone's own changes to the one list, by id (the Agenda's TO-DO, WORK's screen, the phone's outbox of
+ * changes made with no signal): add (idempotent by id), tick and untick (a repeating one makes its next), edit words/day/star/repeat,
+ * remove, clear the done ones, merge another copy in (no duplicates, nothing lost). The words-based path below stays for the chat. */
+const TODO_OPS = ['list', 'add', 'tick', 'untick', 'edit', 'remove', 'clear_done', 'merge'] as const;
+async function todoOp(op: string, a: Record<string, unknown>, d: PackDeps, list: Todo[], today: string) {
+  const now = d.now();
+  const id = arg.str(a, 'id', false);
+  const kept = async (l: Todo[], text: string, extra: Record<string, unknown> = {}) => {
+    const out = l.slice(-TODO_MAX);
+    await save(d, WORK_KEYS.todo, out);
+    return { text, data: { list: todoOrder(out), ...extra }, cards: out.some((x) => !x.done) ? [todoCard(out, today, now)] : [] };
+  };
+  const same = (text: string) => ({ text, data: { list: todoOrder(list) } });
+  if (op === 'list') return same(todoWords(list, today));
+  if (op === 'add') {
+    const t = todoFrom(a.item ?? a, now);
+    if (!t) return same('A to-do needs its words.');
+    const had = list.find((y) => y.id === t.id);
+    if (had) return same(`Already on your list: ${had.text}.`);
+    return kept([...list, t], `Added: ${t.text}.`, { hit: t });
+  }
+  if (op === 'merge') {
+    const m = mergeTodos(list, Array.isArray(a.items) ? a.items : [], now);
+    return kept(m.list, m.added.length ? `Joined ${m.added.length} to your list.` : 'Nothing new to join: your list already had them.', { added: m.added.length });
+  }
+  if (op === 'clear_done') {
+    const n = list.filter((t) => t.done).length;
+    return kept(list.filter((t) => !t.done), `Cleared ${n} done item${n === 1 ? '' : 's'}.`, { cleared: n });
+  }
+  const x = list.find((y) => y.id === id);
+  // (gone already: a change made on another screen, or one sent twice from the outbox; said, never an error)
+  if (!x) return same('That one is not on your list any more.');
+  if (op === 'tick' || op === 'untick') {
+    const r = tickTodoIn(list, id, today, now, op === 'tick');
+    return kept(r!.list, `${op === 'tick' ? 'Ticked off' : 'Back on the list'}: ${x.text}.`, { hit: r!.t, next: r!.next });
+  }
+  if (op === 'remove') return kept(list.filter((y) => y.id !== id), `Removed: ${x.text}.`, { hit: x });
+  if (op === 'edit') {
+    if (typeof a.text === 'string' && a.text.trim()) x.text = a.text.replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (typeof a.due === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(a.due)) x.due = a.due;
+      else delete x.due;
+    }
+    if (typeof a.high === 'boolean') {
+      if (a.high) x.high = true;
+      else delete x.high;
+    }
+    if (typeof a.every === 'string') {
+      if ((TODO_EVERY as readonly string[]).includes(a.every)) x.every = a.every as TodoEvery;
+      else delete x.every;
+    }
+    return kept(list, `Changed: ${x.text}.`, { hit: x });
+  }
+  return same(`I don’t know how to “${op}” a to-do.`);
+}
+
 const todo: ActionFn = async (a, d) => {
   const words = wordsOf(a);
   const text = textArg(a);
   const today = todayOf(d);
   let list = await load<Todo[]>(d, WORK_KEYS.todo, []);
+  const op = arg.str(a, 'op', false);
+  if ((TODO_OPS as readonly string[]).includes(op)) return todoOp(op, a, d, list, today);
   const shown = (t: string) => ({ text: t, data: { list: todoOrder(list) }, cards: list.some((x) => !x.done) ? [todoCard(list, today, d.now())] : [] });
   const untick = /^untick\s+(?:the\s+)?(.+)$/i.exec(words);
   const tick = /^(?:tick(?: off)?|done|finished|completed|cross off|check off|did)\s+(?:the\s+)?(.+)$/i.exec(words);
@@ -195,16 +259,18 @@ const todo: ActionFn = async (a, d) => {
   if (untick) {
     const t = pick(untick[1]!, true);
     if (!t) return shown(`I couldn’t find “${untick[1]}” among the ticked ones.`);
-    t.done = false;
+    list = tickTodoIn(list, t.id, today, d.now(), false)!.list;
     await save(d, WORK_KEYS.todo, list);
     return shown(`Back on the list: ${t.text}.`);
   }
   if (tick) {
     const t = pick(tick[1]!);
     if (!t) return shown(`I couldn’t find “${tick[1]}” on your list. ${todoWords(list, today)}`);
-    t.done = true;
+    // (a repeating one makes its next, as a tick on the Agenda does)
+    const r = tickTodoIn(list, t.id, today, d.now(), true)!;
+    list = r.list;
     await save(d, WORK_KEYS.todo, list);
-    return shown(`Ticked off: ${t.text}. ${todoWords(list, today)}`);
+    return shown(`Ticked off: ${t.text}.${r.next ? ` It repeats: the next one is due ${prettyDay(r.next.due!, today.slice(0, 4))}.` : ''} ${todoWords(list, today)}`);
   }
   if (drop && !/\bto-?do\b/i.test(drop[1]!)) {
     const t = pick(drop[1]!);
@@ -218,7 +284,7 @@ const todo: ActionFn = async (a, d) => {
   const found = todosFrom(body, today, d.now());
   if (!found.length) return shown('I couldn’t find a job in that. Say what needs doing, like "send the invoice by Friday, book the van".');
   const fresh = found.filter((f) => !list.some((x) => !x.done && x.text.toLowerCase() === f.text.toLowerCase()));
-  list = [...list, ...fresh].slice(-120);
+  list = [...list, ...fresh].slice(-TODO_MAX);
   await save(d, WORK_KEYS.todo, list);
   return shown(`Added ${fresh.length} to your list:\n${fresh.map((t) => `- ${t.text}${t.due ? ` (${prettyDay(t.due, today.slice(0, 4))})` : ''}${t.high ? ' [urgent]' : ''}`).join('\n')}\nSay "tick the invoice" when it’s done.`);
 };

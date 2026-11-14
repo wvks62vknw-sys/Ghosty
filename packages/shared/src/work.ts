@@ -7,7 +7,7 @@
  */
 import { card, type Card } from './cards';
 import { inTone, whenWords, type Tone } from './people';
-import { addDays, dayWords, mondayOf, pounds, prettyDay, shortId, weekdayOf } from './packs';
+import { addDays, addMonths, dayWords, mondayOf, pounds, prettyDay, shortId, weekdayOf } from './packs';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
@@ -404,9 +404,92 @@ export interface Todo {
   id: string;
   text: string;
   due?: string;
+  /** a star on the phone ("urgent" in his words) */
   high?: boolean;
   done?: boolean;
   at: number;
+  /** ONELIST (plan.u1): the one list learned what the Agenda's had: a repeat (ticking makes the next), when it was ticked, and
+   * the next one a tick made (it goes again if this one is ticked back on, so a mis-tap never leaves two) */
+  every?: TodoEvery;
+  doneAt?: number;
+  nextId?: string;
+}
+export type TodoEvery = 'daily' | 'weekdays' | 'weekly' | 'monthly';
+export const TODO_EVERY: readonly TodoEvery[] = ['daily', 'weekdays', 'weekly', 'monthly'];
+/** Most the one list keeps (the phone kept 300; nothing of his is dropped to fit a smaller brain list). */
+export const TODO_MAX = 300;
+/** The day the next one of a repeating to-do is due: one step on from its own day (or today, if it had none), never a day gone. */
+export function nextTodoDue(due: string, every: TodoEvery, today: string): string {
+  const from = due || today;
+  let t = from;
+  const step = (n: number) => {
+    if (every === 'daily') t = addDays(t, 1);
+    else if (every === 'weekly') t = addDays(t, 7);
+    else if (every === 'monthly') t = addMonths(from, n);
+    else
+      do t = addDays(t, 1);
+      while (weekdayOf(t) === 0 || weekdayOf(t) === 6);
+  };
+  step(1);
+  // one ticked days late comes back on a day still to come, not in the past
+  for (let i = 2; i < 400 && t <= today; i++) step(i);
+  return t;
+}
+const everyOf = (v: unknown): TodoEvery | undefined => (TODO_EVERY as readonly unknown[]).includes(v) ? (v as TodoEvery) : undefined;
+const dayOk = (v: unknown): string => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+const idOk = (v: unknown): string => (typeof v === 'string' && /^[\w-]{1,40}$/.test(v) ? v : '');
+/** One to-do as the list keeps it, from whatever was sent (the phone's own shape too: star is high), or null when it has no words. */
+export function todoFrom(x: unknown, now: number): Todo | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  const text = typeof o.text === 'string' ? clean(o.text).slice(0, 200) : '';
+  if (!text) return null;
+  const due = dayOk(o.due);
+  const every = everyOf(o.every);
+  const at = typeof o.at === 'number' && Number.isFinite(o.at) ? o.at : now;
+  const doneAt = typeof o.doneAt === 'number' && Number.isFinite(o.doneAt) ? o.doneAt : undefined;
+  return { id: idOk(o.id) || shortId(), text, ...(due ? { due } : {}), ...(o.high || o.star ? { high: true } : {}), ...(o.done ? { done: true, ...(doneAt ? { doneAt } : {}) } : {}), at, ...(every ? { every } : {}) };
+}
+/** Tick one off (or back on). A repeating one ticked off makes its next one; ticked back on, that next one goes again (while it
+ * is still open and unchanged). */
+export function tickTodoIn(list: Todo[], id: string, today: string, now: number, done?: boolean): { list: Todo[]; t: Todo; next: Todo | null } | null {
+  const x = list.find((y) => y.id === id);
+  if (!x) return null;
+  const want = done ?? !x.done;
+  let out = list;
+  let next: Todo | null = null;
+  if (want === !!x.done) return { list, t: x, next: null };
+  if (want) {
+    x.done = true;
+    x.doneAt = now;
+    if (x.every) {
+      next = { id: shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}) };
+      out = [...list, next];
+      x.nextId = next.id;
+    }
+  } else {
+    delete x.done;
+    delete x.doneAt;
+    if (x.nextId) {
+      const n = list.find((y) => y.id === x.nextId);
+      if (n && !n.done && n.text === x.text && n.every === x.every) out = list.filter((y) => y !== n);
+      delete x.nextId;
+    }
+  }
+  return { list: out, t: x, next };
+}
+/** Merge another copy of the list in (the phone's old list, once): kept by id, and an open one with the same words as an open one
+ * already here is the same job. Nothing is lost; nothing is doubled. */
+export function mergeTodos(list: Todo[], items: unknown[], now: number): { list: Todo[]; added: Todo[] } {
+  const out = [...list];
+  const added: Todo[] = [];
+  for (const raw of items.slice(0, TODO_MAX)) {
+    const t = todoFrom(raw, now);
+    if (!t || out.some((y) => y.id === t.id || (!y.done && !t.done && y.text.toLowerCase() === t.text.toLowerCase()))) continue;
+    out.push(t);
+    added.push(t);
+  }
+  return { list: out.slice(-TODO_MAX), added };
 }
 const LEAD = /^(?:(?:i|we)\s+(?:also\s+)?(?:need|have|want|must|should|ought)\s+to|need to|have to|got to|gotta|must|should|remember to|don'?t forget to|do not forget to|please|also|and|then|first(?:ly)?|next|finally|todo\s*:?|to-?do\s*:?)\s+/i;
 const AND_JOB = /\s+and\s+(?=(?:ring|call|phone|text|email|message|send|buy|get|pick|book|pay|order|check|fix|write|clean|tidy|collect|return|cancel|renew|post|print|sort|find|make|take|ask|tell|remind|look|arrange|organise|organize|prepare|finish|start|update|submit|fill|sign|apply|wash|cook|water|feed|walk|charge|change|empty|put|drop|visit|meet|plan|reply|respond|chase|clear|cut|paint|measure|pack|hoover|vacuum|iron|drive|wrap|bring|confirm|speak|talk)\b)/i;

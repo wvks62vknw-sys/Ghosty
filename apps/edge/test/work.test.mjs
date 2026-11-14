@@ -231,6 +231,70 @@ test('todo: the jobs in a long message with their deadlines and urgency; ticked,
   assert.match((await run(storage, 'todo', { words: 'add: hi' })).text, /^Your to-do list is empty\./);
 });
 
+test('todo (ONELIST): the one list by id: add (idempotent), star, repeat, tick makes the next, untick takes it back, edit, remove, clear done, merge the phone list once; the words path still works', async () => {
+  const storage = new Mem();
+  // NOW is Sun 1 Nov 2026
+  const add = (item) => run(storage, 'todo', { op: 'add', item });
+  let r = await add({ id: 'tmilk', text: '  Buy   milk ', due: '2026-11-01', star: true, at: 5 });
+  assert.equal(r.text, 'Added: Buy milk.');
+  assert.deepEqual(r.data.hit, { id: 'tmilk', text: 'Buy milk', due: '2026-11-01', high: true, at: 5 });
+  // sent twice (the phone's outbox after a lost answer): kept once
+  assert.equal((await add({ id: 'tmilk', text: 'Buy milk' })).text, 'Already on your list: Buy milk.');
+  r = await add({ id: 'tplants', text: 'Water the plants', every: 'weekdays', due: '2026-10-30' });
+  assert.equal(r.data.list.length, 2);
+  assert.equal((await add({ text: '   ' })).text, 'A to-do needs its words.');
+  // a repeating one ticked (late, from Friday) comes back on the next weekday still to come: Monday
+  r = await run(storage, 'todo', { op: 'tick', id: 'tplants' });
+  assert.equal(r.text, 'Ticked off: Water the plants.');
+  assert.equal(r.data.next.due, '2026-11-02');
+  assert.equal(r.data.next.every, 'weekdays');
+  assert.equal((await storage.get('work:todo')).length, 3);
+  // ticked back on: the next one it made goes again
+  r = await run(storage, 'todo', { op: 'untick', id: 'tplants' });
+  assert.equal(r.text, 'Back on the list: Water the plants.');
+  assert.deepEqual((await storage.get('work:todo')).map((t) => [t.id, !!t.done]), [['tmilk', false], ['tplants', false]]);
+  // ticking twice is still one tick (an outbox sent again)
+  await run(storage, 'todo', { op: 'tick', id: 'tmilk' });
+  r = await run(storage, 'todo', { op: 'tick', id: 'tmilk' });
+  assert.equal(r.data.list.filter((t) => t.done).length, 1);
+  // the next-day steps
+  assert.equal(W.nextTodoDue('2026-01-31', 'monthly', '2026-01-31'), '2026-02-28');
+  assert.equal(W.nextTodoDue('', 'daily', '2026-11-01'), '2026-11-02');
+  assert.equal(W.nextTodoDue('2026-10-01', 'weekly', '2026-11-01'), '2026-11-05');
+  assert.equal(W.nextTodoDue('2026-11-06', 'weekdays', '2026-11-06'), '2026-11-09');
+  // edit: words, day, star off, repeat off
+  r = await run(storage, 'todo', { op: 'edit', id: 'tplants', text: 'Water the tomatoes', due: '2026-11-03', high: false, every: '' });
+  assert.equal(r.text, 'Changed: Water the tomatoes.');
+  assert.deepEqual(r.data.hit, { id: 'tplants', text: 'Water the tomatoes', due: '2026-11-03', at: r.data.hit.at });
+  r = await run(storage, 'todo', { op: 'edit', id: 'tplants', due: '', high: true, every: 'monthly' });
+  assert.equal(r.data.hit.due, undefined);
+  assert.equal(r.data.hit.high, true);
+  assert.equal(r.data.hit.every, 'monthly');
+  // gone already (changed on another screen): said, never an error
+  assert.equal((await run(storage, 'todo', { op: 'remove', id: 'nope' })).text, 'That one is not on your list any more.');
+  // the phone's old list joins once: same id or same open words are the same job; the done one with its own id comes too
+  r = await run(storage, 'todo', { op: 'merge', items: [{ id: 'tmilk', text: 'Buy milk', done: true }, { id: 'tx1', text: 'water the TOMATOES' }, { id: 'tx2', text: 'Renew passport', due: '2026-11-20', every: 'yearly' }, { id: 'tx3', text: 'Post the parcel', done: true, doneAt: 9 }, { text: '' }, null] });
+  assert.equal(r.text, 'Joined 2 to your list.');
+  assert.deepEqual(r.data.list.map((t) => t.text), ['Renew passport', 'Water the tomatoes', 'Buy milk', 'Post the parcel']);
+  assert.equal(r.data.list.find((t) => t.id === 'tx2').every, undefined);
+  assert.equal((await run(storage, 'todo', { op: 'merge', items: [{ id: 'tx2', text: 'Renew passport' }] })).text, 'Nothing new to join: your list already had them.');
+  // the Brief reads the same list: one due on Friday 20th
+  assert.deepEqual(await P.packLines({ storage, now: () => Date.UTC(2026, 10, 20, 9, 0) }), ['To-do: 1 due today']);
+  r = await run(storage, 'todo', { op: 'clear_done' });
+  assert.equal(r.text, 'Cleared 2 done items.');
+  r = await run(storage, 'todo', { op: 'remove', id: 'tx2' });
+  assert.equal(r.text, 'Removed: Renew passport.');
+  // the chat's words reach the same list, and a repeating one ticked by words makes its next one too
+  await add({ id: 'tbins', text: 'Put the bins out', every: 'weekly', due: '2026-11-01' });
+  r = await run(storage, 'todo', { words: 'tick the bins' });
+  assert.match(r.text, /^Ticked off: Put the bins out\. It repeats: the next one is due Sun 8 Nov\./);
+  r = await run(storage, 'todo', { words: 'untick the bins' });
+  assert.match(r.text, /^Back on the list: Put the bins out\./);
+  assert.equal(r.data.list.filter((t) => t.text === 'Put the bins out').length, 1);
+  r = await run(storage, 'todo', { op: 'list' });
+  assert.match(r.text, /^Your to-do list \(2 open\):/);
+});
+
 test('email: a draft in his voice — the purpose’s plain wording, his details as he gave them, his greeting and sign-off — shown, with a mail link for his tap, never sent', async () => {
   const storage = new Mem();
   const seen = [];
