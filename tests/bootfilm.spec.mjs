@@ -15,7 +15,7 @@
 //      whole film again; the first open ever, the whole film.
 //   BASE=http://localhost:8788 node tests/bootfilm.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -31,13 +31,13 @@ const t0 = Date.now();
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 
 /** His phone, signed in, opened cold on Home: the cinematic left to choose its own version (no __ghostyBootKind). `lastSeen`: ms ago he last had it on screen. */
-async function open({ viewport = PHONE, reducedMotion = 'no-preference', lastSeen = 0 } = {}) {
+async function open({ viewport = PHONE, reducedMotion = 'no-preference', lastSeen = 0, set = {} } = {}) {
   const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: 1, isMobile: true, hasTouch: true, reducedMotion });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
-  await page.addInitScript(({ key, lastSeen }) => {
+  await page.addInitScript(({ key, lastSeen, set }) => {
     if (!localStorage.getItem('ghosty.ownerKey')) localStorage.setItem('ghosty.ownerKey', key);
-    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false }));
+    if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, ...set }));
     // (once only, before the first load: the reload in check 5 must see the stamp the page itself wrote)
     if (lastSeen && !sessionStorage.getItem('bootfilm.seeded')) {
       sessionStorage.setItem('bootfilm.seeded', '1');
@@ -45,7 +45,7 @@ async function open({ viewport = PHONE, reducedMotion = 'no-preference', lastSee
     }
     window.__ghostyHero = true; // MIND draws, as on his phone (automated checks otherwise get the 2-D reactor)
     window.__ghostyBoot = true; // the cinematic plays (automated checks otherwise never see it); its version is NOT picked here
-  }, { key: KEY, lastSeen });
+  }, { key: KEY, lastSeen, set });
   return { ctx, page };
 }
 const state = (page) => page.evaluate(() => {
@@ -205,6 +205,99 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   await page.goto(base);
   const s = await ended(page, 'first open ever');
   if (s?.reopen !== -1 || s?.quick || s?.kind !== 'full') problems.push(`first open ever: ${s?.kind}, reopen ${s?.reopen}, quick ${s?.quick} (want the full film, -1, false)`);
+  await ctx.close();
+}
+
+// ---- 6. THE NEXT ROUND (docs/build-plan/next/boot.md): the opening his way
+// a. how long: SHORT plays the short cut on a cold open with nothing before it; ONCE A DAY plays the whole film on the day's first open
+//    and the short cut on a later one the same day; FULL FILM (the default) the whole film
+{
+  const a = await open({ set: { bootLength: 'short' } });
+  await a.page.goto(base);
+  const s = await ended(a.page, 'length: short');
+  if (s?.kind !== 'short' || !s.film || s.quick) problems.push(`length: SHORT played "${s?.kind}" (film ${s?.film}, quick ${s?.quick}) on a first open (want the short film)`);
+  await a.ctx.close();
+  // (anchored to London's midnight, as CI runs at any hour: "earlier today" is at most 40 minutes ago and never before midnight)
+  const sinceMidnight = await (async () => { const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' })); return (d.getHours() * 60 + d.getMinutes()) * 60_000 + d.getSeconds() * 1000; })();
+  if (sinceMidnight > 5 * 60_000) {
+    const b = await open({ set: { bootLength: 'daily' }, lastSeen: Math.min(40 * 60_000, sinceMidnight - 60_000) });
+    await b.page.goto(base);
+    const t = await ended(b.page, 'length: once a day, later the same day');
+    if (t?.kind !== 'short' || t.quick) problems.push(`length: ONCE A DAY played "${t?.kind}" (quick ${t?.quick}) on a later open the same day (want the short film)`);
+    await b.ctx.close();
+  }
+  const c = await open({ set: { bootLength: 'daily' }, lastSeen: sinceMidnight + 3 * 3_600_000 });
+  await c.page.goto(base);
+  const u = await ended(c.page, 'length: once a day, first open');
+  if (u?.kind !== 'full' || !u.film) problems.push(`length: ONCE A DAY played "${u?.kind}" on the day's first open (want the whole film)`);
+  // b. the jobs that can wait waited for the landing, and went once it was done
+  if (!(u?.deferred > 0) || !(u?.deferredAt >= 0 && u.deferredAt >= u.ended - 1)) problems.push(`start-up: the jobs that can wait did not wait for the landing (deferred ${u?.deferred}, let go at ${u?.deferredAt} ms, landed ${u?.ended} ms)`);
+  // c. how smoothly it ran: kept on the phone, said in Settings and in the chat in the same words
+  const run = await c.page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.lastboot') ?? 'null'));
+  if (!run || run.kind !== 'full' || !run.film || Math.abs(run.ms - (u.ended - u.held)) > 2 || run.frames !== u.frames) problems.push(`run: the last opening's run kept as ${JSON.stringify(run)} (the boot said ${u?.kind}, ${u ? u.ended - u.held : '?'} ms, ${u?.frames} frames)`);
+  await c.page.evaluate(() => (location.hash = 'settings'));
+  await c.page.waitForSelector('[data-id="bootrun"]', { state: 'attached', timeout: 15000 }).catch(() => problems.push('run: Settings has no line for how the last opening ran'));
+  const line = await c.page.evaluate(() => document.querySelector('[data-id="bootrun"]')?.textContent ?? '');
+  if (!/^The last opening played the whole film in \d+\.\d seconds, \d+ frames a second, (with no stutter|with one small catch \(\d+ ms\)|with a stutter of \d+ ms)\.$/.test(line)) problems.push(`run: Settings says "${line}"`);
+  report.push(`run line: ${line}`);
+  await c.ctx.close();
+}
+// d. the greeting that remembers: away three days, "Welcome back, Tony. It's been three days."; his own lines take turns; a guest he named, once
+{
+  const a = await open({ lastSeen: 3 * 86_400_000 + 3_600_000 });
+  await a.page.goto(base);
+  const s = await ended(a.page, 'greeting: away three days');
+  if (s?.greeting !== 'Welcome back, Tony. It’s been three days.') problems.push(`greeting: away three days it said "${s?.greeting}"`);
+  await a.ctx.close();
+  const b = await open({ set: { bootLines: 'Systems up, Tony.\n\nBack to work.' } });
+  await b.page.goto(base);
+  const t1 = await ended(b.page, 'greeting: his own line');
+  await b.page.reload();
+  const t2 = await ended(b.page, 'greeting: his own line, the next open');
+  if (t1?.greeting !== 'Systems up, Tony.' || t2?.greeting !== 'Back to work.') problems.push(`greeting: his own lines said "${t1?.greeting}" then "${t2?.greeting}" (want them in turn)`);
+  await b.ctx.close();
+  const c = await open({ set: { bootGuest: { name: 'Sam', until: Date.now() + 3_600_000 } } });
+  await c.page.goto(base);
+  const g1 = await ended(c.page, 'greeting: a guest');
+  const hr = await c.page.evaluate(() => new Date().getHours());
+  const part = hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  await c.page.reload();
+  const g2 = await ended(c.page, 'greeting: after the guest');
+  if (g1?.greeting !== `${part}, Sam.` || !/Tony\.$/.test(g2?.greeting ?? '')) problems.push(`greeting: the guest's opening said "${g1?.greeting}", the next "${g2?.greeting}" (want Sam once, then Tony)`);
+  await c.ctx.close();
+}
+// e. by words, on the phone: the length set, the run said, a guest refused when he has not introduced them; and Settings' keys at both widths
+for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
+  const { ctx, page } = await open({ viewport: vp });
+  await page.goto(base);
+  await ended(page, `words ${tag}`);
+  const say = async (text, want) => {
+    const at = await page.evaluate(() => Date.now());
+    await page.evaluate((t) => window.__ghosty.send(t), text);
+    const ok = await page.waitForFunction(([w, at]) => [...document.querySelectorAll('#pg-core .msg:not(.me)')].some((m) => Number(m.dataset.at ?? Date.now()) >= at - 50 && new RegExp(w).test(m.textContent ?? '')), [want, at], { timeout: 15000 }).then(() => true).catch(() => false);
+    if (!ok) problems.push(`words ${tag}: "${text}" did not answer /${want}/`);
+  };
+  await say('short opening', 'The opening: short\\. The five-second cut on every open\\.');
+  const len = await page.evaluate(() => window.__ghosty.settings.get().bootLength);
+  if (len !== 'short') problems.push(`words ${tag}: "short opening" left the length "${len}"`);
+  await say('opening once a day', 'The opening: once a day\\.');
+  await say('how did the opening run?', '^.*The last opening played ');
+  await say("Sam's turn", 'I only greet people you’ve introduced');
+  const guest = await page.evaluate(() => window.__ghosty.settings.get().bootGuest);
+  if (guest?.name) problems.push(`words ${tag}: a guest nobody introduced was kept: ${JSON.stringify(guest)}`);
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForSelector('[data-id="bootlength"]', { state: 'attached', timeout: 15000 }).catch(() => problems.push(`settings ${tag}: no keys for the opening's length`));
+  // (Settings → VOICE & HOME: its row tapped, as he would)
+  await openPanel(page, 'settings', 'VOICE & HOME');
+  await page.waitForFunction(() => (document.querySelector('[data-id="bootlength"] button')?.getBoundingClientRect().height ?? 0) > 0, null, { timeout: 8000 }).catch(() => undefined);
+  const keys = await page.evaluate(() => {
+    const row = document.querySelector('[data-id="bootlength"]');
+    row?.scrollIntoView();
+    return [...(row?.querySelectorAll('button') ?? [])].map((b) => { const r = b.getBoundingClientRect(); return { t: (b.textContent ?? '').trim(), w: Math.round(r.width), h: Math.round(r.height), on: b.getAttribute('aria-checked'), cut: b.scrollWidth > b.clientWidth + 1, right: Math.round(r.right) }; });
+  });
+  const vw = vp.width;
+  if (keys.length !== 3 || keys.some((k) => k.w < 44 || k.h < 44 || k.cut || k.right > vw) || keys.find((k) => k.on === 'true')?.t.toUpperCase() !== 'ONCE A DAY') problems.push(`settings ${tag}: the opening's keys ${JSON.stringify(keys)} (want three, 44 pt, whole, inside the screen, ONCE A DAY on)`);
+  await page.screenshot({ path: `${out}/bootfilm-${tag}-settings.png` }).catch(() => undefined);
   await ctx.close();
 }
 

@@ -24,7 +24,7 @@ import { World } from './engine/world';
 import { TABS } from './features';
 import { autoBackup } from './features/system/backup';
 import { checkStorage, persistAsksQuietly } from './features/system/storage';
-import { bootFault, bootReady, bootState, startBoot } from './shell/boot';
+import { afterLanding, bootFault, bootReady, bootState, startBoot } from './shell/boot';
 import { buildLayout } from './shell/layout';
 import { go, registerTabs } from './shell/tabs';
 import { settings, ui } from './state/app';
@@ -156,25 +156,29 @@ async function boot(): Promise<void> {
   layout.buildDock();
   if (ui.get().connected) {
     await loadHistory(historyAhead ?? undefined);
-    startNotices();
-    void initApp();
-    // Paired: ask the phone to keep Ghosty's data (Safari grants it to Home Screen apps) when asking
-    // makes no pop-up (Firefox would ask the owner on every start: there, PROTECT in SYSTEM asks); keep the daily backup going.
-    void checkStorage(persistAsksQuietly());
-    setTimeout(() => void autoBackup(), 20_000);
-    window.setInterval(() => void autoBackup(), 3_600_000);
-    // Changes made while the brain was unreachable (memory, agenda) go to it now.
-    void sendQueued();
-    void refreshKeyCopy();
-    // Ghosty's whole library is copied to this device, so it can be searched with no database or connection.
-    void mirrorLibraryNow();
-    window.setInterval(() => void (navigator.onLine && mirrorLibraryNow()), 30 * 60_000);
-    // Searched by meaning once that model is on the phone: the index keeps up with the copy (library/meaning.ts).
-    startMeaning();
-    window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
-    // The offline brain follows the weekly self-training's kept brains (a new week, a ROLLBACK) without opening its panel.
-    void syncTrained();
-    window.setInterval(() => void (navigator.onLine && syncTrained()), 3 * 3600_000);
+    // [boot] the jobs that can wait start once the opening film has landed (the first seconds stay the film's and Home's); with no
+    // film playing they start now, as always (shell/boot.ts afterLanding)
+    afterLanding(() => {
+      startNotices();
+      void initApp();
+      // Paired: ask the phone to keep Ghosty's data (Safari grants it to Home Screen apps) when asking
+      // makes no pop-up (Firefox would ask the owner on every start: there, PROTECT in SYSTEM asks); keep the daily backup going.
+      void checkStorage(persistAsksQuietly());
+      setTimeout(() => void autoBackup(), 20_000);
+      window.setInterval(() => void autoBackup(), 3_600_000);
+      // Changes made while the brain was unreachable (memory, agenda) go to it now.
+      void sendQueued();
+      void refreshKeyCopy();
+      // Ghosty's whole library is copied to this device, so it can be searched with no database or connection.
+      void mirrorLibraryNow();
+      window.setInterval(() => void (navigator.onLine && mirrorLibraryNow()), 30 * 60_000);
+      // Searched by meaning once that model is on the phone: the index keeps up with the copy (library/meaning.ts).
+      startMeaning();
+      window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
+      // The offline brain follows the weekly self-training's kept brains (a new week, a ROLLBACK) without opening its panel.
+      void syncTrained();
+      window.setInterval(() => void (navigator.onLine && syncTrained()), 3 * 3600_000);
+    });
   }
   // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show Links.
   const spotify = await finishSpotifyLink().catch(() => null);

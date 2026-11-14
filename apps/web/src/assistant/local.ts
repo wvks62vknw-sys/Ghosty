@@ -27,7 +27,7 @@ import { machineState } from '../features/eye/machine';
 import { estimateText, workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { openWorkbench } from '../features/workbench/index';
 import { PANELS as BENCH } from '../features/workbench/panels';
-import { timeZone, ui } from '../state/app';
+import { settings, timeZone, ui } from '../state/app';
 import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
@@ -185,6 +185,34 @@ type Opts = { voice?: boolean; private?: boolean };
  * after a reply that ran nothing).
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
+  // [boot] THE OPENING by words (NEXT ROUND boot.u4, boot.u9, boot.s7): its length set, how the last one ran said, a guest named for the
+  // next one (only someone he has introduced: a face or a voice kept on this phone), all on the phone; Settings → Voice & home has the keys
+  async opening(text, opts) {
+    const w = await import('../shell/bootwords');
+    const a = w.openingAsked(text);
+    if (!a) return false;
+    const go = [{ id: 'screen:settings', ask: -1, label: 'The opening', open: 'settings' }];
+    if (a.kind === 'length') {
+      settings.set({ bootLength: a.length });
+      const l = w.LENGTHS.find((x) => x.key === a.length)!;
+      return answer(text, `The opening: ${l.label.toLowerCase()}. ${l.line}`, { kind: 'can', go }, opts);
+    }
+    if (a.kind === 'run') return answer(text, w.runWords((await import('../shell/boot')).lastRun()), { kind: 'can', go }, opts);
+    if (a.kind === 'noguest') {
+      const had = settings.get().bootGuest?.until > Date.now() ? settings.get().bootGuest.name : '';
+      settings.set({ bootGuest: { name: '', until: 0 } });
+      return answer(text, had ? `No guest: the next opening greets you, not ${had}.` : 'No guest was waiting: the next opening greets you.', { kind: 'can', go }, opts);
+    }
+    const [faces, voices] = await Promise.all([
+      import('../vision/facestore').then((f) => f.knownFaces()).catch(() => []),
+      import('./voicestore').then((v) => v.knownVoices()).catch(() => []),
+    ]);
+    const known = [...faces, ...voices].filter((p) => !p.me).map((p) => p.name.trim()).filter(Boolean);
+    const who = known.find((n) => n.toLowerCase() === a.name.toLowerCase());
+    if (!who) return answer(text, `I only greet people you’ve introduced, and ${a.name} isn’t one yet. In the Lens, say “this is ${a.name}” with them in the picture.`, { kind: 'can', go }, opts);
+    settings.set({ bootGuest: { name: who, until: Date.now() + 3 * 3_600_000 } });
+    return answer(text, `The next opening greets ${who}, once. Say “no guest” to undo it.`, { kind: 'can', go }, opts);
+  },
   // [voice lane] "do you know it's me?", "who's talking?": from the phone's own tag, truly (voiceknown.ts whoWords); never a lock
   speaker: (text, opts) => import('./voiceknown').then((v) => answer(text, v.whoWords(!!opts.voice), { kind: 'can', go: [{ id: 'screen:settings', ask: -1, label: 'My voice', open: 'settings' }] }, opts)),
   // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)

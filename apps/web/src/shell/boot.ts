@@ -66,7 +66,7 @@ import { previousOpen } from '../state/lastopen';
 import { lockBox, marksState, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
-import { FAULT_WORDS, HOLD_AFTER, greetingFor, holdWords, settledFeeds } from './bootwords';
+import { FAULT_WORDS, HOLD_AFTER, greetingFor, holdWords, lengthFor, openingLine, ownLines, settledFeeds, type BootRun } from './bootwords';
 import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../features/core/scan/film';
 import { resetScoreState, scoreState, startScore, type Score } from '../features/core/scan/score';
 import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
@@ -203,6 +203,9 @@ export const bootState = {
    *  soon enough (QUICK_REOPEN_MS) for the short cut. */
   reopen: -1,
   quick: false,
+  /** Start-up jobs that waited for the landing (afterLanding), and when (ms after the first frame) they were let go (-1: none waited). */
+  deferred: 0,
+  deferredAt: -1,
   /** THE FILM played (the world is The Scan and Mind drew it): the descent, the things found, the orb's viewport (film.ts). */
   film: false,
   scan: null as FilmState | null,
@@ -227,6 +230,39 @@ const flags = () => window as unknown as Flags;
 /** "Good evening, Tony." from the clock and the name in Settings; with none saved (or the app's own "Boss"), "Good evening." alone (bootwords.ts). */
 export function greetingLine(d = new Date()): string {
   return greetingFor(settings.get().name, d.getHours());
+}
+
+/** Where the last opening's run is kept on this phone (boot.u9: how smoothly it ran), and the turn his own lines take. */
+export const RUN_KEY = 'ghosty.lastboot';
+const TURN_KEY = 'ghosty.bootturn';
+/** The last opening's run as this phone kept it (null before any). */
+export function lastRun(): BootRun | null {
+  try {
+    const r = JSON.parse(localStorage.getItem(RUN_KEY) ?? 'null') as BootRun | null;
+    return r && typeof r.ms === 'number' ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The opening's line (boot.u8, boot.s9, boot.s7): a guest he named, once; else his own line, taking turns; else, away two days or more,
+ * how long it has been; else the greeting by the hour. Only from this phone's own records. `use`: this is an opening, so a guest's
+ * greeting is spent and his lines take their next turn.
+ */
+export function openingWords(use: boolean, d = new Date()): string {
+  const s = settings.get();
+  const guest = s.bootGuest && s.bootGuest.until > d.getTime() ? s.bootGuest.name : '';
+  let turn = 0;
+  try {
+    turn = Number(localStorage.getItem(TURN_KEY) ?? 0) || 0;
+    if (use && s.bootLines?.trim() && !guest) localStorage.setItem(TURN_KEY, String(turn + 1));
+  } catch {
+    /* no storage: the first line every time */
+  }
+  const line = openingLine({ name: s.name, hr: d.getHours(), away: bootState.reopen, own: ownLines(s.bootLines ?? ''), turn, guest });
+  if (use && guest) settings.set({ bootGuest: { name: '', until: 0 } });
+  return line;
 }
 
 /** "2026-08" → "Aug". */
@@ -277,6 +313,23 @@ export function bootReady(): void {
   }
 }
 
+/**
+ * main.ts: start-up jobs that can wait (the notices, push, the library's copy, the queued sends) start once the opening film has landed,
+ * on the next idle moment, so the film's frames and Home's first second have the phone to themselves; with no film playing (a resume,
+ * a deep link, the automated checks) they start at once, as always. `bootState.deferred` counts what waited.
+ */
+export function afterLanding(fn: () => void): void {
+  const playing = () => !!document.getElementById('boot') && (bootState.kind === 'full' || bootState.kind === 'short' || bootState.kind === 'still' || bootState.kind === 'flat');
+  if (!playing()) return fn();
+  bootState.deferred++;
+  const idle = (cb: () => void) => ((window as unknown as { requestIdleCallback?: (f: () => void, o: { timeout: number }) => void }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 1)))(cb, { timeout: 1500 });
+  const look = () => (playing() ? void setTimeout(look, 100) : idle(() => {
+    bootState.deferredAt = bootState.ended >= 0 ? bootState.ended : -1;
+    fn();
+  }));
+  look();
+}
+
 /** main.ts: the app could not start. Plain words and a way out; nothing technical, no numbers. */
 export function bootFault(): void {
   faulted = true;
@@ -306,7 +359,9 @@ export function startBoot(): void {
   // a quick reopen (he had it on screen under three minutes ago, and the phone closed it behind him): the short cut, not the whole film again
   bootState.reopen = previousOpen > 0 ? Math.max(0, Date.now() - previousOpen) : -1;
   bootState.quick = bootState.reopen >= 0 && bootState.reopen < QUICK_REOPEN_MS;
-  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() || bootState.quick ? 'short' : 'full';
+  // his choice of length (Settings → THE OPENING): the short cut every time, or the whole film only on the day's first open
+  const chosen = lengthFor(settings.get().bootLength, previousOpen, Date.now());
+  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() || bootState.quick || chosen === 'short' ? 'short' : 'full';
   // a check may pick which version plays (software WebGL is too slow for the full one to choose itself)
   if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm') kind = f.__ghostyBootKind;
   bootState.kind = kind;
@@ -323,6 +378,9 @@ export async function reboot(): Promise<void> {
   // let Home lay out first, so the landing has its hero to land on
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const el = document.body.appendChild(h('div#boot'));
+  // (a replay is not a reopen: no "welcome back", and the readings say so)
+  bootState.reopen = -1;
+  bootState.quick = false;
   const kind: Kind = calmWanted() ? 'still' : 'full';
   bootState.kind = kind;
   el.classList.add(kind);
@@ -626,7 +684,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   // box 5 px outside it (the point of light with no 3-D)
   const orbBox = h('i.borb', { 'aria-hidden': 'true' });
   const stamp = h('p.g-stamp.bstamp', { dataset: { g: 'stamp', case: 'keep' } });
-  const greet = h('p.bgreet', { dataset: { case: 'keep' }, hidden: true }, greetingLine());
+  const greet = h('p.bgreet', { dataset: { case: 'keep' }, hidden: true }, openingWords(true));
   const feeds = h('div.bfeeds');
   // a slow open (the network slow, the brain cold): after six seconds the film says so, in its own voice, and keeps moving
   const slow = h('p.bslow', { dataset: { case: 'keep' }, role: 'status', hidden: true }, 'Still waking. The signal is slow.');
@@ -878,6 +936,13 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     bootState.ended = Math.round(elapsed(now));
     stopSound?.();
     letGo();
+    // how smoothly it ran, kept on this phone for Settings and "how did the opening run?" (boot.u9)
+    try {
+      const run: BootRun = { kind, film: !!film, ms: Math.max(0, bootState.ended - bootState.held), frames: bootState.frames, worst: bootState.worstGap, long: bootState.budget.long, at: Date.now() };
+      localStorage.setItem(RUN_KEY, JSON.stringify(run));
+    } catch {
+      /* no storage: nothing kept */
+    }
     if (mindIn && mind) {
       // (the film: the orb's viewport is where it flew to; Home's hero sits on the same place, so the landing is no cut)
       const q = film ? film.orbRect() : null;

@@ -370,6 +370,13 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Reboot'], scene: ['talking'], cat: 'talk',
     since: '2026-10-24',
   },
+  'phrase:opening': {
+    name: 'Your opening, your way', line: 'You can say "short opening" or "the full film every time", and "how did the opening run?"',
+    more: 'Once a day works too. "Sam’s turn" greets someone you introduced on the next opening. Your own line goes in Settings.',
+    say: ['Short opening', 'How did the opening run?', 'Sam’s turn'], scene: ['talking'], cat: 'talk',
+    go: { open: 'settings' }, tryText: 'Opens Settings at the opening',
+    since: '2026-11-14',
+  },
   'phrase:machine': {
     name: 'The Machine view', line: 'You can say "machine view" and I show your city from above with everything moving, your places boxed.',
     more: 'God’s eye from 14 km: aircraft, buses, your places in thin white boxes, one true count line. LEAVE puts everything back.',
