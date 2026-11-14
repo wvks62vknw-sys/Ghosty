@@ -20,6 +20,16 @@ const SDLT = 'clamp(price - 125000, 0, 125000) * 0.02 + clamp(price - 250000, 0,
 
 const CASH_KINDS = ['Cash', 'Savings', 'Pension', 'Investments', 'Property', 'Car', 'Card', 'Loan', 'Mortgage', 'Other'];
 
+
+/** Puts output `id` first (the engine shows the first output as the headline and keeps it), inlining any earlier outputs it reads. */
+function lead(id: string, outs: CalcOutput[]): CalcOutput[] {
+  const at = outs.findIndex((o) => o.id === id);
+  const exprs = new Map(outs.slice(0, at).map((o) => [o.id, o.expr]));
+  const inline = (expr: string): string => expr.replace(/\b[a-z][a-z0-9_]*\b/g, (w) => (exprs.has(w) ? `(${inline(exprs.get(w)!)})` : w));
+  const top = { ...outs[at]!, expr: inline(outs[at]!.expr) };
+  return [top, ...outs.filter((_, n) => n !== at)];
+}
+
 export const MONEY: AppDef[] = [
   // ——— Everyday money ———
   {
@@ -359,12 +369,12 @@ export const MONEY: AppDef[] = [
         inp('debts', 'Debt Payments', 100, { unit: '£', min: 0 }),
         inp('saving', 'Saving', 200, { unit: '£', min: 0 }),
       ],
-      outputs: [
+      outputs: lead('left', [
         money('costs', 'Planned Costs', 'home + bills + food + travel + debts + saving'),
         money('left', 'Left To Spend', 'income - costs'),
         money('perday', 'Per Day', 'left / 30.4'),
         out('share', 'Home Share', 'if(income > 0, home / income * 100, 0)', { unit: '%', dp: 1 }),
-      ],
+      ]),
       tests: [
         { in: { income: 2400, home: 900, bills: 260, food: 350, travel: 150, debts: 100, saving: 200 }, out: { costs: 1960, left: 440, perday: 14.47, share: 37.5 } },
         { in: { income: 1800, home: 700, bills: 200, food: 300, travel: 100, debts: 0, saving: 100 }, out: { costs: 1400, left: 400, share: 38.89 } },
@@ -408,12 +418,12 @@ export const MONEY: AppDef[] = [
         inp('income', 'Other Income', 30000, { unit: '£', min: 0, step: 500 }),
         inp('interest', 'Interest', 1500, { unit: '£', min: 0, step: 50 }),
       ],
-      outputs: [
+      outputs: lead('tax', [
         money('starting', 'Starting Rate Band', 'max(0, 5000 - max(0, income - 12570))', 0),
         money('psa', 'Savings Allowance', 'if(income + interest <= 50270, 1000, if(income + interest <= 125140, 500, 0))', 0),
         money('taxable', 'Taxable Interest', 'max(0, interest - max(0, 12570 - income) - starting - psa)'),
         money('tax', 'Tax', 'taxable * if(income + interest <= 50270, 0.2, if(income + interest <= 125140, 0.4, 0.45))'),
-      ],
+      ]),
       tests: [
         { in: { income: 30000, interest: 1500 }, out: { starting: 0, psa: 1000, tax: 100 } },
         { in: { income: 13000, interest: 3000 }, out: { starting: 4570, tax: 0 } },
@@ -534,12 +544,12 @@ export const MONEY: AppDef[] = [
         inp('years', 'Years Left', 20, { unit: 'years', min: 1, max: 40 }),
         inp('extra', 'Extra Monthly', 100, { unit: '£', min: 0, step: 10 }),
       ],
-      outputs: [
+      outputs: lead('saved', [
         money('monthly', 'Monthly Now', 'balance * (rate / 1200) / (1 - pow(1 + rate / 1200, -years * 12))'),
         out('months', 'Months With Extra', 'ceil(round(-ln(1 - (rate / 1200) * balance / (monthly + extra)) / ln(1 + rate / 1200), 6))', { dp: 0 }),
         out('cut', 'Months Saved', 'years * 12 - months', { dp: 0 }),
         money('saved', 'Interest Saved', '(monthly * years * 12 - balance) - (-ln(1 - (rate / 1200) * balance / (monthly + extra)) / ln(1 + rate / 1200) * (monthly + extra) - balance)', 0),
-      ],
+      ]),
       tests: [
         { in: { balance: 150000, rate: 4, years: 20, extra: 100 }, out: { monthly: 908.97, months: 206, cut: 34, saved: 10678 } },
         { in: { balance: 150000, rate: 4, years: 20, extra: 0 }, out: { months: 240, cut: 0, saved: 0 } },
@@ -561,12 +571,12 @@ export const MONEY: AppDef[] = [
         inp('next', 'New Rate', 4.5, { unit: '%', min: 0.01, max: 20, step: 0.05 }),
         inp('fees', 'Fees', 999, { unit: '£', min: 0 }),
       ],
-      outputs: [
+      outputs: lead('change', [
         money('pnow', 'Monthly Now', 'balance * (now / 1200) / (1 - pow(1 + now / 1200, -years * 12))'),
         money('pnew', 'Monthly New', 'balance * (next / 1200) / (1 - pow(1 + next / 1200, -years * 12))'),
         money('change', 'Monthly Saving', 'pnow - pnew'),
         out('breakeven', 'Months To Win Back', 'if(change > 0, ceil(fees / change), 0)', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { balance: 180000, years: 20, now: 5.5, next: 4.5, fees: 999 }, out: { pnow: 1238.2, pnew: 1138.77, change: 99.43, breakeven: 11 } },
         { in: { balance: 180000, years: 20, now: 4.5, next: 4.5, fees: 500 }, out: { change: 0, breakeven: 0 } },
@@ -586,12 +596,12 @@ export const MONEY: AppDef[] = [
         inp('apr', 'APR', 6.9, { unit: '%', min: 0, max: 60, step: 0.1 }),
         inp('months', 'Months', 60, { min: 1, max: 120 }),
       ],
-      outputs: [
+      outputs: lead('monthly', [
         out('mrate', 'Monthly Rate', '(pow(1 + apr / 100, 1 / 12) - 1) * 100', { unit: '%', dp: 3 }),
         money('monthly', 'Monthly', 'if(apr == 0, amount / months, amount * (mrate / 100) / (1 - pow(1 + mrate / 100, -months)))'),
         money('total', 'Total Repaid', 'monthly * months'),
         money('interest', 'Total Interest', 'total - amount'),
-      ],
+      ]),
       tests: [
         { in: { amount: 10000, apr: 6.9, months: 60 }, out: { monthly: 196.56, total: 11793.43 } },
         { in: { amount: 5000, apr: 12.9, months: 36 }, out: { monthly: 166.54 } },
@@ -613,13 +623,13 @@ export const MONEY: AppDef[] = [
         inp('pay', 'Monthly Payment', 100, { unit: '£', min: 1, step: 5 }),
         inp('extra', 'Extra', 50, { unit: '£', min: 0, step: 5 }),
       ],
-      outputs: [
+      outputs: lead('months', [
         money('first', 'First Month Interest', 'balance * apr / 1200'),
         out('months', 'Months To Clear', 'if(pay > first, -ln(1 - first / pay) / ln(1 + apr / 1200), 0)', { dp: 1 }),
         money('interest', 'Interest Paid', 'if(months > 0, months * pay - balance, 0)'),
         out('months2', 'With Extra', 'if(pay + extra > first, -ln(1 - first / (pay + extra)) / ln(1 + apr / 1200), 0)', { dp: 1 }),
         money('saved', 'Interest Saved', 'if(months > 0, interest - (months2 * (pay + extra) - balance), 0)'),
-      ],
+      ]),
       tests: [
         { in: { balance: 3000, apr: 20, pay: 100, extra: 50 }, out: { first: 50, months: 41.93, interest: 1193.44, months2: 24.53, saved: 513.93 } },
         { in: { balance: 3000, apr: 20, pay: 40, extra: 0 }, out: { months: 0, interest: 0 } },
@@ -739,12 +749,12 @@ export const MONEY: AppDef[] = [
         inp('years', 'Years', 25, { min: 1, max: 50 }),
         inp('infl', 'Inflation', 2, { unit: '%', min: 0, max: 10, step: 0.5 }),
       ],
-      outputs: [
+      outputs: lead('final', [
         money('gross', 'Monthly With Relief', 'mine / 0.8 + employer'),
         money('final', 'Pot At The End', 'pot * pow(1 + growth / 100, years) + gross * (pow(1 + growth / 100, years) - 1) / (pow(1 + growth / 100, 1 / 12) - 1)', 0),
         money('real', 'In Today’s Money', 'final / pow(1 + infl / 100, years)', 0),
         money('lump', 'Tax-Free Part', 'min(final * 0.25, 268275)', 0),
-      ],
+      ]),
       tests: [
         { in: { pot: 20000, mine: 200, employer: 150, growth: 5, years: 25, infl: 2 }, out: { gross: 400, final: 302021, real: 184314, lump: 75505 } },
         { in: { pot: 0, mine: 100, employer: 50, growth: 4, years: 30, infl: 0 }, out: { final: 119922, real: 119922 } },
@@ -814,13 +824,13 @@ export const MONEY: AppDef[] = [
         inp('turnover', 'Turnover', 41000, { unit: '£', min: 0, step: 500 }),
         inp('costs', 'Costs', 1000, { unit: '£', min: 0, step: 100 }),
       ],
-      outputs: [
+      outputs: lead('bill', [
         money('profit', 'Taxable Profit', 'max(0, turnover - max(costs, 1000))', 0),
         money('tax', 'Income Tax', TI(`max(0, profit - ${PA('profit')})`)),
         money('ni', 'Class 4 NI', '(clamp(profit, 12570, 50270) - 12570) * 0.06 + max(0, profit - 50270) * 0.02'),
         money('bill', 'Total Bill', 'tax + ni'),
         money('aside', 'Set Aside Monthly', 'bill / 12'),
-      ],
+      ]),
       tests: [
         { in: { turnover: 41000, costs: 1000 }, out: { profit: 40000, tax: 5486, ni: 1645.8, bill: 7131.8 } },
         { in: { turnover: 75000, costs: 5000 }, out: { profit: 70000, tax: 15432, ni: 2656.6, bill: 18088.6 } },
@@ -840,11 +850,11 @@ export const MONEY: AppDef[] = [
         inp('gains', 'Gains', 13000, { unit: '£', min: 0, step: 100 }),
         inp('income', 'Other Income', 30000, { unit: '£', min: 0, step: 500 }),
       ],
-      outputs: [
+      outputs: lead('tax', [
         money('taxable', 'Taxable Gain', 'max(0, gains - 3000)', 0),
         money('band', 'Basic Band Left', 'max(0, 50270 - max(income, 12570))', 0),
         money('tax', 'Gains Tax', 'min(taxable, band) * 0.18 + max(0, taxable - band) * 0.24'),
-      ],
+      ]),
       tests: [
         { in: { gains: 13000, income: 30000 }, out: { taxable: 10000, tax: 1800 } },
         { in: { gains: 23000, income: 45000 }, out: { band: 5270, tax: 4483.8 } },
@@ -864,10 +874,10 @@ export const MONEY: AppDef[] = [
         inp('income', 'Other Income', 30000, { unit: '£', min: 0, step: 500 }),
         inp('divs', 'Dividends', 5000, { unit: '£', min: 0, step: 100 }),
       ],
-      outputs: [
+      outputs: lead('tax', [
         money('start', 'Taxed From', 'min(income + divs, max(income, 12570) + 500)', 0),
         money('tax', 'Dividend Tax', 'max(0, min(income + divs, 50270) - start) * 0.1075 + max(0, min(income + divs, 125140) - max(start, 50270)) * 0.3575 + max(0, income + divs - max(start, 125140)) * 0.3935'),
-      ],
+      ]),
       tests: [
         { in: { income: 30000, divs: 5000 }, out: { tax: 483.75 } },
         { in: { income: 48000, divs: 10000 }, out: { tax: 2953.75 } },
@@ -1241,11 +1251,11 @@ export const MONEY: AppDef[] = [
         inp('h2', 'Holiday B', 25, { unit: 'days', min: 0, max: 60 }),
         inp('c2', 'Commute B', 250, { unit: '£ a month', min: 0 }),
       ],
-      outputs: [
+      outputs: lead('gap', [
         money('v1', 'Offer A Value', 's1 * (1 + p1 / 100) + (h1 - 25) * s1 / 260 - c1 * 12', 0),
         money('v2', 'Offer B Value', 's2 * (1 + p2 / 100) + (h2 - 25) * s2 / 260 - c2 * 12', 0),
         money('gap', 'B Minus A', 'v2 - v1', 0),
-      ],
+      ]),
       tests: [
         { in: { s1: 40000, p1: 5, h1: 25, c1: 150, s2: 42000, p2: 3, h2: 25, c2: 250 }, out: { v1: 40200, v2: 40260, gap: 60 } },
         { in: { s1: 26000, p1: 0, h1: 30, c1: 0, s2: 26000, p2: 0, h2: 25, c2: 0 }, out: { v1: 26500, v2: 26000, gap: -500 } },
@@ -1267,13 +1277,13 @@ export const MONEY: AppDef[] = [
         inp('years', 'Full Years', 10, { min: 0, max: 50 }),
         inp('weekly', 'Weekly Pay', 600, { unit: '£', min: 0 }),
       ],
-      outputs: [
+      outputs: lead('pay', [
         out('y', 'Years Counted', 'min(years, 20)', { dp: 0 }),
         out('y41', 'Years Aged 41 Up', 'min(y, max(0, age - 41))', { dp: 0 }),
         out('y22', 'Years Aged 22-40', 'min(y - y41, max(0, min(age, 41) - 22))', { dp: 0 }),
         out('weeks', 'Weeks Of Pay', 'if(years < 2, 0, 1.5 * y41 + y22 + 0.5 * (y - y41 - y22))', { dp: 1 }),
         money('pay', 'Statutory Pay', 'weeks * min(weekly, 751)'),
-      ],
+      ]),
       tests: [
         { in: { age: 45, years: 10, weekly: 600 }, out: { weeks: 12, pay: 7200 } },
         { in: { age: 25, years: 6, weekly: 400 }, out: { weeks: 4.5, pay: 1800 } },
@@ -1317,11 +1327,11 @@ export const MONEY: AppDef[] = [
         inp('pay', 'Pay', 500, { unit: '£', min: 0 }),
         inp('hours', 'Hours', 40, { unit: 'h', min: 0.5, step: 0.5 }),
       ],
-      outputs: [
+      outputs: lead('short', [
         money('rate', 'Your Hourly Rate', 'pay / hours'),
         money('minimum', 'Legal Minimum', 'band * hours'),
         money('short', 'Shortfall', 'max(0, band * hours - pay)'),
-      ],
+      ]),
       tests: [
         { in: { band: 12.71, pay: 500, hours: 40 }, out: { rate: 12.5, minimum: 508.4, short: 8.4 } },
         { in: { band: 10.85, pay: 450, hours: 40 }, out: { short: 0 } },
@@ -1744,12 +1754,12 @@ export const MONEY: AppDef[] = [
         inp('eff', 'Efficiency', 3.5, { unit: 'miles per kWh', min: 0.5, step: 0.1 }),
         inp('loss', 'Charging Loss', 10, { unit: '%', min: 0, max: 30 }),
       ],
-      outputs: [
+      outputs: lead('cost', [
         out('kwh', 'Energy Added', 'battery * max(0, to - from) / 100', { unit: 'kWh', dp: 1 }),
         money('cost', 'Charge Cost', 'kwh * (1 + loss / 100) * price / 100'),
         out('miles', 'Miles Added', 'kwh * eff', { dp: 0 }),
         out('ppm', 'Pence A Mile', 'price * (1 + loss / 100) / eff', { unit: 'p', dp: 1 }),
-      ],
+      ]),
       tests: [
         { in: { battery: 60, from: 20, to: 80, price: 7.5, eff: 3.5, loss: 10 }, out: { kwh: 36, cost: 2.97, miles: 126, ppm: 2.36 } },
         { in: { battery: 50, from: 0, to: 100, price: 50, eff: 4, loss: 0 }, out: { cost: 25, miles: 200, ppm: 12.5 } },
@@ -1773,12 +1783,12 @@ export const MONEY: AppDef[] = [
         inp('coats', 'Coats', 2, { min: 1, max: 4 }),
         inp('spread', 'Spreading Rate', 12, { unit: 'm² per litre', min: 1, step: 0.5 }),
       ],
-      outputs: [
+      outputs: lead('litres', [
         out('area', 'Wall Area', 'max(0, perim * height - openings)', { unit: 'm²', dp: 1 }),
         out('litres', 'Paint', 'area * coats / spread', { unit: 'litres', dp: 1 }),
         out('tins25', '2.5 L Tins', 'ceil(litres / 2.5)', { dp: 0 }),
         out('tins5', '5 L Tins', 'ceil(litres / 5)', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { perim: 14, height: 2.4, openings: 3.5, coats: 2, spread: 12 }, out: { area: 30.1, litres: 5.02, tins25: 3, tins5: 2 } },
         { in: { perim: 10, height: 2.5, openings: 0, coats: 1, spread: 10 }, out: { area: 25, litres: 2.5, tins25: 1 } },
@@ -1801,11 +1811,11 @@ export const MONEY: AppDef[] = [
         inp('waste', 'Waste', 10, { unit: '%', min: 0, max: 30 }),
         inp('box', 'Per Box', 6, { min: 1 }),
       ],
-      outputs: [
+      outputs: lead('tiles', [
         out('area', 'Area', 'len * wid', { unit: 'm²', dp: 2 }),
         out('tiles', 'Tiles', 'ceil(area / (tw * th / 1000000) * (1 + waste / 100))', { dp: 0 }),
         out('boxes', 'Boxes', 'ceil(tiles / box)', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { len: 3, wid: 2, tw: 300, th: 600, waste: 10, box: 6 }, out: { area: 6, tiles: 37, boxes: 7 } },
         { in: { len: 4, wid: 4, tw: 600, th: 600, waste: 0, box: 4 }, out: { tiles: 45, boxes: 12 } },
@@ -1827,12 +1837,12 @@ export const MONEY: AppDef[] = [
         inp('waste', 'Waste', 10, { unit: '%', min: 0, max: 30 }),
         inp('roll', 'Underlay Roll', 10, { unit: 'm²', min: 1 }),
       ],
-      outputs: [
+      outputs: lead('packs', [
         out('area', 'Floor Area', 'len * wid', { unit: 'm²', dp: 2 }),
         out('packs', 'Packs', 'ceil(area * (1 + waste / 100) / pack)', { dp: 0 }),
         out('rolls', 'Underlay Rolls', 'ceil(area / roll)', { dp: 0 }),
         out('beading', 'Edge Beading', '2 * (len + wid)', { unit: 'm', dp: 1 }),
-      ],
+      ]),
       tests: [
         { in: { len: 4.2, wid: 3.6, pack: 2.13, waste: 10, roll: 10 }, out: { area: 15.12, packs: 8, rolls: 2, beading: 15.6 } },
         { in: { len: 5, wid: 4, pack: 2, waste: 0, roll: 10 }, out: { packs: 10, rolls: 2 } },
@@ -1854,11 +1864,11 @@ export const MONEY: AppDef[] = [
         inp('rolllen', 'Roll Length', 10.05, { unit: 'm', min: 1, step: 0.05 }),
         inp('rollwid', 'Roll Width', 0.53, { unit: 'm', min: 0.1, step: 0.01 }),
       ],
-      outputs: [
+      outputs: lead('rolls', [
         out('perroll', 'Drops Per Roll', 'floor(rolllen / (height + repeat / 100))', { dp: 0 }),
         out('drops', 'Drops Needed', 'ceil(perim / rollwid)', { dp: 0 }),
         out('rolls', 'Rolls', 'ceil(drops / perroll)', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { perim: 14, height: 2.4, repeat: 0, rolllen: 10.05, rollwid: 0.53 }, out: { perroll: 4, drops: 27, rolls: 7 } },
         { in: { perim: 4, height: 2.4, repeat: 64, rolllen: 10.05, rollwid: 0.53 }, out: { perroll: 3, drops: 8, rolls: 3 } },
@@ -1908,11 +1918,11 @@ export const MONEY: AppDef[] = [
         inp('density', 'Density', 1.6, { unit: 't per m³', min: 1, max: 2.5, step: 0.05 }),
         inp('bag', 'Bag Size', 0.85, { unit: 'tonnes', min: 0.1, step: 0.05 }),
       ],
-      outputs: [
+      outputs: lead('tonnes', [
         out('vol', 'Volume', 'len * wid * depth / 1000', { unit: 'm³', dp: 2 }),
         out('tonnes', 'Weight', 'vol * density', { unit: 'tonnes', dp: 2 }),
         out('bags', 'Bulk Bags', 'ceil(tonnes / bag)', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { len: 6, wid: 3, depth: 50, density: 1.6, bag: 0.85 }, out: { vol: 0.9, tonnes: 1.44, bags: 2 } },
         { in: { len: 10, wid: 2, depth: 100, density: 1.5, bag: 1 }, out: { tonnes: 3, bags: 3 } },
@@ -1933,11 +1943,11 @@ export const MONEY: AppDef[] = [
         inp('depth', 'Depth', 50, { unit: 'mm', min: 5, step: 5 }),
         inp('bag', 'Bag Size', 60, { unit: 'litres', min: 1 }),
       ],
-      outputs: [
+      outputs: lead('bags', [
         out('vol', 'Volume', 'len * wid * depth / 1000', { unit: 'm³', dp: 2 }),
         out('litres', 'Litres', 'vol * 1000', { dp: 0 }),
         out('bags', 'Bags', 'ceil(litres / bag)', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { len: 4, wid: 1, depth: 50, bag: 60 }, out: { vol: 0.2, litres: 200, bags: 4 } },
         { in: { len: 2, wid: 2, depth: 150, bag: 1000 }, out: { vol: 0.6, bags: 1 } },
@@ -1958,10 +1968,10 @@ export const MONEY: AppDef[] = [
         inp('roll', 'Roll Covers', 1, { unit: 'm²', min: 0.1, step: 0.1 }),
         inp('extra', 'Extra', 5, { unit: '%', min: 0, max: 25 }),
       ],
-      outputs: [
+      outputs: lead('rolls', [
         out('area', 'Lawn Area', 'len * wid', { unit: 'm²', dp: 1 }),
         out('rolls', 'Rolls', 'ceil(area * (1 + extra / 100) / roll)', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { len: 8, wid: 5, roll: 1, extra: 5 }, out: { area: 40, rolls: 42 } },
         { in: { len: 10, wid: 3, roll: 0.5, extra: 0 }, out: { rolls: 60 } },
@@ -1981,11 +1991,11 @@ export const MONEY: AppDef[] = [
         inp('height', 'Height', 1, { unit: 'm', min: 0, step: 0.075 }),
         inp('waste', 'Waste', 5, { unit: '%', min: 0, max: 20 }),
       ],
-      outputs: [
+      outputs: lead('bricks', [
         out('area', 'Wall Area', 'len * height', { unit: 'm²', dp: 2 }),
         out('bricks', 'Bricks', 'ceil(area / (0.225 * 0.075) * (1 + waste / 100))', { dp: 0 }),
         out('courses', 'Courses', 'ceil(height / 0.075)', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { len: 5, height: 1, waste: 5 }, out: { area: 5, bricks: 312, courses: 14 } },
         { in: { len: 2.25, height: 0.75, waste: 0 }, out: { bricks: 100, courses: 10 } },
@@ -2083,11 +2093,11 @@ export const MONEY: AppDef[] = [
         inp('thick', 'Roll Thickness', 170, { unit: 'mm', min: 25, step: 5 }),
         inp('cover', 'Roll Covers', 5.5, { unit: 'm²', min: 0.5, step: 0.1 }),
       ],
-      outputs: [
+      outputs: lead('rolls', [
         out('area', 'Loft Area', 'len * wid', { unit: 'm²', dp: 1 }),
         out('layers', 'Layers Needed', 'ceil(max(0, 270 - now) / thick)', { dp: 0 }),
         out('rolls', 'Rolls', 'ceil(area / cover) * layers', { dp: 0 }),
-      ],
+      ]),
       tests: [
         { in: { len: 8, wid: 6, now: 100, thick: 170, cover: 5.5 }, out: { area: 48, layers: 1, rolls: 9 } },
         { in: { len: 5, wid: 5, now: 0, thick: 100, cover: 5 }, out: { layers: 3, rolls: 15 } },
@@ -2148,12 +2158,12 @@ export const MONEY: AppDef[] = [
         inp('price', 'Car Value', 12000, { unit: '£', min: 0, step: 100 }),
         inp('drop', 'Value Lost', 15, { unit: '% a year', min: 0, max: 50 }),
       ],
-      outputs: [
+      outputs: lead('monthly', [
         money('fuelyear', 'Fuel A Year', 'miles / mpg * 4.54609 * fuel / 100', 0),
         money('lost', 'Value Lost A Year', 'price * drop / 100', 0),
         money('monthly', 'Monthly Total', '(fuelyear + tax + ins + service + lost) / 12'),
         out('ppm', 'Pence A Mile', 'if(miles > 0, (fuelyear + tax + ins + service + lost) / miles * 100, 0)', { unit: 'p', dp: 1 }),
-      ],
+      ]),
       tests: [
         { in: { miles: 8000, mpg: 50, fuel: 140, tax: 195, ins: 650, service: 300, price: 12000, drop: 15 }, out: { fuelyear: 1018.32, lost: 1800, monthly: 330.28, ppm: 49.5 } },
         { in: { miles: 10000, mpg: 45.4609, fuel: 100, tax: 0, ins: 0, service: 0, price: 0, drop: 0 }, out: { fuelyear: 1000, monthly: 83.33 } },
