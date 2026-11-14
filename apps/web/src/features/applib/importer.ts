@@ -63,6 +63,8 @@ async function saveSet(appId: string, v: Kept): Promise<boolean> {
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const n0 = (x: number, dp = 0) => x.toLocaleString('en-GB', { maximumFractionDigits: dp });
+/** "1 record", "2,310 records". */
+const nRecs = (n: number) => `${n0(n)} ${n === 1 ? 'record' : 'records'}`;
 /** "1 h 20 min" from minutes. */
 export const mins = (m: number): string => (m >= 60 ? `${Math.floor(m / 60)} h${Math.round(m % 60) ? ` ${Math.round(m % 60)} min` : ''}` : `${Math.round(m)} min`);
 /** One field's value in his words ('' when there is none). */
@@ -187,7 +189,7 @@ export const importerRenderer = (root: HTMLElement, def: AppDef, k: KitApp): (()
     }
     const when = new Date(kept.at);
     const parts: (HTMLElement | SVGSVGElement)[] = [
-      h('p.al-imp-lead', `${n0(kept.records.length)} ${kept.records.length === 1 ? 'record' : 'records'} from ${kept.file}, ${when.getDate()} ${MON[when.getMonth()]}.`),
+      h('p.al-imp-lead', `${nRecs(kept.records.length)} from ${kept.file}, ${when.getDate()} ${MON[when.getMonth()]}.`),
     ];
     if (kept.records.length > KIT_MAX) parts.push(h('p.al-imp-fine', `The list shows the newest ${n0(KIT_MAX)}; the top lists use them all.`));
     if (reader?.top) parts.push(topPanel());
@@ -265,7 +267,7 @@ export const importerRenderer = (root: HTMLElement, def: AppDef, k: KitApp): (()
     }
     if (kept?.records.length) {
       body.replaceChildren(
-        h('p.al-imp-lead', `${n0(clean.length)} records read. You already have ${n0(kept.records.length)}.`),
+        h('p.al-imp-lead', `${nRecs(clean.length)} read. You already have ${n0(kept.records.length)}.`),
         h('div.al-imp-move', key('Add to them', () => void keep(clean, file, 'merge'), { kind: 'fill' }), key('Replace them', () => void keep(clean, file, 'replace'))),
       );
       return;
@@ -273,15 +275,15 @@ export const importerRenderer = (root: HTMLElement, def: AppDef, k: KitApp): (()
     await keep(clean, file, 'merge');
   };
 
-  const keep = async (recs: Rec[], file: string, mode: 'merge' | 'replace') => {
-    const merged = mergeRecords(kept?.records ?? [], recs, mode);
+  const keep = async (got: Rec[], file: string, mode: 'merge' | 'replace') => {
+    const merged = mergeRecords(kept?.records ?? [], got, mode);
     const added = merged.length - (mode === 'merge' ? kept?.records.length ?? 0 : 0);
     kept = { records: merged, file, at: Date.now() };
     all = merged;
     const ok = await saveSet(def.id, kept);
     toKit(merged);
     drawIdle();
-    k.notice(ok ? `${n0(recs.length)} records read${mode === 'merge' && added < recs.length ? `, ${n0(Math.max(0, added))} of them new` : ''}.` : 'Read, but this phone would not keep them. Free some space and import again.', { tone: ok ? 'ok' : 'warn' });
+    k.notice(ok ? `${nRecs(got.length)} read${mode === 'merge' && added < got.length ? `, ${n0(Math.max(0, added))} of them new` : ''}.` : 'Read, but this phone would not keep them. Free some space and import again.', { tone: ok ? 'ok' : 'warn' });
   };
 
   const run = (files: File[]) => {
