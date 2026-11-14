@@ -51,6 +51,7 @@ export const J = {
   NEW_JOURNAL: 'NEW JOURNAL',
   JOURNAL_NAME: 'A name for it, like Travel or Kids',
   PLACE_FROM_PHOTO: (p: string) => `Place from the photo: ${p} (only the name of your saved place is kept).`,
+  GRATEFUL: 'THREE GOOD THINGS',
   TALK: 'SAY IT',
   TALK_ON: 'LISTENING…',
   ASK_ME: 'ASK GHOSTY ABOUT IT',

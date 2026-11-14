@@ -340,8 +340,8 @@ export const APP_1: Record<string, CatValue> = {
   // [planlane:agenda] the to-do list and the month by chat (features/agenda/asks.ts, turn.ts)
   'phrase:planagenda': {
     name: 'Your to-do list by chat', line: 'You can add to your to-do list, tick things off and hear what is due, just by saying it, with no AI.',
-    more: 'A day ("for tomorrow", "by Friday") and a repeat ("every Monday") are understood. Done on the phone, with UNDO; "show my month" opens the month and says what is on.',
-    say: ['Add buy milk to my to-do list', 'Put call the bank on my list for tomorrow', 'What do I need to do today?', 'Tick off buy milk'],
+    more: 'A day ("for tomorrow", "by Friday"), a time it rings ("at 3pm": my brain rings it, with your phone locked once its notifications are on), a repeat ("every Monday") and quick add’s marks (p2, #Home, @phone) are understood. Done on the phone, with UNDO; "show my month" opens the month and says what is on.',
+    say: ['Add buy milk to my to-do list', 'Add call the bank at 3pm to my to-do list', 'What do I need to do today?', 'Tick off buy milk'],
     scene: ['morning', 'phone'], cat: 'watch',
     since: '2026-11-13',
   },
@@ -364,6 +364,18 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Note: buy milk', 'Note to self, call the garage'], scene: ['talking'], cat: 'talk',
     since: '2026-11-14',
   },
+  // [applib] APPS, THE APP LIBRARY's screen (lane ENGINE): every app as data, drawn by one engine on THE APP KIT
+  'screen:apps': {
+    name: 'Every app on this phone',
+    line: 'You can find an app for almost anything in the Library, open it by saying its name, and pin your favourites to Home.',
+    more: 'Featured apps, the families, and search as you type; each app has its page with OPEN and PIN TO HOME. Trackers, collections, checklists, calculators, timers, flash cards, counters and guides, each with sample entries and a three-step tour the first time, undo and redo, Recently deleted and export. Everything an app keeps stays on this phone.',
+    say: ['Open the app library', 'Open wine cellar', 'Show my apps'], scene: ['phone'], cat: 'do',
+    go: { open: 'apps' }, tryText: 'Opens the Library',
+    since: '2026-11-14',
+  },
+  'deck:apps:find-an-app-for-anything': { same: 'screen:apps' },
+  'deck:apps:open-an-app-by-saying-its': { same: 'screen:apps' },
+  'deck:apps:pin-your-favourite-apps-to-home': { same: 'screen:apps' },
   // [apps.voice] TRANSLATE, the voice lane's flagship app
   'screen:translate': {
     name: 'Translate: type, paste or speak',

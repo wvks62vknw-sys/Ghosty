@@ -10,6 +10,7 @@
 //      entries are hidden;
 //  (h) KEEP IN TOUCH in People: add, mark caught up, take off, each with UNDO, and a nudge set on the brain;
 //  (i) GIFTS in People: idea to bought, a budget and over it, a gift received with its thank-you, UNDO;
+//  (j) YOUR PEOPLE imports a contacts file and exports everyone as one .vcf; (k) the group plan goes to the Calendar as one .ics;
 //  (g) Memory has a JOURNAL row that opens it; every key 44 pt, nothing sideways, nothing cut, in all seven looks at 390.
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/journal.spec.mjs [outDir]
@@ -107,6 +108,10 @@ async function run(vp, body) {
     await ed.locator('button', { hasText: 'PROMPT' }).click();
     const prompt = (await ed.locator('.jnprompt').innerText()).trim();
     check(prompt.length > 8, `${T} [b] no prompt shown ("${prompt}")`);
+    // (gratitude: three numbered lines and its prompt)
+    await ed.locator('button', { hasText: 'THREE GOOD THINGS' }).click();
+    check(/^1\. \n2\. \n3\. $/.test(await ed.locator('textarea').inputValue()) && /Three good things today/.test(await ed.locator('.jnprompt').innerText()), `${T} [b] THREE GOOD THINGS gave "${await ed.locator('textarea').inputValue()}"`);
+    await ed.locator('button', { hasText: 'PROMPT' }).click();
     await ed.locator('textarea').fill('Walked up Primrose Hill at sunset with a flask of tea. The city went pink.');
     await ed.locator('.jnmoods button', { hasText: 'Great' }).click();
     await ed.locator('input[list="jnplaces"]').fill('Primrose Hill');
@@ -294,6 +299,45 @@ for (const vp of [PHONE, PHONE2]) {
   check(!f.sideways, `${T} [i] the page goes sideways`);
   check(!f.cut.length, `${T} [i] words cut: ${JSON.stringify(f.cut)}`);
   await page.screenshot({ path: `${out}/gifts-${vp.width}.png` });
+  await ctx.close();
+}
+
+// (j) YOUR PEOPLE: a contacts file imported (kept on the brain through the people pack), then everyone exported as one .vcf
+{
+  const { ctx, page, T } = await open(PHONE2);
+  await page.evaluate(() => (location.hash = 'people'));
+  await page.waitForSelector('#pg-people', { state: 'attached', timeout: 10000 });
+  await openSection(page, 'people', 'Your people');
+  const imp = page.locator('#pg-people .ppvcf input[type=file]');
+  await imp.waitFor({ state: 'attached', timeout: 10000 });
+  const stamp = Date.now().toString(36).slice(-4);
+  const vcf = `BEGIN:VCARD\r\nVERSION:3.0\r\nN:Vcard${stamp};Priya;;;\r\nTEL;TYPE=CELL:07700 900123\r\nBDAY:--06-12\r\nEND:VCARD\r\nBEGIN:VCARD\r\nVERSION:3.0\r\nFN:Omar Vcard${stamp}\r\nEMAIL:omar@example.com\r\nEND:VCARD\r\n`;
+  await imp.setInputFiles({ name: 'contacts.vcf', mimeType: 'text/vcard', buffer: Buffer.from(vcf) });
+  await page.waitForFunction(() => /Kept 2 people from your contacts/.test(document.querySelector('#pg-people')?.textContent ?? ''), null, { timeout: 30000 }).catch(async () => problems.push(`${T} [j] the import did not finish: ${(await page.locator('#pg-people .pknote').last().innerText().catch(() => '')).slice(0, 160)}`));
+  await page.waitForFunction((s) => window.__ghosty?.people?.people?.filter((p) => p.name.includes(`Vcard${s}`)).length === 2, stamp, { timeout: 10000 }).catch(async () => problems.push(`${T} [j] the two people are not in YOUR PEOPLE: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.people?.people?.map((p) => p.name)))}`));
+  const priya = await page.evaluate((s) => window.__ghosty.people.people.find((p) => p.name === `Priya Vcard${s}`), stamp);
+  check(priya?.phone?.replace(/\s/g, '') === '07700900123' && /06-12$/.test(priya?.born ?? ''), `${T} [j] Priya kept as ${JSON.stringify(priya)}`);
+  const dl = page.waitForEvent('download', { timeout: 8000 }).catch(() => null);
+  await page.locator('#pg-people .ppvcf button', { hasText: /Export all/i }).click();
+  const d = await dl;
+  const text = d ? await d.createReadStream().then((st) => new Promise((ok) => { let b = ''; st.on('data', (c) => (b += c)); st.on('end', () => ok(b)); })) : '';
+  check(new RegExp(`FN:Priya Vcard${stamp}[\\s\\S]*TEL;TYPE=CELL:07700 900123[\\s\\S]*BDAY:--06-12`).test(text), `${T} [j] the export said ${String(text).slice(0, 160)}`);
+  // (k) the group plan into his Calendar: one .ics with its day, time and place
+  await openSection(page, 'people', 'Group plan');
+  const words = page.locator('#pg-people input[aria-label="The plan, in your words"]');
+  await words.waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
+  await words.fill('pub on Friday at 8 at the Crown, asked Ali');
+  await page.locator('#pg-people button', { hasText: /Make the plan/i }).click();
+  const cal = page.locator('#pg-people .ppics button');
+  await cal.waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push(`${T} [k] no ADD TO CALENDAR on the plan`));
+  const dl2 = page.waitForEvent('download', { timeout: 8000 }).catch(() => null);
+  if (await cal.isVisible().catch(() => false)) await cal.click();
+  const d2 = await dl2;
+  const ics = d2 ? await d2.createReadStream().then((st) => new Promise((ok) => { let b = ''; st.on('data', (c) => (b += c)); st.on('end', () => ok(b)); })) : '';
+  check(/BEGIN:VEVENT[\s\S]*DTSTART:\d{8}T200000[\s\S]*SUMMARY:[\s\S]*LOCATION:[\s\S]*Crown/i.test(String(ics)), `${T} [k] the .ics said ${String(ics).slice(0, 200)}`);
+  await page.locator('#pg-people button', { hasText: /Call off the plan/i }).click().catch(() => undefined);
+  // (the preview brain's people put back as they were)
+  for (const who of [`Priya Vcard${stamp}`, `Omar Vcard${stamp}`]) await fetch(`${base}/api/packs/do`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ pack: 'people', action: 'forget', args: { who } }) }).catch(() => undefined);
   await ctx.close();
 }
 

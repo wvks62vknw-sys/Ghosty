@@ -75,7 +75,7 @@ export const systemTab: TabDef = {
     clockKey.dataset.act = 'openclock';
     const calcKey = button('OPEN THE CALCULATOR', () => void import('../../calc/app').then((m) => m.openCalculator()));
     calcKey.dataset.act = 'opencalc';
-    ccp.body.append(h('div.note', 'World clocks, a stopwatch and timers; sums with a tape you can use again. Both work with no signal.'), h('div.keyrow', clockKey, calcKey));
+    ccp.body.append(h('div.note', 'World clocks, a stopwatch, timers and sums with a tape you can use again, all with no signal.'), h('div.keyrow', clockKey, calcKey));
     P.right.append(stp.el, bkp.el, ccp.el);
     // Sections (ui/sections.ts; the navigation sheet): a pill each for the status and the brain's keys (what he opens
     // System for, so first), the offline brain's report card and loops, its training and Night School, and the backup.

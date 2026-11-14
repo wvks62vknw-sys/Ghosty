@@ -153,6 +153,15 @@ export const journalTab: TabDef = {
         promptLine.textContent = e.prompt!;
         changed();
       });
+      // gratitude: three numbered lines to fill, under the prompt "Three good things today"
+      const grateful = button(J.GRATEFUL, () => {
+        e.prompt = 'Three good things today';
+        promptLine.textContent = e.prompt;
+        if (!/^1\. /m.test(text.value)) text.value = `${text.value.trimEnd()}${text.value.trim() ? '\n\n' : ''}1. \n2. \n3. `;
+        text.focus();
+        text.setSelectionRange(text.value.indexOf('1. ') + 3, text.value.indexOf('1. ') + 3);
+        changed();
+      });
       // talk it: his words written in through the phone's own recogniser (as the keyboard's microphone does), added to the end
       const talk = button(J.TALK, async (b) => {
         b.disabled = true;
@@ -321,7 +330,7 @@ export const journalTab: TabDef = {
           }))))
         : '';
       const body = h('div.jneditor', { dataset: { case: 'keep' } },
-        h('div.row.wrap.jnmeta', jsel, when), wx, promptLine, text, h('div.row.wrap', pk, talk), h('small.jnlab', 'MOOD'), moods,
+        h('div.row.wrap.jnmeta', jsel, when), wx, promptLine, text, h('div.row.wrap', pk, grateful, talk), h('small.jnlab', 'MOOD'), moods,
         h('small.jnlab', 'PLACE'), place, placesList, h('small.jnlab', 'PHOTOS'), photos, h('div.row.wrap', button(J.PHOTO, () => fileIn.click()), fileIn),
         h('small.jnlab', 'VOICE'), voiceBox, history, said, h('div.row.wrap.jnkeys', done, askKey, ...(was ? [del] : [])), h('p.note', J.ASK_NOTE));
       const m = modal(was ? day(e.at) : 'New entry', body, () => {

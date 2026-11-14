@@ -217,6 +217,72 @@ export async function removeJob(storage: DurableObjectStorage, id: string): Prom
   });
 }
 
+/** [planlane3:onelist2] (plan.u4) The jobs that ring his to-dos are known by this mark on `eventId` (never an event's id). */
+export const TODO_RING = 'todo:';
+/**
+ * [planlane3:onelist2] (plan.u4) His to-dos that ring at their time: the reminder jobs follow the one list (tools/work.ts calls this
+ * after every change). One reminder job per open to-do with a day and a time, at that time on that day in his time zone; a repeating
+ * one's job repeats with it, so it rings each time it comes round. A tick or a removal takes the job away (the ring is cancelled), a
+ * new time or day moves it, new words re-word it. A one-off whose time has gone gets no job (it already rang, or it was set late).
+ * Nothing else on the clock is touched. Returns how many rings are now set.
+ */
+export async function syncTodoRings(
+  storage: DurableObjectStorage,
+  rings: readonly { id: string; due: string; time: string; every?: 'daily' | 'weekdays' | 'weekly' | 'monthly'; title: string; text: string }[],
+  tzIn: string,
+  now = Date.now(),
+): Promise<number> {
+  const tz = safeTz(tzIn);
+  const want = new Map<string, { next: number; repeat: Repeat; title: string; text: string }>();
+  for (const r of rings) {
+    const [y, m, d] = r.due.split('-').map(Number);
+    const [h, mi] = r.time.split(':').map(Number);
+    if (![y, m, d, h, mi].every((n) => Number.isFinite(n))) continue;
+    let next = fromZoned(y!, m!, d!, h!, mi!, tz);
+    const repeat: Repeat = r.every ?? 'none';
+    // (a time already reached has rung, or was set too late: a one-off gets no job, a repeating one its next time; never a ring twice)
+    if (next <= now) {
+      if (repeat === 'none') continue;
+      next = nextRun(next, repeat, tz, now) ?? next;
+    }
+    if (repeat === 'weekdays') {
+      const z = zoned(next, tz);
+      if (z.wd === 0 || z.wd === 6) next = fromZoned(z.y, z.m, z.d + (z.wd === 6 ? 2 : 1), z.h, z.mi, tz);
+    }
+    want.set(`${TODO_RING}${r.id}`, { next, repeat, title: r.title.slice(0, 120), text: r.text.slice(0, 4000) });
+  }
+  return withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    let changed = false;
+    const kept: Job[] = [];
+    const had = new Set<string>();
+    for (const j of jobs) {
+      if (!j.eventId?.startsWith(TODO_RING)) {
+        kept.push(j);
+        continue;
+      }
+      const w = want.get(j.eventId);
+      if (!w || had.has(j.eventId)) {
+        changed = true;
+        continue;
+      }
+      had.add(j.eventId);
+      if (j.next !== w.next || j.repeat !== w.repeat || j.title !== w.title || j.text !== w.text || j.tz !== tz) {
+        Object.assign(j, { next: w.next, repeat: w.repeat, title: w.title, text: w.text, tz });
+        changed = true;
+      }
+      kept.push(j);
+    }
+    for (const [eventId, w] of want) {
+      if (had.has(eventId) || kept.length >= MAX_JOBS) continue;
+      kept.push({ id: newId(), kind: 'reminder', title: w.title, text: w.text, next: w.next, repeat: w.repeat, tz, createdAt: now, eventId });
+      changed = true;
+    }
+    if (changed) await saveJobs(storage, kept);
+    return kept.filter((j) => j.eventId?.startsWith(TODO_RING)).length;
+  });
+}
+
 /** After a job ran: move a repeating job to its next time, or delete a one-off. */
 export async function finishJob(storage: DurableObjectStorage, id: string, result?: string): Promise<void> {
   return withJobs(storage, async () => {

@@ -106,10 +106,12 @@ function b64uToBytes(s: string): Uint8Array<ArrayBuffer> {
 
 /** "Install" prompt on Android/desktop Chrome (iPhone uses the Share menu instead). */
 let deferred: (Event & { prompt: () => Promise<void> }) | null = null;
-addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferred = e as Event & { prompt: () => Promise<void> };
-});
+// (only where there is a window: the agenda's pure checks load this file in Node, through the to-do list's ring line)
+if (typeof addEventListener === 'function')
+  addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferred = e as Event & { prompt: () => Promise<void> };
+  });
 export const canPromptInstall = () => !!deferred;
 export async function promptInstall(): Promise<boolean> {
   if (!deferred) return false;

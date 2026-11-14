@@ -35,7 +35,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 
 // ---- what the screens and the areas hold (shell/areadefs.ts; ui/sheetpage.ts draws a screen's pages under its pills)
 const AREA_TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter', 'translate'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
+  ask: ['core', 'brief', 'apps', 'voice'], see: ['eye', 'lens', 'interpreter', 'translate'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
@@ -52,7 +52,7 @@ const NEW = {
   kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan', 'Pantry', 'Recipes'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN', 'PANTRY', 'RECIPES'] },
   people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Coming up', 'Group plan'], pages: ['YOUR PEOPLE', 'COMING UP', 'GROUP PLAN'] },
   work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Jobs', 'Meetings', 'Interview', 'Document'], pages: ['TO-DO', 'JOB APPLICATIONS', 'MEETINGS', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
-  creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },
+  creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'DESIGN', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },
   outside: { area: 'life', name: 'Outside', word: 'toilets', pills: ['Walk', 'Nearby', 'My car', 'Lost', 'Split'], pages: ['WALK', 'NEARBY', 'MY CAR', 'LOST', 'SPLIT'] },
   homeadmin: { area: 'life', name: 'Household', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms', 'Papers'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS', 'PAPERS'] },
   learning: { area: 'learn', name: 'Learning', word: 'first aid', pills: ['Words', 'Draw', 'Typing', 'Drills', 'First aid', 'Plan'], pages: ['WORDS', 'CARDS', 'DRAW', 'WRITING', 'TYPING', 'READING', 'MEMORY', 'MATHS', 'SPELLING', 'FIRST AID', 'PLAN', 'STREAKS'] },

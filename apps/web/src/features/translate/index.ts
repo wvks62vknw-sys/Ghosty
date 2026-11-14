@@ -48,6 +48,12 @@ type View = 'translate' | 'book' | 'history';
 type Style = '' | 'formal' | 'casual';
 const PAIR = 'ghosty.translate.pair';
 const SEEN = 'ghosty.translate.seen';
+const PREFS = 'ghosty.translate.settings';
+/** His settings: each answer said aloud (off), and translating as he types (on; off, it waits for TRANSLATE or Return). */
+interface Prefs {
+  aloud: boolean;
+  live: boolean;
+}
 /** The first run's three steps (the App Kit's tour). */
 const TOUR: [string, string, string] = [
   'Type or paste, and the answer comes as you type, in the language you pick.',
@@ -84,6 +90,7 @@ export const trState = {
   book: [] as Starred[],
   trip: '',
   spoken: [] as { text: string; lang: string }[],
+  prefs: { aloud: false, live: true } as Prefs,
 };
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -127,6 +134,8 @@ export const translateTab: TabDef = {
     trState.history = readList<Done>(localStorage.getItem(HISTORY_KEY));
     trState.book = readList<Starred>(localStorage.getItem(BOOK_KEY));
     trState.trip = load<string>(TRIP_KEY, '');
+    const p0 = load<Partial<Prefs>>(PREFS, {});
+    trState.prefs = { aloud: p0.aloud === true, live: p0.live !== false };
 
     // ---- the three views, one tap apart
     const views: Record<View, HTMLElement> = { translate: h('div.tlxview'), book: h('div.tlxview'), history: h('div.tlxview') };
@@ -158,12 +167,13 @@ export const translateTab: TabDef = {
     selFrom.addEventListener('change', () => {
       trState.from = selFrom.value;
       savePair();
-      soon(0);
+      // (with "Translate as I type" off, nothing is translated until he asks)
+      if (trState.prefs.live) soon(0);
     });
     selTo.addEventListener('change', () => {
       trState.to = selTo.value;
       savePair();
-      soon(0);
+      if (trState.prefs.live) soon(0);
     });
     const swap = button('SWAP', () => {
       const found = trState.out?.from || trState.from;
@@ -248,7 +258,42 @@ export const translateTab: TabDef = {
       tour.replaceChildren(h('span.ak-tourn', `${tourAt} of 3`), h('p', TOUR[tourAt - 1]!), next);
     };
     drawTour();
-    views.translate.append(tour, pairRow, boxRow, status, skeleton, failed, card, modes, note);
+    // SETTINGS and HELP, folded under the note: good defaults, two switches, and how it works in four lines
+    const sw = (id: keyof Prefs, label: string) => {
+      const b = h('button.tlxswitch', { type: 'button', role: 'switch', 'aria-checked': String(trState.prefs[id]), dataset: { case: 'keep', pref: id } }, h('span', label), h('b', trState.prefs[id] ? 'On' : 'Off'));
+      b.addEventListener('click', () => {
+        trState.prefs = { ...trState.prefs, [id]: !trState.prefs[id] };
+        keep(PREFS, trState.prefs);
+        b.setAttribute('aria-checked', String(trState.prefs[id]));
+        b.querySelector('b')!.textContent = trState.prefs[id] ? 'On' : 'Off';
+        paintGo();
+      });
+      return b;
+    };
+    const go = button('TRANSLATE IT', () => soon(0));
+    go.dataset.case = 'keep';
+    go.dataset.act = 'go';
+    const paintGo = () => (go.hidden = trState.prefs.live);
+    const more = h(
+      'details.tlxmore',
+      h('summary', 'Settings and help'),
+      h('div.tlxprefs', sw('aloud', 'Say each answer aloud'), sw('live', 'Translate as I type')),
+      h(
+        'ul.tlxhelp',
+        h('li', 'Leave FROM on “Find it for me” and I work out the language; pick it when a short word could be several.'),
+        h('li', 'Formal uses the polite “you” where the language has one; casual the friendly one.'),
+        h('li', 'The star keeps a line in your phrasebook under the trip you name; EXPORT shares it as a file.'),
+        h('li', 'With no signal I translate on this phone, roughly, and say so. Settings, Offline brain is where that is set up.'),
+      ),
+    );
+    paintGo();
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !trState.prefs.live) {
+        e.preventDefault();
+        soon(0);
+      }
+    });
+    views.translate.append(tour, pairRow, boxRow, go, status, skeleton, failed, card, modes, note, more);
 
     let visit = 0;
     let asked = 0;
@@ -285,6 +330,7 @@ export const translateTab: TabDef = {
         trState.history = withDone(trState.history, { id: `t${Date.now().toString(36)}`, said: text, came: r.came, from: r.from, to: trState.to, at: Date.now(), style: trState.style });
         keep(HISTORY_KEY, trState.history);
         paintOut();
+        if (trState.prefs.aloud && r.how !== 'same') sayAloud(r.came, trState.to);
       } catch (e) {
         if (me !== asked || v !== visit) return;
         trState.state = 'failed';
@@ -354,7 +400,11 @@ export const translateTab: TabDef = {
       paintOut();
       toast(was ? 'Taken out of the phrasebook.' : `Starred into the phrasebook, under ${trState.trip || NO_TRIP}.`, 'ok');
     });
-    box.addEventListener('input', () => soon());
+    box.addEventListener('input', () => {
+      if (trState.prefs.live) return soon();
+      if (!box.value.trim()) paintEmpty();
+      else say('Tap TRANSLATE IT, or Return, when you are ready.');
+    });
 
     // SPEAK: his voice fills the box, in the FROM language (English when it is to be found)
     let ear: Ear | null = null;

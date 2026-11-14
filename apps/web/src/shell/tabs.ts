@@ -124,7 +124,9 @@ export function ensureMounted(id: string): boolean {
 
 export function go(id: string): boolean {
   // "eye?machine": the tab, then what follows the '?' handed to it (a notification or a link can land in a mode)
-  const [name, arg] = id.split('?') as [string, string | undefined];
+  // (and "apps/wine-cellar": THE APP LIBRARY's apps, each at its own address; the part after the first '/' is handed over the same way)
+  const cut = id.search(/[?/]/);
+  const [name, arg] = (cut < 0 ? [id, undefined] : [id.slice(0, cut), id.slice(cut + 1) || undefined]) as [string, string | undefined];
   const def = defs.find((d) => d.id === name || d.title.toLowerCase() === name.toLowerCase());
   if (!def) return false;
   const prev = ui.get().tab;
