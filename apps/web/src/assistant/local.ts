@@ -275,7 +275,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const two = ask.two ? TWO_WAYS[ask.two] : undefined;
     if (two) return answer(text, two.q, { kind: 'look', go: [{ id: 'look:colour', ask: -1, label: two.a[0], send: `${ask.two} colour` }, { id: 'look:ground', ask: -1, label: two.a[1], send: `${ask.two} background` }] }, opts);
     const theme = await import('../state/theme');
-    const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome() });
+    const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome(), ...theme.easyArgs(ask) });
     theme.applyRecipe(next);
     return answer(text, said, { kind: 'look', go: [{ id: 'screen:look', ask: -1, label: 'See it on The look', open: 'look' }] }, opts);
   },

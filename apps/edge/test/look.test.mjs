@@ -668,3 +668,30 @@ test('THEMES-2: the switches each change one thing and keep the floor — body 1
   assert.match(read('../../web/src/assistant/sfx.ts'), /kind === 'click'/);
   assert.match(read('../../web/src/ui/dials.ts'), /Reduce Motion is on in your phone’s settings, so I hold still whatever this says: it always wins\./);
 });
+
+// [consistency] ACCESSIBILITY (APPS ROUND): one switch for the easiest reading, in every look; off puts his own switches back
+test('ACCESSIBILITY: one switch sets the reading switches together, by words too, and off puts his own back', () => {
+  needRecipe();
+  const A = TH.lookAsked;
+  for (const t of ['accessibility on', 'turn accessibility on', 'Accessibility mode on.', 'make it easier to read', 'easy reading on', 'turn on accessibility']) assert.deepEqual(A(t), { easy: true }, t);
+  for (const t of ['accessibility off', 'turn off accessibility', 'easy reading off']) assert.deepEqual(A(t), { easy: false }, t);
+  for (const t of ['accessibility', 'what is accessibility', 'open accessibility settings']) assert.ok(!A(t)?.easy, `${t}: not a switch`);
+  const r = TH.presetRecipe(TH.DIRECTION_PRESETS.find((p) => p.key === 'glass'));
+  const mine = { ...r, switches: { ...r.switches, body: 19, readings: 'mono', glow: 'on' } };
+  const on = TH.applyAsk(mine, { easy: true });
+  assert.ok(TH.easyOn(on.recipe.switches), 'every reading switch is set');
+  assert.equal(on.recipe.switches.body, 21);
+  assert.equal(on.recipe.switches.safe, 'on');
+  assert.equal(on.recipe.switches.motion, 'calm');
+  assert.equal(on.recipe.world, mine.world, 'the look itself stays');
+  assert.equal(on.recipe.colour, mine.colour, 'his colour stays');
+  assert.match(on.said, /^Accessibility on: body text at 21 points/);
+  const off = TH.applyAsk(on.recipe, { easy: false }, { before: { body: 19, readings: 'mono', glow: 'on', floor: 'on', motion: 'alive', safe: 'off' } });
+  assert.deepEqual(off.recipe.switches, mine.switches, 'off puts back exactly the switches he had');
+  assert.equal(off.said, 'Accessibility off: your own switches are back.');
+  const bare = TH.applyAsk(on.recipe, { easy: false });
+  assert.equal(bare.recipe.switches.body, TH.SWITCH_DEFAULTS.body, 'with nothing kept, each switch goes to its default');
+  // the phone keeps his switches before it, and the dials show it as one row first
+  assert.match(read('../../web/src/state/theme.ts'), /ghosty\.look\.easybefore/);
+  assert.match(read('../../web/src/ui/dials.ts'), /dataset: \{ switch: 'easy' \}/);
+});
