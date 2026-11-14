@@ -205,6 +205,49 @@ for (const vp of [PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================== b2. the comics and games he made ride the backup (polish3.c1)
+{
+  log('390: comics and games in the backup');
+  const { createRequire } = await import('node:module');
+  const { buildSync } = createRequire(new URL('../apps/web/package.json', import.meta.url))('esbuild');
+  const root = new URL('../', import.meta.url).pathname;
+  const r = buildSync({
+    stdin: { contents: "import { collect, restoreEditors, reportText } from './apps/web/src/features/system/backup.ts';\nimport * as cs from './apps/web/src/features/comic/store.ts';\nimport * as gs from './apps/web/src/studio-game/store.ts';\nimport { template } from './apps/web/src/studio-game/model.ts';\nwindow.__bk = { collect, restoreEditors, reportText, cs, gs, template };", resolveDir: root, loader: 'ts' },
+    bundle: true, write: false, format: 'iife', platform: 'browser', logLevel: 'silent', loader: { '.css': 'empty' },
+  });
+  const { ctx, page } = await phone(PHONE2);
+  await page.evaluate(r.outputFiles[0].text);
+  const got = await page.evaluate(async () => {
+    const B = window.__bk;
+    const game = B.template('platformer', 'Spec Jumper');
+    await B.gs.putGame(game, '');
+    const book = { id: 'spec-comic-1', title: 'Spec Comic', from: 'made', pages: 2, bytes: 100, added: Date.now(), kind: 'a comic you made' };
+    await B.cs.updateBook(book);
+    await B.cs.keepMade(book.id, { id: book.id, title: 'Spec Comic', panels: ['a hero', 'a twist'] });
+    const bundle = await B.collect();
+    const inGame = bundle.editors?.games?.some((x) => x.game.id === game.id && x.game.name === 'Spec Jumper');
+    const inComic = bundle.editors?.comics?.some((x) => x.book.id === book.id && x.made?.panels?.length === 2);
+    await B.gs.removeGame(game.id);
+    await B.cs.dropBook(book.id);
+    const out = { restored: [], merged: [], same: [], skipped: [], docs: 0, photos: 0, looks: 0, videos: 0, photosAway: 0 };
+    await B.restoreEditors(bundle.editors, out);
+    const backGame = (await B.gs.getGame(game.id))?.name ?? '';
+    const backComic = (await B.cs.bookOf(book.id))?.title ?? '';
+    const backMade = await B.cs.madeOf(book.id);
+    const words = B.reportText(out);
+    await B.gs.removeGame(game.id);
+    await B.cs.dropBook(book.id);
+    return { inGame, inComic, backGame, backComic, made: !!backMade, out, words };
+  }).catch((e) => ({ error: String(e.message).split('\n')[0] }));
+  if (got.error) check(false, `[b2] the comics and games backup could not be tried: ${got.error}`);
+  else {
+    check(got.inGame && got.inComic, `[b2] the backup does not carry the game and the comic: ${JSON.stringify(got)}`);
+    check(got.backGame === 'Spec Jumper' && got.backComic === 'Spec Comic' && got.made, `[b2] a restore did not put them back: ${JSON.stringify(got)}`);
+    check(got.words === 'Put back in the editors: 1 comic you made, 1 game you made.', `[b2] the restore says "${got.words}"`);
+  }
+  await ctx.close();
+}
+
 // ================================================================== c. A HEADS-UP
 for (const vp of [PHONE, PHONE2]) {
   const W = vp.width;
@@ -232,4 +275,4 @@ const secs = ((Date.now() - t0) / 1000).toFixed(0);
 if (problems.length) {
   process.exitCode = 1;
   console.log(`PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}`);
-} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, and a heads-up told once.`);
+} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, and a heads-up told once.`);

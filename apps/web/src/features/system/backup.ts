@@ -26,6 +26,8 @@ import { rawText, sayError } from '../../ui/hisWords';
 import type { Preset } from '../../photo/recipe';
 import type { RecipeCopy } from '../../photo/store';
 import type { Project } from '../../video/model';
+import type { Book } from '../comic/store';
+import type { Game } from '../../studio-game/model';
 
 /** What goes in, and what it is called in plain words. `whole`: kept as one piece (the phone's wins if it has one). */
 export const BACKUP_KEYS: { key: string; label: string; whole?: boolean }[] = [
@@ -70,15 +72,41 @@ export interface Editors {
   photos: RecipeCopy[];
   looks: Preset[];
   videos: Project[];
+  /** (NEXT ROUND, polish3.c1) the comics he made, as their scripts (they draw again), and the games he made in THE GAME STUDIO. */
+  comics?: { book: Book; made: unknown }[];
+  games?: { game: Game; thumb: string; at: number }[];
 }
 
 /** What the photo and video editors keep in this phone's own database, read for the backup (each store loaded only now). */
 async function editorsNow(): Promise<Editors> {
-  const [ph, vd] = await Promise.all([
+  const [ph, vd, comics, games] = await Promise.all([
     import('../../photo/store').then((m) => m.recipesForBackup()).catch(() => ({ recipes: [], looks: [] })),
     import('../../video/store').then((m) => m.projectsForBackup()).catch(() => [] as Project[]),
+    comicsNow().catch(() => []),
+    gamesNow().catch(() => []),
   ]);
-  return { photos: ph.recipes, looks: ph.looks, videos: vd };
+  return { photos: ph.recipes, looks: ph.looks, videos: vd, comics, games };
+}
+/** The comics he made: the shelf's entry and the script that draws it again (imported and downloaded comics are pictures: too big). */
+async function comicsNow(): Promise<{ book: Book; made: unknown }[]> {
+  const c = await import('../comic/store');
+  const mine = (await c.books()).filter((b) => b.from === 'made');
+  const out: { book: Book; made: unknown }[] = [];
+  for (const book of mine) {
+    const made = await c.madeOf(book.id).catch(() => undefined);
+    if (made !== undefined) out.push({ book, made });
+  }
+  return out;
+}
+/** The games he made in THE GAME STUDIO: each game whole (its rooms, its rules), with its small picture. */
+async function gamesNow(): Promise<{ game: Game; thumb: string; at: number }[]> {
+  const g = await import('../../studio-game/store');
+  const out: { game: Game; thumb: string; at: number }[] = [];
+  for (const m of await g.listGames()) {
+    const game = await g.getGame(m.id).catch(() => null);
+    if (game) out.push({ game, thumb: m.thumb, at: m.at });
+  }
+  return out;
 }
 
 export type { LastBackup };
@@ -170,7 +198,7 @@ export async function open(s: SealedBackup, owner: string): Promise<Bundle> {
   }
   const b = JSON.parse(new TextDecoder().decode(plain)) as Partial<Bundle>;
   const e = b.editors && typeof b.editors === 'object' ? b.editors : null;
-  const editors: Editors | undefined = e ? { photos: Array.isArray(e.photos) ? e.photos : [], looks: Array.isArray(e.looks) ? e.looks : [], videos: Array.isArray(e.videos) ? e.videos : [] } : undefined;
+  const editors: Editors | undefined = e ? { photos: Array.isArray(e.photos) ? e.photos : [], looks: Array.isArray(e.looks) ? e.looks : [], videos: Array.isArray(e.videos) ? e.videos : [], comics: Array.isArray(e.comics) ? e.comics : [], games: Array.isArray(e.games) ? e.games : [] } : undefined;
   return { v: 1, at: Number(b.at) || s.at, local: b.local && typeof b.local === 'object' ? b.local : {}, library: Array.isArray(b.library) ? b.library : [], ...(editors ? { editors } : {}) };
 }
 
@@ -269,6 +297,9 @@ export interface RestoreReport {
   videos: number;
   /** Photo edits in the backup whose photo is not on this phone (the photo itself is never in a backup). */
   photosAway: number;
+  /** Comics he made and games he made, put back (NEXT ROUND, polish3.c1). */
+  comics?: number;
+  games?: number;
 }
 
 /**
@@ -340,6 +371,30 @@ export async function restoreEditors(e: Editors | undefined, out: RestoreReport)
     const vd = await import('../../video/store').catch(() => null);
     if (vd) for (const p of e.videos) if ((await vd.restoreProject(p).catch(() => 'same' as const)) === 'kept') out.videos++;
   }
+  // a comic he made comes back when this phone has none by its id; a game when it has none, or an older one (the newer wins)
+  if (e.comics?.length) {
+    const c = await import('../comic/store').catch(() => null);
+    if (c) for (const x of e.comics) {
+      if (!x?.book?.id || (await c.bookOf(x.book.id).catch(() => undefined))) continue;
+      try {
+        await c.updateBook(x.book);
+        await c.keepMade(x.book.id, x.made);
+        out.comics = (out.comics ?? 0) + 1;
+      } catch {
+        /* this one stays out: the rest go on */
+      }
+    }
+  }
+  if (e.games?.length) {
+    const g = await import('../../studio-game/store').catch(() => null);
+    if (g) {
+      const here = new Map((await g.listGames().catch(() => [])).map((m) => [m.id, m.at]));
+      for (const x of e.games) {
+        if (!x?.game?.id || (here.get(x.game.id) ?? 0) >= x.at) continue;
+        if ((await g.putGame(x.game, x.thumb).catch(() => ({ kept: false }))).kept) out.games = (out.games ?? 0) + 1;
+      }
+    }
+  }
 }
 
 /** Restore, then reload at once; the report is shown again after the reload (takeRestoreReport). */
@@ -372,7 +427,7 @@ export function reportText(r: RestoreReport): string {
   if (r.merged.length) parts.push(`Joined with what was here (newer wins): ${r.merged.join(', ')}.`);
   if (r.docs) parts.push(`${r.docs} document${r.docs === 1 ? '' : 's'} kept only on this phone put back in the library.`);
   const n = (k: number, one: string) => `${k} ${one}${k === 1 ? '' : 's'}`;
-  const ed = [r.photos ? n(r.photos, 'photo edit') : '', r.looks ? `${r.looks} ${r.looks === 1 ? 'look' : 'looks'} of your own` : '', r.videos ? n(r.videos, 'video project') : ''].filter(Boolean);
+  const ed = [r.photos ? n(r.photos, 'photo edit') : '', r.looks ? `${r.looks} ${r.looks === 1 ? 'look' : 'looks'} of your own` : '', r.videos ? n(r.videos, 'video project') : '', r.comics ? `${r.comics} ${r.comics === 1 ? 'comic' : 'comics'} you made` : '', r.games ? `${r.games} ${r.games === 1 ? 'game' : 'games'} you made` : ''].filter(Boolean);
   if (ed.length) parts.push(`Put back in the editors: ${ed.join(', ')}.`);
   if (r.photosAway) parts.push(`${n(r.photosAway, 'photo edit')} waiting for ${r.photosAway === 1 ? 'its photo' : 'their photos'}: the photos themselves stay on the phone they were taken on.`);
   if (!parts.length) parts.push('Everything in that backup was already on this phone.');
