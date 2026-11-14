@@ -67,7 +67,8 @@ const L = (page) => page.evaluate(() => ({ ...window.__ghosty.applib.library }))
 const tryApp = async (page, def) => {
   await page.evaluate((d) => window.__ghosty.applib.try(d), def);
   await page.waitForSelector(`.ak-app[data-app="${def.id}"]`, { timeout: 8000 });
-  await page.evaluate(() => { for (const b of document.querySelectorAll('#pg-apps .ak-tour button')) b.click(); });
+  // (the first run's tour, ended: THE PRO ROUND's coach marks go with it, so they never stand over the keys this drives)
+  await page.evaluate(() => { for (let i = 0; i < 4; i++) document.querySelector('.al-pro-frame .ak-tour:not([hidden]) button')?.click(); });
   await page.evaluate(() => new Promise((r) => setTimeout(r, 50)));
 };
 /** One scroll area, nothing sideways, every key 44 pt, the keys at the bottom, words never under a key. */
@@ -111,9 +112,14 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
   m = await fit(page, '#pg-apps');
   check(fitOk(m), `[page fit] ${JSON.stringify(m)}`);
   await page.click('#pg-apps .al-aboutkeys button[aria-label="Open Spec Cellar"]');
-  await page.waitForSelector('#pg-apps .ak-app[data-app="spec-cellar"]');
+  await page.waitForSelector('.al-pro-frame .ak-app[data-app="spec-cellar"]');
+  await page.evaluate(() => { for (let i = 0; i < 4; i++) document.querySelector('.al-pro-frame .ak-tour:not([hidden]) button')?.click(); });
   check(/#apps\/spec-cellar$/.test(page.url()), `[open] the address is ${page.url()}`);
-  await page.click('#pg-apps .ak-head .al-back');
+  await page.click('.al-pro-frame .ak-head .al-back');
+  // (THE PRO ROUND: back closes the app into its icon on the page it was opened from, then the front page has it pinned)
+  await page.waitForSelector('#pg-apps .al-about[data-app="spec-cellar"]');
+  await page.waitForFunction(() => !document.querySelector('.al-pro-frame'));
+  await page.evaluate(() => { location.hash = '#apps'; });
   await page.waitForSelector('#pg-apps .al-shelf[data-shelf="pinned"] .ak-card');
   check(await page.locator('#pg-apps .al-shelf[data-shelf="recent"] .al-tile[data-app="spec-cellar"]').count() === 1, '[recent] the app is not in Recently used');
   // his words, on the phone: "open spec cellar" (and a screen's name is left alone)
@@ -128,7 +134,7 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
 // ── each archetype through its main move ──────────────────────────────────────────────────────
 {
   const { ctx, page } = await open(PHONE, 'glass');
-  const A = '#pg-apps .ak-app';
+  const A = '.al-pro-frame .ak-app';
   // log: the stats and rings, the chart, the reminder, every field type in the sheet, an add, the views
   await tryApp(page, FIX.log);
   check(await page.locator(`${A} .al-stat`).count() === 3 && await page.locator(`${A} .al-ring`).count() === 2, '[log] the stats strip or its goal rings are missing');
@@ -182,7 +188,8 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
 
   // timer: start, steps, a reload keeps it running, the session kept
   await tryApp(page, FIX.timer);
-  await page.click(`${A} .ak-head button[aria-label="Settings"]`);
+  await page.click(`${A} .ak-head button[aria-label="More"]`);
+  await page.click(`${A} .al-pro-menu button[aria-label="Settings"]`);
   await page.click(`${A} .ak-sheet .ak-switch:has-text("Say each step aloud")`);
   check(await page.locator(`${A} .ak-sheet .ak-switch:has-text("Say each step aloud")`).getAttribute('aria-checked') === 'false', '[timer] the voice switch did not turn off');
   await page.click(`${A} .ak-sheet button:has-text("Done")`);
@@ -191,11 +198,10 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
   await page.reload();
   await page.waitForSelector(`${A}[data-app="spec-intervals"]`, { timeout: 15000 }).catch(() => problems.push('[timer] a reload did not open the timer again'));
   check(await page.locator(`${A} .al-timer[data-on="true"]`).count() === 1, '[timer] a reload stopped the timer');
-  await page.waitForFunction(() => /Spec Intervals: 2 rounds/.test(document.querySelector('#pg-apps .ak-body')?.textContent ?? ''), null, { timeout: 9000 }).catch(() => problems.push('[timer] the finished session was not kept'));
+  await page.waitForFunction(() => /Spec Intervals: 2 rounds/.test(document.querySelector('.al-pro-frame .ak-body')?.textContent ?? ''), null, { timeout: 9000 }).catch(() => problems.push('[timer] the finished session was not kept'));
 
   // deck: show, rate, the due count goes down
-  await page.evaluate((d) => window.__ghosty.applib.try(d), FIX.deck);
-  await page.waitForSelector(`${A}[data-app="spec-capitals"]`);
+  await tryApp(page, FIX.deck);
   check(/4 due/.test(await page.textContent(`${A} .al-progress b`)), '[deck] not 4 due at the start');
   await page.click(`${A} button:has-text("Show answer")`);
   check(await page.textContent(`${A} .al-a`) === 'Paris', '[deck] the answer is not shown');
@@ -239,7 +245,7 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
       a.open(id);
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const eng = { ...a.engine };
-      out.push({ id, hash: location.hash, eng, m: location.hash.startsWith('#apps/') && !(eng.error === 'no renderer' && ['game', 'importer'].includes(eng.archetype)) ? FIT('#pg-apps') : null });
+      out.push({ id, hash: location.hash, eng, m: location.hash.startsWith('#apps/') && !(eng.error === 'no renderer' && ['game', 'importer'].includes(eng.archetype)) ? FIT('.al-pro-frame') : null });
       if (!location.hash.startsWith('#apps')) location.hash = '#apps';
     }
     return out;
@@ -263,9 +269,9 @@ for (const vp of [PHONE, SMALL]) {
     const { ctx, page } = await open(vp, world);
     for (const def of Object.values(FIX).filter((d) => d.archetype !== 'screen')) {
       await tryApp(page, def);
-      const m = await fit(page, '#pg-apps');
+      const m = await fit(page, '.al-pro-frame');
       check(fitOk(m), `[${world} ${vp.width} ${def.archetype}] ${JSON.stringify(m)}`);
-      const tb = await page.evaluate(() => Math.round(Math.min(innerHeight, document.querySelector('#pg-apps').getBoundingClientRect().bottom) - document.querySelector('#pg-apps .ak-tools').getBoundingClientRect().bottom));
+      const tb = await page.evaluate(() => Math.round(Math.min(innerHeight, document.querySelector('.al-pro-frame').getBoundingClientRect().bottom) - document.querySelector('.al-pro-frame .ak-tools').getBoundingClientRect().bottom));
       check(tb >= 0 && tb < 120, `[${world} ${vp.width} ${def.archetype}] the keys are not at the bottom: ${tb}`);
       if (vp.width === 390 && world === 'glass') await page.screenshot({ path: `${out}/applib-${def.archetype}.png` });
     }
