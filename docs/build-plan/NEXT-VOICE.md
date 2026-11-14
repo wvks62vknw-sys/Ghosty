@@ -60,6 +60,13 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 - "Put it back" (just after a look change) or "the old colour" (any time) returns the look before.
 - Every saved change is remembered, including taps in Settings. The day's own flips and the start are not.
 
+### Shades by words (voice.u7)
+- "A bit softer blue" gives light blue; "a bit deeper pink" gives red; "brighter green" gives lime; "a warmer colour" moves to the
+  next colour that way.
+- The twelve colours are fixed blocks, so a shade is the neighbouring plain colour in that direction, and the reply names it.
+- At the end of a way it says so ("Blue is as deep as I go that way") and never makes a shade up.
+- A bare "a bit darker" is still the background, as before.
+
 ### Calm, focus or lively colours (voice.s10)
 - "Calm colours" gives light blue, the glow off and nothing moving.
 - "Focus colours" gives grey, no glow and a plain floor.
@@ -112,13 +119,13 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
   ON turn is now a sentence with nothing of yours in it, because one about your calendar is now kept on the phone.
 
 ## What is left (later items, listed for the next round)
-- **Shades by words (voice.u7):** "a bit darker red" needs new colour shades worked out from the tokens; not built.
 - **A colour for each room (voice.u8):** not built.
 - **Everyday wordings in other languages (voice.u10):** not built.
 - **Settings for each person introduced (voice.s2):** not built.
 - **Colour-blind safe looks (voice.s5):** not built.
 - **Say "Ghosty" to start listening (voice.s8):** not built; it needs a listening pack and the download rule.
-- **Comic colours by plain names (voice.c3):** not built.
+- **Comic colours by plain names (voice.c3):** not built. The comic's speech balloons have no colour of their own yet, so this needs
+  the COMIC lane's drawing to take a colour first.
 - **Quiet mode, one gap:** after a reinstall, the phone's recall index refills from the brain's history, which does not carry who
   spoke a turn. Their turns from before the reinstall could come back into the phone's recall.
 

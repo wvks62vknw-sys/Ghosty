@@ -470,3 +470,19 @@ test('spoken notes are kept as his only when the phone is sure the voice was his
   assert.match(vn, /\(a note by you, said aloud on /);
   assert.match(vn, /I only keep a spoken note when I’m sure it’s you\. Type it and I’ll keep it\./);
 });
+
+test('shades by words: "softer blue", "a bit deeper pink", "a warmer colour" move to the neighbouring plain colour, and say so (voice.u7)', () => {
+  const base = TH.recipeFrom('reactor');
+  for (const [t, to, said] of [['softer blue', 'ice', 'Softer blue: light blue now. Only my colour changed.'], ['a bit deeper pink', 'crimson', 'Deeper pink: red now. Only my colour changed.'], ['brighter green', 'lime', 'Brighter green: lime now. Only my colour changed.'], ['a little paler pink', 'sunset', 'Softer pink: peach now. Only my colour changed.'], ['softer colour', 'ice', 'Softer: light blue now. Only my colour changed.']]) {
+    const r = TH.applyAsk(base, TH.lookAsked(t));
+    assert.deepEqual([r.recipe.colour, r.said], [to, said], t);
+  }
+  // the end of a way is said, never a made-up shade
+  assert.equal(TH.applyAsk(base, TH.lookAsked('deeper blue')).said, 'Blue is as deep as I go that way.');
+  assert.equal(TH.applyAsk(base, TH.lookAsked('deeper red')).recipe.colour, 'crimson', 'red asked for, red given');
+  // a bare "darker" or "lighter" is still the ground, as it always was
+  assert.deepEqual(TH.lookAsked('a bit darker'), { step: 'darker' });
+  assert.deepEqual(TH.lookAsked('lighter'), { step: 'lighter' });
+  // every shade lands on one of the twelve
+  for (const [k, ways] of Object.entries(TH.SHADES)) for (const to of Object.values(ways)) assert.ok(TH.COLOUR_LABELS[to] && to !== k, `${k} → ${to}`);
+});

@@ -150,6 +150,10 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check((await theme(page)) === 'ice', `[${W}] [colours] calm colours left the theme on ${await theme(page)}`);
   await say(page, 'put it back', /^Put back: Blue · /, `[${W}] [colours] put it back`);
   check((await theme(page)) === 'reactor', `[${W}] [colours] put it back left the theme on ${await theme(page)}`);
+  // [voice.u7] a shade by words moves to the neighbouring plain colour, and says so
+  await say(page, 'a bit softer blue', /^Softer blue: light blue now\. Only my colour changed\.$/, `[${W}] [colours] softer blue`);
+  check((await theme(page)) === 'ice', `[${W}] [colours] softer blue left the theme on ${await theme(page)}`);
+  await say(page, 'put it back', /^Put back: Blue · /, `[${W}] [colours] put it back after the shade`);
   await page.screenshot({ path: `${out}/voicelane-colours-${W}.png` });
   // Settings › Theme: every colour by its plain name
   await page.evaluate(() => (location.hash = 'settings'));

@@ -351,9 +351,39 @@ export interface LookAsk {
   word?: string;
   /** [voice.u9] "put it back", "the old colour": the look before this one. `generic`: words that only mean it just after a look change. */
   back?: { generic: boolean };
+  /** [voice.u7] "softer blue", "a bit deeper red", "a warmer colour": the neighbouring plain colour, in that direction. */
+  shade?: { way: ShadeWay; from?: ColourKey };
   /** [voice.s10] "calm colours", "focus colours", "lively colours": a colour and its switches together, named plainly. */
   feel?: 'calm' | 'focus' | 'lively';
 }
+
+export type ShadeWay = 'softer' | 'deeper' | 'brighter' | 'warmer' | 'cooler';
+/**
+ * SHADES BY WORDS (voice.u7): the twelve colours are fixed blocks (tokens.css), so a shade is the neighbouring plain colour in that
+ * direction ("softer blue" is light blue, "deeper pink" is red); where there is none, I say this is the end of that way.
+ */
+export const SHADES: Record<ColourKey, Partial<Record<ShadeWay, ColourKey>>> = {
+  reactor: { softer: 'ice', brighter: 'ice', warmer: 'violet' },
+  ice: { deeper: 'reactor', softer: 'mono', warmer: 'rose' },
+  graphite: { softer: 'mono', brighter: 'mono', warmer: 'sunset', cooler: 'ice' },
+  mono: { deeper: 'graphite', cooler: 'ice', warmer: 'sunset' },
+  ember: { softer: 'sunset', brighter: 'gold', deeper: 'crimson', cooler: 'rose' },
+  gold: { deeper: 'ember', softer: 'sunset', brighter: 'lime', warmer: 'ember' },
+  crimson: { softer: 'rose', brighter: 'ember', warmer: 'ember', cooler: 'violet' },
+  violet: { softer: 'rose', cooler: 'reactor', warmer: 'crimson' },
+  emerald: { brighter: 'lime', softer: 'ice', cooler: 'reactor', warmer: 'lime' },
+  rose: { deeper: 'crimson', softer: 'sunset', cooler: 'violet', warmer: 'sunset' },
+  lime: { deeper: 'emerald', cooler: 'emerald', warmer: 'gold' },
+  sunset: { deeper: 'ember', softer: 'rose', brighter: 'gold', cooler: 'rose' },
+};
+const SHADE_WORDS: [RegExp, ShadeWay][] = [
+  [/^(?:softer|paler|lighter|gentler|pastel|lighter shade of|softer shade of|paler shade of)$/, 'softer'],
+  [/^(?:deeper|darker|richer|stronger|bolder|darker shade of|deeper shade of)$/, 'deeper'],
+  [/^(?:brighter|lighter and brighter|more vivid|more vibrant|punchier|louder)$/, 'brighter'],
+  [/^(?:warmer)$/, 'warmer'],
+  [/^(?:cooler|colder)$/, 'cooler'],
+];
+const shadeWay = (w: string): ShadeWay | null => SHADE_WORDS.find(([re]) => re.test(w))?.[1] ?? null;
 
 /** The colour and switches each feeling picks (voice.s10), and the line said with it. */
 export const FEELS: Record<'calm' | 'focus' | 'lively', { colour: ColourKey; switches: Partial<Switches>; line: string }> = {
@@ -400,6 +430,16 @@ export function lookAsked(text: string): LookAsk | null {
   if (!t0 || t0.length > 60) return null;
   // ---- the look before (voice.u9): plain about the look, or generic words that mean it just after a look change
   if (/^(?:put (?:the )?(?:colou?r|look|theme|old colou?r|old look) back|change (?:the )?(?:colou?r|look|theme) back|undo (?:the |that )?(?:colou?r|look|theme)(?: change)?|(?:back to |go back to )?(?:the )?(?:old|last|previous|earlier) (?:colou?r|look|theme|one)(?: back)?|i (?:liked|preferred) the (?:old|last|previous|other) (?:colou?r|look|theme|one)(?: better)?|revert (?:the )?(?:colou?r|look|theme))$/.test(t0)) return { back: { generic: false } };
+  // ---- a shade by words (voice.u7): "a bit softer blue", "deeper red", "a warmer colour", "make it a bit softer" (the colour, said so)
+  const sh = /^(?:make it |go |something |a |an |one )?(?:(?:little |tiny |touch |wee )?bit |touch |shade |little |lot )?(softer|paler|lighter|gentler|pastel|deeper|darker|richer|stronger|bolder|brighter|more vivid|more vibrant|punchier|warmer|cooler|colder)(?: shade of)? ([a-z][a-z ]{1,20}?)$/.exec(t0.replace(/^(?:make it|make the colour|go|switch to|change it to) /, ''));
+  if (sh) {
+    const way = shadeWay(sh[1]!);
+    const rest = sh[2]!.trim();
+    const c = colourWord(rest);
+    if (way && c) return { shade: { way, from: c } };
+    if (way && /^(?:colou?r|theme|accent|light|one|shade)$/.test(rest) && way !== 'deeper' && !(way === 'softer' && /lighter|paler/.test(sh[1]!))) return { shade: { way } };
+    if (way && /^(?:colou?r|accent)$/.test(rest)) return { shade: { way } };
+  }
   const feel = /^(?:(calm|calming|relaxing|soothing|chilled?|peaceful|gentle|soft)|(focus|focused|focussed|work|concentrat(?:e|ion)|study|serious)|(lively|energetic|energy|bright|fun|party|loud|vibrant)) (?:colou?rs?|look|theme|mode|vibes?)(?: please)?$/.exec(t0.replace(VERB, ''));
   if (feel) return { feel: feel[1] ? 'calm' : feel[2] ? 'focus' : 'lively' };
   if (/^(?:put it back|change it back|switch it back|the one before|the one before that|undo that|go back to how it was|as it was|back how it was|no,? (?:put it |change it )?back)$/.test(t0)) return { back: { generic: true } };
@@ -538,6 +578,15 @@ export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: Home
     next.colour = ask.colour;
     const name = `${COLOUR_LABELS[ask.colour]}${ask.word ? ` (${ask.word})` : ''}`;
     said = r.colour === ask.colour ? `${name} is on already: nothing changed.` : `${name} now, instead of ${COLOUR_LABELS[r.colour].toLowerCase()}. Only my colour changed.`;
+  } else if (ask.shade) {
+    const from = ask.shade.from ?? r.colour;
+    const to = SHADES[from]?.[ask.shade.way];
+    if (!to) said = `${COLOUR_LABELS[from]} is as ${ask.shade.way.replace(/er$/, '')} as I go that way.${from !== r.colour ? ` ${COLOUR_LABELS[from]} now.` : ''}`;
+    if (!to && from !== r.colour) next.colour = from;
+    if (to) {
+      next.colour = to;
+      said = `${ask.shade.way.charAt(0).toUpperCase()}${ask.shade.way.slice(1)}${ask.shade.from ? ` ${COLOUR_LABELS[from].toLowerCase()}` : ''}: ${COLOUR_LABELS[to].toLowerCase()} now. Only my colour changed.`;
+    }
   } else if (ask.feel) {
     const f = FEELS[ask.feel];
     next.colour = f.colour;

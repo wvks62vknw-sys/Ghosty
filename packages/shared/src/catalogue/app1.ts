@@ -359,7 +359,7 @@ export const APP_1: Record<string, CatValue> = {
     since: '2026-10-31',
   },
   'phrase:voicenote': {
-    name: 'Spoken notes', line: 'You can say “note: buy milk” or “note to self, call the garage” and I write it down and keep it in Memory.',
+    name: 'Notes you say aloud', line: 'You can say “note: buy milk” or “note to self, call the garage” and I write it down and keep it in Memory.',
     more: 'Said aloud, it is marked “by you” only when this phone is sure the voice was yours; another voice’s note is not kept (type it instead). Typed notes are kept too.',
     say: ['Note: buy milk', 'Note to self, call the garage'], scene: ['talking'], cat: 'talk',
     since: '2026-11-14',
