@@ -451,7 +451,13 @@ export async function run(H) {
         await evSel(title).waitFor({ timeout: 8000 }).catch(() => check(false, `${tag0} ${world}] the day is not laid out`));
         const f = await fit(page, '#pg-agenda .pn.timeline');
         check(!f.small.length && !f.sideways && !f.cut.length, `${tag0} ${world}] the timeline fits: ${JSON.stringify(f)}`);
-        const cc = await evSel(title).evaluate((b) => ({ color: getComputedStyle(b.querySelector('.tltitle')).color, bg: getComputedStyle(b).backgroundColor }));
+        // (read from the block as drawn: a repaint between the wait and the read leaves a detached block, whose style reads empty, so it is
+        // read again from the one on screen)
+        let cc = { color: '', bg: '' };
+        for (let i = 0; i < 20 && !cc.color; i++) {
+          cc = await evSel(title).evaluate((b) => (b.isConnected ? { color: getComputedStyle(b.querySelector('.tltitle')).color, bg: getComputedStyle(b).backgroundColor } : { color: '', bg: '' })).catch(() => ({ color: '', bg: '' }));
+          if (!cc.color) await page.waitForTimeout(100);
+        }
         check(cc.color !== cc.bg, `${tag0} ${world}] his event's words stand off its block: ${JSON.stringify(cc)}`);
         if (world === 'ink' || world === 'glass') await page.locator('#pg-agenda .pn.timeline').screenshot({ path: `${H.out}/planlane4-calendar-${world}-390.png` }).catch(() => undefined);
         await page.click('#pg-agenda .pn.timeline button.tlkey[aria-label="The week by the hour"]');
