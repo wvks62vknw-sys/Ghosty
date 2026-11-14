@@ -16,7 +16,8 @@
  * window.__ghosty.space.
  */
 import { areaText, changeProblem, doorSwing, edgeOf, inSwing, openingSpan, pointInPoly, polyArea, polyPerimeter, roomAt, triangulate, type Corner, type Opening, type Pt, type RoomShape } from '../../../../../packages/shared/src/design';
-import { headers } from '../../api/brain';
+import { brain, headers } from '../../api/brain';
+import { PRICES, PRICE_LINE } from '../../build/prices';
 import { clear, h } from '../../core/dom';
 import { bothText, cmText, describeMeasurements, parseLength, rangeText } from '../../measure/geom';
 import { go, type TabDef } from '../../shell/tabs';
@@ -27,11 +28,13 @@ import { fitWhy, FIT_EMPTY, gapWords, pieceName } from './words';
 import { CATALOGUE, clashes, describePlan, footprint, GRID, largestOpen, layoutOf, makeSpace, readPlan, roomsOf, snapItem, tightGaps, WALKWAY, willItFit, type Arrangement, type Item, type Plan, type Rect } from '../../space/plan';
 import { addOpening, addRoom, removeOpening, removeRoom, renameRoom, reshapeRoom, shapeOf, slideOpening, updateOpening } from '../../space/rooms';
 import { space } from '../../space/store';
-import { MATERIALS_NOTE, materialsFor, materialsWords } from '../../space/materials';
+import { budgetWords, MATERIALS_NOTE, materialsFor, materialsWords, priceMaterials, typicalMonth, type FloorKind, type Priced } from '../../space/materials';
 import { spaceContext, spaceSelected } from '../../space/awareness';
 import { pieceFor, spaceHooks } from '../../space/hooks';
 import { wallRuns } from '../../studio/room';
-import { createFromPhotoPanel, fromPhotoState, rescaleWall, type FromPhotoState } from './fromphoto';
+import { createFromPhotoPanel, fromPhotoHooks, fromPhotoState, rescaleWall, type FromPhotoState } from './fromphoto';
+import { readRough, roughWords } from '../../space/photomarks';
+import type { RoomSize } from '../../space/roomphoto';
 import { createHomePanel, type HomeState } from './home';
 import { sayError } from '../../ui/hisWords';
 
@@ -60,10 +63,12 @@ export interface SpaceState {
   /** DESIGN MY HOME (home.ts): the drawn plan's line, its floors, which is shown, DESIGN in progress. */
   home: HomeState;
   /** MATERIALS: paint (litres), flooring (m²), skirting (m) and wallpaper rolls for the plan, and its head line. */
-  materials: { paint: number; flooring: number; skirting: number; rolls: number; tins: string; head: string };
+  materials: { paint: number; flooring: number; skirting: number; rolls: number; tins: string; head: string; rough: string; priced: Priced | null; floor: FloorKind; budget: string };
+  /** The specs' way in to FROM PHOTO's room result (no 50 MB distance model on a test machine). */
+  roomFound: (size: RoomSize) => void;
 }
 
-export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState, home: { id: '', line: '', storeys: [], shown: 0, assumed: 0, drawing: false, outcome: '', offline: false }, materials: { paint: 0, flooring: 0, skirting: 0, rolls: 0, tins: '', head: '' } };
+export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState, home: { id: '', line: '', storeys: [], shown: 0, assumed: 0, drawing: false, outcome: '', offline: false }, materials: { paint: 0, flooring: 0, skirting: 0, rolls: 0, tins: '', head: '', rough: '', priced: null, floor: 'laminate', budget: '' }, roomFound: (size) => fromPhotoHooks.roomFound?.(size) };
 
 /** A change Ghosty suggested: a whole plan, checked against the owner's. */
 interface DesignOption {
@@ -771,6 +776,7 @@ export const spaceTab: TabDef = {
     // ======================= MATERIALS (space/materials.ts): paint, flooring, skirting and wallpaper for the plan, a first estimate
     const matp = panel('MATERIALS', { status: 'first estimate', cls: 'spacematerials' });
     const matHead = h('p.spacemathead', { 'aria-live': 'polite' });
+    const matRough = h('p.spacerough', { role: 'note' });
     const matList = h('div.spacematlist');
     const paintMaterials = () => {
       const L = layoutOf(space.get().plan);
@@ -781,9 +787,94 @@ export const spaceTab: TabDef = {
       if (m.total.floor > 0) delete matHead.dataset.state;
       else matHead.dataset.state = 'empty';
       clear(matList, ...w.lines.map((l) => h('div.note', l)));
-      spaceState.materials = { paint: m.total.paint, flooring: m.total.flooring, skirting: m.total.skirting, rolls: m.total.rolls, tins: m.tins, head: w.head };
+      // sizes from room photos are rough until one real measurement: said above the numbers they move
+      const rough = readRough();
+      matRough.textContent = rough ? roughWords(rough) : '';
+      matRough.hidden = !rough;
+      // typical prices beside each line (the build designer's own table), a first estimate, never a quote
+      const pr = priceMaterials(m, floorKind, { emulsion: PRICES.emulsion.gbp, emulsion25: PRICES.emulsion25.gbp, emulsion1: PRICES.emulsion1.gbp, laminate: PRICES.laminate.gbp, carpet: PRICES.carpet.gbp, skirting: PRICES.skirting.gbp, wallpaper: PRICES.wallpaper.gbp });
+      for (const [k, b] of floorBtns) {
+        b.classList.toggle('on', k === floorKind);
+        b.setAttribute('aria-pressed', String(k === floorKind));
+      }
+      priceBox.hidden = !pr.lines.length;
+      clear(priceList, ...pr.lines.map((l) => h('div.spaceprice', h('span.k', h('span', l.what), h('small', l.qty)), h('span.v', money(l.gbp)))));
+      priceTotal.textContent = pr.lines.length ? `About ${money(pr.total)} for paint, flooring and skirting. Papering the walls instead: about ${money(pr.wallpaper)} of rolls.` : '';
+      if (budgetFor !== pr.total) {
+        budgetLine.textContent = '';
+        delete budgetLine.dataset.state;
+      }
+      spaceState.materials = { paint: m.total.paint, flooring: m.total.flooring, skirting: m.total.skirting, rolls: m.total.rolls, tins: m.tins, head: w.head, rough: matRough.textContent, priced: pr, floor: floorKind, budget: budgetLine.textContent ?? '' };
     };
-    matp.body.append(matHead, matList, h('div.note', MATERIALS_NOTE));
+    const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+    let floorKind: FloorKind = (() => {
+      try {
+        return localStorage.getItem('ghosty.space.floor') === 'carpet' ? 'carpet' : 'laminate';
+      } catch {
+        return 'laminate';
+      }
+    })();
+    const floorBtns = new Map<FloorKind, HTMLButtonElement>();
+    for (const [k, label] of [['laminate', 'LAMINATE'], ['carpet', 'CARPET']] as const) {
+      const b = button(label, () => {
+        floorKind = k;
+        try {
+          localStorage.setItem('ghosty.space.floor', k);
+        } catch {
+          /* kept for this visit */
+        }
+        paintMaterials();
+      });
+      b.dataset.floor = k;
+      floorBtns.set(k, b);
+    }
+    const priceList = h('div.spacepricelist');
+    const priceTotal = h('p.spacepricetotal', { 'aria-live': 'polite' });
+    const budgetLine = h('p.note.spacebudget', { 'aria-live': 'polite' });
+    let budgetFor = -1;
+    /** The makeover set against what he spent in a typical month: his own statements on his brain, the last three whole months. */
+    const setAgainstSpending = async () => {
+      const total = spaceState.materials.priced?.total ?? 0;
+      if (!total) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        /* state: space.budget offline */
+        budgetLine.dataset.state = 'offline';
+        budgetLine.textContent = 'No signal, so I can’t read your statements. The prices above still stand.';
+        return;
+      }
+      /* state: space.budget loading */
+      budgetLine.dataset.state = 'loading';
+      budgetLine.textContent = 'Reading your statements…';
+      try {
+        const now = new Date();
+        const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const first = await brain.spending();
+        const months = (first.months ?? []).filter((x) => x < thisMonth).sort().slice(-3);
+        const outs = await Promise.all(months.map(async (mo) => (mo === first.month ? first.view?.out ?? 0 : (await brain.spending(mo)).view?.out ?? 0)));
+        const monthly = typicalMonth(outs);
+        if (!monthly) {
+          /* state: space.budget empty */
+          budgetLine.dataset.state = 'empty';
+        } else delete budgetLine.dataset.state;
+        budgetLine.textContent = budgetWords(total, monthly, outs.filter((x) => x > 0).length);
+        budgetFor = total;
+      } catch (e) {
+        /* state: space.budget error */
+        budgetLine.dataset.state = 'error';
+        budgetLine.textContent = sayError(e, 'read your statements');
+      }
+      spaceState.materials.budget = budgetLine.textContent ?? '';
+    };
+    const priceBox = h('div.spaceprices',
+      h('div.lab', 'TYPICAL PRICES'),
+      h('div.row.wrap', ...floorBtns.values()),
+      priceList,
+      priceTotal,
+      h('div.row.wrap', button('SET AGAINST MY SPENDING', () => void setAgainstSpending())),
+      budgetLine,
+      h('div.note', `${PRICE_LINE}: the same table as DESIGN A BUILD. Each one a first estimate; the shop’s price is the real one.`),
+    );
+    matp.body.append(matRough, matHead, matList, priceBox, h('div.note', MATERIALS_NOTE));
     space.subscribe(paintMaterials);
     paintMaterials();
 

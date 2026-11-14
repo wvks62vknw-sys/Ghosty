@@ -4,8 +4,8 @@
 // "from Hugging Face" (stubbed with a Khronos sample) with its credit and licence on the scene and its source
 // page linked; a Poly Haven model opens through the brain. MAKE IT finds a real model first, then on MAKE A NEW
 // ONE asks the brain's generator (stubbed: its steps, the drawing, a model) and opens and keeps the result;
-// when the generators are busy a stand-in built from shapes shows at once with the reason in words and
-// TRY AGAIN; when nothing can draw the object ASK GHOSTY is offered; UNDO goes back to the model before.
+// when the generators are busy a stand-in built from shapes shows at once and the job waits on the phone with
+// TRY NOW and REMOVE; when nothing can draw the object ASK GHOSTY is offered; UNDO goes back to the model before.
 // PHOTO → TEXTURED 3D shows the cut-out the brain sends and opens the textured model. The security policy
 // blocks nothing and nothing sticks out sideways at 440 px.
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
@@ -189,14 +189,18 @@ if (generated[0]?.prompt !== 'a velvet couch') problems.push(`the generator was 
 await until(() => window.__ghosty.studio.state().kept.includes('a velvet couch'), 5000, 'the made model was not kept on the phone');
 if ((await S()).keptInMemory !== 0) problems.push('a kept model is also held in memory although IndexedDB keeps it');
 await page.screenshot({ path: `${out}/studiomake-made.png` });
-// busy: a stand-in at once, the reason in words, TRY AGAIN; UNDO goes back
+// busy: a stand-in at once, the job waiting on the phone with the reason in words (NEXT ROUND: tried again by itself while
+// Ghosty is open), TRY NOW on its line; UNDO goes back
 genAnswer = 'busy';
 await page.evaluate(() => window.__ghosty.studio.makeAnything('an oak dining table 180 cm', true));
-await until(() => window.__ghosty.studio.state().standIn && /Not made: the free 3-D generators are busy right now — try again in a minute/.test(window.__ghosty.studio.state().makeNote), 20000, `no stand-in with the reason when busy: ${JSON.stringify((await S())?.makeNote)}`);
+await until(() => window.__ghosty.studio.state().standIn && /^“an oak dining table 180 cm” is waiting: the free makers are busy\. I’ll try again in a few minutes while Ghosty is open, and tell you when it’s ready\. Meanwhile, a simple stand-in/.test(window.__ghosty.studio.state().makeNote), 20000, `no stand-in with the job waiting when busy: ${JSON.stringify((await S())?.makeNote)}`);
 st = await S();
 if (!st.parts.some((p) => p.name === 'Top') || st.parts.filter((p) => /^Leg/.test(p.name)).length !== 4) problems.push(`the stand-in table: ${st.parts.map((p) => p.name)}`);
 if (!/stand-in/.test(st.credit)) problems.push(`the stand-in is not said to be one: "${st.credit}"`);
-if (!(await btn('TRY AGAIN').isVisible())) problems.push('no TRY AGAIN after a busy generator');
+if (!(await page.locator('#pg-studio .studiojob', { hasText: 'an oak dining table 180 cm' }).locator('button', { hasText: 'TRY NOW' }).isVisible())) problems.push('no waiting job with TRY NOW after a busy generator');
+// REMOVE takes it off the list (and off the phone), so it is not tried by itself later in this run
+await page.locator('#pg-studio .studiojob', { hasText: 'an oak dining table 180 cm' }).locator('button', { hasText: 'REMOVE' }).click();
+await until(() => !document.querySelector('#pg-studio .studiojob') && JSON.parse(localStorage.getItem('ghosty.studio.queue') ?? '[]').length === 0, 5000, 'REMOVE left the job waiting');
 await page.screenshot({ path: `${out}/studiomake-standin.png` });
 await btn('UNDO').click();
 await until(() => window.__ghosty.studio.state().title === 'a velvet couch', 20000, `UNDO did not go back to the model before: ${JSON.stringify((await S())?.title)}`);

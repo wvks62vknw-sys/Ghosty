@@ -17,6 +17,13 @@ export const WHATS_NEW: NewThing[] = [
   // [boot] the next round's opening (docs/build-plan/NEXT-BOOT.md)
   { day: '2026-11-14', title: 'The opening, your way', line: 'Settings → VOICE & HOME → THE OPENING: the full film, the short one, or the full film once a day; your own opening line; and how smoothly the last one ran. Say “short opening” or “director mode”.' },
   { day: '2026-11-14', title: 'An opening that knows your day', line: 'The opening now ends on what matters today: your next thing, a to-do due, or rain. After days away it says how long it has been, and “Sam’s turn” greets someone you introduced.' },
+  // [keep] NEXT ROUND, MEMORY lane: a memory that keeps your word
+  { day: '2026-11-14', title: 'I keep your word', line: 'Say “I’ll send Jo the photos tomorrow” and I remind you on the day; “I sent them” ticks it off. Memory → YOUR WORD lists what you said you’d do, where you put things and why you chose them.' },
+  { day: '2026-11-14', title: 'Where you put it, even offline', line: 'Tell me “the spare key is in the blue tin”, then ask “where’s the spare key?” any time, with no signal too.' },
+  { day: '2026-11-14', title: 'Your week, on Sundays', line: 'Sunday at 6 pm: what you asked about most, what you finished and what is still open. Ask “how was my week?” any day.' },
+  { day: '2026-11-14', title: 'One search for all your things', line: 'Find covers your chats, documents, sheets, decks, the library, saved links and to-dos, landing on the paragraph, the cell or the slide. Three words in the “Go to, or ask” bar search them too.' },
+  { day: '2026-11-14', title: 'Recall by the day you mean', line: '“What did I ask last March about the car?”, “what did I do yesterday?”, “what did I never get an answer to?”: answered from your own chats, on your phone.' },
+  { day: '2026-11-14', title: 'Chase from the Brief', line: 'CHASE on an email that needs an answer holds it for two working days; chases due today show under it. Say “and again Monday” and a chase looks twice.' },
   // [ci] NEXT ci.u3
   { day: '2026-11-14', title: 'How quickly I answer out loud', line: 'System → SPEED now shows your spoken turns too: how soon my first word comes after you stop, and how soon I listen again after I finish. Timed on your phone, kept on your phone.' },
   // [learn, next round] learning that adapts and talks back (NEXT-LEARN.md)
@@ -67,6 +74,11 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'I learn your own words', line: 'Say something your own way, then tap the screen you meant: I offer to remember it, and next time it opens straight away. “My wordings” lists them, each with FORGET; nothing that sends or pays is ever learned.' },
   // [voice lane] the final round, unsaid until now
   { day: '2026-11-13', title: 'Say it your way, colours by name', line: '“Put some tunes on”, “log a pint” or “give us a shout in ten minutes” just work; “make it red” changes my colour, and every colour now has a plain name. Ask “do you know it’s me?” and I answer from what this phone heard.' },
+  // NEXT ROUND, MAKE lane
+  { day: '2026-11-14', title: 'The curve behind a Workbench answer', line: 'Make → Workbench: under the numbers, the shape of the answer: how a beam sags along its span, the power a car needs as it speeds up, a room’s heat month by month, the sun through the day. Each a first estimate, never certified.' },
+  { day: '2026-11-14', title: 'Prices on your paint and flooring', line: 'Make → Space → MATERIALS: a typical UK price beside the paint, the flooring (laminate or carpet) and the skirting, the total, and SET AGAINST MY SPENDING to see it beside your usual month from your own statements. First estimates, never quotes.' },
+  { day: '2026-11-14', title: 'Doors and windows from room photos', line: 'Make → Space → FROM PHOTO: after photos of the room, tap its outline where each door and window is. The sizes say ROUGH until you type one wall’s real length.' },
+  { day: '2026-11-14', title: '3D made from words, even when the makers are busy', line: 'Make → 3D studio → MAKE: when the free makers are busy, your model waits on the phone and is made by itself while Ghosty is open; meanwhile it offers real models near it, and says when yours is ready.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   // [comic] the final round's comic, unsaid until now
   { day: '2026-11-13', title: 'Comics, read and made', line: 'Make → EDITORS → COMIC: read your own CBZ and PDF comics panel by panel, get free public-domain ones from the Internet Archive on Wi-Fi, and make a whole comic from an idea.' },
