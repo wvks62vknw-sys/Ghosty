@@ -5192,6 +5192,7 @@ html .calcread { flex: 1 1 auto; min-width: 0; text-align: right; }
 html .calcsum { margin: 0; min-height: 20px; font: 400 15px/20px var(--sf); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html .calcbig { margin: 0; font: 300 44px/1.1 var(--sf); color: var(--g-ink-1); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 html .calcbig[data-state="error"] { font: 400 15px/20px var(--sf); color: var(--r); }
+html .calcside { flex: none; display: flex; flex-direction: column; gap: var(--g-s-half); }
 html .calcpad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--g-s-half); }
 html .calcpad .g-key { min-height: 52px; font-size: 20px; }
 html.arcplaying, html.arcplaying body { overflow: hidden; overscroll-behavior: none; }

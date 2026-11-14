@@ -178,6 +178,10 @@ for (const [vp, tag] of [[PHONE, '440'], [PHONE2, '390']]) {
     check(await until(page, () => /divide by nothing/.test(document.querySelector('.calcbig')?.textContent ?? '')), `${tag} calc: 1 ÷ 0 says ${await page.textContent('.calcbig')}`);
     await page.click('.calchost .ak-row[data-id="k-1"] .ak-rowmain');
     check(await until(page, () => document.querySelector('.calcbig')?.textContent === '15,000'), `${tag} calc: tapping the tape row did not use it again`);
+    await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base }).catch(() => undefined);
+    await page.click('.calchost .calcside button[aria-label="Copy the answer"]');
+    check(await until(page, () => /^Copied 15,000\.$/.test(document.querySelector('.calchost .ak-notice')?.textContent ?? '')), `${tag} calc: COPY says "${await page.textContent('.calchost .ak-notice')}"`);
+    check((await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))) === '15000', `${tag} calc: the clipboard does not hold 15000`);
     await fit(page, `${tag} calc`, '.modal');
     if (tag === '440') await page.screenshot({ path: `${out}/clockcalc-calc-440.png` });
     await closeModal(page);
