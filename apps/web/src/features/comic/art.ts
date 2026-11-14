@@ -688,8 +688,31 @@ function balloonShape(ctx: C, kind: Balloon['kind'], b: Box): void {
     ctx.fill();
     return;
   }
+  if (kind === 'robot') {
+    // a robot's voice: a box with clipped corners, its words in a typewriter face
+    const c = Math.min(18, b.h * 0.22);
+    const x0 = b.x - b.w * 0.04, y0 = b.y - b.h * 0.06, x1 = b.x + b.w * 1.04, y1 = b.y + b.h * 1.06;
+    ctx.beginPath();
+    ctx.moveTo(x0 + c, y0); ctx.lineTo(x1 - c, y0); ctx.lineTo(x1, y0 + c); ctx.lineTo(x1, y1 - c); ctx.lineTo(x1 - c, y1); ctx.lineTo(x0 + c, y1); ctx.lineTo(x0, y1 - c); ctx.lineTo(x0, y0 + c);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    return;
+  }
   ctx.beginPath();
-  if (kind === 'shout') {
+  if (kind === 'radio') {
+    // a voice down a phone or a radio: a jagged electric edge, finer than a shout's
+    const k = 30;
+    for (let i = 0; i <= k * 2; i++) {
+      const an = (i / (k * 2)) * Math.PI * 2;
+      const f = i % 2 ? 1.06 : 0.97;
+      const px = cx + Math.cos(an) * rx * f;
+      const py = cy + Math.sin(an) * ry * f;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  } else if (kind === 'shout') {
     const k = 18;
     for (let i = 0; i <= k * 2; i++) {
       const an = (i / (k * 2)) * Math.PI * 2;
@@ -718,6 +741,22 @@ function tail(ctx: C, kind: Balloon['kind'], b: Box, tx: number, ty: number): vo
   }
   const spread = Math.min(26, b.w * 0.12);
   const sx = cx + Math.max(-b.w * 0.25, Math.min(b.w * 0.25, (tx - cx) * 0.3));
+  if (kind === 'radio') {
+    // a lightning tail: the voice comes down the wire
+    const mx = (sx + tx) / 2, my = (by + ty) / 2;
+    ctx.beginPath();
+    ctx.moveTo(sx - spread * 0.6, by - 6);
+    ctx.lineTo(mx + spread * 0.5, my - 4);
+    ctx.lineTo(mx - spread * 0.2, my + 2);
+    ctx.lineTo(tx, ty);
+    ctx.lineTo(mx + spread * 0.25, my - 10);
+    ctx.lineTo(mx - spread * 0.35, my - 14);
+    ctx.lineTo(sx + spread * 0.6, by - 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    return;
+  }
   ctx.beginPath();
   ctx.moveTo(sx - spread, by - 6);
   ctx.quadraticCurveTo(sx + (tx - sx) * 0.3, by + (ty - by) * 0.55, tx, ty);
@@ -727,7 +766,7 @@ function tail(ctx: C, kind: Balloon['kind'], b: Box, tx: number, ty: number): vo
   ctx.stroke();
 }
 function lettering(ctx: C, size: number, kind: Balloon['kind']): void {
-  ctx.font = `${kind === 'whisper' ? 600 : 700} ${kind === 'shout' ? Math.round(size * 1.18) : kind === 'whisper' ? Math.round(size * 0.88) : size}px ${LETTER}`;
+  ctx.font = kind === 'robot' ? `700 ${Math.round(size * 0.92)}px ui-monospace, Menlo, Consolas, monospace` : `${kind === 'whisper' ? 600 : 700} ${kind === 'shout' ? Math.round(size * 1.18) : kind === 'whisper' ? Math.round(size * 0.88) : size}px ${LETTER}`;
 }
 function sfx(ctx: C, b: Box, text: string, seedN: number, below = b.y, at?: [number, number]): Box | null {
   if (!text.trim()) return null;

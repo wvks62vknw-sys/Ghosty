@@ -9016,6 +9016,7 @@ html .pxstudio button.pxkey:disabled { opacity: .45; }
 .pxstudio .pxrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); min-width: 0; }
 html .pxstudio button.pxrow { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; white-space: normal; }
 html .pxstudio button.pxrow.on { border-color: var(--g-accent); }
+.pxstudio .pxprev { display: block; width: 100%; max-width: 240px; height: 48px; margin: 2px 0; border-radius: var(--g-radius-key); border: var(--g-hair) solid var(--g-line-faint); }
 .pxstudio .pxrowsay, .pxstudio .pxsmall { font: var(--g-t-caption); color: var(--g-ink-3); text-transform: none; overflow-wrap: anywhere; }
 .pxstudio .pxlayer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: var(--g-s-half); align-items: center; padding: var(--g-s-half); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
 .pxstudio .pxlayer[data-on="true"] { border-color: var(--g-accent); }
@@ -10879,6 +10880,8 @@ html .tlxrowtext { flex: 1 1 auto; min-width: 0; }
 html .tlxcame { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .tlxsaid { margin: 0; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); overflow-wrap: anywhere; }
 html button.tlxline { justify-content: flex-start; min-height: var(--g-target); padding: 0 var(--g-s-2); text-align: start; white-space: normal; overflow-wrap: anywhere; }
+/* (lines and other ways are his words or a translation, never interface labels: their own case, never capitals) */
+html #pg-translate button.tlxline, html #pg-translate button.tlxalt { text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
 html .tlxempty { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
 
 /* JOURNAL (APPS ROUND, MEMORY lane): his own writing; every class `jn…`, colours from the tokens only */

@@ -30,6 +30,7 @@ import {
   SCRIPT_NAME,
   TRIP_KEY,
   TRIP_PHRASES,
+  bookCsv,
   byTrip,
   isStarred,
   readList,
@@ -315,13 +316,14 @@ export const translateTab: TabDef = {
       clear(alts);
       altsBox.hidden = o.alts.length === 0;
       for (const a of o.alts) {
-        const b = button(a, () => {
+        // (a plain key, not button(): a translation keeps its own capitals, never the interface's label case)
+        const b = h('button.tlxalt', { type: 'button' }, a);
+        b.addEventListener('click', () => {
           if (!trState.out) return;
           const was = trState.out.came;
           trState.out = { ...trState.out, came: a, alts: [was, ...trState.out.alts.filter((x) => x !== a)] };
           paintOut();
         });
-        b.classList.add('tlxalt');
         b.dataset.case = 'keep';
         b.setAttribute('role', 'listitem');
         b.lang = trState.to;
@@ -390,7 +392,26 @@ export const translateTab: TabDef = {
     const ready = h('div.tlxready');
     const starredBox = h('div.tlxbook');
     country.addEventListener('change', () => drawReady());
-    views.book.append(h('div.tlxtriprow', h('label', h('span', 'NEW STARS GO UNDER'), tripField)), starredBox, h('div.tlxtriprow', h('label', h('span', 'GOING SOMEWHERE?'), country)), ready);
+    // EXPORT: the phrasebook as a CSV file, through the phone's Share sheet where it has one, else saved on the phone
+    const exportKey = button('EXPORT', async () => {
+      const file = new File([bookCsv(trState.book, langName)], 'phrasebook.csv', { type: 'text/csv' });
+      const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean };
+      if (nav.canShare?.({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title: 'Phrasebook' });
+          return;
+        } catch {
+          // (he closed the sheet: saved instead, so the tap still did something)
+        }
+      }
+      const a = h('a', { href: URL.createObjectURL(file), download: 'phrasebook.csv' }) as HTMLAnchorElement;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast('Saved phrasebook.csv on this phone.', 'ok');
+    });
+    exportKey.dataset.case = 'keep';
+    exportKey.dataset.act = 'export';
+    views.book.append(h('div.tlxtriprow', h('label', h('span', 'NEW STARS GO UNDER'), tripField)), starredBox, exportKey, h('div.tlxtriprow', h('label', h('span', 'GOING SOMEWHERE?'), country)), ready);
 
     const row = (d: Done, extra: HTMLElement[] = []) => {
       const say2 = h('button.fxkb', { type: 'button', 'aria-label': `Listen to it in ${langName(d.to)}`, dataset: { case: 'keep' } }, icon(SOUND));
@@ -400,6 +421,7 @@ export const translateTab: TabDef = {
     const drawBook = () => {
       clear(starredBox);
       const groups = byTrip(trState.book, trState.trip || NO_TRIP);
+      exportKey.hidden = !groups.length;
       if (!groups.length) {
         starredBox.append(stateCard('empty', 'Nothing starred yet. Tap the star under a translation and it is kept here, under this trip, on this phone.', { word: 'Translate something', run: () => show('translate') }));
         return;
@@ -441,7 +463,8 @@ export const translateTab: TabDef = {
             'div.tlxlist',
             { role: 'list' },
             ...g.lines.map((line) => {
-              const b = button(line, async () => {
+              const b = h('button.tlxline', { type: 'button' }, line);
+              b.addEventListener('click', async () => {
                 b.disabled = true;
                 const was = b.textContent;
                 b.textContent = `${line} · translating…`;
@@ -463,7 +486,6 @@ export const translateTab: TabDef = {
                   toast(sayError(e, 'translate that'), 'warn');
                 }
               });
-              b.classList.add('tlxline');
               b.dataset.case = 'keep';
               return b;
             }),

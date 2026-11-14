@@ -172,6 +172,10 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check(await page.evaluate(() => window.__ghosty.translate.book.length === 0), `[${W}] [book] taking it out did not`);
   await page.click('#undo button, .undo button').catch(() => undefined);
   await until(page, () => window.__ghosty.translate.book.length === 1, null, 4000, `[${W}] [book] the undo did not put it back`);
+  // (EXPORT: the phrasebook as a CSV file, saved where the browser has no Share sheet)
+  const [file] = await Promise.all([page.waitForEvent('download', { timeout: 6000 }).catch(() => null), page.click('#pg-translate [data-act="export"]')]);
+  const csv = file ? await file.path().then((p) => import('node:fs').then((fs) => fs.readFileSync(p, 'utf8'))).catch(() => '') : '';
+  check(file?.suggestedFilename() === 'phrasebook.csv' && csv.split('\n')[0] === 'Trip,You said,Translation,Language' && /^Spain in May,Where is the station\?,/m.test(csv), `[${W}] [export] the phrasebook file: ${file?.suggestedFilename()} ${JSON.stringify(csv.slice(0, 160))}`);
 
   // ---- a country's ready phrasebook
   await page.selectOption('#tlxcountry', 'France');
@@ -182,6 +186,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await page.click('.tlxready .tlxrow .tlxstar');
   check(await page.evaluate(() => window.__ghosty.translate.book.some((p) => p.trip === 'France' && p.came === 'Merci.')), `[${W}] [country] starring the line did not keep it under France`);
   for (const s of await sideways(page)) check(false, `[${W}] [country] off the side: ${s}`);
+  await page.screenshot({ path: `${out}/translate-book-${W}.png` });
 
   // ---- letters in another script
   await tapKey(page, 'TRANSLATE');
@@ -210,6 +215,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await page.click('#undo button, .undo button').catch(() => undefined);
   await until(page, () => window.__ghosty.translate.history.length >= 2, null, 4000, `[${W}] [history] the undo did not bring it back`);
   for (const s of await small(page)) check(false, `[${W}] [history] a key under 44 pt: ${s}`);
+  await page.screenshot({ path: `${out}/translate-history-${W}.png` });
   await page.click('#pg-translate .tlxview:not([hidden]) .ak-row .ak-rowmain');
   check(await page.evaluate(() => window.__ghosty.translate.view === 'translate' && document.querySelector('#tlxin').value.length > 0), `[${W}] [history] OPEN did not bring it back into the box`);
 
