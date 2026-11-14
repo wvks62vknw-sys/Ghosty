@@ -627,3 +627,33 @@ test('todo (planlane4:tasks): priorities P1 to P4 (P1 is the old star, both ways
   assert.deepEqual([m.list[0].p, m.list[0].project, m.list[0].tags, m.added.length], [2, 'Home', ['shop'], 0]);
   assert.equal(W.mergeTodos([{ id: 'x', text: 'Buy milk', at: 1, p: 3 }], [{ id: 'y', text: 'buy milk', star: true }], 5).list[0].high, true);
 });
+
+test('todo (planlane4:tasks): notes and steps (a checklist inside a to-do), kept by add and edit, joined by a merge, and a repeat starts its steps again', async () => {
+  const storage = new Mem();
+  let r = await run(storage, 'todo', { op: 'add', item: { id: 'ts', text: 'Pack for the trip', notes: '  Passport in the drawer  \r\n', steps: [{ id: 's1', text: ' Passport ' }, { id: 's1', text: 'Charger', done: true }, { text: '' }, 'junk'], due: '2026-11-02', every: 'weekly' } });
+  assert.equal(r.data.hit.notes, 'Passport in the drawer');
+  assert.equal(r.data.hit.steps.length, 2);
+  assert.deepEqual(r.data.hit.steps[0], { id: 's1', text: 'Passport' });
+  assert.equal(r.data.hit.steps[1].text, 'Charger');
+  assert.equal(r.data.hit.steps[1].done, true);
+  assert.notEqual(r.data.hit.steps[1].id, 's1', 'two steps never share an id');
+  // the whole checklist sent as it now is: a step ticked, one added; notes changed
+  r = await run(storage, 'todo', { op: 'edit', id: 'ts', steps: [{ id: 's1', text: 'Passport', done: true }, { id: 's3', text: 'Tickets' }], notes: 'Passport and tickets' });
+  assert.deepEqual(r.data.hit.steps, [{ id: 's1', text: 'Passport', done: true }, { id: 's3', text: 'Tickets' }]);
+  assert.equal(r.data.hit.notes, 'Passport and tickets');
+  assert.equal(r.data.hit.text, 'Pack for the trip', 'an edit of the steps leaves its words alone');
+  // ticked (it repeats): the next one has the notes and the same steps, all unticked
+  r = await run(storage, 'todo', { op: 'tick', id: 'ts', nextId: 'ts2' });
+  assert.equal(r.data.next.notes, 'Passport and tickets');
+  assert.deepEqual(r.data.next.steps.map((s) => [s.text, !!s.done]), [['Passport', false], ['Tickets', false]]);
+  // taken off: '' and []
+  r = await run(storage, 'todo', { op: 'edit', id: 'ts2', notes: '', steps: [] });
+  assert.equal(r.data.hit.notes, undefined);
+  assert.equal(r.data.hit.steps, undefined);
+  // too many steps are cut at fifty
+  r = await run(storage, 'todo', { op: 'edit', id: 'ts2', steps: Array.from({ length: 60 }, (_, i) => ({ id: `x${i}`, text: `Step ${i}` })) });
+  assert.equal(r.data.hit.steps.length, W.STEPS_MAX);
+  // a merge fills in notes and steps the one here lacks
+  const m = W.mergeTodos([{ id: 'a', text: 'Buy paint', at: 1 }], [{ id: 'b', text: 'buy paint', notes: 'Matt white', steps: [{ id: 'k', text: 'Brushes' }] }], 5);
+  assert.deepEqual([m.list[0].notes, m.list[0].steps?.[0]?.text], ['Matt white', 'Brushes']);
+});

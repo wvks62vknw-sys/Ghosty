@@ -10649,4 +10649,14 @@ html #pg-agenda .tdup .ak-rowmain :is(.ak-rowtitle, .ak-rowsub) { text-transform
 html #pg-agenda .tdup .ak-rowmain .ak-rowtitle { font: 500 17px/22px var(--sf); color: var(--ink); }
 html #pg-agenda .tdup .ak-rowmain .ak-rowsub { font: 400 13px/17px var(--sf); color: var(--ink3); }
 html #pg-agenda .tdupempty .ak-state { padding: 8px 0; }
+/* a to-do opened: its notes and its checklist (each step a tick, its words and a remove key, 44 pt) */
+html #pg-agenda .todoit .todoedit .tdnotes textarea { display: block; width: 100%; box-sizing: border-box; min-height: 88px; padding: 10px 12px; font: 400 17px/22px var(--sf); color: var(--ink); background: none; border: 1px solid var(--hair2); border-radius: var(--g-radius-key); resize: vertical; text-transform: none; }
+html #pg-agenda .todoit .todoedit .tdsteps { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+html #pg-agenda .todoit .todoedit .tdstepshead { display: block; padding: 4px 0 0; font: 600 15px/20px var(--sf); color: var(--ink2); text-transform: none; overflow-wrap: anywhere; }
+html #pg-agenda .todoit .todoedit .tdsteplist { display: flex; flex-direction: column; }
+html #pg-agenda .todoit .todoedit .tdstep { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; column-gap: 8px; min-height: 48px; border-bottom: 1px solid var(--hair); }
+html #pg-agenda .todoit .todoedit .tdstep .tdsteptx { font: 400 16px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; text-transform: none; }
+html #pg-agenda .todoit .todoedit .tdstep.done .tdsteptx { color: var(--ink3); text-decoration: line-through; }
+html #pg-agenda .todoit .todoedit .tdstepnone .ak-state { padding: 4px 0; }
+html #pg-agenda .todoit .todoedit .keyrow.tdstepadd { padding: 0; }
 /* ==== [planlane4:tasks end] ==== */

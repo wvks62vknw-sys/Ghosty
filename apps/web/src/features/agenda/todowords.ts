@@ -27,7 +27,14 @@ export interface Todo {
   /** [planlane4:tasks] its project ("Home") and tags ("phone"), his own words */
   project?: string;
   tags?: string[];
+  /** [planlane4:tasks] its notes, and its steps (a checklist inside it, each ticked on its own) */
+  notes?: string;
+  steps?: Step[];
 }
+export interface Step { id: string; text: string; done?: boolean }
+/** [planlane4:tasks] A to-do's steps done of all, as its row says it: "2/5"; '' with none. */
+export const stepsWords = (t: Pick<Todo, 'steps'>): string => (t.steps?.length ? `${t.steps.filter((s) => s.done).length}/${t.steps.length}` : '');
+export const STEPS_EMPTY = 'No steps yet. Break it down: add the first one below.';
 export type Every = 'daily' | 'weekdays' | 'weekly' | 'monthly';
 export const EVERY: [Every | '', string][] = [['', 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['monthly', 'Every month']];
 /** "every day", "weekdays"… in his words, lower case; '' for a one-off. */

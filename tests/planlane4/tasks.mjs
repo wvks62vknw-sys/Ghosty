@@ -7,6 +7,8 @@
 //  3. PRIORITIES P1 TO P4: P1 is the old star both ways; a coloured flag; late first, then priority, then day; the P1 view.
 //  4. UPCOMING: the next fourteen days from tomorrow, each with its diary events and to-dos, quiet days in one line, then Later; a tap
 //     opens an item; the diary on its way, out of reach, and nothing in two weeks, each said.
+//  5. SUBTASKS AND NOTES: a to-do opened has its notes and a checklist (add, tick, remove, with UNDO), "2/5" on its row, all by the
+//     brain's edit.
 // Every part at 440 × 956 and 390 × 844, BODY 21; 44 pt keys, nothing sideways, no word cut; the seven looks for what is drawn.
 import { openSection } from '../nav.mjs';
 
@@ -326,8 +328,54 @@ export async function run(H) {
   }
   log('tasks: upcoming');
 
-  // ---- 9. 390 × 844, BODY 21, the seven looks: a timed P2 to-do with its project and tags, its change box open, and quick add's chips
-  await brain({ op: 'add', item: { id: 'tlook', text: 'Ring the dentist about the crown', due: tomorrow, time: '16:00', p: 2, project: 'Health', tags: ['phone'] } });
+  // ---- 7. SUBTASKS AND NOTES: a to-do opened has its notes and a checklist (add, tick, remove, each with UNDO); "2/5" on its row
+  check(T.stepsWords({ steps: [{ id: 'a', text: 'A', done: true }, { id: 'b', text: 'B' }] }) === '1/2' && T.stepsWords({}) === '', '[tasks pure] a checklist said on the row as done of all');
+  await brain({ words: 'clear my to-do list' });
+  await brain({ op: 'add', item: { id: 'tst', text: 'Pack for the Lisbon trip', due: addDay(today, 4) } });
+  {
+    const { ctx, page } = await phone(PHONE, 'scan', {}, 21);
+    await open(page, 'agenda');
+    await openSection(page, 'agenda', 'To-do');
+    const it = '#pg-agenda .todoit[data-id="tst"]';
+    await page.waitForSelector(it, { timeout: 8000 }).catch(() => check(false, '[tasks steps] the to-do is not on the list'));
+    await page.click(`${it} button.todotx`);
+    const none = await page.waitForSelector(`${it} .tdstepnone[data-state="empty"]`, { timeout: 3000 }).then((e) => e.textContent(), () => '');
+    check(none === 'No steps yet. Break it down: add the first one below.', `[tasks steps] an empty checklist says what to do: ${none}`);
+    for (const s of ['Passport', 'Phone charger', 'Euros']) {
+      await page.fill(`${it} input[aria-label="Add a step"]`, s);
+      await page.press(`${it} input[aria-label="Add a step"]`, 'Enter');
+      await page.waitForFunction(({ it, s }) => [...document.querySelectorAll(`${it} .tdstep .tdsteptx`)].some((x) => x.textContent === s), { it, s }, { timeout: 3000 }).catch(() => check(false, `[tasks steps] the step "${s}" did not go in`));
+    }
+    check(await page.evaluate((it) => document.activeElement === document.querySelector(`${it} input[aria-label="Add a step"]`), it), '[tasks steps] after a step goes in, the step box keeps the focus for the next');
+    await page.click(`${it} .tdstep:has-text("Passport") button.tdsteptick`);
+    await page.waitForFunction((it) => /1\/3/.test(document.querySelector(`${it} .todotx small`)?.textContent ?? ''), it, { timeout: 3000 }).catch(() => undefined);
+    const small = await page.textContent(`${it} .todotx small`).catch(() => '');
+    check(/^Due \w{3} \d{1,2} \w{3} · 1\/3$/.test(small ?? ''), `[tasks steps] the row says 1/3: ${small}`);
+    check((await page.textContent(`${it} .tdstepshead`)) === 'Checklist · 1/3 done', '[tasks steps] the checklist says how far along it is');
+    let l = await until(brainList, (x) => x.find((t) => t.id === 'tst')?.steps?.length === 3 && x.find((t) => t.id === 'tst')?.steps?.[0]?.done);
+    check(l.find((t) => t.id === 'tst')?.steps?.map((s) => `${s.text}${s.done ? '✓' : ''}`).join() === 'Passport✓,Phone charger,Euros', `[tasks steps] the brain keeps the checklist: ${JSON.stringify(l.find((t) => t.id === 'tst')?.steps)}`);
+    // a step removed, then UNDO brings it back
+    await page.click(`${it} .tdstep:has-text("Euros") button.todox`);
+    await page.waitForFunction((it) => document.querySelectorAll(`${it} .tdstep`).length === 2, it, { timeout: 3000 }).catch(() => check(false, '[tasks steps] the step was not removed'));
+    await page.locator('.undofloat button').first().click({ timeout: 3000 }).catch(() => check(false, '[tasks steps] no UNDO after removing a step'));
+    l = await until(brainList, (x) => x.find((t) => t.id === 'tst')?.steps?.length === 3);
+    check(l.find((t) => t.id === 'tst')?.steps?.length === 3 && (await page.$$(`${it} .tdstep`)).length === 3, '[tasks steps] UNDO put the step back, on the phone and in the brain');
+    // notes, kept with SAVE
+    await page.fill(`${it} textarea[aria-label="Notes"]`, 'Flight at 07:10 from Gatwick.\nTaxi booked.');
+    const fd = await fit(page, '#pg-agenda .pn.todo');
+    check(!fd.small.length && !fd.sideways && !fd.cut.length, `[tasks steps 440] the open to-do with its notes and checklist fits: ${JSON.stringify(fd)}`);
+    await page.screenshot({ path: `${H.out}/planlane4-tasks-steps-440.png` });
+    await page.click(`${it} .todoedit button:has-text("Save")`);
+    l = await until(brainList, (x) => !!x.find((t) => t.id === 'tst')?.notes);
+    check(l.find((t) => t.id === 'tst')?.notes === 'Flight at 07:10 from Gatwick.\nTaxi booked.', `[tasks steps] the notes reach the brain: ${JSON.stringify(l.find((t) => t.id === 'tst')?.notes)}`);
+    await page.click(`${it} button.todotx`);
+    check((await page.inputValue(`${it} textarea[aria-label="Notes"]`)) === 'Flight at 07:10 from Gatwick.\nTaxi booked.', '[tasks steps] opened again, the notes are there');
+    await ctx.close();
+  }
+  log('tasks: steps and notes');
+
+  // ---- 9. 390 × 844, BODY 21, the seven looks: a timed P2 to-do with its project, tags, notes and checklist open, and quick add's chips
+  await brain({ op: 'add', item: { id: 'tlook', text: 'Ring the dentist about the crown', due: tomorrow, time: '16:00', p: 2, project: 'Health', tags: ['phone'], notes: 'Ask about the temporary crown and the cost.', steps: [{ id: 'k1', text: 'Find the appointment letter', done: true }, { id: 'k2', text: 'Ask about the cost' }] } });
   {
     const { ctx, page } = await phone(PHONE2, 'scan', {}, 21);
     await open(page, 'agenda');
@@ -340,7 +388,7 @@ export async function run(H) {
       check(on === world, `[tasks ${world}] the look is on: ${on}`);
       await page.waitForSelector('#pg-agenda .todoedit input[aria-label="Change the time it rings"]', { timeout: 3000 }).catch(() => check(false, `[tasks ${world}] no time in the change box`));
       const f = await fit(page, '#pg-agenda .pn.todo');
-      check(!f.small.length && !f.sideways && !f.cut.length, `[tasks ${world} 390] the list, the chips and the change box fit: ${JSON.stringify(f)}`);
+      check(!f.small.length && !f.sideways && !f.cut.length && (await page.$$('#pg-agenda .todoit[data-id="tlook"] .tdstep')).length === 2, `[tasks ${world} 390] the list, the chips and the open to-do with its checklist fit: ${JSON.stringify(f)}`);
       const c = await page.evaluate(() => {
         const bg = getComputedStyle(document.body).backgroundColor;
         const col = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).color : ''; };

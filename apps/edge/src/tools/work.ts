@@ -52,6 +52,8 @@ import {
   prioOk,
   projectOk,
   tagsOk,
+  notesOk,
+  stepsOk,
   TODO_EVERY,
   TODO_MAX,
   todoOrder,
@@ -269,6 +271,17 @@ async function todoOp(op: string, a: Record<string, unknown>, d: PackDeps, list:
       const tg = tagsOk(a.tags);
       if (tg.length) x.tags = tg;
       else delete x.tags;
+    }
+    // [planlane4:tasks] its notes ('' takes them off) and its steps (the whole checklist as it now is)
+    if (typeof a.notes === 'string') {
+      const n = notesOk(a.notes);
+      if (n) x.notes = n;
+      else delete x.notes;
+    }
+    if (Array.isArray(a.steps)) {
+      const st = stepsOk(a.steps);
+      if (st.length) x.steps = st;
+      else delete x.steps;
     }
     if (typeof a.every === 'string') {
       if ((TODO_EVERY as readonly string[]).includes(a.every)) x.every = a.every as TodoEvery;

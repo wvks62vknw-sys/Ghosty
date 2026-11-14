@@ -422,7 +422,14 @@ export interface Todo {
   /** [planlane4:tasks] the project it belongs to ("Home") and its tags ("phone", "errands"), his own words */
   project?: string;
   tags?: string[];
+  /** [planlane4:tasks] its notes, and its steps (a checklist inside it: each ticked on its own; "2/5" on the row) */
+  notes?: string;
+  steps?: TodoStep[];
 }
+export interface TodoStep { id: string; text: string; done?: boolean }
+/** [planlane4:tasks] Most steps one to-do keeps, and the longest notes. */
+export const STEPS_MAX = 50;
+export const NOTES_MAX = 2000;
 export type TodoEvery = 'daily' | 'weekdays' | 'weekly' | 'monthly';
 export const TODO_EVERY: readonly TodoEvery[] = ['daily', 'weekdays', 'weekly', 'monthly'];
 /** Most the one list keeps (the phone kept 300; nothing of his is dropped to fit a smaller brain list). */
@@ -459,6 +466,23 @@ export const projectOk = (v: unknown): string => (typeof v === 'string' ? clean(
 /** [planlane4:tasks] Its tags: short words, no "@", no doubles, at most 8. */
 export const tagsOk = (v: unknown): string[] =>
   Array.isArray(v) ? [...new Set(v.filter((t): t is string => typeof t === 'string').map((t) => clean(t).replace(/^@+/, '').toLowerCase().slice(0, 30)).filter(Boolean))].slice(0, 8) : [];
+/** [planlane4:tasks] Its notes as kept ('' for none): his words, line breaks kept, trimmed. */
+export const notesOk = (v: unknown): string => (typeof v === 'string' ? v.replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').trim().slice(0, NOTES_MAX) : '');
+/** [planlane4:tasks] Its steps as kept: each with an id and words, done or not; no empty ones, at most STEPS_MAX. */
+export const stepsOk = (v: unknown): TodoStep[] => {
+  if (!Array.isArray(v)) return [];
+  const out: TodoStep[] = [];
+  for (const x of v) {
+    if (!x || typeof x !== 'object') continue;
+    const o = x as Record<string, unknown>;
+    const text = typeof o.text === 'string' ? clean(o.text).slice(0, 200) : '';
+    if (!text) continue;
+    const id = typeof o.id === 'string' && /^[\w-]{1,40}$/.test(o.id) && !out.some((y) => y.id === o.id) ? o.id : shortId();
+    out.push({ id, text, ...(o.done ? { done: true } : {}) });
+    if (out.length >= STEPS_MAX) break;
+  }
+  return out;
+};
 /** [planlane4:tasks] How the list ranks it: P1 (or the old star) first, none (P4) last. */
 export const prioOf = (t: Pick<Todo, 'p' | 'high'>): number => (t.high ? 1 : t.p ?? 4);
 /** One to-do as the list keeps it, from whatever was sent (the phone's own shape too: star is high), or null when it has no words. */
@@ -476,9 +500,11 @@ export function todoFrom(x: unknown, now: number): Todo | null {
   const p = prioOk(o.p) || (o.high || o.star ? 1 : 0);
   const project = projectOk(o.project);
   const tags = tagsOk(o.tags);
+  const notes = notesOk(o.notes);
+  const steps = stepsOk(o.steps);
   return {
     id: idOk(o.id) || shortId(), text, ...(due ? { due } : {}), ...(p === 1 ? { high: true } : {}), ...(o.done ? { done: true, ...(doneAt ? { doneAt } : {}) } : {}), at, ...(every ? { every } : {}), ...(time ? { time } : {}),
-    ...(p === 2 || p === 3 ? { p } : {}), ...(project ? { project } : {}), ...(tags.length ? { tags } : {}),
+    ...(p === 2 || p === 3 ? { p } : {}), ...(project ? { project } : {}), ...(tags.length ? { tags } : {}), ...(notes ? { notes } : {}), ...(steps.length ? { steps } : {}),
   };
 }
 /** Tick one off (or back on). A repeating one ticked off makes its next one; ticked back on, that next one goes again (while it
@@ -497,6 +523,8 @@ export function tickTodoIn(list: Todo[], id: string, today: string, now: number,
       next = {
         id: nextId && /^[\w-]{1,40}$/.test(nextId) && !list.some((y) => y.id === nextId) ? nextId : shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}), ...(x.time ? { time: x.time } : {}),
         ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}),
+        // (its notes go with it, and its steps start again unticked)
+        ...(x.notes ? { notes: x.notes } : {}), ...(x.steps?.length ? { steps: x.steps.map((st) => ({ id: shortId(), text: st.text })) } : {}),
       };
       out = [...list, next];
       x.nextId = next.id;
@@ -534,6 +562,8 @@ export function mergeTodos(list: Todo[], items: unknown[], now: number): { list:
       else if (t.p && prioOf(t) < prioOf(same)) same.p = t.p;
       if (!same.project && t.project) same.project = t.project;
       if (t.tags?.length) same.tags = [...new Set([...(same.tags ?? []), ...t.tags])].slice(0, 8);
+      if (!same.notes && t.notes) same.notes = t.notes;
+      if (!same.steps?.length && t.steps?.length) same.steps = t.steps;
       continue;
     }
     out.push(t);

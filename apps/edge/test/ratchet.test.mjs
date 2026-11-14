@@ -271,6 +271,8 @@ export const STATES = {
   'agenda.quickadd': { dir: 'agenda', base: 0, now: 1 },
   // [planlane4:tasks] UPCOMING (the diary on its way with skeleton rows, the brain out of reach with the phone's copy or none, nothing in two weeks)
   'agenda.upcoming': { dir: 'agenda', base: 0, now: 3 },
+  // [planlane4:tasks] a to-do opened whole: its checklist with no steps yet, said with what to do
+  'agenda.taskdetail': { dir: 'agenda', base: 0, now: 1 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },

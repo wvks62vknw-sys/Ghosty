@@ -19,7 +19,8 @@ import { listRow, skeleton, stateCard } from '../../ui/appkit';
 import {
   dayOf, dueWords, EVERY, everyWords, inView, nextDue, sortTodos, TODO_ALL_DONE, TODO_EMPTY, TODO_NEED_TEXT, todoLine, todoWaitWords, daysTo, VIEW_EMPTY, VIEWS,
   ringDayOf, RING_OFF, whenWords, prioOf, PRIOS, tagWords, upcoming, upDayWords, upEventWhen, quietWords, UP_EMPTY, UP_LOADING, UP_NOCOPY, UP_OFFLINE,
-  type UpEvent,
+  stepsWords, STEPS_EMPTY,
+  type UpEvent, type Step,
   type Every, type Todo, type TodoView,
 } from './todowords';
 
@@ -52,7 +53,7 @@ const newId = () => `t${Date.now().toString(36)}${Math.random().toString(36).sli
 const OUTBOX = 'ghosty.agenda.todo.outbox';
 /** set once the list this phone kept on its own has joined the brain's */
 const JOINED = 'ghosty.agenda.todo.one';
-type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string; time?: string; p?: number; project?: string; tags?: string[] } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
+type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string; time?: string; p?: number; project?: string; tags?: string[]; notes?: string; steps?: Step[] } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
 const readJson = <T,>(k: string, d: T): T => {
   try {
     return (JSON.parse(localStorage.getItem(k) ?? 'null') as T) ?? d;
@@ -79,13 +80,15 @@ function queue(op: TodoOp): void {
   void syncTodos(true);
 }
 /** The brain's to-do (its own shape: high is the star) as this phone's. */
-type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string; time?: string; p?: number; project?: string; tags?: string[] };
+type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string; time?: string; p?: number; project?: string; tags?: string[]; notes?: string; steps?: Step[] };
 const fromBrain = (t: BrainTodo): Todo => ({
   id: t.id, text: t.text, due: t.due ?? '', done: !!t.done, at: t.at,
   ...(t.doneAt ? { doneAt: t.doneAt } : {}), ...(t.nextId ? { nextId: t.nextId } : {}), ...(t.high ? { star: true } : {}), ...(t.every ? { every: t.every } : {}),
   ...(typeof t.time === 'string' && /^\d\d:\d\d$/.test(t.time) ? { time: t.time } : {}),
   ...(!t.high && (t.p === 2 || t.p === 3) ? { p: t.p } : {}), ...(typeof t.project === 'string' && t.project ? { project: t.project } : {}),
   ...(Array.isArray(t.tags) && t.tags.length ? { tags: t.tags.filter((x) => typeof x === 'string') } : {}),
+  ...(typeof t.notes === 'string' && t.notes ? { notes: t.notes } : {}),
+  ...(Array.isArray(t.steps) && t.steps.length ? { steps: t.steps.filter((s) => s && typeof s.id === 'string' && typeof s.text === 'string').map((s) => ({ id: s.id, text: s.text, ...(s.done ? { done: true } : {}) })) } : {}),
 });
 /** The brain's list (from any screen that read it: WORK's too) becomes this phone's copy, unless changes made here are still to go
  * (then they are sent first, and the list read again). */
@@ -190,7 +193,8 @@ export function tickTodo(id: string): { done: boolean; next: Todo | null } | nul
   let next: Todo | null = null;
   if (x.done && x.every) {
     next = { id: newId(), text: x.text, due: nextDue(x.due, x.every, Date.now()), done: false, at: Date.now(), every: x.every, ...(x.star ? { star: true } : {}), ...(x.time ? { time: x.time } : {}),
-      ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}) };
+      ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}),
+      ...(x.notes ? { notes: x.notes } : {}), ...(x.steps?.length ? { steps: x.steps.map((s) => ({ id: newId(), text: s.text })) } : {}) };
     l.push(next);
     x.nextId = next.id;
   } else if (!x.done && x.nextId) {
@@ -237,7 +241,7 @@ export function clearDone(): number {
 }
 /** Change a to-do's words, day, repeat, star, the time it rings ('' takes the ring off), [planlane4:tasks] its priority (`prio`, 1 to
  * 4: 1 is the star), project or tags. */
-export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 'every' | 'star' | 'time' | 'project' | 'tags'>> & { prio?: number }): boolean {
+export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 'every' | 'star' | 'time' | 'project' | 'tags' | 'notes' | 'steps'>> & { prio?: number }): boolean {
   const l = loadTodos();
   const x = l.find((y) => y.id === id);
   if (!x) return false;
@@ -254,6 +258,8 @@ export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 
   if (!x.time) delete x.time;
   if (!x.project) delete x.project;
   if (!x.tags?.length) delete x.tags;
+  if (!x.notes) delete x.notes;
+  if (!x.steps?.length) delete x.steps;
   // (a time with no day rings today while it is ahead, else tomorrow: the brain rings only a to-do with both)
   if (x.time && !x.due) x.due = ringDayOf(x.time, Date.now());
   if (!saveTodos(l)) return false;
@@ -264,6 +270,7 @@ export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 
     ...('time' in patch ? { time: x.time ?? '' } : {}),
     ...(prio !== undefined ? { p: prioOf(x), high: !!x.star } : {}),
     ...('project' in patch ? { project: x.project ?? '' } : {}), ...('tags' in patch ? { tags: x.tags ?? [] } : {}),
+    ...('notes' in patch ? { notes: x.notes ?? '' } : {}), ...('steps' in patch ? { steps: x.steps ?? [] } : {}),
   });
   return true;
 }
@@ -295,7 +302,10 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
   let view: TodoView = loadView();
   /** the to-do whose words are open to change (one at a time), and what he has typed there so far (kept across repaints) */
   let editing = '';
-  let draft: { id: string; text: string; due: string; every: string; time: string; prio: string; project: string; tags: string } | null = null;
+  let draft: { id: string; text: string; due: string; every: string; time: string; prio: string; project: string; tags: string; notes: string } | null = null;
+  /** [planlane4:tasks] what he is typing as the next step, and whether the step box (not the words) has the focus after a repaint */
+  let stepDraft = '';
+  let stepFocus = false;
   /** the chips he tapped away (their words stay words) */
   let dropped = new Set<string>();
   const chips = h('div.tqchips', { role: 'group', 'aria-label': 'What I understood (tap one to keep it as words)', hidden: true, dataset: { case: 'keep' } });
@@ -374,9 +384,44 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     const pr = h('select', { 'aria-label': 'Priority' }, ...PRIOS.map(([k, w]) => h('option', { value: String(k) }, w)));
     pr.value = d ? d.prio : String(prioOf(t));
     const pj = h('input', { value: d ? d.project : t.project ?? '', 'aria-label': 'Project', placeholder: 'Project (e.g. Home)', maxlength: '40' });
-    const tg = h('input', { value: d ? d.tags : (t.tags ?? []).join(' '), 'aria-label': 'Tags', placeholder: 'Tags (e.g. phone errands)', maxlength: '120' });
-    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value, time: tm.value, prio: pr.value, project: pj.value, tags: tg.value });
-    for (const x of [tx, dd, tm, rp, pr, pj, tg]) x.addEventListener('input', keep);
+    const tg = h('input', { value: d ? d.tags : (t.tags ?? []).join(' '), 'aria-label': 'Tags', placeholder: 'Tags (e.g. phone)', maxlength: '120' });
+    // [planlane4:tasks] its notes (kept with SAVE) and its checklist (each step's change kept at once, with UNDO)
+    const nt = h('textarea', { 'aria-label': 'Notes', placeholder: 'Notes', rows: '3', maxlength: '2000' });
+    nt.value = d ? d.notes : t.notes ?? '';
+    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value, time: tm.value, prio: pr.value, project: pj.value, tags: tg.value, notes: nt.value });
+    for (const x of [tx, dd, tm, rp, pr, pj, tg, nt]) x.addEventListener('input', keep);
+    const steps = t.steps ?? [];
+    const setSteps = (next: Step[], said: string) => {
+      const was = steps.map((s) => ({ ...s }));
+      keep();
+      if (!editTodo(t.id, { steps: next })) return;
+      undo(said, () => void editTodo(t.id, { steps: was }));
+    };
+    const stepIn = h('input', { 'aria-label': 'Add a step', placeholder: 'Add a step', maxlength: '200', value: stepDraft });
+    stepIn.addEventListener('input', () => void (stepDraft = stepIn.value));
+    const addStep = () => {
+      const v = stepIn.value.replace(/\s+/g, ' ').trim().slice(0, 200);
+      if (!v) return toast('Type the step first', 'warn');
+      if (steps.length >= 50) return toast('Fifty steps is the most one to-do keeps', 'warn');
+      stepDraft = '';
+      stepFocus = true;
+      setSteps([...steps, { id: newId(), text: v }], `Step added: ${v}`);
+    };
+    stepIn.addEventListener('keydown', (e) => e.key === 'Enter' && addStep());
+    const stepRow = (s: Step) => {
+      const tk = button(s.done ? '✓' : '', () => setSteps(steps.map((x) => (x.id === s.id ? { ...x, done: !x.done } : x)), s.done ? `Step not done: ${s.text}` : `Step done: ${s.text}`), `todotick tdsteptick${s.done ? ' on' : ''}`);
+      tk.setAttribute('role', 'checkbox');
+      tk.setAttribute('aria-checked', String(!!s.done));
+      tk.setAttribute('aria-label', s.done ? `Not done: ${s.text}` : `Done: ${s.text}`);
+      const rm = button('✕', () => setSteps(steps.filter((x) => x.id !== s.id), `Step removed: ${s.text}`), 'todox');
+      rm.setAttribute('aria-label', `Remove the step ${s.text}`);
+      return h(`div.tdstep${s.done ? '.done' : ''}` as 'div', { role: 'listitem', dataset: { id: s.id } }, tk, h('span.tdsteptx', s.text), rm);
+    };
+    const checklist = h('div.tdsteps', { dataset: { case: 'keep' } },
+      h('b.tdstepshead', { role: 'heading', 'aria-level': '4' }, steps.length ? `Checklist · ${stepsWords(t)} done` : 'Checklist'),
+      /* state: agenda.taskdetail empty */
+      steps.length ? h('div.tdsteplist', { role: 'list', 'aria-label': 'Checklist' }, ...steps.map(stepRow)) : h('div.tdstepnone', { dataset: { state: 'empty' } }, stateCard('empty', STEPS_EMPTY)),
+      h('div.keyrow.wrapit.addev.tdstepadd', stepIn, button('ADD STEP', addStep)));
     pr.addEventListener('change', keep);
     rp.addEventListener('change', keep);
     const save = () => {
@@ -384,15 +429,19 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
       if (!v) return toast(TODO_NEED_TEXT, 'warn');
       editing = '';
       draft = null;
-      const was = { text: t.text, due: t.due, every: t.every, prio: prioOf(t), time: t.time ?? '', project: t.project ?? '', tags: t.tags ?? [] };
+      const was = { text: t.text, due: t.due, every: t.every, prio: prioOf(t), time: t.time ?? '', project: t.project ?? '', tags: t.tags ?? [], notes: t.notes ?? '' };
       const tags = [...new Set(tg.value.split(/[\s,]+/).map((x) => x.replace(/^@+/, '').toLowerCase().slice(0, 30)).filter(Boolean))].slice(0, 8);
-      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined, time: tm.value || '', prio: Number(pr.value) || 4, project: pj.value.replace(/^#+/, '').trim().slice(0, 40), tags })) return paint();
+      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined, time: tm.value || '', prio: Number(pr.value) || 4, project: pj.value.replace(/^#+/, '').trim().slice(0, 40), tags, notes: nt.value.trim().slice(0, 2000) })) return paint();
       undo(`Changed: ${v}`, () => void editTodo(t.id, was));
     };
     tx.addEventListener('keydown', (e) => e.key === 'Enter' && save());
-    queueMicrotask(() => tx.focus());
+    const focusStep = stepFocus;
+    stepFocus = false;
+    queueMicrotask(() => (focusStep ? stepIn : tx).focus());
     return h('div.todoedit', { dataset: { case: 'keep' } },
       h('div.keyrow.wrapit.addev', tx, dd, tm, rp, pr, pj, tg),
+      h('div.tdnotes', nt),
+      checklist,
       h('div.keyrow.wrapit', button('SAVE', save, 'on'), button('CANCEL', () => {
         editing = '';
         draft = null;
@@ -421,10 +470,12 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     star.setAttribute('aria-label', pv === 1 ? `Take priority 1 off ${t.text}` : `Make ${t.text} priority 1${pv < 4 ? ` (now priority ${pv})` : ''}`);
     const del = button('✕', () => void removeTodo(t.id), 'todox');
     del.setAttribute('aria-label', `Remove ${t.text}`);
-    const words = [t.done ? 'Done' : whenWords(t, now), t.every ? `repeats ${everyWords(t.every)}` : '', tagWords(t)].filter(Boolean).join(' · ');
+    // ([planlane4:tasks] its steps done of all, "2/5", and its project and tags)
+    const words = [t.done ? 'Done' : whenWords(t, now), t.every ? `repeats ${everyWords(t.every)}` : '', stepsWords(t), tagWords(t)].filter(Boolean).join(' · ');
     // tap the words to change them (and the day, and the repeat)
     const tx = h('button.todotx', { type: 'button', 'aria-label': `Change ${t.text}`, 'aria-expanded': String(editing === t.id) }, h('b', t.text), words ? h('small', words) : null);
     tx.addEventListener('click', () => {
+      stepDraft = '';
       editing = editing === t.id ? '' : t.id;
       draft = null;
       paint();
