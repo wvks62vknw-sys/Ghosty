@@ -11,7 +11,6 @@ import { clear, h, icon } from '../core/dom';
 import { changesText, delayOf, hhmm, legColor, legPath, metres, mins, modeWord, ridesOf, standWord, stopsText, textOn, type Journey, type JourneyAnswer, type JourneyLeg, type JourneyMode } from '../data/journey';
 import { home } from '../state/app';
 import { button, modal } from './components';
-import type { FlatMap } from './flatmap';
 import { openMapSheet } from './mapsheet';
 import { rawText, sayError } from './hisWords';
 
@@ -26,8 +25,37 @@ const ICONS: Record<JourneyMode, string> = {
   other: '<circle cx="12" cy="12" r="5"/>',
 };
 
-/** The last journeys planned, so PLAN AGAIN and the palette come back to them. */
-let last: { answer: JourneyAnswer; pick: number } | null = null;
+/** The last journeys planned, so PLAN AGAIN and the palette come back to them. Kept on this phone too (never sent anywhere), so with
+ *  no signal the last journey can still be drawn on the offline map, its times marked as possibly out of date. */
+const KEPT = 'ghosty.journey.last';
+type Kept = { answer: JourneyAnswer; pick: number; at: number };
+let last: Kept | null = (() => {
+  try {
+    const k = JSON.parse(localStorage.getItem(KEPT) ?? 'null') as Kept | null;
+    return k && k.answer && Array.isArray(k.answer.itineraries) && Number.isFinite(k.at) ? k : null;
+  } catch {
+    return null;
+  }
+})();
+const keep = (answer: JourneyAnswer, pick: number, at = Date.now()): void => {
+  last = { answer, pick, at };
+  try {
+    localStorage.setItem(KEPT, JSON.stringify(last));
+  } catch {
+    /* not kept: the screen still shows it */
+  }
+};
+/** The journey kept on this phone, if there is one (the planner, the trip sheet and the specs read it). */
+export const keptJourney = (): Kept | null => last;
+const offline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+/** When a kept journey was planned, in his words: "today at 08:14", "on Tue 12 Nov at 17:30". */
+export function plannedWhen(at: number): string {
+  const d = new Date(at);
+  const t = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return new Date().toDateString() === d.toDateString() ? `today at ${t}` : `on ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} at ${t}`;
+}
+/* state: journey.kept offline */
+export const keptWords = (at: number): string => `No signal: this journey was planned ${plannedWhen(at)}, so its times may be out of date.`;
 let planner: { close(): void } | null = null;
 
 const cap = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);
@@ -73,38 +101,42 @@ function step(leg: JourneyLeg, i: number, j: Journey, tz: string, look: (l: Jour
 }
 
 /** Open the map on a journey: the picked option drawn, the JOURNEY sheet under it. */
-export function showJourney(raw: JourneyAnswer, pick = 0): void {
+export function showJourney(raw: JourneyAnswer, pick = 0, o: { keptAt?: number } = {}): void {
   const answer = tidy(raw);
   const its = answer.itineraries;
   if (!its.length) return;
   planner?.close();
   pick = Math.max(0, Math.min(its.length - 1, Math.round(pick) || 0));
-  last = { answer, pick };
+  // (a journey shown from the phone's own copy keeps the time it was planned; a fresh one is kept now)
+  keep(answer, pick, o.keptAt ?? Date.now());
+  const stale = offline() || o.keptAt !== undefined ? h('div.jstale', { role: 'status', dataset: { state: 'offline', case: 'keep' } }, keptWords(last!.at)) : null;
   const tz = answer.tz;
   const tabs = h('div.jtabs');
   const steps = h('div.jsteps');
-  let flat: FlatMap | null = null;
+  let shown: ReturnType<typeof openMapSheet> | null = null;
   const sheet = h(
     'div.jsheet',
     h('div.jhead', h('b', `${answer.from.name} → ${answer.to.name}`), h('span.jwhen', `${answer.arriveBy ? 'arrive by' : 'leave'} ${hhmm(answer.time, tz)}`)),
+    stale,
     tabs,
     steps,
     h(
       'div.jacts',
       button('PLAN AGAIN', () => openJourneyPlanner()),
       button('CLEAR', () => {
-        flat?.showJourney(null);
+        shown?.flat()?.showJourney(null);
         sheet.hidden = true;
       }),
     ),
     h('div.jcredit', 'Transitous and open timetables · times are live where the operator publishes them'),
   );
   const draw = (i: number) => {
-    if (last) last.pick = i;
+    if (last) keep(last.answer, i, last.at);
     [...tabs.children].forEach((b, k) => b.classList.toggle('on', k === i));
     const j = its[i]!;
-    clear(steps, ...j.legs.map((leg, n) => step(leg, n, j, tz, (l) => flat?.panTo(l.from.lat, l.from.lon, l.mode === 'walk' ? 16 : 15))));
-    flat?.showJourney(j);
+    // a step tapped looks there on whichever map is drawn (the flat one, or the one on this phone with no signal)
+    clear(steps, ...j.legs.map((leg, n) => step(leg, n, j, tz, (l) => shown?.pan(l.from.lat, l.from.lon, l.mode === 'walk' ? 16 : 15))));
+    shown?.flat()?.showJourney(j);
   };
   its.forEach((j, i) => tabs.append(button(h('span', h('b', String(i + 1)), h('small', `${hhmm(j.start, tz)} → ${hhmm(j.end, tz)}`), h('small', `${mins(j.duration)} · ${changesText(j)}`)), () => draw(i), 'jtab')));
   const at = its[pick]!.legs[0]!.from;
@@ -112,7 +144,7 @@ export function showJourney(raw: JourneyAnswer, pick = 0): void {
   // pins and its path as the line (the live flat map draws the journey itself, leg by leg in its colours).
   const path = its[pick]!.legs.flatMap((l) => legPath(l).map(([lat, lon]) => ({ lat, lon })));
   const stops = [at, ...its[pick]!.legs.map((l) => l.to)].map((p, i) => ({ lat: p.lat, lon: p.lon, label: i === 0 ? 'START' : undefined }));
-  flat = openMapSheet('map', { lat: at.lat, lon: at.lon, name: `JOURNEY · ${answer.to.name}` }, { below: sheet, map3d: { points: stops, line: false, route: path } }).flat();
+  shown = openMapSheet('map', { lat: at.lat, lon: at.lon, name: `JOURNEY · ${answer.to.name}` }, { below: sheet, map3d: { points: stops, line: false, route: path } });
   draw(pick);
 }
 
@@ -142,7 +174,7 @@ const whereAmI = (): Promise<{ lat: number; lon: number }> =>
   });
 
 /** The owner's words for a place as the brain takes them: "Here" (or nothing) becomes this phone's position. */
-async function placeArg(text: string): Promise<{ q: string; here: boolean }> {
+export async function placeArg(text: string): Promise<{ q: string; here: boolean }> {
   const t = text.trim();
   if (HOME.test(t)) {
     const H = home();
@@ -194,7 +226,7 @@ export function openJourneyPlanner(prefill: PlannerPrefill = {}): void {
   const hint = prefill.toName
     ? `TO is ${prefill.toName}; type a place to change it. "Here" is this phone's position, or your home in Settings.`
     : 'Buses, trams, trains, metro and ferries with the walks between, anywhere: free, no key (Transitous and the open timetables operators publish). "Here" is this phone\'s position, or your home in Settings.';
-  const paint = (answer: JourneyAnswer, caption = '') => {
+  const paint = (answer: JourneyAnswer, caption = '', keptAt?: number) => {
     clear(results);
     if (caption) results.append(h('div.lab', caption));
     if (!answer.itineraries.length) return void results.append(h('div.jnone', answer.note || 'No journeys found at that time: try another time.'));
@@ -209,13 +241,22 @@ export function openJourneyPlanner(prefill: PlannerPrefill = {}): void {
         h('span', `${mins(j.duration)} · ${changesText(j)}`),
         h('span.jlines', ...badges, j.direct ? h('i.jwalk', `walk ${metres(j.legs.reduce((s, l) => s + l.distance, 0))}`) : null),
       );
-      const open = () => showJourney(answer, i);
+      const open = () => showJourney(answer, i, keptAt !== undefined ? { keptAt } : {});
       r.addEventListener('click', open);
       r.addEventListener('keydown', (e) => e.key === 'Enter' && open());
       results.append(r);
     });
   };
   const run = async () => {
+    /* state: journey.plan offline */
+    if (offline()) {
+      err.textContent = last ? 'No signal, so I can’t plan a new journey. Your last one is kept on this phone, below.' : 'No signal, so I can’t plan a journey right now. Once the signal is back, PLAN works again.';
+      err.dataset.state = 'offline';
+      err.hidden = false;
+      if (last) paintKept();
+      return;
+    }
+    delete err.dataset.state;
     if (!to.value.trim()) {
       err.textContent = 'Say where to go.';
       err.hidden = false;
@@ -234,7 +275,7 @@ export function openJourneyPlanner(prefill: PlannerPrefill = {}): void {
       if (a.here) answer.from = { ...answer.from, name: 'Here' };
       if (b.here) answer.to = { ...answer.to, name: 'Here' };
       else if (prefill.toName && b.q === prefill.to) answer.to = { ...answer.to, name: cap(prefill.toName) };
-      last = { answer, pick: 0 };
+      keep(answer, 0);
       paint(answer);
     } catch (e) {
       err.textContent = plainError(e);
@@ -246,7 +287,19 @@ export function openJourneyPlanner(prefill: PlannerPrefill = {}): void {
   };
   for (const inp of [from, to]) inp.addEventListener('keydown', (e) => e.key === 'Enter' && void run());
   const form = h('div.jform', h('div.lab', 'FROM'), from, h('div.lab', 'TO'), to, h('div.lab', 'WHEN'), chips, time, h('div.jhint', hint), planBtn, err, results);
-  if (last && !prefill.to) paint(last.answer, `LAST PLANNED · ${last.answer.from.name} → ${last.answer.to.name}`);
+  // the last journey, kept on this phone: with no signal it says when it was planned and opens with that warning on it
+  function paintKept(): void {
+    if (!last) return;
+    const k = last;
+    // (with no signal it says when it was planned, since its times may have moved on)
+    paint(k.answer, offline() ? `LAST PLANNED ${plannedWhen(k.at).toUpperCase()} · ${k.answer.from.name} → ${k.answer.to.name}` : `LAST PLANNED · ${k.answer.from.name} → ${k.answer.to.name}`, offline() ? k.at : undefined);
+  }
+  if (last && !prefill.to) paintKept();
+  if (offline()) {
+    err.textContent = last ? 'No signal, so I can’t plan a new journey. Your last one is kept on this phone, below.' : 'No signal, so I can’t plan a journey right now. Once the signal is back, PLAN works again.';
+    err.dataset.state = 'offline';
+    err.hidden = false;
+  }
   planner = modal('JOURNEY PLANNER', form, () => {
     planner = null;
   });

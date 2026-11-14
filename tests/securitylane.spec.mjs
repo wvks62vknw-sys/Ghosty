@@ -219,6 +219,36 @@ await section('leaked', async () => {
   await ctx.close();
 });
 
+// i. a few seconds to take it back: APPROVE on a post counts down; TAKE IT BACK sends nothing and the card asks again
+await section('takeback', async () => {
+  log('take it back');
+  const { ctx, page } = await phone(PHONE);
+  const approves = [];
+  await ctx.route(/\/api\/history/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ turns: [], pending: { id: 'tb1', name: 'social', args: { action: 'post', text: 'Hello from me' } } }) }));
+  await ctx.route(/\/api\/approve$/, (r) => {
+    approves.push(r.request().postData());
+    r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: `${JSON.stringify({ t: 'done', model: 'test' })}\n` });
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await page.click('.logbtn').catch(() => undefined);
+  const card = await page.waitForSelector('.log .approval button.apkey', { timeout: 15000 }).then(() => true, () => false);
+  check(card, '[takeback] no approval card');
+  if (card) {
+    await page.click('.log .approval button.apkey >> nth=0');
+    const words = (await page.locator('.log .approval .aptakeback').textContent().catch(() => '')) ?? '';
+    check(/^Approved\. It leaves in [1-4] seconds?: TAKE IT BACK stops it\.$/.test(words), `[takeback] the countdown says "${words}"`);
+    await page.locator('.log .approval button.apback').click();
+    check(await until(page, () => !!document.querySelector('.log .approval[data-state="waiting"] button.apkey') && !document.querySelector('.log .approval .apback'), null, 3000), '[takeback] TAKE IT BACK did not bring the card back');
+    await page.waitForTimeout(4600); // (the length of the countdown: proving nothing leaves after it, a fixed wait is the condition)
+    check(approves.length === 0, `[takeback] something left after TAKE IT BACK: ${approves.join(', ')}`);
+    await page.click('.log .approval button.apkey >> nth=0');
+    check(await until(page, () => !!document.querySelector('.log .approval:not([data-state="waiting"])'), null, 12000), '[takeback] APPROVE untouched never answered');
+    check(approves.length === 1 && /"allow":true/.test(approves[0] ?? ''), `[takeback] what was sent: ${approves.join(', ')}`);
+  }
+  await ctx.close();
+});
+
 // e. offline: the brain refused
 await section('offline', async () => {
   log('offline');
