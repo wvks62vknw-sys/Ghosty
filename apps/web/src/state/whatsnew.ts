@@ -16,6 +16,10 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [polish3] APPS ROUND, THE ARCADE, console-class (docs/build-plan/APPS-POLISH3.md)
+  { day: '2026-11-14', title: 'A page for every game', line: 'In the ARCADE, tap a game’s title: its screenshots, how to play by touch, controller and keyboard, your record, its trophies, and its licence and credit.' },
+  { day: '2026-11-14', title: 'Continue Playing and the Trophy Room', line: 'The ARCADE now opens on the games you played lately, and THE TROPHY ROOM counts what you earned: five for every game, yours included.' },
+  { day: '2026-11-14', title: 'Save slots, your buttons, gyro aim', line: 'A game’s page keeps your save under a name. In PAUSE, MOVE THE BUTTONS puts them under your thumb; in DOOM and Quake, GYRO AIM and a keyboard work too.' },
   // [paint] THE APPS ROUND, lane COMIC: PAINT, a real painting app (docs/build-plan/APPS-COMIC.md)
   { day: '2026-11-14', title: 'Paint', line: 'MAKE → PAINT: draw with a finger or an Apple Pencil. Six brushes that follow your pressure, layers with blend modes, undo, colouring pages, and a time-lapse of every stroke you can save as a video.' },
   // [moneyapps] money, effortless

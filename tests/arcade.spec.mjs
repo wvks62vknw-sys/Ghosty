@@ -3,7 +3,7 @@
 // goes on once the phone is on Wi-Fi; with the Archive stubbed to serve a tiny valid fixture (tests/fixtures/arcade:
 // FLASH.COM, a 131-byte DOS program written for these tests, public domain), PLAY opens the player on the real DOS
 // engine, frames render (two canvas snapshots differ), the touch layer shows and its stick and buttons reach the game,
-// PAUSE shows RESUME · QUIT · SOUND · CONTROLS, QUIT returns to the shelf and the best score is written; the program's
+// PAUSE shows RESUME · QUIT · SOUND · CONTROLS and MOVE THE BUTTONS (a button dragged and resized is kept), QUIT returns to the shelf and the best score is written; the program's
 // own save file comes back after a reload (it counts its visits); DELETE takes the game off the phone in one tap; with
 // the Archive out of reach (his network's filter) GET asks this site for the same file under /api/arcade/, with his key,
 // and its reason names both mirrors; every control has a VoiceOver label; nothing sticks out sideways at 440 × 956 or
@@ -298,6 +298,25 @@ if (!ctl.some((l) => /FIRE — CTRL/.test(l)) || !ctl.some((l) => /controller/i.
 await page.screenshot({ path: `${out}/arcade-pause-440.png` });
 const playerLabels = await unlabelled('.arcplayer button, .arcplayer [role="application"], .arcplayer input');
 if (playerLabels.length) problems.push(`player controls without a VoiceOver label: ${playerLabels.join(', ')}`);
+// ---------- MOVE THE BUTTONS (the apps round): a big button dragged and made bigger is kept for this kind of game; RESET undoes it
+if (await page.$('.arcplayer .arcmenu .arclayout')) {
+  await page.click('.arcplayer .arcmenu .arclayout');
+  await until(() => !document.querySelector('.arcplayer .arclayoutbar')?.hidden && document.querySelector('.arcplayer .arcmenu')?.hidden, 3000, 'MOVE THE BUTTONS did not open its bar');
+  const b0 = await page.$eval('.arcplayer .arcbtn[data-slot="0"]', (b) => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await page.mouse.move(b0.x, b0.y);
+  await page.mouse.down();
+  await page.mouse.move(b0.x - 60, b0.y - 40, { steps: 5 });
+  await page.mouse.up();
+  await page.click('.arcplayer .arcsize');
+  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.arcade.layout') ?? '{}').dos ?? null);
+  if (!kept || kept.scale !== 1.2 || !(kept.moves?.['0']?.[0] < -40)) problems.push(`MOVE THE BUTTONS kept ${JSON.stringify(kept)}`);
+  if (await page.evaluate(() => window.__ghosty.arcade.intent?.held.size)) problems.push('MOVE THE BUTTONS: dragging a button pressed it');
+  await page.screenshot({ path: `${out}/arcade-layout-440.png` });
+  await page.click('.arcplayer .arcreset');
+  if (await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.arcade.layout') ?? '{}').dos)) problems.push('RESET kept the layout');
+  await page.click('.arcplayer .arcdone');
+  await until(() => !document.querySelector('.arcplayer .arcmenu')?.hidden && document.querySelector('.arcplayer .arclayoutbar')?.hidden, 3000, 'DONE did not go back to PAUSE');
+} else problems.push('PAUSE has no MOVE THE BUTTONS');
 await page.click('.arcplayer .arcmenu button.quit');
 await until(() => !document.querySelector('.arcplayer') && !window.__ghosty.arcade.playing, 15000, 'QUIT did not return to the shelf');
 const score = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.arcade.scores') ?? '{}')['test-flash'] ?? null);
