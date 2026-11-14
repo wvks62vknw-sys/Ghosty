@@ -46,11 +46,12 @@ export async function statementOrBox(text: string): Promise<PackReply> {
   return { said: text, reply: 'Paste it in the box (it keeps the lines), or pick the CSV or PDF your bank gave you. It goes to my brain only.' };
 }
 
-export async function statementTurn(text: string): Promise<PackReply> {
+export async function statementTurn(text: string, account = ''): Promise<PackReply> {
   const lines = unflatten(text).split(/\r?\n/).filter((l) => l.trim()).length;
   const said = `A statement pasted (${lines} lines): read by plain rules on its way to my brain, never shown to a model.`;
   try {
-    const r = await brain.spendingImport(text, true);
+    // [moneyapps] the account he named on the Statement page, when he named one
+    const r = await brain.spendingImport(text, true, account);
     const v = r.view;
     if (!v) return { said, reply: 'I read it, but there were no payments in it I could keep.' };
     const res = r.result;

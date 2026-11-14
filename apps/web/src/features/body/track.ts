@@ -714,7 +714,15 @@ export function homeLine(): string {
   } catch {
     doses = 0;
   }
-  const parts = [w != null ? `water ${ml(w)} of ${ml(goalOf('water', data).v)}` : '', s != null ? `slept ${hours(s)}` : '', doses ? `${doses} tablet dose${doses === 1 ? '' : 's'} to tick` : ''].filter(Boolean);
+  // (HEALTH HUB's latest resting heart rate, from its own storage, when his own numbers are there: never the sample)
+  let rhr = '';
+  try {
+    const hub = JSON.parse(localStorage.getItem('ghosty.body.hub') ?? 'null') as { sample?: boolean; days?: Record<string, { rhr?: number }> } | null;
+    if (hub && !hub.sample) for (const k of [d, shift(d, -1)]) if (!rhr && hub.days?.[k]?.rhr != null) rhr = `resting heart rate ${Math.round(hub.days[k]!.rhr!)}`;
+  } catch {
+    rhr = '';
+  }
+  const parts = [w != null ? `water ${ml(w)} of ${ml(goalOf('water', data).v)}` : '', s != null ? `slept ${hours(s)}` : '', rhr, doses ? `${doses} tablet dose${doses === 1 ? '' : 's'} to tick` : ''].filter(Boolean);
   return parts.length ? `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}` : '';
 }
 

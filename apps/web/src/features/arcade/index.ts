@@ -17,6 +17,9 @@ import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { type Action, BTN, gameButtons, idle, type Intent, merge, PAD_BUTTONS, readPad, type TouchButton, touchLook, touchMove } from '../../arcade/input';
 import type { DosButton } from '../../arcade/dos';
+import { KEY_LINES, keysIntent, takes } from '../../arcade/keys';
+import { gyroLook, gyroOn, type Rate, setGyro } from '../../arcade/gyro';
+import { clampMove, layoutOf, nextScale, saveLayout } from '../../arcade/layout';
 import { primeAudio } from '../../arcade/engines/audio';
 import { dosStats, keyWord } from '../../arcade/engines/dos';
 import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/index';
@@ -34,6 +37,9 @@ import { ask as studioAsk } from '../../studio-game/hub';
 import { listGames, type Meta } from '../../studio-game/store';
 import { screenSays } from '../../shell/awareness';
 import { button, panel } from '../../ui/components';
+import { addShot, allStats, grab, playDays, playTime, recent, recordPlay, whenWords } from '../../arcade/stats';
+import { newlyEarned, trophyRoom } from '../../arcade/trophies';
+import { openGamePage } from './gamepage';
 import { page } from '../../ui/page';
 import { sayError } from '../../ui/hisWords';
 import { fetchFailed, fetchMid, fetchStart, mobileData, retryKey, SHELF_NONE, startFailed } from './words';
@@ -134,7 +140,7 @@ const PAD_WORDS: Partial<Record<number, string>> = { [BTN.A]: 'A', [BTN.B]: 'B',
 
 /** The CONTROLS sheet's lines: the stick, the drag, each button (and its key, or what it does), and the controller. */
 function controlLines(e: ShelfEntry): string[] {
-  if (e.madeByUs) return ['Its own controls are on the screen, and HOW TO PLAY in its menu shows them.', 'A game controller works too: the left stick and the d-pad move, A jumps, MENU pauses.'];
+  if (e.madeByUs) return ['Its own controls are on the screen, and HOW TO PLAY in its menu shows them.', 'A game controller works too: the left stick and the d-pad move, A jumps, MENU pauses.', 'A keyboard works too: the arrow keys move, and its menu shows the rest.'];
   const c = e.dos?.controls;
   const out: string[] = [];
   if (c) out.push(`Left thumb: the stick presses the ${c.stick === 'wasd' ? 'W A S D keys' : 'arrow keys'}${c.run ? ', and runs when pushed all the way' : ''}.`);
@@ -151,8 +157,24 @@ function controlLines(e: ShelfEntry): string[] {
     .filter(([, a]) => a && word(a))
     .map(([i, a]) => `${PAD_WORDS[Number(i)] ?? i} ${word(a!)}`);
   out.push(`A controller: the left stick and the d-pad move${!c || c.drag !== 'none' ? ', the right stick looks' : ''}; ${padLine.join(' · ')}.`);
+  if (!c) out.push(`A keyboard: ${KEY_LINES.join(' ')}`);
+  else out.push('A keyboard: the game’s own keys work as on a computer.');
   return out;
 }
+
+/** A card's title as the key to its page: a link-like key (Enter and Space open it too), so a card's own buttons stay its
+ *  actions alone. */
+const titleKey = (props: { 'aria-label': string }, text: string): HTMLAnchorElement => {
+  const a = h('a.arcopen', { href: '#arcade', role: 'button', tabIndex: 0, dataset: { case: 'keep' }, ...props }, text);
+  a.addEventListener('click', (ev) => ev.preventDefault());
+  a.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      a.click();
+    }
+  });
+  return a;
+};
 
 /** Keep a finger's moves on this element even when it slides off (a synthetic touch has nothing to capture). */
 const capture = (el: Element, id: number) => {
@@ -239,8 +261,13 @@ export const arcadeTab: TabDef = {
     const myPanel = panel('MY GAMES', { status: '', cls: 'arcmygames' });
     const myGrid = h('div.arcgrid', { role: 'list', 'aria-label': 'Games you made' });
     myPanel.body.append(myGrid);
-    P.left.append(shelfPanel.el, myPanel.el, ...(packs.length ? [levelsPanel.el] : []));
-    P.right.append(about.el);
+    // CONTINUE PLAYING and THE TROPHY ROOM (APPS ROUND): what he played last, and what he has earned, kept on this phone
+    const contPanel = panel('CONTINUE PLAYING', { status: '', cls: 'arccont' });
+    const contGrid = h('div.arcgrid.arccontgrid', { role: 'list', 'aria-label': 'Games you played lately' });
+    contPanel.body.append(contGrid);
+    const roomPanel = panel('THE TROPHY ROOM', { status: '', cls: 'arcroom' });
+    P.left.append(contPanel.el, shelfPanel.el, myPanel.el, ...(packs.length ? [levelsPanel.el] : []));
+    P.right.append(roomPanel.el, about.el);
 
     const ofGame = (e: ShelfEntry): CardOf => ({ id: e.id, title: e.title, at: keptAs(e), data: e.data, saves: e.saves });
     /** The cards one GET fills (a game, and any card sharing its package: Freedoom's two phases). */
@@ -266,7 +293,8 @@ export const arcadeTab: TabDef = {
 
     const card = (e: ShelfEntry) => {
       const of = ofGame(e);
-      const title = h('h4.arctitle', e.title);
+      const opener = titleKey({ 'aria-label': `${e.title}: its page, with screenshots, controls, trophies and licence` }, e.title);
+      const title = h('h4.arctitle', opener);
       const line = h('p.arcline', e.line);
       const said = h('p.arcghost', h('b', 'Ghosty'), ` ${e.ghosty}`);
       const score = h('p.arcscore');
@@ -314,10 +342,15 @@ export const arcadeTab: TabDef = {
         details.hidden = !details.hidden;
         more.setAttribute('aria-expanded', String(!details.hidden));
       });
+      opener.addEventListener('click', () => pageOf(e, act, () => score.textContent ?? ''));
       cards.set(e.id, { el, paint, of });
       paint();
       return el;
     };
+
+    /** A game's page (gamepage.ts), its key the card's own. */
+    const pageOf = (e: ShelfEntry, act: HTMLButtonElement, score: () => string, scoreKey?: string) =>
+      openGamePage({ entry: e, act: () => act.textContent ?? '', press: () => act.click(), score, controls: controlLines(e), scoreKey }, () => paintRoom());
     clear(grid, ...games.map(card));
 
     // a level pack's card: its title, its author, its line, what it plays over, GET or PLAY, its scores
@@ -527,6 +560,8 @@ export const arcadeTab: TabDef = {
         arcadeState.probe = () => null;
         paintAll();
         void paintMine();
+        paintCont();
+        paintRoom();
       };
       void (async () => {
         let handle: EngineHandle | null = null;
@@ -534,7 +569,14 @@ export const arcadeTab: TabDef = {
           handle = await started;
           p.ready(handle);
           const seconds = await p.done;
+          const shot = grab(p.canvas) ?? p.lastShot();
           await handle.quit();
+          // the record of play and a screenshot (stats.ts), and any trophy this sitting earned (trophies.ts)
+          const before = trophyRoom(allStats(), allScores(), playDays().length);
+          if (recordPlay(r.id, r.title, seconds, { mine: e.engine === 'studio' }) && shot) addShot(r.id, shot);
+          const after = trophyRoom(allStats(), allScores(), playDays().length);
+          const won = newlyEarned([...before.arcade, ...before.games.flatMap((g) => g.trophies)], [...after.arcade, ...after.games.flatMap((g) => g.trophies)]);
+          lastTrophies = won.map((t) => t.name);
           if (e.madeByUs) {
             // a game made by us keeps its own score (scores.ts), and says its own lines
             kinds.delete(r.card); status.set(r.card, `Played ${timeWords(seconds)}.`);
@@ -551,13 +593,20 @@ export const arcadeTab: TabDef = {
           status.set(r.card, startFailed(r.title.charAt(0) + r.title.slice(1).toLowerCase()));
           await handle?.quit().catch(() => undefined);
         } finally {
+          if (lastTrophies.length) {
+            status.set(r.card, `${status.get(r.card) ?? ''} Trophy: ${lastTrophies.join(', ')}.`.trim());
+            lastTrophies = [];
+          }
           close();
         }
       })();
     };
+    let lastTrophies: string[] = [];
 
     // MY GAMES: the games of the studio, played by its own engine ('studio') on the arcade's frame
     const mine = (m: Meta): ShelfEntry => ({ id: `studio-${m.id}`, title: m.name.toUpperCase(), line: 'A game you made.', engine: 'studio', data: null, madeByUs: true, controls: ['move', 'jump'], saves: true, since: '', ghosty: 'Your own game. Walk about, talk, and finish what it asks.', done: 'Your best is kept.' });
+    /** MY GAMES' cards, by their shelf id (`studio-<id>`), for CONTINUE PLAYING. */
+    const myCards = new Map<string, { el: HTMLElement }>();
     const paintMine = async () => {
       myPanel.setStatus('…');
       let failed = '';
@@ -568,7 +617,9 @@ export const arcadeTab: TabDef = {
         return;
       }
       myPanel.setStatus(list.length ? `${list.length} GAME${list.length === 1 ? '' : 'S'}` : 'NONE YET');
+      myCards.clear();
       const all = allScores();
+      queueMicrotask(paintCont);
       clear(myGrid, ...(list.length
         ? list.map((m) => {
             const e = mine(m);
@@ -581,16 +632,63 @@ export const arcadeTab: TabDef = {
               goTab('gamestudio');
             });
             const stat = h('p.arcstatus', { 'aria-live': 'polite' }, status.get(e.id) ?? '');
-            return h('article.arccard.arcmy', { role: 'listitem', dataset: { game: m.id }, 'aria-label': m.name },
-              h('h4.arctitle', m.name),
+            const opener = titleKey({ 'aria-label': `${m.name}: its page, with screenshots, trophies and your record` }, m.name);
+            opener.addEventListener('click', () => pageOf(e, playBtn, () => scoreWords('studio', allScores()[`studio.${m.id}`], undefined), `studio.${m.id}`));
+            const el = h('article.arccard.arcmy', { role: 'listitem', dataset: { game: m.id }, 'aria-label': m.name },
+              h('h4.arctitle', opener),
               h('p.arcline', `Made by you · ${m.rooms} room${m.rooms === 1 ? '' : 's'}${m.maker ? ` · a game by ${m.maker}` : ''}`),
               h('p.arcscore', scoreWords('studio', sc, undefined)),
               h('div.arcrow', playBtn, editBtn), stat);
+            myCards.set(e.id, { el });
+            return el;
           })
         : [h('p.arcnote', 'Nothing here yet. Make a game in MAKE → The game studio and it plays here.')]));
     };
     void paintMine();
     window.addEventListener('ghosty:studio-imported', () => void paintMine());
+
+    // CONTINUE PLAYING: the games played lately, newest first, each with its key and its page
+    const paintCont = () => {
+      const known = (id: string) => cards.get(id) ?? myCards.get(id) ?? null;
+      const list = recent(allStats(), 8).filter(([id]) => known(id)).slice(0, 4);
+      contPanel.el.hidden = !list.length;
+      contPanel.setStatus(list.length ? `${list.length} LATELY` : '');
+      clear(contGrid, ...list.map(([id, st]) => {
+        const c = known(id)!;
+        const act = c.el.querySelector<HTMLButtonElement>('.arcact');
+        const go = h('button.arcact', { type: 'button', 'aria-label': `${act?.textContent === 'PLAY' ? 'Continue' : act?.textContent ?? 'Open'}: ${st.title}` }, act?.textContent === 'PLAY' ? 'CONTINUE' : (act?.textContent ?? 'OPEN'));
+        go.classList.add(act?.textContent === 'PLAY' ? 'play' : 'get');
+        go.addEventListener('click', () => act?.click());
+        const open = h('button.arcmore', { type: 'button', 'aria-label': `${st.title}: its page` }, '›');
+        open.addEventListener('click', () => c.el.querySelector<HTMLElement>('.arcopen')?.click());
+        return h('article.arccard.arccontcard', { role: 'listitem', dataset: { cont: id }, 'aria-label': st.title },
+          h('h4.arctitle', st.title),
+          h('p.arcscore', `Last played ${whenWords(st.last)} · ${st.plays} ${st.plays === 1 ? 'sitting' : 'sittings'} · ${playTime(st.seconds)}`),
+          h('div.arcrow', go, open));
+      }));
+    };
+
+    // THE TROPHY ROOM: the Arcade's five, then every played game's, earned first
+    const paintRoom = () => {
+      const room = trophyRoom(allStats(), allScores(), playDays().length);
+      roomPanel.setStatus(`${room.earned} OF ${room.total}`);
+      const medal = (t: { id: string; name: string; how: string; earned: boolean; progress: number }) =>
+        h('li.arctrophy', { dataset: { trophy: t.id, earned: String(t.earned) }, 'aria-label': `${t.name}: ${t.earned ? 'earned' : `not yet, ${Math.round(t.progress * 100)}% of the way`}. ${t.how}` },
+          h('span.arcmedal', { 'aria-hidden': 'true' }, t.earned ? '★' : '☆'),
+          h('span.arctname', h('b', t.name), h('span', ` ${t.how}`)),
+          t.earned ? h('span.arctgot', 'EARNED') : h('span.arctbar', { 'aria-hidden': 'true' }, h('i', { style: `width:${Math.round(t.progress * 100)}%` })));
+      const total = Object.values(allStats()).reduce((n, x) => n + x.seconds, 0);
+      roomPanel.body.replaceChildren(
+        h('p.arcnote', room.games.length
+          ? `${room.earned} earned · ${room.games.length} ${room.games.length === 1 ? 'game' : 'games'} played · ${playTime(total)} in all. Kept on this phone.`
+          : 'Nothing earned yet. Play anything on the shelf, or a game you made, and trophies come.'),
+        h('div.lab', 'THE ARCADE'),
+        h('ul.arctrophies', ...room.arcade.map(medal)),
+        ...room.games.slice(0, 12).flatMap((g) => [h('div.lab', { dataset: { roomgame: g.id } }, `${g.title} · ${g.trophies.filter((t) => t.earned).length} OF 5`), h('ul.arctrophies', ...g.trophies.filter((t) => t.earned).map(medal))].filter((x) => x.tagName !== 'UL' || x.childElementCount)),
+      );
+    };
+    paintCont();
+    paintRoom();
 
     // what is already on this phone
     void Promise.all([...new Map([...cards.values()].map((c) => [c.of.at, c.of] as const)).values()].map(async (of) => (of.data && (await isHere({ id: of.at, data: of.data })) ? here.add(of.at) : undefined))).then(() => {
@@ -657,6 +755,7 @@ function player(e: ShelfEntry, title = e.title) {
     const on = (ev: PointerEvent) => {
       ev.preventDefault();
       capture(el, ev.pointerId);
+      if (editing && cls === 'arcbtn') return drag(el, ev);
       touch.held.add(b.act);
       el.classList.add('on');
       if (cls === 'arcbtn') vibrate(8);
@@ -700,10 +799,27 @@ function player(e: ShelfEntry, title = e.title) {
   const gameMenuBtn = native ? h('button.arcm.gamemenu', { type: 'button', 'aria-label': `${menuOf(e)} own menu: new game and its skill, save, load, options` }, 'GAME MENU') : null;
   const quitBtn = h('button.arcm.quit', { type: 'button', 'aria-label': native ? `Quit ${title} (your saved games stay)` : `Quit ${title} (it saves first)` }, 'QUIT');
   const ctlBtn = h('button.arcm', { type: 'button', 'aria-expanded': 'false', 'aria-label': 'Controls: what each button and key does' }, 'CONTROLS');
+  // the touch layout (arcade/layout.ts) and gyro aim (arcade/gyro.ts), from PAUSE
+  const layoutBtn = big.length ? h('button.arcm.arclayout', { type: 'button', 'aria-label': 'Move the buttons: drag them to where your thumb rests, and change their size' }, 'MOVE THE BUTTONS') : null;
+  const gyroBtn = native ? h('button.arcm.arcgyro', { type: 'button', role: 'switch' }) : null;
+  const gyroNote = h('p.arcnote.arcgyronote', { 'aria-live': 'polite' });
+  const paintGyro = () => {
+    if (!gyroBtn) return;
+    gyroBtn.textContent = gyroOn() ? 'GYRO AIM: ON' : 'GYRO AIM: OFF';
+    gyroBtn.setAttribute('aria-checked', String(gyroOn()));
+    gyroBtn.setAttribute('aria-label', gyroOn() ? 'Gyro aim is on: turning the phone turns the view. Turn it off' : 'Gyro aim is off: turn it on to aim by turning the phone');
+  };
+  paintGyro();
   const ctlList = h('ul.arcctl', { hidden: true }, ...controlLines(e).map((t) => h('li', t)));
   const fpsLine = h('p.arcnote.arcfps');
   const menu = h('div.arcmenu', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${title} paused`, hidden: true },
-    h('div.arcsheet', h('h4', title), h('p.arcnote', native ? 'Paused. To keep your place, save from the GAME MENU: saved games stay on this phone.' : 'Paused. It saves when you quit.'), fpsLine, resumeBtn, ...(gameMenuBtn ? [gameMenuBtn] : []), quitBtn, sndBtn, ctlBtn, ctlList));
+    h('div.arcsheet', h('h4', title), h('p.arcnote', native ? 'Paused. To keep your place, save from the GAME MENU: saved games stay on this phone.' : 'Paused. It saves when you quit.'), fpsLine, resumeBtn, ...(gameMenuBtn ? [gameMenuBtn] : []), quitBtn, sndBtn, ...(gyroBtn ? [gyroBtn, gyroNote] : []), ...(layoutBtn ? [layoutBtn] : []), ctlBtn, ctlList));
+  // the layout's bar while he moves the buttons
+  const sizeBtn = h('button.arcm.arcsize', { type: 'button' });
+  const resetBtn = h('button.arcm.arcreset', { type: 'button', 'aria-label': 'Put the buttons back where they started' }, 'RESET');
+  const doneBtn = h('button.arcm.arcdone', { type: 'button', 'aria-label': 'Done moving the buttons' }, 'DONE');
+  const layoutBar = h('div.arclayoutbar', { role: 'dialog', 'aria-label': 'Move the buttons', hidden: true }, h('p.arcnote', 'Drag each button to where your thumb rests. It is kept for this kind of game.'), h('div.arclayoutkeys', sizeBtn, resetBtn, doneBtn));
+  layer.append(layoutBar);
   const errBox = h('p.arcerr', { role: 'alert', hidden: true });
   const el = h('div.arcplayer', { role: 'region', 'aria-label': `${title}: the game` }, screen, ...(made ? [loading, errBox] : [layer, loading, menu, errBox, kbd]));
 
@@ -738,6 +854,7 @@ function player(e: ShelfEntry, title = e.title) {
   };
   const resume = () => {
     if (!paused || !handle) return;
+    if (editing) endEdit();
     paused = false;
     since = performance.now();
     menu.hidden = true;
@@ -763,6 +880,97 @@ function player(e: ShelfEntry, title = e.title) {
     handle?.setSound(on);
     paintSnd();
   });
+  // ---- MOVE THE BUTTONS: the game stays paused; each big button drags; SIZE cycles; RESET; DONE back to PAUSE
+  let editing = false;
+  let lay = layoutOf(e.engine);
+  const paintLayout = () => {
+    for (const b of btns.querySelectorAll<HTMLElement>('.arcbtn')) {
+      const m = lay.moves[b.dataset.slot ?? ''] ?? [0, 0];
+      b.style.transform = m[0] || m[1] || lay.scale !== 1 ? `translate(${m[0]}px, ${m[1]}px) scale(${lay.scale})` : '';
+    }
+    sizeBtn.textContent = `SIZE: ${Math.round(lay.scale * 100)}%`;
+    sizeBtn.setAttribute('aria-label', `Button size ${Math.round(lay.scale * 100)}%: change it`);
+  };
+  paintLayout();
+  const drag = (el: HTMLElement, ev: PointerEvent) => {
+    const slot = el.dataset.slot ?? '';
+    const start = lay.moves[slot] ?? [0, 0];
+    const r = el.getBoundingClientRect();
+    const centre: [number, number] = [r.left + r.width / 2 - start[0], r.top + r.height / 2 - start[1]];
+    const x0 = ev.clientX;
+    const y0 = ev.clientY;
+    const move = (m: PointerEvent) => {
+      lay.moves[slot] = clampMove(start[0] + m.clientX - x0, start[1] + m.clientY - y0, centre, [innerWidth, innerHeight]);
+      paintLayout();
+    };
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      saveLayout(e.engine, lay);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  };
+  const endEdit = () => {
+    editing = false;
+    layer.classList.remove('arcediting');
+    layoutBar.hidden = true;
+    saveLayout(e.engine, lay);
+  };
+  layoutBtn?.addEventListener('click', () => {
+    editing = true;
+    menu.hidden = true;
+    layer.classList.add('arcediting');
+    layoutBar.hidden = false;
+    doneBtn.focus();
+  });
+  sizeBtn.addEventListener('click', () => {
+    lay.scale = nextScale(lay.scale);
+    paintLayout();
+    saveLayout(e.engine, lay);
+  });
+  resetBtn.addEventListener('click', () => {
+    lay = { moves: {}, scale: 1 };
+    saveLayout(e.engine, null);
+    paintLayout();
+  });
+  doneBtn.addEventListener('click', () => {
+    endEdit();
+    menu.hidden = false;
+    resumeBtn.focus();
+  });
+
+  // ---- GYRO AIM: the phone's turning rate, read while it is on (an iPhone asks him first, inside this tap)
+  let rate: Rate | null = null;
+  const onMotion = (ev: DeviceMotionEvent) => {
+    rate = ev.rotationRate ? { alpha: ev.rotationRate.alpha, beta: ev.rotationRate.beta, gamma: ev.rotationRate.gamma } : null;
+  };
+  const listenGyro = (on: boolean) => {
+    if (on) window.addEventListener('devicemotion', onMotion);
+    else (window.removeEventListener('devicemotion', onMotion), (rate = null));
+  };
+  if (native && gyroOn()) listenGyro(true);
+  gyroBtn?.addEventListener('click', async () => {
+    gyroNote.textContent = '';
+    if (gyroOn()) {
+      setGyro(false);
+      listenGyro(false);
+      return paintGyro();
+    }
+    const ask = (globalThis.DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> } | undefined)?.requestPermission;
+    let ok = typeof DeviceMotionEvent !== 'undefined';
+    if (ok && ask) ok = (await ask().catch(() => 'denied')) === 'granted';
+    if (!ok) {
+      gyroNote.textContent = 'This phone did not allow motion, so gyro aim stays off. ' + 'You can allow it in Settings, Safari, Motion & Orientation Access.';
+      return paintGyro();
+    }
+    setGyro(true);
+    listenGyro(true);
+    paintGyro();
+  });
+
   ctlBtn.addEventListener('click', () => {
     ctlList.hidden = !ctlList.hidden;
     ctlBtn.setAttribute('aria-expanded', String(!ctlList.hidden));
@@ -837,6 +1045,22 @@ function player(e: ShelfEntry, title = e.title) {
   lookZone.addEventListener('pointerup', lookOff);
   lookZone.addEventListener('pointercancel', lookOff);
 
+  // ---- the keyboard layer (arcade/keys.ts): DOOM and Quake with a hardware keyboard; the other games read keys themselves
+  const keysDown = new Set<string>();
+  const onKey = (ev: KeyboardEvent) => {
+    if (!native || ev.target === kbd || !takes(ev.code)) return;
+    if (ev.type === 'keydown' && ev.code === 'Escape' && paused) return; // the PAUSE sheet's own Escape
+    ev.preventDefault();
+    if (ev.type === 'keydown') keysDown.add(ev.code);
+    else keysDown.delete(ev.code);
+  };
+  const keysLost = () => keysDown.clear();
+  if (native) {
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    window.addEventListener('blur', keysLost);
+  }
+
   // ---- every frame: the pad, then both layers into the one Intent the engine reads (updated in place)
   let raf = 0;
   let last = performance.now();
@@ -877,7 +1101,14 @@ function player(e: ShelfEntry, title = e.title) {
       intent.held.clear();
       return;
     }
-    const m = merge(touch, padIntent);
+    const k = native && keysDown.size ? keysIntent(keysDown, dt) : null;
+    if (rate) {
+      const g = gyroLook(rate, window.screen.orientation?.angle ?? 0, dt);
+      intent.lookX += g.lookX;
+      intent.lookY += g.lookY;
+    }
+    const m = merge(merge(touch, padIntent), k);
+    if (k) intent.lookX += k.lookX;
     intent.moveX = m.moveX;
     intent.moveY = m.moveY;
     intent.held.clear();
@@ -893,6 +1124,12 @@ function player(e: ShelfEntry, title = e.title) {
   };
   raf = requestAnimationFrame(frame);
   draws('arcade', true);
+  // a screenshot every half minute of play, inside a frame so a WebGL game's picture is still there (stats.ts keeps the last)
+  let shot: string | null = null;
+  const shooter = window.setInterval(() => {
+    if (paused || document.hidden) return;
+    requestAnimationFrame(() => (shot = grab(canvas) ?? shot));
+  }, 30_000);
 
   let sayTimer = 0;
   return {
@@ -928,11 +1165,18 @@ function player(e: ShelfEntry, title = e.title) {
       errBox.textContent = `${title} stopped: ${message}. Quit to go back.`;
       pause();
     },
+    /** The last good screenshot taken while it played (null: none yet). */
+    lastShot: () => shot,
     stop() {
+      clearInterval(shooter);
       draws('arcade', false);
       cancelAnimationFrame(raf);
       clearTimeout(sayTimer);
       document.removeEventListener('visibilitychange', hidden);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+      window.removeEventListener('blur', keysLost);
+      listenGyro(false);
       kbd.blur();
       // the canvas's pixels go back to the phone (each game is given a new one)
       canvas.width = 0;

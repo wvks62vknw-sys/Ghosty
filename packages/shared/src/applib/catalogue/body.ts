@@ -376,17 +376,18 @@ const LISTED: AppDef[] = [
       outputs: [
         { id: 't', label: 'Total seconds', expr: 'h * 3600 + m * 60 + s', unit: 's', dp: 0 },
         { id: 'pk', label: 'Seconds per km', expr: 't / km', unit: 's', dp: 1 },
-        { id: 'pkm', label: 'Pace per km, min', expr: 'floor(pk / 60)', unit: 'min', dp: 0 },
-        { id: 'pks', label: 'Pace per km, sec', expr: 'round(pk - floor(pk / 60) * 60, 0)', unit: 's', dp: 0 },
+        { id: 'pkm', label: 'Pace per km, min', expr: 'floor(round(pk, 0) / 60)', unit: 'min', dp: 0 },
+        { id: 'pks', label: 'Pace per km, sec', expr: 'round(pk, 0) - floor(round(pk, 0) / 60) * 60', unit: 's', dp: 0 },
         { id: 'pm', label: 'Seconds per mile', expr: 't / (km / 1.609344)', unit: 's', dp: 1 },
-        { id: 'pmm', label: 'Pace per mile, min', expr: 'floor(pm / 60)', unit: 'min', dp: 0 },
-        { id: 'pms', label: 'Pace per mile, sec', expr: 'round(pm - floor(pm / 60) * 60, 0)', unit: 's', dp: 0 },
+        { id: 'pmm', label: 'Pace per mile, min', expr: 'floor(round(pm, 0) / 60)', unit: 'min', dp: 0 },
+        { id: 'pms', label: 'Pace per mile, sec', expr: 'round(pm, 0) - floor(round(pm, 0) / 60) * 60', unit: 's', dp: 0 },
         { id: 'kmh', label: 'Speed', expr: 'km / (t / 3600)', unit: 'km/h', dp: 2 },
         { id: 'lap', label: 'Per 400 m', expr: 'pk * 0.4', unit: 's', dp: 1 },
       ],
       tests: [
         { in: { km: 5, h: 0, m: 25, s: 0 }, out: { t: 1500, pk: 300, pkm: 5, pks: 0, pm: 482.8032, pmm: 8, pms: 3, kmh: 12, lap: 120 } },
         { in: { km: 10, h: 0, m: 52, s: 30 }, out: { t: 3150, pk: 315, pkm: 5, pks: 15, pm: 506.9434, pmm: 8, pms: 27, kmh: 11.4286, lap: 126 } },
+        { in: { km: 5, h: 0, m: 29, s: 59 }, out: { t: 1799, pk: 359.8, pkm: 6, pks: 0, pm: 579.0320, pmm: 9, pms: 39 } },
       ],
       source: 'International mile of 1.609344 km; pace is time divided by distance',
     },
@@ -948,22 +949,23 @@ const CALCS: AppDef[] = [
     pitch: 'Turn any gas mark into Celsius, Fahrenheit and a fan setting in one tap.',
     keywords: ['gas mark', 'oven', 'temperature', 'conversion', 'old recipes'],
     archetype: 'calc',
-    tour: ['Pick the gas mark from the recipe.', 'Gas 4 is 180°C, the oven most cakes want.', 'The fan line is about 20°C lower than conventional.'],
+    tour: ['Pick the gas mark from the recipe.', 'Each gas mark is 25°F hotter than the one before.', 'The fan line is about 20°C lower than conventional.'],
     calc: {
       inputs: [
-        { id: 'gas', label: 'Gas mark', unit: '°C', default: 180, choices: [{ label: 'Gas 1', value: 140 }, { label: 'Gas 2', value: 150 }, { label: 'Gas 3', value: 170 }, { label: 'Gas 4', value: 180 }, { label: 'Gas 5', value: 190 }, { label: 'Gas 6', value: 200 }, { label: 'Gas 7', value: 220 }, { label: 'Gas 8', value: 230 }, { label: 'Gas 9', value: 240 }] },
+        { id: 'gas', label: 'Gas mark', unit: '°F', default: 350, choices: [{ label: 'Gas 1', value: 275 }, { label: 'Gas 2', value: 300 }, { label: 'Gas 3', value: 325 }, { label: 'Gas 4', value: 350 }, { label: 'Gas 5', value: 375 }, { label: 'Gas 6', value: 400 }, { label: 'Gas 7', value: 425 }, { label: 'Gas 8', value: 450 }, { label: 'Gas 9', value: 475 }] },
       ],
       outputs: [
-        { id: 'c', label: 'Celsius', expr: 'gas', unit: '°C', dp: 0 },
-        { id: 'f', label: 'Fahrenheit', expr: 'gas * 9 / 5 + 32', unit: '°F', dp: 0 },
-        { id: 'fan', label: 'Fan oven', expr: 'gas - 20', unit: '°C', dp: 0 },
+        { id: 'f', label: 'Fahrenheit', expr: 'gas', unit: '°F', dp: 0 },
+        { id: 'c', label: 'Celsius', expr: '(gas - 32) * 5 / 9', unit: '°C', dp: 0 },
+        { id: 'fan', label: 'Fan oven', expr: 'c - 20', unit: '°C', dp: 0 },
       ],
       tests: [
-        { in: { gas: 180 }, out: { c: 180, f: 356, fan: 160 } },
-        { in: { gas: 220 }, out: { c: 220, f: 428, fan: 200 } },
+        { in: { gas: 350 }, out: { f: 350, c: 176.67, fan: 156.67 } },
+        { in: { gas: 425 }, out: { f: 425, c: 218.33, fan: 198.33 } },
+        { in: { gas: 275 }, out: { f: 275, c: 135, fan: 115 } },
       ],
       estimate: true,
-      source: 'UK gas mark scale (gas 1 is 140°C rising to gas 9 at 240°C)',
+      source: 'UK gas mark scale, defined in Fahrenheit: gas n is 250 + 25n °F; C = (F - 32) x 5/9',
     },
   },
   {
@@ -1084,13 +1086,14 @@ const CALCS: AppDef[] = [
       inputs: [{ id: 'v', label: 'Speed', unit: 'km/h', default: 12, min: 1, max: 30, step: 0.1 }],
       outputs: [
         { id: 'pk', label: 'Seconds per km', expr: '3600 / v', unit: 's', dp: 0 },
-        { id: 'pm', label: 'Pace, min', expr: 'floor(pk / 60)', unit: 'min', dp: 0 },
-        { id: 'ps', label: 'Pace, sec', expr: 'round(pk - floor(pk / 60) * 60, 0)', unit: 's', dp: 0 },
+        { id: 'pm', label: 'Pace, min', expr: 'floor(round(pk, 0) / 60)', unit: 'min', dp: 0 },
+        { id: 'ps', label: 'Pace, sec', expr: 'round(pk, 0) - floor(round(pk, 0) / 60) * 60', unit: 's', dp: 0 },
         { id: 'mph', label: 'Miles per hour', expr: 'v / 1.609344', unit: 'mph', dp: 1 },
       ],
       tests: [
         { in: { v: 12 }, out: { pk: 300, pm: 5, ps: 0, mph: 7.4565 } },
         { in: { v: 10 }, out: { pk: 360, pm: 6, ps: 0, mph: 6.2137 } },
+        { in: { v: 10.01 }, out: { pk: 359.64, pm: 6, ps: 0, mph: 6.2199 } },
       ],
       source: 'International mile of 1.609344 km; pace = 3,600 / speed',
     },
@@ -1681,9 +1684,9 @@ const GUIDES: AppDef[] = [
     pitch: 'The UK\'s healthy eating guide in plain words: portions, fibre, salt and sugar.',
     keywords: ['healthy eating', 'eatwell', 'five a day', 'salt', 'sugar', 'fibre'],
     archetype: 'guide',
-    tour: ['Search any word, such as salt or fibre.', 'Each section is the public NHS guidance, short and plain.', 'It is for most adults; children and some conditions differ.'],
+    tour: ['Search any word, such as salt or fibre.', 'Each section is the public UK guidance, short and plain.', 'It is for most adults; children and some conditions differ.'],
     guide: {
-      source: { name: 'NHS: The Eatwell Guide', url: 'https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/the-eatwell-guide/' },
+      source: { name: 'GOV.UK: The Eatwell Guide and its dietary recommendations', url: 'https://www.gov.uk/government/publications/the-eatwell-guide' },
       sections: [
         { title: 'Fruit and vegetables', body: 'Eat at least 5 portions of a variety of fruit and vegetables a day. A portion is 80 g, or 30 g of dried fruit. Juice and smoothies count as one portion a day at most.', tags: ['five a day', 'portion'] },
         { title: 'Starchy foods', body: 'Base meals on potatoes, bread, rice, pasta or other starchy carbohydrates, choosing wholegrain or higher-fibre versions where you can.', tags: ['carbohydrates', 'wholegrain'] },
@@ -1711,7 +1714,7 @@ const GUIDES: AppDef[] = [
         { title: 'Sugars', body: 'High is more than 22.5 g of total sugars per 100 g. Low is 5 g of total sugars or less per 100 g.', tags: ['sugar'] },
         { title: 'Salt', body: 'High is more than 1.5 g of salt per 100 g. Low is 0.3 g of salt or less per 100 g.', tags: ['salt'] },
         { title: 'Colour codes', body: 'Many front-of-pack labels use red for high, amber for medium and green for low. Choose more greens and ambers, and fewer reds.', tags: ['traffic light', 'colour'] },
-        { title: 'Reference intakes', body: 'Labels show each nutrient as a share of an adult\'s reference intake, based on 2,000 kcal a day.', tags: ['reference intake', 'ri'] },
+        { title: 'Reference intakes', body: 'Many labels also show each nutrient as a share of an adult\'s reference intake, the amount for a whole day.', tags: ['reference intake', 'ri'] },
       ],
     },
   },
@@ -1722,7 +1725,7 @@ const GUIDES: AppDef[] = [
     archetype: 'guide',
     tour: ['Search for your age group or a word like strength.', 'Moderate means you can talk but not sing.', 'Some is better than none; every bit adds up.'],
     guide: {
-      source: { name: 'NHS: Physical activity guidelines for adults', url: 'https://www.nhs.uk/live-well/exercise/physical-activity-guidelines-for-adults-aged-19-to-64/' },
+      source: { name: 'UK Chief Medical Officers\' physical activity guidelines', url: 'https://www.gov.uk/government/publications/physical-activity-guidelines-uk-chief-medical-officers-report' },
       sections: [
         { title: 'Adults, 19 to 64', body: 'Do at least 150 minutes of moderate activity or 75 minutes of vigorous activity a week, spread across the week, and reduce time spent sitting.', tags: ['adults', '150 minutes'] },
         { title: 'Strength', body: 'Do strengthening activities that work all the major muscles on at least 2 days a week: legs, hips, back, abdomen, chest, shoulders and arms.', tags: ['strength', 'muscles'] },
@@ -1752,12 +1755,12 @@ const GUIDES: AppDef[] = [
   },
   {
     id: 'food-safety', name: 'Food Safety', family: 'body', glyph: 'shield',
-    pitch: 'Cleaning, cooking, chilling and avoiding cross-contamination, from the UK food agency.',
+    pitch: 'Cleaning, cooking, chilling and avoiding cross-contamination, from UK public guidance.',
     keywords: ['food safety', 'food hygiene', 'leftovers', 'use by', 'fridge', 'cooking'],
     archetype: 'guide',
     tour: ['Search a word like leftovers, fridge or chicken.', 'The four habits cover nearly every risk in a home kitchen.', 'When in doubt about a use-by date, throw it out.'],
     guide: {
-      source: { name: 'Food Standards Agency: Safety and hygiene', url: 'https://www.food.gov.uk/safety-hygiene' },
+      source: { name: 'GOV.UK: Food hygiene at home', url: 'https://www.gov.uk/health-and-social-care/food-hygiene-at-home' },
       sections: [
         { title: 'Cleaning', body: 'Wash your hands before preparing food and after touching raw meat, the bin or pets. Clean worktops and chopping boards as you go.', tags: ['hands', 'cleaning'] },
         { title: 'Cooking', body: 'Cook food until it is steaming hot all the way through. Poultry, pork, burgers and sausages should have no pink meat and juices should run clear.', tags: ['cooking', 'chicken', 'burgers'] },

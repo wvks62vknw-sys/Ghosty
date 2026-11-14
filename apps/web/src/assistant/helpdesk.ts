@@ -35,8 +35,20 @@ export function tapsTo(screen: string, panel?: string): string {
   return `${r}${name(screen)}${panel ? ` → ${panel}` : ''}`;
 }
 
+/** [consistency] SPEAK SCREEN (APPS ROUND, section 2): "read the screen", "read this page to me", "speak screen". */
+export const SPEAK_ASKED = /^(?:hey |ok |okay )?(?:ghosty,? )?(?:(?:can you |could you |please )?(?:read|speak)(?: out| aloud)? (?:the|this|my) (?:screen|page)(?: (?:to me|aloud|out loud|out))?(?: please)?|speak (?:the )?screen)[\s?!.]*$/i;
+
 export async function helpTurn(text: string, opts: Opts = {}): Promise<boolean> {
   const t = text.trim();
+  if (SPEAK_ASKED.test(t)) {
+    // (the screen he is on, or the one he asked from; read before the reply lands, so the reply itself is never read)
+    const tab = (ui.get().tab === 'core' ? askedFrom() : ui.get().tab) ?? 'core';
+    const sp = await import('../shell/speakscreen');
+    const words = sp.readingOf(tab, name(tab));
+    const voiced = sp.speakScreenText(words);
+    const head = voiced ? `Reading ${name(tab)} in this phone’s own voice. Say “stop” to stop.` : `This phone has no voice to read with, so here are the words on ${name(tab)}.`;
+    return answer(t, `${head}\n${words}`, { kind: 'can' }, opts);
+  }
   if (SAY_HERE.test(t)) {
     // (the screen he is on, or the one he asked from: the jump bar's "Or ask me" takes the question to Home)
     const tab = ui.get().tab === 'core' ? askedFrom() : ui.get().tab;

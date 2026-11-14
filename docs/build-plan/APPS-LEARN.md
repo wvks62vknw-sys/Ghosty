@@ -30,6 +30,16 @@ already there: Stockfish on the phone, Glicko-2 ratings and the after-game check
 in `apps/edge/src/chess/puzzles.ts`. The phone can't reach lichess.org (its connect-src), so the brain fetches them.
 `agent.ts` gains one route line and its import; the commit says why.
 
+## Chess, an app of its own (on the App Kit)
+- **Say "open chess"**, or tap the **Chess** card at the top of the GYM's chess. The app has the kit's header, one scroll area,
+  keys at the bottom, undo, Recently deleted, and CSV or JSON export, so it works the same in all seven looks.
+- **The library** is its list. Every puzzle you try lands there, solved or missed, with its theme, its rating and the day. Tap
+  one to try it again, or search for a theme. On the first run, it shows two example puzzles and a three-step tour.
+- **PUZZLES** opens the trainer in a sheet. **PLAY** opens rated chess against Stockfish, in the GYM.
+- **Where it is registered:** the voice entry ("open chess", "chess puzzles", "puzzle rush"; "play chess" still goes to board
+  games), its catalogue entry, and the kit's Home card. It is not yet a tab of its own on the LEARN hub: that touches the deck
+  specs, which didn't fit this round.
+
 ## How to try it on your phone
 1. Open the **GYM**, then the **chess** card. Scroll to **PUZZLES**.
 2. On Wi-Fi, tap **GET PUZZLES · ABOUT 12 KB**. The line says how many are waiting.
@@ -55,7 +65,7 @@ in `apps/edge/src/chess/puzzles.ts`. The phone can't reach lichess.org (its conn
 - **Other specs:**
   - `gym` and `restb` (rated chess): green.
   - `learnpass` and `learn` on the merged tree: green.
-- **Full brain suite:** 2,364 of 2,364. **Ratchet, look, knowledge and catalogue:** green. The web and brain typechecks are clean.
+- **Full brain suite:** 2,366 of 2,366. **learnlane:** 290 checks green, with the CHESS APP part. **appkit** and **gym:** green. **Ratchet, look, knowledge and catalogue:** green. The web and brain typechecks are clean.
 
 ## What is left (from `docs/build-plan/apps/learn.md`)
 - **Chess:**
@@ -68,6 +78,6 @@ in `apps/edge/src/chess/puzzles.ts`. The phone can't reach lichess.org (its conn
   - setting up a position from the Lens;
   - PGN import and export, and a library of his games;
   - the puzzle of the day in the Brief;
-  - adopting the App Kit (`ui/appkit.ts`). It landed at 14:07, after this panel was built inside the GYM.
+  - Chess as a tab of its own on the LEARN hub (it opens by voice and from its Home card in the GYM).
 - **The rest of section 2:** Courses, Flashcards, Words, the Library and the others, against their leaders.
 - **Section 3:** the new apps (Language Path, Dictionary, Maths Solver and the others).
