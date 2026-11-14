@@ -69,6 +69,7 @@ import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
+import { TRIP_ASK } from '../ui/tripwords';
 
 /** [recall] FIND over his own things: "find garden in my things", "search my notes for garden"; the words looked for, else null. */
 export function findAsked(text: string): string | null {
@@ -159,6 +160,8 @@ export const LOCAL_ASKS = [
   { id: 'homeadmin', test: (t: string) => homeAsked(t) !== null },
   // (and while a typing test is up in the chat's own box, what he sends next: features/learning/typing.ts)
   { id: 'learning', test: (t: string) => typingPending() || learningAsked(t) !== null },
+  // [see] TRIP MODE: the next appointment to the whole journey (ui/tripsheet.ts)
+  { id: 'trip', test: (t: string) => TRIP_ASK.test(t.trim()) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
