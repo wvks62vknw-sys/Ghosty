@@ -64,18 +64,110 @@ export function keptRehearsals(): number {
 }
 
 /** The words the brain is given to play the other side: one turn at a time (the talk so far is inside it, since nothing else goes). */
-export function promptFor(situation: string, round: number, talk: { other: string; answer: string }[], fire: Dial): string {
+export function promptFor(situation: string, round: number, talk: { other: string; answer: string }[], fire: Dial, lang?: { code: string; name: string }): string {
   const said = talk.map((t) => `OTHER SIDE: ${t.other}\nHIM: ${t.answer}`).join('\n');
+  // [learn.s2] speaking practice in another language: the other side speaks only that language, simply, so he can answer in it
+  const foreign = lang && lang.code !== 'en' ? `Speak only ${lang.name}, simply and clearly, at a learner's level, in short everyday sentences; never switch to English.` : '';
   return [
     'You are playing the other person in a rehearsal, so the owner can practise a real conversation. Stay in character the whole time.',
     `The situation, in his words: ${situation.trim().slice(0, 300)}.`,
     `How you play it: ${TEMPER[fire]}.`,
+    foreign,
     `This is round ${round} of ${ROUNDS}. ${round === 1 ? 'Open the conversation.' : 'Answer what he just said and push the conversation one step further.'}`,
     said ? `So far:\n${said}` : '',
     'Reply with only what the other person says: one or two plain sentences, in the first person, no stage directions, no advice, no coaching, no notes.',
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+/**
+ * [learn.s8] DEBATE PRACTICE: he states his side of a topic and Ghosty argues the other side for three rounds, one point a
+ * round, answering what he said; then his strongest and weakest points.
+ */
+export function debatePrompt(topic: string, round: number, talk: { other: string; answer: string }[], fire: Dial): string {
+  const said = talk.map((t) => `YOU (the other side): ${t.other}\nHIM: ${t.answer}`).join('\n');
+  return [
+    'You are his debate partner. He has taken a side on the topic below; you argue the opposite side, honestly and fairly, so he can practise arguing.',
+    `The topic, and his side, in his words: ${topic.trim().slice(0, 300)}.`,
+    `How firmly you argue: ${TEMPER[fire]}.`,
+    `This is round ${round} of ${ROUNDS}. ${round === 1 ? 'Open with your strongest point against his side.' : 'Answer his last point directly, then make one new point against his side.'}`,
+    said ? `So far:\n${said}` : '',
+    'Reply with only your argument: two or three plain sentences, in the first person, no headings, no advice to him.',
+  ].filter(Boolean).join('\n');
+}
+/** After a debate: the words the brain is given for his strongest and weakest points. */
+export function debateNotesPrompt(topic: string, talk: { other: string; answer: string }[]): string {
+  return [
+    `He practised a debate: ${topic.trim().slice(0, 200)}. He argued his side; his partner argued the other.`,
+    talk.map((t) => `PARTNER: ${t.other}\nHIM: ${t.answer}`).join('\n'),
+    'Give him three short lines, as a fair debate coach would: "Strongest: …" (his best point and why it worked), "Weakest: …" (the point that was easiest to answer, and why), and "Next time: …" (one thing to do). Judge only what he said. No headings, nothing else.',
+  ].join('\n\n');
+}
+
+/** The languages Rehearse can be practised in (learn.s2): English, and the ones the interpreter speaks that learners pick most. */
+export const PRACTICE_LANGS = ['en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ar', 'zh', 'ja', 'hi'] as const;
+
+/** After a practice in another language: the words the brain is given for gentle notes, in English. */
+export function langNotesPrompt(lang: { code: string; name: string }, situation: string, talk: { other: string; answer: string }[]): string {
+  return [
+    `The owner practised a conversation in ${lang.name}: ${situation.trim().slice(0, 200)}. Here is what was said.`,
+    talk.map((t) => `OTHER SIDE: ${t.other}\nHIM: ${t.answer}`).join('\n'),
+    `Give gentle notes in English, as a kind language teacher would: first one line on what he made himself understood well, then at most three corrections, each as "You said: … → Say: … (why, in a few words)". If there is nothing to correct, say so. No more than four lines in all, one per line, no headings.`,
+  ].join('\n\n');
+}
+
+/**
+ * [learn.u12] HIS SPEAKING, CHARTED: each one-minute talk keeps only its numbers on this phone (when, words a minute, filler
+ * words, length), never what was said, so the weeks can be compared.
+ */
+export const TALKS_KEY = 'ghosty.talks';
+export const TALKS_MAX = 120;
+export interface TalkMark { at: number; wpm: number; fillers: number; words: number; seconds: number }
+export function loadTalks(): TalkMark[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(TALKS_KEY) ?? '[]') as TalkMark[];
+    return Array.isArray(v) ? v.filter((x) => Number.isFinite(x?.at) && Number.isFinite(x?.wpm)) : [];
+  } catch {
+    return [];
+  }
+}
+export function addTalk(m: TalkMark): TalkMark[] {
+  const all = [...loadTalks(), m].slice(-TALKS_MAX);
+  try {
+    localStorage.setItem(TALKS_KEY, JSON.stringify(all));
+  } catch {
+    /* storage full or blocked: the chart shows what it has */
+  }
+  return all;
+}
+/** The Monday that starts a talk's week, in London (the key a week is charted under). */
+export function weekOf(at: number): string {
+  const d = new Date(new Date(at).toLocaleString('en-US', { timeZone: 'Europe/London' }));
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/** Week by week, oldest first: talks, the average words a minute and filler words a minute (the last eight weeks). */
+export function talkWeeks(talks: TalkMark[]): { week: string; n: number; wpm: number; fpm: number }[] {
+  const by = new Map<string, TalkMark[]>();
+  for (const t of talks) by.set(weekOf(t.at), [...(by.get(weekOf(t.at)) ?? []), t]);
+  return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-8).map(([week, ts]) => ({
+    week,
+    n: ts.length,
+    wpm: Math.round(ts.reduce((a, t) => a + t.wpm, 0) / ts.length),
+    fpm: Math.round((ts.reduce((a, t) => a + t.fillers, 0) / Math.max(1, ts.reduce((a, t) => a + t.seconds, 0) / 60)) * 10) / 10,
+  }));
+}
+/** One line on the change since the first week charted (what happened, in his own numbers; never a forecast). */
+export function talkTrend(weeks: { wpm: number; fpm: number }[]): string {
+  if (weeks.length < 2) return weeks.length ? 'One week so far: talk again next week to see the change.' : 'No talks yet: CHECK IT on a talk and its numbers start the chart.';
+  const a = weeks[0]!;
+  const b = weeks.at(-1)!;
+  const f = b.fpm < a.fpm ? `filler words down from ${a.fpm} to ${b.fpm} a minute` : b.fpm > a.fpm ? `filler words up from ${a.fpm} to ${b.fpm} a minute` : `filler words steady at ${b.fpm} a minute`;
+  const inBand = (w: number) => w >= 110 && w <= 160;
+  const p = inBand(b.wpm) ? `pace ${b.wpm} a minute, in the easy-to-follow band` : `pace ${b.wpm} a minute (easy to follow is 110 to 160)`;
+  return `Since your first week: ${f}; ${p}.`;
 }
 
 /** The words he fills silence with (counted whole-word, lower case). */

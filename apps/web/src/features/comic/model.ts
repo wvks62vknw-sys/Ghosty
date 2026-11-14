@@ -50,6 +50,9 @@ export interface Balloon {
   who: string;
   kind: BalloonKind;
   text: string;
+  /** moved by his finger from where it was laid out (page pixels) */
+  dx?: number;
+  dy?: number;
 }
 export interface Panel {
   id: string;
@@ -62,6 +65,10 @@ export interface Panel {
   sfx: string;
   /** what the beat is for, said in one line (the script's own words) */
   beat: string;
+  /** where his finger put the sound effect, as fractions of the panel */
+  sfxAt?: [number, number];
+  /** his own photo behind the panel (a small JPEG, kept in the comic on this phone) */
+  photo?: string;
 }
 export interface Page {
   id: string;

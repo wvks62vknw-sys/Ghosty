@@ -3,7 +3,7 @@ import type { MemoryFact, MemorySource } from '../../../../packages/shared/src/p
 import { clearPatterns, stashFacts, stashForgottenFacts } from '../memories';
 import { loadPlaces } from '../places';
 import { arg, type Tool } from './types';
-import { recallSearch } from '../recall';
+import { meaningSearch, recallSearch } from '../recall';
 import { keepAnswer } from '../keep';
 import { viaWord } from '../../../../packages/shared/src/recall';
 
@@ -113,7 +113,12 @@ export const memoryTools: Tool[] = [
       const about = arg.str(a, 'about').trim();
       if (!about) return 'Say what to look for.';
       const tz = (await ctx.storage.get<{ tz?: string }>('owner:ctx').catch(() => null))?.tz || 'UTC';
-      const hits = await recallSearch(ctx.storage, about, Date.now(), tz);
+      let hits = await recallSearch(ctx.storage, about, Date.now(), tz);
+      // [recall] memory.u1: few by words ("the trip north" for his "Leeds trains"): by meaning too, within the free daily allowance
+      if (hits.length < 3) {
+        const more = await meaningSearch(ctx.env as never, ctx.storage, about, Date.now(), tz).catch(() => []);
+        hits = [...hits, ...more.filter((m) => !hits.some((h) => h.at === m.at))];
+      }
       // [keep] his word first when his words ask for it: his promises, where he put a thing, why he chose one (keep.ts)
       const kept = await keepAnswer(ctx.storage, about).catch(() => '');
       if (!hits.length) return kept || `Nothing like that in the last 30 days of our chats.`;

@@ -634,6 +634,28 @@ html body #pg-eye .searchpick { display: flex; flex-direction: column; align-ite
 html #pg-eye .searchpick b { color: var(--g-ink-1); overflow-wrap: anywhere; }
 html #pg-eye .searchpick span { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html body #pg-eye .eyesets button { min-height: var(--g-target) !important; }
+/* YOUR CAMERA WALL (see.u2; features/eye/wall.ts): up to nine live tiles, three across */
+.wall { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
+.wall .wallnote { margin: 0; overflow-wrap: anywhere; }
+.wall .wallgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-s-half); }
+.wall .walltile { position: relative; aspect-ratio: 4 / 3; min-height: var(--g-target); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
+.wall .walltile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wall .walltile.dead img { visibility: hidden; }
+.wall .wallstamp { position: absolute; left: var(--g-s-half); top: var(--g-s-half); right: var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); text-shadow: 0 0 4px var(--g-canvas); overflow-wrap: anywhere; }
+.wall .wallname { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body .wall .walllook { position: absolute; inset: 0; width: 100%; height: 100%; min-height: var(--g-target) !important; padding: 0; margin: 0; border: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
+html body .wall .walltile button[data-act="off"] { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-height: var(--g-target) !important; }
+html body .wall .wallacts button { min-height: var(--g-target) !important; }
+@media (max-width: 400px) { .wall .wallgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* RAIN RADAR, full screen (see.s3; features/eye/rain.ts) */
+.rain { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
+.rain .rainmap { height: min(56vh, 520px); min-height: 240px; border-radius: var(--g-radius-key); overflow: hidden; background: var(--g-plate-fill); }
+.rain .rainline { margin: 0; font: var(--g-t-key); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.rain .rainline[hidden], .rain .raincontrols[hidden] { display: none; }
+.rain .raincontrols { display: flex; align-items: center; gap: var(--g-s-1); min-width: 0; }
+.rain .rainslider { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); accent-color: var(--g-accent); }
+.rain .rainwhen { flex: none; font: var(--g-t-caption); color: var(--g-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+html body .rain .raincontrols button { flex: none; min-height: var(--g-target) !important; }
 .jstale { margin: var(--g-s-half) 0; padding: var(--g-s-half) var(--g-s-1); border-radius: var(--g-radius-key); color: var(--g-amber, var(--amber)); background: var(--g-plate-fill); overflow-wrap: anywhere; }
 
 /* Training ground */
@@ -3227,7 +3249,7 @@ html .hubsub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-
 .schsub button { flex: 0 0 auto; }
 .schlive { margin: 8px 0 2px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
 .schliveh { display: flex; flex-direction: column; }
-.schworking { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 12px; background: var(--thin); }
+.schworking { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: var(--g-radius-chip); background: var(--thin); }
 .schworking small { color: var(--mute); letter-spacing: .08em; }
 .schworking pre { margin: 0; max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 15px/1.45 var(--sf); color: var(--fg); }
 .schliveh small { color: var(--mute); }
@@ -8553,6 +8575,7 @@ html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-alig
 .cx .cxbookline, .cx .cxcredit { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
 .cx .cxstage { display: flex; justify-content: center; }
 .cx .cxpage { display: block; width: min(100%, 560px); height: auto; aspect-ratio: 2 / 3; border-radius: var(--g-radius-key); border: var(--g-hair) solid var(--g-line); cursor: pointer; touch-action: manipulation; }
+.cx .cxpage.cxdrag { touch-action: none; }
 .cx .cxedit { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
 .cx .cxpanel, .cx .cxcast, .cx .cxscript, .cx .cxnames { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); min-width: 0; }
 .cx details > summary { display: flex; align-items: center; cursor: pointer; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
@@ -9944,6 +9967,74 @@ html .recallidx .recallindex, html .recallfind .note { flex: 1 1 12em; min-width
 html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
 /* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
 html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
+/* LEARN · TODAY (learn.u2): the lesson his misses point at, said in one line, with its two keys */
+html .learntoday { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; padding: 12px 14px; border-radius: var(--g-radius-cell); background: var(--thin); box-shadow: inset 0 0 0 1px var(--hair); }
+html .learntoday .lab { color: var(--mute); letter-spacing: .08em; }
+html .learntoday small { color: var(--mute); overflow-wrap: anywhere; }
+html .learntoday .row { margin-top: 6px; }
+/* LIBRARY · CLASSICS (learn.u6): the free public-domain shop, a list of books that open to their size and one key */
+html .pn.classics .cllist { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+html .pn.classics .clrow { border-radius: var(--g-radius-cell); background: var(--thin); box-shadow: inset 0 0 0 1px var(--hair); }
+html .pn.classics button.clhead { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 44px; padding: 10px 12px; text-align: left; text-transform: none; letter-spacing: normal; background: none; box-shadow: none; border: 0; white-space: normal; overflow-wrap: anywhere; color: var(--fg); }
+html .pn.classics button.clhead small { color: var(--mute); }
+html .pn.classics .clmore { padding: 0 12px 10px; }
+html .pn.classics .clsearch input { flex: 1 1 auto; min-width: 0; min-height: 44px; }
+/* READER · LISTENING (learn.u5): speed, the sleep timer and the voice for the book open now */
+html .grd-voicerow { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+html .grd-voicerow .lab { color: var(--mute); overflow-wrap: anywhere; }
+html select.grd-voicepick { width: 100%; min-height: 44px; }
+/* REHEARSE · THE LANGUAGE (learn.s2): practise speaking another language, the picker at full width and 44 pt */
+html #pg-rehearse select.rhlang { width: 100%; min-height: 44px; }
+html #pg-rehearse .rhlangnotes ul { margin: 4px 0 0; }
+/* LEARN · QUIZ NIGHT (learn.s10): the scoreboard, the question big, and a key per player */
+html .learnnightrow { align-items: center; gap: 10px; margin-top: 8px; }
+html .learnnightrow small { color: var(--mute); flex: 1 1 160px; }
+html .qnight { display: flex; flex-direction: column; gap: 10px; }
+html .qnplayers { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+html .qnplayers input { min-height: 44px; }
+html .qnboard { display: flex; flex-wrap: wrap; gap: 8px; }
+html .qnscore { display: flex; flex-direction: column; align-items: center; min-width: 64px; padding: 6px 10px; border-radius: var(--g-radius-chip); background: var(--thin); }
+html .qnscore b { font-size: 22px; }
+html .qnscore small { color: var(--mute); overflow-wrap: anywhere; text-align: center; }
+html .qnhead { color: var(--mute); margin: 0; }
+html .qnq { font-size: 22px; line-height: 1.3; margin: 0; overflow-wrap: anywhere; }
+html .qnchoices { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+html .qnreveal { margin: 0; color: var(--fg); }
+html .qnwho button, html .qnight .keyrow button { min-height: 44px; }
+/* SCHOOL · WORKED ANSWERS (learn.u1): booklets kept on the phone, studied a question at a time */
+html .schbooklets { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+html .schbkhead { color: var(--mute); letter-spacing: .06em; }
+html .schbk { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 10px; border-radius: var(--g-radius-cell); background: var(--thin); }
+html .schbk small { display: block; color: var(--mute); }
+html .bkstudy { display: flex; flex-direction: column; gap: 8px; }
+html .bkhead { color: var(--mute); margin: 0; overflow-wrap: anywhere; }
+html .bkq { font-size: 19px; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
+html .bkopts { margin: 0; padding: 0; list-style: none; }
+html .bkworking { white-space: pre-wrap; overflow-wrap: anywhere; }
+html .bkstudy .keyrow button, html .schbk button { min-height: 44px; }
+/* REHEARSE · YOUR SPEAKING, WEEK BY WEEK (learn.u12): a bar per week for pace, with filler words beside it */
+html #pg-rehearse .rhchart { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+html #pg-rehearse .rhweek { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 2px 8px; align-items: center; }
+html #pg-rehearse .rhweek > small:last-child { grid-column: 2; color: var(--mute); overflow-wrap: anywhere; }
+html #pg-rehearse .rhbarbox { display: block; height: 10px; border-radius: var(--g-radius-capsule); background: var(--thin); overflow: hidden; }
+html #pg-rehearse .rhbar { display: block; height: 100%; border-radius: var(--g-radius-capsule); background: var(--acc); }
+/* READER · BOOK CLUB and SUMMARY ALOUD (learn.s5, learn.s6): two keys above the chapters, the questions and answers below */
+html .grd-club { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+html .grd-clubhead { letter-spacing: .04em; }
+html .grd-clubq { margin: 4px 0 0; overflow-wrap: anywhere; }
+html textarea.grd-clubans { width: 100%; min-height: 44px; }
+html .grd-clubsum, html .grd-clubreply { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* LEARNING · REVISION UP TO AN EXAM (learn.s12): the exam, the date, a preview of the sessions, ADD and TAKE THEM OUT */
+html .pkrevision { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--hair); }
+html .pkrevision input, html .pkrevision select { min-height: 44px; }
+html .pkrevlist { margin: 0; padding-left: 18px; columns: 2; color: var(--mute); }
+/* LEARN · MY LEARNING MAP (learn.u3): a bar per area and the next thing */
+html .pn.learnmapall .lmrow { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+html .pn.learnmapall .lmhead { display: flex; flex-direction: column; overflow-wrap: anywhere; }
+html .pn.learnmapall .lmhead small { color: var(--mute); }
+html .pn.learnmapall .lmbar { display: block; height: 8px; border-radius: var(--g-radius-capsule); background: var(--thin); overflow: hidden; }
+html .pn.learnmapall .lmbar i { display: block; height: 100%; border-radius: var(--g-radius-capsule); background: var(--acc); }
+html .pn.learnmapall .lmnext { margin: 6px 0 0; overflow-wrap: anywhere; }
 /* [keep] MEMORY → YOUR WORD (features/memory/keep.ts): a row per promise, place or reason, its keys 44 pt beside it; wraps at BODY 21 */
 html .keep .keepbody { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
 html .keep .keephead { margin: var(--g-s-2) 0 var(--g-s-half); font: var(--g-t-head); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); text-transform: none; }
@@ -9997,6 +10088,14 @@ html .rpsheet .rpitem[aria-checked="true"] .setknob::after { transform: translat
 #pg-security .secpwrow input { flex: 1 1 auto; min-width: 0; min-height: max(44px, var(--g-target)); }
 #pg-security .secpwrow button { min-height: max(44px, var(--g-target)); min-width: max(44px, var(--g-target)); }
 #pg-security .secpwnedsaid:empty { display: none; }
+html body .mndue .mnasked { display: flex; align-items: center; min-height: var(--g-target); width: 100%; padding: 0; border: 0; background: none; color: var(--g-accent); font: var(--g-t-caption); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+/* [recall] memory.c1: FROM WHAT YOU SAID in a document: each line he said, with PUT IT IN at 44 pt; wraps at BODY 21 */
+html .dcminebox .dcmineout { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html .dcmine { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--g-s-1); padding: var(--g-s-half) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+html .dcmine .dcmineline { display: flex; flex-direction: column; gap: var(--g-s-half); flex: 1 1 14em; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .dcmine .dcmineline small { font: var(--g-t-caption); color: var(--g-ink-2); }
+html body .dcmine button, html body .dcminebox .dcrow button { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
+html .dcminebox .dcrow input { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); }
 /* [voice lane] HIS OWN WORDINGS (assistant/learnwords.ts): the floating bar's two keys at 44 pt, its words wrapping, never cut */
 html .rcundo.undofloat.wordbar { flex-wrap: wrap; }
 html .rcundo.undofloat.wordbar span { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }

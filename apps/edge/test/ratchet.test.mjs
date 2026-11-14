@@ -150,6 +150,10 @@ export const STATES = {
   'eye.cam': { dir: 'eye', base: 2, now: 2 },
   'eye.roadahead': { dir: 'eye', base: 1, now: 1 },
   'machine.view': { dir: 'eye', base: 0, now: 2 },
+  // the camera wall (NEXT ROUND, see.u2): its empty wall and a camera that will not come
+  'eye.wall': { dir: 'eye', base: 0, now: 2 },
+  // the full-screen rain radar (see.s3): fetching, unreachable, no signal
+  'eye.rain': { dir: 'eye', base: 0, now: 3 },
   'lens.camera': { dir: 'lens', base: 3, now: 3 },
   'lens.see': { dir: 'lens', base: 0, now: 1 },
   'lens.read': { dir: 'lens', base: 0, now: 1 },
@@ -247,7 +251,7 @@ export const STATES = {
   'core.hud': { dir: 'core', base: 1, now: 2 },
   // THE COMIC (FINAL ROUND, lane COMIC): its own screen, new; base 0 since nothing was drawn before it.
   'comic.shelf': { dir: 'comic', base: 0, now: 3 },
-  'comic.maker': { dir: 'comic', base: 0, now: 3 },
+  'comic.maker': { dir: 'comic', base: 0, now: 4 },
   'comic.reader': { dir: 'comic', base: 0, now: 2 },
   'comic.library': { dir: 'comic', base: 0, now: 4 },
   // SECURITY (NEXT ROUND, lane SECURITY): its own screen, new; base 0 since nothing was drawn before it.

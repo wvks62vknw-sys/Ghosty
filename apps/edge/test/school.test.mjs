@@ -1699,3 +1699,29 @@ test('sitting online on the phone (sit.ts runOnline): every question asked of th
   assert.equal(SIT.onlineLine('Provider · best', 'Qwen3 0.6B', false), 'I sit papers on Provider · best, my own online model, every answer in full working. With no signal, on Qwen3 0.6B on this phone.');
   assert.equal(SIT.onlineLine('', null, false), 'I sit papers on my own online model, every answer in full working. With no signal, on the offline brain, once it is on this phone.');
 });
+
+test('practice papers (14 Nov): a bank still being written but with 12 or more checked questions gives a shorter practice paper now; it is marked like any other but never top grades, so it cannot pass the stage', async () => {
+  const h = host({ ask: fairMarker });
+  const model = bankModel();
+  let meta;
+  for (let i = 0; i < 40 && !(meta?.kept >= R.PRACTICE_MIN); i++) meta = (await B.bankTick({ storage: h.storage }, 'ks3', 'science', model.ask, i)).meta;
+  assert.ok(meta.kept >= R.PRACTICE_MIN && !meta.done, `kept ${meta.kept}, done ${meta.done}`);
+  const v = await route(h, '/school', 'GET');
+  const src = v.body.sources.ks3.science;
+  assert.equal(src.source, 'practice');
+  assert.match(src.line, /^a practice paper from the \d+ questions checked so far \(it cannot pass the stage until the bank is written\)$/);
+  // a subject with fewer checked questions still says it is not written yet
+  assert.equal(v.body.sources.ks3.history.source, null);
+  const set = await route(h, '/school/sit', 'POST', { stage: 'ks3', subject: 'science' });
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  assert.match(set.body.paper.title, / · practice paper from the questions checked so far$/);
+  // every answer right: full marks, and still not top grades (it cannot pass the stage)
+  const rec = [...h.storage.m.values()].find((x) => x?.paper?.id === set.body.paper.id);
+  const answers = rec.paper.items.map((it) => ({ id: it.id, given: it.type === 'mcq' ? `Answer: ${String(it.answer).toUpperCase()}` : `Answer: ${it.answer}` }));
+  const done = await route(h, '/school/answers', 'POST', { paperId: set.body.paper.id, answers, final: true });
+  assert.equal(done.status, 200);
+  assert.equal(done.body.result.practice, true);
+  assert.equal(done.body.result.top, false);
+  assert.ok(done.body.result.raw > 0);
+  assert.deepEqual(done.body.changed.passed, [], 'a practice paper passes nothing');
+});
