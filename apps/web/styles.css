@@ -7794,6 +7794,9 @@ html .phonecard button, html #pg-system .phonecard button { height: auto; min-he
 .dccontents { display: flex; flex-direction: column; gap: var(--g-s-half); }
 .dccontents button { text-align: left; }
 .dccontents .dclevel2 { margin-inline-start: 14px; } .dccontents .dclevel3 { margin-inline-start: 28px; }
+.dccontents .dcsec { display: flex; align-items: center; gap: var(--g-s-half); min-width: 0; }
+.dccontents .dcsec .dcsecgo { flex: 1 1 auto; min-width: 0; text-align: left; overflow-wrap: anywhere; white-space: normal; text-transform: none; letter-spacing: 0; }
+.dccontents .dcsec .dcsecmv { flex: none; width: var(--g-target); padding: 0; }
 .dcfind { display: flex; flex-direction: column; gap: var(--g-s-1); }
 .dcfound { font: var(--g-t-caption); color: var(--g-ink-3); }
 .dcsugs { display: flex; flex-direction: column; gap: var(--g-s-1); }

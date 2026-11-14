@@ -23,6 +23,7 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Cells that colour themselves', line: 'Spreadsheets → RULES: overdue dates in red, the top ten in green, data bars and a colour scale, listed per sheet to edit or delete, and kept in Excel files.' },
   { day: '2026-11-14', title: 'Slide builds go to PowerPoint', line: 'Presentations: what comes in on a tap, and the new MAGIC MOVE between slides, are kept in the PowerPoint file as its own animations and Morph, and come back when you open one.' },
   // [editors paper] the next round's paper tools
+  { day: '2026-11-14', title: 'Move whole sections', line: 'In a document, CONTENTS now has ▲ and ▼ by every heading: a section moves with everything under it, in one step UNDO takes back.' },
   { day: '2026-11-14', title: 'Comments on your words', line: 'In a document choose some words, then WRITE → COMMENT. Reply, resolve, or ASK GHOSTY about that one sentence. Comments stay with the document and go into Word files as Word comments.' },
   { day: '2026-11-14', title: 'Mail merge', line: 'In a document, MAIL MERGE: one letter with {{Name}} fields and a spreadsheet of names gives a copy for every row, as one PDF, one Word file or a file each.' },
   { day: '2026-11-14', title: 'Fill in and sign PDFs', line: 'DOCUMENTS → FILL AND SIGN A PDF: type into a form’s boxes, tick them, sign with your finger, and save or share it. Your signature stays only if you say KEEP IT.' },

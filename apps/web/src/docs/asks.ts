@@ -6,7 +6,7 @@
 import { languageAsked } from './model';
 
 export interface DocsAsk {
-  what: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'scan' | 'receipt' | 'fill' | 'merge' | 'comments';
+  what: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'scan' | 'receipt' | 'fill' | 'merge' | 'comments' | 'outline';
   language?: string;
 }
 
@@ -39,6 +39,12 @@ export function commentsAsked(text: string): boolean {
   return /^(?:show |open |read |see )?(?:me )?(?:the |my )?comments (?:on|in) (?:my|the|this) (?:document|letter|doc)$/i.test(t) || /^(?:my|the) (?:document|letter)['’]s comments$/i.test(t) || /^(?:add a |leave a )?comment on (?:my|the|this) (?:document|letter|doc)$/i.test(t);
 }
 
+/** [editors.u13] "the outline of my document", "move a section in my document". */
+export function outlineAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '').replace(/^(?:please |ghosty,? |can you |could you |i want to |let me )+/i, '');
+  return /^(?:show |open )?(?:me )?(?:the )?(?:outline|contents|headings) (?:of|in) (?:my|the|this) (?:document|letter|doc|essay|report)$/i.test(t) || /^(?:move|reorder|rearrange) (?:a |the )?sections? (?:of|in) (?:my|the|this) (?:document|letter|doc|essay|report)$/i.test(t);
+}
+
 export function docsAsked(text: string): DocsAsk | null {
   const t = text.trim().replace(/[.!?]+$/, '');
   const paper = paperAsked(t);
@@ -46,6 +52,7 @@ export function docsAsked(text: string): DocsAsk | null {
   if (fillAsked(t)) return { what: 'fill' };
   if (mergeAsked(t)) return { what: 'merge' };
   if (commentsAsked(t)) return { what: 'comments' };
+  if (outlineAsked(t)) return { what: 'outline' };
   if (/^(?:open |show )?(?:me )?(?:my )?(?:documents?|docs)$|^(?:open )?(?:the )?document (?:reader|writer|editor)$/i.test(t)) return { what: 'list' };
   if (/^(?:new|start a|make a(?: new)?|write a(?: new)?) (?:blank )?document$/i.test(t)) return { what: 'new' };
   if (/^(?:read|open) (?:a|my|this) (?:document|file|pdf|word (?:file|document)|e-?book)(?: (?:to|for) me)?$/i.test(t)) return { what: 'open' };

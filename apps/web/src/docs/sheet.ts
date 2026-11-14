@@ -30,6 +30,7 @@ import {
 import { sayError } from '../ui/hisWords';
 import { run } from '../commands/registry';
 import { commentsPanel } from './commentsui';
+import { moveSection } from './sections';
 import { anchorOf, commentsOf } from './comments';
 
 export const docsState = {
@@ -63,7 +64,7 @@ const cased = (b: HTMLButtonElement, words = b.textContent ?? ''): HTMLButtonEle
 
 /** The sheet's name (its title, and its panel on the DOCUMENTS screen: features/docs/index.ts). */
 export const DOCS_TITLE = 'DOCUMENTS';
-type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill' | 'merge' | 'comments'; language?: string };
+type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill' | 'merge' | 'comments' | 'outline'; language?: string };
 
 /** The sheet: a document to open (one read here, a chat reply laid out), or MY DOCUMENTS. */
 export async function openDocs(o: DocsAsk = {}): Promise<void> {
@@ -927,6 +928,28 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     return b;
   }));
 
+  // ---------------------------------------------------------------- CONTENTS: jump to a heading, move its whole section (editors.u13)
+  const paintContents = () => {
+    const c = contents(doc());
+    const row = (x: { id: string; level: number; text: string }) => {
+      const words = x.text || 'A heading with no words';
+      const up = key('▲', () => moveSec(x.id, -1), 'dcsecmv', `Move the section “${words.slice(0, 40)}” up`);
+      const down = key('▼', () => moveSec(x.id, 1), 'dcsecmv', `Move the section “${words.slice(0, 40)}” down`);
+      return h(`div.dcsec.dclevel${x.level}` as 'div', { dataset: { id: x.id } }, button(words, () => elOf(x.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 'dcsecgo'), up, down);
+    };
+    clear(contentsBox, ...(c.length ? [...c.map(row), h('small.dcnote', '▲ and ▼ move a heading with everything under it.')] : [h('small', 'No headings in it.')]));
+  };
+  const moveSec = (id: string, dir: -1 | 1) => {
+    flush();
+    const r = moveSection(doc(), id, dir);
+    if (typeof r === 'string') return say(r);
+    change(r.doc);
+    paintContents();
+    contentsBox.querySelector<HTMLElement>(`[data-id="${id}"] .dcsecmv:nth-of-type(${dir < 0 ? 1 : 2})`)?.focus({ preventScroll: true });
+    elOf(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    say(r.said);
+  };
+
   // ---------------------------------------------------------------- reading aloud
   let reading = false;
   function stopReading(): void {
@@ -1211,8 +1234,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const tools = h('div.dctools', { role: 'toolbar', 'aria-label': 'Editing' },
       button('CONTENTS', () => {
         contentsBox.hidden = !contentsBox.hidden;
-        const c = contents(doc());
-        clear(contentsBox, ...(c.length ? c.map((x) => button(x.text, () => elOf(x.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), `dclevel${x.level}`)) : [h('small', 'No headings in it.')]));
+        paintContents();
       }),
       button('READ IT TO ME', (b) => readAloud(b)),
       button('FIND', () => {
@@ -1267,6 +1289,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     paintSuggestions();
     if (cmts && !commentsHolder.hidden) cmts.paint();
     paintCommentMarks();
+    if (!contentsBox.hidden) paintContents();
     if (focused) {
       const f = elOf(focused);
       if (f && document.activeElement !== f && f.matches('figure,hr')) f.focus({ preventScroll: true });
@@ -1324,7 +1347,17 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }
     } else if (o.id && getDoc(o.id)) showDoc(getDoc(o.id)!);
     else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
-    else if (o.what === 'comments') {
+    else if (o.what === 'outline') {
+      const d = listDocs()[0];
+      if (!d) {
+        showList();
+        say('No documents yet: NEW, or open a file. Headings (H1, H2, H3) make its outline.');
+      } else {
+        showDoc(d);
+        contentsBox.hidden = false;
+        paintContents();
+      }
+    } else if (o.what === 'comments') {
       const d = listDocs()[0];
       if (!d) {
         showList();

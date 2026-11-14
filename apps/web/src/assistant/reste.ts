@@ -48,6 +48,11 @@ export async function docsTurn(text: string): Promise<PackReply> {
       : 'The scanner is open on DOCUMENT: capture the receipt, KEEP PAGE, READ ALL, then RECEIPT TO SPREADSHEET. You check the date, shop and total, and ADD ROW puts them in your Receipts spreadsheet, kept on this phone.';
     return { said: text, reply, go: [{ id: 'docspaper', ask: -1, label: 'Open the scanner', run: 'open_lens', args: { mode: 'document' } }] };
   }
+  if (ask.what === 'outline') {
+    const { openDocs } = await import('../docs/sheet');
+    void openDocs({ what: 'outline' });
+    return { said: text, reply: 'Your latest document is open on its CONTENTS: tap a heading to jump to it, or ▲ and ▼ to move its whole section, everything under it with it. UNDO takes a move back.', go: [{ id: 'docsoutline', ask: -1, label: 'Open the contents', run: 'open_docs', args: { what: 'outline' } }] };
+  }
   if (ask.what === 'comments') {
     const { openDocs } = await import('../docs/sheet');
     void openDocs({ what: 'comments' });

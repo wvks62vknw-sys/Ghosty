@@ -368,6 +368,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   docsfill: async (text, opts) => packAnswer(await docsTurn(text), opts),
   docsmerge: async (text, opts) => packAnswer(await docsTurn(text), opts),
   docscomments: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  docsoutline: async (text, opts) => packAnswer(await docsTurn(text), opts),
   sheets: async (text, opts) => packAnswer(await sheetsTurn(text), opts),
   slides: async (text, opts) => packAnswer(await slidesTurn(text), opts),
   workspace: async (text, opts) => packAnswer(await workspaceTurn(text), opts),

@@ -62,6 +62,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
     go: { run: 'open_docs', args: { what: 'comments' } }, tryText: 'Opens the comments',
   },
+  // [editors.u13] move whole sections by heading
+  'phrase:docsoutline': {
+    name: 'Move whole sections',
+    line: 'You can see a document’s headings as its outline, jump to any of them, and move a whole section up or down.',
+    more: 'CONTENTS lists every heading. Tap one to jump there; ▲ and ▼ beside it move the heading with everything under it, its smaller headings too, past the section next to it. Each move is one step that UNDO takes back, and it is kept on this phone.',
+    say: ['Show the outline of my document', 'Move a section in my document', 'The headings in my report'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'outline' } }, tryText: 'Opens the contents',
+  },
   'hub:sheets': {
     name: 'Budgets and lists with formulas',
     line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',

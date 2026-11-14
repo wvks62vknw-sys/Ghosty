@@ -4,5 +4,5 @@
 //   BASE=http://localhost:8788 node tests/editorspaper.spec.mjs [outDir]      PARTS=scan limits it to those parts.
 import { runParts } from './editorsharness.mjs';
 
-await runParts('THE EDITORS’ PAPER TOOLS (scan to a document, PDF forms, mail merge, comments, sections)', ['editorspaper-scan.mjs', 'editorspaper-pdf.mjs', 'editorspaper-merge.mjs', 'editorspaper-comments.mjs'],
+await runParts('THE EDITORS’ PAPER TOOLS (scan to a document, PDF forms, mail merge, comments, sections)', ['editorspaper-scan.mjs', 'editorspaper-pdf.mjs', 'editorspaper-merge.mjs', 'editorspaper-comments.mjs', 'editorspaper-sections.mjs'],
   'THE EDITORS’ PAPER TOOLS ran clean: paper into documents and rows, in all seven looks at 440 and 390 and at BODY 21.');
