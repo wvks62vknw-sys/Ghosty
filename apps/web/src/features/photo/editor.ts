@@ -22,6 +22,7 @@ import { openPhoto } from '../../photo/load';
 import { stroke as alphaStroke, getAlpha, putAlpha, alphaSizeFor, blankAlpha } from '../../photo/alpha';
 import { buildTray, TOOLS, type Tool } from './trays';
 import { openExport } from './exportsheet';
+import { changesFor, changesLine, statsOf, type Change } from '../../photo/suggest';
 
 /** What the editor shows, for the specs (window.__ghosty.photoedit). */
 export const peState = {
@@ -85,6 +86,11 @@ export const peState = {
   rawMs: 0,
   /** The photo whose edits COPY EDITS last kept (its name), for PASTE EDITS on another. */
   copied: '',
+  /** GHOSTY'S CHANGES (editors.u7): the marked changes waiting for ACCEPT or REJECT, the line above them, and how many were taken and left. */
+  changes: [] as string[],
+  changesLine: '',
+  accepted: 0,
+  rejected: 0,
 };
 
 export interface Ed {
@@ -125,6 +131,8 @@ export interface Ed {
   erase(): Promise<void>;
   useSubjectAsHole(m: Mask): void;
   clearHole(): void;
+  /** GHOSTY'S CHANGES (editors.u7): an ask in his words becomes marked changes to accept or reject one by one. */
+  propose(text: string): Promise<number>;
 }
 
 export interface PhotoEditor {
@@ -134,6 +142,8 @@ export interface PhotoEditor {
   isOpen(): boolean;
   /** The Lens's or the chat's wish: the tool he is to land on. */
   tool(t: Tool): void;
+  /** The chat's change in words ("make this photo warmer"): Ghosty's marked changes, here, for ACCEPT or REJECT one by one. */
+  propose(text: string): Promise<number>;
 }
 
 const DPR = () => Math.min(2, window.devicePixelRatio || 1);
@@ -151,8 +161,11 @@ const rawSaid = new Set<string>();
 export function photoEditor(onShelf: () => void): PhotoEditor {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   /** (the page's own handle for specs may come after this screen is built: it is put there again whenever a photo opens) */
+  // (opened straight from the address at start-up, before the page's handle is made: it is put there as soon as the handle exists)
+  let tries = 0;
   const expose = () => {
     if (w.__ghosty) w.__ghosty.photoedit = peState;
+    else if (tries++ < 40) window.setTimeout(expose, 250);
   };
   expose();
 
@@ -182,6 +195,8 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   const exportB = button('EXPORT', () => exportNow(), 'peact.on');
   const acts = h('div.peacts', { role: 'toolbar', 'aria-label': 'Undo, redo, history and export' }, undoB, redoB, histB, exportB);
   const tray = h('div.petray', { role: 'region', 'aria-label': 'Tool' });
+  // GHOSTY'S CHANGES (editors.u7): each change he asked for, marked, with ACCEPT and REJECT; ACCEPT ALL and NO THANKS under them
+  const sugg = h('section.pesugg', { role: 'region', 'aria-label': 'Ghosty’s changes', hidden: true });
   const pills = h('nav.pepills', { role: 'tablist', 'aria-label': 'Tools' });
   const pillBtns = new Map<Tool, HTMLButtonElement>();
   for (const [id, label] of TOOLS) {
@@ -191,7 +206,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     pillBtns.set(id, b);
     pills.append(b);
   }
-  const el = h('div.pe', { dataset: { view: 'edit' } }, head, stage, acts, tray, pills);
+  const el = h('div.pe', { dataset: { view: 'edit' } }, head, stage, acts, sugg, tray, pills);
   el.hidden = true;
 
   // ---------------------------------------------------------------- the state
@@ -1099,6 +1114,86 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     });
   }
 
+  // ---------------------------------------------------------------- GHOSTY'S CHANGES (editors.u7)
+  let pendingChanges: Change[] = [];
+  let changeSaid = '';
+  function paintChanges(): void {
+    peState.changes = pendingChanges.map((c) => c.label);
+    peState.changesLine = changeSaid;
+    if (!pendingChanges.length) {
+      sugg.hidden = true;
+      clear(sugg);
+      return;
+    }
+    const list = h('ul.pesugglist');
+    for (const c of pendingChanges) {
+      const yes = button('ACCEPT', () => acceptChange(c), 'pesuggyes');
+      yes.setAttribute('aria-label', `Accept ${c.label}`);
+      const no = button('REJECT', () => rejectChange(c), 'pesuggno');
+      no.setAttribute('aria-label', `Reject ${c.label}`);
+      list.append(h('li.pesuggrow', { dataset: { change: c.id } }, h('b.pesugglabel', c.label), h('span.pesuggkeys', yes, no)));
+    }
+    const all = button(pendingChanges.length > 1 ? `ACCEPT ALL ${pendingChanges.length}` : 'ACCEPT IT', () => acceptAll(), 'pesuggall');
+    const none = button('NO THANKS', () => noThanks(), 'pesuggnone');
+    clear(sugg, h('p.g-truth.pesuggline', { role: 'status', 'aria-live': 'polite' }, changeSaid), list, h('div.pesuggfoot', all, none));
+    sugg.hidden = false;
+  }
+  function settleChanges(): void {
+    if (pendingChanges.length) return paintChanges();
+    const a = peState.accepted;
+    const r = peState.rejected;
+    changeSaid = '';
+    paintChanges();
+    say(a && r ? `Done: ${a} accepted, ${r} left out. UNDO takes back one at a time.` : a ? `Done: ${a === 1 ? 'the change is' : `all ${a} are`} on the photo. UNDO takes back one at a time.` : 'Nothing changed: the photo is as it was.');
+  }
+  function acceptChange(c: Change, quiet = false): void {
+    if (!orig) return;
+    recipe = c.apply(recipe, srcSize.w, srcSize.h);
+    keep(`Ghosty: ${c.label}`);
+    syncLayer();
+    refreshTray();
+    draw();
+    pendingChanges = pendingChanges.filter((x) => x !== c);
+    peState.accepted++;
+    if (!quiet) {
+      changeSaid = `Accepted: ${c.label}. UNDO takes it back.`;
+      settleChanges();
+    }
+  }
+  function rejectChange(c: Change): void {
+    pendingChanges = pendingChanges.filter((x) => x !== c);
+    peState.rejected++;
+    changeSaid = `Left out: ${c.label}. The photo is as it was.`;
+    settleChanges();
+  }
+  function acceptAll(): void {
+    for (const c of [...pendingChanges]) acceptChange(c, true);
+    settleChanges();
+  }
+  function noThanks(): void {
+    peState.rejected += pendingChanges.length;
+    pendingChanges = [];
+    settleChanges();
+  }
+  async function propose(text: string): Promise<number> {
+    if (!orig) return 0;
+    let stats = null;
+    try {
+      const c = thumbOf(recipe, 96);
+      stats = statsOf(c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data);
+    } catch {
+      stats = null;
+    }
+    pendingChanges = changesFor(text, stats, recipe);
+    peState.accepted = 0;
+    peState.rejected = 0;
+    changeSaid = changesLine(pendingChanges.length);
+    if (!pendingChanges.length) say(changeSaid);
+    paintChanges();
+    sugg.scrollIntoView?.({ block: 'nearest' });
+    return pendingChanges.length;
+  }
+
   // ---------------------------------------------------------------- GL, the slow way, lost
   function ensureGl(): void {
     if (gl || peState.gl === 'slow') return;
@@ -1177,6 +1272,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     erase,
     useSubjectAsHole,
     clearHole,
+    propose,
   };
   Object.defineProperty(ed, 'srcSize', { get: () => srcSize });
   Object.defineProperty(ed, 'orig', { get: () => orig });
@@ -1281,6 +1377,7 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   const editorApi: PhotoEditor = {
     el,
     isOpen: () => !el.hidden,
+    propose,
     tool: (t) => {
       if (!el.hidden) setTool(t);
       else tool = t;
@@ -1327,6 +1424,9 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
           else recipe.layer = null;
         }
         hist = new RecipeHistory(recipe);
+        pendingChanges = [];
+        changeSaid = '';
+        paintChanges();
         savedOnce = false;
         saved.textContent = '';
         peState.saved = '';

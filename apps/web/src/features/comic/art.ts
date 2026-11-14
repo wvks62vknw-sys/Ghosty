@@ -970,7 +970,7 @@ export function drawCover(cv: HTMLCanvasElement, c: Comic): void {
   ctx.font = `700 30px ${DISPLAY}`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'left';
-  ctx.fillText('No. 1', 26, 34);
+  ctx.fillText(`No. ${c.series?.n ?? 1}`, 26, 34);
   ctx.textAlign = 'right';
   ctx.fillText('GHOSTY COMICS', PAGE_W - 26, 34);
   // the tagline, in a caption box

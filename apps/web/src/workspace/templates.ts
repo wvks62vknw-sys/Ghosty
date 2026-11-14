@@ -4,7 +4,7 @@
  * word his to change. Pure.
  */
 import { addDays, addRow, newDatabase, isoOf } from './db';
-import { newPage, patchPage, wblock, type Page, type PVal, type Workspace } from './model';
+import { below, duplicatePage, newPage, patchPage, titleOf, wblock, type Page, type PVal, type Workspace } from './model';
 
 export interface TemplateInfo {
   id: string;
@@ -119,4 +119,37 @@ export function fromTemplate(ws: Workspace, id: string, parent: string | null = 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const r = newPage(ws, { title: 'This week', parent, icon: 'week', from: 'the weekly plan template', blocks: days.flatMap((d) => [wblock('h2', d), todo('')]) });
   return { ws: r.ws, root: r.page };
+}
+
+// ---------------------------------------------------------------- his own templates (editors.u6): SAVE AS TEMPLATE, beside the five
+
+export interface OwnTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  /** The page and everything inside it, as it was saved (ids of their own, never the live pages'). */
+  pages: Page[];
+  at: number;
+}
+const tplId = (): string => `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+/** A page (and what is inside it) kept as a template: a copy taken now, so later edits to the page do not change it. */
+export function saveAsTemplate(ws: Workspace, id: string, now = Date.now()): OwnTemplate | null {
+  const p = ws.pages[id];
+  if (!p || p.deleted) return null;
+  const d = duplicatePage(ws, id);
+  const root = d.ws.pages[d.id]!;
+  const pages = [{ ...root, title: p.title, parent: null }, ...below(d.ws, d.id)].map((x) => ({ ...x, deleted: undefined }));
+  return { id: tplId(), name: titleOf(p), icon: p.icon, pages: JSON.parse(JSON.stringify(pages)) as Page[], at: now };
+}
+/** A fresh page made from one of his templates, under `parent`: new ids, today's time, every word his to change. */
+export function fromOwnTemplate(ws: Workspace, t: OwnTemplate, parent: string | null = null): { ws: Workspace; root: Page } | null {
+  const root = t.pages[0];
+  if (!root) return null;
+  const held = new Set(t.pages.map((p) => p.id));
+  const tmp: Workspace = { ...ws, pages: { ...ws.pages, ...Object.fromEntries(t.pages.map((p) => [p.id, p.id === root.id ? { ...p, parent } : p])) } };
+  const d = duplicatePage(tmp, root.id);
+  const pages = Object.fromEntries(Object.entries(d.ws.pages).filter(([k]) => !held.has(k)));
+  pages[d.id] = { ...pages[d.id]!, title: root.title, from: `my template “${t.name}”` };
+  const out: Workspace = { ...d.ws, pages, at: Date.now() };
+  return { ws: out, root: out.pages[d.id]! };
 }

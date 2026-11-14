@@ -18,3 +18,18 @@ export async function restoreSite(name: string): Promise<Restored> {
   if (!r.ok || !j) throw typeof j?.error === 'string' ? inHisWords(j.error) : new Error(`the brain answered ${r.status}`);
   return j;
 }
+
+/** [sites] A published page's check-up (NEXT ROUND sites.u9): the publish check on the live page, in his words; nothing is changed. */
+export interface CheckUp {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  kb: number;
+  said: string;
+}
+export async function checkSite(name: string): Promise<CheckUp> {
+  const r = await fetch(`/api/sites/${encodeURIComponent(name)}/check`, { credentials: 'same-origin', headers: headers() });
+  const j = (await r.json().catch(() => null)) as (CheckUp & { error?: string }) | null;
+  if (!r.ok || !j) throw typeof j?.error === 'string' ? inHisWords(j.error) : new Error(`the brain answered ${r.status}`);
+  return j;
+}
