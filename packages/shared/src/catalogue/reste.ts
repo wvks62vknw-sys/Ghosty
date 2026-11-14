@@ -71,6 +71,47 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
     go: { run: 'open_docs', args: { what: 'outline' } }, tryText: 'Opens the contents',
   },
+  // [docspro] documents, pro edition (APPS ROUND)
+  'deck:docs:named-styles-you-can-redefine': {
+    name: 'Named styles you can redefine',
+    line: 'You can set any paragraph in Title, Heading 1 to 3, Body, Quote or Caption, and change how a style looks everywhere at once.',
+    more: 'In a document open STYLES. Tap a paragraph, then a style to set it in. CHANGE A STYLE gives its font (serif, sans, rounded or mono), size, colour, bold, italic, line spacing and the room before and after; every paragraph in that style follows. Give one paragraph its own look in THIS PARAGRAPH, then REDEFINE FROM THIS PARAGRAPH makes the style match it. UNDO takes any change back, and the styles go into Word files as real Word styles and come back, and into the PDF and the web page.',
+    say: ['Open my documents', 'My documents'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { open: 'docs' }, tryText: 'Opens my documents',
+  },
+  'deck:docs:track-your-own-changes': {
+    name: 'Track your own changes',
+    line: 'You can turn on TRACK CHANGES so what you type is underlined and what you delete stays struck through, until you accept or reject it.',
+    more: 'In a document open REVIEW and turn TRACK CHANGES on. Each change shows with its time; ACCEPT or REJECT it, or ACCEPT ALL and REJECT ALL. Your changes go into a Word file as Word’s own tracked changes and come back as tracked changes when you open one. Ghosty’s suggestions stay separate: you still accept or reject those under the page. The PDF shows the words as they read with every change accepted.',
+    say: ['Open my documents', 'My documents'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { open: 'docs' }, tryText: 'Opens my documents',
+  },
+  'deck:docs:start-from-a-designed-template': {
+    name: 'Start from a designed template',
+    line: 'You can start a letter, a CV, a report, a newsletter or an invoice from a designed template with your name and today’s date filled in.',
+    more: 'DOCUMENTS → TEMPLATES shows the five, each laid out in its own styles. Your name and town come from Settings when they are set; type over anything in square brackets. Each is an ordinary document after that, kept on this phone, with its look in STYLES.',
+    say: ['Open my documents', 'My documents'],
+    scene: ['making', 'money', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'templates' } }, tryText: 'Opens the templates',
+  },
+  'deck:docs:fold-sections-away': {
+    name: 'Fold sections away',
+    line: 'You can fold a heading’s section away in the page and unfold it again, to see a long document as its headings.',
+    more: 'In CONTENTS, ▾ beside a heading folds everything under it away in the page; one line says how much is folded and UNFOLD brings it back. FOLD ALL and UNFOLD ALL do every section. Folding only changes what you see: nothing is deleted, and ▲ and ▼ still move a whole section.',
+    say: ['Show the outline of my document', 'The headings in my report'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'outline' } }, tryText: 'Opens the contents',
+  },
+  'deck:docs:check-spelling-and-grammar': {
+    name: 'Check spelling and grammar',
+    line: 'You can have a document’s spelling and grammar checked on this phone, each fix shown for you to accept or ignore.',
+    more: 'In a document open REVIEW and press CHECK SPELLING AND GRAMMAR. It finds words people often misspell (British spelling is right here), a word typed twice, “a” or “an” before the wrong sound, a lone “i”, “could of”, a sentence that starts small and stray spaces. ACCEPT puts a fix in, IGNORE leaves your words, FIX ALL does the rest; UNDO takes any fix back. With TRACK CHANGES on, each fix is a tracked change. Nothing is sent or downloaded.',
+    say: ['Open my documents', 'My documents'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { open: 'docs' }, tryText: 'Opens my documents',
+  },
   'hub:sheets': {
     name: 'Budgets and lists with formulas',
     line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',
@@ -98,6 +139,31 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
     go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
   },
+  // [apps round, editors] the chart editor and sparklines, input checks, cell formatting (the pro edition)
+  'deck:sheets:charts-of-every-kind': {
+    name: 'Charts of every kind',
+    line: 'You can draw pie, scatter, area, stacked and line-with-columns charts from your cells, and little sparklines inside a cell.',
+    more: 'Choose the cells, open CHART and pick a kind: bars, line, columns, area, pie, scatter, stacked columns or bars, or a line over columns. Give it a title, the words along the bottom and up the side, the key on or off and a colour, then MAKE THE CHART. EDIT changes a chart later. SPARKLINE draws a tiny line or columns in the cell after a row of numbers. Excel files keep them as real charts and sparklines, both ways.',
+    say: ['Open my spreadsheets', 'Open a spreadsheet'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
+  'deck:sheets:drop-down-lists-and-tick-boxes': {
+    name: 'Drop-down lists and tick boxes',
+    line: 'You can keep cells to a list of choices, a tick box or a date, and anything else typed there is refused with the reason.',
+    more: 'Choose the cells, open CELLS and pick DROP-DOWN LIST (type the choices with commas), TICK BOXES or DATES. Choose a checked cell and its choices, a TICK key or a date picker appear under the formula line. NO CHECK takes it off, UNDO takes any change back, and Excel files keep the checks both ways.',
+    say: ['Open my spreadsheets', 'Open a spreadsheet'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
+  'deck:sheets:borders-merges-and-table-styles': {
+    name: 'Borders, merges and table styles',
+    line: 'You can draw borders, merge cells, wrap long words, use times, dollars and euros, and style a table with a header row and banded rows.',
+    more: 'Choose the cells and open CELLS: ALL LINES, OUTLINE or LINE UNDER for borders; MERGE and UNMERGE; WRAP; TIME, DATE + TIME, LONG DATE, $, € and ACCOUNTING; and MAKE IT A TABLE in one of five colours, with or without a header row and banded rows. Excel files keep all of it, both ways.',
+    say: ['Open my spreadsheets', 'Open a spreadsheet'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
   'hub:slides': {
     name: 'Slides and talks',
     line: 'You can make a deck of slides from a report, or from scratch, give the talk with your notes in your hand, and send it as a PowerPoint file.',
@@ -107,6 +173,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_slides' }, tryText: 'Opens my slides',
   },
   'phrase:slides': { same: 'hub:slides' },
+  // [apps round, editors] free-form slides (the pro edition)
+  'deck:slides:free-slides-with-snapping-guides': {
+    name: 'Free slides with snapping guides',
+    line: 'You can lay any number of text boxes, pictures and shapes on a slide, drag them with guides, line them up, group them and layer them.',
+    more: 'Open a slide and tap FREE: TEXT BOX, PICTURE and the shapes add as many as you like. Drag one and it snaps to the middle and the edges of the slide and to the other items, with a guide line. SELECT MORE chooses several to ALIGN left, centre, right, top, middle or bottom, SPREAD them evenly, GROUP them, or send them FORWARD and BACK. A PowerPoint file keeps them all, groups too, both ways.',
+    say: ['My slides', 'Open a PowerPoint file'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_slides' }, tryText: 'Opens my slides',
+  },
   // [editors grid, NEXT ROUND] the builds and Magic Move carried in and out of PowerPoint (editors.u4)
   'deck:slides:builds-and-magic-move-kept-in': {
     name: 'Builds and Magic Move in PowerPoint',

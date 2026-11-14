@@ -132,6 +132,13 @@ for (const [vp, tag] of [[PHONE, '440'], [PHONE2, '390']]) {
     check(await until(page, () => !document.querySelector('.clkhost .ak-row[data-id="c-dubai"]') && /Recently deleted/.test(document.querySelector('.clkhost .ak-notice')?.textContent ?? '')), `${tag} clock: ✕ did not delete Dubai with its notice`);
     await page.locator('.clkhost .ak-tools button', { hasText: 'Undo' }).click();
     check(await until(page, () => !!document.querySelector('.clkhost .ak-row[data-id="c-dubai"]')), `${tag} clock: Undo did not bring Dubai back`);
+    // the kit's settings: SHOW SECONDS puts the seconds on the big clock
+    await page.click('.clkhost .ak-head button[aria-label="Settings"]');
+    await page.click('.ak-switch[data-id="seconds"]');
+    check(await until(page, () => /^\d\d:\d\d:\d\d$/.test(document.querySelector('.clkbig')?.textContent ?? '')), `${tag} clock: SHOW SECONDS did not show the seconds`);
+    await page.click('.ak-switch[data-id="seconds"]');
+    await page.locator('.ak-sheet button', { hasText: 'Done' }).click();
+    check(await until(page, () => !document.querySelector('.ak-sheet') && !!document.querySelector('.modal .clkhost')), `${tag} clock: Done did not close the settings`);
     await fit(page, `${tag} clock world`, '.modal');
     if (tag === '440') await page.screenshot({ path: `${out}/clockcalc-clock-440.png` });
     await page.click('.clkseg [data-part="stopwatch"]');
@@ -171,6 +178,10 @@ for (const [vp, tag] of [[PHONE, '440'], [PHONE2, '390']]) {
     check(await until(page, () => /divide by nothing/.test(document.querySelector('.calcbig')?.textContent ?? '')), `${tag} calc: 1 ÷ 0 says ${await page.textContent('.calcbig')}`);
     await page.click('.calchost .ak-row[data-id="k-1"] .ak-rowmain');
     check(await until(page, () => document.querySelector('.calcbig')?.textContent === '15,000'), `${tag} calc: tapping the tape row did not use it again`);
+    await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base }).catch(() => undefined);
+    await page.click('.calchost .calcside button[aria-label="Copy the answer"]');
+    check(await until(page, () => /^Copied 15,000\.$/.test(document.querySelector('.calchost .ak-notice')?.textContent ?? '')), `${tag} calc: COPY says "${await page.textContent('.calchost .ak-notice')}"`);
+    check((await page.evaluate(() => navigator.clipboard.readText().catch(() => ''))) === '15000', `${tag} calc: the clipboard does not hold 15000`);
     await fit(page, `${tag} calc`, '.modal');
     if (tag === '440') await page.screenshot({ path: `${out}/clockcalc-calc-440.png` });
     await closeModal(page);

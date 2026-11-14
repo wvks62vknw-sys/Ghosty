@@ -15,6 +15,7 @@ import { boxes, setText, styleOf, approx, type Measure, type Rect } from './layo
 import { H, W, SLOTS, type Deck, type Elem, type Layout, type Shape, type Slide } from './model';
 import { paletteOf } from './render';
 import { timingXml, type TimedBuild } from './anim';
+import { bounds, type FreeItem } from './free';
 import { rgb, type Palette } from './themes';
 
 const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -183,6 +184,53 @@ function shapeSp(c: Ctx, sh: Shape, n: number): string {
   return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Shape ${n}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(sh)}${geom}${body}</p:spPr></p:sp>`;
 }
 
+/** A free-form item (free.ts) as PowerPoint's own: a text box, a shape or a picture, named "Free …" so it reads back as one. */
+function freeXml(c: Ctx, f: FreeItem, image: (id: string) => Uint8Array | null): string {
+  const id = ++c.next;
+  const fill = f.fill ?? 0;
+  if (f.kind === 'shape') {
+    const kind = f.shape ?? 'rect';
+    const acc = `accent${(fill % 5) + 1}`;
+    const body = kind === 'line' ? `<a:ln w="${e(6)}" cap="rnd"><a:solidFill><a:schemeClr val="${acc}"/></a:solidFill></a:ln>` : `<a:solidFill><a:schemeClr val="${acc}"/></a:solidFill><a:ln><a:noFill/></a:ln>`;
+    return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Free shape ${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm({ x: f.x, y: f.y, w: f.w, h: kind === 'line' ? 0 : f.h })}<a:prstGeom prst="${SHAPE_PRST[kind]}"><a:avLst/></a:prstGeom>${body}</p:spPr></p:sp>`;
+  }
+  if (f.kind === 'pic') {
+    const bytes = f.img ? image(f.img) : null;
+    if (!bytes || !f.img) return '';
+    let name = c.mediaOf.get(f.img);
+    if (!name) {
+      name = `image${c.mediaOf.size + 1}.jpeg`;
+      c.mediaOf.set(f.img, name);
+      c.media.push({ name, data: bytes });
+    }
+    const rid = relId(c, 'image', `../media/${name}`);
+    return `<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="Free picture ${id}" descr="${x(f.alt ?? '')}"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${rid}"/><a:srcRect/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${xfrm(f)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+  }
+  const size = Math.max(18, Math.min(64, Math.round(f.h / 2.2)));
+  const clr = fill === 0 ? '<a:schemeClr val="tx1"/>' : `<a:schemeClr val="accent${(fill % 5) + 1}"/>`;
+  const ps = (f.text ?? '').split('\n').map((l) => `<a:p>${l ? `<a:r><a:rPr lang="en-GB" sz="${Math.round(size * 75)}" dirty="0"><a:solidFill>${clr}</a:solidFill></a:rPr><a:t>${x(l)}</a:t></a:r>` : `<a:endParaRPr lang="en-GB" sz="${Math.round(size * 75)}"/>`}</a:p>`).join('');
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Free text ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr>${xfrm(f)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr><p:txBody><a:bodyPr wrap="square" lIns="${e(8)}" tIns="0" rIns="${e(8)}" bIns="0"/><a:lstStyle/>${ps}</p:txBody></p:sp>`;
+}
+/** A slide's free-form items in their drawing order, a group as PowerPoint's group (written where its first member stands). */
+function freeTree(c: Ctx, list: FreeItem[], image: (id: string) => Uint8Array | null): string {
+  const done = new Set<string>();
+  let out = '';
+  for (const f of list) {
+    if (!f.group) {
+      out += freeXml(c, f, image);
+      continue;
+    }
+    if (done.has(f.group)) continue;
+    done.add(f.group);
+    const members = list.filter((m) => m.group === f.group);
+    const b = bounds(members);
+    const id = ++c.next;
+    const box = `<a:off x="${e(b.x)}" y="${e(b.y)}"/><a:ext cx="${e(b.w)}" cy="${e(b.h)}"/>`;
+    out += `<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${id}" name="Free group ${id}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm>${box}<a:chOff x="${e(b.x)}" y="${e(b.y)}"/><a:chExt cx="${e(b.w)}" cy="${e(b.h)}"/></a:xfrm></p:grpSpPr>${members.map((m) => freeXml(c, m, image)).join('')}</p:grpSp>`;
+  }
+  return out;
+}
+
 /** The chart's numbers as the rows of a table, each value written plain so it reads back exactly. */
 export function chartRows(ch: { points: { label: string; value: number }[]; unit: string; before: boolean }): Run[][][] {
   return ch.points.map((p) => [[{ text: p.label }], [{ text: ch.before ? `${ch.unit}${p.value}` : ch.unit ? `${p.value}${/^[%°]/.test(ch.unit) ? '' : ' '}${ch.unit}` : String(p.value) }]]);
@@ -236,6 +284,7 @@ function slideXml(deck: Deck, s: Slide, c: Ctx, measure: Measure, image: (id: st
     shapes.push(shapeSp(c, sh, i + 1));
     ids[`shape${i}` as Elem] = c.next;
   });
+  if (s.free?.length) shapes.push(freeTree(c, s.free, image));
   const timed: TimedBuild[] = s.builds.flatMap((b) => (ids[b.el] ? [{ spid: ids[b.el]!, how: b.how, text: b.el === 'title' || b.el === 'body' || b.el === 'body2' }] : []));
   // MAGIC MOVE is PowerPoint's Morph (2016 and later), with a fade for a PowerPoint that has no Morph, as PowerPoint itself writes it
   const tr = s.transition === 'fade' ? '<p:transition spd="med"><p:fade/></p:transition>' : s.transition === 'push' ? '<p:transition spd="med"><p:push dir="l"/></p:transition>' : s.transition === 'morph' ? `<mc:AlternateContent xmlns:mc="${MC}"><mc:Choice xmlns:p159="${P159}" Requires="p159"><p:transition spd="slow"><p159:morph option="byObject"/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>` : '';

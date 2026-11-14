@@ -9,6 +9,7 @@ import { textOf, type Block } from '../docs/model';
 import { boxes, setText, styleOf, type Laid, type Measure, type Rect, approx } from './layout';
 import { H, W, slideName, type ChartData, type Deck, type Elem, type Shape, type Slide } from './model';
 import { THEMES, type Palette } from './themes';
+import { freeWords, type Guide } from './free';
 
 export const paletteOf = (d: Pick<Deck, 'theme' | 'palette'>): Palette => d.palette ?? THEMES[d.theme] ?? THEMES.ghosty!;
 export const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, 'Helvetica Neue', Arial, sans-serif";
@@ -46,6 +47,9 @@ export interface DrawOpts {
   of?: number;
   /** The part a finger last chose, outlined in the editor. */
   pick?: Elem | null;
+  /** The free-form items chosen, outlined in the editor, and the snapping guides to draw while one is dragged. */
+  free?: string[];
+  guides?: Guide[];
 }
 
 function textSvg(laid: Laid, pal: Palette, family = FONT, accentText = false): string {
@@ -217,6 +221,24 @@ export function slideSvg(deck: Deck, s: Slide, o: DrawOpts = {}): string {
     body += group('media', inner, label, mb);
   }
   s.shapes.forEach((sh, i) => (body += group(i === 0 ? 'shape0' : 'shape1', shapeSvg(sh, pal), `A ${sh.kind === 'round' ? 'rounded' : sh.kind} shape`, { x: sh.x, y: sh.y - (sh.kind === 'line' ? 12 : 0), w: sh.w, h: sh.kind === 'line' ? 24 : sh.h })));
+  // the free-form items, over the layout, in their drawing order (free.ts)
+  for (const f of s.free ?? []) {
+    const fill = pal.seq[(f.fill ?? 0) % pal.seq.length]!;
+    let inner = '';
+    if (f.kind === 'shape') inner = shapeSvg({ id: f.id, kind: f.shape ?? 'rect', x: f.x, y: f.y, w: f.w, h: f.shape === 'line' ? 0 : f.h, fill: f.fill ?? 0 }, pal);
+    else if (f.kind === 'pic') {
+      const src = f.img ? (o.image?.(f.img) ?? null) : null;
+      inner = src ? `<image href="${esc(src)}" x="${n1(f.x)}" y="${n1(f.y)}" width="${n1(f.w)}" height="${n1(f.h)}" preserveAspectRatio="xMidYMid slice"/>` : `<rect x="${n1(f.x)}" y="${n1(f.y)}" width="${n1(f.w)}" height="${n1(f.h)}" fill="${pal.ink}" fill-opacity=".08" stroke="${pal.ink}" stroke-opacity=".3" stroke-dasharray="10 8"/>`;
+    } else {
+      const size = Math.max(18, Math.min(64, Math.round(f.h / 2.2)));
+      const words = (f.text ?? '').split('\n').slice(0, Math.max(1, Math.floor(f.h / (size * 1.25))));
+      inner = `<rect x="${n1(f.x)}" y="${n1(f.y)}" width="${n1(f.w)}" height="${n1(f.h)}" fill="none"/>` + words.map((l, k) => `<text x="${n1(f.x + 8)}" y="${n1(f.y + size * 1.1 + k * size * 1.25)}" font-size="${size}" font-family="${esc(FONT)}" fill="${(f.fill ?? 0) === 0 ? pal.ink : fill}">${esc(l)}</text>`).join('');
+    }
+    const picked = o.edit && o.free?.includes(f.id);
+    const frame = picked ? `<rect x="${n1(f.x - 6)}" y="${n1(f.y - 6)}" width="${n1(f.w + 12)}" height="${n1(f.h + 12)}" fill="none" stroke="${pal.accent}" stroke-width="3" stroke-dasharray="12 8" pointer-events="none"/>` : '';
+    body += `<g class="slfree" data-free="${esc(f.id)}"${f.group ? ` data-group="${esc(f.group)}"` : ''}${picked ? ' data-pick="1"' : ''} role="img" aria-label="${esc(freeWords(f))}">${inner}${frame}</g>`;
+  }
+  for (const g of o.guides ?? []) body += g.axis === 'x' ? `<line class="slguide" x1="${n1(g.at)}" x2="${n1(g.at)}" y1="0" y2="${H}" stroke="${pal.accent}" stroke-width="2"/>` : `<line class="slguide" x1="0" x2="${W}" y1="${n1(g.at)}" y2="${n1(g.at)}" stroke="${pal.accent}" stroke-width="2"/>`;
   // the foot: the deck's name and the slide's number (not on a title slide)
   if (s.layout !== 'title' && s.layout !== 'blank') {
     const fam = esc(FONT);

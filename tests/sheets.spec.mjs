@@ -281,8 +281,9 @@ check(await until(page, () => window.__ghosty.sheets.view === 'book' && window._
 check((await read(page, 'Quarter', 'C3')).f === 'B3*(1+Rate)' && Math.abs((await read(page, 'Quarter', 'C3')).v - 300.6) < 1e-9 && (await read(page, 'Quarter', 'D5')).v === 250.5, 'g. its formulas stay formulas (a shared one slid down, a name, XLOOKUP) and are worked out here');
 check((await read(page, 'Quarter', 'B2')).text === '£800.00' && (await read(page, 'Quarter', 'F1')).text === '29 Feb 2024' && (await read(page, 'Quarter', 'E1')).text === '20%', 'g. its pounds, its date and its percentage are shown as they were');
 const lost = (await state(page)).lost;
-check(lost.length >= 2 && lost.some((x) => /merged/i.test(x)) && lost.some((x) => /chart|drawing|picture/i.test(x)), `g. what it could not keep is said once: ${lost.join('; ')}`);
-check(/could not keep|didn’t keep|did not keep|left out/i.test(await page.locator('.shsaid').innerText()) && (await page.locator('.shsaid').innerText()).match(/merged/gi)?.length === 1, 'g. in his words, on the screen, once');
+// (the pro edition keeps merged cells and borders now: the chart part it cannot read is still said)
+check(lost.length >= 2 && !lost.some((x) => /merged|border/i.test(x)) && lost.some((x) => /chart|drawing|picture/i.test(x)) && JSON.stringify((await state(page)).book.sheets[0].merges) === '["G1:H1"]', `g. what it could not keep is said once, the merged cells kept: ${lost.join('; ')}`);
+check(/could not keep|didn’t keep|did not keep|left out/i.test(await page.locator('.shsaid').innerText()) && (await page.locator('.shsaid').innerText()).match(/chart/gi)?.length === 1, 'g. in his words, on the screen, once');
 await page.screenshot({ path: `${out}/sheets-import.png` });
 // CSV and PDF
 await bar(page, 'MY SPREADSHEETS').click();
@@ -295,7 +296,7 @@ check(/\.csv$/.test(csv.name) && csvText.split('\r\n')[0].startsWith('Month,Inco
 const pdf = await saved(page, () => key(page, 'PDF').click());
 const ptxt = pdf.bytes.toString('latin1');
 check(/\.pdf$/.test(pdf.name) && ptxt.startsWith('%PDF-') && /\/Count 1[3-9]|\/Count [2-9]\d/.test(ptxt) && /January|Summary/.test(ptxt), `g. PDF out: every sheet and the chart, on landscape pages (${pdf.bytes.length} bytes)`);
-check(/chart is in the PDF/i.test(await page.locator('.shexportnote').innerText()), 'g. the export says the chart is in the PDF and the numbers are in the file');
+check(/as real Excel charts, and in the PDF/i.test(await page.locator('.shexportnote').innerText()), 'g. the export says the charts go in the Excel file as real charts and in the PDF');
 check(await page.locator('.shouts').innerText().then((t) => /xlsx|csv|pdf/i.test(t) && /KB|bytes/i.test(t)), 'g. what was made is listed with its size');
 
 // h. autosave said once, reopen where he was, rename, undo
