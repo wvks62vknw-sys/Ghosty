@@ -66,15 +66,18 @@ export function bandOf(o: CalcOutput, v: number): NonNullable<CalcOutput['bands'
  * It is a flag when its expression compares and every value it gives (at the start and in every test) is 0 or 1.
  */
 export function isFlag(c: CalcConfig, o: CalcOutput): boolean {
-  if (o.bands?.length) return false;
+  return !o.bands?.length && yesNo(c, o);
+}
+/** An output that only ever answers yes or no (0 or 1): with bands, its words are its whole answer. */
+export function yesNo(c: CalcConfig, o: CalcOutput): boolean {
   if (!/[<>]|==|!=|\band\b|\bor\b|\bnot\b|\bif\s*\(/.test(o.expr)) return false;
   const runs = [{}, ...c.tests.map((t) => t.in)].map((given) => runCalc(c, given)[o.id]);
   return runs.every((v) => v === 0 || v === 1);
 }
 
-/** The answer told first: the first output with bands, else the first that is not a flag. */
+/** The answer told first: the first number with bands, else the first number, else a yes-or-no said in its words. */
 export function heroOf(c: CalcConfig): CalcOutput | undefined {
-  return c.outputs.find((o) => o.bands?.length) ?? c.outputs.find((o) => !isFlag(c, o));
+  return c.outputs.find((o) => o.bands?.length && !yesNo(c, o)) ?? c.outputs.find((o) => !yesNo(c, o)) ?? c.outputs.find((o) => !isFlag(c, o));
 }
 
 /** Other units he may think in, from the unit an input is kept in: [label, from kept to shown, from shown to kept]. */
@@ -137,9 +140,10 @@ registerRenderer('calc', (root, def, k) => {
     if (hero && heroEl) {
       const v = got[hero.id]!;
       const b = bandOf(hero, v);
-      heroVal.textContent = outWords(hero, v);
-      heroWords.textContent = b ? b.words : '';
-      heroWords.hidden = !b;
+      const said = b && yesNo(c, hero);
+      heroVal.textContent = said ? b.words : outWords(hero, v);
+      heroWords.textContent = b && !said ? b.words : '';
+      heroWords.hidden = !heroWords.textContent;
       heroEl.dataset.tone = b?.tone ?? 'none';
       heroExplain.textContent = hero.explain ?? '';
       heroExplain.hidden = !hero.explain;
@@ -149,8 +153,9 @@ registerRenderer('calc', (root, def, k) => {
       const t = tileEls.get(o.id)!;
       const v = got[o.id]!;
       const b = bandOf(o, v);
-      t.v.textContent = outWords(o, v);
-      t.w.textContent = b?.words ?? o.explain ?? '';
+      const said = b && yesNo(c, o);
+      t.v.textContent = said ? b.words : outWords(o, v);
+      t.w.textContent = (said ? o.explain : b?.words ?? o.explain) ?? '';
       t.w.hidden = !t.w.textContent;
       t.el.dataset.tone = b?.tone ?? 'none';
     }
@@ -241,7 +246,7 @@ registerRenderer('calc', (root, def, k) => {
     const b = bandOf(o, v);
     k.add({
       id: `k${Date.now().toString(36)}`,
-      title: `${o.label}: ${outWords(o, v)}${b ? ` · ${b.words}` : ''}`,
+      title: b && yesNo(c, o) ? `${o.label}: ${b.words}` : `${o.label}: ${outWords(o, v)}${b ? ` · ${b.words}` : ''}`,
       sub: c.inputs.map((i) => `${i.label} ${i.choices?.find((ch) => ch.value === vals[i.id])?.label ?? `${num(vals[i.id]!)}${i.unit ? ` ${i.unit}` : ''}`}`).join(' · '),
       meta: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
     });
