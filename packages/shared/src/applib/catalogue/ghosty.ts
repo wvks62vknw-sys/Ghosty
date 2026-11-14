@@ -1,4 +1,5 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * Ghosty's own full screens, listed in the Library (archetype screen) so it holds everything (docs/build-plan/APPLIB.md). Each
@@ -10,7 +11,7 @@ const screen = (id: string, name: string, family: AppDef['family'], glyph: AppDe
   screen: { hash: id },
 });
 
-export const GHOSTY: AppDef[] = [
+export const GHOSTY: AppDef[] = pro([
   screen('core', 'Home', 'tools', 'home', 'Talk or type to Ghosty, and he gets it done for you.', ['home', 'talk', 'ask']),
   screen('brief', 'Brief', 'life', 'sun', 'Your day in one look: weather, diary and news, or read aloud.', ['brief', 'day', 'morning']),
   screen('eye', 'God’s Eye', 'world', 'globe', 'The planet live: planes, ships and satellites on one globe.', ['planes', 'ships', 'satellites', 'globe']),
@@ -56,4 +57,4 @@ export const GHOSTY: AppDef[] = [
   screen('house', 'House', 'life', 'home', 'Your smart home, room by room, in one place.', ['smart home', 'lights']),
   screen('gamestudio', 'Game Studio', 'games', 'puzzle', 'Make your own 2D game on the phone and play it.', ['game studio', 'make a game']),
   screen('comic', 'Comic', 'create', 'book', 'Read your comics, and make your own panel by panel.', ['comic', 'comics']),
-];
+]);
