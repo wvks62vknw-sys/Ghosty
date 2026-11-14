@@ -340,8 +340,8 @@ export const APP_1: Record<string, CatValue> = {
   // [planlane:agenda] the to-do list and the month by chat (features/agenda/asks.ts, turn.ts)
   'phrase:planagenda': {
     name: 'Your to-do list by chat', line: 'You can add to your to-do list, tick things off and hear what is due, just by saying it, with no AI.',
-    more: 'A day ("for tomorrow", "by Friday") and a repeat ("every Monday") are understood. Done on the phone, with UNDO; "show my month" opens the month and says what is on.',
-    say: ['Add buy milk to my to-do list', 'Put call the bank on my list for tomorrow', 'What do I need to do today?', 'Tick off buy milk'],
+    more: 'A day ("for tomorrow", "by Friday"), a time it rings ("at 3pm": my brain rings it, with your phone locked once its notifications are on), a repeat ("every Monday") and quick add’s marks (p2, #Home, @phone) are understood. Done on the phone, with UNDO; "show my month" opens the month and says what is on.',
+    say: ['Add buy milk to my to-do list', 'Add call the bank at 3pm to my to-do list', 'What do I need to do today?', 'Tick off buy milk'],
     scene: ['morning', 'phone'], cat: 'watch',
     since: '2026-11-13',
   },

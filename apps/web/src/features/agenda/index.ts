@@ -18,7 +18,7 @@ import { monthPanel } from './month';
 import { workDuePanel } from './workdue';
 import { timelinePanel } from './timeline';
 import { AHEAD_DAYS } from './todowords';
-import { sectionNow, sections } from '../../ui/sections';
+import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
 import { tripKey } from '../../ui/tripsheet';
 
@@ -116,6 +116,13 @@ export const agendaTab: TabDef = {
     const tp = todoPanel(() => {
       mp.paint();
       paintHero();
+    }, () => ({ events: allEvents, loaded, offline: stale, hasCopy: offline.get().agenda !== null }), (id) => {
+      // [planlane4:tasks] an event tapped in UPCOMING opens whole in the diary
+      openEv = id;
+      evDraft = null;
+      goToPanel('agenda', 'DIARY');
+      paintEvents();
+      ep.body.querySelector('.evcard')?.scrollIntoView({ block: 'nearest' });
     });
     const mp = monthPanel(() => ({ events: allEvents, todos: tp.list() }));
     // [planlane2:timeline] TIMELINE (timeline.ts): today and tomorrow by the hour with the free gaps said, and PLAN MY WEEK; a tap on an
@@ -556,6 +563,7 @@ export const agendaTab: TabDef = {
           const kept = offline.get().agenda;
           if (kept) allEvents = agendaWithOutbox(kept).events;
           tl.paint();
+          tp.agendaRead();
           /* state: agenda.diary offline */
           return void clear(ep.body, h('p.note.agoff', { role: 'status', dataset: { case: 'keep', state: 'offline' } }, DIARY_OFFLINE), h('p.note', { dataset: { case: 'keep' } }, 'Your to-do list still works on this phone.'));
         }
@@ -567,6 +575,7 @@ export const agendaTab: TabDef = {
       paintHero();
       mp.paint(fresh);
       tl.paint();
+      tp.agendaRead();
     };
 
     // until the diary is read it says so (not an empty list that looks like nothing is on)
