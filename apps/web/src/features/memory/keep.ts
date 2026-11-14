@@ -46,8 +46,10 @@ export async function refreshKeep(): Promise<boolean> {
       await call('POST', { op: 'add', text: words });
       keepStore.set((s) => ({ queue: s.queue.filter((x) => x !== words) }));
     }
-    const r = await call<{ items: KeepItem[]; week: WeekReview; lines: string[] }>('GET');
-    keepStore.set({ items: r.items, week: r.week, lines: r.lines, at: Date.now() });
+    const r = await call<{ items?: unknown; week?: WeekReview; lines?: unknown }>('GET');
+    // (an answer that is not his word — an old brain, a stand-in — changes nothing: the copy stands)
+    if (!Array.isArray(r.items)) return false;
+    keepStore.set({ items: r.items as KeepItem[], week: r.week ?? null, lines: Array.isArray(r.lines) ? (r.lines as string[]) : [], at: Date.now() });
     return true;
   } catch {
     return false;
@@ -57,8 +59,8 @@ export async function refreshKeep(): Promise<boolean> {
 /** One change on the brain (DONE, LATER, LET GO, REOPEN, FORGET, UNDO): the copy follows its answer. */
 export async function changeKeep(op: string, id: string, extra: Record<string, unknown> = {}): Promise<boolean> {
   try {
-    const r = await call<{ items: KeepItem[] }>('POST', { op, id, ...extra });
-    keepStore.set({ items: r.items });
+    const r = await call<{ items?: unknown }>('POST', { op, id, ...extra });
+    if (Array.isArray(r.items)) keepStore.set({ items: r.items as KeepItem[] });
     return true;
   } catch (e) {
     toast(sayError(e, 'change that'), 'warn');
@@ -66,7 +68,8 @@ export async function changeKeep(op: string, id: string, extra: Record<string, u
   }
 }
 
-const open = (): KeepItem[] => keepStore.get().items.filter((x) => x.kind === 'promise' && x.state === 'open').sort((a, b) => (a.remindAt ?? a.at) - (b.remindAt ?? b.at));
+const items = (): KeepItem[] => { const l = keepStore.get().items; return Array.isArray(l) ? l : []; };
+const open = (): KeepItem[] => items().filter((x) => x.kind === 'promise' && x.state === 'open').sort((a, b) => (a.remindAt ?? a.at) - (b.remindAt ?? b.at));
 const day = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const norm = (s: string) => s.toLowerCase().replace(/^(?:the|my|our) /, '').replace(/[^a-z0-9 ]/g, '').trim();
 
@@ -77,7 +80,7 @@ type Answer = (text: string, reply: string, local: LocalAnswer, opts: Opts) => t
 
 /** Does his message ask about his word (so assistant/local.ts tries keepTurn)? */
 export const keepAsked = (t: string): boolean => !!whereAsked(t) || !!whereIn(t) || !!whyAsked(t) || promisesAsked(t) || weekAsked(t) || unansweredAsked(t) || !!dayAsked(t);
-export const weekAsked = (t: string): boolean => /^(?:(?:hey )?ghosty[, ]+)?(?:(?:show me |give me |what'?s |read me )?my week(?: in review)?|(?:how was|how's|review) my week|week in review|what did I do this week|sum up my week|my weekly review)[?.!]*$/i.test(t.trim());
+export const weekAsked = (t: string): boolean => /^(?:(?:hey )?ghosty[, ]+)?(?:(?:show me |give me |read me )?my week in review|(?:how was|how's|review) my week|week in review|what did I do this week|sum up my week|my weekly review)[?.!]*$/i.test(t.trim());
 export const unansweredAsked = (t: string): boolean => /^(?:(?:hey )?ghosty[, ]+)?(?:what did I never get an answer to|what (?:questions )?(?:did|have) you (?:never|not) answer(?:ed)?|(?:my |any )?(?:open|unanswered) questions|what's still unanswered|what did you not know)[?.!]*$/i.test(t.trim());
 
 export async function keepTurn(text: string, opts: Opts, answer: Answer): Promise<boolean> {
@@ -87,7 +90,7 @@ export async function keepTurn(text: string, opts: Opts, answer: Answer): Promis
   const said = whereIn(t);
   if (said) {
     const now = Date.now();
-    keepStore.set((s) => ({ items: [...s.items.filter((x) => !(x.kind === 'where' && norm(x.what) === norm(said.what))), { id: `local-${now}`, kind: 'where' as const, at: now, via: 'phone', text: t.slice(0, 160), what: said.what, detail: said.where }] }));
+    keepStore.set((s) => ({ items: [...items().filter((x) => !(x.kind === 'where' && norm(x.what) === norm(said.what))), { id: `local-${now}`, kind: 'where' as const, at: now, via: 'phone', text: t.slice(0, 160), what: said.what, detail: said.where }] }));
     const sent = await Promise.race([call('POST', { op: 'add', text: t }).then(() => true, () => false), new Promise<boolean>((r) => setTimeout(() => r(false), 4000))]);
     if (!sent) keepStore.set((s) => ({ queue: [...s.queue.filter((x) => x !== t), t].slice(-30) }));
     else void refreshKeep();
@@ -102,7 +105,7 @@ export async function keepTurn(text: string, opts: Opts, answer: Answer): Promis
   };
   const thing = whereAsked(t);
   if (thing) {
-    const hit = await fresh(() => keepStore.get().items.filter((x) => x.kind === 'where' && (norm(x.what).includes(norm(thing)) || norm(thing).includes(norm(x.what)))).sort((a, b) => b.at - a.at)[0]);
+    const hit = await fresh(() => items().filter((x) => x.kind === 'where' && (norm(x.what).includes(norm(thing)) || norm(thing).includes(norm(x.what)))).sort((a, b) => b.at - a.at)[0]);
     if (hit) return answer(t, K.whereFound(hit.what, hit.detail ?? '', day(hit.at)), { kind: 'pack', go }, opts);
     // not in the copy: the brain may know it from a chat (its recall), so it is asked when it can be; else said plainly
     if (navigator.onLine && !keepStore.get().at) return false;
@@ -112,7 +115,7 @@ export async function keepTurn(text: string, opts: Opts, answer: Answer): Promis
   if (chose) {
     const hit =
       (await fresh(() => {
-        const l = keepStore.get().items.filter((x) => x.kind === 'why' && (norm(x.what).includes(norm(chose)) || norm(chose).includes(norm(x.what)))).sort((a, b) => b.at - a.at);
+        const l = items().filter((x) => x.kind === 'why' && (norm(x.what).includes(norm(chose)) || norm(chose).includes(norm(x.what)))).sort((a, b) => b.at - a.at);
         return l.length ? l : undefined;
       })) ?? [];
     if (hit.length) return answer(t, K.whyFound(hit[0]!.what, hit.map((x) => x.detail ?? '').filter(Boolean), day(hit[0]!.at)), { kind: 'pack', go }, opts);
@@ -145,7 +148,7 @@ export async function keepTurn(text: string, opts: Opts, answer: Answer): Promis
     const span = dateSpan(when, Date.now(), timeZone);
     if (!span) return false;
     const turns = (await recallWarm()) ? await turnsBetween(span.from, span.to) : [];
-    const kept = keepStore.get().items.filter((x) => x.at >= span.from && x.at < span.to);
+    const kept = items().filter((x) => x.at >= span.from && x.at < span.to);
     const lines = [...turns.slice(0, 6).map((x) => `you asked “${x.line.slice(0, 70)}”`), ...kept.slice(0, 4).map((x) => (x.kind === 'promise' ? `you said you'd ${x.what}` : x.kind === 'where' ? `you put ${x.what} ${x.detail}` : `you chose ${x.what}`))];
     if (!lines.length) return answer(t, K.dayNone(span.said), { kind: 'pack' }, opts);
     return answer(t, K.dayLines(span.said, lines), { kind: 'recall', found: turns.slice(0, 6).map((f) => ({ key: f.key, kind: f.kind, id: f.id, title: f.title, line: f.line, at: f.at, stamp: f.stamp, day: f.day })) }, opts);
@@ -200,10 +203,10 @@ export function keepPanel(): Panel & { refresh(): Promise<void> } {
   const paint = () => {
     const s = keepStore.get();
     const promises = open();
-    const done = s.items.filter((x) => x.kind === 'promise' && x.state !== 'open').sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0)).slice(0, 6);
-    const where = s.items.filter((x) => x.kind === 'where').sort((a, b) => b.at - a.at);
-    const why = s.items.filter((x) => x.kind === 'why').sort((a, b) => b.at - a.at);
-    keepState.items = s.items.length;
+    const done = items().filter((x) => x.kind === 'promise' && x.state !== 'open').sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0)).slice(0, 6);
+    const where = items().filter((x) => x.kind === 'where').sort((a, b) => b.at - a.at);
+    const why = items().filter((x) => x.kind === 'why').sort((a, b) => b.at - a.at);
+    keepState.items = items().length;
     keepState.open = promises.length;
     p.setStatus(promises.length ? `${promises.length} OPEN` : s.at ? 'ALL KEPT' : '', promises.length ? 'mid' : 'ok');
     const head = (t: string) => h('h4.keephead', t);

@@ -24,9 +24,9 @@ export const RECALL_APP_WORDS: Record<string, CatValue> = {
 // [keep] the NEXT ROUND: a memory that keeps your word
 export const KEEP_APP_WORDS: Record<string, CatValue> = {
   'phrase:keep': {
-    name: 'Keeps your word for you', line: 'You can say "where\'s the spare key?", "what did I say I\'d do?" or "my week" and I answer from your own words.',
+    name: 'Keeps your word for you', line: 'You can say "where\'s the spare key?", "what did I say I\'d do?" or "how was my week?" and I answer from your own words.',
     more: 'When you say you\'ll do something I remind you on the day, and "I did it" closes it. Tell me where you put things or why you chose them and ask later, even offline. On Sunday evening your week comes to your phone.',
-    say: ['Where\'s the spare key?', 'What did I say I\'d do?', 'Why did I pick the canal flat?', 'My week'], scene: ['talking', 'morning'], cat: 'know',
+    say: ['Where\'s the spare key?', 'What did I say I\'d do?', 'Why did I pick the canal flat?', 'How was my week?'], scene: ['talking', 'morning'], cat: 'know',
     go: { ask: 'What did I say I\'d do?', send: false }, since: '2026-11-14',
   },
   'panel:memory:YOUR WORD': {

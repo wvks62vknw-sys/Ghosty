@@ -129,7 +129,9 @@ export function whereAsked(raw: string): string | null {
   const t = clean(String(raw ?? '')).replace(LEAD, '').replace(/[?.!]+$/, '');
   const m = /^(?:where(?:'s| is| are|'re)|where did I (?:put|leave|keep|stash|hide)|where do I (?:keep|put)|have you got where I (?:put|left)) ((?:the|my|our) )?([\w' -]{2,40})$/i.exec(t);
   if (!m) return null;
-  const thing = clean(m[2]!).replace(/\s+(?:again|now|then)$/i, '');
+  const thing = clean(m[2]!).replace(/(?:\s+(?:again|now|then|please|mate|pal|love|ghosty|today))+$/i, '');
+  // ("where's my money gone?" is about spending, "where's my week" the diary: never a thing he put somewhere)
+  if (/\b(?:gone|going|went|been|heading|off to|at)$/i.test(thing) || /^(?:money|cash|time|week|day|weekend|life|head|mind)$/i.test(thing)) return null;
   // (a place he goes, or the phone's own screens, is never a thing he put somewhere)
   if (/^(?:i|we|you|it|he|she|they|that|this|everyone|everybody|the nearest|home|the station|the shop|the shops|my phone's? settings|settings)$/i.test(thing) || /\b(?:nearest|closest|near me|from here)\b/i.test(thing)) return null;
   return thing;

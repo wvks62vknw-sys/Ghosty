@@ -74,7 +74,7 @@ import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as why
 /** [keep] Does his message ask about his word (the same test as features/memory/keep.ts keepAsked, kept pure here)? */
 export const keepAsked = (t: string): boolean =>
   !!whereAsked(t) || !!whereIn(t) || !!whyChoseAsked(t) || promisesAsked(t) || !!dayAsked(t) ||
-  /^(?:(?:hey )?ghosty[, ]+)?(?:(?:show me |give me |what'?s |read me )?my week(?: in review)?|(?:how was|how's|review) my week|week in review|what did I do this week|sum up my week|my weekly review|what did I never get an answer to|what (?:questions )?(?:did|have) you (?:never|not) answer(?:ed)?|(?:my |any )?(?:open|unanswered) questions|what's still unanswered|what did you not know)[?.!]*$/i.test(t.trim());
+  /^(?:(?:hey )?ghosty[, ]+)?(?:(?:show me |give me |read me )?my week in review|(?:how was|how's|review) my week|week in review|what did I do this week|sum up my week|my weekly review|what did I never get an answer to|what (?:questions )?(?:did|have) you (?:never|not) answer(?:ed)?|(?:my |any )?(?:open|unanswered) questions|what's still unanswered|what did you not know)[?.!]*$/i.test(t.trim());
 /** [recall] "what did I ask last March about the car?", "what did I ask in October?": recall within the days he named. */
 export const datedRecall = (t: string): boolean => {
   const s = dateSpan(t, Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone);

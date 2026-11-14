@@ -5,7 +5,7 @@
 //  (d) "what did I never get an answer to?" lists the question whose answer was "I couldn't find…", with ASK AGAIN;
 //  (e) "what did I do yesterday?" rebuilds the day from his own turns; "what did I ask last week about trains?" keeps to last week;
 //  (f) MEMORY → YOUR WORD shows the promise, the place, the reason and the week; every key 44 pt, nothing sideways, nothing cut at BODY 21;
-//  (g) "my week" says the week in a line or two.
+//  (g) "how was my week?" says the week in a line or two.
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/keepword.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
@@ -137,7 +137,7 @@ async function run(vp, body) {
     check(/York/.test(dated) && !/Bristol/.test(dated), `${T} [e last week] said "${dated}"`);
 
     // (g) the week
-    const week = await ask('my week', /this week|quiet week/);
+    const week = await ask('how was my week?', /this week|quiet week/);
     check(/You asked me \d+ things? this week|A quiet week/.test(week), `${T} [g] said "${week}"`);
   }
 
