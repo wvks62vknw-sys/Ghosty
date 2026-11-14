@@ -699,7 +699,8 @@ test('calibration (pure, and kept by the brain): "Sure and right 8 of 10"; quiz 
   await T.answer(d, { course: c.id, lesson: 1, answer: 1, conf: 'think' });
   const st = await T.learnState(d);
   assert.deepEqual(st.courses[0].stats.conf, { sure: { n: 2, right: 1 }, guess: { n: 1, right: 1 }, think: { n: 1, right: 1 } });
-  assert.deepEqual(st.courses[0].stats.lessons['1'], { asked: 4, right: 3, recent: [0, 1, 1, 1] });
+  // (learn.u2: each answer keeps how sure he was, in step with `recent`)
+  assert.deepEqual(st.courses[0].stats.lessons['1'], { asked: 4, right: 3, recent: [0, 1, 1, 1], conf: ['sure', 'guess', 'sure', 'think'] });
   assert.equal(T.calibrationLine(st.courses[0].stats.conf).split(' · ')[0], 'Sure and right 1 of 2');
   // lesson 1: 75 % over 4 answers, a card due: quiz passed, not mastered
   assert.deepEqual([st.courses[0].mastered, st.courses[0].mastery], [0, 0]);
@@ -825,4 +826,44 @@ test('through the agent: /learn/exam and /learn/exam/finish, /learn/done returns
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+// ---- learn.u2: courses that pick up his mistakes ----
+
+test('courses that pick up his mistakes (learn.u2): each answer keeps how sure he was; a miss he was SURE of weighs most; TODAY names that lesson, says why, and its quiz covers the missed lessons', () => {
+  // the confidence record lines up with the answers, and old scores (from before it) count their answers as not asked
+  let s = T.scoreAnswer({ asked: 2, right: 1, recent: [1, 0] }, false, 'sure');
+  assert.deepEqual(s.recent, [1, 0, 0]);
+  assert.deepEqual(s.conf, ['', '', 'sure']);
+  s = T.scoreAnswer(s, true, 'guess');
+  assert.deepEqual(s.conf, ['', '', 'sure', 'guess']);
+  assert.equal(s.conf.length, s.recent.length);
+  for (let i = 0; i < 6; i++) s = T.scoreAnswer(s, true, 'think');
+  assert.equal(s.recent.length, 6, 'only the last answers are kept');
+  assert.equal(s.conf.length, 6);
+  // weights: sure miss 3, think miss 2, guess miss 1, unmarked miss 1, lucky guess 1
+  const sc = (pairs) => pairs.reduce((a, [r, c]) => T.scoreAnswer(a, !!r, c), undefined);
+  assert.equal(T.needOf(sc([[0, 'sure']])).need, 3);
+  assert.equal(T.needOf(sc([[0, 'think']])).need, 2);
+  assert.equal(T.needOf(sc([[0, 'guess']])).need, 1);
+  assert.equal(T.needOf(sc([[0, undefined]])).need, 1);
+  assert.equal(T.needOf(sc([[1, 'guess']])).need, 1);
+  assert.equal(T.needOf(sc([[1, 'sure'], [1, 'think']])).need, 0);
+  const course = { lessons: [{ n: 1, title: 'Light', done: true }, { n: 2, title: 'Water', done: true }, { n: 3, title: 'Sugar', done: false }] };
+  // lesson 2: one SURE miss (3) beats lesson 1's two guessed misses (2)
+  const stats = { lessons: { 1: sc([[0, 'guess'], [0, 'guess'], [1, 'sure']]), 2: sc([[0, 'sure'], [1, 'think']]) }, conf: {} };
+  const aim = T.aimOf(course, stats, 3);
+  assert.equal(aim.kind, 'misses');
+  assert.equal(aim.lesson, 2);
+  assert.equal(aim.why, 'Lesson 2 again: 1 answer you were sure of but missed in your last answers there.');
+  assert.deepEqual(aim.quiz, [2, 1], 'the quiz covers every missed lesson, most needed first');
+  // a lucky guess is said too
+  const lucky = T.aimOf(course, { lessons: { 1: sc([[0, 'think'], [1, 'guess']]) } }, 3);
+  assert.equal(lucky.why, 'Lesson 1 again: 1 other miss and 1 lucky guess in your last answers there.');
+  // nothing missed: the next lesson; everything read and nothing missed: the exam
+  const clean = { lessons: { 1: sc([[1, 'sure'], [1, 'sure']]) } };
+  assert.deepEqual(T.aimOf(course, clean, 3), { kind: 'next', lesson: 3, title: 'Sugar', why: 'Nothing missed lately, so on to lesson 3.', quiz: [] });
+  assert.equal(T.aimOf(course, clean, 0).kind, 'done');
+  // ties go to the earlier lesson
+  assert.equal(T.aimOf(course, { lessons: { 2: sc([[0, 'think']]), 1: sc([[0, 'think']]) } }, 3).lesson, 1);
 });

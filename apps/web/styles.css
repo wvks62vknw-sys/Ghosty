@@ -9875,3 +9875,8 @@ html .recallidx .recallindex, html .recallfind .note { flex: 1 1 12em; min-width
 html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
 /* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
 html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
+/* LEARN · TODAY (learn.u2): the lesson his misses point at, said in one line, with its two keys */
+html .learntoday { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; padding: 12px 14px; border-radius: 16px; background: var(--thin); box-shadow: inset 0 0 0 1px var(--hair); }
+html .learntoday .lab { color: var(--mute); letter-spacing: .08em; }
+html .learntoday small { color: var(--mute); overflow-wrap: anywhere; }
+html .learntoday .row { margin-top: 6px; }

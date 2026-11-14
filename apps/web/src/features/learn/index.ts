@@ -17,7 +17,7 @@
  * opens views here through the `open_learn` command. State for specs at window.__ghosty.learn.
  */
 import type { Card, Confidence, Course, CourseLesson, CourseSummary, ExamMarked, LearnLevel, LearnSource, LessonParts, Quiz, QuizQuestion } from '../../../../../packages/shared/src/learn';
-import { LEARN_LEVELS, STOP_WORDS, calibrationLine, dayText, masteryOf, paceDue } from '../../../../../packages/shared/src/learn';
+import { LEARN_LEVELS, STOP_WORDS, aimOf, calibrationLine, dayText, masteryOf, paceDue } from '../../../../../packages/shared/src/learn';
 import { dayKey, nextText, streakOf, type Rating } from '../../../../../packages/shared/src/sm2';
 import { speak, stopSpeaking } from '../../assistant/voice';
 import { clear, h, svgEl } from '../../core/dom';
@@ -42,6 +42,8 @@ export const learnState = {
   quiz: { id: '', i: 0, n: 0, right: 0, answered: 0, last: '', conf: '' },
   /** The course map: units, each stop's state, the mastery percent, the calibration line. */
   map: { units: 0, stops: [] as string[], mastery: 0, calibration: '' },
+  /** Today's aim for the course on show (learn.u2): misses, the next lesson, or done; the lesson, the line and the lessons a misses quiz covers. */
+  aim: { kind: '', lesson: 0, why: '', quiz: [] as number[] },
   exam: { id: '', i: 0, n: 0, left: 0, answered: 0, done: false, right: 0, pct: 0, grade: '', weak: [] as number[] },
   revise: { left: 0, done: 0, shown: false },
   streak: { current: 0, best: 0, today: false },
@@ -390,6 +392,19 @@ export const learnTab: TabDef = {
       if (last) fact('LAST EXAM', `${last.grade} · ${last.right} of ${last.n} (${last.pct}%) · ${dayText(dayKey(last.at, L.tz()))}`, 'lastexam');
       sp.body.append(facts, h('div.note', c.summary));
       const next = c.lessons.find((l) => !l.done);
+      // TODAY (learn.u2): the lesson his recent answers say to look at again (a miss he was sure of most), and a quiz on
+      // just those lessons; with nothing missed, the next lesson. Worked out on this phone from the kept scores.
+      const aim = aimOf(c, sum?.stats, next?.n ?? 0);
+      learnState.aim = { kind: aim.kind, lesson: aim.lesson, why: aim.why, quiz: aim.quiz };
+      if (aim.kind !== 'next') {
+        sp.body.append(h('div.learntoday', { dataset: { kind: aim.kind } },
+          h('span.lab', 'TODAY'),
+          h('b', aim.kind === 'misses' ? `${aim.lesson}. ${aim.title}` : 'All read'),
+          h('small', aim.why),
+          aim.kind === 'misses'
+            ? h('div.row.wrap', button(`LESSON ${aim.lesson} AGAIN`, () => void showLesson(c.id, aim.lesson), 'on'), button('QUIZ ME ON MY MISSES', () => void startQuiz({ course: c.id, lessons: aim.quiz })))
+            : null));
+      }
       const open = s.exam && s.exam.exam.course === c.id ? s.exam : null;
       // REMOVE: gone at once with UNDO (12 s) — its lessons, cards and progress come back exactly; the brain
       // forgets the course only when the bar goes.
@@ -526,7 +541,7 @@ export const learnTab: TabDef = {
       sp.body.append(after);
     };
 
-    const startQuiz = async (a: { course?: string; topic?: string; lesson?: number }) => {
+    const startQuiz = async (a: { course?: string; topic?: string; lesson?: number; lessons?: number[] }) => {
       setView('quiz', 'QUIZ');
       clear(sp.body);
       const done = said(sp.body, QUIZ_WAIT);
