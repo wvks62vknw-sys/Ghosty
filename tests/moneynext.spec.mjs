@@ -17,6 +17,8 @@
 //             birthday in COMING UP gets a message drafted in his voice, never sent; two group plans at once, each answered.
 //   WORK      every document shown is kept in the library on the phone, a new version when its words change, reopened and forgotten
 //             (asked once more).
+//   MANY      four statements picked at once (OFX, QIF, CSV and one that is not a statement): each file's line, the overlap kept
+//             once, the total.
 //   STATES    each new page offline and failed, in his words with TRY AGAIN; the bar: 44 pt keys, nothing sideways, no raw string;
 //             BODY 21 and the seven looks; the chat's words open the pages.
 import { launch, webkitNoise } from './browser.mjs';
@@ -511,6 +513,30 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await page.click(`${Pp} button[aria-label="Call off the plan"]`);
       check(await until(page, () => window.__ghosty.people.plan === null && window.__ghosty.people.plans.length === 1, null, 10000), 'PLANS one called off, the other stays');
       for (const x of (await pk('people', 'plans', {})).data?.plans ?? []) await pk('people', 'plans', { op: 'close', id: x.id });
+    });
+
+    await block('many statements', async () => {
+      log('many statements');
+      await fetch(`${base}/api/profile/spending`, { method: 'DELETE', headers: H }).catch(() => undefined);
+      const m0 = ym(1);
+      const day = (n) => `${m0.replace('-', '')}${String(n).padStart(2, '0')}`;
+      const ofx = `OFXHEADER:100\n\n<OFX><BANKTRANLIST>\n<STMTTRN><DTPOSTED>${day(3)}<TRNAMT>-23.45<NAME>TESCO STORES 2041\n<STMTTRN><DTPOSTED>${day(5)}<TRNAMT>2100.00<NAME>ACME WIDGETS LTD\n</BANKTRANLIST><LEDGERBAL><BALAMT>3254.26<DTASOF>${day(28)}</LEDGERBAL></OFX>`;
+      const qif = `!Type:Bank\nD03/${m0.slice(5)}/${m0.slice(0, 4)}\nT-23.45\nPTESCO STORES 2041\n^\nD07/${m0.slice(5)}/${m0.slice(0, 4)}\nT-45.10\nPSHELL BIRMINGHAM\n^\n`;
+      const csv = `Date,Description,Amount\n${m0}-09,GREGGS,-3.20\n${m0}-10,PRET A MANGER,-6.50\n`;
+      await open(page, 'money', 'Statement');
+      await page.setInputFiles(`${P} input[type=file][multiple]`, [
+        { name: 'current.ofx', mimeType: 'application/x-ofx', buffer: Buffer.from(ofx) },
+        { name: 'current.qif', mimeType: 'application/qif', buffer: Buffer.from(qif) },
+        { name: 'card.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) },
+        { name: 'notes.csv', mimeType: 'text/csv', buffer: Buffer.from('hello there') },
+      ]);
+      check(await until(page, () => (window.__ghosty.money?.batch ?? []).length === 4, null, 20000), `MANY four files read in one go: ${JSON.stringify(await page.evaluate(() => window.__ghosty.money?.batch))}`);
+      const b = await page.evaluate(() => window.__ghosty.money.batch);
+      check(/^current\.ofx: 2 kept · OFX/.test(b[0] ?? '') && /^current\.qif: 1 kept, 1 I had already · QIF/.test(b[1] ?? '') && /^card\.csv: 2 kept · CSV/.test(b[2] ?? ''), `MANY each file says what it kept, the overlap caught: ${b.slice(0, 3).join(' / ')}`);
+      check(/^notes\.csv: /.test(b[3] ?? '') && !RAW.test(b[3] ?? ''), `MANY a file that is not a statement is said in his words: "${b[3]}"`);
+      check(/^5 payments kept from 3 of 4 statements; 1 I already had was left out\./.test(await txt(page, `${P} p.pknote[aria-live]`)), `MANY the total: "${await txt(page, `${P} p.pknote[aria-live]`)}"`);
+      await bar(page, 'MANY bar', 'money');
+      await page.screenshot({ path: `${out}/moneynext-many-440.png` });
     });
 
     await block('states', async () => {

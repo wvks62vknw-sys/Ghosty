@@ -589,3 +589,50 @@ test('PEOPLE: several group plans at once, each answered and called off by its o
   assert.equal(r.data.plans.length, 1, 'the other plan stays open');
   assert.equal((await call('plans', { op: 'reply', id: pub.id, name: 'Jo', s: 'yes' })).status, 400);
 });
+
+// ---------------------------------------------------------------- THE APPS ROUND: money, effortless
+
+const OFX = `OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>GBP
+<BANKTRANLIST><DTSTART>20261001<DTEND>20261031
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261003120000[0:GMT]<TRNAMT>-23.45<FITID>1<NAME>TESCO STORES 2041
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20261005<TRNAMT>2100.00<FITID>2<NAME>ACME WIDGETS LTD<MEMO>SALARY
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261007<TRNAMT>-10.99<FITID>3<NAME>NETFLIX.COM &amp; CO
+</BANKTRANLIST><LEDGERBAL><BALAMT>3254.26<DTASOF>20261031</LEDGERBAL></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+const QIF = `!Type:Bank
+D03/10/2026
+T-23.45
+PTESCO STORES 2041
+^
+D07/10/2026
+T-45.10
+PSHELL BIRMINGHAM
+MFUEL
+^
+D9/10/26
+T1,250.00
+PREFUND FROM HMRC
+^
+`;
+
+test('every statement shape: an OFX file (with its closing balance) and a QIF file are read in code; overlapping files keep each payment once', async () => {
+  const o = S.readAnyStatement(OFX);
+  assert.equal(o.shape, 'ofx');
+  assert.deepEqual(o.rows.map((r) => [r.d, r.t, r.a]), [['2026-10-03', 'TESCO STORES 2041', -23.45], ['2026-10-05', 'ACME WIDGETS LTD SALARY', 2100], ['2026-10-07', 'NETFLIX.COM & CO', -10.99]]);
+  assert.equal(o.rows[2].b, 3254.26, 'the closing balance stands on the newest row');
+  const q = S.readAnyStatement(QIF);
+  assert.equal(q.shape, 'qif');
+  assert.deepEqual(q.rows.map((r) => [r.d, r.t, r.a]), [['2026-10-03', 'TESCO STORES 2041', -23.45], ['2026-10-07', 'SHELL BIRMINGHAM FUEL', -45.1], ['2026-10-09', 'REFUND FROM HMRC', 1250]]);
+  assert.throws(() => S.readAnyStatement('!Type:Bank\n^\n'), /QIF file holds no payments/);
+  // two files from the same account that overlap: the Tesco on the 3rd is kept once
+  const storage = new Mem();
+  const route = (body) => SP.spendingRoute(new Request('https://g/api/profile/spending/import', { method: 'POST', body: JSON.stringify(body) }), '/profile/spending/import', 'POST', new URL('https://g/api/profile/spending/import'), { storage, ai: async () => { throw new Error('none'); } }).then((r) => r.json());
+  const a = await route({ csv: OFX, rulesOnly: true });
+  assert.equal(a.result.added, 3);
+  const b = await route({ csv: QIF, rulesOnly: true });
+  assert.equal(b.result.duplicates, 1, 'the payment both files hold is not kept twice');
+  assert.equal(b.result.added, 2);
+});
