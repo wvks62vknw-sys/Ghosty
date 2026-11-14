@@ -399,6 +399,104 @@ export const MONEY: AppDef[] = [
 
   // ——— Loans, savings and property sums ———
   {
+    id: 'savings-tax', name: 'Savings Tax', family: 'money', glyph: 'bank', archetype: 'calc',
+    pitch: 'Tax on savings interest after the starting rate and Personal Savings Allowance.',
+    keywords: ['savings tax', 'interest', 'personal savings allowance', 'bank interest', 'psa', 'tax'],
+    tour: ['Put in your other income, such as salary or pension.', 'Add the interest you expect this tax year outside ISAs.', 'See the tax-free parts used and any tax left to pay.'],
+    calc: {
+      inputs: [
+        inp('income', 'Other Income', 30000, { unit: '£', min: 0, step: 500 }),
+        inp('interest', 'Interest', 1500, { unit: '£', min: 0, step: 50 }),
+      ],
+      outputs: [
+        money('starting', 'Starting Rate Band', 'max(0, 5000 - max(0, income - 12570))', 0),
+        money('psa', 'Savings Allowance', 'if(income + interest <= 50270, 1000, if(income + interest <= 125140, 500, 0))', 0),
+        money('taxable', 'Taxable Interest', 'max(0, interest - max(0, 12570 - income) - starting - psa)'),
+        money('tax', 'Tax', 'taxable * if(income + interest <= 50270, 0.2, if(income + interest <= 125140, 0.4, 0.45))'),
+      ],
+      tests: [
+        { in: { income: 30000, interest: 1500 }, out: { starting: 0, psa: 1000, tax: 100 } },
+        { in: { income: 13000, interest: 3000 }, out: { starting: 4570, tax: 0 } },
+        { in: { income: 60000, interest: 1000 }, out: { psa: 500, tax: 200 } },
+      ],
+      estimate: true,
+      source: 'GOV.UK Tax on savings interest: £5,000 starting rate and the £1,000 or £500 Personal Savings Allowance',
+    },
+  },
+  {
+    id: 'child-benefit-charge', name: 'Child Benefit Tax', family: 'money', glyph: 'baby', archetype: 'calc',
+    pitch: 'The High Income Child Benefit Charge on income between £60,000 and £80,000.',
+    keywords: ['child benefit', 'hicbc', 'high income', 'tax charge', 'children', 'benefit'],
+    tour: ['Put in the higher earner’s adjusted net income.', 'Add the Child Benefit the family gets in a year.', 'One percent is taken back for every £200 over £60,000.'],
+    calc: {
+      inputs: [
+        inp('ani', 'Adjusted Income', 70000, { unit: '£', min: 0, step: 500 }),
+        inp('benefit', 'Child Benefit', 2000, { unit: '£ a year', min: 0, step: 10 }),
+      ],
+      outputs: [
+        out('pct', 'Taken Back', 'min(100, floor(max(0, ani - 60000) / 200))', { unit: '%', dp: 0 }),
+        money('charge', 'Charge', 'benefit * pct / 100'),
+        money('kept', 'Kept', 'benefit - charge'),
+      ],
+      tests: [
+        { in: { ani: 70000, benefit: 2000 }, out: { pct: 50, charge: 1000, kept: 1000 } },
+        { in: { ani: 85000, benefit: 2000 }, out: { pct: 100, charge: 2000 } },
+        { in: { ani: 59000, benefit: 1400 }, out: { charge: 0 } },
+      ],
+      estimate: true,
+      source: 'GOV.UK High Income Child Benefit Charge: 1% for every £200 of income over £60,000',
+    },
+  },
+  {
+    id: 'emergency-fund', name: 'Emergency Fund', family: 'money', glyph: 'shield', archetype: 'calc',
+    pitch: 'How many months your savings would cover, and the gap to your safety-net goal.',
+    keywords: ['emergency fund', 'rainy day', 'safety net', 'savings goal', 'months covered', 'buffer'],
+    tour: ['Put in what your essential bills come to each month.', 'Pick how many months you want covered; three to six is common.', 'Add what you have saved to see the months covered and the gap.'],
+    calc: {
+      inputs: [
+        inp('essentials', 'Essentials', 1500, { unit: '£ a month', min: 1, step: 50 }),
+        inp('months', 'Months Wanted', 3, { min: 1, max: 12 }),
+        inp('saved', 'Saved', 2500, { unit: '£', min: 0, step: 100 }),
+        inp('monthly', 'Saving Monthly', 200, { unit: '£', min: 0, step: 10 }),
+      ],
+      outputs: [
+        money('target', 'Goal', 'essentials * months', 0),
+        out('covered', 'Months Covered', 'saved / essentials', { dp: 1 }),
+        money('gap', 'Still To Save', 'max(0, target - saved)', 0),
+        out('wait', 'Months To Goal', 'if(monthly > 0, ceil(gap / monthly), 0)', { dp: 0 }),
+      ],
+      tests: [
+        { in: { essentials: 1500, months: 3, saved: 2500, monthly: 200 }, out: { target: 4500, covered: 1.67, gap: 2000, wait: 10 } },
+        { in: { essentials: 1000, months: 6, saved: 7000, monthly: 0 }, out: { covered: 7, gap: 0 } },
+      ],
+      source: 'MoneyHelper emergency savings guide: essential costs × the months you want covered',
+    },
+  },
+  {
+    id: 'gas-units', name: 'Gas Units', family: 'money', glyph: 'fire', archetype: 'calc',
+    pitch: 'Turn gas meter units into kWh and cost, as your bill does.',
+    keywords: ['gas', 'kwh', 'meter units', 'cubic metres', 'gas bill', 'calorific value'],
+    tour: ['Take this reading from the last one to get the units used.', 'Pick a metric or an older imperial meter.', 'Your bill gives the calorific value and the price per kWh.'],
+    calc: {
+      inputs: [
+        inp('units', 'Units Used', 100, { min: 0 }),
+        inp('meter', 'Meter', 1, { choices: [{ label: 'Metric (m³)', value: 1 }, { label: 'Imperial (100 ft³)', value: 2.83 }] }),
+        inp('cv', 'Calorific Value', 39.5, { unit: 'MJ per m³', min: 30, max: 45, step: 0.1 }),
+        inp('price', 'Unit Price', 6, { unit: 'p per kWh', min: 0, step: 0.01 }),
+      ],
+      outputs: [
+        out('kwh', 'Energy', 'units * meter * 1.02264 * cv / 3.6', { unit: 'kWh', dp: 1 }),
+        money('cost', 'Cost', 'kwh * price / 100'),
+      ],
+      tests: [
+        { in: { units: 100, meter: 1, cv: 39.5, price: 6 }, out: { kwh: 1122.06, cost: 67.32 } },
+        { in: { units: 10, meter: 2.83, cv: 39.5, price: 6 }, out: { kwh: 317.54 } },
+      ],
+      estimate: true,
+      source: 'Gas (Calculation of Thermal Energy) Regulations 1996: m³ × 1.02264 × calorific value ÷ 3.6',
+    },
+  },
+  {
     id: 'mortgage-calc', name: 'Mortgage', family: 'money', glyph: 'home', from: 'money.4', archetype: 'calc',
     pitch: 'Monthly repayment, interest-only cost and total interest for any mortgage.',
     keywords: ['mortgage', 'repayment', 'home loan', 'interest', 'monthly payment', 'remortgage'],
