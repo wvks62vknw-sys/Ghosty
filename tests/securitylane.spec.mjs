@@ -249,6 +249,61 @@ await section('takeback', async () => {
   await ctx.close();
 });
 
+// j. one tap to lock everything: the confirm, the locked state, a wrong key keeps it locked, his key unlocks it; and "lock everything" said
+await section('lock', async () => {
+  log('lock everything');
+  const { ctx, page } = await phone(PHONE);
+  const sent = [];
+  await ctx.route(/\/api\/security\/(lock|unlock)$/, (r) => {
+    sent.push(new URL(r.request().url()).pathname.split('/').pop());
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sent.at(-1) === 'lock' ? { locked: true, at: Date.now(), telegram: false } : { locked: false }) });
+  });
+  await openSecurity(page);
+  check(/Open/i.test((await page.locator('#pg-security .seclockdown h3 small').textContent()) ?? ''), '[lock] the panel does not say it is open');
+  await page.locator('#pg-security .seclockdown button', { hasText: 'LOCK EVERYTHING' }).click();
+  await page.locator('.confirm.sure button', { hasText: /^LOCK$/ }).click();
+  check(await until(page, () => document.querySelector('#pg-security .seclockdown')?.dataset.locked === '1', null, 5000), '[lock] LOCK did not show the locked state');
+  check(sent.join() === 'lock', `[lock] asked the brain: ${sent.join()}`);
+  check(/Locked since .*Telegram unpaired, and nothing that publishes/.test((await page.locator('#pg-security .seclockdown .bd').textContent()) ?? ''), '[lock] the locked panel does not say what is locked');
+  const keyBox = page.locator('#pg-security .seclockdown input[type=password]');
+  await keyBox.fill('not-my-key-at-all-0000000000');
+  await page.locator('#pg-security .seclockdown button', { hasText: 'UNLOCK' }).click();
+  check(sent.join() === 'lock' && (await page.locator('#pg-security .seclockdown').getAttribute('data-locked')) === '1', '[lock] a wrong key unlocked it');
+  await keyBox.fill(KEY);
+  await page.locator('#pg-security .seclockdown button', { hasText: 'UNLOCK' }).click();
+  check(await until(page, () => !document.querySelector('#pg-security .seclockdown')?.dataset.locked, null, 5000) && sent.join() === 'lock,unlock', `[lock] his key did not unlock it (${sent.join()})`);
+  await bar(page, '[lock]', '#pg-security');
+  // said in the chat: the confirm opens, the lock is still his tap
+  await go(page, 'core');
+  await page.click('.logbtn').catch(() => undefined);
+  await page.fill('#cin', 'lock everything');
+  await page.keyboard.press('Enter');
+  check(await until(page, () => location.hash.startsWith('#security') && !!document.querySelector('.confirm.sure'), null, 10000), '[lock] "lock everything" did not open the lock\'s confirm on Security');
+  check(sent.join() === 'lock,unlock', '[lock] saying it locked without his tap');
+  await page.locator('.confirm.sure button', { hasText: 'KEEP IT' }).click().catch(() => undefined);
+  await ctx.close();
+});
+
+// k. check a link: pasted, checked from public records (a stand-in answer), said in his words; nothing opened
+await section('link', async () => {
+  log('check a link');
+  const { ctx, page } = await phone(PHONE2);
+  const asked = [];
+  await ctx.route(/\/api\/security\/linkcheck$/, (r) => {
+    asked.push(r.request().postData());
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ verdict: 'scam', words: 'This looks like a scam.\n• The address imitates Royal Mail, but it is not Royal Mail’s.', links: ['https://royalmaii-parcel.example/'] }) });
+  });
+  await openSecurity(page);
+  await showSteps(page);
+  await page.locator('#pg-security .seclinkcheck input').fill('Your parcel is waiting: https://royalmaii-parcel.example/pay');
+  await page.locator('#pg-security .seclinkcheck button', { hasText: 'CHECK' }).click();
+  check(await until(page, () => /imitates Royal Mail/.test(document.querySelector('#pg-security .seclinksaid')?.textContent ?? ''), null, 8000), `[link] the answer says "${await page.locator('#pg-security .seclinksaid').textContent()}"`);
+  check(asked.length === 1 && /royalmaii-parcel\.example/.test(asked[0] ?? ''), `[link] what was asked: ${asked.join(', ')}`);
+  check(/scam/i.test((await page.locator('#pg-security .seclinkcheck h3 small').textContent()) ?? ''), '[link] the panel does not say it looks like a scam');
+  await bar(page, '[link]', '#pg-security');
+  await ctx.close();
+});
+
 // e. offline: the brain refused
 await section('offline', async () => {
   log('offline');
@@ -265,8 +320,13 @@ await section('offline', async () => {
 // g. the nightly self-check, told once in the Brief: a lock that slipped is one SECURITY row that opens the screen
 await section('brief', async () => {
   log('brief');
-  const { ctx, page } = await phone(PHONE, { security: { locks: { vaultKey: true, demoOpen: true, previews: null, access: false, keyByHash: false }, approvals: [] } });
+  const yday = Date.now() - 86_400_000;
+  const { ctx, page } = await phone(PHONE, { security: { locks: { vaultKey: true, demoOpen: true, previews: null, access: false, keyByHash: false }, approvals: [{ tool: 'send_email', what: 'Send an email to Sam', allow: true, from: 'phone', at: yday }, { tool: 'post', what: 'Post on Bluesky', allow: false, from: 'telegram', at: yday }] } });
   await go(page, 'brief');
+  // security.c1: yesterday's approvals, one row, beside the self-check
+  check(await until(page, () => !!document.querySelector('#pg-brief .brday .brapprovals'), null, 20000), '[brief] no APPROVALS row for yesterday');
+  const al = (await page.locator('#pg-brief .brday .brapprovals .v').textContent().catch(() => '')) ?? '';
+  check(/^Yesterday you approved 1 and turned down 1\.$/.test(al), `[brief] the approvals row says "${al}"`);
   const shown = await until(page, () => !!document.querySelector('#pg-brief .brday .brsecurity'), null, 20000);
   check(shown, '[brief] no SECURITY row in YOUR DAY when locks slipped');
   if (shown) {

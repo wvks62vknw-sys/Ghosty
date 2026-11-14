@@ -525,7 +525,7 @@ test('"take me home": plan_journey and resolvePlace go to the saved home and wor
   assert.equal((await X.resolvePlace('here', ctx)).name, 'Birmingham', '"here" is still where he is');
   assert.equal(calls.length, 0, 'a saved place is not looked up');
   await assert.rejects(X.resolvePlace('home', savedCtx([]).ctx), /I don't know where home is yet: tell me \("remember home is …"/);
-  await assert.rejects(X.resolvePlace('work', savedCtx([]).ctx), /Memory → ME → PLACES/);
+  await assert.rejects(X.resolvePlace('work', savedCtx([]).ctx), /Memory → ABOUT YOU → PLACES/);
   // "take me home" from work, by bus.
   const out = await T.toolByName.get('plan_journey').run({ to: 'home', from: 'work' }, ctx);
   const plan = calls.find((c) => c.url.pathname === '/api/v1/plan').url;

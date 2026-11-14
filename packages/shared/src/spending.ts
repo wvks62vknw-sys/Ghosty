@@ -33,6 +33,8 @@ export interface SpendRow extends Txn {
   k: string;
   c: Category;
   by: 'you' | 'rule' | 'model' | 'none';
+  /** [moneynext] One part of a payment he split across categories: the split's id, the payment's whole amount, and this part's place. */
+  sp?: { id: string; of: number; i: number };
 }
 
 // ---- CSV.

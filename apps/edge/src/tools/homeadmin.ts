@@ -151,12 +151,14 @@ const bills: ActionFn = async (a, d) => {
     return { text: `${cap(t.label)} this year: ${pounds(t.total)} over ${t.list.length} bill${t.list.length === 1 ? '' : 's'} I have.\n${t.list.map((b) => `- ${b.supplier} ${pounds(b.amount)}${b.to ? ` to ${prettyDay(b.to, today.slice(0, 4))}` : b.due ? `, due ${prettyDay(b.due, today.slice(0, 4))}` : ''}`).join('\n')}\nOnly the bills you showed me: if one is missing, so is its amount.` };
   }
   const open = list.filter((b) => !b.paid && !b.credit).sort((x, y) => (x.due || '9').localeCompare(y.due || '9'));
-  if (!open.length) return { text: list.length === 1 ? 'Nothing unpaid: the one bill I have is marked paid.' : `Nothing unpaid: all ${list.length} bills I have are marked paid.` };
+  // [moneynext] the paid ones go to the phone too (newest paid first), so HOME's Bills can keep them under Paid and forget one
+  const paidList = list.filter((b) => b.paid).sort((x, y) => (y.paid ?? '').localeCompare(x.paid ?? ''));
+  if (!open.length) return { text: list.length === 1 ? 'Nothing unpaid: the one bill I have is marked paid.' : `Nothing unpaid: all ${list.length} bills I have are marked paid.`, data: { bills: [], paid: paidList } };
   const soon = open.filter((b) => b.due && daysBetween(today, b.due) <= 30);
   return {
     text: `Bills still to pay (${open.length}):\n${open.slice(0, 8).map((b) => `- ${billLine(b, today)}`).join('\n')}${soon.length ? `\nIn the next 30 days: ${pounds(soon.reduce((s, b) => s + b.amount, 0))}.` : ''}`,
     cards: [card({ id: 'home:bills', kind: 'brief', at: d.now(), title: `${open.length} bills to pay`, line: billLine(open[0]!, today), brief: { icon: 'reminder' }, acts: [{ label: 'OPEN', run: sheet('bills') }] })],
-    data: { bills: open },
+    data: { bills: open, paid: paidList },
   };
 };
 

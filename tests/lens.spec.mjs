@@ -551,8 +551,8 @@ await p2.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).click();
 await p2.waitForTimeout(300);
 if (!(await p2.locator('#pg-lens .lensmodes').isVisible())) problems.push('MORE did not open the row of tools');
 const tools = await p2.evaluate(() => [...document.querySelectorAll('#pg-lens .lensmodes button')].map((b) => b.textContent.split(/[a-z]/)[0].trim().replace(/[^A-Z]+$/, '')));
-for (const want of ['HANDS', 'AIM', 'MEASURE', 'SOUND', 'SHAPES', 'PEOPLE', 'READ', 'ASK', 'NAME', 'SCAN', 'SEE']) if (!tools.some((t) => t.startsWith(want))) problems.push(`MORE has no ${want}: ${tools.join(' | ')}`);
-for (const [label, mode] of [['HANDS', 'hands'], ['AIM', 'aim'], ['MEASURE', 'measure'], ['SOUND', 'sound'], ['SHAPES', 'shapes'], ['PEOPLE', 'people']]) {
+for (const want of ['HANDS', 'AIM', 'MEASURE', 'SOUND', 'SHAPES', 'FACES', 'READ', 'ASK', 'NAME', 'SCAN', 'SEE']) if (!tools.some((t) => t.startsWith(want))) problems.push(`MORE has no ${want}: ${tools.join(' | ')}`);
+for (const [label, mode] of [['HANDS', 'hands'], ['AIM', 'aim'], ['MEASURE', 'measure'], ['SOUND', 'sound'], ['SHAPES', 'shapes'], ['FACES', 'people']]) {
   await p2.locator('#pg-lens .lensmodes button', { hasText: label }).first().click();
   await until2((m) => window.__ghosty.lens.mode === m, 8000, `MORE → ${label} did not open ${mode}: ${JSON.stringify(await L2())}`, mode);
   const err = await p2.evaluate(() => window.__ghosty.lens.error);

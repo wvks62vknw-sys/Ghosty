@@ -486,3 +486,62 @@ test('shades by words: "softer blue", "a bit deeper pink", "a warmer colour" mov
   // every shade lands on one of the twelve
   for (const [k, ways] of Object.entries(TH.SHADES)) for (const to of Object.values(ways)) assert.ok(TH.COLOUR_LABELS[to] && to !== k, `${k} → ${to}`);
 });
+
+test('the same everyday asks in other languages he speaks reach the same abilities (voice.u10)', () => {
+  const T = {
+    radio: ['pon música', 'pon la radio', 'ponme algo de música', 'mets de la musique', 'gaana chalao', 'music lagao', 'kuch gaane sunao', 'radio chala do'],
+    'radio-stop': ['para la música', 'arrête la musique', 'gaana band karo'],
+    water: ['me he tomado un vaso de agua', "j'ai bu un verre d'eau", 'ek glass paani piya', 'paani pi liya'],
+    map: ['abre el mapa', 'ouvre la carte', 'naqsha dikhao'],
+    weather: ['qué tiempo hace', 'va a llover mañana', 'quel temps fait-il', 'mausam kaisa hai', 'kya baarish hogi'],
+    news: ['las noticias', 'les infos', 'khabrein sunao'],
+    settings: ['ajustes', 'ouvre les paramètres', 'settings kholo'],
+  };
+  for (const [id, words] of Object.entries(T)) for (const t of words) assert.equal(M.meaningOf(t)?.id, id, t);
+  for (const [t, say] of [['enciende las luces', 'turn on the lights'], ['apaga la luz', 'turn off the lights'], ['allume la lumière', 'turn on the lights'], ['éteins la lumière', 'turn off the lights'], ['batti jalao', 'turn on the lights'], ['batti bujhao', 'turn off the lights'], ['pon un temporizador de diez minutos', 'set a timer for 10 minutes'], ['minuteur de 5 minutes', 'set a timer for 5 minutes'], ['10 minute ka timer lagao', 'set a timer for 10 minutes']]) {
+    assert.equal(M.meaningOf(t)?.say, say, t);
+    assert.ok(tableOf(say), `"${say}" is taken by its own table`);
+  }
+  for (const t of ['pon la mesa', 'la musique classique est belle', 'mausam', 'gaana kaun sa hai']) assert.equal(M.meaningOf(t), null, `"${t}" is left to the brain`);
+});
+
+test('a colour for one screen: "make the money screen green", and back to normal (voice.u8)', () => {
+  const base = TH.recipeFrom('reactor');
+  for (const [t, tab, colour] of [['make the money screen green', 'money', 'emerald'], ['the radio page in red', 'radio', 'crimson'], ['set the settings page to purple', 'settings', 'violet'], ['money screen back to normal', 'money', null]]) {
+    const a = TH.lookAsked(t);
+    assert.deepEqual([a?.room?.tab, a?.room?.colour], [tab, colour], t);
+    assert.equal(TH.applyAsk(base, a).recipe.colour, 'reactor', `${t}: his own colour is unchanged`);
+  }
+  assert.equal(TH.applyAsk(base, TH.lookAsked('make the money screen green')).said, 'Money keeps green from now on; everywhere else stays blue.');
+  assert.equal(TH.lookAsked('make the screen red')?.colour, 'crimson', 'the screen as a whole is his colour');
+  assert.equal(TH.lookAsked('paint the fence green'), null);
+  const rc = readFileSync(at('../../web/src/state/roomcolour.ts'), 'utf8');
+  assert.match(rc, /applyRecipe\(\{ \.\.\.recipe\(\), colour: c \}, \{ save: false, remember: false \}\)/, 'shown unsaved, never his kept look');
+});
+
+test('colour-blind safe: one of the look’s switches, by words too, and every safe colour clear against its ground (voice.s5)', () => {
+  for (const t of ['colour blind mode on', 'colour-blind safe', 'colourblind mode', 'safe colours for colour blindness', "I'm colour blind", 'color blind friendly colours']) assert.deepEqual(TH.lookAsked(t), { switches: { safe: 'on' } }, t);
+  for (const t of ['colour blind mode off', 'normal colours', 'colour-blind safe mode off']) assert.deepEqual(TH.lookAsked(t), { switches: { safe: 'off' } }, t);
+  assert.equal(TH.SWITCH_DEFAULTS.safe, 'off');
+  assert.equal(TH.cleanSwitches({ safe: 'maybe' }).safe, 'off', 'an odd value is off');
+  const r = TH.applyAsk(TH.recipeFrom('reactor'), { switches: { safe: 'on' } });
+  assert.equal(r.recipe.switches.safe, 'on');
+  assert.match(r.said, /^Colour-blind safe: on\. Orange for a failure, sky blue for a success, yellow for a warning/);
+  // contrast: each safe colour at least 3:1 against every ground it is drawn on (dark grounds, and Paper's deeper inks)
+  const css = readFileSync(at('../../web/src/design/tokens.css'), 'utf8');
+  const block = (sel) => css.slice(css.indexOf(sel)).split('}')[0];
+  const val = (b, k) => new RegExp(`${k}: (#[0-9a-f]{6})`).exec(b)?.[1];
+  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((s) => (s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  const dark = block(':root[data-safe="on"] {');
+  const paper = block(':root[data-safe="on"][data-ground="paper"] {');
+  for (const g of ['black', 'graphite', 'slate', 'warm']) {
+    const canvas = val(block(`:root[data-ground="${g}"]`), '--g-canvas');
+    for (const k of ['--g-red', '--g-ok', '--g-amber']) assert.ok(ratio(val(dark, k), canvas) >= 3, `${k} on ${g}: ${ratio(val(dark, k), canvas).toFixed(2)}`);
+  }
+  const pc = val(block(':root[data-ground="paper"]'), '--g-canvas');
+  for (const k of ['--g-red', '--g-ok', '--g-amber']) assert.ok(ratio(val(paper, k), pc) >= 3, `${k} on paper: ${ratio(val(paper, k), pc).toFixed(2)}`);
+  // and the three are told apart from each other (none two alike in lightness and hue: the red/green pair is gone)
+  assert.notEqual(val(dark, '--g-red'), val(dark, '--g-ok'));
+  assert.match(readFileSync(at('../../web/src/state/theme.ts'), 'utf8'), /d\.safe = s\.safe;/);
+});

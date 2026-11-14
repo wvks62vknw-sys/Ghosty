@@ -5,6 +5,7 @@
  * It opens only with his owner key. Nothing is sent anywhere by either key.
  */
 import { h } from '../../core/dom';
+import { MAX_IMPORT_BYTES } from '../../core/safeurl';
 import { button } from '../../ui/components';
 import { chooseRestore } from './restorepreview';
 import { sayError } from '../../ui/hisWords';
@@ -18,6 +19,10 @@ export const FILE_WORDS = {
   shared: (name: string, size: string) => `${name} (${size}) is ready to keep: choose Save to Files.`,
   reading: 'Opening the backup file…',
   line: 'Keep a copy as a file too, so your backup never depends only on the brain.',
+  all: 'EXPORT EVERYTHING',
+  allLine: 'Your documents, sheets, decks, workspace and memory as ordinary files, in one zip.',
+  allMaking: 'Making ordinary files of everything…',
+  allDone: (name: string, size: string) => `Saved ${name} (${size}): Word, Excel, PowerPoint, Markdown and a memory document.`,
 };
 
 /** The two keys and the line under them, for the backup panel. `say` writes into the panel's message line. */
@@ -48,6 +53,8 @@ export function backupFileKeys(say: (text: string, tone: '' | 'good' | 'bad') =>
     const file = pick.files?.[0];
     pick.value = '';
     if (!file) return;
+    // [security] the size is checked before the file is read whole (a phone tab is not a server)
+    if (file.size > MAX_IMPORT_BYTES) return say('That file is too big to be a Ghosty backup.', 'bad');
     const read = readBackupFile(await file.text().catch(() => ''));
     if (!read.ok) return say(read.why, 'bad');
     const day = read.file.at ? new Date(read.file.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : 'an unknown day';
@@ -61,5 +68,21 @@ export function backupFileKeys(say: (text: string, tone: '' | 'good' | 'bad') =>
       say(sayError(e, 'open the backup file'), 'bad');
     }
   });
-  return h('div.backupfile', h('div.note', FILE_WORDS.line), h('div.keyrow', save, open), pick);
+  // [next] EXPORT EVERYTHING (polish3.s3): his work as ordinary files any computer opens, in one zip (exportall.ts)
+  const all = button(FILE_WORDS.all, async (b) => {
+    b.disabled = true;
+    say(FILE_WORDS.allMaking, '');
+    try {
+      const f = await (await import('./exportall')).exportAll();
+      const run = await import('../../convert/run');
+      if (!(await run.shareBlob(f.blob, f.name))) run.saveBlob(f.blob, f.name);
+      say(FILE_WORDS.allDone(f.name, sizeText(f.blob.size)), 'good');
+    } catch (e) {
+      say(sayError(e, 'export everything'), 'bad');
+    } finally {
+      b.disabled = false;
+    }
+  });
+  all.dataset.act = 'exportall';
+  return h('div.backupfile', h('div.note', FILE_WORDS.line), h('div.keyrow', save, open), h('div.note', FILE_WORDS.allLine), h('div.keyrow', all), pick);
 }
