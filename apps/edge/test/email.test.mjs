@@ -461,3 +461,36 @@ test('email tools: registered, grouped, friendly when not linked, approval shows
   assert.match(reason, /Friday at 1\?/);
   await assert.rejects(send.approval({ subject: 'x', body: 'y' }, { vault: vault('me@gmail.com pw') }), /who should it go to/);
 });
+
+// [planlane2:fixes] LINKS → EMAIL → TEST (plan.u14): one sign-in with what he linked, answered as pass or a reason code, never the
+// server's own text and never the password (src/emailtest.ts, built here with esbuild's API like social.test.mjs does)
+test('POST /email/test: pass, or a reason code in place of the server’s words; paused and not linked said apart', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../src/emailtest.ts')], bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outfile: at('./.build/emailtest/emailtest.mjs'), logLevel: 'warning' });
+  const E = await import('./.build/emailtest/emailtest.mjs');
+  const key = (v) => async (n) => (n === 'email' ? v : null);
+  assert.deepEqual(await E.emailTest(key(undefined)), { works: false, why: 'paused' });
+  assert.deepEqual(await E.emailTest(key(null)), { works: false, why: 'not' });
+  assert.deepEqual(await E.emailTest(key('me@gmail.com abcd efgh ijkl mnop'), { connect: servers().connect }), { works: true, address: 'me@gmail.com' });
+  const wrong = await E.emailTest(key('me@gmail.com abcd efgh ijkl mnop'), { connect: servers({ pass: 'the-right-one' }).connect });
+  assert.deepEqual(wrong, { works: false, why: 'signin', address: 'me@gmail.com' });
+  assert.ok(!/abcd|App Password|rejected/.test(JSON.stringify(wrong)), 'never the password, never the server’s words');
+  const down = await E.emailTest(key('me@gmail.com abcd efgh ijkl mnop'), { connect: async () => { throw new Error('ECONNREFUSED 10.0.0.1'); } });
+  assert.deepEqual(down, { works: false, why: 'unreached', address: 'me@gmail.com' });
+  assert.equal((await E.emailTest(key('me@outlook.com abcd'))).why, 'outlook');
+  assert.equal((await E.emailTest(key('me@unknown-mail.example abcd'))).why, 'servers');
+  assert.equal(E.emailFault(new Error('x')), 'other');
+  // A temporary refusal is never "not working": the stand-in SMTP greets with 421, then turns AUTH down with 454; IMAP greets with BYE
+  const smtpBusy = (first) => fakeConnect((host) => {
+    if (host.startsWith('imap')) return imapServer();
+    const s = smtpServer();
+    if (first === 'greet') s.start = () => s.send('421 4.7.0 Try again later, closing connection.\r\n');
+    else { const on = s.onLine; s.onLine = (l) => (l.startsWith('AUTH') ? s.send('454 4.7.0 Temporary authentication failure\r\n') : on(l)); }
+    return s;
+  });
+  for (const first of ['greet', 'auth']) assert.deepEqual(await E.emailTest(key('me@gmail.com abcd efgh ijkl mnop'), { connect: smtpBusy(first).connect }), { works: false, why: 'busy', address: 'me@gmail.com' }, first);
+  const imapBye = fakeConnect((host) => { const s = host.startsWith('imap') ? imapServer() : smtpServer(); if (host.startsWith('imap')) s.start = () => s.send('* BYE System busy, try again later\r\n'); return s; });
+  assert.equal((await E.emailTest(key('me@gmail.com abcd efgh ijkl mnop'), { connect: imapBye.connect })).why, 'busy');
+  assert.equal(E.emailFault(new E.MailError('protocol', 'the mail server refused sending: 550 no')), 'other', 'a 5xx is not a wait');
+});

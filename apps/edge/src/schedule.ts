@@ -315,6 +315,61 @@ export async function removeEvent(storage: DurableObjectStorage, id: string): Pr
   return ev;
 }
 
+/**
+ * [planlane2:timeline] Change one of his own events IN PLACE (its id stays, so nothing that points at it breaks): only the fields
+ * given change; `end: null`, `location: null` or `notes: null` clears one. Its reminder job follows it: a reminder `remindMin` before
+ * the new start (an all-day one's from 09:00 that day, as addEvent's route sets it), or none with `remindMin: null`; left out, the
+ * reminder keeps its old lead before the new start. Returns the event before and after, or null when no such event of his.
+ */
+export async function editEvent(
+  storage: DurableObjectStorage,
+  id: string,
+  patch: { title?: string; start?: number; end?: number | null; allDay?: boolean; location?: string | null; notes?: string | null; remindMin?: number | null },
+  tz: string,
+  label: (ev: AgendaEvent) => string,
+): Promise<{ before: AgendaEvent; event: AgendaEvent } | null> {
+  const list = await loadEvents(storage);
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) return null;
+  const before = list[i]!;
+  if (patch.start !== undefined && !Number.isFinite(patch.start)) throw new Error('the start time could not be understood');
+  const start = patch.start ?? before.start;
+  const allDay = patch.allDay ?? !!before.allDay;
+  // the end moves with the start when only the start is given (the event keeps its length)
+  const end = patch.end === null ? undefined : patch.end !== undefined ? patch.end : before.end !== undefined ? before.end + (start - before.start) : undefined;
+  const location = patch.location === null ? undefined : patch.location !== undefined ? patch.location : before.location;
+  const notes = patch.notes === null ? undefined : patch.notes !== undefined ? patch.notes : before.notes;
+  const title = patch.title !== undefined ? patch.title.trim().slice(0, 200) || before.title : before.title;
+  const event: AgendaEvent = {
+    id: before.id,
+    title,
+    start,
+    ...(end && end > start ? { end } : {}),
+    ...(allDay ? { allDay: true } : {}),
+    ...(location ? { location: location.slice(0, 200) } : {}),
+    ...(notes ? { notes: notes.slice(0, 2000) } : {}),
+    source: before.source,
+  };
+  list[i] = event;
+  list.sort((a, b) => a.start - b.start);
+  await storage.put(EVENTS, list);
+  const ring = (ev: AgendaEvent) => (ev.allDay ? ev.start + 9 * 3600_000 : ev.start);
+  await withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    const old = jobs.find((j) => j.eventId === id);
+    // the lead it rang before (minutes), kept when no new one is asked for
+    const lead = patch.remindMin === null ? null : patch.remindMin !== undefined && Number.isFinite(patch.remindMin) && patch.remindMin >= 0 ? patch.remindMin : old ? Math.max(0, Math.round((ring(before) - old.next) / 60_000)) : null;
+    const keep = jobs.filter((j) => j.eventId !== id);
+    const at = lead === null ? null : ring(event) - lead * 60_000;
+    if (at !== null && at > Date.now()) {
+      if (!old && keep.length >= MAX_JOBS) throw new Error(`there are already ${MAX_JOBS} reminders and tasks; cancel some first`);
+      keep.push({ ...(old ?? { id: newId(), kind: 'reminder', repeat: 'none', createdAt: Date.now() }), title: event.title, text: label(event), next: at, tz: safeTz(tz), eventId: id } as Job);
+    }
+    if (old || keep.length !== jobs.length) await saveJobs(storage, keep);
+  });
+  return { before, event };
+}
+
 // ── calendar feeds (.ics) ────────────────────────────────────────────────────────
 
 export async function loadFeeds(storage: DurableObjectStorage): Promise<Feed[]> {

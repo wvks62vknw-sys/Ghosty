@@ -118,6 +118,8 @@ export async function flush(): Promise<boolean> {
 /** Fetch everything from the brain (after sending what waits); the phone's copy stays when it is unreachable. */
 export async function sync(): Promise<boolean> {
   await flush();
+  // (a card kept while this copy is on its way, an answer's or a lesson's, stays: the copy may be from before it)
+  const asked = Date.now();
   try {
     const got = await call<LearnState>('GET', '');
     // (a course on its way out, its UNDO bar still up, stays out)
@@ -130,7 +132,7 @@ export async function sync(): Promise<boolean> {
         const p = (s.pendingDone ?? []).some((d) => d.course === x.id) ? progressed(x, full[x.id]) : x;
         return p.done > x.done ? p : x;
       });
-      return { courses, cards: withPending(st.cards, s.pending), full, streak: mergeStreaks(s.streak, st.streak), synced: Date.now() };
+      return { courses, cards: withPending(withFresh(st.cards, s.cards, asked), s.pending), full, streak: mergeStreaks(s.streak, st.streak), synced: Date.now() };
     });
     return true;
   } catch {
@@ -189,8 +191,17 @@ export async function finishLesson(courseId: string, n: number): Promise<void> {
   }
 }
 
+/** When each card was kept on this phone: a sync whose copy was read before then must not drop it. */
+const keptAt = new Map<string, number>();
 function keepCards(cards: Card[]): void {
+  const now = Date.now();
+  for (const c of cards) keptAt.set(c.id, now);
   learn.set((s) => ({ cards: [...s.cards, ...cards.filter((c) => !s.cards.some((x) => x.id === c.id))] }));
+}
+/** The brain's cards, plus this phone's cards kept since `since` that its copy (read from then on) did not hold yet. */
+function withFresh(got: Card[], mine: Card[], since: number): Card[] {
+  const ids = new Set(got.map((c) => c.id));
+  return [...got, ...mine.filter((c) => !ids.has(c.id) && (keptAt.get(c.id) ?? 0) >= since)];
 }
 
 function progressed(x: CourseSummary, c: Course | undefined): CourseSummary {
@@ -329,7 +340,7 @@ export async function finishExam(): Promise<ExamMarked | null> {
 
 export async function addCard(course: string, front: string, back: string): Promise<Card> {
   const { card } = await call<{ card: Card }>('POST', '/card', { course, front, back });
-  learn.set((s) => ({ cards: s.cards.some((c) => c.id === card.id) ? s.cards : [...s.cards, card] }));
+  keepCards([card]);
   return card;
 }
 
