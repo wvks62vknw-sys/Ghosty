@@ -9920,3 +9920,4 @@ html .bremrow .bremkeys { display: flex; flex: none; gap: var(--g-s-half); }
 #pg-security .secpwrow input { flex: 1 1 auto; min-width: 0; min-height: max(44px, var(--g-target)); }
 #pg-security .secpwrow button { min-height: max(44px, var(--g-target)); min-width: max(44px, var(--g-target)); }
 #pg-security .secpwnedsaid:empty { display: none; }
+html body .mndue .mnasked { display: flex; align-items: center; min-height: var(--g-target); width: 100%; padding: 0; border: 0; background: none; color: var(--g-accent); font: var(--g-t-caption); text-align: left; overflow-wrap: anywhere; cursor: pointer; }

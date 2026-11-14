@@ -37,7 +37,23 @@ const TURNS = [
   { at: yesterday, q: "what's the best paint for a fence", a: 'An oil-based wood stain lasts longest.' },
   { at: lastWeekWed, q: 'are there trains to York on Saturday', a: 'Yes, every half hour from New Street.' },
   { at: lastWeekWed - 14 * DAY, q: 'trains to Bristol next month', a: 'From £24 if you book ahead.' },
+  { at: yesterday - 3 * 3600_000, q: 'why is my Octopus Energy bill so high this month', a: 'It is 12% up on the same month last year.' },
 ];
+// (j) a bill on his HOME screen, from the same supplier as one of his questions
+const H = { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' };
+const pk = (pack, action, args = {}) => fetch(`${base}/api/packs/do`, { method: 'POST', headers: H, body: JSON.stringify({ pack, action, args }) }).then((r) => r.json()).catch(() => ({}));
+{
+  const had = (await pk('homeadmin', 'bills', {})).data?.bills ?? [];
+  await Promise.all(had.filter((b) => /octopus/i.test(b.supplier ?? '')).map((b) => pk('homeadmin', 'paid', { id: b.id, remove: true })));
+  const due = new Date(Date.now() + 9 * DAY).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  await pk('homeadmin', 'bill', { text: `Octopus Energy\nElectricity bill\nAmount due £84.20\nPay by ${due}` });
+  // (the bills page draws once a statement is kept: one line of one, if none is kept yet)
+  const kept = await fetch(`${base}/api/profile/spending`, { headers: H }).then((r) => r.json()).catch(() => ({}));
+  if (!kept?.kept) {
+    const ym = new Date().toISOString().slice(0, 7);
+    await fetch(`${base}/api/profile/spending/import`, { method: 'POST', headers: H, body: JSON.stringify({ csv: `Date,Description,Amount\n${ym}-01,TESCO STORES,-12.40\n`, rulesOnly: true }) }).catch(() => undefined);
+  }
+}
 
 const fit = (page, sel) =>
   page.evaluate((sel) => {
@@ -134,7 +150,7 @@ async function run(vp, body) {
 
     // (e) the day rebuilt, and recall kept to last week
     const day = await ask('what did I do yesterday?', /Yesterday: /);
-    check(/Yesterday: you asked “what's the best paint for a fence/.test(day), `${T} [e day] said "${day}"`);
+    check(/^.*Yesterday: .*you asked “what's the best paint for a fence/.test(day) && !/York|Bristol|squeaky/.test(day.split('FORGET')[0]), `${T} [e day] said "${day}"`);
     const dated = await ask('what did I ask last week about trains?', /about “trains”/);
     check(/York/.test(dated) && !/Bristol/.test(dated), `${T} [e last week] said "${dated}"`);
 
@@ -195,6 +211,24 @@ async function run(vp, body) {
       await page.waitForFunction(() => !document.querySelector('.modal'), null, { timeout: 5000 }).catch(() => undefined);
     }
     await box.fill('');
+  }
+
+  // (j) a bill shows what he asked about it before (memory.c3), one tap from the exchange
+  if (!body) {
+    await page.evaluate(() => (location.hash = 'money'));
+    await page.waitForSelector('#pg-money', { state: 'attached', timeout: 10000 });
+    await openSection(page, 'money', 'Bills');
+    const asked = page.locator('#pg-money .mndue[data-kind="bill"] .mnasked').first();
+    const seen = await asked.waitFor({ state: 'visible', timeout: 12000 }).then(() => true, () => false);
+    check(seen && /^You asked me about this yesterday ›$/.test((await asked.textContent()) ?? ''), `${T} [j] under the bill: "${seen ? await asked.textContent() : '(nothing)'}"`);
+    if (seen) {
+      const box = await asked.boundingBox();
+      check(box && box.height >= 43.5, `${T} [j] the line is ${box?.height} pt high`);
+      await asked.click();
+      const shown = await page.waitForFunction(() => /You: why is my Octopus Energy bill so high/.test(document.querySelector('.modal .exchange')?.textContent ?? ''), null, { timeout: 6000 }).then(() => true, () => false);
+      check(shown, `${T} [j] the tap did not show the exchange`);
+      await page.keyboard.press('Escape').catch(() => undefined);
+    }
   }
 
   // (f) MEMORY → YOUR WORD
