@@ -16,7 +16,7 @@ interface Group {
 export const SETTINGS_GROUPS: Group[] = [
   { title: 'The look', match: /^(THEME|THE LOOK|READING)/ },
   { title: 'You', match: /^(NAME|PERMISSIONS|CHARACTER|GUARDIAN|VOICE|MY VOICE|PEOPLE I)/ },
-  { title: 'The brain', match: /^OFFLINE/ },
+  { title: 'The brain', match: /^(OFFLINE|SAVER)/ },
   // [editors] WORKSPACE beside them, as the Sections pill has it (features/settings/index.ts: Ghosty)
   { title: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL|WORKSPACE)/ },
   { title: 'About', match: /^(ABOUT|PRIVACY|HELP)/ },
@@ -35,6 +35,7 @@ const SAID: [RegExp, string, string][] = [
   [/^PEOPLE I/, 'People I’ve introduced', 'Faces you told me by name'],
   [/^OFFLINE MAPS/, 'Offline maps', 'The map of your area, with no signal'],
   [/^OFFLINE EYES/, 'Offline eyes', 'What the Lens reads with, with no signal'],
+  [/^SAVER/, 'Saver', 'Hold big downloads and the background feeds'],
   [/^OFFLINE/, 'Offline brain', 'Answers on this phone with no signal'],
   [/^WORKSPACE/, 'Workspace', 'Pages and databases kept on this phone'],
   [/^SYSTEM/, 'System', 'Keys, models, storage and backups'],

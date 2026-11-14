@@ -41,6 +41,7 @@ import { lookAsked } from '../../../../packages/shared/src/themes';
 import { looksAsked } from '../../../../packages/shared/src/looks';
 import { INDEPENDENT_ASK } from '../offline/trust';
 import { READY_ASK } from '../offline/readywords';
+import { saverAsked } from '../state/saver';
 import { buildAsked } from '../build/words';
 import { thatOne } from './thatwords';
 import { whatCanAsked } from './words';
@@ -153,6 +154,8 @@ export const LOCAL_ASKS = [
   { id: 'independent', test: (t: string) => INDEPENDENT_ASK.test(t.trim()) },
   // [next] "how ready are you offline?": SYSTEM → OFFLINE READY opened, and the number and the next download said (system/offlineready.ts)
   { id: 'offlineready', test: (t: string) => READY_ASK.test(t.trim()) },
+  // [next] "turn on the saver", "pause big downloads": SETTINGS → SAVER switched (state/saver.ts)
+  { id: 'saver', test: (t: string) => saverAsked(t) !== null },
   // [restd] DESIGN A BUILD with no model: "design me a shed three by two", "show me the build", "price the roof", "make it 4 by 3"
   { id: 'build', test: (t: string) => !!buildAsked(t) },
   // [restd] his house through his own Home Assistant, with no model: "turn off the hall light", "set the heating to 21"

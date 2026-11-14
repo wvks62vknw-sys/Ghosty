@@ -248,6 +248,52 @@ for (const vp of [PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================== d. THE SAVER (polish3.s1)
+for (const vp of [PHONE2]) {
+  const W = vp.width;
+  log(`${W}: the saver`);
+  const { ctx, page } = await phone(vp);
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForSelector('#pg-settings .pn', { state: 'attached', timeout: 30000 });
+  await openPanel(page, 'settings', 'SAVER');
+  const sw = page.locator('#pg-settings button.setsw[data-act="saver"]');
+  check(await sw.waitFor({ timeout: 10000 }).then(() => true, () => false), `[${W}] [d] no Saver switch`);
+  check((await sw.getAttribute('aria-checked')) === 'false' && /^Off: downloads and feeds run as usual\.$/.test(await text(page, '#pg-settings .saverline')), `[${W}] [d] the saver does not start off, said: "${await text(page, '#pg-settings .saverline')}"`);
+  await sw.click();
+  check((await sw.getAttribute('aria-checked')) === 'true' && /^Nothing held back yet\.$/.test(await text(page, '#pg-settings .saverline')), `[${W}] [d] on, it reads "${await text(page, '#pg-settings .saverline')}"`);
+  await fit(page, `[${W}] [d]`, '#pg-settings .saverpn');
+  // a big download is held, in his words, and listed
+  const asked = [];
+  page.on('request', (r) => /\/models\/|huggingface|\/vendor\//.test(r.url()) && asked.push(r.url()));
+  await page.click('#top .navback').catch(() => undefined);
+  await openPanel(page, 'settings', 'OFFLINE EYES');
+  await page.locator('#pg-settings .wikioffer[data-pack="eyes-name"] button[data-act="get"]').click().catch(() => problems.push(`[${W}] [d] no GET on the namer`));
+  const sure = page.locator('.modal button.sureyes');
+  if (await sure.waitFor({ timeout: 3000 }).then(() => true, () => false)) await sure.click();
+  const saidHeld = await until(page, () => /Saver is on, so big downloads wait/.test(document.body.textContent ?? ''), null, 8000);
+  check(saidHeld, `[${W}] [d] the namer's GET did not say the saver holds it`);
+  check(asked.length === 0, `[${W}] [d] the saver let ${asked.length} files through`);
+  await page.click('#top .navback').catch(() => undefined);
+  await openPanel(page, 'settings', 'SAVER');
+  check(/^Held back while it is on: The namer\.$/.test(await text(page, '#pg-settings .saverline')), `[${W}] [d] the list reads "${await text(page, '#pg-settings .saverline')}"`);
+  // and by voice: "saver off"
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
+  const sent = await page.evaluate(() => Date.now());
+  await page.fill('#cin', 'saver off');
+  await page.keyboard.press('Enter');
+  const reply = await page.waitForFunction(({ t }) => {
+    const msgs = [...document.querySelectorAll('#pg-core .msg')];
+    const mine = msgs.map((m) => m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t).lastIndexOf(true);
+    const r = mine < 0 ? null : msgs.slice(mine + 1).find((m) => !m.classList.contains('me') && /Saver is/.test(m.textContent ?? ''));
+    return r ? (r.textContent ?? '').replace(/\s+/g, ' ') : null;
+  }, { t: sent }, { timeout: 20000 }).then((h) => h.jsonValue(), () => '');
+  check(/Saver is off: downloads and the feeds run as usual\./.test(reply), `[${W}] [d chat] "saver off" answered "${reply.slice(0, 160)}"`);
+  // (the phone keeps it a moment after the change: waited for, not slept)
+  check(await until(page, () => JSON.parse(localStorage.getItem('ghosty.saver') ?? '{}').on === false, null, 5000), `[${W}] [d chat] the saver is still on`);
+  await ctx.close();
+}
+
 // ================================================================== c. A HEADS-UP
 for (const vp of [PHONE, PHONE2]) {
   const W = vp.width;
@@ -275,4 +321,4 @@ const secs = ((Date.now() - t0) / 1000).toFixed(0);
 if (problems.length) {
   process.exitCode = 1;
   console.log(`PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}`);
-} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, and a heads-up told once.`);
+} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, and a heads-up told once.`);

@@ -340,3 +340,21 @@ test('keys health: a failing key, a provider out or nearly out, and the database
   assert.deepEqual(KH.headsUps(null, now), []);
   assert.deepEqual(KH.headsUps({ models: [], meter: { ...st.meter, level: 1.2 } }, now), [], 'a database already paused is the top bar’s, not a heads-up');
 });
+
+// ---- NEXT ROUND (polish3.s1): the saver's words, heard and switched
+await build({ entryPoints: [at('../../web/src/state/saver.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/offline2/saver.mjs'), logLevel: 'error' });
+// (the phone's store saves through window's timers: Node has the same ones on globalThis)
+globalThis.window ??= globalThis;
+const SV = await import('./.build/offline2/saver.mjs');
+test('the saver: his ways of saying on and off are heard, nothing else is taken, and what it holds back is listed', () => {
+  for (const t of ['turn on the saver', 'Switch the saver on', 'saver on', 'pause big downloads', 'Pause the downloads and the feeds please']) assert.equal(SV.saverAsked(t), true, t);
+  for (const t of ['turn off the saver', 'saver off', 'resume downloads', 'unpause the big downloads']) assert.equal(SV.saverAsked(t), false, t);
+  for (const t of ['download the offline brain', 'save this', 'pause the radio', 'what is the saver?']) assert.equal(SV.saverAsked(t), null, t);
+  assert.equal(SV.saverTurn('turn on the saver'), 'Saver is on: big downloads and the background feeds wait until you turn it off.');
+  assert.equal(SV.held('The namer'), true);
+  assert.equal(SV.held('The namer'), true);
+  assert.deepEqual(SV.saver.get().paused, ['The namer'], 'each thing held back is listed once');
+  assert.equal(SV.saverTurn('saver off'), 'Saver is off: downloads and the feeds run as usual.');
+  assert.equal(SV.held('The namer'), false);
+  assert.deepEqual(SV.saver.get().paused, []);
+});

@@ -21,6 +21,7 @@ import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named pe
 import { offlinePanel } from './offline';
 import { permissionsPanel } from './permissions'; // [health] PERMISSIONS: what the phone can be asked for
 import { eyesPanel, mapsPanel, voiceModelPanel } from './packs';
+import { saverPanel } from './saver';
 import { wallPanel } from './wall'; // [wall] THE WALL: pair the second screen
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
@@ -73,6 +74,8 @@ export const settingsTab: TabDef = {
     P.right.append(op.el);
     // [offline] the map of his area and the Lens's eyes, kept on the phone on his tap (BRIEF-OFFLINE-1)
     P.right.append(mapsPanel().el, eyesPanel().el);
+    // [next] SAVER: one switch that holds big downloads and the background feeds (saver.ts)
+    P.right.append(saverPanel().el);
     const about = panel('ABOUT', { grow: false, status: BUILD.sha.slice(0, 7) });
     about.body.append(
       row('GHOSTY', 'Your own assistant: his brain runs in your Cloudflare account, his face on this phone.', null, { wrap: true }),
@@ -107,7 +110,7 @@ export const settingsTab: TabDef = {
     sections(root, 'settings', [
       { id: 'appearance', label: 'Appearance', match: /^(THEME|THE LOOK|READING)/ },
       { id: 'you', label: 'You', match: /^(NAME|PERMISSIONS)/ },
-      { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/ },
+      { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|SAVER|MY VOICE|PEOPLE I)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
       { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL|WORKSPACE)$/ },
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
