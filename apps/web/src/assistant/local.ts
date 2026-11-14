@@ -53,7 +53,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp' | 'chessapp';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -275,7 +275,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const two = ask.two ? TWO_WAYS[ask.two] : undefined;
     if (two) return answer(text, two.q, { kind: 'look', go: [{ id: 'look:colour', ask: -1, label: two.a[0], send: `${ask.two} colour` }, { id: 'look:ground', ask: -1, label: two.a[1], send: `${ask.two} background` }] }, opts);
     const theme = await import('../state/theme');
-    const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome() });
+    const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome(), ...theme.easyArgs(ask) });
     theme.applyRecipe(next);
     return answer(text, said, { kind: 'look', go: [{ id: 'screen:look', ask: -1, label: 'See it on The look', open: 'look' }] }, opts);
   },
@@ -428,6 +428,12 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const t0 = Date.now();
     while (weatherState.state === 'loading' && Date.now() - t0 < 5000) await new Promise((r) => setTimeout(r, 150));
     return answer(text, weatherState.line ? `Weather for ${weatherState.place}: ${weatherState.line}` : 'Here’s the weather.', { kind: 'weatherapp' }, opts);
+  },
+  // [learn] the CHESS app (features/chess/app.ts): "open chess", "chess puzzles", "puzzle rush"
+  async chessapp(text, opts) {
+    const { openChess, chessAppState } = await import('../features/chess/app');
+    openChess();
+    return answer(text, `Here’s Chess: ${chessAppState.rows} puzzle${chessAppState.rows === 1 ? '' : 's'} in your library. PUZZLES fetches more from Lichess’s free database, on your tap.`, { kind: 'chessapp' }, opts);
   },
   async camwall(text, opts) {
     location.hash = 'eye';
