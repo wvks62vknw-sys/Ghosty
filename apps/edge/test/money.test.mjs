@@ -448,3 +448,113 @@ test('the MONEY screen’s own keys run through POST /packs/do with no model, an
   assert.deepEqual(r.data.bills.map((b) => b.supplier), ['Severn Trent', 'Octopus Energy']);
   assert.deepEqual(r.data.paid.map((b) => b.supplier), ['BT']);
 });
+
+test('HOUSEHOLD → PAPERS: a warranty with a reminder a month before it ends, a paper with reminders a month and a week before it renews; the statement nudge only when he turns it on', async () => {
+  const storage = new Mem();
+  const call = (action, args = {}, pack = 'homeadmin') => P.packsRoute(new Request('https://g/api/packs/do', { method: 'POST', body: JSON.stringify({ pack, action, args }) }), '/packs/do', 'POST', { storage, notify: async () => undefined, now: () => NOW, fetch: fakeFetch({}) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  let r = await call('papers', { op: 'warranty', thing: 'washing machine', bought: '2025-03-03', months: 24, store: 'Currys', today: '2026-11-01' });
+  assert.match(r.text, /^Kept: the washing machine, warranty to 2027-03-02\. I’ll remind you on 2027-02-02 at 9am\./);
+  assert.equal(r.data.warranties[0].store, 'Currys');
+  assert.equal((await call('papers', { op: 'warranty', thing: 'kettle', bought: '2030-01-01', months: 12, today: '2026-11-01' })).status, 400, 'a day bought in the future is refused');
+  r = await call('papers', { op: 'paper', what: 'House insurance with Aviva', kind: 'home insurance', renews: '2027-01-15', today: '2026-11-01' });
+  assert.match(r.text, /^Kept: House insurance with Aviva, renews 2027-01-15\. I’ll remind you a month and a week before, at 9am\./);
+  const jobs = await J.loadJobs(storage);
+  assert.deepEqual(jobs.map((j) => j.title).sort(), ['Renews: House insurance with Aviva', 'Renews: House insurance with Aviva', 'Warranty ends: washing machine']);
+  r = await call('papers', { op: 'forgetPaper', id: r.data.papers[0].id });
+  assert.deepEqual(r.data.papers, []);
+  r = await call('papers', { op: 'forgetWarranty', id: r.data.warranties[0].id });
+  assert.deepEqual(r.data.warranties, []);
+  assert.deepEqual(await J.loadJobs(storage), [], 'their reminders go with them');
+  // the statement nudge
+  r = await call('nudge', {}, 'money');
+  assert.equal(r.data.on, false);
+  r = await call('nudge', { op: 'on', today: '2026-11-01' }, 'money');
+  assert.equal(r.data.on, true);
+  const n = (await J.loadJobs(storage))[0];
+  assert.equal(n.repeat, 'monthly');
+  assert.equal(new Date(n.next).toISOString(), '2026-11-02T09:00:00.000Z');
+  r = await call('nudge', { op: 'off' }, 'money');
+  assert.equal(r.data.on, false);
+  assert.deepEqual(await J.loadJobs(storage), []);
+});
+
+test('HOUSEHOLD → METER: the use between readings, a dial that went down left out, and a first estimate on his tariff', async () => {
+  assert.deepEqual(MP.meterSpans([{ on: '2026-10-01', value: 1000 }, { on: '2026-10-11', value: 1100 }, { on: '2026-10-21', value: 50 }, { on: '2026-10-31', value: 150 }]), [
+    { from: '2026-10-01', to: '2026-10-11', days: 10, units: 100, perDay: 10 },
+    { from: '2026-10-21', to: '2026-10-31', days: 10, units: 100, perDay: 10 },
+  ]);
+  assert.equal(MP.spanCost({ units: 100, days: 10 }, { unit: 24.5, standing: 60 }), 30.5);
+  const storage = new Mem();
+  const call = (args) => P.packsRoute(new Request('https://g/api/packs/do', { method: 'POST', body: JSON.stringify({ pack: 'homeadmin', action: 'energy', args }) }), '/packs/do', 'POST', { storage, notify: async () => undefined, now: () => NOW, fetch: fakeFetch({}) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  await storage.put('home:meters', { electricity: [{ on: '2026-10-01', value: 1000 }, { on: '2026-10-11', value: 1100 }] });
+  let r = await call({});
+  assert.equal(r.data.kinds.electricity.spans[0].cost, undefined, 'no tariff, no cost');
+  r = await call({ op: 'tariff', kind: 'electricity', unit: 24.5, standing: 60 });
+  assert.match(r.text, /^Tariff kept for electricity: 24\.5p a unit and 60p a day\./);
+  assert.equal(r.data.kinds.electricity.spans[0].cost, 30.5);
+  assert.equal((await call({ op: 'tariff', kind: 'electricity', unit: 0 })).status, 400);
+});
+
+test('one payment split across categories, to the penny; the same statement added again does not bring it back; put back whole', async () => {
+  const storage = new Mem();
+  const route = (path, body, method = 'POST') => SP.spendingRoute(new Request(`https://g/api${path}`, { method, ...(body ? { body: JSON.stringify(body) } : {}) }), path.split('?')[0], method, new URL(`https://g/api${path}`), { storage, ai: async () => { throw new Error('none'); } }).then((r) => r.json());
+  const csv = 'Date,Description,Amount\n2026-10-03,TESCO STORES,-60.00\n2026-10-04,GREGGS,-3.20\n';
+  await route('/profile/spending/import', { csv });
+  let s = await route('/profile/spending/split', { row: { d: '2026-10-03', t: 'TESCO STORES', a: -60 }, parts: [{ c: 'groceries', a: 40 }, { c: 'shopping', a: 20 }] });
+  assert.equal(s.parts, 2);
+  const tesco = s.rows.filter((r) => r.t === 'TESCO STORES');
+  assert.deepEqual(tesco.map((r) => [r.a, r.c]).sort(), [[-20, 'shopping'], [-40, 'groceries']]);
+  assert.equal(s.view.out, 63.2, 'the month’s money out is the same');
+  const again = await route('/profile/spending/import', { csv });
+  assert.equal(again.result.added, 0, 'the split payment is not added twice');
+  assert.equal(again.result.duplicates, 2);
+  await route('/profile/spending/file', { k: tesco[0].k, c: 'other' });
+  s = await route('/profile/spending?month=2026-10', null, 'GET');
+  assert.deepEqual(s.rows.filter((r) => r.t === 'TESCO STORES').map((r) => r.c).sort(), ['groceries', 'shopping'], 'filing by name leaves a split alone');
+  s = await route('/profile/spending/split', { row: { d: '2026-10-03', t: 'TESCO STORES', a: -60 }, parts: [] });
+  assert.deepEqual(s.rows.filter((r) => r.t === 'TESCO STORES').map((r) => r.a), [-60]);
+  assert.equal((await route('/profile/spending/split', { row: { d: '2026-10-03', t: 'TESCO STORES', a: -60 }, parts: [{ c: 'groceries', a: 70 }, { c: 'shopping', a: 1 }] })).error.length > 0, true);
+});
+
+test('PEOPLE: one note changed or taken away (the Memory line follows); a gift list with what he gave last year; forgetting someone takes their list', async () => {
+  const storage = new Mem();
+  const call = (action, args = {}) => P.packsRoute(new Request('https://g/api/packs/do', { method: 'POST', body: JSON.stringify({ pack: 'people', action, args }) }), '/packs/do', 'POST', { storage, notify: async () => undefined, now: () => NOW, fetch: fakeFetch({}) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  await call('note', { words: 'Sam loves fishing' });
+  await call('note', { words: 'Sam supports Villa' });
+  let r = await call('notes', { who: 'Sam', text: 'loves fishing', to: 'loves carp fishing' });
+  assert.deepEqual(r.data.notes, ['loves carp fishing', 'supports Villa']);
+  assert.ok((await storage.get('memory')).some((f) => /Sam.*loves carp fishing/.test(f.text)), 'the Memory line follows');
+  r = await call('notes', { who: 'Sam', text: 'supports Villa', op: 'remove' });
+  assert.deepEqual(r.data.notes, ['loves carp fishing']);
+  assert.equal((await call('notes', { who: 'Nobody', text: 'x' })).status, 400);
+  r = await call('gifts', { who: 'Sam', op: 'add', idea: 'a fishing reel', price: 25 });
+  const id = r.data.gifts[0].id;
+  r = await call('gifts', { who: 'Sam', op: 'bought', id });
+  assert.equal(r.data.gifts[0].bought, '2026-11-01');
+  assert.equal(r.data.spentThisYear, 25);
+  const all = await storage.get('people:gifts');
+  const key = Object.keys(all)[0];
+  all[key][0].bought = '2025-12-20';
+  await storage.put('people:gifts', all);
+  r = await call('gifts', { who: 'Sam' });
+  assert.deepEqual(r.data.lastYear, ['a fishing reel'], 'what he gave last year, so it is not repeated');
+  await call('forget', { who: 'Sam' });
+  assert.deepEqual(await storage.get('people:gifts'), {});
+});
+
+test('WORK → JOBS: an application kept with a follow-up reminder at 9am; its stage moved; turned down clears the reminder', async () => {
+  const storage = new Mem();
+  const call = (args) => P.packsRoute(new Request('https://g/api/packs/do', { method: 'POST', body: JSON.stringify({ pack: 'work', action: 'jobs', args: { today: '2026-11-01', ...args } }) }), '/packs/do', 'POST', { storage, notify: async () => undefined, now: () => NOW, fetch: fakeFetch({}) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  let r = await call({ op: 'add', role: 'Warehouse supervisor', where: 'Asda', applied: '2026-10-30', follow: '2026-11-08' });
+  assert.match(r.text, /^Kept: Warehouse supervisor at Asda, applied 2026-10-30\. I’ll remind you to follow up on 2026-11-08 at 9am\./);
+  assert.deepEqual((await J.loadJobs(storage)).map((j) => j.title), ['Follow up: Warehouse supervisor at Asda']);
+  const id = r.data.jobs[0].id;
+  r = await call({ op: 'stage', id, stage: 'interview' });
+  assert.equal(r.data.jobs[0].stage, 'interview');
+  assert.equal((await J.loadJobs(storage)).length, 1);
+  r = await call({ op: 'stage', id, stage: 'rejected' });
+  assert.deepEqual(await J.loadJobs(storage), [], 'a closed application needs no follow-up');
+  assert.equal((await call({ op: 'add', role: '' })).status, 400);
+  r = await call({ op: 'remove', id });
+  assert.deepEqual(r.data.jobs, []);
+});

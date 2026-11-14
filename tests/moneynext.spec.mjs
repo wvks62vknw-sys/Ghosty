@@ -2,12 +2,16 @@
 // 440 × 956 and 390 × 844:
 //
 //   SAFE      YOUR MONTH asks for payday first, keeps it, then shows safe to spend and a day's worth equal to the brain's own sums
-//             to the penny, with every payment still due before payday; his sorting rules are listed with their counts and change.
+//             to the penny, with every payment still due before payday; his sorting rules are listed with their counts and change;
+//             one payment split across two categories.
 //   GOALS     a goal kept from the screen with its bar and what it is a month; money put in; taken away.
 //   SHARED    a household bill shared three ways says who owes whom; settled on a tap says nothing was paid or sent.
 //   CALENDAR  the month as a grid, a HOME bill on its day, payday filled, a tapped day says what falls on it.
-//   YEAR      the year's totals and the PRINT key.
-//   HOME      a paid bill stays under PAID with what its supplier cost this year, and can be forgotten.
+//   YEAR      the year's totals and the PRINT key. WATCHES: a price watch made there, with its price, its move and when it last read.
+//   HOME      a paid bill stays under PAID with what its supplier cost this year, and can be forgotten; PAPERS keeps a warranty with
+//             its receipt's photo on the phone and a reminder, and a household paper with its renewal date.
+//   JOBS      an application kept with a follow-up reminder, its stage moved, forgotten.
+//   PEOPLE    one note changed, a gift idea kept and bought with its price, his own photo of someone kept on the phone only.
 //   WORK      every document shown is kept in the library on the phone, a new version when its words change, reopened and forgotten
 //             (asked once more).
 //   STATES    each new page offline and failed, in his words with TRY AGAIN; the bar: 44 pt keys, nothing sideways, no raw string;
@@ -190,6 +194,21 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     await page.click('.modal button[aria-label="Take away the rule for TESCO STORES"]');
     check(await until(page, () => !(window.__ghosty.moneyplan.rules ?? []).length, null, 10000) && /No rules of your own yet/.test(await txt(page, '.modal [data-state="empty"]')), T('RULES a rule taken away goes, and the empty list says how one is made'));
     await page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
+    // one payment split across two categories
+    await page.fill(`${P} input.mnsearch`, 'tesco');
+    await until(page, () => window.__ghosty.moneyapp.shown >= 1);
+    await page.locator(`${P} .mntxn`).first().click();
+    await page.waitForSelector('.modal details.mnmore summary', { timeout: 5000 });
+    await page.click('.modal details.mnmore summary');
+    await page.fill('.modal input[aria-label="How much of it goes to the first category"]', '25');
+    await page.selectOption('.modal select[aria-label="The first category"]', 'groceries');
+    await page.selectOption('.modal select[aria-label="Where the rest goes"]', 'shopping');
+    await bar(page, T('SPLIT bar'), 'money', '.modal');
+    await page.click('.modal button[aria-label="Split this payment"]');
+    check(await until(page, () => window.__ghosty.moneyapp.split >= 1, null, 10000), T('SPLIT a payment split across two categories'));
+    check(/Split “TESCO STORES”: £25\.00 groceries, £15\.00 shopping\./.test(await txt(page, `${P} > .pkcol > p.pknote[aria-live]`)), T(`SPLIT said to the penny: "${await txt(page, `${P} > .pkcol > p.pknote[aria-live]`)}"`));
+    check((await page.$$eval(`${P} .mntxn small`, (n) => n.filter((x) => /part of a split/.test(x.textContent)).length)) >= 2, T('SPLIT both parts are marked'));
+    await page.fill(`${P} input.mnsearch`, '');
   });
 
   await block(`goals ${W}`, async () => {
@@ -269,6 +288,75 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       check(await until(page, () => !(window.__ghosty.homeadmin.paid ?? []).length, null, 10000), 'HOME a paid bill can be forgotten there');
     });
 
+    await block('price watches', async () => {
+      log('price watches');
+      for (const w of (await api('/guardian/watchers')).watchers ?? []) if (w.kind === 'price') await api(`/guardian/watchers?id=${w.id}`, undefined, 'DELETE');
+      await plan(page, 'Trends', 'watches');
+      check(/No price watches yet/.test(await txt(page, `${P} [data-state="empty"]`)), 'WATCHES with none it says how to start one');
+      await page.click(`${P} button[aria-label="Watch this page’s price"]`);
+      check(/Paste the page’s address first/.test(await txt(page, `${P} p.pknote[aria-live]`)), 'WATCHES an empty address says what it needs');
+      await page.fill(`${P} input[aria-label="The page of the thing to watch"]`, 'https://watch.example.test/kettle');
+      await page.click(`${P} button[aria-label="Watch this page’s price"]`);
+      check(await until(page, () => (window.__ghosty.moneyplan.watches ?? []).some((w) => /£\d+\.\d\d watching$/.test(w)), null, 15000), `WATCHES a watch made there is listed with its price: ${JSON.stringify(await page.evaluate(() => window.__ghosty.moneyplan.watches))}`);
+      check(/Last read (just now|\d+ minutes ago)\. I read it every hour\./.test(await txt(page, `${P} [data-watch] .mnhow`)) && /The same as when you started/.test(await txt(page, `${P} [data-watch] .mnhow`)), `WATCHES each says when it last read the page and how the price moved: "${(await txt(page, `${P} [data-watch] .mnhow`)).slice(0, 160)}"`);
+      await bar(page, 'WATCHES bar', 'money');
+      await page.locator(`${P} [data-watch] button[aria-label^="Stop watching"]`).first().click();
+      check(await until(page, () => !(window.__ghosty.moneyplan.watches ?? []).length, null, 10000), 'WATCHES stopped there');
+    });
+
+    await block('home papers', async () => {
+      log('home papers');
+      await open(page, 'homeadmin', 'Papers');
+      const Hp = PK('homeadmin');
+      await page.waitForSelector(`${Hp} button[aria-label="Keep this warranty"]`, { timeout: 8000 });
+      await page.click(`${Hp} button[aria-label="Keep this warranty"]`);
+      check(/Say what it is first/.test(await txt(page, `${Hp} p.pknote[aria-live]`)), 'PAPERS an empty warranty says what it needs');
+      const bought = london(Date.now() - 300 * 864e5);
+      await page.fill(`${Hp} input[aria-label="What it is"]`, 'washing machine');
+      await page.fill(`${Hp} input[aria-label="The day you bought it"]`, bought);
+      await page.fill(`${Hp} input[aria-label="How many months the warranty runs"]`, '24');
+      await page.fill(`${Hp} input[aria-label="Where you bought it"]`, 'Currys');
+      await page.click(`${Hp} button[aria-label="Keep this warranty"]`);
+      check(await until(page, () => (window.__ghosty.homeadmin.warranties ?? []).some((w) => /^washing machine \d{4}-\d\d-\d\d$/.test(w)), null, 10000), `PAPERS a warranty kept with its end date: ${JSON.stringify(await page.evaluate(() => window.__ghosty.homeadmin.warranties))}`);
+      check(/I’ll remind you on/.test(await txt(page, `${Hp} p.pknote[aria-live]`)), 'PAPERS a reminder is set before it runs out');
+      // a receipt's photo, kept on the phone
+      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+      const chooser = page.waitForEvent('filechooser', { timeout: 5000 });
+      await page.click(`${Hp} button[aria-label="Add the receipt photo for the washing machine"]`);
+      await (await chooser).setFiles({ name: 'receipt.png', mimeType: 'image/png', buffer: png });
+      check(await until(page, () => window.__ghosty.homeadmin.receipts === 1 && !!document.querySelector('.pkreceiptimg'), null, 10000), 'PAPERS the receipt photo is kept on the phone and shown');
+      // a household paper
+      const renews = inDays(90);
+      await page.fill(`${Hp} input[aria-label="What the paper is"]`, 'House insurance with Aviva');
+      await page.selectOption(`${Hp} select[aria-label="What kind of paper"]`, 'home insurance');
+      await page.fill(`${Hp} input[aria-label="The day it renews or ends"]`, renews);
+      await page.click(`${Hp} button[aria-label="Keep this paper"]`);
+      check(await until(page, (d) => (window.__ghosty.homeadmin.papers ?? []).includes(`House insurance with Aviva ${d}`), renews, 10000), 'PAPERS a paper kept with its renewal date');
+      check(/a month and a week before/.test(await txt(page, `${Hp} p.pknote[aria-live]`)), 'PAPERS reminders a month and a week before');
+      await page.screenshot({ path: `${out}/moneynext-papers-440.png` });
+      await bar(page, 'PAPERS bar', 'homeadmin');
+      await page.click(`${Hp} button[aria-label="Forget House insurance with Aviva"]`);
+      check(await until(page, () => !(window.__ghosty.homeadmin.papers ?? []).length, null, 10000), 'PAPERS a paper forgotten');
+      await page.click(`${Hp} button[aria-label="Forget the washing machine warranty"]`);
+      check(await until(page, () => !(window.__ghosty.homeadmin.warranties ?? []).some((w) => w.startsWith('washing machine')), null, 10000), 'PAPERS a warranty forgotten');
+    });
+
+    await block('energy', async () => {
+      log('energy');
+      await pk('homeadmin', 'meter', { words: 'forget all my meter readings' });
+      await pk('homeadmin', 'meter', { text: '01000', kind: 'electricity', words: `electricity 01000 on ${new Date(Date.now() - 20 * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` });
+      await pk('homeadmin', 'meter', { text: '01100', kind: 'electricity' });
+      await open(page, 'homeadmin', 'Meter');
+      const Hm = PK('homeadmin');
+      check(await until(page, () => (window.__ghosty.homeadmin.energy ?? []).some((e) => /^electricity 1$/.test(e)), null, 10000), `ENERGY the use between two readings: ${JSON.stringify(await page.evaluate(() => window.__ghosty.homeadmin.energy))}`);
+      await page.fill(`${Hm} input[aria-label="The electricity price of a unit, in pence"]`, '24.5');
+      await page.fill(`${Hm} input[aria-label="The electricity standing charge, in pence a day"]`, '60');
+      await page.click(`${Hm} button[aria-label="Keep the electricity tariff"]`);
+      check(await until(page, () => (window.__ghosty.homeadmin.energy ?? []).some((e) => /^electricity 1 £\d+\.\d\d$/.test(e)), null, 10000) && /A first estimate from your tariff/.test(await txt(page, `${Hm} .pkcost`)), 'ENERGY a cost on his tariff, said to be a first estimate');
+      await bar(page, 'ENERGY bar', 'homeadmin');
+      await pk('homeadmin', 'meter', { words: 'forget all my meter readings' });
+    });
+
     await block('work library', async () => {
       log('work library');
       await open(page, 'work', 'Document');
@@ -295,6 +383,57 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       check(await until(page, () => !!document.querySelector('.modal button[aria-label="No, keep it"]')), 'WORK forgetting asks once more first');
       await page.click('.modal button[aria-label="Yes, forget your cv"]');
       check(await until(page, () => !window.__ghosty.work.library.length), 'WORK forgotten on his say');
+    });
+
+    await block('jobs', async () => {
+      log('jobs');
+      for (const j of (await pk('work', 'jobs', {})).data?.jobs ?? []) await pk('work', 'jobs', { op: 'remove', id: j.id });
+      await open(page, 'work', 'Jobs');
+      const Wj = PK('work');
+      await page.waitForSelector(`${Wj} button[aria-label="Keep this application"]`, { timeout: 8000 });
+      check(/No applications yet/.test(await txt(page, `${Wj} [data-state="empty"]`)), 'JOBS with none it says how to start');
+      await page.click(`${Wj} button[aria-label="Keep this application"]`);
+      check(/Say the role first/.test(await txt(page, `${Wj} p.pknote[aria-live]`)), 'JOBS an empty role says what it needs');
+      await page.fill(`${Wj} input[aria-label="The role"]`, 'Warehouse supervisor');
+      await page.fill(`${Wj} input[aria-label="Where (you can leave it)"]`, 'Asda');
+      await page.fill(`${Wj} input[aria-label="A day to follow up (you can leave it)"]`, inDays(7));
+      await page.click(`${Wj} button[aria-label="Keep this application"]`);
+      check(await until(page, (d) => (window.__ghosty.jobs?.jobs ?? []).includes(`Warehouse supervisor applied ${d}`), inDays(7), 10000) && /I’ll remind you to follow up/.test(await txt(page, `${Wj} p.pknote[aria-live]`)), `JOBS kept with a follow-up reminder: ${JSON.stringify(await page.evaluate(() => window.__ghosty.jobs?.jobs))}`);
+      await page.selectOption(`${Wj} select[aria-label="Where Warehouse supervisor stands"]`, 'interview');
+      check(await until(page, () => (window.__ghosty.jobs?.jobs ?? []).some((j) => j.startsWith('Warehouse supervisor interview')), null, 10000), 'JOBS its stage moved on the screen');
+      await bar(page, 'JOBS bar', 'work');
+      await page.click(`${Wj} button[aria-label="Forget Warehouse supervisor"]`);
+      check(await until(page, () => !(window.__ghosty.jobs?.jobs ?? []).length, null, 10000), 'JOBS forgotten');
+    });
+
+    await block('people', async () => {
+      log('people');
+      await pk('people', 'forget', { who: 'Sam' });
+      await pk('people', 'note', { words: 'Sam loves fishing' });
+      await open(page, 'people', 'Your people');
+      const Pp = PK('people');
+      await page.waitForSelector(`${Pp} button[aria-label="Details for Sam"]`, { timeout: 8000 });
+      await page.click(`${Pp} button[aria-label="Details for Sam"]`);
+      await page.click(`${Pp} button[aria-label="Change “loves fishing” about Sam"]`);
+      await page.fill('.modal input[aria-label="What it should say about Sam"]', 'loves carp fishing');
+      await page.locator('.modal button:has-text("Keep it")').click();
+      check(await until(page, () => (window.__ghosty.people.people ?? []).some((p) => p.name === 'Sam' && p.notes.includes('loves carp fishing')), null, 10000), 'PEOPLE one note changed on the screen');
+      await page.click(`${Pp} button[aria-label="Details for Sam"]`);
+      await page.waitForSelector(`${Pp} input[aria-label="A gift idea for Sam"]`, { timeout: 8000 });
+      await page.fill(`${Pp} input[aria-label="A gift idea for Sam"]`, 'a fishing reel');
+      await page.fill(`${Pp} input[aria-label="What it costs (you can leave it)"]`, '25');
+      await page.click(`${Pp} button[aria-label="Keep this gift idea for Sam"]`);
+      check(await until(page, () => (window.__ghosty.people.gifts ?? []).includes('Sam: a fishing reel'), null, 10000), 'PEOPLE a gift idea kept for him');
+      await page.click(`${Pp} button[aria-label="Mark a fishing reel bought"]`);
+      check(await until(page, () => (window.__ghosty.people.gifts ?? []).includes('Sam: a fishing reel bought'), null, 10000) && /£25\.00 on presents for Sam this year/.test(await txt(page, `${Pp} .ppgifts`)), 'PEOPLE marked bought, with what it cost this year');
+      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+      const chooser = page.waitForEvent('filechooser', { timeout: 5000 });
+      await page.click(`${Pp} button[aria-label="Add your own photo of Sam"]`);
+      await (await chooser).setFiles({ name: 'sam.png', mimeType: 'image/png', buffer: png });
+      check(await until(page, () => !!document.querySelector('.ppphoto'), null, 10000) && /kept on this phone only/.test(await txt(page, `${Pp} p.pknote[aria-live]`)), 'PEOPLE his own photo of someone, kept on the phone only');
+      await bar(page, 'PEOPLE bar', 'people');
+      await page.click(`${Pp} button[aria-label="Take away your photo of Sam"]`);
+      await pk('people', 'forget', { who: 'Sam' });
     });
 
     await block('states', async () => {

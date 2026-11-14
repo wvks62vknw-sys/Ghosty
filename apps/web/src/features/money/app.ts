@@ -39,6 +39,7 @@ export const moneyApp = {
   trend: [] as string[],
   shown: 0,
   refiled: 0,
+  split: 0,
   state: {} as Record<string, string>,
 };
 const expose = () => {
@@ -153,7 +154,7 @@ function monthPage(): HTMLElement {
     moneyApp.shown = shown.length;
     const list = shown.map((r) => {
       const b = h('button.mntxn', { type: 'button', dataset: { k: r.k, c: r.c, by: r.by }, 'aria-label': `${r.t}, ${p2(r.a)} on ${dayWords(r.d)}, filed as ${r.c}. Tap to file it somewhere else.` },
-        h('span.mnwhat', h('b', r.t), h('small', `${dayWords(r.d)} · ${r.c}${r.by === 'you' ? ' (you filed it)' : r.by === 'model' ? ' (sorted by the free AI)' : r.by === 'none' ? ' — tap to file it' : ''}`)),
+        h('span.mnwhat', h('b', r.t), h('small', `${dayWords(r.d)} · ${r.c}${r.sp ? ' (part of a split)' : ''}${r.by === 'you' && !r.sp ? ' (you filed it)' : r.by === 'model' ? ' (sorted by the free AI)' : r.by === 'none' ? ' — tap to file it' : ''}`)),
         h('span.mnamt', { dataset: { tone: r.a > 0 ? 'in' : '' } }, r.a > 0 ? `+${p2(r.a)}` : p2(-r.a)));
       b.addEventListener('click', () => refile(r));
       return b;
@@ -166,8 +167,39 @@ function monthPage(): HTMLElement {
   };
 
   const refile = (r: SpendRow) => {
+    // [moneynext] money.u4: or split this one payment across two categories, to the penny (a split one can be put back whole)
+    const whole = Math.abs(r.sp ? r.sp.of : r.a);
+    const partAmt = h('input.mnsplitin', { type: 'text', inputMode: 'decimal', placeholder: `£${(whole / 2).toFixed(2)}`, 'aria-label': 'How much of it goes to the first category' }) as HTMLInputElement;
+    const first = h('select.mnsplitsel', { 'aria-label': 'The first category' }, ...CATEGORIES.map((c) => h('option', { value: c, selected: c === r.c }, cap(c)))) as HTMLSelectElement;
+    const second = h('select.mnsplitsel', { 'aria-label': 'Where the rest goes' }, ...CATEGORIES.map((c) => h('option', { value: c, selected: c === 'shopping' && r.c !== 'shopping' }, cap(c)))) as HTMLSelectElement;
+    const splitSay = h('p.pknote', { 'aria-live': 'polite' });
+    const doSplit = async (parts: { c: Category; a: number }[]) => {
+      const mine = ++ticket;
+      try {
+        const x = await brain.spendingSplit({ d: r.d, t: r.t, a: r.sp ? r.sp.of : r.a }, parts, s?.month ?? '');
+        m.close();
+        moneyApp.split++;
+        stateIn(status, '', parts.length ? `Split “${r.t}”: ${parts.map((p, i) => `${p2(i === parts.length - 1 ? whole - parts.slice(0, -1).reduce((k, q) => k + q.a, 0) : p.a)} ${p.c}`).join(', ')}.` : `“${r.t}” is whole again.`);
+        if (mine !== ticket) return;
+        s = x;
+        paint();
+      } catch (e) {
+        stateIn(splitSay, 'error', sayError(e, 'split it'));
+      }
+    };
+    const goSplit = () => {
+      const n = Number(partAmt.value.replace(/[£,\s]/g, ''));
+      if (!Number.isFinite(n) || n <= 0 || n >= whole) return void stateIn(splitSay, '', `Type how much goes to the first category, under ${p2(whole)}.`);
+      if (first.value === second.value) return void stateIn(splitSay, '', 'Pick two different categories.');
+      void doSplit([{ c: first.value as Category, a: n }, { c: second.value as Category, a: whole - n }]);
+    };
+    const splitBox = h('details.mnmore', h('summary', r.sp ? 'Split across categories (it is split now)' : 'Split it across categories'),
+      h('div.pkcol', h('div.pkrow', partAmt, first), h('div.pkrow', h('span.pklab', 'and the rest to'), second),
+        h('div.pkrow', label(button('Split it', goSplit, 'on'), 'Split this payment'), ...(r.sp ? [label(button('Put it back whole', () => void doSplit([])), 'Put this payment back whole')] : [])),
+        splitSay));
     const m = modal(`File “${r.t}” as…`, h(
       'div.pkcol',
+      splitBox,
       h('p.pknote', `Every payment to ${cap(r.k.toLowerCase())} goes there, and the next statement remembers it.`),
       h('div.pkrow.mnchips', ...CATEGORIES.map((c) => label(button(cap(c), async () => {
         m.close();

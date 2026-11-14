@@ -27,14 +27,14 @@ export const moneyTab: TabDef = {
         const [a, m, n] = await Promise.all([import('./app'), import('./sheet'), import('./plan')]);
         const part = (p: 'month' | 'budgets' | 'bills' | 'trends') => ({ title: a.MONEY_TITLES[p], pack: 'money', screen: p, build: () => a.moneyPage(p) });
         // [moneynext] money and papers handled for you: the calendar, goals, shared bills and the year (features/money/plan.ts)
-        const plan = (p: 'calendar' | 'goals' | 'shared' | 'year') => ({ title: n.PLAN_TITLES[p], pack: 'money', screen: p, build: () => n.planPage(p) });
+        const plan = (p: 'calendar' | 'goals' | 'shared' | 'year' | 'watches') => ({ title: n.PLAN_TITLES[p], pack: 'money', screen: p, build: () => n.planPage(p) });
         return [
           // (six pills at most, ui/sections.ts: goals stand with the budgets, shared bills with the bills, the year with the trends)
           { id: 'month', label: 'Month', parts: [part('month')] },
           { id: 'budgets', label: 'Budgets', parts: [part('budgets'), plan('goals')] },
           { id: 'bills', label: 'Bills', parts: [part('bills'), plan('shared')] },
           { id: 'calendar', label: 'Calendar', parts: [plan('calendar')] },
-          { id: 'trends', label: 'Trends', parts: [part('trends'), plan('year')] },
+          { id: 'trends', label: 'Trends', parts: [part('trends'), plan('year'), plan('watches')] },
           { id: 'statement', label: 'Statement', parts: [{ title: m.STATEMENT_TITLE, pack: 'money', screen: 'statement', build: m.statementScreen }] },
         ];
       },

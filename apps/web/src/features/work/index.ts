@@ -13,7 +13,7 @@ export const workTab: TabDef = {
   title: 'WORK',
   icon: '<rect x="3" y="7.5" width="18" height="12" rx="2.5"/><path d="M8.5 7.5V5.5A1.5 1.5 0 0110 4h4a1.5 1.5 0 011.5 1.5v2M3 12.5h18"/>',
   scene: 'backdrop',
-  blurb: 'to-do list · interview practice · your documents library, kept with versions',
+  blurb: 'to-do list · job applications · interview practice · your documents library',
   now: () => cardNow('work'),
   mount: (root) =>
     sheetPage(root, {
@@ -23,9 +23,11 @@ export const workTab: TabDef = {
       big: () => cardBig('work'),
       load: () => cardLoad('work'),
       sections: async () => {
-        const m = await import('./sheet');
+        const [m, j] = await Promise.all([import('./sheet'), import('./jobs')]);
         return [
           { id: 'todo', label: 'To-do', parts: [{ title: m.WORK_TITLES.todo, pack: 'work', screen: 'todo', build: () => m.workScreen('todo') }] },
+          // [moneynext] money.s8: each job applied for, its stage and a day to follow up
+          { id: 'jobs', label: 'Jobs', parts: [{ title: j.JOBS_TITLE, pack: 'work', screen: 'jobs', build: () => j.jobsScreen() }] },
           { id: 'interview', label: 'Interview', parts: [{ title: m.WORK_TITLES.interview, pack: 'work', screen: 'interview', build: () => m.workScreen('interview') }] },
           {
             id: 'doc',

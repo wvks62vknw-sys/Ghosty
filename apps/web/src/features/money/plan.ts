@@ -20,8 +20,8 @@ import { sayError } from '../../ui/hisWords';
 import { isoDay } from '../brief/day';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
 
-export type PlanPage = 'calendar' | 'goals' | 'shared' | 'year';
-export const PLAN_TITLES: Record<PlanPage, string> = { calendar: 'MONEY CALENDAR', goals: 'SAVINGS GOALS', shared: 'SHARED BILLS', year: 'YOUR YEAR IN MONEY' };
+export type PlanPage = 'calendar' | 'goals' | 'shared' | 'year' | 'watches';
+export const PLAN_TITLES: Record<PlanPage, string> = { calendar: 'MONEY CALENDAR', goals: 'SAVINGS GOALS', shared: 'SHARED BILLS', year: 'YOUR YEAR IN MONEY', watches: 'PRICE WATCHES' };
 
 /** What a spec reads: window.__ghosty.moneyplan. */
 export const moneyPlan = {
@@ -32,6 +32,7 @@ export const moneyPlan = {
   goals: [] as string[],
   owes: [] as string[],
   year: '',
+  watches: [] as string[],
   rules: [] as string[],
   state: {} as Record<string, string>,
 };
@@ -481,9 +482,95 @@ function yearPage(): HTMLElement {
   return el;
 }
 
+// ---------------------------------------------------------------- PRICE WATCHES (money.s2, polish3.c6)
+
+function ago(ms: number): string {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  return m < 2 ? 'just now' : m < 60 ? `${m} minutes ago` : m < 120 ? 'an hour ago' : m < 48 * 60 ? `${Math.round(m / 60)} hours ago` : `${Math.round(m / 1440)} days ago`;
+}
+
+function watchesPage(): HTMLElement {
+  const slot = h('div.pkcol', { 'aria-live': 'polite' });
+  const status = h('p.pknote', { 'aria-live': 'polite' });
+  const url = h('input.mnsearch', { type: 'url', placeholder: 'https://shop.example/kettle', 'aria-label': 'The page of the thing to watch', enterKeyHint: 'go' }) as HTMLInputElement;
+  const add = async () => {
+    const u = url.value.trim();
+    if (!/^https?:\/\//i.test(u)) return void stateIn(status, '', 'Paste the page’s address first, starting https://.');
+    if (lacksSignal()) return void stateIn(status, 'offline', 'No signal. Try again when the phone is back online.');
+    const done = waitFor(el, 'Reading that page…');
+    try {
+      const r = await brain.watchersAdd({ kind: 'price', url: u });
+      stateIn(status, '', r.said);
+      url.value = '';
+      await load();
+    } catch (e) {
+      stateIn(status, 'error', sayError(e, 'watch that page'));
+    } finally {
+      done();
+    }
+  };
+  const form = h('div.pkcol.mnform', h('div.lab', 'WATCH A PRICE'), url, h('div.pkrow', label(button('Watch it', () => void add(), 'on'), 'Watch this page’s price')));
+  const el = h('div.pkcol.mnapp', slot, form, status, phrases(['my price watches', 'what prices am i watching']));
+  const load = async () => {
+    if (lacksSignal()) {
+      moneyPlan.state.watches = 'offline';
+      /* state: money.watches offline */
+      slot.replaceChildren(stateLine('offline', 'No signal. Your watches come back when the phone is online again.'));
+      return;
+    }
+    /* state: money.watches loading */
+    const done = waitFor(el, 'Opening your price watches…');
+    try {
+      const all = (await brain.watchers()).watchers.filter((w) => w.kind === 'price');
+      moneyPlan.watches = all.map((w) => `${w.label} ${w.price !== undefined ? p2(w.price) : '?'} ${w.state}`);
+      moneyPlan.state.watches = 'ready';
+      slot.replaceChildren(
+        ...(all.length
+          ? all.map((w) => {
+              const hist = w.hist ?? [];
+              const first = hist[0]?.p ?? w.price;
+              const now = w.price;
+              const low = hist.length ? Math.min(...hist.map((x) => x.p)) : now;
+              const high = hist.length ? Math.max(...hist.map((x) => x.p)) : now;
+              const diff = first !== undefined && now !== undefined ? Math.round((now - first) * 100) / 100 : 0;
+              const move = first === undefined || now === undefined ? 'No price read yet.' : Math.abs(diff) < 0.005 ? `The same as when you started, ${p2(first)}.` : `${diff < 0 ? 'Down' : 'Up'} ${p2(Math.abs(diff))} since you started at ${p2(first)} (${Math.round((Math.abs(diff) / first) * 100)}%).`;
+              const read = w.state === 'told' ? `It dropped and I told you ${w.toldAt ? ago(w.toldAt) : ''}: ${w.line ?? ''}` : w.state === 'stopped' ? 'Stopped: the page now asks for a login, so I cannot read it.' : w.ok ? `Last read ${ago(w.checked)}. I read it every hour.` : `The last read did not work (${ago(w.checked)}): ${w.note ?? 'the page did not answer'}.`;
+              const m = meter(w.label, now !== undefined ? p2(now) : 'no price yet', high && now !== undefined ? now / high : 0, diff < 0 ? 'ok' : diff > 0 ? 'over' : 'soft', move);
+              m.dataset.watch = w.id;
+              m.append(
+                ...(hist.length > 1 ? [h('small.mnhow', `Lowest ${p2(low!)}, highest ${p2(high!)} over ${plural(hist.length, 'price')} since ${dayWords(isoDay(new Date(hist[0]!.at)))}.`)] : []),
+                h('small.mnhow', { dataset: { ok: w.ok ? '1' : '' } }, read),
+                h('div.pkrow',
+                  label(button('Open the page', () => void window.open(w.url, '_blank', 'noopener,noreferrer')), `Open the page for ${w.label}`),
+                  label(button('Stop', async () => {
+                    try {
+                      await brain.watchersStop(w.id);
+                      stateIn(status, '', `Stopped watching ${w.label}.`);
+                      await load();
+                    } catch (e) {
+                      stateIn(status, 'error', sayError(e, 'stop that watch'));
+                    }
+                  }), `Stop watching ${w.label}`)));
+              return m;
+            })
+          /* state: money.watches empty */
+          : [emptyState('No price watches yet', 'Paste a shop’s page below and I read its price every hour, and tell you when it drops.')]),
+      );
+    } catch (e) {
+      moneyPlan.state.watches = 'error';
+      /* state: money.watches error */
+      slot.replaceChildren(stateLine('error', sayError(e, 'read your watches')), h('div.pkrow', label(button('Try again', () => void load()), 'Try reading it again')));
+    } finally {
+      done();
+    }
+  };
+  void load();
+  return el;
+}
+
 /** One of the new pages, made by its own function (the MONEY screen's panels: features/money/index.ts). */
 export function planPage(page: PlanPage): { el: HTMLElement; stop(): void } {
   expose();
-  const el = page === 'calendar' ? calendarPage() : page === 'goals' ? goalsPage() : page === 'shared' ? sharedPage() : yearPage();
+  const el = page === 'calendar' ? calendarPage() : page === 'goals' ? goalsPage() : page === 'shared' ? sharedPage() : page === 'watches' ? watchesPage() : yearPage();
   return { el, stop: () => undefined };
 }

@@ -344,3 +344,30 @@ export function householdOwes(bills: SharedBill[]): { balances: { name: string; 
   }
   return { balances, pay };
 }
+
+/** A meter reading as HOME keeps it. */
+export interface MeterRead {
+  on: string;
+  value: number;
+}
+/** His tariff for one meter: pence a unit and pence a day standing charge. */
+export interface Tariff {
+  unit: number;
+  standing: number;
+}
+/** The use between each pair of readings (a dial that went down is left out: it went round or was misread), oldest first. */
+export function meterSpans(reads: MeterRead[]): { from: string; to: string; days: number; units: number; perDay: number }[] {
+  const r = [...reads].sort((a, b) => a.on.localeCompare(b.on));
+  const out: { from: string; to: string; days: number; units: number; perDay: number }[] = [];
+  for (let i = 1; i < r.length; i++) {
+    const a = r[i - 1]!;
+    const b = r[i]!;
+    if (b.value < a.value) continue;
+    const days = Math.max(1, daysBetween(a.on, b.on));
+    const units = Math.round((b.value - a.value) * 10) / 10;
+    out.push({ from: a.on, to: b.on, days, units, perDay: Math.round((units / days) * 10) / 10 });
+  }
+  return out;
+}
+/** A first estimate of what a span cost on his tariff: units at the unit rate plus the standing charge for its days, in pounds. */
+export const spanCost = (s: { units: number; days: number }, t: Tariff): number => r2((s.units * t.unit + s.days * t.standing) / 100);

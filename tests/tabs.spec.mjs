@@ -47,14 +47,14 @@ const STAND_IN = { learning: { WORDS: /starter set, typed in by hand/, 'FIRST AI
 const IN_THE_WORKS = ['coach', 'learning'];
 /** Each new screen: its area, its name as the jump bar and the deck show it, a plain word it is found by, its pills and pages. */
 const NEW = {
-  money: { area: 'life', name: 'Money', word: 'statement', pills: ['Month', 'Budgets', 'Bills', 'Calendar', 'Trends', 'Statement'], pages: ['YOUR MONTH', 'BUDGETS', 'SAVINGS GOALS', 'BILLS AND SUBSCRIPTIONS', 'SHARED BILLS', 'MONEY CALENDAR', 'TRENDS', 'YOUR YEAR IN MONEY', 'PASTE A STATEMENT'] },
+  money: { area: 'life', name: 'Money', word: 'statement', pills: ['Month', 'Budgets', 'Bills', 'Calendar', 'Trends', 'Statement'], pages: ['YOUR MONTH', 'BUDGETS', 'SAVINGS GOALS', 'BILLS AND SUBSCRIPTIONS', 'SHARED BILLS', 'MONEY CALENDAR', 'TRENDS', 'YOUR YEAR IN MONEY', 'PRICE WATCHES', 'PASTE A STATEMENT'] },
   body: { area: 'life', name: 'Body', word: 'squats', pills: ['Move', 'Water', 'Sleep', 'Mood', 'Weight', 'Health'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'STEPS', 'WATER TODAY', 'SLEEP', 'MOOD', 'BREATHE', 'STRETCH SET', 'WEIGHT', 'MY HEALTH WEEK'] },
   kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan', 'Pantry', 'Recipes'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN', 'PANTRY', 'RECIPES'] },
   people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Coming up', 'Group plan'], pages: ['YOUR PEOPLE', 'COMING UP', 'GROUP PLAN'] },
-  work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Interview', 'Document'], pages: ['TO-DO', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
+  work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Jobs', 'Interview', 'Document'], pages: ['TO-DO', 'JOB APPLICATIONS', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
   creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },
   outside: { area: 'life', name: 'Outside', word: 'toilets', pills: ['Walk', 'Nearby', 'My car', 'Lost', 'Split'], pages: ['WALK', 'NEARBY', 'MY CAR', 'LOST', 'SPLIT'] },
-  homeadmin: { area: 'life', name: 'Household', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS'] },
+  homeadmin: { area: 'life', name: 'Household', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms', 'Papers'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS', 'PAPERS'] },
   learning: { area: 'learn', name: 'Learning', word: 'first aid', pills: ['Words', 'Draw', 'Typing', 'Drills', 'First aid', 'Plan'], pages: ['WORDS', 'CARDS', 'DRAW', 'WRITING', 'TYPING', 'READING', 'MEMORY', 'MATHS', 'SPELLING', 'FIRST AID', 'PLAN', 'STREAKS'] },
   coach: { area: 'learn', name: 'Coach', word: 'guitar', pills: ['Tuner', 'Lessons', 'Typing', 'Draw', 'Words'], pages: ['TUNER', 'LESSONS', 'TYPING', 'DRAW', 'WORDS'] },
   social: { area: 'me', name: 'Social', word: 'bluesky', pills: ['Waiting', 'Accounts', 'Origin'], pages: ['WAITING FOR YOUR APPROVE', 'SENT TODAY', 'BLUESKY', 'MASTODON', 'DISCORD', 'TELEGRAM CHANNEL', 'FATHER AND THE ORIGIN'] },

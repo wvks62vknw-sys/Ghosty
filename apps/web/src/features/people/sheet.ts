@@ -9,6 +9,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
+import { forgetReceipt, keepReceipt, receiptOf } from '../homeadmin/receipts';
 import { emptyState, inWords, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
 export type PeopleWhat = 'who' | 'plan' | 'coming';
@@ -37,7 +38,7 @@ interface PlanRow {
 export const PEOPLE_TITLES: Record<PeopleWhat, string> = { who: 'YOUR PEOPLE', plan: 'GROUP PLAN', coming: 'COMING UP' };
 const TITLES = PEOPLE_TITLES;
 
-export const peopleState = { open: '' as '' | PeopleWhat, people: [] as PersonRow[], plan: null as PlanRow | null, said: '', coming: [] as string[], shown: 0 };
+export const peopleState = { open: '' as '' | PeopleWhat, people: [] as PersonRow[], plan: null as PlanRow | null, said: '', coming: [] as string[], shown: 0, gifts: [] as string[], photos: 0 };
 
 let open: { close(): void } | null = null;
 
@@ -114,7 +115,10 @@ function whoSheet(): HTMLElement {
               details.setAttribute('aria-expanded', String(!more.hidden));
               details.setAttribute('aria-label', `${more.hidden ? 'Details' : 'Hide details'} for ${p.name}`);
               more.replaceChildren(
-                h('p.pknote', p.notes.length ? p.notes.join('; ') : 'Nothing else said yet.'),
+                // [moneynext] money.u9: each thing he said, to change or take away; his own photo of them, kept on this phone
+                ...(p.notes.length ? p.notes.map((n) => noteRow(p, n)) : [h('p.pknote', 'Nothing else said yet.')]),
+                photoRow(p),
+                giftRow(p),
                 ...(p.phone ? [button(`Copy number ${p.phone}`, () => void copy(p.phone, 'the number'))] : []),
                 ...(p.email ? [button(`Copy email ${p.email}`, () => void copy(p.email, 'the email'))] : []),
                 ...(p.address ? [button('Copy address', () => void copy(p.address, 'the address'))] : []),
@@ -140,6 +144,108 @@ function whoSheet(): HTMLElement {
         /* state: people.who empty */
         : [emptyState('Tell me about someone.', 'Type a name and one thing to remember below, or say “Sam is my cousin”.')]),
     );
+  };
+  /** One thing he said about them, with CHANGE (in a box) and TAKE AWAY. */
+  const noteRow = (p: PersonRow, n: string): HTMLElement => {
+    const edit = button('Change', () => {
+      const box = h('input', { type: 'text', value: n, 'aria-label': `What it should say about ${p.name}` }) as HTMLInputElement;
+      const m = modal(`About ${p.name}`, h('div.pkcol', box, h('div.pkrow',
+        button('Keep it', async () => {
+          if (box.value.trim().length < 2) return;
+          m.close();
+          const r = await say('notes', { who: p.name, text: n, to: box.value.trim() });
+          if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+          stateIn(status, '', r.text);
+          await load();
+        }, 'on'),
+        button('Leave it', () => m.close()))));
+      box.focus();
+    });
+    edit.setAttribute('aria-label', `Change “${n}” about ${p.name}`);
+    const drop = button('Take away', async () => {
+      const r = await say('notes', { who: p.name, text: n, op: 'remove' });
+      if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+      stateIn(status, '', r.text);
+      await load();
+    });
+    drop.setAttribute('aria-label', `Take away “${n}” about ${p.name}`);
+    return h('div.pkcol.ppnote', h('p.pknote', { dataset: { case: 'keep' } }, n), h('div.pkrow', edit, drop));
+  };
+  /** His own photo of someone he introduced: kept on this phone only, never sent, never used to identify anyone. */
+  const photoRow = (p: PersonRow): HTMLElement => {
+    const key = `person:${p.name.toLowerCase()}`;
+    const img = h('div.pkcol');
+    const input = h('input', { type: 'file', accept: 'image/*', hidden: true, 'aria-label': `A photo of ${p.name}` }) as HTMLInputElement;
+    const show = async () => {
+      const b = await receiptOf(key);
+      if (!b) return void img.replaceChildren();
+      const url = URL.createObjectURL(b);
+      const pic = h('img.pkreceiptimg.ppphoto', { src: url, alt: `Your photo of ${p.name}` }) as HTMLImageElement;
+      pic.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+      img.replaceChildren(pic);
+      peopleState.photos = Math.max(peopleState.photos, 1);
+    };
+    input.addEventListener('change', async () => {
+      const f = input.files?.[0];
+      input.value = '';
+      if (!f) return;
+      try {
+        await keepReceipt(key, f);
+        stateIn(status, '', `Your photo of ${p.name} is kept on this phone only. It is never sent.`);
+        await show();
+      } catch (e) {
+        stateIn(status, 'error', sayError(e, 'keep that photo'));
+      }
+    });
+    const add = button('Add your photo', () => input.click());
+    add.setAttribute('aria-label', `Add your own photo of ${p.name}`);
+    const drop = button('Take it away', async () => { await forgetReceipt(key); img.replaceChildren(); stateIn(status, '', `Your photo of ${p.name} is gone from this phone.`); });
+    drop.setAttribute('aria-label', `Take away your photo of ${p.name}`);
+    void show();
+    return h('div.pkcol', img, input, h('div.pkrow', add, drop));
+  };
+  /** money.u10: a gift list for them: ideas, bought with a price, and what he gave last year so a present is never repeated. */
+  const giftRow = (p: PersonRow): HTMLElement => {
+    const box = h('div.pkcol.ppgifts', { 'aria-live': 'polite' });
+    const idea = h('input', { type: 'text', placeholder: 'a fishing reel', 'aria-label': `A gift idea for ${p.name}` }) as HTMLInputElement;
+    const price = h('input', { type: 'text', inputMode: 'decimal', placeholder: '£25', 'aria-label': `What it costs (you can leave it)` }) as HTMLInputElement;
+    type G = { id: string; idea: string; price?: number; bought?: string };
+    const paint = (d: { gifts: G[]; lastYear: string[]; spentThisYear: number }) => {
+      peopleState.gifts = d.gifts.map((g) => `${p.name}: ${g.idea}${g.bought ? ' bought' : ''}`);
+      const ideas = d.gifts.filter((g) => !g.bought);
+      const bought = d.gifts.filter((g) => g.bought);
+      box.replaceChildren(
+        h('div.lab', 'GIFT LIST'),
+        ...(d.lastYear.length ? [h('p.pknote', { dataset: { case: 'keep' } }, `Last year you gave: ${d.lastYear.join(', ')}.`)] : []),
+        ...(d.spentThisYear ? [h('p.pknote', { dataset: { case: 'keep' } }, `£${d.spentThisYear.toFixed(2)} on presents for ${p.name} this year.`)] : []),
+        ...ideas.map((g) => {
+          const b = button('Bought', () => void run({ op: 'bought', id: g.id, price: g.price }));
+          b.setAttribute('aria-label', `Mark ${g.idea} bought`);
+          const x = button('Take off', () => void run({ op: 'remove', id: g.id }));
+          x.setAttribute('aria-label', `Take ${g.idea} off the list`);
+          return h('div.pkcol', h('p.pknote', { dataset: { case: 'keep' } }, `${g.idea}${g.price ? ` · £${g.price.toFixed(2)}` : ''}`), h('div.pkrow', b, x));
+        }),
+        ...bought.map((g) => h('p.pknote.ppbought', { dataset: { case: 'keep' } }, `Bought ${new Date(`${g.bought}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}: ${g.idea}${g.price ? `, £${g.price.toFixed(2)}` : ''}`)),
+        ...(d.gifts.length ? [] : [h('p.pknote', { dataset: { case: 'keep' } }, 'No ideas kept yet. Add one below as it comes to you.')]),
+        idea, price,
+        h('div.pkrow', (() => { const k = button('Keep idea', () => void addIt(), 'on'); k.setAttribute('aria-label', `Keep this gift idea for ${p.name}`); return k; })()),
+      );
+    };
+    const run = async (args: Record<string, unknown>) => {
+      const r = await say('gifts', { who: p.name, ...args });
+      if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+      if (args.op) stateIn(status, '', r.text);
+      paint(r.data as { gifts: G[]; lastYear: string[]; spentThisYear: number });
+    };
+    const addIt = async () => {
+      if (!idea.value.trim()) return void stateIn(status, '', `Type the idea first, like “a fishing reel”.`);
+      const n = Number(price.value.replace(/[£,\s]/g, ''));
+      await run({ op: 'add', idea: idea.value.trim(), ...(n > 0 ? { price: n } : {}) });
+      idea.value = '';
+      price.value = '';
+    };
+    void run({});
+    return box;
   };
   /** His own birthday for them, kept in two taps (the brain sets the reminders a week before and on the day). */
   const birthdayRow = (p: PersonRow): HTMLElement => {
