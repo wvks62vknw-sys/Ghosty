@@ -70,3 +70,5 @@ export const EXCHANGE_PINNED = 'Pinned: this chat stays in recall past 30 days.'
 export const EXCHANGE_UNPINNED = 'Unpinned: it fades from recall after 30 days, like the rest.';
 /** [recall] memory.c5: recall said aloud, in one short line. */
 export const recallSpoken = (n: number, about: string, last: string): string => `You asked me about ${about.slice(0, 40)} ${n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`}, last ${last}.`;
+/** [recall] memory.s1: under what the Lens read. */
+export const LENS_READ_NOTE = 'The words the Lens read from your photo, kept on this phone; the photo itself was not kept.';

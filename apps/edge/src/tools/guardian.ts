@@ -33,7 +33,7 @@ export const guardianTools: Tool[] = [
     async run(a, ctx) {
       const d = lookDeps(ctx);
       let info = await guardianInfo(d);
-      if (!info.places.length) return "No saved places to watch yet: the owner adds them in Memory → ME → PLACES (or says \"remember home is …\").";
+      if (!info.places.length) return "No saved places to watch yet: the owner adds them in Memory → ABOUT YOU → PLACES (or says \"remember home is …\").";
       const last = Math.min(...(['flood', 'weather'] as const).map((f) => info.checked[f] ?? 0));
       if (Date.now() - last > STALE_MS) {
         await watchTick(d, { quiet: true }).catch(() => undefined);

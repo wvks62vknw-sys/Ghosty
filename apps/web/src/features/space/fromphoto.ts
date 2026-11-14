@@ -29,6 +29,7 @@ import type { DepthMap } from '../../measure/depth3d';
 import type { Intrinsics } from '../../measure/exif';
 import { rawText, sayError } from '../../ui/hisWords';
 import { noRoomWords } from './words';
+import { edgeHit, markPoint, MEASURED_NOW, placeMarks, readRough, setRough, tapMarks, type Box, type Mark, type MarkType, type Rough } from '../../space/photomarks';
 
 type Kind = 'auto' | 'drawing' | 'room';
 
@@ -43,11 +44,20 @@ export interface FromPhotoState {
   room: (RoomSize & { photos: number; cues: string[] }) | null;
   applied: number;
   undo: number;
+  /** Doors and windows tapped on the room the photos found (NEXT ROUND), before USE THIS PLAN. */
+  marks: Mark[];
+  /** What a tap on the outline adds. */
+  tapAdds: MarkType;
 }
 
-export const fromPhotoState: FromPhotoState = { busy: false, kind: '', status: '', drawing: null, room: null, applied: 0, undo: 0 };
+export const fromPhotoState: FromPhotoState = { busy: false, kind: '', status: '', drawing: null, room: null, applied: 0, undo: 0, marks: [], tapAdds: 'door' };
+
+/** The specs' way in (window.__ghosty.space.roomFound). */
+export const fromPhotoHooks: { roomFound?: (size: RoomSize) => void } = {};
 
 const undoStack: Plan[] = [];
+/** What the rough mark was before the last change that moved it (USE THIS PLAN from room photos, or a wall's length typed), for UNDO ('none': there was none). */
+let roughUndo: Rough | 'none' | null = null;
 /** Remember the plan before a change made here (or a wall's length typed), for UNDO. */
 export function rememberPlan(): void {
   undoStack.push(space.get().plan);
@@ -64,7 +74,13 @@ export function rescaleWall(roomId: string, wall: number, cm: number): number | 
   const got = rescalePlan(plan.rooms?.length ? plan : { ...plan, v: 2, rooms: [{ id: 'r1', name: 'Room', poly: [[0, 0], [plan.room.w, 0], [plan.room.w, plan.room.d], [0, plan.room.d]] }], openings: plan.openings ?? [] }, roomId, wall, cm);
   if (!got) return null;
   rememberPlan();
+  // one real measurement: the photos' rough sizes are measured now (cleared first, so MATERIALS repaints without the line)
+  const was = readRough();
+  const wasRough = !!was;
+  roughUndo = was ?? null;
+  if (wasRough) setRough(null);
   space.setPlan(got.plan);
+  if (wasRough) toast(MEASURED_NOW, 'ok');
   return got.factor;
 }
 
@@ -130,10 +146,29 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
   let queued: File[] | null = null;
   const preview = h('canvas.spacephotoview', { 'aria-label': 'What was found in the photo' });
   const notes = h('div.note.spacephotonotes');
+  // doors and windows on the room the photos found: TAP ADDS picks which; a tap on the outline puts one there, a second tap takes it off
+  const tapRow = h('div.spacephototap');
+  const tapBtns = new Map<MarkType, HTMLButtonElement>();
+  for (const [t, label] of [['door', 'TAP ADDS A DOOR'], ['window', 'TAP ADDS A WINDOW']] as const) {
+    const b = button(label, () => {
+      S.tapAdds = t;
+      paint();
+    });
+    b.dataset.tap = t;
+    tapBtns.set(t, b);
+  }
+  const tapNote = h('div.note.spacetapnote', { 'aria-live': 'polite' });
+  const clearMarks = button('CLEAR MARKS', () => {
+    S.marks = [];
+    redraw();
+    paint();
+  });
+  tapRow.append(h('div.row.wrap', ...tapBtns.values(), clearMarks), tapNote);
   fp.body.append(
     h('div.row.wrap', pickBtn, undoBtn),
     kinds,
     preview,
+    tapRow,
     notes,
     h('div.row.wrap', useBtn, getBtn),
     h('div.note', 'A photo of a drawn or printed plan with its sizes written on gives every room, door and window. Photos of the room itself: stand with your back to a wall, phone at chest height, and take the opposite wall with a strip of floor; a second photo a quarter turn round makes it surer (the 0.5× lens sees more of a wide room). A wrong length? Tap that wall on the plan and type its real length: everything rescales. Nothing leaves the phone.'),
@@ -154,6 +189,18 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
     for (const [k, b] of kindBtns) b.classList.toggle('on', k === kind);
     useBtn.hidden = !result;
     undoBtn.hidden = !undoStack.length;
+    const marking = !!result?.size && !!box;
+    tapRow.hidden = !marking;
+    for (const [t, b] of tapBtns) {
+      b.classList.toggle('on', S.tapAdds === t);
+      b.setAttribute('aria-pressed', String(S.tapAdds === t));
+    }
+    clearMarks.hidden = !S.marks.length;
+    const doors = S.marks.filter((m) => m.type === 'door').length;
+    const wins = S.marks.length - doors;
+    tapNote.textContent = S.marks.length
+      ? `Marked: ${doors ? `${doors} door${doors === 1 ? '' : 's'}` : ''}${doors && wins ? ' and ' : ''}${wins ? `${wins} window${wins === 1 ? '' : 's'}` : ''}. USE THIS PLAN puts them in the walls; tap one again to take it off.`
+      : 'Photos can’t see doors and windows: tap the outline where each one is.';
     pickBtn.disabled = S.busy;
     S.undo = undoStack.length;
   };
@@ -258,26 +305,67 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
     S.room = { ...size, photos: seen.length, cues: [...used] };
     S.drawing = null;
     result = { size };
-    if (first) {
-      show(first, (g) => {
-        const W = preview.width;
-        const H = preview.height;
-        const k = Math.min((W - 40) / size.w, (H - 40) / size.d);
-        const x = (W - size.w * k) / 2;
-        const y = (H - size.d * k) / 2;
-        g.fillStyle = 'rgba(2,7,13,.6)';
-        g.fillRect(0, 0, W, H);
-        g.strokeStyle = '#62e4ff';
-        g.lineWidth = 3;
-        g.strokeRect(x, y, size.w * k, size.d * k);
-        g.fillStyle = '#62e4ff';
-        g.font = '600 12px "IBM Plex Mono", ui-monospace, monospace';
-        g.fillText(`${cmText(size.w * 10)} ±${size.wSd} cm`, x + 4, y - 6);
-        g.fillText(`${cmText(size.d * 10)} ±${size.dSd} cm`, x + 4, y + size.d * k + 16);
-      });
-    }
-    status(`The room: ${cmText(size.w * 10)} × ${cmText(size.d * 10)} (±${size.wSd} × ±${size.dSd} cm) from ${seen.length} photo${seen.length === 1 ? '' : 's'}; scale from ${used.size ? [...used].join(', ') : 'the depth alone'}.${size.notes.length ? ` Note: ${size.notes.join('; ')}.` : ''} Doors and windows are not found from room photos: add them on the plan.`, 'ok');
+    S.marks = [];
+    roomPic = first;
+    redraw();
+    status(`The room: ${cmText(size.w * 10)} × ${cmText(size.d * 10)} (±${size.wSd} × ±${size.dSd} cm) from ${seen.length} photo${seen.length === 1 ? '' : 's'}; scale from ${used.size ? [...used].join(', ') : 'the depth alone'}.${size.notes.length ? ` Note: ${size.notes.join('; ')}.` : ''} Tap the outline where each door and window is, then USE THIS PLAN. The sizes stay rough until you type one wall’s real length.`, 'ok');
   };
+
+  /** The room the photos found, as an outline over the first photo, with every door and window tapped on it. */
+  let roomPic: HTMLCanvasElement | null = null;
+  let box: Box | null = null;
+  function redraw(): void {
+    const size = result?.size;
+    if (!size) return;
+    const draw = (g: CanvasRenderingContext2D) => {
+      const W = preview.width;
+      const H = preview.height;
+      const k = Math.min((W - 40) / size.w, (H - 40) / size.d);
+      box = { x: (W - size.w * k) / 2, y: (H - size.d * k) / 2, w: size.w * k, h: size.d * k };
+      g.fillStyle = 'rgba(2,7,13,.6)';
+      g.fillRect(0, 0, W, H);
+      g.strokeStyle = '#62e4ff';
+      g.lineWidth = 3;
+      g.strokeRect(box.x, box.y, box.w, box.h);
+      g.fillStyle = '#62e4ff';
+      g.font = '600 12px "IBM Plex Mono", ui-monospace, monospace';
+      g.fillText(`${cmText(size.w * 10)} ±${size.wSd} cm`, box.x + 4, box.y - 6);
+      g.fillText(`${cmText(size.d * 10)} ±${size.dSd} cm`, box.x + 4, box.y + box.h + 16);
+      // each mark: a door a solid block across the wall, a window an open one (shape as well as colour), in the look's own amber
+      const amber = getComputedStyle(preview).getPropertyValue('--amber').trim() || 'orange';
+      for (const m of S.marks) {
+        const [x, y] = markPoint(m, box);
+        const along = m.wall % 2 === 0;
+        g.save();
+        g.translate(x, y);
+        g.lineWidth = 3;
+        g.strokeStyle = amber;
+        g.fillStyle = amber;
+        if (m.type === 'door') g.fillRect(along ? -10 : -5, along ? -5 : -10, along ? 20 : 10, along ? 10 : 20);
+        else g.strokeRect(along ? -12 : -4, along ? -4 : -12, along ? 24 : 8, along ? 8 : 24);
+        g.restore();
+      }
+    };
+    if (roomPic) show(roomPic, draw);
+    else {
+      preview.width = 320;
+      preview.height = 240;
+      const g = preview.getContext('2d');
+      if (g) draw(g);
+    }
+    preview.setAttribute('aria-label', `The room the photos found, ${cmText(size.w * 10)} by ${cmText(size.d * 10)}${S.marks.length ? `, with ${S.marks.length} door${S.marks.length === 1 ? '' : 's'} and windows marked` : ''}: tap its outline to mark a door or a window`);
+  }
+  preview.addEventListener('click', (ev) => {
+    if (!result?.size || !box) return;
+    const r = preview.getBoundingClientRect();
+    const x = ((ev.clientX - r.left) / r.width) * preview.width;
+    const y = ((ev.clientY - r.top) / r.height) * preview.height;
+    const hit = edgeHit(x, y, box, 26);
+    if (!hit) return void (tapNote.textContent = 'Tap on the outline itself, where the door or window is.');
+    S.marks = tapMarks(S.marks, hit, S.tapAdds, box);
+    redraw();
+    paint();
+  });
 
   const run = async (files: File[], asked = false): Promise<void> => {
     if (!files.length) return;
@@ -327,12 +415,26 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
       space.setPlan(result.plan);
       if (had) toast('The furniture was taken off for the new rooms: UNDO brings it back', 'warn');
     } else if (result.size) {
+      // the sizes are rough until one real measurement (said before the plan changes, so MATERIALS repaints with the line)
+      const roomId = space.get().plan.rooms?.[0]?.id ?? 'r1';
+      const before = readRough();
+      setRough({ room: roomId, wSd: result.size.wSd, dSd: result.size.dSd, at: Date.now() });
       try {
         space.setRoom({ w: result.size.w, d: result.size.d });
       } catch (e) {
         undoStack.pop();
+        setRough(before);
         return void toast(sayError(e, 'do that in the room'), 'warn');
       }
+      roughUndo = before ?? 'none';
+      if (S.marks.length) {
+        const got = placeMarks(space.get().plan, roomId, S.marks);
+        space.setPlan(got.plan);
+        if (got.missed) toast(`${got.missed} of the marks had no room on their wall and were left out`, 'warn');
+      }
+      S.marks = [];
+      box = null;
+      roomPic = null;
     }
     S.applied++;
     result = null;
@@ -344,6 +446,11 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
   const undo = () => {
     const prev = undoStack.pop();
     if (!prev) return void toast('Nothing to undo', 'warn');
+    // the room the photos sized taken back: its rough mark goes back to what it was
+    if (roughUndo) {
+      setRough(roughUndo === 'none' ? null : roughUndo);
+      roughUndo = null;
+    }
     space.setPlan(prev);
     toast('Back to the plan before', 'ok');
     paint();
@@ -356,6 +463,18 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
     void run(files);
   });
 
+  // (the specs' way in: a room the photos found, without the 50 MB distance model a test machine does not have)
+  fromPhotoHooks.roomFound = (size: RoomSize) => {
+    S.kind = 'room';
+    S.room = { ...size, photos: 1, cues: [] };
+    S.drawing = null;
+    S.marks = [];
+    result = { size };
+    roomPic = null;
+    redraw();
+    status(`The room: ${cmText(size.w * 10)} × ${cmText(size.d * 10)} (±${size.wSd} × ±${size.dSd} cm). Tap the outline where each door and window is, then USE THIS PLAN.`, 'ok');
+    paint();
+  };
   paint();
   /* state: space.photo empty */
   status('PICK PHOTOS: a drawn plan, or the room itself.');

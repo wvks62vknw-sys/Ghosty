@@ -160,10 +160,10 @@ function rng(seed: number): () => number {
  * apart by its light alone (BRIEF-QUALITY-BOOT-ORB: listening the open rim, thinking the pulses, speaking the sweep, attending the lean).
  */
 const TARGET: Record<MindState, { open: number; rim: number; bright: number; spin: number; pulses: number; pace: number; busy: number; grey: number; lean: number; ring: number }> = {
-  idle: { open: 0, rim: 1, bright: 1, spin: 0.09, pulses: 4, pace: 0.22, busy: 0, grey: 0, lean: 0, ring: 0 },
+  idle: { open: 0, rim: 0.9, bright: 0.95, spin: 0.09, pulses: 4, pace: 0.22, busy: 0, grey: 0, lean: 0, ring: 0 },
   listening: { open: 1, rim: 1.8, bright: 1.25, spin: 0.12, pulses: 6, pace: 0.3, busy: 0, grey: 0, lean: 0, ring: 0 },
-  thinking: { open: 0.3, rim: 1.45, bright: 1.3, spin: 0.2, pulses: 36, pace: 1.5, busy: 0, grey: 0, lean: 0, ring: 0 },
-  speaking: { open: 0.45, rim: 1.25, bright: 1.2, spin: 0.12, pulses: 10, pace: 0.5, busy: 0, grey: 0, lean: 0, ring: 1 },
+  thinking: { open: 0, rim: 1.5, bright: 1.55, spin: 0.2, pulses: 36, pace: 1.5, busy: 0, grey: 0, lean: 0, ring: 0 },
+  speaking: { open: 0.55, rim: 1.35, bright: 1.2, spin: 0.12, pulses: 10, pace: 0.5, busy: 0, grey: 0, lean: 0, ring: 1 },
   busy: { open: 0.15, rim: 1.1, bright: 1.05, spin: 0.1, pulses: 8, pace: 0.35, busy: 1, grey: 0, lean: 0, ring: 0 },
   offline: { open: 0, rim: 0.6, bright: 0.55, spin: 0.04, pulses: 0, pace: 0.2, busy: 0, grey: 1, lean: 0, ring: 0 },
   // attending (BRIEF-ORB-AND-BOOT): the reticle has landed on a thing: it holds nearly still (the turn to a third of idle's) and
@@ -1161,10 +1161,10 @@ export class Mind {
     this.spin.rotation.x = 0.28 + p.lean;
     this.root.rotation.z = 0.08;
     // attending's lean tips the whole orb forward, its equator ring with it, so with the motion off it reads apart from idle by its shape
-    this.root.rotation.x = 0.5 * p.lean;
+    this.root.rotation.x = 0.9 * p.lean;
     P.eq.rotation.z = -t * 0.04;
     P.tilt.rotation.z = t * 0.03;
-    this.spin.scale.setScalar(1 + 0.08 * p.open);
+    this.spin.scale.setScalar(1 + 0.15 * p.open);
     P.rimSoft.material.uniforms.uStrength.value = 0.5 * p.rim * breath * b.sphere * b.rim;
     P.rimSoft.material.uniforms.uColor.value.copy(tint(C.c));
     P.rimCrisp.material.uniforms.uStrength.value = 0.9 * Math.min(1.4, p.rim) * b.sphere * b.rim;
@@ -1270,6 +1270,8 @@ export class Mind {
       q.s.position.copy(q.link[0]).lerp(q.link[1], f);
       // (a still frame shows each at full light: what is moving is told by how many there are)
       q.s.material.opacity = i < shown ? (this.stillFrame && !this.boot ? 1 : Math.sin(f * Math.PI)) * (1 - p.grey) * b.links : 0;
+      // (and a little larger: with nothing moving, thinking's thirty-six pulses are its mark, so each must read at a glance)
+      q.s.scale.setScalar(this.stillFrame && !this.boot ? 0.16 : 0.08);
       q.s.material.color.copy(tint(C.pale));
     });
     const t0 = performance.now();

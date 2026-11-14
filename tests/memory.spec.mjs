@@ -96,7 +96,7 @@ async function run(name, viewport) {
     return { inOrder: before(at('me'), at('pats')) && before(at('pats'), at('tl')), meTop: at('me')?.getBoundingClientRect().top ?? -1, pills: [...document.querySelectorAll('#pg-memory .secpill')].map((b) => b.textContent).slice(0, 3).join(',') };
   });
   if (!order.inOrder) problems.push(`[${name}] ME, PATTERNS and the TIMELINE are not in that order in the page`);
-  if (viewport.width < 900 && order.pills !== 'Me,Patterns,Timeline') problems.push(`[${name}] the first pills read "${order.pills}", not Me, Patterns, Timeline`);
+  if (viewport.width < 900 && order.pills !== 'About you,Patterns,Timeline') problems.push(`[${name}] the first pills read "${order.pills}", not About you, Patterns, Timeline`);
   if (order.meTop > viewport.height - 200) problems.push(`[${name}] ME starts ${Math.round(order.meTop)} points down, below the first screen`);
   await page.screenshot({ path: `${out}/${name}-memory-me.png` });
   // one voice: Memory's own sentences speak as Ghosty ("I"), never of him in the third person ("he keeps it", "his memory")
@@ -129,11 +129,11 @@ async function run(name, viewport) {
   const small = async () => page.$$eval('#pg-memory :is(button, select, input, summary)', (els) => els.filter((e) => e.offsetParent && e.getClientRects().length && parseFloat(getComputedStyle(e).height) < 44 && getComputedStyle(e).height !== 'auto').map((e) => `${(e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 24)} (${getComputedStyle(e).height})`));
   // (on the phone each part is a section: every one is looked at in turn)
   const tiny = [];
-  for (const label of ['Me', 'Patterns', 'Timeline']) {
+  for (const label of ['About you', 'Patterns', 'Timeline']) {
     await sec(label);
     tiny.push(...(await small()));
   }
-  await sec('Me');
+  await sec('About you');
   // the DIARY (other column on phones): newest first, opens in a modal; REFLECT NOW toasts what changed
   const narrow = viewport.width < 900;
   await sec('Diary');
@@ -167,7 +167,7 @@ async function run(name, viewport) {
   await page.unroute('**/api/profile**', stub);
 
   // the real thing: two things said in chat, then a reflection by the preview brain's scripted model
-  await sec('Me');
+  await sec('About you');
   await page.evaluate(() => (location.hash = 'core'));
   if (narrow) await page.click('.logbtn');
   for (const line of ['I like flat whites', 'I like walks in Kings Heath']) {
@@ -181,7 +181,7 @@ async function run(name, viewport) {
   await sec('Diary');
   await dp.locator('button:has-text("REFLECT NOW")').click();
   await page.waitForFunction(() => /Reflected: /.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => problems.push(`[${name}] the real reflection gave no toast`));
-  await sec('Me');
+  await sec('About you');
   await page.waitForFunction(() => /flat whites/.test(document.querySelector('#pg-memory .pn.me')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] the real reflection did not put "flat whites" in the profile`));
   const real = (await me.textContent()) ?? '';
   if (!/walks in Kings Heath/.test(real)) problems.push(`[${name}] the second thing said is missing from the profile: ${real.slice(0, 200)}`);
@@ -260,7 +260,7 @@ async function run(name, viewport) {
   // RECENTLY FORGOTTEN: forget it again, then a line under ME (its ✕): both stay undoable after the bar has gone
   await item(edited).first().locator('button:has-text("FORGET")').click({ timeout: 8000 }).catch(() => problems.push(`[${name}] the memory to forget again is not there`));
   await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => undefined);
-  await sec('Me');
+  await sec('About you');
   const meLine = me.locator('.rw', { hasText: 'walks in Kings Heath' }).first();
   if (await meLine.count()) {
     // (the delete buttons show in Edit mode)
@@ -359,7 +359,7 @@ async function run(name, viewport) {
     if (editingRule) await editRule.click();
     await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .rw[data-kind="conduct"]')].some((x) => x.textContent.includes(t)), rule, { timeout: 8000 }).catch(() => problems.push(`[${name}] ✕ did not forget his rule`));
   }
-  await sec('Me');
+  await sec('About you');
   const prp = page.locator('#pg-memory .pn.princpn');
   const principle = `Never lie to me about ${word()}.`;
   await prp.locator('input').fill(principle);
