@@ -5,6 +5,8 @@
 //  2. QUICK ADD: one field reads "Call the bank tomorrow at 3pm p1 #Home @phone" (and "every Monday", "next Friday", "in 3 days", "by
 //     the 20th"), shows chips of what it understood before ADD; a chip tapped is dropped. London days.
 //  3. PRIORITIES P1 TO P4: P1 is the old star both ways; a coloured flag; late first, then priority, then day; the P1 view.
+//  4. UPCOMING: the next fourteen days from tomorrow, each with its diary events and to-dos, quiet days in one line, then Later; a tap
+//     opens an item; the diary on its way, out of reach, and nothing in two weeks, each said.
 // Every part at 440 × 956 and 390 × 844, BODY 21; 44 pt keys, nothing sideways, no word cut; the seven looks for what is drawn.
 import { openSection } from '../nav.mjs';
 
@@ -237,6 +239,92 @@ export async function run(H) {
     await ctx.close();
   }
   log('tasks: priorities');
+
+  // ---- 6. UPCOMING: the next fourteen days from tomorrow, each with its diary events and to-dos, quiet days in one line, then Later
+  {
+    const base = new Date(2026, 10, 14, 12, 0).getTime(); // Saturday 14 Nov, noon
+    const at = (d, h, m = 0) => new Date(2026, 10, 14 + d, h, m).getTime();
+    const L = [
+      { id: 't1', text: 'Tomorrow job', due: '2026-11-15', done: false, at: 1 },
+      { id: 't2', text: 'Later job', due: '2026-12-10', done: false, at: 2 },
+      { id: 't3', text: 'No day', due: '', done: false, at: 3 },
+      { id: 't4', text: 'Today job', due: '2026-11-14', done: false, at: 4 },
+      { id: 't5', text: 'Done job', due: '2026-11-16', done: true, at: 5 },
+    ];
+    const E = [{ id: 'e1', title: 'Dentist', start: at(1, 9, 30), end: at(1, 10) }, { id: 'e2', title: 'Birthday', start: at(3, 0), end: at(4, 0), allDay: true }, { id: 'e3', title: 'Today', start: at(0, 15) }];
+    const u = T.upcoming(L, E, base);
+    check(u.days.length === 14 && u.days[0].day === '2026-11-15' && u.days[13].day === '2026-11-28', `[tasks pure] upcoming: fourteen days from tomorrow: ${u.days[0]?.day}…${u.days[13]?.day}`);
+    check(u.days[0].events.map((e) => e.id).join() === 'e1' && u.days[0].todos.map((t) => t.id).join() === 't1' && u.days[2].events.map((e) => e.id).join() === 'e2' && u.days[3].events.length === 0, '[tasks pure] each day has its events (an all-day one on its own day only) and its to-dos');
+    check(u.later.map((t) => t.id).join() === 't2' && !u.days.some((d) => d.todos.some((t) => ['t3', 't4', 't5'].includes(t.id))), '[tasks pure] Later holds what is further on; no day, today and done are in neither');
+    check(T.upDayWords('2026-11-15', base) === 'Tomorrow' && T.upDayWords('2026-11-17', base) === 'Tue 17 Nov' && T.upEventWhen(E[0]) === '09:30–10:00' && T.upEventWhen(E[1]) === 'All day', `[tasks pure] day and time words: ${T.upDayWords('2026-11-17', base)} ${T.upEventWhen(E[0])}`);
+    check(T.quietWords('2026-11-16', '2026-11-16', base) === 'Mon 16 Nov: nothing on' && T.quietWords('2026-11-18', '2026-11-20', base) === 'Wed 18 – Fri 20 Nov: nothing on' && T.quietWords('2026-11-29', '2026-12-02', base) === 'Sun 29 Nov – Wed 2 Dec: nothing on', `[tasks pure] quiet days in one line: ${T.quietWords('2026-11-18', '2026-11-20', base)}`);
+  }
+  await brain({ words: 'clear my to-do list' });
+  await brain({ op: 'add', item: { id: 'tu1', text: 'Post the birthday card', due: tomorrow } });
+  await brain({ op: 'add', item: { id: 'tu2', text: 'Pick up the suit', due: addDay(today, 3), time: '12:00', p: 2 } });
+  await brain({ op: 'add', item: { id: 'tu3', text: 'Renew the car insurance', due: addDay(today, 30) } });
+  await brain({ op: 'add', item: { id: 'tu4', text: 'Sort the loft one day' } });
+  await brain({ op: 'add', item: { id: 'tu5', text: 'Water the plants', due: today } });
+  {
+    const { ctx, page } = await phone(PHONE, 'scan', { 'ghosty.agenda.todoview': 'upcoming' }, 21);
+    // his diary as the brain gives it (its jobs and calendars), its events stood in by two of the spec's own in the next days (so no other
+    // screen or part sees them, and none of theirs is here), made on the phone's own London clock; held back a moment first, so the view
+    // shows it is reading
+    const ev = await page.evaluate((day) => {
+      const [y, mo, d] = day.split('-').map(Number);
+      return [
+        { id: 'spec-up-1', title: 'Dentist check-up', start: new Date(y, mo - 1, d, 9, 30).getTime(), end: new Date(y, mo - 1, d, 10).getTime(), source: 'local' },
+        { id: 'spec-up-2', title: 'Mum’s birthday', start: new Date(y, mo - 1, d + 2).getTime(), end: new Date(y, mo - 1, d + 3).getTime(), allDay: true, source: 'local' },
+      ];
+    }, tomorrow);
+    let hold = true;
+    await page.route(/\/api\/agenda\?/, async (r) => {
+      while (hold) await new Promise((ok) => setTimeout(ok, 50));
+      const res = await r.fetch();
+      const j = await res.json();
+      await r.fulfill({ response: res, json: { ...j, events: ev } });
+    });
+    await open(page, 'agenda');
+    await openSection(page, 'agenda', 'To-do');
+    const note = await page.waitForSelector('#pg-agenda .tdupnote[data-state="loading"]', { timeout: 8000 }).then((e) => e.textContent(), () => '');
+    check(note === 'Reading your diary for the next two weeks…' && !!(await page.$('#pg-agenda .tdup .ak-skel')), `[tasks 440] UPCOMING says it is reading the diary, with skeleton rows: ${note}`);
+    hold = false;
+    await page.waitForFunction(() => !document.querySelector('#pg-agenda .tdupnote') && document.querySelector('#pg-agenda .tdup .ak-row'), null, { timeout: 10000 }).catch(() => check(false, '[tasks 440] UPCOMING never laid the diary out'));
+    const view = await page.$$eval('#pg-agenda .tdup > *', (els) => els.map((e) => e.classList.contains('tdupday') ? `[${e.querySelector('.tduphead')?.textContent}] ${[...e.querySelectorAll('.ak-row, .todoit')].map((r) => r.classList.contains('ak-row') ? `ev:${r.querySelector('.ak-rowtitle')?.textContent} ${r.querySelector('.ak-rowsub')?.textContent}` : `todo:${r.dataset.id}`).join(', ')}` : e.textContent));
+    check(view[0] === '[Tomorrow] ev:Dentist check-up 09:30–10:00, todo:tu1', `[tasks 440] tomorrow first, its event then its to-do: ${view[0]}`);
+    check(/^\w{3} \d{1,2} \w{3}: nothing on$/.test(view[1] ?? '') && /^\[\w{3} \d{1,2} \w{3}\] ev:Mum’s birthday All day, todo:tu2$/.test(view[2] ?? ''), `[tasks 440] a quiet day in one line, then the birthday with the timed to-do: ${view.slice(1, 3)}`);
+    check(/^\w{3} \d{1,2}(?: \w{3})? – \w{3} \d{1,2} \w{3}: nothing on$/.test(view[3] ?? '') && view.at(-1) === '[Later] todo:tu3' && view.length === 5, `[tasks 440] the quiet rest in one line, then Later: ${JSON.stringify(view)}`);
+    check(!view.join().includes('tu4') && !view.join().includes('tu5'), '[tasks 440] a to-do with no day, and today’s, are not in UPCOMING');
+    const fu = await fit(page, '#pg-agenda .pn.todo');
+    check(!fu.small.length && !fu.sideways && !fu.cut.length, `[tasks 440] UPCOMING fits: ${JSON.stringify(fu)}`);
+    await page.screenshot({ path: `${H.out}/planlane4-tasks-upcoming-440.png` });
+    // a to-do tapped opens its change box; an event tapped opens it whole in the diary
+    await page.click('#pg-agenda .tdup .todoit[data-id="tu2"] button.todotx');
+    await page.waitForSelector('#pg-agenda .tdup .todoit[data-id="tu2"] .todoedit', { timeout: 3000 }).catch(() => check(false, '[tasks 440] tapping a to-do in UPCOMING did not open it'));
+    await page.click('#pg-agenda .tdup .ak-row[data-id="spec-up-1"] button.ak-rowmain');
+    await page.waitForFunction(() => /Dentist check-up/.test(document.querySelector('#pg-agenda .evcard')?.textContent ?? '') && !!document.querySelector('#pg-agenda .evcard')?.offsetParent, null, { timeout: 5000 }).catch(() => check(false, '[tasks 440] tapping an event in UPCOMING did not open it in the diary'));
+    await ctx.close();
+  }
+  {
+    // the brain out of reach (the phone read the diary as it started, so it holds a copy): UPCOMING says its days are that copy
+    const { ctx, page } = await phone(PHONE2, 'scan', { 'ghosty.agenda.todoview': 'upcoming' }, 21);
+    await page.route(/\/api\/agenda\?/, (r) => r.abort());
+    await open(page, 'agenda');
+    await openSection(page, 'agenda', 'To-do');
+    const off = await page.waitForSelector('#pg-agenda .tdupnote[data-state="offline"]', { timeout: 10000 }).then((e) => e.textContent(), () => '');
+    check(off === 'Ghosty’s brain is out of reach, so these days show your diary from the last copy on this phone.', `[tasks 390] UPCOMING with the brain out of reach says so: ${off}`);
+    await page.waitForSelector('#pg-agenda .tdup .todoit[data-id="tu1"]', { timeout: 8000 }).catch(() => check(false, '[tasks 390] the to-dos still show with no diary'));
+    const fo = await fit(page, '#pg-agenda .pn.todo');
+    check(!fo.small.length && !fo.sideways && !fo.cut.length, `[tasks 390] UPCOMING with no diary fits: ${JSON.stringify(fo)}`);
+    // nothing in two weeks: said, with what to do
+    await brain({ words: 'clear my to-do list' });
+    await brain({ op: 'add', item: { id: 'tu6', text: 'Sort the loft one day' } });
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForFunction(() => /Nothing in the next two weeks/.test(document.querySelector('#pg-agenda .tdupempty')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => check(false, '[tasks 390] an empty UPCOMING did not say so'));
+    check((await page.textContent('#pg-agenda .tdupempty').catch(() => '')) === 'Nothing in the next two weeks: no events and no to-dos with a day. Give a to-do a day and it shows here.', '[tasks 390] an empty UPCOMING in his words');
+    await ctx.close();
+  }
+  log('tasks: upcoming');
 
   // ---- 9. 390 × 844, BODY 21, the seven looks: a timed P2 to-do with its project and tags, its change box open, and quick add's chips
   await brain({ op: 'add', item: { id: 'tlook', text: 'Ring the dentist about the crown', due: tomorrow, time: '16:00', p: 2, project: 'Health', tags: ['phone'] } });

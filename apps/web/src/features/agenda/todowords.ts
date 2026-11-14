@@ -226,3 +226,47 @@ export function dueToday(l: readonly Todo[], now: number): Todo[] {
 /** ONELIST: changes made on this phone that are still to reach the one list (the brain's), in his words. */
 export const todoWaitWords = (n: number, offline: boolean): string =>
   `${n} ${n === 1 ? 'change' : 'changes'} kept on this phone: ${n === 1 ? 'it goes' : 'they go'} to your one list ${offline ? 'when the signal is back' : 'when Ghosty’s brain answers again'}.`;
+
+/** [planlane4:tasks] UPCOMING: one diary event as the view needs it (from the agenda's own read). */
+export interface UpEvent { id: string; title: string; start: number; end?: number; allDay?: boolean }
+export interface UpDay { day: string; events: UpEvent[]; todos: Todo[] }
+/** UPCOMING: the next `n` days from tomorrow (as the best to-do apps do: today has its own view), each with the diary events on it and
+ * its open to-dos in the list's order, then "Later": the open to-dos due after them. A to-do with no day is in neither. */
+export function upcoming(l: readonly Todo[], events: readonly UpEvent[], now: number, n = 14): { days: UpDay[]; later: Todo[] } {
+  const t = new Date(now);
+  const days: UpDay[] = [];
+  for (let i = 1; i <= n; i++) {
+    const a = new Date(t.getFullYear(), t.getMonth(), t.getDate() + i).getTime();
+    const b = new Date(t.getFullYear(), t.getMonth(), t.getDate() + i + 1).getTime();
+    const day = dayOf(a);
+    const evs = events.filter((e) => (e.allDay ? dayOf(e.start) <= day && dayOf(Math.max(e.start, (e.end ?? e.start) - 1)) >= day : e.start < b && Math.max(e.end ?? e.start, e.start + 1) > a)).sort((x, y) => Number(!y.allDay) - Number(!x.allDay) || x.start - y.start);
+    days.push({ day, events: evs, todos: sortTodos(l.filter((x) => !x.done && x.due === day), now) });
+  }
+  const last = days[days.length - 1]?.day ?? dayOf(now);
+  return { days, later: sortTodos(l.filter((x) => !x.done && !!x.due && x.due > last), now) };
+}
+/** A day's heading in UPCOMING: "Tomorrow", "Mon 16 Nov". */
+export function upDayWords(day: string, now: number): string {
+  if (daysTo(day, now) === 1) return 'Tomorrow';
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y!, m! - 1, d!).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
+}
+/** An event's time in UPCOMING: "09:30–10:30", "09:30", "All day". */
+export function upEventWhen(e: UpEvent): string {
+  if (e.allDay) return 'All day';
+  const hm = (x: number) => `${p2(new Date(x).getHours())}:${p2(new Date(x).getMinutes())}`;
+  return e.end && e.end > e.start && dayOf(e.end - 1) === dayOf(e.start) ? `${hm(e.start)}–${hm(e.end)}` : hm(e.start);
+}
+/** Days with nothing on, side by side, as one short line: "Tue 17 Nov: nothing on", "Tue 17 – Thu 19 Nov: nothing on". */
+export function quietWords(from: string, to: string, now: number): string {
+  if (from === to) return `${upDayWords(from, now)}: nothing on`;
+  const a = upDayWords(from, now);
+  const b = upDayWords(to, now);
+  // (one month named once: "Tue 17 – Thu 19 Nov")
+  const am = a.split(' ');
+  return `${am.length === 3 && b.endsWith(am[2]!) ? `${am[0]} ${am[1]}` : a} – ${b}: nothing on`;
+}
+export const UP_LOADING = 'Reading your diary for the next two weeks…';
+export const UP_OFFLINE = 'Ghosty’s brain is out of reach, so these days show your diary from the last copy on this phone.';
+export const UP_NOCOPY = 'I can’t reach your diary right now, so these days show only your to-dos.';
+export const UP_EMPTY = 'Nothing in the next two weeks: no events and no to-dos with a day. Give a to-do a day and it shows here.';

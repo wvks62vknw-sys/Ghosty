@@ -15,9 +15,11 @@ import { brain } from '../../api/brain';
 import { button, panel, toast, undo } from '../../ui/components';
 import { pushState } from '../../assistant/push';
 import { londonNow, quickParse } from './quickadd';
+import { listRow, skeleton, stateCard } from '../../ui/appkit';
 import {
   dayOf, dueWords, EVERY, everyWords, inView, nextDue, sortTodos, TODO_ALL_DONE, TODO_EMPTY, TODO_NEED_TEXT, todoLine, todoWaitWords, daysTo, VIEW_EMPTY, VIEWS,
-  ringDayOf, RING_OFF, whenWords, prioOf, PRIOS, tagWords,
+  ringDayOf, RING_OFF, whenWords, prioOf, PRIOS, tagWords, upcoming, upDayWords, upEventWhen, quietWords, UP_EMPTY, UP_LOADING, UP_NOCOPY, UP_OFFLINE,
+  type UpEvent,
   type Every, type Todo, type TodoView,
 } from './todowords';
 
@@ -280,10 +282,14 @@ const loadView = (): TodoView => {
   }
 };
 
-export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): void; list(): Todo[] } {
+/** [planlane4:tasks] What UPCOMING reads from the agenda: its events for the next weeks, whether they have been read yet, and whether
+ * they are the phone's copy (the brain out of reach) or nothing at all. */
+export type UpAgenda = () => { events: UpEvent[]; loaded: boolean; offline: boolean; hasCopy: boolean };
+
+export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (id: string) => void): { el: HTMLElement; paint(): void; list(): Todo[]; agendaRead(): void } {
   const p = panel('TO-DO', { cls: 'scroll.todo' });
   // [planlane4:tasks] QUICK ADD: the field reads the line as he would say it (quickadd.ts), and shows what it understood as chips
-  const text = h('input', { placeholder: 'Add a to-do (e.g. Call the bank tomorrow at 3pm p1)', 'aria-label': 'To-do', maxlength: '200', autocomplete: 'off' });
+  const text = h('input', { placeholder: 'Add a to-do (e.g. Call Sam at 3pm)', 'aria-label': 'To-do', maxlength: '200', autocomplete: 'off' });
   const due = h('input', { type: 'date', 'aria-label': 'Due day (optional)' });
   const rep = everySelect();
   let view: TodoView = loadView();
@@ -444,6 +450,8 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     }
     /* state: agenda.todo empty */
     if (!all.length) return void p.body.append(h('div.empty', { dataset: { case: 'keep', state: 'empty' } }, h('b', TODO_EMPTY.head), h('span', TODO_EMPTY.line)));
+    // [planlane4:tasks] UPCOMING: the next fourteen days, each with its events and to-dos, then Later
+    if (view === 'upcoming') return paintUpcoming(all, now);
     const l = all.filter((t) => inView(t, view, now));
     if (!open && view === 'all') p.body.append(h('p.todoline.alldone', TODO_ALL_DONE));
     if (!l.length && view !== 'all') p.body.append(h('div.empty', { dataset: { case: 'keep', state: 'empty' } }, h('b', 'Nothing here'), h('span', VIEW_EMPTY[view])));
@@ -453,6 +461,46 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     // [planlane4:tasks] a timed one rings by notification: with none on this phone, said once under the list
     if (all.some((t) => !t.done && t.time) && pushState.get().status !== 'on') p.body.append(h('p.todoline.tdringoff', { dataset: { case: 'keep' } }, RING_OFF));
   };
+  const paintUpcoming = (all: Todo[], now: number) => {
+    const ag = agenda?.() ?? { events: [], loaded: true, offline: false, hasCopy: false };
+    const up = upcoming(all, ag.events, now);
+    const box = h('div.tdup', { dataset: { case: 'keep' } });
+    if (!ag.loaded) {
+      /* state: agenda.upcoming loading */
+      box.append(h('p.todoline.tdupnote', { dataset: { state: 'loading' }, 'aria-live': 'polite' }, UP_LOADING), skeleton(2, UP_LOADING));
+    } else if (ag.offline) {
+      /* state: agenda.upcoming offline */
+      box.append(h('p.todoline.tdupnote', { dataset: { state: 'offline' } }, ag.hasCopy ? UP_OFFLINE : UP_NOCOPY));
+    }
+    if (ag.loaded && !up.later.length && !up.days.some((d) => d.events.length || d.todos.length)) {
+      /* state: agenda.upcoming empty */
+      box.append(h('div.tdupempty', { dataset: { state: 'empty' } }, stateCard('empty', UP_EMPTY)));
+      return void p.body.append(box);
+    }
+    // days with nothing on, side by side, are one short line (the view stays compact)
+    let quiet: string[] = [];
+    const flush = () => {
+      if (quiet.length) box.append(h('p.tdupquiet', quietWords(quiet[0]!, quiet[quiet.length - 1]!, now)));
+      quiet = [];
+    };
+    const group = (head: string, rows: HTMLElement[]) =>
+      box.append(h('div.tdupday', h('b.tduphead', { role: 'heading', 'aria-level': '3' }, head), h('div.tduprows', { role: 'list', 'aria-label': head }, ...rows)));
+    for (const d of up.days) {
+      if (!d.events.length && !d.todos.length) {
+        quiet.push(d.day);
+        continue;
+      }
+      flush();
+      // a tap on an event opens it whole in the diary; a tap on a to-do's words opens its change box, as in every view
+      group(upDayWords(d.day, now), [
+        ...d.events.map((e) => listRow({ id: e.id, title: e.title, sub: upEventWhen(e) }, openEvent ? { onTap: () => openEvent(e.id) } : {})),
+        ...d.todos.map(item),
+      ]);
+    }
+    flush();
+    if (up.later.length) group('Later', up.later.map(item));
+    p.body.append(box);
+  };
   // every change (here, from the chat, an UNDO) repaints the list, the month and the agenda's top line
   addEventListener(TODO_CHANGED, () => {
     paint();
@@ -461,7 +509,8 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
   paint();
   // the one list, read from the brain as the agenda opens (changes made here with no signal go first)
   void syncTodos(true);
-  return { el: p.el, paint, list: loadTodos };
+  // [planlane4:tasks] the diary read (or not reached): UPCOMING, when it is the view, lays its days out again
+  return { el: p.el, paint, list: loadTodos, agendaRead: () => view === 'upcoming' && paint() };
 }
 
 /** The open to-dos due on a day (for the month). */
