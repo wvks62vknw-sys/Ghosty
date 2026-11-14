@@ -84,6 +84,27 @@ export function outlinesOf(rgba: Uint8ClampedArray, w: number, h: number, detail
   return out;
 }
 
+/** His photo as inked comic art: its colours flattened to a few bold tones (a little brighter and richer), with the outlines
+ * inked over them in black. */
+export function comicArtOf(rgba: Uint8ClampedArray, w: number, h: number, levels = 5): Uint8ClampedArray {
+  const lines = outlinesOf(rgba, w, h, 0.6);
+  const out = new Uint8ClampedArray(rgba.length);
+  const step = 255 / (levels - 1);
+  for (let i = 0; i < w * h; i++) {
+    const r = rgba[i * 4]!, g = rgba[i * 4 + 1]!, b = rgba[i * 4 + 2]!;
+    const grey = (r + g + b) / 3;
+    const ink = lines[i * 4 + 3]! / 255;
+    for (let c = 0; c < 3; c++) {
+      const v = [r, g, b][c]!;
+      const rich = Math.max(0, Math.min(255, grey + (v - grey) * 1.35 + 12));
+      const flat = Math.round(rich / step) * step;
+      out[i * 4 + c] = Math.round(flat * (1 - ink));
+    }
+    out[i * 4 + 3] = 255;
+  }
+  return out;
+}
+
 // ---- PSD (Adobe Photoshop's own format), PackBits-packed, 8 bits, RGB, every layer kept with its name and blend mode
 export type PsdLayer = { name: string; rgba: Uint8ClampedArray; opacity: number; visible: boolean; blend: string };
 

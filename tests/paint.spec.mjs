@@ -270,6 +270,13 @@ await run(PHONE2);
   await page.click('.pxstudio button[aria-label="DONE"]');
   check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.comic.editing.inked === 1 && /Your drawing is on the panel/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `[440] DONE puts his ink on the panel, under its balloons (${layers})`);
   check(await page.locator('#pg-comic button[aria-label="Take my drawing off this panel"]').count() === 1, '[440] the panel offers to take the drawing off again');
+  // his photo behind the panel, then MAKE IT COMIC ART (flat colours, inked outlines)
+  const photo = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 320, 240); gr.addColorStop(0, '#3a7bd5'); gr.addColorStop(1, '#f4d03f'); g.fillStyle = gr; g.fillRect(0, 0, 320, 240); g.fillStyle = '#c0392b'; g.beginPath(); g.arc(160, 120, 60, 0, 7); g.fill(); return c.toDataURL('image/png'); })).split(',')[1], 'base64');
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-comic button[aria-label="Put one of my own photos behind this panel"]')]);
+  await chooser.setFiles({ name: 'beach.png', mimeType: 'image/png', buffer: photo });
+  await until(page, () => window.__ghosty.comic.editing.photo === true);
+  await page.click('#pg-comic button[aria-label="Turn my photo into inked comic art: bold flat colours with black outlines"]');
+  check(await until(page, () => window.__ghosty.comic.editing.photoArt === 1 && /Your photo is now comic art/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), '[440] MAKE IT COMIC ART turns his photo into inked comic art, and says UNDO puts it back');
   await ctx.close();
 }
 
