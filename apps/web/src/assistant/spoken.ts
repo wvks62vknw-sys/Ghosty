@@ -91,3 +91,54 @@ export function brief(parts: string[], max = 480): string[] {
   while (n < parts.length && (n === 0 || used + parts[n]!.length <= max)) used += parts[n++]!.length + 1;
   return n < parts.length ? [...parts.slice(0, n), REST_ON_SCREEN] : parts;
 }
+
+/** The pieces a whole reply is said in: `brief` for a reply read out by itself, then the first piece kept short. */
+export const plan = (text: string, isBrief: boolean): string[] => {
+  const s = sentences(clean(text));
+  return quickFirst(isBrief ? brief(s) : s);
+};
+
+/**
+ * [ci] A REPLY SAID AS IT IS WRITTEN (NEXT ci.u1): the brain sends a long reply a sentence at a time, and the voice starts on the
+ * first while the rest is still being written, about a third of a second sooner. The pieces are exactly those the whole reply
+ * would have been said in (`plan`): the first kept short, a reply read out by itself stopping after about half a minute with "The
+ * rest is on screen." `add` takes what the brain just sent and gives the new pieces to say; `finish` takes the whole reply and gives
+ * what is still to be said, or null when what was said does not match the whole (then the whole is said again from the start,
+ * unless he has already heard part of it).
+ */
+export class SpokenPlan {
+  /** Every piece given so far, in order. */
+  readonly said: string[] = [];
+  /** The reply's sentences so far (before the first is cut short), for the half-minute measure. */
+  private sents: string[] = [];
+  private used = 0;
+  /** The half-minute was reached: nothing more is said (the rest is on screen). */
+  full = false;
+  constructor(private readonly isBrief: boolean) {}
+  add(text: string): string[] {
+    if (this.full) return [];
+    const out: string[] = [];
+    for (const s of sentences(clean(text))) {
+      if (this.isBrief && this.sents.length && this.used + s.length > 480) {
+        out.push(REST_ON_SCREEN);
+        this.full = true;
+        break;
+      }
+      this.used += s.length + 1;
+      this.sents.push(s);
+      if (this.sents.length === 1) out.push(...quickFirst([s]));
+      else out.push(s);
+    }
+    this.said.push(...out);
+    return out;
+  }
+  finish(whole: string): string[] | null {
+    const all = plan(whole, this.isBrief);
+    const n = this.said.length;
+    for (let i = 0; i < n; i++) if (all[i] !== this.said[i]) return null;
+    const rest = all.slice(n);
+    this.said.push(...rest);
+    this.full = true;
+    return rest;
+  }
+}

@@ -25,7 +25,7 @@ import { clearTag, graceOn, hear, heardNote, hold, labelOf, type Label } from '.
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
-import { onCutOff, speak, stopListening, stopSpeaking, takeSound } from './voice';
+import { onCutOff, speak, speakStream, stopListening, stopSpeaking, takeSound, type SpokenStream } from './voice';
 import { BARE, afterLine, askLine, progressLine, toolLine } from './narrate';
 import { continueIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
@@ -282,6 +282,8 @@ let turnVoice: Label | undefined;
 
 /** The entry (by its tag) a reply is being drawn in, a sentence at a time (BRIEF-KERNEL-YES 2); null when none is. */
 let drawing: number | null = null;
+/** [ci] The reply being said as it is written (NEXT ci.u1): its pieces go to the voice as they come. */
+let saying: SpokenStream | null = null;
 
 function handle(ev: ChatEvent): void {
   showNote(ev); // [showme] what this turn brought, for the Stage (nothing is drawn here)
@@ -350,11 +352,14 @@ function handle(ev: ChatEvent): void {
       // [health] while a thing it did is being read back, the pieces are not drawn: the whole reply is held as "Setting it…" below
       if (ev.part && verifies.length) break;
       if (ev.part) {
-        if (drawing === null) {
-          drawing = stamp();
-          chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at: drawing!, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: ev.text }));
-        } else {
-          const at = drawing;
+        const first = drawing === null;
+        if (first) drawing = stamp();
+        const at = drawing!;
+        // [ci] said as it is written (NEXT ci.u1): the voice starts on the first sentence while the rest is still coming
+        if (first && speakReplies && settings.get().speak) saying = speakStream({ owner: String(at), brief: true });
+        saying?.add(ev.text);
+        if (first) chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: ev.text }));
+        else {
           let grown = ev.text;
           chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && e.at === at ? ((grown = e.text + ev.text), { ...e, text: grown }) : e)), live: grown }));
         }
@@ -362,7 +367,11 @@ function handle(ev: ChatEvent): void {
       }
       const drawn = drawing;
       drawing = null;
+      // (what was being said of the pieces: finished from the whole below, or let go when the brain took them back)
+      const said = saying;
+      saying = null;
       if (drawn !== null && !ev.text) {
+        said?.drop();
         chat.set((s) => ({ entries: s.entries.filter((e) => !(e.kind === 'assistant' && e.at === drawn)), live: '' }));
         break;
       }
@@ -370,6 +379,7 @@ function handle(ev: ChatEvent): void {
       // [health] the reply's line is held as "Setting it…" until what it says it did has been read back: then its sentence stands
       // with the tick, or it says it cannot see it yet (never a bare "Done")
       if (verifies.length && ev.text) {
+        said?.drop();
         const pend = verifies;
         verifies = [];
         chat.set((s) => ({ entries: [...s.entries.filter((e) => !(e.kind === 'assistant' && e.at === at)), { kind: 'assistant' as const, text: 'Setting it…', at, held: true }].slice(-120), live: 'Setting it…' }));
@@ -388,7 +398,8 @@ function handle(ev: ChatEvent): void {
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
       const cited = looksCited(ev.text);
       // [talk] the voice is asked first, then the chat and the caption in one repaint: the first word does not wait on drawing
-      if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
+      if (said) said.end(cited ? spokenOf(ev.text) : ev.text);
+      else if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
       if (drawn !== null) chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && e.at === drawn ? { ...e, text: ev.text } : e)), live: cited ? citedBody(ev.text) : ev.text }));
       else chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: cited ? citedBody(ev.text) : ev.text }));
       break;
@@ -508,6 +519,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
     if (--streams <= 0) {
       streams = 0;
       drawing = null; // (a reply drawn in pieces that never finished must not take the next turn's pieces in)
+      saying = null;
       if (turn.get().phase !== 'stopped') phase('idle');
       ui.set({ busy: false, status: '' });
       if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
