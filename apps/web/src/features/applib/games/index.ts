@@ -8,6 +8,7 @@ import type { KitApp } from '../../../ui/appkit';
 import { stateCard } from '../../../ui/appkit';
 import { clear } from '../../../core/dom';
 import { type Board, frame } from './frame';
+import { registerRenderer } from '../registry';
 import { sudoku } from './sudoku';
 import { mines } from './mines';
 import { merge } from './merge';
@@ -41,3 +42,5 @@ export function gameRenderer(_root: HTMLElement, def: AppDef, k: KitApp): () => 
   }
   return frame(k, def.id, g.kind, g.options ?? {}, board);
 }
+
+registerRenderer('game', (root, def, k) => gameRenderer(root, def, k));

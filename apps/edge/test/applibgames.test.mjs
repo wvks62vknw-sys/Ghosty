@@ -1,5 +1,6 @@
 // THE APP LIBRARY's game kinds (packages/shared/src/applib/games): every puzzle solvable with one answer where the genre
-// asks for it, a fair first move, the scoring, and the win and the loss for each kind. Run from appkit.test.mjs.
+// asks for it, a fair first move, the scoring, and the win and the loss for each kind; and App Maker's drafts (draft.ts), each
+// one passing the engine's own validator. Run from appkit.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
@@ -14,6 +15,15 @@ await build({
   logLevel: 'warning',
 });
 const G = await import('./.build/applibgames.mjs');
+await build({
+  stdin: { contents: `export * from './packages/shared/src/applib/draft.ts'; export { LIBRARY, validateApp } from './packages/shared/src/applib/index.ts';`, resolveDir: at('../../..'), loader: 'ts' },
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+  outfile: at('./.build/applibdraft.mjs'),
+  logLevel: 'warning',
+});
+const D = await import('./.build/applibdraft.mjs');
 const R = G.rng;
 
 test('the dice: a seed gives the same numbers every time; options are read safely', () => {
@@ -343,4 +353,106 @@ test('dots: closing a box scores and keeps the turn; the fair phone takes a free
   assert.equal(G.dots.over(f), true);
   const s = G.dots.tally(f);
   assert.equal(s.me + s.cpu, 9);
+});
+
+// ── App Maker (packages/shared/src/applib/draft.ts) ───────────────────────────────
+
+const taken = () => D.LIBRARY.map((a) => a.id);
+const valid = (d, extra = []) => assert.deepEqual(D.check(d, [...taken(), ...extra]), [], `${d.id}: ${D.check(d, [...taken(), ...extra]).join('; ')}`);
+
+test('App Maker: a blank app of every archetype it makes passes the engine\'s validator', () => {
+  assert.deepEqual(D.MAKER_ARCHETYPES, ['log', 'checklist', 'counter', 'timer', 'deck', 'game']);
+  for (const a of D.MAKER_ARCHETYPES) {
+    const d = D.blank(a, 'my wine notes', taken());
+    assert.equal(d.archetype, a);
+    assert.equal(d.name, 'My Wine Notes');
+    assert.match(d.id, /^mine-/);
+    valid(d);
+  }
+  assert.equal(D.titleCase('a list of the things for my holiday in spain'), 'A List of the');
+  assert.equal(D.freeId('Vinyl', ['mine-vinyl']), 'mine-vinyl-2');
+});
+
+test('App Maker: every field type can be added, moved, changed and removed, and the app stays valid', () => {
+  let d = D.blank('log', 'Everything', taken());
+  for (const { type, name } of D.FIELD_TYPES) d = D.addField(d, name, type);
+  assert.equal(d.log.fields.length, 3 + 14);
+  assert.deepEqual([...new Set(d.log.fields.map((f) => f.type))].sort(), D.FIELD_TYPES.map((t) => t.type).sort());
+  assert.deepEqual(d.log.fields.find((f) => f.type === 'choice').options, ['First', 'Second', 'Third']);
+  assert.equal(new Set(d.log.fields.map((f) => f.id)).size, d.log.fields.length, 'field ids stay unique');
+  valid(d);
+  d = D.changeField(d, 'choice', { label: 'Shelf', options: ['Top', 'Middle', 'Bottom'] });
+  assert.equal(d.log.fields.find((f) => f.id === 'choice').label, 'Shelf');
+  d = D.setViews(d, ['board', 'gallery', 'calendar', 'list']);
+  assert.deepEqual(d.log.views, ['board', 'gallery', 'calendar', 'list']);
+  assert.ok(d.log.group);
+  d = D.addStat(d, { label: 'Total spent', kind: 'sum', field: 'money' });
+  valid(d);
+  const before = d.log.fields.map((f) => f.id);
+  d = D.moveField(d, 'money', -1);
+  assert.notDeepEqual(d.log.fields.map((f) => f.id), before);
+  d = D.removeField(d, 'date');
+  d = D.removeField(d, 'money');
+  d = D.removeField(d, 'choice');
+  assert.ok(!d.log.stats.some((s) => s.field === 'money'), 'a stat on a removed field goes too');
+  assert.ok(!d.log.views.includes('board') || d.log.group, 'no board without a group');
+  valid({ ...d, log: { ...d.log, views: D.possibleViews(d.log).filter((v) => d.log.views.includes(v)) } });
+  const g = D.setGlyph(D.rename(d, 'record shelf'), 'music');
+  assert.equal(g.name, 'Record Shelf');
+  assert.equal(g.glyph, 'music');
+  assert.equal(D.setGlyph(g, 'nonsense').glyph, 'music');
+});
+
+test('App Maker: duplicate and change any Library app, under his own id', () => {
+  const src = D.LIBRARY.find((a) => a.archetype === 'log') ?? D.blank('log', 'Seed', []);
+  const d = D.duplicate(src, taken());
+  assert.notEqual(d.id, src.id);
+  assert.ok(!taken().includes(d.id));
+  assert.equal(d.archetype, src.archetype);
+  if (src.log) assert.deepEqual(d.log.fields, src.log.fields);
+  valid(d);
+  const e = D.addField(d, 'Where bought', 'text');
+  assert.ok(e.log.fields.some((f) => f.label === 'Where bought'));
+  valid(e);
+});
+
+test('App Maker: "make me an app for my vinyl" and other words become a first draft, shown with what was assumed', () => {
+  const v = D.fromWords('make me an app for my vinyl', taken());
+  assert.equal(v.def.name, 'My Vinyl');
+  assert.equal(v.def.archetype, 'log');
+  assert.ok(['album', 'artist', 'year', 'condition', 'paid'].every((id) => v.def.log.fields.some((f) => f.id === id)));
+  assert.ok(v.def.log.views.includes('gallery'));
+  assert.ok(v.assumed.length >= 1);
+  valid(v.def);
+  const cases = [
+    ['an app to keep my books', 'log', 'Bookshelf'],
+    ['track my water, 8 glasses a day', 'log', 'Water'],
+    ['a packing list for Spain: passport, charger, sun cream', 'checklist', 'Packing'],
+    ['a plank timer 30 seconds on 10 seconds off 5 rounds', 'timer', 'Plank'],
+    ['keep score for darts between Sam and me', 'counter', 'Darts'],
+    ['flash cards for French verbs', 'deck', 'French'],
+    ['a sudoku game', 'game', 'Sudoku'],
+    ['make me a word search puzzle game', 'game', 'Word Search'],
+    ['an app for my houseplants', 'log', 'Plants'],
+    ['an app for my fishing trips', 'log', 'Fishing'],
+    ['a daily habits tracker: read, stretch, no phone after ten', 'checklist', 'Habits'],
+  ];
+  for (const [words, arch, inName] of cases) {
+    const r = D.fromWords(words, taken());
+    assert.equal(r.def.archetype, arch, words);
+    assert.ok(r.def.name.includes(inName), `${words} → ${r.def.name}`);
+    valid(r.def);
+  }
+  const water = D.fromWords('track my water, 8 glasses a day', taken()).def;
+  assert.equal(water.log.stats[0].goal, 8);
+  assert.equal(D.fromWords('a sudoku game', taken()).def.game.kind, 'sudoku');
+  const plank = D.fromWords('a plank timer 30 seconds on 10 seconds off 5 rounds', taken()).def;
+  assert.equal(plank.timer.rounds, 5);
+  // honest when it cannot
+  const live = D.fromWords('an app with live train times', taken());
+  assert.ok(live.cannot && /live/.test(live.cannot));
+  assert.ok(D.fromWords('a mortgage calculator', taken()).cannot);
+  // the id stays free of his own apps too
+  const again = D.fromWords('make me an app for my vinyl', [...taken(), v.def.id]);
+  assert.notEqual(again.def.id, v.def.id);
 });

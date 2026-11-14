@@ -140,6 +140,12 @@ export function frame(k: KitApp, id: string, kind: string, opts: Opts, board: Bo
   const cover = h('div.al-gcover', { hidden: true });
   const wrap = h('div.al-game', { dataset: { kind } }, bar, h('div.al-gstagewrap', stage, cover), keysEl);
   clear(k.body, wrap);
+  // the kit redraws its list on a tour step or a search: the game stays the one thing in the scroll area
+  const ownRender = k.render;
+  k.render = () => {
+    ownRender.call(k);
+    if (k.body.firstChild !== wrap || k.body.childNodes.length !== 1) k.body.replaceChildren(wrap);
+  };
 
   let elapsed = 0;
   let startedAt = performance.now();
@@ -262,6 +268,7 @@ export function frame(k: KitApp, id: string, kind: string, opts: Opts, board: Bo
   } else begin(null, 0);
 
   return () => {
+    k.render = ownRender;
     document.removeEventListener('visibilitychange', onHide);
     if (typeof stop === 'function') stop();
   };
