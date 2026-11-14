@@ -14,6 +14,20 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [lens] THE NEXT ROUND: the camera as the front door
+  { day: '2026-11-14', title: 'Two packets side by side', line: 'Scan one packet, then another, and say “which is better”: the two side by side per 100 g, the better figure marked, from the open food databases.' },
+  { day: '2026-11-14', title: 'What a heater costs to run', line: 'Point the Lens at an appliance’s rating plate: about what an hour costs at full power, at your own price per unit if you set it. Always a first estimate.' },
+  { day: '2026-11-14', title: 'A medicine box to its NHS page', line: 'Point the Lens at a medicine box: it reads it aloud, and OPEN THE NHS PAGE shows the NHS’s own public page about it. I never give medical advice.' },
+  { day: '2026-11-14', title: 'Pages snap themselves', line: 'Lens → SCAN → DOCUMENT: hold the phone over a page and keep still. It finds the edges and takes the page by itself, then waits for you to turn to the next one. A stack becomes one PDF. AUTO turns it off.' },
+  { day: '2026-11-14', title: 'Stars and planets in AIM', line: 'Hold the Lens up at the night sky in AIM: the Moon (and how full it is), the planets and the brightest stars are named over the picture, worked out on your phone with no internet. The SKY button hides them.' },
+  { day: '2026-11-14', title: 'A business card into your contacts', line: 'Point the Lens at a business card: ADD TO CONTACTS hands its name, numbers and email to your phone’s contacts. It is made on the phone, and nobody is looked up.' },
+  { day: '2026-11-14', title: 'The next buses from a stop sign', line: 'Point the Lens at a bus stop sign and say “when’s the next bus”: the times come up on the card, asked by the stop’s name, never by where you are.' },
+  { day: '2026-11-14', title: 'Receipts and bills from the Lens', line: 'Point the Lens at a receipt: one tap puts it into this month’s spending, one more keeps its warranty. A bill goes into your bills, with a reminder two days before it is due.' },
+  { day: '2026-11-14', title: 'A whole menu in English', line: 'Point the Lens at a menu in another language: each line’s English sits over that line, and the card lists every line with its English.' },
+  { day: '2026-11-14', title: 'What you avoid, on every packet', line: 'Tell the Lens once what you are allergic to or avoid (“I’m allergic to peanuts”, “I’m vegan”): every packet you scan gets a red, amber or green line for you. The list stays on this phone.' },
+  // [boot] the next round's opening (docs/build-plan/NEXT-BOOT.md)
+  { day: '2026-11-14', title: 'The opening, your way', line: 'Settings → VOICE & HOME → THE OPENING: the full film, the short one, or the full film once a day; your own opening line; and how smoothly the last one ran. Say “short opening” or “director mode”.' },
+  { day: '2026-11-14', title: 'An opening that knows your day', line: 'The opening now ends on what matters today: your next thing, a to-do due, or rain. After days away it says how long it has been, and “Sam’s turn” greets someone you introduced.' },
   // [keep] NEXT ROUND, MEMORY lane: a memory that keeps your word
   { day: '2026-11-14', title: 'I keep your word', line: 'Say “I’ll send Jo the photos tomorrow” and I remind you on the day; “I sent them” ticks it off. Memory → YOUR WORD lists what you said you’d do, where you put things and why you chose them.' },
   { day: '2026-11-14', title: 'Where you put it, even offline', line: 'Tell me “the spare key is in the blue tin”, then ask “where’s the spare key?” any time, with no signal too.' },

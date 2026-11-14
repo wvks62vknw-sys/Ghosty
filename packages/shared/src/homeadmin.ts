@@ -94,7 +94,8 @@ export function readBill(raw: string, today: string): BillRead {
     const w = flat.toLowerCase();
     kind = /\bgas\b/.test(w) && /electric|kwh/.test(w) ? 'gas and electricity' : /electric|kwh/.test(w) ? 'electricity' : /\bgas\b/.test(w) ? 'gas' : /water|sewerage/.test(w) ? 'water' : /broadband|fibre|wi-?fi/.test(w) ? 'broadband' : /council tax/.test(w) ? 'council tax' : /insurance|policy/.test(w) ? 'insurance' : /mobile|sim\b|airtime/.test(w) ? 'phone' : 'other';
   }
-  const label = /(?:amount (?:due|to pay|payable)|total (?:amount )?(?:due|to pay|payable)|balance (?:due|to pay)|please pay|(?:you(?:'ll| will)?|to) pay|new balance|total due|pay this amount|payment due|(?:your )?(?:bill|payment) (?:is|comes to))[^£\d\n-]{0,30}(-?£?\s?\d[\d,]*(?:\.\d{1,2})?)/i.exec(flat);
+  // the labelled amount; a day after the label ("please pay by 14 December") is a date, not the amount
+  const label = [...flat.matchAll(/(?:amount (?:due|to pay|payable)|total (?:amount )?(?:due|to pay|payable)|balance (?:due|to pay|is)|please pay|(?:you(?:'ll| will)?|to) pay|new balance|total due|pay this amount|payment due|(?:your )?(?:bill|payment) (?:is|comes to))[^£\d\n-]{0,30}(-?£?\s?\d[\d,]*(?:\.\d{1,2})?)/gi)].find((m) => /£|\./.test(m[1]!) || !(/^\s*(?:st|nd|rd|th)?\s*(?:of\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(flat.slice(m.index + m[0].length)) || /\b(?:by|on|before)\s*$/i.test(m[0].slice(0, -m[1]!.length)))) ?? null;
   let amount: number | null = null;
   let credit = false;
   if (label) {
@@ -188,7 +189,9 @@ export function readReceipt(raw: string, today: string): Receipt {
   const lines = fixOcr(raw).split('\n').map((l) => clean(l)).filter(Boolean);
   const flat = lines.join(' ');
   const store = lines.find((l) => /[A-Za-z]{3}/.test(l) && l.length <= 36 && !/receipt|vat|tel|www\.|tax invoice/i.test(l)) ?? '';
-  const tot = /(?:total|amount|balance due|to pay)[^£\d]{0,14}£?\s?(\d[\d,]*\.\d{2})/i.exec(flat);
+  // the TOTAL, not a SUBTOTAL before the savings: a whole word, and the last one on the receipt
+  const totals = [...flat.matchAll(/(?<![a-z-])(?:total|amount|balance due|to pay)\b[^£\d]{0,14}£?\s?(\d[\d,]*\.\d{2})/gi)];
+  const tot = totals.length ? totals[totals.length - 1]! : null;
   const skip = /total|vat|change|card|visa|mastercard|thank|receipt|tel\b|www|date|time|balance|cash|subtotal|items?\b|store|till|vat no|invoice|order/i;
   const item = lines.find((l) => /[A-Za-z]{4}/.test(l) && /£?\s?\d+\.\d{2}\s*$/.test(l) && !skip.test(l));
   return {

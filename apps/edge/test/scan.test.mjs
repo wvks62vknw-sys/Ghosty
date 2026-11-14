@@ -185,6 +185,82 @@ test('straightening: corners go to the page corners, A4-shaped, and the page com
   assert.throws(() => P.homography([{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }], to), /do not make a page/);
 });
 
+// AUTO (lens.u6): the page is taken when he holds still, once, and again only after the scene changes.
+const FRAME = { w: 256, h: 320 };
+/** A page filling about half the frame, shifted by (dx, dy). */
+const pageAt = (dx = 0, dy = 0) => [{ x: 40 + dx, y: 40 + dy }, { x: 216 + dx, y: 44 + dy }, { x: 212 + dx, y: 280 + dy }, { x: 36 + dx, y: 276 + dy }];
+/** Feed AUTO a run of looks ([quad or null, t]); the acts it gave, and where it ended. */
+const feed = (looks, s = P.STEADY_START, opts) => {
+  const acts = [];
+  for (const [q, t] of looks) {
+    const r = P.steadyStep(s, q, t, FRAME, opts);
+    s = r.s;
+    acts.push(r.act);
+  }
+  return { acts, s, takes: acts.filter((a) => a === 'take').length };
+};
+const every = (from, to, step, q) => Array.from({ length: Math.floor((to - from) / step) + 1 }, (_, i) => [typeof q === 'function' ? q(i) : q, from + i * step]);
+
+test('AUTO: a page held still for about a second is taken, once, with a little shake allowed', () => {
+  // a look every 250 ms for 1 s, each corner wobbling a pixel or two (under 2 % of 320 = 6.4 px)
+  const r = feed(every(0, 1000, 250, (i) => pageAt(i % 2 ? 2 : -1, i % 2 ? -2 : 1)));
+  assert.equal(r.takes, 1, `acts: ${r.acts.join(' ')}`);
+  assert.equal(r.acts.at(-1), 'take');
+  assert.deepEqual(r.acts.slice(0, 4), ['settle', 'settle', 'settle', 'settle'], 'holding still says so until it is taken');
+  assert.equal(r.s.armed, false, 'not ready again straight after a take');
+  // under 900 ms still is not long enough
+  assert.equal(feed(every(0, 750, 250, pageAt())).takes, 0);
+  // progress grows while it settles
+  const a = P.steadyStep(P.STEADY_START, pageAt(), 0, FRAME);
+  const b = P.steadyStep(a.s, pageAt(), 450, FRAME);
+  assert.equal(a.progress, 0);
+  assert.ok(Math.abs(b.progress - 0.5) < 1e-9, `progress ${b.progress}`);
+});
+
+test('AUTO: a moving page, a small page and no page are never taken', () => {
+  // the page sliding 8 px a look (over 2 % of the frame each time) for 3 s
+  const moving = feed(every(0, 3000, 250, (i) => pageAt(i * 8, 0)));
+  assert.equal(moving.takes, 0, `acts: ${moving.acts.join(' ')}`);
+  assert.ok(moving.acts.every((x) => x === 'settle'));
+  // creeping 3 px a look (each look within 2 % of the last) adds up: still is measured from where it began, not from the last look
+  const creep = feed(every(0, 3000, 250, (i) => pageAt(i * 3, 0)));
+  assert.equal(creep.takes, 0, `creeping: ${creep.acts.join(' ')}`);
+  // a page covering a tenth of the frame: too small to be the page he is scanning
+  const small = [{ x: 100, y: 100 }, { x: 160, y: 100 }, { x: 160, y: 190 }, { x: 100, y: 190 }];
+  assert.equal(feed(every(0, 3000, 250, small)).takes, 0);
+  const none = feed(every(0, 3000, 250, null));
+  assert.equal(none.takes, 0);
+  assert.ok(none.acts.every((x) => x === 'search'));
+});
+
+test('AUTO: after a take the same still page is not taken again, however long it stays', () => {
+  const first = feed(every(0, 1000, 250, pageAt()));
+  assert.equal(first.takes, 1);
+  const stays = feed(every(1250, 30000, 250, (i) => pageAt(i % 3, -(i % 2))), first.s);
+  assert.equal(stays.takes, 0, 'the same page twice');
+  assert.ok(stays.acts.every((x) => x === 'wait'));
+  assert.equal(stays.s.armed, false);
+  // one look that misses the page (a blink of the finder) is not a turned page
+  const blink = feed([[null, 30250], [pageAt(), 30500], ...every(30750, 33000, 250, pageAt())], stays.s);
+  assert.equal(blink.takes, 0, `acts: ${blink.acts.join(' ')}`);
+});
+
+test('AUTO: the page lost and found again (turned, or moved away and back) is taken again; so is a page moved a long way', () => {
+  const first = feed(every(0, 1000, 250, pageAt()));
+  // half a second with no page in view (the page turned), then the next page held still
+  const turned = feed([...every(1250, 1750, 250, null), ...every(2000, 3000, 250, pageAt())], first.s);
+  assert.equal(turned.takes, 1, `acts: ${turned.acts.join(' ')}`);
+  assert.ok(turned.acts.includes('search'), 'ready again while the page is gone');
+  // and that one is not taken twice either
+  assert.equal(feed(every(3250, 6000, 250, pageAt()), turned.s).takes, 0);
+  // a page slid far across (a new page put down): taken once it holds still there
+  const slid = feed([...every(1250, 1500, 250, pageAt(30, 20)), ...every(1750, 3000, 250, pageAt(30, 20))], first.s);
+  assert.equal(slid.takes, 1, `acts: ${slid.acts.join(' ')}`);
+  // the corners furthest moved, and STEADY_START left as it was
+  assert.equal(P.cornerShift(pageAt(), pageAt(3, 4)), 5);
+  assert.deepEqual(P.STEADY_START, { armed: true, anchor: null, since: 0, taken: null, changed: -1 });
+});
+
 test('the barcode reader ships both its licences: zxing-wasm (MIT) and zxing-cpp compiled into the wasm (Apache-2.0)', async () => {
   const { readFile } = await import('node:fs/promises');
   const dir = new URL('../../web/public/vendor/', import.meta.url);
