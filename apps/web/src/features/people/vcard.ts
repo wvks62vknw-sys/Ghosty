@@ -110,8 +110,8 @@ export function planIcs(p: { id?: string; what: string; where?: string; when?: s
   if (p.time && /^\d{2}:\d{2}$/.test(p.time)) {
     const [hh, mm] = p.time.split(':').map(Number) as [number, number];
     const end = new Date(Date.UTC(+p.when.slice(0, 4), +p.when.slice(5, 7) - 1, +p.when.slice(8, 10), hh + 2, mm));
-    const e = `${end.getUTCFullYear()}${String(end.getUTCMonth() + 1).padStart(2, '0')}${String(end.getUTCDate()).padStart(2, '0')}T${String(end.getUTCHours()).padStart(2, '0')}${String(end.getUTCMinutes()).padStart(2, '0')}00`;
-    when = [`DTSTART:${d}T${p.time.replace(':', '')}00`, `DTEND:${e}`];
+    const until = `${end.getUTCFullYear()}${String(end.getUTCMonth() + 1).padStart(2, '0')}${String(end.getUTCDate()).padStart(2, '0')}T${String(end.getUTCHours()).padStart(2, '0')}${String(end.getUTCMinutes()).padStart(2, '0')}00`;
+    when = [`DTSTART:${d}T${p.time.replace(':', '')}00`, `DTEND:${until}`];
   } else {
     const next = new Date(Date.UTC(+p.when.slice(0, 4), +p.when.slice(5, 7) - 1, +p.when.slice(8, 10) + 1));
     when = [`DTSTART;VALUE=DATE:${d}`, `DTEND;VALUE=DATE:${next.toISOString().slice(0, 10).replace(/-/g, '')}`];
