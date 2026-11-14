@@ -288,7 +288,11 @@ async function run(vp, body) {
     await box.fill('');
   }
 
-  // (f) MEMORY → YOUR WORD
+  // (f) MEMORY → YOUR WORD (with one chat pinned, as the exchange card's PIN keeps it)
+  if (!body) await page.evaluate((k) => localStorage.setItem('ghosty.recall.pinned', JSON.stringify([k])), `t:${TURNS[0].at}`);
+  // (from Home, so MEMORY is entered afresh and reads what is pinned)
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForFunction(() => document.body.dataset.tab === 'core', null, { timeout: 8000 }).catch(() => undefined);
   await page.evaluate(() => (location.hash = 'memory'));
   await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
   await openSection(page, 'memory', 'Your word');
@@ -297,6 +301,12 @@ async function run(vp, body) {
   check(shown, `${T} [f] YOUR WORD did not show: "${panelText.slice(0, 200)}"`);
   for (const [what, re] of [['the heading', /You said you’d/], ['the place', /The spare key in the blue tin/], ['the reason', /The canal flat: it(?:'|’)s quieter/], ['the week', /Your week/]]) check(re.test(panelText), `${T} [f] ${what} is not in YOUR WORD: "${panelText.slice(0, 260)}"`);
   check(/send Jo the photos/.test(panelText), `${T} [f] the promise is not in YOUR WORD (open or done)`);
+  // (n) a chat he pinned (the exchange card's PIN) is listed under "Chats you pinned" with UNPIN (the sweep: Apple Notes' pinned)
+  if (!body) {
+    const pinned = await page.waitForFunction(() => /Chats you pinned.*how do I fix a squeaky door/.test(document.querySelector('#pg-memory .pn.keep')?.textContent ?? ''), null, { timeout: 8000 }).then(() => true, () => false);
+    check(pinned, `${T} [n] the pinned chat is not listed in YOUR WORD: ${JSON.stringify(await page.evaluate(() => ({ pins: localStorage.getItem('ghosty.recall.pinned'), heads: [...document.querySelectorAll('#pg-memory .pn.keep .keephead')].map((x) => x.textContent) })))} ${await page.evaluate(() => new Promise((ok) => { const r = indexedDB.open('ghosty-recall', 1); r.onsuccess = () => { const q = r.result.transaction('things').objectStore('things').getAllKeys(); q.onsuccess = () => ok(q.result.filter((k) => String(k).startsWith('t:')).join(',')); }; }))}`);
+    check(await page.locator('#pg-memory .pn.keep .keeprow[data-kind="pinned"] button', { hasText: 'UNPIN' }).count() > 0, `${T} [n] no UNPIN on the pinned chat`);
+  }
   const f = await fit(page, '#pg-memory .pn.keep');
   check(!f.small.length, `${T} [f] under 44 pt: ${f.small.join(', ')}`);
   check(!f.sideways, `${T} [f] the page goes sideways`);
