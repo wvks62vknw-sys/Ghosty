@@ -102,7 +102,7 @@ export function sureWords(score: number): string {
 
 // ---------------------------------------------------------------- what he can act on in a read text
 
-export type ActKind = 'date' | 'phone' | 'address' | 'link' | 'email' | 'sum';
+export type ActKind = 'date' | 'phone' | 'address' | 'link' | 'email' | 'sum' | 'parcel' | 'unit' | 'price';
 export interface TextAct {
   kind: ActKind;
   /** The words as they stand in the text. */
@@ -111,6 +111,9 @@ export interface TextAct {
   value: string;
   /** A sum's working, line by line. */
   steps?: string[];
+  /** A price's amount and its currency (ISO, lower case), for IN POUNDS. */
+  amount?: number;
+  cur?: string;
 }
 
 /** A UK number: a bracketed area code and the rest ("(020) 7946 0958"), or +44 or 0 and nine or ten more digits, one space or dash at most between digits. */
@@ -163,6 +166,10 @@ export function textActs(text: string, today: string): TextAct[] {
     taken.push([at, at + len]);
     out.push({ ...a, at });
   };
+  // (the sweep, as Live Text does) a parcel's tracking number, before anything reads its digits as a phone number
+  for (const m of t.matchAll(PARCEL_RE)) add({ kind: 'parcel', text: m[0], value: `https://www.royalmail.com/track-your-item#/tracking-results/${m[0]}` }, m.index ?? 0, m[0].length);
+  for (const p of pricesIn(t)) add({ kind: 'price', text: p.text, value: p.cur, amount: p.amount, cur: p.cur }, p.at, p.text.length);
+  for (const u of unitsIn(t)) add({ kind: 'unit', text: u.text, value: u.said }, u.at, u.text.length);
   for (const m of t.matchAll(URL_RE)) add({ kind: 'link', text: m[0], value: /^https?:/i.test(m[0]) ? m[0] : `https://${m[0]}` }, m.index ?? 0, m[0].length);
   for (const m of t.matchAll(EMAIL)) add({ kind: 'email', text: m[0], value: m[0] }, m.index ?? 0, m[0].length);
   for (const m of t.matchAll(PHONE)) {
@@ -761,4 +768,73 @@ export function bandOf(what: string, per100g: number | undefined): Band | '' {
   const b = BANDS[what as keyof typeof BANDS];
   if (!b || per100g == null || !Number.isFinite(per100g)) return '';
   return per100g > b[0] ? 'high' : per100g <= b[1] ? 'low' : 'medium';
+}
+
+// ---------------------------------------------------------------- parcels, units and prices in print (the sweep: what Live Text finds)
+
+/** A Royal Mail (and every postal service's) tracking number: two letters, nine digits, two letters ("AB123456789GB"). */
+const PARCEL_RE = /\b[A-Z]{2}\d{9}[A-Z]{2}\b/g;
+
+/** A number as he would say it: at most one decimal place for big numbers, two for small. */
+const say1 = (n: number): string => (Math.abs(n) >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10));
+
+/** Imperial and US measures in print, each in the units he uses (Celsius, kilograms, grams, millilitres, centimetres, metres; kilometres in miles). */
+export function unitsIn(text: string): { text: string; at: number; said: string }[] {
+  const t = String(text ?? '');
+  const out: { text: string; at: number; said: string }[] = [];
+  const rules: [RegExp, (n: number) => string][] = [
+    [/(-?\d+(?:\.\d+)?)\s?°\s?F\b/g, (n) => `about ${say1(((n - 32) * 5) / 9)} °C`],
+    [/(\d+(?:\.\d+)?)\s?fl\.?\s?oz\b/gi, (n) => `about ${say1(n * 29.5735)} ml`],
+    [/(\d+(?:\.\d+)?)\s?(?:lbs?)\b/gi, (n) => `about ${say1(n * 0.453592)} kg`],
+    [/(\d+(?:\.\d+)?)\s?oz\b/gi, (n) => `about ${say1(n * 28.3495)} g`],
+    [/(\d+(?:\.\d+)?)\s?(?:inches|inch|″)(?![a-z])/gi, (n) => `about ${say1(n * 2.54)} cm`],
+    [/(\d+(?:\.\d+)?)\s?(?:ft|feet|foot)\b/gi, (n) => `about ${say1(n * 0.3048)} m`],
+    [/(\d+(?:\.\d+)?)\s?(?:km|kilometres|kilometers)\b/gi, (n) => `about ${say1(n * 0.621371)} miles`],
+  ];
+  const taken: [number, number][] = [];
+  for (const [re, conv] of rules) {
+    for (const m of t.matchAll(re)) {
+      const at = m.index ?? 0;
+      if (taken.some(([a, b]) => at < b && at + m[0].length > a)) continue;
+      // "fl oz" is the fluid ounce, never also the ounce
+      if (/oz$/i.test(m[0]) && !/fl/i.test(m[0]) && /fl\.?\s?$/i.test(t.slice(Math.max(0, at - 4), at))) continue;
+      taken.push([at, at + m[0].length]);
+      out.push({ text: m[0], at, said: conv(Number(m[1])) });
+    }
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
+const CUR_SIGN: Record<string, string> = { '€': 'eur', $: 'usd', 'US$': 'usd', '¥': 'jpy', '₺': 'try', 'zł': 'pln', 'Kč': 'czk', CHF: 'chf' };
+const CUR_CODE = /\b(EUR|USD|CHF|PLN|JPY|TRY|SEK|NOK|DKK|CZK|HUF|AUD|CAD)\b/;
+const AMOUNT = '(\\d{1,3}(?:[ .,]\\d{3})*(?:[.,]\\d{1,2})?|\\d+(?:[.,]\\d{1,2})?)';
+
+/** "14,50", "1.234,50", "1,234.50" → the amount (a comma or a point with two digits after it is the decimal mark). */
+function amountOf(s: string): number {
+  const t = s.replace(/\s/g, '');
+  const m = /^(.*)[.,](\d{1,2})$/.exec(t);
+  return m ? Number(`${m[1]!.replace(/[.,]/g, '')}.${m[2]}`) : Number(t.replace(/[.,]/g, ''));
+}
+
+/** Prices in another currency in print ("€14,50", "14.50 €", "US$20", "CHF 12", "120 SEK"); never pounds (he reads those already). */
+export function pricesIn(text: string): { text: string; at: number; amount: number; cur: string }[] {
+  const t = String(text ?? '');
+  const out: { text: string; at: number; amount: number; cur: string }[] = [];
+  const signs = '(US\\$|€|\\$|¥|₺|CHF)';
+  const before = new RegExp(`${signs}\\s?${AMOUNT}`, 'g');
+  const after = new RegExp(`${AMOUNT}\\s?(€|zł|Kč|₺)`, 'g');
+  const code = new RegExp(`(?:${CUR_CODE.source})\\s?${AMOUNT}|${AMOUNT}\\s?(?:${CUR_CODE.source})`, 'g');
+  const push = (whole: string, at: number, amt: string, cur: string) => {
+    const amount = amountOf(amt);
+    if (!(amount > 0) || out.some((o) => at < o.at + o.text.length && at + whole.length > o.at)) return;
+    out.push({ text: whole.trim(), at, amount, cur });
+  };
+  for (const m of t.matchAll(before)) push(m[0], m.index ?? 0, m[2]!, CUR_SIGN[m[1]!]!);
+  for (const m of t.matchAll(after)) push(m[0], m.index ?? 0, m[1]!, CUR_SIGN[m[2]!]!);
+  for (const m of t.matchAll(code)) {
+    const c = (m[1] ?? m[4] ?? '').toLowerCase();
+    const amt = m[2] ?? m[3] ?? '';
+    if (c && amt) push(m[0], m.index ?? 0, amt, c);
+  }
+  return out.sort((a, b) => a.at - b.at);
 }
