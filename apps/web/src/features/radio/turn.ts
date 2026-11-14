@@ -13,7 +13,7 @@ const on = () => {
 const NOTHING = 'Nothing is playing, so there is nothing to stop. Play a station first, then set the timer.';
 
 /** The words of the reply, and what was done (pure of the chat: the spec reads it through radioTurn). */
-async function act(ask: RadioAsk): Promise<string> {
+async function act(ask: Exclude<RadioAsk, { what: 'goodnight' }>): Promise<string> {
   const now = Date.now();
   const p = player.get();
   switch (ask.what) {
@@ -86,5 +86,7 @@ export async function radioTurn(text: string): Promise<PackReply | null> {
   if (!ask) return null;
   // words that do not name the radio ("what's playing", "add this to my favourites") are the radio's only while a station is on
   if ('loose' in ask && ask.loose && !on()) return null;
+  // [planlane2:goodnight] the whole wind-down: the house, this radio's sleep timer, sleep tracking and the day ahead (features/core/goodnight.ts)
+  if (ask.what === 'goodnight') return import('../core/goodnight').then((g) => g.goodnightTurn(text));
   return { said: text, reply: await act(ask), go: OPEN };
 }

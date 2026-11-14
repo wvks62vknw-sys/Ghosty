@@ -23,6 +23,7 @@ import { onLibraryChange, passagesOf } from '../../library/local';
 import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
 import { home, ui } from '../../state/app';
 import { markSeen } from '../core/missed';
+import { nightKeyAt } from '../core/goodnightwords';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
 import { rawText } from '../../ui/hisWords';
@@ -135,6 +136,8 @@ export const briefTab: TabDef = {
       void send(`Give me a sharp spoken briefing in about 90 words from these facts (no need to look anything up), flagging anything that needs my attention. ${greeting(d)}, ${dayName(d)}. WEATHER: ${summary({ ...facts(true), diary: undefined, commute: undefined, todo: undefined }) || 'not known'} DIARY TODAY: ${diary}. ${todos ? `TO-DO TODAY: ${todos}. ` : ''}${commuteWords ? `COMMUTE: ${commuteWords}. ` : ''}HEADLINES: ${topHeadlines().join(' | ') || 'none yet'}`);
     }, 'brme');
     say.after(h('div.bract', readBtn, briefBtn));
+    // [planlane2:goodnight] GOODNIGHT from six in the evening till five: the wind-down, said in the chat like his own "goodnight" (features/core/goodnight.ts)
+    if (nightKeyAt(new Date())) say.nextElementSibling?.append(button('GOODNIGHT', () => { go('core'); void send('goodnight'); }, 'brnight'));
     // YOUR DAY: what is left of today in the diary, the reminders still to go off and anything new in the inbox,
     // first on the page (read from the Agenda's own routes; a tap opens the Agenda).
     const dp = panel('YOUR DAY', { cls: 'brday', grow: false });

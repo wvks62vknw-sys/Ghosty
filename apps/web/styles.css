@@ -9886,6 +9886,18 @@ html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-off
 /* ==== [planlane2:timeline end] ==== */
 
 /* ==== [planlane2:goodnight] ==== */
+/* GOODNIGHT's wind-down (features/core/goodnight.ts): for three seconds the screen settles, the feeds dim and the orb rests ("down"),
+   then the night look comes on and it rests ("rest") until his next touch; the chat's lines stay at full strength to be read. */
+html[data-goodnight] #stage, html[data-goodnight] #top { transition: opacity 3s ease, filter 3s ease; }
+html[data-goodnight="down"] #stage, html[data-goodnight="down"] #top { opacity: .42; filter: saturate(.4); }
+html[data-goodnight="rest"] #top { opacity: .72; filter: saturate(.6); }
+html[data-goodnight="rest"] #stage { transition: opacity .8s ease, filter .8s ease; }
+html[data-goodnight] #stage canvas { transition: opacity 3s ease; }
+html[data-goodnight="down"] #stage canvas, html[data-goodnight="rest"] #stage canvas { opacity: .5; }
+html #pg-brief .bract button.brnight { color: var(--fg); }
+@media (prefers-reduced-motion: reduce) {
+  html[data-goodnight] #stage, html[data-goodnight] #top, html[data-goodnight] #stage canvas { transition: none; }
+}
 
 /* ==== [planlane2:goodnight end] ==== */
 
