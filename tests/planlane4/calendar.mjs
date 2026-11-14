@@ -421,8 +421,14 @@ export async function run(H) {
       if (vp === PHONE) {
         await page.route(/\/api\/agenda\?.*from=/, (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"paused"}' }));
         for (let i = 0; i < 4; i++) await page.click('#pg-agenda .pn.month .yrbar button[aria-label="Next year"]');
-        const bad = await page.waitForSelector('#pg-agenda .pn.month .yrsay[data-state="error"]', { timeout: 10000 }).then((e) => e.textContent(), () => '');
-        check(bad === 'I couldn’t read January, February, March, April, May, June, July, August, September, October, November, December from your brain. Step away and back to try again.', `${tag} a year the brain can't give says so: ${bad}`);
+        // (the line names each month as its read fails, so it is read once all twelve have answered: the words in full)
+        const ALL = 'I couldn’t read January, February, March, April, May, June, July, August, September, October, November, December from your brain. Step away and back to try again.';
+        let bad = '';
+        for (let i = 0; i < 50 && bad !== ALL; i++) {
+          bad = (await page.textContent('#pg-agenda .pn.month .yrsay[data-state="error"]', { timeout: 1000 }).catch(() => '')) ?? '';
+          if (bad !== ALL) await page.waitForTimeout(200);
+        }
+        check(bad === ALL, `${tag} a year the brain can't give says so: ${bad}`);
         await page.unroute(/\/api\/agenda\?.*from=/);
         await page.route(/\/api\/agenda\?.*from=/, (r) => r.abort('internetdisconnected'));
         await page.click('#pg-agenda .pn.month .yrbar button[aria-label="Next year"]');

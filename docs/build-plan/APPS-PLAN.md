@@ -90,6 +90,8 @@ All run on the merged lane branch:
     load time and broke in Node. That listener is now only set where there is a window.
   - One colour read in the calendar's seven-looks check could land on a block the timeline had just redrawn. It now reads again
     from the block on screen, and the check is as strict as before.
+  - The year's "I couldn't read …" line names each month as its read fails, so the check now waits until all twelve have answered.
+    The expected words are the same, in full.
 
 ## What's left
 
