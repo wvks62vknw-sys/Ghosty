@@ -449,8 +449,25 @@ function drawScreen(repaintStreak: () => void): Screen {
     repaintStreak();
     note.textContent = 'There it is, beside the prompt. I do not mark drawings: look at both and ask yourself whether yours says what the prompt says.';
   });
-  const note = h('p.pknote', { 'aria-live': 'polite' }, 'Draw it on paper (or anything), then take its picture: it goes beside the prompt. A drawing is yours to judge; I do not mark it, and the picture stays on this phone.');
-  const el = h('div.codraw', h('div.codrawpair', h('figure.codrawprompt', h('div.codrawtext', p.text), h('figcaption', 'TODAY’S PROMPT')), pic), input, h('div.pkrow', button('TAKE A PICTURE OF IT', () => input.click(), 'on')), note, h('small.pknote', `${p.subject[0]!.toUpperCase()}${p.subject.slice(1)}: a new prompt every day.`));
+  const note = h('p.pknote', { 'aria-live': 'polite' }, 'Draw it here, or on paper and take its picture: it goes beside the prompt. A drawing is yours to judge; I do not mark it, and the picture stays on this phone.');
+  // [paint] DRAW IT HERE: PAINT's studio on today's prompt (features/paint), and what he drew goes beside the prompt
+  const drawHere = button('DRAW IT HERE', async (b) => {
+    b.disabled = true;
+    try {
+      const got = await (await import('../features/paint/app')).drawToday(p.text);
+      if (!got) { note.textContent = 'Nothing drawn this time. DRAW IT HERE opens the canvas again; your painting waits in PAINT.'; return; }
+      if (url) URL.revokeObjectURL(url);
+      url = URL.createObjectURL(got);
+      clear(pic, h('img', { src: url, alt: 'Your drawing' }), h('figcaption', 'YOURS'));
+      coachState.draw.shown = true;
+      coachState.draw.done = true;
+      save(recordDrawing(prog, today()));
+      repaintStreak();
+      note.textContent = 'There it is, beside the prompt, and kept in PAINT’s gallery with its time-lapse. I do not mark drawings: look at both and ask yourself whether yours says what the prompt says.';
+    } finally { b.disabled = false; }
+  });
+  drawHere.setAttribute('aria-label', 'Draw it here with a finger or an Apple Pencil');
+  const el = h('div.codraw', h('div.codrawpair', h('figure.codrawprompt', h('div.codrawtext', p.text), h('figcaption', 'TODAY’S PROMPT')), pic), input, h('div.pkrow', drawHere, button('TAKE A PICTURE OF IT', () => input.click(), 'on')), note, h('small.pknote', `${p.subject[0]!.toUpperCase()}${p.subject.slice(1)}: a new prompt every day.`));
   return { el, stop: () => url && URL.revokeObjectURL(url) };
 }
 

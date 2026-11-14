@@ -16,7 +16,7 @@ import { drawCover, drawPage, hitOf, photosReady, type Drawn } from './art';
 import { bookletOf, cbzOf, importFiles, panelsOf, pdfOf, sniff } from './files';
 import { getRarReader, isRarNeeded, RAR_BYTES } from './rar';
 import { creditOf, fetchPd, fileOf, onMobileData, PD_QUERY, searchPd, type PdFile, type PdItem } from './library';
-import { nextIssue, blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
+import { KIND_NAMES, nextIssue, blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
 import { openReader, readingLog, type ReadSource } from './reader';
 import { allMade, bookOf, books, dropBook, keepBook, keepMade, madeOf, pageOf, shelfInfo, updateBook, type Book } from './store';
 import { comicState } from './state';
@@ -683,7 +683,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     const balloonRow = (b: Balloon, i: number) => h('div', { dataset: { balloon: b.id }, class: b.id === balloon ? 'cxballoon on' : 'cxballoon' },
       h('div.cxrow',
         sel(`Who says line ${i + 1}`, c.cast.map((m) => m.id), b.who as string, (v) => ((b.who = v), changed()), nameOf),
-        sel(`Balloon ${i + 1}`, KINDS, b.kind, (v) => ((b.kind = v), changed()), { speech: 'Speech', thought: 'Thought', shout: 'Shout', whisper: 'Whisper' }),
+        sel(`Balloon ${i + 1}`, KINDS, b.kind, (v) => ((b.kind = v), changed()), KIND_NAMES),
       ),
       text(`Line ${i + 1}`, b.text, (v) => ((b.text = v), changed()), { area: true, max: 200 }),
       h('div.cxrow',

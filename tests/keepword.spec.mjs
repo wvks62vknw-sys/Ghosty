@@ -5,7 +5,8 @@
 //  (d) "what did I never get an answer to?" lists the question whose answer was "I couldn't find…", with ASK AGAIN;
 //  (e) "what did I do yesterday?" rebuilds the day from his own turns; "what did I ask last week about trains?" keeps to last week;
 //  (f) MEMORY → YOUR WORD shows the promise, the place, the reason and the week; every key 44 pt, nothing sideways, nothing cut at BODY 21;
-//  (g) "how was my week?" says the week in a line or two.
+//  (g) "how was my week?" says the week in a line or two;
+//  (p) LOOK BACK on a reason sets a reminder three months on, and NO LOOK BACK takes it off.
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/keepword.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
@@ -309,6 +310,16 @@ async function run(vp, body) {
   check(shown, `${T} [f] YOUR WORD did not show: "${panelText.slice(0, 200)}"`);
   for (const [what, re] of [['the heading', /You said you’d/], ['the place', /The spare key in the blue tin/], ['the reason', /The canal flat: it(?:'|’)s quieter/], ['the week', /Your week/]]) check(re.test(panelText), `${T} [f] ${what} is not in YOUR WORD: "${panelText.slice(0, 260)}"`);
   check(/send Jo the photos/.test(panelText), `${T} [f] the promise is not in YOUR WORD (open or done)`);
+  // (p) LOOK BACK on a reason: a reminder three months on, said under it; NO LOOK BACK takes it off
+  if (!body) {
+    const why = page.locator('#pg-memory .pn.keep .keeprow[data-kind="why"]').first();
+    await why.locator('button', { hasText: /^LOOK BACK$/ }).click().catch(() => problems.push(`${T} [p] no LOOK BACK on the reason`));
+    const set = await page.waitForFunction(() => /look back /i.test(document.querySelector('#pg-memory .pn.keep .keeprow[data-kind="why"] small')?.textContent ?? '') && Object.values(JSON.parse(localStorage.getItem('ghosty.keep.lookback') ?? '{}')).some((x) => x.job), null, { timeout: 8000 }).then(() => true, () => false);
+    check(set, `${T} [p] LOOK BACK did not set its reminder`);
+    await page.locator('#pg-memory .pn.keep .keeprow[data-kind="why"]').first().locator('button', { hasText: 'NO LOOK BACK' }).click().catch(() => problems.push(`${T} [p] no NO LOOK BACK`));
+    const off = await page.waitForFunction(() => !Object.keys(JSON.parse(localStorage.getItem('ghosty.keep.lookback') ?? '{}')).length, null, { timeout: 5000 }).then(() => true, () => false);
+    check(off, `${T} [p] NO LOOK BACK left it set`);
+  }
   // (n) a chat he pinned (the exchange card's PIN) is listed under "Chats you pinned" with UNPIN (the sweep: Apple Notes' pinned)
   if (!body) {
     const pinned = await page.waitForFunction(() => /Chats you pinned.*how do I fix a squeaky door/.test(document.querySelector('#pg-memory .pn.keep')?.textContent ?? ''), null, { timeout: 8000 }).then(() => true, () => false);

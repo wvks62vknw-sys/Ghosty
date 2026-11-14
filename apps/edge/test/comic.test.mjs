@@ -232,3 +232,14 @@ test('ComicInfo.xml: the series, issue and title make the shelf\'s title; the wr
   assert.deepEqual(F.comicInfoOf('<ComicInfo><Title>Alone</Title><Manga>No</Manga></ComicInfo>'), { title: 'Alone', info: {} });
   assert.deepEqual(F.comicInfoOf('not xml at all'), { info: {} });
 });
+
+test('two more balloons: a voice down a phone or a radio, and a robot; each named in the editor, and read from a script', () => {
+  assert.deepEqual(M.KINDS, ['speech', 'thought', 'shout', 'whisper', 'radio', 'robot']);
+  for (const k of M.KINDS) assert.ok(M.KIND_NAMES[k], `${k} is named`);
+  const base = M.writeComic({ idea: 'a robot who calls home', seed: 5 });
+  const text = ['TITLE: Calling Home', 'PAGE 1', 'PANEL: town, day, wide | call', 'HERO (phone): Can you hear me?', 'FRIEND (robot): AFFIRMATIVE.', 'PANEL: lab, night, close | end', 'HERO (radio): Over and out.', 'PANEL: space, night, wide | far', 'CAPTION: Far away.', 'PAGE 2', 'PANEL: park, day, mid | home', 'HERO: Home.', 'FRIEND: At last.', 'PANEL: town, dusk, wide | end', 'CAPTION: THE END.'].join('\n');
+  const r = SC.readScript(text, base.cast);
+  assert.ok(r);
+  assert.deepEqual(r.pages[0].panels[0].balloons.map((b) => b.kind), ['radio', 'robot']);
+  assert.equal(r.pages[0].panels[1].balloons[0].kind, 'radio');
+});
