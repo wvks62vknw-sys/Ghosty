@@ -62,10 +62,13 @@ const saveTouch = (list: TouchPerson[]) => {
 export const dueAt = (p: TouchPerson, now = Date.now()): number => (p.last ? p.last + p.every * DAY : now);
 /** The words at the right: "due", "3 days over", "in 4 days". */
 export function dueWords(p: TouchPerson, now = Date.now()): string {
-  const d = Math.floor((dueAt(p, now) - now) / DAY);
   if (!p.last) return 'Due';
-  if (d < 0) return `${-d} day${d === -1 ? '' : 's'} over`;
-  if (d === 0) return 'Due today';
+  const diff = dueAt(p, now) - now;
+  if (diff <= 0) {
+    const over = Math.floor(-diff / DAY);
+    return over === 0 ? 'Due today' : `${over} day${over === 1 ? '' : 's'} over`;
+  }
+  const d = Math.ceil(diff / DAY);
   return `In ${d} day${d === 1 ? '' : 's'}`;
 }
 export const lastWords = (p: TouchPerson, now = Date.now()): string => {
