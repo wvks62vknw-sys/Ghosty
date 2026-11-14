@@ -538,3 +538,59 @@ test('saves: what the game wrote is merged visit to visit, this visit wins, our 
     assert.deepEqual(await s.list(), ['changes.zip']);
   }
 });
+
+// ---- THE APPS ROUND (polish3): the record of play, the trophies and the keyboard layer, pure
+await build({
+  entryPoints: [at('../../web/src/arcade/trophies.ts'), at('../../web/src/arcade/keys.ts'), at('../../web/src/arcade/stats.ts')],
+  bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/arcade-apps'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
+});
+const TR = await import('./.build/arcade-apps/trophies.mjs');
+const KY = await import('./.build/arcade-apps/keys.mjs');
+const ST = await import('./.build/arcade-apps/stats.mjs');
+
+test('apps round: a game earns its five trophies by playing, never otherwise', () => {
+  const none = TR.gameTrophies('doom', undefined, undefined);
+  assert.equal(none.length, 5);
+  assert.ok(none.every((t) => !t.earned && t.progress === 0));
+  const some = TR.gameTrophies('doom', { title: 'DOOM', plays: 5, seconds: 700, first: 1, last: 2 }, { best: 3, last: 3, when: 2 });
+  const got = Object.fromEntries(some.map((t) => [t.id, t.earned]));
+  assert.deepEqual(got, { 'doom:first': true, 'doom:ten': true, 'doom:hour': false, 'doom:five': true, 'doom:best': true });
+  assert.ok(Math.abs(some.find((t) => t.id === 'doom:hour').progress - 700 / 3600) < 1e-9);
+});
+
+test('apps round: the arcade trophies count games, hours, days and a game he made', () => {
+  const stats = {};
+  for (let i = 0; i < 5; i++) stats[`g${i}`] = { title: `G${i}`, plays: 1, seconds: 3600, first: i, last: i };
+  stats['studio-x'] = { title: 'MINE', plays: 1, seconds: 10, first: 9, last: 9, mine: true };
+  const room = TR.trophyRoom(stats, {}, 7);
+  const got = Object.fromEntries(room.arcade.map((t) => [t.id, t.earned]));
+  assert.deepEqual(got, { 'arcade:five': true, 'arcade:ten': false, 'arcade:hours': true, 'arcade:maker': true, 'arcade:week': true });
+  assert.equal(room.games[0].id, 'studio-x'); // the most recent first
+  assert.equal(room.total, 5 + 6 * 5);
+  const before = TR.trophyRoom({}, {}, 0);
+  const fresh = TR.newlyEarned([...before.arcade, ...before.games.flatMap((g) => g.trophies)], [...room.arcade, ...room.games.flatMap((g) => g.trophies)]);
+  assert.ok(fresh.some((t) => t.id === 'arcade:maker'));
+});
+
+test('apps round: the keyboard layer walks, strafes, turns and presses', () => {
+  const i = KY.keysIntent(new Set(['KeyW', 'KeyD', 'ArrowLeft', 'Space', 'KeyE', 'ShiftLeft']), 0.5);
+  assert.equal(i.moveY, 1);
+  assert.equal(i.moveX, 1);
+  assert.equal(i.lookX, -KY.TURN_DEG_S * 0.5);
+  assert.deepEqual([...i.held].sort(), ['fire', 'run', 'use']);
+  const back = KY.keysIntent(new Set(['ArrowDown', 'KeyA', 'KeyS']), 0.1);
+  assert.equal(back.moveY, -1);
+  assert.equal(back.moveX, -1);
+  assert.ok(KY.takes('Tab') && KY.takes('ArrowUp') && !KY.takes('KeyZ'));
+});
+
+test('apps round: play time and the day are said in plain words', () => {
+  assert.equal(ST.playTime(40), '40 s');
+  assert.equal(ST.playTime(600), '10 min');
+  assert.equal(ST.playTime(3600), '1 h');
+  assert.equal(ST.playTime(5400), '1 h 30 min');
+  const now = Date.UTC(2026, 10, 14, 12);
+  assert.equal(ST.whenWords(now - 60_000, now), 'today');
+  assert.equal(ST.whenWords(now - 86_400_000, now), 'yesterday');
+  assert.equal(ST.whenWords(now - 3 * 86_400_000, now), '3 days ago');
+});

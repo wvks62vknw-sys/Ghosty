@@ -5083,6 +5083,28 @@ html .arcnote { margin: 0 0 8px; font: 400 13px/18px var(--sf); color: var(--ink
 html .arcnote b { color: var(--ink); font-weight: 600; }
 html .arcctl { margin: 0 0 8px; padding-left: 18px; font: 400 13px/18px var(--sf); color: var(--ink2); }
 html .arcdel { width: 100%; min-height: 44px; color: var(--r); }
+/* APPS ROUND: a game's page (features/arcade/gamepage.ts), CONTINUE PLAYING and THE TROPHY ROOM. */
+html .arctitle .arcopen { display: block; box-shadow: none; border-radius: 0; -webkit-appearance: none; appearance: none; width: 100%; min-height: 44px; margin: -12px 0 0; padding: 12px 0 0; border: 0; background: none; text-align: left; font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer; }
+html .arctitle .arcopen:focus-visible { outline: 2px solid var(--g-accent-text); outline-offset: 2px; }
+html .arcpage { flex: 1 1 auto; min-width: 0; padding: 4px 16px 24px; overflow-wrap: anywhere; }
+html .arcpage .arcrow { margin: 4px 0 12px; }
+html .arcpsec { margin: 0 0 14px; padding: 12px 0 0; border-top: 1px solid var(--hair); }
+html .arcpsec .lab { margin: 0 0 8px; }
+html .arcshots { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
+html .arcshot { flex: none; width: min(70%, 260px); height: auto; border-radius: var(--g-radius-key); scroll-snap-align: start; background: var(--g-plate-fill); }
+html .arcrec { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; font: 400 14px/20px var(--sf); color: var(--ink2); font-variant-numeric: tabular-nums; }
+html .arcrec dt { color: var(--ink3); }
+html .arcrec dd { margin: 0; color: var(--ink); }
+html .arctrophies { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+html .arctrophy { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 44px; font: 400 13px/18px var(--sf); color: var(--ink2); }
+html .arctrophy[data-earned="true"] .arcmedal { color: var(--g-accent-text); }
+html .arcmedal { font: 700 18px/1 var(--sf); color: var(--ink3); text-align: center; }
+html .arctname b { color: var(--ink); font-weight: 600; }
+html .arctgot { font: 700 11px/14px var(--sf); letter-spacing: .08em; color: var(--g-accent-text); }
+html .arctbar { display: block; width: 56px; height: 4px; border-radius: 2px; background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); overflow: hidden; }
+html .arctbar i { display: block; height: 100%; background: var(--g-accent-text); }
+html .arcforget { width: 100%; min-height: 44px; border-radius: var(--g-radius-key); background: var(--g-plate-fill); color: var(--r); font: 600 14px/18px var(--sf); letter-spacing: .04em; }
+html .arccont[hidden] { display: none; }
 html.arcplaying, html.arcplaying body { overflow: hidden; overscroll-behavior: none; }
 html .arcplayer { position: fixed; inset: 0; z-index: 200; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
 html .arcscreen { position: absolute; left: 0; top: env(safe-area-inset-top, 0px); width: 100%; height: calc(100% - env(safe-area-inset-top, 0px)); }
