@@ -634,3 +634,22 @@ test('apps round: gyro aim turns with the phone, ignores a tremor, and swaps on 
   assert.equal(LY.nextScale(1.4), 0.8);
   assert.equal(LY.nextScale(1), 1.2);
 });
+
+test('apps round: CONTINUE loads the game DOOM or Quake saved last, and nothing for a game with no save', async () => {
+  const mem = new Map();
+  globalThis.localStorage ??= { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => void mem.set(k, String(v)), removeItem: (k) => void mem.delete(k) };
+  await build({ entryPoints: [at('../../web/src/arcade/lastsave.ts')], bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/arcade-apps'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
+  const LS = await import('./.build/arcade-apps/lastsave.mjs');
+  const { memorySaves } = await import('./.build/arcade/engines/saves.mjs');
+  assert.equal(LS.continueArgs({ id: 'doom-x', engine: 'doom' }), null);
+  const doom = LS.lastSaveKept('doom-x', memorySaves());
+  await doom.put('default.cfg', new Uint8Array([1]));
+  assert.equal(LS.continueArgs({ id: 'doom-x', engine: 'doom' }), null); // settings are not a saved game
+  await doom.put('doomsav3.dsg', new Uint8Array([1]));
+  assert.deepEqual(LS.continueArgs({ id: 'doom-x', engine: 'doom' }), ['-loadgame', '3']);
+  const quake = LS.lastSaveKept('quake-x', memorySaves());
+  await quake.put('id1/s1.sav', new Uint8Array([1]));
+  assert.deepEqual(LS.continueArgs({ id: 'quake-x', engine: 'quake' }), ['+load', 's1']);
+  assert.equal(LS.continueArgs({ id: 'quake-x', engine: 'dos' }), null);
+  assert.deepEqual([...(await doom.get('doomsav3.dsg'))], [1]); // the save itself is kept as before
+});
