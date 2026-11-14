@@ -11,7 +11,8 @@
 //  (h) KEEP IN TOUCH in People: add, mark caught up, take off, each with UNDO, and a nudge set on the brain;
 //  (i) GIFTS in People: idea to bought, a budget and over it, a gift received with its thank-you, UNDO;
 //  (j) YOUR PEOPLE imports a contacts file and exports everyone as one .vcf; (k) the group plan goes to the Calendar as one .ics; (l) groups filter YOUR PEOPLE;
-//  (g) Memory has a JOURNAL row that opens it; every key 44 pt, nothing sideways, nothing cut, in all seven looks at 390.
+//  (g) Memory has a JOURNAL row that opens it; every key 44 pt, nothing sideways, nothing cut, in all seven looks at 390 (the journal,
+//      and People's KEEP IN TOUCH and GIFTS).
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/journal.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
@@ -361,6 +362,17 @@ for (const world of ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass']) {
   check(!f.small.length, `${T} [g] under 44 pt: ${f.small.join(', ')}`);
   check(!f.sideways, `${T} [g] the page goes sideways`);
   check(!f.cut.length, `${T} [g] words cut: ${JSON.stringify(f.cut)}`);
+  // (and People's two new pages, empty, in the same look)
+  await page.evaluate(() => (location.hash = 'people'));
+  await page.waitForSelector('#pg-people', { state: 'attached', timeout: 10000 });
+  for (const [pill, sel] of [['Keep in touch', '.tcsheet'], ['Gifts', '.gfsheet']]) {
+    await openSection(page, 'people', pill);
+    await page.waitForSelector(`#pg-people ${sel}`, { state: 'visible', timeout: 10000 }).catch(() => problems.push(`${T} [g] ${pill} did not draw`));
+    const g = await fit(page, `#pg-people ${sel}`);
+    check(!g.small.length, `${T} [g] ${pill} under 44 pt: ${g.small.join(', ')}`);
+    check(!g.sideways, `${T} [g] ${pill} goes sideways`);
+    check(!g.cut.length, `${T} [g] ${pill} words cut: ${JSON.stringify(g.cut)}`);
+  }
   await ctx.close();
 }
 
