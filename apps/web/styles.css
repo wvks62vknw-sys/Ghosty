@@ -11623,3 +11623,5 @@ html .al-gmerge .al-gtile { transition: transform 110ms ease-out, background-col
 html .al-gmerge .al-gtile.al-gbump { animation: al-gbump 180ms ease-out 100ms; }
 @keyframes al-gbump { 50% { transform: scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { html .al-gmerge .al-gtile.al-gbump { animation: none; } }
+html .al-makerhost { display: flex; flex-direction: column; overflow: hidden !important; padding-bottom: 0 !important; }
+html .al-makerhost > .ak-app { flex: 1 1 auto; height: auto; min-height: 0; padding: 0; }
