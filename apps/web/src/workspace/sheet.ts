@@ -39,7 +39,10 @@ import {
   addComment, backlinks, below, binDaysLeft, binned, children, deletePage, depth, duplicatePage, emptyBin, History, ICONS, insertBlock, isDb, isEmptyWorkspace, isInside, isRow, live, movePage, moveBlock,
   newPage, patchBlock, patchPage, projectOf, putPage, removeComment, restorePage, rowsOf, setIcon, setRuns, setTitle, shiftPage, tick, titleOf, trail, wblock, withBlocks, wordsOf, wText,
   type Page, type Tone, TONES, type WBlock, type WType, type Workspace,
+  addInside, foldToggle, hiddenBlocks, syncPages, syncRuns, syncTo, toggleDepth, unsync, withInside,
 } from './model';
+import { fromOwnTemplate, saveAsTemplate } from './templates';
+import { loadOwnTemplates, saveOwnTemplates } from './store';
 
 export const WORKSPACE_TITLE = 'THE WORKSPACE';
 type WsAsk = { id?: string; what?: 'list' | 'project' | 'blank' | 'import' | 'due' | 'bin' | 'voice'; addDoc?: { text: string; title?: string }; template?: string };
@@ -108,6 +111,7 @@ const KIND_ITEMS: { id: string; label: string; line: string }[] = [
   { id: 'link', label: 'LINK TO A PAGE', line: 'A card that opens another page, or one of my documents' },
   { id: 'quote', label: 'QUOTATION', line: 'Words set apart' },
   { id: 'callout', label: 'CALLOUT', line: 'A note in a box: tap its mark for a tip or a warning' },
+  { id: 'toggle', label: 'TOGGLE', line: 'A line that folds away the lines inside it' },
 ];
 const TONE_WORDS: Record<Tone, { mark: string; name: string }> = { note: { mark: 'i', name: 'Note' }, tip: { mark: '✓', name: 'Tip' }, warn: { mark: '!', name: 'Warning' } };
 
@@ -450,7 +454,30 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
         b.addEventListener('click', () => startTemplate(t.id, parent));
         return b;
       }),
+      ...ownTemplatesEl(parent),
       key('BLANK', () => newBlank(parent), '', 'A blank page'));
+  // ---- his own templates (editors.u6): SAVE AS TEMPLATE on a page's … puts it here
+  const ownTemplatesEl = (parent: string | null): HTMLElement[] => {
+    const own = loadOwnTemplates();
+    if (!own.length) return [h('p.wsnote.wsnoown', 'Your own templates go here: open a page, tap …, then SAVE AS TEMPLATE.')];
+    return [h('small.wsh', 'MY TEMPLATES'), ...own.map((t) => {
+      const b = h('button.wstemplate', { type: 'button', dataset: { own: t.id }, 'aria-label': `My template ${t.name}` }, markOf({ icon: t.icon } as Page), h('span', h('b', t.name.toUpperCase()), h('small', `${t.pages.length} page${t.pages.length === 1 ? '' : 's'}, saved ${agoWords(t.at)}`))) as HTMLButtonElement;
+      b.addEventListener('click', () => {
+        flush();
+        const r = fromOwnTemplate(ws(), t, parent);
+        if (!r) return say('That template is empty, so nothing was made.');
+        change(r.ws, 'none');
+        flush();
+        openPage(r.root.id);
+        say(`“${titleOf(r.root)}” is made from your template, with every word yours to change.`);
+      });
+      return h('div.wsownt', b, key('DELETE', () => {
+        if (!saveOwnTemplates(loadOwnTemplates().filter((x) => x.id !== t.id))) return say('This phone would not let me change your templates just now.');
+        showHome();
+        say(`Your template “${t.name}” is deleted. Pages made from it stay as they are.`);
+      }, 'wsowndel', `Delete my template ${t.name}`));
+    })];
+  };
   let homePanel: '' | 'new' | 'export' | 'import' | 'voice' = '';
   // ---------------------------------------------------------------- VOICE NOTE (editors.s6): one panel for the whole sheet, so a recording survives a redraw
   let voice: ReturnType<typeof voicePanel> | null = null;
@@ -582,6 +609,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     };
     return h('div.wspanel.wsexport', { dataset: { panel: 'export' } }, h('small.wsh', root ? 'EXPORT THIS PAGE AND WHAT IS INSIDE IT' : 'EXPORT EVERY PAGE'),
       h('p.wsnote', 'A zip of Markdown files, one for each page, the pages inside a page in a folder of its name, links as relative paths, and a CSV beside each database. The size is said as soon as it is made.'),
+      h('p.wsnote.wsmdlimits', 'A toggle goes out as a fold (details) that GitHub and Obsidian fold too. Markdown cannot link a synced block to its copies: each goes out as an ordinary line with a mark only I read back, so they are synced again when IMPORT reads this zip. Pictures stay in the app.'),
       key('MAKE THE ZIP', make, 'on'), out);
   };
   const importPanel = (): HTMLElement =>
@@ -646,7 +674,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     keepWhere(id, '');
     showPage(id, focusTitle);
   };
-  let panelOpen: '' | 'more' | 'move' | 'icon' | 'kinds' | 'pick' | 'comment' | 'ask' | 'export' = '';
+  let panelOpen: '' | 'more' | 'move' | 'icon' | 'kinds' | 'pick' | 'comment' | 'ask' | 'export' | 'sync' = '';
   let panelFor = '';
   const showPage = (id: string, focusTitle = false): void => {
     flush();
@@ -708,7 +736,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
       drawPanel();
     };
     const drawPanel = (): void => {
-      const a = panelOpen === 'more' ? morePanel() : panelOpen === 'move' ? movePanel() : panelOpen === 'icon' ? iconPanel() : panelOpen === 'kinds' ? kindsPanel(panelFor) : panelOpen === 'pick' ? pickPanel(panelFor) : panelOpen === 'comment' ? commentPanel(panelFor) : panelOpen === 'ask' ? askPanel() : panelOpen === 'export' ? exportPanel(id) : null;
+      const a = panelOpen === 'more' ? morePanel() : panelOpen === 'move' ? movePanel() : panelOpen === 'icon' ? iconPanel() : panelOpen === 'kinds' ? kindsPanel(panelFor) : panelOpen === 'pick' ? pickPanel(panelFor) : panelOpen === 'comment' ? commentPanel(panelFor) : panelOpen === 'ask' ? askPanel() : panelOpen === 'export' ? exportPanel(id) : panelOpen === 'sync' ? syncPanel(panelFor) : null;
       clear(panelHost, ...(a ? [a, key('CLOSE', closePanel, 'wsclose', 'Close this panel')] : []));
     };
     // ---- the page's own sheets
@@ -725,6 +753,14 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
           say('A copy is made, with everything inside it.');
         }),
         key('EXPORT THIS PAGE', () => openPanel('export')),
+        key('SAVE AS TEMPLATE', () => {
+          flush();
+          const t = saveAsTemplate(ws(), id);
+          if (!t) return say('That page is not here any more.');
+          if (!saveOwnTemplates([...loadOwnTemplates(), t])) return say('This phone would not keep the template just now (its storage is full or blocked).');
+          closePanel();
+          say(`Saved as a template: NEW PAGE → MY TEMPLATES makes a fresh “${t.name}” whenever you like.`);
+        }, '', 'Save this page as a template of my own'),
         key('DELETE', () => {
           const parent = p.parent && !isRow(ws(), p) ? p.parent : isRow(ws(), p) ? p.parent : null;
           change(deletePage(ws(), id), 'none');
@@ -829,11 +865,13 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     const putRuns = (bid: string, runs: Run[]): void => {
       const cur2 = page()?.blocks.find((b) => b.id === bid);
       if (!cur2 || JSON.stringify(cur2.runs) === JSON.stringify(runs)) return;
-      change(setRuns(ws(), id, bid, runs), 'none');
+      // a synced block: every copy of it, on every page, gets the words (one change, one UNDO)
+      change(cur2.sync ? syncRuns(ws(), cur2.sync, runs) : setRuns(ws(), id, bid, runs), 'none');
     };
     const drawBlocks = (focus = '', at = -1): void => {
       const bs = page()?.blocks ?? [];
-      clear(blocksEl, ...bs.map((b, i) => blockEl(b, i)));
+      const hidden = hiddenBlocks(bs);
+      clear(blocksEl, ...bs.flatMap((b, i) => (hidden.has(b.id) ? [] : [blockEl(b, i)])));
       if (!bs.length) blocksEl.append(h('p.wsnote.wsnoblocks', 'Nothing on this page yet. Tap ADD A BLOCK, or type “/” in a line.'), key('START WRITING', () => {
         const nb = wblock('p');
         change(insertBlock(ws(), id, nb), 'none');
@@ -843,6 +881,13 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     };
     const blockEl = (b: WBlock, i: number): HTMLElement => {
       const row1 = h('div.wsblock', { dataset: { id: b.id, t: b.t, n: String(i) } });
+      if (b.under) {
+        row1.dataset.under = b.under;
+        row1.style.setProperty('--in', String(Math.min(4, toggleDepth(page()?.blocks ?? [], b))));
+      }
+      const onPages = b.sync ? syncPages(ws(), b.sync).length : 0;
+      const syncLabel = b.sync ? h('small.wssynced', `SYNCED · ON ${onPages} PAGE${onPages === 1 ? '' : 'S'}`) : null;
+      if (b.sync) row1.dataset.sync = b.sync;
       const talk = (b.comments ?? []).length
         ? h('div.wscomments', { dataset: { for: b.id } }, ...(b.comments ?? []).map((c) => h('p.wscomment', h('small', `${new Date(c.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`), ' ', c.text)))
         : null;
@@ -924,8 +969,10 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
               change(patchBlock(ws(), id, b.id, (x) => ({ ...x, t: 'p' })), 'none');
               return drawBlocks(b.id);
             }
-            const nb = wblock(listy ? b.t : 'p', z);
-            let w2 = patchBlock(ws(), id, b.id, (x) => ({ ...x, runs: a }));
+            // (a new line after a toggle goes inside it; a line inside a toggle stays inside)
+            const nb = wblock(listy ? b.t : 'p', z, b.t === 'toggle' ? { under: b.id } : b.under ? { under: b.under } : {});
+            let w2 = patchBlock(ws(), id, b.id, (x) => ({ ...x, runs: a, ...(b.t === 'toggle' ? { folded: undefined } : {}) }));
+            if (b.sync) w2 = syncRuns(w2, b.sync, a);
             w2 = insertBlock(w2, id, nb, b.id);
             change(w2, 'none');
             drawBlocks(nb.id, 0);
@@ -937,7 +984,14 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
             const bs = page()!.blocks;
             const k = bs.findIndex((x) => x.id === b.id);
             if (b.t !== 'p') {
-              change(patchBlock(ws(), id, b.id, (x) => ({ ...x, t: 'p' })), 'none');
+              // (a toggle turned back into a line lets its lines out, where they are)
+              let w2 = patchBlock(ws(), id, b.id, (x) => ({ ...x, t: 'p', folded: undefined }));
+              if (b.t === 'toggle') w2 = withBlocks(w2, id, (all) => all.map((x) => (x.under === b.id ? { ...x, under: b.under } : x)));
+              change(w2, 'none');
+              return drawBlocks(b.id, 0);
+            }
+            if (b.under) {
+              change(patchBlock(ws(), id, b.id, (x) => ({ ...x, under: page()!.blocks.find((t) => t.id === b.under)?.under })), 'none');
               return drawBlocks(b.id, 0);
             }
             const prev = bs[k - 1];
@@ -972,8 +1026,28 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
           });
           row1.dataset.tone = tone;
           row1.append(mark, ed);
+        } else if (b.t === 'toggle') {
+          const f = !!b.folded;
+          const n = withInside(page()?.blocks ?? [], b.id).size - 1;
+          const chev = h('button.wsfold', { type: 'button', 'aria-expanded': String(!f), 'aria-label': `${f ? 'Open' : 'Fold'} this toggle${n ? `: ${n} line${n === 1 ? '' : 's'} inside` : ''}` }, f ? '›' : '⌄') as HTMLButtonElement;
+          chev.addEventListener('click', () => {
+            flush();
+            change(foldToggle(ws(), id, b.id, !f), 'none');
+            drawBlocks();
+            say(f ? 'Opened.' : `Folded away${n ? `: ${n} line${n === 1 ? '' : 's'} inside` : ''}.`);
+          });
+          const add = h('button.wsaddin', { type: 'button', 'aria-label': 'Add a line inside this toggle' }, '+') as HTMLButtonElement;
+          add.addEventListener('click', () => {
+            flush();
+            const nb = wblock('p');
+            change(addInside(ws(), id, b.id, nb), 'none');
+            drawBlocks(nb.id);
+          });
+          row1.dataset.folded = f ? '1' : '';
+          row1.append(chev, ed, ...(f && n ? [h('small.wsinside', `${n} inside`)] : []), add);
         } else row1.append(ed);
       }
+      if (syncLabel) row1.append(syncLabel);
       if (talk) row1.append(talk);
       return row1;
     };
@@ -1014,13 +1088,18 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
           const b = need();
           if (b) openPanel('comment', b.id);
         }, '', 'A comment on this block'),
+        key('SYNC', () => {
+          const b = need();
+          if (b) openPanel('sync', b.id);
+        }, '', 'Show this block on another page too, kept the same'),
         key('DELETE', () => {
           const b = need();
           if (!b) return;
-          change(patchBlock(ws(), id, b.id, () => null), 'none');
+          const gone = withInside(page()!.blocks, b.id);
+          change(withBlocks(ws(), id, (all) => all.filter((x) => !gone.has(x.id))), 'none');
           focused = '';
           drawBlocks();
-          undoBar('The block is deleted.');
+          undoBar(gone.size > 1 ? `The toggle and the ${gone.size - 1} line${gone.size === 2 ? '' : 's'} inside it are deleted.` : 'The block is deleted.');
         }, '', 'Delete this block'));
       kb.addEventListener('pointerdown', (e) => (e.target as HTMLElement).closest('button') && e.preventDefault());
       return kb;
@@ -1144,6 +1223,32 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
       q.addEventListener('input', draw);
       draw();
       return h('div.wspanel.wspickp', { dataset: { panel: 'pick' } }, h('small.wsh', 'LINK TO A PAGE OR A DOCUMENT'), q, list);
+    };
+    // ---- SYNC (editors.u6): one block shown on several pages; editing one edits all
+    const syncPanel = (bid: string): HTMLElement => {
+      const b = page()?.blocks.find((x) => x.id === bid);
+      if (!b) return h('div.wspanel');
+      const on = b.sync ? syncPages(ws(), b.sync) : [];
+      const options = live(ws()).filter((x) => !isRow(ws(), x) && !isDb(x) && !on.some((o) => o.id === x.id) && x.id !== id);
+      const put = (to: string): void => {
+        flush();
+        const r = syncTo(ws(), id, bid, to);
+        if (r.error) return say(r.error);
+        change(r.ws, 'none');
+        drawBlocks();
+        drawPanel();
+        say(`Synced: it is on “${titleOf(ws().pages[to])}” too, and changing it on either page changes both.`);
+      };
+      return h('div.wspanel.wssyncp', { dataset: { panel: 'sync', block: bid } }, h('small.wsh', 'SYNC THIS BLOCK TO A PAGE'),
+        h('p.wsquote', wText(b, ws(), docTitle).slice(0, 120) || 'This block'),
+        on.length ? h('p.wsnote', `On ${on.length} page${on.length === 1 ? '' : 's'}: ${on.map((x) => `“${titleOf(x)}”`).join(', ')}.`) : h('p.wsnote', 'Pick a page: the block goes at its end, and stays the same on both.'),
+        ...options.slice(0, 40).map((x) => key(`${'· '.repeat(depth(ws(), x.id))}${titleOf(x)}`, () => put(x.id), 'wssyncto', `Sync to ${titleOf(x)}`)),
+        ...(b.sync ? [key('UNSYNC THIS ONE', () => {
+          change(unsync(ws(), id, bid), 'none');
+          drawBlocks();
+          closePanel();
+          say('This one is on its own now; the other copies stay synced.');
+        }, '', 'Let this block go of its synced copies')] : []));
     };
     const commentPanel = (bid: string): HTMLElement => {
       const b = page()?.blocks.find((x) => x.id === bid);

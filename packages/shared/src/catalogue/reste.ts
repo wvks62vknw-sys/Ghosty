@@ -101,7 +101,7 @@ export const RESTE_WORDS: Record<string, CatValue> = {
   'hub:workspace': {
     name: 'Pages, projects and databases',
     line: 'You can keep pages inside pages and a project with its tasks and dates, and I read all of it before I answer.',
-    more: 'Start a project and a board of tasks, notes, decisions and a calendar of deadlines appear, all over one list of rows. The same rows can be a table, a board, a calendar, a timeline or a gallery, and a column can work something out. Every page keeps sixty versions, a BIN holds deleted ones for thirty days, and it is all on this phone: only a question about a project leaves it, and I say how big first.',
+    more: 'Start a project and a board of tasks, notes, decisions and a calendar of deadlines appear, all over one list of rows. The same rows can be a table, a board, a calendar, a timeline or a gallery, and a column can work something out. A toggle folds lines away, a synced block shows the same words on several pages, and any page can be saved as a template of your own beside the five. Every page keeps sixty versions, a BIN holds deleted ones for thirty days, and it is all on this phone: only a question about a project leaves it, and I say how big first.',
     say: ['My workspace', 'Start a project', 'What is due this week in my project'],
     scene: ['making', 'school', 'money'], cat: 'do', since: '2026-11-12',
     go: { run: 'open_workspace' }, tryText: 'Opens my workspace',

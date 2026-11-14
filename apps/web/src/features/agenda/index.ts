@@ -15,6 +15,7 @@ import { spendingPanel } from './spending';
 import { watchersPanel } from './watchers';
 import { todoPanel } from './todo';
 import { monthPanel } from './month';
+import { workDuePanel } from './workdue';
 import { AHEAD_DAYS } from './todowords';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
@@ -110,7 +111,9 @@ export const agendaTab: TabDef = {
       paintHero();
     });
     const mp = monthPanel(() => ({ events: allEvents, todos: tp.list() }));
-    P.left.append(ep.el, mp.el, tp.el, cp.el, sp.el, wp.el);
+    // [editors.c4] the due dates in his Workspace databases, under his own list, read-only (workdue.ts)
+    const wd = workDuePanel();
+    P.left.append(ep.el, mp.el, tp.el, wd.el, cp.el, sp.el, wp.el);
 
     // ── add event ────────────────────────────────────────────────────────
     const evTitle = h('input', { placeholder: 'New event (e.g. Dentist)', 'aria-label': 'Event title' });
@@ -551,6 +554,7 @@ export const agendaTab: TabDef = {
       enter() {
         void load();
         tp.paint();
+        wd.paint();
         void sp.refresh();
         void wp.refresh();
         void pollInbox();

@@ -35,6 +35,12 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Open my to-do list', 'What’s on my to-do list?'], scene: ['morning', 'phone'], cat: 'watch',
     since: '2026-11-13',
   },
+  'panel:agenda:TO-DO · FROM MY WORKSPACE': {
+    name: 'Workspace deadlines on your agenda', line: 'You can see the due dates from your Workspace lists under your to-do list, late ones first, and the Brief says them too.',
+    more: 'Any database in your Workspace with a date called Due, Deadline or End shows here, read from this phone. Done rows are left out. Tap one to open its page in the Workspace and change it there.',
+    say: ['What is due in my projects?', 'Show my workspace deadlines'], scene: ['morning', 'making'], cat: 'watch',
+    since: '2026-11-14',
+  },
   'panel:agenda:MONTH': {
     name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
     more: 'This month and the next, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',

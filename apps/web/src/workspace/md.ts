@@ -10,7 +10,7 @@ import { safeHref } from '../core/safeurl';
 import { importCsv, toCsv } from './csv';
 import { newDatabase } from './db';
 import {
-  newPage, patchPage, wblock, commentId, viewId, rowsOf, children, titleOf, ICONS,
+  newPage, patchPage, wblock, commentId, viewId, rowsOf, children, titleOf, ICONS, syncId,
   type Database, type Page, type Prop, type PropKind, type PVal, type View, type WBlock, type Workspace,
 } from './model';
 
@@ -118,7 +118,13 @@ function pageMd(ws: Workspace, p: Page, file: string, paths: Map<string, string>
   if (p.db) head.db = sidecar(ws, p, paths, file);
   const lines: string[] = [`<!--ghosty ${JSON.stringify(head)}-->`, `# ${escText(p.title)}`, ''];
   let n = 0;
+  // a toggle is <details>: its blocks that follow it go inside, until the first that is not one of them
+  const open: string[] = [];
   p.blocks.forEach((b, k) => {
+    while (open.length && b.under !== open[open.length - 1]) {
+      open.pop();
+      lines.push('', '</details>');
+    }
     const prev = p.blocks[k - 1]?.t;
     n = b.t === 'ol' ? (prev === 'ol' ? n + 1 : 1) : 0;
     const inner = lineMd(b.runs);
@@ -133,6 +139,7 @@ function pageMd(ws: Workspace, p: Page, file: string, paths: Map<string, string>
       case 'callout': line = `> [!${b.tone === 'warn' ? 'WARNING' : b.tone === 'tip' ? 'TIP' : 'NOTE'}] ${inner}`; break;
       case 'todo': line = `- [${b.done ? 'x' : ' '}] ${inner}${b.done ? ` <!--done ${b.done}-->` : ''}`; break;
       case 'right': line = `<p align="right">${inner}</p>`; break;
+      case 'toggle': line = `<details${b.folded ? '' : ' open'}><summary>${inner}</summary>`; break;
       case 'pb': line = '---'; break;
       case 'img': onLoss(`a picture (${b.alt || 'no description'})`); line = `![${escText(b.alt ?? '')}](picture)`; break;
       case 'table': {
@@ -157,9 +164,12 @@ function pageMd(ws: Workspace, p: Page, file: string, paths: Map<string, string>
     }
     const listy = (t?: string): boolean => t === 'ul' || t === 'ol' || t === 'todo';
     if (k && !(listy(b.t) && listy(prev) && b.t === prev)) lines.push('');
+    if (b.sync) lines.push(`<!--ghosty:synced ${b.sync}-->`);
     lines.push(line);
+    if (b.t === 'toggle') open.push(b.id);
     for (const c of b.comments ?? []) lines.push(`<!--ghosty:comment ${JSON.stringify({ at: c.at, text: c.text })}-->`);
   });
+  while (open.pop()) lines.push('', '</details>');
   return lines.join('\n').trimEnd() + '\n';
 }
 
@@ -261,11 +271,48 @@ export function parseMd(text: string, fallbackTitle = 'Untitled', onLoss: (s: st
     para = [];
   };
   const last = (): WBlock | undefined => out.blocks[out.blocks.length - 1];
+  // toggles open as <details> is read; a synced mark waits for the block after it
+  const toggles: string[] = [];
+  let sync = '';
+  let made = 0;
+  /** The blocks made since the last look take the toggle they are inside and the synced mark before them. */
+  const settle = (): void => {
+    for (const b of out.blocks.slice(made)) {
+      if (toggles.length && b.id !== toggles[toggles.length - 1] && !b.under) b.under = toggles[toggles.length - 1];
+      if (sync) {
+        b.sync = sync;
+        sync = '';
+      }
+    }
+    made = out.blocks.length;
+  };
   for (; i < lines.length; i++) {
     const line = lines[i]!.replace(/\s+$/, '');
     let m: RegExpExecArray | null;
+    settle();
     if (!line.trim()) {
       flush();
+      continue;
+    }
+    if ((m = /^<!--ghosty:synced ([\w-]{1,40})-->$/.exec(line))) {
+      flush();
+      settle();
+      sync = m[1]!;
+      continue;
+    }
+    if ((m = /^<details(\s+open)?\s*>\s*<summary>(.*)<\/summary>\s*$/i.exec(line))) {
+      flush();
+      settle();
+      const t = wblock('toggle', mdRuns(m[2]!), m[1] ? {} : { folded: true });
+      out.blocks.push(t);
+      settle();
+      toggles.push(t.id);
+      continue;
+    }
+    if (/^<\/details>$/i.test(line.trim())) {
+      flush();
+      settle();
+      toggles.pop();
       continue;
     }
     if ((m = /^<!--ghosty:comment (\{.*\})-->$/.exec(line))) {
@@ -334,6 +381,7 @@ export function parseMd(text: string, fallbackTitle = 'Untitled', onLoss: (s: st
     } else para.push(line.trim());
   }
   flush();
+  settle();
   return out;
 }
 
@@ -450,6 +498,7 @@ export function importFiles(ws0: Workspace, files: ExportFile[], parent: string 
     }
   }
   const now = (id: string): Page => ws.pages[id]!;
+  const syncIds = new Map<string, string>();
   for (const f of mds) {
     const pg = byPath.get(key(f.path));
     const p = parsed.get(f.path)!;
@@ -475,7 +524,9 @@ export function importFiles(ws0: Workspace, files: ExportFile[], parent: string 
       }
       return rest;
     });
-    ws = patchPage(ws, pg.id, (x) => ({ ...x, blocks: blocks.filter((b) => !(b.t === 'link' && !b.to) && !(b.t === 'view' && !b.db)) }));
+    // (synced blocks read back are synced with each other, never with the pages they were written from)
+    const synced = (b: WBlock): WBlock => (b.sync ? { ...b, sync: syncIds.get(b.sync) ?? (syncIds.set(b.sync, syncId()), syncIds.get(b.sync)!) } : b);
+    ws = patchPage(ws, pg.id, (x) => ({ ...x, blocks: blocks.filter((b) => !(b.t === 'link' && !b.to) && !(b.t === 'view' && !b.db)).map(synced) }));
   }
   // databases: relations, rollups, formulas and views from the sidecar, then row relations from the CSV text
   for (const f of mds) {
