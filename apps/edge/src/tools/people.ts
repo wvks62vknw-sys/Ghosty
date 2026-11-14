@@ -566,8 +566,33 @@ const gifts: ActionFn = async (a, d) => {
   return { text: said || `${list.length} on ${p.name}’s list.`, data: { person: p.name, gifts: list, lastYear: given, spentThisYear: Math.round(spent * 100) / 100 } };
 };
 
+/** money.u11: several group plans at once: each open plan listed, a reply or calling one off by its id (nobody is messaged). */
+const plans: ActionFn = async (a, d) => {
+  const today = todayOf(d);
+  const all = await load<Plan[]>(d, PEOPLE_KEYS.plans, []);
+  const op = arg.str(a, 'op', false);
+  const p = all.find((x) => x.id === arg.str(a, 'id', false) && !x.closed);
+  let said = '';
+  if (op === 'reply' || op === 'close') {
+    if (!p) throw new Error('that plan is not open any more');
+    if (op === 'close') {
+      p.closed = true;
+      said = `Plan closed: ${p.what}.`;
+    } else {
+      const name = arg.str(a, 'name', false).trim().slice(0, 30);
+      const s = arg.str(a, 's', false);
+      if (!name || !['yes', 'no', 'maybe'].includes(s)) throw new Error('pick a name and yes, maybe or no');
+      Object.assign(p, applyReplies(p, [{ name, say: s as 'yes' | 'no' | 'maybe' }]));
+      said = `Updated: ${planWords(p, today.slice(0, 4))}`;
+    }
+    await save(d, PEOPLE_KEYS.plans, all);
+  }
+  const open = all.filter((x) => !x.closed).reverse();
+  return { text: said || `${open.length} open plan${open.length === 1 ? '' : 's'}.`, data: { plans: open, plan: op === 'close' ? null : p ?? open[0] ?? null } };
+};
+
 /** The PEOPLE screen's own keys, joined to the people pack's for POST /packs/do (packs/index.ts); never in the tool's enum. */
-export const PEOPLE_APP: Record<string, ActionFn> = { notes, gifts };
+export const PEOPLE_APP: Record<string, ActionFn> = { notes, gifts, plans };
 
 export const PEOPLE: Record<string, ActionFn> = { birthday, date, gift, note, who, call, thanks, message, card: cardAction, plan, contact, cars, coming, forget, voice };
 export const PEOPLE_ACTIONS = Object.keys(PEOPLE);

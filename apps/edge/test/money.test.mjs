@@ -573,3 +573,19 @@ test('the cancel helper: a stable cancel page from the company’s own site, els
   assert.deepEqual(r.data.links, []);
   assert.match(r.text, /no cancel page on Acme Gym Ltd’s own site/);
 });
+
+test('PEOPLE: several group plans at once, each answered and called off by its own id; nobody is messaged', async () => {
+  const storage = new Mem();
+  const call = (action, args = {}) => P.packsRoute(new Request('https://g/api/packs/do', { method: 'POST', body: JSON.stringify({ pack: 'people', action, args }) }), '/packs/do', 'POST', { storage, notify: async () => undefined, now: () => NOW, fetch: fakeFetch({}) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  await call('plan', { words: 'new plan: pub on Friday at 8 at the Crown, asked Ali, Sam and Jo' });
+  await call('plan', { words: 'new plan: football on Sunday at 10, asked Dee and Max' });
+  let r = await call('plans');
+  assert.deepEqual(r.data.plans.map((p) => p.what.split(' ')[0].toLowerCase()), ['football', 'pub']);
+  const pub = r.data.plans[1];
+  r = await call('plans', { op: 'reply', id: pub.id, name: 'Jo', s: 'yes' });
+  assert.deepEqual(r.data.plan.yes, ['Jo']);
+  r = await call('plans', { op: 'close', id: pub.id });
+  assert.equal(r.data.plan, null);
+  assert.equal(r.data.plans.length, 1, 'the other plan stays open');
+  assert.equal((await call('plans', { op: 'reply', id: pub.id, name: 'Jo', s: 'yes' })).status, 400);
+});

@@ -12,7 +12,8 @@
 //   HOME      a paid bill stays under PAID with what its supplier cost this year, and can be forgotten; PAPERS keeps a warranty with
 //             its receipt's photo on the phone and a reminder, and a household paper with its renewal date.
 //   JOBS      an application kept with a follow-up reminder, its stage moved, forgotten.
-//   PEOPLE    one note changed, a gift idea kept and bought with its price, his own photo of someone kept on the phone only.
+//   PEOPLE    one note changed, a gift idea kept and bought with its price, his own photo of someone kept on the phone only; a
+//             birthday in COMING UP gets a message drafted in his voice, never sent; two group plans at once, each answered.
 //   WORK      every document shown is kept in the library on the phone, a new version when its words change, reopened and forgotten
 //             (asked once more).
 //   STATES    each new page offline and failed, in his words with TRY AGAIN; the bar: 44 pt keys, nothing sideways, no raw string;
@@ -451,7 +452,28 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       check(await until(page, () => !!document.querySelector('.ppphoto'), null, 10000) && /kept on this phone only/.test(await txt(page, `${Pp} p.pknote[aria-live]`)), 'PEOPLE his own photo of someone, kept on the phone only');
       await bar(page, 'PEOPLE bar', 'people');
       await page.click(`${Pp} button[aria-label="Take away your photo of Sam"]`);
+      // a birthday in COMING UP: a message drafted in his voice, for him to send himself
+      const on = new Date(Date.now() + 8 * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+      await pk('people', 'birthday', { who: 'Sam', words: `Sam birthday ${on}` });
+      await open(page, 'people', 'Coming up');
+      await page.waitForSelector(`${Pp} button[aria-label="Draft a birthday message for Sam"]`, { timeout: 8000 });
+      await page.click(`${Pp} button[aria-label="Draft a birthday message for Sam"]`);
+      check(await until(page, () => (window.__ghosty.people.drafts ?? []).some((d) => /^Sam: .{8,}/.test(d)), null, 10000) && /I never send it/.test(await txt(page, `${Pp} .mnhow`)), `COMING UP a birthday message drafted, never sent: ${JSON.stringify(await page.evaluate(() => window.__ghosty.people.drafts))}`);
+      await bar(page, 'COMING UP bar', 'people');
       await pk('people', 'forget', { who: 'Sam' });
+      // several group plans at once
+      for (const x of (await pk('people', 'plans', {})).data?.plans ?? []) await pk('people', 'plans', { op: 'close', id: x.id });
+      await pk('people', 'plan', { words: 'new plan: pub on Friday at 8 at the Crown, asked Ali and Jo' });
+      await pk('people', 'plan', { words: 'new plan: football on Sunday at 10, asked Dee and Max' });
+      await open(page, 'people', 'Group plan');
+      check(await until(page, () => document.querySelectorAll('.ppplans button').length === 2, null, 10000), 'PLANS two plans at once, each to pick');
+      await page.locator(`${Pp} button[aria-label^="Open the plan: pub"]`).click();
+      await page.click(`${Pp} button[aria-label="Jo: yes"]`);
+      check(await until(page, () => /pub/i.test(window.__ghosty.people.plan?.what ?? '') && (window.__ghosty.people.plan?.yes ?? []).includes('Jo'), null, 10000), 'PLANS a reply lands on the plan he picked');
+      await bar(page, 'PLANS bar', 'people');
+      await page.click(`${Pp} button[aria-label="Call off the plan"]`);
+      check(await until(page, () => window.__ghosty.people.plan === null && window.__ghosty.people.plans.length === 1, null, 10000), 'PLANS one called off, the other stays');
+      for (const x of (await pk('people', 'plans', {})).data?.plans ?? []) await pk('people', 'plans', { op: 'close', id: x.id });
     });
 
     await block('states', async () => {
