@@ -281,7 +281,7 @@ export const GAMES: AppDef[] = [
     family: 'games',
     glyph: 'grid',
     pitch: 'Fill squares from the number clues to reveal a hidden picture.',
-    keywords: ['nonogram', 'picture logic', 'griddlers', 'picross', 'puzzle'],
+    keywords: ['nonogram', 'picture logic', 'number grid', 'pixel puzzle', 'puzzle'],
     archetype: 'game',
     from: 'games.32',
     tour: [
@@ -395,7 +395,7 @@ export const GAMES: AppDef[] = [
     family: 'games',
     glyph: 'eye',
     pitch: 'Find as many words as you can in a grid of letters before three minutes run out.',
-    keywords: ['word hunt', 'letter grid', 'boggle', 'words', 'timed'],
+    keywords: ['word hunt', 'letter grid', 'find words', 'words', 'timed'],
     archetype: 'game',
     from: 'games.38',
     tour: [
@@ -567,7 +567,7 @@ export const GAMES: AppDef[] = [
     family: 'games',
     glyph: 'cards',
     pitch: 'Clear three peaks of cards by playing one higher or one lower in long chains.',
-    keywords: ['tripeaks', 'peaks', 'patience', 'chains', 'card game'],
+    keywords: ['peaks', 'three peaks', 'patience', 'chains', 'card game'],
     archetype: 'game',
     from: 'games.26',
     tour: [
@@ -630,7 +630,7 @@ export const GAMES: AppDef[] = [
     name: 'Body Quiz',
     family: 'games',
     glyph: 'heart',
-    pitch: 'How well do you know your own body? Bones, organs and senses in ten questions.',
+    pitch: 'Bones, organs and senses: how well you know your own body, in ten questions.',
     keywords: ['human body', 'biology', 'anatomy', 'quiz', 'science'],
     archetype: 'game',
     tour: [
@@ -1187,7 +1187,7 @@ export const GAMES: AppDef[] = [
     family: 'games',
     glyph: 'cube',
     pitch: 'Log your speed-cube solves and track your best, averages and progress.',
-    keywords: ['speedcubing', 'rubiks', 'cube', 'solve times', 'average', 'timer'],
+    keywords: ['speedcubing', 'puzzle cube', 'cube', 'solve times', 'average', 'timer'],
     archetype: 'log',
     from: 'games.37',
     tour: [
