@@ -230,7 +230,10 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   await c.page.goto(base);
   const u = await ended(c.page, 'length: once a day, first open');
   if (u?.kind !== 'full' || !u.film) problems.push(`length: ONCE A DAY played "${u?.kind}" on the day's first open (want the whole film)`);
-  // b. the jobs that can wait waited for the landing, and went once it was done
+  // b. the jobs that can wait waited for the landing, and went once it was done (on the next idle moment after it: waited for)
+  await c.page.waitForFunction(() => (window.__bootState?.deferredAt ?? -1) >= 0, null, { timeout: 8000 }).catch(() => undefined);
+  const dz = await c.page.evaluate(() => window.__bootState.deferredAt);
+  if (u) u.deferredAt = dz;
   if (!(u?.deferred > 0) || !(u?.deferredAt >= 0 && u.deferredAt >= u.ended - 1)) problems.push(`start-up: the jobs that can wait did not wait for the landing (deferred ${u?.deferred}, let go at ${u?.deferredAt} ms, landed ${u?.ended} ms)`);
   // c. how smoothly it ran: kept on the phone, said in Settings and in the chat in the same words
   const run = await c.page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.lastboot') ?? 'null'));
@@ -289,7 +292,16 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   await page.waitForSelector('[data-id="bootlength"]', { state: 'attached', timeout: 15000 }).catch(() => problems.push(`settings ${tag}: no keys for the opening's length`));
   // (Settings → VOICE & HOME: its row tapped, as he would)
   await openPanel(page, 'settings', 'VOICE & HOME');
-  await page.waitForFunction(() => (document.querySelector('[data-id="bootlength"] button')?.getBoundingClientRect().height ?? 0) > 0, null, { timeout: 8000 }).catch(() => undefined);
+  // (the panel slides in: measured once it has settled, the same size on two frames running)
+  await page.waitForFunction(() => {
+    const b = document.querySelector('[data-id="bootlength"] button');
+    const h = b ? Math.round(b.getBoundingClientRect().height * 10) : 0;
+    const w = window;
+    const same = h > 0 && h === w.__lenH;
+    w.__lenH = h;
+    return same && !document.querySelector('#pg-settings .pn.pushing, #pg-settings.pushing');
+  }, null, { timeout: 8000, polling: 'raf' }).catch(() => undefined);
+  await page.waitForTimeout(400);
   const keys = await page.evaluate(() => {
     const row = document.querySelector('[data-id="bootlength"]');
     row?.scrollIntoView();

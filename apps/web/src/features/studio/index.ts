@@ -223,7 +223,11 @@ export const studioTab: TabDef = {
 
     const seg = h('div.studioseg');
     const panel = h('div.studiopanel');
-    const hud = h('div.hud.studio', view, bar, seg, panel);
+    // (one box for everything under the picture: invisible to the layout at a desk and in most panes, where the page scrolls as one;
+    // on a phone in the 3-D engine and the car's working engine it is the only part that scrolls, under a picture that never moves,
+    // so nothing can pass under or over the picture in any browser: styles.css "THE DOCK")
+    const under = h('div.studioscroll', bar, seg, panel);
+    const hud = h('div.hud.studio', view, under);
     root.append(hud);
 
     let pane: Pane = 'models';
