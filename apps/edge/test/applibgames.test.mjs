@@ -472,6 +472,10 @@ test('App Maker: "make me an app for my vinyl" and other words become a first dr
     ['make me a word search puzzle game', 'game', 'Word Search'],
     ['an app for my houseplants', 'log', 'Plants'],
     ['an app for my fishing trips', 'log', 'Fishing'],
+    ['keep track of my watches', 'log', 'Watches'],
+    ['an app for my old cameras and lenses', 'log', 'Cameras'],
+    ['a log of coffee beans I have tried', 'log', 'Coffee Beans'],
+    ['my video game backlog', 'log', 'Video Games'],
     ['a daily habits tracker: read, stretch, no phone after ten', 'checklist', 'Habits'],
   ];
   for (const [words, arch, inName] of cases) {
