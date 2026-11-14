@@ -19,7 +19,7 @@ export const bodyTab: TabDef = {
     sheetPage(root, {
       screen: 'body',
       tag: 'LIFE // BODY',
-      sub: 'Water, sleep, steps, weight and mood, kept on this phone; reps, a running coach, breathing, stretches and your Health week.',
+      sub: 'Water, sleep, steps, weight and mood, kept on this phone; reps, a running coach, breathing, stretches and the Health hub.',
       big: () => cardBig('body'),
       load: () => cardLoad('body'),
       sections: async () => {
@@ -33,7 +33,7 @@ export const bodyTab: TabDef = {
           { id: 'sleep', label: 'Sleep', parts: [part('sleep'), part('fast')] },
           { id: 'mood', label: 'Mood', parts: [part('mood'), part('breathe'), part('stretch')] },
           { id: 'weight', label: 'Weight', parts: [part('weight'), part('measure')] },
-          { id: 'health', label: 'Health', parts: [part('health'), part('meds'), part('week'), part('symptoms')] },
+          { id: 'health', label: 'Health', parts: [part('hub'), part('health'), part('meds'), part('week'), part('symptoms')] },
         ];
       },
     })),
@@ -47,6 +47,19 @@ export const bodyTab: TabDef = {
 function withSteps<T extends { open?(arg: string): void }>(inst: T): T {
   const was = inst.open?.bind(inst);
   inst.open = (arg: string) => {
+    // HEALTH HUB's Shortcut: "#body?hub=steps=8421,rhr=58,…" keeps the day's totals and opens the hub
+    const hub = /^hub[=:](.+)$/s.exec(arg);
+    if (hub) {
+      was?.('hub');
+      let text = hub[1]!;
+      try {
+        text = decodeURIComponent(text);
+      } catch {
+        /* the text as it came */
+      }
+      void import('./hub').then((m2) => m2.takeTotals(text)).then((w) => import('../../ui/components').then((c) => c.toast(w, 'ok', { title: 'HEALTH HUB' }))).catch(() => undefined);
+      return;
+    }
     const m = /^steps=(\d{1,6})$/.exec(arg);
     if (!m) return was?.(arg);
     was?.('steps');

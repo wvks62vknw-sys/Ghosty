@@ -124,7 +124,7 @@ function timersSheet(): { el: HTMLElement; stop(): void } {
   paint();
   /* state: kitchen.timers offline */
   const net = lacksSignal() ? [stateLine('offline', 'No signal needed: timers run on this phone.')] : [];
-  const el = h('div.pkcol', rows, h('div.pkadd', input, set), msg, h('p.pknote', 'They ring while Ghosty is open. For a locked phone, ask me for a reminder.'), h('div.pkrow', all), ...net, phrases(['shopping list', 'timer 8 minutes for the pasta']));
+  const el = h('div.pkcol', rows, h('div.pkadd', input, set), msg, h('p.pknote', 'They ring here, and one of a minute or more on your lock screen too, through my push (only its end time and name go there).'), h('div.pkrow', all), ...net, phrases(['shopping list', 'timer 8 minutes for the pasta']));
   return { el, stop: off };
 }
 
