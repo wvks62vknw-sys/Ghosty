@@ -9875,3 +9875,25 @@ html .recallidx .recallindex, html .recallfind .note { flex: 1 1 12em; min-width
 html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
 /* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
 html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
+
+/* ==== THE PLAN AND HOME LANE, NEXT ROUND (planlane2): new blocks. Tokens only (var(--…)), no hex, no rgba(), no px radius. ==== */
+/* ==== [planlane2:onelist] ==== */
+
+/* ==== [planlane2:onelist end] ==== */
+
+/* ==== [planlane2:timeline] ==== */
+
+/* ==== [planlane2:timeline end] ==== */
+
+/* ==== [planlane2:goodnight] ==== */
+
+/* ==== [planlane2:goodnight end] ==== */
+
+/* ==== [planlane2:podcasts] ==== */
+
+/* ==== [planlane2:podcasts end] ==== */
+
+/* ==== [planlane2:fixes] ==== */
+
+/* ==== [planlane2:fixes end] ==== */
+
