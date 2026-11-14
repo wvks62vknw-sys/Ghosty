@@ -363,7 +363,7 @@ for (const vp of [PHONE, PHONE2]) {
     check(!!said, `${T} (g) Ghosty answered first: "${said.slice(0, 60)}"`);
     await chat(page, 'make it a comic');
     check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.pages > 0 && window.__ghosty.comic.editing.writing === false, null, 20000), `${T} (g) “make it a comic” makes a comic`);
-    // (and built from that reply: its first words are the comic's opening caption)
+    // (the comic is made from that reply: its first words are the comic's opening caption)
     await page.click('#pg-comic button[aria-label="Next page"]');
     const p1 = await page.evaluate(() => (document.querySelector('#pg-comic .cxpage').getAttribute('aria-label') ?? '').replace(/\s+/g, ' '));
     const head = (/as a comic: (.{24})/.exec(p1)?.[1] ?? '').trim();
