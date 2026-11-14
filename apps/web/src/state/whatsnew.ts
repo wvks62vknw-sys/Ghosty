@@ -18,7 +18,7 @@ export interface NewThing {
 export const WHATS_NEW: NewThing[] = [
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   // [sites] THE APPS ROUND: Design
-  { day: '2026-11-14', title: 'Design anything', line: 'CREATIVE → Design: one canvas for posters, invitations, cards, menus, stories and posts. Move, resize and turn any part by hand, with layers, snapping and undo; start from a template; resize it to any size; save a PNG, a vector file or a print PDF, or put it on your sites after your APPROVE.' },
+  { day: '2026-11-14', title: 'Design anything', line: 'CREATIVE → Poster → Design: one canvas for posters, invitations, cards, menus, stories and posts. Move, resize and turn any part by hand, with layers, snapping and undo; start from a template; resize it to any size; save a PNG, a vector file or a print PDF, or put it on your sites after your APPROVE.' },
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },
   { day: '2026-11-14', title: 'Water nudges on a locked phone', line: 'Water nudges now reach your lock screen. My brain gets only the times to nudge, never how much you drink. Steps can come in from Health each evening with a Shortcut.' },

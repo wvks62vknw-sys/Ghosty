@@ -1,7 +1,7 @@
 # THE APPS ROUND: SITES (Design)
 
 ## What I built: Design, one free canvas
-Open **CREATIVE → Design** (it is now the first pill). It opens on a designed page, never a blank one, and everything is kept on your
+Open **CREATIVE → Poster**: Design is its first panel, above the quick poster (the screen keeps six pills at most). It opens on a designed page, never a blank one, and everything is kept on your
 phone.
 
 - **Every part moves by hand:**
@@ -27,7 +27,7 @@ phone.
 - **Undo and redo** for every change, and it saves as you go: after a reload the same design is open.
 
 ## How to try it
-1. CREATIVE → Design. Drag the title somewhere else and watch it snap to the centre line. Tap Undo, then Redo.
+1. CREATIVE → Poster → Design. Drag the title somewhere else and watch it snap to the centre line. Tap Undo, then Redo.
 2. Templates → Club night. Pull a corner of the ticket to make it bigger, and turn it with the handle on top.
 3. Resize → Story: a story-sized copy of the same design.
 4. Export → Print PDF with bleed, then open it from Files.
@@ -41,7 +41,7 @@ phone.
   templates by occasion, moving by hand with snapping and a guide, undo and redo, corner resize, rotation, layers (hide, lock), magic resize,
   the brand kit, the PNG, vector file and print PDF read back, My designs and Recently deleted, a reload, 44 pt keys with nothing sideways,
   and ON MY SITES only after APPROVE.
-- **tabs.spec:** CREATIVE's pills now start with Design.
+- **tabs.spec:** CREATIVE's Poster pill now shows DESIGN first.
 
 ## Decisions
 - **Inside CREATIVE, not a new tab.** It sits beside the old Poster, Card and Logo, so nothing he has goes away. A tab of its own (Jump

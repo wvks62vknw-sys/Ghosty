@@ -1,4 +1,4 @@
-// DESIGN (THE APPS ROUND, lane SITES): one free canvas in CREATIVE → Design, on an iPhone at 440 × 956 and 390 × 844.
+// DESIGN (THE APPS ROUND, lane SITES): one free canvas in CREATIVE → Poster (its first panel), on an iPhone at 440 × 956 and 390 × 844.
 // (a) it opens on a designed page, never a blank one; (b) the templates, filtered by occasion, each fit their size; (c) a part dragged by
 // hand moves, snapping with guides, and UNDO / REDO take it back and forth; (d) a corner resizes it, the top handle turns it; (e) Layers
 // hides and locks (a locked part does not move); (f) magic resize makes a copy at another size, the first kept; (g) the brand kit keeps a
@@ -53,8 +53,8 @@ const toDesign = async (page) => {
   await page.evaluate(() => (location.hash = 'creative'));
   await page.waitForSelector('#pg-creative .secpills .secpill', { timeout: 15000 });
   // (its pill is remembered: tapped only when another one is showing)
-  const on = await page.$eval('#pg-creative .secpills .secpill', (b) => b.textContent === 'Design' && (b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true')).catch(() => false);
-  if (!on) await openSection(page, 'creative', 'Design');
+  const on = await page.$$eval('#pg-creative .secpills .secpill', (bs) => bs.some((b) => (b) => b.textContent === 'Poster' && (b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true'))).catch(() => false);
+  if (!on) await openSection(page, 'creative', 'Poster');
 };
 const saved = async (page) => until(page, () => { const s = window.__ghosty.design; return s.saved > 0; }, null, 4000);
 
@@ -65,8 +65,8 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
   // (a) a designed page, never a blank one
   let s = await st(page);
   check(opened && s.layers >= 3 && s.w > 0 && /is open/.test(s.said), `${W}: (a) Design opens on a designed page (${s.name}, ${s.layers} parts, ${s.w}×${s.h}): "${s.said}"`);
-  const pills = await page.$$eval('#pg-creative .secpills:not([hidden]) .secpill', (b) => b.map((x) => x.textContent));
-  check(pills[0] === 'Design', `${W}: (a) Design is CREATIVE's first pill (${pills.join(', ')})`);
+  const panels = await page.$$eval('#pg-creative .pn:not([hidden]) h3', (h) => h.map((x) => x.textContent.trim()));
+  check(/^design/i.test(panels[0] ?? ''), `${W}: (a) Design leads CREATIVE's Poster pill (${panels.slice(0, 2).join(', ')})`);
   // (b) templates by occasion
   await tab(page, 'Templates');
   const all = await page.$$eval(`${D} .dzcard`, (c) => c.length);

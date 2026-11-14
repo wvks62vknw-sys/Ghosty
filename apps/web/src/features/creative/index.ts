@@ -26,10 +26,10 @@ export const creativeTab: TabDef = {
         const m = await import('./sheet');
         const part = (what: 'song' | 'poster' | 'birthday' | 'comic' | 'logo' | 'palette' | 'beat') => ({ title: m.CREATIVE_TITLES[what], pack: 'creative', screen: what, build: () => m.creativeScreen(what) });
         return [
-          // [sites] DESIGN (THE APPS ROUND): one free canvas for posters, invitations, cards, menus, stories and posts
-          { id: 'design', label: 'Design', parts: [{ title: 'DESIGN', build: async () => (await import('../design/editor')).designScreen() }] },
           { id: 'music', label: 'Music', parts: [part('song'), part('beat')] },
-          { id: 'poster', label: 'Poster', parts: [part('poster')] },
+          // [sites] DESIGN (THE APPS ROUND): one free canvas for posters, invitations, cards, menus, stories and posts, first under
+          // Poster (the sheet keeps six pills at most), above the quick poster it grows out of
+          { id: 'poster', label: 'Poster', parts: [{ title: 'DESIGN', build: async () => (await import('../design/editor')).designScreen() }, part('poster')] },
           { id: 'card', label: 'Card', parts: [part('birthday')] },
           { id: 'comic', label: 'Comic', parts: [part('comic')] },
           { id: 'logo', label: 'Logo', parts: [part('logo')] },

@@ -10619,7 +10619,7 @@ html .dz .dztext, html .dz .dzsel1 { width: 100%; box-sizing: border-box; min-he
 html .dz .dzrow .dzsel1 { flex: 2 1 160px; width: auto; }
 html .dz .dzrange { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
 html .dz .dzchips { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
-html body .dz button.dzchip { min-height: var(--g-target) !important; height: auto !important; padding: 0 var(--g-s-1); text-transform: none; letter-spacing: normal; border-radius: var(--g-radius-orb); }
+html body .dz button.dzchip { min-width: var(--g-target); min-height: var(--g-target) !important; height: auto !important; padding: 0 var(--g-s-1); text-transform: none; letter-spacing: normal; border-radius: var(--g-radius-orb); }
 html body .dz button.dzchip[aria-pressed="true"] { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-hair) var(--g-accent); }
 html .dz .dzgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-1); }
 html body .dz button.dzcard, html body .dz button.dzsize { display: flex; flex-direction: column; align-items: stretch; gap: var(--g-s-half); min-height: var(--g-target) !important; height: auto !important; padding: var(--g-s-half); text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
