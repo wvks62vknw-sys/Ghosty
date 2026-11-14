@@ -25,7 +25,7 @@ function phrasebook(id: string, lang: string, keywords: string[], answers: strin
     pitch: `The ${lang} phrases a traveller needs most, written in ${lang} as it is read.`,
     keywords: [lang.toLowerCase(), 'phrases', 'phrasebook', ...keywords],
     tour: ['Each card is one phrase; say it aloud before you turn it.', tip, 'Ten minutes a day the week before you go is enough.'],
-    deck: { mode: 'srs', cards: PHRASES.map((q, i) => ({ q, a: answers[i] })) },
+    deck: { mode: 'srs', cards: PHRASES.map((q, i) => ({ q, a: answers[i] ?? '' })) },
   };
 }
 
@@ -33,7 +33,7 @@ function phrasebook(id: string, lang: string, keywords: string[], answers: strin
 const ZONES: { label: string; value: number }[] = [
   ['Honolulu (UTC−10)', -10], ['Los Angeles, winter (UTC−8)', -8], ['Los Angeles, summer (UTC−7)', -7],
   ['New York, winter (UTC−5)', -5], ['New York, summer (UTC−4)', -4], ['São Paulo (UTC−3)', -3],
-  ['London, winter (UTC+0)', 0], ['London, summer (UTC+1)', 1], ['Paris, summer (UTC+2)', 2],
+  ['London, winter (UTC+0)', 0], ['London summer, Paris winter (UTC+1)', 1], ['Paris, summer (UTC+2)', 2],
   ['Istanbul, Moscow (UTC+3)', 3], ['Dubai (UTC+4)', 4], ['Karachi (UTC+5)', 5], ['Delhi (UTC+5:30)', 5.5],
   ['Dhaka (UTC+6)', 6], ['Bangkok (UTC+7)', 7], ['Beijing, Singapore (UTC+8)', 8], ['Tokyo (UTC+9)', 9],
   ['Sydney, winter (UTC+10)', 10], ['Sydney, summer (UTC+11)', 11], ['Auckland, summer (UTC+13)', 13],
@@ -498,7 +498,7 @@ export const WORLD: AppDef[] = [
     keywords: ['walking', 'time', 'hike', 'naismith', 'climb', 'hills'],
     tour: ['Type the distance and the total climb from the map.', 'The rule allows 5 km an hour plus an hour for every 600 m up.', 'Add your breaks, and turn back in time to beat the dark.'],
     calc: {
-      source: 'Naismith\'s rule: 5 km per hour, plus 1 hour for every 600 m of ascent (Mountaineering Scotland)',
+      source: 'Naismith\'s rule (W. W. Naismith, 1892), in its metric form: 5 km per hour, plus 1 hour for every 600 m of ascent',
       estimate: true,
       inputs: [
         { id: 'km', label: 'Distance', unit: 'km', default: 10, min: 0, step: 0.1 },

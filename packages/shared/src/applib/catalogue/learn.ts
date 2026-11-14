@@ -31,7 +31,7 @@ const ELEMENTS =
   'Sg Seaborgium,Bh Bohrium,Hs Hassium,Mt Meitnerium,Ds Darmstadtium,Rg Roentgenium,Cn Copernicium,Nh Nihonium,' +
   'Fl Flerovium,Mc Moscovium,Lv Livermorium,Ts Tennessine,Og Oganesson';
 const ELS = ELEMENTS.split(',').map((s, i) => {
-  const [sym, name] = s.split(' ');
+  const [sym = '', name = ''] = s.split(' ');
   return { z: i + 1, sym, name };
 });
 const GASES = new Set(['H', 'He', 'N', 'O', 'F', 'Ne', 'Cl', 'Ar', 'Kr', 'Xe', 'Rn']);
@@ -39,9 +39,9 @@ const LIQUIDS = new Set(['Br', 'Hg']);
 function place(z: number): { period: number; group?: number; block: string; series?: string } {
   const ends = [2, 10, 18, 36, 54, 86, 118];
   const period = ends.findIndex((e) => z <= e) + 1;
-  const start = period === 1 ? 1 : ends[period - 2] + 1;
+  const start = period === 1 ? 1 : (ends[period - 2] ?? 0) + 1;
   const pos = z - start + 1;
-  const len = ends[period - 1] - start + 1;
+  const len = (ends[period - 1] ?? 0) - start + 1;
   if (period === 1) return { period, group: z === 1 ? 1 : 18, block: 's' };
   if (pos <= 2) return { period, group: pos, block: 's' };
   if (len === 8) return { period, group: pos + 10, block: 'p' };
@@ -60,15 +60,15 @@ function stateOf(z: number, sym: string): string {
 }
 const ELEMENT_SECTIONS = ELS.map(({ z, sym, name }) => {
   const p = place(z);
-  const where = p.series ? `Period ${p.period}, ${p.block}-block, ${a(p.series)} ${p.series}.` : `Period ${p.period}, group ${p.group}, ${p.block}-block.`;
+  const where = p.series ? `Period ${p.period}, ${a(p.series)}.` : `Period ${p.period}, group ${p.group}, ${p.block}-block.`;
   return {
     title: `${z} ${name} (${sym})`,
     body: `Symbol ${sym}, atomic number ${z}. ${where} ${stateOf(z, sym)}`,
-    tags: [sym.toLowerCase(), `period ${p.period}`, `${p.block}-block`, ...(p.series ? [p.series] : [`group ${p.group}`])],
+    tags: [sym.toLowerCase(), `period ${p.period}`, ...(p.series ? [p.series] : [`${p.block}-block`, `group ${p.group}`])],
   };
 });
-function a(word: string): string {
-  return /^[aeiou]/.test(word) ? 'an' : 'a';
+function a(series: string): string {
+  return series === 'actinide' ? 'an actinide' : 'a lanthanide';
 }
 
 /* ---------- Squares and roots: worked out, never typed by hand. */
@@ -220,7 +220,7 @@ export const LEARN: AppDef[] = [
         'Double white lines with the line nearest you solid=Do not cross or straddle it;' +
         'Double yellow lines at the kerb=No waiting at any time;Minimum tyre tread for cars=1.6 mm across the central three-quarters;' +
         'Break advised on a long drive=At least 15 minutes after every two hours;' +
-        'Legal age to drive a car on a full licence=17;When to use dipped headlights=When visibility is seriously reduced and at night;' +
+        'Youngest age to drive a car on the road=17;When to use dipped headlights=When visibility is seriously reduced and at night;' +
         'Use of fog lights=Only when visibility is seriously reduced, generally under 100 metres;' +
         'A hard shoulder is for=Emergencies only, unless signs open it as a lane;' +
         'Rule H1 of the hierarchy=Those who can do the greatest harm have the greatest responsibility;' +
@@ -1220,7 +1220,7 @@ export const LEARN: AppDef[] = [
         'Columbus reaches the Americas=1492;Defeat of the Spanish Armada=1588;Gunpowder Plot=1605;Great Fire of London=1666;' +
         'Acts of Union of England and Scotland=1707;American Declaration of Independence=1776;Storming of the Bastille=1789;' +
         'Battle of Trafalgar=1805;Battle of Waterloo=1815;Slavery Abolition Act passed=1833;Queen Victoria crowned=1838;' +
-        'First World War begins=1914;First World War ends=1918;Women over 30 win the vote in Britain=1918;' +
+        'First World War begins=1914;First World War ends=1918;Some women over 30 win the vote in Britain=1918;' +
         'Second World War begins=1939;D-Day landings=1944;Second World War ends=1945;NHS founded=1948;' +
         'Partition of India and Pakistan=1947;First person on the Moon=1969;Fall of the Berlin Wall=1989;' +
         'Channel Tunnel opens=1994;UK leaves the European Union=2020',
