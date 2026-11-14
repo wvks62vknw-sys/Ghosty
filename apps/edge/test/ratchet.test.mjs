@@ -154,6 +154,8 @@ export const STATES = {
   'eye.wall': { dir: 'eye', base: 0, now: 2 },
   // the full-screen rain radar (see.s3): fetching, unreachable, no signal
   'eye.rain': { dir: 'eye', base: 0, now: 3 },
+  // THE WORLD in the morning Brief (see.c2; features/eye/briefworld.ts): looking, offline, no commute saved
+  'world.brief': { dir: 'eye', base: 0, now: 3 },
   'lens.camera': { dir: 'lens', base: 3, now: 3 },
   'lens.see': { dir: 'lens', base: 0, now: 1 },
   'lens.read': { dir: 'lens', base: 0, now: 1 },

@@ -656,6 +656,11 @@ html body .wall .wallacts button { min-height: var(--g-target) !important; }
 .rain .rainslider { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); accent-color: var(--g-accent); }
 .rain .rainwhen { flex: none; font: var(--g-t-caption); color: var(--g-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 html body .rain .raincontrols button { flex: none; min-height: var(--g-target) !important; }
+/* THE WORLD in the Brief (see.c2): the camera nearest home as a fresh picture */
+html body .brworld .brcam { position: relative; display: block; width: 100%; min-height: var(--g-target) !important; aspect-ratio: 16 / 9; padding: 0; margin-top: var(--g-s-half); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-plate-fill); text-align: left; text-transform: none; }
+.brworld .brcam img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.brworld .brcam.dead img { visibility: hidden; }
+.brworld .brcam span { position: absolute; left: 0; right: 0; bottom: 0; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); overflow-wrap: anywhere; }
 .jstale { margin: var(--g-s-half) 0; padding: var(--g-s-half) var(--g-s-1); border-radius: var(--g-radius-key); color: var(--g-amber, var(--amber)); background: var(--g-plate-fill); overflow-wrap: anywhere; }
 
 /* Training ground */
