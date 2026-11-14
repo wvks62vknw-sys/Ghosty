@@ -15,9 +15,13 @@ import { foresightPanel } from './foresight';
 import { loopsPanel } from './loops';
 import { reportCardPanel } from './reportcard';
 import { independencePanel } from './independence';
+import { offlineReadyPanel } from './offlineready';
 import { healthPanels } from './health'; // [health] SYSTEM → HEALTH
 import { backupName, backUpNow, estimateSize, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
+import { backupFileKeys } from './backupfile';
+import { chooseRestore } from './restorepreview';
+import { headsUps } from '../../state/keyshealth';
 import { trainingPanel } from './training';
 import { nightPanel } from './night';
 import { statusDials } from '../../ui/statusdials';
@@ -45,6 +49,8 @@ export const systemTab: TabDef = {
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
+    // [next] OFFLINE READY (offlineready.ts): how much works with no signal now, and the one download that helps most
+    const orp = offlineReadyPanel();
     // What the offline brain on this phone can do, measured here (reportcard.ts), and its weekly self-training (training.ts).
     const rc = reportCardPanel();
     // Every loop he practises in, on one card: what it practised, what improved, what was rejected (loops.ts).
@@ -60,14 +66,14 @@ export const systemTab: TabDef = {
     const ip = independencePanel();
     // [health] HEALTH: a mark on every ability, the crash records, what felt off and the brain's own page (health.ts)
     const hl = healthPanels();
-    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, lg.el, fsp.el, lp.el, tp.el, np.el, ip.el, ...hl.panels.map((x) => x.el));
+    P.left.append(sp.el, kp.el, mp.el, rp.el, orp.el, rc.el, lg.el, fsp.el, lp.el, tp.el, np.el, ip.el, ...hl.panels.map((x) => x.el));
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
     P.right.append(stp.el, bkp.el);
     // Sections (ui/sections.ts; the navigation sheet): a pill each for the status and the brain's keys (what he opens
     // System for, so first), the offline brain's report card and loops, its training and Night School, and the backup.
     sections(root, 'system', [
-      { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|GITHUB)/ },
+      { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|OFFLINE READY|GITHUB)/ },
       { id: 'health', label: 'Health', match: /^(HEALTH|CRASHES|FELT OFF|THE BRAIN)/ },
       { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|WHAT I LEARNED|FORESIGHT|LOOPS|INDEPENDENCE)/ },
       { id: 'training', label: 'Training', match: /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/ },
@@ -161,6 +167,8 @@ export const systemTab: TabDef = {
     // The free AI allowances right now (the brain's quota engine): room this minute, used today, when it resets.
     const paintRoom = () => {
       clear(rp.body);
+      // [next] what is nearly used up or failing, said at the top while it stands (state/keyshealth.ts)
+      for (const x of headsUps(status)) rp.body.append(h(`div.note.headsup${x.tone === 'bad' ? '.bad' : ''}` as 'div', { dataset: { headsup: x.id.split(':')[0]!, case: 'keep' } }, `${x.text} `, h('small', x.fix)));
       const cap = status?.capacity;
       if (!cap) {
         rp.setStatus('', 'off');
@@ -312,7 +320,7 @@ export const systemTab: TabDef = {
       }
       bkp.body.append(
         h('div.note', 'Once a day I lock a copy of what lives only on this phone and keep it in your brain.'),
-        more('The copy holds courses, flashcards, plans, documents, photo edits, video projects and settings, locked with your owner key; only this phone can open it, and the photos and clips themselves stay here. Your chat, memory and agenda are kept by the brain itself.'),
+        more('The copy holds courses, flashcards, plans, documents, photo edits, video projects, the comics and games you made, and settings, locked with your owner key; only this phone can open it, and the photos and clips themselves stay here. Your chat, memory and agenda are kept by the brain itself.'),
         last ? row('LAST BACKUP', last.ok ? `${fmt.ago(last.at)}${last.size ? ` · ${sizeText(last.size)}` : ''}` : `failed ${fmt.ago(last.at)}: ${last.error ?? ''}`, null, { tone: last.ok ? 'up' : 'dn', wrap: true }) : '',
         h('div.keyrow', backupBtn = button('BACK UP NOW', async (b) => {
           // A phone with no backup record while the brain has copies may be a wiped one: ask first.
@@ -334,6 +342,8 @@ export const systemTab: TabDef = {
           }
         }, 'on')),
         msg,
+        // [next] the same locked copy kept as a file of his own, and read back (backupfile.ts)
+        ...(ownerKey.get() ? [backupFileKeys((text, tone) => { msg.textContent = text; msg.className = `note backupmsg${tone ? ` ${tone}` : ''}`; })] : []),
       );
       // the size said before the tap: what this phone would send, as the sealed copy will be (an estimate)
       void estimateSize().then((n) => {
@@ -355,12 +365,19 @@ export const systemTab: TabDef = {
           const r = row(day, `${name} · ${time} · ${sizeText(b.size)}`, null, { wrap: true });
           r.dataset.backup = b.id;
           r.append(button('RESTORE', async (btn) => {
-            if (!confirm(`Restore the backup from ${day} (${name})?\n\nIt is joined with what is on this phone now: where both have the same thing, the newer one wins. Nothing here is deleted. Ghosty reloads straight after.`)) return;
             btn.disabled = true;
             msg.textContent = 'opening the backup…';
             msg.className = 'note backupmsg';
             try {
-              msg.textContent = `${await restoreAndReload(b)} Reloading…`;
+              // [next] what it would bring back, chosen item by item before anything is written (restorepreview.ts)
+              const { backup } = await brain.getBackup(b);
+              const leave = await chooseRestore(backup, `Restore ${day} (${name})?`);
+              if (!leave) {
+                msg.textContent = '';
+                btn.disabled = false;
+                return;
+              }
+              msg.textContent = `${await restoreAndReload(backup, leave)} Reloading…`;
               msg.className = 'note backupmsg good';
             } catch (e) {
               msg.textContent = sayError(e, 'change that');
@@ -420,6 +437,7 @@ export const systemTab: TabDef = {
         void load();
         void checkVersion();
         hl.refresh();
+        orp.refresh();
         tp.refresh();
         lp.refresh();
         lg.refresh();

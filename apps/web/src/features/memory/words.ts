@@ -59,3 +59,16 @@ export const indexLine = (items: number, bytes: number): string => (items ? `Rec
 export const chasingLine = (items: string[]): string => `I'm chasing ${items.length === 1 ? 'one reply' : `${items.length} replies`}: ${items.join('; ')}.`;
 export const CHASING_NONE = 'I’m not chasing anything for you. Say “remind me to chase this if Sam doesn’t reply by Thursday” and I will.';
 export const CHASE_LIST_OFFLINE = 'I can’t reach my brain right now, and it is the brain that keeps the chases. Ask me again when I’m back online.';
+/** [keep] Recall within days he named ("last March", "in October"). */
+export const recallOn = (n: number, said: string): string => `${n === 1 ? 'One thing' : `${n} things`} you asked me ${said.replace(/^(?:on|in) /, 'on ')}:`.replace(/ on (last|this) /, ' $1 ').replace(/ on ((?:january|february|march|april|may|june|july|august|september|october|november|december)\b)/i, ' in $1');
+export const recallNoneOn = (said: string, about?: string): string => `Nothing${about ? ` about “${about.slice(0, 40)}”` : ''} from ${said.replace(/^(?:on|in) /, '')}.`;
+/** Meaning search downloaded but not ready this moment: the answer came by its words. */
+export const BY_WORDS = '(By words only: meaning search is still waking up.)';
+/** [recall] the exchange card (memory.u7) and PIN (memory.u11). */
+export const EXCHANGE_NO_ANSWER = 'My answer to it is no longer kept on this phone.';
+export const EXCHANGE_PINNED = 'Pinned: this chat stays in recall past 30 days.';
+export const EXCHANGE_UNPINNED = 'Unpinned: it fades from recall after 30 days, like the rest.';
+/** [recall] memory.c5: recall said aloud, in one short line. */
+export const recallSpoken = (n: number, about: string, last: string): string => `You asked me about ${about.slice(0, 40)} ${n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`}, last ${last}.`;
+/** [recall] memory.s1: under what the Lens read. */
+export const LENS_READ_NOTE = 'The words the Lens read from your photo, kept on this phone; the photo itself was not kept.';

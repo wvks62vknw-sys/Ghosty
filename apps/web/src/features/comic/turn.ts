@@ -13,7 +13,16 @@ export async function comicTurn(text: string): Promise<ComicReply> {
   const { go } = await import('../../shell/tabs');
   const open = (section: string) => go(`comic?${section}`);
   let reply = '';
-  if (ask.what === 'make') {
+  if (ask.what === 'week') {
+    if (app.hooks.week) {
+      open('make');
+      app.hooks.week();
+    } else {
+      app.pending.week = true;
+      open('make');
+    }
+    reply = 'I’m making your week into a comic from your agenda and the to-dos you ticked: a panel a day, open in COMIC → MAKE, kept on this phone. Only the titles and days are used, never where things were.';
+  } else if (ask.what === 'make') {
     const idea = ask.idea || 'a cat who wants to be an astronaut';
     if (app.hooks.make) {
       open('make');
@@ -27,7 +36,7 @@ export async function comicTurn(text: string): Promise<ComicReply> {
     open('shelf');
     if (app.hooks.askImport) app.hooks.askImport();
     else app.pending.import = true;
-    reply = 'COMIC → SHELF is open: tap IMPORT A COMIC and pick a CBZ, a PDF, pictures or a folder of them. A CBR can’t be opened in any browser, so save it as a CBZ first. It stays on this phone.';
+    reply = 'COMIC → SHELF is open: tap IMPORT A COMIC and pick a CBZ, a CBR, a PDF, pictures or a folder of them. A CBR needs the free RAR reader once (1.1 MB, on your tap, on Wi-Fi). It stays on this phone.';
   } else if (ask.what === 'library') {
     if (app.hooks.library) {
       open('library');

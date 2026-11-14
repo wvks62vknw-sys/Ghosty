@@ -50,6 +50,13 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 /** The fewest tins (UK sizes) that hold at least `litres`, said plainly. */
 export function tinsFor(litres: number): string {
   if (!(litres > 0)) return 'none';
+  const [a, b, c] = tinCounts(litres);
+  return [[a, 5], [b, 2.5], [c, 1]].filter(([n]) => n! > 0).map(([n, s]) => `${n} × ${s} L`).join(' + ');
+}
+
+/** The tins that hold at least `litres`: how many 5 L, 2.5 L and 1 L. */
+export function tinCounts(litres: number): [number, number, number] {
+  if (!(litres > 0)) return [0, 0, 0];
   // the least paint left over and the fewest tins, weighed together (every mix of 5 L, 2.5 L and 1 L tried)
   let best: [number, number, number] | null = null;
   let bestKey = Infinity;
@@ -65,8 +72,7 @@ export function tinsFor(litres: number): string {
       }
     }
   }
-  const [a, b, c] = best!;
-  return [[a, 5], [b, 2.5], [c, 1]].filter(([n]) => n! > 0).map(([n, s]) => `${n} × ${s} L`).join(' + ');
+  return best!;
 }
 
 /** The materials for the rooms of a plan at ceiling height `hCm`, with its doors and windows. */
@@ -103,3 +109,52 @@ export function materialsWords(m: Materials): { head: string; lines: string[] } 
 
 /** The line under every materials answer: what it rests on, and that it is a first estimate. */
 export const MATERIALS_NOTE = `A first estimate to shop with, never a quote: ${RULES.paintM2PerLitre} m² a litre a coat, ${RULES.coats} coats, ${RULES.floorWaste * 100}% more flooring for cuts, rolls of ${RULES.rollLength} m × ${RULES.rollWidth * 100} cm. Doors and windows are taken off the walls.`;
+
+// ---------------------------------------------------------------- NEXT ROUND (make.u1, make.c5): typical prices and the makeover budget
+
+export type FloorKind = 'laminate' | 'carpet';
+export interface PricedLine {
+  what: string;
+  qty: string;
+  gbp: number;
+}
+export interface Priced {
+  lines: PricedLine[];
+  /** Paint, flooring and skirting: the makeover. */
+  total: number;
+  /** Papering the walls instead of painting them (the rolls alone). */
+  wallpaper: number;
+}
+
+/**
+ * The materials at typical UK prices: the build designer's own table (build/prices.ts, curated by hand in PRICE_MONTH), each a
+ * first estimate, never a quote. Paint in the tins tinsFor picks; flooring by the m² bought (cuts included); skirting by the metre.
+ */
+export function priceMaterials(m: Materials, floor: FloorKind, P: { emulsion: number; emulsion25: number; emulsion1: number; laminate: number; carpet: number; skirting: number; wallpaper: number }): Priced {
+  const t = m.total;
+  if (!m.rooms.length || t.floor <= 0) return { lines: [], total: 0, wallpaper: 0 };
+  const [a, b, c] = tinCounts(t.paint);
+  const paint = a * P.emulsion + b * P.emulsion25 + c * P.emulsion1;
+  const fl = Math.round(t.flooring * (floor === 'laminate' ? P.laminate : P.carpet) * 100) / 100;
+  const sk = Math.round(t.skirting * P.skirting * 100) / 100;
+  const lines: PricedLine[] = [
+    { what: 'Paint', qty: m.tins, gbp: paint },
+    { what: floor === 'laminate' ? 'Laminate with underlay' : 'Carpet and underlay, fitted', qty: `${t.flooring} m²`, gbp: fl },
+    { what: 'Skirting', qty: `${t.skirting} m`, gbp: sk },
+  ];
+  return { lines, total: Math.round((paint + fl + sk) * 100) / 100, wallpaper: t.rolls * P.wallpaper };
+}
+
+/** Money out in a typical month from his own statements: the mean of the months given (each month's out, income left out). */
+export function typicalMonth(outs: number[]): number | null {
+  const ok = outs.filter((x) => Number.isFinite(x) && x > 0);
+  return ok.length ? Math.round(ok.reduce((s, x) => s + x, 0) / ok.length) : null;
+}
+
+/** The makeover set against his spending, in his words: a share of a typical month, said as what happened, never a forecast. */
+export function budgetWords(total: number, monthly: number | null, months: number): string {
+  const pounds = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`;
+  if (!monthly) return 'No statements on your brain yet: import one in MONEY and I’ll set this against your usual month.';
+  const share = Math.round((total / monthly) * 100);
+  return `About ${pounds(total)} is ${share}% of what you spent in a typical month (${pounds(monthly)}, the average of your last ${months} month${months === 1 ? '' : 's'} of statements). A first estimate, never a quote.`;
+}

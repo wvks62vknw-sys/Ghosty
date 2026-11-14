@@ -21,9 +21,12 @@ import { guardianPanel } from './guardian'; // [guardian] GUARDIAN: the named pe
 import { offlinePanel } from './offline';
 import { permissionsPanel } from './permissions'; // [health] PERMISSIONS: what the phone can be asked for
 import { eyesPanel, mapsPanel, voiceModelPanel } from './packs';
+import { saverPanel } from './saver';
+import { keptBlock } from './kept';
 import { wallPanel } from './wall'; // [wall] THE WALL: pair the second screen
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
+import { openingControls } from './opening'; // [boot] THE OPENING: how long, his own line, how the last one ran, a guest
 import { voiceControls } from './voice';
 import { myVoicePanel, peoplePanel } from './voiceknown'; // [voiceknown] MY VOICE and PEOPLE I'VE INTRODUCED
 import { tvNow, tvSetting } from '../../tv/setting'; // [restc] TV MODE
@@ -73,6 +76,8 @@ export const settingsTab: TabDef = {
     P.right.append(op.el);
     // [offline] the map of his area and the Lens's eyes, kept on the phone on his tap (BRIEF-OFFLINE-1)
     P.right.append(mapsPanel().el, eyesPanel().el);
+    // [next] SAVER: one switch that holds big downloads and the background feeds (saver.ts)
+    P.right.append(saverPanel().el);
     const about = panel('ABOUT', { grow: false, status: BUILD.sha.slice(0, 7) });
     about.body.append(
       row('GHOSTY', 'Your own assistant: his brain runs in your Cloudflare account, his face on this phone.', null, { wrap: true }),
@@ -81,11 +86,15 @@ export const settingsTab: TabDef = {
     const privacy = panel('PRIVACY', { grow: false, status: 'Yours only' });
     // [guardian] FACES: his own and the people he introduced, on this phone only, each gone in one tap
     const fb = facesBlock();
+    const kept = keptBlock();
     privacy.body.append(
       h('p.note', 'What you tell me, what I remember and your keys are kept only in your own Cloudflare account and on this phone.'),
       ...para('p.note', 'Questions go only to the AI services you added keys for, with just the words needed. Memory never keeps passwords or what I read online.'),
       fb.el,
+      // [next] everything kept about him, by kind, each with its own key to forget it, and his memory as a document (kept.ts)
+      kept.el,
     );
+    privacy.el.addEventListener('ghosty:reveal', () => void kept.refresh());
     const help = panel('HELP', { grow: false, status: 'Tips' });
     help.body.append(
       // (nothing on screen is a reactor any more, and there is one look: OWNER-ISSUES 45, BRIEF-ONE-LOOK)
@@ -107,7 +116,7 @@ export const settingsTab: TabDef = {
     sections(root, 'settings', [
       { id: 'appearance', label: 'Appearance', match: /^(THEME|THE LOOK|READING)/ },
       { id: 'you', label: 'You', match: /^(NAME|PERMISSIONS)/ },
-      { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/ },
+      { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|SAVER|MY VOICE|PEOPLE I)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
       { id: 'ghosty', label: 'Ghosty', match: /^(SECURITY|SYSTEM|LINKS|SHORTCUTS|THE WALL|WORKSPACE)$/ },
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
@@ -163,6 +172,7 @@ export const settingsTab: TabDef = {
     // THE SCORE (BRIEF-HUD-SCAN-1 7): B, the short score under the boot (a pad, a tick per thing found, the tone on the lock); off, A: the one tone alone
     const score = switchRow('The boot’s score', 'A short score under the boot, made on this phone; off, the one tone alone.', () => settings.get().bootScore !== false, (on) => settings.set({ bootScore: on }));
     score.el.dataset.id = 'bootscore';
+    const opening = openingControls();
     const motion = switchRow('Tilt phone to look around', 'The 3D scenes follow the phone', () => settings.get().motion, (on) => settings.set({ motion: on }));
     // HOME: where home is now, said in full (it was only in the box's placeholder, cut off at "Home city (now Lonc").
     const homeNow = h('div.note.homenow');
@@ -203,7 +213,7 @@ export const settingsTab: TabDef = {
     // SHOW ME (BRIEF-KERNEL-YES 5; OWNER-ISSUES 173): the Stage under a reply, on by default; off, no picture under any reply
     const showMe = switchRow('Show me', 'A picture under the answer when there is one to show (a map, bars, a page, a part); off, never.', () => settings.get().showMe !== false, (on) => settings.set({ showMe: on }));
     showMe.el.dataset.id = 'showme';
-    vp.body.append(...vc.nodes, sfx.el, score.el, rest('The score is a low pad, a tick for each thing I find and the tone when I lock on.'), motion.el, showMe.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps), sense.el, rest('My brain gets a word at most, with your question, never where you are.'));
+    vp.body.append(...vc.nodes, sfx.el, score.el, rest('The score is a low pad, a tick for each thing I find and the tone when I lock on.'), ...opening.nodes, motion.el, showMe.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps), sense.el, rest('My brain gets a word at most, with your question, never where you are.'));
 
     paintHead();
     // The profile row follows every change, whether a swatch was tapped here, the name or units were edited,

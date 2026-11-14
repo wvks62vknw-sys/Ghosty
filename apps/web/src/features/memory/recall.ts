@@ -17,12 +17,13 @@
 import { dayWord, daysAgo, matchGists, recallSaid, daysFor, stampOf, type Gist } from '../../../../../packages/shared/src/recall';
 import { cosine, normalise, wordMatcher } from '../../../../../packages/shared/src/meaning';
 import { chat } from '../../assistant/session';
+import { findPlates, mentionsPlate, redactPlates } from '../../../../../packages/shared/src/plates';
 import { brain } from '../../api/brain';
 import { runIndex } from '../../library/idle';
 import { embedState, embedTexts } from '../../offline/embed';
 import { timeZone } from '../../state/app';
 
-export type ThingKind = 'turn' | 'doc' | 'page' | 'deck' | 'sheet' | 'scan';
+export type ThingKind = 'turn' | 'doc' | 'page' | 'deck' | 'sheet' | 'scan' | 'link' | 'todo' | 'book';
 /** One indexed thing: a turn, or a paragraph of one of his things. */
 export interface Thing {
   key: string;
@@ -49,7 +50,7 @@ let lastSig = '';
 const signature = (): string => {
   const es = chat.get().entries;
   let n = `${es.length}:${es[es.length - 1] && 'at' in es[es.length - 1]! ? (es[es.length - 1] as { at: number }).at : 0}`;
-  for (const k of ['ghosty.docs', 'ghosty.workspace', 'ghosty.slides', 'ghosty.sheets']) {
+  for (const k of ['ghosty.docs', 'ghosty.workspace', 'ghosty.slides', 'ghosty.sheets', 'ghosty.agenda.todo', 'ghosty.lens.read']) {
     try {
       n += `:${localStorage.getItem(k)?.length ?? 0}`;
     } catch {
@@ -146,7 +147,8 @@ function turnsFromLog(): Thing[] {
   const out: Thing[] = [];
   for (let i = 0; i < es.length; i++) {
     const e = es[i]!;
-    if (e.kind !== 'user' || !e.text.trim()) continue;
+    // ([voice lane] a turn someone else said is theirs, never part of his recall: voice.c5)
+    if (e.kind !== 'user' || !e.text.trim() || e.theirs) continue;
     const r = es.slice(i + 1, i + 6).find((x) => x.kind === 'assistant' || x.kind === 'user');
     const a = r && r.kind === 'assistant' ? firstLine(r.text) : '';
     out.push({ key: `t:${e.at}`, kind: 'turn', id: String(e.at), title: '', text: e.text.replace(/\s+/g, ' ').trim().slice(0, 400), at: e.at, via: 'app', ...(a ? { a } : {}) });
@@ -176,7 +178,32 @@ function thingsFromStores(): Thing[] {
   }
   const ws = readJson<{ pages?: Record<string, { id: string; title: string; at: number; blocks?: B[] }> }>('ghosty.workspace', {});
   for (const p of Object.values(ws.pages ?? {})) if (p?.id) add('page', p.id, p.title, p.at, [...paras(p.title), ...blockLines(p.blocks ?? [])]);
-  for (const [key, kind] of [['ghosty.slides', 'deck'], ['ghosty.sheets', 'sheet'], ['ghosty.scan.pages', 'scan']] as const) {
+  // [recall] memory.u9: a spreadsheet's rows, each with the address of its first cell ("0!B4": sheet 1, cell B4), and a deck's slides, each
+  // with its slide's id, so a tap lands on the cell or the slide
+  for (const b of readJson<{ id: string; title: string; at: number; sheets?: { name: string; cells?: Record<string, { v?: unknown }> }[] }[]>('ghosty.sheets', [])) {
+    if (!b?.id || !Array.isArray(b.sheets)) continue;
+    const lines: [string, string][] = [];
+    b.sheets.forEach((sh, si) => {
+      const rows = new Map<number, { col: string; v: string }[]>();
+      for (const [ad, c] of Object.entries(sh.cells ?? {})) {
+        const m = /^([A-Z]+)(\d+)$/.exec(ad);
+        const v = c?.v;
+        if (!m || v == null || typeof v === 'object' || v === '') continue;
+        const r = Number(m[2]);
+        rows.set(r, [...(rows.get(r) ?? []), { col: m[1]!, v: String(v) }]);
+      }
+      for (const [r, cs] of [...rows].sort((x, y) => x[0] - y[0])) {
+        cs.sort((x, y) => x.col.length - y.col.length || x.col.localeCompare(y.col));
+        lines.push([`${b.sheets!.length > 1 ? `${sh.name}: ` : ''}${cs.map((c) => c.v).join(' · ')}`, `${si}!${cs[0]!.col}${r}`]);
+      }
+    });
+    add('sheet', b.id, b.title, b.at, lines);
+  }
+  for (const d of readJson<{ id: string; title: string; at: number; slides?: { id: string; title?: { runs?: { text?: string }[] }; body?: { runs?: { text?: string }[] }[]; body2?: { runs?: { text?: string }[] }[]; notes?: string }[] }[]>('ghosty.slides', [])) {
+    if (!d?.id || !Array.isArray(d.slides)) continue;
+    add('deck', d.id, d.title, d.at, d.slides.map((sl): [string, string] => [[runsText(sl.title?.runs), ...(sl.body ?? []).map((x) => runsText(x.runs)), ...(sl.body2 ?? []).map((x) => runsText(x.runs)), sl.notes ?? ''].filter(Boolean).join(' · ').slice(0, 400), sl.id]).filter(([t]) => t.length > 2));
+  }
+  for (const [key, kind] of [['ghosty.scan.pages', 'scan']] as const) {
     const v = readJson<unknown>(key, null);
     const list = Array.isArray(v) ? v : v && typeof v === 'object' && Array.isArray((v as { list?: unknown }).list) ? (v as { list: unknown[] }).list : [];
     for (const x of list as Record<string, unknown>[]) {
@@ -188,6 +215,14 @@ function thingsFromStores(): Thing[] {
   }
   return out;
 }
+/** [recall] memory.s2: the links the chat gave him and his to-dos, so one search covers everything he keeps on this phone. */
+function linksAndTodos(): Thing[] {
+  const out: Thing[] = [];
+  for (const e of chat.get().entries) if (e.kind === 'link' && e.url) out.push({ key: `link:${e.url}`, kind: 'link', id: e.url, title: e.title || e.url, text: `${e.title} ${e.url.replace(/^https?:\/\//, '')}`.slice(0, 400), at: 0 });
+  for (const t of readJson<{ id: string; text: string; at?: number; done?: boolean | number }[]>('ghosty.agenda.todo', [])) if (t?.id && t.text) out.push({ key: `todo:${t.id}`, kind: 'todo', id: t.id, title: t.done ? 'Done' : 'To do', text: t.text.slice(0, 400), at: Number(t.at) || 0 });
+  return out;
+}
+
 /** Every string inside a kept thing (a deck's slides, a sheet's cells, a page's read text), but not ids, pictures or styles. */
 function textOf(v: unknown, depth = 0): string {
   if (depth > 6 || v == null) return '';
@@ -227,7 +262,7 @@ export function buildIndex(o: { history?: boolean } = {}): Promise<void> {
     }
     turns = turns.filter((x) => !dead.has(x.key));
     lastSig = signature();
-    const fresh = [...turns, ...thingsFromStores()];
+    const fresh = [...turns, ...thingsFromStores(), ...linksAndTodos(), ...lensReads()];
     const byKey = new Map(old.map((x) => [x.key, x]));
     const keep = new Set(fresh.map((x) => x.key));
     const changed = fresh.filter((x) => {
@@ -241,7 +276,8 @@ export function buildIndex(o: { history?: boolean } = {}): Promise<void> {
     const drop = old.filter((x) => !keep.has(x.key) && (x.kind !== 'turn' || dead.has(x.key) || twin(x))).map((x) => x.key);
     // (the index keeps at most MAX_TURNS turns: the oldest go first)
     const allTurns = [...old.filter((x) => x.kind === 'turn' && !drop.includes(x.key) && !keep.has(x.key)), ...turns].sort((a, b) => b.at - a.at);
-    for (const x of allTurns.slice(MAX_TURNS)) if (!drop.includes(x.key)) drop.push(x.key);
+    const pinned = pins();
+    for (const x of allTurns.filter((y) => !pinned.has(y.key)).slice(MAX_TURNS)) if (!drop.includes(x.key)) drop.push(x.key);
     const out = new Set(drop);
     const write = changed.filter((x) => !out.has(x.key));
     if (write.length || drop.length) await put(write, drop);
@@ -290,6 +326,10 @@ export function startRecallIndex(): void {
   setTimeout(() => (idle ? idle(go, { timeout: 4000 }) : go()), 2500);
   // what he adds later is read in when the phone next sits idle
   setInterval(() => canRun() && signature() !== lastSig && go(), 60_000);
+  // [keep] his word's copy on this phone, fresh at idle (features/memory/keep.ts): so "where's the spare key?" answers offline
+  const keep = () => navigator.onLine && document.visibilityState === 'visible' && void import('./keep').then((k) => k.refreshKeep()).catch(() => undefined);
+  setTimeout(keep, 6000);
+  setInterval(keep, 10 * 60_000);
 }
 
 /** SYSTEM → STORAGE's CLEAR: the index goes; it rebuilds at idle. */
@@ -325,6 +365,18 @@ export interface Found {
   stamp: string;
 }
 
+/** Meaning search is on this phone but not in memory: answers come by words, and it is woken at idle (on charge or above half). */
+export const wordsOnly = (): boolean => {
+  const e = embedState.get();
+  if (!e.downloaded || e.loaded) return false;
+  if (canRun() && !waking) {
+    waking = true;
+    void embedTexts(['wake'], 'query').catch(() => undefined).finally(() => (waking = false));
+  }
+  return true;
+};
+let waking = false;
+
 /** Ready to answer: the index has been built (or read back) at least once. */
 export const recallWarm = async (): Promise<boolean> => (await all()).length > 0 && recallState.state !== 'building';
 
@@ -351,17 +403,19 @@ export async function findLocal(q: string, o: { turns?: boolean; k?: number } = 
     }
   }
   const m = wordMatcher(q);
+  // [recall] memory.s2: the library on this phone too (its own search, words or meaning as it ranks them), for a FIND, not a chat recall
+  const books: Found[] = o.turns ? [] : await import('../../library/local').then((L) => L.searchLocal(q, 3)).then((hs) => hs.filter((x) => x.relevant).map((x): Found => ({ key: `book:${x.doc}:${x.heading}`, kind: 'book', id: x.doc, title: x.title, line: x.text.slice(0, 160), at: 0, day: '', stamp: KIND_WORD.book }))).catch(() => []);
   const out = list
     .filter((x) => score.has(x.key))
     .sort((a, b) => score.get(b.key)! - score.get(a.key)! || b.at - a.at)
     .slice(0, o.k ?? (o.turns ? 6 : 8))
     .map((x): Found => ({ key: x.key, ...(x.bid ? { bid: x.bid } : {}), kind: x.kind, id: x.id, title: x.title, line: x.kind === 'turn' ? x.text : bestLine(x.text, m), at: x.at, ...(x.via ? { via: x.via } : {}), ...(x.a ? { a: x.a } : {}), day: x.at ? dayWord(x.at, now, tz) : '', stamp: x.kind === 'turn' ? stampOf(x.at, x.via ?? 'app', tz) : KIND_WORD[x.kind] }));
   recallState.lastQueryMs = Math.round(performance.now() - t0);
-  return out;
+  return books.length ? [...out.slice(0, Math.max(0, (o.k ?? 8) - books.length)), ...books] : out;
 }
 const bestLine = (text: string, m: ReturnType<typeof wordMatcher>): string => (text.length > 160 && m ? (text.split(/(?<=[.!?])\s+/).find((s) => m(s.toLowerCase()).words > 0) ?? text).slice(0, 160) : text.slice(0, 160));
 
-export const KIND_WORD: Record<ThingKind, string> = { turn: 'Chat', doc: 'Document', page: 'Workspace page', deck: 'Deck', sheet: 'Spreadsheet', scan: 'Scanned page' };
+export const KIND_WORD: Record<ThingKind, string> = { turn: 'Chat', doc: 'Document', page: 'Workspace page', deck: 'Deck', sheet: 'Spreadsheet', scan: 'Read with the Lens', link: 'Saved link', todo: 'To-do', book: 'Library' };
 
 /** RECALL → FORGET on a turn: out of the index now, and out of the brain's gists (UNDO within the day brings both back). */
 export async function forgetTurn(f: Pick<Found, 'key' | 'at'>): Promise<void> {
@@ -422,4 +476,62 @@ export async function clearTurns(): Promise<void> {
   measure(cache ?? []);
   await put([], turns);
   lastSig = '';
+}
+
+/** [keep] Everything in the index (the turns and his things), for YOUR WORD's open questions and "what was I doing on the 3rd?". */
+export async function allThings(): Promise<Thing[]> {
+  return (await all()).filter((x) => !gone().has(x.key));
+}
+
+// ---------------------------------------------------------------- [recall] memory.u11: pinned turns
+
+const PINS = 'ghosty.recall.pinned';
+const pins = (): Set<string> => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(PINS) ?? '[]') as string[]);
+  } catch {
+    return new Set();
+  }
+};
+export const isPinned = (key: string): boolean => pins().has(key);
+/** PIN or UNPIN a turn: on this phone (never let go by the index's cap) and on the brain (kept past its 30 days). Its new state. */
+export async function pinTurn(f: { key: string; at: number }, on: boolean): Promise<boolean> {
+  const p = pins();
+  if (on) p.add(f.key);
+  else p.delete(f.key);
+  try {
+    localStorage.setItem(PINS, JSON.stringify([...p].slice(-500)));
+  } catch {
+    /* the phone keeps nothing: the brain's pin still holds */
+  }
+  await brain.memoryChange(`t:${f.at}`, on ? 'lock' : 'unlock').catch(() => undefined);
+  return on;
+}
+
+// ---------------------------------------------------------------- [recall] memory.s1: what the Lens read, findable
+
+const READS = 'ghosty.lens.read';
+/** What the Lens read from a photo of his, kept on this phone only (the newest 60, a number plate never kept: "[plate]"), for FIND. */
+export function keepRead(text: string): void {
+  let t = text.replace(/\s+/g, ' ').trim().slice(0, 1500);
+  if (t.length < 12) return;
+  if (mentionsPlate(t)) t = redactPlates(t, findPlates(t.toUpperCase()));
+  const list = readJson<{ at: number; text: string }[]>(READS, []).filter((x) => x && x.text !== t);
+  list.unshift({ at: Date.now(), text: t });
+  try {
+    localStorage.setItem(READS, JSON.stringify(list.slice(0, 60)));
+  } catch {
+    /* the phone keeps nothing: nothing is indexed */
+  }
+  lastSig = '';
+}
+/** The Lens's reads as things: a paragraph each, titled by the day it read them. */
+function lensReads(): Thing[] {
+  const out: Thing[] = [];
+  for (const r of readJson<{ at: number; text: string }[]>(READS, [])) {
+    if (!r?.text) continue;
+    const title = `Read with the Lens · ${new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+    r.text.split(/(?<=[.!?])\s+(?=[A-Z])/).reduce<string[]>((acc, s) => (acc.length && (acc[acc.length - 1]!.length + s.length) < 300 ? [...acc.slice(0, -1), `${acc[acc.length - 1]} ${s}`] : [...acc, s]), []).slice(0, 10).forEach((p, i) => out.push({ key: `scan:${r.at}:${i}`, kind: 'scan', id: String(r.at), title, text: p, at: r.at }));
+  }
+  return out;
 }

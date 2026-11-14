@@ -158,6 +158,8 @@ export interface LessonScore {
   right: number;
   /** The last answers, 1 right, 0 wrong, oldest first (RECENT kept): what "quiz ≥ 80 %" is measured on. */
   recent: number[];
+  /** How sure he was of each of those answers, aligned with `recent` ('sure', 'think', 'guess', or '' when not asked). */
+  conf?: (Confidence | '')[];
 }
 
 export interface CourseStats {
@@ -330,8 +332,77 @@ export function masteryOf(c: Pick<Course, 'lessons'>, stats: CourseStats | undef
 }
 
 /** A lesson's score after one more answer. */
-export function scoreAnswer(s: LessonScore | undefined, right: boolean): LessonScore {
-  return { asked: (s?.asked ?? 0) + 1, right: (s?.right ?? 0) + (right ? 1 : 0), recent: [...(s?.recent ?? []), right ? 1 : 0].slice(-RECENT) };
+export function scoreAnswer(s: LessonScore | undefined, right: boolean, conf?: Confidence): LessonScore {
+  const recent = [...(s?.recent ?? []), right ? 1 : 0];
+  // (the confidence record lines up with the answers: older answers kept before it began count as not asked)
+  const was = s?.conf ?? [];
+  const conf2 = [...Array(Math.max(0, (s?.recent ?? []).length - was.length)).fill(''), ...was, conf && CONFIDENCES.includes(conf) ? conf : ''] as (Confidence | '')[];
+  const kept = conf2.slice(-RECENT);
+  // (no confidence asked for any of them: the record stays as it always was)
+  return { asked: (s?.asked ?? 0) + 1, right: (s?.right ?? 0) + (right ? 1 : 0), recent: recent.slice(-RECENT), ...(kept.some(Boolean) ? { conf: kept } : {}) };
+}
+
+/** How much each recent answer says a lesson needs another look: a miss he was sure of most, a lucky guess a little. */
+export const AIM_WEIGHT = { sure: 3, think: 2, guess: 1, plain: 1, lucky: 1 } as const;
+
+/** One lesson's need from its recent answers: misses weighted by how sure he was, and lucky guesses. */
+export function needOf(score: LessonScore | undefined): { need: number; sure: number; missed: number; lucky: number } {
+  const recent = (score?.recent ?? []).slice(-RECENT);
+  const conf = (score?.conf ?? []).slice(-recent.length);
+  const at = (i: number) => conf[i - (recent.length - conf.length)] ?? '';
+  let need = 0;
+  let sure = 0;
+  let missed = 0;
+  let lucky = 0;
+  recent.forEach((r, i) => {
+    const c = at(i);
+    if (!r) {
+      missed++;
+      if (c === 'sure') sure++;
+      need += c ? AIM_WEIGHT[c] : AIM_WEIGHT.plain;
+    } else if (c === 'guess') {
+      lucky++;
+      need += AIM_WEIGHT.lucky;
+    }
+  });
+  return { need, sure, missed, lucky };
+}
+
+/** Today's aim for a course: the lesson to look at again and why, the lessons a quiz on his misses covers, or the next new lesson. */
+export interface CourseAim {
+  /** 'misses': a lesson he got wrong; 'next': nothing to go back to, so the next lesson; 'done': every lesson read and none missed. */
+  kind: 'misses' | 'next' | 'done';
+  lesson: number;
+  title: string;
+  /** One plain line: why this one. */
+  why: string;
+  /** The lessons a quiz on his misses covers, most needed first (at most 3). */
+  quiz: number[];
+}
+
+/**
+ * Courses that pick up his mistakes (learn.u2): the read lesson whose recent answers need it most (a miss he was SURE of
+ * counts three, THINK SO two, a guess or an unmarked miss one, a lucky guess one), ties to the one missed longest ago in
+ * the course order; with nothing missed, the next lesson to read. Pure: both halves (and the phone with no signal) run it.
+ */
+export function aimOf(c: Pick<Course, 'lessons'>, stats: CourseStats | undefined, next: number): CourseAim {
+  const scored = c.lessons
+    .map((l) => ({ l, ...needOf(stats?.lessons?.[String(l.n)]) }))
+    .filter((x) => x.need > 0)
+    .sort((a, b) => b.need - a.need || a.l.n - b.l.n);
+  if (scored.length) {
+    const top = scored[0]!;
+    const bits = [
+      top.sure ? `${top.sure} answer${top.sure === 1 ? '' : 's'} you were sure of but missed` : '',
+      top.missed - top.sure > 0 ? `${top.missed - top.sure} other miss${top.missed - top.sure === 1 ? '' : 'es'}` : '',
+      top.lucky ? `${top.lucky} lucky guess${top.lucky === 1 ? '' : 'es'}` : '',
+    ].filter(Boolean);
+    const list = bits.length > 1 ? `${bits.slice(0, -1).join(', ')} and ${bits.at(-1)}` : bits[0] ?? '';
+    return { kind: 'misses', lesson: top.l.n, title: top.l.title, why: `Lesson ${top.l.n} again: ${list} in your last answers there.`, quiz: scored.slice(0, 3).map((x) => x.l.n) };
+  }
+  const n = c.lessons.find((l) => l.n === next);
+  if (n) return { kind: 'next', lesson: n.n, title: n.title, why: `Nothing missed lately, so on to lesson ${n.n}.`, quiz: [] };
+  return { kind: 'done', lesson: 0, title: '', why: 'Every lesson read and nothing missed lately: the exam is the next step.', quiz: [] };
 }
 
 /** The course map's CALIBRATION line: how often SURE was right ("Sure and right 8 of 10"), then the others. */

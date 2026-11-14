@@ -27,6 +27,9 @@
  *   POST /school/reading/check    { id } → its reading check to sit (written once, then cached)
  *   POST /school/reading/borrow   { id } → refused with the reason, or that book's reading check to sit
  *   POST /school/reading/answers  { id, checkId, answers, final? } → saved; unless `final` is false, marked exactly
+ *   POST /school/reading/sit-online { id, checkId, itemId } → that question answered by the brain's own model in full working
+ *                                 and kept with the check (14 Nov: borrowing no longer waits for the phone's brain);
+ *                                 503 { error, busy } when no model answered (the phone's brain answers it)
  */
 import { chunkText } from '../../../../packages/shared/src/chunk';
 import {
@@ -40,6 +43,7 @@ import { Library } from '../library/store';
 import { htmlToText } from '../tools/web';
 import { bankItems, isBankStage, jsonArray, loadBank } from './banks';
 import { keepGiven, markItem, type Ask } from './mark';
+import { ONLINE_SIT_SYSTEM, onlinePrompt } from './online';
 import { loadAllOfficial } from './official';
 import { stageName, type Passage, type SchoolItem } from './papers';
 import type { SchoolDeps } from './routes';
@@ -705,6 +709,31 @@ export async function readingRoute(path: string, method: string, body: Record<st
         const { check, done, resumed } = await checkFor(d, e, st, borrow ? 'borrow' : 'read', now);
         return json({ paper: checkForSitting(check, e), done, resumed, purpose: check.purpose });
       });
+    }
+
+    // [learn: the reading check online] one question by the brain's own model, in full working (school/online.ts)
+    if (path === '/school/reading/sit-online') {
+      if (!d.sit) return json({ error: 'My online model is not set up, so this phone’s brain sits the check.', busy: true }, 503);
+      const c = await loadCheck(d, e.id);
+      if (!c || c.id !== String(body.checkId ?? '')) throw new Refuse('That reading check is not known.', 404);
+      if (c.result) throw new Refuse('That check was already handed in.', 409);
+      const it = c.items.find((x) => x.id === String(body.itemId ?? ''));
+      if (!it) throw new Refuse('That question is not on the check.', 404);
+      let got: { text: string; model: string };
+      try {
+        got = await d.sit(ONLINE_SIT_SYSTEM, onlinePrompt(it, { stage: e.stage, passages: c.passages, title: `Reading check · ${e.title}` }), it);
+      } catch {
+        return json({ error: 'No online model answered in time, so this phone’s brain answers that question.', busy: true }, 503);
+      }
+      const given = keepGiven(it, got.text);
+      if (!given.trim()) return json({ error: 'The online model gave an empty answer, so this phone’s brain answers that question.', busy: true }, 503);
+      await serial(d, async () => {
+        const now2 = await loadCheck(d, e.id);
+        if (!now2 || now2.result || now2.id !== c.id) return;
+        now2.given[it.id] = given;
+        await saveCheck(d, now2);
+      });
+      return json({ id: it.id, given, model: String(got.model || '').slice(0, 80) });
     }
 
     if (path === '/school/reading/answers') {
