@@ -17,8 +17,10 @@ export interface FuelPlace {
 }
 export const FUEL_MIRRORS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
 /** The query for a view [south, west, north, east]. */
-export const fuelQuery = ([s, w, n, e]: [number, number, number, number]): string =>
-  `[out:json][timeout:20];(node["amenity"~"^(fuel|charging_station)$"](${s},${w},${n},${e});way["amenity"~"^(fuel|charging_station)$"](${s},${w},${n},${e}););out center 400;`;
+export const fuelQuery = ([south, west, north, east]: [number, number, number, number]): string => {
+  const box = `${south},${west},${north},${east}`;
+  return `[out:json][timeout:20];(node["amenity"~"^(fuel|charging_station)$"](${box});way["amenity"~"^(fuel|charging_station)$"](${box}););out center 400;`;
+};
 export function parseFuel(j: unknown): FuelPlace[] {
   const els = (j as { elements?: { type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }[] })?.elements ?? [];
   const out: FuelPlace[] = [];
