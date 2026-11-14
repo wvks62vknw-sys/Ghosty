@@ -20,6 +20,7 @@ import { healthPanels } from './health'; // [health] SYSTEM → HEALTH
 import { backupName, backUpNow, estimateSize, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
 import { backupFileKeys } from './backupfile';
+import { chooseRestore } from './restorepreview';
 import { headsUps } from '../../state/keyshealth';
 import { trainingPanel } from './training';
 import { nightPanel } from './night';
@@ -364,12 +365,19 @@ export const systemTab: TabDef = {
           const r = row(day, `${name} · ${time} · ${sizeText(b.size)}`, null, { wrap: true });
           r.dataset.backup = b.id;
           r.append(button('RESTORE', async (btn) => {
-            if (!confirm(`Restore the backup from ${day} (${name})?\n\nIt is joined with what is on this phone now: where both have the same thing, the newer one wins. Nothing here is deleted. Ghosty reloads straight after.`)) return;
             btn.disabled = true;
             msg.textContent = 'opening the backup…';
             msg.className = 'note backupmsg';
             try {
-              msg.textContent = `${await restoreAndReload(b)} Reloading…`;
+              // [next] what it would bring back, chosen item by item before anything is written (restorepreview.ts)
+              const { backup } = await brain.getBackup(b);
+              const leave = await chooseRestore(backup, `Restore ${day} (${name})?`);
+              if (!leave) {
+                msg.textContent = '';
+                btn.disabled = false;
+                return;
+              }
+              msg.textContent = `${await restoreAndReload(backup, leave)} Reloading…`;
               msg.className = 'note backupmsg good';
             } catch (e) {
               msg.textContent = sayError(e, 'change that');

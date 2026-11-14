@@ -313,7 +313,7 @@ export async function restore(b: BackupInfo): Promise<RestoreReport> {
 }
 
 /** The same restore from a sealed copy in hand: the brain's, or a backup file he kept (NEXT ROUND, polish3.u5). */
-export async function restoreSealed(backup: SealedBackup): Promise<RestoreReport> {
+export async function restoreSealed(backup: SealedBackup, leave: ReadonlySet<string> = new Set()): Promise<RestoreReport> {
   const owner = ownerKey.get();
   if (!owner) throw new Error('Backups open with your owner key: pair this phone with it first.');
   const bundle = await open(backup, owner);
@@ -323,7 +323,7 @@ export async function restoreSealed(backup: SealedBackup): Promise<RestoreReport
   // From here to freezeStorage() there is no await, so nothing else on the page runs in between.
   for (const { key, label, whole } of entries) {
     const bak = bundle.local[key];
-    if (typeof bak !== 'string') continue;
+    if (typeof bak !== 'string' || leave.has(key)) continue; // (left as it is here: he unticked it in the preview)
     let cur: string | null = null;
     try {
       cur = localStorage.getItem(key);
@@ -348,9 +348,50 @@ export async function restoreSealed(backup: SealedBackup): Promise<RestoreReport
   const prev = lastBackup.get();
   lastBackup.set({ ...(prev ?? { at: 0, ok: true }), known: true, due: true });
   freezeStorage();
-  for (const { doc, passages } of bundle.library) if (await restoreDoc(doc, Array.isArray(passages) ? passages : []).catch(() => false)) out.docs++;
-  await restoreEditors(bundle.editors, out);
+  if (!leave.has(DOCS_KEY)) for (const { doc, passages } of bundle.library) if (await restoreDoc(doc, Array.isArray(passages) ? passages : []).catch(() => false)) out.docs++;
+  if (!leave.has(EDITORS_KEY)) await restoreEditors(bundle.editors, out);
   return out;
+}
+
+// ---------------------------------------------------------------------------------------
+// See what a restore brings back (NEXT ROUND, polish3.u4): each thing in a backup, whether it comes back, is joined with this
+// phone's (the newer of each part wins) or is already the same here, chosen item by item before anything is written.
+// ---------------------------------------------------------------------------------------
+
+/** The two groups that are not one stored entry: the library's documents kept only on the phone, and the editors' work. */
+export const DOCS_KEY = '#docs';
+export const EDITORS_KEY = '#editors';
+
+export interface PreviewItem {
+  key: string;
+  label: string;
+  /** comes back whole, is joined with this phone's, or is the same here already (nothing to do) */
+  result: MergeResult;
+}
+
+/** What a sealed copy holds, and what a restore would do with each part, read without writing anything. */
+export async function previewSealed(backup: SealedBackup): Promise<{ at: number; items: PreviewItem[] }> {
+  const owner = ownerKey.get();
+  if (!owner) throw new Error('Backups open with your owner key: pair this phone with it first.');
+  const bundle = await open(backup, owner);
+  const items: PreviewItem[] = [];
+  for (const { key, label, whole } of BACKUP_KEYS) {
+    const bak = bundle.local[key];
+    if (typeof bak !== 'string') continue;
+    let cur: string | null = null;
+    try {
+      cur = localStorage.getItem(key);
+    } catch {
+      /* unreadable: treated as empty */
+    }
+    const m = restoreEntry(key, cur, bak, whole);
+    if (m) items.push({ key, label, result: m.result });
+  }
+  if (bundle.library.length) items.push({ key: DOCS_KEY, label: `${bundle.library.length} ${bundle.library.length === 1 ? 'document' : 'documents'} kept only on that phone`, result: 'restored' });
+  const e = bundle.editors;
+  const made = e ? e.photos.length + e.looks.length + e.videos.length + (e.comics?.length ?? 0) + (e.games?.length ?? 0) : 0;
+  if (made) items.push({ key: EDITORS_KEY, label: `the editors’ work: ${made} ${made === 1 ? 'thing' : 'things'} (photo edits, looks, videos, comics and games)`, result: 'merged' });
+  return { at: bundle.at, items };
 }
 
 /** The editors' part of a restore: each put back only where it is newer than this phone's, nothing here wiped (the same rule as the rest). */
@@ -398,8 +439,8 @@ export async function restoreEditors(e: Editors | undefined, out: RestoreReport)
 }
 
 /** Restore, then reload at once; the report is shown again after the reload (takeRestoreReport). */
-export async function restoreAndReload(b: BackupInfo | SealedBackup): Promise<string> {
-  const text = reportText('ct' in b ? await restoreSealed(b) : await restore(b));
+export async function restoreAndReload(b: BackupInfo | SealedBackup, leave: ReadonlySet<string> = new Set()): Promise<string> {
+  const text = reportText('ct' in b ? await restoreSealed(b, leave) : await restoreSealed((await brain.getBackup(b)).backup, leave));
   try {
     sessionStorage.setItem(REPORT, text);
   } catch {

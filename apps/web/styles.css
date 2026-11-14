@@ -9888,3 +9888,15 @@ html .offready .ordyrow .ordyv small { font: var(--g-t-caption); color: var(--g-
 html .offready .ordyrow .k { flex: none; min-width: 64px; }
 @media (prefers-reduced-motion: no-preference) { html .offready .ordybar > i { transition: width .4s ease; } }
 html .offready .ordyrow .ordysize { font: var(--g-t-caption); color: var(--g-ink-2); white-space: nowrap; }
+/* ---- NEXT ROUND · SYSTEM AND SETTINGS: the restore preview (features/system/restorepreview.ts): each thing, ticked or not. Tokens only. */
+html .rpsheet .rplist { display: flex; flex-direction: column; gap: var(--g-s-1); margin: var(--g-s-1) 0; max-height: 52vh; overflow-y: auto; }
+html .rpsheet .rpitem { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); box-sizing: border-box; width: 100%; min-width: 0; min-height: var(--g-target); height: auto; margin: 0; padding: var(--g-s-half) var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate-fill); color: var(--g-ink-1); text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; font: var(--g-t-body); box-shadow: none; }
+html .rpsheet .rpitem.same { opacity: .7; }
+html .rpsheet .rpwords { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html .rpsheet .rpwords b { font: var(--g-t-body); overflow-wrap: anywhere; }
+html .rpsheet .rpwords small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .rpsheet .setknob { position: relative; flex: none; width: 51px; height: 31px; border-radius: 16px; background: var(--g-line-faint); }
+html .rpsheet .setknob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: var(--g-ink-1); }
+html .rpsheet .rpitem[aria-checked="true"] .setknob { background: var(--g-accent); }
+html .rpsheet .rpitem[aria-checked="true"] .setknob::after { transform: translateX(20px); }
+@media (prefers-reduced-motion: no-preference) { html .rpsheet .setknob, html .rpsheet .setknob::after { transition: background .2s, transform .2s; } }

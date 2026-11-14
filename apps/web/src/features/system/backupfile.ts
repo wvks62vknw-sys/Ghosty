@@ -5,7 +5,8 @@
  * It opens only with his owner key. Nothing is sent anywhere by either key.
  */
 import { h } from '../../core/dom';
-import { button, confirmSheet } from '../../ui/components';
+import { button } from '../../ui/components';
+import { chooseRestore } from './restorepreview';
 import { sayError } from '../../ui/hisWords';
 import { backupFile, readBackupFile, restoreAndReload, sizeText } from './backup';
 
@@ -50,10 +51,12 @@ export function backupFileKeys(say: (text: string, tone: '' | 'good' | 'bad') =>
     const read = readBackupFile(await file.text().catch(() => ''));
     if (!read.ok) return say(read.why, 'bad');
     const day = read.file.at ? new Date(read.file.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : 'an unknown day';
-    if (!(await confirmSheet(`Restore the file from ${day}?`, 'It is joined with what is here: the newer of each thing wins and nothing is deleted. ' + 'I reload straight after.', 'RESTORE'))) return;
     say(FILE_WORDS.reading, '');
     try {
-      say(`${await restoreAndReload(read.file.sealed)} Reloading…`, 'good');
+      // what it would bring back, chosen item by item before anything is written (restorepreview.ts)
+      const leave = await chooseRestore(read.file.sealed, `Restore the file from ${day}?`);
+      if (!leave) return say('', '');
+      say(`${await restoreAndReload(read.file.sealed, leave)} Reloading…`, 'good');
     } catch (e) {
       say(sayError(e, 'open the backup file'), 'bad');
     }

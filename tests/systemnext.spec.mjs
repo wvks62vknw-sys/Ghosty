@@ -193,8 +193,18 @@ for (const vp of [PHONE2]) {
   await page.evaluate(() => localStorage.removeItem('ghosty.radio.favs'));
   if (path) {
     await page.locator('#pg-system .backupfile input[type=file]').setInputFiles(path);
-    const sheet = page.locator('.modal .confirm.sure, .modal button.sureyes').first();
-    check(await sheet.waitFor({ timeout: 8000 }).then(() => true, () => false), `[${W}] [b] OPEN A BACKUP FILE did not ask first`);
+    const sheet = page.locator('.modal .rpsheet');
+    check(await sheet.waitFor({ timeout: 8000 }).then(() => true, () => false), `[${W}] [b] OPEN A BACKUP FILE did not show what it would bring back first`);
+    // (polish3.u4) each thing with what a restore does to it, ticked; unticking one leaves it as it is here
+    const items = await page.evaluate(() => [...document.querySelectorAll('.modal .rpsheet .rpitem')].map((x) => ({ key: x.dataset.key, result: x.dataset.result, on: x.getAttribute('aria-checked'), words: (x.textContent ?? '').replace(/\s+/g, ' ') })));
+    check(items.some((x) => x.key === 'ghosty.radio.favs' && x.result === 'restored' && x.on === 'true' && /radio favourites/.test(x.words) && /Comes back from the backup/.test(x.words)), `[${W}] [b] the preview lists ${JSON.stringify(items).slice(0, 300)}`);
+    check(items.some((x) => x.key === 'ghosty.settings' && x.result === 'same' && x.on === null && /Already the same here/.test(x.words)), `[${W}] [b] the settings are not said to be the same here: ${JSON.stringify(items.find((x) => x.key === 'ghosty.settings'))}`);
+    const go1 = await page.locator('.modal .rpsheet button.sureyes').textContent();
+    await page.locator('.modal .rpsheet button.rpitem[data-key="ghosty.radio.favs"]').click();
+    const go2 = await page.locator('.modal .rpsheet button.sureyes').textContent();
+    check(/^RESTORE \d+ THINGS?$/.test(go1 ?? '') && go1 !== go2, `[${W}] [b] unticking does not change the key: "${go1}" → "${go2}"`);
+    await page.locator('.modal .rpsheet button.rpitem[data-key="ghosty.radio.favs"]').click();
+    await fit(page, `[${W}] [b preview]`, '.modal .rpsheet');
     const nav = page.waitForEvent('load', { timeout: 30000 }).catch(() => null);
     await page.locator('.modal button.sureyes').click();
     await nav;

@@ -14,6 +14,7 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  { day: '2026-11-14', title: 'See what a restore brings back', line: 'RESTORE now shows each thing in the backup and whether it comes back, is joined with yours or is already the same, and you untick what you would rather keep.' },
   { day: '2026-11-14', title: 'A saver switch', line: 'Settings → SAVER holds big downloads and the background feeds until you turn it off, and lists what it held back. Say “turn on the saver”.' },
   { day: '2026-11-14', title: 'Your comics and games are backed up', line: 'The daily locked backup now carries the comics and the games you made, so they come back on a new phone like your documents do.' },
   { day: '2026-11-14', title: 'Your backup as a file', line: 'System → BACKUP: SAVE AS A FILE keeps the locked copy in Files or iCloud Drive, and OPEN A BACKUP FILE brings it back on any phone of yours.' },
