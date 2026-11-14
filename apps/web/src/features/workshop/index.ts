@@ -27,6 +27,7 @@ import { draftedPanel } from './selfdraft';
 import { earlierWords, newCount, NOTHING_NEW, offlineWords, PROJECT_WORD, projectWords, PROJECTS_NONE, splitWeek } from './words';
 import { sayError } from '../../ui/hisWords';
 import { mountSitePhotos } from '../../sites/photos';
+import { restoreSite } from '../../sites/versions';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 /** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
@@ -565,7 +566,22 @@ export const workshopTab: TabDef = {
             toast(`Could not take it down: ${why(e)}`, 'warn');
           }
         }, 'warn');
-        pp.body.append(h('div.site', open, h('div.keyrow', copy, down)));
+        // [sites] UNDO LAST UPDATE (sites.u2): the version before the last update put back, after his confirm, as UNPUBLISH is
+        const back = s.versions
+          ? button('UNDO LAST UPDATE', async () => {
+              if (!(await confirmSheet('Put back the earlier version?', `“${s.title}” goes back to how it was before its last update, at the same link. What is live now is kept, so you can undo this too.`, 'PUT IT BACK'))) return;
+              try {
+                const r = await restoreSite(s.name);
+                sites = sites.map((x) => (x.name === s.name ? { ...x, title: r.title, at: r.at, versions: r.versions } : x));
+                toast(`${r.title}: the earlier version is live again`, 'ok');
+                paintSites();
+              } catch (e) {
+                toast(sayError(e, 'put the earlier version back'), 'warn');
+              }
+            })
+          : null;
+        back?.setAttribute('aria-label', `Undo the last update to ${s.title}`);
+        pp.body.append(h('div.site', { dataset: { site: s.name } }, open, h('div.keyrow', copy, back, down)));
       }
     };
     /** Self-editing set up on the brain (GitHub): null until the change list first answers. */

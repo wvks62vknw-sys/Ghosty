@@ -359,6 +359,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   if ((m = text.match(/^make me an app (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0] }), model };
   // [sites] A game from his studio on his sites (tools/sites.ts publish_game): the chat turn the studio's key starts.
   if ((m = text.match(/^put (.+?) on my sites$/)) && has('publish_game')) return { message: call('publish_game', { name: m[1] }), model };
+  // [sites] a page published in two versions, and its undo (tools/sites.ts publish_site undo, NEXT ROUND sites.u2)
+  if ((m = text.match(/^publish site ([a-z0-9-]+) saying (.+)$/)) && has('publish_site')) return { message: call('publish_site', { name: m[1], title: 'Party', html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Party</title></head><body><main><h1>${m[2]!.replace(/[<>&"]/g, '')}</h1></main></body></html>` }), model };
+  // [sites] a document or deck handed over from his phone (sitepage.ts, NEXT ROUND sites.s4)
+  if ((m = text.match(/^publish (.+) as a page$/)) && has('publish_site')) return { message: call('publish_site', { name: m[1]!.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'page', from_phone: true }), model };
+  if ((m = text.match(/^undo my last update to ([a-z0-9-]+)$/)) && has('publish_site')) return { message: call('publish_site', { name: m[1], undo: true }), model };
   if ((m = text.match(/^unpublish site ([a-z0-9-]+)$/)) && has('unpublish_site')) return { message: call('unpublish_site', { name: m[1] }), model };
   if ((m = text.match(/^draft site ([a-z0-9-]+) part (\d)$/)) && has('draft_site')) {
     const parts = ['<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>In parts</title></head>', '<body><h1>Part two</h1>', '<p>Part three</p></body></html>'];

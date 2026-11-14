@@ -8,7 +8,7 @@
 import { headers } from '../api/brain';
 import { clear, h } from '../core/dom';
 import { button, confirmSheet, empty, toast, type Panel } from '../ui/components';
-import { sayError } from '../ui/hisWords';
+import { inHisWords, sayError } from '../ui/hisWords';
 
 export interface SitePhoto {
   id: string;
@@ -75,7 +75,7 @@ export const captionOf = (name: string): string => {
 async function call<T>(method: string, body?: unknown, query = ''): Promise<T> {
   const r = await fetch(`/api/sites/photos${query}`, { method, credentials: 'same-origin', headers: headers(body ? { 'content-type': 'application/json' } : {}), ...(body ? { body: JSON.stringify(body) } : {}) });
   const j = (await r.json().catch(() => null)) as (T & { error?: string }) | null;
-  if (!r.ok || !j) throw Object.assign(new Error(typeof j?.error === 'string' ? j.error : `the brain answered ${r.status}`), { inHisWords: typeof j?.error === 'string' });
+  if (!r.ok || !j) throw typeof j?.error === 'string' ? inHisWords(j.error) : new Error(`the brain answered ${r.status}`);
   return j;
 }
 

@@ -2,7 +2,8 @@
 // YOUR SITES with its empty state in his words; (b) a photo with a GPS position, a phone model and a comment in it is added: it is made
 // smaller on the phone and kept with none of that (the kept bytes are read back); (c) a caption is kept; (d) a second photo is made
 // the main picture; (e) every key is 44 pt, nothing sideways, BODY 21 cuts no words; (f) "build a website for my café with my photos"
-// asks APPROVE saying his photos will be used (declined here: nothing is built); (g) a photo is removed after its confirm.
+// asks APPROVE saying his photos will be used (declined here: nothing is built); (g) a photo is removed after its confirm; (h) UNDO FOR
+// PUBLISHED PAGES (sites.u2): a page updated from the chat goes back to its earlier version with the Workshop's UNDO LAST UPDATE.
 //   BASE=http://localhost:8788 node tests/sitephotos.spec.mjs tests/.shots
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -145,6 +146,47 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
   check(!!sure, `${W}: (g) REMOVE asks first`);
   await sure?.click();
   check(await until(page, (sel) => document.querySelectorAll(`${sel} .sphCard`).length === 1, P, 8000), `${W}: (g) one photo left`);
+
+  // (h) undo for a published page (sites.u2): two versions published from the chat (each APPROVE tapped), UNDO LAST UPDATE in the
+  // Workshop after its confirm, and the live page is the first version again
+  const slug = `party-site-${W}`;
+  const say = async (words) => {
+    await page.evaluate(() => (location.hash = 'core'));
+    for (let i = 0; i < 6 && !(await page.evaluate(() => !!document.querySelector('#pg-core .hud.core.logopen'))); i++) {
+      await page.locator('.logbtn:visible').first().click({ timeout: 3000 }).catch(() => page.evaluate(() => document.querySelector('.logbtn')?.click()));
+      await page.waitForTimeout(400);
+    }
+    const before = await page.$$eval('.approval[data-state="waiting"] button.on', (b) => b.length);
+    await page.fill('#cin', words);
+    await page.keyboard.press('Enter');
+    const ok = await until(page, (n) => document.querySelectorAll('.approval[data-state="waiting"] button.on').length > n, before, 30000);
+    if (ok) await page.evaluate(() => [...document.querySelectorAll('.approval[data-state="waiting"] button.on')].pop()?.click());
+    return ok;
+  };
+  const v1 = await say(`publish site ${slug} saying Saturday at 8`);
+  // the framed page as its frame loads it (a header only the outside can send)
+  const framed = async () => {
+    const r = await page.request.get(`${base}/s/${slug}/page`, { headers: { 'sec-fetch-dest': 'iframe' }, maxRedirects: 0 });
+    return r.status() === 200 ? r.text() : '';
+  };
+  const waitFor = async (re, ms) => { for (const end = Date.now() + ms; Date.now() < end; ) { if (re.test(await framed())) return true; await page.waitForTimeout(250); } return false; };
+  const v1Live = v1 && (await waitFor(/saturday at 8/i, 20000));
+  const v2 = v1Live && (await say(`publish site ${slug} saying Sunday at 9`));
+  const read = () => page.evaluate((s) => fetch(`/api/sites`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).then((r) => r.json()).then((j) => j.sites.find((x) => x.name === s)), slug);
+  check(v2 && (await waitFor(/sunday at 9/i, 20000)) && (await (async () => { for (let i = 0; i < 40; i++) { const e = await read(); if (e?.versions === 1) return true; await page.waitForTimeout(250); } return false; })()), `${W}: (h) two versions published after APPROVE: one earlier version kept`);
+  await page.evaluate(() => (location.hash = 'workshop'));
+  await openSection(page, 'workshop', 'Made');
+  const undoKey = `#pg-workshop .site[data-site="${slug}"] button[aria-label="Undo the last update to Party"]`;
+  check(await until(page, (k) => !!document.querySelector(k), undoKey, 20000), `${W}: (h) the page's card has UNDO LAST UPDATE`);
+  const box = await page.$(undoKey);
+  const hgt = box ? (await box.boundingBox())?.height ?? 0 : 0;
+  check(hgt >= 43.4, `${W}: (h) UNDO LAST UPDATE is 44 pt (${hgt})`);
+  await box?.click();
+  const put = await page.waitForSelector('.confirm.sure button:text-is("PUT IT BACK"), .confirm.sure button:text-is("Put it back")', { timeout: 8000 }).catch(() => null);
+  check(!!put, `${W}: (h) it asks first, saying what is live now is kept`);
+  await put?.click();
+  check(await waitFor(/saturday at 8/i, 15000), `${W}: (h) the live page is the earlier version again`);
+  check(await until(page, () => /the earlier version is live again/.test(document.body.textContent ?? ''), null, 8000), `${W}: (h) it says so`);
   check(errors.length === 0, `${W}: no page error${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   await ctx.close();
 }

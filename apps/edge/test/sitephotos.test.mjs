@@ -10,10 +10,11 @@ const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
   stdin: {
     contents: `export * from './src/sitephotos.ts';
+export { pageUpload, MAX_PAGE } from './src/sitepage.ts';
 export * as SB from './src/sitebuild.ts';
 export * as PJ from './src/projects.ts';
 export { checkHtml } from './src/tools/check.ts';
-export { siteTools, siteStore } from './src/tools/sites.ts';`,
+export { siteTools, siteStore, siteVersionsRoute, MAX_VERSIONS } from './src/tools/sites.ts';`,
     resolveDir: at('..'),
     loader: 'ts',
   },
@@ -171,4 +172,77 @@ test('"with my photos": the approval says so, and the website shows his photos i
   assert.doesNotMatch(site.html, /upload\.wikimedia\.org|images\.unsplash|pexels/, 'no stock pictures');
   assert.match(site.html, /alt="The front window"/, 'his caption is what a screen reader says');
   assert.deepEqual(P.checkHtml(site.html).errors, []);
+});
+
+// NEXT ROUND sites.u2: undo for published pages. Every update keeps the version before it (three at most); "undo" puts the newest
+// back at the same link after his APPROVE (or the Workshop's confirmed tap), and what was live is kept, so an undo can be undone.
+test('undo for a published page: the earlier versions kept, the newest put back after APPROVE, and the undo itself undoable', async () => {
+  const st = new MemStorage();
+  const kv = kvOf();
+  const env = { PUBLIC_ORIGIN: ORIGIN, SITES: kv };
+  const events = [];
+  const ctx = { env, storage: st, origin: ORIGIN, emit: (e) => events.push(e), progress() {} };
+  const store = P.siteStore(env, st);
+  const page = (h1) => `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width"><title>Party</title></head><body><h1>${h1}</h1></body></html>`;
+  const pub = P.siteTools.find((t) => t.name === 'publish_site');
+  await pub.run({ name: 'party', html: page('Saturday at 8') }, ctx);
+  // nothing to undo yet
+  await assert.rejects(pub.approval({ name: 'party', undo: true }, ctx), /has no earlier version kept/);
+  await pub.run({ name: 'party', html: page('Sunday at 9 (typo)') }, ctx);
+  assert.equal((await store.versions('party')).length, 1);
+  assert.equal((await store.list()).find((e) => e.name === 'party').versions, 1, 'the list says an undo is there');
+  // the same page again is not a new version
+  await pub.run({ name: 'party', html: page('Sunday at 9 (typo)') }, ctx);
+  assert.equal((await store.versions('party')).length, 1);
+  // undo: said, then done only on the approved call
+  const ap = await pub.approval({ name: 'party', undo: true, html: '<script>evil()</script>' }, ctx);
+  assert.match(ap.reason, /^Put back the earlier version of "Party" at https:\/\/ghosty\.example\/s\/party \(published .* UTC, replaced .* UTC\)\? What is live now is kept, so you can undo this too\.$/);
+  assert.deepEqual(ap.args, { name: 'party', undo: true }, 'nothing but the undo goes through');
+  assert.match(await pub.run(ap.args, ctx), /^Put back: "Party" is live again at https:\/\/ghosty\.example\/s\/party/);
+  assert.match((await store.get('party')).html, /Saturday at 8/);
+  // the undo is undoable: the typo version is the newest earlier one now
+  assert.equal((await store.versions('party')).length, 1);
+  await pub.run({ name: 'party', undo: true }, ctx);
+  assert.match((await store.get('party')).html, /Sunday at 9/);
+  // three kept at most
+  for (const t of ['v3', 'v4', 'v5', 'v6']) await pub.run({ name: 'party', html: page(t) }, ctx);
+  assert.equal((await store.versions('party')).length, P.MAX_VERSIONS);
+  // the Workshop's route
+  const r = await P.siteVersionsRoute(new Request(`${ORIGIN}/api/sites/party/restore`, { method: 'POST' }), '/sites/party/restore', { env, storage: st });
+  assert.equal(r.status, 200);
+  assert.match((await store.get('party')).html, /v5/);
+  assert.equal((await (await P.siteVersionsRoute(new Request(`${ORIGIN}/api/sites/party/versions`), '/sites/party/versions', { env, storage: st })).json()).versions.length, P.MAX_VERSIONS);
+  // taken down: its history goes with it
+  await store.remove('party');
+  assert.deepEqual(await store.versions('party'), []);
+  assert.equal((await P.siteVersionsRoute(new Request(`${ORIGIN}/api/sites/party/restore`, { method: 'POST' }), '/sites/party/restore', { env, storage: st })).status, 404);
+});
+
+// NEXT ROUND sites.s4 (with s3): a document or a deck from his phone at its own link. The page waits (published by nothing); publish_site
+// with from_phone goes through the same check and APPROVE as every page; the waiting page is used once.
+test('a document from his phone waits, then goes up only through publish_site\'s APPROVE, read-only and checked', async () => {
+  const st = new MemStorage();
+  const kv = kvOf();
+  const env = { PUBLIC_ORIGIN: ORIGIN, SITES: kv };
+  const ctx = { env, storage: st, origin: ORIGIN, emit() {}, progress() {} };
+  const up = (body) => P.pageUpload(new Request(`${ORIGIN}/api/sites/page`, { method: 'POST', body: JSON.stringify(body) }), { env, storage: st });
+  const pub = P.siteTools.find((t) => t.name === 'publish_site');
+  // nothing waiting
+  await assert.rejects(pub.approval({ name: 'garden-guide', from_phone: true }, ctx), /nothing is waiting from his phone/);
+  // not a page; too big
+  assert.equal((await up({ title: 'x', html: '<p>hi</p>' })).status, 422);
+  assert.equal((await up({ title: 'x', html: `<!doctype html><p>${'a'.repeat(P.MAX_PAGE + 10)}</p>` })).status, 413);
+  const doc = '<!doctype html>\n<html lang="en-GB">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>Garden guide</title>\n</head>\n<body>\n<h1 class="title">Garden guide</h1>\n<p>Sow the beans in May.</p>\n</body>\n</html>\n';
+  const r = await up({ title: 'Garden guide', html: doc, kind: 'document' });
+  assert.deepEqual(await r.json(), { ok: true, title: 'Garden guide', kind: 'document', bytes: doc.length });
+  assert.equal(await P.siteStore(env, st).get('garden-guide'), undefined, 'waiting is not published');
+  const ap = await pub.approval({ name: 'garden-guide', from_phone: true }, ctx);
+  assert.match(ap.reason, /^Publish "Garden guide" \(the document from your phone, read-only\) as a public page at https:\/\/ghosty\.example\/s\/garden-guide\?/);
+  assert.match(await pub.run(ap.args, ctx), /live now at https:\/\/ghosty\.example\/s\/garden-guide/);
+  const site = await P.siteStore(env, st).get('garden-guide');
+  assert.match(site.html, /Sow the beans in May/);
+  assert.equal((await (await P.pageUpload(new Request(`${ORIGIN}/api/sites/page`), { env, storage: st })).json()).title, null, 'used once');
+  // a deck page has no script, so the strictest policy is enough; a page with a script error is refused by the same check
+  await up({ title: 'Broken', html: '<!doctype html><html><head><title>Broken</title></head><body><script>if (</script></body></html>', kind: 'deck' });
+  await assert.rejects(pub.approval({ name: 'broken', from_phone: true }, ctx), /not published/);
 });

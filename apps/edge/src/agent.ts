@@ -59,9 +59,10 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
-import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
+import { linksIn, siteFrameResponse, siteResponse, siteStore, siteVersionsRoute } from './tools/sites';
 import { gameSiteResponse, gameUpload } from './gamesite';
-import { photosRoute } from './sitephotos'; // [sites] his own photos on his sites (NEXT ROUND sites.u12) // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
+import { photosRoute } from './sitephotos';
+import { pageUpload } from './sitepage'; // [sites] his own photos on his sites (NEXT ROUND sites.u12) // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
@@ -499,6 +500,8 @@ export class GhostyAgent {
       if (path === '/sites/game') return await gameUpload(req, { env: this.env, storage: this.storage });
       // [sites] his own photos for his sites, resized and stripped on his phone (sitephotos.ts): kept, listed, never published here
       if (path === '/sites/photos') return await photosRoute(req, { env: this.env, storage: this.storage, origin: this.origin });
+      // [sites] a document or deck from his phone, waiting for "publish it as a page" and his APPROVE (sitepage.ts, sites.s4)
+      if (path === '/sites/page') return await pageUpload(req, { env: this.env, storage: this.storage });
       if (path === '/school' || path.startsWith('/school/')) return await schoolRoute(req, path, method, { env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] SCHOOL (school/routes.ts)
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
@@ -541,6 +544,8 @@ export class GhostyAgent {
         await this.router.setOrder(Array.isArray(order) ? order.map(String) : []);
         return json({ ok: true });
       }
+      // [sites] a published page's earlier versions, and UNDO LAST UPDATE from the Workshop (sites.u2; tools/sites.ts)
+      if (/^\/sites\/[a-z0-9-]{1,48}\/(versions|restore)$/.test(path)) return await siteVersionsRoute(req, path, { env: this.env, storage: this.storage });
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
