@@ -71,6 +71,8 @@ export interface Panel {
   sfxAt?: [number, number];
   /** his own photo behind the panel (a small JPEG, kept in the comic on this phone) */
   photo?: string;
+  /** his freehand ink over the panel's art, drawn in PAINT's studio (a PNG of the panel at twice its size) */
+  ink?: string;
 }
 export interface Page {
   id: string;
