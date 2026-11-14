@@ -318,6 +318,11 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await page.waitForFunction(() => !window.__ghosty.ui.get().busy, null, { timeout: 15000 }).catch(() => undefined);
   const marks = await page.evaluate(() => window.__ghosty.chat.get().entries.filter((e) => e.kind === 'user').slice(-6).map((e) => ({ t: e.text, theirs: !!e.theirs })));
   for (const w of ['how much did I spend this month?', 'read me my messages', 'what is the capital of France']) check(marks.some((m) => m.t === w && m.theirs), `[${W}] [quiet] "${w}" was not marked theirs: ${JSON.stringify(marks)}`);
+  // (his body log, in any wording, is never read to another voice: the phone's track table included, review fix)
+  for (const ask of ['how many steps has he walked', 'how have I slept', 'how much sleep did he get', 'what is the code for the front door']) {
+    q = await sayAs(ask, { name: 'Sam' }, /^Sorry Sam, that’s .+ to see, so I keep it to him\.$/, `[${W}] [quiet] Sam asking "${ask}"`);
+    check(!q.brain.length, `[${W}] [quiet] Sam's "${ask}" reached the brain`);
+  }
   check(marks.some((m) => m.t === 'wonga page' && !m.theirs) || !marks.some((m) => m.t === 'wonga page'), `[${W}] [quiet] his own turn was marked theirs`);
   // his own typed turn afterwards is his again
   await say(page, 'my wordings', /^I haven’t learned/, `[${W}] [quiet] his own turn after`);
