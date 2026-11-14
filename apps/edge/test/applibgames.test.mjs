@@ -90,12 +90,13 @@ test('mines: the first tap is always safe and opens an area; a mine loses; clear
 });
 
 test('merge: lines slide and join once per swipe, score adds, the board ends when no swipe moves', () => {
-  assert.deepEqual(G.merge.slideLine([2, 2, 2, 2]), { line: [4, 4, 0, 0], gained: 8 });
-  assert.deepEqual(G.merge.slideLine([2, 0, 2, 4]), { line: [4, 4, 0, 0], gained: 4 });
-  assert.deepEqual(G.merge.slideLine([4, 4, 8, 0]), { line: [8, 8, 0, 0], gained: 8 });
+  assert.deepEqual(G.merge.slideLine([2, 2, 2, 2]), { line: [4, 4, 0, 0], gained: 8, from: [[0, 1], [2, 3], [], []] });
+  assert.deepEqual(G.merge.slideLine([2, 0, 2, 4]), { line: [4, 4, 0, 0], gained: 4, from: [[0, 2], [3], [], []] });
+  assert.deepEqual(G.merge.slideLine([4, 4, 8, 0]).line, [8, 8, 0, 0]);
   const b = { size: 4, cells: [2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
   const m = G.merge.move(b, 'right');
   assert.equal(m.board.cells[3], 4);
+  assert.deepEqual(m.from[3], [3, 0], 'the joined tile came from both ends of the row');
   assert.equal(m.gained, 4);
   assert.ok(m.moved);
   assert.equal(G.merge.move(m.board, 'right').moved, false);

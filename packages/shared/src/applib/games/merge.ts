@@ -15,20 +15,28 @@ export interface MergeBoard {
 
 export const empty = (size: number): MergeBoard => ({ size, cells: Array(size * size).fill(0) });
 
-/** Slide one line toward its start: the new line and the points gained. */
-export function slideLine(line: readonly number[]): { line: number[]; gained: number } {
-  const vals = line.filter((v) => v);
+/** Slide one line toward its start: the new line, the points gained, and where each new tile came from (for the slide). */
+export function slideLine(line: readonly number[]): { line: number[]; gained: number; from: number[][] } {
+  const vals = line.map((v, i) => [v, i] as const).filter(([v]) => v);
   const out: number[] = [];
+  const from: number[][] = [];
   let gained = 0;
   for (let i = 0; i < vals.length; i++) {
-    if (vals[i] === vals[i + 1]) {
-      out.push(vals[i]! * 2);
-      gained += vals[i]! * 2;
+    if (vals[i]![0] === vals[i + 1]?.[0]) {
+      out.push(vals[i]![0] * 2);
+      from.push([vals[i]![1], vals[i + 1]![1]]);
+      gained += vals[i]![0] * 2;
       i++;
-    } else out.push(vals[i]!);
+    } else {
+      out.push(vals[i]![0]);
+      from.push([vals[i]![1]]);
+    }
   }
-  while (out.length < line.length) out.push(0);
-  return { line: out, gained };
+  while (out.length < line.length) {
+    out.push(0);
+    from.push([]);
+  }
+  return { line: out, gained, from };
 }
 
 function lineIdx(size: number, dir: Dir, k: number): number[] {
@@ -40,16 +48,20 @@ function lineIdx(size: number, dir: Dir, k: number): number[] {
   });
 }
 
-export function move(b: MergeBoard, dir: Dir): { board: MergeBoard; gained: number; moved: boolean } {
+export function move(b: MergeBoard, dir: Dir): { board: MergeBoard; gained: number; moved: boolean; from: number[][] } {
   const cells = b.cells.slice();
+  const from: number[][] = cells.map(() => []);
   let gained = 0;
   for (let k = 0; k < b.size; k++) {
     const idx = lineIdx(b.size, dir, k);
     const res = slideLine(idx.map((i) => b.cells[i]!));
     gained += res.gained;
-    idx.forEach((i, j) => (cells[i] = res.line[j]!));
+    idx.forEach((i, j) => {
+      cells[i] = res.line[j]!;
+      from[i] = res.from[j]!.map((p) => idx[p]!);
+    });
   }
-  return { board: { size: b.size, cells }, gained, moved: cells.some((v, i) => v !== b.cells[i]) };
+  return { board: { size: b.size, cells }, gained, moved: cells.some((v, i) => v !== b.cells[i]), from };
 }
 
 /** Put a new tile on an empty cell (a 2, or a 4 one time in ten). Returns its cell, or -1 when full. */

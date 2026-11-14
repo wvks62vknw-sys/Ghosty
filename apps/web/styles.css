@@ -11421,3 +11421,7 @@ html .al-gwreveal .al-gwcell:nth-child(5) { animation-delay: 360ms; }
 html .al-gwreveal .al-gwcell:nth-child(n+6) { animation-delay: 450ms; }
 @keyframes al-gflip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
 @media (prefers-reduced-motion: reduce) { html .al-gwreveal .al-gwcell { animation: none; } }
+html .al-gmerge .al-gtile { transition: transform 110ms ease-out, background-color 120ms ease; }
+html .al-gmerge .al-gtile.al-gbump { animation: al-gbump 180ms ease-out 100ms; }
+@keyframes al-gbump { 50% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { html .al-gmerge .al-gtile.al-gbump { animation: none; } }
