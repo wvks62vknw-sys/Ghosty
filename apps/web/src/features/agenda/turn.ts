@@ -2,12 +2,13 @@
 import type { PackReply } from '../../assistant/packs';
 import { agendaAsked, type AgendaAsk } from './asks';
 import { undo } from '../../ui/components';
-import { addTodo, clearDone, loadTodos, removeTodo, tickTodo } from './todo';
+import { addTodo, clearDone, loadTodos, removeTodo, syncTodos, tickTodo } from './todo';
 import { daysTo, dayOf, dueWords, everyWords, findTodo, sortTodos, type Todo } from './todowords';
 
 // (the panel too: the chip opens the agenda on the to-do list or the month, not on whichever section was last chosen)
 const OPEN_TODO = { id: 'screen:agenda', ask: -1, label: 'Open the to-do list', open: 'agenda', panel: 'TO-DO' };
 const OPEN_MONTH = { id: 'screen:agenda', ask: -1, label: 'Open the month', open: 'agenda', panel: 'MONTH' };
+const OPEN_TIMELINE = { id: 'screen:agenda', ask: -1, label: 'Open your day by the hour', open: 'agenda', panel: 'TIMELINE' };
 /* state: agenda.todo error */
 const NOT_KEPT = 'This phone would not keep your to-do list (its storage is full or blocked), so nothing changed. Free some space, or leave private browsing, and try again.';
 
@@ -85,10 +86,31 @@ async function monthWords(next: boolean, now: number): Promise<string> {
   return `${head}${body}${tds}${stale}`;
 }
 
+/** [planlane2:timeline] The free time today or tomorrow, or the week to plan, worked out on this phone from his diary (said when it is a copy). */
+async function timelineWords(view: 'today' | 'tomorrow' | 'week', now: number): Promise<string> {
+  const [{ brain }, { offline }, tl] = await Promise.all([import('../../api/brain'), import('../../api/offline'), import('./timeline')]);
+  const was = offline.get().agenda;
+  const got = await Promise.race([brain.agenda(8).then((a) => a.events), new Promise<null>((r) => setTimeout(() => r(null), 6000))]).catch(() => null);
+  /* state: agenda.timeline offline */
+  if (!got && !was) return 'I can’t reach your diary right now, so I can’t work out your free time. Your day by the hour fills in when I can.';
+  const copy = !got || (was !== null && offline.get().agenda === was);
+  const events = got ?? offline.get().agenda?.events ?? [];
+  const tail = copy ? ' I can’t reach your brain right now, so this is from the last copy on this phone.' : '';
+  const d0 = new Date(now);
+  d0.setHours(0, 0, 0, 0);
+  if (view === 'week') return `${tl.weekPlan(events, loadTodos(), d0.getTime(), now).line}${tail}`;
+  const day = view === 'today' ? d0.getTime() : new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1).getTime();
+  const gaps = tl.freeGaps(events.filter((e) => tl.onDay(e, day)), day, view === 'today' ? now : 0);
+  const name = view === 'today' ? 'Today' : 'Tomorrow';
+  return `${name}: ${gaps.length ? `${join(gaps.map((g) => tl.gapWords(g, day)))}.` : 'no free half hour between 08:00 and 22:00.'}${tail}`;
+}
+
 /** The answer, or null to let the next table (and then the brain) answer. */
 export async function agendaTurn(text: string): Promise<PackReply | null> {
   const ask = agendaAsked(text);
   if (!ask) return null;
+  // the copy follows the one list first (a change the brain made, e.g. "add to my to-do: …" through the model), never waiting long
+  if (ask.what !== 'add') await Promise.race([syncTodos(true), new Promise((r) => setTimeout(r, 2500))]);
   const now = Date.now();
   if (ask.what === 'add') {
     const t = addTodo(ask.text, ask.due, ask.every, ask.star);
@@ -128,6 +150,12 @@ export async function agendaTurn(text: string): Promise<PackReply | null> {
     const n = clearDone();
     if (n < 0) return reply(text, NOT_KEPT);
     return reply(text, n ? `Cleared ${n} done ${n === 1 ? 'to-do' : 'to-dos'}. UNDO brings ${n === 1 ? 'it' : 'them'} back.` : 'There are no done to-dos to clear.');
+  }
+  if (ask.what === 'timeline') {
+    const { goToPanel } = await import('../../ui/sections');
+    goToPanel('agenda', 'TIMELINE');
+    dispatchEvent(new CustomEvent('ghosty:timeline', { detail: { view: ask.view } }));
+    return reply(text, await timelineWords(ask.view, now), OPEN_TIMELINE);
   }
   if (ask.show) void show('MONTH', ask.next);
   return reply(text, await monthWords(ask.next, now), OPEN_MONTH);

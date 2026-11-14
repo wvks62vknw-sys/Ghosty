@@ -8,7 +8,7 @@
  */
 import { clear, h } from '../core/dom';
 import { button, confirmSheet, modal, toast } from '../ui/components';
-import { DOWN_LINE, glance, HOUSE_STEPS, isDown, isOnNow, offWords, roomOff, sinceWords, stateWords, type HouseEntity } from '../../../../packages/shared/src/house';
+import { asksFirst, DOWN_LINE, glance, HOUSE_STEPS, isDown, isOnNow, offWords, roomOff, scriptAsk, sinceWords, stateWords, type HouseEntity } from '../../../../packages/shared/src/house';
 import { BOX_STALE, BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, NOT_LINKED_HEAD, PIN_NOT_KEPT, PINS_KEY, READING, SCENES_NOTE } from '../features/house/words';
 import { waiting } from '../ui/wait';
 import { act, houseNow, loadHouse, mark, type ActOut, type HouseView } from './api';
@@ -60,12 +60,16 @@ async function allOff(things: HouseEntity[], room: string): Promise<void> {
   toast(offWords(room, done, failed), failed.length ? 'warn' : 'ok');
 }
 
-/** One action from his tap: the guarded set asks his confirm first, every time. */
+/** One action from his tap: the guarded set, and every script, asks his confirm first, every time. */
 export async function houseDo(e: Pick<HouseEntity, 'id' | 'name' | 'domain'> & { guarded?: boolean }, service: string, data: Record<string, unknown> = {}, said = ''): Promise<ActOut | null> {
   let confirm = false;
-  if (e.guarded) {
+  if (asksFirst(e)) {
     const verb = e.domain === 'scene' ? 'run' : (VERBS[service] ?? service.replace(/_/g, ' '));
-    const ok = e.domain === 'scene'
+    const sa = scriptAsk(e.name);
+    // [planlane2:fixes] a script: one confirm, every time ("Run Bedtime? I can't see what a script does, so I ask first.")
+    const ok = e.domain === 'script'
+      ? await confirmSheet(sa.head, `${sa.line} Your tap and this confirm run it, every time; no scheduled job ever does.`, 'RUN IT')
+      : e.domain === 'scene'
       ? await confirmSheet(`Run ${e.name}?`, `${e.name} sets a lock, the alarm, a garage door or gate, or a switch you marked: it needs your tap and this confirm every time, and no scheduled job ever runs it.`, 'RUN IT')
       : await confirmSheet(`${cap(verb)} the ${e.name}?`, `The ${e.name} is in the guarded set (a lock, an alarm, a garage door or gate, or a switch you marked): it needs your tap and this confirm every time, and no scheduled job ever touches it.`, `${verb.toUpperCase()} IT`);
     if (!ok) return null;
@@ -221,8 +225,10 @@ function paint(root: HTMLElement): void {
       ? h('section.housescenes', { 'aria-label': 'Scenes and scripts' },
           h('h4', 'SCENES'),
           h('div.housescenerow', ...scenes.map((e) => {
-            const b = btn(e.name, `Run ${e.name}${e.guarded ? ' (asks your confirm)' : ''}`, () => void houseDo(e, 'turn_on'), `housescene${e.guarded ? ' guarded' : ''}`);
+            const ask = asksFirst(e);
+            const b = btn(e.name, `Run ${e.name}${ask ? ' (asks your confirm)' : ''}`, () => void houseDo(e, 'turn_on'), `housescene${ask ? ' guarded' : ''}`);
             b.dataset.entity = e.id;
+            b.dataset.kind = e.domain;
             return b;
           })),
           h('small.housescenenote', SCENES_NOTE))
@@ -234,7 +240,7 @@ function paint(root: HTMLElement): void {
       const on = r !== 'Elsewhere' && roomOff(things, '').length > 0;
       return h('section.houseroom', { 'aria-label': r }, h('h4', h('span', r), temp ? h('small', stateWords(temp)) : null, on ? offKey(things, r, `Turn off every light, fan and TV on in the ${r}`) : null), ...things.map((e) => card(e, v.marked)));
     }),
-    h('p.note.housefoot', 'Locks, alarms, garage doors and gates — and any switch you mark — need your tap and a confirm, every time, and never act on a schedule. A scene that sets one asks too. ALL OFF turns off lights, fans and TVs only. Everything I do here is in WHY and in “what did you do today”.'),
+    h('p.note.housefoot', 'Locks, alarms, garage doors and gates — and any switch you mark — need your tap and a confirm, every time, and never act on a schedule. A scene that sets one asks too, and so does every script. ALL OFF turns off lights, fans and TVs only. Everything I do here is in WHY and in “what did you do today”.'),
   );
 }
 
