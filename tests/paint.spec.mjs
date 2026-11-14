@@ -108,6 +108,11 @@ async function run(viewport) {
   check(sampled && st.gallery.titles.some((t) => /^Sample: sunset/.test(t)), `[${W}] the first visit's gallery holds the sample painting: ${st?.gallery.titles.join(', ')}`);
   check(await page.locator('#pg-paint .pxtour li').count() === 3, `[${W}] the three-step tour is shown`);
   await bar(page, `[${W}] the gallery`, '#pg-paint');
+  // search: a title with nothing like it says so in his words, with CLEAR SEARCH (the App Kit's state card)
+  await page.fill('#pg-paint input[aria-label="Find a painting by its title"]', 'zebra crossing');
+  check(/No painting’s title has “zebra crossing” in it/.test(await page.locator('#pg-paint .ak-state').textContent().catch(() => '')), `[${W}] a search with no match says so`);
+  await page.click('#pg-paint .ak-state button');
+  check((await S(page)).gallery.titles.length === 1, `[${W}] CLEAR SEARCH shows the gallery again`);
 
   // (b) a new painting
   await page.click('#pg-paint button[aria-label="Start a new painting"]');
