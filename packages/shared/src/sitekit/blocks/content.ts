@@ -5,9 +5,29 @@
  */
 import { a, btn, esc, icon, img, imgOf, linkOf, list, primaryAction, rich, str, texts } from '../html';
 import type { BlockDef } from '../types';
+import { googleCalendarUrl, isStart, type CalEvent } from '../calendar';
 import { HEAD, ICON, IMG, LINK, LIST, OT, T, TEXTS, head, sec } from './common';
 
 export const contentBlocks: BlockDef[] = [
+  {
+    // [sites] ADD TO CALENDAR (NEXT ROUND sites.s1): on an event or an invitation with a start he gave
+    id: 'add-to-calendar',
+    group: 'cta',
+    about: 'Two buttons that put the event in a guest\'s own calendar: Google Calendar, and an iPhone or Outlook calendar file. Only on an event or invitation with a date.',
+    slots: { title: OT(60), text: OT(160) },
+    needs: ['start'],
+    css: `.b-add-to-calendar .box{display:grid;gap:var(--space-s);padding:var(--space-l);border-radius:var(--r3);border:1px solid var(--border)}
+.b-add-to-calendar h2{font-size:var(--step-2)}
+.b-add-to-calendar p{color:var(--muted)}`,
+    render(d, x) {
+      const b = x.brief;
+      if (!isStart(b.start)) return '';
+      const ev: CalEvent = { name: b.name || x.plan.name, start: b.start, ...([b.venue, b.address, b.town, b.postcode].filter(Boolean).length ? { place: [b.venue, b.address, b.town, b.postcode].filter(Boolean).join(', ') } : {}), ...(x.plan.url ? { url: x.plan.url } : {}) };
+      const google = btn({ label: 'Add to Google Calendar', href: googleCalendarUrl(ev) }, 'btn-primary', 'calendar');
+      const file = x.plan.url ? btn({ label: 'Add to iPhone or Outlook calendar', href: `${x.plan.url}/event.ics` }, 'btn-outline', 'calendar') : '';
+      return sec('add-to-calendar', x, `<div class="wrap"><div class="box reveal"><h2>${rich(str(d, 'title') || 'Put it in your calendar')}</h2>${str(d, 'text') ? `<p>${esc(str(d, 'text'))}</p>` : ''}<div class="btns">${google}${file}</div></div></div>`, { tight: true, label: 'Add to calendar' });
+    },
+  },
   {
     id: 'features-grid',
     group: 'content',

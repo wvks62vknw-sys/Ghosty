@@ -12,15 +12,15 @@ import type { SaveStore } from '../arcade/engines/saves';
 import { type ControlApi, type Evt, makeEngine, type Rules } from '../arcade/games/two/shell';
 import type { GameEngine } from '../arcade/games/kit';
 import { type Game, hardProblems, thingIcon } from './model';
-import { buy, closeSheet, dropItem, drain, type Input, newPlay, nextLine, type Play, questLine, sell, snap, step, useItem } from './play';
+import { buy, closeSheet, dropItem, drain, type Input, newPlay, nextLine, type Play, questLine, scoreOf, sell, snap, step, useItem } from './play';
 import { drawPlay, frameCanvas } from './draw';
 import { getGame } from './store';
 import { NoteTune, tuneOf } from './tune';
 
 export const STUDIO_ID = (gameId: string) => `studio.${gameId}`;
 const pts = (n: number) => `${Math.round(n).toLocaleString('en-GB')} point${Math.round(n) === 1 ? '' : 's'}`;
-/** What a run scores: ten a coin, fifty a quest, and two hundred for getting to the end. */
-export const scoreOf = (p: Play): number => p.coins * 10 + Object.values(p.quests).filter((q) => q.done).length * 50 + (p.over === 'won' ? 200 : 0);
+// What a run scores lives in play.ts now (the page's own player scores its high-score table with it, sites.u10).
+export { scoreOf };
 
 const icon = (does: Parameters<typeof thingIcon>[0]) => {
   const c = frameCanvas(thingIcon(does));
