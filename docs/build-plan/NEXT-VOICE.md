@@ -129,8 +129,16 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
   - settings: "ajustes".
 - Other sentences in those languages are left to my brain, which speaks them anyway.
 
+### Radio names for each person introduced (voice.s2, first part)
+- "Call this my morning station" in Sam's voice names it for Sam; "put on my morning station" in Sam's voice plays Sam's, and falls back
+  to yours only if Sam has none. Your own names are never changed by theirs.
+
 ### Also fixed on the way
 - The look table no longer takes "show me the map" as the Map look (since the final round).
+- **The talk bar's mic key after he ends listening (red on main, chatpass shard 4):** the key read "Stop listening" a moment after he
+  had ended it on a slow machine, because it followed the speech engine's own state, which lags after it is told to stop. It now
+  follows his tap: the moment he ends it, the key reads its resting state, and a new listen clears that. The spec is unchanged and as
+  strict. The talk bar is the chat pass's code (features/core); I fixed it here as asked.
 
 ## How to try it on your phone
 1. **Learning your words:** type "wonga page". When I answer, tap LIFE → MONEY. Tap REMEMBER IT on the bar. Go back and type
@@ -152,7 +160,7 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 ## What is left (later items, listed for the next round)
 - **More languages and abilities for voice.u10:** a first set is built (Spanish, French, Urdu/Hindi in English letters, for nine
   abilities); more abilities and Urdu in its own script are left.
-- **Settings for each person introduced (voice.s2):** not built.
+- **Settings for each person introduced (voice.s2):** their own station names are built; their own look and voice settings are not.
 - **Say "Ghosty" to start listening (voice.s8):** not built; it needs a listening pack and the download rule.
 - **Comic colours by plain names (voice.c3):** not built. The comic's speech balloons have no colour of their own yet, so this needs
   the COMIC lane's drawing to take a colour first.
