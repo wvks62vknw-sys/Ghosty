@@ -99,25 +99,87 @@ approval listed, and the fixes that live in your Cloudflare account set out as p
 - On the SECURITY screen, under HAS IT LEAKED?, type a password you use and tap CHECK.
 
 ## Checks
-- **Brain:** `apps/edge/test/securityscreen.test.mjs` covers the approvals list from either channel, the locks reported with
-  nothing secret in them, the page named on the card, every green/amber/red rule, the keys STEPS makes, and the lock-screen
-  notification once and only for the approval really waiting.
+- **Brain:** `apps/edge/test/securityscreen.test.mjs` covers:
+  - the approvals list from either channel;
+  - the locks reported with nothing secret in them;
+  - the page named on the card;
+  - every green, amber and red rule;
+  - the self-check told once;
+  - yesterday's approvals;
+  - the spoken approval line;
+  - the keys STEPS makes;
+  - the lock-screen notification, sent once and only for the approval really waiting;
+  - the leaked-password check, where only five characters leave the phone;
+  - the link check;
+  - lock everything: nothing that leaves runs and no approval is asked, then unlock.
+
+  The full brain suite is green (2258 of 2258).
 - **Specs:**
-  - `tests/securitylane.spec.mjs` (new; its word is at the end of check.yml's `all=`) covers:
+  - `tests/securitylane.spec.mjs` (new; its word is at the end of check.yml's `all=`) covers, at 440 and 390, at BODY 21 and in
+    all seven looks:
     - the row and the nine locks;
     - the approvals and their empty state;
     - STEPS with MAKE ONE and DONE;
+    - the self-check and the approvals in the Brief;
+    - has it leaked, and check a link;
+    - take it back;
+    - lock everything, and "lock everything" said;
     - offline;
-    - every key at 44 pt, nothing sideways and no word cut, at 440 and 390, at BODY 21 and in all seven looks.
+    - every key at 44 pt, nothing sideways and no word cut, including no line clipped with "…".
   - settings, tabs, look, brief and foresight specs rerun green.
   - Specs that tap APPROVE on something that leaves were updated to the new truth, as strict as before: chatpass's approval part
     and speaker's never-a-lock part now also check the countdown. Those two, plus sites, websites, apps, gamesites and ui, rerun
     green.
 
+## Re-audit of what the other lanes merged
+- I reviewed the integration branch's new code from the other lanes for security. Nothing high or medium was found:
+  - no new public door;
+  - no loosened guard;
+  - no fetch of an address someone else chose that skips the gate;
+  - no new tool that acts without APPROVE;
+  - no raw HTML from data;
+  - no secret in a link, log or message;
+  - no live position sent to the brain.
+- The low points are fixed in those lanes' files, keeping their intent:
+  - recall's link now opens only when it is an ordinary web link;
+  - the waiting-page and keep routes turn a huge body away before reading it;
+  - the backup-file import checks the size first.
+- Left, low: the brain's photo strip for site pictures (sitephotos.ts) copies everything after a photo's picture data, including
+  anything after its end marker. The phone redraws every photo as a fresh JPEG before it is sent, so this is only a second lock.
+  The fix is to stop copying at the end marker.
+
+## The specialist sweep (1Password Watchtower, Have I Been Pwned, Apple's Safety Check)
+What they have, and where Ghosty stands:
+- **Watchtower: one score and a list of what to fix.** Built: the SECURITY screen's count and its green, amber and red lines,
+  each with its fix.
+- **Have I Been Pwned: is this password in a breach?** Built, the same privacy-preserving way they recommend: only five characters
+  of the fingerprint, with padding.
+- **Watchtower: reused and weak passwords.** Left (s1). It needs his password manager's export read on the phone; the plan is in
+  the brief.
+- **HIBP: is my email address in a breach?** Not built. HIBP's email search needs a paid key, which his rules rule out, so the
+  password check stands in.
+- **Safety Check: see who has access, and stop sharing in one step.** Built in this round: LOCK EVERYTHING (Telegram unpaired,
+  nothing that leaves runs) and the approvals list. Links → Notifications already lists each phone with a remove key.
+- **Safety Check: emergency reset, then review.** Built: lock everything, then unlock with your key. The STEPS guides cover
+  changing the owner key and the vault's key.
+- **Safety Check: a walk through the phone's own privacy settings.** Left (s5).
+- **A record of what was allowed.** Built: every APPROVE and NOT NOW, from either channel, with the page that came before it.
+- **Notifications that need you.** Built: a waiting APPROVE reaches the lock screen.
+- **Rough edges fixed on the way:**
+  - lock lines were clipped to three lines with "…", and the spec's check now catches clipping;
+  - keys measured during their entrance animation;
+  - the STEPS side on a stacked screen.
+
 ## What is left
-- The owner key change walked through in the app (u2, beyond STEPS).
-- The slow lock on the phone's keys copy (u3): that copy is opened in the brain, and a slow lock there could use more of the free
-  plan's compute per request than it allows, which would break the copy's one job (standing in while the database is paused).
-  It is left for a version that does the slow part on the phone.
-- tighter page rules (u10), weak or reused passwords (s1), the phone privacy walkthrough (s5), locked notes (s6), travel mode (s8), a scam check on letters in the Lens (c2), and sharing by expiring link (c5): built in the
-  order of the brief as time allows; this section is updated with each merge.
+- **u2, the owner key change walked through in the app.** STEPS covers it, and MAKE ONE makes the key.
+- **u3, the slow lock on the phone's keys copy.** That copy is opened in the brain. A slow lock there could use more compute per
+  request than the free plan allows, which would break the copy's one job: standing in while the database is paused. It is left
+  for a version that does the slow part on the phone.
+- **Not built this round:**
+  - u10, tighter page rules;
+  - s1, weak or reused passwords;
+  - s5, the phone privacy walkthrough;
+  - s6, locked notes;
+  - s8, travel mode;
+  - c2, a scam check on letters in the Lens (QR links already get warnings, and CHECK A LINK takes a pasted letter's link);
+  - c5, sharing by expiring link.
