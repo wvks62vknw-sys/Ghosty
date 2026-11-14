@@ -9,7 +9,7 @@
 import { h } from '../../core/dom';
 import { settings } from '../../state/app';
 import { button } from '../../ui/components';
-import { LENGTHS, LINE_MAX, LINES_MAX, runWords, type BootLength } from '../../shell/bootwords';
+import { LENGTHS, LINE_MAX, LINES_MAX, runWords, lastWords, type BootLength } from '../../shell/bootwords';
 import { director, lastRun } from '../../shell/boot';
 
 export function openingControls(): { nodes: HTMLElement[]; paint: () => void } {
@@ -26,6 +26,8 @@ export function openingControls(): { nodes: HTMLElement[]; paint: () => void } {
   lines.addEventListener('change', save);
   lines.addEventListener('blur', save);
   const run = h('p.note.openrun', { dataset: { case: 'keep', id: 'bootrun' }, role: 'status' });
+  // LAST OPENING (the owner's rule): which version played and why, so a short one is never a mystery
+  const last = h('p.note.openlast', { dataset: { case: 'keep', id: 'bootlast' } });
   const guestLine = h('p.note.openguest', { dataset: { case: 'keep' } });
   const noGuest = button('NO GUEST', () => settings.set({ bootGuest: { name: '', until: 0 } }));
   const guest = h('div.keyrow.openguestrow', guestLine, noGuest);
@@ -39,6 +41,7 @@ export function openingControls(): { nodes: HTMLElement[]; paint: () => void } {
     }
     line.textContent = LENGTHS.find((l) => l.key === now)?.line ?? '';
     if (document.activeElement !== lines) lines.value = s.bootLines ?? '';
+    last.textContent = lastWords(lastRun());
     run.textContent = runWords(lastRun());
     const g = s.bootGuest && s.bootGuest.until > Date.now() ? s.bootGuest.name : '';
     guest.hidden = !g;
@@ -48,5 +51,5 @@ export function openingControls(): { nodes: HTMLElement[]; paint: () => void } {
   settings.subscribe(paint);
   const step = button('STEP THROUGH IT', () => void director());
   step.dataset.id = 'bootdirector';
-  return { nodes: [h('div.lab', 'THE OPENING'), row, line, h('div.lab', 'YOUR OPENING LINE'), lines, guest, h('div.lab', 'HOW THE LAST OPENING RAN'), run, h('div.keyrow', step)], paint };
+  return { nodes: [h('div.lab', 'THE OPENING'), row, line, h('div.lab', 'YOUR OPENING LINE'), lines, guest, h('div.lab', 'HOW THE LAST OPENING RAN'), last, run, h('div.keyrow', step)], paint };
 }

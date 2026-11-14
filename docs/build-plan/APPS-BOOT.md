@@ -83,3 +83,25 @@ One place for everything Ghosty keeps. All of it stays on this phone.
 - **Every new app saves into Files** automatically only where its store is one of the eight above. An app that adds a new store needs
   one line in `features/files/sources.ts`.
 - **Version history per file** stays in each editor (Documents and the Workspace keep versions); Files does not show it yet.
+
+## The owner's request: the 7-second film every time you open Ghosty
+"i still don't get the 7 second cinematic boot up we made every time i boot up the app, why?" These were the reasons, and here is
+what changed (all in `shell/boot.ts`, `shell/bootwords.ts` and Settings' THE OPENING):
+
+| What cut it short or skipped it | Now |
+| --- | --- |
+| A cold open under three minutes after you last had Ghosty on screen got the short cut. | Every cold open plays the whole film. The short cut plays only if you chose SHORT (or ONCE A DAY after the day's first). |
+| iPhone mostly resumes Ghosty rather than opening it cold, and a resume only breathed. | Away a minute or more, a resume plays the whole film again over Home (tap to skip as always). A quicker switch, a notification or a link still only gets the breath. |
+| When the 3-D (Mind) started late, the phone dropped to the short or flat cut. | Ghosty now waits for it: the room breathes up to 2.5 s more, then the whole film plays, never rushed more than a quarter (it ends a little later instead). Only a phone with no 3-D at all, or 3-D that still hasn't started by then, gets the flat cut. A phone that draws slowly keeps the whole film and sheds only its extras. |
+| You couldn't see why it was short. | Settings → VOICE & HOME → THE OPENING now has a LAST OPENING line: "Last opening: the full film, 7.0 s." or "Last opening: the calm opening, 1.2 s, because Reduce Motion is on." It also says "as you came back" after a resume. |
+| Reduce Motion or MOTION calm | Unchanged: the calm opening, as the system asks. LAST OPENING says so. |
+| The other six looks | Not done. The film is drawn for The Scan, and the other looks still open with their own 2.9-second version. Their own drawn shots are a design round of their own, so it is left out rather than done badly. LAST OPENING says so in those looks. |
+
+Checks: `tests/bootfilm.spec.mjs` now fails unless:
+- a cold open a minute after you last had Ghosty on screen, and a reload, each play the whole film;
+- a resume after 75 s plays it again and lands on the hero;
+- a resume after 30 s only breathes;
+- LAST OPENING reads right for the full film after a resume, and for Reduce Motion's calm opening with its reason;
+- SHORT gives "you chose SHORT".
+
+`tests/boot.spec.mjs` keeps its quick resume, the back-forward page and the deep link to the breath alone.

@@ -384,7 +384,7 @@ async function checkWords(page, s, what, { tapped }) {
   if (w) timings.push(`second cold open: ${w.kind}; ${line}`);
   const hp2 = await heroBack(page);
   if (hp2.count !== 1 || !hp2.inHero) problems.push(`second open: Mind did not end up in the hero (${JSON.stringify(hp2)})`);
-  // a resume (coming back to the app after more than a few seconds away, the page still alive): a breath, no cinematic
+  // a resume (coming back to the app after a few seconds away, under the minute that plays the film again, the page still alive): a breath, no cinematic (tests/bootfilm.spec.mjs: a resume after 75 s plays the film)
   const before = (await state(page))?.warm ?? 0;
   const plays = (await state(page))?.plays ?? 0;
   await page.evaluate(() => {

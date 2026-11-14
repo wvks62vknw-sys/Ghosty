@@ -320,7 +320,7 @@ export const appsTab: TabDef = {
 };
 
 // the Jump bar finds every app by its name and words ("wine cellar", "bottles"), and opens it on the phone with no brain
-register(...LIBRARY.filter((d) => d.archetype !== 'screen').map((d) => ({ id: `app_${d.id}`, title: d.name, group: 'APPS', words: `${d.keywords.join(' ')} ${d.pitch} app`, run: () => openApp(d.id) })));
+register(...LIBRARY.filter((d) => d.archetype !== 'screen').map((d) => ({ id: `app_${d.id}`, title: d.name, group: 'APPS', words: `open ${d.name.toLowerCase()} · ${d.keywords.join(' ')} ${d.pitch} app`, run: () => openApp(d.id) })));
 
 // for the spec and the console (window.__ghosty.applib): where the Library is, and any AppDef tried out without a catalogue
 const tried: AppDef[] = (() => {

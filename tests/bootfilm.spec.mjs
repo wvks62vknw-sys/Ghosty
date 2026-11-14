@@ -11,8 +11,9 @@
 //      moves after the landing (the hero where the film left it half a second later);
 //   3. a tap skips it: the landing at once, no greeting after the tap;
 //   4. Reduce Motion: the calm still version (two frames, 1.2 s), nothing travelling;
-//   5. the reopen rule: under three minutes since he last had Ghosty on screen, a cold open plays the short cut (4,800 ms); after that, the
-//      whole film again; the first open ever, the whole film.
+//   5. the reopen rule (the owner's, APPS ROUND: "the 7 second cinematic every time I boot up"): every cold open plays the whole film, a
+//      minute after he last had it on screen, a reload, four minutes, the first open ever; a resume after 60 s or more plays it again over
+//      Home, one after 30 s only breathes; LAST OPENING in Settings says which version played and why (the short cut for a quick reopen is gone).
 //   BASE=http://localhost:8788 node tests/bootfilm.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, openPanel } from './nav.mjs';
@@ -170,23 +171,69 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   await ctx.close();
 }
 
-// ---- 5. the reopen rule: under three minutes, the short cut; after that, the whole film; and a reload of the first is a quick reopen
+// ---- 5. the reopen rule (the owner's, APPS ROUND): EVERY cold open plays the whole film, a minute after he last had it on screen as much as
+//         the first; a reload too. A resume after 60 s or more away plays it again over Home; a quicker switch only breathes. LAST OPENING in
+//         Settings says which version played and why.
 {
-  const what = 'quick reopen';
+  const what = 'reopen within three minutes';
   const { ctx, page } = await open({ lastSeen: 60_000 });
   await page.goto(base);
   const s = await ended(page, what);
-  if (s?.kind !== 'short' || !s?.quick) problems.push(`${what}: a cold open a minute after he last had it on screen played "${s?.kind}" (quick ${s?.quick}, ${s?.reopen} ms) (want the short cut)`);
-  if (s?.film && s.timeline?.end !== 4800) problems.push(`${what}: the short cut is ${s.timeline?.end} ms (want 4,800)`);
-  if (s && !(s.reopen >= 55_000 && s.reopen < 180_000)) problems.push(`${what}: it measured ${s.reopen} ms since he last had it on screen (want about 60,000)`);
-  if (s && s.ended - s.held > Math.max(4800, (s.marks?.floor ?? 0) + 4500 / 1.25) + s.worstGap + 120) problems.push(`${what}: the short cut ran ${s.ended - s.held} ms of its own (want 4,800, or a late Mind's wait made up at most a quarter quicker)`);
-  if (s && !(s.pace >= 1 && s.pace <= 1.25)) problems.push(`${what}: the short cut ran at pace ${s.pace} (want 1 to 1.25: never rushed)`);
-  if (!landedOk(s?.landed)) problems.push(`${what}: it did not land on the hero: ${JSON.stringify(s?.landed)}`);
+  if (!s?.quick || !(s.reopen >= 55_000 && s.reopen < 180_000)) problems.push(`${what}: it measured ${s?.reopen} ms since he last had it on screen (quick ${s?.quick}; want about 60,000, reported as quick)`);
+  checkFilm(s, what);
+  if (s && (s.how !== 'cold' || s.why !== '')) problems.push(`${what}: how "${s.how}", why "${s.why}" (want a cold open, the whole film as asked)`);
   if (s) report.push(`${what} (a minute away): ${line(s)}`);
-  // a reload is a cold open too: the page stamped its leaving a moment ago, so it is a quick reopen as well
+  // a reload is a cold open too: the page stamped its leaving a moment ago; still the whole film
   await page.reload();
   const r = await ended(page, 'reload');
-  if (r?.kind !== 'short' || !r?.quick || !(r.reopen >= 0 && r.reopen < 60_000)) problems.push(`reload: a cold open a moment after leaving played "${r?.kind}" (quick ${r?.quick}, ${r?.reopen} ms)`);
+  if (!r?.quick || !(r.reopen >= 0 && r.reopen < 60_000)) problems.push(`reload: measured ${r?.reopen} ms (quick ${r?.quick})`);
+  checkFilm(r, 'reload a moment after leaving');
+  // a resume: hidden, then shown again. Date.now moves on by the time away (the frames run on performance.now, untouched)
+  const away = (ms) => page.evaluate((ms) => {
+    const real = Date.now.bind(Date);
+    const off = (window.__off ?? 0);
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.__off = off + ms;
+    if (!window.__realNow) window.__realNow = real;
+    Date.now = () => window.__realNow() + window.__off;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, ms);
+  const before = await state(page);
+  // under a minute: only the breath, no opening
+  await away(30_000);
+  await page.waitForTimeout(1500);
+  const q = await state(page);
+  const quickBoot = await page.evaluate(() => !!document.getElementById('boot'));
+  if (quickBoot || q.plays !== before.plays || !(q.warm > before.warm) || q.resumes !== before.resumes) problems.push(`resume after 30 s: plays ${before.plays} → ${q.plays}, breaths ${before.warm} → ${q.warm}, an opening on screen ${quickBoot} (want only the breath)`);
+  // a minute or more: the whole film again, over Home, landing on the hero
+  await away(75_000);
+  const came = await page.waitForSelector('#boot', { timeout: 4000 }).then(() => true).catch(() => false);
+  const t = came ? await ended(page, 'resume after 75 s') : await state(page);
+  if (!came || t?.how !== 'resume' || t.resumes !== before.resumes + 1 || t.plays !== before.plays + 1) problems.push(`resume after 75 s: an opening ${came}, how "${t?.how}", resumes ${t?.resumes}, plays ${before.plays} → ${t?.plays} (want the opening again)`);
+  if (t && !(t.reopen >= 74_000 && t.reopen < 90_000)) problems.push(`resume after 75 s: measured ${t.reopen} ms away`);
+  if (came) checkFilm(t, 'resume after 75 s');
+  if (t) report.push(`resume after 75 s: ${line(t)}`);
+  // LAST OPENING in Settings: which version played and why
+  await page.evaluate(() => (location.hash = '#settings'));
+  const last = await page.waitForFunction(() => { const e = document.querySelector('[data-id="bootlast"]'); return e?.textContent ? e.textContent : null; }, null, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => null);
+  if (!/^Last opening: the full film, (6\.[89]|7\.[0-2]) s, as you came back\.$/.test(last ?? '')) problems.push(`last opening: Settings says "${last}" (want "Last opening: the full film, 7.0 s, as you came back.")`);
+  report.push(`settings: ${last}`);
+  await ctx.close();
+}
+{
+  // LAST OPENING says why when it is not the whole film: Reduce Motion's calm opening
+  const { ctx, page } = await open({ reducedMotion: 'reduce' });
+  await page.goto(base);
+  const s = await ended(page, 'last opening (Reduce Motion)');
+  if (s?.kind !== 'still' || s.why !== 'Reduce Motion is on') problems.push(`last opening (Reduce Motion): ${s?.kind}, why "${s?.why}" (want the calm opening, because Reduce Motion is on)`);
+  await page.evaluate(() => (location.hash = '#settings'));
+  const last = await page.waitForFunction(() => { const e = document.querySelector('[data-id="bootlast"]'); return e?.textContent ? e.textContent : null; }, null, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => null);
+  if (!/^Last opening: the calm opening, \d\.\d s, because Reduce Motion is on\.$/.test(last ?? '')) problems.push(`last opening: Settings says "${last}" (want the calm opening, because Reduce Motion is on)`);
+  report.push(`settings (Reduce Motion): ${last}`);
   await ctx.close();
 }
 {
@@ -215,7 +262,7 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   const a = await open({ set: { bootLength: 'short' } });
   await a.page.goto(base);
   const s = await ended(a.page, 'length: short');
-  if (s?.kind !== 'short' || !s.film || s.quick) problems.push(`length: SHORT played "${s?.kind}" (film ${s?.film}, quick ${s?.quick}) on a first open (want the short film)`);
+  if (s?.kind !== 'short' || !s.film || s.quick || s.why !== 'you chose SHORT') problems.push(`length: SHORT (why "${s?.why}") played "${s?.kind}" (film ${s?.film}, quick ${s?.quick}) on a first open (want the short film)`);
   await a.ctx.close();
   // (anchored to London's midnight, as CI runs at any hour: "earlier today" is at most 40 minutes ago and never before midnight)
   const sinceMidnight = await (async () => { const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' })); return (d.getHours() * 60 + d.getMinutes()) * 60_000 + d.getSeconds() * 1000; })();
@@ -393,4 +440,4 @@ if (problems.length) {
   console.error(`\nbootfilm: ${problems.length} problem(s):\n${problems.map((p) => `  - ${p}`).join('\n')}`);
   process.exit(1);
 }
-console.log(`ok bootfilm (${Math.round((Date.now() - t0) / 1000)} s): a cold open left to choose plays THE FILM, the full cut, its whole 7,000 ms (at 440 and 390), every shot in order, every frame counted; the hand-over on the hero to the pixel with the HUD a beat after and nothing moving after; a tap skips to the landing; Reduce Motion the calm still 1,200 ms; a quick reopen (under three minutes) the short cut 4,800 ms, after four minutes and on the first open ever the whole film; THE NEXT ROUND: its length his way (SHORT, ONCE A DAY), the jobs that can wait waiting for the landing, how it ran kept and said, the greeting that remembers, his own lines in turn, a guest once, by words and by Settings' keys at 440 and 390, today's line, the offline line and the director's mode`);
+console.log(`ok bootfilm (${Math.round((Date.now() - t0) / 1000)} s): a cold open left to choose plays THE FILM, the full cut, its whole 7,000 ms (at 440 and 390), every shot in order, every frame counted; the hand-over on the hero to the pixel with the HUD a beat after and nothing moving after; a tap skips to the landing; Reduce Motion the calm still 1,200 ms; every cold open the whole film (a minute away, a reload, four minutes, the first ever), a resume after 75 s the whole film again over Home while one after 30 s only breathes, LAST OPENING in Settings saying which and why (the full film; the calm one because Reduce Motion is on); THE NEXT ROUND: its length his way (SHORT, ONCE A DAY), the jobs that can wait waiting for the landing, how it ran kept and said, the greeting that remembers, his own lines in turn, a guest once, by words and by Settings' keys at 440 and 390, today's line, the offline line and the director's mode`);
