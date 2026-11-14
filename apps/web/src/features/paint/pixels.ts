@@ -236,3 +236,78 @@ export function psdInfo(b: Uint8Array): { w: number; h: number; layers: string[]
   }
   return { w, h, layers, blends };
 }
+
+/** Open a PSD's layers (8-bit RGB, raw or PackBits, as Photoshop, Procreate and Krita save them): each layer's name, box, blend
+ * mode, opacity, visibility and pixels. Null when it is another kind (16-bit, CMYK) the app can't open yet, said by `why`. */
+export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: string; x: number; y: number; w: number; h: number; rgba: Uint8ClampedArray; opacity: number; visible: boolean; blend: string }[] } | { why: string } {
+  if (b.length < 26 || String.fromCharCode(b[0]!, b[1]!, b[2]!, b[3]!) !== '8BPS') return { why: 'That is not a PSD file.' };
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  if (v.getUint16(4) !== 1) return { why: 'That is a large-document PSB, which I can’t open yet.' };
+  const h = v.getUint32(14), w = v.getUint32(18), depth = v.getUint16(22), mode = v.getUint16(24);
+  if (depth !== 8 || mode !== 3) return { why: 'That PSD is not 8-bit RGB (it may be 16-bit or CMYK), which I can’t open yet. Save it as 8-bit RGB and try again.' };
+  let at = 26;
+  at += 4 + v.getUint32(at);
+  at += 4 + v.getUint32(at);
+  const lmEnd = at + 4 + v.getUint32(at); at += 4;
+  if (lmEnd <= at) return { w, h, layers: [] };
+  at += 4;
+  const n = Math.abs(v.getInt16(at)); at += 2;
+  const BLEND = Object.fromEntries(Object.entries(PSD_BLEND).map(([k, val]) => [val, k]));
+  const recs: { name: string; top: number; left: number; bottom: number; right: number; chans: { id: number; len: number }[]; blend: string; opacity: number; visible: boolean }[] = [];
+  for (let i = 0; i < n; i++) {
+    const top = v.getInt32(at), left = v.getInt32(at + 4), bottom = v.getInt32(at + 8), right = v.getInt32(at + 12); at += 16;
+    const nc = v.getUint16(at); at += 2;
+    const chans = [];
+    for (let k = 0; k < nc; k++) { chans.push({ id: v.getInt16(at), len: v.getUint32(at + 2) }); at += 6; }
+    at += 4;
+    const key = String.fromCharCode(b[at]!, b[at + 1]!, b[at + 2]!, b[at + 3]!); at += 4;
+    const opacity = b[at]! / 255, flags = b[at + 2]!; at += 4;
+    const extra = v.getUint32(at); at += 4;
+    const end = at + extra;
+    at += 4 + v.getUint32(at);
+    at += 4 + v.getUint32(at);
+    const nl = b[at]!;
+    let name = String.fromCharCode(...b.subarray(at + 1, at + 1 + nl));
+    // a Unicode name, when the file keeps one ('luni')
+    let q = at + Math.ceil((1 + nl) / 4) * 4;
+    while (q + 12 <= end) {
+      const sig = String.fromCharCode(b[q]!, b[q + 1]!, b[q + 2]!, b[q + 3]!);
+      if (sig !== '8BIM' && sig !== '8B64') break;
+      const k2 = String.fromCharCode(b[q + 4]!, b[q + 5]!, b[q + 6]!, b[q + 7]!);
+      const len = v.getUint32(q + 8);
+      if (k2 === 'luni' && len >= 4) { const cn = v.getUint32(q + 12); let u = ''; for (let c = 0; c < cn && q + 16 + c * 2 + 1 < end; c++) u += String.fromCharCode(v.getUint16(q + 16 + c * 2)); if (u) name = u; }
+      q += 12 + len + (len % 2);
+    }
+    at = end;
+    recs.push({ name: name.replace(/\0+$/, '') || `Layer ${i + 1}`, top, left, bottom, right, chans, blend: BLEND[key] ?? 'source-over', opacity, visible: !(flags & 2) });
+  }
+  const layers = [];
+  for (const r of recs) {
+    const lw = Math.max(0, r.right - r.left), lh = Math.max(0, r.bottom - r.top);
+    const rgba = new Uint8ClampedArray(lw * lh * 4);
+    if (!lw || !lh) rgba.fill(0);
+    let hasAlpha = false;
+    for (const c of r.chans) {
+      const start = at;
+      at += c.len;
+      if (!lw || !lh) continue;
+      const comp = v.getUint16(start);
+      const target = c.id === -1 ? 3 : c.id >= 0 && c.id <= 2 ? c.id : -1;
+      if (target < 0 || c.id < -1) continue;
+      if (c.id === -1) hasAlpha = true;
+      let plane: Uint8Array;
+      if (comp === 0) plane = b.subarray(start + 2, start + 2 + lw * lh);
+      else if (comp === 1) {
+        const counts: number[] = [];
+        for (let y = 0; y < lh; y++) counts.push(v.getUint16(start + 2 + y * 2));
+        plane = new Uint8Array(lw * lh);
+        let p = start + 2 + lh * 2;
+        for (let y = 0; y < lh; y++) { plane.set(unpackBits(b.subarray(p, p + counts[y]!), lw), y * lw); p += counts[y]!; }
+      } else continue;
+      for (let i = 0; i < lw * lh; i++) rgba[i * 4 + target] = plane[i]!;
+    }
+    if (!hasAlpha) for (let i = 0; i < lw * lh; i++) rgba[i * 4 + 3] = 255;
+    layers.push({ name: r.name, x: r.left, y: r.top, w: lw, h: lh, rgba, opacity: r.opacity, visible: r.visible, blend: r.blend });
+  }
+  return { w, h, layers };
+}

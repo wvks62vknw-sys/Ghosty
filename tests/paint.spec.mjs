@@ -219,6 +219,16 @@ async function run(viewport) {
   await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
   check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.paint.gallery.titles.includes('Painting 2'), null, 15000), `[${W}] GALLERY keeps the new painting`);
 
+  // the PSD opens again as a painting, with its layers apart
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-paint button[aria-label="Open a PSD with its layers, or a picture, as a painting"]')]);
+  await chooser.setFiles({ name: 'Painting 2.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd });
+  check(await until(page, () => window.__ghosty.paint.open && window.__ghosty.paint.layers.length === 4, null, 30000), `[${W}] OPEN A FILE opens the PSD`);
+  s = await S(page);
+  check(s.layers.map((l) => l.name).join(',') === 'Paper,Background,Layer 1,Layer 3' && s.layers[3].blend === 'multiply' && s.layers[3].alphaLock === false, `[${W}] the opened PSD keeps its layers and blend modes: ${s.layers.map((l) => `${l.name}/${l.blend}`)}`);
+  check((await page.evaluate(() => window.__ghosty.paintAt(600, 800, 2))) > 100, `[${W}] the opened PSD keeps the strokes`);
+  await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+  await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
+
   // (g) a colouring page: the lines are the reference, FILL fills the colour layer between them
   await goPaint(page, 'colouring');
   await page.click('#pg-paint button[aria-label="Colour the Mandala"]');

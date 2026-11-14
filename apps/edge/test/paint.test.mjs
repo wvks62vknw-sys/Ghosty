@@ -152,4 +152,10 @@ test('a layered PSD: the header, and every layer kept with its name, blend mode,
   const big = new Uint8ClampedArray(300 * 200 * 4);
   const packedPsd = X.psdOf(300, 200, [{ name: 'Clear', rgba: big, opacity: 1, visible: true, blend: 'source-over' }], big);
   assert.ok(packedPsd.length < 30000, `a clear 300 × 200 layer's PSD is small: ${packedPsd.length} bytes`);
+  // and a PSD opens again with its layers, names, blend modes, opacity, visibility and pixels
+  const back = X.readPsd(bytes);
+  assert.deepEqual(back.layers.map((l) => [l.name, l.blend, Math.round(l.opacity * 100), l.visible, l.w, l.h]), [['Paper', 'source-over', 100, true, 4, 3], ['Ink', 'multiply', 50, false, 4, 3], ['Glow', 'screen', 100, true, 4, 3]]);
+  assert.deepEqual([...back.layers[1].rgba.subarray(0, 4)], [10, 0, 0, 200]);
+  assert.deepEqual([back.w, back.h], [w, h]);
+  assert.match(X.readPsd(new Uint8Array(40)).why, /not a PSD/);
 });
