@@ -34,7 +34,7 @@ export const photosState = {
   selecting: false,
   selected: [] as string[],
   viewer: '' as string,
-  search: { q: '', results: 0, naming: '' as '' | 'none' | 'needs' | 'ready' | 'working' | 'done' },
+  search: { q: '', results: 0, naming: '' as '' | 'none' | 'needs' | 'ready' | 'working' | 'done', reading: '' as '' | 'needs' | 'working' | 'done' },
   albums: [] as { id: string; name: string; count: number }[],
   dupes: 0,
   deleted: 0,
@@ -365,13 +365,13 @@ export const photosTab: TabDef = {
         const withThem = (n: string) => live.filter((i) => (i.people ?? []).includes(n));
         return [
           backRow('People', 'albums'),
-          h('p.phx-small', 'Only you and the people you’ve introduced, by the names you gave them. Anyone else is only ever “a person”, and nobody is looked up.'),
+          h('p.phx-small', 'Only you and the people you’ve introduced, by the names you gave them. Open a photo and tap WHO’S IN IT to say who is in it. Faces in your photos are never scanned (the face finder looks only through the live camera), anyone else stays “a person”, and nobody is looked up.'),
           names.length
             ? h('div.phx-rows', ...names.map((n) => row(n, withThem(n).length ? String(withThem(n).length) : 'not in a photo yet', () => {
                 query = n;
                 go('search', '');
               })))
-            : empty('Nobody introduced yet', 'Introduce yourself or someone you know in the Lens (FACES): then the photos they’re in can be found by name, on this phone.'),
+            : empty('Nobody introduced yet', 'Introduce yourself or someone you know in the Lens (FACES). Then WHO’S IN IT on a photo lets you say they’re in it, and search finds them by name.'),
         ];
       }
       if (sub === 'places') {
@@ -443,6 +443,7 @@ export const photosTab: TabDef = {
     });
     const results = h('div.phx-results');
     const namingLine = h('div.phx-naming');
+    const readingLine = h('div.phx-naming.phx-reading');
     const searchView = (): HTMLElement[] => {
       searchIn.value = query;
       void drawNaming();
@@ -454,7 +455,8 @@ export const photosTab: TabDef = {
         searchIn.value = l;
         void drawSearchResults();
       }, 'phx-chip'));
-      return [h('div.phx-searchrow', searchIn), ...(chips.length ? [h('div.phx-chips', ...chips)] : []), namingLine, results];
+      drawReading();
+      return [h('div.phx-searchrow', searchIn), ...(chips.length ? [h('div.phx-chips', ...chips)] : []), namingLine, readingLine, results];
     };
     const drawSearchResults = async () => {
       const q = parseQuery(query, Date.now());
@@ -497,6 +499,58 @@ export const photosTab: TabDef = {
         }
       });
       namingLine.replaceChildren(h('p.phx-small', kept ? `${unnamed} ${unnamed === 1 ? 'photo isn’t' : 'photos aren’t'} named yet. NAME MY PHOTOS looks at each one on this phone, so search finds what’s in them. Nothing is sent.` : `To find what’s in your photos, I name each one on this phone with the Lens’s namer: a ${NAMER_SIZE} download, once, only on Wi-Fi, when you tap. Nothing of your photos is sent.`), goName);
+    };
+
+    /** The words in his photos, read on this phone with the Lens's reader, on his tap. */
+    const drawReading = () => {
+      const unread = visible(list).filter((i) => i.kind === 'photo' && !i.textRead).length;
+      photosState.search.reading = unread ? 'needs' : 'done';
+      if (!unread) return void readingLine.replaceChildren();
+      const go = button('READ THE WORDS IN MY PHOTOS', async (b) => {
+        b.disabled = true;
+        photosState.search.reading = 'working';
+        try {
+          const r = await L.readAllText((d, of) => (readingLine.querySelector('.phx-small')!.textContent = `Reading ${d} of ${of} on this phone…`));
+          photosState.search.reading = 'done';
+          say(`${r.read} ${r.read === 1 ? 'photo' : 'photos'} read on this phone; ${r.withWords} had words in them. Search finds those words now.`);
+        } catch (e) {
+          b.disabled = false;
+          photosState.search.reading = 'needs';
+          say(sayError(e, 'read the words in your photos'), 'warn');
+        }
+      });
+      readingLine.replaceChildren(h('p.phx-small', `${unread} ${unread === 1 ? 'photo hasn’t' : 'photos haven’t'} been read for words yet (a sign, a menu, a ticket). This reads them on this phone; nothing is sent.`), go);
+    };
+
+    /** Who is in a photo, as he says: only the people he introduced, by the names he gave; nobody is found or named for him. */
+    const whoIsIn = async (it: Item) => {
+      let names: string[] = [];
+      try {
+        const { knownFaces } = await import('../../vision/facestore');
+        names = (await knownFaces()).map((p) => p.name).filter(Boolean);
+      } catch {
+        names = [];
+      }
+      if (!names.length) return void say('Only people you’ve introduced can be named here. Introduce yourself or someone in the Lens (FACES) first.', 'warn');
+      const chosen = new Set(it.people ?? []);
+      const rows = names.map((n) => {
+        const b = h('button.phx-row', { type: 'button', role: 'checkbox', 'aria-checked': String(chosen.has(n)), dataset: { case: 'keep', name: n } }, h('span.phx-rowname', n), h('span.phx-chev', { 'aria-hidden': 'true' }, chosen.has(n) ? '✓' : ''));
+        b.addEventListener('click', () => {
+          if (chosen.has(n)) chosen.delete(n);
+          else chosen.add(n);
+          b.setAttribute('aria-checked', String(chosen.has(n)));
+          b.querySelector('.phx-chev')!.textContent = chosen.has(n) ? '✓' : '';
+        });
+        return b;
+      });
+      const sheet = modal('WHO’S IN IT', h('div.phx-sheet', h('p.phx-small', 'Tick who is in this photo. Only people you’ve introduced are listed; anyone else stays “a person”.'), h('div.phx-rows', ...rows), h('div.phx-keys', button('KEEP', async () => {
+        sheet.close();
+        const before = it.people ?? [];
+        await L.setPeople([it.id], [...chosen]);
+        undo(chosen.size ? `In this photo: ${[...chosen].join(', ')}.` : 'Nobody named in this photo.', () => L.setPeople([it.id], before));
+        await refresh();
+        void drawViewer();
+      }), button('CANCEL', () => sheet.close()))));
     };
 
     // ---- the viewer: one photo full screen, swipe or ‹ › for the next
@@ -557,6 +611,7 @@ export const photosTab: TabDef = {
               await openPhotoEditor({ files: [new File([b], it.name, { type: it.type })] });
             })] : []),
             button('ALBUM', () => void pickAlbum([it.id])),
+            ...(it.kind === 'photo' ? [button('WHO’S IN IT', () => void whoIsIn(it))] : []),
             button('SHARE', async () => {
               const b = await L.blobOf(it.id);
               if (!b) return;
