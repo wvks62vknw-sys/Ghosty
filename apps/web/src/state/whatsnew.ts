@@ -244,6 +244,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Gym: he carries on by himself', line: 'WATCH keeps playing round after round, TRAIN ALL trains every game in turn, KEEP AWAKE holds the screen on while he trains.' },
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
+  // [journal] APPS ROUND, lane MEMORY: your word's decision log
+  { day: '2026-11-14', title: 'Look back on a choice', line: 'Memory → YOUR WORD: LOOK BACK on any reason you gave me, and in three months I’ll ask whether it worked out.' },
   // [journal] APPS ROUND, lane MEMORY: gifts
   { day: '2026-11-14', title: 'Every gift in one place', line: 'Life → People → GIFTS: an idea for anyone, then bought, wrapped and given, with a budget per occasion; and the gifts you were given, each with its thank-you to send.' },
   // [journal] APPS ROUND, lane MEMORY: keep in touch
