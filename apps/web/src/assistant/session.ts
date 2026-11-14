@@ -1178,6 +1178,8 @@ function followApproval(id: string): void {
     if (!waiting()) return stop(); // answered in the app: stop following
     if (sent) return;
     sent = true;
+    // [security] the same card on the lock screen as a phone notification, once (security.s10): a tap opens the chat at it
+    void brain.approvalPush(id).catch(() => null);
     const r = await brain.telegramAsk(id).catch(() => null);
     if (r?.sent || r?.already) void poll();
     else stop();

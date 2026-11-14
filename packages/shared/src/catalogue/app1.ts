@@ -389,6 +389,19 @@ export const APP_1: Record<string, CatValue> = {
     go: { open: 'eye?machine' }, tryText: 'Opens God’s eye on the Machine view',
     since: '2026-10-31',
   },
+  'phrase:trip': {
+    name: 'Getting to an appointment', line: 'You can say "how do I get to my next appointment?" and I show when to leave, the weather there and the roads and cameras on the way.',
+    more: 'From your diary’s next appointment with a place: a public transport journey that arrives in time, the weather when you arrive, road reports and public cameras along the route. Where you start stays on the phone. GETTING THERE on an event in AGENDA does the same.',
+    say: ['How do I get to my next appointment?', 'Trip mode', 'When should I leave for my meeting?'], scene: ['out', 'morning'], cat: 'see',
+    since: '2026-11-14',
+  },
+  'phrase:layerset': {
+    name: 'One-tap layer sets', line: 'You can say "commute view", "storm layers" or "sky mode" and God’s eye shows just those layers.',
+    more: 'COMMUTE: cameras, traffic, road incidents, buses and safety cameras. STORM: radar, alerts, disasters, quakes and clouds. SKY: aircraft, satellites and orbits. Also one tap each at the top of WHAT TO SHOW.',
+    say: ['Commute view', 'Storm layers', 'Sky mode'], scene: ['watching', 'out'], cat: 'see',
+    go: { open: 'eye' }, tryText: 'Opens God’s eye with the commute set',
+    since: '2026-11-14',
+  },
   'phrase:workbench': {
     name: 'Estimates by words', line: 'You can say "beam calculator" or "3 m steel beam 5 kN in the middle" and I answer on the phone, no AI.',
     more: 'A calculator’s name opens it; a problem with its numbers is filled in and answered at once. A question goes to my brain.',
