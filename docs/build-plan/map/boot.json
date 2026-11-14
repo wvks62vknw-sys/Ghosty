@@ -1,0 +1,51 @@
+{"lane":"BOOT (the opening film and the orb waking)",
+"features":[
+{"name":"The 7-second opening film","where":"Open Ghosty cold from the Home Screen (The Scan look, the default)","say":["reboot","reboot yourself","restart yourself"],"does":"The eye opens, a scan sweeps over your desk and the city, the camera comes down from the sky, the things you use lock in, the orb forms, then the stamp, the feeds and the greeting, and it lands on Home at about 7 seconds","status":"works","note":"Fixed in the final round: before that it never played on the phone (it fell to a 1.7-second fallback every time)"},
+{"name":"The short cut after a quick reopen","where":"Close Ghosty, then open it again within 3 minutes","say":[],"does":"The same shots, closer together, landing at about 4.8 seconds, so a quick return doesn't sit through the whole film","status":"works","note":"The 3-minute rule is fixed in code, not a setting"},
+{"name":"Tap to skip","where":"Tap anywhere during the film","say":[],"does":"Goes straight to the landing on Home, with no greeting after the tap","status":"works","note":""},
+{"name":"Calm version for Reduce Motion","where":"iPhone Settings → Accessibility → Motion → Reduce Motion, or THE LOOK → Motion → calm","say":["calm mode","less motion","keep still"],"does":"Two still frames, about a second, nothing travelling, with every word the full film has","status":"works","note":""},
+{"name":"The landing on Home","where":"The end of every film","say":[],"does":"The orb lands exactly where Home's orb lives (the same orb, never a copy), and the bar and cards slide in a beat later","status":"works","note":""},
+{"name":"The greeting","where":"In the film, under the stamp","say":[],"does":"'Good evening, <your name>.' from the clock and the name in Settings, spoken in your voice when the voice setting is on (on iPhone, at your first tap)","status":"works","note":"With no name saved it says just 'Good evening.'"},
+{"name":"The stamp and the feeds in the film","where":"In the film, at the top","say":[],"does":"Types the day, the time, your saved place and the feeds' state, then one true line for each feed that answered (flood, weather, crime counts from public sources)","status":"works","note":"Offline it says so in one line, with no made-up feeds"},
+{"name":"The boot's score","where":"Settings → 'The boot's score'","say":[],"does":"A short score made on the phone under the film (no sound files); off, just the one recognition tone","status":"works","note":"Silent on a cold open until your first tap, because iPhone insists"},
+{"name":"Replay from SYSTEM","where":"SYSTEM → REBOOT HIM, or the command palette's 'Reboot him'","say":["reboot"],"does":"Plays the whole film again over Home","status":"works","note":""},
+{"name":"A breath on return","where":"Switch away from Ghosty and back while it is still running","say":[],"does":"No film, just the orb breathing once","status":"works","note":""},
+{"name":"Slow-open honesty","where":"A slow network or a cold brain at open","say":[],"does":"The film keeps moving and, after a second, says what it is waiting for (the brain or the signal), never a frozen frame","status":"works","note":""},
+{"name":"The boot's failure screen","where":"If the app can't start","say":[],"does":"'I couldn't start this time. Tap to try again.' and the tap does it","status":"works","note":""},
+{"name":"The opening in the other six looks","where":"THE LOOK → Map, Eye, One Ink, Glass, Orbit or Grown Up","say":["the eye","switch to the map"],"does":"A shorter 2.9-second opening in each look's own style (the Eye's ends with its wall resolving from grain)","status":"partial","note":"Only The Scan has the 7-second film"},
+{"name":"The orb's five states","where":"Home's orb","say":[],"does":"Idle, listening, thinking, speaking and attending, each with its own light and shape, readable even with motion off","status":"partial","note":"Clearer than before, but the check that measures them is sensitive to the scene behind the orb and isn't reliably green"}
+],
+"upward":[
+{"idea":"A 7-second film for every look","why":"The Map, The Eye, One Ink, Glass, Orbit and Grown Up would each open as richly as The Scan, in their own style","builds_on":"The film's conductor and its shot timing; the Eye's wall-from-grain shot","effort":"L"},
+{"idea":"A film that knows the day","why":"The opening shows what matters today: the search locks on your first meeting, a bill due, or rain coming, instead of a fixed choice","builds_on":"The film's search shot, the Brief, the agenda and the weather feed","effort":"M"},
+{"idea":"Seasons and time of day in the film","why":"Night opens on lit windows, morning on low sun, winter on frost, so the film never feels the same twice","builds_on":"The world lit by the hour, and the film's lighting","effort":"M"},
+{"idea":"A choice of opening length in Settings","why":"Full film always, the short cut always, or the film only once a day, so you choose your own rhythm","builds_on":"The full, short and quick-reopen rules","effort":"S"},
+{"idea":"A first-of-the-day opening","why":"The day's first open shows a fuller film with the day's one line ('Three things today'); later opens are shorter","builds_on":"The 'when you were last here' stamp and the Brief","effort":"S"},
+{"idea":"Haptics on the beats","why":"A soft tap on the phone as the orb locks in and the greeting lands, so it feels like a premium device waking","builds_on":"The film's phase moments and the recognition tone","effort":"S"},
+{"idea":"A richer score with your colour's key","why":"The music changes key and texture with your chosen colour and the time of day, still made on the phone","builds_on":"The boot's score","effort":"M"},
+{"idea":"A greeting that remembers","why":"'Welcome back, it's been three days' or 'Good morning, the Brief is ready', only from your own data","builds_on":"The greeting and the 'when you were last here' stamp","effort":"S"},
+{"idea":"An on-phone frame-rate readout for the film","why":"After an open you can see how smoothly it ran on your phone (frames, any stutter), so problems are caught at once","builds_on":"The film's frame budget, which is already measured","effort":"S"},
+{"idea":"Starting the app faster under the film","why":"Moving non-urgent start-up work until after the landing makes the first second smoother and Home ready sooner","builds_on":"The app's start-up sequence","effort":"M"},
+{"idea":"The orb's states said once in words","why":"The first time it listens or thinks, a short line explains what the light means, so anyone can read the orb","builds_on":"The orb's five states and the hint system","effort":"S"},
+{"idea":"A director's mode","why":"Step through the film shot by shot with each shot named, to show it off or to fine-tune it","builds_on":"The film's manual step-through, which the checks already use","effort":"S"}
+],
+"sideways":[
+{"idea":"A closing film","why":"Saying 'goodnight' plays a 3-second wind-down (the feeds dim, the orb rests) and switches the night ground on","builds_on":"The film's shots run in reverse, and the night ground","effort":"M"},
+{"idea":"Moment films","why":"Short 2-second films for big moments: a course finished, a budget hit, a game won, a comic completed","builds_on":"The film's recognition wave and score","effort":"M"},
+{"idea":"A share-the-boot clip","why":"Record your own opening as a short video to keep, posted only with APPROVE","builds_on":"The film, and the video editor's export","effort":"M"},
+{"idea":"An opening for the TV","why":"A big-screen version of the film when Ghosty is cast to the television, tuned for distance","builds_on":"TV mode's short cut and the film","effort":"M"},
+{"idea":"An opening for a home-screen widget","why":"The widget wakes with a tiny version of the orb's lock-in when it refreshes","builds_on":"The orb and the widget host","effort":"S"},
+{"idea":"A calm 'focus' opening","why":"When focus or study mode is on, the opening is a single quiet breath and goes straight to the task","builds_on":"The still version and the modes","effort":"S"},
+{"idea":"A guest opening","why":"When you hand the phone to someone you introduced, the opening greets them by name, never anyone unknown","builds_on":"The greeting and the people you introduce","effort":"S"},
+{"idea":"A replayable film of your day","why":"In the evening, a 10-second film flies over today's places and things from your own records","builds_on":"The film's descent camera, the map and the agenda; the brain never gets live GPS","effort":"L"},
+{"idea":"Your own opening line","why":"Pick or write the line the greeting says, or let it rotate through your own favourites","builds_on":"The greeting and Settings","effort":"S"},
+{"idea":"An opening for the offline brain","why":"When there's no signal, a distinct short film that says 'working offline' and shows what still works","builds_on":"The film's offline line and the offline brain","effort":"S"}
+],
+"cross":[
+{"idea":"The film's search locks on the next thing in your plan","with":"PLAN AND HOME","why":"The opening ends pointing at what you should do first today"},
+{"idea":"The film greets you in your recognised voice's style","with":"VOICE, MEANINGS AND COLOURS","why":"The greeting and the score follow the colour you named plainly, and the voice the phone knows is yours (a convenience, never a lock)"},
+{"idea":"A comic-panel opening","with":"COMIC","why":"An optional look where the opening plays as three comic panels drawn in your style"},
+{"idea":"The film opens on God's Eye","with":"SEE","why":"In the Eye look, the opening's last shot lands on your own cameras' wall, with layers that never overlap"},
+{"idea":"A boot that starts a lesson","with":"LEARN","why":"On study days the landing opens straight to the next lesson, with the course's progress in the stamp"},
+{"idea":"The film's lock-in tied to the Lens","with":"LENS","why":"Opening Ghosty from the Lens shortcut plays a one-second lock-in and goes straight to the camera"}
+]}

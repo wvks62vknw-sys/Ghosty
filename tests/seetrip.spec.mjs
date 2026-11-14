@@ -8,11 +8,17 @@
 //      cannot plan and offers the kept one, which opens on the offline map with "its times may be out of date";
 //   c. the words: every wording of TRIP MODE and of the layer sets is one meaning (read from the very source the page is built from);
 //   d. GOD'S EYE (see.u3, see.u6): COMMUTE, STORM and SKY each set their layers in one tap; a search for "BAW" lists every matching
-//      flight to pick from (a tap opens its card), an exact call sign goes straight to it; every key 44 pt.
+//      flight to pick from (a tap opens its card), an exact call sign goes straight to it; every key 44 pt;
+//   e. YOUR CAMERA WALL (see.u2): PIN TO WALL on a camera's card keeps it on the phone; WALL in the bar opens the wall, its tile live;
+//      EDIT and TAKE OFF empty it, said in his words; "my camera wall" is its wording;
+//   f. RAIN RADAR (see.s3): RAIN in the bar plays the last two hours of radar frames over home, the slider moves through them, and the
+//      line for home says rain is coming in about 20 minutes (the quarter-hour forecast stood in); the line itself, read from source;
+//   g. THE WORLD in the morning Brief (see.c2): the threat level, the commute's road reports line and a fresh picture from the public
+//      camera nearest his saved home; every key 44 pt.
 //   BASE=http://localhost:8788 node tests/seetrip.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const { buildSync } = createRequire(new URL('../apps/web/package.json', import.meta.url))('esbuild');
 
@@ -64,6 +70,8 @@ const hours = () => {
   const days = Array.from({ length: 3 }, (_, i) => new Date(Date.now() + i * 86400_000).toISOString().slice(0, 10));
   return {
     current: { temperature_2m: 9.4, apparent_temperature: 7, relative_humidity_2m: 80, weather_code: 61, wind_speed_10m: 12, wind_direction_10m: 220, pressure_msl: 1008 },
+    // the quarter hours for the radar's line: dry now, rain from twenty minutes on
+    minutely_15: { time: Array.from({ length: 12 }, (_, i) => Math.floor(Date.now() / 900_000) * 900 + i * 900), precipitation: Array.from({ length: 12 }, (_, i) => (i >= 2 ? 0.6 : 0)) },
     hourly: { time, temperature_2m: time.map(() => 9.4), precipitation_probability: time.map(() => 60), weather_code: time.map(() => 61) },
     daily: { time: days, temperature_2m_max: [11, 11, 11], temperature_2m_min: [5, 5, 5], precipitation_probability_max: [60, 60, 60], sunrise: days.map((d) => `${d}T07:20`), sunset: days.map((d) => `${d}T16:10`), uv_index_max: [1, 1, 1] },
   };
@@ -79,6 +87,7 @@ async function phone(viewport) {
     if (/\.(jpg|jpeg)$/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'image/png' }, body: IMG });
     if (/api\.tfl\.gov\.uk/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify([0, 1, 2].map(tfl)) });
     if (/api\.adsb\.lol|airplanes\.live/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ac: AC }) });
+    if (/api\.rainviewer\.com/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: 'https://tilecache.rainviewer.com', radar: { past: Array.from({ length: 13 }, (_, i) => ({ time: Math.floor(Date.now() / 1000) - (12 - i) * 600, path: `/v2/radar/${i}` })) } }) });
     if (/api\.open-meteo\.com/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(hours()) });
     return route.fulfill({ status: 404, body: '' });
   });
@@ -89,6 +98,8 @@ async function phone(viewport) {
     asked.journey.push(`${u.search} ${body}`);
     return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(journey(START - 5 * 60_000)) });
   });
+  // his saved places: home and work in central London (the commute is outside the West Midlands' road reports)
+  await ctx.route(/\/api\/profile\/places$/, (route) => route.request().method() === 'GET' ? route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ places: [{ id: 'home', label: 'Home', query: 'Strand', address: 'Strand, London', lat: 51.5108, lon: -0.1236 }, { id: 'work', label: 'Work', query: 'Holborn', address: 'Holborn, London', lat: 51.5174, lon: -0.1201 }] }) }) : route.fallback());
   await ctx.route(/\/api\/guardian$/, (route) => (route.request().method() === 'GET' ? route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ places: [], checked: {}, failed: {}, tz: 'Europe/London', person: null, walk: null }) }) : route.fallback()));
   await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
   await ctx.grantPermissions(['geolocation']);
@@ -135,6 +146,8 @@ const bar = (page, scope) =>
 
 const W = await pure('apps/web/src/ui/tripwords.ts');
 const S = await pure('apps/web/src/features/eye/sets.ts');
+// (the wall's empty line, read from the very source the page shows it from)
+const WALL_EMPTY = /export const WALL_EMPTY = '([^']+)'/.exec(readFileSync(new URL('../apps/web/src/features/eye/wall.ts', import.meta.url), 'utf8'))?.[1] ?? '';
 
 // c. the words (one meaning, many wordings; nothing else taken)
 {
@@ -148,6 +161,16 @@ const S = await pure('apps/web/src/features/eye/sets.ts');
   const want = { 'commute view': 'commute', 'show me the storm layers': 'storm', 'Sky mode': 'sky', 'weather view': 'storm', 'switch to the commute set': 'commute' };
   for (const [t, k] of Object.entries(want)) check(S.setAsked(t) === k, `[c words] "${t}" is not the ${k} set (${S.setAsked(t)})`);
   for (const t of ['what is the weather', 'sky news', 'storm in a teacup']) check(S.setAsked(t) === null, `[c words] "${t}" was taken as a layer set`);
+  for (const t of ['my camera wall', 'show my cameras', 'open the camera wall', 'camera wall']) check(S.WALL_ASK.test(t), `[c words] "${t}" is not the camera wall`);
+  for (const t of ['the wall', 'show me the cameras on the Strand', 'wall mode']) check(!S.WALL_ASK.test(t), `[c words] "${t}" was taken as the camera wall`);
+  for (const t of ['rain radar', 'show me the rain map', 'replay the rain', 'weather radar']) check(S.RAIN_ASK.test(t), `[c words] "${t}" is not the rain radar`);
+  for (const t of ['will it rain tomorrow', 'radar on']) check(!S.RAIN_ASK.test(t), `[c words] "${t}" was taken as the rain radar`);
+  // the line for home, from the quarter hours (now, a dry spell, rain coming, raining now)
+  const n0 = Date.UTC(2026, 10, 14, 9, 0);
+  const q = (mm) => mm.map((m, i) => ({ t: n0 + i * 900_000, mm: m }));
+  check(S.rainLine(q([0, 0, 0, 0, 0, 0, 0, 0]), n0, 'Birmingham') === 'No rain at Birmingham in the next two hours.', `[f rain] dry reads "${S.rainLine(q([0, 0, 0, 0, 0, 0, 0, 0]), n0, 'Birmingham')}"`);
+  check(S.rainLine(q([0, 0, 0.6, 1, 0, 0, 0, 0]), n0, 'Birmingham') === 'Light rain at Birmingham in about 30 minutes.', `[f rain] coming reads "${S.rainLine(q([0, 0, 0.6, 1, 0, 0, 0, 0]), n0, 'Birmingham')}"`);
+  check(S.rainLine(q([2, 2, 0, 0, 0, 0, 0, 0]), n0, 'Birmingham') === 'Rain at Birmingham now, easing in about 30 minutes.', `[f rain] raining reads "${S.rainLine(q([2, 2, 0, 0, 0, 0, 0, 0]), n0, 'Birmingham')}"`);
 }
 
 for (const vp of [PHONE, PHONE2]) {
@@ -187,6 +210,20 @@ for (const vp of [PHONE, PHONE2]) {
       const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.journey.last') ?? 'null'));
       check(!!kept && kept.answer?.to?.name === 'Strand, London' && Number.isFinite(kept.at), `${T} [b kept] the journey is not kept on the phone: ${JSON.stringify(kept)?.slice(0, 120)}`);
       await page.keyboard.press('Escape');
+    }
+  }
+  // g. THE WORLD in the Brief
+  {
+    await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+    await page.evaluate(() => (location.hash = 'brief'));
+    const shown = await until(page, () => document.querySelectorAll('#pg-brief .brworld .rw').length >= 2 && !!document.querySelector('#pg-brief .brworld .brcam img[src]'), null, 20000);
+    if (check(shown, `${T} [g world] THE WORLD never showed its rows and its camera: "${await text(page, '#pg-brief .brworld')}"`)) {
+      const w = await page.evaluate(() => window.__ghosty.briefWorld);
+      check(/^(Clear|Watch|Elevated|Severe|Checking|Can’t check)/.test(w.threat), `${T} [g world] the threat reads "${w.threat}"`);
+      check(w.commute === 'Road reports cover the motorways in the West Midlands; your commute is outside them.', `${T} [g world] the commute reads "${w.commute}"`);
+      check(/^Strand \/ Camera \d, \d+ m from home$/.test(w.camera), `${T} [g world] the camera reads "${w.camera}"`);
+      const b = await bar(page, '#pg-brief .brworld');
+      check(!b.length, `${T} [g world] ${b.join(', ')}`);
     }
   }
   // a. by words, from the chat
@@ -229,6 +266,51 @@ for (const vp of [PHONE, PHONE2]) {
       check(await until(page, () => /EIN154/.test(document.querySelector('#pg-eye .eyeinfo:not([hidden])')?.textContent ?? '') && document.querySelector('#pg-eye .searchlist').hidden, null, 5000), `${T} [d search] an exact call sign did not go straight to its card`);
       await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyeinfo button')].find((x) => x.textContent.trim() === '✕')?.click());
     }
+  }
+  // e. the camera wall: pin the Strand's camera, open the wall, take it off
+  {
+    await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'cams', on: true }));
+    await page.evaluate(() => { const c = window.__ghosty.globe.cam; c.fly = null; c.follow = null; Object.assign(c, { lat: 51.511, lon: -0.123, range: 3 }); c.target = { lat: 51.511, lon: -0.123, range: 3, tilt: 0, hd: 0 }; });
+    const grid = await until(page, () => document.querySelectorAll('#pg-eye .camgrid:not([hidden]) .camview').length > 0, null, 30000);
+    if (check(grid, `${T} [e wall] the cameras' grid never showed on the Strand`)) {
+      await page.evaluate(() => document.querySelector('#pg-eye .camgrid:not([hidden]) .camview')?.click());
+      const pin = await until(page, () => !!document.querySelector('#pg-eye .eyeinfo:not([hidden]) button[data-act="pin"]'), null, 8000);
+      if (check(pin, `${T} [e wall] the camera's card has no PIN TO WALL`)) {
+        await page.evaluate(() => document.querySelector('#pg-eye .eyeinfo button[data-act="pin"]')?.click());
+        check(/on your wall/i.test(await text(page, '#pg-eye .eyeinfo button[data-act="pin"]')), `${T} [e wall] PIN TO WALL did not say it is on the wall: "${await text(page, '#pg-eye .eyeinfo button[data-act="pin"]')}"`);
+        const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.eye.wall') ?? '[]'));
+        check(kept.length === 1 && /Strand/.test(kept[0].name), `${T} [e wall] the wall kept: ${JSON.stringify(kept).slice(0, 120)}`);
+        await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyeinfo button')].find((x) => x.textContent.trim() === '✕')?.click());
+        await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyebot .btns button')].find((b) => /^wall$/i.test((b.dataset.label || b.textContent).trim()))?.click());
+        const live = await until(page, () => window.__ghosty?.wall?.open && document.querySelectorAll('.wall .walltile').length === 1 && !document.querySelector('.wall .wallstamp[data-state]'), null, 10000);
+        check(live, `${T} [e wall] the wall did not show its camera live: "${await text(page, '.wall')}"`);
+        await still(page);
+        const b = await bar(page, '.wall');
+        check(!b.length, `${T} [e wall] ${b.join(', ')}`);
+        if (vp === PHONE) await page.screenshot({ path: `${out}/seetrip-wall-${vp.width}.png` }).catch(() => undefined);
+        await page.evaluate(() => document.querySelector('.wall button[data-act="edit"]')?.click());
+        await page.evaluate(() => document.querySelector('.wall button[data-act="off"]')?.click());
+        check(await until(page, (w) => document.querySelector('.wall .wallnote')?.textContent === w, WALL_EMPTY, 5000), `${T} [e wall] the empty wall reads "${await text(page, '.wall .wallnote')}"`);
+        await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+      }
+    }
+    await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'cams', on: false }));
+  }
+  // f. the rain radar from the bar: frames over home, the slider, the line for home
+  {
+    await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+    await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyebot .btns button')].find((b) => /^rain$/i.test((b.dataset.label || b.textContent).trim()))?.click());
+    const ready = await until(page, () => window.__ghosty?.rain?.state === 'ready' && window.__ghosty.rain.frames === 13, null, 15000);
+    if (check(ready, `${T} [f rain] the radar never played its frames: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.rain))} "${await text(page, '.rain')}"`)) {
+      await page.evaluate(() => { const s = document.querySelector('.rain .rainslider'); s.value = '3'; s.dispatchEvent(new Event('input')); });
+      check((await page.evaluate(() => window.__ghosty.rain.frame)) === 3 && /min ago/.test(await text(page, '.rain .rainwhen')), `${T} [f rain] the slider did not move to an earlier frame: "${await text(page, '.rain .rainwhen')}"`);
+      check(/^Light rain at Birmingham in about (15|20|25|30) minutes\.$/.test(await text(page, '.rain .rainline')), `${T} [f rain] the line for home reads "${await text(page, '.rain .rainline')}"`);
+      await still(page);
+      const b = await bar(page, '.rain');
+      check(!b.length, `${T} [f rain] ${b.join(', ')}`);
+      if (vp === PHONE) await page.screenshot({ path: `${out}/seetrip-rain-${vp.width}.png` }).catch(() => undefined);
+    }
+    await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
   }
   // b. no signal: the planner offers the kept journey, which opens with its warning
   await ctx.setOffline(true);

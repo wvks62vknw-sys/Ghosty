@@ -3,14 +3,19 @@
  * ships (/api/ships), buses and trams (/api/transit), places (/api/aim/places) and the space
  * station (/api/aim/iss). Pure: the Lens mode fetches, this turns answers into targets, and the
  * brain's tests run it without a browser. Nothing here identifies a person: an aircraft is its
- * callsign and registration as broadcast, a ship its broadcast name.
+ * callsign and registration as broadcast, a ship its broadcast name. The night sky (sky.ts) is
+ * fetched from nowhere: the phone works it out, and skySeen turns it into labels.
  */
-import { distanceText, look, type LatLonAlt } from './project';
+import { compassPoint as compassPointOf, direction, distanceText, look, type LatLonAlt } from './project';
+import { brightnessWords, farText, whereToLook, type SkyBody, type SkyKind } from './sky';
 
-export type AimKind = 'plane' | 'ship' | 'transit' | 'place' | 'space';
-export const AIM_KINDS: readonly AimKind[] = ['plane', 'ship', 'transit', 'place', 'space'];
-export const KIND_LABEL: Record<AimKind, string> = { plane: 'PLANES', ship: 'SHIPS', transit: 'TRANSIT', place: 'PLACES', space: 'SPACE' };
-export const KIND_GLYPH: Record<AimKind, string> = { plane: '✈', ship: '⛴', transit: '▣', place: '⌖', space: '✦' };
+// the sky's arithmetic rides in this module's test bundle (test/.build/aim/targets.mjs)
+export * from './sky';
+
+export type AimKind = 'plane' | 'ship' | 'transit' | 'place' | 'space' | 'sky';
+export const AIM_KINDS: readonly AimKind[] = ['plane', 'ship', 'transit', 'place', 'space', 'sky'];
+export const KIND_LABEL: Record<AimKind, string> = { plane: 'PLANES', ship: 'SHIPS', transit: 'TRANSIT', place: 'PLACES', space: 'SPACE', sky: 'SKY' };
+export const KIND_GLYPH: Record<AimKind, string> = { plane: '✈', ship: '⛴', transit: '▣', place: '⌖', space: '✦', sky: '★' };
 
 export interface Target {
   id: string;
@@ -31,6 +36,10 @@ export interface Target {
   wiki?: string;
   /** Degrees, where it is heading (planes, ships, buses). */
   course?: number;
+  /** A sky label: the Sun, the Moon, a planet or a star. */
+  body?: SkyKind;
+  /** A sky label's brightness (magnitude: smaller is brighter). */
+  mag?: number;
 }
 
 /** A target as seen from the owner: where it lies and how far. */
@@ -207,15 +216,68 @@ export function issFrom(j: unknown): Target[] {
   return [{ id: 'iss', kind: 'space', lat: s.lat, lon: s.lon, alt: s.altKm * 1000, title: 'ISS', tag: `${Math.round(s.altKm)} km up`, facts, wiki: 'International Space Station' }];
 }
 
-/** The second line of a label: the kind's facts, then how far. */
+/** How far away a sky label is drawn as being: as good as endless (it lies at a bearing and a height, not at a place). */
+export const SKY_RANGE = 1e13;
+
+/** The words on a sky body's card: what it is, and for the Sun the warning, for the Moon its phase. */
+function skyFacts(b: SkyBody): [string, string][] {
+  if (b.body === 'sun') return [['What', 'the Sun'], ['Careful', 'Never look at the Sun, by eye or through the camera: it can blind you.']];
+  const facts: [string, string][] = [];
+  if (b.body === 'moon') {
+    facts.push(['What', 'the Moon']);
+    if (b.phase) facts.push(['Phase', b.phase.words]);
+  } else if (b.body === 'planet') facts.push(['What', 'a planet']);
+  else facts.push(['What', b.id === 'star:polaris' ? 'the Pole Star, in Ursa Minor: it marks due north' : `a star in ${b.con ?? 'the sky'}`]);
+  if (b.mag != null && b.body !== 'moon') facts.push(['Brightness', brightnessWords(b.mag)]);
+  if (b.km != null) facts.push(['Distance', farText(b.km)]);
+  return facts;
+}
+
+/**
+ * Sky bodies as seen targets for AIM: each at its own bearing and height (worked out on the phone),
+ * standing at the owner's own spot with an endless range, so the drawing treats it like anything
+ * else and nothing about it is ever asked of a feed.
+ */
+export function skySeen(bodies: SkyBody[], obs: { lat: number; lon: number }): Seen[] {
+  return bodies.map((b) => ({
+    id: b.id,
+    kind: 'sky' as const,
+    body: b.body,
+    lat: obs.lat,
+    lon: obs.lon,
+    alt: null,
+    title: b.name,
+    tag: b.body === 'sun' ? 'never look at it' : b.body === 'moon' ? `${Math.round((b.phase?.lit ?? 0) * 100)}% lit` : b.body === 'planet' ? 'planet' : (b.con ?? 'star'),
+    facts: skyFacts(b),
+    ...(b.mag != null ? { mag: b.mag } : {}),
+    bearing: b.az,
+    elevation: b.el,
+    range: SKY_RANGE,
+    ground: SKY_RANGE,
+    dir: direction(b.az, b.el),
+  }));
+}
+
+/** Where a target lies, in words for the card: a sky body by its direction and height, anything else by bearing, angle and distance. */
+export function whereLine(t: Seen): string {
+  if (t.kind === 'sky') return whereToLook(t.bearing, t.elevation);
+  return `${Math.round(t.bearing)}° ${compassPointOf(t.bearing)} · ${t.elevation >= 0 ? `${t.elevation.toFixed(1)}° up` : `${(-t.elevation).toFixed(1)}° down`} · ${distanceText(t.kind === 'plane' || t.kind === 'space' ? t.range : t.ground)}`;
+}
+
+/** The second line of a label: the kind's facts, then how far (a sky body: how high). */
 export function labelLine(t: Seen): string {
+  if (t.kind === 'sky') return [t.tag, `${Math.round(t.elevation)}° up`].filter(Boolean).join(' · ');
   return [t.tag, distanceText(t.kind === 'plane' || t.kind === 'space' ? t.range : t.ground)].filter(Boolean).join(' · ');
 }
 
 /** One line about a target for the brain (`seen`): what it is, where it lies, its facts — data, not instructions. */
 export function describeTarget(t: Seen): string {
+  if (t.kind === 'sky') {
+    const what = t.body === 'planet' ? `the planet "${t.title}"` : t.body === 'star' ? `the star "${t.title}"` : `the ${t.title}`;
+    return `aimed at ${what} in the night sky (${Math.round(t.bearing)}° from north, ${t.elevation.toFixed(1)}° up, worked out on the phone; ${t.facts.map(([k, v]) => `${k}: ${v}`).join('; ')})`;
+  }
   const where = `${Math.round(t.bearing)}° from north, ${t.elevation >= 0 ? `${t.elevation.toFixed(1)}° up` : `${(-t.elevation).toFixed(1)}° down`}, ${distanceText(t.kind === 'plane' || t.kind === 'space' ? t.range : t.ground)} away`;
   const facts = t.facts.map(([k, v]) => `${k}: ${v}`).join('; ');
-  const kind = { plane: 'aircraft', ship: 'ship', transit: 'bus or tram', place: 'place', space: 'satellite' }[t.kind];
+  const kind = { plane: 'aircraft', ship: 'ship', transit: 'bus or tram', place: 'place', space: 'satellite', sky: 'thing in the sky' }[t.kind];
   return `aimed at a ${kind} "${t.title}" (${where}; ${facts})`;
 }

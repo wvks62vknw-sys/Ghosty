@@ -11,16 +11,20 @@
  * or when Ghosty is put away. `stopwatch.summary()` gives the medians and the plain-words lines
  * for the SPEED card (and a test at window.__ghosty.stopwatch).
  */
+import { BUILD } from '../state/build';
 
 export type Sample =
   /** A cold start: ms from the tap to the first paint and to the first screen. */
   | { k: 'start'; at: number; paint: number | null; screen: number }
-  /** A tab opened (`first`: built for the first time). */
-  | { k: 'tab'; at: number; id: string; title: string; ms: number; first?: 1 }
+  /** A tab opened (`first`: built for the first time; `b`: the build it opened in, so an update that slowed it can be told). */
+  | { k: 'tab'; at: number; id: string; title: string; ms: number; first?: 1; b?: string }
   /** A reply from the brain: to the first words, and to done. */
   | { k: 'reply'; at: number; first: number; done: number }
   /** One request to the brain (`path`: its first part, e.g. "/status"). */
-  | { k: 'trip'; at: number; path: string; ms: number };
+  | { k: 'trip'; at: number; path: string; ms: number }
+  /** [ci] A spoken turn (NEXT ci.u3): `first`, from his last word to Ghosty's first spoken word; `reopen`, from the end of a reply
+   *  to the ear open again. Either may be missing (a reply he typed has no `first`; the last of a conversation no `reopen`). */
+  | { k: 'voice'; at: number; first?: number; reopen?: number };
 
 export interface Stat {
   median: number;
@@ -39,6 +43,8 @@ export interface PhoneSpeed {
   screens: ScreenSpeed[];
   start: { paint: Stat | null; screen: Stat | null };
   trip: Stat | null;
+  /** [ci] Today's spoken turns: his last word to the first spoken word, and a reply's end to the ear open again (NEXT ci.u3). */
+  voice: { first: Stat | null; reopen: Stat | null };
   /** The slowest kind of request (by its median), when there are a few kinds. */
   slowTrip: { path: string; median: number } | null;
   lines: string[];
@@ -100,6 +106,7 @@ export function summarise(samples: Sample[], now = Date.now()): PhoneSpeed {
   const byPath = new Map<string, number[]>();
   for (const t of trips) byPath.set(t.path, [...(byPath.get(t.path) ?? []), t.ms]);
   const paths = [...byPath].map(([path, ms]) => ({ path, median: quantile(ms, 0.5) })).sort((a, b) => b.median - a.median);
+  const voices = samples.filter((s): s is Extract<Sample, { k: 'voice' }> => s.k === 'voice' && localDay(s.at) === today);
   const out: PhoneSpeed = {
     replies: {
       today: { first: stat(mine.map((r) => r.first)), done: stat(mine.map((r) => r.done)) },
@@ -108,6 +115,7 @@ export function summarise(samples: Sample[], now = Date.now()): PhoneSpeed {
     screens,
     start: { paint: stat(starts.map((s) => s.paint).filter((x): x is number => typeof x === 'number')), screen: stat(starts.map((s) => s.screen)) },
     trip: stat(trips.map((t) => t.ms)),
+    voice: { first: stat(voices.map((v) => v.first).filter((x): x is number => typeof x === 'number')), reopen: stat(voices.map((v) => v.reopen).filter((x): x is number => typeof x === 'number')) },
     slowTrip: paths.length > 2 ? paths[0]! : null,
     lines: [],
     samples: samples.length,
@@ -117,12 +125,40 @@ export function summarise(samples: Sample[], now = Date.now()): PhoneSpeed {
 }
 
 /** The plain-words lines for the SPEED card. */
+/**
+ * FLAG SCREENS THAT GOT SLOWER (NEXT ROUND, polish3.u11): each screen's opens in this build against the builds before it, on this
+ * phone (the first open of each, which builds the screen, left out). Flagged only on enough opens both sides (three each), at least
+ * a quarter slower and 80 ms more, so a single slow moment is never called a slowdown. Pure.
+ */
+export function slowerSince(samples: Sample[], build: string): { id: string; title: string; now: number; was: number }[] {
+  const tabs = samples.filter((s): s is Extract<Sample, { k: 'tab' }> => s.k === 'tab' && !s.first && !!s.b);
+  const ids = [...new Set(tabs.map((t) => t.id))];
+  const out: { id: string; title: string; now: number; was: number }[] = [];
+  for (const id of ids) {
+    const mine = tabs.filter((t) => t.id === id);
+    const nowMs = mine.filter((t) => t.b === build).map((t) => t.ms);
+    const wasMs = mine.filter((t) => t.b !== build).map((t) => t.ms);
+    if (nowMs.length < 3 || wasMs.length < 3) continue;
+    const now = quantile(nowMs, 0.5);
+    const was = quantile(wasMs, 0.5);
+    if (now >= was * 1.25 && now - was >= 80) out.push({ id, title: mine[mine.length - 1]!.title, now, was });
+  }
+  return out.sort((a, b) => b.now - b.was - (a.now - a.was));
+}
+
 export function phoneLines(s: PhoneSpeed): string[] {
   const out: string[] = [];
   const { today, week } = s.replies;
   const last = week.first && week.done ? ` · last week ${dur(week.first.median)} / ${dur(week.done.median)}` : '';
   if (today.first && today.done) out.push(`Replies: first word in ${dur(today.first.median)}, done in ${dur(today.done.median)} (today's medians, ${today.done.n} repl${today.done.n === 1 ? 'y' : 'ies'})${last}`);
   else if (last) out.push(`Replies: none timed yet today${last}`);
+  // [ci] the voice: his last word to my first, and my last to the ear open again (today's medians)
+  const v = s.voice;
+  if (v?.first || v?.reopen) {
+    const parts = [v.first ? `first word ${dur(v.first.median)} after you stop` : '', v.reopen ? `ear open again ${dur(v.reopen.median)} after I finish` : ''].filter(Boolean);
+    const n = Math.max(v.first?.n ?? 0, v.reopen?.n ?? 0);
+    out.push(`Voice: ${parts.join(', ')} (today's medians, ${n} spoken turn${n === 1 ? '' : 's'})`);
+  }
   if (s.screens.length) {
     const shown = s.screens.slice(0, 6);
     const slowest = shown.length > 1 ? shown.reduce((a, b) => (b.median > a.median ? b : a)) : null;
@@ -273,7 +309,7 @@ export const stopwatch = {
       afterPaint(() => {
         if (!visible()) return; // put away meanwhile: the frame waited for the owner, not for Ghosty
         const now = clock();
-        add({ k: 'tab', at: Date.now(), id, title, ms: Math.round(now - t0), ...(first ? { first: 1 as const } : {}) });
+        add({ k: 'tab', at: Date.now(), id, title, ms: Math.round(now - t0), ...(first ? { first: 1 as const } : {}), b: BUILD.sha });
         if (cold) {
           const fcp = performance.getEntriesByType?.('paint').find((e) => e.name === 'first-contentful-paint') ?? performance.getEntriesByType?.('paint')[0];
           add({ k: 'start', at: Date.now(), paint: fcp ? Math.round(fcp.startTime) : null, screen: Math.round(now) });
@@ -298,6 +334,12 @@ export const stopwatch = {
     };
   },
 
+  /** [ci] assistant/voice.ts: a spoken turn's two waits (NEXT ci.u3), each in ms, either missing. */
+  voice(t: { first?: number; reopen?: number }): void {
+    if (t.first === undefined && t.reopen === undefined) return;
+    add({ k: 'voice', at: Date.now(), ...(t.first !== undefined ? { first: Math.round(t.first) } : {}), ...(t.reopen !== undefined ? { reopen: Math.round(t.reopen) } : {}) });
+  },
+
   /** api/brain.ts: one request to the brain took `ms`. */
   trip(path: string, ms: number): void {
     add({ k: 'trip', at: Date.now(), path: `/${path.replace(/^\//, '').split(/[/?]/)[0] ?? ''}`, ms: Math.round(ms) });
@@ -307,6 +349,12 @@ export const stopwatch = {
   async summary(): Promise<PhoneSpeed> {
     await load();
     return summarise(samples);
+  },
+
+  /** The screens that open slower in this build than before it, on this phone (slowerSince). */
+  async slower(): Promise<ReturnType<typeof slowerSince>> {
+    await load();
+    return slowerSince(samples, BUILD.sha);
   },
 
   /** Call `fn` each time something new is timed (the SPEED card repaints); returns the way to stop. */

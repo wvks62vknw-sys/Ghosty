@@ -7,6 +7,7 @@
 import type { Measurement } from '../measure/geom';
 import { footprint, readPlan, type Item, type Plan, type Room } from './plan';
 import { resizeRoom } from './rooms';
+import { readRough, setRough } from './photomarks';
 
 const KEY = 'ghosty.space';
 const MAX_MEASURES = 20;
@@ -107,6 +108,8 @@ export const space = {
           if (d.plan.rooms?.length) d.plan = resizeRoom(d.plan, d.plan.rooms[0]!.id, w, depth).plan;
           else d.plan = { ...d.plan, room: { w, d: depth }, items: keepInside({ w, d: depth }, d.plan.items) };
           room = true;
+          // a MEASURE saved is a real measurement: the photos' rough sizes are measured now
+          if (readRough()) setRough(null);
         } catch {
           /* that size would run into another room: the measurements are still kept */
         }

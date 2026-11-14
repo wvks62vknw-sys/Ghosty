@@ -19,6 +19,7 @@ import { panel as mkPanel } from '../../ui/components';
 import { page } from '../../ui/page';
 import { revealPanel, sectionNow, sections } from '../../ui/sections';
 import { estimateCard } from './card';
+import { curveOf, type Curve } from '../../../../../packages/shared/src/workbench/curves';
 import { tunnelPanel, tunnelState } from './tunnel';
 import { badNumber, PHRASES } from './words';
 import { phrases } from '../lifeui';
@@ -70,6 +71,8 @@ export const workbenchState = {
   units: 'metric' as UnitSystem,
   /** The estimate on each panel's card. */
   estimates: {} as Record<string, Estimate>,
+  /** The curve drawn under each panel's card (null: that answer has no shape to draw). */
+  curves: {} as Record<string, Curve | null>,
   /** Each panel's mode and values (SI). */
   values: {} as Record<string, PanelState>,
 };
@@ -175,9 +178,12 @@ export const workbenchTab: TabDef = {
 
       const estimate = (): Estimate => {
         const m = modeOf();
-        const e = solve(m.kind, m.inputs(st.v, ctx()), units());
+        const raw = m.inputs(st.v, ctx());
+        const e = solve(m.kind, raw, units());
+        const curve = curveOf(e, raw, units());
         workbenchState.estimates[spec.id] = e;
-        clear(out, estimateCard(e));
+        workbenchState.curves[spec.id] = curve;
+        clear(out, estimateCard(e, curve));
         return e;
       };
       const changed = () => {

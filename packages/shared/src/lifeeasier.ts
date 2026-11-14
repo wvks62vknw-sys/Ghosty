@@ -27,6 +27,8 @@ export interface WatcherInfo {
   line?: string;
   note?: string;
   price?: number;
+  /** [moneynext] each price a price watch read that differed from the one before (MONEY's price watches) */
+  hist?: { at: number; p: number }[];
   strikeNow?: boolean;
   /** [recall] a chase (kind `reply`): the name he used, what about, its morning, whether mail was linked, and when a reply came. */
   who?: string;

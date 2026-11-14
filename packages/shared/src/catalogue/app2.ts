@@ -88,6 +88,13 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Show me the traffic cameras near home'], scene: ['out', 'morning'], cat: 'see',
   },
   'panel:eye:ROAD AHEAD': { same: 'tool:road_ahead' },
+  // (THE WORLD lives in the morning Brief, drawn from God's Eye's own feeds: features/eye/briefworld.ts)
+  'panel:eye:THE WORLD': {
+    name: 'The world in your Brief', line: 'You can see the world outside in your morning Brief: the threat level, your commute’s roads and your road’s camera.',
+    more: 'The threat level from the quake and storm feeds, road reports between your saved home and work, and a fresh picture from the public camera nearest home. Tap it to watch live.',
+    say: ['Brief me'], scene: ['morning', 'out'], cat: 'see', needs: ['home'],
+    since: '2026-11-14',
+  },
   // ---- THE GYM
   'panel:gym:GAMES': {
     name: 'All my games, with my levels', line: 'You can see every game I play with the level I have earned, and train them all with one tap.',
@@ -115,11 +122,21 @@ export const APP_2: Record<string, CatValue> = {
     more: 'I plan the course from my library and Wikipedia, at your level, a little a day.',
     say: ['Teach me Spanish', 'Teach me how electricity works'], scene: ['school'], cat: 'learn',
   },
+  'panel:learn:MY LEARNING MAP': {
+    name: 'One map of what you know', line: 'You can see in one picture what you have learned: courses, books, speaking and revision, and what to try next.',
+    more: 'Drawn from what this phone already keeps, told from your own numbers. The next thing is the lesson your misses point at, or the book you are furthest into.',
+    say: ['(in COURSES, look under MY LEARNING MAP)'], scene: ['school'], cat: 'learn',
+  },
   // ---- THE LIBRARY
   'panel:library:ADD KNOWLEDGE': {
     name: 'Add books and PDFs', line: 'You can give me books, PDFs, Word files, links or photos of pages to read and keep.',
     more: 'Read on this phone with no AI; a scanned page is read by a free service. Then it is searchable for good.',
     say: ['(tap ADD and pick a file)'], scene: ['school'], cat: 'learn',
+  },
+  'panel:library:CLASSICS': {
+    name: 'Free classics for your shelf', line: 'You can browse thousands of free public-domain books and add one to your shelf with a tap.',
+    more: 'Project Gutenberg’s most read and a search by title or author, plus Standard Ebooks’ newest free releases. Each book’s size is said first, and it comes only on your tap, on Wi-Fi.',
+    say: ['(in the Library, under ADD, tap SHOW THE FREE CLASSICS)'], scene: ['school'], cat: 'learn',
   },
   'panel:library:ASK THE LIBRARY': {
     name: 'Search the library by meaning', line: 'You can search my whole library by meaning or by keywords, even with no signal.',

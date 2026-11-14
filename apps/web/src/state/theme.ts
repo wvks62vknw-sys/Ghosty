@@ -243,7 +243,41 @@ function scheduleDay(): void {
  * Apply a recipe at once (every screen, Mind and the 3D engine) and keep it on this phone — under his mood, if he has one.
  * `save: false`: the day turning, or a reload reading what is kept, changes nothing that is kept.
  */
-export function applyRecipe(r: Recipe, o: { save?: boolean } = {}): void {
+// [voice lane] UNDO THE LOOK BY WORDS (voice.u9): the looks he had before, newest last, so "put it back" or "the one before" returns
+// the last one. Every saved change goes through applyRecipe (a tap in Settings or THE LOOK, a word in the chat), so each is remembered.
+const BEFORE_KEY = 'ghosty.look.before';
+let before: Recipe[] | null = null;
+const looksBefore = (): Recipe[] => {
+  if (before) return before;
+  try {
+    const v = JSON.parse(localStorage.getItem(BEFORE_KEY) ?? '[]') as Recipe[];
+    before = Array.isArray(v) ? v.filter((x) => x && typeof x.colour === 'string' && typeof x.world === 'string') : [];
+  } catch {
+    before = [];
+  }
+  return before;
+};
+const keepBefore = (list: Recipe[]) => {
+  before = list.slice(-8);
+  try {
+    localStorage.setItem(BEFORE_KEY, JSON.stringify(before));
+  } catch {
+    /* storage refused: remembered for this visit */
+  }
+};
+/** The look before this one, taken off the list and applied ("put it back"); null when there is none. */
+export function lookBack(): Recipe | null {
+  const list = looksBefore();
+  const prev = list.at(-1);
+  if (!prev) return null;
+  keepBefore(list.slice(0, -1));
+  applyRecipe(prev, { remember: false });
+  return prev;
+}
+
+export function applyRecipe(r: Recipe, o: { save?: boolean; remember?: boolean } = {}): void {
+  // (a saved change that changes something is remembered for "put it back"; the day's own flips and a look put back are not)
+  if (o.save !== false && o.remember !== false && current && !sameRecipe(current, r)) keepBefore([...looksBefore(), { ...current, switches: { ...current.switches } }]);
   current = { ...r, switches: { ...r.switches } };
   const el = document.documentElement;
   const ground = groundNow(current);
@@ -261,6 +295,7 @@ export function applyRecipe(r: Recipe, o: { save?: boolean } = {}): void {
   d.motion = s.motion;
   d.sound = s.sound;
   d.day = s.day;
+  d.safe = s.safe; // [voice lane] colour-blind safe (voice.s5): tokens.css gives the state colours a set told apart by every eye
   // the ground may have changed: the surfaces a mood's text variant is worked out on are read again
   surfaces = null;
   readGlow();

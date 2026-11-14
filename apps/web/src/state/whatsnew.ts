@@ -14,9 +14,51 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [moneynext] money and papers handled for you (NEXT-MONEY)
+  { day: '2026-11-14', title: 'Safe to spend until payday', line: 'Life → MONEY: tell me your payday and the top of your month shows what is safe to spend until then, after the bills still due. Plain sums, not a forecast.' },
+  { day: '2026-11-14', title: 'A money calendar, goals and your year', line: 'MONEY → CALENDAR puts every bill and payday on its day; BUDGETS keeps savings goals with what each needs a month; TRENDS adds your year in money, ready to print.' },
+  { day: '2026-11-14', title: 'Shared bills and your sorting rules', line: 'MONEY → BILLS splits household bills and says who owes whom; YOUR MONTH lists the rules that sort your payments, to change or take away. Nothing is paid or sent.' },
+  { day: '2026-11-14', title: 'Warranties, papers and the car', line: 'HOUSEHOLD → PAPERS keeps each warranty with a photo of its receipt on your phone, and your tenancy, insurance and licences with a reminder before each renews. MONEY → BILLS adds up your car and shows each subscription’s own cancel page.' },
+  { day: '2026-11-14', title: 'Price watches, energy and split payments', line: 'MONEY → TRENDS lists your price watches and how each moved; METER shows your use and a first estimate of its cost; a payment can be split across two categories.' },
+  { day: '2026-11-14', title: 'Gift lists and job applications', line: 'PEOPLE keeps gift ideas per person with what you gave last year, lets you change one note, and keeps your own photo on the phone. WORK → JOBS tracks each application with a day to follow up.' },
+  { day: '2026-11-14', title: 'Paid bills kept, documents kept', line: 'HOUSEHOLD → BILLS keeps the paid ones with what each supplier cost this year and last. WORK → DOCUMENT keeps every CV, letter and email I write, with older versions.' },
+  // [lens] THE NEXT ROUND: the camera as the front door
+  { day: '2026-11-14', title: 'Two packets side by side', line: 'Scan one packet, then another, and say “which is better”: the two side by side per 100 g, the better figure marked, from the open food databases.' },
+  { day: '2026-11-14', title: 'What a heater costs to run', line: 'Point the Lens at an appliance’s rating plate: about what an hour costs at full power, at your own price per unit if you set it. Always a first estimate.' },
+  { day: '2026-11-14', title: 'A medicine box to its NHS page', line: 'Point the Lens at a medicine box: it reads it aloud, and OPEN THE NHS PAGE shows the NHS’s own public page about it. I never give medical advice.' },
+  { day: '2026-11-14', title: 'Pages snap themselves', line: 'Lens → SCAN → DOCUMENT: hold the phone over a page and keep still. It finds the edges and takes the page by itself, then waits for you to turn to the next one. A stack becomes one PDF. AUTO turns it off.' },
+  { day: '2026-11-14', title: 'Stars and planets in AIM', line: 'Hold the Lens up at the night sky in AIM: the Moon (and how full it is), the planets and the brightest stars are named over the picture, worked out on your phone with no internet. The SKY button hides them.' },
+  { day: '2026-11-14', title: 'A business card into your contacts', line: 'Point the Lens at a business card: ADD TO CONTACTS hands its name, numbers and email to your phone’s contacts. It is made on the phone, and nobody is looked up.' },
+  { day: '2026-11-14', title: 'The next buses from a stop sign', line: 'Point the Lens at a bus stop sign and say “when’s the next bus”: the times come up on the card, asked by the stop’s name, never by where you are.' },
+  { day: '2026-11-14', title: 'Receipts and bills from the Lens', line: 'Point the Lens at a receipt: one tap puts it into this month’s spending, one more keeps its warranty. A bill goes into your bills, with a reminder two days before it is due.' },
+  { day: '2026-11-14', title: 'A whole menu in English', line: 'Point the Lens at a menu in another language: each line’s English sits over that line, and the card lists every line with its English.' },
+  { day: '2026-11-14', title: 'What you avoid, on every packet', line: 'Tell the Lens once what you are allergic to or avoid (“I’m allergic to peanuts”, “I’m vegan”): every packet you scan gets a red, amber or green line for you. The list stays on this phone.' },
+  // [boot] the next round's opening (docs/build-plan/NEXT-BOOT.md)
+  { day: '2026-11-14', title: 'The opening, your way', line: 'Settings → VOICE & HOME → THE OPENING: the full film, the short one, or the full film once a day; your own opening line; and how smoothly the last one ran. Say “short opening” or “director mode”.' },
+  { day: '2026-11-14', title: 'An opening that knows your day', line: 'The opening now ends on what matters today: your next thing, a to-do due, or rain. After days away it says how long it has been, and “Sam’s turn” greets someone you introduced.' },
+  // [keep] NEXT ROUND, MEMORY lane: a memory that keeps your word
+  { day: '2026-11-14', title: 'I keep your word', line: 'Say “I’ll send Jo the photos tomorrow” and I remind you on the day; “I sent them” ticks it off. Memory → YOUR WORD lists what you said you’d do, where you put things and why you chose them.' },
+  { day: '2026-11-14', title: 'Where you put it, even offline', line: 'Tell me “the spare key is in the blue tin”, then ask “where’s the spare key?” any time, with no signal too.' },
+  { day: '2026-11-14', title: 'Your week, on Sundays', line: 'Sunday at 6 pm: what you asked about most, what you finished and what is still open. Ask “how was my week?” any day.' },
+  { day: '2026-11-14', title: 'One search for all your things', line: 'Find covers your chats, documents, sheets, decks, the library, saved links and to-dos, landing on the paragraph, the cell or the slide. Three words in the “Go to, or ask” bar search them too.' },
+  { day: '2026-11-14', title: 'Recall by the day you mean', line: '“What did I ask last March about the car?”, “what did I do yesterday?”, “what did I never get an answer to?”: answered from your own chats, on your phone.' },
+  { day: '2026-11-14', title: 'Chase from the Brief', line: 'CHASE on an email that needs an answer holds it for two working days; chases due today show under it. Say “and again Monday” and a chase looks twice.' },
+  // [ci] NEXT ci.u3
+  { day: '2026-11-14', title: 'How quickly I answer out loud', line: 'System → SPEED now shows your spoken turns too: how soon my first word comes after you stop, and how soon I listen again after I finish. Timed on your phone, kept on your phone.' },
+  // [learn, next round] learning that adapts and talks back (NEXT-LEARN.md)
+  { day: '2026-11-14', title: 'Courses that pick up your mistakes', line: 'Each course’s map has TODAY: the lesson your answers say to look at again (a miss you were sure of counts most), with a quiz on just your misses.' },
+  { day: '2026-11-14', title: 'Free classics for your shelf', line: 'Library → Add → CLASSICS: Project Gutenberg and Standard Ebooks’ newest, free. Each book’s size is said first, and it comes on your tap, on Wi-Fi.' },
+  { day: '2026-11-14', title: 'Worked answers to study', line: 'Any paper in SCHOOL → STUDY THE WORKED ANSWERS: my full working a question at a time, kept on this phone. Higher stages now have practice papers.' },
+  { day: '2026-11-14', title: 'Bedtime listening', line: 'In the reader: reading speed, a 15 or 30 minute sleep timer, and a voice for each book.' },
+  { day: '2026-11-14', title: 'Speak another language, and quiz night', line: 'REHEARSE in Spanish, French and more, with gentle notes after; QUIZ NIGHT under COURSES hosts a quiz for friends at the table.' },
+  // [comic] NEXT ROUND (comic.u2, u4, u5, u7)
+  { day: '2026-11-14', title: 'Ghosty writes your comic', line: 'COMIC → MAKE: I write the story for your exact idea and the phone draws it with the same characters; drag balloons, people and sound effects with a finger, put your own photo behind a panel, and UNDO or REDO any change. Real CBR comics open too (the free RAR reader comes on your tap, on Wi-Fi), and MY WEEK AS A COMIC turns your agenda’s week into a comic to keep.' },
   // [see] the next round: an appointment to the whole journey, and the journey kept for no signal
   { day: '2026-11-14', title: 'Getting there, in one tap', line: 'An appointment with a place in AGENDA has GETTING THERE: when to leave, the weather when you arrive, the roads and public cameras on the way. Or ask “how do I get to my next appointment?”' },
   { day: '2026-11-14', title: 'God’s eye: one tap, every match', line: 'WHAT TO SHOW has COMMUTE, STORM and SKY at the top (or say “commute view”), and a search like “BAW” lists every matching flight, ship and city to pick from.' },
+  { day: '2026-11-14', title: 'The world in your Brief', line: 'The morning Brief has THE WORLD: the threat level, road reports on your commute and a fresh picture from the public camera nearest home.' },
+  { day: '2026-11-14', title: 'Rain radar, full screen', line: 'RAIN in God’s eye, or “rain radar”: the last two hours of rain over home played back, and a line saying if rain is coming in the next two hours.' },
+  { day: '2026-11-14', title: 'Your own camera wall', line: 'Pin up to nine public cameras from God’s eye (PIN TO WALL on a camera’s card); WALL in the bar, or “my camera wall”, shows them all live.' },
   { day: '2026-11-14', title: 'Your journey with no signal', line: 'The last journey you planned stays on your phone: with no signal it opens on the offline map, its times marked as possibly out of date.' },
   // [ci] NEXT ci.u4
   { day: '2026-11-14', title: 'Screens rest when still', line: 'The quiet room behind the screens is drawn only as often as it moves, and the board games only when a piece or a highlight changes: a longer battery, a cooler phone, and no freeze just after a screen opens.' },
@@ -30,6 +72,10 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  { day: '2026-11-14', title: 'A log of camera, mic and location use', line: 'Settings → PERMISSIONS lists every time the camera, the microphone or your location was actually used, and on which screen, kept on your phone.' },
+  { day: '2026-11-14', title: 'Screens that got slower are flagged', line: 'System → STATUS, SPEED: a screen that opens slower on your phone since the last update is named, with how long it took before.' },
+  { day: '2026-11-14', title: 'Everything I keep about you, one place', line: 'Settings → PRIVACY counts what I keep by kind (memory, places, faces, voices), each with its own key to forget it, and EXPORT MY MEMORY saves it all as one document.' },
+  { day: '2026-11-14', title: 'Watch the offline brain improve', line: 'System → TRAINING draws every finished week’s test scores, on average and area by area, kept on your phone as each report arrives.' },
   { day: '2026-11-14', title: 'See what a restore brings back', line: 'RESTORE now shows each thing in the backup and whether it comes back, is joined with yours or is already the same, and you untick what you would rather keep.' },
   { day: '2026-11-14', title: 'A saver switch', line: 'Settings → SAVER holds big downloads and the background feeds until you turn it off, and lists what it held back. Say “turn on the saver”.' },
   { day: '2026-11-14', title: 'Your comics and games are backed up', line: 'The daily locked backup now carries the comics and the games you made, so they come back on a new phone like your documents do.' },
@@ -46,7 +92,24 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Undo for your pages', line: 'Every page you publish keeps its last three versions. Workshop → PUBLISHED PAGES → UNDO LAST UPDATE, or “undo my last update to the party page”, puts the one before back at the same link.' },
   // [sites] NEXT ROUND sites.u12
   { day: '2026-11-14', title: 'Your own photos on your sites', line: 'Workshop → PHOTOS FOR YOUR SITES: add your own photos, made smaller on your phone with their location removed. Say “build a website for my café with my photos” and they replace the stock pictures.' },
+  // [voice lane] the next round: Talk to it your own way
+  { day: '2026-11-14', title: 'Colour-blind safe, and a colour per screen', line: 'THE LOOK has a Colour-blind safe switch (or say “colour-blind mode on”): orange, sky blue and yellow, never red against green. “Make the money screen green” gives one screen its own colour.' },
+  { day: '2026-11-14', title: 'Your way, in your languages', line: '“Pon música”, “gaana chalao”, “batti bujhao”, “qué tiempo hace”: everyday asks in Spanish, French and Urdu or Hindi reach the same things as the English. And “a bit softer blue” nudges my colour.' },
+  { day: '2026-11-14', title: 'Notes, lights and Telegram, your way', line: '“Note: buy milk” is kept in Memory, marked “by you” when I’m sure it was your voice; “make the lights red” sets your bulbs with the app’s colour words; on Telegram, “give us a shout in ten” becomes a reminder.' },
+  { day: '2026-11-14', title: 'Put it back, calm colours, your stations', line: '“Put it back” returns the look before; “calm colours”, “focus colours” or “lively colours” set a colour and look together; “call this my morning station”, then “put on my morning station”. When I’m not sure it’s you, I say why.' },
+  { day: '2026-11-14', title: 'Private when others talk', line: 'When someone you introduced (or a voice I don’t know) asks about your money, health, messages or diary, I keep it to you; their other questions leave your private things out of my answer, and their turns stay out of your memory.' },
+  { day: '2026-11-14', title: 'Every screen, your way', line: 'Every screen opens from everyday names (“bring up the game maker”, “open the translator”, “show me my portfolio”); amounts are understood exactly (“log half a litre”, “a quarter of an hour”); “how much paint for my lounge” opens Materials.' },
+  { day: '2026-11-14', title: 'I learn your own words', line: 'Say something your own way, then tap the screen you meant: I offer to remember it, and next time it opens straight away. “My wordings” lists them, each with FORGET; nothing that sends or pays is ever learned.' },
+  // [voice lane] the final round, unsaid until now
+  { day: '2026-11-13', title: 'Say it your way, colours by name', line: '“Put some tunes on”, “log a pint” or “give us a shout in ten minutes” just work; “make it red” changes my colour, and every colour now has a plain name. Ask “do you know it’s me?” and I answer from what this phone heard.' },
+  // NEXT ROUND, MAKE lane
+  { day: '2026-11-14', title: 'The curve behind a Workbench answer', line: 'Make → Workbench: under the numbers, the shape of the answer: how a beam sags along its span, the power a car needs as it speeds up, a room’s heat month by month, the sun through the day. Each a first estimate, never certified.' },
+  { day: '2026-11-14', title: 'Prices on your paint and flooring', line: 'Make → Space → MATERIALS: a typical UK price beside the paint, the flooring (laminate or carpet) and the skirting, the total, and SET AGAINST MY SPENDING to see it beside your usual month from your own statements. First estimates, never quotes.' },
+  { day: '2026-11-14', title: 'Doors and windows from room photos', line: 'Make → Space → FROM PHOTO: after photos of the room, tap its outline where each door and window is. The sizes say ROUGH until you type one wall’s real length.' },
+  { day: '2026-11-14', title: '3D made from words, even when the makers are busy', line: 'Make → 3D studio → MAKE: when the free makers are busy, your model waits on the phone and is made by itself while Ghosty is open; meanwhile it offers real models near it, and says when yours is ready.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
+  // [comic] the final round's comic, unsaid until now
+  { day: '2026-11-13', title: 'Comics, read and made', line: 'Make → EDITORS → COMIC: read your own CBZ and PDF comics panel by panel, get free public-domain ones from the Internet Archive on Wi-Fi, and make a whole comic from an idea.' },
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },
   { day: '2026-11-13', title: 'Games of your own', line: 'THE GAME STUDIO makes a game from its own kit; it plays in the Arcade under MY GAMES. In the GYM you can play me at poker and WORDS too.' },
