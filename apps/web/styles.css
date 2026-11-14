@@ -634,19 +634,19 @@ html body #pg-eye .searchpick { display: flex; flex-direction: column; align-ite
 html #pg-eye .searchpick b { color: var(--g-ink-1); overflow-wrap: anywhere; }
 html #pg-eye .searchpick span { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html body #pg-eye .eyesets button { min-height: var(--g-target) !important; }
-/* YOUR CAMERA WALL (see.u2; features/eye/wall.ts): up to nine live tiles, three across */
-.wall { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
-.wall .wallnote { margin: 0; overflow-wrap: anywhere; }
-.wall .wallgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-s-half); }
-.wall .walltile { position: relative; aspect-ratio: 4 / 3; min-height: var(--g-target); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
-.wall .walltile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.wall .walltile.dead img { visibility: hidden; }
-.wall .wallstamp { position: absolute; left: var(--g-s-half); top: var(--g-s-half); right: var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); text-shadow: 0 0 4px var(--g-canvas); overflow-wrap: anywhere; }
-.wall .wallname { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html body .wall .walllook { position: absolute; inset: 0; width: 100%; height: 100%; min-height: var(--g-target) !important; padding: 0; margin: 0; border: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
-html body .wall .walltile button[data-act="off"] { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-height: var(--g-target) !important; }
-html body .wall .wallacts button { min-height: var(--g-target) !important; }
-@media (max-width: 400px) { .wall .wallgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* YOUR CAMERA WALL (see.u2; features/eye/wall.ts): up to nine live tiles, three across (div.wall: Home's own "Now" wall is section.wall) */
+div.wall { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
+div.wall .wallnote { margin: 0; overflow-wrap: anywhere; }
+div.wall .wallgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-s-half); }
+div.wall .walltile { position: relative; aspect-ratio: 4 / 3; min-height: var(--g-target); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
+div.wall .walltile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+div.wall .walltile.dead img { visibility: hidden; }
+div.wall .wallstamp { position: absolute; left: var(--g-s-half); top: var(--g-s-half); right: var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); text-shadow: 0 0 4px var(--g-canvas); overflow-wrap: anywhere; }
+div.wall .wallname { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body div.wall .walllook { position: absolute; inset: 0; width: 100%; height: 100%; min-height: var(--g-target) !important; padding: 0; margin: 0; border: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
+html body div.wall .walltile button[data-act="off"] { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-height: var(--g-target) !important; }
+html body div.wall .wallacts button { min-height: var(--g-target) !important; }
+@media (max-width: 400px) { div.wall .wallgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* RAIN RADAR, full screen (see.s3; features/eye/rain.ts) */
 .rain { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
 .rain .rainmap { height: min(56vh, 520px); min-height: 240px; border-radius: var(--g-radius-key); overflow: hidden; background: var(--g-plate-fill); }
