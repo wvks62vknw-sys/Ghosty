@@ -530,3 +530,52 @@ test("the library is handed to the owner's device a page at a time, by index (no
   // (an FTS5 "INDEX 0:=" is a lookup by row id; "INDEX 0:" with nothing after it would read everything)
   assert.ok(!mine.some((p) => p.detail.some((x) => /^SCAN lib_(pass|vec)\b/.test(x) || /^SCAN lib_fts VIRTUAL TABLE INDEX 0:$/.test(x))), 'index lookups only');
 });
+
+// ---- learn.u6: THE CLASSICS SHOP (library/classics.ts): free public-domain books, keyless sources only ----
+{
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../src/library/classics.ts')], bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outfile: at('./.build/library/classics.mjs'), logLevel: 'warning' });
+}
+const CL = await import('./.build/library/classics.mjs');
+
+test('classics shop (learn.u6): Gutendex results kept to books with a plain text, names put right; Standard Ebooks’ open feed read; only gutendex.com, standardebooks.org’s new releases and gutenberg.org are asked; the size is said before anything comes', async () => {
+  assert.equal(CL.personName('Austen, Jane'), 'Jane Austen');
+  assert.equal(CL.personName('Homer'), 'Homer');
+  const pride = { id: 1342, title: 'Pride and Prejudice', authors: [{ name: 'Austen, Jane' }], download_count: 50123, subjects: ['Courtship -- Fiction'], languages: ['en'], formats: { 'text/plain; charset=us-ascii': 'https://www.gutenberg.org/ebooks/1342.txt.utf-8' } };
+  assert.deepEqual(CL.classicOf(pride), { id: 1342, title: 'Pride and Prejudice', authors: ['Jane Austen'], downloads: 50123, subjects: ['Courtship -- Fiction'], languages: ['en'] });
+  assert.equal(CL.classicOf({ ...pride, formats: { 'audio/mpeg': 'x' } }), null, 'no plain text: the importer could not read it, so it is not offered');
+  const xml = `<rss><channel><item><title>Persuasion, by Jane Austen</title><link>https://standardebooks.org/ebooks/jane-austen/persuasion</link><description><![CDATA[<p>A second chance.</p>]]></description></item><item><title>Bad</title><link>https://elsewhere.test/x</link></item></channel></rss>`;
+  assert.deepEqual(CL.freshOf(xml), [{ title: 'Persuasion', author: 'Jane Austen', link: 'https://standardebooks.org/ebooks/jane-austen/persuasion', line: 'A second chance.' }]);
+  const asked = [];
+  const fetcher = async (url, init) => {
+    asked.push(`${init?.method ?? 'GET'} ${url}`);
+    if (url.startsWith('https://gutendex.com/books/')) return new Response(JSON.stringify({ results: /search=persuasion/i.test(url) ? [{ ...pride, id: 105, title: 'Persuasion' }] : [pride], next: 'https://gutendex.com/books/?page=2' }), { headers: { 'content-type': 'application/json' } });
+    if (url === 'https://standardebooks.org/feeds/rss/new-releases') return new Response(xml);
+    if (url === 'https://www.gutenberg.org/cache/epub/1342/pg1342.txt' && init?.method === 'HEAD') return new Response(null, { headers: { 'content-length': '772000' } });
+    return new Response('no', { status: 404 });
+  };
+  const call = async (path, method = 'GET', body) => {
+    const r = await CL.classicsRoute(new Request(`https://ghosty.test/api${path}`, { method, ...(body ? { body: JSON.stringify(body) } : {}) }), path.split('?')[0], method, { lib: null, fetcher });
+    return { status: r.status, body: await r.json() };
+  };
+  const top = await call('/library/classics');
+  assert.equal(top.status, 200);
+  assert.equal(top.body.books[0].title, 'Pride and Prejudice');
+  assert.equal(top.body.next, 2);
+  assert.match(asked.at(-1), /^GET https:\/\/gutendex\.com\/books\/\?languages=en&mime_type=text%2Fplain&page=1$/);
+  await call('/library/classics?q=austen');
+  assert.match(asked.at(-1), /search=austen&languages=en/);
+  const fresh = await call('/library/classics/new');
+  assert.equal(fresh.body.books[0].gutenberg, 105, 'a new release is shown with its free Gutenberg edition');
+  const size = await call('/library/classics/size?id=1342');
+  assert.deepEqual(size.body, { id: 1342, bytes: 772000 });
+  assert.equal(asked.at(-1), 'HEAD https://www.gutenberg.org/cache/epub/1342/pg1342.txt', 'the size is a header-only ask: nothing is downloaded');
+  assert.equal((await call('/library/classics/size?id=abc')).status, 400);
+  assert.ok(asked.every((a) => /^(GET|HEAD) https:\/\/(gutendex\.com\/books\/|standardebooks\.org\/feeds\/rss\/new-releases$|www\.gutenberg\.org\/cache\/epub\/)/.test(a)), `only the public sources: ${asked.join(' | ')}`);
+  assert.ok(!asked.some((a) => /standardebooks\.org\/(feeds\/(atom|opds)|ebooks\.)/.test(a)), 'never the paid catalogue feeds');
+  // no source reachable: said in words, never a raw error
+  const down = await CL.classicsRoute(new Request('https://ghosty.test/api/library/classics'), '/library/classics', 'GET', { lib: null, fetcher: async () => { throw new TypeError('fetch failed'); } });
+  assert.equal(down.status, 502);
+  assert.match((await down.json()).error, /^I couldn’t reach the free classics just now/);
+});

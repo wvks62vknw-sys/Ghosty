@@ -156,6 +156,8 @@ export function createReadMode(L: LensContext): Mode {
       offerPlates();
       // [cards] what it read goes in the chat as its LENS card too: a plate → its CAR offer, a bill → the reminder offer (core/cards.ts)
       if (t) void import('../core/cards').then((m) => m.lensRead(t)).catch(() => undefined);
+      // [recall] memory.s1 (memory lane, additive): what it read is kept on this phone for FIND ("where's that parking fine letter?"), plates never
+      if (t) void import('../memory/recall').then((m) => m.keepRead(t)).catch(() => undefined);
       regions = wordRegions(r.words);
       const summary = ocrSummary(t, r.confidence);
       /* state: lens.read empty */

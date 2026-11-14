@@ -101,7 +101,10 @@ async function replyCame(d: WatchDeps, w: Watcher): Promise<number | null | unde
     const at = p.messages.map((m) => Date.parse(m.date)).filter((t) => Number.isFinite(t) && t >= w.created).sort((a, b) => a - b)[0];
     return at ?? null;
   }
-  const r = await listMessages(cfg, { since: new Date(w.created).toISOString().slice(0, 10), ...(w.from || w.who ? { from: w.from || w.who } : {}), ...(!w.from && !w.who && w.about ? { subject: w.about.slice(0, 60) } : {}), limit: 5 });
+  // (memory.u2: a chase made from a mail knows its subject: only a reply in that thread counts, never the same person writing about
+  //  something else; the subject's words without its Re:/Fwd:)
+  const thread = w.from && w.about ? w.about.replace(/^(?:\s*(?:re|fwd?|fw)\s*:\s*)+/i, '').slice(0, 60) : '';
+  const r = await listMessages(cfg, { since: new Date(w.created).toISOString().slice(0, 10), ...(w.from || w.who ? { from: w.from || w.who } : {}), ...(thread ? { subject: thread } : !w.from && !w.who && w.about ? { subject: w.about.slice(0, 60) } : {}), limit: 5 });
   const at = r.messages.map((m) => Date.parse(m.date)).filter((t) => Number.isFinite(t) && t >= w.created).sort((a, b) => a - b)[0];
   return at ?? null;
 }

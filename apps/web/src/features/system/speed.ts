@@ -82,6 +82,7 @@ export function speedCard(): SpeedCard {
 
   let status: BrainStatus | null = null;
   let phone: PhoneSpeed | null = null;
+  let slow: { id: string; title: string; now: number; was: number }[] = [];
   // a caption (whose timing it is) over its sentences, each its own line
   const line = (who: string, texts: string[], empty = false) => h(`p.spdline${empty ? '.none' : ''}` as 'p', h('small', who), ...texts.map((t) => h('span', t)));
   const small = (k: string, v: string, key: string) => h('div.spdrow', { dataset: { speed: key } }, h('span.k', k), h('span.v', v));
@@ -100,6 +101,9 @@ export function speedCard(): SpeedCard {
     }
     // ---- small rows: screens, the start, the round trip
     clear(rows);
+    // [ci] NEXT ci.u3: the voice, timed on this phone today (his last word to my first; my last to the ear open again)
+    const v = phone?.voice;
+    if (v?.first || v?.reopen) rows.append(small('Voice', [v.first ? `first word ${dur(v.first.median)} after you stop` : '', v.reopen ? `ear open again ${dur(v.reopen.median)} after I finish` : ''].filter(Boolean).join(', '), 'voice'));
     if (phone?.screens.length) {
       const shown = phone.screens.slice(0, 6);
       const slowest = shown.length > 1 ? shown.reduce((a, b) => (b.median > a.median ? b : a)) : null;
@@ -107,6 +111,8 @@ export function speedCard(): SpeedCard {
     }
     if (phone?.start.screen) rows.append(small('Start', `${phone.start.paint ? `first paint ${dur(phone.start.paint.median)}, ` : ''}first screen ${dur(phone.start.screen.median)}`, 'start'));
     if (phone?.trip) rows.append(small('Brain round trip', `${dur(phone.trip.median)} (median of ${phone.trip.n})`, 'trip'));
+    // [next] a screen that opens slower since the last update, on this phone (core/stopwatch.ts slowerSince)
+    if (slow.length) rows.append(small('Slower since the update', slow.slice(0, 3).map((x) => `${titleWords(x.title)} ${dur(x.now)}, was ${dur(x.was)}`).join('; '), 'slower'));
     // ---- where a reply's time goes: one stacked bar, each part labelled
     clear(split);
     const s = sp?.today.split ?? sp?.week?.split ?? null;
@@ -142,14 +148,12 @@ export function speedCard(): SpeedCard {
   const refresh = () => {
     if (queued) return;
     queued = true;
-    void stopwatch
-      .summary()
-      .catch(() => null)
-      .then((p) => {
-        queued = false;
-        phone = p;
-        draw();
-      });
+    void Promise.all([stopwatch.summary().catch(() => null), stopwatch.slower().catch(() => [])]).then(([p, sl]) => {
+      queued = false;
+      phone = p;
+      slow = sl;
+      draw();
+    });
   };
   lastSeen.subscribe((st, prev) => {
     if (st.status === prev.status || !st.status) return;

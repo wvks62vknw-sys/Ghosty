@@ -382,6 +382,13 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Reboot'], scene: ['talking'], cat: 'talk',
     since: '2026-10-24',
   },
+  'phrase:opening': {
+    name: 'Your opening, your way', line: 'You can say "short opening" or "the full film every time", and "how did the opening run?"',
+    more: 'Once a day works too. "Sam’s turn" greets someone you introduced on the next opening. Your own line goes in Settings.',
+    say: ['Short opening', 'How did the opening run?', 'Sam’s turn'], scene: ['talking'], cat: 'talk',
+    go: { open: 'settings' }, tryText: 'Opens Settings at the opening',
+    since: '2026-11-14',
+  },
   'phrase:machine': {
     name: 'The Machine view', line: 'You can say "machine view" and I show your city from above with everything moving, your places boxed.',
     more: 'God’s eye from 14 km: aircraft, buses, your places in thin white boxes, one true count line. LEAVE puts everything back.',
@@ -400,6 +407,19 @@ export const APP_1: Record<string, CatValue> = {
     more: 'COMMUTE: cameras, traffic, road incidents, buses and safety cameras. STORM: radar, alerts, disasters, quakes and clouds. SKY: aircraft, satellites and orbits. Also one tap each at the top of WHAT TO SHOW.',
     say: ['Commute view', 'Storm layers', 'Sky mode'], scene: ['watching', 'out'], cat: 'see',
     go: { open: 'eye' }, tryText: 'Opens God’s eye with the commute set',
+    since: '2026-11-14',
+  },
+  'phrase:camwall': {
+    name: 'Your camera wall', line: 'You can say "my camera wall" and I show up to nine public cameras you pinned, live, like a control room.',
+    more: 'On a public camera’s card in God’s eye, PIN TO WALL keeps it; WALL in the bar opens them all, each picture refreshing every few seconds; EDIT takes one off. Kept on your phone.',
+    say: ['My camera wall', 'Show my cameras', 'Open the camera wall'], scene: ['watching', 'out'], cat: 'see',
+    go: { open: 'eye' }, tryText: 'Opens God’s eye with your wall',
+    since: '2026-11-14',
+  },
+  'phrase:rainradar': {
+    name: 'Full-screen rain radar', line: 'You can say "rain radar" and I play the last two hours of rain over home, and say if rain is coming.',
+    more: 'The public radar’s last two hours, frame by frame (PLAY, PAUSE, or drag to a time), and one line for home from a free forecast: “rain at home in about 20 minutes”. RAIN in God’s eye’s bar opens it too.',
+    say: ['Rain radar', 'Show me the rain map', 'Replay the rain'], scene: ['morning', 'out'], cat: 'see',
     since: '2026-11-14',
   },
   'phrase:workbench': {

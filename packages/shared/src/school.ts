@@ -149,6 +149,8 @@ export interface PaperResult {
   topics: Record<string, { got: number; max: number }>;
   marked: { exact: number; model: number; pending: number };
   answers: ItemResult[];
+  /** A practice paper from a question bank still being written (14 Nov): kept and marked, never top grades, so it cannot pass a stage. */
+  practice?: boolean;
   /** The boundary he reached and the next one up, in words (`boundaryLine`; part 2). */
   boundary?: string;
   /**

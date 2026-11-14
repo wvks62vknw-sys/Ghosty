@@ -107,6 +107,8 @@ for (const viewport of [{ width: 440, height: 956 }, { width: 390, height: 844 }
   // (measured with the conversation open: on a phone it sits behind its own button)
   await page.evaluate(() => { const hud = document.querySelector('#pg-core .hud.core'); if (hud && !hud.classList.contains('logopen')) document.querySelector('.logbtn')?.click(); });
   await page.waitForFunction(() => { const b = [...document.querySelectorAll('#pg-core .msg:not(.me) button')].filter((x) => /^try it$/i.test(x.textContent.trim())).pop(); return !!b && b.getBoundingClientRect().height > 0; }, null, { timeout: 5000 }).catch(() => undefined);
+  // (once the reply's entrance has finished: mid-way every key reads a fraction short; the real condition, never a fixed sleep)
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
   const tryIt = await page.evaluate(() => { const b = [...document.querySelectorAll('#pg-core .msg:not(.me) button')].filter((x) => /^try it$/i.test(x.textContent.trim())).pop(); if (!b) return null; b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); return { w: r.width, h: r.height }; });
   check(!!tryIt && tryIt.w >= 43.5 && tryIt.h >= 43.5, `[how ${W}] TRY IT is missing or under 44 pt: ${JSON.stringify(tryIt)}`);
   if (tryIt) {
