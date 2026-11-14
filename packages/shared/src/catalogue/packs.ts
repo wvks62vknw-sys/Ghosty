@@ -210,7 +210,7 @@ export const PACK_WORDS: Record<string, CatValue> = {
   'phrase:shopping': { same: 'act:kitchen:shop' },
   'act:kitchen:timer': {
     name: 'Kitchen timers by voice', line: 'You can say "timer 8 minutes for the pasta" and set several at once, each with its name.',
-    more: 'They run on the phone and ring with a sound, a buzz and the words. They ring while Ghosty is open: for a locked phone, ask for a reminder.',
+    more: 'They run on the phone and ring with a sound, a buzz and the words. One of a minute or more rings on your lock screen too, through my push: only its end time and name go there.',
     say: ['Timer 8 minutes for the pasta', 'Timers: rice 12 minutes, eggs 6 minutes'], scene: ['making', 'phone'], cat: 'do', since: SINCE,
     go: { ask: 'Timer 8 minutes for the pasta', send: false },
   },
