@@ -85,7 +85,7 @@ export async function run(H) {
   check(W.nextClock(0, 0, t0) === new Date(2026, 10, 14, 0, 0).getTime(), '"midnight" at 22:15 is tonight\'s midnight');
   check(W.sleepAtSet(new Date(2026, 10, 13, 23, 0).getTime(), t0) === 'Sleep timer set: the radio goes quiet at 23:00 (in 45 min), then stops.', W.sleepAtSet(new Date(2026, 10, 13, 23, 0).getTime(), t0));
   check(W.sleepLine(t0 + 90 * 60_000, t0) === 'Goes quiet at 23:45 (in 1 h 30 min), then stops.', `90 min said in hours: ${W.sleepLine(t0 + 90 * 60_000, t0)}`);
-  check(/^The page reloaded, so Spec Lane FM stopped and its sleep timer for 23:00 went with it\./.test(W.lostLine(new Date(2026, 10, 13, 23, 0).getTime(), 'Spec Lane FM')), 'the reload said honestly');
+  check(/^The page reloaded, so Spec Lane FM stopped\. Its sleep timer for 23:00 is kept: tap PLAY AND KEEP THE TIMER to carry on\.$/.test(W.lostLine(new Date(2026, 10, 13, 23, 0).getTime(), 'Spec Lane FM')), 'the reload said honestly, with the way to carry on');
   log('radio: the words');
 
   // ---- 2. the phone, at both sizes and BODY 21
@@ -145,12 +145,13 @@ export async function run(H) {
     await page.click('#pg-radio .pn.favs .favorder button');
     const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.radio.favs') ?? '[]').map((s) => s.name).join(' | '));
     check(kept === 'Spec Lane Two | Spec Lane FM', `[${vp.width}] the order is kept on the phone: ${kept}`);
-    // a reload while the timer runs: the radio stops (the browser ends it), and the screen says the timer went with it
+    // a reload while the timer runs: the radio stops (the browser ends it), and the screen says so and offers the timer back (planlane2:podcasts)
     await page.reload();
     await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
     await H.open(page, 'radio');
     const lost = await page.waitForSelector('#pg-radio .pn.nowp .nplost', { timeout: 8000 }).then((e) => e.textContent(), () => '');
-    check(/^The page reloaded, so Spec Lane Two stopped and its sleep timer for \d\d:00 went with it\./.test(lost ?? ''), `[${vp.width}] after a reload, the timer's end said honestly: ${lost}`);
+    check(/^The page reloaded, so Spec Lane Two stopped\. Its sleep timer for \d\d:00 is kept: tap PLAY AND KEEP THE TIMER to carry on\./.test(lost ?? ''), `[${vp.width}] after a reload, the stop said honestly and the timer offered back: ${lost}`);
+    check(await page.isVisible('#pg-radio .pn.nowp .npcarry'), `[${vp.width}] PLAY AND KEEP THE TIMER is offered`);
     check(await page.isVisible('#pg-radio .pn.nowp .nplost'), `[${vp.width}] that line is shown`);
     const favs = await page.$$eval('#pg-radio .pn.favs .rw.station .v b', (b) => b.map((x) => x.textContent).join(' | '));
     check(favs === 'Spec Lane Two | Spec Lane FM', `[${vp.width}] the order after a reload: ${favs}`);

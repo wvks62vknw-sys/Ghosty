@@ -14,6 +14,8 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [planlane2:podcasts] the radio's sleep timer after a reload, and in the top bar
+  { day: '2026-11-14', title: 'The sleep timer keeps its time', line: 'The top bar shows when the radio stops (“Radio 4 · stops 23:10”). If the page reloads, the Radio offers PLAY AND KEEP THE TIMER: one tap plays on with the same stop time.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

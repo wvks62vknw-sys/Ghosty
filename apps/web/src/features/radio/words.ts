@@ -53,8 +53,15 @@ export function nextClock(h: number, m: number, now: number, half: '' | 'am' | '
 export const hourKey = (now: number) => `AT ${hhmm(endOfHour(now))}`;
 /** The toast and the chat's line when he sets a time ("…goes quiet at 23:00 (in 45 min), then stops."). */
 export const sleepAtSet = (at: number, now: number) => `Sleep timer set: the radio goes quiet at ${hhmm(at)} (in ${inWords(at - now)}), then stops.`;
-/** After a reload: the radio stopped (the browser ends the sound) and its sleep timer went with it. Said once, honestly. */
-export const lostLine = (at: number, name: string) => `The page reloaded, so ${name || 'the radio'} stopped and its sleep timer for ${hhmm(at)} went with it. Tap PLAY and set it again if you want it.`;
+/** After a reload: the radio stopped (the browser ends the sound, and only his tap may start it again), but the stop time is kept
+ * on the phone, so the Radio offers to carry on: one tap plays it again with the same timer. Said honestly. */
+export const lostLine = (at: number, name: string) => `The page reloaded, so ${name || 'the radio'} stopped. Its sleep timer for ${hhmm(at)} is kept: tap PLAY AND KEEP THE TIMER to carry on.`;
+/** The key that plays the station shown again with the timer the reload left. */
+export const CARRY_ON = 'PLAY AND KEEP THE TIMER';
+/** The toast once it is playing again with that timer. */
+export const carriedOn = (at: number, now: number) => `Playing again: the radio still goes quiet at ${hhmm(at)} (in ${inWords(at - now)}), then stops.`;
+/** The top bar's chip while a sleep timer runs: "Radio 4 · stops 23:10" (the stop time is its own part, so a long name is cut, never the time). */
+export const chipStops = (at: number) => `stops ${hhmm(at)}`;
 export const clockWords = hhmm;
 export const SLEEP_OFF = 'TIMER OFF';
 export const sleepKey = (min: number) => (min === 60 ? '1 HOUR' : `${min} MIN`);

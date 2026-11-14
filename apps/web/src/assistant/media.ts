@@ -96,7 +96,15 @@ export async function playStation(s: NowPlaying): Promise<boolean> {
   if (player.get().now?.url !== s.url) player.set({ since: 0 });
   rememberLast(s);
   rememberRecent(s);
-  lostSleep = null; // he played again: the reload's lost timer is no longer news
+  // he played again: the timer the reload left is no longer offered (PLAY AND KEEP THE TIMER sets it again just after this)
+  if (lostSleep) {
+    lostSleep = null;
+    try {
+      localStorage.removeItem(SLEEP_KEPT);
+    } catch {
+      /* ignore */
+    }
+  }
   if (!/^https:\/\//i.test(s.url)) {
     player.set({ now: s, state: 'error', why: 'refused' });
     return false;
@@ -222,8 +230,9 @@ export function forgetRecent(): void {
   }
 }
 
-// THE SLEEP TIMER: the radio goes quiet over its last 20 seconds, then stops. It lives in this page: a reload stops the radio
-// (the browser ends the sound), so the timer goes with it; the time it was set for is kept on the phone only so the Radio can say so.
+// THE SLEEP TIMER: the radio goes quiet over its last 20 seconds, then stops. A reload stops the radio (the browser ends the sound,
+// and a page may not start it again without a tap), so the stop time is kept on the phone: after a reload the Radio offers it back
+// (PLAY AND KEEP THE TIMER, one tap) until he plays something else or that time has passed.
 const FADE_MS = 20_000;
 const SLEEP_KEPT = 'ghosty.radio.sleep';
 let sleepTimer = 0;
@@ -252,7 +261,7 @@ export function setSleepAt(at: number, kind = 'at'): boolean {
   }
   player.set({ sleepAt: at, sleepKind: kind });
   try {
-    localStorage.setItem(SLEEP_KEPT, JSON.stringify({ at, name: player.get().now?.name ?? '' }));
+    localStorage.setItem(SLEEP_KEPT, JSON.stringify({ at, kind, name: player.get().now?.name ?? '' }));
   } catch {
     /* ignore */
   }
@@ -268,19 +277,37 @@ export function setSleepAt(at: number, kind = 'at'): boolean {
   return true;
 }
 
-/** A sleep timer that was still to run when the page last closed or reloaded (the reload stopped the radio and the timer with it). */
-let lostSleep: { at: number; name: string } | null = null;
+/** A sleep timer that was still to run when the page last closed or reloaded (the reload stopped the radio; its stop time is kept). */
+let lostSleep: { at: number; name: string; kind: string } | null = null;
 try {
-  const k = JSON.parse(localStorage.getItem(SLEEP_KEPT) ?? 'null') as { at?: unknown; name?: unknown } | null;
-  if (k && typeof k.at === 'number' && k.at > Date.now()) lostSleep = { at: k.at, name: typeof k.name === 'string' ? k.name : '' };
-  localStorage.removeItem(SLEEP_KEPT);
+  const k = JSON.parse(localStorage.getItem(SLEEP_KEPT) ?? 'null') as { at?: unknown; name?: unknown; kind?: unknown } | null;
+  if (k && typeof k.at === 'number' && k.at > Date.now()) lostSleep = { at: k.at, name: typeof k.name === 'string' ? k.name : '', kind: typeof k.kind === 'string' && k.kind ? k.kind : 'at' };
+  else localStorage.removeItem(SLEEP_KEPT);
 } catch {
   /* ignore */
 }
-/** The sleep timer the last reload ended, while it would still have been running (null once he plays again or it would have ended). */
-export function sleepLost(): { at: number; name: string } | null {
-  if (lostSleep && (lostSleep.at <= Date.now() || player.get().now)) lostSleep = null;
+/** The sleep timer the last reload stopped, while it would still be running (null once he plays again or its time has passed). */
+export function sleepLost(): { at: number; name: string; kind: string } | null {
+  if (lostSleep && (lostSleep.at <= Date.now() || player.get().now)) {
+    if (lostSleep.at <= Date.now()) {
+      try {
+        localStorage.removeItem(SLEEP_KEPT);
+      } catch {
+        /* ignore */
+      }
+    }
+    lostSleep = null;
+  }
   return lostSleep;
+}
+/** PLAY AND KEEP THE TIMER: play `s` (the station shown) again with the stop time the reload left. False when there is none to keep. */
+export function carryOn(s: NowPlaying): Promise<boolean> {
+  const k = sleepLost();
+  if (!k) return playStation(s);
+  const p = playStation(s);
+  // playStation has put the station on (or said why it cannot play) before its first await: the timer goes back on with it
+  if (player.get().now) setSleepAt(k.at, k.kind);
+  return p;
 }
 
 /** The stations he played lately as they stood when he began to step through them: playing one moves it to the front of RECENT,
