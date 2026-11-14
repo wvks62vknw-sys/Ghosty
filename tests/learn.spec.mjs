@@ -135,7 +135,8 @@ if (lineCard && lineCard.due - lineCard.added !== 86_400_000) problems.push(`the
 // ---- a quiz: wrong, right, a right short answer; the score ----
 await page.locator('#pg-learn button:has-text("BACK TO COURSE")').click();
 await until(() => window.__ghosty?.learn?.view === 'course', 8000, 'BACK TO COURSE did not go back');
-await page.locator('#pg-learn button:has-text("QUIZ ME")').click();
+// (the course's own QUIZ ME on its key row; TODAY's QUIZ ME ON MY MISSES is a different quiz, learnlane's)
+await page.locator('#pg-learn .learnbar button', { hasText: /^QUIZ ME$/i }).click();
 await until(() => window.__ghosty?.learn?.view === 'quiz' && window.__ghosty?.learn?.quiz?.n === 3, 15000, `the quiz did not open with 3 questions (${JSON.stringify((await st())?.quiz)})`);
 /** The three confidence taps, after an answer is picked and before it is marked: each at least 44 points tall. */
 const confTap = async (which) => {

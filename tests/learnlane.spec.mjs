@@ -300,7 +300,7 @@ for (const vp of [PHONE, PHONE2]) {
   const { ctx, page } = await phone(vp);
   try {
     await go(page, 'rehearse');
-    const langs = await page.$$eval('#pg-rehearse select.rhlang option', (os) => os.map((o) => [o.value, o.textContent]));
+    const langs = await page.$$eval('#pg-rehearse select.rhlang:not(.rhmode) option', (os) => os.map((o) => [o.value, o.textContent]));
     const modes = await page.$$eval('#pg-rehearse select.rhmode option', (os) => os.map((o) => o.value));
     check(JSON.stringify(modes) === '["talk","debate"]', `${T} [S8] WHAT KIND offers ${JSON.stringify(modes)}`);
     check(langs[0]?.[0] === 'en' && langs.some(([v, t]) => v === 'es' && /^Spanish: practise speaking it$/.test(t ?? '')) && langs.some(([v]) => v === 'fr'), `${T} [S2] the language picker offers ${JSON.stringify(langs.slice(0, 4))}`);
