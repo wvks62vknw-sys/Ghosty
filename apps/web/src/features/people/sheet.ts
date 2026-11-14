@@ -402,6 +402,23 @@ function planSheet(): HTMLElement {
     box.replaceChildren(
       h('b.pkmid', p.what),
       h('span.pklab', [p.when, p.time, p.where ? `at ${p.where}` : ''].filter(Boolean).join(' · ') || 'No day or place yet'),
+      // [journal] APPS ROUND: the plan into his phone's Calendar as one .ics (its day, time, place, who's coming); nobody is sent anything
+      ...(p.when ? [h('div.pkrow.ppics', (() => {
+        const b = button('Add to calendar', async () => {
+          const ics = (await import('./vcard')).planIcs(p);
+          if (!ics) return;
+          const file = new File([ics], 'plan.ics', { type: 'text/calendar' });
+          const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+          if (nav.canShare?.({ files: [file] })) return void nav.share({ files: [file], title: p.what }).catch(() => undefined);
+          const a = h('a', { href: URL.createObjectURL(file), download: file.name }) as HTMLAnchorElement;
+          document.body.append(a);
+          a.click();
+          a.remove();
+          stateIn(status, '', 'Saved plan.ics: open it to add the plan to your Calendar.');
+        });
+        b.setAttribute('aria-label', `Add ${p.what} to your calendar`);
+        return b;
+      })())] : []),
       ...names.map((n) =>
         h('div.pkperson', { role: 'group', 'aria-label': `${n}: ${now(n) || 'not heard from'}` }, h('b', n),
           h('div.pkrow', ...(['yes', 'maybe', 'no'] as const).map((s) => {

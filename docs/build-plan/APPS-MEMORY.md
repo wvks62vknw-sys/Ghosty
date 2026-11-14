@@ -67,6 +67,8 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
   address, a birthday with or without a year). It keeps each card on the brain through the people pack's own actions (note,
   contact, birthday). EXPORT ALL writes everyone as one vCard 3.0 file, through the Share sheet where the phone has one.
 - **Promises on a person's card.** His open promises from YOUR WORD that name that person show under DETAILS.
+- **The group plan into his Calendar.** ADD TO CALENDAR writes the plan as one .ics file: its day, its time (two hours, or all
+  day), its place, and who's coming. Nobody is sent anything.
 - **A decision log with a look-back date (YOUR WORD).** LOOK BACK on any reason he gave sets a reminder three months on, asking
   whether it worked out. NO LOOK BACK takes it off.
 
@@ -87,6 +89,7 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
   - (h) KEEP IN TOUCH;
   - (i) GIFTS;
   - (j) vCard import and export;
+  - (k) the plan's .ics;
   - (g) every key 44 pt, nothing sideways, no word cut, in all seven looks.
 - `tests/keepword.spec.mjs` (p): LOOK BACK and NO LOOK BACK.
 - `apps/edge/test/journal.test.mjs`:
@@ -96,6 +99,7 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
   - KEEP IN TOUCH's due words and order;
   - GIFTS' steps and budgets;
   - vCards read and written;
+  - the plan's .ics;
   - promises on a card;
   - nothing in the journal reads a position, its one way out is that key, and the nudge carries none of his words.
 - The full brain suite is green. finding.test counts 57 screens, with journal inside Memory. The STATES ratchet lists
@@ -104,7 +108,7 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
 ## What's left
 - Voice notes turned into text after recording. SAY IT writes live speech in instead; nothing transcribes a saved note.
 - The journal itself is not an App Kit `app()`: it is a multi-view screen. It uses the kit's Home card, and its notices are toasts.
-- Date polls, invite cards and .ics for the group plan.
+- Date polls and invite cards for the group plan.
 - Groups and tags, and a dated timeline per person.
 - His own lead time per person in COMING UP.
 - A Sunday push and a chart for his week in YOUR WORD.

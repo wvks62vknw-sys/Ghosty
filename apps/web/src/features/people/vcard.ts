@@ -96,3 +96,25 @@ export function promisesAbout(name: string, items: { kind: string; state?: strin
   const re = new RegExp(`\\b(?:${esc(name.trim())}|${esc(first)})\\b`, 'i');
   return items.filter((x) => x.kind === 'promise' && x.state === 'open' && re.test(x.what)).map((x) => x.what).slice(0, 5);
 }
+
+/**
+ * A group plan as one calendar event (.ics) for his phone's Calendar: its day, its time (two hours, or all day with none), its place,
+ * and who said yes in the notes. Null with no day. Times are the phone's own clock (floating), as he said them.
+ */
+export function planIcs(p: { id?: string; what: string; where?: string; when?: string; time?: string; yes: string[] }, now = Date.now()): string | null {
+  if (!p.when || !/^\d{4}-\d{2}-\d{2}$/.test(p.when)) return null;
+  const d = p.when.replace(/-/g, '');
+  const esc = (v: string) => v.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
+  const stamp = new Date(now).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  let when: string[];
+  if (p.time && /^\d{2}:\d{2}$/.test(p.time)) {
+    const [hh, mm] = p.time.split(':').map(Number) as [number, number];
+    const end = new Date(Date.UTC(+p.when.slice(0, 4), +p.when.slice(5, 7) - 1, +p.when.slice(8, 10), hh + 2, mm));
+    const e = `${end.getUTCFullYear()}${String(end.getUTCMonth() + 1).padStart(2, '0')}${String(end.getUTCDate()).padStart(2, '0')}T${String(end.getUTCHours()).padStart(2, '0')}${String(end.getUTCMinutes()).padStart(2, '0')}00`;
+    when = [`DTSTART:${d}T${p.time.replace(':', '')}00`, `DTEND:${e}`];
+  } else {
+    const next = new Date(Date.UTC(+p.when.slice(0, 4), +p.when.slice(5, 7) - 1, +p.when.slice(8, 10) + 1));
+    when = [`DTSTART;VALUE=DATE:${d}`, `DTEND;VALUE=DATE:${next.toISOString().slice(0, 10).replace(/-/g, '')}`];
+  }
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ghosty//Group plan//EN', 'BEGIN:VEVENT', `UID:${p.id ?? d}-plan@ghosty`, `DTSTAMP:${stamp}`, ...when, `SUMMARY:${esc(p.what)}`, ...(p.where ? [`LOCATION:${esc(p.where)}`] : []), ...(p.yes.length ? [`DESCRIPTION:${esc(`Coming: ${p.yes.join(', ')}`)}`] : []), 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+}
