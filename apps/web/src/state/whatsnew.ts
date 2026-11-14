@@ -20,6 +20,10 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Receipts and bills from the Lens', line: 'Point the Lens at a receipt: one tap puts it into this month’s spending, one more keeps its warranty. A bill goes into your bills, with a reminder two days before it is due.' },
   { day: '2026-11-14', title: 'A whole menu in English', line: 'Point the Lens at a menu in another language: each line’s English sits over that line, and the card lists every line with its English.' },
   { day: '2026-11-14', title: 'What you avoid, on every packet', line: 'Tell the Lens once what you are allergic to or avoid (“I’m allergic to peanuts”, “I’m vegan”): every packet you scan gets a red, amber or green line for you. The list stays on this phone.' },
+  // [ci] NEXT ci.u5
+  { day: '2026-11-14', title: 'A soft tick when I hear you', line: 'When you finish speaking, a soft tick says I heard you, so you never wonder whether to say it again. It goes with the other sounds in Settings → VOICE & HOME.' },
+  // [ci] NEXT ci.u1
+  { day: '2026-11-14', title: 'I start talking sooner', line: 'On a long answer I start speaking as soon as its first sentence is written, while the rest is still coming, so you hear me about a third of a second sooner. The words are the same as before.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },
