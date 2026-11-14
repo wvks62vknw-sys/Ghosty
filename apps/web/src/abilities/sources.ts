@@ -140,6 +140,8 @@ export function appItems({ tabs, hubs }: AppInput): CatItem[] {
   for (const g of GROUNDS) add({ id: `theme:ground:${g.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: recipeGo, since: '2026-11-07' });
   for (const w of WORLDS) add({ id: `theme:world:${w.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: lookGo, since: '2026-11-07' });
   for (const sw of SWITCHES) add({ id: `theme:switch:${sw.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: recipeGo, since: '2026-11-07' });
+  // [consistency] ACCESSIBILITY (APPS ROUND): the one switch over the reading switches (themes.ts EASY), first in the dials
+  add({ id: 'theme:switch:easy', kind: 'theme', screen: 'look', cat: 'talk', go: recipeGo, since: '2026-11-14' });
   for (const d of DIRECTIONS) add({ id: `theme:preset:${d.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: d.preset ? recipeGo : { open: 'look' }, since: '2026-11-07' });
   for (const k of MOOD_KINDS) add({ id: `mood:${k}`, kind: 'mood', cat: 'talk', go: { run: 'open_me' }, since: '2026-10-31' });
   for (const a of APP_WIDE) add({ id: `app:${a.id}`, kind: 'app', cat: 'do' });
