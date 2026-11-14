@@ -124,6 +124,14 @@ for (const [vp, tag] of [[PHONE, '440'], [PHONE2, '390']]) {
     }));
     check(s.cont, `${tag} fresh: CONTINUE PLAYING shows with nothing played`);
     check(/Nothing earned yet/.test(s.room) && /0 OF 5/.test(s.room), `${tag} fresh: THE TROPHY ROOM says "${s.room.slice(0, 120)}"`);
+    // SEARCH THE SHELF: by name as he types; nothing matching says so, with CLEAR SEARCH
+    await page.fill('#pg-arcade .arcfind', 'freedoom');
+    const found = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arcshelf .arccard')].filter((c) => !c.hidden).map((c) => c.dataset.id));
+    check(found.length >= 1 && found.every((id) => /freedoom/.test(id)), `${tag} search: "freedoom" shows ${found.join(',')}`);
+    await page.fill('#pg-arcade .arcfind', 'zzzz');
+    check(await until(page, () => !document.querySelector('#pg-arcade .arcnomatch').hidden && /No games match/.test(document.querySelector('#pg-arcade .arcnomatch').textContent)), `${tag} search: no "No games match" line`);
+    await page.click('#pg-arcade .arcnomatch button');
+    check(await until(page, () => ![...document.querySelectorAll('#pg-arcade .arcshelf .arccard')].some((c) => c.hidden) && document.querySelector('#pg-arcade .arcnomatch').hidden), `${tag} search: CLEAR SEARCH did not bring every game back`);
     const doom = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arcshelf .arccard')].find((c) => /^GET · /.test(c.querySelector('.arcact')?.textContent ?? ''))?.dataset.id ?? '');
     check(!!doom, `${tag} fresh: no game with GET on the shelf`);
     if (doom) {
