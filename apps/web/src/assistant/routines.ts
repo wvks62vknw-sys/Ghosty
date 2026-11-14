@@ -1,5 +1,5 @@
 /**
- * HIS OWN ONE-WORD ROUTINES (NEXT-ROUND consistency.s2, voice.s7): one word of his ("morning", "goodnight", "movie time") runs a
+ * HIS OWN ONE-WORD ROUTINES (NEXT-ROUND consistency.s2, voice.s7): one word of his ("morning", "wind down", "movie time") runs a
  * few things in turn: a screen opened, a command of the app, words said to Ghosty. Made in Settings → ROUTINES
  * (features/settings/routines.ts) from the very YOU CAN lines the deck already has, or any words he types; kept on this phone
  * (`ghosty.routines`), carried by the backup with the rest of his settings' keys.
@@ -30,14 +30,15 @@ export const ROUTINES_KEY = 'ghosty.routines';
 export const MAX_STEPS = 8;
 export const MAX_ROUTINES = 24;
 
-/** His words, as one word is compared: lower case, no punctuation, no spaces ("Good night!" and "goodnight" are one). */
+/** His words, as one word is compared: lower case, no punctuation, no spaces ("Movie time!" and "movietime" are one). */
 export const wordKey = (s: string): string => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
 
-/** What he says to run one, beyond the bare word: "run morning", "start my goodnight", "do movie time", "morning routine". */
+/** What he says to run one, beyond the bare word: "run morning", "start my wind down", "do movie time", "morning routine". */
 const RUN = /^(?:(?:please\s+)?(?:run|start|do|play|begin)\s+(?:my\s+|the\s+)?)?(.+?)(?:\s+routine)?[\s.!?]*$/i;
 
 /** A word he cannot use: these already mean something everywhere, whatever a routine says (the stop, the boot, the panic words). */
-const RESERVED = new Set(['stop', 'quiet', 'shutup', 'enough', 'cancel', 'reboot', 'help', 'undo', 'yes', 'no', 'approve', 'hi', 'hello']);
+// (and the goodnight words: PLAN's wind-down, features/core/goodnight.ts, answers them — lights off, the night look, the radio's sleep timer)
+const RESERVED = new Set(['stop', 'quiet', 'shutup', 'enough', 'cancel', 'reboot', 'help', 'undo', 'yes', 'no', 'approve', 'hi', 'hello', 'goodnight', 'nightnight', 'bedtime', 'timeforbed']);
 
 /** Why a word will not do, in his words, or '' when it will. */
 export function wordProblem(word: string, list: Routine[], editing?: string): string {
@@ -56,6 +57,8 @@ export function routineFor(text: string, list: Routine[]): Routine | null {
   if (!t || t.length > 60) return null;
   const m = RUN.exec(t);
   const k = wordKey(m?.[1] ?? t);
+  // (a word reserved since a routine was kept under it is never taken from what it means everywhere)
+  if (RESERVED.has(k)) return null;
   return list.find((r) => wordKey(r.word) === k) ?? null;
 }
 
@@ -124,7 +127,7 @@ export const STARTERS: Routine[] = [
     ],
   },
   {
-    word: 'Goodnight',
+    word: 'Wind down',
     at: 0,
     steps: [
       { label: 'Say: what is on tomorrow?', act: { ask: 'What is on tomorrow?' } },

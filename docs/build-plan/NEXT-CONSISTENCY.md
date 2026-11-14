@@ -24,7 +24,7 @@ that would send or post still stops at APPROVE.
 - **What a routine is:** a word of his ("Morning", "Movie time") and up to eight steps in turn. A step can be a screen, a panel,
   one of the deck's own YOU CAN lines, or words he says to me. He finds steps by typing a word ("radio"), and puts them in order
   with ↑ and ↓.
-- **Starters:** MORNING and GOODNIGHT can each be added in one tap.
+- **Starters:** MORNING and WIND DOWN can each be added in one tap. ("Goodnight", "night night", "bedtime" and "time for bed" stay PLAN's goodnight wind-down: no routine can take them.)
 - **Running one:** say or type the word, or "run morning". The reply lists the steps, then they run in turn, a screen at a time,
   with his words going to me as his own message.
 - **It can never send anything by itself.** A step can only move him around or say words. Words that would send reach the brain

@@ -26,7 +26,7 @@ import { askBrain } from '../../docs/ask';
 import { brain } from '../../api/brain';
 import { settings } from '../../state/app';
 import { loadTodos } from '../agenda/todo';
-import { weekComic, weekIdea, weekItems } from './week';
+import { weekComic, weekIdea, weekItems, weekStart } from './week';
 
 // ---- looks picked by hand (comic.u8), named plainly, and the people he keeps (kept on this phone)
 const SKIN_NAMES: Record<string, string> = { 'Very light': '#f6d3b3', Light: '#f1c6a0', Medium: '#e8b48f', Tan: '#c98e62', Brown: '#9a6440', 'Dark brown': '#6e4428' };
@@ -411,6 +411,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       drawCover(canvas, c);
       drawn = { panels: [{ x: 0, y: 0, w: PAGE_W, h: PAGE_H }], balloons: [] };
     } else drawn = drawPage(canvas, c, c.pages[page - 1]!, page - 1, () => soon());
+    canvas.classList.toggle('cxdrag', page > 0 && panel >= 0);
     // the chosen panel and balloon, ringed
     const ctx = canvas.getContext('2d')!;
     if (page > 0 && panel >= 0 && drawn.panels[panel]) {
@@ -443,7 +444,16 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       keep();
     }, 140);
   };
-  // ---- undo and redo: the comic as it was before each change (a burst of typing in one box is one step)
+  // ---- undo and redo: the comic as it was before each change (a burst of typing in one box is one step); `edited`, which a
+  // save moves, is left out, so turning a page is no change
+  const snap = (c: Comic) => JSON.stringify({ ...c, edited: 0 });
+  /** UNDO and REDO lit or dark as the steps change, not only when the editor is drawn again */
+  let undoBtn: HTMLButtonElement | null = null;
+  let redoBtn: HTMLButtonElement | null = null;
+  const paintUndo = () => {
+    if (undoBtn) undoBtn.disabled = !undo.length;
+    if (redoBtn) redoBtn.disabled = !redo.length;
+  };
   const undo: string[] = [];
   const redo: string[] = [];
   let was = '';
@@ -451,7 +461,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
   let wasIn: Element | null = null;
   const remember = (burst: boolean) => {
     if (!cur) return;
-    const now = JSON.stringify(cur);
+    const now = snap(cur);
     if (now === was) return;
     // (one box typed in without a pause is one step; another box, or a pause, is a new one)
     const inBox = burst ? document.activeElement : null;
@@ -466,11 +476,12 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     wasAt = Date.now();
     comicState.editing.undo = undo.length;
     comicState.editing.redo = 0;
+    paintUndo();
   };
   const back = (from: string[], to: string[]) => {
     const prev = from.pop();
     if (!cur || prev === undefined) return;
-    to.push(JSON.stringify(cur));
+    to.push(snap(cur));
     const c = comicFrom(JSON.parse(prev));
     if (!c) return;
     cur = c;
@@ -563,7 +574,6 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     if (page === 0) return;
     panel = hit.panel;
     balloon = hit.balloon;
-    canvas.classList.toggle('cxdrag', panel >= 0);
     redraw();
     paintEditor();
     editBox.querySelector<HTMLElement>(balloon ? `[data-balloon="${balloon}"] textarea` : '.cxpanel input')?.focus({ preventScroll: true });
@@ -702,9 +712,10 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     const c = cur;
     if (!c) return;
     const undoKey = key('Undo', () => back(undo, redo), 'Undo the last change');
-    undoKey.disabled = !undo.length;
     const redoKey = key('Redo', () => back(redo, undo), 'Redo what was undone');
-    redoKey.disabled = !redo.length;
+    undoBtn = undoKey;
+    redoBtn = redoKey;
+    paintUndo();
     const pageKeys = h('div.cxrow',
       undoKey, redoKey,
       key('‹ Page', () => ((page = Math.max(0, page - 1)), (panel = -1), changed(true)), 'Previous page'),
@@ -939,7 +950,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     cur = c;
     undo.length = 0;
     redo.length = 0;
-    was = JSON.stringify(c);
+    was = snap(c);
     comicState.editing.undo = 0;
     comicState.editing.redo = 0;
     page = at;
@@ -1006,7 +1017,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     clear(status, stateLine('loading', 'Reading your week from your agenda…'));
     let events: { title: string; start: number }[] = [];
     try {
-      events = (await brain.agenda(7)).events;
+      events = (await brain.agenda(7, weekStart())).events;
     } catch {
       /* (no agenda in reach: the ticked to-dos still count) */
     }
@@ -1046,6 +1057,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       clearTimeout(drawT);
       hooks.make = undefined;
       hooks.edit = undefined;
+      hooks.week = undefined;
     },
   };
 }
