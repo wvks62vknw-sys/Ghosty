@@ -6,16 +6,17 @@
  *    distance, the time and the splits, never a position;
  *  - BREATHE: box (4-4-4-4) or 4-7-8 breathing with the screen and a buzz; STRETCH: the set with a timer;
  *  - HEALTH: an Apple Health export read here, in code (steps and sleep for the week);
- *  - WATER, SLEEP, STEPS, WEIGHT and MOOD: the trackers, each a whole app kept on this phone only (./track.ts).
+ *  - WATER, SLEEP, STEPS, WEIGHT and MOOD: the trackers, each a whole app kept on this phone only (./track.ts);
+ *  - TABLETS: tablets and supplements with lock-screen reminders through my brain's push, ticks and a refill countdown (./meds.ts).
  * The state sits on window.__ghosty.body for the specs.
  */
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 
-export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water' | 'sleep' | 'steps' | 'weight' | 'mood';
+export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water' | 'sleep' | 'steps' | 'weight' | 'mood' | 'meds' | 'week' | 'fast' | 'measure' | 'gym' | 'symptoms' | 'plans';
 /** Each screen's name, as its sheet's title and as its panel on the BODY screen (features/body/index.ts). */
-export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY', sleep: 'SLEEP', steps: 'STEPS', weight: 'WEIGHT', mood: 'MOOD' };
+export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY', sleep: 'SLEEP', steps: 'STEPS', weight: 'WEIGHT', mood: 'MOOD', meds: 'TABLETS', week: 'YOUR WEEK', fast: 'FASTING', measure: 'MEASUREMENTS', gym: 'GYM LOG', symptoms: 'SYMPTOM DIARY', plans: 'SIX-WEEK PLANS' };
 const TITLES = BODY_TITLES;
 
 /** What the screens are doing, for the specs (window.__ghosty.body). */
@@ -26,6 +27,8 @@ export const bodyState = {
   engine: '' as '' | 'pose' | 'stand-in' | 'none',
   camera: '' as '' | 'on' | 'off' | 'refused',
   hint: '',
+  /** The last form tip said as a rep landed (./formtips.ts). */
+  tip: '',
   run: { on: false, km: 0, secs: 0, splits: 0, saved: false },
   breath: { say: '', round: 0 },
   stretch: { i: -1, left: 0 },
@@ -50,6 +53,13 @@ export async function bodyScreen(w: BodyWhat, args: Record<string, unknown> = {}
     : w === 'breathe' ? (await import('./calm')).breatheScreen(args.pattern === '478' ? '478' : 'box')
     : w === 'stretch' ? (await import('./calm')).stretchScreen()
     : w === 'health' ? (await import('./health')).healthScreen()
+    : w === 'meds' ? (await import('./meds')).medsScreen()
+    : w === 'week' ? await (await import('./week')).weekScreen()
+    : w === 'fast' ? (await import('./more')).fastScreen()
+    : w === 'measure' ? (await import('./more')).measureScreen()
+    : w === 'gym' ? (await import('./more')).gymScreen()
+    : w === 'symptoms' ? (await import('./more')).symptomScreen()
+    : w === 'plans' ? (await import('./plans')).plansScreen()
     : (await import('./track')).trackScreen(w);
 }
 
