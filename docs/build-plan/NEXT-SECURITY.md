@@ -39,6 +39,26 @@ approval listed, and the fixes that live in your Cloudflare account set out as p
 - A tap opens the chat at the card, and you answer there. An iPhone notification from a web app can't carry buttons, and the
   answer is always your tap.
 
+### A few seconds to take it back (security.u5)
+- After APPROVE on anything that sends, posts, pays, publishes or ships, the card counts down four seconds: "Approved. It leaves
+  in 4 seconds: TAKE IT BACK stops it."
+- TAKE IT BACK brings the card back and nothing leaves. A repaint of the chat keeps the countdown going, and a reload sends
+  nothing.
+- Approvals that change nothing outside (forget, a project) still answer at once.
+
+### The nightly self-check, told once in the Brief (security.u7)
+- When the Brief opens, your locks are checked with the same rules as the SECURITY screen.
+- A lock that slipped since you were last told shows up once, as a SECURITY row in YOUR DAY, and tapping it opens the screen.
+- The row stays for the rest of that day, then stays quiet until something changes again.
+- A lock that can't be checked right now is never news.
+
+### Has this password leaked? (security.s2)
+- On the SECURITY screen, type a password and tap CHECK. The box empties at once.
+- Only the first five characters of the password's scrambled fingerprint leave the phone. The free public list of leaked
+  passwords (no key needed) sends back every fingerprint that starts that way, padded so even the size of the answer says
+  nothing.
+- The match is made on the phone, and nothing is kept.
+
 ### STEPS: the fixes that live in your Cloudflare account (the two half-done items, security.u8, and more)
 - **Stop hammering hard:** the free rate-limit rule for the public doors, with its exact settings. DONE turns that line green.
 - **Keep previews apart:** turn off preview addresses, or give previews their own settings without your live keys.
@@ -52,6 +72,7 @@ approval listed, and the fixes that live in your Cloudflare account set out as p
 - Tap an amber line: its steps open.
 - Make an approval (for example, ask me to email someone), answer it, and see it listed under APPROVALS.
 - Leave the app with an approval waiting: a notification arrives, and its tap opens the card.
+- On the SECURITY screen, under HAS IT LEAKED?, type a password you use and tap CHECK.
 
 ## Checks
 - **Brain:** `apps/edge/test/securityscreen.test.mjs` covers the approvals list from either channel, the locks reported with
@@ -64,13 +85,13 @@ approval listed, and the fixes that live in your Cloudflare account set out as p
     - STEPS with MAKE ONE and DONE;
     - offline;
     - every key at 44 pt, nothing sideways and no word cut, at 440 and 390, at BODY 21 and in all seven looks.
-  - settings, tabs and look specs rerun green.
+  - settings, tabs, look, brief and foresight specs rerun green.
+  - Specs that tap APPROVE on something that leaves were updated to the new truth, as strict as before: chatpass's approval part
+    and speaker's never-a-lock part now also check the countdown. Those two, plus sites, websites, apps, gamesites and ui, rerun
+    green.
 
 ## What is left
-- **A few seconds to take it back (security.u5).** Every spec that taps APPROVE expects the answer at once, so a countdown means
-  updating each of them to the new truth. Next in line.
-- **A nightly self-check in the Brief (security.u7)**, the owner key change walked through in the app (u2, beyond STEPS), the slow
-  lock on the phone's keys copy (u3), tighter page rules (u10), one tap to lock everything (u11), weak or reused passwords (s1),
-  "has this password leaked?" (s2), the phone privacy walkthrough (s5), locked notes (s6), travel mode (s8), approvals in the
+- The owner key change walked through in the app (u2, beyond STEPS), the slow
+  lock on the phone's keys copy (u3), tighter page rules (u10), one tap to lock everything (u11), weak or reused passwords (s1), the phone privacy walkthrough (s5), locked notes (s6), travel mode (s8), approvals in the
   Brief (c1), a scam check on letters in the Lens (c2), approvals read aloud (c4), and sharing by expiring link (c5): built in the
   order of the brief as time allows; this section is updated with each merge.

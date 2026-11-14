@@ -24,6 +24,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A soft tick when I hear you', line: 'When you finish speaking, a soft tick says I heard you, so you never wonder whether to say it again. It goes with the other sounds in Settings → VOICE & HOME.' },
   // [ci] NEXT ci.u1
   { day: '2026-11-14', title: 'I start talking sooner', line: 'On a long answer I start speaking as soon as its first sentence is written, while the rest is still coming, so you hear me about a third of a second sooner. The words are the same as before.' },
+  // [security] NEXT ROUND, lane SECURITY: a few seconds to take it back (security.u5)
+  { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
   { day: '2026-11-14', title: 'See what a restore brings back', line: 'RESTORE now shows each thing in the backup and whether it comes back, is joined with yours or is already the same, and you untick what you would rather keep.' },
