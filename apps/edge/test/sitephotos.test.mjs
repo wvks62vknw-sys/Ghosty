@@ -113,6 +113,14 @@ test('kept, listed, captioned, made the main one and removed; the bytes stay whi
   assert.deepEqual(d1.keptFor, ['Little Fern']);
   assert.ok(kv.m.has(`img:${id}`), 'the page keeps its picture');
   assert.deepEqual(d1.photos.map((p) => p.id), [second]);
+  // (review fix) one that only a page's kept earlier version shows: its bytes stay, so UNDO LAST UPDATE brings it back whole
+  const third = (await (await P.photosRoute(req('POST', { data: b64(camera()), caption: 'Window' }), c)).json()).photo.id;
+  const st3 = P.siteStore(c.env, c.storage);
+  await st3.put({ name: 'shop', title: 'Shop', html: `<img src="${ORIGIN}/i/${third}">`, source: '', at: 2 });
+  await st3.put({ name: 'shop', title: 'Shop', html: '<p>no pictures now</p>', source: '', at: 3 });
+  const d3 = await (await P.photosRoute(req('DELETE', undefined, `?id=${third}`), c)).json();
+  assert.deepEqual(d3.keptFor, ['Shop (an earlier version)']);
+  assert.ok(kv.m.has(`img:${third}`), 'the earlier version keeps its picture');
   // one no page shows: its bytes go too
   const d2 = await (await P.photosRoute(req('DELETE', undefined, `?id=${second}`), c)).json();
   assert.equal(d2.removed, true);
@@ -201,12 +209,18 @@ test('undo for a published page: the earlier versions kept, the newest put back 
   // undo: said, then done only on the approved call
   const ap = await pub.approval({ name: 'party', undo: true, html: '<script>evil()</script>' }, ctx);
   assert.match(ap.reason, /^Put back the earlier version of "Party" at https:\/\/ghosty\.example\/s\/party \(published .* UTC, replaced .* UTC\)\? What is live now is kept, so you can undo this too\.$/);
-  assert.deepEqual(ap.args, { name: 'party', undo: true }, 'nothing but the undo goes through');
+  assert.deepEqual(Object.keys(ap.args).sort(), ['back_at', 'back_replaced', 'name', 'undo'], 'nothing but the undo, pinned to the version it names, goes through');
+  // (review fix) a Workshop UNDO LAST UPDATE in between changes what is kept: the chat's earlier APPROVE no longer applies
+  const ap2 = await pub.approval({ name: 'party', undo: true }, ctx);
+  assert.equal(ap2.args.back_at, ap.args.back_at);
+  await assert.rejects(pub.run({ name: 'party', undo: true }, ctx), /not the one he approved/, 'an undo with no approved version is refused');
   assert.match(await pub.run(ap.args, ctx), /^Put back: "Party" is live again at https:\/\/ghosty\.example\/s\/party/);
   assert.match((await store.get('party')).html, /Saturday at 8/);
   // the undo is undoable: the typo version is the newest earlier one now
   assert.equal((await store.versions('party')).length, 1);
-  await pub.run({ name: 'party', undo: true }, ctx);
+  await assert.rejects(pub.run(ap2.args, ctx), /changed since he was asked/, 'the approval named a version that is no longer the newest kept: refused');
+  assert.match((await store.get('party')).html, /Saturday at 8/, 'nothing changed');
+  await pub.run((await pub.approval({ name: 'party', undo: true }, ctx)).args, ctx);
   assert.match((await store.get('party')).html, /Sunday at 9/);
   // three kept at most
   for (const t of ['v3', 'v4', 'v5', 'v6']) await pub.run({ name: 'party', html: page(t) }, ctx);
@@ -242,7 +256,17 @@ test('a document from his phone waits, then goes up only through publish_site\'s
   assert.equal(await P.siteStore(env, st).get('garden-guide'), undefined, 'waiting is not published');
   const ap = await pub.approval({ name: 'garden-guide', from_phone: true }, ctx);
   assert.match(ap.reason, /^Publish "Garden guide" \(the document from your phone, read-only\) as a public page at https:\/\/ghosty\.example\/s\/garden-guide\?/);
-  assert.match(await pub.run(ap.args, ctx), /live now at https:\/\/ghosty\.example\/s\/garden-guide/);
+  assert.equal(typeof ap.args.phone_at, 'number', 'the APPROVE is pinned to the page it showed');
+  // (review fix) a different page handed over after the card was shown is not published under it
+  const was = (await P.siteStore(env, st).get('garden-guide'));
+  await new Promise((ok) => setTimeout(ok, 5));
+  await up({ title: 'Other', html: doc.replace(/Garden guide/g, 'Other').replace('Sow the beans in May.', 'Something else.'), kind: 'document' });
+  await assert.rejects(pub.run(ap.args, ctx), /changed since you were asked/);
+  await assert.rejects(pub.run({ name: 'garden-guide', from_phone: true }, ctx), /not the one approved/, 'never without an approval');
+  assert.equal(await P.siteStore(env, st).get('garden-guide'), was, 'nothing went up');
+  await up({ title: 'Garden guide', html: doc, kind: 'document' });
+  const apNow = await pub.approval({ name: 'garden-guide', from_phone: true }, ctx);
+  assert.match(await pub.run(apNow.args, ctx), /live now at https:\/\/ghosty\.example\/s\/garden-guide/);
   const site = await P.siteStore(env, st).get('garden-guide');
   assert.match(site.html, /Sow the beans in May/);
   assert.equal((await (await P.pageUpload(new Request(`${ORIGIN}/api/sites/page`), { env, storage: st })).json()).title, null, 'used once');

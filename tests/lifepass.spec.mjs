@@ -304,15 +304,16 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     const rb = await page.$$eval(`${P} button`, (b) => b.map((x) => (x.textContent ?? '').trim()));
     check(!rb.some((x) => /^run saved$/i.test(x)) && rb.some((x) => /^stop and keep$/i.test(x)), `${T} B6 the run's keys are START and "Stop and keep" (not "Run saved"): ${rb.join(', ')}`);
     await bar(page, `${T} run bar`, 'body');
-    // B8, B9: a Health export that is no export, in his words, with its wait said
+    // B8, B9: a Health export that is no export, in his words, with its wait said (NEXT ROUND: the Health pill holds TABLETS, YOUR WEEK and the SYMPTOM DIARY too, so these read the export's own room)
     await open(page, 'body', 'Health');
-    check((await count(page, `${P} [data-state="empty"]`)) === 1, `${T} B9 health: nothing read yet is a designed state`);
+    const HX = `${P}[data-screen="health"]`;
+    check((await count(page, `${HX} [data-state="empty"]`)) === 1, `${T} B9 health: nothing read yet is a designed state`);
     const n1 = await waitsN(page);
-    await page.setInputFiles(`${P} input[type=file]`, { name: 'export.zip', mimeType: 'application/zip', buffer: Buffer.from('this is not a zip file at all, not even close') });
+    await page.setInputFiles(`${HX} input[type=file]`, { name: 'export.zip', mimeType: 'application/zip', buffer: Buffer.from('this is not a zip file at all, not even close') });
     await page.waitForTimeout(500);
     check((await waitsSince(page, n1)).some((x) => /^Reading your Health export/.test(x)), `${T} B9 reading the export says what it is doing: ${JSON.stringify(await waitsSince(page, n1))}`);
-    await page.waitForSelector(`${P} [data-state="error"]`, { timeout: 8000 }).catch(() => undefined);
-    const he = await txt(page, `${P} [data-state="error"]`);
+    await page.waitForSelector(`${HX} [data-state="error"]`, { timeout: 8000 }).catch(() => undefined);
+    const he = await txt(page, `${HX} [data-state="error"]`);
     check(/Health export/.test(he) && !/export\.xml|zip/.test(he), `${T} B8 a wrong file is said in his words: "${he}"`);
     await bar(page, `${T} health bar`, 'body');
     // B10: water with no brain (FINAL ROUND, BODY lane: water is kept on the phone now, so it needs no brain at all): the day's
