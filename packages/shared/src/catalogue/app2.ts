@@ -50,7 +50,7 @@ export const APP_2: Record<string, CatValue> = {
   // [planlane2:timeline] the day by the hour and PLAN MY WEEK (features/agenda/timeline.ts)
   'panel:agenda:TIMELINE': {
     name: 'Your day by the hour', line: 'You can see today and tomorrow by the hour, with your free gaps said in words, and plan your week.',
-    more: 'Two things at once sit side by side, all-day ones and your to-dos due sit at the top, and a line marks now. Hold one of your events and drag it to a new time, in 15-minute steps, with UNDO; or tap it and use EARLIER, LATER or A DAY LATER. Calendar feeds are read only. CALENDARS gives each calendar a colour of your choice and shows or hides it everywhere. PLAN MY WEEK lays out the next seven days with each day’s free time, worked out on your phone.',
+    more: 'Two things at once sit side by side, all-day ones and your to-dos due sit at the top, and a line marks now. Hold one of your events and drag it to a new time in 15-minute steps, with UNDO, or tap it for EARLIER, LATER or A DAY LATER (calendar feeds are read only). WEEK lays the seven days side by side by the hour with free time shaded, and PLAN MY WEEK lists each day’s free time. CALENDARS gives each calendar a colour of your choice and shows or hides it everywhere.',
     say: ['Plan my week', 'When am I free tomorrow?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-14',
   },

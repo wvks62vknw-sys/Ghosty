@@ -2,6 +2,7 @@
 //  - COLOUR CALENDARS: the CALENDARS sheet lists his diary and the feed, a colour picked marks the feed's event, a hidden calendar leaves the
 //    timeline, the diary and the month (said where it is left out) and is kept on the phone; shown again; no signal, only his diary, and a
 //    change the phone could not keep, each said in his words;
+//  - A WEEK TIMELINE: WEEK's seven days by the hour, today first, free time shaded, a drag two days on and an hour later read back, UNDO;
 //  - ANY YEAR: YEAR's twelve months, a dot on a day with events, today marked, ‹ › without limit, THIS YEAR, a month opened, every state;
 //  - the pure sums: a drag's new start on the quarter hour, a day on by the calendar, the words of where it goes;
 //  - at 440 × 956 and 390 × 844, BODY 21: one of his own events tomorrow (put in the shared preview brain and taken out at the end) and one
@@ -226,12 +227,18 @@ export async function run(H) {
       const drawn = await page.waitForFunction(({ t, s }) => [...document.querySelectorAll('#pg-agenda .pn.timeline .tlev')].some((x) => x.querySelector('.tltitle')?.textContent === t && x.querySelector('.tlwhen')?.textContent?.startsWith(s)), { t: title, s: hmOf(tm.s1 + 2 * 3600_000) }, { timeout: 8000 }).then(() => true, () => false);
       check(drawn, `${tag} offline: drawn where it was dropped`);
       await page.unroute(/\/api\/agenda\/events\/[^/?]+$/, down);
+      // (this page may send what waited as soon as the brain answers again: given a moment to, and to keep that it did, so the page opened
+      // next never finds the same move still waiting and sends it twice)
+      for (const until = Date.now() + 4000; Date.now() < until; await page.waitForTimeout(200)) if (!(await page.evaluate(() => (JSON.parse(localStorage.getItem('ghosty.offline') ?? '{}')?.outbox ?? []).length))) break;
       // (Ghosty opened again: what waited goes to the brain, the same event)
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
       const sent = await brainUntil(page, id, (e) => e.start === tm.s1 + 2 * 3600_000, 15000);
       check(!sent.timedOut && sent.e.end === tm.e1 + 2 * 3600_000, `${tag} offline: sent when Ghosty opened again, in place: ${JSON.stringify(sent)}`);
-      await api(page, 'POST', `/agenda/events/${id}`, { start: tm.s1, end: tm.e1, tz: 'Europe/London' });
+      // (the phone's queue empty first, so nothing it still holds lands after the spec puts the event back)
+      for (const until = Date.now() + 10000; Date.now() < until; await page.waitForTimeout(200)) if (!(await page.evaluate(() => (JSON.parse(localStorage.getItem('ghosty.offline') ?? '{}')?.outbox ?? []).length))) break;
+      const reset = await api(page, 'POST', `/agenda/events/${id}`, { start: tm.s1, end: tm.e1, tz: 'Europe/London' });
+      check(reset?.event?.start === tm.s1, `${tag} put back for what follows: ${JSON.stringify(reset).slice(0, 160)}`);
       await open(page, 'agenda');
       await openSection(page, 'agenda', 'Diary');
       await page.click('#pg-agenda .pn.timeline button.tlkey:has-text("TOMORROW")');
@@ -314,6 +321,11 @@ export async function run(H) {
         check(!!(await page.$(`.mbox .calsheet .calrow[data-cal="${FEED}"]`)), `${tag} no signal: the feed still listed from the copy`);
         await page.click('.mbox .mhead button');
         await page.unroute(/\/api\/agenda(\?|$)/);
+        // (the signal back: the diary read afresh, so what follows is drawn from the brain, not the copy)
+        await open(page, 'core');
+        await open(page, 'agenda');
+        await openSection(page, 'agenda', 'Diary');
+        await page.waitForFunction(() => !document.querySelector('#pg-agenda .pn.timeline .tlcopy'), null, { timeout: 10000 }).catch(() => check(false, `${tag} the diary did not come back from the brain`));
       }
       // only his own diary (no feed linked): said, with what to do
       if (vp === PHONE2) {
@@ -327,6 +339,52 @@ export async function run(H) {
         check(none === 'Only your own diary so far. Link a calendar under Calendars (its secret iCal link) and it shows here with a colour of its own.', `${tag} only his diary: said: ${none}`);
         await page.click('.mbox .mhead button');
       }
+    }
+
+    // ---- A WEEK TIMELINE: the seven days side by side by the hour, today first, free time shaded; a drag across days and hours
+    {
+      await page.click('#pg-agenda .pn.timeline button.tlkey[aria-label="The week by the hour"]');
+      await page.waitForSelector('#pg-agenda .pn.timeline .tlgrid.tlwk', { timeout: 4000 }).catch(() => check(false, `${tag} WEEK did not open the week by the hour`));
+      const heads = await page.$$eval('#pg-agenda .pn.timeline .tlwkday', (d) => d.map((x) => ({ t: x.textContent, today: x.classList.contains('today') })));
+      const names = await page.evaluate(() => Array.from({ length: 7 }, (_, i) => { const n = new Date(); const d = new Date(n.getFullYear(), n.getMonth(), n.getDate() + i); return `${d.toLocaleDateString('en-GB', { weekday: 'short' })}${d.getDate()}`; }));
+      check(heads.length === 7 && heads[0].today && JSON.stringify(heads.map((x) => x.t)) === JSON.stringify(names), `${tag} seven days, today first: ${JSON.stringify(heads)}`);
+      const wk = (t) => page.locator(`#pg-agenda .pn.timeline .tlwkev[data-day="1"][aria-label^="${t},"]`);
+      // (at 390 the feed was taken away above, for the sheet's "only your diary")
+      check((await wk(title).count()) === 1 && (await wk('Spec match').count()) === (vp === PHONE ? 1 : 0), `${tag} tomorrow's events in tomorrow's column`);
+      const wl = await wk(title).getAttribute('aria-label');
+      check(/^Spec cal \d+ gym, \w+day \d\d:\d\d–\d\d:\d\d\. Tap to see it whole or change it\. Hold and drag to move it to another time or day\.$/.test(wl ?? ''), `${tag} VoiceOver hears a week block: ${wl}`);
+      check((await page.$$('#pg-agenda .pn.timeline .tlwk .tlband')).length >= 7, `${tag} the free time shaded in each day`);
+      const fw = await fit(page, '#pg-agenda .pn.timeline');
+      check(!fw.small.length && !fw.sideways && !fw.cut.length, `${tag} the week by the hour fits: ${JSON.stringify(fw)}`);
+      await page.locator('#pg-agenda .pn.timeline').screenshot({ path: `${H.out}/planlane4-calendar-week-${W}.png` }).catch(() => undefined);
+      if (vp === PHONE) {
+        // held and dragged two days on and an hour later
+        const g = await page.$eval('#pg-agenda .pn.timeline .tlgrid.tlwk', (x) => ({ h: x.getBoundingClientRect().height, span: Number(getComputedStyle(x).getPropertyValue('--tlhours')), w: x.getBoundingClientRect().width, gut: x.querySelector('.tlwkcol').offsetLeft }));
+        const colPx = (g.w - g.gut) / 7;
+        const hpx = g.h / g.span;
+        await wk(title).evaluate((b) => b.scrollIntoView({ block: 'center' }));
+        const bb = await wk(title).boundingBox();
+        const c = { x: bb.x + bb.width / 2, y: bb.y + 16 };
+        await page.mouse.move(c.x, c.y);
+        await page.mouse.down();
+        await page.waitForSelector('#pg-agenda .pn.timeline .agghost', { timeout: 3000 }).catch(() => check(false, `${tag} week: no ghost`));
+        for (let i = 1; i <= 5; i++) await page.mouse.move(c.x + (colPx * 2 * i) / 5, c.y + (hpx * i) / 5);
+        // (from where the brain has it now: the phone's queue above may have sent its move a second time, which changes nothing it would not)
+        const was = (await brainUntil(page, id, () => true)).e;
+        const target = await page.evaluate((s) => { const n = new Date(s); const d = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 2, n.getHours() + 1, n.getMinutes()); return { ms: d.getTime(), label: `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }; }, was.start);
+        const gl = await page.textContent('#pg-agenda .pn.timeline .agghost').catch(() => '');
+        check(gl === target.label, `${tag} week: the ghost says the new day and time: ${gl}`);
+        await page.mouse.up();
+        const b = await brainUntil(page, id, (e) => e.start === target.ms);
+        check(!b.timedOut && b.e.end === target.ms + (was.end - was.start) && b.job?.next === target.ms - 15 * 60_000, `${tag} week: moved two days on and an hour later, in place, its reminder too: ${JSON.stringify(b)}`);
+        const moved = await page.waitForFunction((t) => [...document.querySelectorAll('#pg-agenda .pn.timeline .tlwkev[data-day="3"]')].some((x) => x.getAttribute('aria-label')?.startsWith(`${t},`)), title, { timeout: 8000 }).then(() => true, () => false);
+        check(moved, `${tag} week: drawn in its new day`);
+        await page.click('#pg-agenda .pn.timeline .undo button');
+        const back = await brainUntil(page, id, (e) => e.start === was.start);
+        check(!back.timedOut, `${tag} week: UNDO puts it back: ${JSON.stringify(back)}`);
+      }
+      await page.click('#pg-agenda .pn.timeline button.tlkey:has-text("TOMORROW")');
+      await evSel(title).waitFor({ timeout: 8000 }).catch(() => undefined);
     }
 
     // ---- ANY YEAR: YEAR in the month, twelve small months, a dot on a day with events, today marked, ‹ › without limit, a month opens
@@ -396,6 +454,12 @@ export async function run(H) {
         const cc = await evSel(title).evaluate((b) => ({ color: getComputedStyle(b.querySelector('.tltitle')).color, bg: getComputedStyle(b).backgroundColor }));
         check(cc.color !== cc.bg, `${tag0} ${world}] his event's words stand off its block: ${JSON.stringify(cc)}`);
         if (world === 'ink' || world === 'glass') await page.locator('#pg-agenda .pn.timeline').screenshot({ path: `${H.out}/planlane4-calendar-${world}-390.png` }).catch(() => undefined);
+        await page.click('#pg-agenda .pn.timeline button.tlkey[aria-label="The week by the hour"]');
+        await page.waitForSelector('#pg-agenda .pn.timeline .tlgrid.tlwk', { timeout: 4000 }).catch(() => check(false, `${tag0} ${world}] no week by the hour`));
+        const fw = await fit(page, '#pg-agenda .pn.timeline');
+        check(!fw.small.length && !fw.sideways && !fw.cut.length, `${tag0} ${world}] the week by the hour fits: ${JSON.stringify(fw)}`);
+        if (world === 'glass') await page.locator('#pg-agenda .pn.timeline').screenshot({ path: `${H.out}/planlane4-calendar-week-${world}-390.png` }).catch(() => undefined);
+        await page.click('#pg-agenda .pn.timeline button.tlkey:has-text("TOMORROW")');
         // the year in each look (its months read already: kept for the visit)
         await page.click('#pg-agenda .pn.month button.monyear');
         await page.waitForFunction(() => document.querySelectorAll('#pg-agenda .pn.month .yrmon').length === 12, null, { timeout: 5000 }).catch(() => check(false, `${tag0} ${world}] no year`));

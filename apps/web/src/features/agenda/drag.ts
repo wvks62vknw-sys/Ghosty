@@ -141,7 +141,10 @@ export function attachDrag(el: HTMLElement, o: { grid: HTMLElement; can: boolean
     st.at = p.start;
     st.ghost.style.top = p.top;
     if (p.left) st.ghost.style.left = p.left;
-    if (p.width) st.ghost.style.width = p.width;
+    if (p.width) {
+      st.ghost.style.width = p.width;
+      st.ghost.style.right = 'auto';
+    }
     st.ghost.firstChild!.textContent = p.label;
     st.ghost.setAttribute('aria-label', `Moving to ${p.label}`);
   };

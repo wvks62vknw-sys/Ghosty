@@ -10632,6 +10632,21 @@ html .mbox .calsheet button.calswatch.on .calchip { box-shadow: 0 0 0 3px var(--
 html .mbox .calsheet .calcheck { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--g-canvas, var(--ink)); font-weight: 700; pointer-events: none; }
 html .mbox .calsheet .calsay { margin: 0; overflow-wrap: anywhere; }
 html .mbox .calsheet .calfoot { color: var(--ink2); overflow-wrap: anywhere; }
+/* WEEK by the hour (timeline.ts hoursView): the seven days side by side under a narrower hour gutter, each day a column with its free
+   time shaded; the blocks carry no words (VoiceOver reads each), only their calendar's colour, and stay 44 pt; today's column lit */
+html #pg-agenda .pn.timeline .tlgrid.tlwk { --tlgut: 1.4em; }
+html #pg-agenda .pn.timeline .tlwk .tlhour { font-size: .7em; }
+html #pg-agenda .pn.timeline .tlwk .tlhour::after { left: 2em; }
+html #pg-agenda .pn.timeline .tlwkhead, html #pg-agenda .pn.timeline .tlwkad { display: grid; grid-template-columns: 1.4em repeat(7, minmax(0, 1fr)); text-align: center; }
+html #pg-agenda .pn.timeline .tlwkday { display: flex; flex-direction: column; align-items: center; min-width: 0; font-size: .74em; line-height: 1.25; color: var(--ink2); font-variant-numeric: tabular-nums; }
+html #pg-agenda .pn.timeline .tlwkday b { color: var(--ink); font-weight: 600; }
+html #pg-agenda .pn.timeline .tlwkday.today :is(b, small) { color: var(--acc); }
+html #pg-agenda .pn.timeline .tlwkad { padding: var(--g-s-half) 0; }
+html #pg-agenda .pn.timeline .tlwkadday { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 0 2px; min-width: 0; }
+html #pg-agenda .pn.timeline .tlwkadmark { display: block; height: .45em; border-radius: var(--rad); background: var(--c); }
+html #pg-agenda .pn.timeline .tlwkcol { position: absolute; top: 0; bottom: 0; border-left: var(--g-hair) solid var(--hair); pointer-events: none; }
+html #pg-agenda .pn.timeline .tlwkcol.today { background: color-mix(in srgb, var(--acc) 6%, transparent); }
+html #pg-agenda .pn.timeline button.tlev.tlwkev { padding: 0; min-width: 0; }
 /* ==== [planlane4:calendar end] ==== */
 /* =====================================================================================================================
    THE APP KIT (APPS ROUND, consistency; ui/appkit.ts): the frame every app is built from. One header, one scroll area, the keys at
