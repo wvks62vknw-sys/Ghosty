@@ -2,7 +2,7 @@
 // owner's 440 × 956 and a 390 × 844 phone, world eye (every check fails on the code before this brief: it was run against it once):
 //   a. A ROOM IS THE WALL: each of the six rooms (SEE MAKE LEARN PLAN LIFE ME) is feeds with the cards' own readings, exactly ONE sharp feed (the thing used
 //      last, else the first starred, else the room's first), the line of sight under it at the instruments' lit key, `LOOKING AT <ROOM> · N FEEDS`, his
-//      favourites in bracket corners, MAKE's EDITORS feed holding eight small feeds, a tap opens the thing, a long press pins, a room opens under 300 ms;
+//      favourites in bracket corners, MAKE's EDITORS feed holding eight small feeds (COMIC joined on 13 Nov), a tap opens the thing, a long press pins, a room opens under 300 ms;
 //   b. THE FILM: the boot's last shot in the eye is the wall (the boot spec's harness, stepped by hand): the feeds in their frames, one boxed in the accent,
 //      the line of sight, on Home's own rectangles; Reduce Motion lands on the still wall; the other worlds draw none of it;
 //   c. ABILITIES AS THE WALL: Home's ABILITIES feed and a room's open the wall of what I can do (one sharp, the kick row, the line of sight); a tap asks it in the ask line;
@@ -28,7 +28,6 @@ const BUDGET = 300;
 const look = (world) => ({ ground: 'graphite', world, night: 'graphite', switches: {} });
 const WIDE = { width: 390, height: 844 };
 const ROOMS = [['see', 'See'], ['make', 'Make'], ['learn', 'Learn'], ['plan', 'Plan'], ['life', 'Life'], ['me', 'Me']];
-// (COMIC joined EDITORS in the final round: the comic is a maker's app of its own)
 const PILLS = ['DOCUMENTS', 'SPREADSHEETS', 'PRESENTATIONS', 'THE WORKSPACE', 'PHOTO', 'VIDEO', 'GAME STUDIO', 'COMIC'];
 // (a photograph on the software GL can stall behind the globe's frames: it is a record, never a check, so it gives up after eight seconds)
 const shot = (page, path) => page.screenshot({ path, timeout: 8000 }).catch(() => undefined);

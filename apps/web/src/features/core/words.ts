@@ -38,7 +38,9 @@ const linesOf = (s: string): number => s.split('\n').reduce((n, p) => n + Math.m
  */
 export function foldReply(text: string): { head: string; rest: string } | null {
   if (linesOf(text) <= FOLD_LINES) return null;
-  const pieces = text.match(/[^.!?\n]+(?:[.!?]+["')\]]*)?\s*|\n+/g) ?? [text];
+  // a web address is one piece: its dots and its "?" are no sentence's end, so the fold never cuts a link in two (a cut link was no
+  // link at all: a video reply's moment at the fold went missing from its card)
+  const pieces = text.match(/(?:https?:\/\/\S+|www\.\S+|[^.!?\n])+(?:[.!?]+["')\]]*)?\s*|\n+/g) ?? [text];
   let head = '';
   for (const p of pieces) {
     if (head && linesOf(head + p) > FOLD_LINES) break;

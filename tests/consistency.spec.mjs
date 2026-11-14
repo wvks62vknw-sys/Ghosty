@@ -99,6 +99,9 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 await standDown(base, KEY);
 const errs = [];
 
+/** A sandboxed frame's own refusals (a widget, or a page an earlier spec built that the shared preview brain still holds, run
+ *  without same-origin by design): that frame's storage or service worker said no, never the app's code. */
+const frameNoise = (t) => webkitNoise({ message: t }) || /The document is sandboxed and lacks the 'allow-same-origin' flag/.test(t);
 async function phone(viewport, world) {
   const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
   await ctx.addInitScript(([k, home, world]) => {
@@ -108,9 +111,9 @@ async function phone(viewport, world) {
   const page = await ctx.newPage();
   const tag = `${viewport.width}${world ? ` ${world}` : ''}`;
   page.on('console', (m) => {
-    if (m.type() === 'error' && !/Failed to load resource|ERR_|net::|status of 4\d\d|status of 5\d\d/.test(m.text())) errs.push(`[errors ${tag} ${page.url().split('#')[1] ?? 'core'}] console: ${m.text().slice(0, 200)}`);
+    if (m.type() === 'error' && !frameNoise(m.text()) && !/Failed to load resource|ERR_|net::|status of 4\d\d|status of 5\d\d/.test(m.text())) errs.push(`[errors ${tag} ${page.url().split('#')[1] ?? 'core'}] console: ${m.text().slice(0, 200)}`);
   });
-  page.on('pageerror', (e) => webkitNoise(e) || errs.push(`[errors ${tag} ${page.url().split('#')[1] ?? 'core'}] ${e.message.slice(0, 200)}`));
+  page.on('pageerror', (e) => webkitNoise(e) || frameNoise(e.message) || errs.push(`[errors ${tag} ${page.url().split('#')[1] ?? 'core'}] ${e.message.slice(0, 200)}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
   return { ctx, page };
