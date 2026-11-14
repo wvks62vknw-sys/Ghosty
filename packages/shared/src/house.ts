@@ -99,6 +99,8 @@ export const domainOf = (entity: string) => String(entity).split('.')[0] ?? '';
  */
 export function isGuarded(e: Pick<HouseEntity, 'id' | 'domain' | 'cls'> & { members?: string[] }, marked: readonly string[] = [], all: readonly Pick<HouseEntity, 'id' | 'domain' | 'cls'>[] = []): boolean {
   if (e.domain in GUARDED_SERVICES) return true;
+  // [planlane2:fixes] a script: Home Assistant never says what a script does, so it asks first, every time (and never runs from a job)
+  if (e.domain === 'script') return true;
   if (e.domain === 'cover' && GUARD_CLASSES.includes(e.cls ?? '')) return true;
   // a scene that sets a lock, an alarm, a garage door or gate, or a switch he marked, asks as they would
   if (e.domain === 'scene' && e.members?.some((m) => {
@@ -108,6 +110,13 @@ export function isGuarded(e: Pick<HouseEntity, 'id' | 'domain' | 'cls'> & { memb
   })) return true;
   return (e.domain === 'switch' || e.domain === 'input_boolean') && marked.includes(e.id);
 }
+
+/** [planlane2:fixes] Why a script always asks first: the phone can't see inside it the way it can inside a scene. */
+export const SCRIPT_WHY = 'I can’t see what a script does,';
+/** The one confirm before a script runs, on the screen and from the chat: "Run Bedtime? I can't see what a script does, so I ask first." */
+export const scriptAsk = (name: string) => ({ head: `Run ${name}?`, line: `${SCRIPT_WHY} so I ask first.` });
+/** Asks first: the guarded set, a scene that sets one, and every script. */
+export const asksFirst = (e: Pick<HouseEntity, 'domain'> & { guarded?: boolean }) => e.guarded === true || e.domain === 'script';
 
 export type Verdict = { ok: true; guarded: boolean } | { ok: false; why: string; needs?: 'confirm' };
 
@@ -122,6 +131,8 @@ export function policy(e: Pick<HouseEntity, 'id' | 'domain' | 'cls' | 'name'> & 
   const known = (ALLOWED[d] ?? []).includes(service) || (GUARDED_SERVICES[d] ?? []).includes(service);
   if (!(d in ALLOWED) && !(d in GUARDED_SERVICES)) return { ok: false, why: `I don’t touch “${d}” things in your house. I only work ${ALLOWED_WORDS}.` };
   if (!known) return { ok: false, why: `That is not something I do to ${DOMAIN_WORDS[d] ?? d} (“${d}.${service}” is not on my list).` };
+  if (d === 'script' && o.origin === 'job') return { ok: false, why: `A scheduled job never runs your script “${e.name || e.id}”: ${SCRIPT_WHY} so only your own tap, with a confirm, does.` };
+  if (d === 'script' && !(o.origin === 'tap' && o.confirm)) return { ok: false, why: `${SCRIPT_WHY} so “${e.name || e.id}” runs only after your tap and a confirm.`, needs: 'confirm' };
   if (guarded && o.origin === 'job') return { ok: false, why: `A scheduled job never touches the ${e.name || e.id} (${DOMAIN_WORDS[d] ?? d}${d === 'cover' ? ', a garage door or gate' : ''}): only your own tap, with a confirm, does.` };
   if (guarded && !(o.origin === 'tap' && o.confirm)) return { ok: false, why: `The ${e.name || e.id} needs your own tap, with a confirm.`, needs: 'confirm' };
   return { ok: true, guarded };
