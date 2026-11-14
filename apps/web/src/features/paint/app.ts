@@ -11,7 +11,7 @@
 import { clear, h } from '../../core/dom';
 import { button } from '../../ui/components';
 import { sayError, trail } from '../../ui/hisWords';
-import { emptyState, stateLine } from '../lifeui';
+import { skeleton, stateCard } from '../../ui/appkit';
 import { brushOf } from './brushes';
 import { mk, Painting, layerId, pack, type Op } from './engine';
 import { bodyOf, openBody, thumbOf, versionOf } from './io';
@@ -223,14 +223,14 @@ export function galleryPart(): { el: HTMLElement; stop(): void } {
     const q = find.value.trim().toLowerCase();
     const shown = q ? all.filter((a) => a.title.toLowerCase().includes(q)) : all;
     paintState.gallery.titles = shown.map((a) => a.title);
-    if (!all.length) list.append(emptyState('No paintings yet', 'Tap NEW PAINTING to start one.'));
-    else if (!shown.length) list.append(emptyState('Nothing by that name', `No painting’s title has “${q}” in it.`));
+    if (!all.length) list.append(stateCard('empty', 'No paintings yet. Start one, or pick a colouring page.', { word: 'New painting', run: () => void startNew() }));
+    else if (!shown.length) list.append(stateCard('empty', `No painting’s title has “${q}” in it.`, { word: 'Clear search', run: () => { find.value = ''; show(); } }));
     else list.append(...shown.map((a) => card(a, false)));
   };
   find.addEventListener('input', show);
   const paint = async (): Promise<void> => {
     paintState.gallery.state = 'loading';
-    clear(list); list.append(stateLine('loading', 'Opening your gallery…'));
+    clear(list); list.append(skeleton(3, 'Opening your gallery'));
     try {
       let g = await gallery();
       if (!g.live.length && !g.bin.length && !localStorage.getItem('ghosty.paint.sampled')) {
@@ -246,7 +246,7 @@ export function galleryPart(): { el: HTMLElement; stop(): void } {
       if (!galleryInfo.lasting) note.textContent = 'This browser keeps no files, so your paintings last for this visit only. Save a PNG or PSD to keep one.';
       tour.hidden = g.live.length > 2;
       paintState.gallery.state = all.length ? 'ready' : 'empty';
-    } catch (e) { paintState.gallery.state = 'error'; clear(list); list.append(stateLine('error', sayError(e, 'open your gallery'))); }
+    } catch (e) { paintState.gallery.state = 'error'; clear(list); list.append(stateCard('error', sayError(e, 'open your gallery'), { word: 'Try again', run: () => void paint() })); }
   };
   listeners.add(paint);
   void paint();

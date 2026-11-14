@@ -6863,6 +6863,9 @@ html .br-seg.slow { stroke: var(--g-amber); }
 html .bt .bp-dot { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; padding: 0 var(--g-s-half); font: var(--g-t-caption); font-variant-numeric: var(--g-num); color: var(--g-ink-3); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-mark); }
 html .bt .bp-dot[data-hit="1"] { color: var(--g-accent-text); }
 /* HEALTH HUB (APPS ROUND, features/body/hub.ts): every rule under .hh, tokens only */
+html .kt-sw { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .kt-swface { font: var(--g-t-value); font-size: 44px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--g-ink-1); }
+html .kt-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--g-s-1); }
 html .bt.hh .hh-top { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 html .bt.hh .hh-date { font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .bt.hh .hh-top small, html .bt.hh .hh-ringwords small, html .bt.hh .hh-legend small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
@@ -10727,7 +10730,7 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 #pg-journal [data-tone="violet"] { --jn-tone: var(--g-accent-pale); }
 #pg-journal .jnbar { display: flex; gap: var(--g-s-1); flex-wrap: wrap; }
 #pg-journal .jnnew { min-height: var(--g-target); flex: 1 1 12em; }
-#pg-journal .jnsearch input, #pg-journal .jnsettings input, #pg-journal .jneditor input, #pg-journal .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
+#pg-journal .jnsearch input, #pg-journal .jnsettings input, #pg-journal .jneditor input, #pg-journal .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
 #pg-journal .jnsearch { margin: var(--g-s-1) 0; }
 #pg-journal .jnchips { gap: var(--g-s-half); margin-bottom: var(--g-s-1); }
 #pg-journal .jnchips button[data-tone]:not([data-tone=""]) { box-shadow: inset 3px 0 0 var(--jn-tone); }
@@ -10751,7 +10754,7 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 #pg-journal .jnbin .jntext { flex: 1 1 12em; }
 #pg-journal .jnlock { display: flex; flex-direction: column; gap: var(--g-s-1); align-items: flex-start; }
 .jneditor { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
-.jneditor input, .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
+.jneditor input, .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
 .jneditor .jnmeta > * { flex: 1 1 10em; }
 .jneditor .jntextarea { width: 100%; min-height: 10em; font: var(--g-t-body); line-height: 1.55; color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: var(--g-s-1); box-sizing: border-box; resize: vertical; }
 .jneditor .jnprompt { margin: 0; font-style: italic; color: var(--g-accent-text); }
@@ -10813,6 +10816,17 @@ html body .ak-app :is(.ak-rowmain, .ak-hkey, .ak-rowdel, .ak-switch) { backgroun
 html body .ak-app :is(.ak-rowsub, .ak-rowtitle, .ak-tour p, .ak-state p, .ak-notice) { text-transform: none !important; }
 html body .ak-app .ak-rowmain:active, html body .ak-app .ak-hkey:active, html body .ak-app .ak-rowdel:active { background: var(--g-plate-fill) !important; }
 html body .ak-app .ak-rowmain, html body .ak-app .ak-rowmain > * { white-space: normal; max-width: 100%; }
+.jneditor .jnweather { color: var(--g-ink-3); } .jneditor .jnweather:empty { display: none; }
+.jneditor .jnversions summary { min-height: var(--g-target); display: flex; align-items: center; color: var(--g-ink-2); cursor: pointer; }
+.jneditor .jnversion { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half); }
+.jneditor .jnversion .jntext { flex: 1 1 12em; color: var(--g-ink-2); overflow-wrap: anywhere; }
+/* KEEP IN TOUCH (APPS ROUND, MEMORY lane): a page of PEOPLE from the App Kit's parts; every class `tc…`, colours from the tokens */
+.tcsheet { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.tcadd { gap: var(--g-s-half); }
+.tcadd input, .tcadd select { flex: 1 1 10em; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; min-width: 0; }
+.tcadd button { min-height: var(--g-target); }
+.tclist { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.tclist .ak-row.tcdue .ak-rowmeta { color: var(--g-amber); }
 /* APPS ROUND (MAKE lane): GAME STUDIO 3D, every rule under the Game Studio's page and its own gs3 prefix */
 html #pg-gamestudio .gs3cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-1); margin: 6px 0 12px; }
 html #pg-gamestudio .gs3card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: var(--g-target); padding: 10px 12px; text-align: left; border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: inset 0 0 0 1px var(--g-hair); color: var(--g-ink-1); }

@@ -432,7 +432,7 @@ export const LIFE: AppDef[] = [
       stats: [
         { label: 'People', kind: 'count', period: 'all' },
         { label: 'Places', kind: 'distinct', field: 'place', period: 'all' },
-        { label: 'Earliest born', kind: 'min', field: 'born', period: 'all' },
+        { label: 'Sides', kind: 'distinct', field: 'side', period: 'all' },
       ],
       views: ['list', 'gallery'],
     },
@@ -580,6 +580,7 @@ export const LIFE: AppDef[] = [
         { id: 'colour', label: 'Colour', type: 'text' },
         { id: 'price', label: 'Price', type: 'money' },
         { id: 'link', label: 'Link', type: 'link' },
+        { id: 'photo', label: 'Photo', type: 'photo' },
         { id: 'got', label: 'Got it', type: 'check' },
       ],
       title: 'item', sub: '{size} {colour}', meta: 'price',

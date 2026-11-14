@@ -113,7 +113,7 @@ export const WHATS_NEW: NewThing[] = [
   // [ci] NEXT ci.u3
   { day: '2026-11-14', title: 'How quickly I answer out loud', line: 'System → SPEED now shows your spoken turns too: how soon my first word comes after you stop, and how soon I listen again after I finish. Timed on your phone, kept on your phone.' },
   // [learn, apps round] chess
-  { day: '2026-11-14', title: 'Chess puzzles and puzzle rush', line: 'GYM → chess → PUZZLES: real puzzles from Lichess’s free puzzle database, kept on your phone; a puzzle rating, and a three-minute rush with three lives.' },
+  { day: '2026-11-14', title: 'Chess, an app of its own', line: 'Say “open chess”: real puzzles from Lichess’s free database kept on your phone, a puzzle rating, a three-minute rush, today’s puzzle, and every puzzle you tried.' },
   // [learn, next round] learning that adapts and talks back (NEXT-LEARN.md)
   { day: '2026-11-14', title: 'Courses that pick up your mistakes', line: 'Each course’s map has TODAY: the lesson your answers say to look at again (a miss you were sure of counts most), with a quiz on just your misses.' },
   { day: '2026-11-14', title: 'Free classics for your shelf', line: 'Library → Add → CLASSICS: Project Gutenberg and Standard Ebooks’ newest, free. Each book’s size is said first, and it comes on your tap, on Wi-Fi.' },
@@ -226,6 +226,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Gym: he carries on by himself', line: 'WATCH keeps playing round after round, TRAIN ALL trains every game in turn, KEEP AWAKE holds the screen on while he trains.' },
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
+  // [journal] APPS ROUND, lane MEMORY: keep in touch
+  { day: '2026-11-14', title: 'Keep in touch', line: 'Life → People → KEEP IN TOUCH: add the people you want to stay close to and how often; tap a name when you’ve caught up, and I’ll say when it’s been a while.' },
   // [journal] APPS ROUND, lane MEMORY: his own journal
   { day: '2026-11-14', title: 'Your own journal', line: 'Me → Memory → JOURNAL, or say "new journal entry": photos, a voice note, a mood and a place on each entry, a calendar and On this day, locked with Face ID if you like, kept on this phone.' },
 ];
