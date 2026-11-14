@@ -174,7 +174,8 @@ export const briefTab: TabDef = {
       const next = mind.today.next;
       if (!dayItems.length) {
         /* state: brief.day empty */
-        rows.push(row(null, eveningNow(new Date()) ? 'Nothing more in your diary tonight. Tap to add something for tomorrow.' : 'Nothing in your diary for the rest of today. Tap to add something.', null, { wrap: true, onClick: add }));
+        // (under its DIARY label, with the arrow every other tap in the card has: the words start in the one column)
+        rows.push(row('DIARY', eveningNow(new Date()) ? 'Nothing more tonight. Tap to add something for tomorrow.' : 'Nothing left today. Tap to add something.', '›', { wrap: true, onClick: add }));
         if (next) rows.push(row('NEXT', next.title, next.when, { wrap: true, onClick: open }));
       } else if (next && eveningNow(new Date()) && !dayItems.some((x) => x.title === next.title)) {
         // [planlane:brief] in the evening the Brief looks ahead: the next thing in the diary, after tonight's
