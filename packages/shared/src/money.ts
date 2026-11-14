@@ -5,6 +5,7 @@
  * round-ups, his payday, a plain "what if", a warranty's end and a trip's fuel. No bank, no account, nothing that bills;
  * nothing here touches the network (the brain's tools/money.ts fetches and keeps). Every number says what it assumed.
  */
+import { isOfx, isQif, readOfx, readQif } from './statements';
 import { card, type Card } from './cards';
 import { addDays, addMonths, daysBetween, daysInMonth, dayWords, kmBetween, milesText, moneyIn, nextDayOfMonth, pounds, prettyDay, weekdayOf, mondayOf } from './packs';
 import { categorise, CATEGORIES, gbp, monthName, parseDate, readStatement, RULES, type Category, type MonthView, type SpendRow, type Statement, type Txn } from './spending';
@@ -90,6 +91,12 @@ export function unflatten(text: string): string {
 
 /** A CSV statement (spending.ts readStatement) or a statement's text: whichever reads; throws in plain words when neither does. */
 export function readAnyStatement(raw: string, year?: string): Statement {
+  // [moneyapps] an OFX or a QIF file, read by its own shape (packages/shared/src/statements.ts)
+  if (isOfx(raw) || isQif(raw)) {
+    const st = isOfx(raw) ? readOfx(raw) : readQif(raw);
+    if (!st.rows.length) throw new Error(`That ${isOfx(raw) ? 'OFX' : 'QIF'} file holds no payments I could read.`);
+    return st;
+  }
   const text = unflatten(raw);
   try {
     const st = readStatement(text);

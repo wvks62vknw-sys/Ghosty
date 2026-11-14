@@ -18,6 +18,7 @@ import { clear, h } from '../core/dom';
 import { airBand, temp, WMO } from '../data/weather';
 import { rainLine } from '../features/eye/sets';
 import { home } from '../state/app';
+import { skeleton, stateCard } from '../ui/appkit';
 import { button, modal } from '../ui/components';
 import * as W from './words';
 
@@ -165,8 +166,10 @@ export async function openWeather(want?: string): Promise<void> {
     const kept = read<Record<string, Forecast>>(KEPT, {});
     let f: Forecast | null = null;
     if (navigator.onLine !== false) {
-      say(W.WX_LOADING, 'loading');
+      say('', '');
       weatherState.state = 'loading';
+      // (the App Kit's skeleton while it loads, so nothing jumps when the forecast lands)
+      if (!body.querySelector('.wxhero')) clear(body, skeleton(6, W.WX_LOADING));
       try {
         f = await getForecast(p);
         kept[p.id] = f;
@@ -183,7 +186,9 @@ export async function openWeather(want?: string): Promise<void> {
     if (current !== p) return;
     if (!f) {
       weatherState.state = navigator.onLine === false ? 'offline' : 'error';
-      clear(body, button('TRY AGAIN', () => void show(p), 'on'));
+      say('', '');
+      // (the App Kit's state card: what happened, and its fix)
+      clear(body, navigator.onLine === false ? stateCard('empty', W.WX_NONE_OFFLINE) : stateCard('error', W.WX_DOWN, { word: 'Try again', run: () => void show(p) }));
       return;
     }
     weatherState.state = status.dataset.state === 'offline' ? 'offline' : 'ready';

@@ -68,6 +68,7 @@ import { briefAsked } from '../features/brief/asks';
 import { screenAsked } from './screenasks';
 import { comicAsked } from '../features/comic/asks';
 import { securityAsked } from '../features/security/asks';
+import { journalAsked } from '../features/journal/words';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -267,6 +268,8 @@ export const LOCAL_ASKS = [
   { id: 'openscreen', test: (t: string) => !!screenAsked(t) },
   // [comic] THE COMIC (features/comic/asks.ts): "make me a comic about…", "read a comic", "import this comic", "public domain comics"
   { id: 'comic', test: (t: string) => !!comicAsked(t) },
+  // [journal] JOURNAL (features/journal/words.ts): "new journal entry", "add to my journal: …", "dear diary, …", "open my journal"
+  { id: 'journal', test: (t: string) => !!journalAsked(t) },
   // [security] SECURITY (features/security/asks.ts): "lock everything", "has my password leaked?", "show my approvals", "how safe am I?"
   { id: 'security', test: (t: string) => !!securityAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },

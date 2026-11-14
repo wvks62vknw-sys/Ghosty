@@ -489,12 +489,28 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     await page.waitForTimeout(600);
     const item = await txt(page, `${P} .pkitem`);
     check(/due (tomorrow|today|in \d+ days)/.test(item) && !/\d{4}-\d{2}-\d{2}/.test(item), `${T} W4 a job's day is said as "due tomorrow", never as 2026-11-13: "${item}"`);
-    // W9: a tick that the brain did not take
+    // W9: a tick made while the brain does not answer (the one to-do list's outbox): it stays ticked and says it waits on this phone; once
+    // the brain answers again it reaches the one list, sent once only, and nothing is left waiting
+    const ticks = [];
+    const onTick = (r) => r.method() === 'POST' && PACKS.test(r.url()) && /"op":"tick"/.test(r.postData() ?? '') && ticks.push(r.postData());
     await cut(page, PACKS);
     await page.locator(`${P} .pkitem input[type=checkbox]`).first().click();
-    await page.waitForTimeout(1200);
-    check(!(await page.locator(`${P} .pkitem input[type=checkbox]`).first().isChecked()) && (await count(page, `${P} [data-state="error"]`)) >= 1, `${T} W9 a tick the brain did not take is put back, and said`);
+    await page.waitForFunction((sel) => { const w = document.querySelector(sel); return !!w && !w.hidden && /kept on this phone/.test(w.textContent ?? ''); }, `${P} .pktodowait`, { timeout: 8000 }).catch(() => undefined);
+    const waitWords = await txt(page, `${P} .pktodowait`);
+    check((await page.locator(`${P} .pkitem input[type=checkbox]`).first().isChecked()) && /^1 change kept on this phone: it goes to your one list when Ghosty’s brain answers again\.$/.test(waitWords) && !RAW.test(await txt(page, P)), `${T} W9 a tick the brain did not take stays ticked and says it waits on this phone: "${waitWords}"`);
     await unroute(page);
+    page.on('request', onTick);
+    // (the brain answers again: the list's next open sends what waited, first)
+    await open(page, 'work', 'Interview');
+    await open(page, 'work', 'To-do');
+    let sent = null;
+    for (let i = 0; i < 40 && !sent; i++) {
+      sent = ((await pk('work', 'todo', { op: 'list' }))?.data?.list ?? []).find((t) => /send the invoice/i.test(t.text) && t.done) ?? null;
+      if (!sent) await sleep(250);
+    }
+    await page.waitForFunction((sel) => !!document.querySelector(sel)?.hidden, `${P} .pktodowait`, { timeout: 5000 }).catch(() => undefined);
+    page.off('request', onTick);
+    check(!!sent && ticks.length === 1 && (await page.locator(`${P} .pktodowait`).isHidden()), `${T} W9 the waiting tick reached the brain once it answered, sent once only (${ticks.length} sent), and nothing waits now: ${JSON.stringify(sent)}`);
     await bar(page, `${T} todo bar`, 'work');
     // W5, W6: the interview
     await open(page, 'work', 'Interview');

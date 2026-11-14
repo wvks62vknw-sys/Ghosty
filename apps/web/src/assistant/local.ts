@@ -275,7 +275,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const two = ask.two ? TWO_WAYS[ask.two] : undefined;
     if (two) return answer(text, two.q, { kind: 'look', go: [{ id: 'look:colour', ask: -1, label: two.a[0], send: `${ask.two} colour` }, { id: 'look:ground', ask: -1, label: two.a[1], send: `${ask.two} background` }] }, opts);
     const theme = await import('../state/theme');
-    const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome() });
+    const { recipe: next, said } = applyAsk(theme.recipe(), ask, { now: Date.now(), home: theme.savedHome(), ...theme.easyArgs(ask) });
     theme.applyRecipe(next);
     return answer(text, said, { kind: 'look', go: [{ id: 'screen:look', ask: -1, label: 'See it on The look', open: 'look' }] }, opts);
   },
@@ -554,6 +554,15 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const k = m.securityAsked(text) ?? 'locks';
     location.hash = k === 'lock' ? 'security?lock' : k === 'leaked' ? 'security?leaked' : 'security';
     return answer(text, m.SECURITY_SAID[k], { kind: 'can', go: [{ id: 'screen:security', ask: -1, label: 'Security', open: 'security' }] }, opts);
+  },
+  // [journal] JOURNAL: the journal opened, a new entry with his words in it when he gave some (kept on this phone, never sent)
+  journal: async (text, opts) => {
+    const m = await import('../features/journal/words');
+    const j = m.journalAsked(text);
+    if (!j) return false;
+    if (j.write) (window as unknown as { __journalWrite?: { words?: string } }).__journalWrite = { words: j.words ?? '' };
+    location.hash = 'journal';
+    return answer(text, j.words ? m.J.ASK_ADDED : j.write ? m.J.ASK_NEW : m.J.ASK_OPEN, { kind: 'can', go: [{ id: 'screen:journal', ask: -1, label: 'Journal', open: 'journal' }] }, opts);
   },
   comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
