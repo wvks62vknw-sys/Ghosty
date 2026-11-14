@@ -6,7 +6,7 @@
 import { csvObjects, col } from './csv';
 import { localDay, localTime, parseDay, type Rec } from './input';
 
-export const watchAccept = (name: string): boolean => /viewing ?(history|activity)[^/]*\.csv$/i.test(name) || name.endsWith('.csv');
+export const watchAccept = (name: string): boolean => /viewing ?(history|activity)[^/]*\.csv$/i.test(name);
 
 /** Splits "Show: Season 2: The Episode" → show and episode. */
 export function splitTitle(t: string): { show: string; episode: string } {

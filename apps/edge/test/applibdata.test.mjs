@@ -393,4 +393,5 @@ test('the data apps: each has a reader, fields that exist, real sample records a
   }
   assert.ok(I.DATA.length >= 20);
   assert.deepEqual(Object.keys(I.READERS).sort(), [...ids].sort(), 'every reader has an app');
+  assert.deepEqual(Object.keys(I.READER_META).sort(), [...ids].sort(), 'and the page knows each one');
 });
