@@ -35,7 +35,7 @@ const PREFIX = 'site:';
 const INDEX = 'site:index';
 const DRAFT = 'site:draft:';
 /** [sites] The versions a page had before its last updates (NEXT ROUND sites.u2): the newest first, three at most. */
-const PREV = 'site:prev:';
+export const PREV = 'site:prev:';
 export const MAX_VERSIONS = 3;
 /** One earlier version of a page, as its list shows it. */
 export interface SiteVersion {
@@ -113,7 +113,8 @@ export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: Durable
   addPart(name: string, part: string): Promise<Draft>;
   dropDraft(name: string): Promise<void>;
   versions(name: string): Promise<SiteVersion[]>;
-  restore(name: string): Promise<Site | undefined>;
+  /** `expect`: the version his APPROVE was shown; refused (undefined) when the newest kept one is no longer it. */
+  restore(name: string, expect?: { at: number; replaced: number }): Promise<Site | undefined>;
 } {
   const list = async () => (await durableGet<SiteEntry[]>(env, storage, INDEX)) ?? [];
   const saveList = (entries: SiteEntry[]) => durablePut(env, storage, INDEX, entries.slice(0, MAX_SITES));
@@ -170,11 +171,12 @@ export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: Durable
       return prev.map((v) => ({ at: v.site.at, title: v.site.title, bytes: sizeOf(v.site), replaced: v.replaced }));
     },
     /** The newest earlier version put back as the page (what was live becomes the newest earlier version: an undo can be undone). */
-    async restore(name) {
+    async restore(name, expect) {
       const slug = siteSlug(name);
       const prev = (await durableGet<{ site: Site; replaced: number }[]>(env, storage, PREV + slug)) ?? [];
       const back = prev[0];
       if (!back) return undefined;
+      if (expect && (back.site.at !== expect.at || back.replaced !== expect.replaced)) return undefined;
       // drop it from the list first, so put() files what is live now in its place
       await durablePut(env, storage, PREV + slug, prev.slice(1));
       const restored: Site = { ...back.site, at: Date.now() };
@@ -691,20 +693,25 @@ export const siteTools: Tool[] = [
         /* not a URL */
       }
       const had = await siteStore(ctx.env, ctx.storage).get(name);
+      let pinned = a;
       if (a.from_phone === true) {
-        const k = (await waitingPage(ctx))?.kind;
+        const w = await waitingPage(ctx);
+        const k = w?.kind;
+        // the APPROVE is tied to the page it shows: run() refuses if a different page has been handed over since (review fix)
+        pinned = { ...a, phone_at: w?.at ?? 0 };
         from = k === 'home' ? ' (your home page from your phone: only the pages you chose)' : ` (the ${k === 'deck' ? 'deck' : 'document'} from your phone, read-only)`;
       }
-      return { args: a, reason: `${had ? 'Update' : 'Publish'} "${title}"${from} as a public page at ${siteLink(ctx.origin, ctx.env, name)}? (${kb(html.length)}; anyone with the link can open it${had ? '; this replaces the page already there' : ''})` };
+      return { args: pinned, reason: `${had ? 'Update' : 'Publish'} "${title}"${from} as a public page at ${siteLink(ctx.origin, ctx.env, name)}? (${kb(html.length)}; anyone with the link can open it${had ? '; this replaces the page already there' : ''})` };
     },
     async run(a, ctx) {
       const name = siteSlug(arg.str(a, 'name'));
       if (!name) throw new Error('name must contain letters or numbers');
-      if (a.undo === true) return undoRun(name, ctx);
+      if (a.undo === true) return undoRun(name, a, ctx);
       const source = arg.str(a, 'source_url', false);
       const store = siteStore(ctx.env, ctx.storage);
       // Progress under this tool's line in the chat (?. — tests call tools with a bare context).
       if (a.from_draft) ctx.progress?.('joining the parts of the draft…');
+      if (a.from_phone === true && typeof a.phone_at !== 'number') throw new Error('that page from your phone was not the one approved: ask again');
       const page = await pageHtml(a, name, ctx);
       ctx.progress?.(`checking the page (${kb(page.length)})…`);
       const { html, notes } = prepareSite(page, source);
@@ -841,11 +848,16 @@ async function undoApproval(name: string, a: Record<string, unknown>, ctx: { env
   if (!now) throw new Error(`nothing is published at /s/${name}`);
   const [back] = await store.versions(name);
   if (!back) throw new Error(`"${now.title}" has no earlier version kept: it has not been updated since it went up (or the earlier ones were older than the last ${MAX_VERSIONS})`);
-  return { args: { name, undo: true }, reason: `Put back the earlier version of "${back.title}" at ${siteLink(ctx.origin, ctx.env, name)} (published ${when(back.at)} UTC, replaced ${when(back.replaced)} UTC)? What is live now is kept, so you can undo this too.` };
+  // the APPROVE is tied to the version it names: undoRun refuses if the newest kept one changed since (review fix)
+  return { args: { name, undo: true, back_at: back.at, back_replaced: back.replaced }, reason: `Put back the earlier version of "${back.title}" at ${siteLink(ctx.origin, ctx.env, name)} (published ${when(back.at)} UTC, replaced ${when(back.replaced)} UTC)? What is live now is kept, so you can undo this too.` };
 }
-async function undoRun(name: string, ctx: { env: Env; storage?: DurableObjectStorage; origin?: string; emit: (e: { t: 'client'; name: 'show_link'; args: Record<string, unknown> }) => void }): Promise<string> {
-  const back = await siteStore(ctx.env, ctx.storage).restore(name);
-  if (!back) throw new Error(`no earlier version of /s/${name} is kept`);
+async function undoRun(name: string, a: Record<string, unknown>, ctx: { env: Env; storage?: DurableObjectStorage; origin?: string; emit: (e: { t: 'client'; name: 'show_link'; args: Record<string, unknown> }) => void }): Promise<string> {
+  const at = Number(a.back_at);
+  const replaced = Number(a.back_replaced);
+  if (!Number.isFinite(at) || !Number.isFinite(replaced)) throw new Error('that undo was not the one he approved: ask again');
+  const store = siteStore(ctx.env, ctx.storage);
+  const back = await store.restore(name, { at, replaced });
+  if (!back) throw new Error((await store.versions(name)).length ? `the earlier version of /s/${name} changed since he was asked (an undo from the Workshop?): ask again, so he sees what goes back` : `no earlier version of /s/${name} is kept`);
   const link = siteLink(ctx.origin, ctx.env, name);
   ctx.emit({ t: 'client', name: 'show_link', args: { url: link, title: back.title } });
   return `Put back: "${back.title}" is live again at ${link} (the version that was there is kept, so this can be undone). Give the owner this exact link.`;
@@ -880,6 +892,8 @@ async function pageHtml(a: Record<string, unknown>, name: string, ctx: { env: En
   if (a.from_phone === true) {
     const w = await waitingPage(ctx);
     if (!w) throw new Error('nothing is waiting from his phone: tell him to open the document or deck and tap PUT IT ON MY SITES there, then ask again');
+    // after the APPROVE: only the page that card showed (review fix: a page handed over since is not published under it)
+    if ('phone_at' in a && w.at !== a.phone_at) throw new Error('the page on your phone changed since you were asked: ask again, so you see what goes up');
     return w.html;
   }
   if (a.from_draft) {
