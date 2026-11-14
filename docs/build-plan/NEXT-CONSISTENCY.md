@@ -115,9 +115,22 @@ that would send or post still stops at APPROVE.
   - Left: short how-to cards with pictures.
 
 ## Checks
-- **Brain suite:** whole, run on the final code before the merge.
-- **New specs:** `routines` and `helpdesk`, appended to check.yml's `all=`. The consistency spec now has the one-name check.
-- **Specs that read the renamed words:** run here and green. These are:
-  - consistency, restc, awareness, lens, foresight, faces, places, planmepass, brief, machine and guardian;
-  - the rest of the batch (tabs, nav, deck, tabs2, look, settings, gamestudio, hubcards, eyehud2 and homepass) are listed with
-    their results in the merge commit.
+- **Brain suite:** 2,313 of 2,313 on the merged tree (05:00 UTC). The typechecks and the catalogue, ratchet, knowledge, look and
+  meanings tests passed again after the last merge.
+- **New specs:** `routines` and `helpdesk`, at the end of check.yml's `all=`. The consistency spec now also has the one-name check.
+  All three pass on the merged tree (consistency 147 s, routines 27 s, helpdesk 32 s here).
+- **Specs that read the renamed words were updated to the new words, as strict as before, and run here green:**
+  - nav, tabs and tabs2;
+  - memory and planmepass;
+  - look and settings;
+  - lens, faces, restc and awareness;
+  - places, brief, machine, guardian and foresight;
+  - planlane, deck and hubcards;
+  - gamestudio and eyehud2;
+  - homepass, further and makepass;
+  - voicelane.
+- **The voice lane's screen sentences follow the one names:** "Opening Interpret.", "Opening Game Studio.", "Opening Courses.".
+- **Fixed in passing:** the TRY IT check measures once the reply's entrance has ended, and WHAT'S NEW keeps one list name that every
+  lane adds to.
+- **Timing:** the worker restarted at about 03:35, so the first merge landed at 04:53 instead of 03:30. The last merge was at 05:08
+  (b5704d80).
