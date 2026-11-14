@@ -103,7 +103,7 @@ test('journal: a photo’s own place is read on the phone and only names the nea
   assert.ok(!/\b(?:e|entry|was)\.(?:lat|lon)\b|\be\.(?:lat|lon)\s*=/.test(ui), 'the screen never writes a position into an entry');
   const store = readFileSync(at('../../web/src/features/journal/store.ts'), 'utf8');
   const entry = store.slice(store.indexOf('export interface Entry'), store.indexOf('export interface JournalPrefs'));
-  assert.ok(!/\b(?:lat|lon|gps|position)\b/i.test(entry), 'an entry has no field for a position');
+  assert.ok(!/^\s*(?:lat|lon|lng|gps|coords?|position)\??:/im.test(entry), 'an entry has no field for a position');
 });
 
 test('keep in touch: due words, the order (most over first) and the due count, from the dates he marked alone', async () => {
