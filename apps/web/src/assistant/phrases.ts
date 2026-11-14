@@ -80,6 +80,7 @@ import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shar
 import { TRIP_ASK } from '../ui/tripwords';
 import { WEATHER_ASK } from '../weather/words';
 import { CALC_ASK, CLOCK_ASK, CONTINUE_ASK, TROPHY_ASK } from '../clock/words';
+import { CHESS_ASK } from '../features/chess/words';
 import { RAIN_ASK, setAsked, WALL_ASK } from '../features/eye/sets';
 import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
 
@@ -217,6 +218,8 @@ export const LOCAL_ASKS = [
   { id: 'calcapp', test: (t: string) => CALC_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'arcaderecord', test: (t: string) => TROPHY_ASK.test(t.trim().replace(/[?.!]+$/, '')) || CONTINUE_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'weatherapp', test: (t: string) => WEATHER_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
+  // [learn] the CHESS app: "open chess", "chess puzzles", "puzzle rush" (features/chess/app.ts)
+  { id: 'chessapp', test: (t: string) => CHESS_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) || !!diyAsked(t) },

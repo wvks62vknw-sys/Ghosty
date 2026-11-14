@@ -53,7 +53,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp' | 'clockapp' | 'calcapp' | 'arcaderecord';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp' | 'clockapp' | 'calcapp' | 'arcaderecord' | 'chessapp';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -461,6 +461,11 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
       ? `You have earned ${room.earned} of ${room.total} trophies.${room.games.length ? ` ${lastWords}` : ' Play anything on the shelf and they come.'}`
       : last ? `${lastWords} CONTINUE is at the top of the Arcade.` : `${lastWords} The shelf is open.`;
     return answer(text, say, { kind: 'arcaderecord' }, opts);
+  // [learn] the CHESS app (features/chess/app.ts): "open chess", "chess puzzles", "puzzle rush"
+  async chessapp(text, opts) {
+    const { openChess, chessAppState } = await import('../features/chess/app');
+    openChess();
+    return answer(text, `Here’s Chess: ${chessAppState.rows} puzzle${chessAppState.rows === 1 ? '' : 's'} in your library. PUZZLES fetches more from Lichess’s free database, on your tap.`, { kind: 'chessapp' }, opts);
   },
   async camwall(text, opts) {
     location.hash = 'eye';
