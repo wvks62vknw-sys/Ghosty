@@ -6988,8 +6988,9 @@ html #top .headstamp { display: none; }
   html .scanroom .rnone[hidden], html .scanroom .handlist[hidden], html .scanroom .therest[hidden] { display: none; }
   html .scanroom .handlist { display: flex; flex-direction: column; border-top: var(--g-hair) solid var(--g-line); }
   html .scanroom .restgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: var(--g-hair) solid var(--g-line); }
-  /* one card, drawn as a row (AT HAND) or a cell (THE REST): the instrument, the status and the why are for Glass's card */
-  html #app .scanroom button.hubtile { position: relative; display: grid; align-items: start; width: 100%; height: auto; min-height: var(--g-target) !important; margin: 0; padding: var(--g-s-2) var(--g-s-1); border: 0; border-bottom: var(--g-hair) solid var(--g-line-faint) !important; border-top: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; text-align: left; color: var(--g-ink-1); overflow: visible; }
+  /* one card, drawn as a row (AT HAND) or a cell (THE REST): the instrument, the status and the why are for Glass's card.
+     A cell's rows keep their own height: a short cell beside a tall one leaves its spare height below its line, never between name and line */
+  html #app .scanroom button.hubtile { position: relative; display: grid; align-items: start; align-content: start; width: 100%; height: auto; min-height: var(--g-target) !important; margin: 0; padding: var(--g-s-2) var(--g-s-1); border: 0; border-bottom: var(--g-hair) solid var(--g-line-faint) !important; border-top: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; text-align: left; color: var(--g-ink-1); overflow: visible; }
   html .scanroom button.hubtile::before, html .scanroom button.hubtile::after { content: none; }
   html .scanroom .hubtile :is(.ins, .why, .hline, .pinmark, .kick .st, .kick > em) { display: none !important; }
   html .scanroom .hubtile .kick { display: flex; align-items: center; gap: var(--g-s-1); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); }
@@ -7019,7 +7020,7 @@ html #top .headstamp { display: none; }
   html .scanroom .restgrid .hubtile:nth-child(odd) { border-left: 0 !important; }
   html .scanroom .restgrid .hubtile::before { content: attr(data-n); display: block; grid-column: 1; grid-row: 1; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); }
   html .scanroom .restgrid .hubtile .kick { grid-column: 2; grid-row: 1; }
-  html .scanroom .restgrid .hubtile .one { display: block; grid-column: 2; grid-row: 2; margin: var(--g-s-half) 0 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+  html .scanroom .restgrid .hubtile .one { display: block; grid-column: 2; grid-row: 2; margin: var(--g-s-half) 0 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); overflow-wrap: anywhere; text-wrap: pretty; }
   html .scanroom .restgrid .hubtile :is(.t, .reads) { display: none !important; }
   html .scanroom .restgrid .hubtile .works { grid-column: 2; grid-row: 3; }
 }
