@@ -337,6 +337,12 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await page.fill(`${Hp} input[aria-label="The day you bought it"]`, bought);
       await page.fill(`${Hp} input[aria-label="How many months the warranty runs"]`, '24');
       await page.fill(`${Hp} input[aria-label="Where you bought it"]`, 'Currys');
+      // with no signal, a keep that fails leaves what he typed
+      await page.evaluate(() => (window.__off = true));
+      await page.click(`${Hp} button[aria-label="Keep this warranty"]`);
+      await page.waitForTimeout(300);
+      check((await page.inputValue(`${Hp} input[aria-label="What it is"]`)) === 'washing machine' && (await page.inputValue(`${Hp} input[aria-label="How many months the warranty runs"]`)) === '24', 'PAPERS a failed keep leaves what he typed');
+      await page.evaluate(() => (window.__off = false));
       await page.click(`${Hp} button[aria-label="Keep this warranty"]`);
       check(await until(page, () => (window.__ghosty.homeadmin.warranties ?? []).some((w) => /^washing machine \d{4}-\d\d-\d\d$/.test(w)), null, 10000), `PAPERS a warranty kept with its end date: ${JSON.stringify(await page.evaluate(() => window.__ghosty.homeadmin.warranties))}`);
       check(/I’ll remind you on/.test(await txt(page, `${Hp} p.pknote[aria-live]`)), 'PAPERS a reminder is set before it runs out');
@@ -477,7 +483,12 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await (await chooser).setFiles({ name: 'sam.png', mimeType: 'image/png', buffer: png });
       check(await until(page, () => !!document.querySelector('.ppphoto'), null, 10000) && /kept on this phone only/.test(await txt(page, `${Pp} p.pknote[aria-live]`)), 'PEOPLE his own photo of someone, kept on the phone only');
       await bar(page, 'PEOPLE bar', 'people');
-      await page.click(`${Pp} button[aria-label="Take away your photo of Sam"]`);
+      // forgetting Sam on the screen takes his photo off the phone too
+      await page.click(`${Pp} button[aria-label="Forget Sam"]`);
+      await page.locator('.modal button:has-text("Forget Sam")').click();
+      check(await until(page, () => !(window.__ghosty.people.people ?? []).some((p) => p.name === 'Sam'), null, 10000), 'PEOPLE Sam forgotten on his say');
+      const left = await page.evaluate(() => new Promise((ok) => { const r = indexedDB.open('ghosty-receipts', 1); r.onsuccess = () => { const g = r.result.transaction('photos').objectStore('photos').get('person:sam'); g.onsuccess = () => ok(!!g.result); g.onerror = () => ok(true); }; r.onerror = () => ok(true); }));
+      check(!left, 'PEOPLE forgetting someone takes his own photo of them off the phone');
       // a birthday in COMING UP: a message drafted in his voice, for him to send himself
       const on = new Date(Date.now() + 8 * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
       await pk('people', 'birthday', { who: 'Sam', words: `Sam birthday ${on}` });

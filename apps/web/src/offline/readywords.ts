@@ -32,7 +32,7 @@ export interface ReadyPiece {
 
 /** The pieces, their weights and what each keeps working. Sizes and whether each is here are filled in by offline/readiness.ts. */
 export const PIECES: Omit<ReadyPiece, 'bytes' | 'size' | 'held' | 'can' | 'why'>[] = [
-  { id: 'brain', name: 'The offline brain', gives: 'answers, the interpreter’s translations and School papers', weight: 34, where: { tab: 'settings', panel: 'OFFLINE BRAIN' } },
+  { id: 'brain', name: 'The offline brain', gives: 'answers, Interpret’s translations and School papers', weight: 34, where: { tab: 'settings', panel: 'OFFLINE BRAIN' } },
   { id: 'map', name: 'The offline map', gives: 'the map and your journeys around home', weight: 15, where: { tab: 'settings', panel: 'OFFLINE MAPS' } },
   { id: 'eyes-lens', name: 'The Lens’s eyes', gives: 'the Lens finding things and reading words and codes', weight: 15, where: { tab: 'settings', panel: 'OFFLINE EYES' } },
   { id: 'eyes-name', name: 'The namer', gives: 'the Lens naming everyday things', weight: 8, where: { tab: 'settings', panel: 'OFFLINE EYES' } },

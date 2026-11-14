@@ -8,7 +8,7 @@
  */
 import { NOTE_ASK } from './phrases';
 import { brain } from '../api/brain';
-import { speaker, type Label } from './voiceknown';
+import type { Label } from './voiceknown';
 import type { LocalAnswer } from './local';
 
 type Answer = (text: string, reply: string, local: LocalAnswer, opts: { voice?: boolean; private?: boolean }) => true;
@@ -21,9 +21,8 @@ export async function noteTurn(text: string, opts: { voice?: boolean; private?: 
   if (!note) return false;
   const go: LocalAnswer['go'] = [{ id: 'screen:memory', ask: -1, label: 'Open Memory', open: 'memory' }];
   if (opts.voice) {
-    // (the turn's own label, as the phone judged it; else the talk bar's tag for this turn)
-    const h = speaker.get().heard;
-    const who: Label | undefined = opts.who ?? (h ? (h.label === 'unknown' && h.sure === false ? 'unsure' : h.label) : undefined);
+    // (this turn's own label only: the talk bar's tag can still be an earlier turn's when this one was too short to judge, review fix)
+    const who: Label | undefined = opts.who;
     if (who !== 'owner') {
       /* state: core.note unsure */
       const why = !who ? 'I couldn’t tell whose voice that was' : who === 'unsure' ? 'I wasn’t sure that was you' : who === 'unknown' ? 'that wasn’t a voice I know' : 'that was someone else’s voice';

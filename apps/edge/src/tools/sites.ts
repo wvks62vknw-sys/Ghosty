@@ -12,15 +12,17 @@
  * It is not indexed by search engines, and password fields are refused before publishing, so it
  * can't pass for a real login or payment page.
  */
-import { APP_SW, appBase, appCsp, appManifest, renderApp, type AppConfig } from '../../../../packages/shared/src/appkit/index';
+import { APP_SW, appBase, appCsp, appManifest, renderApp, runAppGates, type AppConfig } from '../../../../packages/shared/src/appkit/index';
 import { appApproval, buildApp } from '../appbuild';
 import { changeApp, changeApproval } from '../appchange';
+import { withLearn } from '../learnapp';
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import { guardedFetch, unsafeUrl } from '../netguard';
 import { durableDelete, durableGet, durablePut } from '../kv';
 import { siteApproval, startSiteBuild } from '../sitebuild';
 import { formTarget } from '../../../../packages/shared/src/sitekit/blocks/formkit';
+import { eventIn, icsOf } from '../../../../packages/shared/src/sitekit/calendar';
 import { checkHtml, refusal } from './check';
 import { gameApproval, publishGame } from '../gamesite';
 import { dropWaitingPage, waitingPage } from '../sitepage';
@@ -69,6 +71,8 @@ export interface Site {
    * composed on each visit from this and the studio's own player (never from anything stored as code), with its manifest and icon.
    */
   game?: Game;
+  /** [sites] His note on a game's front page (sites.u11), in his words. */
+  gameNote?: string;
 }
 /** One line of the list of published pages. */
 export interface SiteEntry {
@@ -561,6 +565,7 @@ export const siteTools: Tool[] = [
         experience: { type: 'array', description: 'a CV: the jobs the owner gave, only', items: { type: 'object', properties: { when: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' } }, required: ['when', 'title'] } },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>' },
         my_photos: { type: 'boolean', description: 'true when he asks for his own photos' },
+        look: { type: 'string', enum: ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass'], description: 'one of Ghosty\'s looks, when he names it' },
         confirm: { type: 'boolean', description: 'true only to publish the draft waiting at link_name once the owner confirmed its list' },
       },
       required: ['request'],
@@ -595,14 +600,24 @@ export const siteTools: Tool[] = [
         accent: { type: 'string', enum: ['cyan', 'blue', 'teal', 'mint', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'indigo'] },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>/' },
         change: { type: 'boolean', description: 'true: change his app at link_name, only what he named' },
+        from_learn: { type: 'string', description: 'a Learn course: its flash cards as the app' },
         add_items: { type: 'array', items: { type: 'string' }, description: 'change: habits, list items or players to add' },
         remove_items: { type: 'array', items: { type: 'string' }, description: 'change: ones to take out' },
       },
       required: ['request'],
     },
     risk: 'confirm', // it ends on the public internet: the owner approves the app in plain words first
-    approval: (a, ctx) => (a.change === true ? changeApproval(a, ctx) : appApproval(a, ctx)),
-    run: (a, ctx) => (a.change === true ? changeApp(a, ctx) : buildApp(a, ctx)),
+    async approval(a, ctx) {
+      if (a.change === true) return changeApproval(a, ctx);
+      // [sites] a Learn course's cards as the app (learnapp.ts, sites.c2): the cards stay out of the card's arguments
+      const l = await withLearn(a, ctx);
+      const r = await appApproval(l.args, ctx);
+      return l.said ? { args: { ...a, link_name: r.args.link_name }, reason: `${r.reason}${l.said}` } : r;
+    },
+    async run(a, ctx) {
+      if (a.change === true) return changeApp(a, ctx);
+      return buildApp((await withLearn(a, ctx)).args, ctx);
+    },
   },
   {
     name: 'study_site',
@@ -737,12 +752,12 @@ export const siteTools: Tool[] = [
     name: 'publish_game',
     description:
       "Put the game open in his Game Studio on his sites (\"put Fox on my sites\"): an installable page at …/s/<name>/ that plays offline and keeps its saves. He approves it every time. Give him the link as returned. UNDO: unpublish_site.",
-    parameters: { type: 'object', properties: { name: { type: 'string', description: "the game's name, as he said it" } } },
+    parameters: { type: 'object', properties: { name: { type: 'string', description: "the game's name, as he said it" }, note: { type: 'string', description: 'his note for the front page, if he gave one' } } },
     risk: 'confirm', // it goes on the public internet: his APPROVE, every time; the run publishes only what the approval kept
     approval: (a, ctx) => gameApproval(a, ctx, (n) => siteStore(ctx.env, ctx.storage).get(n), (n) => siteLink(ctx.origin, ctx.env, n)),
     async run(a, ctx) {
       const store = siteStore(ctx.env, ctx.storage);
-      const r = await publishGame(a, ctx, (name, game) => store.put({ name, title: game.name, html: '', source: '', at: Date.now(), game }), (n) => siteLink(ctx.origin, ctx.env, n));
+      const r = await publishGame(a, ctx, (name, game, note) => store.put({ name, title: game.name, html: '', source: '', at: Date.now(), game, ...(note ? { gameNote: note } : {}) }), (n) => siteLink(ctx.origin, ctx.env, n));
       ctx.emit({ t: 'client', name: 'show_link', args: { url: r.link, title: r.title } });
       return `Published "${r.title}" — live now at ${r.link} (a game: Share → Add to Home Screen installs it; it plays offline and keeps its saves on that phone). Give him this exact link.`;
     },
@@ -778,6 +793,47 @@ export const siteTools: Tool[] = [
   },
 ];
 
+/**
+ * [sites] /s/<name>/event.ics (sites.s1): the calendar file of the event a published page describes (its own search listing), for a
+ * guest's iPhone or Outlook to add. Made from the stored page each time; a page with no event, or an app or a game, has none.
+ */
+export function siteIcsResponse(site: Site | undefined, origin: string): Response {
+  const ev = site && !site.app && !site.game ? eventIn(site.html) : null;
+  if (!site || !ev) return notFound();
+  const body = icsOf({ ...ev, url: ev.url ?? `${origin}/s/${site.name}` }, `${site.name}-${ev.start}@ghosty`);
+  return new Response(body, { headers: { ...common, 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': `inline; filename="${site.name}.ics"`, 'cache-control': 'no-cache' } });
+}
+
+/**
+ * [sites] A published page's check-up (NEXT ROUND sites.u9): the same check every page passes before it goes up, run again on the live
+ * page (a mini-app: the kit's own gates; a game: the studio's own problems), with its size; the words he reads, nothing changed.
+ * A fix goes through an update and his APPROVE, as every page does.
+ */
+export function checkUp(site: Site): { ok: boolean; errors: string[]; warnings: string[]; kb: number; said: string } {
+  const plain = (l: string) => l.replace(/^line \d+: /, '');
+  let errors: string[] = [];
+  let warnings: string[] = [];
+  if (site.app) {
+    const g = runAppGates({ ...site.app.config, id: site.name }, renderApp({ ...site.app.config, id: site.name }));
+    errors = g.errors;
+    warnings = g.warnings;
+  } else if (site.game) {
+    errors = [];
+    warnings = [];
+  } else {
+    const r = checkHtml(site.html, { formAction: site.formAction });
+    errors = r.errors.map(plain);
+    warnings = r.warnings.map(plain);
+  }
+  const kb = Math.max(1, Math.round((site.game ? JSON.stringify(site.game).length : site.html.length) / 1024));
+  const said = errors.length
+    ? `${errors.length} problem${errors.length === 1 ? '' : 's'} to fix${warnings.length ? ` and ${warnings.length} worth fixing` : ''}. Ask me to fix them: I show you the change and it goes up after your APPROVE.`
+    : warnings.length
+      ? `Nothing broken. ${warnings.length} thing${warnings.length === 1 ? '' : 's'} worth fixing. Ask me to fix them: I show you the change and it goes up after your APPROVE.`
+      : `All clear: nothing to fix (${kb} KB).`;
+  return { ok: !errors.length, errors: errors.slice(0, 8), warnings: warnings.slice(0, 8), kb, said };
+}
+
 /** [sites] UNDO for a published page (sites.u2): what goes back, said before his APPROVE. */
 async function undoApproval(name: string, a: Record<string, unknown>, ctx: { env: Env; storage?: DurableObjectStorage; origin?: string }): Promise<{ args: Record<string, unknown>; reason: string }> {
   const store = siteStore(ctx.env, ctx.storage);
@@ -800,11 +856,17 @@ async function undoRun(name: string, ctx: { env: Env; storage?: DurableObjectSto
  * (agent.ts, behind his sign-in): the Workshop's UNDO LAST UPDATE, a tap he confirms on his own phone, as UNPUBLISH is.
  */
 export async function siteVersionsRoute(req: Request, path: string, c: { env: Env; storage?: DurableObjectStorage }): Promise<Response> {
-  const m = /^\/sites\/([a-z0-9-]{1,48})\/(versions|restore)$/.exec(path);
+  const m = /^\/sites\/([a-z0-9-]{1,48})\/(versions|restore|check)$/.exec(path);
   const out = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
   if (!m) return out({ error: 'not here' }, 404);
   const store = siteStore(c.env, c.storage);
   if (m[2] === 'versions' && req.method === 'GET') return out({ versions: await store.versions(m[1]!) });
+  // [sites] the page's check-up (sites.u9): the publish check on the live page, in his words; nothing is changed
+  if (m[2] === 'check' && req.method === 'GET') {
+    const site = await store.get(m[1]!);
+    if (!site) return out({ error: 'That page is not published any more.' }, 404);
+    return out(checkUp(site));
+  }
   if (m[2] === 'restore' && req.method === 'POST') {
     const back = await store.restore(m[1]!);
     return back ? out({ ok: true, title: back.title, at: back.at, versions: (await store.versions(m[1]!)).length }) : out({ error: 'That page has no earlier version kept.' }, 404);
