@@ -17,6 +17,7 @@ import { syncTodos, todoPanel } from './todo';
 import { monthPanel } from './month';
 import { workDuePanel } from './workdue';
 import { timelinePanel } from './timeline';
+import { moveKeys } from './drag';
 import { AHEAD_DAYS } from './todowords';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
@@ -360,6 +361,8 @@ export const agendaTab: TabDef = {
       card.append(
         h('div.keyrow.wrapit.addev.evedit', ti, at, endAt, where),
         h('div.keyrow.wrapit.evpick', adKey, remSel),
+        // [planlane4:calendar] EARLIER / LATER by 15 minutes and A DAY LATER: a move in place without a drag (drag.ts), with UNDO
+        moveKeys(e, (t, fn) => evUndo.show(t, fn)),
         h('div.keyrow.wrapit', saveB, button('CLOSE', () => {
           openEv = '';
           evDraft = null;
@@ -571,6 +574,8 @@ export const agendaTab: TabDef = {
 
     // until the diary is read it says so (not an empty list that looks like nothing is on)
     paintEvents();
+    // [planlane4:calendar] an event moved (a drag on the timeline, EARLIER / LATER): the diary is read again
+    addEventListener('ghosty:agenda', () => void load());
 
     const suggest = h(
       'div.keyrow.wrapit.suggest',

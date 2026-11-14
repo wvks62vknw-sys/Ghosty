@@ -6,8 +6,10 @@
  * diary was given and his list through todo.ts's own read functions.
  */
 import type { AgendaEventInfo } from '../../../../../packages/shared/src/protocol';
+import { patchEvent } from '../../api/offline';
 import { clear, fmt, h } from '../../core/dom';
-import { button, panel } from '../../ui/components';
+import { button, panel, undoBar } from '../../ui/components';
+import { attachDrag, dragStart, movable, moveTo, readOnlyWords, STEP } from './drag';
 import { dueOn, loadTodos } from './todo';
 import { dayOf } from './todowords';
 import { longGap } from './words';
@@ -124,6 +126,31 @@ const VIEW_KEY = 'ghosty.agenda.timeline';
  */
 export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: boolean; offline: boolean; hasCopy: boolean }, pick: (id: string) => void): { el: HTMLElement; paint(): void } {
   const p = panel('TIMELINE', { grow: false, cls: 'timeline' });
+  // [planlane4:calendar] a drag's UNDO, in the panel's own bar; a move shown at once while the brain changes it; a read-only hold said calmly
+  const ub = undoBar();
+  p.el.insertBefore(ub.el, p.body);
+  const moving = new Map<string, number>();
+  let said = '';
+  let saidTimer = 0;
+  const say = (t: string) => {
+    said = t;
+    clearTimeout(saidTimer);
+    saidTimer = window.setTimeout(() => {
+      said = '';
+      paint();
+    }, 9000);
+    paint();
+  };
+  const move = (e: AgendaEventInfo, start: number) => {
+    moving.set(e.id, start);
+    said = '';
+    paint();
+    void moveTo(e, start, (t, fn) => ub.show(t, fn)).then((ok) => {
+      if (ok) return;
+      moving.delete(e.id);
+      paint();
+    });
+  };
   let view: View = 'today';
   try {
     const v = localStorage.getItem(VIEW_KEY);
@@ -145,7 +172,7 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
     b.dataset.case = 'keep';
     b.dataset.id = e.id;
     b.append(h('span.tlwhen', label), h('b.tltitle', e.title), e.location ? h('small.tlwhere', e.location) : '');
-    b.setAttribute('aria-label', `${e.title}, ${label}${e.location ? `, at ${e.location}` : ''}. Tap to see it whole or change it.`);
+    b.setAttribute('aria-label', `${e.title}, ${label}${e.location ? `, at ${e.location}` : ''}. Tap to see it whole or change it.${cls.startsWith('tlev') ? movable(e) ? ' Hold and drag to move it.' : ` From ${e.source}, read only.` : ''}`);
     return b;
   };
 
@@ -184,10 +211,26 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
       const b = evRow(e, `tlev${endOf(e) <= now ? ' past' : ''}${e.start <= now && endOf(e) > now ? ' live' : ''}`, label);
       b.setAttribute('role', 'listitem');
       b.style.cssText = `top:${pct(e.start)};--tlh:calc(${pct(endOf(e))} - ${pct(e.start)});left:calc(var(--tlgut) + (100% - var(--tlgut)) * ${col / cols});width:calc((100% - var(--tlgut)) / ${cols})`;
+      // [planlane4:calendar] hold and drag to a new time, in 15-minute steps inside the hours drawn (a feed's says it is read only)
+      b.classList.toggle('agmine', movable(e));
+      attachDrag(b, {
+        grid,
+        can: movable(e),
+        start: e.start,
+        height: `calc(${pct(endOf(e))} - ${pct(e.start)})`,
+        place: (_dx, dy) => {
+          const s = dragStart(e.start, dy, grid.getBoundingClientRect().height / span, 0, top, at(day, last) - STEP);
+          return { start: s, top: pct(s), label: `${hm(s)}–${hm(s + (endOf(e) - e.start))}` };
+        },
+        drop: (s) => move(e, s),
+        refuse: () => say(readOnlyWords(e)),
+      });
       grid.append(b);
     }
     if (isToday && now >= top && now < at(day, last)) grid.append(h('span.tlnow', { style: `top:${pct(now)}`, role: 'listitem', 'aria-label': `Now, ${hm(now)}` }, h('b', `Now ${hm(now)}`)));
     out.push(grid);
+    // [planlane4:calendar] how to move one, said once under the day (only when there is one of his own to move)
+    if (timed.some(movable)) out.push(h('small.note.tlhint', { dataset: { case: 'keep' } }, 'Hold one of your events and drag it to a new time. Calendar feeds are read only.'));
     return out;
   };
 
@@ -207,7 +250,10 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
   };
 
   const paint = () => {
-    const { events, loaded, offline, hasCopy } = get();
+    const { events: got, loaded, offline, hasCopy } = get();
+    // [planlane4:calendar] a move on its way is drawn where it was dropped until the diary read has it there
+    for (const [id, s] of moving) if (!got.some((e) => e.id === id && e.start !== s)) moving.delete(id);
+    const events = moving.size ? got.map((e) => (moving.has(e.id) ? patchEvent(e, { start: moving.get(e.id)! }) : e)) : got;
     const now = Date.now();
     const keys = (['today', 'tomorrow', 'week'] as View[]).map((v) => {
       const b = button(v === 'today' ? 'TODAY' : v === 'tomorrow' ? 'TOMORROW' : 'PLAN MY WEEK', () => setView(v), `tlkey${view === v ? ' on' : ''}`);
@@ -226,7 +272,8 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
       : view === 'week' ? weekView(events, now) : dayView(events, days[0]!, now);
     /* state: agenda.timeline offline */
     const note = offline ? [h('p.note.bad.tlcopy', { dataset: { case: 'keep', state: 'offline' } }, !blind ? 'Laid out from the last copy of your diary on this phone: I can’t reach your brain right now.' : 'I can’t reach your brain and this phone has no copy of your diary yet, so only your to-dos show here. It fills in when I can.')] : [];
-    clear(p.body, bar, ...note, ...body);
+    const heard = said ? [h('p.note.tlmovesay', { role: 'status', dataset: { case: 'keep' } }, said)] : [];
+    clear(p.body, bar, ...note, ...heard, ...body);
   };
   // his list changed somewhere (the TO-DO panel, the chat): the to-dos beside the day follow it
   // (the list's own change signal, by its name: todo.ts is the list's to change, so only its read functions are imported)

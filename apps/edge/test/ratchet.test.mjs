@@ -267,6 +267,8 @@ export const STATES = {
   // and the month's own read of any month (on its way, the brain not giving it): new parts (base 0)
   'agenda.timeline': { dir: 'agenda', base: 0, now: 3 },
   'agenda.monthread': { dir: 'agenda', base: 0, now: 2 },
+  // [planlane4:calendar] DRAG TO MOVE and EARLIER / LATER (a move that waits on the phone with no signal, one the brain refused): new (base 0)
+  'agenda.drag': { dir: 'agenda', base: 0, now: 2 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },

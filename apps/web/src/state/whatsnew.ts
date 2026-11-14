@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [planlane4:calendar] THE APPS ROUND, CALENDAR: drag to move, the year, colour calendars (features/agenda/drag.ts, year.ts, calendars.ts)
+  { day: '2026-11-14', title: 'Drag to move an event', line: 'AGENDA → Diary → TIMELINE: hold one of your events and drag it to a new time, in 15-minute steps, with UNDO. Or tap it and use EARLIER, LATER or A DAY LATER.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },

@@ -10570,3 +10570,18 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 @media (max-width: 899px) {
   html #pg-studio, html #pg-studio .hud, html #pg-studio .hud .col { transform-style: flat; }
 }
+
+/* ==== [planlane4:calendar] ==== */
+/* DRAG TO MOVE (features/agenda/drag.ts): his own events can be held (no callout, no text picked), the one held dims in place, and the
+   ghost shows where it would go, in his colour, with the new time on it; a feed's event looks the same but never moves */
+html #pg-agenda .pn.timeline button.tlev.agmine { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+html #pg-agenda .pn.timeline button.tlev.agdragging { opacity: .4; }
+html #pg-agenda .pn.timeline .tlgrid[data-dragging] { -webkit-user-select: none; user-select: none; }
+html #pg-agenda .pn.timeline .agghost { position: absolute; z-index: 3; left: var(--tlgut); right: 0; box-sizing: border-box; min-height: var(--g-target); padding: var(--g-s-half) var(--g-s-1); border-radius: var(--rad); border: var(--g-stroke) dashed var(--c); background: color-mix(in srgb, var(--c) 30%, var(--g-canvas, transparent)); pointer-events: none; }
+html #pg-agenda .pn.timeline .agghost b { color: var(--ink); font-variant-numeric: tabular-nums; }
+html #pg-agenda .pn.timeline .tlhint { display: block; padding: var(--g-s-half) 0 0; color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .pn.timeline .tlmovesay { margin: 0 0 var(--g-s-1); overflow-wrap: anywhere; }
+/* EARLIER / LATER / A DAY LATER in the event's sheet: 44 pt keys that wrap, never sideways */
+html #pg-agenda .evcard .agmove { gap: 6px; }
+html #pg-agenda .evcard .agmove button.agmovekey { width: auto; min-height: var(--g-target) !important; padding: 0 14px; }
+/* ==== [planlane4:calendar end] ==== */
