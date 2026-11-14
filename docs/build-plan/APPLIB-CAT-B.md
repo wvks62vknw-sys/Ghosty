@@ -51,12 +51,12 @@ type scale, Elo).
 | games.31 Dungeon Master | `campaign-journal` | log |
 | games.37 Cube | `cube-times` | log |
 
-### Games (new, 31)
+### Games (new, 30)
 Puzzles and quick play: `merge-tiles`, `merge-daily`, `reaction-time`, `maths-sprint`, `times-tables`, `typing-test`,
 `echo-rush`, `capital-pairs`, `element-pairs`, `memory-match`, `big-nonograms`, `eight-puzzle`, `lights-colour`,
 `snake-wrap`, `word-scramble`, `word-hunt-big`. Quizzes (every fact checked, plain and well known): `capital-cities`,
 `space-quiz`, `body-quiz`, `world-quiz`, `uk-quiz`, `animal-quiz`, `science-quiz`, `elements-quiz`, `sport-quiz`.
-For players: `board-game-shelf`, `game-backlog`, `dice-odds`, `elo-calc`, `chess-openings`, `card-rules`.
+For players: `board-game-shelf`, `game-backlog`, `dice-odds`, `elo-calc`, `chess-openings`.
 
 ## Game options
 The options follow each kind's documented header in `packages/shared/src/applib/games/` once PLAY & MAKE landed them;
@@ -158,3 +158,9 @@ Each is a real engine or a live device feature that no archetype can give truthf
 - games.53 Kids Corner (locked mode): a locked full-screen shell with a code needs its own build; the children's games landed.
 - games.56 Colouring: fill and brushes on line art need a canvas engine.
 - games.57 Rhythm Run: beat detection on his own songs needs audio analysis.
+
+## Sources
+Every guide holds only facts its named source states, re-checked against the source page: the screenplay, composition,
+typeface and colour theory guides against their Wikipedia articles, the poetry forms against the Poetry Foundation
+glossary entries, colour vision against Colour Blind Awareness, and passport photos against GOV.UK (UK rules only).
+A card game rules guide was dropped because one source page did not hold every rule.

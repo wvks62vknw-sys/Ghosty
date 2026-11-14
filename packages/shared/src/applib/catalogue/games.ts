@@ -1413,31 +1413,4 @@ export const GAMES: AppDef[] = [
       ],
     },
   },
-  {
-    id: 'card-rules',
-    name: 'Card Game Rules',
-    family: 'games',
-    glyph: 'cards',
-    pitch: 'The rules of classic card games for the table, in plain short sections.',
-    keywords: ['card games', 'rules', 'whist', 'rummy', 'cribbage', 'hearts'],
-    archetype: 'guide',
-    tour: [
-      'Each game has how to deal, how to play and how to score.',
-      'Search a game name, or a word like trumps or meld.',
-      'House rules vary: agree them before the first deal.',
-    ],
-    guide: {
-      source: { name: 'Pagat: rules of card games', url: 'https://www.pagat.com' },
-      sections: [
-        { title: 'Whist: the deal', body: 'Four players in two partnerships sit opposite each other. All 52 cards are dealt, 13 each. The last card dealt is turned up to show trumps.', tags: ['whist', 'trumps', 'partners'] },
-        { title: 'Whist: play', body: 'Players must follow the suit led if they can. The highest card of the suit led wins the trick unless a trump is played, when the highest trump wins. The winner of a trick leads to the next.', tags: ['whist', 'tricks', 'follow suit'] },
-        { title: 'Whist: scoring', body: 'A partnership scores one point for each trick it takes over six.', tags: ['whist', 'score'] },
-        { title: 'Hearts', body: 'Usually four players, each for themselves, with 13 cards each and no trumps. Each heart taken in a trick scores one penalty point and the queen of spades scores thirteen. The lowest score wins.', tags: ['hearts', 'penalty', 'queen of spades'] },
-        { title: 'Rummy', body: 'Players draw and discard to build melds: sets of three or four of a kind, or runs of three or more in one suit. The first to meld all their cards goes out.', tags: ['rummy', 'meld', 'runs', 'sets'] },
-        { title: 'Cribbage: basics', body: 'Usually two players with a pegging board. Each discards two cards to the crib. Points come from fifteens, pairs, runs and flushes, pegged during play and counted after. The first to 121 wins.', tags: ['cribbage', 'crib', '121', 'fifteens'] },
-        { title: 'Cribbage: counting', body: 'Any cards adding to fifteen score two. A pair scores two, a run scores one per card, and the jack of the same suit as the starter card scores one.', tags: ['cribbage', 'fifteen two', 'nobs'] },
-        { title: 'Snap', body: 'Players turn cards onto a pile in turn. When two cards of the same rank appear one after the other, the first to call snap takes the pile. The player who collects every card wins.', tags: ['snap', 'children'] },
-      ],
-    },
-  },
 ];
