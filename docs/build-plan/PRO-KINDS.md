@@ -53,3 +53,17 @@ helpers and the screen kind. The styles are one block at the end of `apps/web/st
 ## Following SHELL
 Everything draws inside the kit's scroll area using `--g-*` tokens and the accent, so SHELL's skins and accent change these
 screens without edits. Nothing here sets a skin.
+
+## After SHELL landed (75dbf67), and the lead's launcher notes (landed 45d7267)
+- Inside SHELL's frame, the rings, sliders, unit chips, ticks, round dots, the leader chip, the guide icon and the launcher's art
+  take each app's own `--al-accent` and `--al-on-accent`. The answer's size follows `--al-pro-heronum`.
+- A yes-or-no answer with bands (contrast-check's AA and AAA, for example) shows only its words, never 0 or 1. The big answer is
+  always the first real number. A sweep of all 168 calcs found no flags left showing a number. Five calcs still show a 0 or 1,
+  but each is a real number (a quadratic root of 1, a coin count of 0).
+- The game launcher is now a game's home:
+  - the name shows once, in the header;
+  - Undo and Redo stay hidden until PLAY;
+  - under the chips: a Levels card (the app's own, or the kind's usual levels when it names none, handed to the board so the
+    level picked is the one played), a Today's game card that also starts play, and Your record (won, win rate, best run).
+- `applibkinds` checks all of that at 440 and 390. `applibkinds`, `applib`, `applibplay`, `applibpro` and the brain suite (2,485 of
+  2,485) were green before landing.
