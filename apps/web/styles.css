@@ -661,6 +661,9 @@ html body .brworld .brcam { position: relative; display: block; width: 100%; min
 .brworld .brcam img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .brworld .brcam.dead img { visibility: hidden; }
 .brworld .brcam span { position: absolute; left: 0; right: 0; bottom: 0; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); overflow-wrap: anywhere; }
+/* fuel stations and chargers on the map (see.s7): the marks drawn from the tokens */
+.leaflet-interactive.fuelmark.fuel { stroke: var(--g-amber); fill: var(--g-amber); fill-opacity: .55; }
+.leaflet-interactive.fuelmark.charger { stroke: var(--g-ok); fill: var(--g-ok); fill-opacity: .55; }
 .jstale { margin: var(--g-s-half) 0; padding: var(--g-s-half) var(--g-s-1); border-radius: var(--g-radius-key); color: var(--g-amber, var(--amber)); background: var(--g-plate-fill); overflow-wrap: anywhere; }
 
 /* Training ground */

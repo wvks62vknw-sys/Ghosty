@@ -318,7 +318,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (r) return packAnswer({ said: text, reply: r.reply, go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] }, opts);
     return packAnswer(await bodyTurn(text), opts);
   },
-  timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [voice lane] a timer set in the voice of a person he introduced carries their name (voice.s2)
+  timer: async (text, opts) => packAnswer(await kitchenTurn(text, opts.who && typeof opts.who === 'object' ? opts.who.name : undefined), opts),
   // [bodylane] the pantry and the recipe book on this phone (features/kitchen/larder.ts)
   larder: async (text, opts) => {
     const r = await import('../features/kitchen/larder').then((m) => m.larderTurn(text)).catch(() => null);

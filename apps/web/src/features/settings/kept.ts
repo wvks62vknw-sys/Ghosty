@@ -81,7 +81,7 @@ export function keptBlock(): { el: HTMLElement; refresh(): Promise<void> } {
       exp.dataset.act = 'exportmemory';
       out.push(keyRow('MEMORY', KEPT_WORDS.memory(mem.length), open, exp));
     }
-    if (pl) out.push(keyRow('PLACES', KEPT_WORDS.places(pl.length, pl.map((p) => p.label)), ...(pl.length ? [button('OPEN TO FORGET', () => showPanel('memory', 'ME'))] : [])));
+    if (pl) out.push(keyRow('PLACES', KEPT_WORDS.places(pl.length, pl.map((p) => p.label)), ...(pl.length ? [button('OPEN TO FORGET', () => showPanel('memory', 'ABOUT YOU'))] : [])));
     const meFace = faces.some((f) => f.id === 'me');
     const otherFaces = faces.filter((f) => f.id !== 'me').length;
     const forgetFaces = button('FORGET ALL FACES', async () => {

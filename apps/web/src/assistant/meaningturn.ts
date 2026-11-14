@@ -26,7 +26,8 @@ const KEY_WORDS: Record<string, string> = {
 };
 const keyWords = (m: Meant): string => m.say ?? m.brain ?? KEY_WORDS[m.id] ?? m.id;
 
-type Opts = { voice?: boolean; private?: boolean };
+/** (`who`: whose voice this turn was, as the phone judged it: a person he introduced keeps their own station names, voice.s2) */
+type Opts = { voice?: boolean; private?: boolean; who?: import('./voiceknown').Label };
 
 /** His words answered by their meaning, here: true when done (or asked), false to leave them to the brain as before. */
 export async function meaningTurn(text: string, opts: Opts = {}): Promise<boolean> {
@@ -41,18 +42,22 @@ export async function meaningTurn(text: string, opts: Opts = {}): Promise<boolea
     return true;
   }
   // [voice.c1] his own names for his stations
+  // [voice.s2] a person he introduced keeps their own names: "my morning station" in Sam's voice is Sam's
+  const person = opts.who && typeof opts.who === 'object' ? opts.who.name : '';
+  const key = (label: string) => (person ? `${person.toLowerCase()}:${label}` : label);
+  const whose = person ? `${person}’s` : 'your';
   if (m.act === 'radio-name' && m.label) {
     const now = player.get().now;
     if (!now || (player.get().state !== 'playing' && player.get().state !== 'loading')) return answer(text, `Nothing’s playing to call your ${m.label} station. Put a station on, then say it again.`, { kind: 'can', go: [{ id: 'screen:radio', ask: -1, label: 'Open the radio', open: 'radio' }] }, opts);
-    favourites.name(now, m.label);
-    return answer(text, `Saved: ${now.name} is your ${m.label} station. Say “put on my ${m.label} station” any time.`, { kind: 'can' }, opts);
+    favourites.name(now, key(m.label));
+    return answer(text, `Saved: ${now.name} is ${whose} ${m.label} station. Say “put on my ${m.label} station” any time.`, { kind: 'can' }, opts);
   }
   if (m.act === 'radio-named' && m.label) {
-    const s = favourites.byName(m.label);
+    const s = favourites.byName(key(m.label)) ?? (person ? favourites.byName(m.label) : null);
     // (no station by that name: left to the radio's own words and the brain, as before)
     if (!s) return false;
     const ok = await playStation(s);
-    return answer(text, ok ? `Playing ${s.name}, your ${m.label} station.` : `${s.name} needs a tap first: open Radio and tap PLAY.`, { kind: 'can', go: [{ id: 'screen:radio', ask: -1, label: 'Open the radio', open: 'radio' }] }, opts);
+    return answer(text, ok ? `Playing ${s.name}, ${s.label === key(m.label) ? whose : person ? 'the' : 'your'} ${m.label} station.` : `${s.name} needs a tap first: open Radio and tap PLAY.`, { kind: 'can', go: [{ id: 'screen:radio', ask: -1, label: 'Open the radio', open: 'radio' }] }, opts);
   }
   if (m.act === 'radio-stop') {
     const on = player.get().state === 'playing' || player.get().state === 'loading';
