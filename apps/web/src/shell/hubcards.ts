@@ -1063,6 +1063,29 @@ export const CARDS: Record<string, HubCard> = {
     },
     why: () => 'Hold a key and speak; nothing is recorded',
   },
+  // [apps.voice] TRANSLATE: the language it translates into, and the phrasebook he keeps (both on this phone)
+  translate: {
+    title: 'Type, paste or speak',
+    status: () => 'READY',
+    instrument: () => voiceInst(false),
+    readouts: () => {
+      let to = 'es';
+      let starred = 0;
+      try {
+        const p = JSON.parse(localStorage.getItem('ghosty.translate.pair') ?? '{}') as { to?: string };
+        if (typeof p.to === 'string' && p.to) to = p.to;
+        const b = JSON.parse(localStorage.getItem('ghosty.translate.book') ?? '[]') as unknown[];
+        starred = Array.isArray(b) ? b.length : 0;
+      } catch {
+        /* storage refused or not JSON: the defaults */
+      }
+      return [
+        { label: 'Into', value: langName(to) },
+        { label: 'Phrasebook', value: starred ? String(starred) : null, unit: starred === 1 ? 'phrase' : 'phrases', none: 'None yet' },
+      ];
+    },
+    why: () => 'Finds the language as you type; history kept on this phone',
+  },
   rehearse: {
     title: 'Practise a hard talk',
     status: () => 'READY',

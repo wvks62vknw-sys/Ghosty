@@ -555,3 +555,6 @@ test('settings that follow the people he introduced: their station names, their 
   const local = readFileSync(at('../../web/src/assistant/local.ts'), 'utf8');
   assert.match(local, /kitchenTurn\(text, opts\.who && typeof opts\.who === 'object' \? opts\.who\.name : undefined\)/, 'only a person he introduced, never a stranger');
 });
+
+// [apps.voice] the TRANSLATE app's own checks run with this lane's
+await import('./translateapp.test.mjs');
