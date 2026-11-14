@@ -176,6 +176,14 @@ for (const vp of VIEWPORTS) {
   check(await until(page, (k) => window.__ghosty.handsfree.said.length === k + 1 && /^Step 1\./.test(window.__ghosty.handsfree.said.at(-1)), n1), `${T} "say that again" reads the step again`);
   await page.evaluate(() => window.__ghosty.handsfree.hear('what a lovely day'));
   check((await page.evaluate(() => window.__ghosty.handsfree.said.length)) === n1 + 1 && (await page.locator(`${RC} [data-step="1"]`).count()) === 1, `${T} other words are not cook-mode words`);
+  // a step read again (back, then next; or "repeat") never starts a second timer
+  await page.evaluate(() => window.__ghosty.handsfree.hear('next'));
+  await until(page, (s) => document.querySelector(`${s} [data-step]`)?.dataset.step === '2', RC);
+  await page.evaluate(() => window.__ghosty.handsfree.hear('repeat'));
+  await page.waitForFunction(() => /^Step 2\./.test(window.__ghosty.handsfree.said.at(-1)) && window.__ghosty.handsfree.said.filter((x) => /^Step 2\./.test(x)).length >= 3, null, { timeout: 6000 }).catch(() => undefined);
+  check((await page.evaluate(() => window.__ghosty.timers().length)) === tn + 1 && !/started the timer/.test(await page.evaluate(() => window.__ghosty.handsfree.said.at(-1))), `${T} reading a timed step again starts no second timer (${await page.evaluate(() => window.__ghosty.timers().length)} timers)`);
+  await page.evaluate(() => window.__ghosty.handsfree.hear('go back'));
+  await until(page, (s) => document.querySelector(`${s} [data-step]`)?.dataset.step === '1', RC);
   await bar(page, `${T} hands-free`, 'kitchen');
   await page.evaluate(() => window.__ghosty.handsfree.hear('stop listening'));
   check(await until(page, () => window.__ghosty.handsfree.on === false), `${T} "stop listening" ends hands-free`);
@@ -202,6 +210,11 @@ for (const vp of VIEWPORTS) {
   check(sent.every((x) => x.repeat === 'daily' && x.title === 'Tablets' && !/vitamin/i.test(x.text)) && sent.map((x) => new Date(x.at).getHours()).sort((a, b) => a - b).join(',') === '8,20', `${T} each is the time and a plain line, never the name: ${JSON.stringify(sent.map((x) => [new Date(x.at).getHours(), x.text]))}`);
   const onBrain = (await jobs()).filter((j) => j.title === 'Tablets');
   check(onBrain.length === 2 && onBrain.every((j) => j.repeat === 'daily' && !/vitamin/i.test(j.text)), `${T} the brain holds two daily reminders with no name: ${JSON.stringify(onBrain.map((j) => [j.repeat, j.text]))}`);
+  const times = await page.evaluate(() => [window.__ghosty.meds.timesIn('8 pm'), window.__ghosty.meds.timesIn('8 am and 8 pm'), window.__ghosty.meds.timesIn('8.30 pm'), window.__ghosty.meds.timesIn('12 am, 12 pm')]);
+  check(JSON.stringify(times) === JSON.stringify([['20:00'], ['08:00', '20:00'], ['20:30'], ['00:00', '12:00']]), `${T} "8 pm" is 20:00, never 8 in the morning: ${JSON.stringify(times)}`);
+  await page.evaluate(() => Promise.all([window.__ghosty.meds.sync(), window.__ghosty.meds.sync(), window.__ghosty.meds.sync()]));
+  const after = (await jobs()).filter((j) => j.title === 'Tablets');
+  check(after.length === 2 && (await page.evaluate(() => window.__ghosty.meds.data().meds[0].jobs.length)) === 2, `${T} three syncs at once leave exactly the two reminders, both tracked: ${after.length} on the brain`);
   await page.locator(`${M} button[aria-label="Vitamin D at 08:00: taken"]`).click();
   check(await until(page, (s) => document.querySelector(`${s} [data-dose="Vitamin D@08:00"]`)?.dataset.tick === 'taken', M), `${T} TAKEN ticks the morning dose`);
   check(/about 4 days left/.test(await txt(page, `${M} .bm-med summary`)), `${T} the packet counts down: "${await txt(page, `${M} .bm-med summary`)}"`);
@@ -603,6 +616,24 @@ for (const vp of VIEWPORTS) {
   const plan = (await brainDo('kitchen', 'plan', { words: '' })).data?.plan?.days ?? [];
   check(plan.filter(Boolean).length >= 3 && !plan.some((d) => /bolognese|stir-fry|chilli con carne|chicken curry|sausage|tuna/i.test(d)), `[390] a vegetarian at the table: no meat in the week: ${plan.join(' / ')}`);
   await bar(page, '[390] family rota', 'kitchen');
+  await ctx.close();
+}
+
+// ---- p. NO SIGNAL FOR A REMINDER: the brain can't be reached, so the queued add is dropped (never an id the phone can't take back)
+{
+  log('reminders with no brain');
+  const { ctx, page } = await phone(VIEWPORTS[1], { before: (page) => page.route(/\/api\/jobs(?:\/|$|\?)/, (r) => r.abort('failed')) });
+  await open(page, 'body', 'Health');
+  const M = `${PK('body')} .bt[data-track="meds"]`;
+  await page.waitForSelector(M);
+  await page.evaluate((s) => (document.querySelector(`${s} .bm-add`).open = true), M);
+  await page.fill(`${M} input[aria-label="The tablet’s name"]`, 'Iron');
+  await page.fill(`${M} input[aria-label="Its times of day"]`, '9am');
+  await page.locator(`${M} button[aria-label="Keep this tablet"]`).click();
+  check(await until(page, () => (window.__ghosty?.lockpush?.dropped ?? []).length >= 1, null, 10000), '[390] with no brain, the queued reminder is dropped, not kept under an id the phone never learns');
+  check(await page.evaluate(() => window.__ghosty.meds.data().meds.every((m) => m.jobs.every((id) => !id.startsWith('local-')))), '[390] no phone-only id is kept as a reminder');
+  const r = await ask(page, 'I had a double vodka', /units/);
+  check(/About 2 units in the last 7 days/.test(r.text), `[390] a double vodka is two units: "${r.text.slice(0, 140)}"`);
   await ctx.close();
 }
 

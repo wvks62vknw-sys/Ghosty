@@ -353,6 +353,12 @@ export function startBoot(): void {
   const f = flags();
   f.__bootState = bootState;
   f.__bootFault = bootFault; // (a check shows the fault's words: tests/bootpass.spec.mjs)
+  // the colour and the look this open plays in, said the moment it starts and before it decides how (the whole film, the short cut, a
+  // quick reopen, the Lens's lock-in, a resume's breath): main.ts applied his recipe just before, so --c is already his colour. (A check
+  // reads it on every kind of open; play() sets the same values again with the floor it draws on.)
+  const dd0 = document.documentElement.dataset;
+  bootState.accent = getComputedStyle(document.documentElement).getPropertyValue('--c').trim() || bootState.accent;
+  bootState.recipe = { ...bootState.recipe, theme: dd0.theme ?? '', ground: dd0.ground ?? '', night: dd0.night ?? '', world: dd0.world ?? '', glow: dd0.glow ?? '' };
   const el = document.getElementById('boot') ?? document.body.appendChild(h('div#boot'));
   const automated = navigator.webdriver && !f.__ghostyBoot;
   const hash = location.hash.slice(1);

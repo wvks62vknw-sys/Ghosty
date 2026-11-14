@@ -83,7 +83,7 @@ export const radioTab: TabDef = {
     const np = panel('NOW PLAYING', { grow: false, cls: 'nowp' });
     const fp = panel('FAVOURITES', { cls: 'scroll.favs' });
     // RECENT: the stations he played lately, newest first, kept on this phone (one tap plays again)
-    const rp = panel('RECENT', { cls: 'scroll.recent', grow: false });
+    const rp = panel('RECENT', { cls: 'scroll.radrecent', grow: false });
     P.right.append(np.el, fp.el, rp.el);
 
     const q = h('input', { placeholder: 'Station, genre or country…', 'aria-label': 'Search radio' });

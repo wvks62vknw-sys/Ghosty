@@ -341,6 +341,10 @@ test('an event page: its start read from his words, two add-to-calendar buttons,
   const ics = await r.text();
   for (const line of ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'DTSTART;TZID=Europe/London:20261214T200000', 'DTEND;TZID=Europe/London:20261214T230000', 'SUMMARY:Northern Soul Night', 'END:VCALENDAR']) assert.ok(ics.includes(line), line);
   assert.ok(ics.split('\r\n').every((l) => new TextEncoder().encode(l).length <= 75), 'folded at 75 octets');
+  // (review fix) TEXT escaped as RFC 5545 says (a semicolon as backslash-semicolon), and no line break rides in on the URL
+  const odd = P.icsOf({ name: 'Soul; night, live', start: '2026-12-14T20:00', url: 'https://ghosty.example/s/x\r\nATTENDEE:evil@example.com' }, 'u1', new Date(Date.UTC(2026, 10, 14)));
+  assert.ok(odd.includes('SUMMARY:Soul\\; night\\, live'), 'the semicolon and the comma escaped');
+  assert.ok(!odd.split('\r\n').some((l) => l.startsWith('ATTENDEE')), 'no line of its own from the URL');
   // a page with no event, an app, a game: none
   assert.equal(P.siteIcsResponse({ name: 'x', title: 'x', html: '<p>hi</p>', source: '', at: 1 }, 'https://ghosty.example').status, 404);
   // no date: no buttons
@@ -361,7 +365,16 @@ test('a Learn course\'s cards as a flash-cards mini-app: found by its topic, its
   assert.match(ap.reason, /^Make the mini-app "French verbs"/);
   assert.match(ap.reason, /From your Learn course "French verbs": 2 cards\.$/);
   assert.equal(ap.args.cards, undefined, 'the cards are not on the approval card');
-  await app.run(ap.args, ctx);
+  // (review fix) pinned to that course and the cards it counted: changed cards, or no approval, are refused
+  assert.equal(ap.args.learn_id, 'c1');
+  await assert.rejects(app.run({ request: 'x', from_learn: 'french verbs' }, ctx), /not the ones approved/);
+  const cardsWere = await st.get('cards:c1');
+  await st.put('cards:c1', [...cardsWere, { id: 'k4', course: 'c1', front: 'to go', back: 'aller', added: 4 }]);
+  await assert.rejects(app.run(ap.args, ctx), /changed since he was asked/);
+  await st.put('cards:c1', cardsWere);
+  await st.put('learn:index', [{ id: 'c9', topic: 'French verbs', title: 'French verbs: more', level: 'beginner', minutes: 10, lessons: 5, done: 0 }, { id: 'c1', topic: 'French verbs (old)', title: 'French verbs: the basics', level: 'beginner', minutes: 10, lessons: 5, done: 2 }]);
+  await app.run(ap.args, ctx); // built from c1 by its id, though a newer course now has its old name
+  await st.put('learn:index', [{ id: 'c1', topic: 'French verbs', title: 'French verbs: the basics', level: 'beginner', minutes: 10, lessons: 5, done: 2 }]);
   const site = await P.siteStore(env, st).get(ap.args.link_name);
   assert.equal(site.app.config.shape, 'cards');
   assert.deepEqual(site.app.config.cards.cards, [{ q: 'to be', a: 'être' }, { q: 'to have', a: 'avoir' }]);
