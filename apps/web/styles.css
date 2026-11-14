@@ -10570,3 +10570,36 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 @media (max-width: 899px) {
   html #pg-studio, html #pg-studio .hud, html #pg-studio .hud .col { transform-style: flat; }
 }
+
+/* [files] FILES (features/files/app.ts): one place for everything Ghosty keeps; rows, chips, the card's preview and the storage bars, from the tokens */
+.files { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.files .ftop > .fsearch { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); }
+.files .ftools > button, .files .ftools > select, .files .fchips > button, .files .fselbar > button { min-height: var(--g-target); }
+.files .fchips { flex-wrap: wrap; gap: 6px; }
+.files .flistbox { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.files .frow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 4px; border-bottom: 1px solid var(--g-line-faint); cursor: pointer; min-width: 0; }
+.files .frow:focus-visible { outline: 2px solid var(--g-line); outline-offset: -2px; }
+.files .fglyph { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--g-line-faint); border-radius: var(--g-r-s, 8px); font: var(--g-t-label); letter-spacing: .06em; color: var(--g-ink-2); }
+.files .fbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.files .fname { color: var(--g-ink-1); overflow-wrap: anywhere; }
+.files .fsub, .files .fsnip { color: var(--g-ink-3); font-size: .86em; overflow-wrap: anywhere; }
+.files .fsnip { color: var(--g-ink-2); font-style: italic; }
+.files .fstar { flex: none; min-width: var(--g-target); min-height: var(--g-target); background: none; border: 0; color: var(--g-ink-2); font-size: 20px; }
+.files .fstar[aria-pressed="true"] { color: var(--c); }
+.files .fpick { flex: none; width: 22px; height: 22px; }
+.files .fbinkeys { flex: none; gap: 6px; }
+.files .fbinkeys > button { min-height: var(--g-target); }
+.files .fbig { margin: 0; font: var(--g-t-value); color: var(--g-ink-1); }
+.files .fbars { display: flex; flex-direction: column; gap: 8px; }
+.files .fbar { display: grid; grid-template-columns: minmax(0, 7.5em) 1fr auto; align-items: center; gap: 10px; }
+.files .fbartrack { height: 8px; border-radius: 4px; background: var(--g-line-faint); overflow: hidden; }
+.files .fbartrack > i { display: block; height: 100%; background: var(--c); }
+.files .fbarsize { color: var(--g-ink-2); }
+.fcard { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fcard .fkeys { flex-wrap: wrap; gap: 8px; }
+.fcard .fkeys > button { min-height: var(--g-target); box-sizing: border-box; }
+.fcard .fmeta, .fcard .ftags { margin: 0; color: var(--g-ink-2); }
+.fpreview { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; overscroll-behavior: contain; }
+.fpreview .fpic { max-width: 100%; max-height: 40vh; object-fit: contain; border-radius: var(--g-r-s, 8px); }
+.fpreview .ftext { margin: 0; white-space: pre-wrap; color: var(--g-ink-1); overflow-wrap: anywhere; }
+.fpreview .flist { margin: 0; padding-left: 1.2em; color: var(--g-ink-2); }

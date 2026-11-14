@@ -267,6 +267,8 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'video', label: 'Video', names: ['video editor', 'videos', 'my videos', 'clips', 'films'], bare: ['video editor'] },
   { tab: 'gamestudio', label: 'Game Studio', names: ['game studio', 'game maker', 'game builder', 'make games', 'my game projects'], bare: ['game studio', 'game maker'] },
   { tab: 'comic', label: 'the comic', names: ['comic', 'comics', 'comic book', 'comic maker', 'graphic novels', 'manga'] },
+  // [files] FILES (THE APPS ROUND, lane BOOT): everything Ghosty keeps
+  { tab: 'files', label: 'Files', names: ['files', 'my files', 'file manager', 'all my files', 'files app'], bare: ['file manager', 'files app'] },
   { tab: 'house', label: 'the house', place: true, names: ['house', 'smart home', 'home controls', 'lights and heating', 'heating', 'thermostat', 'my house'] },
 ];
 

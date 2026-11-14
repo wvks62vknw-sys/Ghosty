@@ -48,7 +48,7 @@ export const DECK_GROUPS: [string, string[]][] = [
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
-  ['Me', ['memory', 'settings', 'system', 'links', 'social']],
+  ['Me', ['memory', 'files', 'settings', 'system', 'links', 'social']],
 ];
 
 const lens = (mode: string): DeckAct => ({ run: 'open_lens', args: { mode } });

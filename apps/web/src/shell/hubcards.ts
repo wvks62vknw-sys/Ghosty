@@ -54,6 +54,8 @@ import { videoInst } from '../video/inst';
 import { videoTally } from '../video/tally';
 import { gameInst } from '../studio-game/inst';
 import { comicInst } from '../features/comic/inst';
+import { filesInst } from '../features/files/inst';
+import { filesState } from '../features/files/state';
 import { comicState } from '../features/comic/state';
 import { info as studioInfo } from '../studio-game/hub';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
@@ -651,6 +653,20 @@ export const CARDS: Record<string, HubCard> = {
     load: async () => (await import('../studio-game/editor')).refreshInfo(),
     say: () => (studioInfo.games ? `${studioInfo.games} ${studioInfo.games === 1 ? 'game' : 'games'} on this phone, the newest “${studioInfo.last}”` : ''),
     idle: 'No games yet: pick a template, and make one in a minute',
+  },
+  // [files] ME → FILES (features/files): everything Ghosty keeps, in one place, on this phone
+  files: {
+    title: 'Everything you keep',
+    status: () => 'READY',
+    instrument: filesInst,
+    readouts: () => [
+      { label: 'Things', value: filesState.loaded && filesState.count ? String(filesState.count) : null, none: 'None yet' },
+      { label: 'Space', value: filesState.loaded && filesState.bytes ? (filesState.bytes < 1_000_000 ? `${Math.max(1, Math.round(filesState.bytes / 1000))} KB` : `${(filesState.bytes / 1_000_000).toFixed(1)} MB`) : null, none: '—' },
+    ],
+    why: () => (filesState.count ? '' : 'What you make in the editors appears here, and IMPORT brings files from your phone'),
+    load: async () => (await import('../features/files/app')).countFiles(),
+    say: () => (filesState.loaded && filesState.count ? `${filesState.count} ${filesState.count === 1 ? 'thing' : 'things'} kept on this phone` : ''),
+    idle: 'Nothing kept yet: what you make appears here',
   },
   // [comic] MAKE → COMIC (features/comic): his comics read, made, and fetched from the public domain; all kept on this phone
   comic: {

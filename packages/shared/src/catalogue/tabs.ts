@@ -99,6 +99,13 @@ export const TABS_WORDS: Record<string, CatValue> = {
   },
   'phrase:comic': { same: 'screen:comic' },
   'hub:comic': { same: 'screen:comic' },
+  'screen:files': {
+    name: 'Files: everything you keep', line: 'You can find any document, sheet, deck, photo, video, game, comic or file you keep, in one place.',
+    more: 'Search the names, tags and the words inside; folders, stars and recents; share in Word, Excel and PowerPoint formats or as one zip; deleted things wait 30 days.',
+    say: ['Open Files', 'Recently deleted', 'Show me my files'], scene: ['phone'], cat: 'build', since: '2026-11-14',
+  },
+  'hub:files': { same: 'screen:files' },
+  'me:files': { same: 'screen:files' },
   // ---- the Me sheet's row for it
   'me:social': { same: 'screen:social' },
 
