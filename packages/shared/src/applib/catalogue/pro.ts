@@ -1,4 +1,5 @@
 import type { AppDef, CalcOutput, Skin } from '../types';
+import { MORE_SAMPLES } from './samples';
 
 /**
  * THE PRO ROUND's catalogue layer (docs/build-plan/APPLIB-PRO.md, the DATA lane): which apps lead the Library, the few apps
@@ -345,12 +346,14 @@ export const WORDS: Record<string, Record<string, Words>> = {
   daylight: { len: { explain: 'From sunrise to sunset on that day at that latitude.' } },
 };
 
-/** The curation applied to a family's apps (tier always set; hue, skin and words only where given). */
+/** The curation applied to a family's apps (tier always set; hue, skin, words and extra first-run records only where given). */
 export function pro(apps: AppDef[]): AppDef[] {
   return apps.map((a) => {
     const d: AppDef = { ...a, tier: a.archetype === 'screen' || ESSENTIAL.has(a.id) ? 'essential' : 'more' };
     if (SKIN[a.id] && SKIN[a.id] !== a.family && !a.skin) d.skin = SKIN[a.id];
     if (HUE[a.id] != null && a.hue == null) d.hue = HUE[a.id];
+    const more = MORE_SAMPLES[a.id];
+    if (more && a.sample) d.sample = [...a.sample, ...more].slice(0, 8);
     const w = WORDS[a.id];
     if (w && a.calc) d.calc = { ...a.calc, outputs: a.calc.outputs.map((o) => (w[o.id] ? { ...o, ...w[o.id] } : o)) };
     return d;
