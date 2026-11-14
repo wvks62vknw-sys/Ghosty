@@ -93,9 +93,16 @@ export async function keepTurn(text: string, opts: Opts, answer: Answer): Promis
     else void refreshKeep();
     return answer(t, K.whereKept(said.what, said.where, sent), { kind: 'pack', go }, opts);
   }
+  // (not in the copy and there is a signal: a fresh copy first, since he may have said it a moment ago)
+  const fresh = async <X,>(find: () => X | undefined): Promise<X | undefined> => {
+    const now = find();
+    if (now !== undefined || !navigator.onLine) return now;
+    await Promise.race([refreshKeep(), new Promise((r) => setTimeout(r, 2500))]);
+    return find();
+  };
   const thing = whereAsked(t);
   if (thing) {
-    const hit = keepStore.get().items.filter((x) => x.kind === 'where' && (norm(x.what).includes(norm(thing)) || norm(thing).includes(norm(x.what)))).sort((a, b) => b.at - a.at)[0];
+    const hit = await fresh(() => keepStore.get().items.filter((x) => x.kind === 'where' && (norm(x.what).includes(norm(thing)) || norm(thing).includes(norm(x.what)))).sort((a, b) => b.at - a.at)[0]);
     if (hit) return answer(t, K.whereFound(hit.what, hit.detail ?? '', day(hit.at)), { kind: 'pack', go }, opts);
     // not in the copy: the brain may know it from a chat (its recall), so it is asked when it can be; else said plainly
     if (navigator.onLine && !keepStore.get().at) return false;
@@ -103,7 +110,11 @@ export async function keepTurn(text: string, opts: Opts, answer: Answer): Promis
   }
   const chose = whyAsked(t);
   if (chose) {
-    const hit = keepStore.get().items.filter((x) => x.kind === 'why' && (norm(x.what).includes(norm(chose)) || norm(chose).includes(norm(x.what)))).sort((a, b) => b.at - a.at);
+    const hit =
+      (await fresh(() => {
+        const l = keepStore.get().items.filter((x) => x.kind === 'why' && (norm(x.what).includes(norm(chose)) || norm(chose).includes(norm(x.what)))).sort((a, b) => b.at - a.at);
+        return l.length ? l : undefined;
+      })) ?? [];
     if (hit.length) return answer(t, K.whyFound(hit[0]!.what, hit.map((x) => x.detail ?? '').filter(Boolean), day(hit[0]!.at)), { kind: 'pack', go }, opts);
     // the turns may hold his reason ("…because…") even when it was not caught as one
     if (await recallWarm()) {
