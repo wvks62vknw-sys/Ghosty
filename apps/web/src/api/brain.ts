@@ -562,8 +562,13 @@ export const brain = {
   /** The Telegram bot (LINKS → TELEGRAM): its state, a fresh pairing code, forget the paired chat, a test message. */
   telegramStatus: () => req<TelegramStatus>('GET', '/telegram/status'),
   /** [security] the brain's locks and every APPROVE and NOT NOW (security.ts), for the SECURITY screen */
-  security: () => req<{ locks: import('../features/security/locks').BrainLocks; approvals: import('../features/security/locks').ApprovalEntry[] }>('GET', '/security'),
+  security: () => req<{ locks: import('../features/security/locks').BrainLocks; approvals: import('../features/security/locks').ApprovalEntry[]; lockedAt?: number | null }>('GET', '/security'),
   clearApprovals: () => req<{ ok: boolean }>('DELETE', '/security/approvals'),
+  /** [security] CHECK A LINK: the guardian's scam check from public records, no model (security.u9) */
+  securityLinkCheck: (text: string) => req<{ verdict: string; words: string; links: string[] }>('POST', '/security/linkcheck', { text }),
+  /** [security] ONE TAP TO LOCK EVERYTHING (security.u11) and its unlock */
+  securityLock: () => req<{ locked: boolean; at: number | null; telegram: boolean }>('POST', '/security/lock', {}),
+  securityUnlock: () => req<{ locked: boolean }>('POST', '/security/unlock', {}),
   /** [security] HAS THIS PASSWORD LEAKED?: only the first five characters of its fingerprint leave the phone (security.s2) */
   pwnedRange: (prefix: string) => req<{ list: string }>('GET', `/security/pwned/${encodeURIComponent(prefix)}`),
   /** [security] a waiting APPROVE as a phone notification, once, when he walks away from the card (security.s10) */

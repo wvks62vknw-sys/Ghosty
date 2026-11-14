@@ -5,6 +5,7 @@
  * brings it back. Every key is 44 pt (the house's `button`).
  */
 import { h } from '../../core/dom';
+import { openSafe } from '../../core/safeurl';
 import { button, modal, toast } from '../../ui/components';
 import { forgetTurn, foundState, KIND_WORD, turnFor, undoForgetTurn, type ThingKind } from './recall';
 import { EXCHANGE_NO_ANSWER, EXCHANGE_PINNED, EXCHANGE_UNPINNED, TURN_FORGOTTEN } from './words';
@@ -38,7 +39,8 @@ export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line' | 'id'> & { 
   else if (r.kind === 'page') await import('../../workspace/sheet').then((m) => m.openWorkspace({ id: r.id }));
   else if (r.kind === 'deck') await import('../../slides/sheet').then((m) => m.openSlides({ id: r.id }));
   else if (r.kind === 'sheet') await import('../../sheets/sheet').then((m) => m.openSheets({ id: r.id }));
-  else if (r.kind === 'link') window.open(r.id, '_blank', 'noopener');
+  // [security] a link rebuilt from history opens only when it is an ordinary web link (core/safeurl.ts)
+  else if (r.kind === 'link') openSafe(r.id);
   else if (r.kind === 'todo') navTo('agenda', 'push');
   else if (r.kind === 'book') navTo('library', 'push');
   if (r.bid) land(r.bid);

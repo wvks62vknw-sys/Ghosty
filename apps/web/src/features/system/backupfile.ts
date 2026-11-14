@@ -5,6 +5,7 @@
  * It opens only with his owner key. Nothing is sent anywhere by either key.
  */
 import { h } from '../../core/dom';
+import { MAX_IMPORT_BYTES } from '../../core/safeurl';
 import { button } from '../../ui/components';
 import { chooseRestore } from './restorepreview';
 import { sayError } from '../../ui/hisWords';
@@ -48,6 +49,8 @@ export function backupFileKeys(say: (text: string, tone: '' | 'good' | 'bad') =>
     const file = pick.files?.[0];
     pick.value = '';
     if (!file) return;
+    // [security] the size is checked before the file is read whole (a phone tab is not a server)
+    if (file.size > MAX_IMPORT_BYTES) return say('That file is too big to be a Ghosty backup.', 'bad');
     const read = readBackupFile(await file.text().catch(() => ''));
     if (!read.ok) return say(read.why, 'bad');
     const day = read.file.at ? new Date(read.file.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : 'an unknown day';

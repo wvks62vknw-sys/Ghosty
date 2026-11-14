@@ -174,7 +174,8 @@ export async function keepRoute(req: Request, path: string, method: string, stor
     return json({ items: await loadKeep(storage), week, lines: weekLines(week) });
   }
   if (method !== 'POST') return json({ error: 'not found' }, 404);
-  const b = (await req.json().catch(() => ({}))) as { op?: unknown; id?: unknown; text?: unknown; via?: unknown; days?: unknown };
+  // [security] a kept line is short: a body past 16 KB is not read whole
+  const b = (Number(req.headers.get('content-length') ?? 0) > 16_000 ? {} : await req.json().catch(() => ({}))) as { op?: unknown; id?: unknown; text?: unknown; via?: unknown; days?: unknown };
   const op = String(b.op ?? '');
   const list = await loadKeep(storage);
   if (op === 'add') {

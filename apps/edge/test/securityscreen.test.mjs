@@ -239,3 +239,36 @@ test('[security] an approval read aloud while talking says exactly what will hap
   assert.match(LK.approvalSpoken('Allow send email', 'Sending an email'), /^Allow send email\. If you approve/);
   assert.doesNotMatch(said, /say yes|say approve/i);
 });
+
+test('[security] lock everything: nothing that publishes runs (no approval even asked); tools that only read still do; unlock brings it all back', async () => {
+  {
+    const locked = await (await call('/api/security/lock', { method: 'POST', body: '{}' })).json();
+    assert.equal(locked.locked, true);
+    assert.ok(locked.at > 0);
+    assert.ok((await (await call('/api/security')).json()).lockedAt > 0);
+    const ev = await chat('publish site lockcheck saying hello');
+    assert.ok(!ev.some((e) => e.t === 'approval'), 'no approval is even asked while locked');
+    const res = ev.find((e) => e.t === 'tool_result' && e.name === 'publish_site');
+    assert.ok(res && res.ok === false && /Ghosty is locked/.test(res.summary), JSON.stringify(res));
+    // tools that only read still run
+    assert.ok((await chat('remember the lock test')).some((e) => e.t === 'tool' || e.t === 'text'));
+    assert.equal((await (await call('/api/security/unlock', { method: 'POST', body: '{}' })).json()).locked, false);
+    assert.equal((await (await call('/api/security')).json()).lockedAt, null);
+    const after = await chat('publish site lockcheck saying hello');
+    assert.ok(after.some((e) => e.t === 'approval'), 'unlocked: publishing asks for APPROVE again');
+  }
+});
+
+test('[security] check a link: the guardian’s check, for a pasted link or message only, the words and the verdict back, nothing else', async () => {
+  const seen = [];
+  const checkLink = async (t) => (seen.push(t), { verdict: 'scam', words: 'This looks like a scam.\n• The address imitates Royal Mail.', links: ['https://royalmaii-parcel.example/'] });
+  const route = (body) => SEC.securityRoute('/security/linkcheck', 'POST', { env: {}, storage: new MemStorage(), previews: null, checkLink, body: async () => body });
+  const r = await route({ text: 'Your parcel is waiting: https://royalmaii-parcel.example/pay' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { verdict: 'scam', words: 'This looks like a scam.\n• The address imitates Royal Mail.', links: ['https://royalmaii-parcel.example/'] });
+  assert.equal((await route({ text: 'hello there' })).status, 400, 'no link: nothing checked');
+  assert.equal((await route(null)).status, 400);
+  assert.equal(seen.length, 1);
+  await route({ text: `https://x.example/ ${'y'.repeat(10_000)}` });
+  assert.ok(seen[1].length <= 4000, 'a huge paste is cut, never sent whole');
+});
