@@ -306,7 +306,7 @@ test('quiet household mode: a turn in a voice he introduced (or one the phone do
   assert.match(agent, /const ev = theirs \? null : /);
   // the phone: a private ask from another voice is answered there, and their turns are marked theirs and kept out of his recall
   const sess = code('assistant/session.ts');
-  assert.match(sess, /if \(who && who !== 'owner' && privateAsk\(t\) && !NOTE_ASK\.test\(t\.trim\(\)\)\) \{/, 'a note someone else asks to keep is the notes’ own question');
+  assert.match(sess, /if \(who && who !== 'owner' && !NOTE_ASK\.test\(t\.trim\(\)\) && \(privateAsk\(t\) \|\| PRIVATE_TABLES\.includes\(LOCAL_ASKS\.find\(\(p\) => p\.test\(t\)\)\?\.id \?\? ''\)\)\) \{/, 'a note someone else asks to keep is the notes’ own question; a private phone table never answers another voice');
   assert.match(sess, /theirsNow = !!who && who !== 'owner';/);
   assert.match(code('features/memory/recall.ts'), /if \(e\.kind !== 'user' \|\| !e\.text\.trim\(\) \|\| e\.theirs\) continue;/);
   // never a lock: the phone guard opens nothing, it only keeps things back
@@ -317,8 +317,9 @@ test('his private things, as another voice asks about them: money, health, messa
   const { build: b } = await import('esbuild');
   await b({ entryPoints: [new URL('../../../packages/shared/src/household.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/voiceknown/household.mjs'), logLevel: 'error' });
   const H = await import('./.build/voiceknown/household.mjs');
-  for (const t of ['how much did I spend this month?', "what's in the bank", 'read me my messages', 'any new emails', "what's on the calendar today", 'how did he sleep', 'what is his weight', 'where has he been today', 'what do you know about him', 'show me his photos', 'what are the passwords', 'read my notes', 'any appointments tomorrow', 'how many steps today', 'what is the alarm code', 'what’s on his bank card']) assert.ok(H.privateAsk(t), `"${t}" is private`);
-  for (const t of ['what is the capital of France', 'play some music', 'tell me a joke', 'how tall is the eiffel tower', 'set a timer for 10 minutes', 'what time is it', 'what are the steps to make pancakes', 'set the sleep timer', 'how do I make an account', 'play me some cards', 'what is the morse code']) assert.ok(!H.privateAsk(t), `"${t}" is not private`);
+  for (const t of ['how much did I spend this month?', "what's in the bank", 'read me my messages', 'any new emails', "what's on the calendar today", 'how did he sleep', 'what is his weight', 'where has he been today', 'what do you know about him', 'show me his photos', 'what are the passwords', 'read my notes', 'any appointments tomorrow', 'how many steps today', 'what is the alarm code', 'what’s on his bank card', 'how long did he sleep', 'how many hours did he sleep', 'how did the owner sleep', 'how many steps did he do today', 'how many steps has he walked', "read me dad's notes", 'what is the code for the front door', 'how many steps', 'how much sleep did he get', 'how have I slept', 'what’s the door code']) assert.ok(H.privateAsk(t), `"${t}" is private`);
+  for (const id of ['track', 'moneyapp', 'statement', 'recall', 'planagenda']) assert.ok(H.PRIVATE_TABLES.includes(id), `the ${id} table is kept from other voices`);
+  for (const t of ['what is the capital of France', 'play some music', 'tell me a joke', 'how tall is the eiffel tower', 'set a timer for 10 minutes', 'what time is it', 'what are the steps to make pancakes', 'set the sleep timer', 'play sleep sounds', 'how do I make an account', 'play me some cards', 'what is the morse code']) assert.ok(!H.privateAsk(t), `"${t}" is not private`);
   assert.equal(H.keptLine('Alex', 'Sam'), 'Sorry Sam, that’s Alex’s to see, so I keep it to him.');
   assert.equal(H.keptLine('boss', null), 'That’s his to see, so I keep it to him.');
   assert.equal(H.keptLine('Boss', 'Sam'), 'Sorry Sam, that’s his to see, so I keep it to him.', 'the default name, however it is written');
