@@ -11906,7 +11906,7 @@ html .al-slider::-moz-range-track { height: 6px; border-radius: var(--g-radius-m
 html .al-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -11px; border-radius: 50%; border: 0; background: var(--g-ink-1); box-shadow: 0 1px 4px var(--g-scrim, transparent); }
 html .al-slider::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; border: 0; background: var(--g-ink-1); }
 html .al-unitchips { display: flex; gap: var(--g-s-half); flex-wrap: wrap; }
-html .al-unitchip { min-width: var(--g-target); min-height: var(--g-target); padding: 0 var(--g-s-1); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-capsule, 999px); background: none; box-shadow: none; font: var(--g-t-caption); color: var(--g-ink-2); text-transform: none; display: inline-grid; place-items: center; }
+html .al-unitchip { min-width: var(--g-target); min-height: var(--g-target); padding: 0 var(--g-s-1); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-capsule); background: none; box-shadow: none; font: var(--g-t-caption); color: var(--g-ink-2); text-transform: none; display: inline-grid; place-items: center; }
 html span.al-unitchip { min-height: 0; min-width: 0; padding: 2px var(--g-s-1); }
 html .al-unitchip[aria-checked="true"], html span.al-unitchip { background: var(--g-accent); border-color: var(--g-accent); color: var(--g-canvas); }
 html .al-segrow { display: flex; gap: var(--g-s-half); padding: 3px; border-radius: var(--g-radius-key); background: var(--g-line-faint); }
@@ -11966,7 +11966,7 @@ html .al-tally > * { white-space: normal; max-width: 100%; }
 html .al-tally[data-bump="true"] .al-countval { animation: al-bump .25s ease-out; display: inline-block; }
 html .al-tallykeys { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-half); }
 html .al-tallyminus { min-width: var(--g-target); width: var(--g-target); padding: 0; }
-html .al-leadchip { padding: 2px var(--g-s-1); border-radius: var(--g-radius-capsule, 999px); background: var(--g-accent); color: var(--g-canvas); font: var(--g-t-fine); }
+html .al-leadchip { padding: 2px var(--g-s-1); border-radius: var(--g-radius-capsule); background: var(--g-accent); color: var(--g-canvas); font: var(--g-t-fine); }
 /* deck */
 html .al-deckbar { margin-bottom: var(--g-s-2); }
 html .al-stack { position: relative; margin: 0 0 var(--g-s-2); perspective: 1200px; }
@@ -12001,9 +12001,9 @@ html .al-guidetop small { font: var(--g-t-caption); color: var(--g-ink-3); }
 html article.al-guide { padding: var(--g-s-2) 0; scroll-margin-top: var(--g-s-2); }
 html .al-guidetitle { margin: 0 0 var(--g-s-1); font: var(--g-t-head); font-size: 22px; line-height: 1.25; color: var(--g-ink-1); text-transform: none; }
 html .al-guidetags { display: flex; flex-wrap: wrap; gap: var(--g-s-half); margin: 0 0 var(--g-s-1); }
-html .al-guidetags span { padding: 2px var(--g-s-1); border-radius: var(--g-radius-capsule, 999px); background: var(--g-line-faint); font: var(--g-t-fine); color: var(--g-ink-2); }
+html .al-guidetags span { padding: 2px var(--g-s-1); border-radius: var(--g-radius-capsule); background: var(--g-line-faint); font: var(--g-t-fine); color: var(--g-ink-2); }
 html article.al-guide .al-guidebody p { font: var(--g-t-reading, var(--g-t-body)); font-size: 17px; line-height: 1.6; max-width: 38em; color: var(--g-ink-1); }
-html mark.al-hit { padding: 0 1px; border-radius: 3px; background: var(--g-amber); color: var(--g-canvas); }
+html mark.al-hit { padding: 0 1px; border-radius: var(--g-radius-mark); background: var(--g-amber); color: var(--g-canvas); }
 html .al-toc { margin: 0; padding: 0; list-style: none; max-height: 60vh; overflow: auto; }
 html .al-tocrow { display: flex; align-items: center; gap: var(--g-s-1); width: 100%; min-height: var(--g-target); padding: var(--g-s-1) 0; border: 0; border-bottom: var(--g-hair) solid var(--g-line-faint); background: none; box-shadow: none; text-align: left; color: var(--g-ink-1); text-transform: none; }
 html .al-tocrow span { width: 2em; flex: none; font: var(--g-t-caption); color: var(--g-ink-3); font-variant-numeric: tabular-nums; }
