@@ -530,7 +530,7 @@ export const brain = {
   restore: (sha: string) => req<{ result: string }>('POST', `/versions/${sha}/restore`),
   /** `from`: where the window starts (ms; the brain's default is today's midnight), e.g. COMIC's week from its Monday */
   agenda: (days = 14, from?: number) => req<{ tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] }>('GET', `/agenda?days=${days}&tz=${encodeURIComponent(TZ)}${from ? `&from=${Math.round(from)}` : ''}`),
-  addEvent: (e: { title: string; start: number; end?: number; allDay?: boolean; location?: string; remindMin?: number | null }) => req<{ event: AgendaEventInfo }>('POST', '/agenda/events', { ...e, tz: TZ }),
+  addEvent: (e: { title: string; start: number; end?: number; allDay?: boolean; location?: string; notes?: string; remindMin?: number | null }) => req<{ event: AgendaEventInfo }>('POST', '/agenda/events', { ...e, tz: TZ }),
   deleteEvent: (id: string) => req('DELETE', `/agenda/events/${encodeURIComponent(id)}`),
   // [planlane2:timeline] change one of his events in place (its reminder moves with it; null clears end, place or reminder)
   editEvent: (id: string, e: { title?: string; start?: number; end?: number | null; allDay?: boolean; location?: string | null; notes?: string | null; remindMin?: number | null }) =>

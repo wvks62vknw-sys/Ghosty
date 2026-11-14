@@ -300,7 +300,8 @@ export const agendaTab: TabDef = {
         if (Number.isFinite(endMs) && endMs <= start) return toast('It has to end after it starts', 'warn');
         const remindNew = remSel.value === '' ? null : Number(remSel.value);
         b.disabled = true;
-        const changed = { title, start, end: Number.isFinite(endMs) ? endMs : undefined, allDay, location: where.value.trim() || undefined, remindMin: remindNew };
+        // (its notes too: on the paths below that put it back as a new one, a change never loses them)
+        const changed = { title, start, end: Number.isFinite(endMs) ? endMs : undefined, allDay, location: where.value.trim() || undefined, notes: e.notes, remindMin: remindNew };
         // one waiting on this phone (added with no signal) has no brain id yet: the changed one is added first, and only then the old one
         // taken out (an add that fails leaves the old one where it was)
         if (waiting) {
@@ -345,7 +346,7 @@ export const agendaTab: TabDef = {
           } catch (err) {
             if (!unreachable(err)) throw err;
             // (out of reach: put back as it was on this phone, queued like any change)
-            await brain.addEvent({ title: was.title, start: was.start, end: was.end, allDay: !!was.allDay, location: was.location, remindMin: was.remindMin });
+            await brain.addEvent({ title: was.title, start: was.start, end: was.end, allDay: !!was.allDay, location: was.location, notes: was.notes, remindMin: was.remindMin });
             await brain.deleteEvent(e.id);
           }
           toast(`Back as it was: ${e.title}`, 'ok');
