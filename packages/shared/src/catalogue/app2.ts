@@ -135,6 +135,12 @@ export const APP_2: Record<string, CatValue> = {
     more: 'I plan the course from my library and Wikipedia, at your level, a little a day.',
     say: ['Teach me Spanish', 'Teach me how electricity works'], scene: ['school'], cat: 'learn',
   },
+  'phrase:chessapp': {
+    name: 'The chess puzzles app', line: 'You can say "open chess" for puzzles from Lichess’s free database, puzzle rush, and every puzzle you tried.',
+    more: 'Puzzles come only on your tap, with the size said, and are kept on this phone. Your library of puzzles exports as CSV or JSON. PLAY is rated chess against Stockfish on the phone.',
+    say: ['Open chess', 'Chess puzzles', 'Puzzle rush'], scene: ['playing'], cat: 'learn',
+    since: '2026-11-14',
+  },
   'panel:learn:MY LEARNING MAP': {
     name: 'One map of what you know', line: 'You can see in one picture what you have learned: courses, books, speaking and revision, and what to try next.',
     more: 'Drawn from what this phone already keeps, told from your own numbers. The next thing is the lesson your misses point at, or the book you are furthest into.',

@@ -43,7 +43,15 @@ a packing list.
 - **By words, with no model:** "accessibility on", "make it easier to read", "accessibility off".
 - **Where it shows:** it is in the catalogue, so "can you…?" knows it. The Switches header now counts its rows truly (10).
 
+**Speak screen** (section 2):
+- "Read the screen" (or "read this page to me") reads the screen he is on aloud: its name first, then its headings and lines in page
+  order, never the keys' names or the bar.
+- **In the phone's own voice:** free, on the phone, works with no signal. Say "stop" to stop.
+- **Captioned:** the reply shows the same words as they are read. A phone with no voice still gets the words.
+- **Where it shows:** it is in the catalogue.
+
 ## How to try it
+- **Speak screen:** open Settings, open the search, type "read the screen" and tap the ask row.
 - **Accessibility:** say "accessibility on" (or open THE LOOK → THEMES and tap ON beside Accessibility). The words grow and
   everything holds still. Say "accessibility off" and your own switches come back.
 - **Open the demo:** on the phone, open the console and run `__ghosty.appkit.demo()`. The Packing app opens with three sample
@@ -71,7 +79,8 @@ a packing list.
   nothing pokes out sideways and every key stays 44 pt; OFF gives back his own switches. It also checks the chat's "accessibility
   on" and "off". The look test checks the words and the round trip.
 - **Other specs re-run with it:** look and routec pass.
-- **Brain suite:** 2,364 of 2,364 on the merged tree.
+- **Speak screen** is checked in the `access` spec: read from Settings, its name first, never a key, the same words shown. helpdesk passes again.
+- **Brain suite:** 2,373 of 2,373 on the merged tree.
 - **Other checks:** the ratchet and look tests pass, and the web typecheck is clean.
 
 **Also this round:** the eyehud fix (the eye's ground under software rendering), merged before the round as `aaedf86b`. The jump
@@ -84,10 +93,9 @@ bar opens at once again on CI's software GL.
 - **Voice entry to an exact screen** ("open Packing at the passport"), and a kit app's own entry in the Jump bar and on its hub.
   Both need an app registered as a screen (deck, catalogue and hub card), which is each app's lane's part.
 - **The rest of section 2, reading and accessibility:**
-  - VoiceOver reading order;
+  - VoiceOver reading order checked screen by screen (Speak screen reads in page order, but that order is not yet checked as VoiceOver's own);
   - a colour-blind-safe switch;
-  - Speak screen;
-  - captions.
+  - captions for sounds Ghosty plays (spoken replies already show their words).
 
   None of these started.
 - **Version history** for things an app makes (the kit has undo and Recently deleted, not saved versions).

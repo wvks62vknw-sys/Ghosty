@@ -27,6 +27,8 @@ export interface Entry {
   photos: { id: string; thumb: string }[];
   /** A voice note: its id in IndexedDB and its length; `text` when he typed what it said. */
   voice?: { id: string; secs: number };
+  /** The weather at his home town when he wrote it ("12°C, Overcast"), filled in for an entry about today. */
+  weather?: string;
   /** The prompt he answered, when he took one. */
   prompt?: string;
   /** A first-run example (CLEAR SAMPLES takes them all away). */
@@ -231,3 +233,68 @@ export const asDataUrl = (b: Blob): Promise<string> =>
     r.onerror = () => ok('');
     r.readAsDataURL(b);
   });
+
+// ---------------------------------------------------------------- a photo's own place, read on the phone
+
+/**
+ * Where a photo was taken, from its own EXIF data (a JPEG's GPS tags), read here on the phone. Used only to name the nearest SAVED
+ * place; the position itself is never kept in the entry and never sent anywhere. Null when the photo carries none.
+ */
+export async function photoGps(file: Blob): Promise<{ lat: number; lon: number } | null> {
+  try {
+    const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+    if (v.getUint16(0) !== 0xffd8) return null;
+    let o = 2;
+    while (o + 4 < v.byteLength) {
+      const marker = v.getUint16(o);
+      const len = v.getUint16(o + 2);
+      if (marker === 0xffe1 && v.getUint32(o + 4) === 0x45786966) return readGps(v, o + 10);
+      if ((marker & 0xff00) !== 0xff00) return null;
+      o += 2 + len;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+function readGps(v: DataView, t: number): { lat: number; lon: number } | null {
+  const le = v.getUint16(t) === 0x4949;
+  const u16 = (p: number) => v.getUint16(t + p, le);
+  const u32 = (p: number) => v.getUint32(t + p, le);
+  const ifd = (p: number) => {
+    const n = u16(p);
+    const tags = new Map<number, number>();
+    for (let i = 0; i < n; i++) tags.set(u16(p + 2 + i * 12), p + 2 + i * 12);
+    return tags;
+  };
+  const gpsAt = ifd(u32(4)).get(0x8825);
+  if (gpsAt === undefined) return null;
+  const g = ifd(u32(gpsAt + 8));
+  const ref = (tag: number) => (g.has(tag) ? String.fromCharCode(v.getUint8(t + g.get(tag)! + 8)) : '');
+  const dms = (tag: number) => {
+    const e = g.get(tag);
+    if (e === undefined) return NaN;
+    const p = u32(e + 8);
+    const r = (i: number) => u32(p + i * 8) / (u32(p + i * 8 + 4) || 1);
+    return r(0) + r(1) / 60 + r(2) / 3600;
+  };
+  let lat = dms(2);
+  let lon = dms(4);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return null;
+  if (ref(1) === 'S') lat = -lat;
+  if (ref(3) === 'W') lon = -lon;
+  return { lat, lon };
+}
+
+/** The saved place within `within` metres of a point (the nearest), or null: only a saved place's name ever comes back. */
+export function nearestSaved(p: { lat: number; lon: number }, places: { label: string; lat: number; lon: number }[], within = 300): string | null {
+  const R = 6_371_000;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  let best: { label: string; d: number } | null = null;
+  for (const s of places) {
+    const a = Math.sin(rad(s.lat - p.lat) / 2) ** 2 + Math.cos(rad(p.lat)) * Math.cos(rad(s.lat)) * Math.sin(rad(s.lon - p.lon) / 2) ** 2;
+    const d = 2 * R * Math.asin(Math.sqrt(a));
+    if (d <= within && (!best || d < best.d)) best = { label: s.label, d };
+  }
+  return best?.label ?? null;
+}

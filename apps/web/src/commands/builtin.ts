@@ -603,6 +603,17 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [lens] PHOTOS (features/photos): his private library behind the photo editor; a view, or a search already typed
+      id: 'open_photos',
+      title: 'Photos: your library, albums, search and memories',
+      group: 'GO',
+      run: async (a) => {
+        const { openPhotos } = await import('../features/photos');
+        const view = typeof a?.view === 'string' && /^(library|albums|foryou|search)$/.test(a.view) ? (a.view as 'library' | 'albums' | 'foryou' | 'search') : undefined;
+        await openPhotos({ ...(view ? { view } : {}), ...(typeof a?.q === 'string' && a.q.trim() ? { q: a.q.trim().slice(0, 80) } : {}) });
+      },
+    },
+    {
       // [video] THE VIDEO EDITOR (video/screen.ts): MAKE's seventh full editor; clips handed over open in it.
       id: 'open_video',
       title: 'Video: cut, grade, score and export a video',

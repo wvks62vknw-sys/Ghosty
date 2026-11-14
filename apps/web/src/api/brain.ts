@@ -395,7 +395,7 @@ export const brain = {
     req<{ minutes: number; km: number; delayMin: number; live: boolean; line: string }>('GET', `/traffic/commute/${from.lat.toFixed(5)},${from.lon.toFixed(5)}/${to.lat.toFixed(5)},${to.lon.toFixed(5)}`),
   /** Agenda → SPENDING (spending.ts): the statements he added, by month; no bank access of any kind. */
   spending: (month?: string, today?: string) => req<SpendingSummary>('GET', `/profile/spending${month || today ? `?${[month ? `month=${encodeURIComponent(month)}` : '', today ? `today=${encodeURIComponent(today)}` : ''].filter(Boolean).join('&')}` : ''}`),
-  spendingImport: (csv: string, rulesOnly = false) => req<SpendingSummary & { result: ImportResult }>('POST', '/profile/spending/import', { csv, ...(rulesOnly ? { rulesOnly } : {}) }),
+  spendingImport: (csv: string, rulesOnly = false, account = '') => req<SpendingSummary & { result: ImportResult }>('POST', '/profile/spending/import', { csv, ...(rulesOnly ? { rulesOnly } : {}), ...(account ? { account } : {}) }),
   /** [packs] One pack action with no model (apps/edge/src/packs/index.ts): a card's UNDO, a glass of water, a tick, a run saved. */
   packDo: (pack: PackName, action: string, args: Record<string, unknown> = {}) => req<PackOut>('POST', '/packs/do', { pack, action, args }),
   spendingFile: (k: string, c: Category, month: string) => req<SpendingSummary & { filed: number }>('POST', '/profile/spending/file', { k, c, month }),

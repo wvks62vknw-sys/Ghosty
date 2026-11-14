@@ -83,6 +83,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   // [comic] THE COMIC's "Ghosty writes, the app draws" (apps/web/src/features/comic/script.ts): a script in its plain format, for
   // his idea and the cast the phone already drew, with a setup on page one that pays off on the last page.
   // [comic] COMIC → TRANSLATE ITS WORDS: each numbered line back, marked with the language (the stand-in does not translate)
+  // [paint] PAINT → COLOUR → ASK GHOSTY FOR A PALETTE: six colour codes for the mood (the stand-in's are fixed: a calm dusk)
+  if (last.role === 'user' && /^paint palette:/i.test(ownerWords(textOf(last.content)).trim())) {
+    return { message: { role: 'assistant', content: ['#1b2a41', '#324a5f', '#6c8ead', '#c9a66b', '#e8d5b7', '#f4efe6'].join('\n') }, model };
+  }
   if (last.role === 'user' && /^comic translate:/i.test(ownerWords(textOf(last.content)).trim())) {
     const said = ownerWords(textOf(last.content));
     const lang = /into ([A-Z][a-z]+)\./.exec(said)?.[1] ?? 'French';

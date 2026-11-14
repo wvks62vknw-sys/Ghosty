@@ -223,3 +223,12 @@ test('the other shapes: a one-panel joke, a greeting card of three panels, a pic
   assert.ok(SC.readScript(text, base.cast, FM.FORMAT_ASK.book, 'book').pages.every((p) => p.panels.length === 1));
   for (const t of ['make it a comic', 'turn this into a comic', 'make a comic of that', 'comic this']) assert.equal(A.comicAsked(t)?.what, 'this', `"${t}"`);
 });
+
+test('ComicInfo.xml: the series, issue and title make the shelf\'s title; the writer, artist, year and summary are kept; a manga reads right to left; markup is text, never run', () => {
+  const xml = '<?xml version="1.0"?><ComicInfo><Title>The Lost Map</Title><Series>Sky Pirates</Series><Number>3</Number><Writer>Ann Lee &amp; Bo</Writer><Penciller>Cy Dee</Penciller><Year>1941</Year><Summary><![CDATA[A map,\n a storm <b>and</b> a ship.]]></Summary><Manga>YesAndRightToLeft</Manga></ComicInfo>';
+  const r = F.comicInfoOf(xml);
+  assert.equal(r.title, 'Sky Pirates #3: The Lost Map');
+  assert.deepEqual(r.info, { series: 'Sky Pirates', number: '3', writer: 'Ann Lee & Bo', artist: 'Cy Dee', year: '1941', summary: 'A map, a storm <b>and</b> a ship.', rtl: true });
+  assert.deepEqual(F.comicInfoOf('<ComicInfo><Title>Alone</Title><Manga>No</Manga></ComicInfo>'), { title: 'Alone', info: {} });
+  assert.deepEqual(F.comicInfoOf('not xml at all'), { info: {} });
+});
