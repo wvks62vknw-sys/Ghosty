@@ -43,6 +43,40 @@ every time, and nothing is bought.
 - Then tap **PUBLISH MY HOME PAGE (N)**. One clean page listing only those pages (title and link, no script) waits with me and goes
   up after your APPROVE in the chat.
 
+### 6. Add to calendar on event pages (`sites.s1`)
+- An event or invitation site whose date you gave (for example "on 14 December at 8pm") now has an **Add to calendar** box with two
+  buttons. **Add to Google Calendar** uses Google's own public "new event" address, with no key. **Add to iPhone or Outlook
+  calendar** opens a calendar file that your server makes from the page itself.
+- A date with no time is all day. The page's search listing now carries the start in the form calendars and search engines read.
+
+### 7. QR codes and posters (`sites.s2`, with `sites.u4`)
+- Workshop → PUBLISHED PAGES → **QR AND POSTER** on any page shows its QR code, made on your phone.
+- **SAVE** or **SHARE** an A4 poster or an A6 flyer: the title, the code and the address, black on white so it prints well.
+- Your own domain appears only if you already have one; nothing is bought.
+
+### 8. Your Learn flash cards as an app (`sites.c2`, built into Learn)
+- In LEARN, a course with cards has **CARDS ON MY HOME SCREEN**, or say "make my French verbs cards an app".
+- That course's own cards become a flash-cards app that revises offline. The approval says how many cards.
+
+### 9. Your sites in one of my looks (`sites.c6`)
+- "Build my café a website **in the ink look**" (or scan, map, eye, orbit, grown, glass). The site wears that look:
+  - the Scan and the Eye: sharp and dark;
+  - Ink: paper and serif;
+  - Glass and the Orbit: round;
+  - Grown: soft and calm.
+- Ghosty's own graphite-and-cyan palette is new and passes the contrast check light and dark. The look you name stays, whatever the
+  designer step would have picked.
+
+### 10. A check-up for your pages (`sites.u9`)
+- Workshop → PUBLISHED PAGES → **CHECK** runs the publish check again on the live page (an app gets the app kit's checks) and says
+  what to fix in plain words.
+- **ASK GHOSTY TO FIX THEM** asks me in the chat; the fix goes up after your APPROVE.
+- "Every Monday, check my pages" makes it weekly with the scheduled tasks you already have.
+
+### 11. A sheet as an app (`sites.s8`)
+- In SHEETS → DATA, **AS AN APP ON MY HOME SCREEN** turns the sheet's first column (heading left out, up to 40 rows) into a list app,
+  built after your APPROVE.
+
 ## How to try it on your phone
 1. **Your photos:**
    - Workshop → Made → PHOTOS FOR YOUR SITES → ADD PHOTOS, and pick three photos of your place.
@@ -59,19 +93,31 @@ every time, and nothing is bought.
    APPROVE. Your ticks are still there.
 5. **Your home page:** Workshop → PUBLISHED PAGES, tick ON MY HOME PAGE on two pages, then PUBLISH MY HOME PAGE, APPROVE, and open
    the link.
+6. **Calendar:** "Make a page for our club night at the Robin 2 in Bilston on 14 December at 8pm", APPROVE. On the page, tap Add to
+   iPhone or Outlook calendar.
+7. **Poster:** Workshop → a page → QR AND POSTER → Poster (A4) → SAVE, then print it from Files.
+8. **Flash cards:** LEARN → a course with cards → CARDS ON MY HOME SCREEN → APPROVE.
+9. **A look:** "Build my café a website in the glass look".
+10. **Check:** Workshop → a page → CHECK.
+11. **A sheet:** SHEETS → NEW, type a heading and a few items in column A → DATA → AS AN APP ON MY HOME SCREEN → APPROVE.
 
 ## Tests
-- **Brain test:** `apps/edge/test/sitephotos.test.mjs`, named in the test list, 6 tests. It covers:
+- **Brain test:** `apps/edge/test/sitephotos.test.mjs`, named in the test list, 10 tests. It covers:
   - stripping hidden detail from a photo;
   - keeping, captioning, making main and removing photos, with the bytes kept while a page still shows the photo;
   - a whole website built from your own photos (no stock, your captions as alt text, the page check clean);
   - undo, including undoing an undo, the three-version limit and the Workshop's route;
   - a document handed over and published only through APPROVE, with a broken page refused;
-  - a changed mini-app (same link, same kind, said first, undoable, and the refusals in words).
+  - a changed mini-app (same link, same kind, said first, undoable, and the refusals in words);
+  - the calendar (start read from his words, Google's link, the .ics file folded to the standard, no buttons without a date);
+  - a Learn course's cards as an app (cards kept off the approval card);
+  - a site in a Ghosty look (said, kept over the planner, readable palette);
+  - the page check-up (in plain words, nothing changed).
 - **Spec:** `tests/sitephotos.spec.mjs`, its word at the end of check.yml's `all=`, at 440 × 956 and 390 × 844. It proves the
   photos panel, location removed (read back from the kept bytes), caption, main picture, 44 pt keys, BODY 21, the approval naming
-  your photos, remove, undo from the Workshop, a document and a deck at their own links, an app changed after it's made, and your
-  home page listing exactly the pages you chose.
+  your photos, remove, undo from the Workshop, a document and a deck at their own links, an app changed after it's made, your
+  home page listing exactly the pages you chose, the QR code and an A4 poster, CHECK, and a sheet made into a list app.
+  The spec can be run again on the same brain.
 - **nav.spec:** its Workshop "Made" section now also checks PHOTOS FOR YOUR SITES.
 
 ## Decisions I made
@@ -92,30 +138,27 @@ The rest of section 5 is not built yet (each would be its own whole piece):
 - a private visitor count (u3);
 - sites in more languages (u5);
 - more mini-app kinds (u7, with recipe timers);
-- a weekly check-up (u9);
 - a high-score table (u10);
 - a front page for each game (u11);
-- add-to-calendar (s1);
-- poster and QR (s2);
 - comics as a reader page (s5);
 - menu from a sheet (s6);
-- sheet to mini-app (s8);
 - Workshop tools as apps (s10);
 - hours from your agenda (c1);
-- flashcards as an app (c2);
-- a route page (c4);
-- sites in a Ghosty look (c6).
+- a route page (c4).
 
 ## The specialist sweep (against Carrd, Squarespace, Linktree, Glide)
 - **Built this round:**
   - your own photos (Squarespace's image library, kept private and location-free);
   - one home page listing chosen pages (Linktree);
+  - QR codes and print-ready posters (Squarespace's and Linktree's QR codes);
+  - add to calendar on event pages (Squarespace's event blocks);
+  - apps from a spreadsheet (Glide);
+  - a page health check (Squarespace's SEO and accessibility checks);
   - version history and restore (Squarespace's page history);
   - publishing a document or a deck as a page (Carrd and Glide publish pages from content);
   - editing an app after it is made (Glide's live app editing).
 - **Still missing, by app:**
   - Carrd: a one-page link list and custom domains (only one he already owns).
   - Squarespace: in-place editing of a live page, visitor analytics, and multi-language sites.
-  - Glide: apps from a spreadsheet.
 
   Each of these is a section 5 item above.
