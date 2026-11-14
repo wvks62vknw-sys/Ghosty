@@ -47,7 +47,7 @@ export const MAP_VIEWS: [MapView, string, string][] = [
 let open: { close(): void } | null = null;
 
 /** Open the sheet on a spot (or move it there), showing one of the views; the tabs switch between them. `flat()` is the flat map once the MAP view has opened it. */
-export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions = {}): { close(): void; flat(): FlatMap | null } {
+export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions = {}): { close(): void; flat(): FlatMap | null; pan(lat: number, lon: number, zoom?: number): void } {
   open?.close();
   let at: MapSpot = { ...spot };
   let frame: HTMLIFrameElement | null = null;
@@ -160,5 +160,6 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions
     open = null;
   });
   show(view);
-  return { close: () => open?.close(), flat: () => flat };
+  // (pan moves whichever map is drawn: the flat one, or the one kept on this phone when there is no signal)
+  return { close: () => open?.close(), flat: () => flat, pan: (lat, lon, zoom) => (flat ? flat.panTo(lat, lon, zoom) : map3d?.panTo(lat, lon, zoom)) };
 }
