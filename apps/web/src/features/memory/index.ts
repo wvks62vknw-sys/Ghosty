@@ -12,13 +12,15 @@ import { offline } from '../../api/offline';
 import { chat, clearConversation } from '../../assistant/session';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { swipeToDelete } from '../../ui/swipe';
-import type { TabDef } from '../../shell/tabs';
+import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { placesBlock } from './places';
 import { keepPanel } from './keep';
+import { homeCard } from '../../ui/appkit';
+import { journalTab } from '../journal';
 import { OFFLINE_SUB, PAGE_SUB } from './words';
 import { phrases } from '../lifeui';
 import { principlesEditor } from '../settings/principles';
@@ -230,7 +232,14 @@ export const memoryTab: TabDef = {
     const pr = panel('PRINCIPLES', { status: 'your lines, in your words', cls: 'princpn' });
     const princ = principlesEditor();
     pr.body.append(princ.el);
-    P.left.append(addRow, phrases(['remember I take my coffee black']), mp.el, pr.el, pats.el, tl.el);
+    // [journal] JOURNAL (APPS ROUND): his own writing, its own screen, a row here
+    const jrow = panel('JOURNAL', { grow: false, status: 'Your own words, on this phone' });
+    jrow.el.dataset.go = 'journal';
+    jrow.el.classList.add('gorow');
+    // (the App Kit's Home card: its icon, its name and one line of what it holds; a tap opens it)
+    const jline = () => journalTab.now?.() || 'Write, add photos and a voice note, look back on this day.';
+    jrow.body.append(homeCard({ name: 'Journal', glyph: journalTab.icon, line: jline(), onTap: () => go('journal') }));
+    P.left.append(addRow, phrases(['remember I take my coffee black']), jrow.el, mp.el, pr.el, pats.el, tl.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
@@ -312,7 +321,7 @@ export const memoryTab: TabDef = {
     const kp = keepPanel();
     P.right.append(dp.el, fp.el, lp.el, cp.el, kp.el);
     sections(root, 'memory', [
-      { id: 'me', label: 'About you', match: /^(?:ABOUT YOU|PRINCIPLES)$/ },
+      { id: 'me', label: 'About you', match: /^(?:ABOUT YOU|PRINCIPLES|JOURNAL)$/ },
       { id: 'patterns', label: 'Patterns', match: /^PATTERNS/ },
       { id: 'timeline', label: 'Timeline', match: /^TIMELINE/ },
       { id: 'diary', label: 'Diary', match: /^DIARY/ },
