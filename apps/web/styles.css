@@ -7528,7 +7528,9 @@ html .orbline, html .orbframe { display: none; }
   html .orbmast .hstamp { padding: 0; opacity: 1; justify-content: center; text-align: center; }
   html .orbmast .g-stamp { justify-content: center; }
   html .orbmast .g-stamp .on { color: var(--g-accent-text); }
-  html .orbsay { flex: none; margin: var(--g-s-2) 0 0; text-align: center; font: var(--g-t-display); font-size: 30px; line-height: 36px; letter-spacing: var(--g-tr-display); color: var(--g-ink-1); overflow-wrap: anywhere; text-wrap: balance; }
+  /* (the Orbit Home's own headline only: the line every world says once under the orb is p.orbsay.g-truth, a small truth line, and this
+     rule once reached it too, so "Listening" or "The brain is resting" came up in 30 px white capitals over the orb) */
+  html .orbframe > .orbsay { flex: none; margin: var(--g-s-2) 0 0; text-align: center; font: var(--g-t-display); font-size: 30px; line-height: 36px; letter-spacing: var(--g-tr-display); color: var(--g-ink-1); overflow-wrap: anywhere; text-wrap: balance; }
   html .orbsay2 { flex: none; margin: var(--g-s-half) 0 0; min-height: 28px; text-align: center; font: var(--g-t-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-2); overflow-wrap: anywhere; text-wrap: balance; }
   html .orbframe[data-reply="true"] .orbsay2 { cursor: pointer; color: var(--g-ink-1); }
   /* the ring: six stations on it, the orb at its centre; the stations are placed from their angle's cosine and sine (--ox, --oy) against the ring's own size */
