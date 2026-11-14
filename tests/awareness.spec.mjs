@@ -504,9 +504,9 @@ if (part('screens')) {
   check(/^the gym, on .+/.test(L('gym')) && said.gym?.selected?.kind === 'item', `[screens] the gym says "${L('gym')}" ${JSON.stringify(said.gym?.selected)}`);
   check(/^settings, on appearance$/.test(L('settings')) && said.settings?.selected?.label === 'Appearance', `[screens] settings say "${L('settings')}"`);
   check(/^links, on accounts$/.test(L('links')), `[screens] links say "${L('links')}"`);
-  check(/^the money screen, open on statement$/.test(L('money')) && said.money?.selected?.kind === 'group', `[screens] money says "${L('money')}"`);
+  check(/^the money screen, open on month$/.test(L('money')) && said.money?.selected?.kind === 'group', `[screens] money says "${L('money')}"`);
   check(/^the make hub, 8 things to open$/.test(L('area-make')) && /^the learn hub, 8 things to open$/.test(L('area-learn')), `[screens] the hubs say "${L('area-make')}" and "${L('area-learn')}"`);
-  check(/^the body screen, open on reps/.test(L('body')), `[screens] body says "${L('body')}"`);
+  check(/^the body screen, open on move/.test(L('body')), `[screens] body says "${L('body')}"`);
   // a sheet screen follows its pill, and says which one
   await page.evaluate(() => (location.hash = 'body'));
   await page.waitForTimeout(500);
