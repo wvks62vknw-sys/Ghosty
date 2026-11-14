@@ -1,0 +1,355 @@
+{
+ "lane": "COMIC",
+ "features": [
+  {
+   "name": "Comic shelf",
+   "where": "MAKE → EDITORS → COMIC → Shelf",
+   "say": [
+    "read a comic",
+    "my comics",
+    "show my comics"
+   ],
+   "does": "Every comic on the phone in one place, with its cover, where it came from, its pages and its size, and READ, EDIT or REMOVE (remove asks twice).",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Import your own comics",
+   "where": "COMIC → Shelf → IMPORT A COMIC / IMPORT A FOLDER",
+   "say": [
+    "import this comic",
+    "open my CBZ",
+    "load a comic"
+   ],
+   "does": "Reads a CBZ, a PDF, single pictures or a whole folder of page pictures, and keeps them on the phone.",
+   "status": "works",
+   "note": "PDFs stop at 400 pages, and it says so."
+  },
+  {
+   "name": "CBR and other archives explained",
+   "where": "COMIC → Shelf → import a .cbr",
+   "say": [
+    "import this comic"
+   ],
+   "does": "A real CBR, CB7 or CBT file is explained in plain words, with how to turn it into a CBZ; a .cbr that is secretly a zip is read normally.",
+   "status": "partial",
+   "note": "True RAR files still can't be opened in a browser."
+  },
+  {
+   "name": "The reader",
+   "where": "COMIC → Shelf → READ",
+   "say": [
+    "read a comic"
+   ],
+   "does": "Full-screen reading: turn pages by key, swipe, side tap, arrow keys or slider, with zoom by +/−, pinch and double tap.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Guided view",
+   "where": "Reader → GUIDED",
+   "say": [],
+   "does": "One panel at a time, filling the screen in reading order; the panels are found on the page automatically.",
+   "status": "works",
+   "note": "Panel finding can miss on pages with no clear white gaps; it then shows the whole page."
+  },
+  {
+   "name": "Two-page spread",
+   "where": "Reader on a tablet or computer → TWO PAGES",
+   "say": [],
+   "does": "Two pages side by side like a real book, with the cover on its own.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Manga mode",
+   "where": "Reader → RIGHT TO LEFT",
+   "say": [],
+   "does": "Reads right to left: guided panels, the page pair, swipes, taps and arrows all flip; remembered for that book.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Remembered place",
+   "where": "Reader",
+   "say": [],
+   "does": "Opens each comic where he stopped, down to the panel.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Public-domain library",
+   "where": "COMIC → Library",
+   "say": [
+    "public domain comics",
+    "free comics",
+    "find me some old western comics"
+   ],
+   "does": "Searches about 2,200 public-domain comics at the Internet Archive; the first tap says the size, the second downloads on Wi-Fi only, and the credit stays on the shelf.",
+   "status": "works",
+   "note": "Digital Comic Museum isn't used: it has no open listing and its downloads need an account."
+  },
+  {
+   "name": "Make a comic from an idea",
+   "where": "COMIC → Make",
+   "say": [
+    "make me a comic about a cat who wants to fly",
+    "draw a comic where a robot can't dance",
+    "a comic about my dog"
+   ],
+   "does": "Writes and draws a cover plus four pages with a hero, a friend and a rival, a beginning, two failed tries, a turn and an ending with a callback joke.",
+   "status": "works",
+   "note": "One tested story shape with varied names, places and jokes; no other genres yet."
+  },
+  {
+   "name": "Characters that stay the same",
+   "where": "COMIC → Make → The cast",
+   "say": [],
+   "does": "Each character keeps their name and look (person, cat, dog, robot, ghost, alien, bear or rabbit, plus colours, hair, hat, glasses) in every panel; rename them or give one a new look.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Proper comic lettering",
+   "where": "COMIC → Make",
+   "say": [],
+   "does": "Real panel grids, speech balloons with tails, thought clouds, shout and whisper balloons, caption boxes and big sound effects, with balloons never over faces.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Edit anything",
+   "where": "COMIC → Make → tap a panel",
+   "say": [],
+   "does": "Change any line, who says it, the balloon kind, the caption, the sound effect, the place, the time of day, the shot, who is in it and their face, pose, position and direction; add or remove panels, lines and pages; change the grid; edit the cover.",
+   "status": "works",
+   "note": "No undo button yet."
+  },
+  {
+   "name": "The script",
+   "where": "COMIC → Make → The script",
+   "say": [],
+   "does": "The whole comic as a readable script, page by page.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Save and share",
+   "where": "COMIC → Make → SAVE CBZ / SAVE PDF / SHARE",
+   "say": [],
+   "does": "A real comic file any comic app opens, a PDF, or the phone's share sheet (it saves the PDF if sharing isn't possible).",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Quick strip in Creative",
+   "where": "LIFE → CREATIVE → Comic",
+   "say": [],
+   "does": "The older four-panel strip, now with a MAKE A WHOLE COMIC key that jumps to the Comic app.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Comic on the MAKE hub and in Every screen",
+   "where": "MAKE → EDITORS card; Every screen → Comic card",
+   "say": [
+    "open comic"
+   ],
+   "does": "Shows how many comics are on the shelf and offers 'make a comic', 'read a comic' and 'free comics'.",
+   "status": "works",
+   "note": ""
+  }
+ ],
+ "upward": [
+  {
+   "idea": "More story shapes and genres: mystery, space adventure, heist, romance, spooky, sports final",
+   "why": "Every comic stops feeling like the same plot with new names",
+   "builds_on": "The comic writer and its beat structure",
+   "effort": "M"
+  },
+  {
+   "idea": "Let the brain write the script, with the app still drawing it",
+   "why": "Smarter, funnier stories about exactly his idea, with characters that still look the same",
+   "builds_on": "The comic writer and the free models the brain already uses",
+   "effort": "M"
+  },
+  {
+   "idea": "Longer comics: chapters, an issue 2 that continues issue 1, a series shelf",
+   "why": "A real ongoing series with the same cast",
+   "builds_on": "The saved cast and comic format",
+   "effort": "M"
+  },
+  {
+   "idea": "Undo and redo in the editor",
+   "why": "Experiment without fear",
+   "builds_on": "The editor's saving",
+   "effort": "S"
+  },
+  {
+   "idea": "Drag balloons, characters and sound effects with a finger",
+   "why": "Exact placement, like a pro comic tool",
+   "builds_on": "The tap-to-find panel and balloon map",
+   "effort": "M"
+  },
+  {
+   "idea": "More drawing: new poses, props, vehicles, animals, weather, speed lines and close-up hands",
+   "why": "Richer, more cinematic panels",
+   "builds_on": "The drawing engine",
+   "effort": "L"
+  },
+  {
+   "idea": "His own photo as a panel background",
+   "why": "Comics set in his real kitchen, street or holiday",
+   "builds_on": "Import and the editor (his photos stay on the phone)",
+   "effort": "S"
+  },
+  {
+   "idea": "A character maker that draws a cartoon of him or someone he introduces, with their permission",
+   "why": "He and his people star in their own comics",
+   "builds_on": "Character looks and the Faces feature (only him and people he introduces)",
+   "effort": "M"
+  },
+  {
+   "idea": "Reader polish: page-turn animation, a strip of page thumbnails, bookmarks, night reading tint, auto-advance",
+   "why": "As smooth as the best paid comic readers",
+   "builds_on": "The reader",
+   "effort": "M"
+  },
+  {
+   "idea": "Better panel finding: dark pages, borderless art, odd shapes, and fixing a panel by hand",
+   "why": "Guided view works on almost every real comic",
+   "builds_on": "The panel finder",
+   "effort": "M"
+  },
+  {
+   "idea": "Shelf search, sort, collections, series grouping, and read/unread marks",
+   "why": "Handles a library of hundreds of comics",
+   "builds_on": "The shelf storage",
+   "effort": "S"
+  },
+  {
+   "idea": "Read aloud in guided mode, with each character's line in a different phone voice",
+   "why": "Comics for when his eyes are busy, or for kids",
+   "builds_on": "The reader's panels and the phone's own voices",
+   "effort": "M"
+  },
+  {
+   "idea": "Export as a phone-ready vertical scroll (webtoon style) and as single panel pictures",
+   "why": "Easy to post and to read on a phone",
+   "builds_on": "The page drawing and export",
+   "effort": "S"
+  },
+  {
+   "idea": "Open real RAR comics with a free, offline unpacker added to the app",
+   "why": "No more converting CBR files",
+   "builds_on": "Import",
+   "effort": "M"
+  }
+ ],
+ "sideways": [
+  {
+   "idea": "Storyboard maker for videos",
+   "why": "Plan a video shot by shot, then hand it to the video editor",
+   "builds_on": "Panels, shots and captions",
+   "effort": "M"
+  },
+  {
+   "idea": "Picture-book maker for children: big pictures, short lines, read aloud",
+   "why": "Bedtime stories starring the family",
+   "builds_on": "The comic writer and drawing",
+   "effort": "M"
+  },
+  {
+   "idea": "Comic-style recap of his week or trip from his own agenda and photos",
+   "why": "A fun keepsake of his life, his data only",
+   "builds_on": "Make, the Agenda and Photo",
+   "effort": "M"
+  },
+  {
+   "idea": "Explainer comics: any topic or how-to as a short comic",
+   "why": "Learn or teach something in a friendly way",
+   "builds_on": "The writer, plus School and Learn",
+   "effort": "M"
+  },
+  {
+   "idea": "Meme and single-panel joke maker",
+   "why": "Quick funny pictures to share, posted only with APPROVE",
+   "builds_on": "Panel drawing and balloons",
+   "effort": "S"
+  },
+  {
+   "idea": "Greeting-card comics: a birthday or thank-you as a 3-panel comic",
+   "why": "Personal cards with a joke",
+   "builds_on": "The comic plus Creative's birthday card",
+   "effort": "S"
+  },
+  {
+   "idea": "A reading log and stats: comics read, pages and time, kept on the phone",
+   "why": "See his reading habit grow",
+   "builds_on": "The reader's remembered place",
+   "effort": "S"
+  },
+  {
+   "idea": "Manga and public-domain newspaper strips added to the library from other open archives",
+   "why": "More free reading",
+   "builds_on": "The library",
+   "effort": "S"
+  },
+  {
+   "idea": "Comic-book versions of public-domain classics (Sherlock Holmes, Aesop)",
+   "why": "Famous stories in a new form",
+   "builds_on": "The writer, plus the Library's free books",
+   "effort": "M"
+  },
+  {
+   "idea": "Turn any story or diary entry he writes into a comic",
+   "why": "His own words become a comic",
+   "builds_on": "The writer and Docs",
+   "effort": "M"
+  },
+  {
+   "idea": "Print-ready booklet export (pages arranged to fold and staple)",
+   "why": "Real paper comics at home",
+   "builds_on": "The PDF export",
+   "effort": "S"
+  },
+  {
+   "idea": "Comic translation: retype balloon text into another language",
+   "why": "Share comics with family abroad",
+   "builds_on": "The editor and the Interpreter",
+   "effort": "S"
+  }
+ ],
+ "cross": [
+  {
+   "idea": "Comic panels from Lens photos: point, snap, and the shot becomes a panel",
+   "with": "LENS",
+   "why": "Real-world comics in seconds"
+  },
+  {
+   "idea": "Comics as lessons: School makes a short comic for any topic, with a quiz at the end",
+   "with": "LEARN",
+   "why": "Learning that's fun to read"
+  },
+  {
+   "idea": "A storyboard comic becomes the shot list and titles for a video",
+   "with": "EDITORS",
+   "why": "From idea to video in one flow"
+  },
+  {
+   "idea": "A Game Studio game's quest becomes a comic, or a comic becomes a game's cutscenes",
+   "with": "MAKE",
+   "why": "His worlds told two ways"
+  },
+  {
+   "idea": "Post a comic or single panel to his social accounts, always with APPROVE",
+   "with": "PLAN AND HOME",
+   "why": "Share his work safely"
+  },
+  {
+   "idea": "Say 'make it a comic' about anything on screen (a note, a trip, a memory) and it opens MAKE pre-filled",
+   "with": "VOICE, MEANINGS AND COLOURS",
+   "why": "One sentence from anything to a comic"
+  }
+ ]
+}

@@ -49,7 +49,7 @@ export interface StageRow {
   pass: string;
 }
 /** Where a subject's next paper comes from (part 2): an official paper, the generators, a checked bank, or none yet. */
-export type Source = 'official' | 'written' | 'bank' | null;
+export type Source = 'official' | 'written' | 'bank' | 'practice' | null;
 export interface SourceInfo {
   source: Source;
   line: string;

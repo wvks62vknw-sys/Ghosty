@@ -21,7 +21,10 @@ export type Sample =
   /** A reply from the brain: to the first words, and to done. */
   | { k: 'reply'; at: number; first: number; done: number }
   /** One request to the brain (`path`: its first part, e.g. "/status"). */
-  | { k: 'trip'; at: number; path: string; ms: number };
+  | { k: 'trip'; at: number; path: string; ms: number }
+  /** [ci] A spoken turn (NEXT ci.u3): `first`, from his last word to Ghosty's first spoken word; `reopen`, from the end of a reply
+   *  to the ear open again. Either may be missing (a reply he typed has no `first`; the last of a conversation no `reopen`). */
+  | { k: 'voice'; at: number; first?: number; reopen?: number };
 
 export interface Stat {
   median: number;
@@ -40,6 +43,8 @@ export interface PhoneSpeed {
   screens: ScreenSpeed[];
   start: { paint: Stat | null; screen: Stat | null };
   trip: Stat | null;
+  /** [ci] Today's spoken turns: his last word to the first spoken word, and a reply's end to the ear open again (NEXT ci.u3). */
+  voice: { first: Stat | null; reopen: Stat | null };
   /** The slowest kind of request (by its median), when there are a few kinds. */
   slowTrip: { path: string; median: number } | null;
   lines: string[];
@@ -101,6 +106,7 @@ export function summarise(samples: Sample[], now = Date.now()): PhoneSpeed {
   const byPath = new Map<string, number[]>();
   for (const t of trips) byPath.set(t.path, [...(byPath.get(t.path) ?? []), t.ms]);
   const paths = [...byPath].map(([path, ms]) => ({ path, median: quantile(ms, 0.5) })).sort((a, b) => b.median - a.median);
+  const voices = samples.filter((s): s is Extract<Sample, { k: 'voice' }> => s.k === 'voice' && localDay(s.at) === today);
   const out: PhoneSpeed = {
     replies: {
       today: { first: stat(mine.map((r) => r.first)), done: stat(mine.map((r) => r.done)) },
@@ -109,6 +115,7 @@ export function summarise(samples: Sample[], now = Date.now()): PhoneSpeed {
     screens,
     start: { paint: stat(starts.map((s) => s.paint).filter((x): x is number => typeof x === 'number')), screen: stat(starts.map((s) => s.screen)) },
     trip: stat(trips.map((t) => t.ms)),
+    voice: { first: stat(voices.map((v) => v.first).filter((x): x is number => typeof x === 'number')), reopen: stat(voices.map((v) => v.reopen).filter((x): x is number => typeof x === 'number')) },
     slowTrip: paths.length > 2 ? paths[0]! : null,
     lines: [],
     samples: samples.length,
@@ -145,6 +152,13 @@ export function phoneLines(s: PhoneSpeed): string[] {
   const last = week.first && week.done ? ` · last week ${dur(week.first.median)} / ${dur(week.done.median)}` : '';
   if (today.first && today.done) out.push(`Replies: first word in ${dur(today.first.median)}, done in ${dur(today.done.median)} (today's medians, ${today.done.n} repl${today.done.n === 1 ? 'y' : 'ies'})${last}`);
   else if (last) out.push(`Replies: none timed yet today${last}`);
+  // [ci] the voice: his last word to my first, and my last to the ear open again (today's medians)
+  const v = s.voice;
+  if (v?.first || v?.reopen) {
+    const parts = [v.first ? `first word ${dur(v.first.median)} after you stop` : '', v.reopen ? `ear open again ${dur(v.reopen.median)} after I finish` : ''].filter(Boolean);
+    const n = Math.max(v.first?.n ?? 0, v.reopen?.n ?? 0);
+    out.push(`Voice: ${parts.join(', ')} (today's medians, ${n} spoken turn${n === 1 ? '' : 's'})`);
+  }
   if (s.screens.length) {
     const shown = s.screens.slice(0, 6);
     const slowest = shown.length > 1 ? shown.reduce((a, b) => (b.median > a.median ? b : a)) : null;
@@ -318,6 +332,12 @@ export const stopwatch = {
         if (first) add({ k: 'reply', at: Date.now(), first: Math.round(first), done: Math.round(done || clock() - t0) });
       },
     };
+  },
+
+  /** [ci] assistant/voice.ts: a spoken turn's two waits (NEXT ci.u3), each in ms, either missing. */
+  voice(t: { first?: number; reopen?: number }): void {
+    if (t.first === undefined && t.reopen === undefined) return;
+    add({ k: 'voice', at: Date.now(), ...(t.first !== undefined ? { first: Math.round(t.first) } : {}), ...(t.reopen !== undefined ? { reopen: Math.round(t.reopen) } : {}) });
   },
 
   /** api/brain.ts: one request to the brain took `ms`. */
