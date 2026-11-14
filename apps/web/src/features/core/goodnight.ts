@@ -1,7 +1,7 @@
 /**
  * GOODNIGHT (planlane2, plan.c6 with boot.s1's wind-down): he says "goodnight" (or "good night", "night night", "nighty night", "time
- * for bed", "I'm off to bed", "going to bed"), or taps GOODNIGHT in the Brief after six. A three-second wind-down first (the screen
- * dims, the orb rests, the night look comes on), then in turn, each said in one line in the chat:
+ * for bed", "bedtime"; the bed forms are the body lane's GOING TO BED), or taps GOODNIGHT in the Brief after six. A three-second wind-down first (the screen
+ * dims, the orb rests, the night look comes on for tonight only, never saved), then in turn, each said in one line in the chat:
  *   - every light in his house that is on is turned off (lights only; never a lock, an alarm, a garage door, a gate or anything in the
  *     guarded set: those still open are listed, each with a LOCK UP key that needs his own tap and his confirm, every time);
  *   - if the radio is playing, its sleep timer is set (30 minutes, said; a sooner timer of his is kept);
@@ -18,7 +18,8 @@ import { brain } from '../../api/brain';
 import { act, loadHouse } from '../../house/api';
 import { isGuarded } from '../../../../../packages/shared/src/house';
 import { settings } from '../../state/app';
-import { applyRecipe, groundNow, recipe } from '../../state/theme';
+import { offline } from '../../api/offline';
+import { groundNow, nightFor, nightShowing } from '../../state/theme';
 import { aheadLine, closeLine, lightsLine, lockKey, lockLine, openGuard, openLine, radioLine, sleepLine, type DayEvent } from './goodnightwords';
 
 type Go = NonNullable<PackReply['go']>[number];
@@ -38,11 +39,18 @@ const within = <T>(p: Promise<T>, ms = WAIT_MS): Promise<T | null> => Promise.ra
 
 // ---------------------------------------------------------------- the wind-down and the night look
 
-/** The night look on for tonight: his own night ground, if the ground in force is Paper. Kept as he chose it (nothing saved). */
+/** The next five in the morning on the phone's clock: when tonight's night look ends by itself. */
+export function morningAt(now = Date.now()): number {
+  const d = new Date(now);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + (d.getHours() < 5 ? 0 : 1), 5).getTime();
+}
+/**
+ * The night look on for tonight: his own night ground, if the ground in force is Paper. A passing override in state/theme.ts
+ * (nightFor): never in his recipe, so no later look change saves it; it ends at five, or at his next look change.
+ */
 export function nightLook(): 'on' | 'already' {
-  const r = recipe();
-  if (groundNow(r) !== 'paper') return 'already';
-  applyRecipe({ ...r, ground: r.night, switches: { ...r.switches, day: 'off' } }, { save: false });
+  if (nightShowing() || groundNow() !== 'paper') return 'already';
+  nightFor(morningAt());
   return 'on';
 }
 
@@ -87,7 +95,9 @@ export async function houseStep(said = 'goodnight'): Promise<StepOut[]> {
   const lights = all.filter((e) => e.domain === 'light' && e.state === 'on' && !guarded.includes(e));
   const done: string[] = [];
   const failed: string[] = [];
-  for (const e of lights) ((await act(e.id, 'turn_off', {}, { origin: 'chat', why: said, reload: false })).ok ? done : failed).push(e.name);
+  // all at once, each with its own limit: a slow box never holds the other lines past WAIT_MS
+  const res = await Promise.all(lights.map((e) => within(act(e.id, 'turn_off', {}, { origin: 'chat', why: said, reload: false }))));
+  lights.forEach((e, i) => (res[i]?.ok ? done : failed).push(e.name));
   if (lights.length) void loadHouse(true);
   const out: StepOut[] = [{ line: lightsLine('ok', done, failed) }];
   // the guarded set: locks, alarms, garage doors and gates (a switch he marked is not a light, so goodnight leaves it be)
@@ -97,7 +107,7 @@ export async function houseStep(said = 'goodnight'): Promise<StepOut[]> {
   if (line)
     out.push({
       line,
-      go: open.map((o) => ({ id: 'phrase:house', ask: -1, label: lockKey(o), run: 'house_do', args: { entity: o.id, name: o.name, domain: o.domain, guarded: true, service: o.service, data: {}, said } })),
+      go: open.filter((o) => o.service).map((o) => ({ id: 'phrase:house', ask: -1, label: lockKey(o), run: 'house_do', args: { entity: o.id, name: o.name, domain: o.domain, guarded: true, service: o.service, data: {}, said } })),
     });
   return out;
 }
@@ -121,7 +131,14 @@ export async function sleepStep(): Promise<StepOut> {
     const bed = t.load().set.bedAt;
     if (bed && Date.now() - bed < 16 * 3_600_000) return { line: sleepLine({ kind: 'already', since: bed }) };
     t.toBed();
-    return { line: sleepLine({ kind: 'started' }) };
+    // kept on this phone? (storage full or off keeps it only in memory, and iOS ends a hidden app overnight)
+    let kept = false;
+    try {
+      kept = !!(JSON.parse(localStorage.getItem('ghosty.body.track') ?? 'null') as { set?: { bedAt?: number } } | null)?.set?.bedAt;
+    } catch {
+      kept = false;
+    }
+    return { line: sleepLine({ kind: kept ? 'started' : 'unkept' }) };
   } catch {
     return { line: sleepLine({ kind: 'none' }) };
   }
@@ -129,9 +146,12 @@ export async function sleepStep(): Promise<StepOut> {
 
 /** THE DAY AHEAD: its first event from his diary (the brain's agenda, or the phone's copy of it when the brain is out of reach). */
 export async function aheadStep(now = Date.now()): Promise<StepOut> {
+  const was = offline.get().agenda;
   const r = await within(brain.agenda(2));
+  // the brain gives the phone's copy when it is out of reach (api/offline.ts): the copy unchanged means it was that (as the agenda does)
+  const copy = !!r && !!was && offline.get().agenda === was;
   const events: DayEvent[] | null = r ? r.events.map((e) => ({ title: e.title, start: e.start, allDay: !!e.allDay })) : null;
-  return { line: aheadLine(events, now, { calendarsDown: !!r?.errors?.length }), go: [{ id: 'agenda', ask: -1, label: 'OPEN THE AGENDA', open: 'agenda' }] };
+  return { line: aheadLine(events, now, { calendarsDown: !!r?.errors?.length, copy }), go: [{ id: 'agenda', ask: -1, label: 'OPEN THE AGENDA', open: 'agenda' }] };
 }
 
 /** The steps, in the order said: a routine engine can run any of them on its own. None sends or posts anything. */

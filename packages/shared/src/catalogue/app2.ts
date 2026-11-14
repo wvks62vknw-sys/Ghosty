@@ -266,7 +266,13 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Play my favourites', 'Play my second favourite', 'Next station', 'Save this station'], scene: ['playing'], cat: 'play',
   },
   // [planlane:radio] the radio's words answered on the phone with no model (features/radio/asks.ts): the sleep timer, what's on
-  'phrase:planradio': { same: 'panel:radio:NOW PLAYING' },
+  // [planlane2:goodnight] and GOODNIGHT (features/core/goodnight.ts), which this table reaches: its own words, so Abilities shows it
+  'phrase:planradio': {
+    name: 'Goodnight, and the radio by words', line: 'You can say goodnight and I turn your lights off, set the radio to sleep, track your sleep and say tomorrow.',
+    more: 'Lights only: locks, the alarm, garage doors and gates are listed, each with a LOCK UP key that needs your tap and a confirm. The radio’s 30-minute timer only while it plays. Nothing is sent. The radio’s sleep timer and what’s on are answered here too.',
+    say: ['Goodnight', 'Night night', 'Time for bed', 'Turn the radio off in 20 minutes'], scene: ['talking', 'playing'], cat: 'talk',
+    since: '2026-11-14',
+  },
   // ---- REVERSE
   'panel:reverse:TAKE SOMETHING APART': {
     name: 'Take software apart', line: 'You can paste a website, an app package, a code project or a file link, and I take it apart.',

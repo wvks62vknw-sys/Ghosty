@@ -108,10 +108,25 @@ export async function run(H) {
   // ---- 1. the words, pure
   const W = await H.pure('apps/web/src/features/core/goodnightwords.ts');
   const R = await H.pure('apps/web/src/features/radio/asks.ts');
-  const yes = ['goodnight', 'Good night!', 'good night ghosty', 'night night', 'Nighty night', 'nighty-night', 'time for bed', "I'm off to bed", 'going to bed', 'I’m going to bed now', 'bedtime', 'okay goodnight', 'goodnight then'];
-  const no = ['run goodnight', 'activate the goodnight scene', 'night mode', 'good morning', 'goodnight moon is a lovely book', 'what time should I go to bed', 'turn the radio off in 30 minutes'];
+  const yes = ['goodnight', 'Good night!', 'good night ghosty', 'night night', 'Nighty night', 'nighty-night', 'time for bed', 'bedtime', 'okay goodnight', 'goodnight then'];
+  // the bed and sleep forms are the body lane's GOING TO BED (features/body/trackcore.ts), never two owners for one wording
+  const bedWords = ["I'm off to bed", 'going to bed', 'I’m going to bed now', 'going to sleep', 'heading to bed', "I'm off to bed, ghosty", 'going to sleep now'];
+  const no = [...bedWords, 'run goodnight', 'activate the goodnight scene', 'night mode', 'good morning', 'goodnight moon is a lovely book', 'what time should I go to bed', 'turn the radio off in 30 minutes'];
   check(yes.every((w) => W.goodnightAsked(w)) && no.every((w) => !W.goodnightAsked(w)), `[goodnight] the words: ${yes.filter((w) => !W.goodnightAsked(w)).join(' | ')} missed; ${no.filter((w) => W.goodnightAsked(w)).join(' | ')} taken`);
   check(R.radioAsked('goodnight')?.what === 'goodnight' && R.radioAsked('time for bed')?.what === 'goodnight' && R.radioAsked('turn the radio off in 30 minutes')?.what === 'sleep', '[goodnight] the chat reaches it through the radio\'s table, which keeps its own words');
+  // the chat's route: the first table in LOCAL_ASKS that takes each wording (local.ts stops at the first answer)
+  {
+    const P = await H.pure('apps/web/src/assistant/phrases.ts').catch(() => null);
+    const first = (t) => P?.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
+    const gn = ['goodnight', 'good night', 'night night', 'nighty night', 'time for bed', 'bedtime', 'okay goodnight'];
+    const bed = ["i'm off to bed", 'going to bed', 'going to sleep now', "i'm going to bed"];
+    check(P && gn.every((w) => first(w) === 'planradio') && bed.every((w) => first(w) === 'track'), `[goodnight] the chat's route: goodnight words reach GOODNIGHT, bed words the body's tracker: ${[...gn, ...bed].map((w) => `${w}→${first(w)}`).join(', ')}`);
+  }
+  // "goodnight" to the mic: the conversation's end words take it, so the voice turn runs GOODNIGHT before any sign-off (core/index.ts)
+  {
+    const I = await H.pure('packages/shared/src/intent.ts');
+    check(['goodnight', 'Good night!', 'night night', 'nighty night'].every((w) => I.endIntent(w) && W.goodnightAsked(w)) && !W.goodnightAsked('bye') && !W.goodnightAsked("that's all"), '[goodnight] spoken goodnight: an end word GOODNIGHT takes (so it runs, not the sign-off); "bye" still signs off');
+  }
   const late = new Date(2026, 10, 14, 23, 10).getTime();
   const small = new Date(2026, 10, 15, 1, 20).getTime();
   const tom = (h, m) => new Date(2026, 10, 15, h, m).getTime();
@@ -121,7 +136,18 @@ export async function run(H) {
   check(W.aheadLine([{ title: 'Dentist', start: tom(9, 30) }], late) === 'Tomorrow: Dentist at 9:30.' && W.aheadLine([], late) === 'Tomorrow is clear: nothing in your diary.' && W.aheadLine(null, late) === 'Tomorrow: I can’t reach my brain right now, so I can’t read your diary.', '[goodnight] one event, a clear day, the brain out of reach');
   check(W.aheadLine([{ title: 'Dentist', start: tom(9, 30) }], small) === 'Later today: Dentist at 9:30.' && W.aheadLine([], small, { calendarsDown: true }) === 'The rest of today is clear: nothing in your diary, though one of your calendars didn’t answer.', '[goodnight] after midnight it is later today; a calendar that did not answer is said');
   const g = (domain, state, cls) => W.openGuard({ id: `${domain}.x`, name: 'X', domain, state, cls });
-  check(g('lock', 'unlocked')?.service === 'lock' && g('lock', 'locked') === null && g('cover', 'open', 'garage')?.service === 'close_cover' && g('cover', 'closed', 'garage') === null && g('alarm_control_panel', 'disarmed')?.service === 'alarm_arm_night' && g('alarm_control_panel', 'armed_away') === null && g('lock', 'unavailable') === null, '[goodnight] the guarded set: only what is open is offered, each with what LOCK UP would do');
+  check(g('lock', 'unlocked')?.service === 'lock' && g('lock', 'locked') === null && g('cover', 'open', 'garage')?.service === 'close_cover' && g('cover', 'closed', 'garage') === null && g('alarm_control_panel', 'disarmed')?.service === 'alarm_arm_home' && g('alarm_control_panel', 'armed_away') === null && g('alarm_control_panel', 'armed_night') === null, '[goodnight] the guarded set: only what is open is offered, each with what LOCK UP would do (the alarm: the HOUSE sheet\'s own ARM)');
+  // never "all locked" from a lock, a garage door or an alarm that is not answering or still moving
+  {
+    const odd = [{ id: 'lock.f', name: 'Front Door', domain: 'lock', state: 'unavailable' }, { id: 'cover.g', name: 'Garage Door', domain: 'cover', state: 'closing' }, { id: 'alarm_control_panel.h', name: 'House Alarm', domain: 'alarm_control_panel', state: 'unknown' }];
+    const open = odd.map(W.openGuard).filter((x) => x !== null);
+    const line = W.lockLine(open, odd.length);
+    check(open.length === 3 && open.every((o) => !o.service) && line === 'Locks and doors: the Front Door is not answering, so I can’t say it’s locked, the Garage Door is still closing and the House Alarm is not answering, so I can’t say it’s set. I never touch those from words.', `[goodnight] not answering or still moving: said, never "all locked", no key that nothing would answer: ${line}`);
+    const two = [W.openGuard({ id: 'lock.b', name: 'Back Door', domain: 'lock', state: 'locking' }), W.openGuard({ id: 'alarm_control_panel.h', name: 'Alarm', domain: 'alarm_control_panel', state: 'triggered' })];
+    check(two.every((o) => o && !o.service) && /still locking/.test(two[0].now) && two[1].now === 'sounding' && W.lockLine([], 2) === 'Locks and doors: all locked and closed.', '[goodnight] locking and a sounding alarm are not "locked"; all locked only when every one is');
+  }
+  check(W.sleepLine({ kind: 'unkept' }) === 'Sleep: I couldn’t keep that on this phone (its storage is full or off), so tap GOING TO BED in BODY, SLEEP.', '[goodnight] sleep not kept on this phone: said, never "tracking"');
+  check(W.aheadLine([], late, { copy: true }) === 'Tomorrow: my brain is out of reach and the copy on this phone shows nothing, so I can’t say it’s clear.' && W.aheadLine([{ title: 'Dentist', start: tom(9, 30) }], late, { copy: true }) === 'Tomorrow: Dentist at 9:30 (from the copy on this phone: my brain is out of reach).', '[goodnight] from the phone\'s copy: said as the copy, never "clear"');
   check(W.lightsLine('ok', ['Hall light', 'Kitchen light'], ['Porch light']) === 'Lights off: Hall light and Kitchen light. Porch light didn’t answer, so it’s still on.' && W.lightsLine('ok') === 'Lights: none were on.' && /isn’t linked/.test(W.lightsLine('unlinked')) && /can’t reach my brain/.test(W.lightsLine('out')) && /didn’t answer/.test(W.lightsLine('down')), '[goodnight] the lights in every case');
   check(W.radioLine({ kind: 'set', name: 'Spec Lane FM', at: tom(0, 5), min: 30 }) === 'Radio: Spec Lane FM stops in 30 minutes, at 0:05.' && /nothing is playing/.test(W.radioLine({ kind: 'nothing' })) && W.nightKeyAt(new Date(2026, 10, 14, 18, 0)) && W.nightKeyAt(new Date(2026, 10, 15, 2, 0)) && !W.nightKeyAt(new Date(2026, 10, 14, 17, 59)) && !W.nightKeyAt(new Date(2026, 10, 15, 5, 0)), '[goodnight] the radio line, and the key from six till five');
 
@@ -159,7 +185,7 @@ export async function run(H) {
     check(has(T, `${A.label}: Dentist at 9:30, then 1 more.`), `[goodnight 440] the day ahead's first event (${A.label})`);
     check(has(T, 'The night look is on. Nothing was sent or posted. Sleep well.'), '[goodnight 440] the close: the night look, nothing sent');
     check(T.indexOf('Lights off') < T.indexOf('Locks and doors') && T.indexOf('Locks and doors') < T.indexOf('Radio:') && T.indexOf('Radio:') < T.indexOf('Sleep:') && T.indexOf('Sleep:') < T.indexOf(`${A.label}:`) && T.indexOf(`${A.label}:`) < T.indexOf('Sleep well'), '[goodnight 440] in turn: the house, the radio, sleep, the day ahead');
-    const look = await page.evaluate(() => ({ g: document.documentElement.dataset.goodnight, ground: document.documentElement.dataset.ground, kept: JSON.parse(localStorage.getItem('ghosty.settings') ?? '{}').look?.ground }));
+    const look = await page.evaluate(() => ({ g: document.documentElement.dataset.goodnight, ground: document.documentElement.dataset.ground, kept: JSON.parse(localStorage.getItem('ghosty.settings') ?? '{}').look?.ground, day: JSON.parse(localStorage.getItem('ghosty.settings') ?? '{}').look?.switches?.day }));
     check(look.g === 'rest' && look.ground === 'graphite' && look.kept === 'paper', `[goodnight 440] the night look on (his night ground) while his own choice stays kept: ${JSON.stringify(look)}`);
     check(!box.posts.length, `[goodnight 440] nothing sent or posted: ${box.posts.join(', ')}`);
     // a second goodnight: nothing on to turn off, the timer and the night kept
@@ -181,6 +207,11 @@ export async function run(H) {
     await page.waitForTimeout(0);
     const lockCall = await (async () => { for (let i = 0; i < 40 && box.calls.length < 3; i++) await page.waitForTimeout(100); return box.calls[2]; })();
     check(lockCall?.entity === 'lock.front_door' && lockCall.service === 'lock' && lockCall.origin === 'tap' && lockCall.confirm === true, `[goodnight 440] confirmed, the front door locks on his tap: ${JSON.stringify(lockCall)}`);
+    // tonight's night look is never saved: his next look change keeps Paper and his follow-the-day as they were, and shows his own look again
+    const dayBefore = look.day;
+    const bigger = await H.ask(page, 'smaller text', /text|Text|size|Size|smaller|Smaller/);
+    const after = await page.evaluate(() => { const l = JSON.parse(localStorage.getItem('ghosty.settings') ?? '{}').look ?? {}; return { ground: l.ground, day: l.switches?.day, shown: document.documentElement.dataset.ground }; });
+    check(bigger.ok && after.ground === 'paper' && after.day === dayBefore && after.shown === 'paper', `[goodnight 440] after goodnight, a look change saves his own look (Paper, follow-the-day ${dayBefore}), never the night look: ${JSON.stringify(after)} ${bigger.text.slice(0, 80)}`);
     await ctx.close();
   }
 
@@ -208,7 +239,7 @@ export async function run(H) {
     await H.open(page, 'brief');
     await page.waitForSelector('#pg-brief .bract button.brme', { timeout: 15000 });
     const night = A.hour >= 18 || A.hour < 5;
-    const keyUp = await page.locator('#pg-brief .bract button.brnight').count();
+    const keyUp = await page.locator('#pg-brief .bract button.brnight:not([hidden])').count();
     check(keyUp === (night ? 1 : 0), `[goodnight 390] the Brief's GOODNIGHT key ${night ? 'shows' : 'hides'} at ${A.hour}:00 (${keyUp})`);
     if (night) {
       const bf = await H.fit(page, '#pg-brief .bract');
