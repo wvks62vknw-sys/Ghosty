@@ -43,6 +43,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Any year at a glance', line: 'AGENDA → Diary → MONTH → YEAR: the twelve months of any year, a dot on each day with something on and today marked. Step ‹ › as far as you like; tap a month to open it.' },
   { day: '2026-11-14', title: 'Drag to move an event', line: 'AGENDA → Diary → TIMELINE: hold one of your events and drag it to a new time, in 15-minute steps, with UNDO. Or tap it and use EARLIER, LATER or A DAY LATER.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
+  // [sites] THE APPS ROUND: Design
+  { day: '2026-11-14', title: 'Design anything', line: 'CREATIVE → Poster → Design: one canvas for posters, invitations, cards, menus, stories and posts. Move, resize and turn any part by hand, with layers, snapping and undo; start from a template; resize it to any size; save a PNG, a vector file or a print PDF, or put it on your sites after your APPROVE.' },
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },
   { day: '2026-11-14', title: 'Water nudges on a locked phone', line: 'Water nudges now reach your lock screen. My brain gets only the times to nudge, never how much you drink. Steps can come in from Health each evening with a Shortcut.' },
@@ -256,6 +258,10 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Gym: he carries on by himself', line: 'WATCH keeps playing round after round, TRAIN ALL trains every game in turn, KEEP AWAKE holds the screen on while he trains.' },
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
+  // [journal] APPS ROUND, lane MEMORY: vCards
+  { day: '2026-11-14', title: 'Contacts in and out', line: 'Life → People → YOUR PEOPLE: IMPORT CONTACTS reads a .vcf from your phone’s Contacts, and EXPORT ALL writes everyone you told me about back out as one.' },
+  // [journal] APPS ROUND, lane MEMORY: your word's decision log
+  { day: '2026-11-14', title: 'Look back on a choice', line: 'Memory → YOUR WORD: LOOK BACK on any reason you gave me, and in three months I’ll ask whether it worked out.' },
   // [journal] APPS ROUND, lane MEMORY: gifts
   { day: '2026-11-14', title: 'Every gift in one place', line: 'Life → People → GIFTS: an idea for anyone, then bought, wrapped and given, with a budget per occasion; and the gifts you were given, each with its thank-you to send.' },
   // [journal] APPS ROUND, lane MEMORY: keep in touch

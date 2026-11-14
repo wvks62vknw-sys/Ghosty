@@ -10839,6 +10839,70 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 @media (max-width: 899px) {
   html #pg-studio, html #pg-studio .hud, html #pg-studio .hud .col { transform-style: flat; }
 }
+
+/* [sites] DESIGN (THE APPS ROUND, lane SITES; src/features/design/editor.ts): one free canvas. Every rule is scoped under .dz. */
+html .dz { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .dz .dzhead { display: flex; align-items: center; gap: var(--g-s-1); min-width: 0; }
+html .dz .dzname { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); padding: 0 var(--g-s-1); font: 600 var(--g-t-body) var(--g-font-text); color: var(--g-ink-1); background: var(--g-plate-fill); border: 0; box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .dz .dzkeys { display: flex; gap: var(--g-s-half); flex: 0 0 auto; }
+html .dz .dzstage { position: relative; height: min(52vh, 560px); min-height: 240px; overflow: hidden; touch-action: none; border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); -webkit-user-select: none; user-select: none; }
+html .dz .dzstage:focus-visible { outline: var(--g-hair) solid var(--g-accent); }
+html .dz .dzpage { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: hidden; box-shadow: 0 0 0 var(--g-hair) var(--g-line); }
+html .dz .dzl, html .dzthumb .dzl { position: absolute; box-sizing: border-box; display: flex; align-items: center; transform-origin: 50% 50%; cursor: grab; }
+html .dz .dzl > span, html .dzthumb .dzl > span { display: block; width: 100%; white-space: pre; overflow: visible; }
+html .dz .dzl > img, html .dzthumb .dzl > img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block; }
+html .dz .dzl > .dzline, html .dzthumb .dzl > .dzline { display: block; width: 100%; }
+html .dz .dzsel { position: absolute; box-sizing: border-box; transform-origin: 50% 50%; pointer-events: none; box-shadow: 0 0 0 calc(2px * var(--dzk, 1)) var(--g-accent); }
+html .dz .dzsel[data-locked="1"] { box-shadow: 0 0 0 calc(2px * var(--dzk, 1)) var(--g-amber); }
+html .dz .dzsel[data-locked="1"] .dzh { display: none; }
+html .dz .dzh { position: absolute; width: calc(22px * var(--dzk, 1)); height: calc(22px * var(--dzk, 1)); margin: calc(-11px * var(--dzk, 1)); border-radius: var(--g-radius-orb); background: var(--g-ink-1); box-shadow: 0 0 0 calc(2px * var(--dzk, 1)) var(--g-accent); pointer-events: auto; touch-action: none; }
+html .dz .dzh::after { content: ''; position: absolute; inset: calc(-12px * var(--dzk, 1)); }
+html .dz .dzh[data-h="nw"] { left: 0; top: 0; }
+html .dz .dzh[data-h="ne"] { left: 100%; top: 0; }
+html .dz .dzh[data-h="sw"] { left: 0; top: 100%; }
+html .dz .dzh[data-h="se"] { left: 100%; top: 100%; }
+html .dz .dzh[data-h="e"] { left: 100%; top: 50%; border-radius: var(--g-radius-key); height: calc(30px * var(--dzk, 1)); margin-top: calc(-15px * var(--dzk, 1)); }
+html .dz .dzh[data-h="rot"] { left: 50%; top: calc(-44px * var(--dzk, 1)); }
+html .dz .dzguides { position: absolute; inset: 0; pointer-events: none; }
+html .dz .dzguide { position: absolute; background: var(--g-accent); }
+html .dz .dzguide[data-axis="x"] { top: 0; bottom: 0; width: calc(2px * var(--dzk, 1)); }
+html .dz .dzguide[data-axis="y"] { left: 0; right: 0; height: calc(2px * var(--dzk, 1)); }
+html .dz .dzsaid { margin: 0; min-height: 1.4em; font: var(--g-t-caption) var(--g-font-text); color: var(--g-ink-2); }
+html .dz .dztabs { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
+html body .dz button.dztab { flex: 1 1 auto; min-height: var(--g-target) !important; height: auto !important; padding: 0 var(--g-s-1); text-transform: none; letter-spacing: normal; border-radius: var(--g-radius-key); background: var(--g-plate-fill); color: var(--g-ink-2); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
+html body .dz button.dztab[aria-selected="true"] { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-hair) var(--g-accent); }
+html .dz .dzbody { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .dz .dzlab { margin: var(--g-s-half) 0 0; font: var(--g-t-tag) var(--g-font-text); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .dz .dznote { margin: 0; font: var(--g-t-caption) var(--g-font-text); color: var(--g-ink-2); }
+html .dz .dzwarn { color: var(--g-amber); }
+html .dz .dzrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
+html body .dz button.dzkey { flex: 1 1 auto; min-width: var(--g-target); min-height: var(--g-target) !important; height: auto !important; padding: var(--g-s-half) var(--g-s-1); white-space: normal; text-transform: none; letter-spacing: normal; border-radius: var(--g-radius-key); }
+html body .dz button.dzkey:disabled { opacity: .4; }
+html body .dz button.dzkey.dzbad { color: var(--g-amber); }
+html body .dz button.dzkey.dzicon { flex: 0 0 var(--g-target); padding: 0; }
+html .dz .dzsw { display: flex; flex-wrap: wrap; gap: var(--g-s-half); align-items: center; }
+html body .dz button.dzswatch { width: var(--g-target); min-width: var(--g-target); min-height: var(--g-target) !important; height: var(--g-target) !important; padding: 0; border-radius: var(--g-radius-orb); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line); }
+html body .dz button.dzswatch[aria-pressed="true"] { box-shadow: 0 0 0 calc(var(--g-hair) * 2) var(--g-accent); }
+html .dz .dzpick { width: var(--g-target); height: var(--g-target); padding: 0; border: 0; background: none; border-radius: var(--g-radius-orb); }
+html .dz .dztext, html .dz .dzsel1 { width: 100%; box-sizing: border-box; min-height: var(--g-target); padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-body) var(--g-font-text); color: var(--g-ink-1); background: var(--g-plate-fill); border: 0; box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .dz .dzrow .dzsel1 { flex: 2 1 160px; width: auto; }
+html .dz .dzrange { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
+html .dz .dzchips { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
+html body .dz button.dzchip { min-width: var(--g-target); min-height: var(--g-target) !important; height: auto !important; padding: 0 var(--g-s-1); text-transform: none; letter-spacing: normal; border-radius: var(--g-radius-orb); }
+html body .dz button.dzchip[aria-pressed="true"] { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-hair) var(--g-accent); }
+html .dz .dzgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-1); }
+html body .dz button.dzcard, html body .dz button.dzsize { display: flex; flex-direction: column; align-items: stretch; gap: var(--g-s-half); min-height: var(--g-target) !important; height: auto !important; padding: var(--g-s-half); text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
+html body .dz button.dzsize[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-hair) var(--g-accent); }
+html .dz .dzcard small, html .dz .dzsize small, html .dz .dzlname small { color: var(--g-ink-3); font: var(--g-t-caption) var(--g-font-text); }
+html .dzthumb { position: relative; display: block; height: 170px; padding: var(--g-s-half); box-sizing: border-box; overflow: hidden; border-radius: var(--g-radius-cell); background: var(--g-plate-strong-fill); pointer-events: none; }
+html .dzthumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
+html .dz .dzsizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-half); }
+html .dz .dzlayers, html .dz .dzlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .dz .dzlayer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half); }
+html body .dz .dzlname { flex: 1 1 140px; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; min-height: var(--g-target) !important; height: auto !important; padding: var(--g-s-half) var(--g-s-1); text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
+html body .dz button.dzlname[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-hair) var(--g-accent); }
+html body .dz .dzlayer button.dzkey { flex: 0 0 auto; }
+html .dz .dzempty { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-2); border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
 /* ===================================================================================================================   TRANSLATE (THE APPS ROUND, the voice lane's flagship):
    the three views, the box, the answer card, other ways to say it, the phrasebook by trip and the history. Every rule is under .tlx
    (its own prefix); every colour, size and duration is a token; every key is the target's size.
@@ -10882,6 +10946,15 @@ html .tlxsaid { margin: 0; font: var(--g-t-fine); letter-spacing: var(--g-tr-tru
 html button.tlxline { justify-content: flex-start; min-height: var(--g-target); padding: 0 var(--g-s-2); text-align: start; white-space: normal; overflow-wrap: anywhere; }
 /* (lines and other ways are his words or a translation, never interface labels: their own case, never capitals) */
 html #pg-translate button.tlxline, html #pg-translate button.tlxalt { text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html .tlxmore { border-top: var(--g-hair) solid var(--g-line-faint); padding-top: var(--g-s-1); }
+html .tlxmore summary { display: flex; align-items: center; min-height: var(--g-target); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); cursor: pointer; }
+html .tlxprefs { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html #pg-translate button.tlxswitch { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); width: 100%; min-height: var(--g-target); padding: 0 var(--g-s-2); text-transform: none; font: var(--g-t-body); color: var(--g-ink-1); }
+html #pg-translate button.tlxswitch b { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); }
+html #pg-translate button.tlxswitch[aria-checked="true"] b { color: var(--g-accent-text); }
+html .tlxhelp { margin: var(--g-s-1) 0 0; padding-inline-start: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-2); }
+html #pg-translate button[data-act="go"] { min-height: var(--g-target); }
+html #pg-translate button[data-act="go"][hidden] { display: none; }
 html .tlxempty { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
 
 /* JOURNAL (APPS ROUND, MEMORY lane): his own writing; every class `jn…`, colours from the tokens only */
