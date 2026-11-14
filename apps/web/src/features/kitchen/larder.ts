@@ -112,8 +112,57 @@ const dishOf = (r: Recipe): Dish => {
   return { id: `mine:${r.id}`, name: r.name, from: 'your own', ingredients: r.ingredients.map((l) => ({ name: l.replace(/^[\d½¼¾⅓⅔./\s]+(?:g|kg|ml|l|tsp|tbsp|cups?|oz|lb|grams?|tins?|cans?|cloves?|pinch|handful)?\s*(?:of\s+)?/i, '').trim() || l, measure: l })), steps: r.steps, mins: mins ? mins + 10 : null };
 };
 
+/** The recipe in the book a planned dinner names ("chilli" finds Chilli con carne; "Mum's lasagne" his own), or null. */
+export function recipeFor(dish: string, all = book()): ReturnType<typeof book>[number] | null {
+  const w = dish.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
+  if (w.length < 3) return null;
+  return all.find((x) => x.d.name.toLowerCase() === w)
+    ?? all.find((x) => w.includes(x.d.name.toLowerCase()))
+    ?? all.find((x) => x.d.name.toLowerCase().includes(w) && w.length >= 4)
+    ?? all.find((x) => x.d.name.toLowerCase().split(/\s+/).filter((p) => p.length >= 4 && !/^(?:with|and)$/.test(p)).some((p) => new RegExp(`\\b${p.replace(/[^a-z']/g, '')}\\b`).test(w)))
+    ?? null;
+}
+/**
+ * The week's shopping from the planned dinners (body.u10): every thing the week's recipes need that isn't in the pantry,
+ * each once, with how many dinners want it; what the pantry already has; and the dinners with no recipe in the book.
+ */
+export function weekShopping(days: string[]): { add: string[]; count: Record<string, number>; have: string[]; unknown: string[]; dishes: string[] } {
+  const all = book();
+  const have = haveNames();
+  const count: Record<string, number> = {};
+  const got = new Set<string>();
+  const unknown: string[] = [];
+  const dishes: string[] = [];
+  for (const day of days) {
+    const dish = day.trim();
+    if (!dish) continue;
+    const r = recipeFor(dish, all);
+    if (!r) {
+      unknown.push(dish);
+      continue;
+    }
+    dishes.push(r.d.name);
+    const h2 = haveOf(r.d, have);
+    for (const n of h2.need) count[n] = (count[n] ?? 0) + 1;
+    for (const i of r.d.ingredients) if (!h2.need.includes(i.name.toLowerCase())) got.add(i.name.toLowerCase());
+  }
+  return { add: Object.keys(count), count, have: [...got].filter((x) => !(x in count)), unknown, dishes };
+}
+/**
+ * Fills the week's empty days from the recipe book: the ones the pantry covers most first, and those using something that must
+ * be used soon before those; never the same dinner twice in a week. The days he already planned stay as they are.
+ */
+export function fillWeek(days: string[]): string[] {
+  const all = book();
+  const soon = load().items.filter((i) => i.useBy && daysLeft(i.useBy) <= 3).map((i) => i.name.toLowerCase());
+  const taken = new Set(days.map((d) => recipeFor(d, all)?.d.id).filter(Boolean));
+  const score = (x: (typeof all)[number]) => x.got / Math.max(1, x.d.ingredients.length) + (soon.length && haveOf(x.d, soon).got ? 1 : 0) + (x.mine ? 0.3 : 0);
+  const pick = all.filter((x) => !taken.has(x.d.id)).sort((a, b) => score(b) - score(a));
+  return Array.from({ length: 7 }, (_, k) => (days[k]?.trim() ? days[k]!.trim() : (pick.shift()?.d.name ?? '')));
+}
+
 /** Puts things on the shopping list in my brain (the one step that needs a signal). */
-async function toShopping(names: string[], status: HTMLElement): Promise<void> {
+export async function toShopping(names: string[], status: HTMLElement): Promise<void> {
   if (!names.length) return;
   if (lacksSignal()) {
     /* state: kitchen.recipes offline */

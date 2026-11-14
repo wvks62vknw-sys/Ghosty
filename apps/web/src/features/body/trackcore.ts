@@ -42,7 +42,7 @@ export interface TrackSettings {
   /** His own cup sizes, beside the four. */
   cups: Cup[];
   /** Water nudges: on or off, the hours they may come in, how often at most, his quiet hours (none inside them). */
-  remind: { on: boolean; from: number; to: number; every: number; quietFrom: number; quietTo: number };
+  remind: { on: boolean; from: number; to: number; every: number; quietFrom: number; quietTo: number; lock: boolean; jobs: string[] };
   sleepGoal: number;
   stepsGoal: number;
   /** His height (cm), for BMI's first estimate; and the weight he aims for. */
@@ -54,7 +54,7 @@ export interface TrackSettings {
 export const DEFAULTS: TrackSettings = {
   waterGoal: null,
   cups: [],
-  remind: { on: false, from: 9, to: 21, every: 90, quietFrom: 22, quietTo: 8 },
+  remind: { on: false, from: 9, to: 21, every: 90, quietFrom: 22, quietTo: 8, lock: true, jobs: [] },
   sleepGoal: 8,
   stepsGoal: 8000,
   heightCm: null,
@@ -69,7 +69,7 @@ export interface TrackData {
   /** The last water nudge (ms). */
   nudged: number;
 }
-export const empty = (): TrackData => ({ v: 1, log: { water: [], sleep: [], steps: [], weight: [], mood: [] }, set: { ...DEFAULTS, remind: { ...DEFAULTS.remind }, cups: [] }, nudged: 0 });
+export const empty = (): TrackData => ({ v: 1, log: { water: [], sleep: [], steps: [], weight: [], mood: [] }, set: { ...DEFAULTS, remind: { ...DEFAULTS.remind, jobs: [] }, cups: [] }, nudged: 0 });
 
 /** Reads what the phone kept, mending anything missing or of the wrong shape, so a broken record never breaks the screen. */
 export function mend(raw: unknown): TrackData {
@@ -85,7 +85,7 @@ export function mend(raw: unknown): TrackData {
   out.set.waterGoal = s.waterGoal == null ? null : num(s.waterGoal, 500, 6000, 0) || null;
   out.set.cups = Array.isArray(s.cups) ? s.cups.filter((c) => c && typeof c.name === 'string' && c.name.trim() && Number.isFinite(c.ml) && c.ml >= 30 && c.ml <= 3000).slice(0, 6).map((c) => ({ name: c.name.trim().slice(0, 24), ml: Math.round(c.ml) })) : [];
   const rm = (s.remind ?? {}) as Partial<TrackSettings['remind']>;
-  out.set.remind = { on: rm.on === true, from: num(rm.from, 0, 23, 9), to: num(rm.to, 1, 24, 21), every: num(rm.every, 30, 240, 90), quietFrom: num(rm.quietFrom, 0, 23, 22), quietTo: num(rm.quietTo, 0, 23, 8) };
+  out.set.remind = { on: rm.on === true, from: num(rm.from, 0, 23, 9), to: num(rm.to, 1, 24, 21), every: num(rm.every, 30, 240, 90), quietFrom: num(rm.quietFrom, 0, 23, 22), quietTo: num(rm.quietTo, 0, 23, 8), lock: rm.lock !== false, jobs: Array.isArray(rm.jobs) ? rm.jobs.filter((x): x is string => typeof x === 'string').slice(0, 12) : [] };
   out.set.sleepGoal = num(s.sleepGoal, 4, 12, 8);
   out.set.stepsGoal = num(s.stepsGoal, 1000, 40000, 8000);
   out.set.heightCm = s.heightCm == null ? null : num(s.heightCm, 100, 250, 0) || null;
@@ -242,6 +242,25 @@ export function nudgeDue(data: TrackData, now: number, goal: number): { due: boo
   const since = Math.max(data.nudged, lastDrink);
   if (now - since < r.every * 60_000) return { due: false, why: 'soon' };
   return { due: true, why: 'behind' };
+}
+/**
+ * The rest of today's nudge times if he drinks nothing more (body.u1): each one a nudge would be due at, at most every
+ * `every` minutes, inside his hours, never in his quiet hours, none once the day's window closes. A drink logged changes them,
+ * so the phone sends these again each time. Only these times ever go to my brain, never an amount.
+ */
+export function nudgeTimes(data: TrackData, now: number, goal: number, max = 6): number[] {
+  const out: number[] = [];
+  if (!data.set.remind.on) return out;
+  const sim: TrackData = { ...data, nudged: data.nudged };
+  const end = new Date(now);
+  end.setHours(24, 0, 0, 0);
+  for (let t = now + 60_000; t < end.getTime() && out.length < max; t += 5 * 60_000) {
+    if (nudgeDue(sim, t, goal).due) {
+      out.push(t);
+      sim.nudged = t;
+    }
+  }
+  return out;
 }
 /** Inside the quiet hours (which may run past midnight: 22 to 8). */
 export function inQuiet(hr: number, from: number, to: number): boolean {

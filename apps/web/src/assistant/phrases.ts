@@ -25,6 +25,7 @@ import { moneyAsked } from '../features/money/words';
 import { bodyAsked } from '../../../../packages/shared/src/body';
 import { trackAsked } from '../features/body/trackcore';
 import { larderAsked } from '../features/kitchen/larderwords';
+import { bodyCoachAsked } from '../features/body/coachwords';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { symptomOf, viewAsked } from '../car/faults';
 import { originAsked } from '../../../../packages/shared/src/social';
@@ -114,6 +115,8 @@ export const LOCAL_ASKS = [
   { id: 'moneyapp', test: (t: string) => moneyAsked(t) !== null },
   // [bodylane] the body trackers on the phone, no model (features/body/track.ts): water, sleep, steps, weight, mood, kept and asked
   // (a drink logged is the water table's, below, which keeps it on the phone the same way: the voice lane's meanings expect it there)
+  // [bodynext] kitchen and body as one coach (features/body/coach.ts): the week's dinners and shopping, tablets, the sleep score, patterns
+  { id: 'bodycoach', test: (t: string) => bodyCoachAsked(t) !== null },
   { id: 'track', test: (t: string) => { const a = trackAsked(t); return a !== null && !(a.kind === 'log' && a.m === 'water'); } },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)
   { id: 'reps', test: (t: string) => bodyAsked(t)?.what === 'reps' },

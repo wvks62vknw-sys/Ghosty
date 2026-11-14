@@ -13,9 +13,9 @@ export const bodyTab: TabDef = {
   title: 'BODY',
   icon: '<path d="M2.5 12.5h4l2.2-4.5 3.6 9 2.6-6 1.4 1.5h5.2"/>',
   scene: 'backdrop',
-  blurb: 'water · sleep · steps · weight · mood · reps by camera · running coach · breathe · stretch · health',
+  blurb: 'water · sleep · steps · weight · mood · tablets · reps by camera · running coach · breathe · stretch · health',
   now: () => cardNow('body'),
-  mount: (root) =>
+  mount: (root) => withSteps(
     sheetPage(root, {
       screen: 'body',
       tag: 'LIFE // BODY',
@@ -33,8 +33,24 @@ export const bodyTab: TabDef = {
           { id: 'sleep', label: 'Sleep', parts: [part('sleep')] },
           { id: 'mood', label: 'Mood', parts: [part('mood'), part('breathe'), part('stretch')] },
           { id: 'weight', label: 'Weight', parts: [part('weight')] },
-          { id: 'health', label: 'Health', parts: [part('health')] },
+          { id: 'health', label: 'Health', parts: [part('health'), part('meds')] },
         ];
       },
-    }),
+    })),
 };
+
+/**
+ * "#body?steps=8421" (body: Steps by Shortcut): the ready-made Shortcut reads today's steps from Health each evening and opens
+ * Ghosty with the number; it is kept as today's steps on this phone (replacing the day's Shortcut number, never his own taps),
+ * then Move opens with it. Every other "#body?…" opens its pill as before.
+ */
+function withSteps<T extends { open?(arg: string): void }>(inst: T): T {
+  const was = inst.open?.bind(inst);
+  inst.open = (arg: string) => {
+    const m = /^steps=(\d{1,6})$/.exec(arg);
+    if (!m) return was?.(arg);
+    was?.('steps');
+    void import('./track').then((t) => t.fromShortcut(Number(m[1]))).catch(() => undefined);
+  };
+  return inst;
+}

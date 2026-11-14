@@ -6665,6 +6665,18 @@ html .kl .kl-serves b { flex: 1 1 auto; text-align: center; font: var(--g-t-valu
 html .kl .kl-step { display: flex; flex-direction: column; gap: var(--g-s-half); margin: 0; font: var(--g-t-reading); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .kl .kl-step small { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
 html .pkfield label { overflow-wrap: anywhere; }
+/* NEXT ROUND, BODY AND KITCHEN (features/body/meds.ts, coach.ts, track.ts): tablets, the coach's cards, the Shortcut's link. Tokens only. */
+html .bt .bt-link { display: block; font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; word-break: break-all; }
+html .bt .bm-dose { flex-wrap: wrap; row-gap: var(--g-s-half); }
+html .bt .bm-dose .pkrow { flex: 0 1 auto; flex-wrap: wrap; }
+html .bt .bm-dose small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .bt .bc-score { display: flex; align-items: baseline; gap: var(--g-s-1); flex-wrap: wrap; margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .bc-score b { font: var(--g-t-value); font-variant-numeric: var(--g-num); color: var(--g-ink-1); }
+html .bt .bc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .bt .bc-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .bt .bc-cell small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .bt .bc-cell b { font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .bc-pattern { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 
 /* =====================================================================================================================
    THE SHELL IN THE SCAN (BRIEF-SHELL-2; shell/house.ts, jump.ts, rooms.ts, inventory.ts): the house on every screen, the plan, the
