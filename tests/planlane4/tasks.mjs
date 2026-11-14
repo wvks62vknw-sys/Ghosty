@@ -56,6 +56,9 @@ export async function run(H) {
   const a3 = A.agendaAsked('to-do: ring the vet at half 9 on Friday', noon);
   check(a3?.what === 'add' && a3.text === 'Ring the vet' && a3.time === '09:30' && a3.due === '2026-11-20', `[tasks pure] "to-do: ring the vet at half 9 on Friday": ${JSON.stringify(a3)}`);
   check(A.agendaAsked('add buy 3 eggs to my list', noon)?.time === undefined, '[tasks pure] a number that is not a time stays in the words');
+  const a4 = A.agendaAsked('to-do: call the garage tomorrow at 9 p2 #Car/Service @phone', noon);
+  check(JSON.stringify(a4) === JSON.stringify({ what: 'add', text: 'Call the garage', due: '2026-11-15', time: '09:00', p: 2, project: 'Car', section: 'Service', tags: ['phone'] }), `[tasks pure] quick add's marks in the chat: ${JSON.stringify(a4)}`);
+  check(A.agendaAsked('to-do: renew the passport p1', noon)?.star === true, '[tasks pure] "p1" in the chat is the star');
   const rings = W.todoRings([{ id: 'x', text: 'Call the bank', due: '2026-11-14', time: '15:00', at: 1 }, { id: 'y', text: 'No time', due: '2026-11-14', at: 1 }, { id: 'z', text: 'Done', due: '2026-11-14', time: '15:00', at: 1, done: true }]);
   check(rings.length === 1 && rings[0].title === 'To-do: Call the bank', `[tasks pure] only an open one with a day and a time rings: ${JSON.stringify(rings)}`);
   log('tasks: pure');
@@ -98,6 +101,14 @@ export async function run(H) {
     await page.locator('.undofloat button').first().click({ timeout: 3000 }).catch(() => check(false, '[tasks 440] no UNDO after changing the time'));
     l = await until(brainList, (x) => x.find((t) => t.text === 'Call the bank')?.time === '15:00');
     check(l.find((t) => t.text === 'Call the bank')?.time === '15:00', `[tasks 440] UNDO put its time back: ${JSON.stringify(l.find((t) => t.text === 'Call the bank'))}`);
+    // quick add's marks in the chat reach the one list
+    r = await ask(page, 'to-do: call the garage tomorrow at 9 p2 #Car @phone', /Added to your to-do list: Call the garage/);
+    check(r.ok && /Added to your to-do list: Call the garage, due tomorrow, priority 2, #Car · @phone\. It rings at 09:00/.test(r.inner), `[tasks chat] quick add's marks in the chat: ${r.inner.slice(0, 200)}`);
+    l = await until(brainList, (x) => x.some((t) => t.text === 'Call the garage'));
+    const gar = l.find((t) => t.text === 'Call the garage');
+    check(gar?.p === 2 && gar.project === 'Car' && gar.tags?.join() === 'phone' && gar.time === '09:00' && gar.due === tomorrow, `[tasks chat] … kept by the brain: ${JSON.stringify(gar)}`);
+    await open(page, 'agenda');
+    await openSection(page, 'agenda', 'To-do');
     // the add field reads a time too
     await page.fill('#pg-agenda .todoadd input[aria-label="To-do"]', 'Ring the dentist at 4pm');
     await page.click('#pg-agenda .todoadd button');
@@ -212,6 +223,12 @@ export async function run(H) {
     check(f1.t === '⚑' && /tdp1/.test(f1.cls) && f1.pressed === 'true' && f1.label === 'Take priority 1 off Book the MOT', `[tasks 390] the brain's star shows as the P1 flag: ${JSON.stringify(f1)}`);
     check(f3.t === '⚑' && /tdp3/.test(f3.cls) && f3.label === 'Make Order the new filters priority 1 (now priority 3)' && f4.t === '⚐' && f4.label === 'Make Tidy the garage priority 1', `[tasks 390] P3 and none flagged: ${JSON.stringify([f3, f4])}`);
     check(new Set([f1.color, f3.color, f4.color]).size === 3, `[tasks 390] each priority its own colour of the look: ${[f1.color, f3.color, f4.color]}`);
+    // the flag tapped has its UNDO
+    await page.click('#pg-agenda .todoit[data-id="tpx3"] button.todostar');
+    await until(brainList, (x) => x.find((t) => t.id === 'tpx3')?.high === true);
+    await page.locator('.undofloat button').first().click({ timeout: 3000 }).catch(() => check(false, '[tasks 390] no UNDO after the flag'));
+    const un = await until(brainList, (x) => !x.find((t) => t.id === 'tpx3')?.high);
+    check(!un.find((t) => t.id === 'tpx3')?.high, `[tasks 390] UNDO takes the flag's P1 back: ${JSON.stringify(un.find((t) => t.id === 'tpx3'))}`);
     // P2 set in the change box: the brain keeps p 2 and no star
     await page.click('#pg-agenda .todoit[data-id="tpx3"] button.todotx');
     await page.selectOption('#pg-agenda .todoedit select[aria-label="Priority"]', '2');

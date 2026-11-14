@@ -6,6 +6,7 @@
  *
  *   "add buy milk to my to-do list", "put call the bank on my list for tomorrow", "to-do: renew passport by Friday"   → add
  *   "add call the bank at 3pm to my to-do list", "to-do: call the bank tomorrow at 3"   → add, ringing at its time ([planlane4:tasks])
+ *   "to-do: call the garage tomorrow at 9 p2 #Car @phone"   → add, with quick add's priority, project (and "/section") and tags
  *   "what's on my to-do list", "what do I need to do today", "what's due this week"                                  → list
  *   "tick off buy milk", "I've done the passport", "cross the bank off my list", "mark buy milk as done"            → tick
  *   "take buy milk off my list", "remove the passport from my to-dos"                                               → remove
@@ -16,7 +17,7 @@ import { dayOf, type Every } from './todowords';
 import { splitTime } from '../../../../../packages/shared/src/work';
 
 export type AgendaAsk =
-  | { what: 'add'; text: string; due: string; every?: Every; star?: boolean; time?: string }
+  | { what: 'add'; text: string; due: string; every?: Every; star?: boolean; time?: string; p?: 2 | 3; project?: string; section?: string; tags?: string[] }
   | { what: 'list'; when: 'all' | 'today' | 'week' | 'late' | 'starred' }
   | { what: 'tick'; text: string; loose: boolean }
   | { what: 'remove'; text: string }
@@ -201,10 +202,23 @@ export function agendaAsked(text: string, now = Date.now()): AgendaAsk | null {
     star = true;
     item = item.replace(/,?\s*(?:it'?s |that'?s |mark it )?(?:important|urgent|starred|star it)$/i, '');
   }
+  // [planlane4:tasks] quick add's marks said in the chat too: "p2" (p1 is the star), "#Home/Kitchen" (a project and its section), "@phone"
+  let pr = 0;
+  let project = '';
+  let section = '';
+  const tags: string[] = [];
+  item = item
+    .replace(/(^|\s)p([1-4])(?=$|[\s,.!?;])/i, (_m, l: string, n: string) => ((pr = Number(n)), l))
+    .replace(/(^|\s)#([\p{L}\d][\p{L}\d_-]{0,29})(?:\/([\p{L}\d][\p{L}\d_-]{0,29}))?/u, (_m, l: string, a: string, b?: string) => ((project = a), (section = b ?? ''), l))
+    .replace(/(^|\s)@([\p{L}\d][\p{L}\d_-]{0,29})/gu, (_m, l: string, g: string) => (tags.includes(g.toLowerCase()) || tags.push(g.toLowerCase()), l))
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (pr === 1) star = true;
   // [planlane4:tasks] "call the bank at 3pm (tomorrow)": the time it rings, then the day
   const tm = splitTime(item);
   const w = splitWhen(tm.text, now);
   const words = strip(w.text);
   if (!words || /^(?:it|that|this|something)$/i.test(words)) return null;
-  return { what: 'add', text: words.charAt(0).toUpperCase() + words.slice(1), due: w.due, ...(w.every ? { every: w.every } : {}), ...(star ? { star: true } : {}), ...(tm.time ? { time: tm.time } : {}) };
+  return { what: 'add', text: words.charAt(0).toUpperCase() + words.slice(1), due: w.due, ...(w.every ? { every: w.every } : {}), ...(star ? { star: true } : {}), ...(tm.time ? { time: tm.time } : {}),
+    ...(pr === 2 || pr === 3 ? { p: pr as 2 | 3 } : {}), ...(project ? { project, ...(section ? { section } : {}) } : {}), ...(tags.length ? { tags } : {}) };
 }

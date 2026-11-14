@@ -470,7 +470,9 @@ export function todoPanel(onChange: () => void, agenda?: UpAgenda, openEvent?: (
     // [planlane4:tasks] the flag: its priority in a colour of the look (P1 the star, P2, P3; an open flag for none); a tap sets P1 or
     // takes it off, and P2 and P3 are set in its change box or typed as it is added
     const pv = prioOf(t);
-    const star = button(pv < 4 ? '⚑' : '⚐', () => void editTodo(t.id, { prio: pv === 1 ? 4 : 1 }), `todostar tdp${pv}${t.star ? ' on' : ''}`);
+    const star = button(pv < 4 ? '⚑' : '⚐', () => {
+      if (editTodo(t.id, { prio: pv === 1 ? 4 : 1 })) undo(pv === 1 ? `Priority 1 off: ${t.text}` : `Priority 1: ${t.text}`, () => void editTodo(t.id, { prio: pv }));
+    }, `todostar tdp${pv}${t.star ? ' on' : ''}`);
     star.setAttribute('aria-pressed', String(!!t.star));
     star.setAttribute('aria-label', pv === 1 ? `Take priority 1 off ${t.text}` : `Make ${t.text} priority 1${pv < 4 ? ` (now priority ${pv})` : ''}`);
     const del = button('✕', () => void removeTodo(t.id), 'todox');

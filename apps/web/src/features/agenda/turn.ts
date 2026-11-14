@@ -4,7 +4,7 @@ import { agendaAsked, type AgendaAsk } from './asks';
 import { undo } from '../../ui/components';
 import { pushState } from '../../assistant/push';
 import { addTodo, clearDone, loadTodos, removeTodo, syncTodos, tickTodo } from './todo';
-import { daysTo, dayOf, dueWords, everyWords, findTodo, sortTodos, type Todo } from './todowords';
+import { daysTo, dayOf, dueWords, everyWords, findTodo, sortTodos, tagWords, type Todo } from './todowords';
 
 // (the panel too: the chip opens the agenda on the to-do list or the month, not on whichever section was last chosen)
 const OPEN_TODO = { id: 'screen:agenda', ask: -1, label: 'Open the to-do list', open: 'agenda', panel: 'TO-DO' };
@@ -114,9 +114,9 @@ export async function agendaTurn(text: string): Promise<PackReply | null> {
   if (ask.what !== 'add') await Promise.race([syncTodos(true), new Promise((r) => setTimeout(r, 2500))]);
   const now = Date.now();
   if (ask.what === 'add') {
-    const t = addTodo(ask.text, ask.due, ask.every, ask.star, ask.time ?? '');
+    const t = addTodo(ask.text, ask.due, ask.every, ask.star, ask.time ?? '', { ...(ask.p ? { p: ask.p } : {}), ...(ask.project ? { project: ask.project, ...(ask.section ? { section: ask.section } : {}) } : {}), ...(ask.tags ? { tags: ask.tags } : {}) });
     if (!t) return reply(text, NOT_KEPT);
-    const when = [t.due ? dueWords(t.due, now).replace(/^Due /, 'due ') : '', ask.every ? `repeats ${everyWords(ask.every)}` : '', ask.star ? 'starred' : ''].filter(Boolean).join(', ');
+    const when = [t.due ? dueWords(t.due, now).replace(/^Due /, 'due ') : '', ask.every ? `repeats ${everyWords(ask.every)}` : '', ask.star ? 'starred' : '', ask.p ? `priority ${ask.p}` : '', tagWords(t)].filter(Boolean).join(', ');
     // [planlane4:tasks] a timed one rings by the brain's reminder, with the phone locked when this phone has notifications on
     const ring = t.time ? ` It rings at ${t.time}${pushState.get().status === 'on' ? ', even with the phone locked' : '; tap NOTIFY THIS DEVICE under Reminders so it rings with the phone locked'}.` : '';
     return reply(text, `Added to your to-do list: ${t.text}${when ? `, ${when}` : ''}.${ring} ${loadTodos().filter((x) => !x.done).length} to do.`);
