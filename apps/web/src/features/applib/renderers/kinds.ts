@@ -42,12 +42,15 @@ export function ring(frac: number, label: string, mid: Node[], cls = ''): HTMLEl
   };
   const arc = c('al-ringarc');
   arc.style.strokeDasharray = `${Math.max(0, Math.min(100, frac * 100)).toFixed(2)} 100`;
+  arc.style.opacity = frac > 0.002 ? '1' : '0';
   s.append(c('al-ringtrack'), arc);
   return h(`div.al-bigring${cls ? `.${cls}` : ''}` as 'div', { role: 'img', 'aria-label': label }, s, h('div.al-ringmid', ...mid));
 }
 const setRing = (el: HTMLElement, frac: number) => {
   const arc = el.querySelector<SVGCircleElement>('.al-ringarc');
-  if (arc) arc.style.strokeDasharray = `${Math.max(0, Math.min(100, frac * 100)).toFixed(2)} 100`;
+  if (!arc) return;
+  arc.style.strokeDasharray = `${Math.max(0, Math.min(100, frac * 100)).toFixed(2)} 100`;
+  arc.style.opacity = frac > 0.002 ? '1' : '0';
 };
 
 // ── calc ────────────────────────────────────────────────────────────────────────────────
