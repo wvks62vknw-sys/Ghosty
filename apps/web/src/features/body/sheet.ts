@@ -14,9 +14,9 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 
-export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water' | 'sleep' | 'steps' | 'weight' | 'mood' | 'meds' | 'week';
+export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water' | 'sleep' | 'steps' | 'weight' | 'mood' | 'meds' | 'week' | 'fast' | 'measure' | 'gym' | 'symptoms';
 /** Each screen's name, as its sheet's title and as its panel on the BODY screen (features/body/index.ts). */
-export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY', sleep: 'SLEEP', steps: 'STEPS', weight: 'WEIGHT', mood: 'MOOD', meds: 'TABLETS', week: 'YOUR WEEK' };
+export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY', sleep: 'SLEEP', steps: 'STEPS', weight: 'WEIGHT', mood: 'MOOD', meds: 'TABLETS', week: 'YOUR WEEK', fast: 'FASTING', measure: 'MEASUREMENTS', gym: 'GYM LOG', symptoms: 'SYMPTOM DIARY' };
 const TITLES = BODY_TITLES;
 
 /** What the screens are doing, for the specs (window.__ghosty.body). */
@@ -53,6 +53,10 @@ export async function bodyScreen(w: BodyWhat, args: Record<string, unknown> = {}
     : w === 'health' ? (await import('./health')).healthScreen()
     : w === 'meds' ? (await import('./meds')).medsScreen()
     : w === 'week' ? await (await import('./week')).weekScreen()
+    : w === 'fast' ? (await import('./more')).fastScreen()
+    : w === 'measure' ? (await import('./more')).measureScreen()
+    : w === 'gym' ? (await import('./more')).gymScreen()
+    : w === 'symptoms' ? (await import('./more')).symptomScreen()
     : (await import('./track')).trackScreen(w);
 }
 

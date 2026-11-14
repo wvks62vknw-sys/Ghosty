@@ -20,6 +20,7 @@ import {
   OWN_DISHES,
   planCard,
   planWords,
+  recipeFromPage,
   scaleLines,
   shopText,
   shopWords,
@@ -34,7 +35,8 @@ import {
 import { mondayOf, prettyDay, shortId } from '../../../../packages/shared/src/packs';
 import { asData } from '../kernel/permissions';
 import { lookupBarcode, renderLookup } from '../integrations/lookup';
-import { getJson, load, packTool, save, todayOf, wordsOf, type ActionFn, type PackDeps } from '../packs/base';
+import { getJson, getText, load, packTool, save, todayOf, wordsOf, type ActionFn, type PackDeps } from '../packs/base';
+import { unsafeUrl } from '../netguard';
 import { addJob } from '../schedule';
 import { fromZoned } from '../time';
 import { arg, type Tool } from './types';
@@ -252,7 +254,27 @@ const leftovers: ActionFn = async (a, d) => {
   return { text: `Noted: eat the ${what} by ${prettyDay(l.by)}. I’ll remind you at 5pm that day (it’s in your Agenda). Assumed: the Food Standards Agency’s rule — leftovers within two days, rice within one, kept in the fridge.` };
 };
 
-export const KITCHEN: Record<string, ActionFn> = { fridge, dishes, recipe, shop, timer, barcode, portions, convert, oven, plan, useup, leftovers };
+/**
+ * [bodynext] RECIPE IMPORT (body.u9): the phone's IMPORT FROM A LINK. The page is read on the public web only (netguard), and only
+ * its schema.org Recipe data is taken: the name, serves, ingredient lines and steps, handed back as data for the phone to keep
+ * in his own recipe book. Nothing is kept here.
+ */
+const importRecipe: ActionFn = async (a, d) => {
+  const url = String(a.url ?? wordsOf(a)).trim();
+  const bad = unsafeUrl(url);
+  if (bad) return { text: `I can’t read that link: ${bad}.` };
+  let html = '';
+  try {
+    html = await getText(d, url, 2_000_000, 9000);
+  } catch {
+    return { text: 'That page didn’t answer, so nothing was imported. Try again in a moment.' };
+  }
+  const r = recipeFromPage(html);
+  if (!r) return { text: 'That page has no recipe I can read (it doesn’t publish one in the standard form). Paste its things and steps into ADD A RECIPE instead.' };
+  return { text: `Read: ${r.name}, ${r.ingredients.length} things and ${r.steps.length} steps.`, data: { recipe: r } };
+};
+
+export const KITCHEN: Record<string, ActionFn> = { fridge, dishes, recipe, shop, timer, barcode, portions, convert, oven, plan, useup, leftovers, import: importRecipe };
 export const KITCHEN_ACTIONS = Object.keys(KITCHEN);
 
 export const kitchenTools: Tool[] = [

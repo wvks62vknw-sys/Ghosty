@@ -9,7 +9,7 @@ import { DAYS, mmss, timerAsked } from '../../../../../packages/shared/src/kitch
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
-import { book, fillWeek, pantryScreen, recipesScreen, toShopping, weekShopping } from './larder';
+import { book, fillWeek, kcalOf, pantryScreen, recipeFor, recipesScreen, toShopping, weekShopping } from './larder';
 import { onTimers, startTimers, startedWords, stopTimer, stopTimers, timersNow } from './timers';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
@@ -209,9 +209,22 @@ function planSheet(): { el: HTMLElement; stop(): void } {
   });
   const status = h('p.pknote', { 'aria-live': 'polite' }, 'This week’s dinners, kept in my brain. Tonight’s shows in the Brief.');
   const shopNote = h('div.pkcol', { 'aria-live': 'polite', dataset: { weekshop: '' } });
+  // ROUGH CALORIES (body.s7): each planned dinner's, a serving, from the recipe book
+  const kcal = h('p.pknote', { dataset: { plankcal: '' } });
+  const sums = () => {
+    const all = book();
+    const per = inputs.map((i, k) => {
+      const r = i.value.trim() ? recipeFor(i.value, all) : null;
+      return r ? { day: DAYS[k], e: kcalOf(r) } : null;
+    }).filter((x): x is { day: (typeof DAYS)[number]; e: ReturnType<typeof kcalOf> } => !!x && x.e.known > 0);
+    kcal.dataset.plankcal = String(per.length);
+    kcal.textContent = per.length ? `Rough calories a serving: ${per.map((x) => `${x.day} ${x.e.kcal.toLocaleString('en-GB')}`).join(', ')}. About ${Math.round(per.reduce((a, x) => a + x.e.kcal, 0) / per.length / 10) * 10} on average, first estimates from my food table.` : '';
+  };
+  inputs.forEach((i) => i.addEventListener('change', sums));
   const fill = (days: string[]) => {
     kitchenState.plan = days.slice();
     inputs.forEach((i, k) => (i.value = days[k] ?? ''));
+    sums();
   };
   const act = async (args: Record<string, unknown>) => {
     if (lacksSignal()) {
@@ -269,7 +282,7 @@ function planSheet(): { el: HTMLElement; stop(): void } {
     note.textContent = `On the shopping list for ${w.dishes.length} dinner${w.dishes.length === 1 ? '' : 's'}: ${w.add.map((n) => (w.count[n]! > 1 ? `${n} (×${w.count[n]})` : n)).join(', ')}.`;
   }, 'on');
   shop.setAttribute('aria-label', 'Put what the week needs on the shopping list');
-  const el = h('div.pkcol', names, ...DAYS.map((d, k) => h('div.pkitem', h('label', { style: 'flex:0 0 3.2em' }, d), inputs[k]!)), h('div.pkrow', save, auto), h('div.pkrow', shop), shopNote, status,
+  const el = h('div.pkcol', names, ...DAYS.map((d, k) => h('div.pkitem', h('label', { style: 'flex:0 0 3.2em' }, d), inputs[k]!)), h('div.pkrow', save, auto), kcal, h('div.pkrow', shop), shopNote, status,
     h('p.pknote', 'Pick from your recipe book as you type. The week’s shopping leaves out what your pantry already has.'), phrases(['plan my week', 'shopping for the week']));
   /* state: kitchen.plan loading */
   const done0 = waitFor(el, 'Opening this week…');

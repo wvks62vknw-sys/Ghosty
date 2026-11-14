@@ -12,10 +12,12 @@ import { h } from '../../core/dom';
 import { button } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { LARDER_ADD, LARDER_LIST } from './larderwords';
+import { estimate, estimateWords } from './nutrition';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine } from '../lifeui';
 
-export type Place = 'fridge' | 'freezer' | 'cupboard';
-export const PLACES: { id: Place; label: string }[] = [{ id: 'fridge', label: 'Fridge' }, { id: 'freezer', label: 'Freezer' }, { id: 'cupboard', label: 'Cupboard' }];
+export type Place = 'fridge' | 'freezer' | 'cupboard' | 'leftovers';
+/** (LEFTOVERS, body.s8: cooked food on its own shelf, eat by two days on unless he gives a date.) */
+export const PLACES: { id: Place; label: string }[] = [{ id: 'fridge', label: 'Fridge' }, { id: 'freezer', label: 'Freezer' }, { id: 'cupboard', label: 'Cupboard' }, { id: 'leftovers', label: 'Leftovers' }];
 export interface Item {
   id: string;
   name: string;
@@ -75,6 +77,12 @@ const today = () => {
   const d = new Date(Date.now() + ((window as unknown as { __ghostyClockOffset?: number }).__ghostyClockOffset ?? 0));
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+/** Today moved by n days, YYYY-MM-DD. */
+export const dayAfter = (n: number): string => {
+  const [y, m, d] = today().split('-').map(Number) as [number, number, number];
+  const t = new Date(y, m - 1, d + n, 12);
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+};
 const daysLeft = (ymd: string) => {
   const [y, m, d] = ymd.split('-').map(Number) as [number, number, number];
   const [ty, tm, td] = today().split('-').map(Number) as [number, number, number];
@@ -94,8 +102,9 @@ export function addItems(words: string, where: Place, useBy = ''): string {
   const names = itemsIn(words);
   if (!names.length) return 'Type what to add, like “milk, eggs, chicken”.';
   const data = load();
-  for (const name of names) data.items.push({ id: rid(), name, where, useBy: DAY_RE.test(useBy) ? useBy : '', added: Date.now() });
-  return save() ? `In the ${where}: ${names.join(', ')}.` : failed;
+  const by = DAY_RE.test(useBy) ? useBy : where === 'leftovers' ? dayAfter(2) : '';
+  for (const name of names) data.items.push({ id: rid(), name, where, useBy: by, added: Date.now() });
+  return save() ? `${where === 'leftovers' ? 'On the leftovers shelf' : `In the ${where}`}: ${names.join(', ')}.${where === 'leftovers' && !DAY_RE.test(useBy) ? ' Eat by the day after tomorrow, a rough guide: if in doubt, throw it out.' : ''}` : failed;
 }
 export function haveNames(): string[] {
   return load().items.map((i) => i.name.toLowerCase());
@@ -161,6 +170,16 @@ export function fillWeek(days: string[]): string[] {
   return Array.from({ length: 7 }, (_, k) => (days[k]?.trim() ? days[k]!.trim() : (pick.shift()?.d.name ?? '')));
 }
 
+/** A recipe's rough calories and protein a serving (body.s7), from its own lines at the number of people shown. */
+export function kcalOf(x: ReturnType<typeof book>[number]): ReturnType<typeof estimate> {
+  // (a serving is the same whatever the number of people: his own at the serves he wrote, Ghosty's own for two)
+  return x.mine ? estimate(x.mine.ingredients, x.mine.serves) : estimate(x.d.ingredients.map((i) => (i.measure ? `${i.measure} ${i.name}` : i.name)), 2);
+}
+const kcalLine = (x: ReturnType<typeof book>[number]) => {
+  const e = kcalOf(x);
+  return h('p.pknote', { dataset: { kcal: String(e.kcal), protein: String(e.protein) } }, estimateWords(e));
+};
+
 /** Puts things on the shopping list in my brain (the one step that needs a signal). */
 export async function toShopping(names: string[], status: HTMLElement): Promise<void> {
   if (!names.length) return;
@@ -188,7 +207,7 @@ export function pantryScreen(): { el: HTMLElement; stop(): void } {
   const by = h('input', { type: 'date', 'aria-label': 'Use by (if it has a date)' }) as HTMLInputElement;
   const add = () => {
     const said = addItems(name.value, where.value as Place, by.value);
-    if (!/^In the/.test(said)) {
+    if (!/^(?:In the|On the leftovers)/.test(said)) {
       /* state: kitchen.pantry error */
       return stateIn(status, 'error', said);
     }
@@ -388,9 +407,17 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
       h('p.pknote', `${d.mins ? `About ${d.mins} min, a first estimate from its steps. ` : ''}${x.mine ? 'Your own recipe.' : 'From Ghosty’s own list.'}`),
       x.mine ? h('div.pkrow.kl-serves', { role: 'group', 'aria-label': 'How many people' }, minus, h('b', { dataset: { serves: String(serves) } }, `Serves ${serves}`), plus) : null,
       lines.rounded ? h('p.pknote', 'Some amounts are rounded to the nearest half.') : null,
-      h('h3.kl-h', 'You need'), ing, h('div.pkrow', missing, tonight),
+      h('h3.kl-h', 'You need'), ing, kcalLine(x), h('div.pkrow', missing, tonight),
       h('h3.kl-h', 'Method'), ...cook,
     ];
+    // BATCH-COOK INTO THE FREEZER (body.s9): the portions it makes now, on the freezer list with a date three months on
+    const batch = button(`Batch cook: ${serves} portions to the freezer`, () => {
+      const data = load();
+      data.items.push({ id: rid(), name: `${d.name}, ${serves} portion${serves === 1 ? '' : 's'}`, where: 'freezer', useBy: dayAfter(90), added: Date.now() });
+      if (save()) stateIn(status, '', `${d.name}: ${serves} portion${serves === 1 ? '' : 's'} on the freezer list, use within about three months (a rough guide). The Pantry pill has them.`);
+    });
+    batch.setAttribute('aria-label', `Batch cook ${d.name}: ${serves} portions to the freezer`);
+    kids.push(h('div.pkrow', batch));
     if (x.mine) {
       const del = button('Delete this recipe', () => {
         const data = load();
@@ -414,7 +441,29 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
       load().recipes.push(r);
       if (save()) stateIn(status, '', `${r.name}: kept in your book.`);
     }, 'on');
-    return h('details.pkmore.kl-add', h('summary', 'Add a recipe'), h('div.pkfield', h('label', 'Name'), nm), h('div.pkfield', h('label', 'Serves'), sv), h('div.pkfield', h('label', 'Its things, one a line'), ing), h('div.pkfield', h('label', 'Its steps, one a line'), st), h('div.pkrow', keep));
+    // IMPORT FROM A LINK (body.u9): my brain reads the page's own recipe data, and it lands in his book here
+    const link = h('input', { type: 'url', inputmode: 'url', placeholder: 'https://… a recipe page', 'aria-label': 'A recipe page’s link' }) as HTMLInputElement;
+    const fetchIt = button('Import it', async () => {
+      const url = link.value.trim();
+      if (!/^https?:\/\//i.test(url)) return stateIn(status, 'error', 'Paste the whole link, starting https://.');
+      if (lacksSignal()) return stateIn(status, 'offline', 'No signal: my brain reads the page, so importing waits until you’re back online.');
+      /* state: kitchen.recipes loading */
+      stateIn(status, 'loading', 'Reading the recipe page…');
+      try {
+        const r = await brain.packDo('kitchen', 'import', { url });
+        const got = (r.data as { recipe?: { name: string; serves: number; ingredients: string[]; steps: string[] } } | undefined)?.recipe;
+        if (!got) return stateIn(status, 'error', r.text || 'That page has no recipe I can read.');
+        const rec: Recipe = { id: rid(), name: got.name.slice(0, 80), serves: Math.max(1, Math.min(24, Math.round(got.serves) || 2)), ingredients: got.ingredients.slice(0, 40).map((x) => x.slice(0, 120)), steps: got.steps.slice(0, 30).map((x) => x.slice(0, 400)) };
+        load().recipes.push(rec);
+        link.value = '';
+        if (save()) stateIn(status, '', `${rec.name}: in your book, with ${rec.ingredients.length} things and ${rec.steps.length} steps. Check them over: they’re the page’s words.`);
+      } catch {
+        stateIn(status, 'error', 'My brain didn’t answer, so nothing was imported. Try again in a moment.');
+      }
+    }, 'on');
+    fetchIt.setAttribute('aria-label', 'Import the recipe from the link');
+    const imp = h('details.pkmore.kl-import', h('summary', 'Import from a link'), h('div.pkfield', h('label', 'A recipe page’s link'), link), h('div.pkrow', fetchIt), h('p.pknote', 'My brain reads the page once and takes only its recipe: the name, the things and the steps. It lands in your book on this phone.'));
+    return h('div.pkcol', imp, h('details.pkmore.kl-add', h('summary', 'Add a recipe'), h('div.pkfield', h('label', 'Name'), nm), h('div.pkfield', h('label', 'Serves'), sv), h('div.pkfield', h('label', 'Its things, one a line'), ing), h('div.pkfield', h('label', 'Its steps, one a line'), st), h('div.pkrow', keep)));
   };
   listeners.add(draw);
   draw();
@@ -432,7 +481,7 @@ export function larderTurn(text: string): { reply: string; open: 'pantry' | 'rec
   const t = text.trim().replace(/[.!]+$/, '').replace(/’/g, "'");
   const a = ADD.exec(t);
   if (a) {
-    const where: Place = /freezer/i.test(a[2]!) ? 'freezer' : /fridge/i.test(a[2]!) ? 'fridge' : 'cupboard';
+    const where: Place = /freezer/i.test(a[2]!) ? 'freezer' : /fridge/i.test(a[2]!) ? 'fridge' : /leftovers/i.test(a[2]!) ? 'leftovers' : 'cupboard';
     return { reply: addItems(a[1]!, where), open: 'pantry' };
   }
   const l = LIST.exec(t);

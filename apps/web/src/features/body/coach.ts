@@ -7,7 +7,7 @@
  */
 import { brain } from '../../api/brain';
 import { lacksSignal } from '../lifeui';
-import { bodyCoachAsked } from './coachwords';
+import { bodyCoachAsked, drinkAsked } from './coachwords';
 
 export interface CoachReply {
   reply: string;
@@ -19,6 +19,27 @@ const body = (what: string) => ({ id: 'body', ask: -1, label: 'Open it', run: 'o
 export async function coachTurn(text: string): Promise<CoachReply | null> {
   const k = bodyCoachAsked(text);
   if (!k) return null;
+  if (k === 'drink') {
+    const a = drinkAsked(text);
+    if (!a) return null;
+    const dr = await import('./drinks');
+    const t = await import('./track');
+    if ('ask' in a) {
+      const tot = dr.drinkTotals();
+      return { reply: a.ask === 'caffeine' ? `About ${tot.caf} mg of caffeine today${tot.late ? ', some of it late in the day' : ''}. A rough estimate.` : `About ${tot.units} units of alcohol in the last 7 days, beside the UK’s low-risk guide of 14 a week. A rough estimate.`, go: body('water') };
+    }
+    let words = '';
+    for (let i = 0; i < a.n; i++) words = dr.addDrink(a.id, (v, name) => void t.add('water', v, 'words', name));
+    return { reply: words, go: body('water') };
+  }
+  if (k === 'walk') {
+    const r = await import('../outside/walkhour').then((m) => m.walkHourLine()).catch(() => null);
+    return { reply: r?.words || 'I can’t read the forecast just now, so I can’t pick an hour. Try again in a moment.', go: { id: 'outside', ask: -1, label: 'Open it', run: 'open_outside', args: { what: 'safewalk' } } };
+  }
+  if (k === 'fast' || k === 'gym' || k === 'symptom') {
+    const r = (await import('./more')).moreTurn(text);
+    return r ? { reply: r.reply, go: body(r.open) } : null;
+  }
   if (k === 'meds') {
     const r = (await import('./meds')).medsTurn(text);
     return r ? { reply: r.reply, go: body('meds') } : null;

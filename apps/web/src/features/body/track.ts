@@ -11,6 +11,7 @@
 import { h, svgEl } from '../../core/dom';
 import { button, toast } from '../../ui/components';
 import { emptyState, lacksSignal, phrases, stateLine } from '../lifeui';
+import { drinksBox } from './drinks';
 import {
   average, bmi, CUPS, nudgeTimes, dayOf, dayValue, empty, FIRST_ESTIMATE, hours, latest, mend, ml, moodWord, MOODS, nudgeDue, series, shift, sleepGoal, stepsGoal, stone, streak, trackAsked, waterGoal, weekdayOf,
   type Entry, type Goal, type Metric, type TrackAsk, type TrackData,
@@ -93,6 +94,14 @@ export function undo(m: Metric): string {
   const [gone] = list.splice(i, 1);
   save();
   return `Taken back: ${m === 'water' ? ml(gone!.v) : m === 'sleep' ? hours(gone!.v) : m === 'steps' ? `${gone!.v.toLocaleString('en-GB')} steps` : m === 'weight' ? `${gone!.v} kg` : moodWord(gone!.v)}. ${line(m)}`;
+}
+/** A drink taken back (./drinks.ts): today's last water entry with its name goes too. */
+export function removeDrinkWater(name: string): void {
+  const data = load();
+  const d = today();
+  const i = data.log.water.map((e) => e.d === d && e.note === name).lastIndexOf(true);
+  if (i >= 0) data.log.water.splice(i, 1);
+  save();
 }
 function removeEntry(m: Metric, t: number): void {
   const data = load();
@@ -275,7 +284,10 @@ export function trackScreen(m: Metric): { el: HTMLElement; stop(): void } {
       }))));
     }
     kids.push(goalBox(m, data, g));
-    if (m === 'water') kids.push(nudgeBox(data));
+    if (m === 'water') {
+      kids.push(nudgeBox(data));
+      kids.push(drinksBox(say, (v, name) => void add('water', v, 'tap', name), removeDrinkWater));
+    }
     if (m === 'water' && lacksSignal() && heat() == null) {
       /* state: body.water offline */
       kids.push(stateLine('offline', 'No signal: everything here works on the phone. The goal adds for a hot day once the weather can be read.'));

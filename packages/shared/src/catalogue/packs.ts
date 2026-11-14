@@ -195,10 +195,16 @@ export const PACK_WORDS: Record<string, CatValue> = {
     go: { run: 'open_kitchen', args: { what: 'recipes' } }, tryText: 'Opens your recipe book',
   },
   'phrase:larder': { same: 'act:kitchen:recipe' },
+  'act:kitchen:import': {
+    name: 'Import a recipe from a link', line: 'You can paste a recipe page’s link and it lands in your recipe book with its things and steps split out.',
+    more: 'KITCHEN → RECIPES → IMPORT FROM A LINK. My brain reads the page once, on the public web only, and takes just its recipe data; the recipe is kept on your phone. A page that publishes none says so.',
+    say: ['Open my recipes'], scene: ['making'], cat: 'do', since: SINCE,
+    go: { run: 'open_kitchen', args: { what: 'recipes' } }, tryText: 'Opens your recipe book',
+  },
   'phrase:bodycoach': {
     name: 'Kitchen and body coach', line: 'You can plan the week from your recipes, put what the pantry lacks on the list, and keep your tablets with lock-screen reminders.',
     more: 'KITCHEN → MEAL PLAN: FILL THE EMPTY DAYS from your book, then SHOPPING FOR THE WEEK adds what is missing, each once. BODY → Health → TABLETS: each reminder is on my brain’s clock so it reaches a locked phone, with only the time; ticks and the refill countdown stay on the phone. BODY → Health → YOUR WEEK: the week side by side with your best day, a rough sleep score, a wind-down nudge, and patterns told as what happened. Never medical advice.',
-    say: ['Plan my dinners', 'Shopping for the week', 'I took my tablets', 'How was my week?', 'My sleep score', 'Any patterns?'], scene: ['making', 'morning', 'phone'], cat: 'do', since: SINCE,
+    say: ['Plan my dinners', 'Shopping for the week', 'I took my tablets', 'How was my week?'], scene: ['making', 'morning', 'phone'], cat: 'do', since: SINCE,
     go: { run: 'open_kitchen', args: { what: 'plan' } }, tryText: 'Opens the meal plan',
   },
   'act:kitchen:shop': {
