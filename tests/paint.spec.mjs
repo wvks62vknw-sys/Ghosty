@@ -221,6 +221,11 @@ async function run(viewport) {
   await page.click('.pxstudio button[aria-label^="Alpha lock"]');
   s = await S(page);
   check(s.layers[2].blend === 'multiply' && s.layers[2].alphaLock, `[${W}] the layer's blend mode and alpha lock are kept`);
+  await page.click('.pxstudio button[aria-label^="Clipping mask"]');
+  s = await S(page);
+  check(s.layers[2].clip === true, `[${W}] CLIPPING MASK clips the layer to the one under it`);
+  await page.click('.pxstudio button[aria-label^="Clipping mask"]');
+  check((await S(page)).layers[2].clip === false, `[${W}] and lets it go again`);
   await bar(page, `[${W}] the layers panel`, '.pxstudio');
   await page.click('.pxstudio .pxsheet button[aria-label^="Close"]');
   // alpha lock: a stroke on the empty locked layer leaves nothing
@@ -273,6 +278,17 @@ async function run(viewport) {
   s = await S(page);
   check(s.layers.map((l) => l.name).join(',') === 'Paper,Background,Layer 1,Layer 3' && s.layers[3].blend === 'multiply' && s.layers[3].alphaLock === false, `[${W}] the opened PSD keeps its layers and blend modes: ${s.layers.map((l) => `${l.name}/${l.blend}`)}`);
   check((await page.evaluate(() => window.__ghosty.paintAt(300, 800, 2))) > 100, `[${W}] the opened PSD keeps the strokes`);
+  // and OpenRaster (Krita, GIMP) both ways
+  await tool(page, 'More');
+  const [dlOra] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.click('.pxstudio button[aria-label="Save as a layered OpenRaster file"]')]);
+  const ora = readFileSync(await dlOra.path());
+  await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+  await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
+  const [chooser2] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-paint button[aria-label="Open a PSD with its layers, or a picture, as a painting"]')]);
+  await chooser2.setFiles({ name: 'Painting 2.ora', mimeType: 'image/openraster', buffer: ora });
+  check(await until(page, () => window.__ghosty.paint.open && window.__ghosty.paint.layers.length === 5, null, 30000), `[${W}] OPEN A FILE opens the OpenRaster file`);
+  s = await S(page);
+  check(s.layers.map((l) => l.name).join(',') === 'Paper,Paper,Background,Layer 1,Layer 3' && s.layers[4].blend === 'multiply' && (await page.evaluate(() => window.__ghosty.paintAt(300, 800, 3))) > 100, `[${W}] the OpenRaster file keeps its layers, blend modes and strokes: ${s.layers.map((l) => `${l.name}/${l.blend}`)}`);
   await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
   await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
 
@@ -376,6 +392,13 @@ for (const [world, body] of [['scan', 21], ['map', 0], ['eye', 0], ['orbit', 0],
   await goPaint(page, 'gallery');
   await until(page, () => window.__ghosty?.paint?.gallery.state === 'ready', null, 30000);
   await bar(page, `${tag} the gallery`, '#pg-paint');
+  if (body) {
+    // the gallery's TIME-LAPSE key opens the painting straight onto its time-lapse, playing
+    await page.click('#pg-paint button[aria-label^="Watch Sample"]');
+    check(await until(page, () => window.__ghosty.paint.open && window.__ghosty.paint.timelapse.frames > 10 && !window.__ghosty.paint.timelapse.playing && window.__ghosty.paint.timelapse.shown >= window.__ghosty.paint.timelapse.frames, null, 30000), `${tag} TIME-LAPSE plays the sample being painted`);
+    await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+    await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
+  }
   await page.click('#pg-paint button[aria-label^="Open Sample"]');
   await until(page, () => window.__ghosty.paint.open, null, 15000);
   await page.waitForTimeout(300);

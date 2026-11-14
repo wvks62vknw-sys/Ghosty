@@ -118,3 +118,30 @@ export function planIcs(p: { id?: string; what: string; where?: string; when?: s
   }
   return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ghosty//Group plan//EN', 'BEGIN:VEVENT', `UID:${p.id ?? d}-plan@ghosty`, `DTSTAMP:${stamp}`, ...when, `SUMMARY:${esc(p.what)}`, ...(p.where ? [`LOCATION:${esc(p.where)}`] : []), ...(p.yes.length ? [`DESCRIPTION:${esc(`Coming: ${p.yes.join(', ')}`)}`] : []), 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
 }
+
+// ---------------------------------------------------------------- groups and tags, kept on this phone (`ghosty.people.groups`)
+
+export const GROUPS_KEY = 'ghosty.people.groups';
+/** His groups for a person, from his words: "family, school mums" → ["family", "school mums"] (lower case, no repeats, at most 8). */
+export const groupsFrom = (words: string): string[] => [...new Set(words.split(/[,;]+/).map((x) => x.replace(/\s+/g, ' ').trim().toLowerCase()).filter((x) => x.length > 1 && x.length <= 24))].slice(0, 8);
+/** Every group in use, most people first. */
+export function allGroups(map: Record<string, string[]>): string[] {
+  const n = new Map<string, number>();
+  for (const gs of Object.values(map)) for (const g of gs) n.set(g, (n.get(g) ?? 0) + 1);
+  return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([g]) => g);
+}
+export function loadGroups(): Record<string, string[]> {
+  try {
+    const v = JSON.parse(localStorage.getItem(GROUPS_KEY) ?? '{}') as Record<string, string[]>;
+    return v && typeof v === 'object' ? v : {};
+  } catch {
+    return {};
+  }
+}
+export function saveGroups(map: Record<string, string[]>): void {
+  try {
+    localStorage.setItem(GROUPS_KEY, JSON.stringify(map));
+  } catch {
+    /* no room */
+  }
+}

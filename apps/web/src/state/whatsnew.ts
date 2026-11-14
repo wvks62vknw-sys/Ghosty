@@ -260,6 +260,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Gym: he carries on by himself', line: 'WATCH keeps playing round after round, TRAIN ALL trains every game in turn, KEEP AWAKE holds the screen on while he trains.' },
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
+  // [journal] APPS ROUND, lane MEMORY: groups
+  { day: '2026-11-14', title: 'Groups for your people', line: 'Life → People → YOUR PEOPLE → Details: put someone in groups like family or football, then tap a group to see just them.' },
   // [journal] APPS ROUND, lane MEMORY: the plan to the calendar
   { day: '2026-11-14', title: 'Plans into your calendar', line: 'Life → People → GROUP PLAN: ADD TO CALENDAR puts the plan in your phone’s Calendar with its day, time, place and who’s coming.' },
   // [journal] APPS ROUND, lane MEMORY: vCards
