@@ -56,11 +56,10 @@ export async function run(H) {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       return { s1: at(10), e1: at(11), s2: at(10, 30), e2: at(12), s3: at(14), e3: at(15), ad: at(0), key, hour: n.getHours() };
     });
-    await page.evaluate((key) => {
-      const l = JSON.parse(localStorage.getItem('ghosty.agenda.todo') ?? '[]').filter((t) => t.id !== 'tl1');
-      l.push({ id: 'tl1', text: 'Spec timeline parcel', due: key, done: false, at: 1 });
-      localStorage.setItem('ghosty.agenda.todo', JSON.stringify(l));
-    }, tm.key);
+    // the to-do goes into the ONE list (the brain's), the way any screen adds one: the phone's copy follows it on the next open
+    await api(page, 'POST', '/packs/do', { pack: 'work', action: 'todo', args: { op: 'remove', id: 'tl1' } });
+    const put = await api(page, 'POST', '/packs/do', { pack: 'work', action: 'todo', args: { op: 'add', item: { id: 'tl1', text: 'Spec timeline parcel', due: tm.key, done: false, at: 1 } } });
+    check(/Spec timeline parcel/.test(JSON.stringify(put ?? '')), `[timeline ${W}] the to-do went into the one list: ${JSON.stringify(put).slice(0, 160)}`);
     const tag = `Spec ${W}`;
     const made = [];
     for (const [title, start, end, allDay] of [[`${tag} standup`, tm.s1, tm.e1], [`${tag} dentist`, tm.s2, tm.e2], [`${tag} gym`, tm.s3, tm.e3], [`${tag} holiday`, tm.ad, undefined, true]]) {
@@ -196,6 +195,7 @@ export async function run(H) {
       check(fr.ok && /Free /.test(fr.text), `[timeline chat] "when am I free tomorrow?" says tomorrow's free time: ${JSON.stringify(fr).slice(0, 300)}`);
     }
     for (const id of made) await api(page, 'DELETE', `/agenda/events/${id}`);
+    await api(page, 'POST', '/packs/do', { pack: 'work', action: 'todo', args: { op: 'remove', id: 'tl1' } });
     await ctx.close();
   }
   // ---- the brain out of reach with no copy of the diary on this phone: the timeline says so, guesses no free time, keeps the to-dos
@@ -221,6 +221,8 @@ export async function run(H) {
     check(!(await page.$('#pg-agenda .pn.timeline .tlgap')) && /Spec offline parcel/.test((await page.textContent('#pg-agenda .pn.timeline .tltodo').catch(() => '')) ?? ''), '[timeline offline] no free time guessed, the to-do due today kept');
     const f = await fit(page, '#pg-agenda .pn.timeline');
     check(!f.small.length && !f.sideways && !f.cut.length, `[timeline offline] fits: ${JSON.stringify(f)}`);
+    // its to-do joined the one list when the phone first met the brain: take it out again, so no later part finds it
+    await api(page, 'POST', '/packs/do', { pack: 'work', action: 'todo', args: { op: 'remove', id: 'tl2' } });
     await ctx.close();
   }
   log('timeline');
