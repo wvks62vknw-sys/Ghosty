@@ -481,4 +481,16 @@ test('POST /email/test: pass, or a reason code in place of the server’s words;
   assert.equal((await E.emailTest(key('me@outlook.com abcd'))).why, 'outlook');
   assert.equal((await E.emailTest(key('me@unknown-mail.example abcd'))).why, 'servers');
   assert.equal(E.emailFault(new Error('x')), 'other');
+  // A temporary refusal is never "not working": the stand-in SMTP greets with 421, then turns AUTH down with 454; IMAP greets with BYE
+  const smtpBusy = (first) => fakeConnect((host) => {
+    if (host.startsWith('imap')) return imapServer();
+    const s = smtpServer();
+    if (first === 'greet') s.start = () => s.send('421 4.7.0 Try again later, closing connection.\r\n');
+    else { const on = s.onLine; s.onLine = (l) => (l.startsWith('AUTH') ? s.send('454 4.7.0 Temporary authentication failure\r\n') : on(l)); }
+    return s;
+  });
+  for (const first of ['greet', 'auth']) assert.deepEqual(await E.emailTest(key('me@gmail.com abcd efgh ijkl mnop'), { connect: smtpBusy(first).connect }), { works: false, why: 'busy', address: 'me@gmail.com' }, first);
+  const imapBye = fakeConnect((host) => { const s = host.startsWith('imap') ? imapServer() : smtpServer(); if (host.startsWith('imap')) s.start = () => s.send('* BYE System busy, try again later\r\n'); return s; });
+  assert.equal((await E.emailTest(key('me@gmail.com abcd efgh ijkl mnop'), { connect: imapBye.connect })).why, 'busy');
+  assert.equal(E.emailFault(new E.MailError('protocol', 'the mail server refused sending: 550 no')), 'other', 'a 5xx is not a wait');
 });

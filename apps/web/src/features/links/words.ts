@@ -195,7 +195,7 @@ export const PAUSED_LINE = (what: string): string => `My brain’s database is p
 // ---- EMAIL's TEST and the one health line (planlane2:fixes, plan.u14)
 
 /** Why an email TEST did not pass (the brain's /email/test `why`: a reason code, never the server's own words). */
-export type EmailTestWhy = 'not' | 'paused' | 'unreached' | 'signin' | 'imap' | 'servers' | 'outlook' | 'saved' | 'other';
+export type EmailTestWhy = 'not' | 'paused' | 'unreached' | 'busy' | 'signin' | 'imap' | 'servers' | 'outlook' | 'saved' | 'other';
 /** A TEST that passed: said as what it proved. */
 export const emailWorks = (address?: string | null): string => `Email works: I signed in to your mail${address ? ` as ${address}` : ''}.`;
 /** A TEST that did not pass, in his words with the one next step. `unreached` (and a paused database) say nothing about what he linked. */
@@ -203,6 +203,8 @@ export function emailTestWhy(why?: string): string {
   switch (why) {
     case 'unreached':
       return 'I couldn’t reach your mail server just now, so I couldn’t check it. Nothing has changed: tap TEST again in a minute.';
+    case 'busy':
+      return 'Your mail server asked me to wait. Nothing has changed: tap TEST again in a minute.';
     case 'signin':
       return emailWhy('password');
     case 'imap':
@@ -219,8 +221,9 @@ export function emailTestWhy(why?: string): string {
       return emailWhy();
   }
 }
-/** Only a test that reached his mail server and was turned down is kept as "not working" (a server out of reach says nothing about it). */
-export const emailTestKept = (why?: string): boolean => !!why && why !== 'unreached' && why !== 'paused';
+/** Only a test that reached his mail server and was turned down is kept as "not working" (a server out of reach, or one that asked me
+ *  to wait, says nothing about it). */
+export const emailTestKept = (why?: string): boolean => !!why && why !== 'unreached' && why !== 'busy' && why !== 'paused';
 
 /** One row of LINKS for the health line: its name as he reads it, the panel it is in, and its state (the very rows the top counts). */
 export interface HealthRow {

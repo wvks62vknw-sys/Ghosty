@@ -345,6 +345,10 @@ test('POST /social/draft from the FOLLOW box: a follow or unfollow draft, never 
   assert.equal((await Q.loadDrafts(d.storage, Date.now())).length, 2, 'nothing more was drafted');
   // a post still makes a post draft (the kind left out)
   assert.equal((await (await post({ account: 'bluesky', text: 'Hello' })).json()).draft.kind, 'post');
+  // which accounts have follows is APIS alone: GET /social says it per account (the phone's FOLLOW box reads it), and the refusal names them
+  const st = await SO.socialStatus(d);
+  assert.deepEqual(st.accounts.map((a) => [a.id, a.follows]), st.accounts.map((a) => [a.id, !!SO.APIS[a.id]?.follow]));
+  assert.equal(SO.followNames(), 'Bluesky and Mastodon');
 });
 
 test('the morning digest: his Bluesky timeline and his one search are filed as LEADs, never as fact sources', async () => {

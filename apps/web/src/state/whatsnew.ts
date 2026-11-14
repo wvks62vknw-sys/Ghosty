@@ -15,8 +15,8 @@ export interface NewThing {
 
 export const WHATS_NEW: NewThing[] = [
   // [planlane2:fixes] the half-done ones, finished: scripts ask first, follow from SOCIAL, email TEST, one health line on LINKS
-  { day: '2026-11-14', title: 'Scripts ask first', line: 'A Home Assistant script now asks “Run Bedtime?” before it runs, every time, on the screen and from the chat: I can’t see what a script does. Scenes still run on one tap unless they set a lock.' },
-  { day: '2026-11-14', title: 'Follow from SOCIAL', line: 'SOCIAL → THE QUEUE has a FOLLOW OR UNFOLLOW box for Bluesky and Mastodon: it makes a draft, and nothing happens until you tap APPROVE.' },
+  { day: '2026-11-14', title: 'Scripts ask first', line: 'A Home Assistant script now asks “Run Bedtime?” before it runs, every time, on the screen and from the chat: I can’t see what a script does. Scenes still run on one tap unless they set a lock, the alarm, a garage door or a switch you marked.' },
+  { day: '2026-11-14', title: 'Follow from SOCIAL', line: 'SOCIAL → WAITING (under WAITING FOR YOUR APPROVE) has a FOLLOW OR UNFOLLOW box for Bluesky and Mastodon: it makes a draft, and nothing happens until you tap APPROVE.' },
   { day: '2026-11-14', title: 'Email TEST and one health line', line: 'LINKS → EMAIL has a TEST key that signs in to your mail and says if it works, and the top of LINKS says in one line that all is fine, or the one thing to fix first.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },

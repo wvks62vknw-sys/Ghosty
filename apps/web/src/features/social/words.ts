@@ -104,12 +104,15 @@ export const accountOffline = (name: string): string => `I can’t reach my brai
 
 // ---------------------------------------------------------------- FOLLOW OR UNFOLLOW (planlane2:fixes, plan.u13)
 
-/** The accounts that have follows (Discord and his Telegram channel have none). */
-export const FOLLOWABLE = ['bluesky', 'mastodon'] as const;
 export const FOLLOW_HEAD = 'Follow or unfollow';
 /** Under the box: it only makes a draft, and the draft waits for his APPROVE like a post. */
 export const FOLLOW_NOTE = 'This makes a draft only. It waits in the queue above until you tap APPROVE, like a post.';
-export const FOLLOW_NONE = 'Link Bluesky or Mastodon under Accounts first: they are the two with follows.';
+/** None of his linked accounts has follows: the ones that do, by name (from the brain's own list, GET /social `follows`). */
+export function followNone(names: string[]): string {
+  if (!names.length) return 'None of your accounts has follows I can use yet.';
+  if (names.length === 1) return `Link ${names[0]} under Accounts first: it is the one with follows.`;
+  return `Link ${names.slice(0, -1).join(', ')} or ${names.at(-1)} under Accounts first: they are the ${names.length === 2 ? 'two' : names.length} with follows.`;
+}
 export const FOLLOW_OFFLINE = 'I can’t reach my brain, so I can’t make a follow draft now. Try again in a moment.';
 /** What a handle looks like on each account (the box's example). */
 export const followExample = (a: string): string => (a === 'mastodon' ? '@sam@mastodon.social' : '@sam.bsky.social');

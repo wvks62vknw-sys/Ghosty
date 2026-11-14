@@ -8,9 +8,12 @@
  */
 import { MailError, parseEmailKey, testLogin, type MailOptions } from './integrations/mail';
 
-/** Why a test did not pass: not linked, the database paused, the mail server out of reach (says nothing about the key), the server
- *  turned the sign-in down, IMAP switched off, the servers not known, an Outlook.com address, what was saved unusable, anything else. */
-export type EmailTestWhy = 'not' | 'paused' | 'unreached' | 'signin' | 'imap' | 'servers' | 'outlook' | 'saved' | 'other';
+export { MailError };
+
+/** Why a test did not pass: not linked, the database paused, the mail server out of reach or asking him to wait (a temporary 4xx SMTP
+ *  answer, an IMAP BYE or UNAVAILABLE: neither says anything about the key), the server turned the sign-in down, IMAP switched off, the
+ *  servers not known, an Outlook.com address, what was saved unusable, anything else. */
+export type EmailTestWhy = 'not' | 'paused' | 'unreached' | 'busy' | 'signin' | 'imap' | 'servers' | 'outlook' | 'saved' | 'other';
 export type EmailTest = { works: true; address: string } | { works: false; why: EmailTestWhy; address?: string };
 
 /** A failed sign-in, as a reason code (the message is read here only to tell IMAP-off and unknown servers apart; it never leaves). */
@@ -18,6 +21,9 @@ export function emailFault(e: unknown): EmailTestWhy {
   if (!(e instanceof MailError)) return 'other';
   if (e.kind === 'unsupported') return 'outlook';
   if (e.kind === 'network') return 'unreached';
+  // A temporary refusal (Gmail's "421 4.7.0 Try again later", "454 Temporary authentication failure", an IMAP "* BYE" greeting or
+  // "[UNAVAILABLE]"): the server asked him to wait, which says nothing about what he saved.
+  if ((e.kind === 'protocol' || e.kind === 'auth') && (/refused [^:]*: 4\d\d\b/.test(e.message) || /\* BYE\b|\[UNAVAILABLE\]/i.test(e.message))) return 'busy';
   if (e.kind === 'auth') return 'signin';
   if (e.kind === 'config') return /IMAP is switched off/i.test(e.message) ? 'imap' : /mail servers for|valid (host|mail server) name/i.test(e.message) ? 'servers' : 'saved';
   return 'other';

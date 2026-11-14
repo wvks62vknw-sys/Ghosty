@@ -9,15 +9,13 @@
 import { clear, h } from '../core/dom';
 import { button, confirmSheet, modal, toast } from '../ui/components';
 import { asksFirst, DOWN_LINE, glance, HOUSE_STEPS, isDown, isOnNow, offWords, roomOff, scriptAsk, sinceWords, stateWords, type HouseEntity } from '../../../../packages/shared/src/house';
-import { BOX_STALE, BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, NOT_LINKED_HEAD, PIN_NOT_KEPT, PINS_KEY, READING } from '../features/house/words';
+import { BOX_STALE, BRAIN_OUT, BRAIN_STALE, HOUSE_NONE, NOT_LINKED_HEAD, PIN_NOT_KEPT, PINS_KEY, READING, SCENES_NOTE } from '../features/house/words';
 import { waiting } from '../ui/wait';
 import { act, houseNow, loadHouse, mark, type ActOut, type HouseView } from './api';
 
 let open: { close(): void } | null = null;
 /** The "Reading your house…" line on show, taken down at the next paint. */
 let stopRead: (() => void) | null = null;
-/** [planlane2:fixes] Under the scenes row: a scene runs on a tap (one that sets the guarded set asks); a script always asks first. */
-export const SCENES_NOTE = 'Your own scenes and scripts from Home Assistant. A scene runs on your tap; one that sets a lock, the alarm or a garage door asks your confirm first. A script always asks first: I can’t see what it does.';
 /** The sheet's name (its title, and its panel on the HOUSE screen: features/house/index.ts). */
 export const HOUSE_TITLE = 'HOUSE';
 

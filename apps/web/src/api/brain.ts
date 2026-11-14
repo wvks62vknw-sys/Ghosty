@@ -819,7 +819,8 @@ export async function refreshKeyCopy(): Promise<void> {
 }
 /** [social] What GET /social answers: each account and who is linked, the drafts, and what went out today. */
 export interface SocialInfo {
-  accounts: { id: Account; name: string; who: string | null }[];
+  /** `follows`: the account has follows (the brain's own list, for SOCIAL's FOLLOW box; [planlane2:fixes]). */
+  accounts: { id: Account; name: string; who: string | null; follows?: boolean }[];
   drafts: Draft[];
   sent: { at: number; account: Account; kind: string; text: string; who?: string; link?: string }[];
 }

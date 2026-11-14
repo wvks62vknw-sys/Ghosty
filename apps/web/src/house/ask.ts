@@ -47,7 +47,7 @@ export async function houseTurn(text: string, opts: Opts, answer: Answer): Promi
   }
   // the guarded set: never from words alone; a button that asks his confirm (a scene that sets a lock, the alarm or the garage door too)
   // [planlane2:fixes] a script: asked first, every time (the phone can't see what it does); his tap on RUN, then the one confirm
-  if (r.entity.domain === 'script') return answer(text, `${scriptAsk(r.entity.name).head} ${scriptAsk(r.entity.name).line} Tap RUN ${r.entity.name.toUpperCase()} and say yes, and it runs.`, { kind: 'pack', go: [doGo(r.entity, r.service, r.data, text, `RUN ${r.entity.name.toUpperCase()}`)] }, opts);
+  if (r.entity.domain === 'script') return answer(text, `${scriptAsk(r.entity.name).head} ${scriptAsk(r.entity.name).line} Tap RUN ${r.entity.name.toUpperCase()}, then RUN IT, and it runs.`, { kind: 'pack', go: [doGo(r.entity, r.service, r.data, text, `RUN ${r.entity.name.toUpperCase()}`)] }, opts);
   if (r.guarded && r.entity.domain === 'scene') return answer(text, `${r.entity.name} sets a lock, the alarm, a garage door or gate, or a switch you marked, so it needs your own tap, with a confirm, every time: words alone never run it.`, { kind: 'pack', go: [doGo(r.entity, r.service, r.data, text, `RUN ${r.entity.name.toUpperCase()}`)] }, opts);
   if (r.guarded) return answer(text, `The ${r.entity.name} needs your own tap, with a confirm, every time: words alone never ${r.verb} it.`, { kind: 'pack', go: [doGo(r.entity, r.service, r.data, text, `${VERB[r.service] ?? r.verb.toUpperCase()} THE ${r.entity.name.toUpperCase()}`)] }, opts);
   const out = await act(r.entity.id, r.service, r.data, { origin: 'chat', why: text });

@@ -92,6 +92,13 @@ export async function linkedAccounts(d: SocialDeps): Promise<Account[]> {
   return out;
 }
 
+/** The accounts that have follows, by name ("Bluesky and Mastodon"): read from APIS, the one place that says it (the phone reads each
+ *  account's `follows` from GET /social, so its FOLLOW box and this route's refusal never disagree). */
+export const followNames = (): string => {
+  const n = ACCOUNT_IDS.filter((a) => APIS[a]?.follow).map(accountName);
+  return n.length > 1 ? `${n.slice(0, -1).join(', ')} and ${n.at(-1)}` : (n[0] ?? 'no account');
+};
+
 /** The send behind APPROVE: the account's own call for a post, a follow or an unfollow. */
 export async function sendDraft(d: SocialDeps, draft: Draft): Promise<{ link?: string }> {
   const api = APIS[draft.account];
@@ -166,9 +173,9 @@ export function tidNow(ms: number, clock = Math.floor(Math.random() * 1024)): st
 }
 
 /** What is linked, what waits for him, and what went out today (his day starts at midnight on his clock). */
-export async function socialStatus(d: SocialDeps): Promise<{ accounts: { id: Account; name: string; who: string | null; max: number }[]; drafts: Draft[]; sent: Sent[] }> {
+export async function socialStatus(d: SocialDeps): Promise<{ accounts: { id: Account; name: string; who: string | null; max: number; follows: boolean }[]; drafts: Draft[]; sent: Sent[] }> {
   // each account's own length (his Mastodon server's, saved when he linked it), so the phone counts as the draft route does
-  const accounts = await Promise.all(ACCOUNT_IDS.map(async (id) => ({ id, name: accountName(id), who: await linkedAs(d, id), max: (await APIS[id]?.max?.(d).catch(() => null)) ?? accountInfo(id).max })));
+  const accounts = await Promise.all(ACCOUNT_IDS.map(async (id) => ({ id, name: accountName(id), who: await linkedAs(d, id), max: (await APIS[id]?.max?.(d).catch(() => null)) ?? accountInfo(id).max, follows: !!APIS[id]?.follow })));
   const drafts = (await loadDrafts(d.storage, d.now())).slice(-12);
   const today = localDay(d.now(), d.tz);
   return { accounts, drafts, sent: (await sentSince(d.storage, d.now() - 36 * 3_600_000)).filter((x) => localDay(x.at, d.tz) === today) };
@@ -262,7 +269,7 @@ export async function socialRoute(req: Request, path: string, method: string, ur
     // [planlane2:fixes] the phone's FOLLOW box: a follow or unfollow draft (kind + who), waiting for his APPROVE like a post
     const kind = body.kind === 'follow' || body.kind === 'unfollow' ? body.kind : 'post';
     const who = String(body.who ?? '').trim();
-    if (kind !== 'post' && !APIS[a]?.follow) return json({ error: `${accountName(a)} has no follows: I can follow and unfollow on Bluesky and Mastodon.` }, 400);
+    if (kind !== 'post' && !APIS[a]?.follow) return json({ error: `${accountName(a)} has no follows: I can follow and unfollow on ${followNames()}.` }, 400);
     if (kind !== 'post' && (who.length > 200 || /\s/.test(who))) return json({ error: 'That is not one handle: give one, like @sam.bsky.social or @sam@mastodon.social, or their profile link.' }, 400);
     const r = kind === 'post'
       ? await makeDraft(d, { account: a, text: String(body.text ?? ''), ...(body.image ? { image: String(body.image), alt: String(body.alt ?? '') } : {}), from: body.from === 'musing' ? 'musing' : 'phone' })

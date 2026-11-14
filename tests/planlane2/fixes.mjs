@@ -50,10 +50,10 @@ async function standInHouse(page) {
 }
 
 const ACCOUNTS = [
-  { id: 'bluesky', name: 'Bluesky', who: 'spec.bsky.social', max: 300 },
-  { id: 'mastodon', name: 'Mastodon', who: '@spec@mastodon.social', max: 500 },
-  { id: 'discord', name: 'Discord', who: 'Spec bot in Spec server', max: 2000 },
-  { id: 'channel', name: 'your Telegram channel', who: null, max: 4096 },
+  { id: 'bluesky', name: 'Bluesky', who: 'spec.bsky.social', max: 300, follows: true },
+  { id: 'mastodon', name: 'Mastodon', who: '@spec@mastodon.social', max: 500, follows: true },
+  { id: 'discord', name: 'Discord', who: 'Spec bot in Spec server', max: 2000, follows: false },
+  { id: 'channel', name: 'your Telegram channel', who: null, max: 4096, follows: false },
 ];
 async function standInSocial(page, o = {}) {
   const s = { asked: [], bodies: [], drafts: [], accounts: o.accounts ?? ACCOUNTS, offline: false };
@@ -67,6 +67,7 @@ async function standInSocial(page, o = {}) {
     if (u.pathname === '/api/social/draft') {
       const b = JSON.parse(r.request().postData() ?? '{}');
       s.bodies.push(b);
+      if (s.hold) await s.hold;
       const d = { id: `fol${++n}`, account: b.account, kind: b.kind ?? 'post', text: b.text ?? '', ...(b.who ? { who: b.who } : {}), state: 'waiting', at: Date.now() + n, expires: Date.now() + 86400_000, from: 'phone' };
       s.drafts.push(d);
       return json(r, { draft: d });
@@ -104,9 +105,10 @@ export async function run(H) {
   check(W.healthWords(rows(['your email', 'linked'], ['Telegram', 'waiting'])).line === 'Finish Telegram first: it has one step left.', '[health] then one step left');
   check(W.healthWords(rows(['your email', 'linked'], ['Spotify', 'linked'], ['GitHub', 'not'])).line === 'Everything you linked is fine: all 2 work.', `[health] all fine: ${W.healthWords(rows(['your email', 'linked'], ['Spotify', 'linked'], ['GitHub', 'not'])).line}`);
   check(W.healthWords(rows(['your email', 'not'])).kind === 'none' && W.healthWords(rows(['your email', 'checking'])).kind === 'checking' && /can’t reach my brain/.test(W.healthWords(rows(['your email', 'offline'])).line), '[health] nothing linked, checking and the brain out of reach each said');
-  const whys = ['signin', 'imap', 'servers', 'outlook', 'unreached', 'paused', 'not', 'saved', 'other', undefined].map((x) => W.emailTestWhy(x));
+  const whys = ['signin', 'imap', 'servers', 'outlook', 'unreached', 'busy', 'paused', 'not', 'saved', 'other', undefined].map((x) => W.emailTestWhy(x));
   check(whys.every((x) => x.length > 20 && !RAW.test(x) && !/NO \[|AUTHENTICATIONFAILED|imap\.gmail|\d{3} /.test(x)), `[email test] each reason in his words: ${whys.join(' | ')}`);
-  check(W.emailTestKept('signin') && W.emailTestKept('imap') && !W.emailTestKept('unreached') && !W.emailTestKept('paused'), '[email test] a server out of reach (or a paused brain) is never kept as not working');
+  check(W.emailTestKept('signin') && W.emailTestKept('imap') && !W.emailTestKept('unreached') && !W.emailTestKept('busy') && !W.emailTestKept('paused'), '[email test] a server out of reach, one asking me to wait (or a paused brain) is never kept as not working');
+  check(W.emailTestWhy('busy') === 'Your mail server asked me to wait. Nothing has changed: tap TEST again in a minute.', `[email test] a server asking me to wait: ${W.emailTestWhy('busy')}`);
   log('fixes: pure rules and words');
 
   // ---- 2. HOUSE SCRIPTS ASK FIRST, at both sizes, BODY 21 (the chat at 440)
@@ -146,7 +148,7 @@ export async function run(H) {
     if (vp.width === 440) {
       box.calls.length = 0;
       const r = await H.ask(page, 'run warm the house', /Warm the house/);
-      check(r.ok && /Run Warm the house\? I can’t see what a script does, so I ask first\./.test(r.text) && box.calls.length === 0, `${T} chat "run warm the house" asks first and runs nothing: ${r.text.slice(-160)} · ${JSON.stringify(box.calls)}`);
+      check(r.ok && /Run Warm the house\? I can’t see what a script does, so I ask first\./.test(r.text) && /Tap RUN WARM THE HOUSE, then RUN IT, and it runs\./.test(r.text) && !/say yes/i.test(r.text) && box.calls.length === 0, `${T} chat "run warm the house" asks first, names the real keys and runs nothing: ${r.text.slice(-160)} · ${JSON.stringify(box.calls)}`);
       // (the reply's own key, found by its words and tapped: the last one in the log)
       const tapped = await page.waitForFunction(() => {
         const b = [...document.querySelectorAll('#pg-core button')].filter((x) => /^run warm the house$/i.test((x.textContent ?? '').trim())).at(-1);
@@ -224,6 +226,29 @@ export async function run(H) {
     await standInSocial(page, { accounts: ACCOUNTS.map((x) => (x.id === 'discord' ? x : { ...x, who: null })) });
     await H.open(page, 'social');
     check(await until(async () => /Link Bluesky or Mastodon under Accounts first/.test(await page.textContent('#pg-social .socfollow').catch(() => '')), 15000) && !(await page.$('#pg-social .socfollow input.socwho')), '[follow] no account with follows: said, and no box to type in');
+    await ctx.close();
+  }
+  {
+    // a slow brain: he leaves the page and comes back while the follow draft is made; the fresh copy keeps FOLLOW off (never twice)
+    const { ctx, page } = await H.phone(H.PHONE, 'scan', {}, 21);
+    const s = await standInSocial(page);
+    let release;
+    s.hold = new Promise((ok) => (release = ok));
+    await H.open(page, 'social');
+    await page.waitForSelector('#pg-social .socfollow input.socwho', { timeout: 15000 }).catch(() => undefined);
+    await page.fill('#pg-social .socfollow input.socwho', '@nasa.gov');
+    await page.click('#pg-social .socfollow button:has-text("FOLLOW")');
+    check(await until(() => s.bodies.length === 1), '[follow slow] one draft asked for');
+    await openSection(page, 'social', 'Accounts');
+    await openSection(page, 'social', 'Waiting');
+    await page.waitForSelector('#pg-social .socfollow input.socwho', { timeout: 15000 }).catch(() => undefined);
+    const st = await page.evaluate(() => ({ off: [...document.querySelectorAll('#pg-social .socfollow button')].filter((b) => /^(UN)?FOLLOW$/.test((b.textContent ?? '').trim())).map((b) => b.disabled), msg: document.querySelector('#pg-social .socfmsg')?.textContent ?? '' }));
+    check(st.off.length === 2 && st.off.every(Boolean) && st.msg === 'Making the draft…', `[follow slow] the fresh copy keeps FOLLOW and UNFOLLOW off and says it is being made: ${JSON.stringify(st)}`);
+    await page.click('#pg-social .socfollow button:has-text("FOLLOW")', { force: true, timeout: 2000 }).catch(() => undefined);
+    s.hold = null;
+    release();
+    check(await until(async () => /^Draft made: follow @nasa\.gov on Bluesky\./.test(await page.textContent('#pg-social .socfmsg').catch(() => ''))), `[follow slow] the live copy says it was made: ${await page.textContent('#pg-social .socfmsg').catch(() => '')}`);
+    check((await page.inputValue('#pg-social .socfollow input.socwho')) === '' && s.bodies.length === 1, `[follow slow] the box cleared, one draft only: ${s.bodies.length}`);
     await ctx.close();
   }
   log('fixes: follow from SOCIAL');
