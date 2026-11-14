@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // APPS ROUND, MAKE lane
+  { day: '2026-11-14', title: 'Make real 3-D games', line: 'Make → GAME STUDIO → 3-D GAMES: a platformer, an explorer, a kart track, a physics puzzle, a marble roll and a shooter play in one tap, with real physics. EDIT builds the stage by touch and sets its rules as when-then blocks.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },

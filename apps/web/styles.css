@@ -10570,3 +10570,28 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 @media (max-width: 899px) {
   html #pg-studio, html #pg-studio .hud, html #pg-studio .hud .col { transform-style: flat; }
 }
+/* APPS ROUND (MAKE lane): GAME STUDIO 3D, every rule under the Game Studio's page and its own gs3 prefix */
+html #pg-gamestudio .gs3cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-1); margin: 6px 0 12px; }
+html #pg-gamestudio .gs3card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: var(--g-target); padding: 10px 12px; text-align: left; border-radius: var(--g-radius-key); background: var(--g-plate-fill); box-shadow: inset 0 0 0 1px var(--g-hair); color: var(--g-ink-1); }
+html #pg-gamestudio .gs3card b { font: 600 15px/20px var(--sf); }
+html #pg-gamestudio .gs3card span { font: 400 13px/18px var(--sf); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3game, html #pg-gamestudio .gs3rule, html #pg-gamestudio .gs3thing { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 0; border-bottom: 1px solid var(--g-hair); min-width: 0; }
+html #pg-gamestudio .gs3gametext { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3gametext small { color: var(--g-ink-3); }
+html #pg-gamestudio .gs3rulewords { flex: 1 1 100%; margin: 0; font: 500 14px/19px var(--sf); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3 button, html #pg-gamestudio .gs3 select, html #pg-gamestudio .gs3 input { min-height: var(--g-target); }
+html #pg-gamestudio .gs3top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 4px 0 8px; }
+html #pg-gamestudio .gs3top b { font: 600 16px/20px var(--sf); color: var(--g-ink-1); }
+html #pg-gamestudio .gs3top span { flex: 1 1 140px; font: 400 13px/18px var(--sf); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3frame { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 70vh; border-radius: var(--g-radius-key); overflow: hidden; background: var(--g-canvas); touch-action: none; }
+html #pg-gamestudio .gs3view { position: absolute; inset: 0; }
+html #pg-gamestudio canvas.gs3canvas { display: block; width: 100%; height: 100%; }
+html #pg-gamestudio .gs3hud { position: absolute; top: 8px; left: 10px; right: 10px; font: 600 14px/18px var(--sf); color: var(--g-ink-1); text-shadow: 0 1px 2px var(--g-canvas); pointer-events: none; }
+html #pg-gamestudio .gs3said { position: absolute; top: 30px; left: 10px; right: 10px; font: 400 13px/18px var(--sf); color: var(--g-ink-2); pointer-events: none; overflow-wrap: anywhere; }
+html #pg-gamestudio .gs3stick { position: absolute; left: 14px; bottom: 14px; width: 120px; height: 120px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--g-hair); background: var(--g-plate-fill); touch-action: none; display: grid; place-items: center; }
+html #pg-gamestudio .gs3knob { display: block; width: 52px; height: 52px; border-radius: 50%; background: var(--g-accent); opacity: .8; pointer-events: none; }
+html #pg-gamestudio .gs3act { position: absolute; right: 16px; bottom: 30px; width: 84px; height: 84px; min-height: var(--g-target); border-radius: 50%; font: 700 14px/1 var(--sf); letter-spacing: .06em; background: var(--g-accent); color: var(--g-canvas); touch-action: none; }
+html #pg-gamestudio .gs3banner { position: absolute; left: 10%; right: 10%; top: 30%; padding: 14px; border-radius: var(--g-radius-key); background: var(--g-canvas); box-shadow: inset 0 0 0 1px var(--g-hair); text-align: center; }
+html #pg-gamestudio .gs3banner b { display: block; margin-bottom: 8px; font: 600 18px/24px var(--sf); color: var(--g-ink-1); }
+html #pg-gamestudio .gs3things, html #pg-gamestudio .gs3add, html #pg-gamestudio .gs3nudge { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: anywhere; }
