@@ -461,6 +461,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
       ? `You have earned ${room.earned} of ${room.total} trophies.${room.games.length ? ` ${lastWords}` : ' Play anything on the shelf and they come.'}`
       : last ? `${lastWords} CONTINUE is at the top of the Arcade.` : `${lastWords} The shelf is open.`;
     return answer(text, say, { kind: 'arcaderecord' }, opts);
+  },
   // [learn] the CHESS app (features/chess/app.ts): "open chess", "chess puzzles", "puzzle rush"
   async chessapp(text, opts) {
     const { openChess, chessAppState } = await import('../features/chess/app');
