@@ -366,6 +366,8 @@ await Promise.all(lanes.map(async (lane) => {
   }
 }));
 
+// [planlane2:onelist] the one to-do list left empty for the specs after this one (they share the preview brain)
+await clearOneList().catch(() => undefined);
 await browser.close();
 console.log(`${checks} checks, ${problems.length} problems`);
 if (problems.length) {
