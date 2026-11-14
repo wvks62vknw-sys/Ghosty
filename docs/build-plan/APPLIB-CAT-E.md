@@ -19,17 +19,16 @@ names. UK rates are for the 2026 to 2027 tax year (6 April 2026 to 5 April 2027)
 - **Guides:** help finder, interview prep, dashboard lights and gov services.
 - **Timer:** answer practice.
 
-**Utilities: 45 apps.**
+**Utilities: 41 apps.**
 
 - **Sums:** take-home pay (income tax with the allowance taper, NI, pension, student loan plans 1, 2, 4 and 5, postgraduate), VAT, tip and split, discount, percent sums, unit price, trip fuel cost, pay converter, ratio scaler, shift hours, currency sums, speed and time, height by angle, password strength and screen density.
-- **Converters:** length, weight, volume, area, speed, temperature, fuel economy, data size, pressure, energy, power, time units and angles.
+- **Converters:** length, weight, volume, area, speed, temperature, data size, pressure, energy, power, time units and angles.
 - **Timers:** deep work, screen break, power nap and tidy sprint.
 - **Counters:** tally counter, lap counter, door count and stock take.
-- **Checklists:** leaving home, emergency kit, digital tidy and car kit.
-- **Decks:** phonetic alphabet and Morse code.
+- **Checklists:** emergency kit, digital tidy and car kit.
 - **Logs:** countdowns, parcels and key holders.
 
-**Invented beyond the lists:** at least 30 per family. Money's include subscriptions, IOUs, savings pots, meter readings, home inventory, gift aid, dividend tax, savings tax, child benefit charge, rental yield, rent split, the build calculators and charging cost. Utilities' are the converters, timers, counters, decks and small logs.
+**Invented beyond the lists:** at least 30 per family. Money's include subscriptions, IOUs, savings pots, meter readings, home inventory, gift aid, dividend tax, savings tax, child benefit charge, rental yield, rent split, the build calculators and charging cost. Utilities' are the converters, timers, counters, checklists and small logs.
 
 ## Covered by another lane's app (not repeated here)
 
@@ -49,7 +48,8 @@ Also left out because another lane already had the same job:
 - the meeting timer, paper sizes and timesheet (office);
 - download time (maker);
 - aspect ratio (create);
-- the wishlist and speech timer (life).
+- the wishlist and speech timer (life);
+- the phonetic alphabet, Morse code, fuel economy and leaving home (learn and world).
 
 ## Needs its own build
 

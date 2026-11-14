@@ -449,29 +449,6 @@ export const TOOLS: AppDef[] = [
       source: 'SI Brochure: K = °C + 273.15; °F = °C × 9 ÷ 5 + 32',
     },
   },
-  {
-    id: 'fuel-economy', name: 'Fuel Economy', family: 'tools', glyph: 'drop', archetype: 'calc',
-    pitch: 'Convert fuel economy between UK mpg, US mpg and litres per 100 km.',
-    keywords: ['mpg', 'fuel economy', 'litres per 100km', 'consumption', 'us mpg', 'convert'],
-    tour: ['Type a figure and pick what it is: UK mpg, US mpg or L/100 km.', 'See all three side by side.', 'UK and US gallons differ, so their mpg figures do too.'],
-    calc: {
-      inputs: [
-        inp('value', 'Value', 50, { min: 0.1, step: 0.1 }),
-        inp('from', 'Given In', 1, { choices: [{ label: 'UK mpg', value: 1 }, { label: 'US mpg', value: 2 }, { label: 'L/100 km', value: 3 }] }),
-      ],
-      outputs: [
-        out('l100', 'Litres Per 100 km', 'if(from == 1, 282.480936 / value, if(from == 2, 235.214583 / value, value))', { dp: 2 }),
-        out('ukmpg', 'UK mpg', '282.480936 / l100', { dp: 1 }),
-        out('usmpg', 'US mpg', '235.214583 / l100', { dp: 1 }),
-        out('kml', 'Km Per Litre', '100 / l100', { dp: 2 }),
-      ],
-      tests: [
-        { in: { value: 50, from: 1 }, out: { l100: 5.65, usmpg: 41.6 } },
-        { in: { value: 5, from: 3 }, out: { ukmpg: 56.5, usmpg: 47, kml: 20 } },
-      ],
-      source: 'UK gallon 4.54609 L, US gallon 3.785411784 L, mile 1.609344 km (exact definitions)',
-    },
-  },
   converter({
     id: 'data-convert', name: 'Data Size', glyph: 'chip', what: 'file size', value: 1, from: 1073741824, to: 1000000000,
     pitch: 'Convert data sizes between bits, bytes, decimal GB and binary GiB.',
@@ -577,13 +554,6 @@ export const TOOLS: AppDef[] = [
 
   // ——— Checklists ———
   {
-    id: 'leaving-home', name: 'Leaving Home', family: 'tools', glyph: 'key', archetype: 'checklist',
-    pitch: 'The quick check before you go out, so you never turn back for the keys.',
-    keywords: ['leaving', 'keys', 'going out', 'lock up', 'checklist', 'wallet'],
-    tour: ['Run down the list at the door.', 'It starts fresh every day.', 'Add the things you most often forget.'],
-    checklist: { repeat: 'daily', sections: [{ name: 'On You', items: ['Keys', 'Phone', 'Wallet or cards', 'Travel pass'] }, { name: 'The House', items: ['Hob and oven off', 'Windows shut', 'Lights off', 'Back door locked', 'Front door locked'] }] },
-  },
-  {
     id: 'emergency-kit', name: 'Emergency Kit', family: 'tools', glyph: 'shield', archetype: 'checklist',
     pitch: 'A home emergency kit for a power cut or flood, from the UK government’s advice.',
     keywords: ['emergency', 'grab bag', 'power cut', 'flood', 'prepare', 'kit'],
@@ -627,35 +597,6 @@ export const TOOLS: AppDef[] = [
   },
 
   // ——— Reference ———
-  {
-    id: 'phonetic-alphabet', name: 'Phonetic Alphabet', family: 'tools', glyph: 'phone', archetype: 'deck',
-    pitch: 'Learn the spelling alphabet used on the phone and radio, Alfa to Zulu.',
-    keywords: ['phonetic alphabet', 'nato', 'spelling', 'alfa bravo', 'radio', 'call'],
-    tour: ['Each card shows a letter; say its code word, then turn it over.', 'Mark how well you knew it and hard cards come back sooner.', 'Use it to spell names and postcodes clearly on calls.'],
-    deck: {
-      mode: 'srs',
-      cards: [
-        ['A', 'Alfa'], ['B', 'Bravo'], ['C', 'Charlie'], ['D', 'Delta'], ['E', 'Echo'], ['F', 'Foxtrot'], ['G', 'Golf'], ['H', 'Hotel'], ['I', 'India'],
-        ['J', 'Juliett'], ['K', 'Kilo'], ['L', 'Lima'], ['M', 'Mike'], ['N', 'November'], ['O', 'Oscar'], ['P', 'Papa'], ['Q', 'Quebec'], ['R', 'Romeo'],
-        ['S', 'Sierra'], ['T', 'Tango'], ['U', 'Uniform'], ['V', 'Victor'], ['W', 'Whiskey'], ['X', 'X-ray'], ['Y', 'Yankee'], ['Z', 'Zulu'],
-      ].map(([q, a]) => ({ q, a })),
-    },
-  },
-  {
-    id: 'morse-code', name: 'Morse Code', family: 'tools', glyph: 'wave', archetype: 'deck',
-    pitch: 'Learn international Morse code for every letter and number.',
-    keywords: ['morse', 'morse code', 'dots and dashes', 'sos', 'signals', 'learn'],
-    tour: ['Each card shows a letter or number; tap out its code, then turn over.', 'Hard cards come back sooner until you know them all.', 'SOS is three dots, three dashes, three dots.'],
-    deck: {
-      mode: 'srs',
-      cards: [
-        ['A', '·−'], ['B', '−···'], ['C', '−·−·'], ['D', '−··'], ['E', '·'], ['F', '··−·'], ['G', '−−·'], ['H', '····'], ['I', '··'], ['J', '·−−−'],
-        ['K', '−·−'], ['L', '·−··'], ['M', '−−'], ['N', '−·'], ['O', '−−−'], ['P', '·−−·'], ['Q', '−−·−'], ['R', '·−·'], ['S', '···'], ['T', '−'],
-        ['U', '··−'], ['V', '···−'], ['W', '·−−'], ['X', '−··−'], ['Y', '−·−−'], ['Z', '−−··'],
-        ['1', '·−−−−'], ['2', '··−−−'], ['3', '···−−'], ['4', '····−'], ['5', '·····'], ['6', '−····'], ['7', '−−···'], ['8', '−−−··'], ['9', '−−−−·'], ['0', '−−−−−'],
-      ].map(([q, a]) => ({ q, a })),
-    },
-  },
 
   // ——— Small logs ———
   {
