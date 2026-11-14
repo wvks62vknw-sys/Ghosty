@@ -1081,10 +1081,10 @@ export const CARDS: Record<string, HubCard> = {
       }
       return [
         { label: 'Into', value: langName(to) },
-        { label: 'Phrasebook', value: starred ? String(starred) : null, unit: starred === 1 ? 'phrase' : 'phrases', none: 'None yet' },
+        { label: 'Starred', value: starred ? String(starred) : null, unit: starred === 1 ? 'phrase' : 'phrases', none: 'None yet' },
       ];
     },
-    why: () => 'Finds the language as you type; history kept on this phone',
+    why: () => 'Finds the language as you type',
   },
   rehearse: {
     title: 'Practise a hard talk',
