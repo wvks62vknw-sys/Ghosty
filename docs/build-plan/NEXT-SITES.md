@@ -156,6 +156,10 @@ every time, and nothing is bought.
 
 ## Merged
 - Into the integration branch at `e903fac2` (02:47 UTC): items 1 to 5 above, with their tests, catalogue and WHAT'S NEW lines.
+- Into the integration branch at the round's final merge (about 05:30 UTC, sha given to the coordinator): items 6 to 14, with their
+  tests, catalogue and WHAT'S NEW lines. Checked after merging: both typechecks, the web build, the brain suite (2323 of 2323), and the
+  sitephotos, gamesites and look specs (sites and gamestudio passed on the lane commit just before that merge).
+- The round's stop moved to 05:40 UTC, so nothing further was started.
 
 ## What is left (sections 5 and 6)
 The rest of section 5 is not built yet (each would be its own whole piece):
