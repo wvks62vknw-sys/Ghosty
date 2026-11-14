@@ -153,7 +153,7 @@ export class Run {
     scene.background = new T.Color(this.g.sky) as unknown as never;
     if (this.g.fog > 0) (scene as unknown as { fog: unknown }).fog = new T.FogExp2(this.g.sky, this.g.fog);
     scene.add(new T.HemisphereLight(0xffffff, 0x404850, 1.4));
-    const sun = new T.DirectionalLight(0xffffff, 1.5);
+    const sun = new T.DirectionalLight(0xffffff, Math.max(0.3, Math.min(2.5, this.g.light ?? 1.5)));
     sun.position.set(6, 12, 4);
     scene.add(sun);
     this.scene = scene;

@@ -32,6 +32,8 @@ export interface ReadSource {
   panels(n: number, rtl?: boolean): Promise<[number, number, number, number][]>;
   /** a made comic's words, panel by panel, for reading aloud (comic.u12): who says each line, and the voice picked for them */
   words?(n: number): { who: string; role: string; voice?: string; text: string }[][];
+  /** the comic says it reads right to left (its ComicInfo.xml): the reader starts that way until he turns it */
+  rtl?: boolean;
 }
 
 /** A phone voice for each character: the one he picked, else one chosen by their place in the cast, pitched apart. */
@@ -112,7 +114,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
   let ox = 0;
   let oy = 0;
   let spreadOn = true;
-  let rtl = saved?.rtl ?? false;
+  let rtl = saved?.rtl ?? src.rtl ?? false;
   const urls = new Map<number, string>();
   const panelsCache = new Map<number, [number, number, number, number][]>();
 

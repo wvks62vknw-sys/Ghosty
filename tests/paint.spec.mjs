@@ -219,6 +219,16 @@ async function run(viewport) {
   await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
   check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.paint.gallery.titles.includes('Painting 2'), null, 15000), `[${W}] GALLERY keeps the new painting`);
 
+  // the PSD opens again as a painting, with its layers apart
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-paint button[aria-label="Open a PSD with its layers, or a picture, as a painting"]')]);
+  await chooser.setFiles({ name: 'Painting 2.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd });
+  check(await until(page, () => window.__ghosty.paint.open && window.__ghosty.paint.layers.length === 4, null, 30000), `[${W}] OPEN A FILE opens the PSD`);
+  s = await S(page);
+  check(s.layers.map((l) => l.name).join(',') === 'Paper,Background,Layer 1,Layer 3' && s.layers[3].blend === 'multiply' && s.layers[3].alphaLock === false, `[${W}] the opened PSD keeps its layers and blend modes: ${s.layers.map((l) => `${l.name}/${l.blend}`)}`);
+  check((await page.evaluate(() => window.__ghosty.paintAt(600, 800, 2))) > 100, `[${W}] the opened PSD keeps the strokes`);
+  await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+  await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
+
   // (g) a colouring page: the lines are the reference, FILL fills the colour layer between them
   await goPaint(page, 'colouring');
   await page.click('#pg-paint button[aria-label="Colour the Mandala"]');
@@ -270,6 +280,13 @@ await run(PHONE2);
   await page.click('.pxstudio button[aria-label="DONE"]');
   check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.comic.editing.inked === 1 && /Your drawing is on the panel/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `[440] DONE puts his ink on the panel, under its balloons (${layers})`);
   check(await page.locator('#pg-comic button[aria-label="Take my drawing off this panel"]').count() === 1, '[440] the panel offers to take the drawing off again');
+  // his photo behind the panel, then MAKE IT COMIC ART (flat colours, inked outlines)
+  const photo = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 320, 240); gr.addColorStop(0, '#3a7bd5'); gr.addColorStop(1, '#f4d03f'); g.fillStyle = gr; g.fillRect(0, 0, 320, 240); g.fillStyle = '#c0392b'; g.beginPath(); g.arc(160, 120, 60, 0, 7); g.fill(); return c.toDataURL('image/png'); })).split(',')[1], 'base64');
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-comic button[aria-label="Put one of my own photos behind this panel"]')]);
+  await chooser.setFiles({ name: 'beach.png', mimeType: 'image/png', buffer: photo });
+  await until(page, () => window.__ghosty.comic.editing.photo === true);
+  await page.click('#pg-comic button[aria-label="Turn my photo into inked comic art: bold flat colours with black outlines"]');
+  check(await until(page, () => window.__ghosty.comic.editing.photoArt === 1 && /Your photo is now comic art/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), '[440] MAKE IT COMIC ART turns his photo into inked comic art, and says UNDO puts it back');
   await ctx.close();
 }
 

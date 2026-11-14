@@ -35,6 +35,28 @@ export interface SpendRow extends Txn {
   by: 'you' | 'rule' | 'model' | 'none';
   /** [moneynext] One part of a payment he split across categories: the split's id, the payment's whole amount, and this part's place. */
   sp?: { id: string; of: number; i: number };
+  /** [moneyapps] Which of his accounts the statement was for, in his name for it ("Current", "Savings"), when he gave one. */
+  ac?: string;
+  /** [moneyapps] A move between two of his own accounts: never counted as spending or income. */
+  tr?: boolean;
+}
+
+/** [moneyapps] Pairs a payment out of one of his accounts with the same amount into another of his accounts within three days, and marks
+ * both as a move between his own accounts. Returns how many rows it marked. Rows with no account, or in one account only, are left. */
+export function markTransfers(rows: SpendRow[]): number {
+  const day = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86_400_000;
+  let n = 0;
+  const outs = rows.filter((r) => r.ac && r.a < 0 && !r.tr && !r.sp);
+  const ins = rows.filter((r) => r.ac && r.a > 0 && !r.tr && !r.sp);
+  for (const o of outs) {
+    const hit = ins.find((i) => !i.tr && i.ac !== o.ac && Math.abs(i.a + o.a) < 0.005 && Math.abs(day(i.d) - day(o.d)) <= 3);
+    if (hit) {
+      o.tr = true;
+      hit.tr = true;
+      n += 2;
+    }
+  }
+  return n;
 }
 
 // ---- CSV.
@@ -626,6 +648,8 @@ export interface ImportResult {
   kept: number;
   dropped: number;
   months: string[];
+  /** [moneyapps] Rows marked as moves between his own accounts after this import. */
+  transfers?: number;
 }
 
 /** Everything the SPENDING card shows for a month (GET /api/profile/spending). */
