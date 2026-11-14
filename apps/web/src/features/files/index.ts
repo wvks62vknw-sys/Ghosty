@@ -16,7 +16,7 @@ export const filesTab: TabDef = {
   title: 'FILES',
   icon: '<path d="M3 7.5a2 2 0 012-2h4.2l2 2.2H19a2 2 0 012 2V17a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M3 10.5h18"/>',
   scene: 'backdrop',
-  blurb: 'everything Ghosty keeps · search · folders · recently deleted',
+  blurb: 'everything you keep · search · folders',
   now: () => (filesState.loaded && filesState.count ? `${filesState.count} things · ${sizeShort(filesState.bytes)}` : ''),
   mount(root) {
     const w = window as unknown as { __ghosty?: Record<string, unknown> };

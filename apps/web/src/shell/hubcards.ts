@@ -663,7 +663,7 @@ export const CARDS: Record<string, HubCard> = {
       { label: 'Things', value: filesState.loaded && filesState.count ? String(filesState.count) : null, none: 'None yet' },
       { label: 'Space', value: filesState.loaded && filesState.bytes ? (filesState.bytes < 1_000_000 ? `${Math.max(1, Math.round(filesState.bytes / 1000))} KB` : `${(filesState.bytes / 1_000_000).toFixed(1)} MB`) : null, none: '—' },
     ],
-    why: () => (filesState.count ? '' : 'What you make in the editors appears here, and IMPORT brings files from your phone'),
+    why: () => (filesState.count ? '' : 'What you make appears here'),
     load: async () => (await import('../features/files/app')).countFiles(),
     say: () => (filesState.loaded && filesState.count ? `${filesState.count} ${filesState.count === 1 ? 'thing' : 'things'} kept on this phone` : ''),
     idle: 'Nothing kept yet: what you make appears here',
