@@ -7780,13 +7780,17 @@ html .studioseg button[data-pane="engine"] { grid-column: 1 / -1; }
 html .hud.studio[data-pane="engine"] :is(.studiohud, .studiocredit, .studiomeasure, .studiomodes, .studiostick, .studiobar) { display: none !important; }
 html .hud.studio[data-pane="engine"] .studioview, html body.housed .hud.studio[data-pane="engine"] .studioview { aspect-ratio: auto; height: min(48vh, 460px); max-height: none; position: sticky; top: 0; z-index: 6; }
 html :is(#pg-studio:has(.hud.studio[data-pane="engine"]), .hud.studio[data-pane="engine"]) { scroll-padding-top: calc(min(48vh, 460px) + var(--g-s-1)); }
-/* THE DOCK (phones, where the studio scrolls as one page). The picture stays in view while the panel scrolls under it, so it docks flat
-   against the scroller's top edge: the scroller's own 6 px top padding moves onto the picture as a margin (it starts exactly where it
-   did, then docks), and the docked picture is square-cornered. Before, it docked 6 px below that edge and rounded, so the words
-   scrolling under it showed in the strip above it and through its corners, in every world. The car's working engine docks the same way. */
+/* THE DOCK (phones). In the 3-D engine and the car's working engine the picture stays in view while he works the keys under it. It
+   used to be a sticky picture over a page that scrolled under it: in WebKit the words could show above it, through its corners or over
+   it, because the page sits in a 3-D rendering context. Now nothing scrolls under it at all: the picture has its own row, which gives up
+   height on a short phone, and everything else scrolls in its own box below (at least 170 px), so the two can never overlap. */
+.studioscroll { display: contents; }
 @media (max-width: 899px) {
-  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) { padding-top: 0 !important; }
-  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) .studioview { margin-top: 6px; border-radius: 0; }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) { overflow: hidden; grid-template-areas: 'view' 'under'; grid-template-rows: minmax(0, min(48vh, 460px)) minmax(170px, 1fr); align-content: stretch; }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) .studioview { position: relative; top: auto; height: auto; align-self: stretch; }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) > .studioscroll { grid-area: under; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 14px; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    padding-block: var(--g-s-1); -webkit-mask-image: linear-gradient(to bottom, transparent, black var(--g-s-1), black calc(100% - var(--g-s-1)), transparent); mask-image: linear-gradient(to bottom, transparent, black var(--g-s-1), black calc(100% - var(--g-s-1)), transparent); }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) > .studioscroll > * { grid-area: auto; }
 }
 html .e3stage { position: absolute; inset: 0; z-index: 3; overflow: hidden; background: rgb(var(--g-canvas-rgb)); touch-action: none; user-select: none; -webkit-user-select: none; border-radius: inherit; }
 html .e3stage[hidden] { display: none; }
