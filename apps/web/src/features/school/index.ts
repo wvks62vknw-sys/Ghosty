@@ -34,7 +34,7 @@ import { clear, h, icon } from '../../core/dom';
 import { mayUse, offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
 import { CHAIN, MODELS, NO_BRAIN, sitOffer, sitOfferWhy, sizeText, type ModelDef } from '../../offline/models';
 import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, type OfficialRow } from '../../school/official';
-import { brainLine, getForSit, notDownloaded, onlineLine, onlineReady, onlineSit, resumeNow, runPaper, school, sitGen, sitPlan, sitPrefs, sitSubjects, sitting, stopSitting, type SitPaper } from '../../school/sit';
+import { brainLine, getForSit, NoOnline, notDownloaded, onlineLine, onlineReady, onlineSit, resumeNow, runOnline, runPaper, school, sitGen, sitPlan, sitPrefs, sitSubjects, sitting, stopSitting, type SitPaper } from '../../school/sit';
 import { brain, headers } from '../../api/brain';
 import { loadOffline, withModel } from '../../offline/brain';
 import type { TabDef } from '../../shell/tabs';
@@ -313,7 +313,7 @@ export const schoolTab: TabDef = {
         h('div.schresline', `${stageLabel(r.stage)} ${subjectName(r.subject).toLowerCase()} · ${pending ? `${pending} written answer${pending === 1 ? '' : 's'} waiting for a marker: no final grade yet` : r.top ? 'top grades ✓' : 'not top grades yet'}`),
         r.boundary && !pending ? h('div.schbound', r.boundary) : null,
         !pending && !r.top && whatToRead(r.topics) ? h('div.schread', { dataset: { case: 'keep' } }, whatToRead(r.topics)) : null,
-        h('div.schresfrom', `${r.official ? `Official paper: ${r.title.split(' · official ')[1] ?? r.title}` : 'Written by Ghosty in the same style'}${r.where === 'kaggle' ? ' · sat on the free GPU' : ''}`),
+        h('div.schresfrom', `${r.official ? `Official paper: ${r.title.split(' · official ')[1] ?? r.title}` : r.practice ? 'A practice paper from the questions checked so far: it cannot pass the stage' : 'Written by Ghosty in the same style'}${r.where === 'kaggle' ? ' · sat on the free GPU' : r.where === 'online' ? ' · sat online, in full working' : ''}`),
         button('SEE THE PAPER', () => openPaper(r)),
       );
       resultCard.classList.toggle('top', r.top);
@@ -778,26 +778,45 @@ export const schoolTab: TabDef = {
     /** A reading check (or a BORROW's check), sat on the offline brain like a paper: one question at a time, STOP keeps the answers. */
     async function sitCheck(r: ReadRow, borrow: boolean): Promise<void> {
       if (sitting.get().busy || checkLive) return;
-      if (!ready) return void toast(notDownloaded, 'bad');
+      const online = await onlineReady().catch(() => false);
+      if (!online && !ready) return void toast(notDownloaded, 'bad');
       const ctl = new AbortController();
       checkCtl = ctl;
       checkLive = { id: r.id, title: r.title, borrow, n: 0, of: 0, line: 'getting the check (the first time, a stronger model writes it from the book)…' };
       paintReading();
       const set = (o: Partial<NonNullable<typeof checkLive>>) => ((checkLive = checkLive ? { ...checkLive, ...o } : null), paintReading());
+      const save = (checkId: string, answers: { id: string; given: string }[], final: boolean) => rcall<{ result?: { raw: number; max: number; pct: number; passed: boolean }; line?: string }>('POST', '/answers', { id: r.id, checkId, answers, final });
       try {
+        // With signal the brain's own model sits it, every answer in full working; the phone's brain only with none, or
+        // when no online model answers (it carries on from the question reached).
+        if (online) {
+          const got = await rcall<{ paper: SitPaper; done: string[] }>('POST', borrow ? '/borrow' : '/check', { id: r.id });
+          set({ line: 'my online model is answering, in full working…', of: got.paper.items.length, n: got.done.length });
+          try {
+            const { stopped } = await runOnline(got.paper, { ask: (itemId) => rcall<{ given: string; model: string }>('POST', '/sit-online', { id: r.id, checkId: got.paper.id, itemId }), done: new Set(got.done), signal: ctl.signal, onProgress: (n, of) => set({ n, of, line: `Question ${n} of ${of}, answered online` }) });
+            if (stopped) return void toast('Stopped: the answers so far are kept — SIT THE READING CHECK carries on', 'warn');
+            set({ line: 'handing it in for marking…' });
+            const res = await save(got.paper.id, [], true);
+            lastCheck = { line: res.line ?? '', passed: !!res.result?.passed };
+            toast(res.line ?? 'Marked', res.result?.passed ? 'ok' : 'warn');
+            return;
+          } catch (e) {
+            if (!(e instanceof NoOnline)) throw e;
+            if (!ready) throw new Error(`My online model stopped answering (no signal?), and ${notDownloaded.replace(/^\w/, (x) => x.toLowerCase())}`);
+          }
+        }
         await withModel('bench', async () => {
           const got = await rcall<{ paper: SitPaper; done: string[] }>('POST', borrow ? '/borrow' : '/check', { id: r.id });
           set({ line: 'getting ready (loading the model)…', of: got.paper.items.length, n: got.done.length });
           await loadOffline();
-          const save = (answers: { id: string; given: string }[], final: boolean) => rcall<{ result?: { raw: number; max: number; pct: number; passed: boolean }; line?: string }>('POST', '/answers', { id: r.id, checkId: got.paper.id, answers, final });
-          const { rest, stopped } = await runPaper(got.paper, { gen: sitGen, save: (a) => save(a, false), done: new Set(got.done), signal: ctl.signal, onProgress: (n, of) => set({ n, of, line: `Question ${n} of ${of}` }) });
+          const { rest, stopped } = await runPaper(got.paper, { gen: sitGen, save: (a) => save(got.paper.id, a, false), done: new Set(got.done), signal: ctl.signal, onProgress: (n, of) => set({ n, of, line: `Question ${n} of ${of}` }) });
           if (stopped) {
-            await save(rest, false).catch(() => undefined);
+            await save(got.paper.id, rest, false).catch(() => undefined);
             toast('Stopped: the answers so far are kept — SIT THE READING CHECK carries on', 'warn');
             return;
           }
           set({ line: 'handing it in for marking…' });
-          const res = await save(rest, true);
+          const res = await save(got.paper.id, rest, true);
           lastCheck = { line: res.line ?? '', passed: !!res.result?.passed };
           toast(res.line ?? 'Marked', res.result?.passed ? 'ok' : 'warn');
         }, { wait: false });
@@ -827,15 +846,16 @@ export const schoolTab: TabDef = {
         }
         if (!c) {
           const b = button('SIT THE READING CHECK', () => void sitCheck(r, false));
-          b.disabled = busy || !ready;
+          const can = ready || onlineSit.get().ready === true;
+          b.disabled = busy || !can;
           b.setAttribute('aria-label', `Sit the reading check for ${r.title}`);
           btns.push(b);
-          // (the reading check is sat on the brain on this phone: when it isn't here, the key says why it waits)
-          if (!ready) btns.push(h('small.schwhy', 'Reading checks are sat on the offline brain on this phone: get it in Settings, Offline brain.'));
+          // (online my own model sits it; with no signal the brain on this phone does: when neither can, the key says why it waits)
+          if (!can) btns.push(h('small.schwhy', 'With no signal, reading checks are sat on the offline brain on this phone: get it in Settings, Offline brain.'));
         }
       } else if (ahead && r.borrow) {
         const b = button('BORROW', () => void sitCheck(r, true), r.borrow.ok ? 'on' : '');
-        b.disabled = !r.borrow.ok || busy || !ready;
+        b.disabled = !r.borrow.ok || busy || !(ready || onlineSit.get().ready === true);
         b.setAttribute('aria-label', `Borrow ${r.title}`);
         btns.push(b);
       }

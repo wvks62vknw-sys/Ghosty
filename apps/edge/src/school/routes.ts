@@ -94,7 +94,9 @@ function score(paper: SchoolPaper, answers: ItemResult[], meta: Pick<PaperResult
 
 // ---- where each subject's paper comes from --------------------------------------------------------------------
 
-export type Source = 'official' | 'written' | 'bank';
+export type Source = 'official' | 'written' | 'bank' | 'practice';
+/** Checked questions a bank still being written needs before a shorter practice paper is drawn from it. */
+export const PRACTICE_MIN = 12;
 export interface SourceInfo {
   source: Source | null;
   /** Plain words: "official: 2024 SATs (Standards and Testing Agency)", "written by Ghosty", "no paper yet: …". */
@@ -133,6 +135,8 @@ export async function sourcesFor(d: Store, st: SchoolState): Promise<Record<stri
       if (off?.paper) row[sub] = { source: 'official', line: `official: ${off.paper.board === 'Standards and Testing Agency' ? `${off.paper.year} SATs (Standards and Testing Agency)` : `${off.paper.board}, ${off.paper.year}`}`, official: { id: off.id, year: off.paper.year ?? 0, board: off.paper.board ?? '' } };
       else if (hasPapers(id)) row[sub] = { source: 'written', line: 'written by Ghosty' };
       else if (bankReady(bank)) row[sub] = { source: 'bank', line: `written by Ghosty from his checked bank (${bank!.kept} questions kept, ${bankRow(bank!).rejected.all} rejected)`, bank: bankRow(bank!) };
+      // (14 Nov) a bank still being written but with enough checked questions: a shorter practice paper now, never a pass
+      else if (bank && bank.kept >= PRACTICE_MIN) row[sub] = { source: 'practice', line: `a practice paper from the ${bank.kept} questions checked so far (it cannot pass the stage until the bank is written)`, bank: bankRow(bank) };
       else if (bank) row[sub] = { source: null, line: bankRow(bank).line, bank: bankRow(bank) };
       else row[sub] = { source: null, line: isBankStage(id) && shapeOf(id, sub) ? 'no paper yet: WRITE THE PAPERS writes its question bank' : 'no paper yet' };
     }
@@ -248,7 +252,8 @@ async function retrySome(d: SchoolDeps, st: SchoolState, limit: number): Promise
     left -= before;
     if (!again.marked) continue;
     marked += again.marked;
-    rec.result = score(rec.paper, again.answers, { at: rec.result.at, where: rec.result.where, model: rec.result.model });
+    const again2 = score(rec.paper, again.answers, { at: rec.result.at, where: rec.result.where, model: rec.result.model });
+    rec.result = rec.paper.practice ? { ...again2, top: false, practice: true } : again2;
     await savePaper(d, rec);
     const changed = applyResult(st, rec.result, (d.now ?? Date.now)());
     if (!rec.result.marked.pending) newsFor(st, rec.result, changed, true);
@@ -349,15 +354,17 @@ export async function handleSchool(req: Request, path: string, method: string, d
         if (rec?.paper) paper = { ...structuredClone(rec.paper), id: `off-${src.official!.id}-${Math.floor(rnd() * 1e9)}` };
         st.officialUsed = [...st.officialUsed.filter((x) => x !== src.official!.id), src.official!.id];
       } else {
-        const items = src.source === 'bank' ? await bankItems(d, (await loadBank(d, stage, subject))!) : [];
+        const fromBank = src.source === 'bank' || src.source === 'practice';
+        const items = fromBank ? await bankItems(d, (await loadBank(d, stage, subject))!) : [];
         for (let i = 0; i < 6 && !paper; i++) {
           const seed = PAPER_SEED_FLOOR + Math.floor(rnd() * 2_000_000_000);
-          const p = src.source === 'bank' ? bankPaper(stage, subject, items, seed, paperId(stage, subject, seed)) : makePaper(stage, subject, seed);
+          const p = fromBank ? bankPaper(stage, subject, items, seed, paperId(stage, subject, seed)) : makePaper(stage, subject, seed);
+          if (src.source === 'practice') Object.assign(p, { practice: true, title: p.title.replace(' · written by Ghosty from his checked question bank', ' · practice paper from the questions checked so far') });
           if (!(await loadPaper(d, p.id))) paper = p;
         }
       }
       if (!paper) return bad('A new paper could not be set just now. Try again.', 503);
-      const rec: PaperRecord = { paper, from: src.source, issuedAt: now, given: {} };
+      const rec: PaperRecord = { paper, from: src.source === 'practice' ? 'bank' : src.source, issuedAt: now, given: {} };
       await savePaper(d, rec);
       st.open = [{ id: paper.id, stage, subject, at: now }, ...st.open.filter((x) => !(x.stage === stage && x.subject === subject))].slice(0, MAX_OPEN);
       await saveState(d, st);
@@ -422,7 +429,9 @@ export async function handleSchool(req: Request, path: string, method: string, d
         return json({ saved: Object.keys(rec.given).length, of: rec.paper.items.length });
       }
       const marks = await markPaper(rec.paper, rec.given, stageName(rec.paper.stage), d.ask);
-      const result: PaperResult = score(rec.paper, marks, { at: now, where: rec.where ?? 'phone', model: rec.model ?? 'stock' });
+      const scored: PaperResult = score(rec.paper, marks, { at: now, where: rec.where ?? 'phone', model: rec.model ?? 'stock' });
+      // (a practice paper is marked like any other, but never counts as top grades: it cannot pass a stage)
+      const result: PaperResult = rec.paper.practice ? { ...scored, top: false, practice: true } : scored;
       rec.result = result;
       await savePaper(d, rec);
       const st = await loadState(d);
