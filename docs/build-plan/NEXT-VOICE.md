@@ -87,6 +87,14 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 - "Call this my morning station" names what is playing.
 - "Put on my morning station" plays it.
 
+### Voice recognition that keeps up (voice.u4)
+- Your voice print refreshes itself gently from turns that were clearly you (well inside its own tolerance): a cold, a tired voice,
+  outside.
+- Each turn moves it a little, at most six a day, and it never drifts more than half its tolerance from the voice you enrolled, so it
+  can never wander to someone else's.
+- Kept on this phone only, in the voices' own store. It only helps the courtesy tag; it is never a lock.
+- Turns judged by the voice pack's model don't refresh it yet.
+
 ### Why it wasn't sure (voice.u5)
 - NOT SURE WHO on the talk bar now says why, in plain words:
   - "Two voices I know sound alike in that";
