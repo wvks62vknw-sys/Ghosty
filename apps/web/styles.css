@@ -10170,6 +10170,8 @@ html .rpsheet .rpitem[aria-checked="true"] .setknob::after { transform: translat
 #pg-security .secpwrow input { flex: 1 1 auto; min-width: 0; min-height: max(44px, var(--g-target)); }
 #pg-security .secpwrow button { min-height: max(44px, var(--g-target)); min-width: max(44px, var(--g-target)); }
 #pg-security .secpwnedsaid:empty { display: none; }
+#pg-security .seclinksaid { white-space: pre-line; overflow-wrap: anywhere; }
+#pg-security .seclinksaid:empty { display: none; }
 /* the training chart, week by week (features/system/trainhistory.ts) */
 html .trainhist .throw .thv { display: flex; align-items: center; gap: var(--g-s-1); flex-wrap: wrap; min-width: 0; }
 html .trainhist .throw .thv svg.spark { flex: none; width: 120px; height: 22px; }

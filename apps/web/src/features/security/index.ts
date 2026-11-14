@@ -65,14 +65,18 @@ export const securityTab: TabDef = {
     const P = page(root, { tag: 'SECURITY', leftLabel: 'LOCKS', rightLabel: 'STEPS', stack: true });
     const lp = panel('LOCKS', { grow: false });
     const ap = panel('APPROVALS', { grow: false, cls: 'scroll' });
+    const kp = panel('LOCK EVERYTHING', { grow: false });
+    kp.el.classList.add('seclockdown');
     const sp = panel('STEPS', { grow: false });
+    const cp = panel('CHECK A LINK', { grow: false });
+    cp.el.classList.add('seclinkcheck');
     const pp = panel('HAS IT LEAKED?', { grow: false });
     pp.el.classList.add('secpwned');
     lp.el.classList.add('seclocks');
     ap.el.classList.add('secapprovals');
     sp.el.classList.add('secsteps');
-    P.left.append(lp.el, ap.el);
-    P.right.append(pp.el, sp.el);
+    P.left.append(lp.el, kp.el, ap.el);
+    P.right.append(cp.el, pp.el, sp.el);
 
     const facts: LockFacts = { keyLength: null, lastBackup: null, faces: null, telegram: null, brain: null, approvals: null, doorsRule: doorsRule.get(), now: Date.now() };
     const key = ownerKey.get();
@@ -220,6 +224,80 @@ export const securityTab: TabDef = {
     );
     pp.setStatus('On this phone');
 
+    // CHECK A LINK (security.u9): where a link really goes and any scam signs, from public records, before he opens it
+    const lk = h('input', { type: 'url', autocomplete: 'off', 'aria-label': 'A link or a message to check', placeholder: 'Paste a link or a message', spellcheck: false, inputmode: 'url' }) as HTMLInputElement;
+    const lkSaid = h('p.note.seclinksaid', { dataset: { case: 'keep' } });
+    const checkLink = async () => {
+      const v = lk.value.trim();
+      if (!v) {
+        lkSaid.textContent = 'Paste a link, or a message with a link in it.';
+        return;
+      }
+      lkSaid.textContent = 'Checking it against the public records…';
+      cp.setStatus('Checking…');
+      try {
+        const r = await brain.securityLinkCheck(v);
+        lkSaid.textContent = r.words;
+        lkSaid.dataset.verdict = r.verdict;
+        cp.setStatus(r.verdict === 'scam' ? 'Looks like a scam' : r.verdict === 'nothing' ? 'Nothing found' : 'Be careful', r.verdict === 'nothing' ? 'ok' : 'mid');
+      } catch (e) {
+        lkSaid.textContent = sayError(e, 'check that link');
+        cp.setStatus('Can’t check', 'mid');
+      }
+    };
+    lk.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') void checkLink();
+    });
+    cp.body.append(h('p.note', 'Before you open a link from a text, an email or a sticker: where it really goes and any scam signs, from public records. Nothing is opened.'), h('div.row.secpwrow', lk, button('CHECK', () => void checkLink(), 'on')), lkSaid);
+    cp.setStatus('Public records');
+
+    // ONE TAP TO LOCK EVERYTHING (security.u11): Telegram unpaired, nothing that leaves runs, until his key unlocks it
+    let lockAt: number | null = null;
+    const paintLock = () => {
+      if (lockAt) {
+        const keyIn = h('input', { type: 'password', autocomplete: 'off', 'aria-label': 'Your owner key', placeholder: 'Your owner key', spellcheck: false }) as HTMLInputElement;
+        const unlock = async () => {
+          const mine = ownerKey.get();
+          if (mine && keyIn.value !== mine) {
+            keyIn.value = '';
+            toast('That is not your owner key. Ghosty stays locked.', 'bad');
+            return;
+          }
+          if (!mine && !(await confirmSheet('Unlock Ghosty?', 'This phone signed in with Cloudflare Access, so there is no key to type here.', 'UNLOCK'))) return;
+          try {
+            await brain.securityUnlock();
+            lockAt = null;
+            paintLock();
+            toast('Unlocked. Pair Telegram again in Links when you want it.', 'ok');
+          } catch (e) {
+            toast(sayError(e, 'unlock'), 'bad');
+          }
+        };
+        keyIn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') void unlock();
+        });
+        kp.setStatus('Locked', 'mid');
+        kp.el.dataset.locked = '1';
+        clear(kp.body, h('p.note', `Locked since ${new Date(lockAt).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}: Telegram unpaired, and nothing that publishes, sends, pays or ships runs.`), h('div.row.secpwrow', keyIn, button('UNLOCK', () => void unlock(), 'on')));
+      } else {
+        kp.setStatus('Open', 'ok');
+        delete kp.el.dataset.locked;
+        clear(kp.body, h('p.note', 'If something feels wrong: one tap unpairs Telegram and pauses anything that publishes, sends, pays or ships, until you unlock with your owner key.'), h('div.row', button('LOCK EVERYTHING', () => void lockNow(), 'warn')));
+      }
+    };
+    const lockNow = async () => {
+      if (!(await confirmSheet('Lock everything?', 'Telegram is unpaired, and anything that publishes, sends, pays or ships is paused, until you unlock with your owner key here.', 'LOCK'))) return;
+      try {
+        const r = await brain.securityLock();
+        lockAt = r.at ?? Date.now();
+        paintLock();
+        toast('Locked. Unlock here with your owner key.', 'ok');
+      } catch (e) {
+        toast(sayError(e, 'lock everything'), 'bad');
+      }
+    };
+    paintLock();
+
     // The phone's own locks show at once; the brain's fill in as they answer.
     /* state: security.locks loading */
     lp.setStatus('Checking…');
@@ -232,6 +310,8 @@ export const securityTab: TabDef = {
         facts.approvals = sec.value.approvals;
         securityState.brain = sec.value.locks;
         securityState.approvals = sec.value.approvals;
+        lockAt = sec.value.lockedAt ?? null;
+        paintLock();
       } else {
         /* state: security.locks offline */
         facts.brain = null;
@@ -259,6 +339,12 @@ export const securityTab: TabDef = {
       },
       open(arg: string) {
         if (GUIDES.some((g) => g.id === arg)) openGuide(arg);
+        // "lock everything": the confirm, the lock itself his tap; "has my password leaked?": the box, ready to type in
+        if (arg === 'lock' && !lockAt) void lockNow();
+        if (arg === 'leaked') {
+          openGuide('doors');
+          setTimeout(() => pw.focus(), 300);
+        }
       },
       context(): ScreenContext {
         return { screen: 'security', title: 'Security', line: `Security: ${summary || 'checking the locks'}.`, at: Date.now() };
