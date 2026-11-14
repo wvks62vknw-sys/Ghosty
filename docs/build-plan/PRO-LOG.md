@@ -52,6 +52,20 @@ parsing (`packages/shared/src/applib/quickadd.ts`), its brain tests (`apps/edge/
 Every colour is a token. The stylesheet reads SHELL's `--al-pro-accent`, `--al-pro-accent-text`, `--al-pro-card`,
 `--al-pro-radius`, `--al-pro-ground` and `--al-pro-on-accent` where they are set, and falls back to the look's own `--g-*`.
 
+## Inside SHELL's frame (the second landing, after the lead's look at 440 × 956)
+- **Units said once.** When a template writes the unit itself ("{weight} kg"), the value goes in bare. Workout Log now reads
+  "5 x 5 at 80 kg", not "80 kg kg" (engine.ts `fill`).
+- **Money with a true minus, in every view.** A loss reads "−£640.35": the minus sign before the £, in rows, stats, the item page
+  and the chart's labels.
+- **Minutes read as time.** A number field kept in minutes reads "2 h 12 min", never "132.4 min", in rows, stats and charts.
+- **Stat tiles are never alone on a row.** One tile fills the row, three sit three across, and otherwise they go two across
+  (with the odd row three across).
+- **The data skin.** Story cards, one big number and one sentence each ("Listening in all: 2 h 12 min."). Swipe or use the
+  arrows to go from one to the next, with dots showing where you are.
+- **SHELL's tokens.** Accents come from `--al-accent` and `--al-accent-soft`, ink on the accent from `--al-on-accent`, card radii
+  from `--al-pro-cardr` and the hero number from `--al-pro-heronum`. Rows lay out as rows inside the frame. Titles, lines and
+  values wrap rather than being cut.
+
 ## Checks
 - **Brain:** `applibquick.test.mjs` has 7 tests. They cover the cellar and the run lines, days in his words, the workout set,
   nothing made up, and a round trip: every log app's example line reads back into its money and stars, across more than 100
@@ -62,7 +76,8 @@ Every colour is a token. The stylesheet reads SHELL's `--al-pro-accent`, `--al-p
     add, the hero following it and a missing name opening the filled form; swipe left to delete, Undo in the notice and Undo
     bringing the row back; swipe right moving a row; a short swipe and a tap to close; the item page's sheet, stars and art,
     Edit and Delete with Undo; board drag; heat on the month; the two-column masonry; 44 pt keys and nothing sideways; and the
-    empty state.
+    empty state. It also checks units said once, the true minus, two tiles side by side, the story cards (time, sentence,
+    Next and swipe) and minutes as time in a row.
   - `applib` and `applibplay` stay green unchanged. Their log checks (the stats strip, rings, the 7-bar week chart, every field
     type, add, Undo, the four views and the board's Move key) all still hold.
 
