@@ -85,6 +85,12 @@ async function fit(page, tag, root) {
   check(!RAW.test(r.words), `${tag}: a raw string: ${(RAW.exec(r.words) ?? [''])[0]}`);
 }
 
+/** Tap a confirm sheet's yes once its sheet has finished arriving (a tap mid-spring can land on the backdrop and close it). */
+async function sayYes(page, word) {
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
+  await page.locator('.sureyes', { hasText: word }).last().click();
+}
+
 async function openArcade(page) {
   await page.evaluate(() => (location.hash = 'arcade'));
   await page.waitForSelector('#pg-arcade .arccard .arcopen', { timeout: 30000 });
@@ -184,7 +190,7 @@ for (const [i, world] of WORLDS.entries()) {
           const asked = await until(page, () => [...document.querySelectorAll('button')].some((b) => b.textContent === 'FORGET IT'));
           check(asked, 'FORGET MY RECORD did not ask first');
           if (asked) {
-            await page.locator('button', { hasText: 'FORGET IT' }).last().click();
+            await sayYes(page, 'FORGET IT');
             check(await until(page, () => /Not played yet/.test(document.querySelector('.modal [data-sec="your record"]')?.textContent ?? '')), 'FORGET MY RECORD left the record');
             const left = await page.evaluate(() => ({ st: JSON.parse(localStorage.getItem('ghosty.arcade.stats') ?? '{}'), sc: JSON.parse(localStorage.getItem('ghosty.arcade.scores') ?? '{}') }));
             check(!left.st.runner && !!left.st.flap && !!left.sc.runner, `FORGET MY RECORD: stats ${Object.keys(left.st)}; scores ${Object.keys(left.sc)}`);
@@ -244,6 +250,51 @@ log('b. a phone that has played');
   }
 }
 log('c. playing for real');
+
+// ---------- d. SAVE SLOTS: the block world's save kept under a name, loaded (what was there kept as "Before loading"), deleted
+{
+  const { ctx, page } = await phone(PHONE);
+  try {
+    await openArcade(page);
+    const page1 = () => page.waitForSelector('.modal .arcpage [data-sec="save slots"]', { timeout: 10000 });
+    await page.click('#pg-arcade .arccard[data-id="block-world"] .arcopen');
+    await page1();
+    check(await until(page, () => /Nothing saved in this game yet/.test(document.querySelector('.modal [data-sec="save slots"]')?.textContent ?? '')), 'slots: no line for a game with nothing saved');
+    await page.keyboard.press('Escape');
+    // the game's own save, as its engine writes it
+    await page.evaluate(() => new Promise((res, rej) => {
+      const r = indexedDB.open('ghosty-arcade-saves', 1);
+      r.onupgradeneeded = () => r.result.objectStoreNames.contains('files') || r.result.createObjectStore('files');
+      r.onsuccess = () => {
+        const t = r.result.transaction('files', 'readwrite');
+        t.objectStore('files').put(new Uint8Array([7, 7, 7]), 'block-world/world.sav');
+        t.oncomplete = () => res(true);
+        t.onerror = () => rej(t.error);
+      };
+      r.onerror = () => rej(r.error);
+    }));
+    await page.click('#pg-arcade .arccard[data-id="block-world"] .arcopen');
+    await page1();
+    await page.waitForSelector('.modal .arcslotname', { timeout: 10000 });
+    await page.fill('.modal .arcslotname', 'My castle');
+    await page.click('.modal .arcslotkeep');
+    check(await until(page, () => !!document.querySelector('.modal .arcslot[data-slot="My castle"]') && /Kept “My castle”/.test(document.querySelector('.modal .arcslotmsg')?.textContent ?? '')), 'slots: KEEP A SLOT did not keep "My castle"');
+    await page.click('.modal .arcslot[data-slot="My castle"] button:has-text("LOAD")');
+    check(await until(page, () => document.querySelectorAll('.modal .arcslot').length === 2 && /Before loading/.test(document.querySelector('.modal .arcslotmsg')?.textContent ?? '')), 'slots: LOAD did not keep what was there as "Before loading"');
+    await fit(page, 'slots', '.modal');
+    await page.screenshot({ path: `${out}/arcadeapp-slots-440.png` });
+    await page.click('.modal .arcslot[data-slot="My castle"] button:has-text("DELETE")');
+    const asked = await until(page, () => [...document.querySelectorAll('button')].some((b) => b.textContent === 'DELETE IT'));
+    check(asked, 'slots: DELETE did not ask first');
+    if (asked) {
+      await sayYes(page, 'DELETE IT');
+      check(await until(page, () => !document.querySelector('.modal .arcslot[data-slot="My castle"]') && !!document.querySelector('.modal .arcslot')), 'slots: DELETE did not remove only that slot');
+    }
+  } finally {
+    await ctx.close();
+  }
+}
+log('d. save slots');
 
 await browser.close();
 console.log(`${checks} checks`);

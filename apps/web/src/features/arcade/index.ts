@@ -18,6 +18,8 @@ import { clear, h } from '../../core/dom';
 import { type Action, BTN, gameButtons, idle, type Intent, merge, PAD_BUTTONS, readPad, type TouchButton, touchLook, touchMove } from '../../arcade/input';
 import type { DosButton } from '../../arcade/dos';
 import { KEY_LINES, keysIntent, takes } from '../../arcade/keys';
+import { gyroLook, gyroOn, type Rate, setGyro } from '../../arcade/gyro';
+import { clampMove, layoutOf, nextScale, saveLayout } from '../../arcade/layout';
 import { primeAudio } from '../../arcade/engines/audio';
 import { dosStats, keyWord } from '../../arcade/engines/dos';
 import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/index';
@@ -160,6 +162,20 @@ function controlLines(e: ShelfEntry): string[] {
   return out;
 }
 
+/** A card's title as the key to its page: a link-like key (Enter and Space open it too), so a card's own buttons stay its
+ *  actions alone. */
+const titleKey = (props: { 'aria-label': string }, text: string): HTMLAnchorElement => {
+  const a = h('a.arcopen', { href: '#arcade', role: 'button', tabIndex: 0, dataset: { case: 'keep' }, ...props }, text);
+  a.addEventListener('click', (ev) => ev.preventDefault());
+  a.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      a.click();
+    }
+  });
+  return a;
+};
+
 /** Keep a finger's moves on this element even when it slides off (a synthetic touch has nothing to capture). */
 const capture = (el: Element, id: number) => {
   try {
@@ -277,7 +293,7 @@ export const arcadeTab: TabDef = {
 
     const card = (e: ShelfEntry) => {
       const of = ofGame(e);
-      const opener = h('button.arcopen', { type: 'button', dataset: { case: 'keep' }, 'aria-label': `${e.title}: its page, with screenshots, controls, trophies and licence` }, e.title);
+      const opener = titleKey({ 'aria-label': `${e.title}: its page, with screenshots, controls, trophies and licence` }, e.title);
       const title = h('h4.arctitle', opener);
       const line = h('p.arcline', e.line);
       const said = h('p.arcghost', h('b', 'Ghosty'), ` ${e.ghosty}`);
@@ -616,7 +632,7 @@ export const arcadeTab: TabDef = {
               goTab('gamestudio');
             });
             const stat = h('p.arcstatus', { 'aria-live': 'polite' }, status.get(e.id) ?? '');
-            const opener = h('button.arcopen', { type: 'button', dataset: { case: 'keep' }, 'aria-label': `${m.name}: its page, with screenshots, trophies and your record` }, m.name);
+            const opener = titleKey({ 'aria-label': `${m.name}: its page, with screenshots, trophies and your record` }, m.name);
             opener.addEventListener('click', () => pageOf(e, playBtn, () => scoreWords('studio', allScores()[`studio.${m.id}`], undefined), `studio.${m.id}`));
             const el = h('article.arccard.arcmy', { role: 'listitem', dataset: { game: m.id }, 'aria-label': m.name },
               h('h4.arctitle', opener),
@@ -644,7 +660,7 @@ export const arcadeTab: TabDef = {
         go.classList.add(act?.textContent === 'PLAY' ? 'play' : 'get');
         go.addEventListener('click', () => act?.click());
         const open = h('button.arcmore', { type: 'button', 'aria-label': `${st.title}: its page` }, '›');
-        open.addEventListener('click', () => c.el.querySelector<HTMLButtonElement>('.arcopen')?.click());
+        open.addEventListener('click', () => c.el.querySelector<HTMLElement>('.arcopen')?.click());
         return h('article.arccard.arccontcard', { role: 'listitem', dataset: { cont: id }, 'aria-label': st.title },
           h('h4.arctitle', st.title),
           h('p.arcscore', `Last played ${whenWords(st.last)} · ${st.plays} ${st.plays === 1 ? 'sitting' : 'sittings'} · ${playTime(st.seconds)}`),
@@ -739,6 +755,7 @@ function player(e: ShelfEntry, title = e.title) {
     const on = (ev: PointerEvent) => {
       ev.preventDefault();
       capture(el, ev.pointerId);
+      if (editing && cls === 'arcbtn') return drag(el, ev);
       touch.held.add(b.act);
       el.classList.add('on');
       if (cls === 'arcbtn') vibrate(8);
@@ -782,10 +799,27 @@ function player(e: ShelfEntry, title = e.title) {
   const gameMenuBtn = native ? h('button.arcm.gamemenu', { type: 'button', 'aria-label': `${menuOf(e)} own menu: new game and its skill, save, load, options` }, 'GAME MENU') : null;
   const quitBtn = h('button.arcm.quit', { type: 'button', 'aria-label': native ? `Quit ${title} (your saved games stay)` : `Quit ${title} (it saves first)` }, 'QUIT');
   const ctlBtn = h('button.arcm', { type: 'button', 'aria-expanded': 'false', 'aria-label': 'Controls: what each button and key does' }, 'CONTROLS');
+  // the touch layout (arcade/layout.ts) and gyro aim (arcade/gyro.ts), from PAUSE
+  const layoutBtn = big.length ? h('button.arcm.arclayout', { type: 'button', 'aria-label': 'Move the buttons: drag them to where your thumb rests, and change their size' }, 'MOVE THE BUTTONS') : null;
+  const gyroBtn = native ? h('button.arcm.arcgyro', { type: 'button', role: 'switch' }) : null;
+  const gyroNote = h('p.arcnote.arcgyronote', { 'aria-live': 'polite' });
+  const paintGyro = () => {
+    if (!gyroBtn) return;
+    gyroBtn.textContent = gyroOn() ? 'GYRO AIM: ON' : 'GYRO AIM: OFF';
+    gyroBtn.setAttribute('aria-checked', String(gyroOn()));
+    gyroBtn.setAttribute('aria-label', gyroOn() ? 'Gyro aim is on: turning the phone turns the view. Turn it off' : 'Gyro aim is off: turn it on to aim by turning the phone');
+  };
+  paintGyro();
   const ctlList = h('ul.arcctl', { hidden: true }, ...controlLines(e).map((t) => h('li', t)));
   const fpsLine = h('p.arcnote.arcfps');
   const menu = h('div.arcmenu', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${title} paused`, hidden: true },
-    h('div.arcsheet', h('h4', title), h('p.arcnote', native ? 'Paused. To keep your place, save from the GAME MENU: saved games stay on this phone.' : 'Paused. It saves when you quit.'), fpsLine, resumeBtn, ...(gameMenuBtn ? [gameMenuBtn] : []), quitBtn, sndBtn, ctlBtn, ctlList));
+    h('div.arcsheet', h('h4', title), h('p.arcnote', native ? 'Paused. To keep your place, save from the GAME MENU: saved games stay on this phone.' : 'Paused. It saves when you quit.'), fpsLine, resumeBtn, ...(gameMenuBtn ? [gameMenuBtn] : []), quitBtn, sndBtn, ...(gyroBtn ? [gyroBtn, gyroNote] : []), ...(layoutBtn ? [layoutBtn] : []), ctlBtn, ctlList));
+  // the layout's bar while he moves the buttons
+  const sizeBtn = h('button.arcm.arcsize', { type: 'button' });
+  const resetBtn = h('button.arcm.arcreset', { type: 'button', 'aria-label': 'Put the buttons back where they started' }, 'RESET');
+  const doneBtn = h('button.arcm.arcdone', { type: 'button', 'aria-label': 'Done moving the buttons' }, 'DONE');
+  const layoutBar = h('div.arclayoutbar', { role: 'dialog', 'aria-label': 'Move the buttons', hidden: true }, h('p.arcnote', 'Drag each button to where your thumb rests. It is kept for this kind of game.'), h('div.arclayoutkeys', sizeBtn, resetBtn, doneBtn));
+  layer.append(layoutBar);
   const errBox = h('p.arcerr', { role: 'alert', hidden: true });
   const el = h('div.arcplayer', { role: 'region', 'aria-label': `${title}: the game` }, screen, ...(made ? [loading, errBox] : [layer, loading, menu, errBox, kbd]));
 
@@ -820,6 +854,7 @@ function player(e: ShelfEntry, title = e.title) {
   };
   const resume = () => {
     if (!paused || !handle) return;
+    if (editing) endEdit();
     paused = false;
     since = performance.now();
     menu.hidden = true;
@@ -845,6 +880,97 @@ function player(e: ShelfEntry, title = e.title) {
     handle?.setSound(on);
     paintSnd();
   });
+  // ---- MOVE THE BUTTONS: the game stays paused; each big button drags; SIZE cycles; RESET; DONE back to PAUSE
+  let editing = false;
+  let lay = layoutOf(e.engine);
+  const paintLayout = () => {
+    for (const b of btns.querySelectorAll<HTMLElement>('.arcbtn')) {
+      const m = lay.moves[b.dataset.slot ?? ''] ?? [0, 0];
+      b.style.transform = m[0] || m[1] || lay.scale !== 1 ? `translate(${m[0]}px, ${m[1]}px) scale(${lay.scale})` : '';
+    }
+    sizeBtn.textContent = `SIZE: ${Math.round(lay.scale * 100)}%`;
+    sizeBtn.setAttribute('aria-label', `Button size ${Math.round(lay.scale * 100)}%: change it`);
+  };
+  paintLayout();
+  const drag = (el: HTMLElement, ev: PointerEvent) => {
+    const slot = el.dataset.slot ?? '';
+    const start = lay.moves[slot] ?? [0, 0];
+    const r = el.getBoundingClientRect();
+    const centre: [number, number] = [r.left + r.width / 2 - start[0], r.top + r.height / 2 - start[1]];
+    const x0 = ev.clientX;
+    const y0 = ev.clientY;
+    const move = (m: PointerEvent) => {
+      lay.moves[slot] = clampMove(start[0] + m.clientX - x0, start[1] + m.clientY - y0, centre, [innerWidth, innerHeight]);
+      paintLayout();
+    };
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      saveLayout(e.engine, lay);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  };
+  const endEdit = () => {
+    editing = false;
+    layer.classList.remove('arcediting');
+    layoutBar.hidden = true;
+    saveLayout(e.engine, lay);
+  };
+  layoutBtn?.addEventListener('click', () => {
+    editing = true;
+    menu.hidden = true;
+    layer.classList.add('arcediting');
+    layoutBar.hidden = false;
+    doneBtn.focus();
+  });
+  sizeBtn.addEventListener('click', () => {
+    lay.scale = nextScale(lay.scale);
+    paintLayout();
+    saveLayout(e.engine, lay);
+  });
+  resetBtn.addEventListener('click', () => {
+    lay = { moves: {}, scale: 1 };
+    saveLayout(e.engine, null);
+    paintLayout();
+  });
+  doneBtn.addEventListener('click', () => {
+    endEdit();
+    menu.hidden = false;
+    resumeBtn.focus();
+  });
+
+  // ---- GYRO AIM: the phone's turning rate, read while it is on (an iPhone asks him first, inside this tap)
+  let rate: Rate | null = null;
+  const onMotion = (ev: DeviceMotionEvent) => {
+    rate = ev.rotationRate ? { alpha: ev.rotationRate.alpha, beta: ev.rotationRate.beta, gamma: ev.rotationRate.gamma } : null;
+  };
+  const listenGyro = (on: boolean) => {
+    if (on) window.addEventListener('devicemotion', onMotion);
+    else (window.removeEventListener('devicemotion', onMotion), (rate = null));
+  };
+  if (native && gyroOn()) listenGyro(true);
+  gyroBtn?.addEventListener('click', async () => {
+    gyroNote.textContent = '';
+    if (gyroOn()) {
+      setGyro(false);
+      listenGyro(false);
+      return paintGyro();
+    }
+    const ask = (globalThis.DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> } | undefined)?.requestPermission;
+    let ok = typeof DeviceMotionEvent !== 'undefined';
+    if (ok && ask) ok = (await ask().catch(() => 'denied')) === 'granted';
+    if (!ok) {
+      gyroNote.textContent = 'This phone did not allow motion, so gyro aim stays off. You can allow it in Settings, Safari, Motion & Orientation Access.';
+      return paintGyro();
+    }
+    setGyro(true);
+    listenGyro(true);
+    paintGyro();
+  });
+
   ctlBtn.addEventListener('click', () => {
     ctlList.hidden = !ctlList.hidden;
     ctlBtn.setAttribute('aria-expanded', String(!ctlList.hidden));
@@ -976,6 +1102,11 @@ function player(e: ShelfEntry, title = e.title) {
       return;
     }
     const k = native && keysDown.size ? keysIntent(keysDown, dt) : null;
+    if (rate) {
+      const g = gyroLook(rate, window.screen.orientation?.angle ?? 0, dt);
+      intent.lookX += g.lookX;
+      intent.lookY += g.lookY;
+    }
     const m = merge(merge(touch, padIntent), k);
     if (k) intent.lookX += k.lookX;
     intent.moveX = m.moveX;
@@ -1045,6 +1176,7 @@ function player(e: ShelfEntry, title = e.title) {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onKey);
       window.removeEventListener('blur', keysLost);
+      listenGyro(false);
       kbd.blur();
       // the canvas's pixels go back to the phone (each game is given a new one)
       canvas.width = 0;

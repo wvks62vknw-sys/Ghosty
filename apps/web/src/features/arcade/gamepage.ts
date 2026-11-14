@@ -5,7 +5,9 @@
  * five trophies, and its licence and credit. Everything on it is kept on this phone; nothing is fetched to show it.
  */
 import { clear, h } from '../../core/dom';
-import { confirmSheet, modal } from '../../ui/components';
+import { button, confirmSheet, modal } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
+import { BEFORE, deleteSlot, hasSaves, keepSlot, loadSlot, slotsOf } from '../../arcade/slots';
 import { allScores } from '../../arcade/scores';
 import type { ShelfEntry } from '../../arcade/shelf';
 import { forgetStats, playTime, shotsOf, statOf, whenWords } from '../../arcade/stats';
@@ -23,6 +25,13 @@ export const PAGE_WORDS = {
   yours: 'Made by you in the game studio.',
   fetch: 'Fetched only when you tap GET, on Wi-Fi, with its size said; then it plays with no signal.',
   saves: 'Your saved games stay on this phone: load them from the game’s own menu to carry on.',
+  slots: 'SAVE SLOTS',
+  slotsLine: 'Keep where you are under a name, and come back to it whenever you like. Kept on this phone.',
+  noSaves: 'Nothing saved in this game yet. Save in the game, then keep it here under a name.',
+  slotName: 'A name for this slot',
+  keep: 'KEEP A SLOT',
+  kept: (n: string) => `Kept “${n}”.`,
+  loaded: (n: string) => `“${n}” is loaded: PLAY carries on from it. What you had is kept as “${BEFORE}”.`,
   forget: 'FORGET MY RECORD',
   forgot: 'Your record and screenshots for this game are gone. Your best score stays.',
 };
@@ -48,6 +57,61 @@ const trophyRow = (t: Trophy) =>
     h('span.arctname', h('b', t.name), h('span', ` ${t.how}`)),
     t.earned ? h('span.arctgot', 'EARNED') : h('span.arctbar', { 'aria-hidden': 'true' }, h('i', { style: `width:${Math.round(t.progress * 100)}%` })),
   );
+
+/** SAVE SLOTS (arcade/slots.ts): the slots kept, newest first, each with LOAD and DELETE, and KEEP A SLOT under a name. */
+function slotsBlock(game: string): HTMLElement {
+  const el = h('div.arcslots');
+  const msg = h('p.arcnote.arcslotmsg', { 'aria-live': 'polite', dataset: { case: 'keep' } });
+  const say = (t: string, tone: '' | 'bad' = '') => {
+    msg.textContent = t;
+    msg.dataset.tone = tone;
+  };
+  const paint = async () => {
+    const saved = await hasSaves(game).catch(() => false);
+    const list = slotsOf(game);
+    const name = h('input.arcslotname', { type: 'text', maxLength: 30, placeholder: PAGE_WORDS.slotName, 'aria-label': PAGE_WORDS.slotName, autocomplete: 'off' }) as HTMLInputElement;
+    const keep = button(PAGE_WORDS.keep, async (b) => {
+      b.disabled = true;
+      try {
+        const s = await keepSlot(game, name.value);
+        await paint();
+        say(PAGE_WORDS.kept(s.name));
+      } catch (err) {
+        say(sayError(err, 'keep that slot'), 'bad');
+      } finally {
+        b.disabled = false;
+      }
+    }, 'arcslotkeep');
+    name.addEventListener('keydown', (ev) => ev.key === 'Enter' && keep.click());
+    const rows = list.map((s) => {
+      const load = button('LOAD', async () => {
+        try {
+          await loadSlot(game, s.name);
+          await paint();
+          say(PAGE_WORDS.loaded(s.name));
+        } catch (err) {
+          say(sayError(err, 'load that slot'), 'bad');
+        }
+      });
+      load.setAttribute('aria-label', `Load the slot ${s.name}`);
+      const del = button('DELETE', async () => {
+        if (!(await confirmSheet(`Delete the slot “${s.name}”?`, 'Its saved game goes from this phone. The game’s own save stays.', 'DELETE IT'))) return;
+        await deleteSlot(game, s.name).catch(() => undefined);
+        await paint();
+      }, 'warn');
+      del.setAttribute('aria-label', `Delete the slot ${s.name}`);
+      const when = new Date(s.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return h('li.arcslot', { dataset: { slot: s.name } }, h('span.arcslotwho', h('b', s.name), h('span', ` ${when}`)), h('span.keyrow', load, del));
+    });
+    clear(el,
+      h('p.arcnote', saved || list.length ? PAGE_WORDS.slotsLine : PAGE_WORDS.noSaves),
+      list.length ? h('ul.arcslotlist', ...rows) : null,
+      saved ? h('div.arcslotnew', name, keep) : null,
+      msg);
+  };
+  void paint();
+  return el;
+}
 
 /** The page's body, painted from what is kept now (exported for the spec's and a refresh's sake). */
 export function gamePageBody(o: PageOf, onForget?: () => void): HTMLElement {
@@ -78,6 +142,7 @@ export function gamePageBody(o: PageOf, onForget?: () => void): HTMLElement {
             h('dt', 'Best'), h('dd', /^Not (played|won) yet/.test(o.score()) ? 'None yet' : o.score()))
         : h('p.arcnote', { dataset: { state: 'empty' } }, PAGE_WORDS.never)),
       sec(PAGE_WORDS.trophies, h('ul.arctrophies', ...gameTrophies(e.id, stat, sc).map(trophyRow))),
+      e.saves ? sec(PAGE_WORDS.slots, slotsBlock(e.id)) : null,
       sec(PAGE_WORDS.licence, ...(e.data
         ? [h('p.arcnote', h('b', 'Licence '), e.data.licence), h('p.arcnote', h('b', 'Credit '), e.data.credit), h('p.arcnote', PAGE_WORDS.fetch)]
         : [h('p.arcnote', e.engine === 'studio' ? PAGE_WORDS.yours : PAGE_WORDS.made)]),

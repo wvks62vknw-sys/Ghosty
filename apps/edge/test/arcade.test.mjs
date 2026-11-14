@@ -594,3 +594,43 @@ test('apps round: play time and the day are said in plain words', () => {
   assert.equal(ST.whenWords(now - 86_400_000, now), 'yesterday');
   assert.equal(ST.whenWords(now - 3 * 86_400_000, now), '3 days ago');
 });
+
+test('apps round: named save slots keep, load (keeping what was there) and delete a game\'s saves', async () => {
+  const mem = new Map();
+  globalThis.localStorage ??= { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => void mem.set(k, String(v)), removeItem: (k) => void mem.delete(k) };
+  await build({ entryPoints: [at('../../web/src/arcade/slots.ts')], bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/arcade-apps'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
+  const SL = await import('./.build/arcade-apps/slots.mjs');
+  const { memorySaves } = await import('./.build/arcade/engines/saves.mjs');
+  const stores = new Map();
+  const make = (id) => (stores.has(id) ? stores.get(id) : (stores.set(id, memorySaves()), stores.get(id)));
+  await assert.rejects(() => SL.keepSlot('g', 'first', make), /Nothing is saved/);
+  await make('g').put('s0.sav', new Uint8Array([1]));
+  await assert.rejects(() => SL.keepSlot('g', '  ', make), /name/);
+  const s = await SL.keepSlot('g', ' before\nthe boss/ ', make, 1);
+  assert.equal(s.name, 'before the boss');
+  await make('g').put('s0.sav', new Uint8Array([2]));
+  await SL.loadSlot('g', 'before the boss', make, 2);
+  assert.deepEqual([...(await make('g').get('s0.sav'))], [1]);
+  assert.deepEqual(SL.slotsOf('g').map((x) => x.name), [SL.BEFORE, 'before the boss']);
+  await SL.loadSlot('g', SL.BEFORE, make, 3); // the undo
+  assert.deepEqual([...(await make('g').get('s0.sav'))], [2]);
+  await SL.deleteSlot('g', 'before the boss', make);
+  assert.deepEqual(SL.slotsOf('g').map((x) => x.name), [SL.BEFORE]);
+  assert.equal(SL.cleanName('x'.repeat(40)).length, 30);
+});
+
+test('apps round: gyro aim turns with the phone, ignores a tremor, and swaps on its side; the layout stays on the screen', async () => {
+  await build({ entryPoints: [at('../../web/src/arcade/gyro.ts'), at('../../web/src/arcade/layout.ts')], bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/arcade-apps'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
+  const GY = await import('./.build/arcade-apps/gyro.mjs');
+  const LY = await import('./.build/arcade-apps/layout.mjs');
+  const still = GY.gyroLook({ alpha: 0, beta: 1, gamma: -2 }, 0, 1);
+  assert.equal(still.lookX + 0, 0);
+  assert.equal(still.lookY + 0, 0);
+  const up = GY.gyroLook({ alpha: 0, beta: 0, gamma: 50 }, 0, 0.1);
+  assert.ok(Math.abs(up.lookX + 50 * GY.GYRO_GAIN * 0.1) < 1e-9 && up.lookY === 0);
+  const side = GY.gyroLook({ alpha: 0, beta: 50, gamma: 0 }, 90, 0.1);
+  assert.ok(Math.abs(side.lookX + 50 * GY.GYRO_GAIN * 0.1) < 1e-9);
+  assert.deepEqual(LY.clampMove(-1000, 20, [400, 800], [440, 956]), [-370, 20]);
+  assert.equal(LY.nextScale(1.4), 0.8);
+  assert.equal(LY.nextScale(1), 1.2);
+});

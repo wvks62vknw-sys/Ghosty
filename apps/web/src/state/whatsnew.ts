@@ -16,6 +16,10 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [polish3] APPS ROUND, THE ARCADE, console-class (docs/build-plan/APPS-POLISH3.md)
+  { day: '2026-11-14', title: 'A page for every game', line: 'In the ARCADE, tap a game’s title: its screenshots, how to play by touch, controller and keyboard, your record, its trophies, and its licence and credit.' },
+  { day: '2026-11-14', title: 'Continue Playing and the Trophy Room', line: 'The ARCADE now opens on the games you played lately, and THE TROPHY ROOM counts what you earned: five for every game, yours included.' },
+  { day: '2026-11-14', title: 'Save slots, your buttons, gyro aim', line: 'A game’s page keeps your save under a name. In PAUSE, MOVE THE BUTTONS puts them under your thumb; in DOOM and Quake, GYRO AIM and a keyboard work too.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },
