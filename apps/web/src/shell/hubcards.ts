@@ -63,6 +63,7 @@ import { info as studioInfo } from '../studio-game/hub';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
 import { allScores } from '../arcade/scores';
+import { allStats, recent } from '../arcade/stats';
 // [tabs] what the new screens' cards read (BRIEF-TABS 3)
 import { ACCOUNTS } from '../../../../packages/shared/src/social';
 import { mmss } from '../../../../packages/shared/src/kitchen';
@@ -794,8 +795,10 @@ export const CARDS: Record<string, HubCard> = {
     status: () => 'READY',
     instrument: () => levelInst(hubFacts.arcade?.here ?? null, SHELF.length),
     readouts: () => {
+      // [polish3] the record of play (arcade/stats.ts) knows every game played, the ones with no score too; the scores are the fallback
+      const played = recent(allStats(), 1)[0];
       const last = Object.entries(allScores()).filter(([k]) => !k.endsWith('/sitting')).sort((a, b) => b[1].when.localeCompare(a[1].when))[0];
-      const title = last ? SHELF.find((g) => g.id === last[0])?.title ?? null : null;
+      const title = played ? played[1].title : last ? SHELF.find((g) => g.id === last[0])?.title ?? null : null;
       return [
         { label: 'Games', value: String(SHELF.length), unit: 'free' },
         { label: 'Last game', value: title, none: 'None yet' },
@@ -1094,6 +1097,29 @@ export const CARDS: Record<string, HubCard> = {
       ];
     },
     why: () => 'Hold a key and speak; nothing is recorded',
+  },
+  // [apps.voice] TRANSLATE: the language it translates into, and the phrasebook he keeps (both on this phone)
+  translate: {
+    title: 'Type, paste or speak',
+    status: () => 'READY',
+    instrument: () => voiceInst(false),
+    readouts: () => {
+      let to = 'es';
+      let starred = 0;
+      try {
+        const p = JSON.parse(localStorage.getItem('ghosty.translate.pair') ?? '{}') as { to?: string };
+        if (typeof p.to === 'string' && p.to) to = p.to;
+        const b = JSON.parse(localStorage.getItem('ghosty.translate.book') ?? '[]') as unknown[];
+        starred = Array.isArray(b) ? b.length : 0;
+      } catch {
+        /* storage refused or not JSON: the defaults */
+      }
+      return [
+        { label: 'Into', value: langName(to) },
+        { label: 'Starred', value: starred ? String(starred) : null, unit: starred === 1 ? 'phrase' : 'phrases', none: 'None yet' },
+      ];
+    },
+    why: () => 'Finds the language as you type',
   },
   rehearse: {
     title: 'Practise a hard talk',

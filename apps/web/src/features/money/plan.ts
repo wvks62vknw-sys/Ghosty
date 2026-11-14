@@ -18,10 +18,11 @@ import { h } from '../../core/dom';
 import { button, modal } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 import { isoDay } from '../brief/day';
+import { listRow, skeleton, stateCard } from '../../ui/appkit';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
 
-export type PlanPage = 'calendar' | 'goals' | 'shared' | 'year' | 'watches' | 'car';
-export const PLAN_TITLES: Record<PlanPage, string> = { calendar: 'MONEY CALENDAR', goals: 'SAVINGS GOALS', shared: 'SHARED BILLS', year: 'YOUR YEAR IN MONEY', watches: 'PRICE WATCHES', car: 'YOUR CAR’S MONEY' };
+export type PlanPage = 'calendar' | 'goals' | 'shared' | 'year' | 'watches' | 'car' | 'accounts';
+export const PLAN_TITLES: Record<PlanPage, string> = { calendar: 'MONEY CALENDAR', goals: 'SAVINGS GOALS', shared: 'SHARED BILLS', year: 'YOUR YEAR IN MONEY', watches: 'PRICE WATCHES', car: 'YOUR CAR’S MONEY', accounts: 'YOUR ACCOUNTS' };
 
 /** What a spec reads: window.__ghosty.moneyplan. */
 export const moneyPlan = {
@@ -35,6 +36,8 @@ export const moneyPlan = {
   watches: [] as string[],
   car: '',
   shop: '',
+  accounts: [] as string[],
+  moves: 0,
   rules: [] as string[],
   state: {} as Record<string, string>,
 };
@@ -652,9 +655,93 @@ function carPage(): HTMLElement {
   return el;
 }
 
+// ---------------------------------------------------------------- YOUR ACCOUNTS (money, effortless; built from the App Kit's rows)
+
+/** His accounts side by side, each with its newest balance; the moves between his own accounts spotted and kept out of spending. */
+function accountsPage(): HTMLElement {
+  const slot = h('div.pkcol.mnaccts', { 'aria-live': 'polite' });
+  const status = h('p.pknote', { 'aria-live': 'polite' });
+  const el = h('div.pkcol.mnapp', slot, status, phrases(['my accounts', 'my balances']));
+  type Acct = { name: string; n: number; newest: string; balance: number | null; balanceOn: string; in: number; out: number };
+  type Move = { d: string; t: string; a: number; ac: string };
+  const state = (kind: 'empty' | 'error', words: string, fix?: { word: string; run: () => void }) => {
+    const c = stateCard(kind, words, fix);
+    c.dataset.state = kind;
+    return c;
+  };
+  const rename = (a: Acct) => {
+    const box = h('input.mnamount', { type: 'text', value: a.name, placeholder: 'Current', 'aria-label': 'The account’s name' }) as HTMLInputElement;
+    const m = modal('NAME THIS ACCOUNT', h('div.pk', { dataset: { pack: 'money', screen: 'account' } }, h('div.pkcol.mnapp', box, h('div.pkrow',
+      label(button('Keep the name', () => void (async () => {
+        if (!box.value.trim()) return;
+        m.close();
+        await run({ op: 'rename', from: a.name, to: box.value.trim() });
+      })(), 'on'), 'Keep this name'),
+      label(button('Leave it', () => m.close()), 'Leave the name as it is')))));
+  };
+  const run = async (args: Record<string, unknown>) => {
+    if (lacksSignal()) return void stateIn(status, 'offline', 'No signal. Try again when the phone is back online.');
+    try {
+      const r = await act<{ accounts: Acct[]; moves: Move[]; total: number; lastMonth: string; rows: number }>('accounts', args);
+      if (args.op) stateIn(status, '', r.text);
+      paint(r.data);
+    } catch (e) {
+      stateIn(status, 'error', sayError(e, 'change that'));
+    }
+  };
+  const paint = (x: { accounts: Acct[]; moves: Move[]; total: number; lastMonth: string; rows: number }) => {
+    moneyPlan.accounts = x.accounts.map((a) => `${a.name || 'Your account'} ${a.balance === null ? '-' : p2(a.balance)}`);
+    moneyPlan.moves = x.moves.length;
+    moneyPlan.state.accounts = 'ready';
+    if (!x.rows) {
+      /* state: money.accounts empty */
+      slot.replaceChildren(state('empty', 'No statements yet. Add one on the Statement page and name its account: each shows here with its balance.'));
+      return;
+    }
+    const named = x.accounts.some((a) => a.name);
+    slot.replaceChildren(
+      ...(x.accounts.some((a) => a.balance !== null) ? [h('div.mnline.mnacctotal', { dataset: { case: 'keep' } }, h('b', 'All your accounts'), h('span', p2(x.total)))] : []),
+      h('div.ak-list', { role: 'list', 'aria-label': 'Your accounts' }, ...x.accounts.map((a) => listRow({
+        id: a.name || 'main',
+        title: a.name || 'Your account',
+        sub: `${plural(a.n, 'payment')} · newest ${dayWords(a.newest)}${a.in || a.out ? ` · last month ${p2(a.in)} in, ${p2(a.out)} out` : ''}`,
+        meta: a.balance === null ? 'no balance' : p2(a.balance),
+      }, { onTap: a.name ? () => rename(a) : undefined }))),
+      h('small.mnhow', named ? 'Each balance is the newest one its statements printed. Tap an account to rename it.' : 'Name the account on the Statement page as you add each statement, and they sit side by side here.'),
+      h('div.lab', `MOVES BETWEEN YOUR ACCOUNTS · ${x.moves.length}`),
+      ...(x.moves.length
+        ? x.moves.map((m) => {
+            const row = listRow({ id: `${m.d}${m.t}${m.a}`, title: m.t, sub: `${dayWords(m.d)}${m.ac ? ` · ${m.ac}` : ''}`, meta: m.a > 0 ? `+${p2(m.a)}` : p2(-m.a) });
+            row.append(label(button('Count it', () => void run({ op: 'unmark', row: { d: m.d, t: m.t, a: m.a } })), `Count ${m.t} as spending or income again`));
+            return row;
+          })
+        : [h('p.pknote', { dataset: { case: 'keep' } }, 'None spotted. Money out of one of your accounts and the same into another within three days is a move, never spending.')]),
+    );
+  };
+  const load = async () => {
+    if (lacksSignal()) {
+      moneyPlan.state.accounts = 'offline';
+      /* state: money.accounts offline */
+      slot.replaceChildren(stateLine('offline', 'No signal. Your accounts come back when the phone is online again.'));
+      return;
+    }
+    /* state: money.accounts loading */
+    slot.replaceChildren(skeleton(3, 'Opening your accounts'));
+    try {
+      paint((await act<{ accounts: Acct[]; moves: Move[]; total: number; lastMonth: string; rows: number }>('accounts')).data);
+    } catch (e) {
+      moneyPlan.state.accounts = 'error';
+      /* state: money.accounts error */
+      slot.replaceChildren(state('error', sayError(e, 'read your accounts'), { word: 'Try again', run: () => void load() }));
+    }
+  };
+  void load();
+  return el;
+}
+
 /** One of the new pages, made by its own function (the MONEY screen's panels: features/money/index.ts). */
 export function planPage(page: PlanPage): { el: HTMLElement; stop(): void } {
   expose();
-  const el = page === 'calendar' ? calendarPage() : page === 'goals' ? goalsPage() : page === 'shared' ? sharedPage() : page === 'watches' ? watchesPage() : page === 'car' ? carPage() : yearPage();
+  const el = page === 'calendar' ? calendarPage() : page === 'goals' ? goalsPage() : page === 'shared' ? sharedPage() : page === 'watches' ? watchesPage() : page === 'car' ? carPage() : page === 'accounts' ? accountsPage() : yearPage();
   return { el, stop: () => undefined };
 }

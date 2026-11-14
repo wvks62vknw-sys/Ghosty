@@ -9,8 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { bundles, ctxOf, deps, fakeFetch, fixture, Mem, NOW } from './packs-kit.mjs';
 
-const B = await bundles(['src/tools/money.ts', 'src/packs/index.ts', 'src/spending.ts', '../../packages/shared/src/money.ts', '../../packages/shared/src/cards.ts', '../../packages/shared/src/packs.ts', 'src/schedule.ts', 'src/watchers.ts', 'src/tools/moneyapp.ts', '../../packages/shared/src/moneyplan.ts']);
+const B = await bundles(['src/tools/money.ts', 'src/packs/index.ts', 'src/spending.ts', '../../packages/shared/src/money.ts', '../../packages/shared/src/cards.ts', '../../packages/shared/src/packs.ts', 'src/schedule.ts', 'src/watchers.ts', 'src/tools/moneyapp.ts', '../../packages/shared/src/moneyplan.ts', '../../packages/shared/src/spending.ts']);
 const MP = B['../../packages/shared/src/moneyplan.ts'];
+const SPS = B['../../packages/shared/src/spending.ts'];
 const M = B['src/tools/money.ts'];
 const P = B['src/packs/index.ts'];
 const SP = B['src/spending.ts'];
@@ -646,4 +647,33 @@ test('a shop’s page: every payment there across the statements, a total for ea
   assert.equal(r.data.average, 40);
   assert.equal(r.data.rule, 'groceries');
   assert.deepEqual([r.data.first, r.data.last], ['2026-09-12', '2026-10-29']);
+});
+
+test('several accounts: each statement tagged with its account; a move between his own accounts is paired, kept out of spending, and safe to spend adds every account’s balance', async () => {
+  const storage = new Mem();
+  const route = (body) => SP.spendingRoute(new Request('https://g/api/profile/spending/import', { method: 'POST', body: JSON.stringify(body) }), '/profile/spending/import', 'POST', new URL('https://g/api/profile/spending/import'), { storage, ai: async () => { throw new Error('none'); } }).then((r) => r.json());
+  const current = 'Date,Description,Amount,Balance\n2026-10-03,TESCO STORES,-40.00,960.00\n2026-10-04,TO SAVINGS,-200.00,760.00\n';
+  const savings = 'Date,Description,Amount,Balance\n2026-10-05,FROM CURRENT,200.00,5200.00\n';
+  await route({ csv: current, rulesOnly: true, account: 'Current' });
+  const s = await route({ csv: savings, rulesOnly: true, account: 'Savings' });
+  assert.equal(s.result.transfers, 2, 'the £200 out of Current and into Savings two days later are paired');
+  assert.equal(s.view.out, 40, 'the move is not spending');
+  assert.equal(s.view.in, 0, 'and not income');
+  assert.ok(s.rows.filter((r) => r.tr).length === 2, 'it is still listed, marked');
+  const d = deps(storage);
+  const A = B['src/tools/moneyapp.ts'].MONEY_APP;
+  let r = await A.accounts({ today: '2026-11-01' }, d);
+  assert.deepEqual(r.data.accounts.map((x) => [x.name, x.balance, x.out]), [['Current', 760, 40], ['Savings', 5200, 0]]);
+  assert.equal(r.data.total, 5960);
+  assert.equal(r.data.moves.length, 2);
+  await storage.put('money:payday', { day: 2 });
+  r = await A.safe({ today: '2026-11-01' }, d);
+  assert.equal(r.data.balance, 5960, 'safe to spend counts every account’s newest balance');
+  r = await A.accounts({ op: 'rename', from: 'Current', to: 'Everyday' }, d);
+  assert.deepEqual(r.data.accounts.map((x) => x.name), ['Everyday', 'Savings']);
+  r = await A.accounts({ op: 'unmark', row: { d: '2026-10-04', t: 'TO SAVINGS', a: -200 } }, d);
+  assert.equal(r.data.moves.length, 1);
+  // a pair inside one account is a refund, not a move: left alone
+  const one = [{ d: '2026-10-01', t: 'A', a: -5, k: 'A', c: 'other', by: 'rule', ac: 'X' }, { d: '2026-10-02', t: 'B', a: 5, k: 'B', c: 'other', by: 'rule', ac: 'X' }];
+  assert.equal(SPS.markTransfers(one), 0);
 });
