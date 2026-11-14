@@ -68,3 +68,7 @@ export async function routineTurn(text: string, opts: Opts = {}): Promise<boolea
   void runRoutine(r);
   return true;
 }
+
+const g = globalThis as unknown as { __ghosty?: Record<string, unknown> };
+const attach = (n = 0): unknown => (g.__ghosty ? (g.__ghosty.routines = routineState) : n < 150 && setTimeout(() => attach(n + 1), 100));
+attach();

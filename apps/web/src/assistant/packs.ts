@@ -9,6 +9,7 @@
  *  - KITCHEN: "timer 8 minutes for the pasta" (several at once) set on this phone's clock; "shopping list" opens the list;
  *    "fan 180 in conventional?" answered here.
  */
+import { volumeMl } from '../../../../packages/shared/src/amounts'; // [voice lane] the exact amount he said (voice.u3)
 import type { Card } from '../../../../packages/shared/src/cards';
 import { monthCard, monthWords, unflatten } from '../../../../packages/shared/src/money';
 import { bodyAsked, EXERCISES } from '../../../../packages/shared/src/body';
@@ -260,7 +261,7 @@ export async function bodyTurn(text: string): Promise<PackReply> {
   if (ask.what === 'water') {
     // [bodylane] water is kept on this phone now (features/body/track.ts), never in my brain
     const { add } = await import('../features/body/track');
-    return { said: text, reply: add('water', ask.glasses * 250, 'words'), go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] };
+    return { said: text, reply: add('water', volumeMl(text) ?? ask.glasses * 250, 'words'), go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] };
   }
   const { openBody } = await import('../features/body/sheet');
   void openBody(ask.what, ask.what === 'reps' ? { exercise: ask.exercise } : ask.what === 'breathe' ? { pattern: ask.pattern } : {});

@@ -30,6 +30,7 @@
  * recorded for the app (GET /telegram/answer/<id>). New upgrade ideas come with BUILD IT /
  * NOT NOW: BUILD IT starts the same chat the Workshop's BUILD does.
  */
+import { telegramNote } from '../../../packages/shared/src/meanings';
 import type { ChatEvent, TelegramStatus } from '../../../packages/shared/src/protocol';
 import type { Env } from './env';
 import type { Vault } from './kernel/vault';
@@ -1001,7 +1002,9 @@ async function handleMessage(host: TelegramHost, link: TelegramLink, u: TgUpdate
     const client = await host.client();
     // Spoken to: answered in the spoken style (persona.ts SPOKEN), and in Ghosty's voice below.
     if (heard) client.voice = true;
-    await host.runTurn(text, images, client, emit, slot.signal, note || undefined);
+    // [voice lane] THE SAME EVERYDAY WORDINGS ON TELEGRAM (voice.u11): the meaning read from his slangy ask, noted beside his words
+    const meant = images.length ? '' : telegramNote(text);
+    await host.runTurn(text, images, client, emit, slot.signal, [note, meant].filter(Boolean).join('\n\n') || undefined);
   } catch (e) {
     emit({ t: 'error', message: storageError(e) ?? String((e as Error)?.message ?? e) });
   } finally {

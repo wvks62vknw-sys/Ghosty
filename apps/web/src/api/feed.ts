@@ -8,6 +8,7 @@
 import { headers } from './brain';
 import { Emitter } from '../core/store';
 import { sayError } from '../ui/hisWords';
+import { held as saverHolds } from '../state/saver';
 
 export async function fetchText(url: string, ttl = 60, timeout = 15000): Promise<string> {
   const ctl = new AbortController();
@@ -68,7 +69,8 @@ export class Feed<T> {
     if (!this.timer) {
       void this.refresh();
       this.timer = window.setInterval(() => {
-        if (!document.hidden) void this.refresh(true);
+        // [next] the saver: the feeds stop refreshing on their own while it is on (a tap still reads one: state/saver.ts)
+        if (!document.hidden && !saverHolds(this.name)) void this.refresh(true);
       }, this.everyMs);
     }
     return this;

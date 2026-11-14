@@ -5,6 +5,7 @@ import { voiceTag } from './voicetag'; // [voiceknown] whose voice, on the talk 
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
 import { pillWords } from './pill';
+import { cancelTakeBack, startTakeBack, takeBackLeft, takeBackWords, takesBack } from './takeback'; // [security] security.u5
 import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, toolWords, turn, type Entry } from '../../assistant/session';
 import { sfx } from '../../assistant/sfx';
 import { endIntent } from '../../../../../packages/shared/src/intent';
@@ -568,12 +569,42 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       const thing = `${toolWords(e.name, e.args).replace(/[.:\s]+$/, '')}${aw ? ` (${aw})` : ''}`;
       const box = h('div.approval', { dataset: { state: e.state } }, h('small', 'NEEDS YOUR APPROVAL'), h('b', e.reason), h('span.note.apthing', approvalAsk(thing)));
       if (e.state === 'waiting') {
-        const yes = button('APPROVE', () => void answerApproval(e.id, true), 'on');
-        const no = button('DECLINE', () => void answerApproval(e.id, false), 'warn');
-        yes.setAttribute('aria-label', `Approve: ${thing}`);
-        no.setAttribute('aria-label', `Decline: ${thing}`);
-        for (const b of [yes, no]) b.classList.add('apkey');
-        box.append(h('div.row', yes, no));
+        // [security] A FEW SECONDS TO TAKE IT BACK (security.u5): a send, a post, a payment or a publish counts down first
+        const keys = h('div.row');
+        const ask = () => {
+          const yes = button('APPROVE', () => {
+            if (!takesBack(e.name)) return void answerApproval(e.id, true);
+            startTakeBack(e.id, () => void answerApproval(e.id, true));
+            counting();
+          }, 'on');
+          const no = button('DECLINE', () => void answerApproval(e.id, false), 'warn');
+          yes.setAttribute('aria-label', `Approve: ${thing}`);
+          no.setAttribute('aria-label', `Decline: ${thing}`);
+          for (const b of [yes, no]) b.classList.add('apkey');
+          box.dataset.takeback = '';
+          keys.replaceChildren(yes, no);
+        };
+        const counting = () => {
+          const left = takeBackLeft(e.id);
+          if (left == null) return ask();
+          const words = h('span.note.aptakeback', takeBackWords(left));
+          const back = button('TAKE IT BACK', () => {
+            cancelTakeBack(e.id);
+            ask();
+          }, 'warn');
+          back.classList.add('apkey', 'apback');
+          back.setAttribute('aria-label', `Take it back: ${thing}`);
+          box.dataset.takeback = 'counting';
+          keys.replaceChildren(words, back);
+          const tick = setInterval(() => {
+            const s = takeBackLeft(e.id);
+            if (s == null || !box.isConnected) return clearInterval(tick);
+            words.textContent = takeBackWords(s);
+          }, 250);
+        };
+        if (takeBackLeft(e.id) != null) counting();
+        else ask();
+        box.append(keys);
       } else box.append(h('span.note', approvalDone(e.state === 'approved', e.via)));
       return box;
     }

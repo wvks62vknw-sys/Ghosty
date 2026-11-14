@@ -133,6 +133,8 @@ for (const viewport of [{ width: 440, height: 956 }, { width: 390, height: 844 }
   check(!!reply && /1\. Radio/.test(reply) && /2\. Say: What is on tomorrow\?/.test(reply) && /APPROVE/.test(reply), `[run ${W}] the reply reads "${reply}"`);
   await until(page, () => document.body.dataset.tab === 'radio', null, 8000, `[run ${W}] the Radio did not open`);
   await until(page, () => [...document.querySelectorAll('#pg-core .msg.me')].some((m) => /What is on tomorrow\?/.test(m.textContent ?? '')), null, 15000, `[run ${W}] his words did not reach Ghosty as his own message`);
+  // (Movie time ran to its end before the next word: its last step was a question to Ghosty, answered in its own time)
+  await until(page, () => { const r = window.__ghosty?.routines; return !!r && r.word === 'Movie time' && r.done === r.of; }, null, 20000, `[run ${W}] Movie time did not run to its end`);
   // "run morning" runs Morning; its first step opens the Brief
   const morning = await ask(page, 'run morning', /Morning: 3 things/);
   check(!!morning, `[run ${W}] "run morning" did not run Morning`);

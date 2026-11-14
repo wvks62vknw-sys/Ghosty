@@ -206,6 +206,9 @@ export const briefTab: TabDef = {
       }
       dp.setStatus(dayItems.length ? `${dayItems.length} LEFT` : 'CLEAR', 'ok');
       clear(dp.body, ...rows);
+      // [security] the nightly self-check, told once: a lock that slipped since he was last told, as one row after the rest
+      // (features/security/nudge.ts; asked after the day is drawn, so it never holds the Brief up)
+      void import('../security/nudge').then((m) => m.securityRow(isoDay(new Date()))).then((r) => r && dp.body.isConnected && !dp.body.querySelector('.brsecurity') && dp.body.append(r)).catch(() => undefined);
       paintSay();
     };
     // [lifeeasier] EMAIL TRIAGE: "two emails need an answer", with DRAFT on each, only with his own email linked (brief/mail.ts)

@@ -358,6 +358,18 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Stop', 'Enough', 'Leave it'], scene: ['talking'], cat: 'talk',
     since: '2026-10-31',
   },
+  'phrase:voicenote': {
+    name: 'Notes you say aloud', line: 'You can say “note: buy milk” or “note to self, call the garage” and I write it down and keep it in Memory.',
+    more: 'Said aloud, it is marked “by you” only when this phone is sure the voice was yours; another voice’s note is not kept (type it instead). Typed notes are kept too.',
+    say: ['Note: buy milk', 'Note to self, call the garage'], scene: ['talking'], cat: 'talk',
+    since: '2026-11-14',
+  },
+  'phrase:learned': {
+    name: 'Your own wordings', line: 'You can say something your own way, then tap the screen you meant, and I offer to remember it: next time it opens straight away.',
+    more: 'A small bar asks “Next time you say “money stuff”, open Money?” with REMEMBER IT and NO. Kept on this phone only. “My wordings” lists them with FORGET; anything that sends, pays or posts is never learned.',
+    say: ['My wordings', 'Forget the wording money stuff'], scene: ['talking'], cat: 'talk',
+    since: '2026-11-14',
+  },
   'phrase:speaker': {
     name: 'Do you know it’s me?', line: 'You can ask "do you know it’s me?" or "who’s talking?" and I answer from what this phone heard.',
     more: 'With your voice taught (Settings, My voice) I know it on this phone, and say whether I’m sure. A typed message has no voice to hear, so I say that. It is a courtesy, never a lock.',
@@ -376,6 +388,19 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Machine view', 'Show me my city', 'What are you watching?'], scene: ['watching', 'out'], cat: 'see', needs: ['home'],
     go: { open: 'eye?machine' }, tryText: 'Opens God’s eye on the Machine view',
     since: '2026-10-31',
+  },
+  'phrase:trip': {
+    name: 'Getting to an appointment', line: 'You can say "how do I get to my next appointment?" and I show when to leave, the weather there and the roads and cameras on the way.',
+    more: 'From your diary’s next appointment with a place: a public transport journey that arrives in time, the weather when you arrive, road reports and public cameras along the route. Where you start stays on the phone. GETTING THERE on an event in AGENDA does the same.',
+    say: ['How do I get to my next appointment?', 'Trip mode', 'When should I leave for my meeting?'], scene: ['out', 'morning'], cat: 'see',
+    since: '2026-11-14',
+  },
+  'phrase:layerset': {
+    name: 'One-tap layer sets', line: 'You can say "commute view", "storm layers" or "sky mode" and God’s eye shows just those layers.',
+    more: 'COMMUTE: cameras, traffic, road incidents, buses and safety cameras. STORM: radar, alerts, disasters, quakes and clouds. SKY: aircraft, satellites and orbits. Also one tap each at the top of WHAT TO SHOW.',
+    say: ['Commute view', 'Storm layers', 'Sky mode'], scene: ['watching', 'out'], cat: 'see',
+    go: { open: 'eye' }, tryText: 'Opens God’s eye with the commute set',
+    since: '2026-11-14',
   },
   'phrase:workbench': {
     name: 'Estimates by words', line: 'You can say "beam calculator" or "3 m steel beam 5 kN in the middle" and I answer on the phone, no AI.',
