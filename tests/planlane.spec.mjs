@@ -263,7 +263,10 @@ if (core) for (const vp of [PHONE]) {
   const { ctx, page } = await phone(vp);
   await open(page, 'radio');
   await page.waitForSelector('#pg-radio .pn.stations .rw.station', { timeout: 15000 });
-  check(/Nothing played yet/.test(await page.textContent('#pg-radio .pn.recent').catch(() => '')), `[${vp.width}] RECENT empty says so`);
+  check(/Nothing played yet/.test(await page.textContent('#pg-radio .pn.radrecent').catch(() => '')), `[${vp.width}] RECENT empty says so`);
+  // (a card as wide as FAVOURITES above it: an old home-screen rule for a bare .recent once squeezed it to 70 pt and cut its words)
+  const rw = await page.evaluate(() => [...document.querySelectorAll('#pg-radio .pn.radrecent, #pg-radio .pn.favs')].map((p) => Math.round(p.getBoundingClientRect().width)));
+  check(rw.length === 2 && rw.every((w) => w > 300) && rw[0] === rw[1], `[${vp.width}] RECENT is not as wide as FAVOURITES: ${rw.join(' / ')}`);
   check(!(await page.$('#pg-radio .npsleep')), `[${vp.width}] no sleep timer while nothing plays`);
   await page.locator('#pg-radio .pn.stations .rw.station', { hasText: 'Spec Lane FM' }).locator('.n').click();
   await page.waitForFunction(() => /ON AIR/i.test(document.querySelector('#pg-radio .pn.nowp .nptx small')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => check(false, `[${vp.width}] Spec Lane FM did not go on air`));
@@ -276,7 +279,7 @@ if (core) for (const vp of [PHONE]) {
   check(!fr.small.length && !fr.sideways && !fr.cut.length, `[${vp.width}] NOW PLAYING fits: ${JSON.stringify(fr)}`);
   await page.click('#pg-radio .npsleepk button:has-text("Timer off")');
   await page.waitForFunction(() => (document.querySelector('#pg-radio .npsleepl')?.textContent ?? '').startsWith('Sleep timer: off'), null, { timeout: 3000 }).catch(() => check(false, `[${vp.width}] TIMER OFF did not take it off`));
-  const rec = await page.textContent('#pg-radio .pn.recent');
+  const rec = await page.textContent('#pg-radio .pn.radrecent');
   check(/Spec Lane FM/.test(rec), `[${vp.width}] RECENT lists what played: ${rec.slice(0, 80)}`);
   const acts = await page.evaluate(() => Object.keys(window.__specActions).sort().join(','));
   check(/nexttrack/.test(acts) && /previoustrack/.test(acts), `[${vp.width}] the lock screen has next and previous: ${acts}`);
@@ -285,7 +288,7 @@ if (core) for (const vp of [PHONE]) {
   await page.waitForFunction(() => /Spec Lane Two/.test(navigator.mediaSession?.metadata?.title ?? ''), null, { timeout: 8000 }).catch(() => undefined);
   await page.evaluate(() => window.__specActions.nexttrack?.());
   await page.waitForFunction(() => navigator.mediaSession?.metadata?.title === 'Spec Lane FM', null, { timeout: 8000 }).catch(async () => check(false, `[${vp.width}] ⏭ did not step to Spec Lane FM: ${await page.evaluate(() => navigator.mediaSession?.metadata?.title)}`));
-  const fp = await fit(page, '#pg-radio .pn.recent');
+  const fp = await fit(page, '#pg-radio .pn.radrecent');
   check(!fp.small.length && !fp.sideways, `[${vp.width}] RECENT fits: ${JSON.stringify(fp)}`);
   await page.evaluate(() => window.__specActions.stop?.());
   await ctx.close();
@@ -341,7 +344,7 @@ if (core && ONLY.includes('looks')) for (const world of WORLDS) {
   check(colours && colours.color !== colours.bg, `[${world}] the to-do's words are drawn in a colour of the look: ${JSON.stringify(colours)}`);
   await open(page, 'radio');
   await page.waitForSelector('#pg-radio .pn.stations .rw.station', { timeout: 15000 }).catch(() => undefined);
-  const r = await fit(page, '#pg-radio .pn.recent');
+  const r = await fit(page, '#pg-radio .pn.radrecent');
   check(!r.small.length && !r.sideways, `[${world}] RADIO fits: ${JSON.stringify(r)}`);
   await ctx.close();
 }
