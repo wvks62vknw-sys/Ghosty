@@ -139,14 +139,14 @@ export const TOOLS_1: Record<string, CatValue> = {
   // ---- websites
   'tool:build_website': {
     name: 'Build a whole website', line: 'I can build a proper website for a business, an event or a person from one sentence, and put it online.',
-    more: 'I plan the pages, write the words, pick the photos with their credits and check it all. It stays a draft until you say yes, then it gets its own free link. Forms open WhatsApp or email. An event or invitation with a date gets add-to-calendar buttons for its guests.',
-    say: ['Build a website for my friend’s barber shop in Walsall', 'Make a site for my football team', 'Make a page for our club night on 14 December at 8pm'], scene: ['making'], cat: 'build',
+    more: 'I plan the pages, write the words, pick the photos with their credits and check it all. It stays a draft until you say yes, then it gets its own free link. Forms open WhatsApp or email. An event or invitation with a date gets add-to-calendar buttons for its guests. Name one of my looks (scan, map, eye, orbit, grown, ink, glass) and the site wears it.',
+    say: ['Build a website for my friend’s barber shop in Walsall', 'Make a site for my football team', 'Make a page for our club night on 14 December at 8pm', 'Build my café a website in the ink look'], scene: ['making'], cat: 'build',
     go: { ask: 'Build a website for ', send: false },
   },
   'tool:build_app': {
     name: 'Make an app for your phone', line: 'I can make you a small app that installs on your Home Screen: a tracker, a list, a timer, flash cards.',
     more: 'One request and I build it, then publish it at a link you add to your Home Screen. It keeps what you save on your phone and works offline. I say what it does before it goes live. Change it later by asking (“add a habit”, “change my goal”): same link, and what you saved stays.',
-    say: ['Make me a habit tracker app', 'Make an app to track my gym sessions', 'Add stretching to my habits app', 'Change my water goal to 10', 'Make my French verbs cards an app'], scene: ['making'], cat: 'build',
+    say: ['Make me a habit tracker app', 'Add stretching to my habits app', 'Change my water goal to 10', 'Make my French verbs cards an app'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me an app for ', send: false },
   },
   'tool:publish_game': {

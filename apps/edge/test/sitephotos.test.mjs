@@ -13,6 +13,7 @@ await build({
 export { pageUpload, MAX_PAGE } from './src/sitepage.ts';
 export { briefFrom, startOf, planFrom, assemble } from '../../packages/shared/src/sitekit/index.ts';
 export { googleCalendarUrl, icsOf, eventIn } from '../../packages/shared/src/sitekit/calendar.ts';
+export { contrastProblems } from '../../packages/shared/src/sitekit/index.ts';
 export { siteIcsResponse } from './src/tools/sites.ts';
 export * as SB from './src/sitebuild.ts';
 export * as PJ from './src/projects.ts';
@@ -344,4 +345,38 @@ test('a Learn course\'s cards as a flash-cards mini-app: found by its topic, its
   await assert.rejects(app.approval({ request: 'x', from_learn: 'Spanish' }, ctx), /no Learn course called "Spanish" \(his courses: French verbs\)/);
   await st.put('learn:index', [{ id: 'c2', topic: 'Chess', title: 'Chess', level: 'beginner', minutes: 10, lessons: 3, done: 0 }]);
   await assert.rejects(app.approval({ request: 'x', from_learn: 'chess' }, ctx), /has no cards yet/);
+});
+
+// NEXT ROUND sites.c6: his sites in a Ghosty look. A look named in his words (or the tool's look) becomes the site's theme and stays
+// over the planner's choice; Ghosty's own palette passes the contrast check light and dark.
+test('a site in one of Ghosty\'s looks: read from his words, said in the approval, the theme kept, the palette readable', async () => {
+  assert.equal(SB.lookOf({ request: 'build a website for my cafe in the ink look' }), 'ink');
+  assert.equal(SB.lookOf({ request: 'x', look: 'glass' }), 'glass');
+  assert.equal(SB.lookOf({ request: 'build a website for my cafe' }), undefined);
+  assert.deepEqual(P.contrastProblems({ palette: 'ghosty', fonts: 'system', shape: 'soft', scheme: 'auto' }), []);
+  const st = new MemStorage();
+  const env = { PUBLIC_ORIGIN: ORIGIN };
+  const ctx = { env, storage: st, origin: ORIGIN, vault: { get: async () => null }, emit() {}, progress() {} };
+  const tool = P.siteTools.find((t) => t.name === 'build_website');
+  const ap = await tool.approval({ request: 'a website for a cafe in Bilston called Little Fern in the scan look' }, ctx);
+  assert.match(ap.reason, /In Ghosty's Scan look\./);
+  let busy = false;
+  const d = {
+    env, storage: st, library: { available: false }, tools: [], tctx: ctx, system: async () => 'SYSTEM', notify: async () => undefined, busy: { get: () => busy, set: (v) => (busy = v) },
+    complete: async (messages) => {
+      const sys = messages[0].content;
+      if (/^SITE PLANNER/.test(sys)) return { message: { role: 'assistant', content: '{"palette":"espresso","fonts":"friendly","shape":"round","scheme":"light","tone":"warm","drop":[]}' } };
+      if (/^SITE WRITER/.test(sys)) return { message: { role: 'assistant', content: '{}' } };
+      if (/^SITE CRITIC/.test(sys)) return { message: { role: 'assistant', content: '{"verdict":"Sharp.","score":8,"fixes":[]}' } };
+      throw new Error('unexpected call');
+    },
+  };
+  await tool.run(ap.args, ctx);
+  const [p0] = await PJ.listProjects(ctx);
+  for (let i = 0; i < 4; i++) {
+    const pj = ((await st.get('jobs')) ?? []).find((j) => j.kind === 'project' && j.text === p0.id) ?? { id: 'j', kind: 'project', text: p0.id };
+    await PJ.runProjectStep(d, pj);
+  }
+  const job = await SB.loadSiteJob(ctx, p0.id);
+  assert.deepEqual(job.plan.theme, { palette: 'ghosty', fonts: 'tech', shape: 'sharp', scheme: 'dark' }, 'the look stays over the planner\'s choice');
 });

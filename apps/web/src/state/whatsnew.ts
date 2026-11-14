@@ -22,6 +22,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'I start talking sooner', line: 'On a long answer I start speaking as soon as its first sentence is written, while the rest is still coming, so you hear me about a third of a second sooner. The words are the same as before.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  // [sites] NEXT ROUND sites.c6
+  { day: '2026-11-14', title: 'Your sites in my looks', line: 'Say “build my café a website in the ink look” (or scan, map, eye, orbit, grown, glass): the site wears that look, sharp or soft, light or dark, readable either way.' },
   // [sites] NEXT ROUND sites.c2 (with learn)
   { day: '2026-11-14', title: 'Your flash cards as an app', line: 'In LEARN, a course with cards has CARDS ON MY HOME SCREEN (or say “make my French verbs cards an app”): its cards become an app that revises offline, after your APPROVE.' },
   // [sites] NEXT ROUND sites.s2 (with u4)

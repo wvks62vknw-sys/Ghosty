@@ -563,6 +563,7 @@ export const siteTools: Tool[] = [
         experience: { type: 'array', description: 'a CV: the jobs the owner gave, only', items: { type: 'object', properties: { when: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' } }, required: ['when', 'title'] } },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>' },
         my_photos: { type: 'boolean', description: 'true when he asks for his own photos' },
+        look: { type: 'string', enum: ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass'], description: 'one of Ghosty\'s looks, when he names it' },
         confirm: { type: 'boolean', description: 'true only to publish the draft waiting at link_name once the owner confirmed its list' },
       },
       required: ['request'],

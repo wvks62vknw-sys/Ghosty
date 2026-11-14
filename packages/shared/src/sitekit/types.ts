@@ -111,7 +111,7 @@ export interface ImageRef {
   focus?: string;
 }
 
-export type PaletteId = 'espresso' | 'barber' | 'trades' | 'gym' | 'clinic' | 'estate' | 'mono' | 'charity' | 'saas' | 'sage' | 'neon' | 'blush' | 'paprika';
+export type PaletteId = 'espresso' | 'barber' | 'trades' | 'gym' | 'clinic' | 'estate' | 'mono' | 'charity' | 'saas' | 'sage' | 'neon' | 'blush' | 'paprika' | 'ghosty';
 export type FontsId = 'editorial' | 'classic' | 'condensed' | 'refined' | 'tech' | 'friendly' | 'luxe' | 'geometric' | 'system';
 export type ShapeId = 'sharp' | 'soft' | 'round';
 /** light / dark: always that; auto: the visitor's phone decides (light first). */
