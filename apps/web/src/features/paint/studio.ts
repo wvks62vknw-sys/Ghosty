@@ -692,6 +692,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
   // (for the specs: the paint at a point of a layer, and how much of each layer has paint)
   const gw = window as unknown as { __ghosty?: Record<string, unknown> };
   if (gw.__ghosty) {
+    gw.__ghosty.paint = paintState;
     gw.__ghosty.paintAt = (x: number, y: number, i = p.cur): number => { const L = p.layers[i]; return L ? L.c.getContext('2d')!.getImageData(Math.floor(x), Math.floor(y), 1, 1).data[3]! : 0; };
     gw.__ghosty.paintInked = (): number[] => p.layers.map((L) => p.inked(L.id));
     gw.__ghosty.paintDoc = (): { w: number; h: number; log: number; s: number; tx: number; ty: number } => ({ w: p.w, h: p.h, log: p.log.length, s: view.s, tx: view.tx, ty: view.ty });
