@@ -4844,6 +4844,23 @@ html .wbcaveat { margin: 10px 0 0; font: 400 13px/18px var(--sf); color: var(--i
 html .wbcopyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; min-width: 0; }
 html .wbcopy { min-height: 44px; min-width: 88px; }
 html .wbcopied { flex: 1 1 160px; min-width: 0; font: 400 13px/18px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
+/* NEXT ROUND (MAKE lane, make.u6): the curve behind an answer, drawn under its numbers; words around the picture wrap, never cut */
+html .wbcurve { margin: 10px 0 2px; padding: 10px 0 0; border-top: 1px solid var(--hair); min-width: 0; }
+html .wbctitle { font: 700 12px/16px var(--sf); letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); overflow-wrap: anywhere; }
+html svg.wbcurvesvg { display: block; width: 100%; height: auto; margin: 6px 0 2px; overflow: visible; }
+html .wbcurvesvg .wbc-grid { stroke: var(--hair); stroke-width: 1; }
+html .wbcurvesvg .wbc-zero { stroke: var(--ink3); stroke-width: 1; }
+html .wbcurvesvg .wbc-limit { stroke: var(--amber); stroke-width: 1.25; stroke-dasharray: 5 4; }
+html .wbcurvesvg .wbc-line { fill: none; stroke: var(--c); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+html .wbcurvesvg .wbc-bar { fill: var(--c); opacity: .85; }
+html .wbcurvesvg .wbc-mark { fill: var(--amber); stroke: var(--ink); stroke-width: 1.25; }
+html .wbcurvesvg .wbc-tick { font: 500 10px/1 var(--sf); fill: var(--ink3); font-variant-numeric: tabular-nums; }
+html .wbcaxes, html .wbckeys { margin: 2px 0 0; font: 400 13px/18px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html .wbckeys { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+html .wbckey { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+html .wbckey > i.dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); }
+html .wbckey > i.dash { flex: none; width: 14px; height: 0; border-top: 1.5px dashed var(--amber); }
+html .wbcnote { margin: 4px 0 0; font: 400 12px/17px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { html .wbfold > summary::after { transition: none; } }
 /* the WIND TUNNEL (features/workbench/tunnel.ts): the flow drawn at the lattice's own 192 × 96, scaled smoothly to the card;
    while DRAW is on, a touch draws instead of scrolling. */
