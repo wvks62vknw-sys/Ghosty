@@ -9932,3 +9932,7 @@ html .grd-clubhead { letter-spacing: .04em; }
 html .grd-clubq { margin: 4px 0 0; overflow-wrap: anywhere; }
 html textarea.grd-clubans { width: 100%; min-height: 44px; }
 html .grd-clubsum, html .grd-clubreply { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* LEARNING · REVISION UP TO AN EXAM (learn.s12): the exam, the date, a preview of the sessions, ADD and TAKE THEM OUT */
+html .pkrevision { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--hair); }
+html .pkrevision input, html .pkrevision select { min-height: 44px; }
+html .pkrevlist { margin: 0; padding-left: 18px; columns: 2; color: var(--mute); }

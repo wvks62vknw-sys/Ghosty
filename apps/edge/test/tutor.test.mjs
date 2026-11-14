@@ -897,3 +897,23 @@ test('speaking charted (learn.u12): each talk keeps only its numbers; weeks star
   assert.match(notes, /You said: … → Say: …/);
   assert.match(notes, /HIM: Je suis reservation/);
 });
+
+test('revision days up to an exam (learn.s12): every other day while more than a week away, every day in the last week, none on the day itself, at most twenty; a London time is the right moment in summer and winter', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/features/learning/revisiondays.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/revisiondays.mjs'), logLevel: 'warning' });
+  const RD = await import('./.build/revisiondays.mjs');
+  const d = RD.revisionDays('2026-11-14', '2026-11-30');
+  assert.equal(d[0] > '2026-11-14', true, 'from tomorrow');
+  assert.equal(d.at(-1), '2026-11-29', 'up to the day before');
+  assert.ok(!d.includes('2026-11-30'), 'none on the day itself');
+  const lastWeek = ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-29'];
+  assert.deepEqual(d.slice(-7), lastWeek, 'every day in the last week');
+  const before = d.slice(0, -7);
+  assert.ok(before.every((x, i) => i === 0 || (Date.parse(x) - Date.parse(before[i - 1])) / 86400000 === 2), `every other day before it: ${before.join(', ')}`);
+  assert.deepEqual(RD.revisionDays('2026-11-14', '2026-11-15'), [], 'tomorrow: no days left');
+  assert.equal(RD.revisionDays('2026-01-01', '2026-12-31').length, RD.MAX_SESSIONS, 'at most twenty');
+  // 18:30 in London is 18:30 UTC in winter and 17:30 UTC in summer
+  assert.equal(new Date(RD.londonAt('2026-12-01', '18:30')).toISOString(), '2026-12-01T18:30:00.000Z');
+  assert.equal(new Date(RD.londonAt('2026-07-01', '18:30')).toISOString(), '2026-07-01T17:30:00.000Z');
+});
