@@ -103,6 +103,7 @@ export const MAKER: AppDef[] = [
         { id: 'bed_temp', label: 'Bed', type: 'number', unit: '°C', min: 0, max: 130 },
         { id: 'opened', label: 'Opened', type: 'date', default: 'today' },
         { id: 'dry', label: 'Stored dry', type: 'check', default: true },
+        { id: 'photo', label: 'Photo', type: 'photo' },
         { id: 'notes', label: 'Notes', type: 'long' },
       ],
       title: 'name',
@@ -788,17 +789,17 @@ export const MAKER: AppDef[] = [
         { id: 'case_', label: 'Load', default: 1, choices: [{ label: 'Point load at centre', value: 1 }, { label: 'Even load along span', value: 2 }] },
         { id: 'span', label: 'Span', unit: 'm', default: 3, min: 0.1, max: 30, step: 0.1 },
         { id: 'load', label: 'Total load', unit: 'kN', default: 10, min: 0, step: 0.1 },
-        { id: 'e', label: 'Stiffness E', unit: 'GPa', default: 200, min: 0.1, max: 400, step: 1 },
+        { id: 'stiff', label: 'Stiffness E', unit: 'GPa', default: 200, min: 0.1, max: 400, step: 1 },
         { id: 'i', label: 'Second moment I', unit: 'cm⁴', default: 8000, min: 0.01, step: 10 },
       ],
       outputs: [
-        { id: 'sag', label: 'Deflection', expr: 'if(case_ == 1, 1 / 48, 5 / 384) * load * 1000 * pow(span, 3) / (e * 1000000000 * i * 0.00000001) * 1000', unit: 'mm', dp: 2 },
+        { id: 'sag', label: 'Deflection', expr: 'if(case_ == 1, 1 / 48, 5 / 384) * load * 1000 * pow(span, 3) / (stiff * 1000000000 * i * 0.00000001) * 1000', unit: 'mm', dp: 2 },
         { id: 'moment', label: 'Peak moment', expr: 'if(case_ == 1, load * span / 4, load * span / 8)', unit: 'kNm', dp: 2 },
         { id: 'ratio', label: 'Span ÷ deflection', expr: 'if(sag > 0, span * 1000 / sag, 0)', dp: 0 },
       ],
       tests: [
-        { in: { case_: 1, span: 3, load: 10, e: 200, i: 8000 }, out: { sag: 0.35156, moment: 7.5, ratio: 8533.3 } },
-        { in: { case_: 2, span: 4, load: 8, e: 11, i: 5000 }, out: { sag: 12.121, moment: 4, ratio: 330 } },
+        { in: { case_: 1, span: 3, load: 10, stiff: 200, i: 8000 }, out: { sag: 0.35156, moment: 7.5, ratio: 8533.3 } },
+        { in: { case_: 2, span: 4, load: 8, stiff: 11, i: 5000 }, out: { sag: 12.121, moment: 4, ratio: 330 } },
       ],
       estimate: true,
       source: 'American Wood Council, Beam Design Formulas with Shear and Moment Diagrams (DA6)',
@@ -896,7 +897,7 @@ export const MAKER: AppDef[] = [
       meta: 'hours',
       date: 'day',
       sort: { field: 'day', dir: 'desc' },
-      group: 'project',
+      group: 'stage',
       stats: [
         { label: 'Hours this month', kind: 'sum', field: 'hours', period: 'month' },
         { label: 'Spent this month', kind: 'sum', field: 'cost', period: 'month' },
@@ -1272,7 +1273,7 @@ export const MAKER: AppDef[] = [
     sample: [
       { title: 'Find big files', language: 'Shell', code: 'du -ah . | sort -rh | head -20', why: 'The 20 largest files and folders here', saved: '2026-11-02' },
       { title: 'Rows per day', language: 'SQL', code: 'SELECT date(created_at) AS day, count(*) FROM orders GROUP BY day ORDER BY day;', why: 'Daily counts from a table', saved: '2026-11-09' },
-      { title: 'Smooth scrolling', language: 'CSS', code: 'html { scroll-behavior: smooth; }', why: 'Animate jumps to anchors on the page', saved: '2026-10-21' },
+      { title: 'Cut long text', language: 'CSS', code: '.clip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }', why: 'End a long line with an ellipsis', saved: '2026-10-21' },
     ],
   },
   {
@@ -1346,7 +1347,6 @@ export const MAKER: AppDef[] = [
       stats: [
         { label: 'Domains', kind: 'count' },
         { label: 'Yearly cost', kind: 'sum', field: 'yearly' },
-        { label: 'Next expiry', kind: 'min', field: 'expires' },
       ],
       views: ['list', 'calendar'],
       remind: { field: 'expires', words: 'Renew {domain} today' },

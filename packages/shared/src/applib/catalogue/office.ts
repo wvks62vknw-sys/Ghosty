@@ -680,7 +680,7 @@ export const OFFICE: AppDef[] = [
     tour: [
       'Save a passage with where it came from and the page.',
       'Tag it by theme; search finds any word later.',
-      'Star the best ones and the gallery shows them first.',
+      'Star the best ones and they sort to the top.',
     ],
     log: {
       fields: [
@@ -704,7 +704,7 @@ export const OFFICE: AppDef[] = [
         { label: 'Sources', kind: 'distinct', field: 'source' },
         { label: 'This month', kind: 'count', period: 'month' },
       ],
-      views: ['list', 'gallery'],
+      views: ['list', 'board'],
     },
     sample: [
       { passage: 'The work you put off is rarely as hard as the putting off.', source: 'Notes on Making', author: 'J. Ellery', page: 42, theme: 'Work', stars: 5, saved: '2026-11-10' },
