@@ -8,6 +8,8 @@
 //    "is it gonna chuck it down" goes to the brain with the meaning noted beside his words;
 //  - HIS OWN WORDINGS (NEXT ROUND, voice.u1): a miss, then his tap to the screen he meant, offers REMEMBER IT / NO; the taught wording
 //    opens that screen at once, "my wordings" lists them with FORGET, NO is never asked again, a sending ask is never learned;
+//  - QUIET HOUSEHOLD MODE (voice.s1, voice.c5): Sam (introduced) or a stranger asking about his money or messages is answered on the phone,
+//    kindly, and no brain sees it; Sam's other turns go with his label and are marked theirs, kept out of his recall;
 //  - HIS VOICE, KNOWN IN THE CHAT ("the actual chat says he has no way of recognising me"): "do you know it's me?" is answered on
 //    the phone from what it really knows, and every chat turn carries what the phone knows of voices (`heard`), never a number.
 // Every key it shows is 44 pt and nothing goes sideways.
@@ -237,6 +239,36 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await miss('send the dosh to Sam', 'money');
   check(!(await barShown()), `[${W}] [learn] a sending ask was offered as a wording`);
   log(`[${W}] learn: ${checks} checks`);
+
+  // ---------------------------------------------------------------- quiet household mode (NEXT ROUND, voice.s1, voice.c5)
+  // a turn said as Sam (a person he introduced: the label the phone gives, handed in as the voice check would), and as a voice it doesn't know
+  const sayAs = async (words, who, want, why) => {
+    await chatOpen(page);
+    await page.evaluate(() => document.querySelectorAll('#pg-core .msg').forEach((m) => (m.dataset.vlSeen = '1')));
+    const n = sent.length;
+    await page.evaluate(([t, w]) => void window.__ghosty.send(t, true, w), [words, who]);
+    const ok = want ? await page.waitForFunction((re) => [...document.querySelectorAll('#pg-core .msg:not(.me):not([data-vl-seen])')].some((x) => new RegExp(re).test(x.querySelector(':scope > span')?.textContent ?? '')), want.source, { timeout: 10000 }).then(() => true, () => false) : true;
+    const text = await page.evaluate(() => [...document.querySelectorAll('#pg-core .msg:not(.me):not([data-vl-seen])')].map((x) => x.querySelector(':scope > span')?.textContent ?? '').join(' | '));
+    if (want) check(ok, `${why}: "${words}" was answered "${text}" (want ${want})`);
+    return { brain: sent.slice(n) };
+  };
+  let q = await sayAs('how much did I spend this month?', { name: 'Sam' }, /^Sorry Sam, that’s .+ to see, so I keep it to him\.$/, `[${W}] [quiet] Sam asking about his money`);
+  check(!q.brain.length, `[${W}] [quiet] Sam's money ask reached the brain`);
+  q = await sayAs('read me my messages', 'unknown', /^That’s .+ to see, so I keep it to him\.$/, `[${W}] [quiet] a voice I don't know asking for his messages`);
+  check(!q.brain.length, `[${W}] [quiet] a stranger's messages ask reached the brain`);
+  q = await sayAs('what is the capital of France', { name: 'Sam' }, null, `[${W}] [quiet] Sam asking something else`);
+  const until2 = Date.now() + 8000;
+  while (!sent.some((b) => String(b.message ?? '').startsWith('what is the capital of France')) && Date.now() < until2) await page.waitForTimeout(100);
+  const fr = sent.find((b) => String(b.message ?? '').startsWith('what is the capital of France'));
+  check(fr && JSON.stringify(fr.context?.voice) === '{"name":"Sam"}', `[${W}] [quiet] Sam's ordinary ask went with voice ${JSON.stringify(fr?.context?.voice)}`);
+  await page.waitForFunction(() => !window.__ghosty.ui.get().busy, null, { timeout: 15000 }).catch(() => undefined);
+  const marks = await page.evaluate(() => window.__ghosty.chat.get().entries.filter((e) => e.kind === 'user').slice(-6).map((e) => ({ t: e.text, theirs: !!e.theirs })));
+  for (const w of ['how much did I spend this month?', 'read me my messages', 'what is the capital of France']) check(marks.some((m) => m.t === w && m.theirs), `[${W}] [quiet] "${w}" was not marked theirs: ${JSON.stringify(marks)}`);
+  check(marks.some((m) => m.t === 'wonga page' && !m.theirs) || !marks.some((m) => m.t === 'wonga page'), `[${W}] [quiet] his own turn was marked theirs`);
+  // his own typed turn afterwards is his again
+  await say(page, 'my wordings', /^I haven’t learned/, `[${W}] [quiet] his own turn after`);
+  check(await page.evaluate(() => !window.__ghosty.chat.get().entries.filter((e) => e.kind === 'user').at(-1)?.theirs), `[${W}] [quiet] his own typed turn was marked theirs`);
+  log(`[${W}] quiet: ${checks} checks`);
   await ctx.close();
 }
 

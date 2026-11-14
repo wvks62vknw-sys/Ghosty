@@ -31,7 +31,7 @@ import { timeZone, ui } from '../state/app';
 import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
-import { chat, type Entry } from './session';
+import { chat, turnIsTheirs, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
@@ -74,6 +74,8 @@ export const DIRECT = 'Direct · no AI';
 let lastStamp = 0;
 const stamp = () => (lastStamp = Math.max(Date.now(), lastStamp + 1));
 function add(e: Entry): void {
+  // [voice lane] a turn someone else said is marked theirs, so it stays out of his recall (voice.c5)
+  if (e.kind === 'user' && turnIsTheirs()) e = { ...e, theirs: true };
   chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
 }
 

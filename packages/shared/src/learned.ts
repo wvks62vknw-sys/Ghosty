@@ -24,7 +24,7 @@ export const LEARNED_KEY = 'ghosty.wordings';
 /** The kept list, read from this phone's storage ([] where there is none, or no storage: a test, a private window). */
 export function storedLearned(): Learned[] {
   try {
-    const v = JSON.parse((globalThis as { localStorage?: Storage }).localStorage?.getItem(LEARNED_KEY) ?? '[]') as Learned[];
+    const v = JSON.parse((globalThis as { localStorage?: { getItem(k: string): string | null } }).localStorage?.getItem(LEARNED_KEY) ?? '[]') as Learned[];
     return Array.isArray(v) ? v.filter((l) => l && typeof l.key === 'string' && typeof l.tab === 'string') : [];
   } catch {
     return [];

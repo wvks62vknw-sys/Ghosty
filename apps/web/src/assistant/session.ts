@@ -22,7 +22,8 @@ import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { clientContext } from '../shell/awareness';
 import { clearTag, graceOn, hear, heardNote, hold, labelOf, type Label } from './voiceknown';
-import { noteBrainActed, noteWordMiss } from './learnwords'; // [voice lane] his own wordings: a miss, then his tap, offers to learn it
+import { noteBrainActed, noteWordMiss } from './learnwords';
+import { keptLine, privateAsk } from '../../../../packages/shared/src/household'; // [voice lane] his own wordings: a miss, then his tap, offers to learn it
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
@@ -64,7 +65,7 @@ export interface ThinkInfo {
  * An error's `ask`: the question the phone could not answer, offered to the brain only by a tap (ASK THE BIG BRAIN).
  */
 export type Entry =
-  | { kind: 'user'; text: string; at: number; private?: boolean }
+  | { kind: 'user'; text: string; at: number; private?: boolean; theirs?: boolean }
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
   /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). `think`: a THINK HARDER answer. */
   /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said.
@@ -278,6 +279,9 @@ const context = () => clientContext(spokenTurn, turnVoice, heardNote());
 let speakReplies = true;
 /** This message was spoken, not typed. */
 let spokenTurn = false;
+/** [voice lane] This turn was said by someone else (a voice he introduced, or one the phone doesn't know): not his (voice.s1, voice.c5). */
+let theirsNow = false;
+export const turnIsTheirs = (): boolean => theirsNow;
 /** Whose voice it was, when the phone knew voices and scored it (assistant/voiceknown.ts): the label the brain is told. */
 let turnVoice: Label | undefined;
 
@@ -891,6 +895,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   const t = wallSplit(text.trim()); // [wall] "where is Lisbon, on the wall": the ask, with this turn's picture bound for the wall
   if (!t) return;
   showBegin(t); // [showme] his next word takes the Stage away and starts this turn's tally
+  theirsNow = false; // [voice lane] (set again below once the voice is judged)
   // [voiceknown] the sound of this spoken turn is taken now, before anything waits (a later listen would replace it)
   const snd = opts.voice ? takeSound() : null;
   // [guardian] Before anything reads his words: the panic phrase (the message goes at once, and nothing of it reaches the
@@ -933,6 +938,15 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
       hold(t, () => void send(t, { ...opts, as: labelOf(h) ?? 'unknown' }));
       return;
     }
+  }
+  // [voice lane] QUIET HOUSEHOLD MODE (voice.s1; packages/shared/src/household.ts): a voice he introduced, or one the phone doesn't
+  // know, asking about his private things (money, health, messages, diary…) is answered here, kindly; no table and no brain sees it
+  // (and every turn such a voice says is marked theirs: it stays out of his recall on this phone, features/memory/recall.ts)
+  theirsNow = !!who && who !== 'owner';
+  if (who && who !== 'owner' && privateAsk(t)) {
+    const name = typeof who === 'object' ? who.name : null;
+    await import('./local').then((m) => m.answer(t, keptLine(settings.get().name, name), { kind: 'can' }, { voice: opts.voice }));
+    return;
   }
   // The phone's library passages for the brain (api/brain.ts chat) are looked up from now, while the rest of this is decided,
   // so they never hold the message back (BRIEF-TALK-1A 1).
@@ -988,7 +1002,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     const k = shared.map((x) => x.role === 'user' && x.text === t.slice(0, 1500)).lastIndexOf(true);
     if (k >= 0) shared = shared.filter((_, i) => i !== k);
     chat.set({ live: t });
-  } else chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: t, at: Date.now(), ...(priv ? { private: true } : {}) }].slice(-120), live: t })); // (one repaint, not two)
+  } else chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: t, at: Date.now(), ...(priv ? { private: true } : {}), ...(theirsNow ? { theirs: true } : {}) }].slice(-120), live: t })); // (one repaint, not two)
   phase('sending'); // (the line under his words says so until the turn is at work)
   // The stopwatch (core/stopwatch.ts): a reply from the brain, from here to its first words and its end, as the owner sees them.
   const lap = stopwatch.reply();
