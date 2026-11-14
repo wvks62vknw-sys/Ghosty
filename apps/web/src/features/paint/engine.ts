@@ -32,10 +32,12 @@ export interface Layer {
   visible: boolean;
   alphaLock: boolean;
   reference: boolean;
+  /** a clipping mask: this layer shows only where the layer under it has paint */
+  clip?: boolean;
   mask: HTMLCanvasElement | null;
 }
 export type Sel = { pts: number[]; inv: boolean } | null;
-export type LayerProp = 'name' | 'blend' | 'opacity' | 'visible' | 'alphaLock' | 'reference';
+export type LayerProp = 'name' | 'blend' | 'opacity' | 'visible' | 'alphaLock' | 'reference' | 'clip';
 
 /** One recorded step. Points are packed five to a point: x, y, pressure, altitude, azimuth. */
 export type Op =
@@ -166,6 +168,7 @@ export class Painting {
   /** what the target looked like before this stroke, for UNDO */
   private before: HTMLCanvasElement;
   flat: HTMLCanvasElement;
+  private clipC: HTMLCanvasElement;
   live: { L: string; tool: 'brush' | 'erase' | 'liquify'; b: Brush; onMask: boolean; sel: Sel } | null = null;
   preview: { L: string; c: HTMLCanvasElement } | null = null;
   changed = 0;
@@ -173,7 +176,7 @@ export class Painting {
 
   constructor(w: number, h: number) {
     this.w = w; this.h = h;
-    this.wet = mk(w, h); this.scratch = mk(w, h); this.scratch2 = mk(w, h); this.before = mk(w, h); this.flat = mk(w, h);
+    this.wet = mk(w, h); this.scratch = mk(w, h); this.scratch2 = mk(w, h); this.before = mk(w, h); this.flat = mk(w, h); this.clipC = mk(w, h);
     this.patch = mk(TIP * 4, TIP * 4);
   }
 
@@ -309,7 +312,7 @@ export class Painting {
     const top = this.layers[i]!, below = this.layers[i - 1]!;
     const beforeData = ctx2(below.c).getImageData(0, 0, this.w, this.h);
     const g = ctx2(below.c);
-    g.save(); g.globalAlpha = top.visible ? top.opacity : 0; g.globalCompositeOperation = top.blend;
+    g.save(); g.globalAlpha = top.visible ? top.opacity : 0; g.globalCompositeOperation = top.clip ? 'source-atop' : top.blend;
     g.drawImage(this.masked(top, top.c), 0, 0); g.restore();
     const afterData = g.getImageData(0, 0, this.w, this.h);
     this.layers.splice(i, 1);
@@ -679,9 +682,24 @@ export class Painting {
         }
         src = this.scratch;
       }
+      let out = this.masked(L, src);
+      if (L.clip) {
+        // a clipping mask: only where the nearest unclipped layer under it has paint
+        const i = this.layers.indexOf(L);
+        let base: Layer | undefined;
+        for (let j = i - 1; j >= 0; j--) if (!this.layers[j]!.clip) { base = this.layers[j]; break; }
+        if (base) {
+          const k = ctx2(this.clipC);
+          k.setTransform(1, 0, 0, 1, 0, 0);
+          k.globalCompositeOperation = 'copy'; k.globalAlpha = 1; k.drawImage(out, 0, 0);
+          k.globalCompositeOperation = 'destination-in'; k.drawImage(base.visible ? base.c : out, 0, 0);
+          k.globalCompositeOperation = 'source-over';
+          out = this.clipC;
+        }
+      }
       g.globalAlpha = L.opacity;
       g.globalCompositeOperation = L.blend;
-      g.drawImage(this.masked(L, src), 0, 0);
+      g.drawImage(out, 0, 0);
     }
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
     return into;
