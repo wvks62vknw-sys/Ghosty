@@ -28,7 +28,9 @@ const sha = process.env.WORKERS_CI_COMMIT_SHA || process.env.GITHUB_SHA || 'loca
 const define = { __GHOSTY_BUILD__: JSON.stringify({ sha, at: new Date().toISOString() }) };
 // /vendor/* is code served as-is next to the app (Leaflet, MapLibre): imported at runtime, never bundled.
 // A .css file imported by the code comes in as its text: Settings → THE LOOK reads every token's job from tokens.css itself.
-const common = { bundle: true, format: 'esm', target: 'es2022', minify: !watch, sourcemap: true, logLevel: 'info', define, external: ['/vendor/*'], loader: { '.css': 'text' } };
+// The published maps keep their line mappings (a stack trace still names the file and line) but not the sources' text,
+// which is in the repository: with it, app.js.map passed Cloudflare's 25 MiB limit on one asset after the apps round.
+const common = { bundle: true, format: 'esm', target: 'es2022', minify: !watch, sourcemap: true, sourcesContent: watch, logLevel: 'info', define, external: ['/vendor/*'], loader: { '.css': 'text' } };
 const jobs = [
   { ...common, entryPoints: ['src/main.ts'], outfile: 'dist/app.js' },
   { ...common, entryPoints: ['src/workers/textures.worker.ts'], outfile: 'dist/textures.worker.js', format: 'iife' },
