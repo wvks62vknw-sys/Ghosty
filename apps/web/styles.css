@@ -6381,6 +6381,20 @@ html[data-world] body[data-tab="eye"]::before { display: none; }
 /* a floor of its own (a tile, a preset's preview): the world's floor in the points of the ground it stands on */
 html .g-floor { position: absolute; inset: 0; z-index: 0; display: block; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
 
+/* ---- what I say first under a screen's name (a sheet screen's reading, "Nothing logged this week…"): one sentence in the world's
+   face of what I say (One Ink's serif), never a bold second headline under the title. A screen with its own rule (the Brief's
+   clock, Settings, the Markets' tone) keeps it: an id beats this. */
+html[data-world] .two .bigv { font: var(--g-t-say); font-family: var(--g-face-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-1); }
+
+/* ---- ONE INK on the rooms' section tabs and the keys of a sheet page (the rep counter's exercises, Start and Done): square corners,
+   nothing glows, what is lit is a line with its words in the ink, and the camera's stage a ruled frame, never a black block */
+html[data-world="ink"] :is(.secpills, .secpills .secpill, .pkrow button, .pkstage) { border-radius: var(--g-radius-chip); }
+html[data-world="ink"] .secpills { background: var(--g-room-canvas); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-world="ink"] .secpills .secpill.on { color: var(--g-accent-text); background: none !important; box-shadow: inset 0 calc(-1 * var(--g-stroke) * 2) 0 var(--g-accent) !important; text-shadow: none; }
+html[data-world="ink"] .pkrow button { background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
+html[data-world="ink"] .pkrow button:is(.on, [aria-pressed="true"]) { color: var(--g-accent-text); background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+html[data-world="ink"] .pkstage { background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
+
 /* ---- the pages drawn in the system (THE LOOK, the Theme page): on the ground in force with the world's floor, their bar too */
 /* (a panel's ::before is today's 9 px corner bracket: the floor takes the whole page, with no bracket edge) */
 html #pg-look::before, html #pg-settings .pn.themepn.pushed::before { content: ''; display: block; position: absolute; inset: 0; width: auto; height: auto; border: 0; border-radius: 0; z-index: 0; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
