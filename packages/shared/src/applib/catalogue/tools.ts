@@ -390,6 +390,126 @@ export const TOOLS: AppDef[] = [
     },
   },
 
+  {
+    id: 'room-area', name: 'Room Area', family: 'tools', glyph: 'ruler', archetype: 'calc',
+    pitch: 'Floor area, wall area and volume of a room in metric and imperial.',
+    keywords: ['room size', 'floor area', 'square metres', 'square feet', 'wall area', 'volume'],
+    tour: ['Measure the room’s length, width and height in metres.', 'See the floor in m² and ft², and the walls in m².', 'Volume helps size a heater, dehumidifier or air purifier.'],
+    calc: {
+      inputs: [
+        inp('len', 'Length', 4, { unit: 'm', min: 0, step: 0.01 }),
+        inp('wid', 'Width', 3.5, { unit: 'm', min: 0, step: 0.01 }),
+        inp('height', 'Height', 2.4, { unit: 'm', min: 0, step: 0.01 }),
+      ],
+      outputs: [
+        out('floor', 'Floor', 'len * wid', { unit: 'm²', dp: 2 }),
+        out('floorft', 'Floor', 'floor / 0.09290304', { unit: 'ft²', dp: 1 }),
+        out('walls', 'Walls', '2 * (len + wid) * height', { unit: 'm²', dp: 2 }),
+        out('volume', 'Volume', 'floor * height', { unit: 'm³', dp: 2 }),
+      ],
+      tests: [
+        { in: { len: 4, wid: 3.5, height: 2.4 }, out: { floor: 14, floorft: 150.7, walls: 36, volume: 33.6 } },
+        { in: { len: 10, wid: 10, height: 3 }, out: { floor: 100, floorft: 1076.4 } },
+      ],
+      source: 'Rectangle area and volume; 1 ft² = 0.09290304 m² (exact)',
+    },
+  },
+  {
+    id: 'ladder-angle', name: 'Ladder Angle', family: 'tools', glyph: 'tool', archetype: 'calc',
+    pitch: 'How far out to stand a ladder’s foot for the safe 75 degree angle.',
+    keywords: ['ladder', 'ladder safety', '1 in 4', 'angle', 'height', 'diy'],
+    tour: ['Put in the height where the ladder rests against the wall.', 'Stand the foot one unit out for every four units up.', 'Add a metre above the landing point if you step off there.'],
+    calc: {
+      inputs: [
+        inp('height', 'Resting Height', 4, { unit: 'm', min: 0.5, step: 0.1 }),
+        inp('above', 'Extra Above', 0, { unit: 'm', min: 0, max: 2, step: 0.1 }),
+      ],
+      outputs: [
+        out('base', 'Foot Out From Wall', 'height / 4', { unit: 'm', dp: 2 }),
+        out('length', 'Ladder Length', 'hypot(height, height / 4) + above', { unit: 'm', dp: 2 }),
+        out('angle', 'Angle', 'atan(4)', { unit: '°', dp: 1 }),
+      ],
+      tests: [
+        { in: { height: 4, above: 0 }, out: { base: 1, length: 4.12, angle: 75.96 } },
+        { in: { height: 6, above: 1 }, out: { base: 1.5, length: 7.18 } },
+      ],
+      estimate: true,
+      source: 'HSE leaflet INDG455 Safe use of ladders: one unit out for every four units up (about 75°)',
+    },
+  },
+  {
+    id: 'average-calc', name: 'Average', family: 'tools', glyph: 'chart', archetype: 'calc',
+    pitch: 'Mean, total, lowest, highest and range of up to six numbers.',
+    keywords: ['average', 'mean', 'total', 'range', 'numbers', 'statistics'],
+    tour: ['Type up to six numbers.', 'Set Count to how many you typed so blanks are left out.', 'See the mean, total, lowest, highest and range.'],
+    calc: {
+      inputs: [
+        inp('a', 'First', 12, { step: 0.01 }), inp('b', 'Second', 15, { step: 0.01 }), inp('c', 'Third', 9, { step: 0.01 }),
+        inp('d', 'Fourth', 0, { step: 0.01 }), inp('e2', 'Fifth', 0, { step: 0.01 }), inp('f', 'Sixth', 0, { step: 0.01 }),
+        inp('n', 'Count', 3, { min: 1, max: 6 }),
+      ],
+      outputs: [
+        out('total', 'Total', 'a + if(n >= 2, b, 0) + if(n >= 3, c, 0) + if(n >= 4, d, 0) + if(n >= 5, e2, 0) + if(n >= 6, f, 0)', { dp: 2 }),
+        out('mean', 'Mean', 'total / n', { dp: 2 }),
+        out('low', 'Lowest', 'min(a, if(n >= 2, b, a), if(n >= 3, c, a), if(n >= 4, d, a), if(n >= 5, e2, a), if(n >= 6, f, a))', { dp: 2 }),
+        out('high', 'Highest', 'max(a, if(n >= 2, b, a), if(n >= 3, c, a), if(n >= 4, d, a), if(n >= 5, e2, a), if(n >= 6, f, a))', { dp: 2 }),
+        out('range', 'Range', 'high - low', { dp: 2 }),
+      ],
+      tests: [
+        { in: { a: 12, b: 15, c: 9, d: 0, e2: 0, f: 0, n: 3 }, out: { total: 36, mean: 12, low: 9, high: 15, range: 6 } },
+        { in: { a: 1, b: 2, c: 3, d: 4, e2: 5, f: 6, n: 6 }, out: { mean: 3.5, range: 5 } },
+      ],
+      source: 'Arithmetic mean = total ÷ count; range = highest − lowest',
+    },
+  },
+  {
+    id: 'fraction-decimal', name: 'Fractions', family: 'tools', glyph: 'pie', archetype: 'calc',
+    pitch: 'Turn a fraction into a decimal and a percent, and see it in sixteenths.',
+    keywords: ['fraction', 'decimal', 'percent', 'inches', 'sixteenths', 'convert'],
+    tour: ['Type the top and bottom of the fraction.', 'See it as a decimal and a percent.', 'The sixteenths line helps with tape measures in inches.'],
+    calc: {
+      inputs: [inp('top', 'Top', 3, { step: 1 }), inp('bottom', 'Bottom', 8, { min: 1, step: 1 })],
+      outputs: [
+        out('dec', 'Decimal', 'top / bottom', { dp: 4 }),
+        out('pct', 'Percent', 'dec * 100', { unit: '%', dp: 2 }),
+        out('sixteenths', 'Nearest Sixteenths', 'round(dec * 16)', { unit: '/16', dp: 0 }),
+        out('mm', 'If Inches', 'dec * 25.4', { unit: 'mm', dp: 2 }),
+      ],
+      tests: [
+        { in: { top: 3, bottom: 8 }, out: { dec: 0.375, pct: 37.5, sixteenths: 6, mm: 9.53 } },
+        { in: { top: 1, bottom: 3 }, out: { dec: 0.3333, sixteenths: 5 } },
+      ],
+      source: 'Fraction = top ÷ bottom; 1 inch = 25.4 mm (exact)',
+    },
+  },
+  {
+    id: 'bulb-swap', name: 'Bulb Swap', family: 'tools', glyph: 'spark', archetype: 'calc',
+    pitch: 'What swapping old bulbs for LEDs saves in a year at your electricity price.',
+    keywords: ['led', 'light bulb', 'energy saving', 'lighting', 'electricity', 'swap'],
+    tour: ['Put in the old bulb’s watts and the LED’s watts.', 'Add how many bulbs, the hours a day and your unit price.', 'See the yearly saving and how fast the new bulbs pay back.'],
+    calc: {
+      inputs: [
+        inp('old', 'Old Bulb', 60, { unit: 'W', min: 0 }),
+        inp('led', 'LED Bulb', 8, { unit: 'W', min: 0 }),
+        inp('count', 'Bulbs', 6, { min: 1 }),
+        inp('hours', 'Hours A Day', 4, { min: 0, max: 24, step: 0.5 }),
+        inp('price', 'Unit Price', 26, { unit: 'p per kWh', min: 0, step: 0.1 }),
+        inp('cost', 'LED Price Each', 3, { unit: '£', min: 0, step: 0.1 }),
+      ],
+      outputs: [
+        out('kwh', 'Energy Saved', '(old - led) * count * hours * 365 / 1000', { unit: 'kWh a year', dp: 0 }),
+        money('saving', 'Saved A Year', 'kwh * price / 100'),
+        out('payback', 'Pays Back In', 'if(saving > 0, cost * count / saving * 12, 0)', { unit: 'months', dp: 1 }),
+      ],
+      tests: [
+        { in: { old: 60, led: 8, count: 6, hours: 4, price: 26, cost: 3 }, out: { kwh: 455.52, saving: 118.44, payback: 1.82 } },
+        { in: { old: 50, led: 5, count: 1, hours: 2, price: 30, cost: 0 }, out: { kwh: 32.85, saving: 9.86 } },
+      ],
+      estimate: true,
+      source: 'Energy Saving Trust: kWh = watts × hours ÷ 1,000, times your unit rate',
+    },
+  },
+
   // ——— Unit converters ———
   converter({
     id: 'length-convert', name: 'Length', glyph: 'ruler', what: 'length', value: 1, from: 1609.344, to: 1000,

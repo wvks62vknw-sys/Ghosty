@@ -20,7 +20,9 @@ size said. Only free, openly licensed games are on the shelf, each with its lice
   - ASK GHOSTY, which asks the chat for three tips on that game;
   - FORGET MY RECORD, asked first. His best score stays.
 - **CONTINUE PLAYING** opens the Arcade: the games he played lately, newest first, each with when he last played, his
-  sittings and his time. CONTINUE starts the game; the arrow opens its page.
+  sittings and his time. The arrow opens the game's page. CONTINUE starts the game:
+  - DOOM and Quake go straight into the game he saved last (their own -loadgame and +load);
+  - the other games load their own save as they always do.
 - **THE TROPHY ROOM:**
   - five trophies for every game played, including the games he makes: First go, Settling in (10 minutes), Devoted (an hour),
     Regular (five sittings) and On the board (a best of his own);
@@ -85,7 +87,8 @@ redo, Recently deleted, search, share as CSV or JSON, and a first run with sampl
   - a phone that has played: CONTINUE PLAYING, THE TROPHY ROOM, a game's page, FORGET MY RECORD;
   - "show my trophies" in the chat, and ASK GHOSTY on a game's page;
   - the runner played for real, leaving its record, CONTINUE PLAYING and a first trophy;
-  - save slots: keep, load (with "Before loading") and delete.
+  - save slots: keep, load (with "Before loading") and delete;
+  - CONTINUE for Freedoom carrying DOOM's -loadgame for the slot saved last.
 - **clockcalc.spec:** at 440 and 390, then in all seven looks and at BODY 21. It checks:
   - both front doors and the chat's words;
   - world clocks: add, delete and Undo, and SHOW SECONDS;
@@ -102,6 +105,8 @@ redo, Recently deleted, search, share as CSV or JSON, and a first run with sampl
 - **Screenshots of WebGL games** (Quake) are taken inside a frame, and are only kept when the picture is not blank. On some
   phones Quake's picture may still come back empty, and then none is kept.
 - **Gyro aim's direction and gain** are a first estimate and need tuning on his phone.
+- **CONTINUE into DOOM's or Quake's last save** is checked as far as the words given to the engine. A real save loading needs
+  the game data, which CI does not fetch.
 - **Alarms in the Clock:** a web app cannot ring a locked phone at a set time on its own, so there are no alarms, and timers
   ring only while Ghosty is open. Ringing from the lock screen would need the brain's reminders, a change on the brain as well.
 - **Existing apps against the leaders** (Block World, Kart, Platformer and the rest): not reached this round beyond what the game

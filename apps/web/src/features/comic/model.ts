@@ -13,7 +13,7 @@ export type Pose = 'stand' | 'point' | 'cheer' | 'run' | 'jump' | 'sit' | 'fall'
 export type Scene = 'town' | 'home' | 'park' | 'space' | 'sea' | 'forest' | 'stage' | 'lab' | 'kitchen' | 'school' | 'night' | 'plain';
 export type Time = 'day' | 'dusk' | 'night';
 export type Shot = 'wide' | 'mid' | 'close';
-export type BalloonKind = 'speech' | 'thought' | 'shout' | 'whisper';
+export type BalloonKind = 'speech' | 'thought' | 'shout' | 'whisper' | 'radio' | 'robot';
 
 export interface Look {
   species: Species;
@@ -397,5 +397,7 @@ export const POSES: Pose[] = ['stand', 'point', 'cheer', 'run', 'jump', 'sit', '
 export const SCENES: Scene[] = ['town', 'home', 'park', 'space', 'sea', 'forest', 'stage', 'lab', 'kitchen', 'school', 'night', 'plain'];
 export const TIMES: Time[] = ['day', 'dusk', 'night'];
 export const SHOTS: Shot[] = ['wide', 'mid', 'close'];
-export const KINDS: BalloonKind[] = ['speech', 'thought', 'shout', 'whisper'];
+export const KINDS: BalloonKind[] = ['speech', 'thought', 'shout', 'whisper', 'radio', 'robot'];
+/** Each balloon's name, said in the editor. */
+export const KIND_NAMES: Record<BalloonKind, string> = { speech: 'Speech', thought: 'Thought', shout: 'Shout', whisper: 'Whisper', radio: 'Radio or phone', robot: 'Robot' };
 export const SPECIES: Species[] = ['person', 'cat', 'dog', 'robot', 'ghost', 'alien', 'bear', 'rabbit'];

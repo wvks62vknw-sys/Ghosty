@@ -6937,6 +6937,7 @@ html .bt .bp-dot[data-hit="1"] { color: var(--g-accent-text); }
 /* HEALTH HUB (APPS ROUND, features/body/hub.ts): every rule under .hh, tokens only */
 html .kt-sw { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
 html .kt-swface { font: var(--g-t-value); font-size: 44px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--g-ink-1); }
+html .pkitems .ks-aisle { list-style: none; margin: var(--g-s-1) 0 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
 html .kt-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--g-s-1); }
 html .bt.hh .hh-top { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 html .bt.hh .hh-date { font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
@@ -9015,6 +9016,7 @@ html .pxstudio button.pxkey:disabled { opacity: .45; }
 .pxstudio .pxrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); min-width: 0; }
 html .pxstudio button.pxrow { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; white-space: normal; }
 html .pxstudio button.pxrow.on { border-color: var(--g-accent); }
+.pxstudio .pxprev { display: block; width: 100%; max-width: 240px; height: 48px; margin: 2px 0; border-radius: var(--g-radius-key); border: var(--g-hair) solid var(--g-line-faint); }
 .pxstudio .pxrowsay, .pxstudio .pxsmall { font: var(--g-t-caption); color: var(--g-ink-3); text-transform: none; overflow-wrap: anywhere; }
 .pxstudio .pxlayer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: var(--g-s-half); align-items: center; padding: var(--g-s-half); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
 .pxstudio .pxlayer[data-on="true"] { border-color: var(--g-accent); }
@@ -11423,3 +11425,7 @@ html .al-gwreveal .al-gwcell:nth-child(5) { animation-delay: 360ms; }
 html .al-gwreveal .al-gwcell:nth-child(n+6) { animation-delay: 450ms; }
 @keyframes al-gflip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
 @media (prefers-reduced-motion: reduce) { html .al-gwreveal .al-gwcell { animation: none; } }
+html .al-gmerge .al-gtile { transition: transform 110ms ease-out, background-color 120ms ease; }
+html .al-gmerge .al-gtile.al-gbump { animation: al-gbump 180ms ease-out 100ms; }
+@keyframes al-gbump { 50% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { html .al-gmerge .al-gtile.al-gbump { animation: none; } }
