@@ -219,6 +219,22 @@ for (const vp of VIEWPORTS) {
   await ctx.close();
 }
 
+// ---- f. KITCHEN TIMERS ring on a locked phone: a timer of a minute or more is a one-off reminder on the brain's clock, taken back on CANCEL
+{
+  log('timers on the lock screen');
+  const { ctx, page } = await phone(VIEWPORTS[0]);
+  await open(page, 'kitchen', 'Timers');
+  const KT = PK('kitchen');
+  const t0 = await page.evaluate(() => Date.now());
+  await page.fill(`${KT} input[aria-label="A new timer: how long and what for"]`, '2 minutes for the eggs');
+  await page.locator(`${KT} button[aria-label="Set the timer"]`).click();
+  check(await until(page, (t) => (window.__ghosty?.lockpush?.sent ?? []).some((x) => x.key.startsWith('timer:') && x.repeat === 'none' && /eggs/.test(x.text) && Math.abs(x.at - (t + 120000)) < 5000), t0, 10000), '[440] a two-minute timer also rings on the lock screen, at its end time');
+  const n = await page.evaluate(() => window.__ghosty.lockpush.gone.length);
+  await page.locator(`${KT} button[aria-label^="Cancel the"]`).first().click();
+  check(await until(page, (k) => window.__ghosty.lockpush.gone.length > k, n, 8000), '[440] CANCEL takes the lock-screen ring back');
+  await ctx.close();
+}
+
 await browser.close();
 console.log(`\n${checks} checks, ${problems.length} red, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 if (problems.length) {
