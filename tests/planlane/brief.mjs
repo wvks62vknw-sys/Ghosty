@@ -164,14 +164,12 @@ export async function run(H) {
     }, null, { timeout: 5000 }).then(() => true, () => false);
     check(places && inView, `[brief ${vp.width}] the tap lands where PLACES is on screen (in view, not at the top of ME)`);
     // the chat with no model: "good morning" opens the Brief and says its one line
-    await H.chat(page, 'Good morning, Ghosty');
+    // (the reply to these words, the first after his own message that says "Good morning.": H.ask; the Brief opens on its own as well)
+    const asked = H.ask(page, 'Good morning, Ghosty', /Good morning\./);
     const opened = await page.waitForFunction(() => document.body.dataset.tab === 'brief', null, { timeout: 15000 }).then(() => true, () => false);
     check(opened, `[brief ${vp.width}] "good morning" opens the Brief`);
     await page.evaluate(() => (location.hash = 'core'));
-    const reply = await page.waitForFunction(() => {
-      const t = [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').pop() ?? '';
-      return /Good morning\./.test(t) ? t : '';
-    }, null, { timeout: 15000 }).then((h) => h.jsonValue(), () => '');
+    const reply = (await asked).text;
     check(/Good morning\..*Partly cloudy, 4°C, 0 to 8°C today, rain likely from 15:00\..*1 to-do due today.*The headlines: Brief lane story 1\. Brief lane story 2\. Brief lane story 3\./.test(reply) && !H.RAW.test(reply), `[brief ${vp.width}] the chat says the Brief's one line and its top headlines, as READ IT TO ME does: ${String(reply).slice(0, 400)}`);
     await ctx.close();
   }
@@ -191,13 +189,10 @@ export async function run(H) {
     check(/^Good evening/.test(await txt(page, '#pg-brief .brdate')), '[brief evening] the greeting of the hour');
     await fits(page, '440 evening');
     await page.screenshot({ path: `${H.out}/planlane-brief-evening-440.png`, fullPage: true });
-    await H.chat(page, "what's my day look like?");
+    const asked = H.ask(page, "what's my day look like?", /Good evening\./);
     await page.waitForFunction(() => document.body.dataset.tab === 'brief', null, { timeout: 15000 }).catch(() => check(false, '[brief evening] "what\'s my day look like" does not open the Brief'));
     await page.evaluate(() => (location.hash = 'core'));
-    const reply = await page.waitForFunction(() => {
-      const t = [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').pop() ?? '';
-      return /Good evening\./.test(t) ? t : '';
-    }, null, { timeout: 15000 }).then((h) => h.jsonValue(), () => '');
+    const reply = (await asked).text;
     check(/Good evening\..*Tomorrow 2 to 9°C, dry/.test(reply), `[brief evening] the chat looks ahead too: ${String(reply).slice(0, 300)}`);
     // "Tap to add something" (an empty diary) lands on the Agenda's DIARY, even when the Agenda was last left on SPENDING
     await page.evaluate(() => (location.hash = 'brief'));
