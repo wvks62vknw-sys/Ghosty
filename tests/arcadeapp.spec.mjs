@@ -105,6 +105,7 @@ function played(now) {
       runner: { title: 'THE RUNNER', plays: 6, seconds: 4000, first: now - 9 * DAY, last: now - 60_000 },
       flap: { title: 'FLAP', plays: 1, seconds: 90, first: now - 2 * DAY, last: now - 2 * DAY },
     }),
+    'ghosty.arcade.lastsave': JSON.stringify({ freedoom: 'doomsav2.dsg' }),
     'ghosty.arcade.scores': JSON.stringify({ runner: { best: 1200, last: 800, when: new Date(now - 60_000).toISOString() } }),
     'ghosty.arcade.days': JSON.stringify(days),
     'ghosty.arcade.shots': JSON.stringify({ runner: [{ src: PIXEL, at: now - 60_000 }, { src: PIXEL, at: now - 120_000 }] }),
@@ -251,6 +252,25 @@ for (const [i, world] of WORLDS.entries()) {
   }
 }
 log('b. a phone that has played');
+
+// ---------- CONTINUE for DOOM's engine: a Freedoom kept on the phone and saved in slot 2 continues with -loadgame 2
+{
+  const { ctx, page } = await phone(PHONE, { store: { ...played(now), 'ghosty.arcade.stats': JSON.stringify({ freedoom: { title: 'FREEDOOM: PHASE 1', plays: 2, seconds: 900, first: now - DAY, last: now - 1000 } }) } });
+  try {
+    await openArcade(page);
+    // as if its package were here: the card's key reads PLAY once a GET has kept it (the spec only flips the key's words)
+    await page.evaluate(() => {
+      const act = document.querySelector('#pg-arcade .arccard[data-id="freedoom"] .arcact');
+      if (act) act.textContent = 'PLAY';
+      window.dispatchEvent(new Event('ghosty:studio-imported'));
+    });
+    const resume = await until(page, () => document.querySelector('#pg-arcade .arccontcard[data-cont="freedoom"] .arcact')?.dataset.resume === '-loadgame 2');
+    check(resume, `CONTINUE for Freedoom does not carry -loadgame 2: ${await page.evaluate(() => JSON.stringify(document.querySelector('#pg-arcade .arccontcard[data-cont="freedoom"] .arcact')?.dataset ?? null))}`);
+  } finally {
+    await ctx.close();
+  }
+}
+log('continue for DOOM');
 
 // ---------- c. playing for real: the runner, played and quit, leaves its record, CONTINUE PLAYING and a first trophy
 {
