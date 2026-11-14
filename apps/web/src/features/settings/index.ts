@@ -104,7 +104,7 @@ export const settingsTab: TabDef = {
       clear(wsp.body, row('SYNCED', when ? `My workspace is on this phone; the brain keeps only a sealed copy, last taken ${agoWords(when)}. I cannot open it.` : 'My workspace is on this phone; no backup has been taken yet, so the brain has no copy; SYSTEM takes one.', null, { wrap: true }));
     };
     paintWs();
-    P.right.append(wsp.el, goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), wallPanel().el, shortcutsPanel().el, about.el, privacy.el, help.el);
+    P.right.append(wsp.el, goRow('SECURITY', 'security', 'Every lock, every approval'), goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), wallPanel().el, shortcutsPanel().el, about.el, privacy.el, help.el);
     // Sections (ui/sections.ts; the navigation sheet): a pill for each of the list's groups, the colour first. CHARACTER has no
     // group of its own (it sits under NAME & UNITS), so it goes with You: how he talks to you, beside what he calls you.
     sections(root, 'settings', [
@@ -112,7 +112,7 @@ export const settingsTab: TabDef = {
       { id: 'you', label: 'You', match: /^(NAME|PERMISSIONS)/ },
       { id: 'voice', label: 'Voice & home', match: /^(VOICE|OFFLINE|SAVER|MY VOICE|PEOPLE I)/ },
       // [resta] SHORTCUTS (Siri) is Ghosty's own business too: under the same pill, so the row of pills stays as he knows it
-      { id: 'ghosty', label: 'Ghosty', match: /^(SYSTEM|LINKS|SHORTCUTS|THE WALL|WORKSPACE)$/ },
+      { id: 'ghosty', label: 'Ghosty', match: /^(SECURITY|SYSTEM|LINKS|SHORTCUTS|THE WALL|WORKSPACE)$/ },
       { id: 'about', label: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
     ]);
 

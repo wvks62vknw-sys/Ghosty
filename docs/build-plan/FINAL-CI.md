@@ -123,6 +123,12 @@ All on this branch merged with final:
 - **video2:** passes whole (10.9 px to 3.4 px at both sizes).
 - **games5:** draughts, othello, backgammon and connect four pass (answers 411 to 797 ms after the merge).
 
+- **Early check on 3309d128 (21:15 to 21:45 UTC).** I ran one shard: sites, direct, scroll, apps, scrollfeel, arcade, speed2,
+  orbithud, video and bootfilm. orbithud was red twice, and the cause was my log painting: "orbit" is answered on the phone with
+  no brain turn, and its reply reached the log a frame after the world changed. Fixed in 067b66a: the log is drawn once a frame
+  only while a brain turn is at work, and at once otherwise. With that fix orbithud passes, and talk and chatpass still pass.
+  scroll could only run in Chromium here, because this container has no WebKit; the Chromium run was clean.
+
 ## How to try it on his phone
 
 - **Talk.** Talk to Ghosty hands-free. His first word comes a little sooner after you stop, and the line under your words

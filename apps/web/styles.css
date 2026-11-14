@@ -9900,3 +9900,17 @@ html .rpsheet .setknob::after { content: ''; position: absolute; top: 2px; left:
 html .rpsheet .rpitem[aria-checked="true"] .setknob { background: var(--g-accent); }
 html .rpsheet .rpitem[aria-checked="true"] .setknob::after { transform: translateX(20px); }
 @media (prefers-reduced-motion: no-preference) { html .rpsheet .setknob, html .rpsheet .setknob::after { transition: background .2s, transform .2s; } }
+/* [security] SETTINGS → SECURITY (NEXT ROUND, lane SECURITY): the STEPS guides and a key made on the phone, drawn from the tokens */
+.secguide { padding: var(--g-s-1) 0; border-top: 1px solid var(--g-line-faint); }
+.secguide:first-of-type { border-top: 0; }
+.secguide h4 { margin: 0 0 var(--g-s-half); color: var(--g-ink-1); letter-spacing: 0.04em; }
+.secsteplist { margin: var(--g-s-half) 0; padding-left: var(--g-s-2); color: var(--g-ink-1); }
+.secsteplist li { margin: var(--g-s-half) 0; overflow-wrap: anywhere; }
+.secmade { font-family: var(--mono); overflow-wrap: anywhere; user-select: all; color: var(--g-accent); }
+.secmade:empty { display: none; }
+.secguide .row button, .secapprovals .row button { min-height: max(44px, var(--g-target)); min-width: max(44px, var(--g-target)); }
+#pg-security .seclocks .rw .v, #pg-security .secapprovals .rw .v { overflow-wrap: anywhere; -webkit-line-clamp: unset; display: block; overflow: visible; }
+#pg-security .secpwrow { gap: var(--g-s-1); align-items: stretch; }
+#pg-security .secpwrow input { flex: 1 1 auto; min-width: 0; min-height: max(44px, var(--g-target)); }
+#pg-security .secpwrow button { min-height: max(44px, var(--g-target)); min-width: max(44px, var(--g-target)); }
+#pg-security .secpwnedsaid:empty { display: none; }
