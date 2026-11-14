@@ -4,7 +4,9 @@
 // BACKGROUND goes through BiRefNet's real free-limit answer to BRIA RMBG-1.4 and says so; the result comes back
 // from the picture store (/i/<id>) and BEFORE ↔ AFTER moves with the slider; SAVE TO PHOTOS downloads the very
 // picture kept; ERASE takes a finger-drawn mask (a PNG of the photo's own size, white where drawn — checked in the
-// request and by the Space); a Space asleep is said with "try again in a minute"; with no brain every job says
+// request and by the Space); a Space asleep is said with "try again in a minute"; with the free online tools asleep
+// BACKGROUND offers CUT IT OUT ON THIS PHONE (with no pack kept: the download named with its size, nothing fetched, the
+// photo editor's BRAIN tray offering it) and SHARPER says it must wait; with no brain every job says
 // "needs the brain"; ASK with "remove the background" opens the sheet on that job; the brain's open_photo_tools
 // opens it on a kept picture with its result. The security policy blocks nothing and nothing sticks out sideways.
 import { chromium } from 'playwright';
@@ -196,11 +198,45 @@ await until(() => ['done', 'failed'].includes(window.__ghosty.photo.phase), 6000
 s = await photo();
 if (s.phase !== 'done' || s.by !== 'Real-ESRGAN') problems.push(`sharper: ${s.phase} "${s.status}" by ${s.by}`);
 
+// ---- the free online tools asleep (every POST answered 'asleep'): BACKGROUND offers CUT IT OUT ON THIS PHONE; with no pack kept here
+// it names the download and its size and fetches nothing; OPEN THE PHOTO EDITOR lands on its BRAIN tray, where GET offers it; SHARPER
+// says it must wait ----
+const models = [];
+const onModel = (q) => /\/vendor\/(cutout|depth|erase|raw)\//.test(q.url()) && models.push(q.url());
+page.on('request', onModel);
+await page.route('**/api/m3d/photo', (r) => r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: `${JSON.stringify({ error: 'the free Space is asleep and is waking up — try again in a minute', code: 'asleep' })}\n` }));
+await page.locator('.ptjobs button', { hasText: 'BACKGROUND' }).click();
+await page.locator('.ptsheet button', { hasText: 'REMOVE THE BACKGROUND' }).click();
+await until(() => window.__ghosty.photo.phase === 'failed', 30000, 'BACKGROUND (asleep) did not fail');
+const cutKey = page.locator('.ptfallback button', { hasText: 'CUT IT OUT ON THIS PHONE' });
+s = await photo();
+if (s.code !== 'asleep' || s.fallback !== 'offered' || !(await cutKey.isVisible()) || ((await cutKey.boundingBox())?.height ?? 0) < 44) problems.push(`BACKGROUND asleep: ${s.code} ${s.fallback} "${s.fallbackWords}", the key ${JSON.stringify(await cutKey.boundingBox())}`);
+await cutKey.click();
+await until(() => !['offered', 'working'].includes(window.__ghosty.photo.fallback), 15000, 'CUT IT OUT ON THIS PHONE never answered');
+s = await photo();
+if (s.fallback !== 'needs-pack' || !/the cut-out model kept here \(\d+ MB\)\. It comes only when you tap GET, on Wi-Fi/.test(s.fallbackWords)) problems.push(`no pack kept: ${s.fallback} "${s.fallbackWords}"`);
+await shot('photo-cut-here');
+const toEditor = page.locator('.ptfallback button', { hasText: 'OPEN THE PHOTO EDITOR' });
+if (((await toEditor.boundingBox())?.height ?? 0) < 44) problems.push('OPEN THE PHOTO EDITOR is not there, or under 44 pt');
+await toEditor.click();
+await page.waitForSelector('#pg-photo .pe:not([hidden]) .pecutoffer .pepack[data-pack="cutout"]', { timeout: 15000 }).catch(() => problems.push('OPEN THE PHOTO EDITOR did not land on a BRAIN tray offering the cut-out model'));
+if (await sheet.isVisible()) problems.push('the sheet stayed open over the photo editor');
+if (models.length) problems.push(`a model was fetched without his tap: ${models.join(', ')}`);
+await page.locator('#pg-photo .pebrain[data-job="sharper"]').click();
+await sheet.waitFor({ state: 'visible', timeout: 15000 }).catch(() => problems.push('the BRAIN tray did not open the sheet again'));
+await page.locator('.ptsheet button', { hasText: 'MAKE IT SHARPER' }).click();
+await until(() => window.__ghosty.photo.phase === 'failed', 30000, 'SHARPER (asleep) did not fail');
+s = await photo();
+if (s.fallback !== 'wait' || !/^SHARPER and ERASE must wait: .*free online tools.* asleep or over their free limit right now\. Try again in a minute\.$/.test(s.fallbackWords) || !/^Not done: /.test(s.status) || (await cutKey.isVisible())) problems.push(`SHARPER asleep: ${s.fallback} "${s.fallbackWords}" "${s.status}"`);
+await page.unroute('**/api/m3d/photo');
+page.off('request', onModel);
+
 // ---- no brain: each job says it needs the brain, and nothing can be pressed ----
 await page.evaluate(() => window.__ghosty.ui.set({ connected: false }));
 await page.locator('.ptjobs button', { hasText: 'BACKGROUND' }).click();
 const who = (await page.locator('.ptsheet .ptwho').textContent()) ?? '';
 if (!/^I need my brain for /.test(who) || !(await page.locator('.ptsheet button', { hasText: 'REMOVE THE BACKGROUND' }).isDisabled())) problems.push(`offline: "${who}"`);
+if ((await photo()).fallback !== 'offered' || !(await page.locator('.ptfallback button', { hasText: 'CUT IT OUT ON THIS PHONE' }).isVisible())) problems.push(`offline: BACKGROUND does not offer the cut on this phone (${(await photo()).fallback})`);
 await shot('photo-offline');
 await page.evaluate(() => window.__ghosty.ui.set({ connected: true }));
 await page.locator('.modal .mhead button', { hasText: 'CLOSE' }).click();

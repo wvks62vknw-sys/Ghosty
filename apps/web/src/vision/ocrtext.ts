@@ -7,6 +7,8 @@ import type { Box } from './boxes';
 export interface OcrLine {
   text: string;
   confidence: number;
+  /** Where the line stands in the picture that was read, in its pixels (from the reader, or the box round its words). */
+  bbox?: { x0: number; y0: number; x1: number; y1: number };
 }
 export interface OcrWord {
   text: string;

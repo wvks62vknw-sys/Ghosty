@@ -14,6 +14,17 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [lens] THE NEXT ROUND: the camera as the front door
+  { day: '2026-11-14', title: 'Two packets side by side', line: 'Scan one packet, then another, and say “which is better”: the two side by side per 100 g, the better figure marked, from the open food databases.' },
+  { day: '2026-11-14', title: 'What a heater costs to run', line: 'Point the Lens at an appliance’s rating plate: about what an hour costs at full power, at your own price per unit if you set it. Always a first estimate.' },
+  { day: '2026-11-14', title: 'A medicine box to its NHS page', line: 'Point the Lens at a medicine box: it reads it aloud, and OPEN THE NHS PAGE shows the NHS’s own public page about it. I never give medical advice.' },
+  { day: '2026-11-14', title: 'Pages snap themselves', line: 'Lens → SCAN → DOCUMENT: hold the phone over a page and keep still. It finds the edges and takes the page by itself, then waits for you to turn to the next one. A stack becomes one PDF. AUTO turns it off.' },
+  { day: '2026-11-14', title: 'Stars and planets in AIM', line: 'Hold the Lens up at the night sky in AIM: the Moon (and how full it is), the planets and the brightest stars are named over the picture, worked out on your phone with no internet. The SKY button hides them.' },
+  { day: '2026-11-14', title: 'A business card into your contacts', line: 'Point the Lens at a business card: ADD TO CONTACTS hands its name, numbers and email to your phone’s contacts. It is made on the phone, and nobody is looked up.' },
+  { day: '2026-11-14', title: 'The next buses from a stop sign', line: 'Point the Lens at a bus stop sign and say “when’s the next bus”: the times come up on the card, asked by the stop’s name, never by where you are.' },
+  { day: '2026-11-14', title: 'Receipts and bills from the Lens', line: 'Point the Lens at a receipt: one tap puts it into this month’s spending, one more keeps its warranty. A bill goes into your bills, with a reminder two days before it is due.' },
+  { day: '2026-11-14', title: 'A whole menu in English', line: 'Point the Lens at a menu in another language: each line’s English sits over that line, and the card lists every line with its English.' },
+  { day: '2026-11-14', title: 'What you avoid, on every packet', line: 'Tell the Lens once what you are allergic to or avoid (“I’m allergic to peanuts”, “I’m vegan”): every packet you scan gets a red, amber or green line for you. The list stays on this phone.' },
   // [boot] the next round's opening (docs/build-plan/NEXT-BOOT.md)
   { day: '2026-11-14', title: 'The opening, your way', line: 'Settings → VOICE & HOME → THE OPENING: the full film, the short one, or the full film once a day; your own opening line; and how smoothly the last one ran. Say “short opening” or “director mode”.' },
   { day: '2026-11-14', title: 'An opening that knows your day', line: 'The opening now ends on what matters today: your next thing, a to-do due, or rain. After days away it says how long it has been, and “Sam’s turn” greets someone you introduced.' },
@@ -50,6 +61,10 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  { day: '2026-11-14', title: 'A log of camera, mic and location use', line: 'Settings → PERMISSIONS lists every time the camera, the microphone or your location was actually used, and on which screen, kept on your phone.' },
+  { day: '2026-11-14', title: 'Screens that got slower are flagged', line: 'System → STATUS, SPEED: a screen that opens slower on your phone since the last update is named, with how long it took before.' },
+  { day: '2026-11-14', title: 'Everything I keep about you, one place', line: 'Settings → PRIVACY counts what I keep by kind (memory, places, faces, voices), each with its own key to forget it, and EXPORT MY MEMORY saves it all as one document.' },
+  { day: '2026-11-14', title: 'Watch the offline brain improve', line: 'System → TRAINING draws every finished week’s test scores, on average and area by area, kept on your phone as each report arrives.' },
   { day: '2026-11-14', title: 'See what a restore brings back', line: 'RESTORE now shows each thing in the backup and whether it comes back, is joined with yours or is already the same, and you untick what you would rather keep.' },
   { day: '2026-11-14', title: 'A saver switch', line: 'Settings → SAVER holds big downloads and the background feeds until you turn it off, and lists what it held back. Say “turn on the saver”.' },
   { day: '2026-11-14', title: 'Your comics and games are backed up', line: 'The daily locked backup now carries the comics and the games you made, so they come back on a new phone like your documents do.' },

@@ -11,12 +11,13 @@
  * or when Ghosty is put away. `stopwatch.summary()` gives the medians and the plain-words lines
  * for the SPEED card (and a test at window.__ghosty.stopwatch).
  */
+import { BUILD } from '../state/build';
 
 export type Sample =
   /** A cold start: ms from the tap to the first paint and to the first screen. */
   | { k: 'start'; at: number; paint: number | null; screen: number }
-  /** A tab opened (`first`: built for the first time). */
-  | { k: 'tab'; at: number; id: string; title: string; ms: number; first?: 1 }
+  /** A tab opened (`first`: built for the first time; `b`: the build it opened in, so an update that slowed it can be told). */
+  | { k: 'tab'; at: number; id: string; title: string; ms: number; first?: 1; b?: string }
   /** A reply from the brain: to the first words, and to done. */
   | { k: 'reply'; at: number; first: number; done: number }
   /** One request to the brain (`path`: its first part, e.g. "/status"). */
@@ -124,6 +125,27 @@ export function summarise(samples: Sample[], now = Date.now()): PhoneSpeed {
 }
 
 /** The plain-words lines for the SPEED card. */
+/**
+ * FLAG SCREENS THAT GOT SLOWER (NEXT ROUND, polish3.u11): each screen's opens in this build against the builds before it, on this
+ * phone (the first open of each, which builds the screen, left out). Flagged only on enough opens both sides (three each), at least
+ * a quarter slower and 80 ms more, so a single slow moment is never called a slowdown. Pure.
+ */
+export function slowerSince(samples: Sample[], build: string): { id: string; title: string; now: number; was: number }[] {
+  const tabs = samples.filter((s): s is Extract<Sample, { k: 'tab' }> => s.k === 'tab' && !s.first && !!s.b);
+  const ids = [...new Set(tabs.map((t) => t.id))];
+  const out: { id: string; title: string; now: number; was: number }[] = [];
+  for (const id of ids) {
+    const mine = tabs.filter((t) => t.id === id);
+    const nowMs = mine.filter((t) => t.b === build).map((t) => t.ms);
+    const wasMs = mine.filter((t) => t.b !== build).map((t) => t.ms);
+    if (nowMs.length < 3 || wasMs.length < 3) continue;
+    const now = quantile(nowMs, 0.5);
+    const was = quantile(wasMs, 0.5);
+    if (now >= was * 1.25 && now - was >= 80) out.push({ id, title: mine[mine.length - 1]!.title, now, was });
+  }
+  return out.sort((a, b) => b.now - b.was - (a.now - a.was));
+}
+
 export function phoneLines(s: PhoneSpeed): string[] {
   const out: string[] = [];
   const { today, week } = s.replies;
@@ -287,7 +309,7 @@ export const stopwatch = {
       afterPaint(() => {
         if (!visible()) return; // put away meanwhile: the frame waited for the owner, not for Ghosty
         const now = clock();
-        add({ k: 'tab', at: Date.now(), id, title, ms: Math.round(now - t0), ...(first ? { first: 1 as const } : {}) });
+        add({ k: 'tab', at: Date.now(), id, title, ms: Math.round(now - t0), ...(first ? { first: 1 as const } : {}), b: BUILD.sha });
         if (cold) {
           const fcp = performance.getEntriesByType?.('paint').find((e) => e.name === 'first-contentful-paint') ?? performance.getEntriesByType?.('paint')[0];
           add({ k: 'start', at: Date.now(), paint: fcp ? Math.round(fcp.startTime) : null, screen: Math.round(now) });
@@ -327,6 +349,12 @@ export const stopwatch = {
   async summary(): Promise<PhoneSpeed> {
     await load();
     return summarise(samples);
+  },
+
+  /** The screens that open slower in this build than before it, on this phone (slowerSince). */
+  async slower(): Promise<ReturnType<typeof slowerSince>> {
+    await load();
+    return slowerSince(samples, BUILD.sha);
   },
 
   /** Call `fn` each time something new is timed (the SPEED card repaints); returns the way to stop. */

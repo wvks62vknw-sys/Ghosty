@@ -508,6 +508,9 @@ test('the card text: the name, how sure in plain words, the tell-tale, Wikipedia
   assert.ok(daisy.canSave);
   const robin = L.livingCard(L.checkLiving('{"kind":"bird","species":"Erithacus rubecula","common":"European robin","sure":"fairly confident","tell":"the orange-red breast"}', 'Gemini'));
   assert.equal(robin.lead, 'Probably a European robin.');
+  // a fungus card carries the safety line the best naming apps carry: a photo's name is never a reason to eat it
+  const cap = L.livingCard(L.checkLiving('{"kind":"fungus","species":"Agaricus campestris","common":"Field mushroom","sure":"fairly confident","tell":"pink gills"}'));
+  assert.equal(cap.lead, 'Probably a field mushroom. Never eat a wild mushroom because a photo named it: deadly ones look like safe ones.');
   assert.equal(robin.sure, 'probably — the model said “fairly confident”');
   assert.equal(robin.tell, 'Tell-tale: the orange-red breast');
   assert.equal(robin.by, 'Gemini');

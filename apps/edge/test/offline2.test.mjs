@@ -358,3 +358,18 @@ test('the saver: his ways of saying on and off are heard, nothing else is taken,
   assert.equal(SV.held('The namer'), false);
   assert.deepEqual(SV.saver.get().paused, []);
 });
+
+// ---- NEXT ROUND (polish3.u11): a screen that opens slower since the last update, told only on enough opens both sides
+await build({ entryPoints: [at('../../web/src/core/stopwatch.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/offline2/stopwatch.mjs'), logLevel: 'error' });
+const SW = await import('./.build/offline2/stopwatch.mjs');
+test('slower since the update: a quarter slower and 80 ms more on three opens each side; a first open, a blip or too few opens says nothing', () => {
+  const tab = (id, ms, b, first) => ({ k: 'tab', at: 1, id, title: id === 'agenda' ? 'AGENDA' : 'MONEY', ms, b, ...(first ? { first: 1 } : {}) });
+  const samples = [
+    ...[300, 310, 290, 320].map((ms) => tab('agenda', ms, 'old')), ...[420, 440, 430].map((ms) => tab('agenda', ms, 'new')), tab('agenda', 2000, 'new', true),
+    ...[300, 300, 300].map((ms) => tab('money', ms, 'old')), ...[340, 350, 360].map((ms) => tab('money', ms, 'new')),
+  ];
+  const got = SW.slowerSince(samples, 'new');
+  assert.deepEqual(got.map((x) => [x.id, x.now, x.was]), [['agenda', 430, 300]]);
+  assert.deepEqual(SW.slowerSince(samples.filter((s) => !(s.id === 'agenda' && s.b === 'new' && s.ms === 440)), 'new').map((x) => x.id), [], 'two opens in this build are not enough');
+  assert.deepEqual(SW.slowerSince(samples, 'old'), [], 'faster now says nothing');
+});

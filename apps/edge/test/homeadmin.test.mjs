@@ -136,6 +136,9 @@ test('warranties: from his words (the default of 12 months said as one), from a 
   const storage = new Mem();
   const rc = S.readReceipt(RECEIPT, '2026-11-01');
   assert.deepEqual(rc, { store: 'Currys', date: '2026-03-03', total: 558.99, item: 'Samsung 55" qled tv' });
+  // (the Lens's receipts) the TOTAL after the savings, never the SUBTOTAL before them; a bill's "please pay by 14 December" is a date
+  assert.equal(S.readReceipt('TESCO\nMilk 1.20\nSUBTOTAL 25.40\nClubcard savings -2.00\nTOTAL 23.40\nVISA', '2026-11-14').total, 23.4);
+  assert.equal(S.readBill('BRITISH GAS\nYour balance is £84.20.\nPlease pay by 14 December 2026.\nReference 4471 2290', '2026-11-14').amount, 84.2);
   const out = await run(storage, 'warranty', { text: RECEIPT, words: 'the Samsung TV' });
   assert.match(out.text, /^Kept: the Samsung TV from Currys, bought Tue 3 Mar, 12-month warranty — 12 months is a plain default \(most shops give a year\), so check your receipt or the box: it ends Tue 2 Mar 2027\./);
   assert.match(out.text, /I read the receipt from a photo, so check the item and the date\./);
