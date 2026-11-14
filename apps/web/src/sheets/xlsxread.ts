@@ -3,14 +3,16 @@
  * runs where there is no browser): the sheets in order, shared and inline strings (rich text joined), numbers, true and false, errors, formulas as
  * formulas (shared formulas slid down their cells, `_xlfn.` names made plain, array formulas kept at their first cell), number formats (£, %, dates,
  * decimals), bold, italic, alignment, fills (to the nearest of the house's five), column widths, row heights, the frozen first row, named ranges,
- * the 1904 date system. What it cannot keep (merged cells, charts and pictures, borders, conditional formats, drop-down checks, pivot tables,
+ * the 1904 date system, the colour rules it has a rule for (conditional formats: more or less than, between, equal, contains, before today, top
+ * or bottom N, duplicates, data bars, a colour scale). What it cannot keep (merged cells, charts and pictures, borders, other conditional formats, drop-down checks, pivot tables,
  * comments, links, frozen columns, hidden rows, formulas it has no function for) it says once, in his words, in `lost`. Pure.
  */
 import { unzipSync } from '../convert/zip';
 import { addr, entry, newBook, type Book, type Cell, type Fmt, type Sheet, type Val, type ErrCode } from './model';
 import { hasFunction } from './formula';
 import { FILL_HEX } from './xlsx';
-import { MAXC, MAXR, colIndex, parseAddr, shiftFormula, tokenize } from './tokens';
+import { MAXC, MAXR, colIndex, parseAddr, parseRange, shiftFormula, tokenize } from './tokens';
+import { ruleId, type Rule } from './rules';
 
 interface X {
   tag: string;
@@ -55,6 +57,33 @@ const textOf = (x: X): string => (x.tag === 'rPh' || x.tag === 'phoneticPr' ? ''
 
 const BUILTIN_FMT: Record<number, string> = { 0: 'General', 1: '0', 2: '0.00', 3: '#,##0', 4: '#,##0.00', 9: '0%', 10: '0.00%', 49: '@' };
 const isDateId = (id: number): boolean => (id >= 14 && id <= 22) || (id >= 45 && id <= 47);
+
+/** One of Excel's conditional-format rules as one of ours, or null when ours has no such rule. */
+function ruleFrom(cr: X, range: string, tones: (1 | 2 | 3 | 4 | 5 | undefined)[]): Rule | null {
+  const type = cr.a.type ?? '';
+  const op = cr.a.operator ?? '';
+  const fs = kids(cr, 'formula').map((f) => f.text.trim());
+  const num = (s: string | undefined) => (s !== undefined && /^-?\d+(?:\.\d+)?(?:E[+-]?\d+)?$/i.test(s) ? Number(s) : null);
+  const tone = tones[Number(cr.a.dxfId ?? -1)];
+  const base = { id: ruleId(), range, ...(tone ? { tone } : {}) };
+  if (type === 'cellIs') {
+    const a = num(fs[0]);
+    if (a === null) return null;
+    if (op === 'greaterThan' || op === 'greaterThanOrEqual') return { ...base, kind: 'over', a };
+    if (op === 'lessThan' || op === 'lessThanOrEqual') return { ...base, kind: 'under', a };
+    if (op === 'equal') return { ...base, kind: 'equal', a };
+    const b = num(fs[1]);
+    if (op === 'between' && b !== null) return { ...base, kind: 'between', a, b };
+    return null;
+  }
+  if (type === 'containsText' && cr.a.text) return { ...base, kind: 'contains', a: cr.a.text };
+  if (type === 'top10' && cr.a.percent !== '1') return { ...base, kind: cr.a.bottom === '1' ? 'bottom' : 'top', n: Math.max(1, Number(cr.a.rank) || 10) };
+  if (type === 'duplicateValues') return { ...base, kind: 'dupes' };
+  if (type === 'dataBar') return { id: base.id, range, kind: 'bars' };
+  if (type === 'colorScale') return { id: base.id, range, kind: 'scale' };
+  if (type === 'expression' && /<\s*TODAY\(\)/i.test(fs[0] ?? '')) return { ...base, kind: 'overdue' };
+  return null;
+}
 
 /** An Excel format code as one of the house's formats. */
 function fmtOf(code: string): Partial<Fmt> {
@@ -141,6 +170,12 @@ export function readXlsx(bytes: Uint8Array, title = 'Imported spreadsheet'): { b
       approx = true;
     }
     return { x, border: borders[Number(xf.a.borderId ?? 0)] === true, approx };
+  });
+  // the fills of the colour rules (dxfs), each to the nearest of the house's five
+  const dxfTones = kids(kid(styleRoot, 'dxfs'), 'dxf').map((d) => {
+    const p = kid(kid(d, 'fill'), 'patternFill');
+    const rgb = kid(p, 'bgColor')?.a.rgb ?? kid(p, 'fgColor')?.a.rgb ?? '';
+    return rgb ? nearest(rgb).fill : undefined;
   });
   const d1904 = kid(wb, 'workbookPr')?.a.date1904 === '1' || kid(wb, 'workbookPr')?.a.date1904 === 'true';
   if (d1904) say('dates counted from 1904 (older Mac files): I moved them to the usual count, so they read the same');
@@ -239,7 +274,19 @@ export function readXlsx(bytes: Uint8Array, title = 'Imported spreadsheet'): { b
     for (const g of arrays) for (let i = 0; i < g.h; i++) for (let j = 0; j < g.w; j++) if ((i || j) && sheet.cells[addr(g.r + i, g.c + j)]?.f === undefined) delete sheet.cells[addr(g.r + i, g.c + j)];
     if (past) say('cells past row 10,000 or column AZ');
     if (kid(ws, 'mergeCells')) say('merged cells (each shows in its top-left cell)');
-    if (kid(ws, 'conditionalFormatting')) say('conditional formats (colours that change with the numbers)');
+    for (const cf of kids(ws, 'conditionalFormatting')) {
+      for (const ref of (cf.a.sqref ?? '').split(/\s+/).filter(Boolean)) {
+        if (!parseRange(ref)) {
+          say('colour rules over cells past row 10,000 or column AZ');
+          continue;
+        }
+        for (const cr of kids(cf, 'cfRule')) {
+          const r = ruleFrom(cr, ref.replace(/\$/g, ''), dxfTones);
+          if (r) (sheet.rules ??= []).push(r);
+          else say('some colour rules (the kinds I have are more or less than, between, equal, contains, before today, top or bottom, duplicates, bars and a scale)');
+        }
+      }
+    }
     if (kid(ws, 'dataValidations')) say('drop-down lists and input checks');
     if (kid(ws, 'hyperlinks')) say('links (their words are kept)');
     if (kid(ws, 'drawing') || kid(ws, 'legacyDrawing') || kid(ws, 'picture')) say('charts, pictures and comments (the numbers behind them are here)');

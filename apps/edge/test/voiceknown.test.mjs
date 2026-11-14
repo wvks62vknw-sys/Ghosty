@@ -317,9 +317,46 @@ test('his private things, as another voice asks about them: money, health, messa
   const { build: b } = await import('esbuild');
   await b({ entryPoints: [new URL('../../../packages/shared/src/household.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/voiceknown/household.mjs'), logLevel: 'error' });
   const H = await import('./.build/voiceknown/household.mjs');
-  for (const t of ['how much did I spend this month?', "what's in the bank", 'read me my messages', 'any new emails', "what's on the calendar today", 'how did he sleep', 'what is his weight', 'where has he been today', 'what do you know about him', 'show me his photos', 'what are the passwords', 'read my notes', 'any appointments tomorrow']) assert.ok(H.privateAsk(t), `"${t}" is private`);
-  for (const t of ['what is the capital of France', 'play some music', 'tell me a joke', 'how tall is the eiffel tower', 'set a timer for 10 minutes', 'what time is it']) assert.ok(!H.privateAsk(t), `"${t}" is not private`);
+  for (const t of ['how much did I spend this month?', "what's in the bank", 'read me my messages', 'any new emails', "what's on the calendar today", 'how did he sleep', 'what is his weight', 'where has he been today', 'what do you know about him', 'show me his photos', 'what are the passwords', 'read my notes', 'any appointments tomorrow', 'how many steps today', 'what is the alarm code', 'what’s on his bank card']) assert.ok(H.privateAsk(t), `"${t}" is private`);
+  for (const t of ['what is the capital of France', 'play some music', 'tell me a joke', 'how tall is the eiffel tower', 'set a timer for 10 minutes', 'what time is it', 'what are the steps to make pancakes', 'set the sleep timer', 'how do I make an account', 'play me some cards', 'what is the morse code']) assert.ok(!H.privateAsk(t), `"${t}" is not private`);
   assert.equal(H.keptLine('Alex', 'Sam'), 'Sorry Sam, that’s Alex’s to see, so I keep it to him.');
   assert.equal(H.keptLine('boss', null), 'That’s his to see, so I keep it to him.');
   assert.equal(H.keptLine('Boss', 'Sam'), 'Sorry Sam, that’s his to see, so I keep it to him.', 'the default name, however it is written');
+});
+
+// ---------------------------------------------------------------- voice recognition that keeps up (NEXT ROUND, voice.u4)
+test('his print keeps up with him from turns that were clearly him, a little at a time, a few a day, never drifting to another voice', () => {
+  const day = '2026-11-14';
+  let p = A;
+  let moved = 0;
+  for (let s = 3; s < 15; s++) {
+    const cap = later('A', s % 5 + 3, { seed: 100 + s }).profile;
+    if (!cap) continue;
+    const next = V.keepUp(p, cap, day);
+    if (next) {
+      assert.ok(V.distance(next.pooled, p.pooled) > 0, 'a refresh moves the print');
+      assert.ok(V.distance(next.origin, next.pooled) <= V.KEEP_DRIFT * p.floor + 1e-9, 'never far from his enrolled voice');
+      p = next;
+      moved++;
+    }
+  }
+  assert.ok(moved >= 1, `some of his turns refreshed it (${moved})`);
+  assert.ok(moved <= V.KEEP_PER_DAY, `at most ${V.KEEP_PER_DAY} a day (${moved})`);
+  assert.equal(p.kept.day, day);
+  // the next day counts afresh
+  const cap = later('A', 3, { seed: 300 }).profile;
+  if (V.distance(p.pooled, cap) <= V.KEEP_INSIDE * p.floor) assert.equal(V.keepUp(p, cap, '2026-11-15')?.kept.n, 1);
+  // another voice never refreshes it, and is still told apart after his refreshes
+  const b = later('B', 3).profile;
+  assert.equal(V.keepUp(p, b, day), null, 'another voice never refreshes his print');
+  const k = known(p, B);
+  assert.equal(V.judge(k, later('A', 4, { seed: 400 })).who.kind, 'owner', 'he is still him');
+  assert.equal(V.judge(k, later('B', 4, { seed: 401 })).who.kind, 'person', 'Sam is still Sam');
+  // a hurt print or a hurt capture refreshes nothing
+  assert.equal(V.keepUp({ ...A, pooled: [1, 2] }, cap, day), null);
+  assert.equal(V.keepUp(A, cap.map(() => Number.NaN), day), null);
+  // the phone only refreshes from a turn the features judged clearly his, and keeps it in its own store
+  const vk = code('assistant/voiceknown.ts');
+  assert.match(vk, /if \(heard\.label === 'owner' && r\.via === 'features' && v\.profile\) void keepUpMine\(v\.profile\);/);
+  assert.match(vk, /await saveMine\(next, me\.at\)/);
 });

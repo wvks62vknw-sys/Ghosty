@@ -21,6 +21,7 @@ import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/
 import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { learnedAsked, learnedFor, storedLearned } from '../../../../packages/shared/src/learned';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
+import { diyAsked } from '../features/workbench/diyjobs';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { moneyAsked } from '../features/money/words';
@@ -50,10 +51,10 @@ import { whatCanAsked } from './words';
 import { numberIn, roomNumberIn } from '../shell/rooms';
 import { houseAsked } from '../../../../packages/shared/src/house';
 import { convertAsked } from '../convert/asks';
-import { docsAsked } from '../docs/asks';
+import { commentsAsked, docsAsked, fillAsked, mergeAsked, outlineAsked, paperAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
-import { workspaceAsked } from '../workspace/asks';
+import { cardsAsked, formAsked, mindAsked, voiceNoteAsked, workspaceAsked } from '../workspace/asks';
 import { photoAsked } from '../photo/asks';
 import { videoAsked } from '../video/asks';
 import { gameAsked } from '../studio-game/asks';
@@ -206,7 +207,7 @@ export const LOCAL_ASKS = [
   { id: 'rainradar', test: (t: string) => RAIN_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
-  { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
+  { id: 'workbench', test: (t: string) => !!workbenchAsked(t) || !!diyAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
   { id: 'right', test: (t: string) => !!rightSaid(t) },
   { id: 'today', test: (t: string) => todayAsked(t) },
@@ -218,6 +219,24 @@ export const LOCAL_ASKS = [
   { id: 'coach', test: (t: string) => coachAsked(t)?.what === 'lessons' },
   // [reste] the converter on the phone, and its units and numbers answered here with no model (assistant/reste.ts, convert/)
   { id: 'convert', test: (t: string) => !!convertAsked(t) },
+  // [editors] a voice note into a tidy page (workspace/voicenote.ts): "take a voice note", "turn my voice note into a page"
+  { id: 'wsvoice', test: (t: string) => voiceNoteAsked(t) },
+  // [editors.s3] paper into an editable document, a receipt into a spreadsheet row (docs/asks.ts paperAsked; docs/paperui.ts)
+  { id: 'docspaper', test: (t: string) => !!paperAsked(t) },
+  // [editors.s12] fill in and sign a PDF form (docs/pdfformui.ts)
+  { id: 'docsfill', test: (t: string) => fillAsked(t) },
+  // [editors.s2] mail merge: one letter, a copy for every row of a spreadsheet (docs/mergeui.ts)
+  { id: 'docsmerge', test: (t: string) => mergeAsked(t) },
+  // [editors] flashcards from his own notes (workspace/cards.ts): "make flashcards from my notes"
+  { id: 'wscards', test: (t: string) => cardsAsked(t) },
+  // [editors.u1] comments on words in a document (docs/commentsui.ts)
+  { id: 'docscomments', test: (t: string) => commentsAsked(t) },
+  // [editors.u13] a document's outline: jump to a heading, move a whole section (docs/sections.ts)
+  { id: 'docsoutline', test: (t: string) => outlineAsked(t) },
+  // [editors] forms that fill a database (workspace/form.ts): "make a form", "a sign-up sheet"
+  { id: 'wsform', test: (t: string) => formAsked(t) },
+  // [editors] mind maps in the workspace (workspace/mind.ts): "make a mind map"
+  { id: 'wsmind', test: (t: string) => mindAsked(t) },
   { id: 'docs', test: (t: string) => !!docsAsked(t) },
   { id: 'sheets', test: (t: string) => !!sheetsAsked(t) },
   { id: 'slides', test: (t: string) => !!slidesAsked(t) },

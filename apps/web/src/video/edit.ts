@@ -135,8 +135,45 @@ export function copyGrade(p: Project, from: string): Project | null {
   const q = clone(p);
   for (const c of q.main) {
     c.grade = clone(src.grade);
+    // (the grade over time goes with it, from each clip's own start)
+    if (src.gradeKeys?.length) c.gradeKeys = clone(src.gradeKeys);
+    else delete c.gradeKeys;
     if (src.lut) c.lut = src.lut;
     else delete c.lut;
+  }
+  return q;
+}
+
+/**
+ * A PHOTO FILM (NEXT ROUND, editors.s5): his photos as clips cut on the music's beat, each held for whole beats (at least 1.8 s, about
+ * two seconds when the music has no beat I can find), drifting gently in and out (a slow zoom, the way a slideshow film moves), with the
+ * song under it from its first beat so every cut lands on one. A new project's main track and music; nothing else is touched. Pure.
+ */
+export const FILM_MIN_MS = 1800;
+export function photoFilm(p: Project, photos: Source[], song: Source | null, beat: { period: number; first: number } | null): Project {
+  const q = clone(p);
+  const period = beat && beat.period > 150 ? beat.period : 0;
+  const hold = period ? Math.max(1, Math.ceil(FILM_MIN_MS / period)) * period : 2000;
+  q.main = [];
+  for (const [i, s] of photos.entries()) {
+    q.sources[s.id] = s;
+    const c = newClip(s);
+    c.out = Math.round(hold * (i + 1)) - Math.round(hold * i);
+    c.fit = 'fill';
+    // a slow zoom, in on one photo and out on the next
+    c.tr.keys.scale = i % 2 ? [{ t: 0, v: 1.1, ease: true }, { t: c.out, v: 1 }] : [{ t: 0, v: 1, ease: true }, { t: c.out, v: 1.1 }];
+    q.main.push(c);
+  }
+  if (photos[0]) {
+    q.w = photos[0].w;
+    q.h = photos[0].h;
+  }
+  q.music = [];
+  if (song) {
+    q.sources[song.id] = song;
+    const total = q.main.reduce((n, c) => n + (c.out - c.in), 0);
+    const from = Math.max(0, Math.min(Math.round(beat?.first ?? 0), Math.max(0, song.dur - 1000)));
+    q.music.push({ id: uid(), src: song.id, start: 0, in: from, len: Math.max(1000, Math.min(total, song.dur - from)), gain: 0.8, fadeIn: 300, fadeOut: 1500 });
   }
   return q;
 }

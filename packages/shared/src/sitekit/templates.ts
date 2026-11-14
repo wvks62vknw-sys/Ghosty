@@ -565,6 +565,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
         description: '',
         sections: [
           S('hero-image', { eyebrow: [b.date, b.venue || b.town].filter(Boolean).join(' · ') || 'Save the date', title: pick(b, ['One night. *Be there.*', 'You will *want* to be there']), lead: b.about ? b.about.slice(0, 200) : 'Good people, great sounds and a night to remember.', primary: { label: 'Get tickets', href: b.bookingUrl || route('info') }, secondary: { label: 'What\'s on', href: route('info') }, image: s?.hero, facts: [...(b.date ? [{ icon: 'calendar', label: 'When', value: b.date }] : []), ...(b.venue || b.town ? [{ icon: 'pin', label: 'Where', value: [b.venue, b.town].filter(Boolean).join(', ') }] : []), ...(b.bookingUrl ? [{ icon: 'ticket', label: 'Tickets', value: 'On sale now' }] : [])] }),
+          ...(b.start ? [S('add-to-calendar', { title: 'Put it in *your calendar*' })] : []), // [sites] sites.s1
           S('features-grid', { eyebrow: 'What to expect', title: 'The *night*', items: [{ icon: 'music', title: 'Live music', text: 'Acts all evening on the main stage.' }, { icon: 'utensils', title: 'Food & drink', text: 'Street food and a proper bar.' }, { icon: 'users', title: 'Good company', text: 'Bring friends, make new ones.' }] }),
           ...(b.schedule?.length ? [S('event-schedule', { eyebrow: 'Running order', title: 'The *timings*', items: b.schedule }, 'alt')] : []),
           S('gallery-strip', { eyebrow: 'The feel', title: 'Nights *to remember*', images: b.photos?.length ? ownGallery(b, 6) : galleryOf(s, 6) }),
@@ -753,6 +754,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
         description: '',
         sections: [
           S('hero-centered', { eyebrow: [b.date, b.venue || b.town].filter(Boolean).join(' · ') || 'Save the date', title: b.name, lead: b.about ? b.about.slice(0, 220) : 'We would love you to be there. Everything you need — when, where and how to get there — is here.', primary: { label: 'RSVP', href: route('rsvp') }, secondary: { label: 'Get directions', href: directionsHref(b) } }),
+          ...(b.start ? [S('add-to-calendar', { title: 'Put it in *your calendar*' })] : []), // [sites] sites.s1
           ...(b.schedule?.length ? [S('event-schedule', { eyebrow: 'On the day', title: 'The *timings*', items: b.schedule }, 'alt')] : [S('process-steps', { eyebrow: 'On the day', title: 'How it *goes*', steps: [{ title: 'Arrive', text: 'Come a little early to find a spot and say hello.' }, { title: 'Celebrate', text: 'The main part of the day.' }, { title: 'Carry on', text: 'Food, drink and good company.' }] }, 'alt')]),
           S('map', { eyebrow: 'Getting there', title: 'Find *the place*', note: b.venue ? `Look for ${b.venue}.` : '' }),
           closing(b, 'Will you be there?', 'Let us know by sending your RSVP.'),
