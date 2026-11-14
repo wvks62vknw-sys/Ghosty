@@ -306,7 +306,7 @@ test('quiet household mode: a turn in a voice he introduced (or one the phone do
   assert.match(agent, /const ev = theirs \? null : /);
   // the phone: a private ask from another voice is answered there, and their turns are marked theirs and kept out of his recall
   const sess = code('assistant/session.ts');
-  assert.match(sess, /if \(who && who !== 'owner' && privateAsk\(t\)\) \{/);
+  assert.match(sess, /if \(who && who !== 'owner' && privateAsk\(t\) && !NOTE_ASK\.test\(t\.trim\(\)\)\) \{/, 'a note someone else asks to keep is the notes’ own question');
   assert.match(sess, /theirsNow = !!who && who !== 'owner';/);
   assert.match(code('features/memory/recall.ts'), /if \(e\.kind !== 'user' \|\| !e\.text\.trim\(\) \|\| e\.theirs\) continue;/);
   // never a lock: the phone guard opens nothing, it only keeps things back
