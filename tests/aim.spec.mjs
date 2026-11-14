@@ -135,12 +135,13 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   await page.screenshot({ path: `${out}/aim-west.png` });
 
   // facing east again, tap the marker: its card, with Wikipedia's lines
+  // (a tap is where he sees the view: an earlier click on a chip lower down scrolls the screen, so the view is brought back into sight first)
   await face(page, 270);
   await page.waitForTimeout(900);
   m = await marker(page, 'east');
-  const box = await page.locator('#pg-lens .lensview').boundingBox();
+  const box = (await page.locator('#pg-lens .lensview').scrollIntoViewIfNeeded(), await page.locator('#pg-lens .lensview').boundingBox());
   if (m && box) await page.mouse.click(box.x + m.x, box.y + m.y);
-  await until(page, () => !document.querySelector('#pg-lens .aimcard')?.hidden && /East Tower/.test(document.querySelector('#pg-lens .aimcard')?.textContent ?? ''), null, 8000, 'tapping the marker did not open its card');
+  await until(page, () => !document.querySelector('#pg-lens .aimcard')?.hidden && /East Tower/.test(document.querySelector('#pg-lens .aimcard')?.textContent ?? ''), null, 8000, `tapping the marker did not open its card: ${JSON.stringify(await page.evaluate(() => ({ selected: window.__ghosty.aim.selected, card: document.querySelector('#pg-lens .aimcard')?.hidden ? '(hidden)' : document.querySelector('#pg-lens .aimcard')?.textContent?.slice(0, 80), near: window.__ghosty.aim.markers.filter((x) => x.on).slice(0, 12).map((x) => [x.id, x.x, x.y]), top: (() => { const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect(); const m = window.__ghosty.aim.markers.find((x) => x.id === 'east'); const e = m && document.elementFromPoint(v.left + m.x, v.top + m.y); return `${e ? `${e.tagName}.${String(e.className).slice(0, 60)}` : 'none'} view ${Math.round(v.left)},${Math.round(v.top)} ${Math.round(v.width)}x${Math.round(v.height)} window ${innerWidth}x${innerHeight} scroll ${Math.round(scrollY)} pg ${Math.round(document.querySelector('#pg-lens').scrollTop)} doc ${document.documentElement.scrollHeight} scrolled ${(() => { const o = []; for (let e = document.querySelector('#pg-lens .lensview'); e; e = e.parentElement) if (e.scrollTop > 0) o.push(`${e.tagName}#${e.id}.${String(e.className).slice(0, 40)}=${Math.round(e.scrollTop)}`); return o.join(' | ') || 'none'; })()} focus ${document.activeElement?.tagName}.${String(document.activeElement?.className ?? '').slice(0, 40)}`; })() })))}`);
   await until(page, () => /made-up tower/.test(document.querySelector('#pg-lens .aimextract')?.textContent ?? ''), null, 8000, "the card has no Wikipedia lines");
 
   // WHAT'S THAT? asks the brain, the aimed thing riding along as `seen`
@@ -221,7 +222,7 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   // (the slider sits low and filling it scrolls the Lens up, the picture with it: bring the picture back first, as a thumb would)
   await page.locator('#pg-lens .lensview').evaluate((v) => v.scrollIntoView({ block: 'nearest' }));
   await page.waitForTimeout(300);
-  const box = await page.locator('#pg-lens .lensview').boundingBox();
+  const box = (await page.locator('#pg-lens .lensview').scrollIntoViewIfNeeded(), await page.locator('#pg-lens .lensview').boundingBox());
   const before = (await aim(page)).heading;
   await page.mouse.move(box.x + box.width * 0.7, box.y + box.height / 2);
   await page.mouse.down();
@@ -274,9 +275,9 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
     if (!(sky >= 3)) problems.push(`[sky] only ${sky} things in the sky are up on a clear November evening`);
     if (!(await marker(page, 'saturn'))) problems.push('[sky] Saturn, a few degrees below the Moon, has no marker');
     // its card: what it is, where to look and how high in words, and its phase
-    const box = await page.locator('#pg-lens .lensview').boundingBox();
+    const box = (await page.locator('#pg-lens .lensview').scrollIntoViewIfNeeded(), await page.locator('#pg-lens .lensview').boundingBox());
     await page.mouse.click(box.x + m.x, box.y + m.y);
-    const opened = await until(page, () => !document.querySelector('#pg-lens .aimcard')?.hidden && /Moon/.test(document.querySelector('#pg-lens .aimcard')?.textContent ?? ''), null, 8000, '[sky] tapping the Moon did not open its card');
+    const opened = await until(page, () => !document.querySelector('#pg-lens .aimcard')?.hidden && /Moon/.test(document.querySelector('#pg-lens .aimcard')?.textContent ?? ''), null, 8000, `[sky] tapping the Moon did not open its card: ${JSON.stringify(await page.evaluate(() => ({ selected: window.__ghosty.aim.selected, card: document.querySelector('#pg-lens .aimcard')?.hidden ? '(hidden)' : document.querySelector('#pg-lens .aimcard')?.textContent?.slice(0, 80) })))}`);
     if (opened) {
       const text = await page.locator('#pg-lens .aimcard').textContent();
       if (!/south-south-east|south-east/.test(text)) problems.push(`[sky] the Moon's card does not say which way to look: ${text}`);

@@ -1,0 +1,519 @@
+From 1e8cc2a20843e58bcfade07c747ccaa3cf69deab Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 14 Nov 2026 03:23:38 +0000
+Subject: [PATCH] ONELIST2, the brain's half: to-dos that ring at their time
+ through the brain's own reminder job (plan.u4), the merge, the cap and a late
+ offline tick put right, and his bin days read for the Agenda (plan.s10)
+
+A to-do with a day and a time gets one reminder job (marked todo:<id>), so it rings by Web Push with the phone locked; a tick or a
+removal cancels it, a new time or day moves it, a repeating one's job repeats with it. mergeTodos keeps the phone's star, day,
+repeat and time, keeps two same-words jobs on different days, never doubles; the 300 cap drops the oldest done first and refuses an
+add in his words only when all are open; a tick sent late uses the day it was made. The list as read carries the home pack's bin
+days (read only).
+
+---
+ apps/edge/src/schedule.ts    | 66 +++++++++++++++++++++++++
+ apps/edge/src/tools/work.ts  | 72 +++++++++++++++++++++-------
+ apps/edge/test/work.test.mjs | 93 ++++++++++++++++++++++++++++++++++++
+ packages/shared/src/work.ts  | 91 ++++++++++++++++++++++++++++++-----
+ 4 files changed, 294 insertions(+), 28 deletions(-)
+
+diff --git a/apps/edge/src/schedule.ts b/apps/edge/src/schedule.ts
+index 23481b2c..869041a3 100644
+--- a/apps/edge/src/schedule.ts
++++ b/apps/edge/src/schedule.ts
+@@ -217,6 +217,72 @@ export async function removeJob(storage: DurableObjectStorage, id: string): Prom
+   });
+ }
+ 
++/** [planlane3:onelist2] (plan.u4) The jobs that ring his to-dos are known by this mark on `eventId` (never an event's id). */
++export const TODO_RING = 'todo:';
++/**
++ * [planlane3:onelist2] (plan.u4) His to-dos that ring at their time: the reminder jobs follow the one list (tools/work.ts calls this
++ * after every change). One reminder job per open to-do with a day and a time, at that time on that day in his time zone; a repeating
++ * one's job repeats with it, so it rings each time it comes round. A tick or a removal takes the job away (the ring is cancelled), a
++ * new time or day moves it, new words re-word it. A one-off whose time has gone gets no job (it already rang, or it was set late).
++ * Nothing else on the clock is touched. Returns how many rings are now set.
++ */
++export async function syncTodoRings(
++  storage: DurableObjectStorage,
++  rings: readonly { id: string; due: string; time: string; every?: 'daily' | 'weekdays' | 'weekly' | 'monthly'; title: string; text: string }[],
++  tzIn: string,
++  now = Date.now(),
++): Promise<number> {
++  const tz = safeTz(tzIn);
++  const want = new Map<string, { next: number; repeat: Repeat; title: string; text: string }>();
++  for (const r of rings) {
++    const [y, m, d] = r.due.split('-').map(Number);
++    const [h, mi] = r.time.split(':').map(Number);
++    if (![y, m, d, h, mi].every((n) => Number.isFinite(n))) continue;
++    let next = fromZoned(y!, m!, d!, h!, mi!, tz);
++    const repeat: Repeat = r.every ?? 'none';
++    // (a time already reached has rung, or was set too late: a one-off gets no job, a repeating one its next time; never a ring twice)
++    if (next <= now) {
++      if (repeat === 'none') continue;
++      next = nextRun(next, repeat, tz, now) ?? next;
++    }
++    if (repeat === 'weekdays') {
++      const z = zoned(next, tz);
++      if (z.wd === 0 || z.wd === 6) next = fromZoned(z.y, z.m, z.d + (z.wd === 6 ? 2 : 1), z.h, z.mi, tz);
++    }
++    want.set(`${TODO_RING}${r.id}`, { next, repeat, title: r.title.slice(0, 120), text: r.text.slice(0, 4000) });
++  }
++  return withJobs(storage, async () => {
++    const jobs = await loadJobs(storage);
++    let changed = false;
++    const kept: Job[] = [];
++    const had = new Set<string>();
++    for (const j of jobs) {
++      if (!j.eventId?.startsWith(TODO_RING)) {
++        kept.push(j);
++        continue;
++      }
++      const w = want.get(j.eventId);
++      if (!w || had.has(j.eventId)) {
++        changed = true;
++        continue;
++      }
++      had.add(j.eventId);
++      if (j.next !== w.next || j.repeat !== w.repeat || j.title !== w.title || j.text !== w.text || j.tz !== tz) {
++        Object.assign(j, { next: w.next, repeat: w.repeat, title: w.title, text: w.text, tz });
++        changed = true;
++      }
++      kept.push(j);
++    }
++    for (const [eventId, w] of want) {
++      if (had.has(eventId) || kept.length >= MAX_JOBS) continue;
++      kept.push({ id: newId(), kind: 'reminder', title: w.title, text: w.text, next: w.next, repeat: w.repeat, tz, createdAt: now, eventId });
++      changed = true;
++    }
++    if (changed) await saveJobs(storage, kept);
++    return kept.filter((j) => j.eventId?.startsWith(TODO_RING)).length;
++  });
++}
++
+ /** After a job ran: move a repeating job to its next time, or delete a one-off. */
+ export async function finishJob(storage: DurableObjectStorage, id: string, result?: string): Promise<void> {
+   return withJobs(storage, async () => {
+diff --git a/apps/edge/src/tools/work.ts b/apps/edge/src/tools/work.ts
+index 7a1fbc37..2898ad19 100644
+--- a/apps/edge/src/tools/work.ts
++++ b/apps/edge/src/tools/work.ts
+@@ -23,6 +23,10 @@ import {
+   keysOf,
+   mailtoOf,
+   mergeTodos,
++  capTodos,
++  timeOk,
++  todoRings,
++  TODO_FULL,
+   MAX_TEXT,
+   meetingNotes,
+   meetingWords,
+@@ -57,7 +61,8 @@ import {
+   type TodoEvery,
+ } from '../../../../packages/shared/src/work';
+ import { card } from '../../../../packages/shared/src/cards';
+-import { loadJobs } from '../schedule';
++import { loadJobs, syncTodoRings } from '../schedule';
++import { binDays, emptyBins, type BinBook } from '../../../../packages/shared/src/homeadmin';
+ import { zoned } from '../time';
+ import { load, packTool, save, todayOf, wordsOf, type ActionFn, type PackDeps } from '../packs/base';
+ import { loadMemory } from './memory';
+@@ -177,22 +182,43 @@ const meeting: ActionFn = async (a, d) => {
+  * changes made with no signal): add (idempotent by id), tick and untick (a repeating one makes its next), edit words/day/star/repeat,
+  * remove, clear the done ones, merge another copy in (no duplicates, nothing lost). The words-based path below stays for the chat. */
+ const TODO_OPS = ['list', 'add', 'tick', 'untick', 'edit', 'remove', 'clear_done', 'merge'] as const;
++/** [planlane3:onelist2] The list kept, and its rings set to match (plan.u4: the brain's own reminder jobs, by Web Push); a ring that
++ * cannot be set never loses the list. */
++async function keepTodos(d: PackDeps, list: Todo[]): Promise<void> {
++  await save(d, WORK_KEYS.todo, list);
++  await syncTodoRings(d.storage, todoRings(list), d.tz, d.now()).catch(() => 0);
++}
++/** [planlane3:onelist2] (plan.s10) His bin days for the next six weeks, read (never changed) from the home pack's bin book, so the
++ * Agenda's month and timeline show them beside his events. */
++async function binsAhead(d: PackDeps, today: string): Promise<{ day: string; name: string }[]> {
++  const book = await load<BinBook>(d, 'home:bins', emptyBins()).catch(() => emptyBins());
++  if (!book?.bins?.length) return [];
++  const end = addDays(today, 42);
++  return book.bins
++    .flatMap((b) => binDays(b, book, today, 8).filter((x) => x >= today && x <= end).map((day) => ({ day, name: b.name })))
++    .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
++}
+ async function todoOp(op: string, a: Record<string, unknown>, d: PackDeps, list: Todo[], today: string) {
+   const now = d.now();
+   const id = arg.str(a, 'id', false);
+   const kept = async (l: Todo[], text: string, extra: Record<string, unknown> = {}) => {
+-    const out = l.slice(-TODO_MAX);
+-    await save(d, WORK_KEYS.todo, out);
++    const out = capTodos(l) ?? l.slice(-TODO_MAX);
++    await keepTodos(d, out);
+     return { text, data: { list: todoOrder(out), ...extra }, cards: out.some((x) => !x.done) ? [todoCard(out, today, now)] : [] };
+   };
+-  const same = (text: string) => ({ text, data: { list: todoOrder(list) } });
+-  if (op === 'list') return same(todoWords(list, today));
++  const same = (text: string, extra: Record<string, unknown> = {}) => ({ text, data: { list: todoOrder(list), ...extra } });
++  if (op === 'list') {
++    // (the rings follow the list as it is read too: a to-do kept before rings were set, or a ring moved by a new time zone)
++    await syncTodoRings(d.storage, todoRings(list), d.tz, now).catch(() => 0);
++    return same(todoWords(list, today), { bins: await binsAhead(d, today) });
++  }
+   if (op === 'add') {
+     const t = todoFrom(a.item ?? a, now);
+     if (!t) return same('A to-do needs its words.');
+     const had = list.find((y) => y.id === t.id);
+     if (had) return same(`Already on your list: ${had.text}.`);
+-    return kept([...list, t], `Added: ${t.text}.`, { hit: t });
++    if (!capTodos([...list, t])) return same(TODO_FULL, { full: true });
++    return kept([...list, t], `Added: ${t.text}.${t.time && t.due ? ` It rings at ${t.time} on ${prettyDay(t.due, today.slice(0, 4))}.` : ''}`, { hit: t });
+   }
+   if (op === 'merge') {
+     const m = mergeTodos(list, Array.isArray(a.items) ? a.items : [], now);
+@@ -206,7 +232,10 @@ async function todoOp(op: string, a: Record<string, unknown>, d: PackDeps, list:
+   // (gone already: a change made on another screen, or one sent twice from the outbox; said, never an error)
+   if (!x) return same('That one is not on your list any more.');
+   if (op === 'tick' || op === 'untick') {
+-    const r = tickTodoIn(list, id, today, now, op === 'tick', arg.str(a, 'nextId', false));
++    // a tick made with no signal and sent after midnight counts on the day it was made: its next one is due from that day
++    const day = /^\d{4}-\d{2}-\d{2}$/.test(arg.str(a, 'day', false)) ? arg.str(a, 'day', false) : today;
++    const at = typeof a.at === 'number' && Number.isFinite(a.at) && a.at <= now + 60_000 ? a.at : now;
++    const r = tickTodoIn(list, id, day, at, op === 'tick', arg.str(a, 'nextId', false));
+     return kept(r!.list, `${op === 'tick' ? 'Ticked off' : 'Back on the list'}: ${x.text}.`, { hit: r!.t, next: r!.next });
+   }
+   if (op === 'remove') return kept(list.filter((y) => y.id !== id), `Removed: ${x.text}.`, { hit: x });
+@@ -224,6 +253,12 @@ async function todoOp(op: string, a: Record<string, unknown>, d: PackDeps, list:
+       if ((TODO_EVERY as readonly string[]).includes(a.every)) x.every = a.every as TodoEvery;
+       else delete x.every;
+     }
++    // [planlane3:onelist2] its ring time: a new one moves the ring, '' takes it off
++    if (typeof a.time === 'string') {
++      const tm = timeOk(a.time);
++      if (tm) x.time = tm;
++      else delete x.time;
++    }
+     return kept(list, `Changed: ${x.text}.`, { hit: x });
+   }
+   return same(`I don’t know how to “${op}” a to-do.`);
+@@ -248,11 +283,11 @@ const todo: ActionFn = async (a, d) => {
+   if (/^clear\s+(?:the\s+)?(?:done|ticked|finished|completed)\b/i.test(words)) {
+     const n = list.filter((t) => t.done).length;
+     list = list.filter((t) => !t.done);
+-    await save(d, WORK_KEYS.todo, list);
++    await keepTodos(d, list);
+     return shown(`Cleared ${n} done item${n === 1 ? '' : 's'}. ${todoWords(list, today)}`);
+   }
+   if (/^clear\s+(?:my |the |all )?(?:to-?do|list|everything)\b/i.test(words)) {
+-    await save(d, WORK_KEYS.todo, []);
++    await keepTodos(d, []);
+     list = [];
+     return shown('Your to-do list is cleared.');
+   }
+@@ -260,7 +295,7 @@ const todo: ActionFn = async (a, d) => {
+     const t = pick(untick[1]!, true);
+     if (!t) return shown(`I couldn’t find “${untick[1]}” among the ticked ones.`);
+     list = tickTodoIn(list, t.id, today, d.now(), false)!.list;
+-    await save(d, WORK_KEYS.todo, list);
++    await keepTodos(d, list);
+     return shown(`Back on the list: ${t.text}.`);
+   }
+   if (tick) {
+@@ -269,24 +304,27 @@ const todo: ActionFn = async (a, d) => {
+     // (a repeating one makes its next, as a tick on the Agenda does)
+     const r = tickTodoIn(list, t.id, today, d.now(), true)!;
+     list = r.list;
+-    await save(d, WORK_KEYS.todo, list);
++    await keepTodos(d, list);
+     return shown(`Ticked off: ${t.text}.${r.next ? ` It repeats: the next one is due ${prettyDay(r.next.due!, today.slice(0, 4))}.` : ''} ${todoWords(list, today)}`);
+   }
+   if (drop && !/\bto-?do\b/i.test(drop[1]!)) {
+     const t = pick(drop[1]!);
+     if (!t) return shown(`I couldn’t find “${drop[1]}” on your list.`);
+     list = list.filter((x) => x.id !== t.id);
+-    await save(d, WORK_KEYS.todo, list);
++    await keepTodos(d, list);
+     return shown(`Removed: ${t.text}.`);
+   }
+   const body = text || words.replace(/^(?:add|put|note|jot down|make a list(?: of)?|to-?do)\s*(?:to my (?:to-?do|list))?\s*[:\-–]?\s*/i, '');
+   if (!body || /^(?:what['’]?s|show|list|open|my|what do i)\b/i.test(words) || (!text && body.length < 3)) return shown(todoWords(list, today));
+-  const found = todosFrom(body, today, d.now());
++  const z = zoned(d.now(), d.tz);
++  const found = todosFrom(body, today, d.now(), `${String(z.h).padStart(2, '0')}:${String(z.mi).padStart(2, '0')}`);
+   if (!found.length) return shown('I couldn’t find a job in that. Say what needs doing, like "send the invoice by Friday, book the van".');
+-  const fresh = found.filter((f) => !list.some((x) => !x.done && x.text.toLowerCase() === f.text.toLowerCase()));
+-  list = [...list, ...fresh].slice(-TODO_MAX);
+-  await save(d, WORK_KEYS.todo, list);
+-  return shown(`Added ${fresh.length} to your list:\n${fresh.map((t) => `- ${t.text}${t.due ? ` (${prettyDay(t.due, today.slice(0, 4))})` : ''}${t.high ? ' [urgent]' : ''}`).join('\n')}\nSay "tick the invoice" when it’s done.`);
++  const fresh = found.filter((f) => !list.some((x) => !x.done && x.text.toLowerCase() === f.text.toLowerCase() && (!x.due || !f.due || x.due === f.due)));
++  const capped = capTodos([...list, ...fresh]);
++  if (!capped) return shown(TODO_FULL);
++  list = capped;
++  await keepTodos(d, list);
++  return shown(`Added ${fresh.length} to your list:\n${fresh.map((t) => `- ${t.text}${t.due ? ` (${prettyDay(t.due, today.slice(0, 4))})` : ''}${t.time ? `, rings at ${t.time}` : ''}${t.high ? ' [urgent]' : ''}`).join('\n')}\nSay "tick the invoice" when it’s done.`);
+ };
+ 
+ const email: ActionFn = async (a, d) => {
+diff --git a/apps/edge/test/work.test.mjs b/apps/edge/test/work.test.mjs
+index 1d46b4e5..0714adb0 100644
+--- a/apps/edge/test/work.test.mjs
++++ b/apps/edge/test/work.test.mjs
+@@ -502,3 +502,96 @@ test('the phone’s buttons: POST /packs/do runs one work action with no model (
+   assert.match(r.text, /^Length: 20 seconds, 24 words:/);
+   assert.equal((await call({ pack: 'work', action: 'spy' })).status, 400);
+ });
++
++// [planlane3:onelist2] (plan.u4, plan.s10 and the one list's open ends)
++test('todo (ONELIST2): a to-do with a time rings through the brain’s own reminder job; a tick or a removal cancels it, a new time moves it, a repeating one rings each time', async () => {
++  const storage = new Mem();
++  const rings = async () => (await J.loadJobs(storage)).filter((j) => j.eventId?.startsWith('todo:'));
++  // NOW is Sun 1 Nov 2026, 12:00 in London (GMT)
++  let r = await run(storage, 'todo', { op: 'add', item: { id: 'tbank', text: 'Call the bank', due: '2026-11-01', time: '15:00' } });
++  assert.equal(r.text, 'Added: Call the bank. It rings at 15:00 on Sun 1 Nov.');
++  let j = await rings();
++  assert.equal(j.length, 1);
++  assert.deepEqual([j[0].kind, j[0].eventId, j[0].next, j[0].repeat, j[0].title], ['reminder', 'todo:tbank', Date.UTC(2026, 10, 1, 15, 0), 'none', 'To-do: Call the bank']);
++  assert.match(j[0].text, /^Call the bank: it is 15:00\. Tick it off/);
++  // a new time moves it (the same job), new words re-word it
++  await run(storage, 'todo', { op: 'edit', id: 'tbank', time: '16:30', text: 'Call the bank about the card' });
++  j = await rings();
++  assert.equal(j.length, 1);
++  assert.equal(j[0].next, Date.UTC(2026, 10, 1, 16, 30));
++  assert.equal(j[0].title, 'To-do: Call the bank about the card');
++  // ticked: the ring is cancelled; ticked back on: it rings again; removed: gone
++  await run(storage, 'todo', { op: 'tick', id: 'tbank' });
++  assert.equal((await rings()).length, 0);
++  await run(storage, 'todo', { op: 'untick', id: 'tbank' });
++  assert.equal((await rings()).length, 1);
++  await run(storage, 'todo', { op: 'edit', id: 'tbank', time: '' });
++  assert.equal((await rings()).length, 0, 'the time taken off: no ring');
++  await run(storage, 'todo', { op: 'edit', id: 'tbank', time: '17:00' });
++  await run(storage, 'todo', { op: 'remove', id: 'tbank' });
++  assert.equal((await rings()).length, 0);
++  // a one-off whose time has gone gets no ring (it rang, or was set late)
++  await run(storage, 'todo', { op: 'add', item: { id: 'tlate', text: 'Feed the cat', due: '2026-11-01', time: '09:00' } });
++  assert.equal((await rings()).length, 0);
++  // a repeating one rings each time it comes round: today's 09:00 has gone, so tomorrow's, repeating daily
++  await run(storage, 'todo', { op: 'add', item: { id: 'tpills', text: 'Take the pills', due: '2026-11-01', time: '09:00', every: 'daily' } });
++  j = await rings();
++  assert.deepEqual(j.map((x) => [x.eventId, x.next, x.repeat]), [['todo:tpills', Date.UTC(2026, 10, 2, 9, 0), 'daily']]);
++  // ticked, its next one (with the time) takes the ring
++  r = await run(storage, 'todo', { op: 'tick', id: 'tpills', nextId: 'tpills2' });
++  assert.equal(r.data.next.time, '09:00');
++  j = await rings();
++  assert.deepEqual(j.map((x) => x.eventId), ['todo:tpills2']);
++  // the other jobs on the clock are never touched
++  await J.addJob(storage, { kind: 'reminder', title: 'Dentist', text: 'Dentist at 4', next: Date.UTC(2026, 10, 3, 16, 0), tz: 'Europe/London' }, NOW);
++  await run(storage, 'todo', { op: 'clear_done' });
++  assert.equal((await J.loadJobs(storage)).filter((x) => x.title === 'Dentist').length, 1);
++  // the words path: "call the plumber at 3" rings at 15:00 today (the time is still ahead)
++  r = await run(storage, 'todo', { words: 'add to my to-do: call the plumber at 3' });
++  assert.match(r.text, /^Added 1 to your list:\n- Call the plumber \(Sun 1 Nov\), rings at 15:00/);
++  assert.ok((await rings()).some((x) => x.title === 'To-do: Call the plumber' && x.next === Date.UTC(2026, 10, 1, 15, 0)));
++  // at 11 (the morning) is past at noon: tomorrow
++  assert.deepEqual(W.todosFrom('ring mum at 11am', '2026-11-01', NOW, '12:00').map((t) => [t.text, t.due, t.time]), [['Ring mum', '2026-11-02', '11:00']]);
++  assert.deepEqual(['at 3', 'at 3pm', 'at 15:30', 'at half 4', 'at noon', 'at 8', 'at quarter to 6', 'at 10.15am'].map((w) => W.splitTime(`call the bank ${w}`).time), ['15:00', '15:00', '15:30', '16:30', '12:00', '08:00', '17:45', '10:15']);
++  assert.deepEqual(W.splitTime('meet at the cafe'), { text: 'meet at the cafe', time: '' });
++});
++
++test('todo (ONELIST2): the merge keeps the phone’s star, day, repeat and time; two of the same words on different days stay two; nothing doubled; the cap drops the oldest done first and refuses only when all are open; a late offline tick uses its own day', async () => {
++  const m = W.mergeTodos([{ id: 'b1', text: 'Gym', due: '2026-11-02', at: 1 }, { id: 'b2', text: 'Send the invoice', at: 1 }], [
++    { id: 'p1', text: 'Gym', due: '2026-11-04' },
++    { id: 'p2', text: 'send the invoice', due: '2026-11-06', star: true, every: 'weekly', time: '10:00' },
++    { id: 'p3', text: 'Buy milk' }, { id: 'p3', text: 'Buy milk' }, { id: 'p4', text: 'buy MILK' },
++  ], 5);
++  assert.deepEqual(m.list.map((t) => [t.id, t.text, t.due ?? '', !!t.high, t.every ?? '', t.time ?? '']), [
++    ['b1', 'Gym', '2026-11-02', false, '', ''], ['b2', 'Send the invoice', '2026-11-06', true, 'weekly', '10:00'], ['p1', 'Gym', '2026-11-04', false, '', ''], ['p3', 'Buy milk', '', false, '', ''],
++  ]);
++  assert.equal(m.added.length, 2);
++  const many = Array.from({ length: 300 }, (_, i) => ({ id: `o${i}`, text: `Job ${i}`, at: i, ...(i < 3 ? { done: true, doneAt: 100 - i } : {}) }));
++  const capped = W.capTodos([...many, { id: 'new', text: 'One more', at: 999 }]);
++  assert.equal(capped.length, 300);
++  assert.ok(!capped.some((t) => t.id === 'o2') && capped.some((t) => t.id === 'o0'), 'the oldest ticked one goes first');
++  assert.equal(W.capTodos([...many.map((t) => ({ ...t, done: false })), { id: 'new', text: 'One more', at: 999 }]), null);
++  const storage = new Mem();
++  await storage.put('work:todo', many.map((t) => ({ id: t.id, text: t.text, at: t.at })));
++  const full = await run(storage, 'todo', { op: 'add', item: { id: 'x', text: 'One more' } });
++  assert.equal(full.text, 'Your list is full: 300 open to-dos. Tick off or remove one, then add this again.');
++  assert.equal((await storage.get('work:todo')).length, 300);
++  // a tick made at 23:50 on the 1st with no signal, sent at 00:10 on the 2nd: the next one is due from the 1st (the 2nd), not the 3rd
++  const s2 = new Mem();
++  await run(s2, 'todo', { op: 'add', item: { id: 'tw', text: 'Water the plants', due: '2026-11-01', every: 'daily' } });
++  const after = Date.UTC(2026, 10, 2, 0, 10);
++  const r = await run(s2, 'todo', { op: 'tick', id: 'tw', nextId: 'tw2', day: '2026-11-01', at: Date.UTC(2026, 10, 1, 23, 50) }, after);
++  assert.equal(r.data.next.due, '2026-11-02');
++  assert.equal(r.data.hit.doneAt, Date.UTC(2026, 10, 1, 23, 50));
++});
++
++test('todo (ONELIST2, plan.s10): the list as read carries his bin days from the home pack (read, never changed)', async () => {
++  const storage = new Mem();
++  let r = await run(storage, 'todo', { op: 'list' });
++  assert.deepEqual(r.data.bins, []);
++  await storage.put('home:bins', { bins: [{ id: 'b', name: 'General waste', weekday: 2, every: 1 }], moves: [], slip: false });
++  r = await run(storage, 'todo', { op: 'list' });
++  assert.deepEqual(r.data.bins.slice(0, 2), [{ day: '2026-11-03', name: 'General waste' }, { day: '2026-11-10', name: 'General waste' }]);
++  assert.ok(r.data.bins.every((b) => b.day >= '2026-11-01' && b.day <= '2026-12-13'));
++  assert.deepEqual((await storage.get('home:bins')).bins.length, 1);
++});
+diff --git a/packages/shared/src/work.ts b/packages/shared/src/work.ts
+index 9b760757..00824390 100644
+--- a/packages/shared/src/work.ts
++++ b/packages/shared/src/work.ts
+@@ -413,6 +413,9 @@ export interface Todo {
+   every?: TodoEvery;
+   doneAt?: number;
+   nextId?: string;
++  /** [planlane3:onelist2] (plan.u4) the time it rings on its day, "15:00" (his local time): the brain's own reminder job rings it
++   * by Web Push, so it rings with the phone locked; ticking or removing it cancels the ring, a new time moves it */
++  time?: string;
+ }
+ export type TodoEvery = 'daily' | 'weekdays' | 'weekly' | 'monthly';
+ export const TODO_EVERY: readonly TodoEvery[] = ['daily', 'weekdays', 'weekly', 'monthly'];
+@@ -438,6 +441,11 @@ export function nextTodoDue(due: string, every: TodoEvery, today: string): strin
+ const everyOf = (v: unknown): TodoEvery | undefined => (TODO_EVERY as readonly unknown[]).includes(v) ? (v as TodoEvery) : undefined;
+ const dayOk = (v: unknown): string => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+ const idOk = (v: unknown): string => (typeof v === 'string' && /^[\w-]{1,40}$/.test(v) ? v : '');
++/** A to-do's ring time as the list keeps it ("15:00"), or '' for none. */
++export const timeOk = (v: unknown): string => {
++  const m = typeof v === 'string' ? /^(\d{1,2}):(\d{2})$/.exec(v.trim()) : null;
++  return m && Number(m[1]) < 24 && Number(m[2]) < 60 ? `${pad(Number(m[1]))}:${m[2]}` : '';
++};
+ /** One to-do as the list keeps it, from whatever was sent (the phone's own shape too: star is high), or null when it has no words. */
+ export function todoFrom(x: unknown, now: number): Todo | null {
+   if (!x || typeof x !== 'object') return null;
+@@ -448,7 +456,8 @@ export function todoFrom(x: unknown, now: number): Todo | null {
+   const every = everyOf(o.every);
+   const at = typeof o.at === 'number' && Number.isFinite(o.at) ? o.at : now;
+   const doneAt = typeof o.doneAt === 'number' && Number.isFinite(o.doneAt) ? o.doneAt : undefined;
+-  return { id: idOk(o.id) || shortId(), text, ...(due ? { due } : {}), ...(o.high || o.star ? { high: true } : {}), ...(o.done ? { done: true, ...(doneAt ? { doneAt } : {}) } : {}), at, ...(every ? { every } : {}) };
++  const time = timeOk(o.time);
++  return { id: idOk(o.id) || shortId(), text, ...(due ? { due } : {}), ...(o.high || o.star ? { high: true } : {}), ...(o.done ? { done: true, ...(doneAt ? { doneAt } : {}) } : {}), at, ...(every ? { every } : {}), ...(time ? { time } : {}) };
+ }
+ /** Tick one off (or back on). A repeating one ticked off makes its next one; ticked back on, that next one goes again (while it
+  * is still open and unchanged). */
+@@ -463,7 +472,7 @@ export function tickTodoIn(list: Todo[], id: string, today: string, now: number,
+     x.done = true;
+     x.doneAt = now;
+     if (x.every) {
+-      next = { id: nextId && /^[\w-]{1,40}$/.test(nextId) && !list.some((y) => y.id === nextId) ? nextId : shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}) };
++      next = { id: nextId && /^[\w-]{1,40}$/.test(nextId) && !list.some((y) => y.id === nextId) ? nextId : shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}), ...(x.time ? { time: x.time } : {}) };
+       out = [...list, next];
+       x.nextId = next.id;
+     }
+@@ -478,23 +487,79 @@ export function tickTodoIn(list: Todo[], id: string, today: string, now: number,
+   }
+   return { list: out, t: x, next };
+ }
+-/** Merge another copy of the list in (the phone's old list, once): kept by id, and an open one with the same words as an open one
+- * already here is the same job. Nothing is lost; nothing is doubled. */
++/** Merge another copy of the list in (the phone's old list once, or a CLEAR DONE put back): kept by id; an open one with the same
++ * words AND the same day (or no day on one side) as an open one already here is the same job, and the phone's star, day, repeat and
++ * ring time fill in what this one lacks. Two with the same words on different days are two jobs ("Gym" Monday and Wednesday); one
++ * already merged (an offline add sent again) is never doubled. Nothing is lost; nothing is doubled. */
+ export function mergeTodos(list: Todo[], items: unknown[], now: number): { list: Todo[]; added: Todo[] } {
+-  const out = [...list];
++  const out = list.map((t) => ({ ...t }));
+   const added: Todo[] = [];
++  const key = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+   for (const raw of items.slice(0, TODO_MAX)) {
+     const t = todoFrom(raw, now);
+-    if (!t || out.some((y) => y.id === t.id || (!y.done && !t.done && y.text.toLowerCase() === t.text.toLowerCase()))) continue;
++    if (!t || out.some((y) => y.id === t.id)) continue;
++    const same = !t.done ? out.find((y) => !y.done && key(y.text) === key(t.text) && (!y.due || !t.due || y.due === t.due)) : undefined;
++    if (same) {
++      if (t.high) same.high = true;
++      if (!same.due && t.due) same.due = t.due;
++      if (!same.every && t.every) same.every = t.every;
++      if (!same.time && t.time) same.time = t.time;
++      continue;
++    }
+     out.push(t);
+     added.push(t);
+   }
+-  return { list: out.slice(-TODO_MAX), added };
+-}
++  return { list: capTodos(out) ?? out.slice(-TODO_MAX), added };
++}
++/** The 300 cap: over it, the oldest done ones go first (by when they were ticked); null when every one left is open and it is still
++ * over (an add is then refused in his words, never one of his open jobs dropped). */
++export function capTodos(list: Todo[], max = TODO_MAX): Todo[] | null {
++  if (list.length <= max) return list;
++  const over = list.length - max;
++  const done = list.filter((t) => t.done).sort((a, b) => (a.doneAt ?? a.at) - (b.doneAt ?? b.at));
++  if (done.length < over) return null;
++  const drop = new Set(done.slice(0, over));
++  return list.filter((t) => !drop.has(t));
++}
++/** Said when the list is full of open jobs and one more cannot go on. */
++export const TODO_FULL = `Your list is full: ${TODO_MAX} open to-dos. Tick off or remove one, then add this again.`;
++
++/** A ring time said in words ("at 3", "at 3pm", "at 15:30", "at half 4", "at noon") at the end of a to-do: the time and the words
++ * without it. A bare hour from 1 to 7 is the afternoon ("call the bank at 3" is 15:00); 8 to 11 the morning. */
++export function splitTime(text: string): { text: string; time: string } {
++  const m = /\s*,?\s+(?:at|@)\s+(noon|midday|half (?:past )?\d{1,2}|\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?|quarter (?:past|to) \d{1,2})(?=\s|$|[,.!])/i.exec(text);
++  if (!m) return { text, time: '' };
++  const w = m[1]!.toLowerCase();
++  let h = -1;
++  let mi = 0;
++  if (w === 'noon' || w === 'midday') h = 12;
++  else {
++    const half = /^half (?:past )?(\d{1,2})$/.exec(w);
++    const q = /^quarter (past|to) (\d{1,2})$/.exec(w);
++    const n = /^(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?$/.exec(w);
++    const ampm = (hh: number, s?: string) => (s ? (s.startsWith('p') ? (hh % 12) + 12 : hh % 12) : hh >= 1 && hh <= 7 ? hh + 12 : hh);
++    if (half) (h = ampm(Number(half[1]))), (mi = 30);
++    else if (q) (h = ampm(Number(q[2])) - (q[1] === 'to' ? 1 : 0)), (mi = q[1] === 'to' ? 45 : 15);
++    else if (n) (h = ampm(Number(n[1]), n[3]?.replace(/\./g, ''))), (mi = Number(n[2] ?? 0));
++  }
++  if (h < 0 || h > 23 || mi > 59) return { text, time: '' };
++  const rest = (text.slice(0, m.index) + text.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
++  return rest ? { text: rest, time: `${pad(h)}:${pad(mi)}` } : { text, time: '' };
++}
++/** The day a to-do with a time and no day rings: today while the time is still ahead, else tomorrow (a reminder app's "at 3"). */
++export const ringDay = (time: string, today: string, hm: string): string => (hm < time ? today : addDays(today, 1));
++/** What the brain's reminder job says when a to-do rings: its words name the to-do. */
++export const ringWords = (t: Pick<Todo, 'text' | 'time' | 'every'>): { title: string; text: string } => ({
++  title: `To-do: ${t.text}`.slice(0, 120),
++  text: `${t.text}: it is ${t.time}.${t.every ? ' It repeats; tick it off and the next one rings on its day.' : ' Tick it off on your to-do list when it’s done.'}`,
++});
++/** The rings the list wants: every open to-do with a day and a time (the brain's reminder jobs follow this, schedule.ts). */
++export const todoRings = (list: Todo[]): { id: string; due: string; time: string; every?: TodoEvery; title: string; text: string }[] =>
++  list.filter((t) => !t.done && t.due && t.time).map((t) => ({ id: t.id, due: t.due!, time: t.time!, ...(t.every ? { every: t.every } : {}), ...ringWords(t) }));
+ const LEAD = /^(?:(?:i|we)\s+(?:also\s+)?(?:need|have|want|must|should|ought)\s+to|need to|have to|got to|gotta|must|should|remember to|don'?t forget to|do not forget to|please|also|and|then|first(?:ly)?|next|finally|todo\s*:?|to-?do\s*:?)\s+/i;
+ const AND_JOB = /\s+and\s+(?=(?:ring|call|phone|text|email|message|send|buy|get|pick|book|pay|order|check|fix|write|clean|tidy|collect|return|cancel|renew|post|print|sort|find|make|take|ask|tell|remind|look|arrange|organise|organize|prepare|finish|start|update|submit|fill|sign|apply|wash|cook|water|feed|walk|charge|change|empty|put|drop|visit|meet|plan|reply|respond|chase|clear|cut|paint|measure|pack|hoover|vacuum|iron|drive|wrap|bring|confirm|speak|talk)\b)/i;
+ /** The jobs in a long message: one to a line, bullet or sentence; the cue words off the front; a deadline and an urgency picked out. */
+-export function todosFrom(raw: string, today: string, now: number): Todo[] {
++export function todosFrom(raw: string, today: string, now: number, hm = ''): Todo[] {
+   const chunks = raw.replace(/\r/g, '').slice(0, MAX_TEXT).split(/\n+|(?<=[.!?;])\s+|\s+(?:and then|then|after that)\s+|,\s+(?=(?:and\s+)?(?:remember to|don'?t forget|also|then)\b)/i).map((c) => clean(c.replace(/^[\s•·*▪●–—-]+|^\d+[.)]\s+/g, '')));
+   const out: Todo[] = [];
+   for (const c of chunks) {
+@@ -502,6 +567,9 @@ export function todosFrom(raw: string, today: string, now: number): Todo[] {
+     let t = c.replace(/^(?:(?:right|ok|okay|so|well|anyway|hi|hey|hello|ah)[,.!]?\s+)+/i, '');
+     for (let i = 0; i < 3 && LEAD.test(t); i++) t = t.replace(LEAD, '');
+     t = t.replace(/[.!]+$/, '');
++    // [planlane3:onelist2] "call the bank at 3": the time it rings
++    const tm = splitTime(t);
++    t = tm.text;
+     if (t.length < 3 || !/[a-z]/i.test(t)) continue;
+     const high = /\b(urgent(?:ly)?|asap|important|immediately|right away)\b/i.test(t);
+     const dm = /\b(?:by|before|on|for|until)\s+((?:next\s+)?(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat|sun)[a-z]*|tomorrow|today|tonight|\d{4}-\d{2}-\d{2}|\d{1,2}(?:st|nd|rd|th)?(?:\s+of)?\s+[A-Za-z]{3,9}|[A-Za-z]{3,9}\s+\d{1,2}(?:st|nd|rd|th)?)\b/i.exec(t);
+@@ -510,7 +578,8 @@ export function todosFrom(raw: string, today: string, now: number): Todo[] {
+     // "ring the plumber and send the invoice by Friday": two jobs when both halves begin with a doing word; the day and the urgency go with both
+     for (const part of text.split(AND_JOB)) {
+       const one = cap(part.trim());
+-      if (one.length >= 3 && !out.some((x) => x.text.toLowerCase() === one.toLowerCase())) out.push({ id: shortId(), text: one, ...(due ? { due } : {}), ...(high ? { high: true } : {}), at: now });
++      const day = due || (tm.time ? ringDay(tm.time, today, hm || '00:00') : '');
++      if (one.length >= 3 && !out.some((x) => x.text.toLowerCase() === one.toLowerCase())) out.push({ id: shortId(), text: one, ...(day ? { due: day } : {}), ...(high ? { high: true } : {}), at: now, ...(tm.time ? { time: tm.time } : {}) });
+     }
+   }
+   return out.slice(0, 30);
+@@ -520,7 +589,7 @@ export const todoOrder = (list: Todo[]): Todo[] => [...list].sort((a, b) => Numb
+ export function todoWords(list: Todo[], today: string): string {
+   const open = todoOrder(list).filter((t) => !t.done);
+   if (!open.length) return 'Your to-do list is empty.';
+-  return `Your to-do list (${open.length} open):\n${open.map((t, i) => `${i + 1}. ${t.text}${t.due ? ` (${t.due < today ? 'was due ' : 'by '}${prettyDay(t.due, today.slice(0, 4))})` : ''}${t.high ? ' [urgent]' : ''}`).join('\n')}`;
++  return `Your to-do list (${open.length} open):\n${open.map((t, i) => `${i + 1}. ${t.text}${t.due ? ` (${t.due < today ? 'was due ' : 'by '}${prettyDay(t.due, today.slice(0, 4))}${t.time ? `, rings at ${t.time}` : ''})` : ''}${t.high ? ' [urgent]' : ''}`).join('\n')}`;
+ }
+ 
+ // ---------------------------------------------------------------- an email in his voice
+-- 
+2.43.0
+

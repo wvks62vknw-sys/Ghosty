@@ -24,7 +24,7 @@ import { freeAiToday } from '../../state/status';
 import { niceCase, segRing } from '../../ui/components';
 import { NO_SIGNAL, lacksSignal, stateIn, waitFor } from '../lifeui';
 import * as gymStore from '../gym/store';
-import { loadTodos, TODO_CHANGED } from '../agenda/todo';
+import { loadTodos, syncTodos, TODO_CHANGED } from '../agenda/todo';
 import { dueToday } from '../agenda/todowords';
 import { goToPanel, revealSection } from '../../ui/sections';
 import { TODAY_WORDS, todayAria, todayCount, todayTap, todoSummary } from './todaywords';
@@ -347,7 +347,7 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const paintToday = () => {
     const now = Date.now();
     const end = new Date().setHours(24, 0, 0, 0);
-    // [planlane:home] the to-dos due today or late (the agenda's TO-DO, kept on this phone) show in every state: they need no signal
+    // [planlane:home] the to-dos due today or late (the one to-do list's copy on this phone) show in every state: they need no signal
     const due = dueToday(loadTodos(), now);
     const td = due.length ? h('span.rcev.rctodo', h('span.tm', 'To-do'), h('i.bar.dim'), h('span.nm.r', todoSummary(due.map((t) => t.text)))) : null;
     const left = events === null ? [] : events.filter((e) => (e.end ?? e.start) > now && e.start < end).sort((a, b) => a.start - b.start);
@@ -377,6 +377,9 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   const loadToday = async (force = false) => {
     if (!force && Date.now() - agendaAt < 120_000) return paintToday();
     agendaAt = Date.now();
+    // [planlane2:onelist] the one to-do list (the brain's): its copy here is brought up to date (it repaints this card on a change);
+    // behind the same two-minute gate as the diary, so Home's 15 s repaint never asks the brain each time
+    void syncTodos();
     const done = waitOn('Reading what is left in your diary…');
     const ag = await brain.agenda(2).catch(() => null);
     done();

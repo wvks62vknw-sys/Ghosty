@@ -1,0 +1,724 @@
+{
+ "lane": "PLAN AND HOME (Home, Agenda, Brief, Radio, Markets, House, Social, Links)",
+ "features": [
+  {
+   "name": "Home's Today card",
+   "where": "ASK → Home (the first screen)",
+   "say": [
+    "what's on today?",
+    "what do I need to do today"
+   ],
+   "does": "Shows what is left in your diary today, and your to-dos due today even when the diary can't be read.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "The hour's thing",
+   "where": "ASK → Home, in the Map, Eye, Orbit, Grown-up and One Ink looks",
+   "say": [
+    "what's next?"
+   ],
+   "does": "Lights up the one thing that matters this hour; with nothing else next, the to-do due today.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Home in seven looks",
+   "where": "Settings → The look → Scan, Map, Eye, Orbit, Grown-up, One Ink or Glass",
+   "say": [
+    "make it the map",
+    "glass look"
+   ],
+   "does": "The same Home drawn seven ways, every key 44 pt and nothing cut at the largest text.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Diary (next 14 days)",
+   "where": "PLAN → AGENDA → Diary",
+   "say": [
+    "what's on my agenda today and tomorrow?",
+    "add dinner with Sam on Friday at 7"
+   ],
+   "does": "Your own events and your connected calendars, with a countdown to what is next and the phone's copy when the brain is out of reach.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Change or remove an event",
+   "where": "PLAN → AGENDA → Diary → tap an event",
+   "say": [
+    "move the dentist to 3"
+   ],
+   "does": "Opens an event whole; one of your own can be renamed, moved or removed, with UNDO.",
+   "status": "partial",
+   "note": "There is no true edit on the brain, so a change is a delete then an add (said honestly); no all-day switch or reminder choice in the change box."
+  },
+  {
+   "name": "Add an event in your words",
+   "where": "PLAN → AGENDA → ADD",
+   "say": [
+    "dentist half three tomorrow"
+   ],
+   "does": "Type it the way you'd say it and it is read into a day and time.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Month view",
+   "where": "PLAN → AGENDA → Diary → Month",
+   "say": [
+    "show my month",
+    "what's on this month"
+   ],
+   "does": "This month and next as a calendar: a dot for events, a ring for to-dos due, today lit; tap a day to see it.",
+   "status": "partial",
+   "note": "Only this month and next (what the diary reads); no week or day timeline yet."
+  },
+  {
+   "name": "This week strip",
+   "where": "PLAN → AGENDA → Diary → under the month",
+   "say": [
+    "what's on this week"
+   ],
+   "does": "Monday to Sunday, each day with what it holds.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "To-do list",
+   "where": "PLAN → AGENDA → To-do",
+   "say": [
+    "add buy milk to my to-do list",
+    "tick off buy milk",
+    "clear my done to-dos"
+   ],
+   "does": "To-dos with a day, a star, repeats, views (All, Today, Upcoming, Starred), editing and UNDO, kept on this phone.",
+   "status": "partial",
+   "note": "It is a second list beside WORK's to-do list (kept in the brain); the two are not joined yet."
+  },
+  {
+   "name": "Reminders and tasks",
+   "where": "PLAN → AGENDA → Reminders",
+   "say": [
+    "remind me at 6 to call mum",
+    "every weekday at 7:30 brief me"
+   ],
+   "does": "Reminders that go off on time and tasks Ghosty runs on a schedule, with RUN NOW and UNDO.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Notifications inbox",
+   "where": "PLAN → AGENDA → Reminders → Notifications",
+   "say": [
+    "what did I miss?"
+   ],
+   "does": "Everything I told you while you were away, with MARK ALL READ and NOTIFY THIS DEVICE.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Connected calendars",
+   "where": "PLAN → AGENDA → Calendars",
+   "say": [
+    "connect my Google calendar"
+   ],
+   "does": "Paste a calendar's private iCal link (steps for Google, Outlook, iCloud); read-only, stored encrypted.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Spending from a statement",
+   "where": "PLAN → AGENDA → Spending",
+   "say": [
+    "how much did I spend on food?"
+   ],
+   "does": "Add a bank statement file and see the month sorted: categories, budgets, subscriptions.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Watchers",
+   "where": "PLAN → AGENDA → Spending → Watchers",
+   "say": [
+    "chase Sam's reply on Monday"
+   ],
+   "does": "Things you asked me to keep an eye on, told back on their morning.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "The Brief",
+   "where": "ASK → Brief",
+   "say": [
+    "good morning",
+    "what's my day look like",
+    "give me the rundown"
+   ],
+   "does": "Your day at a glance: weather with rain timing, what's left in the diary, to-dos due, the commute, money nudges, headlines.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Evening look-ahead",
+   "where": "ASK → Brief, after 6 pm",
+   "say": [
+    "what's tomorrow like?"
+   ],
+   "does": "In the evening it says tonight, then tomorrow: range, rain, what to wear, sunrise.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "What to wear",
+   "where": "ASK → Brief → Weather",
+   "say": [
+    "what should I wear?"
+   ],
+   "does": "From the forecast only: warmth, feels-like, rain, wind, sun.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Read it to me / Brief me",
+   "where": "ASK → Brief → READ IT TO ME or BRIEF ME",
+   "say": [
+    "brief me"
+   ],
+   "does": "Speaks the Brief, or asks the chat for a 90-word spoken briefing from the same facts.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Headlines",
+   "where": "ASK → Brief → Headlines",
+   "say": [
+    "what's the news?"
+   ],
+   "does": "Top stories with their source and time; when the feed is down it says so with TRY AGAIN.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Commute line",
+   "where": "ASK → Brief → Commute",
+   "say": [
+    "how's the drive to work?"
+   ],
+   "does": "Home to work with live traffic, once both places are saved in Memory → ME → PLACES.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Radio stations",
+   "where": "PLAN → RADIO → Stations",
+   "say": [
+    "play BBC Radio 4",
+    "play some jazz"
+   ],
+   "does": "Search free internet radio by name, kind of radio or country, your country first.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Now playing",
+   "where": "PLAN → RADIO",
+   "say": [
+    "what's playing",
+    "what station is this"
+   ],
+   "does": "The station on air with PAUSE, STOP, TRY AGAIN and TRY ANOTHER, and why it won't play in plain words.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Sleep timer",
+   "where": "PLAN → RADIO → under Now playing",
+   "say": [
+    "sleep timer 30 minutes",
+    "stop the radio at 11",
+    "how long until the radio stops"
+   ],
+   "does": "15–90 minutes, an hour, or the end of this hour; fades out, then stops; shown on the lock screen.",
+   "status": "partial",
+   "note": "A reload ends it (and says so); not shown in the top bar."
+  },
+  {
+   "name": "Favourites in your order",
+   "where": "PLAN → RADIO → Favourites → REORDER",
+   "say": [
+    "play my second favourite",
+    "save this station"
+   ],
+   "does": "Star stations and put them in your own order, kept on the phone.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Recent stations",
+   "where": "PLAN → RADIO → Recent",
+   "say": [
+    "play the last station"
+   ],
+   "does": "The last eight stations you played, one tap away.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Near me",
+   "where": "PLAN → RADIO → Stations → Near me",
+   "say": [
+    "show popular stations"
+   ],
+   "does": "Your country's stations first (the UK unless you change it).",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Lock screen and AirPods",
+   "where": "Lock screen while the radio plays",
+   "say": [
+    "next station",
+    "previous station"
+   ],
+   "does": "Play, pause, stop and next/previous through your favourites or recent stations.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Music by chat",
+   "where": "Anywhere, in the chat",
+   "say": [
+    "play music",
+    "stop the radio"
+   ],
+   "does": "Many ways of saying it all reach the radio.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Crypto prices",
+   "where": "PLAN → MARKETS → Crypto",
+   "say": [
+    "what's bitcoin at",
+    "price of ethereum"
+   ],
+   "does": "Your watched coins with today's move and a little chart, always with when they were read; never advice.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Your watchlist",
+   "where": "PLAN → MARKETS → EDIT LIST",
+   "say": [
+    "add solana to my watchlist",
+    "remove dogecoin from my watchlist"
+   ],
+   "does": "Add any coin from CoinGecko's free search, reorder or remove with UNDO.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Your coins (holdings)",
+   "where": "PLAN → MARKETS → Your coins",
+   "say": [
+    "I have 0.2 ethereum",
+    "what are my holdings worth"
+   ],
+   "does": "What you hold and what it is worth now in your currency, with today's change; your own numbers on the phone.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "A coin's ranges",
+   "where": "PLAN → MARKETS → tap a coin",
+   "say": [
+    "how has bitcoin done this year?"
+   ],
+   "does": "24 H, 7 D, 30 D and 1 Y charts with highs and lows, and what you have of it.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Gold, silver and currencies",
+   "where": "PLAN → MARKETS → Gold & silver, What £1 buys",
+   "say": [
+    "how much is gold"
+   ],
+   "does": "Metal prices per ounce and what a pound buys abroad.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Converter",
+   "where": "PLAN → MARKETS → Convert",
+   "say": [
+    "convert 50 pounds to euros"
+   ],
+   "does": "Converts money with the rates already read.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Ask why it moved",
+   "where": "PLAN → MARKETS → tap a coin → ASK WHY IT MOVED",
+   "say": [
+    "why has bitcoin moved?"
+   ],
+   "does": "Asks the chat what happened, never whether to buy or sell.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Stocks and indices",
+   "where": "PLAN → MARKETS",
+   "say": [],
+   "does": "Shares, the FTSE and oil.",
+   "status": "planned",
+   "note": "Not built: the free source now needs a key."
+  },
+  {
+   "name": "The house, room by room",
+   "where": "MAKE → HOUSE",
+   "say": [
+    "the house",
+    "how's the house"
+   ],
+   "does": "Every thing in your own Home Assistant as a card with its control.",
+   "status": "partial",
+   "note": "Needs your free Home Assistant linked in SYSTEM → KEYS."
+  },
+  {
+   "name": "Whole house at a glance",
+   "where": "MAKE → HOUSE → top",
+   "say": [
+    "which lights are on?",
+    "is anything open?"
+   ],
+   "does": "Lights on, the heating, doors and windows open and for how long, what isn't answering.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Scenes and scripts",
+   "where": "MAKE → HOUSE → Scenes",
+   "say": [
+    "run movie night"
+   ],
+   "does": "Your own scenes on one tap; a scene that sets a lock asks your confirm.",
+   "status": "partial",
+   "note": "A script runs on one tap with no confirm (the phone can't see inside it)."
+  },
+  {
+   "name": "Pins and ALL OFF",
+   "where": "MAKE → HOUSE → ☆ on a card, ALL OFF on a room",
+   "say": [
+    "turn everything off in the kitchen",
+    "turn off the lights"
+   ],
+   "does": "Pin things to the top; ALL OFF turns off a room's lights, fans and TVs, never a lock.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Guarded things",
+   "where": "MAKE → HOUSE",
+   "say": [
+    "is the front door locked?",
+    "unlock the front door"
+   ],
+   "does": "Locks, alarms, garage doors and gates ask your confirm every time; nothing runs on a schedule.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "The queue (APPROVE)",
+   "where": "ME → SOCIAL → Waiting",
+   "say": [
+    "post that to Bluesky"
+   ],
+   "does": "Every draft waits for your APPROVE · EDIT · NO; nothing goes out without your tap.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Write a post",
+   "where": "ME → SOCIAL → Waiting → Write a post",
+   "say": [
+    "draft a post for Mastodon"
+   ],
+   "does": "One post for several accounts at once, each its own draft and its own APPROVE; a picture with its words; kept while you type.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Sent today",
+   "where": "ME → SOCIAL → Waiting → Sent today",
+   "say": [
+    "what did I post today?"
+   ],
+   "does": "What your APPROVE sent, with links.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Your accounts",
+   "where": "ME → SOCIAL → Accounts",
+   "say": [
+    "link my Bluesky"
+   ],
+   "does": "Bluesky, Mastodon, Discord and your Telegram channel, linked once each with plain steps; UNLINK says if it fails.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Follow and unfollow",
+   "where": "ME → SOCIAL",
+   "say": [
+    "follow @someone on Bluesky"
+   ],
+   "does": "Follow drafts with APPROVE.",
+   "status": "partial",
+   "note": "Only from the chat; the screen can't make a follow draft yet."
+  },
+  {
+   "name": "Father and the origin",
+   "where": "ME → SOCIAL → Origin",
+   "say": [
+    "who made you?"
+   ],
+   "does": "Who made me, when and what I promise.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Connections",
+   "where": "ME → LINKS",
+   "say": [
+    "what are you linked to?"
+   ],
+   "does": "Email, Spotify, Telegram, this phone and your keys, each saying where it stands in plain words.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Test a connection",
+   "where": "ME → LINKS → TEST",
+   "say": [
+    "is Spotify working?"
+   ],
+   "does": "Spotify, Telegram and keys can be tested; a failed check is never shown as working.",
+   "status": "partial",
+   "note": "Email has no TEST yet (it needs a new brain route)."
+  },
+  {
+   "name": "This phone",
+   "where": "ME → LINKS → This phone",
+   "say": [
+    "turn on notifications"
+   ],
+   "does": "Notifications, install to the Home Screen and permissions, with the iPhone's steps.",
+   "status": "works",
+   "note": ""
+  }
+ ],
+ "upward": [
+  {
+   "idea": "One to-do list for everything",
+   "why": "No more two lists: the Agenda, WORK, the Brief, Home and the chat all read and change the same list.",
+   "builds_on": "Agenda TO-DO and WORK's to-do list in the brain",
+   "effort": "M"
+  },
+  {
+   "idea": "A day timeline in the Agenda",
+   "why": "See today and tomorrow as hours with free gaps, like the best calendar apps.",
+   "builds_on": "Diary, Month and This week",
+   "effort": "M"
+  },
+  {
+   "idea": "Real event editing",
+   "why": "Change an event's time, end, place, reminder and all-day in place, without delete-then-add.",
+   "builds_on": "Diary's change box and the brain's agenda route",
+   "effort": "S"
+  },
+  {
+   "idea": "To-dos with a time and their own alert",
+   "why": "'Call the bank at 3' rings at 3 like a reminder, then ticks off.",
+   "builds_on": "To-do list + Reminders",
+   "effort": "S"
+  },
+  {
+   "idea": "Search across your plan",
+   "why": "Find any event, to-do or reminder by a word.",
+   "builds_on": "Diary, To-do, Reminders",
+   "effort": "S"
+  },
+  {
+   "idea": "Brief that learns your morning order",
+   "why": "Puts what you open first at the top, from what you actually tap (kept on the phone).",
+   "builds_on": "The Brief's sections",
+   "effort": "M"
+  },
+  {
+   "idea": "Radio sleep timer that survives a reload",
+   "why": "Re-arms after a reload and plays on with one tap, said honestly.",
+   "builds_on": "Radio sleep timer",
+   "effort": "S"
+  },
+  {
+   "idea": "Station detail and a now-playing song line",
+   "why": "Shows codec, quality and homepage, and the song title where the station sends it.",
+   "builds_on": "Radio's now playing and station rows",
+   "effort": "M"
+  },
+  {
+   "idea": "Price alerts while the app is open",
+   "why": "'Tell me if bitcoin drops 5%' says it on screen when it happens, never advice.",
+   "builds_on": "Markets watchlist + inbox",
+   "effort": "M"
+  },
+  {
+   "idea": "Holdings history",
+   "why": "A simple line of what your coins were worth day by day, from your own amounts.",
+   "builds_on": "Your coins",
+   "effort": "M"
+  },
+  {
+   "idea": "House history of the day",
+   "why": "What turned on, opened and changed today, as a timeline.",
+   "builds_on": "Whole house at a glance",
+   "effort": "M"
+  },
+  {
+   "idea": "Scene builder",
+   "why": "Make a scene on the phone from things you pick ('Goodnight: these lights off, heating 18'), confirms for locks kept.",
+   "builds_on": "Scenes, Pins, ALL OFF",
+   "effort": "L"
+  },
+  {
+   "idea": "Social: follow drafts on the screen",
+   "why": "Follow and unfollow from the screen, each waiting for APPROVE.",
+   "builds_on": "Write a post and the queue",
+   "effort": "S"
+  },
+  {
+   "idea": "Links: Email TEST and a health line",
+   "why": "Test email like Spotify, and one line saying everything is healthy or the one thing to fix.",
+   "builds_on": "Connections",
+   "effort": "S"
+  },
+  {
+   "idea": "Home: the next thing at a glance in every look",
+   "why": "One unified 'next' card across all seven looks from the same facts.",
+   "builds_on": "Home's Today card and the hour's thing",
+   "effort": "M"
+  }
+ ],
+ "sideways": [
+  {
+   "idea": "Shopping list in the Agenda",
+   "why": "Shared with the kitchen's list, ticked in the shop.",
+   "builds_on": "To-do list and the kitchen's shopping list",
+   "effort": "S"
+  },
+  {
+   "idea": "Habits tracker",
+   "why": "Daily habits with streaks, kept on the phone.",
+   "builds_on": "Repeating to-dos",
+   "effort": "M"
+  },
+  {
+   "idea": "Countdowns",
+   "why": "'Days until the holiday' on Home and in the Brief.",
+   "builds_on": "Diary events + Home's Today card",
+   "effort": "S"
+  },
+  {
+   "idea": "Birthdays from your own people list",
+   "why": "Never miss one: shown in the Brief the week before.",
+   "builds_on": "People you've introduced + Diary",
+   "effort": "S"
+  },
+  {
+   "idea": "Podcasts from free public feeds",
+   "why": "Subscribe by link, play like the radio, downloads only on your tap on Wi-Fi with the size said.",
+   "builds_on": "The radio player and Media Session",
+   "effort": "M"
+  },
+  {
+   "idea": "Alarm clock that plays a station",
+   "why": "Wake to your favourite station (while Ghosty is open), with a gentle fade-in.",
+   "builds_on": "Radio + reminders",
+   "effort": "M"
+  },
+  {
+   "idea": "Currency and travel money card",
+   "why": "Before a trip: rates, what things cost there, from free rates already read.",
+   "builds_on": "Markets converter",
+   "effort": "S"
+  },
+  {
+   "idea": "Energy use from your own meter",
+   "why": "Read your smart meter or Home Assistant energy sensors and show today's use in words.",
+   "builds_on": "House sensors + HOME admin meters",
+   "effort": "M"
+  },
+  {
+   "idea": "Weather for your saved places",
+   "why": "Rain timing and what to wear for each place you've saved.",
+   "builds_on": "The Brief's weather",
+   "effort": "S"
+  },
+  {
+   "idea": "Bin day and household chores on the Agenda",
+   "why": "Chores as repeating to-dos, bins from the home pack.",
+   "builds_on": "To-do repeats + home admin bins",
+   "effort": "S"
+  },
+  {
+   "idea": "Social digest",
+   "why": "A morning line of what's new on your own timelines (read-only, nothing posted).",
+   "builds_on": "Social accounts reading + the Brief",
+   "effort": "M"
+  },
+  {
+   "idea": "A 'plan my week' sheet",
+   "why": "Lay out the week's events and to-dos and suggest free slots, all on the phone.",
+   "builds_on": "Diary, Month, To-do",
+   "effort": "M"
+  }
+ ],
+ "cross": [
+  {
+   "idea": "Brief reads your Body numbers",
+   "with": "body",
+   "why": "A line with last night's sleep and today's water goal in the morning."
+  },
+  {
+   "idea": "Agenda to-dos from WORK and MONEY",
+   "with": "money",
+   "why": "Renewals, bills and work jobs become to-dos with their due days, one list."
+  },
+  {
+   "idea": "Lens scans a poster or ticket into the Agenda",
+   "with": "lens",
+   "why": "Point at a gig poster or ticket and the event lands in the diary."
+  },
+  {
+   "idea": "Map shows your day's places",
+   "with": "see",
+   "why": "Today's events with a place drawn on the map (no live GPS sent to the brain)."
+  },
+  {
+   "idea": "Comic of your week",
+   "with": "comic",
+   "why": "A fun comic strip made from your own week's events, to keep or share with APPROVE."
+  },
+  {
+   "idea": "Voice: 'goodnight' does the house, the radio timer and tomorrow's brief",
+   "with": "voice",
+   "why": "One phrase: lights off (with confirms), radio sleep timer, tomorrow's first event said."
+  }
+ ]
+}

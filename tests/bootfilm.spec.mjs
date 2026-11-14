@@ -364,6 +364,17 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   await ctx.close();
 }
 
+// h. from his Lens shortcut (boot.c6): a one-second lock-in (LENS under the reticle), then the Lens, never the camera by itself
+for (const path of ['/?do=lens', '/#lens']) {
+  const { ctx, page } = await open();
+  await page.goto(base + path);
+  const s = await ended(page, `lens ${path}`, 20000);
+  const after = await page.evaluate(() => ({ tab: window.__ghosty?.ui?.get?.().tab, camera: [...document.querySelectorAll('video')].some((v) => !!v.srcObject) }));
+  if (s?.kind !== 'lock' || !(s.ended >= 850 && s.ended <= 2500 + 300) || s.plays !== 1) problems.push(`lens ${path}: it played "${s?.kind}" for ${s?.ended} ms (want the lock-in, a second to two and a half)`);
+  if (after.tab !== 'lens' || after.camera) problems.push(`lens ${path}: after the lock-in the screen is "${after.tab}", camera ${after.camera ? 'on by itself' : 'off'} (want the Lens, the camera waiting for START)`);
+  await ctx.close();
+}
+
 await browser.close();
 for (const r of report) console.log(`  ${r}`);
 if (problems.length) {

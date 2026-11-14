@@ -17,6 +17,7 @@ import { brainRefusal, draftEl, noteMax, ownMax, socialRead } from '../links/dra
 import {
   accountsWords, ALT_MISSING, COMPOSE_EMPTY, COMPOSE_NONE, COMPOSE_NOTE, composeKey, countWords, KEPT_NOTE, madeWords, PICTURE_BIG, PICTURE_KINDS,
   PICTURE_KEPT, PICTURE_NO, PICTURE_SHRINKING, pictureWords, tooLong, queueNote, QUEUE_ERROR, QUEUE_LOADING, SENT_EMPTY, SENT_ERROR, SENT_LOADING, sentNote, toWords,
+  FOLLOW_HEAD, followNone, FOLLOW_NOTE, FOLLOW_OFFLINE, followExample, followMade, followMissed, whoProblem,
 } from './words';
 import { button, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
@@ -73,12 +74,20 @@ const maxOf = (a: Account): number => ownMax.get(a) ?? accountInfo(a).max;
 /** The drafts being made right now, shared by every copy of the page (he may leave and come back while they are made). */
 let making = false;
 const madeEvents = new EventTarget();
+/** The FOLLOW box's draft being made, shared the same way: a fresh copy of the page keeps FOLLOW off until it is made (never twice). */
+let fMaking = false;
+const followEvents = new EventTarget();
 
 /** How an account counts a post's length (as the brain does: Bluesky's 300 are graphemes, the others letters). */
 export const lengthOn = (a: Account, text: string): number => (a === 'bluesky' ? graphemes(text.trim()) : [...text.trim()].length);
 
 /** POST /social/draft with a picture: the brain's draft route takes `image` (one of his /i/ pictures) and `alt`. */
 const draftWith = brain.socialDraft as unknown as (b: { account: Account; text: string; image?: string; alt?: string; from: 'phone' }) => Promise<DraftAnswer>;
+
+/** POST /social/draft for a follow or unfollow: the brain's draft route takes `kind` and `who` (planlane2:fixes). */
+const draftFollow = brain.socialDraft as unknown as (b: { account: Account; kind: 'follow' | 'unfollow'; who: string; text: string; from: 'phone' }) => Promise<DraftAnswer>;
+/** The FOLLOW box's account and handle, kept on the phone while he types (cleared once the draft is made). */
+export const FOLLOW_STORE = 'ghosty.social.follow';
 
 /** The picture, kept by the brain for 24 hours under /i/<id> so the post can carry it (the Lens's own store). */
 async function keepPicture(blob: Blob): Promise<string> {
@@ -104,6 +113,7 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     note.textContent = !info ? QUEUE_ERROR : queueNote(w.length);
     clear(list, ...w.map((d) => draftEl(draftCard(d), () => void paint(true))));
     paintCompose(info);
+    paintFollow(info);
   };
 
   // WRITE A POST: a box for his own words, to one or more of his linked accounts. It makes DRAFTS (POST /social/draft), never a
@@ -240,6 +250,106 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
   };
   madeEvents.addEventListener('made', onMade);
 
+  // FOLLOW OR UNFOLLOW (planlane2:fixes, plan.u13): one of his accounts that has follows, and a handle. It makes a DRAFT (POST /social/draft
+  // with kind and who), never a follow: the draft waits in the queue above with its own APPROVE · NO, and only his APPROVE sends it.
+  const follow = h('div.pkcol.socfollow', { role: 'group', 'aria-label': 'Follow or unfollow' });
+  const readF = () => {
+    try {
+      const j = JSON.parse(localStorage.getItem(FOLLOW_STORE) ?? 'null') as { account?: string; who?: string } | null;
+      return { account: typeof j?.account === 'string' ? j.account : '', who: typeof j?.who === 'string' ? j.who : '' };
+    } catch {
+      return { account: '', who: '' };
+    }
+  };
+  const keptF = readF();
+  let fAcc = keptF.account as Account | '';
+  const who = h('input.socwho', { type: 'text', inputmode: 'email', autocapitalize: 'none', autocomplete: 'off', spellcheck: 'false', maxlength: '200', 'aria-label': 'Their handle or profile link' }) as HTMLInputElement;
+  who.value = keptF.who;
+  const keepF = () => {
+    try {
+      if (!who.value && !fAcc) localStorage.removeItem(FOLLOW_STORE);
+      else localStorage.setItem(FOLLOW_STORE, JSON.stringify({ account: fAcc, who: who.value }));
+    } catch {
+      /* a phone that will not keep it still lets him type */
+    }
+  };
+  who.addEventListener('input', keepF);
+  /* state: social.follow error */
+  const fMsg = h('p.pknote.socfmsg', { role: 'status', 'aria-live': 'polite' });
+  let lastInfo: SocialInfo | null = null;
+  const makeFollow = async (kind: 'follow' | 'unfollow') => {
+    if (fMaking || !fAcc) return;
+    const where = accountName(fAcc);
+    const problem = whoProblem(who.value, fAcc);
+    if (problem) return void ((fMsg.textContent = problem), who.focus());
+    fMaking = true;
+    fMsg.textContent = 'Making the draft…';
+    if (lastInfo) paintFollow(lastInfo);
+    const handle = who.value.trim();
+    let words: string;
+    let made = false;
+    try {
+      const r = await draftFollow({ account: fAcc, kind, who: handle, text: '', from: 'phone' });
+      if (r.error || !r.draft) words = followMissed(where, r.error ?? 'my brain did not make it');
+      else {
+        made = true;
+        who.value = '';
+        keepF();
+        words = followMade(kind, handle, where);
+        toast('Draft made. It waits above for your APPROVE.', 'ok');
+      }
+    } catch (e) {
+      words = followMissed(where, brainRefusal(e, `make the ${kind} draft for ${where}`));
+    }
+    fMaking = false;
+    followEvents.dispatchEvent(new CustomEvent('done', { detail: { words, made } }));
+  };
+  // the live copy takes the answer (it may be a fresh copy of the page): the box from what is kept, the queue read again if made
+  const onFollow = (ev: Event) => {
+    if (gone) return;
+    const { words, made } = (ev as CustomEvent<{ words: string; made: boolean }>).detail;
+    const k = readF();
+    who.value = k.who;
+    if (k.account) fAcc = k.account as Account;
+    fMsg.textContent = words;
+    if (made) void paint(true);
+    else if (lastInfo) paintFollow(lastInfo);
+  };
+  followEvents.addEventListener('done', onFollow);
+  const paintFollow = (info: SocialInfo | null) => {
+    lastInfo = info;
+    /* state: social.follow offline */
+    if (!info) return void clear(follow, h('b', FOLLOW_HEAD), h('p.pknote', FOLLOW_OFFLINE));
+    // which accounts have follows is the brain's own list (GET /social `follows`), never a copy kept here
+    const can = info.accounts.filter((a) => a.who && a.follows).map((a) => a.id);
+    /* state: social.follow empty */
+    if (!can.length) return void clear(follow, h('b', FOLLOW_HEAD), h('p.pknote', followNone(info.accounts.filter((a) => a.follows).map((a) => accountName(a.id)))));
+    if (!fAcc || !can.includes(fAcc)) fAcc = can[0]!;
+    const picks = can.map((id) => {
+      const on = id === fAcc;
+      const b = button(accountName(id), () => {
+        fAcc = id;
+        keepF();
+        fMsg.textContent = '';
+        paintFollow(info);
+      }, on ? 'on' : '');
+      b.setAttribute('aria-pressed', String(on));
+      b.setAttribute('aria-label', `${on ? 'On' : 'Use'} ${accountName(id)}`);
+      b.dataset.case = 'keep';
+      b.dataset.account = id;
+      return b;
+    });
+    who.placeholder = `e.g. ${followExample(fAcc)}`;
+    const fol = button('FOLLOW', () => void makeFollow('follow'), 'on');
+    fol.setAttribute('aria-label', `Make a draft to follow them on ${accountName(fAcc)}: nothing happens until you tap APPROVE`);
+    const unf = button('UNFOLLOW', () => void makeFollow('unfollow'));
+    // a draft being made (by this copy of the page or one he left): both keys off and said, so a second tap never makes it twice
+    fol.disabled = unf.disabled = fMaking;
+    if (fMaking) fMsg.textContent = 'Making the draft…';
+    unf.setAttribute('aria-label', `Make a draft to unfollow them on ${accountName(fAcc)}: nothing happens until you tap APPROVE`);
+    clear(follow, h('b', FOLLOW_HEAD), picks.length > 1 ? h('div.keyrow.wrapit', { role: 'group', 'aria-label': 'Which account' }, ...picks) : h('p.pknote', `On ${accountName(fAcc)}.`), h('div.lab', 'THEIR HANDLE OR PROFILE LINK'), who, h('div.keyrow.wrapit', fol, unf), h('p.pknote', FOLLOW_NOTE), fMsg);
+  };
+
   let first = true;
   const paintCompose = (info: SocialInfo | null) => {
     /* state: social.compose offline */
@@ -291,7 +401,7 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     paintPicture();
   };
   void paint();
-  return { el: h('div.pkcol', note, list, compose, phrases(['post that to Bluesky', 'who made you?'])), stop: () => ((gone = true), madeEvents.removeEventListener('made', onMade)) };
+  return { el: h('div.pkcol', note, list, compose, follow, phrases(['post that to Bluesky', 'who made you?'])), stop: () => ((gone = true), madeEvents.removeEventListener('made', onMade), followEvents.removeEventListener('done', onFollow)) };
 }
 
 /** What went out today: each post, follow or unfollow with its account, its time and its link. */
