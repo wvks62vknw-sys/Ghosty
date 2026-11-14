@@ -48,6 +48,11 @@ export async function docsTurn(text: string): Promise<PackReply> {
       : 'The scanner is open on DOCUMENT: capture the receipt, KEEP PAGE, READ ALL, then RECEIPT TO SPREADSHEET. You check the date, shop and total, and ADD ROW puts them in your Receipts spreadsheet, kept on this phone.';
     return { said: text, reply, go: [{ id: 'docspaper', ask: -1, label: 'Open the scanner', run: 'open_lens', args: { mode: 'document' } }] };
   }
+  if (ask.what === 'fill') {
+    const { openPdfForm } = await import('../docs/pdfformui');
+    openPdfForm();
+    return { said: text, reply: 'Fill and sign is open: CHOOSE A PDF, type into its boxes, tick its boxes, SIGN with your finger and tap the page where it goes, then SAVE PDF or SHARE. I say what I could not fill. Nothing is sent anywhere.', go: [{ id: 'docsfill', ask: -1, label: 'Open fill and sign', run: 'open_docs', args: { what: 'fill' } }] };
+  }
   const { openDocs } = await import('../docs/sheet');
   void openDocs({ ...ask, what: ask.what });
   const reply = ask.what === 'new'

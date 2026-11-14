@@ -61,7 +61,7 @@ const cased = (b: HTMLButtonElement, words = b.textContent ?? ''): HTMLButtonEle
 
 /** The sheet's name (its title, and its panel on the DOCUMENTS screen: features/docs/index.ts). */
 export const DOCS_TITLE = 'DOCUMENTS';
-type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters'; language?: string };
+type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill'; language?: string };
 
 /** The sheet: a document to open (one read here, a chat reply laid out), or MY DOCUMENTS. */
 export async function openDocs(o: DocsAsk = {}): Promise<void> {
@@ -1190,6 +1190,10 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     wantPaper('doc');
     current?.close();
     await run('open_lens', { mode: 'document' });
+  }), button('FILL AND SIGN A PDF', async () => {
+    // [editors.s12] a PDF form's boxes filled, signed with a finger, saved or shared (docs/pdfformui.ts)
+    const { openPdfForm } = await import('./pdfformui');
+    openPdfForm();
   }));
   const root = h('div.dcsheet', bar, status, view);
   const start = async (o: DocsAsk) => {
@@ -1209,6 +1213,11 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }
     } else if (o.id && getDoc(o.id)) showDoc(getDoc(o.id)!);
     else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
+    else if (o.what === 'fill') {
+      showList();
+      const { openPdfForm } = await import('./pdfformui');
+      openPdfForm();
+    }
     else if (o.what === 'open') {
       showList();
       say('Choose the document to read: PDF, Word, EPUB, a web page, Markdown or text.');

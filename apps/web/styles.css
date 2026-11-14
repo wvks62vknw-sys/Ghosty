@@ -7822,6 +7822,19 @@ html .phonecard button, html #pg-system .phonecard button { height: auto; min-he
 html body .modal .pprsheet button, html .pprsheet button { height: auto; min-height: 44px !important; min-width: 44px; }
 .pprsaid { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
 .pprsaid:empty, .pprafter:empty { display: none; }
+.pdfpages { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.pdfwrap { position: relative; align-self: center; max-width: 100%; line-height: 0; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); overflow: hidden; }
+.pdfpage { display: block; max-width: 100%; height: auto; }
+.pdfmark { position: absolute; box-sizing: border-box; border: var(--g-hair) solid var(--g-accent); background: color-mix(in srgb, var(--g-accent) 12%, transparent); font: 400 10px/1.1 var(--g-font-text); color: var(--g-ink-1); overflow: hidden; pointer-events: none; }
+.pdfmark.pdfsigmark { border-style: dashed; background: transparent; }
+.pdffields, .pdfsig { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.pdfcheck { display: flex; align-items: center; gap: var(--g-s-1); min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.pdfcheck span { min-width: 0; flex: 1; }
+html .pprsheet .pdftick { flex: none; width: var(--g-target); height: var(--g-target); padding: 0; display: grid; place-items: center; border-radius: var(--g-radius-key); border: var(--g-stroke) solid var(--g-line-faint); background: transparent; color: var(--g-accent-text); font: 700 20px/1 var(--g-font-text); }
+.pdftick[aria-checked="true"] { background: color-mix(in srgb, var(--g-accent) 22%, transparent); border-color: var(--g-accent); }
+.pdfcannot { margin: 0; font: var(--g-t-caption); color: var(--g-amber); overflow-wrap: anywhere; }
+.pdfpad { display: block; width: 100%; aspect-ratio: 3 / 1; touch-action: none; background: var(--g-plate-fill); border: var(--g-stroke) dashed var(--g-line-faint); border-radius: var(--g-radius-key); }
+.pprsheet button[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
 /* ===================================================================================================================   FURTHER (BRIEF-OCT-IDEAS-3): the interpreter's two halves, the orb's map of what I know, the lab's pages, WALK ME THROUGH IT's pointer,
    REHEARSE and the diary. Every colour, size and duration is a token; every key is the target's size; reduced motion stills the pulse.
    ========================================================================================================================== */

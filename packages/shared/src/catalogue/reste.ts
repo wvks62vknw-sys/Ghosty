@@ -35,6 +35,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'money', 'phone'], cat: 'do', since: '2026-11-14',
     go: { run: 'open_lens', args: { mode: 'document' } }, tryText: 'Opens the scanner on a page',
   },
+  // [editors.s12] fill in and sign a PDF form
+  'phrase:docsfill': {
+    name: 'Fill in and sign a PDF',
+    line: 'You can type into a PDF form’s boxes, sign it with your finger and save or share it, without printing.',
+    more: 'Choose the PDF in DOCUMENTS → FILL AND SIGN A PDF. Its boxes come as fields to type into, tick or choose from, and its pages show what you wrote. SIGN lets you draw your signature and tap the page where it goes; it is kept for next time only if you press KEEP IT. I say which boxes I could not fill, like round-button choices. Nothing is sent anywhere.',
+    say: ['Fill in a PDF form', 'Sign this PDF', 'Fill and sign a form'],
+    scene: ['making', 'money', 'phone'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'fill' } }, tryText: 'Opens fill and sign',
+  },
   'hub:sheets': {
     name: 'Budgets and lists with formulas',
     line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',

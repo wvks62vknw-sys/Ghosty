@@ -6,7 +6,7 @@
 import { languageAsked } from './model';
 
 export interface DocsAsk {
-  what: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'scan' | 'receipt';
+  what: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'scan' | 'receipt' | 'fill';
   language?: string;
 }
 
@@ -21,10 +21,17 @@ export function paperAsked(text: string): DocsAsk | null {
   return null;
 }
 
+/** [editors.s12] "fill in a PDF form", "sign this PDF", "fill and sign a form". */
+export function fillAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '').replace(/^(?:please |ghosty,? |can you |could you |help me |i need to |i want to )+/i, '');
+  return /^(?:fill (?:in |out )?(?:and sign )?|sign )(?:a |an |the |this |my )?(?:pdf(?: form)?|form(?: in pdf)?|pdf document)(?: and sign it)?$/i.test(t) || /^(?:fill|sign) (?:a |this )?(?:pdf|form) without printing(?: it)?$/i.test(t);
+}
+
 export function docsAsked(text: string): DocsAsk | null {
   const t = text.trim().replace(/[.!?]+$/, '');
   const paper = paperAsked(t);
   if (paper) return paper;
+  if (fillAsked(t)) return { what: 'fill' };
   if (/^(?:open |show )?(?:me )?(?:my )?(?:documents?|docs)$|^(?:open )?(?:the )?document (?:reader|writer|editor)$/i.test(t)) return { what: 'list' };
   if (/^(?:new|start a|make a(?: new)?|write a(?: new)?) (?:blank )?document$/i.test(t)) return { what: 'new' };
   if (/^(?:read|open) (?:a|my|this) (?:document|file|pdf|word (?:file|document)|e-?book)(?: (?:to|for) me)?$/i.test(t)) return { what: 'open' };
