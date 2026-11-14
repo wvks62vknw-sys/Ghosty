@@ -1,0 +1,2 @@
+/** How he asks for CHESS (the app, its puzzles, the rush, today's puzzle); never his rating, which chessrating answers. */
+export const CHESS_ASK = /^(?:(?:open|show(?: me)?|start)\s+)?(?:the\s+|my\s+)?(?:chess(?:\s+(?:app|puzzles?|puzzle\s+rush))?|puzzle\s+rush|(?:today'?s|the)\s+chess\s+puzzle|chess\s+puzzle\s+of\s+the\s+day)$|^(?:let'?s\s+|i\s+want\s+to\s+)?(?:do|solve|try)\s+(?:a\s+|some\s+)?chess\s+puzzles?$/i;
