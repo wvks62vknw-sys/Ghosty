@@ -9967,6 +9967,17 @@ html .recallidx .recallindex, html .recallfind .note { flex: 1 1 12em; min-width
 html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
 /* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
 html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
+
+/* [boot] THE OPENING in Settings → Voice & home (features/settings/opening.ts): three keys for its length, his own line, how the last one ran */
+.openlen > button { min-height: var(--g-target); min-width: var(--g-target); flex: 1 1 0; }
+textarea.openown { width: 100%; box-sizing: border-box; }
+.openguestrow > .note { flex: 1 1 auto; min-width: 0; }
+.openguestrow > button { min-height: var(--g-target); }
+/* [boot] THE DIRECTOR'S MODE (shell/boot.ts director): the shot's name and three keys, over the boot's layer, at the foot of the screen */
+#bdirector { position: fixed; left: var(--g-gutter, 16px); right: var(--g-gutter, 16px); bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 10001; display: flex; flex-direction: column; gap: 8px; }
+#bdirector .bdline { margin: 0; text-align: center; }
+#bdirector .bdkeys { display: flex; gap: 8px; }
+#bdirector .bdkeys > button { flex: 1 1 0; min-height: var(--g-target); }
 /* LEARN · TODAY (learn.u2): the lesson his misses point at, said in one line, with its two keys */
 html .learntoday { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; padding: 12px 14px; border-radius: var(--g-radius-cell); background: var(--thin); box-shadow: inset 0 0 0 1px var(--hair); }
 html .learntoday .lab { color: var(--mute); letter-spacing: .08em; }

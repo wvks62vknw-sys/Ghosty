@@ -14,6 +14,9 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [boot] the next round's opening (docs/build-plan/NEXT-BOOT.md)
+  { day: '2026-11-14', title: 'The opening, your way', line: 'Settings → VOICE & HOME → THE OPENING: the full film, the short one, or the full film once a day; your own opening line; and how smoothly the last one ran. Say “short opening” or “director mode”.' },
+  { day: '2026-11-14', title: 'An opening that knows your day', line: 'The opening now ends on what matters today: your next thing, a to-do due, or rain. After days away it says how long it has been, and “Sam’s turn” greets someone you introduced.' },
   // [keep] NEXT ROUND, MEMORY lane: a memory that keeps your word
   { day: '2026-11-14', title: 'I keep your word', line: 'Say “I’ll send Jo the photos tomorrow” and I remind you on the day; “I sent them” ticks it off. Memory → YOUR WORD lists what you said you’d do, where you put things and why you chose them.' },
   { day: '2026-11-14', title: 'Where you put it, even offline', line: 'Tell me “the spare key is in the blue tin”, then ask “where’s the spare key?” any time, with no signal too.' },
