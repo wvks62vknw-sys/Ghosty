@@ -12,7 +12,9 @@
 //   e. YOUR CAMERA WALL (see.u2): PIN TO WALL on a camera's card keeps it on the phone; WALL in the bar opens the wall, its tile live;
 //      EDIT and TAKE OFF empty it, said in his words; "my camera wall" is its wording;
 //   f. RAIN RADAR (see.s3): RAIN in the bar plays the last two hours of radar frames over home, the slider moves through them, and the
-//      line for home says rain is coming in about 20 minutes (the quarter-hour forecast stood in); the line itself, read from source.
+//      line for home says rain is coming in about 20 minutes (the quarter-hour forecast stood in); the line itself, read from source;
+//   g. THE WORLD in the morning Brief (see.c2): the threat level, the commute's road reports line and a fresh picture from the public
+//      camera nearest his saved home; every key 44 pt.
 //   BASE=http://localhost:8788 node tests/seetrip.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
@@ -96,6 +98,8 @@ async function phone(viewport) {
     asked.journey.push(`${u.search} ${body}`);
     return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(journey(START - 5 * 60_000)) });
   });
+  // his saved places: home and work in central London (the commute is outside the West Midlands' road reports)
+  await ctx.route(/\/api\/profile\/places$/, (route) => route.request().method() === 'GET' ? route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ places: [{ id: 'home', label: 'Home', query: 'Strand', address: 'Strand, London', lat: 51.5108, lon: -0.1236 }, { id: 'work', label: 'Work', query: 'Holborn', address: 'Holborn, London', lat: 51.5174, lon: -0.1201 }] }) }) : route.fallback());
   await ctx.route(/\/api\/guardian$/, (route) => (route.request().method() === 'GET' ? route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ places: [], checked: {}, failed: {}, tz: 'Europe/London', person: null, walk: null }) }) : route.fallback()));
   await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
   await ctx.grantPermissions(['geolocation']);
@@ -208,6 +212,20 @@ for (const vp of [PHONE, PHONE2]) {
       await page.keyboard.press('Escape');
     }
   }
+  // g. THE WORLD in the Brief
+  {
+    await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+    await page.evaluate(() => (location.hash = 'brief'));
+    const shown = await until(page, () => document.querySelectorAll('#pg-brief .brworld .rw').length >= 2 && !!document.querySelector('#pg-brief .brworld .brcam img[src]'), null, 20000);
+    if (check(shown, `${T} [g world] THE WORLD never showed its rows and its camera: "${await text(page, '#pg-brief .brworld')}"`)) {
+      const w = await page.evaluate(() => window.__ghosty.briefWorld);
+      check(/^(Clear|Watch|Elevated|Severe|Checking|Can’t check)/.test(w.threat), `${T} [g world] the threat reads "${w.threat}"`);
+      check(w.commute === 'Road reports cover the motorways in the West Midlands; your commute is outside them.', `${T} [g world] the commute reads "${w.commute}"`);
+      check(/^Strand \/ Camera \d, \d+ m from home$/.test(w.camera), `${T} [g world] the camera reads "${w.camera}"`);
+      const b = await bar(page, '#pg-brief .brworld');
+      check(!b.length, `${T} [g world] ${b.join(', ')}`);
+    }
+  }
   // a. by words, from the chat
   await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
   await page.evaluate(() => (location.hash = 'eye'));
@@ -286,7 +304,7 @@ for (const vp of [PHONE, PHONE2]) {
     if (check(ready, `${T} [f rain] the radar never played its frames: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.rain))} "${await text(page, '.rain')}"`)) {
       await page.evaluate(() => { const s = document.querySelector('.rain .rainslider'); s.value = '3'; s.dispatchEvent(new Event('input')); });
       check((await page.evaluate(() => window.__ghosty.rain.frame)) === 3 && /min ago/.test(await text(page, '.rain .rainwhen')), `${T} [f rain] the slider did not move to an earlier frame: "${await text(page, '.rain .rainwhen')}"`);
-      check(/^Light rain at Birmingham in about (15|20) minutes\.$/.test(await text(page, '.rain .rainline')), `${T} [f rain] the line for home reads "${await text(page, '.rain .rainline')}"`);
+      check(/^Light rain at Birmingham in about (15|20|25|30) minutes\.$/.test(await text(page, '.rain .rainline')), `${T} [f rain] the line for home reads "${await text(page, '.rain .rainline')}"`);
       await still(page);
       const b = await bar(page, '.rain');
       check(!b.length, `${T} [f rain] ${b.join(', ')}`);

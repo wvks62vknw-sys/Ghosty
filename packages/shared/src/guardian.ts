@@ -243,7 +243,7 @@ const andList = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0,
 
 /** The guardian card's line (the Me sheet, THREATS): "I'm watching Home and Work. Nothing active. Last look 14:05." */
 export function watchLine(info: Pick<GuardianInfo, 'places' | 'checked' | 'tz'>): string {
-  if (!info.places.length) return "I'm not watching any places yet: save home in Memory → ME → PLACES.";
+  if (!info.places.length) return "I'm not watching any places yet: save home in Memory → ABOUT YOU → PLACES.";
   const active = info.places.reduce((n, p) => n + p.active.length, 0);
   const last = Math.max(info.checked.flood ?? 0, info.checked.weather ?? 0);
   return `I'm watching ${andList(info.places.map((p) => p.label))}. ${active ? `${active} warning${active === 1 ? '' : 's'} active.` : 'Nothing active.'}${last ? ` Last look ${clockIn(last, info.tz)}.` : ''}`;

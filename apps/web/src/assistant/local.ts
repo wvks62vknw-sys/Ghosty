@@ -35,7 +35,7 @@ import { chat, turnIsTheirs, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
-import { moneyAsked, MONEY_OPENS } from '../features/money/words';
+import { moneyAsked, moneySection, MONEY_OPENS } from '../features/money/words';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
 import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn, gameTurn } from './reste';
@@ -52,7 +52,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -256,6 +256,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (looks?.kind === 'gallery') return answer(text, `Seven looks, each a whole HUD: ${LOOKS.map((l) => `${l.name}${l.built ? '' : ' (coming)'}`).join(', ')}. Settings › Theme has them as pictures. Say a look, or a colour.`, { kind: 'look', go: [{ id: 'screen:settings', ask: -1, label: 'Open Settings', open: 'settings' }] }, opts);
     const ask = lookAsked(text) ?? (looks?.kind === 'colour' ? { colour: looks.colour } : null);
     if (!ask) return false;
+    // [voice lane] A COLOUR FOR EACH ROOM (voice.u8): kept for that screen alone, his look unchanged
+    if (ask.room) {
+      const rc = await import('../state/roomcolour');
+      rc.setRoomColour(ask.room.tab, ask.room.colour);
+      const theme = await import('../state/theme');
+      return answer(text, applyAsk(theme.recipe(), ask).said, { kind: 'look', go: [{ id: `screen:${ask.room.tab}`, ask: -1, label: `Open ${ask.room.label}`, open: ask.room.tab }] }, opts);
+    }
     // [voice lane] UNDO THE LOOK BY WORDS (voice.u9): "put it back" just after a look change, "the old colour" any time
     if (ask.back) {
       if (ask.back.generic && !lastWasLook()) return false;
@@ -291,7 +298,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   async moneyapp(text, opts) {
     const page = moneyAsked(text);
     if (!page) return false;
-    location.hash = `money?${page}`;
+    location.hash = `money?${moneySection(page)}`;
     return answer(text, MONEY_OPENS[page], { kind: 'pack' }, opts);
   },
   // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened

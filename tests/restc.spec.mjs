@@ -284,7 +284,7 @@ const untilOn = (page, fn, arg, ms, what) => page.waitForFunction(fn, arg, { tim
   await untilOn(page, () => window.__ghosty?.lens?.mode === 'shapes', null, 8000, 'the SHAPES tile did not open SHAPES');
   await page.waitForTimeout(500);
   await wide('SHAPES');
-  await page.locator('#pg-lens .lensmodes button', { hasText: 'PEOPLE' }).click();
+  await page.locator('#pg-lens .lensmodes button', { hasText: 'FACES' }).click();
   await page.waitForTimeout(500);
   await wide('PEOPLE');
   await page.evaluate(() => (location.hash = 'settings'));

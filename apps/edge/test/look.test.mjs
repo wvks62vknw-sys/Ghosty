@@ -658,7 +658,7 @@ test('THEMES-2: the switches each change one thing and keep the floor — body 1
   const at17 = ['--g-t-reading', '--g-t-tag', '--g-t-caption'].map((n) => T.typeParts(byName[n].value).size);
   for (let i = 0; i < 3; i++) assert.ok(at17[i] < sizes['19'][i] && sizes['19'][i] <= sizes['21'][i], 'the readings, tags and captions grow with the body');
   needRecipe();
-  assert.deepEqual(TH.SWITCHES.map((d) => d.key), ['glow', 'floor', 'corners', 'readings', 'body', 'motion', 'sound', 'day']);
+  assert.deepEqual(TH.SWITCHES.map((d) => d.key), ['glow', 'floor', 'corners', 'readings', 'body', 'motion', 'sound', 'day', 'safe']); // (safe: colour-blind safe, voice.s5)
   for (const d of TH.SWITCHES) for (const o of d.options) assert.ok(o.line.length >= 20 && /[.]$/.test(o.line), `${d.key} ${o.value}: "${o.line}"`);
   // the sound: a tone, a click or silence, on top of his sound setting; calm in the marks and the eye; Reduce Motion always wins
   const machine = read('../../web/src/ui/machine.ts');

@@ -328,7 +328,7 @@ export async function foresightInfo(d: Pick<ForeDeps, 'storage' | 'vault' | 'now
   const has = (id: string) => places.some((p) => p.id === id);
   const key = String((await d.vault.get('tomtom').catch(() => null)) ?? '').trim();
   const notes: string[] = [];
-  if (!has('home')) notes.push("Save Home in Memory → ME → PLACES and I'll predict the rain there every morning.");
+  if (!has('home')) notes.push("Save Home in Memory → ABOUT YOU → PLACES and I'll predict the rain there every morning.");
   else if (!has('work')) notes.push("Save Work too and I'll predict your commute and its first train or bus.");
   else if (!key) notes.push('The commute needs the free TomTom key, SYSTEM → KEYS.');
   if (L.made.day === dayOf(now, zone)) notes.push(...(L.made.notes ?? []));

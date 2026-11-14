@@ -422,8 +422,8 @@ LONG.push({ // LIBRARY
 });
 LONG.push({ // MEMORY: one stacked page now, no YOU / DIARY & CHAT switch
   tab: 'memory',
-  pills: ['Me', 'Patterns', 'Timeline', 'Diary', 'Chat'],
-  panels: { Me: /^ME$/, Patterns: /^PATTERNS/, Timeline: /^TIMELINE/, Diary: /^DIARY/, Chat: /^(WHAT I REMEMBER|LESSONS|CONVERSATION)/ },
+  pills: ['About you', 'Patterns', 'Timeline', 'Diary', 'Chat', 'Your word'],
+  panels: { 'About you': /^ABOUT YOU$/, Patterns: /^PATTERNS/, Timeline: /^TIMELINE/, Diary: /^DIARY/, Chat: /^(WHAT I REMEMBER|LESSONS|CONVERSATION)/, 'Your word': /^YOUR WORD/ },
   tap: 'Timeline', link: { row: /diary he writes/i, pill: 'Diary', panel: /^DIARY/ },
 });
 LONG.push({ // SCHOOL: the nightly report, named by no pill, follows the weak spots above it
