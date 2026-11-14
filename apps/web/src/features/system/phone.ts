@@ -38,11 +38,11 @@ export function phoneCard(): HTMLElement {
   const measure = button('MEASURE THE BRAIN', async (b) => {
     const st = offlineBrain.get();
     if (st.busy) {
-      note.textContent = 'The brain is busy just now. Try again in a moment.';
+      note.textContent = 'The brain is busy just now; try again in a moment.';
       return;
     }
     if (!st.downloaded) {
-      note.textContent = 'The offline brain is not on this phone, so there is nothing to time. Nothing is downloaded for this: GET one in SETTINGS first.';
+      note.textContent = 'Nothing to time and nothing downloaded: no offline brain is here; GET one in SETTINGS.';
       return;
     }
     b.disabled = true;

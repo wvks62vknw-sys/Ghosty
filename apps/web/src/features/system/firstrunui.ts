@@ -101,7 +101,7 @@ export function firstRun(pair: (reason: string) => Promise<void>): Promise<boole
       say('Checking with your Worker…');
       const health = await brain.health();
       if (!health) return say('I can’t reach your Worker: check the connection and try again.');
-      if (!health.secured) return say(`Your Worker doesn’t know the fingerprint yet. Check the variable’s name (${HASH_VARIABLE}) and its value, deploy it, wait a minute and press I ADDED IT again.`);
+      if (!health.secured) return say(`Your Worker doesn’t know the fingerprint yet; check the variable’s name (${HASH_VARIABLE}) and its value, deploy it, wait a minute and press I ADDED IT again.`);
       if (!validKey(st.key)) return say('There is no key yet: press BACK and make one.');
       ownerKey.set(st.key);
       try {

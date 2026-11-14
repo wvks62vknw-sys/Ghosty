@@ -49,6 +49,7 @@ function blockLine(ws: Workspace, b: Page['blocks'][number], docTitle?: (id: str
     case 'ul': return `- ${t}`;
     case 'ol': return `1. ${t}`;
     case 'quote': return `> ${t}`;
+    case 'callout': return `> [${b.tone === 'warn' ? 'Warning' : b.tone === 'tip' ? 'Tip' : 'Note'}] ${t}`;
     case 'todo': return `- [${b.done ? 'x' : ' '}] ${t}${b.done ? ` (done ${new Date(b.done).toISOString().slice(0, 10)})` : ''}`;
     case 'link': return `(links to: ${t})`;
     default: return t;

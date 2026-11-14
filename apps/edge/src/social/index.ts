@@ -13,10 +13,10 @@
  *   POST   /social/no     { id }        → { draft }
  */
 import { localDay } from '../../../../packages/shared/src/cadence';
-import { accountName, ACCOUNT_IDS, draftCard, notLinked, postLines, postProblem, type Account, type Draft, type FeedPost } from '../../../../packages/shared/src/social';
+import { accountInfo, accountName, ACCOUNT_IDS, draftCard, notLinked, postLines, postProblem, type Account, type Draft, type FeedPost } from '../../../../packages/shared/src/social';
 import type { Card } from '../../../../packages/shared/src/cards';
 import type { Vault } from '../kernel/vault';
-import type { ImageKv } from '../lens';
+import { imageBytes, type ImageKv } from '../lens';
 import { addDraft, approveDraft, editDraft, findDraft, loadDrafts, refuseDraft, sentSince, type Sent } from './queue';
 import { BLUESKY, blueskyDigest } from './bluesky';
 import { MASTODON } from './mastodon';
@@ -144,6 +144,9 @@ export async function makeDraft(
     const max = (await APIS[b.account]?.max?.(d).catch(() => null)) ?? undefined;
     const problem = postProblem(b.account, b.text, image, max);
     if (problem) return { error: problem };
+    // Bluesky takes pictures up to 1 MB (bluesky.ts): said now, not left to fail at his APPROVE
+    const pic = image && b.account === 'bluesky' && d.images ? await imageBytes(d.images, image.id).catch(() => null) : null;
+    if (pic && pic.bytes.byteLength > 1_000_000) return { error: `Bluesky takes pictures up to 1 MB; this one is ${(pic.bytes.byteLength / 1e6).toFixed(1)} MB. Pick a smaller one.` };
   } else if (!String(b.who ?? '').trim()) return { error: 'Who to follow? A handle like @sam.bsky.social, or their profile link.' };
   const draft = await addDraft(d.storage, { account: b.account, kind, text: b.text, from: b.from, ...(b.who ? { who: b.who.trim() } : {}), ...(b.image ? { image: { id: b.image, alt: (b.alt ?? '').trim() } } : {}), ...(b.account === 'bluesky' && kind === 'post' ? { rkey: tidNow(d.now()) } : {}) }, d.now());
   return { draft, card: draftCard(draft, d.now()) };
@@ -162,8 +165,9 @@ export function tidNow(ms: number, clock = Math.floor(Math.random() * 1024)): st
 }
 
 /** What is linked, what waits for him, and what went out today (his day starts at midnight on his clock). */
-export async function socialStatus(d: SocialDeps): Promise<{ accounts: { id: Account; name: string; who: string | null }[]; drafts: Draft[]; sent: Sent[] }> {
-  const accounts = await Promise.all(ACCOUNT_IDS.map(async (id) => ({ id, name: accountName(id), who: await linkedAs(d, id) })));
+export async function socialStatus(d: SocialDeps): Promise<{ accounts: { id: Account; name: string; who: string | null; max: number }[]; drafts: Draft[]; sent: Sent[] }> {
+  // each account's own length (his Mastodon server's, saved when he linked it), so the phone counts as the draft route does
+  const accounts = await Promise.all(ACCOUNT_IDS.map(async (id) => ({ id, name: accountName(id), who: await linkedAs(d, id), max: (await APIS[id]?.max?.(d).catch(() => null)) ?? accountInfo(id).max })));
   const drafts = (await loadDrafts(d.storage, d.now())).slice(-12);
   const today = localDay(d.now(), d.tz);
   return { accounts, drafts, sent: (await sentSince(d.storage, d.now() - 36 * 3_600_000)).filter((x) => localDay(x.at, d.tz) === today) };

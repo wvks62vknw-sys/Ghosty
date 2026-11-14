@@ -5,7 +5,7 @@
  * description), a table (its rows, a header row) or a chart written as its numbers, up to two plain shapes, the speaker notes, the
  * layout where the file names ours (else the one its placeholders suggest) and the colours of its theme. What it cannot keep it says,
  * never silently: a video or sound, a chart part, a SmartArt, an embedded object, a drawing it has no shape for, a second picture or
- * table on one slide, animations, transitions, comments, nested bullets (flattened), the colours and fonts of single words, a slide
+ * table on one slide, animations, a transition other than a fade or a push (those two are kept, as is a skipped slide), comments, nested bullets (flattened), the colours and fonts of single words, a slide
  * shape that is not 16:9. The file never leaves the phone; the XML is read by xml.ts, so this runs in node as well.
  */
 import { unzipSync } from '../convert/zip';
@@ -336,7 +336,11 @@ export async function readPptx(bytes: Uint8Array, name: string, keep: KeepImage)
     if (tree) await walk(tree, c, f);
     if (f.numbers) anyNumber = true;
     if (has(root, 'timing')) lose(c, 'animations');
-    if (has(root, 'transition')) lose(c, 'its transition');
+    // (PowerPoint 2010 and later wrap it in mc:AlternateContent, a Choice and a Fallback: then it is not a direct child, so look deeper)
+    const trEl = first(root, 'transition') ?? find(root, 'transition');
+    const transition: Slide['transition'] = first(trEl, 'fade') ? 'fade' : first(trEl, 'push') ? 'push' : 'none';
+    if (trEl && transition === 'none' && kids(trEl).length) lose(c, 'its transition');
+    const skip = attr(root, 'show') === '0' || attr(root, 'show') === 'false';
     if ([...rels.values()].some((r) => r.type === 'comments' || r.type === 'commentAuthors')) lose(c, 'comments');
     // the layout the file names
     const lrel = [...rels.values()].find((r) => r.type === 'slideLayout');
@@ -374,7 +378,7 @@ export async function readPptx(bytes: Uint8Array, name: string, keep: KeepImage)
         /* notes left out */
       }
     }
-    slides.push(newSlide(layout, { title: f.title ?? block('h1', ''), body, body2, ...(f.media ? { media: f.media } : {}), shapes: f.shapes, notes }));
+    slides.push(newSlide(layout, { title: f.title ?? block('h1', ''), body, body2, ...(f.media ? { media: f.media } : {}), shapes: f.shapes, notes, transition, ...(skip ? { skip } : {}) }));
   }
   if (fonts.v) lost.add('the colours and fonts of single words (the theme sets them)');
   if (nested.v) lost.add('nested bullets (each is a bullet of its own now)');

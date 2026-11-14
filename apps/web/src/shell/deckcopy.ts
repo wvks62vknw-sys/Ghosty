@@ -12,6 +12,7 @@
  */
 import { META as GAMES } from '../gym/meta';
 import { home } from '../state/app';
+import { REVERSE_SUB } from '../features/reverse/words';
 
 /** What a YOU CAN line, or a TRY THIS NOW pick, does when it is tapped. */
 export type DeckAct =
@@ -43,7 +44,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -142,7 +143,7 @@ export const DECK: Record<string, DeckScreen> = {
   },
   reverse: {
     name: 'Reverse',
-    promise: 'Paste a link: see how any app or site works',
+    promise: REVERSE_SUB,
     can: [
       { text: 'A website, an npm package or a GitHub project', act: { open: 'reverse' } },
       { text: 'Even an .apk or an .exe', act: { open: 'reverse' } },
@@ -508,6 +509,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'My games', act: { ask: 'My games' } },
     ],
     dyk: 'A game you make stays on this phone until you share it or put it on your Home Screen as an app.',
+  },
+  comic: {
+    name: 'Comic',
+    promise: 'Read your comics and make your own',
+    can: [
+      { text: 'Make a comic about a cat who wants to fly', act: { ask: 'Make me a comic about a cat who wants to fly' } },
+      { text: 'Read a comic', act: { ask: 'Read a comic' } },
+      { text: 'Free public-domain comics', act: { ask: 'Public domain comics' } },
+    ],
+    dyk: 'A CBZ, a PDF or a folder of pictures becomes a comic on your shelf, read panel by panel, and it never leaves this phone.',
   },
 };
 

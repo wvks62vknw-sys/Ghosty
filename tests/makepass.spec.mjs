@@ -5,6 +5,7 @@
 // routes. The pure words (every line the seven screens say) are read from the very source files the page is built from.
 // Stills (440 only), before and after a fix pass: MAKE_STILL=before|after names them tests/.shots/makepass-<name>-440-<before|after>.png.
 //   BASE=http://localhost:8838 NO_GL_SHOTS=1 node tests/makepass.spec.mjs [outDir]
+import { brainBefore, brainAfter } from './fixtures/clean.mjs';
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK, standDown } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
@@ -18,6 +19,8 @@ const KEY = 'preview-owner-key-0123456789';
 const STILL = process.env.MAKE_STILL ?? 'after';
 const PHONE2 = { width: 390, height: 844 };
 const problems = [];
+// (POLISH 3) the preview's brain as this spec found it: put back at the end, and the next spec shown to open on it
+const cleanBrain = await brainBefore(process.env.BASE ?? 'http://localhost:8788');
 let checks = 0;
 const t0 = Date.now();
 const check = (ok, msg) => {
@@ -627,6 +630,7 @@ await section('body21', async () => {
   await ctx.close();
 });
 
+problems.push(...(await brainAfter(process.env.BASE ?? 'http://localhost:8788', cleanBrain)));
 await browser.close();
 const secs = ((Date.now() - t0) / 1000).toFixed(0);
 console.log(problems.length ? `PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}` : `MAKE pass run clean: ${checks} checks in ${secs} s: the Workshop, the 3D studio, SPACE, the Workbench and its tunnel, REVERSE, CONVERT and HOUSE say their waits, their empties and their failures in his words, with the one next thing, at both widths`);

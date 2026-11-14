@@ -9,7 +9,8 @@ import { sayError } from '../../ui/hisWords';
 import { watcherStands, type WatcherInfo } from '../../../../../packages/shared/src/lifeeasier';
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
-import { button, panel, toast } from '../../ui/components';
+import { button, panel, row, toast } from '../../ui/components';
+import { more } from '../lifeui';
 import { intoChat } from '../../abilities/registry';
 
 const clock = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -57,15 +58,16 @@ export function watchersPanel(): { el: HTMLElement; refresh(): Promise<void> } {
             b.dataset.label = 'Stop';
             // [recall] a chase that came due with no reply: DRAFT A CHASE asks for a draft (the mail rule stands: SEND needs his confirm)
             const draft = x.kind === 'reply' && x.state === 'told' && !x.repliedAt ? button('DRAFT A CHASE', () => void intoChat(`Draft a short, polite chase email${x.who ? ` to ${x.who}` : ''}${x.about ? ` about “${x.about}”` : ''} for my OK. Don't send it.`), 'wdraft') : null;
-            return h(
-              'div.wrow',
-              { dataset: { id: x.id, kind: x.kind, state: x.state, case: 'keep' } },
-              h('span.wtxt', h('b', x.label), h('small', watcherStands(x, Date.now(), clock, day)), x.url ? h('small.wurl', x.url.replace(/^https?:\/\//, '').slice(0, 60)) : ''),
-              ...(draft ? [draft] : []),
-              b,
-            );
+            // the Agenda's own grammar: the time first (when it last looked, or told), the thing, its key last: the same row as a diary line
+            const at = x.state === 'told' && x.toldAt ? x.toldAt : x.checked;
+            const r = row(at ? clock(at) : '--:--', h('span.wtxt', h('b', x.label), h('small', watcherStands(x, Date.now(), clock, day)), x.url ? h('small.wurl', x.url.replace(/^https?:\/\//, '').slice(0, 60)) : ''), null, { wrap: true });
+            r.classList.add('wrow');
+            Object.assign(r.dataset, { id: x.id, kind: x.kind, state: x.state, case: 'keep' });
+            if (draft) r.append(draft);
+            r.append(b);
+            return r;
           })
-        : [h('p.note.wempty', { dataset: { case: 'keep' } }, 'I’m not watching anything. Say “tell me when this price drops” with a page’s address in the chat, or paste one below.')]),
+        : [h('p.note.wempty', { dataset: { case: 'keep' } }, 'Nothing watched. Paste a page’s address below.')]),
     );
   };
 
@@ -100,7 +102,8 @@ export function watchersPanel(): { el: HTMLElement; refresh(): Promise<void> } {
     }),
   );
   p.body.append(
-    h('p.note', 'I look at each page every hour and tell you once when it changes the way you asked. Public pages only: never a login, never a person’s page.'),
+    h('p.note', 'I look at each page every hour and tell you once.'),
+    more('Public pages only: never a login, never a person’s page. Say “tell me when this price drops” with a page’s address in the chat, or paste one below.'),
     list,
     h('div.lab', 'WATCH A PAGE'),
     url,

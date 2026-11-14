@@ -104,7 +104,8 @@ const lightsOff: Meant = { id: 'lights-off', say: 'turn off the lights' };
 const open = (id: string, tab: string, line: string, panel?: string): Meant => ({ id, open: tab, line, ...(panel ? { panel } : {}) });
 const map = open('map', 'eye', 'Opening the map.');
 const lens = open('lens', 'lens', 'Opening the Lens: point it at anything.');
-const comic = open('comic', 'creative', 'Opening the comic.', 'comic');
+// [comic] THE COMIC is its own screen since the FINAL ROUND's comic lane (features/comic): its shelf, MAKE and the public-domain library
+const comic = open('comic', 'comic', 'Opening Comic: your shelf, MAKE and the free library.');
 const arcade = open('games', 'arcade', 'Opening the arcade.');
 const gym = open('board games', 'gym', 'Opening the gym: chess, draughts and the board games.');
 const settings = open('settings', 'settings', 'Opening Settings.');

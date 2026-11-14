@@ -230,7 +230,18 @@ for (const vp of VIEWPORTS) {
   const topOk = await until(page, () => /Water \d[\d.,]* (ml|litres?) of 3\.4 litres/.test(document.querySelector('#pg-body')?.textContent ?? ''), null, 6000);
   check(topOk, `${T} the Body card says today's water: "${(await txt(page, '#pg-body')).slice(0, 160)}"`);
 
-  // ---- d. THE CHAT
+  // ---- d. THE CHAT. First, the words read hostilely: what must be kept, and what must never be (a drink for the shopping list,
+  // an age, someone else's plant, a beer), each as the phone's own table reads it
+  if (vp.width === 440) {
+    const cases = [
+      ['I drank a pint', 'log water 568'], ['2 glasses of water', 'log water 500'], ['had 500 ml', 'log water 500'], ['please log a glass of water', 'log water 250'],
+      ['I’m 85 kg', 'log weight 85'], ['I am 13 stone 4', 'log weight 84.4'], ['how much water today?', 'ask water'], ['I am up', 'up'],
+      ['add water to the shopping list', null], ['I am 30', null], ['how much water does a cactus need', null], ['I had a glass of wine', null],
+      ['water the plants', null], ['drink water', null], ['up', null], ['I feel low', null], ['remind me to drink water at 5pm', null],
+    ];
+    const got = await page.evaluate((cs) => cs.map(([t]) => { const a = window.__ghosty.track.asked(t); return a ? [a.kind, a.m, a.v].filter((x) => x !== undefined).join(' ') : null; }), cases);
+    cases.forEach(([t, want], i) => check(got[i] === want, `${T} the words "${t}" read as ${JSON.stringify(got[i])}, want ${JSON.stringify(want)}`));
+  }
   await page.evaluate(() => (location.hash = 'core'));
   await page.waitForTimeout(400);
   if (!(await page.evaluate(() => !!document.querySelector('.hud.core.logopen')))) await page.locator('.logbtn:visible').first().click().catch(() => undefined);

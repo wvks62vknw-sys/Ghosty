@@ -198,6 +198,27 @@ export const STATES = {
   'links.account': { dir: 'links', base: 1, now: 2 },
   'links.notes': { dir: 'links', base: 1, now: 2 },
   'social.queue': { dir: 'social', base: 3, now: 4 },
+  // PLAN AND HOME (FINAL ROUND, planlane): the agenda's to-do list and the radio's RECENT list, new screens (base 0)
+  'agenda.todo': { dir: 'agenda', base: 0, now: 1 },
+  'radio.recent': { dir: 'radio', base: 0, now: 1 },
+  // [planlane:links] each connection's state in his words (checking, can't reach the brain, linked but not working, nothing linked yet)
+  'links.connections': { dir: 'links', base: 0, now: 4 },
+  // [planlane:social] SOCIAL's WRITE A POST (no account linked, the brain not answering, a draft not made) and SENT TODAY (new parts, base 0)
+  'social.compose': { dir: 'social', base: 0, now: 3 },
+  'social.sent': { dir: 'social', base: 0, now: 3 },
+  // [planlane:markets] YOUR COINS (his holdings), a coin's chart ranges and YOUR WATCHLIST's search: new parts (base 0)
+  'markets.holdings': { dir: 'markets', base: 0, now: 2 },
+  'markets.chart': { dir: 'markets', base: 0, now: 3 },
+  'markets.watchlist': { dir: 'markets', base: 0, now: 4 },
+  // [planlane:brief] the Brief's weather (on its way, Open-Meteo not answering with TRY AGAIN) and its headlines (the BBC not answering, a way on)
+  'brief.weather': { dir: 'brief', base: 0, now: 2 },
+  'brief.news': { dir: 'brief', base: 0, now: 1 },
+  // [planlane:radio] the sleep timer a reload ended (said once, honestly), and FAVOURITES with none kept yet
+  'radio.sleep': { dir: 'radio', base: 0, now: 1 },
+  'radio.favs': { dir: 'radio', base: 0, now: 1 },
+  // [planlane:agenda] the diary (loading, the brain out of reach with the phone's copy said so, offline with no copy, empty) and the chat's month
+  'agenda.diary': { dir: 'agenda', base: 0, now: 4 },
+  'agenda.month': { dir: 'agenda', base: 0, now: 1 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },
@@ -220,6 +241,11 @@ export const STATES = {
   'core.cited': { dir: 'core', base: 0, now: 1 },
   'core.local': { at: 'assistant', dir: '', base: 1, now: 3 },
   'core.hud': { dir: 'core', base: 1, now: 2 },
+  // THE COMIC (FINAL ROUND, lane COMIC): its own screen, new; base 0 since nothing was drawn before it.
+  'comic.shelf': { dir: 'comic', base: 0, now: 3 },
+  'comic.maker': { dir: 'comic', base: 0, now: 3 },
+  'comic.reader': { dir: 'comic', base: 0, now: 2 },
+  'comic.library': { dir: 'comic', base: 0, now: 4 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {
@@ -244,11 +270,62 @@ test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every
 });
 test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach']]) {
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach'], ['comic']]) {
     const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);
       assert.ok(KINDS.includes(m[2]), `${dir}: a state marker of kind "${m[2]}" (use ${KINDS.join(', ')})`);
     }
   }
+});
+
+// THE WORDS RATCHET (POLISH 3; the same shape as the colour ratchet: the old shape goes down, never grows): for each of the four screens that
+// were cut to one sentence, how many string literals over 90 characters its files hold (comments left out; a template counts by its own
+// text outside ${ }). `base` is what each held on the code before POLISH 3 (read from it), `now` what it holds after: equal or lower from then on.
+// A sentence that is long on purpose goes behind its "?" in two literals (ui/oneline.ts para), never back into one.
+export function longLiterals(src, min = 90) {
+  const out = [];
+  const n = src.length;
+  let i = 0;
+  function code(stopAtBrace) {
+    let depth = 0;
+    while (i < n) {
+      const c = src[i], d = src[i + 1];
+      if (c === '/' && d === '/') { while (i < n && src[i] !== '\n') i++; continue; }
+      if (c === '/' && d === '*') { i = src.indexOf('*/', i + 2); i = i < 0 ? n : i + 2; continue; }
+      if (c === "'" || c === '"') { const q = c; let s = ''; i++; while (i < n && src[i] !== q && src[i] !== '\n') { if (src[i] === '\\') { s += src[i + 1]; i += 2; } else s += src[i++]; } i++; if (s.length > min) out.push(s); continue; }
+      if (c === '`') { i++; template(); continue; }
+      if (c === '{') depth++;
+      if (c === '}') { if (stopAtBrace && depth === 0) { i++; return; } depth--; }
+      i++;
+    }
+  }
+  function template() {
+    let s = '';
+    while (i < n && src[i] !== '`') {
+      if (src[i] === '\\') { s += src[i + 1]; i += 2; continue; }
+      if (src[i] === '$' && src[i + 1] === '{') { i += 2; code(true); continue; }
+      s += src[i++];
+    }
+    i++;
+    if (s.length > min) out.push(s);
+  }
+  code(false);
+  return out;
+}
+export const WORDS = {
+  settings: { files: () => readdirSync(new URL('settings/', FEATURES)).filter((f) => f.endsWith('.ts') && f !== 'packs.ts').map((f) => `settings/${f}`), base: 67, now: 61 },
+  system: { files: () => readdirSync(new URL('system/', FEATURES)).filter((f) => f.endsWith('.ts')).map((f) => `system/${f}`), base: 57, now: 40 },
+  look: { files: () => ['look/index.ts'], base: 13, now: 6 },
+  packs: { files: () => ['settings/packs.ts'], base: 7, now: 6 },
+};
+test('THE WORDS RATCHET: Settings, System, the Theme page and the packs\' cards hold no more long literals than they were cut to', () => {
+  const rows = [];
+  for (const [screen, { files, base, now }] of Object.entries(WORDS)) {
+    const have = files().reduce((t, f) => t + longLiterals(readFileSync(new URL(f, FEATURES), 'utf8')).length, 0);
+    rows.push(`${screen}: ${base} → ${have} (pinned ${now})`);
+    assert.ok(now <= base, `${screen}: the pinned number (${now}) is over what the pass began with (${base})`);
+    assert.ok(have <= now, `${screen} has ${have} string literals over 90 characters, ${now} pinned: cut the new one to a sentence (its fact behind a "?": ui/oneline.ts)`);
+  }
+  console.log(`words ratchet:\n${rows.join('\n')}`);
 });

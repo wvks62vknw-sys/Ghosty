@@ -240,3 +240,52 @@ export function forgetLast(): void {
     /* nothing to forget */
   }
 }
+
+// ------------------------------------------------------------------ the daily backup (POLISH 3, 2d)
+/** A photo's edit as the daily backup carries it: the recipe and the brush pictures it names, never the photo itself (that stays here). */
+export interface RecipeCopy {
+  id: string;
+  name: string;
+  at: number;
+  tool?: string;
+  recipe: Recipe;
+  alphas: Record<string, { w: number; h: number; b64: string }>;
+  patches: Record<string, { w: number; h: number; b64: string }>;
+}
+const toB64 = (u: Uint8Array | Uint8ClampedArray): string => {
+  let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+const fromB64 = (b: string): Uint8Array => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+
+/** Every edited photo's recipe, and his own looks: small, so they ride the daily backup. */
+export async function recipesForBackup(): Promise<{ recipes: RecipeCopy[]; looks: Preset[] }> {
+  const rows = (await all<Row>('photos', mem.photos)).filter((r) => r.edited);
+  const recipes = rows.map((r) => ({
+    id: r.id, name: r.name, at: r.at, ...(r.tool ? { tool: r.tool } : {}), recipe: r.recipe,
+    alphas: Object.fromEntries(Object.entries(r.alphas ?? {}).map(([k, a]) => [k, { w: a.w, h: a.h, b64: toB64(a.data) }])),
+    patches: Object.fromEntries(Object.entries(r.patches ?? {}).map(([k, p]) => [k, { w: p.w, h: p.h, b64: toB64(p.data) }])),
+  }));
+  return { recipes, looks: await listMyLooks() };
+}
+
+/**
+ * A backed-up recipe put back on the photo it belongs to, when that photo is still on this phone and the copy is newer (the newer wins,
+ * as everywhere in a restore). 'kept': put back; 'same': this phone's is as new; 'nophoto': the photo itself is not on this phone.
+ */
+export async function restoreRecipe(c: RecipeCopy): Promise<'kept' | 'same' | 'nophoto'> {
+  const r = await row(c.id);
+  if (!r) return 'nophoto';
+  if (r.at >= c.at) return 'same';
+  const alphas: Row['alphas'] = Object.fromEntries(Object.entries(c.alphas ?? {}).map(([k, a]) => [k, { w: a.w, h: a.h, data: fromB64(a.b64) }]));
+  const patches: NonNullable<Row['patches']> = Object.fromEntries(Object.entries(c.patches ?? {}).map(([k, p]) => [k, { w: p.w, h: p.h, data: new Uint8ClampedArray(fromB64(p.b64).buffer) }]));
+  await put('photos', { ...r, recipe: { ...newRecipe(), ...c.recipe }, alphas, patches, edited: true, at: c.at, ...(c.tool ? { tool: c.tool } : {}) }, mem.photos, c.id);
+  return 'kept';
+}
+/** One of his own looks put back when this phone has none by that name. */
+export async function restoreLook(p: Preset): Promise<boolean> {
+  if ((await listMyLooks()).some((x) => x.name === p.name)) return false;
+  await saveMyLook(p);
+  return true;
+}

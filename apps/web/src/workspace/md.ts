@@ -22,7 +22,7 @@ const safe = (t: string): string => (t.trim() || 'Untitled').replace(/[\\/:*?"<>
 
 // ---------------------------------------------------------------- runs as Markdown
 
-const escText = (s: string): string => s.replace(/\\/g, '\\\\').replace(/\*/g, '\\*').replace(/_/g, '\\_').replace(/\[/g, '\\[').replace(/</g, '\\<');
+const escText = (s: string): string => s.replace(/\\/g, '\\\\').replace(/\*/g, '\\*').replace(/_/g, '\\_').replace(/\[/g, '\\[').replace(/</g, '\\<').replace(/([~=])(?=\1)/g, '\\$1'); // (a doubled ~ or = is a mark in Markdown: "a==b" must come back as written)
 const runMd = (r: Run): string => {
   let t = escText(r.text);
   if (!t) return '';
@@ -30,11 +30,13 @@ const runMd = (r: Run): string => {
   else if (r.b) t = `**${t}**`;
   else if (r.i) t = `*${t}*`;
   if (r.u && !r.href) t = `<u>${t}</u>`;
+  if (r.s) t = `~~${t}~~`;
+  if (r.hl) t = `==${t}==`;
   if (r.href) t = `[${t}](${r.href})`;
   return t;
 };
 const lineMd = (runs: Run[]): string => runs.map(runMd).join('').replace(/\n/g, '  \n');
-const unesc = (s: string): string => s.replace(/\\([\\*_\[<#>+-])/g, '$1');
+const unesc = (s: string): string => s.replace(/\\([\\*_\[<#>+~=-])/g, '$1');
 /** Markdown's inline marks as runs (links, underline, bold, italic). */
 export function mdRuns(md: string): Run[] {
   const out: Run[] = [];
@@ -128,6 +130,7 @@ function pageMd(ws: Workspace, p: Page, file: string, paths: Map<string, string>
       case 'ul': line = `- ${inner}`; break;
       case 'ol': line = `${n}. ${inner}`; break;
       case 'quote': line = `> ${inner}`; break;
+      case 'callout': line = `> [!${b.tone === 'warn' ? 'WARNING' : b.tone === 'tip' ? 'TIP' : 'NOTE'}] ${inner}`; break;
       case 'todo': line = `- [${b.done ? 'x' : ' '}] ${inner}${b.done ? ` <!--done ${b.done}-->` : ''}`; break;
       case 'right': line = `<p align="right">${inner}</p>`; break;
       case 'pb': line = '---'; break;
@@ -302,6 +305,11 @@ export function parseMd(text: string, fallbackTitle = 'Untitled', onLoss: (s: st
     } else if ((m = /^\s*\d{1,3}[.)]\s+(.*)$/.exec(line))) {
       flush();
       out.blocks.push(wblock('ol', mdRuns(m[1]!)));
+    } else if ((m = /^>\s?\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s?(.*)$/i.exec(line))) {
+      // a callout (GitHub's and Obsidian's way of writing one in Markdown)
+      flush();
+      const k = m[1]!.toUpperCase();
+      out.blocks.push(wblock('callout', mdRuns(m[2]!), k === 'TIP' ? { tone: 'tip' } : k === 'WARNING' || k === 'CAUTION' ? { tone: 'warn' } : {}));
     } else if ((m = /^>\s?(.*)$/.exec(line))) {
       flush();
       out.blocks.push(wblock('quote', mdRuns(m[1]!)));

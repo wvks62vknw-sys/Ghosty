@@ -45,6 +45,7 @@ import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
 import { originLines } from '../../../../packages/shared/src/social';
 import { card } from '../../../../packages/shared/src/cards';
+import { screenAsked } from './screenasks';
 import { applyAsk, lookAsked } from '../../../../packages/shared/src/themes';
 import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/looks';
 import { TWO_WAYS } from '../../../../packages/shared/src/colours';
@@ -369,6 +370,18 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
   video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   gamestudio: async (text, opts) => packAnswer(await gameTurn(text), opts),
+  // [planlane] each screen's own turn (features/<screen>/turn.ts): done on the phone and said in one line; null lets the next table try
+  planagenda: async (text, opts) => { const r = await import('../features/agenda/turn').then((m) => m.agendaTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planradio: async (text, opts) => { const r = await import('../features/radio/turn').then((m) => m.radioTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planmarkets: async (text, opts) => { const r = await import('../features/markets/turn').then((m) => m.marketsTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planbrief: async (text, opts) => { const r = await import('../features/brief/turn').then((m) => m.briefTurn(text)); return r ? packAnswer(r, opts) : false; },
+  async openscreen(text, opts) {
+    const s = screenAsked(text);
+    if (!s || !(await import('../shell/tabs')).go(s.tab)) return false;
+    return answer(text, `${s.name[0]!.toUpperCase()}${s.name.slice(1)} is open.`, { kind: 'pack' }, opts);
+  },
+  // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
+  comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
   unixtime: (text, opts) => numberAnswer(text, opts),

@@ -319,7 +319,10 @@ export interface Subscription {
 const dayNo = (d: string) => Math.round(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400_000);
 const addMonths = (d: string, n: number) => {
   const m = +d.slice(0, 4) * 12 + (+d.slice(5, 7) - 1) + n;
-  return `${Math.floor(m / 12)}-${pad2((m % 12) + 1)}-${pad2(Math.min(28, +d.slice(8, 10)))}`;
+  // (the same day of the month, or the month's last day when it is shorter: a payment on 31 January next falls on 28 or 29 February)
+  const y = Math.floor(m / 12);
+  const last = new Date(Date.UTC(y, (m % 12) + 1, 0)).getUTCDate();
+  return `${y}-${pad2((m % 12) + 1)}-${pad2(Math.min(last, +d.slice(8, 10)))}`;
 };
 const title = (k: string) => k.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
 
