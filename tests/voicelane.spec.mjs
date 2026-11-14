@@ -158,9 +158,13 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await say(page, 'make the money screen green', /^Money keeps green from now on; everywhere else stays blue\.$/, `[${W}] [colours] the money screen green`);
   await page.evaluate(() => (location.hash = 'money'));
   check(await page.waitForFunction(() => document.documentElement.dataset.theme === 'emerald', null, { timeout: 6000 }).then(() => true, () => false), `[${W}] [colours] Money did not show green (${await theme(page)})`);
+  // (a saved look change made while Money shows green keeps HIS colour, never the room's: review fix)
+  await page.evaluate(() => window.__ghosty.roomcolour.applyRecipe({ ...window.__ghosty.roomcolour.recipe(), switches: { ...window.__ghosty.roomcolour.recipe().switches, glow: window.__ghosty.roomcolour.recipe().switches.glow === 'on' ? 'off' : 'on' } }));
+  check(await page.evaluate(() => window.__ghosty.settings.get().theme) === 'reactor', `[${W}] [colours] a look change on Money saved the room's colour as his (${await page.evaluate(() => window.__ghosty.settings.get().theme)})`);
   await page.evaluate(() => (location.hash = 'core'));
   check(await page.waitForFunction(() => document.documentElement.dataset.theme === 'reactor', null, { timeout: 6000 }).then(() => true, () => false), `[${W}] [colours] leaving Money did not put blue back (${await theme(page)})`);
   check(await page.evaluate(() => window.__ghosty.settings.get().theme) === 'reactor', `[${W}] [colours] the room's colour changed his saved colour`);
+  await say(page, 'put it back', /^Put back: Blue · /, `[${W}] [colours] put it back after the look change on Money (his colour, not the room's)`);
   await say(page, 'money screen back to normal', /^Money is back in your colour, blue\.$/, `[${W}] [colours] the money screen back to normal`);
   check(await page.evaluate(() => window.__ghosty.roomcolour.roomColour('money') === null), `[${W}] [colours] Money kept its colour after "back to normal"`);
   // [voice.s5] colour-blind safe: the state colours change to a set told apart by every eye, and back
@@ -327,6 +331,8 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   const notes0 = sent.length;
   await sayAs('note: buy oat milk', 'owner', /^Kept, by you: “buy oat milk”\. It’s in Memory\.$/, `[${W}] [notes] his own spoken note`);
   await sayAs('note: pick up the parcel', { name: 'Sam' }, /^Not kept: that was someone else’s voice, and I only keep a spoken note when I’m sure it’s you\. Type it and I’ll keep it\.$/, `[${W}] [notes] Sam's note`);
+  // (no label for this turn: never kept as his, whatever an earlier turn's tag said: review fix)
+  await sayAs('note: feed the cat', undefined, /^Not kept: I couldn’t tell whose voice that was/, `[${W}] [notes] a turn with no voice label of its own`);
   await sayAs('note: water the plants', 'unsure', /^Not kept: I wasn’t sure that was you/, `[${W}] [notes] a voice it isn't sure of`);
   await say(page, 'note to self, call the garage', /^Kept: “call the garage”\. It’s in Memory\.$/, `[${W}] [notes] a typed note`);
   check(!sent.slice(notes0).some((b) => /note|parcel|garage|oat milk/i.test(String(b.message ?? ''))), `[${W}] [notes] a note went to the model as a chat`);
