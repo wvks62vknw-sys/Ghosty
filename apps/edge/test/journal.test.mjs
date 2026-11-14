@@ -65,3 +65,37 @@ test('journal: nothing in its code reads a position or sends his words to the br
   const ui = readFileSync(at('../../web/src/features/journal/index.ts'), 'utf8');
   assert.match(ui, /brain\.addJob\(\{ kind: 'reminder', title: 'Journal', text: 'A line in your journal\?'/, 'the nudge carries no words of his');
 });
+
+/** A JPEG's first bytes with an EXIF block holding only GPS (big-endian TIFF): lat/lon in degrees, minutes, seconds. */
+function jpegWithGps(lat, lon) {
+  const b = [];
+  const u16 = (n) => b.push((n >> 8) & 255, n & 255);
+  const u32 = (n) => b.push((n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255);
+  const dms = (d) => { const a = Math.abs(d); const D = Math.floor(a); const M = Math.floor((a - D) * 60); const S = Math.round(((a - D) * 60 - M) * 60 * 100); return [[D, 1], [M, 1], [S, 100]]; };
+  // TIFF: header(8) IFD0 at 8: 1 entry (12) + next(4) = 18 → GPS IFD at 26: 4 entries (48) + next(4) = 54 → rationals at 80
+  u16(0x4d4d); u16(42); u32(8);
+  u16(1); u16(0x8825); u16(4); u32(1); u32(26); u32(0);
+  u16(4);
+  u16(1); u16(2); u32(2); b.push(lat < 0 ? 83 : 78, 0, 0, 0);
+  u16(2); u16(5); u32(3); u32(80);
+  u16(3); u16(2); u32(2); b.push(lon < 0 ? 87 : 69, 0, 0, 0);
+  u16(4); u16(5); u32(3); u32(104);
+  u32(0);
+  for (const [n, d] of [...dms(lat), ...dms(lon)]) { u32(n); u32(d); }
+  const tiff = b;
+  const app1 = [0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff];
+  const len = app1.length + 2;
+  return new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe1, len >> 8, len & 255, ...app1, 0xff, 0xd9])]);
+}
+
+test('journal: a photo’s own place is read on the phone and only names the nearest saved place within 300 m', async () => {
+  const g = await S.photoGps(jpegWithGps(52.4797, -1.9027));
+  assert.ok(g && Math.abs(g.lat - 52.4797) < 1e-3 && Math.abs(g.lon + 1.9027) < 1e-3, JSON.stringify(g));
+  const saved = [{ label: 'Home', lat: 52.4800, lon: -1.9030 }, { label: 'Work', lat: 52.5, lon: -1.85 }];
+  assert.equal(S.nearestSaved(g, saved), 'Home');
+  assert.equal(S.nearestSaved({ lat: 51.5, lon: -0.12 }, saved), null, 'far from every saved place: no place at all');
+  assert.equal(await S.photoGps(new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])])), null, 'not a JPEG');
+  assert.equal(await S.photoGps(new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])])), null, 'no EXIF');
+  const ui = readFileSync(at('../../web/src/features/journal/index.ts'), 'utf8');
+  assert.ok(!/\.lat\b|\.lon\b/.test(ui.replace(/saved = r\.places;/, '')), 'the screen never keeps a position');
+});

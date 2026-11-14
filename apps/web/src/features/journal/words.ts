@@ -50,6 +50,7 @@ export const J = {
   RESTORE: 'RESTORE',
   NEW_JOURNAL: 'NEW JOURNAL',
   JOURNAL_NAME: 'A name for it, like Travel or Kids',
+  PLACE_FROM_PHOTO: (p: string) => `Place from the photo: ${p} (only the name of your saved place is kept).`,
   ASK_OPEN: 'Your journal is open.',
   ASK_NEW: 'A new page is open in your journal.',
   ASK_ADDED: 'It is in a new journal entry, kept on this phone: add a photo or a mood if you like.',

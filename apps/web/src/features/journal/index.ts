@@ -17,7 +17,7 @@ import { button, modal, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sections, sectionNow } from '../../ui/sections';
 import { canLock, makeKey, unlock } from './lock';
-import { asDataUrl, binned, dayKey, dropMedia, getMedia, live, load, matches, newId, onThisDay, putMedia, samples, save, shrink, streak, type Entry, type JournalData, type Mood, type Tone } from './store';
+import { photoGps, nearestSaved, asDataUrl, binned, dayKey, dropMedia, getMedia, live, load, matches, newId, onThisDay, putMedia, samples, save, shrink, streak, type Entry, type JournalData, type Mood, type Tone } from './store';
 import { J, PROMPTS } from './words';
 
 const ICON = '<path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h6M9.5 11.5h6"/>';
@@ -155,7 +155,11 @@ export const journalTab: TabDef = {
       place.setAttribute('list', 'jnplaces');
       place.value = e.place ?? '';
       const placesList = h('datalist#jnplaces');
-      void brain.places().then((r) => clear(placesList, ...r.places.map((p) => h('option', { value: p.label })))).catch(() => undefined);
+      let saved: { label: string; lat: number; lon: number }[] = [];
+      void brain.places().then((r) => {
+        saved = r.places;
+        clear(placesList, ...r.places.map((p) => h('option', { value: p.label })));
+      }).catch(() => undefined);
       const jsel = h('select', { 'aria-label': 'Which journal' }, ...data.journals.map((j) => h('option', { value: j.id }, j.name))) as HTMLSelectElement;
       jsel.value = e.journal;
       const when = h('input', { type: 'date', 'aria-label': 'Which day it is about' }) as HTMLInputElement;
@@ -166,6 +170,15 @@ export const journalTab: TabDef = {
       const fileIn = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true }) as HTMLInputElement;
       fileIn.addEventListener('change', async () => {
         for (const f of [...(fileIn.files ?? [])].slice(0, 10)) {
+          // (a photo's own place, read here: only the nearest SAVED place's name is used, never the position)
+          if (!place.value.trim() && saved.length) {
+            const g = await photoGps(f);
+            const near = g ? nearestSaved(g, saved) : null;
+            if (near) {
+              place.value = near;
+              said.textContent = J.PLACE_FROM_PHOTO(near);
+            }
+          }
           const full = await shrink(f, 1600);
           const small = await shrink(f, 240, 0.7);
           if (!full || !small) {
