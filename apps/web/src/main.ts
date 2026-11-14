@@ -34,6 +34,7 @@ import { button, toast } from './ui/components';
 import { sayError } from './ui/hisWords';
 import { installCrashNet } from './core/crash';
 import { installPermissionRecord } from './features/settings/permissions'; // [health] crash records, never a blank
+import './ui/appkit'; // [consistency] THE APP KIT: the frame every app is built from (window.__ghosty.appkit)
 
 installCrashNet();
 installPermissionRecord(); // [health] the last grant or refusal of each thing the phone can be asked for

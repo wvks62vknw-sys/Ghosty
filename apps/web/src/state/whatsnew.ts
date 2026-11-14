@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [see] the APPS ROUND: the weather app
+  { day: '2026-11-14', title: 'Weather, an app of its own', line: 'Say “weather app” or tap OPEN WEATHER in the Brief: the next hour’s rain, a 24-hour graph, ten days, the details, the air and pollen, for every saved place and any city you add.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },
@@ -104,6 +106,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Chase from the Brief', line: 'CHASE on an email that needs an answer holds it for two working days; chases due today show under it. Say “and again Monday” and a chase looks twice.' },
   // [ci] NEXT ci.u3
   { day: '2026-11-14', title: 'How quickly I answer out loud', line: 'System → SPEED now shows your spoken turns too: how soon my first word comes after you stop, and how soon I listen again after I finish. Timed on your phone, kept on your phone.' },
+  // [learn, apps round] chess
+  { day: '2026-11-14', title: 'Chess puzzles and puzzle rush', line: 'GYM → chess → PUZZLES: real puzzles from Lichess’s free puzzle database, kept on your phone; a puzzle rating, and a three-minute rush with three lives.' },
   // [learn, next round] learning that adapts and talks back (NEXT-LEARN.md)
   { day: '2026-11-14', title: 'Courses that pick up your mistakes', line: 'Each course’s map has TODAY: the lesson your answers say to look at again (a miss you were sure of counts most), with a quiz on just your misses.' },
   { day: '2026-11-14', title: 'Free classics for your shelf', line: 'Library → Add → CLASSICS: Project Gutenberg and Standard Ebooks’ newest, free. Each book’s size is said first, and it comes on your tap, on Wi-Fi.' },

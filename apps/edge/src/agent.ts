@@ -46,6 +46,7 @@ import { moodEvent, moodLine, type Mood } from '../../../packages/shared/src/moo
 import { feel, loadMood } from './mood';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
 import { classicsRoute } from './library/classics';
+import { chessPuzzlesRoute } from './chess/puzzles';
 import { trainingRoute } from './training/coach';
 import { loadStudy, matchDomains, noteGap, STUDY_KEY, studySession, studySummary, TOPIC_COUNT } from './library/study';
 import { runDigest } from './library/digest';
@@ -1531,6 +1532,7 @@ export class GhostyAgent {
     }
     // [learn.u6] THE CLASSICS SHOP: free public-domain books (Gutendex, Standard Ebooks' open new releases), added on his tap
     if (path === '/library/classics' || path.startsWith('/library/classics/')) return classicsRoute(req, path, method, { lib });
+    if (path === '/chess/puzzles' || path === '/chess/puzzles/daily') return chessPuzzlesRoute(req, path, method);
     if (path === '/library/import' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { source?: string; offset?: number };
       try {
