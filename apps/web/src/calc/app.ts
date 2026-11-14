@@ -48,6 +48,17 @@ export function openCalculator(start = ''): KitApp {
   let fresh = false; // the last key was =: a digit starts a new sum, a sign carries the answer on
   const line = h('p.calcsum', { 'aria-live': 'polite' });
   const big = h('p.calcbig', { role: 'status', 'aria-live': 'polite' });
+  // the answer tapped: copied, to paste anywhere (the phone's clipboard; nothing leaves the phone)
+  const copyKey = key('Copy', async () => {
+    const v = live();
+    if (!v) return k.notice('Nothing to copy yet.');
+    try {
+      await navigator.clipboard.writeText(v.replace(/,/g, '').replace('−', '-'));
+      k.notice(`Copied ${v}.`, { tone: 'ok' });
+    } catch {
+      k.notice('This phone did not allow copying here.');
+    }
+  }, { kind: 'ghost', label: 'Copy the answer' });
   const backKey = key('', () => back(), { kind: 'ghost', label: 'Delete the last key', glyph: '<path d="M9 6h11v12H9l-5-6z"/><path d="M12 9.5l5 5M17 9.5l-5 5"/>' });
   const pad = h('div.calcpad', { role: 'group', 'aria-label': 'Keypad' });
   for (const row of PAD) for (const [label, types] of row) {
@@ -55,7 +66,7 @@ export function openCalculator(start = ''): KitApp {
     b.dataset.calc = label;
     pad.append(b);
   }
-  const stage = h('div.calcstage', h('div.calcdisplay', h('div.calcread', line, big), backKey), pad);
+  const stage = h('div.calcstage', h('div.calcdisplay', h('div.calcread', line, big), h('div.calcside', copyKey, backKey)), pad);
 
   const k = app(host, {
     id: 'calculator',

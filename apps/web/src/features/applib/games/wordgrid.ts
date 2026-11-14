@@ -1,15 +1,16 @@
 /**
  * The WORDGRID board. Options (GameConfig.options): words (string[]), size (8 to 14, default 10), count (4 to 12,
- * default 8), diagonal (default true). Drag along a word, or tap its first then its last letter.
+ * default 8), diagonal (default true), backwards (default false), themes (a picker) with a list
+ * under each theme's name. Drag along a word, or tap its first then its last letter.
  */
 import { h } from '../../../core/dom';
 import * as W from '../../../../../../packages/shared/src/applib/games/wordgrid';
-import { bool, list, num } from '../../../../../../packages/shared/src/applib/games/rng';
+import { bool, num, themed } from '../../../../../../packages/shared/src/applib/games/rng';
 import { type Board, fmtTime, grid } from './frame';
 
 export const wordgrid: Board = (p) => {
   const saved = p.resume as { g: W.WordGrid; found: string[] } | null;
-  const g = saved?.g ?? W.build(list(p.opts, 'words'), num(p.opts, 'size', 10, 8, 14), num(p.opts, 'count', 8, 4, 12), bool(p.opts, 'diagonal', true), p.seed());
+  const g = saved?.g ?? W.build(themed(p.opts), num(p.opts, 'size', 10, 8, 14), num(p.opts, 'count', 8, 4, 12), bool(p.opts, 'diagonal', true), p.seed(), bool(p.opts, 'backwards', false));
   const found = new Set(saved?.found ?? []);
   const els: HTMLElement[] = [];
   const board = grid(g.size, 'al-gwgrid', g.letters.length, (i) => {

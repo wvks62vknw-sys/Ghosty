@@ -34,6 +34,7 @@ export const BACKUP_KEYS: { key: string; label: string; whole?: boolean }[] = [
   { key: 'ghosty.learn', label: 'courses, lessons and flashcards' },
   { key: 'ghosty.journal', label: 'your journal' },
   { key: 'ghosty.touch', label: 'who you keep in touch with' },
+  { key: 'ghosty.gifts', label: 'gifts, budgets and thank-yous' },
   { key: 'ghosty.widgets.local', label: 'widgets made on this phone' },
   { key: 'ghosty.space', label: 'space plan and measurements', whole: true },
   { key: 'ghosty.settings', label: 'settings', whole: true },

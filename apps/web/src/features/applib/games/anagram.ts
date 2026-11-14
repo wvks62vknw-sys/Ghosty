@@ -1,15 +1,16 @@
 /**
- * The ANAGRAM board. Options (GameConfig.options): words (string[]), secs (30 to 300, default 90).
+ * The ANAGRAM board. Options (GameConfig.options): words (string[]) or themes (a picker) with a list
+ * under each theme's name, secs (30 to 300, default 90).
  * Tap the letters in order to spell the word (tap a placed letter to take it back). SKIP costs 5 points.
  */
 import { h, clear } from '../../../core/dom';
 import * as A from '../../../../../../packages/shared/src/applib/games/anagram';
 import { WORDS5 } from '../../../../../../packages/shared/src/applib/games/wordguess';
-import { list, num, pick, rng } from '../../../../../../packages/shared/src/applib/games/rng';
+import { num, pick, rng, themed } from '../../../../../../packages/shared/src/applib/games/rng';
 import type { Board } from './frame';
 
 export const anagram: Board = (p) => {
-  const pool = list(p.opts, 'words').map((w) => w.toLowerCase()).filter((w) => /^[a-z]{3,10}$/.test(w));
+  const pool = themed(p.opts).map((w) => w.toLowerCase()).filter((w) => /^[a-z]{3,10}$/.test(w));
   const words = pool.length >= 3 ? pool : WORDS5;
   const secs = num(p.opts, 'secs', 90, 30, 300);
   const r = rng(p.seed());

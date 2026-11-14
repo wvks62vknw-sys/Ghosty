@@ -553,3 +553,93 @@ test('a .pptx shared to the library reads like any document: a page for each sli
   assert.ok(r.pages[1].includes('First point') && r.pages[1].includes('North\t120'), r.pages[1]);
   await assert.rejects(() => E.extractPptx(new Uint8Array([1, 2, 3]), 'x'), /no slides I can read/);
 });
+
+// THE APPS ROUND, PRO EDITION: free-form slides (any number of text boxes, pictures and shapes; snapping, align, distribute, group, layers)
+test('[slides] free-form: add, snap to the centre and edges, align, distribute, group, layers, undo', () => {
+  let s = K.newSlide('blank');
+  const a = K.addFree(s, 'text', { x: 100, y: 100, w: 300, h: 100, text: 'Hello' });
+  s = a.slide;
+  const b = K.addFree(s, 'shape', { x: 500, y: 300, w: 200, h: 100, shape: 'ellipse' });
+  s = b.slide;
+  const c = K.addFree(s, 'shape', { x: 900, y: 120, w: 100, h: 100 });
+  s = c.slide;
+  assert.equal(s.free.length, 3, 'any number of items');
+  // snapping: a box whose centre is 6 px off the slide's centre lands on it, with the guide
+  const sn = K.snap({ x: 640 - 150 + 6, y: 40, w: 300, h: 100 }, []);
+  assert.equal(sn.x, 490);
+  assert.deepEqual(sn.guides, [{ axis: 'x', at: 640 }]);
+  const edge = K.snap({ x: 4, y: 717 - 100, w: 50, h: 100 }, []);
+  assert.equal(edge.x, 0);
+  assert.equal(edge.y, 620);
+  assert.deepEqual(edge.guides.map((g) => g.axis), ['x', 'y']);
+  // to another item's edge
+  assert.equal(K.snap({ x: 503, y: 600, w: 40, h: 40 }, [{ x: 500, y: 300, w: 200, h: 100 }]).x, 500);
+  // moving keeps it on the slide
+  assert.equal(K.moveFree(s, [c.id], 5000, 0).free[2].x, 1280 - 100);
+  // align left: every unit to the leftmost edge; one item alone goes to the slide's edge
+  const left = K.alignFree(s, [a.id, b.id, c.id], 'left');
+  assert.deepEqual(left.free.map((i) => i.x), [100, 100, 100]);
+  assert.equal(K.alignFree(s, [b.id], 'centre').free[1].x, 540);
+  assert.equal(K.alignFree(s, [b.id], 'bottom').free[1].y, 620);
+  // distribute across: equal gaps between the three
+  const d = K.distributeFree(s, [a.id, b.id, c.id], 'x');
+  const xs = d.free.map((i) => [i.x, i.x + i.w]);
+  assert.equal(xs[1][0] - xs[0][1], xs[2][0] - xs[1][1]);
+  assert.equal(K.distributeFree(s, [a.id, b.id], 'x'), null, 'two are not spread');
+  // group: they move as one; ungroup lets them go
+  const g = K.groupFree(s, [a.id, b.id]);
+  assert.ok(g.slide.free[0].group && g.slide.free[0].group === g.slide.free[1].group);
+  const moved = K.moveFree(g.slide, [a.id], 10, 20);
+  assert.deepEqual([moved.free[0].x, moved.free[1].x, moved.free[2].x], [110, 510, 900], 'the group moves together, the rest stays');
+  assert.equal(K.ungroupFree(g.slide, [b.id]).n, 2);
+  // layers: forward one step, then to the back
+  const fwd = K.layerFree(s, [a.id], 'forward');
+  assert.deepEqual(fwd.free.map((i) => i.id), [b.id, a.id, c.id]);
+  assert.deepEqual(K.layerFree(s, [c.id], 'rear').free.map((i) => i.id), [c.id, a.id, b.id]);
+  assert.equal(K.layerFree(s, [c.id], 'forward'), s, 'the front one goes no further');
+  // undo: the history holds whole decks
+  const deck = K.newDeck('F', [K.newSlide('blank')]);
+  const h = new K.History(deck);
+  h.push(K.withSlide(deck, deck.slides[0].id, () => s));
+  assert.equal(h.undo().slides[0].free, undefined);
+  // drawn on the slide, with the guides
+  const svg = K.slideSvg(K.newDeck('F', [s]), s, { edit: true, free: [a.id], guides: [{ axis: 'x', at: 640 }] });
+  assert.equal((svg.match(/class="slfree"/g) ?? []).length, 3);
+  assert.match(svg, /data-pick="1"/);
+  assert.match(svg, /class="slguide" x1="640"/);
+});
+
+test('[slides] free-form items go out to .pptx as PowerPoint text boxes, shapes, pictures and groups, and come back the same', async () => {
+  let s = K.newSlide('bullets', { title: block('h1', 'Free') });
+  s = K.addFree(s, 'text', { x: 100, y: 500, w: 400, h: 90, text: 'Line one\nLine two', fill: 2 }).slide;
+  s = K.addFree(s, 'shape', { x: 700, y: 400, w: 200, h: 120, shape: 'arrow', fill: 3 }).slide;
+  s = K.addFree(s, 'pic', { x: 900, y: 100, w: 300, h: 200, img: 'photo1', alt: 'A dog' }).slide;
+  s = K.addFree(s, 'shape', { x: 950, y: 500, w: 100, h: 100, shape: 'ellipse', fill: 1 }).slide;
+  const ids = s.free.map((i) => i.id);
+  s = K.groupFree(s, [ids[1], ids[3]]).slide;
+  const deck = K.newDeck('Free', [s]);
+  const bytes = K.writePptx(deck, { measure: K.approx, image: (id) => (id === 'photo1' ? new Uint8Array([0xff, 0xd8, 0xff, 0xd9]) : null) });
+  const xml = new TextDecoder().decode(Z.unzipSync(bytes).get('ppt/slides/slide1.xml'));
+  assert.match(xml, /<p:cNvSpPr txBox="1"\/>/);
+  assert.match(xml, /<p:grpSp><p:nvGrpSpPr><p:cNvPr id="\d+" name="Free group \d+"\/>/);
+  assert.match(xml, /prst="rightArrow"/);
+  assert.match(xml, /name="Free picture \d+" descr="A dog"/);
+  const r = await K.readPptx(bytes, 'free.pptx', keepFake);
+  const back = r.deck.slides[0].free;
+  assert.equal(back.length, 4);
+  const near = (p, q) => Math.abs(p - q) <= 1;
+  // the group is written where its first member stood, so the order is text, arrow, ellipse, picture
+  const want = [s.free[0], s.free[1], s.free[3], s.free[2]];
+  back.forEach((f, i) => {
+    const w = want[i];
+    assert.equal(f.kind, w.kind, `item ${i}: kind`);
+    for (const k of ['x', 'y', 'w', 'h']) assert.ok(near(f[k], w[k]), `item ${i}: ${k} ${f[k]} is not ${w[k]}`);
+    if (w.kind === 'shape') assert.equal(f.shape, w.shape);
+    if (w.kind !== 'pic') assert.equal(f.fill, w.fill, `item ${i}: colour`);
+  });
+  assert.equal(back[0].text, 'Line one\nLine two');
+  assert.equal(back[3].alt, 'A dog');
+  assert.ok(back[1].group && back[1].group === back[2].group && !back[0].group, 'the group came back as one');
+  assert.equal(r.deck.slides[0].shapes.length, 0, 'none mistaken for the layout’s two shapes');
+  assert.ok(!r.lost.some((l) => /picture|drawing/.test(l)), r.lost.join('; '));
+});

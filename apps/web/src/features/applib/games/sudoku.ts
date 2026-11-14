@@ -1,5 +1,5 @@
 /**
- * The SUDOKU board. Options (GameConfig.options): difficulty 'easy' | 'medium' | 'hard' (default 'medium'),
+ * The SUDOKU board. Options (GameConfig.options): difficulty 'easy' | 'medium' | 'hard' | 'expert' (default 'medium'), levels (a picker),
  * mistakes (wrong entries allowed, 0 for unlimited, default 3), daily (boolean, default false).
  * Tap a cell, then a number; NOTES pencils small candidates in; HINT fills the cell with fewest candidates.
  */
@@ -19,7 +19,7 @@ interface State {
 }
 
 export const sudoku: Board = (p) => {
-  const diff = str(p.opts, 'difficulty', ['easy', 'medium', 'hard'] as const, 'medium');
+  const diff = str(p.opts, 'difficulty', S.DIFFICULTIES, 'medium');
   const maxMistakes = num(p.opts, 'mistakes', 3, 0, 9);
   let s = p.resume as State | null;
   if (!s) {
@@ -37,8 +37,10 @@ export const sudoku: Board = (p) => {
     return b;
   });
   const pad = h('div.al-gpad');
+  const padKeys: HTMLButtonElement[] = [];
   for (let v = 1; v <= 9; v++) {
     const b = h('button.al-gpadkey', { type: 'button', 'aria-label': `Enter ${v}` }, String(v));
+    padKeys.push(b);
     b.addEventListener('click', () => enter(v));
     pad.append(b);
   }
@@ -109,6 +111,12 @@ export const sudoku: Board = (p) => {
       if (v) clear(b, String(v));
       else if (st.notes[i]) clear(b, h('span.al-gnotes', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => h('i', st.notes[i]! & (1 << n) ? String(n) : '')))); 
       else clear(b);
+    });
+    // each number key says how many are left to place, and rests when all nine are in
+    padKeys.forEach((b, k) => {
+      const left = 9 - st.cells.filter((v, i) => v === k + 1 && v === st.solution[i]).length;
+      b.classList.toggle('al-gdone', left === 0);
+      b.dataset.left = left ? String(left) : '';
     });
     p.score(0, line());
   }
