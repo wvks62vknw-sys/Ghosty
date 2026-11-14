@@ -699,7 +699,8 @@ test('calibration (pure, and kept by the brain): "Sure and right 8 of 10"; quiz 
   await T.answer(d, { course: c.id, lesson: 1, answer: 1, conf: 'think' });
   const st = await T.learnState(d);
   assert.deepEqual(st.courses[0].stats.conf, { sure: { n: 2, right: 1 }, guess: { n: 1, right: 1 }, think: { n: 1, right: 1 } });
-  assert.deepEqual(st.courses[0].stats.lessons['1'], { asked: 4, right: 3, recent: [0, 1, 1, 1] });
+  // (learn.u2: each answer keeps how sure he was, in step with `recent`)
+  assert.deepEqual(st.courses[0].stats.lessons['1'], { asked: 4, right: 3, recent: [0, 1, 1, 1], conf: ['sure', 'guess', 'sure', 'think'] });
   assert.equal(T.calibrationLine(st.courses[0].stats.conf).split(' · ')[0], 'Sure and right 1 of 2');
   // lesson 1: 75 % over 4 answers, a card due: quiz passed, not mastered
   assert.deepEqual([st.courses[0].mastered, st.courses[0].mastery], [0, 0]);
@@ -825,4 +826,94 @@ test('through the agent: /learn/exam and /learn/exam/finish, /learn/done returns
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+// ---- learn.u2: courses that pick up his mistakes ----
+
+test('courses that pick up his mistakes (learn.u2): each answer keeps how sure he was; a miss he was SURE of weighs most; TODAY names that lesson, says why, and its quiz covers the missed lessons', () => {
+  // the confidence record lines up with the answers, and old scores (from before it) count their answers as not asked
+  let s = T.scoreAnswer({ asked: 2, right: 1, recent: [1, 0] }, false, 'sure');
+  assert.deepEqual(s.recent, [1, 0, 0]);
+  assert.deepEqual(s.conf, ['', '', 'sure']);
+  s = T.scoreAnswer(s, true, 'guess');
+  assert.deepEqual(s.conf, ['', '', 'sure', 'guess']);
+  assert.equal(s.conf.length, s.recent.length);
+  for (let i = 0; i < 6; i++) s = T.scoreAnswer(s, true, 'think');
+  assert.equal(s.recent.length, 6, 'only the last answers are kept');
+  assert.equal(s.conf.length, 6);
+  // weights: sure miss 3, think miss 2, guess miss 1, unmarked miss 1, lucky guess 1
+  const sc = (pairs) => pairs.reduce((a, [r, c]) => T.scoreAnswer(a, !!r, c), undefined);
+  assert.equal(T.needOf(sc([[0, 'sure']])).need, 3);
+  assert.equal(T.needOf(sc([[0, 'think']])).need, 2);
+  assert.equal(T.needOf(sc([[0, 'guess']])).need, 1);
+  assert.equal(T.needOf(sc([[0, undefined]])).need, 1);
+  assert.equal(T.needOf(sc([[1, 'guess']])).need, 1);
+  assert.equal(T.needOf(sc([[1, 'sure'], [1, 'think']])).need, 0);
+  const course = { lessons: [{ n: 1, title: 'Light', done: true }, { n: 2, title: 'Water', done: true }, { n: 3, title: 'Sugar', done: false }] };
+  // lesson 2: one SURE miss (3) beats lesson 1's two guessed misses (2)
+  const stats = { lessons: { 1: sc([[0, 'guess'], [0, 'guess'], [1, 'sure']]), 2: sc([[0, 'sure'], [1, 'think']]) }, conf: {} };
+  const aim = T.aimOf(course, stats, 3);
+  assert.equal(aim.kind, 'misses');
+  assert.equal(aim.lesson, 2);
+  assert.equal(aim.why, 'Lesson 2 again: 1 answer you were sure of but missed in your last answers there.');
+  assert.deepEqual(aim.quiz, [2, 1], 'the quiz covers every missed lesson, most needed first');
+  // a lucky guess is said too
+  const lucky = T.aimOf(course, { lessons: { 1: sc([[0, 'think'], [1, 'guess']]) } }, 3);
+  assert.equal(lucky.why, 'Lesson 1 again: 1 other miss and 1 lucky guess in your last answers there.');
+  // nothing missed: the next lesson; everything read and nothing missed: the exam
+  const clean = { lessons: { 1: sc([[1, 'sure'], [1, 'sure']]) } };
+  assert.deepEqual(T.aimOf(course, clean, 3), { kind: 'next', lesson: 3, title: 'Sugar', why: 'Nothing missed lately, so on to lesson 3.', quiz: [] });
+  assert.equal(T.aimOf(course, clean, 0).kind, 'done');
+  // ties go to the earlier lesson
+  assert.equal(T.aimOf(course, { lessons: { 2: sc([[0, 'think']]), 1: sc([[0, 'think']]) } }, 3).lesson, 1);
+});
+
+// ---- learn.u12 and learn.s2: his speaking charted (numbers only), and the other side in another language ----
+test('speaking charted (learn.u12): each talk keeps only its numbers; weeks start on a London Monday; the trend is told from his own numbers; the other side speaks only the language he practises (learn.s2)', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/further/rehearse.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/further-rehearse.mjs'), logLevel: 'warning' });
+  const R = await import('./.build/further-rehearse.mjs');
+  // Monday 9 Nov 2026 is the week of Wed 11 Nov and Sun 15 Nov (London), and Mon 16 Nov starts the next
+  assert.equal(R.weekOf(Date.UTC(2026, 10, 11, 12)), '2026-11-09');
+  assert.equal(R.weekOf(Date.UTC(2026, 10, 15, 22)), '2026-11-09');
+  assert.equal(R.weekOf(Date.UTC(2026, 10, 16, 0, 30)), '2026-11-16');
+  const talks = [
+    { at: Date.UTC(2026, 10, 3, 12), wpm: 180, fillers: 6, words: 180, seconds: 60 },
+    { at: Date.UTC(2026, 10, 4, 12), wpm: 170, fillers: 4, words: 170, seconds: 60 },
+    { at: Date.UTC(2026, 10, 11, 12), wpm: 140, fillers: 2, words: 140, seconds: 60 },
+  ];
+  const weeks = R.talkWeeks(talks);
+  assert.deepEqual(weeks, [{ week: '2026-11-02', n: 2, wpm: 175, fpm: 5 }, { week: '2026-11-09', n: 1, wpm: 140, fpm: 2 }]);
+  assert.equal(R.talkTrend(weeks), 'Since your first week: filler words down from 5 to 2 a minute; pace 140 a minute, in the easy-to-follow band.');
+  assert.equal(R.talkTrend(weeks.slice(0, 1)), 'One week so far: talk again next week to see the change.');
+  assert.equal(R.talkTrend([]), 'No talks yet: CHECK IT on a talk and its numbers start the chart.');
+  // the other side in another language: told to keep to it, simply; English adds nothing
+  const es = R.promptFor('ordering a coffee', 1, [], 1, { code: 'es', name: 'Spanish' });
+  assert.match(es, /Speak only Spanish, simply and clearly, at a learner's level/);
+  assert.doesNotMatch(R.promptFor('ordering a coffee', 1, [], 1, { code: 'en', name: 'English' }), /Speak only/);
+  const notes = R.langNotesPrompt({ code: 'fr', name: 'French' }, 'a hotel check-in', [{ other: 'Bonjour', answer: 'Je suis reservation' }]);
+  assert.match(notes, /practised a conversation in French/);
+  assert.match(notes, /You said: … → Say: …/);
+  assert.match(notes, /HIM: Je suis reservation/);
+});
+
+test('revision days up to an exam (learn.s12): every other day while more than a week away, every day in the last week, none on the day itself, at most twenty; a London time is the right moment in summer and winter', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/features/learning/revisiondays.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/revisiondays.mjs'), logLevel: 'warning' });
+  const RD = await import('./.build/revisiondays.mjs');
+  const d = RD.revisionDays('2026-11-14', '2026-11-30');
+  assert.equal(d[0] > '2026-11-14', true, 'from tomorrow');
+  assert.equal(d.at(-1), '2026-11-29', 'up to the day before');
+  assert.ok(!d.includes('2026-11-30'), 'none on the day itself');
+  const lastWeek = ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-29'];
+  assert.deepEqual(d.slice(-7), lastWeek, 'every day in the last week');
+  const before = d.slice(0, -7);
+  assert.ok(before.every((x, i) => i === 0 || (Date.parse(x) - Date.parse(before[i - 1])) / 86400000 === 2), `every other day before it: ${before.join(', ')}`);
+  assert.deepEqual(RD.revisionDays('2026-11-14', '2026-11-15'), [], 'tomorrow: no days left');
+  assert.equal(RD.revisionDays('2026-01-01', '2026-12-31').length, RD.MAX_SESSIONS, 'at most twenty');
+  // 18:30 in London is 18:30 UTC in winter and 17:30 UTC in summer
+  assert.equal(new Date(RD.londonAt('2026-12-01', '18:30')).toISOString(), '2026-12-01T18:30:00.000Z');
+  assert.equal(new Date(RD.londonAt('2026-07-01', '18:30')).toISOString(), '2026-07-01T17:30:00.000Z');
 });

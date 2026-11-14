@@ -40,6 +40,8 @@ export interface SchoolPaper extends Paper {
   passages?: Passage[];
   /** Where it came from when not from the generators here: a checked question bank (banks.ts) or an official paper (official.ts). */
   from?: 'bank' | 'official';
+  /** Drawn from a bank still being written: a shorter practice paper that never passes a stage (routes.ts sourcesFor). */
+  practice?: boolean;
   /** Official papers: the board (or the Standards and Testing Agency), the year, the paper's real total, and what its boundaries are. */
   board?: string;
   year?: number;

@@ -53,6 +53,7 @@ import { waiting } from '../../ui/wait';
 import { netUnknown, secondTap, unknownNet } from '../learn/wifi';
 import { onMobileData } from '../../wiki/store';
 import { READING, sum } from '../../offline/eyesfiles';
+import { revisionBox } from './revision';
 import { brokenRun, MATHS_LINE, MATHS_MORE, MORE_KEY, NO_STREAK, PASSAGE_WAIT, TYPING_LINE, TYPING_MORE } from './words';
 
 export type LearnWhat = 'words' | 'review' | 'draw' | 'typing' | 'hand' | 'readfast' | 'memory' | 'maths' | 'spelling' | 'firstaid' | 'plan' | 'progress';
@@ -1004,7 +1005,8 @@ function planView(): HTMLElement {
     'Make my four-week plan',
   );
   void load();
-  return h('div.pkcol', { dataset: { view: 'plan' } }, status, list, field('A skill', skill), field('Minutes a day', minutes), h('div.pkrow', make), logged);
+  // [learn.s12] revision days up to an exam, spread across his agenda only when he taps ADD (learning/revision.ts)
+  return h('div.pkcol', { dataset: { view: 'plan' } }, status, list, field('A skill', skill), field('Minutes a day', minutes), h('div.pkrow', make), logged, revisionBox());
 }
 
 // ---------------------------------------------------------------- STREAKS

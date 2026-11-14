@@ -10,7 +10,8 @@
  * history, no screen, no place goes with it. Every wait is said; a brain that cannot be reached is said, with TRY AGAIN.
  */
 import { sayError } from '../../ui/hisWords';
-import { speak, stopSpeaking } from '../../assistant/voice';
+import { speak, speakIn, stopSpeaking } from '../../assistant/voice';
+import { LANGUAGES } from '../../../../../packages/shared/src/scan';
 import { clear, h } from '../../core/dom';
 import { screenSays } from '../../shell/awareness';
 import type { TabDef } from '../../shell/tabs';
@@ -21,13 +22,14 @@ import { sections } from '../../ui/sections';
 import { panel } from '../../ui/components';
 import { askWithImage } from '../../vision/ask';
 import { canHear, hear, type Ear } from '../../further/interpret';
-import { deleteKept, KEEP_KEY, loadKept, notesOf, promptFor, ROUNDS, saveKept, talkNotes, TEMPER_WORD, wordCount, type Kept } from '../../further/rehearse';
+import { addTalk, debateNotesPrompt, debatePrompt, loadTalks, talkTrend, talkWeeks } from '../../further/rehearse';
+import { deleteKept, KEEP_KEY, langNotesPrompt, loadKept, notesOf, PRACTICE_LANGS, promptFor, ROUNDS, saveKept, talkNotes, TEMPER_WORD, wordCount, type Kept } from '../../further/rehearse';
 
 export { KEEP_KEY };
 export const REHEARSE_ICON = '<circle cx="8.5" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.4"/><path d="M3.5 19c.4-3.2 2.4-5 5-5s4.6 1.8 5 5M14.5 14.4c2.6-.4 4.7 1 5.3 4.1"/>';
 
 /** What a test can read (window.__ghosty.rehearse). */
-export const rehearseState = { stage: 'idle' as 'idle' | 'waiting' | 'answering' | 'notes', round: 0, situation: '', talk: [] as { other: string; answer: string }[], notes: [] as string[], kept: 0 };
+export const rehearseState = { stage: 'idle' as 'idle' | 'waiting' | 'answering' | 'notes', round: 0, situation: '', lang: 'en', mode: 'talk' as 'talk' | 'debate', talk: [] as { other: string; answer: string }[], notes: [] as string[], kept: 0 };
 
 /** When a rehearsal was kept, in plain words ("13 Nov 2026, 14:05"). */
 const whenKept = (at: number): string => {
@@ -65,6 +67,17 @@ export const rehearseTab: TabDef = {
     const fire = () => settings.get().persona?.fire ?? 1;
     const situation = h('textarea.fxfield', { name: 'situation', rows: 2, placeholder: 'e.g. a job interview for a junior mechanic, or telling my landlord about the damp', 'aria-label': 'The situation, in your words' }) as HTMLTextAreaElement;
     const temper = h('p.rhnote', '');
+    // [learn.s2] the language to practise in: English, or another language with Ghosty playing the other side in it
+    const langs = PRACTICE_LANGS.map((c) => LANGUAGES.find((l) => l.code === c)).filter((l): l is { code: string; name: string } => !!l);
+    const langPick = h('select.fxfield.rhlang', { 'aria-label': 'The language to practise in' }, ...langs.map((l) => h('option', { value: l.code }, l.code === 'en' ? 'English' : `${l.name}: practise speaking it`))) as HTMLSelectElement;
+    const langNow = () => langs.find((l) => l.code === langPick.value) ?? langs[0]!;
+    // [learn.s8] a conversation, or a debate: he takes a side and I argue the other
+    const modePick = h('select.fxfield.rhlang.rhmode', { 'aria-label': 'A conversation or a debate' }, h('option', { value: 'talk' }, 'A conversation: I play the other person'), h('option', { value: 'debate' }, 'A debate: I argue the other side')) as HTMLSelectElement;
+    const isDebate = () => modePick.value === 'debate';
+    modePick.addEventListener('change', () => {
+      situation.placeholder = isDebate() ? 'e.g. phones should be banned in schools: I say yes' : 'e.g. a job interview for a junior mechanic, or telling my landlord about the damp';
+    });
+    const speechLang = () => (langNow().code === 'en' ? navigator.language || 'en-GB' : langNow().code);
     const start = button('START', () => void begin(), 'on');
     start.dataset.act = 'start';
     start.dataset.case = 'keep';
@@ -83,7 +96,7 @@ export const rehearseTab: TabDef = {
     const answerBox = h('div.rhanswer', answer, h('div.row.wrap', speakKey, send));
     answerBox.hidden = true;
     const notesBox = h('div.rhnotes', { hidden: true });
-    const body = h('div.rhconv', h('label.rhlab', 'THE SITUATION', situation), temper, h('div.row.wrap', start), lines, state, answerBox, notesBox);
+    const body = h('div.rhconv', h('label.rhlab', 'WHAT KIND', modePick), h('label.rhlab', 'THE SITUATION', situation), h('label.rhlab', 'THE LANGUAGE', langPick), temper, h('div.row.wrap', start), lines, state, answerBox, notesBox);
     conv.body.append(body);
     const paintTemper = () => {
       const f = fire();
@@ -106,7 +119,7 @@ export const rehearseTab: TabDef = {
       S.stage = 'waiting';
       state.textContent = S.round === 1 ? 'The other side is getting ready to start…' : 'The other side is thinking what to say back…';
       conv.setStatus(`ROUND ${S.round} OF ${ROUNDS}`, 'mid');
-      const r = await askWithImage(promptFor(S.situation, S.round, S.talk.filter((t) => t.answer), fire()), null, undefined, { quiet: true, bare: true });
+      const r = await askWithImage(S.mode === 'debate' ? debatePrompt(S.situation, S.round, S.talk.filter((t) => t.answer), fire()) : promptFor(S.situation, S.round, S.talk.filter((t) => t.answer), fire(), langNow()), null, undefined, { quiet: true, bare: true });
       busy = false;
       const said = r.text.replace(/^(?:the )?other (?:side|person)\s*:\s*/i, '').trim();
       if (!said) throw new Error(r.error ? 'I can’t reach my brain to play the other side just now.' : 'I got nothing back to play the other side with.');
@@ -123,7 +136,9 @@ export const rehearseTab: TabDef = {
         answerBox.hidden = false;
         answer.value = '';
         answer.focus({ preventScroll: true });
-        if (settings.get().speak) void speak(said, { here: true }).catch(() => undefined);
+        // (in another language, the phone's own voice for it says the line: it is there to be heard and answered)
+        if (langNow().code !== 'en') speakIn(said, langNow().code);
+        else if (settings.get().speak) void speak(said, { here: true }).catch(() => undefined);
       } catch (e) {
         S.stage = 'idle';
         state.textContent = '';
@@ -140,7 +155,7 @@ export const rehearseTab: TabDef = {
         return;
       }
       stopSpeaking();
-      Object.assign(S, { situation: s, round: 1, talk: [], notes: [], stage: 'waiting' });
+      Object.assign(S, { situation: s, lang: langNow().code, mode: isDebate() ? 'debate' : 'talk', round: 1, talk: [], notes: [], stage: 'waiting' });
       notesBox.hidden = true;
       clear(notesBox);
       paintLines();
@@ -177,9 +192,31 @@ export const rehearseTab: TabDef = {
       }, 'on');
       keep.dataset.act = 'keep';
       keep.dataset.case = 'keep';
-      clear(notesBox, h('b.rhnotehead', 'NOTES · counted from your own answers'), h('ul', ...S.notes.map((l) => h('li', l))), h('div.row.wrap', keep), h('small.rhnote', 'Nothing is kept unless you tap KEEP. Leaving this screen drops it.'));
+      const langBox = h('div.rhlangnotes');
+      clear(notesBox, h('b.rhnotehead', 'NOTES · counted from your own answers'), h('ul', ...S.notes.map((l) => h('li', l))), langBox, h('div.row.wrap', keep), h('small.rhnote', 'Nothing is kept unless you tap KEEP. Leaving this screen drops it.'));
       notesBox.hidden = false;
       notesBox.scrollIntoView?.({ block: 'nearest' });
+      // [learn.s8] a debate: his strongest and weakest points, from my brain
+      if (S.mode === 'debate') {
+        clear(langBox, h('b.rhnotehead', 'YOUR ARGUMENT'), h('p.rhnote', 'Weighing your strongest and weakest points…'));
+        void askWithImage(debateNotesPrompt(S.situation, S.talk), null, undefined, { quiet: true, bare: true }).then((r) => {
+          const ls = r.text.split('\n').map((l) => l.replace(/^[-*•\d.)\s]+/, '').trim()).filter(Boolean).slice(0, 3);
+          if (!ls.length) throw new Error(r.error || 'no notes');
+          S.notes = [...S.notes, ...ls];
+          clear(langBox, h('b.rhnotehead', 'YOUR ARGUMENT'), h('ul', ...ls.map((l) => h('li', l))));
+        }).catch((e) => clear(langBox, h('b.rhnotehead', 'YOUR ARGUMENT'), h('p.rhnote', sayError(e, 'weigh your argument'))));
+      }
+      // [learn.s2] practised in another language: gentle notes from my brain, with the phrases to say next time
+      const lang = langNow();
+      if (lang.code !== 'en') {
+        clear(langBox, h('b.rhnotehead', `YOUR ${lang.name.toUpperCase()}`), h('p.rhnote', 'Writing gentle notes on your ' + lang.name + '…'));
+        void askWithImage(langNotesPrompt(lang, S.situation, S.talk), null, undefined, { quiet: true, bare: true }).then((r) => {
+          const ls = r.text.split('\n').map((l) => l.replace(/^[-*•\d.)\s]+/, '').trim()).filter(Boolean).slice(0, 4);
+          if (!ls.length) throw new Error(r.error || 'no notes');
+          S.notes = [...S.notes, ...ls];
+          clear(langBox, h('b.rhnotehead', `YOUR ${lang.name.toUpperCase()}`), h('ul', ...ls.map((l) => h('li', l))));
+        }).catch((e) => clear(langBox, h('b.rhnotehead', `YOUR ${lang.name.toUpperCase()}`), h('p.rhnote', sayError(e, `write notes on your ${lang.name}`))));
+      }
     }
 
     // the answer by voice: held, then let go: what was heard goes in the box for him to read before SEND
@@ -194,7 +231,7 @@ export const rehearseTab: TabDef = {
       if (ear) return;
       stopSpeaking();
       state.textContent = canHear() ? 'Listening… let go when you are done.' : 'This browser has no speech recognition: type your answer instead.';
-      ear = hear(navigator.language || 'en-GB', (t) => t && (state.textContent = `Hearing: ${t}`));
+      ear = hear(speechLang(), (t) => t && (state.textContent = `Hearing: ${t}`));
       speakKey.setAttribute('aria-pressed', 'true');
     });
     const letGo = async () => {
@@ -260,13 +297,28 @@ export const rehearseTab: TabDef = {
       if (!Number.isFinite(secs2) || secs2 < 5) return void (tState.textContent = 'Tell me how many seconds it took (at least five), so I can work out your pace.');
       const n = talkNotes(t, secs2);
       tState.textContent = '';
-      clear(tOut, h('b.rhnotehead', 'YOUR TALK · counted from what was said'), h('ul', ...n.lines.map((l) => h('li', l))), h('small.rhnote', `${wordCount(t)} words. Nothing is kept.`));
+      // [learn.u12] only the numbers are kept, on this phone: never what was said
+      addTalk({ at: Date.now(), wpm: n.wpm, fillers: n.fillers.reduce((a, f) => a + f.n, 0), words: n.words, seconds: n.seconds });
+      paintChart();
+      clear(tOut, h('b.rhnotehead', 'YOUR TALK · counted from what was said'), h('ul', ...n.lines.map((l) => h('li', l))), h('small.rhnote', `${wordCount(t)} words. Only its numbers (pace and filler words) are kept on this phone, never what you said.`));
       tOut.hidden = false;
       talk.setStatus(`${n.wpm} A MINUTE`, 'ok');
     });
     check.dataset.act = 'check';
     check.dataset.case = 'keep';
-    talk.body.append(h('div.rhconv', said, h('div.row.wrap', startTalk), secsIn, h('div.row.wrap', check), tState, tOut));
+    // [learn.u12] the weeks charted: pace and filler words a minute, from the numbers kept on this phone
+    const chart = h('div.rhchart', { role: 'group', 'aria-label': 'Your speaking, week by week' });
+    function paintChart(): void {
+      const weeks = talkWeeks(loadTalks());
+      const top = Math.max(160, ...weeks.map((w) => w.wpm));
+      clear(chart, h('b.rhnotehead', 'YOUR SPEAKING, WEEK BY WEEK'), h('p.rhnote.rhtrend', talkTrend(weeks)),
+        ...weeks.map((w) => h('div.rhweek', { dataset: { week: w.week } },
+          h('small', new Date(`${w.week}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
+          h('span.rhbarbox', h('i.rhbar', { style: `width:${Math.round((w.wpm / top) * 100)}%` })),
+          h('small', `${w.wpm} a min · ${w.fpm} fillers a min · ${w.n} talk${w.n === 1 ? '' : 's'}`))));
+    }
+    paintChart();
+    talk.body.append(h('div.rhconv', said, h('div.row.wrap', startTalk), secsIn, h('div.row.wrap', check), tState, tOut, chart));
 
     // ------------------------------------------------------------------------------------------------ KEPT
     // every rehearsal he tapped KEEP on, newest first: each opens to its answers and notes (read only), with DELETE (tapped twice)

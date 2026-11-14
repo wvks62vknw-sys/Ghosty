@@ -358,6 +358,18 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Stop', 'Enough', 'Leave it'], scene: ['talking'], cat: 'talk',
     since: '2026-10-31',
   },
+  'phrase:voicenote': {
+    name: 'Notes you say aloud', line: 'You can say “note: buy milk” or “note to self, call the garage” and I write it down and keep it in Memory.',
+    more: 'Said aloud, it is marked “by you” only when this phone is sure the voice was yours; another voice’s note is not kept (type it instead). Typed notes are kept too.',
+    say: ['Note: buy milk', 'Note to self, call the garage'], scene: ['talking'], cat: 'talk',
+    since: '2026-11-14',
+  },
+  'phrase:learned': {
+    name: 'Your own wordings', line: 'You can say something your own way, then tap the screen you meant, and I offer to remember it: next time it opens straight away.',
+    more: 'A small bar asks “Next time you say “money stuff”, open Money?” with REMEMBER IT and NO. Kept on this phone only. “My wordings” lists them with FORGET; anything that sends, pays or posts is never learned.',
+    say: ['My wordings', 'Forget the wording money stuff'], scene: ['talking'], cat: 'talk',
+    since: '2026-11-14',
+  },
   'phrase:speaker': {
     name: 'Do you know it’s me?', line: 'You can ask "do you know it’s me?" or "who’s talking?" and I answer from what this phone heard.',
     more: 'With your voice taught (Settings, My voice) I know it on this phone, and say whether I’m sure. A typed message has no voice to hear, so I say that. It is a courtesy, never a lock.',
@@ -395,6 +407,19 @@ export const APP_1: Record<string, CatValue> = {
     more: 'COMMUTE: cameras, traffic, road incidents, buses and safety cameras. STORM: radar, alerts, disasters, quakes and clouds. SKY: aircraft, satellites and orbits. Also one tap each at the top of WHAT TO SHOW.',
     say: ['Commute view', 'Storm layers', 'Sky mode'], scene: ['watching', 'out'], cat: 'see',
     go: { open: 'eye' }, tryText: 'Opens God’s eye with the commute set',
+    since: '2026-11-14',
+  },
+  'phrase:camwall': {
+    name: 'Your camera wall', line: 'You can say "my camera wall" and I show up to nine public cameras you pinned, live, like a control room.',
+    more: 'On a public camera’s card in God’s eye, PIN TO WALL keeps it; WALL in the bar opens them all, each picture refreshing every few seconds; EDIT takes one off. Kept on your phone.',
+    say: ['My camera wall', 'Show my cameras', 'Open the camera wall'], scene: ['watching', 'out'], cat: 'see',
+    go: { open: 'eye' }, tryText: 'Opens God’s eye with your wall',
+    since: '2026-11-14',
+  },
+  'phrase:rainradar': {
+    name: 'Full-screen rain radar', line: 'You can say "rain radar" and I play the last two hours of rain over home, and say if rain is coming.',
+    more: 'The public radar’s last two hours, frame by frame (PLAY, PAUSE, or drag to a time), and one line for home from a free forecast: “rain at home in about 20 minutes”. RAIN in God’s eye’s bar opens it too.',
+    say: ['Rain radar', 'Show me the rain map', 'Replay the rain'], scene: ['morning', 'out'], cat: 'see',
     since: '2026-11-14',
   },
   'phrase:workbench': {
