@@ -10196,3 +10196,4 @@ html .lookclock .lcrows { display: flex; flex-direction: column; gap: var(--g-s-
 html .lookclock .lcrows[hidden] { display: none; }
 html .lookclock .lcrow { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); flex-wrap: wrap; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); }
 html .lookclock .lcsel { min-height: var(--g-target); min-width: 9em; max-width: 100%; font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); }
+html .lookclock .lab { color: var(--g-ink-2); }
