@@ -171,3 +171,12 @@ test('your word on their card: his open promises that name a person by first or 
   assert.deepEqual(Sh.promisesAbout('Jo Smith', items), ['send Jo the photos', 'take Jo Smith to the station']);
   assert.deepEqual(Sh.promisesAbout('Sam', items), []);
 });
+
+test('a group plan as one .ics: its day and time (two hours) or all day, its place, who is coming; none without a day', async () => {
+  const V = await import('./.build/journal/apps/web/src/features/people/vcard.mjs');
+  const at = Date.UTC(2026, 10, 14, 15, 0, 0);
+  const ics = V.planIcs({ id: 'p1', what: 'Pub, then curry', where: 'The Crown; Moseley', when: '2026-11-20', time: '23:00', yes: ['Ali', 'Sam'] }, at);
+  assert.equal(ics, ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ghosty//Group plan//EN', 'BEGIN:VEVENT', 'UID:p1-plan@ghosty', 'DTSTAMP:20261114T150000Z', 'DTSTART:20261120T230000', 'DTEND:20261121T010000', 'SUMMARY:Pub\\, then curry', 'LOCATION:The Crown\\; Moseley', 'DESCRIPTION:Coming: Ali\\, Sam', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n'));
+  assert.match(V.planIcs({ what: 'Picnic', when: '2026-12-31', yes: [] }, at), /DTSTART;VALUE=DATE:20261231\r\nDTEND;VALUE=DATE:20270101/);
+  assert.equal(V.planIcs({ what: 'Some day', yes: [] }, at), null);
+});

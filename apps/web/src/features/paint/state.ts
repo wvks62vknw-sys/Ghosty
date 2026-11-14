@@ -6,7 +6,7 @@ export const paintState = {
   open: false,
   id: '',
   title: '',
-  tool: 'brush' as 'brush' | 'erase' | 'liquify' | 'fill' | 'select' | 'move' | 'pick',
+  tool: 'brush' as 'brush' | 'erase' | 'liquify' | 'fill' | 'select' | 'move' | 'pick' | 'text',
   brush: 'ink',
   colour: '#111111',
   size: 9,
