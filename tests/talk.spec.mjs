@@ -674,6 +674,28 @@ if (part('convo')) {
   await ctx.close();
 }
 
+// ================================================================ 4b. A REPLY THAT BREAKS OFF WHILE IT IS SAID AS IT COMES (NEXT ci.u1)
+// Two sentences arrive and are said as they come, then the stream ends in an error: what came is said to its end and the ear
+// opens again on its own (the half-said reply is let go, never left "speaking" for words that will not come).
+if (part('broken')) {
+  const name = 'broken';
+  const { ctx, page, io } = await talkPage(name, { tts: true });
+  await page.click('#mic');
+  await waitVoice(page, 'listening', 8000);
+  await settle(page);
+  await ctx.route('**/api/chat', (route) => route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'status', text: 'thinking…' }, { t: 'text', text: 'The first part came through.', part: true }, { t: 'text', text: ' The second part came too.', part: true }, { t: 'error', message: 'The connection dropped part of the way through.' }].map((e) => JSON.stringify(e)).join('\n') + '\n' }));
+  io.heard.push(`a reply that breaks off ${RUN}`);
+  const t0 = await speakFor(page, 700);
+  const said = await page.waitForFunction((t) => window.__talk.clips.filter((c) => c.at >= t && c.ev === 'ended' && c.dur > 0.3).length >= 2, t0, { timeout: 15000 }).then(() => true, () => false);
+  const back = await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'listening', null, { timeout: 8000, polling: 50 }).then(() => true, () => false);
+  if (!said) problems.push(`[${name}] the two sentences that came before the stream broke were not both said: ${JSON.stringify(await page.evaluate((t) => window.__talk.clips.filter((c) => c.at >= t), t0))}`);
+  if (!back) problems.push(`[${name}] after a reply broke off, the ear did not open again (the voice reads "${await page.evaluate(() => window.__ghosty.ui.get().voice)}")`);
+  console.log(`[${name}] a reply that broke off: said ${said}, ear open again ${back}`);
+  await ctx.unroute('**/api/chat');
+  await page.click('#mic').catch(() => undefined);
+  await ctx.close();
+}
+
 // ================================================================ 5. MODEL SUPPLY: cooling down, said at once
 for (const viewport of part('cooling') ? [PHONE, SMALL] : []) {
   const name = `cooling-${viewport.width}`;

@@ -433,6 +433,9 @@ function handle(ev: ChatEvent): void {
     }
     case 'error':
       vehicleTurn = false;
+      // [ci] an error mid-reply: the sentences already being said finish, and nothing more is waited for
+      saying?.close();
+      saying = null;
       // (the turn ends here: its tools still shown as running are settled by its stream, stream() below)
       push({ kind: 'error', text: ev.message, ...(retryAsk ? { retry: retryAsk } : {}) });
       chat.set({ live: ev.message });
@@ -499,6 +502,8 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       sayError(e, 'finish that');
       push({ kind: 'error', text: SIGNAL_WENT, lost: true, ...(ask ? { retry: ask } : {}) });
       drawing = null;
+      saying?.close();
+      saying = null;
     } else if (!(e instanceof AuthError) && rescue && (await rescue(e).catch(() => false))) {
       // answered on the phone
     } else if (e instanceof AuthError) {
@@ -530,6 +535,9 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
     if (--streams <= 0) {
       streams = 0;
       drawing = null; // (a reply drawn in pieces that never finished must not take the next turn's pieces in)
+      // [ci] a reply being said as it came that never got its whole (the signal went, an error, a stop): what was queued is said to
+      // its end and the voice lets go, so the ear opens again (never left "speaking", waiting for words that will not come)
+      saying?.close();
       saying = null;
       if (turn.get().phase !== 'stopped') phase('idle');
       ui.set({ busy: false, status: '' });
