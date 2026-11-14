@@ -33,35 +33,41 @@ Every calc names its public source and carries 2 or 3 tests worked out from it (
 thin-lens depth of field, equal temperament at A4 = 440 Hz, PCM data rate, ISO 216, Craft Yarn Council gauge, modular
 type scale, Elo).
 
-### Games (from the owner's list)
+### Games (from the owner's list, 24)
 | List | App(s) | Kind |
 |---|---|---|
-| games.32 Puzzle Box | `sudoku`, `mini-sudoku`, `minesweeper`, `mines-daily`, `nonograms`, `sliding-puzzle`, `lights-out` | sudoku, mines, nonogram, slide, lights |
-| games.33 Daily Puzzles | `daily-word`, `word-guess`, `letter-hive`, `daily-sudoku` | wordguess, anagram, sudoku |
-| games.26 Solitaire | `patience`, `spider-patience`, `free-cell`, `pyramid-patience`, `peaks-patience` | solitaire |
-| games.40 Quiz Night | `quiz-night` | quiz (teams, rounds, read aloud) |
-| games.38 Word Arcade | `anagram-wheel`, `word-hunt`, `typing-blaster`, `hangman` | anagram, wordgrid, typing, hangman |
-| games.55 Letters & Numbers | `spell-it`, `shapes-numbers` | hangman (kids), quiz (kids) |
+| games.32 Puzzle Box | `sudoku`, `minesweeper`, `big-minefield`, `nonograms`, `sliding-puzzle`, `lights-out` | sudoku, mines, nonogram, slide, lights |
+| games.33 Daily Puzzles | `daily-word`, `six-letters`, `daily-sudoku` | wordguess, sudoku |
+| games.26 Solitaire | `patience` | solitaire (draw one) |
+| games.40 Quiz Night | `quiz-night` | quiz (twenty questions on the clock) |
+| games.38 Word Arcade | `hangman` | hangman |
+| games.55 Letters & Numbers | `spell-it`, `shapes-numbers` | hangman, quiz (no clock) |
 | games.14 Arcade Classics | `snake`, `block-drop` | snake, blocks |
 | games.29 Clubhouse Classics | `dots-boxes` | dots |
-| games.45 Two on One Phone | `reaction-duel` | reaction (two players) |
-| games.53 Kids Corner | `animal-pairs` | pairs (kids) |
+| games.53 Kids Corner | `little-pairs` | pairs |
 | games.57 Rhythm Run | `colour-echo` | simon |
 | games.30 Game Night | `score-keeper`, `play-log`, `turn-timer` | counter, log, timer |
 | games.31 Dungeon Master | `campaign-journal` | log |
 | games.37 Cube | `cube-times` | log |
 
-### Games (new, 30)
-Puzzles and quick play: `merge-tiles`, `merge-daily`, `reaction-time`, `maths-sprint`, `times-tables`, `typing-test`,
-`echo-rush`, `capital-pairs`, `element-pairs`, `memory-match`, `big-nonograms`, `eight-puzzle`, `lights-colour`,
-`snake-wrap`, `word-scramble`, `word-hunt-big`. Quizzes (every fact checked, plain and well known): `capital-cities`,
-`space-quiz`, `body-quiz`, `world-quiz`, `uk-quiz`, `animal-quiz`, `science-quiz`, `elements-quiz`, `sport-quiz`.
-For players: `board-game-shelf`, `game-backlog`, `dice-odds`, `elo-calc`, `chess-openings`.
+### Games (new, 35)
+Difficulty ladders and variants: `easy-sudoku` and `hard-sudoku` (with `sudoku` and `daily-sudoku`), `daily-picture` and
+`big-nonograms`, `eight-puzzle` and `slide-five`, `big-lights-out`, `merge-mini`, `merge-tiles` and `merge-big`,
+`patience-three`, `snake-wrap`, `echo-rush`, `memory-match`. Words and numbers: `word-scramble`, `word-hunt-big`,
+`kids-word-search`, `typing-test`, `maths-sprint`, `times-tables`, `reaction-time`. Quizzes (every fact checked, plain
+and well known): `capital-cities`, `space-quiz`, `body-quiz`, `world-quiz`, `uk-quiz`, `animal-quiz`, `science-quiz`,
+`elements-quiz`, `sport-quiz`. For players: `board-game-shelf`, `game-backlog`, `dice-odds`, `elo-calc`,
+`chess-openings`.
 
 ## Game options
-The options follow each kind's documented header in `packages/shared/src/applib/games/` once PLAY & MAKE landed them;
-before that they were set to the obvious keys (size, levels, daily, words and themes). Quiz questions are written
-`question|right|wrong|wrong|wrong`.
+Every game uses only the options its kind documents at the top of `packages/shared/src/applib/games/<kind>.ts`, and every
+tour describes only what that kind does. Ladders come from the documented options (sudoku difficulty, board sizes,
+draw one or three, speeds). Quiz questions are written `question | right | wrong | wrong | wrong`.
+
+Not landed because no kind can do it yet (each is a small addition to its kind, then a one-line app): spider, free
+cell, pyramid and peaks patience (solitaire variants); the letter hive and anagram wheel (anagram modes); the timed
+letter-grid hunt (a wordgrid mode); the falling-word typing game (a typing mode); themed memory pairs such as countries
+and capitals (pairs with text faces); the two-player reaction duel (reaction with two players).
 
 ## Needs its own build
 Each is a real engine or a live device feature that no archetype can give truthfully, so none is faked.
@@ -113,8 +119,9 @@ Each is a real engine or a live device feature that no archetype can give truthf
 - create.59 Colour Vision (camera): live colour-blind views need the camera and a shader; the guide landed.
 
 **Games**
-- games.32 Puzzle Box (collection): the forty-puzzle WebAssembly collection and its teaching hints need their own port; seven puzzles landed as kinds.
-- games.33 Daily Puzzles (groups and mini crossword): a groups-of-four puzzle and a crossword generator are not kinds yet.
+- games.32 Puzzle Box (collection): the forty-puzzle WebAssembly collection and its teaching hints need their own port; six puzzles landed as kinds.
+- games.33 Daily Puzzles (groups, mini crossword, letter hive): a groups-of-four puzzle, a crossword generator and a hive mode are not kinds yet.
+- games.26 Solitaire (variants): spider, free cell, pyramid and peaks need solitaire variants beyond the seven-column game.
 - games.58 Play Along: pitch detection against a note highway needs the microphone and audio analysis.
 - games.3 Pixel Studio: a pixel editor with layers and frames needs its own canvas.
 - games.4 Chip Sound: sound generators and a tracker need an audio engine.
@@ -144,11 +151,11 @@ Each is a real engine or a live device feature that no archetype can give truthf
 - games.35 Jigsaw: real tab-and-blank pieces need a jigsaw engine.
 - games.36 Escape Rooms: 3-D rooms need a 3-D engine.
 - games.37 Cube (scan and solver): camera scanning and a two-phase solver need their own build; solve times landed.
-- games.38 Word Arcade (word ladders): a ladder game is not a kind yet.
+- games.38 Word Arcade (the rest): word ladders, the anagram wheel, the timed letter-grid hunt and the falling-word typing game are not kinds yet.
 - games.39 Text Adventures: Z-machine and Glulx interpreters need their own build.
 - games.42 Draw & Guess: a doodle model and a drawing canvas need their own build.
 - games.44 Codeword: a two-screen team word game needs its own build.
-- games.45 Two on One Phone (the rest): split-screen action duels need a real-time engine; the reaction duel landed.
+- games.45 Two on One Phone: split-screen duels for two at once need a two-player mode and a real-time engine.
 - games.46 Play Together: phone-to-phone play needs WebRTC.
 - games.48 Hand Games: hand tracking needs the camera and a hand model.
 - games.49 Move!: body pose games need the camera and a pose model.
