@@ -263,10 +263,39 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
   };
 
   // ---- panels
+  // a sample stroke of each brush, drawn by the engine itself in his colour (swelling and thinning with pressure)
+  const previews = new Map<string, string>();
+  const previewOf = (b: Brush): HTMLCanvasElement => {
+    const W = 240, H = 48;
+    const out = mk(W, H);
+    out.className = 'pxprev';
+    out.setAttribute('aria-hidden', 'true');
+    const keyOf = `${b.id}:${colour}`;
+    let url = previews.get(keyOf);
+    if (!url) {
+      const q = new Painting(W * 2, H * 2);
+      q.recording = false;
+      q.paper = 'none';
+      q.addLayer('Preview', 0);
+      const sb = { ...b, size: Math.min(b.size, 44), opacity: Math.max(b.opacity, 0.6) };
+      const pts = Array.from({ length: 40 }, (_, i) => ({ x: 24 + i * 11, y: H + Math.sin((i / 39) * Math.PI * 2) * 22, p: 0.15 + 0.85 * Math.sin((i / 39) * Math.PI), alt: Math.PI / 2.6, az: 0.6, t: i }));
+      q.begin('brush', sb, false, null);
+      q.end({ k: 'stroke', L: q.layers[0]!.id, tool: 'brush', b: sb, col: colour, sym: 'off', cx: W, cy: H, seed: 11, pts: pack(pts), onMask: false, sel: null });
+      url = q.layers[0]!.c.toDataURL();
+      previews.set(keyOf, url);
+    }
+    const img = new Image();
+    // (on paper, as the stroke would land)
+    const og = out.getContext('2d')!;
+    og.fillStyle = '#ffffff'; og.fillRect(0, 0, W, H);
+    img.onload = () => og.drawImage(img, 0, 0, W, H);
+    img.src = url;
+    return out;
+  };
   const brushPanel = (): void => {
     const list = h('div.pxlist', ...BRUSHES.map((b) => {
       const row = key(`${b.name}`, () => { loadBrush(b); tool = 'brush'; paintState.tool = 'brush'; say(`${b.name}: ${b.says}`); closeSheet(); showSliders(); sync(); }, `${b.name}: ${b.says}`, `pxrow${b.id === brush.id ? ' on' : ''}`);
-      row.append(h('span.pxrowsay', b.says));
+      row.append(previewOf(b), h('span.pxrowsay', b.says));
       return row;
     }));
     // this brush's own settings, kept on this phone

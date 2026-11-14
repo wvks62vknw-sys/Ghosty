@@ -9013,6 +9013,7 @@ html .pxstudio button.pxkey:disabled { opacity: .45; }
 .pxstudio .pxrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); min-width: 0; }
 html .pxstudio button.pxrow { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; white-space: normal; }
 html .pxstudio button.pxrow.on { border-color: var(--g-accent); }
+.pxstudio .pxprev { display: block; width: 100%; max-width: 240px; height: 48px; margin: 2px 0; border-radius: var(--g-radius-key); border: var(--g-hair) solid var(--g-line-faint); }
 .pxstudio .pxrowsay, .pxstudio .pxsmall { font: var(--g-t-caption); color: var(--g-ink-3); text-transform: none; overflow-wrap: anywhere; }
 .pxstudio .pxlayer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: var(--g-s-half); align-items: center; padding: var(--g-s-half); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
 .pxstudio .pxlayer[data-on="true"] { border-color: var(--g-accent); }
