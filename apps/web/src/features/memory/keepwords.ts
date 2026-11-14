@@ -8,6 +8,8 @@ export const K = {
   H_WHERE: 'Where things are',
   H_WHY: 'Why you chose',
   H_WEEK: 'Your week',
+  H_PINNED: 'Chats you pinned',
+  H_ON_THIS_DAY: 'On this day last month',
   PROMISES_EMPTY: 'Nothing open. When you say “I’ll send Jo the photos tomorrow”, it shows here and I remind you on the day.',
   WHERE_EMPTY: 'Say “the spare key is in the blue tin” and ask “where’s the spare key?” any time, even offline.',
   WHY_EMPTY: 'Say “I picked the canal flat because it’s quieter” and ask me why later.',

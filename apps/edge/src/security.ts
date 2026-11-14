@@ -106,10 +106,34 @@ export async function pwnedRange(prefix: string, fetcher: (url: string, init?: R
   }
 }
 
+/**
+ * ONE TAP TO LOCK EVERYTHING (security.u11): Telegram unpaired, and nothing that publishes, sends, pays or ships runs, until he
+ * unlocks with his key. Kept in the brain. (The public demo is left as it is: it never touches his data or his KV, a rule of its
+ * own, and DEMO_OFF=1 in Cloudflare closes it.)
+ */
+export const LOCK_KEY = 'security:lockdown';
+/** The tools that stay still while locked: everything that leaves (the brain's own SENSITIVE words) and changes to Ghosty itself. */
+export const LOCKED_TOOLS = /(send|email|message|post|publish|pay|purchase|buy|transfer|book|ship|social|propose_change|update_change|build_app|restore_version|schedule_task)/i;
+export const LOCKED_WORDS = 'Ghosty is locked: nothing that publishes, sends, pays or ships runs until you unlock it in Settings → Security.';
+
+export async function lockedAt(storage: Pick<DurableObjectStorage, 'get'>): Promise<number | null> {
+  try {
+    const v = await storage.get<{ at: number }>(LOCK_KEY);
+    return v && v.at ? v.at : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setLocked(storage: Pick<DurableObjectStorage, 'put' | 'delete'>, on: boolean, now = Date.now()): Promise<void> {
+  if (on) await storage.put(LOCK_KEY, { at: now });
+  else await storage.delete(LOCK_KEY);
+}
+
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 
 /** GET /security: the locks and the approvals list. DELETE /security/approvals: clear the list (his own history). */
-export async function securityRoute(path: string, method: string, d: { env: Env; storage: Pick<DurableObjectStorage, 'get' | 'put' | 'delete'>; previews: string | null; push?: (msg: { title: string; body: string; tag: string; url: string }) => Promise<number>; fetcher?: (url: string, init?: RequestInit) => Promise<Response> }): Promise<Response> {
+export async function securityRoute(path: string, method: string, d: { env: Env; storage: Pick<DurableObjectStorage, 'get' | 'put' | 'delete'>; previews: string | null; push?: (msg: { title: string; body: string; tag: string; url: string }) => Promise<number>; fetcher?: (url: string, init?: RequestInit) => Promise<Response>; unpairTelegram?: () => Promise<unknown>; checkLink?: (text: string) => Promise<{ verdict: string; words: string; links: string[] }>; body?: () => Promise<Record<string, unknown> | null> }): Promise<Response> {
   const ask = path.match(/^\/security\/ask\/([\w-]{1,16})$/);
   if (ask && method === 'POST') return json(d.push ? await askOnPhone(d.storage, ask[1]!, d.push) : { sent: 0, error: 'notifications are not set up' });
   const range = path.match(/^\/security\/pwned\/([0-9A-F]{5})$/);
@@ -117,7 +141,24 @@ export async function securityRoute(path: string, method: string, d: { env: Env;
     const out = await pwnedRange(range[1]!, d.fetcher ?? ((u, i) => fetch(u, i)));
     return json(out, 'error' in out ? 502 : 200);
   }
-  if (path === '/security' && method === 'GET') return json({ locks: brainLocks(d.env, d.previews), approvals: await loadApprovals(d.storage) });
+  // CHECK A LINK (security.u9): the guardian's own scam check from public records (no model, no key), for a pasted link or message
+  if (path === '/security/linkcheck' && method === 'POST' && d.checkLink) {
+    const raw = d.body ? await d.body() : null;
+    const text = typeof raw?.text === 'string' ? raw.text.slice(0, 4000) : '';
+    if (!/https?:\/\/|www\.|\b[a-z0-9-]+\.[a-z]{2,}\b/i.test(text)) return json({ error: 'paste a link, or a message with a link in it' }, 400);
+    const c = await d.checkLink(text);
+    return json({ verdict: c.verdict, words: c.words, links: c.links.slice(0, 5) });
+  }
+  if (path === '/security/lock' && method === 'POST') {
+    await setLocked(d.storage, true);
+    const telegram = d.unpairTelegram ? await d.unpairTelegram().then(() => true, () => false) : false;
+    return json({ locked: true, at: await lockedAt(d.storage), telegram });
+  }
+  if (path === '/security/unlock' && method === 'POST') {
+    await setLocked(d.storage, false);
+    return json({ locked: false });
+  }
+  if (path === '/security' && method === 'GET') return json({ locks: brainLocks(d.env, d.previews), approvals: await loadApprovals(d.storage), lockedAt: await lockedAt(d.storage) });
   if (path === '/security/approvals' && method === 'DELETE') {
     await d.storage.delete(APPROVALS_KEY).catch(() => undefined);
     return json({ ok: true });
