@@ -7,7 +7,10 @@
 //   TEXT     read aloud, copied; its date ADD TO AGENDA, its number CALL, its address ON THE MAP, its link OPEN, its email WRITE
 //   A SUM    solved and shown worked; an equation too
 //   A SIGN   in French: said to be French, translated by itself, the request carrying the words and no picture
-//   A BILL   the letter card, and the plate's REMIND and FILE
+//   A BILL   the letter card, the plate's REMIND and FILE, and ADD TO MY BILLS (HOME keeps it, with its reminder)
+//   A RECEIPT  one tap into this month's spending (the month's rows hold it), one more keeps its warranty
+//   A MENU   in French: each line's English laid over that line, the card listing every line, the words only sent
+//   AVOID    "I'm allergic to milk" lights the packet red; the WHAT I AVOID sheet adds peanuts; kept on this phone
 //   A PAGE   SCAN IT FLAT opens SCAN's document part on the frame
 //   PRODUCT  a shop barcode looked up on the open product databases through the brain: its grade, figures per 100 g and allergens;
 //            a QR link opened; a Wi-Fi code's password copied
@@ -87,6 +90,12 @@ async function run(viewport, all) {
   const chats = [];
   page.on('request', (q) => {
     if (q.method() === 'POST' && /\/api\/chat$/.test(new URL(q.url()).pathname)) chats.push(q.postData() ?? '');
+  });
+  // (lens.u1) a menu's line-for-line translation, answered here: one English line for each line; every other chat goes on to the brain
+  await page.route('**/api/chat', (r) => {
+    const b = r.request().postData() ?? '';
+    if (!/Translate each line into English/.test(b)) return r.continue();
+    return r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'text', text: 'STARTERS\nSoup of the day\nNiçoise salad\nMAINS\nBeef bourguignon' }, { t: 'done', model: 'mock' }].map((e) => JSON.stringify(e)).join('\n') + '\n' });
   });
   await page.route('**/api/aim/about?title=*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ title: 'Big Ben', extract: 'Big Ben is the nickname for the Great Bell of the Great Clock of Westminster, at the north end of the Palace of Westminster in London.', url: 'https://en.wikipedia.org/wiki/Big_Ben' }) }));
   await page.goto(base);
@@ -251,6 +260,21 @@ async function run(viewport, all) {
   await letGo();
   await reset();
 
+  // ---- A MENU in French (lens.u1): each line's English laid over that line, and the card lists each line with its English
+  await words('ENTREES\nSoupe du jour\nSalade niçoise\nPLATS\nBoeuf bourguignon');
+  await hold([{ ...TEXT_BOX, box: { x: 32, y: 48, w: 576, h: 300 } }]);
+  await until(() => window.__ghosty.one.lines.english.length === 5 && window.__ghosty.one.lines.drawn === 5, null, 10000, `[menu] the menu was not laid over line by line: ${JSON.stringify(await page.evaluate(() => window.__ghosty.one.lines))}`);
+  await until(() => window.__ghosty.cards.cards.some((c) => c.head === 'A MENU · FRENCH · 5 LINES IN ENGLISH'), null, 4000, `[menu] the menu card: ${JSON.stringify((await cards()).cards.map((c) => c.head))}`);
+  const overlay = await page.evaluate(() => [...document.querySelectorAll('#pg-lens .lensline')].map((e) => ({ t: e.textContent, r: e.getBoundingClientRect() })));
+  check(overlay.map((o) => o.t).join('|') === 'STARTERS|Soup of the day|Niçoise salad|MAINS|Beef bourguignon', `${T} [menu] the lines laid over read ${JSON.stringify(overlay.map((o) => o.t))}`);
+  check(overlay.every((o, i) => i === 0 || o.r.top > overlay[i - 1].r.top), `${T} [menu] the English lines are not in the menu's order down the picture`);
+  check((await page.evaluate(() => document.querySelector('#pg-lens .lensplate')?.hidden ?? true)), `${T} [menu] the plate stands over the menu's own English`);
+  const asked = chats.filter((b) => /Translate each line into English/.test(b));
+  check(asked.length >= 1 && asked.every((b) => !/data:image|"images":\s*\[/.test(b)), `${T} [menu] the menu went line for line ${asked.length} time(s), and no picture: ${asked.every((b) => !/data:image/.test(b))}`);
+  await layout('menu');
+  await letGo();
+  await reset();
+
   // ---- A BILL: the letter card and the plate's REMIND and FILE
   const due = new Date(Date.now() + 30 * 86_400_000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' });
   await words(`BRITISH GAS\nYour balance is £84.20.\nPlease pay by ${due}.\nReference 4471 2290`);
@@ -259,6 +283,31 @@ async function run(viewport, all) {
   await until(() => [...document.querySelectorAll('#pg-lens .lensplate button')].map((b) => b.textContent.trim()).join(',').includes('REMIND'), null, 4000, '[bill] the plate does not offer REMIND');
   check((await page.locator('#pg-lens .lensplate button', { hasText: 'FILE' }).count()) === 1, `${T} [bill] the plate does not offer FILE`);
   await layout('letter');
+  // (lens.c1, money.c3) the bill into his bills, with its reminder: HOME's own reading of it answers
+  check((await cards()).cards.some((c) => c.job === 'letter' && c.head === 'A BILL'), `${T} [bill] the card is not headed A BILL: ${JSON.stringify((await cards()).cards.map((c) => c.head))}`);
+  await keyIn('letter', 'ADD TO MY BILLS').click();
+  await until(() => /^bill: /.test(window.__ghosty.cards.done), null, 10000, `[bill] ADD TO MY BILLS did not keep the bill: ${(await cards()).done}`);
+  check(/British Gas|BRITISH GAS/i.test((await cards()).done) && /84\.20/.test((await cards()).done), `${T} [bill] HOME kept "${(await cards()).done.slice(0, 160)}"`);
+  await letGo();
+  await reset();
+
+  // ---- A RECEIPT (lens.c1): one tap into this month's spending, by the rules alone; one more keeps its warranty
+  const pence = String(10 + (Date.now() % 89)).padStart(2, '0');
+  const total = `${viewport.width === 440 ? 4 : 6}.${pence}`;
+  await words(`TESCO EXTRA\nKettle 1.7L 2.${pence}\nBread 1.10\nApples 0.80\nTOTAL ${total}\nVISA CONTACTLESS\nCHANGE 0.00\nThank you`);
+  await hold([TEXT_BOX]);
+  await until(() => window.__ghosty.cards.jobs[0] === 'receipt', null, 4000, `[receipt] the job for a receipt is ${(await cards()).jobs[0]}`);
+  check((await cards()).cards.some((c) => c.job === 'receipt' && c.head === `A RECEIPT · TESCO EXTRA · £${total}`), `${T} [receipt] the card: ${JSON.stringify((await cards()).cards.map((c) => c.head))}`);
+  await layout('receipt');
+  await keyIn('receipt', 'INTO SPENDING').click();
+  await until(() => window.__ghosty.cards.spent.state === 'added', null, 10000, `[receipt] INTO SPENDING did not add it: ${JSON.stringify((await cards()).spent)}`);
+  check(new RegExp(`^In your spending: £${total.replace('.', '\\.')} at Tesco Extra, `).test((await cards()).spent.line), `${T} [receipt] said "${(await cards()).spent.line}"`);
+  await until(() => !document.querySelector('#pg-lens .lenscard[data-job="receipt"] .lc-keys > button')?.textContent?.includes('INTO SPENDING'), null, 3000, '[receipt] INTO SPENDING is still offered for a receipt already in his spending');
+  const month = await page.evaluate(() => fetch('/api/profile/spending', { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).then((r) => r.json()).catch(() => null));
+  check(month?.rows?.some((r) => Math.abs(r.a + Number(total)) < 0.005 && /tesco/i.test(r.t)), `${T} [receipt] the month's spending has no £${total} at Tesco: ${JSON.stringify(month?.rows?.slice(-3) ?? month)}`);
+  await keyIn('receipt', 'KEEP A WARRANTY').click();
+  await until(() => /^warranty: /.test(window.__ghosty.cards.done), null, 10000, `[receipt] KEEP A WARRANTY did not keep one: ${(await cards()).done}`);
+  check(/warranty/i.test((await cards()).done), `${T} [receipt] HOME said "${(await cards()).done.slice(0, 160)}"`);
   await letGo();
   await reset();
 
@@ -283,6 +332,23 @@ async function run(viewport, all) {
   const want = 'Digestive biscuits · Fixture Bakery · 400 gNutri-Score EPer 100 g: 474 kcal · sugars 16.6 g · fat 20.9 g · saturates 9.6 g · salt 0.95 g · protein 7.1 gContains: gluten, milkFrom Open Food Facts (Open Food Facts, ODbL).';
   check(prod?.line === want, `${T} [product] the card says "${prod?.line}", want "${want}"`);
   await layout('product');
+  // (lens.u7) what he avoids, by his words while the Lens is open: kept on this phone, and the packet gets its line
+  check(prod?.keys.includes('WHAT I AVOID'), `${T} [avoid] the product card has no WHAT I AVOID: ${JSON.stringify(prod?.keys)}`);
+  await page.evaluate(() => window.__ghosty.send("I'm allergic to milk"));
+  await until(() => window.__ghosty.cards.verdict.tone === 'red', null, 6000, `[avoid] "I'm allergic to milk" did not light the packet red: ${JSON.stringify((await cards()).verdict)}`);
+  check((await cards()).verdict.line === 'Not for you: it has milk.', `${T} [avoid] the line reads "${(await cards()).verdict.line}"`);
+  check((await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.lens.avoid') ?? '[]'))).join(',') === 'milk', `${T} [avoid] the list is not kept on this phone`);
+  // the list by its own sheet: every tick a 44 pt row; peanuts added, kept
+  await keyIn('product', 'WHAT I AVOID').click();
+  await page.waitForSelector('.modal .lc-avoid', { timeout: 5000 });
+  await until(() => document.querySelector('.modal .mbox')?.getAnimations().every((a) => a.playState === 'finished') ?? false, null, 3000, '[avoid] the sheet did not settle');
+  const tickSmall = await page.evaluate(() => [...document.querySelectorAll('.modal .lc-avoid .lc-tick, .modal .lc-avoid button')].map((e) => e.getBoundingClientRect()).filter((r) => r.width < 43.5 || r.height < 43.5).length);
+  check(!tickSmall, `${T} [avoid] ${tickSmall} control(s) on the list under 44 pt`);
+  check(await page.evaluate(() => document.querySelector('.modal input[data-avoid="milk"]')?.checked === true), `${T} [avoid] the sheet does not show milk ticked`);
+  await page.locator('.modal input[data-avoid="peanuts"]').check();
+  await page.locator('.modal .lc-avoid button', { hasText: 'KEEP THIS LIST' }).click();
+  await until(() => JSON.parse(localStorage.getItem('ghosty.lens.avoid') ?? '[]').sort().join(',') === 'milk,peanuts', null, 4000, '[avoid] the sheet did not keep peanuts');
+  await until(() => /^Not for you: it has milk\.$/.test(window.__ghosty.cards.verdict.line), null, 4000, `[avoid] after the sheet the line reads "${(await cards()).verdict.line}"`);
   await letGo();
   await reset();
   await hold([{ kind: 'code', box: { x: 200, y: 140, w: 200, h: 200 }, score: 0.95, truth: 'a code', data: { text: 'https://example.org/menu', format: 'qr_code', codeKind: 'url' } }]);
@@ -380,5 +446,5 @@ async function run(viewport, all) {
 await run({ width: 440, height: 956 }, true);
 await run({ width: 390, height: 844 }, false);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a bill on the letter card with REMIND and FILE; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
 process.exit(problems.length ? 1 : 0);

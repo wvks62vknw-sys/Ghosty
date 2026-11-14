@@ -92,6 +92,17 @@ export function appAbilities(): AppAbility[] {
     words: 'lens camera photo point picture',
     from: 'app',
   });
+  // [lens] the one view's jobs: what pointing the camera does by itself (features/lens/cards.ts)
+  out.push({
+    id: 'lens:jobs',
+    cat: 'see',
+    line: 'Point the camera and I do the job: a receipt into your spending, a bill into your bills, a menu in English line by line, a packet checked against what you avoid, a sum worked, a date in your diary.',
+    asks: ['Put this receipt into my spending', 'Translate this menu, line by line', 'I’m allergic to peanuts', 'What species is that', 'Solve that', 'Call that number'],
+    acts: [{ open: 'lens' }, { open: 'lens' }, { open: 'lens' }, { open: 'lens' }, { open: 'lens' }, { open: 'lens' }],
+    go: { open: 'lens' },
+    words: 'receipt spending budget bill warranty menu translate line allergy allergic avoid vegan vegetarian gluten nuts packet product barcode sum solve date diary agenda species plant landmark',
+    from: 'app',
+  });
   // SCHOOL: the stages he goes through
   const stages = STAGES.map((s) => s.label);
   out.push({

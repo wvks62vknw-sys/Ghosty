@@ -49,7 +49,7 @@ import { waiting as putUpWait } from '../../ui/wait';
 import { createCards, type CardInput } from './cards';
 import { letterOf } from '../../../../../packages/shared/src/lifeeasier';
 import { isoDay } from '../brief/day';
-import { livingKind, type JobId } from '../../vision/jobs';
+import { isMenuLike, livingKind, looksLikeReceipt, pairLines, type JobId } from '../../vision/jobs';
 
 /** The grey frame's width: the "text present" check and the steadiness work on this, not on the camera's pixels. */
 const GREY_W = 160;
@@ -163,6 +163,8 @@ export const oneState = {
   plate: { shown: false, text: '', lit: '', inPlace: false, scrolls: false },
   /** The last words said aloud (a tap on a word), for the checks. */
   spoke: '',
+  /** A menu read line by line: how many lines, the English for each, and how many are drawn in their place (lens.u1). */
+  lines: { count: 0, english: [] as string[], drawn: 0 },
 };
 
 /** The tag he tapped, as the screen's selection (BRIEF-AWARENESS "that one"): its kind, never who. */
@@ -174,7 +176,7 @@ export function oneSelected(): { kind: 'thing'; id: string; label: string; detai
 }
 
 /** What the words ("read that", "what is that", "translate it", "measure it") reach while the one view is open. */
-export const oneHooks: { act?: (w: LensWord) => string | null; feed?: OneFeed } = {};
+export const oneHooks: { act?: (w: LensWord, text?: string) => string | null; feed?: OneFeed } = {};
 
 /** A fixture feed for the specs (window.__ghosty.oneFeed, only under a test runner): each `see` is one frame of the feed. */
 export interface OneFeed {
@@ -431,7 +433,13 @@ export function createOneMode(L: LensContext): Mode {
 
   // ---------------------------------------------------------------- what the Lens knows of the text in view
   /** The text of the steady scene, read on the phone: its words, the language decided from them, and what became of the translation. */
-  const ocr = { state: 'idle' as 'idle' | 'reading' | 'read' | 'none', epoch: 0, text: '', tokens: [] as string[], lang: UNKNOWN_LANG as Lang, tr: 'none' as 'none' | 'sending' | 'done' | 'failed' | 'offline', translation: '' };
+  const ocr = { state: 'idle' as 'idle' | 'reading' | 'read' | 'none', epoch: 0, text: '', tokens: [] as string[], lang: UNKNOWN_LANG as Lang, tr: 'none' as 'none' | 'sending' | 'done' | 'failed' | 'offline', translation: '',
+    /** A menu read line by line (lens.u1): its lines, where each stood as a share of the text's box, and the English for each. */
+    lines: [] as string[], lineRel: [] as { x: number; y: number; w: number; h: number }[], lineEn: null as string[] | null };
+  /** The English laid over each line of a menu, in the line's own place on the picture. */
+  const lineLayer = h('div.lenslines', { role: 'group', 'aria-label': 'The menu in English, line by line' });
+  lineLayer.hidden = true;
+  let lineSig = '';
   /** Words already translated this visit: the same words are not sent twice. */
   const translated = new Map<string, string>();
   interface Node {
@@ -551,7 +559,7 @@ export function createOneMode(L: LensContext): Mode {
   const inplace = h('div.lensinplace', { role: 'button', tabindex: '0', 'aria-label': 'The English of this sign: tap to hear it' });
   plate.hidden = true;
   inplace.hidden = true;
-  layer.append(plate, inplace);
+  layer.append(plate, inplace, lineLayer);
   let plateSig = '';
   let plateH = 0;
   let plateAt = 0;
@@ -583,15 +591,23 @@ export function createOneMode(L: LensContext): Mode {
 
   /** Draw the plate (the words) or the English over the sign, whichever the state says; only when the words or the state changed. */
   const drawPlates = (): void => {
-    const sig = `${ocr.state}|${ocr.text}|${ocr.tr}|${ocr.translation}`;
+    const sig = `${ocr.state}|${ocr.text}|${ocr.tr}|${ocr.translation}|${ocr.lineEn?.length ?? 0}`;
     if (sig === plateSig) return;
     plateSig = sig;
     const read = ocr.state === 'read';
     const swapped = read && ocr.tr === 'done' && !!ocr.translation;
     const sign = read && textKind(wordList(ocr.text).length) === 'sign';
-    const over = swapped && sign;
+    // a menu whose English came back line for line: each line's English in its own place, and no plate over it
+    const lined = read && ocr.tr === 'done' && !!ocr.lineEn && ocr.lineRel.length === ocr.lineEn.length;
+    const over = swapped && sign && !lined;
     inplace.hidden = !over;
-    plate.hidden = !read || over;
+    plate.hidden = !read || over || lined;
+    lineLayer.hidden = !lined;
+    oneState.lines = { count: ocr.lines.length, english: ocr.lineEn ?? [], drawn: 0 };
+    if (lined && lineSig !== sig) {
+      lineSig = sig;
+      lineLayer.replaceChildren(...ocr.lineEn!.map((en, i) => h('p.lensline', { dataset: { i: String(i) }, title: ocr.lines[i] ?? '' }, en)));
+    }
     oneState.plate = { shown: read, text: '', lit: '', inPlace: over, scrolls: false };
     plateH = 0;
     if (!read) return;
@@ -622,6 +638,11 @@ export function createOneMode(L: LensContext): Mode {
   /** Forget the words (the text left the picture, or the Lens was left). */
   const forgetText = (): void => {
     fixtureWords = false;
+    ocr.lines = [];
+    ocr.lineRel = [];
+    ocr.lineEn = null;
+    lineLayer.hidden = true;
+    lineSig = '';
     ocr.state = 'idle';
     ocr.text = '';
     ocr.tokens = [];
@@ -665,6 +686,8 @@ export function createOneMode(L: LensContext): Mode {
       knownName: face?.data?.label ?? '',
       stranger: list.some((t) => t.kind === 'stranger'),
       letter: !!read && isLetter(read),
+      receipt: !!read && looksLikeReceipt(read),
+      ...(read && ocr.lineEn ? { lines: ocr.lines, lineEnglish: ocr.lineEn } : {}),
       lang: read ? ocr.lang.name : '',
       langTag: read ? ocr.lang.tag : '',
       english: ocr.tr === 'done' ? ocr.translation : '',
@@ -703,9 +726,15 @@ export function createOneMode(L: LensContext): Mode {
     const ctl = new AbortController();
     const timer = window.setTimeout(() => ctl.abort(), 20000);
     try {
-      const r = await askWithImage('Translate this into English. Reply with the English words only.', null, undefined, { scan: text, quiet: true, bare: true, signal: ctl.signal });
+      // a menu or a page (four lines or more): one line of English for each line, so each is laid over its own (lens.u1)
+      const menu = ocr.lines.length >= 4 && isMenuLike(ocr.lines.join('\n'));
+      const r = await askWithImage(menu ? 'Translate each line into English. Reply with exactly one line of English for each line, in the same order, and nothing else.' : 'Translate this into English. Reply with the English words only.', null, undefined, { scan: menu ? ocr.lines.join('\n') : text, quiet: true, bare: true, signal: ctl.signal });
       if (v !== visit) return;
       const got = r.text.trim();
+      if (menu && got && !r.error) {
+        ocr.lineEn = pairLines(ocr.lines, got);
+        oneState.lines = { count: ocr.lines.length, english: ocr.lineEn ?? [], drawn: 0 };
+      }
       if (got && !r.error) {
         translated.set(text, got);
         if (translated.size > 8) translated.delete(translated.keys().next().value as string);
@@ -744,6 +773,11 @@ export function createOneMode(L: LensContext): Mode {
         oneState.ocr.state = 'idle';
         return;
       }
+      // where the crop stood in the frame, so each line's box can be said as a share of the text's box (lens.u1)
+      const fr = L.view().frame;
+      const crop = cropRect(t.box, fr, 0.6);
+      const kk = fr.w ? c.width / crop.w : 1;
+      const box0 = { ...t.box };
       const r = await L.reader.read(c);
       if (v !== visit) return;
       const text = cleanOcr(r).replace(/[ \t]+\n/g, '\n');
@@ -760,6 +794,17 @@ export function createOneMode(L: LensContext): Mode {
       const same = text === ocr.text;
       ocr.text = text;
       ocr.tokens = text.match(/\S+/g) ?? [];
+      const ls = (r.lines ?? []).filter((l) => /\p{L}{2}/u.test(l.text) && l.bbox);
+      if (!same) {
+        ocr.lines = ls.map((l) => l.text.replace(/\s+/g, ' ').trim());
+        ocr.lineRel = ls.map((l) => {
+          const b = l.bbox!;
+          const fx = crop.x + b.x0 / kk;
+          const fy = crop.y + b.y0 / kk;
+          return { x: (fx - box0.x) / box0.w, y: (fy - box0.y) / box0.h, w: (b.x1 - b.x0) / kk / box0.w, h: (b.y1 - b.y0) / kk / box0.h };
+        });
+        ocr.lineEn = null;
+      }
       ocr.lang = languageOf(text);
       ocr.state = 'read';
       if (!same || ocr.tr === 'none') {
@@ -985,6 +1030,24 @@ export function createOneMode(L: LensContext): Mode {
   const placePlates = (list: Tag[], rects: Map<number, { x0: number; y0: number; x1: number; y1: number }>, vw: number, vh: number): void => {
     const t = list.find((x) => x.kind === 'text');
     const r = t ? rects.get(t.id) : undefined;
+    if (!lineLayer.hidden && r) {
+      // each line's English where that line stands, as a share of the text's box: it follows the page as the phone moves
+      const bw = r.x1 - r.x0;
+      const bh = r.y1 - r.y0;
+      let drawn = 0;
+      lineLayer.querySelectorAll<HTMLElement>('.lensline').forEach((el) => {
+        const q = ocr.lineRel[Number(el.dataset.i)];
+        if (!q) return;
+        const x = Math.max(2, r.x0 + q.x * bw);
+        const y = Math.max(STAMP_ROOM, r.y0 + q.y * bh);
+        const w = Math.max(60, Math.min(vw - x - 2, q.w * bw));
+        const hh = Math.max(18, q.h * bh);
+        Object.assign(el.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, minHeight: `${hh}px`, fontSize: `${Math.max(12, Math.min(22, Math.round(hh * 0.62)))}px` });
+        drawn++;
+      });
+      oneState.lines.drawn = drawn;
+      lineLayer.classList.toggle('stale', !mirror.steady);
+    }
     const showing = !!t && !!r && (!plate.hidden || !inplace.hidden);
     if (!showing || !r) return;
     const others = list.filter((x) => x.id !== t!.id).map((x) => rects.get(x.id)!).filter(Boolean);
@@ -1394,8 +1457,13 @@ export function createOneMode(L: LensContext): Mode {
     }
     return 'Translating it.';
   };
-  const byWord = (w: LensWord): string | null => {
+  const byWord = (w: LensWord, text = ''): string | null => {
     const now = performance.now();
+    if (w === 'avoid') {
+      const line = cards.avoid(text);
+      say(line);
+      return line;
+    }
     if (w === 'what') {
       const sel = tags.alive(now).find((t) => t.id === selectedId);
       const line = sel ? said([sel]) : said(tags.alive(now));
@@ -1421,7 +1489,7 @@ export function createOneMode(L: LensContext): Mode {
       say(line);
       return line;
     }
-    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy'>, { kinds: TagKind[]; act: ActId; none: string }> = {
+    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'avoid'>, { kinds: TagKind[]; act: ActId; none: string }> = {
       read: { kinds: ['text'], act: 'read', none: 'I don’t see any text to read yet.' },
       look: { kinds: ['code'], act: 'look', none: 'I don’t see a code yet.' },
       name: { kinds: ['object'], act: 'nameit', none: 'I don’t see an object to name yet. Getting the eyes helps.' },
@@ -1484,6 +1552,11 @@ export function createOneMode(L: LensContext): Mode {
             fixtureWords = true;
             ocr.text = words;
             ocr.tokens = words.match(/\S+/g) ?? [];
+            // (a fixture's lines stand evenly down the text's box, as a printed menu's do)
+            const fl = words.split('\n').map((l) => l.trim()).filter((l) => /\p{L}{2}/u.test(l));
+            ocr.lines = fl;
+            ocr.lineRel = fl.map((_, i) => ({ x: 0.03, y: (i + 0.1) / fl.length, w: 0.94, h: 0.8 / fl.length }));
+            ocr.lineEn = null;
             ocr.lang = languageOf(words);
             ocr.state = 'read';
             ocr.tr = 'none';

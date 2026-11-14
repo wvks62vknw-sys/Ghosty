@@ -15,7 +15,7 @@ import { datesIn } from '../../../../packages/shared/src/lifeeasier';
 
 // ---------------------------------------------------------------- the job
 
-export type JobId = 'nothing' | 'text' | 'letter' | 'document' | 'code' | 'product' | 'thing' | 'living' | 'place' | 'known' | 'stranger';
+export type JobId = 'nothing' | 'text' | 'receipt' | 'letter' | 'document' | 'code' | 'product' | 'thing' | 'living' | 'place' | 'known' | 'stranger';
 
 /** What the one view has understood of the frame, as plain facts. */
 export interface Seen {
@@ -33,6 +33,8 @@ export interface Seen {
   stranger?: boolean;
   /** The read words look like a letter or a bill (packages/shared/src/lifeeasier.ts letterOf). */
   letter?: boolean;
+  /** The read words look like a till receipt (looksLikeReceipt). */
+  receipt?: boolean;
 }
 
 /** What a living thing is called by the phone's finder and namer: the species then comes from the free model that sees, on his tap. */
@@ -70,7 +72,8 @@ export function jobsOf(s: Seen): JobId[] {
   if (s.code?.text) out.push(ean(s.code) ? 'product' : 'code');
   const words = (s.text ?? '').match(/\S+/g)?.length ?? 0;
   if (words) {
-    if (s.letter) out.push('letter');
+    if (s.receipt) out.push('receipt');
+    else if (s.letter) out.push('letter');
     else if ((s.textShare ?? 0) >= DOC_SHARE && words >= DOC_WORDS) out.push('document');
     else out.push('text');
   }
@@ -377,4 +380,140 @@ export function livingKind(label: string): 'plant' | 'bird' | 'insect' | 'other'
   if (/\b(insect|butterfly|moth|bee|wasp|beetle|ladybird|ladybug|ant|fly|dragonfly|grasshopper|caterpillar|spider)s?\b/.test(l)) return 'insect';
   if (/\b(plant|potted plant|flower|tree|leaf|leaves|daisy|rose|tulip|sunflower|fern|cactus|moss|shrub|bush|grass|weed|herb)s?\b/.test(l)) return 'plant';
   return 'other';
+}
+
+// ---------------------------------------------------------------- a receipt (lens.c1: into this month's spending)
+
+/** Does the read text look like a till receipt: two prices or more, a total, and a till's words (card, change, VAT…)? */
+export function looksLikeReceipt(text: string): boolean {
+  const t = String(text ?? '');
+  const prices = (t.match(/£?\s?\d{1,5}\.\d{2}\b/g) ?? []).length;
+  const total = /\b(?:total|sub-?total|balance due|amount due|to pay|amount paid)\b/i.test(t);
+  const till = /\b(?:card|visa|mastercard|amex|contactless|chip|cash|change|vat|receipt|till|cashier|thank you|items?|qty|auth(?:orisation)? code)\b/i.test(t);
+  return prices >= 2 && total && till;
+}
+
+/** One spend as the statement importer reads it (date, description, signed amount: money out is negative), never a formula. */
+export function receiptCsv(r: { store: string; date: string; total: number }, today: string): string {
+  const name = (r.store || 'Receipt').replace(/[",\r\n]/g, ' ').replace(/^[=+\-@]+/, '').trim() || 'Receipt';
+  return `Date,Description,Amount\n${r.date || today},${name},-${r.total.toFixed(2)}\n`;
+}
+
+// ---------------------------------------------------------------- what he avoids (lens.u7: kept on his phone only)
+
+/** The fourteen allergens UK food law names, with the words an ingredients list uses for each. */
+export const ALLERGENS: { id: string; say: string; words: RegExp }[] = [
+  { id: 'gluten', say: 'gluten', words: /\b(?:gluten|wheat|barley|rye|oats?|spelt|kamut|semolina|couscous)\b/i },
+  { id: 'milk', say: 'milk', words: /\b(?:milk|lactose|dairy|cheese|butter|cream|whey|casein|yoghurt|yogurt)\b/i },
+  { id: 'eggs', say: 'eggs', words: /\beggs?\b/i },
+  { id: 'peanuts', say: 'peanuts', words: /\b(?:peanuts?|groundnuts?|arachis)\b/i },
+  { id: 'nuts', say: 'tree nuts', words: /\b(?:nuts?|almonds?|hazelnuts?|walnuts?|cashews?|pecans?|pistachios?|macadamias?|brazil nuts?)\b/i },
+  { id: 'soya', say: 'soya', words: /\b(?:soy|soya|soybeans?|soja|edamame|tofu)\b/i },
+  { id: 'fish', say: 'fish', words: /\b(?:fish|anchov(?:y|ies)|salmon|tuna|cod|haddock|sardines?|mackerel|pollock)\b/i },
+  { id: 'crustaceans', say: 'crustaceans', words: /\b(?:crustaceans?|prawns?|shrimps?|crabs?|lobsters?|langoustines?|crayfish)\b/i },
+  { id: 'molluscs', say: 'molluscs', words: /\b(?:molluscs?|mussels?|oysters?|squid|clams?|scallops?|octopus|snails?)\b/i },
+  { id: 'sesame', say: 'sesame', words: /\bsesame\b/i },
+  { id: 'celery', say: 'celery', words: /\b(?:celery|celeriac)\b/i },
+  { id: 'mustard', say: 'mustard', words: /\bmustard\b/i },
+  { id: 'sulphites', say: 'sulphites', words: /\b(?:sulphites?|sulfites?|sulphur dioxide|sulfur dioxide|e22[0-8])\b/i },
+  { id: 'lupin', say: 'lupin', words: /\blupin[es]?\b/i },
+];
+/** The ways of eating he can set, each checked against the packet's own figures (the UK front-of-pack bands, per 100 g). */
+export const DIETS: { id: string; say: string }[] = [
+  { id: 'vegan', say: 'vegan' },
+  { id: 'vegetarian', say: 'vegetarian' },
+  { id: 'low sugar', say: 'low sugar' },
+  { id: 'low salt', say: 'low salt' },
+  { id: 'low fat', say: 'low fat' },
+];
+const MEAT = /\b(?:beef|pork|chicken|lamb|mutton|turkey|duck|ham|bacon|gelatine|gelatin|lard|suet|anchov(?:y|ies)|meat|fish|prawns?|carmine|cochineal|rennet)\b/i;
+const NOT_VEGAN = /\b(?:honey|milk|cheese|butter|cream|whey|casein|eggs?|lactose|yoghurt|yogurt|beeswax|shellac)\b/i;
+
+export interface AvoidProduct {
+  allergens?: string[];
+  ingredients?: string;
+  nutrition?: Partial<Record<'sugars' | 'salt' | 'fat', number>>;
+}
+export type Tone = 'red' | 'amber' | 'green';
+export interface Verdict {
+  tone: Tone | 'none';
+  /** One line for the card, in his words. */
+  line: string;
+  /** What he avoids that it holds (red) or that cannot be told (amber). */
+  hits: string[];
+  unsure: string[];
+}
+
+const listWords = (xs: string[]): string => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
+/**
+ * A packet against what he avoids: RED when it holds one (its allergens, or its ingredients' words), or a figure is over the high
+ * band; AMBER when it cannot be told (no ingredients listed, no figure) or a figure is in the middle band; GREEN when every one is
+ * checked and clear. Never a health claim: what the open database says, against the list he set.
+ */
+export function avoidVerdict(avoid: string[], p: AvoidProduct): Verdict {
+  const list = [...new Set(avoid.map((a) => a.toLowerCase().trim()).filter(Boolean))];
+  if (!list.length) return { tone: 'none', line: '', hits: [], unsure: [] };
+  const tags = (p.allergens ?? []).map((t) => t.toLowerCase());
+  const ing = String(p.ingredients ?? '');
+  const hits: string[] = [];
+  const unsure: string[] = [];
+  const amberFigures: string[] = [];
+  for (const id of list) {
+    const al = ALLERGENS.find((a) => a.id === id);
+    if (al) {
+      if (tags.some((t) => al.words.test(t) || t.includes(al.id)) || (ing && al.words.test(ing))) hits.push(al.say);
+      else if (!ing && !tags.length) unsure.push(`whether it has ${al.say}`);
+      continue;
+    }
+    const n = p.nutrition ?? {};
+    const band = (v: number | undefined, high: number, low: number, word: string) => {
+      if (v == null) unsure.push(`its ${word} figure`);
+      else if (v > high) hits.push(`high ${word}`);
+      else if (v > low) amberFigures.push(`medium ${word}`);
+    };
+    if (id === 'low sugar') band(n.sugars, 22.5, 5, 'sugar');
+    else if (id === 'low salt') band(n.salt, 1.5, 0.3, 'salt');
+    else if (id === 'low fat') band(n.fat, 17.5, 3, 'fat');
+    else if (id === 'vegan') {
+      if ((ing && (MEAT.test(ing) || NOT_VEGAN.test(ing))) || tags.some((t) => /milk|egg|fish|crustacean|mollusc/.test(t))) hits.push('animal products');
+      else if (!ing) unsure.push('whether it is vegan');
+    } else if (id === 'vegetarian') {
+      if ((ing && MEAT.test(ing)) || tags.some((t) => /fish|crustacean|mollusc/.test(t))) hits.push('meat or fish');
+      else if (!ing) unsure.push('whether it is vegetarian');
+    }
+  }
+  if (hits.length) return { tone: 'red', line: `Not for you: it has ${listWords(hits)}.`, hits, unsure };
+  if (unsure.length) return { tone: 'amber', line: `Check the pack: the open database does not say ${listWords(unsure)}.`, hits, unsure };
+  if (amberFigures.length) return { tone: 'amber', line: `Go easy: ${listWords(amberFigures)} for you.`, hits, unsure };
+  return { tone: 'green', line: `Fine for you: nothing you avoid, by its ingredients and figures.`, hits, unsure };
+}
+
+/** What he says he avoids, in his words ("I'm allergic to peanuts and milk", "I'm vegan", "I avoid gluten"): the list's ids. */
+export function avoidFromWords(text: string): string[] {
+  const t = String(text ?? '').toLowerCase();
+  const out = new Set<string>();
+  // (whole words only: "peanuts" is not tree nuts)
+  for (const a of ALLERGENS) if (a.words.test(t) || new RegExp(`\\b${a.id}\\b`).test(t) || new RegExp(`\\b${a.say}\\b`).test(t)) out.add(a.id);
+  if (out.has('peanuts') && !/\b(?:tree nuts?|nuts?)\b/.test(t.replace(/\bpeanuts?\b/g, ''))) out.delete('nuts');
+  if (/\b(?:coeliac|celiac)\b/.test(t)) out.add('gluten');
+  if (/\blactose\b/.test(t)) out.add('milk');
+  if (/\bvegan\b/.test(t)) out.add('vegan');
+  else if (/\bvegetarian\b/.test(t)) out.add('vegetarian');
+  const less = '(?:low|less|no|cut(?:ting)?(?: down)?(?: on)?|avoid(?:ing)?)\\s+';
+  if (new RegExp(`\\b${less}sugar\\b`).test(t)) out.add('low sugar');
+  if (new RegExp(`\\b${less}salt\\b`).test(t)) out.add('low salt');
+  if (new RegExp(`\\b${less}fat\\b`).test(t)) out.add('low fat');
+  return [...out];
+}
+
+// ---------------------------------------------------------------- a menu, line by line (lens.u1)
+
+/** A menu or a page: four lines or more of a few words each. A short sign is translated whole, as before. */
+export const isMenuLike = (text: string): boolean => String(text ?? '').split('\n').filter((l) => /\p{L}{2}/u.test(l)).length >= 4;
+
+/** The English for each line, in order, when the answer has exactly one line for each line read; null when it does not line up. */
+export function pairLines(lines: string[], english: string): string[] | null {
+  const en = String(english ?? '').split('\n').map((l) => l.replace(/^\s*(?:\d+[.)]|[-•*])\s+/, '').trim()).filter(Boolean);
+  return en.length === lines.length && lines.length ? en : null;
 }

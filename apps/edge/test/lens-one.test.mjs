@@ -382,6 +382,12 @@ test('the language table names English, French, German, Spanish, Italian, Portug
     ['NOODUITGANG', 'DUTCH'],
     ['xqzv plmk trfd wqs', 'UNKNOWN'],
     ['7734 AB 99', 'UNKNOWN'],
+    // (lens.u1) a menu has few common words: its dishes say the language
+    ['ENTREES\nSoupe du jour\nSalade niçoise\nPLATS\nBoeuf bourguignon', 'FRENCH'],
+    ['Antipasti\nZuppa del giorno\nPrimi piatti\nSpaghetti alla carbonara\nDolci', 'ITALIAN'],
+    ['Vorspeisen\nTagessuppe\nHauptgerichte\nSchweinebraten mit Kartoffeln', 'GERMAN'],
+    ['Entrantes\nSopa del día\nPlatos principales\nPostres', 'SPANISH'],
+    ['Starters\nSoup of the day\nMains\nDesserts', 'ENGLISH'],
   ];
   for (const [text, want] of cases) assert.equal(F.languageOf(text).name, want, text);
   assert.equal(F.needsTranslation(F.languageOf('SORTIE DE SECOURS')), true);
@@ -568,4 +574,47 @@ test('a postcode is a real area’s, in any case, with a space or none; never a 
   assert.deepEqual(kinds('10-12 High Street\nLeeds LS1 6DT'), ['address:10-12 High Street, Leeds LS1 6DT']);
   assert.deepEqual(kinds('Flat 2.01, 5 High St\nLeeds LS1 6DT'), ['address:Flat 2.01, 5 High St, Leeds LS1 6DT']);
   assert.deepEqual(kinds('Dr Jane Patel\nLeeds LS1 4AP'), ['address:Leeds LS1 4AP'], 'a person’s title is no street');
+});
+
+// ---- THE NEXT ROUND: the camera as the front door (lens.c1 receipts, lens.u7 what he avoids, lens.u1 a menu line by line)
+test('a till receipt is told from a bill, a sum and a page; its spend is one safe CSV row', () => {
+  const rc = 'TESCO EXTRA\nMilk 2pt 1.45\nBread 1.10\nApples 2.30\nTOTAL 4.85\nVISA CONTACTLESS\nCHANGE 0.00\nThank you';
+  assert.equal(F.looksLikeReceipt(rc), true);
+  assert.equal(F.jobOf({ text: rc, receipt: true }), 'receipt');
+  assert.equal(F.looksLikeReceipt('BRITISH GAS\nYour balance is £84.20.\nPlease pay by 14 December 2026.'), false, 'a bill is no receipt');
+  assert.equal(F.looksLikeReceipt('12 + 7 × 3 = 33'), false);
+  assert.equal(F.receiptCsv({ store: 'TESCO EXTRA', date: '2026-11-13', total: 4.85 }, '2026-11-14'), 'Date,Description,Amount\n2026-11-13,TESCO EXTRA,-4.85\n');
+  assert.equal(F.receiptCsv({ store: '=HYPERLINK("x"),bad', date: '', total: 2 }, '2026-11-14'), 'Date,Description,Amount\n2026-11-14,HYPERLINK( x ) bad,-2.00\n', 'no cell starts a formula; no comma or quote breaks the row; no date is today');
+});
+
+test('a packet against what he avoids: red when it has one, amber when it cannot be told, green when every one is clear', () => {
+  assert.equal(F.avoidVerdict([], { allergens: ['milk'] }).tone, 'none', 'an empty list gives no line');
+  const red = F.avoidVerdict(['milk', 'gluten'], { allergens: ['gluten', 'milk'], ingredients: 'Wheat flour, sugar, milk' });
+  assert.equal(red.tone, 'red');
+  assert.equal(red.line, 'Not for you: it has milk and gluten.');
+  assert.equal(F.avoidVerdict(['peanuts'], { ingredients: 'Roasted groundnuts, salt' }).tone, 'red', 'the ingredients’ own words count');
+  assert.equal(F.avoidVerdict(['peanuts'], {}).line, 'Check the pack: the open database does not say whether it has peanuts.');
+  assert.equal(F.avoidVerdict(['low sugar'], { nutrition: { sugars: 16.6 } }).tone, 'amber', 'the middle band (over 5 g, up to 22.5 g per 100 g)');
+  assert.equal(F.avoidVerdict(['low sugar'], { nutrition: { sugars: 30 } }).tone, 'red');
+  assert.equal(F.avoidVerdict(['low salt'], { nutrition: { salt: 0.2 } }).tone, 'green');
+  assert.equal(F.avoidVerdict(['vegan'], { ingredients: 'oats, honey' }).tone, 'red');
+  assert.equal(F.avoidVerdict(['vegetarian'], { ingredients: 'oats, honey' }).tone, 'green');
+  assert.equal(F.avoidVerdict(['peanuts', 'low salt'], { allergens: ['gluten'], ingredients: 'oats, sugar', nutrition: { salt: 0.2 } }).line, 'Fine for you: nothing you avoid, by its ingredients and figures.');
+});
+
+test('what he avoids, in his words; and the Lens takes those words while it is open', () => {
+  assert.deepEqual(F.avoidFromWords("I'm allergic to peanuts and milk").sort(), ['milk', 'peanuts'], 'peanuts are not tree nuts');
+  assert.deepEqual(F.avoidFromWords('allergic to nuts and peanuts').sort(), ['nuts', 'peanuts']);
+  assert.deepEqual(F.avoidFromWords("I'm vegan"), ['vegan']);
+  assert.deepEqual(F.avoidFromWords('I avoid gluten and cut down on sugar').sort(), ['gluten', 'low sugar']);
+  assert.deepEqual(F.avoidFromWords('I am coeliac'), ['gluten']);
+  for (const w of ["I'm allergic to peanuts", 'I avoid gluten', "I can't eat eggs", "I'm vegan", 'what do I avoid', 'my allergy list']) assert.equal(F.lensWord(w), 'avoid', w);
+  for (const w of ['I avoid crowds and loud noise and very long sentences that go on and on', 'play music']) assert.equal(F.lensWord(w), null, w);
+});
+
+test('a menu is four lines or more, and its English is used line for line only when it lines up', () => {
+  assert.equal(F.isMenuLike('ENTREES\nSoupe du jour\nSalade nicoise\nPLATS\nBoeuf bourguignon'), true);
+  assert.equal(F.isMenuLike('SORTIE DE SECOURS\nNe pas bloquer'), false, 'a short sign is translated whole, as before');
+  assert.deepEqual(F.pairLines(['Soupe', 'Salade'], '1. Soup\n2. Salad'), ['Soup', 'Salad'], 'a numbered answer is read as its lines');
+  assert.equal(F.pairLines(['Soupe', 'Salade', 'Boeuf'], 'Soup and salad\nBeef'), null, 'two lines for three: no pairing, the whole translation instead');
 });
