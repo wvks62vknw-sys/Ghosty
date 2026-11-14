@@ -494,7 +494,7 @@ export const brain = {
   watchers: () => req<{ watchers: WatcherInfo[]; max: number }>('GET', '/guardian/watchers'),
   watchersAdd: (b: { kind: 'price' | 'page' | 'strike'; url: string; label?: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
   // [recall] a chase (BRIEF-DEPTH-MEMORY 3): the one watcher system, kind `reply`
-  chaseAdd: (b: { kind: 'reply'; who: string; day: string; about: string; thread?: string; from?: string; tz: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
+  chaseAdd: (b: { kind: 'reply'; who: string; day: string; about: string; thread?: string; from?: string; again?: string; wait?: 'parcel'; tz: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
   watchersStop: (id: string) => req<{ removed: boolean; watchers: WatcherInfo[] }>('DELETE', `/guardian/watchers?id=${encodeURIComponent(id)}`),
   mailInbox: () => req<{ linked: boolean; address?: string; messages: MailLine[] }>('GET', '/guardian/mail/inbox'),
   mailReply: (b: { reply_to_uid: number; subject: string; body: string; confirm: true }) => req<{ sent: boolean; to: string[] }>('POST', '/guardian/mail/send', b),
@@ -568,6 +568,13 @@ export const brain = {
   spotifyTest: () => req<{ works: boolean; name?: string | null; product?: string | null; why?: string }>('POST', '/spotify/test'),
   /** The Telegram bot (LINKS → TELEGRAM): its state, a fresh pairing code, forget the paired chat, a test message. */
   telegramStatus: () => req<TelegramStatus>('GET', '/telegram/status'),
+  /** [security] the brain's locks and every APPROVE and NOT NOW (security.ts), for the SECURITY screen */
+  security: () => req<{ locks: import('../features/security/locks').BrainLocks; approvals: import('../features/security/locks').ApprovalEntry[] }>('GET', '/security'),
+  clearApprovals: () => req<{ ok: boolean }>('DELETE', '/security/approvals'),
+  /** [security] HAS THIS PASSWORD LEAKED?: only the first five characters of its fingerprint leave the phone (security.s2) */
+  pwnedRange: (prefix: string) => req<{ list: string }>('GET', `/security/pwned/${encodeURIComponent(prefix)}`),
+  /** [security] a waiting APPROVE as a phone notification, once, when he walks away from the card (security.s10) */
+  approvalPush: (id: string) => req<{ sent: number; already?: boolean; error?: string }>('POST', `/security/ask/${encodeURIComponent(id)}`, {}),
   telegramCode: () => req<TelegramStatus>('POST', '/telegram/code'),
   telegramUnpair: () => req<TelegramStatus>('POST', '/telegram/unpair'),
   telegramTest: () => req<{ sent: boolean; error?: string }>('POST', '/telegram/test'),

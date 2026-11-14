@@ -150,6 +150,10 @@ export const STATES = {
   'eye.cam': { dir: 'eye', base: 2, now: 2 },
   'eye.roadahead': { dir: 'eye', base: 1, now: 1 },
   'machine.view': { dir: 'eye', base: 0, now: 2 },
+  // the camera wall (NEXT ROUND, see.u2): its empty wall and a camera that will not come
+  'eye.wall': { dir: 'eye', base: 0, now: 2 },
+  // the full-screen rain radar (see.s3): fetching, unreachable, no signal
+  'eye.rain': { dir: 'eye', base: 0, now: 3 },
   'lens.camera': { dir: 'lens', base: 3, now: 3 },
   'lens.see': { dir: 'lens', base: 0, now: 1 },
   'lens.read': { dir: 'lens', base: 0, now: 1 },
@@ -190,6 +194,8 @@ export const STATES = {
   'markets.prices': { dir: 'markets', base: 3, now: 4 },
   'radio.stations': { dir: 'radio', base: 3, now: 4 },
   'memory.timeline': { dir: 'memory', base: 2, now: 4 },
+  // NEXT ROUND (MEMORY lane): YOUR WORD, new, draws its loading, empty, error and offline states
+  'memory.keep': { dir: 'memory', base: 0, now: 4 },
   'settings.faces': { dir: 'settings', base: 1, now: 2 },
   'settings.principles': { dir: 'settings', base: 1, now: 3 },
   'system.loops': { dir: 'system', base: 1, now: 2 },
@@ -255,9 +261,12 @@ export const STATES = {
   'core.hud': { dir: 'core', base: 1, now: 2 },
   // THE COMIC (FINAL ROUND, lane COMIC): its own screen, new; base 0 since nothing was drawn before it.
   'comic.shelf': { dir: 'comic', base: 0, now: 3 },
-  'comic.maker': { dir: 'comic', base: 0, now: 3 },
+  'comic.maker': { dir: 'comic', base: 0, now: 4 },
   'comic.reader': { dir: 'comic', base: 0, now: 2 },
   'comic.library': { dir: 'comic', base: 0, now: 4 },
+  // SECURITY (NEXT ROUND, lane SECURITY): its own screen, new; base 0 since nothing was drawn before it.
+  'security.locks': { dir: 'security', base: 0, now: 2 },
+  'security.approvals': { dir: 'security', base: 0, now: 2 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {
@@ -282,7 +291,7 @@ test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every
 });
 test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach'], ['comic']]) {
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach'], ['comic'], ['security']]) {
     const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);

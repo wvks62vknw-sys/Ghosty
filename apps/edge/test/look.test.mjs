@@ -515,7 +515,7 @@ test('THEMES-2: a bare colour key (every phone before) reads as Graphite + the c
   // from it opens in the same recipe) and opens in it at the start
   assert.match(read('../../web/src/state/app.ts'), /look: KeptLook \| null;/);
   assert.match(read('../../web/src/features/system/backup.ts'), /\{ key: 'ghosty\.settings', label: 'settings', whole: true \}/);
-  assert.match(read('../../web/src/main.ts'), /applyRecipe\(keptRecipe\(settleTheme\(\)\)\)/);
+  assert.match(read('../../web/src/main.ts'), /applyRecipe\(keptRecipe\(settleTheme\(\)\), \{ remember: false \}\)/); // (the start is not a look to put back: voice.u9)
   assert.match(read('../../web/src/shell/boot.ts'), /bootState\.recipe = \{ theme: dd\.theme/, 'the boot records the recipe it plays in, as it records the accent');
 });
 

@@ -416,6 +416,11 @@ export interface PublishedSite {
   source: string;
   at: number;
   bytes: number;
+  /** [sites] A mini-app or a game: its address ends in a slash (/s/<name>/). */
+  app?: boolean;
+  game?: boolean;
+  /** [sites] Earlier versions kept (sites.u2): the Workshop's UNDO LAST UPDATE puts the newest back. */
+  versions?: number;
 }
 
 export interface KeyStatus {

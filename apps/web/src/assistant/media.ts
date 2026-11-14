@@ -11,6 +11,8 @@ export interface NowPlaying {
   name: string;
   url: string;
   info?: string;
+  /** [voice lane] his own name for a favourite ("morning"): "put on my morning station" (voice.c1). */
+  label?: string;
 }
 
 /** Why the station is not playing, in a word: `words` says it to him. */
@@ -358,6 +360,20 @@ export const favourites = {
     else l.unshift({ name: s.name, url: s.url, info: s.info });
     saveFavs(l);
     return i < 0;
+  },
+  /**
+   * [voice lane] RADIO FAVOURITES BY HIS OWN NAME (voice.c1, built into PLAN AND HOME's radio, small and additive): "call this my morning
+   * station" names the station (kept as a favourite, added if it was not one); "put on my morning station" finds it by that name.
+   */
+  name(s: NowPlaying, label: string): void {
+    const l = favourites.list().map((x) => (x.label === label && x.url !== s.url ? { ...x, label: undefined } : x));
+    const i = l.findIndex((x) => x.url === s.url);
+    if (i >= 0) l[i] = { ...l[i]!, label };
+    else l.unshift({ name: s.name, url: s.url, info: s.info, label });
+    saveFavs(l);
+  },
+  byName(label: string): NowPlaying | null {
+    return favourites.list().find((x) => x.label === label) ?? null;
   },
   /** Put a station back where it was (UNDO of a removal). */
   put(s: NowPlaying, at: number): void {

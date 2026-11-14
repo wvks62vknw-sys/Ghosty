@@ -31,7 +31,7 @@ import { timeZone, ui } from '../state/app';
 import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
-import { chat, type Entry } from './session';
+import { chat, turnIsTheirs, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
@@ -52,8 +52,10 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
+  /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
+  promises?: { id: string; what: string; due: string }[];
   found?: { key: string; bid?: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string }[];
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
@@ -68,12 +70,20 @@ export interface LocalAnswer {
   doIt?: string;
 }
 
+/** [voice lane] Was my last reply a change to the look, within ten minutes (so "put it back" means the look)? */
+function lastWasLook(now = Date.now()): boolean {
+  const last = chat.get().entries.findLast((e) => e.kind === 'assistant');
+  return !!last && last.kind === 'assistant' && last.local?.kind === 'look' && now - last.at < 600_000;
+}
+
 /** The label of reply that needed no model (the brain's small talk carries the same). */
 export const DIRECT = 'Direct · no AI';
 
 let lastStamp = 0;
 const stamp = () => (lastStamp = Math.max(Date.now(), lastStamp + 1));
 function add(e: Entry): void {
+  // [voice lane] a turn someone else said is marked theirs, so it stays out of his recall (voice.c5)
+  if (e.kind === 'user' && turnIsTheirs()) e = { ...e, theirs: true };
   chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
 }
 
@@ -177,7 +187,8 @@ function packAnswer(r: PackReply, opts: Opts): true {
 /** A read of the brain that gives up after six seconds (null), so the chat never hangs on it. */
 const within = <T>(p: Promise<T>, ms = 6000): Promise<T | null> => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null);
 
-type Opts = { voice?: boolean; private?: boolean };
+/** (`who`: [voice lane] whose voice this turn was, as the phone judged it, for the tables that care: a spoken note) */
+type Opts = { voice?: boolean; private?: boolean; who?: import('./voiceknown').Label };
 
 /**
  * Each table's answer, by its id in assistant/phrases.ts LOCAL_ASKS (the order they are tried in): true when it answered,
@@ -186,9 +197,17 @@ type Opts = { voice?: boolean; private?: boolean };
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
   // [voice lane] "do you know it's me?", "who's talking?": from the phone's own tag, truly (voiceknown.ts whoWords); never a lock
+  // [voice lane] a note he says (voice.s9): kept in his memory, marked "by you" only when the phone is sure the voice was his
+  voicenote: (text, opts) => import('./voicenote').then((m) => m.noteTurn(text, opts, answer)),
+  // [voice lane] his own wordings (voice.u1): a taught wording opens its screen; "my wordings" lists them (assistant/learnwords.ts)
+  learned: (text, opts) => import('./learnwords').then((m) => m.learnedTurn(text, opts, answer)),
   speaker: (text, opts) => import('./voiceknown').then((v) => answer(text, v.whoWords(!!opts.voice), { kind: 'can', go: [{ id: 'screen:settings', ask: -1, label: 'My voice', open: 'settings' }] }, opts)),
   // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)
   independent: async (text, opts) => answer(text, await import('../features/system/independence').then((m) => m.independenceTurn()), { kind: 'pack' }, opts),
+  // [next] "how ready are you offline?": the number, what is here and the one download that helps most (system/offlineready.ts)
+  // [next] "turn on the saver": switched on the phone, and said (state/saver.ts)
+  saver: async (text, opts) => answer(text, await import('../state/saver').then((m) => m.saverTurn(text)), { kind: 'pack' }, opts),
+  offlineready: async (text, opts) => answer(text, await import('../features/system/offlineready').then((m) => m.readyTurn()), { kind: 'pack' }, opts),
   // [themes2] THE LOOK BY WORDS (BRIEF-THEMES-2 6): "black background", "lighter", "paper", "the scan", "calm", "bigger text",
   // "follow the day", a switch or a colour by name: applied at once, said in a sentence (what changed, what stayed), no model
   async look(text, opts) {
@@ -205,6 +224,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (looks?.kind === 'gallery') return answer(text, `Seven looks, each a whole HUD: ${LOOKS.map((l) => `${l.name}${l.built ? '' : ' (coming)'}`).join(', ')}. Settings › Theme has them as pictures. Say a look, or a colour.`, { kind: 'look', go: [{ id: 'screen:settings', ask: -1, label: 'Open Settings', open: 'settings' }] }, opts);
     const ask = lookAsked(text) ?? (looks?.kind === 'colour' ? { colour: looks.colour } : null);
     if (!ask) return false;
+    // [voice lane] UNDO THE LOOK BY WORDS (voice.u9): "put it back" just after a look change, "the old colour" any time
+    if (ask.back) {
+      if (ask.back.generic && !lastWasLook()) return false;
+      const theme = await import('../state/theme');
+      const prev = theme.lookBack();
+      return answer(text, prev ? `Put back: ${theme.recipeNow()}.` : 'There’s no earlier look to go back to.', { kind: 'look', go: [{ id: 'screen:look', ask: -1, label: 'See it on The look', open: 'look' }] }, opts);
+    }
     // [voice lane] a word that is a colour and a ground both ("make it white"): one short question, both as keys; nothing changes yet
     const two = ask.two ? TWO_WAYS[ask.two] : undefined;
     if (two) return answer(text, two.q, { kind: 'look', go: [{ id: 'look:colour', ask: -1, label: two.a[0], send: `${ask.two} colour` }, { id: 'look:ground', ask: -1, label: two.a[1], send: `${ask.two} background` }] }, opts);
@@ -221,6 +247,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   // [lifeeasier] WHAT DID I MISS?, TEACH ME WHAT YOU LEARNED and WATCHERS: from his own records and the pages he names, no model (assistant/life.ts)
   missed: (text, opts) => import('./life').then((m) => m.missedTurn(text, opts, answer)).catch(() => false),
   teach: (text, opts) => import('./life').then((m) => m.teachTurn(text, opts, answer)).catch(() => false),
+  keep: (text, opts) => import('../features/memory/keep').then((m) => m.keepTurn(text, opts, answer)).catch(() => false),
   recall: (text, opts) => import('../features/memory/recallturn').then((m) => m.recallTurn(text, opts, answer)).catch(() => false),
   chase: (text, opts) => import('../features/memory/recallturn').then((m) => m.chaseTurn(text, opts, answer)).catch(() => false),
   watcher: (text, opts) => import('./life').then((m) => m.watcherTurn(text, opts, answer)).catch(() => false),
@@ -320,6 +347,42 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   learning: async (text, opts) => {
     const r = await learningTurn(text);
     return r ? packAnswer(r, opts) : false;
+  },
+  // [see] TRIP MODE: "how do I get to my next appointment?" opens GETTING THERE on it (ui/tripsheet.ts), the answer one line
+  async trip(text, opts) {
+    const { openNextTrip } = await import('../ui/tripsheet');
+    return answer(text, await openNextTrip(), { kind: 'trip' }, opts);
+  },
+  // [see] "commute view", "storm layers", "sky mode": the set picked on God's Eye, said in one line
+  async layerset(text, opts) {
+    const { setAsked, LAYER_SETS } = await import('../features/eye/sets');
+    const k = setAsked(text);
+    if (!k) return false;
+    location.hash = 'eye';
+    const eye = await import('../features/eye');
+    const t0 = Date.now();
+    while (!eye.pickLayerSet && Date.now() - t0 < 6000) await new Promise((r) => setTimeout(r, 150));
+    const said = eye.pickLayerSet?.(k) ?? LAYER_SETS.find((s) => s.key === k)!.said;
+    return answer(text, said, { kind: 'layerset' }, opts);
+  },
+  // [see] "rain radar": the last two hours over home, full screen, and the line for home when it comes
+  async rainradar(text, opts) {
+    const { openRainRadar, rainState } = await import('../features/eye/rain');
+    openRainRadar();
+    const t0 = Date.now();
+    while (!rainState.line && rainState.state !== 'error' && rainState.state !== 'offline' && Date.now() - t0 < 4000) await new Promise((r) => setTimeout(r, 150));
+    return answer(text, rainState.line || 'The rain radar: the last two hours over home.', { kind: 'rainradar' }, opts);
+  },
+  // [see] "my camera wall": the wall of his pinned public cameras, opened over God's Eye
+  async camwall(text, opts) {
+    location.hash = 'eye';
+    const eye = await import('../features/eye');
+    const t0 = Date.now();
+    while (!eye.openCameraWall && Date.now() - t0 < 6000) await new Promise((r) => setTimeout(r, 150));
+    eye.openCameraWall?.();
+    const { wallList, WALL_EMPTY, WALL_MAX } = await import('../features/eye/wall');
+    const n = wallList().length;
+    return answer(text, n ? `Your camera wall: ${n} of ${WALL_MAX} cameras, live.` : WALL_EMPTY, { kind: 'camwall' }, opts);
   },
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {
