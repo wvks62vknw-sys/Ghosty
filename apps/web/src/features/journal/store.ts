@@ -27,6 +27,8 @@ export interface Entry {
   photos: { id: string; thumb: string }[];
   /** A voice note: its id in IndexedDB and its length; `text` when he typed what it said. */
   voice?: { id: string; secs: number };
+  /** The weather at his home town when he wrote it ("12°C, Overcast"), filled in for an entry about today. */
+  weather?: string;
   /** The prompt he answered, when he took one. */
   prompt?: string;
   /** A first-run example (CLEAR SAMPLES takes them all away). */

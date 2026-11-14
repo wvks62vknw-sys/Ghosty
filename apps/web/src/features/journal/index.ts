@@ -78,7 +78,7 @@ export const journalTab: TabDef = {
 
     const entryRow = (e: Entry) => {
       const r = h('button.jnrow', { type: 'button', dataset: { id: e.id, tone: toneOf(e.journal), case: 'keep' }, 'aria-label': `${day(e.at)}: ${e.text.slice(0, 60)}` },
-        h('span.jnwhen', h('b', day(e.at)), h('small', `${time(e.at)}${e.place ? ` · ${e.place}` : ''}${e.mood ? ` · ${J.MOODS[e.mood - 1]}` : ''}${e.sample ? ' · example' : ''}`)),
+        h('span.jnwhen', h('b', day(e.at)), h('small', `${time(e.at)}${e.place ? ` · ${e.place}` : ''}${e.mood ? ` · ${J.MOODS[e.mood - 1]}` : ''}${e.weather ? ` · ${e.weather}` : ''}${e.sample ? ' · example' : ''}`)),
         h('span.jntext', e.text || (e.photos.length ? 'A photo' : e.voice ? 'A voice note' : '')),
         e.photos[0] ? h('img.jnthumb', { src: e.photos[0].thumb, alt: '' }) : '');
       r.addEventListener('click', () => openEntry(e.id));
@@ -138,6 +138,16 @@ export const journalTab: TabDef = {
       const text = h('textarea.jntextarea', { rows: 8, placeholder: J.WRITE_HINT, 'aria-label': 'Your entry' }) as HTMLTextAreaElement;
       text.value = e.text;
       const promptLine = h('p.jnprompt', e.prompt ?? '');
+      // the weather at his home town (Settings → home, never his live position), filled in for a new entry about today
+      const wx = h('small.jnweather', e.weather ?? '');
+      if (!was && !e.weather)
+        void import('../../data/weather').then(async (W) => {
+          const d = await W.weather.refresh();
+          if (!d?.current || e.weather || dayKey(e.at) !== dayKey(Date.now())) return;
+          e.weather = `${W.temp(d.current.temperature_2m)}, ${W.WMO(d.current.weather_code)}`;
+          wx.textContent = e.weather;
+          changed();
+        }).catch(() => undefined);
       const pk = button(J.PROMPT_KEY, () => {
         e.prompt = PROMPTS[(PROMPTS.indexOf(e.prompt ?? '') + 1 + Math.floor(Math.random() * (PROMPTS.length - 1))) % PROMPTS.length];
         promptLine.textContent = e.prompt!;
@@ -293,7 +303,7 @@ export const journalTab: TabDef = {
         m.close();
       }, 'on');
       const body = h('div.jneditor', { dataset: { case: 'keep' } },
-        h('div.row.wrap.jnmeta', jsel, when), promptLine, text, h('div.row.wrap', pk, talk), h('small.jnlab', 'MOOD'), moods,
+        h('div.row.wrap.jnmeta', jsel, when), wx, promptLine, text, h('div.row.wrap', pk, talk), h('small.jnlab', 'MOOD'), moods,
         h('small.jnlab', 'PLACE'), place, placesList, h('small.jnlab', 'PHOTOS'), photos, h('div.row.wrap', button(J.PHOTO, () => fileIn.click()), fileIn),
         h('small.jnlab', 'VOICE'), voiceBox, said, h('div.row.wrap.jnkeys', done, ...(was ? [del] : [])));
       const m = modal(was ? day(e.at) : 'New entry', body, () => {
@@ -452,7 +462,7 @@ export const journalTab: TabDef = {
       const es = live(data).filter((e) => new Date(e.at).getFullYear() === y && !e.sample).sort((a, b) => a.at - b.at);
       if (!es.length) return void toast(J.EXPORT_NONE, 'warn');
       const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-      const html = `<!doctype html><meta charset="utf-8"><title>My journal ${y}</title><style>body{font:16px/1.6 Georgia,serif;max-width:40em;margin:3em auto;padding:0 1em}h1{font-size:2em}h2{font-size:1.1em;margin-top:2.5em;page-break-after:avoid}p{white-space:pre-wrap}img{max-width:30%;margin:.3em}small{color:GrayText}@media print{h2{break-before:auto}}</style><h1>My journal, ${y}</h1>${es.map((e) => `<h2>${esc(day(e.at))}</h2><small>${esc([e.place, e.mood ? J.MOODS[e.mood - 1] : ''].filter(Boolean).join(' · '))}</small>${e.prompt ? `<p><i>${esc(e.prompt)}</i></p>` : ''}<p>${esc(e.text)}</p>${e.photos.map((p) => `<img src="${p.thumb}" alt="">`).join('')}`).join('')}`;
+      const html = `<!doctype html><meta charset="utf-8"><title>My journal ${y}</title><style>body{font:16px/1.6 Georgia,serif;max-width:40em;margin:3em auto;padding:0 1em}h1{font-size:2em}h2{font-size:1.1em;margin-top:2.5em;page-break-after:avoid}p{white-space:pre-wrap}img{max-width:30%;margin:.3em}small{color:GrayText}@media print{h2{break-before:auto}}</style><h1>My journal, ${y}</h1>${es.map((e) => `<h2>${esc(day(e.at))}</h2><small>${esc([e.place, e.mood ? J.MOODS[e.mood - 1] : '', e.weather].filter(Boolean).join(' · '))}</small>${e.prompt ? `<p><i>${esc(e.prompt)}</i></p>` : ''}<p>${esc(e.text)}</p>${e.photos.map((p) => `<img src="${p.thumb}" alt="">`).join('')}`).join('')}`;
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
       const win = window.open(url, '_blank', 'noopener');
       if (!win) toast('Allow pop-ups for Ghosty to see the book, then Print → Save as PDF.', 'warn');

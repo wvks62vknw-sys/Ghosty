@@ -1,6 +1,6 @@
 // JOURNAL (APPS ROUND, MEMORY lane), at 440 × 956 and 390 × 844, and at BODY 21:
 //  (a) the first run shows three example entries and the three-step tour; CLEAR SAMPLES takes them away and leaves the empty state;
-//  (b) NEW ENTRY: his words, a prompt, a mood, a place and a photo (made smaller on the phone), kept as he types; the list shows it and
+//  (b) NEW ENTRY: his words, a prompt, a mood, his home town's weather, a place and a photo (made smaller on the phone), kept as he types; the list shows it and
 //      search finds it by a word, and says so plainly when nothing matches;
 //  (c) "add to my journal: …" in the chat opens a new entry with his words in it, kept;
 //  (d) the calendar dots today; ON THIS DAY shows the entry from this day last year; PLACES groups by the place he gave;
@@ -49,6 +49,8 @@ const J = () => window.__ghosty?.journal;
 async function open(vp, { body = 0, world = 'scan', seed = null } = {}) {
   const ctx = await browser.newContext({ viewport: vp, ...UK, reducedMotion: 'reduce' });
   await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  // his home town's weather (Open-Meteo, no key), answered here
+  await ctx.route(/open-meteo\.com\/v1\/forecast/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ current: { temperature_2m: 11.6, apparent_temperature: 10, relative_humidity_2m: 80, weather_code: 3, wind_speed_10m: 12, wind_direction_10m: 200, pressure_msl: 1012 }, hourly: { temperature_2m: [], precipitation_probability: [] }, daily: { temperature_2m_max: [13], temperature_2m_min: [7], precipitation_probability_max: [20], sunrise: [''], sunset: [''], uv_index_max: [1] } }) }));
   const page = await ctx.newPage();
   const T = `[${vp.width}${body ? ` body ${body}` : ''}${world !== 'scan' ? ` ${world}` : ''}]`;
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`${T} pageerror: ${e.message}`));
@@ -113,7 +115,7 @@ async function run(vp, body) {
     await ed.locator('button', { hasText: /^SAVE$/ }).click();
     await page.waitForFunction(() => window.__ghosty.journal.entries === 1, null, { timeout: 5000 }).catch(async () => problems.push(`${T} [b] after SAVE ${JSON.stringify(await page.evaluate(J))}`));
     const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.journal')).entries.find((e) => !e.deleted));
-    check(kept?.mood === 5 && kept?.place === 'Primrose Hill' && kept?.photos?.length === 1 && /^data:image\/jpeg/.test(kept.photos[0].thumb) && kept.prompt, `${T} [b] kept ${JSON.stringify(kept)?.slice(0, 200)}`);
+    check(kept?.mood === 5 && /^-?\d+°C, [A-Z]/.test(kept?.weather ?? '') && kept?.place === 'Primrose Hill' && kept?.photos?.length === 1 && /^data:image\/jpeg/.test(kept.photos[0].thumb) && kept.prompt, `${T} [b] kept ${JSON.stringify(kept)?.slice(0, 200)}`);
     check(/Primrose Hill/.test(await page.locator('#pg-journal .jnlist').first().innerText()), `${T} [b] the list does not show it`);
     check(/1 day in a row/i.test(await page.locator('#pg-journal').innerText()), `${T} [b] no streak of one day`);
     // search: a word, then nothing
