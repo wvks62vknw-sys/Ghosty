@@ -32,6 +32,13 @@ const yesterday = londonNoon - DAY;
 const dow = (new Date(londonNoon).getUTCDay() + 6) % 7; // Monday 0
 const lastWeekWed = londonNoon - (dow + 5) * DAY;
 const now = Date.now();
+// this day last month, at noon (none on a day the month before did not have, like the 31st)
+const monthAgo = (() => {
+  const d = new Date(londonNoon);
+  const want = d.getUTCDate();
+  d.setUTCMonth(d.getUTCMonth() - 1);
+  return d.getUTCDate() === want ? d.getTime() : 0;
+})();
 const TURNS = [
   { at: now - 3 * 3600_000 > londonNoon - 12 * 3600_000 ? now - 3 * 3600_000 : now - 60_000 * 30, q: 'how do I fix a squeaky door?', a: 'I couldn’t find anything useful on that.' },
   { at: yesterday, q: "what's the best paint for a fence", a: 'An oil-based wood stain lasts longest.' },
@@ -39,6 +46,7 @@ const TURNS = [
   { at: lastWeekWed - 14 * DAY, q: 'trains to Bristol next month', a: 'From £24 if you book ahead.' },
   { at: yesterday - 3 * 3600_000, q: 'why is my Octopus Energy bill so high this month', a: 'It is 12% up on the same month last year.' },
   { at: yesterday - 5 * 3600_000, q: 'the hedge at the back has grown over the footpath again', a: 'The council can ask the owner to cut it back.' },
+  ...(monthAgo ? [{ at: monthAgo, q: 'what time does the tip open on Sundays', a: 'From 9 until 4.' }] : []),
 ];
 // (j) a bill on his HOME screen, from the same supplier as one of his questions
 const H = { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' };
@@ -306,6 +314,8 @@ async function run(vp, body) {
     const pinned = await page.waitForFunction(() => /Chats you pinned.*how do I fix a squeaky door/.test(document.querySelector('#pg-memory .pn.keep')?.textContent ?? ''), null, { timeout: 8000 }).then(() => true, () => false);
     check(pinned, `${T} [n] the pinned chat is not listed in YOUR WORD: ${JSON.stringify(await page.evaluate(() => ({ pins: localStorage.getItem('ghosty.recall.pinned'), heads: [...document.querySelectorAll('#pg-memory .pn.keep .keephead')].map((x) => x.textContent) })))} ${await page.evaluate(() => new Promise((ok) => { const r = indexedDB.open('ghosty-recall', 1); r.onsuccess = () => { const q = r.result.transaction('things').objectStore('things').getAllKeys(); q.onsuccess = () => ok(q.result.filter((k) => String(k).startsWith('t:')).join(',')); }; }))}`);
     check(await page.locator('#pg-memory .pn.keep .keeprow[data-kind="pinned"] button', { hasText: 'UNPIN' }).count() > 0, `${T} [n] no UNPIN on the pinned chat`);
+    // (o) on this day last month (Day One's), when the month before had this day
+    if (monthAgo) check(/On this day last month.*what time does the tip open on Sundays/.test(await page.evaluate(() => document.querySelector('#pg-memory .pn.keep')?.textContent ?? '')), `${T} [o] "On this day last month" is not in YOUR WORD`);
   }
   const f = await fit(page, '#pg-memory .pn.keep');
   check(!f.small.length, `${T} [f] under 44 pt: ${f.small.join(', ')}`);
