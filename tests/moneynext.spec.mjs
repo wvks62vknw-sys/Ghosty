@@ -198,7 +198,8 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     check(await until(page, () => (window.__ghosty.moneyplan.rules ?? []).some((r) => /^TESCO STORES groceries \d+$/.test(r)), null, 10000), T(`RULES his rule is listed with its count: ${JSON.stringify(await page.evaluate(() => window.__ghosty.moneyplan.rules))}`));
     await page.selectOption('.modal select[aria-label="Where every TESCO STORES goes"]', 'shopping');
     check(await until(page, () => (window.__ghosty.moneyplan.rules ?? []).some((r) => /^TESCO STORES shopping/.test(r)), null, 10000), T('RULES a rule changed there files every payment again'));
-    await bar(page, T('RULES bar'), 'money', '.modal');
+    await page.waitForTimeout(400); // (the sheet's opening animation done)
+    await bar(page, T('RULES bar'), 'money', '.modal .pk');
     await page.click('.modal button[aria-label="Take away the rule for TESCO STORES"]');
     check(await until(page, () => !(window.__ghosty.moneyplan.rules ?? []).length, null, 10000) && /No rules of your own yet/.test(await txt(page, '.modal [data-state="empty"]')), T('RULES a rule taken away goes, and the empty list says how one is made'));
     await page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
@@ -211,7 +212,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     await page.fill('.modal input[aria-label="How much of it goes to the first category"]', '25');
     await page.selectOption('.modal select[aria-label="The first category"]', 'groceries');
     await page.selectOption('.modal select[aria-label="Where the rest goes"]', 'shopping');
-    await bar(page, T('SPLIT bar'), 'money', '.modal');
+    await bar(page, T('SPLIT bar'), 'money', '.modal .pk');
     await page.click('.modal button[aria-label="Split this payment"]');
     check(await until(page, () => window.__ghosty.moneyapp.split >= 1, null, 10000), T('SPLIT a payment split across two categories'));
     check(/Split “TESCO STORES”: £25\.00 groceries, £15\.00 shopping\./.test(await txt(page, `${P} > .pkcol > p.pknote[aria-live]`)), T(`SPLIT said to the penny: "${await txt(page, `${P} > .pkcol > p.pknote[aria-live]`)}"`));
@@ -467,7 +468,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await pk('people', 'plan', { words: 'new plan: football on Sunday at 10, asked Dee and Max' });
       await open(page, 'people', 'Group plan');
       check(await until(page, () => document.querySelectorAll('.ppplans button').length === 2, null, 10000), 'PLANS two plans at once, each to pick');
-      await page.locator(`${Pp} button[aria-label^="Open the plan: pub"]`).click();
+      await page.locator(`${Pp} .ppplans button`, { hasText: /pub/i }).first().click();
       await page.click(`${Pp} button[aria-label="Jo: yes"]`);
       check(await until(page, () => /pub/i.test(window.__ghosty.people.plan?.what ?? '') && (window.__ghosty.people.plan?.yes ?? []).includes('Jo'), null, 10000), 'PLANS a reply lands on the plan he picked');
       await bar(page, 'PLANS bar', 'people');
