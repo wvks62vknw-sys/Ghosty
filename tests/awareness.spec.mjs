@@ -13,7 +13,7 @@
 //  4. THE READER: a book opened → the context says the book and his place; "read that one" reads it from his place (the brain
 //     is never called); the lit passage is the selection while it reads.
 //  5. THE DECK: open → the context is the deck's, with the card opened as the selection; typed "open that one" opens it.
-//  6. THE LENS on PEOPLE says only that it is open, never who (the line is exactly "the Lens on PEOPLE").
+//  6. THE LENS on FACES says only that it is open, never who (the line is exactly "the Lens on FACES").
 //  7. THE TURN: one message to the brain carries `screen` (with the selection) and `screenLine` (≤ 220 characters, the wrapped
 //     words the brain pastes); the context is the same one the stamp line's LOOKING AT reads (the reader's, THE LOOK's).
 //  8. THE CORE CARD in Every screen says "Looking at: …" for the screen under it, WORKING (and DEGRADED when no turn carried one).
@@ -401,16 +401,16 @@ if (part('deck') || part('core') || part('lens') || part('fit')) {
       await page.waitForTimeout(400);
       await page.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).click();
       await until(page, () => !document.querySelector('#pg-lens .lensmodes')?.hidden, null, 5000, '[lens] MORE did not open the row of tools');
-      await page.locator('#pg-lens .lensmodes button', { hasText: 'PEOPLE' }).click();
-      await until(page, () => window.__ghosty.lens.mode === 'people', null, 8000, '[lens] PEOPLE did not open');
+      await page.locator('#pg-lens .lensmodes button', { hasText: 'FACES' }).click();
+      await until(page, () => window.__ghosty.lens.mode === 'people', null, 8000, '[lens] FACES did not open');
       await page.waitForTimeout(600);
       a = await aware(page);
-      check(a?.screen === 'lens' && a.line === 'the Lens on PEOPLE' && !a.selected && a.words === 'On screen: the Lens on PEOPLE.', `[lens] PEOPLE says: ${JSON.stringify(a)}`);
+      check(a?.screen === 'lens' && a.line === 'the Lens on FACES' && !a.selected && a.words === 'On screen: the Lens on FACES.', `[lens] PEOPLE says: ${JSON.stringify(a)}`);
       const before = bodies.length;
       await say(page, `what's on screen ${RUN}`);
       await page.waitForTimeout(1500);
       const body = bodies.at(before);
-      check(body?.context?.screenLine === 'On screen: the Lens on PEOPLE.' && body.context.screen?.line === 'the Lens on PEOPLE', `[lens] the turn carried: ${JSON.stringify(body?.context?.screenLine)}`);
+      check(body?.context?.screenLine === 'On screen: the Lens on FACES.' && body.context.screen?.line === 'the Lens on FACES', `[lens] the turn carried: ${JSON.stringify(body?.context?.screenLine)}`);
       // the other modes say counts, never who
       await closeLog(page);
       await page.locator('#pg-lens .lensmodes button', { hasText: /^SEE/ }).click();

@@ -25,7 +25,8 @@ import {
   type SpendingSummary,
   type SpendRow,
 } from '../../../packages/shared/src/spending';
-import { readAnyStatement } from '../../../packages/shared/src/money'; // [packs] a statement's text (a PDF, copied) as well as its CSV
+import { readAnyStatement } from '../../../packages/shared/src/money';
+import { splitRow } from '../../../packages/shared/src/moneyplan'; // [packs] a statement's text (a PDF, copied) as well as its CSV
 
 export type { ImportResult };
 
@@ -64,7 +65,8 @@ async function allRows(storage: DurableObjectStorage, idx: SpendIndex): Promise<
   return idx.months.flatMap((m) => got.get(monthKey(m)) ?? []);
 }
 
-const finger = (r: { d: string; t: string; a: number }) => `${r.d}|${r.t.toUpperCase().replace(/\s+/g, ' ')}|${r.a.toFixed(2)}`;
+// (a payment he split counts once, by its whole amount, so the same statement added again does not bring it back)
+const finger = (r: { d: string; t: string; a: number; sp?: { of: number } }) => `${r.d}|${r.t.toUpperCase().replace(/\s+/g, ' ')}|${(r.sp ? r.sp.of : r.a).toFixed(2)}`;
 
 /**
  * A statement's CSV → rows kept. A row already kept from an earlier statement is not kept twice (the same day,
@@ -86,7 +88,7 @@ export async function importStatement(deps: SpendingDeps, csv: string, now = Dat
     const have = new Map<string, number>();
     const old = await monthRows(storage, m);
     kept.set(m, old);
-    for (const r of old) have.set(finger(r), (have.get(finger(r)) ?? 0) + 1);
+    for (const r of old) if (!r.sp || r.sp.i === 0) have.set(finger(r), (have.get(finger(r)) ?? 0) + 1);
     const seen = new Map<string, number>();
     for (const r of list) {
       const f = finger(r);
@@ -180,7 +182,7 @@ export async function fileMerchant(storage: DurableObjectStorage, k: string, c: 
     const list = got.get(monthKey(m)) ?? [];
     let changed = false;
     for (const r of list)
-      if (r.k === k) {
+      if (r.k === k && !r.sp) {
         r.c = c;
         r.by = 'you';
         changed = true;
@@ -190,6 +192,33 @@ export async function fileMerchant(storage: DurableObjectStorage, k: string, c: 
   }
   await storage.put({ ...writes, [INDEX]: idx });
   return n;
+}
+
+/**
+ * [moneynext] One payment split across categories (a supermarket shop that was half household): the row found by its day, words and
+ * amount in its month is kept as parts, each its own category, adding up to the whole to the penny. `parts` empty puts it back whole.
+ */
+export async function splitPayment(storage: DurableObjectStorage, row: { d: string; t: string; a: number }, parts: { c: Category; a: number }[]): Promise<number> {
+  const m = row.d.slice(0, 7);
+  const list = await monthRows(storage, m);
+  const same = (r: SpendRow) => r.d === row.d && r.t === row.t && Math.abs((r.sp ? r.sp.of : r.a) - row.a) < 0.005;
+  const hit = list.find(same);
+  if (!hit) throw new Error('that payment is not in your statements any more');
+  const whole = hit.sp ? hit.sp.of : hit.a;
+  const group = hit.sp?.id;
+  const rest = list.filter((r) => (group ? r.sp?.id !== group : r !== hit));
+  let made: SpendRow[];
+  if (!parts.length) made = [{ d: hit.d, t: hit.t, a: whole, k: hit.k, c: hit.c, by: hit.by, ...(hit.b !== undefined ? { b: hit.b } : {}) }];
+  else {
+    const split = splitRow(whole, parts);
+    if (!split) throw new Error('the parts must each be more than nothing and leave something for the last one');
+    const id = Math.random().toString(36).slice(2, 8);
+    made = split.map((p, i) => ({ d: hit.d, t: hit.t, a: p.a, k: hit.k, c: p.c, by: 'you' as const, sp: { id, of: whole, i }, ...(i === 0 && hit.b !== undefined ? { b: hit.b } : {}) }));
+  }
+  const at = list.indexOf(hit);
+  const next = [...rest.slice(0, at), ...made, ...rest.slice(at)].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+  await storage.put(monthKey(m), next);
+  return made.length;
 }
 
 /** A budget from his words ("£200 a month on eating out"); 0 takes it away. */
@@ -282,6 +311,15 @@ export async function spendingRoute(req: Request, path: string, method: string, 
       if (typeof b.k !== 'string' || !b.k || !isCategory(b.c)) return json({ error: 'pick a category' }, 400);
       const n = await fileMerchant(storage, b.k, b.c);
       return json({ filed: n, ...(await spendingSummary(storage, typeof b.month === 'string' ? b.month : null)) });
+    }
+    if (path === '/profile/spending/split' && method === 'POST') {
+      const b = (await req.json().catch(() => ({}))) as { row?: { d?: unknown; t?: unknown; a?: unknown }; parts?: unknown; month?: unknown };
+      const row = b.row;
+      if (!row || typeof row.d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.d) || typeof row.t !== 'string' || typeof row.a !== 'number') return json({ error: 'pick a payment' }, 400);
+      const parts = Array.isArray(b.parts) ? (b.parts as { c?: unknown; a?: unknown }[]).filter((p) => isCategory(p.c) && typeof p.a === 'number').map((p) => ({ c: p.c as Category, a: p.a as number })) : [];
+      if (Array.isArray(b.parts) && b.parts.length && parts.length < 2) return json({ error: 'split it into two parts or more' }, 400);
+      const n = await splitPayment(storage, { d: row.d, t: row.t, a: row.a }, parts);
+      return json({ parts: n, ...(await spendingSummary(storage, typeof b.month === 'string' ? b.month : row.d.slice(0, 7))) });
     }
     if (path === '/profile/spending/budget' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { words?: string; category?: string; monthly?: number; month?: string };

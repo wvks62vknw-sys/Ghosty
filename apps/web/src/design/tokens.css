@@ -392,3 +392,9 @@ html[data-motion="calm"] { --g-orbit-tide: 0ms; --g-grown-rise: 0ms; }
 :root[data-night="graphite"] { --g-room-canvas: #101317; --g-room-canvas-rgb: 16, 19, 23; --g-room-points-rgb: 236, 232, 223; --g-room-glow: 1; }
 :root[data-night="slate"] { --g-room-canvas: #0c1118; --g-room-canvas-rgb: 12, 17, 24; --g-room-points-rgb: 230, 234, 240; --g-room-glow: 1; }
 :root[data-night="warm"] { --g-room-canvas: #13110f; --g-room-canvas-rgb: 19, 17, 15; --g-room-points-rgb: 236, 230, 216; --g-room-glow: .85; }
+
+/* [voice lane] COLOUR-BLIND SAFE (NEXT ROUND, voice.s5; THE LOOK's switch, or "colour-blind mode on"): a failure, a success and a warning
+   in colours told apart with any colour vision (the Okabe–Ito set), never red against green; on Paper, their deeper inks. Each is
+   checked for contrast against its ground (apps/edge/test/meanings.test.mjs). Last in the file, so it wins over every ground. */
+:root[data-safe="on"] { --g-red: #ff8a3d; --g-ok: #56b4e9; --g-amber: #f0e442; --g-amber-rgb: 240, 228, 66; --ok: #56b4e9; }
+:root[data-safe="on"][data-ground="paper"] { --g-red: #a64000; --g-ok: #005f99; --g-amber: #6e5f00; --g-amber-rgb: 110, 95, 0; --ok: #005f99; }

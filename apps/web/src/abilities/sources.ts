@@ -76,6 +76,10 @@ export const APP_WIDE = [
   { id: 'livecheck', sel: '' },
   // [restc] TV MODE: big targets, the focus ring, the d-pad (apps/web/src/tv)
   { id: 'tvmode', sel: '' },
+  // [consistency] THE HELP DESK (assistant/helpdesk.ts) and the jump bar's sentences (shell/sentence.ts)
+  { id: 'helpdesk', sel: '' },
+  // [consistency] THE GUIDED TOUR (assistant/tour.ts)
+  { id: 'tour', sel: '' },
 ] as const;
 
 /** A deck line's id: its screen and its first words ("deck:lens:translate-a-sign-or-a-menu"). */

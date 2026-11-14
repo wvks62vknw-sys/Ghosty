@@ -15,7 +15,8 @@ export const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },
   { id: 'ask', label: 'ASK', hint: 'a question + photo' },
   { id: 'name', label: 'NAME', hint: 'what it is called' },
-  { id: 'people', label: 'PEOPLE', hint: 'you, and who you introduce' },
+  // [consistency] FACES, as Settings → PRIVACY → FACES says it: PEOPLE is the birthdays screen's one name
+  { id: 'people', label: 'FACES', hint: 'you, and who you introduce' },
   { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
   { id: 'aim', label: 'AIM', hint: 'point at anything' },
   { id: 'measure', label: 'MEASURE', hint: 'sizes from a photo' },
