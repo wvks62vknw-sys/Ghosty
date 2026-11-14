@@ -100,8 +100,22 @@ free classics, and lessons can be heard, quizzed and argued with out loud. Every
 - **Driving theory and trade courses** (`learn.s3`, `learn.s4`). START A COURSE has four ready starts: driving theory from the
   public Highway Code, car mechanics, home electrics and first aid. A lesson on mechanics, electrics or building says every
   figure is a first estimate, never certified, and to use a qualified person for anything dangerous.
+- **Quiz me aloud, hands-free** (`learn.c6`). **QUIZ ME ALOUD** under COURSES asks your own course questions aloud and hears your
+  answer: a letter, "the second one", or the answer's words. It says whether you were right, then moves on. A big STOP ends it.
+  It runs with no signal, and nothing you say is kept.
+- **Memory palace** (`learn.s7`). Under Learning's DRILLS, MEMORY has a **MEMORY PALACE**:
+  - Put each thing to remember at a place on a walk through your home, and picture it there.
+  - Then walk back and say what is at each place. It is scored and logged with your streak.
+  - Your places stay on this phone.
 - **The Gym's chip line tells the truth** (`learn.u10`). It now says: "TIME IT trains on the graphics chip (WebGPU); the long
   training runs on the processor."
+
+## Fixed this round
+- **The learn spec's lost quiz card.** It was a race: a sync already on its way brought back the brain's copy from before the
+  third answer's card, and replaced the phone's cards with it. A card kept on the phone after that copy was asked for now stays.
+  The spec also waits until both cards are kept, then checks them as strictly as before. It is proved by 5 runs in a row, and 2
+  more with the CPU slowed 4× (`CPU_SLOW=4`).
+- **learnpass C1.** The ready starts sit in their own group, so the START row holds only START.
 
 ## How to try it on your phone
 1. **Courses.** Open a course you've quizzed in. Under the summary, the TODAY card names a lesson. Tap **QUIZ ME ON MY
@@ -120,14 +134,13 @@ free classics, and lessons can be heard, quizzed and argued with out loud. Every
 - **Puzzle of the day in the Brief** (`learn.s9`). The PLAN lane is building the Brief's one line per room this round. The
   puzzle joins it once that has landed, so the two don't collide.
 - These were not reached this round:
-  - `learn.u7` interpreter phrasebooks per country, and kept conversations
+  - `learn.u7` phrasebooks per country in Interpret, and kept conversations
   - `learn.u8` offline translation packs
   - `learn.u9` the Gym explaining its moves
   - `learn.u14` (done above, as the reading check sat online)
   - `learn.u15` weekly lab re-runs
-  - `learn.s7` memory palace and `learn.s11` sign language
+  - `learn.s11` sign language
   - `learn.c3` games you make in the Gym
-  - `learn.c6` quiz me while I drive
 - **The specialist sweep against Duolingo, Khan Academy, Anki, Apple Books, Kindle, Lichess, Brilliant and Speak.**
   - Done this round:
     - Mistake-driven review (Anki, Duolingo)
