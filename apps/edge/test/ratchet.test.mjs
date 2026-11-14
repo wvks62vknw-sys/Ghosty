@@ -249,7 +249,7 @@ export const STATES = {
   'core.hud': { dir: 'core', base: 1, now: 2 },
   // THE COMIC (FINAL ROUND, lane COMIC): its own screen, new; base 0 since nothing was drawn before it.
   'comic.shelf': { dir: 'comic', base: 0, now: 3 },
-  'comic.maker': { dir: 'comic', base: 0, now: 3 },
+  'comic.maker': { dir: 'comic', base: 0, now: 4 },
   'comic.reader': { dir: 'comic', base: 0, now: 2 },
   'comic.library': { dir: 'comic', base: 0, now: 4 },
   // SECURITY (NEXT ROUND, lane SECURITY): its own screen, new; base 0 since nothing was drawn before it.

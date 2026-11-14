@@ -38,7 +38,6 @@ export function sniff(b: Uint8Array): 'zip' | 'rar' | '7z' | 'pdf' | 'tar' | 'pi
   if ((b[0] === 0xff && b[1] === 0xd8) || (b[0] === 0x89 && b[1] === 0x50) || (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57) || (b[0] === 0x47 && b[1] === 0x49)) return 'pic';
   return '';
 }
-export const CBR_WORDS = 'This is a CBR file, packed with RAR. RAR is a closed format that no phone browser can open, so I can’t read it here. Save it as a CBZ (any comic app or 7-Zip does it in one step) and import that.';
 
 /** A small cover for the shelf (a JPEG data address, 160 wide). */
 export async function thumbOf(b: Blob): Promise<string> {
@@ -94,7 +93,7 @@ async function pdfPages(bytes: Uint8Array, say: Progress): Promise<Blob[]> {
 }
 
 /** His files, read into one comic: a CBZ, a PDF, or a set of pictures (a folder of them). */
-export async function importFiles(files: File[], say: Progress, from: Book['from'] = 'file', credit?: string): Promise<Imported> {
+export async function importFiles(files: File[], say: Progress, from: Book['from'] = 'file', credit?: string, opts: { rar?: boolean } = {}): Promise<Imported> {
   if (!files.length) throw inHisWords('No file was picked.');
   const pics = files.filter((f) => PIC.test(f.name) || f.type.startsWith('image/')).sort((a, b) => natural.compare(a.webkitRelativePath || a.name, b.webkitRelativePath || b.name));
   let pages: Blob[] = [];
@@ -118,10 +117,16 @@ export async function importFiles(files: File[], say: Progress, from: Book['from
     say(`Opening ${f.name}…`);
     const bytes = new Uint8Array(await f.arrayBuffer());
     const what = sniff(bytes);
-    if (what === 'rar') throw inHisWords(CBR_WORDS);
-    if (what === '7z') throw inHisWords('This is a CB7 file, packed with 7-Zip, which a phone browser can’t open. Save it as a CBZ and import that.');
-    if (what === 'tar') throw inHisWords('This is a CBT file (a tar archive), which I don’t read yet. Save it as a CBZ and import that.');
-    if (what === 'zip') {
+    if (what === 'rar' || what === '7z' || what === 'tar') {
+      // a CBR (RAR), a CB7 (7-Zip) or a CBT (tar): the free archive reader, fetched on his tap (features/comic/rar.ts)
+      const { rarKept, rarNeeded, unrar } = await import('./rar');
+      if (!opts.rar && !rarKept()) throw rarNeeded(what);
+      say('Unpacking it…');
+      const all = await unrar(f, say);
+      pages = all.filter((x) => PIC.test(x.name) && !/(^|\/)(__MACOSX|\.)/.test(x.name)).sort((a, b) => natural.compare(a.name, b.name)).map((x) => new Blob([x.data], { type: mimeOf(x.name) }));
+      kind = what === 'rar' ? 'a CBR file' : what === '7z' ? 'a CB7 file' : 'a CBT file';
+      if (!pages.length) throw inHisWords('That file has no pictures in it, so there are no pages to read.');
+    } else if (what === 'zip') {
       pages = zipPages(bytes);
       kind = /\.cbr$/i.test(f.name) ? 'a CBR file (really a zip inside)' : /\.zip$/i.test(f.name) ? 'a zip of pictures' : 'a CBZ file';
       if (!pages.length) throw inHisWords('That file has no pictures in it, so there are no pages to read.');

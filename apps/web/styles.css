@@ -8544,6 +8544,7 @@ html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-alig
 .cx .cxbookline, .cx .cxcredit { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
 .cx .cxstage { display: flex; justify-content: center; }
 .cx .cxpage { display: block; width: min(100%, 560px); height: auto; aspect-ratio: 2 / 3; border-radius: var(--g-radius-key); border: var(--g-hair) solid var(--g-line); cursor: pointer; touch-action: manipulation; }
+.cx .cxpage.cxdrag { touch-action: none; }
 .cx .cxedit { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
 .cx .cxpanel, .cx .cxcast, .cx .cxscript, .cx .cxnames { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); min-width: 0; }
 .cx details > summary { display: flex; align-items: center; cursor: pointer; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
