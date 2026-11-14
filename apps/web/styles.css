@@ -10749,3 +10749,6 @@ html body .ak-app :is(.ak-rowsub, .ak-rowtitle, .ak-tour p, .ak-state p, .ak-not
 html body .ak-app .ak-rowmain:active, html body .ak-app .ak-hkey:active, html body .ak-app .ak-rowdel:active { background: var(--g-plate-fill) !important; }
 html body .ak-app .ak-rowmain, html body .ak-app .ak-rowmain > * { white-space: normal; max-width: 100%; }
 .jneditor .jnweather { color: var(--g-ink-3); } .jneditor .jnweather:empty { display: none; }
+.jneditor .jnversions summary { min-height: var(--g-target); display: flex; align-items: center; color: var(--g-ink-2); cursor: pointer; }
+.jneditor .jnversion { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half); }
+.jneditor .jnversion .jntext { flex: 1 1 12em; color: var(--g-ink-2); overflow-wrap: anywhere; }

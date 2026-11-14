@@ -199,11 +199,17 @@ await run(PHONE2, 21);
 
 // (d) ON THIS DAY: an entry from this day last year
 if (lastYear) {
-  const { ctx, page, T } = await open(PHONE2, { seed: { journals: [{ id: 'personal', name: 'Personal', tone: 'accent' }], entries: [{ id: 'old1', journal: 'personal', at: lastYear, text: 'First day at the new flat. Boxes everywhere.', photos: [], edited: lastYear }], prefs: { lock: false, remind: '', toured: true, samplesGone: true } } });
+  const { ctx, page, T } = await open(PHONE2, { seed: { journals: [{ id: 'personal', name: 'Personal', tone: 'accent' }], entries: [{ id: 'old1', journal: 'personal', at: lastYear, text: 'First day at the new flat. Boxes everywhere.', photos: [], edited: lastYear, versions: [{ at: lastYear - 3600_000, text: 'First day at the flat.' }] }], prefs: { lock: false, remind: '', toured: true, samplesGone: true } } });
   await toJournal(page);
   await openSection(page, 'journal', 'On this day');
   const otd = await page.locator('#pg-journal .jnotd').innerText().catch(() => '');
   check(/A year ago/i.test(otd) && /new flat/.test(otd), `${T} [d] ON THIS DAY said "${otd.slice(0, 160)}"`);
+  // (e3) an earlier wording put back; the one it replaced kept as a version in turn
+  await page.locator('#pg-journal .jnotd .jnrow').first().click();
+  await page.locator('.jneditor .jnversions summary').click();
+  await page.locator('.jneditor .jnversion button', { hasText: 'PUT BACK' }).click();
+  const back = await page.evaluate(() => ({ text: document.querySelector('.jneditor textarea')?.value, kept: JSON.parse(localStorage.getItem('ghosty.journal')).entries[0] }));
+  check(back.text === 'First day at the flat.' && back.kept.text === 'First day at the flat.' && back.kept.versions?.length === 2 && back.kept.versions[1].text.startsWith('First day at the new flat'), `${T} [e3] PUT BACK left ${JSON.stringify(back).slice(0, 200)}`);
   await ctx.close();
 }
 

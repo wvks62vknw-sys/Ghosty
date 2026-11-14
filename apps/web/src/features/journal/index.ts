@@ -263,7 +263,8 @@ export const journalTab: TabDef = {
         clearTimeout(timer);
         timer = setTimeout(commit, 500);
       };
-      const commit = () => {
+      // (a wording becomes a version when it had stood ten minutes, or when PUT BACK replaces it: not at every pause in typing)
+      const commit = (force = false) => {
         if (gone) return;
         const before = data.entries.find((x) => x.id === e.id);
         e.text = text.value;
@@ -272,7 +273,7 @@ export const journalTab: TabDef = {
         const d = when.value ? new Date(`${when.value}T${new Date(e.at).toTimeString().slice(0, 5)}`) : null;
         if (d && !Number.isNaN(d.getTime())) e.at = d.getTime();
         if (!e.text.trim() && !e.photos.length && !e.voice && !before) return;
-        if (before && before.text !== e.text && before.text.trim()) e.versions = [...(before.versions ?? []), { at: before.edited, text: before.text }].slice(-10);
+        if (before && before.text !== e.text && before.text.trim() && (force || Date.now() - before.edited > 10 * 60_000)) e.versions = [...(before.versions ?? []), { at: before.edited, text: before.text }].slice(-10);
         e.edited = Date.now();
         delete e.sample;
         data.entries = [...data.entries.filter((x) => x.id !== e.id), { ...e }];
@@ -311,10 +312,18 @@ export const journalTab: TabDef = {
         commit();
         m.close();
       }, 'on');
+      // earlier wordings (the last ten), each put back with one tap (the wording it replaces is kept in turn)
+      const history = (e.versions ?? []).length
+        ? h('details.jnversions', h('summary', J.VERSIONS(e.versions!.length)), ...[...e.versions!].reverse().map((v) => h('div.row.jnversion', h('span.jntext', `${day(v.at)} ${time(v.at)}: ${v.text.slice(0, 80)}`), button(J.PUT_BACK, () => {
+            text.value = v.text;
+            commit(true);
+            toast(J.PUT_BACK_DONE, 'ok');
+          }))))
+        : '';
       const body = h('div.jneditor', { dataset: { case: 'keep' } },
         h('div.row.wrap.jnmeta', jsel, when), wx, promptLine, text, h('div.row.wrap', pk, talk), h('small.jnlab', 'MOOD'), moods,
         h('small.jnlab', 'PLACE'), place, placesList, h('small.jnlab', 'PHOTOS'), photos, h('div.row.wrap', button(J.PHOTO, () => fileIn.click()), fileIn),
-        h('small.jnlab', 'VOICE'), voiceBox, said, h('div.row.wrap.jnkeys', done, askKey, ...(was ? [del] : [])), h('p.note', J.ASK_NOTE));
+        h('small.jnlab', 'VOICE'), voiceBox, history, said, h('div.row.wrap.jnkeys', done, askKey, ...(was ? [del] : [])), h('p.note', J.ASK_NOTE));
       const m = modal(was ? day(e.at) : 'New entry', body, () => {
         commit();
         journalState.open = '';
