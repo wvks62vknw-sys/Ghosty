@@ -181,6 +181,27 @@ export function changeField(d: AppDef, id: string, patch: Partial<Field>): AppDe
   if (!f) return d;
   Object.assign(f, { ...patch, id: f.id });
   if (patch.label) f.label = cap1(patch.label.trim().slice(0, 24));
+  if (patch.type) {
+    if (f.type === 'choice' || f.type === 'multi') f.options = f.options && f.options.length >= 2 ? f.options : DEFAULT_OPTIONS.slice();
+    else delete f.options;
+    if (f.type === 'money') delete f.unit;
+    if (f.type === 'scale') Object.assign(f, { min: f.min ?? 1, max: f.max ?? 10 });
+    if (f.type !== 'date' && f.default === 'today') delete f.default;
+    // what read the field as its old type and cannot read it now goes
+    const log = logOf(x)!;
+    const numeric = ['number', 'money', 'duration', 'rating', 'scale'].includes(f.type);
+    log.stats = (log.stats ?? []).filter((s) => s.field !== f.id || numeric || s.kind === 'count' || s.kind === 'distinct' || s.kind === 'last');
+    if (log.chart?.field === f.id && !numeric) delete log.chart;
+    if (log.group === f.id && f.type !== 'choice') delete log.group;
+    if (log.date === f.id && f.type !== 'date') delete log.date;
+    if (log.remind?.field === f.id && f.type !== 'date') delete log.remind;
+    if (log.views) {
+      const can = possibleViews(log);
+      log.views = log.views.filter((v) => can.includes(v) && (v !== 'board' || log.group) && (v !== 'calendar' || log.date));
+      if (!log.views.length) log.views = ['list'];
+    }
+    if (!log.date) log.stats = log.stats.filter((s) => s.kind !== 'streak' && (!s.period || s.period === 'all'));
+  }
   return finish(x, { sample: true });
 }
 
