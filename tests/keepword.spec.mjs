@@ -6,7 +6,8 @@
 //  (e) "what did I do yesterday?" rebuilds the day from his own turns; "what did I ask last week about trains?" keeps to last week;
 //  (f) MEMORY → YOUR WORD shows the promise, the place, the reason and the week; every key 44 pt, nothing sideways, nothing cut at BODY 21;
 //  (g) "how was my week?" says the week in a line or two;
-//  (p) LOOK BACK on a reason sets a reminder three months on, and NO LOOK BACK takes it off.
+//  (p) LOOK BACK on a reason sets a reminder three months on, and NO LOOK BACK takes it off;
+//  (q) the week drawn as bars: what he asked about most, finished against still open.
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/keepword.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
@@ -310,6 +311,9 @@ async function run(vp, body) {
   check(shown, `${T} [f] YOUR WORD did not show: "${panelText.slice(0, 200)}"`);
   for (const [what, re] of [['the heading', /You said you’d/], ['the place', /The spare key in the blue tin/], ['the reason', /The canal flat: it(?:'|’)s quieter/], ['the week', /Your week/]]) check(re.test(panelText), `${T} [f] ${what} is not in YOUR WORD: "${panelText.slice(0, 260)}"`);
   check(/send Jo the photos/.test(panelText), `${T} [f] the promise is not in YOUR WORD (open or done)`);
+  // (q) the week as bars: what he asked about most, and finished against still open
+  const chart = await page.waitForFunction(() => { const c = document.querySelector('#pg-memory .pn.keep .keepchart'); return c && /Finished/.test(c.textContent ?? '') && /Still open/.test(c.textContent ?? '') && c.querySelectorAll('.keepbar').length >= 2; }, null, { timeout: 8000 }).then(() => true, () => false);
+  check(chart, `${T} [q] no chart of the week in YOUR WORD`);
   // (p) LOOK BACK on a reason: a reminder three months on, said under it; NO LOOK BACK takes it off
   if (!body) {
     const why = page.locator('#pg-memory .pn.keep .keeprow[data-kind="why"]').first();

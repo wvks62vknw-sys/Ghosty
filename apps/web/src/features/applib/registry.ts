@@ -53,3 +53,28 @@ export function toolKey(k: KitApp, el: HTMLElement): HTMLElement {
   tools?.insertBefore(el, tools.firstChild);
   return el;
 }
+
+/**
+ * App Maker (the PLAY & MAKE lane, features/applib/maker.ts) registers itself here: the Library's MAKE MY OWN opens it, from
+ * nothing or from a Library app to change. Its saved apps are listed in the Library through `registerAppSource`.
+ */
+export type Maker = (root: HTMLElement, from?: AppDef) => void | (() => void);
+let maker: Maker | null = null;
+export const registerMaker = (fn: Maker): void => void (maker = fn);
+export const makerFn = (): Maker | null => maker;
+
+/** More apps for the Library beyond LIBRARY (the ones he made in App Maker, kept on the phone). */
+const sources: (() => AppDef[])[] = [];
+export const registerAppSource = (fn: () => AppDef[]): void => void sources.push(fn);
+export const extraApps = (): AppDef[] => sources.flatMap((fn) => { try { return fn(); } catch { return []; } });
+
+/**
+ * The lanes' own files, loaded by name when the Library opens (so no lane edits another's): features/applib/importer.ts (DATA),
+ * features/applib/maker.ts and features/applib/games/index.ts (PLAY & MAKE). Each registers itself on import; one not there yet
+ * is simply skipped.
+ */
+export const LANE_FILES = ['importer', 'maker', 'games/index'];
+export async function loadLaneFiles(): Promise<void> {
+  // (async, so a file not in the bundle is a refusal here, never a throw)
+  await Promise.allSettled(LANE_FILES.map(async (n) => import(`./${n}.ts`)));
+}
