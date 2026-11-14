@@ -9,6 +9,7 @@
 import {
   budgetStatus,
   categorise,
+  markTransfers,
   changes,
   findSubscriptions,
   isCategory,
@@ -72,12 +73,15 @@ const finger = (r: { d: string; t: string; a: number; sp?: { of: number } }) => 
  * A statement's CSV → rows kept. A row already kept from an earlier statement is not kept twice (the same day,
  * words and amount, counted, so two real coffees on one day both stay).
  */
-export async function importStatement(deps: SpendingDeps, csv: string, now = Date.now()): Promise<ImportResult> {
+export async function importStatement(deps: SpendingDeps, csv: string, now = Date.now(), account = ''): Promise<ImportResult> {
   const { storage } = deps;
   // [packs] the CSV as before, else the statement's text copied out of its PDF (packages/shared/src/money.ts)
   const st = readAnyStatement(csv, String(new Date(now).getUTCFullYear()));
   const idx = await loadIndex(storage);
   const { rows } = categorise(st.rows, idx.rules);
+  // [moneyapps] the account he named (or the one an OFX file names), on every row of this statement
+  const ac = (account || (st as { account?: string }).account || '').trim().slice(0, 40);
+  if (ac) for (const r of rows) r.ac = ac;
   // First what is new: a row already kept from an earlier statement is not kept (or asked about) twice.
   const byMonth = new Map<string, SpendRow[]>();
   for (const r of rows) byMonth.set(r.d.slice(0, 7), [...(byMonth.get(r.d.slice(0, 7)) ?? []), r]);
@@ -168,7 +172,22 @@ export async function importStatement(deps: SpendingDeps, csv: string, now = Dat
     months: [...byMonth.keys()].sort(),
   };
   await storage.put(INDEX, { ...idx, months, rows: total, last: result } satisfies SpendIndex);
+  // [moneyapps] moves between his own accounts, paired across them, never counted as spending
+  if (ac) result.transfers = await spotTransfers(storage);
   return result;
+}
+
+/** [moneyapps] Pairs moves between his own accounts across every month kept, and writes back the months that changed. */
+export async function spotTransfers(storage: DurableObjectStorage): Promise<number> {
+  const idx = await loadIndex(storage);
+  const got = await storage.get<SpendRow[]>(idx.months.map(monthKey));
+  const all = idx.months.flatMap((m) => got.get(monthKey(m)) ?? []);
+  const n = markTransfers(all);
+  if (!n) return 0;
+  const writes: Record<string, SpendRow[]> = {};
+  for (const m of idx.months) if ((got.get(monthKey(m)) ?? []).some((r) => r.tr)) writes[monthKey(m)] = got.get(monthKey(m))!;
+  await storage.put(writes);
+  return n;
 }
 
 /** A tap re-files a row: every row with that name goes to the category, and the rule is remembered for the next statement. */
@@ -236,14 +255,16 @@ export async function setBudget(storage: DurableObjectStorage, b: { words?: stri
 /** Everything the card shows for a month (default: the latest month on a statement). */
 export async function spendingSummary(storage: DurableObjectStorage, month?: string | null, today?: string | null): Promise<SpendingSummary> {
   const idx = await loadIndex(storage);
-  const rows = await allRows(storage, idx);
+  const kept = await allRows(storage, idx);
+  // [moneyapps] a move between his own accounts is never spending or income: it is left out of every sum, and still listed
+  const rows = kept.filter((r) => !r.tr);
   const latest = idx.months[idx.months.length - 1] ?? '';
   const m = month && /^\d{4}-\d{2}$/.test(month) && idx.months.includes(month) ? month : latest;
   return {
     privacy: PRIVACY,
     month: m,
     months: idx.months,
-    kept: rows.length,
+    kept: kept.length,
     cap: MAX_ROWS,
     rules: Object.keys(idx.rules).length,
     last: idx.last ?? null,
@@ -252,7 +273,7 @@ export async function spendingSummary(storage: DurableObjectStorage, month?: str
     ...(m ? (({ lines, moves }) => ({ changes: lines, moves: moves.map((x) => ({ c: x.c, diff: x.diff })) }))(changes(rows, m)) : { changes: [], moves: [] }),
     subscriptions: findSubscriptions(rows),
     budgets: Object.entries(idx.budgets).map(([c, v]) => budgetStatus(c as Category, v!, rows, m)),
-    rows: rows.filter((r) => r.d.startsWith(m)).reverse(),
+    rows: kept.filter((r) => r.d.startsWith(m)).reverse(),
     // [lifeeasier] today's nudges, in his own day (the phone says which); from the rows kept and nothing else
     nudges: nudges(rows, Object.entries(idx.budgets).map(([c, v]) => ({ category: c as Category, monthly: v! })), today && /^\d{4}-\d{2}-\d{2}$/.test(today) ? today : new Date().toISOString().slice(0, 10)),
   };
@@ -261,7 +282,7 @@ export async function spendingSummary(storage: DurableObjectStorage, month?: str
 /** [packs] What moved in a month against the one before (the money pack's month card), and whether there was one before. */
 export async function monthMoves(storage: DurableObjectStorage, month: string): Promise<{ moves: { c: Category; diff: number }[]; hadBefore: boolean }> {
   const idx = await loadIndex(storage);
-  const rows = await allRows(storage, idx);
+  const rows = (await allRows(storage, idx)).filter((r) => !r.tr);
   const prev = `${month.slice(5, 7) === '01' ? +month.slice(0, 4) - 1 : month.slice(0, 4)}-${month.slice(5, 7) === '01' ? '12' : String(+month.slice(5, 7) - 1).padStart(2, '0')}`;
   return { moves: changes(rows, month).moves, hadBefore: idx.months.includes(prev) };
 }
@@ -271,7 +292,7 @@ export async function spendFlag(storage: DurableObjectStorage, month: string): P
   const idx = await loadIndex(storage);
   const budgets = Object.entries(idx.budgets);
   if (!budgets.length || !idx.months.includes(month)) return '';
-  const rows = await allRows(storage, idx);
+  const rows = (await allRows(storage, idx)).filter((r) => !r.tr);
   const worst = budgets.map(([c, v]) => budgetStatus(c as Category, v!, rows, month)).sort((a, b) => b.frac - a.frac)[0];
   return worst && worst.frac >= 0.9 ? `${worst.category} budget: ${worst.line}` : '';
 }
@@ -298,12 +319,12 @@ export async function spendingRoute(req: Request, path: string, method: string, 
   try {
     if (path === '/profile/spending' && method === 'GET') return json(await spendingSummary(storage, url.searchParams.get('month'), url.searchParams.get('today')));
     if (path === '/profile/spending/import' && method === 'POST') {
-      const b = (await req.json().catch(() => ({}))) as { csv?: unknown; rulesOnly?: unknown };
+      const b = (await req.json().catch(() => ({}))) as { csv?: unknown; rulesOnly?: unknown; account?: unknown };
       const csv = typeof b.csv === 'string' ? b.csv : '';
       if (!csv.trim()) return json({ error: 'that file is empty' }, 400);
       if (csv.length > 3_000_000) return json({ error: 'that statement is too big: download a year or less at a time' }, 400);
       // [packs] a statement pasted in the chat (the money pack): the rule table only — not even the shops' names go to a model
-      const result = await importStatement(b.rulesOnly === true ? { storage, ai: async () => Promise.reject(new Error('rules only')) } : deps, csv);
+      const result = await importStatement(b.rulesOnly === true ? { storage, ai: async () => Promise.reject(new Error('rules only')) } : deps, csv, Date.now(), typeof b.account === 'string' ? b.account : '');
       return json({ result, ...(await spendingSummary(storage, result.months[result.months.length - 1])) });
     }
     if (path === '/profile/spending/file' && method === 'POST') {
