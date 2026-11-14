@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [moneyapps] money, effortless
+  { day: '2026-11-14', title: 'All your statements at once', line: 'MONEY → Statement → Pick files: choose many at once, CSV, OFX, QIF or PDF from any bank. Each says what it kept, and payments you already had are left out. Each shop on Month now has its own page.' },
   // [see] the APPS ROUND: the weather app
   { day: '2026-11-14', title: 'Weather, an app of its own', line: 'Say “weather app” or tap OPEN WEATHER in the Brief: the next hour’s rain, a 24-hour graph, ten days, the details, the air and pollen, for every saved place and any city you add.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)

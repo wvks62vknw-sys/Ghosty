@@ -2,7 +2,7 @@
 
 ## What I built
 
-**Weather is an app of its own now.** It used to be a card in the Brief and a radar sheet. It opens full screen from OPEN WEATHER under the Brief's weather, or when you say "weather app", "open the weather", "10 day forecast" or "hourly forecast". It shows:
+**Weather is an app of its own now.** It used to be a card in the Brief and a radar sheet. It opens full screen from the Weather card under the Brief's weather (the App Kit's Home card), or when you say "weather app", "open the weather", "10 day forecast" or "hourly forecast". It shows:
 
 - **Now**: the temperature, the sky, today's high and low, what it feels like, and one dry line from Ghosty ("Rain on its way. The umbrella earns its keep today.").
 - **The next hour**: when rain starts or stops ("Light rain at Home in about 20 minutes"), with a bar for each quarter hour.
@@ -27,7 +27,7 @@
 
 ## How to try it on your phone
 
-1. Open the Brief and tap OPEN WEATHER, or say "weather app".
+1. Open the Brief and tap the Weather card, or say "weather app".
 2. Tap Work. Then type a city in "Add a town or city" and tap ADD.
 3. Under NEXT 24 HOURS, tap RAIN, WIND or UV.
 4. Turn on Airplane mode and open it again. The last forecast is there, with its time.
@@ -51,5 +51,5 @@
 - **Radar played forward**, lightning, and satellite cloud.
 - **Today against the 30-year normal.** Today it is compared with yesterday instead.
 - **A personality from your CHARACTER dials.** For now it is one dry voice.
-- **The App Kit.** CONSISTENCY's shared builders land at 14:45. The app uses the design tokens throughout and moves onto the kit when it arrives.
+- **The App Kit, in part.** The app uses the kit's Home card (in the Brief), its skeleton while loading, and its state cards for the empty and error states. Its own screens (the graph, ten days, the details) are drawn from the design tokens: the kit's list frame is built for lists of things, which a forecast isn't.
 - **Section 2 of my file**, my other apps against their leaders, and **section 3**, the new apps: none started.
