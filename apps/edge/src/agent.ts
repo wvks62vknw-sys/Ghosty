@@ -551,7 +551,7 @@ export class GhostyAgent {
         return json({ ok: true });
       }
       // [sites] a published page's earlier versions, and UNDO LAST UPDATE from the Workshop (sites.u2; tools/sites.ts)
-      if (/^\/sites\/[a-z0-9-]{1,48}\/(versions|restore)$/.test(path)) return await siteVersionsRoute(req, path, { env: this.env, storage: this.storage });
+      if (/^\/sites\/[a-z0-9-]{1,48}\/(versions|restore|check)$/.test(path)) return await siteVersionsRoute(req, path, { env: this.env, storage: this.storage });
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());

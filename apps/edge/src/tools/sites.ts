@@ -12,7 +12,7 @@
  * It is not indexed by search engines, and password fields are refused before publishing, so it
  * can't pass for a real login or payment page.
  */
-import { APP_SW, appBase, appCsp, appManifest, renderApp, type AppConfig } from '../../../../packages/shared/src/appkit/index';
+import { APP_SW, appBase, appCsp, appManifest, renderApp, runAppGates, type AppConfig } from '../../../../packages/shared/src/appkit/index';
 import { appApproval, buildApp } from '../appbuild';
 import { changeApp, changeApproval } from '../appchange';
 import { withLearn } from '../learnapp';
@@ -802,6 +802,36 @@ export function siteIcsResponse(site: Site | undefined, origin: string): Respons
   return new Response(body, { headers: { ...common, 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': `inline; filename="${site.name}.ics"`, 'cache-control': 'no-cache' } });
 }
 
+/**
+ * [sites] A published page's check-up (NEXT ROUND sites.u9): the same check every page passes before it goes up, run again on the live
+ * page (a mini-app: the kit's own gates; a game: the studio's own problems), with its size; the words he reads, nothing changed.
+ * A fix goes through an update and his APPROVE, as every page does.
+ */
+export function checkUp(site: Site): { ok: boolean; errors: string[]; warnings: string[]; kb: number; said: string } {
+  const plain = (l: string) => l.replace(/^line \d+: /, '');
+  let errors: string[] = [];
+  let warnings: string[] = [];
+  if (site.app) {
+    const g = runAppGates({ ...site.app.config, id: site.name }, renderApp({ ...site.app.config, id: site.name }));
+    errors = g.errors;
+    warnings = g.warnings;
+  } else if (site.game) {
+    errors = [];
+    warnings = [];
+  } else {
+    const r = checkHtml(site.html, { formAction: site.formAction });
+    errors = r.errors.map(plain);
+    warnings = r.warnings.map(plain);
+  }
+  const kb = Math.max(1, Math.round((site.game ? JSON.stringify(site.game).length : site.html.length) / 1024));
+  const said = errors.length
+    ? `${errors.length} problem${errors.length === 1 ? '' : 's'} to fix${warnings.length ? ` and ${warnings.length} worth fixing` : ''}. Ask me to fix them: I show you the change and it goes up after your APPROVE.`
+    : warnings.length
+      ? `Nothing broken. ${warnings.length} thing${warnings.length === 1 ? '' : 's'} worth fixing. Ask me to fix them: I show you the change and it goes up after your APPROVE.`
+      : `All clear: nothing to fix (${kb} KB).`;
+  return { ok: !errors.length, errors: errors.slice(0, 8), warnings: warnings.slice(0, 8), kb, said };
+}
+
 /** [sites] UNDO for a published page (sites.u2): what goes back, said before his APPROVE. */
 async function undoApproval(name: string, a: Record<string, unknown>, ctx: { env: Env; storage?: DurableObjectStorage; origin?: string }): Promise<{ args: Record<string, unknown>; reason: string }> {
   const store = siteStore(ctx.env, ctx.storage);
@@ -824,11 +854,17 @@ async function undoRun(name: string, ctx: { env: Env; storage?: DurableObjectSto
  * (agent.ts, behind his sign-in): the Workshop's UNDO LAST UPDATE, a tap he confirms on his own phone, as UNPUBLISH is.
  */
 export async function siteVersionsRoute(req: Request, path: string, c: { env: Env; storage?: DurableObjectStorage }): Promise<Response> {
-  const m = /^\/sites\/([a-z0-9-]{1,48})\/(versions|restore)$/.exec(path);
+  const m = /^\/sites\/([a-z0-9-]{1,48})\/(versions|restore|check)$/.exec(path);
   const out = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
   if (!m) return out({ error: 'not here' }, 404);
   const store = siteStore(c.env, c.storage);
   if (m[2] === 'versions' && req.method === 'GET') return out({ versions: await store.versions(m[1]!) });
+  // [sites] the page's check-up (sites.u9): the publish check on the live page, in his words; nothing is changed
+  if (m[2] === 'check' && req.method === 'GET') {
+    const site = await store.get(m[1]!);
+    if (!site) return out({ error: 'That page is not published any more.' }, 404);
+    return out(checkUp(site));
+  }
   if (m[2] === 'restore' && req.method === 'POST') {
     const back = await store.restore(m[1]!);
     return back ? out({ ok: true, title: back.title, at: back.at, versions: (await store.versions(m[1]!)).length }) : out({ error: 'That page has no earlier version kept.' }, 404);

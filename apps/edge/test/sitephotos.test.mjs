@@ -380,3 +380,24 @@ test('a site in one of Ghosty\'s looks: read from his words, said in the approva
   const job = await SB.loadSiteJob(ctx, p0.id);
   assert.deepEqual(job.plan.theme, { palette: 'ghosty', fonts: 'tech', shape: 'sharp', scheme: 'dark' }, 'the look stays over the planner\'s choice');
 });
+
+// NEXT ROUND sites.u9: a page's check-up. The publish check run again on the live page, in his words, nothing changed.
+test('a published page\'s check-up: the publish check on the live page, in plain words, and nothing changed', async () => {
+  const st = new MemStorage();
+  const env = { PUBLIC_ORIGIN: ORIGIN };
+  const store = P.siteStore(env, st);
+  const good = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Party</title><meta name="description" content="A party"></head><body><main><h1>Saturday</h1></main></body></html>';
+  await store.put({ name: 'party', title: 'Party', html: good, source: '', at: 1 });
+  const route = (name) => P.siteVersionsRoute(new Request(`${ORIGIN}/api/sites/${name}/check`), `/sites/${name}/check`, { env, storage: st });
+  const ok = await (await route('party')).json();
+  assert.equal(ok.ok, true);
+  assert.match(ok.said, /^(All clear: nothing to fix|Nothing broken\. \d+ things? worth fixing)/);
+  // a page that has gone wrong (an image with no words, a tag left open)
+  await store.put({ name: 'broken', title: 'Broken', html: '<!doctype html><html lang="en"><head><title>B</title></head><body><main><div><img src="https://x.example/a.jpg"></main></body></html>', source: '', at: 1 });
+  const bad = await (await route('broken')).json();
+  assert.equal(bad.ok, false);
+  assert.match(bad.said, /^\d+ problems? to fix.*Ask me to fix them: I show you the change and it goes up after your APPROVE\.$/);
+  assert.ok(bad.errors.every((e) => !/^line \d+:/.test(e)), 'in his words, not line numbers');
+  assert.equal((await store.get('broken')).html.includes('<div><img'), true, 'nothing changed');
+  assert.equal((await route('nope')).status, 404);
+});

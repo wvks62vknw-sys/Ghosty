@@ -4,7 +4,7 @@
 // the main picture; (e) every key is 44 pt, nothing sideways, BODY 21 cuts no words; (f) "build a website for my café with my photos"
 // asks APPROVE saying his photos will be used (declined here: nothing is built); (g) a photo is removed after its confirm; (h) UNDO FOR
 // PUBLISHED PAGES (sites.u2): a page updated from the chat goes back to its earlier version with the Workshop's UNDO LAST UPDATE;
-// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8); (m) a page's QR code and an A4 poster (sites.s2, u4).
+// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8); (m) a page's QR code and an A4 poster (sites.s2, u4); (n) a page's check-up (sites.u9).
 //   BASE=http://localhost:8788 node tests/sitephotos.spec.mjs tests/.shots
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -302,6 +302,11 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
     }
     check(dims === '1240x1754' && /Party poster\.png$/.test(dl?.suggestedFilename() ?? ''), `${W}: (m) SAVE gives an A4 poster picture made on the phone (${dims}, ${dl?.suggestedFilename()})`);
     await page.keyboard.press('Escape');
+    // (n) CHECK (sites.u9): the publish check on the live page, said in his words
+    const checkKey = `#pg-workshop .site[data-site="${slug}"] button[aria-label="Check Party"]`;
+    await page.waitForSelector(checkKey, { timeout: 8000 });
+    await page.click(checkKey);
+    check(await until(page, (s) => /All clear: nothing to fix|worth fixing|to fix/.test(document.querySelector(`#pg-workshop .site[data-site="${s}"] .sitecheck`)?.textContent ?? ''), slug, 10000), `${W}: (n) CHECK says how the live page is, in his words`);
   }
 
   check(errors.length === 0, `${W}: no page error${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
