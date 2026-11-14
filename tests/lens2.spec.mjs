@@ -15,6 +15,7 @@
 //   COMPARE  a second packet: "which is better" puts the two side by side per 100 g, the better figure marked
 //   A RECEIPT  one tap into this month's spending (the month's rows hold it), one more keeps its warranty
 //   UNNAMED  a Polish sign: TRANSLATE offered (the phone cannot name the language), done in place, the words sent once
+//   PRINT    an address in Paris on its card with ON THE MAP, a parcel number to Royal Mail's page, 350°F in Celsius, two prices in pounds on his tap (today's public rate)
 //   A MENU   in French: each line's English laid over that line, the card listing every line, the words only sent
 //   AVOID    "I'm allergic to milk" lights the packet red; the WHAT I AVOID sheet adds peanuts; kept on this phone
 //   A PAGE   SCAN IT FLAT opens SCAN's document part on the frame
@@ -91,6 +92,8 @@ async function run(viewport, all) {
   // the map's geocoder (through the brain's proxy) answers with the address's place; nothing else outside is reached
   await page.route('**/api/proxy?**', (r) => {
     const target = new URL(r.request().url()).searchParams.get('url') ?? '';
+    // (the sweep) today's rates for IN POUNDS: per bitcoin, as the public feed gives them (so €1 = £50000/58000)
+    if (/api\.coingecko\.com\/api\/v3\/exchange_rates/.test(target)) return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ rates: { btc: { value: 1 }, gbp: { value: 50000 }, eur: { value: 58000 }, usd: { value: 64000 } } }) });
     if (/nominatim\.openstreetmap\.org\/search/.test(target)) return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ lat: '52.4797', lon: '-1.9026', display_name: '12 High Street, Birmingham, B1 1AA, England' }]) });
     return r.fulfill({ status: 404, body: '' });
   });
@@ -292,6 +295,23 @@ async function run(viewport, all) {
   const polish = chats.filter((b) => /Wyj/.test(b));
   check(polish.length === 1 && !/data:image/.test(polish[0]), `${T} [unnamed] the Polish went ${polish.length} time(s), and no picture: ${!/data:image/.test(polish[0] ?? '')}`);
   check((await page.evaluate(() => window.__ghosty.lens.mode)) === 'lens', `${T} [unnamed] TRANSLATE left the one view for ${await page.evaluate(() => window.__ghosty.lens.mode)}`);
+  await letGo();
+  await reset();
+
+  // ---- PRINT HE CAN USE (the sweep, as Live Text does): a parcel to track, a temperature in Celsius, prices in pounds on his tap
+  await words('Parcel AB123456789GB\nBake at 350°F\nDinner €14,50 or US$20\n12 rue de Rivoli\n75001 Paris');
+  await hold([TEXT_BOX]);
+  await until(() => ['parcel', 'unit', 'price'].every((j) => window.__ghosty.cards.cards.some((c) => c.job === j)), null, 4000, `[print] the cards: ${JSON.stringify((await cards()).cards.map((c) => [c.job, c.head]))}`);
+  const pc = (await cards()).cards;
+  check(pc.some((c) => c.job === 'parcel' && c.head === 'A PARCEL · AB123456789GB' && c.keys.includes('TRACK')), `${T} [print] the parcel card: ${JSON.stringify(pc.filter((c) => c.job === 'parcel'))}`);
+  check((await keyIn('parcel', 'TRACK').getAttribute('href')) === 'https://www.royalmail.com/track-your-item#/tracking-results/AB123456789GB', `${T} [print] TRACK does not open Royal Mail's page for it`);
+  // (lens.u14) an address abroad: its card, ON THE MAP, as a UK one has
+  check(pc.some((c) => c.job === 'address' && c.line === '12 rue de Rivoli, 75001 Paris' && c.keys.includes('ON THE MAP')), `${T} [print] the address abroad: ${JSON.stringify(pc.filter((c) => c.job === 'address'))}`);
+  check(pc.some((c) => c.job === 'unit' && c.line === '350°F ≈ 177 °C'), `${T} [print] the measure: ${JSON.stringify(pc.filter((c) => c.job === 'unit'))}`);
+  check(pc.some((c) => c.job === 'price' && c.head === '2 PRICES · EUR, USD' && c.keys.includes('IN POUNDS')), `${T} [print] the prices: ${JSON.stringify(pc.filter((c) => c.job === 'price'))}`);
+  await layout('print');
+  await keyIn('price', 'IN POUNDS').click();
+  await until(() => window.__ghosty.cards.pounds.join(' · ') === '€14,50 ≈ £12.50 · US$20 ≈ £15.63', null, 8000, `[print] IN POUNDS gave ${JSON.stringify((await cards()).pounds)}`);
   await letGo();
   await reset();
 
@@ -564,5 +584,5 @@ async function run(viewport, all) {
 await run({ width: 440, height: 956 }, true);
 await run({ width: 390, height: 844 }, false);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a Polish sign put into English in place on his tap; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a business card into his contacts, made on the phone; a bus stop’s next buses by its name; a medicine box to its NHS page; a rating plate costed at his price; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words, and a second packet compared side by side; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a Polish sign put into English in place on his tap; a parcel to track, a temperature in Celsius, prices in pounds and an address in Paris for the map; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a business card into his contacts, made on the phone; a bus stop’s next buses by its name; a medicine box to its NHS page; a rating plate costed at his price; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words, and a second packet compared side by side; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
 process.exit(problems.length ? 1 : 0);
