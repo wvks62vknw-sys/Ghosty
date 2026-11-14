@@ -68,6 +68,7 @@ import { briefAsked } from '../features/brief/asks';
 import { screenAsked } from './screenasks';
 import { comicAsked } from '../features/comic/asks';
 import { securityAsked } from '../features/security/asks';
+import { journalAsked } from '../features/journal/words';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -78,6 +79,7 @@ import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shar
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
 import { TRIP_ASK } from '../ui/tripwords';
 import { WEATHER_ASK } from '../weather/words';
+import { CHESS_ASK } from '../features/chess/words';
 import { RAIN_ASK, setAsked, WALL_ASK } from '../features/eye/sets';
 import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
 
@@ -211,6 +213,8 @@ export const LOCAL_ASKS = [
   { id: 'rainradar', test: (t: string) => RAIN_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   // [see] the WEATHER app: "weather app", "open the weather", "10 day forecast" (weather/app.ts)
   { id: 'weatherapp', test: (t: string) => WEATHER_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
+  // [learn] the CHESS app: "open chess", "chess puzzles", "puzzle rush" (features/chess/app.ts)
+  { id: 'chessapp', test: (t: string) => CHESS_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) || !!diyAsked(t) },
@@ -262,6 +266,8 @@ export const LOCAL_ASKS = [
   { id: 'openscreen', test: (t: string) => !!screenAsked(t) },
   // [comic] THE COMIC (features/comic/asks.ts): "make me a comic about…", "read a comic", "import this comic", "public domain comics"
   { id: 'comic', test: (t: string) => !!comicAsked(t) },
+  // [journal] JOURNAL (features/journal/words.ts): "new journal entry", "add to my journal: …", "dear diary, …", "open my journal"
+  { id: 'journal', test: (t: string) => !!journalAsked(t) },
   // [security] SECURITY (features/security/asks.ts): "lock everything", "has my password leaked?", "show my approvals", "how safe am I?"
   { id: 'security', test: (t: string) => !!securityAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },

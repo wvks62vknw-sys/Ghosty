@@ -31,6 +31,7 @@ import { Emitter } from '../core/store';
 import type { MoodKind } from '../../../../packages/shared/src/mood';
 import { inkVariant, parseColour, textVariant, toHex, type RGB } from '../design/contrast';
 import { daylight, groundAt, groundOf, isColour, keptLook, presetOf, presetRecipe, presets, recipeFrom, recipeWords, sameRecipe, type ColourKey, type GroundKey, type HomePlace, type Preset, type Recipe } from '../../../../packages/shared/src/themes';
+import { EASY_KEYS, easyOn, type LookAsk, type Switches } from '../../../../packages/shared/src/themes';
 
 export interface Theme {
   label: string;
@@ -473,4 +474,21 @@ export function settleTheme(): string {
   }
   const was = settings.get().theme;
   return was === 'graphite' || !THEMES[was] ? DEFAULT_THEME : was;
+}
+
+// ---- [consistency] ACCESSIBILITY (APPS ROUND): his own switches before it, kept on the phone so OFF puts them back
+const EASY_BEFORE = 'ghosty.look.easybefore';
+/** What `applyAsk` needs for an ACCESSIBILITY ask: turning it on keeps the switches he has now; turning it off reads them back. */
+export function easyArgs(ask: LookAsk): { before?: Partial<Switches> } {
+  if (ask.easy === undefined) return {};
+  try {
+    if (ask.easy) {
+      if (!easyOn(current.switches)) localStorage.setItem(EASY_BEFORE, JSON.stringify(Object.fromEntries(EASY_KEYS.map((k) => [k, current.switches[k]]))));
+      return {};
+    }
+    const v = JSON.parse(localStorage.getItem(EASY_BEFORE) ?? 'null') as Partial<Switches> | null;
+    return v ? { before: v } : {};
+  } catch {
+    return {};
+  }
 }

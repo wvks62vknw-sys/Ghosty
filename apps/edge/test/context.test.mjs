@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import './recall.test.mjs';
 // [keep] the NEXT ROUND's memory test: his word kept (promises, where things are, why he chose, the week)
 import './keep.test.mjs';
+// [journal] JOURNAL (APPS ROUND): the journal's store and words
+import './journal.test.mjs';
 
 const C = await import('./.build/context.mjs');
 
