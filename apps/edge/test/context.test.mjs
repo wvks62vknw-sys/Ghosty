@@ -6,6 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // [recall] BRIEF-DEPTH-MEMORY's brain test, reached from here (the test list lives in package.json)
 import './recall.test.mjs';
+// [keep] the NEXT ROUND's memory test: his word kept (promises, where things are, why he chose, the week)
+import './keep.test.mjs';
 
 const C = await import('./.build/context.mjs');
 

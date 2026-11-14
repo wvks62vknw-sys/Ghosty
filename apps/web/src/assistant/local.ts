@@ -54,6 +54,8 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 export interface LocalAnswer {
   kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
+  /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
+  promises?: { id: string; what: string; due: string }[];
   found?: { key: string; bid?: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string }[];
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
@@ -225,6 +227,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   // [lifeeasier] WHAT DID I MISS?, TEACH ME WHAT YOU LEARNED and WATCHERS: from his own records and the pages he names, no model (assistant/life.ts)
   missed: (text, opts) => import('./life').then((m) => m.missedTurn(text, opts, answer)).catch(() => false),
   teach: (text, opts) => import('./life').then((m) => m.teachTurn(text, opts, answer)).catch(() => false),
+  keep: (text, opts) => import('../features/memory/keep').then((m) => m.keepTurn(text, opts, answer)).catch(() => false),
   recall: (text, opts) => import('../features/memory/recallturn').then((m) => m.recallTurn(text, opts, answer)).catch(() => false),
   chase: (text, opts) => import('../features/memory/recallturn').then((m) => m.chaseTurn(text, opts, answer)).catch(() => false),
   watcher: (text, opts) => import('./life').then((m) => m.watcherTurn(text, opts, answer)).catch(() => false),

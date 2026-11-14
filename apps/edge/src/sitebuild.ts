@@ -36,6 +36,7 @@ import type { Brief, ImageRef, Plan, Review } from '../../../packages/shared/src
 import { applyFixes, applyPlan, applyWrites, critiquePrompt, jsonIn, planPrompt, writePrompt } from '../../../packages/shared/src/sitekit/write';
 import { durableDelete, durableGet, durablePut } from './kv';
 import { countToday, LensError, PICTURES_PER_DAY, storeImage } from './lens';
+import { ASKS_OWN, listPhotos, photoSet } from './sitephotos';
 import { textOf, withImages } from './llm/content';
 import type { Msg } from './llm/router';
 import { cost, neurons } from './neurons';
@@ -106,6 +107,8 @@ export interface SiteJob {
   timings?: Record<string, number>;
   /** The plan's key when it was built and checked (a step run again with the same plan is not built twice). */
   builtKey?: string;
+  /** [sites] He asked for his own photos (sitephotos.ts): the picture step uses those, not free stock. */
+  myPhotos?: boolean;
 }
 const JOB = (id: string) => `sitejob:${id}`;
 /** A site built and waiting for the owner to confirm it (finding 10): its title and project, by link name. */
@@ -224,9 +227,14 @@ export async function siteApproval(a: Record<string, unknown>, ctx: ToolContext)
   const { name, replaces } = await siteNameFor(a, b, ctx);
   const t = TEMPLATES[b.kind];
   const gaps = missing(b).map((m) => m.key);
-  const reason = `Build a website for ${b.name || `a ${b.kind}${b.town ? ` in ${b.town}` : ''}`} on my own and publish it at ${siteLink(ctx.origin, ctx.env, name)}?${replaces ? ` This replaces "${replaces}", which is at that link now.` : ''} Six background steps over about ${Math.round((SITE_STEPS.length * SITE_STEP_MS) / 60_000) + 2}–15 minutes: pictures, plan (${t.theme.palette} look to start), words, quality checks, screenshots and a designer's critique, then the link.${gaps.length ? ` I will use sensible defaults for: ${gaps.join(', ')} — and list them for you to confirm.` : ''} Reviews, team and awards appear only if you gave them.${publicDetails(b)}${arg.str(a, 'request').length > 2000 ? ' Your message was long: I read its first 2,000 characters.' : ''}`;
+  const own = wantsOwnPhotos(a) ? (await listPhotos(ctx)).length : -1;
+  const photos = own > 0 ? ` With your own ${own} photo${own === 1 ? '' : 's'} (Workshop → PHOTOS FOR YOUR SITES), not stock pictures.` : own === 0 ? ' You have no photos kept for your sites yet (Workshop → PHOTOS FOR YOUR SITES), so I will use free credited photos.' : '';
+  const reason = `Build a website for ${b.name || `a ${b.kind}${b.town ? ` in ${b.town}` : ''}`} on my own and publish it at ${siteLink(ctx.origin, ctx.env, name)}?${replaces ? ` This replaces "${replaces}", which is at that link now.` : ''} Six background steps over about ${Math.round((SITE_STEPS.length * SITE_STEP_MS) / 60_000) + 2}–15 minutes: pictures, plan (${t.theme.palette} look to start), words, quality checks, screenshots and a designer's critique, then the link.${photos}${gaps.length ? ` I will use sensible defaults for: ${gaps.join(', ')} — and list them for you to confirm.` : ''} Reviews, team and awards appear only if you gave them.${publicDetails(b)}${arg.str(a, 'request').length > 2000 ? ' Your message was long: I read its first 2,000 characters.' : ''}`;
   return { args: { ...a, link_name: name }, reason };
 }
+
+/** [sites] He asked for his own photos: the tool's my_photos, or his words ("with my photos"). */
+export const wantsOwnPhotos = (a: Record<string, unknown>): boolean => a.my_photos === true || ASKS_OWN.test(arg.str(a, 'request', false));
 
 /** Start the website project: the brief is kept with the job, the six steps go into a project of kind 'site'. */
 export async function startSiteBuild(a: Record<string, unknown>, ctx: ToolContext): Promise<string> {
@@ -239,7 +247,7 @@ export async function startSiteBuild(a: Record<string, unknown>, ctx: ToolContex
   const brief = briefOf(a);
   const name = siteNameOf(a, brief);
   const p = await startProject(ctx, { title: `Website: ${brief.name || name}`, goal: `A professional website for ${brief.name || `a ${brief.kind}`}${brief.town ? ` in ${brief.town}` : ''}, published at ${siteLink(ctx.origin, ctx.env, name)}. Request: ${brief.request}`.slice(0, 1900), steps: SITE_STEPS, pace: 'fast', kind: 'site' });
-  await saveJob(ctx, { id: p.id, name, brief, facts: structuredClone(brief), waits: 0, plain: [] });
+  await saveJob(ctx, { id: p.id, name, brief, facts: structuredClone(brief), waits: 0, plain: [], ...(wantsOwnPhotos(a) ? { myPhotos: true } : {}) });
   return `Started building the website (project ${p.id}): ${SITE_STEPS.length} steps — ${SITE_STEPS.map((s) => s.title.toLowerCase()).join(', ')}. It goes live at ${siteLink(ctx.origin, ctx.env, name)} when it is done (about 5–15 minutes, longer if the free AI room is busy) — or, if I had to assume hours, prices or other details, it waits as a draft (not public) until the owner confirms them; I will send a notification with a short report. Tell the owner this, and that the Workshop's PROJECTS panel shows progress.`;
 }
 
@@ -403,6 +411,20 @@ async function stepBrief(deps: ProjectDeps, job: SiteJob): Promise<string> {
     return 'forms send to your Formspree form';
   };
   const pictures = async (): Promise<string> => {
+    // [sites] his own photos, when he asked for them (sites.u12): resized and stripped on his phone, kept in the picture store
+    if (job.myPhotos) {
+      const kept = await listPhotos({ env: deps.env, storage: deps.tctx.storage });
+      const mine = photoSet({ env: deps.env, origin: deps.tctx.origin }, kept, b.name);
+      if (mine) {
+        job.stock = mine;
+        // the templates' own-work galleries (a portfolio's, a trade's past jobs) show only the owner's pictures: these are
+        const all = [mine.hero, ...mine.story, ...mine.gallery.filter((g) => !mine.story.includes(g))];
+        b.photos = all;
+        if (job.facts) job.facts.photos = all;
+        const n = kept.length;
+        return (job.pictures = `${n} of your own photos (resized on your phone, location removed)`);
+      }
+    }
     const stock = stockFor(b.kind);
     const own = STOCK[b.kind];
     if (own) {

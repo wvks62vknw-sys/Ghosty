@@ -71,6 +71,17 @@ import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
+import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
+
+/** [keep] Does his message ask about his word (the same test as features/memory/keep.ts keepAsked, kept pure here)? */
+export const keepAsked = (t: string): boolean =>
+  !!whereAsked(t) || !!whereIn(t) || !!whyChoseAsked(t) || promisesAsked(t) || !!dayAsked(t) ||
+  /^(?:(?:hey )?ghosty[, ]+)?(?:(?:show me |give me |read me )?my week in review|(?:how was|how's|review) my week|week in review|what did I do this week|sum up my week|my weekly review|what did I never get an answer to|what (?:questions )?(?:did|have) you (?:never|not) answer(?:ed)?|(?:my |any )?(?:open|unanswered) questions|what's still unanswered|what did you not know)[?.!]*$/i.test(t.trim());
+/** [recall] "what did I ask last March about the car?", "what did I ask in October?": recall within the days he named. */
+export const datedRecall = (t: string): boolean => {
+  const s = dateSpan(t, Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+  return !!s && (recallAsked(s.rest) !== null || /^(?:what|which things) did I (?:ask|say|tell)(?: you)?(?: about)?$/i.test(s.rest.replace(/[?.!]+$/, '').trim()));
+};
 
 /** [recall] FIND over his own things: "find garden in my things", "search my notes for garden"; the words looked for, else null. */
 export function findAsked(text: string): string | null {
@@ -101,7 +112,10 @@ export const LOCAL_ASKS = [
   // [lifeeasier] "what did I miss?", "teach me what you learned this week", "tell me when this price drops": his own records and the pages he names (assistant/life.ts)
   // [recall] "what did I ask you about trains?", "find garden in my things", "remind me to chase this if Sam doesn't reply by Thursday":
   // his own turns and things, answered from the phone's own index with no model (features/memory/recall.ts); a chase set on the brain
-  { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null },
+  // [keep] his word (features/memory/keep.ts): "where's the spare key?", "the spare key is in the blue tin", "why did I pick the canal
+  // flat?", "what did I say I'd do?", "my week", "what did I never get an answer to?", "what was I doing on the 3rd?"
+  { id: 'keep', test: (t: string) => keepAsked(t) },
+  { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null || datedRecall(t) },
   { id: 'chase', test: (t: string) => chaseAsked(t) !== null || chasingAsked(t) },
   { id: 'missed', test: (t: string) => missedAsked(t) },
   { id: 'teach', test: (t: string) => teachAsked(t) },
