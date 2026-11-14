@@ -18,6 +18,7 @@
  * worked changes. apps/edge/test/meanings.test.mjs holds hundreds of wordings, each mapped to its ability, and proves every
  * canonical phrase is taken by its own table.
  */
+import { durationSecs, secsWords } from './amounts';
 
 export interface Meant {
   /** The ability, for the checks and the console ("radio", "water", "lights-off"). */
@@ -117,6 +118,13 @@ const learn = open('learn', 'learn', 'Opening Learn.');
 const radioScreen = open('radio screen', 'radio', 'Opening the radio.');
 const weather: Meant = { id: 'weather', brain: "what's the weather" };
 const news: Meant = { id: 'news', brain: "what's in the news today" };
+/** [voice.u3] Any everyday duration ("a quarter of an hour", "twenty five minutes", "two and a half minutes"), said back exactly. */
+const exactTimer = (x: RegExpExecArray): Meant | null => {
+  // ("give us a shout in ten": a bare number there is minutes, as people say it)
+  const bare = /^(\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty|forty five|forty|fifty|sixty)$/.exec(x[1]!.trim());
+  const s = bare ? (amount(bare[1]!) ?? 0) * 60 : durationSecs(x[1]!);
+  return s && s <= 24 * 3600 ? { id: 'timer', say: `set a timer for ${secsWords(s)}` } : null;
+};
 const timer = (x: RegExpExecArray): Meant | null => {
   const d = duration(x[1]!, x[2]!);
   return d ? { id: 'timer', say: `set a timer for ${d}` } : null;
@@ -155,6 +163,11 @@ const ROWS: Row[] = [
   R(new RegExp(`^(?:tell|remind|warn) me when ${NUM} ${UNIT} (?:is|are|has|have) (?:up|gone|passed)$`), timer),
   R(new RegExp(`^(?:time|count down|countdown) ${NUM} ${UNIT}$`), timer),
   R(new RegExp(`^(?:the |my )?(?:eggs?|pasta|rice|tea|brew|kettle|oven|pizza) (?:for |needs |takes )?${NUM} ${UNIT}$`), timer),
+  // [voice.u3] the same asks with any duration in them, read exactly ("give us a shout in a quarter of an hour", "time me for one minute thirty")
+  R(/^(?:timer|time|countdown|count down|start a timer|start a countdown|set a timer|set timer|set a countdown|set an alarm|alarm|ring|buzz) (?:for |of )?(.+)$/, exactTimer),
+  R(/^(?:give me|give us|gimme) a (?:shout|buzz|bell|nudge|ping|ring|knock) in (.+)$/, exactTimer),
+  R(/^(?:shout|buzz|ping|nudge|beep|wake) (?:at )?(?:me |us )?in (.+)$/, exactTimer),
+  R(/^time (?:me|us|this|it) (?:for )?(.+)$/, exactTimer),
   // ---- the map, the Lens, the comic
   R(/^(?:open|show|show me|bring up|pull up|load|go to|take me to|get|i need|i want|see|lemme see) (?:the |a |my )?(?:map|maps|world map|globe|god's eye|gods eye|the world)$|^where am i on the map$|^show me where i am(?: on the map)?$|^(?:open|show) (?:google|apple) maps$|^(?:god's eye|gods eye|world map|the globe)$/, map),
   R(/^(?:open|start|launch|fire up|bring up|pull up|go to|use|get|show me) (?:the |my )?(?:lens|camera lens|scanner|camera to look|look camera|visual search|google lens|lens camera)$|^(?:the )?(?:lens|google lens|visual search)$|^(?:point and look|look at this for me|have a look at this|tell me what this is|what is that thing)$/, lens),

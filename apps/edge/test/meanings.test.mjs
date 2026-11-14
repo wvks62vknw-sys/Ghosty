@@ -12,7 +12,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts'), screenasks: at('../../web/src/assistant/screenasks.ts'), learned: at('../../../packages/shared/src/learned.ts') },
+  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts'), screenasks: at('../../web/src/assistant/screenasks.ts'), learned: at('../../../packages/shared/src/learned.ts'), amounts: at('../../../packages/shared/src/amounts.ts'), kitchen: at('../../../packages/shared/src/kitchen.ts'), trackcore: at('../../web/src/features/body/trackcore.ts') },
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -26,6 +26,9 @@ const TH = await import('./.build/meanings/themes.mjs');
 const P = await import('./.build/meanings/phrases.mjs');
 const SA = await import('./.build/meanings/screenasks.mjs');
 const L = await import('./.build/meanings/learned.mjs');
+const AM = await import('./.build/meanings/amounts.mjs');
+const KI = await import('./.build/meanings/kitchen.mjs');
+const TC = await import('./.build/meanings/trackcore.mjs');
 
 /** The table that answers words first on the phone (assistant/local.ts localTurn's order), or null. */
 const tableOf = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
@@ -292,4 +295,37 @@ test('a taught wording is read first, before any table, and only once it is kept
   } finally {
     delete globalThis.localStorage;
   }
+});
+
+// ---------------------------------------------------------------- amounts understood exactly (NEXT ROUND, voice.u3)
+
+test('durations said any everyday way are read exactly, not rounded', () => {
+  const D = { 'a quarter of an hour': 900, 'three quarters of an hour': 2700, 'half an hour': 1800, 'an hour and a half': 5400, 'one and a half hours': 5400, 'twenty five minutes': 1500, 'two and a half minutes': 150, 'one minute thirty': 90, '1 hour 20': 4800, '1h20': 4800, '1 hour 30 minutes': 5400, 'half a minute': 30, 'ninety seconds': 90, 'a hundred and twenty seconds': 120, '45 secs': 45, '5 min': 300, '30s': 30, 'a minute': 60, '2 hours': 7200, 'a couple of minutes': 120 };
+  for (const [t, secs] of Object.entries(D)) assert.equal(AM.durationSecs(t), secs, t);
+  for (const t of ['hello', 'the minute book', 'second hand']) assert.equal(AM.durationSecs(t), null, t);
+  assert.equal(AM.secsWords(900), '15 minutes');
+  assert.equal(AM.secsWords(5400), '1 hour 30 minutes');
+  assert.equal(AM.secsWords(150), '2 minutes 30 seconds');
+  // the kitchen's timers take them exactly, with a clean name
+  const T = (t) => KI.timerAsked(t)?.start?.[0];
+  for (const [t, secs, name] of [['timer for a quarter of an hour', 900, 'timer'], ['set a timer for twenty five minutes', 1500, 'timer'], ['timer for one minute thirty', 90, 'timer'], ['set a timer for an hour and a half', 5400, 'timer'], ['timer for 2 and a half minutes', 150, 'timer'], ['timer 8 minutes for the pasta', 480, 'pasta'], ['timer for the pasta 8 minutes', 480, 'pasta']]) assert.deepEqual([T(t)?.secs, T(t)?.name], [secs, name], t);
+  // and the meanings say them back exactly, for the timer to read
+  for (const [t, say] of [['give me a shout in a quarter of an hour', 'set a timer for 15 minutes'], ['time me for three quarters of an hour', 'set a timer for 45 minutes'], ['give us a shout in ten', 'set a timer for 10 minutes'], ['buzz me in twenty', 'set a timer for 20 minutes'], ['countdown two and a half minutes', 'set a timer for 2 minutes 30 seconds']]) {
+    assert.equal(M.meaningOf(t)?.say, say, t);
+    assert.equal(KI.timerAsked(say)?.start?.[0]?.secs, AM.durationSecs(say), `${say} is read back exactly`);
+  }
+});
+
+test('volumes said any everyday way are logged exactly, with his own cup sizes winning', () => {
+  const V = { 'half a litre': 500, '750ml': 750, '1.5 litres': 1500, 'one and a half litres': 1500, 'a pint and a half': 852, 'two glasses': 500, 'half a pint': 284, 'a bottle': 500, 'a can': 330, '2 pints': 1136, 'a litre': 1000, '330 ml': 330, 'three cups': 750, 'a mug': 350 };
+  for (const [t, ml] of Object.entries(V)) assert.equal(AM.volumeMl(t), ml, t);
+  assert.equal(AM.volumeMl('two glasses', { glass: 300 }), 600, 'his own glass');
+  assert.equal(AM.volumeMl('water'), null);
+  // the body's water tracker logs them exactly, in his wordings (body.c4 too: "chuck a pint in", "how's my water looking")
+  const W = (t) => TC.trackAsked(t, []);
+  for (const [t, ml] of [['log half a litre', 500], ['half a litre of water', 500], ['I drank half a litre', 500], ['drank 750ml', 750], ['a litre of water', 1000], ['I drank a pint and a half', 852], ['chuck a pint in', 568], ['necked 500ml', 500], ['two glasses of water', 500]]) assert.deepEqual([W(t)?.kind, W(t)?.m, W(t)?.v], ['log', 'water', ml], t);
+  for (const t of ["how's my water looking", 'how is my water doing']) assert.deepEqual([W(t)?.kind, W(t)?.m], ['ask', 'water'], t);
+  for (const t of ['I had half a litre of wine', 'a pint of lager', 'log a pint of milk']) assert.notEqual(W(t)?.m, 'water', `"${t}" is not water`);
+  assert.equal(AM.mlWords(500), '500 ml');
+  assert.equal(AM.mlWords(1500), '1.5 litres');
 });

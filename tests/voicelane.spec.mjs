@@ -144,6 +144,11 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   r = await say(page, 'log a pint', /water|pint|glass|ml/i, `[${W}] [meanings] a pint is water`);
   check(r.mine.includes('log a pint'), `[${W}] [meanings] the chat shows what he said, not the table's words: "${r.mine}"`);
   check(!toBrain('log a pint') && !toBrain('I drank'), `[${W}] [meanings] "log a pint" went to the model`);
+  // [voice.u3] amounts understood exactly: half a litre is 500 ml, a pint and a half 852 ml, a quarter of an hour fifteen minutes
+  r = await say(page, 'log half a litre', /^500 ml kept\./, `[${W}] [amounts] half a litre`);
+  r = await say(page, 'I drank a pint and a half', /^852 ml kept\./, `[${W}] [amounts] a pint and a half`);
+  r = await say(page, 'give us a shout in a quarter of an hour', /15 minutes|15:00/, `[${W}] [amounts] a quarter of an hour`);
+  check(r.mine.includes('give us a shout in a quarter of an hour'), `[${W}] [amounts] the chat shows his words: "${r.mine}"`);
   r = await say(page, 'play something', /^Music, or a game\?$/, `[${W}] [meanings] two meanings ask`);
   check(JSON.stringify(r.keys) === '["MUSIC","A GAME"]', `[${W}] [meanings] the keys: ${JSON.stringify(r.keys)}`);
   for (const s of await small(page)) check(false, `[${W}] [meanings] a key under 44 pt: ${s}`);
