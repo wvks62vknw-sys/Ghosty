@@ -145,6 +145,10 @@ const NOT_INWARD = /^\d(?:GB|TB)$/;
 const IN_BUILDING = /\b(floor|room|level|unit|flat|suite|lift|gate|platform|bay)\s*$/i;
 /** A street word in the line before the postcode: that line is the street. */
 const STREET_WORD = /\b(road|rd|street|st|lane|ln|avenue|ave|close|drive|dr|way|place|crescent|grove|gardens|terrace|court|square|hill|row|walk|mews|parade|park)\b/i;
+/** (lens.u14) A street abroad: the street words of France, Germany, Spain, Italy, Portugal and the Low Countries. */
+const STREET_ABROAD = /(?:^|[\s,])(rue|avenue|boulevard|bd|place|chemin|allée|impasse|quai|straße|strasse|str\.|gasse|weg|platz|allee|calle|avenida|plaza|paseo|carrer|via|viale|piazza|corso|largo|rua|praça|avenida|travessa|straat|laan|plein|gracht|kade)(?=[\s,.]|$)|\p{L}(?:straße|strasse|str\.|gasse|weg|platz|allee|straat|laan|plein|gracht)(?=[\s,.\d]|$)/iu;
+/** A postcode abroad and its town: "75001 Paris", "10115 Berlin", "28013 Madrid", "00184 Roma", "1012 AB Amsterdam", "1100-148 Lisboa". */
+const POSTCODE_ABROAD = /\b(\d{5}|\d{4}\s?[A-Z]{2}|\d{4}-\d{3})\s+(\p{Lu}[\p{L}'’-]+(?:[ -]\p{Lu}?[\p{L}'’-]+){0,2})/u;
 
 /** A phone number as a dialler takes it: +44 or 0 and the digits, nothing else. */
 export function telOf(words: string): string | null {
@@ -194,6 +198,22 @@ export function textActs(text: string, today: string): TextAct[] {
       const pc = `${m[1]!.toUpperCase()} ${m[2]!.toUpperCase()}`;
       const said = `${before}${line.trim()}`;
       add({ kind: 'address', text: said.slice(0, 120), value: said.replace(m[0], pc).replace(/[ \u00a0]+/g, ' ').slice(0, 120) }, pos + (m.index ?? 0), m[0].length);
+    }
+    pos += line.length + 1;
+  }
+  // (lens.u14) an address abroad: a street line (a street word and a number) and the postcode-and-town line under it, or both on one
+  pos = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const m = POSTCODE_ABROAD.exec(line);
+    if (m) {
+      const prev = i > 0 ? lines[i - 1]!.trim() : '';
+      const sameLine = STREET_ABROAD.test(line.slice(0, m.index)) && /\d/.test(line.slice(0, m.index));
+      const above = !sameLine && prev.length <= 60 && STREET_ABROAD.test(prev) && /\d/.test(prev) && !telOf(prev);
+      if (sameLine || above) {
+        const said = `${above ? `${prev}, ` : ''}${line.trim()}`.replace(/[ \u00a0]+/g, ' ').slice(0, 120);
+        add({ kind: 'address', text: said, value: said }, pos + (m.index ?? 0), m[0].length);
+      }
     }
     pos += line.length + 1;
   }

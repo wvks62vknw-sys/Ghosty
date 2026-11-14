@@ -695,3 +695,14 @@ test('(the sweep) print he can use: a parcel number, imperial and US measures, p
   assert.deepEqual(F.pricesIn('Menu €14,50\nVin 6.50 €\nUS$20 or 120 SEK, CHF 12.90, 1.234,50 € and £5').map((p) => `${p.amount} ${p.cur}`), ['14.5 eur', '6.5 eur', '20 usd', '120 sek', '12.9 chf', '1234.5 eur'], 'pounds are his own: never converted');
   assert.deepEqual(F.textActs('TOTAL 4.30\nVISA', '2026-11-14'), [], 'a till total with no currency is no price to convert');
 });
+
+test('(lens.u14) an address abroad goes on the map like a UK one: a street line and its postcode and town', () => {
+  const addr = (t) => F.textActs(t, '2026-11-14').filter((a) => a.kind === 'address').map((a) => a.value);
+  assert.deepEqual(addr('Café Lumière\n12 rue de Rivoli\n75001 Paris'), ['12 rue de Rivoli, 75001 Paris']);
+  assert.deepEqual(addr('Hauptstraße 5\n10115 Berlin'), ['Hauptstraße 5, 10115 Berlin']);
+  assert.deepEqual(addr('Calle Mayor 10, 28013 Madrid'), ['Calle Mayor 10, 28013 Madrid']);
+  assert.deepEqual(addr('Via del Corso 120\n00186 Roma'), ['Via del Corso 120, 00186 Roma']);
+  assert.deepEqual(addr('Prinsengracht 263\n1016 GV Amsterdam'), ['Prinsengracht 263, 1016 GV Amsterdam']);
+  assert.deepEqual(addr('Friday 4 December 2026\nDoors at 7'), [], 'a year and a word is no address');
+  assert.deepEqual(addr('12 High Street\nBirmingham B1 1AA'), ['12 High Street, Birmingham B1 1AA'], 'a UK address reads as before');
+});
