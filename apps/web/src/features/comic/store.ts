@@ -21,6 +21,18 @@ export interface Book {
   thumb?: string;
   /** panel boxes found on each page (fractions), for the guided view */
   panels?: Record<number, [number, number, number, number][]>;
+  /** what the comic's own ComicInfo.xml says about it (series, issue, who made it, the year, its summary) */
+  info?: ComicInfo;
+}
+export interface ComicInfo {
+  series?: string;
+  number?: string;
+  writer?: string;
+  artist?: string;
+  year?: string;
+  summary?: string;
+  /** a manga, read right to left */
+  rtl?: boolean;
 }
 export interface Place {
   page: number;
