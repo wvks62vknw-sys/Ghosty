@@ -9,6 +9,12 @@
  * (a download) and SHARE. With no brain every job says plainly that it needs the brain. No face
  * recognition and no face editing: nothing here looks for or changes a face.
  *
+ * When the free online tools are asleep, over their free limit or out of reach, BACKGROUND is not left stuck: CUT IT OUT ON THIS
+ * PHONE runs the photo editor's own cut-out (the cut-out model, else the first cut from depth) where its pack is already kept, and
+ * shows the result the same way; nothing leaves the phone for it. With neither kept it says which download would do it and its
+ * size, and opens the photo editor's BRAIN tray, where GET fetches it on his tap, on Wi-Fi; nothing is downloaded from here.
+ * SHARPER and ERASE say plainly that they wait for the free online tools.
+ *
  * State for specs at window.__ghosty.photo.
  */
 import { headers } from '../../api/brain';
@@ -19,6 +25,9 @@ import { drawScaled, loadImageFile, toJpegBlob } from '../../vision/camera';
 import { readLines } from '../studio/catalog';
 import { PHOTO_JOB_WORDS, PHOTO_JOBS, photoJobOf, type PhotoJob } from '../../../../../packages/shared/src/photo';
 import { sayError } from '../../ui/hisWords';
+import { packHere, packSize } from '../../photo/packget';
+import { cutSubject, sizeIn, SUBJECT_BYTES, subjectState } from '../../photo/subject';
+import type { Alpha } from '../../photo/alpha';
 
 /** The longest side sent to the brain: small enough for a free CPU Space, and ×2 still fits the picture store. */
 export const PHOTO_MAX_SIDE = 1024;
@@ -51,9 +60,19 @@ export interface PhotoState {
   code: string;
   offline: boolean;
   saved: string;
+  /**
+   * When BACKGROUND could not be done online (asleep, busy, over the limit, no brain): the cut-out on this phone instead. '' none;
+   * 'offered' its key is there; 'working'; 'model' or 'depth' what made the result; 'needs-pack' a download first, said with its size
+   * (never started here); 'failed'. And 'wait' for SHARPER and ERASE, which only the free online tools do.
+   */
+  fallback: PhotoFallback;
+  /** The line said with it. */
+  fallbackWords: string;
 }
 
-export const photoState: PhotoState = { open: false, job: 'background', phase: 'idle', status: '', steps: [], slider: 50, strokes: 0, mask: null, size: null, result: '', by: '', code: '', offline: false, saved: '' };
+export type PhotoFallback = '' | 'offered' | 'working' | 'model' | 'depth' | 'needs-pack' | 'failed' | 'wait';
+
+export const photoState: PhotoState = { open: false, job: 'background', phase: 'idle', status: '', steps: [], slider: 50, strokes: 0, mask: null, size: null, result: '', by: '', code: '', offline: false, saved: '', fallback: '', fallbackWords: '' };
 
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
@@ -76,6 +95,35 @@ const ownPicture = (s: unknown): string => {
   return m ? `/i/${m[1]}` : '';
 };
 
+/**
+ * The photo with the cut as its opacity, a PNG at the photo's own size: the alpha (smaller than the picture) is brought up to it by
+ * the canvas's smooth scaling, and only the photo's own pixels are kept, as solid as the cut says.
+ */
+async function cutOutPng(src: HTMLCanvasElement, a: Alpha): Promise<Blob> {
+  const m = document.createElement('canvas');
+  m.width = a.w;
+  m.height = a.h;
+  const mg = m.getContext('2d')!;
+  const px = mg.createImageData(a.w, a.h);
+  for (let i = 0; i < a.w * a.h; i++) px.data[i * 4 + 3] = a.data[i] ?? 0;
+  mg.putImageData(px, 0, 0);
+  const c = document.createElement('canvas');
+  c.width = src.width;
+  c.height = src.height;
+  const g = c.getContext('2d')!;
+  g.drawImage(src, 0, 0);
+  g.globalCompositeOperation = 'destination-in';
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(m, 0, 0, c.width, c.height);
+  g.globalCompositeOperation = 'source-over';
+  const b = await new Promise<Blob | null>((ok) => c.toBlob(ok, 'image/png'));
+  if (!b) throw new Error('the cut-out picture could not be made');
+  return b;
+}
+
+const cap = (w: string): string => w.charAt(0).toUpperCase() + w.slice(1);
+
 async function canvasFrom(url: string): Promise<HTMLCanvasElement> {
   const r = await fetch(url, { credentials: 'same-origin' });
   if (!r.ok) throw new Error(r.status === 404 ? 'that picture is no longer kept' : `the picture could not be loaded (${r.status})`);
@@ -88,7 +136,7 @@ let current: { close(): void } | null = null;
 export function openPhotoTools(o: PhotoOpen = {}): void {
   current?.close();
   const S = photoState;
-  Object.assign(S, { open: true, job: photoJobOf(String(o.job ?? '')) ?? 'background', phase: 'idle', status: '', steps: [], slider: 50, strokes: 0, mask: null, size: null, result: '', by: '', code: '', saved: '' });
+  Object.assign(S, { open: true, job: photoJobOf(String(o.job ?? '')) ?? 'background', phase: 'idle', status: '', steps: [], slider: 50, strokes: 0, mask: null, size: null, result: '', by: '', code: '', saved: '', fallback: '', fallbackWords: '' });
   expose();
 
   /** The photo as sent (at most PHOTO_MAX_SIDE), and the strokes over it in its own pixels. */
@@ -96,6 +144,8 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
   let strokes: { r: number; pts: { x: number; y: number }[] }[] = [];
   let brush = 0.035;
   let resultBlob: Blob | null = null;
+  /** A result made on this phone has no /i/<id>: its file name takes this instead. */
+  let localId = '';
   let busy = false;
   /** CSS pixels per photo pixel. */
   let k = 1;
@@ -132,6 +182,14 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
   editBtn.setAttribute('aria-label', 'Edit this picture in the photo editor');
   const done = h('div.row.wrap.ptdone', saveBtn, shareBtn, editBtn);
   done.hidden = true;
+  // BACKGROUND not done online: the cut-out on this phone, or the download it needs (said, never started here)
+  const fbLine = h('div.note.ptfbline', { role: 'status', 'aria-live': 'polite' });
+  const cutBtn = button('CUT IT OUT ON THIS PHONE', () => void cutHere(), 'on');
+  cutBtn.setAttribute('aria-label', 'Cut the background out on this phone. Nothing leaves it');
+  const toEditorBtn = button('OPEN THE PHOTO EDITOR', () => toEditor());
+  toEditorBtn.setAttribute('aria-label', 'Open the photo editor on its BRAIN tray, where the cut-out model is offered');
+  const fallback = h('div.ptfallback', fbLine, h('div.row.wrap.ptfbkeys', cutBtn, toEditorBtn));
+  fallback.hidden = true;
   const picker = h('input', { type: 'file', accept: 'image/*', hidden: true, 'aria-label': 'Pick a photo' });
   const pickBtn = button('PICK A PHOTO', () => picker.click());
 
@@ -141,6 +199,31 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
     S.status = text;
     status.textContent = text;
     status.classList.toggle('bad', bad);
+  };
+
+  const paintFallback = () => {
+    const f = S.fallback;
+    fallback.hidden = !f || f === 'model' || f === 'depth';
+    fallback.dataset.fallback = f;
+    /* state: lens.photo error */
+    if (S.phase === 'failed' || f === 'failed' || f === 'wait') fallback.dataset.state = 'error';
+    else delete fallback.dataset.state;
+    fbLine.textContent = S.fallbackWords;
+    fbLine.classList.toggle('bad', f === 'failed' || f === 'wait');
+    cutBtn.hidden = !(f === 'offered' || f === 'working' || f === 'failed');
+    cutBtn.disabled = busy || !work;
+    toEditorBtn.hidden = f !== 'needs-pack';
+  };
+  const sayFallback = (f: PhotoFallback, words = '') => {
+    S.fallback = f;
+    S.fallbackWords = words;
+    paintFallback();
+  };
+  /** After a job the free online tools did not do: BACKGROUND offers the cut-out on this phone; SHARPER and ERASE say they wait. */
+  const afterFail = (code: string) => {
+    if (S.job === 'background') return sayFallback('offered', 'I can cut it out on this phone instead: nothing leaves it.');
+    if (['asleep', 'busy', 'limit'].includes(code)) return sayFallback('wait', 'SHARPER and ERASE must wait: only the free online tools do those two, and they are asleep or over their free limit right now. Try again in a minute.');
+    if (code === 'failed') return sayFallback('wait', 'SHARPER and ERASE must wait: only the free online tools do those two, and they did not do it just now. Try again in a minute.');
   };
 
   // ---- the stage: the photo, the result over it up to the slider, and the ink for ERASE
@@ -295,6 +378,10 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
     ink.classList.toggle('on', S.job === 'erase' && S.phase !== 'done');
     empty.hidden = !!work;
     stage.hidden = !work;
+    // with no brain, BACKGROUND can still be cut out on this phone
+    if (S.offline && S.job === 'background' && work && S.phase === 'idle' && !S.fallback) sayFallback('offered', 'With no brain I can still cut it out on this phone: nothing leaves it.');
+    else if (!S.offline && S.phase === 'idle' && S.fallback === 'offered') sayFallback('');
+    else paintFallback();
   };
   for (const j of PHOTO_JOBS) {
     const b = button(PHOTO_JOB_WORDS[j].chip, () => {
@@ -315,37 +402,65 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
     S.by = '';
     S.code = '';
     resultBlob = null;
+    localId = '';
     after.hidden = true;
     divider.hidden = true;
     sliderRow.hidden = true;
     done.hidden = true;
     credit.textContent = '';
     link.textContent = '';
+    link.hidden = false;
+    editBtn.hidden = false;
     setStatus('');
+    sayFallback('');
   };
 
-  const showResult = async (url: string, by: string, words: string) => {
-    const r = await fetch(url, { credentials: 'same-origin' });
-    if (!r.ok) throw new Error(`the result could not be loaded (${r.status})`);
-    resultBlob = await r.blob();
+  /** BEFORE and AFTER with the slider, SAVE TO PHOTOS and SHARE, for a result from the brain or from this phone. */
+  const showBlob = (blob: Blob, words: string) => {
+    resultBlob = blob;
     if (after.src.startsWith('blob:')) URL.revokeObjectURL(after.src);
-    after.src = URL.createObjectURL(resultBlob);
+    after.src = URL.createObjectURL(blob);
     after.hidden = false;
     divider.hidden = false;
     sliderRow.hidden = false;
     done.hidden = false;
     S.phase = 'done';
-    S.result = url;
-    S.by = by;
     S.slider = 50;
     slider.value = '50';
     paintSlider();
-    credit.textContent = by ? `Made by ${by}, free on Hugging Face. Kept for 10 years at:` : 'Kept for 10 years at:';
-    link.href = url;
-    link.textContent = new URL(url, location.href).href;
     setStatus(words);
     paintInk();
     paintJob();
+  };
+
+  const showResult = async (url: string, by: string, words: string) => {
+    const r = await fetch(url, { credentials: 'same-origin' });
+    if (!r.ok) throw new Error(`the result could not be loaded (${r.status})`);
+    const blob = await r.blob();
+    S.result = url;
+    S.by = by;
+    localId = '';
+    credit.textContent = by ? `Made by ${by}, free on Hugging Face. Kept for 10 years at:` : 'Kept for 10 years at:';
+    link.href = url;
+    link.textContent = new URL(url, location.href).href;
+    link.hidden = false;
+    editBtn.hidden = false;
+    showBlob(blob, words);
+  };
+
+  /** A cut made on this phone: no /i/<id> and no "kept for 10 years", and it says which cut it was. */
+  const showLocal = (blob: Blob, from: 'model' | 'depth', lead = '') => {
+    S.result = '';
+    S.by = '';
+    localId = Date.now().toString(36).slice(-8);
+    credit.textContent = 'Cut out on this phone: nothing left it.';
+    link.textContent = '';
+    link.removeAttribute('href');
+    link.hidden = true;
+    editBtn.hidden = true;
+    S.fallback = from;
+    S.fallbackWords = from === 'model' ? 'From the cut-out model.' : 'A first cut from depth: check the edges.';
+    showBlob(blob, `${lead}Done on this phone: the background is gone. ${S.fallbackWords} Slide to compare.`);
   };
 
   const setPhoto = (c: HTMLCanvasElement) => {
@@ -380,6 +495,7 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
     S.phase = 'working';
     S.code = '';
     S.steps = [];
+    sayFallback('');
     paintJob();
     setStatus('Sending the photo to the brain…');
     try {
@@ -416,6 +532,7 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
         S.phase = 'failed';
         S.code = f.code;
         setStatus(`Not done: ${f.error.replace(/\.$/, '')}.`, true);
+        afterFail(f.code);
         return;
       }
       await showResult(g.url, g.by, S.job === 'background' ? 'Done: the background is gone. Slide to compare.' : S.job === 'sharper' ? 'Done: twice the size and sharper. Slide to compare.' : 'Done: erased. Slide to compare.');
@@ -423,13 +540,76 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
       S.phase = 'failed';
       S.code = 'failed';
       setStatus(sayError(e, 'finish that'), true);
+      afterFail('failed');
     } finally {
       busy = false;
       paintJob();
     }
   }
 
-  const fileName = () => `ghosty-${S.job}-${S.result.slice(3, 11)}.${(resultBlob?.type.split('/')[1] ?? 'png').replace('jpeg', 'jpg')}`;
+  // ---- BACKGROUND on this phone: the photo editor's own cut-out, where its pack is already kept (never a download from here)
+  async function cutHere(): Promise<void> {
+    if (busy || !work || S.job !== 'background') return;
+    const src = work;
+    const was = S.phase;
+    busy = true;
+    S.phase = 'working';
+    sayFallback('working', 'Looking for what is kept on this phone…');
+    paintJob();
+    const tell = (w: string) => {
+      S.fallbackWords = w;
+      fbLine.textContent = w;
+    };
+    try {
+      const [here, st] = await Promise.all([packHere('cutout'), subjectState()]);
+      let why = '';
+      if (here) {
+        try {
+          const { cutWithModel } = await import('../../photo/matting');
+          const { alpha } = await cutWithModel(src, (w) => tell(cap(w)));
+          // (another photo picked meanwhile: this cut is not for it)
+          if (work === src) showLocal(await cutOutPng(src, alpha), 'model');
+          return;
+        } catch (e) {
+          // never a silent fallback: its line, and the first cut used instead where that is kept
+          why = sayError(e, 'run the cut-out model');
+        }
+      }
+      if (!st.ready) {
+        S.phase = was;
+        if (why) sayFallback('failed', `${why} Nothing left the phone.`);
+        else
+          sayFallback(
+            'needs-pack',
+            `To cut it out on this phone I need the cut-out model kept here (${packSize('cutout')}). It comes only when you tap GET, on Wi-Fi, in the photo editor’s BRAIN tray: nothing is downloaded until then. (A first cut from depth needs MEASURE’S DISTANCE and THE LENS’S EYES instead, ${sizeIn(SUBJECT_BYTES)} together, from Settings.)`,
+          );
+        return;
+      }
+      const { alpha } = await cutSubject(src, (w) => tell(w));
+      if (work !== src) return;
+      showLocal(await cutOutPng(src, alpha), 'depth', why ? `The cut-out model would not run (${why.replace(/\.$/, '')}), so I used the first cut. ` : '');
+    } catch (e) {
+      S.phase = was;
+      sayFallback('failed', `${sayError(e, 'cut it out on this phone')} Nothing left the phone.`);
+    } finally {
+      busy = false;
+      paintJob();
+    }
+  }
+
+  /** The photo editor on its BRAIN tray, where the cut-out model is offered (GET, on his tap, on Wi-Fi). */
+  const toEditor = () => {
+    const still = work;
+    current?.close();
+    void (async () => {
+      const [{ openPhotoEditor }, { peState }] = await Promise.all([import('../photo'), import('../photo/editor')]);
+      // already in the editor (its BRAIN key opened this sheet): its BRAIN tray, without the photo kept a second time
+      if (ui.get().tab === 'photo' && peState.open) (await import('../../shell/tabs')).go('photo?brain');
+      else await openPhotoEditor({ still, tool: 'brain' });
+    })();
+  };
+
+  const fileName = () => `ghosty-${S.job}-${S.result ? S.result.slice(3, 11) : localId}.${(resultBlob?.type.split('/')[1] ?? 'png').replace('jpeg', 'jpg')}`;
   async function save(): Promise<void> {
     if (!resultBlob) return;
     const a = h('a', { href: URL.createObjectURL(resultBlob), download: fileName() });
@@ -442,10 +622,12 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
   }
   async function share(): Promise<void> {
     if (!resultBlob) return;
-    const url = new URL(S.result, location.href).href;
+    // a cut made on this phone has no link: the picture itself, or SAVE TO PHOTOS
+    const url = S.result ? new URL(S.result, location.href).href : '';
     const file = new File([resultBlob], fileName(), { type: resultBlob.type });
     try {
       if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'Photo from Ghosty' });
+      else if (!url) toast('This phone cannot share the picture from here: SAVE TO PHOTOS keeps it.', 'warn');
       else if (navigator.share) await navigator.share({ url, title: 'Photo from Ghosty' });
       else {
         await navigator.clipboard.writeText(url);
@@ -465,6 +647,7 @@ export function openPhotoTools(o: PhotoOpen = {}): void {
     eraseTools,
     h('div.row.wrap', runBtn, pickBtn, picker),
     status,
+    fallback,
     done,
     credit,
     link,

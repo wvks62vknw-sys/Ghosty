@@ -656,6 +656,11 @@ html body .wall .wallacts button { min-height: var(--g-target) !important; }
 .rain .rainslider { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); accent-color: var(--g-accent); }
 .rain .rainwhen { flex: none; font: var(--g-t-caption); color: var(--g-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 html body .rain .raincontrols button { flex: none; min-height: var(--g-target) !important; }
+/* THE WORLD in the Brief (see.c2): the camera nearest home as a fresh picture */
+html body .brworld .brcam { position: relative; display: block; width: 100%; min-height: var(--g-target) !important; aspect-ratio: 16 / 9; padding: 0; margin-top: var(--g-s-half); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-plate-fill); text-align: left; text-transform: none; }
+.brworld .brcam img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.brworld .brcam.dead img { visibility: hidden; }
+.brworld .brcam span { position: absolute; left: 0; right: 0; bottom: 0; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); overflow-wrap: anywhere; }
 .jstale { margin: var(--g-s-half) 0; padding: var(--g-s-half) var(--g-s-1); border-radius: var(--g-radius-key); color: var(--g-amber, var(--amber)); background: var(--g-plate-fill); overflow-wrap: anywhere; }
 
 /* Training ground */
@@ -4632,6 +4637,10 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 .ptstatus.bad, .ptwho.bad { color: var(--a); }
 .ptlink { word-break: break-all; font: 400 12px var(--m); }
 .ptprivacy { font-size: 12px; }
+/* BACKGROUND not done online: CUT IT OUT ON THIS PHONE, or the download it needs (said, never started from here) */
+.ptfallback { display: grid; gap: 8px; }
+.ptfbline.bad { color: var(--a); }
+html .modal .ptfallback button { min-height: var(--g-target) !important; height: auto; white-space: normal; }
 
 /* the DRAFT card (features/workshop/draftcard.ts): a website as a phone and a laptop, CHANGE in words */
 .draftcard { display: grid; gap: 12px; margin-top: 12px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); }
@@ -8678,6 +8687,45 @@ html .lenscard .lc-answer { font-weight: 700; }
 html .lenscard .lc-body { display: flex; flex-direction: column; gap: var(--g-s-half); }
 html .lenscard .lc-small { margin: 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); overflow-wrap: anywhere; }
 html .lenscard .lc-warn { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-amber); overflow-wrap: anywhere; }
+/* NEXT ROUND (lens.u7): a packet against what he avoids, one line in red, amber or green; the list he ticks, each a 44 pt row */
+html .lenscard .lc-verdict { margin: var(--g-s-half) 0 0; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); border-left: var(--g-stroke) solid var(--g-ok); overflow-wrap: anywhere; }
+html .lenscard .lc-verdict[data-tone="red"] { border-left-color: var(--g-red); }
+html .lenscard .lc-verdict[data-tone="amber"] { border-left-color: var(--g-amber); }
+html .lenscard .lc-verdict b { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ok); }
+html .lenscard .lc-verdict[data-tone="red"] b { color: var(--g-red); }
+html .lenscard .lc-verdict[data-tone="amber"] b { color: var(--g-amber); }
+html .lc-avoid { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html .lc-avoid .lc-head { margin: var(--g-s-1) 0 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-accent-text); }
+html .lc-avoid .lc-small { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html .lc-ticks { display: flex; flex-wrap: wrap; gap: var(--g-s-half) var(--g-s-2); }
+html .lc-tick { display: inline-flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target); min-width: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); cursor: pointer; }
+html .lc-tick input { width: 22px; height: 22px; margin: 0; accent-color: var(--g-accent); }
+html .lc-avoid .lc-keys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); margin-top: var(--g-s-1); }
+html #app .lc-avoid .lc-keys > button.g-key, html .modal .lc-avoid .lc-keys > button.g-key { min-height: var(--g-target) !important; padding: 0 var(--g-s-2); }
+/* (lens.u1) a menu line by line: in the card, each line with its English; on the picture, each line's English in its own place */
+html .lenscard .lc-pairs { margin: var(--g-s-half) 0 0; padding-left: var(--g-s-3); display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .lenscard .lc-pairs li { font: var(--g-t-body); overflow-wrap: anywhere; }
+/* the UK traffic lights on a packet's figures: the band in words, its colour a token */
+html .lenscard .lc-fig[data-band="high"] b { color: var(--g-red); }
+html .lenscard .lc-fig[data-band="medium"] b { color: var(--g-amber); }
+html .lenscard .lc-fig[data-band="low"] b { color: var(--g-ok); }
+/* (lens.u8) two packets side by side: a narrow table that wraps its names, the better figure marked */
+html .lc-compare { width: 100%; border-collapse: collapse; table-layout: fixed; font: var(--g-t-body); color: var(--g-ink-1); }
+html .lc-compare th, html .lc-compare td { padding: var(--g-s-half) var(--g-s-1); text-align: left; vertical-align: top; overflow-wrap: anywhere; border-bottom: 1px solid var(--g-line); }
+html .lc-compare thead th { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-accent-text); }
+html .lc-compare td[data-better] { color: var(--g-ok); }
+/* (lens.s3) his electricity price, by its own sheet: one 44 pt field */
+html .lc-pricerow { display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); }
+html .lc-pricerow .lc-price { min-height: var(--g-target); width: 7em; font: var(--g-t-body); }
+/* (lens.s7) a bus stop's next buses, as the timetable said them: wrapped, never sideways */
+html .lenscard .lc-buses { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .lenscard .lc-times { margin: 0; font: var(--g-t-body); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--g-ink-1); max-height: 40vh; overflow-y: auto; }
+html .lenscard .lc-pairs .lc-orig { display: block; color: var(--g-ink-3); }
+html .lenscard .lc-pairs .lc-en { display: block; color: var(--g-ink-1); }
+html .lenslines { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+html .lenslines[hidden] { display: none; }
+html .lenslines.stale { opacity: .6; }
+html .lensline { position: absolute; margin: 0; box-sizing: border-box; padding: 1px var(--g-s-half); display: flex; align-items: center; background: var(--g-plate-strong-fill); border-left: var(--g-stroke) solid var(--g-accent); color: var(--g-ink-1); font-family: var(--g-font-text); line-height: 1.15; overflow-wrap: anywhere; }
 html .lenscard .lc-keys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); margin-top: var(--g-s-1); }
 html #app .lenscard .lc-keys > :is(button.g-key, a.g-key) { display: inline-flex; align-items: center; justify-content: center; flex: 0 1 auto; max-width: 100%; height: auto !important; min-height: var(--g-target) !important; min-width: var(--g-target); box-sizing: border-box; border-radius: var(--g-radius-key) !important; padding: 0 var(--g-s-2); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key); text-transform: uppercase !important; text-decoration: none; white-space: normal; text-align: left; color: var(--g-ink-1) !important; background: var(--g-plate-fill) !important; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent) !important; }
 html #app .lenscard .lc-keys > button.g-key:disabled { color: var(--g-ink-4) !important; }
@@ -9893,11 +9941,11 @@ html .watchers .wrow .k { flex: none; min-width: 58px; }
 .mnnav.mnhead b { text-align: left; }
 .mnnav button { flex: none; min-width: 44px; min-height: 44px; }
 .mnfigs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
-.mnfig { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); }
-.mnfig .mnname { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--l2); overflow-wrap: anywhere; }
-.mnfig .mnval { font: var(--g-t-value); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.mnfig[data-tone="ok"] .mnval { color: var(--ok); }
-.mnfig[data-tone="over"] .mnval { color: var(--g-red); }
+.mnfig, .mnsfig { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); }
+.mnfig .mnname, .mnsfig .mnname { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--l2); overflow-wrap: anywhere; }
+.mnfig .mnval, .mnsfig .mnval { font: var(--g-t-value); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mnfig[data-tone="ok"] .mnval, .mnsfig[data-tone="ok"] .mnval { color: var(--ok); }
+.mnfig[data-tone="over"] .mnval, .mnsfig[data-tone="over"] .mnval { color: var(--g-red); }
 .mnhow { display: block; font: var(--g-t-caption); color: var(--l2); overflow-wrap: anywhere; }
 .mnmeter { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .mnline { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; min-width: 0; }
@@ -9909,9 +9957,10 @@ html .watchers .wrow .k { flex: none; min-width: 58px; }
 .mnmeter[data-tone="soft"] .mnbar i { background: var(--amber, var(--c)); }
 .mnmeter[data-tone="over"] .mnbar i { background: var(--g-red); }
 .mnmeter .pkrow button { flex: 0 1 auto; }
-.mnsearch, .mnamount, .mnselect { min-height: 44px; min-width: 0; box-sizing: border-box; font: var(--g-t-body); }
+.mnsearch, .mnamount, .mngoalin, .mnsplitin, .mnsplitsel, .mnselect { min-height: 44px; min-width: 0; box-sizing: border-box; font: var(--g-t-body); }
 .mnsearch { width: 100%; }
-.mnamount { flex: 1 1 120px; }
+.mnamount, .mngoalin, .mnsplitin { flex: 1 1 120px; }
+.mnsplitsel { flex: 1 1 140px; }
 .mnselect { flex: 1 1 160px; }
 .mntxn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left; border-radius: var(--g-radius-cell); background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--fg); }
 .mnwhat { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
@@ -9924,6 +9973,28 @@ html .watchers .wrow .k { flex: none; min-width: 58px; }
 .mnup { color: var(--amber, var(--fg)); }
 html body .mnapp :is(button, input, select) { min-height: var(--g-target, 44px) !important; }
 html body .mnnav button { min-width: var(--g-target, 44px) !important; }
+/* [moneynext] safe to spend, the money calendar, goals, shared bills and the year (features/money/plan.ts) */
+.mnsafe { gap: 8px; }
+.mnwarn { color: var(--amber, var(--fg)); }
+.mnmore > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font: var(--g-t-body); color: var(--fg); }
+.mncal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; min-width: 0; }
+.mncalhd { text-align: center; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--l2); }
+.mncalday { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 44px; padding: 4px 0; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); color: var(--fg); font-variant-numeric: tabular-nums; }
+.mncalday b { font: var(--g-t-reading); overflow-wrap: anywhere; }
+.mncalday i { width: 6px; height: 6px; border-radius: var(--g-radius-capsule); background: var(--c); }
+.mncalday[data-heavy="1"] { border-color: var(--g-red); }
+.mncalday[data-heavy="1"] i { background: var(--g-red); }
+.mncalday[data-pay="1"] { background: var(--ok); color: var(--bg, var(--fg)); }
+.mncalday[data-today="1"] b { text-decoration: underline; }
+.mncalday[data-on="1"] { outline: 2px solid var(--c); outline-offset: 1px; }
+.mnowe, .mnplace { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.mndue[data-settled="1"] { opacity: .7; }
+.pkpaid .pklab { color: var(--l2); }
+@media print { .mnapp .pkrow, .mnapp .mnnav button { display: none !important; } }
+.pkreceiptimg { display: block; max-width: 100%; max-height: 260px; object-fit: contain; border-radius: var(--g-radius-cell); border: 1px solid var(--line); }
+.pkwarr[data-soon="1"] > b { color: var(--amber, var(--fg)); }
+.pkform { gap: 8px; padding: 8px 0; }
+.pkform :is(input, select) { min-height: 44px; min-width: 0; flex: 1 1 140px; box-sizing: border-box; font: var(--g-t-body); }
 /* [moneylane] the to-do list in a good to-do app's order (features/work/sheet.ts): the group heads, a late job in the warning colour */
 .pkitems .pktodohead { list-style: none; margin: 10px 0 2px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--l2); overflow-wrap: anywhere; }
 .pkitems .pkitem.late label { color: var(--amber, var(--fg)); }
@@ -9975,6 +10046,17 @@ html .recallidx .recallindex, html .recallfind .note { flex: 1 1 12em; min-width
 html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
 /* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
 html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
+
+/* [boot] THE OPENING in Settings → Voice & home (features/settings/opening.ts): three keys for its length, his own line, how the last one ran */
+.openlen > button { min-height: var(--g-target); min-width: var(--g-target); flex: 1 1 0; }
+textarea.openown { width: 100%; box-sizing: border-box; }
+.openguestrow > .note { flex: 1 1 auto; min-width: 0; }
+.openguestrow > button { min-height: var(--g-target); }
+/* [boot] THE DIRECTOR'S MODE (shell/boot.ts director): the shot's name and three keys, over the boot's layer, at the foot of the screen */
+#bdirector { position: fixed; left: var(--g-gutter, 16px); right: var(--g-gutter, 16px); bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 10001; display: flex; flex-direction: column; gap: 8px; }
+#bdirector .bdline { margin: 0; text-align: center; }
+#bdirector .bdkeys { display: flex; gap: 8px; }
+#bdirector .bdkeys > button { flex: 1 1 0; min-height: var(--g-target); }
 /* LEARN · TODAY (learn.u2): the lesson his misses point at, said in one line, with its two keys */
 html .learntoday { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; padding: 12px 14px; border-radius: var(--g-radius-cell); background: var(--thin); box-shadow: inset 0 0 0 1px var(--hair); }
 html .learntoday .lab { color: var(--mute); letter-spacing: .08em; }
@@ -10096,6 +10178,15 @@ html .rpsheet .rpitem[aria-checked="true"] .setknob::after { transform: translat
 #pg-security .secpwrow input { flex: 1 1 auto; min-width: 0; min-height: max(44px, var(--g-target)); }
 #pg-security .secpwrow button { min-height: max(44px, var(--g-target)); min-width: max(44px, var(--g-target)); }
 #pg-security .secpwnedsaid:empty { display: none; }
+#pg-security .seclinksaid { white-space: pre-line; overflow-wrap: anywhere; }
+#pg-security .seclinksaid:empty { display: none; }
+/* the training chart, week by week (features/system/trainhistory.ts) */
+html .trainhist .throw .thv { display: flex; align-items: center; gap: var(--g-s-1); flex-wrap: wrap; min-width: 0; }
+html .trainhist .throw .thv svg.spark { flex: none; width: 120px; height: 22px; }
+html .trainhist .throw .thv small { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
+/* USED RECENTLY (features/settings/permissions.ts): each use, its screen and when */
+html .permused .permuse1 { display: flex; flex-wrap: wrap; gap: 0 var(--g-s-half); padding: var(--g-s-half) 0; border-bottom: var(--g-hair) solid var(--g-line-faint); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .permused .permuse1 span { color: var(--g-ink-2); }
 html body .mndue .mnasked { display: flex; align-items: center; min-height: var(--g-target); width: 100%; padding: 0; border: 0; background: none; color: var(--g-accent); font: var(--g-t-caption); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
 /* [recall] memory.c1: FROM WHAT YOU SAID in a document: each line he said, with PUT IT IN at 44 pt; wraps at BODY 21 */
 html .dcminebox .dcmineout { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }

@@ -116,7 +116,7 @@ const look = open('look', 'look', 'Here are my colours and looks: say one, like 
 const agenda = open('agenda', 'agenda', 'Opening your agenda.');
 const money = open('money', 'money', 'Opening your money.');
 const library = open('library', 'library', 'Opening the library.');
-const learn = open('learn', 'learn', 'Opening Learn.');
+const learn = open('learn', 'learn', 'Opening Courses.');
 const radioScreen = open('radio screen', 'radio', 'Opening the radio.');
 const weather: Meant = { id: 'weather', brain: "what's the weather" };
 const news: Meant = { id: 'news', brain: "what's in the news today" };
@@ -222,7 +222,7 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'core', label: 'Home', place: true, names: ['home', 'home screen', 'chat', 'the chat', 'conversation', 'main screen', 'start screen'] },
   { tab: 'eye', label: 'God’s Eye', names: ['god’s eye', "god's eye", 'gods eye', 'the eye', 'globe', 'world view', 'live map', 'flight tracker', 'planes', 'ships'], bare: ["god's eye", 'gods eye'] },
   { tab: 'lens', label: 'the Lens', names: ['lens', 'camera lens', 'scanner', 'visual search'] },
-  { tab: 'interpreter', label: 'the Interpreter', names: ['interpreter', 'translator', 'translation', 'live translation', 'translate app'], bare: ['interpreter', 'translator'] },
+  { tab: 'interpreter', label: 'Interpret', names: ['interpret', 'interpreter', 'translator', 'translation', 'live translation', 'translate app'], bare: ['interpreter', 'translator'] },
   { tab: 'lab', label: 'the Lab', place: true, names: ['lab', 'laboratory', 'science lab', 'experiments'] },
   { tab: 'rehearse', label: 'Rehearse', names: ['rehearse', 'rehearsal', 'practice a speech', 'speech practice', 'presentation practice'] },
   { tab: 'brief', label: 'the Brief', names: ['brief', 'briefing', 'morning brief', 'daily brief', 'my day', 'daily summary'], bare: ['morning brief', 'daily brief', 'my briefing'] },
@@ -234,7 +234,7 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'library', label: 'the library', place: true, names: ['library', 'books', 'my books', 'bookshelf', 'reading list', 'ebooks'] },
   { tab: 'reader', label: 'the reader', place: true, names: ['reader', 'book reader', 'e-reader', 'ereader', 'kindle', 'the book i was reading'] },
   { tab: 'workshop', label: 'the Workshop', names: ['workshop', 'upgrades', 'what you are building', "what's new", 'whats new', 'changes'] },
-  { tab: 'learn', label: 'Learn', names: ['learn', 'courses', 'lessons', 'learning hub', 'study'] },
+  { tab: 'learn', label: 'Courses', names: ['learn', 'courses', 'lessons', 'learning hub', 'study'] },
   { tab: 'gym', label: 'the gym', place: true, names: ['gym', 'chess', 'board games', 'brain gym', 'puzzles'] },
   { tab: 'school', label: 'School', place: true, names: ['school', 'exams', 'papers', 'your school', 'your grades'] },
   { tab: 'studio', label: 'the 3D studio', names: ['3d studio', '3-d studio', 'three d studio', '3d', 'modelling', 'modeling', '3d models', 'design studio'], bare: ['3d studio'] },
@@ -265,7 +265,7 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'workspace', label: 'the Workspace', names: ['workspace', 'notion', 'wiki', 'pages', 'my pages', 'notebook'] },
   { tab: 'photo', label: 'Photo', names: ['photo editor', 'photos', 'pictures', 'camera roll', 'gallery', 'my photos'], bare: ['photo editor'] },
   { tab: 'video', label: 'Video', names: ['video editor', 'videos', 'my videos', 'clips', 'films'], bare: ['video editor'] },
-  { tab: 'gamestudio', label: 'the Game Studio', names: ['game studio', 'game maker', 'game builder', 'make games', 'my game projects'], bare: ['game studio', 'game maker'] },
+  { tab: 'gamestudio', label: 'Game Studio', names: ['game studio', 'game maker', 'game builder', 'make games', 'my game projects'], bare: ['game studio', 'game maker'] },
   { tab: 'comic', label: 'the comic', names: ['comic', 'comics', 'comic book', 'comic maker', 'graphic novels', 'manga'] },
   { tab: 'house', label: 'the house', place: true, names: ['house', 'smart home', 'home controls', 'lights and heating', 'heating', 'thermostat', 'my house'] },
 ];
@@ -292,6 +292,46 @@ export function screenOf(text: string): (typeof SCREENS)[number] | null {
   }
   return null;
 }
+
+// ---------------------------------------------------------------- the same asks in other languages he speaks (NEXT ROUND, voice.u10)
+
+/**
+ * Everyday asks in Spanish, French, and Urdu or Hindi as people type them in English letters, reaching the same abilities as the
+ * English. Read after the English rows (they are more particular), each to the same meaning.
+ */
+const OTHER_TONGUES: Row[] = [
+  // the radio and music
+  R(/^(?:pon|ponme|ponga|toca|reproduce) (?:algo de |un poco de |la )?(?:musica|música|radio|canciones|una cancion|una canción)$|^(?:mets|joue|lance) (?:de la |la |une )?(?:musique|radio|chanson)$|^(?:music|gaana|gaane|gana|radio|geet) (?:chalao|lagao|bajao|chala do|laga do|baja do|sunao|chalaiye|lagaiye)$|^(?:kuch )?(?:music|gaana|gaane) sunao$/, radio),
+  R(/^(?:para|apaga|quita) (?:la )?(?:musica|música|radio)$|^(?:arrête|éteins|coupe) (?:la )?(?:musique|radio)$|^(?:music|gaana|radio) (?:band karo|band kar do|rok do|bandh karo)$/, radioStop),
+  // the lights
+  R(/^(?:enciende|prende|pon) (?:la |las )?(?:luz|luces)$|^(?:allume) (?:la |les )?(?:lumière|lumières|lampe)$|^(?:light|lights|batti|bijli|lite) (?:jalao|on karo|chalu karo|jala do|on kar do)$/, lightsOn),
+  R(/^(?:apaga|quita) (?:la |las )?(?:luz|luces)$|^(?:éteins) (?:la |les )?(?:lumière|lumières|lampe)$|^(?:light|lights|batti|bijli|lite) (?:bujhao|band karo|off karo|band kar do|bujha do|off kar do)$/, lightsOff),
+  // timers ("pon un temporizador de diez minutos", "minuteur de 5 minutes", "10 minute ka timer lagao")
+  R(/^(?:pon(?:me)?|ponga|crea) (?:un )?(?:temporizador|alarma|cronometro|cronómetro) (?:de|para) (\d+|un|una|dos|tres|cinco|diez|quince|veinte|treinta) (minutos?|segundos?|horas?)$/, (x) => {
+    const n = ({ un: 1, una: 1, dos: 2, tres: 3, cinco: 5, diez: 10, quince: 15, veinte: 20, treinta: 30 } as Record<string, number>)[x[1]!] ?? Number(x[1]);
+    const u = /^seg/.test(x[2]!) ? 'second' : /^hor/.test(x[2]!) ? 'hour' : 'minute';
+    return n > 0 ? { id: 'timer', say: `set a timer for ${n} ${u}${n === 1 ? '' : 's'}` } : null;
+  }),
+  R(/^(?:mets |lance )?(?:un )?minuteur (?:de |pour )?(\d+|un|une|deux|trois|cinq|dix|quinze|vingt|trente) (minutes?|secondes?|heures?)$/, (x) => {
+    const n = ({ un: 1, une: 1, deux: 2, trois: 3, cinq: 5, dix: 10, quinze: 15, vingt: 20, trente: 30 } as Record<string, number>)[x[1]!] ?? Number(x[1]);
+    const u = /^sec/.test(x[2]!) ? 'second' : /^heu/.test(x[2]!) ? 'hour' : 'minute';
+    return n > 0 ? { id: 'timer', say: `set a timer for ${n} ${u}${n === 1 ? '' : 's'}` } : null;
+  }),
+  R(/^(\d+) (minute|minat|minit|second|sekand|ghante|ghanta|hour) (?:ka |ki )?(?:timer|alarm) (?:lagao|laga do|set karo|chalao)$|^(?:timer|alarm) (?:lagao|laga do|set karo) (\d+) (minute|minat|minit|second|sekand|ghante|ghanta|hour)$/, (x) => {
+    const n = Number(x[1] ?? x[3]);
+    const w = (x[2] ?? x[4])!;
+    const u = /^se/.test(w) ? 'second' : /^gh|^ho/.test(w) ? 'hour' : 'minute';
+    return n > 0 ? { id: 'timer', say: `set a timer for ${n} ${u}${n === 1 ? '' : 's'}` } : null;
+  }),
+  // water ("me he tomado un vaso de agua", "j'ai bu un verre d'eau", "ek glass paani piya")
+  R(/^(?:me he tomado|he tomado|tomé|bebí|he bebido) (?:un )?vaso de agua$|^(?:j'ai bu|je viens de boire) (?:un )?verre d'eau$|^(?:ek |1 )?(?:glass|gilas) (?:paani|pani) (?:piya|pee liya|pi liya)$|^(?:paani|pani) (?:piya|pee liya|pi liya)$/, water),
+  // the map, the weather, the news
+  R(/^(?:abre|muestra|enséñame|ensename) el mapa$|^(?:ouvre|montre) (?:la |moi la )?carte$|^(?:naqsha|map|nakshaa?) (?:kholo|dikhao|khol do|dikha do)$/, map),
+  R(/^(?:qué tiempo hace|que tiempo hace|va a llover|cómo está el tiempo|como esta el tiempo)(?: hoy| mañana| manana)?$|^(?:quel temps fait-il|quel temps fait il|il va pleuvoir|est-ce qu'il va pleuvoir)(?: aujourd'hui| demain)?$|^(?:mausam kaisa hai|aaj mausam kaisa hai|baarish hogi|barish hogi|kya baarish hogi)(?: kya| aaj| kal)?$/, weather),
+  R(/^(?:noticias|las noticias|qué hay de nuevo|que hay de nuevo|cuáles son las noticias)(?: de hoy)?$|^(?:les )?(?:nouvelles|infos|actualités)(?: du jour)?$|^(?:aaj ki )?(?:khabar|khabrein|khabren|news) (?:sunao|batao|dikhao)$/, news),
+  // settings and the look
+  R(/^(?:abre )?(?:la )?configuración$|^(?:abre )?(?:los )?ajustes$|^(?:ouvre )?(?:les )?(?:paramètres|réglages)$|^(?:settings|setting) (?:kholo|dikhao)$/, settings),
+];
 
 /** The words that could fairly mean two things: one short question, both as keys. */
 const TWO: { re: RegExp; ask: TwoWays }[] = [
@@ -331,6 +371,13 @@ export function meaningOf(text: string): Meant | TwoWays | null {
   if (!t || t.length > 90) return null;
   for (const { re, ask } of TWO) if (re.test(t)) return ask;
   for (const r of ROWS) {
+    const x = r.re.exec(t);
+    if (!x) continue;
+    const m = typeof r.m === 'function' ? r.m(x) : r.m;
+    if (m) return m;
+  }
+  // [voice.u10] the same asks in another language he speaks
+  for (const r of OTHER_TONGUES) {
     const x = r.re.exec(t);
     if (!x) continue;
     const m = typeof r.m === 'function' ? r.m(x) : r.m;

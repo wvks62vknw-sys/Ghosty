@@ -7,7 +7,8 @@ import { brain, ownerKey } from '../../api/brain';
 import { row } from '../../ui/components';
 import { go } from '../../shell/tabs';
 import { lastBackup } from '../system/backup';
-import { locksOf, slipped, slippedLine, type Level } from './locks';
+import { approvalsDigest, locksOf, slipped, slippedLine, type ApprovalEntry, type Level } from './locks';
+import { chat } from '../../assistant/session';
 
 const TOLD = 'ghosty.security.told';
 const DOORS = 'ghosty.security.doorsRule';
@@ -33,12 +34,32 @@ const write = (t: Told): void => {
   }
 };
 
-/** The Brief's SECURITY row for today, or null (nothing slipped, or the brain can't be asked: a check that can't run is not news). */
-export async function securityRow(today: string, now = Date.now()): Promise<HTMLElement | null> {
+/** The Brief's rows from the security lane: the self-check told once, and the approvals (security.u7, security.c1). */
+export async function securityRows(today: string, now = Date.now()): Promise<HTMLElement[]> {
+  const sec = await Promise.race([brain.security().catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 4000))]);
+  const rows: HTMLElement[] = [];
+  const s = await securityRow(today, now, sec);
+  if (s) rows.push(s);
+  const a = approvalsRow(sec?.approvals ?? null, now);
+  if (a) rows.push(a);
+  return rows;
+}
+
+/** APPROVALS: yesterday's answers and anything still waiting (the waiting ones from the chat on this phone). */
+function approvalsRow(list: ApprovalEntry[] | null, now: number): HTMLElement | null {
+  const waiting = chat.get().entries.filter((e) => e.kind === 'approval' && e.state === 'waiting').length;
+  const line = approvalsDigest(list ?? [], waiting, now);
+  if (!line) return null;
+  const r = row('APPROVALS', line, '›', { wrap: true, onClick: () => go(waiting ? 'core' : 'security') });
+  r.classList.add('brapprovals');
+  return r;
+}
+
+/** The SECURITY row for today, or null (nothing slipped, or the brain can't be asked: a check that can't run is not news). */
+async function securityRow(today: string, now: number, sec: Awaited<ReturnType<typeof brain.security>> | null): Promise<HTMLElement | null> {
   const told = read();
   let line = told.day === today ? (told.line ?? '') : '';
   if (!line) {
-    const sec = await Promise.race([brain.security().catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 4000))]);
     if (!sec) return null;
     const key = ownerKey.get();
     const lb = lastBackup.get();
