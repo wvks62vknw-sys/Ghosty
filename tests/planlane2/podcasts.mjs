@@ -4,7 +4,8 @@
 // BODY 21, and the offer in the seven looks. The stream is stood in by the harness (Spec Lane FM).
 
 const FM = { name: 'Spec Lane FM', url: 'https://spec-lane.test-radio.example/one', info: 'UK · News · 128 kbps' };
-const hhmm = (t) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+// (the page shows London's time, whatever zone node runs in)
+const hhmm = (t) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
 
 /** A stand-in stream long enough for the walk (the harness's tone runs out after 30 s, and a stream that ends is said as ended). */
 function longTone(sec = 240, rate = 8000) {
@@ -44,12 +45,17 @@ export async function run(H) {
   check(W.carriedOn(t23, t23 - 25 * 60_000) === 'Playing again: the radio still goes quiet at 23:10 (in 25 min), then stops.', `the toast: ${W.carriedOn(t23, t23 - 25 * 60_000)}`);
   check(W.carriedOn(t23, t23 - 25 * 60_000, 'Radio 4') === 'Playing Radio 4 again: it still goes quiet at 23:10 (in 25 min), then stops.', `the chat's line: ${W.carriedOn(t23, t23 - 25 * 60_000, 'Radio 4')}`);
   const A = await H.pure('apps/web/src/features/radio/asks.ts');
-  for (const w of ['carry on with the sleep timer', 'play and keep the timer', 'Play it again and keep the sleep timer', 'keep the sleep timer', 'put the sleep timer back on', 'bring back the sleep timer', 'carry on with the radio and the timer'])
+  for (const w of ['carry on with the sleep timer', 'play and keep the sleep timer', 'Play the radio again and keep the sleep timer', 'keep the sleep timer', 'put the sleep timer back on', 'bring back the sleep timer', 'carry on with the radio and the timer'])
     check(A.radioAsked(w)?.what === 'carryOn', `"${w}" carries on: ${JSON.stringify(A.radioAsked(w))}`);
   // never VOICE's words, and the old ones keep their meaning
-  for (const w of ['play music', 'play the radio', 'stop the radio', 'open the radio', 'keep the radio on', 'play my podcast'])
+  // (nor a bare "it" or "timer": the Reader and a video have their own)
+  for (const w of ['play music', 'play the radio', 'stop the radio', 'open the radio', 'keep the radio on', 'play my podcast', 'play it and keep the timer', 'play and keep the timer', 'play it again and keep the sleep timer'])
     check(A.radioAsked(w)?.what !== 'carryOn', `"${w}" is not the carry-on: ${JSON.stringify(A.radioAsked(w))}`);
   check(A.radioAsked('keep the radio on')?.what === 'sleepOff', '"keep the radio on" still takes the timer off');
+  check(W.notCarried('offline', 'Radio 4', t23) === 'You’re offline, so Radio 4 can’t play. Its sleep timer for 23:10 is still kept.', `offline: ${W.notCarried('offline', 'Radio 4', t23)}`);
+  check(W.notCarried('refused', 'Radio 4', t23) === 'Radio 4 wouldn’t play on this phone. Its sleep timer for 23:10 is still kept.', `refused: ${W.notCarried('refused', 'Radio 4', t23)}`);
+  check(W.keptOff(t23) === 'Sleep timer off: the one for 23:10 that the reload kept is gone.', `off: ${W.keptOff(t23)}`);
+  check(W.keptPassed(t23) === 'The 23:10 timer has passed. Tap PLAY to play without it.', `passed: ${W.keptPassed(t23)}`);
   log('podcasts: the sleep timer words');
 
   // ---- 2. the phone: the offer after a reload, one tap carries on with the same stop time, the chip shows it; PLAY alone drops it
@@ -67,6 +73,13 @@ export async function run(H) {
     check(!fo.small.length && !fo.sideways && !fo.cut.length, `[${vp.width}] the offer fits at BODY 21: ${JSON.stringify(fo)}`);
     const kh = await keep.evaluate((e) => e.getBoundingClientRect().height).catch(() => 0);
     check(kh >= 43.5, `[${vp.width}] the key is 44 pt: ${kh}`);
+    const own = await page.evaluate(() => {
+      const k = document.querySelector('#pg-radio .pn.nowp .npcarry')?.getBoundingClientRect();
+      const r = document.querySelector('#pg-radio .pn.nowp .npcarry')?.parentElement?.getBoundingClientRect();
+      const pl = [...document.querySelectorAll('#pg-radio .pn.nowp .keyrow button:not(.npcarry)')].find((b) => b.textContent?.trim() === '▶ PLAY')?.getBoundingClientRect();
+      return k && r && pl ? { wide: k.width >= 0.9 * r.width, above: k.bottom <= pl.top + 0.5, kw: k.width, rw: r.width } : null;
+    });
+    check(!!own && own.wide && own.above, `[${vp.width}] PLAY AND KEEP THE TIMER is on its own line, above ▶ PLAY: ${JSON.stringify(own)}`);
     if (vp === H.PHONE) await page.screenshot({ path: `${H.out}/planlane2-podcasts-offer-${vp.width}.png` });
     // one tap: it plays again, the timer set to the very same stop time, the 30 MIN key lit, the chip says when it stops
     await keep.click();
@@ -84,18 +97,35 @@ export async function run(H) {
       return c && s ? { inside: s.left >= c.left - 0.5 && s.right <= c.right + 0.5, w: s.width, cw: c.width, over: document.documentElement.scrollWidth > innerWidth } : null;
     });
     check(!!cf && cf.inside && cf.w > 20 && !cf.over, `[${vp.width}] the stop time is whole inside the chip, nothing sideways: ${JSON.stringify(cf)}`);
+    // the space before the dot is drawn (a space at the start of a flex item collapses: "Spec Lane FM· stops")
+    const gap = await page.evaluate(() => {
+      const t = document.querySelector('#top .nowplaying .npstops')?.firstChild;
+      if (!t || t.nodeType !== 3 || t.data[0] !== ' ') return -1;
+      const r = document.createRange();
+      r.setStart(t, 0);
+      r.setEnd(t, 1);
+      return r.getBoundingClientRect().width;
+    });
+    check(gap > 2, `[${vp.width}] the space before "· stops" is drawn: ${gap}`);
     const title = await page.evaluate(() => { const t = document.querySelector('#top .navtitle'); return t ? { text: t.textContent, cut: t.scrollWidth > t.clientWidth + 1 } : null; });
     check(!!title && !title.cut, `[${vp.width}] the screen's title is not squeezed by the chip: ${JSON.stringify(title)}`);
     if (vp === H.PHONE) await page.screenshot({ path: `${H.out}/planlane2-podcasts-chip-${vp.width}.png` });
-    // a long name is cut before the time ever is
-    await page.evaluate(() => window.__ghosty?.run?.('play_radio', { name: 'Spec Lane FM with a very long station name for the chip', url: 'https://spec-lane.test-radio.example/one', info: 'UK' }));
-    await page.waitForFunction(() => /very long/.test(document.querySelector('#top .nowplaying')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => undefined);
+    // a long name is cut before the time ever is: the last station a long-named one, the reload, PLAY AND KEEP THE TIMER
+    await page.evaluate(() => window.__specActions.stop?.());
+    await page.evaluate((fm) => localStorage.setItem('ghosty.radio.last', JSON.stringify({ ...fm, name: 'Spec Lane FM with a very long station name for the chip' })), FM);
+    const atLong = Date.now() + 50 * 60_000;
+    await leftByReload(H, page, atLong);
+    await page.click('#pg-radio .pn.nowp .npcarry').catch(() => check(false, `[${vp.width}] no offer for the long name`));
+    await page.waitForFunction(() => /very long/.test(document.querySelector('#top .nowplaying')?.textContent ?? '') && !!document.querySelector('#top .nowplaying .npstops'), null, { timeout: 8000 }).catch(async () => check(false, `[${vp.width}] the long name never reached the chip: ${await chipText(page)}`));
     const lf = await page.evaluate(() => {
       const c = document.querySelector('#top .nowplaying')?.getBoundingClientRect();
-      const s = document.querySelector('#top .nowplaying .npstops')?.getBoundingClientRect();
-      return c && s ? { inside: s.right <= c.right + 0.5, text: document.querySelector('#top .nowplaying .npstops')?.textContent } : null;
+      const st = document.querySelector('#top .nowplaying .npstops');
+      const nm = document.querySelector('#top .nowplaying .npname');
+      const s = st?.getBoundingClientRect();
+      return c && s && nm ? { inside: s.left >= c.left - 0.5 && s.right <= c.right + 0.5, whole: st.scrollWidth <= st.clientWidth + 1, cut: nm.scrollWidth > nm.clientWidth, text: st.textContent } : null;
     });
-    check(!!lf && lf.inside && lf.text === ` · stops ${hhmm(at)}`, `[${vp.width}] with a long name the stop time stays whole: ${JSON.stringify(lf)}`);
+    check(!!lf && lf.inside && lf.whole && lf.cut && lf.text === ` · stops ${hhmm(atLong)}`, `[${vp.width}] with a long name the name is cut and the stop time stays whole: ${JSON.stringify(lf)}`);
+    await page.evaluate((fm) => localStorage.setItem('ghosty.radio.last', JSON.stringify(fm)), FM);
     // TIMER OFF: the chip says the name alone again
     await H.open(page, 'radio');
     await page.click('#pg-radio .npsleepk button:text-is("TIMER OFF")').catch(() => check(false, `[${vp.width}] no TIMER OFF`));
@@ -145,6 +175,74 @@ export async function run(H) {
     await ctx.close();
   }
   log('podcasts: the carry-on by chat');
+
+  // ---- 2c. when it cannot start: offline, or an address the phone refuses. No "Playing again", the timer stays kept and unset, the
+  // offer stays; the chat says why and keeps it; "sleep timer off" drops it; STOP drops it from the screen and the phone together;
+  // the key tapped after its time passed plays nothing and says so
+  {
+    const vp = H.PHONE2;
+    const kept = () => page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.radio.sleep') ?? 'null'));
+    const toasts = () => page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent ?? '').join(' | '));
+    const { ctx, page } = await radioPhone(H, vp, 'scan');
+    await H.open(page, 'radio');
+    let at = Date.now() + 30 * 60_000;
+    await leftByReload(H, page, at);
+    // offline (the phone says so): the tap does not start it
+    await page.evaluate(() => { Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }); window.dispatchEvent(new Event('offline')); });
+    await page.click('#pg-radio .pn.nowp .npcarry');
+    await page.waitForFunction(() => /offline, so Spec Lane FM can’t play/.test(document.querySelector('#pg-radio .pn.nowp')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => check(false, '[offline] the screen does not say why'));
+    check(!/Playing again/.test(await toasts()), `[offline] no "Playing again": ${await toasts()}`);
+    check((await kept())?.at === at, `[offline] the timer stays kept on the phone: ${JSON.stringify(await kept())}`);
+    check(await page.isVisible('#pg-radio .pn.nowp .npcarry'), '[offline] the offer stays');
+    check(!/stops/.test(await chipText(page)), `[offline] no stop time in the chip: ${await chipText(page)}`);
+    const off1 = await H.ask(page, 'carry on with the sleep timer', /still kept/);
+    check(off1.ok && off1.text.includes(`You’re offline, so Spec Lane FM can’t play. Its sleep timer for ${hhmm(at)} is still kept.`) && !/Playing/.test(off1.text), `[offline chat] ${off1.text}`);
+    const off2 = await H.ask(page, 'carry on with the sleep timer', /still kept|no sleep timer/);
+    check(off2.ok && /still kept/.test(off2.text), `[offline chat] said again, it is still kept: ${off2.text}`);
+    // "sleep timer off": the kept one is dropped, truthfully
+    const offT = await H.ask(page, 'sleep timer off', /Sleep timer off|no sleep timer/);
+    check(offT.ok && offT.text.includes(`Sleep timer off: the one for ${hhmm(at)} that the reload kept is gone.`), `[chat] sleep timer off after a reload: ${offT.text}`);
+    check((await kept()) === null, `[chat] the kept timer is gone from the phone: ${JSON.stringify(await kept())}`);
+    await H.open(page, 'radio');
+    check(!(await page.$('#pg-radio .pn.nowp .npcarry')) && !(await page.$('#pg-radio .pn.nowp .nplost')), '[chat] the offer goes with it');
+    await ctx.close();
+  }
+  {
+    // a remembered address that is not https: refused the same way
+    const { ctx, page } = await radioPhone(H, H.PHONE2, 'scan', { 'ghosty.radio.last': JSON.stringify({ ...FM, url: 'http://spec-lane.test-radio.example/one' }) });
+    const kept = () => page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.radio.sleep') ?? 'null'));
+    await H.open(page, 'radio');
+    const at = Date.now() + 30 * 60_000;
+    await leftByReload(H, page, at);
+    await page.click('#pg-radio .pn.nowp .npcarry');
+    await page.waitForFunction(() => /wouldn’t play on this phone/.test(document.querySelector('#pg-radio .pn.nowp')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => check(false, '[refused] the screen does not say why'));
+    check(!/Playing again/.test(await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | '))), '[refused] no "Playing again"');
+    check((await kept())?.at === at && (await page.isVisible('#pg-radio .pn.nowp .npcarry')), `[refused] the timer stays kept and offered: ${JSON.stringify(await kept())}`);
+    const r = await H.ask(page, 'carry on with the sleep timer', /still kept/);
+    check(r.ok && r.text.includes(`Spec Lane FM wouldn’t play on this phone. Its sleep timer for ${hhmm(at)} is still kept.`), `[refused chat] ${r.text}`);
+    // STOP (the palette's Stop radio, the brain's stop_audio): the kept timer goes from the screen and the phone together
+    await page.evaluate(() => window.__specActions.stop?.());
+    await H.open(page, 'radio');
+    await page.waitForSelector('#pg-radio .pn.nowp .nphero', { timeout: 8000 });
+    check((await kept()) === null && !(await page.$('#pg-radio .pn.nowp .npcarry')) && !(await page.$('#pg-radio .pn.nowp .nplost')), `[stop] the kept timer is gone everywhere: ${JSON.stringify(await kept())}`);
+    await ctx.close();
+  }
+  {
+    // the key tapped just after the kept stop time passed: nothing plays, and he is told
+    const { ctx, page } = await radioPhone(H, H.PHONE2, 'scan');
+    await H.open(page, 'radio');
+    const at = Date.now() + 10 * 60_000;
+    await leftByReload(H, page, at);
+    await page.waitForSelector('#pg-radio .pn.nowp .npcarry', { timeout: 8000 });
+    await page.evaluate(() => { const real = Date.now; Date.now = () => real() + 11 * 60_000; });
+    await page.click('#pg-radio .pn.nowp .npcarry');
+    const said = await page.waitForFunction((w) => [...document.querySelectorAll('.toast')].some((t) => (t.textContent ?? '').includes(w)), `The ${hhmm(at)} timer has passed. Tap PLAY to play without it.`, { timeout: 5000 }).then(() => true, () => false);
+    check(said, '[passed] the tap says the timer has passed');
+    check(!(await chipText(page)), `[passed] nothing plays: ${await chipText(page)}`);
+    check(!(await page.$('#pg-radio .pn.nowp .npcarry')) && (await page.isVisible('#pg-radio .pn.nowp .keyrow button:text-is("▶ PLAY")')), '[passed] the offer goes; ▶ PLAY stays');
+    await ctx.close();
+  }
+  log('podcasts: when it cannot carry on');
 
   // ---- 3. the offer in the seven looks, at BODY 21
   for (const world of H.WORLDS) {

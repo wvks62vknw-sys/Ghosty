@@ -62,6 +62,12 @@ export const LOST_HOW_CHAT = 'say “carry on with the sleep timer” or tap PLA
 export const CARRY_ON = 'PLAY AND KEEP THE TIMER';
 /** The toast once it is playing again with that timer. */
 export const carriedOn = (at: number, now: number, name = '') => `${name ? `Playing ${name} again: it` : 'Playing again: the radio'} still goes quiet at ${hhmm(at)} (in ${inWords(at - now)}), then stops.`;
+/** PLAY AND KEEP THE TIMER when the station cannot start (offline, or an address the phone refuses): the timer stays kept, unset. */
+export const notCarried = (why: string, name: string, at: number) => `${why === 'offline' ? `You’re offline, so ${name} can’t play.` : `${name} wouldn’t play on this phone.`} Its sleep timer for ${hhmm(at)} is still kept.`;
+/** "Sleep timer off" after a reload, with nothing on: the kept one is dropped from the phone. */
+export const keptOff = (at: number) => `Sleep timer off: the one for ${hhmm(at)} that the reload kept is gone.`;
+/** The key tapped just after the kept stop time passed: nothing plays. */
+export const keptPassed = (at: number) => `The ${hhmm(at)} timer has passed. Tap PLAY to play without it.`;
 /** The top bar's chip while a sleep timer runs: "Radio 4 · stops 23:10" (the stop time is its own part, so a long name is cut, never the time). */
 export const chipStops = (at: number) => `stops ${hhmm(at)}`;
 export const clockWords = hhmm;

@@ -96,15 +96,8 @@ export async function playStation(s: NowPlaying): Promise<boolean> {
   if (player.get().now?.url !== s.url) player.set({ since: 0 });
   rememberLast(s);
   rememberRecent(s);
-  // he played again: the timer the reload left is no longer offered (PLAY AND KEEP THE TIMER sets it again just after this)
-  if (lostSleep) {
-    lostSleep = null;
-    try {
-      localStorage.removeItem(SLEEP_KEPT);
-    } catch {
-      /* ignore */
-    }
-  }
+  // he played again: the timer the reload left is no longer offered (PLAY AND KEEP THE TIMER keeps it until the station is tuning in)
+  if (lostSleep && !carrying) dropKept();
   if (!/^https:\/\//i.test(s.url)) {
     player.set({ now: s, state: 'error', why: 'refused' });
     return false;
@@ -242,11 +235,7 @@ function clearSleep(): void {
   clearInterval(fadeTimer);
   sleepTimer = fadeTimer = 0;
   if (audio) audio.volume = ducked ? Math.min(0.15, player.get().volume) : player.get().volume;
-  try {
-    localStorage.removeItem(SLEEP_KEPT);
-  } catch {
-    /* ignore */
-  }
+  dropKept();
 }
 /** Stop the radio in `min` minutes (0 takes the timer off). */
 export function setSleep(min: number): void {
@@ -286,27 +275,37 @@ try {
 } catch {
   /* ignore */
 }
-/** The sleep timer the last reload stopped, while it would still be running (null once he plays again or its time has passed). */
-export function sleepLost(): { at: number; name: string; kind: string } | null {
-  if (lostSleep && (lostSleep.at <= Date.now() || player.get().now)) {
-    if (lostSleep.at <= Date.now()) {
-      try {
-        localStorage.removeItem(SLEEP_KEPT);
-      } catch {
-        /* ignore */
-      }
-    }
-    lostSleep = null;
+/** The kept timer is one thing, on the phone and in this page together: dropped from both at once (STOP, TIMER OFF, another station). */
+export function dropKept(): void {
+  lostSleep = null;
+  try {
+    localStorage.removeItem(SLEEP_KEPT);
+  } catch {
+    /* ignore */
   }
-  return lostSleep;
 }
-/** PLAY AND KEEP THE TIMER: play `s` (the station shown) again with the stop time the reload left. False when there is none to keep. */
+/** The sleep timer the last reload stopped, while it would still be running: null while a station is on (or tuning in), and dropped
+ * once its time has passed. A station that could not start (offline, refused) leaves it kept, so the offer stays. */
+export function sleepLost(): { at: number; name: string; kind: string } | null {
+  if (lostSleep && lostSleep.at <= Date.now()) dropKept();
+  const p = player.get();
+  return p.now && p.state !== 'error' ? null : lostSleep;
+}
+let carrying = false;
+/** PLAY AND KEEP THE TIMER: play `s` (the station shown) again with the stop time the reload left. False, playing nothing, when there
+ * is none to keep (its time has passed); when the station cannot start (offline, refused) the timer stays kept and unset. */
 export function carryOn(s: NowPlaying): Promise<boolean> {
   const k = sleepLost();
-  if (!k) return playStation(s);
-  const p = playStation(s);
-  // playStation has put the station on (or said why it cannot play) before its first await: the timer goes back on with it
-  if (player.get().now) setSleepAt(k.at, k.kind);
+  if (!k) return Promise.resolve(false);
+  carrying = true;
+  let p: Promise<boolean>;
+  try {
+    p = playStation(s);
+  } finally {
+    carrying = false;
+  }
+  // playStation has put the station on, or said why it cannot play, before its first await: the timer goes back on only while it tunes in
+  if (player.get().now && player.get().state === 'loading') setSleepAt(k.at, k.kind);
   return p;
 }
 

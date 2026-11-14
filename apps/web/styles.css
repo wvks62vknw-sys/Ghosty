@@ -9892,13 +9892,14 @@ html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-off
 /* ==== [planlane2:podcasts] ==== */
 /* the top bar's chip with the sleep timer's stop time: the name is cut before the time ever is ("Radio 4 · stops 23:10") */
 #top .nowplaying.hasstops { display: inline-flex; align-items: center; max-width: 52vw; min-width: 0; }
-#top .nowplaying.hasstops .npstops { flex: none; white-space: nowrap; }
+/* (pre: its leading space would collapse at the start of a flex item, drawing "Radio 4· stops") */
+#top .nowplaying.hasstops .npstops { flex: none; white-space: pre; }
 #top .nowplaying.hasstops .npname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the screen's own title is never squeezed for it: the chip goes to the next line instead */
 html body:not(.ownback) #top:has(.nowplaying.hasstops:not([hidden])) .navtitle { flex: 1 0 auto; max-width: 100%; }
 /* after a reload: PLAY AND KEEP THE TIMER on its own line, its words whole at BODY 21 */
 html #pg-radio .pn.nowp .keyrow:has(.npcarry) { flex-wrap: wrap; }
-html #pg-radio .pn.nowp .keyrow .npcarry { flex: 1 1 100%; white-space: normal; height: auto; min-height: 44px; }
+html #pg-radio .pn.nowp .keyrow.novol button.npcarry, html #pg-radio .pn.nowp .keyrow button.npcarry { flex: 1 1 100%; white-space: normal; height: auto; min-height: 44px; }
 
 /* ==== [planlane2:podcasts end] ==== */
 

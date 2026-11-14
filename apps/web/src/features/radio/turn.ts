@@ -1,8 +1,8 @@
 /** THE RADIO FROM THE CHAT (planlane): what was asked, done on the phone, and said back in one line (assistant/local.ts calls this). */
 import type { PackReply } from '../../assistant/packs';
-import { carryOn, favourites, lastPlayed, player, playStation, recentStations, setSleepAt, sleepLost, stepStation, type NowPlaying } from '../../assistant/media';
+import { carryOn, dropKept, favourites, lastPlayed, player, playStation, recentStations, setSleepAt, sleepLost, stepStation, type NowPlaying } from '../../assistant/media';
 import { radioAsked, type RadioAsk } from './asks';
-import { carriedOn, clockWords, endOfHour, inWords, lostLine, LOST_HOW_CHAT, nextClock, ordinal, sleepAtSet, sleepLine } from './words';
+import { carriedOn, clockWords, endOfHour, inWords, keptOff, lostLine, LOST_HOW_CHAT, nextClock, notCarried, ordinal, sleepAtSet, sleepLine } from './words';
 
 const OPEN = [{ id: 'radio', ask: -1, label: 'Open the radio', open: 'radio' }];
 /** Something is on (playing, tuning in or paused): there is a station to time, save or say. */
@@ -26,6 +26,12 @@ async function act(ask: RadioAsk): Promise<string> {
       return sleepAtSet(at, now);
     }
     case 'sleepOff': {
+      // [planlane2:podcasts] after a reload with nothing on: the timer the reload kept is the one he means, and it is dropped
+      const kept = on() ? null : sleepLost();
+      if (kept) {
+        dropKept();
+        return keptOff(kept.at);
+      }
       const stays = p.now ? (p.state === 'paused' ? `${p.now.name} is paused and stays on until you stop it` : `${p.now.name} keeps playing until you stop it`) : '';
       if (!p.sleepAt) return stays ? `There is no sleep timer set: ${stays}.` : 'There is no sleep timer set.';
       setSleepAt(0);
@@ -33,7 +39,7 @@ async function act(ask: RadioAsk): Promise<string> {
     }
     case 'sleepLeft': {
       // [planlane2:podcasts] after a reload the timer is kept on the phone: said, with the way to carry on
-      const lost = p.now ? null : sleepLost();
+      const lost = on() ? null : sleepLost();
       if (lost) return lostLine(lost.at, (lastPlayed() ?? { name: lost.name }).name, LOST_HOW_CHAT);
       if (!p.now) return 'Nothing is playing, so there is no sleep timer.';
       if (!p.sleepAt || p.sleepAt <= now) return `There is no sleep timer: ${p.now.name} plays until you stop it. Say “turn the radio off in 30 minutes” to set one.`;
@@ -46,6 +52,9 @@ async function act(ask: RadioAsk): Promise<string> {
       const last = lastPlayed();
       if (!lost || !last) return 'There is no sleep timer to carry on. Play a station, then say “turn the radio off in 30 minutes”.';
       void carryOn(last);
+      // offline, or an address the phone refuses: it did not start, and the timer stays kept (said as the Radio says it)
+      const q = player.get();
+      if (q.state === 'error') return notCarried(q.why, last.name, lost.at);
       return carriedOn(lost.at, now, last.name);
     }
     case 'step': {

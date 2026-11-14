@@ -7,7 +7,7 @@ import { screenSays } from '../../shell/awareness';
 import { button, empty, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { waiting } from '../../ui/wait';
-import { CARRY_ON, carriedOn, clockWords, endOfHour, FINDING, NEAR_ME, nearLabel, nearSet, hourKey, lostLine, nextStation, NO_OTHER, RECENT_EMPTY, REORDER, REORDER_DONE, REORDER_NOTE, SLEEP_CHOICES, SLEEP_OFF, sleepAtSet, sleepKey, sleepLine, sleepSet, TRY_ANOTHER, TUNING } from './words';
+import { CARRY_ON, carriedOn, clockWords, endOfHour, FINDING, keptPassed, NEAR_ME, nearLabel, nearSet, hourKey, lostLine, nextStation, NO_OTHER, RECENT_EMPTY, REORDER, REORDER_DONE, REORDER_NOTE, SLEEP_CHOICES, SLEEP_OFF, sleepAtSet, sleepKey, sleepLine, sleepSet, TRY_ANOTHER, TUNING } from './words';
 import { phrases } from '../lifeui';
 import { countryWord, tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
 
@@ -311,7 +311,7 @@ export const radioTab: TabDef = {
         h('div.npart', icon(RADIO), h('span.eq', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'))),
         h('div.nptx', h('small', kicker), h('b', shown ? shown.name : 'Nothing playing'), line ? h('span', line) : '')));
       if (!shown) return;
-      const lost = now ? null : sleepLost();
+      const lost = now && state !== 'error' ? null : sleepLost();
       /* state: radio.sleep error */
       if (lost) np.body.append(h('div.note.nplost', { dataset: { case: 'keep' } }, lostLine(lost.at, shown.name)));
       if (now && state === 'error') np.body.append(h('div.note.bad', whyWords(why, now.name)));
@@ -324,12 +324,20 @@ export const radioTab: TabDef = {
       if (lost) {
         const keep = button(`▶ ${CARRY_ON}`, () => {
           const at = lost.at;
-          void carryOn(last!);
-          if (player.get().sleepAt === at) toast(carriedOn(at, Date.now()), 'ok');
+          // its time passed while the offer was on screen: nothing plays, and he is told
+          if (!sleepLost()) {
+            paintNow();
+            toast(keptPassed(at));
+            return;
+          }
+          void carryOn(shown);
+          // a station that could not start (offline, refused) says why on the screen, and the timer stays kept: no toast
+          const q = player.get();
+          if (q.state !== 'error' && q.sleepAt === at) toast(carriedOn(at, Date.now()), 'ok');
         }, 'on');
         keep.classList.add('npcarry');
         keep.setAttribute('aria-label', `Play ${shown.name} again and keep the sleep timer for ${clockWords(lost.at)}`);
-        keys.push(keep, button('▶ PLAY', () => void play(last!)));
+        keys.push(keep, button('▶ PLAY', () => void play(shown)));
       } else if (!now) keys.push(button(`▶ PLAY`, () => void play(last!), 'on'));
       else if (state === 'playing' || state === 'loading') keys.push(button('❚❚ PAUSE', () => pauseAudio()), button('■ STOP', () => stopAudio(), 'warn'));
       else if (state === 'paused') keys.push(button('▶ PLAY', () => void resumeAudio(), 'on'), button('■ STOP', () => stopAudio(), 'warn'));
