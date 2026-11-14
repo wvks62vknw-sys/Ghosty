@@ -359,7 +359,7 @@ async function openGym(page) {
 }
 const gpath = (page) => page.locator('#pg-gym .gympath');
 for (const [name, o, path, say, after] of [
-  ['webgpu', { gpu: true, mem: 8 }, 'webgpu', /^Training on the graphics chip \(WebGPU\)\.$/, /^Graphics chip .* processor .*/],
+  ['webgpu', { gpu: true, mem: 8 }, 'webgpu', /^TIME IT trains on the graphics chip \(WebGPU\); the long training runs on the processor\.$/, /^Graphics chip .* processor .*/],
   ['absent', { gpu: false, mem: 8 }, 'cpu', /^Training on the processor: this browser has no WebGPU\.$/, /^Processor .* for the practice network\.$/],
   ['fails', { gpu: true, mem: 8, failAfter: 12 }, 'cpu', null, /^Graphics chip|^Processor|processor was quicker|about/],
 ]) {
