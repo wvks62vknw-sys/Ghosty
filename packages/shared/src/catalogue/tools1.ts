@@ -151,7 +151,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:publish_game': {
     name: 'Put your game on your sites', line: 'I can put a game you made in the Game Studio on your sites, as a page that installs on a Home Screen and plays offline.',
-    more: 'Open the game in the studio and ask, or tap PUT IT ON MY SITES there. I say where it goes before it goes live, and nothing goes up until you tap APPROVE, every time. Its saves stay on the phone that plays it.',
+    more: 'Open the game in the studio and ask, or tap PUT IT ON MY SITES there. I say where it goes before it goes live, and nothing goes up until you tap APPROVE, every time. Its saves stay on the phone that plays it. Its link opens on a front page first: its name, how to play, pictures of its rooms, a note from you if you give one, and PLAY.',
     say: ['Put Fox Run on my sites', 'Put my game on my sites'], scene: ['making'], cat: 'build', where: 'Game Studio → AS AN APP → PUT IT ON MY SITES, or ask me',
   },
   'tool:study_site': {
@@ -162,7 +162,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:publish_site': {
     name: 'Put a page online', line: 'I can put a page I made online at its own free link the moment you tap APPROVE.',
-    more: 'A CV, a menu, an invitation, a landing page: one page, built for phones, on my own address, with no account or hosting to set up. I always give you the exact link. Each page keeps its last three versions: UNDO LAST UPDATE in the Workshop, or ask me, puts the one before back. A document or a deck goes up too: PUT IT ON MY SITES in its editor.',
+    more: 'A CV, a menu, an invitation, a landing page: one page, built for phones, on my own address, with no account or hosting to set up. I always give you the exact link. Each page keeps its last three versions: UNDO LAST UPDATE in the Workshop, or ask me, puts the one before back. A document or a deck goes up too: PUT IT ON MY SITES in its editor; a sheet of prices: AS A MENU PAGE ON MY SITES.',
     say: ['Make a page for my party and put it online', 'Make me an online CV', 'Undo my last update to the party page', 'Publish my garden guide as a page'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me a one-page invitation for my birthday and put it online', send: false },
   },

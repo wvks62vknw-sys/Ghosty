@@ -5,7 +5,7 @@
  * ONLY that one script, pinned by its hash, and reach nowhere on the network. Pure: the node test builds a page and reads it back.
  */
 import { adler32, concat, crc32, toBase64, utf8 } from '../convert/bytes';
-import { firstRoom, type Game, isSolidLetter, themeOf, tileAt } from './model';
+import { firstRoom, type Game, isSolidLetter, type Room, themeOf, tileAt } from './model';
 
 export const TARGET_BYTES = 400_000;
 
@@ -97,10 +97,11 @@ function pngChunk(type: string, data: Uint8Array): Uint8Array {
   return concat([be32(data.length), t, data, be32(crc32(concat([t, data])))]);
 }
 /** The 512 px icon: the first room drawn flat in the kit's own colours at four shades (a two-bit PNG, stored, 64 KB). */
-export function iconPng(g: Game): Uint8Array {
-  const S = 512;
+export function iconPng(g: Game, o: { room?: Room; size?: number } = {}): Uint8Array {
+  // [sites] any room at any size (a published game's front page shows its rooms: apps/edge/src/gamesite.ts)
+  const S = o.size && o.size >= 64 && o.size <= 1024 && o.size % 4 === 0 ? o.size : 512;
   const th = themeOf(g.palette);
-  const room = firstRoom(g);
+  const room = o.room ?? firstRoom(g);
   const hex = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
   const pal = [hex(th.sky[1]), hex(th.ground), hex(th.top), hex(th.ledge)];
   const rows: Uint8Array[] = [];

@@ -71,6 +71,8 @@ export interface Site {
    * composed on each visit from this and the studio's own player (never from anything stored as code), with its manifest and icon.
    */
   game?: Game;
+  /** [sites] His note on a game's front page (sites.u11), in his words. */
+  gameNote?: string;
 }
 /** One line of the list of published pages. */
 export interface SiteEntry {
@@ -750,12 +752,12 @@ export const siteTools: Tool[] = [
     name: 'publish_game',
     description:
       "Put the game open in his Game Studio on his sites (\"put Fox on my sites\"): an installable page at …/s/<name>/ that plays offline and keeps its saves. He approves it every time. Give him the link as returned. UNDO: unpublish_site.",
-    parameters: { type: 'object', properties: { name: { type: 'string', description: "the game's name, as he said it" } } },
+    parameters: { type: 'object', properties: { name: { type: 'string', description: "the game's name, as he said it" }, note: { type: 'string', description: 'his note for the front page, if he gave one' } } },
     risk: 'confirm', // it goes on the public internet: his APPROVE, every time; the run publishes only what the approval kept
     approval: (a, ctx) => gameApproval(a, ctx, (n) => siteStore(ctx.env, ctx.storage).get(n), (n) => siteLink(ctx.origin, ctx.env, n)),
     async run(a, ctx) {
       const store = siteStore(ctx.env, ctx.storage);
-      const r = await publishGame(a, ctx, (name, game) => store.put({ name, title: game.name, html: '', source: '', at: Date.now(), game }), (n) => siteLink(ctx.origin, ctx.env, n));
+      const r = await publishGame(a, ctx, (name, game, note) => store.put({ name, title: game.name, html: '', source: '', at: Date.now(), game, ...(note ? { gameNote: note } : {}) }), (n) => siteLink(ctx.origin, ctx.env, n));
       ctx.emit({ t: 'client', name: 'show_link', args: { url: r.link, title: r.title } });
       return `Published "${r.title}" — live now at ${r.link} (a game: Share → Add to Home Screen installs it; it plays offline and keeps its saves on that phone). Give him this exact link.`;
     },

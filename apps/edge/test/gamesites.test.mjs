@@ -221,3 +221,25 @@ test('a game published a moment ago is served by the brain while KV has not caug
   assert.equal(r2.status, 503);
   assert.match(await r2.text(), /player is being set up/);
 });
+
+// NEXT ROUND sites.u11: a published game's front page: its name, how to play, its rooms as pictures (made here, in the page as data),
+// his note if he gave one (said in the approval, written as text), and PLAY; the page's one style still pinned by its hash.
+test('a game\'s front page: its name, how to play, its rooms as pictures, his note as text, and PLAY', async () => {
+  const w = world();
+  const g = await fox();
+  await w.api('/api/sites/game', 'POST', { game: g });
+  const ap = await tool.approval({ name: 'Fox Run', note: 'Made with my nephew <b>Sam</b>.' }, w.ctx);
+  assert.match(ap.reason, /Its front page carries your note: “Made with my nephew <b>Sam<\/b>\.”\./);
+  await tool.run(ap.args, w.ctx);
+  const r = await w.go('/s/fox-run/', { headers: { 'sec-fetch-dest': 'document' } });
+  const page = await r.text();
+  const front = /<section id="front"[\s\S]*?<\/section>/.exec(page)?.[0] ?? '';
+  assert.match(front, /<h1>Fox Run<\/h1>/);
+  assert.match(front, /How to play<\/h2><ul><li>/);
+  assert.ok((front.match(/<img src="data:image\/png;base64,/g) ?? []).length === Math.min(6, g.rooms.length), 'a picture for each room');
+  assert.match(front, /<p class="note">Made with my nephew &lt;b>Sam&lt;\/b>\.<\/p>/, 'his note as text, never as markup');
+  assert.match(front, /<button class="play" type="button">PLAY<\/button>/);
+  const style = /<style>([\s\S]*?)<\/style>/.exec(page)[1];
+  assert.ok(r.headers.get('content-security-policy').includes(`style-src 'sha256-${sha(style)}'`), 'the one style, front page and all, pinned by its hash');
+  assert.match(style, /--fsky:#[0-9a-f]{6}/i);
+});

@@ -136,6 +136,11 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
   game.on('console', (c) => (c.type() === 'error' || /Content Security Policy|Refused/.test(c.text())) && gameErrors.push(c.text()));
   await game.goto(link, { waitUntil: 'load' });
   check(await until(game, () => document.querySelector('.gpEnd button'), null, 10000), `${W}: (f) the page opens on its own title card`);
+  // (q) its front page (NEXT ROUND sites.u11): its name, how to play, its rooms as pictures; PLAY takes it away
+  const front = await game.evaluate(() => { const f = document.getElementById('front'); return f ? { h1: f.querySelector('h1')?.textContent ?? '', how: f.querySelectorAll('ul li').length, rooms: f.querySelectorAll('.rooms img[src^="data:image/png;base64,"]').length, play: f.querySelector('button.play')?.offsetHeight ?? 0 } : null; });
+  check(!!front && front.h1 === name && front.how >= 2 && front.rooms >= 1 && front.play >= 44, `${W}: (q) the game opens on its front page: ${JSON.stringify(front)}`);
+  await game.click('#front button.play');
+  check(await until(game, () => !document.getElementById('front'), null, 5000), `${W}: (q) PLAY takes the front page away, onto the game's own title card`);
   const words = await game.$$eval('.gpEnd button', (b) => b.map((x) => x.textContent));
   check(words.includes('Play') && !words.includes('Continue'), `${W}: (f) a first visit has PLAY and no CONTINUE (${words.join(', ')})`);
   await game.click('.gpEnd button');
@@ -157,6 +162,7 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
   check(keys.includes(`ghosty-site:${slug}`) && !keys.some((k) => k.startsWith('ghostygame:')), `${W}: (g) the page keeps no save but its own key (${keys.join(', ')})`);
   await game.reload({ waitUntil: 'load' });
   check(await until(game, () => [...document.querySelectorAll('.gpEnd button')].some((b) => b.textContent === 'Continue'), null, 10000), `${W}: (g) after a reload its save is there: CONTINUE`);
+  check(!(await game.evaluate(() => !!document.getElementById('front'))), `${W}: (q) the front page shows once: after a reload the game opens on its title card`);
   await game.evaluate(() => [...document.querySelectorAll('.gpEnd button')].find((b) => b.textContent === 'Continue')?.click());
   check(await until(game, () => document.querySelector('.gpPad'), null, 8000), `${W}: (g) CONTINUE plays on from the save`);
 

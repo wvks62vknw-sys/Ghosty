@@ -8,6 +8,8 @@
  * chosen cells as context). The workbook, its formulas and its files are the app's own code (this folder): no package.
  */
 import { firstColumn, sheetAppWords } from '../sites/sheetapp'; // [sites] a sheet as a mini-app (NEXT ROUND sites.s8)
+import { menuPage, menuRows } from '../sites/menu';
+import { putOnSites } from '../sites/handover';
 import { bytesOf } from '../core/safeurl';
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
@@ -833,6 +835,14 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
         void send(sheetAppWords(/^sheet\s*\d*$/i.test(sheet().name) ? book().title : sheet().name, items));
       });
       say(`Asking in the chat for a list app of ${items.length} row${items.length === 1 ? '' : 's'}: it is built after your APPROVE.`);
+    })),
+    // [sites] a menu or price list page from the sheet (NEXT ROUND sites.s6): handed over, then his APPROVE in the chat, every time
+    h('div.shexrow', button('AS A MENU PAGE ON MY SITES', () => {
+      const rows = menuRows(toCsv(book(), sheet().name));
+      if (!rows.some((r) => r.price)) return say('Put the items in column A and their prices in column B, under a heading row, then try again.');
+      const title = /^sheet\s*\d*$/i.test(sheet().name) ? book().title : sheet().name;
+      say('Making the page on this phone…');
+      void putOnSites(title, menuPage(title, rows), 'document').then((r) => say(r.said));
     })),
     outs);
   const scheduleSizes = (ms = 1200) => {

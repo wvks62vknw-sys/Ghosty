@@ -4,7 +4,7 @@
 // the main picture; (e) every key is 44 pt, nothing sideways, BODY 21 cuts no words; (f) "build a website for my café with my photos"
 // asks APPROVE saying his photos will be used (declined here: nothing is built); (g) a photo is removed after its confirm; (h) UNDO FOR
 // PUBLISHED PAGES (sites.u2): a page updated from the chat goes back to its earlier version with the Workshop's UNDO LAST UPDATE;
-// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8); (m) a page's QR code and an A4 poster (sites.s2, u4); (n) a page's check-up (sites.u9); (o) a sheet as a list app (sites.s8).
+// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8); (m) a page's QR code and an A4 poster (sites.s2, u4); (n) a page's check-up (sites.u9); (o) a sheet as a list app (sites.s8); (p) a menu page from a sheet (sites.s6).
 //   BASE=http://localhost:8788 node tests/sitephotos.spec.mjs tests/.shots
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -277,6 +277,23 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
     let listHtml = '';
     for (let i = 0; i < 60 && !/milk/i.test(listHtml); i++) { const r = await page.request.get(`${base}/s/${listSlug}/`, { headers: { 'sec-fetch-dest': 'document' } }); listHtml = r.status() === 200 ? await r.text() : ''; if (!/milk/i.test(listHtml)) await page.waitForTimeout(250); }
     check(/milk/i.test(listHtml) && /eggs/i.test(listHtml) && /bread/i.test(listHtml) && !/shopping"\s*,\s*"/i.test(listHtml.match(/"items":\[[^\]]*\]/)?.[0] ?? ''), `${W}: (o) the app at /s/${listSlug}/ holds the sheet's rows, not its heading`);
+    // (p) a menu or price list page from the sheet (sites.s6): prices in column B, AS A MENU PAGE ON MY SITES, APPROVE
+    for (const [a, t] of [['B1', 'Price'], ['B2', '1.2'], ['B3', '2'], ['B4', '1.5']]) {
+      await page.evaluate(() => (location.hash = 'sheets'));
+      await page.locator(`.shsheet .shc[data-a="${a}"]`).first().click();
+      await page.locator('.shline').fill(t);
+      await page.locator('.shline').press('Enter');
+      await page.waitForTimeout(80);
+    }
+    await page.locator('.shpill', { hasText: /^DATA$/i }).click();
+    const before2 = await page.$$eval('.approval[data-state="waiting"] button.on', (b) => b.length);
+    await page.locator('.shexport button', { hasText: 'AS A MENU PAGE ON MY SITES' }).click();
+    const menuReason = await approveNext(before2);
+    const menuSlug = /\/s\/([a-z0-9-]+)\?/.exec(menuReason)?.[1] ?? '';
+    check(/\(the document from your phone, read-only\) as a public page/.test(menuReason), `${W}: (p) the menu page asks APPROVE: ${menuReason.slice(0, 160)}`);
+    let menuHtml = '';
+    for (let i = 0; i < 60 && !/£1\.20/.test(menuHtml); i++) { const r = await page.request.get(`${base}/s/${menuSlug}/page`, { headers: { 'sec-fetch-dest': 'iframe' }, maxRedirects: 0 }); menuHtml = r.status() === 200 ? await r.text() : ''; if (!/£1\.20/.test(menuHtml)) await page.waitForTimeout(250); }
+    check(/Milk<\/span><span class="price">£1\.20/.test(menuHtml) && /Eggs<\/span><span class="price">£2\.00/.test(menuHtml) && !/<script/i.test(menuHtml), `${W}: (p) the menu page is live with the items and their prices, no script`);
   }
 
   // (l) one home page for his sites (sites.u8): two pages ticked ON MY HOME PAGE (kept on the phone), PUBLISH MY HOME PAGE, APPROVE;

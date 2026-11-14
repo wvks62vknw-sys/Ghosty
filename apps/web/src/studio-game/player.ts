@@ -397,6 +397,25 @@ function boot(): void {
   const el = document.getElementById('game');
   const key = el?.dataset.save || `ghostygame:${read.game.id}`;
   const sw = el?.dataset.sw ?? '';
+  // [sites] a published game's front page (gamesite.ts): PLAY takes it away and the game's own title card is there
+  // shown once on a phone: after the first PLAY the game opens straight on its title card (remembered under its own key)
+  const front = document.getElementById('front');
+  const seenKey = `${key}:front`;
+  let seen = false;
+  try {
+    seen = localStorage.getItem(seenKey) === '1';
+  } catch {
+    /* the page may keep nothing: the front page shows each time */
+  }
+  if (front && seen) front.remove();
+  front?.querySelector('button.play')?.addEventListener('click', () => {
+    front.remove();
+    try {
+      localStorage.setItem(seenKey, '1');
+    } catch {
+      /* kept for this visit only */
+    }
+  });
   if (sw && el?.dataset.scope && 'serviceWorker' in navigator) navigator.serviceWorker.register(sw, { scope: el.dataset.scope }).catch(() => undefined);
   const store = (): Storage | null => {
     try {

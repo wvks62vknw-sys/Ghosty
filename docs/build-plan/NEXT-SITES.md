@@ -77,6 +77,16 @@ every time, and nothing is bought.
 - In SHEETS → DATA, **AS AN APP ON MY HOME SCREEN** turns the sheet's first column (heading left out, up to 40 rows) into a list app,
   built after your APPROVE.
 
+### 12. A menu page from a sheet (`sites.s6`)
+- In SHEETS → DATA, **AS A MENU PAGE ON MY SITES** makes a clean price list from columns A (the dish) and B (the price), a heading
+  row left out. It goes up after your APPROVE, and so does every change after; a sheet still called "Sheet 1" takes the book's title.
+
+### 13. A front page for each game (`sites.u11`)
+- A game on your sites now opens on its own front page: its name, who made it, how to play (for its kind), pictures of up to six of
+  its rooms (drawn on the server from the game itself, carried in the page as data), your note if you give one, and a big PLAY.
+- Your note is said on the APPROVE card and written on the page as text, never as markup. The front page shows once on each phone.
+- The page's one style is still pinned by its hash in the page's security rules.
+
 ## How to try it on your phone
 1. **Your photos:**
    - Workshop → Made → PHOTOS FOR YOUR SITES → ADD PHOTOS, and pick three photos of your place.
@@ -100,6 +110,8 @@ every time, and nothing is bought.
 9. **A look:** "Build my café a website in the glass look".
 10. **Check:** Workshop → a page → CHECK.
 11. **A sheet:** SHEETS → NEW, type a heading and a few items in column A → DATA → AS AN APP ON MY HOME SCREEN → APPROVE.
+12. **A menu:** SHEETS → NEW, dishes in column A and prices in column B → DATA → AS A MENU PAGE ON MY SITES → APPROVE.
+13. **A game's front page:** Game Studio → a game → PUT IT ON MY SITES → APPROVE, then open its link on another phone.
 
 ## Tests
 - **Brain test:** `apps/edge/test/sitephotos.test.mjs`, named in the test list, 10 tests. It covers:
@@ -116,7 +128,10 @@ every time, and nothing is bought.
 - **Spec:** `tests/sitephotos.spec.mjs`, its word at the end of check.yml's `all=`, at 440 × 956 and 390 × 844. It proves the
   photos panel, location removed (read back from the kept bytes), caption, main picture, 44 pt keys, BODY 21, the approval naming
   your photos, remove, undo from the Workshop, a document and a deck at their own links, an app changed after it's made, your
-  home page listing exactly the pages you chose, the QR code and an A4 poster, CHECK, and a sheet made into a list app.
+  home page listing exactly the pages you chose, the QR code and an A4 poster, CHECK, a sheet made into a list app, and a sheet
+  made into a menu page.
+- **gamesites:** a brain test for the front page (name, how to play, a picture per room, his note as text, the style's hash), and
+  gamesites.spec checks the front page on the phone (44 pt PLAY, gone after PLAY, shown once).
   The spec can be run again on the same brain.
 - **nav.spec:** its Workshop "Made" section now also checks PHOTOS FOR YOUR SITES.
 
@@ -139,9 +154,7 @@ The rest of section 5 is not built yet (each would be its own whole piece):
 - sites in more languages (u5);
 - more mini-app kinds (u7, with recipe timers);
 - a high-score table (u10);
-- a front page for each game (u11);
 - comics as a reader page (s5);
-- menu from a sheet (s6);
 - Workshop tools as apps (s10);
 - hours from your agenda (c1);
 - a route page (c4).
