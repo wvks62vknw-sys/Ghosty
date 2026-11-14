@@ -118,6 +118,19 @@ test('his photo as outlines: an edge becomes a dark line, a flat area stays clea
   assert.equal(a(55, 20), 0);
 });
 
+test('his photo as comic art: a few flat tones, inked black along the edges', () => {
+  const w = 60, h = 40;
+  const px = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; px[i] = x < 30 ? 40 + y : 200; px[i + 1] = x < 30 ? 90 : 180 - y; px[i + 2] = 60; px[i + 3] = 255; }
+  const o = X.comicArtOf(px, w, h, 5);
+  const tones = new Set();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < 22 || x > 37) tones.add(o[(y * w + x) * 4]);
+  assert.ok(tones.size <= 5, `away from the ink, a few flat tones (${tones.size})`);
+  const dark = (x, y) => o[(y * w + x) * 4] + o[(y * w + x) * 4 + 1] + o[(y * w + x) * 4 + 2];
+  assert.ok(Math.min(dark(28, 20), dark(29, 20)) < dark(10, 20) * 0.6, 'the edge is inked darker than the flat colour beside it');
+  assert.equal(o[3], 255);
+});
+
 test('a layered PSD: the header, and every layer kept with its name, blend mode, opacity and visibility', () => {
   const w = 4, h = 3;
   const rgba = (r) => { const d = new Uint8ClampedArray(w * h * 4); for (let i = 0; i < w * h; i++) { d[i * 4] = r; d[i * 4 + 3] = 200; } return d; };
@@ -139,4 +152,10 @@ test('a layered PSD: the header, and every layer kept with its name, blend mode,
   const big = new Uint8ClampedArray(300 * 200 * 4);
   const packedPsd = X.psdOf(300, 200, [{ name: 'Clear', rgba: big, opacity: 1, visible: true, blend: 'source-over' }], big);
   assert.ok(packedPsd.length < 30000, `a clear 300 × 200 layer's PSD is small: ${packedPsd.length} bytes`);
+  // and a PSD opens again with its layers, names, blend modes, opacity, visibility and pixels
+  const back = X.readPsd(bytes);
+  assert.deepEqual(back.layers.map((l) => [l.name, l.blend, Math.round(l.opacity * 100), l.visible, l.w, l.h]), [['Paper', 'source-over', 100, true, 4, 3], ['Ink', 'multiply', 50, false, 4, 3], ['Glow', 'screen', 100, true, 4, 3]]);
+  assert.deepEqual([...back.layers[1].rgba.subarray(0, 4)], [10, 0, 0, 200]);
+  assert.deepEqual([back.w, back.h], [w, h]);
+  assert.match(X.readPsd(new Uint8Array(40)).why, /not a PSD/);
 });
