@@ -382,6 +382,12 @@ test('the language table names English, French, German, Spanish, Italian, Portug
     ['NOODUITGANG', 'DUTCH'],
     ['xqzv plmk trfd wqs', 'UNKNOWN'],
     ['7734 AB 99', 'UNKNOWN'],
+    // (lens.u1) a menu has few common words: its dishes say the language
+    ['ENTREES\nSoupe du jour\nSalade niçoise\nPLATS\nBoeuf bourguignon', 'FRENCH'],
+    ['Antipasti\nZuppa del giorno\nPrimi piatti\nSpaghetti alla carbonara\nDolci', 'ITALIAN'],
+    ['Vorspeisen\nTagessuppe\nHauptgerichte\nSchweinebraten mit Kartoffeln', 'GERMAN'],
+    ['Entrantes\nSopa del día\nPlatos principales\nPostres', 'SPANISH'],
+    ['Starters\nSoup of the day\nMains\nDesserts', 'ENGLISH'],
   ];
   for (const [text, want] of cases) assert.equal(F.languageOf(text).name, want, text);
   assert.equal(F.needsTranslation(F.languageOf('SORTIE DE SECOURS')), true);
@@ -568,4 +574,142 @@ test('a postcode is a real area’s, in any case, with a space or none; never a 
   assert.deepEqual(kinds('10-12 High Street\nLeeds LS1 6DT'), ['address:10-12 High Street, Leeds LS1 6DT']);
   assert.deepEqual(kinds('Flat 2.01, 5 High St\nLeeds LS1 6DT'), ['address:Flat 2.01, 5 High St, Leeds LS1 6DT']);
   assert.deepEqual(kinds('Dr Jane Patel\nLeeds LS1 4AP'), ['address:Leeds LS1 4AP'], 'a person’s title is no street');
+});
+
+// ---- THE NEXT ROUND: the camera as the front door (lens.c1 receipts, lens.u7 what he avoids, lens.u1 a menu line by line)
+test('a till receipt is told from a bill, a sum and a page; its spend is one safe CSV row', () => {
+  const rc = 'TESCO EXTRA\nMilk 2pt 1.45\nBread 1.10\nApples 2.30\nTOTAL 4.85\nVISA CONTACTLESS\nCHANGE 0.00\nThank you';
+  assert.equal(F.looksLikeReceipt(rc), true);
+  assert.equal(F.jobOf({ text: rc, receipt: true }), 'receipt');
+  assert.equal(F.looksLikeReceipt('BRITISH GAS\nYour balance is £84.20.\nPlease pay by 14 December 2026.'), false, 'a bill is no receipt');
+  assert.equal(F.looksLikeReceipt('12 + 7 × 3 = 33'), false);
+  assert.equal(F.receiptCsv({ store: 'TESCO EXTRA', date: '2026-11-13', total: 4.85 }, '2026-11-14'), 'Date,Description,Amount\n2026-11-13,TESCO EXTRA,-4.85\n');
+  assert.equal(F.receiptCsv({ store: '=HYPERLINK("x"),bad', date: '', total: 2 }, '2026-11-14'), 'Date,Description,Amount\n2026-11-14,HYPERLINK( x ) bad,-2.00\n', 'no cell starts a formula; no comma or quote breaks the row; no date is today');
+});
+
+test('a packet against what he avoids: red when it has one, amber when it cannot be told, green when every one is clear', () => {
+  assert.equal(F.avoidVerdict([], { allergens: ['milk'] }).tone, 'none', 'an empty list gives no line');
+  const red = F.avoidVerdict(['milk', 'gluten'], { allergens: ['gluten', 'milk'], ingredients: 'Wheat flour, sugar, milk' });
+  assert.equal(red.tone, 'red');
+  assert.equal(red.line, 'Not for you: it has milk and gluten.');
+  assert.equal(F.avoidVerdict(['peanuts'], { ingredients: 'Roasted groundnuts, salt' }).tone, 'red', 'the ingredients’ own words count');
+  assert.equal(F.avoidVerdict(['peanuts'], {}).line, 'Check the pack: the open database does not say whether it has peanuts.');
+  assert.equal(F.avoidVerdict(['low sugar'], { nutrition: { sugars: 16.6 } }).tone, 'amber', 'the middle band (over 5 g, up to 22.5 g per 100 g)');
+  assert.equal(F.avoidVerdict(['low sugar'], { nutrition: { sugars: 30 } }).tone, 'red');
+  assert.equal(F.avoidVerdict(['low salt'], { nutrition: { salt: 0.2 } }).tone, 'green');
+  assert.equal(F.avoidVerdict(['vegan'], { ingredients: 'oats, honey' }).tone, 'red');
+  assert.equal(F.avoidVerdict(['vegetarian'], { ingredients: 'oats, honey' }).tone, 'green');
+  assert.equal(F.avoidVerdict(['peanuts', 'low salt'], { allergens: ['gluten'], ingredients: 'oats, sugar', nutrition: { salt: 0.2 } }).line, 'Fine for you: nothing you avoid, by its ingredients and figures.');
+});
+
+test('what he avoids, in his words; and the Lens takes those words while it is open', () => {
+  assert.deepEqual(F.avoidFromWords("I'm allergic to peanuts and milk").sort(), ['milk', 'peanuts'], 'peanuts are not tree nuts');
+  assert.deepEqual(F.avoidFromWords('allergic to nuts and peanuts').sort(), ['nuts', 'peanuts']);
+  assert.deepEqual(F.avoidFromWords("I'm vegan"), ['vegan']);
+  assert.deepEqual(F.avoidFromWords('I avoid gluten and cut down on sugar').sort(), ['gluten', 'low sugar']);
+  assert.deepEqual(F.avoidFromWords('I am coeliac'), ['gluten']);
+  for (const w of ["I'm allergic to peanuts", 'I avoid gluten', "I can't eat eggs", "I'm vegan", 'what do I avoid', 'my allergy list']) assert.equal(F.lensWord(w), 'avoid', w);
+  for (const w of ['I avoid crowds and loud noise and very long sentences that go on and on', 'play music']) assert.equal(F.lensWord(w), null, w);
+});
+
+test('a menu is four lines or more, and its English is used line for line only when it lines up', () => {
+  assert.equal(F.isMenuLike('ENTREES\nSoupe du jour\nSalade nicoise\nPLATS\nBoeuf bourguignon'), true);
+  assert.equal(F.isMenuLike('SORTIE DE SECOURS\nNe pas bloquer'), false, 'a short sign is translated whole, as before');
+  assert.deepEqual(F.pairLines(['Soupe', 'Salade'], '1. Soup\n2. Salad'), ['Soup', 'Salad'], 'a numbered answer is read as its lines');
+  assert.equal(F.pairLines(['Soupe', 'Salade', 'Boeuf'], 'Soup and salad\nBeef'), null, 'two lines for three: no pairing, the whole translation instead');
+});
+
+test('(lens.s1) a business card: its details as printed, into a vCard made on the phone; a notice or a bill is no card', () => {
+  const c = F.readBusinessCard('Sarah J. Okafor\nSenior Project Manager\nBrightline Consulting Ltd\nT: 020 7946 0321\nM: +44 7700 900123\nsarah.okafor@brightline.co.uk\nwww.brightline.co.uk\n12 Bank Street, London EC2N 4AB');
+  assert.equal(c.name, 'Sarah J. Okafor');
+  assert.equal(c.title, 'Senior Project Manager');
+  assert.equal(c.org, 'Brightline Consulting Ltd');
+  assert.deepEqual(c.phones, ['02079460321', '+447700900123']);
+  assert.deepEqual(c.emails, ['sarah.okafor@brightline.co.uk']);
+  assert.equal(c.web, 'www.brightline.co.uk');
+  assert.match(c.address, /EC2N 4AB/);
+  const v = F.vcardOf(c);
+  assert.match(v, /^BEGIN:VCARD\r\nVERSION:3\.0\r\nN:Okafor;Sarah J\.;;;\r\nFN:Sarah J\. Okafor\r\n/);
+  assert.match(v, /TEL;TYPE=CELL:\+447700900123\r\n/);
+  assert.match(v, /TEL;TYPE=WORK:02079460321\r\n/);
+  assert.match(v, /ADR;TYPE=WORK:;;12 Bank Street\\, London EC2N 4AB;;;;\r\n/, 'a comma is escaped');
+  assert.match(v, /URL:https:\/\/www\.brightline\.co\.uk\r\nADR/);
+  assert.match(v, /END:VCARD\r\n$/);
+  assert.equal(F.readBusinessCard('Quiz Night at the Village Hall\nFriday 4 December 2026, doors at 7\nTickets: call 0121 496 0123\nwww.example.org\n12 High Street\nBirmingham B1 1AA\nhello@example.org'), null, 'a notice with a number is no business card');
+  assert.equal(F.readBusinessCard('BRITISH GAS\nYour balance is £84.20.\nPlease pay by 14 December 2026.\nReference 4471 2290'), null);
+  assert.equal(F.readBusinessCard('Village Hall\ncall 0121 496 0123'), null, 'a place is no person');
+  assert.equal(F.readBusinessCard('Jamie Patel\nPlumbing and Heating'), null, 'nothing to reach them by');
+  assert.deepEqual(F.jobsOf({ text: 'a b c', contact: true, letter: true }), ['contact']);
+  assert.equal(F.lensWord('add them to my contacts'), 'contacts');
+  assert.equal(F.lensWord('save this card'), 'contacts');
+  assert.equal(F.lensWord('save that'), 'keep', 'saving the words is still KEEP');
+});
+
+test('(lens.s7) a bus stop sign: its name, letter, buses, where they go and its text code; other signs are no stop', () => {
+  assert.deepEqual(F.readBusStop('Oxford Circus\nStop OB\n25 N8 73 390\ntowards Holborn\nText 47589 to 87287'), { name: 'Oxford Circus', letter: 'OB', routes: ['25', 'N8', '73', '390'], towards: 'Holborn', sms: '47589' });
+  assert.deepEqual(F.readBusStop('BUS STOP\nHigh Street\n12 X1 50\nTowards City Centre'), { name: 'High Street', letter: '', routes: ['12', 'X1', '50'], towards: 'City Centre', sms: '' });
+  assert.equal(F.readBusStop('SORTIE DE SECOURS\nNe pas bloquer cette issue'), null);
+  assert.equal(F.readBusStop('STOP\nPolice'), null);
+  assert.equal(F.readBusStop('Quiz Night at the Village Hall\nFriday 4 December 2026, doors at 7'), null);
+  assert.deepEqual(F.jobsOf({ text: 'a b c', stop: true, letter: true }), ['stop']);
+  assert.equal(F.lensWord("when's the next bus"), 'buses');
+  assert.equal(F.lensWord('next buses from this stop'), 'buses');
+});
+
+test('(lens.s2, s3) a medicine box (its NHS page; never advice) and a rating plate (an hour at his price, a first estimate)', () => {
+  assert.deepEqual(F.readMedicine('Paracetamol 500mg Tablets\n16 tablets\nFor oral use\nRead the enclosed leaflet\nPL 12345/0001'), { name: 'Paracetamol', strength: '500mg', form: 'tablets' });
+  assert.deepEqual(F.readMedicine('IBUPROFEN\n200 mg film-coated tablets\nKeep out of the sight and reach of children'), { name: 'Ibuprofen', strength: '200mg', form: 'tablets' });
+  assert.equal(F.readMedicine('Cetirizine Hydrochloride 10mg\n30 Tablets').name, 'Cetirizine Hydrochloride');
+  assert.equal(F.readMedicine('Beef bourguignon'), null);
+  assert.equal(F.readMedicine('TESCO EXTRA\nBread 1.10\nTOTAL 4.30\nVISA'), null);
+  assert.equal(F.nhsSearch('Paracetamol'), 'https://www.nhs.uk/search/results?q=Paracetamol');
+  assert.deepEqual(F.readRating('Model HX200\n220-240V~ 50Hz\n1850-2200W\nMade in China'), { watts: 2200, volts: '220-240' });
+  assert.deepEqual(F.readRating('230V 50Hz 3kW'), { watts: 3000, volts: '230' });
+  assert.equal(F.readRating('Energy 120 kWh/annum'), null, 'a yearly energy figure is no rating plate');
+  assert.equal(F.readRating('TOTAL 4.30 VISA'), null);
+  assert.match(F.runningCost(2200, 25).line, /^About 55p an hour at full power, at 25p a unit \(kWh\): £2\.75 for five hours\. A first estimate/);
+  assert.match(F.runningCost(60, 25).line, /^About 1\.5p an hour/);
+  assert.deepEqual(F.jobsOf({ text: 'a b c', medicine: true, letter: true }), ['medicine']);
+  assert.equal(F.lensWord('open the NHS page'), 'nhs');
+  assert.equal(F.lensWord('what does it cost to run'), 'running');
+});
+
+test('the UK traffic lights on a packet: HIGH over the first line, LOW at or under the second, none for energy or protein', () => {
+  assert.equal(F.bandOf('sugars', 16.6), 'medium');
+  assert.equal(F.bandOf('sugars', 22.6), 'high');
+  assert.equal(F.bandOf('sugars', 5), 'low');
+  assert.equal(F.bandOf('fat', 20.9), 'high');
+  assert.equal(F.bandOf('saturates', 1.5), 'low');
+  assert.equal(F.bandOf('salt', 0.95), 'medium');
+  assert.equal(F.bandOf('salt', 1.6), 'high');
+  assert.equal(F.bandOf('kcal', 474), '');
+  assert.equal(F.bandOf('protein', 7.1), '');
+  assert.equal(F.bandOf('fat', undefined), '');
+});
+
+test('(the sweep) print he can use: a parcel number, imperial and US measures, prices in another currency', () => {
+  const acts = F.textActs('Your parcel AB123456789GB is on its way. Call 0121 496 0123', '2026-11-14');
+  assert.deepEqual(acts.map((a) => a.kind), ['parcel', 'phone']);
+  assert.equal(acts[0].value, 'https://www.royalmail.com/track-your-item#/tracking-results/AB123456789GB');
+  assert.deepEqual(F.unitsIn('Bake at 350°F. 12 fl oz milk, 8 oz flour, 2 lbs beef, 5 in stock, 6 ft wide, 10 km').map((u) => `${u.text}=${u.said}`), ['350°F=about 177 °C', '12 fl oz=about 355 ml', '8 oz=about 227 g', '2 lbs=about 0.9 kg', '6 ft=about 1.8 m', '10 km=about 6.2 miles'], '"5 in stock" is no measure');
+  assert.deepEqual(F.pricesIn('Menu €14,50\nVin 6.50 €\nUS$20 or 120 SEK, CHF 12.90, 1.234,50 € and £5').map((p) => `${p.amount} ${p.cur}`), ['14.5 eur', '6.5 eur', '20 usd', '120 sek', '12.9 chf', '1234.5 eur'], 'pounds are his own: never converted');
+  assert.deepEqual(F.textActs('TOTAL 4.30\nVISA', '2026-11-14'), [], 'a till total with no currency is no price to convert');
+});
+
+test('(lens.u14) an address abroad goes on the map like a UK one: a street line and its postcode and town', () => {
+  const addr = (t) => F.textActs(t, '2026-11-14').filter((a) => a.kind === 'address').map((a) => a.value);
+  assert.deepEqual(addr('Café Lumière\n12 rue de Rivoli\n75001 Paris'), ['12 rue de Rivoli, 75001 Paris']);
+  assert.deepEqual(addr('Hauptstraße 5\n10115 Berlin'), ['Hauptstraße 5, 10115 Berlin']);
+  assert.deepEqual(addr('Calle Mayor 10, 28013 Madrid'), ['Calle Mayor 10, 28013 Madrid']);
+  assert.deepEqual(addr('Via del Corso 120\n00186 Roma'), ['Via del Corso 120, 00186 Roma']);
+  assert.deepEqual(addr('Prinsengracht 263\n1016 GV Amsterdam'), ['Prinsengracht 263, 1016 GV Amsterdam']);
+  assert.deepEqual(addr('Friday 4 December 2026\nDoors at 7'), [], 'a year and a word is no address');
+  assert.deepEqual(addr('12 High Street\nBirmingham B1 1AA'), ['12 High Street, Birmingham B1 1AA'], 'a UK address reads as before');
+});
+
+test('(review) a UK energy bill has prices, a total and VAT like a till receipt, but it is the bill: ADD TO MY BILLS, not INTO SPENDING', () => {
+  const bill = 'OCTOPUS ENERGY\nYour energy bill\nElectricity 312 kWh £98.40\nStanding charge £15.20\nVAT 5% £5.68\nTotal amount due £119.28\nPay by Direct Debit or card by 2 December 2026';
+  assert.equal(F.looksLikeReceipt(bill), true, 'it does look like a receipt by its prices');
+  assert.deepEqual(F.jobsOf({ text: bill, receipt: true, letter: true }), ['letter'], 'read as a bill too, the bill wins');
+  assert.deepEqual(F.jobsOf({ text: 'TOTAL 6.30 VISA', receipt: true, letter: false }), ['receipt'], 'a till receipt stays a receipt');
 });

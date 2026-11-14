@@ -33,9 +33,11 @@ export const MOOD_TONE: Partial<Record<MoodKind, { rate: number; pitch: number; 
   protective: { rate: 0.95, pitch: 1, volume: 1 },
 };
 const tone = () => MOOD_TONE[mood.get().now.kind] ?? { rate: 1, pitch: 1, volume: 1 };
-import { brief, clean, quickFirst, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
+import { brief, clean, quickFirst, sentences, SpokenPlan } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
 import { encodeWav, toMono16k } from './wav';
 import { MIC_BLOCKED, MIC_BROWSER, MIC_NONE, NO_SIGNAL } from './words';
+import { sfx } from './sfx';
+import { stopwatch } from '../core/stopwatch';
 
 let voices: SpeechSynthesisVoice[] = [];
 const loadVoices = () => {
@@ -179,6 +181,94 @@ export function speak(text: string, opts: { choice?: Choice; owner?: string; bri
   return speakPhone(parts, token, choice, 0, dropped);
 }
 
+/**
+ * [ci] A REPLY SAID AS IT IS WRITTEN (NEXT ci.u1): the voice starts on the brain's first sentence while the rest of a long reply
+ * is still coming, about a third of a second sooner than waiting for the whole. `add` each piece as it arrives; `end` with the
+ * whole reply (what is left of it is said, the same words the whole would have been said in: spoken.ts SpokenPlan); `drop` when
+ * the brain took the pieces back (it turned to a tool). Ghosty's own voice and the phone's voice alike.
+ */
+export interface SpokenStream {
+  add(text: string): void;
+  end(whole: string): void;
+  drop(): void;
+  /** The reply broke off (the signal went, an error, a stop): what was queued is said to its end and nothing more is waited for. */
+  close(): void;
+}
+export function speakStream(opts: { owner?: string; brief?: boolean } = {}): SpokenStream {
+  const choice = chosen();
+  const own = ghostyVoice(choice);
+  const dropped = cancelPhone();
+  const token = ++speakToken;
+  endRead?.();
+  const parts: string[] = [];
+  progress = { parts, i: 0, owner: opts.owner };
+  stopClip?.();
+  const planner = new SpokenPlan(!!opts.brief);
+  let wake: (() => void) | null = null;
+  let closedOk: () => void = () => undefined;
+  const closed = new Promise<void>((ok) => (closedOk = ok));
+  const feed: Feed = { closed: false, next: () => new Promise<void>((ok) => (wake = ok)) };
+  const poke = () => {
+    feed.onAdd?.();
+    const w = wake;
+    wake = null;
+    w?.();
+  };
+  const close = () => {
+    feed.closed = true;
+    closedOk();
+    poke();
+  };
+  let started = false;
+  const begin = () => {
+    if (started) return;
+    started = true;
+    if (!own) {
+      void speakPhone(parts, token, choice, 0, dropped, feed);
+      return;
+    }
+    ui.set({ voice: 'speaking' });
+    // (whatever Ghosty's voice could not say, the phone's voice says, from that piece: once the reply is whole)
+    void speakGhosty(parts, token, choice, feed).then(async (from) => {
+      await closed;
+      if (token === speakToken && from < parts.length) await speakPhone(parts.slice(from), token, choice, from);
+    });
+  };
+  return {
+    add(text) {
+      if (token !== speakToken || feed.closed) return;
+      const more = planner.add(text);
+      if (!more.length) return;
+      parts.push(...more);
+      begin();
+      poke();
+      if (planner.full) close();
+    },
+    end(whole) {
+      if (feed.closed || token !== speakToken) return;
+      const rest = planner.finish(whole);
+      if (rest === null) {
+        // what was said so far is not how the whole reads: from the start, unless he has already heard some of it
+        if (!audible && progress.i === 0) {
+          closedOk();
+          void speak(whole, opts);
+          return;
+        }
+      } else parts.push(...rest);
+      if (!started && parts.length) begin();
+      close();
+    },
+    drop() {
+      if (token === speakToken) stopSpeaking();
+      feed.closed = true;
+      closedOk();
+    },
+    close() {
+      if (!feed.closed) close();
+    },
+  };
+}
+
 /** The phone's voice stops what it is saying and forgets what it was to say next. True when it had something to drop. */
 function cancelPhone(): boolean {
   try {
@@ -213,13 +303,15 @@ let stopPhone: (() => void) | null = null;
  * one before it ends (BRIEF-TALK-1A 1). One at a time from here, as it used to be, left the voice idle between sentences, and
  * an idle voice on an iPhone takes a moment to start again: a gap after every sentence. `progress` follows each one's start.
  */
-function speakPhone(parts: string[], token: number, choice: Choice, offset = 0, afterCancel = false): Promise<void> {
+function speakPhone(parts: string[], token: number, choice: Choice, offset = 0, afterCancel = false, feed?: Feed): Promise<void> {
   if (!('speechSynthesis' in window) || !parts.length) {
     if (token === speakToken) ui.set({ voice: 'idle' });
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    let left = parts.length;
+    let left = 0;
+    let queued = 0;
+    let ready = false;
     let over = false;
     const finish = () => {
       if (over) return;
@@ -240,7 +332,9 @@ function speakPhone(parts: string[], token: number, choice: Choice, offset = 0, 
       /* ignore */
     }
     // (just after a cancel, a moment's pause first: a voice told to speak in the same instant can drop what it was told)
-    const queue = () => parts.forEach((part, i) => {
+    // ([ci] a reply still being written: each piece is handed to the voice as it comes, and the speech ends once the reply is whole)
+    const queue = () => parts.slice(queued).forEach((part, k) => {
+      const i = queued + k;
       if (token !== speakToken) return;
       const u = new SpeechSynthesisUtterance(part.trim());
       if (v) {
@@ -255,16 +349,30 @@ function speakPhone(parts: string[], token: number, choice: Choice, offset = 0, 
         progress.i = offset + i;
         audible = true;
         armBargeIn();
+        firstHeard();
       };
       u.onend = u.onerror = () => {
         if (token !== speakToken) return finish();
         audible = false;
-        if (--left <= 0) finish();
+        clipEndAt = performance.now();
+        if (--left <= 0 && (!feed || feed.closed)) finish();
       };
       speechSynthesis.speak(u);
     });
-    if (afterCancel) setTimeout(() => (token === speakToken ? queue() : finish()), 60);
-    else queue();
+    const queueAll = () => {
+      ready = true;
+      left += parts.length - queued;
+      queue();
+      queued = parts.length;
+      if (left <= 0 && feed?.closed) finish();
+    };
+    if (feed)
+      feed.onAdd = () => {
+        if (!ready || over || token !== speakToken) return;
+        queueAll();
+      };
+    if (afterCancel) setTimeout(() => (token === speakToken ? queueAll() : finish()), 60);
+    else queueAll();
   });
 }
 
@@ -316,7 +424,15 @@ const nextUtcMidnight = () => {
  * run out for the day and this phone has a natural British voice, that voice takes over until
  * the share comes back.
  */
-async function speakGhosty(parts: string[], token: number, choice: Choice): Promise<number> {
+/** [ci] A reply still being written (speakStream): more pieces come, `next` resolves when one does or it is closed. */
+interface Feed {
+  closed: boolean;
+  next(): Promise<void>;
+  /** Called as pieces are added: the clips for them are asked for at once, while the one before is still playing. */
+  onAdd?: () => void;
+}
+
+async function speakGhosty(parts: string[], token: number, choice: Choice, feed?: Feed): Promise<number> {
   const el = audioEl();
   const clips: Promise<(Blob & { voice?: string; note?: string; reason?: string }) | null>[] = [];
   // The brain saying no (no Workers AI, the day's allowance) is what sends the next ten minutes to the
@@ -334,11 +450,21 @@ async function speakGhosty(parts: string[], token: number, choice: Choice): Prom
   };
   fetchClip(0);
   fetchClip(1);
+  let cur = 0;
+  if (feed) feed.onAdd = () => (fetchClip(cur), fetchClip(cur + 1));
   const giveUp = (i: number) => {
     if (refused && unlocked) phoneUntil = Date.now() + 10 * 60_000;
     return i;
   };
-  for (let i = 0; i < parts.length; i++) {
+  for (let i = 0; ; i++) {
+    // (a reply still being written: its next piece is waited for, the voice still "speaking" so the ear does not open meanwhile)
+    while (i >= parts.length && feed && !feed.closed) {
+      await feed.next();
+      if (token !== speakToken) return parts.length;
+    }
+    if (i >= parts.length) break;
+    cur = i;
+    fetchClip(i);
     fetchClip(i + 1);
     const blob = await clips[i]!;
     if (token !== speakToken) return parts.length;
@@ -372,7 +498,7 @@ function playClip(el: HTMLAudioElement, blob: Blob, onStart?: () => void): Promi
     const url = URL.createObjectURL(blob);
     let timer = 0;
     let done = false;
-    const onEnded = () => finish(true);
+    const onEnded = () => ((clipEndAt = performance.now()), finish(true));
     const finish = (ok: boolean) => {
       if (done) return;
       done = true;
@@ -395,6 +521,7 @@ function playClip(el: HTMLAudioElement, blob: Blob, onStart?: () => void): Promi
       clearTimeout(timer);
       audible = true;
       armBargeIn();
+      firstHeard();
       onStart?.();
       onStart = undefined;
       // An end that never comes (a stalled clip) must not leave the reactor "speaking" for good.
@@ -496,6 +623,10 @@ export function readAloud(o: {
   onPiece: (i: number, engine: BookEngine) => void;
   onSwitch?: (why: SwitchWhy) => void;
   onEnd: (how: 'done' | 'stopped') => void;
+  /** The phone's voice a little faster or slower than its own pace (learn.u5: the reader's speed), 1 its own. */
+  rate?: number;
+  /** A phone voice chosen for this book, by its name (absent, or not on this phone: the usual one). */
+  voiceName?: string;
 }): void {
   endRead?.();
   cancelPhone();
@@ -531,7 +662,8 @@ export function readAloud(o: {
   /** The phone's voice from piece `from`, `preface` said first (the switch from my own voice). */
   const phone = (from: number, preface?: string) => {
     if (!('speechSynthesis' in window)) return end('done');
-    const v = phoneVoiceFor(choice);
+    const own = o.voiceName ? speechSynthesis.getVoices().find((x) => x.name === o.voiceName) : undefined;
+    const v = own ?? phoneVoiceFor(choice);
     Object.assign(voiceNow, { engine: 'phone', name: v?.name ?? "the phone's voice", note: preface ? 'my own voice ran out for books today' : '' });
     const t = tone();
     try {
@@ -546,13 +678,14 @@ export function readAloud(o: {
         u.voice = v;
         u.lang = v.lang;
       }
-      u.rate = t.rate;
+      u.rate = Math.max(0.5, Math.min(2, t.rate * (o.rate ?? 1)));
       u.pitch = (v && naturalBritish(v) ? 1 : 0.92) * t.pitch;
       u.volume = t.volume;
       u.onstart = () => {
         if (token !== speakToken || over) return;
         audible = true;
         armBargeIn();
+        firstHeard();
         onstart();
       };
       u.onend = u.onerror = () => {
@@ -729,7 +862,14 @@ function listenBrowser(onInterim: (t: string) => void): Promise<string> {
       reject(new Error(e.error === 'not-allowed' ? MIC_BLOCKED : e.error === 'service-not-allowed' ? MIC_BROWSER : e.error === 'network' ? NO_SIGNAL : e.error === 'audio-capture' ? MIC_NONE : 'I couldn’t turn that into words. Try again, or type it.'));
     };
     let dropped = false;
-    rc.onend = () => resolve(dropped ? '' : fin.trim());
+    rc.onend = () => {
+      // ([ci] the phone's own recogniser heard him finish: the same soft tick, NEXT ci.u5)
+      if (!dropped && fin.trim()) {
+        sfx('heard');
+        heardEndAt = performance.now();
+      }
+      resolve(dropped ? '' : fin.trim());
+    };
     abortListen = (drop) => {
       dropped = !!drop;
       rc.abort();
@@ -874,6 +1014,28 @@ let carry: (ReturnType<typeof record> & { from: number }) | null = null;
 export const heardOver = (): boolean => !!carry && carry.rec.state === 'recording';
 /** Ghosty's voice is playing right now (a clip between `playing` and its end, or an utterance between start and end). */
 let audible = false;
+
+/** [ci] NEXT ci.u3, the voice's own timings for the SPEED card (core/stopwatch.ts), measured on this phone: when the ear last heard
+ *  him finish (his last loud moment), so the first word said after it is timed from there; and when Ghosty last finished a reply,
+ *  so the ear opening again is timed from there. */
+let heardEndAt = 0;
+/** When the last sentence Ghosty said finished sounding (a clip's end, or the phone voice's): a reply's end is timed from it. */
+let clipEndAt = 0;
+/** The first sound of Ghosty's voice after he finished speaking: the wait he felt, kept on the phone. */
+function firstHeard(): void {
+  if (!heardEndAt) return;
+  const ms = performance.now() - heardEndAt;
+  heardEndAt = 0;
+  if (ms > 0 && ms < 15_000) stopwatch.voice({ first: ms });
+}
+ui.subscribe((u, prev) => {
+  // the ear opened again after a reply finished sounding (not a reply cut off: that one stopped, it did not end)
+  if (u.voice === 'listening' && prev.voice !== 'listening' && clipEndAt) {
+    const ms = performance.now() - clipEndAt;
+    clipEndAt = 0;
+    if (ms < 5_000) stopwatch.voice({ reopen: ms });
+  }
+});
 /** The barge-in watch while Ghosty speaks. */
 let watch: { stop(): void } | null = null;
 
@@ -1021,6 +1183,8 @@ async function listenWhisper(onReady: () => void = () => undefined, soundOnly = 
   // writing down is no longer added to his wait). If he speaks again, they are set aside and the whole recording is sent.
   let early: { from: number; text: Promise<string | null> } | null = null;
   let lastLoud = c ? performance.now() : 0;
+  // [ci] the ear heard him finish (his voice, then the quiet that ends a turn): a soft tick says so (NEXT ci.u5)
+  let endHeard = false;
   const done = new Promise<void>((resolve) => {
     let floor = carriedFloor(m);
     let speechAt = 0;
@@ -1059,6 +1223,7 @@ async function listenWhisper(onReady: () => void = () => undefined, soundOnly = 
       const silence = speech && now - lastLoud > END_SILENCE_MS;
       const tooLong = now - t0 > (speech ? 30000 : 12000);
       if (stopped || silence || tooLong || mic !== m) {
+        endHeard = silence && !stopped && mic === m;
         if (calib >= 20) floors.set(m, floor);
         resolve();
         return;
@@ -1068,6 +1233,10 @@ async function listenWhisper(onReady: () => void = () => undefined, soundOnly = 
     requestAnimationFrame(tick);
   });
   await done;
+  if (endHeard && !dropped) {
+    sfx('heard');
+    heardEndAt = lastLoud;
+  }
   // the words written down early are his whole utterance when nothing louder than the room came after them
   const sent = early as { from: number; text: Promise<string | null> } | null; // (set inside the meter's loop above)
   const earlyText = sent && sent.from === lastLoud && !dropped ? sent.text : null;

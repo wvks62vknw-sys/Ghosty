@@ -43,6 +43,8 @@ export interface WaitingGame {
 export interface GameTicket {
   id: string;
   game: Game;
+  /** [sites] his note for the front page (sites.u11) */
+  note?: string;
   name: string;
   at: number;
 }
@@ -160,24 +162,27 @@ export async function gameApproval(a: Record<string, unknown>, ctx: Ctx, get: (n
   const game = await waitingGame(ctx, typeof a.name === 'string' ? a.name : '');
   const { name, replaces } = await gameLinkName(ctx, game, get);
   const ticket = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
-  await durablePut(ctx.env, ctx.storage, TICKET, { id: ticket, game, name, at: Date.now() } satisfies GameTicket);
+  const note = typeof a.note === 'string' ? a.note.replace(/[\u0000-\u0008\u000b-\u001f]/g, '').trim().slice(0, 400) : '';
+  await durablePut(ctx.env, ctx.storage, TICKET, { id: ticket, game, name, at: Date.now(), ...(note ? { note } : {}) } satisfies GameTicket);
   const kb = Math.max(1, Math.round(JSON.stringify(game).length / 1024));
   return {
     args: { ...a, ticket },
     reason:
       `${replaces ? 'Update' : 'Put'} your game "${game.name}" on your sites at ${link(name)}/? Anyone with the link can play it (${kb} KB). ` +
       'It installs to a Home Screen, plays offline and keeps its saves on the phone that plays it; it reaches nothing on the network and asks for no camera, microphone or location.' +
-      (replaces ? ' This replaces the copy already there.' : ''),
+      (replaces ? ' This replaces the copy already there.' : '') +
+      // the whole note, every word that goes public (review fix: it is capped at 400 above)
+      (note ? ` Its front page carries your note: “${note}”.` : ''),
   };
 }
 
 /** The run: only the latest approval's game, once, and only while its ticket is fresh. */
-export async function publishGame(a: Record<string, unknown>, ctx: Ctx, put: (name: string, game: Game) => Promise<void>, link: (name: string) => string): Promise<{ name: string; title: string; link: string }> {
+export async function publishGame(a: Record<string, unknown>, ctx: Ctx, put: (name: string, game: Game, note?: string) => Promise<void>, link: (name: string) => string): Promise<{ name: string; title: string; link: string }> {
   const ticket = typeof a.ticket === 'string' && /^[0-9a-f]{32}$/.test(a.ticket) ? a.ticket : '';
   const t = ticket ? await fresh<GameTicket>(ctx, TICKET) : undefined;
   if (!t || t.id !== ticket || Date.now() - t.at > TICKET_MS) throw new Error('Not published: a game goes on his sites only through his APPROVE in this chat. Ask him again.');
   await durableDelete(ctx.env, ctx.storage, TICKET).catch(() => undefined);
-  await put(t.name, t.game);
+  await put(t.name, t.game, t.note);
   return { name: t.name, title: t.game.name, link: `${link(t.name)}/` };
 }
 
@@ -223,13 +228,28 @@ export function gameManifest(name: string, g: Game): Record<string, unknown> {
   return { ...manifestOf(g, base, `${base}page`), id: base, description: `${g.name}: a game made in Ghosty's game studio.`, lang: 'en-GB' };
 }
 
+/** [sites] The front page's look (sites.u11): over the game until PLAY, scrolling, in the game's own sky. One style with the player's. */
+export const FRONT_CSS = `#front{position:fixed;inset:0;z-index:10;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--fsky);color:white;font:16px/1.45 -apple-system,system-ui,sans-serif;padding:calc(20px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;touch-action:pan-y}#front h1{font-size:30px;line-height:1.15;margin:0 0 6px}#front .by{margin:0 0 12px;opacity:.85}#front .note{margin:0 0 16px;padding:12px;border:2px solid rgba(255,255,255,.6);border-radius:8px;white-space:pre-line}#front h2{font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin:18px 0 6px}#front ul{margin:0;padding-left:20px}#front .rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}#front figure{margin:0}#front img{width:100%;height:auto;image-rendering:pixelated;border-radius:6px;display:block}#front figcaption{font-size:14px;opacity:.85;margin-top:4px}#front .play{position:sticky;bottom:0;display:block;width:100%;min-height:56px;margin-top:20px;font:700 20px -apple-system,system-ui,sans-serif;color:black;background:white;border:0;border-radius:10px}`;
+const HOW: Record<Game['kind'], string[]> = {
+  platformer: ['◀ and ▶ on the pad move you; the big button jumps (or the arrow keys and the space bar).', 'Talk to the people you meet: they give you the quests.', 'Touch a save point to keep your place: CONTINUE takes you back to it next time.'],
+  topdown: ['The arrows on the pad walk you round (or the arrow keys).', 'Walk up to people to talk: they give you the quests.', 'Touch a save point to keep your place: CONTINUE takes you back to it next time.'],
+};
+/** The front page: its name, who made it, his note, how to play, its rooms as pictures, and PLAY. */
+export function frontOf(g: Game, note = ''): string {
+  const rooms = g.rooms.slice(0, 6).map((r) => `<figure><img src="data:image/png;base64,${toBase64(iconPng(g, { room: r, size: 256 }))}" alt="${esc(r.name)}" width="256" height="256"><figcaption>${esc(r.name)}</figcaption></figure>`);
+  return `<section id="front" aria-label="${esc(g.name)}"><h1>${esc(g.name)}</h1><p class="by">${g.maker ? `A game by ${esc(g.maker)}, made in Ghosty’s game studio.` : 'A game made in Ghosty’s game studio.'} ${g.rooms.length} room${g.rooms.length === 1 ? '' : 's'}, ${g.quests.length} quest${g.quests.length === 1 ? '' : 's'}.</p>${note ? `<p class="note">${esc(note)}</p>` : ''}<h2>How to play</h2><ul>${HOW[g.kind].map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h2>The rooms</h2><div class="rooms">${rooms.join('')}</div><button class="play" type="button">PLAY</button></section>`;
+}
+
 /** The page: the game as data (never as code), the studio's player as its one script, its saves' key and its worker named for the player. */
-export function gamePage(name: string, g: Game, player: Player): string {
+export function gamePage(name: string, g: Game, player: Player, note = ''): string {
   const base = gameBase(name);
   const data = JSON.stringify(g).replace(/</g, '\\u003c');
   const th = themeOf(g.palette);
-  return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><title>${esc(g.name)}</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="${esc(th.sky[0])}"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="${esc(g.name.slice(0, 12))}"><link rel="manifest" href="${base}page"><link rel="apple-touch-icon" href="${base}page"><style>${STYLE}</style></head><body><canvas id="c"></canvas><div id="u"><div class="gpUi" id="gp"></div></div><script type="application/json" id="game" data-save="${esc(saveKeyOf(name))}" data-sw="${base}page" data-scope="${base}">${data}</script><script>${player.code}</script></body></html>`;
+  return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><title>${esc(g.name)}</title><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="${esc(th.sky[0])}"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="${esc(g.name.slice(0, 12))}"><link rel="manifest" href="${base}page"><link rel="apple-touch-icon" href="${base}page"><style>${pageStyle(th.sky[0])}</style></head><body>${frontOf(g, note)}<canvas id="c"></canvas><div id="u"><div class="gpUi" id="gp"></div></div><script type="application/json" id="game" data-save="${esc(saveKeyOf(name))}" data-sw="${base}page" data-scope="${base}">${data}</script><script>${player.code}</script></body></html>`;
 }
+
+/** The page's one style: the player's, and the front page's in the game's sky colour (from the kit's own palette). */
+export const pageStyle = (sky: string): string => `${STYLE}:root{--fsky:${/^#[0-9a-f]{6}$/i.test(sky) ? sky : 'black'}}${FRONT_CSS}`;
 
 const icons = new Map<string, Uint8Array>();
 function iconFor(name: string, at: number, g: Game): Uint8Array {
@@ -248,7 +268,7 @@ function iconFor(name: string, at: number, g: Game): Uint8Array {
  * itself (dest null), or what the browser loads for it at /page — its service worker, its manifest, its icon. Opened as a page,
  * /page goes to the game. `path` is the address asked for (/s/<name> goes to /s/<name>/, the scope its worker keeps).
  */
-export async function gameSiteResponse(site: { name: string; at: number; game?: Game }, env: Pick<Env, 'ASSETS'>, origin: string, path: string, dest: string | null): Promise<Response> {
+export async function gameSiteResponse(site: { name: string; at: number; game?: Game; gameNote?: string }, env: Pick<Env, 'ASSETS'>, origin: string, path: string, dest: string | null): Promise<Response> {
   const g = site.game;
   if (!g) return html(404, 'This page doesn’t exist (any more).');
   const base = gameBase(site.name);
@@ -257,8 +277,8 @@ export async function gameSiteResponse(site: { name: string; at: number; game?: 
     if (!path.endsWith('/')) return new Response(null, { status: 301, headers: { location: base, 'cache-control': 'no-store' } });
     const player = await playerOf(env.ASSETS, origin);
     if (!player) return html(503, 'This game’s player is being set up. Try again in a minute.', { 'retry-after': '60' });
-    const styleHash = await sha(STYLE);
-    return new Response(gamePage(site.name, g, player), {
+    const styleHash = await sha(pageStyle(themeOf(g.palette).sky[0]));
+    return new Response(gamePage(site.name, g, player, site.gameNote ?? ''), {
       headers: {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-cache',

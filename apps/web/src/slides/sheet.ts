@@ -9,6 +9,8 @@
  * .pptx, PDF (with notes pages if he asks) and one slide as a PNG, the size said; autosave said once; reopened where he was.
  * Everything is on the phone; nothing is sent.
  */
+import { pageLine, putOnSites } from '../sites/handover'; // [sites] a deck at its own link (NEXT ROUND sites.s3/s4)
+import { deckPage } from './web';
 import { bytesOf } from '../core/safeurl';
 import { h, clear } from '../core/dom';
 import { button, modal } from '../ui/components';
@@ -21,7 +23,7 @@ import { block, blockId, newTable, textOf, tidyRuns, type Block, type Doc, type 
 import { deckFromChart, deckFromDoc, deckFromMarkdown } from './fromreport';
 import { approx } from './layout';
 import {
-  ANIMS, LAYOUTS, SHAPE_NAMES, SLOTS, TRANSITIONS, blankDeck, buildOf, duplicateSlide, elements, History, indexOf, insertSlide, moveSlide, newSlide, plainOf, reshape, removeShape, removeSlide, setBuild, setLayout, setMedia, slideName, slideWords, addShape, deckWords, withSlide,
+  ANIMS, keepCase, LAYOUTS, SHAPE_NAMES, SLOTS, TRANSITIONS, blankDeck, buildOf, duplicateSlide, elements, History, indexOf, insertSlide, moveSlide, newSlide, plainOf, reshape, removeShape, removeSlide, setBuild, setLayout, setMedia, slideName, slideWords, addShape, deckWords, withSlide,
   type Anim, type ChartData, type Deck, type Elem, type Layout, type Slide, type ShapeKind, type Transition,
 } from './model';
 import { deckPdf, slidePng } from './export';
@@ -60,7 +62,7 @@ export const slidesState = {
   undo: 0,
   json: '',
   proposals: [] as { line: string; old: string; now: string }[],
-  present: { on: false, i: 0, step: 0, builds: 0, of: 0, notes: '', next: '', elapsed: 0, transition: '' },
+  present: { on: false, i: 0, step: 0, builds: 0, of: 0, notes: '', next: '', elapsed: 0, transition: '', tv: false, tvSlide: 0, times: [] as number[] },
   /** The slides the last talk showed, in order (skipped ones left out). */
   shown: [] as number[],
 };
@@ -211,6 +213,8 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
   let ticking = 0;
   let wake: { release(): Promise<void> } | null = null;
   let presentEl: HTMLElement | null = null;
+  /** The second screen (a window of its own the slide fills, for a TV), while the talk has one. */
+  let tv: Window | null = null;
   const measure = canvasMeasure();
 
   const fileIn = h('input', { type: 'file', hidden: true, accept: '.pptx,.ppt,.key,application/vnd.openxmlformats-officedocument.presentationml.presentation', 'aria-label': 'Choose a PowerPoint file to open' }) as HTMLInputElement;
@@ -541,7 +545,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       const re = pattern();
       if (!re) return say('Say what to find first.');
       let n = 0;
-      const next = { ...deck(), slides: deck().slides.map((sl) => through(sl, (t) => t.replace(re, () => (n++, replIn.value)))) };
+      const next = { ...deck(), slides: deck().slides.map((sl) => through(sl, (t) => t.replace(re, (m) => (n++, keepCase(m, replIn.value))))) };
       clear(hits);
       if (!n) return say(`“${findIn.value.trim()}” is not on any slide.`);
       slidesState.found = { text: findIn.value.trim(), slides: [], changed: n };
@@ -604,8 +608,18 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
         }),
       ),
       notesKey,
+      // [sites] the deck at its own link (NEXT ROUND sites.s3/s4): a read-only page that plays on any phone, after his APPROVE in the chat
+      h('small.slh', 'ON YOUR SITES'),
+      h('p.slnote.slsites', pageLine('deck')),
+      h('div.slrow', key('PUT IT ON MY SITES', () => {
+        void wait('Making the page on this phone…', async () => {
+          await ready();
+          const r = await putOnSites(deck().title || 'My slides', deckPage(deck(), image), 'deck');
+          say(r.said);
+        }).catch(() => say('I could not make the page. Try again in a moment.'));
+      })),
       out,
-      h('p.slnote', 'In the PowerPoint file a chart is its numbers, a table on the slide; transitions and skipped slides go with it, the builds do not. In the PDF and the picture each slide is drawn as a picture, the chart as it looks here.'),
+      h('p.slnote', 'In the PowerPoint file a chart is its numbers, a table on the slide; transitions, builds and skipped slides go with it (each build is a PowerPoint animation). In the PDF and the picture each slide is drawn as a picture, the chart as it looks here.'),
       sizeNote,
     );
   };
@@ -1252,9 +1266,10 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     up.disabled = i === 0;
     down.disabled = i === d.slides.length - 1;
     const trans = h('div.slrow', ...TRANSITIONS.map((t) => {
-      const b = key(t === 'none' ? 'NO TRANSITION' : t === 'fade' ? 'FADE' : 'PUSH', () => {
+      const b = key(t === 'none' ? 'NO TRANSITION' : t === 'fade' ? 'FADE' : t === 'push' ? 'PUSH' : 'MAGIC MOVE', () => {
         change(withSlide(deck(), curId, (x) => ({ ...x, transition: t as Transition })), 'none');
         trans.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        if (t === 'morph') say('Magic Move: in the talk, what is on both slides glides from the last slide to its place here. PowerPoint plays it as Morph.');
       });
       b.setAttribute('aria-pressed', String(s.transition === t));
       return b;
@@ -1319,7 +1334,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       trans,
       h('small.slh', 'ON A TAP IN THE TALK'),
       builds,
-      h('p.slnote', 'Transitions and builds show in the talk. The PowerPoint file carries the transition, not the builds.'),
+      h('p.slnote', 'Transitions and builds show in the talk, and the PowerPoint file carries both: APPEARS, FADES IN and RISES IN become its Appear, Fade and Fly In.'),
     );
   }
 
@@ -1350,6 +1365,8 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
   // ---------------------------------------------------------------- the talk
   function stopPresent(): void {
     clearInterval(ticking);
+    try { tv?.close(); } catch { /* already gone */ }
+    tv = null;
     document.removeEventListener('keydown', onPresentKey, true);
     presentEl?.remove();
     presentEl = null;
@@ -1401,14 +1418,86 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     const notes = h('div.slpnotes', { role: 'region', 'aria-label': 'Your notes for this slide', tabIndex: 0 });
     const backKey = key('BACK', () => go(-1), 'slpkey', 'Back');
     const nextKey = key('NEXT', () => go(1), 'on slpkey', 'Next');
+    // PRESENT WITH A TV (editors.u5): the slide on a second screen, the phone the presenter's view (this slide, the next, notes, the time)
+    const nextBox = h('div.slpnextbox', { 'aria-label': 'The next slide', role: 'img' });
+    nextBox.hidden = true;
+    const tvSaid = h('p.slpsaid', { 'aria-live': 'polite' });
+    tvSaid.hidden = true;
+    const tvKey = key('ON A TV', () => (tv ? tvOff('The slide is back on the phone alone.') : tvOn()), 'sltvkey', 'Show the slide on a TV or a second screen');
+    const tell = (words: string): void => {
+      tvSaid.hidden = false;
+      tvSaid.textContent = words;
+      say(words);
+    };
+    const tvOff = (words: string): void => {
+      try { tv?.close(); } catch { /* already gone */ }
+      tv = null;
+      tvKey.textContent = 'ON A TV';
+      tvKey.setAttribute('aria-pressed', 'false');
+      ovl.classList.remove('tv');
+      nextBox.hidden = true;
+      slidesState.present.tv = false;
+      tell(words);
+    };
+    const tvOn = (): void => {
+      const scr = screen as Screen & { isExtended?: boolean };
+      let w: Window | null = null;
+      try {
+        w = window.open('', 'ghosty-tv', 'popup,width=1280,height=720');
+      } catch {
+        w = null;
+      }
+      if (!w) {
+        tell('This phone can’t open a second screen from here, so the talk stays on the phone: the slide, your notes, the next one and the time, as now.');
+        return;
+      }
+      tv = w;
+      const doc = w.document;
+      doc.title = `${deck().title || 'Slides'}: the talk`;
+      doc.body.replaceChildren();
+      const st = doc.createElement('style');
+      st.textContent = 'html,body{margin:0;height:100%;background:black;overflow:hidden;cursor:none}#tv{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}#tv svg{width:100vw;height:100vh}.slhid{opacity:0;visibility:hidden}.slin-fade,.slin-rise{animation:tvin .5s ease both}@keyframes tvin{from{opacity:0}}';
+      doc.head.append(st);
+      const box = doc.createElement('div');
+      box.id = 'tv';
+      doc.body.append(box);
+      // a tap on the TV's window fills that screen (a browser asks for a tap there first)
+      doc.addEventListener('click', () => void doc.documentElement.requestFullscreen?.().catch(() => undefined));
+      tvKey.textContent = 'TV OFF';
+      tvKey.setAttribute('aria-pressed', 'true');
+      ovl.classList.add('tv');
+      nextBox.hidden = false;
+      slidesState.present.tv = true;
+      paint(false, false);
+      tell(scr.isExtended === false
+        ? 'The slide is in a window of its own. No second screen is connected: put that window on the TV (or mirror to it), tap it to fill the screen, and keep your notes here.'
+        : 'The slide is on the second screen; tap it there to fill the screen. Your notes, the next slide and the time stay on the phone.');
+    };
     const ovl = h('div.slpresent', { role: 'dialog', 'aria-label': 'Presenting' },
-      h('div.slptop', time, count, key('EXIT', () => exitPresent(), '', 'Stop presenting')),
-      h('div.slpstage', holder), next, notes, h('div.slpkeys', backKey, nextKey));
+      h('div.slptop', time, count, tvKey, key('EXIT', () => exitPresent(), '', 'Stop presenting')),
+      tvSaid,
+      h('div.slpstage', holder, nextBox), next, notes, h('div.slpkeys', backKey, nextKey));
     presentEl = ovl;
+    // REHEARSAL TIMES (Keynote's rehearse): how long each slide was up, said when the talk ends
+    const spent = new Map<number, number>();
+    let onSlide = i;
+    let since = Date.now();
+    const lap = (): void => {
+      const now = Date.now();
+      spent.set(onSlide, (spent.get(onSlide) ?? 0) + (now - since));
+      since = now;
+      onSlide = i;
+      slidesState.present.times = d.slides.map((_, k) => Math.round((spent.get(k) ?? 0) / 1000));
+    };
     exitPresent = (): void => {
+      lap();
       stopPresent();
       showSlide(deck().slides[i]?.id ?? curId);
-      say('The talk is over. You are back at the slide you stopped on.');
+      const mmss = (ms: number) => { const t = Math.round(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+      const each = [...spent].filter(([, ms]) => ms >= 1000).sort((a, b) => a[0] - b[0]);
+      const list = each.slice(0, 8).map(([k, ms]) => `slide ${k + 1} ${mmss(ms)}`).join(', ');
+      const total = [...spent.values()].reduce((a, b) => a + b, 0);
+      say(each.length ? `The talk is over, ${mmss(total)} in all: ${list}${each.length > 8 ? `, and ${each.length - 8} more` : ''}. You are back at the slide you stopped on.` : 'The talk is over. You are back at the slide you stopped on.');
     };
     const reveal = (fresh: boolean): void => {
       const s = d.slides[i]!;
@@ -1422,18 +1511,51 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     };
     const paint = (fresh: boolean, changed: boolean): void => {
       const s = d.slides[i]!;
+      if (i !== onSlide) lap();
+      // MAGIC MOVE: where each part was on the slide before (in the slide's own units), so the same part glides to its new place
+      const before = new Map<string, DOMRect>();
+      if (changed && s.transition === 'morph') holder.querySelectorAll<SVGGraphicsElement>('[data-el]').forEach((g) => { try { before.set(g.dataset.el ?? '', g.getBBox()); } catch { /* not drawn */ } });
       holder.innerHTML = slideSvg(d, s, { n: i + 1, of: d.slides.length, image, measure });
-      holder.classList.remove('sltr-fade', 'sltr-push');
+      holder.classList.remove('sltr-fade', 'sltr-push', 'sltr-morph');
       slidesState.present.transition = '';
       if (changed && s.transition !== 'none' && !still()) {
         void holder.offsetWidth;
         holder.classList.add(`sltr-${s.transition}`);
         slidesState.present.transition = s.transition;
+        if (s.transition === 'morph') {
+          let moved = 0;
+          holder.querySelectorAll<SVGGraphicsElement>('[data-el]').forEach((g) => {
+            const o = before.get(g.dataset.el ?? '');
+            let n: DOMRect | null = null;
+            try { n = g.getBBox(); } catch { n = null; }
+            if (!o || !n || !n.width || !n.height || !o.width || !o.height) {
+              g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease-out', fill: 'backwards', delay: 200 });
+              return;
+            }
+            const sx = o.width / n.width;
+            const sy = o.height / n.height;
+            moved++;
+            g.style.transformOrigin = '0 0';
+            g.animate([{ transform: `translate(${o.x - n.x * sx}px, ${o.y - n.y * sy}px) scale(${sx}, ${sy})` }, { transform: 'none' }], { duration: 700, easing: 'cubic-bezier(.3,.7,.2,1)' });
+          });
+          holder.dataset.moved = String(moved);
+        }
       }
       reveal(fresh);
       count.textContent = `${i + 1} of ${d.slides.length}`;
       const nx = d.slides[shownAt(i + 1, 1)];
       const ni = nx ? indexOf(d, nx.id) : -1;
+      if (tv) {
+        if (tv.closed) tvOff('The TV window was closed; the talk carries on on the phone.');
+        else {
+          const box = tv.document.getElementById('tv');
+          const doc = tv.document;
+          if (box) box.replaceChildren(...[...holder.childNodes].map((n) => doc.importNode(n, true)));
+          slidesState.present.tvSlide = i + 1;
+          nextBox.innerHTML = nx ? slideSvg(d, nx, { n: ni + 1, of: d.slides.length, image, measure }) : '';
+          nextBox.setAttribute('aria-label', nx ? `The next slide: ${slideName(nx, ni + 1)}` : 'No next slide');
+        }
+      }
       next.textContent = ended ? 'THE END OF THE DECK' : nx ? `NEXT: ${slideName(nx, ni + 1)}` : step < s.builds.length ? `NEXT: ${s.builds.length - step} more on this slide` : 'THIS IS THE LAST SLIDE';
       notes.textContent = s.notes.trim() || 'No notes on this slide.';
       notes.classList.toggle('none', !s.notes.trim());
@@ -1491,6 +1613,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     document.addEventListener('keydown', onPresentKey, true);
     (document.querySelector('.modal') ?? document.body).append(ovl);
     ticking = window.setInterval(() => {
+      if (tv?.closed) tvOff('The TV window was closed; the talk carries on on the phone.');
       const s = Math.round((Date.now() - t0) / 1000);
       time.textContent = elapsedWords(s);
       slidesState.present.elapsed = s;

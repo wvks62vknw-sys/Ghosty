@@ -1,5 +1,5 @@
 /**
- * God's Eye: his saved places (Memory → ME → PLACES; apps/edge/src/places.ts) as chips under the search — a tap
+ * God's Eye: his saved places (Memory → ABOUT YOU → PLACES; apps/edge/src/places.ts) as chips under the search — a tap
  * flies there and drops the pin, so the spot card (Street View, map, traffic, GO) opens on home or work. The
  * search box finds them by name too ("home"). Read from the brain's memory each time the tab opens.
  */

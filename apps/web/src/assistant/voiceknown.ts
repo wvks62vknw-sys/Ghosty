@@ -18,8 +18,8 @@
 import { createStore } from '../core/store';
 import { sound, takeSound } from './voice';
 import { embed } from './speakermodel';
-import { features, judgeBest, type Known, type Voiced } from './voiceprint';
-import { knownVoices } from './voicestore';
+import { features, judgeBest, keepUp, RATE, type Known, type Voiced } from './voiceprint';
+import { knownVoices, saveMine } from './voicestore';
 
 /** What the brain is told about who spoke (packages/shared/src/awareness.ts `ClientContext.voice`). */
 /** ('unsure': a voice heard and not sure of; held and treated as unknown on the phone, and said to the brain as "not sure".) */
@@ -33,7 +33,16 @@ export interface Heard {
   why?: string;
   /** False when the phone heard a voice it could not be sure of (it is then labelled unknown, and "not sure" to the brain). */
   sure?: boolean;
+  /** [voice.u5] Why it was not sure, in a word: two voices it knows both claimed it, too little voice for the noise, or close to one. */
+  because?: 'two' | 'noisy' | 'close';
 }
+
+/** [voice.u5] The reason it was not sure, in plain words (the talk bar and "do you know it's me?" say it). */
+export const BECAUSE: Record<NonNullable<Heard['because']>, string> = {
+  two: 'Two voices I know sound alike in that',
+  noisy: 'Too much noise around your voice',
+  close: 'Close to a voice I know, not close enough',
+};
 
 export interface Spoke {
   /** Who it was, or null (nothing shown: no voice enrolled, or no sound to judge). */
@@ -134,11 +143,25 @@ export async function hear(snd: ReturnType<typeof takeSound>): Promise<Heard | n
   lastScore.ms = Math.round(performance.now() - snd!.at);
   lastScore.kind = r.who.kind;
   lastScore.why = r.who.kind === 'unknown' ? r.who.why : '';
+  // [voice.u5] why it was not sure: two voices claimed it; or little voice in a long recording (the room louder than the voice); or just close
+  const because: Heard['because'] = r.who.kind === 'unknown' && r.who.why === 'unsure' ? (r.who.two ? 'two' : v.secs < 0.35 * (pcm.length / RATE) ? 'noisy' : 'close') : undefined;
   const heard: Heard =
-    r.who.kind === 'owner' ? { label: 'owner', words: 'YOU', sure: true } : r.who.kind === 'person' ? { label: { name: r.who.name }, words: nameWords(r.who.name), sure: true } : r.who.why === 'unsure' ? { label: 'unknown', words: 'NOT SURE WHO', why: r.who.why, sure: false } : { label: 'unknown', words: "A VOICE I DON'T KNOW", why: r.who.why, sure: true };
+    r.who.kind === 'owner' ? { label: 'owner', words: 'YOU', sure: true } : r.who.kind === 'person' ? { label: { name: r.who.name }, words: nameWords(r.who.name), sure: true } : r.who.why === 'unsure' ? { label: 'unknown', words: 'NOT SURE WHO', why: r.who.why, sure: false, because } : { label: 'unknown', words: "A VOICE I DON'T KNOW", why: r.who.why, sure: true };
   speaker.set({ heard, held: null, at: Date.now() });
   if (heard.label !== 'unknown') last = { label: heard.label as 'owner' | { name: string }, at: Date.now() };
+  // [voice.u4] a turn that was clearly him (judged by the phone's own features) refreshes his print a little, kept on this phone
+  if (heard.label === 'owner' && r.via === 'features' && v.profile) void keepUpMine(v.profile);
   return heard;
+}
+
+/** [voice.u4] Refresh his own print from a turn that was clearly him (voiceprint.ts keepUp says whether, and how far). */
+async function keepUpMine(profile: number[]): Promise<void> {
+  const me = known.find((k) => k.me);
+  if (!me) return;
+  const next = keepUp(me.print, profile, new Date().toISOString().slice(0, 10));
+  if (!next) return;
+  await saveMine(next, me.at).catch(() => undefined);
+  me.print = next;
 }
 
 /** A typed turn, or the end of the tag's time: nothing shown. */
@@ -195,7 +218,7 @@ export function whoWords(spoken: boolean, now = Date.now()): string {
   if (spoken && h) {
     if (h.label === 'owner') return `Yes: that’s your voice. I recognised it on this phone, and I’m sure${via}. It never opens anything on its own: it’s a courtesy, never a lock.`;
     if (typeof h.label === 'object') return `That sounds like ${h.label.name}, whom you introduced${via}.`;
-    return h.sure === false ? 'I’m not sure: it sounded a bit like a voice I know, not enough to say. Say a whole sentence and I’ll try again.' : 'No: that’s a voice I don’t know. I won’t say anything private until I know who it is.';
+    return h.sure === false ? `I’m not sure. ${BECAUSE[h.because ?? 'close']}. ${h.because === 'noisy' ? 'Somewhere quieter, say a whole sentence and I’ll try again.' : 'Say a whole sentence and I’ll try again.'}` : 'No: that’s a voice I don’t know. I won’t say anything private until I know who it is.';
   }
   if (spoken) return 'I know your voice on this phone, but that was too short to judge. Say a whole sentence and I’ll tell you.';
   const n = heardNote(now);

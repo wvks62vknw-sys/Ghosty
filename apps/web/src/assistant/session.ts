@@ -22,18 +22,21 @@ import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { clientContext } from '../shell/awareness';
 import { clearTag, graceOn, hear, heardNote, hold, labelOf, type Label } from './voiceknown';
+import { noteBrainActed, noteWordMiss } from './learnwords';
+import { PRIVATE_TABLES, keptLine, privateAsk } from '../../../../packages/shared/src/household'; // [voice lane] his own wordings: a miss, then his tap, offers to learn it
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
-import { onCutOff, speak, stopListening, stopSpeaking, takeSound } from './voice';
+import { onCutOff, speak, speakStream, stopListening, stopSpeaking, takeSound, type SpokenStream } from './voice';
 import { BARE, afterLine, askLine, progressLine, toolLine } from './narrate';
 import { continueIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
-import { REBOOT } from './phrases';
+import { LOCAL_ASKS, NOTE_ASK, REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
+import { approvalSpoken } from '../features/security/locks'; // [security] security.c4
 import { wallSplit, wallTurn } from '../wall/phone'; // [wall] THE WALL: "pair the wall", "on the wall", "clear the wall" (BRIEF-MACHINE-WALL)
 import { showBegin, showEnd, showNote } from '../show/turn'; // [showme] the Stage: what a turn brought, and the picture after the sentence (BRIEF-SHOW-ME-1)
 import { sayError } from '../ui/hisWords';
@@ -63,7 +66,7 @@ export interface ThinkInfo {
  * An error's `ask`: the question the phone could not answer, offered to the brain only by a tap (ASK THE BIG BRAIN).
  */
 export type Entry =
-  | { kind: 'user'; text: string; at: number; private?: boolean }
+  | { kind: 'user'; text: string; at: number; private?: boolean; theirs?: boolean }
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
   /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). `think`: a THINK HARDER answer. */
   /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said.
@@ -277,11 +280,16 @@ const context = () => clientContext(spokenTurn, turnVoice, heardNote());
 let speakReplies = true;
 /** This message was spoken, not typed. */
 let spokenTurn = false;
+/** [voice lane] This turn was said by someone else (a voice he introduced, or one the phone doesn't know): not his (voice.s1, voice.c5). */
+let theirsNow = false;
+export const turnIsTheirs = (): boolean => theirsNow;
 /** Whose voice it was, when the phone knew voices and scored it (assistant/voiceknown.ts): the label the brain is told. */
 let turnVoice: Label | undefined;
 
 /** The entry (by its tag) a reply is being drawn in, a sentence at a time (BRIEF-KERNEL-YES 2); null when none is. */
 let drawing: number | null = null;
+/** [ci] The reply being said as it is written (NEXT ci.u1): its pieces go to the voice as they come. */
+let saying: SpokenStream | null = null;
 
 function handle(ev: ChatEvent): void {
   showNote(ev); // [showme] what this turn brought, for the Stage (nothing is drawn here)
@@ -335,13 +343,18 @@ function handle(ev: ChatEvent): void {
       break;
     }
     case 'client':
+      noteBrainActed(); // [voice lane] the brain moved the screen, not his tap: nothing to learn from it
       void run(ev.name, ev.args);
       break;
     case 'approval':
       approvalAsked = true;
       push({ kind: 'approval', id: ev.id, name: ev.name, reason: ev.reason, args: ev.args, state: 'waiting' });
       followApproval(ev.id);
-      if (speakReplies && settings.get().speak) void speak(ev.reason);
+      // [security] read aloud exactly what will happen, and that the tap is his (security.c4: his voice is never a lock on its own)
+      if (speakReplies && settings.get().speak) {
+        const aw = argWords(ev.args);
+        void speak(approvalSpoken(ev.reason, `${toolWords(ev.name, ev.args)}${aw ? ` (${aw})` : ''}`));
+      }
       break;
     case 'text': {
       narr.replied = true; // (no aside once the reply has begun: it is said instead)
@@ -350,11 +363,14 @@ function handle(ev: ChatEvent): void {
       // [health] while a thing it did is being read back, the pieces are not drawn: the whole reply is held as "Setting it…" below
       if (ev.part && verifies.length) break;
       if (ev.part) {
-        if (drawing === null) {
-          drawing = stamp();
-          chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at: drawing!, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: ev.text }));
-        } else {
-          const at = drawing;
+        const first = drawing === null;
+        if (first) drawing = stamp();
+        const at = drawing!;
+        // [ci] said as it is written (NEXT ci.u1): the voice starts on the first sentence while the rest is still coming
+        if (first && speakReplies && settings.get().speak) saying = speakStream({ owner: String(at), brief: true });
+        saying?.add(ev.text);
+        if (first) chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: ev.text }));
+        else {
           let grown = ev.text;
           chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && e.at === at ? ((grown = e.text + ev.text), { ...e, text: grown }) : e)), live: grown }));
         }
@@ -362,7 +378,11 @@ function handle(ev: ChatEvent): void {
       }
       const drawn = drawing;
       drawing = null;
+      // (what was being said of the pieces: finished from the whole below, or let go when the brain took them back)
+      const said = saying;
+      saying = null;
       if (drawn !== null && !ev.text) {
+        said?.drop();
         chat.set((s) => ({ entries: s.entries.filter((e) => !(e.kind === 'assistant' && e.at === drawn)), live: '' }));
         break;
       }
@@ -370,6 +390,7 @@ function handle(ev: ChatEvent): void {
       // [health] the reply's line is held as "Setting it…" until what it says it did has been read back: then its sentence stands
       // with the tick, or it says it cannot see it yet (never a bare "Done")
       if (verifies.length && ev.text) {
+        said?.drop();
         const pend = verifies;
         verifies = [];
         chat.set((s) => ({ entries: [...s.entries.filter((e) => !(e.kind === 'assistant' && e.at === at)), { kind: 'assistant' as const, text: 'Setting it…', at, held: true }].slice(-120), live: 'Setting it…' }));
@@ -388,7 +409,8 @@ function handle(ev: ChatEvent): void {
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
       const cited = looksCited(ev.text);
       // [talk] the voice is asked first, then the chat and the caption in one repaint: the first word does not wait on drawing
-      if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
+      if (said) said.end(cited ? spokenOf(ev.text) : ev.text);
+      else if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
       if (drawn !== null) chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && e.at === drawn ? { ...e, text: ev.text } : e)), live: cited ? citedBody(ev.text) : ev.text }));
       else chat.set((s) => ({ entries: [...s.entries, { kind: 'assistant' as const, text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) }].slice(-120), live: cited ? citedBody(ev.text) : ev.text }));
       break;
@@ -411,6 +433,9 @@ function handle(ev: ChatEvent): void {
     }
     case 'error':
       vehicleTurn = false;
+      // [ci] an error mid-reply: the sentences already being said finish, and nothing more is waited for
+      saying?.close();
+      saying = null;
       // (the turn ends here: its tools still shown as running are settled by its stream, stream() below)
       push({ kind: 'error', text: ev.message, ...(retryAsk ? { retry: retryAsk } : {}) });
       chat.set({ live: ev.message });
@@ -477,6 +502,8 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       sayError(e, 'finish that');
       push({ kind: 'error', text: SIGNAL_WENT, lost: true, ...(ask ? { retry: ask } : {}) });
       drawing = null;
+      saying?.close();
+      saying = null;
     } else if (!(e instanceof AuthError) && rescue && (await rescue(e).catch(() => false))) {
       // answered on the phone
     } else if (e instanceof AuthError) {
@@ -508,6 +535,10 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
     if (--streams <= 0) {
       streams = 0;
       drawing = null; // (a reply drawn in pieces that never finished must not take the next turn's pieces in)
+      // [ci] a reply being said as it came that never got its whole (the signal went, an error, a stop): what was queued is said to
+      // its end and the voice lets go, so the ear opens again (never left "speaking", waiting for words that will not come)
+      saying?.close();
+      saying = null;
       if (turn.get().phase !== 'stopped') phase('idle');
       ui.set({ busy: false, status: '' });
       if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
@@ -889,6 +920,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   const t = wallSplit(text.trim()); // [wall] "where is Lisbon, on the wall": the ask, with this turn's picture bound for the wall
   if (!t) return;
   showBegin(t); // [showme] his next word takes the Stage away and starts this turn's tally
+  void import('./tour').then((m) => m.stopTour()).catch(() => undefined); // [consistency] a new word of his ends a guided tour
+  theirsNow = false; // [voice lane] (set again below once the voice is judged)
   // [voiceknown] the sound of this spoken turn is taken now, before anything waits (a later listen would replace it)
   const snd = opts.voice ? takeSound() : null;
   // [guardian] Before anything reads his words: the panic phrase (the message goes at once, and nothing of it reaches the
@@ -932,6 +965,17 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
       return;
     }
   }
+  // [voice lane] QUIET HOUSEHOLD MODE (voice.s1; packages/shared/src/household.ts): a voice he introduced, or one the phone doesn't
+  // know, asking about his private things (money, health, messages, diary…) is answered here, kindly; no table and no brain sees it
+  // (and every turn such a voice says is marked theirs: it stays out of his recall on this phone, features/memory/recall.ts)
+  theirsNow = !!who && who !== 'owner';
+  // (a note someone else asks to keep is the notes' own question: assistant/voicenote.ts says it is not kept)
+  // (and a phone table that answers from his private things never answers another voice, whatever the wording: review fix)
+  if (who && who !== 'owner' && !NOTE_ASK.test(t.trim()) && (privateAsk(t) || PRIVATE_TABLES.includes(LOCAL_ASKS.find((p) => p.test(t))?.id ?? ''))) {
+    const name = typeof who === 'object' ? who.name : null;
+    await import('./local').then((m) => m.answer(t, keptLine(settings.get().name, name), { kind: 'can' }, { voice: opts.voice }));
+    return;
+  }
   // The phone's library passages for the brain (api/brain.ts chat) are looked up from now, while the rest of this is decided,
   // so they never hold the message back (BRIEF-TALK-1A 1).
   const library = passagesFor(t).catch(() => [] as unknown[]);
@@ -950,17 +994,29 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   await flushUndo();
   // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
   const localPriv = settings.get().offlineBrain === 'always' || !!opts.here;
-  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: localPriv }))) {
+  // [consistency] HIS OWN ROUTINES (assistant/routines.ts): one word of his runs a few things in turn, on the phone, with no model
+  if (!opts.cloud && !opts.plain && !opts.again && ((await import('./routineturn').then((m) => m.routineTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false)) || (await import('./tour').then((m) => m.tourTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false)))) {
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
+  // [consistency] THE HELP DESK (assistant/helpdesk.ts): "how do I …?" with the exact taps and TRY IT; "what can I say here?"
+  if (!opts.cloud && !opts.plain && (await import('./helpdesk').then((m) => m.helpTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
+  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: localPriv, who }))) {
     // [offline2] answered on the phone with no model: his own, on the independence meter too
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
     return;
   }
   // [voice lane] MANY WORDINGS, ONE MEANING (assistant/meaningturn.ts): "put some tunes on", "log a pint", "kill the lights" — read
   // to the one ability they mean, after every table had his words as said; "play something" asks which, with both as keys
-  if (!opts.cloud && !opts.plain && (await import('./meaningturn').then((m) => m.meaningTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
+  if (!opts.cloud && !opts.plain && (await import('./meaningturn').then((m) => m.meaningTurn(t, { voice: opts.voice, private: localPriv, who })).catch(() => false))) {
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
     return;
   }
+  // [voice lane] nothing on the phone took his words: if he now taps the screen he meant, offer to learn them (assistant/learnwords.ts)
+  if (!opts.cloud && !opts.plain) noteWordMiss(t);
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   turnVoice = spokenTurn ? who : undefined;
@@ -984,7 +1040,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     const k = shared.map((x) => x.role === 'user' && x.text === t.slice(0, 1500)).lastIndexOf(true);
     if (k >= 0) shared = shared.filter((_, i) => i !== k);
     chat.set({ live: t });
-  } else chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: t, at: Date.now(), ...(priv ? { private: true } : {}) }].slice(-120), live: t })); // (one repaint, not two)
+  } else chat.set((s) => ({ entries: [...s.entries, { kind: 'user' as const, text: t, at: Date.now(), ...(priv ? { private: true } : {}), ...(theirsNow ? { theirs: true } : {}) }].slice(-120), live: t })); // (one repaint, not two)
   phase('sending'); // (the line under his words says so until the turn is at work)
   // The stopwatch (core/stopwatch.ts): a reply from the brain, from here to its first words and its end, as the owner sees them.
   const lap = stopwatch.reply();
@@ -1147,6 +1203,8 @@ function followApproval(id: string): void {
     if (!waiting()) return stop(); // answered in the app: stop following
     if (sent) return;
     sent = true;
+    // [security] the same card on the lock screen as a phone notification, once (security.s10): a tap opens the chat at it
+    void brain.approvalPush(id).catch(() => null);
     const r = await brain.telegramAsk(id).catch(() => null);
     if (r?.sent || r?.already) void poll();
     else stop();

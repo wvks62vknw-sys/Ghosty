@@ -515,7 +515,7 @@ test('THEMES-2: a bare colour key (every phone before) reads as Graphite + the c
   // from it opens in the same recipe) and opens in it at the start
   assert.match(read('../../web/src/state/app.ts'), /look: KeptLook \| null;/);
   assert.match(read('../../web/src/features/system/backup.ts'), /\{ key: 'ghosty\.settings', label: 'settings', whole: true \}/);
-  assert.match(read('../../web/src/main.ts'), /applyRecipe\(keptRecipe\(settleTheme\(\)\)\)/);
+  assert.match(read('../../web/src/main.ts'), /applyRecipe\(keptRecipe\(settleTheme\(\)\), \{ remember: false \}\)/); // (the start is not a look to put back: voice.u9)
   assert.match(read('../../web/src/shell/boot.ts'), /bootState\.recipe = \{ theme: dd\.theme/, 'the boot records the recipe it plays in, as it records the accent');
 });
 
@@ -658,7 +658,7 @@ test('THEMES-2: the switches each change one thing and keep the floor — body 1
   const at17 = ['--g-t-reading', '--g-t-tag', '--g-t-caption'].map((n) => T.typeParts(byName[n].value).size);
   for (let i = 0; i < 3; i++) assert.ok(at17[i] < sizes['19'][i] && sizes['19'][i] <= sizes['21'][i], 'the readings, tags and captions grow with the body');
   needRecipe();
-  assert.deepEqual(TH.SWITCHES.map((d) => d.key), ['glow', 'floor', 'corners', 'readings', 'body', 'motion', 'sound', 'day']);
+  assert.deepEqual(TH.SWITCHES.map((d) => d.key), ['glow', 'floor', 'corners', 'readings', 'body', 'motion', 'sound', 'day', 'safe']); // (safe: colour-blind safe, voice.s5)
   for (const d of TH.SWITCHES) for (const o of d.options) assert.ok(o.line.length >= 20 && /[.]$/.test(o.line), `${d.key} ${o.value}: "${o.line}"`);
   // the sound: a tone, a click or silence, on top of his sound setting; calm in the marks and the eye; Reduce Motion always wins
   const machine = read('../../web/src/ui/machine.ts');

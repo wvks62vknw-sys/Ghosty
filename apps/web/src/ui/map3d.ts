@@ -50,6 +50,8 @@ export interface Map3d {
   spot(): MapSpot;
   /** The host was resized or shown: redraw to fit. */
   invalidate(): void;
+  /** Move the view to a place (a journey's step tapped). */
+  panTo(lat: number, lon: number, zoom?: number): void;
   destroy(): void;
 }
 
@@ -317,6 +319,11 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
     map?.setStyle(styleFor(id)); // 'style.load' decorates it again
   };
 
+  const panTo = (lat: number, lon: number, zoom?: number) => {
+    if (!map || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    map.easeTo({ center: [lon, lat], ...(zoom ? { zoom } : {}), duration: 600 });
+  };
+
   const open = async (spot: MapSpot, opts: Map3dOptions = {}) => {
     current = { ...spot };
     try {
@@ -390,6 +397,7 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
     open,
     spot: () => ({ ...current }),
     invalidate: () => map?.resize(),
+    panTo,
     destroy: () => {
       netListen?.();
       netListen = null;

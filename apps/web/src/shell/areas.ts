@@ -53,7 +53,7 @@ export const TINT: Record<string, string> = {
   studio: '#ff9f0a', workshop: '#8e8e93', reverse: '#40c8e0', space: '#ac8e68', workbench: '#ffb340',
   learn: '#30d158', gym: '#ff375f', school: '#ffd60a', library: '#a2845e',
   agenda: '#ff453a', markets: '#00c7be', threats: '#ffd60a', radio: '#ff6482',
-  memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff',
+  memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff', security: '#30d158',
   // [tabs] the screens the sheets became (BRIEF-TABS 2)
   money: '#30d158', body: '#ff375f', kitchen: '#ff9f0a', people: '#5ac8fa', work: '#8e8e93', creative: '#bf5af2', outside: '#34c759', homeadmin: '#ffd60a',
   learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', slides: '#ff9f0a', workspace: '#0a84ff', photo: '#ff9f0a', video: '#ff6482', gamestudio: '#ff9f0a', comic: '#ff453a', house: '#ffb340',
@@ -62,7 +62,7 @@ export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
 const hubId = (a: Area) => `area-${a.id}`;
 /** A screen that is a row of another (THE LOOK, a row of Settings: BRIEF-DESIGN-SYSTEM 5) lights that one's area. */
-const ROW_OF: Record<string, string> = { look: 'settings' };
+const ROW_OF: Record<string, string> = { look: 'settings', security: 'settings' };
 export const areaOf = (tab: string): Area | undefined => {
   const t = ROW_OF[tab] ?? tab;
   return AREAS.find((a) => a.tabs.includes(t) || hubId(a) === t);
@@ -101,8 +101,9 @@ export function navTo(id: string, dir: NavDir): void {
 }
 
 const def = (id: string) => tabs().find((t) => t.id === id);
-/** A tool's name inside its area: LEARN's own course tool is "Courses" there (not "Learn" inside Learn). */
-const ALIAS: Record<string, string> = { learn: 'Courses', interpreter: 'Interpret' };
+/** A tool's name inside its area. [consistency] Empty now: every screen has one name, its own title (Courses, Interpreter), so no
+ *  second name is made here; kept as the one place a room-only name would go. */
+const ALIAS: Record<string, string> = {};
 export const toolName = (t: TabDef) => ALIAS[t.id] ?? niceCase(t.title);
 
 /** A tool's glyph: a bare thin line, no tile behind it (the id is kept so callers need not change). */
@@ -824,7 +825,7 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   // (in The Scan the house has ME as a room, and these are things in it: the way back is ‹ ME, to the room)
   if (tab === 'memory' || tab === 'settings' || tab === 'social') return houseOn() ? { back: 'Me', backTo: 'area-me', title: niceCase(t.title) } : { back: '', backTo: '', title: niceCase(t.title) };
   // (THE LOOK, the design system's own screen, is a row of Settings like SYSTEM and LINKS: BRIEF-DESIGN-SYSTEM 5)
-  if (tab === 'system' || tab === 'links' || tab === 'look') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
+  if (tab === 'system' || tab === 'links' || tab === 'look' || tab === 'security') return { back: 'Settings', backTo: 'settings', title: niceCase(t.title) };
   // (THE READER is a book from the Library's Shelf: back is the Library, two taps from Learn: BRIEF-LIBRARY-READER)
   if (tab === 'reader') return { back: 'Library', backTo: 'library', title: 'Reader' };
   return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };

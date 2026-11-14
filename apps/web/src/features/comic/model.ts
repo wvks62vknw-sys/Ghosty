@@ -34,6 +34,8 @@ export interface CastMember {
   name: string;
   role: 'hero' | 'friend' | 'rival' | 'extra';
   look: Look;
+  /** the phone voice he picked for this character when the comic is read aloud ('' or absent: one chosen for them) */
+  voice?: string;
 }
 export interface Actor {
   who: string;
@@ -50,6 +52,9 @@ export interface Balloon {
   who: string;
   kind: BalloonKind;
   text: string;
+  /** moved by his finger from where it was laid out (page pixels) */
+  dx?: number;
+  dy?: number;
 }
 export interface Panel {
   id: string;
@@ -62,6 +67,10 @@ export interface Panel {
   sfx: string;
   /** what the beat is for, said in one line (the script's own words) */
   beat: string;
+  /** where his finger put the sound effect, as fractions of the panel */
+  sfxAt?: [number, number];
+  /** his own photo behind the panel (a small JPEG, kept in the comic on this phone) */
+  photo?: string;
 }
 export interface Page {
   id: string;
@@ -80,6 +89,8 @@ export interface Comic {
   seed: number;
   made: number;
   edited: number;
+  /** a series: its own id (the first issue's) and this issue's number */
+  series?: { id: string; n: number; name: string };
 }
 
 /** A page's size as drawn (2:3, a comic book's shape). */
@@ -339,6 +350,15 @@ export function writeComic(a: Ask): Comic {
   const title = pickOf(r, [`${heroName}’s Big Plan`, `${heroName} Gives It a Go`, `${heroName} vs. Everything`, `The Amazing ${heroName}`]);
   const premise = `${heroName} (${it.about.length < 60 ? it.about : it.species === 'person' ? 'our hero' : `a ${it.species}`}) wants to ${G}. Two tries go wrong, ${rivalName} gloats, and ${friendName}’s odd idea, doing it ${odd}, is the one that works.`;
   return { id: newId('c'), title, premise, idea: a.idea.slice(0, 300), tagline: `In which ${heroName} tries to ${G}.`, cast, pages, seed, made: Date.now(), edited: Date.now() };
+}
+
+/** The next issue of a series: the same cast (names and looks), a new adventure for the same want, numbered on. */
+export function nextIssue(prev: Comic, seed = (prev.seed + 7919) >>> 0): Comic {
+  const n = (prev.series?.n ?? 1) + 1;
+  const name = prev.series?.name ?? prev.title;
+  const fresh = writeComic({ idea: prev.idea, seed, hero: prev.cast[0]?.name, friend: prev.cast[1]?.name, rival: prev.cast[2]?.name });
+  fresh.cast = prev.cast.map((m) => ({ ...m, look: { ...m.look } }));
+  return { ...fresh, title: `${name}, No. ${n}`, tagline: `Issue ${n}: ${fresh.tagline.replace(/^In which /, 'in which ')}`, series: { id: prev.series?.id ?? prev.id, n, name } };
 }
 
 /** The words of the whole comic, page by page (the script he can read, and what the reader says aloud). */

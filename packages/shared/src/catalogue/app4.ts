@@ -126,7 +126,7 @@ export const APP_4: Record<string, CatValue> = {
   },
   'lens:people': {
     name: 'Know you and your people', line: 'I can know your face, and the people you introduce: "this is Sam".',
-    more: 'A face I know shows only the name you gave it. MORE, then PEOPLE, is where ENROL ME takes five looks, kept on this phone only. A stranger is “someone I don’t know”, no name, no guess. Never a photo or a screenshot; Settings → PRIVACY deletes any face in one tap.',
+    more: 'A face I know shows only the name you gave it. MORE, then FACES, is where ENROL ME takes five looks, kept on this phone only. A stranger is “someone I don’t know”, no name, no guess. Never a photo or a screenshot; Settings → PRIVACY deletes any face in one tap.',
     say: ['This is Sam', 'Who’s this?', 'Who am I?'], scene: ['camera', 'phone'], cat: 'see', needs: ['camera'],
   },
   'lens:scan': {
@@ -312,6 +312,7 @@ export const APP_4: Record<string, CatValue> = {
   'section:workbench:drive': { same: 'panel:workbench:GEARS' },
   'section:workbench:flight': { same: 'panel:workbench:WING & CAR' },
   'section:workbench:home': { same: 'panel:workbench:HEAT' },
+  'section:workbench:projects': { same: 'panel:workbench:PROJECTS' },
   'section:agenda:diary': { same: 'panel:agenda:DIARY · NEXT 14 DAYS' },
   'section:agenda:todo': { same: 'panel:agenda:TO-DO' },
   'section:agenda:reminders': { same: 'panel:agenda:REMINDERS & TASKS' },
@@ -351,7 +352,7 @@ export const APP_4: Record<string, CatValue> = {
   'section:threats:near': { same: 'panel:threats:NEAR YOU' },
   'section:threats:space': { same: 'panel:threats:SPACE WEATHER' },
   'section:threats:launches': { same: 'panel:threats:LAUNCH WINDOW' },
-  'section:memory:me': { same: 'panel:memory:ME' },
+  'section:memory:me': { same: 'panel:memory:ABOUT YOU' },
   'section:memory:patterns': { same: 'panel:memory:PATTERNS' },
   'section:memory:timeline': { same: 'panel:memory:TIMELINE' },
   'section:memory:diary': { same: 'job:reflect' },

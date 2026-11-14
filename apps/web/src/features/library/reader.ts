@@ -34,13 +34,15 @@ import type { LocalAnswer } from '../../assistant/local';
 import { holdEars, interrupt, primeSpeech, speak, talkHooks } from '../../assistant/voice';
 import { findIn, markParts, pageStart, placeInfo, type Book, type BookPassage } from '../../library/book';
 import { coverNow, coverOf, dropCover, onCover } from '../../library/covers';
-import { canResume, CARRY_MS, listenLog, loadBook, onlyThisChapter, placeLine, reading, resumeReading, setBook, shortTitle, startReading, stopQuietly, stopReading, bookNow, bookVoiceLeft } from '../../library/listen';
+import { canResume, CARRY_MS, listenLog, loadBook, onlyThisChapter, placeLine, reading, resumeReading, setBook, setSleep, shortTitle, sleep, startReading, stopQuietly, stopReading, bookNow, bookVoiceLeft } from '../../library/listen';
 import { keepBookHere, keptHere } from '../../library/local';
-import { forgetPlace, lineFor, placeOf, places, placeStats, readingPrefs, setPlace, SIZES, sizeNow, syncPlace, syncPlaces, whenWords, type Place } from '../../library/place';
+import { forgetPlace, lineFor, placeOf, places, placeStats, readingPrefs, setPlace, SIZES, sizeNow, SPEEDS, speedNow, syncPlace, syncPlaces, whenWords, type Place } from '../../library/place';
 import { go, type TabInstance } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { guardian, loadGuardian } from '../../state/guardian';
 import { toast, type Panel } from '../../ui/components';
+import { addHighlight, highlightsOf, hlParts, notesMarkdown, removeHighlight } from '../../library/highlights';
+import { ask as clubAsk, chapterText, clubPrompt, clubReplyPrompt, questionsOf, summaryPrompt } from '../../library/club';
 import { index, key, lockBox, plate, recognise, release, stampLine, tag, truthLine, typedLine, type StampFacts, type TruthPart } from '../../ui/machine';
 import type { Sections } from '../../ui/sections';
 import { offMobileData, onMobileData } from '../../wiki/store';
@@ -196,11 +198,46 @@ export function readingControls(): HTMLElement {
     voice.classList.add('grd-voicekey');
     voice.setAttribute('aria-pressed', String(p.bookVoice));
     const left = Math.max(0, Math.round(bookVoiceLeft() / 60));
+    // [learn.u5] bedtime listening: the phone's voice faster or slower, a sleep timer, and a voice for the book open now
+    const sp = speedNow();
+    const speeds = SPEEDS.map((x) => {
+      const b = key(`${x}×`, () => readingPrefs.set({ speed: x }), { label: `Read at ${x} times the voice's own pace` });
+      b.setAttribute('aria-pressed', String(x === sp));
+      return b;
+    });
+    const sl = sleep.get();
+    const sleeps = [0, 15, 30].map((m) => {
+      const b = key(m ? `${m} min` : 'Off', () => setSleep(m), { label: m ? `Stop reading after ${m} minutes` : 'No sleep timer' });
+      b.setAttribute('aria-pressed', String(sl.minutes === m));
+      return b;
+    });
+    const sleepLine = sl.minutes ? `I stop reading at ${new Date(sl.at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })} and say where we got to.` : 'No sleep timer: I read on until you stop me or the chapter you asked for ends.';
+    const doc = docNow;
+    const voices = typeof speechSynthesis === 'undefined' ? [] : speechSynthesis.getVoices().filter((v) => /^en\b|^en-/i.test(v.lang));
+    const picked = doc ? readingPrefs.get().voices?.[doc.id] ?? '' : '';
+    const pick = doc && voices.length
+      ? (() => {
+          const sel = h('select.grd-voicepick', { 'aria-label': `The voice for ${doc.title}` }, h('option', { value: '' }, 'The usual voice'), ...voices.map((v) => h('option', { value: v.name, ...(v.name === picked ? { selected: true } : {}) }, `${v.name} (${v.lang})`))) as HTMLSelectElement;
+          sel.addEventListener('change', () => {
+            const all = { ...(readingPrefs.get().voices ?? {}) };
+            if (sel.value) all[doc.id] = sel.value;
+            else delete all[doc.id];
+            readingPrefs.set({ voices: all });
+          });
+          return sel;
+        })()
+      : null;
     clear(box,
       tag('Reading'),
       h('div.grd-keys', scroll, pages),
       h('div.grd-keys.size', smaller, h('span.grd-size', { 'aria-live': 'polite', dataset: { case: 'keep' } }, `${size} pt`), bigger),
       h('p.grd-cap', { dataset: { case: 'keep' } }, 'Night text follows your theme: always light on the graphite, with your theme’s colour for what I attend to.'),
+      tag('Listening'),
+      h('div.grd-keys.speed', ...speeds),
+      h('p.grd-cap', { dataset: { case: 'keep' } }, `Speed ${sp}× for the phone’s voice${p.bookVoice ? ' (my own voice keeps its pace)' : ''}, from the next time I start reading.`),
+      h('div.grd-keys.sleep', ...sleeps),
+      h('p.grd-cap.grd-sleepline', { dataset: { case: 'keep' } }, sleepLine),
+      pick ? h('label.grd-voicerow', h('span.lab', `Voice for ${doc!.title.split(/\s*[:—–]\s+/)[0]}`), pick) : doc ? h('p.grd-cap', { dataset: { case: 'keep' } }, 'This phone lists no English voices to choose from, so the usual voice reads.') : h('p.grd-cap', { dataset: { case: 'keep' } }, 'Open a book to choose a voice for it.'),
       voice,
       ...para('p.grd-cap', p.bookVoice
         ? `My own voice reads your books for about an hour a day (${left} minutes left today), within the free share it has. When it runs out mid-read I say “My own voice from here.” and the phone’s voice carries on.`
@@ -208,6 +245,12 @@ export function readingControls(): HTMLElement {
   };
   paint();
   readingPrefs.subscribe(() => box.isConnected ? paint() : undefined);
+  sleep.subscribe(() => box.isConnected ? paint() : undefined);
+  // (a different book opened: its own voice is offered)
+  let shownDoc = docNow?.id ?? '';
+  reading.subscribe((r) => {
+    if (r.doc !== shownDoc && box.isConnected) (shownDoc = r.doc), paint();
+  });
   return box;
 }
 
@@ -335,6 +378,9 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
 
   // ---------------------------------------------------------------- CHAPTERS, SEARCH, ABOUT
   const chList = h('div.grd-chapters', { role: 'list' });
+  /** [learn.s5, learn.s6] BOOK CLUB and SUMMARY ALOUD for the chapter he is in (library/club.ts): drawn above the list, kept across repaints. */
+  const clubBox = h('div.grd-club', { 'aria-live': 'polite' });
+  let clubFor = '';
   P.chapters.body.append(chList);
   const q = h('input.grd-q', { type: 'search', placeholder: 'Find in this book', enterKeyHint: 'search', 'aria-label': 'Find in this book' });
   const findKey = key('Find', () => runSearch(), { label: 'Find in this book' });
@@ -371,7 +417,10 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       if (para.head) el.append(h('h3.grd-ch', { dataset: { case: 'keep', at: String(para.at) } }, para.text));
       else {
         const t = h('p.grd-tx', { dataset: { case: 'keep', at: String(para.at) } });
-        for (const part of markParts(para.text, terms)) t.append(part.mark ? h('mark', part.text) : part.text);
+        // [learn.u4] his highlights in this paragraph (a search's marks take the paragraph while it is found)
+        const hs = !terms.length && doc ? highlightsOf(doc.id).filter((x) => x.n === p.n && x.at === para.at) : [];
+        if (hs.length) for (const part of hlParts(para.text, hs)) t.append(part.id ? h('mark.grd-hl', { dataset: { hl: part.id } }, part.text) : part.text);
+        else for (const part of markParts(para.text, terms)) t.append(part.mark ? h('mark', part.text) : part.text);
         el.append(t);
       }
     }
@@ -716,7 +765,43 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     const p = placeOf(doc.id);
     const cur = book.passages[p?.n ?? 0]?.chapter ?? 0;
     P.chapters.setStatus(`${book.chapters.length} ${book.byHeadings ? (book.chapters.length === 1 ? 'chapter' : 'chapters') : book.hasPages ? 'page ranges' : 'parts'}`);
-    clear(chList, ...(book.byHeadings ? [] : [h('p.grd-cap', { dataset: { case: 'keep' } }, book.hasPages ? 'This book has no chapter headings of its own, so here are its pages.' : 'This has no chapter headings of its own, so here it is in parts.')]),
+    // [learn.s5, learn.s6] the chapter he is in: a book club of three questions, or a short summary read aloud
+    const curTitle = book.chapters[cur]?.title ?? 'this part';
+    const key2 = `${doc.id}:${cur}`;
+    if (clubFor !== key2) (clubFor = key2), clear(clubBox);
+    const words = () => chapterText(book!.passages, cur);
+    const bookTitle = doc.title;
+    const clubKey = key('Book club on this chapter', async () => {
+      clear(clubBox, h('p.grd-cap', { dataset: { case: 'keep' } }, `Reading ${curTitle} for three questions…`));
+      try {
+        const qs = questionsOf(await clubAsk(clubPrompt(bookTitle, curTitle, words())));
+        if (!qs.length) throw new Error('I couldn’t make questions from that chapter.');
+        const boxes = qs.map((q, i) => h('textarea.grd-clubans', { rows: 2, 'aria-label': `Your answer to question ${i + 1}`, placeholder: 'Your answer, in your words' }) as HTMLTextAreaElement);
+        const reply = h('p.grd-cap.grd-clubreply', { dataset: { case: 'keep' } });
+        const talk = key('Talk about it', async () => {
+          reply.textContent = 'Reading your answers…';
+          try {
+            reply.textContent = await clubAsk(clubReplyPrompt(bookTitle, curTitle, words(), qs.map((q, i) => ({ q, a: boxes[i]!.value.trim() }))));
+          } catch (e) {
+            reply.textContent = sayError(e, 'talk about it');
+          }
+        }, { label: 'Talk about my answers' });
+        clear(clubBox, h('b.grd-clubhead', `Book club · ${curTitle}`), ...qs.flatMap((q, i) => [h('p.grd-clubq', { dataset: { case: 'keep' } }, `${i + 1}. ${q}`), boxes[i]!]), h('div.grd-keys', talk), reply);
+      } catch (e) {
+        clear(clubBox, h('p.grd-cap', { dataset: { case: 'keep' } }, sayError(e, 'start the book club')));
+      }
+    }, { label: `Book club: three questions on ${curTitle}` });
+    const sumKey = key('Summary aloud', async () => {
+      clear(clubBox, h('p.grd-cap', { dataset: { case: 'keep' } }, `Summing up ${curTitle}…`));
+      try {
+        const t = await clubAsk(summaryPrompt(bookTitle, curTitle, words()));
+        clear(clubBox, h('b.grd-clubhead', `Summary · ${curTitle}`), h('p.grd-clubsum', { dataset: { case: 'keep' } }, t));
+        void speak(t, { here: !readingPrefs.get().bookVoice }).catch(() => undefined);
+      } catch (e) {
+        clear(clubBox, h('p.grd-cap', { dataset: { case: 'keep' } }, sayError(e, 'sum up that chapter')));
+      }
+    }, { label: `A short summary of ${curTitle}, read aloud` });
+    clear(chList, h('div.grd-keys.grd-clubkeys', clubKey, sumKey), clubBox, ...(book.byHeadings ? [] : [h('p.grd-cap', { dataset: { case: 'keep' } }, book.hasPages ? 'This book has no chapter headings of its own, so here are its pages.' : 'This has no chapter headings of its own, so here it is in parts.')]),
       ...book.chapters.map((c) => {
         const here = c.i === cur;
         const b = h('button.grd-chrow', { type: 'button', role: 'listitem', dataset: { i: String(c.i), case: 'keep' }, 'aria-label': `${c.title}${c.page ? `, page ${c.page}` : ''}${here ? ', you are here' : ''}`, 'aria-current': here ? 'true' : null },
@@ -803,6 +888,98 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     ];
   };
   let keeping: AbortController | null = null;
+  // ---------------------------------------------------------------- [learn.u4] HIGHLIGHTS AND NOTES
+  /** The bar that comes up when he selects words in the book: HIGHLIGHT, or HIGHLIGHT AND NOTE (his own words with it). */
+  const hlBar = h('div.grd-hlbar', { hidden: true, role: 'toolbar', 'aria-label': 'Highlight' });
+  document.body.append(hlBar);
+  let picked: { n: number; at: number; start: number; end: number; text: string } | null = null;
+  const redraw = (n: number) => {
+    if (!book) return;
+    const fresh = drawPassage(book.passages[n]!);
+    els[n]?.replaceWith(fresh);
+    els[n] = fresh;
+  };
+  const whereOf = (n: number): string => {
+    if (!book) return '';
+    const c = book.chapters[book.passages[n]?.chapter ?? 0];
+    const pg = book.passages[n]?.page;
+    return [c?.title ?? '', pg && book.hasPages ? `page ${pg}` : ''].filter(Boolean).join(', ');
+  };
+  const keepPick = (note?: string) => {
+    if (!picked || !doc) return;
+    const x = addHighlight(doc.id, { ...picked, ...(note?.trim() ? { note: note.trim() } : {}), where: whereOf(picked.n) });
+    window.getSelection()?.removeAllRanges();
+    hlBar.hidden = true;
+    redraw(picked.n);
+    picked = null;
+    toast(x.note ? 'Highlighted, with your note: it is under ABOUT' : 'Highlighted: every one is under ABOUT', 'ok');
+    void paintAbout();
+  };
+  const showBar = () => {
+    const note = h('textarea.grd-hlnote', { rows: 2, 'aria-label': 'Your note', placeholder: 'Your note', hidden: true }) as HTMLTextAreaElement;
+    const save = key('Save note', () => keepPick(note.value), { label: 'Save the highlight with your note' });
+    save.hidden = true;
+    const hl = key('Highlight', () => keepPick(), { label: 'Highlight what you selected' });
+    const withNote = key('Highlight and note', () => {
+      note.hidden = false;
+      save.hidden = false;
+      withNote.hidden = true;
+      hl.hidden = true;
+      note.focus();
+    }, { label: 'Highlight it and add a note' });
+    const close = key('Close', () => ((hlBar.hidden = true), (picked = null)), { label: 'Close' });
+    clear(hlBar, h('div.grd-keys', hl, withNote, save, close), note);
+    hlBar.hidden = false;
+  };
+  document.addEventListener('selectionchange', () => {
+    if (!doc || !book || book.code) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return void (!hlBar.querySelector('textarea:not([hidden])') && (hlBar.hidden = true));
+    const range = sel.getRangeAt(0);
+    const pa = (range.startContainer.nodeType === 1 ? range.startContainer as Element : range.startContainer.parentElement)?.closest('p.grd-tx');
+    const pb = (range.endContainer.nodeType === 1 ? range.endContainer as Element : range.endContainer.parentElement)?.closest('p.grd-tx');
+    if (!pa || pa !== pb || !flow.contains(pa)) return;
+    const pre = document.createRange();
+    pre.setStart(pa, 0);
+    pre.setEnd(range.startContainer, range.startOffset);
+    const start = pre.toString().length;
+    const text = range.toString();
+    if (text.trim().length < 3) return;
+    const n = Number((pa.closest('.grd-p') as HTMLElement | null)?.dataset.n);
+    if (!Number.isFinite(n)) return;
+    picked = { n, at: Number((pa as HTMLElement).dataset.at) || 0, start, end: start + text.length, text: text.trim().slice(0, 600) };
+    if (hlBar.hidden) showBar();
+  });
+  /** ABOUT's list: every highlight in the book, a tap goes there, LET GO removes one; EXPORT NOTES and COPY. */
+  const notesList = (): HTMLElement => {
+    if (!doc) return h('div');
+    const d = doc;
+    const hs = highlightsOf(d.id);
+    if (!hs.length) return h('div.grd-notes', tag('Your highlights'), h('p.grd-cap', { dataset: { case: 'keep' } }, 'None yet. Select a sentence in the book and tap HIGHLIGHT, or HIGHLIGHT AND NOTE to add your own words. They are kept on this phone.'));
+    const md = () => notesMarkdown(d.title, highlightsOf(d.id));
+    const exportKey = key('Export notes', () => {
+      const url = URL.createObjectURL(new Blob([md()], { type: 'text/markdown' }));
+      const a = h('a', { href: url, download: `${d.title.replace(/[^\w\s-]+/g, '').trim().slice(0, 60) || 'notes'} - notes.md` }) as HTMLAnchorElement;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }, { label: `Export every highlight and note in ${d.title} as one file` });
+    const copyKey = key('Copy notes', () => void navigator.clipboard.writeText(md()).then(() => toast('Your notes are copied', 'ok'), (e) => toast(sayError(e, 'copy your notes'), 'bad')), { label: 'Copy every highlight and note' });
+    return h('div.grd-notes', tag(`Your highlights · ${hs.length}`),
+      ...hs.map((x) => {
+        const go = h('button.grd-noterow', { type: 'button', dataset: { case: 'keep', hl: x.id }, 'aria-label': `Go to: ${x.text.slice(0, 60)}` }, h('q', x.text), x.note ? h('small', x.note) : null, x.where ? h('small.grd-notewhere', x.where) : null);
+        go.addEventListener('click', () => jump(x.n, x.at + x.start));
+        const drop = key('Let go', () => {
+          removeHighlight(d.id, x.id);
+          redraw(x.n);
+          void paintAbout();
+        }, { label: `Let go of the highlight: ${x.text.slice(0, 40)}` });
+        return h('div.grd-note', go, drop);
+      }),
+      h('div.grd-keys', exportKey, copyKey));
+  };
+  addEventListener('hashchange', () => ((hlBar.hidden = true), (picked = null)));
   const paintAbout = async () => {
     if (!doc) {
       clear(about, h('p.grd-cap', { dataset: { case: 'keep' } }, 'Open a book and what it is, where it came from and how to keep it are here.'));
@@ -854,6 +1031,7 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
       tag('Who reads it'),
       h('p.grd-cap', { dataset: { case: 'keep' } }, readingPrefs.get().bookVoice ? `My own voice, about an hour a day (${Math.max(0, Math.round(bookVoiceLeft() / 60))} minutes left today); then the phone’s voice carries on, and I say so.` : 'The phone’s own voice. Settings › Reading › His voice for books lets my own voice read about an hour a day.'),
       h('p.grd-cap', { dataset: { case: 'keep' } }, lock));
+    about.append(notesList());
   };
   /** KEEP ON THIS PHONE: on his tap, the whole book here (on Wi-Fi; on mobile data it waits, said, until Wi-Fi). */
   const keepHere = async (d: LibraryDoc, size: number, k: HTMLButtonElement) => {

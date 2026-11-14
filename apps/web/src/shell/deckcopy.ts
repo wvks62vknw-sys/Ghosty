@@ -57,7 +57,7 @@ const camerasNearHome: DeckAct = { run: 'show_cameras', args: () => ({ lat: home
 
 export const DECK: Record<string, DeckScreen> = {
   core: {
-    name: 'Core',
+    name: 'Home',
     promise: 'Talk or type, and he gets it done',
     can: [
       { text: 'Ask with sources, each claim checked', act: { ask: 'How much sleep do adults need? With sources.' } },
@@ -98,7 +98,7 @@ export const DECK: Record<string, DeckScreen> = {
     dyk: 'He names things on the phone itself, from 4,624 everyday names. Nothing leaves it until you ask.',
   },
   interpreter: {
-    name: 'Interpreter',
+    name: 'Interpret',
     promise: 'Two halves, two languages: hold and talk',
     can: [
       { text: 'Hold your key and speak: the far half writes and says it', act: { open: 'interpreter' } },
@@ -176,7 +176,7 @@ export const DECK: Record<string, DeckScreen> = {
     dyk: 'Every answer says how it was worked out, what it assumed and what would change it — and that it is a first estimate, never certified.',
   },
   learn: {
-    name: 'Learn',
+    name: 'Courses',
     promise: 'Say “teach me…” and he builds you a course',
     can: [
       { text: '“Teach me how the stock market works”', act: { ask: 'Teach me how the stock market works' } },
@@ -447,6 +447,8 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Your spreadsheets, kept on this phone', act: { open: 'sheets' } },
       { text: 'Start a household budget', act: { ask: 'New spreadsheet' } },
       { text: 'Open an Excel file', act: { ask: 'Open a spreadsheet' } },
+      { text: 'Colour cells by rules', act: { open: 'sheets' } },
+      { text: 'Summarise a table in one tap', act: { open: 'sheets' } },
     ],
     dyk: 'Change a rent in March and the month, the summary and the year all move at once.',
   },
@@ -457,6 +459,8 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Your decks, kept on this phone', act: { open: 'slides' } },
       { text: 'Make slides from a report', act: { ask: 'Make slides from a report' } },
       { text: 'Open a PowerPoint file', act: { ask: 'Open a PowerPoint file' } },
+      { text: 'Builds and Magic Move, kept in PowerPoint', act: { open: 'slides' } },
+      { text: 'Present on a TV from your phone', act: { open: 'slides' } },
     ],
     dyk: 'Press and hold a slide to move it; in the talk your notes and the next title are on the phone, not on the slide.',
   },
@@ -477,6 +481,9 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Your photos, kept untouched on this phone', act: { open: 'photo' } },
       { text: 'Edit a photo', act: { ask: 'Edit a photo' } },
       { text: 'Straighten, grade, mask, heal and save a look', act: { open: 'photo' } },
+      { text: 'Make this photo warmer', act: { ask: 'Make this photo warmer' } },
+      { text: 'Draft a post with this photo', act: { open: 'photo' } },
+      { text: 'Twice the size, for printing', act: { open: 'photo' } },
     ],
     dyk: 'Your original is never changed: every edit is a recipe beside it, and the look you save goes onto many photos at once.',
   },
@@ -487,6 +494,9 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Your videos, kept on this phone', act: { open: 'video' } },
       { text: 'Edit a video', act: { ask: 'Edit a video' } },
       { text: 'Cut this video', act: { ask: 'Cut this video' } },
+      { text: 'Fade lengths and colour over time', act: { open: 'video' } },
+      { text: 'A photo film cut to a song', act: { open: 'video' } },
+      { text: 'Freeze a frame for two seconds', act: { open: 'video' } },
     ],
     dyk: 'Your clips are never changed: every cut, grade and title is a recipe laid over them, and the file is made on the phone.',
   },

@@ -87,6 +87,17 @@ export const STATES = {
   'money.budgets': { dir: 'money', base: 0, now: 4 },
   'money.bills': { dir: 'money', base: 0, now: 4 },
   'money.trends': { dir: 'money', base: 0, now: 4 },
+  // THE NEXT ROUND (the money lane): money and papers handled for you (features/money/plan.ts), each new page with its states
+  'money.calendar': { dir: 'money', base: 0, now: 4 },
+  'money.goals': { dir: 'money', base: 0, now: 4 },
+  'money.shared': { dir: 'money', base: 0, now: 4 },
+  'money.year': { dir: 'money', base: 0, now: 4 },
+  'money.rules': { dir: 'money', base: 0, now: 1 },
+  'money.watches': { dir: 'money', base: 0, now: 4 },
+  'money.car': { dir: 'money', base: 0, now: 4 },
+  'home.papers': { dir: 'homeadmin', base: 0, now: 4 },
+  'work.jobs': { dir: 'work', base: 0, now: 4 },
+  'work.meetings': { dir: 'work', base: 0, now: 1 },
   'body.reps': { dir: 'body', base: 2, now: 3 },
   'body.run': { dir: 'body', base: 1, now: 1 },
   'body.breathe': { dir: 'body', base: 0, now: 1 },
@@ -98,12 +109,20 @@ export const STATES = {
   'body.steps': { dir: 'body', base: 0, now: 2 },
   'body.weight': { dir: 'body', base: 0, now: 2 },
   'body.mood': { dir: 'body', base: 0, now: 2 },
+  // NEXT ROUND, BODY AND KITCHEN lane: tablets and supplements (features/body/meds.ts)
+  'body.meds': { dir: 'body', base: 0, now: 3 },
+  'body.week': { dir: 'body', base: 0, now: 2 },
+  'body.fast': { dir: 'body', base: 0, now: 2 },
+  'body.measure': { dir: 'body', base: 0, now: 2 },
+  'body.gym': { dir: 'body', base: 0, now: 2 },
+  'body.symptoms': { dir: 'body', base: 0, now: 2 },
+  'body.plans': { dir: 'body', base: 0, now: 2 },
   'kitchen.timers': { dir: 'kitchen', base: 1, now: 3 },
   'kitchen.shopping': { dir: 'kitchen', base: 2, now: 4 },
-  'kitchen.plan': { dir: 'kitchen', base: 1, now: 3 },
+  'kitchen.plan': { dir: 'kitchen', base: 1, now: 4 },
   // FINAL ROUND, BODY AND KITCHEN lane: the pantry and the recipe book kept on the phone (features/kitchen/larder.ts)
-  'kitchen.pantry': { dir: 'kitchen', base: 0, now: 3 },
-  'kitchen.recipes': { dir: 'kitchen', base: 0, now: 3 },
+  'kitchen.pantry': { dir: 'kitchen', base: 0, now: 4 },
+  'kitchen.recipes': { dir: 'kitchen', base: 0, now: 4 },
   'people.who': { dir: 'people', base: 2, now: 4 },
   'people.plan': { dir: 'people', base: 1, now: 4 },
   'people.coming': { dir: 'people', base: 0, now: 4 },
@@ -150,6 +169,12 @@ export const STATES = {
   'eye.cam': { dir: 'eye', base: 2, now: 2 },
   'eye.roadahead': { dir: 'eye', base: 1, now: 1 },
   'machine.view': { dir: 'eye', base: 0, now: 2 },
+  // the camera wall (NEXT ROUND, see.u2): its empty wall and a camera that will not come
+  'eye.wall': { dir: 'eye', base: 0, now: 2 },
+  // the full-screen rain radar (see.s3): fetching, unreachable, no signal
+  'eye.rain': { dir: 'eye', base: 0, now: 3 },
+  // THE WORLD in the morning Brief (see.c2; features/eye/briefworld.ts): looking, offline, no commute saved
+  'world.brief': { dir: 'eye', base: 0, now: 3 },
   'lens.camera': { dir: 'lens', base: 3, now: 3 },
   'lens.see': { dir: 'lens', base: 0, now: 1 },
   'lens.read': { dir: 'lens', base: 0, now: 1 },
@@ -158,7 +183,10 @@ export const STATES = {
   'lens.name': { dir: 'lens', base: 0, now: 2 },
   'lens.people': { dir: 'lens', base: 0, now: 2 },
   'lens.measure': { dir: 'lens', base: 1, now: 1 },
-  'lens.photo': { dir: 'lens', base: 1, now: 1 },
+  // PHOTO TOOLS: a job the free online tools did not do (BACKGROUND offers the cut-out on this phone; SHARPER and ERASE say they wait)
+  'lens.photo': { dir: 'lens', base: 1, now: 2 },
+  // [lens.u6] SCAN's DOCUMENT AUTO, new (base 0): no page in view, holding still, a page it could not keep, no signal (and none needed)
+  'lens.scan': { dir: 'lens', base: 0, now: 4 },
   'threats.signals': { dir: 'threats', base: 2, now: 4 },
   'threats.nearhome': { dir: 'threats', base: 2, now: 4 },
   'settings.packs': { dir: 'settings', base: 3, now: 3 },
@@ -180,7 +208,11 @@ export const STATES = {
   'space.photo': { dir: 'space', base: 3, now: 3 },
   // FINAL ROUND (MAKE lane): MATERIALS says what it needs when there is no room to work from
   'space.materials': { dir: 'space', base: 0, now: 1 },
+  // NEXT ROUND (MAKE lane): MATERIALS' makeover set against his own statements, all four states (new, so base 0)
+  'space.budget': { dir: 'space', base: 0, now: 4 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
+  // NEXT ROUND (MAKE lane): named Workbench projects, its empty list said in his words (new, so base 0)
+  'workbench.projects': { dir: 'workbench', base: 0, now: 1 },
   'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },
   'convert.files': { at: 'convert', dir: '', base: 3, now: 3 },
@@ -190,8 +222,12 @@ export const STATES = {
   'markets.prices': { dir: 'markets', base: 3, now: 4 },
   'radio.stations': { dir: 'radio', base: 3, now: 4 },
   'memory.timeline': { dir: 'memory', base: 2, now: 4 },
+  // NEXT ROUND (MEMORY lane): YOUR WORD, new, draws its loading, empty, error and offline states
+  'memory.keep': { dir: 'memory', base: 0, now: 4 },
   'settings.faces': { dir: 'settings', base: 1, now: 2 },
   'settings.principles': { dir: 'settings', base: 1, now: 3 },
+  // [consistency] ROUTINES (NEXT-ROUND consistency.s2): a new panel, its empty and its error said from the start
+  'settings.routines': { dir: 'settings', base: 2, now: 2 },
   'system.loops': { dir: 'system', base: 1, now: 2 },
   'system.ledger': { dir: 'system', base: 2, now: 3 },
   'system.foresight': { dir: 'system', base: 2, now: 3 },
@@ -199,7 +235,6 @@ export const STATES = {
   'links.notes': { dir: 'links', base: 1, now: 2 },
   'social.queue': { dir: 'social', base: 3, now: 4 },
   // PLAN AND HOME (FINAL ROUND, planlane): the agenda's to-do list and the radio's RECENT list, new screens (base 0)
-  'agenda.todo': { dir: 'agenda', base: 0, now: 1 },
   'radio.recent': { dir: 'radio', base: 0, now: 1 },
   // [planlane:links] each connection's state in his words (checking, can't reach the brain, linked but not working, nothing linked yet)
   'links.connections': { dir: 'links', base: 0, now: 4 },
@@ -219,6 +254,19 @@ export const STATES = {
   // [planlane:agenda] the diary (loading, the brain out of reach with the phone's copy said so, offline with no copy, empty) and the chat's month
   'agenda.diary': { dir: 'agenda', base: 0, now: 4 },
   'agenda.month': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane2:fixes] SOCIAL's FOLLOW OR UNFOLLOW box (no account with follows, the brain not answering, a draft not made), LINKS' one
+  // health line (checking, the brain out of reach, the one thing to fix first, nothing linked) and EMAIL's TEST (no signal, a fail said)
+  'social.follow': { dir: 'social', base: 0, now: 3 },
+  'links.health': { dir: 'links', base: 0, now: 4 },
+  'links.emailtest': { dir: 'links', base: 0, now: 2 },
+  // [planlane2:goodnight] GOODNIGHT's lines: winding down already (loading), the brain out of reach (offline), his house not answering (error), no light on (empty)
+  'core.goodnight': { dir: 'core', base: 0, now: 4 },
+  // [planlane2:onelist] the to-do list: empty, error (turn.ts) and offline (changes kept on this phone, still to reach the one list)
+  'agenda.todo': { dir: 'agenda', base: 0, now: 3 },
+  // [planlane2:timeline] TIMELINE (the diary on its way, laid out from the phone's copy with the brain out of reach, a day with nothing in it)
+  // and the month's own read of any month (on its way, the brain not giving it): new parts (base 0)
+  'agenda.timeline': { dir: 'agenda', base: 0, now: 3 },
+  'agenda.monthread': { dir: 'agenda', base: 0, now: 2 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },
@@ -243,9 +291,12 @@ export const STATES = {
   'core.hud': { dir: 'core', base: 1, now: 2 },
   // THE COMIC (FINAL ROUND, lane COMIC): its own screen, new; base 0 since nothing was drawn before it.
   'comic.shelf': { dir: 'comic', base: 0, now: 3 },
-  'comic.maker': { dir: 'comic', base: 0, now: 3 },
+  'comic.maker': { dir: 'comic', base: 0, now: 4 },
   'comic.reader': { dir: 'comic', base: 0, now: 2 },
   'comic.library': { dir: 'comic', base: 0, now: 4 },
+  // SECURITY (NEXT ROUND, lane SECURITY): its own screen, new; base 0 since nothing was drawn before it.
+  'security.locks': { dir: 'security', base: 0, now: 2 },
+  'security.approvals': { dir: 'security', base: 0, now: 2 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {
@@ -270,7 +321,7 @@ test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every
 });
 test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach'], ['comic']]) {
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach'], ['comic'], ['security']]) {
     const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);

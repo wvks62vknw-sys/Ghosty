@@ -243,10 +243,54 @@ function scheduleDay(): void {
  * Apply a recipe at once (every screen, Mind and the 3D engine) and keep it on this phone — under his mood, if he has one.
  * `save: false`: the day turning, or a reload reading what is kept, changes nothing that is kept.
  */
-export function applyRecipe(r: Recipe, o: { save?: boolean } = {}): void {
+// [voice lane] UNDO THE LOOK BY WORDS (voice.u9): the looks he had before, newest last, so "put it back" or "the one before" returns
+// the last one. Every saved change goes through applyRecipe (a tap in Settings or THE LOOK, a word in the chat), so each is remembered.
+const BEFORE_KEY = 'ghosty.look.before';
+let before: Recipe[] | null = null;
+const looksBefore = (): Recipe[] => {
+  if (before) return before;
+  try {
+    const v = JSON.parse(localStorage.getItem(BEFORE_KEY) ?? '[]') as Recipe[];
+    before = Array.isArray(v) ? v.filter((x) => x && typeof x.colour === 'string' && typeof x.world === 'string') : [];
+  } catch {
+    before = [];
+  }
+  return before;
+};
+const keepBefore = (list: Recipe[]) => {
+  before = list.slice(-8);
+  try {
+    localStorage.setItem(BEFORE_KEY, JSON.stringify(before));
+  } catch {
+    /* storage refused: remembered for this visit */
+  }
+};
+/** The look before this one, taken off the list and applied ("put it back"); null when there is none. */
+export function lookBack(): Recipe | null {
+  const list = looksBefore();
+  const prev = list.at(-1);
+  if (!prev) return null;
+  keepBefore(list.slice(0, -1));
+  applyRecipe(prev, { remember: false });
+  return prev;
+}
+
+/** [voice.u8] A room's own colour showing now (state/roomcolour.ts), or null: a saved change made there keeps HIS colour, never the room's. */
+let roomShown: ColourKey | null = null;
+export const setRoomShown = (c: ColourKey | null): void => {
+  roomShown = c;
+};
+/** His own colour for a look: the room's colour, while it is showing, is never his. */
+const ownColour = (c: ColourKey): ColourKey => (roomShown && c === roomShown ? recipeFrom(settings.get().theme, settings.get().look).colour : c);
+
+export function applyRecipe(r: Recipe, o: { save?: boolean; remember?: boolean } = {}): void {
+  // (a saved change that changes something is remembered for "put it back"; the day's own flips and a look put back are not)
+  if (o.save !== false && o.remember !== false && current && !sameRecipe(current, r)) keepBefore([...looksBefore(), { ...current, colour: ownColour(current.colour), switches: { ...current.switches } }]);
   current = { ...r, switches: { ...r.switches } };
   const el = document.documentElement;
-  const ground = groundNow(current);
+  // [planlane2:goodnight] tonight's night look: shown over Paper till it ends (or his next look change), never in `current`
+  if (o.save !== false || Date.now() >= nightUntil) nightUntil = 0;
+  const ground = nightUntil && groundNow(current) === 'paper' ? current.night : groundNow(current);
   const d = el.dataset;
   d.theme = current.colour;
   d.ground = ground;
@@ -261,6 +305,7 @@ export function applyRecipe(r: Recipe, o: { save?: boolean } = {}): void {
   d.motion = s.motion;
   d.sound = s.sound;
   d.day = s.day;
+  d.safe = s.safe; // [voice lane] colour-blind safe (voice.s5): tokens.css gives the state colours a set told apart by every eye
   // the ground may have changed: the surfaces a mood's text variant is worked out on are read again
   surfaces = null;
   readGlow();
@@ -268,14 +313,28 @@ export function applyRecipe(r: Recipe, o: { save?: boolean } = {}): void {
   paint(lit(current.colour, moodKind), current.colour);
   if (o.save !== false) {
     const now = settings.get();
-    const kept = keptLook(current);
-    if (now.theme !== current.colour || JSON.stringify(now.look) !== JSON.stringify(kept)) settings.set({ theme: current.colour, look: kept });
+    const own = ownColour(current.colour);
+    const kept = keptLook({ ...current, colour: own });
+    if (now.theme !== own || JSON.stringify(now.look) !== JSON.stringify(kept)) settings.set({ theme: own, look: kept });
   }
   scheduleDay();
   themeState.applied++;
   themeEvents.emit('change', current.colour);
   recipeEvents.emit('change', current);
 }
+
+/** [planlane2:goodnight] Until when tonight's night look is shown (0: not): a passing override, never kept in the recipe or saved. */
+let nightUntil = 0;
+/** [planlane2:goodnight] The night look over Paper until `until` (goodnight: the next five in the morning), then his own look again. */
+export function nightFor(until: number): void {
+  nightUntil = until;
+  applyRecipe(current, { save: false });
+  setTimeout(() => {
+    if (nightUntil && Date.now() >= nightUntil) applyRecipe(current, { save: false });
+  }, Math.min(2 ** 31 - 1, Math.max(0, until - Date.now()) + 1000));
+}
+/** [planlane2:goodnight] Whether tonight's night look is showing over his own. */
+export const nightShowing = (): boolean => nightUntil > Date.now();
 
 /** Apply a colour at once and keep the rest of the recipe (the twelve, by words, a mood's end: what a theme always did). */
 export function applyTheme(name: string): void {
@@ -297,7 +356,9 @@ export const isCurrent = (r: Recipe): boolean => sameRecipe(r, current) && r.nig
 // the day's turn while the phone was asleep or away: looked at again when it comes back, and when his home changes
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && current.switches.day === 'on' && groundNow() !== document.documentElement.dataset.ground) applyRecipe(current, { save: false });
+    if (!document.hidden && current.switches.day === 'on' && groundNow() !== document.documentElement.dataset.ground && !nightShowing()) applyRecipe(current, { save: false });
+    // [planlane2:goodnight] tonight's night look ended while the phone was asleep: his own look again
+    else if (!document.hidden && nightUntil && Date.now() >= nightUntil) applyRecipe(current, { save: false });
   });
   settings.subscribe((st, prev) => {
     if (st.home !== prev.home && current.switches.day === 'on') applyRecipe(current, { save: false });

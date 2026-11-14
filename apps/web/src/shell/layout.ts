@@ -3,6 +3,7 @@ import { togglePalette } from '../commands/registry';
 import { h, icon, pad } from '../core/dom';
 import { memoryPaused, pauseEndsAt } from '../api/brain';
 import { player, stopAudio } from '../assistant/media';
+import { chipStops, clockWords } from '../features/radio/words';
 import { ui } from '../state/app';
 import { buildLauncher } from './launcher';
 import { modal } from '../ui/components';
@@ -32,7 +33,7 @@ const GROUPS: Record<string, ListGroup[]> = {
     { title: 'You', match: /^NAME/ },
     // (BRIEF-VOICE-KNOWN: MY VOICE and PEOPLE I'VE INTRODUCED sit in this group too, or the sheet draws the group twice: the ui spec)
     { title: 'Voice and home', match: /^(VOICE|OFFLINE|MY VOICE|PEOPLE I)/, foot: 'The offline brain answers on this phone when there is no signal.' },
-    { title: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
+    { title: 'Ghosty', match: /^(SECURITY|SYSTEM|LINKS)$/ },
     { title: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
   ],
   system: [
@@ -64,6 +65,15 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   player.subscribe((p) => {
     np.hidden = npStop.hidden = !p.now;
     np.textContent = p.now ? `♪ ${p.state === 'loading' ? 'Connecting' : p.state === 'error' ? `${p.now.name} didn't play` : p.state === 'paused' ? `${p.now.name} · paused` : p.now.name}` : ''; // (the Radio pass's words)
+    // [planlane2:podcasts] the sleep timer's stop time, its own part so a long name is cut and never the time: "Radio 4 · stops 23:10"
+    if (p.now && p.sleepAt && p.state !== 'error') {
+      np.replaceChildren(h('span.npname', np.textContent), h('span.npstops', ` · ${chipStops(p.sleepAt)}`));
+      np.classList.add('hasstops');
+      np.title = `Radio — stops at ${clockWords(p.sleepAt)}; tap to open, ■ to stop`;
+    } else if (np.classList.contains('hasstops')) {
+      np.classList.remove('hasstops');
+      np.title = 'Radio — tap to open, ■ to stop';
+    }
   });
   // Quiet tag while the database is paused (free daily allowance); tap for what still works.
   const pausedTag = h('button.pausedtag', {

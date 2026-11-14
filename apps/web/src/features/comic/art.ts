@@ -22,6 +22,36 @@ export interface Box {
 export interface Drawn {
   panels: Box[];
   balloons: { panel: number; id: string; box: Box }[];
+  /** each character's box, for his finger to move them */
+  actors?: { panel: number; who: string; box: Box }[];
+  /** the sound effect's box */
+  sfxs?: { panel: number; box: Box }[];
+}
+
+// ---------------------------------------------------------------- his photos behind panels (decoded once, kept while the app is open)
+const photos = new Map<string, HTMLImageElement>();
+/** A photo, ready to draw now, or null (it is being decoded; `ready` is called when it can be drawn). */
+export function photoOf(src: string, ready?: () => void): HTMLImageElement | null {
+  let img = photos.get(src);
+  if (!img) {
+    img = new Image();
+    img.decoding = 'async';
+    img.src = src;
+    photos.set(src, img);
+    if (photos.size > 40) photos.delete(photos.keys().next().value as string);
+  }
+  if (img.complete && img.naturalWidth) return img;
+  if (ready) img.addEventListener('load', () => ready(), { once: true });
+  return null;
+}
+/** Every photo of a comic decoded (before it is saved or read, so no panel is drawn without its photo). */
+export async function photosReady(c: Comic): Promise<void> {
+  const all = c.pages.flatMap((pg) => pg.panels.map((p) => p.photo).filter((x): x is string => !!x));
+  await Promise.all(all.map((src) => new Promise<void>((ok) => {
+    const img = photoOf(src, () => ok());
+    if (img) ok();
+    else setTimeout(ok, 4000);
+  })));
 }
 
 type C = CanvasRenderingContext2D;
@@ -699,14 +729,19 @@ function tail(ctx: C, kind: Balloon['kind'], b: Box, tx: number, ty: number): vo
 function lettering(ctx: C, size: number, kind: Balloon['kind']): void {
   ctx.font = `${kind === 'whisper' ? 600 : 700} ${kind === 'shout' ? Math.round(size * 1.18) : kind === 'whisper' ? Math.round(size * 0.88) : size}px ${LETTER}`;
 }
-function sfx(ctx: C, b: Box, text: string, seedN: number, below = b.y): void {
-  if (!text.trim()) return;
+function sfx(ctx: C, b: Box, text: string, seedN: number, below = b.y, at?: [number, number]): Box | null {
+  if (!text.trim()) return null;
   const r = seeded(seedN);
   ctx.save();
   const size = Math.max(40, Math.min(b.w / Math.max(4, text.length * 0.62), b.h * 0.28, 120));
   ctx.font = `700 ${size}px ${DISPLAY}`;
-  const x = b.x + b.w * (0.5 + (r() - 0.5) * 0.3);
-  const y = Math.min(b.y + b.h - size * 0.7, Math.max(below + size * 0.75, b.y + b.h * (0.4 + r() * 0.12)));
+  let x = b.x + b.w * (0.5 + (r() - 0.5) * 0.3);
+  let y = Math.min(b.y + b.h - size * 0.7, Math.max(below + size * 0.75, b.y + b.h * (0.4 + r() * 0.12)));
+  if (at) {
+    x = b.x + b.w * Math.max(0.05, Math.min(0.95, at[0]));
+    y = b.y + b.h * Math.max(0.05, Math.min(0.95, at[1]));
+  }
+  const w = ctx.measureText(text.toUpperCase()).width;
   ctx.translate(x, y);
   ctx.rotate((r() - 0.5) * 0.4);
   ctx.textAlign = 'center';
@@ -721,6 +756,7 @@ function sfx(ctx: C, b: Box, text: string, seedN: number, below = b.y): void {
   ctx.fillStyle = g;
   ctx.fillText(text.toUpperCase(), 0, 0);
   ctx.restore();
+  return { x: x - w / 2, y: y - size / 2, w, h: size };
 }
 function caption(ctx: C, b: Box, text: string, at: 'top' | 'bottom'): void {
   if (!text.trim()) return;
@@ -744,12 +780,21 @@ function caption(ctx: C, b: Box, text: string, at: 'top' | 'bottom'): void {
 
 /** One panel, drawn in its box; gives back each balloon's box. The balloons are laid out first, over where each speaker
  * stands, and the cast is then sized to stand under them, so no balloon covers a face. */
-export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number): { id: string; box: Box }[] {
+export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hits?: { actors: { who: string; box: Box }[]; sfx: Box | null }, ready?: () => void): { id: string; box: Box }[] {
   ctx.save();
   ctx.beginPath();
   ctx.rect(b.x, b.y, b.w, b.h);
   ctx.clip();
-  const ground = background(ctx, b, p.scene, p.time, seedN);
+  const photo = p.photo ? photoOf(p.photo, ready) : null;
+  let ground: number;
+  if (photo) {
+    // his photo, filling the panel (cut to fit, never stretched)
+    const k = Math.max(b.w / photo.naturalWidth, b.h / photo.naturalHeight);
+    const w = photo.naturalWidth * k;
+    const hh = photo.naturalHeight * k;
+    ctx.drawImage(photo, b.x + (b.w - w) / 2, b.y + (b.h - hh) / 2, w, hh);
+    ground = b.y + b.h * 0.8;
+  } else ground = background(ctx, b, p.scene, p.time, seedN);
   const n = p.actors.length;
   const xOf = (i: number) => {
     const a = p.actors[i]!;
@@ -780,6 +825,12 @@ export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number): { 
       clash = hits(y);
     }
     placed.push({ bl, box: { x: bx, y, w, h: hh }, lines, lh });
+    // (where his finger moved it: kept inside the panel)
+    const last = placed[placed.length - 1]!;
+    if (bl.dx || bl.dy) {
+      last.box.x = Math.max(b.x + 4, Math.min(b.x + b.w - w - 4, bx + (bl.dx ?? 0)));
+      last.box.y = Math.max(b.y + 4, Math.min(b.y + b.h - hh - 4, y + (bl.dy ?? 0)));
+    }
     // the next balloon may sit beside this one (same row) if it fits; else below
     y = Math.max(top0, y);
   }
@@ -801,9 +852,14 @@ export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number): { 
   const heads = new Map<string, { hx: number; hy: number; top: number }>();
   p.actors.forEach((a, i) => {
     const m = c.cast.find((x) => x.id === a.who);
-    if (m) heads.set(a.who, drawCharacter(ctx, m, a, xOf(i), groundY, size));
+    if (!m) return;
+    const hd = drawCharacter(ctx, m, a, xOf(i), groundY, size);
+    heads.set(a.who, hd);
+    const half = size * 0.45 * m.look.height;
+    hits?.actors.push({ who: a.who, box: { x: xOf(i) - half, y: Math.max(b.y, hd.top), w: half * 2, h: Math.min(b.y + b.h, groundY) - Math.max(b.y, hd.top) } });
   });
-  sfx(ctx, b, p.sfx, seedN + 3, bottom);
+  const fx = sfx(ctx, b, p.sfx, seedN + 3, bottom, p.sfxAt);
+  if (hits) hits.sfx = fx;
   // tails first, then the balloons over them, then the words
   const out: { id: string; box: Box }[] = [];
   for (const { bl, box } of placed) {
@@ -834,7 +890,7 @@ export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number): { 
 }
 
 /** A page of the comic, drawn whole on the canvas (sized to it). */
-export function drawPage(cv: HTMLCanvasElement, c: Comic, pg: Page, n: number): Drawn {
+export function drawPage(cv: HTMLCanvasElement, c: Comic, pg: Page, n: number, ready?: () => void): Drawn {
   cv.width = PAGE_W;
   cv.height = PAGE_H;
   const ctx = cv.getContext('2d')!;
@@ -843,9 +899,12 @@ export function drawPage(cv: HTMLCanvasElement, c: Comic, pg: Page, n: number): 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   const rects = panelRects(pg);
-  const drawn: Drawn = { panels: rects, balloons: [] };
+  const drawn: Drawn = { panels: rects, balloons: [], actors: [], sfxs: [] };
   pg.panels.slice(0, rects.length).forEach((p, i) => {
-    for (const bl of drawPanel(ctx, c, p, rects[i]!, (c.seed ^ (n * 131 + i * 17)) >>> 0)) drawn.balloons.push({ panel: i, ...bl });
+    const hits: { actors: { who: string; box: Box }[]; sfx: Box | null } = { actors: [], sfx: null };
+    for (const bl of drawPanel(ctx, c, p, rects[i]!, (c.seed ^ (n * 131 + i * 17)) >>> 0, hits, ready)) drawn.balloons.push({ panel: i, ...bl });
+    for (const a of hits.actors) drawn.actors!.push({ panel: i, ...a });
+    if (hits.sfx) drawn.sfxs!.push({ panel: i, box: hits.sfx });
   });
   ctx.font = `600 22px ${LETTER}`;
   ctx.fillStyle = '#555555';
@@ -911,7 +970,7 @@ export function drawCover(cv: HTMLCanvasElement, c: Comic): void {
   ctx.font = `700 30px ${DISPLAY}`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'left';
-  ctx.fillText('No. 1', 26, 34);
+  ctx.fillText(`No. ${c.series?.n ?? 1}`, 26, 34);
   ctx.textAlign = 'right';
   ctx.fillText('GHOSTY COMICS', PAGE_W - 26, 34);
   // the tagline, in a caption box
@@ -922,8 +981,11 @@ export function drawCover(cv: HTMLCanvasElement, c: Comic): void {
 }
 
 /** Which panel and balloon a tap at page coordinates is on. */
-export function hitOf(d: Drawn, x: number, y: number): { panel: number; balloon: string } {
-  const bl = [...d.balloons].reverse().find((q) => x >= q.box.x && x <= q.box.x + q.box.w && y >= q.box.y && y <= q.box.y + q.box.h);
-  const panel = bl?.panel ?? d.panels.findIndex((q) => x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h);
-  return { panel, balloon: bl?.id ?? '' };
+export function hitOf(d: Drawn, x: number, y: number): { panel: number; balloon: string; actor: string; sfx: boolean } {
+  const inside = (q: Box) => x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h;
+  const bl = [...d.balloons].reverse().find((q) => inside(q.box));
+  const fx = bl ? undefined : [...(d.sfxs ?? [])].reverse().find((q) => inside(q.box));
+  const ac = bl || fx ? undefined : [...(d.actors ?? [])].reverse().find((q) => inside(q.box));
+  const panel = bl?.panel ?? fx?.panel ?? ac?.panel ?? d.panels.findIndex(inside);
+  return { panel, balloon: bl?.id ?? '', actor: ac?.who ?? '', sfx: !!fx };
 }

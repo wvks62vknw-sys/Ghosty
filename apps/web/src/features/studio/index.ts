@@ -21,6 +21,7 @@ import { planToRoom } from '../../space/roomjson';
 import { space } from '../../space/store';
 import { parseRoom, type RoomPlan } from '../../studio/room';
 import { splineEmbedUrl } from '../../studio/spline';
+import { addJob, dropJob, dueJob, jobWords, QUEUE_KEY, queuedWords, readJobs, readyWords, triedAgain, waitWhy, type MakeJob, type WaitWhy } from './queue';
 import { creditLine, goodMatch, GROUPS, searchCatalog, standIn, type CatalogItem, type SearchHit } from '../../../../../packages/shared/src/models3d';
 import { fetchModel, forget, keep, keptFile, keptInMemory, listKept, loadCatalog, readLines, thumbUrl, type Kept } from './catalog';
 import { Viewer, type Axis, type ModelSource, type ViewMode } from '../../studio/viewer';
@@ -222,7 +223,11 @@ export const studioTab: TabDef = {
 
     const seg = h('div.studioseg');
     const panel = h('div.studiopanel');
-    const hud = h('div.hud.studio', view, bar, seg, panel);
+    // (one box for everything under the picture: invisible to the layout at a desk and in most panes, where the page scrolls as one;
+    // on a phone in the 3-D engine and the car's working engine it is the only part that scrolls, under a picture that never moves,
+    // so nothing can pass under or over the picture in any browser: styles.css "THE DOCK")
+    const under = h('div.studioscroll', bar, seg, panel);
+    const hud = h('div.hud.studio', view, under);
     root.append(hud);
 
     let pane: Pane = 'models';
@@ -541,51 +546,146 @@ export const studioTab: TabDef = {
           }
         }
         makeNote.textContent = MAKE_WAIT;
-        const r = await fetch('/api/m3d/generate', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ prompt: t }), credentials: 'same-origin' });
-        let model: MadeModel | null = null;
-        let fail: { error?: string; code?: string } | null = null;
-        if (!(r.headers.get('content-type') ?? '').includes('ndjson')) {
-          const j = (await r.json().catch(() => ({}))) as { error?: string };
-          fail = { error: j.error ?? `the brain answered ${r.status}` };
-        } else
-          await readLines(r, (l) => {
-            if (typeof l.step === 'string') makeNote.textContent = l.step;
-            if (typeof l.picture === 'string' && l.picture.startsWith('data:image/')) {
-              drawn.src = l.picture;
-              drawn.hidden = false;
-            }
-            if (l.model && typeof l.model === 'object') model = l.model as MadeModel;
-            if (typeof l.error === 'string') fail = { error: l.error, code: typeof l.code === 'string' ? l.code : undefined };
-          });
-        const m = model as MadeModel | null;
-        if (m) {
-          await loadMade(m.id, m.title, m);
-          makeNote.textContent = `Made by ${m.maker ?? 'a free generator'}${m.textured === false ? ' (shape only, no colours)' : m.textured ? ', with its colours' : ''}. Kept on this phone; it has no real size, so MEASURE reads in its own units.`;
-          void refreshMade();
+        const got = await generate(t, (step) => (makeNote.textContent = step), (pic) => {
+          drawn.src = pic;
+          drawn.hidden = false;
+        });
+        if (got.model) {
+          await showMade(got.model);
           return;
         }
-        const f = (fail ?? { error: 'the brain stopped answering before the model was ready' }) as { error?: string; code?: string };
-        await standInFor(t, f.error ?? 'it could not be made', f.code);
+        const f = got.fail ?? { error: 'the brain stopped answering before the model was ready' };
+        await standInFor(t, f.error ?? 'it could not be made', f.code, waitWhy(f.code, f.status, f.error));
       } catch (e) {
-        await standInFor(t, errText(e), undefined);
+        await standInFor(t, errText(e), undefined, null);
       } finally {
         makingAny = false;
         makeItBtn.disabled = false;
       }
     }
-    /** The honest fallback: say why, and show a simple model built from shapes straight away. */
-    const standInFor = async (t: string, why: string, code: string | undefined) => {
+    /** One try at making `t` with the brain's free makers: the model, or why not (its code and status kept, to know if waiting helps). */
+    async function generate(t: string, step: (s: string) => void = () => undefined, picture: (src: string) => void = () => undefined): Promise<{ model?: MadeModel; fail?: { error?: string; code?: string; status?: number } }> {
+      const r = await fetch('/api/m3d/generate', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ prompt: t }), credentials: 'same-origin' });
+      let model: MadeModel | null = null;
+      let fail: { error?: string; code?: string; status?: number } | null = null;
+      if (!(r.headers.get('content-type') ?? '').includes('ndjson')) {
+        const j = (await r.json().catch(() => ({}))) as { error?: string; code?: string };
+        fail = { error: j.error ?? `the brain answered ${r.status}`, code: typeof j.code === 'string' ? j.code : undefined, status: r.status };
+      } else
+        await readLines(r, (l) => {
+          if (typeof l.step === 'string') step(l.step);
+          if (typeof l.picture === 'string' && l.picture.startsWith('data:image/')) picture(l.picture);
+          if (l.model && typeof l.model === 'object') model = l.model as MadeModel;
+          if (typeof l.error === 'string') fail = { error: l.error, code: typeof l.code === 'string' ? l.code : undefined, status: typeof l.status === 'number' ? l.status : undefined };
+        });
+      const m = model as MadeModel | null;
+      return m ? { model: m } : { fail: fail ?? undefined };
+    }
+    const showMade = async (m: MadeModel) => {
+      await loadMade(m.id, m.title, m);
+      makeNote.textContent = `Made by ${m.maker ?? 'a free generator'}${m.textured === false ? ' (shape only, no colours)' : m.textured ? ', with its colours' : ''}. Kept on this phone; it has no real size, so MEASURE reads in its own units.`;
+      makeNote.classList.remove('bad');
+      void refreshMade();
+    };
+    /**
+     * The honest fallback: say why, and show a simple model built from shapes straight away. When waiting would help (the makers
+     * busy, or today's tries used), the job joins the waiting list and is made by itself later; meanwhile the catalogue's nearest
+     * real models are offered.
+     */
+    const standInFor = async (t: string, why: string, code: string | undefined, wait: WaitWhy | null) => {
       const s = standIn(t);
       await loadAny({ kind: 'parts', parts: s.parts, title: `${s.title} — stand-in`, credit: 'A simple stand-in built by Ghosty from shapes, at the usual size — not a real model' });
-      makeNote.textContent = `Not made: ${why.replace(/\.$/, '')}. Showing a simple stand-in built from shapes instead (real size, in parts).`;
       makeNote.classList.add('bad');
+      if (wait) {
+        jobs = addJob(jobs, t, wait, Date.now()).jobs;
+        saveJobs();
+        makeNote.dataset.state = 'waiting';
+        makeNote.textContent = `${queuedWords(t, wait)} Meanwhile, a simple stand-in built from shapes (real size, in parts).`;
+      } else {
+        delete makeNote.dataset.state;
+        makeNote.textContent = `Not made: ${why.replace(/\.$/, '')}. Showing a simple stand-in built from shapes instead (real size, in parts).`;
+      }
+      // (only the right kind of thing: a dog for "a rusty robot dog", never a brass bell for "a brass telescope")
+      const near = catItems.length ? searchCatalog(catItems, t, { limit: 6 }).filter((n) => n.catHead).slice(0, 3) : [];
       clear(
         askBox,
-        button('TRY AGAIN', () => void makeAnything(t, true)),
+        ...(wait ? [] : [button('TRY AGAIN', () => void makeAnything(t, true))]),
         // The brain's chat can draw it with its own free picture maker when the studio's route cannot.
         ...(code === 'no_picture' ? [button('ASK GHOSTY', () => (void send(`Make a new 3D model of ${t}`), toast('Asked Ghosty — it draws the object, then models it (watch the chat)', 'ok')))] : []),
+        ...(near.length ? [h('div.studiomeanwhile', h('div.lab', 'MEANWHILE, REAL MODELS NEAR IT'), h('div.row.wrap', ...near.map((n) => button(n.item.name, () => void openItem(n.item)))))] : []),
       );
+      paintQueue();
     };
+
+    // ---- the waiting list: jobs the makers were too busy for, tried again by themselves while Ghosty is open
+    let jobs: MakeJob[] = readJobs((() => {
+      try {
+        return localStorage.getItem(QUEUE_KEY);
+      } catch {
+        return null;
+      }
+    })());
+    const saveJobs = () => {
+      try {
+        localStorage.setItem(QUEUE_KEY, JSON.stringify(jobs));
+      } catch {
+        /* storage full: the list is kept for this visit */
+      }
+    };
+    const queueBox = h('div.studioqueue', { 'aria-live': 'polite' });
+    let queueBusy = false;
+    function paintQueue(): void {
+      const now = Date.now();
+      if (!jobs.length) return void clear(queueBox);
+      clear(
+        queueBox,
+        h('div.lab', `WAITING TO BE MADE · ${jobs.length}`),
+        ...jobs.map((j) => h('div.studiojob', { dataset: { job: j.id } },
+          h('div.studiojobtext', h('b', j.prompt), h('span.note', jobWords(j, now))),
+          h('div.row.wrap', button('TRY NOW', () => void runJob(j, true), 'on'), button('REMOVE', () => {
+            jobs = dropJob(jobs, j.id);
+            saveJobs();
+            paintQueue();
+          })),
+        )),
+      );
+    }
+    /** One waiting job tried: made → opened, said, and off the list; busy again → its next time; failed for real → it waits for him. */
+    async function runJob(j: MakeJob, byHand: boolean): Promise<void> {
+      if (queueBusy || makingAny) return;
+      queueBusy = true;
+      try {
+        const got = await generate(j.prompt);
+        if (got.model) {
+          jobs = dropJob(jobs, j.id);
+          saveJobs();
+          await showMade(got.model);
+          makeNote.textContent = readyWords(j.prompt);
+          delete makeNote.dataset.state;
+          toast(readyWords(j.prompt), 'ok');
+        } else {
+          const w = waitWhy(got.fail?.code, got.fail?.status, got.fail?.error);
+          jobs = w ? triedAgain(jobs, j.id, w, Date.now()) : jobs.map((x) => (x.id === j.id ? { ...x, next: 0, tries: x.tries + 1 } : x));
+          saveJobs();
+          if (byHand) toast(w ? queuedWords(j.prompt, w) : `Not made: ${(got.fail?.error ?? 'it could not be made').replace(/\.$/, '')}.`, 'warn');
+        }
+      } catch (e) {
+        if (byHand) toast(errText(e, 'make that'), 'bad');
+      } finally {
+        queueBusy = false;
+        paintQueue();
+      }
+    }
+    /** Every half minute while the studio is on screen and Ghosty is showing: the first job that is due, tried. */
+    const queueTick = () => {
+      if (!active || document.hidden || !jobs.length) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+      const due = dueJob(jobs, Date.now());
+      if (due) void runJob(due, false);
+      else paintQueue();
+    };
+    setInterval(queueTick, 30_000);
+    paintQueue();
 
     const photoIn = h('input', { type: 'file', accept: 'image/*', hidden: true, 'aria-label': 'Choose a photo to turn into 3-D' });
     const preview = h('img.studiothumb', { alt: 'Your photo' });
@@ -669,6 +769,7 @@ export const studioTab: TabDef = {
         makeNote,
         drawn,
         askBox,
+        queueBox,
         h('div.lab', 'PHOTO → TEXTURED 3D'),
         h('div.note', PHOTO_NOTE),
         h('details.studiomore', h('summary', 'How it works'), ...MAKE_MORE.map((t) => h('p.note', t))),

@@ -15,16 +15,20 @@
  * "this is Sam" is the Lens's while PEOPLE is open (features/lens/people.ts).
  */
 import { canYouAsked, todayAsked, whyAsked } from '../../../../packages/shared/src/abilities';
+import { openingAsked } from '../shell/bootwords';
 import { foresightAsked, rightSaid } from '../../../../packages/shared/src/foresight';
 import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/src/guardian';
 import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
+import { learnedAsked, learnedFor, storedLearned } from '../../../../packages/shared/src/learned';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
+import { diyAsked } from '../features/workbench/diyjobs';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
 import { moneyAsked } from '../features/money/words';
 import { bodyAsked } from '../../../../packages/shared/src/body';
 import { trackAsked } from '../features/body/trackcore';
 import { larderAsked } from '../features/kitchen/larderwords';
+import { bodyCoachAsked } from '../features/body/coachwords';
 import { ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { symptomOf, viewAsked } from '../car/faults';
 import { originAsked } from '../../../../packages/shared/src/social';
@@ -40,16 +44,18 @@ import { tvAsked } from '../tv/detect';
 import { lookAsked } from '../../../../packages/shared/src/themes';
 import { looksAsked } from '../../../../packages/shared/src/looks';
 import { INDEPENDENT_ASK } from '../offline/trust';
+import { READY_ASK } from '../offline/readywords';
+import { saverAsked } from '../state/saver';
 import { buildAsked } from '../build/words';
 import { thatOne } from './thatwords';
 import { whatCanAsked } from './words';
 import { numberIn, roomNumberIn } from '../shell/rooms';
 import { houseAsked } from '../../../../packages/shared/src/house';
 import { convertAsked } from '../convert/asks';
-import { docsAsked } from '../docs/asks';
+import { commentsAsked, docsAsked, fillAsked, mergeAsked, outlineAsked, paperAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
-import { workspaceAsked } from '../workspace/asks';
+import { cardsAsked, formAsked, mindAsked, voiceNoteAsked, workspaceAsked } from '../workspace/asks';
 import { photoAsked } from '../photo/asks';
 import { videoAsked } from '../video/asks';
 import { gameAsked } from '../studio-game/asks';
@@ -61,6 +67,7 @@ import { marketsAsked } from '../features/markets/asks';
 import { briefAsked } from '../features/brief/asks';
 import { screenAsked } from './screenasks';
 import { comicAsked } from '../features/comic/asks';
+import { securityAsked } from '../features/security/asks';
 import { base64Asked, unitsAsked, unixAsked } from '../convert/units';
 import { outsideAsked } from '../../../../packages/shared/src/outside';
 import { homeAsked } from '../../../../packages/shared/src/homeadmin';
@@ -69,6 +76,19 @@ import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
+import { TRIP_ASK } from '../ui/tripwords';
+import { RAIN_ASK, setAsked, WALL_ASK } from '../features/eye/sets';
+import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
+
+/** [keep] Does his message ask about his word (the same test as features/memory/keep.ts keepAsked, kept pure here)? */
+export const keepAsked = (t: string): boolean =>
+  !!whereAsked(t) || !!whereIn(t) || !!whyChoseAsked(t) || promisesAsked(t) || !!dayAsked(t) ||
+  /^(?:(?:hey )?ghosty[, ]+)?(?:(?:show me |give me |read me )?my week in review|(?:how was|how's|review) my week|week in review|what did I do this week|sum up my week|my weekly review|what did I never get an answer to|what (?:questions )?(?:did|have) you (?:never|not) answer(?:ed)?|(?:my |any )?(?:open|unanswered) questions|what's still unanswered|what did you not know)[?.!]*$/i.test(t.trim());
+/** [recall] "what did I ask last March about the car?", "what did I ask in October?": recall within the days he named. */
+export const datedRecall = (t: string): boolean => {
+  const s = dateSpan(t, Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+  return !!s && (recallAsked(s.rest) !== null || /^(?:what|which things) did I (?:ask|say|tell)(?: you)?(?: about)?$/i.test(s.rest.replace(/[?.!]+$/, '').trim()));
+};
 
 /** [recall] FIND over his own things: "find garden in my things", "search my notes for garden"; the words looked for, else null. */
 export function findAsked(text: string): string | null {
@@ -83,14 +103,27 @@ export function findAsked(text: string): string | null {
  */
 export const SPEAKER_ASK = /^(?:(?:hey |ok |so )?(?:ghosty,? )?)(?:do you (?:know|recognise|recognize) (?:it's|its|it is|that it's|that its) me|(?:do|can|could) you (?:know|recognise|recognize|tell|hear) (?:my voice|it's me|its me|it is me|who i am|who's (?:talking|speaking)|who is (?:talking|speaking)|me by my voice|me from my voice|that it's me)|do you know (?:my voice|who's talking|who is talking|who's speaking|who is speaking|who i am|me)|who(?:'s| is) (?:talking|speaking)(?: (?:now|to you|right now))?|whose voice (?:is (?:this|that)|was that|is it)|(?:is|was) (?:that|this|it) me(?: (?:talking|speaking))?|did you recognise (?:me|my voice)|did you recognize (?:me|my voice)|how do you know it's me|are you sure it's me|who said that|who am i to you|recognise me|recognize me)[?.!]*$/i;
 
+/**
+ * [voice lane] SPOKEN NOTES KEPT AS HIS (voice.s9, with ci.s4): "note: buy milk", "note to self, call the garage", "jot this down: …".
+ * Said aloud and sure it was him: kept in his memory marked "by you"; typed: kept; another voice or not sure: not kept, and said why.
+ */
+export const NOTE_ASK = /^(?:(?:hey |ok )?(?:ghosty,? )?)(?:note to self|take a note|make a note|quick note|voice note|a note|jot (?:this |that )?down|write (?:this |that )?down|note)[:,.]?\s+(?:that\s+)?(.{2,300})$/i;
+
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
 
 export const LOCAL_ASKS = [
   { id: 'carview', test: (t: string) => viewAsked(t) !== null },
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
+  // [boot] "short opening", "the full film every time", "opening once a day", "how did the opening run?", "Sam's turn": the opening's own
+  // words, answered on the phone (shell/bootwords.ts openingAsked)
+  { id: 'opening', test: (t: string) => openingAsked(t) !== null },
   // [voice lane] "do you know it's me?": from the phone's own tag (before "can you…?" could call it an ability he lacks)
   { id: 'speaker', test: (t: string) => SPEAKER_ASK.test(t.trim().replace(/[’]/g, "'")) },
+  // [voice lane] HIS OWN WORDINGS (voice.u1, assistant/learnwords.ts): a wording he taught opens its screen before any table reads it;
+  // "my wordings" lists them; "forget the wording …" forgets one
+  { id: 'voicenote', test: (t: string) => NOTE_ASK.test(t.trim()) },
+  { id: 'learned', test: (t: string) => !!learnedAsked(t) || !!learnedFor(storedLearned(), t) },
   // [awareness] "make that wall longer", "add a wardrobe there", "find me a replacement", "open that one": the words that point at what is
   // selected on the screen, acted on here with no model (assistant/thatone.ts); when nothing fitting is selected the next table, then the brain
   { id: 'thatone', test: (t: string) => thatOne(t) !== null },
@@ -99,7 +132,10 @@ export const LOCAL_ASKS = [
   // [lifeeasier] "what did I miss?", "teach me what you learned this week", "tell me when this price drops": his own records and the pages he names (assistant/life.ts)
   // [recall] "what did I ask you about trains?", "find garden in my things", "remind me to chase this if Sam doesn't reply by Thursday":
   // his own turns and things, answered from the phone's own index with no model (features/memory/recall.ts); a chase set on the brain
-  { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null },
+  // [keep] his word (features/memory/keep.ts): "where's the spare key?", "the spare key is in the blue tin", "why did I pick the canal
+  // flat?", "what did I say I'd do?", "my week", "what did I never get an answer to?", "what was I doing on the 3rd?"
+  { id: 'keep', test: (t: string) => keepAsked(t) },
+  { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null || datedRecall(t) },
   { id: 'chase', test: (t: string) => chaseAsked(t) !== null || chasingAsked(t) },
   { id: 'missed', test: (t: string) => missedAsked(t) },
   { id: 'teach', test: (t: string) => teachAsked(t) },
@@ -114,6 +150,8 @@ export const LOCAL_ASKS = [
   { id: 'moneyapp', test: (t: string) => moneyAsked(t) !== null },
   // [bodylane] the body trackers on the phone, no model (features/body/track.ts): water, sleep, steps, weight, mood, kept and asked
   // (a drink logged is the water table's, below, which keeps it on the phone the same way: the voice lane's meanings expect it there)
+  // [bodynext] kitchen and body as one coach (features/body/coach.ts): the week's dinners and shopping, tablets, the sleep score, patterns
+  { id: 'bodycoach', test: (t: string) => bodyCoachAsked(t) !== null },
   { id: 'track', test: (t: string) => { const a = trackAsked(t); return a !== null && !(a.kind === 'log' && a.m === 'water'); } },
   // [packs] the body pack's screens and a glass of water, on the phone (features/body)
   { id: 'reps', test: (t: string) => bodyAsked(t)?.what === 'reps' },
@@ -150,6 +188,10 @@ export const LOCAL_ASKS = [
   { id: 'tvmode', test: (t: string) => tvAsked(t) !== null },
   // [offline2] "how independent are you?": the INDEPENDENCE sheet (features/system/independence.ts), and the week said
   { id: 'independent', test: (t: string) => INDEPENDENT_ASK.test(t.trim()) },
+  // [next] "how ready are you offline?": SYSTEM → OFFLINE READY opened, and the number and the next download said (system/offlineready.ts)
+  { id: 'offlineready', test: (t: string) => READY_ASK.test(t.trim()) },
+  // [next] "turn on the saver", "pause big downloads": SETTINGS → SAVER switched (state/saver.ts)
+  { id: 'saver', test: (t: string) => saverAsked(t) !== null },
   // [restd] DESIGN A BUILD with no model: "design me a shed three by two", "show me the build", "price the roof", "make it 4 by 3"
   { id: 'build', test: (t: string) => !!buildAsked(t) },
   // [restd] his house through his own Home Assistant, with no model: "turn off the hall light", "set the heating to 21"
@@ -159,8 +201,16 @@ export const LOCAL_ASKS = [
   { id: 'homeadmin', test: (t: string) => homeAsked(t) !== null },
   // (and while a typing test is up in the chat's own box, what he sends next: features/learning/typing.ts)
   { id: 'learning', test: (t: string) => typingPending() || learningAsked(t) !== null },
+  // [see] TRIP MODE: the next appointment to the whole journey (ui/tripsheet.ts)
+  { id: 'trip', test: (t: string) => TRIP_ASK.test(t.trim()) },
+  // [see] a one-tap layer set on God's Eye: "commute view", "storm layers", "sky mode" (features/eye/sets.ts)
+  { id: 'layerset', test: (t: string) => setAsked(t) !== null },
+  // [see] his wall of up to nine public cameras: "my camera wall", "show my cameras" (features/eye/wall.ts)
+  // [see] the full-screen rain radar: "rain radar", "show me the rain map", "replay the rain" (features/eye/rain.ts)
+  { id: 'rainradar', test: (t: string) => RAIN_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
+  { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
-  { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
+  { id: 'workbench', test: (t: string) => !!workbenchAsked(t) || !!diyAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },
   { id: 'right', test: (t: string) => !!rightSaid(t) },
   { id: 'today', test: (t: string) => todayAsked(t) },
@@ -172,6 +222,24 @@ export const LOCAL_ASKS = [
   { id: 'coach', test: (t: string) => coachAsked(t)?.what === 'lessons' },
   // [reste] the converter on the phone, and its units and numbers answered here with no model (assistant/reste.ts, convert/)
   { id: 'convert', test: (t: string) => !!convertAsked(t) },
+  // [editors] a voice note into a tidy page (workspace/voicenote.ts): "take a voice note", "turn my voice note into a page"
+  { id: 'wsvoice', test: (t: string) => voiceNoteAsked(t) },
+  // [editors.s3] paper into an editable document, a receipt into a spreadsheet row (docs/asks.ts paperAsked; docs/paperui.ts)
+  { id: 'docspaper', test: (t: string) => !!paperAsked(t) },
+  // [editors.s12] fill in and sign a PDF form (docs/pdfformui.ts)
+  { id: 'docsfill', test: (t: string) => fillAsked(t) },
+  // [editors.s2] mail merge: one letter, a copy for every row of a spreadsheet (docs/mergeui.ts)
+  { id: 'docsmerge', test: (t: string) => mergeAsked(t) },
+  // [editors] flashcards from his own notes (workspace/cards.ts): "make flashcards from my notes"
+  { id: 'wscards', test: (t: string) => cardsAsked(t) },
+  // [editors.u1] comments on words in a document (docs/commentsui.ts)
+  { id: 'docscomments', test: (t: string) => commentsAsked(t) },
+  // [editors.u13] a document's outline: jump to a heading, move a whole section (docs/sections.ts)
+  { id: 'docsoutline', test: (t: string) => outlineAsked(t) },
+  // [editors] forms that fill a database (workspace/form.ts): "make a form", "a sign-up sheet"
+  { id: 'wsform', test: (t: string) => formAsked(t) },
+  // [editors] mind maps in the workspace (workspace/mind.ts): "make a mind map"
+  { id: 'wsmind', test: (t: string) => mindAsked(t) },
   { id: 'docs', test: (t: string) => !!docsAsked(t) },
   { id: 'sheets', test: (t: string) => !!sheetsAsked(t) },
   { id: 'slides', test: (t: string) => !!slidesAsked(t) },
@@ -191,6 +259,8 @@ export const LOCAL_ASKS = [
   { id: 'openscreen', test: (t: string) => !!screenAsked(t) },
   // [comic] THE COMIC (features/comic/asks.ts): "make me a comic about…", "read a comic", "import this comic", "public domain comics"
   { id: 'comic', test: (t: string) => !!comicAsked(t) },
+  // [security] SECURITY (features/security/asks.ts): "lock everything", "has my password leaked?", "show my approvals", "how safe am I?"
+  { id: 'security', test: (t: string) => !!securityAsked(t) },
   { id: 'units', test: (t: string) => !!unitsAsked(t) },
   { id: 'base64', test: (t: string) => !!base64Asked(t) },
   { id: 'unixtime', test: (t: string) => !!unixAsked(t) },

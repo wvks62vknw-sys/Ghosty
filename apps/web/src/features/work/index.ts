@@ -7,14 +7,13 @@
 import type { TabDef } from '../../shell/tabs';
 import { cardBig, cardLoad, cardNow } from '../../shell/cardline';
 import { sheetPage } from '../../ui/sheetpage';
-import { emptyState } from '../lifeui';
 
 export const workTab: TabDef = {
   id: 'work',
   title: 'WORK',
   icon: '<rect x="3" y="7.5" width="18" height="12" rx="2.5"/><path d="M8.5 7.5V5.5A1.5 1.5 0 0110 4h4a1.5 1.5 0 011.5 1.5v2M3 12.5h18"/>',
   scene: 'backdrop',
-  blurb: 'to-do list · interview practice · documents to copy or share',
+  blurb: 'to-do list · job applications · interview practice · your documents library',
   now: () => cardNow('work'),
   mount: (root) =>
     sheetPage(root, {
@@ -24,9 +23,13 @@ export const workTab: TabDef = {
       big: () => cardBig('work'),
       load: () => cardLoad('work'),
       sections: async () => {
-        const m = await import('./sheet');
+        const [m, j, mt] = await Promise.all([import('./sheet'), import('./jobs'), import('./meetings')]);
         return [
           { id: 'todo', label: 'To-do', parts: [{ title: m.WORK_TITLES.todo, pack: 'work', screen: 'todo', build: () => m.workScreen('todo') }] },
+          // [moneynext] money.s8: each job applied for, its stage and a day to follow up
+          { id: 'jobs', label: 'Jobs', parts: [{ title: j.JOBS_TITLE, pack: 'work', screen: 'jobs', build: () => j.jobsScreen() }] },
+          // [moneynext] money.s9: an agenda before, notes during, a summary after
+          { id: 'meetings', label: 'Meetings', parts: [{ title: mt.MEETINGS_TITLE, pack: 'work', screen: 'meetings', build: () => mt.meetingsScreen() }] },
           { id: 'interview', label: 'Interview', parts: [{ title: m.WORK_TITLES.interview, pack: 'work', screen: 'interview', build: () => m.workScreen('interview') }] },
           {
             id: 'doc',
@@ -35,8 +38,8 @@ export const workTab: TabDef = {
               title: m.WORK_TITLES.doc,
               pack: 'work',
               screen: 'doc',
-              // the last one I wrote on this visit, as its sheet showed it; none yet: where one comes from
-              build: () => (m.workState.doc.text ? m.workScreen('doc', { title: m.workState.doc.title, text: m.workState.doc.text }) : { /* state: work.doc empty */ el: emptyState('No document yet', 'Ask me in the chat for a CV, a cover letter or an email.') }),
+              // [moneynext] every document I wrote for him, kept on this phone with its versions (features/work/library.ts)
+              build: () => m.libraryScreen(),
             }],
           },
         ];

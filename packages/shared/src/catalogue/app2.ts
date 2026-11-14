@@ -31,15 +31,28 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:agenda:TO-DO': {
     name: 'Your to-do list', line: 'You can keep a to-do list in the Agenda: give each a day, tick it off, and late ones come first.',
-    more: 'Kept on this phone. Star the ones that matter, give one a repeat (every day, weekdays, week or month), tap its words to change it, and see All, Today, Upcoming or Starred. The Brief tells you what is due today, and every removal has UNDO.',
+    more: 'One list with WORK’s to-do and the chat, kept in my brain with a copy on this phone for no signal (changes made offline go when the signal is back). Star the ones that matter, give one a repeat (every day, weekdays, week or month), tap its words to change it, and see All, Today, Upcoming or Starred. The Brief tells you what is due today, and every removal has UNDO.',
     say: ['Open my to-do list', 'What’s on my to-do list?'], scene: ['morning', 'phone'], cat: 'watch',
     since: '2026-11-13',
   },
+  'panel:agenda:TO-DO · FROM MY WORKSPACE': {
+    name: 'Workspace deadlines on your agenda', line: 'You can see the due dates from your Workspace lists under your to-do list, late ones first, and the Brief says them too.',
+    more: 'Any database in your Workspace with a date called Due, Deadline or End shows here, read from this phone. Done rows are left out. Tap one to open its page in the Workspace and change it there.',
+    say: ['What is due in my projects?', 'Show my workspace deadlines'], scene: ['morning', 'making'], cat: 'watch',
+    since: '2026-11-14',
+  },
   'panel:agenda:MONTH': {
     name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
-    more: 'This month and the next, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
+    more: 'Any month, back or on with ‹ and ›, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
     say: ['Show me my month', 'What’s on this month?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-13',
+  },
+  // [planlane2:timeline] the day by the hour and PLAN MY WEEK (features/agenda/timeline.ts)
+  'panel:agenda:TIMELINE': {
+    name: 'Your day by the hour', line: 'You can see today and tomorrow by the hour, with your free gaps said in words, and plan your week.',
+    more: 'Two things at once sit side by side, all-day ones and your to-dos due sit at the top, and a line marks now. PLAN MY WEEK lays out the next seven days with each day’s free time, worked out on your phone. Tap an event to change it in place.',
+    say: ['Plan my week', 'When am I free tomorrow?'], scene: ['morning'], cat: 'watch',
+    since: '2026-11-14',
   },
   // ---- THE BRIEF
   'panel:brief:FORESIGHT': { same: 'job:foresee' },
@@ -88,6 +101,13 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Show me the traffic cameras near home'], scene: ['out', 'morning'], cat: 'see',
   },
   'panel:eye:ROAD AHEAD': { same: 'tool:road_ahead' },
+  // (THE WORLD lives in the morning Brief, drawn from God's Eye's own feeds: features/eye/briefworld.ts)
+  'panel:eye:THE WORLD': {
+    name: 'The world in your Brief', line: 'You can see the world outside in your morning Brief: the threat level, your commute’s roads and your road’s camera.',
+    more: 'The threat level from the quake and storm feeds, road reports between your saved home and work, and a fresh picture from the public camera nearest home. Tap it to watch live.',
+    say: ['Brief me'], scene: ['morning', 'out'], cat: 'see', needs: ['home'],
+    since: '2026-11-14',
+  },
   // ---- THE GYM
   'panel:gym:GAMES': {
     name: 'All my games, with my levels', line: 'You can see every game I play with the level I have earned, and train them all with one tap.',
@@ -107,19 +127,29 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:learn:COURSES': {
     name: 'Your learning courses', line: 'You can see every course you started and how much of each you have mastered.',
-    more: 'Pick one up any time; your streak and your progress are kept.',
-    say: ['What courses am I doing?'], scene: ['school'], cat: 'learn',
+    more: 'Pick one up any time; your streak and your progress are kept. QUIZ NIGHT hosts a quiz for friends at the table, and QUIZ ME ALOUD asks hands-free, for the car.',
+    say: ['What courses am I doing?', '(tap QUIZ ME ALOUD to be quizzed while you drive)'], scene: ['school'], cat: 'learn',
   },
   'panel:learn:START A COURSE': {
     name: 'Start a new course', line: 'You can start a course on anything: type what you want to learn and how much you know already.',
     more: 'I plan the course from my library and Wikipedia, at your level, a little a day.',
     say: ['Teach me Spanish', 'Teach me how electricity works'], scene: ['school'], cat: 'learn',
   },
+  'panel:learn:MY LEARNING MAP': {
+    name: 'One map of what you know', line: 'You can see in one picture what you have learned: courses, books, speaking and revision, and what to try next.',
+    more: 'Drawn from what this phone already keeps, told from your own numbers. The next thing is the lesson your misses point at, or the book you are furthest into.',
+    say: ['(in COURSES, look under MY LEARNING MAP)'], scene: ['school'], cat: 'learn',
+  },
   // ---- THE LIBRARY
   'panel:library:ADD KNOWLEDGE': {
     name: 'Add books and PDFs', line: 'You can give me books, PDFs, Word files, links or photos of pages to read and keep.',
     more: 'Read on this phone with no AI; a scanned page is read by a free service. Then it is searchable for good.',
     say: ['(tap ADD and pick a file)'], scene: ['school'], cat: 'learn',
+  },
+  'panel:library:CLASSICS': {
+    name: 'Free classics for your shelf', line: 'You can browse thousands of free public-domain books and add one to your shelf with a tap.',
+    more: 'Project Gutenberg’s most read and a search by title or author, plus Standard Ebooks’ newest free releases. Each book’s size is said first, and it comes only on your tap, on Wi-Fi.',
+    say: ['(in the Library, under ADD, tap SHOW THE FREE CLASSICS)'], scene: ['school'], cat: 'learn',
   },
   'panel:library:ASK THE LIBRARY': {
     name: 'Search the library by meaning', line: 'You can search my whole library by meaning or by keywords, even with no signal.',
@@ -213,7 +243,7 @@ export const APP_2: Record<string, CatValue> = {
     more: 'Only what you told me. Type a fact and SAVE, or tap ✕ to remove it.',
     say: ['What do you remember about me?'], scene: ['talking'], cat: 'know',
   },
-  'panel:memory:ME': {
+  'panel:memory:ABOUT YOU': {
     name: 'Your profile, in your words', line: 'You can see who I think you are, in your own words, and add or remove any line.',
     more: 'Built only from what you told me, never from what I read. Your saved places live here too.',
     say: ['What do you know about me?'], scene: ['talking'], cat: 'know',
@@ -250,8 +280,9 @@ export const APP_2: Record<string, CatValue> = {
   'panel:radio:NOW PLAYING': {
     name: 'What’s playing now', line: 'You can see what is playing now, and pause or stop it.',
     // [planlane:radio] the sleep timer and what's on, said in the chat (no model)
-    more: 'It quietens by itself while I speak, then comes back up. A sleep timer stops it after a while, at a time, or at the end of the hour.',
-    say: ['Stop the radio', 'Turn the radio off in 20 minutes', 'What station is this?'], scene: ['playing'], cat: 'play',
+    // [planlane2:podcasts] the timer's stop time in the top bar, and kept on the phone so a reload offers it back
+    more: 'It quietens by itself while I speak, then comes back up. A sleep timer stops it after a while, at a time, or at the end of the hour; the top bar shows when, and after a reload one tap plays on with it.',
+    say: ['Stop the radio', 'Turn the radio off in 20 minutes', 'What station is this?', 'Carry on with the sleep timer'], scene: ['playing'], cat: 'play',
   },
   'panel:radio:RECENT': {
     name: 'Stations you played lately', line: 'You can play again any of the last eight stations you listened to, newest first.',
@@ -266,7 +297,13 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Play my favourites', 'Play my second favourite', 'Next station', 'Save this station'], scene: ['playing'], cat: 'play',
   },
   // [planlane:radio] the radio's words answered on the phone with no model (features/radio/asks.ts): the sleep timer, what's on
-  'phrase:planradio': { same: 'panel:radio:NOW PLAYING' },
+  // [planlane2:goodnight] and GOODNIGHT (features/core/goodnight.ts), which this table reaches: its own words, so Abilities shows it
+  'phrase:planradio': {
+    name: 'Goodnight, and the radio by words', line: 'You can say goodnight and I turn your lights off, set the radio to sleep, track your sleep and say tomorrow.',
+    more: 'Lights only: locks, the alarm, garage doors and gates are listed, each with a LOCK UP key that needs your tap and a confirm. The radio’s 30-minute timer only while it plays. Nothing is sent. The radio’s sleep timer and what’s on are answered here too.',
+    say: ['Goodnight', 'Night night', 'Time for bed', 'Turn the radio off in 20 minutes'], scene: ['talking', 'playing'], cat: 'talk',
+    since: '2026-11-14',
+  },
   // ---- REVERSE
   'panel:reverse:TAKE SOMETHING APART': {
     name: 'Take software apart', line: 'You can paste a website, an app package, a code project or a file link, and I take it apart.',

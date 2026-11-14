@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 const at = (p) => new URL(p, import.meta.url).pathname;
 const S = '../../web/src/features/comic/';
 await build({
-  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`) },
+  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`), script: at(`${S}script.ts`), rar: at(`${S}rar.ts`), week: at(`${S}week.ts`), formats: at(`${S}formats.ts`) },
   outdir: at('./.build/comic/'),
   bundle: true,
   format: 'esm',
@@ -23,6 +23,7 @@ const M = await O('model');
 const A = await O('asks');
 const F = await O('files');
 const L = await O('library');
+const SC = await O('script');
 
 test('the writer: an idea becomes a whole comic (cover words, four pages of 3, 4, 4 and 3 panels), a cast of three kept in every panel, a beginning, a turn, an end and a callback', () => {
   const c = M.writeComic({ idea: 'make me a comic about a cat who wants to be an astronaut', seed: 7 });
@@ -97,13 +98,17 @@ test('the chat: many wordings, one comic app', () => {
   for (const t of ['what is the weather', 'make me a poster', 'read me a book', 'that was comical']) assert.equal(k(t), null, `"${t}" is not the comic's`);
 });
 
-test('the files: a CBR (RAR) is said, not read; a zip named .cbr is read; a PDF and a picture are known by their bytes', () => {
+test('the files: a CBR (RAR) asks for the free RAR reader; a zip named .cbr is read; a PDF and a picture are known by their bytes', async () => {
   assert.equal(F.sniff(new Uint8Array([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07])), 'rar');
   assert.equal(F.sniff(new Uint8Array([0x50, 0x4b, 3, 4])), 'zip');
   assert.equal(F.sniff(new TextEncoder().encode('%PDF-1.4')), 'pdf');
   assert.equal(F.sniff(new Uint8Array([0xff, 0xd8, 0xff])), 'pic');
-  assert.match(F.CBR_WORDS, /no phone browser can open/);
-  assert.match(F.CBR_WORDS, /Save it as a CBZ/);
+  // a CBR asks for the free RAR reader, its size said, on his tap (rar.ts)
+  const R = await import(at('./.build/comic/rar.js'));
+  assert.equal(R.RAR_BYTES, 1073335);
+  const need = R.rarNeeded('rar');
+  assert.ok(R.isRarNeeded(need) && /free archive reader \(1\.1 MB, once/.test(need.message) && /GET THE RAR READER, on Wi-Fi/.test(need.message));
+  assert.ok(!R.isRarNeeded(new Error('x')));
 });
 
 test('the guided view: the panels of a drawn page are found in reading order (a wide one over two, then two over a wide one)', () => {
@@ -137,4 +142,84 @@ test('the library: the Internet Archive’s open search, public-domain items onl
   assert.match(decodeURIComponent(u), /title:\(western\)/);
   assert.doesNotMatch(u, /key|token|auth/i);
   assert.match(L.creditOf({ id: 'X1', title: 'X', year: '1950', creator: '' }), /^Public domain, from the Internet Archive \(archive\.org\/details\/X1\), first published 1950\.$/);
+});
+
+test('Ghosty writes, the app draws: the brain is asked in a plain format with the cast as drawn; its script is read into pages for that cast, the unknown mapped to what can be drawn, a thin one refused', () => {
+  const base = M.writeComic({ idea: 'a cat who wants to fly', hero: 'Biscuit', friend: 'Ana', rival: 'Dr Sneer', seed: 3 });
+  const ask = SC.scriptAsk('a cat who wants to fly', base.cast, 'A mystery');
+  assert.match(ask, /^COMIC SCRIPT: /);
+  assert.match(ask, /HERO = Biscuit \(a cat\); FRIEND = Ana \(a person\); RIVAL = Dr Sneer/);
+  assert.match(ask, /The kind of story: A mystery\./);
+  assert.doesNotMatch(ask, /\ba comic\b/i, 'never the words that turn the creative tool on');
+  const text = [
+    'TITLE: **Biscuit Takes Off**', 'TAGLINE: Up, up and slightly sideways.', 'PAGE 1',
+    'PANEL: garden, morning, establishing | the want', 'CAST: Biscuit excited waving; Ana bored walking', 'CAPTION: Monday.', 'Biscuit (shout): Today I fly!', 'Ana: You are a cat.',
+    'PANEL: moon, midnight, close-up | dream', 'Biscuit (thought): One day.', 'SFX: "ZOOM"',
+    'PAGE 2', 'PANEL: town, day, mid | rival', 'CAST: Dr Sneer proud gesturing', 'Dr Sneer: Cats cannot fly.', 'Nobody: ignored line',
+    'PANEL: lab, dusk, wide | idea', 'ANA: Kites!', 'BISCUIT (whisper): Kites.',
+    'PANEL: sky, day, mid | end', 'HERO: Wheee!', 'CAPTION: THE END.',
+  ].join('\n');
+  const r = SC.readScript(text, base.cast);
+  assert.ok(r);
+  assert.equal(r.title, 'Biscuit Takes Off');
+  assert.equal(r.pages.length, 2);
+  assert.deepEqual(r.pages.map((p) => p.panels.length), [2, 3]);
+  const p1 = r.pages[0].panels[0];
+  assert.deepEqual([p1.scene, p1.time, p1.shot], ['park', 'day', 'wide'], 'garden, morning, establishing → the nearest the drawing has');
+  assert.deepEqual(p1.actors.map((a) => [a.who, a.mood, a.pose]), [['hero', 'happy', 'cheer'], ['friend', 'calm', 'run']]);
+  assert.deepEqual(p1.balloons.map((b) => [b.who, b.kind]), [['hero', 'shout'], ['friend', 'speech']]);
+  assert.deepEqual([r.pages[0].panels[1].scene, r.pages[0].panels[1].time, r.pages[0].panels[1].shot, r.pages[0].panels[1].sfx], ['space', 'night', 'close', 'ZOOM']);
+  assert.equal(r.pages[1].panels[0].balloons.length, 1, 'a speaker not in the cast is left out');
+  assert.deepEqual(r.pages[1].panels[1].actors.map((a) => a.who).sort(), ['friend', 'hero'], 'every speaker is in the panel');
+  const c = SC.withScript(base, r);
+  assert.deepEqual(c.cast, base.cast, 'the same cast, the same looks');
+  assert.ok(M.comicFrom(JSON.parse(JSON.stringify(c))));
+  assert.equal(SC.readScript('TITLE: x\nPAGE\nPANEL: town, day, wide\nHERO: hi', base.cast), null, 'too thin to be a comic');
+  assert.equal(SC.readScript('Sorry, I cannot help with that.', base.cast), null);
+});
+
+test('your week as a comic: this week’s events and ticked to-dos, titles and days only, a panel a day and a last word', async () => {
+  const WK = await import(at('./.build/comic/week.js'));
+  const now = new Date(2026, 10, 13, 15, 0).getTime(); // a Friday afternoon
+  const mon = WK.weekStart(now);
+  assert.equal(new Date(mon).getDay(), 1);
+  const at9 = (d) => mon + d * 86_400_000 + 9 * 3_600_000;
+  const items = WK.weekItems([{ title: 'Dentist', start: at9(0) }, { title: 'Gym', start: at9(2) }, { title: 'Team meeting', start: at9(2) }, { title: 'Last week thing', start: at9(-3) }, { title: 'Pizza night', start: at9(5) }], [{ text: 'Call the bank', done: true, doneAt: at9(3) }, { text: 'Not done', done: false }], now);
+  assert.deepEqual(items.map((x) => [x.day, x.title]), [[0, 'Dentist'], [2, 'Gym'], [2, 'Team meeting'], [3, 'ticked off: Call the bank'], [5, 'Pizza night']]);
+  const idea = WK.weekIdea(items, 'Sam');
+  assert.match(idea, /^Sam's week, day by day: Monday: Dentist; Wednesday: Gym, Team meeting; Thursday: ticked off: Call the bank; Saturday: Pizza night\./);
+  const c = WK.weekComic(items, 'Sam', 7);
+  assert.equal(c.title, 'Sam’s Week');
+  assert.deepEqual(c.cast.map((m) => m.name), ['Sam', 'Future Me', 'Monday']);
+  const panels = c.pages.flatMap((p) => p.panels);
+  assert.equal(panels.length, 5, 'a panel for each of the four days, and the last word');
+  assert.match(panels[0].caption, /^Monday: Dentist$/);
+  assert.match(panels[0].balloons[0].text, /Brave face/);
+  assert.match(panels[1].balloons[0].text, /legs/);
+  assert.match(panels[4].caption, /THE END/);
+  assert.ok(M.comicFrom(JSON.parse(JSON.stringify(c))));
+  assert.equal(A.comicAsked('make my week into a comic')?.what, 'week');
+  assert.equal(A.comicAsked('a comic of my week')?.what, 'week');
+});
+
+test('the other shapes: a one-panel joke, a greeting card of three panels, a picture book of six pages; "make it a comic" asked', async () => {
+  const FM = await import(at('./.build/comic/formats.js'));
+  const j = FM.writeFormat('joke', 'a dog who wants to drive', 4);
+  assert.deepEqual([j.pages.length, j.pages[0].panels.length, j.pages[0].panels[0].balloons.length], [1, 1, 1]);
+  assert.ok(j.pages[0].panels[0].caption.length > 10);
+  const c = FM.writeFormat('card', 'a birthday card for Dad', 4);
+  assert.deepEqual([c.pages.length, c.pages[0].panels.length], [1, 3]);
+  assert.equal(c.title, 'Happy Birthday, Dad');
+  assert.match(FM.writeFormat('card', 'a thank you card for Priya', 4).title, /^Thank You, Priya$/);
+  const b = FM.writeFormat('book', 'a little bear who wants to fly', 4);
+  assert.equal(b.pages.length, 6);
+  assert.ok(b.pages.every((p) => p.panels.length === 1 && p.panels[0].caption && !p.panels[0].balloons.length));
+  for (const x of [j, c, b]) assert.ok(M.comicFrom(JSON.parse(JSON.stringify(x))));
+  // a script that came back as a whole comic is kept to the shape
+  const base = M.writeComic({ idea: 'x', seed: 2 });
+  const text = ['TITLE: T', 'PAGE', 'PANEL: town, day, wide | a', 'HERO: one', 'PANEL: town, day, mid | b', 'FRIEND: two', 'PAGE', 'PANEL: park, day, mid | c', 'HERO: three', 'PANEL: park, day, mid | d', 'FRIEND: four', 'PANEL: park, day, mid | e', 'HERO: five'].join('\n');
+  assert.equal(SC.readScript(text, base.cast, FM.FORMAT_ASK.joke, 'joke').pages[0].panels.length, 1);
+  assert.equal(SC.readScript(text, base.cast, FM.FORMAT_ASK.card, 'card').pages[0].panels.length, 3);
+  assert.ok(SC.readScript(text, base.cast, FM.FORMAT_ASK.book, 'book').pages.every((p) => p.panels.length === 1));
+  for (const t of ['make it a comic', 'turn this into a comic', 'make a comic of that', 'comic this']) assert.equal(A.comicAsked(t)?.what, 'this', `"${t}"`);
 });

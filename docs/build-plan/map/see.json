@@ -1,0 +1,379 @@
+{
+ "lane": "SEE (God's Eye, the Machine view, threats, the map, cameras, the car, measure)",
+ "features": [
+  {
+   "name": "God's Eye globe",
+   "where": "SEE → GOD'S EYE",
+   "say": [
+    "open God's Eye",
+    "fly to Tokyo",
+    "show me the world"
+   ],
+   "does": "A live 3D globe you can spin, pinch and tilt, with a search for places, flights, ships and satellites.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "What to show (the layers)",
+   "where": "SEE → GOD'S EYE → the layers button",
+   "say": [
+    "turn on the radar",
+    "show the aircraft",
+    "turn off ships"
+   ],
+   "does": "Turns 29 live layers on or off in four groups (streets and safety; air, sea and space; weather and hazards; the map), and remembers your choices.",
+   "status": "works",
+   "note": "Ships need a free key outside the Baltic; live traffic on the globe needs the free TomTom key."
+  },
+  {
+   "name": "Quick chips",
+   "where": "SEE → GOD'S EYE → the chips under the search",
+   "say": [
+    "show incidents",
+    "radar on"
+   ],
+   "does": "One-tap Aircraft, Incidents and Radar, each with a live count.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Live public CCTV",
+   "where": "SEE → GOD'S EYE → turn on CCTV cameras, zoom in",
+   "say": [
+    "show me the cameras on the Strand",
+    "cameras near Birmingham"
+   ],
+   "does": "The nearest public traffic cameras in a grid; tap one for a live picture with PREV, NEXT, TRY ANOTHER and Street View. It never covers the layer chips or the keys.",
+   "status": "works",
+   "note": "Only places that publish open camera feeds (London, National Highways, New York, Finland, Ontario, BC, NSW, Calgary, Durham)."
+  },
+  {
+   "name": "Tap anything card",
+   "where": "SEE → GOD'S EYE → tap a plane, ship, quake or the ground",
+   "say": [
+    "tell me about this",
+    "what is that plane?"
+   ],
+   "does": "A card for whatever you tapped, with its facts, its source, FOLLOW, ZOOM and ASK GHOSTY.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "This spot",
+   "where": "SEE → GOD'S EYE → THIS SPOT bar, or tap the ground",
+   "say": [
+    "street view here",
+    "what's the address here?"
+   ],
+   "does": "MAP, 3D, STREET VIEW, TRAFFIC and GO for the place under the crosshair; a tapped spot also gets its address and SHARE.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Look menu",
+   "where": "SEE → GOD'S EYE → LOOK",
+   "say": [
+    "night vision",
+    "thermal view",
+    "satellite tiles"
+   ],
+   "does": "Changes how the globe is drawn (map tiles, night vision, thermal, film noir and more), plus SUN and SPIN.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Road ahead",
+   "where": "SEE → GOD'S EYE → ROAD AHEAD",
+   "say": [
+    "road ahead",
+    "what's ahead of me?"
+   ],
+   "does": "Follows the phone and shows your speed, road reports ahead, safety cameras and motorway cameras to tap. Where you are stays on the phone.",
+   "status": "works",
+   "note": "Motorway reports only in the West Midlands."
+  },
+  {
+   "name": "The Machine view",
+   "where": "SEE → GOD'S EYE → MACHINE VIEW",
+   "say": [
+    "machine view",
+    "show me my city",
+    "what are you watching?"
+   ],
+   "does": "Your city with everything moving, your places lit, and a true count line.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Street crime, ANPR and speed cameras",
+   "where": "SEE → GOD'S EYE → layers → STREETS & SAFETY",
+   "say": [
+    "show street crime",
+    "where are the speed cameras?"
+   ],
+   "does": "Police.uk open crime data (nobody identified) and mapped ANPR, speed and red-light sites, with West Midlands Police figures.",
+   "status": "works",
+   "note": "Crime is UK only."
+  },
+  {
+   "name": "Map sheet",
+   "where": "SEE → GOD'S EYE → THIS SPOT → MAP",
+   "say": [
+    "open the map",
+    "show the topo map"
+   ],
+   "does": "A full flat map with styles (streets, satellite, topo, cycle, rail, sea marks, rain, dark), measuring, GPS and ROUTE HERE.",
+   "status": "works",
+   "note": "Says when it cannot load, and tries again next time."
+  },
+  {
+   "name": "Journey planner",
+   "where": "SEE → GOD'S EYE → GO",
+   "say": [
+    "get me to Manchester by train",
+    "plan a journey home"
+   ],
+   "does": "Public transport and walking journeys from public timetables, drawn on the map.",
+   "status": "partial",
+   "note": "With no signal the line is not drawn on the offline map."
+  },
+  {
+   "name": "Offline maps",
+   "where": "Map sheet with no signal",
+   "say": [
+    "download the map for offline"
+   ],
+   "does": "Draws the phone's own map pack when there is no signal.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "THREATS",
+   "where": "PLAN → THREATS",
+   "say": [
+    "any threats near me?",
+    "earthquakes today",
+    "what's happening in the world?"
+   ],
+   "does": "A threat level from live quakes, storms, fires and alerts, each saying when and from which feed; NEAR YOU, space weather and launches.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "Near home watch",
+   "where": "PLAN → THREATS → NEAR HOME",
+   "say": [
+    "anything near my places?"
+   ],
+   "does": "Watches near your saved places and says the one next thing.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "RECON (infrastructure look-up)",
+   "where": "PLAN → THREATS → RECON",
+   "say": [
+    "recon example.com"
+   ],
+   "does": "Public records for a domain or website (certificates, registration, open services), never a person; SAVE TO LIBRARY.",
+   "status": "works",
+   "note": ""
+  },
+  {
+   "name": "The car",
+   "where": "MAKE → STUDIO → CAR · FIX IT",
+   "say": [
+    "show my car",
+    "find the oil filter on my car"
+   ],
+   "does": "Your car in 3D from its public facts, with lift the cover, section view, fault lights, FIND IT ON THE CAR with the camera, and steps.",
+   "status": "works",
+   "note": "Every number is a first estimate."
+  },
+  {
+   "name": "Measure",
+   "where": "SEE → LENS → MEASURE",
+   "say": [
+    "measure this",
+    "how wide is that door?"
+   ],
+   "does": "Sizes from a photo using a bank card, an A4 sheet, a door, a distance, or AUTO depth.",
+   "status": "works",
+   "note": "AUTO needs a one-time 50 MB download, on your tap on Wi-Fi. Every size is a first estimate."
+  }
+ ],
+ "upward": [
+  {
+   "idea": "Time slider on God's Eye",
+   "why": "Scrub back through the last hours of quakes, storms, radar and flights: a replay of the world.",
+   "builds_on": "the radar frames, quake and event feeds already kept",
+   "effort": "M"
+  },
+  {
+   "idea": "Camera wall",
+   "why": "Pin up to nine favourite public cameras into one live wall that remembers itself, like a control room.",
+   "builds_on": "the CCTV grid and the camera card",
+   "effort": "S"
+  },
+  {
+   "idea": "Smart layer presets",
+   "why": "One tap for COMMUTE (traffic, incidents, cameras), STORM (radar, alerts) or SKY (planes, satellites, ISS) instead of many switches.",
+   "builds_on": "the layers sheet and its saved choices",
+   "effort": "S"
+  },
+  {
+   "idea": "Satellite pass alerts",
+   "why": "A gentle nudge ten minutes before the ISS or a bright satellite passes over home.",
+   "builds_on": "the pass times already on the card and in THREATS",
+   "effort": "S"
+  },
+  {
+   "idea": "Threats timeline and history",
+   "why": "What changed today against yesterday, with a weekly summary in the Brief.",
+   "builds_on": "THREATS signals and the Brief",
+   "effort": "M"
+  },
+  {
+   "idea": "Search that lists results",
+   "why": "Typing 'BA' shows every matching flight, ship and place to pick from, not just the first hit.",
+   "builds_on": "God's Eye search",
+   "effort": "S"
+  },
+  {
+   "idea": "Measure in 3D while moving",
+   "why": "Walk around a thing and get width, height and depth together, with the uncertainty said.",
+   "builds_on": "MEASURE's AUTO depth and the 3D measure code",
+   "effort": "L"
+  },
+  {
+   "idea": "Car service log and reminders",
+   "why": "MOT, service and tyre dates kept on the phone, with what is due next shown on the car.",
+   "builds_on": "the car pane and his plate's public facts",
+   "effort": "M"
+  },
+  {
+   "idea": "Journey on the offline map",
+   "why": "Finishes the one gap: the route drawn even with no signal.",
+   "builds_on": "the journey planner and the offline map pack",
+   "effort": "M"
+  },
+  {
+   "idea": "VoiceOver for God's Eye",
+   "why": "It reads what is under the crosshair and the nearest thing as the view moves.",
+   "builds_on": "the readout line and the tap cards",
+   "effort": "M"
+  },
+  {
+   "idea": "Faster first globe",
+   "why": "The globe drawn in half the time, with a still picture until it is ready.",
+   "builds_on": "the globe's first-draw line",
+   "effort": "M"
+  },
+  {
+   "idea": "Camera timelapse",
+   "why": "Keep the last minute of a public camera's stills as a short timelapse on the phone, for his own viewing.",
+   "builds_on": "the camera card's refreshing stills",
+   "effort": "S"
+  }
+ ],
+ "sideways": [
+  {
+   "idea": "Flight tracker",
+   "why": "Follow a flight by number from take-off to landing, with its route line and arrival time.",
+   "builds_on": "the aircraft layer, FOLLOW and search",
+   "effort": "M"
+  },
+  {
+   "idea": "Night sky view",
+   "why": "Point the phone up to see the planets, the ISS and the constellations overhead.",
+   "builds_on": "the satellite layer and the Lens camera",
+   "effort": "M"
+  },
+  {
+   "idea": "Rain radar app",
+   "why": "A full-screen radar with the next two hours played forward, for home and his places.",
+   "builds_on": "the RAIN RADAR layer and the map sheet",
+   "effort": "S"
+  },
+  {
+   "idea": "Walking and cycling routes",
+   "why": "Quiet or scenic routes with the climb shown, from open map data.",
+   "builds_on": "the map sheet's routing and its topo and cycle styles",
+   "effort": "M"
+  },
+  {
+   "idea": "Air quality and pollen layer",
+   "why": "A free public air quality map on the globe and in THREATS.",
+   "builds_on": "the layers and THREATS signals",
+   "effort": "S"
+  },
+  {
+   "idea": "Floods and river levels",
+   "why": "Environment Agency flood warnings and river gauges near his places.",
+   "builds_on": "the alerts layer and NEAR HOME",
+   "effort": "S"
+  },
+  {
+   "idea": "Fuel and EV charge points",
+   "why": "Open charger and fuel station maps near a route or his car.",
+   "builds_on": "the map sheet and the car",
+   "effort": "S"
+  },
+  {
+   "idea": "Live train times",
+   "why": "Live departures for his station and the trains on the map.",
+   "builds_on": "the BUSES & TRAMS layer and the journey planner",
+   "effort": "M"
+  },
+  {
+   "idea": "Hike planner",
+   "why": "A day out on the topo map with distance, climb and sunset time.",
+   "builds_on": "the topo map, measuring and the sun maths",
+   "effort": "M"
+  },
+  {
+   "idea": "Room plan from measure",
+   "why": "Measure a room by photo and get a floor plan to use in Space.",
+   "builds_on": "MEASURE and the room plan code",
+   "effort": "M"
+  },
+  {
+   "idea": "Parking finder",
+   "why": "Open car park data near a spot.",
+   "builds_on": "the map sheet and THIS SPOT",
+   "effort": "S"
+  }
+ ],
+ "cross": [
+  {
+   "idea": "Trip mode: the agenda's next event becomes a journey with weather, road reports and cameras along the way",
+   "with": "PLAN AND HOME (agenda)",
+   "why": "One tap from an appointment to everything about getting there."
+  },
+  {
+   "idea": "The world in the morning Brief: threat level, his commute's incidents and a still of his road's camera",
+   "with": "PLAN AND HOME (brief)",
+   "why": "He knows before he leaves."
+  },
+  {
+   "idea": "Point the Lens at a landmark, then fly God's Eye there with Street View",
+   "with": "LENS",
+   "why": "From what he sees to the whole place around it."
+  },
+  {
+   "idea": "Geography lessons on the live globe: quakes, plates and weather systems with real data",
+   "with": "LEARN (school)",
+   "why": "Learning with the real world, not pictures."
+  },
+  {
+   "idea": "A car fault becomes a workshop job sheet with parts and steps",
+   "with": "MAKE (workshop, workbench)",
+   "why": "From a warning light to a plan to fix it."
+  },
+  {
+   "idea": "Every SEE feature in any wording: 'cameras on the M6', 'is it raining at home?'",
+   "with": "VOICE, MEANINGS AND COLOURS",
+   "why": "Reachable in his own words."
+  }
+ ]
+}

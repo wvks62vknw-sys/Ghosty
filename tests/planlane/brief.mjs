@@ -1,7 +1,7 @@
 // THE BRIEF (planlane:brief): the morning briefing as a specialist app, proved at 440 × 956 and 390 × 844 at BODY 21, and in the seven looks.
 //  - the pure words: the chat's wordings (and what it leaves to the brain), what to wear, tomorrow, the to-dos, the sources with their time;
 //  - the page by day: TODAY, RAIN, WEAR and SUN in words, the weather named with its source and time, the commute's one place to save
-//    home and work (the tap lands on Memory → ME → PLACES), the headlines down with TRY AGAIN, then back with "BBC · HH:MM";
+//    home and work (the tap lands on Memory → ABOUT YOU → PLACES), the headlines down with TRY AGAIN, then back with "BBC · HH:MM";
 //  - the page in the evening: tonight's rain, then TOMORROW, what to wear tomorrow, tomorrow's sunrise, and the sentence says "Tomorrow";
 //  - the chat with no model: "good morning" and "what's my day look like" open the Brief and say its one line from the page's own data;
 //  - every key 44 pt, nothing sideways, no word cut, in every look.
@@ -62,6 +62,11 @@ export async function run(H) {
   // ---- the page, stood in: the clock at `hour`:05 today, the forecast above, the BBC down until `bbc.up`, no places saved
   // (its own phone, as the harness's phone() makes one, but with the clock and the stand-ins in place before the first load: no reload)
   async function brief(vp, world, hour, seed = {}, wx = { up: true }) {
+    // [planlane2:onelist] a page that brings its own to-do list starts the one list (the brain's) empty, as the harness's phone() does
+    if (Object.hasOwn(seed, 'ghosty.agenda.todo')) {
+      const r = await fetch(`${H.base}/api/packs/do`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': H.KEY }, body: JSON.stringify({ pack: 'work', action: 'todo', args: { words: 'clear my to-do list' } }) });
+      if (!r.ok) throw new Error(`the preview brain would not clear the one to-do list (${r.status})`);
+    }
     const ctx = await H.browser.newContext({ viewport: vp, locale: 'en-GB', timezoneId: 'Europe/London' });
     const bbc = { up: false };
     await ctx.addInitScript(({ world, seed, hour }) => {
@@ -123,7 +128,7 @@ export async function run(H) {
     check(/^0 to 8°C today, rain likely from 15:00\./.test(say) && /1 to-do due today/.test(say), `[brief ${vp.width}] the morning's sentence: ${say}`);
     // the commute: one place to save home and work, the same words as Foresight's, and the tap lands on it
     const com = await txt(page, '#pg-brief .pn.commute');
-    check(/Save home and work in Memory → ME → PLACES and the drive to work shows here\./.test(com) && !/each morning/.test(com), `[brief ${vp.width}] the commute's line: ${com}`);
+    check(/Save home and work in Memory → ABOUT YOU → PLACES and the drive to work shows here\./.test(com) && !/each morning/.test(com), `[brief ${vp.width}] the commute's line: ${com}`);
     const fore = await txt(page, '#pg-brief .pn.foresight');
     check(!/Memory → Me → Places/.test(fore + com), `[brief ${vp.width}] one spelling of the path: ${fore.slice(0, 200)}`);
     // the headlines down: in his words, with TRY AGAIN; back: the BBC named with its time
@@ -154,7 +159,7 @@ export async function run(H) {
     await page.waitForFunction(() => /Brief lane story 1/.test(document.querySelector('#pg-brief .pn.news')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => check(false, `[brief ${vp.width}] TRY AGAIN did not bring the headlines back`));
     const back = await txt(page, '#pg-brief .pn.news');
     check(/BBC · \d\d:\d\d/i.test(back), `[brief ${vp.width}] the headlines name the BBC and the time they were read: ${back.slice(0, 160)}`);
-    // the tap on the commute's line lands on Memory → ME, its PLACES on screen
+    // the tap on the commute's line lands on Memory → ABOUT YOU, its PLACES on screen
     await page.click('#pg-brief .pn.commute .rw');
     await page.waitForFunction(() => location.hash === '#memory', null, { timeout: 8000 }).catch(() => check(false, `[brief ${vp.width}] the commute's line does not open Memory`));
     const places = await page.waitForSelector('#pg-memory .places', { state: 'visible', timeout: 8000 }).then(() => true, () => false);

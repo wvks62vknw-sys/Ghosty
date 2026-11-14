@@ -17,7 +17,7 @@
  * opens views here through the `open_learn` command. State for specs at window.__ghosty.learn.
  */
 import type { Card, Confidence, Course, CourseLesson, CourseSummary, ExamMarked, LearnLevel, LearnSource, LessonParts, Quiz, QuizQuestion } from '../../../../../packages/shared/src/learn';
-import { LEARN_LEVELS, STOP_WORDS, calibrationLine, dayText, masteryOf, paceDue } from '../../../../../packages/shared/src/learn';
+import { LEARN_LEVELS, STOP_WORDS, aimOf, calibrationLine, dayText, masteryOf, paceDue } from '../../../../../packages/shared/src/learn';
 import { dayKey, nextText, streakOf, type Rating } from '../../../../../packages/shared/src/sm2';
 import { speak, stopSpeaking } from '../../assistant/voice';
 import { clear, h, svgEl } from '../../core/dom';
@@ -42,6 +42,8 @@ export const learnState = {
   quiz: { id: '', i: 0, n: 0, right: 0, answered: 0, last: '', conf: '' },
   /** The course map: units, each stop's state, the mastery percent, the calibration line. */
   map: { units: 0, stops: [] as string[], mastery: 0, calibration: '' },
+  /** Today's aim for the course on show (learn.u2): misses, the next lesson, or done; the lesson, the line and the lessons a misses quiz covers. */
+  aim: { kind: '', lesson: 0, why: '', quiz: [] as number[] },
   exam: { id: '', i: 0, n: 0, left: 0, answered: 0, done: false, right: 0, pct: 0, grade: '', weak: [] as number[] },
   revise: { left: 0, done: 0, shown: false },
   streak: { current: 0, best: 0, today: false },
@@ -189,7 +191,8 @@ export function openLearn(a: Record<string, unknown> = {}): void {
 
 export const learnTab: TabDef = {
   id: 'learn',
-  title: 'LEARN',
+  // [consistency] one name: the screen is Courses everywhere (Learn is the room it sits in)
+  title: 'COURSES',
   icon: '<path d="M2 8l10-5 10 5-10 5z"/><path d="M6 10v5c0 2 3 3.5 6 3.5s6-1.5 6-3.5v-5"/><path d="M22 8v6"/>',
   scene: 'backdrop',
   blurb: 'courses · quizzes · flashcards',
@@ -270,10 +273,26 @@ export const learnTab: TabDef = {
       startBtn.disabled = false;
     };
     topicIn.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
-    np.body.append(h('div.keyrow.learntopic', topicIn), levelChips, minChips, topicSay, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
+    // [learn.s3, learn.s4] ready starts: driving theory from the public Highway Code, and trade basics (figures marked first estimates)
+    const STARTS: [string, string][] = [['Driving theory', 'driving theory from the Highway Code'], ['Car mechanics', 'car mechanics basics'], ['Home electrics', 'home electrics basics'], ['First aid', 'first aid basics']];
+    const starts = h('div.learnstarts', { role: 'group', 'aria-label': 'Ready starts' }, ...STARTS.map(([label, topic]) => {
+      const b = button(label.toUpperCase(), () => {
+        topicIn.value = topic;
+        topicIn.focus();
+        topicSay.textContent = /mechanic|electric/.test(topic) ? 'Every figure in it is a first estimate, never certified: check the maker’s figure, and a qualified person for anything dangerous.' : '';
+      });
+      b.dataset.label = label;
+      return b;
+    }));
+    np.body.append(h('div.keyrow.learntopic', topicIn), starts, levelChips, minChips, topicSay, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
 
+    // [learn.u3] MY LEARNING MAP: one picture of courses, reading, speaking and revision, and the one thing to try next
+    const mp = panel('MY LEARNING MAP', { cls: 'learnmapall', grow: false });
+    const paintMastery = () => void import('./mastery').then((m) => m.masteryPanelBody(mp.body));
+    paintMastery();
+    L.learn.subscribe(() => paintMastery());
     P.left.append(sp.el, cp.el);
-    P.right.append(np.el);
+    P.right.append(np.el, mp.el);
 
     // ======================= the hero: streak, progress, cards due
     const paintHero = () => {
@@ -321,6 +340,13 @@ export const learnTab: TabDef = {
         r.addEventListener('click', () => void showCourse(c.id));
         cp.body.append(r);
       }
+      // [learn.s10] QUIZ NIGHT: Ghosty hosts a quiz at the table from these courses' own questions (works with no signal)
+      const night = button('QUIZ NIGHT', () => void import('./quiznight').then((q) => q.openQuizNight()));
+      night.classList.add('learnnight');
+      // [learn.c6] QUIZ ME ALOUD: hands-free, every question and answer spoken, nothing to look at ("quiz me while I drive")
+      const aloud = button('QUIZ ME ALOUD', () => void import('./aloud').then((q) => q.openAloud()));
+      aloud.classList.add('learnaloud');
+      cp.body.append(h('div.row.wrap.learnnightrow', night, h('small', 'I host a quiz for you and friends at the table, from your courses.')), h('div.row.wrap.learnnightrow', aloud, h('small', 'Hands-free: I ask aloud and you answer by voice, nothing to look at.')));
     };
 
     // ======================= views
@@ -390,6 +416,19 @@ export const learnTab: TabDef = {
       if (last) fact('LAST EXAM', `${last.grade} · ${last.right} of ${last.n} (${last.pct}%) · ${dayText(dayKey(last.at, L.tz()))}`, 'lastexam');
       sp.body.append(facts, h('div.note', c.summary));
       const next = c.lessons.find((l) => !l.done);
+      // TODAY (learn.u2): the lesson his recent answers say to look at again (a miss he was sure of most), and a quiz on
+      // just those lessons; with nothing missed, the next lesson. Worked out on this phone from the kept scores.
+      const aim = aimOf(c, sum?.stats, next?.n ?? 0);
+      learnState.aim = { kind: aim.kind, lesson: aim.lesson, why: aim.why, quiz: aim.quiz };
+      if (aim.kind !== 'next') {
+        sp.body.append(h('div.learntoday', { dataset: { kind: aim.kind } },
+          h('span.lab', 'TODAY'),
+          h('b', aim.kind === 'misses' ? `${aim.lesson}. ${aim.title}` : 'All read'),
+          h('small', aim.why),
+          aim.kind === 'misses'
+            ? h('div.row.wrap', button(`LESSON ${aim.lesson} AGAIN`, () => void showLesson(c.id, aim.lesson), 'on'), button('QUIZ ME ON MY MISSES', () => void startQuiz({ course: c.id, lessons: aim.quiz })))
+            : null));
+      }
       const open = s.exam && s.exam.exam.course === c.id ? s.exam : null;
       // REMOVE: gone at once with UNDO (12 s) — its lessons, cards and progress come back exactly; the brain
       // forgets the course only when the bar goes.
@@ -419,6 +458,14 @@ export const learnTab: TabDef = {
           button('QUIZ ME', () => void startQuiz({ course: c.id })),
           button(open ? `RESUME EXAM · ${mmss(Math.ceil((open.endsAt - now) / 1000))}` : 'EXAM', () => void showExam(c.id), 'learnexambtn'),
           due ? button(`REVISE ${Math.min(10, due)}`, () => showRevise({ course: c.id, limit: 10 }), 'learnrevisebtn') : '',
+          // [sites] this course's cards as an offline app on the Home Screen (NEXT ROUND sites.c2): asked in the chat, built after his APPROVE
+          L.learn.get().cards.some((x) => x.course === c.id)
+            ? button('CARDS ON MY HOME SCREEN', () => void (async () => {
+                const [{ send }, { openChat }] = await Promise.all([import('../../assistant/session'), import('../../shell/launcher')]);
+                openChat();
+                void send(`Make my ${c.topic} cards an app`);
+              })(), 'learncardsapp')
+            : '',
           del,
         ),
       );
@@ -526,7 +573,7 @@ export const learnTab: TabDef = {
       sp.body.append(after);
     };
 
-    const startQuiz = async (a: { course?: string; topic?: string; lesson?: number }) => {
+    const startQuiz = async (a: { course?: string; topic?: string; lesson?: number; lessons?: number[] }) => {
       setView('quiz', 'QUIZ');
       clear(sp.body);
       const done = said(sp.body, QUIZ_WAIT);

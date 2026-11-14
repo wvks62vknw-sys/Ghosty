@@ -11,8 +11,10 @@
  *  - `forgetGist` / `restoreGist`: MEMORY → FORGET on a turn (memories.ts changeMemory, id `t:<at>`), with UNDO.
  * Words only, no model: the brain asks nothing new of anyone.
  */
-import { daysAgo, gistAsk, matchGists, RECALL_DAYS, RECALL_LINES, RECALL_WEEK, replyGist, type Gist, type RecallHit } from '../../../packages/shared/src/recall';
+import { dayWord, stampOf, daysAgo, gistAsk, matchGists, RECALL_DAYS, RECALL_LINES, RECALL_WEEK, replyGist, type Gist, type RecallHit } from '../../../packages/shared/src/recall';
 import type { ChatTurn } from '../../../packages/shared/src/protocol';
+import { EMBED_MODEL } from './library/store';
+import { cost, neurons } from './neurons';
 
 export const GISTS_KEY = 'recall:gists';
 const TURNS_KEY = 'turns';
@@ -28,10 +30,17 @@ export async function loadGists(storage: DurableObjectStorage): Promise<Gist[]> 
 
 /** The gists within their 30 days and their bounds (the oldest go first). */
 export function boundGists(list: Gist[], now: number): Gist[] {
-  let out = list.filter((g) => g.at >= now - RECALL_DAYS * DAY).sort((a, b) => a.at - b.at).slice(-MAX_GISTS);
-  while (out.length > 1 && JSON.stringify(out).length > MAX_BYTES) out = out.slice(Math.ceil(out.length / 10));
-  return out;
+  // A pinned turn (memory.u11) stays past the 30 days AND past the caps: the pins are kept apart (the newest MAX_PINS), and only the
+  // unpinned gists are bounded, by count and then by bytes with the pins' bytes counted. (A pinned turn is the oldest by nature, so
+  // bounding them together let a PIN go first.)
+  const pinned = list.filter((g) => g.pinned).sort((a, b) => a.at - b.at).slice(-MAX_PINS);
+  let rest = list.filter((g) => !g.pinned && g.at >= now - RECALL_DAYS * DAY).sort((a, b) => a.at - b.at).slice(-Math.max(0, MAX_GISTS - pinned.length));
+  const pinBytes = JSON.stringify(pinned).length;
+  while (rest.length > 1 && pinBytes + JSON.stringify(rest).length > MAX_BYTES) rest = rest.slice(Math.ceil(rest.length / 10));
+  return [...pinned, ...rest].sort((a, b) => a.at - b.at);
 }
+/** At most this many pinned turns (each a short line: well inside the bytes). */
+export const MAX_PINS = 100;
 
 /** One turn's gist, from the day log's line for it (`asked: "…"`). Nothing else is kept. */
 export async function noteGist(storage: DurableObjectStorage, ep: { at: number; text: string; via?: string }): Promise<void> {
@@ -47,7 +56,9 @@ function withAnswers(list: Gist[], turns: ChatTurn[]): boolean {
   let changed = false;
   for (const g of list) {
     if (g.a !== undefined) continue;
-    const i = turns.findIndex((t) => t.role === 'user' && Math.abs(t.at - g.at) < 5000);
+    // (the same moment AND the same words: two messages a second apart are never mixed up)
+    const head = g.q.replace(/…$/, '').slice(0, 40).toLowerCase();
+    const i = turns.findIndex((t) => t.role === 'user' && Math.abs(t.at - g.at) < 5000 && t.text.replace(/\s+/g, ' ').trim().toLowerCase().startsWith(head));
     if (i < 0) continue;
     const r = turns.slice(i + 1).find((t) => t.role === 'assistant' || t.role === 'user');
     if (!r || r.role !== 'assistant' || r.at - g.at > 10 * 60_000) continue;
@@ -103,9 +114,51 @@ export async function forgetGist(storage: DurableObjectStorage, at: number): Pro
   return g;
 }
 
+/** [recall] memory.u11: PIN or UNPIN a turn (the nearest gist within two minutes of the time the asker knows). The gist, or null. */
+export async function pinGist(storage: DurableObjectStorage, at: number, pinned: boolean): Promise<Gist | null> {
+  const list = await loadGists(storage);
+  const g = list.filter((x) => Math.abs(x.at - at) <= 120_000).sort((a, b) => Math.abs(a.at - at) - Math.abs(b.at - at))[0];
+  if (!g) return null;
+  if (pinned) g.pinned = true;
+  else delete g.pinned;
+  await storage.put(GISTS_KEY, list);
+  return g;
+}
+
 /** UNDO: the gist back in its place. */
 export async function restoreGist(storage: DurableObjectStorage, g: Gist, now = Date.now()): Promise<void> {
   const list = (await loadGists(storage)).filter((x) => x.at !== g.at);
   list.push(g);
   await storage.put(GISTS_KEY, boundGists(list, now));
+}
+
+/**
+ * [recall] memory.u1: recall by meaning on the brain (Telegram, or a cold phone): his words and the newest 150 turns through the same free
+ * Workers AI embedding the library uses, only while the day's shared allowance has room (neurons.ts); none, or no room: [] (words stand).
+ */
+export async function meaningSearch(env: { AI?: { run(model: string, input: unknown): Promise<unknown> } }, storage: DurableObjectStorage, about: string, now: number, tz: string, k = 3): Promise<RecallHit[]> {
+  if (!env.AI || !about.trim()) return [];
+  const list = (await gistsNow(storage, now)).slice(-150);
+  if (!list.length) return [];
+  const texts = [about, ...list.map((g) => `${g.q}${g.a ? ` ${g.a}` : ''}`.slice(0, 300))];
+  const n = cost.embed(texts.reduce((s, t) => s + t.length, 0));
+  if (!(await neurons().room('embed', n))) return [];
+  await neurons().charge('embed', n);
+  try {
+    const r = (await env.AI.run(EMBED_MODEL, { text: texts, pooling: 'cls' })) as { data?: number[][] };
+    if (!Array.isArray(r?.data) || r.data.length !== texts.length) return [];
+    const unit = (v: number[]) => {
+      const m = Math.hypot(...v) || 1;
+      return v.map((x) => x / m);
+    };
+    const q = unit(r.data[0]!);
+    const scored = list.map((g, i) => ({ g, c: unit(r.data![i + 1]!).reduce((s, x, j) => s + x * q[j]!, 0) }));
+    return scored
+      .filter((x) => x.c >= 0.72)
+      .sort((a, b) => b.c - a.c)
+      .slice(0, k)
+      .map(({ g, c }) => ({ ...g, day: dayWord(g.at, now, tz), stamp: stampOf(g.at, g.via, tz), score: c }));
+  } catch {
+    return [];
+  }
 }

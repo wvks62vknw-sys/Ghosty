@@ -139,19 +139,19 @@ export const TOOLS_1: Record<string, CatValue> = {
   // ---- websites
   'tool:build_website': {
     name: 'Build a whole website', line: 'I can build a proper website for a business, an event or a person from one sentence, and put it online.',
-    more: 'I plan the pages, write the words, pick the photos with their credits and check it all. It stays a draft until you say yes, then it gets its own free link. Forms open WhatsApp or email.',
-    say: ['Build a website for my friend’s barber shop in Walsall', 'Make a site for my football team'], scene: ['making'], cat: 'build',
+    more: 'I plan the pages, write the words, pick the photos with their credits and check it all. It stays a draft until you say yes, then it gets its own free link. Forms open WhatsApp or email. An event or invitation with a date gets add-to-calendar buttons for its guests. Name one of my looks (scan, map, eye, orbit, grown, ink, glass) and the site wears it.',
+    say: ['Build a website for my friend’s barber shop in Walsall', 'Make a site for my football team', 'Make a page for our club night on 14 December at 8pm', 'Build my café a website in the ink look'], scene: ['making'], cat: 'build',
     go: { ask: 'Build a website for ', send: false },
   },
   'tool:build_app': {
     name: 'Make an app for your phone', line: 'I can make you a small app that installs on your Home Screen: a tracker, a list, a timer, flash cards.',
-    more: 'One request and I build it, then publish it at a link you add to your Home Screen. It keeps what you save on your phone and works offline. I say what it does before it goes live.',
-    say: ['Make me a habit tracker app', 'Make an app to track my gym sessions'], scene: ['making'], cat: 'build',
+    more: 'One request and I build it, then publish it at a link you add to your Home Screen. It keeps what you save on your phone and works offline. I say what it does before it goes live. Change it later by asking (“add a habit”, “change my goal”): same link, and what you saved stays. A sheet’s first column, or a Learn course’s cards, can become an app too.',
+    say: ['Make me a habit tracker app', 'Add stretching to my habits app', 'Change my water goal to 10', 'Make my French verbs cards an app'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me an app for ', send: false },
   },
   'tool:publish_game': {
     name: 'Put your game on your sites', line: 'I can put a game you made in the Game Studio on your sites, as a page that installs on a Home Screen and plays offline.',
-    more: 'Open the game in the studio and ask, or tap PUT IT ON MY SITES there. I say where it goes before it goes live, and nothing goes up until you tap APPROVE, every time. Its saves stay on the phone that plays it.',
+    more: 'Open the game in the studio and ask, or tap PUT IT ON MY SITES there. I say where it goes before it goes live, and nothing goes up until you tap APPROVE, every time. Its saves stay on the phone that plays it. Its link opens on a front page first: its name, how to play, pictures of its rooms, a note from you if you give one, and PLAY. Each phone that plays keeps its own top-ten high scores, with a picture of the best to share.',
     say: ['Put Fox Run on my sites', 'Put my game on my sites'], scene: ['making'], cat: 'build', where: 'Game Studio → AS AN APP → PUT IT ON MY SITES, or ask me',
   },
   'tool:study_site': {
@@ -162,8 +162,8 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:publish_site': {
     name: 'Put a page online', line: 'I can put a page I made online at its own free link the moment you tap APPROVE.',
-    more: 'A CV, a menu, an invitation, a landing page: one page, built for phones, on my own address, with no account or hosting to set up. I always give you the exact link.',
-    say: ['Make a page for my party and put it online', 'Make me an online CV'], scene: ['making'], cat: 'build',
+    more: 'A CV, a menu, an invitation, a landing page: one page, built for phones, on my own address, with no account or hosting to set up. I always give you the exact link. Each page keeps its last three versions: UNDO LAST UPDATE in the Workshop, or ask me, puts the one before back. A document or a deck goes up too: PUT IT ON MY SITES in its editor; a sheet of prices: AS A MENU PAGE ON MY SITES.',
+    say: ['Make a page for my party and put it online', 'Make me an online CV', 'Undo my last update to the party page', 'Publish my garden guide as a page'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me a one-page invitation for my birthday and put it online', send: false },
   },
   'tool:draft_site': {
@@ -174,8 +174,8 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:list_sites': {
     name: 'The pages I put online', line: 'I can list every page I have put online for you, with its link.',
-    more: 'Name, link, when and how big. Ask for a link again, an update, or for one to be taken down.',
-    say: ['What have you published?', 'Give me the link to my CV again'], scene: ['making'], cat: 'build', where: 'Workshop → PUBLISHED PAGES, or ask me',
+    more: 'Name, link, when and how big. Ask for a link again, an update, or for one to be taken down. Tick ON MY HOME PAGE on the ones you want, and PUBLISH MY HOME PAGE gives you one link listing only those. QR AND POSTER gives a page’s QR code, and a poster or flyer to print. CHECK runs the publish check on the live page again.',
+    say: ['What have you published?', 'Give me the link to my CV again', 'Publish my home page', 'A poster with the QR code for my party page'], scene: ['making'], cat: 'build', where: 'Workshop → PUBLISHED PAGES, or ask me',
   },
   'tool:unpublish_site': {
     name: 'Take a page down', line: 'I can take a page down when you ask, so its link stops working.',

@@ -47,13 +47,14 @@ export const INTERPRETER_ICON = '<path d="M3.5 6.5h9M8 4v2.5M5.5 6.5c.6 3 2.6 5.
 
 export const interpreterTab: TabDef = {
   id: 'interpreter',
-  title: 'INTERPRETER',
+  // [consistency] one name: Interpret, short enough for its card at 390 (the bar called it so already)
+  title: 'INTERPRET',
   icon: INTERPRETER_ICON,
   scene: 'backdrop',
   blurb: 'two halves, two languages · hold to talk · nothing kept',
   now: () => `${langName(interpState.pair.a)} and ${langName(interpState.pair.b)}`,
   mount(root) {
-    const P = page(root, { tag: 'SEE // INTERPRETER', sub: 'Two halves of the screen, one for each of you. Hold a key and speak; the other half writes it and says it.', stack: true });
+    const P = page(root, { tag: 'SEE // INTERPRET', sub: 'Two halves of the screen, one for each of you. Hold a key and speak; the other half writes it and says it.', stack: true });
     // (the plain line and the two languages are in the page itself: the hero's own would only say them twice)
     root.classList.add('fxpg');
     P.big.dataset.case = 'keep';
@@ -334,7 +335,7 @@ export const interpreterTab: TabDef = {
         paintLines();
         paintPair();
       },
-      context: () => screenSays('interpreter', 'Interpreter', `the interpreter, ${langName(pairNow().a)} and ${langName(pairNow().b)}, ${interpState.lines.length ? `${interpState.lines.length} lines on screen` : 'nothing said yet'}`),
+      context: () => screenSays('interpreter', 'Interpret', `the interpreter, ${langName(pairNow().a)} and ${langName(pairNow().b)}, ${interpState.lines.length ? `${interpState.lines.length} lines on screen` : 'nothing said yet'}`),
       open(arg) {
         const to = /^to=([a-z]{2,3})$/.exec(arg)?.[1];
         if (to && to !== pairNow().a && LANGUAGES.some((l) => l.code === to)) setPair({ a: pairNow().a, b: to });

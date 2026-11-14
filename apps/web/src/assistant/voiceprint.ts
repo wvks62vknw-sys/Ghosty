@@ -63,6 +63,34 @@ export interface Print {
   floor: number;
   /** The voice model's numbers for the same three lines, when the model was on the phone at enrolment (speakerjudge.ts). */
   emb?: EmbPrint;
+  /** [voice.u4] His voice as he enrolled it: the print keeps up with him, never drifting far from this. */
+  origin?: number[];
+  /** [voice.u4] How many turns refreshed it today (at most KEEP_PER_DAY). */
+  kept?: { day: string; n: number };
+}
+
+/** [voice.u4] How far a turn may sit from his print and still refresh it (well inside his floor: it was clearly him). */
+export const KEEP_INSIDE = 0.6;
+/** [voice.u4] How much one turn moves the print, how many may a day, and how far from his enrolled voice it may ever drift (of his floor). */
+export const KEEP_WEIGHT = 0.05;
+export const KEEP_PER_DAY = 6;
+export const KEEP_DRIFT = 0.5;
+
+/**
+ * VOICE RECOGNITION THAT KEEPS UP (NEXT ROUND, voice.u4): his print refreshes gently from turns that were clearly him (a cold, a tired
+ * voice, outside), so NOT SURE WHO comes up less. Only a turn well inside his floor counts; each moves the print a little; a few a
+ * day at most; and the print never drifts more than half his floor from the voice he enrolled, so it can never wander to another
+ * voice. Pure: the new print, or null when this turn should not refresh it. Never a lock: it only helps the courtesy tag.
+ */
+export function keepUp(print: Print, capture: number[], day: string): Print | null {
+  if (!isPrint(print) || capture.length !== PROFILE_LEN || !capture.every(Number.isFinite)) return null;
+  if (distance(print.pooled, capture) > KEEP_INSIDE * print.floor) return null;
+  const kept = print.kept && print.kept.day === day ? print.kept : { day, n: 0 };
+  if (kept.n >= KEEP_PER_DAY) return null;
+  const origin = print.origin && print.origin.length === PROFILE_LEN ? print.origin : print.pooled;
+  const pooled = print.pooled.map((v, i) => v * (1 - KEEP_WEIGHT) + capture[i]! * KEEP_WEIGHT);
+  if (distance(origin, pooled) > KEEP_DRIFT * print.floor) return null;
+  return { ...print, pooled, origin, kept: { day, n: kept.n + 1 } };
 }
 
 export interface Voiced {
@@ -307,7 +335,8 @@ export function isPrint(p: unknown): p is Print {
   return !!q && q.v === 1 && Array.isArray(q.pooled) && q.pooled.length === PROFILE_LEN && Array.isArray(q.looks) && q.looks.length > 0 && q.looks.every((l) => Array.isArray(l) && l.length === PROFILE_LEN && l.every(Number.isFinite)) && q.pooled.every(Number.isFinite) && Number.isFinite(q.floor) && (q.emb === undefined || isEmb(q.emb));
 }
 
-export type Who = { kind: 'owner' } | { kind: 'person'; id: string; name: string } | { kind: 'unknown'; why: 'voice' | 'unsure' | 'short' };
+// (`two`: [voice lane, voice.u5] not sure because two of the voices it knows both claimed it — said to him in plain words)
+export type Who = { kind: 'owner' } | { kind: 'person'; id: string; name: string } | { kind: 'unknown'; why: 'voice' | 'unsure' | 'short'; two?: true };
 
 export interface Known {
   id: string;
@@ -331,7 +360,7 @@ export function judge(known: Known[], capture: Voiced): { who: Who; d: number } 
   if (inside.length === 1) {
     return { who: best.k.me ? { kind: 'owner' } : { kind: 'person', id: best.k.id, name: best.k.name }, d: best.d };
   }
-  if (inside.length > 1) return { who: { kind: 'unknown', why: 'unsure' }, d: best.d };
+  if (inside.length > 1) return { who: { kind: 'unknown', why: 'unsure', two: true }, d: best.d };
   return { who: { kind: 'unknown', why: near.every((n) => n.d >= CEILING) ? 'voice' : 'unsure' }, d: best.d };
 }
 

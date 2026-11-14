@@ -186,9 +186,9 @@ for (const tab of TABS) for (const side of ['', ' (other side)']) {
 // Date and time boxes (AGENDA's new event and reminder) render as real pickers with a value, finger-sized.
 // (The event's box is on the first side, the reminder's on the other.)
 await page.evaluate(() => (location.hash = 'core'));
-await page.waitForTimeout(500);
+await page.waitForFunction(() => document.querySelector('#pg-core')?.classList.contains('on'), null, { timeout: 15000 }).catch(() => undefined);
 await page.evaluate(() => (location.hash = 'agenda'));
-await page.waitForTimeout(1200);
+await page.waitForFunction(() => document.querySelector('#pg-agenda')?.classList.contains('on'), null, { timeout: 15000 }).catch(() => undefined);
 const dateBoxes = () =>
   page.$$eval('#pg-agenda input[type="datetime-local"]', (l) =>
     l.filter((i) => i.getClientRects().length).map((i) => {
@@ -196,15 +196,18 @@ const dateBoxes = () =>
       return { label: i.getAttribute('aria-label'), type: i.type, value: i.value, w: Math.round(r.width), h: Math.round(r.height) };
     }),
   );
-// (A screen in sections remembers the one last chosen: the tabs loop above opened the Agenda's other side, so start
-//  from its first pill, the Diary, or the first count and the "other side" would both be the Reminders.)
-const firstPill = page.locator('#pg-agenda .secpills .secpill').nth(0);
-if (await firstPill.isVisible().catch(() => false)) {
-  await firstPill.click();
-  await page.waitForTimeout(500);
+/** The box with this name drawn on the screen (waited for: CI's runner draws a side later than this container). */
+const boxShown = (label) => page.waitForFunction((l) => [...document.querySelectorAll('#pg-agenda input[type="datetime-local"]')].some((i) => i.getAttribute('aria-label') === l && i.getClientRects().length), label, { timeout: 15000 }).then(() => true, () => false);
+// (A screen in sections remembers the one last chosen: the tabs loop above opened another side, so the event's box is looked for
+//  on the Diary pill and the reminder's on the Reminders pill, each by its name: the Agenda's pills are Diary, To-do, Reminders,
+//  Spending and Calendars since the PLAN lane's to-do list, so its second pill is no longer the reminders' side.)
+const pillNamed = (name) => page.locator('#pg-agenda .secpills .secpill', { hasText: new RegExp(`^\\s*${name}\\s*$`, 'i') }).first();
+const dates = [];
+for (const [pill, box] of [['Diary', 'Event start'], ['Reminders', 'Reminder time']]) {
+  if (await pillNamed(pill).isVisible().catch(() => false)) await pillNamed(pill).click();
+  if (!(await boxShown(box))) continue;
+  dates.push(...(await dateBoxes()).filter((d) => !dates.some((x) => x.label === d.label)));
 }
-const dates = await dateBoxes();
-if (await otherSide('agenda')) dates.push(...(await dateBoxes()).filter((d) => !dates.some((x) => x.label === d.label)));
 if (dates.length < 2) problems.push(`AGENDA has ${dates.length} date and time boxes, expected the event's and the reminder's`);
 for (const d of dates) if (d.type !== 'datetime-local' || !d.value || d.w < 120 || d.h < 39.5) problems.push(`a date and time box does not render properly: ${JSON.stringify(d)}`);
 
@@ -232,6 +235,47 @@ const said = await page.$$eval('.toast', (l) => l.map((t) => t.textContent).join
 if ((await page.$$eval('.toast', (l) => l.length)) <= toastsBefore || !/speech recognition|microphone/i.test(said)) problems.push(`the mic without speech recognition said: "${said}"`);
 const state = await page.evaluate(() => document.body.className);
 if (/listening/.test(state)) problems.push('the mic stayed in listening after failing');
+
+// The 3-D studio's engine on an iPhone (WebKit): the picture keeps its place while the keys under it scroll in their own box, never
+// under it, over it, above it or through its corners. Chromium never showed this; Safari did, with the page in a 3-D rendering context.
+// (no WebGL is needed: the layout is checked, so it holds whether or not this runner can draw the scene)
+await page.evaluate(() => (location.hash = 'studio'));
+const studioOpen = await page.waitForSelector('#pg-studio .studioseg button[data-pane="engine"]', { timeout: 20000 }).then(() => true, () => false);
+if (!studioOpen) problems.push('3D studio: its engine key never appeared');
+else {
+  await page.click('#pg-studio .studioseg button[data-pane="engine"]');
+  await page.waitForFunction(() => !!document.querySelector('.hud.studio[data-pane="engine"] > .studioscroll'), null, { timeout: 10000 }).catch(() => undefined);
+  const studio = await page.evaluate(async () => {
+    const hud = document.querySelector('.hud.studio[data-pane="engine"]');
+    const view = hud?.querySelector('.studioview');
+    const under = hud?.querySelector(':scope > .studioscroll');
+    if (!hud || !view || !under) return { missing: true };
+    const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const top0 = view.getBoundingClientRect().top;
+    const bad = [];
+    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+      under.scrollTop = f * Math.max(0, under.scrollHeight - under.clientHeight);
+      await frame();
+      const v = view.getBoundingClientRect();
+      const u = under.getBoundingClientRect();
+      if (Math.abs(v.top - top0) > 1) bad.push(`the picture moved ${Math.round(v.top - top0)} px with the keys at ${f * 100}%`);
+      if (u.top < v.bottom - 1) bad.push(`the keys' box starts ${Math.round(v.bottom - u.top)} px inside the picture`);
+      const hb = hud.getBoundingClientRect();
+      const pts = [[v.left + 3, v.top + 3], [v.right - 3, v.top + 3], [v.left + 3, v.bottom - 3], [v.right - 3, v.bottom - 3], [v.left + v.width / 2, v.top + v.height / 2]];
+      for (let y = Math.ceil(hb.top) + 1; y < v.top; y += 2) pts.push([v.left + v.width / 2, y]);
+      for (const [x, y] of pts) {
+        const e = document.elementFromPoint(x, y);
+        if (e && under.contains(e)) bad.push(`a key or a word from under the picture is drawn at ${Math.round(x)},${Math.round(y)} with the keys at ${f * 100}%`);
+      }
+    }
+    return { bad: [...new Set(bad)].slice(0, 6), box: under.clientHeight, needs: under.scrollHeight > under.clientHeight + 8 };
+  });
+  if (studio.missing) problems.push('3D studio: the engine pane has no picture or no box for its keys');
+  else {
+    for (const b of studio.bad) problems.push(`3D studio: ${b}`);
+    if (studio.needs && studio.box < 140) problems.push(`3D studio: the keys' box under the picture is only ${studio.box} px tall`);
+  }
+}
 
 // The mic when the brain can hear (Whisper): the recording is made the iPhone's way. A stand-in microphone that
 // answers after a moment (as the permission prompt does) and a recorder that, like Safari's, only makes

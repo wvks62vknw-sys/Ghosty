@@ -128,6 +128,9 @@ const go = async (page, id) => {
 const text = (page, sel) => page.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.getClientRects().length).map((e) => (e.textContent ?? '').replace(/\s+/g, ' ').trim()).join(' | '), sel);
 /** Every key in `root` at 44 pt, nothing sideways on the page, no word cut inside `root`, no raw string. */
 async function bar(page, tag, id, root) {
+  // the screen finishes opening first: it scales in from 98.5 % (.pg.on, proswitch), so on a slow runner a 44 pt key measured
+  // mid-animation reads 43 (CI's ink flake on #119); the sizes are read once the screen is still
+  await page.waitForFunction((t) => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target === document.querySelector(`#pg-${t}`)), id, { timeout: 5000 }).catch(() => undefined);
   const r = await page.evaluate(({ t, root }) => {
     const vis = (e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]');
     const els = [...document.querySelectorAll(root)];

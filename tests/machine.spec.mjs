@@ -97,7 +97,7 @@ const land = async () => {
 };
 const frames = 20000;
 
-// his home, as Memory → ME → PLACES keeps it; the guardian quiet; nothing told yet
+// his home, as Memory → ABOUT YOU → PLACES keeps it; the guardian quiet; nothing told yet
 const had = (await api('/profile/places')).places ?? [];
 await api('/profile/places', { method: 'POST', body: JSON.stringify({ found: { id: 'home', label: 'Home', query: 'B13 8PX', address: 'B13 8PX, Moseley, Birmingham', lat: HOME.lat, lon: HOME.lon } }) });
 await fetch(`${base}/__test/guardian?flood=0&weather=0&reset=1`);
@@ -303,7 +303,7 @@ if (!had.some((p) => p.id === 'home')) {
   m = await M();
   check(m.centre?.saved === false, `with no saved home the centre is ${JSON.stringify(m.centre)}`);
   const note = await page.textContent('#pg-eye .mchview .mchnote');
-  check(note === "Save home in Memory → ME → PLACES and I'll watch your city; for now this is the phone's home.", `the honest line: "${note}"`);
+  check(note === "Save home in Memory → ABOUT YOU → PLACES and I'll watch your city; for now this is the phone's home.", `the honest line: "${note}"`);
   await page.screenshot({ path: `${out}/machine-nohome.png` });
   await page.click('#pg-eye .eyebot .btns .machinebtn');
   await land();

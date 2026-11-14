@@ -1,4 +1,4 @@
-// Saved places on the owner's phone (440 × 956), the brain mocked: Memory → ME → PLACES says where places are
+// Saved places on the owner's phone (440 × 956), the brain mocked: Memory → ABOUT YOU → PLACES says where places are
 // kept, FIND shows what the map found for a yes and keeps nothing until KEEP IT, a postcode works, EDIT fills the
 // form back in, FORGET takes a place away with UNDO; the Brief shows the commute from home to work as one line
 // with the live traffic; God's Eye shows the saved places as chips — a tap flies there and drops the pin with
@@ -76,7 +76,7 @@ const sideways = async (where) => {
   if (w > PHONE.width + 1) problems.push(`${where}: the page scrolls sideways (${w} px wide)`);
 };
 
-// ---- Memory → ME → PLACES
+// ---- Memory → ABOUT YOU → PLACES
 await page.evaluate(() => (location.hash = 'memory'));
 const block = page.locator('#pg-memory .pn.me .places');
 await block.waitFor({ state: 'attached', timeout: 10000 });

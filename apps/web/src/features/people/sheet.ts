@@ -9,6 +9,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
+import { forgetReceipt, keepReceipt, receiptOf } from '../homeadmin/receipts';
 import { emptyState, inWords, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
 export type PeopleWhat = 'who' | 'plan' | 'coming';
@@ -24,6 +25,7 @@ interface PersonRow {
   email: string;
 }
 interface PlanRow {
+  id?: string;
   what: string;
   where?: string;
   when?: string;
@@ -37,7 +39,7 @@ interface PlanRow {
 export const PEOPLE_TITLES: Record<PeopleWhat, string> = { who: 'YOUR PEOPLE', plan: 'GROUP PLAN', coming: 'COMING UP' };
 const TITLES = PEOPLE_TITLES;
 
-export const peopleState = { open: '' as '' | PeopleWhat, people: [] as PersonRow[], plan: null as PlanRow | null, said: '', coming: [] as string[], shown: 0 };
+export const peopleState = { open: '' as '' | PeopleWhat, people: [] as PersonRow[], plan: null as PlanRow | null, said: '', coming: [] as string[], shown: 0, gifts: [] as string[], photos: 0, drafts: [] as string[], plans: [] as PlanRow[] };
 
 let open: { close(): void } | null = null;
 
@@ -114,7 +116,10 @@ function whoSheet(): HTMLElement {
               details.setAttribute('aria-expanded', String(!more.hidden));
               details.setAttribute('aria-label', `${more.hidden ? 'Details' : 'Hide details'} for ${p.name}`);
               more.replaceChildren(
-                h('p.pknote', p.notes.length ? p.notes.join('; ') : 'Nothing else said yet.'),
+                // [moneynext] money.u9: each thing he said, to change or take away; his own photo of them, kept on this phone
+                ...(p.notes.length ? p.notes.map((n) => noteRow(p, n)) : [h('p.pknote', 'Nothing else said yet.')]),
+                photoRow(p),
+                giftRow(p),
                 ...(p.phone ? [button(`Copy number ${p.phone}`, () => void copy(p.phone, 'the number'))] : []),
                 ...(p.email ? [button(`Copy email ${p.email}`, () => void copy(p.email, 'the email'))] : []),
                 ...(p.address ? [button('Copy address', () => void copy(p.address, 'the address'))] : []),
@@ -141,6 +146,108 @@ function whoSheet(): HTMLElement {
         : [emptyState('Tell me about someone.', 'Type a name and one thing to remember below, or say “Sam is my cousin”.')]),
     );
   };
+  /** One thing he said about them, with CHANGE (in a box) and TAKE AWAY. */
+  const noteRow = (p: PersonRow, n: string): HTMLElement => {
+    const edit = button('Change', () => {
+      const box = h('input', { type: 'text', value: n, 'aria-label': `What it should say about ${p.name}` }) as HTMLInputElement;
+      const m = modal(`About ${p.name}`, h('div.pkcol', box, h('div.pkrow',
+        button('Keep it', async () => {
+          if (box.value.trim().length < 2) return;
+          m.close();
+          const r = await say('notes', { who: p.name, text: n, to: box.value.trim() });
+          if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+          stateIn(status, '', r.text);
+          await load();
+        }, 'on'),
+        button('Leave it', () => m.close()))));
+      box.focus();
+    });
+    edit.setAttribute('aria-label', `Change “${n}” about ${p.name}`);
+    const drop = button('Take away', async () => {
+      const r = await say('notes', { who: p.name, text: n, op: 'remove' });
+      if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+      stateIn(status, '', r.text);
+      await load();
+    });
+    drop.setAttribute('aria-label', `Take away “${n}” about ${p.name}`);
+    return h('div.pkcol.ppnote', h('p.pknote', { dataset: { case: 'keep' } }, n), h('div.pkrow', edit, drop));
+  };
+  /** His own photo of someone he introduced: kept on this phone only, never sent, never used to identify anyone. */
+  const photoRow = (p: PersonRow): HTMLElement => {
+    const key = `person:${p.name.toLowerCase()}`;
+    const img = h('div.pkcol');
+    const input = h('input', { type: 'file', accept: 'image/*', hidden: true, 'aria-label': `A photo of ${p.name}` }) as HTMLInputElement;
+    const show = async () => {
+      const b = await receiptOf(key);
+      if (!b) return void img.replaceChildren();
+      const url = URL.createObjectURL(b);
+      const pic = h('img.pkreceiptimg.ppphoto', { src: url, alt: `Your photo of ${p.name}` }) as HTMLImageElement;
+      pic.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+      img.replaceChildren(pic);
+      peopleState.photos = Math.max(peopleState.photos, 1);
+    };
+    input.addEventListener('change', async () => {
+      const f = input.files?.[0];
+      input.value = '';
+      if (!f) return;
+      try {
+        await keepReceipt(key, f);
+        stateIn(status, '', `Your photo of ${p.name} is kept on this phone only. It is never sent.`);
+        await show();
+      } catch (e) {
+        stateIn(status, 'error', sayError(e, 'keep that photo'));
+      }
+    });
+    const add = button('Add your photo', () => input.click());
+    add.setAttribute('aria-label', `Add your own photo of ${p.name}`);
+    const drop = button('Take it away', async () => { await forgetReceipt(key); img.replaceChildren(); stateIn(status, '', `Your photo of ${p.name} is gone from this phone.`); });
+    drop.setAttribute('aria-label', `Take away your photo of ${p.name}`);
+    void show();
+    return h('div.pkcol', img, input, h('div.pkrow', add, drop));
+  };
+  /** money.u10: a gift list for them: ideas, bought with a price, and what he gave last year so a present is never repeated. */
+  const giftRow = (p: PersonRow): HTMLElement => {
+    const box = h('div.pkcol.ppgifts', { 'aria-live': 'polite' });
+    const idea = h('input', { type: 'text', placeholder: 'a fishing reel', 'aria-label': `A gift idea for ${p.name}` }) as HTMLInputElement;
+    const price = h('input', { type: 'text', inputMode: 'decimal', placeholder: '£25', 'aria-label': `What it costs (you can leave it)` }) as HTMLInputElement;
+    type G = { id: string; idea: string; price?: number; bought?: string };
+    const paint = (d: { gifts: G[]; lastYear: string[]; spentThisYear: number }) => {
+      peopleState.gifts = d.gifts.map((g) => `${p.name}: ${g.idea}${g.bought ? ' bought' : ''}`);
+      const ideas = d.gifts.filter((g) => !g.bought);
+      const bought = d.gifts.filter((g) => g.bought);
+      box.replaceChildren(
+        h('div.lab', 'GIFT LIST'),
+        ...(d.lastYear.length ? [h('p.pknote', { dataset: { case: 'keep' } }, `Last year you gave: ${d.lastYear.join(', ')}.`)] : []),
+        ...(d.spentThisYear ? [h('p.pknote', { dataset: { case: 'keep' } }, `£${d.spentThisYear.toFixed(2)} on presents for ${p.name} this year.`)] : []),
+        ...ideas.map((g) => {
+          const b = button('Bought', () => void run({ op: 'bought', id: g.id, price: g.price }));
+          b.setAttribute('aria-label', `Mark ${g.idea} bought`);
+          const x = button('Take off', () => void run({ op: 'remove', id: g.id }));
+          x.setAttribute('aria-label', `Take ${g.idea} off the list`);
+          return h('div.pkcol', h('p.pknote', { dataset: { case: 'keep' } }, `${g.idea}${g.price ? ` · £${g.price.toFixed(2)}` : ''}`), h('div.pkrow', b, x));
+        }),
+        ...bought.map((g) => h('p.pknote.ppbought', { dataset: { case: 'keep' } }, `Bought ${new Date(`${g.bought}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}: ${g.idea}${g.price ? `, £${g.price.toFixed(2)}` : ''}`)),
+        ...(d.gifts.length ? [] : [h('p.pknote', { dataset: { case: 'keep' } }, 'No ideas kept yet. Add one below as it comes to you.')]),
+        idea, price,
+        h('div.pkrow', (() => { const k = button('Keep idea', () => void addIt(), 'on'); k.setAttribute('aria-label', `Keep this gift idea for ${p.name}`); return k; })()),
+      );
+    };
+    const run = async (args: Record<string, unknown>) => {
+      const r = await say('gifts', { who: p.name, ...args });
+      if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+      if (args.op) stateIn(status, '', r.text);
+      paint(r.data as { gifts: G[]; lastYear: string[]; spentThisYear: number });
+    };
+    const addIt = async () => {
+      if (!idea.value.trim()) return void stateIn(status, '', `Type the idea first, like “a fishing reel”.`);
+      const n = Number(price.value.replace(/[£,\s]/g, ''));
+      await run({ op: 'add', idea: idea.value.trim(), ...(n > 0 ? { price: n } : {}) });
+      idea.value = '';
+      price.value = '';
+    };
+    void run({});
+    return box;
+  };
   /** His own birthday for them, kept in two taps (the brain sets the reminders a week before and on the day). */
   const birthdayRow = (p: PersonRow): HTMLElement => {
     const day = h('input', { type: 'text', placeholder: '14 March', 'aria-label': `${p.name}’s birthday`, enterKeyHint: 'done' }) as HTMLInputElement;
@@ -165,6 +272,8 @@ function whoSheet(): HTMLElement {
             m.close();
             const r = await say('forget', { who: p.name });
             if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+            // [moneynext] everything goes: his own photo of them on this phone too
+            await forgetReceipt(`person:${p.name.toLowerCase()}`);
             stateIn(status, '', r.text);
             await load();
           }, 'warn'))));
@@ -215,11 +324,33 @@ function whoSheet(): HTMLElement {
 function planSheet(): HTMLElement {
   const box = h('div.pkcol', { 'aria-live': 'polite' });
   const status = h('p.pknote', { 'aria-live': 'polite' }, 'Tap yes, maybe or no under a name, or tell me in the chat. I message nobody.');
+  // [moneynext] money.u11: several plans at once, each its own page, picked from the row above it
+  const chooser = h('div.pkrow.ppplans', { role: 'group', 'aria-label': 'Your open plans' });
+  const paintChooser = () => {
+    const open = peopleState.plans;
+    chooser.hidden = open.length < 2;
+    chooser.replaceChildren(...open.map((x) => {
+      const b = button(x.what.slice(0, 28), () => {
+        peopleState.plan = x;
+        paint();
+        cancel.hidden = false;
+      }, peopleState.plan?.id === x.id ? 'on' : '');
+      b.setAttribute('aria-label', `Open the plan: ${x.what}`);
+      b.setAttribute('aria-pressed', String(peopleState.plan?.id === x.id));
+      return b;
+    }));
+  };
+  const refresh = async () => {
+    const r = await say('plans', {});
+    if (!r.failed) peopleState.plans = ((r.data as { plans?: PlanRow[] } | undefined)?.plans ?? []) as PlanRow[];
+    paintChooser();
+  };
   const paint = () => {
     const p = peopleState.plan;
+    paintChooser();
     if (!p) {
       /* state: people.plan empty */
-      box.replaceChildren(emptyState('No plan yet', 'Say “plan: pub on Friday at 8 at the Crown, asked Ali, Sam and Jo”.'));
+      box.replaceChildren(emptyState(peopleState.plans.length ? 'Pick a plan above' : 'No plan yet', peopleState.plans.length ? 'Or say “plan: pub on Friday at 8 at the Crown, asked Ali”.' : 'Say “plan: pub on Friday at 8 at the Crown, asked Ali, Sam and Jo”.'));
       return;
     }
     const names = [...new Set([...p.asked, ...p.yes, ...p.maybe, ...p.no])];
@@ -231,7 +362,7 @@ function planSheet(): HTMLElement {
         h('div.pkperson', { role: 'group', 'aria-label': `${n}: ${now(n) || 'not heard from'}` }, h('b', n),
           h('div.pkrow', ...(['yes', 'maybe', 'no'] as const).map((s) => {
             const b = button(s, async () => {
-              const r = await say('plan', { words: `${n} ${s === 'yes' ? 'is in' : s === 'no' ? 'is out' : 'maybe'}` });
+              const r = p.id ? await say('plans', { op: 'reply', id: p.id, name: n, s }) : await say('plan', { words: `${n} ${s === 'yes' ? 'is in' : s === 'no' ? 'is out' : 'maybe'}` });
               if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
               peopleState.plan = ((r.data as { plan?: PlanRow } | undefined)?.plan ?? peopleState.plan) as PlanRow | null;
               stateIn(status, '', r.text);
@@ -252,16 +383,25 @@ function planSheet(): HTMLElement {
     peopleState.plan = ((r.data as { plan?: PlanRow | null } | undefined)?.plan ?? null) as PlanRow | null;
     stateIn(status, '', r.text);
     if (clearIt) words.value = '';
+    await refresh();
     paint();
     cancel.hidden = !peopleState.plan;
   };
   const go = button('Make the plan', () => (words.value.trim() ? void make(`new plan: ${words.value.trim().replace(/^(?:new )?plan:\s*/i, '')}`, true) : stateIn(status, '', 'Say the plan first: what, when, where and who you asked.')), 'on');
   go.setAttribute('aria-label', 'Make this plan');
   words.addEventListener('keydown', (e) => e.key === 'Enter' && go.click());
-  const cancel = button('Call off the plan', () => void make('cancel the plan', false), 'warn');
+  const cancel = button('Call off the plan', () => void (peopleState.plan?.id ? (async () => {
+    const r = await say('plans', { op: 'close', id: peopleState.plan!.id });
+    if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+    peopleState.plan = null;
+    peopleState.plans = ((r.data as { plans?: PlanRow[] } | undefined)?.plans ?? []) as PlanRow[];
+    stateIn(status, '', r.text);
+    paint();
+    cancel.hidden = true;
+  })() : make('cancel the plan', false)), 'warn');
   cancel.setAttribute('aria-label', 'Call off the plan');
   cancel.hidden = true;
-  const el = h('div.pkcol', box, h('div.lab', 'A NEW PLAN'), words, h('div.pkrow', go, cancel), status);
+  const el = h('div.pkcol', chooser, box, h('div.lab', 'A NEW PLAN'), words, h('div.pkrow', go, cancel), status);
   /* state: people.plan loading */
   const done = waitFor(el, 'Opening your plan…');
   void say('plan', { words: '' }).then((r) => {
@@ -273,6 +413,7 @@ function planSheet(): HTMLElement {
       return;
     }
     peopleState.plan = ((r.data as { plan?: PlanRow | null } | undefined)?.plan ?? null) as PlanRow | null;
+    void refresh().then(paint);
     paint();
     cancel.hidden = !peopleState.plan;
   });
@@ -309,7 +450,27 @@ function comingSheet(): HTMLElement {
             const at = l.indexOf(': ');
             const when = at > 0 ? l.slice(0, at) : '';
             const what = at > 0 ? l.slice(at + 2) : l;
-            return h('div.pkperson', { role: 'group', 'aria-label': `${what}, ${when}`, dataset: { case: 'keep' } }, h('b', what), h('span.pklab', when));
+            // [moneynext] money.c5: a birthday gets a message drafted in his voice, for him to copy or share himself; never sent
+            const bday = /^(.+?)[’']s? birthday\b/i.exec(what)?.[1];
+            if (!bday) return h('div.pkperson', { role: 'group', 'aria-label': `${what}, ${when}`, dataset: { case: 'keep' } }, h('b', what), h('span.pklab', when));
+            const out = h('div.pkcol', { 'aria-live': 'polite' });
+            let variant = 0;
+            const draft = async () => {
+              const r = await say('message', { who: bday, occasion: 'birthday', variant });
+              if (r.failed) return void out.replaceChildren(stateLine(r.offline ? 'offline' : 'error', troubleWords(!!r.offline)));
+              const text = String((r.data as { draft?: string } | undefined)?.draft ?? '');
+              peopleState.drafts = [...peopleState.drafts.filter((x) => !x.startsWith(`${bday}: `)), `${bday}: ${text}`];
+              const copy = button('Copy', async () => { try { await navigator.clipboard.writeText(text); stateIn(status, '', 'Copied: send it yourself, wherever you like.'); } catch { stateIn(status, '', 'Select the words and copy them.'); } });
+              copy.setAttribute('aria-label', `Copy the message for ${bday}`);
+              const share = button('Share', async () => { try { if (navigator.share) { await navigator.share({ text }); stateIn(status, '', 'Shared by you.'); } else { await navigator.clipboard.writeText(text); stateIn(status, '', 'Copied: sharing isn’t available here.'); } } catch { stateIn(status, '', 'Not shared.'); } });
+              share.setAttribute('aria-label', `Share the message for ${bday}`);
+              const again = button('Another', () => ((variant += 1), void draft()));
+              again.setAttribute('aria-label', `Another wording for ${bday}`);
+              out.replaceChildren(h('p.pknote.ppdraft', { dataset: { case: 'keep' } }, `“${text}”`), h('div.pkrow', copy, share, again), h('small.mnhow', 'In your voice, for you to check. I never send it.'));
+            };
+            const go = button('Draft a message', () => void draft());
+            go.setAttribute('aria-label', `Draft a birthday message for ${bday}`);
+            return h('div.pkperson', { role: 'group', 'aria-label': `${what}, ${when}`, dataset: { case: 'keep' } }, h('b', what), h('span.pklab', when), h('div.pkrow', go), out);
           })
         /* state: people.coming empty */
         : [emptyState('Nothing coming up', 'Keep a birthday or a date below, and I remind you a week before and on the day.')]),

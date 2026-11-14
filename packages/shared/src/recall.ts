@@ -14,6 +14,8 @@ export interface Gist {
   via: string;
   q: string;
   a?: string;
+  /** [recall] memory.u11: pinned, so it stays past the 30 days. */
+  pinned?: boolean;
 }
 
 /** A kept turn found for a question, with its day said in words. */
@@ -39,6 +41,8 @@ const ASKS: RegExp[] = [
   new RegExp(`${LEAD}(?:did|have) i (?:ever )?(?:tell|told|ask|asked) you (?:about|anything about) (.+)$`, 'i'),
   new RegExp(`${LEAD}(?:find|show me|search for) (?:where|when|the times?) i (?:said|mentioned|asked about|talked about|asked you about|told you about) (.+)$`, 'i'),
   new RegExp(`${LEAD}what have i (?:asked|told) you about (.+)$`, 'i'),
+  // (memory.c5: the ways he says it out loud, in the car)
+  new RegExp(`${LEAD}(?:what was i asking(?: you)? about|remind me what i (?:asked|said)(?: you)?(?: about)?|what did we (?:say|talk about|decide) (?:about|on)|did we (?:talk|speak) about|have we (?:talked|spoken) about|what did you tell me about|what did i say about|when did we (?:talk|speak) about|what was that (?:thing )?(?:about|on)) (.+)$`, 'i'),
 ];
 
 /** The thing he is looking for in "what did I ask you about trains?" ("trains"), or null when it is no such question. */
@@ -149,14 +153,19 @@ const PRONOUN = /^(they|them|he|she|him|her|it|anyone|nobody|no one)$/i;
  * "remind me to chase this if Sam doesn't reply by Thursday", "chase this up if they haven't answered by Friday", "if Sam hasn't
  * replied by tomorrow remind me to chase": who (the name he used, '' for "they") and the day word. null when it is no such ask.
  */
-export function chaseAsked(text: string): { who: string; day: string } | null {
+export function chaseAsked(text: string): { who: string; day: string; again?: string; wait?: 'parcel' } | null {
   const t = String(text ?? '').replace(/\s+/g, ' ').trim().replace(/[?.!]+$/, '');
+  // (memory.u4: "… and again Monday if still nothing": a second look on that day)
+  const again = /\band (?:again|once more|chase again) (?:on |by )?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.exec(t)?.[1]?.toLowerCase();
+  // (memory.s4: "if the parcel hasn't come by Friday": a wait that his own mail can settle — a delivery email — never a paid tracker)
+  const parcel = /\bif (?:the |my )?(parcel|package|delivery|order)\s+(?:hasn'?t|has not|doesn'?t|does not|isn'?t|is not)\s+(?:come|arrived|turned up|been delivered|here|arrive|come in)\b.*?\bby\s+(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.exec(t);
+  if (parcel && /\b(?:remind|chase|tell|let) me\b/i.test(t)) return { who: '', day: parcel[2]!.toLowerCase(), wait: 'parcel', ...(again ? { again } : {}) };
   if (!/\bchase\b/i.test(t)) return null;
   const m = /\bif\s+([A-Za-z][\w'’.-]*(?: [A-Z][\w'’.-]*)?)\s+(?:doesn'?t|does not|don'?t|do not|hasn'?t|has not|haven'?t|have not|didn'?t|did not)\s+(?:reply|replied|respond|responded|answer|answered|get back|got back|write back|written back)\b.*?\bby\s+(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.exec(t)
     ?? /\bif\s+(?:there'?s\s+|there is\s+)?no (?:reply|answer|response)(?: from ([A-Za-z][\w'’.-]*))?\s+by\s+(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.exec(t);
   if (!m) return null;
   const raw = (m[1] ?? '').trim();
-  return { who: !raw || PRONOUN.test(raw) ? '' : raw.replace(/^./, (c) => c.toUpperCase()), day: m[2]!.toLowerCase() };
+  return { who: !raw || PRONOUN.test(raw) ? '' : raw.replace(/^./, (c) => c.toUpperCase()), day: m[2]!.toLowerCase(), ...(again ? { again } : {}) };
 }
 
 /** Minutes east of UTC for a zone at a moment. */
@@ -202,3 +211,14 @@ export const repliedLine = (who: string, at: number, tz: string): string => `${w
 /** That morning, when nothing came (or no mail is linked). */
 export const chaseDueLine = (who: string, about: string, mail: boolean): string =>
   `${mail ? `No reply from ${whoWord(who)} yet` : `Time to chase ${whoWord(who)}`}${about ? `: “${about.slice(0, 80)}”` : ''}. DRAFT A CHASE writes one for your OK.`;
+
+/** [recall] memory.u4: the second look, said. */
+export const againLine = (at: number, tz: string): string => `If there's still nothing, I'll look again on ${chaseDay(at, tz)}.`;
+/** [recall] memory.s4: a parcel, settled by a delivery email in his own inbox (never a paid tracker). */
+export const parcelSetLine = (at: number, tz: string, mail: boolean): string =>
+  mail ? `On ${chaseDay(at, tz)} I'll look in your email for a delivery; if there's none, I'll remind you to chase the parcel.` : `No mail account is linked, so on ${chaseDay(at, tz)} I'll simply remind you to chase the parcel.`;
+export const parcelCameLine = (at: number, tz: string): string => {
+  const d = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: tz || 'UTC' }).format(at);
+  return `A delivery email came on ${d}; nothing to chase.`;
+};
+export const parcelDueLine = (about: string, mail: boolean): string => `${mail ? 'No delivery email yet' : 'Time to chase the parcel'}${about ? `: “${about.slice(0, 80)}”` : ''}. Chase the seller, or tell me it came.`;

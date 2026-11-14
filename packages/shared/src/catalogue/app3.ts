@@ -246,6 +246,19 @@ export const APP_3: Record<string, CatValue> = {
     say: ['Check bbc.co.uk'], scene: ['watching'], cat: 'watch',
   },
   // ---- THE WORKBENCH (a first estimate each, never certified)
+  // NEXT ROUND (MAKE lane): named projects and the DIY job planner, on the Workbench's PROJECTS section
+  'panel:workbench:PROJECTS': {
+    name: 'Save my Workbench projects', line: 'You can save a set of Workbench answers under a name, like “the shed beam”, and open it later with every number as you left it.',
+    more: 'Kept on your phone. Each answer is worked out again when it opens: still a first estimate, never certified.',
+    say: ['Workbench projects'], scene: ['making'], cat: 'build',
+    since: '2026-11-14',
+  },
+  'panel:workbench:DIY JOBS': {
+    name: 'Plan a DIY job', line: 'You can say “put up a shelf” and get the tools, the materials, the steps and a first-estimate load check.',
+    more: 'A shelf, a TV on the wall, a curtain pole or a picture: the board or pole checked as a beam, each fixing’s share of the weight with a margin, typical prices. Never a fitter’s sign-off.',
+    say: ['Put up a shelf', 'Mount my TV on the wall', 'Hang a mirror'], scene: ['making'], cat: 'build',
+    since: '2026-11-14',
+  },
   'panel:workbench:WIND TUNNEL': {
     name: 'A wind tunnel on your phone', line: 'You can watch air flow round a wing, a car or a shape you draw, live, with its lift and drag.',
     more: 'A 2-D flow worked out on your phone: change the wing’s camber, thickness and angle as it runs. A first estimate, never certified.',
@@ -358,6 +371,12 @@ export const APP_3: Record<string, CatValue> = {
   'panel:workshop:VERSIONS': { same: 'tool:restore_version' },
   'panel:workshop:WIDGETS': { same: 'tool:list_widgets' },
   'panel:workshop:PUBLISHED PAGES': { same: 'tool:list_sites' },
+  // [sites] NEXT ROUND sites.u12
+  'panel:workshop:PHOTOS FOR YOUR SITES': {
+    name: 'Your own photos on your sites', line: 'You can keep your own photos for the sites I build you, so they show your place and your work instead of stock pictures.',
+    more: 'Each photo is made smaller on your phone and its location removed before it leaves. The first is the main picture; a caption is what a screen reader says. Nothing is public until a page you approved shows it.',
+    say: ['Build a website for my café with my photos', 'Use my own photos on the site', 'Make my barber shop site with our pictures'], scene: ['making'], cat: 'build', where: 'Workshop → PHOTOS FOR YOUR SITES',
+  },
   'panel:workshop:KERNEL LOCK': {
     name: 'The lock on my core', line: 'You can keep my core locked, so I can never change my keys, my safety rules or my checks.',
     more: 'Even when you ask me to change myself, the core stays out of reach unless you unlock it here.',

@@ -26,6 +26,8 @@ import { rawText, sayError } from '../../ui/hisWords';
 import type { Preset } from '../../photo/recipe';
 import type { RecipeCopy } from '../../photo/store';
 import type { Project } from '../../video/model';
+import type { Book } from '../comic/store';
+import type { Game } from '../../studio-game/model';
 
 /** What goes in, and what it is called in plain words. `whole`: kept as one piece (the phone's wins if it has one). */
 export const BACKUP_KEYS: { key: string; label: string; whole?: boolean }[] = [
@@ -70,15 +72,41 @@ export interface Editors {
   photos: RecipeCopy[];
   looks: Preset[];
   videos: Project[];
+  /** (NEXT ROUND, polish3.c1) the comics he made, as their scripts (they draw again), and the games he made in GAME STUDIO. */
+  comics?: { book: Book; made: unknown }[];
+  games?: { game: Game; thumb: string; at: number }[];
 }
 
 /** What the photo and video editors keep in this phone's own database, read for the backup (each store loaded only now). */
 async function editorsNow(): Promise<Editors> {
-  const [ph, vd] = await Promise.all([
+  const [ph, vd, comics, games] = await Promise.all([
     import('../../photo/store').then((m) => m.recipesForBackup()).catch(() => ({ recipes: [], looks: [] })),
     import('../../video/store').then((m) => m.projectsForBackup()).catch(() => [] as Project[]),
+    comicsNow().catch(() => []),
+    gamesNow().catch(() => []),
   ]);
-  return { photos: ph.recipes, looks: ph.looks, videos: vd };
+  return { photos: ph.recipes, looks: ph.looks, videos: vd, comics, games };
+}
+/** The comics he made: the shelf's entry and the script that draws it again (imported and downloaded comics are pictures: too big). */
+async function comicsNow(): Promise<{ book: Book; made: unknown }[]> {
+  const c = await import('../comic/store');
+  const mine = (await c.books()).filter((b) => b.from === 'made');
+  const out: { book: Book; made: unknown }[] = [];
+  for (const book of mine) {
+    const made = await c.madeOf(book.id).catch(() => undefined);
+    if (made !== undefined) out.push({ book, made });
+  }
+  return out;
+}
+/** The games he made in GAME STUDIO: each game whole (its rooms, its rules), with its small picture. */
+async function gamesNow(): Promise<{ game: Game; thumb: string; at: number }[]> {
+  const g = await import('../../studio-game/store');
+  const out: { game: Game; thumb: string; at: number }[] = [];
+  for (const m of await g.listGames()) {
+    const game = await g.getGame(m.id).catch(() => null);
+    if (game) out.push({ game, thumb: m.thumb, at: m.at });
+  }
+  return out;
 }
 
 export type { LastBackup };
@@ -170,7 +198,7 @@ export async function open(s: SealedBackup, owner: string): Promise<Bundle> {
   }
   const b = JSON.parse(new TextDecoder().decode(plain)) as Partial<Bundle>;
   const e = b.editors && typeof b.editors === 'object' ? b.editors : null;
-  const editors: Editors | undefined = e ? { photos: Array.isArray(e.photos) ? e.photos : [], looks: Array.isArray(e.looks) ? e.looks : [], videos: Array.isArray(e.videos) ? e.videos : [] } : undefined;
+  const editors: Editors | undefined = e ? { photos: Array.isArray(e.photos) ? e.photos : [], looks: Array.isArray(e.looks) ? e.looks : [], videos: Array.isArray(e.videos) ? e.videos : [], comics: Array.isArray(e.comics) ? e.comics : [], games: Array.isArray(e.games) ? e.games : [] } : undefined;
   return { v: 1, at: Number(b.at) || s.at, local: b.local && typeof b.local === 'object' ? b.local : {}, library: Array.isArray(b.library) ? b.library : [], ...(editors ? { editors } : {}) };
 }
 
@@ -269,6 +297,9 @@ export interface RestoreReport {
   videos: number;
   /** Photo edits in the backup whose photo is not on this phone (the photo itself is never in a backup). */
   photosAway: number;
+  /** Comics he made and games he made, put back (NEXT ROUND, polish3.c1). */
+  comics?: number;
+  games?: number;
 }
 
 /**
@@ -276,9 +307,15 @@ export interface RestoreReport {
  * writes to localStorage again (core/store.ts freezeStorage): the caller reloads straight away.
  */
 export async function restore(b: BackupInfo): Promise<RestoreReport> {
+  if (!ownerKey.get()) throw new Error('Backups open with your owner key: pair this phone with it first.');
+  const { backup } = await brain.getBackup(b);
+  return restoreSealed(backup);
+}
+
+/** The same restore from a sealed copy in hand: the brain's, or a backup file he kept (NEXT ROUND, polish3.u5). */
+export async function restoreSealed(backup: SealedBackup, leave: ReadonlySet<string> = new Set()): Promise<RestoreReport> {
   const owner = ownerKey.get();
   if (!owner) throw new Error('Backups open with your owner key: pair this phone with it first.');
-  const { backup } = await brain.getBackup(b);
   const bundle = await open(backup, owner);
   const out: RestoreReport = { restored: [], merged: [], same: [], skipped: [], docs: 0, photos: 0, looks: 0, videos: 0, photosAway: 0 };
   // Older backups also carry entries that are never put back: they go through the same rule (restoreEntry).
@@ -286,7 +323,7 @@ export async function restore(b: BackupInfo): Promise<RestoreReport> {
   // From here to freezeStorage() there is no await, so nothing else on the page runs in between.
   for (const { key, label, whole } of entries) {
     const bak = bundle.local[key];
-    if (typeof bak !== 'string') continue;
+    if (typeof bak !== 'string' || leave.has(key)) continue; // (left as it is here: he unticked it in the preview)
     let cur: string | null = null;
     try {
       cur = localStorage.getItem(key);
@@ -311,9 +348,50 @@ export async function restore(b: BackupInfo): Promise<RestoreReport> {
   const prev = lastBackup.get();
   lastBackup.set({ ...(prev ?? { at: 0, ok: true }), known: true, due: true });
   freezeStorage();
-  for (const { doc, passages } of bundle.library) if (await restoreDoc(doc, Array.isArray(passages) ? passages : []).catch(() => false)) out.docs++;
-  await restoreEditors(bundle.editors, out);
+  if (!leave.has(DOCS_KEY)) for (const { doc, passages } of bundle.library) if (await restoreDoc(doc, Array.isArray(passages) ? passages : []).catch(() => false)) out.docs++;
+  if (!leave.has(EDITORS_KEY)) await restoreEditors(bundle.editors, out);
   return out;
+}
+
+// ---------------------------------------------------------------------------------------
+// See what a restore brings back (NEXT ROUND, polish3.u4): each thing in a backup, whether it comes back, is joined with this
+// phone's (the newer of each part wins) or is already the same here, chosen item by item before anything is written.
+// ---------------------------------------------------------------------------------------
+
+/** The two groups that are not one stored entry: the library's documents kept only on the phone, and the editors' work. */
+export const DOCS_KEY = '#docs';
+export const EDITORS_KEY = '#editors';
+
+export interface PreviewItem {
+  key: string;
+  label: string;
+  /** comes back whole, is joined with this phone's, or is the same here already (nothing to do) */
+  result: MergeResult;
+}
+
+/** What a sealed copy holds, and what a restore would do with each part, read without writing anything. */
+export async function previewSealed(backup: SealedBackup): Promise<{ at: number; items: PreviewItem[] }> {
+  const owner = ownerKey.get();
+  if (!owner) throw new Error('Backups open with your owner key: pair this phone with it first.');
+  const bundle = await open(backup, owner);
+  const items: PreviewItem[] = [];
+  for (const { key, label, whole } of BACKUP_KEYS) {
+    const bak = bundle.local[key];
+    if (typeof bak !== 'string') continue;
+    let cur: string | null = null;
+    try {
+      cur = localStorage.getItem(key);
+    } catch {
+      /* unreadable: treated as empty */
+    }
+    const m = restoreEntry(key, cur, bak, whole);
+    if (m) items.push({ key, label, result: m.result });
+  }
+  if (bundle.library.length) items.push({ key: DOCS_KEY, label: `${bundle.library.length} ${bundle.library.length === 1 ? 'document' : 'documents'} kept only on that phone`, result: 'restored' });
+  const e = bundle.editors;
+  const made = e ? e.photos.length + e.looks.length + e.videos.length + (e.comics?.length ?? 0) + (e.games?.length ?? 0) : 0;
+  if (made) items.push({ key: EDITORS_KEY, label: `the editors’ work: ${made} ${made === 1 ? 'thing' : 'things'} (photo edits, looks, videos, comics and games)`, result: 'merged' });
+  return { at: bundle.at, items };
 }
 
 /** The editors' part of a restore: each put back only where it is newer than this phone's, nothing here wiped (the same rule as the rest). */
@@ -334,11 +412,35 @@ export async function restoreEditors(e: Editors | undefined, out: RestoreReport)
     const vd = await import('../../video/store').catch(() => null);
     if (vd) for (const p of e.videos) if ((await vd.restoreProject(p).catch(() => 'same' as const)) === 'kept') out.videos++;
   }
+  // a comic he made comes back when this phone has none by its id; a game when it has none, or an older one (the newer wins)
+  if (e.comics?.length) {
+    const c = await import('../comic/store').catch(() => null);
+    if (c) for (const x of e.comics) {
+      if (!x?.book?.id || (await c.bookOf(x.book.id).catch(() => undefined))) continue;
+      try {
+        await c.updateBook(x.book);
+        await c.keepMade(x.book.id, x.made);
+        out.comics = (out.comics ?? 0) + 1;
+      } catch {
+        /* this one stays out: the rest go on */
+      }
+    }
+  }
+  if (e.games?.length) {
+    const g = await import('../../studio-game/store').catch(() => null);
+    if (g) {
+      const here = new Map((await g.listGames().catch(() => [])).map((m) => [m.id, m.at]));
+      for (const x of e.games) {
+        if (!x?.game?.id || (here.get(x.game.id) ?? 0) >= x.at) continue;
+        if ((await g.putGame(x.game, x.thumb).catch(() => ({ kept: false }))).kept) out.games = (out.games ?? 0) + 1;
+      }
+    }
+  }
 }
 
 /** Restore, then reload at once; the report is shown again after the reload (takeRestoreReport). */
-export async function restoreAndReload(b: BackupInfo): Promise<string> {
-  const text = reportText(await restore(b));
+export async function restoreAndReload(b: BackupInfo | SealedBackup, leave: ReadonlySet<string> = new Set()): Promise<string> {
+  const text = reportText('ct' in b ? await restoreSealed(b, leave) : await restoreSealed((await brain.getBackup(b)).backup, leave));
   try {
     sessionStorage.setItem(REPORT, text);
   } catch {
@@ -366,10 +468,52 @@ export function reportText(r: RestoreReport): string {
   if (r.merged.length) parts.push(`Joined with what was here (newer wins): ${r.merged.join(', ')}.`);
   if (r.docs) parts.push(`${r.docs} document${r.docs === 1 ? '' : 's'} kept only on this phone put back in the library.`);
   const n = (k: number, one: string) => `${k} ${one}${k === 1 ? '' : 's'}`;
-  const ed = [r.photos ? n(r.photos, 'photo edit') : '', r.looks ? `${r.looks} ${r.looks === 1 ? 'look' : 'looks'} of your own` : '', r.videos ? n(r.videos, 'video project') : ''].filter(Boolean);
+  const ed = [r.photos ? n(r.photos, 'photo edit') : '', r.looks ? `${r.looks} ${r.looks === 1 ? 'look' : 'looks'} of your own` : '', r.videos ? n(r.videos, 'video project') : '', r.comics ? `${r.comics} ${r.comics === 1 ? 'comic' : 'comics'} you made` : '', r.games ? `${r.games} ${r.games === 1 ? 'game' : 'games'} you made` : ''].filter(Boolean);
   if (ed.length) parts.push(`Put back in the editors: ${ed.join(', ')}.`);
   if (r.photosAway) parts.push(`${n(r.photosAway, 'photo edit')} waiting for ${r.photosAway === 1 ? 'its photo' : 'their photos'}: the photos themselves stay on the phone they were taken on.`);
   if (!parts.length) parts.push('Everything in that backup was already on this phone.');
   if (r.skipped.length) parts.push(`Not taken from the backup: ${r.skipped.join(', ')}.`);
   return parts.join(' ');
+}
+
+// ---------------------------------------------------------------------------------------
+// A backup kept as a file (NEXT ROUND, polish3.u5): the same locked copy, saved where he chooses (Files, iCloud Drive), so it
+// never depends only on the brain. It opens only with his owner key, on any phone of his.
+// ---------------------------------------------------------------------------------------
+
+export const BACKUP_FILE_KIND = 'ghosty-backup';
+export interface BackupFile {
+  kind: typeof BACKUP_FILE_KIND;
+  v: 1;
+  /** Which phone it came from, in words, and when. */
+  label: string;
+  at: number;
+  sealed: SealedBackup;
+}
+
+/** The file's name: the day, so a folder of them sorts by date. */
+export const backupFileName = (at: number): string => `ghosty-backup-${new Date(at).toISOString().slice(0, 10)}.json`;
+
+/** Make the file now: everything that lives only on this phone, locked with the owner key here. */
+export async function backupFile(): Promise<{ name: string; blob: Blob; size: number }> {
+  const owner = ownerKey.get();
+  if (!owner) throw new Error('Backup files are locked with your owner key; pair this phone with it first.');
+  const sealed = await seal(await collect(), owner);
+  const doc: BackupFile = { kind: BACKUP_FILE_KIND, v: 1, label: deviceLabel(), at: sealed.at, sealed };
+  const blob = new Blob([JSON.stringify(doc)], { type: 'application/json' });
+  return { name: backupFileName(sealed.at), blob, size: blob.size };
+}
+
+/** A picked file read back: the sealed copy inside it, or why it is not one of his backups. Pure. */
+export function readBackupFile(text: string): { ok: true; file: BackupFile } | { ok: false; why: string } {
+  let d: unknown;
+  try {
+    d = JSON.parse(text);
+  } catch {
+    return { ok: false, why: 'That file isn’t one of my backups: it isn’t the file BACKUP saves.' };
+  }
+  const f = d as Partial<BackupFile> | null;
+  const s = f?.sealed as Partial<SealedBackup> | undefined;
+  if (!f || f.kind !== BACKUP_FILE_KIND || !s || typeof s.ct !== 'string' || typeof s.iv !== 'string' || typeof s.salt !== 'string') return { ok: false, why: 'That file isn’t one of my backups: it isn’t the file BACKUP saves.' };
+  return { ok: true, file: { kind: BACKUP_FILE_KIND, v: 1, label: typeof f.label === 'string' ? f.label : 'a phone', at: Number(f.at) || Number(s.at) || 0, sealed: s as SealedBackup } };
 }

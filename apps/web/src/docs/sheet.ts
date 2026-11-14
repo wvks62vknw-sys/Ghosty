@@ -10,6 +10,7 @@
  * its tables, links and pictures, and Ghosty writing into the page after the paragraph he is in. The EDITORS lane added strikethrough,
  * the highlighter (MARK) and checklists with a box to tick, each kept through Markdown, HTML, Word and the PDF.
  */
+import { pageLine, putOnSites } from '../sites/handover'; // [sites] a document at its own link (NEXT ROUND sites.s4)
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
 import { MIME, sizeWords } from '../convert/bytes';
@@ -25,9 +26,14 @@ import { fromLatin, scriptOf, SCRIPTS, THE_LINE, toLatin, type Script } from './
 import {
   accept, block, blockId, contents, counts, docFromReply, EDITS, findIn, History, isHeading, langCode, LANGUAGES, newDoc, newTable, openDocData, pageOf, plainBlock, proposalFrom, replaceAll, rewriteMessage, textOf, tidyRuns, toHtml, toMarkdown, withBlock, wordDiff,
   writeMessage, writtenBlocks,
+  isColour, type TextColour,
   type Align, type Block, type BlockType, type Doc, type EditKind, type PageSetup, type Run, type Suggestion,
 } from './model';
 import { sayError } from '../ui/hisWords';
+import { run } from '../commands/registry';
+import { commentsPanel } from './commentsui';
+import { moveSection } from './sections';
+import { anchorOf, commentsOf } from './comments';
 
 export const docsState = {
   open: false,
@@ -50,6 +56,9 @@ export const docsState = {
   lost: [] as string[],
   focus: '',
   panel: 'write',
+  /** [sweep] The words chosen in the page, and his word goal (0: none). */
+  chosen: 0,
+  goal: 0,
 };
 let current: { close(): void } | null = null;
 /** A button that shows its words as written ("In plain English", "HTML"), not in the buttons' sentence case. */
@@ -60,7 +69,7 @@ const cased = (b: HTMLButtonElement, words = b.textContent ?? ''): HTMLButtonEle
 
 /** The sheet's name (its title, and its panel on the DOCUMENTS screen: features/docs/index.ts). */
 export const DOCS_TITLE = 'DOCUMENTS';
-type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters'; language?: string };
+type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill' | 'merge' | 'comments' | 'outline'; language?: string };
 
 /** The sheet: a document to open (one read here, a chat reply laid out), or MY DOCUMENTS. */
 export async function openDocs(o: DocsAsk = {}): Promise<void> {
@@ -118,10 +127,22 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     tidyImages();
     const docs = listDocs();
     docsState.kept = docs.length;
+    const item = (d: Doc) => button(h('span.dcdoc', h('b', d.title), h('small', `${d.kind === 'letter' ? 'Letter' : d.kind === 'translation' ? `Translation${d.lang ? ` into ${d.lang}` : ''}` : d.kind === 'read' ? 'Read from a file' : 'Document'} · ${whenWords(d.at)} · ${readingWords(d).split(',')[0]}`)), () => showDoc(d), 'dcopen');
+    const list = h('div.dclist', ...docs.map(item));
+    // [sweep] a search over his documents' titles and words, as Pages' and Word's own lists have, once there are a few
+    const search = h('input.dcsearch', { type: 'search', placeholder: 'Search my documents', 'aria-label': 'Search my documents', enterKeyHint: 'search', autocomplete: 'off' }) as HTMLInputElement;
+    const found = h('small.dcnote', { 'aria-live': 'polite' });
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      const hits = q ? docs.filter((d) => d.title.toLowerCase().includes(q) || d.blocks.some((b) => textOf(b).toLowerCase().includes(q))) : docs;
+      clear(list, ...hits.map(item));
+      found.textContent = q ? (hits.length ? `${hits.length} of ${docs.length} document${docs.length === 1 ? '' : 's'} with “${search.value.trim()}”` : `No document has “${search.value.trim()}” in it.`) : '';
+    });
     clear(view,
       h('h3.dch', 'MY DOCUMENTS'),
+      ...(docs.length > 3 ? [h('div.dcrow', search), found] : []),
       docs.length
-        ? h('div.dclist', ...docs.map((d) => button(h('span.dcdoc', h('b', d.title), h('small', `${d.kind === 'letter' ? 'Letter' : d.kind === 'translation' ? `Translation${d.lang ? ` into ${d.lang}` : ''}` : d.kind === 'read' ? 'Read from a file' : 'Document'} · ${whenWords(d.at)} · ${readingWords(d).split(',')[0]}`)), () => showDoc(d), 'dcopen')))
+        ? list
         : h('p.dcnote', 'Nothing kept yet. Ask me in the chat to write something (“write a letter to my landlord about the damp”), open a file, or start a new one.'),
     );
     say(docs.length ? `${docs.length} document${docs.length === 1 ? '' : 's'}, kept on this phone only.` : '');
@@ -167,15 +188,21 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }, 700);
     docsState.json = JSON.stringify(d);
     paintMeta();
+    paintCommentMarks();
   };
   let pagesTimer = 0;
-  const metaEl = h('p.dcmeta');
+  /** [sweep] How many words are chosen in the page (the line under the title says it, as Word's and Pages' counts do). */
+  let chosenCount = 0;
+  const metaEl = h('p.dcmeta', { 'aria-live': 'polite' });
   const savedEl = h('small.dcsaved', { 'aria-live': 'polite' });
   const paintMeta = () => {
     const d = doc();
     const pg = pageOf(d);
     const mins = Math.max(1, Math.round(docsState.words / 200));
-    metaEl.textContent = `${docsState.words.toLocaleString('en-GB')} word${docsState.words === 1 ? '' : 's'} · ${docsState.chars.toLocaleString('en-GB')} characters · ${docsState.pages} page${docsState.pages === 1 ? '' : 's'} (${pg.size === 'a4' ? 'A4' : 'Letter'}${pg.landscape ? ', landscape' : ''}) · about ${mins} min to read`;
+    const goal = d.goal ?? 0;
+    const goalWords = goal ? ` · goal ${goal.toLocaleString('en-GB')}: ${docsState.words >= goal ? 'reached' : `${Math.round((docsState.words / goal) * 100)}%`}` : '';
+    docsState.goal = goal;
+    metaEl.textContent = `${chosenCount ? `${chosenCount.toLocaleString('en-GB')} word${chosenCount === 1 ? '' : 's'} chosen of ` : ''}${docsState.words.toLocaleString('en-GB')} word${docsState.words === 1 ? '' : 's'}${goalWords} · ${docsState.chars.toLocaleString('en-GB')} characters · ${docsState.pages} page${docsState.pages === 1 ? '' : 's'} (${pg.size === 'a4' ? 'A4' : 'Letter'}${pg.landscape ? ', landscape' : ''}) · about ${mins} min to read`;
     savedEl.textContent = blocked ? 'NOT KEPT · THIS PHONE’S STORAGE IS BLOCKED' : getDoc(d.id) ? `KEPT ON THIS PHONE · ${new Date(d.at).toLocaleTimeString('en-GB')}` : 'READ FROM A FILE · NOT KEPT UNTIL YOU CHANGE IT';
   };
 
@@ -185,6 +212,61 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const contentsBox = h('div.dccontents');
   findBox.hidden = true;
   contentsBox.hidden = true;
+  // [editors.s2] MAIL MERGE: the letter's {{fields}} filled from a spreadsheet's rows (docs/mergeui.ts), opened on its key
+  const mergeHolder = h('div.dcmergebox');
+  mergeHolder.hidden = true;
+  let merge: { el: HTMLElement; refresh(): void } | null = null;
+  // [editors.u1] comments on words: the panel (docs/commentsui.ts) made on first use, the words drawn marked in the page
+  const commentsHolder = h('div.dccmtbox');
+  commentsHolder.hidden = true;
+  let cmts: ReturnType<typeof commentsPanel> | null = null;
+  const commentsUi = () => {
+    cmts ??= commentsPanel({
+      doc,
+      change: (d) => {
+        change(d);
+        cmts?.paint();
+      },
+      say,
+      show: (id, start, end) => {
+        const el = elOf(id);
+        if (!el) return;
+        el.focus();
+        const r = document.createRange();
+        r.setStart(...pointIn(el, start));
+        r.setEnd(...pointIn(el, end));
+        getSelection()?.removeAllRanges();
+        getSelection()?.addRange(r);
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      },
+      ask: (m) => askBrain(m),
+    });
+    if (!commentsHolder.contains(cmts.el)) clear(commentsHolder, cmts.el);
+    return cmts;
+  };
+  /** The words of every open comment drawn marked in the page (the browser's own highlights: the page's words are not touched). */
+  const paintCommentMarks = () => {
+    const reg = (globalThis as unknown as { CSS?: { highlights?: Map<string, unknown> } }).CSS?.highlights;
+    const HL = (globalThis as unknown as { Highlight?: new (...r: Range[]) => unknown }).Highlight;
+    if (!reg || !HL || !hist) return;
+    const ranges: Range[] = [];
+    for (const c of commentsOf(doc())) {
+      if (c.resolved) continue;
+      const at = anchorOf(doc(), c);
+      const el = at ? elOf(at.block) : null;
+      if (!at || !el) continue;
+      try {
+        const r = document.createRange();
+        r.setStart(...pointIn(el, at.start));
+        r.setEnd(...pointIn(el, at.end));
+        ranges.push(r);
+      } catch {
+        /* words drawn differently this moment: marked on the next paint */
+      }
+    }
+    if (ranges.length) reg.set('dccmt', new HL(...ranges));
+    else reg.delete('dccmt');
+  };
 
   interface Marks {
     b: boolean;
@@ -193,6 +275,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     s: boolean;
     hl: boolean;
     href: string;
+    c?: TextColour;
   }
   const safeLink = (u: string): string => {
     const t = u.trim();
@@ -202,7 +285,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     return /@/.test(t) && !/\s|\//.test(t) ? `mailto:${t}` : `https://${t}`;
   };
   function runsOf(node: Node, st: Marks = { b: false, i: false, u: false, s: false, hl: false, href: '' }, out: Run[] = []): Run[] {
-    const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.s ? { s: true } : {}), ...(m.hl ? { hl: true } : {}), ...(m.href ? { href: m.href } : {}) });
+    const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.s ? { s: true } : {}), ...(m.hl ? { hl: true } : {}), ...(m.href ? { href: m.href } : {}), ...(m.c && !m.href ? { c: m.c } : {}) });
     node.childNodes.forEach((n) => {
       if (n.nodeType === Node.TEXT_NODE) out.push(mk(n.textContent ?? '', st));
       else if (n.nodeType === Node.ELEMENT_NODE) {
@@ -220,6 +303,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
             s: st.s || tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || /line-through/.test(el.style.textDecorationLine || el.style.textDecoration),
             hl: st.hl || tag === 'MARK',
             href: tag === 'A' ? safeLink(el.getAttribute('href') ?? '') : st.href,
+            c: el.dataset.tc ? (['red', 'blue', 'green', 'orange'] as const)[Number(el.dataset.tc) - 1] ?? st.c : st.c,
           }, out);
       }
     });
@@ -323,6 +407,12 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   let lastRange: Range | null = null;
   document.addEventListener('selectionchange', () => {
     const sel = getSelection();
+    const n = sel?.rangeCount && !sel.isCollapsed && page.contains(sel.anchorNode) ? (sel.toString().match(/\S+/g)?.length ?? 0) : 0;
+    if (n !== chosenCount && hist) {
+      chosenCount = n;
+      docsState.chosen = n;
+      paintMeta();
+    }
     if (sel?.rangeCount && page.contains(sel.anchorNode)) lastRange = sel.getRangeAt(0).cloneRange();
     // the choice let go of (nothing chosen anywhere): a key must not act on words chosen before
     else if (!sel?.rangeCount) lastRange = null;
@@ -490,6 +580,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         if (r.u) node = h('u', node);
         if (r.s) node = h('s', node);
         if (r.hl) node = h('mark.dchl', node);
+        // (drawn by its number: the stylesheet names no colour of its own, only the tokens)
+        if (isColour(r.c)) node = h('span.dctc', { dataset: { tc: String(['red', 'blue', 'green', 'orange'].indexOf(r.c) + 1) } }, node);
         if (r.href) node = h('a', { href: r.href, rel: 'noopener', target: '_blank' }, node);
         el.append(node);
       });
@@ -596,13 +688,32 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     }
     return last ? [last, last.textContent?.length ?? 0] : [el, el.childNodes.length];
   };
-  /** STRIKE and HIGHLIGHT: the chosen words get the mark (or lose it, when they all have it), and stay chosen. */
-  const markWords = (what: 's' | 'hl') => {
+  /** The words chosen in one paragraph, as its letters from and to (null when none are chosen there). */
+  const chosenWords = (): { block: string; start: number; end: number } | null => {
     const sel = getSelection();
     const live = sel?.rangeCount && page.contains(sel.anchorNode) ? sel.getRangeAt(0) : lastRange;
     const host = live ? (live.startContainer.nodeType === Node.ELEMENT_NODE ? (live.startContainer as HTMLElement) : live.startContainer.parentElement)?.closest<HTMLElement>('.dcb[data-id]') : null;
     const b = host ? doc().blocks.find((x) => x.id === host.dataset.id) : undefined;
-    if (!live || live.collapsed || !host || !host.isConnected || !b || !plainBlock(b) || !host.contains(live.endContainer)) return say(host?.closest('.dctable') ? 'Strike and highlight work on a paragraph’s words; a table cell keeps bold, italic and underline.' : 'Choose the words first (press and hold, then drag).');
+    if (!live || live.collapsed || !host || !b || !plainBlock(b) || !host.contains(live.endContainer)) return null;
+    sync(host);
+    const start = offsetIn(host, live.startContainer, live.startOffset);
+    const end = offsetIn(host, live.endContainer, live.endOffset);
+    return end > start ? { block: b.id, start, end } : null;
+  };
+  const commentOnChosen = () => {
+    const at = chosenWords();
+    if (!at) return say('Choose the words to comment on first (press and hold, then drag), then COMMENT.');
+    commentsHolder.hidden = false;
+    commentsUi().startNew(at);
+    say('Type your comment on those words, then ADD COMMENT.');
+  };
+  /** STRIKE and HIGHLIGHT: the chosen words get the mark (or lose it, when they all have it), and stay chosen. */
+  const markWords = (what: 's' | 'hl' | 'c', colour?: TextColour | null) => {
+    const sel = getSelection();
+    const live = sel?.rangeCount && page.contains(sel.anchorNode) ? sel.getRangeAt(0) : lastRange;
+    const host = live ? (live.startContainer.nodeType === Node.ELEMENT_NODE ? (live.startContainer as HTMLElement) : live.startContainer.parentElement)?.closest<HTMLElement>('.dcb[data-id]') : null;
+    const b = host ? doc().blocks.find((x) => x.id === host.dataset.id) : undefined;
+    if (!live || live.collapsed || !host || !host.isConnected || !b || !plainBlock(b) || !host.contains(live.endContainer)) return say(host?.closest('.dctable') ? 'Strike, highlight and colour work on a paragraph’s words; a table cell keeps bold, italic and underline.' : 'Choose the words first (press and hold, then drag).');
     clearTimeout(timer);
     const start = offsetIn(host, live.startContainer, live.startOffset);
     const end = offsetIn(host, live.endContainer, live.endOffset);
@@ -610,8 +721,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     host.blur();
     const [a, rest] = splitRuns(words, start);
     const [m, z] = splitRuns(rest, end - start);
-    const all = m.length > 0 && m.every((r) => r[what]);
-    const marked = m.map((r) => ({ ...r, [what]: all ? undefined : true }));
+    const all = what !== 'c' && m.length > 0 && m.every((r) => r[what]);
+    const marked = m.map((r) => (what === 'c' ? { ...r, c: colour ?? undefined } : { ...r, [what]: all ? undefined : true }));
     change(withBlock(doc(), b.id, (x) => ({ ...x, runs: tidyRuns([...a, ...marked, ...z]) })));
     const el = elOf(b.id);
     if (el) {
@@ -622,7 +733,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       getSelection()?.removeAllRanges();
       getSelection()?.addRange(r);
     }
-    say(`${what === 's' ? (all ? 'Strike taken off' : 'Struck through') : all ? 'Highlight taken off' : 'Highlighted'}. UNDO puts it back.`);
+    say(`${what === 'c' ? (colour ? `Coloured ${colour}` : 'Back to the page’s own ink') : what === 's' ? (all ? 'Strike taken off' : 'Struck through') : all ? 'Highlight taken off' : 'Highlighted'}. UNDO puts it back.`);
   };
   const removeBlock = (id: string) => {
     const d = doc();
@@ -634,6 +745,25 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const near = rest[Math.min(k, rest.length - 1)];
     if (near) elOf(near.id)?.focus();
     paintContext();
+  };
+
+  /** Words put where the caret is (or was) in the paragraph he is in: a mail merge's {{field}}. */
+  const insertText = (t: string): boolean => {
+    const el = elOf(focused);
+    if (!el || !el.isContentEditable) {
+      say('Tap where it goes in the letter first.');
+      return false;
+    }
+    el.focus();
+    const sel = getSelection();
+    if (lastRange && el.contains(lastRange.startContainer)) {
+      sel?.removeAllRanges();
+      sel?.addRange(lastRange);
+    }
+    document.execCommand('insertText', false, t);
+    clearTimeout(timer);
+    sync(el);
+    return true;
   };
 
   // ---------------------------------------------------------------- the formatting keys: WRITE, INSERT, PAGE, LINK
@@ -688,6 +818,13 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   clear(linkBox, linkIn, key('APPLY', applyLink, 'on'), key('REMOVE LINK', removeLink), key('CANCEL', () => (linkBox.hidden = true)));
   linkIn.addEventListener('keydown', (e) => e.key === 'Enter' && applyLink());
 
+  // [sweep] text colour (Pages' and Word's font colour): four plain colours and the page's own ink, on the chosen words
+  const colourBox = h('div.dcrow.dccolours', ...(['red', 'blue', 'green', 'orange'] as TextColour[]).map((c) => {
+    const k = key(c.toUpperCase(), () => markWords('c', c), `dcsw`, `${c[0]!.toUpperCase()}${c.slice(1)} text`);
+    k.dataset.tc = String(['red', 'blue', 'green', 'orange'].indexOf(c) + 1);
+    return k;
+  }), key('NO COLOUR', () => markWords('c', null), '', 'The page’s own ink'));
+  colourBox.hidden = true;
   const photoIn = h('input', { type: 'file', hidden: true, accept: 'image/*', 'aria-label': 'Choose a photo to put in the document' }) as HTMLInputElement;
   photoIn.addEventListener('change', async () => {
     const f = photoIn.files?.[0];
@@ -775,6 +912,14 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const footIn = h('input', { type: 'text', placeholder: 'A line at the foot of every page', 'aria-label': 'Footer line', autocomplete: 'off', enterKeyHint: 'done' }) as HTMLInputElement;
   headIn.addEventListener('change', () => pageIn({ header: headIn.value.trim() }));
   footIn.addEventListener('change', () => pageIn({ footer: footIn.value.trim() }));
+  const goalIn = h('input', { type: 'number', min: '0', step: '50', inputMode: 'numeric', placeholder: 'Word goal (say 1000)', 'aria-label': 'Word count goal', enterKeyHint: 'done' }) as HTMLInputElement;
+  const setGoal = () => {
+    const n = Math.max(0, Math.min(1_000_000, Math.round(Number(goalIn.value) || 0)));
+    // (the field's own change and SET GOAL both land here: one step for one goal)
+    if (n !== (doc().goal ?? 0)) change({ ...doc(), goal: n || undefined }, false);
+    say(n ? `Goal set: ${n.toLocaleString('en-GB')} words. The line under the title counts towards it.` : 'No word goal now.');
+  };
+  goalIn.addEventListener('change', setGoal);
   const orient = key('PORTRAIT', () => pageIn({ landscape: !pageOf(doc()).landscape }));
   const nums = key('PAGE NUMBERS', () => pageIn({ numbers: !pageOf(doc()).numbers }));
   const paintPageKeys = () => {
@@ -783,6 +928,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     marginSel.value = pg.margin;
     headIn.value = pg.header ?? '';
     footIn.value = pg.footer ?? '';
+    goalIn.value = doc().goal ? String(doc().goal) : '';
     orient.textContent = pg.landscape ? 'LANDSCAPE' : 'PORTRAIT';
     orient.setAttribute('aria-pressed', String(!!pg.landscape));
     nums.setAttribute('aria-pressed', String(pg.numbers));
@@ -791,11 +937,14 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const panels: Record<string, HTMLElement> = {
     write: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Write' },
       h('div.dcrow', key('TEXT', () => setType('p'), '', 'Plain paragraph'), key('H1', () => setType('h1'), '', 'Heading 1'), key('H2', () => setType('h2'), '', 'Heading 2'), key('H3', () => setType('h3'), '', 'Heading 3'), key('QUOTE', () => setType('quote'))),
-      h('div.dcrow', key('B', () => mark('bold'), 'dcbold', 'Bold'), key('I', () => mark('italic'), 'dcital', 'Italic'), key('U', () => mark('underline'), 'dcund', 'Underline'), key('S', () => markWords('s'), 'dcstrike', 'Strikethrough'), key('MARK', () => markWords('hl'), 'dcmark', 'Highlight'), key('LINK', () => {
+      h('div.dcrow', key('B', () => mark('bold'), 'dcbold', 'Bold'), key('I', () => mark('italic'), 'dcital', 'Italic'), key('U', () => mark('underline'), 'dcund', 'Underline'), key('S', () => markWords('s'), 'dcstrike', 'Strikethrough'), key('MARK', () => markWords('hl'), 'dcmark', 'Highlight'), key('COMMENT', () => commentOnChosen(), '', 'Comment on the chosen words'), key('COLOUR', () => {
+        colourBox.hidden = !colourBox.hidden;
+      }, '', 'Text colour'), key('LINK', () => {
         linkBox.hidden = !linkBox.hidden;
         if (!linkBox.hidden) linkIn.focus();
       })),
       linkBox,
+      colourBox,
       h('div.dcrow', key('• LIST', () => setType('ul')), key('1. LIST', () => setType('ol')), key('☐ CHECKLIST', () => setType('todo'), '', 'Checklist')),
       h('div.dcrow', key('LEFT', () => setAlign('left'), '', 'Align left'), key('CENTRE', () => setAlign('center'), '', 'Centre'), key('RIGHT', () => setAlign('right'), '', 'Align right'), key('JUSTIFY', () => setAlign('justify'))),
     ),
@@ -814,6 +963,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       h('div.dcrow', orient, nums),
       h('div.dcrow', headIn),
       h('div.dcrow', footIn),
+      h('div.dcrow', goalIn, key('SET GOAL', setGoal)),
     ),
   };
   const showPanel = (id: string) => {
@@ -829,6 +979,28 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     b.setAttribute('role', 'tab');
     return b;
   }));
+
+  // ---------------------------------------------------------------- CONTENTS: jump to a heading, move its whole section (editors.u13)
+  const paintContents = () => {
+    const c = contents(doc());
+    const row = (x: { id: string; level: number; text: string }) => {
+      const words = x.text || 'A heading with no words';
+      const up = key('▲', () => moveSec(x.id, -1), 'dcsecmv', `Move the section “${words.slice(0, 40)}” up`);
+      const down = key('▼', () => moveSec(x.id, 1), 'dcsecmv', `Move the section “${words.slice(0, 40)}” down`);
+      return h(`div.dcsec.dclevel${x.level}` as 'div', { dataset: { id: x.id } }, button(words, () => elOf(x.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 'dcsecgo'), up, down);
+    };
+    clear(contentsBox, ...(c.length ? [...c.map(row), h('small.dcnote', '▲ and ▼ move a heading with everything under it.')] : [h('small', 'No headings in it.')]));
+  };
+  const moveSec = (id: string, dir: -1 | 1) => {
+    flush();
+    const r = moveSection(doc(), id, dir);
+    if (typeof r === 'string') return say(r);
+    change(r.doc);
+    paintContents();
+    contentsBox.querySelector<HTMLElement>(`[data-id="${id}"] .dcsecmv:nth-of-type(${dir < 0 ? 1 : 2})`)?.focus({ preventScroll: true });
+    elOf(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    say(r.said);
+  };
 
   // ---------------------------------------------------------------- reading aloud
   let reading = false;
@@ -1050,6 +1222,18 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         button('MARKDOWN', () => go((d) => new Blob([toMarkdown(d, imageNow)], { type: 'text/markdown;charset=utf-8' }), 'md')),
         cased(button('HTML', () => go((d) => new Blob([toHtml(d, true, imageNow)], { type: 'text/html;charset=utf-8' }), 'html'))),
       ),
+      // [sites] the document at its own link (NEXT ROUND sites.s4): handed over, then his APPROVE in the chat
+      h('small.cvgh', 'ON YOUR SITES'),
+      h('p.note.dcsites', pageLine('document')),
+      h('div.cvbtns', button('PUT IT ON MY SITES', (b) => {
+        if (b.disabled) return;
+        b.disabled = true;
+        say('Making the page on this phone…');
+        void ready()
+          .then((d) => putOnSites(d.title || 'My document', toHtml(d, true, imageNow), 'document'))
+          .then((r) => say(r.said), (e: unknown) => say(sayError(e, 'make the page')))
+          .finally(() => (b.disabled = false));
+      })),
       out,
     );
   };
@@ -1114,30 +1298,46 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const tools = h('div.dctools', { role: 'toolbar', 'aria-label': 'Editing' },
       button('CONTENTS', () => {
         contentsBox.hidden = !contentsBox.hidden;
-        const c = contents(doc());
-        clear(contentsBox, ...(c.length ? c.map((x) => button(x.text, () => elOf(x.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), `dclevel${x.level}`)) : [h('small', 'No headings in it.')]));
+        paintContents();
       }),
       button('READ IT TO ME', (b) => readAloud(b)),
       button('FIND', () => {
         findBox.hidden = !findBox.hidden;
         if (!findBox.hidden) findIn_.focus();
       }),
+      button('COMMENTS', () => {
+        commentsHolder.hidden = !commentsHolder.hidden;
+        if (!commentsHolder.hidden) commentsUi().paint();
+      }),
+      button('MAIL MERGE', async () => {
+        mergeHolder.hidden = !mergeHolder.hidden;
+        if (mergeHolder.hidden) return;
+        if (!merge) {
+          const { mergePanel } = await import('./mergeui');
+          merge = mergePanel({ doc, flush, say, insertText });
+          clear(mergeHolder, merge.el);
+        } else merge.refresh();
+      }),
       button('UNDO', () => {
         if (!hist!.canUndo) return say('Nothing to undo.');
         flush();
+        // the paragraph he was in lets go first: drawn again, its old words would be read back as a new change (and undo the undo)
+        (page.contains(document.activeElement) ? (document.activeElement as HTMLElement) : null)?.blur();
         hist!.undo();
         keep(doc());
         render();
       }),
       button('REDO', () => {
         if (!hist!.canRedo) return say('Nothing to redo.');
+        flush();
+        (page.contains(document.activeElement) ? (document.activeElement as HTMLElement) : null)?.blur();
         hist!.redo();
         keep(doc());
         render();
       }),
     );
     // the keys keep the words chosen (a tap on them does not take the focus off the paragraph)
-    for (const bar of [tools, pills, ...Object.values(panels)]) {
+    for (const bar of [tools, pills, mergeHolder, ...Object.values(panels)]) {
       bar.addEventListener('pointerdown', (e) => {
         if ((e.target as HTMLElement).closest('button')) e.preventDefault();
       });
@@ -1148,13 +1348,43 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const sc = scriptOf(d.blocks.map(textOf).join(' '));
     if (sc) scriptPick.value = sc.id;
     const lets = h('div.dcasks', h('small.cvgh', 'LETTERS'), h('div.dcrow', scriptPick, cased(button('TO LATIN', () => letters('to')), 'To Latin'), cased(button('FROM LATIN', () => letters('from')), 'From Latin')), h('small.dcnote', THE_LINE));
-    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
+    // [recall] memory.c1 (memory lane, additive): FROM WHAT YOU SAID: "what did I say about the hedge?" while he writes; his own chats on this
+    // phone (features/memory/recall.ts), each line a 44 pt PUT IT IN that lands after the paragraph he is in, for his edit
+    const mineIn = h('input', { type: 'search', placeholder: 'the hedge', 'aria-label': 'What you said about…', enterkeyhint: 'search' }) as HTMLInputElement;
+    const mineOut = h('div.dcmineout', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep' } });
+    const searchMine = async () => {
+      const q = mineIn.value.trim().replace(/^(?:what did I say about|what did I tell you about)\s+/i, '').replace(/\?$/, '');
+      if (q.length < 3) return void clear(mineOut, h('small.dcnote', MINE_ASK));
+      const R = await import('../features/memory/recall');
+      if (!(await R.recallWarm())) return void clear(mineOut, h('small.dcnote', MINE_COLD));
+      const hits = await R.findLocal(q, { turns: true, k: 4 });
+      clear(mineOut, ...(hits.length
+        ? hits.map((f) => h('div.dcmine', { dataset: { case: 'keep' } }, h('span.dcmineline', h('small', f.stamp), `“${f.line}”`), cased(button('PUT IT IN', () => {
+            insertAfter([block('p', f.line)]);
+            say(MINE_PUT);
+          }), `Put what you said ${f.day} into the document`)))
+        : [h('small.dcnote', mineNone(q))]));
+    };
+    mineIn.addEventListener('keydown', (e) => e.key === 'Enter' && void searchMine());
+    const mine = h('div.dcasks.dcminebox', h('small.cvgh', 'FROM WHAT YOU SAID'), h('div.dcrow', mineIn, cased(button('SEARCH MY WORDS', () => void searchMine()), 'Search what you said in our chats')), mineOut);
+    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, mergeHolder, commentsHolder, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, mine, exportRow(doc), h('div.dcrow', button('MAKE A COPY', () => {
+      // [sweep] Pages' Duplicate and Word's Save a copy: the same words, pictures and comments under a new name, kept on this phone
+      flush();
+      const was = doc();
+      const copy: Doc = { ...structuredClone(was), id: newDoc('x', []).id, title: `${was.title} (copy)`, at: Date.now(), kind: was.kind === 'read' ? 'document' : was.kind };
+      if (!saveDoc(copy)) return say('This phone is not letting me keep another document (its storage is blocked or full).');
+      showDoc(copy);
+      say(`“${copy.title}” is a copy, kept on this phone; the first is as it was.`);
+    }), button('REMOVE FROM MY DOCUMENTS', () => {
       removeDoc(doc().id);
       say(`Removed “${doc().title}” from this phone.`);
       showList();
     })));
     showPanel(docsState.panel in panels ? docsState.panel : 'write');
     paintSuggestions();
+    if (cmts && !commentsHolder.hidden) cmts.paint();
+    paintCommentMarks();
+    if (!contentsBox.hidden) paintContents();
     if (focused) {
       const f = elOf(focused);
       if (f && document.activeElement !== f && f.matches('figure,hr')) f.focus({ preventScroll: true });
@@ -1183,7 +1413,17 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     saveDoc(d);
     showDoc(d);
     (page.querySelector('.dcb') as HTMLElement | null)?.focus();
-  }), button('OPEN A FILE', () => fileIn.click()), fileIn);
+  }), button('OPEN A FILE', () => fileIn.click()), fileIn, button('SCAN A PAGE', async () => {
+    // [editors.s3] paper into an editable document: SCAN → DOCUMENT, then READ ALL and INTO A DOCUMENT (docs/paperui.ts)
+    const { wantPaper } = await import('./paperui');
+    wantPaper('doc');
+    current?.close();
+    await run('open_lens', { mode: 'document' });
+  }), button('FILL AND SIGN A PDF', async () => {
+    // [editors.s12] a PDF form's boxes filled, signed with a finger, saved or shared (docs/pdfformui.ts)
+    const { openPdfForm } = await import('./pdfformui');
+    openPdfForm();
+  }));
   const root = h('div.dcsheet', bar, status, view);
   const start = async (o: DocsAsk) => {
     if (o.doc) {
@@ -1202,6 +1442,40 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }
     } else if (o.id && getDoc(o.id)) showDoc(getDoc(o.id)!);
     else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
+    else if (o.what === 'outline') {
+      const d = listDocs()[0];
+      if (!d) {
+        showList();
+        say('No documents yet: NEW, or open a file. Headings (H1, H2, H3) make its outline.');
+      } else {
+        showDoc(d);
+        contentsBox.hidden = false;
+        paintContents();
+      }
+    } else if (o.what === 'comments') {
+      const d = listDocs()[0];
+      if (!d) {
+        showList();
+        say('No documents yet to comment on: NEW, or open a file, then choose some words and COMMENT.');
+      } else {
+        showDoc(d);
+        commentsHolder.hidden = false;
+        commentsUi().paint();
+      }
+    } else if (o.what === 'merge') {
+      const d = listDocs()[0];
+      if (!d) {
+        showList();
+        say('Write the letter first (NEW, or ask me to write one), with {{Name}} where each name goes; then MAIL MERGE.');
+      } else {
+        showDoc(d);
+        [...view.querySelectorAll<HTMLButtonElement>('.dctools button')].find((b) => b.textContent === 'MAIL MERGE')?.click();
+      }
+    } else if (o.what === 'fill') {
+      showList();
+      const { openPdfForm } = await import('./pdfformui');
+      openPdfForm();
+    }
     else if (o.what === 'open') {
       showList();
       say('Choose the document to read: PDF, Word, EPUB, a web page, Markdown or text.');
@@ -1225,3 +1499,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   };
 }
 
+/** [recall] memory.c1: FROM WHAT YOU SAID's lines. */
+const MINE_ASK = 'Type what you talked about, like “the hedge”, and I find what you said.';
+const MINE_COLD = 'Still reading your chats; ask me again in a minute.';
+const MINE_PUT = 'Put in after your paragraph; change it as you like.';
+const mineNone = (q: string): string => `Nothing you said about “${q.slice(0, 40)}” in our chats on this phone.`;

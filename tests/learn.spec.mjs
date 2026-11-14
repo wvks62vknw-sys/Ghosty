@@ -33,6 +33,8 @@ const ctx = await browser.newContext({
   userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 });
 const page = await ctx.newPage();
+// (CPU_SLOW=4 runs it on a phone four times slower, to prove a fix for a race)
+if (Number(process.env.CPU_SLOW) > 1) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.CPU_SLOW) });
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('console', (m) => {
   const t = m.text();
@@ -135,7 +137,8 @@ if (lineCard && lineCard.due - lineCard.added !== 86_400_000) problems.push(`the
 // ---- a quiz: wrong, right, a right short answer; the score ----
 await page.locator('#pg-learn button:has-text("BACK TO COURSE")').click();
 await until(() => window.__ghosty?.learn?.view === 'course', 8000, 'BACK TO COURSE did not go back');
-await page.locator('#pg-learn button:has-text("QUIZ ME")').click();
+// (the course's own QUIZ ME on its key row; TODAY's QUIZ ME ON MY MISSES is a different quiz, learnlane's)
+await page.locator('#pg-learn .learnbar button', { hasText: /^QUIZ ME$/i }).click();
 await until(() => window.__ghosty?.learn?.view === 'quiz' && window.__ghosty?.learn?.quiz?.n === 3, 15000, `the quiz did not open with 3 questions (${JSON.stringify((await st())?.quiz)})`);
 /** The three confidence taps, after an answer is picked and before it is marked: each at least 44 points tall. */
 const confTap = async (which) => {
@@ -171,6 +174,8 @@ const calib = await L('.learnfact.calib').innerText().catch(() => '');
 if (!/CALIBRATION\s+Sure and right 0 of 1 · Thought so and right 1 of 1 · Guessed and right 1 of 1/.test(calib)) problems.push(`the calibration line says "${calib}"`);
 if (!/QUIZ PASSED · quiz 75% · 1 card due/.test(await L('.learnlesson[data-n="1"] small').innerText())) problems.push(`stop 1 says "${await L('.learnlesson[data-n="1"] small').innerText()}"`);
 // the guessed right answer still made a card (back tomorrow); the sure wrong one is due now, at quality 1
+// (the phone keeps its store a moment after a change: wait for both quiz cards to be kept, then check them exactly)
+await until(() => (JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}').cards ?? []).filter((c) => /green pigment|Which gas/.test(c.front)).length >= 2, 5000, 'the quiz’s two cards were not both kept on the phone');
 const qcards = await page.evaluate(() => (JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}').cards ?? []).filter((c) => !/Sum it up/.test(c.front)).map((c) => ({ front: c.front.split('\n')[0], ef: c.ef, interval: c.interval, lesson: c.lesson })));
 if (!qcards.some((c) => /green pigment/.test(c.front) && c.interval === 1) || !qcards.some((c) => /Which gas/.test(c.front) && c.ef === 1.96 && c.lesson === 1)) problems.push(`the quiz's cards are ${JSON.stringify(qcards)}`);
 await until(() => document.querySelector('#pg-learn .learncourse .learncinfo small')?.textContent?.includes('1/5 read'), 8000, `the course list does not show lesson 1 read: ${await L('.learncourse .learncinfo small').first().textContent().catch(() => '?')}`);

@@ -19,16 +19,20 @@ export interface FrameTask {
 }
 
 const tasks = new Set<FrameTask>();
-let scene: { update(dt: number): void; draw(): void } | null = null;
+/** `rest`: the scene says nothing it shows has moved enough to draw this frame (NEXT ci.u4: a screen that is still draws nothing;
+ *  the canvas keeps its last picture). */
+type Scene = { update(dt: number): void; draw(): void; rest?(dt: number): boolean };
+let scene: Scene | null = null;
+
 let last = 0;
 let fpsStart = 0;
 let fpsFrames = 0;
 let low = 0;
 let high = 0;
 /** `hz` is the display's own rate as measured (0 until it is known: engine/refresh.ts). */
-export const stats = { fps: 60, scale: 1, hz: 0 };
+export const stats = { fps: 60, scale: 1, hz: 0, /** frames the scene was drawn, and frames it rested (NEXT ci.u4; tests/rest.spec.mjs) */ drawn: 0, rested: 0 };
 
-export function setScene(s: { update(dt: number): void; draw(): void } | null): void {
+export function setScene(s: Scene | null): void {
   scene = s;
 }
 
@@ -82,7 +86,11 @@ function frame(now: number): void {
   try {
     if (scene && gfx.ready) {
       scene.update(dt);
-      scene.draw();
+      if (scene.rest?.(dt)) stats.rested++;
+      else {
+        scene.draw();
+        stats.drawn++;
+      }
     }
   } catch (e) {
     console.error('render', e);

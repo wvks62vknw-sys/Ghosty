@@ -608,6 +608,8 @@ if (part('convo')) {
   await settle(page);
   const reopen = [];
   const firstWords = [];
+  const noTick = [];
+  const heardAt = [];
   let answered = 0;
   for (let i = 1; i <= 10; i++) {
     const said = `turn ${i} of ten ${RUN}`;
@@ -619,6 +621,11 @@ if (part('convo')) {
     const ok = await seen(page, new RegExp(`Mock reply to: ${said}`), 15000);
     const first = await page.waitForFunction((t) => window.__talk.clips.find((c) => c.at >= t && c.ev === 'playing' && c.dur > 0.3)?.at, endAt0, { timeout: 8000 }).then((h) => h.jsonValue(), () => null);
     if (first) firstWords.push(Math.round(first - endAt0));
+    // [ci] NEXT ci.u5: the soft tick that says he was heard, after his last word and before Ghosty's first
+    const tick = await page.evaluate((t) => window.__talk.sfx.find((x) => x.kind === 'heard' && x.at >= t)?.at ?? null, endAt0);
+    if (tick === null) noTick.push(i);
+    else if (first && tick > first) noTick.push(`${i} (after the reply began)`);
+    else heardAt.push(Math.round(tick - endAt0));
     if (!ok) {
       problems.push(`[${name}] turn ${i} was not answered (heard ${JSON.stringify(io.stt.slice(-2))})`);
       break;
@@ -641,6 +648,13 @@ if (part('convo')) {
   // his last word to Ghosty's first, turn after turn of a running conversation: within the second
   if (!(median <= 1000)) problems.push(`[${name}] the first word came a median ${ms(median)} after he stopped speaking (${firstWords.join(', ')} ms; budget 1,000 ms)`);
   if (answered < 10) problems.push(`[${name}] ${answered} of ten turns answered with no tap`);
+  // [ci] NEXT ci.u3: the SPEED card's voice line is timed on the phone itself, and agrees with this check's own clock
+  const vs = await page.evaluate(() => window.__ghosty.stopwatch?.summary().then((x) => ({ voice: x.voice, line: x.lines.find((l) => l.startsWith('Voice:')) ?? '' })) ?? null);
+  if (!vs?.voice?.first || vs.voice.first.n < 8 || !vs.voice.reopen || vs.voice.reopen.n < 8) problems.push(`[${name}] the SPEED card's voice timings were not kept for the ten turns: ${JSON.stringify(vs)}`);
+  else if (Math.abs(vs.voice.first.median - median) > 300) problems.push(`[${name}] the phone timed its first word at ${vs.voice.first.median} ms, this check at ${median} ms (want within 300 ms)`);
+  console.log(`[${name}] the SPEED card says: "${vs?.line}"`);
+  if (noTick.length) problems.push(`[${name}] no soft "heard" tick on turn ${noTick.join(', ')} (want one each time he finishes speaking)`);
+  console.log(`[${name}] the "heard" tick came ${heardAt.join(', ')} ms after he stopped`);
   if ((await page.evaluate(() => window.__mic.calls)) !== 1) problems.push(`[${name}] the microphone was asked for ${await page.evaluate(() => window.__mic.calls)} times in one conversation`);
   if (reopen.some((r) => r > 400)) problems.push(`[${name}] the ear opened again late after a reply: ${reopen.join(', ')} ms`);
   console.log(`[${name}] ten turns: ${answered} answered with ${taps} tap (the one that started it); ear open again ${reopen.join(', ')} ms after each reply; his last word to the first of Ghosty's ${firstWords.join(', ')} ms (median ${median})`);
@@ -657,6 +671,28 @@ if (part('convo')) {
   const lastTwo = await page.evaluate(() => [...document.querySelectorAll('#pg-core .log .msg')].slice(-2).map((m) => m.textContent ?? ''));
   if (!/that's all/i.test(lastTwo[0] ?? '') || !lastTwo[1]) problems.push(`[${name}] the sign-off is not in the chat: ${JSON.stringify(lastTwo)}`);
   await page.screenshot({ path: `${out}/talk-convo.png` });
+  await ctx.close();
+}
+
+// ================================================================ 4b. A REPLY THAT BREAKS OFF WHILE IT IS SAID AS IT COMES (NEXT ci.u1)
+// Two sentences arrive and are said as they come, then the stream ends in an error: what came is said to its end and the ear
+// opens again on its own (the half-said reply is let go, never left "speaking" for words that will not come).
+if (part('broken')) {
+  const name = 'broken';
+  const { ctx, page, io } = await talkPage(name, { tts: true });
+  await page.click('#mic');
+  await waitVoice(page, 'listening', 8000);
+  await settle(page);
+  await ctx.route('**/api/chat', (route) => route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'status', text: 'thinking…' }, { t: 'text', text: 'The first part came through.', part: true }, { t: 'text', text: ' The second part came too.', part: true }, { t: 'error', message: 'The connection dropped part of the way through.' }].map((e) => JSON.stringify(e)).join('\n') + '\n' }));
+  io.heard.push(`a reply that breaks off ${RUN}`);
+  const t0 = await speakFor(page, 700);
+  const said = await page.waitForFunction((t) => window.__talk.clips.filter((c) => c.at >= t && c.ev === 'ended' && c.dur > 0.3).length >= 2, t0, { timeout: 15000 }).then(() => true, () => false);
+  const back = await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'listening', null, { timeout: 8000, polling: 50 }).then(() => true, () => false);
+  if (!said) problems.push(`[${name}] the two sentences that came before the stream broke were not both said: ${JSON.stringify(await page.evaluate((t) => window.__talk.clips.filter((c) => c.at >= t), t0))}`);
+  if (!back) problems.push(`[${name}] after a reply broke off, the ear did not open again (the voice reads "${await page.evaluate(() => window.__ghosty.ui.get().voice)}")`);
+  console.log(`[${name}] a reply that broke off: said ${said}, ear open again ${back}`);
+  await ctx.unroute('**/api/chat');
+  await page.click('#mic').catch(() => undefined);
   await ctx.close();
 }
 

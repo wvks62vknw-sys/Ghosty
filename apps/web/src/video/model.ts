@@ -96,6 +96,43 @@ export interface Clip {
   /** EDITORS lane: the clip fades up from black at its start and down to black at its end, picture and sound together (ms; 0 is none).
    * Worked out from the clip's own length each frame (compose.ts, math.ts mixPlan), so a trim or a speed change keeps it right. */
   fade?: { in: number; out: number };
+  /** NEXT ROUND (editors.u9): the grade over time. Each key holds the whole grade at `t` ms into the clip on the timeline; between keys
+   * every number moves in a straight line, and before the first and after the last the nearest key holds. None: `grade` holds throughout. */
+  gradeKeys?: GradeKey[];
+}
+export interface GradeKey {
+  t: number;
+  g: Grade;
+}
+
+const GRADE_NUMBERS = ['exposure', 'contrast', 'highlights', 'shadows', 'whites', 'blacks', 'temp', 'tint', 'vibrance', 'saturation'] as const;
+/** The grade `tIn` ms into the clip: its keys followed, or its one grade (the preview and the export both draw this). */
+export function gradeAt(c: Pick<Clip, 'grade' | 'gradeKeys'>, tIn: number): Grade {
+  const k = c.gradeKeys;
+  if (!k?.length) return c.grade;
+  if (tIn <= k[0]!.t) return k[0]!.g;
+  const last = k[k.length - 1]!;
+  if (tIn >= last.t) return last.g;
+  let i = 0;
+  while (i < k.length - 2 && k[i + 1]!.t <= tIn) i++;
+  const a = k[i]!;
+  const b = k[i + 1]!;
+  const f = (tIn - a.t) / Math.max(1, b.t - a.t);
+  const out = { ...a.g, curve: a.g.curve.map((p) => [p[0], p[1]] as [number, number]) };
+  for (const n of GRADE_NUMBERS) out[n] = a.g[n] + (b.g[n] - a.g[n]) * f;
+  // a curve moves point by point where both keys have the same points, else it changes at the halfway mark
+  if (a.g.curve.length === b.g.curve.length) out.curve = a.g.curve.map((p, j) => [p[0] + (b.g.curve[j]![0] - p[0]) * f, p[1] + (b.g.curve[j]![1] - p[1]) * f]);
+  else if (f >= 0.5) out.curve = b.g.curve.map((p) => [p[0], p[1]]);
+  return out;
+}
+/** The grade key at `t` set to `g` (a key within 40 ms is the same key), kept in time order. */
+export function upsertGradeKey(c: Clip, t: number, g: Grade): void {
+  const keys = (c.gradeKeys ??= []);
+  const i = keys.findIndex((z) => Math.abs(z.t - t) < 40);
+  const copy = structuredClone(g);
+  if (i >= 0) keys[i]!.g = copy;
+  else keys.push({ t: Math.round(t), g: copy });
+  keys.sort((a, b) => a.t - b.t);
 }
 
 /** The longest fade a clip takes: a third of the clip, and never more than two seconds. */
@@ -152,7 +189,8 @@ export interface Cue {
 export interface Source {
   id: string;
   name: string;
-  kind: 'video' | 'audio';
+  /** 'image' (NEXT ROUND, editors.s5): a still photo laid on the timeline as a clip that never moves (preview.ts stillEl). */
+  kind: 'video' | 'audio' | 'image';
   size: number;
   dur: number;
   w: number;
@@ -205,7 +243,7 @@ export function newProject(name = 'My video'): Project {
 
 export function newClip(src: Source): Clip {
   return {
-    id: uid(), src: src.id, in: 0, out: Math.max(100, Math.round(src.dur)), speed: 1, volume: 1, tr: flatTransform(), grade: flatGrade(),
+    id: uid(), src: src.id, in: 0, out: src.kind === 'image' ? 3000 : Math.max(100, Math.round(src.dur)), speed: 1, volume: 1, tr: flatTransform(), grade: flatGrade(),
     crop: { x: 0, y: 0, w: 1, h: 1 }, fit: 'fit', next: { kind: 'cut', len: 0 },
   };
 }
@@ -310,6 +348,13 @@ export function splitAt(p: Project, t: number): Project | null {
     second.tr.keys.speed = keys;
   }
   delete second.steady;
+  if (c.gradeKeys?.length) {
+    // the grade over time carries on across the cut: the second half starts with the grade at the cut
+    const dt = t - x.start;
+    const keys = c.gradeKeys.map((k) => ({ t: k.t - dt, g: clone(k.g) })).filter((k) => k.t > 0);
+    keys.unshift({ t: 0, g: clone(gradeAt(c, dt)) });
+    second.gradeKeys = keys;
+  }
   const nextT = c.next;
   c.next = { kind: 'cut', len: 0 };
   second.next = nextT;

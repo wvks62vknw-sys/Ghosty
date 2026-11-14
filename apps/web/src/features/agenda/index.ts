@@ -1,7 +1,7 @@
 /** AGENDA tab: your diary, connected calendars, reminders, Ghosty's scheduled tasks and its notifications. */
 import type { AgendaEventInfo, FeedInfo, InboxEntry, JobInfo } from '../../../../../packages/shared/src/protocol';
-import { brain } from '../../api/brain';
-import { offline } from '../../api/offline';
+import { brain, unreachable } from '../../api/brain';
+import { agendaWithOutbox, offline } from '../../api/offline';
 import { inbox, pollInbox } from '../../assistant/notices';
 import { enablePush, pushState } from '../../assistant/push';
 import { send } from '../../assistant/session';
@@ -13,11 +13,15 @@ import { ADD_SHEET, DIARY_OFFLINE, dayLine, EMPTY_DAY, EMPTY_JOBS, parseWhen, pr
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
 import { watchersPanel } from './watchers';
-import { todoPanel } from './todo';
+import { syncTodos, todoPanel } from './todo';
 import { monthPanel } from './month';
+import { workDuePanel } from './workdue';
+import { timelinePanel } from './timeline';
 import { AHEAD_DAYS } from './todowords';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
+import { tripKey } from '../../ui/tripsheet';
+
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -48,6 +52,8 @@ const localInput = (ms: number) => {
   const d = new Date(ms);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
+/** [planlane2:timeline] the reminder choices in the change box (minutes before; '' none) */
+const REMINDS: [string, string][] = [['', 'No reminder'], ['0', 'Remind at start'], ['10', '10 min before'], ['15', '15 min before'], ['30', '30 min before'], ['60', '1 hour before'], ['120', '2 hours before'], ['1440', '1 day before']];
 const REPEATS: [JobInfo['repeat'], string][] = [
   ['none', 'Once'],
   ['daily', 'Every day'],
@@ -101,7 +107,7 @@ export const agendaTab: TabDef = {
     // the event opened whole in the diary ('' for none)
     let openEv = '';
     /** what he has typed in the open event's change boxes (kept when the diary repaints every minute) */
-    let evDraft: { id: string; title: string; at: string; where: string } | null = null;
+    let evDraft: { id: string; title: string; at: string; end: string; where: string; allDay: boolean; remind: string } | null = null;
     /** the minutes before an event its reminder rings (an all-day one's is set from 09:00 that day, as the brain sets it) */
     const remindOf = (e: AgendaEventInfo, rem: { next: number } | undefined) => (rem ? Math.max(0, Math.round(((e.allDay ? e.start + 9 * 3600_000 : e.start) - rem.next) / 60_000)) : null);
     // [planlane] TO-DO (todo.ts): his own list on this phone; MONTH (month.ts): the diary as a calendar, under it
@@ -110,7 +116,17 @@ export const agendaTab: TabDef = {
       paintHero();
     });
     const mp = monthPanel(() => ({ events: allEvents, todos: tp.list() }));
-    P.left.append(ep.el, mp.el, tp.el, cp.el, sp.el, wp.el);
+    // [planlane2:timeline] TIMELINE (timeline.ts): today and tomorrow by the hour with the free gaps said, and PLAN MY WEEK; a tap on an
+    // event opens it whole in the diary, where it can be changed
+    const tl = timelinePanel(() => ({ events: allEvents, loaded, offline: stale, hasCopy: offline.get().agenda !== null }), (id) => {
+      openEv = id;
+      evDraft = null;
+      paintEvents();
+      ep.body.querySelector('.evcard')?.scrollIntoView({ block: 'nearest' });
+    });
+    // [editors.c4] the due dates in his Workspace databases, under his own list, read-only (workdue.ts)
+    const wd = workDuePanel();
+    P.left.append(ep.el, tl.el, mp.el, tp.el, wd.el, cp.el, sp.el, wp.el);
 
     // ── add event ────────────────────────────────────────────────────────
     const evTitle = h('input', { placeholder: 'New event (e.g. Dentist)', 'aria-label': 'Event title' });
@@ -228,10 +244,12 @@ export const agendaTab: TabDef = {
     /** One event whole: its day and time, where, where it is from and its reminder; one of his own can be changed here. */
     const eventCard = (e: AgendaEventInfo): HTMLElement => {
       const rem = jobs.find((j) => j.eventId === e.id);
-      const remindMin = remindOf(e, rem);
       const day = new Date(e.start).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
       // one added or changed while the brain was out of reach waits on this phone: his own, not a calendar's
       const waiting = e.id.startsWith('local-') || e.source.startsWith('this device');
+      // (one waiting on this phone has no brain job yet: its reminder is the one queued with it)
+      const queued = waiting ? offline.get().outbox.find((o) => o.id === e.id && o.kind === 'addEvent') : undefined;
+      const remindMin = queued && queued.kind === 'addEvent' ? (queued.event.remindMin ?? null) : remindOf(e, rem);
       const mine = e.source === 'mine' || waiting;
       const remWords = remindMin == null ? 'no reminder' : remindMin ? `reminder ${remindMin >= 60 && remindMin % 60 === 0 ? `${remindMin / 60} h` : `${remindMin} min`} before` : 'reminder at the start';
       const card = h('div.evcard', { dataset: { case: 'keep' } },
@@ -240,45 +258,97 @@ export const agendaTab: TabDef = {
         e.location ? h('span', `Where: ${e.location}`) : null,
         e.notes ? h('span', `Notes: ${e.notes}`) : null,
         h('small', waiting ? 'In your diary, not sent yet: it goes when the brain is back.' : mine ? `In your diary · ${remWords}` : `From your calendar “${e.source}”. Change it there: Ghosty only reads it.`));
+      // [see] GETTING THERE: an appointment with a place, still to come, to the whole journey (ui/tripsheet.ts, TRIP MODE)
+      if (e.location?.trim() && !e.allDay && e.start > Date.now()) card.append(h('div.row.wrap.evtrip', tripKey(e)));
       if (!mine) return card;
       const d = evDraft?.id === e.id ? evDraft : null;
+      // [planlane2:timeline] the change box: words, start, end, place, ALL DAY and the reminder, changed IN PLACE by the brain's edit route
       const ti = h('input', { value: d ? d.title : e.title, 'aria-label': 'Change the event', maxlength: '200' });
       const at = h('input', { type: 'datetime-local', value: d ? d.at : localInput(e.start), 'aria-label': 'Change when it starts' });
+      const endAt = h('input', { type: 'datetime-local', value: d ? d.end : e.end ? localInput(e.end) : '', 'aria-label': 'Change when it ends' });
       const where = h('input', { value: d ? d.where : e.location ?? '', placeholder: 'Where (optional)', 'aria-label': 'Change where' });
-      for (const x of [ti, at, where]) x.addEventListener('input', () => void (evDraft = { id: e.id, title: ti.value, at: at.value, where: where.value }));
+      let allDay = d ? d.allDay : !!e.allDay;
+      const remSel = h('select', { 'aria-label': 'Change the reminder' }, ...REMINDS.map(([v, t]) => h('option', { value: v }, t)));
+      const remNow = remindMin == null ? '' : String(remindMin);
+      if (![...remSel.options].some((o) => o.value === remNow)) remSel.append(h('option', { value: remNow }, remWords));
+      remSel.value = d ? d.remind : remNow;
+      const keep = () => void (evDraft = { id: e.id, title: ti.value, at: at.value, end: endAt.value, where: where.value, allDay, remind: remSel.value });
+      for (const x of [ti, at, endAt, where]) x.addEventListener('input', keep);
+      remSel.addEventListener('change', keep);
+      const adKey = button(allDay ? '✓ ALL DAY' : 'ALL DAY', (b) => {
+        allDay = !allDay;
+        b.textContent = allDay ? '✓ ALL DAY' : 'ALL DAY';
+        b.classList.toggle('on', allDay);
+        b.setAttribute('aria-pressed', String(allDay));
+        endAt.disabled = allDay;
+        keep();
+      }, `evallday${allDay ? ' on' : ''}`);
+      adKey.setAttribute('aria-pressed', String(allDay));
+      endAt.disabled = allDay;
       // (its notes go with it, both ways: a change never loses them)
       const was = { title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, notes: e.notes, remindMin };
       const save = async (b: HTMLButtonElement) => {
-        // one save at a time: a second Enter (or a held Go key) while the first is on its way would add the event twice
+        // one save at a time: a second Enter (or a held Go key) while the first is on its way would change it twice
         if (b.disabled) return;
         const title = ti.value.trim();
-        const start = e.allDay ? new Date(new Date(at.value).setHours(0, 0, 0, 0)).getTime() : new Date(at.value).getTime();
+        const t0 = new Date(at.value).getTime();
+        const start = allDay ? new Date(new Date(at.value).setHours(0, 0, 0, 0)).getTime() : t0;
         if (!title || !Number.isFinite(start)) return toast('Give the event a name and a time', 'warn');
-        const now = { title, start, end: e.end ? start + (e.end - e.start) : undefined, allDay: e.allDay, location: where.value.trim() || undefined, notes: e.notes, remindMin };
+        // (the end box untouched and the start moved: it keeps its length, as before)
+        const endUntouched = !!e.end && endAt.value === localInput(e.end);
+        const endMs = allDay || !endAt.value ? NaN : endUntouched && e.end ? start + (e.end - e.start) : new Date(endAt.value).getTime();
+        if (Number.isFinite(endMs) && endMs <= start) return toast('It has to end after it starts', 'warn');
+        const remindNew = remSel.value === '' ? null : Number(remSel.value);
         b.disabled = true;
-        // his diary keeps no "change": the event is deleted and added again, changed (said under the keys)
+        // (its notes too: on the paths below that put it back as a new one, a change never loses them)
+        const changed = { title, start, end: Number.isFinite(endMs) ? endMs : undefined, allDay, location: where.value.trim() || undefined, notes: e.notes, remindMin: remindNew };
+        // one waiting on this phone (added with no signal) has no brain id yet: the changed one is added first, and only then the old one
+        // taken out (an add that fails leaves the old one where it was)
+        if (waiting) {
+          try {
+            await brain.addEvent(changed);
+            await brain.deleteEvent(e.id);
+          } catch (err) {
+            b.disabled = false;
+            return toast(sayError(err, 'change that event'), 'bad');
+          }
+          openEv = '';
+          evDraft = null;
+          return void load();
+        }
         try {
-          await brain.deleteEvent(e.id);
+          await brain.editEvent(e.id, { title, start, end: Number.isFinite(endMs) ? endMs : null, allDay, location: where.value.trim() || null, remindMin: remindNew });
         } catch (err) {
+          // the brain out of reach: the change waits on this phone (taken out and put back changed, both queued) and goes when it's back
+          if (unreachable(err)) {
+            try {
+              await brain.addEvent(changed);
+              await brain.deleteEvent(e.id);
+            } catch (err2) {
+              b.disabled = false;
+              return toast(sayError(err2, 'change that event'), 'bad');
+            }
+            openEv = '';
+            evDraft = null;
+            toast(`Changed on this phone: ${title}. It goes to your brain when it’s back.`, 'ok');
+            return void load();
+          }
           b.disabled = false;
           return toast(sayError(err, 'change that event'), 'bad');
-        }
-        let made: AgendaEventInfo | null = null;
-        try {
-          made = (await brain.addEvent(now)).event;
-        } catch (err) {
-          // the new one did not go in: the old one goes back, so nothing is lost
-          await brain.addEvent(was).catch(() => undefined);
-          toast(sayError(err, 'change that event'), 'bad');
         }
         openEv = '';
         evDraft = null;
         void load();
-        if (!made) return;
-        const id = made.id;
         evUndo.show(`Changed: ${title}`, async () => {
-          await brain.deleteEvent(id).catch(() => undefined);
-          await brain.addEvent(was);
+          // UNDO puts the old one back as it was: the same event, its old words, times, place, all-day and reminder
+          try {
+            await brain.editEvent(e.id, { title: was.title, start: was.start, end: was.end ?? null, allDay: !!was.allDay, location: was.location ?? null, notes: was.notes ?? null, remindMin: was.remindMin });
+          } catch (err) {
+            if (!unreachable(err)) throw err;
+            // (out of reach: put back as it was on this phone, queued like any change)
+            await brain.addEvent({ title: was.title, start: was.start, end: was.end, allDay: !!was.allDay, location: was.location, notes: was.notes, remindMin: was.remindMin });
+            await brain.deleteEvent(e.id);
+          }
           toast(`Back as it was: ${e.title}`, 'ok');
           void load();
         });
@@ -286,13 +356,14 @@ export const agendaTab: TabDef = {
       const saveB = button('SAVE CHANGES', (b) => void save(b), 'on');
       ti.addEventListener('keydown', (ev) => ev.key === 'Enter' && void save(saveB));
       card.append(
-        h('div.keyrow.wrapit.addev.evedit', ti, at, where),
+        h('div.keyrow.wrapit.addev.evedit', ti, at, endAt, where),
+        h('div.keyrow.wrapit.evpick', adKey, remSel),
         h('div.keyrow.wrapit', saveB, button('CLOSE', () => {
           openEv = '';
           evDraft = null;
           paintEvents();
         })),
-        h('small.note', 'Saving takes the event out of your diary and puts it back changed (the diary has no other way to change one). UNDO puts it back as it was.'),
+        h('small.note', waiting || stale ? 'This one waits on this phone: saving puts it back changed, and it goes when the brain is back.' : 'Saving changes it in place, and its reminder moves with it. UNDO puts it back as it was.'),
       );
       return card;
     };
@@ -454,7 +525,8 @@ export const agendaTab: TabDef = {
       P.big.dataset.state = events.length ? 'shown' : 'empty';
     };
 
-    const load = async () => {
+    // (fresh: a change or a visit, so the months MONTH read before are read again; the minute's timer keeps them)
+    const load = async (fresh = true) => {
       try {
         // the brain's api gives the copy on this phone when it cannot be reached (api/offline.ts): the copy unchanged means it was that
         const was = offline.get().agenda;
@@ -475,6 +547,12 @@ export const agendaTab: TabDef = {
         if (!events.length) {
           loaded = true;
           paintFeeds();
+          // [planlane2:timeline] the timeline says it too, instead of waiting for a diary that is not coming (laid out from the phone's
+          // copy when there is one)
+          stale = true;
+          const kept = offline.get().agenda;
+          if (kept) allEvents = agendaWithOutbox(kept).events;
+          tl.paint();
           /* state: agenda.diary offline */
           return void clear(ep.body, h('p.note.agoff', { role: 'status', dataset: { case: 'keep', state: 'offline' } }, DIARY_OFFLINE), h('p.note', { dataset: { case: 'keep' } }, 'Your to-do list still works on this phone.'));
         }
@@ -484,7 +562,8 @@ export const agendaTab: TabDef = {
       paintJobs();
       paintFeeds();
       paintHero();
-      mp.paint();
+      mp.paint(fresh);
+      tl.paint();
     };
 
     // until the diary is read it says so (not an empty list that looks like nothing is on)
@@ -536,7 +615,7 @@ export const agendaTab: TabDef = {
     // Sections: the diary first (what he opens the agenda for), then reminders with the notifications they send,
     // the month's spending and the calendars he has connected.
     sections(root, 'agenda', [
-      { id: 'diary', label: 'Diary', match: /^(DIARY|MONTH)/ },
+      { id: 'diary', label: 'Diary', match: /^(DIARY|TIMELINE|MONTH)/ },
       { id: 'todo', label: 'To-do', match: /^TO-DO/ },
       { id: 'reminders', label: 'Reminders', match: /^(REMINDERS|NOTIFICATIONS)/ },
       { id: 'spending', label: 'Spending', match: /^SPENDING/ },
@@ -551,10 +630,12 @@ export const agendaTab: TabDef = {
       enter() {
         void load();
         tp.paint();
+        wd.paint();
+        void syncTodos(); // the copy follows the one list each time the Agenda opens (the panel repaints on TODO_SYNCED)
         void sp.refresh();
         void wp.refresh();
         void pollInbox();
-        timer = window.setInterval(() => void load(), 60_000);
+        timer = window.setInterval(() => void load(false), 60_000);
       },
       leave() {
         clearInterval(timer);

@@ -399,9 +399,9 @@ async function workshop() {
       await page.waitForTimeout(300);
       small.push(...(await short()));
     }
-    // 10. The second column starts with what he made (pages, then widgets), and the pills name every part
+    // 10. The second column starts with what he made (pages, then the photos for those pages (sites.u12), then widgets), and the pills name every part
     const order = await page.$$eval('#pg-workshop .cR .pn h3 .ptitle', (hs) => hs.map((x) => x.textContent?.trim() ?? ''));
-    if (!/^PUBLISHED PAGES/.test(order[0] ?? '') || !/^WIDGETS/.test(order[1] ?? '')) problems.push(`[workshop 10] the second column starts with ${order.slice(0, 2).join(', ')}`);
+    if (!/^PUBLISHED PAGES/.test(order[0] ?? '') || !/^PHOTOS FOR YOUR SITES/.test(order[1] ?? '') || !/^WIDGETS/.test(order[2] ?? '')) problems.push(`[workshop 10] the second column starts with ${order.slice(0, 3).join(', ')}`);
     const names = await page.$$eval('#pg-workshop .secpill', (b) => b.map((x) => x.textContent).join(', '));
     if (names !== 'Build, Ideas, Changes, Made, Training') problems.push(`[workshop 10] the pills read "${names}"`);
     if (small.length) problems.push(`[workshop 8] buttons under 44 pt: ${[...new Set(small.map((b) => `${b.t} ${b.h}px`))].join(', ')}`);

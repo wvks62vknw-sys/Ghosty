@@ -196,6 +196,76 @@ test('a chase: said once, checked only on its morning, and the right one of its 
   assert.equal(nomail.listed[0].mail, false);
 });
 
+test('the next round: a chase holds for a second look ("and again Monday"), a parcel is settled by a delivery email, and a pinned turn stays past 30 days', async () => {
+  assert.deepEqual(S.chaseAsked("remind me to chase this if Sam doesn't reply by Thursday and again Monday if still nothing"), { who: 'Sam', day: 'thursday', again: 'monday' });
+  assert.deepEqual(S.chaseAsked("remind me if the parcel hasn't come by Friday"), { who: '', day: 'friday', wait: 'parcel' });
+  for (const t of ['what was I asking you about the boiler', 'did we talk about the holiday', 'what did we decide about the car']) assert.ok(S.recallAsked(t), t);
+  const storage = new Mem();
+  await storage.put('owner:ctx', { tz: TZ });
+  const notes = [];
+  let now = Date.parse('2026-11-11T15:00:00Z');
+  let came = null;
+  const d = { storage, notify: async (n) => void notes.push(n), now: () => now, replied: async () => came };
+  const r = await W.addChase(d, { kind: 'reply', who: 'Sam', day: 'thursday', again: 'monday', tz: TZ });
+  assert.match(r.said, /If there's still nothing, I'll look again on Monday 9 am\.$/);
+  now = Date.parse('2026-11-12T09:05:00Z');
+  const first = await W.watchersTick(d);
+  assert.match(first[0], /^No reply from Sam yet\. DRAFT A CHASE writes one for your OK\. If there's still nothing, I'll look again on Monday 9 am\.$/);
+  assert.equal((await W.loadWatchers(storage))[0].state, 'watching', 'it holds for the second look');
+  now = Date.parse('2026-11-16T09:05:00Z');
+  came = Date.parse('2026-11-14T10:00:00Z');
+  assert.deepEqual(await W.watchersTick(d), ['Sam replied on Saturday; nothing to chase.']);
+  assert.equal((await W.loadWatchers(storage))[0].state, 'told');
+  // a parcel
+  const p = await W.addChase({ ...d, now: () => Date.parse('2026-11-11T15:00:00Z') }, { kind: 'reply', who: '', day: 'friday', wait: 'parcel', tz: TZ });
+  assert.equal(p.said, "On Friday 9 am I'll look in your email for a delivery; if there's none, I'll remind you to chase the parcel.");
+  assert.equal(p.watcher.label, 'The parcel');
+  came = null;
+  now = Date.parse('2026-11-13T09:05:00Z');
+  assert.deepEqual(await W.watchersTick(d), ['No delivery email yet. Chase the seller, or tell me it came.']);
+  // a pinned turn stays past the 30 days; FORGET's neighbour, LOCK on a turn, is its pin
+  const st = new Mem();
+  await st.put('owner:ctx', { tz: TZ });
+  await M.observe(st, { kind: 'turn', text: M.turnGist('the boiler code is E119'), via: 'app' }, NOW - 25 * D);
+  await Mm.changeMemory({ storage: st, library: { available: false } }, `t:${NOW - 25 * D - 1500}`, 'lock', undefined, NOW);
+  assert.equal((await R.recallSearch(st, 'boiler code', NOW + 10 * D, TZ)).length, 1, 'still there on day 35');
+});
+
+test('recall by meaning on the brain (memory.u1): "the trip north" finds his "trains to Leeds" through the free embedding; none, and words stand', async () => {
+  const storage = await week();
+  // a stand-in for the embedding: "trip north" and "trains to Leeds" point the same way, everything else elsewhere
+  const vec = (t) => (/leeds|trip north/i.test(t) ? [1, 0, 0] : /door|hinge/i.test(t) ? [0, 1, 0] : [0, 0, 1]);
+  const env = { AI: { run: async (_m, input) => ({ data: input.text.map(vec) }) } };
+  const hits = await R.meaningSearch(env, storage, 'the trip north', NOW, TZ);
+  assert.equal(hits.length, 1);
+  assert.match(hits[0].q, /trains to Leeds/);
+  assert.equal(hits[0].day, 'on Tuesday');
+  assert.deepEqual(await R.meaningSearch({}, storage, 'the trip north', NOW, TZ), [], 'no Workers AI: nothing by meaning');
+  const tool = T.memoryTools.find((t) => t.name === 'recall');
+  const RealNow = Date.now;
+  Date.now = () => NOW;
+  try {
+    assert.match(await tool.run({ about: 'the trip north' }, { storage, env }), /he asked “what are the trains to Leeds tomorrow morning”/);
+  } finally {
+    Date.now = RealNow;
+  }
+});
+
+test('a pinned turn survives the caps (memory.u11): a month of 25 turns a day, and a store full to its bytes, never push a PIN out', () => {
+  const now = NOW;
+  const pin = { at: now - 40 * D, via: 'app', q: 'the boiler code is E119', pinned: true };
+  const busy = Array.from({ length: 30 * 25 }, (_, i) => ({ at: now - 30 * D + i * (D / 25) + 1, via: 'app', q: `a long question about something or other number ${i} ${'x'.repeat(100)}`, a: `An answer to it, kept as the first sentence of the reply ${i}.` }));
+  const out = R.boundGists([pin, ...busy], now);
+  assert.ok(out.some((g) => g.pinned && g.q === pin.q), 'the PIN is still there');
+  assert.ok(JSON.stringify(out).length <= 110_000, 'and the store stays within its bytes');
+  assert.ok(out.length < busy.length + 1, 'the unpinned ones were the ones trimmed');
+  // at most MAX_PINS pins, the newest kept
+  const many = Array.from({ length: R.MAX_PINS + 5 }, (_, i) => ({ at: now - 100 * D + i, via: 'app', q: `pin ${i}`, pinned: true }));
+  const kept = R.boundGists(many, now);
+  assert.equal(kept.length, R.MAX_PINS);
+  assert.equal(kept[0].q, 'pin 5');
+});
+
 test('"what did I ask you about X?" in its wordings; the RECALL chip\'s words; nothing about anyone he never named', () => {
   for (const [t, about] of [['what did I ask you about trains?', 'trains'], ['When did I mention the boiler', 'boiler'], ['did I tell you about my knee', 'knee'], ['find where I said garden', 'garden'], ['what have I asked you about Leeds', 'Leeds']]) assert.equal(S.recallAsked(t), about, t);
   for (const t of ['what did you do today?', 'what trains go to Leeds', 'tell me about trains']) assert.equal(S.recallAsked(t), null, t);

@@ -5,6 +5,7 @@
  * unit conversions, the oven line, the shopping list shared as text, the week's meal plan, a use-it-up list and leftovers.
  * No storage, no network here. Every number says what it assumed.
  */
+import { durationSecs } from './amounts';
 import { card, type Card } from './cards';
 import { addDays, dayWords, listWords, weekdayOf } from './packs';
 
@@ -17,6 +18,10 @@ const DUR = new RegExp(`(?:(half an?|\\d+(?:\\.\\d+)?|${Object.keys(NUM).join('|
 
 /** Seconds in a span of words ("8 minutes", "1 hour 20", "an hour and a half", "half an hour", "90 seconds", "1h20"). */
 export function secondsIn(words: string): number | null {
+  // [voice lane] AMOUNTS UNDERSTOOD EXACTLY (voice.u3): "a quarter of an hour", "twenty five minutes", "one minute thirty", "two and
+  // a half minutes" read exactly (packages/shared/src/amounts.ts); the reading below stays for anything it does not take
+  const exact = durationSecs(words);
+  if (exact) return exact;
   const w = words.toLowerCase().replace(/(\d)h(\d)/g, '$1 h $2');
   let total = 0;
   let any = false;
@@ -53,7 +58,13 @@ export function timerAsked(text: string): TimerAsk | null {
       /\bfor (?:the |my |a |an |some )?([a-z][a-z' -]{0,30}?)\s*(?:timer)?[.!]?$/i.exec(p)?.[1] ??
       /^([a-z][a-z' -]{0,30}?)\s+(?:timer\s+)?(?:\d|a\s|an\s|half|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty|thirty)/i.exec(p.replace(/^timers?:?\s*/i, ''))?.[1] ??
       '';
-    const clean = name.replace(/\b(?:timer|minutes?|mins?|hours?|seconds?|the|a|an|egg timer)\b/gi, '').trim().replace(/^(?:for|in|of|at|to|on|set|start)$/i, '');
+    // ([voice lane] the number and fraction words of the amount are not the timer's name: "a quarter of an hour", "twenty five", "one minute thirty")
+    const clean = name
+      .replace(/\b(?:timer|minutes?|mins?|hours?|seconds?|secs?|the|a|an|egg timer|quarters?|half|and|of|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|ninety|hundred|couple|few)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^(?:for|in|at|to|on|set|start)\s+/i, '')
+      .replace(/^(?:for|in|of|at|to|on|set|start)$/i, '');
     out.push({ secs: Math.min(secs, 24 * 3600), name: clean || (/\begg\b/i.test(p) ? 'eggs' : '') });
   }
   if (!out.length) return null;
@@ -340,4 +351,53 @@ export function useUpWords(words: string, today: string): UseUp[] {
 export function leftoversBy(what: string, today: string): { by: string; days: number } {
   const days = /\brice\b/i.test(what) ? 1 : 2;
   return { by: addDays(today, days), days };
+}
+
+/**
+ * A recipe read from a recipe page's own structured data (schema.org Recipe in its JSON-LD, which recipe sites publish for search
+ * engines): the name, how many it serves, the ingredient lines and the steps (NEXT ROUND, body.u9). Pure; null when the page has
+ * none. The page's words are data, never instructions.
+ */
+export function recipeFromPage(html: string): { name: string; serves: number; ingredients: string[]; steps: string[] } | null {
+  const blocks = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]!);
+  const strip = (s: unknown) => String(s ?? '').replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  const isRecipe = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && [(x as { '@type'?: unknown })['@type']].flat().some((t) => String(t).toLowerCase() === 'recipe');
+  const find = (x: unknown, depth = 0): Record<string, unknown> | null => {
+    if (depth > 5 || !x || typeof x !== 'object') return null;
+    if (isRecipe(x)) return x;
+    for (const v of Array.isArray(x) ? x : Object.values(x as Record<string, unknown>)) {
+      const r = find(v, depth + 1);
+      if (r) return r;
+    }
+    return null;
+  };
+  for (const b of blocks) {
+    let j: unknown;
+    try {
+      j = JSON.parse(b.trim());
+    } catch {
+      continue;
+    }
+    const r = find(j);
+    if (!r) continue;
+    const name = strip(r.name).slice(0, 80);
+    const ingredients = [r.recipeIngredient ?? r.ingredients].flat().map(strip).filter(Boolean).slice(0, 40).map((s) => s.slice(0, 120));
+    const steps: string[] = [];
+    const walk = (x: unknown, depth = 0): void => {
+      if (depth > 4 || steps.length >= 30) return;
+      if (typeof x === 'string') {
+        for (const s of x.split(/\n+/)) if (strip(s)) steps.push(strip(s).slice(0, 400));
+      } else if (Array.isArray(x)) x.forEach((y) => walk(y, depth + 1));
+      else if (x && typeof x === 'object') {
+        const o = x as Record<string, unknown>;
+        if (o.itemListElement) walk(o.itemListElement, depth + 1);
+        else if (o.text) walk(o.text, depth + 1);
+      }
+    };
+    walk(r.recipeInstructions);
+    const y = String([r.recipeYield].flat()[0] ?? '');
+    const serves = Math.max(1, Math.min(24, Number(/\d+/.exec(y)?.[0] ?? 2) || 2));
+    if (name && ingredients.length && steps.length) return { name, serves, ingredients, steps: steps.slice(0, 30) };
+  }
+  return null;
 }

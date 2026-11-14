@@ -4,7 +4,9 @@
 // facing west; a tap on it opens its card with Wikipedia's lines; WHAT'S THAT? asks the brain with
 // the aimed thing riding along as `seen`; the PLACES chip hides places; with no compass at all AIM
 // falls back to drag-to-pan with a heading slider. The data routes are stubbed; nothing breaks the
-// security policy and nothing sticks out sideways.
+// security policy and nothing sticks out sideways. THE NIGHT SKY: on a fixed evening (20 Nov 2026, 19:00
+// London) facing the Moon, it is labelled by name, its card says where to look and how high in words with
+// its phase, the SKY chip turns the sky off and on, and no request carries anything about the sky.
 import { chromium } from 'playwright';
 import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
@@ -20,7 +22,7 @@ const problems = [];
 const HERE = { latitude: 52.4797, longitude: -1.9026 };
 const placesAsked = [];
 
-async function phone({ compass }) {
+async function phone({ compass, clock = null }) {
   const ctx = await browser.newContext({
     viewport: PHONE,
     ...UK,
@@ -28,10 +30,14 @@ async function phone({ compass }) {
     isMobile: true,
     hasTouch: true,
     userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-    permissions: ['camera', 'geolocation'],
+    // with a compass, the phone also grants motion access: Chromium now has DeviceOrientationEvent.requestPermission
+    // (as iPhones do) and answers "denied" unless the motion sensors are granted, which left AIM on drag-to-pan
+    permissions: compass ? ['camera', 'geolocation', 'accelerometer', 'gyroscope', 'magnetometer'] : ['camera', 'geolocation'],
     geolocation: HERE,
   });
   const page = await ctx.newPage();
+  // the night sky's part stands on a fixed evening (Playwright's clock, running on from there)
+  if (clock) await page.clock.install({ time: new Date(clock) });
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     const t = m.text();
@@ -129,12 +135,13 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   await page.screenshot({ path: `${out}/aim-west.png` });
 
   // facing east again, tap the marker: its card, with Wikipedia's lines
+  // (a tap is where he sees the view: an earlier click on a chip lower down scrolls the screen, so the view is brought back into sight first)
   await face(page, 270);
   await page.waitForTimeout(900);
   m = await marker(page, 'east');
-  const box = await page.locator('#pg-lens .lensview').boundingBox();
+  const box = (await page.locator('#pg-lens .lensview').scrollIntoViewIfNeeded(), await page.locator('#pg-lens .lensview').boundingBox());
   if (m && box) await page.mouse.click(box.x + m.x, box.y + m.y);
-  await until(page, () => !document.querySelector('#pg-lens .aimcard')?.hidden && /East Tower/.test(document.querySelector('#pg-lens .aimcard')?.textContent ?? ''), null, 8000, 'tapping the marker did not open its card');
+  await until(page, () => !document.querySelector('#pg-lens .aimcard')?.hidden && /East Tower/.test(document.querySelector('#pg-lens .aimcard')?.textContent ?? ''), null, 8000, `tapping the marker did not open its card: ${JSON.stringify(await page.evaluate(() => ({ selected: window.__ghosty.aim.selected, card: document.querySelector('#pg-lens .aimcard')?.hidden ? '(hidden)' : document.querySelector('#pg-lens .aimcard')?.textContent?.slice(0, 80), near: window.__ghosty.aim.markers.filter((x) => x.on).slice(0, 12).map((x) => [x.id, x.x, x.y]), top: (() => { const v = document.querySelector('#pg-lens .lensview').getBoundingClientRect(); const m = window.__ghosty.aim.markers.find((x) => x.id === 'east'); const e = m && document.elementFromPoint(v.left + m.x, v.top + m.y); return `${e ? `${e.tagName}.${String(e.className).slice(0, 60)}` : 'none'} view ${Math.round(v.left)},${Math.round(v.top)} ${Math.round(v.width)}x${Math.round(v.height)} window ${innerWidth}x${innerHeight} scroll ${Math.round(scrollY)} pg ${Math.round(document.querySelector('#pg-lens').scrollTop)} doc ${document.documentElement.scrollHeight} scrolled ${(() => { const o = []; for (let e = document.querySelector('#pg-lens .lensview'); e; e = e.parentElement) if (e.scrollTop > 0) o.push(`${e.tagName}#${e.id}.${String(e.className).slice(0, 40)}=${Math.round(e.scrollTop)}`); return o.join(' | ') || 'none'; })()} focus ${document.activeElement?.tagName}.${String(document.activeElement?.className ?? '').slice(0, 40)}`; })() })))}`);
   await until(page, () => /made-up tower/.test(document.querySelector('#pg-lens .aimextract')?.textContent ?? ''), null, 8000, "the card has no Wikipedia lines");
 
   // WHAT'S THAT? asks the brain, the aimed thing riding along as `seen`
@@ -215,7 +222,7 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   // (the slider sits low and filling it scrolls the Lens up, the picture with it: bring the picture back first, as a thumb would)
   await page.locator('#pg-lens .lensview').evaluate((v) => v.scrollIntoView({ block: 'nearest' }));
   await page.waitForTimeout(300);
-  const box = await page.locator('#pg-lens .lensview').boundingBox();
+  const box = (await page.locator('#pg-lens .lensview').scrollIntoViewIfNeeded(), await page.locator('#pg-lens .lensview').boundingBox());
   const before = (await aim(page)).heading;
   await page.mouse.move(box.x + box.width * 0.7, box.y + box.height / 2);
   await page.mouse.down();
@@ -240,6 +247,66 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   const fingerAfter = (await aim(page)).heading;
   if (!(fingerAfter > fingerBefore + 5)) problems.push(`a finger drag to the left did not turn the view right: ${fingerBefore} → ${fingerAfter}`);
   await page.screenshot({ path: `${out}/aim-manual.png` });
+  await ctx.close();
+}
+
+// ================= the night sky, worked out on the phone =================
+// 20 Nov 2026, 19:00 London, from HERE: the Moon (waxing gibbous) about 150° and 39° up, Saturn a few degrees below it.
+{
+  const { ctx, page } = await phone({ compass: true, clock: '2026-11-20T19:00:00Z' });
+  const asked = [];
+  page.on('request', (r) => asked.push(r.url()));
+  await page.evaluate(() => window.__ghosty.run('open_lens', { mode: 'aim' }));
+  await page.waitForSelector('#pg-lens .lensmodes', { timeout: 15000 });
+  await page.locator('#pg-lens .lensmodes button', { hasText: 'AIM' }).click();
+  const startAim = page.locator('#pg-lens button', { hasText: 'START AIM' });
+  if (await startAim.isVisible()) await startAim.click();
+  await until(page, () => window.__ghosty?.aim?.sensors === 'compass' && window.__ghosty?.aim?.pos?.from === 'gps', null, 15000, `[sky] no compass or no GPS: ${JSON.stringify(await aim(page))}`);
+  // face the Moon: bearing 150° (W3C alpha counts the other way), the phone tilted back 39°
+  await page.evaluate(() => (window.__orient = { alpha: 210, beta: 129, gamma: 0 }));
+  const moonUp = await until(page, () => (window.__ghosty?.aim?.markers ?? []).some((m) => m.id === 'moon' && m.on && m.labelled), null, 15000, `[sky] the Moon never got a label facing it: ${JSON.stringify((await aim(page))?.markers)}`);
+  await page.waitForTimeout(600);
+  const m = await marker(page, 'moon');
+  const sky = (await aim(page))?.counts.sky ?? 0;
+  if (moonUp) {
+    if (m.title !== 'Moon' || m.kind !== 'sky') problems.push(`[sky] the Moon's label: ${JSON.stringify(m)}`);
+    const w = await viewWidth(page);
+    if (Math.abs(m.x - w / 2) > 40) problems.push(`[sky] facing the Moon, it is not in the middle: ${JSON.stringify(m)} (view ${w} px)`);
+    if (!(sky >= 3)) problems.push(`[sky] only ${sky} things in the sky are up on a clear November evening`);
+    if (!(await marker(page, 'saturn'))) problems.push('[sky] Saturn, a few degrees below the Moon, has no marker');
+    // its card: what it is, where to look and how high in words, and its phase
+    const box = (await page.locator('#pg-lens .lensview').scrollIntoViewIfNeeded(), await page.locator('#pg-lens .lensview').boundingBox());
+    await page.mouse.click(box.x + m.x, box.y + m.y);
+    const opened = await until(page, () => !document.querySelector('#pg-lens .aimcard')?.hidden && /Moon/.test(document.querySelector('#pg-lens .aimcard')?.textContent ?? ''), null, 8000, `[sky] tapping the Moon did not open its card: ${JSON.stringify(await page.evaluate(() => ({ selected: window.__ghosty.aim.selected, card: document.querySelector('#pg-lens .aimcard')?.hidden ? '(hidden)' : document.querySelector('#pg-lens .aimcard')?.textContent?.slice(0, 80) })))}`);
+    if (opened) {
+      const text = await page.locator('#pg-lens .aimcard').textContent();
+      if (!/south-south-east|south-east/.test(text)) problems.push(`[sky] the Moon's card does not say which way to look: ${text}`);
+      if (!/halfway up the sky \(\d+° up\)/.test(text)) problems.push(`[sky] the Moon's card does not say how high in words: ${text}`);
+      if (!/waxing gibbous, \d+% lit/.test(text)) problems.push(`[sky] the Moon's card has no phase: ${text}`);
+    }
+    await page.screenshot({ path: `${out}/aim-sky.png` });
+  }
+  // the SKY chip turns the sky off, and on again
+  const skyChip = page.locator('#pg-lens .aimchips button', { hasText: 'SKY' });
+  if (!(await skyChip.count())) problems.push('[sky] no SKY chip');
+  else {
+    const size = await skyChip.boundingBox();
+    if (!size || size.height < 36) problems.push(`[sky] the SKY chip is ${size ? Math.round(size.height) : 0} pt tall`);
+    await skyChip.click();
+    await page.waitForTimeout(600);
+    const offState = await aim(page);
+    if (offState.markers.some((x) => x.kind === 'sky') || offState.counts.sky) problems.push(`[sky] SKY off still shows the sky: ${JSON.stringify(offState.markers.filter((x) => x.kind === 'sky'))}`);
+    if ((await skyChip.getAttribute('aria-pressed')) !== 'false') problems.push('[sky] the SKY chip does not say it is off');
+    await skyChip.click();
+    await until(page, () => (window.__ghosty?.aim?.markers ?? []).some((x) => x.id === 'moon'), null, 8000, '[sky] SKY on again did not bring the Moon back');
+  }
+  // nothing was fetched for the sky: no request names it, and the Moon's card asked nothing (a place's card asks for Wikipedia's lines)
+  const skyAsked = asked.filter((u) => /\b(sky|skies|planets?|moon|saturn|jupiter|stars?|ephemeris|horizons)\b/i.test(decodeURIComponent(u)) || /\/api\/aim\/about/.test(u));
+  if (skyAsked.length) problems.push(`[sky] requests carried the sky: ${skyAsked.join(' ')}`);
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth);
+  if (wide > PHONE.width) problems.push(`[sky] the page is ${wide} px wide`);
+  const csp = await page.evaluate(() => window.__csp);
+  if (csp.length) problems.push(`[sky] CSP: ${csp.join(' | ')}`);
   await ctx.close();
 }
 

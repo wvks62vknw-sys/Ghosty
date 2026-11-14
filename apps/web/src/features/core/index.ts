@@ -5,6 +5,8 @@ import { voiceTag } from './voicetag'; // [voiceknown] whose voice, on the talk 
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
 import { pillWords } from './pill';
+import { goodnightAsked } from './goodnightwords';
+import { cancelTakeBack, startTakeBack, takeBackLeft, takeBackWords, takesBack } from './takeback'; // [security] security.u5
 import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, toolWords, turn, type Entry } from '../../assistant/session';
 import { sfx } from '../../assistant/sfx';
 import { endIntent } from '../../../../../packages/shared/src/intent';
@@ -68,6 +70,11 @@ const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"
 
 let whisper = false;
 let conversation = false;
+/**
+ * He ended it (a tap on the mic, the conversation over, the microphone let go): the mic key reads its resting state at once, even while
+ * the ear is still winding down (on a slow phone the listen's own end comes a little later). A new listen clears it.
+ */
+let letGo = false;
 /** Which voice conversation this is (a tap on the mic starts a new one): a turn of an earlier one finishing late never carries on in it. */
 let convoId = 0;
 /**
@@ -209,6 +216,11 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
     // [reader] with a book being read (or just cut), the sign-off is where we are in it ("Page 48. I'll carry on from here.")
     if (endIntent(text)) {
       endConversation();
+      // [planlane2:goodnight] "goodnight" to the mic runs GOODNIGHT (its reply spoken), not the sign-off
+      if (goodnightAsked(text)) {
+        await send(text, { speak: true, voice: true });
+        return;
+      }
       const book = await import('../library/reader').then((r) => r.bookSignOff(text)).catch(() => false);
       if (!book) await signOff(text);
       return;
@@ -233,6 +245,7 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
  */
 export function listenNow(): void {
   if (conversation) return;
+  letGo = false;
   micNote = '';
   endedNote = false;
   conversation = true;
@@ -253,6 +266,7 @@ export function listenNow(): void {
  */
 function converseAfterSpeech(): void {
   if (conversation) return;
+  letGo = false;
   conversation = true;
   quiet = 0;
   document.querySelector('#mic')?.classList.add('on');
@@ -278,6 +292,7 @@ function untilFree(live: () => boolean): Promise<void> {
 /** The voice conversation is over (quiet, or something went wrong): the microphone off, its button and the state line say so. */
 function endConversation(): void {
   conversation = false;
+  letGo = true;
   holdMic(false);
   document.querySelector('#mic')?.classList.remove('on');
   ui.set({}); // repaints the state line: no longer READY
@@ -568,12 +583,42 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       const thing = `${toolWords(e.name, e.args).replace(/[.:\s]+$/, '')}${aw ? ` (${aw})` : ''}`;
       const box = h('div.approval', { dataset: { state: e.state } }, h('small', 'NEEDS YOUR APPROVAL'), h('b', e.reason), h('span.note.apthing', approvalAsk(thing)));
       if (e.state === 'waiting') {
-        const yes = button('APPROVE', () => void answerApproval(e.id, true), 'on');
-        const no = button('DECLINE', () => void answerApproval(e.id, false), 'warn');
-        yes.setAttribute('aria-label', `Approve: ${thing}`);
-        no.setAttribute('aria-label', `Decline: ${thing}`);
-        for (const b of [yes, no]) b.classList.add('apkey');
-        box.append(h('div.row', yes, no));
+        // [security] A FEW SECONDS TO TAKE IT BACK (security.u5): a send, a post, a payment or a publish counts down first
+        const keys = h('div.row');
+        const ask = () => {
+          const yes = button('APPROVE', () => {
+            if (!takesBack(e.name)) return void answerApproval(e.id, true);
+            startTakeBack(e.id, () => void answerApproval(e.id, true));
+            counting();
+          }, 'on');
+          const no = button('DECLINE', () => void answerApproval(e.id, false), 'warn');
+          yes.setAttribute('aria-label', `Approve: ${thing}`);
+          no.setAttribute('aria-label', `Decline: ${thing}`);
+          for (const b of [yes, no]) b.classList.add('apkey');
+          box.dataset.takeback = '';
+          keys.replaceChildren(yes, no);
+        };
+        const counting = () => {
+          const left = takeBackLeft(e.id);
+          if (left == null) return ask();
+          const words = h('span.note.aptakeback', takeBackWords(left));
+          const back = button('TAKE IT BACK', () => {
+            cancelTakeBack(e.id);
+            ask();
+          }, 'warn');
+          back.classList.add('apkey', 'apback');
+          back.setAttribute('aria-label', `Take it back: ${thing}`);
+          box.dataset.takeback = 'counting';
+          keys.replaceChildren(words, back);
+          const tick = setInterval(() => {
+            const s = takeBackLeft(e.id);
+            if (s == null || !box.isConnected) return clearInterval(tick);
+            words.textContent = takeBackWords(s);
+          }, 250);
+        };
+        if (takeBackLeft(e.id) != null) counting();
+        else ask();
+        box.append(keys);
       } else box.append(h('span.note', approvalDone(e.state === 'approved', e.via)));
       return box;
     }
@@ -596,7 +641,8 @@ function homeContext(): ScreenContext {
 
 export const coreTab: TabDef = {
   id: 'core',
-  title: 'CORE',
+  // [consistency] one name: the first screen is Home in the bar, the deck, the jump bar and "where it lives"
+  title: 'HOME',
   icon: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   scene: 'backdrop',
   blurb: 'talk to Ghosty · arc reactor HUD',
@@ -661,6 +707,7 @@ export const coreTab: TabDef = {
     // The app hidden ends the voice conversation: the microphone is let go (voice.ts) and not taken again.
     onMicReleased(() => {
       conversation = false;
+      letGo = true;
       mic.classList.remove('on');
       paintTalk();
     });
@@ -669,6 +716,7 @@ export const coreTab: TabDef = {
       if (interrupt('tap') && conversation) return;
       if (conversation) {
         conversation = false;
+        letGo = true;
         holdMic(false);
         stopListening();
         mic.classList.remove('on');
@@ -845,12 +893,15 @@ export const coreTab: TabDef = {
       talkline.dataset.state = st;
       if (talkSay.textContent !== words) talkSay.textContent = words;
       talkStop.hidden = st !== 'speaking';
-      const on = u.voice === 'listening' || conversation;
+      // (his tap ends it at once: the key never waits on the ear winding down, which a slow phone takes a moment over)
+      const on = conversation || (u.voice === 'listening' && !letGo);
       mic.setAttribute('aria-pressed', String(on));
       mic.setAttribute('aria-label', on ? 'Stop listening' : 'Talk by voice');
     };
     ui.subscribe((u, prev) => {
       if (u.voice === 'listening' && prev.voice !== 'listening') {
+        // (a listen that starts afresh is not the one he ended)
+        if (!conversation) letGo = false;
         /* state: core.talk loading */
         liveAtListen = chat.get().live;
         listenSince = Date.now();

@@ -826,10 +826,34 @@ function brain(ed: Ed): HTMLElement {
     b.disabled = off;
     return b;
   };
+  // the cut-out model, not kept: its size and GET (PHOTO TOOLS sends him here when the free online tools cannot take the background out)
+  const offerSlot = h('div.pecutoffer');
+  void packHere('cutout').then((here) => {
+    if (!here) offerSlot.append(packOffer('cutout', () => ed.refreshTray(), 'With it kept here, PHOTO TOOLS can take the background out on this phone when the free online tools are asleep: nothing leaves it.'));
+  });
+  // GHOSTY'S CHANGES (editors.u7): a change in his words, or one tap, becomes marked changes above this tray, each to accept or reject.
+  // This part never leaves the phone: the words are read here and the changes are the editor's own sliders.
+  const ask = h('input.peinput.peaskin', { type: 'text', enterkeyhint: 'go', placeholder: 'warmer, brighter, crop to 4:5…', 'aria-label': 'Tell me a change in your words' });
+  const askLine = h('p.pnote.peaskline', 'Tell me a change and I mark each one for you to accept or reject. This part stays on the phone.');
+  const run = (text: string) => {
+    if (!text.trim()) return void (askLine.textContent = 'Type a change first, like “warmer” or “crop to 4:5”.');
+    void ed.propose(text).then((n) => (askLine.textContent = n ? `I marked ${n === 1 ? 'one change' : `${n} changes`} above. Accept or reject each.` : 'I could not turn that into a change. Try “warmer”, “brighter”, “more contrast”, “black and white” or “crop to 4:5”.'));
+  };
+  ask.addEventListener('keydown', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') run(ask.value);
+  });
+  const suggest = button('SUGGEST CHANGES', () => run(ask.value), 'pesuggask');
+  const quick = (label: string, words: string) => {
+    const b = button(label, () => run(words), 'pequick');
+    b.dataset.ask = words;
+    return b;
+  };
   return h('div.petrayin',
+    h('div.peask', h('b.pelabel', 'ASK GHOSTY FOR CHANGES'), ask, suggest, h('div.perow.pechips.pequicks', quick('FIX IT', 'fix it'), quick('WARMER', 'warmer'), quick('BRIGHTER', 'brighter'), quick('CROP 4:5', 'crop to 4:5')), askLine),
     h('div.pebrainkeys', key('background', 'BACKGROUND', 'takes it out'), key('sharper', 'SHARPER', 'twice the size'), key('erase', 'ERASE', 'draw over a thing')),
     line,
     off ? h('p.pnote', 'No signal to the brain right now. These three wait; LIGHT, COLOUR, CURVES, CROP, MASKS, HEAL and the rest work as they are.') : h('p.pnote', 'Each one says who does it and asks for your tap before anything is sent. A face is never looked for and never changed.'),
+    offerSlot,
   );
 }
 

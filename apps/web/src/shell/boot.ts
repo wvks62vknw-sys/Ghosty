@@ -66,15 +66,15 @@ import { previousOpen } from '../state/lastopen';
 import { lockBox, marksState, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
-import { FAULT_WORDS, HOLD_AFTER, greetingFor, holdWords, settledFeeds } from './bootwords';
+import { FAULT_WORDS, FILM_SHOTS, HOLD_AFTER, STORY_SHOTS, greetingFor, holdWords, lengthFor, offlineLine, openingLine, ownLines, settledFeeds, shotWords, type BootRun } from './bootwords';
 import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../features/core/scan/film';
-import { resetScoreState, scoreState, startScore, type Score } from '../features/core/scan/score';
+import { resetScoreState, scoreState, scoreTuning, startScore, type Score } from '../features/core/scan/score';
 import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
 import { worldDesc, ORB_FILL } from '../features/core/scan/world';
 import { eyeShot, type EyeShot, type EyeShotState } from '../features/core/eye/film';
 import { FEED_NAMES, type FeedId, type GuardianInfo } from '../../../../packages/shared/src/guardian';
 
-type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet';
+type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet' | 'lock';
 type Phase = 'ground' | 'floor' | 'orb' | 'stamp' | 'feeds' | 'recognise' | 'greeting' | 'land' | 'done';
 type Timeline = Record<Exclude<Phase, 'done'> | 'end', number>;
 
@@ -203,6 +203,13 @@ export const bootState = {
    *  soon enough (QUICK_REOPEN_MS) for the short cut. */
   reopen: -1,
   quick: false,
+  /** Start-up jobs that waited for the landing (afterLanding), and when (ms after the first frame) they were let go (-1: none waited). */
+  deferred: 0,
+  deferredAt: -1,
+  /** The offline opening's line (boot.s10), '' with a signal. */
+  offlineLine: '',
+  /** What matters today, the line the search ends on (boot.u2: the diary's next thing, a to-do due, rain); '' when there is none. */
+  todayLine: '',
   /** THE FILM played (the world is The Scan and Mind drew it): the descent, the things found, the orb's viewport (film.ts). */
   film: false,
   scan: null as FilmState | null,
@@ -227,6 +234,39 @@ const flags = () => window as unknown as Flags;
 /** "Good evening, Tony." from the clock and the name in Settings; with none saved (or the app's own "Boss"), "Good evening." alone (bootwords.ts). */
 export function greetingLine(d = new Date()): string {
   return greetingFor(settings.get().name, d.getHours());
+}
+
+/** Where the last opening's run is kept on this phone (boot.u9: how smoothly it ran), and the turn his own lines take. */
+export const RUN_KEY = 'ghosty.lastboot';
+const TURN_KEY = 'ghosty.bootturn';
+/** The last opening's run as this phone kept it (null before any). */
+export function lastRun(): BootRun | null {
+  try {
+    const r = JSON.parse(localStorage.getItem(RUN_KEY) ?? 'null') as BootRun | null;
+    return r && typeof r.ms === 'number' ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The opening's line (boot.u8, boot.s9, boot.s7): a guest he named, once; else his own line, taking turns; else, away two days or more,
+ * how long it has been; else the greeting by the hour. Only from this phone's own records. `use`: this is an opening, so a guest's
+ * greeting is spent and his lines take their next turn.
+ */
+export function openingWords(use: boolean, d = new Date()): string {
+  const s = settings.get();
+  const guest = s.bootGuest && s.bootGuest.until > d.getTime() ? s.bootGuest.name : '';
+  let turn = 0;
+  try {
+    turn = Number(localStorage.getItem(TURN_KEY) ?? 0) || 0;
+    if (use && s.bootLines?.trim() && !guest) localStorage.setItem(TURN_KEY, String(turn + 1));
+  } catch {
+    /* no storage: the first line every time */
+  }
+  const line = openingLine({ name: s.name, hr: d.getHours(), away: bootState.reopen, own: ownLines(s.bootLines ?? ''), turn, guest });
+  if (use && guest) settings.set({ bootGuest: { name: '', until: 0 } });
+  return line;
 }
 
 /** "2026-08" → "Aug". */
@@ -277,6 +317,23 @@ export function bootReady(): void {
   }
 }
 
+/**
+ * main.ts: start-up jobs that can wait (the notices, push, the library's copy, the queued sends) start once the opening film has landed,
+ * on the next idle moment, so the film's frames and Home's first second have the phone to themselves; with no film playing (a resume,
+ * a deep link, the automated checks) they start at once, as always. `bootState.deferred` counts what waited.
+ */
+export function afterLanding(fn: () => void): void {
+  const playing = () => !!document.getElementById('boot') && (bootState.kind === 'full' || bootState.kind === 'short' || bootState.kind === 'still' || bootState.kind === 'flat');
+  if (!playing()) return fn();
+  bootState.deferred++;
+  const idle = (cb: () => void) => ((window as unknown as { requestIdleCallback?: (f: () => void, o: { timeout: number }) => void }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 1)))(cb, { timeout: 1500 });
+  const look = () => (playing() ? void setTimeout(look, 100) : idle(() => {
+    bootState.deferredAt = bootState.ended >= 0 ? bootState.ended : -1;
+    fn();
+  }));
+  look();
+}
+
 /** main.ts: the app could not start. Plain words and a way out; nothing technical, no numbers. */
 export function bootFault(): void {
   faulted = true;
@@ -303,16 +360,68 @@ export function startBoot(): void {
   const toHome = (!hash || hash === 'core') && !/[?&]code=/.test(location.search);
   // every cold open plays it (the page is new: nothing of the app was running); a resume never reaches here
   // [restc] on a television (TV MODE) the short cut: the orb and the words, nothing that needs WebGPU; with no 3-D at all it is the flat one
+  // [boot.c6] opened from his Lens shortcut (?do=lens, ?do=lens:read, #lens): a one-second lock-in, then the Lens (the camera still waits for START)
+  const q = new URLSearchParams(location.search);
+  const lensLink = /^lens(?::|$)/i.test(q.get('do') ?? '') || /^lens$/i.test(q.get('open') ?? '') || /^lens\b/i.test(hash);
+  if (lensLink && !automated) {
+    bootState.kind = 'lock';
+    el.classList.add('lock');
+    lockIn(el);
+    return;
+  }
   // a quick reopen (he had it on screen under three minutes ago, and the phone closed it behind him): the short cut, not the whole film again
   bootState.reopen = previousOpen > 0 ? Math.max(0, Date.now() - previousOpen) : -1;
   bootState.quick = bootState.reopen >= 0 && bootState.reopen < QUICK_REOPEN_MS;
-  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() || bootState.quick ? 'short' : 'full';
+  // his choice of length (Settings → THE OPENING): the short cut every time, or the whole film only on the day's first open
+  const chosen = lengthFor(settings.get().bootLength, previousOpen, Date.now());
+  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() || bootState.quick || chosen === 'short' ? 'short' : 'full';
   // a check may pick which version plays (software WebGL is too slow for the full one to choose itself)
   if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm') kind = f.__ghostyBootKind;
   bootState.kind = kind;
   el.classList.add(kind);
   if (kind === 'quiet' || kind === 'warm') return;
   play(el, kind, false);
+}
+
+/**
+ * THE LENS'S LOCK-IN (NEXT ROUND boot.c6): opened from his Lens shortcut, the reticle snaps onto the middle of the screen with LENS under
+ * it (the recognition's tone where the phone allows sound), and the layer fades onto the Lens once the app is up: a second at least, two
+ * and a half at most. The camera is never opened here: the Lens still waits for his tap on START.
+ */
+const LOCK_MIN = 900;
+const LOCK_MAX = 2500;
+function lockIn(el: HTMLElement): void {
+  bootState.plays++;
+  bootState.marks = {};
+  bootState.ended = -1;
+  const t0 = performance.now();
+  started = t0;
+  bootState.firstFrame = Math.round(t0);
+  bootState.marks.lock = 0;
+  const side = Math.round(Math.min(innerWidth, innerHeight) * 0.42);
+  const target = h('i.borb.block', { 'aria-hidden': 'true' });
+  Object.assign(target.style, { left: `${Math.round((innerWidth - side) / 2)}px`, top: `${Math.round((innerHeight - side) / 2)}px`, width: `${side}px`, height: `${side}px` });
+  const name = h('p.bname', { dataset: { case: 'keep' } }, 'LENS');
+  name.style.top = `${Math.round((innerHeight + side) / 2) + 14}px`;
+  el.append(target, name);
+  const lock = lockBox(el);
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-label', 'Opening the Lens.');
+  bootState.tone = sfxAllowed() ? ((document.documentElement.dataset.sound ?? 'tone') as 'tone' | 'click' | 'off') : 'quiet';
+  void recognise(lock, target, { name: 'Lens' });
+  name.style.opacity = '1';
+  const end = () => {
+    const e = performance.now() - t0;
+    if ((!appIsReady || e < LOCK_MIN) && e < LOCK_MAX) return void setTimeout(end, 50);
+    release(lock);
+    bootState.ended = Math.round(e);
+    bootState.marks.done = bootState.ended;
+    bootState.phase = 'done';
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 200);
+    watchReturns();
+  };
+  setTimeout(end, LOCK_MIN);
 }
 
 /** "reboot" and SYSTEM → REBOOT HIM: Home, then the whole cinematic again over it. */
@@ -323,10 +432,66 @@ export async function reboot(): Promise<void> {
   // let Home lay out first, so the landing has its hero to land on
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const el = document.body.appendChild(h('div#boot'));
+  // (a replay is not a reopen: no "welcome back", and the readings say so)
+  bootState.reopen = -1;
+  bootState.quick = false;
   const kind: Kind = calmWanted() ? 'still' : 'full';
   bootState.kind = kind;
   el.classList.add(kind);
   play(el, kind, true);
+}
+
+/**
+ * THE DIRECTOR'S MODE (NEXT ROUND boot.u12): the opening again over Home, one named shot at a time: PREV and NEXT (and the arrow keys)
+ * step, DONE lands on Home as the film does. The bar sits outside the boot's layer, so its keys never count as a tap to skip. False when an
+ * opening is already on screen.
+ */
+export const directorState = { on: false, shot: -1, shots: 0, line: '' };
+export async function director(): Promise<boolean> {
+  if (document.getElementById('boot') || directorState.on) return false;
+  const f = flags();
+  f.__ghostyBootManual = true;
+  await reboot();
+  const seek = f.__bootSeek;
+  if (!seek || !document.getElementById('boot')) {
+    f.__ghostyBootManual = false;
+    return false;
+  }
+  // (the first step decides which cut plays: the film's shots, or the storyboard's in the other looks)
+  seek(0);
+  const shots = bootState.film ? FILM_SHOTS : STORY_SHOTS;
+  const end = bootState.timeline?.end ?? 7000;
+  directorState.on = true;
+  directorState.shots = shots.length;
+  const line = h('p.bdline', { role: 'status', dataset: { case: 'keep' } });
+  const go = (i: number) => {
+    const k = Math.max(0, Math.min(shots.length - 1, i));
+    directorState.shot = k;
+    directorState.line = shotWords(k, shots);
+    line.textContent = directorState.line;
+    // (each shot photographed half way through, so what it does is on screen)
+    const next = k + 1 < shots.length ? shots[k + 1]![1] : end;
+    seek(Math.round((shots[k]![1] + next) / 2));
+  };
+  const done = () => {
+    removeEventListener('keydown', onKey);
+    bar.remove();
+    seek(end);
+    f.__ghostyBootManual = false;
+    directorState.on = false;
+    directorState.shot = -1;
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'ArrowRight') go(directorState.shot + 1);
+    else if (e.key === 'ArrowLeft') go(directorState.shot - 1);
+    else if (e.key === 'Escape') done();
+  };
+  const bar = h('div#bdirector', { role: 'group', 'aria-label': 'The opening, shot by shot' }, line,
+    h('div.bdkeys', h('button', { type: 'button', onclick: () => go(directorState.shot - 1) }, 'PREV'), h('button', { type: 'button', onclick: () => go(directorState.shot + 1) }, 'NEXT'), h('button.on', { type: 'button', onclick: done }, 'DONE')));
+  document.body.append(bar);
+  addEventListener('keydown', onKey);
+  go(0);
+  return true;
 }
 
 // ---------------------------------------------------------------- the resume
@@ -626,13 +791,31 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   // box 5 px outside it (the point of light with no 3-D)
   const orbBox = h('i.borb', { 'aria-hidden': 'true' });
   const stamp = h('p.g-stamp.bstamp', { dataset: { g: 'stamp', case: 'keep' } });
-  const greet = h('p.bgreet', { dataset: { case: 'keep' }, hidden: true }, greetingLine());
+  const greet = h('p.bgreet', { dataset: { case: 'keep' }, hidden: true }, openingWords(true));
   const feeds = h('div.bfeeds');
   // a slow open (the network slow, the brain cold): after six seconds the film says so, in its own voice, and keeps moving
   const slow = h('p.bslow', { dataset: { case: 'keep' }, role: 'status', hidden: true }, 'Still waking. The signal is slow.');
   // the landing held for a late app: after a second, in the stamp's small type, what it waits for (never a frozen frame)
   const hold = h('p.bhold.g-truth', { dataset: { case: 'keep' }, role: 'status', hidden: true });
-  const top = h('div.btop', stamp, greet, feeds, hold, slow);
+  // no signal at the open: one line says so, and what still works on this phone (boot.s10)
+  const off = h('p.boffline.g-truth', { dataset: { case: 'keep' }, role: 'status', hidden: true });
+  bootState.offlineLine = '';
+  if (navigator.onLine === false) {
+    off.textContent = offlineLine(false);
+    bootState.offlineLine = off.textContent;
+    void import('../offline/brain').then((b) => {
+      off.textContent = offlineLine(!!b.offlineBrain.get().downloaded);
+      bootState.offlineLine = off.textContent;
+    }).catch(() => undefined);
+  }
+  // what matters today (boot.u2): looked up now, shown from the greeting on, where the search ends
+  const today = h('p.btoday.g-truth', { dataset: { case: 'keep' }, hidden: true });
+  bootState.todayLine = '';
+  void import('./bootday').then((d) => d.dayFocus()).then((line) => {
+    today.textContent = line;
+    bootState.todayLine = line;
+  }).catch(() => undefined);
+  const top = h('div.btop', stamp, greet, today, feeds, hold, off, slow);
   const name = h('p.bname', { dataset: { case: 'keep' } }, 'GHOSTY');
   const skip = h('p.bskip', { dataset: { case: 'keep' } }, 'Tap to skip');
   bootState.greeting = greet.textContent ?? '';
@@ -713,7 +896,8 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   // THE SOUND: under the film, B, the short score (his Sounds setting and the platform's cold-open rule honoured by score.ts, said nowhere);
   // A, the one tone, when he chose it; today's hum under the other worlds' picture
   resetScoreState();
-  const score: Score | null = filmWanted && settings.get().bootScore !== false ? startScore() : null;
+  // (in his colour's key, with the hour's texture: boot.u7)
+  const score: Score | null = filmWanted && settings.get().bootScore !== false ? startScore(scoreTuning(dd.theme ?? 'reactor', new Date().getHours())) : null;
   if (score?.on) bootState.sound = true;
   const stopSound = score ? () => score.stop() : hum(tl);
   let said = false;
@@ -878,6 +1062,13 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     bootState.ended = Math.round(elapsed(now));
     stopSound?.();
     letGo();
+    // how smoothly it ran, kept on this phone for Settings and "how did the opening run?" (boot.u9)
+    try {
+      const run: BootRun = { kind, film: !!film, ms: Math.max(0, bootState.ended - bootState.held), frames: bootState.frames, worst: bootState.worstGap, long: bootState.budget.long, at: Date.now() };
+      localStorage.setItem(RUN_KEY, JSON.stringify(run));
+    } catch {
+      /* no storage: nothing kept */
+    }
     if (mindIn && mind) {
       // (the film: the orb's viewport is where it flew to; Home's hero sits on the same place, so the landing is no cut)
       const q = film ? film.orbRect() : null;
@@ -925,6 +1116,15 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     }
   };
   el.addEventListener('pointerdown', skipIt);
+  // (as the best launches: a key skips it too, Escape, Enter or the space bar, and VoiceOver is told what this is and how to skip it;
+  // never while the director's mode steps it by hand)
+  const onKey = (e: KeyboardEvent) => {
+    if (done) return removeEventListener('keydown', onKey);
+    if (!flags().__ghostyBootManual && (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ')) skipIt(e);
+  };
+  addEventListener('keydown', onKey);
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-label', 'Ghosty is starting. Tap anywhere to skip.');
 
   /** The recognition: the box snaps onto the orb's box with the tone, once (ui/machine.ts recognise: the lock's duration and
    *  curve from the tokens, the sound set's own tone on top of his sound setting). */
@@ -1094,6 +1294,11 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       }
     });
     feeds.hidden = gone <= 0;
+    today.hidden = !bootState.todayLine || T < tl.greeting || bootState.skipped;
+    today.style.opacity = (today.hidden ? 0 : seg(tl.greeting, tl.greeting + 200) * textsOut).toFixed(3);
+    // (offline: its line from the feeds' moment, where the feeds would have answered, until the words go)
+    off.hidden = !bootState.offlineLine || T < tl.feeds;
+    off.style.opacity = (off.hidden ? 0 : textsOut).toFixed(3);
     // 6. the recognition: the box snaps onto the orb with the tone, G H O S T Y under it
     // (on a phone whose frame jumped past it to the landing, the recognition still happens on the cut's clock: the box is gone with the words)
     if (T >= tl.recognise && !bootState.skipped) recogniseOrb(push);
@@ -1115,7 +1320,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   /** Each frame against the budget: the gap since the last one (long: over 12 ms at 120 Hz, over 20 at 60). */
   const budget = (gap: number) => {
     if (B.gaps.length < 600) B.gaps.push(Math.round(gap * 10) / 10);
-    if (gap < 11.5) quick++;
+    if (gap > 1 && gap < 11.5) quick++; // (a zero-length gap is two frames handed the same time, never a sign of a 120 Hz display)
     const hz = B.gaps.length < 3 ? 0 : quick >= 2 ? 120 : 60;
     if (hz !== B.hz) {
       B.hz = hz;
@@ -1186,14 +1391,16 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       enter('ground', 0);
     }
     // a long gap is not made up in one jump (no stutter), but the end still comes on time (the rate after a hold)
-    const gap = now - last;
+    // (every frame after the first is a gap in the record, a zero-length one too: a loaded software renderer can hand two frames the
+    // same time, and a frame drawn must never go uncounted; FINAL-BOOT's check on CI, "76 gaps recorded for 78 frames")
+    const gap = Math.max(0, now - last);
     const dt = Math.min(250, gap);
-    if (now > last) {
-      bootState.worstGap = Math.max(bootState.worstGap, Math.round(now - last));
+    if (bootState.frames > 0) {
+      bootState.worstGap = Math.max(bootState.worstGap, Math.round(gap));
       budget(gap);
       if (T < tl.orb) {
         gaps++;
-        gapSum += now - last;
+        gapSum += gap;
       }
     }
     last = now;

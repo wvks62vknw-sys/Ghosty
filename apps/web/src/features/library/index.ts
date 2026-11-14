@@ -15,6 +15,7 @@
  * digest (the news, papers and events Ghosty gathered this morning — DIGEST NOW gathers again).
  */
 import { diaryPanel } from './diary';
+import { classicsPanel } from './classics';
 import type { ScreenContext } from '../../../../../packages/shared/src/awareness';
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
 import { brain, lastSeen, mirrorLibraryNow, unreachable, type StudyInfo } from '../../api/brain';
@@ -457,6 +458,8 @@ export const libraryTab: TabDef = {
     const compact = (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
       r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH[d.kind] ?? PAGE)));
+      // (whose it is: a built-in book, or one of Ghosty's notebooks)
+      r.dataset.whose = d.builtin ? 'builtin' : 'notebook';
       (r.lastChild as HTMLElement).title = `${d.passages} passage${d.passages === 1 ? '' : 's'}`;
       return r;
     };
@@ -761,7 +764,9 @@ export const libraryTab: TabDef = {
     // his own things first (add, his shelf, his gadgets' manuals), then what Ghosty reads by himself and the day's digest
     // [further] the nature diary (what he tapped KEEP on in the Lens, with where from): on the shelf, his own things (library/diary.ts)
     const diary = diaryPanel();
-    P.right.append(ap.el, shelf.el, rights.el, diary.pn.el, gadgets.el, study.el, fresh.el, wp.el);
+    // [learn.u6] THE CLASSICS SHOP beside ADD KNOWLEDGE: free public-domain books, on his tap, on Wi-Fi, size said
+    const classics = classicsPanel(() => void refresh());
+    P.right.append(ap.el, classics, shelf.el, rights.el, diary.pn.el, gadgets.el, study.el, fresh.el, wp.el);
     // Sections (ui/sections.ts; the navigation sheet): asking first, then his shelf (his own documents at its top, then
     // Ghosty's notebooks, then the built-in ones: the order inside it is the shelf's own), what Ghosty studies and gathers by
     // himself, and the two things he does least, adding a book and the gadgets' manuals.
@@ -771,7 +776,7 @@ export const libraryTab: TabDef = {
       { id: 'shelf', label: 'Shelf', match: /^(SHELF|RIGHTS|NATURE)/ },
       { id: 'study', label: 'Self-study', match: /^SELF-STUDY/ },
       { id: 'fresh', label: 'Fresh today', match: /^FRESH/ },
-      { id: 'add', label: 'Add', match: /^ADD/ },
+      { id: 'add', label: 'Add', match: /^(ADD|CLASSICS)/ },
       { id: 'gadgets', label: 'Gadgets', match: /^GADGETS/ },
     ]);
 

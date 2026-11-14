@@ -12,13 +12,16 @@ import { GitHub } from './github';
 import { collectAis, type AisShip } from './ais';
 import { loadReverseJobs, refreshReverse, removeReverse, startReverse } from './tools/reverse'; // [reverse]
 import { KEYS, keyDefs, testKey } from './keys';
-import { asData, BACKGROUND_BLOCKED, needsApproval, needsApprovalIn } from './kernel/permissions';
+import { asData, BACKGROUND_BLOCKED, needsApproval, needsApprovalIn, outsideSource } from './kernel/permissions';
+import { LOCKED_WORDS, lockedAt, lockedTool, logApproval, securityRoute } from './security';
+import { checkLink, verdictWords } from './integrations/linkcheck'; // [security] CHECK A LINK (security.u9)
 import { Vault } from './kernel/vault';
 import { storageError } from './kv';
 import { Meter } from './meter';
 import { speedSummary } from './speed'; // [speed]
 export { storageError } from './kv';
 import { parseEmailKey } from './integrations/mail';
+import { emailTest } from './emailtest';
 import { spotifyRoute } from './integrations/spotify';
 import { trafficRoute } from './integrations/traffic';
 import { transitRoute } from './integrations/transit';
@@ -42,6 +45,7 @@ import { raising, type Raising } from '../../../packages/shared/src/intent';
 import { moodEvent, moodLine, type Mood } from '../../../packages/shared/src/mood';
 import { feel, loadMood } from './mood';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
+import { classicsRoute } from './library/classics';
 import { trainingRoute } from './training/coach';
 import { loadStudy, matchDomains, noteGap, STUDY_KEY, studySession, studySummary, TOPIC_COUNT } from './library/study';
 import { runDigest } from './library/digest';
@@ -50,7 +54,7 @@ import { dropPlace, placeRoute } from './library/place';
 import { loadPrinciples, loadProfile, profileRoute, reflect, reflectSummary } from './profile';
 import { projectsRoute, runProjectStep, type ProjectDeps } from './projects';
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
-import { capabilityLines, lengthBand, systemPrompt, type ClientContext, type PromptGroups } from './prompt';
+import { capabilityLines, lengthBand, notHis, systemPrompt, type ClientContext, type PromptGroups } from './prompt';
 import { mindSnapshot, observe, toolEpisode, turnGist } from './mind'; // [mind] the one shared mind (OWNER-ISSUES 74)
 import { clipResult, compact, noteHeard, trimContext } from './context';
 import { backAt, directPlan, directReply, localTimeAnswer, noModelLine, noModelMessage, raisedReply, smallTalk, waitOf, type DirectPlan } from './direct';
@@ -59,11 +63,13 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
-import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
-import { gameSiteResponse, gameUpload } from './gamesite'; // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
+import { linksIn, siteFrameResponse, siteResponse, siteStore, siteVersionsRoute } from './tools/sites';
+import { gameSiteResponse, gameUpload } from './gamesite';
+import { photosRoute } from './sitephotos';
+import { pageUpload } from './sitepage'; // [sites] his own photos on his sites (NEXT ROUND sites.u12) // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
-import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
+import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, editEvent, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { abilitiesRoute } from './abilities'; // [abilities]
 import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
@@ -91,7 +97,7 @@ import { CITED_PROMPT, citeAnswer, citedAsked, GIVEN, type Read } from './cited'
 import { findRights, RIGHTS_HEAD, rightsRead, rightsText } from './knowledge/rights';
 import { refusedWords } from '../../../packages/shared/src/refusal'; // [refusal]
 import { designRoute } from './tools/design';
-import { addSub, loadSubs, removeSub, vapidKeys } from './push';
+import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { notifyPrefsRoute, pushIfWanted, pushWanted } from './notifyprefs';
 import { backupRoute } from './backup';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
@@ -115,6 +121,9 @@ interface Pending {
   calls: ToolCall[];
   client: ClientContext;
   at: number;
+  /** [security] the card's own line and the page whose words came before it, for the approvals list (security.ts) */
+  reason?: string;
+  after?: string;
 }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
@@ -496,9 +505,15 @@ export class GhostyAgent {
       if (path === '/training' || path.startsWith('/training/')) return await selfTrainingRoute(req, path, method, this.trainDeps());
       // [sites] the game open in his studio, handed over to wait for "put it on my sites" and his APPROVE; never published here (gamesite.ts)
       if (path === '/sites/game') return await gameUpload(req, { env: this.env, storage: this.storage });
+      // [sites] his own photos for his sites, resized and stripped on his phone (sitephotos.ts): kept, listed, never published here
+      if (path === '/sites/photos') return await photosRoute(req, { env: this.env, storage: this.storage, origin: this.origin });
+      // [sites] a document or deck from his phone, waiting for "publish it as a page" and his APPROVE (sitepage.ts, sites.s4)
+      if (path === '/sites/page') return await pageUpload(req, { env: this.env, storage: this.storage });
       if (path === '/school' || path.startsWith('/school/')) return await schoolRoute(req, path, method, { env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] SCHOOL (school/routes.ts)
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
+      // [security] SAFE, PRIVATE AND IN YOUR HANDS: the brain's locks and every approval, for the SECURITY screen (security.ts)
+      if (path === '/security' || path.startsWith('/security/')) return await securityRoute(path, method, { env: this.env, storage: this.storage, push: (m) => pushAll(this.storage, m), unpairTelegram: () => telegramRoute(this.telegramHost(), '/telegram/unpair', 'POST'), checkLink: async (t) => { const c = await checkLink(t); return { verdict: c.verdict, words: verdictWords(c), links: c.links }; }, body: () => req.clone().json().then((j) => (j && typeof j === 'object' ? (j as Record<string, unknown>) : null)).catch(() => null), previews: this.env.PAGES_PROJECT ? `${this.env.PAGES_PROJECT}.pages.dev` : this.host?.endsWith('.workers.dev') ? `<change>-${this.host}` : null });
       if (path === '/keys/public' && method === 'GET') {
         // Only a key that is public by design: Mapbox's "pk." token goes in the map's tile addresses.
         let mapbox = '';
@@ -538,6 +553,8 @@ export class GhostyAgent {
         await this.router.setOrder(Array.isArray(order) ? order.map(String) : []);
         return json({ ok: true });
       }
+      // [sites] a published page's earlier versions, and UNDO LAST UPDATE from the Workshop (sites.u2; tools/sites.ts)
+      if (/^\/sites\/[a-z0-9-]{1,48}\/(versions|restore|check)$/.test(path)) return await siteVersionsRoute(req, path, { env: this.env, storage: this.storage });
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
@@ -651,6 +668,8 @@ export class GhostyAgent {
           return json({ linked: true, problem: String((e as Error).message).slice(0, 200) });
         }
       }
+      // LINKS → EMAIL → TEST: one sign-in with what he linked, pass or fail as a reason code (emailtest.ts; never the server's text)
+      if (path === '/email/test' && method === 'POST') return json(await emailTest((n) => this.vault.lookup(n)));
       if (path.startsWith('/traffic/')) return await trafficRoute(path, method, this.vault);
       if (path.startsWith('/spotify/')) return await spotifyRoute(req, path, method, this.vault);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
@@ -823,16 +842,19 @@ export class GhostyAgent {
       // [talk] his last reply was cut off as it was read out: its copy here says what he heard of it (BRIEF-TALK-1A 2)
       if (extra.heard) noteHeard(prev, extra.heard);
       await this.addTurn({ role: 'user', text: markPhotos(text, images.length), at: Date.now() });
+      // [voice lane] QUIET HOUSEHOLD MODE (voice.s1, voice.c5; prompt.ts notHis): a turn said in a voice he introduced, or one the
+      // phone doesn't know, is not his: it stays out of his day log and recall, and never moves his mood or rates his replies
+      const theirs = notHis(client);
       // (the day log: what he asked, in a line — the nightly reflection consolidates it; mind.ts)
-      await observe(this.storage, { kind: 'turn', text: turnGist(ownerWords(text)), via: client.tab === 'telegram' ? 'telegram' : 'app' }).catch(() => null);
+      if (!theirs) await observe(this.storage, { kind: 'turn', text: turnGist(ownerWords(text)), via: client.tab === 'telegram' ? 'telegram' : 'app' }).catch(() => null);
       const ctx: Msg[] = [...trimContext(prev), { role: 'user', content: images.length ? withImages(turn, images) : turn }];
       // Raising him (OWNER-ISSUES 64, 69c; intent.ts raising): praise or a telling-off goes on his last reply as a rating the
       // weekly training reads, with its weight; a standing rule in his words becomes a conduct lesson. His own words only.
-      const raised = plain ? raising(text, lastReply(prev)) : null;
+      const raised = plain && !theirs ? raising(text, lastReply(prev)) : null;
       if (raised) await this.raise(raised, prev).catch(() => undefined);
       // His mood (OWNER-ISSUES 70b, 63): moved only by his own words — praise or a telling-off, a stand-down, "go dark", a
       // kind word after a sharp one, being taught, danger he is in — never by a page, a tool or what the camera read.
-      const ev = raised?.kind ? ({ kind: raised.kind, weight: raised.weight ?? 1 } as const) : moodEvent(text);
+      const ev = theirs ? null : raised?.kind ? ({ kind: raised.kind, weight: raised.weight ?? 1 } as const) : moodEvent(text);
       if (ev) {
         const before = await loadMood(this.storage);
         const mood = await feel(this.storage, ev);
@@ -1104,11 +1126,13 @@ export class GhostyAgent {
    * what was waiting under that id is taken, and `run` carries the turn on with its events
    * going to `emit`; or why nothing could be, with the status the route answers.
    */
-  private async takeApproval(id: string, allow: boolean): Promise<{ error: string; status: number } | { run: (emit: (ev: ChatEvent) => void, signal: AbortSignal) => Promise<void> }> {
+  private async takeApproval(id: string, allow: boolean, from: 'phone' | 'telegram' = 'phone'): Promise<{ error: string; status: number } | { run: (emit: (ev: ChatEvent) => void, signal: AbortSignal) => Promise<void> }> {
     const pp = this.pausedPending;
     if (pp && pp.id === id && Date.now() - pp.at < 3600_000) {
       // Asked while the database was paused: carry on the same way.
       this.pausedPending = null;
+      const first = pp.calls[0];
+      if (first) await logApproval(this.storage, { tool: first.function.name, what: describe(first.function.name, safeArgs(first.function.arguments)), allow, from, at: Date.now() });
       return {
         run: async (emit, signal) => {
           try {
@@ -1128,6 +1152,9 @@ export class GhostyAgent {
     }
     if (!pending || pending.id !== id) return { error: 'nothing is waiting for approval', status: 404 };
     const found = pending;
+    // [security] every APPROVE and NOT NOW kept as a short list, from whichever channel (security.ts, security.u4)
+    const first = found.calls[0];
+    if (first) await logApproval(this.storage, { tool: first.function.name, what: found.reason ?? describe(first.function.name, safeArgs(first.function.arguments)), allow, from, at: Date.now(), ...(found.after ? { after: found.after } : {}) });
     return {
       run: async (emit, signal) => {
         try {
@@ -1159,6 +1186,8 @@ export class GhostyAgent {
       calls.forEach((call, i) => ctx.push(toolMsg(call, results[i]!)));
       return false;
     }
+    // [security] ONE TAP TO LOCK EVERYTHING (security.u11): while locked, nothing that leaves or changes Ghosty runs, approved or not
+    const locked = calls.some((c) => { const t = toolByName.get(c.function.name); return !!t && lockedTool(t); }) ? await lockedAt(this.storage) : null;
     for (let i = 0; i < calls.length; i++) {
       const call = calls[i]!;
       const tool = toolByName.get(call.function.name);
@@ -1167,6 +1196,9 @@ export class GhostyAgent {
       let result: string;
       if (!tool) {
         result = `Error: there is no tool called ${call.function.name}.`;
+      } else if (locked && lockedTool(tool)) {
+        result = `Error: ${LOCKED_WORDS}`;
+        emit({ t: 'tool_result', id: call.id, name: tool.name, ok: false, summary: LOCKED_WORDS });
       } else if (badJson) {
         result = `Error: ${badJson}`;
         emit({ t: 'tool_result', id: call.id, name: tool.name, ok: false, summary: result.slice(0, 280) });
@@ -1191,7 +1223,10 @@ export class GhostyAgent {
         }
         const id = crypto.randomUUID().slice(0, 12);
         const pinnedCalls = [{ ...call, function: { ...call.function, arguments: JSON.stringify(pinned) } }, ...calls.slice(i + 1)];
-        await this.storage.put(PENDING_KEY, { id, calls: pinnedCalls, client, at: Date.now() } satisfies Pending);
+        // [security] the card names the page whose words came before it, so he can judge the instruction himself (security.u6)
+        const after = outsideSource(ctx);
+        if (after) reason = `${reason} (Asked after reading ${after}: judge its words yourself.)`;
+        await this.storage.put(PENDING_KEY, { id, calls: pinnedCalls, client, at: Date.now(), reason, ...(after ? { after } : {}) } satisfies Pending);
         await this.storage.put(CTX_KEY, stripImages(forgetVehicleChecks(ctx)));
         emit({ t: 'approval', id, name: tool.name, args: pinned, reason });
         emit({ t: 'done', model: (await this.storage.get<string>('llm:last')) ?? '' });
@@ -1494,6 +1529,8 @@ export class GhostyAgent {
       await dropPlace(this.storage, m[1]!);
       return json({ ok });
     }
+    // [learn.u6] THE CLASSICS SHOP: free public-domain books (Gutendex, Standard Ebooks' open new releases), added on his tap
+    if (path === '/library/classics' || path.startsWith('/library/classics/')) return classicsRoute(req, path, method, { lib });
     if (path === '/library/import' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { source?: string; offset?: number };
       try {
@@ -1586,6 +1623,16 @@ export class GhostyAgent {
     }
     const ev = path.match(/^\/agenda\/events\/([\w-]+)$/);
     if (ev && method === 'DELETE') return json({ ok: !!(await removeEvent(this.storage, ev[1]!)) });
+    // [planlane2:timeline] change one of his events in place (the same id) and move its reminder with it (schedule.ts editEvent)
+    if (ev && method === 'POST') {
+      const start = body.start === undefined ? undefined : when(body.start);
+      if (start === null) return json({ error: 'start time not understood' }, 400);
+      const end = body.end === null ? null : body.end === undefined ? undefined : (when(body.end) ?? undefined);
+      const opt = (v: unknown) => (v === null || v === '' ? null : v === undefined ? undefined : String(v));
+      const remindMin = body.remindMin === null || body.remindMin === '' ? null : body.remindMin === undefined ? undefined : Number(body.remindMin);
+      const r = await editEvent(this.storage, ev[1]!, { title: body.title === undefined ? undefined : String(body.title), start, end, allDay: body.allDay === undefined ? undefined : !!body.allDay, location: opt(body.location), notes: opt(body.notes), remindMin }, tz, (e) => `${e.title} — ${e.allDay ? 'today' : `at ${fmtLocal(e.start, tz)}`}${e.location ? ` · ${e.location}` : ''}`);
+      return r ? json({ event: r.event }) : json({ error: 'not found' }, 404);
+    }
     if (path === '/jobs' && method === 'POST') {
       // The owner pressing a button in the Agenda tab IS the approval.
       const next = when(body.at);
@@ -1698,7 +1745,7 @@ export class GhostyAgent {
         return this.busy ? null : this.claim();
       },
       runTurn: (text, images, client, emit, signal, note) => this.runTurn(text, images, client, emit, signal, note ? { note } : {}),
-      takeApproval: (id, allow) => this.takeApproval(id, allow),
+      takeApproval: (id, allow) => this.takeApproval(id, allow, 'telegram'),
       statusLine: async () => {
         const st = await this.status('owner');
         return `${st.models.filter((m) => m.state === 'ok').length} of ${st.models.length} models ready · ${st.keys.filter((k) => k.set).length} keys set${st.paused ? ' · memory paused until midnight UTC' : ''}`;
