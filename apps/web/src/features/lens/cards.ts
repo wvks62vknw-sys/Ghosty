@@ -54,6 +54,8 @@ export const cardsState = {
   cost: { watts: 0, price: 0, line: '' },
   /** The last two packets put side by side (lens.u8): their names and the one line. */
   compare: { a: '', b: '', line: '' },
+  /** The prices in view in pounds, once he asked (the sweep). */
+  pounds: [] as string[],
 };
 
 /** His price for a unit of electricity (pence a kWh), kept on this phone; 25p until he says his own. */
@@ -139,7 +141,7 @@ export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' 
   species: { jobs: ['living'], key: 'WHICH SPECIES', done: 'Asking my model that sees for the species.', none: 'I don’t see a plant or an animal yet. Getting the eyes helps.' },
   place: { jobs: ['place'], key: 'WHAT PLACE IS THIS', done: 'Asking my model that sees which place it is.', none: 'I don’t see a building or a work of art yet. Getting the eyes helps.' },
   aloud: { jobs: ['text', 'letter', 'document', 'medicine'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
-  copy: { jobs: ['text', 'letter', 'phone', 'link', 'email', 'sum', 'code', 'contact', 'stop'], key: 'COPY', done: 'Copying it.', none: 'I don’t see anything to copy yet.' },
+  copy: { jobs: ['text', 'letter', 'phone', 'link', 'email', 'sum', 'code', 'contact', 'stop', 'parcel', 'unit', 'price'], key: 'COPY', done: 'Copying it.', none: 'I don’t see anything to copy yet.' },
   contacts: { jobs: ['contact', 'code'], key: 'ADD TO CONTACTS', done: 'Handing it to your phone’s contacts.', none: 'I don’t see a business card or a contact code yet.' },
   buses: { jobs: ['stop'], key: 'NEXT BUSES', done: 'Asking for the next buses from this stop.', none: 'I don’t see a bus stop sign yet. Hold it so its name is in view.' },
   nhs: { jobs: ['medicine'], key: 'OPEN THE NHS PAGE', done: 'Opening the NHS page about it.', none: 'I don’t see a medicine box yet. Hold it so its name is in view.' },
@@ -164,6 +166,9 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   const spentOnce = new Set<string>();
   /** The food packets found this visit, newest last: the one before the packet in view is offered to COMPARE with it. */
   const foods: string[] = [];
+  /** Today's exchange rates once he has asked for a price in pounds (MARKETS' free feed), and whether they are on their way. */
+  let ratesNow: { per: Record<string, number>; at: number } | null = null;
+  let ratesBusy = false;
   /** A stop's next buses, by the stop's name on its sign: asked once a visit, on his tap. */
   const buses = new Map<string, { state: 'asking' | 'found' | 'failed'; text: string }>();
 
@@ -373,6 +378,40 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       cardsState.done = `copied ${what}`;
     });
 
+  /** Prices in another currency, in pounds on his tap at today's rate from the free public feed MARKETS uses (nothing of his goes with it). */
+  const priceCard = (ps: TextAct[]): HTMLElement => {
+    const r = ratesNow;
+    const conv = (p: TextAct) => (r && p.amount != null && p.cur && r.per[p.cur] && r.per.gbp ? (p.amount * r.per.gbp) / r.per[p.cur]! : null);
+    const head = ps.length === 1 ? `A PRICE · ${ps[0]!.text}` : `${ps.length} PRICES · ${[...new Set(ps.map((p) => (p.cur ?? '').toUpperCase()))].join(', ')}`;
+    if (r && ps.some((p) => conv(p) != null)) {
+      const time = new Date(r.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+      const lines = ps.map((p) => {
+        const g = conv(p);
+        return `${p.text} ≈ ${g == null ? 'no rate for it' : `£${g.toFixed(2)}`}`;
+      });
+      cardsState.pounds = lines;
+      return card('price', head, h('div.lc-body', h('p.lc-line', lines.join(' · ')), h('p.lc-small', `At today’s rate (${time}), from a public feed: a guide, your bank’s rate will differ a little.`)), copy('COPY', lines.join('\n'), 'the prices in pounds'));
+    }
+    return card('price', head, ratesBusy ? 'Getting today’s rate…' : 'IN POUNDS works them out at today’s rate, from a public feed; nothing about you goes with it.',
+      last?.online && !ratesBusy ? key('IN POUNDS', () => void getRates(), { label: 'These prices in pounds, at today’s rate' }) : null);
+  };
+  const getRates = async (): Promise<void> => {
+    ratesBusy = true;
+    sig = '';
+    if (last) update(last);
+    try {
+      const m = await import('../../data/markets');
+      const d = await m.rates.refresh();
+      if (d?.per) ratesNow = { per: d.per, at: m.rates.at || Date.now() };
+      else toast('I couldn’t get today’s rate just now. Tap again in a minute.', 'warn');
+    } catch {
+      toast('I couldn’t get today’s rate just now. Tap again in a minute.', 'warn');
+    }
+    ratesBusy = false;
+    sig = '';
+    if (last) update(last);
+  };
+
   /** One card for each thing in the words he can act on. */
   const actCard = (a: TextAct): HTMLElement => {
     switch (a.kind) {
@@ -409,6 +448,13 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           }
         }, { label: `Add ${longDay(a.value)} to your agenda` }));
       }
+      case 'price':
+        return priceCard([a]);
+      case 'unit':
+        return card('unit', 'IN YOUR UNITS', `${a.text} ≈ ${a.value.replace(/^about /, '')}`, copy('COPY', `${a.text} = ${a.value}`, 'the measure'));
+      case 'parcel':
+        // (the sweep) a parcel's tracking number: Royal Mail's own public tracking page, opened on his tap
+        return card('parcel', `A PARCEL · ${a.text}`, 'TRACK opens Royal Mail’s public tracking page for it.', link('TRACK', a.value, `Track ${a.text} on Royal Mail's page`), copy('COPY', a.text, 'the tracking number'));
       case 'phone':
         return card('phone', 'A PHONE NUMBER', a.text, link('CALL', `tel:${a.value}`, `Call ${a.text}`), copy('COPY', a.text, 'the number'));
       case 'address':
@@ -582,7 +628,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     const pe = k.thingId != null ? places.get(k.thingId) : undefined;
     const place = pe && pe.label === (k.thing?.label ?? '') ? pe.v : undefined;
     const asking = k.thingId != null && askingFor.id === k.thingId && askingFor.label === (k.thing?.label ?? '');
-    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, k.translating ?? '', spentOnce.size, [...buses.values()].map((x) => x.state).join(','), cardsState.contact.state, loadKwh().price]);
+    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, k.translating ?? '', spentOnce.size, [...buses.values()].map((x) => x.state).join(','), cardsState.contact.state, loadKwh().price, ratesBusy, ratesNow?.at ?? 0]);
     if (s === sig) return;
     sig = s;
     cardsState.jobs = jobs;
@@ -769,7 +815,12 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           break;
       }
     }
-    for (const a of acts) out.push(actCard(a));
+    // prices and measures stand on one card each (a menu has a price on every line); everything else on its own card
+    for (const a of acts) if (a.kind !== 'price' && a.kind !== 'unit') out.push(actCard(a));
+    const priceActs = acts.filter((a) => a.kind === 'price');
+    if (priceActs.length) out.push(priceCard(priceActs));
+    const unitActs = acts.filter((a) => a.kind === 'unit');
+    if (unitActs.length) out.push(card('unit', 'IN YOUR UNITS', unitActs.map((u) => `${u.text} ≈ ${u.value.replace(/^about /, '')}`).join(' · '), copy('COPY', unitActs.map((u) => `${u.text} = ${u.value}`).join('\n'), 'the measures')));
     if (!out.length && k.camera) {
       const words = k.reading ? 'Reading the words…' : !k.online ? NO_SIGNAL_WORDS : k.eyes ? NOTHING_WORDS : '';
       if (words) out.push(card('nothing', k.reading ? 'READING' : !k.online ? 'NO SIGNAL' : 'NOTHING YET', words));
