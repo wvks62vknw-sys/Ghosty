@@ -10,6 +10,7 @@ import type { AppDef, Field, LogConfig } from '../../../../../packages/shared/sr
 import { rendererFor } from './registry';
 import { glyphOf } from './glyphs';
 import './renderers';
+import { launcher } from './renderers/kinds';
 
 /** The kit's words for what each kind of app holds ("No entries yet", "Search entries"). */
 const NOUNS: Record<string, [string, string]> = {
@@ -149,7 +150,8 @@ export function mountApp(host: HTMLElement, def: AppDef): { k: KitApp; stop: () 
     k.state('error', 'This kind of app is still being built. It will open here once it lands.');
   } else {
     try {
-      stop = r(k.body, def, k);
+      // (a game opens on its launcher, THE PRO ROUND's art tile with PLAY; the board starts on PLAY)
+      stop = def.archetype === 'game' ? launcher(k, def, () => r(k.body, def, k)) : r(k.body, def, k);
     } catch (e) {
       engineState.error = e instanceof Error ? e.name : 'threw';
       k.state('error', 'This app could not draw. Your things in it are kept.', { word: 'Try again', run: () => location.reload() });
