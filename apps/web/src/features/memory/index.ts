@@ -140,7 +140,8 @@ export const memoryTab: TabDef = {
     // ---- ME: your profile in your own words. Ghosty builds it every night from the day's
     // conversation (what you said about yourself, never what it read elsewhere); add a line
     // here, or tap ✕ to remove one.
-    const mp = panel('ME', { status: 'from your own words', cls: 'me' });
+    // [consistency] ABOUT YOU, not ME: Me is the room this screen sits in
+    const mp = panel('ABOUT YOU', { status: 'from your own words', cls: 'me' });
     let profile: Profile | null = null;
     let diary: DiaryEntry[] = [];
     let lastReflect: number | null = null;
@@ -308,7 +309,7 @@ export const memoryTab: TabDef = {
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));
     P.right.append(dp.el, fp.el, lp.el, cp.el);
     sections(root, 'memory', [
-      { id: 'me', label: 'Me', match: /^(?:ME|PRINCIPLES)$/ },
+      { id: 'me', label: 'About you', match: /^(?:ABOUT YOU|PRINCIPLES)$/ },
       { id: 'patterns', label: 'Patterns', match: /^PATTERNS/ },
       { id: 'timeline', label: 'Timeline', match: /^TIMELINE/ },
       { id: 'diary', label: 'Diary', match: /^DIARY/ },

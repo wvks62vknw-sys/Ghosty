@@ -192,6 +192,8 @@ export const STATES = {
   'memory.timeline': { dir: 'memory', base: 2, now: 4 },
   'settings.faces': { dir: 'settings', base: 1, now: 2 },
   'settings.principles': { dir: 'settings', base: 1, now: 3 },
+  // [consistency] ROUTINES (NEXT-ROUND consistency.s2): a new panel, its empty and its error said from the start
+  'settings.routines': { dir: 'settings', base: 2, now: 2 },
   'system.loops': { dir: 'system', base: 1, now: 2 },
   'system.ledger': { dir: 'system', base: 2, now: 3 },
   'system.foresight': { dir: 'system', base: 2, now: 3 },

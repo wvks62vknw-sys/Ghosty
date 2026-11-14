@@ -28,6 +28,14 @@ export const RESTA_WORDS: Record<string, CatValue> = {
     go: { ask: 'Offline wikipedia black holes' },
     since: SINCE,
   },
+  // [consistency] HIS OWN ROUTINES (NEXT-ROUND consistency.s2): one word of his runs a few things in turn
+  'panel:settings:ROUTINES': {
+    name: 'Your own one-word routines',
+    line: 'You can make one word of yours, like “morning”, run a few things in turn: a screen, a panel, words you say to me.',
+    more: 'Settings → ROUTINES: give it a word, add steps from the things every screen can do (or words to say to me), put them in order, SAVE. Then say or type the word and I run each step in turn; RUN does it too. Kept on this phone. Anything that would send or post still waits for your APPROVE.',
+    say: ['Morning', 'Make a routine', 'My routines'],
+    scene: ['talking', 'morning'], cat: 'talk', since: '2026-11-14',
+  },
   'panel:settings:SHORTCUTS': {
     name: 'Siri shortcuts for me',
     line: 'You can say “Hey Siri, Ghosty timer” and I do it: twelve ready shortcuts, or your own, from my links.',

@@ -950,6 +950,16 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   await flushUndo();
   // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
   const localPriv = settings.get().offlineBrain === 'always' || !!opts.here;
+  // [consistency] HIS OWN ROUTINES (assistant/routines.ts): one word of his runs a few things in turn, on the phone, with no model
+  if (!opts.cloud && !opts.plain && !opts.again && (await import('./routineturn').then((m) => m.routineTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
+  // [consistency] THE HELP DESK (assistant/helpdesk.ts): "how do I …?" with the exact taps and TRY IT; "what can I say here?"
+  if (!opts.cloud && !opts.plain && (await import('./helpdesk').then((m) => m.helpTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
   if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: localPriv }))) {
     // [offline2] answered on the phone with no model: his own, on the independence meter too
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
