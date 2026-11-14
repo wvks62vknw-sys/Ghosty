@@ -250,8 +250,9 @@ export const APP_2: Record<string, CatValue> = {
   'panel:radio:NOW PLAYING': {
     name: 'What’s playing now', line: 'You can see what is playing now, and pause or stop it.',
     // [planlane:radio] the sleep timer and what's on, said in the chat (no model)
-    more: 'It quietens by itself while I speak, then comes back up. A sleep timer stops it after a while, at a time, or at the end of the hour.',
-    say: ['Stop the radio', 'Turn the radio off in 20 minutes', 'What station is this?'], scene: ['playing'], cat: 'play',
+    // [planlane2:podcasts] the timer's stop time in the top bar, and kept on the phone so a reload offers it back
+    more: 'It quietens by itself while I speak, then comes back up. A sleep timer stops it after a while, at a time, or at the end of the hour; the top bar shows when, and after a reload one tap plays on with it.',
+    say: ['Stop the radio', 'Turn the radio off in 20 minutes', 'What station is this?', 'Carry on with the sleep timer'], scene: ['playing'], cat: 'play',
   },
   'panel:radio:RECENT': {
     name: 'Stations you played lately', line: 'You can play again any of the last eight stations you listened to, newest first.',

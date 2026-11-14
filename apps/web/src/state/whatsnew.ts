@@ -18,6 +18,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Scripts ask first', line: 'A Home Assistant script now asks “Run Bedtime?” before it runs, every time, on the screen and from the chat: I can’t see what a script does. Scenes still run on one tap unless they set a lock, the alarm, a garage door or a switch you marked.' },
   { day: '2026-11-14', title: 'Follow from SOCIAL', line: 'SOCIAL → WAITING (under WAITING FOR YOUR APPROVE) has a FOLLOW OR UNFOLLOW box for Bluesky and Mastodon: it makes a draft, and nothing happens until you tap APPROVE.' },
   { day: '2026-11-14', title: 'Email TEST and one health line', line: 'LINKS → EMAIL has a TEST key that signs in to your mail and says if it works, and the top of LINKS says in one line that all is fine, or the one thing to fix first.' },
+  // [planlane2:podcasts] the radio's sleep timer after a reload, and in the top bar
+  { day: '2026-11-14', title: 'The sleep timer keeps its time', line: 'The top bar shows when the radio stops (“Radio 4 · stops 23:10”). If the page reloads, the Radio offers PLAY AND KEEP THE TIMER: one tap plays on with the same stop time.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

@@ -15,6 +15,8 @@ export type RadioAsk =
   | { what: 'sleepHour' }
   | { what: 'sleepOff' }
   | { what: 'sleepLeft' }
+  // [planlane2:podcasts] after a reload: play the station shown again with the stop time the reload left
+  | { what: 'carryOn' }
   | { what: 'step'; dir: 1 | -1 }
   | { what: 'favs' }
   | { what: 'fav'; n: number }
@@ -82,6 +84,9 @@ export function radioAsked(text: string): RadioAsk | null {
 
   // THE SLEEP TIMER: off, how long left, a length, a clock time, the end of the hour
   if (new RegExp(`^(?:cancel|clear|stop|remove|turn off|switch off|kill|delete|end) ${SLEEP}$|^${SLEEP} off$|^no ${SLEEP}$|^don't stop (?:${IT}|${SLEEP})$|^turn ${SLEEP} off$`).test(t) || /^(?:keep|leave) (?:the )?radio (?:on|playing)$/.test(t)) return { what: 'sleepOff' };
+  // [planlane2:podcasts] PLAY AND KEEP THE TIMER in words (only words that name the radio or the sleep timer, never a bare "it" or
+  // "timer": another screen has its own; "play the radio" alone stays VOICE's)
+  if (new RegExp(`^(?:play (?:the radio |the station )(?:again )?and keep (?:the )?(?:sleep ?)?timer|play (?:again )?and keep (?:the )?sleep ?timer|carry on (?:with )?${SLEEP}|keep ${SLEEP}(?: going)?|put ${SLEEP} back(?: on)?|bring back ${SLEEP}|carry on (?:with )?${IT} and (?:the |its )?(?:sleep ?)?timer)$`).test(t)) return { what: 'carryOn' };
   if (new RegExp(`^(?:how long|how much longer|how many minutes) (?:until|till|til|before) (?:${IT}) (?:stops|goes off|turns off|ends|switches off|goes quiet)$|^how (?:long|much time) (?:is )?(?:left )?on ${SLEEP}$|^(?:when|what time) (?:does|will) (?:${IT}) (?:stop|go off|turn off|switch off|end|go quiet)$|^(?:is there|have i set|did i set) ${SLEEP}(?: on| set)?$|^${SLEEP}\\??$|^when is ${SLEEP}$`).test(t)) return { what: 'sleepLeft' };
   const hourEnd = '(?:the )?(?:end|top) of (?:the|this) hour|on the hour';
   if (new RegExp(`^(?:(?:set )?${SLEEP} (?:for|till|until|to|at)? ?(?:${hourEnd})|(?:turn|switch) (?:${IT}) off (?:at )?(?:${hourEnd})|(?:stop|turn off|switch off) (?:${IT}) (?:at )?(?:${hourEnd})|(?:${IT}) off (?:at )?(?:${hourEnd}))$`).test(t)) return { what: 'sleepHour' };
