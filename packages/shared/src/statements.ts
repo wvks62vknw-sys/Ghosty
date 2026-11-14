@@ -26,7 +26,7 @@ export const isOfx = (text: string): boolean => /OFXHEADER\s*:|<\?OFX\b|<OFX>/i.
 export const isQif = (text: string): boolean => /^\s*!Type:/i.test(text);
 
 /** An OFX statement's transactions, oldest first; `balance` is the closing ledger balance when the file gives one. */
-export function readOfx(text: string): Statement & { balance?: { amount: number; on: string } } {
+export function readOfx(text: string): Statement & { balance?: { amount: number; on: string }; account?: string } {
   const rows: Txn[] = [];
   let skipped = 0;
   for (const m of text.matchAll(/<STMTTRN>([\s\S]*?)(?=<\/STMTTRN>|<STMTTRN>|<\/BANKTRANLIST>)/gi)) {
@@ -51,7 +51,9 @@ export function readOfx(text: string): Statement & { balance?: { amount: number;
     rows[i] = { ...rows[i]!, b: r2(balAmt) };
   }
   const org = tag(text, 'ORG');
-  return { rows, shape: 'ofx', bank: org, skipped, ...(Number.isFinite(balAmt) ? { balance: { amount: r2(balAmt), on: balOn } } : {}) };
+  // the account, as its last four digits (never the whole number): "Account ending 4321"
+  const acct = tag(text, 'ACCTID').replace(/\D/g, '').slice(-4);
+  return { rows, shape: 'ofx', bank: org, skipped, ...(acct ? { account: `Account ending ${acct}` } : {}), ...(Number.isFinite(balAmt) ? { balance: { amount: r2(balAmt), on: balOn } } : {}) };
 }
 
 /** "03/11/2026", "3/11/26", "11/03'26" (US, when the first part is over 12 the other way), "2026-11-03" → "2026-11-03". */

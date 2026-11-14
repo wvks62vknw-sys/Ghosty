@@ -1716,7 +1716,7 @@ export const CREATE: AppDef[] = [
     family: 'create',
     glyph: 'mic',
     pitch: 'Plan podcast or video episodes from idea to published, with dates and guests.',
-    keywords: ['podcast', 'episodes', 'youtube', 'content plan', 'schedule', 'guests'],
+    keywords: ['podcast', 'episodes', 'video channel', 'content plan', 'schedule', 'guests'],
     archetype: 'log',
     tour: [
       'Each episode has a working title, a format and a target date.',

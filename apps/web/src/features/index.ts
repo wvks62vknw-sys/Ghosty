@@ -12,6 +12,7 @@ import { learnTab } from './learn';
 import { lensTab } from './lens';
 // INTERPRETER (BRIEF-OCT-IDEAS-3 item 1): two halves, two languages, hold to talk, nothing kept
 import { interpreterTab } from './interpreter';
+import { translateTab } from './translate';
 // THE LAB (BRIEF-OCT-IDEAS-3 item 4): experiments on free public data, each kept as a page
 import { labTab } from './lab';
 // REHEARSE (BRIEF-OCT-IDEAS-3 item 7): a talk or a hard conversation against Ghosty, three rounds, then notes
@@ -55,6 +56,8 @@ import { slidesTab } from './slides';
 import { workspaceTab } from './workspace';
 // PHOTO (BRIEF-EDITOR-PHOTO): the sixth of the full editors, a non-destructive photo editor on the phone
 import { photoTab } from './photo';
+// [lens] PHOTOS (THE APPS ROUND, lane LENS): his private library, behind the photo editor
+import { photosTab } from './photos';
 // THE VIDEO EDITOR (BRIEF-EDITOR-VIDEO): MAKE's seventh full editor
 import { videoTab } from './video';
 import { houseTab } from './house';
@@ -69,4 +72,4 @@ import { securityTab } from './security';
 import { journalTab } from './journal';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, securityTab, journalTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, videoTab, gamestudioTab, comicTab, paintTab, houseTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, translateTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, securityTab, journalTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, photosTab, videoTab, gamestudioTab, comicTab, paintTab, houseTab, ...HUB_TABS];

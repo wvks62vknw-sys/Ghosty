@@ -25,4 +25,10 @@ export const CONSISTENCY_WORDS: Record<string, CatValue> = {
     more: 'For you, or a friend you show me to. The reply keeps a key into every room; any new word stops the walk where it is, and it ends back on Home.',
     say: ['Show me around', 'Give me a tour'], scene: ['talking'], cat: 'talk', since: '2026-11-14',
   },
+  // [consistency] APPS ROUND section 2: SPEAK SCREEN, the screen read aloud in the phone's own voice, its words shown as it reads
+  'app:speakscreen': {
+    name: 'Read the screen aloud', line: 'You can say “read the screen” and I read the screen you are on aloud, in the order it stands, and show the words as I read.',
+    more: 'In this phone’s own voice: free, on the phone, works with no signal. Its name first, then its headings and lines; the keys and the bar are left out. Say “stop” to stop.',
+    say: ['Read the screen', 'Read this page to me'], scene: ['talking'], cat: 'talk', since: '2026-11-14',
+  },
 };

@@ -54,7 +54,7 @@ export const BRUSHES: Brush[] = [
   B({ id: 'pencil', name: 'Pencil', says: 'Grainy graphite for sketching. Tilt the Apple Pencil to shade.', tip: 'grain', size: 6, hardness: 0.7, spacing: 0.08, opacity: 0.9, flow: 0.55, pSize: 0.35, pAlpha: 0.8, tilt: 1, smooth: 0.15 }),
   B({ id: 'ink', name: 'Ink', says: 'A clean inking pen that swells with pressure and tapers at both ends.', tip: 'round', size: 9, hardness: 1, spacing: 0.06, pSize: 0.9, pAlpha: 0, smooth: 0.55, taper: 18, roundness: 0.85 }),
   B({ id: 'marker', name: 'Marker', says: 'A flat felt marker: even colour, and darker where strokes cross.', tip: 'flat', size: 22, hardness: 0.85, spacing: 0.08, opacity: 0.55, pSize: 0.15, pAlpha: 0, mode: 'multiply', smooth: 0.3, roundness: 0.45 }),
-  B({ id: 'watercolour', name: 'Watercolour', says: 'Soft washes that pool darker at their edges as they dry.', tip: 'soft', size: 48, hardness: 0.2, spacing: 0.1, opacity: 0.45, flow: 0.35, pSize: 0.5, pAlpha: 0.4, mode: 'multiply', wetEdge: 0.6, smooth: 0.4 }),
+  B({ id: 'watercolour', name: 'Watercolour', says: 'Soft washes that pool darker at their edges as they dry.', tip: 'soft', size: 48, hardness: 0.55, spacing: 0.1, opacity: 0.32, flow: 0.35, pSize: 0.5, pAlpha: 0.4, mode: 'multiply', wetEdge: 1, smooth: 0.4 }),
   B({ id: 'oils', name: 'Oils', says: 'Thick bristle paint that pulls the colour under it along.', tip: 'bristle', size: 30, hardness: 0.8, spacing: 0.07, flow: 0.8, pSize: 0.4, pAlpha: 0.2, mix: 0.55, smooth: 0.3, roundness: 0.7 }),
   B({ id: 'airbrush', name: 'Airbrush', says: 'A soft spray that builds up the longer you go over it.', tip: 'soft', size: 70, hardness: 0, spacing: 0.06, flow: 0.06, pSize: 0.2, pAlpha: 0.7, buildUp: true, smooth: 0.2 }),
 ];
