@@ -21,6 +21,22 @@ export const RECALL_APP_WORDS: Record<string, CatValue> = {
   },
 };
 
+// [keep] the NEXT ROUND: a memory that keeps your word
+export const KEEP_APP_WORDS: Record<string, CatValue> = {
+  'phrase:keep': {
+    name: 'Keeps your word for you', line: 'You can say "where\'s the spare key?", "what did I say I\'d do?" or "my week" and I answer from your own words.',
+    more: 'When you say you\'ll do something I remind you on the day, and "I did it" closes it. Tell me where you put things or why you chose them and ask later, even offline. On Sunday evening your week comes to your phone.',
+    say: ['Where\'s the spare key?', 'What did I say I\'d do?', 'Why did I pick the canal flat?', 'My week'], scene: ['talking', 'morning'], cat: 'know',
+    go: { ask: 'What did I say I\'d do?', send: false }, since: '2026-11-14',
+  },
+  'panel:memory:YOUR WORD': {
+    name: 'What you said you’d do', line: 'You can see what you said you’d do, where you put things and why you chose them, and tick each off.',
+    more: 'Each promise has DONE, LATER and LET GO; places and reasons can be forgotten, with UNDO. Your week is at the bottom: what you asked about most, what you finished and what is still open.',
+    say: ['What did I say I\'d do?', 'Show my promises'], scene: ['talking', 'morning'], cat: 'know', since: '2026-11-14',
+  },
+  'section:memory:word': { same: 'panel:memory:YOUR WORD' },
+};
+
 export const RECALL_BRAIN_WORDS: Record<string, CatValue> = {
   'tool:recall': {
     name: 'Find what you asked me', line: 'I can find what you asked me in the last 30 days, in the app or on Telegram, and say when.',

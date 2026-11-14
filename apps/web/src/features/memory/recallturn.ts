@@ -13,31 +13,46 @@ import { brain } from '../../api/brain';
 import { needsAnswer } from '../../../../../packages/shared/src/lifeeasier';
 import { timeZone } from '../../state/app';
 import { sayError } from '../../ui/hisWords';
-import { buildIndex, findLocal, recallWarm } from './recall';
-import { CHASE_LIST_OFFLINE, CHASE_OFFLINE, CHASING_NONE, chasingLine, findHead, findNone, RECALL_COLD, recallHead, recallNone } from './words';
+import { buildIndex, findLocal, recallWarm, wordsOnly } from './recall';
+import { turnsBetween } from './keep';
+import { dateSpan } from '../../../../../packages/shared/src/keep';
+import { BY_WORDS, recallNoneOn, recallOn, CHASE_LIST_OFFLINE, CHASE_OFFLINE, CHASING_NONE, chasingLine, findHead, findNone, RECALL_COLD, recallHead, recallNone } from './words';
 
 type Opts = { voice?: boolean; private?: boolean };
 type Answer = (text: string, reply: string, local: LocalAnswer, opts: Opts) => true;
 
 export async function recallTurn(text: string, opts: Opts, answer: Answer): Promise<boolean> {
-  const about = recallAsked(text);
-  const q = about ?? findAsked(text);
-  if (!q) return false;
+  // [keep] "what did I ask last March about the car?": the days he named, and his words without them
+  const span = dateSpan(text, Date.now(), timeZone);
+  const words = span && (recallAsked(span.rest) || /^(?:what|which things) did I (?:ask|say|tell)(?: you)?(?: about)?$/i.test(span.rest.replace(/[?.!]+$/, '').trim())) ? span.rest : text;
+  const dated = words !== text ? span : null;
+  const about = recallAsked(words);
+  const q = about ?? (dated ? '' : findAsked(text));
+  if (q === null) return false;
   if (!(await recallWarm())) {
     // cold: online, the brain's `recall` answers; offline, say so plainly and start reading
     void buildIndex().catch(() => undefined);
-    if (navigator.onLine && about) return false;
+    if (navigator.onLine && (about || dated)) return false;
     return answer(text, RECALL_COLD, { kind: 'recall' }, opts);
   }
-  const found = await findLocal(q, { turns: !!about });
+  // "what did I ask in October?": every turn of those days, newest first
+  if (dated && !q) {
+    const turns = (await turnsBetween(dated.from, dated.to)).reverse();
+    if (!turns.length) return answer(text, recallNoneOn(dated.said), { kind: 'recall' }, opts);
+    return answer(text, recallOn(turns.length, dated.said), { kind: 'recall', found: turns.slice(0, 8) }, opts);
+  }
+  const all = await findLocal(q, { turns: !!about, k: dated ? 40 : undefined });
+  const found = dated ? all.filter((f) => f.at >= dated.from && f.at < dated.to).slice(0, 6) : all;
   const rows = found.map((f) => ({ key: f.key, ...(f.bid ? { bid: f.bid } : {}), kind: f.kind, id: f.id, title: f.title, line: f.line, at: f.at, stamp: f.stamp, day: f.day }));
+  // (meaning search downloaded but not in memory yet: the answer says it came by words only, and the model is woken at idle)
+  const how = wordsOnly() ? ` ${BY_WORDS}` : '';
   if (about) {
-    if (!found.length) return answer(text, recallNone(about), { kind: 'recall' }, opts);
+    if (!found.length) return answer(text, dated ? recallNoneOn(dated.said, about) : recallNone(about), { kind: 'recall' }, opts);
     const top = found.slice(0, 3).map((f) => `${f.day[0]!.toUpperCase()}${f.day.slice(1)} (${f.stamp}): “${f.line.slice(0, 80)}”`);
-    return answer(text, [recallHead(found.length, about), ...top].join('\n'), { kind: 'recall', found: rows }, opts);
+    return answer(text, [`${recallHead(found.length, about)}${how}`, ...top].join('\n'), { kind: 'recall', found: rows }, opts);
   }
   if (!found.length) return answer(text, findNone(q), { kind: 'recall' }, opts);
-  return answer(text, findHead(found.length, q), { kind: 'recall', found: rows }, opts);
+  return answer(text, `${findHead(found.length, q)}${how}`, { kind: 'recall', found: rows }, opts);
 }
 
 /** The Brief's mail from the person he named (by name or address), the newest first; with no name, the one mail needing an answer if there is just one. */

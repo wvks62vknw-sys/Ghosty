@@ -92,3 +92,24 @@ export function recallChip(reply: string, at: number): HTMLElement | null {
   }).catch(() => slot.remove());
   return slot;
 }
+
+/** [keep] The open promises under "what did I say I'd do?": a 44 pt DONE each, with UNDO (the brain keeps them: features/memory/keep.ts). */
+export function promiseRows(list: { id: string; what: string; due: string }[]): HTMLElement {
+  const box = h('div.recallcard.keepcard', { dataset: { case: 'keep' } });
+  for (const p of list) {
+    const done = button('DONE', async (b) => {
+      b.disabled = true;
+      const k = await import('./keep');
+      if (await k.changeKeep('done', p.id)) {
+        row.classList.add('kept');
+        b.replaceWith(h('span.note', 'Done.'));
+        toast(`Done: ${p.what}.`, 'ok');
+      } else b.disabled = false;
+    }, 'on recallforget');
+    done.dataset.case = 'keep';
+    done.setAttribute('aria-label', `Done: ${p.what}`);
+    const row = h('div.row.recallrow', { dataset: { id: p.id, kind: 'promise' } }, h('span.recallgo.keepline', `${p.what}${p.due ? ` · ${p.due}` : ''}`), done);
+    box.append(row);
+  }
+  return box;
+}

@@ -290,6 +290,10 @@ export function startRecallIndex(): void {
   setTimeout(() => (idle ? idle(go, { timeout: 4000 }) : go()), 2500);
   // what he adds later is read in when the phone next sits idle
   setInterval(() => canRun() && signature() !== lastSig && go(), 60_000);
+  // [keep] his word's copy on this phone, fresh at idle (features/memory/keep.ts): so "where's the spare key?" answers offline
+  const keep = () => navigator.onLine && document.visibilityState === 'visible' && void import('./keep').then((k) => k.refreshKeep()).catch(() => undefined);
+  setTimeout(keep, 6000);
+  setInterval(keep, 10 * 60_000);
 }
 
 /** SYSTEM → STORAGE's CLEAR: the index goes; it rebuilds at idle. */
@@ -324,6 +328,18 @@ export interface Found {
   /** "Tue 10 Nov · App". */
   stamp: string;
 }
+
+/** Meaning search is on this phone but not in memory: answers come by words, and it is woken at idle (on charge or above half). */
+export const wordsOnly = (): boolean => {
+  const e = embedState.get();
+  if (!e.downloaded || e.loaded) return false;
+  if (canRun() && !waking) {
+    waking = true;
+    void embedTexts(['wake'], 'query').catch(() => undefined).finally(() => (waking = false));
+  }
+  return true;
+};
+let waking = false;
 
 /** Ready to answer: the index has been built (or read back) at least once. */
 export const recallWarm = async (): Promise<boolean> => (await all()).length > 0 && recallState.state !== 'building';
@@ -422,4 +438,9 @@ export async function clearTurns(): Promise<void> {
   measure(cache ?? []);
   await put([], turns);
   lastSig = '';
+}
+
+/** [keep] Everything in the index (the turns and his things), for YOUR WORD's open questions and "what was I doing on the 3rd?". */
+export async function allThings(): Promise<Thing[]> {
+  return (await all()).filter((x) => !gone().has(x.key));
 }
