@@ -867,3 +867,33 @@ test('courses that pick up his mistakes (learn.u2): each answer keeps how sure h
   // ties go to the earlier lesson
   assert.equal(T.aimOf(course, { lessons: { 2: sc([[0, 'think']]), 1: sc([[0, 'think']]) } }, 3).lesson, 1);
 });
+
+// ---- learn.u12 and learn.s2: his speaking charted (numbers only), and the other side in another language ----
+test('speaking charted (learn.u12): each talk keeps only its numbers; weeks start on a London Monday; the trend is told from his own numbers; the other side speaks only the language he practises (learn.s2)', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/further/rehearse.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/further-rehearse.mjs'), logLevel: 'warning' });
+  const R = await import('./.build/further-rehearse.mjs');
+  // Monday 9 Nov 2026 is the week of Wed 11 Nov and Sun 15 Nov (London), and Mon 16 Nov starts the next
+  assert.equal(R.weekOf(Date.UTC(2026, 10, 11, 12)), '2026-11-09');
+  assert.equal(R.weekOf(Date.UTC(2026, 10, 15, 22)), '2026-11-09');
+  assert.equal(R.weekOf(Date.UTC(2026, 10, 16, 0, 30)), '2026-11-16');
+  const talks = [
+    { at: Date.UTC(2026, 10, 3, 12), wpm: 180, fillers: 6, words: 180, seconds: 60 },
+    { at: Date.UTC(2026, 10, 4, 12), wpm: 170, fillers: 4, words: 170, seconds: 60 },
+    { at: Date.UTC(2026, 10, 11, 12), wpm: 140, fillers: 2, words: 140, seconds: 60 },
+  ];
+  const weeks = R.talkWeeks(talks);
+  assert.deepEqual(weeks, [{ week: '2026-11-02', n: 2, wpm: 175, fpm: 5 }, { week: '2026-11-09', n: 1, wpm: 140, fpm: 2 }]);
+  assert.equal(R.talkTrend(weeks), 'Since your first week: filler words down from 5 to 2 a minute; pace 140 a minute, in the easy-to-follow band.');
+  assert.equal(R.talkTrend(weeks.slice(0, 1)), 'One week so far: talk again next week to see the change.');
+  assert.equal(R.talkTrend([]), 'No talks yet: CHECK IT on a talk and its numbers start the chart.');
+  // the other side in another language: told to keep to it, simply; English adds nothing
+  const es = R.promptFor('ordering a coffee', 1, [], 1, { code: 'es', name: 'Spanish' });
+  assert.match(es, /Speak only Spanish, simply and clearly, at a learner's level/);
+  assert.doesNotMatch(R.promptFor('ordering a coffee', 1, [], 1, { code: 'en', name: 'English' }), /Speak only/);
+  const notes = R.langNotesPrompt({ code: 'fr', name: 'French' }, 'a hotel check-in', [{ other: 'Bonjour', answer: 'Je suis reservation' }]);
+  assert.match(notes, /practised a conversation in French/);
+  assert.match(notes, /You said: … → Say: …/);
+  assert.match(notes, /HIM: Je suis reservation/);
+});
