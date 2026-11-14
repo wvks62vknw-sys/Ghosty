@@ -13,7 +13,7 @@ import { unzipSync, zipStore } from '../../convert/zip';
 import { jpegImage, writePdf } from '../../convert/pdfwrite';
 import { inHisWords } from '../../ui/hisWords';
 import { newId } from './model';
-import type { Book } from './store';
+import type { Book, ComicInfo } from './store';
 
 /** The most pages a PDF is drawn into (each page is a picture kept on the phone). */
 export const PDF_MAX = 400;
@@ -56,9 +56,34 @@ export async function thumbOf(b: Blob): Promise<string> {
   }
 }
 
-/** The pictures of a zip, in reading order. */
+/** What a comic's ComicInfo.xml (the format comic readers and taggers share) says: its title, series, issue, who wrote and drew
+ * it, the year, the summary, and whether it reads right to left. Read as text, never run. */
+export function comicInfoOf(xml: string): { title?: string; info: ComicInfo } {
+  const tag = (n: string): string | undefined => {
+    const m = new RegExp(`<${n}>([\\s\\S]*?)</${n}>`, 'i').exec(xml);
+    const v = m?.[1]?.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    return v ? v.slice(0, 600) : undefined;
+  };
+  const info: ComicInfo = {};
+  const put = (k: keyof Omit<ComicInfo, 'rtl'>, v: string | undefined): void => { if (v) info[k] = v; };
+  put('series', tag('Series'));
+  put('number', tag('Number'));
+  put('writer', tag('Writer'));
+  put('artist', tag('Penciller') ?? tag('Artist'));
+  put('year', tag('Year'));
+  put('summary', tag('Summary'));
+  if (/^YesAndRightToLeft$/i.test(tag('Manga') ?? '')) info.rtl = true;
+  const t = tag('Title');
+  const title = info.series ? `${info.series}${info.number ? ` #${info.number}` : ''}${t && t !== info.series ? `: ${t}` : ''}` : t;
+  return { ...(title ? { title } : {}), info };
+}
+const lastInfo: { got: { title?: string; info: ComicInfo } | null } = { got: null };
+
+/** The pictures of a zip, in reading order (and its ComicInfo.xml, kept for the shelf). */
 function zipPages(bytes: Uint8Array): Blob[] {
   const files = unzipSync(bytes);
+  const ci = [...files.keys()].find((n) => /(^|\/)ComicInfo\.xml$/i.test(n));
+  lastInfo.got = ci ? comicInfoOf(new TextDecoder().decode(files.get(ci)!)) : null;
   const names = [...files.keys()].filter((n) => PIC.test(n) && !/(^|\/)(__MACOSX|\.)/.test(n)).sort(natural.compare);
   return names.map((n) => new Blob([files.get(n)! as BlobPart], { type: mimeOf(n) }));
 }
@@ -123,6 +148,8 @@ export async function importFiles(files: File[], say: Progress, from: Book['from
       if (!opts.rar && !rarKept()) throw rarNeeded(what);
       say('Unpacking it…');
       const all = await unrar(f, say);
+      const ci = all.find((x) => /(^|\/)ComicInfo\.xml$/i.test(x.name));
+      lastInfo.got = ci ? comicInfoOf(await ci.data.text()) : null;
       pages = all.filter((x) => PIC.test(x.name) && !/(^|\/)(__MACOSX|\.)/.test(x.name)).sort((a, b) => natural.compare(a.name, b.name)).map((x) => new Blob([x.data], { type: mimeOf(x.name) }));
       kind = what === 'rar' ? 'a CBR file' : what === '7z' ? 'a CB7 file' : 'a CBT file';
       if (!pages.length) throw inHisWords('That file has no pictures in it, so there are no pages to read.');
@@ -140,7 +167,9 @@ export async function importFiles(files: File[], say: Progress, from: Book['from
     } else throw inHisWords(`I can’t read “${f.name}” as a comic. I read CBZ, PDF, pictures and folders of pictures.`);
   }
   say('Putting it on your shelf…');
-  const book: Book = { id: newId('k'), title: title.slice(0, 120), from, pages: pages.length, bytes: bytesIn, added: Date.now(), kind, ...(credit ? { credit } : {}), thumb: await thumbOf(pages[0]!) };
+  const ci = lastInfo.got;
+  lastInfo.got = null;
+  const book: Book = { id: newId('k'), title: (ci?.title ?? title).slice(0, 120), from, pages: pages.length, bytes: bytesIn, added: Date.now(), kind, ...(credit ? { credit } : {}), ...(ci && Object.keys(ci.info).length ? { info: ci.info } : {}), thumb: await thumbOf(pages[0]!) };
   return { book, pages };
 }
 

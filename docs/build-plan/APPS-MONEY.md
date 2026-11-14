@@ -23,6 +23,16 @@ everything else, so this round went into the front door of MONEY: getting your s
   statements, a bar for each month, the total and the average a month, and where every payment there is filed. Pick another category
   and every payment there follows, and the next statement remembers it.
 
+### Several accounts, and moves between them never counted as spending
+- On **Statement**, type which account the statements are for ("Current", "Savings", "Credit card"); an OFX file names its own
+  ("Account ending 1234", never the whole number).
+- **Month → Your accounts** (built from the App Kit's rows, states and loading skeleton) shows each account with its newest balance,
+  its payments and last month's money in and out, and the total of every balance. Tap an account to rename it.
+- Money out of one of your accounts and the same amount into another within three days is a **move between your own accounts**. It is
+  left out of the month, budgets, trends, nudges and safe to spend's money in and out, and still listed, with **Count it** to put one
+  back. A pair inside one account is a refund, so it is left alone.
+- **Safe to spend** now adds up every account's newest balance.
+
 ## Decisions, and why
 - **Read in code, never by a model.** OFX and QIF are read by plain rules (`packages/shared/src/statements.ts`), and statements added on
   this page are read by the rule table only, as before. Nothing reaches a bank.
@@ -46,9 +56,9 @@ everything else, so this round went into the front door of MONEY: getting your s
   updating to the new behaviour by that lane.
 
 ## What is left (from apps/money.md)
-- Several accounts side by side with their balances, and moves between your own accounts spotted and left out of spending.
 - Shop logos; charts you tap into with any two periods compared; payday-to-payday months; a flow chart.
-- Leftovers carried into the next month, budgets for groups of categories, and a push when a budget runs hot.
-- The App Kit's shared header, toolbar and sheet, once CONSISTENCY's kit lands; undo and a Recently deleted bin for imports.
+- Leftovers carried into the next month (started, left out unfinished), budgets for groups of categories, and a push when a budget
+  runs hot.
+- The rest of Money on the App Kit's frame (Your accounts uses its rows and states already); undo and a Recently deleted bin for imports.
 - The rest of the money family's list (bills joined with HOUSEHOLD, the Garage, CV Studio, Receipts, Envelope Budget, Invoices and the
   others) is untouched this round.

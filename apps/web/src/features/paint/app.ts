@@ -10,10 +10,10 @@
  */
 import { clear, h } from '../../core/dom';
 import { button } from '../../ui/components';
-import { sayError, trail } from '../../ui/hisWords';
+import { inHisWords, sayError, trail } from '../../ui/hisWords';
 import { skeleton, stateCard } from '../../ui/appkit';
 import { brushOf } from './brushes';
-import { mk, Painting, layerId, pack, type Op } from './engine';
+import { MAX_LAYERS, mk, Painting, layerId, pack, type Op } from './engine';
 import { bodyOf, openBody, thumbOf, versionOf } from './io';
 import { blobOf, PAGES, pageLines, photoLines, type PageKind } from './pages';
 import { paintState } from './state';
@@ -59,19 +59,20 @@ export async function askPalette(mood: string): Promise<string[]> {
 }
 
 // ---------------------------------------------------------------- a painting's life: new, open, keep, close
-async function create(title: string, w: number, h: number, from: string, setup: (p: Painting) => Promise<void> | void): Promise<string> {
+async function create(title: string, w: number, h: number, from: string, setup: (p: Painting) => Promise<void> | void, bare = false): Promise<string> {
   const p = new Painting(w, h);
-  p.addLayer('Background', 0);
+  if (!bare) p.addLayer('Background', 0);
   await setup(p);
-  if (p.layers.length === 1) p.addLayer('Layer 1');
+  if (p.layers.length === 1 && !bare) p.addLayer('Layer 1');
+  if (!p.layers.length) p.addLayer('Layer 1', 0);
   const id = newId();
   const art: Art = { id, title, w, h, paper: p.paper, created: Date.now(), edited: Date.now(), strokes: 0, secs: 0, from, thumb: await thumbOf(p) };
   await keep(art, await bodyOf(p));
   return id;
 }
 
-export async function openPainting(id: string): Promise<void> {
-  if (!host) return;
+export async function openPainting(id: string, after?: (p: Painting) => void | Promise<void>): Promise<void> {
+  host ??= document.body;
   const art = await artOf(id);
   const body = await savedBody(id);
   if (!art || !body) { paintState.error = 'That painting is no longer on this phone.'; return; }
@@ -110,6 +111,7 @@ export async function openPainting(id: string): Promise<void> {
         } catch (e) { trail(e, 'paint close'); }
         studio?.stop(); studio = null;
         Object.assign(paintState, { open: false, id: '', title: '' });
+        if (after) await Promise.resolve(after(p)).catch((e) => trail(e, 'paint after'));
         await countGallery();
         refresh();
       })();
@@ -175,6 +177,61 @@ async function fromPage(kind: PageKind | 'photo', file?: File): Promise<string> 
   });
 }
 
+/** A file of his opened as a painting: a PSD with its layers apart, or a picture (PNG, JPEG, HEIC where the phone reads it). */
+async function openFile(f: File): Promise<string> {
+  const head = new Uint8Array(await f.slice(0, 4).arrayBuffer());
+  const title = f.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Opened painting';
+  if (String.fromCharCode(...head) === '8BPS') {
+    const { readPsd } = await import('./pixels');
+    const got = readPsd(new Uint8Array(await f.arrayBuffer()));
+    if ('why' in got) throw inHisWords(got.why);
+    if (got.w * got.h > 4096 * 4096) throw inHisWords(`That PSD is ${got.w} × ${got.h}, larger than this phone can paint on (up to 4096 × 4096).`);
+    const keep = got.layers.slice(-MAX_LAYERS);
+    return create(title, got.w, got.h, 'psd', async (p) => {
+      for (const L of keep) {
+        p.addLayer(L.name.slice(0, 40), p.layers.length);
+        if (L.w && L.h) {
+          const c = mk(L.w, L.h);
+          c.getContext('2d')!.putImageData(new ImageData(L.rgba as Uint8ClampedArray<ArrayBuffer>, L.w, L.h), 0, 0);
+          await p.placeAsync(p.layer.id, await blobOf(c), L.x, L.y, L.w, L.h);
+        }
+        if (L.blend !== 'source-over') p.setProp(p.layer.id, 'blend', L.blend);
+        if (L.opacity < 1) p.setProp(p.layer.id, 'opacity', Math.round(L.opacity * 100) / 100);
+        if (!L.visible) p.setProp(p.layer.id, 'visible', false);
+      }
+    }, true);
+  }
+  const bmp = await createImageBitmap(f).catch(() => { throw inHisWords(`I can’t read “${f.name}” as a picture. I open PSD, PNG and JPEG files.`); });
+  const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * k)), hh = Math.max(1, Math.round(bmp.height * k));
+  const c = mk(w, hh);
+  c.getContext('2d')!.drawImage(bmp, 0, 0, w, hh);
+  bmp.close?.();
+  const png = await blobOf(c);
+  return create(title, w, hh, 'picture', async (p) => {
+    p.addLayer('Picture', 1);
+    await p.placeAsync(p.layer.id, png);
+    p.addLayer('Layer 1', 2);
+  });
+}
+
+/** DRAWING A DAY (Coach → DRAW): today's prompt as a painting in the studio; when he leaves it, a picture of what he drew (or
+ * null when he drew nothing). It stays in the gallery too. */
+export function drawToday(prompt: string): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    void (async () => {
+      try {
+        const id = await create(`Drawing a day: ${prompt.replace(/[.!]+$/, '').slice(0, 50)}`, 1200, 1600, 'daily', () => undefined);
+        await countGallery();
+        await openPainting(id, async (p) => {
+          const drew = p.log.some((o) => o.k === 'stroke' || o.k === 'fill');
+          resolve(drew ? await thumbOf(p, 600) : null);
+        });
+      } catch (e) { trail(e, 'drawing a day'); resolve(null); }
+    })();
+  });
+}
+
 // ---------------------------------------------------------------- the pages
 function bindHost(_el: HTMLElement): void {
   // the studio opens full screen over everything, as the comic reader does
@@ -191,8 +248,18 @@ export function galleryPart(): { el: HTMLElement; stop(): void } {
     h('li', 'Tap NEW PAINTING, or open the sample below.'),
     h('li', 'Draw with a finger or an Apple Pencil. Pinch to zoom; a two-finger tap undoes.'),
     h('li', 'Open MORE in the studio to play the time-lapse or save a layered PSD.'));
+  const pickFile = h('input', { type: 'file', accept: '.psd,image/vnd.adobe.photoshop,image/png,image/jpeg,image/heic,image/webp', hidden: true }) as HTMLInputElement;
+  pickFile.addEventListener('change', async () => {
+    const f = pickFile.files?.[0];
+    pickFile.value = '';
+    if (!f) return;
+    note.textContent = `Opening ${f.name}…`;
+    try { const id = await openFile(f); note.textContent = ''; await countGallery(); await openPainting(id); }
+    catch (e) { note.textContent = sayError(e, 'open that file'); }
+  });
   const el = h('div.px.pxcol',
     h('div.pxrow', h('label.pxfield', h('span.pxlab', 'Canvas'), size), key('NEW PAINTING', () => void startNew(), 'Start a new painting')),
+    h('div.pxrow', key('OPEN A FILE', () => pickFile.click(), 'Open a PSD with its layers, or a picture, as a painting'), pickFile),
     note, h('label.pxfield', h('span.pxlab', 'Search'), find), list,
     h('details.pxbin', h('summary', 'Recently deleted'), h('p.pxsmall', 'Deleted paintings wait here for 30 days, then go for good.'), binList),
     tour);

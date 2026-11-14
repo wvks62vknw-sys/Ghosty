@@ -215,3 +215,10 @@ export const TRIP_PHRASES: readonly { group: string; lines: readonly string[] }[
   { group: 'Shopping', lines: ['How much is it?', 'Can I pay by card?', 'Just looking, thank you.'] },
   { group: 'Help', lines: ['Help!', 'I need a doctor.', 'Call an ambulance.', 'I have lost my passport.'] },
 ];
+
+/** The phrasebook as a CSV file (trip, what he said, what it came to, the language), for the Share sheet or Files. */
+export function bookCsv(book: Starred[], langName: (code: string) => string = (c) => c): string {
+  const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const rows = byTrip(book).flatMap((g) => g.phrases.map((p) => [g.trip, p.said, p.came, langName(p.to)]));
+  return [['Trip', 'You said', 'Translation', 'Language'], ...rows].map((r) => r.map(cell).join(',')).join('\n');
+}

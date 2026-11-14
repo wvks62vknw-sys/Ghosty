@@ -24,6 +24,7 @@ import { primeAudio } from '../../arcade/engines/audio';
 import { dosStats, keyWord } from '../../arcade/engines/dos';
 import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/index';
 import { saveStore } from '../../arcade/engines/saves';
+import { continueArgs, lastSaveKept } from '../../arcade/lastsave';
 import type { EngineFiles, EngineHandle, EngineProbe } from '../../arcade/engines/types';
 import { LEVELS, LEVELS_BASE, type LevelPack, needsDeh, packArgs, packReads, packWads } from '../../arcade/levels';
 import { ratingTail } from '../../arcade/games/board/rating';
@@ -243,6 +244,23 @@ export const arcadeTab: TabDef = {
     const failed = new Set<string>();
     const shelfPanel = panel('THE SHELF', { status: `${games.length} GAME${games.length === 1 ? '' : 'S'}`, cls: 'arcshelf' });
     const grid = h('div.arcgrid', { role: 'list' });
+    // SEARCH THE SHELF (APPS ROUND): by a game's name or its line, as he types; nothing matching says so, with CLEAR SEARCH
+    const find = h('input.arcfind', { type: 'search', placeholder: 'Search the games', 'aria-label': 'Search the games', autocomplete: 'off', enterKeyHint: 'search' }) as HTMLInputElement;
+    const noMatch = h('div.arcnomatch', { hidden: true, dataset: { state: 'empty', case: 'keep' } });
+    const filter = () => {
+      const q = find.value.trim().toLowerCase();
+      let shown = 0;
+      for (const c of grid.querySelectorAll<HTMLElement>('.arccard')) {
+        const hit = !q || `${c.querySelector('.arctitle')?.textContent ?? ''} ${c.querySelector('.arcline')?.textContent ?? ''}`.toLowerCase().includes(q);
+        c.hidden = !hit;
+        if (hit) shown++;
+      }
+      noMatch.hidden = !q || shown > 0;
+      if (q && !shown) clear(noMatch, h('p.arcnote', `No games match “${find.value.trim()}”.`), button('CLEAR SEARCH', () => ((find.value = ''), filter())));
+      shelfPanel.setStatus(q ? `${shown} OF ${games.length}` : `${games.length} GAME${games.length === 1 ? '' : 'S'}`);
+    };
+    find.addEventListener('input', filter);
+    if (games.length > 6) shelfPanel.body.append(find, noMatch);
     shelfPanel.body.append(grid);
     /* state: arcade.shelf empty */
     if (!games.length) shelfPanel.body.append(h('div.arcnone', { dataset: { state: 'empty', case: 'keep' } }, h('b', SHELF_NONE.head), h('span', ` ${SHELF_NONE.line}`)));
@@ -547,7 +565,7 @@ export const arcadeTab: TabDef = {
             said.push(line);
             p.say(line);
           },
-        }, { saves: saveStore(r.id), sound: soundOn(), args: r.args });
+        }, { saves: lastSaveKept(r.id, saveStore(r.id)), sound: soundOn(), args: r.args });
       arcadeState.started = pending.got ? 'tap' : 'after';
       arcadeState.args = r.args ?? [];
       const started = pending.got ? begin(pending.got) : pending.files.then(begin);
@@ -658,7 +676,11 @@ export const arcadeTab: TabDef = {
         const act = c.el.querySelector<HTMLButtonElement>('.arcact');
         const go = h('button.arcact', { type: 'button', 'aria-label': `${act?.textContent === 'PLAY' ? 'Continue' : act?.textContent ?? 'Open'}: ${st.title}` }, act?.textContent === 'PLAY' ? 'CONTINUE' : (act?.textContent ?? 'OPEN'));
         go.classList.add(act?.textContent === 'PLAY' ? 'play' : 'get');
-        go.addEventListener('click', () => act?.click());
+        // DOOM and Quake carry on from the game he saved last (their own -loadgame and +load); the rest load their own save
+        const g = games.find((x) => x.id === id);
+        const resume = g && act?.textContent === 'PLAY' ? continueArgs(g) : null;
+        if (resume) go.dataset.resume = resume.join(' ');
+        go.addEventListener('click', () => (g && resume ? play({ ...runOf(g), args: resume }) : act?.click()));
         const open = h('button.arcmore', { type: 'button', 'aria-label': `${st.title}: its page` }, '›');
         open.addEventListener('click', () => c.el.querySelector<HTMLElement>('.arcopen')?.click());
         return h('article.arccard.arccontcard', { role: 'listitem', dataset: { cont: id }, 'aria-label': st.title },

@@ -7,7 +7,7 @@
 import { h, clear } from '../../core/dom';
 import { button } from '../../ui/components';
 import { sayError, trail } from '../../ui/hisWords';
-import { BRUSHES, brushOf, curveOf, ERASER, PALETTES, seeded, SMUDGE, type Brush, type Curve } from './brushes';
+import { BRUSHES, brushOf, curveOf, ERASER, forgetTweak, keepTweak, LIQUIFY_NAMES, PALETTES, seeded, SMUDGE, tweaks, type Brush, type Curve, type Liquify } from './brushes';
 import { BLENDS, blendName, MAX_LAYERS, mk, pack, Painting, type Sel } from './engine';
 import { fingerPressure, quickShape, smoother, SYMMETRY_NAMES, type Pt, type Symmetry } from './stroke';
 import { jpegOf, oraBlob, playInto, pngOf, psdBlob, videoType, framesIn } from './io';
@@ -79,7 +79,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
   const p = o.p;
   const pf = prefs();
   let tool: Tool = 'brush';
-  let brush: Brush = { ...brushOf(paintState.brush || 'ink') };
+  let brush: Brush = { ...brushOf(paintState.brush || 'ink'), ...(tweaks()[paintState.brush || 'ink'] ?? {}) };
   const sizes: Record<string, number> = {};
   const opac: Record<string, number> = {};
   let colour = paintState.colour || '#111111';
@@ -226,7 +226,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
   const brushFor = (): Brush => (tool === 'erase' ? ERASER : tool === 'liquify' ? SMUDGE : brush);
   const loadBrush = (b: Brush): void => {
     const keep = { size: sizes[b.id] ?? b.size, opacity: opac[b.id] ?? b.opacity };
-    if (tool === 'erase') Object.assign(ERASER, keep); else if (tool === 'liquify') Object.assign(SMUDGE, keep); else brush = { ...b, ...keep };
+    if (tool === 'erase') Object.assign(ERASER, keep); else if (tool === 'liquify') Object.assign(SMUDGE, keep); else brush = { ...b, ...(tweaks()[b.id] ?? {}), ...keep };
     paintState.brush = brush.id;
   };
   sizeIn.addEventListener('input', () => { const b = brushFor(); b.size = Number(sizeIn.value); sizes[b.id] = b.size; sizeV.textContent = `${b.size} px`; paintState.size = b.size; });
@@ -249,6 +249,8 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
     if (t === 'layers') return sheetFor === 'layers' && !sheet.hidden ? closeSheet() : layersPanel();
     if (t === 'more') return sheetFor === 'more' && !sheet.hidden ? closeSheet() : morePanel();
     if (t === 'brush' && tool === 'brush') { if (sheetFor === 'brush' && !sheet.hidden) closeSheet(); else brushPanel(); return; }
+    if (t === 'liquify' && tool === 'liquify') { if (sheetFor === 'liquify' && !sheet.hidden) closeSheet(); else liquifyPanel(); return; }
+    if (t === 'select' && tool === 'select' && sel) { if (sheetFor === 'select' && !sheet.hidden) closeSheet(); else selectPanel(); return; }
     if (t === 'move' && tool !== 'move') startMove();
     if (t !== 'move' && tool === 'move') endMove(true);
     tool = t; paintState.tool = t;
@@ -261,13 +263,68 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
   };
 
   // ---- panels
+  // a sample stroke of each brush, drawn by the engine itself in his colour (swelling and thinning with pressure)
+  const previews = new Map<string, string>();
+  const previewOf = (b: Brush): HTMLCanvasElement => {
+    const W = 240, H = 48;
+    const out = mk(W, H);
+    out.className = 'pxprev';
+    out.setAttribute('aria-hidden', 'true');
+    const keyOf = `${b.id}:${colour}`;
+    let url = previews.get(keyOf);
+    if (!url) {
+      const q = new Painting(W * 2, H * 2);
+      q.recording = false;
+      q.paper = 'none';
+      q.addLayer('Preview', 0);
+      const sb = { ...b, size: Math.min(b.size, 44), opacity: Math.max(b.opacity, 0.6) };
+      const pts = Array.from({ length: 40 }, (_, i) => ({ x: 24 + i * 11, y: H + Math.sin((i / 39) * Math.PI * 2) * 22, p: 0.15 + 0.85 * Math.sin((i / 39) * Math.PI), alt: Math.PI / 2.6, az: 0.6, t: i }));
+      q.begin('brush', sb, false, null);
+      q.end({ k: 'stroke', L: q.layers[0]!.id, tool: 'brush', b: sb, col: colour, sym: 'off', cx: W, cy: H, seed: 11, pts: pack(pts), onMask: false, sel: null });
+      url = q.layers[0]!.c.toDataURL();
+      previews.set(keyOf, url);
+    }
+    const img = new Image();
+    // (on paper, as the stroke would land)
+    const og = out.getContext('2d')!;
+    og.fillStyle = '#ffffff'; og.fillRect(0, 0, W, H);
+    img.onload = () => og.drawImage(img, 0, 0, W, H);
+    img.src = url;
+    return out;
+  };
   const brushPanel = (): void => {
     const list = h('div.pxlist', ...BRUSHES.map((b) => {
       const row = key(`${b.name}`, () => { loadBrush(b); tool = 'brush'; paintState.tool = 'brush'; say(`${b.name}: ${b.says}`); closeSheet(); showSliders(); sync(); }, `${b.name}: ${b.says}`, `pxrow${b.id === brush.id ? ' on' : ''}`);
-      row.append(h('span.pxrowsay', b.says));
+      row.append(previewOf(b), h('span.pxrowsay', b.says));
       return row;
     }));
-    openSheet('brush', 'Brushes', list);
+    // this brush's own settings, kept on this phone
+    const slider = (label: string, k: 'smooth' | 'pSize' | 'pAlpha' | 'taper', max: number, words: (v: number) => string): HTMLElement => {
+      const v = Number(brush[k] ?? 0);
+      const inp = h('input', { type: 'range', min: '0', max: String(max * 100), value: String(Math.round(v * 100)), 'aria-label': `${brush.name}: ${label}` }) as HTMLInputElement;
+      const val = h('span.pxval', words(v));
+      inp.addEventListener('input', () => { const x = Number(inp.value) / 100; (brush as unknown as Record<string, number>)[k] = x; val.textContent = words(x); keepTweak(brush.id, { [k]: x }); });
+      return h('label.pxslide', h('span.pxlab', label), inp, val);
+    };
+    const pct = (v: number): string => `${Math.round(v * 100)}%`;
+    const tune = h('div.pxlopts',
+      h('p.pxsheetsub', `${brush.name} settings`),
+      slider('Streamline', 'smooth', 0.95, pct),
+      slider('Size from pressure', 'pSize', 1, pct),
+      slider('Opacity from pressure', 'pAlpha', 1, pct),
+      slider('Taper', 'taper', 0.6, (v) => `${Math.round(v * 100)} px`),
+      key('PUT THIS BRUSH BACK', () => { forgetTweak(brush.id); const keepSize = { size: brush.size, opacity: brush.opacity }; brush = { ...brushOf(brush.id), ...keepSize }; say(`${brush.name} is as it came.`); brushPanel(); }, `Put ${brush.name}'s settings back`));
+    openSheet('brush', 'Brushes', list, tune);
+  };
+  const liquifyPanel = (): void => {
+    const keys = (Object.keys(LIQUIFY_NAMES) as Liquify[]).map((m) => { const b = key(LIQUIFY_NAMES[m].toUpperCase(), () => { SMUDGE.lq = m; say(`Liquify: ${LIQUIFY_NAMES[m].toLowerCase()}.`); closeSheet(); }, `Liquify: ${LIQUIFY_NAMES[m]}`); b.setAttribute('aria-pressed', String((SMUDGE.lq ?? 'push') === m)); return b; });
+    openSheet('liquify', 'Liquify', h('div.pxrow', ...keys), h('p.pxsmall', 'Push moves the picture along your stroke. Twirl turns it round, pinch draws it in, expand swells it out.'));
+  };
+  const selectPanel = (): void => {
+    openSheet('select', 'Selection', h('div.pxrow',
+      key('INVERT', () => { if (sel) { sel = { ...sel, inv: !sel.inv }; say(sel.inv ? 'Everything but the part you drew round is selected.' : 'The part you drew round is selected.'); ask(); sync(); } }, 'Invert the selection'),
+      key('CLEAR INSIDE', () => { if (!sel) return; p.clearLayer(p.layer.id, sel); say('Cleared inside the selection. UNDO brings it back.'); changed('clear'); }, 'Clear the part of this layer inside the selection'),
+      key('DESELECT', () => { sel = null; say('Selection cleared.'); closeSheet(); ask(); sync(); }, 'Clear the selection')));
   };
 
   const hsv = (hex: string): [number, number, number] => {
@@ -334,6 +391,25 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
     drawSv();
   };
 
+  const pickPic = h('input', { type: 'file', accept: 'image/*', hidden: true }) as HTMLInputElement;
+  pickPic.addEventListener('change', async () => {
+    const f = pickPic.files?.[0];
+    pickPic.value = '';
+    if (!f) return;
+    if (p.layers.length >= MAX_LAYERS) { say(`A painting holds up to ${MAX_LAYERS} layers. Merge two to make room.`); return; }
+    try {
+      const bmp = await createImageBitmap(f);
+      const k = Math.min(p.w / bmp.width, p.h / bmp.height);
+      const w = bmp.width * k, hh = bmp.height * k;
+      bmp.close?.();
+      p.addLayer(f.name.replace(/\.[^.]+$/, '').slice(0, 40) || 'Picture');
+      await p.placeAsync(p.layer.id, f, (p.w - w) / 2, (p.h - hh) / 2, w, hh);
+      onMask = false;
+      say('Your picture is a new layer. Lower its opacity to trace over it, or MOVE it into place.');
+      changed('picture');
+    } catch (e) { say(sayError(e, 'add that picture')); }
+  });
+  el.append(pickPic);
   const layersPanel = (): void => {
     const rows = p.layers.map((L, i) => ({ L, i })).reverse().map(({ L, i }) => {
       const on = i === p.cur;
@@ -375,7 +451,8 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
         key('MERGE DOWN', () => { if (p.cur === 0) return say('This is the bottom layer: nothing under it to merge into.'); p.mergeDown(L.id); changed('merge'); }, 'Merge into the layer below'),
         key('CLEAR', () => { p.clearLayer(L.id); say('Layer cleared. UNDO brings it back.'); changed('clear'); }, 'Clear this layer'),
         key('DELETE', () => { if (p.layers.length <= 1) return say('A painting keeps at least one layer.'); p.deleteLayer(L.id); say('Layer deleted. UNDO brings it back.'); changed('del'); }, 'Delete this layer'),
-        key('RENAME', () => { const n = prompt('Layer name', L.name); if (n && n.trim()) { p.setProp(L.id, 'name', n.trim().slice(0, 40)); changed('name'); } }, 'Rename this layer')));
+        key('RENAME', () => { const n = prompt('Layer name', L.name); if (n && n.trim()) { p.setProp(L.id, 'name', n.trim().slice(0, 40)); changed('name'); } }, 'Rename this layer'),
+        key('ADD A PICTURE', () => pickPic.click(), 'Add one of my pictures as a new layer, to trace or paint over')));
     openSheet('layers', `Layers (${p.layers.length} of ${MAX_LAYERS})`, h('div.pxlayers', ...rows), opts);
   };
 
@@ -647,7 +724,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
       say(`Took ${colour} from the picture.`);
       tool = 'brush'; paintState.tool = 'brush'; showSliders(); sync();
     } else if (tool === 'select') {
-      if (lasso.length >= 12) { sel = { pts: lasso.slice(), inv: false }; say('Selected. Brushes and fills stay inside it; MOVE moves just this part. Tap once to clear it.'); }
+      if (lasso.length >= 12) { sel = { pts: lasso.slice(), inv: false }; say('Selected. Brushes and fills stay inside it; MOVE moves just this part. Tap SELECT for invert and clear.'); }
       else { sel = null; say('Selection cleared.'); }
       lasso = [];
       sync(); ask();

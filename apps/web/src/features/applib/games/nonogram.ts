@@ -85,6 +85,7 @@ export const nonogram: Board = (p) => {
     ]);
   setKeys();
   draw();
+  p.keep({ n, cells });
   void clear;
   return () => window.removeEventListener('pointerup', endPaint);
 };

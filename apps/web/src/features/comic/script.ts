@@ -116,7 +116,7 @@ export function readScript(text: string, cast: CastMember[], min: { pages: numbe
       const p = (panel as Panel | null) ?? newPanel(...lastScene(), 'mid', '');
       if (!p || p.balloons.length >= 3) continue;
       const k = (m[2] ?? '').toLowerCase();
-      const kind: BalloonKind = k.startsWith('th') ? 'thought' : k.startsWith('sh') || k.startsWith('ye') ? 'shout' : k.startsWith('wh') ? 'whisper' : 'speech';
+      const kind: BalloonKind = k.startsWith('th') ? 'thought' : k.startsWith('sh') || k.startsWith('ye') ? 'shout' : k.startsWith('wh') ? 'whisper' : k.startsWith('ra') || k.startsWith('ph') ? 'radio' : k.startsWith('ro') ? 'robot' : 'speech';
       const said = m[3]!.replace(/^["“]|["”]$/g, '').trim().slice(0, 160);
       if (said) p.balloons.push({ id: newId('b'), who: id, kind, text: said } satisfies Balloon);
     }

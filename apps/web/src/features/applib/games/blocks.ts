@@ -1,5 +1,5 @@
 /**
- * The BLOCKS board. Options (GameConfig.options): cols (8 to 12, default 10), rows (16 to 24, default 20), level (1 to 10, default 1).
+ * The BLOCKS board. Options (GameConfig.options): cols (8 to 12, default 10), rows (16 to 24, default 20), level or startLevel (1 to 10, default 1).
  * Tap the board to turn the piece, swipe left or right to move it, swipe down to drop it; the keys under the board do
  * the same. The next piece shows at the side, and a shadow shows where it will land.
  */
@@ -15,7 +15,7 @@ export const blocks: Board = (p) => {
   const seed = saved?.seed ?? p.seed();
   let n = saved?.n ?? 0;
   const r = rng(seed + n * 104729);
-  const b = saved?.b ?? B.start(cols, rows, num(p.opts, 'level', 1, 1, 10), r);
+  const b = saved?.b ?? B.start(cols, rows, num(p.opts, p.opts.startLevel !== undefined ? 'startLevel' : 'level', 1, 1, 10), r);
   const side = 4.6;
   const cv = canvas(p.stage, rows / (cols + side), 0.6);
   cv.el.setAttribute('aria-label', 'The blocks board');

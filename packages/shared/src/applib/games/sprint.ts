@@ -3,6 +3,8 @@
  *   secs: number (seconds a run lasts, 30 to 180, default 60)
  *   ops:  string ('+-' or any of + - × ÷, default '+-×÷')
  *   max:  number (the largest number in a sum, 10 to 100, default 20)
+ *   tables: string[] (for × only: the times tables to draw from, e.g. ['7', '8'])
+ *   levels: string[] ('easy' | 'medium' | 'hard': a picker that sets max to 10, 20 or 50)
  * Division sums always come out whole, and subtraction never goes below zero.
  */
 import { type Rng, int, pick } from './rng';
@@ -12,7 +14,7 @@ export interface Sum {
   answer: number;
 }
 
-export function sum(r: Rng, ops: string, max: number): Sum {
+export function sum(r: Rng, ops: string, max: number, tables: number[] = []): Sum {
   const allowed = [...ops].filter((o) => '+-×÷'.includes(o));
   const op = pick(r, allowed.length ? allowed : ['+']);
   if (op === '+') {
@@ -26,7 +28,7 @@ export function sum(r: Rng, ops: string, max: number): Sum {
     return { text: `${a} − ${b}`, answer: a - b };
   }
   const lim = Math.max(2, Math.min(12, Math.round(Math.sqrt(max * 7))));
-  const a = int(r, 2, lim);
+  const a = tables.length ? pick(r, tables) : int(r, 2, lim);
   const b = int(r, 2, lim);
   return op === '×' ? { text: `${a} × ${b}`, answer: a * b } : { text: `${a * b} ÷ ${a}`, answer: b };
 }

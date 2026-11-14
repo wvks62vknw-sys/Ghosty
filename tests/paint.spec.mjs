@@ -165,6 +165,35 @@ async function run(viewport) {
   const mirror = await page.evaluate(() => { const col = (x) => { let n = 0; for (let y = 1420; y <= 1490; y++) if (window.__ghosty.paintAt(x, y, 1) > 60) n++; return n; }; return { left: col(300), right: col(1200 - 300) }; });
   check(mirror.left > 0 && mirror.right > 0 && Math.abs(mirror.left - mirror.right) <= 2, `[${W}] symmetry mirrors the stroke to the other side (${mirror.left} px on the left, ${mirror.right} px on the right)`);
 
+  // the brush's own settings are kept on the phone
+  await tool(page, 'Brush');
+  await page.locator('.pxstudio input[aria-label="Ink: Streamline"]').fill('80');
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.paint.tweaks') ?? '{}').ink?.smooth === 0.8), `[${W}] the ink's streamline is kept as his own setting`);
+  await page.click('.pxstudio .pxsheet button[aria-label^="Close"]');
+
+  // selection: draw round the firm stroke's middle, CLEAR INSIDE takes only that part away
+  await tool(page, 'Select');
+  await stroke(page, [[500, 740, 0.5], [700, 740, 0.5], [700, 860, 0.5], [500, 860, 0.5], [500, 745, 0.5], [505, 742, 0.5], [510, 741, 0.5]], { type: 'pen' });
+  check((await S(page)).selection, `[${W}] SELECT draws round a part`);
+  await tool(page, 'Select');
+  await page.click('.pxstudio button[aria-label="Clear the part of this layer inside the selection"]');
+  const cleared = await page.evaluate(() => ({ inside: window.__ghosty.paintAt(600, 800, 1), outside: window.__ghosty.paintAt(900, 800, 1) }));
+  check(cleared.inside === 0 && cleared.outside > 100, `[${W}] CLEAR INSIDE clears only inside the selection (${JSON.stringify(cleared)})`);
+  await page.click('.pxstudio button[aria-label="Clear the selection"]');
+  check(!(await S(page)).selection, `[${W}] DESELECT clears the selection`);
+
+  // liquify: TWIRL turns the paint under the brush round
+  await tool(page, 'Liquify');
+  await tool(page, 'Liquify');
+  await page.click('.pxstudio button[aria-label="Liquify: Twirl"]');
+  const beforeTwirl = await page.evaluate(() => window.__ghosty.paintInked()[1]);
+  const steps0 = (await S(page)).undo;
+  const at0 = await page.evaluate(() => Array.from({ length: 41 }, (_, i) => window.__ghosty.paintAt(880 + i * 2, 800, 1)).join(','));
+  await stroke(page, Array.from({ length: 20 }, (_, i) => [900 + i * 3, 800 + i * 2, 1]), { type: 'pen' });
+  const at1 = await page.evaluate(() => Array.from({ length: 41 }, (_, i) => window.__ghosty.paintAt(880 + i * 2, 800, 1)).join(','));
+  check((await S(page)).undo === steps0 + 1 && at0 !== at1 && beforeTwirl > 0, `[${W}] TWIRL moves the paint under the brush, as one step`);
+  await tool(page, 'Brush');
+
   // (f) layers
   await tool(page, 'Layers');
   await page.click('.pxstudio button[aria-label="Add a new layer"]');
@@ -219,6 +248,16 @@ async function run(viewport) {
   await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
   check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.paint.gallery.titles.includes('Painting 2'), null, 15000), `[${W}] GALLERY keeps the new painting`);
 
+  // the PSD opens again as a painting, with its layers apart
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-paint button[aria-label="Open a PSD with its layers, or a picture, as a painting"]')]);
+  await chooser.setFiles({ name: 'Painting 2.psd', mimeType: 'image/vnd.adobe.photoshop', buffer: psd });
+  check(await until(page, () => window.__ghosty.paint.open && window.__ghosty.paint.layers.length === 4, null, 30000), `[${W}] OPEN A FILE opens the PSD`);
+  s = await S(page);
+  check(s.layers.map((l) => l.name).join(',') === 'Paper,Background,Layer 1,Layer 3' && s.layers[3].blend === 'multiply' && s.layers[3].alphaLock === false, `[${W}] the opened PSD keeps its layers and blend modes: ${s.layers.map((l) => `${l.name}/${l.blend}`)}`);
+  check((await page.evaluate(() => window.__ghosty.paintAt(300, 800, 2))) > 100, `[${W}] the opened PSD keeps the strokes`);
+  await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+  await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
+
   // (g) a colouring page: the lines are the reference, FILL fills the colour layer between them
   await goPaint(page, 'colouring');
   await page.click('#pg-paint button[aria-label="Colour the Mandala"]');
@@ -270,6 +309,31 @@ await run(PHONE2);
   await page.click('.pxstudio button[aria-label="DONE"]');
   check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.comic.editing.inked === 1 && /Your drawing is on the panel/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `[440] DONE puts his ink on the panel, under its balloons (${layers})`);
   check(await page.locator('#pg-comic button[aria-label="Take my drawing off this panel"]').count() === 1, '[440] the panel offers to take the drawing off again');
+  // two more balloons: a voice down a phone or a radio, and a robot
+  const kinds = await page.$$eval('#pg-comic select[aria-label="Balloon 1"] option', (os) => os.map((o) => o.textContent));
+  check(kinds.includes('Radio or phone') && kinds.includes('Robot'), `[440] the balloons include a radio voice and a robot: ${kinds.join(', ')}`);
+  const drawn0 = await page.evaluate(() => window.__ghosty.comic.editing.drawn);
+  await page.selectOption('#pg-comic select[aria-label="Balloon 1"]', 'robot');
+  check(await until(page, (d) => window.__ghosty.comic.editing.drawn > d, drawn0), '[440] a robot balloon redraws the page');
+  await page.click('#pg-comic button[aria-label="Undo the last change"]').catch(() => undefined);
+
+  // his photo behind the panel, then MAKE IT COMIC ART (flat colours, inked outlines)
+  const photo = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 320, 240); gr.addColorStop(0, '#3a7bd5'); gr.addColorStop(1, '#f4d03f'); g.fillStyle = gr; g.fillRect(0, 0, 320, 240); g.fillStyle = '#c0392b'; g.beginPath(); g.arc(160, 120, 60, 0, 7); g.fill(); return c.toDataURL('image/png'); })).split(',')[1], 'base64');
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-comic button[aria-label="Put one of my own photos behind this panel"]')]);
+  await chooser.setFiles({ name: 'beach.png', mimeType: 'image/png', buffer: photo });
+  await until(page, () => window.__ghosty.comic.editing.photo === true);
+  await page.click('#pg-comic button[aria-label="Turn my photo into inked comic art: bold flat colours with black outlines"]');
+  check(await until(page, () => window.__ghosty.comic.editing.photoArt === 1 && /Your photo is now comic art/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), '[440] MAKE IT COMIC ART turns his photo into inked comic art, and says UNDO puts it back');
+
+  // DRAWING A DAY (Coach → DRAW): DRAW IT HERE opens the studio on today's prompt; what he drew goes beside the prompt
+  await page.evaluate(() => (location.hash = 'coach?draw'));
+  await page.waitForSelector('#pg-coach', { state: 'attached', timeout: 30000 });
+  await page.evaluate(() => document.querySelector('#pg-coach .secpill[data-sec="draw"]')?.click());
+  await page.click('#pg-coach button[aria-label="Draw it here with a finger or an Apple Pencil"]');
+  check(await until(page, () => window.__ghosty.paint?.open && /^Drawing a day: Draw /.test(window.__ghosty.paint.title), null, 20000), '[440] DRAW IT HERE opens the studio on today’s prompt');
+  await stroke(page, Array.from({ length: 30 }, (_, i) => [300 + i * 20, 600 + Math.sin(i / 4) * 80, 0.8]), { type: 'pen' });
+  await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+  check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.coach?.draw?.done && document.querySelector('#pg-coach .codrawpic img'), null, 20000), '[440] what he drew goes beside the prompt, and the day counts');
   await ctx.close();
 }
 

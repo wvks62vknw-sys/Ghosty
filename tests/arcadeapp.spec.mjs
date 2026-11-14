@@ -105,6 +105,7 @@ function played(now) {
       runner: { title: 'THE RUNNER', plays: 6, seconds: 4000, first: now - 9 * DAY, last: now - 60_000 },
       flap: { title: 'FLAP', plays: 1, seconds: 90, first: now - 2 * DAY, last: now - 2 * DAY },
     }),
+    'ghosty.arcade.lastsave': JSON.stringify({ freedoom: 'doomsav2.dsg' }),
     'ghosty.arcade.scores': JSON.stringify({ runner: { best: 1200, last: 800, when: new Date(now - 60_000).toISOString() } }),
     'ghosty.arcade.days': JSON.stringify(days),
     'ghosty.arcade.shots': JSON.stringify({ runner: [{ src: PIXEL, at: now - 60_000 }, { src: PIXEL, at: now - 120_000 }] }),
@@ -124,6 +125,14 @@ for (const [vp, tag] of [[PHONE, '440'], [PHONE2, '390']]) {
     }));
     check(s.cont, `${tag} fresh: CONTINUE PLAYING shows with nothing played`);
     check(/Nothing earned yet/.test(s.room) && /0 OF 5/.test(s.room), `${tag} fresh: THE TROPHY ROOM says "${s.room.slice(0, 120)}"`);
+    // SEARCH THE SHELF: by name as he types; nothing matching says so, with CLEAR SEARCH
+    await page.fill('#pg-arcade .arcfind', 'freedoom');
+    const found = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arcshelf .arccard')].filter((c) => !c.hidden).map((c) => c.dataset.id));
+    check(found.length >= 1 && found.every((id) => /freedoom/.test(id)), `${tag} search: "freedoom" shows ${found.join(',')}`);
+    await page.fill('#pg-arcade .arcfind', 'zzzz');
+    check(await until(page, () => !document.querySelector('#pg-arcade .arcnomatch').hidden && /No games match/.test(document.querySelector('#pg-arcade .arcnomatch').textContent)), `${tag} search: no "No games match" line`);
+    await page.click('#pg-arcade .arcnomatch button');
+    check(await until(page, () => ![...document.querySelectorAll('#pg-arcade .arcshelf .arccard')].some((c) => c.hidden) && document.querySelector('#pg-arcade .arcnomatch').hidden), `${tag} search: CLEAR SEARCH did not bring every game back`);
     const doom = await page.evaluate(() => [...document.querySelectorAll('#pg-arcade .arcshelf .arccard')].find((c) => /^GET · /.test(c.querySelector('.arcact')?.textContent ?? ''))?.dataset.id ?? '');
     check(!!doom, `${tag} fresh: no game with GET on the shelf`);
     if (doom) {
@@ -243,6 +252,25 @@ for (const [i, world] of WORLDS.entries()) {
   }
 }
 log('b. a phone that has played');
+
+// ---------- CONTINUE for DOOM's engine: a Freedoom kept on the phone and saved in slot 2 continues with -loadgame 2
+{
+  const { ctx, page } = await phone(PHONE, { store: { ...played(now), 'ghosty.arcade.stats': JSON.stringify({ freedoom: { title: 'FREEDOOM: PHASE 1', plays: 2, seconds: 900, first: now - DAY, last: now - 1000 } }) } });
+  try {
+    await openArcade(page);
+    // as if its package were here: the card's key reads PLAY once a GET has kept it (the spec only flips the key's words)
+    await page.evaluate(() => {
+      const act = document.querySelector('#pg-arcade .arccard[data-id="freedoom"] .arcact');
+      if (act) act.textContent = 'PLAY';
+      window.dispatchEvent(new Event('ghosty:studio-imported'));
+    });
+    const resume = await until(page, () => document.querySelector('#pg-arcade .arccontcard[data-cont="freedoom"] .arcact')?.dataset.resume === '-loadgame 2');
+    check(resume, `CONTINUE for Freedoom does not carry -loadgame 2: ${await page.evaluate(() => JSON.stringify(document.querySelector('#pg-arcade .arccontcard[data-cont="freedoom"] .arcact')?.dataset ?? null))}`);
+  } finally {
+    await ctx.close();
+  }
+}
+log('continue for DOOM');
 
 // ---------- c. playing for real: the runner, played and quit, leaves its record, CONTINUE PLAYING and a first trophy
 {

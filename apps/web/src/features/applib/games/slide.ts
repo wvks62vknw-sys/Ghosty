@@ -50,5 +50,6 @@ export const slide: Board = (p) => {
     p.score(0, `${moves} moves · ${fmtTime(p.secs())}`);
   }
   draw();
+  p.keep({ b, moves });
   return unswipe;
 };
