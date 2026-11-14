@@ -190,6 +190,8 @@ export const STATES = {
   'markets.prices': { dir: 'markets', base: 3, now: 4 },
   'radio.stations': { dir: 'radio', base: 3, now: 4 },
   'memory.timeline': { dir: 'memory', base: 2, now: 4 },
+  // NEXT ROUND (MEMORY lane): YOUR WORD, new, draws its loading, empty, error and offline states
+  'memory.keep': { dir: 'memory', base: 0, now: 4 },
   'settings.faces': { dir: 'settings', base: 1, now: 2 },
   'settings.principles': { dir: 'settings', base: 1, now: 3 },
   'system.loops': { dir: 'system', base: 1, now: 2 },
