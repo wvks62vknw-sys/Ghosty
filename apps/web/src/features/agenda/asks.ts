@@ -19,7 +19,8 @@ export type AgendaAsk =
   | { what: 'tick'; text: string; loose: boolean }
   | { what: 'remove'; text: string }
   | { what: 'clear' }
-  | { what: 'month'; next: boolean; show: boolean };
+  | { what: 'month'; next: boolean; show: boolean }
+  | { what: 'timeline'; view: 'today' | 'tomorrow' | 'week' };
 
 const WEEK = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const DAYNAME = '(?:mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)?';
@@ -127,6 +128,11 @@ export function agendaAsked(text: string, now = Date.now()): AgendaAsk | null {
   const t = clean(text);
   if (!t || NOT_MINE.test(t)) return null;
   const lc = t.toLowerCase();
+
+  // ── [planlane2:timeline] the day by the hour and the week to plan: "plan my week", "show my day by the hour", "when am I free tomorrow"
+  if (/^(?:help me )?plan (?:my|the) week$/.test(lc)) return { what: 'timeline', view: 'week' };
+  const tl = /^(?:show|open|see)(?: me)? (?:my|the) (day|today|tomorrow) by the hour$|^when am i free (today|tomorrow)$/.exec(lc);
+  if (tl) return { what: 'timeline', view: (tl[1] ?? tl[2]) === 'tomorrow' ? 'tomorrow' : 'today' };
 
   // ── the month: "show my month", "what's on this month", "what have I got next month"
   let m = /^(?:show|open|see)(?: me)? (?:my|the) (?:month|calendar month)$|^(?:my month|the month(?: ahead)?|month view)$/.exec(lc);

@@ -144,9 +144,9 @@ approval listed, and the fixes that live in your Cloudflare account set out as p
   - recall's link now opens only when it is an ordinary web link;
   - the waiting-page and keep routes turn a huge body away before reading it;
   - the backup-file import checks the size first.
-- Left, low: the brain's photo strip for site pictures (sitephotos.ts) copies everything after a photo's picture data, including
-  anything after its end marker. The phone redraws every photo as a fresh JPEG before it is sent, so this is only a second lock.
-  The fix is to stop copying at the end marker.
+- The brain's photo strip for site pictures (sitephotos.ts) now keeps only the picture: a detail block between scans and anything
+  after the end marker (a motion photo, a hidden extra) are dropped too. It was a second lock (the phone redraws each photo
+  first), now a whole one.
 
 ## The specialist sweep (1Password Watchtower, Have I Been Pwned, Apple's Safety Check)
 What they have, and where Ghosty stands:

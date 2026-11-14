@@ -3,7 +3,7 @@
  *   - the threat level (THREATS' own reading of the quake and storm feeds),
  *   - any road reports on his commute (National Highways, between his saved home and work, West Midlands motorways),
  *   - a fresh picture from the public camera nearest home, a tap opening it live on God's Eye.
- * His saved places only (Memory → ME → PLACES): no position, nothing about him leaves the phone but the public feeds' own asks.
+ * His saved places only (Memory → ABOUT YOU → PLACES): no position, nothing about him leaves the phone but the public feeds' own asks.
  */
 import { brain } from '../../api/brain';
 import { fetchImage } from '../../api/feed';
@@ -19,7 +19,7 @@ export const WORLD_LOADING = 'Looking at the world outside…';
 /* state: world.brief offline */
 export const WORLD_OFFLINE = 'You’re offline: the world outside comes back with the connection.';
 /* state: world.brief empty */
-export const WORLD_NO_COMMUTE = 'Save home and work in Memory → ME → PLACES and the road reports on your commute show here.';
+export const WORLD_NO_COMMUTE = 'Save home and work in Memory → ABOUT YOU → PLACES and the road reports on your commute show here.';
 export const WORLD_NO_CAMERA = 'No public camera near home.';
 
 const km = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => {

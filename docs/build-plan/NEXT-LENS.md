@@ -32,6 +32,7 @@ Every new card says each of its states in his words, has 44 pt keys, works in al
 | `lens.s2` medicine box (reshaped) | Name, strength and form read; READ ALOUD; **OPEN THE NHS PAGE** opens the NHS's own public search for it **on his tap**. Never advice: "the leaflet in the box and your pharmacist do". | lens2 `[medicine]`: the link, nothing sent before |
 | `lens.s3` appliance running cost | A rating plate gives about what an hour at full power costs, at 25p a unit until he keeps his own price on the phone (SET MY PRICE). Always **a first estimate**. "What does it cost to run". | lens2 `[rating]` |
 | `lens.u8` two packets compared | After a second food packet, **COMPARE** ("which is better"): the two side by side per 100 g, the better figure marked, one line, from the databases' own figures (a missing figure picks neither). | lens2 `[compare]` |
+| `lens.u14` addresses abroad | A street line abroad (rue, Straße, calle, via, rua, straat… and a number) with its postcode and town is an address card with **ON THE MAP**, found by the free place finder the map already uses, on his tap. UK addresses read as before. | lens2 `[print]`; unit tests |
 
 ## 6. The specialist sweep
 
@@ -42,28 +43,31 @@ Compared with Google Lens, Apple Visual Look Up and Live Text, Seek, Yuka, Photo
 - **Menus read as UNKNOWN**: a real menu has few common words, so it was never put into English; each language now knows its menu's dishes and headings. (lens-one tests)
 - **READ ALOUD** could not be stopped and said "no voice" while it was speaking: a second tap stops it, and "no voice" is said only when there truly is none.
 - **ADD TO CONTACTS** tapped twice while the share sheet opened threw.
+- **UK traffic lights on every packet**: each figure per 100 g carries its HIGH / MEDIUM / LOW band in words and colour. (lens2 `[product]`)
+- **TRANSLATE for languages the phone cannot name** (Polish, Swedish, Turkish…) when the words do not read as English; the card's TRANSLATE now works **in place** (it used to leave for ASK and could send the words twice), says "Putting it into English…" while out and TRY AGAIN when the English did not come back. (lens2 `[unnamed]`)
+- **A translation that came back late** (a cold brain) was laid over the next words the Lens read: now it lands only on the words it was asked for.
+- **UNDO after ADD TO AGENDA**: a misread date comes out again in one tap. (lens2 `[date]`)
+- **A mushroom safety line**: a fungus card says never to eat a wild mushroom because a photo named it. (lens tests)
+- **Print he can use** (as Live Text does): a parcel number gets TRACK (Royal Mail's public page, on his tap); °F, fl oz, oz, lb, inches, feet and km are put into his units on the phone; prices in another currency get IN POUNDS at today's rate from the free feed MARKETS already uses. (lens2 `[print]`)
+- **AIM taps**: a tap took the first label box under the finger, so with the night sky on a star's label could take a tap meant for the Moon or a plane; now the nearest mark wins.
 
 Still open from the sweep (ranked, each small unless marked):
 
-1. The text card should say the translation's state (no TRANSLATE key while the words are out; TRY AGAIN on a failure that is not "offline").
-2. TRANSLATE for languages the phone cannot name (Polish, Swedish, Czech, Turkish…): offer it whenever the words are not English.
-3. FREEZE should read the frame it holds (today a frozen frame is never read).
-4. UNDO on cards that file things (INTO SPENDING, ADD TO AGENDA).
-5. UK traffic-light bands (HIGH/MEDIUM/LOW) on every packet, not only for a diet list.
-6. "May contain" (Open Food Facts' traces) in the allergy line (needs the brain's lookup to ask for the traces field).
-7. EDIT a misread sum or receipt total, worked out again on the phone.
-8. The family when the species is unsure, and a never-eat-a-wild-mushroom line on fungi.
-9. Menu lines he can tap to hear one line and see its original.
-10. Signs translated with no signal by the phone's offline brain, marked rough (SCAN already does it).
-11. Parcel numbers to Royal Mail's public tracking page; temperatures, miles, pounds in print converted.
-12. FIND IT ONLINE on the thing card (the existing picture-search sheet on the crop).
-13. SCAN's page strip: rotate, reorder, a 44 pt remove key, the PDF named from its page (M).
-14. Prices abroad in pounds from the free rates feed already in Markets (M).
-15. Receipts in other currencies are filed as pounds; KEEP PAGE has no busy guard; the cards region is rebuilt whole under aria-live (a screen reader hears every card again).
+1. FREEZE should read the frame it holds (today a frozen frame is never read).
+2. "May contain" (Open Food Facts' traces) in the allergy line: the brain's lookup must ask for the traces field first.
+3. EDIT a misread sum or receipt total, worked out again on the phone; UNDO after INTO SPENDING (the brain has no way to take one row out yet).
+4. The family when the species is unsure (as Seek does).
+5. Menu lines he can tap to hear one line and see its original.
+6. Signs translated with no signal by the phone's offline brain, marked rough (SCAN already does it).
+7. FIND IT ONLINE on the thing card (the existing picture-search sheet on the crop).
+8. SCAN's page strip: rotate, reorder, a 44 pt remove key, the PDF named from its page, no double KEEP PAGE (M).
+9. Receipts in other currencies are filed as pounds; the cards region is rebuilt whole under aria-live (a screen reader hears every card again).
+
+(Items 2 and 8 were started by two builders at about 03:30; the owner's account hit its usage limit and both stopped with nothing whole, so neither is in.)
 
 ## Not built this round (left for the next)
 
-`lens.u3` handwritten maths step by step (L), `lens.u4` offline species pack (L), `lens.u5` live tape measure (L), `lens.u9` the usual card first, `lens.u10` hands-free "tell me what you see", `lens.u11` hold several snaps, `lens.u12` a diary of places, `lens.u14` addresses abroad on the map, `lens.s4` car warning lights, `lens.s5` plant care and watering reminders, `lens.s6` washing symbols, `lens.s8` a precise colour name, `lens.c5` "will it fit?" with MAKE.
+`lens.u3` handwritten maths step by step (L), `lens.u4` offline species pack (L), `lens.u5` live tape measure (L), `lens.u9` the usual card first, `lens.u10` hands-free "tell me what you see", `lens.u11` hold several snaps, `lens.u12` a diary of places, `lens.s4` car warning lights, `lens.s5` plant care and watering reminders, `lens.s6` washing symbols, `lens.s8` a precise colour name, `lens.c5` "will it fit?" with MAKE.
 
 ## Decisions
 

@@ -661,6 +661,9 @@ html body .brworld .brcam { position: relative; display: block; width: 100%; min
 .brworld .brcam img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .brworld .brcam.dead img { visibility: hidden; }
 .brworld .brcam span { position: absolute; left: 0; right: 0; bottom: 0; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); overflow-wrap: anywhere; }
+/* fuel stations and chargers on the map (see.s7): the marks drawn from the tokens */
+.leaflet-interactive.fuelmark.fuel { stroke: var(--g-amber); fill: var(--g-amber); fill-opacity: .55; }
+.leaflet-interactive.fuelmark.charger { stroke: var(--g-ok); fill: var(--g-ok); fill-opacity: .55; }
 .jstale { margin: var(--g-s-half) 0; padding: var(--g-s-half) var(--g-s-1); border-radius: var(--g-radius-key); color: var(--g-amber, var(--amber)); background: var(--g-plate-fill); overflow-wrap: anywhere; }
 
 /* Training ground */
@@ -724,7 +727,7 @@ html body .brworld .brcam { position: relative; display: block; width: 100%; min
 .svwhere b { font: 500 10px var(--d); letter-spacing: .16em; color: var(--c); text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .svwhere small { font: 400 9px var(--m); letter-spacing: .1em; color: var(--mute); white-space: nowrap; }
 .svframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #000; }
-.svnote { padding: 5px 10px calc(env(safe-area-inset-bottom, 0px) + 6px); font: 400 10px/1.4 var(--b); color: var(--mute); background: rgba(var(--bgr), .92); border-top: 1px solid var(--line); }
+.svnote { padding: 5px 10px calc(env(safe-area-inset-bottom, 0px) + 6px); font: 400 10px/1.4 var(--b); color: var(--mute); background: rgba(var(--bgr), .92); border-top: 1px solid var(--hair); }
 
 /* ---------- the 3D map (ui/map3d.ts): MapLibre in Ghosty's colours ---------- */
 .map3d { flex: 1 1 auto; min-height: 220px; position: relative; z-index: 0; background: #02070d; }
@@ -4927,6 +4930,14 @@ html .spaceprice .v { flex: none; font: 600 16px/20px var(--sf); color: var(--in
 html .spacepricetotal { margin: 8px 0; font: 600 15px/20px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
 html .spacebudget { overflow-wrap: anywhere; }
 html #pg-space .spaceprices button, html #pg-space .spacephototap button, html #pg-studio .studioqueue button, html #pg-studio .studiomeanwhile button { min-height: 44px; }
+/* NEXT ROUND (MAKE lane, make.u5): named Workbench projects; and the 3D studio's waiting list, a row a job */
+html .wbproj, html .studiojob { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-bottom: 1px solid var(--hair); min-width: 0; }
+html .wbprojtext, html .studiojobtext { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+html .wbprojtext b, html .studiojobtext b { font: 600 15px/20px var(--sf); color: var(--ink); }
+html .wbprojtext small { font: 400 12px/16px var(--sf); color: var(--ink3); }
+html .wbprojsaid, html .wbprojnone { overflow-wrap: anywhere; }
+html #pg-workbench .wb-projects button { min-height: 44px; }
+html .studioqueue, html .studiomeanwhile { margin-top: 8px; min-width: 0; }
 /* NEXT ROUND (MAKE lane, make.u6): the curve behind an answer, drawn under its numbers; words around the picture wrap, never cut */
 html .wbcurve { margin: 10px 0 2px; padding: 10px 0 0; border-top: 1px solid var(--hair); min-width: 0; }
 html .wbctitle { font: 700 12px/16px var(--sf); letter-spacing: .08em; text-transform: uppercase; color: var(--ink2); overflow-wrap: anywhere; }
@@ -7520,7 +7531,9 @@ html .orbline, html .orbframe { display: none; }
   html .orbmast .hstamp { padding: 0; opacity: 1; justify-content: center; text-align: center; }
   html .orbmast .g-stamp { justify-content: center; }
   html .orbmast .g-stamp .on { color: var(--g-accent-text); }
-  html .orbsay { flex: none; margin: var(--g-s-2) 0 0; text-align: center; font: var(--g-t-display); font-size: 30px; line-height: 36px; letter-spacing: var(--g-tr-display); color: var(--g-ink-1); overflow-wrap: anywhere; text-wrap: balance; }
+  /* (the Orbit Home's own headline only: the line every world says once under the orb is p.orbsay.g-truth, a small truth line, and this
+     rule once reached it too, so "Listening" or "The brain is resting" came up in 30 px white capitals over the orb) */
+  html .orbframe > .orbsay { flex: none; margin: var(--g-s-2) 0 0; text-align: center; font: var(--g-t-display); font-size: 30px; line-height: 36px; letter-spacing: var(--g-tr-display); color: var(--g-ink-1); overflow-wrap: anywhere; text-wrap: balance; }
   html .orbsay2 { flex: none; margin: var(--g-s-half) 0 0; min-height: 28px; text-align: center; font: var(--g-t-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-2); overflow-wrap: anywhere; text-wrap: balance; }
   html .orbframe[data-reply="true"] .orbsay2 { cursor: pointer; color: var(--g-ink-1); }
   /* the ring: six stations on it, the orb at its centre; the stations are placed from their angle's cosine and sine (--ox, --oy) against the ring's own size */
@@ -8604,6 +8617,21 @@ html .cxread button.cxrkey { min-height: var(--g-target) !important; min-width: 
 html .cxread button.cxrkey[aria-pressed="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
 html .cxread button[hidden] { display: none; }
 .cxread .cxrslide { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
+.cxread .cxrthumbs { display: flex; gap: var(--g-s-half); overflow-x: auto; overscroll-behavior-x: contain; padding: var(--g-s-half) 0; scroll-snap-type: x proximity; }
+.cxread .cxrthumbs[hidden] { display: none; }
+html .cxread button.cxrthumb { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 64px; min-width: var(--g-target); min-height: 96px !important; height: auto; padding: 2px; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate-fill); scroll-snap-align: center; }
+.cxread .cxrthumb img { width: 100%; height: 72px; object-fit: cover; border-radius: var(--g-radius-key); }
+.cxread .cxrthumb .cxrthumbn { font: var(--g-t-caption); color: var(--g-ink-2); }
+html .cxread button.cxrthumb.on { border-color: var(--g-accent); }
+.cxread .cxrthumb.on .cxrthumbn { color: var(--g-accent-text); }
+.cxread .cxrthumb.marked::after { content: '★'; position: absolute; top: 2px; right: 4px; font: var(--g-t-caption); color: var(--g-amber); }
+.cxread.night .cxrsheet { filter: brightness(.78) sepia(.32); }
+.cxread .cxrsheet.turnnext { animation: cxturnnext .32s var(--g-ease, ease) both; }
+.cxread .cxrsheet.turnback { animation: cxturnback .32s var(--g-ease, ease) both; }
+@keyframes cxturnnext { from { opacity: .35; translate: 18% 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes cxturnback { from { opacity: .35; translate: -18% 0; } to { opacity: 1; translate: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .cxread .cxrsheet.turnnext, .cxread .cxrsheet.turnback { animation: none; } }
+html[data-motion="calm"] .cxread .cxrsheet:is(.turnnext, .turnback) { animation: none; }
 /* ---- THE CHAT (BRIEF-QUALITY-CHAT): the first open, the turn's one line, the folded reply, the newest key, the talk bar's words, the approval's keys. Tokens only. ---- */
 html .hud.core .convo .logfirst { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2) 0; }
 html .logfirst .logidle { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); }
@@ -10039,6 +10067,100 @@ html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !importan
 /* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
 html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
 
+/* ==== THE PLAN AND HOME LANE, NEXT ROUND (planlane2): new blocks. Tokens only (var(--…)), no hex, no rgba(), no px radius. ==== */
+/* ==== [planlane2:onelist] ==== */
+/* changes kept on this phone, still to reach the one list (no signal): said under the list's line, in the warning ink */
+html #pg-agenda .todowait { margin: 0; padding: 0 16px 6px; font: 400 15px/20px var(--sf); color: var(--amber); overflow-wrap: anywhere; }
+html #pg-agenda .todowait[hidden] { display: none; }
+/* ==== [planlane2:onelist end] ==== */
+
+/* ==== [planlane2:timeline] ==== */
+/* TIMELINE: TODAY / TOMORROW / PLAN MY WEEK keys; the free gaps in words; all-day and to-dos at the top; the hours, sized in em so the
+   day grows with his text (BODY 21) and never needs a fixed height; two at once side by side; the line at now */
+html #pg-agenda .pn.timeline .tlbar { padding: 0 0 8px; gap: 6px; }
+html #pg-agenda .pn.timeline .tlbar button.tlkey { width: auto; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .pn.timeline .tlbar button.tlkey.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+html #pg-agenda .pn.timeline .tlfree { display: flex; flex-direction: column; gap: 4px; padding: 2px 0 8px; }
+html #pg-agenda .pn.timeline .tlgap { color: var(--ink); overflow-wrap: anywhere; }
+html #pg-agenda .pn.timeline .tlgap::before { content: ''; display: inline-block; width: .55em; height: .55em; margin-right: .5em; border-radius: 50%; background: var(--g-ok); vertical-align: .08em; }
+html #pg-agenda .pn.timeline .tlallday, html #pg-agenda .pn.timeline .tltodo { display: flex; flex-direction: column; gap: 4px; padding: 0 0 8px; }
+html #pg-agenda .pn.timeline :is(button.tlad, button.tlwev) { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; column-gap: .6em; row-gap: 2px; width: 100%; height: auto; min-height: 44px !important; padding: 6px 10px; text-align: left; border-radius: var(--rad); background: color-mix(in srgb, var(--c) 12%, transparent) !important; box-shadow: inset 3px 0 0 var(--c) !important; }
+html #pg-agenda .pn.timeline .tltd { display: flex; flex-wrap: wrap; column-gap: .6em; color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .pn.timeline .tlwhen { color: var(--ink3); font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: normal; white-space: nowrap; }
+html #pg-agenda .pn.timeline .tltd .tlwhen { color: var(--amber); }
+html #pg-agenda .pn.timeline :is(.tltitle, .tlwhere) { text-transform: none; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; text-align: left; color: var(--ink); }
+html #pg-agenda .pn.timeline .tlwhere { color: var(--ink2); font-weight: 400; }
+html #pg-agenda .pn.timeline .tlgrid { --tlgut: 3.4em; position: relative; height: calc(var(--tlhours) * 3.6em); margin: 6px 0 4px; }
+html #pg-agenda .pn.timeline .tlhour { position: absolute; left: 0; right: 0; height: 0; font-size: .8em; color: var(--ink3); font-variant-numeric: tabular-nums; }
+html #pg-agenda .pn.timeline .tlhour::after { content: ''; position: absolute; left: 4em; right: 0; top: 0; border-top: 1px solid var(--hair); }
+html #pg-agenda .pn.timeline .tlband { position: absolute; left: var(--tlgut); right: 0; background: color-mix(in srgb, var(--g-ok) 9%, transparent); pointer-events: none; }
+html #pg-agenda .pn.timeline button.tlev { position: absolute; z-index: 1; box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 0; height: auto; min-height: max(44px, var(--tlh)) !important; padding: 4px 8px; text-align: left; border-radius: var(--rad); border: 1px solid var(--g-canvas, transparent); background: color-mix(in srgb, var(--c) 20%, var(--g-canvas, transparent)) !important; box-shadow: inset 3px 0 0 var(--c) !important; overflow: visible; }
+html #pg-agenda .pn.timeline button.tlev.past { opacity: .62; }
+html #pg-agenda .pn.timeline button.tlev.live { box-shadow: inset 3px 0 0 var(--c), 0 0 0 2px var(--c) !important; }
+html #pg-agenda .pn.timeline .tlnow { position: absolute; z-index: 2; left: var(--tlgut); right: 0; height: 0; border-top: 2px solid var(--g-fail); pointer-events: none; }
+html #pg-agenda .pn.timeline .tlnow b { position: absolute; right: 0; top: -.75em; padding: 0 .4em; font-size: .75em; line-height: 1.5; color: var(--g-canvas, var(--ink)); background: var(--g-fail); border-radius: var(--rad); font-variant-numeric: tabular-nums; }
+html #pg-agenda .pn.timeline .tlweekline { margin: 0 0 8px; color: var(--ink); }
+html #pg-agenda .pn.timeline .tlweek { display: flex; flex-direction: column; gap: 10px; }
+html #pg-agenda .pn.timeline .tlday { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; border-top: 1px solid var(--hair); }
+html #pg-agenda .pn.timeline .tldayname { color: var(--ink); }
+html #pg-agenda .pn.timeline .tlwfree { color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .pn.timeline .tlempty { margin: 0 0 6px; }
+/* the change box's ALL DAY and reminder pickers; the month's THIS MONTH key and its reading line */
+html #pg-agenda .evcard .evpick { gap: 6px; }
+html #pg-agenda .evcard .evpick button.evallday { width: auto; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .evcard .evpick button.evallday.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+html #pg-agenda .evcard .evpick select { min-height: 44px; flex: 1 1 12em; min-width: 0; }
+html #pg-agenda .evcard .evedit input:disabled { opacity: .5; }
+html #pg-agenda .pn.month .monhomerow { justify-content: center; padding: 0 0 6px; }
+html #pg-agenda .pn.month button.monhome { width: auto; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .pn.month .monread { display: block; padding: 0 0 6px; }
+
+/* ==== [planlane2:timeline end] ==== */
+
+/* ==== [planlane2:goodnight] ==== */
+/* GOODNIGHT's wind-down (features/core/goodnight.ts): for three seconds the screen settles, the feeds dim and the orb rests ("down"),
+   then the night look comes on and it rests ("rest") until his next touch; the chat's lines stay at full strength to be read. */
+html[data-goodnight] #stage, html[data-goodnight] #top { transition: opacity 3s ease, filter 3s ease; }
+html[data-goodnight="down"] #stage, html[data-goodnight="down"] #top { opacity: .42; filter: saturate(.4); }
+html[data-goodnight="rest"] #top { opacity: .72; filter: saturate(.6); }
+html[data-goodnight="rest"] #stage { transition: opacity .8s ease, filter .8s ease; }
+html[data-goodnight] #stage canvas { transition: opacity 3s ease; }
+html[data-goodnight="down"] #stage canvas, html[data-goodnight="rest"] #stage canvas { opacity: .5; }
+html #pg-brief .bract button.brnight { color: var(--fg); }
+@media (prefers-reduced-motion: reduce) {
+  html[data-goodnight] #stage, html[data-goodnight] #top, html[data-goodnight] #stage canvas { transition: none; }
+}
+
+/* ==== [planlane2:goodnight end] ==== */
+
+/* ==== [planlane2:podcasts] ==== */
+/* the top bar's chip with the sleep timer's stop time: the name is cut before the time ever is ("Radio 4 · stops 23:10") */
+#top .nowplaying.hasstops { display: inline-flex; align-items: center; max-width: 52vw; min-width: 0; }
+/* (pre: its leading space would collapse at the start of a flex item, drawing "Radio 4· stops") */
+#top .nowplaying.hasstops .npstops { flex: none; white-space: pre; }
+#top .nowplaying.hasstops .npname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the screen's own title is never squeezed for it: the chip goes to the next line instead */
+html body:not(.ownback) #top:has(.nowplaying.hasstops:not([hidden])) .navtitle { flex: 1 0 auto; max-width: 100%; }
+/* after a reload: PLAY AND KEEP THE TIMER on its own line, its words whole at BODY 21 */
+html #pg-radio .pn.nowp .keyrow:has(.npcarry) { flex-wrap: wrap; }
+html #pg-radio .pn.nowp .keyrow.novol button.npcarry, html #pg-radio .pn.nowp .keyrow button.npcarry { flex: 1 1 100%; white-space: normal; height: auto; min-height: 44px; }
+
+/* ==== [planlane2:podcasts end] ==== */
+
+/* ==== [planlane2:fixes] ==== */
+/* SOCIAL's FOLLOW OR UNFOLLOW box: the handle fills the width, the lines wrap (never cut), the account keys wrap */
+html #pg-social .socfollow input.socwho { width: 100%; box-sizing: border-box; max-width: 100%; min-height: 44px; }
+html #pg-social .socfollow .pknote { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html #pg-social .socfollow .socfmsg:empty { display: none; }
+html #pg-social .socfollow .keyrow.wrapit { flex-wrap: wrap; }
+html #pg-social .socfollow .keyrow button[aria-pressed='false'] { opacity: .85; }
+/* LINKS' one health line: everything fine, or the one thing to fix first (wraps, never cut) */
+html #pg-links .lkhealth { margin: 0 0 8px; padding: 10px 12px; border: 1px solid var(--line2); border-radius: var(--rad); color: var(--ink); font: 500 14px/1.4 var(--sf); white-space: normal; overflow-wrap: anywhere; }
+html #pg-links .lkhealth[data-health='fix'] { border-color: var(--g-amber); }
+html #pg-links .lkhealth[data-health='ok'] { border-color: var(--ok); }
+/* ==== [planlane2:fixes end] ==== */
+
+
 /* [boot] THE OPENING in Settings → Voice & home (features/settings/opening.ts): three keys for its length, his own line, how the last one ran */
 .openlen > button { min-height: var(--g-target); min-width: var(--g-target); flex: 1 1 0; }
 textarea.openown { width: 100%; box-sizing: border-box; }
@@ -10191,3 +10313,31 @@ html .dcminebox .dcrow input { flex: 1 1 auto; min-width: 0; min-height: var(--g
 html .rcundo.undofloat.wordbar { flex-wrap: wrap; }
 html .rcundo.undofloat.wordbar span { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
 html .rcundo.undofloat.wordbar button { height: auto; min-height: 44px !important; padding: 0 18px; }
+/* BY THE CLOCK (features/settings/lookclock.ts): the day's look, the night's, and when calm starts */
+html .lookclock .lcrows { display: flex; flex-direction: column; gap: var(--g-s-1); margin-top: var(--g-s-1); }
+html .lookclock .lcrows[hidden] { display: none; }
+html .lookclock .lcrow { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); flex-wrap: wrap; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); }
+html .lookclock .lcsel { min-height: var(--g-target); min-width: 9em; max-width: 100%; font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); }
+html .lookclock .lab { color: var(--g-ink-2); }
+/* LEARN · READY STARTS (learn.s3, learn.s4): driving theory, car mechanics, home electrics and first aid, one tap to fill the topic */
+html .learnstarts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; min-width: 0; }
+html .learnstarts button { min-height: 44px; }
+/* READER · HIGHLIGHTS AND NOTES (learn.u4): his marks in the text, the bar when he selects, and the list under ABOUT */
+html mark.grd-hl { background: var(--g-accent-wash, var(--thin)); color: inherit; box-shadow: inset 0 -2px 0 var(--acc); border-radius: var(--g-radius-mark); }
+html .grd-hlbar { position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 140px); z-index: 60; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--g-radius-cell); background: var(--thick); box-shadow: var(--edge); }
+html .grd-hlbar button { min-height: 44px; }
+html .grd-hlnote { width: 100%; min-height: 44px; }
+html .grd-notes { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+html .grd-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+html button.grd-noterow { flex: 1 1 220px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 44px; padding: 8px 10px; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; background: var(--thin); border: 0; box-shadow: none; border-radius: var(--g-radius-cell); color: var(--fg); }
+html button.grd-noterow small { color: var(--mute); }
+/* LEARN · QUIZ ME ALOUD (learn.c6): hands-free, the question large for anyone beside him and one big STOP */
+html .qaloud { display: flex; flex-direction: column; gap: 14px; }
+html .qaline { font-size: 22px; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
+html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px; }
+
+/* MEMORY PALACE (learn.s7): his places and things, each pair to picture, then walk back */
+.pkpalacebox { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hair); }
+.pkpalacebox textarea, .pkpalacebox input { width: 100%; min-height: 44px; font: inherit; }
+.pkpairs { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 8px; }
+.pkpairs li small { display: block; color: var(--mute); }

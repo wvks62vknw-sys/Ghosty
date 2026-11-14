@@ -758,8 +758,15 @@ B) <choice>
 C) <choice>
 D) <choice>
 ANSWER: <letter>
-WHY: <one sentence>`;
+WHY: <one sentence>${FIRST_ESTIMATE.test(`${c.title} ${c.topic ?? ''}`) ? `\n${ESTIMATE_LINE}` : ''}`;
 };
+
+/**
+ * [learn.s4] Trade and engineering courses (mechanics, electrics, building): his rule is that every engineering, car or build
+ * number is a first estimate, never certified, so a lesson on those says so beside every figure.
+ */
+export const FIRST_ESTIMATE = /\b(mechanic|engine|car|cars|brake|gearbox|electric|electrician|wiring|circuit|voltage|plumb|carpent|joiner|build|building|brick|weld|torque|motor)/i;
+export const ESTIMATE_LINE = 'Every engineering, car, electrical or building figure (a size, a torque, a load, a rating) is a first estimate, never certified: say "about" and "check the maker\'s figure" beside each one, and never tell him to skip a qualified person for anything dangerous.';
 
 /**
  * The passages themselves as a lesson, when no model is free: still something to read, cited. The

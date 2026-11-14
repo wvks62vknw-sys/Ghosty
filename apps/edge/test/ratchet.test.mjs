@@ -97,6 +97,7 @@ export const STATES = {
   'money.car': { dir: 'money', base: 0, now: 4 },
   'home.papers': { dir: 'homeadmin', base: 0, now: 4 },
   'work.jobs': { dir: 'work', base: 0, now: 4 },
+  'work.meetings': { dir: 'work', base: 0, now: 1 },
   'body.reps': { dir: 'body', base: 2, now: 3 },
   'body.run': { dir: 'body', base: 1, now: 1 },
   'body.breathe': { dir: 'body', base: 0, now: 1 },
@@ -202,6 +203,8 @@ export const STATES = {
   // NEXT ROUND (MAKE lane): MATERIALS' makeover set against his own statements, all four states (new, so base 0)
   'space.budget': { dir: 'space', base: 0, now: 4 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
+  // NEXT ROUND (MAKE lane): named Workbench projects, its empty list said in his words (new, so base 0)
+  'workbench.projects': { dir: 'workbench', base: 0, now: 1 },
   'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },
   'convert.files': { at: 'convert', dir: '', base: 3, now: 3 },
@@ -224,7 +227,6 @@ export const STATES = {
   'links.notes': { dir: 'links', base: 1, now: 2 },
   'social.queue': { dir: 'social', base: 3, now: 4 },
   // PLAN AND HOME (FINAL ROUND, planlane): the agenda's to-do list and the radio's RECENT list, new screens (base 0)
-  'agenda.todo': { dir: 'agenda', base: 0, now: 1 },
   'radio.recent': { dir: 'radio', base: 0, now: 1 },
   // [planlane:links] each connection's state in his words (checking, can't reach the brain, linked but not working, nothing linked yet)
   'links.connections': { dir: 'links', base: 0, now: 4 },
@@ -244,6 +246,19 @@ export const STATES = {
   // [planlane:agenda] the diary (loading, the brain out of reach with the phone's copy said so, offline with no copy, empty) and the chat's month
   'agenda.diary': { dir: 'agenda', base: 0, now: 4 },
   'agenda.month': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane2:fixes] SOCIAL's FOLLOW OR UNFOLLOW box (no account with follows, the brain not answering, a draft not made), LINKS' one
+  // health line (checking, the brain out of reach, the one thing to fix first, nothing linked) and EMAIL's TEST (no signal, a fail said)
+  'social.follow': { dir: 'social', base: 0, now: 3 },
+  'links.health': { dir: 'links', base: 0, now: 4 },
+  'links.emailtest': { dir: 'links', base: 0, now: 2 },
+  // [planlane2:goodnight] GOODNIGHT's lines: winding down already (loading), the brain out of reach (offline), his house not answering (error), no light on (empty)
+  'core.goodnight': { dir: 'core', base: 0, now: 4 },
+  // [planlane2:onelist] the to-do list: empty, error (turn.ts) and offline (changes kept on this phone, still to reach the one list)
+  'agenda.todo': { dir: 'agenda', base: 0, now: 3 },
+  // [planlane2:timeline] TIMELINE (the diary on its way, laid out from the phone's copy with the brain out of reach, a day with nothing in it)
+  // and the month's own read of any month (on its way, the brain not giving it): new parts (base 0)
+  'agenda.timeline': { dir: 'agenda', base: 0, now: 3 },
+  'agenda.monthread': { dir: 'agenda', base: 0, now: 2 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },

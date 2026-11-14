@@ -18,8 +18,8 @@
 import { createStore } from '../core/store';
 import { sound, takeSound } from './voice';
 import { embed } from './speakermodel';
-import { features, judgeBest, RATE, type Known, type Voiced } from './voiceprint';
-import { knownVoices } from './voicestore';
+import { features, judgeBest, keepUp, RATE, type Known, type Voiced } from './voiceprint';
+import { knownVoices, saveMine } from './voicestore';
 
 /** What the brain is told about who spoke (packages/shared/src/awareness.ts `ClientContext.voice`). */
 /** ('unsure': a voice heard and not sure of; held and treated as unknown on the phone, and said to the brain as "not sure".) */
@@ -149,7 +149,19 @@ export async function hear(snd: ReturnType<typeof takeSound>): Promise<Heard | n
     r.who.kind === 'owner' ? { label: 'owner', words: 'YOU', sure: true } : r.who.kind === 'person' ? { label: { name: r.who.name }, words: nameWords(r.who.name), sure: true } : r.who.why === 'unsure' ? { label: 'unknown', words: 'NOT SURE WHO', why: r.who.why, sure: false, because } : { label: 'unknown', words: "A VOICE I DON'T KNOW", why: r.who.why, sure: true };
   speaker.set({ heard, held: null, at: Date.now() });
   if (heard.label !== 'unknown') last = { label: heard.label as 'owner' | { name: string }, at: Date.now() };
+  // [voice.u4] a turn that was clearly him (judged by the phone's own features) refreshes his print a little, kept on this phone
+  if (heard.label === 'owner' && r.via === 'features' && v.profile) void keepUpMine(v.profile);
   return heard;
+}
+
+/** [voice.u4] Refresh his own print from a turn that was clearly him (voiceprint.ts keepUp says whether, and how far). */
+async function keepUpMine(profile: number[]): Promise<void> {
+  const me = known.find((k) => k.me);
+  if (!me) return;
+  const next = keepUp(me.print, profile, new Date().toISOString().slice(0, 10));
+  if (!next) return;
+  await saveMine(next, me.at).catch(() => undefined);
+  me.print = next;
 }
 
 /** A typed turn, or the end of the tag's time: nothing shown. */

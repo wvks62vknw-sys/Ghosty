@@ -82,6 +82,13 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   // (the router's polish takes that off), and as a bulleted list when it is long — said as a sentence when he asked for none.
   // [comic] THE COMIC's "Ghosty writes, the app draws" (apps/web/src/features/comic/script.ts): a script in its plain format, for
   // his idea and the cast the phone already drew, with a setup on page one that pays off on the last page.
+  // [comic] COMIC → TRANSLATE ITS WORDS: each numbered line back, marked with the language (the stand-in does not translate)
+  if (last.role === 'user' && /^comic translate:/i.test(ownerWords(textOf(last.content)).trim())) {
+    const said = ownerWords(textOf(last.content));
+    const lang = /into ([A-Z][a-z]+)\./.exec(said)?.[1] ?? 'French';
+    const lines = [...said.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => `${m[1]}. (${lang.slice(0, 2).toLowerCase()}) ${m[2]}`);
+    return { message: { role: 'assistant', content: lines.join('\n') }, model };
+  }
   if (last.role === 'user' && /^comic script:/i.test(ownerWords(textOf(last.content)).trim())) {
     const said = ownerWords(textOf(last.content));
     const idea = /about: (.+?)\.\n/i.exec(said)?.[1] ?? 'a day out';

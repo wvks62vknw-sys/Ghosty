@@ -479,6 +479,12 @@ export const eyeTab: TabDef = {
         R('PERIOD', `${(st.period / 60).toFixed(1)} min`);
         R('INCL', `${(st.inc * DEG).toFixed(1)}°`);
         R('NEXT PASS', pass ? `${fmt.time(new Date(pass.rise))} · ${Math.round(pass.max)}° max` : 'none in 24h');
+        // a nudge ten minutes before it passes over home (the diary's own reminder, so it comes with the phone locked)
+        if (pass) {
+          const nudge = button('NUDGE ME', () => void import('./passnudge').then((m) => m.nudgePass(st.name, pass)).then((said) => toast(said, /^In your diary/.test(said) ? 'ok' : 'warn')));
+          nudge.dataset.act = 'nudge';
+          actions.append(nudge);
+        }
       } else if (s.kind === 'quake') {
         const qk = s.ref as Quake;
         info.title.textContent = `M${qk.mag.toFixed(1)} EARTHQUAKE`;
@@ -720,12 +726,13 @@ export const eyeTab: TabDef = {
 
     // ---------- live camera views ----------
     /** Live views currently on screen, refreshed every few seconds; stopped when hidden. */
-    const views = new Map<HTMLElement, { cam: Camera; timer: number; url: string }>();
+    const views = new Map<HTMLElement, { cam: Camera; timer: number; url: string; frames?: { url: string; at: number }[] }>();
     const stopCamViews = (keep: string | null = null) => {
       for (const [el, v] of views) {
         if (v.cam.id === keep && el.isConnected) continue;
         clearInterval(v.timer);
         if (v.url) URL.revokeObjectURL(v.url);
+        for (const f of v.frames ?? []) if (f.url !== v.url) URL.revokeObjectURL(f.url);
         views.delete(el);
       }
     };
@@ -743,13 +750,22 @@ export const eyeTab: TabDef = {
       another.hidden = true;
       another.dataset.act = 'another';
       const box = h(`div.camview${big ? '.big' : ''}` as 'div', img, stamp, h('i.camrec'));
-      const v = { cam: c, timer: 0, url: '' };
+      // the big card keeps the last minute of stills on the phone (see.u12): TIMELAPSE plays them back, for his own viewing only
+      const v: { cam: Camera; timer: number; url: string; frames?: { url: string; at: number }[] } = { cam: c, timer: 0, url: '', ...(big ? { frames: [] } : {}) };
+      let playing = 0;
       const load = async () => {
         if (!box.isConnected && v.url) return;
         try {
           const url = await fetchImage(c.image, c.src === 'New York' ? 5 : c.src === 'National Highways' ? 20 : 30);
-          if (v.url) URL.revokeObjectURL(v.url);
+          if (v.frames) {
+            // a frame the same as the last (the camera has not refreshed) is not kept twice
+            if (url !== v.url) v.frames.push({ url, at: Date.now() });
+            const cut = Date.now() - 65_000;
+            while (v.frames.length > 2 && (v.frames[0]!.at < cut || v.frames.length > 16)) URL.revokeObjectURL(v.frames.shift()!.url);
+            lapse.hidden = v.frames.length < 3;
+          } else if (v.url) URL.revokeObjectURL(v.url);
           v.url = url;
+          if (playing) return;
           img.src = url;
           stamp.textContent = `● REC  ${fmt.time(new Date())}  ${c.src.toUpperCase()}`;
           delete stamp.dataset.state;
@@ -766,8 +782,27 @@ export const eyeTab: TabDef = {
       void load();
       v.timer = window.setInterval(() => void load(), c.src === 'New York' ? 4000 : c.src === 'National Highways' ? 20000 : 15000);
       views.set(box, v);
+      const lapse = button('▶ TIMELAPSE', () => {
+        const fr = v.frames ?? [];
+        if (playing || fr.length < 3) return;
+        let i = 0;
+        stamp.textContent = `TIMELAPSE · the last ${Math.max(1, Math.round((Date.now() - fr[0]!.at) / 1000))} s`;
+        playing = window.setInterval(() => {
+          if (i >= fr.length || !box.isConnected) {
+            clearInterval(playing);
+            playing = 0;
+            img.src = v.url;
+            stamp.textContent = `● REC  ${fmt.time(new Date())}  ${c.src.toUpperCase()}`;
+            return;
+          }
+          img.src = fr[i++]!.url;
+        }, 350);
+      });
+      lapse.dataset.act = 'timelapse';
+      lapse.hidden = true;
       if (big) {
         const actions = h('div.row.wrap');
+        actions.append(lapse);
         if (c.video) {
           actions.append(button('▶ PLAY CLIP', () => {
             const vid = h('video', { src: c.video, autoplay: true, muted: true, playsInline: true, loop: true, controls: true });
