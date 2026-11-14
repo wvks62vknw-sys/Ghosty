@@ -52,9 +52,12 @@ const dragBy = async (page, from, dx, dy, steps = 8) => {
 const toDesign = async (page) => {
   await page.evaluate(() => (location.hash = 'creative'));
   await page.waitForSelector('#pg-creative .secpills .secpill', { timeout: 15000 });
-  // (its pill is remembered: tapped only when another one is showing)
-  const on = await page.$$eval('#pg-creative .secpills .secpill', (bs) => bs.some((b) => (b) => b.textContent === 'Poster' && (b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true'))).catch(() => false);
-  if (!on) await openSection(page, 'creative', 'Poster');
+  // (its pill is remembered: tapped only when the Design panel is not already showing)
+  const on = await page.evaluate(() => !!document.querySelector('#pg-creative .pn:not([hidden]) .dz'));
+  if (!on) {
+    await page.locator('#pg-creative .secpills .secpill', { hasText: /^Poster$/ }).first().click();
+    await page.waitForSelector('#pg-creative .pn:not([hidden]) .dz', { timeout: 15000 });
+  }
 };
 const saved = async (page) => until(page, () => { const s = window.__ghosty.design; return s.saved > 0; }, null, 4000);
 
