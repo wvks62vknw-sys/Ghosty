@@ -14,6 +14,10 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [comic] NEXT ROUND (comic.c6, s12, u8, s5, s6, s2)
+  { day: '2026-11-14', title: 'Jokes, cards and picture books', line: 'COMIC → MAKE: a one-panel joke, a greeting card or a picture book as well as a comic; say “make it a comic” about what I just told you; translate a comic’s words for family abroad; and pick your own cartoon look by hand to cast in any comic.' },
+  // [comic] NEXT ROUND (comic.u9, u11, u13, s7, s11)
+  { day: '2026-11-14', title: 'A comic reader like the best', line: 'COMIC: a strip of every page, bookmarks, a night tint and AUTO page turns; search and sort your shelf with read marks and a reading log; save a comic as one long phone scroll, as single panels, or as a booklet to print, fold and staple.' },
   // [comic] NEXT ROUND (comic.u2, u4, u5, u7)
   { day: '2026-11-14', title: 'Ghosty writes your comic', line: 'COMIC → MAKE: I write the story for your exact idea and the phone draws it with the same characters; drag balloons, people and sound effects with a finger, put your own photo behind a panel, and UNDO or REDO any change. Real CBR comics open too (the free RAR reader comes on your tap, on Wi-Fi), and MY WEEK AS A COMIC turns your agenda’s week into a comic to keep.' },
   // [see] the next round: an appointment to the whole journey, and the journey kept for no signal

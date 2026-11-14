@@ -8,11 +8,12 @@
 import { MOODS, newId, POSES, SCENES, SHOTS, TIMES, type Actor, type Balloon, type BalloonKind, type CastMember, type Comic, type Mood, type Page, type Panel, type Pose, type Scene, type Shot, type Time } from './model';
 
 /** The message the brain is sent: the idea, the cast as the app will draw them, and the format to answer in. */
-export function scriptAsk(idea: string, cast: CastMember[], style = ''): string {
+export function scriptAsk(idea: string, cast: CastMember[], style = '', shape = ''): string {
   const who = cast.map((m) => `${m.role.toUpperCase()} = ${m.name} (${m.look.species === 'person' ? 'a person' : `a ${m.look.species}`})`).join('; ');
   return [
     `COMIC SCRIPT: write the script of a short, genuinely funny four-page comic book about: ${idea.trim().slice(0, 300)}.`,
     style ? `The kind of story: ${style}.` : '',
+    shape,
     `The cast, already drawn: ${who}. Use these names. Do not add other speaking characters.`,
     'Give it a beginning (what the hero wants), a turn (it goes wrong, then a new idea) and an end, with a joke set up early that pays off on the last page. Jokes should land: short lines, good timing, a final gag.',
     `Answer as text only, in exactly this format, and nothing else (no tool):`,
@@ -47,7 +48,7 @@ export interface ScriptRead {
 }
 
 /** The brain's script, read into pages for this cast; null when it is too thin to be a comic (under two pages or five panels). */
-export function readScript(text: string, cast: CastMember[]): ScriptRead | null {
+export function readScript(text: string, cast: CastMember[], min: { pages: number; panels: number; lines: number } = { pages: 2, panels: 5, lines: 4 }, shape: 'comic' | 'joke' | 'card' | 'book' = 'comic'): ScriptRead | null {
   const roleOf = (word: string): string | null => {
     const w = word.trim().toLowerCase().replace(/[^a-z0-9 '’-]/g, '');
     const byRole = cast.find((m) => m.role === w || m.id === w);
@@ -135,8 +136,13 @@ export function readScript(text: string, cast: CastMember[]): ScriptRead | null 
     }
   const panels = kept.reduce((s, p) => s + p.panels.length, 0);
   const lines = kept.reduce((s, p) => s + p.panels.reduce((t, q) => t + q.balloons.length, 0), 0);
-  if (kept.length < 2 || panels < 5 || lines < 4) return null;
-  return { title, tagline, pages: kept.slice(0, 8) };
+  if (kept.length < min.pages || panels < min.panels || lines < min.lines) return null;
+  // (the shape kept, whatever came back: a joke is one panel, a card one page of three, a picture book a panel a page)
+  let shaped = kept.slice(0, 8);
+  if (shape === 'joke') shaped = [{ ...kept[0]!, layout: 0, panels: kept[0]!.panels.slice(0, 1) }];
+  else if (shape === 'card') shaped = [{ ...kept[0]!, layout: 0, panels: kept.flatMap((p) => p.panels).slice(0, 3) }];
+  else if (shape === 'book') shaped = kept.flatMap((p) => p.panels).slice(0, 10).map((q) => ({ id: newId('g'), layout: 0, panels: [q] }));
+  return { title, tagline, pages: shaped };
 }
 
 /** The local comic with the brain's script in place of the phone's own: the same cast (names and looks), its pages. */
