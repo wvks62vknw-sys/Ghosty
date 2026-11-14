@@ -38,7 +38,8 @@ The boards register as the engine's `game` renderer (`games/index.ts` calls `reg
 - the live score and a line beside it, the best kept on the phone, and the streak (wins in a row);
 - PAUSE hides the board;
 - the game is kept after every move under `ghosty.app.<id>.play`, so a reload, a call or a locked phone comes back to the same game, paused, with RESUME;
-- the end card says when it is a new best, with PLAY AGAIN;
+- a picker above the board when the options offer `levels`, `sizes`, `draws` or `themes`, with the best kept for each level;
+- the end card says when it is a new best and shows games played, the share won and the longest streak, with PLAY AGAIN;
 - the kit's own UNDO and REDO keys at the bottom take a move back and forward, up to 50 moves, from the kept snapshots. This works in sudoku, mines, merge, solitaire, nonogram, slide and lights. It is never offered for a guess in a word game, a memory flip or a real-time move, where taking a move back would be a cheat.
 
 **Real time:** snake and blocks draw on a canvas at the phone's pixel ratio, on `requestAnimationFrame`. Everything else uses DOM grids. All colours are world tokens, read again from the tokens on pause and resume.
@@ -82,8 +83,9 @@ The boards register as the engine's `game` renderer (`games/index.ts` calls `reg
 - Honest refusals: live data (from brief.ts's limits), and calculators ("needs its formula from a public source and checked answers, so those come ready-made in the Library").
 
 ### Brain tests
-`apps/edge/test/applibgames.test.mjs`, run from `appkit.test.mjs` after the engine's `applib.test.mjs`. It has 19 tests.
+`apps/edge/test/applibgames.test.mjs`, run from `appkit.test.mjs` after the engine's `applib.test.mjs`. It has 20 tests.
 - **The dice:** seeded and replayable.
+- **The catalogue's options:** themes, aliases, text pairs, backwards words, times tables and expert sudoku.
 - **Solvable or fair, for every kind that needs it:**
   - sudoku: exactly one solution at three difficulties;
   - mines: 30 first taps, all openings;
@@ -96,13 +98,34 @@ The boards register as the engine's `game` renderer (`games/index.ts` calls `reg
   - a blank app of every archetype passes the validator;
   - all fourteen field types are added, moved, changed and removed, and the app stays valid;
   - duplicate and change;
-  - eleven requests from words each become a valid draft of the right kind;
+  - fifteen requests from words each become a valid draft of the right kind;
+  - a field's type changes in place, and whatever read the old type goes;
   - honest refusals for live data and calculators;
   - ids stay free of the Library's and his own.
 
-## What the ENGINE lane hooks in (sent to the ENGINE session)
-1. `import './games';` once, from the Library screen. This registers the game renderer. It keeps `k.body` to itself across the kit's redraws and returns a stop function. Hiding `.ak-tools` (Undo and Redo) for games would be cleaner.
-2. `openMaker(root, { taken, openApp, from?, words? })` and `myApps()` from `features/applib/maker.ts`, for "make my own from this", "make me an app for…", and listing and opening his own apps.
+## How it joins the Library (ENGINE's registry)
+- ENGINE's Library loads `features/applib/games/index.ts` and `features/applib/maker.ts` by name (`loadLaneFiles`).
+- `games/index.ts` calls `registerRenderer('game', …)`. Its frame keeps `k.body` to itself across the kit's redraws, routes the kit's Undo and Redo, and returns a stop function.
+- `maker.ts` calls `registerMaker((root, from, words?) => …)` and `registerAppSource(myApps)`.
+  - MAKE MY OWN opens App Maker in the page ENGINE hands over. That page body becomes a non-scrolling host, so the kit's scroll area is the only one.
+  - "Make my own from this" passes the Library app.
+  - A third argument, his words, opens a draft from them.
+  - His made apps are listed and opened at `#apps/<id>` like any other.
+- `playLine(id)` (exported from `games/index.ts`) gives a game's Home card line, for example "Best 2,140 · streak 3 · 12 played".
+- The shell's `#app` passes taps through to the scene below, except on keys and fields. The game and Maker roots turn taps back on, so cells, cards, pads and canvases respond.
+
+## The applibplay spec
+`tests/applibplay.spec.mjs` (its word is at the end of `all=`) drives the real Library routes:
+- twelve game kinds open at `#apps/<id>` and make their main move: a number placed, a first tap that opens an area, a swipe, the stock turned, a word guessed and marked, a piece dropped, a card turned, a line drawn and answered, and more;
+- pause hides the board; a reload brings the same grid back, paused, with RESUME; Undo and Redo step a move;
+- App Maker makes a records app with a new field, keeps it, and opens it from the Library; "make my own from" Sudoku opens a copy;
+- one scroll area, nothing sideways and every key 44 pt in all seven looks at 390.
+
+It passes against the integration tip in about 85 s.
+
+## Open items for other lanes
+- **ENGINE:** a cold deep link (first load straight to `#apps/<id>`) mounts the app before the lanes' files are loaded, so a game shows "still being built" until the Library has loaded them. The spec goes to `#apps` first. Reported to the ENGINE session.
+- **CAT-B:** some Games apps set options for variants that are not built (other patience games, hive and wheel word games, falling typing, a 6 by 6 sudoku and others). The full list went to the CAT-B session; the boards read every option that is built, plus the catalogue's aliases.
 
 ## Needs its own build
 - **Calculators in App Maker.** A calc needs a formula with a named public source and tests whose answers come from that source. App Maker cannot honestly supply those from his words, so calculators come ready-made in the Library.
