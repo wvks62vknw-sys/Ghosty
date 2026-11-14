@@ -8,6 +8,7 @@
  *   POST   /social/link   { account, … } → { who, info }             (the key checked by signing in, then kept in the vault)
  *   DELETE /social/link?account=…       → unlinked
  *   POST   /social/draft  { account, text, image?, alt? } → { draft, card }  (the phone's POST THAT?: a draft, never a post)
+ *          /social/draft  { account, kind: 'follow'|'unfollow', who } → { draft, card }  (the phone's FOLLOW box: a draft, never a follow)
  *   POST   /social/approve { id }       → { draft, said } | { error }       (his APPROVE: sent once)
  *   POST   /social/edit   { id, text?, alt? } → { draft, card }
  *   POST   /social/no     { id }        → { draft }
@@ -258,7 +259,14 @@ export async function socialRoute(req: Request, path: string, method: string, ur
     const a = accountIn(body.account);
     if (!a) return json({ error: 'no such account' }, 400);
     if (!(await linkedAs(d, a))) return json({ error: notLinked(a) }, 400);
-    const r = await makeDraft(d, { account: a, text: String(body.text ?? ''), ...(body.image ? { image: String(body.image), alt: String(body.alt ?? '') } : {}), from: body.from === 'musing' ? 'musing' : 'phone' });
+    // [planlane2:fixes] the phone's FOLLOW box: a follow or unfollow draft (kind + who), waiting for his APPROVE like a post
+    const kind = body.kind === 'follow' || body.kind === 'unfollow' ? body.kind : 'post';
+    const who = String(body.who ?? '').trim();
+    if (kind !== 'post' && !APIS[a]?.follow) return json({ error: `${accountName(a)} has no follows: I can follow and unfollow on Bluesky and Mastodon.` }, 400);
+    if (kind !== 'post' && (who.length > 200 || /\s/.test(who))) return json({ error: 'That is not one handle: give one, like @sam.bsky.social or @sam@mastodon.social, or their profile link.' }, 400);
+    const r = kind === 'post'
+      ? await makeDraft(d, { account: a, text: String(body.text ?? ''), ...(body.image ? { image: String(body.image), alt: String(body.alt ?? '') } : {}), from: body.from === 'musing' ? 'musing' : 'phone' })
+      : await makeDraft(d, { account: a, kind, text: '', who, from: 'phone' });
     return json(r, 'error' in r ? 400 : 200);
   }
   const id = String(body.id ?? '');

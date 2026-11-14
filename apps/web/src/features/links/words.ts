@@ -191,3 +191,57 @@ export function keyWhy(name: string, info = ''): { kept: boolean; why: string } 
 export const OFFLINE_LINE = (what: string): string => `I can’t reach my brain right now, so I can’t tell whether ${what} is linked. Tap TRY AGAIN when you have a signal.`;
 /** The same while the brain's database is paused: nothing he linked is lost. */
 export const PAUSED_LINE = (what: string): string => `My brain’s database is paused, so I can’t read or use the ${what} link until it’s back (by midnight UTC). Nothing you linked is lost. Tap TRY AGAIN later.`;
+
+// ---- EMAIL's TEST and the one health line (planlane2:fixes, plan.u14)
+
+/** Why an email TEST did not pass (the brain's /email/test `why`: a reason code, never the server's own words). */
+export type EmailTestWhy = 'not' | 'paused' | 'unreached' | 'signin' | 'imap' | 'servers' | 'outlook' | 'saved' | 'other';
+/** A TEST that passed: said as what it proved. */
+export const emailWorks = (address?: string | null): string => `Email works: I signed in to your mail${address ? ` as ${address}` : ''}.`;
+/** A TEST that did not pass, in his words with the one next step. `unreached` (and a paused database) say nothing about what he linked. */
+export function emailTestWhy(why?: string): string {
+  switch (why) {
+    case 'unreached':
+      return 'I couldn’t reach your mail server just now, so I couldn’t check it. Nothing has changed: tap TEST again in a minute.';
+    case 'signin':
+      return emailWhy('password');
+    case 'imap':
+      return emailWhy('imap');
+    case 'servers':
+      return emailWhy('mail servers for');
+    case 'outlook':
+      return emailWhy('outlook');
+    case 'paused':
+      return 'My brain’s database is paused, so I can’t check your email until it’s back (by midnight UTC). Nothing you linked is lost.';
+    case 'not':
+      return 'Your email isn’t linked any more. Link it again below.';
+    default:
+      return emailWhy();
+  }
+}
+/** Only a test that reached his mail server and was turned down is kept as "not working" (a server out of reach says nothing about it). */
+export const emailTestKept = (why?: string): boolean => !!why && why !== 'unreached' && why !== 'paused';
+
+/** One row of LINKS for the health line: its name as he reads it, the panel it is in, and its state (the very rows the top counts). */
+export interface HealthRow {
+  name: string;
+  panel: string;
+  state: LinkState;
+}
+/**
+ * THE ONE HEALTH LINE at the top of LINKS: everything he linked is fine, or the one thing to fix first (the first row on the screen that
+ * is linked but not working, else not working, else one step left), from the same rows the top line counts: never a source of its own.
+ */
+export function healthWords(rows: readonly HealthRow[]): { kind: 'ok' | 'fix' | 'checking' | 'offline' | 'none'; line: string; panel?: string } {
+  const first = (s: LinkState) => rows.find((r) => r.state === s);
+  const fix = first('failing') ?? first('broken');
+  if (fix) return { kind: 'fix', panel: fix.panel, line: `Fix ${fix.name} first: ${fix.state === 'failing' ? 'it is linked, but not working' : 'it is not working'}. The reason and the next step are in its panel.` };
+  const step = first('waiting');
+  if (step) return { kind: 'fix', panel: step.panel, line: `Finish ${step.name} first: it has one step left.` };
+  if (first('offline')) return { kind: 'offline', line: 'I can’t reach my brain, so I can’t say whether everything you linked is fine.' };
+  if (first('checking')) return { kind: 'checking', line: 'Checking everything you linked…' };
+  const linked = rows.filter((r) => r.state === 'linked').length;
+  const paused = rows.filter((r) => r.state === 'paused').length;
+  if (!linked) return { kind: 'none', line: paused ? 'My brain’s database is paused, so I can’t say what is linked until it’s back. Nothing you linked is lost.' : 'Nothing is linked yet, so there is nothing to fix.' };
+  return { kind: 'ok', line: `Everything you linked is fine: ${linked === 1 ? 'it works' : `all ${linked} work`}${paused ? `, and ${paused} ${paused === 1 ? 'is' : 'are'} not known while my brain’s database is paused` : ''}.` };
+}

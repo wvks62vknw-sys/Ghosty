@@ -219,6 +219,11 @@ export const STATES = {
   // [planlane:agenda] the diary (loading, the brain out of reach with the phone's copy said so, offline with no copy, empty) and the chat's month
   'agenda.diary': { dir: 'agenda', base: 0, now: 4 },
   'agenda.month': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane2:fixes] SOCIAL's FOLLOW OR UNFOLLOW box (no account with follows, the brain not answering, a draft not made), LINKS' one
+  // health line (checking, the brain out of reach, the one thing to fix first, nothing linked) and EMAIL's TEST (no signal, a fail said)
+  'social.follow': { dir: 'social', base: 0, now: 3 },
+  'links.health': { dir: 'links', base: 0, now: 4 },
+  'links.emailtest': { dir: 'links', base: 0, now: 2 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },

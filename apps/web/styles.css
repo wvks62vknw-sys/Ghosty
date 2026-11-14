@@ -9894,6 +9894,15 @@ html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-off
 /* ==== [planlane2:podcasts end] ==== */
 
 /* ==== [planlane2:fixes] ==== */
-
+/* SOCIAL's FOLLOW OR UNFOLLOW box: the handle fills the width, the lines wrap (never cut), the account keys wrap */
+html #pg-social .socfollow input.socwho { width: 100%; box-sizing: border-box; max-width: 100%; min-height: 44px; }
+html #pg-social .socfollow .pknote { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html #pg-social .socfollow .socfmsg:empty { display: none; }
+html #pg-social .socfollow .keyrow.wrapit { flex-wrap: wrap; }
+html #pg-social .socfollow .keyrow button[aria-pressed='false'] { opacity: .85; }
+/* LINKS' one health line: everything fine, or the one thing to fix first (wraps, never cut) */
+html #pg-links .lkhealth { margin: 0 0 8px; padding: 10px 12px; border: 1px solid var(--line2); border-radius: var(--rad); color: var(--ink); font: 500 14px/1.4 var(--sf); white-space: normal; overflow-wrap: anywhere; }
+html #pg-links .lkhealth[data-health='fix'] { border-color: var(--g-amber); }
+html #pg-links .lkhealth[data-health='ok'] { border-color: var(--ok); }
 /* ==== [planlane2:fixes end] ==== */
 

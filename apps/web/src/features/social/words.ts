@@ -101,3 +101,26 @@ export const SENT_EMPTY = 'Nothing went out today. Every post waits in the queue
 export const sentNote = (n: number): string => `${n === 1 ? 'One thing' : `${n} things`} went out today, each after your APPROVE:`;
 /** A panel's line when the brain cannot be reached (LINKS' panels, on SOCIAL and LINKS). */
 export const accountOffline = (name: string): string => `I can’t reach my brain, so I can’t tell whether ${name} is linked. Nothing has changed. Try again in a moment.`;
+
+// ---------------------------------------------------------------- FOLLOW OR UNFOLLOW (planlane2:fixes, plan.u13)
+
+/** The accounts that have follows (Discord and his Telegram channel have none). */
+export const FOLLOWABLE = ['bluesky', 'mastodon'] as const;
+export const FOLLOW_HEAD = 'Follow or unfollow';
+/** Under the box: it only makes a draft, and the draft waits for his APPROVE like a post. */
+export const FOLLOW_NOTE = 'This makes a draft only. It waits in the queue above until you tap APPROVE, like a post.';
+export const FOLLOW_NONE = 'Link Bluesky or Mastodon under Accounts first: they are the two with follows.';
+export const FOLLOW_OFFLINE = 'I can’t reach my brain, so I can’t make a follow draft now. Try again in a moment.';
+/** What a handle looks like on each account (the box's example). */
+export const followExample = (a: string): string => (a === 'mastodon' ? '@sam@mastodon.social' : '@sam.bsky.social');
+/** The handle checked before the brain is asked ('' when it will do). */
+export function whoProblem(who: string, account: string): string {
+  const w = who.trim();
+  if (!w) return `Write their handle first, like ${followExample(account)}, or paste their profile link.`;
+  if (w.length > 200 || /\s/.test(w)) return `That is not one handle: give one, like ${followExample(account)}, or their profile link.`;
+  return '';
+}
+/** What FOLLOW or UNFOLLOW did: a draft made, waiting above. */
+export const followMade = (kind: 'follow' | 'unfollow', who: string, where: string): string => `Draft made: ${kind} ${who} on ${where}. It waits above for your APPROVE; nothing happens until you tap it.`;
+/** A follow draft not made, and why (in his words). */
+export const followMissed = (where: string, why: string): string => `No draft made for ${where}: ${why.replace(/[.!?]+$/, '')}.`;

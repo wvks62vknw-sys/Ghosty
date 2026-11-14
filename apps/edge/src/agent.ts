@@ -19,6 +19,7 @@ import { Meter } from './meter';
 import { speedSummary } from './speed'; // [speed]
 export { storageError } from './kv';
 import { parseEmailKey } from './integrations/mail';
+import { emailTest } from './emailtest';
 import { spotifyRoute } from './integrations/spotify';
 import { trafficRoute } from './integrations/traffic';
 import { transitRoute } from './integrations/transit';
@@ -651,6 +652,8 @@ export class GhostyAgent {
           return json({ linked: true, problem: String((e as Error).message).slice(0, 200) });
         }
       }
+      // LINKS → EMAIL → TEST: one sign-in with what he linked, pass or fail as a reason code (emailtest.ts; never the server's text)
+      if (path === '/email/test' && method === 'POST') return json(await emailTest((n) => this.vault.lookup(n)));
       if (path.startsWith('/traffic/')) return await trafficRoute(path, method, this.vault);
       if (path.startsWith('/spotify/')) return await spotifyRoute(req, path, method, this.vault);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
