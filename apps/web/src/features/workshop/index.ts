@@ -28,6 +28,8 @@ import { earlierWords, newCount, NOTHING_NEW, offlineWords, PROJECT_WORD, projec
 import { sayError } from '../../ui/hisWords';
 import { mountSitePhotos } from '../../sites/photos';
 import { restoreSite } from '../../sites/versions';
+import { choose, chosen, HOME_TITLE, homePage } from '../../sites/home';
+import { putOnSites } from '../../sites/handover';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 /** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
@@ -544,6 +546,20 @@ export const workshopTab: TabDef = {
         pp.body.append(!sitesKnown ? empty('LOADING') : empty('NONE', 'Ask Ghosty to “make me a website for…” or to rebuild one from a link: it goes live at a public link here.', 'Nothing published yet'));
         return;
       }
+      // [sites] ONE HOME PAGE FOR YOUR SITES (sites.u8): the pages he chose, as one link, after his APPROVE in the chat
+      const onHome = new Set(chosen());
+      const homeSites = sites.filter((x) => onHome.has(x.name));
+      const urlOf = (x: PublishedSite) => `${siteUrl(x.name)}${x.app || x.game ? '/' : ''}`;
+      const homeSaid = h('p.note.sitehomesaid', { 'aria-live': 'polite' });
+      const homeKey = button(homeSites.length ? `PUBLISH MY HOME PAGE (${homeSites.length})` : 'PUBLISH MY HOME PAGE', async (b) => {
+        if (!homeSites.length) return void (homeSaid.textContent = 'Tick ON MY HOME PAGE on the pages you want on it first.');
+        b.disabled = true;
+        const r = await putOnSites(HOME_TITLE, homePage(homeSites, urlOf), 'home');
+        b.disabled = false;
+        homeSaid.textContent = r.said;
+      }, homeSites.length ? 'on' : '');
+      homeKey.setAttribute('aria-label', 'Publish my home page: one link listing the pages I chose');
+      pp.body.append(h('div.sitehome', h('p.note', 'One link for everything you publish: tick ON MY HOME PAGE on the pages you want on it, then publish it. Only those pages are listed.'), h('div.keyrow', homeKey), homeSaid));
       for (const s of sites) {
         const open = h('a.sitelink', { href: siteUrl(s.name), target: '_blank', rel: 'noopener' }, h('b', s.title), h('small', `${siteUrl(s.name).replace(/^https?:\/\//, '')} · ${fmt.ago(s.at)} · ${Math.max(1, Math.round(s.bytes / 1024))} KB${s.source ? ` · from ${s.source.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}` : ''}`));
         const copy = button('COPY LINK', async () => {
@@ -581,7 +597,13 @@ export const workshopTab: TabDef = {
             })
           : null;
         back?.setAttribute('aria-label', `Undo the last update to ${s.title}`);
-        pp.body.append(h('div.site', { dataset: { site: s.name } }, open, h('div.keyrow', copy, back, down)));
+        const home = button(onHome.has(s.name) ? 'ON MY HOME PAGE ✓' : 'ON MY HOME PAGE', () => {
+          choose(s.name, !onHome.has(s.name));
+          paintSites();
+        }, onHome.has(s.name) ? 'on' : '');
+        home.setAttribute('aria-pressed', String(onHome.has(s.name)));
+        home.setAttribute('aria-label', `${s.title} on my home page`);
+        pp.body.append(h('div.site', { dataset: { site: s.name } }, open, h('div.keyrow', copy, back, home, down)));
       }
     };
     /** Self-editing set up on the brain (GitHub): null until the change list first answers. */

@@ -13,7 +13,7 @@ export const askWords = (title: string): string => `Publish ${title} as a page`;
 export const pageLine = (what: 'document' | 'deck'): string => `Put this ${what} on your sites as a read-only page at its own link. I ask your APPROVE in the chat first.`;
 
 /** Hand the page over and ask in the chat; what to say back, in his words. */
-export async function putOnSites(title: string, html: string, kind: 'document' | 'deck'): Promise<{ ok: true; said: string } | { ok: false; said: string }> {
+export async function putOnSites(title: string, html: string, kind: 'document' | 'deck' | 'home'): Promise<{ ok: true; said: string } | { ok: false; said: string }> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, said: 'You are offline. Putting it on your sites waits for a connection.' };
   if (html.length > MAX_PAGE) return { ok: false, said: `It is ${Math.round(html.length / 1024)} KB as a page, over the ${Math.round(MAX_PAGE / 1024)} KB a page on your sites holds. Make its pictures smaller, or split it.` };
   try {

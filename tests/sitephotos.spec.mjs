@@ -4,7 +4,7 @@
 // the main picture; (e) every key is 44 pt, nothing sideways, BODY 21 cuts no words; (f) "build a website for my café with my photos"
 // asks APPROVE saying his photos will be used (declined here: nothing is built); (g) a photo is removed after its confirm; (h) UNDO FOR
 // PUBLISHED PAGES (sites.u2): a page updated from the chat goes back to its earlier version with the Workshop's UNDO LAST UPDATE;
-// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6).
+// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8).
 //   BASE=http://localhost:8788 node tests/sitephotos.spec.mjs tests/.shots
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -251,6 +251,33 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
     const changeReason = await approveNext(before);
     check(/Change the mini-app "Habits" at .*: habits: .* → .*“Stretch”\? Same link; what is saved on your phone stays\./.test(changeReason), `${W}: (k) the change is said before APPROVE: ${changeReason.slice(0, 220)}`);
     check(await appLive(/Stretch/), `${W}: (k) after APPROVE the app at the same link has the new habit`);
+  }
+
+
+  // (l) one home page for his sites (sites.u8): two pages ticked ON MY HOME PAGE (kept on the phone), PUBLISH MY HOME PAGE, APPROVE;
+  // the page lists exactly those two
+  if (W === 440) {
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await openSection(page, 'workshop', 'Made');
+    const tick = async (name) => {
+      const k = `#pg-workshop .site[data-site="${name}"] button[aria-pressed]`;
+      await page.waitForSelector(k, { timeout: 15000 });
+      if ((await page.getAttribute(k, 'aria-pressed')) !== 'true') await page.click(k);
+      return until(page, (q) => document.querySelector(q)?.getAttribute('aria-pressed') === 'true', k, 5000);
+    };
+    const t1 = await tick(slug);
+    const t2 = await tick(docSlug);
+    check(t1 && t2 && (await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.sites.home') ?? '[]').length)) >= 2, `${W}: (l) two pages ticked ON MY HOME PAGE, kept on the phone`);
+    const homeKey = page.locator('#pg-workshop .sitehome button');
+    check(/^PUBLISH MY HOME PAGE \(\d+\)$/i.test((await homeKey.textContent()) ?? '') && ((await homeKey.boundingBox())?.height ?? 0) >= 43.4, `${W}: (l) PUBLISH MY HOME PAGE says how many, at 44 pt`);
+    const before = await page.$$eval('.approval[data-state="waiting"] button.on', (b) => b.length);
+    await homeKey.click();
+    const homeReason = await approveNext(before);
+    check(/Publish "My pages" \(your home page from your phone: only the pages you chose\)/.test(homeReason), `${W}: (l) it asks APPROVE for his home page: ${homeReason.slice(0, 200)}`);
+    let homeHtml = '';
+    for (let i = 0; i < 60 && !homeHtml; i++) { const r = await page.request.get(`${base}/s/my-pages/page`, { headers: { 'sec-fetch-dest': 'iframe' }, maxRedirects: 0 }); if (r.status() === 200) homeHtml = await r.text(); else await page.waitForTimeout(250); }
+    const listed = [...homeHtml.matchAll(/<li><a href="([^"]+)"/g)].map((m) => m[1].replace(/^.*\/s\//, ''));
+    check(listed.includes(slug) && listed.includes(docSlug) && !/<script/i.test(homeHtml), `${W}: (l) the home page lists the pages he chose, with no script: ${listed.join(', ')}`);
   }
 
   check(errors.length === 0, `${W}: no page error${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);

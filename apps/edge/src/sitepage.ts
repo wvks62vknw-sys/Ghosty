@@ -15,7 +15,8 @@ export const MAX_PAGE = 400_000;
 export interface WaitingPage {
   title: string;
   html: string;
-  kind: 'document' | 'deck';
+  /** home: his one home page listing the pages he chose (sites.u8). */
+  kind: 'document' | 'deck' | 'home';
   at: number;
 }
 interface Store {
@@ -61,7 +62,7 @@ export async function pageUpload(req: Request, s: Store): Promise<Response> {
   const title = typeof b.title === 'string' ? b.title.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
   if (!/^<!doctype html>/i.test(html.trimStart()) || !title) return json({ error: 'That is not a page I can put on your sites.' }, 422);
   if (html.length > MAX_PAGE) return json({ error: `That is too big for one page on your sites (${Math.round(html.length / 1024)} KB; ${Math.round(MAX_PAGE / 1024)} KB at most). Make the pictures smaller or split it.` }, 413);
-  const kind = b.kind === 'deck' ? 'deck' : 'document';
+  const kind = b.kind === 'deck' ? 'deck' : b.kind === 'home' ? 'home' : 'document';
   try {
     await durablePut(s.env, s.storage, PAGE_WAITING, { title, html, kind, at: Date.now() } satisfies WaitingPage);
   } catch {

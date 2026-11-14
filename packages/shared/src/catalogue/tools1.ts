@@ -174,8 +174,8 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:list_sites': {
     name: 'The pages I put online', line: 'I can list every page I have put online for you, with its link.',
-    more: 'Name, link, when and how big. Ask for a link again, an update, or for one to be taken down.',
-    say: ['What have you published?', 'Give me the link to my CV again'], scene: ['making'], cat: 'build', where: 'Workshop → PUBLISHED PAGES, or ask me',
+    more: 'Name, link, when and how big. Ask for a link again, an update, or for one to be taken down. Tick ON MY HOME PAGE on the ones you want, and PUBLISH MY HOME PAGE gives you one link listing only those.',
+    say: ['What have you published?', 'Give me the link to my CV again', 'Publish my home page'], scene: ['making'], cat: 'build', where: 'Workshop → PUBLISHED PAGES, or ask me',
   },
   'tool:unpublish_site': {
     name: 'Take a page down', line: 'I can take a page down when you ask, so its link stops working.',

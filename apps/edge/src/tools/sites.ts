@@ -676,7 +676,10 @@ export const siteTools: Tool[] = [
         /* not a URL */
       }
       const had = await siteStore(ctx.env, ctx.storage).get(name);
-      if (a.from_phone === true) from = ` (the ${(await waitingPage(ctx))?.kind === 'deck' ? 'deck' : 'document'} from your phone, read-only)`;
+      if (a.from_phone === true) {
+        const k = (await waitingPage(ctx))?.kind;
+        from = k === 'home' ? ' (your home page from your phone: only the pages you chose)' : ` (the ${k === 'deck' ? 'deck' : 'document'} from your phone, read-only)`;
+      }
       return { args: a, reason: `${had ? 'Update' : 'Publish'} "${title}"${from} as a public page at ${siteLink(ctx.origin, ctx.env, name)}? (${kb(html.length)}; anyone with the link can open it${had ? '; this replaces the page already there' : ''})` };
     },
     async run(a, ctx) {

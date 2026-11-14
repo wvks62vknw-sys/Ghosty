@@ -242,6 +242,9 @@ test('a document from his phone waits, then goes up only through publish_site\'s
   const site = await P.siteStore(env, st).get('garden-guide');
   assert.match(site.html, /Sow the beans in May/);
   assert.equal((await (await P.pageUpload(new Request(`${ORIGIN}/api/sites/page`), { env, storage: st })).json()).title, null, 'used once');
+  // his home page (sites.u8): the same path, said as his home page of the pages he chose
+  await up({ title: 'My pages', html: doc.replace(/Garden guide/g, 'My pages'), kind: 'home' });
+  assert.match((await pub.approval({ name: 'my-pages', from_phone: true }, ctx)).reason, /^Publish "My pages" \(your home page from your phone: only the pages you chose\) as a public page/);
   // a deck page has no script, so the strictest policy is enough; a page with a script error is refused by the same check
   await up({ title: 'Broken', html: '<!doctype html><html><head><title>Broken</title></head><body><script>if (</script></body></html>', kind: 'deck' });
   await assert.rejects(pub.approval({ name: 'broken', from_phone: true }, ctx), /not published/);
