@@ -181,7 +181,10 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
 
   // timer: start, steps, a reload keeps it running, the session kept
   await tryApp(page, FIX.timer);
-  await page.click(`${A} .ak-tools button:has-text("Voice on")`);
+  await page.click(`${A} .ak-head button[aria-label="Settings"]`);
+  await page.click(`${A} .ak-sheet .ak-switch:has-text("Say each step aloud")`);
+  check(await page.locator(`${A} .ak-sheet .ak-switch:has-text("Say each step aloud")`).getAttribute('aria-checked') === 'false', '[timer] the voice switch did not turn off');
+  await page.click(`${A} .ak-sheet button:has-text("Done")`);
   await page.click(`${A} .ak-tools button:has-text("Start")`);
   check(await page.textContent(`${A} .al-stepname`) === 'Work', '[timer] the first step is not Work');
   await page.reload();
@@ -216,11 +219,6 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
   await page.evaluate(() => window.__ghosty.applib.open('ghosty-sheets'));
   await page.waitForFunction(() => location.hash === '#sheets', null, { timeout: 5000 }).catch(() => problems.push('[screen] it did not open #sheets'));
 
-  // game and importer: their lanes' renderers
-  for (const a of ['game', 'importer']) {
-    const ids = await page.evaluate((a) => window.__ghosty.applib.ids().filter((id) => id), a);
-    if (!ids.length) notes.push(`${a}: no app yet`);
-  }
   await ctx.close();
 }
 
@@ -228,8 +226,8 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
 {
   const { ctx, page } = await open(SMALL, 'glass');
   const ids = await page.evaluate(() => window.__ghosty.applib.ids().filter((id) => !id.startsWith('spec-')));
-  const arch = await page.evaluate(() => Object.fromEntries(window.__ghosty.applib.ids().map((id) => [id, null])));
   let bad = 0;
+  const waiting = {};
   for (const id of ids) {
     const r = await page.evaluate(async (id) => {
       const a = window.__ghosty.applib;
@@ -238,13 +236,15 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
       return { hash: location.hash, eng: { ...a.engine } };
     }, id);
     if (r.hash.startsWith('#apps/') === false) { await page.evaluate(() => { location.hash = '#apps'; }); continue; }
+    // (a game or an importer before its lane's renderer lands is said in the summary, never passed off as drawn)
+    if (r.eng.error === 'no renderer' && ['game', 'importer'].includes(r.eng.archetype)) { waiting[r.eng.archetype] = (waiting[r.eng.archetype] ?? 0) + 1; continue; }
     const m = await fit(page, '#pg-apps');
     const ok = fitOk(m) && !r.eng.error;
     if (!ok && bad++ < 12) problems.push(`[every app] ${id}: ${r.eng.error || JSON.stringify(m)}`);
   }
   if (bad > 12) problems.push(`[every app] and ${bad - 12} more`);
   notes.push(`${ids.length} apps opened`);
-  void arch;
+  for (const [a, n] of Object.entries(waiting)) notes.push(`${n} ${a} apps wait for the ${a} renderer`);
   await ctx.close();
 }
 

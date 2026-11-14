@@ -198,7 +198,7 @@ function say(words: string): void {
 registerRenderer('timer', (root, def, k) => {
   const t = def.timer!;
   const run = extra<Run>(def.id, 'run', { at: 0, paused: 0, gone: 0, on: false });
-  const voice = extra<boolean>(def.id, 'voice', true);
+  const voice = { get: () => k.setting('voice') };
   const per = t.steps.reduce((a, s) => a + s.secs, 0);
   const goneNow = (r: Run) => (r.on ? r.gone + (Date.now() - r.at) / 1000 : r.gone);
   let lastStep = -1;
@@ -222,8 +222,6 @@ registerRenderer('timer', (root, def, k) => {
   };
   toolKey(k, key('Reset', () => { run.set({ at: 0, paused: 0, gone: 0, on: false }); lastStep = -1; tick(); }));
   toolKey(k, startKey);
-  const voiceKey = key(voice.get() ? 'Voice on' : 'Voice off', () => { voice.set(!voice.get()); voiceKey.querySelector('span')!.textContent = voice.get() ? 'Voice on' : 'Voice off'; }, { label: 'Say each step aloud' });
-  toolKey(k, voiceKey);
   const tick = () => {
     const r = run.get();
     const gone = goneNow(r);

@@ -10885,7 +10885,7 @@ html .al-head small { font: var(--g-t-caption); color: var(--g-ink-3); font-vari
 html .al-head > button { min-height: var(--g-target); }
 html .al-hero { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "k k" "i b" "i p"; column-gap: var(--g-s-2); align-items: center; min-height: var(--g-target); padding: var(--g-s-2); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-cell); background: var(--g-plate-strong-fill); text-align: left; color: var(--g-ink-1); }
 html .al-hero .al-kicker { grid-area: k; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); margin-bottom: var(--g-s-1); }
-html .al-hero .al-heroicon { grid-area: i; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 18px; border: var(--g-hair) solid var(--g-line); background: var(--g-plate-fill); }
+html .al-hero .al-heroicon { grid-area: i; display: grid; place-items: center; width: 64px; height: 64px; border-radius: var(--g-radius-cell); border: var(--g-hair) solid var(--g-line); background: var(--g-plate-fill); }
 html .al-hero .al-heroicon .ic { width: 34px; height: 34px; }
 html .al-hero b { grid-area: b; font: var(--g-t-head); color: var(--g-ink-1); }
 html .al-hero p { grid-area: p; margin: 0; font: var(--g-t-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
@@ -10893,9 +10893,9 @@ html .al-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr))
 html .al-tile { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: var(--g-s-half); min-width: 0; min-height: var(--g-target); padding: var(--g-s-1) var(--g-s-half); border: 0; border-radius: var(--g-radius-cell); background: none; box-shadow: none; color: var(--g-ink-1); text-align: center; }
 html .al-tile b { font: var(--g-t-caption); color: var(--g-ink-1); overflow-wrap: anywhere; text-transform: none; }
 html .al-tile small { font: var(--g-t-fine); color: var(--g-ink-3); overflow-wrap: anywhere; }
-html .al-tileicon { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 15px; border: var(--g-hair) solid var(--g-line); background: var(--g-plate-fill); }
+html .al-tileicon { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--g-radius-cell); border: var(--g-hair) solid var(--g-line); background: var(--g-plate-fill); }
 html :is(.al-tileicon, .al-bigicon, .al-heroicon) .ic { width: 26px; height: 26px; fill: none; stroke: var(--g-accent-text); stroke-width: var(--g-icon-stroke); stroke-linecap: round; stroke-linejoin: round; }
-html .al-bigicon { flex: none; display: grid; place-items: center; width: 84px; height: 84px; border-radius: 22px; border: var(--g-hair) solid var(--g-line); background: var(--g-plate-strong-fill); }
+html .al-bigicon { flex: none; display: grid; place-items: center; width: 84px; height: 84px; border-radius: var(--g-radius-cell); border: var(--g-hair) solid var(--g-line); background: var(--g-plate-strong-fill); }
 html .al-bigicon .ic { width: 40px; height: 40px; }
 html .al-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-1); }
 html .al-chips { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
@@ -10906,7 +10906,7 @@ html .al-results, html .al-list { display: flex; flex-direction: column; }
 html .al-appline { display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target); border-bottom: var(--g-hair) solid var(--g-line-faint); }
 html .al-appline > .g-key { flex: none; min-height: var(--g-target); }
 html .al-approw { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target); padding: var(--g-s-1) 0; border: 0; background: none; box-shadow: none; text-align: left; color: var(--g-ink-1); }
-html .al-approw .al-tileicon { width: 44px; height: 44px; border-radius: 12px; }
+html .al-approw .al-tileicon { width: 44px; height: 44px; border-radius: var(--g-radius-cell); }
 html .al-approwwords { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
 html .al-approwwords b { font: var(--g-t-body); color: var(--g-ink-1); text-transform: none; }
 html .al-approwwords small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
@@ -10927,7 +10927,7 @@ html .al-back { margin-left: calc(var(--g-s-1) * -1); }
 html .al-app .al-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: var(--g-s-half); margin: 0 0 var(--g-s-1); }
 html .al-stat { display: flex; align-items: center; gap: var(--g-s-half); min-width: 0; padding: var(--g-s-half) var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); background: var(--g-plate-fill); }
 html .al-statwords { display: flex; flex-direction: column; min-width: 0; }
-html .al-statwords b { font: var(--g-t-value); color: var(--g-ink-1); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+html .al-statwords b { white-space: nowrap; font: var(--g-t-head); color: var(--g-ink-1); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 html .al-statwords small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
 html .al-ring { flex: none; width: 30px; height: 30px; }
 html .al-ringbg { fill: none; stroke: var(--g-line-faint); stroke-width: 4; }
@@ -10960,7 +10960,7 @@ html .al-wd { text-align: center; font: var(--g-t-fine); color: var(--g-ink-3); 
 html .al-day { position: relative; min-width: 0; min-height: var(--g-target); padding: 0; border: var(--g-hair) solid transparent; border-radius: var(--g-radius-cell); background: none; box-shadow: none; font: var(--g-t-caption); color: var(--g-ink-1); font-variant-numeric: tabular-nums; }
 html .al-day[data-today="true"] { border-color: var(--g-line); color: var(--g-accent-text); }
 html .al-day[aria-pressed="true"] { background: var(--g-plate-strong-fill); border-color: var(--g-accent); }
-html .al-day i { position: absolute; left: 50%; bottom: 6px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--g-accent); }
+html .al-day i { position: absolute; left: 50%; bottom: 6px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: var(--g-radius-orb); background: var(--g-accent); }
 html .al-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--g-s-1); }
 html .al-gallery .al-tile { align-items: stretch; text-align: left; padding: 0 0 var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate-fill); overflow: hidden; }
 html .al-gallery .al-tile > :is(b, small) { padding: 0 var(--g-s-1); }
@@ -10986,11 +10986,11 @@ html .al-photonone { font: var(--g-t-caption); color: var(--g-ink-3); }
 html .al-progress { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: var(--g-s-1); row-gap: var(--g-s-half); margin: 0 0 var(--g-s-2); }
 html .al-progress b { font: var(--g-t-value); color: var(--g-ink-1); font-variant-numeric: tabular-nums; }
 html .al-progress small { font: var(--g-t-caption); color: var(--g-ink-3); }
-html .al-bar1 { grid-column: 1 / -1; display: block; height: 6px; border-radius: 3px; background: var(--g-line-faint); overflow: hidden; }
-html .al-bar1 i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--g-accent); transition: width var(--g-dur-turn, .2s); }
+html .al-bar1 { grid-column: 1 / -1; display: block; height: 6px; border-radius: var(--g-radius-mark); background: var(--g-line-faint); overflow: hidden; }
+html .al-bar1 i { display: block; height: 100%; width: 0; border-radius: var(--g-radius-mark); background: var(--g-accent); transition: width var(--g-dur-turn, .2s); }
 html .al-tickrow { gap: var(--g-s-1); }
 html .al-tick { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--g-s-1); min-height: var(--g-target); padding: var(--g-s-1) 0; border: 0; background: none; box-shadow: none; text-align: left; font: var(--g-t-body); color: var(--g-ink-1); text-transform: none; }
-html .al-tick i { flex: none; width: 22px; height: 22px; border-radius: 50%; border: var(--g-stroke) solid var(--g-line); }
+html .al-tick i { flex: none; width: 22px; height: 22px; border-radius: var(--g-radius-orb); border: var(--g-stroke) solid var(--g-line); }
 html .al-tick[aria-checked="true"] i { background: var(--g-accent); border-color: var(--g-accent); box-shadow: inset 0 0 0 4px var(--g-canvas); }
 html .al-tick[aria-checked="true"] span { color: var(--g-ink-3); text-decoration: line-through; }
 html .al-count { display: grid; grid-template-columns: 1fr; gap: var(--g-s-half); padding: var(--g-s-1) 0 var(--g-s-2); border-bottom: var(--g-hair) solid var(--g-line-faint); }
@@ -11061,10 +11061,12 @@ html #pg-gamestudio .gs3view { position: absolute; inset: 0; }
 html #pg-gamestudio canvas.gs3canvas { display: block; width: 100%; height: 100%; }
 html #pg-gamestudio .gs3hud { position: absolute; top: 8px; left: 10px; right: 10px; font: 600 14px/18px var(--sf); color: var(--g-ink-1); text-shadow: 0 1px 2px var(--g-canvas); pointer-events: none; }
 html #pg-gamestudio .gs3said { position: absolute; top: 30px; left: 10px; right: 10px; font: 400 13px/18px var(--sf); color: var(--g-ink-2); pointer-events: none; overflow-wrap: anywhere; }
-html #pg-gamestudio .gs3stick { position: absolute; left: 14px; bottom: 14px; width: 120px; height: 120px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--g-hair); background: var(--g-plate-fill); touch-action: none; display: grid; place-items: center; }
-html #pg-gamestudio .gs3knob { display: block; width: 52px; height: 52px; border-radius: 50%; background: var(--g-accent); opacity: .8; pointer-events: none; }
-html #pg-gamestudio .gs3act { position: absolute; right: 16px; bottom: 30px; width: 84px; height: 84px; min-height: var(--g-target); border-radius: 50%; font: 700 14px/1 var(--sf); letter-spacing: .06em; background: var(--g-accent); color: var(--g-canvas); touch-action: none; }
+html #pg-gamestudio .gs3stick { position: absolute; left: 14px; bottom: 14px; width: 120px; height: 120px; border-radius: var(--g-radius-orb); box-shadow: inset 0 0 0 2px var(--g-hair); background: var(--g-plate-fill); touch-action: none; display: grid; place-items: center; }
+html #pg-gamestudio .gs3knob { display: block; width: 52px; height: 52px; border-radius: var(--g-radius-orb); background: var(--g-accent); opacity: .8; pointer-events: none; }
+html #pg-gamestudio .gs3act { position: absolute; right: 16px; bottom: 30px; width: 84px; height: 84px; min-height: var(--g-target); border-radius: var(--g-radius-orb); font: 700 14px/1 var(--sf); letter-spacing: .06em; background: var(--g-accent); color: var(--g-canvas); touch-action: none; }
 html #pg-gamestudio .gs3banner { position: absolute; left: 10%; right: 10%; top: 30%; padding: 14px; border-radius: var(--g-radius-key); background: var(--g-canvas); box-shadow: inset 0 0 0 1px var(--g-hair); text-align: center; }
 html #pg-gamestudio .gs3banner b { display: block; margin-bottom: 8px; font: 600 18px/24px var(--sf); color: var(--g-ink-1); }
 html #pg-gamestudio .gs3things, html #pg-gamestudio .gs3add, html #pg-gamestudio .gs3nudge { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
 html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: anywhere; }
+html body :is(.al-lib, .al-app) :is(.al-apptile, .al-approw, .al-cardmain, .al-tick, .al-guidehead, .al-star) { background: none !important; border-radius: var(--g-radius-cell) !important; }
+html body :is(.al-lib, .al-app) :is(.al-apptile, .al-approw, .al-cardmain, .al-tick, .al-guidehead):active { background: var(--g-plate-fill) !important; }

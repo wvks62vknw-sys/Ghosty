@@ -364,6 +364,18 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Note: buy milk', 'Note to self, call the garage'], scene: ['talking'], cat: 'talk',
     since: '2026-11-14',
   },
+  // [applib] APPS, THE APP LIBRARY's screen (lane ENGINE): every app as data, drawn by one engine on THE APP KIT
+  'screen:apps': {
+    name: 'Apps: every app, kept on this phone',
+    line: 'You can find an app for almost anything in the Library, open it by saying its name, and pin your favourites to Home.',
+    more: 'Featured apps, the families, and search as you type; each app has its page with OPEN and PIN TO HOME. Trackers, collections, checklists, calculators, timers, flash cards, counters and guides, each with sample entries and a three-step tour the first time, undo and redo, Recently deleted and export. Everything an app keeps stays on this phone.',
+    say: ['Open the app library', 'Open wine cellar', 'Show my apps'], scene: ['phone'], cat: 'do',
+    go: { open: 'apps' }, tryText: 'Opens the Library',
+    since: '2026-11-14',
+  },
+  'deck:apps:find-an-app-for-anything': { same: 'screen:apps' },
+  'deck:apps:open-an-app-by-saying-its': { same: 'screen:apps' },
+  'deck:apps:pin-your-favourite-apps-to-home': { same: 'screen:apps' },
   // [apps.voice] TRANSLATE, the voice lane's flagship app
   'screen:translate': {
     name: 'Translate: type, paste or speak',

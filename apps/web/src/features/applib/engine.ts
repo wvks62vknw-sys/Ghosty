@@ -61,7 +61,7 @@ export function fill(log: LogConfig, t: string | undefined, f: Record<string, Va
   if (!t) return '';
   const by = (id: string) => { const fd = log.fields.find((x) => x.id === id); return fd ? show(fd, f[id]) : ''; };
   if (!t.includes('{')) return by(t);
-  return t.replace(/\{([a-z0-9_]+)\}/g, (_, id: string) => by(id)).replace(/\(\s*\)|\[\s*\]/g, '').replace(/\s+([,.·])/g, '$1').replace(/^[\s,·-]+|[\s,·-]+$/g, '').replace(/\s{2,}/g, ' ');
+  return t.replace(/\{([a-z0-9_]+)\}/g, (_, id: string) => by(id)).replace(/\(\s*\)|\[\s*\]/g, '').replace(/\s+([,.])/g, '$1').replace(/(^|\s)·(\s·)+/g, '$1·').replace(/\s*·\s*$/, '').replace(/^\s*·\s*/, '').replace(/^[\s,·-]+|[\s,·-]+$/g, '').replace(/\s{2,}/g, ' ');
 }
 
 /** A record of a log app as the kit keeps it: its title, line and meta worked out, its fields in `f`. */
@@ -137,7 +137,7 @@ export function mountApp(host: HTMLElement, def: AppDef): { k: KitApp; stop: () 
     noun: NOUNS[def.archetype] ?? ['item', 'items'],
     sample: samples(def),
     tour: def.tour,
-    settings: def.archetype === 'log' && def.log?.remind ? [{ id: 'remind', label: 'Reminders on the day', on: true }] : [],
+    settings: def.archetype === 'log' && def.log?.remind ? [{ id: 'remind', label: 'Reminders on the day', on: true }] : def.archetype === 'timer' ? [{ id: 'voice', label: 'Say each step aloud', on: true }] : [],
   });
   k.el.classList.add('al-app');
   k.el.dataset.archetype = def.archetype;
@@ -151,7 +151,7 @@ export function mountApp(host: HTMLElement, def: AppDef): { k: KitApp; stop: () 
     try {
       stop = r(k.body, def, k);
     } catch (e) {
-      engineState.error = String(e);
+      engineState.error = e instanceof Error ? e.name : 'threw';
       k.state('error', 'This app could not draw. Your things in it are kept.', { word: 'Try again', run: () => location.reload() });
     }
   }

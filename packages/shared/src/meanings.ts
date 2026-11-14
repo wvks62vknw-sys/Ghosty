@@ -225,6 +225,7 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'core', label: 'Home', place: true, names: ['home', 'home screen', 'chat', 'the chat', 'conversation', 'main screen', 'start screen'] },
   { tab: 'eye', label: 'God’s Eye', names: ['god’s eye', "god's eye", 'gods eye', 'the eye', 'globe', 'world view', 'live map', 'flight tracker', 'planes', 'ships'], bare: ["god's eye", 'gods eye'] },
   { tab: 'lens', label: 'the Lens', names: ['lens', 'camera lens', 'scanner', 'visual search'] },
+  { tab: 'apps', label: 'Apps', names: ['apps', 'app library', 'the app library', 'app store', 'my apps', 'all apps', 'all my apps', 'app list'], bare: ['app library', 'app store', 'my apps', 'all my apps'] },
   { tab: 'translate', label: 'Translate', names: ['translate', 'translate app', 'the translate app', 'phrasebook', 'my phrasebook', 'translation history', 'my translations'], bare: ['translate app', 'phrasebook'] },
   { tab: 'interpreter', label: 'Interpret', names: ['interpret', 'interpreter', 'translator', 'live translation'], bare: ['interpreter', 'translator'] },
   { tab: 'lab', label: 'the Lab', place: true, names: ['lab', 'laboratory', 'science lab', 'experiments'] },

@@ -3,7 +3,7 @@
  * calendar or a gallery, with the stats strip (goal rings), a chart over time, reminders on the day and the field editor sheet
  * with every field type. Every change goes through the kit (k.add, k.update, k.remove), so undo, redo and Recently deleted hold.
  */
-import { h, icon } from '../../../core/dom';
+import { h, icon, svgEl } from '../../../core/dom';
 import { key } from '../../../ui/machine';
 import { listRow, stateCard, type KitApp } from '../../../ui/appkit';
 import type { AppDef, Field, LogConfig, Stat } from '../../../../../../packages/shared/src/applib/types';
@@ -74,11 +74,8 @@ export function statWords(log: LogConfig, s: Stat, v: number | null): string {
 function ring(frac: number, over: boolean): SVGSVGElement {
   const r = 15;
   const c = 2 * Math.PI * r;
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 36 36');
-  svg.setAttribute('class', `al-ring${over ? ' al-over' : ''}`);
-  svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = `<circle class="al-ringbg" cx="18" cy="18" r="${r}"/><circle class="al-ringfg" cx="18" cy="18" r="${r}" stroke-dasharray="${(Math.min(1, Math.max(0, frac)) * c).toFixed(2)} ${c.toFixed(2)}" transform="rotate(-90 18 18)"/>`;
+  const svg = svgEl('svg', { viewBox: '0 0 36 36', class: `al-ring${over ? ' al-over' : ''}`, 'aria-hidden': 'true' });
+  svg.append(svgEl('circle', { class: 'al-ringbg', cx: 18, cy: 18, r }), svgEl('circle', { class: 'al-ringfg', cx: 18, cy: 18, r, 'stroke-dasharray': `${(Math.min(1, Math.max(0, frac)) * c).toFixed(2)} ${c.toFixed(2)}`, transform: 'rotate(-90 18 18)' }));
   return svg;
 }
 
@@ -120,26 +117,25 @@ function chart(log: LogConfig, rows: Rec[], now = new Date()): HTMLElement | nul
   }
   const max = Math.max(1e-9, ...buckets.map((b) => b.v));
   const W = 300, H = 56, n = buckets.length, bw = W / n;
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', `0 0 ${W} ${H + 14}`);
-  svg.setAttribute('class', 'al-chart');
-  svg.setAttribute('role', 'img');
   const total = buckets.reduce((a, b) => a + b.v, 0);
   const said = f?.type === 'money' ? money(total) : f?.type === 'duration' ? mins(total) : `${num(total)}${f?.unit ? ` ${f.unit}` : ''}`;
   const span = c.period === 'week' ? 'the last 7 days' : c.period === 'month' ? 'the last 30 days' : 'the last 12 months';
-  svg.setAttribute('aria-label', `${f?.label ?? c.field} over ${span}: ${said} in all`);
-  let inner = `<line class="al-axis" x1="0" y1="${H}" x2="${W}" y2="${H}"/>`;
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H + 14}`, class: 'al-chart', role: 'img', 'aria-label': `${f?.label ?? c.field} over ${span}: ${said} in all` });
+  svg.append(svgEl('line', { class: 'al-axis', x1: 0, y1: H, x2: W, y2: H }));
   if (c.kind === 'bar') {
     buckets.forEach((b, i) => {
       const bh = (b.v / max) * (H - 6);
-      inner += `<rect class="al-bar" x="${(i * bw + bw * 0.18).toFixed(1)}" y="${(H - bh).toFixed(1)}" width="${(bw * 0.64).toFixed(1)}" height="${bh.toFixed(1)}" rx="1.5"/>`;
+      svg.append(svgEl('rect', { class: 'al-bar', x: (i * bw + bw * 0.18).toFixed(1), y: (H - bh).toFixed(1), width: (bw * 0.64).toFixed(1), height: bh.toFixed(1), rx: 1.5 }));
     });
   } else {
-    const pts = buckets.map((b, i) => `${(i * bw + bw / 2).toFixed(1)},${(H - (b.v / max) * (H - 6)).toFixed(1)}`);
-    inner += `<polyline class="al-line" points="${pts.join(' ')}"/>`;
+    svg.append(svgEl('polyline', { class: 'al-line', points: buckets.map((b, i) => `${(i * bw + bw / 2).toFixed(1)},${(H - (b.v / max) * (H - 6)).toFixed(1)}`).join(' ') }));
   }
-  buckets.forEach((b, i) => { if (b.label) inner += `<text class="al-tick" x="${(i * bw + bw / 2).toFixed(1)}" y="${H + 12}" text-anchor="middle">${b.label}</text>`; });
-  svg.innerHTML = inner;
+  buckets.forEach((b, i) => {
+    if (!b.label) return;
+    const t = svgEl('text', { class: 'al-tick', x: (i * bw + bw / 2).toFixed(1), y: H + 12, 'text-anchor': 'middle' });
+    t.textContent = b.label;
+    svg.append(t);
+  });
   return h('figure.al-chartbox', sectionHead(`${f?.label ?? ''}, ${span}`, said), svg);
 }
 
