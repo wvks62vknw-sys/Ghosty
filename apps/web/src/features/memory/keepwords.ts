@@ -24,7 +24,7 @@ export const K = {
   WEEK_NONE: 'A quiet week: there’s nothing to sum up yet.',
   ALL_ANSWERED: 'Every question you asked me in the last 30 days got an answer.',
   promises: (xs: string[]): string => `You said you’d ${xs.length === 1 ? xs[0] : `${xs.slice(0, -1).join('; ')} and ${xs[xs.length - 1]}`}.`,
-  whereKept: (what: string, where: string, sent: boolean): string => `Got it: ${what} is ${where}. Ask me “where’s ${what.replace(/^(?:the|my|our) /i, 'the ')}?” any time${sent ? ', even offline' : '; I’ll tell my brain when the signal’s back'}.`,
+  whereKept: (what: string, where: string, sent: boolean | 'phone'): string => `Got it: ${what} is ${where}. Ask me “where’s ${what.replace(/^(?:the|my|our) /i, 'the ')}?” any time${sent === 'phone' ? '. It stays on this phone only' : sent ? ', even offline' : '; I’ll tell my brain when the signal’s back'}.`,
   whereFound: (what: string, where: string, on: string): string => `You told me ${what} is ${where} (${on}).`,
   whereNone: (thing: string): string => `You haven’t told me where ${/^(?:the|my|our) /i.test(thing) ? thing : `the ${thing}`} is. Say “the ${thing.replace(/^(?:the|my|our) /i, '')} is in …” and I’ll remember.`,
   whyFound: (what: string, why: string[], on: string): string => `You chose ${what} because ${why[0]}${why.length > 1 ? `; you also said ${why.slice(1, 3).join('; ')}` : ''} (${on}).`,

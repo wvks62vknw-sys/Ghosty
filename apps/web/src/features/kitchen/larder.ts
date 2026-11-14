@@ -12,10 +12,12 @@ import { h } from '../../core/dom';
 import { button } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { LARDER_ADD, LARDER_LIST } from './larderwords';
+import { estimate, estimateWords } from './nutrition';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine } from '../lifeui';
 
-export type Place = 'fridge' | 'freezer' | 'cupboard';
-export const PLACES: { id: Place; label: string }[] = [{ id: 'fridge', label: 'Fridge' }, { id: 'freezer', label: 'Freezer' }, { id: 'cupboard', label: 'Cupboard' }];
+export type Place = 'fridge' | 'freezer' | 'cupboard' | 'leftovers';
+/** (LEFTOVERS, body.s8: cooked food on its own shelf, eat by two days on unless he gives a date.) */
+export const PLACES: { id: Place; label: string }[] = [{ id: 'fridge', label: 'Fridge' }, { id: 'freezer', label: 'Freezer' }, { id: 'cupboard', label: 'Cupboard' }, { id: 'leftovers', label: 'Leftovers' }];
 export interface Item {
   id: string;
   name: string;
@@ -75,6 +77,12 @@ const today = () => {
   const d = new Date(Date.now() + ((window as unknown as { __ghostyClockOffset?: number }).__ghostyClockOffset ?? 0));
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+/** Today moved by n days, YYYY-MM-DD. */
+export const dayAfter = (n: number): string => {
+  const [y, m, d] = today().split('-').map(Number) as [number, number, number];
+  const t = new Date(y, m - 1, d + n, 12);
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+};
 const daysLeft = (ymd: string) => {
   const [y, m, d] = ymd.split('-').map(Number) as [number, number, number];
   const [ty, tm, td] = today().split('-').map(Number) as [number, number, number];
@@ -94,8 +102,9 @@ export function addItems(words: string, where: Place, useBy = ''): string {
   const names = itemsIn(words);
   if (!names.length) return 'Type what to add, like “milk, eggs, chicken”.';
   const data = load();
-  for (const name of names) data.items.push({ id: rid(), name, where, useBy: DAY_RE.test(useBy) ? useBy : '', added: Date.now() });
-  return save() ? `In the ${where}: ${names.join(', ')}.` : failed;
+  const by = DAY_RE.test(useBy) ? useBy : where === 'leftovers' ? dayAfter(2) : '';
+  for (const name of names) data.items.push({ id: rid(), name, where, useBy: by, added: Date.now() });
+  return save() ? `${where === 'leftovers' ? 'On the leftovers shelf' : `In the ${where}`}: ${names.join(', ')}.${where === 'leftovers' && !DAY_RE.test(useBy) ? ' Eat by the day after tomorrow, a rough guide: if in doubt, throw it out.' : ''}` : failed;
 }
 export function haveNames(): string[] {
   return load().items.map((i) => i.name.toLowerCase());
@@ -112,8 +121,101 @@ const dishOf = (r: Recipe): Dish => {
   return { id: `mine:${r.id}`, name: r.name, from: 'your own', ingredients: r.ingredients.map((l) => ({ name: l.replace(/^[\d½¼¾⅓⅔./\s]+(?:g|kg|ml|l|tsp|tbsp|cups?|oz|lb|grams?|tins?|cans?|cloves?|pinch|handful)?\s*(?:of\s+)?/i, '').trim() || l, measure: l })), steps: r.steps, mins: mins ? mins + 10 : null };
 };
 
+/** The recipe in the book a planned dinner names ("chilli" finds Chilli con carne; "Mum's lasagne" his own), or null. */
+export function recipeFor(dish: string, all = book()): ReturnType<typeof book>[number] | null {
+  const w = dish.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
+  if (w.length < 3) return null;
+  return all.find((x) => x.d.name.toLowerCase() === w)
+    ?? all.find((x) => w.includes(x.d.name.toLowerCase()))
+    ?? all.find((x) => x.d.name.toLowerCase().includes(w) && w.length >= 4)
+    ?? all.find((x) => x.d.name.toLowerCase().split(/\s+/).filter((p) => p.length >= 4 && !/^(?:with|and)$/.test(p)).some((p) => new RegExp(`\\b${p.replace(/[^a-z']/g, '')}\\b`).test(w)))
+    ?? null;
+}
+/**
+ * The week's shopping from the planned dinners (body.u10): every thing the week's recipes need that isn't in the pantry,
+ * each once, with how many dinners want it; what the pantry already has; and the dinners with no recipe in the book.
+ */
+export function weekShopping(days: string[]): { add: string[]; count: Record<string, number>; have: string[]; unknown: string[]; dishes: string[] } {
+  const all = book();
+  const have = haveNames();
+  const count: Record<string, number> = {};
+  const got = new Set<string>();
+  const unknown: string[] = [];
+  const dishes: string[] = [];
+  for (const day of days) {
+    const dish = day.trim();
+    if (!dish) continue;
+    const r = recipeFor(dish, all);
+    if (!r) {
+      unknown.push(dish);
+      continue;
+    }
+    dishes.push(r.d.name);
+    const h2 = haveOf(r.d, have);
+    for (const n of h2.need) count[n] = (count[n] ?? 0) + 1;
+    for (const i of r.d.ingredients) if (!h2.need.includes(i.name.toLowerCase())) got.add(i.name.toLowerCase());
+  }
+  return { add: Object.keys(count), count, have: [...got].filter((x) => !(x in count)), unknown, dishes };
+}
+/**
+ * Fills the week's empty days from the recipe book: the ones the pantry covers most first, and those using something that must
+ * be used soon before those; never the same dinner twice in a week. The days he already planned stay as they are.
+ */
+/**
+ * THE FAMILY DINNER ROTA (body.c6, with MONEY AND PEOPLE): what his own notes about the people eating say about food ("Sam likes
+ * chicken", "Mia can't eat nuts", "Jo is vegetarian"): the foods to lean to and the ones to leave out. Only his own words.
+ */
+export function foodNotes(notes: string[]): { like: string[]; avoid: string[] } {
+  const like: string[] = [];
+  const avoid: string[] = [];
+  const MEAT = ['mince', 'chicken', 'sausages', 'beef', 'bacon', 'tuna', 'salmon', 'pork', 'lamb', 'prawns', 'fish'];
+  const words = (x: string) => x.toLowerCase().split(/,|\band\b|\bor\b/).map((w) => w.replace(/[^a-z' ]/g, '').trim()).filter((w) => w.length >= 3 && w.length <= 30);
+  for (const n of notes) {
+    const t = n.toLowerCase();
+    if (/\b(?:vegetarian|vegan|doesn'?t eat meat|no meat)\b/.test(t)) avoid.push(...MEAT);
+    const no = /\b(?:doesn'?t like|does not like|hates?|dislikes?|can'?t eat|cannot eat|can'?t have|allergic to|is allergic to|avoids?|no)\s+(.+)/.exec(t);
+    if (no) avoid.push(...words(no[1]!));
+    else {
+      const yes = /\b(?:likes?|loves?|enjoys?|favourite (?:food|dinner) is)\s+(.+)/.exec(t);
+      if (yes) like.push(...words(yes[1]!));
+    }
+  }
+  return { like: [...new Set(like)].slice(0, 20), avoid: [...new Set(avoid)].slice(0, 30) };
+}
+
+export function fillWeek(days: string[], who: { like: string[]; avoid: string[] } = { like: [], avoid: [] }): string[] {
+  const all = book().filter((x) => !who.avoid.length || !haveOf(x.d, who.avoid).got);
+  const soon = load().items.filter((i) => i.useBy && daysLeft(i.useBy) <= 3).map((i) => i.name.toLowerCase());
+  const taken = new Set(days.map((d) => recipeFor(d, all)?.d.id).filter(Boolean));
+  const score = (x: (typeof all)[number]) => x.got / Math.max(1, x.d.ingredients.length) + (soon.length && haveOf(x.d, soon).got ? 1 : 0) + (x.mine ? 0.3 : 0) + (who.like.length && (haveOf(x.d, who.like).got || who.like.some((l) => x.d.name.toLowerCase().includes(l))) ? 1.5 : 0);
+  const pick = all.filter((x) => !taken.has(x.d.id)).sort((a, b) => score(b) - score(a));
+  return Array.from({ length: 7 }, (_, k) => (days[k]?.trim() ? days[k]!.trim() : (pick.shift()?.d.name ?? '')));
+}
+
+/** A recipe's rough calories and protein a serving (body.s7), from its own lines at the number of people shown. */
+export function kcalOf(x: ReturnType<typeof book>[number]): ReturnType<typeof estimate> {
+  // (a serving is the same whatever the number of people: his own at the serves he wrote, Ghosty's own for two)
+  return x.mine ? estimate(x.mine.ingredients, x.mine.serves) : estimate(x.d.ingredients.map((i) => (i.measure ? `${i.measure} ${i.name}` : i.name)), 2);
+}
+const kcalLine = (x: ReturnType<typeof book>[number]) => {
+  const e = kcalOf(x);
+  return h('p.pknote', { dataset: { kcal: String(e.kcal), protein: String(e.protein) } }, estimateWords(e));
+};
+
+/** Where a packet goes and a rough use-by, from its name and Open Food Facts' categories (always his to change). */
+export function guessPlace(words: string): { where: Place; days: number | null } {
+  const w = words.toLowerCase();
+  if (/frozen|ice cream|ice-cream/.test(w)) return { where: 'freezer', days: 90 };
+  if (/milk|yogh?urt|cream|cheese|butter|chicken|beef|pork|lamb|mince|sausage|bacon|ham|fish|salmon|meat|dairy|egg|salad|fresh/.test(w)) return { where: 'fridge', days: /cheese|butter|egg/.test(w) ? 14 : 4 };
+  if (/bread|bakery/.test(w)) return { where: 'cupboard', days: 4 };
+  if (/fruit|vegetable|banana|apple/.test(w)) return { where: 'fridge', days: 6 };
+  return { where: 'cupboard', days: null };
+}
+/** For the specs: a scanned code handed in as the decoder would (window.__ghosty.larder.scanned). */
+export const larderHooks = { scanned: async (_code: string) => undefined as void };
+
 /** Puts things on the shopping list in my brain (the one step that needs a signal). */
-async function toShopping(names: string[], status: HTMLElement): Promise<void> {
+export async function toShopping(names: string[], status: HTMLElement): Promise<void> {
   if (!names.length) return;
   if (lacksSignal()) {
     /* state: kitchen.recipes offline */
@@ -139,7 +241,7 @@ export function pantryScreen(): { el: HTMLElement; stop(): void } {
   const by = h('input', { type: 'date', 'aria-label': 'Use by (if it has a date)' }) as HTMLInputElement;
   const add = () => {
     const said = addItems(name.value, where.value as Place, by.value);
-    if (!/^In the/.test(said)) {
+    if (!/^(?:In the|On the leftovers)/.test(said)) {
       /* state: kitchen.pantry error */
       return stateIn(status, 'error', said);
     }
@@ -150,7 +252,50 @@ export function pantryScreen(): { el: HTMLElement; stop(): void } {
   name.addEventListener('keydown', (e) => e.key === 'Enter' && add());
   const addBtn = button('Add', add, 'on');
   addBtn.setAttribute('aria-label', 'Add to the pantry');
-  const form = h('div.pkcol', h('div.pkadd', name, addBtn), h('div.kl-grid2', h('div.pkfield', h('label', 'Where'), where), h('div.pkfield', h('label', 'Use by'), by)));
+  // SCAN A PACKET (body.u11): a photo of its barcode read on the phone (ZXing), the name from Open Food Facts through my brain,
+  // and the form filled with where it goes and a rough use-by, for him to change and ADD (nothing is kept until he does)
+  const shot = h('input', { type: 'file', accept: 'image/*', hidden: true, 'aria-label': 'A photo of the barcode' }) as HTMLInputElement;
+  shot.setAttribute('capture', 'environment');
+  const scanned = async (code: string) => {
+    if (lacksSignal()) return stateIn(status, 'offline', `Barcode ${code} read. No signal, so I can’t look up its name: type it above.`);
+    try {
+      const r = await brain.packDo('kitchen', 'barcode', { code });
+      const d = (r.data ?? {}) as { product?: string; categories?: string };
+      if (!d.product) return stateIn(status, 'error', `Barcode ${code} read, but Open Food Facts doesn’t know it. Type its name above.`);
+      const g = guessPlace(`${d.product} ${d.categories ?? ''}`);
+      name.value = d.product.slice(0, 60);
+      where.value = g.where;
+      by.value = g.days == null ? '' : dayAfter(g.days);
+      stateIn(status, '', `${d.product}: ${g.where}${g.days == null ? '' : `, ${useWords(by.value)} (a rough guess)`}. Change anything, then tap ADD.`);
+    } catch {
+      stateIn(status, 'error', 'My brain didn’t answer, so I couldn’t look the barcode up. Try again in a moment.');
+    }
+  };
+  shot.addEventListener('change', async () => {
+    const f = shot.files?.[0];
+    shot.value = '';
+    if (!f) return;
+    /* state: kitchen.pantry loading */
+    stateIn(status, 'loading', 'Reading the barcode…');
+    try {
+      const bmp = await createImageBitmap(f);
+      const c = document.createElement('canvas');
+      const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      c.width = Math.round(bmp.width * k);
+      c.height = Math.round(bmp.height * k);
+      c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+      const { readCodes } = await import('../../scan/barcode');
+      const code = (await readCodes(c, true)).map((x) => x.text.replace(/\D/g, '')).find((x) => x.length >= 8 && x.length <= 14);
+      if (!code) return stateIn(status, 'error', 'I couldn’t find a barcode in that photo. Try again closer, with the stripes filling the frame.');
+      await scanned(code);
+    } catch {
+      stateIn(status, 'error', 'I couldn’t read that photo. Try again in good light.');
+    }
+  });
+  const scan = button('Scan a packet', () => shot.click());
+  scan.setAttribute('aria-label', 'Scan a packet’s barcode into the pantry');
+  larderHooks.scanned = scanned;
+  const form = h('div.pkcol', h('div.pkadd', name, addBtn), h('div.kl-grid2', h('div.pkfield', h('label', 'Where'), where), h('div.pkfield', h('label', 'Use by'), by)), h('div.pkrow', scan), shot);
   const list = h('div.pkcol');
   const draw = () => {
     const data = load();
@@ -202,6 +347,13 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
   let openId = '';
   let serves = 0;
   let step = -1;
+  let hands: { say(text: string): Promise<void>; stop(): void } | null = null;
+  /** The steps whose timer hands-free has started this cook (by step number). */
+  const timed = new Set<number>();
+  const handsOff = () => {
+    hands?.stop();
+    hands = null;
+  };
   const draw = () => {
     const all = book();
     const cur = all.find((x) => x.d.id === openId);
@@ -219,6 +371,7 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
         openId = x.d.id;
         serves = x.mine?.serves ?? 2;
         step = -1;
+        timed.clear();
         draw();
       });
       b.setAttribute('aria-label', `Open ${x.d.name}`);
@@ -232,6 +385,7 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
     const base = x.mine?.serves ?? 2;
     const back = button('All recipes', () => {
       openId = '';
+      handsOff();
       draw();
     });
     back.setAttribute('aria-label', 'Back to all recipes');
@@ -262,37 +416,73 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
         stateIn(status, 'error', 'My brain didn’t answer, so the meal plan didn’t change. Try again in a moment.');
       }
     });
-    // cook mode: one step at a time, a timer for a step that says its minutes
+    // cook mode: one step at a time, a timer for a step that says its minutes; HANDS-FREE reads each step and hears next/back
+    const timerFor = async (secs: number) => {
+      const m = await import('./timers');
+      m.startTimers([{ secs, name: d.name.toLowerCase() }]);
+      stateIn(status, '', `A ${Math.round(secs / 60)}-minute timer for the ${d.name.toLowerCase()} is running: the Timers pill has it.`);
+    };
+    const goStep = (n: number) => {
+      if (n >= d.steps.length) {
+        step = -1;
+        handsOff();
+        stateIn(status, '', `${d.name}: done. Enjoy it.`);
+      } else step = Math.max(0, n);
+      draw();
+      if (hands && step >= 0) readStep();
+    };
+    const readStep = () => {
+      const s = d.steps[step] ?? '';
+      const secs = secondsIn(s);
+      // (a step's timer starts the first time the step is read: "repeat", or back then next, never starts a second)
+      const first = secs && !timed.has(step);
+      if (first) timed.add(step);
+      void hands?.say(`Step ${step + 1}. ${s}${first ? ' I’ve started the timer.' : ''}`);
+      if (first) void timerFor(secs);
+    };
     const cook: HTMLElement[] = [];
+    const handsKey = button(hands ? 'Hands-free: on' : 'Hands-free', async () => {
+      if (hands) {
+        handsOff();
+        stateIn(status, '', 'Hands-free off: tap the keys to move on.');
+        return draw();
+      }
+      const m = await import('./handsfree');
+      hands = m.handsFree((w) => {
+        if (w === 'next') goStep(step + 1);
+        else if (w === 'back') goStep(step - 1);
+        else if (w === 'repeat') readStep();
+        else if (w === 'timer') {
+          const secs = secondsIn(d.steps[step] ?? '');
+          if (secs) void timerFor(secs);
+          else void hands?.say('This step has no time in it.');
+        } else {
+          handsOff();
+          draw();
+        }
+      }, (why) => stateIn(status, '', why));
+      if (step < 0) step = 0;
+      stateIn(status, '', 'Hands-free: I read each step. Say “next”, “back”, “repeat” or “timer”.');
+      draw();
+      readStep();
+    }, hands ? 'on' : '');
+    handsKey.setAttribute('aria-pressed', String(!!hands));
+    handsKey.setAttribute('aria-label', 'Cook hands-free: each step read out, say next or back');
     if (step < 0) {
-      const go = button('Cook it, step by step', () => {
-        step = 0;
-        draw();
-      }, 'on');
-      cook.push(h('div.pkrow', go), h('ol.pklist', ...d.steps.map((s) => h('li', s))));
+      const go = button('Cook it, step by step', () => goStep(0), 'on');
+      cook.push(h('div.pkrow', go, handsKey), h('ol.pklist', ...d.steps.map((s) => h('li', s))));
     } else {
       const s = d.steps[step] ?? '';
       const secs = secondsIn(s);
-      const prev = button('Back a step', () => {
-        step = Math.max(0, step - 1);
-        draw();
-      });
-      const next = button(step + 1 < d.steps.length ? 'Next step' : 'Done', () => {
-        step = step + 1 < d.steps.length ? step + 1 : -1;
-        if (step < 0) stateIn(status, '', `${d.name}: done. Enjoy it.`);
-        draw();
-      }, 'on');
+      const prev = button('Back a step', () => goStep(step - 1));
+      const next = button(step + 1 < d.steps.length ? 'Next step' : 'Done', () => goStep(step + 1), 'on');
       const row = h('div.pkrow', prev, next);
       if (secs) {
-        const t = button(`Timer ${Math.round(secs / 60)} min`, async () => {
-          const m = await import('./timers');
-          m.startTimers([{ secs, name: d.name.toLowerCase() }]);
-          stateIn(status, '', `A ${Math.round(secs / 60)}-minute timer for the ${d.name.toLowerCase()} is running: the Timers pill has it.`);
-        });
+        const t = button(`Timer ${Math.round(secs / 60)} min`, () => void timerFor(secs));
         t.setAttribute('aria-label', `Start a ${Math.round(secs / 60)} minute timer`);
         row.append(t);
       }
-      cook.push(h('p.kl-step', { dataset: { step: String(step + 1) } }, h('small', `Step ${step + 1} of ${d.steps.length}`), h('span', s)), row);
+      cook.push(h('p.kl-step', { dataset: { step: String(step + 1) } }, h('small', `Step ${step + 1} of ${d.steps.length}`), h('span', s)), row, h('div.pkrow', handsKey));
     }
     const kids: (HTMLElement | null)[] = [
       h('div.pkrow', back),
@@ -300,9 +490,17 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
       h('p.pknote', `${d.mins ? `About ${d.mins} min, a first estimate from its steps. ` : ''}${x.mine ? 'Your own recipe.' : 'From Ghosty’s own list.'}`),
       x.mine ? h('div.pkrow.kl-serves', { role: 'group', 'aria-label': 'How many people' }, minus, h('b', { dataset: { serves: String(serves) } }, `Serves ${serves}`), plus) : null,
       lines.rounded ? h('p.pknote', 'Some amounts are rounded to the nearest half.') : null,
-      h('h3.kl-h', 'You need'), ing, h('div.pkrow', missing, tonight),
+      h('h3.kl-h', 'You need'), ing, kcalLine(x), h('div.pkrow', missing, tonight),
       h('h3.kl-h', 'Method'), ...cook,
     ];
+    // BATCH-COOK INTO THE FREEZER (body.s9): the portions it makes now, on the freezer list with a date three months on
+    const batch = button(`Batch cook: ${serves} portions to the freezer`, () => {
+      const data = load();
+      data.items.push({ id: rid(), name: `${d.name}, ${serves} portion${serves === 1 ? '' : 's'}`, where: 'freezer', useBy: dayAfter(90), added: Date.now() });
+      if (save()) stateIn(status, '', `${d.name}: ${serves} portion${serves === 1 ? '' : 's'} on the freezer list, use within about three months (a rough guide). The Pantry pill has them.`);
+    });
+    batch.setAttribute('aria-label', `Batch cook ${d.name}: ${serves} portions to the freezer`);
+    kids.push(h('div.pkrow', batch));
     if (x.mine) {
       const del = button('Delete this recipe', () => {
         const data = load();
@@ -326,11 +524,36 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
       load().recipes.push(r);
       if (save()) stateIn(status, '', `${r.name}: kept in your book.`);
     }, 'on');
-    return h('details.pkmore.kl-add', h('summary', 'Add a recipe'), h('div.pkfield', h('label', 'Name'), nm), h('div.pkfield', h('label', 'Serves'), sv), h('div.pkfield', h('label', 'Its things, one a line'), ing), h('div.pkfield', h('label', 'Its steps, one a line'), st), h('div.pkrow', keep));
+    // IMPORT FROM A LINK (body.u9): my brain reads the page's own recipe data, and it lands in his book here
+    const link = h('input', { type: 'url', inputmode: 'url', placeholder: 'https://… a recipe page', 'aria-label': 'A recipe page’s link' }) as HTMLInputElement;
+    const fetchIt = button('Import it', async () => {
+      const url = link.value.trim();
+      if (!/^https?:\/\//i.test(url)) return stateIn(status, 'error', 'Paste the whole link, starting https://.');
+      if (lacksSignal()) return stateIn(status, 'offline', 'No signal: my brain reads the page, so importing waits until you’re back online.');
+      /* state: kitchen.recipes loading */
+      stateIn(status, 'loading', 'Reading the recipe page…');
+      try {
+        const r = await brain.packDo('kitchen', 'import', { url });
+        const got = (r.data as { recipe?: { name: string; serves: number; ingredients: string[]; steps: string[] } } | undefined)?.recipe;
+        if (!got) return stateIn(status, 'error', r.text || 'That page has no recipe I can read.');
+        const rec: Recipe = { id: rid(), name: got.name.slice(0, 80), serves: Math.max(1, Math.min(24, Math.round(got.serves) || 2)), ingredients: got.ingredients.slice(0, 40).map((x) => x.slice(0, 120)), steps: got.steps.slice(0, 30).map((x) => x.slice(0, 400)) };
+        load().recipes.push(rec);
+        link.value = '';
+        if (save()) stateIn(status, '', `${rec.name}: in your book, with ${rec.ingredients.length} things and ${rec.steps.length} steps. Check them over: they’re the page’s words.`);
+      } catch {
+        stateIn(status, 'error', 'My brain didn’t answer, so nothing was imported. Try again in a moment.');
+      }
+    }, 'on');
+    fetchIt.setAttribute('aria-label', 'Import the recipe from the link');
+    const imp = h('details.pkmore.kl-import', h('summary', 'Import from a link'), h('div.pkfield', h('label', 'A recipe page’s link'), link), h('div.pkrow', fetchIt), h('p.pknote', 'My brain reads the page once and takes only its recipe: the name, the things and the steps. It lands in your book on this phone.'));
+    return h('div.pkcol', imp, h('details.pkmore.kl-add', h('summary', 'Add a recipe'), h('div.pkfield', h('label', 'Name'), nm), h('div.pkfield', h('label', 'Serves'), sv), h('div.pkfield', h('label', 'Its things, one a line'), ing), h('div.pkfield', h('label', 'Its steps, one a line'), st), h('div.pkrow', keep)));
   };
   listeners.add(draw);
   draw();
-  return { el, stop: () => void listeners.delete(draw) };
+  return { el, stop: () => {
+    handsOff();
+    listeners.delete(draw);
+  } };
 }
 
 // ---------------------------------------------------------------- the chat
@@ -341,7 +564,7 @@ export function larderTurn(text: string): { reply: string; open: 'pantry' | 'rec
   const t = text.trim().replace(/[.!]+$/, '').replace(/’/g, "'");
   const a = ADD.exec(t);
   if (a) {
-    const where: Place = /freezer/i.test(a[2]!) ? 'freezer' : /fridge/i.test(a[2]!) ? 'fridge' : 'cupboard';
+    const where: Place = /freezer/i.test(a[2]!) ? 'freezer' : /fridge/i.test(a[2]!) ? 'fridge' : /leftovers/i.test(a[2]!) ? 'leftovers' : 'cupboard';
     return { reply: addItems(a[1]!, where), open: 'pantry' };
   }
   const l = LIST.exec(t);
@@ -359,5 +582,5 @@ export function larderTurn(text: string): { reply: string; open: 'pantry' | 'rec
 
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (w.__ghosty) w.__ghosty.larder = { data: () => load(), reset: () => void (cache = null) };
+  if (w.__ghosty) w.__ghosty.larder = { data: () => load(), reset: () => void (cache = null), scanned: (code: string) => larderHooks.scanned(code) };
 }

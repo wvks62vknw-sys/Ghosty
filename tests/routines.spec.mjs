@@ -1,5 +1,5 @@
 // HIS OWN ONE-WORD ROUTINES (NEXT-ROUND consistency.s2, voice.s7), on the real app at 440 × 956 and 390 × 844:
-//  [empty]   Settings → ROUTINES on a fresh phone says there are none, in his words, with MORNING and GOODNIGHT to add in one tap;
+//  [empty]   Settings → ROUTINES on a fresh phone says there are none, in his words, with MORNING and WIND DOWN to add in one tap;
 //  [make]    ADD MORNING keeps it on the phone; NEW ROUTINE makes "Movie time" from a screen found by a word and his own words, SAVE
 //            keeps it; a word that already means something ("stop") or one he has ("morning") is refused in his words;
 //  [run]     typed in the chat, "movie time" is answered on the phone with its steps in order, then they run in turn: the Radio
@@ -31,8 +31,12 @@ const C = await pure('packages/shared/src/catalogue.ts');
 
 // ---- the rules, read from the code
 check(!!R.routineFor('movie time', [{ word: 'Movie time', steps: [{ label: 'x', act: { open: 'radio' } }], at: 0 }]), '[rules] "movie time" does not find Movie time');
-check(!!R.routineFor('Run my goodnight routine.', [{ word: 'Good night', steps: [{ label: 'x', act: { open: 'agenda' } }], at: 0 }]), '[rules] "run my goodnight routine" does not find Good night');
+check(!!R.routineFor('Run my wind down routine.', [{ word: 'Wind down', steps: [{ label: 'x', act: { open: 'agenda' } }], at: 0 }]), '[rules] "run my wind down routine" does not find Wind down');
 check(!R.routineFor('what is on tomorrow morning', [{ word: 'Morning', steps: [{ label: 'x', act: { open: 'brief' } }], at: 0 }]), '[rules] a sentence with the word in it ran the routine');
+// the goodnight words stay PLAN's wind-down: never a routine's word, and a routine kept under one never takes them
+check(['goodnight', 'Good night', 'night night', 'bedtime', 'time for bed'].every((w) => /already means something/.test(R.wordProblem(w, []))), '[rules] a goodnight word may be a routine\'s word');
+check(R.routineFor('good night', [{ word: 'Goodnight', steps: [{ label: 'x', act: { open: 'agenda' } }], at: 0 }]) === null, '[rules] a routine kept as Goodnight takes "good night" from the wind-down');
+check(!R.STARTERS.some((s) => /night|bed/i.test(s.word)), '[rules] a starter routine takes a goodnight word');
 check(/already means something/.test(R.wordProblem('stop', [])), `[rules] "stop" may be a routine's word: "${R.wordProblem('stop', [])}"`);
 check(!R.safeAct({ run: 'send_email' }) && !R.safeAct({ run: 'social_post' }) && R.safeAct({ run: 'open_gym' }), '[rules] a step may run a command that sends');
 check(R.parseRoutines(JSON.stringify([{ word: 'x', steps: [{ label: 'bad', act: { run: 'publish_site' } }], at: 0 }])).length === 0, '[rules] a kept routine with a sending step is not left out');
@@ -96,7 +100,7 @@ for (const viewport of [{ width: 440, height: 956 }, { width: 390, height: 844 }
   // [empty]
   const emptyWords = (await page.locator(`${P} .empty`).textContent().catch(() => '')) ?? '';
   check(/No routines yet/.test(emptyWords) && /morning/i.test(emptyWords), `[empty ${W}] the empty list reads "${emptyWords}"`);
-  check(await page.locator(`${P} .rtstarter`).count() === 2, `[empty ${W}] MORNING and GOODNIGHT are not offered`);
+  check(await page.locator(`${P} .rtstarter`).count() === 2, `[empty ${W}] MORNING and WIND DOWN are not offered`);
   await fit(page, P, `${W} empty`);
   await page.screenshot({ path: `${out}/routines-${W}-empty.png` });
   // [make] one tap

@@ -497,14 +497,14 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
   };
   // ---------------------------------------------------------------- VOICE NOTE (editors.s6): one panel for the whole sheet, so a recording survives a redraw
   let voice: ReturnType<typeof voicePanel> | null = null;
-  const voiceMade = (t: Tidy, target: 'page' | 'document', at: number): string => {
+  const voiceMade = (t: Tidy, target: 'page' | 'document', at: number): { words: string; ok: boolean } => {
     const words = doneWords(t, target);
     if (target === 'document') {
       const d = newDoc(t.title, voiceBlocks(t, at).map((b) => docBlock(b.t === 'callout' ? 'quote' : (b.t as Block['t']), b.runs)), 'document', 'a voice note');
-      if (!saveDoc(d)) return 'This phone would not keep the document just now (its storage is full or blocked). Your recording is kept: TIDY IT NOW tries again.';
+      if (!saveDoc(d)) return { ok: false, words: 'This phone would not keep the document just now (its storage is full or blocked). Your recording is kept: TIDY IT NOW tries again.' };
       clear(status, `${words} `, key('OPEN IT', () => void import('../docs/sheet').then((m) => m.openDocs({ id: d.id })), 'on', `Open ${t.title}`));
       wsState.said = words;
-      return words;
+      return { ok: true, words };
     }
     flush();
     const r = newPage(ws(), { title: t.title, blocks: voiceBlocks(t, at), from: 'a voice note', icon: 'page' });
@@ -522,7 +522,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
       say('Taken away: the page sits in the BIN for 30 days.');
     }, 'on', 'Undo: take the page away'));
     wsState.said = words;
-    return words;
+    return { ok: true, words };
   };
   const voiceEl = (start = false): HTMLElement => {
     if (!voice) voice = voicePanel({ made: voiceMade }, { start });
