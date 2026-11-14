@@ -30,6 +30,8 @@ HISTORY.
 - **The star** under a translation keeps it in the phrasebook, under the trip you name ("Spain in May"), or under "Any trip".
 - **Sorted by trip:** this trip comes first.
 - **Taking one out** has an undo.
+- **EXPORT** shares the phrasebook as a CSV file (trip, what you said, the translation, the language) through the phone's Share sheet,
+  or saves it on the phone.
 - **A country's phrasebook:** pick one of 16 countries for about 20 lines a traveller needs first, in five groups (basics, getting
   around, eating, shopping, help). Tap a line and it is put into that country's language and said aloud, and you can star it under
   that country.
@@ -38,8 +40,15 @@ HISTORY.
 - **Kept on this phone:** every translation, newest first, a hundred at most. The same words into the same language move up rather
   than show twice.
 - **Search** finds a translation by either side.
-- **OPEN** brings one back into the box.
+- **Tap a row** to bring it back into the box; its × deletes it, with an undo.
 - **CLEAR HISTORY** has an undo.
+
+**Settings and help** (folded under the note)
+- **Say each answer aloud** (off at first).
+- **Translate as I type** (on at first). Turned off, nothing is translated until you tap TRANSLATE IT or press Return, not even when you
+  change the language.
+- **Four lines of help:** finding the language, formal and casual, the phrasebook and EXPORT, and no signal.
+- Kept on this phone.
 
 **Built on the App Kit's parts**
 - **The first run** shows a three-step tour, once.
@@ -73,13 +82,14 @@ HISTORY.
 2. **Phrasebook:** tap the star. Open PHRASEBOOK and name the trip "Spain in May"; it's there. Then pick France under "Going somewhere?"
    and tap "Thank you.".
 3. **Letters:** set INTO to Russian, then tap IN ENGLISH LETTERS.
-4. **History:** open HISTORY, search for a word, then tap OPEN.
+4. **History:** open HISTORY, search for a word, then tap a row.
 5. **By words:** say "open the translate app" or "show my phrasebook".
 6. **AUTO:** open SEE → INTERPRET, pick French for them, tap AUTO and just talk. Pause, and it says it in French, then listens for their
    answer.
 
 ## Checks
-- **Typechecks:** web and edge, clean.
+- **Typechecks:** web and edge, clean for everything this lane changed. At the time of writing the apps branch has 6 errors in two App
+  Library catalogue files from other lanes (`applib/catalogue/learn.ts`, `world.ts`); I reported them and left them alone.
 - **Brain tests:** `translateapp.test.mjs`, 4 tests:
   - letters in every script it changes;
   - the history (newest first, never twice, a hundred at most, searchable, read back safely);
@@ -87,7 +97,7 @@ HISTORY.
   - the register and alternatives from a faked model, with the text kept as data and the plain fallback.
 - **Other brain tests:** meanings, catalogue, knowledge, ratchet, look and voiceknown.
 - **Specs:**
-  - `translatelane` is clean at 440 and 390 (68 checks): the first run's tour; as you type; the language found; other ways; formal; LISTEN;
+  - `translatelane` is clean at 440 and 390 (80 checks), twice in a row: the first run's tour; EXPORT (the file read back); both settings; as you type; the language found; other ways; formal; LISTEN;
     star; the phrasebook and its undo; a country's phrasebook; letters; the history with search, no match, clear and undo, and opening a
     row; no signal said in plain words with TRY AGAIN; CONVERSATION; Interpret's AUTO both ways, with STOP and leaving; every key at least
     44 pt; and nothing off the side.

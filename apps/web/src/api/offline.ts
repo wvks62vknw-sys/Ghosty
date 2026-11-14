@@ -13,12 +13,15 @@ import { createStore } from '../core/store';
 export type AgendaData = { tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] };
 export type NewEvent = { title: string; start: number; end?: number; allDay?: boolean; location?: string; notes?: string; remindMin?: number | null };
 export type NewJob = { kind: 'reminder' | 'task'; title?: string; text: string; at: number; repeat: JobInfo['repeat'] };
+/** [planlane4:calendar] a change to one of his own events made with no signal (a move by drag or EARLIER / LATER): its id kept. */
+export type EventPatch = { start?: number; end?: number | null };
 
 export type Op =
   | { id: string; at: number; kind: 'addMemory'; text: string }
   | { id: string; at: number; kind: 'forget'; factId: string }
   | { id: string; at: number; kind: 'addEvent'; event: NewEvent; fired?: boolean }
   | { id: string; at: number; kind: 'deleteEvent'; eventId: string }
+  | { id: string; at: number; kind: 'editEvent'; eventId: string; patch: EventPatch }
   | { id: string; at: number; kind: 'addJob'; job: NewJob; fired?: boolean }
   | { id: string; at: number; kind: 'deleteJob'; jobId: string }
   | { id: string; at: number; kind: 'addTurns'; turns: ChatTurn[] };
@@ -51,10 +54,40 @@ export function agendaWithOutbox(a: AgendaData): AgendaData {
   for (const op of offline.get().outbox) {
     if (op.kind === 'addEvent') events.push({ id: op.id, title: op.event.title, start: op.event.start, end: op.event.end, allDay: op.event.allDay, location: op.event.location, notes: op.event.notes, source: 'this device (not saved yet)' });
     if (op.kind === 'deleteEvent') events = events.filter((e) => e.id !== op.eventId);
+    if (op.kind === 'editEvent') events = events.map((e) => (e.id === op.eventId ? patchEvent(e, op.patch) : e));
     if (op.kind === 'addJob') jobs.push({ id: op.id, kind: op.job.kind, title: op.job.title ?? op.job.text.slice(0, 120), text: op.job.text, next: op.job.at, repeat: op.job.repeat, tz: a.tz });
     if (op.kind === 'deleteJob') jobs = jobs.filter((j) => j.id !== op.jobId);
   }
   return { ...a, events: events.sort((x, y) => x.start - y.start), jobs: jobs.sort((x, y) => x.next - y.next) };
+}
+
+/** [planlane4:calendar] An event with a move laid on it, as the brain's editEvent makes it: the end follows the start unless given. */
+export function patchEvent<T extends { start: number; end?: number }>(e: T, p: EventPatch): T {
+  const start = p.start ?? e.start;
+  const end = p.end === null ? undefined : p.end !== undefined ? p.end : e.end !== undefined ? e.end + (start - e.start) : undefined;
+  return { ...e, start, end: end !== undefined && end > start ? end : undefined };
+}
+
+/**
+ * [planlane4:calendar] Queue a move of one of his events (no signal). One that only exists here (added with no signal) is changed inside its
+ * own queued add, and a second move of the same event replaces the first (the last one is what he left it as).
+ */
+export function enqueueEdit(eventId: string, patch: EventPatch): Op {
+  if (eventId.startsWith(LOCAL)) {
+    offline.set((s) => ({ outbox: s.outbox.map((o) => (o.id === eventId && o.kind === 'addEvent' ? { ...o, event: patchEvent(o.event, patch) } : o)) }));
+    const t = timers.get(eventId);
+    if (t) {
+      clearTimeout(t);
+      timers.delete(eventId);
+    }
+    const op = offline.get().outbox.find((o) => o.id === eventId);
+    if (op) armLocalReminder(op);
+    return op ?? ({ id: eventId, at: Date.now(), kind: 'editEvent', eventId, patch } as Op);
+  }
+  const before = offline.get().outbox.find((o) => o.kind === 'editEvent' && o.eventId === eventId);
+  const op = { id: newId(), at: Date.now(), kind: 'editEvent', eventId, patch: before && before.kind === 'editEvent' ? { ...before.patch, ...patch } : patch } as Op;
+  offline.set((s) => ({ outbox: [...s.outbox.filter((o) => !(o.kind === 'editEvent' && o.eventId === eventId)), op] }));
+  return op;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -147,6 +180,7 @@ export interface OutboxApi {
   forget(id: string): Promise<unknown>;
   addEvent(e: NewEvent): Promise<unknown>;
   deleteEvent(id: string): Promise<unknown>;
+  editEvent?(id: string, p: EventPatch): Promise<unknown>;
   addJob(j: NewJob): Promise<unknown>;
   deleteJob(id: string): Promise<unknown>;
   addTurns(turns: ChatTurn[]): Promise<unknown>;
@@ -175,6 +209,7 @@ export async function flushOutbox(api: OutboxApi, keepForLater: (e: unknown) => 
         else if (op.kind === 'forget') await api.forget(op.factId);
         else if (op.kind === 'addEvent') await api.addEvent(op.event);
         else if (op.kind === 'deleteEvent') await api.deleteEvent(op.eventId);
+        else if (op.kind === 'editEvent') await api.editEvent?.(op.eventId, op.patch);
         else if (op.kind === 'addJob') {
           // A one-off reminder that already rang here doesn't need setting again (read now: it may have rung during this flush).
           const live = offline.get().outbox.find((o) => o.id === op.id);
