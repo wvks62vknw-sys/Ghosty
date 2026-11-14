@@ -115,6 +115,11 @@ export const APP_2: Record<string, CatValue> = {
     more: 'I plan the course from my library and Wikipedia, at your level, a little a day.',
     say: ['Teach me Spanish', 'Teach me how electricity works'], scene: ['school'], cat: 'learn',
   },
+  'panel:learn:MY LEARNING MAP': {
+    name: 'One map of what you know', line: 'You can see in one picture what you have learned: courses, books, speaking and revision, and what to try next.',
+    more: 'Drawn from what this phone already keeps, told from your own numbers. The next thing is the lesson your misses point at, or the book you are furthest into.',
+    say: ['(in COURSES, look under MY LEARNING MAP)'], scene: ['school'], cat: 'learn',
+  },
   // ---- THE LIBRARY
   'panel:library:ADD KNOWLEDGE': {
     name: 'Add books and PDFs', line: 'You can give me books, PDFs, Word files, links or photos of pages to read and keep.',

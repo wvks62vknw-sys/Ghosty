@@ -9936,3 +9936,10 @@ html .grd-clubsum, html .grd-clubreply { white-space: pre-wrap; overflow-wrap: a
 html .pkrevision { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--hair); }
 html .pkrevision input, html .pkrevision select { min-height: 44px; }
 html .pkrevlist { margin: 0; padding-left: 18px; columns: 2; color: var(--mute); }
+/* LEARN · MY LEARNING MAP (learn.u3): a bar per area and the next thing */
+html .pn.learnmapall .lmrow { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+html .pn.learnmapall .lmhead { display: flex; flex-direction: column; overflow-wrap: anywhere; }
+html .pn.learnmapall .lmhead small { color: var(--mute); }
+html .pn.learnmapall .lmbar { display: block; height: 8px; border-radius: 4px; background: var(--thin); overflow: hidden; }
+html .pn.learnmapall .lmbar i { display: block; height: 100%; border-radius: 4px; background: var(--acc); }
+html .pn.learnmapall .lmnext { margin: 6px 0 0; overflow-wrap: anywhere; }

@@ -274,8 +274,13 @@ export const learnTab: TabDef = {
     topicIn.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
     np.body.append(h('div.keyrow.learntopic', topicIn), levelChips, minChips, topicSay, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
 
+    // [learn.u3] MY LEARNING MAP: one picture of courses, reading, speaking and revision, and the one thing to try next
+    const mp = panel('MY LEARNING MAP', { cls: 'learnmapall', grow: false });
+    const paintMastery = () => void import('./mastery').then((m) => m.masteryPanelBody(mp.body));
+    paintMastery();
+    L.learn.subscribe(() => paintMastery());
     P.left.append(sp.el, cp.el);
-    P.right.append(np.el);
+    P.right.append(np.el, mp.el);
 
     // ======================= the hero: streak, progress, cards due
     const paintHero = () => {
