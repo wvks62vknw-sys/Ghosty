@@ -137,6 +137,7 @@ export default async function (h) {
   check(await until(page, () => /number of pounds/.test(document.querySelector('.pprsaid')?.textContent ?? '')), 'scan: a total that is not a number is said in his words');
   await page.fill('.pprsheet input[aria-label^="The total"]', '5.40');
   await page.fill('.pprsheet input[aria-label="The shop"]', 'Corner Shop');
+  await settle(page); // (the tap's press and the card's entrance finish first, so the keys are measured at rest)
   await measure(page, '.pprsheet', 'scan: the receipt card');
   await page.locator('.pprsheet button', { hasText: 'ADD ROW' }).click();
   const rowOf = () => page.evaluate(() => {
