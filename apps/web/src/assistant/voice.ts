@@ -618,6 +618,10 @@ export function readAloud(o: {
   onPiece: (i: number, engine: BookEngine) => void;
   onSwitch?: (why: SwitchWhy) => void;
   onEnd: (how: 'done' | 'stopped') => void;
+  /** The phone's voice a little faster or slower than its own pace (learn.u5: the reader's speed), 1 its own. */
+  rate?: number;
+  /** A phone voice chosen for this book, by its name (absent, or not on this phone: the usual one). */
+  voiceName?: string;
 }): void {
   endRead?.();
   cancelPhone();
@@ -653,7 +657,8 @@ export function readAloud(o: {
   /** The phone's voice from piece `from`, `preface` said first (the switch from my own voice). */
   const phone = (from: number, preface?: string) => {
     if (!('speechSynthesis' in window)) return end('done');
-    const v = phoneVoiceFor(choice);
+    const own = o.voiceName ? speechSynthesis.getVoices().find((x) => x.name === o.voiceName) : undefined;
+    const v = own ?? phoneVoiceFor(choice);
     Object.assign(voiceNow, { engine: 'phone', name: v?.name ?? "the phone's voice", note: preface ? 'my own voice ran out for books today' : '' });
     const t = tone();
     try {
@@ -668,7 +673,7 @@ export function readAloud(o: {
         u.voice = v;
         u.lang = v.lang;
       }
-      u.rate = t.rate;
+      u.rate = Math.max(0.5, Math.min(2, t.rate * (o.rate ?? 1)));
       u.pitch = (v && naturalBritish(v) ? 1 : 0.92) * t.pitch;
       u.volume = t.volume;
       u.onstart = () => {
