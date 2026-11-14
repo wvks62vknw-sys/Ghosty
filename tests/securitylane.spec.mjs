@@ -331,7 +331,8 @@ await section('brief', async () => {
   check(shown, '[brief] no SECURITY row in YOUR DAY when locks slipped');
   if (shown) {
     const line = (await page.locator('#pg-brief .brday .brsecurity .v').textContent()) ?? '';
-    check(/^Security: \d+ locks need a look, first /.test(line) || /^Security: [a-z -]+ needs a look\./.test(line), `[brief] the row says "${line}"`);
+    // (the row's SECURITY label says the word once: the line under it starts with what slipped, in sentence case)
+    check(/^\d+ locks need a look, first /.test(line) || /^[A-Z][a-z -]* needs a look\./.test(line), `[brief] the row says "${line}"`);
     check(await page.evaluate(() => document.querySelectorAll('#pg-brief .brsecurity').length === 1), '[brief] the row is there more than once');
     await page.locator('#pg-brief .brday .brsecurity').click();
     check(await until(page, () => location.hash.replace('#', '') === 'security', null, 8000), '[brief] the row does not open Security');

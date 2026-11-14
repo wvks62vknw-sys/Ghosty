@@ -10,6 +10,8 @@ export const WORKDUE_EMPTY = 'Nothing due in your workspace in the next 14 days.
 
 export function workDuePanel(): { el: HTMLElement; paint(): void } {
   const p = panel('TO-DO · FROM MY WORKSPACE', { grow: false, cls: 'workdue' });
+  // (a phrase after the dot, not a name: drawn in sentence case; the title itself, which the pills match, stays)
+  p.title.dataset.label = 'To-do · from my workspace';
   const paint = (): void => {
     void Promise.all([import('../../workspace/store'), import('../../workspace/deadlines'), import('../../workspace/db')]).then(([st, dl, db]) => {
       const today = db.isoOf(new Date());
