@@ -53,7 +53,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -421,6 +421,14 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     return answer(text, rainState.line || 'The rain radar: the last two hours over home.', { kind: 'rainradar' }, opts);
   },
   // [see] "my camera wall": the wall of his pinned public cameras, opened over God's Eye
+  // [see] the WEATHER app (weather/app.ts): "weather app", "open the weather", "10 day forecast"
+  async weatherapp(text, opts) {
+    const { openWeather, weatherState } = await import('../weather/app');
+    void openWeather();
+    const t0 = Date.now();
+    while (weatherState.state === 'loading' && Date.now() - t0 < 5000) await new Promise((r) => setTimeout(r, 150));
+    return answer(text, weatherState.line ? `Weather for ${weatherState.place}: ${weatherState.line}` : 'Here’s the weather.', { kind: 'weatherapp' }, opts);
+  },
   async camwall(text, opts) {
     location.hash = 'eye';
     const eye = await import('../features/eye');
