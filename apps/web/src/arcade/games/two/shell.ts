@@ -648,6 +648,8 @@ async function startGame<R>(rules: Rules<R>, entry: { ghosty: string }, canvas: 
         first = false;
         acc -= STEP;
       }
+      // (a frame too short for a step keeps what went down for the next one: a quick tap, down and up between two steps, is never lost)
+      if (first) for (const p of pressed) pressedNext.add(p);
       if (n >= 8 * speed) acc = 0;
       happen(!playing);
       if (playing) {
