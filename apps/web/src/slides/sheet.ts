@@ -16,6 +16,8 @@ import { h, clear } from '../core/dom';
 import { button, modal } from '../ui/components';
 import { sizeWords } from '../convert/bytes';
 import { saveBlob, shareBlob } from '../convert/run';
+import { freePanel } from './freepanel';
+import type { Guide } from './free';
 import { addImageBytes, addPhoto, imageBytes, imageNow, keepOnly, loadImages } from '../docs/images';
 import { getDoc, imagesInUse, listDocs } from '../docs/store';
 import { myName } from '../docs/ask';
@@ -65,6 +67,10 @@ export const slidesState = {
   present: { on: false, i: 0, step: 0, builds: 0, of: 0, notes: '', next: '', elapsed: 0, transition: '', tv: false, tvSlide: 0, times: [] as number[] },
   /** The slides the last talk showed, in order (skipped ones left out). */
   shown: [] as number[],
+  /** The slide's free-form items, those chosen, and the guides a drag snapped to (FREE). */
+  free: [] as { id: string; kind: string; x: number; y: number; w: number; h: number; text: string; group: string; shape: string }[],
+  freeSel: [] as string[],
+  guides: [] as string[],
 };
 let current: { close(): void } | null = null;
 const still = (): boolean => (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.dataset.motion === 'calm';
@@ -219,6 +225,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
 
   const fileIn = h('input', { type: 'file', hidden: true, accept: '.pptx,.ppt,.key,application/vnd.openxmlformats-officedocument.presentationml.presentation', 'aria-label': 'Choose a PowerPoint file to open' }) as HTMLInputElement;
   const photoIn = h('input', { type: 'file', hidden: true, accept: 'image/*', 'aria-label': 'Choose a photo for the slide' }) as HTMLInputElement;
+  const freePhotoIn = h('input.slfreephoto', { type: 'file', hidden: true, accept: 'image/*', 'aria-label': 'Choose a picture to lay on the slide' }) as HTMLInputElement;
   const status = h('p.slstatus', { 'aria-live': 'polite' });
   const view = h('div.slview');
   const say = (words: string): void => {
@@ -303,7 +310,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
   window.addEventListener('pagehide', flush);
 
   const ensureImages = async (): Promise<number> => {
-    const ids = deck().slides.flatMap((s) => (s.media?.k === 'img' ? [s.media.img] : []));
+    const ids = deck().slides.flatMap((s) => [...(s.media?.k === 'img' ? [s.media.img] : []), ...(s.free ?? []).flatMap((f) => (f.img ? [f.img] : []))]);
     const missing = ids.length ? await loadImages(ids) : [];
     return missing.length;
   };
@@ -779,11 +786,16 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
 
   // ---------------------------------------------------------------- one slide
   let stageBox: HTMLElement;
+  // the FREE panel's choice, a slide being dragged and not yet kept, and the guides it snapped to
+  let freeDraw: { sel: string[]; tmp?: Slide | null; guides?: Guide[] } = { sel: [] };
   const paintStage = (): void => {
     if (!stageBox) return;
     const d = deck();
-    const s = slide();
-    stageBox.innerHTML = slideSvg(d, s, { edit: true, n: indexOf(d, s.id) + 1, of: d.slides.length, image, measure, pick });
+    const s = freeDraw.tmp ?? slide();
+    stageBox.innerHTML = slideSvg(d, s, { edit: true, n: indexOf(d, s.id) + 1, of: d.slides.length, image, measure, pick, free: freeDraw.sel, guides: freeDraw.guides });
+    slidesState.free = (s.free ?? []).map((f) => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, w: f.w, h: f.h, text: f.text ?? '', group: f.group ?? '', shape: f.shape ?? '' }));
+    slidesState.freeSel = [...freeDraw.sel];
+    slidesState.guides = (freeDraw.guides ?? []).map((g) => `${g.axis}${g.at}`);
     stageBox.style.width = `${Math.round(zoom * 100)}%`;
   };
   const moveBy = (delta: number): void => {
@@ -813,6 +825,10 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     zoomer.append(stageBox);
     paintStage();
     stageBox.addEventListener('click', (e) => {
+      if ((e.target as Element).closest('[data-free]')) {
+        if (panel !== 'free') showPanel('free');
+        return;
+      }
       const g = (e.target as Element).closest<SVGElement>('[data-el]');
       if (!g) return;
       const el = g.dataset.el as Elem;
@@ -866,11 +882,39 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       key('NEXT SLIDE', () => (i < d.slides.length - 1 ? showSlide(d.slides[i + 1]!.id) : say('This is the last slide.')), '', 'Next slide'),
       key('PRESENT', () => startPresent(i), 'on', 'Present from this slide'),
     );
-    const names: Record<string, string> = { words: 'WORDS', layout: 'LAYOUT', insert: 'INSERT', slide: 'SLIDE', notes: 'NOTES' };
+    const names: Record<string, string> = { words: 'WORDS', layout: 'LAYOUT', insert: 'INSERT', free: 'FREE', slide: 'SLIDE', notes: 'NOTES' };
+    freeDraw = { sel: [] };
+    const freeP = freePanel({
+      deck,
+      slide,
+      put: (next) => change(withSlide(deck(), curId, () => next), 'draw'),
+      say,
+      stage: () => stageBox,
+      draw: (o) => {
+        freeDraw = o;
+        paintStage();
+      },
+      photo: () => new Promise((done) => {
+        freePhotoIn.onchange = () => {
+          const f = freePhotoIn.files?.[0];
+          freePhotoIn.value = '';
+          if (!f) return done(null);
+          say('Putting the photo on the slide…');
+          addPhoto(f).then((p) => done({ id: p.id, iw: p.iw, ih: p.ih }), () => {
+            say('I could not read that picture. Try another photo.');
+            done(null);
+          });
+        };
+        freePhotoIn.click();
+      }),
+    });
+    freeP.bind(stageBox);
     const pills = h('div.slpills', { role: 'tablist', 'aria-label': 'What to change' }, ...Object.entries(names).map(([k, label]) => h('button.slpill', { type: 'button', role: 'tab', dataset: { panel: k }, 'aria-selected': 'false' }, label)));
-    const panels: Record<string, HTMLElement> = { words: wordsPanel(s), layout: layoutPanel(), insert: insertPanel(), slide: slidePanel(), notes: notesPanel() };
+    const panels: Record<string, HTMLElement> = { words: wordsPanel(s), layout: layoutPanel(), insert: insertPanel(), free: freeP.el, slide: slidePanel(), notes: notesPanel() };
     const showPanel = (k: string): void => {
       panel = k in panels ? k : 'words';
+      stageBox.classList.toggle('slfreeon', panel === 'free');
+      if (panel === 'free') freeP.paint();
       slidesState.panel = panel;
       for (const [n, el] of Object.entries(panels)) el.hidden = n !== panel;
       pills.querySelectorAll<HTMLElement>('.slpill').forEach((p) => p.setAttribute('aria-selected', String(p.dataset.panel === panel)));
@@ -1678,7 +1722,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     askEl.hidden = !hist;
     if (!hist) props.clear();
   };
-  const root = h('div.slsheet', status, props.el, view, askEl, fileIn, photoIn);
+  const root = h('div.slsheet', status, props.el, view, askEl, fileIn, photoIn, freePhotoIn);
   sync();
   setLiveWork('slides', { data: dataOf, propose: proposeHere });
   const start = async (o: SlidesAsk): Promise<void> => {

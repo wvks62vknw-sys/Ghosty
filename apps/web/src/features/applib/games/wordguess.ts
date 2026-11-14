@@ -1,5 +1,5 @@
 /**
- * The WORDGUESS board. Options (GameConfig.options): words (string[] of one length), tries (3 to 8, default 6),
+ * The WORDGUESS board. Options (GameConfig.options): words or answers (string[] of one length), tries (3 to 8, default 6),
  * daily (default true), strict (guesses must be in the list, default false).
  * Type on the on-screen keyboard (or a real one); each row is marked hit, near or miss, and the keys keep their best mark.
  */
@@ -11,9 +11,9 @@ import type { Board } from './frame';
 const ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
 
 export const wordguess: Board = (p) => {
-  const words = W.wordsFrom(list(p.opts, 'words'));
+  const words = W.wordsFrom(list(p.opts, 'words').length ? list(p.opts, 'words') : list(p.opts, 'answers'));
   const tries = num(p.opts, 'tries', 6, 3, 8);
-  const strict = bool(p.opts, 'strict', false);
+  const strict = bool(p.opts, 'strict', bool(p.opts, 'hard', false));
   const len = words[0]!.length;
   const saved = p.resume as { answer: string; guesses: string[]; typing: string } | null;
   const answer = saved?.answer ?? W.answerFor(words, p.seed(bool(p.opts, 'daily', true)));
@@ -54,6 +54,7 @@ export const wordguess: Board = (p) => {
     guesses.push(typing);
     typing = '';
     draw();
+    rows.children[guesses.length - 1]?.classList.add('al-gwreveal');
     if (guesses[guesses.length - 1] === answer) {
       done = true;
       return p.end({ won: true, score: W.score(guesses.length, tries), words: `Found in ${guesses.length} of ${tries}.` });
@@ -95,5 +96,6 @@ export const wordguess: Board = (p) => {
   };
   window.addEventListener('keydown', keyd);
   draw();
+  p.keep({ answer, guesses, typing });
   return () => window.removeEventListener('keydown', keyd);
 };

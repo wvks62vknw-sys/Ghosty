@@ -270,6 +270,8 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'slides', label: 'Presentations', names: ['presentations', 'slides', 'decks', 'powerpoint', 'keynote', 'slideshows'] },
   { tab: 'workspace', label: 'the Workspace', names: ['workspace', 'notion', 'wiki', 'pages', 'my pages', 'notebook'] },
   { tab: 'photo', label: 'Photo', names: ['photo editor', 'photos', 'pictures', 'camera roll', 'gallery', 'my photos'], bare: ['photo editor'] },
+  // [lens] PHOTOS (THE APPS ROUND): his library behind the editor, by the names a library goes by (the editor keeps 'my photos')
+  { tab: 'photos', label: 'Photos', names: ['photo library', 'my photo library', 'my albums', 'photo albums', 'my photo albums'], bare: ['photo library', 'my photo library'] },
   { tab: 'video', label: 'Video', names: ['video editor', 'videos', 'my videos', 'clips', 'films'], bare: ['video editor'] },
   { tab: 'gamestudio', label: 'Game Studio', names: ['game studio', 'game maker', 'game builder', 'make games', 'my game projects'], bare: ['game studio', 'game maker'] },
   { tab: 'comic', label: 'the comic', names: ['comic', 'comics', 'comic book', 'comic maker', 'graphic novels', 'manga'] },

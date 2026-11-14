@@ -11,6 +11,7 @@ import type { Board } from './frame';
 export const dots: Board = (p) => {
   const size = num(p.opts, 'size', 4, 2, 6);
   const level = str(p.opts, 'cpu', ['easy', 'fair'] as const, 'fair');
+  // (sizes offer a picker; levels other than easy are the fair phone)
   const r = rng(p.seed());
   const d: D.Dots = (p.resume as D.Dots | null) ?? D.start(size);
   let cpuTimer = 0;
@@ -67,6 +68,7 @@ export const dots: Board = (p) => {
     p.score(t.me * 10, `You ${t.me} · phone ${t.cpu} · ${d.turn === 1 ? 'your turn' : 'the phone is thinking'}`);
   }
   draw();
+  p.keep(d);
   if (d.turn === 2) cpuTimer = window.setTimeout(cpu, 420);
   return () => clearTimeout(cpuTimer);
 };

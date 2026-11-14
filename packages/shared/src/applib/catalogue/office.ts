@@ -1685,7 +1685,7 @@ export const OFFICE: AppDef[] = [
         { title: 'C envelopes', body: 'C4 229 × 324 mm holds A4 flat. C5 162 × 229 mm holds A5 flat, or A4 folded once. C6 114 × 162 mm holds A6 flat, or A4 folded twice.', tags: ['envelope', 'c4', 'c5', 'c6'] },
         { title: 'DL envelope', body: 'DL is 110 × 220 mm and holds A4 folded into thirds, the usual size for a letter.', tags: ['envelope', 'dl', 'letter'] },
       ],
-      source: { name: 'ISO 216 and ISO 269 paper and envelope sizes', url: 'https://www.iso.org/standard/36631.html' },
+      source: { name: 'Paper size (ISO 216 and ISO 269 tables)', url: 'https://en.wikipedia.org/wiki/Paper_size' },
     },
   },
   {
@@ -1694,7 +1694,7 @@ export const OFFICE: AppDef[] = [
     family: 'office',
     glyph: 'type',
     pitch: 'Plain rules for dates, numbers, money and times, from a public style guide.',
-    keywords: ['style guide', 'writing', 'grammar', 'dates', 'numbers', 'plain english'],
+    keywords: ['style guide', 'writing', 'grammar', 'dates', 'numbers', 'abbreviations'],
     archetype: 'guide',
     tour: [
       'Search a topic such as dates or money.',
@@ -1704,11 +1704,11 @@ export const OFFICE: AppDef[] = [
     guide: {
       sections: [
         { title: 'Dates', body: 'Write dates as day, month, year with no commas or ordinals: 4 June 2026, not June 4th, 2026. Use "to" in a date range, not a hyphen: 4 June to 6 June.', tags: ['dates', 'ranges'] },
-        { title: 'Times', body: 'Use the 12-hour clock with am or pm and no full stops: 5:30pm. Write midday and midnight rather than 12pm and 12am, which are easy to misread.', tags: ['times', 'clock'] },
-        { title: 'Money', body: 'Use the pound sign with no pence when the amount is whole: £75, not £75.00. Write £1.50 when there are pence.', tags: ['money', 'pounds'] },
-        { title: 'Numbers', body: 'Use numerals for numbers, including 1 to 9, as they are easier to scan. Use a comma in numbers of 1,000 and over. Spell out a number that starts a sentence.', tags: ['numbers', 'numerals'] },
-        { title: 'Plain words', body: 'Prefer the short, common word: buy, not purchase; help, not assist; about, not approximately. Write "for example" rather than eg, and "that is" rather than ie.', tags: ['plain english', 'abbreviations'] },
-        { title: 'Short sentences', body: 'Aim for sentences of about 25 words or fewer. Put the most important point first, and use the active voice: "We will send it", not "It will be sent".', tags: ['sentences', 'active voice'] },
+        { title: 'Times', body: 'Use the 12-hour clock with am or pm and no full stops: 5:30pm. Write midday and midnight rather than 12pm and 12am.', tags: ['times', 'clock'] },
+        { title: 'Money', body: 'Use no decimals unless there are pence: £75, not £75.00, but £75.50.', tags: ['money', 'pounds'] },
+        { title: 'Numbers', body: 'Use numerals for all numbers, including 2 to 9. Write "one" in words, unless it is a step or a point in a list. Use a comma in numbers from 1,000. Spell out a number that starts a sentence.', tags: ['numbers', 'numerals'] },
+        { title: 'Abbreviations', body: 'Avoid eg, etc and ie. Write "for example" in place of eg.', tags: ['abbreviations', 'eg'] },
+        { title: 'Active voice', body: 'Use the active voice rather than the passive: "We will send it", not "It will be sent".', tags: ['active voice'] },
       ],
       source: { name: 'GOV.UK style guide, A to Z', url: 'https://www.gov.uk/guidance/style-guide/a-to-z-of-gov-uk-style' },
     },
