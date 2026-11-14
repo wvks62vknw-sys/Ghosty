@@ -1,6 +1,6 @@
 /**
  * The QUIZ board. Options (GameConfig.options): questions (string[], each "Question | right | wrong | wrong | wrong"),
- * count (3 to 20, default 10), secs (seconds a question, 0 for no clock, default 15).
+ * count or perRound (3 to 20, default 10), secs (seconds a question, 0 for no clock, default 15).
  * Tap an answer; the right one is shown either way, then the next question comes.
  */
 import { h, clear } from '../../../core/dom';
@@ -10,7 +10,7 @@ import type { Board } from './frame';
 
 export const quiz: Board = (p) => {
   const secs = num(p.opts, 'secs', 15, 0, 120);
-  const qs = Q.round(list(p.opts, 'questions'), num(p.opts, 'count', 10, 3, 20), rng(p.seed()));
+  const qs = Q.round(list(p.opts, 'questions'), num(p.opts, p.opts.count !== undefined ? 'count' : 'perRound', 10, 3, 20), rng(p.seed()));
   let at = 0;
   let score = 0;
   let right = 0;

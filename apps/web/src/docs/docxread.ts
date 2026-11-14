@@ -4,14 +4,15 @@
  * numbering (bullet or counted), bold, italic, underline, links (real hyperlinks only: https, mailto, tel), alignment, tables
  * (their rows and cells, a header row, merged cells padded so the grid holds), pictures (inline or floating, shrunk and kept in the
  * phone's picture store, with their description and their share of the page), page breaks, the page's size, margins and
- * direction, the header and footer lines and whether the footer numbers the pages. Left out, said by `lost`: tracked deletions
- * (insertions are kept), comments, footnotes, text boxes, columns, shapes, fonts and colours, nested lists' depth, a table inside
+ * direction, the header and footer lines and whether the footer numbers the pages; [docspro] the named styles (styles.xml), a
+ * paragraph's own spacing, font, size and colour, and tracked changes (w:ins / w:del) as his tracked changes. Left out, said by `lost`: footnotes, text boxes, columns, shapes, fonts and colours, nested lists' depth, a table inside
  * a table. Runs in the browser (DOMParser); the file never leaves the phone. Mammoth stays as the fall-back for a file this finds no words in.
  */
 import { unzipSync } from '../convert/zip';
 import { addImageBytes } from './images';
 import { block, blockId, newDoc, textOf, tidyRuns, titled, TEXT_COLOURS, type Align, type Block, type Doc, type PageSetup, type Run, type TextColour } from './model';
 import { commentId, fromWordParas, type Comment } from './comments';
+import { formatOf, propsOf, setFormat, stylesFromXml, type ParaFormat } from './styles';
 
 const dec = new TextDecoder();
 const text = (files: Map<string, Uint8Array>, name: string): string | null => {
@@ -90,6 +91,7 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
       if (h) return `h${Math.min(3, Number(h[1]))}`;
       if (n === 'title') return 'title';
       if (n === 'quote' || n === 'intense quote') return 'quote';
+      if (n === 'caption') return 'caption';
       if (/^list bullet/.test(n)) return 'ul';
       if (/^list number/.test(n)) return 'ol';
       if (/^subtitle$/.test(n)) return 'h2';
@@ -169,7 +171,7 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
   let title = '';
   const runsOf = (p: Element, imgs: Element[]): Run[] => {
     const out: Run[] = [];
-    const walk = (el: Element, link = '') => {
+    const walk = (el: Element, link = '', tc: { tc?: 'ins' | 'del'; tat?: number } = {}) => {
       for (const c of kids(el)) {
         const ln = c.localName;
         if (ln === 'r') {
@@ -177,7 +179,7 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
           const hlv = attr(first(rp, 'highlight'), 'val');
           const run = { b: on(first(rp, 'b')), i: on(first(rp, 'i')), u: on(first(rp, 'u')), s: on(first(rp, 'strike')) || on(first(rp, 'dstrike')), hl: !!hlv && hlv !== 'none', c: colourOf(attr(first(rp, 'color'), 'val')) };
           for (const k of kids(c)) {
-            if (k.localName === 't') out.push({ text: k.textContent ?? '', ...(run.b ? { b: true } : {}), ...(run.i ? { i: true } : {}), ...(run.u && !link ? { u: true } : {}), ...(run.s ? { s: true } : {}), ...(run.hl ? { hl: true } : {}), ...(link ? { href: link } : {}), ...(run.c && !link ? { c: run.c } : {}) });
+            if (k.localName === 't' || (k.localName === 'delText' && tc.tc === 'del')) out.push({ ...tc, text: k.textContent ?? '', ...(run.b ? { b: true } : {}), ...(run.i ? { i: true } : {}), ...(run.u && !link ? { u: true } : {}), ...(run.s ? { s: true } : {}), ...(run.hl ? { hl: true } : {}), ...(link ? { href: link } : {}), ...(run.c && !link ? { c: run.c } : {}) });
             else if (k.localName === 'tab') out.push({ text: '    ' });
             else if (k.localName === 'br') out.push({ text: attr(k, 'type') === 'page' ? '\f' : '\n' });
             else if (k.localName === 'noBreakHyphen') out.push({ text: '-' });
@@ -186,9 +188,9 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
           }
         } else if (ln === 'hyperlink') {
           const rel = rels.get(attr(c, 'id'));
-          walk(c, rel?.external ? safeHref(rel.target) : '');
-        } else if (ln === 'ins' || ln === 'smartTag' || ln === 'fldSimple' || ln === 'sdt' || ln === 'sdtContent') walk(c, link);
-        else if (ln === 'del') lost.add('tracked deletions');
+          walk(c, rel?.external ? safeHref(rel.target) : '', tc);
+        } else if (ln === 'ins' || ln === 'del') walk(c, link, { tc: ln, ...(Date.parse(attr(c, 'date')) ? { tat: Date.parse(attr(c, 'date')) } : {}) });
+        else if (ln === 'smartTag' || ln === 'fldSimple' || ln === 'sdt' || ln === 'sdtContent') walk(c, link, tc);
       }
     };
     walk(p);
@@ -229,6 +231,16 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
     const numId = attr(first(first(ppr, 'numPr'), 'numId'), 'val') || styleNum(sid);
     const listKind = numId && numId !== '0' ? numKind.get(numId) ?? 'ul' : kind === 'ul' || kind === 'ol' ? kind : '';
     const align = alignOf(ppr);
+    // [docspro] its own format: the spacing it says, and the paragraph mark's font, size, colour and weight
+    const pprXml = ppr ? new XMLSerializer().serializeToString(ppr) : '';
+    const fmt: ParaFormat = formatOf({ ...propsOf(pprXml.replace(/<w:rPr\b[\s\S]*?<\/w:rPr>/, '')), ...propsOf(/<w:rPr\b[\s\S]*?<\/w:rPr>/.exec(pprXml)?.[0] ?? '') });
+    if (!/<w:rPr\b/.test(pprXml)) for (const k of ['font', 'size', 'colour', 'bold', 'italic'] as const) delete fmt[k];
+    const own = (b: Block): Block => {
+      if (!Object.keys(fmt).length) return b;
+      // a colour or weight the format says is the paragraph's, not each run's
+      const runs = tidyRuns(b.runs.map((r) => ({ ...r, ...(fmt.colour && fmt.colour !== 'ink' && fmt.colour !== 'grey' && r.c === fmt.colour ? { c: undefined } : {}), ...(fmt.bold && r.b ? { b: undefined } : {}), ...(fmt.italic && r.i ? { i: undefined } : {}) })));
+      return { ...b, runs, fmt };
+    };
     for (const [k, piece] of pieces.entries()) {
       if (k) blocks.push({ id: blockId(), t: 'pb', runs: [] });
       runs = tidyRuns(piece);
@@ -242,10 +254,10 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
       const box = /^\s*([☐☑☒])\s?/.exec(runs[0]?.text ?? '');
       if (box && !kind.startsWith('h')) {
         const rest = tidyRuns([{ ...runs[0]!, text: runs[0]!.text.slice(box[0].length) }, ...runs.slice(1)]);
-        blocks.push({ ...block('todo', rest), ...(box[1] !== '☐' ? { ticked: true } : {}), ...(align ? { align } : {}) });
+        blocks.push(own({ ...block('todo', rest), ...(box[1] !== '☐' ? { ticked: true } : {}), ...(align ? { align } : {}) }));
         continue;
       }
-      blocks.push({ ...block(t as Block['t'], runs), ...(align ? { align } : {}) });
+      blocks.push(own({ ...block(t as Block['t'], runs), ...(align ? { align } : {}) }));
     }
     for (const d of imgs) {
       const b = await pictureOf(d);
@@ -320,8 +332,14 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
   if (!blocks.some((b) => b.t === 'table' || b.t === 'img' || b.t === 'pb' || b.runs.some((r) => r.text.trim())) && !title) return null;
   const stem = name.replace(/\.[^./]+$/, '').replace(/[_-]+/g, ' ').trim() || 'Document';
   const t = title ? { title, blocks } : titled(blocks, stem);
-  const doc = newDoc(t.title, t.blocks, 'document', name);
+  let doc = newDoc(t.title, t.blocks, 'document', name);
   doc.page = page;
+  // [docspro] his named styles, and TRACK CHANGES left on when the file says so
+  const st = stylesFromXml(text(files, 'word/styles.xml') ?? '');
+  if (Object.keys(st).length) doc.styles = st;
+  if (/<w:trackRevisions\b(?![^>]*w:val="(?:0|false)")/.test(text(files, 'word/settings.xml') ?? '')) doc.track = true;
+  // a paragraph's own format equal to its style is no format of its own
+  for (const b of doc.blocks) if (b.fmt) doc = setFormat(doc, b.id, {});
   if (comments.length) doc.comments = comments;
   return { doc, lost: [...lost] };
 }

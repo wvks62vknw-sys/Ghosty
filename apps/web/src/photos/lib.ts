@@ -348,6 +348,40 @@ export async function nameAll(onEach?: (done: number, of: number) => void): Prom
   return { named: todo.length - failed, failed };
 }
 
+/** Read the words in every photo not yet read, with the Lens's own reader on this phone (nothing is sent), so search finds them. */
+export async function readAllText(onEach?: (done: number, of: number) => void): Promise<{ read: number; withWords: number }> {
+  const { Reader } = await import('../vision/ocr');
+  const { cleanOcr } = await import('../vision/ocrtext');
+  const todo = (await items()).filter((i) => i.kind === 'photo' && !i.deletedAt && !i.textRead);
+  const reader = new Reader();
+  let withWords = 0, done = 0;
+  try {
+    for (const it of todo) {
+      const b = await blobOf(it.id);
+      let text = '';
+      if (b) {
+        try {
+          const r = await reader.read(await loadImageFile(b, 1600));
+          text = r.confidence >= 55 ? cleanOcr(r).replace(/\s+/g, ' ').trim().slice(0, 2000) : '';
+        } catch {
+          text = '';
+        }
+      }
+      if (text) withWords += 1;
+      await put('items', it.id, { ...it, text: text || it.text, textRead: true });
+      done += 1;
+      onEach?.(done, todo.length);
+    }
+  } finally {
+    reader.terminate();
+  }
+  changed();
+  return { read: done, withWords };
+}
+
+/** The people he introduced who are in a photo, as he says (only names he gave; never anyone else). */
+export const setPeople = (ids: string[], people: string[]) => update(ids, (it) => ({ ...it, people: [...new Set(people)].slice(0, 20) }));
+
 // ---------------------------------------------------------------- the first run: sample photos, drawn here, said to be samples
 
 interface Scene {
@@ -411,7 +445,7 @@ export async function addSamples(): Promise<number> {
     if (!blob) continue;
     const taken = now - s.daysAgo * DAY - i * 60_000;
     const file = new File([blob], s.name, { type: 'image/jpeg', lastModified: taken });
-    const it = await bringIn(file, { sample: true, labels: s.labels, taken });
+    const it = await bringIn(file, { sample: true, labels: s.labels, taken, textRead: true });
     if (it) n += 1;
   }
   changed();

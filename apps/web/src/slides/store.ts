@@ -45,7 +45,7 @@ export function removeDeck(id: string): void {
   }
 }
 /** The pictures the kept decks hold (so the documents' tidy-up never lets one go). */
-export const deckImageIds = (): Set<string> => new Set(listDecks().flatMap((d) => d.slides.flatMap((s) => (s.media?.k === 'img' ? [s.media.img] : []))));
+export const deckImageIds = (): Set<string> => new Set(listDecks().flatMap((d) => d.slides.flatMap((s) => [...(s.media?.k === 'img' ? [s.media.img] : []), ...(s.free ?? []).flatMap((f) => (f.img ? [f.img] : []))])));
 
 export function where(): { deck: string; slide: string } | null {
   try {
