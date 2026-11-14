@@ -204,6 +204,18 @@ export const briefTab: TabDef = {
         r.classList.add('brtodo');
         rows.push(r);
       }
+      // [editors.c4] the due dates in his Workspace databases, in one line (read-only; a tap opens the first in the Workspace)
+      const wsDue = await import('../../workspace/deadlines').then(async (dl) => {
+        const [{ loadWorkspace }, { isoOf }] = await Promise.all([import('../../workspace/store'), import('../../workspace/db')]);
+        const today = isoOf(new Date());
+        const list = dl.deadlines(loadWorkspace(), today, 7);
+        return { line: dl.deadlineLine(list, today), first: list[0]?.id ?? '' };
+      }).catch(() => ({ line: '', first: '' }));
+      if (wsDue.line) {
+        const r = row('WORKSPACE', wsDue.line, '›', { wrap: true, onClick: () => void import('../../workspace/sheet').then((m) => m.openWorkspace(wsDue.first ? { id: wsDue.first } : { what: 'due' })) });
+        r.classList.add('brworkdue');
+        rows.push(r);
+      }
       const unread = inbox?.unread ?? 0;
       // (his unread messages from Ghosty are in the Agenda's NOTIFICATIONS: the tap lands there)
       if (unread) rows.push(row('INBOX', `${unread} new message${unread === 1 ? '' : 's'} from Ghosty`, '›', { wrap: true, onClick: () => goToPanel('agenda', 'NOTIFICATIONS') }));

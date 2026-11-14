@@ -27,6 +27,13 @@ export interface Palette {
 }
 
 export const PALETTES: Record<PaletteId, Palette> = {
+  // [sites] Ghosty's own (NEXT ROUND sites.c6): graphite and his cyan, for a site in one of Ghosty's looks
+  ghosty: {
+    id: 'ghosty',
+    label: 'Ghosty: graphite, clean white, Ghosty cyan',
+    light: { bg: '#f7fafc', surface: '#ffffff', surface2: '#eaf2f7', text: '#0b1720', muted: '#4b5b69', border: '#d6e2ea', primary: '#0b5f7d', onPrimary: '#ffffff', accent: '#0b5f7d', onAccent: '#ffffff' },
+    dark: { bg: '#0b0f14', surface: '#121821', surface2: '#1a2230', text: '#eef6fb', muted: '#a7b4c2', border: '#263142', primary: '#64d2ff', onPrimary: '#04131b', accent: '#64d2ff', onAccent: '#04131b' },
+  },
   espresso: {
     id: 'espresso',
     label: 'Espresso: warm cream, roasted rust, honey',
@@ -338,3 +345,21 @@ export const PALETTE_IDS = Object.keys(PALETTES) as PaletteId[];
 export const FONT_IDS = Object.keys(FONTS) as FontsId[];
 export const SHAPE_IDS = Object.keys(SHAPES) as ShapeId[];
 export const SCHEMES: Scheme[] = ['light', 'dark', 'auto'];
+
+/**
+ * [sites] HIS SITES IN A GHOSTY LOOK (NEXT ROUND sites.c6, with system and settings): each of Ghosty's seven looks as a site's theme,
+ * the same idea carried to a page: the Scan's sharp corners and mono readings, the Map's plotting grid, the Eye's narrow type, the
+ * Orbit's round, Grown's calm and soft, Ink's paper and serif, Glass's light and round. Used when he asks for a look by name.
+ */
+export const LOOK_IDS = ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass'] as const;
+export type LookId = (typeof LOOK_IDS)[number];
+export const LOOKS: Record<LookId, Theme> = {
+  scan: { palette: 'ghosty', fonts: 'tech', shape: 'sharp', scheme: 'dark' },
+  map: { palette: 'trades', fonts: 'geometric', shape: 'sharp', scheme: 'light' },
+  eye: { palette: 'ghosty', fonts: 'condensed', shape: 'sharp', scheme: 'dark' },
+  orbit: { palette: 'saas', fonts: 'geometric', shape: 'round', scheme: 'dark' },
+  grown: { palette: 'sage', fonts: 'friendly', shape: 'soft', scheme: 'light' },
+  ink: { palette: 'mono', fonts: 'editorial', shape: 'sharp', scheme: 'light' },
+  glass: { palette: 'ghosty', fonts: 'refined', shape: 'round', scheme: 'auto' },
+};
+export const isLook = (v: unknown): v is LookId => typeof v === 'string' && (LOOK_IDS as readonly string[]).includes(v);

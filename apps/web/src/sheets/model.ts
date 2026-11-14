@@ -7,6 +7,8 @@
  */
 import { addr, colName, MAXC, MAXR, parseAddr, parseRange, renameSheetIn, shiftFormula, type Pos, type Rect } from './tokens';
 import { applyCode, general, serialOf } from './numfmt';
+import type { Rule } from './rules';
+import type { Pivot } from './pivot';
 
 export type ErrCode = '#DIV/0!' | '#REF!' | '#NAME?' | '#VALUE!' | '#N/A' | '#NUM!' | '#CALC!' | '#SPILL!' | '#CIRCULAR!';
 export interface ErrVal {
@@ -43,6 +45,8 @@ export interface Sheet {
   heights: Record<number, number>;
   frozen: boolean;
   filter?: Filter | null;
+  /** Colour by rules (rules.ts), first first. */
+  rules?: Rule[];
 }
 export interface Chart {
   id: string;
@@ -63,6 +67,8 @@ export interface Book {
   view: { sheet: number; sel: string };
   /** Where it came from, for the list ("made here", "read from a file", "from an answer"). */
   from?: string;
+  /** One-tap summaries (pivot.ts): each kept up to date with its table. */
+  pivots?: Pivot[];
 }
 export { addr, colName, MAXC, MAXR, parseAddr, parseRange, shiftFormula };
 export type { Pos, Rect };
@@ -240,6 +246,13 @@ export const usedCols = (s: Sheet): number => {
   }
   return m;
 };
+/** A new row after the last used one, its cells as typed (A, B, C…): the book and the row's number (1-based). The scan's receipts use it (docs/paper.ts). */
+export function appendRow(b: Book, sheet: string | number, values: string[]): { book: Book; row: number } {
+  const s = b.sheets[sheetOf(b, sheet)];
+  if (!s) return { book: b, row: 0 };
+  const r = usedRows(s);
+  return { book: setEntries(b, sheet, values.map((v, c) => [addr(r, c), v] as [string, string])), row: r + 1 };
+}
 export const isEmptyBook = (b: Book): boolean => b.sheets.every((s) => !Object.values(s.cells).some((c) => c.v !== undefined || c.f !== undefined));
 
 export function setWidth(b: Book, sheet: string | number, col: number, px: number): Book {

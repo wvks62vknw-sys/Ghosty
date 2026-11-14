@@ -16,3 +16,27 @@ export function workspaceAsked(text: string): WorkspaceAsk | null {
   if (/^(?:open |show )?(?:my )?(?:workspace )?bin$/i.test(t)) return { what: 'bin' };
   return null;
 }
+/** "take a voice note", "turn my voice note into a page", "record a voice memo": the workspace's VOICE NOTE. */
+export function voiceNoteAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '');
+  return /^(?:please |ghosty,? )?(?:take|record|make|start|do) (?:a |me a |my )?(?:new |quick )?voice ?(?:note|memo)s?$/i.test(t)
+    || /^(?:please |ghosty,? )?(?:turn|make|tidy|change) (?:my|this|a|the) (?:last )?voice ?(?:note|memo|recording) (?:into|in to|to) (?:a |my )?(?:tidy |clean |neat )?(?:page|document|doc|notes?|workspace page)$/i.test(t)
+    || /^(?:my )?voice ?notes?$/i.test(t);
+}
+/** "make flashcards from my notes", "turn this page into flashcards": the workspace, where MAKE FLASHCARDS is on a page's … (editors.c3). */
+export function cardsAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '');
+  return /^(?:please |ghosty,? )?(?:make|create|turn|get) (?:me )?(?:some )?flash ?cards (?:from|out of|of) (?:my|this|the|a) (?:notes|page|workspace page|document|doc|workspace)$/i.test(t)
+    || /^(?:please |ghosty,? )?(?:turn|make) (?:my|this|the) (?:notes|page|workspace page|document|doc) (?:into|in to) flash ?cards$/i.test(t);
+}
+/** "make a form", "a sign-up sheet in my workspace": the workspace, where a database's FORM is (editors.s1). */
+export function formAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '');
+  return /^(?:please |ghosty,? )?(?:make|create|start|build) (?:me )?(?:a |an )?(?:new )?(?:form|sign-?up sheet|survey|questionnaire)(?: in my workspace| for my (?:list|database|workspace))?$/i.test(t)
+    || /^(?:please |ghosty,? )?(?:fill in|fill out|open) (?:a |the |my )?(?:workspace )?form$/i.test(t);
+}
+/** "make a mind map", "start a mind map about the garden": a new mind map page in the workspace (editors.s8). */
+export function mindAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '');
+  return /^(?:please |ghosty,? )?(?:make|create|start|draw|new|open) (?:me )?(?:a |my )?(?:new )?mind ?map(?: page)?(?: (?:about|for|of) .{1,60})?$/i.test(t);
+}

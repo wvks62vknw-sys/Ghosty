@@ -27,9 +27,10 @@ import { draftedPanel } from './selfdraft';
 import { earlierWords, newCount, NOTHING_NEW, offlineWords, PROJECT_WORD, projectWords, PROJECTS_NONE, splitWeek } from './words';
 import { sayError } from '../../ui/hisWords';
 import { mountSitePhotos } from '../../sites/photos';
-import { restoreSite } from '../../sites/versions';
+import { checkSite, restoreSite } from '../../sites/versions';
 import { choose, chosen, HOME_TITLE, homePage } from '../../sites/home';
 import { putOnSites } from '../../sites/handover';
+import { openPoster } from '../../sites/poster';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 /** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
@@ -603,7 +604,26 @@ export const workshopTab: TabDef = {
         }, onHome.has(s.name) ? 'on' : '');
         home.setAttribute('aria-pressed', String(onHome.has(s.name)));
         home.setAttribute('aria-label', `${s.title} on my home page`);
-        pp.body.append(h('div.site', { dataset: { site: s.name } }, open, h('div.keyrow', copy, back, home, down)));
+        // [sites] QR AND POSTER (sites.s2, u4): the page's QR code, and a poster or flyer made on the phone
+        const poster = button('QR AND POSTER', () => openPoster(s.title, urlOf(s)));
+        poster.setAttribute('aria-label', `QR code and poster for ${s.title}`);
+        // [sites] CHECK (sites.u9): the publish check run again on the live page, said in his words; a fix is an update he approves
+        const checked = h('div.sitecheck', { 'aria-live': 'polite' });
+        const check = button('CHECK', async (b) => {
+          b.disabled = true;
+          clear(checked, h('p.note', 'Checking the live page…'));
+          try {
+            const r = await checkSite(s.name);
+            clear(checked, h('p.note', { dataset: { state: r.ok ? 'done' : 'error' } }, r.said), ...[...r.errors, ...r.warnings].slice(0, 5).map((x) => h('p.note.sitecheckline', x)),
+              r.errors.length || r.warnings.length ? button('ASK GHOSTY TO FIX THEM', () => void send(`Fix the problems on my page ${s.name}: ${[...r.errors, ...r.warnings].slice(0, 5).join('; ')}`)) : '');
+          } catch (e) {
+            clear(checked, h('p.note', { dataset: { state: 'error' } }, sayError(e, 'check the page')));
+          } finally {
+            b.disabled = false;
+          }
+        });
+        check.setAttribute('aria-label', `Check ${s.title}`);
+        pp.body.append(h('div.site', { dataset: { site: s.name } }, open, h('div.keyrow', copy, poster, check, back, home, down), checked));
       }
     };
     /** Self-editing set up on the brain (GitHub): null until the change list first answers. */

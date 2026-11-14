@@ -11,6 +11,10 @@ await build({
   stdin: {
     contents: `export * from './src/sitephotos.ts';
 export { pageUpload, MAX_PAGE } from './src/sitepage.ts';
+export { briefFrom, startOf, planFrom, assemble } from '../../packages/shared/src/sitekit/index.ts';
+export { googleCalendarUrl, icsOf, eventIn } from '../../packages/shared/src/sitekit/calendar.ts';
+export { contrastProblems } from '../../packages/shared/src/sitekit/index.ts';
+export { siteIcsResponse } from './src/tools/sites.ts';
 export * as SB from './src/sitebuild.ts';
 export * as PJ from './src/projects.ts';
 export { checkHtml } from './src/tools/check.ts';
@@ -285,6 +289,117 @@ test('a mini-app changed after it is made: a habit added, a goal changed, the sa
   await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'habits' }, ctx), /nothing to change/);
   await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'nope', add_items: ['a'] }, ctx), /no mini-app is published at \/s\/nope\//);
   await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'habits', goal: 5 }, ctx), /has no goal/);
+});
+
+// NEXT ROUND sites.s1: add-to-calendar on an event page. The start is read from his words; the page gets Google Calendar's public link
+// and, at its own address, a calendar file an iPhone adds; its search listing carries the start as a calendar reads it.
+test('an event page: its start read from his words, two add-to-calendar buttons, and a calendar file from the page itself', async () => {
+  const now = new Date(Date.UTC(2026, 10, 14));
+  assert.equal(P.startOf('Saturday 14 June', 'party on saturday 14 june at 8pm', now), '2027-06-14T20:00', 'a day gone by this year is next year');
+  assert.equal(P.startOf('14 December 2026', 'club night 14 december 2026 7.30pm', now), '2026-12-14T19:30');
+  assert.equal(P.startOf('20 November', 'quiz on 20 november from 19:00', now), '2026-11-20T19:00');
+  assert.equal(P.startOf('20 November', 'quiz on 20 november', now), '2026-11-20', 'no time: all day');
+  assert.equal(P.startOf('31 February', 'x', now), undefined);
+  const b = P.briefFrom('make a page for our club night at the Robin 2 in Bilston on 14 December 2026 at 8pm', { kind: 'event', name: 'Northern Soul Night', venue: 'The Robin 2', town: 'Bilston' });
+  assert.equal(b.start, '2026-12-14T20:00');
+  const { plan, brief } = P.planFrom(b, { url: 'https://ghosty.example/s/soul-night' });
+  const html = P.assemble(plan, brief).html;
+  const g = /href="(https:\/\/calendar\.google\.com\/calendar\/render\?[^"]+)"/.exec(html)?.[1]?.replace(/&amp;/g, '&');
+  assert.ok(g, 'Add to Google Calendar is on the page');
+  const q = new URL(g).searchParams;
+  assert.deepEqual([q.get('action'), q.get('text'), q.get('dates'), q.get('ctz')], ['TEMPLATE', 'Northern Soul Night', '20261214T200000/20261214T230000', 'Europe/London']);
+  assert.match(q.get('location'), /The Robin 2/);
+  assert.match(html, /href="https:\/\/ghosty\.example\/s\/soul-night\/event\.ics" class="btn btn-outline" target="_blank"/);
+  assert.match(html, /"startDate":"2026-12-14T20:00"/, 'the search listing carries the start as a calendar reads it');
+  // the Worker's calendar file, from the stored page
+  const r = P.siteIcsResponse({ name: 'soul-night', title: 'Soul', html, source: '', at: 1 }, 'https://ghosty.example');
+  assert.equal(r.headers.get('content-type'), 'text/calendar; charset=utf-8');
+  const ics = await r.text();
+  for (const line of ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'DTSTART;TZID=Europe/London:20261214T200000', 'DTEND;TZID=Europe/London:20261214T230000', 'SUMMARY:Northern Soul Night', 'END:VCALENDAR']) assert.ok(ics.includes(line), line);
+  assert.ok(ics.split('\r\n').every((l) => new TextEncoder().encode(l).length <= 75), 'folded at 75 octets');
+  // a page with no event, an app, a game: none
+  assert.equal(P.siteIcsResponse({ name: 'x', title: 'x', html: '<p>hi</p>', source: '', at: 1 }, 'https://ghosty.example').status, 404);
+  // no date: no buttons
+  const none = P.assemble(...Object.values(P.planFrom(P.briefFrom('a page for our club night', { kind: 'event', name: 'Soul' })))).html;
+  assert.doesNotMatch(none, /calendar\.google\.com/);
+});
+
+// NEXT ROUND sites.c2 (with learn): a Learn course's flash cards as an offline app. The course is found by its topic; its own cards become
+// the app's deck; said before APPROVE, the cards themselves kept out of the approval's arguments.
+test('a Learn course\'s cards as a flash-cards mini-app: found by its topic, its own cards, said first, cards kept off the approval card', async () => {
+  const st = new MemStorage();
+  const env = { PUBLIC_ORIGIN: ORIGIN };
+  const ctx = { env, storage: st, origin: ORIGIN, emit() {}, progress() {} };
+  await st.put('learn:index', [{ id: 'c1', topic: 'French verbs', title: 'French verbs: the basics', level: 'beginner', minutes: 10, lessons: 5, done: 2 }]);
+  await st.put('cards:c1', [{ id: 'k1', course: 'c1', front: 'to be', back: 'être', added: 1 }, { id: 'k2', course: 'c1', front: 'to have', back: 'avoir', added: 2 }, { id: 'k3', course: 'c1', front: '', back: 'x', added: 3 }]);
+  const app = P.siteTools.find((t) => t.name === 'build_app');
+  const ap = await app.approval({ request: 'make my french verbs cards an app', from_learn: 'french verbs' }, ctx);
+  assert.match(ap.reason, /^Make the mini-app "French verbs"/);
+  assert.match(ap.reason, /From your Learn course "French verbs": 2 cards\.$/);
+  assert.equal(ap.args.cards, undefined, 'the cards are not on the approval card');
+  await app.run(ap.args, ctx);
+  const site = await P.siteStore(env, st).get(ap.args.link_name);
+  assert.equal(site.app.config.shape, 'cards');
+  assert.deepEqual(site.app.config.cards.cards, [{ q: 'to be', a: 'être' }, { q: 'to have', a: 'avoir' }]);
+  // no such course; a course with no cards
+  await assert.rejects(app.approval({ request: 'x', from_learn: 'Spanish' }, ctx), /no Learn course called "Spanish" \(his courses: French verbs\)/);
+  await st.put('learn:index', [{ id: 'c2', topic: 'Chess', title: 'Chess', level: 'beginner', minutes: 10, lessons: 3, done: 0 }]);
+  await assert.rejects(app.approval({ request: 'x', from_learn: 'chess' }, ctx), /has no cards yet/);
+});
+
+// NEXT ROUND sites.c6: his sites in a Ghosty look. A look named in his words (or the tool's look) becomes the site's theme and stays
+// over the planner's choice; Ghosty's own palette passes the contrast check light and dark.
+test('a site in one of Ghosty\'s looks: read from his words, said in the approval, the theme kept, the palette readable', async () => {
+  assert.equal(SB.lookOf({ request: 'build a website for my cafe in the ink look' }), 'ink');
+  assert.equal(SB.lookOf({ request: 'x', look: 'glass' }), 'glass');
+  assert.equal(SB.lookOf({ request: 'build a website for my cafe' }), undefined);
+  assert.deepEqual(P.contrastProblems({ palette: 'ghosty', fonts: 'system', shape: 'soft', scheme: 'auto' }), []);
+  const st = new MemStorage();
+  const env = { PUBLIC_ORIGIN: ORIGIN };
+  const ctx = { env, storage: st, origin: ORIGIN, vault: { get: async () => null }, emit() {}, progress() {} };
+  const tool = P.siteTools.find((t) => t.name === 'build_website');
+  const ap = await tool.approval({ request: 'a website for a cafe in Bilston called Little Fern in the scan look' }, ctx);
+  assert.match(ap.reason, /In Ghosty's Scan look\./);
+  let busy = false;
+  const d = {
+    env, storage: st, library: { available: false }, tools: [], tctx: ctx, system: async () => 'SYSTEM', notify: async () => undefined, busy: { get: () => busy, set: (v) => (busy = v) },
+    complete: async (messages) => {
+      const sys = messages[0].content;
+      if (/^SITE PLANNER/.test(sys)) return { message: { role: 'assistant', content: '{"palette":"espresso","fonts":"friendly","shape":"round","scheme":"light","tone":"warm","drop":[]}' } };
+      if (/^SITE WRITER/.test(sys)) return { message: { role: 'assistant', content: '{}' } };
+      if (/^SITE CRITIC/.test(sys)) return { message: { role: 'assistant', content: '{"verdict":"Sharp.","score":8,"fixes":[]}' } };
+      throw new Error('unexpected call');
+    },
+  };
+  await tool.run(ap.args, ctx);
+  const [p0] = await PJ.listProjects(ctx);
+  for (let i = 0; i < 4; i++) {
+    const pj = ((await st.get('jobs')) ?? []).find((j) => j.kind === 'project' && j.text === p0.id) ?? { id: 'j', kind: 'project', text: p0.id };
+    await PJ.runProjectStep(d, pj);
+  }
+  const job = await SB.loadSiteJob(ctx, p0.id);
+  assert.deepEqual(job.plan.theme, { palette: 'ghosty', fonts: 'tech', shape: 'sharp', scheme: 'dark' }, 'the look stays over the planner\'s choice');
+});
+
+// NEXT ROUND sites.u9: a page's check-up. The publish check run again on the live page, in his words, nothing changed.
+test('a published page\'s check-up: the publish check on the live page, in plain words, and nothing changed', async () => {
+  const st = new MemStorage();
+  const env = { PUBLIC_ORIGIN: ORIGIN };
+  const store = P.siteStore(env, st);
+  const good = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Party</title><meta name="description" content="A party"></head><body><main><h1>Saturday</h1></main></body></html>';
+  await store.put({ name: 'party', title: 'Party', html: good, source: '', at: 1 });
+  const route = (name) => P.siteVersionsRoute(new Request(`${ORIGIN}/api/sites/${name}/check`), `/sites/${name}/check`, { env, storage: st });
+  const ok = await (await route('party')).json();
+  assert.equal(ok.ok, true);
+  assert.match(ok.said, /^(All clear: nothing to fix|Nothing broken\. \d+ things? worth fixing)/);
+  // a page that has gone wrong (an image with no words, a tag left open)
+  await store.put({ name: 'broken', title: 'Broken', html: '<!doctype html><html lang="en"><head><title>B</title></head><body><main><div><img src="https://x.example/a.jpg"></main></body></html>', source: '', at: 1 });
+  const bad = await (await route('broken')).json();
+  assert.equal(bad.ok, false);
+  assert.match(bad.said, /^\d+ problems? to fix.*Ask me to fix them: I show you the change and it goes up after your APPROVE\.$/);
+  assert.ok(bad.errors.every((e) => !/^line \d+:/.test(e)), 'in his words, not line numbers');
+  assert.equal((await store.get('broken')).html.includes('<div><img'), true, 'nothing changed');
+  assert.equal((await route('nope')).status, 404);
 });
 
 test('[security] the strip keeps only the picture: a detail block between scans and anything after the end marker are dropped', () => {

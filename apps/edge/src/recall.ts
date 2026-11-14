@@ -30,11 +30,17 @@ export async function loadGists(storage: DurableObjectStorage): Promise<Gist[]> 
 
 /** The gists within their 30 days and their bounds (the oldest go first). */
 export function boundGists(list: Gist[], now: number): Gist[] {
-  // (a pinned turn stays past the 30 days: memory.u11)
-  let out = list.filter((g) => g.pinned || g.at >= now - RECALL_DAYS * DAY).sort((a, b) => a.at - b.at).slice(-MAX_GISTS);
-  while (out.length > 1 && JSON.stringify(out).length > MAX_BYTES) out = out.slice(Math.ceil(out.length / 10));
-  return out;
+  // A pinned turn (memory.u11) stays past the 30 days AND past the caps: the pins are kept apart (the newest MAX_PINS), and only the
+  // unpinned gists are bounded, by count and then by bytes with the pins' bytes counted. (A pinned turn is the oldest by nature, so
+  // bounding them together let a PIN go first.)
+  const pinned = list.filter((g) => g.pinned).sort((a, b) => a.at - b.at).slice(-MAX_PINS);
+  let rest = list.filter((g) => !g.pinned && g.at >= now - RECALL_DAYS * DAY).sort((a, b) => a.at - b.at).slice(-Math.max(0, MAX_GISTS - pinned.length));
+  const pinBytes = JSON.stringify(pinned).length;
+  while (rest.length > 1 && pinBytes + JSON.stringify(rest).length > MAX_BYTES) rest = rest.slice(Math.ceil(rest.length / 10));
+  return [...pinned, ...rest].sort((a, b) => a.at - b.at);
 }
+/** At most this many pinned turns (each a short line: well inside the bytes). */
+export const MAX_PINS = 100;
 
 /** One turn's gist, from the day log's line for it (`asked: "…"`). Nothing else is kept. */
 export async function noteGist(storage: DurableObjectStorage, ep: { at: number; text: string; via?: string }): Promise<void> {
