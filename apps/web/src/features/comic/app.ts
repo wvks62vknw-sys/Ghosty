@@ -22,6 +22,10 @@ import { allMade, bookOf, books, dropBook, keepBook, keepMade, madeOf, pageOf, s
 import { comicState } from './state';
 import { readScript, scriptAsk, withScript } from './script';
 import { askBrain } from '../../docs/ask';
+import { brain } from '../../api/brain';
+import { settings } from '../../state/app';
+import { loadTodos } from '../agenda/todo';
+import { weekComic, weekIdea, weekItems } from './week';
 
 const WRITERS = ['ghosty', 'phone'] as const;
 type Writer = (typeof WRITERS)[number];
@@ -134,10 +138,10 @@ export async function readBook(id: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------- the app's hooks (what the chat and the other pages call)
-type Hooks = { askImport?: () => void; showShelf?: () => void; make?: (idea: string) => void; edit?: (id: string) => void; pick?: (section: string) => void; importNow?: () => void; library?: (q: string) => void };
+type Hooks = { week?: () => void; askImport?: () => void; showShelf?: () => void; make?: (idea: string) => void; edit?: (id: string) => void; pick?: (section: string) => void; importNow?: () => void; library?: (q: string) => void };
 export const hooks: Hooks = {};
 /** What the chat asked before the screen was ready. */
-export const pending: { make?: string; edit?: string; library?: string; import?: boolean } = {};
+export const pending: { make?: string; edit?: string; library?: string; import?: boolean; week?: boolean } = {};
 /** A made comic opened in MAKE, whether MAKE is on screen yet or not (on a phone it is built when its pill is picked). */
 function editMade(id: string): void {
   void import('../../shell/tabs').then(({ go }) => {
@@ -670,8 +674,10 @@ export function makePart(): { el: HTMLElement; stop(): void } {
         }, { ghosty: 'Ghosty writes it (my brain)', phone: 'Written here on the phone' }),
         sel('Kind of story', STYLES, idea.style as (typeof STYLES)[number], (v) => (idea.style = v), STYLE_NAMES)),
       h('div.cxrow', make),
+      h('div.cxrow', key('My week as a comic', () => void myWeek(), 'Make a comic of my week from my agenda')),
       h('p.cxsmall', 'Or try one:'), h('div.cxtries', ...tries),
       h('p.cxsmall', 'Ghosty writes the story for your exact idea; the drawing is done on this phone, so every character stays the same panel to panel. With no signal, the phone writes it.'),
+      status,
     );
     comicState.editing.id = '';
   };
@@ -690,9 +696,9 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     paintEditor();
   };
   let writing = 0;
-  const start = async (words = idea.words) => {
+  const start = async (words = idea.words, fallback?: Comic) => {
     const w = words.trim() || 'a cat who wants to be an astronaut';
-    const local = writeComic({ idea: w, hero: idea.hero.trim(), friend: idea.friend.trim(), rival: idea.rival.trim() });
+    const local = fallback ?? writeComic({ idea: w, hero: idea.hero.trim(), friend: idea.friend.trim(), rival: idea.rival.trim() });
     let c = local;
     let by: 'brain' | 'phone' = 'phone';
     let why = '';
@@ -731,12 +737,37 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     paintEditor();
   };
   hooks.make = (w) => void start(w);
+  // his week from his own agenda and ticked to-dos (titles and days only, never a place)
+  const myWeek = async () => {
+    /* state: comic.maker loading */
+    clear(status, stateLine('loading', 'Reading your week from your agenda…'));
+    let events: { title: string; start: number }[] = [];
+    try {
+      events = (await brain.agenda(7)).events;
+    } catch {
+      /* (no agenda in reach: the ticked to-dos still count) */
+    }
+    const items = weekItems(events, loadTodos());
+    comicState.editing.week = items.length;
+    if (!items.length) {
+      /* state: comic.maker empty */
+      clear(status, emptyState('Nothing in your week yet', 'Add something in PLAN → AGENDA, or tick off a to-do, and your week becomes a comic.'));
+      return;
+    }
+    const name = settings.get().name || 'Me';
+    await start(weekIdea(items, name), weekComic(items, name));
+  };
+  hooks.week = () => void myWeek();
   hooks.edit = (id) => void madeOf(id).then((x) => {
     const c = comicFrom(x);
     if (c) show(c, 1);
     else toast('That comic is no longer on this phone.', 'warn');
   });
-  if (pending.make) {
+  if (pending.week) {
+    pending.week = false;
+    paintIdea();
+    void myWeek();
+  } else if (pending.make) {
     const w = pending.make;
     pending.make = undefined;
     void start(w);

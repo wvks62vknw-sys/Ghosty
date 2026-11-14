@@ -13,7 +13,16 @@ export async function comicTurn(text: string): Promise<ComicReply> {
   const { go } = await import('../../shell/tabs');
   const open = (section: string) => go(`comic?${section}`);
   let reply = '';
-  if (ask.what === 'make') {
+  if (ask.what === 'week') {
+    if (app.hooks.week) {
+      open('make');
+      app.hooks.week();
+    } else {
+      app.pending.week = true;
+      open('make');
+    }
+    reply = 'I’m making your week into a comic from your agenda and the to-dos you ticked: a panel a day, open in COMIC → MAKE, kept on this phone. Only the titles and days are used, never where things were.';
+  } else if (ask.what === 'make') {
     const idea = ask.idea || 'a cat who wants to be an astronaut';
     if (app.hooks.make) {
       open('make');

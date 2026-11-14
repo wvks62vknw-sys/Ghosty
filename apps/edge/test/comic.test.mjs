@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 const at = (p) => new URL(p, import.meta.url).pathname;
 const S = '../../web/src/features/comic/';
 await build({
-  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`), script: at(`${S}script.ts`), rar: at(`${S}rar.ts`) },
+  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`), script: at(`${S}script.ts`), rar: at(`${S}rar.ts`), week: at(`${S}week.ts`) },
   outdir: at('./.build/comic/'),
   bundle: true,
   format: 'esm',
@@ -176,4 +176,28 @@ test('Ghosty writes, the app draws: the brain is asked in a plain format with th
   assert.ok(M.comicFrom(JSON.parse(JSON.stringify(c))));
   assert.equal(SC.readScript('TITLE: x\nPAGE\nPANEL: town, day, wide\nHERO: hi', base.cast), null, 'too thin to be a comic');
   assert.equal(SC.readScript('Sorry, I cannot help with that.', base.cast), null);
+});
+
+test('your week as a comic: this week’s events and ticked to-dos, titles and days only, a panel a day and a last word', async () => {
+  const WK = await import(at('./.build/comic/week.js'));
+  const now = new Date(2026, 10, 13, 15, 0).getTime(); // a Friday afternoon
+  const mon = WK.weekStart(now);
+  assert.equal(new Date(mon).getDay(), 1);
+  const at9 = (d) => mon + d * 86_400_000 + 9 * 3_600_000;
+  const items = WK.weekItems([{ title: 'Dentist', start: at9(0) }, { title: 'Gym', start: at9(2) }, { title: 'Team meeting', start: at9(2) }, { title: 'Last week thing', start: at9(-3) }, { title: 'Pizza night', start: at9(5) }], [{ text: 'Call the bank', done: true, doneAt: at9(3) }, { text: 'Not done', done: false }], now);
+  assert.deepEqual(items.map((x) => [x.day, x.title]), [[0, 'Dentist'], [2, 'Gym'], [2, 'Team meeting'], [3, 'ticked off: Call the bank'], [5, 'Pizza night']]);
+  const idea = WK.weekIdea(items, 'Sam');
+  assert.match(idea, /^Sam's week, day by day: Monday: Dentist; Wednesday: Gym, Team meeting; Thursday: ticked off: Call the bank; Saturday: Pizza night\./);
+  const c = WK.weekComic(items, 'Sam', 7);
+  assert.equal(c.title, 'Sam’s Week');
+  assert.deepEqual(c.cast.map((m) => m.name), ['Sam', 'Future Me', 'Monday']);
+  const panels = c.pages.flatMap((p) => p.panels);
+  assert.equal(panels.length, 5, 'a panel for each of the four days, and the last word');
+  assert.match(panels[0].caption, /^Monday: Dentist$/);
+  assert.match(panels[0].balloons[0].text, /Brave face/);
+  assert.match(panels[1].balloons[0].text, /legs/);
+  assert.match(panels[4].caption, /THE END/);
+  assert.ok(M.comicFrom(JSON.parse(JSON.stringify(c))));
+  assert.equal(A.comicAsked('make my week into a comic')?.what, 'week');
+  assert.equal(A.comicAsked('a comic of my week')?.what, 'week');
 });
