@@ -105,6 +105,15 @@ async function open(viewport, o = {}) {
   const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, acceptDownloads: true, ...UK, serviceWorkers: 'block' });
   live.push(ctx);
   await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  // (his agenda is this spec's own: empty, so the week is exactly the to-dos it seeds)
+  // (and his to-do list too: the one list lives in the brain, which keeps what other runs left; here it is exactly this run's)
+  await ctx.route(/\/api\/packs\/do$/, async (route) => {
+    const b = JSON.parse(route.request().postData() ?? '{}');
+    if (b.pack !== 'work' || b.action !== 'todo') return route.continue();
+    const list = (o.todos ?? []).map((t) => ({ ...t, doneAt: Date.now() - t.ago }));
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'ok', data: { list, added: 0 } }) });
+  });
+  await ctx.route(/\/api\/agenda\?/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tz: 'Europe/London', events: [], errors: [], jobs: [], feeds: [] }) }));
   const page = await ctx.newPage();
   page.setDefaultTimeout(10000);
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
@@ -112,6 +121,7 @@ async function open(viewport, o = {}) {
     localStorage.setItem('ghosty.ownerKey', key);
     localStorage.setItem('ghosty.themes1', '1');
     localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world: 'scan', night: 'graphite', switches: body ? { body } : {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
+    if (!todos && !sessionStorage.getItem('seeded')) localStorage.setItem('ghosty.agenda.todo', '[]');
     if (todos && !sessionStorage.getItem('seeded')) {
       sessionStorage.setItem('seeded', '1');
       localStorage.setItem('ghosty.agenda.todo', JSON.stringify(todos.map((t) => ({ ...t, doneAt: Date.now() - t.ago }))));
