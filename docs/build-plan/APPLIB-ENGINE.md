@@ -74,3 +74,18 @@
 ## Left
 - The Library's pinned apps are shown on its own front page as Home cards. Placing them on the Home reactor screen itself is a Home-room change for its owner.
 - A system notification for a reminder while the phone is locked needs the brain's Web Push watcher. Today a reminder is said in the app's notice when it is opened.
+
+## Landings
+- 14:30 `a5cc4d54`: milestone 1 (expr, validate, applib.test, registry).
+- 15:46 `c2a85c7d`: milestone 2 (the renderers, the Apps screen, glyphs, Ghosty's screens, open by name, the applib spec and its word).
+- 16:31 `3c2155b2`: polish:
+  - deck.spec counts Apps;
+  - the hub card's readout fits;
+  - the Jump bar takes "open <app>" typed whole;
+  - calendar days and the back key are drawn plain;
+  - check.yml's leftover merge-marker line is gone.
+
+## Seen in targeted runs, not this lane's
+- The tabs and tabs2 specs: the People pills now include GIFTS and KEEP IN TOUCH (the MEMORY lane was told), and "[finding] could not tap #pg-area-learn .hubtile[data-id=gym]".
+- The brain suite's backup test: "the backup takes ghosty.people.groups" (the People lane's new store).
+- The web typecheck: catalogue/learn.ts has five errors (the CAT-C lane was told).
