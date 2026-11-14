@@ -70,6 +70,11 @@ const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"
 
 let whisper = false;
 let conversation = false;
+/**
+ * He ended it (a tap on the mic, the conversation over, the microphone let go): the mic key reads its resting state at once, even while
+ * the ear is still winding down (on a slow phone the listen's own end comes a little later). A new listen clears it.
+ */
+let letGo = false;
 /** Which voice conversation this is (a tap on the mic starts a new one): a turn of an earlier one finishing late never carries on in it. */
 let convoId = 0;
 /**
@@ -240,6 +245,7 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
  */
 export function listenNow(): void {
   if (conversation) return;
+  letGo = false;
   micNote = '';
   endedNote = false;
   conversation = true;
@@ -260,6 +266,7 @@ export function listenNow(): void {
  */
 function converseAfterSpeech(): void {
   if (conversation) return;
+  letGo = false;
   conversation = true;
   quiet = 0;
   document.querySelector('#mic')?.classList.add('on');
@@ -285,6 +292,7 @@ function untilFree(live: () => boolean): Promise<void> {
 /** The voice conversation is over (quiet, or something went wrong): the microphone off, its button and the state line say so. */
 function endConversation(): void {
   conversation = false;
+  letGo = true;
   holdMic(false);
   document.querySelector('#mic')?.classList.remove('on');
   ui.set({}); // repaints the state line: no longer READY
@@ -699,6 +707,7 @@ export const coreTab: TabDef = {
     // The app hidden ends the voice conversation: the microphone is let go (voice.ts) and not taken again.
     onMicReleased(() => {
       conversation = false;
+      letGo = true;
       mic.classList.remove('on');
       paintTalk();
     });
@@ -707,6 +716,7 @@ export const coreTab: TabDef = {
       if (interrupt('tap') && conversation) return;
       if (conversation) {
         conversation = false;
+        letGo = true;
         holdMic(false);
         stopListening();
         mic.classList.remove('on');
@@ -883,12 +893,15 @@ export const coreTab: TabDef = {
       talkline.dataset.state = st;
       if (talkSay.textContent !== words) talkSay.textContent = words;
       talkStop.hidden = st !== 'speaking';
-      const on = u.voice === 'listening' || conversation;
+      // (his tap ends it at once: the key never waits on the ear winding down, which a slow phone takes a moment over)
+      const on = conversation || (u.voice === 'listening' && !letGo);
       mic.setAttribute('aria-pressed', String(on));
       mic.setAttribute('aria-label', on ? 'Stop listening' : 'Talk by voice');
     };
     ui.subscribe((u, prev) => {
       if (u.voice === 'listening' && prev.voice !== 'listening') {
+        // (a listen that starts afresh is not the one he ended)
+        if (!conversation) letGo = false;
         /* state: core.talk loading */
         liveAtListen = chat.get().live;
         listenSince = Date.now();

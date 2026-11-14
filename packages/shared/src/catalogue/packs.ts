@@ -133,7 +133,7 @@ export const PACK_WORDS: Record<string, CatValue> = {
   },
   'act:body:water': {
     name: 'Water, sleep, steps, weight and mood', line: 'You can tell me a glass, a mug, a bottle or a pint, your sleep, steps, weight or mood, and I keep it on your phone.',
-    more: 'Each is its own screen on BODY: today’s ring, the week and month as a chart, your streak. The water goal is worked out from your weight and the day’s heat, a first estimate. Water nudges come only in your nudge hours, never in your quiet hours, and stop once you’re on track. Nothing leaves the phone; not medical advice.',
+    more: 'Each is its own screen on BODY: today’s ring, the week and month as a chart, your streak. The water goal is worked out from your weight and the day’s heat, a first estimate. Water nudges come only in your nudge hours, never in your quiet hours, and stop once you’re on track; they reach the lock screen through my push, which gets only the times, never your amounts. Not medical advice.',
     say: ['I drank a pint', 'Log a glass of water', 'How much have I drunk?', 'I slept 7 and a half hours'], scene: ['morning', 'watching', 'phone'], cat: 'do', since: SINCE,
     go: { run: 'open_body', args: { what: 'water' } }, tryText: 'Opens today’s water',
   },
@@ -190,11 +190,17 @@ export const PACK_WORDS: Record<string, CatValue> = {
   },
   'act:kitchen:recipe': {
     name: 'A recipe step by step', line: 'I can give you a dish’s whole recipe: what you need and every step.',
-    more: 'From TheMealDB’s free recipes or my own list, with how long it takes. Say the dish. KITCHEN → PANTRY keeps your fridge, freezer and cupboard with use-by dates; RECIPES keeps your own, scales them, cooks them step by step with a timer, and puts first what you have.',
+    more: 'From TheMealDB’s free recipes or my own list, with how long it takes. Say the dish. KITCHEN → PANTRY keeps your fridge, freezer and cupboard with use-by dates; RECIPES keeps your own, scales them, cooks them step by step with a timer (HANDS-FREE reads each step out), imports one from a link (IMPORT FROM A LINK), and puts first what you have.',
     say: ['How do I make a chicken curry?', 'Open my recipes', 'Add milk to the fridge'], scene: ['making'], cat: 'do', since: SINCE,
     go: { run: 'open_kitchen', args: { what: 'recipes' } }, tryText: 'Opens your recipe book',
   },
   'phrase:larder': { same: 'act:kitchen:recipe' },
+  'phrase:bodycoach': {
+    name: 'Kitchen and body coach', line: 'You can plan the week from your recipes, put what the pantry lacks on the list, and keep your tablets with lock-screen reminders.',
+    more: 'KITCHEN → MEAL PLAN: FILL THE EMPTY DAYS from your book, then SHOPPING FOR THE WEEK adds what is missing, each once. BODY → Health → TABLETS: each reminder is on my brain’s clock so it reaches a locked phone, with only the time; ticks and the refill countdown stay on the phone. BODY → Health → YOUR WEEK: the week side by side with your best day, a rough sleep score, a wind-down nudge, and patterns told as what happened. Never medical advice.',
+    say: ['Plan my dinners', 'Shopping for the week', 'I took my tablets', 'How was my body this week?'], scene: ['making', 'morning', 'phone'], cat: 'do', since: SINCE,
+    go: { run: 'open_kitchen', args: { what: 'plan' } }, tryText: 'Opens the meal plan',
+  },
   'act:kitchen:shop': {
     name: 'Your shopping list', line: 'You can add to your shopping list by voice, tick things off on the phone, and send it as text.',
     more: 'Kept in your brain. "Add milk and eggs to the list", "tick the milk", SHARE AS TEXT to send it to someone. Clear the ticked ones when you are home.',
@@ -211,7 +217,7 @@ export const PACK_WORDS: Record<string, CatValue> = {
   'phrase:timer': { same: 'act:kitchen:timer' },
   'act:kitchen:barcode': {
     name: 'What is in a packet', line: 'I can read a packet’s barcode and tell you its name, ingredients and allergens.',
-    more: 'From Open Food Facts, free. Nothing is kept unless you ask me to add it to your shopping list.',
+    more: 'From Open Food Facts, free. Nothing is kept unless you ask me to add it to your shopping list. KITCHEN → PANTRY → SCAN A PACKET fills the pantry from a photo of its barcode, with where it goes and a rough use-by for you to change.',
     say: ['What allergens are in this? (scan it)'], scene: ['camera', 'making'], cat: 'do', since: SINCE,
     go: { run: 'open_lens', args: { mode: 'scan' } }, tryText: 'Opens the Lens on SCAN',
   },

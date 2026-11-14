@@ -387,6 +387,13 @@ test('the .pptx writer: layouts, pictures, links, notes and a deck of nothing ar
   assert.deepEqual(trBack.deck.slides.map((s) => s.transition), tr.slides.map((s) => s.transition), 'each slide’s transition comes back');
   assert.deepEqual(trBack.deck.slides.map((s) => !!s.skip), tr.slides.map((s) => !!s.skip), 'the skipped slide comes back skipped, the others shown');
   assert.ok(!trBack.lost.some((x) => /transition/.test(x)), 'nothing said lost for a transition we know');
+  // MAGIC MOVE is written as PowerPoint's Morph (with its fade fallback) and comes back as MAGIC MOVE
+  const mm = { ...d, slides: d.slides.map((s, i) => ({ ...s, transition: i === 1 ? 'morph' : 'none' })) };
+  const mmBytes = K.writePptx(mm, { measure: K.approx });
+  packageChecks(mmBytes, mm);
+  const slide2 = dec.decode(parts(mmBytes).get('ppt/slides/slide2.xml'));
+  assert.match(slide2, /<mc:AlternateContent[^>]*><mc:Choice [^>]*Requires="p159"><p:transition spd="slow"><p159:morph option="byObject"\/><\/p:transition><\/mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade\/><\/p:transition>/);
+  assert.deepEqual((await K.readPptx(mmBytes, 'm.pptx', keepFake)).deck.slides.map((s) => s.transition), mm.slides.map((s) => s.transition), 'Morph comes back as MAGIC MOVE');
   // a deck with no slides at all is still a package
   const none = K.writePptx(K.newDeck('Empty', []));
   assert.ok(parts(none).has('ppt/presentation.xml'));
@@ -402,6 +409,64 @@ test('the .pptx writer: layouts, pictures, links, notes and a deck of nothing ar
   // not a presentation: a Word file, a damaged zip and plain bytes
   assert.equal(await K.readPptx(new Uint8Array([1, 2, 3, 4]), 'a.pptx', keepFake), null);
   assert.equal(await K.readPptx(Z.zipStore([{ name: 'word/document.xml', data: '<w/>' }]), 'a.pptx', keepFake), null);
+});
+
+test('slide builds are PowerPoint animations: written in p:timing after p:transition, and read back the same', async () => {
+  const s = K.addShape(K.newSlide('bullets', { title: block('h1', 'Builds'), body: K.bullets(['one', 'two']), transition: 'fade' }), 'round');
+  let b = K.setBuild(s, 'title', 'appear');
+  b = K.setBuild(b, 'body', 'fade');
+  b = K.setBuild(b, 'shape0', 'rise');
+  const d = K.newDeck('Builds', [b, K.newSlide('title', { title: block('h1', 'None') })]);
+  const bytes = K.writePptx(d, { measure: K.approx });
+  packageChecks(bytes, d);
+  const xml = dec.decode(parts(bytes).get('ppt/slides/slide1.xml'));
+  const root = K.parseXml(xml);
+  const order = K.kids(root).map((k) => k.n);
+  assert.deepEqual(order, ['cSld', 'clrMapOvr', 'transition', 'timing'], 'p:transition before p:timing, as the schema orders them');
+  // each build is its own click, with PowerPoint's preset: Appear 1, Fade 10, Fly In 2 from the bottom (4)
+  const effects = K.findAll(root, 'cTn').filter((c) => c.a.presetClass === 'entr').map((c) => [c.a.presetID, c.a.presetSubtype, c.a.nodeType]);
+  assert.deepEqual(effects, [['1', '0', 'clickEffect'], ['10', '0', 'clickEffect'], ['2', '4', 'clickEffect']]);
+  const ids = K.findAll(root, 'cTn').map((c) => c.a.id);
+  assert.equal(new Set(ids).size, ids.length, 'every timing node has its own id');
+  // every target is a shape on the slide; text shapes are in the build list
+  const spids = new Set(K.findAll(root, 'cNvPr').map((c) => c.a.id));
+  for (const t of K.findAll(root, 'spTgt')) assert.ok(spids.has(t.a.spid), `the target ${t.a.spid} is on the slide`);
+  assert.deepEqual(K.findAll(root, 'bldP').map((x) => x.a.grpId), ['0', '0'], 'the title and the text are in the build list');
+  assert.ok(/<p:animEffect transition="in" filter="fade">/.test(xml) && /<p:attrName>ppt_y<\/p:attrName>/.test(xml));
+  assert.ok(!dec.decode(parts(bytes).get('ppt/slides/slide2.xml')).includes('p:timing'), 'a slide with no builds has no timing');
+  // read back: the same builds, nothing said lost
+  const back = await K.readPptx(bytes, 'b.pptx', keepFake);
+  assert.deepEqual(back.deck.slides[0].builds, b.builds);
+  assert.deepEqual(back.deck.slides[1].builds, []);
+  assert.ok(!back.lost.some((x) => /animation|builds/.test(x)), back.lost.join('; '));
+  // the reader alone: a direct p:timing, one inside mc:AlternateContent, PowerPoint's other entrances as the nearest build, an exit said
+  assert.equal(K.animOfPreset(1), 'appear');
+  assert.equal(K.animOfPreset(10), 'fade');
+  assert.equal(K.animOfPreset(2), 'rise');
+  assert.equal(K.animOfPreset(53), 'fade', 'Grow and Turn comes in as a fade');
+  const wrapped = K.parseXml(`<p:sld xmlns:p="p" xmlns:mc="mc"><mc:AlternateContent><mc:Choice Requires="p14">${K.timingXml([{ spid: 5, how: 'rise', text: false }])}</mc:Choice></mc:AlternateContent></p:sld>`);
+  assert.deepEqual(K.readTiming(K.timingOf(wrapped)), { builds: [{ spid: 5, how: 'rise' }], other: false });
+  const exit = K.parseXml('<p:timing xmlns:p="p"><p:cTn presetID="10" presetClass="exit"><p:spTgt spid="2"/></p:cTn><p:cTn presetID="10" presetClass="entr"><p:spTgt spid="3"/></p:cTn><p:cTn presetID="1" presetClass="entr"><p:spTgt spid="3"/></p:cTn></p:timing>');
+  assert.deepEqual(K.readTiming(exit), { builds: [{ spid: 3, how: 'fade' }], other: true }, 'an exit is said; each shape keeps its first entrance');
+  assert.equal(K.timingXml([]), '');
+  // a file whose builds come in out of the slide's order: kept top to bottom, and said
+  const files = parts(bytes);
+  const spidsOf = [...xml.matchAll(/<p:cNvPr id="(\d+)" name="(Title|Text)"/g)].map((m) => Number(m[1]));
+  files.set('ppt/slides/slide1.xml', new TextEncoder().encode(xml.replace(/<p:timing>.*<\/p:timing>/, K.timingXml([{ spid: spidsOf[1], how: 'fade', text: true }, { spid: spidsOf[0], how: 'appear', text: true }]))));
+  const rev = await K.readPptx(Z.zipStore([...files].map(([name, data]) => ({ name, data }))), 'r.pptx', keepFake);
+  assert.deepEqual(rev.deck.slides[0].builds, [{ el: 'title', how: 'appear' }, { el: 'body', how: 'fade' }]);
+  assert.ok(rev.lost.some((x) => /order of the builds \(they come in top to bottom here\) on slide 1/.test(x)), rev.lost.join('; '));
+});
+
+test('REPLACE keeps the capitals of what it replaces, unless he typed his own', () => {
+  assert.equal(K.keepCase('Apples', 'pears'), 'Pears');
+  assert.equal(K.keepCase('APPLES', 'pears'), 'PEARS');
+  assert.equal(K.keepCase('apples', 'pears'), 'pears');
+  assert.equal(K.keepCase('Apples', 'iPhone'), 'iPhone', 'his own capitals are kept as typed');
+  assert.equal(K.keepCase('A', 'the'), 'The', 'one capital letter is a capitalised word, not shouting');
+  assert.equal(K.keepCase('“Apples', 'pears'), 'Pears');
+  assert.equal(K.keepCase('42', 'pears'), 'pears');
+  assert.equal(K.keepCase('Apples', ''), '');
 });
 
 test('a hand-built .pptx (not our writer’s) is read: its words, notes, table and picture kept, and what it could not keep said', async () => {
@@ -430,7 +495,10 @@ test('a hand-built .pptx (not our writer’s) is read: its words, notes, table a
   // what it could not keep, each said
   assert.ok(lost.some((x) => /video on slide 1/.test(x)), lost.join('; '));
   assert.ok(lost.some((x) => /chart on slide 2/.test(x)), lost.join('; '));
-  assert.ok(lost.some((x) => /animations on slide 2/.test(x)), lost.join('; '));
+  assert.ok(lost.some((x) => /emphasis or exit animations on slide 2/.test(x)), lost.join('; '));
+  // its entrances (inside mc:AlternateContent) come in as builds: the title's fade, the bullets' fly-in; the table's spin does not
+  assert.deepEqual(b.builds, [{ el: 'title', how: 'fade' }, { el: 'body', how: 'rise' }], 'PowerPoint’s Fade and Fly In are FADES IN and RISES IN');
+  assert.deepEqual(a.builds, [], 'a slide with no timing has no builds');
   assert.ok(lost.some((x) => /transition on slide 2/.test(x)), lost.join('; '));
   assert.ok(deck.slides.every((s) => s.transition === 'none'), 'a wipe it has no word for is not passed off as another');
   assert.ok(!lost.some((x) => /picture/.test(x)), 'the picture was kept');

@@ -136,6 +136,11 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
   game.on('console', (c) => (c.type() === 'error' || /Content Security Policy|Refused/.test(c.text())) && gameErrors.push(c.text()));
   await game.goto(link, { waitUntil: 'load' });
   check(await until(game, () => document.querySelector('.gpEnd button'), null, 10000), `${W}: (f) the page opens on its own title card`);
+  // (q) its front page (NEXT ROUND sites.u11): its name, how to play, its rooms as pictures; PLAY takes it away
+  const front = await game.evaluate(() => { const f = document.getElementById('front'); return f ? { h1: f.querySelector('h1')?.textContent ?? '', how: f.querySelectorAll('ul li').length, rooms: f.querySelectorAll('.rooms img[src^="data:image/png;base64,"]').length, play: f.querySelector('button.play')?.offsetHeight ?? 0 } : null; });
+  check(!!front && front.h1 === name && front.how >= 2 && front.rooms >= 1 && front.play >= 44, `${W}: (q) the game opens on its front page: ${JSON.stringify(front)}`);
+  await game.click('#front button.play');
+  check(await until(game, () => !document.getElementById('front'), null, 5000), `${W}: (q) PLAY takes the front page away, onto the game's own title card`);
   const words = await game.$$eval('.gpEnd button', (b) => b.map((x) => x.textContent));
   check(words.includes('Play') && !words.includes('Continue'), `${W}: (f) a first visit has PLAY and no CONTINUE (${words.join(', ')})`);
   await game.click('.gpEnd button');
@@ -157,6 +162,7 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
   check(keys.includes(`ghosty-site:${slug}`) && !keys.some((k) => k.startsWith('ghostygame:')), `${W}: (g) the page keeps no save but its own key (${keys.join(', ')})`);
   await game.reload({ waitUntil: 'load' });
   check(await until(game, () => [...document.querySelectorAll('.gpEnd button')].some((b) => b.textContent === 'Continue'), null, 10000), `${W}: (g) after a reload its save is there: CONTINUE`);
+  check(!(await game.evaluate(() => !!document.getElementById('front'))), `${W}: (q) the front page shows once: after a reload the game opens on its title card`);
   await game.evaluate(() => [...document.querySelectorAll('.gpEnd button')].find((b) => b.textContent === 'Continue')?.click());
   check(await until(game, () => document.querySelector('.gpPad'), null, 8000), `${W}: (g) CONTINUE plays on from the save`);
 
@@ -177,6 +183,23 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
   await game.reload({ waitUntil: 'load' }).catch(() => undefined);
   check(await until(game, () => [...document.querySelectorAll('.gpEnd button')].some((b) => b.textContent === 'Continue'), null, 10000), `${W}: (h) offline it opens, with CONTINUE`);
   await ctx.setOffline(false);
+
+  // (r) its high scores (NEXT ROUND sites.u10): kept on this phone under the game's own key, highest first, 44 pt keys, a picture to share
+  await game.evaluate((s) => localStorage.setItem(`ghosty-site:${s}:scores`, JSON.stringify([{ score: 120, won: false, at: Date.UTC(2026, 10, 12) }, { score: 470, won: true, at: Date.UTC(2026, 10, 13) }, { score: 60, won: false, at: Date.UTC(2026, 10, 14) }])), slug);
+  await game.reload({ waitUntil: 'load' });
+  check(await until(game, () => [...document.querySelectorAll('.gpEnd button')].some((b) => b.textContent === 'High scores'), null, 10000), `${W}: (r) the title card has HIGH SCORES once a score is kept`);
+  await game.evaluate(() => [...document.querySelectorAll('.gpEnd button')].find((b) => b.textContent === 'High scores')?.click());
+  const tableOf = await game.evaluate(() => ({ rows: [...document.querySelectorAll('.gpTop li b')].map((b) => Number(b.textContent)), note: document.querySelector('.gpScores p')?.textContent ?? '', keys: [...document.querySelectorAll('.gpScores button')].map((b) => [b.textContent, b.offsetHeight]), wide: document.documentElement.scrollWidth > innerWidth + 1 }));
+  check(JSON.stringify(tableOf.rows) === '[470,120,60]' && /this phone only/.test(tableOf.note), `${W}: (r) the table: highest first, kept on this phone only (${tableOf.rows.join(', ')})`);
+  check(tableOf.keys.length === 2 && tableOf.keys.every(([, hgt]) => hgt >= 44) && !tableOf.wide, `${W}: (r) SHARE MY BEST and BACK at 44 pt, nothing sideways (${JSON.stringify(tableOf.keys)})`);
+  const dl = game.waitForEvent('download', { timeout: 8000 }).catch(() => null);
+  await game.evaluate(() => [...document.querySelectorAll('.gpScores button')].find((b) => b.textContent === 'Share my best')?.click());
+  const shareSaid = (await until(game, () => /^(Shared|Not shared|Saved as a picture)\./.test(document.querySelector('.gpScores p')?.textContent ?? ''), null, 8000)) ? await game.evaluate(() => document.querySelector('.gpScores p').textContent) : '';
+  const got = /Saved as a picture/.test(String(shareSaid)) ? await dl : null;
+  const cardPng = got ? await (await import('node:fs/promises')).readFile(await got.path()) : null;
+  check(!!shareSaid && (!/Saved as a picture/.test(String(shareSaid)) || (cardPng?.[1] === 80 && cardPng.readUInt32BE(16) === 1080)), `${W}: (r) SHARE MY BEST hands over a 1080 px picture of the best score (${shareSaid}${cardPng ? `, ${cardPng.length} bytes` : ''})`);
+  await game.evaluate(() => [...document.querySelectorAll('.gpScores button')].find((b) => b.textContent === 'Back')?.click());
+  check(await until(game, () => [...document.querySelectorAll('.gpEnd button')].some((b) => b.textContent === 'Continue'), null, 5000), `${W}: (r) BACK returns to the title card`);
   check(gameErrors.length === 0, `${W}: (f) the page runs with no error and no policy refusal${gameErrors.length ? `: ${gameErrors[0]}` : ''}`);
   await game.close();
 

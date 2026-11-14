@@ -20,6 +20,32 @@ interface El {
   w: number;
   h: number;
   dur: number;
+  /** NEXT ROUND (editors.s5): a still photo as a clip: `v` is a canvas holding the picture, with a video's few fields so the player and the export treat it as a clip that never moves. */
+  still?: boolean;
+}
+
+/** How long a still photo's own "source" lasts: ten minutes, so a photo clip can be trimmed to any length a film needs. */
+export const STILL_MS = 600_000;
+/** A still photo's clip when it is first laid on the timeline. */
+export const STILL_CLIP_MS = 3000;
+/** Is this file a still photo (a clip that never moves)? */
+export const isStill = (b: Blob | File): boolean => /^image\//.test(b.type) || /\.(jpe?g|png|webp|heic|gif)$/i.test((b as File).name ?? '');
+
+/** A still photo as an element the player can treat as a paused video: a canvas of the picture (at most 2,048 px a side) with a video's fields. */
+async function stillEl(blob: Blob): Promise<El> {
+  const bmp = await createImageBitmap(blob);
+  const k = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(2, Math.round(bmp.width * k));
+  c.height = Math.max(2, Math.round(bmp.height * k));
+  c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close();
+  const fake = Object.assign(c, {
+    paused: true, seeking: false, readyState: 4, currentTime: 0, playbackRate: 1, duration: STILL_MS / 1000, videoWidth: c.width, videoHeight: c.height, muted: true,
+    play: () => Promise.resolve(),
+    pause: () => undefined,
+  });
+  return { v: fake as unknown as HTMLVideoElement, url: '', w: c.width, h: c.height, dur: STILL_MS, still: true };
 }
 
 const once = (el: EventTarget, ok: string, bad = 'error', ms = 8000): Promise<void> =>
@@ -53,6 +79,16 @@ export class Feeder {
   async open(id: string, blob: Blob): Promise<{ w: number; h: number; dur: number }> {
     const old = this.els.get(id);
     if (old) return old;
+    if (isStill(blob)) {
+      try {
+        const e = await stillEl(blob);
+        this.els.set(id, e);
+        return e;
+      } catch (e) {
+        trail(e, 'open a photo in the preview');
+        throw new Error('Your phone can’t read this photo; a JPEG or PNG works.');
+      }
+    }
     const v = document.createElement('video');
     v.muted = true;
     v.playsInline = true;
@@ -91,7 +127,7 @@ export class Feeder {
   /** Seek an element to `ms` of its source and wait for the frame (unless it is already within half a frame). */
   async seek(id: string, ms: number): Promise<void> {
     const e = this.els.get(id);
-    if (!e) return;
+    if (!e || e.still) return;
     const want = Math.min(Math.max(0, ms / 1000), Math.max(0, e.v.duration - 0.001));
     if (!e.v.seeking && Math.abs(e.v.currentTime - want) < 0.012 && e.v.readyState >= 2) return;
     // [ci] 'seeked' says the element is at its time, not that its new picture is up: drawn straight after it, a slow decoder (CI's,
@@ -114,7 +150,7 @@ export class Feeder {
     if (!e) return;
     e.v.pause();
     e.v.remove();
-    URL.revokeObjectURL(e.url);
+    if (e.url) URL.revokeObjectURL(e.url);
     this.els.delete(id);
   }
   pauseAll(except?: Set<string>): void {
@@ -138,6 +174,7 @@ export async function probe(file: Blob, name: string, id: string): Promise<{ src
     c.height = Math.max(2, Math.round(m.h * k));
     c.getContext('2d')!.drawImage(e.v, 0, 0, c.width, c.height);
     const poster = await new Promise<Blob | null>((ok) => c.toBlob(ok, 'image/jpeg', 0.7));
+    if (e.still) return { src: { id, name, kind: 'image', size: file.size, dur: STILL_MS, w: m.w, h: m.h, fps: 30, hasAudio: false }, poster };
     let hasAudio = false;
     const ac = new (window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     try {

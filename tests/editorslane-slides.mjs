@@ -61,11 +61,11 @@ export default async function (h) {
   await page.fill('.slfindp input[type=search]', 'apples');
   await page.fill('.slfindp input[type=text]', 'pears');
   await page.locator('.slfindp button', { hasText: /^REPLACE ALL$/ }).click();
-  check(await until(page, () => window.__ghosty.slides.found.changed === 11 && window.__ghosty.slides.slides[0].title === 'pears, part 1' && window.__ghosty.slides.slides[4].notes === 'Mention the pears here'), 'slides 2: REPLACE ALL changes all 11, titles and notes');
+  check(await until(page, () => window.__ghosty.slides.found.changed === 11 && window.__ghosty.slides.slides[0].title === 'Pears, part 1' && window.__ghosty.slides.slides[4].notes === 'Mention the pears here'), 'slides 2: REPLACE ALL changes all 11, titles and notes, keeping each one’s capitals (Apples → Pears, apples → pears)');
   await key(page, 'UNDO').click();
   check(await until(page, () => window.__ghosty.slides.slides[0].title === 'Apples, part 1' && window.__ghosty.slides.slides[4].notes === 'Mention the apples here'), 'slides 2: UNDO puts every one back');
   await key(page, 'REDO').click();
-  check(await until(page, () => window.__ghosty.slides.slides[90].title === 'pears, part 10'), 'slides 2: REDO changes them again');
+  check(await until(page, () => window.__ghosty.slides.slides[90].title === 'Pears, part 10'), 'slides 2: REDO changes them again');
 
   // 3. SKIP IN THE TALK
   await card(page, 1).click();

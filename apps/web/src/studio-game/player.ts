@@ -6,8 +6,9 @@
  * (where it may keep one), and sound from a few oscillators. It asks for nothing from the network.
  */
 import { drawPlay } from './draw';
-import { type Game, hardProblems, readGame } from './model';
-import { buy, closeSheet, drain, dropItem, newPlay, nextLine, type Play, questLine, sell, snap, step, STEP, useItem, walk } from './play';
+import { type Game, hardProblems, readGame, themeOf } from './model';
+import { buy, closeSheet, drain, dropItem, newPlay, nextLine, type Play, questLine, scoreOf, sell, snap, step, STEP, useItem, walk } from './play';
+import { addScore, dayOf, drawCard, readScores, type Score, scoreLine, scoresKey, shareCard } from './scores';
 import { startTune, tuneOf } from './tune';
 
 const $ = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = ''): HTMLElementTagNameMap[K] => {
@@ -34,6 +35,8 @@ export interface PlayerOpts {
   /** What a save said, said once ("Saved"). */
   onSave?(): void;
   onEnd?(won: boolean): void;
+  /** [sites] sites.u10: a high-score table kept on this phone (the page's own storage); the editor's PLAY keeps none. */
+  scores?: { get(): Score[]; put(list: Score[]): void };
 }
 export interface PlayerHandle {
   /** From the start (or from `at`), as RESET does. */
@@ -217,6 +220,8 @@ export function mountPlayer(o: PlayerOpts): PlayerHandle {
       if (has) list.push(['Continue', () => begin(has), 'Continue from your last save point']);
       list.push([has ? 'New game' : 'Play', () => begin(null), 'Start from the beginning']);
     }
+    const kept = o.scores?.get() ?? [];
+    if (kept.length && !bad) list.push(['High scores', () => table(kept, null, () => void title()), 'Your high scores on this phone']);
     list.push([`Sound: ${sound ? 'on' : 'off'}`, () => ((sound = !sound), void title()), 'Turn the sound on or off']);
     screen(game.name, bad ? bad.text : game.maker ? `A game by ${game.maker}.` : 'A game made in Ghosty’s game studio.', list);
   };
@@ -225,7 +230,60 @@ export function mountPlayer(o: PlayerOpts): PlayerHandle {
     music(false);
     const won = run.over === 'won';
     o.onEnd?.(won);
-    screen(won ? 'You did it' : 'Game over', run.why || (won ? 'Every quest is done.' : 'Out of lives.'), [['Play again', () => begin(null)], ...(o.title ? ([['Menu', () => void title()]] as [string, () => void][]) : [])]);
+    let said = '';
+    let after: (() => void) | null = null;
+    if (o.scores) {
+      // [sites] sites.u10: the run goes in this phone's table, and the line says where it landed
+      const s: Score = { score: scoreOf(run), won, at: Date.now() };
+      const { list, place } = addScore(o.scores.get(), s);
+      o.scores.put(list);
+      said = ` ${scoreLine(s, list, place)}`;
+      after = () => table(list, place ? s : null, endScreen);
+    }
+    const endScreen = () =>
+      screen(won ? 'You did it' : 'Game over', (run.why || (won ? 'Every quest is done.' : 'Out of lives.')) + said, [
+        ['Play again', () => begin(null)],
+        ...(after ? ([['High scores', after, 'Your high scores on this phone']] as [string, () => void, string][]) : []),
+        ...(o.title ? ([['Menu', () => void title()]] as [string, () => void][]) : []),
+      ]);
+    endScreen();
+  };
+  // [sites] sites.u10: the top ten on this phone, the run just played marked, and a picture of the best to share
+  const table = (list: Score[], mark: Score | null, back: () => void) => {
+    clearLayer();
+    const d = $('div', 'gpEnd gpScores');
+    const note = $('p', '', 'Kept on this phone only.');
+    const ol = $('ol', 'gpTop');
+    for (const s of list) {
+      const li = $('li', s === mark ? 'me' : '');
+      li.append($('b', '', String(s.score)), $('span', '', ` ${dayOf(s.at)}${s.won ? ', finished' : ''}`));
+      ol.append(li);
+    }
+    d.append($('h2', '', 'High scores'), note, ol);
+    const best = list[0];
+    const keys: [string, () => void, string][] = [['Back', back, 'Back']];
+    if (best)
+      keys.unshift([
+        'Share my best',
+        () => {
+          const c = document.createElement('canvas');
+          drawCard(c, game.name, best, themeOf(game.palette).sky[0] ?? 'black');
+          void shareCard(c, game.name).then((t) => (note.textContent = t));
+        },
+        `Share a picture of your best score, ${best.score}`,
+      ]);
+    for (const [label, act, aria] of keys) {
+      const b = $('button', '', label);
+      b.type = 'button';
+      b.setAttribute('aria-label', aria);
+      b.addEventListener('click', (e) => {
+        e.preventDefault();
+        wake();
+        act();
+      });
+      d.append(b);
+    }
+    layer.append(d);
   };
 
   // ---- the dialogue box and the sheets
@@ -397,6 +455,25 @@ function boot(): void {
   const el = document.getElementById('game');
   const key = el?.dataset.save || `ghostygame:${read.game.id}`;
   const sw = el?.dataset.sw ?? '';
+  // [sites] a published game's front page (gamesite.ts): PLAY takes it away and the game's own title card is there
+  // shown once on a phone: after the first PLAY the game opens straight on its title card (remembered under its own key)
+  const front = document.getElementById('front');
+  const seenKey = `${key}:front`;
+  let seen = false;
+  try {
+    seen = localStorage.getItem(seenKey) === '1';
+  } catch {
+    /* the page may keep nothing: the front page shows each time */
+  }
+  if (front && seen) front.remove();
+  front?.querySelector('button.play')?.addEventListener('click', () => {
+    front.remove();
+    try {
+      localStorage.setItem(seenKey, '1');
+    } catch {
+      /* kept for this visit only */
+    }
+  });
   if (sw && el?.dataset.scope && 'serviceWorker' in navigator) navigator.serviceWorker.register(sw, { scope: el.dataset.scope }).catch(() => undefined);
   const store = (): Storage | null => {
     try {
@@ -405,11 +482,28 @@ function boot(): void {
       return null;
     }
   };
+  const sk = scoresKey(key);
   mountPlayer({
     game: read.game,
     canvas,
     ui,
     title: true,
+    scores: {
+      get: () => {
+        try {
+          return readScores(store()?.getItem(sk) ?? null);
+        } catch {
+          return [];
+        }
+      },
+      put: (list) => {
+        try {
+          store()?.setItem(sk, JSON.stringify(list));
+        } catch {
+          /* the page may keep nothing: the table lasts this visit */
+        }
+      },
+    },
     saves: {
       get: async () => {
         try {

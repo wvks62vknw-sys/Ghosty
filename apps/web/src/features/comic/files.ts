@@ -182,6 +182,32 @@ export async function pdfOf(title: string, pages: Blob[]): Promise<Uint8Array> {
   return writePdf(out, { title, author: 'Ghosty Comics' });
 }
 
+/** A booklet to print: `pics` (a multiple of four, JPEG) two to a landscape A4 side, in saddle-stitch order. */
+export async function bookletOf(title: string, pics: Blob[]): Promise<Uint8Array> {
+  const n = pics.length;
+  const imgs: NonNullable<ReturnType<typeof jpegImage>>[] = [];
+  for (const p of pics) {
+    const img = jpegImage(new Uint8Array(await p.arrayBuffer()));
+    if (!img) throw inHisWords('A page could not go into the booklet.');
+    imgs.push(img);
+  }
+  const W = 841.89;
+  const H = 595.28;
+  const half = (img: NonNullable<ReturnType<typeof jpegImage>>, right: boolean) => {
+    const box = { x: right ? W / 2 : 0, y: 0, w: W / 2, h: H };
+    const k = Math.min(box.w / img.w, box.h / img.h);
+    const w = img.w * k;
+    const hh = img.h * k;
+    return { img, x: box.x + (right ? 0 : box.w - w), y: (H - hh) / 2, w, h: hh };
+  };
+  const sides = [];
+  for (let s = 0; s < n / 4; s++) {
+    sides.push({ w: W, h: H, images: [half(imgs[n - 1 - 2 * s]!, false), half(imgs[2 * s]!, true)] });
+    sides.push({ w: W, h: H, images: [half(imgs[2 * s + 1]!, false), half(imgs[n - 2 - 2 * s]!, true)] });
+  }
+  return writePdf(sides, { title: `${title} (booklet)`, author: 'Ghosty Comics' });
+}
+
 // ---------------------------------------------------------------- the guided view's panels, found on any page
 /** The panels on a page picture, as [x, y, w, h] fractions in reading order (left to right, top to bottom; right to left for manga). */
 export function findPanels(data: ImageData, rtl = false): [number, number, number, number][] {

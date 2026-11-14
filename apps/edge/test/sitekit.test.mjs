@@ -39,6 +39,8 @@ const PHOTO = K.commons('4/4d/Barber_cutting_hair_with_comb._Back_view_of_man_in
 const FULL = {
   request: 'build a website for my barber shop in Walsall',
   kind: 'barber',
+  // [sites] a start, so the add-to-calendar block (NEXT ROUND sites.s1) draws with every other block
+  start: '2026-12-05T19:30',
   name: 'Fade & Co. Barbers',
   town: 'Walsall',
   address: '27 Park Street',

@@ -5,15 +5,16 @@
  * deck uses, a slide for each slide with its title, text, picture (JPEG, in media), table, shapes and a picture or table in its own
  * box, a notes slide for each slide that has notes (with the notes master PowerPoint wants), and the document's title and dates.
  * A chart is not written as a chart part: its numbers are a table on the slide (marked, so this app's own reader makes the chart
- * again), and it lives in the PDF as a picture; a slide's transition (fade, push) and a skipped slide are PowerPoint's own; the builds
- * (animations) are not carried: the export sheet says so once.
+ * again), and it lives in the PDF as a picture; a slide's transition (fade, push) and a skipped slide are PowerPoint's own, and so are
+ * its builds: each is a PowerPoint entrance animation in the slide's p:timing (anim.ts), after its p:transition as the schema orders them.
  * Read back by pptxread.ts and, in the tests, by a parser that is not ours.
  */
 import { textOf, type Block, type Run } from '../docs/model';
 import { zipStore } from '../convert/zip';
 import { boxes, setText, styleOf, approx, type Measure, type Rect } from './layout';
-import { H, W, SLOTS, type Deck, type Layout, type Shape, type Slide } from './model';
+import { H, W, SLOTS, type Deck, type Elem, type Layout, type Shape, type Slide } from './model';
 import { paletteOf } from './render';
+import { timingXml, type TimedBuild } from './anim';
 import { rgb, type Palette } from './themes';
 
 const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -27,6 +28,8 @@ const REL = NS.r;
 const RELP = 'http://schemas.openxmlformats.org/package/2006/relationships';
 const CT = 'application/vnd.openxmlformats-officedocument.presentationml';
 export const EMU = 9525;
+const MC = 'http://schemas.openxmlformats.org/markup-compatibility/2006';
+const P159 = 'http://schemas.microsoft.com/office/powerpoint/2015/09/main';
 // eslint-disable-next-line no-control-regex
 const x = (s: string): string => s.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const e = (px: number): number => Math.round(px * EMU);
@@ -190,10 +193,20 @@ function slideXml(deck: Deck, s: Slide, c: Ctx, measure: Measure, image: (id: st
   const bx = boxes(s);
   const L = s.layout;
   const shapes: string[] = [];
+  const ids: Partial<Record<Elem, number>> = {};
   const slots = SLOTS[L];
-  if (slots.title && bx.title) shapes.push(textSp(c, 'Title', `<p:ph type="${L === 'title' ? 'ctrTitle' : 'title'}"/>`, bx.title, [s.title], L, 'title', deck, measure));
-  if (slots.body && bx.body) shapes.push(textSp(c, L === 'title' ? 'Subtitle' : 'Text', `<p:ph ${L === 'title' ? 'type="subTitle" ' : ''}idx="1"/>`, bx.body, s.body, L, 'body', deck, measure));
-  if (slots.body2 && bx.body2) shapes.push(textSp(c, 'Right column', '<p:ph idx="2"/>', bx.body2, s.body2, L, 'body2', deck, measure));
+  if (slots.title && bx.title) {
+    shapes.push(textSp(c, 'Title', `<p:ph type="${L === 'title' ? 'ctrTitle' : 'title'}"/>`, bx.title, [s.title], L, 'title', deck, measure));
+    ids.title = c.next;
+  }
+  if (slots.body && bx.body) {
+    shapes.push(textSp(c, L === 'title' ? 'Subtitle' : 'Text', `<p:ph ${L === 'title' ? 'type="subTitle" ' : ''}idx="1"/>`, bx.body, s.body, L, 'body', deck, measure));
+    ids.body = c.next;
+  }
+  if (slots.body2 && bx.body2) {
+    shapes.push(textSp(c, 'Right column', '<p:ph idx="2"/>', bx.body2, s.body2, L, 'body2', deck, measure));
+    ids.body2 = c.next;
+  }
   const md = s.media;
   if (md && bx.media) {
     const b = bx.media;
@@ -211,14 +224,22 @@ function slideXml(deck: Deck, s: Slide, c: Ctx, measure: Measure, image: (id: st
         const w = md.iw * k;
         const h = md.ih * k;
         const id = ++c.next;
+        ids.media = id;
         shapes.push(`<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="Picture ${id}" descr="${x(md.alt)}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${xfrm({ x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h })}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`);
       }
-    } else if (md.k === 'table') shapes.push(tableFrame(c, 'Table', '', b, md.table.rows ?? [], !!md.table.head));
-    else if (md.chart.points.length) shapes.push(tableFrame(c, 'Chart numbers', chartTag(md.chart), b, chartRows(md.chart), false));
+    } else if (md.k === 'table' || md.chart.points.length) {
+      shapes.push(md.k === 'table' ? tableFrame(c, 'Table', '', b, md.table.rows ?? [], !!md.table.head) : tableFrame(c, 'Chart numbers', chartTag(md.chart), b, chartRows(md.chart), false));
+      ids.media = c.next;
+    }
   }
-  s.shapes.forEach((sh, i) => shapes.push(shapeSp(c, sh, i + 1)));
-  const tr = s.transition === 'fade' ? '<p:transition spd="med"><p:fade/></p:transition>' : s.transition === 'push' ? '<p:transition spd="med"><p:push dir="l"/></p:transition>' : '';
-  return `${XML}<p:sld ${NSD}${s.skip ? ' show="0"' : ''}><p:cSld><p:spTree>${grp}${shapes.join('')}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${tr}</p:sld>`;
+  s.shapes.forEach((sh, i) => {
+    shapes.push(shapeSp(c, sh, i + 1));
+    ids[`shape${i}` as Elem] = c.next;
+  });
+  const timed: TimedBuild[] = s.builds.flatMap((b) => (ids[b.el] ? [{ spid: ids[b.el]!, how: b.how, text: b.el === 'title' || b.el === 'body' || b.el === 'body2' }] : []));
+  // MAGIC MOVE is PowerPoint's Morph (2016 and later), with a fade for a PowerPoint that has no Morph, as PowerPoint itself writes it
+  const tr = s.transition === 'fade' ? '<p:transition spd="med"><p:fade/></p:transition>' : s.transition === 'push' ? '<p:transition spd="med"><p:push dir="l"/></p:transition>' : s.transition === 'morph' ? `<mc:AlternateContent xmlns:mc="${MC}"><mc:Choice xmlns:p159="${P159}" Requires="p159"><p:transition spd="slow"><p159:morph option="byObject"/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>` : '';
+  return `${XML}<p:sld ${NSD}${s.skip ? ' show="0"' : ''}><p:cSld><p:spTree>${grp}${shapes.join('')}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${tr}${timingXml(timed)}</p:sld>`;
 }
 
 /** A layout part: its placeholders in the places the layout puts them. */

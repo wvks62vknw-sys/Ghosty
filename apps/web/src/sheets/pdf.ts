@@ -1,7 +1,7 @@
 /**
  * THE WORKBOOK AS A PDF (BRIEF-EDITOR-SPREADSHEETS): every sheet on landscape A4 pages by the app's own PDF writer (standard fonts, real words, never
  * a screenshot): a ruled grid in the sheet's own column widths (a wide sheet carried over to more pages by columns), the header row bold, numbers
- * as the cells show them and to the right, fills in the house's colours, hidden rows left out; then each chart, drawn from its numbers; a foot with
+ * as the cells show them and to the right, fills in the house's colours (and the colour rules' fills, bars and scale), hidden rows left out; then each chart, drawn from its numbers; a foot with
  * the title, the sheet and "page 2 of 9". Pure.
  */
 import { writePdf, type PdfPage, type PdfRun } from '../convert/pdfwrite';
@@ -10,6 +10,7 @@ import { addr, usedCols, usedRows, type Book } from './model';
 import { Engine } from './formula';
 import { chartSeries, visibleRows } from './ops';
 import { FILL_HEX } from './xlsx';
+import { londonToday, ruleMarks } from './rules';
 import { figure } from '../show/chart';
 
 const PW = 841.89;
@@ -37,6 +38,8 @@ export function pdfOfBook(b: Book, author = ''): Uint8Array {
     const rows = visibleRows(s, s.filter, eng).filter((r) => r <= Math.max(usedRows(s), 1));
     const cols = Math.max(usedCols(s), 1);
     if (!Object.keys(s.cells).length) continue;
+    // the colour rules as the sheet shows them (rules.ts): a rule's fill, a data bar, a place on the red-to-green scale
+    const marks = s.rules?.length ? ruleMarks(s, (a) => eng.value(s.name, a), londonToday()) : null;
     const widths = Array.from({ length: cols }, (_, c) => Math.min((s.widths[c] ?? 96) * 0.75, PW - 2 * M));
     // columns carried over to more pages when the sheet is wider than the page
     const groups: number[][] = [];
@@ -65,7 +68,15 @@ export function pdfOfBook(b: Book, author = ''): Uint8Array {
           for (const c of g) {
             const cw = widths[c]!;
             const cell = s.cells[addr(r, c)];
-            if (cell?.x?.fill) page.lines!.push({ x1: x, y1: y - ROW / 2 + 1, x2: x + cw, y2: y - ROW / 2 + 1, width: ROW, rgb: tint(FILL_HEX[cell.x.fill - 1]!) });
+            const m = marks?.get(addr(r, c));
+            const fill = m?.tone ?? cell?.x?.fill;
+            if (m?.scale !== undefined) {
+              const lo = FILL_HEX[3]!;
+              const hi = FILL_HEX[2]!;
+              const mix = [0, 2, 4].map((i) => Math.round(parseInt(lo.slice(i, i + 2), 16) * (1 - m.scale!) + parseInt(hi.slice(i, i + 2), 16) * m.scale!).toString(16).padStart(2, '0')).join('');
+              page.lines!.push({ x1: x, y1: y - ROW / 2 + 1, x2: x + cw, y2: y - ROW / 2 + 1, width: ROW, rgb: tint(mix) });
+            } else if (fill) page.lines!.push({ x1: x, y1: y - ROW / 2 + 1, x2: x + cw, y2: y - ROW / 2 + 1, width: ROW, rgb: tint(FILL_HEX[fill - 1]!) });
+            if (m?.bar) page.lines!.push({ x1: x + 1, y1: y - ROW / 2 + 1, x2: x + 1 + (cw - 2) * m.bar, y2: y - ROW / 2 + 1, width: ROW * 0.55, rgb: tint(FILL_HEX[0]!) });
             const shown = eng.text(s.name, addr(r, c));
             if (shown) {
               const font: PdfFont = cell?.x?.b ? 'Helvetica-Bold' : 'Helvetica';

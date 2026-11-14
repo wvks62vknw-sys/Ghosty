@@ -174,7 +174,8 @@ export const briefTab: TabDef = {
       const next = mind.today.next;
       if (!dayItems.length) {
         /* state: brief.day empty */
-        rows.push(row(null, eveningNow(new Date()) ? 'Nothing more in your diary tonight. Tap to add something for tomorrow.' : 'Nothing in your diary for the rest of today. Tap to add something.', null, { wrap: true, onClick: add }));
+        // (under its DIARY label, with the arrow every other tap in the card has: the words start in the one column)
+        rows.push(row('DIARY', eveningNow(new Date()) ? 'Nothing more tonight. Tap to add something for tomorrow.' : 'Nothing left today. Tap to add something.', '›', { wrap: true, onClick: add }));
         if (next) rows.push(row('NEXT', next.title, next.when, { wrap: true, onClick: open }));
       } else if (next && eveningNow(new Date()) && !dayItems.some((x) => x.title === next.title)) {
         // [planlane:brief] in the evening the Brief looks ahead: the next thing in the diary, after tonight's
@@ -202,6 +203,18 @@ export const briefTab: TabDef = {
       if (todo.length) {
         const r = row('TO-DO', todo.length === 1 ? todo[0]!.text : `${todo.length} to do today: ${todo.slice(0, 3).map((t) => t.text).join(', ')}${todo.length > 3 ? '…' : ''}`, '›', { wrap: true, onClick: () => goToPanel('agenda', 'TO-DO') });
         r.classList.add('brtodo');
+        rows.push(r);
+      }
+      // [editors.c4] the due dates in his Workspace databases, in one line (read-only; a tap opens the first in the Workspace)
+      const wsDue = await import('../../workspace/deadlines').then(async (dl) => {
+        const [{ loadWorkspace }, { isoOf }] = await Promise.all([import('../../workspace/store'), import('../../workspace/db')]);
+        const today = isoOf(new Date());
+        const list = dl.deadlines(loadWorkspace(), today, 7);
+        return { line: dl.deadlineLine(list, today), first: list[0]?.id ?? '' };
+      }).catch(() => ({ line: '', first: '' }));
+      if (wsDue.line) {
+        const r = row('WORKSPACE', wsDue.line, '›', { wrap: true, onClick: () => void import('../../workspace/sheet').then((m) => m.openWorkspace(wsDue.first ? { id: wsDue.first } : { what: 'due' })) });
+        r.classList.add('brworkdue');
         rows.push(r);
       }
       const unread = inbox?.unread ?? 0;

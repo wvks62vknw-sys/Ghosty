@@ -462,7 +462,7 @@ const { ctx, page } = await open();
   check(/^NEXT: /.test(await page.locator('.slnext').textContent()), `the next slide’s title is shown: ${await page.locator('.slnext').textContent()}`);
   check(await page.locator('.slpnotes').textContent() === 'No notes on this slide.', 'a slide with no notes says so');
   const keysOk = await page.evaluate(() => [...document.querySelectorAll('.slpkeys button, .slptop button')].map((b) => { const r = b.getBoundingClientRect(); return [b.textContent, r.width, r.height]; }));
-  check(keysOk.length === 3 && keysOk.every((k) => k[1] >= 43.5 && k[2] >= 43.5), `NEXT, BACK and EXIT are 44 pt: ${JSON.stringify(keysOk)}`);
+  check(keysOk.length === 4 && keysOk.some((k) => k[0] === 'ON A TV') && keysOk.every((k) => k[1] >= 43.5 && k[2] >= 43.5), `NEXT, BACK, ON A TV and EXIT are 44 pt: ${JSON.stringify(keysOk)}`);
   await key(page, 'NEXT').click().catch(() => undefined);
   await page.locator('.slpkeys button', { hasText: /^NEXT$/ }).click();
   let pr = (await S(page)).present;

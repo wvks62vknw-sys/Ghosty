@@ -45,3 +45,7 @@ export function rainLine(slots: { t: number; mm: number }[], now: number, place:
 
 /** His words for the radar: "rain radar", "show me the rain radar", "the rain map", "replay the rain". */
 export const RAIN_ASK = /^(?:(?:hey |ok )?(?:ghosty,? )?)(?:(?:show|open|give)(?: me)? )?(?:the )?(?:rain radar|rain map|weather radar|radar)(?: for home)?$|^replay the (?:rain|radar)$/i;
+
+/** A pass nudge (see.u4): the diary entry's title and what is said when it is added. */
+export const passTitle = (name: string, max: number): string => `${name.replace(/ \(.*\)$/, '')} passes over (${Math.round(max)}° high)`;
+export const passSaid = (name: string, rise: number): string => `In your diary: ${name.replace(/ \(.*\)$/, '')} at ${new Date(rise).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}, with a nudge 10 minutes before.`;

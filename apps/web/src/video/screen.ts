@@ -11,14 +11,14 @@ import { button, toast } from '../ui/components';
 import { sizeWords } from '../convert/bytes';
 import { encodeWav } from '../convert/audio';
 import {
-  ASPECTS, clipLen, clock, duplicateClip, duration, fadeCap, flatGrade, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
-  type Aspect, type Clip, type Overlay, type Project, type Source, type TransitionKind,
+  ASPECTS, clipLen, clock, duplicateClip, duration, fadeCap, flatGrade, gradeAt, upsertGradeKey, newClip, History, lengthWords, moveClip, newProject, place, removeClip, setSpeed, setTransition, shape, sourceTime, splitAt, trimClip, uid, transitionCap,
+  type Aspect, type Clip, type Grade, type Overlay, type Project, type Source, type TransitionKind,
 } from './model';
-import { addAudio, addMain, addPip, addTitle, copyGrade, cutRanges, splitMany } from './edit';
+import { addAudio, addMain, addPip, addTitle, copyGrade, cutRanges, photoFilm, splitMany } from './edit';
 import { openWorkBlock, q, secondsWord } from '../../../../packages/shared/src/openwork';
 import { setLiveWork } from '../proposals/live';
 import { askBox, proposalBar } from '../proposals/bar';
-import { Feeder, Player, CODEC_LINE, probe } from './preview';
+import { Feeder, Player, CODEC_LINE, isStill, probe } from './preview';
 import { parseCube, LutError } from './lut';
 import { cuesFromWords, pieces, toSrt, toVtt } from './subs';
 import { findCuts, histogram } from './scenes';
@@ -69,6 +69,8 @@ export const videoState = {
   offlineSaid: false,
   wasHeld: false,
   proxyAfter: 120_000,
+  /** PHOTO FILM (NEXT ROUND, editors.s5): the last film made, for the specs. */
+  film: null as null | { photos: number; bpm: number; len: number; said: string },
   cuts: [] as number[],
   pauses: [] as Pause[],
   /** VIDEO 2: what each pass measured, for the specs and the report. */
@@ -169,7 +171,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   const head = h('div.vdhead');
   strip.append(track, lanes, head);
   const zoomRow = h('div.vdzoom', name(button('–', () => zoom(0.7), 'vdz'), 'Zoom the time out'), h('span', 'time'), name(button('+', () => zoom(1.4), 'vdz'), 'Zoom the time in'));
-  const addIn = h('input', { type: 'file', hidden: true, multiple: true, accept: 'video/*,.mov,.mp4,.m4v,.webm', 'aria-label': 'Choose video clips to add' }) as HTMLInputElement;
+  const addIn = h('input', { type: 'file', hidden: true, multiple: true, accept: 'video/*,.mov,.mp4,.m4v,.webm,image/*', 'aria-label': 'Choose video clips or photos to add' }) as HTMLInputElement;
   const addB = name(button('ADD A CLIP', () => addIn.click(), 'vdadd on'), 'Add a clip from your phone');
   const pills = h('div.vdpills', { role: 'tablist', 'aria-label': 'Tools' });
   const tray = h('div.vdtray', { role: 'tabpanel' });
@@ -430,6 +432,8 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       setPlayhead();
     });
   });
+  // [NEXT ROUND] the trays whose sliders read the playhead (MOVE's keys, GRADE's keys) follow it once he lets go of the scrubber
+  scrub.addEventListener('change', () => keyedTrayFollows());
   const movePlayhead = (t: number) => {
     head.style.transform = `translateX(${(t / 1000) * pps}px)`;
     if (player?.playing && !reduced()) {
@@ -673,6 +677,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       h('p.vdnote', 'Your clips stay on this phone, untouched: everything I do is a recipe laid over them, so you can always go back.'),
     );
     if (kept.filter((k) => !k.gone && k.id !== project.id).length) empty.append(act('MY VIDEOS', () => pick('project')));
+    empty.append(act('MAKE A PHOTO FILM', () => pick('project'), 'vdfilmkey'));
   }
 
   // ---------------------------------------------------------------- the trays
@@ -680,6 +685,10 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   // runs inside it, so the clear never meets a child the inner one already took)
   let trayBusy = false;
   let trayAgain = false;
+  /** MOVE and GRADE show and change the values at the playhead: drawn again when the playhead has moved. */
+  function keyedTrayFollows(): void {
+    if (tool === 'move' || tool === 'grade') renderTray();
+  }
   function renderTray() {
     if (trayBusy) {
       trayAgain = true;
@@ -744,7 +753,45 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         commit(n, `Split at ${clock(at, true)}: now ${n.main.length} clips.`);
       }, 'on'),
       note('Move the playhead with the scrub bar, then split. The two halves can be sped, graded and moved on their own.'),
+      act('FREEZE FRAME (2 S)', () => void freezeFrame(), 'vdfreeze'),
+      note('FREEZE FRAME holds the picture at the playhead for two seconds: the clip is split there and the still goes between the halves, with the clip’s own grade.'),
     ];
+  }
+  /** FREEZE FRAME (NEXT ROUND sweep, against CapCut): the source's own picture at the playhead, kept as a still photo clip of 2 s between the two halves. */
+  async function freezeFrame(): Promise<void> {
+    if (!player || !project.main.length) return;
+    player.pause();
+    const at = Math.round(player.t);
+    const x = place(project.main).find((z) => at >= z.start && at < z.start + z.len);
+    if (!x) return say('Move the playhead onto a clip first.');
+    const c = x.clip;
+    const srcMs = sourceTime(c, at - x.start);
+    await feeder.seek(c.src, srcMs);
+    const e = feeder.get(c.src);
+    if (!e) return say('I could not read that picture. Try the playhead a little further in.');
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = e.w;
+      cv.height = e.h;
+      cv.getContext('2d')!.drawImage(e.v, 0, 0, e.w, e.h);
+      const blob = await new Promise<Blob | null>((ok) => cv.toBlob(ok, 'image/jpeg', 0.92));
+      if (!blob) return say('This phone could not keep that picture.');
+      const file = new File([blob], `Freeze ${clock(at, true).replace(/:/g, '.')}.jpg`, { type: 'image/jpeg' });
+      const id = uid();
+      const made = await probe(file, file.name, id);
+      await putSource(project.id, id, file, made.poster);
+      await feeder.open(id, file);
+      const split = splitAt(project, at);
+      const q = structuredClone(split ?? project);
+      q.sources[id] = made.src;
+      const still: Clip = { ...newClip(made.src), out: 2000, grade: structuredClone(c.grade), crop: { ...c.crop }, fit: c.fit, ...(c.lut ? { lut: c.lut } : {}) };
+      // between the two halves, or straight after the clip when the playhead is at its very edge
+      q.main.splice(x.index + 1, 0, still);
+      commit(q, `A freeze frame of 2 s at ${clock(at, true)}${split ? ', between the two halves of the clip' : ', after the clip'}. UNDO takes it out.`);
+      sel = still.id;
+    } catch (err) {
+      say(sayError(err, 'freeze that picture'));
+    }
   }
 
   function speedTray(c: Clip): Nodes {
@@ -811,6 +858,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   async function runSteady(id: string, strength: number) {
     const c = project.main.find((x) => x.id === id);
     if (!c || steadying) return;
+    if (project.sources[c.src]?.kind === 'image') return say('That clip is a still photo: it is as steady as it gets.');
     player?.pause();
     const run = { cancelled: false };
     steadying = run;
@@ -936,7 +984,10 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         act('FADE IN', () => set(fi ? 0 : len, fo, fi ? 'No fade in: the clip starts as it is.' : `The clip rises from black over ${secs}, its sound with it.`), fi ? 'vdchoice vdfade on' : 'vdchoice vdfade'),
         act('FADE OUT', () => set(fi, fo ? 0 : len, fo ? 'No fade out: the clip ends as it is.' : `The clip sinks to black over ${secs}, its sound with it.`), fo ? 'vdchoice vdfade on' : 'vdchoice vdfade'),
       ),
-      note(fi || fo ? `Fading ${[fi ? 'in' : '', fo ? 'out' : ''].filter(Boolean).join(' and ')}: tap again to take it off.` : 'FADE IN rises from black at the clip’s start; FADE OUT sinks to black at its end. The sound fades with the picture.'),
+      note(fi || fo ? `Fading ${[fi ? 'in' : '', fo ? 'out' : ''].filter(Boolean).join(' and ')}: tap again to take it off. The sliders set how long, from 0.1 s to ${(cap / 1000).toFixed(1)} s (a third of the clip, two seconds at most).` : 'FADE IN rises from black at the clip’s start; FADE OUT sinks to black at its end. The sound fades with the picture.'),
+      // NEXT ROUND (editors.u9): each fade's own length, 0.1 s up to the clip's cap, drawn the same in the preview and the file
+      ...(fi ? [slider({ label: 'Fade in length', min: 100, max: cap, step: 100, value: Math.min(fi, cap), say: (v) => `${(v / 1000).toFixed(1)} s`, change: (v) => commit(editClip(c.id, (z) => (z.fade = { in: v, out: z.fade?.out ?? 0 })), `The clip rises from black over ${(v / 1000).toFixed(1)} s.`), reset: len })] : []),
+      ...(fo ? [slider({ label: 'Fade out length', min: 100, max: cap, step: 100, value: Math.min(fo, cap), say: (v) => `${(v / 1000).toFixed(1)} s`, change: (v) => commit(editClip(c.id, (z) => (z.fade = { in: z.fade?.in ?? 0, out: v })), `The clip sinks to black over ${(v / 1000).toFixed(1)} s.`), reset: len })] : []),
     ];
   }
 
@@ -1018,11 +1069,33 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) holdKey.addEventListener(ev, () => hold && set(false));
     holdKey.addEventListener('keydown', (e) => (e.key === ' ' || e.key === 'Enter') && set(true));
     holdKey.addEventListener('keyup', () => set(false));
-    out.push(row(holdKey, act('COPY THE GRADE TO EVERY CLIP', () => commit(copyGrade(project, c.id), `This clip’s grade${c.lut ? ' and its LUT' : ''} is on all ${project.main.length} clips.`)), act('RESET THE GRADE', () => commit(editClip(c.id, (z) => ((z.grade = flatGrade()), delete z.lut)), 'The grade is back to flat.'))));
-    for (const g of GRADES) out.push(slider({ label: g.label, min: g.min, max: g.max, step: g.step, value: c.grade[g.k], say: g.say, input: (v) => live((q) => (q.main.find((z) => z.id === c.id)!.grade[g.k] = v)), change: (v) => commit(editClip(c.id, (z) => (z.grade[g.k] = v))), reset: 0 }));
-    const mid = c.grade.curve.length === 3 ? c.grade.curve[1]![1] - 0.5 : 0;
+    out.push(row(holdKey, act('COPY THE GRADE TO EVERY CLIP', () => commit(copyGrade(project, c.id), `This clip’s grade${c.lut ? ' and its LUT' : ''} is on all ${project.main.length} clips.`)), act('RESET THE GRADE', () => commit(editClip(c.id, (z) => ((z.grade = flatGrade()), delete z.lut, delete z.gradeKeys)), 'The grade is back to flat.'))));
+    // NEXT ROUND (editors.u9): the grade over time. With keys, each slider changes the grade at the playhead; between keys it moves.
+    const x = place(project.main).find((z) => z.clip.id === c.id)!;
+    const tIn = Math.round(Math.max(0, Math.min(x.len, (player?.t ?? 0) - x.start)));
+    const gk = c.gradeKeys ?? [];
+    const now = gradeAt(c, tIn);
+    /** One number of the grade set: at the playhead's key when the grade has keys, else for the whole clip. */
+    const setG = (z: Clip, fn: (g: Grade) => void) => {
+      if (z.gradeKeys?.length) {
+        const g = structuredClone(gradeAt(z, tIn));
+        fn(g);
+        upsertGradeKey(z, tIn, g);
+      } else fn(z.grade);
+    };
+    out.push(h('p.vdsay.vdgradekeys', gk.length ? `${gk.length} grade key${gk.length === 1 ? '' : 's'}: the sliders change the grade at the playhead (${clock(tIn, true)} into the clip), and it moves between the keys.` : 'No grade keys: the grade holds for the whole clip. KEY THE GRADE here, move the playhead and change it, and the colour moves over time.'));
+    out.push(row(
+      act('KEY THE GRADE AT THE PLAYHEAD', () => commit(editClip(c.id, (z) => {
+        // the first key holds the grade as it is at the clip's start, so nothing jumps
+        if (!z.gradeKeys?.length && tIn > 40) upsertGradeKey(z, 0, z.grade);
+        upsertGradeKey(z, tIn, gradeAt(z, tIn));
+      }), `A grade key at ${clock(tIn, true)} into the clip. Move the playhead and change a slider: the colour moves between the keys, the same in the preview and the file.`), 'vdkeygrade'),
+      ...(gk.length ? [act('CLEAR THE GRADE KEYS', () => commit(editClip(c.id, (z) => { z.grade = structuredClone(gradeAt(z, tIn)); delete z.gradeKeys; }), 'The grade keys are cleared: the grade at the playhead now holds for the whole clip.'), 'vdcleargrade')] : []),
+    ));
+    for (const g of GRADES) out.push(slider({ label: g.label, min: g.min, max: g.max, step: g.step, value: now[g.k], say: g.say, input: (v) => live((q) => setG(q.main.find((z) => z.id === c.id)!, (gg) => (gg[g.k] = v))), change: (v) => commit(editClip(c.id, (z) => setG(z, (gg) => (gg[g.k] = v)))), reset: 0 }));
+    const mid = now.curve.length === 3 ? now.curve[1]![1] - 0.5 : 0;
     const curve = (v: number): [number, number][] => (Math.abs(v) < 0.005 ? [[0, 0], [1, 1]] : [[0, 0], [0.5, 0.5 + v], [1, 1]]);
-    out.push(slider({ label: 'Midtones curve', min: -0.3, max: 0.3, step: 0.01, value: mid, say: (v) => (v === 0 ? 'straight' : v > 0 ? `lifted ${Math.round(v * 100)}` : `pulled ${Math.round(-v * 100)}`), input: (v) => live((q) => (q.main.find((z) => z.id === c.id)!.grade.curve = curve(v))), change: (v) => commit(editClip(c.id, (z) => (z.grade.curve = curve(v)))), reset: 0 }));
+    out.push(slider({ label: 'Midtones curve', min: -0.3, max: 0.3, step: 0.01, value: mid, say: (v) => (v === 0 ? 'straight' : v > 0 ? `lifted ${Math.round(v * 100)}` : `pulled ${Math.round(-v * 100)}`), input: (v) => live((q) => setG(q.main.find((z) => z.id === c.id)!, (gg) => (gg.curve = curve(v)))), change: (v) => commit(editClip(c.id, (z) => setG(z, (gg) => (gg.curve = curve(v))))), reset: 0 }));
     out.push(row(
       fileKey(c.lut ? 'CHANGE THE LUT' : 'ADD A LUT (.cube)', '.cube,text/plain', async (f) => {
         try {
@@ -1541,6 +1614,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   }
   async function runBest() {
     if (bestBusy) return;
+    if (project.main.some((c) => project.sources[c.src]?.kind === 'image')) return say('BEST CLIPS looks at moving clips; this video has still photos in it. A PHOTO FILM (under PROJECT) cuts photos to a song instead.');
     player?.pause();
     const run = { cancelled: false };
     bestBusy = run;
@@ -1754,7 +1828,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
   }
   async function loadSources() {
     for (const [id, s] of Object.entries(project.sources)) {
-      if (s.kind !== 'video') continue;
+      if (s.kind === 'audio') continue;
       const b = await blobFor(id, true);
       if (!b) continue;
       try {
@@ -1808,6 +1882,107 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       void binProject(id, false).then(() => openProject(id)).then(() => say('Put back.'));
     }, 'vdinline'));
   }
+  // ---------------------------------------------------------------- PHOTO FILM (NEXT ROUND, editors.s5)
+  let filmPhotos: File[] = [];
+  let filmSong: File | null = null;
+  let filming = false;
+  /** PICK THE PHOTOS (many at once), PICK THE SONG, MAKE THE FILM: a new video of the photos cut to the song's beat. */
+  function filmNodes(): Nodes {
+    const pickMany = (label: string, accept: string, multiple: boolean, onFiles: (f: File[]) => void, cls: string): HTMLElement => {
+      const inp = h('input', { type: 'file', hidden: true, accept, multiple, 'aria-label': label, dataset: { pick: cls } }) as HTMLInputElement;
+      inp.addEventListener('change', () => {
+        const f = [...(inp.files ?? [])];
+        inp.value = '';
+        if (f.length) onFiles(f);
+      });
+      return h('span.vdfile', act(label, () => inp.click(), `vd${cls}`), inp);
+    };
+    const said = filming
+      ? 'Making the film…'
+      : `${filmPhotos.length ? `${filmPhotos.length} photo${filmPhotos.length === 1 ? '' : 's'} picked` : 'No photos picked yet'}${filmSong ? `, and the song “${filmSong.name}”` : ', and no song (each photo gets two seconds)'}.`;
+    return [
+      h('h4.vdh', 'PHOTO FILM'),
+      note('Pick your photos and a song: I make a new video of them cut to the song’s beat, each photo drifting gently. Your open video stays as it is.'),
+      row(
+        pickMany(filmPhotos.length ? 'PICK OTHER PHOTOS' : 'PICK THE PHOTOS', 'image/*', true, (f) => {
+          filmPhotos = f.filter((x) => isStill(x)).slice(0, 60);
+          renderTray();
+        }, 'filmphotos'),
+        pickMany(filmSong ? 'PICK ANOTHER SONG' : 'PICK THE SONG', 'audio/*,.mp3,.m4a,.wav', false, (f) => {
+          filmSong = f[0] ?? null;
+          renderTray();
+        }, 'filmsong'),
+      ),
+      h('p.vdsay.vdfilmsay', { role: 'status' }, said),
+      row(act(filming ? 'MAKING THE FILM…' : 'MAKE THE FILM', () => void makeFilm(), 'vdmakefilm')),
+    ];
+  }
+  async function makeFilm(): Promise<void> {
+    if (filming) return;
+    if (!filmPhotos.length) return say('Pick the photos first: PICK THE PHOTOS.');
+    filming = true;
+    renderTray();
+    try {
+      ensurePlayer();
+      await refreshKept();
+      const bytes = filmPhotos.reduce((n, f) => n + f.size, 0) + (filmSong?.size ?? 0);
+      const r = room(kept.filter((k) => !k.gone), bytes, MAX_BYTES, '');
+      if (!r.fits) return say(r.words);
+      await autosave.flush();
+      await newBlank();
+      project = { ...project, name: 'Photo film' };
+      const srcs: Source[] = [];
+      let missed = 0;
+      for (const [i, f] of filmPhotos.entries()) {
+        say(`Taking in photo ${i + 1} of ${filmPhotos.length}…`);
+        const id = uid();
+        try {
+          const m = await probe(f, f.name, id);
+          await putSource(project.id, id, f, m.poster);
+          await feeder.open(id, f);
+          srcs.push(m.src);
+        } catch {
+          missed++;
+        }
+      }
+      if (!srcs.length) return say('Your phone could not read those photos; a JPEG or PNG works.');
+      let song: Source | null = null;
+      let beat: { period: number; first: number } | null = null;
+      let bpm = 0;
+      if (filmSong) {
+        const ac = audioCtx();
+        const buf = await decodeAudio(ac, filmSong);
+        void ac.close();
+        if (buf) {
+          const id = uid();
+          await putSource(project.id, id, filmSong, null);
+          song = { id, name: filmSong.name, kind: 'audio', size: filmSong.size, dur: Math.round(buf.duration * 1000), w: 0, h: 0, fps: 0, hasAudio: true };
+          player?.buffers.set(id, buf);
+          say(`Listening for the beat… about ${Math.max(1, Math.round(buf.duration * 0.05))} s`);
+          const b = await findBeats(buf, crunch).catch(() => null);
+          if (b && b.tempo.bpm > 0) {
+            bpm = b.tempo.bpm;
+            beat = { period: 60_000 / b.tempo.bpm, first: b.beats[0] ?? 0 };
+          }
+        }
+      }
+      const q = photoFilm(project, srcs, song, beat);
+      const len = q.main.reduce((n, c) => n + (c.out - c.in), 0);
+      const how = beat ? `cut on the beat (${tempoWords(bpm)})` : song ? 'two seconds a photo (I could not find a beat in that song)' : 'two seconds a photo';
+      const words = `A photo film of ${srcs.length} photo${srcs.length === 1 ? '' : 's'}, ${lengthWords(len)}, ${how}${filmSong && !song ? '; your phone could not read the song, so it is silent' : ''}${missed ? `; ${missed} photo${missed === 1 ? '' : 's'} could not be read` : ''}. EXPORT makes the file.`;
+      videoState.film = { photos: srcs.length, bpm: Math.round(bpm), len, said: words };
+      commit(q, words);
+      sel = q.main[0]?.id ?? '';
+      await player?.loadSound();
+      await player?.seek(0).catch(() => undefined);
+    } finally {
+      filming = false;
+      filmPhotos = [];
+      filmSong = null;
+      renderTray();
+    }
+  }
+
   function projectTray(): Nodes {
     const out: Nodes = [
       row(
@@ -1836,6 +2011,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         })(), 'zip'),
       ),
     ];
+    out.push(...filmNodes());
     const used = kept.filter((k) => !k.gone).reduce((n, k) => n + k.bytes, 0);
     out.push(h('p.vdnote', `${kept.filter((k) => !k.gone).length} video${kept.filter((k) => !k.gone).length === 1 ? '' : 's'} on this phone, ${sizeWords(used)} of about ${sizeWords(MAX_BYTES)}.`));
     for (const k of kept.filter((x) => !x.gone))
@@ -1890,8 +2066,9 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
         const n = addMain(project, made.src);
         commit(n, wasEmpty ? `${file.name}: ${lengthWords(made.src.dur)}. Your first clip is in.` : `${file.name} added: ${lengthWords(made.src.dur)}.`);
         sel = n.main.at(-1)!.id;
-        if (!made.src.hasAudio) say(`${file.name} added: ${lengthWords(made.src.dur)}. It has no sound I can read, so it plays silent.`);
-        if (made.src.dur > videoState.proxyAfter) void makeProxy(made.src);
+        if (made.src.kind === 'image') say(`${file.name} is in as a still clip of ${lengthWords(clipLen(n.main.at(-1)!))}: TRIM sets how long it shows.`);
+        else if (!made.src.hasAudio) say(`${file.name} added: ${lengthWords(made.src.dur)}. It has no sound I can read, so it plays silent.`);
+        if (made.src.kind !== 'image' && made.src.dur > videoState.proxyAfter) void makeProxy(made.src);
       }
       void player?.loadSound();
       await refreshKept();
@@ -1966,6 +2143,7 @@ export function videoParts(): { el: HTMLElement; start(o: Ask): Promise<void>; s
       player?.pause();
       await player?.seek(ms);
       renderTransport();
+      keyedTrayFollows();
     },
     pixel: (fx: number, fy: number) => player?.gpu.pixel(fx, fy) ?? [0, 0, 0, 0],
     play: () => player?.play(),

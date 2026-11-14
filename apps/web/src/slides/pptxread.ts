@@ -5,15 +5,16 @@
  * description), a table (its rows, a header row) or a chart written as its numbers, up to two plain shapes, the speaker notes, the
  * layout where the file names ours (else the one its placeholders suggest) and the colours of its theme. What it cannot keep it says,
  * never silently: a video or sound, a chart part, a SmartArt, an embedded object, a drawing it has no shape for, a second picture or
- * table on one slide, animations, a transition other than a fade or a push (those two are kept, as is a skipped slide), comments, nested bullets (flattened), the colours and fonts of single words, a slide
+ * table on one slide, an emphasis or exit animation (entrances come in as builds, anim.ts), a transition other than a fade, a push or a morph (those are kept, the morph as MAGIC MOVE, as is a skipped slide), comments, nested bullets (flattened), the colours and fonts of single words, a slide
  * shape that is not 16:9. The file never leaves the phone; the XML is read by xml.ts, so this runs in node as well.
  */
 import { unzipSync } from '../convert/zip';
 import { block, blockId, tidyRuns, type Block, type Run } from '../docs/model';
 import { attr, find, findAll, first, has, kids, parseXml, type XEl } from './xml';
-import { H, W, newDeck, newSlide, type ChartData, type Deck, type Layout, type Media, type Shape, type ShapeKind, type Slide } from './model';
+import { H, W, newDeck, newSlide, type ChartData, type Build, type Deck, type Elem, type Layout, type Media, type Shape, type ShapeKind, type Slide } from './model';
 import { paletteFrom, type Palette } from './themes';
 import { PPT_LAYOUT } from './pptx';
+import { readTiming, timingOf } from './anim';
 
 export type KeepImage = (bytes: Uint8Array, mime: string) => Promise<{ id: string; iw: number; ih: number } | null>;
 export interface PptxRead {
@@ -99,6 +100,7 @@ interface TextPart {
   ph: string;
   x: number;
   y: number;
+  spid: number;
 }
 
 /** A txBody's paragraphs as blocks. `listy`: a body placeholder, whose paragraphs are bullets unless they say otherwise. */
@@ -146,7 +148,10 @@ interface Found {
   media: Media | null;
   shapes: Shape[];
   numbers: boolean;
+  /** Each kept shape's id on the slide, and what it became (the text boxes are told apart once the columns are known). */
+  ids: Map<number, Elem>;
 }
+const spidOf = (el: XEl, nv: string): number => Number(attr(first(first(el, nv), 'cNvPr'), 'id')) || 0;
 
 async function walk(tree: XEl, c: Ctx, f: Found): Promise<void> {
   for (const el of tree.k) {
@@ -169,18 +174,19 @@ async function walk(tree: XEl, c: Ctx, f: Found): Promise<void> {
         const xf = xfrmOf(el, c);
         if (isTitle) {
           const runs = tidyRuns(blocks.flatMap((b, i) => [...(i ? [{ text: ' ' }] : []), ...b.runs.map((r) => ({ ...r, text: r.text.replace(/\n/g, ' ') }))]));
+          if (!f.title) f.ids.set(spidOf(el, 'nvSpPr'), 'title');
           f.title ??= block('h1', runs);
-        } else f.texts.push({ blocks, ph: type || (ph ? 'body' : ''), x: xf?.x ?? 0, y: xf?.y ?? 0 });
+        } else f.texts.push({ blocks, ph: type || (ph ? 'body' : ''), x: xf?.x ?? 0, y: xf?.y ?? 0, spid: spidOf(el, 'nvSpPr') });
       } else if (!ph) {
         const prst = attr(find(first(el, 'spPr'), 'prstGeom'), 'prst');
         const xf = xfrmOf(el, c);
         const kind = PRST[prst];
-        if (kind && xf && f.shapes.length < 2) f.shapes.push({ id: blockId(), kind, x: xf.x, y: xf.y, w: xf.w, h: kind === 'line' ? 0 : xf.h, fill: f.shapes.length });
+        if (kind && xf && f.shapes.length < 2) f.ids.set(spidOf(el, 'nvSpPr'), `shape${f.shapes.length}` as Elem), f.shapes.push({ id: blockId(), kind, x: xf.x, y: xf.y, w: xf.w, h: kind === 'line' ? 0 : xf.h, fill: f.shapes.length });
         else if (!kind || f.shapes.length >= 2) lose(c, 'a drawing');
       }
     } else if (el.n === 'cxnSp') {
       const xf = xfrmOf(el, c);
-      if (xf && f.shapes.length < 2) f.shapes.push({ id: blockId(), kind: 'line', x: xf.x, y: xf.y, w: Math.max(24, xf.w), h: 0, fill: f.shapes.length });
+      if (xf && f.shapes.length < 2) f.ids.set(spidOf(el, 'nvCxnSpPr'), `shape${f.shapes.length}` as Elem), f.shapes.push({ id: blockId(), kind: 'line', x: xf.x, y: xf.y, w: Math.max(24, xf.w), h: 0, fill: f.shapes.length });
       else lose(c, 'a line');
     } else if (el.n === 'pic') {
       const nvPr = find(first(el, 'nvPicPr'), 'nvPr');
@@ -207,7 +213,7 @@ async function walk(tree: XEl, c: Ctx, f: Found): Promise<void> {
       }
       const kept = await c.keep(bytes, mime);
       if (!kept) lose(c, 'a picture that would not open');
-      else f.media = { k: 'img', img: kept.id, alt: attr(first(first(el, 'nvPicPr'), 'cNvPr'), 'descr'), iw: kept.iw, ih: kept.ih };
+      else f.ids.set(spidOf(el, 'nvPicPr'), 'media'), (f.media = { k: 'img', img: kept.id, alt: attr(first(first(el, 'nvPicPr'), 'cNvPr'), 'descr'), iw: kept.iw, ih: kept.ih });
     } else if (el.n === 'graphicFrame') {
       const gd = find(el, 'graphicData');
       const uri = attr(gd, 'uri');
@@ -226,6 +232,7 @@ async function walk(tree: XEl, c: Ctx, f: Found): Promise<void> {
           return tidyRuns(runs);
         }));
         const chart = descr.startsWith('ghosty-chart|') ? chartOf(descr, rows) : null;
+        f.ids.set(spidOf(el, 'nvGraphicFramePr'), 'media');
         f.media = chart ? { k: 'chart', chart } : { k: 'table', table: { id: blockId(), t: 'table', runs: [], head, rows } };
       } else if (/chart$/.test(uri)) lose(c, 'a chart');
       else if (/diagram$/.test(uri)) lose(c, 'a SmartArt');
@@ -331,14 +338,15 @@ export async function readPptx(bytes: Uint8Array, name: string, keep: KeepImage)
     }
     const rels = readRels(files, part);
     const c: Ctx = { files, rels, keep, n: i + 1, lost, sx: W / cx, sy: H / cy, fonts, nested };
-    const f: Found = { title: null, texts: [], media: null, shapes: [], numbers: false };
+    const f: Found = { title: null, texts: [], media: null, shapes: [], numbers: false, ids: new Map() };
     const tree = find(root, 'spTree');
     if (tree) await walk(tree, c, f);
     if (f.numbers) anyNumber = true;
-    if (has(root, 'timing')) lose(c, 'animations');
+    const timing = readTiming(timingOf(root));
+    if (timing.other) lose(c, 'emphasis or exit animations');
     // (PowerPoint 2010 and later wrap it in mc:AlternateContent, a Choice and a Fallback: then it is not a direct child, so look deeper)
     const trEl = first(root, 'transition') ?? find(root, 'transition');
-    const transition: Slide['transition'] = first(trEl, 'fade') ? 'fade' : first(trEl, 'push') ? 'push' : 'none';
+    const transition: Slide['transition'] = findAll(root, 'transition').some((t) => first(t, 'morph')) ? 'morph' : first(trEl, 'fade') ? 'fade' : first(trEl, 'push') ? 'push' : 'none';
     if (trEl && transition === 'none' && kids(trEl).length) lose(c, 'its transition');
     const skip = attr(root, 'show') === '0' || attr(root, 'show') === 'false';
     if ([...rels.values()].some((r) => r.type === 'comments' || r.type === 'commentAuthors')) lose(c, 'comments');
@@ -361,8 +369,22 @@ export async function readPptx(bytes: Uint8Array, name: string, keep: KeepImage)
       const [l, r] = texts[0]!.x <= texts[1]!.x ? [texts[0]!, texts[1]!] : [texts[1]!, texts[0]!];
       body = l.blocks;
       body2 = r.blocks;
+      f.ids.set(r.spid, 'body2');
       for (const t of texts.slice(2)) body = [...body, ...t.blocks];
-    } else body = texts.flatMap((t) => t.blocks);
+      for (const t of texts) if (t !== r) f.ids.set(t.spid, 'body');
+    } else {
+      body = texts.flatMap((t) => t.blocks);
+      for (const t of texts) f.ids.set(t.spid, 'body');
+    }
+    // the builds: each entrance on a shape that was kept, once per element, in the slide's own order (as the editor keeps them)
+    const ORDER: Elem[] = ['title', 'body', 'body2', 'media', 'shape0', 'shape1'];
+    const builds: Build[] = [];
+    for (const t of timing.builds) {
+      const el = f.ids.get(t.spid);
+      if (el && !builds.some((b) => b.el === el)) builds.push({ el, how: t.how });
+    }
+    if (builds.some((b, k) => k && ORDER.indexOf(b.el) < ORDER.indexOf(builds[k - 1]!.el))) lose(c, 'the order of the builds (they come in top to bottom here)');
+    builds.sort((a, b) => ORDER.indexOf(a.el) - ORDER.indexOf(b.el));
     const layout = layoutOf(f, hint, i, body, body2);
     // a title with a quote layout: ours puts the attribution in the title
     const notesRel = [...rels.values()].find((r) => r.type === 'notesSlide');
@@ -378,7 +400,7 @@ export async function readPptx(bytes: Uint8Array, name: string, keep: KeepImage)
         /* notes left out */
       }
     }
-    slides.push(newSlide(layout, { title: f.title ?? block('h1', ''), body, body2, ...(f.media ? { media: f.media } : {}), shapes: f.shapes, notes, transition, ...(skip ? { skip } : {}) }));
+    slides.push(newSlide(layout, { title: f.title ?? block('h1', ''), body, body2, ...(f.media ? { media: f.media } : {}), shapes: f.shapes, notes, transition, builds, ...(skip ? { skip } : {}) }));
   }
   if (fonts.v) lost.add('the colours and fonts of single words (the theme sets them)');
   if (nested.v) lost.add('nested bullets (each is a bullet of its own now)');

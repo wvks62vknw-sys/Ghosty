@@ -24,6 +24,8 @@ export interface PhotoOpenReq {
   id?: string;
   files?: File[];
   tool?: string;
+  /** A change in his words ("make this photo warmer"): marked changes on the photo open now, or the last one he edited (editors.u7). */
+  suggest?: string;
 }
 
 let pending: PhotoOpenReq | null = null;
@@ -58,6 +60,8 @@ export const photoTab: TabDef = {
     let editor: ReturnType<typeof photoEditor>;
     /** The tool a request asked to land on (the Lens's chip lands on BRAIN), used once by the next photo opened. */
     let wanted: Tool | null = null;
+    /** The change in words to mark on the next photo opened (the chat's "make this photo warmer" with no photo open yet). */
+    let wish = '';
     const sh = shelf((id) => {
       const t = wanted ?? undefined;
       wanted = null;
@@ -77,9 +81,24 @@ export const photoTab: TabDef = {
     async function openId(id: string, tool?: Tool): Promise<void> {
       sh.el.hidden = true;
       await editor.load(id, tool);
+      if (wish && editor.isOpen()) {
+        const w = wish;
+        wish = '';
+        await editor.propose(w);
+      }
     }
     async function run(o: PhotoOpenReq): Promise<void> {
       const tool = (o.tool as Tool | undefined) ?? undefined;
+      if (o.suggest) {
+        wish = o.suggest;
+        if (editor.isOpen()) {
+          wish = '';
+          await editor.propose(o.suggest);
+          return;
+        }
+        const last = lastOpen();
+        if (last && !o.id) return openId(last.id);
+      }
       if (o.id) return openId(o.id, tool);
       let files = o.files ?? [];
       if (o.still) {

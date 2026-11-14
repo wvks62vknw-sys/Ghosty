@@ -11,8 +11,9 @@
 import { h, svgEl } from '../../core/dom';
 import { button, toast } from '../../ui/components';
 import { emptyState, lacksSignal, phrases, stateLine } from '../lifeui';
+import { drinksBox } from './drinks';
 import {
-  average, bmi, CUPS, dayOf, dayValue, empty, FIRST_ESTIMATE, hours, latest, mend, ml, moodWord, MOODS, nudgeDue, series, shift, sleepGoal, stepsGoal, stone, streak, trackAsked, waterGoal, weekdayOf,
+  average, bmi, CUPS, nudgeTimes, dayOf, dayValue, empty, FIRST_ESTIMATE, hours, latest, mend, ml, moodWord, MOODS, nudgeDue, series, shift, sleepGoal, stepsGoal, stone, streak, trackAsked, waterGoal, weekdayOf,
   type Entry, type Goal, type Metric, type TrackAsk, type TrackData,
 } from './trackcore';
 
@@ -39,6 +40,7 @@ function save(): boolean {
     failed = 'I couldn’t keep that on this phone: its storage is full or switched off. It’s here until you close Ghosty.';
   }
   for (const f of listeners) f();
+  lockSoon();
   return !failed;
 }
 const now = (): number => Date.now() + ((window as unknown as { __ghostyClockOffset?: number }).__ghostyClockOffset ?? 0);
@@ -92,6 +94,14 @@ export function undo(m: Metric): string {
   const [gone] = list.splice(i, 1);
   save();
   return `Taken back: ${m === 'water' ? ml(gone!.v) : m === 'sleep' ? hours(gone!.v) : m === 'steps' ? `${gone!.v.toLocaleString('en-GB')} steps` : m === 'weight' ? `${gone!.v} kg` : moodWord(gone!.v)}. ${line(m)}`;
+}
+/** A drink taken back (./drinks.ts): today's last water entry with its name goes too. */
+export function removeDrinkWater(name: string): void {
+  const data = load();
+  const d = today();
+  const i = data.log.water.map((e) => e.d === d && e.note === name).lastIndexOf(true);
+  if (i >= 0) data.log.water.splice(i, 1);
+  save();
 }
 function removeEntry(m: Metric, t: number): void {
   const data = load();
@@ -274,7 +284,10 @@ export function trackScreen(m: Metric): { el: HTMLElement; stop(): void } {
       }))));
     }
     kids.push(goalBox(m, data, g));
-    if (m === 'water') kids.push(nudgeBox(data));
+    if (m === 'water') {
+      kids.push(nudgeBox(data));
+      kids.push(drinksBox(say, (v, name) => void add('water', v, 'tap', name), removeDrinkWater));
+    }
     if (m === 'water' && lacksSignal() && heat() == null) {
       /* state: body.water offline */
       kids.push(stateLine('offline', 'No signal: everything here works on the phone. The goal adds for a hot day once the weather can be read.'));
@@ -334,7 +347,7 @@ export function trackScreen(m: Metric): { el: HTMLElement; stop(): void } {
       b.setAttribute('aria-label', 'Add those steps');
       const un = button('Undo', () => say(undo('steps')));
       un.setAttribute('aria-label', 'Take back the last steps');
-      return [row, h('div.pkadd', amt, b, un)];
+      return [row, h('div.pkadd', amt, b, un), shortcutBox()];
     }
     if (mm === 'weight') {
       const amt = h('input', { type: 'text', inputmode: 'decimal', placeholder: '82.5 kg or 13 st 4', 'aria-label': 'Your weight, in kilos or stone' }) as HTMLInputElement;
@@ -358,7 +371,31 @@ export function trackScreen(m: Metric): { el: HTMLElement; stop(): void } {
       b.setAttribute('aria-pressed', String(dayValue(data, 'mood', today()) === i + 1));
       return b;
     }));
-    return [row];
+    const tags = h('div.pkcol');
+    void import('./moodtags').then((t) => tags.replaceChildren(t.tagBox(today(), (d) => dayValue(load(), 'mood', d), say))).catch(() => undefined);
+    return [row, tags];
+  }
+  /** Steps from Health each evening: the Shortcut to make once, in four steps, and its link (the number lands here). */
+  function shortcutBox(): HTMLElement {
+    const link = `${location.origin}/#body?steps=`;
+    const copy = button('Copy the link', async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        say('Copied. Paste it in the Shortcut’s Open URLs step, with the step count after the = sign.');
+      } catch {
+        say(`The link: ${link}`);
+      }
+    });
+    copy.setAttribute('aria-label', 'Copy the Shortcut’s link');
+    return h('details.pkmore.bt-shortcut', h('summary', 'Steps from Health, each evening'),
+      h('p.pknote', 'Make this once in Apple’s Shortcuts app and today’s steps arrive here every evening, read on your phone:'),
+      h('ol.pklist',
+        h('li', 'Shortcuts, then Automation, then New Automation: Time of Day, 21:00, Daily, Run Immediately.'),
+        h('li', 'Add Find Health Samples: Type is Steps, Start Date is Today.'),
+        h('li', 'Add Calculate Statistics: Sum of the samples, then Round Number.'),
+        h('li', h('span', 'Add Open URLs with this link, the rounded number after the = sign: '), h('code.bt-link', link))),
+      h('div.pkrow', copy),
+      h('p.pknote', 'The number replaces the one the Shortcut sent earlier that day, and never adds to steps you typed yourself. It stays on this phone.'));
   }
   function goalBox(mm: Metric, data: TrackData, g: Goal): HTMLElement {
     const box = h('details.pkmore.bt-goalbox', h('summary', mm === 'mood' ? 'About the streak' : mm === 'weight' ? 'Your height and aim' : `Your goal: ${mm === 'water' ? ml(g.v) : mm === 'sleep' ? hours(g.v) : `${g.v.toLocaleString('en-GB')} steps`}`), ...g.why.map((w) => h('p.pknote', w)), ...(g.own || mm === 'mood' || mm === 'weight' ? [] : [h('p.pknote', FIRST_ESTIMATE)]));
@@ -456,7 +493,22 @@ export function trackScreen(m: Metric): { el: HTMLElement; stop(): void } {
     const why = !r.on ? 'Off. Turn them on and I nudge you only when you fall behind.' : due.why === 'quiet' ? 'Quiet hours now: no nudges.' : due.why === 'met' ? 'Goal met today: no more nudges.' : due.why === 'on track' ? 'You’re on track: no nudge needed.' : due.why === 'outside' ? 'Outside your nudge hours.' : due.why === 'soon' ? 'Next nudge only if you’re still behind.' : 'Behind for the time of day: a nudge is due.';
     return h('details.pkmore.bt-nudges', h('summary', `Nudges: ${r.on ? 'on' : 'off'}`), h('div.pkrow', onoff), h('p.pknote', { dataset: { nudge: due.why } }, why),
       h('div.bt-grid2', hourSel('From', r.from, (x) => (r.from = x)), hourSel('Until', r.to, (x) => (r.to = Math.max(x, r.from + 1)), 24), hourSel('Quiet from', r.quietFrom, (x) => (r.quietFrom = x)), hourSel('Quiet until', r.quietTo, (x) => (r.quietTo = x))),
-      h('div.pkfield', h('label', 'At most every'), every));
+      h('div.pkfield', h('label', 'At most every'), every), lockRow());
+  }
+  /** On the lock screen too: my brain's push gets only the next nudge times, never how much he drank. */
+  function lockRow(): HTMLElement {
+    const r = load().set.remind;
+    const b = button(r.lock ? 'Lock screen: on' : 'Lock screen: off', () => {
+      r.lock = !r.lock;
+      save();
+      say(r.lock ? 'Nudges reach your lock screen too, through my brain’s push. It gets only the times to nudge, never how much you drink.' : 'Nudges only while Ghosty is open now.');
+    });
+    // (a switch, so it is told apart from the nudges' own on/off key)
+    b.setAttribute('role', 'switch');
+    b.setAttribute('aria-checked', String(r.lock));
+    b.setAttribute('aria-label', 'Nudges on the lock screen');
+    const n = nudgeState.lock.length;
+    return h('div.pkcol', h('div.pkrow', b), h('p.pknote', { dataset: { lock: r.on && r.lock ? String(n) : 'off' } }, !r.on ? 'Turn nudges on first.' : !r.lock ? 'Off: nudges come only while Ghosty is open.' : n ? `The next ${n === 1 ? 'nudge' : `${n} nudges`} today ${n === 1 ? 'is' : 'are'} with my brain, from ${new Date(nudgeState.lock[0]!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}: only the times, never your amounts. They need notifications on (Settings, Notifications).` : 'No nudge needed for the rest of today at this pace.'));
   }
   listeners.add(draw);
   if (m === 'water' && heat() == null) {
@@ -493,7 +545,9 @@ export function up(): string {
     save();
     return `That was ${hours(Math.max(0, hrs))}, which doesn’t look like a night, so I didn’t keep it. Tap last night’s hours instead.`;
   }
-  return add('sleep', hrs, 'tap');
+  const words = add('sleep', hrs, 'tap', 'bed');
+  void syncWind();
+  return words;
 }
 
 // ---------------------------------------------------------------- nudges
@@ -516,15 +570,79 @@ export function startNudges(): void {
     nudgeState.said.push(words);
     toast(words, '', { title: 'WATER' });
     try {
-      if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('Water', { body: words, tag: 'ghosty-water' });
+      // (with the lock-screen nudges on, my brain's push already says it: no second notification)
+      if (!(data.set.remind.lock && data.set.remind.jobs.length) && document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('Water', { body: words, tag: 'ghosty-water' });
     } catch {
       /* the toast has it */
     }
   };
   ticking = window.setInterval(tick, 60_000);
+  // a new day's times (or a phone that was closed): sent again once, a little after it opens
+  if (load().set.remind.on) window.setTimeout(lockSoon, 4000);
   nudgeState.tick = tick;
 }
-export const nudgeState = { last: '', said: [] as string[], tick: () => undefined as void };
+export const nudgeState = { last: '', said: [] as string[], tick: () => undefined as void, lock: [] as number[], sync: () => syncLock() };
+
+// ---------------------------------------------------------------- the lock screen (body.u1)
+
+let lockTimer = 0;
+let lockSig = '';
+let lockBusy: Promise<void> = Promise.resolve();
+/** After a change, the next nudge times go to my brain (only the times, never an amount): debounced, one change at a time. */
+function lockSoon(): void {
+  window.clearTimeout(lockTimer);
+  lockTimer = window.setTimeout(() => void (lockBusy = lockBusy.then(syncLock, syncLock)), 1200);
+}
+export async function syncLock(): Promise<void> {
+  const data = load();
+  const r = data.set.remind;
+  const times = r.on && r.lock ? nudgeTimes(data, now(), goalOf('water', data).v) : [];
+  const sig = times.map((t) => Math.round(t / 60_000)).join(',');
+  if (sig === lockSig && (times.length > 0) === (r.jobs.length > 0)) return;
+  if (!times.length && !r.jobs.length) {
+    lockSig = sig;
+    return;
+  }
+  lockSig = sig;
+  const { replaceLock } = await import('./lockpush');
+  const old = r.jobs.slice();
+  r.jobs = [];
+  r.jobs = await replaceLock('water', old, times.map((at) => ({ at, title: 'Water', text: 'Time for a glass of water.', repeat: 'none' as const })));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch {
+    /* the screen says a storage failure on the next save */
+  }
+  nudgeState.lock = times.slice();
+  for (const f of listeners) f();
+}
+
+// ---------------------------------------------------------------- for the week's room (./week.ts)
+
+export const todayKey = (): string => today();
+export const failedNow = (): string => failed;
+export const saveNow = (): boolean => save();
+/** Redraws on any change; returns what stops it. */
+export function onChange(f: () => void): () => void {
+  listeners.add(f);
+  return () => void listeners.delete(f);
+}
+/** The wind-down nudge: a daily reminder half an hour before his usual bedtime (only the time goes to my brain), sent again when it moves 10 minutes. */
+export async function syncWind(): Promise<void> {
+  const data = load();
+  const w = data.set.wind;
+  const { usualBed } = await import('./week');
+  const usual = w.on ? usualBed(data, today()) : null;
+  if (usual != null && w.jobs.length && w.at != null && Math.abs(usual - w.at) < 10) return;
+  if (usual == null && !w.jobs.length) return;
+  const { replaceLock, nextAt } = await import('./lockpush');
+  const { clockOf } = await import('./week');
+  const old = w.jobs.slice();
+  w.jobs = [];
+  w.jobs = await replaceLock('wind', old, usual == null ? [] : [{ at: nextAt(clockOf(usual - 30), now()), title: 'Wind down', text: 'Half an hour to your usual bedtime: time to wind down.', repeat: 'daily' }]);
+  w.at = usual;
+  save();
+}
 
 // ---------------------------------------------------------------- the chat
 
@@ -565,13 +683,38 @@ export function fromHealth(days: { d: string; steps: number | null; sleep: numbe
   return n;
 }
 
+/**
+ * Today's steps from the Health Shortcut ("#body?steps=8421"): kept as the day's number from Health, replacing an earlier one
+ * the Shortcut sent today, beside anything he tapped himself (the higher of the two counts is never doubled: his taps stand).
+ */
+export function fromShortcut(n: number): string {
+  if (!(n >= 0 && n <= 200_000)) return 'That step count doesn’t look right, so I left it.';
+  const data = load();
+  const d = today();
+  data.log.steps = data.log.steps.filter((e) => !(e.d === d && e.from === 'health'));
+  const mine = data.log.steps.filter((e) => e.d === d).reduce((a, e) => a + e.v, 0);
+  if (n > mine) data.log.steps.push({ d, t: now(), v: n - mine, from: 'health', note: 'Health Shortcut' });
+  const ok = save();
+  const words = ok ? `Steps from Health: ${n.toLocaleString('en-GB')} today. ${line('steps')}` : failed;
+  toast(words, ok ? 'ok' : 'warn', { title: 'STEPS' });
+  return words;
+}
+
 /** The Home card's line: today's water and the last sleep, from the phone ('' when nothing is kept). */
 export function homeLine(): string {
   const data = load();
   const d = today();
   const w = dayValue(data, 'water', d);
   const s = dayValue(data, 'sleep', d);
-  const parts = [w != null ? `water ${ml(w)} of ${ml(goalOf('water', data).v)}` : '', s != null ? `slept ${hours(s)}` : ''].filter(Boolean);
+  // (tablets still to tick today, from ./meds.ts's own storage: read here without loading that screen)
+  let doses = 0;
+  try {
+    const m = JSON.parse(localStorage.getItem('ghosty.body.meds') ?? '{}') as { meds?: { id: string; times?: string[] }[]; log?: { med: string; d: string; time: string }[] };
+    for (const med of m.meds ?? []) for (const t of med.times ?? []) if (!(m.log ?? []).some((x) => x.med === med.id && x.d === d && x.time === t)) doses++;
+  } catch {
+    doses = 0;
+  }
+  const parts = [w != null ? `water ${ml(w)} of ${ml(goalOf('water', data).v)}` : '', s != null ? `slept ${hours(s)}` : '', doses ? `${doses} tablet dose${doses === 1 ? '' : 's'} to tick` : ''].filter(Boolean);
   return parts.length ? `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}` : '';
 }
 

@@ -29,7 +29,7 @@ import { run } from '../../commands/registry';
 import { clear, h } from '../../core/dom';
 import { bar, button, toast, undo } from '../../ui/components';
 import { drawScaled, loadImageFile } from '../../vision/camera';
-import { cleanOcr, titleFrom } from '../../vision/ocrtext';
+import { cleanOcr, titleFrom, type OcrWord } from '../../vision/ocrtext';
 import { LANGUAGES, langName, type LookupResult } from '../../../../../packages/shared/src/scan';
 import { freeBarcodes, readCodes, warmBarcodes, type FoundCode } from '../../scan/barcode';
 import { classifyCode, describeCode, type CodeInfo } from '../../scan/codes';
@@ -181,6 +181,8 @@ export function createScanMode(L: LensContext): Mode {
     clear(progress, bar(label.replace(/…$/, '').toUpperCase().slice(0, 22), frac ?? 0, frac != null ? `${Math.round(frac * 100)}%` : ''));
   };
 
+  /** The words (with their boxes) of the last reading: the layout INTO A DOCUMENT keeps (docs/paper.ts). */
+  let lastWords: OcrWord[] | undefined;
   /** Read the text in a picture with the phone's reader (READ's), showing its progress. */
   const ocr = async (src: HTMLCanvasElement | Blob, label = 'reading…'): Promise<string> => {
     try {
@@ -188,6 +190,7 @@ export function createScanMode(L: LensContext): Mode {
         setProgress(s || label, f);
         status(s || label, 'mid');
       });
+      lastWords = r.words;
       return cleanOcr(r);
     } finally {
       progress.hidden = true;
@@ -451,6 +454,30 @@ export function createScanMode(L: LensContext): Mode {
     await L.saveNote(titleFrom(t, 'Scanned document'), t, 'scan');
   });
   docSave.hidden = true;
+  // [editors.s3] the pages read: INTO A DOCUMENT (laid out with its headings and paragraphs, as the reader saw them) or RECEIPT TO
+  // SPREADSHEET (date, shop, total, into the next row of RECEIPTS); his edits to the text are what is used (docs/paper.ts, paperui.ts)
+  let paperReads: { text: string; pages: { text: string; words?: OcrWord[] }[] } | null = null;
+  const paperPages = () => {
+    const t = docText.value.trim();
+    if (paperReads && paperReads.text === docText.value) return paperReads.pages;
+    return import('../../docs/paper').then((p) => p.pagesOfText(t).map((text) => ({ text })));
+  };
+  const intoDoc = button('INTO A DOCUMENT', async () => {
+    if (!docText.value.trim()) return void toast('READ ALL first: there are no words yet', 'warn');
+    const { scanIntoDocument } = await import('../../docs/paperui');
+    status(await scanIntoDocument(await paperPages()), 'ok');
+  }, 'on');
+  const toSheet = button('RECEIPT TO SPREADSHEET', async () => {
+    if (!docText.value.trim()) return void toast('READ ALL first: there are no words yet', 'warn');
+    const { receiptToSheet } = await import('../../docs/paperui');
+    receiptToSheet(docText.value);
+  });
+  intoDoc.hidden = true;
+  toSheet.hidden = true;
+  docText.addEventListener('input', () => {
+    intoDoc.hidden = toSheet.hidden = !docText.value.trim();
+    docSave.hidden = !docText.value.trim() && docSave.hidden;
+  });
 
   // ---- AUTO: the page taken by itself once he holds still (lens.u6)
   let autoOn = true;
@@ -635,7 +662,7 @@ export function createScanMode(L: LensContext): Mode {
     strip,
     h('div.row.wrap', button('EXPORT PDF', () => exportPdf(), 'warn'), button('READ ALL', () => void readAll()), button('CLEAR', () => clearPages())),
     docText,
-    h('div.row.wrap', docSave),
+    h('div.row.wrap.scanpaper', intoDoc, toSheet, docSave),
     h('div.note', 'Lay the page flat on something darker, fill the frame, hold still. The PDF is made on the phone and goes where you share it; READ ALL reads the pages here and saves only when you tap SAVE.'),
   );
 
@@ -794,14 +821,19 @@ export function createScanMode(L: LensContext): Mode {
     if (!pages.length) return void toast('Capture a page first', 'warn');
     if (L.reader.busy) return void toast('Still reading', 'warn');
     const out: string[] = [];
+    const reads: { text: string; words?: OcrWord[] }[] = [];
     try {
       for (let i = 0; i < pages.length; i++) {
         const t = await ocr(new Blob([pages[i]!.jpeg as Uint8Array<ArrayBuffer>], { type: 'image/jpeg' }), `page ${i + 1} of ${pages.length}…`);
         out.push(pages.length > 1 ? `— Page ${i + 1} —\n${t}` : t);
+        reads.push({ text: t, words: lastWords });
       }
       docText.value = out.join('\n\n').trim();
       docText.hidden = false;
       docSave.hidden = false;
+      intoDoc.hidden = toSheet.hidden = !docText.value;
+      void import('../../docs/paperui').then((m) => (m.paperState.want === 'receipt' ? toSheet : intoDoc).focus({ preventScroll: true }));
+      paperReads = { text: docText.value, pages: reads };
       status(docText.value ? 'read · edit, then SAVE TEXT TO LIBRARY' : 'no text found on the pages', docText.value ? 'ok' : 'mid');
     } catch (e) {
       status(errText(e, `read the pages`), 'off');
@@ -814,6 +846,7 @@ export function createScanMode(L: LensContext): Mode {
     docText.value = '';
     docText.hidden = true;
     docSave.hidden = true;
+    intoDoc.hidden = toSheet.hidden = true;
     renderPages();
     // UNDO: every page back, and what READ ALL read from them
     if (was.pages.length || was.text)
@@ -823,6 +856,7 @@ export function createScanMode(L: LensContext): Mode {
         docText.value = was.text;
         docText.hidden = was.textHidden;
         docSave.hidden = was.saveHidden;
+        intoDoc.hidden = toSheet.hidden = was.saveHidden;
         renderPages();
       });
   };

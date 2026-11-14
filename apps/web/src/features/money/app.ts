@@ -308,7 +308,9 @@ function budgetsPage(): HTMLElement {
   const amount = h('input.mnamount', { type: 'text', inputMode: 'decimal', placeholder: '£200', 'aria-label': 'How much a month', enterKeyHint: 'done' }) as HTMLInputElement;
   const set = label(button('Set budget', () => void keep(), 'on'), 'Set this budget');
   const form = h('div.pkcol.mnform', h('div.lab', 'SET A BUDGET'), h('div.pkrow', pick, amount), h('div.pkrow', set));
-  const el = h('div.pkcol.mnapp', slot, form, status, phrases(['my budgets', 'show me my budgets']));
+  // [editors grid] money.c4 / editors.c1: a fresh spreadsheet copy of this money (months × categories, totals, budgets, a chart), each time
+  const asSheet = label(button('Open as a spreadsheet', () => void import('../../sheets/sheet').then((m) => m.openSheets({ what: 'money' }))), 'Open my money as a spreadsheet copy');
+  const el = h('div.pkcol.mnapp', slot, form, h('div.pkrow', asSheet), status, phrases(['my budgets', 'show me my budgets', 'open my money as a spreadsheet']));
   let s: SpendingSummary | null = null;
   const send = async (words: string, said: (x: SpendingSummary & { set: { category: Category; monthly: number } }) => string) => {
     if (lacksSignal()) return void stateIn(status, 'offline', 'No signal. Set it again when the phone is back online.');

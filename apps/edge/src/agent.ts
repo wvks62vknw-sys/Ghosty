@@ -13,7 +13,7 @@ import { collectAis, type AisShip } from './ais';
 import { loadReverseJobs, refreshReverse, removeReverse, startReverse } from './tools/reverse'; // [reverse]
 import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval, needsApprovalIn, outsideSource } from './kernel/permissions';
-import { LOCKED_TOOLS, LOCKED_WORDS, lockedAt, logApproval, securityRoute } from './security';
+import { LOCKED_WORDS, lockedAt, lockedTool, logApproval, securityRoute } from './security';
 import { checkLink, verdictWords } from './integrations/linkcheck'; // [security] CHECK A LINK (security.u9)
 import { Vault } from './kernel/vault';
 import { storageError } from './kv';
@@ -554,7 +554,7 @@ export class GhostyAgent {
         return json({ ok: true });
       }
       // [sites] a published page's earlier versions, and UNDO LAST UPDATE from the Workshop (sites.u2; tools/sites.ts)
-      if (/^\/sites\/[a-z0-9-]{1,48}\/(versions|restore)$/.test(path)) return await siteVersionsRoute(req, path, { env: this.env, storage: this.storage });
+      if (/^\/sites\/[a-z0-9-]{1,48}\/(versions|restore|check)$/.test(path)) return await siteVersionsRoute(req, path, { env: this.env, storage: this.storage });
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
@@ -1187,7 +1187,7 @@ export class GhostyAgent {
       return false;
     }
     // [security] ONE TAP TO LOCK EVERYTHING (security.u11): while locked, nothing that leaves or changes Ghosty runs, approved or not
-    const locked = calls.some((c) => LOCKED_TOOLS.test(c.function.name)) ? await lockedAt(this.storage) : null;
+    const locked = calls.some((c) => { const t = toolByName.get(c.function.name); return !!t && lockedTool(t); }) ? await lockedAt(this.storage) : null;
     for (let i = 0; i < calls.length; i++) {
       const call = calls[i]!;
       const tool = toolByName.get(call.function.name);
@@ -1196,7 +1196,7 @@ export class GhostyAgent {
       let result: string;
       if (!tool) {
         result = `Error: there is no tool called ${call.function.name}.`;
-      } else if (locked && LOCKED_TOOLS.test(tool.name)) {
+      } else if (locked && lockedTool(tool)) {
         result = `Error: ${LOCKED_WORDS}`;
         emit({ t: 'tool_result', id: call.id, name: tool.name, ok: false, summary: LOCKED_WORDS });
       } else if (badJson) {

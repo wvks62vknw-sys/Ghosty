@@ -274,7 +274,8 @@ export async function bodyTurn(text: string): Promise<PackReply> {
 }
 
 /** The kitchen pack's words: timers on this phone's clock, the shopping list opened, the oven line. */
-export async function kitchenTurn(text: string): Promise<PackReply> {
+/** (`person`: [voice lane, voice.s2] a person he introduced set it: their timers carry their name, "Sam's timer", "Sam's pasta") */
+export async function kitchenTurn(text: string, person?: string): Promise<PackReply> {
   const oven = ovenAsked(text);
   if (oven) return { said: text, reply: oven };
   const k = await import('../features/kitchen/sheet');
@@ -293,7 +294,7 @@ export async function kitchenTurn(text: string): Promise<PackReply> {
     const n = t.stopTimers(ask.stop);
     return { said: text, reply: n ? `Stopped ${n === 1 ? (ask.stop ? `the ${ask.stop} timer` : 'the timer') : `${n} timers`}.` : 'No timer by that name.' };
   }
-  const made = t.startTimers(ask.start);
+  const made = t.startTimers(person ? ask.start.map((x) => ({ ...x, name: `${person}’s ${x.name}`.slice(0, 40) })) : ask.start);
   const at = (x: { end: number }) => new Date(x.end - (t.clockNow() - Date.now())).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   return {
     said: text,

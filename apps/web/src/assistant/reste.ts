@@ -37,8 +37,39 @@ export async function convertTurn(text: string): Promise<PackReply> {
 /** "my documents", "new document", "read a document", "translate my letter into Urdu": the DOCUMENTS sheet, open on it. */
 export async function docsTurn(text: string): Promise<PackReply> {
   const ask = docsAsked(text) ?? { what: 'list' as const };
+  // [editors.s3] paper into a document or a spreadsheet row: the scan opens on DOCUMENT, its key for this waiting
+  if (ask.what === 'scan' || ask.what === 'receipt') {
+    const { wantPaper } = await import('../docs/paperui');
+    wantPaper(ask.what === 'scan' ? 'doc' : 'receipt');
+    const { openLens } = await import('../features/lens');
+    openLens('document');
+    const reply = ask.what === 'scan'
+      ? 'The scanner is open on DOCUMENT: lay the letter flat, CAPTURE PAGE (or PICK PHOTO), KEEP PAGE, then READ ALL and INTO A DOCUMENT. Its headings and paragraphs come with it, to edit, kept on this phone.'
+      : 'The scanner is open on DOCUMENT: capture the receipt, KEEP PAGE, READ ALL, then RECEIPT TO SPREADSHEET. You check the date, shop and total, and ADD ROW puts them in your Receipts spreadsheet, kept on this phone.';
+    return { said: text, reply, go: [{ id: 'docspaper', ask: -1, label: 'Open the scanner', run: 'open_lens', args: { mode: 'document' } }] };
+  }
+  if (ask.what === 'outline') {
+    const { openDocs } = await import('../docs/sheet');
+    void openDocs({ what: 'outline' });
+    return { said: text, reply: 'Your latest document is open on its CONTENTS: tap a heading to jump to it, or ▲ and ▼ to move its whole section, everything under it with it. UNDO takes a move back.', go: [{ id: 'docsoutline', ask: -1, label: 'Open the contents', run: 'open_docs', args: { what: 'outline' } }] };
+  }
+  if (ask.what === 'comments') {
+    const { openDocs } = await import('../docs/sheet');
+    void openDocs({ what: 'comments' });
+    return { said: text, reply: 'Your latest document is open with its comments: choose some words and WRITE → COMMENT to add one; reply, resolve, or ASK GHOSTY about that one sentence.', go: [{ id: 'docscomments', ask: -1, label: 'Open the comments', run: 'open_docs', args: { what: 'comments' } }] };
+  }
+  if (ask.what === 'merge') {
+    const { openDocs } = await import('../docs/sheet');
+    void openDocs({ what: 'merge' });
+    return { said: text, reply: 'Mail merge is open on your latest document: choose the spreadsheet of names, tap where each name goes and its column’s key, step through the copies, then ONE PDF, ONE WORD FILE or SEPARATE FILES. Nothing is sent anywhere.', go: [{ id: 'docsmerge', ask: -1, label: 'Open mail merge', run: 'open_docs', args: { what: 'merge' } }] };
+  }
+  if (ask.what === 'fill') {
+    const { openPdfForm } = await import('../docs/pdfformui');
+    openPdfForm();
+    return { said: text, reply: 'Fill and sign is open: CHOOSE A PDF, type into its boxes, tick its boxes, SIGN with your finger and tap the page where it goes, then SAVE PDF or SHARE. I say what I could not fill. Nothing is sent anywhere.', go: [{ id: 'docsfill', ask: -1, label: 'Open fill and sign', run: 'open_docs', args: { what: 'fill' } }] };
+  }
   const { openDocs } = await import('../docs/sheet');
-  void openDocs(ask);
+  void openDocs({ ...ask, what: ask.what });
   const reply = ask.what === 'new'
     ? 'A new document is open: type, or ask me to write it in the chat and it comes laid out.'
     : ask.what === 'open'
@@ -63,6 +94,8 @@ export async function sheetsTurn(text: string): Promise<PackReply> {
         ? 'A blank spreadsheet is open: tap a cell and type, or start with a budget.'
         : ask.what === 'import'
           ? 'Choose the file and I open it here: an Excel .xlsx or a CSV. Nothing is uploaded, and what I could not keep I say once.'
+          : ask.what === 'money'
+            ? 'Making your spending a budget sheet: months by categories with the totals, your budgets and a chart, a fresh copy from MONEY each time you ask.'
           : 'My spreadsheets are open: the ones you made or opened, kept on this phone with their dates.';
   return { said: text, reply, go: [{ id: 'sheets', ask: -1, label: 'Open my spreadsheets', run: 'open_sheets', args: {} }] };
 }
@@ -107,10 +140,53 @@ export async function workspaceTurn(text: string): Promise<PackReply> {
   return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
 }
 
+/** "take a voice note", "turn my voice note into a page": THE WORKSPACE’s VOICE NOTE open, one tap from RECORD (editors.s6). */
+export async function voiceNoteTurn(text: string): Promise<PackReply> {
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({ what: 'voice' });
+  const reply = 'VOICE NOTE is open in your workspace: tap RECORD and talk, or CHOOSE A RECORDING from Voice Memos. I write it down and tidy it into a page, with the actions as to-dos.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: { what: 'voice' } }] };
+}
+
+/** "make flashcards from my notes": THE WORKSPACE where he was, and how to make them (editors.c3). */
+export async function cardsTurn(text: string): Promise<PackReply> {
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({});
+  const reply = 'Your workspace is open: on the page of notes, tap … then MAKE FLASHCARDS (one of your documents works too). “Term: what it means” lines, toggles and headings with the answer under them become cards in Learn’s revision.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
+}
+
+/** "make a form", "a sign-up sheet": THE WORKSPACE, and where a database's FORM is (editors.s1). */
+export async function formTurn(text: string): Promise<PackReply> {
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({});
+  const reply = 'Your workspace is open: open a database (or ADD A BLOCK → DATABASE for a new list), then FORM. Its columns are the questions, and each answer you fill in on the phone becomes a new row.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
+}
+
+/** "make a mind map": a new mind map page in THE WORKSPACE (editors.s8). */
+export async function mindTurn(text: string): Promise<PackReply> {
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({ what: 'mind' });
+  const reply = 'A mind map page is open in your workspace: tap the idea in the middle to name it and add branches. Any branch becomes to-dos in one tap.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: { what: 'mind' } }] };
+}
+
 /** "edit a photo", "my photos": the photo editor, open on my photos. */
 export async function photoTurn(text: string): Promise<PackReply> {
   const ask = photoAsked(text) ?? { what: 'shelf' as const };
   const { openPhotoEditor } = await import('../features/photo');
+  if (ask.what === 'change') {
+    // editors.u7: marked changes in the Photo editor, on the photo open there (or the last one he edited); nothing changes until he accepts
+    const [{ lastOpen }, { peState }, { changesFor }] = await Promise.all([import('../photo/store'), import('../features/photo/editor'), import('../photo/suggest')]);
+    const n = changesFor(ask.ask ?? text).length;
+    const has = peState.open || !!lastOpen();
+    void openPhotoEditor({ suggest: ask.ask ?? text });
+    const reply = has
+      ? `I marked ${n === 1 ? 'one change' : `${n} changes`} in the Photo editor, on ${peState.open && peState.name ? `“${peState.name}”` : 'the photo you edited last'}. Accept or reject each; nothing changes the photo until you accept it.`
+      : 'Open a photo first: OPEN A PHOTO in the Photo editor, and I mark the changes on it for you to accept or reject.';
+    return { said: text, reply, go: [{ id: 'photo', ask: -1, label: 'Open the photo editor', run: 'open_photo', args: {} }] };
+  }
   void openPhotoEditor({});
   const reply = ask.what === 'edit'
     ? 'The photo editor is open: OPEN A PHOTO from your camera roll and I keep it here untouched, with every edit beside it.'

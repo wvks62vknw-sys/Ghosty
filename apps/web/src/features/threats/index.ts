@@ -8,7 +8,7 @@ import { sats } from '../../engine/layers/sats';
 import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { home, settings } from '../../state/app';
-import { bar, empty, pager, panel, row, SEV_COLORS } from '../../ui/components';
+import { bar, button, empty, pager, panel, row, SEV_COLORS, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { reconPanel } from './recon';
@@ -106,6 +106,12 @@ export const threatsTab: TabDef = {
       // (a tap finds it: God's Eye opens over where it is now, not just the tab)
       const findIss = { onClick: () => { const s = sats.list.find((x) => /ISS \(ZARYA\)/.test(x.name)); if (!s) return go('eye'); const ll = GEO.ll(s.w); void flyTo({ lat: ll.lat, lon: ll.lon, range_km: 6000 }); } };
       near.body.append(row('ISS', pass ? `rises ${fmt.time(new Date(pass.rise))} · max ${Math.round(pass.max)}°` : iss ? 'no pass in 24h' : 'tap to find it in God’s Eye', null, findIss));
+      // [see] a nudge ten minutes before it passes over home (see.u4: the diary's reminder, so it comes with the phone locked)
+      if (pass && iss) {
+        const nudge = button('NUDGE ME BEFORE IT PASSES', () => void import('../eye/passnudge').then((m) => m.nudgePass(iss.name, pass)).then((said) => toast(said, /^In your diary/.test(said) ? 'ok' : 'warn')));
+        nudge.dataset.act = 'nudge';
+        near.body.append(h('div.row.wrap.issnudge', nudge));
+      }
       // where "near" is measured from: his home, or a guess from the phone's time zone until he sets one
       near.body.append(h('div.note.nearfrom', settings.get().home ? `Measured from ${L.name}.` : `Measured from ${L.name}, a guess from the phone’s time zone: set your home city in Settings.`));
       clear(space.body);

@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['math', 'recipe', 'cpu', 'room', 'alpha'].map((m) => at(`../../web/src/photo/${m}.ts`)),
+  entryPoints: ['math', 'recipe', 'cpu', 'room', 'alpha', 'suggest', 'enlarge', 'asks'].map((m) => at(`../../web/src/photo/${m}.ts`)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -302,4 +302,88 @@ test('the geometry: the output maps into the original and back, straightening tu
   assert.ok(fit.w < 1 && fit.w > 0.85, `a 5 degree straighten crops to ${fit.w}`);
   const sq = R.fitCrop(4000, 3000, 0, 1);
   near(sq.w * 4000, sq.h * 3000, 1e-6, 'a 1:1 crop is square');
+});
+
+// ---------------------------------------------------------------- NEXT ROUND (editors.u7, editors.u14): Ghosty's changes, and ENLARGE
+const Sg = await import('./.build/photo/suggest.mjs');
+const En = await import('./.build/photo/enlarge.mjs');
+const Ak = await import('./.build/photo/asks.mjs');
+
+test('an ask in words becomes marked changes, each named as the sliders name it, each applied on its own', () => {
+  const r = R.newRecipe();
+  const c = Sg.changesFor('make this photo warmer and crop it to 4:5');
+  assert.deepEqual(c.map((x) => x.label), ['warmer +600 K', 'crop to 4:5']);
+  const warm = c[0].apply(r, 4000, 3000);
+  assert.equal(warm.wb.temp, r.wb.temp + 600, 'warmer: 600 K');
+  assert.equal(r.wb.temp, R.NEUTRAL_K, 'the recipe given is never changed');
+  const crop = c[1].apply(r, 4000, 3000);
+  near((crop.crop.w * 4000) / (crop.crop.h * 3000), 4 / 5, 1e-6, 'the crop is 4:5 in pixels');
+  assert.equal(crop.crop.ratio, '4:5');
+  near(crop.crop.h, 1, 1e-9, 'as large as fits on a wide photo');
+  // the order he accepts them in never matters
+  assert.deepEqual(c[1].apply(c[0].apply(r, 4000, 3000), 4000, 3000), c[0].apply(c[1].apply(r, 4000, 3000), 4000, 3000));
+  assert.deepEqual(Sg.changesFor('a bit brighter with more contrast').map((x) => x.label), ['+0.2 exposure', '+8 contrast'], 'a bit: half a step each');
+  assert.deepEqual(Sg.changesFor('much darker').map((x) => x.label), ['−0.6 exposure']);
+  assert.deepEqual(Sg.changesFor('black and white please').map((x) => x.label), ['black and white']);
+  assert.equal(Sg.changesFor('black and white').at(0).apply(r, 1, 1).color.saturation, -100);
+  assert.deepEqual(Sg.changesFor('warmer, no, cooler').map((x) => x.label), ['cooler −600 K'], 'the same part named twice keeps the last');
+  assert.deepEqual(Sg.changesFor('make it sing'), [], 'words it cannot use: nothing');
+  assert.match(Sg.changesLine(0), /could not turn that into a change/);
+  assert.match(Sg.changesLine(2), /^I suggest 2 changes\. Accept or reject each; nothing changes the photo until you accept it\.$/);
+});
+
+test('FIX IT reads the picture: a dim photo is lifted, a blue cast warmed, and a photo already right gets little', () => {
+  const dim = Sg.autoChanges({ mean: 0.2, lo: 0.05, hi: 0.5, cast: 0 });
+  const exp = dim.find((c) => c.id === 'exposure');
+  assert.ok(exp && /^\+\d\.\d exposure$/.test(exp.label), `a lift in exposure: ${dim.map((c) => c.label)}`);
+  assert.ok(dim.some((c) => c.id === 'contrast'), 'bunched tones get contrast');
+  const blue = Sg.autoChanges({ mean: 0.46, lo: 0.02, hi: 0.96, cast: -0.1 });
+  assert.ok(blue.some((c) => /^warmer/.test(c.label)), `a blue cast is warmed: ${blue.map((c) => c.label)}`);
+  const fine = Sg.autoChanges({ mean: 0.46, lo: 0.04, hi: 0.95, cast: 0 });
+  assert.deepEqual(fine.map((c) => c.id), ['vibrance'], 'a photo already right: only a touch of colour');
+  // the picture's own numbers from its pixels
+  const px = new Uint8ClampedArray(4 * 4);
+  px.set([255, 0, 0, 255, 255, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]);
+  const s = Sg.statsOf(px);
+  assert.ok(s.cast > 0.4 && s.mean < 0.2, `red pixels read warm: ${JSON.stringify(s)}`);
+});
+
+test('the chat’s “make this photo warmer” is a change; a picture to make, the Lens’s jobs and plain edits are not', () => {
+  assert.deepEqual(Ak.photoAsked('make this photo warmer'), { what: 'change', ask: 'make this photo warmer' });
+  assert.equal(Ak.photoAsked('crop this picture to 4:5')?.what, 'change');
+  assert.equal(Ak.photoAsked('edit a photo')?.what, 'edit');
+  assert.equal(Ak.photoAsked('crop a picture')?.what, 'edit', 'a crop with no shape is the editor, not a change');
+  assert.equal(Ak.photoAsked('make it warmer'), null, 'no photo named: the heating, not the photo');
+  assert.notEqual(Ak.photoAsked('make the photo sharper')?.what, 'change', 'SHARPER is the Lens’s');
+  assert.notEqual(Ak.photoAsked('remove the background from this photo')?.what, 'change');
+  assert.equal(Ak.photoAsked('draw a picture of a dark forest'), null, 'a picture to make is not a change');
+});
+
+test('ENLARGE with no model: twice the size held under the canvas limit, and the sharpening leaves flat areas alone', () => {
+  assert.deepEqual(En.enlargedSize(1000, 750), { w: 2000, h: 1500, capped: false });
+  const big = En.enlargedSize(4000, 3000);
+  assert.ok(big.capped && big.w * big.h <= En.MAX_PIXELS && Math.abs(big.w / big.h - 4 / 3) < 0.01, `held to 16.7 MP, the same shape: ${JSON.stringify(big)}`);
+  const w = 5;
+  const flat = new Uint8ClampedArray(w * w * 4).fill(120);
+  const before = flat.slice();
+  En.sharpen(flat, w, w);
+  assert.deepEqual([...flat], [...before], 'a flat picture is untouched');
+  const edge = new Uint8ClampedArray(w * w * 4);
+  for (let y = 0; y < w; y++) for (let x = 0; x < w; x++) edge.fill(x < 2 ? 60 : 200, (y * w + x) * 4, (y * w + x) * 4 + 4);
+  En.sharpen(edge, w, w);
+  assert.ok(edge[(2 * w + 1) * 4] < 60 && edge[(2 * w + 2) * 4] > 200, 'an edge is made crisper on both sides');
+});
+
+// The second review (14 Nov): a photo already at the canvas limit cannot grow; 2× BIGGER hands it back untouched (never sharpened in place,
+// so AS IT IS still exports the picture as drawn).
+test('2× BIGGER on a photo already at the canvas limit leaves the picture as it is', async () => {
+  assert.equal(En.cannotGrow(5016, 3344), true); // a 24 MP photo as the editor draws it, held to 16.7 MP
+  assert.equal(En.cannotGrow(4096, 4096), true);
+  assert.equal(En.cannotGrow(5000, 3350), true);
+  assert.equal(En.cannotGrow(1000, 750), false);
+  const src = { width: 5000, height: 3350, getContext: () => { throw new Error('the picture he exports was touched'); } };
+  const r = await En.enlarge(src, 2);
+  assert.equal(r.canvas, src);
+  assert.equal(r.already, true);
+  assert.deepEqual([r.w, r.h], [5000, 3350]);
 });

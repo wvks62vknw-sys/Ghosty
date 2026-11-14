@@ -60,7 +60,8 @@ for (const [name, viewport] of [['phone', PHONE], ['phone 375', { width: 375, he
         }
         // The parts of a page laid out one under another may not overlap each other.
         for (const grid of root.querySelectorAll('.hud.studio, .hud.lens')) {
-          const kids = [...grid.children].filter((k) => k.getBoundingClientRect().height > 0 && getComputedStyle(k).position !== 'absolute');
+          // (a wrapper with no box of its own, display: contents, counts as its children: the studio's parts under the picture)
+          const kids = [...grid.children].flatMap((k) => (getComputedStyle(k).display === 'contents' ? [...k.children] : [k])).filter((k) => k.getBoundingClientRect().height > 0 && getComputedStyle(k).position !== 'absolute');
           for (let i = 0; i < kids.length; i++)
             for (let j = i + 1; j < kids.length; j++) {
               const a = kids[i].getBoundingClientRect();

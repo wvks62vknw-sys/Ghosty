@@ -10,7 +10,8 @@
  */
 import { unzipSync } from '../convert/zip';
 import { addImageBytes } from './images';
-import { block, blockId, newDoc, tidyRuns, titled, type Align, type Block, type Doc, type PageSetup, type Run } from './model';
+import { block, blockId, newDoc, textOf, tidyRuns, titled, TEXT_COLOURS, type Align, type Block, type Doc, type PageSetup, type Run, type TextColour } from './model';
+import { commentId, fromWordParas, type Comment } from './comments';
 
 const dec = new TextDecoder();
 const text = (files: Map<string, Uint8Array>, name: string): string | null => {
@@ -29,6 +30,19 @@ const attr = (el: Element | null | undefined, local: string): string => {
   return '';
 };
 const MIMES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp' };
+/** A Word text colour as one of ours: the nearest of red, blue, green and orange when it is clearly one of them; black, grey and "auto" are the page's ink. */
+const colourOf = (hex: string): TextColour | undefined => {
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return undefined;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number];
+  if (Math.max(r, g, b) - Math.min(r, g, b) < 0.25) return undefined;
+  let best: TextColour | undefined;
+  let bestD = 0.5;
+  for (const [name, v] of Object.entries(TEXT_COLOURS) as [TextColour, { rgb: [number, number, number] }][]) {
+    const dd = Math.hypot(v.rgb[0] - r, v.rgb[1] - g, v.rgb[2] - b);
+    if (dd < bestD) (bestD = dd), (best = name);
+  }
+  return best;
+};
 const on = (el: Element | null): boolean => !!el && !/^(?:0|false|off|none)$/i.test(attr(el, 'val'));
 const norm = (p: string): string => {
   const out: string[] = [];
@@ -161,9 +175,9 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
         if (ln === 'r') {
           const rp = first(c, 'rPr');
           const hlv = attr(first(rp, 'highlight'), 'val');
-          const run = { b: on(first(rp, 'b')), i: on(first(rp, 'i')), u: on(first(rp, 'u')), s: on(first(rp, 'strike')) || on(first(rp, 'dstrike')), hl: !!hlv && hlv !== 'none' };
+          const run = { b: on(first(rp, 'b')), i: on(first(rp, 'i')), u: on(first(rp, 'u')), s: on(first(rp, 'strike')) || on(first(rp, 'dstrike')), hl: !!hlv && hlv !== 'none', c: colourOf(attr(first(rp, 'color'), 'val')) };
           for (const k of kids(c)) {
-            if (k.localName === 't') out.push({ text: k.textContent ?? '', ...(run.b ? { b: true } : {}), ...(run.i ? { i: true } : {}), ...(run.u && !link ? { u: true } : {}), ...(run.s ? { s: true } : {}), ...(run.hl ? { hl: true } : {}), ...(link ? { href: link } : {}) });
+            if (k.localName === 't') out.push({ text: k.textContent ?? '', ...(run.b ? { b: true } : {}), ...(run.i ? { i: true } : {}), ...(run.u && !link ? { u: true } : {}), ...(run.s ? { s: true } : {}), ...(run.hl ? { hl: true } : {}), ...(link ? { href: link } : {}), ...(run.c && !link ? { c: run.c } : {}) });
             else if (k.localName === 'tab') out.push({ text: '    ' });
             else if (k.localName === 'br') out.push({ text: attr(k, 'type') === 'page' ? '\f' : '\n' });
             else if (k.localName === 'noBreakHyphen') out.push({ text: '-' });
@@ -271,7 +285,36 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
     }
   };
   await section(body);
-  if (sdom && [...dom.getElementsByTagName('*')].some((e) => e.localName === 'commentReference')) lost.add('comments');
+  // [editors.u1] Word comments read back as comments on the same words (their quote found in the page), replies and resolved kept
+  const comments: Comment[] = [];
+  const cdom = parse(text(files, 'word/comments.xml') ?? '');
+  if (cdom) {
+    const said = new Map<string, { author: string; at: number; paras: string[] }>();
+    for (const c of [...cdom.getElementsByTagName('*')].filter((e) => e.localName === 'comment')) {
+      const paras = [...c.getElementsByTagName('*')].filter((e) => e.localName === 'p').map((p) => [...p.getElementsByTagName('*')].filter((e) => e.localName === 't').map((t) => t.textContent ?? '').join('')).filter((t) => t.trim());
+      said.set(attr(c, 'id'), { author: attr(c, 'author'), at: Date.parse(attr(c, 'date')) || Date.now(), paras });
+    }
+    const open = new Map<string, string>();
+    const quotes: { id: string; quote: string }[] = [];
+    for (const e of [...dom.getElementsByTagName('*')]) {
+      if (e.localName === 'commentRangeStart') open.set(attr(e, 'id'), '');
+      else if (e.localName === 'commentRangeEnd') {
+        const id = attr(e, 'id');
+        if (open.has(id)) quotes.push({ id, quote: open.get(id)! });
+        open.delete(id);
+      } else if (e.localName === 't' && open.size) for (const [k, v] of open) open.set(k, v + (e.textContent ?? ''));
+    }
+    const taken = new Map<string, number>();
+    for (const q of quotes) {
+      const s = said.get(q.id);
+      if (!s || !q.quote.trim()) continue;
+      const hit = blocks.map((b) => ({ b, i: textOf(b).indexOf(q.quote, taken.get(`${q.quote}`) ?? 0) })).find((x) => x.i >= 0) ?? blocks.map((b) => ({ b, i: textOf(b).indexOf(q.quote) })).find((x) => x.i >= 0);
+      if (!hit) continue;
+      const w = fromWordParas(s.paras);
+      comments.push({ id: commentId(), block: hit.b.id, start: hit.i, end: hit.i + q.quote.length, quote: q.quote, text: w.text, at: s.at, replies: w.replies, ...(w.resolved ? { resolved: true } : {}), ...(s.author && s.author !== 'Me' ? { author: s.author } : {}) });
+    }
+    if (quotes.length > comments.length) lost.add(`${quotes.length - comments.length} comment${quotes.length - comments.length === 1 ? '' : 's'} on words I could not find`);
+  } else if ([...dom.getElementsByTagName('*')].some((e) => e.localName === 'commentReference')) lost.add('comments');
   if ([...dom.getElementsByTagName('*')].some((e) => e.localName === 'txbxContent')) lost.add('text boxes');
   if (sect && Number(attr(first(sect, 'cols'), 'num')) > 1) lost.add('columns');
   if (!blocks.some((b) => b.t === 'table' || b.t === 'img' || b.t === 'pb' || b.runs.some((r) => r.text.trim())) && !title) return null;
@@ -279,5 +322,6 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
   const t = title ? { title, blocks } : titled(blocks, stem);
   const doc = newDoc(t.title, t.blocks, 'document', name);
   doc.page = page;
+  if (comments.length) doc.comments = comments;
   return { doc, lost: [...lost] };
 }

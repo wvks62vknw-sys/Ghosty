@@ -645,3 +645,223 @@ test('comments, to-dos and blocks: a to-do ticked keeps its date, a comment is d
   assert.equal(K.wordsOf(ws.pages[p.page.id]), 4);
   assert.equal(K.setIcon(ws, p.page.id, 'nonsense').pages[p.page.id].icon, 'page', 'an icon is one of the house’s marks');
 });
+
+test('voice notes into tidy pages (editors.s6): the asks, the brain’s reply read, the phone’s own tidy, the page’s blocks', () => {
+  for (const t of ['take a voice note', 'Take a voice note.', 'record a voice memo', 'turn my voice note into a page', 'turn this voice note into a document', 'my voice notes']) assert.ok(K.voiceNoteAsked(t), t);
+  for (const t of ['send a voice note on telegram', 'what is a voice note', 'take a note']) assert.ok(!K.voiceNoteAsked(t), t);
+  const said = 'um so the kitchen tiles came today and they look great. I need to call the plumber on Monday. remember to order the grout';
+  const ask = K.tidyAsk(said);
+  assert.match(ask, /## To do/);
+  assert.ok(ask.includes(said), 'his words are the data');
+  const t = K.parseTidy('# Kitchen tiles\n\nThe tiles came today and look great.\n\n## To do\n- [ ] Call the plumber on Monday\n- [ ] Order the grout\n', said);
+  assert.equal(t.title, 'Kitchen tiles');
+  assert.deepEqual(t.actions, ['Call the plumber on Monday', 'Order the grout']);
+  assert.deepEqual(t.paras, ['The tiles came today and look great.']);
+  assert.equal(t.by, 'brain');
+  assert.equal(K.parseTidy('Sorry, I cannot help with that.', said), null, 'not the shape asked for: the phone tidies it');
+  const here = K.tidyHere(said);
+  assert.equal(here.by, 'phone');
+  assert.deepEqual(here.actions, ['Call the plumber on Monday', 'Order the grout']);
+  assert.ok(!/\bum\b/i.test(here.paras.join(' ')), 'the filler is gone');
+  assert.match(here.paras[0], /^So the kitchen tiles came today/);
+  const bs = K.voiceBlocks(t, Date.UTC(2026, 10, 14, 9));
+  assert.deepEqual(bs.map((b) => b.t), ['callout', 'p', 'h2', 'todo', 'todo', 'h2', 'quote']);
+  assert.equal(bs.at(-1).runs[0].text, said, 'what he said is kept word for word');
+  assert.equal(K.doneWords(t, 'page'), 'Done: “Kitchen tiles” is a page in your workspace, with 2 to-dos.');
+  assert.match(K.doneWords(here, 'document'), /in MY DOCUMENTS.*on this phone, as my brain was away\.$/);
+  assert.equal(K.clockWords(125_400), '2:05');
+});
+
+test('toggles, synced blocks and his own templates (editors.u6), and how far Markdown carries them', () => {
+  let ws = K.emptyWorkspace();
+  const a = K.newPage(ws, { title: 'Garden', blocks: [K.wblock('toggle', 'Spring jobs'), K.wblock('p', 'Last line')] });
+  ws = a.ws;
+  const [tg, last] = a.page.blocks;
+  const inner = K.wblock('p', 'Prune the roses');
+  ws = K.addInside(ws, a.page.id, tg.id, inner);
+  ws = K.addInside(ws, a.page.id, tg.id, K.wblock('todo', 'Feed the lawn'));
+  let bs = ws.pages[a.page.id].blocks;
+  assert.deepEqual(bs.map((b) => b.t), ['toggle', 'p', 'todo', 'p'], 'the lines go inside, after the toggle’s last');
+  assert.equal(bs[1].under, tg.id);
+  assert.equal(K.hiddenBlocks(bs).size, 0, 'an open toggle hides nothing');
+  ws = K.foldToggle(ws, a.page.id, tg.id, true);
+  bs = ws.pages[a.page.id].blocks;
+  assert.deepEqual([...K.hiddenBlocks(bs)].sort(), [bs[1].id, bs[2].id].sort(), 'folded: its lines are out of sight, the last line is not');
+  assert.equal(K.withInside(bs, tg.id).size, 3);
+  assert.equal(K.toggleDepth(bs, bs[1]), 1);
+  // synced: one block on two pages, edited on either
+  const b = K.newPage(ws, { title: 'Shed' });
+  ws = b.ws;
+  const s1 = K.syncTo(ws, a.page.id, last.id, b.page.id);
+  assert.ok(!s1.error, s1.error);
+  ws = s1.ws;
+  assert.equal(K.syncPages(ws, s1.sync).length, 2);
+  assert.equal(K.syncTo(ws, a.page.id, last.id, b.page.id).error, 'It is already on “Shed”.');
+  ws = K.syncRuns(ws, s1.sync, [{ text: 'Lock the gate' }]);
+  assert.equal(ws.pages[b.page.id].blocks[0].runs[0].text, 'Lock the gate', 'editing one edits all');
+  assert.equal(ws.pages[a.page.id].blocks.at(-1).runs[0].text, 'Lock the gate');
+  assert.match(K.syncTo(ws, a.page.id, a.page.blocks[0].id, b.page.id).error ?? '', /^$|Only a line of words/);
+  // Markdown: the toggle as <details>, the synced mark only Ghosty reads, both read back
+  const ex = K.exportTree(ws);
+  const md = ex.files.find((f) => f.path === 'Garden.md').text;
+  assert.match(md, /^<details><summary>Spring jobs<\/summary>$/m, 'a folded toggle is a closed <details>');
+  assert.match(md, /^<\/details>$/m);
+  assert.match(md, new RegExp(`^<!--ghosty:synced ${s1.sync}-->\\nLock the gate$`, 'm'));
+  const imp = K.importFiles(K.emptyWorkspace(), ex.files);
+  const g = Object.values(imp.ws.pages).find((p) => p.title === 'Garden');
+  const shed = Object.values(imp.ws.pages).find((p) => p.title === 'Shed');
+  assert.deepEqual(g.blocks.map((x) => x.t), ['toggle', 'p', 'todo', 'p']);
+  assert.equal(g.blocks[0].folded, true, 'folded comes back folded');
+  assert.equal(g.blocks[1].under, g.blocks[0].id, 'the lines inside come back inside');
+  assert.equal(g.blocks[2].under, g.blocks[0].id);
+  assert.ok(!g.blocks[3].under, 'the line after </details> is outside');
+  assert.ok(g.blocks[3].sync && g.blocks[3].sync === shed.blocks[0].sync, 'the synced pair is synced again');
+  assert.notEqual(g.blocks[3].sync, s1.sync, 'never with the pages they were written from');
+  // his own template: a copy taken now, made fresh with new ids
+  const t = K.saveAsTemplate(ws, a.page.id, 5);
+  assert.equal(t.name, 'Garden');
+  assert.equal(t.pages.length, 1);
+  assert.ok(!ws.pages[t.pages[0].id], 'the template’s pages are its own, never the live ones');
+  ws = K.setTitle(ws, a.page.id, 'Changed later');
+  const made = K.fromOwnTemplate(ws, t, null);
+  assert.equal(made.root.title, 'Garden', 'a later edit to the page does not change the template');
+  assert.ok(!made.ws.pages[t.pages[0].id], 'the template itself is not left in the workspace');
+  assert.equal(made.root.blocks.length, 4);
+  assert.equal(made.root.blocks[1].under, made.root.blocks[0].id, 'a copy’s lines stay inside its own toggle');
+  assert.equal(made.root.from, 'my template “Garden”');
+  assert.equal(K.live(made.ws).length, K.live(ws).length + 1);
+});
+
+test('workspace deadlines on the agenda and in the brief (editors.c4): due-like dates first, done rows left out, late first, one line', () => {
+  const today = '2026-11-14';
+  let ws = K.emptyWorkspace();
+  const proj = K.newPage(ws, { title: 'Kitchen' });
+  ws = proj.ws;
+  const d = K.newDatabase(ws, { title: 'Tasks', parent: proj.page.id, props: [{ name: 'Start', kind: 'date' }, { name: 'Due', kind: 'date' }, { name: 'Done', kind: 'check' }], views: ['table'] });
+  ws = d.ws;
+  const [start, due, done] = d.page.db.props.map((p) => p.id);
+  ws = K.addRow(ws, d.page.id, 'Book the tiler', { [start]: '2026-11-01', [due]: today }).ws;
+  ws = K.addRow(ws, d.page.id, 'Order grout', { [due]: '2026-11-10' }).ws;
+  ws = K.addRow(ws, d.page.id, 'Paint', { [due]: '2026-11-18' }).ws;
+  ws = K.addRow(ws, d.page.id, 'Already done', { [due]: today, [done]: true }).ws;
+  ws = K.addRow(ws, d.page.id, 'Far off', { [due]: '2027-02-01' }).ws;
+  const plain = K.newDatabase(ws, { title: 'Trips', props: [{ name: 'When', kind: 'date' }], views: ['table'] });
+  ws = plain.ws;
+  ws = K.addRow(ws, plain.page.id, 'Bath', { [plain.page.db.props[0].id]: '2026-11-15' }).ws;
+  const list = K.deadlines(ws, today);
+  assert.deepEqual(list.map((x) => [x.title, x.date, x.late]), [['Order grout', '2026-11-10', true], ['Book the tiler', today, false], ['Bath', '2026-11-15', false], ['Paint', '2026-11-18', false]], 'the Start date is not a deadline where a Due exists; a plain date counts where none does');
+  assert.equal(list[1].where, 'Tasks · Kitchen');
+  assert.equal(K.whenWords(today, today), 'today');
+  assert.equal(K.whenWords('2026-11-15', today), 'tomorrow');
+  assert.match(K.whenWords('2026-11-10', today), /^late, since /);
+  assert.match(K.deadlineLine(list, today), /^Order grout is late in your workspace \(due .+\), and 3 more this week$/);
+  assert.equal(K.deadlineLine(list.slice(1, 2), today), 'Book the tiler is due today in your workspace');
+  assert.equal(K.deadlineLine([], today), '');
+});
+
+test('flashcards from his own notes (editors.c3): term lines, toggles, headings, two-column tables; each front once', () => {
+  const tg = K.wblock('toggle', 'What does SM-2 do?');
+  const blocks = [
+    K.wblock('h1', 'Photosynthesis'),
+    K.wblock('p', 'Plants turn light, water and carbon dioxide into sugar and oxygen.'),
+    K.wblock('ul', 'Mitochondria: the part of the cell that makes energy'),
+    K.wblock('ul', 'Osmosis — water moving through a membrane'),
+    K.wblock('p', 'See https://example.com for more'),
+    tg,
+    { ...K.wblock('p', 'It brings a card back just before you would forget it'), under: tg.id },
+    K.wblock('table', '', { head: true, rows: [[[{ text: 'French' }], [{ text: 'English' }]], [[{ text: 'la pomme' }], [{ text: 'the apple' }]], [[{ text: '' }], [{ text: 'blank' }]]] }),
+    K.wblock('p', 'Mitochondria: said twice'),
+  ];
+  const cards = K.cardsFrom(blocks);
+  assert.deepEqual(cards.map((c) => c.front), ['Photosynthesis', 'Mitochondria', 'Osmosis', 'What does SM-2 do?', 'la pomme']);
+  assert.equal(cards[0].back, 'Plants turn light, water and carbon dioxide into sugar and oxygen.');
+  assert.equal(cards[2].back, 'water moving through a membrane');
+  assert.equal(cards[3].back, 'It brings a card back just before you would forget it', 'a toggle: its line on the front, the lines inside on the back');
+  assert.equal(cards[4].back, 'the apple');
+  assert.equal(K.cardsFrom([K.wblock('p', 'Just a line')]).length, 0);
+  assert.match(K.cardsWords(0, 'X'), /^No cards in this page yet/);
+  assert.match(K.cardsWords(5, 'Biology'), /^5 cards from “Biology”/);
+  for (const t of ['make flashcards from my notes', 'Turn this page into flashcards', 'make me some flash cards from this document']) assert.ok(K.cardsAsked(t), t);
+  assert.ok(!K.cardsAsked('revise my flashcards'));
+});
+
+test('forms that fill a database (editors.s1): the questions, one answer read into a row, what is wrong said', () => {
+  let ws = K.emptyWorkspace();
+  const d = K.newDatabase(ws, { title: 'Sign-ups', props: [{ name: 'Email', kind: 'text' }, { name: 'Guests', kind: 'number' }, { name: 'Meal', kind: 'select', options: ['Meat', 'Veg'] }, { name: 'Days', kind: 'multi', options: ['Sat', 'Sun'] }, { name: 'Arrives', kind: 'date' }, { name: 'Paid', kind: 'check' }, { name: 'Total', kind: 'formula', formula: 'prop("Guests")*2' }], views: ['table'] });
+  ws = d.ws;
+  const db = d.page.db;
+  const [email, guests, meal, days, arrives, paid] = db.props.map((p) => p.id);
+  assert.deepEqual(K.formQuestions(db).map((p) => p.name), ['Email', 'Guests', 'Meal', 'Days', 'Arrives', 'Paid']);
+  assert.deepEqual(K.formSkipped(db), ['Total (worked out)']);
+  const a = K.formAnswer(db, ' Sam ', { [email]: 'sam@example.com', [guests]: '£3', [meal]: 'Veg', [days]: ['Sun', 'Mon'], [arrives]: '2026-11-21', [paid]: true });
+  assert.equal(a.title, 'Sam');
+  assert.deepEqual(a.vals, { [email]: 'sam@example.com', [guests]: 3, [meal]: 'Veg', [days]: ['Sun'], [arrives]: '2026-11-21', [paid]: true });
+  assert.deepEqual(K.formAnswer(db, '', {}), { error: 'Give it a name first: the first box.' });
+  assert.deepEqual(K.formAnswer(db, 'X', { [guests]: 'lots' }), { error: '“lots” is not a number: Guests wants a number.' });
+  assert.deepEqual(K.formAnswer(db, 'X', { [meal]: 'Fish' }), { error: '“Fish” is not one of Meal’s choices.' });
+  assert.deepEqual(K.formAnswer(db, 'X', { [guests]: '' }).vals, {}, 'an empty box is left blank');
+  for (const t of ['make a form', 'Make a sign-up sheet', 'create a survey in my workspace']) assert.ok(K.formAsked(t), t);
+  assert.ok(!K.formAsked('fill in a pdf form'));
+});
+
+test('mind maps in the workspace (editors.s8): branches added, renamed, taken off; laid from the left; a branch into to-dos; Markdown both ways', () => {
+  let ns = [{ id: 'm0', text: 'Garden', parent: null }];
+  const a = K.addNode(ns, 'm0', 'Plants');
+  ns = a.nodes;
+  const b = K.addNode(ns, a.id, ' Roses ');
+  ns = b.nodes;
+  ns = K.addNode(ns, a.id, 'Tulips').nodes;
+  const c = K.addNode(ns, 'm0', 'Shed');
+  ns = c.nodes;
+  assert.equal(K.addNode(ns, 'nope', 'x').error, 'That branch is not on the map any more.');
+  assert.equal(ns.find((n) => n.id === b.id).text, 'Roses');
+  assert.deepEqual(K.branchTodos(ns, a.id), ['Roses', 'Tulips'], 'a branch with branches: theirs');
+  assert.deepEqual(K.branchTodos(ns, c.id), ['Shed'], 'a branch with none: its own');
+  const L = K.layout(ns);
+  assert.equal(L.rows, 3);
+  assert.equal(L.depth, 2);
+  const at = Object.fromEntries(L.nodes.map((n) => [n.text, n]));
+  assert.equal(at.Plants.row, 0.5, 'a parent sits at the middle of its children');
+  assert.equal(at.Shed.row, 2);
+  assert.equal(L.edges.length, 4);
+  ns = K.renameNode(ns, c.id, 'Tool shed');
+  const md = K.mindMd(ns);
+  assert.deepEqual(md, ['<!--ghosty:mind-->', '- Garden', '  - Plants', '    - Roses', '    - Tulips', '  - Tool shed', '<!--/ghosty:mind-->']);
+  const back = K.mindFromLines(md.slice(1, -1));
+  assert.deepEqual(back.map((n) => [n.text, back.find((p) => p.id === n.parent)?.text ?? null]), [['Garden', null], ['Plants', 'Garden'], ['Roses', 'Plants'], ['Tulips', 'Plants'], ['Tool shed', 'Garden']]);
+  assert.deepEqual(K.removeNode(ns, a.id).map((n) => n.text), ['Garden', 'Tool shed'], 'a branch goes with what grew from it');
+  assert.deepEqual(K.removeNode(ns, 'm0').map((n) => n.text), ['Garden'], 'the centre stays, cleared');
+  // through a page's Markdown and back
+  let ws = K.emptyWorkspace();
+  ws = K.newPage(ws, { title: 'Plan', blocks: [K.wblock('mind', '', { mind: ns })] }).ws;
+  const ex = K.exportTree(ws);
+  const imp = K.importFiles(K.emptyWorkspace(), ex.files);
+  const p = Object.values(imp.ws.pages).find((x) => x.title === 'Plan');
+  assert.equal(p.blocks[0].t, 'mind');
+  assert.deepEqual(p.blocks[0].mind.map((n) => n.text), ['Garden', 'Plants', 'Roses', 'Tulips', 'Tool shed']);
+  assert.equal(K.wText(p.blocks[0]), 'Garden\nPlants\nRoses\nTulips\nTool shed', 'search reads every idea');
+});
+
+test('compare two versions (editors.u10): matched by block, changes coloured word by word, one part brought back alone', () => {
+  const a = K.wblock('p', 'Order the blue tiles');
+  const b = K.wblock('p', 'Call the plumber');
+  const c = K.wblock('todo', 'Measure');
+  const then = [a, b, c];
+  const d = K.wblock('p', 'New line');
+  const now = [{ ...a, runs: [{ text: 'Order the white tiles' }] }, c, d];
+  const parts = K.comparePage(then, now);
+  assert.deepEqual(parts.map((p) => [p.kind, p.id]), [['changed', a.id], ['gone', b.id], ['same', c.id], ['came', d.id]], 'a gone block stands where it was');
+  assert.deepEqual(parts[0].words.filter((w) => w.gone || w.came), [{ gone: 'blue' }, { came: 'white' }]);
+  assert.equal(K.changeWords(parts), '3 changes: 1 changed, 1 gone, 1 added.');
+  assert.equal(K.changeWords(K.comparePage(then, then)), 'No changes: this version is the page as it is now.');
+  assert.equal(K.restorePart(then, now, a.id)[0].runs[0].text, 'Order the blue tiles', 'a changed line gets its old words, the rest untouched');
+  assert.equal(K.restorePart(then, now, a.id)[2], d);
+  assert.deepEqual(K.restorePart(then, now, b.id).map((x) => x.id), [a.id, b.id, c.id, d.id], 'a gone block back in its old place');
+  assert.deepEqual(K.restorePart(then, now, d.id).map((x) => x.id), [a.id, c.id], 'an added block taken out');
+});
+
+// The second review (14 Nov): a voice note whose document could not be kept keeps its recording, so TIDY IT NOW has something to try again.
+test('voice notes: the recording is let go only once its page or document was really kept', () => {
+  assert.equal(K.letGoOfRecording({ ok: true, words: 'A page.' }), true);
+  assert.equal(K.letGoOfRecording({ ok: false, words: 'This phone would not keep the document just now' }), false);
+});

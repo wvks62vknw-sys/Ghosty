@@ -23,10 +23,11 @@ import { reverseAddress, shortName, whatIs } from '../data/places';
 import { enforce, ENFORCE_LABEL } from '../data/enforce';
 import { legColor, legPath, modeWord, type Journey } from '../data/journey';
 import { button, toast } from './components';
-import type { MapSpot } from './mapurls';
+import type { MapSpot } from './mapurls';import { FUEL_DOWN, FUEL_MIRRORS, FUEL_ZOOM, fuelLine, fuelQuery, parseFuel } from '../data/fuel';
+
 
 export type StyleId = 'dark' | 'streets' | 'topo' | 'cycle' | 'satellite' | 'traffic' | 'mapbox' | 'night';
-export type OverlayId = 'rail' | 'sea' | 'rain' | 'cctv' | 'cameras';
+export type OverlayId = 'rail' | 'sea' | 'rain' | 'cctv' | 'cameras' | 'fuel';
 export interface MapPoint {
   lat: number;
   lon: number;
@@ -73,6 +74,8 @@ const OVERLAYS: { id: OverlayId; label: string }[] = [
   { id: 'rain', label: 'RAIN' },
   { id: 'cctv', label: 'CCTV' },
   { id: 'cameras', label: 'ANPR / SPEED' },
+  // [see] fuel stations and car chargers from OpenStreetMap (see.s7)
+  { id: 'fuel', label: 'FUEL & CHARGE' },
 ];
 
 let leaflet: Promise<typeof L> | null = null;
@@ -224,6 +227,33 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
       note(list.length ? `${list.length} mapped ANPR, speed, average-speed, red-light and bus-lane cameras in view (OpenStreetMap)` : 'No mapped enforcement cameras in view.');
     }
   };
+  // fuel stations and car chargers in the view (data/fuel.ts): asked of OpenStreetMap's public Overpass service, never with his position
+  const drawFuel = async (Lf: typeof L, g: L.LayerGroup) => {
+    if (!map) return;
+    const b = map.getBounds();
+    const sw = b.getSouthWest();
+    const ne = b.getNorthEast();
+    if (ne.lat - sw.lat > 0.6 || ne.lng - sw.lng > 1) return note(FUEL_ZOOM);
+    note('Finding fuel stations and car chargers…');
+    const q = fuelQuery([sw.lat, sw.lng, ne.lat, ne.lng]);
+    let data: unknown = null;
+    for (const m of FUEL_MIRRORS) {
+      try {
+        const r = await fetch(m, { method: 'POST', body: `data=${encodeURIComponent(q)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+        if (r.ok) {
+          data = await r.json();
+          break;
+        }
+      } catch {
+        /* the next mirror */
+      }
+    }
+    if (!data) return note(FUEL_DOWN);
+    const list = parseFuel(data);
+    for (const p of list) Lf.circleMarker([p.lat, p.lon], { radius: 7, weight: 2, className: `fuelmark ${p.kind}` }).bindPopup(h('div.fuelpop', h('b', p.name), h('br'), fuelLine(p))).addTo(g);
+    const nf = list.filter((p) => p.kind === 'fuel').length;
+    note(list.length ? `${nf} fuel station${nf === 1 ? '' : 's'} and ${list.length - nf} car charger${list.length - nf === 1 ? '' : 's'} here (OpenStreetMap)` : 'No fuel stations or car chargers mapped here.');
+  };
   const toggleOverlay = async (id: OverlayId) => {
     const Lf = await loadLeaflet();
     if (!map) return;
@@ -241,6 +271,10 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
         if (!last) return toast('The rain radar is not reachable right now', 'warn');
         layer = Lf.tileLayer(`https://tilecache.rainviewer.com${last.path}/256/{z}/{x}/{y}/2/1_1.png`, { maxZoom: 18, opacity: 0.7, attribution: 'RainViewer', referrerPolicy: 'no-referrer' });
         note(`Rain radar ${fmt.ago(last.time * 1000)}`);
+      } else if (id === 'fuel') {
+        const g = Lf.layerGroup();
+        layer = g;
+        void drawFuel(Lf, g);
       } else {
         const g = Lf.layerGroup();
         layer = g;

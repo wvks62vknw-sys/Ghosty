@@ -510,7 +510,8 @@ function papersView(): HTMLElement {
     if (!bought.value) return void stateIn(status, '', 'Pick the day you bought it.');
     if (!m) return void stateIn(status, '', 'Say how many months the warranty runs, like 24.');
     const r = await run2({ op: 'warranty', thing: thing.value.trim(), bought: bought.value, months: m, store: store.value.trim() });
-    if (!r.failed && !/^Kept/.test(r.text)) return;
+    // (a keep that failed or was refused leaves what he typed where it is)
+    if (r.failed || !/^Kept/.test(r.text)) return;
     thing.value = '';
     months.value = '';
     store.value = '';

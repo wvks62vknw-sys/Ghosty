@@ -191,3 +191,27 @@ export function speedNow(c: Clip, t: number): number {
   return speedAt(ramp, pictureAt(ramp, t * c.speed, c.out - c.in)) * c.speed;
 }
 export { playTime as rampPlayTime };
+
+/**
+ * The frame-by-frame file to the timeline's exact length (NEXT ROUND, the export's last tenth of a second): the pictures are whole
+ * frames and the sound whole packets of 1,024 samples (and the encoder adds a few at the start), so each track could run up to a frame
+ * or a packet past the end. The last picture's duration is set so the pictures end at the timeline's end, and the sound's packets past
+ * the end are dropped and the last one's duration cut (or stretched) to land on it. Pure on its numbers; the brain test proves it.
+ */
+export function exactLength(v: { dur: number }[], a: { dur: number }[], durMs: number, rate = 48_000): void {
+  if (v.length) {
+    const want = Math.round(durMs * 1000);
+    const before = v.slice(0, -1).reduce((n, s) => n + s.dur, 0);
+    v[v.length - 1]!.dur = Math.max(1, want - before);
+  }
+  if (a.length) {
+    const want = Math.max(1, Math.round((durMs / 1000) * rate));
+    let sum = 0;
+    let i = 0;
+    while (i < a.length && sum + a[i]!.dur < want) sum += a[i++]!.dur;
+    if (i < a.length) {
+      a.length = i + 1;
+      a[i]!.dur = Math.max(1, want - sum);
+    } else if (a.length) a[a.length - 1]!.dur += want - sum;
+  }
+}

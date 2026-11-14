@@ -7,6 +7,7 @@
  */
 import { dropOldest, versionCount } from './versions';
 import { emptyWorkspace, purgeBin, type Workspace } from './model';
+import type { OwnTemplate } from './templates';
 
 export const KEY = 'ghosty.workspace';
 const WHERE = 'ghosty.workspace.where';
@@ -114,5 +115,25 @@ export function lastBackupAt(): number {
     return l?.ok && typeof l.at === 'number' ? l.at : 0;
   } catch {
     return 0;
+  }
+}
+
+// ---------------------------------------------------------------- his own templates (editors.u6), kept beside the workspace
+const TEMPLATES_KEY = 'ghosty.workspace.templates';
+export function loadOwnTemplates(): OwnTemplate[] {
+  try {
+    const l = JSON.parse(localStorage.getItem(TEMPLATES_KEY) ?? '[]') as OwnTemplate[];
+    return Array.isArray(l) ? l.filter((t) => t && Array.isArray(t.pages) && t.pages.length) : [];
+  } catch {
+    return [];
+  }
+}
+/** Kept, or not (storage blocked or full). */
+export function saveOwnTemplates(l: OwnTemplate[]): boolean {
+  try {
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(l));
+    return true;
+  } catch {
+    return false;
   }
 }

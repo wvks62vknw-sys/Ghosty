@@ -5,7 +5,7 @@
  */
 import type { Env } from './env';
 import { authenticate, ownerSecured } from './kernel/auth';
-import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
+import { siteFrameResponse, siteIcsResponse, siteResponse, siteStore } from './tools/sites';
 import { gameSiteResponse } from './gamesite';
 import { imageResponse } from './lens';
 import { zimPassthrough } from './zim';
@@ -166,7 +166,7 @@ export default {
     const demo = await demoRoute(req, env, ctx, { proxy });
     if (demo) return demo;
     // Pages Ghosty published (publish_site): public links, no sign-in, served sandboxed.
-    const pub = url.pathname.match(/^\/s\/([a-z0-9-]{1,48})(\/page)?\/?$/);
+    const pub = url.pathname.match(/^\/s\/([a-z0-9-]{1,48})(\/page|\/event\.ics)?\/?$/);
     if (pub && (req.method === 'GET' || req.method === 'HEAD')) {
       // Nothing from the visitor's request is passed on, except whether it is loading a frame.
       const dest = req.headers.get('sec-fetch-dest');
@@ -176,6 +176,8 @@ export default {
         // A KV hiccup (its own daily limit, a blip) is not a dead link: the brain still has the page.
         const site = await siteStore(env).get(pub[1]!).catch(() => undefined);
         // [sites] A game from his studio (gamesite.ts): its own page, manifest, icon and offline worker, served straight.
+        // [sites] an event page's calendar file (sites.s1)
+        if (pub[2] === '/event.ics') return siteIcsResponse(site, url.origin);
         if (site?.game) return gameSiteResponse(site, env, url.origin, url.pathname, pub[2] ? (dest ?? '') : null);
         if (site) return pub[2] ? siteFrameResponse(site, dest) : siteResponse(site);
       }

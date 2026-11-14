@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 const at = (p) => new URL(p, import.meta.url).pathname;
 const S = '../../web/src/features/comic/';
 await build({
-  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`), script: at(`${S}script.ts`), rar: at(`${S}rar.ts`), week: at(`${S}week.ts`) },
+  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`), script: at(`${S}script.ts`), rar: at(`${S}rar.ts`), week: at(`${S}week.ts`), formats: at(`${S}formats.ts`) },
   outdir: at('./.build/comic/'),
   bundle: true,
   format: 'esm',
@@ -200,4 +200,26 @@ test('your week as a comic: this week’s events and ticked to-dos, titles and d
   assert.ok(M.comicFrom(JSON.parse(JSON.stringify(c))));
   assert.equal(A.comicAsked('make my week into a comic')?.what, 'week');
   assert.equal(A.comicAsked('a comic of my week')?.what, 'week');
+});
+
+test('the other shapes: a one-panel joke, a greeting card of three panels, a picture book of six pages; "make it a comic" asked', async () => {
+  const FM = await import(at('./.build/comic/formats.js'));
+  const j = FM.writeFormat('joke', 'a dog who wants to drive', 4);
+  assert.deepEqual([j.pages.length, j.pages[0].panels.length, j.pages[0].panels[0].balloons.length], [1, 1, 1]);
+  assert.ok(j.pages[0].panels[0].caption.length > 10);
+  const c = FM.writeFormat('card', 'a birthday card for Dad', 4);
+  assert.deepEqual([c.pages.length, c.pages[0].panels.length], [1, 3]);
+  assert.equal(c.title, 'Happy Birthday, Dad');
+  assert.match(FM.writeFormat('card', 'a thank you card for Priya', 4).title, /^Thank You, Priya$/);
+  const b = FM.writeFormat('book', 'a little bear who wants to fly', 4);
+  assert.equal(b.pages.length, 6);
+  assert.ok(b.pages.every((p) => p.panels.length === 1 && p.panels[0].caption && !p.panels[0].balloons.length));
+  for (const x of [j, c, b]) assert.ok(M.comicFrom(JSON.parse(JSON.stringify(x))));
+  // a script that came back as a whole comic is kept to the shape
+  const base = M.writeComic({ idea: 'x', seed: 2 });
+  const text = ['TITLE: T', 'PAGE', 'PANEL: town, day, wide | a', 'HERO: one', 'PANEL: town, day, mid | b', 'FRIEND: two', 'PAGE', 'PANEL: park, day, mid | c', 'HERO: three', 'PANEL: park, day, mid | d', 'FRIEND: four', 'PANEL: park, day, mid | e', 'HERO: five'].join('\n');
+  assert.equal(SC.readScript(text, base.cast, FM.FORMAT_ASK.joke, 'joke').pages[0].panels.length, 1);
+  assert.equal(SC.readScript(text, base.cast, FM.FORMAT_ASK.card, 'card').pages[0].panels.length, 3);
+  assert.ok(SC.readScript(text, base.cast, FM.FORMAT_ASK.book, 'book').pages.every((p) => p.panels.length === 1));
+  for (const t of ['make it a comic', 'turn this into a comic', 'make a comic of that', 'comic this']) assert.equal(A.comicAsked(t)?.what, 'this', `"${t}"`);
 });

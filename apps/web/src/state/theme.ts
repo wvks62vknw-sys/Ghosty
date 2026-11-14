@@ -275,9 +275,17 @@ export function lookBack(): Recipe | null {
   return prev;
 }
 
+/** [voice.u8] A room's own colour showing now (state/roomcolour.ts), or null: a saved change made there keeps HIS colour, never the room's. */
+let roomShown: ColourKey | null = null;
+export const setRoomShown = (c: ColourKey | null): void => {
+  roomShown = c;
+};
+/** His own colour for a look: the room's colour, while it is showing, is never his. */
+const ownColour = (c: ColourKey): ColourKey => (roomShown && c === roomShown ? recipeFrom(settings.get().theme, settings.get().look).colour : c);
+
 export function applyRecipe(r: Recipe, o: { save?: boolean; remember?: boolean } = {}): void {
   // (a saved change that changes something is remembered for "put it back"; the day's own flips and a look put back are not)
-  if (o.save !== false && o.remember !== false && current && !sameRecipe(current, r)) keepBefore([...looksBefore(), { ...current, switches: { ...current.switches } }]);
+  if (o.save !== false && o.remember !== false && current && !sameRecipe(current, r)) keepBefore([...looksBefore(), { ...current, colour: ownColour(current.colour), switches: { ...current.switches } }]);
   current = { ...r, switches: { ...r.switches } };
   const el = document.documentElement;
   // [planlane2:goodnight] tonight's night look: shown over Paper till it ends (or his next look change), never in `current`
@@ -305,8 +313,9 @@ export function applyRecipe(r: Recipe, o: { save?: boolean; remember?: boolean }
   paint(lit(current.colour, moodKind), current.colour);
   if (o.save !== false) {
     const now = settings.get();
-    const kept = keptLook(current);
-    if (now.theme !== current.colour || JSON.stringify(now.look) !== JSON.stringify(kept)) settings.set({ theme: current.colour, look: kept });
+    const own = ownColour(current.colour);
+    const kept = keptLook({ ...current, colour: own });
+    if (now.theme !== own || JSON.stringify(now.look) !== JSON.stringify(kept)) settings.set({ theme: own, look: kept });
   }
   scheduleDay();
   themeState.applied++;

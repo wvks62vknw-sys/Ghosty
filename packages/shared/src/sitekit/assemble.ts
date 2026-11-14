@@ -66,7 +66,7 @@ const DAY_CODE = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 export function jsonLd(plan: Plan, b: Brief, image?: string): Record<string, unknown> {
   const type = SCHEMA_TYPE[b.kind];
   const base: Record<string, unknown> = { '@context': 'https://schema.org', '@type': type, name: plan.name, ...(plan.url ? { url: plan.url } : {}), ...(image ? { image } : {}), ...(b.tagline || plan.pages[0]?.description ? { description: b.tagline || plan.pages[0]!.description } : {}) };
-  if (type === 'Event') return { ...base, ...(b.date ? { startDate: b.date } : {}), location: { '@type': 'Place', name: b.venue || b.town || plan.name, address: [b.address, b.town, b.postcode].filter(Boolean).join(', ') } };
+  if (type === 'Event') return { ...base, ...(b.start || b.date ? { startDate: b.start ?? b.date } : {}), location: { '@type': 'Place', name: b.venue || b.town || plan.name, address: [b.address, b.town, b.postcode].filter(Boolean).join(', ') } };
   if (type === 'SoftwareApplication') return { ...base, applicationCategory: 'BusinessApplication', operatingSystem: 'Web' };
   // A person and a product have no opening hours or shop address.
   if (type === 'Person') return { ...base, ...(b.tagline ? { jobTitle: b.tagline } : {}), ...(b.email ? { email: b.email } : {}), ...(b.town ? { address: { '@type': 'PostalAddress', addressLocality: b.town, addressCountry: 'GB' } } : {}) };
