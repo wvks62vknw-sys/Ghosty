@@ -6,6 +6,7 @@
 //   PEOPLE      WHO'S IN IT names only people he introduced (none here: it says so, and names no one)
 //   ALBUMS      SELECT two, ALBUM, a new album with both in it; DUPLICATES' KEEP THE BEST (UNDO)
 //   FOR YOU     On this day; a memory PLAYs
+//   MORE        settings with good defaults, kept on the phone; storage; help; ASK GHOSTY
 //   DOORS       PHOTO's shelf has MY LIBRARY; open_photos opens on a search
 //   LAYOUT      every key 44 pt, nothing sideways, no page errors
 import { chromium } from 'playwright';
@@ -56,6 +57,17 @@ async function run(viewport) {
   const months = await page.locator('#pg-photos .phx-month .phx-h').allTextContents();
   check(months.length >= 4 && months.every((t) => /^[A-Z][a-z]+ \d{4} · \d+$/.test(t.trim())), `${T} [first run] the months read ${JSON.stringify(months)}`);
   await layout('library');
+  // MORE: settings with good defaults, the storage said, a short help page, ASK GHOSTY; every row 44 pt
+  await page.locator('#pg-photos .phx-more').click();
+  await page.waitForSelector('.modal .phx-sheet [data-set="autoName"]', { timeout: 5000 }).catch(() => problems.push(`${T} [more] MORE has no settings`));
+  await until(() => document.querySelector('.modal .mbox')?.getAnimations().every((a) => a.playState === 'finished') ?? false, null, 3000, '[more] the sheet did not settle');
+  const sheet = await page.evaluate(() => ({ name: document.querySelector('.modal [data-set="autoName"]')?.getAttribute('aria-checked'), read: document.querySelector('.modal [data-set="autoRead"]')?.getAttribute('aria-checked'), text: document.querySelector('.modal .phx-sheet')?.textContent ?? '', small: [...document.querySelectorAll('.modal .phx-sheet button')].filter((b) => { const r = b.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).length }));
+  check(sheet.name === 'true' && sheet.read === 'false', `${T} [more] the defaults: name ${sheet.name}, read ${sheet.read}`);
+  check(/on this phone/.test(sheet.text) && /Help/.test(sheet.text) && /ASK GHOSTY/i.test(sheet.text) && !sheet.small, `${T} [more] the sheet lacks storage, help or ASK, or has ${sheet.small} small keys`);
+  await page.locator('.modal [data-set="autoRead"]').click();
+  check((await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.photos.settings') ?? '{}').autoRead)) === true, `${T} [more] the setting was not kept on the phone`);
+  await page.locator('.modal [data-set="autoRead"]').click();
+  await page.locator('.modal .phx-sheet button', { hasText: /^\s*done\s*$/i }).click();
 
   // ---- ADD: a photo through the picker, kept and counted
   await page.evaluate(async () => {
@@ -161,5 +173,5 @@ async function run(viewport) {
 await run({ width: 440, height: 956 });
 await run({ width: 390, height: 844 });
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'photos clean at 440 and 390: sample photos on the first run, said to be samples; a picked photo kept and counted; a favourite in Favourites; DELETE with UNDO, Recently deleted with its 30 days and RECOVER; "dog on a beach" found and "videos" said not found; two photos into a new album; the sunset kept twice found with its best shot and KEEP THE BEST undone; On this day and a memory that plays; PHOTO\'s MY LIBRARY and open_photos on a search; every key 44 pt and nothing sideways.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'photos clean at 440 and 390: sample photos on the first run, said to be samples; MORE\'s settings kept on the phone, with storage, help and ASK GHOSTY; a picked photo kept and counted; WHO\'S IN IT names only people he introduced; a favourite in Favourites; DELETE with UNDO, Recently deleted with its 30 days and RECOVER; "dog on a beach" found, "videos" said not found and the words in a photo read on the phone; two photos into a new album; the sunset kept twice found with its best shot and KEEP THE BEST undone; On this day and a memory that plays; PHOTO\'s MY LIBRARY and open_photos on a search; every key 44 pt and nothing sideways.');
 process.exit(problems.length ? 1 : 0);
