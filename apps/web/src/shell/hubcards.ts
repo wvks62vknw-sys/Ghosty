@@ -62,6 +62,7 @@ import { info as studioInfo } from '../studio-game/hub';
 import { fetched, keptAs, SHELF } from '../arcade/shelf';
 import { isHere } from '../arcade/store';
 import { allScores } from '../arcade/scores';
+import { allStats, recent } from '../arcade/stats';
 // [tabs] what the new screens' cards read (BRIEF-TABS 3)
 import { ACCOUNTS } from '../../../../packages/shared/src/social';
 import { mmss } from '../../../../packages/shared/src/kitchen';
@@ -781,8 +782,10 @@ export const CARDS: Record<string, HubCard> = {
     status: () => 'READY',
     instrument: () => levelInst(hubFacts.arcade?.here ?? null, SHELF.length),
     readouts: () => {
+      // [polish3] the record of play (arcade/stats.ts) knows every game played, the ones with no score too; the scores are the fallback
+      const played = recent(allStats(), 1)[0];
       const last = Object.entries(allScores()).filter(([k]) => !k.endsWith('/sitting')).sort((a, b) => b[1].when.localeCompare(a[1].when))[0];
-      const title = last ? SHELF.find((g) => g.id === last[0])?.title ?? null : null;
+      const title = played ? played[1].title : last ? SHELF.find((g) => g.id === last[0])?.title ?? null : null;
       return [
         { label: 'Games', value: String(SHELF.length), unit: 'free' },
         { label: 'Last game', value: title, none: 'None yet' },

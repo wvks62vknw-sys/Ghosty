@@ -53,7 +53,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp' | 'chessapp';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp' | 'clockapp' | 'calcapp' | 'arcaderecord' | 'chessapp';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -428,6 +428,39 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const t0 = Date.now();
     while (weatherState.state === 'loading' && Date.now() - t0 < 5000) await new Promise((r) => setTimeout(r, 150));
     return answer(text, weatherState.line ? `Weather for ${weatherState.place}: ${weatherState.line}` : 'Here’s the weather.', { kind: 'weatherapp' }, opts);
+  },
+  // [polish3] the CLOCK ("open the clock", "world clock", "stopwatch") and the CALCULATOR ("calculator")
+  async clockapp(text, opts) {
+    const { openClock } = await import('../clock/app');
+    const part = /stop ?watch/i.test(text) ? 'stopwatch' : /timers?\b/i.test(text) ? 'timer' : 'world';
+    void openClock(part);
+    return answer(text, part === 'stopwatch' ? 'Here’s the stopwatch.' : part === 'timer' ? 'Here are your timers.' : 'Here’s the clock, with your world clocks.', { kind: 'clockapp' }, opts);
+  },
+  async calcapp(text, opts) {
+    const { openCalculator } = await import('../calc/app');
+    openCalculator();
+    return answer(text, 'Here’s the calculator. Your answers are kept on its tape.', { kind: 'calcapp' }, opts);
+  },
+  // [polish3] the ARCADE's record: "show my trophies" opens THE TROPHY ROOM, "continue my game" CONTINUE PLAYING (kept on the phone)
+  async arcaderecord(text, opts) {
+    const [{ allStats, playDays, recent, whenWords }, { trophyRoom }, { allScores }, { TROPHY_ASK }] = await Promise.all([import('../arcade/stats'), import('../arcade/trophies'), import('../arcade/scores'), import('../clock/words')]);
+    const trophies = TROPHY_ASK.test(text.trim().replace(/[?.!]+$/, ''));
+    const last = recent(allStats(), 1)[0];
+    const room = trophyRoom(allStats(), allScores(), playDays().length);
+    const title = trophies ? 'THE TROPHY ROOM' : 'CONTINUE PLAYING';
+    location.hash = 'arcade';
+    const t0 = Date.now();
+    const reveal = () => {
+      const p = [...document.querySelectorAll<HTMLElement>('#pg-arcade .pn')].find((x) => x.querySelector('.ptitle')?.textContent === title && !x.hidden);
+      if (p) p.scrollIntoView({ block: 'start' });
+      else if (Date.now() - t0 < 4000) setTimeout(reveal, 150);
+    };
+    setTimeout(reveal, 150);
+    const lastWords = last ? `Last you played ${last[1].title}, ${whenWords(last[1].last)}.` : 'You haven’t played anything yet.';
+    const say = trophies
+      ? `You have earned ${room.earned} of ${room.total} trophies.${room.games.length ? ` ${lastWords}` : ' Play anything on the shelf and they come.'}`
+      : last ? `${lastWords} CONTINUE is at the top of the Arcade.` : `${lastWords} The shelf is open.`;
+    return answer(text, say, { kind: 'arcaderecord' }, opts);
   },
   // [learn] the CHESS app (features/chess/app.ts): "open chess", "chess puzzles", "puzzle rush"
   async chessapp(text, opts) {

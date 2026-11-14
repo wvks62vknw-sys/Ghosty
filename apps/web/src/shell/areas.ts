@@ -56,13 +56,13 @@ export const TINT: Record<string, string> = {
   memory: '#5ac8fa', settings: '#8e8e93', system: '#98989d', links: '#0a84ff', security: '#30d158', journal: '#5ac8fa',
   // [tabs] the screens the sheets became (BRIEF-TABS 2)
   money: '#30d158', body: '#ff375f', kitchen: '#ff9f0a', people: '#5ac8fa', work: '#8e8e93', creative: '#bf5af2', outside: '#34c759', homeadmin: '#ffd60a',
-  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', slides: '#ff9f0a', workspace: '#0a84ff', photo: '#ff9f0a', video: '#ff6482', gamestudio: '#ff9f0a', comic: '#ff453a', paint: '#bf5af2', house: '#ffb340', apps: '#0a84ff',
+  learning: '#30d158', coach: '#ff9f0a', social: '#0a84ff', convert: '#40c8e0', docs: '#a2845e', sheets: '#30d158', slides: '#ff9f0a', workspace: '#0a84ff', photo: '#ff9f0a', photos: '#ff9f0a', video: '#ff6482', gamestudio: '#ff9f0a', comic: '#ff453a', paint: '#bf5af2', house: '#ffb340', apps: '#0a84ff',
 };
 export const tintOf = (id: string) => TINT[id] ?? '#8e8e93';
 
 const hubId = (a: Area) => `area-${a.id}`;
 /** A screen that is a row of another (THE LOOK, a row of Settings: BRIEF-DESIGN-SYSTEM 5) lights that one's area. */
-const ROW_OF: Record<string, string> = { look: 'settings', security: 'settings', journal: 'memory' };
+const ROW_OF: Record<string, string> = { look: 'settings', security: 'settings', journal: 'memory', photos: 'photo' };
 export const areaOf = (tab: string): Area | undefined => {
   const t = ROW_OF[tab] ?? tab;
   return AREAS.find((a) => a.tabs.includes(t) || hubId(a) === t);
@@ -831,5 +831,7 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (tab === 'reader') return { back: 'Library', backTo: 'library', title: 'Reader' };
   // (JOURNAL, his own writing, is a row of Memory: APPS ROUND)
   if (tab === 'journal') return { back: 'Memory', backTo: 'memory', title: 'Journal' };
+  // (PHOTOS, his library, sits behind the photo editor: back is PHOTO: THE APPS ROUND, lane LENS)
+  if (tab === 'photos') return { back: 'Photo', backTo: 'photo', title: 'Photos' };
   return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };
 }

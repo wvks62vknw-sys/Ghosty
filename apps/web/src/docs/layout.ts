@@ -10,6 +10,8 @@
 import { A4, writePdf, type PdfImage, type PdfPage, type PdfRun } from '../convert/pdfwrite';
 import { fitsAnsi, textWidth, type PdfFont } from '../convert/fonts';
 import { isColour, pageOf, textOf, TEXT_COLOURS, type Block, type Doc, type PageSetup, type Run } from './model';
+import { effective, styleOf, wordColour, type ParaStyle } from './styles';
+import { finalDoc } from './track';
 
 export const MARGIN = 70.87; // 2.5 cm
 const MARGINS = { normal: 70.87, narrow: 36.85, wide: 107.7 } as const;
@@ -22,7 +24,9 @@ export function pageBox(pg: PageSetup): { w: number; h: number; m: number } {
 const BODY = 11.5;
 const LEAD = 1.42;
 type TextT = Exclude<Block['t'], 'table' | 'img' | 'pb'> | 'title';
+/** The house look of each kind of block; [docspro] its size, font, spacing and colour now come from his named styles (docs/styles.ts). */
 const STYLE: Record<TextT, { size: number; font: 'serif' | 'sans'; before: number; after: number; indent?: number; italic?: boolean }> = {
+  caption: { size: 9, font: 'sans', before: 0, after: 8 },
   title: { size: 21, font: 'sans', before: 0, after: 14 },
   h1: { size: 16, font: 'sans', before: 14, after: 6 },
   h2: { size: 13.5, font: 'sans', before: 12, after: 5 },
@@ -37,9 +41,13 @@ const STYLE: Record<TextT, { size: number; font: 'serif' | 'sans'; before: numbe
 const LINK: [number, number, number] = [0.02, 0.39, 0.76];
 
 function fontFor(kind: 'serif' | 'sans', b: boolean, i: boolean): PdfFont {
-  if (kind === 'sans') return 'Helvetica-Bold';
+  if (kind === 'sans') return b ? 'Helvetica-Bold' : 'Helvetica';
   return b && i ? 'Times-BoldItalic' : b ? 'Times-Bold' : i ? 'Times-Italic' : 'Times-Roman';
 }
+/** A named style's family in the PDF's standard fonts: serif in Times, sans, rounded and mono in Helvetica. */
+const pdfKind = (s: ParaStyle): 'serif' | 'sans' => (s.font === 'serif' ? 'serif' : 'sans');
+const RGB: Record<string, [number, number, number]> = { grey: [0.35, 0.35, 0.35] };
+const styleRgb = (s: ParaStyle): [number, number, number] | undefined => (s.colour === 'ink' ? undefined : s.colour === 'grey' ? RGB.grey : wordColour(s.colour) ? TEXT_COLOURS[s.colour].rgb : undefined);
 
 /** One laid-out line: its pieces, each with its font, and its width. */
 interface Piece {
@@ -53,7 +61,7 @@ interface Piece {
 }
 
 /** Words broken into lines no wider than `width` (a word too long for a line is broken by letters). */
-export function breakLines(runs: Run[], kind: 'serif' | 'sans', size: number, width: number, italic = false): Piece[][] {
+export function breakLines(runs: Run[], kind: 'serif' | 'sans', size: number, width: number, italic = false, bold = false, ink?: [number, number, number]): Piece[][] {
   const lines: Piece[][] = [];
   let line: Piece[] = [];
   let lw = 0;
@@ -70,8 +78,8 @@ export function breakLines(runs: Run[], kind: 'serif' | 'sans', size: number, wi
     lw = 0;
   };
   for (const r of runs) {
-    const font = fontFor(kind, !!r.b, italic || !!r.i);
-    const flags = { ...(r.u || r.href ? { u: true } : {}), ...(r.href ? { link: true } : {}), ...(isColour(r.c) && !r.href ? { rgb: TEXT_COLOURS[r.c].rgb } : {}) };
+    const font = fontFor(kind, bold || !!r.b, italic || !!r.i);
+    const flags = { ...(r.u || r.href ? { u: true } : {}), ...(r.href ? { link: true } : {}), ...(isColour(r.c) && !r.href ? { rgb: TEXT_COLOURS[r.c].rgb } : ink && !r.href ? { rgb: ink } : {}) };
     const parts = r.text.split(/(\n| +)/);
     for (const part of parts) {
       if (!part) continue;
@@ -122,7 +130,9 @@ export function pictureBox(b: Block, textW: number, textH: number): { w: number;
  * The document's pages for the PDF writer (only when every letter is one the standard fonts have: `canSetAsText`). `imageOf` gives a
  * picture's JPEG by its id; left out, pictures keep their room on the page and are not drawn (the count of pages is the same).
  */
-export function layoutPages(d: Doc, imageOf?: (id: string) => PdfImage | null): PdfPage[] {
+export function layoutPages(doc: Doc, imageOf?: (id: string) => PdfImage | null): PdfPage[] {
+  // [docspro] the PDF is the document as it reads with his tracked changes accepted (Word's "no markup")
+  const d = finalDoc(doc);
   const pg = pageOf(d);
   const box = pageBox(pg);
   const M = box.m;
@@ -138,7 +148,7 @@ export function layoutPages(d: Doc, imageOf?: (id: string) => PdfImage | null): 
   };
   const items: { t: TextT; b: Block; runs: Run[]; n: number }[] = [];
   const order: ({ kind: 'text'; at: number } | { kind: 'other'; b: Block })[] = [];
-  const titleBlock: Block = { id: 'title', t: 'p', runs: [{ text: d.title, b: true }] };
+  const titleBlock: Block = { id: 'title', t: 'p', runs: [{ text: d.title }] };
   items.push({ t: 'title', b: titleBlock, runs: titleBlock.runs, n: 0 });
   order.push({ kind: 'text', at: 0 });
   let n = 0;
@@ -162,16 +172,22 @@ export function layoutPages(d: Doc, imageOf?: (id: string) => PdfImage | null): 
     }
   };
 
+  /** An item's look: the house indent, with his named style's (and the paragraph's own) size, font, spacing and colour. */
+  const lookOf = (it: { t: TextT; b: Block }) => {
+    const ps = it.t === 'title' ? styleOf(d, 'title') : effective(d, it.b);
+    const house = STYLE[it.t];
+    return { size: ps.size, font: pdfKind(ps), before: ps.before, after: ps.after, indent: house.indent, italic: ps.italic, bold: ps.bold, lead: LEAD * (ps.line / 1.15), ink: styleRgb(ps) };
+  };
   const text = (k: number) => {
     const it = items[k]!;
-    const s = STYLE[it.t];
+    const s = lookOf(it);
     const indent = s.indent ?? 0;
-    const lines = breakLines(it.runs, s.font, s.size, width - indent, !!s.italic);
-    const lh = s.size * LEAD;
+    const lines = breakLines(it.runs, s.font, s.size, width - indent, !!s.italic, s.bold, s.ink);
+    const lh = s.size * s.lead;
     y -= s.before;
     // a heading keeps the first two lines of what follows with it
     const next = items[k + 1];
-    const keepNext = (it.t === 'h1' || it.t === 'h2' || it.t === 'h3') && next ? 2 * STYLE[next.t].size * LEAD : 0;
+    const keepNext = (it.t === 'h1' || it.t === 'h2' || it.t === 'h3') && next ? 2 * lookOf(next).size * LEAD : 0;
     if (y - lh - keepNext < M && page.runs!.length) newPage();
     const align = it.t === 'right' ? 'right' : it.b.align ?? (d.rtl ? 'right' : 'left');
     lines.forEach((line, i) => {
@@ -190,7 +206,7 @@ export function layoutPages(d: Doc, imageOf?: (id: string) => PdfImage | null): 
         const mark = it.t === 'ul' ? '•' : it.t === 'todo' ? (it.b.ticked ? '[x]' : '[  ]') : `${it.n}.`;
         page.runs!.push({ x: M + indent - 4 - textWidth(mark, 'Times-Roman', s.size), y: base, text: mark, font: 'Times-Roman', size: s.size });
       }
-      drawLine(line, x, base, s.size, extra, it.t === 'quote');
+      drawLine(line, x, base, s.size, extra, it.t === 'quote' && !s.ink);
     });
     if (it.t === 'quote') page.lines!.push({ x1: M + 8, y1: y - 2, x2: M + 8, y2: y + lines.length * lh, width: 1.5, rgb: [0.6, 0.6, 0.6] });
     if (it.t === 'title') page.lines!.push({ x1: M, y1: y - 6, x2: M + width, y2: y - 6, width: 0.8, rgb: [0.55, 0.55, 0.55] });

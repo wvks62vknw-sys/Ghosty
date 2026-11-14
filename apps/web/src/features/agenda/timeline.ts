@@ -6,8 +6,11 @@
  * diary was given and his list through todo.ts's own read functions.
  */
 import type { AgendaEventInfo } from '../../../../../packages/shared/src/protocol';
+import { patchEvent } from '../../api/offline';
 import { clear, fmt, h } from '../../core/dom';
-import { button, panel } from '../../ui/components';
+import { button, panel, undoBar } from '../../ui/components';
+import { attachDrag, dragStart, movable, moveTo, readOnlyWords, STEP } from './drag';
+import { calendarsKey, calendarsOf, colourOf, hiddenWords, visible } from './calendars';
 import { dueOn, loadTodos } from './todo';
 import { dayOf } from './todowords';
 import { longGap } from './words';
@@ -115,7 +118,8 @@ export function weekPlan(events: readonly AgendaEventInfo[], todos: readonly { t
   return { days, line };
 }
 
-type View = 'today' | 'tomorrow' | 'week';
+// ([planlane4:calendar] 'hours': the seven days side by side by the hour)
+type View = 'today' | 'tomorrow' | 'week' | 'hours';
 const VIEW_KEY = 'ghosty.agenda.timeline';
 
 /**
@@ -124,10 +128,35 @@ const VIEW_KEY = 'ghosty.agenda.timeline';
  */
 export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: boolean; offline: boolean; hasCopy: boolean }, pick: (id: string) => void): { el: HTMLElement; paint(): void } {
   const p = panel('TIMELINE', { grow: false, cls: 'timeline' });
+  // [planlane4:calendar] a drag's UNDO, in the panel's own bar; a move shown at once while the brain changes it; a read-only hold said calmly
+  const ub = undoBar();
+  p.el.insertBefore(ub.el, p.body);
+  const moving = new Map<string, number>();
+  let said = '';
+  let saidTimer = 0;
+  const say = (t: string) => {
+    said = t;
+    clearTimeout(saidTimer);
+    saidTimer = window.setTimeout(() => {
+      said = '';
+      paint();
+    }, 9000);
+    paint();
+  };
+  const move = (e: AgendaEventInfo, start: number) => {
+    moving.set(e.id, start);
+    said = '';
+    paint();
+    void moveTo(e, start, (t, fn) => ub.show(t, fn)).then((ok) => {
+      if (ok) return;
+      moving.delete(e.id);
+      paint();
+    });
+  };
   let view: View = 'today';
   try {
     const v = localStorage.getItem(VIEW_KEY);
-    if (v === 'tomorrow' || v === 'week') view = v;
+    if (v === 'tomorrow' || v === 'week' || v === 'hours') view = v;
   } catch {
     /* a private window: today, as it opens */
   }
@@ -144,8 +173,10 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
     const b = button('', () => pick(e.id), cls);
     b.dataset.case = 'keep';
     b.dataset.id = e.id;
+    // [planlane4:calendar] its calendar's colour (calendars.ts)
+    b.style.setProperty('--c', colourOf(e.source));
     b.append(h('span.tlwhen', label), h('b.tltitle', e.title), e.location ? h('small.tlwhere', e.location) : '');
-    b.setAttribute('aria-label', `${e.title}, ${label}${e.location ? `, at ${e.location}` : ''}. Tap to see it whole or change it.`);
+    b.setAttribute('aria-label', `${e.title}, ${label}${e.location ? `, at ${e.location}` : ''}. Tap to see it whole or change it.${cls.startsWith('tlev') ? movable(e) ? ' Hold and drag to move it.' : ` From ${e.source}, read only.` : ''}`);
     return b;
   };
 
@@ -183,11 +214,27 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
       const label = `${hm(e.start)}${e.end ? `–${hm(e.end)}` : ''}`;
       const b = evRow(e, `tlev${endOf(e) <= now ? ' past' : ''}${e.start <= now && endOf(e) > now ? ' live' : ''}`, label);
       b.setAttribute('role', 'listitem');
-      b.style.cssText = `top:${pct(e.start)};--tlh:calc(${pct(endOf(e))} - ${pct(e.start)});left:calc(var(--tlgut) + (100% - var(--tlgut)) * ${col / cols});width:calc((100% - var(--tlgut)) / ${cols})`;
+      b.style.cssText = `top:${pct(e.start)};--tlh:calc(${pct(endOf(e))} - ${pct(e.start)});left:calc(var(--tlgut) + (100% - var(--tlgut)) * ${col / cols});width:calc((100% - var(--tlgut)) / ${cols});--c:${colourOf(e.source)}`;
+      // [planlane4:calendar] hold and drag to a new time, in 15-minute steps inside the hours drawn (a feed's says it is read only)
+      b.classList.toggle('agmine', movable(e));
+      attachDrag(b, {
+        grid,
+        can: movable(e),
+        start: e.start,
+        height: `calc(${pct(endOf(e))} - ${pct(e.start)})`,
+        place: (_dx, dy) => {
+          const s = dragStart(e.start, dy, grid.getBoundingClientRect().height / span, 0, top, at(day, last) - STEP);
+          return { start: s, top: pct(s), label: `${hm(s)}–${hm(s + (endOf(e) - e.start))}` };
+        },
+        drop: (s) => move(e, s),
+        refuse: () => say(readOnlyWords(e)),
+      });
       grid.append(b);
     }
     if (isToday && now >= top && now < at(day, last)) grid.append(h('span.tlnow', { style: `top:${pct(now)}`, role: 'listitem', 'aria-label': `Now, ${hm(now)}` }, h('b', `Now ${hm(now)}`)));
     out.push(grid);
+    // [planlane4:calendar] how to move one, said once under the day (only when there is one of his own to move)
+    if (timed.some(movable)) out.push(h('small.note.tlhint', { dataset: { case: 'keep' } }, 'Hold one of your events and drag it to a new time. Calendar feeds are read only.'));
     return out;
   };
 
@@ -206,35 +253,131 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
     return [h('p.tlweekline', { dataset: { case: 'keep' } }, w.line), list];
   };
 
+  /**
+   * [planlane4:calendar] WEEK: the seven days from today side by side by the hour, today first. Each day's free time shaded, his events in
+   * their calendars' colours (one that overlaps another sits a little in from it, so every block stays a 44 pt key), all-day ones as a mark
+   * above their day, a line at now. A tap opens one in the diary; one of his own can be held and dragged to another time or another day.
+   */
+  const hoursView = (events: AgendaEventInfo[], now: number): HTMLElement[] => {
+    const today = midnight(now);
+    const days = Array.from({ length: 7 }, (_, i) => dayAfter(today, i));
+    const per = days.map((d) => events.filter((e) => onDay(e, d)));
+    const timed = per.map((x) => x.filter((e) => !e.allDay).sort((a, b) => a.start - b.start));
+    // (the hours: 08:00 to 22:00, or wider for anything earlier or later this week, by the clock as the day view does)
+    const first = Math.min(WAKE, ...days.flatMap((d, i) => timed[i]!.map((e) => (e.start < d ? 0 : new Date(e.start).getHours()))));
+    const last = Math.max(SLEEP, ...days.flatMap((d, i) => timed[i]!.map((e) => {
+      const end = Math.min(endOf(e), dayAfter(d, 1));
+      if (end >= dayAfter(d, 1)) return 24;
+      const le = new Date(end);
+      return le.getHours() + (le.getMinutes() > 0 ? 1 : 0);
+    })));
+    const span = last - first;
+    const pctIn = (d: number, ms: number) => `${Math.max(0, Math.min(100, ((ms - at(d, first)) / (span * HOUR)) * 100))}%`;
+    const colL = (i: number) => `calc(var(--tlgut) + (100% - var(--tlgut)) * ${i / 7})`;
+    const colW = 'calc((100% - var(--tlgut)) / 7)';
+    const dayName = (d: number, o: Intl.DateTimeFormatOptions) => new Date(d).toLocaleDateString('en-GB', o);
+    const head = h('div.tlwkhead', { 'aria-hidden': 'true' }, h('span'), ...days.map((d, i) => h(`span.tlwkday${i === 0 ? '.today' : ''}` as 'span', h('b', dayName(d, { weekday: 'short' })), h('small', String(new Date(d).getDate())))));
+    const out: HTMLElement[] = [];
+    const nAll = per.reduce((n, x) => n + x.length, 0);
+    /* state: agenda.timeline empty */
+    if (!nAll) out.push(h('p.note.tlempty', { dataset: { case: 'keep', state: 'empty' } }, 'Nothing in your diary in the next seven days: every day is free.'));
+    out.push(head);
+    if (per.some((x) => x.some((e) => e.allDay))) {
+      out.push(h('div.tlwkad', { role: 'list', 'aria-label': 'All day' }, h('span', { 'aria-hidden': 'true' }), ...days.map((d, i) => h('span.tlwkadday', ...per[i]!.filter((e) => e.allDay).map((e) => {
+        const m = h('i.tlwkadmark', { role: 'listitem', 'aria-label': `${e.title}, all day ${dayName(d, { weekday: 'long' })}`, style: `--c:${colourOf(e.source)}` });
+        return m;
+      })))));
+    }
+    const grid = h('div.tlgrid.tlwk', { style: `--tlhours:${span}`, role: 'list', 'aria-label': 'The next seven days by the hour' });
+    for (let hr = first; hr < last; hr++) grid.append(h('span.tlhour', { 'aria-hidden': 'true', style: `top:${pctIn(today, at(today, hr))}` }, String(hr).padStart(2, '0')));
+    days.forEach((d, i) => {
+      grid.append(h(`span.tlwkcol${i === 0 ? '.today' : ''}` as 'span', { 'aria-hidden': 'true', style: `left:${colL(i)};width:${colW}` }));
+      for (const g of freeGaps(timed[i]!, d, i === 0 ? now : 0)) grid.append(h('span.tlband', { 'aria-hidden': 'true', style: `top:${pctIn(d, g.from)};height:calc(${pctIn(d, g.to)} - ${pctIn(d, g.from)});left:${colL(i)};width:${colW};right:auto` }));
+    });
+    const gutPx = () => (grid.querySelector('.tlwkcol') as HTMLElement | null)?.offsetLeft ?? 0;
+    days.forEach((d, i) => {
+      const list = timed[i]!;
+      list.forEach((e, j) => {
+        // (one that starts while an earlier one runs sits a step in from it, up to two steps)
+        const k = Math.min(2, list.slice(0, j).filter((x) => endOf(x) > e.start).length);
+        const from = Math.max(e.start, d);
+        const to = Math.min(endOf(e), dayAfter(d, 1));
+        const when = `${dayName(d, { weekday: 'long' })} ${e.start < d ? 'until' : hm(e.start)}${e.start < d ? ` ${hm(to)}` : e.end ? `–${hm(e.end)}` : ''}`;
+        const mine = movable(e) && e.start >= d;
+        const b = button('', () => pick(e.id), `tlev tlwkev${mine ? ' agmine' : ''}${endOf(e) <= now ? ' past' : ''}${e.start <= now && endOf(e) > now ? ' live' : ''}`);
+        b.dataset.case = 'keep';
+        b.dataset.id = e.id;
+        b.dataset.day = String(i);
+        b.setAttribute('role', 'listitem');
+        b.setAttribute('aria-label', `${e.title}, ${when}${e.location ? `, at ${e.location}` : ''}. Tap to see it whole or change it.${mine ? ' Hold and drag to move it to another time or day.' : movable(e) ? '' : ` From ${e.source}, read only.`}`);
+        b.style.cssText = `top:${pctIn(d, from)};--tlh:calc(${pctIn(d, to)} - ${pctIn(d, from)});left:calc(${colL(i)} + ${k * 6}px);width:max(44px, calc(${colW} - ${k * 6}px));--c:${colourOf(e.source)}`;
+        if (e.start >= d) {
+          attachDrag(b, {
+            grid,
+            can: mine,
+            start: e.start,
+            height: `calc(${pctIn(d, to)} - ${pctIn(d, from)})`,
+            place: (dx, dy) => {
+              const r = grid.getBoundingClientRect();
+              const w = (r.width - gutPx()) / 7;
+              const shift = Math.max(-i, Math.min(6 - i, Math.round(dx / (w || 1))));
+              const td = dayAfter(d, shift);
+              const st = dragStart(e.start, dy, r.height / span, shift, at(td, first), at(td, last) - STEP);
+              return { start: st, top: pctIn(td, st), left: colL(i + shift), width: colW, label: `${dayName(st, { weekday: 'short' })} ${hm(st)}` };
+            },
+            drop: (st) => move(e, st),
+            refuse: () => say(readOnlyWords(e)),
+          });
+        }
+        grid.append(b);
+      });
+    });
+    if (now >= at(today, first) && now < at(today, last)) grid.append(h('span.tlnow', { style: `top:${pctIn(today, now)};left:${colL(0)};width:${colW};right:auto`, role: 'listitem', 'aria-label': `Now, ${hm(now)}` }));
+    out.push(grid);
+    out.push(h('small.note.tlhint', { dataset: { case: 'keep' } }, 'Free time is shaded, today first. Tap a block to open it; hold one of yours and drag it to another time or day.'));
+    return out;
+  };
+
   const paint = () => {
-    const { events, loaded, offline, hasCopy } = get();
+    const { events: all, loaded, offline, hasCopy } = get();
+    // [planlane4:calendar] only the calendars he shows (CALENDARS), the rest said in a line
+    const got = visible(all);
+    // [planlane4:calendar] a move on its way is drawn where it was dropped until the diary read has it there
+    for (const [id, s] of moving) if (!got.some((e) => e.id === id && e.start !== s)) moving.delete(id);
+    const events = moving.size ? got.map((e) => (moving.has(e.id) ? patchEvent(e, { start: moving.get(e.id)! }) : e)) : got;
     const now = Date.now();
-    const keys = (['today', 'tomorrow', 'week'] as View[]).map((v) => {
-      const b = button(v === 'today' ? 'TODAY' : v === 'tomorrow' ? 'TOMORROW' : 'PLAN MY WEEK', () => setView(v), `tlkey${view === v ? ' on' : ''}`);
+    const keys = (['today', 'tomorrow', 'hours', 'week'] as View[]).map((v) => {
+      const b = button(v === 'today' ? 'TODAY' : v === 'tomorrow' ? 'TOMORROW' : v === 'hours' ? 'WEEK' : 'PLAN MY WEEK', () => setView(v), `tlkey${view === v ? ' on' : ''}`);
+      if (v === 'hours') b.setAttribute('aria-label', 'The week by the hour');
       b.setAttribute('aria-pressed', String(view === v));
       return b;
     });
-    const bar = h('div.keyrow.wrapit.tlbar', ...keys);
+    const bar = h('div.keyrow.wrapit.tlbar', ...keys, calendarsKey(() => ({ events: get().events, loaded: get().loaded, offline: get().offline }), 'tlcal'));
     /* state: agenda.timeline loading */
     if (!loaded) return void clear(p.body, bar, h('p.note.wait', { dataset: { case: 'keep', state: 'loading' } }, 'Reading your diary to lay out the day.'));
     // no diary at all (the brain out of reach, no copy on this phone): no free time is guessed, only his to-dos due are shown
     const blind = offline && !hasCopy;
-    const days = view === 'week' ? Array.from({ length: 7 }, (_, i) => dayAfter(now, i)) : [view === 'today' ? midnight(now) : dayAfter(now, 1)];
+    const days = view === 'week' || view === 'hours' ? Array.from({ length: 7 }, (_, i) => dayAfter(now, i)) : [view === 'today' ? midnight(now) : dayAfter(now, 1)];
     const due = days.flatMap((d) => dueOn(loadTodos(), dayOf(d)));
     const body = blind
       ? due.length ? [h('div.tltodo', { role: 'list', 'aria-label': 'To-dos due' }, ...due.map((t) => h('span.tltd', { role: 'listitem', dataset: { case: 'keep' } }, h('span.tlwhen', 'To-do'), h('span', t.text))))] : []
-      : view === 'week' ? weekView(events, now) : dayView(events, days[0]!, now);
+      : view === 'week' ? weekView(events, now) : view === 'hours' ? hoursView(events, now) : dayView(events, days[0]!, now);
     /* state: agenda.timeline offline */
     const note = offline ? [h('p.note.bad.tlcopy', { dataset: { case: 'keep', state: 'offline' } }, !blind ? 'Laid out from the last copy of your diary on this phone: I can’t reach your brain right now.' : 'I can’t reach your brain and this phone has no copy of your diary yet, so only your to-dos show here. It fills in when I can.')] : [];
-    clear(p.body, bar, ...note, ...body);
+    const heard = said ? [h('p.note.tlmovesay', { role: 'status', dataset: { case: 'keep' } }, said)] : [];
+    const hid = hiddenWords(calendarsOf(all));
+    if (hid) heard.push(h('p.note.agcalhid', { dataset: { case: 'keep' } }, hid));
+    clear(p.body, bar, ...note, ...heard, ...body);
   };
   // his list changed somewhere (the TO-DO panel, the chat): the to-dos beside the day follow it
   // (the list's own change signal, by its name: todo.ts is the list's to change, so only its read functions are imported)
   addEventListener('ghosty:todo', () => paint());
+  // [planlane4:calendar] a calendar shown, hidden or coloured
+  addEventListener('ghosty:calendars', () => paint());
   // "plan my week" / "show my day" from elsewhere (the chat's lines): open that view
   addEventListener('ghosty:timeline', (e) => {
     const v = (e as CustomEvent<{ view?: View }>).detail?.view;
-    if (v === 'today' || v === 'tomorrow' || v === 'week') setView(v);
+    if (v === 'today' || v === 'tomorrow' || v === 'week' || v === 'hours') setView(v);
   });
   paint();
   return { el: p.el, paint };

@@ -54,11 +54,14 @@ export function shelf(open: (id: string) => void): Shelf {
   const input = h('input', { type: 'file', accept: 'image/*,.heic,.heif,.dng,.cr2,.cr3,.nef,.nrw,.arw,.raf,.orf,.rw2,.pef,.srw', multiple: true, hidden: true, 'aria-label': 'Open a photo' }) as HTMLInputElement;
   const openB = button('OPEN A PHOTO', () => input.click(), 'on peopen');
   const batchB = button('BATCH', () => setBatch(!shelfState.batch), 'pebatchb');
+  // [lens] PHOTOS (THE APPS ROUND): his whole library, behind the editor; a photo there opens here with EDIT
+  const libB = button('MY LIBRARY', () => void import('../photos').then((m) => m.openPhotos()), 'pelibrary');
+  libB.setAttribute('aria-label', 'Open Photos, your library on this phone');
   const bar = h('div.pebatchbar', { hidden: true, role: 'toolbar', 'aria-label': 'Batch' });
   const head = h('header.peshelfhead',
     h('h2.pehero', 'My photos'),
     h('p.pesub', 'A photo editor on this phone: light, colour, curves, masks, healing, crops and looks, and your original never touched.'),
-    h('div.perow.pekeys', openB, batchB, input),
+    h('div.perow.pekeys', openB, batchB, libB, input),
   );
   const el = h('div.peshelf', { dataset: { view: 'shelf' } }, head, msg, rawBox, empty, grid, room, bar);
   let items: PhotoMeta[] = [];

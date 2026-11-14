@@ -95,6 +95,7 @@ export const STATES = {
   'money.rules': { dir: 'money', base: 0, now: 1 },
   'money.watches': { dir: 'money', base: 0, now: 4 },
   'money.car': { dir: 'money', base: 0, now: 4 },
+  'money.accounts': { dir: 'money', base: 0, now: 4 },
   'home.papers': { dir: 'homeadmin', base: 0, now: 4 },
   'work.jobs': { dir: 'work', base: 0, now: 4 },
   'work.meetings': { dir: 'work', base: 0, now: 1 },
@@ -130,6 +131,7 @@ export const STATES = {
   'people.coming': { dir: 'people', base: 0, now: 4 },
   // APPS ROUND (the memory lane): KEEP IN TOUCH, kept on the phone (features/people/touch.ts): only the empty state applies
   'people.touch': { dir: 'people', base: 0, now: 1 },
+  'people.gifts': { dir: 'people', base: 0, now: 1 },
   'work.todo': { dir: 'work', base: 2, now: 4 },
   'work.interview': { dir: 'work', base: 2, now: 3 },
   'work.doc': { dir: 'work', base: 1, now: 1 },
@@ -273,6 +275,20 @@ export const STATES = {
   // and the month's own read of any month (on its way, the brain not giving it): new parts (base 0)
   'agenda.timeline': { dir: 'agenda', base: 0, now: 3 },
   'agenda.monthread': { dir: 'agenda', base: 0, now: 2 },
+  // [planlane4:tasks] QUICK ADD (a line with nothing left to do once the day, time, priority, project and tags are read: said, with its fix)
+  'agenda.quickadd': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane4:tasks] UPCOMING (the diary on its way with skeleton rows, the brain out of reach with the phone's copy or none, nothing in two weeks)
+  'agenda.upcoming': { dir: 'agenda', base: 0, now: 3 },
+  // [planlane4:tasks] a to-do opened whole: its checklist with no steps yet, said with what to do
+  'agenda.taskdetail': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane4:tasks] PROJECTS (no project or tag yet, a project with nothing open: each said with what to do)
+  'agenda.projects': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane4:calendar] DRAG TO MOVE and EARLIER / LATER (a move that waits on the phone with no signal, one the brain refused): new (base 0)
+  'agenda.drag': { dir: 'agenda', base: 0, now: 2 },
+  // [planlane4:calendar] YEAR (its months on their way, nothing in it, a month the brain refused, no signal): new (base 0)
+  'agenda.year': { dir: 'agenda', base: 0, now: 4 },
+  // [planlane4:calendar] the CALENDARS sheet (its calendars on their way, only his diary, no signal, a change the phone could not keep): new
+  'agenda.calendars': { dir: 'agenda', base: 0, now: 4 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },
@@ -303,6 +319,10 @@ export const STATES = {
   // SECURITY (NEXT ROUND, lane SECURITY): its own screen, new; base 0 since nothing was drawn before it.
   'security.locks': { dir: 'security', base: 0, now: 2 },
   'security.approvals': { dir: 'security', base: 0, now: 2 },
+  // PHOTOS (THE APPS ROUND, lane LENS): his library, a screen of its own, new; base 0 since nothing was drawn before it
+  'photos.library': { dir: 'photos', base: 0, now: 4 },
+  'photos.foryou': { dir: 'photos', base: 0, now: 1 },
+  'photos.search': { dir: 'photos', base: 0, now: 1 },
 };
 const KINDS = ['empty', 'loading', 'error', 'offline'];
 function sourceOf(dir, at) {
@@ -327,7 +347,7 @@ test('THE STATES RATCHET: each screen of the eight packs and of Home keeps every
 });
 test('the state markers name real screens and real kinds, and the screens named here are all of them', () => {
   const named = new Set(Object.keys(STATES));
-  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach'], ['comic'], ['security']]) {
+  for (const [dir, at] of [['money'], ['body'], ['kitchen'], ['people'], ['work'], ['creative'], ['outside'], ['homeadmin'], ['core'], ['brief'], ['', 'shell'], ['eye'], ['lens'], ['threats'], ['settings'], ['workshop'], ['studio'], ['reverse'], ['space'], ['workbench'], ['', 'engine3d'], ['', 'convert'], ['', 'house'], ['agenda'], ['markets'], ['radio'], ['memory'], ['system'], ['links'], ['social'], ['learn'], ['arcade'], ['gym'], ['school'], ['library'], ['learning'], ['', 'coach'], ['comic'], ['security'], ['photos']]) {
     const src = sourceOf(dir, at);
     for (const m of src.matchAll(/\/\*\s*state:\s*(\S+)\s+(\S+)\s*\*\//g)) {
       assert.ok(named.has(m[1]), `${dir}: a state marker for "${m[1]}" that the ratchet does not list`);

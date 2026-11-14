@@ -45,6 +45,11 @@ It's proved by `tests/healthhub.spec.mjs` at 440 × 956 and 390 × 844, and its 
 - **+1 MIN** on a running timer moves its lock-screen ring with it.
 - **A stopwatch** with laps, kept on the phone so a reload carries on.
 
+### The shopping list by aisle
+- What's still to get is listed in the order you walk a UK supermarket: fruit and veg, bakery, dairy and eggs, meat and fish,
+  frozen, tins, jars and dry food, drinks, household, then everything else, each under its aisle's name. What you've got sits
+  at the bottom. Only the display changes: the list itself is as it was.
+
 ### The Body card on Home
 - Once your own numbers arrive, the Body card's line includes your latest resting heart rate from the hub (never the sample's).
 
@@ -62,6 +67,6 @@ It's proved by `tests/healthhub.spec.mjs` at 440 × 956 and 390 × 844, and its 
 - Workout routes (the GPX files in the export) aren't drawn on the hub yet. Runs you record in Ghosty already keep their
   routes under the running coach.
 - Hour-by-hour views within a day.
-- The rest of the BODY list in `docs/build-plan/apps/body.md`: shopping by aisle, pause and an across-the-room
+- The rest of the BODY list in `docs/build-plan/apps/body.md`: pause and an across-the-room
   timer view, and the new apps (Food Log, Birds, Nature ID). Run Plans, Form Coach, Meds and the Workout Log already have their
   first versions from the last round.

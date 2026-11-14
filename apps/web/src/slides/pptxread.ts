@@ -15,6 +15,7 @@ import { H, W, newDeck, newSlide, type ChartData, type Build, type Deck, type El
 import { paletteFrom, type Palette } from './themes';
 import { PPT_LAYOUT } from './pptx';
 import { readTiming, timingOf } from './anim';
+import type { FreeItem } from './free';
 
 export type KeepImage = (bytes: Uint8Array, mime: string) => Promise<{ id: string; iw: number; ih: number } | null>;
 export interface PptxRead {
@@ -150,12 +151,32 @@ interface Found {
   numbers: boolean;
   /** Each kept shape's id on the slide, and what it became (the text boxes are told apart once the columns are known). */
   ids: Map<number, Elem>;
+  /** The free-form items (free.ts): ours by name ("Free …"), and a second picture or a third shape of anyone's. */
+  free: FreeItem[];
 }
+const FILLS: Record<string, number> = { tx1: 0, accent1: 0, accent2: 1, accent3: 2, accent4: 3, accent5: 4, accent6: 0 };
+const nameOf = (el: XEl, nv: string): string => attr(first(first(el, nv), 'cNvPr'), 'name');
 const spidOf = (el: XEl, nv: string): number => Number(attr(first(first(el, nv), 'cNvPr'), 'id')) || 0;
 
-async function walk(tree: XEl, c: Ctx, f: Found): Promise<void> {
+async function walk(tree: XEl, c: Ctx, f: Found, grp?: string): Promise<void> {
   for (const el of tree.k) {
-    if (el.n === 'grpSp') await walk(el, c, f);
+    if (el.n === 'grpSp' && /^Free group/.test(nameOf(el, 'nvGrpSpPr'))) await walk(el, c, f, `g${blockId()}`);
+    else if (el.n === 'grpSp') await walk(el, c, f, grp);
+    else if (el.n === 'sp' && /^Free (text|shape)/.test(nameOf(el, 'nvSpPr'))) {
+      const xf = xfrmOf(el, c);
+      if (!xf) continue;
+      const g = grp ? { group: grp } : {};
+      if (/^Free text/.test(nameOf(el, 'nvSpPr'))) {
+        const tx = first(el, 'txBody');
+        const lines = tx ? kids(tx, 'p').map((p) => findAll(p, 't').map((t) => t.t ?? '').join('')) : [];
+        const clr = attr(find(tx, 'schemeClr'), 'val');
+        f.free.push({ id: blockId(), kind: 'text', x: xf.x, y: xf.y, w: xf.w, h: xf.h, text: lines.join('\n'), fill: clr === 'tx1' || !clr ? 0 : (FILLS[clr] ?? 0) || Number(clr.slice(-1)) - 1, ...g });
+      } else {
+        const kind = PRST[attr(find(first(el, 'spPr'), 'prstGeom'), 'prst')] ?? 'rect';
+        const clr = attr(find(first(el, 'spPr'), 'schemeClr'), 'val');
+        f.free.push({ id: blockId(), kind: 'shape', shape: kind, x: xf.x, y: xf.y, w: Math.max(24, xf.w), h: kind === 'line' ? 0 : xf.h, fill: FILLS[clr] ?? 0, ...g });
+      }
+    }
     else if (el.n === 'AlternateContent') {
       const ch = first(el, 'Choice') ?? first(el, 'Fallback');
       if (ch) await walk(ch, c, f);
@@ -181,8 +202,9 @@ async function walk(tree: XEl, c: Ctx, f: Found): Promise<void> {
         const prst = attr(find(first(el, 'spPr'), 'prstGeom'), 'prst');
         const xf = xfrmOf(el, c);
         const kind = PRST[prst];
-        if (kind && xf && f.shapes.length < 2) f.ids.set(spidOf(el, 'nvSpPr'), `shape${f.shapes.length}` as Elem), f.shapes.push({ id: blockId(), kind, x: xf.x, y: xf.y, w: xf.w, h: kind === 'line' ? 0 : xf.h, fill: f.shapes.length });
-        else if (!kind || f.shapes.length >= 2) lose(c, 'a drawing');
+        if (kind && xf && f.shapes.length < 2 && !grp) f.ids.set(spidOf(el, 'nvSpPr'), `shape${f.shapes.length}` as Elem), f.shapes.push({ id: blockId(), kind, x: xf.x, y: xf.y, w: xf.w, h: kind === 'line' ? 0 : xf.h, fill: f.shapes.length });
+        else if (kind && xf) f.free.push({ id: blockId(), kind: 'shape', shape: kind, x: xf.x, y: xf.y, w: Math.max(24, xf.w), h: kind === 'line' ? 0 : xf.h, fill: f.free.length % 5, ...(grp ? { group: grp } : {}) });
+        else lose(c, 'a drawing');
       }
     } else if (el.n === 'cxnSp') {
       const xf = xfrmOf(el, c);
@@ -201,10 +223,6 @@ async function walk(tree: XEl, c: Ctx, f: Found): Promise<void> {
         lose(c, 'a picture that is not in the file');
         continue;
       }
-      if (f.media) {
-        lose(c, 'a second picture');
-        continue;
-      }
       const ext = rel!.target.split('.').pop()!.toLowerCase();
       const mime = MIMES[ext];
       if (!mime) {
@@ -212,7 +230,12 @@ async function walk(tree: XEl, c: Ctx, f: Found): Promise<void> {
         continue;
       }
       const kept = await c.keep(bytes, mime);
+      const freePic = /^Free picture/.test(nameOf(el, 'nvPicPr')) || !!f.media || !!grp;
+      const pxf = xfrmOf(el, c);
       if (!kept) lose(c, 'a picture that would not open');
+      // ours by name, a second picture, or one in a group: a free-form picture where it stood
+      else if (freePic && pxf) f.free.push({ id: blockId(), kind: 'pic', img: kept.id, alt: attr(first(first(el, 'nvPicPr'), 'cNvPr'), 'descr'), x: pxf.x, y: pxf.y, w: pxf.w, h: pxf.h, ...(grp ? { group: grp } : {}) });
+      else if (freePic) lose(c, 'a second picture');
       else f.ids.set(spidOf(el, 'nvPicPr'), 'media'), (f.media = { k: 'img', img: kept.id, alt: attr(first(first(el, 'nvPicPr'), 'cNvPr'), 'descr'), iw: kept.iw, ih: kept.ih });
     } else if (el.n === 'graphicFrame') {
       const gd = find(el, 'graphicData');
@@ -338,7 +361,7 @@ export async function readPptx(bytes: Uint8Array, name: string, keep: KeepImage)
     }
     const rels = readRels(files, part);
     const c: Ctx = { files, rels, keep, n: i + 1, lost, sx: W / cx, sy: H / cy, fonts, nested };
-    const f: Found = { title: null, texts: [], media: null, shapes: [], numbers: false, ids: new Map() };
+    const f: Found = { title: null, texts: [], media: null, shapes: [], numbers: false, ids: new Map(), free: [] };
     const tree = find(root, 'spTree');
     if (tree) await walk(tree, c, f);
     if (f.numbers) anyNumber = true;
@@ -400,7 +423,7 @@ export async function readPptx(bytes: Uint8Array, name: string, keep: KeepImage)
         /* notes left out */
       }
     }
-    slides.push(newSlide(layout, { title: f.title ?? block('h1', ''), body, body2, ...(f.media ? { media: f.media } : {}), shapes: f.shapes, notes, transition, builds, ...(skip ? { skip } : {}) }));
+    slides.push(newSlide(layout, { title: f.title ?? block('h1', ''), body, body2, ...(f.media ? { media: f.media } : {}), shapes: f.shapes, notes, transition, builds, ...(skip ? { skip } : {}), ...(f.free.length ? { free: f.free } : {}) }));
   }
   if (fonts.v) lost.add('the colours and fonts of single words (the theme sets them)');
   if (nested.v) lost.add('nested bullets (each is a bullet of its own now)');

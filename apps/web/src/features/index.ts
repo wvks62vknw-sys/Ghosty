@@ -56,6 +56,8 @@ import { slidesTab } from './slides';
 import { workspaceTab } from './workspace';
 // PHOTO (BRIEF-EDITOR-PHOTO): the sixth of the full editors, a non-destructive photo editor on the phone
 import { photoTab } from './photo';
+// [lens] PHOTOS (THE APPS ROUND, lane LENS): his private library, behind the photo editor
+import { photosTab } from './photos';
 // THE VIDEO EDITOR (BRIEF-EDITOR-VIDEO): MAKE's seventh full editor
 import { videoTab } from './video';
 import { houseTab } from './house';
@@ -72,4 +74,4 @@ import { journalTab } from './journal';
 import { appsTab } from './applib';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, translateTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, securityTab, journalTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, videoTab, gamestudioTab, comicTab, paintTab, houseTab, appsTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, translateTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, securityTab, journalTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, photosTab, videoTab, gamestudioTab, comicTab, paintTab, houseTab, appsTab, ...HUB_TABS];

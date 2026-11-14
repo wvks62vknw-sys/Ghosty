@@ -713,3 +713,112 @@ test('(review) a UK energy bill has prices, a total and VAT like a till receipt,
   assert.deepEqual(F.jobsOf({ text: bill, receipt: true, letter: true }), ['letter'], 'read as a bill too, the bill wins');
   assert.deepEqual(F.jobsOf({ text: 'TOTAL 6.30 VISA', receipt: true, letter: false }), ['receipt'], 'a till receipt stays a receipt');
 });
+
+// ---------------------------------------------------------------- PHOTOS (THE APPS ROUND): the library's pure part
+const { build: buildPhotos } = await import('esbuild');
+await buildPhotos({ entryPoints: [new URL('../../web/src/photos/pure.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'neutral', outfile: new URL('./.build/photos-pure.mjs', import.meta.url).pathname, logLevel: 'warning' });
+const PH = await import('./.build/photos-pure.mjs');
+
+/** A JPEG with only an APP1 EXIF segment: DateTimeOriginal and a GPS position (little-endian TIFF), then SOS. */
+function exifJpeg({ date = '2025:08:14 18:32:05', lat = [51, 30, 26.4], latRef = 'N', lon = [0, 7, 39.6], lonRef = 'W', make = 'Apple', model = 'iPhone 15' } = {}) {
+  const b = [];
+  const u16 = (n) => b.push(n & 255, (n >> 8) & 255);
+  const u32 = (n) => b.push(n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255);
+  // TIFF header
+  b.push(0x49, 0x49); u16(42); u32(8);
+  // IFD0 at 8: Make, Model, ExifIFD, GPSIFD
+  const ifd0 = 8, n0 = 4, ifd0End = ifd0 + 2 + n0 * 12 + 4;
+  const makeAt = ifd0End, modelAt = makeAt + make.length + 1, exifAt = modelAt + model.length + 1;
+  const exifEnd = exifAt + 2 + 12 + 4, dateAt = exifEnd, gpsAt = dateAt + 20;
+  const gpsEnd = gpsAt + 2 + 4 * 12 + 4, latAt = gpsEnd, lonAt = latAt + 24;
+  u16(n0);
+  u16(0x010f); u16(2); u32(make.length + 1); u32(makeAt);
+  u16(0x0110); u16(2); u32(model.length + 1); u32(modelAt);
+  u16(0x8769); u16(4); u32(1); u32(exifAt);
+  u16(0x8825); u16(4); u32(1); u32(gpsAt);
+  u32(0);
+  for (const c of make + '\0') b.push(c.charCodeAt(0));
+  for (const c of model + '\0') b.push(c.charCodeAt(0));
+  u16(1); u16(0x9003); u16(2); u32(20); u32(dateAt); u32(0);
+  for (const c of date + '\0') b.push(c.charCodeAt(0));
+  u16(4);
+  u16(1); u16(2); u32(2); b.push(latRef.charCodeAt(0), 0, 0, 0);
+  u16(2); u16(5); u32(3); u32(latAt);
+  u16(3); u16(2); u32(2); b.push(lonRef.charCodeAt(0), 0, 0, 0);
+  u16(4); u16(5); u32(3); u32(lonAt);
+  u32(0);
+  for (const x of [...lat, ...lon]) { u32(Math.round(x * 100)); u32(100); }
+  const tiffBytes = b;
+  const app1 = [0x45, 0x78, 0x69, 0x66, 0, 0, ...tiffBytes];
+  const len = app1.length + 2;
+  return new Uint8Array([0xff, 0xd8, 0xff, 0xe1, len >> 8, len & 255, ...app1, 0xff, 0xda, 0, 2]).buffer;
+}
+
+test('PHOTOS: a JPEG\'s own data says when it was taken, on what, and where (where stays on the phone)', () => {
+  const x = PH.readExif(exifJpeg());
+  assert.equal(new Date(x.taken).toISOString().slice(0, 10), '2025-08-14');
+  assert.equal(new Date(x.taken).getHours(), 18, 'the camera\'s own local time');
+  assert.deepEqual(x.place, { lat: 51.50733, lon: -0.12767 });
+  assert.equal(x.camera, 'Apple iPhone 15');
+  assert.deepEqual(PH.readExif(exifJpeg({ latRef: 'S', lonRef: 'E' })).place, { lat: -51.50733, lon: 0.12767 });
+  assert.deepEqual(PH.readExif(new Uint8Array([0x89, 0x50, 0x4e, 0x47]).buffer), { taken: null, place: null, camera: '' }, 'a PNG has no EXIF here');
+  assert.equal(PH.readExif(new Uint8Array([0xff, 0xd8, 0xff, 0xe1, 0, 4, 1, 2]).buffer).taken, null, 'a broken segment reads as nothing, never throws');
+});
+
+test('PHOTOS: fingerprints, near-duplicates and the best shot (the sharpest, then the most pixels)', () => {
+  const grad = Array.from({ length: 72 }, (_, i) => (i % 9) * 20 + Math.floor(i / 9));
+  const h1 = PH.dHash(grad);
+  assert.equal(h1.length, 16);
+  const nudged = grad.slice(); nudged[4] += 50; nudged[40] -= 60;
+  const h2 = PH.dHash(nudged);
+  assert.ok(PH.hamming(h1, h2) > 0 && PH.hamming(h1, h2) <= PH.SAME_BITS, `a nudged copy is near: ${PH.hamming(h1, h2)}`);
+  const other = PH.dHash(Array.from({ length: 72 }, (_, i) => 200 - (i % 9) * 20));
+  assert.ok(PH.hamming(h1, other) > 20, 'a different picture is far');
+  assert.equal(PH.hamming('', h1), 64);
+  const it = (id, hash, sharp, taken, w = 100) => ({ id, kind: 'photo', name: id, type: 'image/jpeg', w, h: 100, taken, added: taken, bytes: 1, fav: false, hidden: false, deletedAt: 0, albums: [], hash, sharp, labels: [], text: '' });
+  const g = PH.duplicateGroups([it('a', h1, 3, 1000), it('b', h2, 9, 2000), it('c', other, 5, 3000), it('d', h1, 1, 5 * PH.DAY)]);
+  assert.deepEqual(g.map((x) => x.map((y) => y.id)), [['b', 'a']], 'the sharper first; a copy days later is a new moment');
+  assert.deepEqual(PH.duplicateGroups([it('e', h1, 1, 0), it('f', h2, 2, 3 * 3_600_000)]), [], 'alike but hours apart: two moments (a trip\'s similar views), not a duplicate');
+  assert.ok(PH.sharpness([0, 255, 0, 255, 0, 255, 0, 255, 0], 3, 3) > PH.sharpness([10, 10, 10, 10, 10, 10, 10, 10, 10], 3, 3));
+});
+
+test('PHOTOS: search by what is in a photo, by words in it, by date and kind; months, the 30-day bin, On this day, memories', () => {
+  const now = new Date(2026, 10, 14, 12).getTime();
+  const it = (id, taken, extra = {}) => ({ id, kind: 'photo', name: `${id}.jpg`, type: 'image/jpeg', w: 1, h: 1, taken, added: taken, bytes: 1_000_000, fav: false, hidden: false, deletedAt: 0, albums: [], hash: '', sharp: 0, labels: [], text: '', ...extra });
+  const beach = it('IMG_0001', new Date(2025, 7, 14).getTime(), { labels: ['dog', 'beach', 'sea'], fav: true });
+  const menu = it('IMG_0002', new Date(2026, 2, 3).getTime(), { text: 'Café Lumière menu du jour' });
+  const vid = it('VID_0003', new Date(2026, 10, 13).getTime(), { kind: 'video', labels: ['dogs'] });
+  const all = [beach, menu, vid];
+  const find = (q) => all.filter((x) => PH.matches(x, PH.parseQuery(q, now))).map((x) => x.id);
+  assert.deepEqual(find('dog on a beach'), ['IMG_0001']);
+  assert.deepEqual(find('dogs'), ['IMG_0001', 'VID_0003'], 'a plural finds the singular and back');
+  assert.deepEqual(find('menu'), ['IMG_0002'], 'words read in the photo');
+  assert.deepEqual(find('photos from march'), ['IMG_0002']);
+  assert.deepEqual(find('2025'), ['IMG_0001']);
+  assert.deepEqual(find('summer 2025'), ['IMG_0001']);
+  assert.deepEqual(find('last summer'), [], 'in November, last summer is this year\'s, and nothing was taken then');
+  assert.deepEqual(find('videos'), ['VID_0003']);
+  assert.deepEqual(find('yesterday'), ['VID_0003']);
+  assert.deepEqual(find('favourites'), ['IMG_0001']);
+  assert.deepEqual(find('cat'), []);
+  assert.deepEqual(PH.byMonth(all).map((m) => m.title), ['November 2026', 'March 2026', 'August 2025']);
+  const gone = { ...menu, deletedAt: now - 29.5 * PH.DAY }, old = { ...vid, deletedAt: now - 31 * PH.DAY };
+  const b = PH.bin([beach, gone, old], now);
+  assert.deepEqual(b.waiting.map((x) => [x.id, x.daysLeft]), [['IMG_0002', 1]]);
+  assert.deepEqual(b.expired.map((x) => x.id), ['VID_0003']);
+  assert.ok(!PH.matches(gone, PH.parseQuery('menu', now)), 'a deleted photo is not found');
+  assert.ok(!PH.matches({ ...beach, hidden: true }, PH.parseQuery('dog', now)), 'a hidden photo is not found');
+  const lastYear = it('IMG_0100', new Date(2025, 10, 14, 9).getTime());
+  assert.deepEqual(PH.onThisDay([lastYear, beach], now).map((d) => [d.year, d.items.length]), [[2025, 1]]);
+  const trip = [0, 1, 1.2, 2, 3].map((d, i) => it(`T${i}`, new Date(2025, 6, 10).getTime() + d * PH.DAY));
+  const m = PH.memories([...trip, beach]);
+  assert.equal(m.length, 1);
+  assert.equal(m[0].title, '4 days in July 2025');
+  assert.equal(m[0].items.length, 5);
+  assert.equal(PH.libraryLine([beach, menu, vid]), '2 photos and 1 video · 3 MB on this phone');
+  assert.equal(PH.clock(65), '1:05');
+  // places, from the photos' own data alone: grouped within about 10 km, named by their numbers (nothing looked up)
+  const at = (id, lat, lon) => it(id, now - 1000, { place: { lat, lon } });
+  const ps = PH.placesOf([at('L1', 51.507, -0.127), at('L2', 51.52, -0.11), at('P1', 48.856, 2.352), menu]);
+  assert.deepEqual(ps.map((p) => [p.title, p.items.length]), [['51.5° N, 0.1° W', 2], ['48.9° N, 2.4° E', 1]]);
+});

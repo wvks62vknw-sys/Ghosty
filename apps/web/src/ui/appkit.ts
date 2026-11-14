@@ -68,6 +68,8 @@ export interface KitApp {
   add(item: KitItem): void;
   update(id: string, patch: Partial<KitItem>): void;
   remove(id: string): void;
+  /** Everything at once (an import): one change, so one Undo puts back what was there. */
+  replaceAll(items: KitItem[]): void;
   undo(): boolean;
   redo(): boolean;
   /** RECENTLY DELETED: what was taken away, newest first, each one put back with `restore`. */
@@ -205,6 +207,7 @@ export function app(root: HTMLElement, spec: KitSpec): KitApp {
     items: () => kept.items.slice(),
     add: (item) => change(() => kept.items.unshift(item)),
     update: (id, patch) => change(() => (kept.items = kept.items.map((x) => (x.id === id ? { ...x, ...patch, id } : x)))),
+    replaceAll: (items) => change(() => (kept.items = items.slice())),
     remove(id) {
       const it = kept.items.find((x) => x.id === id);
       if (!it) return;
