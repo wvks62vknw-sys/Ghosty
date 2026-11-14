@@ -17,6 +17,9 @@
  * home as he saved it in Settings (sunTimes, from his latitude and longitude), else 08:00 to 18:00.
  */
 import { colourWord, FANCY, PLAIN, TWO_WAYS } from './colours';
+import { screenOf } from './meanings';
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // ---------------------------------------------------------------- the ground
 
@@ -97,10 +100,12 @@ export interface Switches {
   motion: 'alive' | 'calm';
   sound: 'tone' | 'click' | 'off';
   day: 'off' | 'on';
+  /** [voice lane] COLOUR-BLIND SAFE (voice.s5): failure, success and warning in colours told apart without red and green. */
+  safe: 'off' | 'on';
 }
 export type SwitchKey = keyof Switches;
 
-export const SWITCH_DEFAULTS: Switches = { glow: 'on', floor: 'on', corners: 'world', readings: 'mono', body: 17, motion: 'alive', sound: 'tone', day: 'off' };
+export const SWITCH_DEFAULTS: Switches = { glow: 'on', floor: 'on', corners: 'world', readings: 'mono', body: 17, motion: 'alive', sound: 'tone', day: 'off', safe: 'off' };
 
 export interface SwitchDef<K extends SwitchKey = SwitchKey> {
   key: K;
@@ -111,7 +116,7 @@ export interface SwitchDef<K extends SwitchKey = SwitchKey> {
   options: { value: Switches[K]; label: string; line: string }[];
 }
 
-/** The eight switches: each one visible thing, each a sentence, each kept. */
+/** The nine switches: each one visible thing, each a sentence, each kept. */
 export const SWITCHES: SwitchDef[] = [
   { key: 'glow', label: 'Glow', line: 'Whether my light glows round what is lit.', options: [
     { value: 'on', label: 'On', line: 'My light glows round what is lit: the room, my orb’s halo.' },
@@ -147,6 +152,11 @@ export const SWITCHES: SwitchDef[] = [
   { key: 'day', label: 'Ground follows the day', line: 'Paper by day, your night ground after sunset, from your home’s sun times.', options: [
     { value: 'off', label: 'Off', line: 'The ground stays as you chose it, day and night.' },
     { value: 'on', label: 'On', line: 'Paper from sunrise to sunset at your home, your night ground after. Never your live location.' },
+  ] },
+  // [voice lane] (voice.s5) the state colours in a set told apart by every eye: orange for a failure, sky blue for a success, yellow for a warning
+  { key: 'safe', label: 'Colour-blind safe', line: 'Failures, successes and warnings in colours anyone can tell apart, never red against green.', options: [
+    { value: 'off', label: 'Off', line: 'Red for a failure, green for a success, amber for a warning.' },
+    { value: 'on', label: 'On', line: 'Orange for a failure, sky blue for a success, yellow for a warning: easy to tell apart with any colour vision.' },
   ] },
 ];
 export const switchOf = <K extends SwitchKey>(k: K): SwitchDef<K> => SWITCHES.find((s) => s.key === k) as unknown as SwitchDef<K>;
@@ -353,6 +363,8 @@ export interface LookAsk {
   back?: { generic: boolean };
   /** [voice.u7] "softer blue", "a bit deeper red", "a warmer colour": the neighbouring plain colour, in that direction. */
   shade?: { way: ShadeWay; from?: ColourKey };
+  /** [voice.u8] "make the money screen green": one screen keeps its own colour (null: back to his colour there). */
+  room?: { tab: string; label: string; colour: ColourKey | null };
   /** [voice.s10] "calm colours", "focus colours", "lively colours": a colour and its switches together, named plainly. */
   feel?: 'calm' | 'focus' | 'lively';
 }
@@ -430,6 +442,14 @@ export function lookAsked(text: string): LookAsk | null {
   if (!t0 || t0.length > 60) return null;
   // ---- the look before (voice.u9): plain about the look, or generic words that mean it just after a look change
   if (/^(?:put (?:the )?(?:colou?r|look|theme|old colou?r|old look) back|change (?:the )?(?:colou?r|look|theme) back|undo (?:the |that )?(?:colou?r|look|theme)(?: change)?|(?:back to |go back to )?(?:the )?(?:old|last|previous|earlier) (?:colou?r|look|theme|one)(?: back)?|i (?:liked|preferred) the (?:old|last|previous|other) (?:colou?r|look|theme|one)(?: better)?|revert (?:the )?(?:colou?r|look|theme))$/.test(t0)) return { back: { generic: false } };
+  // ---- a colour for one screen (voice.u8): "make the money screen green", "the radio page in red", "money screen back to normal"
+  const rm = /^(?:(?:make|turn|set|change|paint|colou?r) )?(?:the |my )?([a-z' -]{2,30}?) (?:screen|page|room|tab)(?: colou?r)? (?:to |in |into )?(?:a |an )?([a-z][a-z ]{1,20})$/.exec(t0);
+  if (rm) {
+    const sc = screenOf(`open the ${rm[1]}`);
+    const back = /^(?:normal|default|usual|my colou?r|the usual|back to normal|back|same as the rest)$/.test(rm[2]!.replace(/^back to /, 'back to '));
+    const c = back ? null : colourWord(rm[2]!);
+    if (sc && (back || c)) return { room: { tab: sc.tab, label: sc.label.replace(/^the /, ''), colour: c } };
+  }
   // ---- a shade by words (voice.u7): "a bit softer blue", "deeper red", "a warmer colour", "make it a bit softer" (the colour, said so)
   const sh = /^(?:make it |go |something |a |an |one )?(?:(?:little |tiny |touch |wee )?bit |touch |shade |little |lot )?(softer|paler|lighter|gentler|pastel|deeper|darker|richer|stronger|bolder|brighter|more vivid|more vibrant|punchier|warmer|cooler|colder)(?: shade of)? ([a-z][a-z ]{1,20}?)$/.exec(t0.replace(/^(?:make it|make the colour|go|switch to|change it to) /, ''));
   if (sh) {
@@ -480,6 +500,8 @@ export function lookAsked(text: string): LookAsk | null {
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) off|no (?:recognition|lock) (?:sound|tone)|silent (?:lock|recognition))$/.test(t)) return { switches: { sound: 'off' } };
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) (?:to )?click|(?:the )?click (?:sound|for the lock)|click when you lock on)$/.test(t)) return { switches: { sound: 'click' } };
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) (?:to )?tone|(?:the )?tone (?:sound|for the lock)|(?:the )?(?:recognition|lock) (?:sound|tone) on)$/.test(t)) return { switches: { sound: 'tone' } };
+  if (/^(?:colou?r ?blind(?:ness)?(?: safe| friendly| mode| colours| colors| setting)?(?: on)?|colou?r[- ]blind[- ](?:safe|friendly)(?: colou?rs| mode| look)?(?: on)?|safe colou?rs(?: for colou?r ?blindness)?|i'?m colou?r ?blind)$/.test(t)) return { switches: { safe: 'on' } };
+  if (/^(?:colou?r ?blind(?:ness)?(?: safe| friendly)? mode off|colou?r[- ]blind[- ](?:safe|friendly)(?: mode)? off|turn off colou?r ?blind(?:ness)?(?: safe| friendly)? mode|normal (?:status )?colou?rs)$/.test(t)) return { switches: { safe: 'off' } };
   if (/^(?:follow the (?:day|sun|daylight)|ground follows the day|paper by day|day and night|follow sunrise and sunset)$/.test(t)) return { switches: { day: 'on' } };
   if (/^(?:stop following the (?:day|sun)|don't follow the (?:day|sun)|(?:follow the day|ground follows the day) off)$/.test(t)) return { switches: { day: 'off' } };
   // ---- a colour, by its plain name, its old name or a common synonym (colours.ts): after a verb ("make it red", "switch to
@@ -578,6 +600,9 @@ export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: Home
     next.colour = ask.colour;
     const name = `${COLOUR_LABELS[ask.colour]}${ask.word ? ` (${ask.word})` : ''}`;
     said = r.colour === ask.colour ? `${name} is on already: nothing changed.` : `${name} now, instead of ${COLOUR_LABELS[r.colour].toLowerCase()}. Only my colour changed.`;
+  } else if (ask.room) {
+    // (the recipe itself is unchanged: the phone keeps the room's colour and shows it on that screen, state/roomcolour.ts)
+    said = ask.room.colour ? `${cap(ask.room.label)} keeps ${COLOUR_LABELS[ask.room.colour].toLowerCase()} from now on; everywhere else stays ${COLOUR_LABELS[r.colour].toLowerCase()}.` : `${cap(ask.room.label)} is back in your colour, ${COLOUR_LABELS[r.colour].toLowerCase()}.`;
   } else if (ask.shade) {
     const from = ask.shade.from ?? r.colour;
     const to = SHADES[from]?.[ask.shade.way];

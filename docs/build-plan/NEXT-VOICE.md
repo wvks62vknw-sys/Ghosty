@@ -67,6 +67,17 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 - At the end of a way it says so ("Blue is as deep as I go that way") and never makes a shade up.
 - A bare "a bit darker" is still the background, as before.
 
+### A colour for each room (voice.u8)
+- "Make the money screen green" keeps green for Money alone.
+- It shows while that screen is open, and your own colour comes back everywhere else; your saved look is never changed by it.
+- "Money screen back to normal" lets it go.
+
+### Colour-blind safe looks (voice.s5)
+- A ninth switch on THE LOOK, "Colour-blind safe", also said as "colour-blind mode on".
+- With it on, failures show orange, successes sky blue and warnings yellow (the Okabe–Ito set), never red against green; on Paper,
+  their deeper inks.
+- Each colour is checked for contrast against every background it is drawn on.
+
 ### Calm, focus or lively colours (voice.s10)
 - "Calm colours" gives light blue, the glow off and nothing moving.
 - "Focus colours" gives grey, no glow and a plain floor.
@@ -98,6 +109,18 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 - "Is it gonna chuck it down" is noted as the weather.
 - The radio and water, which only the app keeps, are named as such, so I say so instead of guessing.
 
+### Everyday asks in other languages (voice.u10)
+- Spanish, French, and Urdu or Hindi as people type them in English letters reach the same abilities as the English:
+  - the radio: "pon música", "mets de la musique", "gaana chalao";
+  - the lights: "apaga la luz", "allume la lumière", "batti bujhao";
+  - timers: "pon un temporizador de diez minutos", "minuteur de 5 minutes", "10 minute ka timer lagao";
+  - water: "me he tomado un vaso de agua", "ek glass paani piya";
+  - the map: "abre el mapa", "naqsha dikhao";
+  - the weather: "qué tiempo hace", "mausam kaisa hai";
+  - the news: "las noticias", "khabrein sunao";
+  - settings: "ajustes".
+- Other sentences in those languages are left to my brain, which speaks them anyway.
+
 ### Also fixed on the way
 - The look table no longer takes "show me the map" as the Map look (since the final round).
 
@@ -119,10 +142,9 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
   ON turn is now a sentence with nothing of yours in it, because one about your calendar is now kept on the phone.
 
 ## What is left (later items, listed for the next round)
-- **A colour for each room (voice.u8):** not built.
-- **Everyday wordings in other languages (voice.u10):** not built.
+- **More languages and abilities for voice.u10:** a first set is built (Spanish, French, Urdu/Hindi in English letters, for nine
+  abilities); more abilities and Urdu in its own script are left.
 - **Settings for each person introduced (voice.s2):** not built.
-- **Colour-blind safe looks (voice.s5):** not built.
 - **Say "Ghosty" to start listening (voice.s8):** not built; it needs a listening pack and the download rule.
 - **Comic colours by plain names (voice.c3):** not built. The comic's speech balloons have no colour of their own yet, so this needs
   the COMIC lane's drawing to take a colour first.

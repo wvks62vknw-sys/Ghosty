@@ -156,6 +156,9 @@ check(!/Not tried for real yet/.test(card.text), 'a finished week is not called 
 check(card.rows.some((r) => r.k === 'STOCK'), 'the stock model kept as the fallback');
 check(card.rows.some((r) => r.k === 'GPU HOURS' && r.v === gpuLine && r.n === 'SMALLER RUN'), `the quota line: ${JSON.stringify(card.rows.find((r) => r.k === 'GPU HOURS'))}`);
 check(/Two GPUs: practice and tests on the second while he learned on the first, 52 min saved\. Done in 2 sessions: each saved its place and the next carried on\./.test(card.text), 'what ran where, and in how many sessions');
+// (NEXT ROUND, polish3.u3) week by week: last week's and this week's scores, kept on the phone, drawn for the average and each area
+const hist = await page.evaluate(() => ({ rows: [...document.querySelectorAll('#pg-system .selftrain .trainhist .throw')].map((r) => ({ k: r.querySelector('.k')?.textContent ?? '', v: (r.querySelector('.v')?.textContent ?? '').trim(), line: !!r.querySelector('svg.spark polyline') })), kept: JSON.parse(localStorage.getItem('ghosty.train.history') ?? '[]').map((w) => w.week) }));
+check(hist.kept.join() === '1,2' && hist.rows[0]?.k === 'AVERAGE' && hist.rows[0]?.line && /^\d+% now, up \d+ since the first week$/.test(hist.rows[0]?.v ?? '') && hist.rows.some((r) => /^GYM/i.test(r.k) && /^38% now, up 7 since the first week$/.test(r.v)), `the week-by-week chart: ${JSON.stringify(hist)}`);
 // the daily GPU: offered once; ALLOW asks first, in plain words
 check(/THE DAILY GPU \(HUGGING FACE\)/.test(card.text) && /about 5 minutes of GPU a day\./.test(card.text), 'the daily GPU is offered');
 await page.locator('#pg-system .selftrain .trainpool button', { hasText: 'ALLOW' }).click();
