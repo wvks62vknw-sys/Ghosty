@@ -97,6 +97,15 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     if (n?.backTo) navTo(n.backTo, 'pop');
   });
   const navTitle = h('h1.navtitle');
+  // A name is never cut with dots: the length guesses its size, then the room its keys leave decides. Too wide, it steps down a
+  // size (l, then xl; housed it says itself whole on two lines). Measured a frame after the paint (the look and the keys have
+  // settled), and again whenever the bar's row resizes (a look, the house, a turn of the phone). Home keeps its greeting as set.
+  const fitTitle = () => {
+    if (document.body.dataset.depth === 'home') return;
+    if (!navTitle.dataset.len && navTitle.scrollWidth > navTitle.clientWidth) navTitle.dataset.len = 'l';
+    if (navTitle.dataset.len === 'l' && navTitle.scrollWidth > navTitle.clientWidth) navTitle.dataset.len = 'xl';
+  };
+  new ResizeObserver(() => fitTitle()).observe(navTitle);
   // A screen pushed inside a tab (a Settings row, a Gym game, the conversation): the bar says where it came from.
   // ownBack: the screen brings its own back button (the conversation's, known to tests as .logbtn).
   let pushed: { back: string; title: string; label: string; pop: () => void; ownBack?: boolean; tab: string } | null = null;
@@ -118,6 +127,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
       // route C: a long name steps down a size rather than being cut ("Phone · App & Notifications")
       const n = navTitle.textContent.length;
       navTitle.dataset.len = n > 24 ? 'xl' : n > 17 ? 'l' : '';
+      requestAnimationFrame(fitTitle);
       return;
     }
     pushed = null;
@@ -135,6 +145,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     navTitle.dataset.case = 'keep';
     // (a screen's long name — PRESENTATIONS, SPREADSHEETS — is set smaller, as a pushed page's is, rather than cut short)
     navTitle.dataset.len = tab !== 'core' && (n?.title ?? '').length > 11 ? 'xl' : '';
+    requestAnimationFrame(fitTitle);
   };
   // the greeting follows the clock
   setInterval(() => ui.get().tab === 'core' && !pushed && paintNav(), 60_000);
