@@ -62,6 +62,8 @@ interface Kept {
   save?: { state: unknown; secs: number; seed?: number };
   /** The level, size or theme picked above the board. */
   variant?: number;
+  /** The best for each level, size or theme (by its label). */
+  bests?: Record<string, number>;
 }
 
 /** A choice offered above the board (a level, a size, a theme), and the options it sets. */
@@ -183,6 +185,7 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
     kept.variant = Number(picker.value);
     save(id, kept);
     opts = { ...baseOpts, ...variants[kept.variant]!.patch };
+    showBest();
     restart();
   });
   const bar = h('div.al-gbar', h('div.al-gscore', h('span.al-glabel', 'Score'), scoreEl, lineEl), bestEl, h('span.ak-sp'), picker, pauseKey, newKey);
@@ -204,9 +207,12 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
   let stop: void | (() => void);
   let seedNow = 0;
 
+  const level = () => (variants.length ? variants[pickAt()]!.label : '');
+  const bestNow = (): number | undefined => (level() ? kept.bests?.[level()] : kept.best);
   const showBest = () => {
     const parts = [];
-    if (kept.best != null) parts.push(`Best ${fmtNum(kept.best)}`);
+    const b = bestNow();
+    if (b != null) parts.push(`Best ${fmtNum(b)}`);
     if (kept.streak > 0) parts.push(`Streak ${kept.streak}`);
     bestEl.textContent = parts.join(' · ');
   };
@@ -295,16 +301,20 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
         kept = load(id);
         delete kept.save;
         kept.played++;
-        const better = o.lower ? kept.best == null || o.score < kept.best : kept.best == null || o.score > kept.best;
+        const prev = bestNow();
+        const better = o.lower ? prev == null || o.score < prev : prev == null || o.score > prev;
         const isBest = o.won && o.score > 0 && better;
-        if (isBest) kept.best = o.score;
+        if (isBest) {
+          if (level()) kept.bests = { ...(kept.bests ?? {}), [level()]: o.score };
+          else kept.best = o.score;
+        }
         if (o.won) {
           kept.won++;
           kept.streak++;
           kept.bestStreak = Math.max(kept.bestStreak, kept.streak);
         } else kept.streak = 0;
         save(id, kept);
-        st.best = kept.best ?? null;
+        st.best = bestNow() ?? null;
         st.streak = kept.streak;
         showBest();
         const head = o.words ?? (o.won ? 'Well played.' : 'Game over.');

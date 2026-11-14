@@ -11395,3 +11395,14 @@ html .phx-on { color: var(--g-red); }
 html .al-gpick { min-height: var(--g-target); max-width: 42%; padding: 0 var(--g-s-1); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); color: var(--g-ink-1); font: var(--g-t-caption); }
 html .al-gpick option { background: var(--g-canvas); color: var(--g-ink-1); }
 html .al-gpairword { display: block; padding: 0 4px; font: var(--g-t-caption); font-weight: 600; color: var(--g-accent-text); text-align: center; overflow-wrap: anywhere; }
+html .al-gpadkey { position: relative; }
+html .al-gpadkey::after { content: attr(data-left); position: absolute; top: 3px; right: 6px; font: var(--g-t-fine); color: var(--g-ink-3); }
+html .al-gpadkey.al-gdone { opacity: .35; }
+html .al-gwreveal .al-gwcell { animation: al-gflip 420ms ease both; }
+html .al-gwreveal .al-gwcell:nth-child(2) { animation-delay: 90ms; }
+html .al-gwreveal .al-gwcell:nth-child(3) { animation-delay: 180ms; }
+html .al-gwreveal .al-gwcell:nth-child(4) { animation-delay: 270ms; }
+html .al-gwreveal .al-gwcell:nth-child(5) { animation-delay: 360ms; }
+html .al-gwreveal .al-gwcell:nth-child(n+6) { animation-delay: 450ms; }
+@keyframes al-gflip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+@media (prefers-reduced-motion: reduce) { html .al-gwreveal .al-gwcell { animation: none; } }

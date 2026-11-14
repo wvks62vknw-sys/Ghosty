@@ -124,6 +124,7 @@ export const solitaire: Board = (p) => {
     p.score(home * 10, `${home} of 52 home · ${s.moves} moves`);
   }
   render();
+  if (!p.resume && (s as S.Sol & { checked?: boolean }).checked) p.notice('This deal has been played through: it can be won.');
   p.keep(s);
   return () => clearInterval(finishing);
 };
