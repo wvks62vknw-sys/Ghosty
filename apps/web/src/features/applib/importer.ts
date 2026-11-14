@@ -11,7 +11,9 @@
 import { h } from '../../core/dom';
 import { key } from '../../ui/machine';
 import { KIT_ICONS, type KitApp, type KitItem } from '../../ui/appkit';
-import { redraw, registerRenderer, rendererFor, toolKey } from './registry';
+import { registerRenderer, toolKey } from './registry';
+import { recordOf, type Val } from './engine';
+import { drawLog } from './renderers/log';
 import type { AppDef, Field, LogConfig } from '../../../../../packages/shared/src/applib/types';
 import { READER_META } from '../../../../../packages/shared/src/applib/importers/meta';
 import { mergeRecords, topList } from '../../../../../packages/shared/src/applib/importers/merge';
@@ -101,15 +103,11 @@ export function fill(tpl: string | undefined, r: Rec, fields: Field[]): string {
 
 /** A record as one of the kit's items: its key as the id, its line words, and every field it has (none starting _). */
 export function toItem(r: Rec, log: LogConfig): KitItem {
-  const it: KitItem = { id: String(r._key ?? `h${Math.random().toString(36).slice(2)}`), title: fill(log.title, r, log.fields) || 'Untitled' };
-  const sub = fill(log.sub, r, log.fields);
-  const meta = fill(log.meta, r, log.fields);
-  if (sub) it.sub = sub;
-  if (meta) it.meta = meta;
-  for (const [k, v] of Object.entries(r)) if (k[0] !== '_' && !(k in it)) it[k] = v;
-  return it;
+  // the engine's record shape: title, line and meta worked out, the fields in f (none starting _)
+  const f: Record<string, Val> = {};
+  for (const [k, v] of Object.entries(r)) if (k[0] !== '_') f[k] = v;
+  return recordOf(log, f, String(r._key ?? `h${Math.random().toString(36).slice(2)}`));
 }
-
 /** The newest records first (by the app's date field, then its sort field), at most KIT_MAX. */
 export function newest(recs: Rec[], log: LogConfig, max = KIT_MAX): Rec[] {
   const by = log.date ?? log.sort?.field;
@@ -132,8 +130,10 @@ export function span(which: string, today = localDay(new Date())): { from: strin
 // ── the renderer ──────────────────────────────────────────────────────────────────
 
 /** The kit's sample items, told apart from records he typed in himself by their values. */
-const sameAsSample = (it: KitItem, def: AppDef) =>
-  (def.sample ?? []).some((s) => Object.entries(s).every(([k, v]) => String(it[k] ?? '') === String(v)));
+const sameAsSample = (it: KitItem, def: AppDef) => {
+  const f = (it.f && typeof it.f === 'object' ? it.f : it) as Record<string, unknown>;
+  return (def.sample ?? []).some((s) => Object.entries(s).every(([k, v]) => String(f[k] ?? '') === String(v)));
+};
 
 function routeSvg(d: string): SVGSVGElement {
   const NS = 'http://www.w3.org/2000/svg';
@@ -153,13 +153,6 @@ export const importerRenderer = (root: HTMLElement, def: AppDef, k: KitApp): (()
   const log = imp.log;
   const reader = READER_META[def.id];
   const stops: (() => void)[] = [];
-  // the engine's log renderer draws the records (stats, chart, search, export); the kit's own list if it is not there yet
-  const logR = rendererFor('log');
-  if (logR) {
-    const stop = logR(root, { ...def, archetype: 'log', log }, k);
-    if (stop) stops.push(stop);
-  }
-
   let all: Rec[] = [];
   let kept: Kept | null = null;
   let worker: Worker | null = null;
@@ -317,8 +310,8 @@ export const importerRenderer = (root: HTMLElement, def: AppDef, k: KitApp): (()
     run(fs);
   });
 
-  // the panel sits at the top of the one scroll area, put back after each of the kit's draws
-  stops.push(redraw(k, () => { if (root.firstChild !== panel) root.prepend(panel); }));
+  // the engine's log draws the records (stats, chart, views, search, export) with this panel on top, after each of the kit's draws
+  stops.push(drawLog(root, def, k, log, { add: false, top: () => panel }));
   const tk = toolKey(k, key('Import', () => input.click(), { glyph: KIT_ICONS.plus }));
   stops.push(() => tk.remove());
   drawIdle();

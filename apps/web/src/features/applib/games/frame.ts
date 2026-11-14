@@ -120,6 +120,14 @@ function save(id: string, k: Kept): void {
   }
 }
 
+/** A game app's line for its Home card: its best and its run of wins, or how to start ("" when never played). */
+export function playLine(id: string): string {
+  const k = load(id);
+  if (!k.played) return '';
+  const best = k.best ?? (k.bests ? Math.max(...Object.values(k.bests)) : undefined);
+  return [best != null ? `Best ${fmtNum(best)}` : '', k.streak ? `streak ${k.streak}` : '', `${k.played} played`].filter(Boolean).join(' · ');
+}
+
 export const fmtNum = (n: number): string => Math.round(n).toLocaleString('en-GB');
 export const fmtTime = (s: number): string => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 

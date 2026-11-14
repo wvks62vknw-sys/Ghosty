@@ -66,11 +66,15 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
 - **vCard import and export (YOUR PEOPLE).** IMPORT CONTACTS reads a .vcf on the phone (folded lines, N or FN, phones, emails,
   address, a birthday with or without a year). It keeps each card on the brain through the people pack's own actions (note,
   contact, birthday). EXPORT ALL writes everyone as one vCard 3.0 file, through the Share sheet where the phone has one.
+- **Groups and tags (YOUR PEOPLE).** Under DETAILS, his groups for each person ("family, school, football") are kept on this
+  phone (`ghosty.people.groups`, in the backup). A chip row over the list shows one group, and search finds people by group too.
 - **Promises on a person's card.** His open promises from YOUR WORD that name that person show under DETAILS.
 - **The group plan into his Calendar.** ADD TO CALENDAR writes the plan as one .ics file: its day, its time (two hours, or all
   day), its place, and who's coming. Nobody is sent anything.
 - **A decision log with a look-back date (YOUR WORD).** LOOK BACK on any reason he gave sets a reminder three months on, asking
   whether it worked out. NO LOOK BACK takes it off.
+- **A chart for his week (YOUR WORD).** Under the week's lines, bars show what he asked about most, and finished against still
+  open. The Sunday card itself was already on the brain.
 
 ## How to try it
 - Me → Memory → JOURNAL. Write, take a prompt, add a photo, tap a mood, then look at Calendar, On this day and Places.
@@ -90,8 +94,9 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
   - (i) GIFTS;
   - (j) vCard import and export;
   - (k) the plan's .ics;
+  - (l) groups;
   - (g) every key 44 pt, nothing sideways, no word cut, in all seven looks.
-- `tests/keepword.spec.mjs` (p): LOOK BACK and NO LOOK BACK.
+- `tests/keepword.spec.mjs`: (p) LOOK BACK and NO LOOK BACK; (q) the week's bars.
 - `apps/edge/test/journal.test.mjs`:
   - streak, On this day and search;
   - the chat's asks, and Memory's own diary asks left alone;
@@ -100,6 +105,7 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
   - GIFTS' steps and budgets;
   - vCards read and written;
   - the plan's .ics;
+  - groups;
   - promises on a card;
   - nothing in the journal reads a position, its one way out is that key, and the nudge carries none of his words.
 - The full brain suite is green. finding.test counts 57 screens, with journal inside Memory. The STATES ratchet lists
@@ -109,9 +115,8 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
 - Voice notes turned into text after recording. SAY IT writes live speech in instead; nothing transcribes a saved note.
 - The journal itself is not an App Kit `app()`: it is a multi-view screen. It uses the kit's Home card, and its notices are toasts.
 - Date polls and invite cards for the group plan.
-- Groups and tags, and a dated timeline per person.
+- A dated timeline per person.
 - His own lead time per person in COMING UP.
-- A Sunday push and a chart for his week in YOUR WORD.
 - The Letter studio: left to the editors lane, whose Documents already have letter templates.
 - A heads-up, not mine: on the integration branch, the web typecheck has 6 errors in
   `packages/shared/src/applib/catalogue/{learn,world}.ts` (APPLIB CAT-C). @parent was told.

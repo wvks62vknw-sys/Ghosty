@@ -7,7 +7,7 @@
  */
 import { h } from '../../core/dom';
 import { keepStore } from '../memory/keep';
-import { promisesAbout } from './vcard';
+import { allGroups, groupsFrom, loadGroups, promisesAbout, saveGroups } from './vcard';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
@@ -98,11 +98,25 @@ function whoSheet(): HTMLElement {
   };
   const find = h('input.ppfind', { type: 'search', placeholder: 'Find someone: a name, “cousin”, “fishing”', 'aria-label': 'Find someone', enterKeyHint: 'search', hidden: true }) as HTMLInputElement;
   find.addEventListener('input', () => paint());
+  // [journal] APPS ROUND (Your people: groups and tags): his groups for each person, kept on this phone; a chip shows one group
+  let group = '';
+  const chips = h('div.pkrow.ppgroups', { role: 'group', 'aria-label': 'Your groups' });
   const paint = () => {
     const q = find.value.trim().toLowerCase();
     find.hidden = peopleState.people.length < 2;
+    const groups = loadGroups();
+    const names = allGroups(Object.fromEntries(Object.entries(groups).filter(([n]) => peopleState.people.some((p) => p.name === n))));
+    if (group && !names.includes(group)) group = '';
+    chips.replaceChildren(...(names.length ? ['', ...names].map((g) => {
+      const b = button(g || 'Everyone', () => {
+        group = g;
+        paint();
+      }, group === g ? 'on' : '');
+      b.setAttribute('aria-pressed', String(group === g));
+      return b;
+    }) : []));
     const sorted = [...peopleState.people].sort((a, b) => a.name.localeCompare(b.name, 'en-GB', { sensitivity: 'base' }));
-    const shown = q ? sorted.filter((p) => [p.name, p.rel, ...p.notes].some((x) => x.toLowerCase().includes(q))) : sorted;
+    const shown = (q ? sorted.filter((p) => [p.name, p.rel, ...p.notes, ...(groups[p.name] ?? [])].some((x) => x.toLowerCase().includes(q))) : sorted).filter((p) => !group || (groups[p.name] ?? []).includes(group));
     peopleState.shown = shown.length;
     list.replaceChildren(
       ...(peopleState.people.length && !shown.length ? [h('p.pknote', { dataset: { case: 'keep' } }, `No one I know matches “${find.value.trim()}”.`)] : []),
@@ -121,6 +135,7 @@ function whoSheet(): HTMLElement {
                 // [moneynext] money.u9: each thing he said, to change or take away; his own photo of them, kept on this phone
                 ...(p.notes.length ? p.notes.map((n) => noteRow(p, n)) : [h('p.pknote', 'Nothing else said yet.')]),
                 // [journal] APPS ROUND (Your word): his open promises that name them, from MEMORY → YOUR WORD
+                groupRow(p.name),
                 ...promisesAbout(p.name, keepStore.get().items).map((w) => h('p.pknote.pppromise', { dataset: { case: 'keep' } }, `You said you’d ${w}.`)),
                 photoRow(p),
                 giftRow(p),
@@ -285,6 +300,20 @@ function whoSheet(): HTMLElement {
     b.setAttribute('aria-label', `Forget ${p.name}`);
     return h('div.pkrow', b);
   };
+  const groupRow = (name: string) => {
+    const box = h('input', { type: 'text', value: (loadGroups()[name] ?? []).join(', '), placeholder: 'Groups: family, school, football', 'aria-label': `Groups for ${name}` }) as HTMLInputElement;
+    const keep = button('Keep groups', () => {
+      const m = loadGroups();
+      const gs = groupsFrom(box.value);
+      if (gs.length) m[name] = gs;
+      else delete m[name];
+      saveGroups(m);
+      stateIn(status, '', gs.length ? `${name} is in ${gs.join(', ')}. Kept on this phone.` : `${name} is in no group now.`);
+      paint();
+    });
+    keep.setAttribute('aria-label', `Keep the groups for ${name}`);
+    return h('div.pkrow.ppgrouprow', box, keep);
+  };
   const load = async () => {
     list.replaceChildren();
     /* state: people.who loading */
@@ -360,7 +389,7 @@ function whoSheet(): HTMLElement {
     stateIn(status, '', `Saved my-people.vcf with ${peopleState.people.length} ${peopleState.people.length === 1 ? 'person' : 'people'}; open it to add them to Contacts.`);
   });
   exportBtn.setAttribute('aria-label', 'Export everyone as a vCard file');
-  const el = h('div.pkcol', find, list, h('div.pkadd', name, what, addBtn), h('div.pkrow.ppvcf', importBtn, exportBtn, vcfIn), status, phrases(['who\'s who', 'Sam is my cousin']));
+  const el = h('div.pkcol', find, chips, list, h('div.pkadd', name, what, addBtn), h('div.pkrow.ppvcf', importBtn, exportBtn, vcfIn), status, phrases(['who\'s who', 'Sam is my cousin']));
   void load();
   return el;
 }
