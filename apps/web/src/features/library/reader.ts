@@ -233,7 +233,7 @@ export function readingControls(): HTMLElement {
       h('p.grd-cap', { dataset: { case: 'keep' } }, 'Night text follows your theme: always light on the graphite, with your theme’s colour for what I attend to.'),
       tag('Listening'),
       h('div.grd-keys.speed', ...speeds),
-      h('p.grd-cap', { dataset: { case: 'keep' } }, `Speed ${sp}× for the phone’s voice${p.bookVoice ? ' (my own voice keeps its pace)' : ''}. It takes effect the next time I start reading.`),
+      h('p.grd-cap', { dataset: { case: 'keep' } }, `Speed ${sp}× for the phone’s voice${p.bookVoice ? ' (my own voice keeps its pace)' : ''}, from the next time I start reading.`),
       h('div.grd-keys.sleep', ...sleeps),
       h('p.grd-cap.grd-sleepline', { dataset: { case: 'keep' } }, sleepLine),
       pick ? h('label.grd-voicerow', h('span.lab', `Voice for ${doc!.title.split(/\s*[:—–]\s+/)[0]}`), pick) : doc ? h('p.grd-cap', { dataset: { case: 'keep' } }, 'This phone lists no English voices to choose from, so the usual voice reads.') : h('p.grd-cap', { dataset: { case: 'keep' } }, 'Open a book to choose a voice for it.'),
