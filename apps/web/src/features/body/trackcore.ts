@@ -8,6 +8,7 @@
  *  - his words: "I drank a pint", "log a glass of water", "how much have I drunk?", "I slept 7 and a half hours", "I weigh 82 kg",
  *    "walked 6,000 steps", "I feel good", "how did I sleep this week?" — answered on the phone with no model.
  */
+import { volumeMl } from '../../../../../packages/shared/src/amounts';
 
 export type Metric = 'water' | 'sleep' | 'steps' | 'weight' | 'mood';
 export const METRICS: Metric[] = ['water', 'sleep', 'steps', 'weight', 'mood'];
@@ -307,6 +308,10 @@ const n = (s: string | undefined): number => (s == null ? NaN : s in NUM ? NUM[s
 /** Millilitres in his words: "a pint", "2 glasses", "500 ml", "1.5 litres", "a mug", "a bottle", his own cup's name. */
 export function mlIn(words: string, cups: Cup[] = []): number | null {
   const w = words.toLowerCase().replace(/’/g, "'");
+  // [voice lane] AMOUNTS UNDERSTOOD EXACTLY (voice.u3, packages/shared/src/amounts.ts): "half a litre", "750ml", "a pint and a half",
+  // "two glasses", with his own cup sizes winning; the table below stays for a cup he named without a number
+  const exact = volumeMl(w, Object.fromEntries([...CUPS, ...cups].map((c) => [c.name.toLowerCase(), c.ml])));
+  if (exact != null) return exact;
   const litre = /(\d+(?:\.\d+)?)\s*(ml|millilit(?:re|er)s?|l|lit(?:re|er)s?)\b/.exec(w);
   if (litre) return Math.round(Number(litre[1]) * (/^m/.test(litre[2]!) ? 1 : 1000));
   const half = /\bhalf (?:a |an )?(pint|glass|mug|bottle|cup)\b/.exec(w);
@@ -330,8 +335,9 @@ export type TrackAsk =
   | { kind: 'bed' }
   | { kind: 'up' };
 
-const DRINK = /\b(?:drank|drunk|had|log|logged|add|added|record|put down|track)\b/;
-const WATERY = /\b(?:water|glass(?:es)?|pints?|mugs?|bottles?|litres?|liters?|ml|cups?)\b/;
+const DRINK = /\b(?:drank|drunk|had|log|logged|add|added|record|put down|track|necked|downed|finished|chuck(?:ed)?|sank|knocked back)\b/;
+// ("750ml" has no break between the number and its unit: [voice lane] the unit is found right after a digit too)
+const WATERY = /\b(?:water|glass(?:es)?|pints?|mugs?|bottles?|litres?|liters?|ml|cups?)\b|\d ?(?:ml|l)\b/;
 const NOT_WATER = /\b(?:beer|lager|ale|wine|cider|coffee|tea|juice|cola|coke|vodka|whisky|whiskey|gin|rum|milk|bills?|plants?|the garden|shopping|list|basket|order|buy|fridge|freezer|cupboard|pantry)\b/;
 
 /** His words, read for the trackers with no model. */
@@ -347,7 +353,7 @@ export function trackAsked(text: string, cups: Cup[] = []): TrackAsk | null {
   if (/^(?:undo|take back|remove) (?:that|the last|my last) (?:glass|drink|water)|^undo (?:the )?water$/.test(t)) return { kind: 'undo', m: 'water' };
   // questions
   const span = (s: string): 'today' | 'week' | 'month' => (/\bmonth\b/.test(s) ? 'month' : /\bweek\b|\blately\b|\brecently\b/.test(s) ? 'week' : 'today');
-  if (/^(?:how much (?:water )?(?:have i|did i|i've) (?:drunk|drank|had)|how much water(?: (?:today|this week|this month|so far|have i had|did i have))?$|how am i doing (?:on|with) water|am i (?:drinking enough|hydrated|on track with water)|what'?s my water)/.test(t)) return { kind: 'ask', m: 'water', span: span(t) };
+  if (/^(?:how much (?:water )?(?:have i|did i|i've) (?:drunk|drank|had)|how much water(?: (?:today|this week|this month|so far|have i had|did i have))?$|how am i doing (?:on|with) water|how'?s my water (?:looking|doing|going)|how is my water (?:looking|doing|going)|am i (?:drinking enough|hydrated|on track with water)|what'?s my water)/.test(t)) return { kind: 'ask', m: 'water', span: span(t) };
   if (/^(?:how (?:did|have) i (?:sleep|slept)|how much (?:did i sleep|sleep)|how'?s my sleep|what'?s my sleep)/.test(t)) return { kind: 'ask', m: 'sleep', span: /last night|today/.test(t) ? 'today' : span(t) === 'today' ? 'week' : span(t) };
   if (/^(?:how many steps|how far have i walked|what'?s my step|my steps today|steps today)/.test(t)) return { kind: 'ask', m: 'steps', span: span(t) };
   if (/^(?:what do i weigh|how much do i weigh|what'?s my weight|my weight trend|how'?s my weight)/.test(t)) return { kind: 'ask', m: 'weight', span: 'month' };
@@ -390,7 +396,7 @@ export function trackAsked(text: string, cups: Cup[] = []): TrackAsk | null {
   }
   // water
   if (NOT_WATER.test(t)) return null;
-  if (/^(?:a |another |\d+ |two |three |four )?(?:glass|glasses|pints?|mugs?|bottles?|cups?) of water$/.test(t) || (DRINK.test(t) && WATERY.test(t)) || /^(?:\+|plus )?\d+ ?ml$/.test(t) || cups.some((c) => t.includes(c.name.toLowerCase()) && DRINK.test(t))) {
+  if (/^(?:a |another |\d+ |two |three |four )?(?:glass|glasses|pints?|mugs?|bottles?|cups?) of water$/.test(t) || (/\bof water$/.test(t) && volumeMl(t) != null) || (DRINK.test(t) && WATERY.test(t)) || /^(?:\+|plus )?\d+ ?ml$/.test(t) || cups.some((c) => t.includes(c.name.toLowerCase()) && DRINK.test(t))) {
     const v = mlIn(t, cups);
     if (v != null && v > 0 && v <= 3000) return { kind: 'log', m: 'water', v };
   }

@@ -43,6 +43,7 @@ import { raising, type Raising } from '../../../packages/shared/src/intent';
 import { moodEvent, moodLine, type Mood } from '../../../packages/shared/src/mood';
 import { feel, loadMood } from './mood';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
+import { classicsRoute } from './library/classics';
 import { trainingRoute } from './training/coach';
 import { loadStudy, matchDomains, noteGap, STUDY_KEY, studySession, studySummary, TOPIC_COUNT } from './library/study';
 import { runDigest } from './library/digest';
@@ -51,7 +52,7 @@ import { dropPlace, placeRoute } from './library/place';
 import { loadPrinciples, loadProfile, profileRoute, reflect, reflectSummary } from './profile';
 import { projectsRoute, runProjectStep, type ProjectDeps } from './projects';
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
-import { capabilityLines, lengthBand, systemPrompt, type ClientContext, type PromptGroups } from './prompt';
+import { capabilityLines, lengthBand, notHis, systemPrompt, type ClientContext, type PromptGroups } from './prompt';
 import { mindSnapshot, observe, toolEpisode, turnGist } from './mind'; // [mind] the one shared mind (OWNER-ISSUES 74)
 import { clipResult, compact, noteHeard, trimContext } from './context';
 import { backAt, directPlan, directReply, localTimeAnswer, noModelLine, noModelMessage, raisedReply, smallTalk, waitOf, type DirectPlan } from './direct';
@@ -60,8 +61,10 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
-import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
-import { gameSiteResponse, gameUpload } from './gamesite'; // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
+import { linksIn, siteFrameResponse, siteResponse, siteStore, siteVersionsRoute } from './tools/sites';
+import { gameSiteResponse, gameUpload } from './gamesite';
+import { photosRoute } from './sitephotos';
+import { pageUpload } from './sitepage'; // [sites] his own photos on his sites (NEXT ROUND sites.u12) // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
@@ -500,6 +503,10 @@ export class GhostyAgent {
       if (path === '/training' || path.startsWith('/training/')) return await selfTrainingRoute(req, path, method, this.trainDeps());
       // [sites] the game open in his studio, handed over to wait for "put it on my sites" and his APPROVE; never published here (gamesite.ts)
       if (path === '/sites/game') return await gameUpload(req, { env: this.env, storage: this.storage });
+      // [sites] his own photos for his sites, resized and stripped on his phone (sitephotos.ts): kept, listed, never published here
+      if (path === '/sites/photos') return await photosRoute(req, { env: this.env, storage: this.storage, origin: this.origin });
+      // [sites] a document or deck from his phone, waiting for "publish it as a page" and his APPROVE (sitepage.ts, sites.s4)
+      if (path === '/sites/page') return await pageUpload(req, { env: this.env, storage: this.storage });
       if (path === '/school' || path.startsWith('/school/')) return await schoolRoute(req, path, method, { env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] SCHOOL (school/routes.ts)
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
@@ -544,6 +551,8 @@ export class GhostyAgent {
         await this.router.setOrder(Array.isArray(order) ? order.map(String) : []);
         return json({ ok: true });
       }
+      // [sites] a published page's earlier versions, and UNDO LAST UPDATE from the Workshop (sites.u2; tools/sites.ts)
+      if (/^\/sites\/[a-z0-9-]{1,48}\/(versions|restore)$/.test(path)) return await siteVersionsRoute(req, path, { env: this.env, storage: this.storage });
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
@@ -829,16 +838,19 @@ export class GhostyAgent {
       // [talk] his last reply was cut off as it was read out: its copy here says what he heard of it (BRIEF-TALK-1A 2)
       if (extra.heard) noteHeard(prev, extra.heard);
       await this.addTurn({ role: 'user', text: markPhotos(text, images.length), at: Date.now() });
+      // [voice lane] QUIET HOUSEHOLD MODE (voice.s1, voice.c5; prompt.ts notHis): a turn said in a voice he introduced, or one the
+      // phone doesn't know, is not his: it stays out of his day log and recall, and never moves his mood or rates his replies
+      const theirs = notHis(client);
       // (the day log: what he asked, in a line — the nightly reflection consolidates it; mind.ts)
-      await observe(this.storage, { kind: 'turn', text: turnGist(ownerWords(text)), via: client.tab === 'telegram' ? 'telegram' : 'app' }).catch(() => null);
+      if (!theirs) await observe(this.storage, { kind: 'turn', text: turnGist(ownerWords(text)), via: client.tab === 'telegram' ? 'telegram' : 'app' }).catch(() => null);
       const ctx: Msg[] = [...trimContext(prev), { role: 'user', content: images.length ? withImages(turn, images) : turn }];
       // Raising him (OWNER-ISSUES 64, 69c; intent.ts raising): praise or a telling-off goes on his last reply as a rating the
       // weekly training reads, with its weight; a standing rule in his words becomes a conduct lesson. His own words only.
-      const raised = plain ? raising(text, lastReply(prev)) : null;
+      const raised = plain && !theirs ? raising(text, lastReply(prev)) : null;
       if (raised) await this.raise(raised, prev).catch(() => undefined);
       // His mood (OWNER-ISSUES 70b, 63): moved only by his own words — praise or a telling-off, a stand-down, "go dark", a
       // kind word after a sharp one, being taught, danger he is in — never by a page, a tool or what the camera read.
-      const ev = raised?.kind ? ({ kind: raised.kind, weight: raised.weight ?? 1 } as const) : moodEvent(text);
+      const ev = theirs ? null : raised?.kind ? ({ kind: raised.kind, weight: raised.weight ?? 1 } as const) : moodEvent(text);
       if (ev) {
         const before = await loadMood(this.storage);
         const mood = await feel(this.storage, ev);
@@ -1508,6 +1520,8 @@ export class GhostyAgent {
       await dropPlace(this.storage, m[1]!);
       return json({ ok });
     }
+    // [learn.u6] THE CLASSICS SHOP: free public-domain books (Gutendex, Standard Ebooks' open new releases), added on his tap
+    if (path === '/library/classics' || path.startsWith('/library/classics/')) return classicsRoute(req, path, method, { lib });
     if (path === '/library/import' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { source?: string; offset?: number };
       try {

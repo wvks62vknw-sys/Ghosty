@@ -324,6 +324,10 @@ export function solveBeam(input: BeamIn = {}, system: UnitSystem = 'metric'): Es
     confidence: confidenceOf(defaulted),
     changes,
     caveat: caveatFor('beam'),
+    profile: Array.from({ length: 41 }, (_, i) => {
+      const x = (L * i) / 40;
+      return { x, y: cases.reduce((s, c) => s + c.y(x), 0), m: cases.reduce((s, c) => s + c.M(x), 0) };
+    }),
     values: { deflection: defl, deflectionAt: yx, moment: Math.abs(Mmax), momentAt: Mx, shear: Vmax, stress: sigma, utilisation: util, R1: R.R1, R2: R.R2, M1: R.M1, M2: R.M2, I: props.Iy, Z: props.Zy, A: props.A, selfWeight: sw, limit },
   };
 }

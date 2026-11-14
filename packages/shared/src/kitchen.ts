@@ -5,6 +5,7 @@
  * unit conversions, the oven line, the shopping list shared as text, the week's meal plan, a use-it-up list and leftovers.
  * No storage, no network here. Every number says what it assumed.
  */
+import { durationSecs } from './amounts';
 import { card, type Card } from './cards';
 import { addDays, dayWords, listWords, weekdayOf } from './packs';
 
@@ -17,6 +18,10 @@ const DUR = new RegExp(`(?:(half an?|\\d+(?:\\.\\d+)?|${Object.keys(NUM).join('|
 
 /** Seconds in a span of words ("8 minutes", "1 hour 20", "an hour and a half", "half an hour", "90 seconds", "1h20"). */
 export function secondsIn(words: string): number | null {
+  // [voice lane] AMOUNTS UNDERSTOOD EXACTLY (voice.u3): "a quarter of an hour", "twenty five minutes", "one minute thirty", "two and
+  // a half minutes" read exactly (packages/shared/src/amounts.ts); the reading below stays for anything it does not take
+  const exact = durationSecs(words);
+  if (exact) return exact;
   const w = words.toLowerCase().replace(/(\d)h(\d)/g, '$1 h $2');
   let total = 0;
   let any = false;
@@ -53,7 +58,13 @@ export function timerAsked(text: string): TimerAsk | null {
       /\bfor (?:the |my |a |an |some )?([a-z][a-z' -]{0,30}?)\s*(?:timer)?[.!]?$/i.exec(p)?.[1] ??
       /^([a-z][a-z' -]{0,30}?)\s+(?:timer\s+)?(?:\d|a\s|an\s|half|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty|thirty)/i.exec(p.replace(/^timers?:?\s*/i, ''))?.[1] ??
       '';
-    const clean = name.replace(/\b(?:timer|minutes?|mins?|hours?|seconds?|the|a|an|egg timer)\b/gi, '').trim().replace(/^(?:for|in|of|at|to|on|set|start)$/i, '');
+    // ([voice lane] the number and fraction words of the amount are not the timer's name: "a quarter of an hour", "twenty five", "one minute thirty")
+    const clean = name
+      .replace(/\b(?:timer|minutes?|mins?|hours?|seconds?|secs?|the|a|an|egg timer|quarters?|half|and|of|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|ninety|hundred|couple|few)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^(?:for|in|at|to|on|set|start)\s+/i, '')
+      .replace(/^(?:for|in|of|at|to|on|set|start)$/i, '');
     out.push({ secs: Math.min(secs, 24 * 3600), name: clean || (/\begg\b/i.test(p) ? 'eggs' : '') });
   }
   if (!out.length) return null;

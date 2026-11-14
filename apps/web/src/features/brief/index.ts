@@ -25,7 +25,8 @@ import { home, ui } from '../../state/app';
 import { markSeen } from '../core/missed';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
-import { rawText } from '../../ui/hisWords';
+import { rawText } from '../../ui/hisWords';import { briefWorld } from '../eye/briefworld';
+
 
 export const briefTab: TabDef = {
   id: 'brief',
@@ -212,7 +213,9 @@ export const briefTab: TabDef = {
     commute.el.hidden = true;
     // FORESIGHT (foresight.ts): today's expectations, yesterday's score and his questions on record, after the drive to work.
     const fore = briefForesight();
-    P.left.append(dp.el, commute.el, fore.el, wp.el);
+    // [see] THE WORLD (see.c2): the threat level, road reports on the commute and a fresh picture from the camera nearest home
+    const world = briefWorld();
+    P.left.append(dp.el, commute.el, fore.el, world.el, wp.el);
     // (PLACES sits under the whole of ME: the tap brings PLACES itself on screen, not the top of ME)
     const toPlaces = () => {
       goToPanel('memory', 'ME');
@@ -461,6 +464,7 @@ export const briefTab: TabDef = {
         void paintDay();
         void mail.paint();
         void paintCommute();
+        void world.paint();
         void paintMoney();
         setTimeout(() => ui.get().tab === 'brief' && markSeen(topHeadlines()), 1500);
         void fore.paint();

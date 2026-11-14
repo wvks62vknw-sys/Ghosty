@@ -80,6 +80,31 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   }
   // His length (persona.ts lengthBand): as long as the prompt's band says, in the cadence a free model wraps it in
   // (the router's polish takes that off), and as a bulleted list when it is long — said as a sentence when he asked for none.
+  // [comic] THE COMIC's "Ghosty writes, the app draws" (apps/web/src/features/comic/script.ts): a script in its plain format, for
+  // his idea and the cast the phone already drew, with a setup on page one that pays off on the last page.
+  if (last.role === 'user' && /^comic script:/i.test(ownerWords(textOf(last.content)).trim())) {
+    const said = ownerWords(textOf(last.content));
+    const idea = /about: (.+?)\.\n/i.exec(said)?.[1] ?? 'a day out';
+    const name = (role: string) => new RegExp(`${role} = ([^(;]+?) \\(`).exec(said)?.[1]?.trim() ?? role;
+    const [H, F, V] = [name('HERO'), name('FRIEND'), name('RIVAL')];
+    const script = [
+      `TITLE: ${H} and the Very Big Idea`, `TAGLINE: Written for you: ${idea}.`,
+      'PAGE', 'PANEL: town, day, wide | the want', 'CAST: HERO happy cheer', `CAPTION: Our story: ${idea}.`, 'HERO (shout): Today everything changes!',
+      'PANEL: town, day, mid | the friend doubts', 'CAST: HERO smug point; FRIEND think stand', 'FRIEND: You said that about the toaster.', 'HERO: The toaster was a learning experience.',
+      'PANEL: home, day, close | the plan', 'CAST: HERO smug point', 'HERO: I have a plan. It has a diagram.', 'SFX: TA-DA!',
+      'PAGE', 'PANEL: park, day, wide | it goes wrong', 'CAST: HERO shock fall; FRIEND calm stand', 'SFX: KA-BOOM!', 'FRIEND: The diagram did not mention that.',
+      'PANEL: park, day, mid | try again', 'CAST: HERO angry stand; FRIEND think stand', 'HERO: Fine. Plan B. Same diagram, louder.',
+      'PANEL: park, day, mid | worse', 'CAST: HERO shock sit', 'SFX: SPLAT!', 'HERO (whisper): …Louder was a mistake.',
+      'PANEL: park, dusk, mid | the rival', 'CAST: RIVAL smug point; HERO sad sit', `RIVAL: Give up, ${H}. Some of us are just naturals.`,
+      'PAGE', 'PANEL: home, night, wide | the low point', 'CAST: HERO sad sit', 'CAPTION: That night.', 'HERO: Maybe the toaster was right about me.',
+      'PANEL: home, night, mid | the idea', 'CAST: FRIEND happy point; HERO think sit', 'FRIEND: What if we turn the diagram upside down?', 'HERO (thought): …That could work.',
+      'PANEL: home, night, close | the decision', 'CAST: HERO happy cheer', 'HERO (shout): Upside down it is!',
+      'PAGE', 'PANEL: town, day, wide | it works', 'CAST: HERO happy jump; RIVAL shock stand', 'SFX: WHOOSH!', 'HERO (shout): Upside down! Obviously!',
+      'PANEL: town, dusk, mid | friends', 'CAST: HERO happy cheer; FRIEND happy stand', 'FRIEND: I take back everything I said about the toaster.',
+      'PANEL: town, dusk, mid | the payoff', 'CAST: RIVAL shock sit', 'RIVAL: …Where can I get a diagram?', 'CAPTION: THE END.',
+    ].join('\n');
+    return { message: { role: 'assistant', content: script }, model };
+  }
   if (/^pineapple on pizza\b/.test(owner)) {
     const short = system.includes('He writes short: reply in a line or two.');
     const body = short ? 'It works: sweet against salt.' : 'It works, and here is why:\n- sweet against salt\n- the acid cuts the cheese\n- the ham carries both';
@@ -356,9 +381,16 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   if ((m = text.match(/^publish my draft website at \S*\/s\/([a-z0-9-]+)/i)) && has('build_website')) return { message: call('build_website', { request: text, link_name: m[1]!, confirm: true }), model };
   if ((m = text.match(/^build (?:me )?a website (.+)$/)) && has('build_website')) return { message: call('build_website', { request: m[0], ...(/barber/.test(m[1]!) ? { kind: 'barber', name: 'Fade & Co. Barbers', phone: '07700 900461' } : {}) }), model };
   // A mini-app for the Home Screen (tools/sites.ts build_app), so a chat-flow spec can ask for one without a model.
+  // [sites] a mini-app changed after it is made (appchange.ts, NEXT ROUND sites.u6)
+  if ((m = text.match(/^add (.+) to my app ([a-z0-9-]+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0], change: true, link_name: m[2], add_items: [m[1]] }), model };
   if ((m = text.match(/^make me an app (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0] }), model };
   // [sites] A game from his studio on his sites (tools/sites.ts publish_game): the chat turn the studio's key starts.
   if ((m = text.match(/^put (.+?) on my sites$/)) && has('publish_game')) return { message: call('publish_game', { name: m[1] }), model };
+  // [sites] a page published in two versions, and its undo (tools/sites.ts publish_site undo, NEXT ROUND sites.u2)
+  if ((m = text.match(/^publish site ([a-z0-9-]+) saying (.+)$/)) && has('publish_site')) return { message: call('publish_site', { name: m[1], title: 'Party', html: `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Party</title></head><body><main><h1>${m[2]!.replace(/[<>&"]/g, '')}</h1></main></body></html>` }), model };
+  // [sites] a document or deck handed over from his phone (sitepage.ts, NEXT ROUND sites.s4)
+  if ((m = text.match(/^publish (.+) as a page$/)) && has('publish_site')) return { message: call('publish_site', { name: m[1]!.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'page', from_phone: true }), model };
+  if ((m = text.match(/^undo my last update to ([a-z0-9-]+)$/)) && has('publish_site')) return { message: call('publish_site', { name: m[1], undo: true }), model };
   if ((m = text.match(/^unpublish site ([a-z0-9-]+)$/)) && has('unpublish_site')) return { message: call('unpublish_site', { name: m[1] }), model };
   if ((m = text.match(/^draft site ([a-z0-9-]+) part (\d)$/)) && has('draft_site')) {
     const parts = ['<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>In parts</title></head>', '<body><h1>Part two</h1>', '<p>Part three</p></body></html>'];

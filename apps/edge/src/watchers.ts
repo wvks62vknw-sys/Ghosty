@@ -18,7 +18,7 @@ import { parseTarget } from './integrations/recon';
 import type { GuardDeps } from './guardstate';
 import type { Vault } from './kernel/vault';
 import { listMessages, parseEmailKey } from './integrations/mail';
-import { chaseAt, chaseDueLine, chaseSetLine, repliedLine } from '../../../packages/shared/src/recall';
+import { againLine, chaseAt, chaseDueLine, chaseSetLine, parcelCameLine, parcelDueLine, parcelSetLine, repliedLine } from '../../../packages/shared/src/recall';
 
 export const WATCHERS_KEY = 'watchers:list';
 export type WatchKind = 'price' | 'page' | 'strike' | 'reply';
@@ -63,6 +63,9 @@ export interface Watcher {
   by?: number;
   mail?: boolean;
   repliedAt?: number;
+  /** [recall] memory.u4: the second morning to look when the first found nothing ("and again Monday"); memory.s4: a parcel, settled by a delivery email. */
+  again?: number;
+  wait?: 'parcel';
 }
 
 export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
@@ -92,7 +95,16 @@ async function replyCame(d: WatchDeps, w: Watcher): Promise<number | null | unde
   const key = await d.vault?.get('email').catch(() => '');
   if (!key) return undefined;
   const cfg = parseEmailKey(key);
-  const r = await listMessages(cfg, { since: new Date(w.created).toISOString().slice(0, 10), ...(w.from || w.who ? { from: w.from || w.who } : {}), ...(!w.from && !w.who && w.about ? { subject: w.about.slice(0, 60) } : {}), limit: 5 });
+  if (w.wait === 'parcel') {
+    // (a delivery email since the wait was set: "delivered", from any sender, in his own inbox)
+    const p = await listMessages(cfg, { since: new Date(w.created).toISOString().slice(0, 10), subject: 'delivered', limit: 5 });
+    const at = p.messages.map((m) => Date.parse(m.date)).filter((t) => Number.isFinite(t) && t >= w.created).sort((a, b) => a - b)[0];
+    return at ?? null;
+  }
+  // (memory.u2: a chase made from a mail knows its subject: only a reply in that thread counts, never the same person writing about
+  //  something else; the subject's words without its Re:/Fwd:)
+  const thread = w.from && w.about ? w.about.replace(/^(?:\s*(?:re|fwd?|fw)\s*:\s*)+/i, '').slice(0, 60) : '';
+  const r = await listMessages(cfg, { since: new Date(w.created).toISOString().slice(0, 10), ...(w.from || w.who ? { from: w.from || w.who } : {}), ...(thread ? { subject: thread } : !w.from && !w.who && w.about ? { subject: w.about.slice(0, 60) } : {}), limit: 5 });
   const at = r.messages.map((m) => Date.parse(m.date)).filter((t) => Number.isFinite(t) && t >= w.created).sort((a, b) => a - b)[0];
   return at ?? null;
 }
@@ -101,7 +113,7 @@ async function replyCame(d: WatchDeps, w: Watcher): Promise<number | null | unde
  * "Remind me to chase this if Sam doesn't reply by Thursday": a watcher of kind `reply`, checked once, on that morning at 9 (his
  * zone). Said once, when set (chaseSetLine). Without a mail account it is a plain dated reminder, and says so.
  */
-export async function addChase(d: WatchDeps, b: { who?: unknown; day?: unknown; about?: unknown; thread?: unknown; from?: unknown; tz?: unknown }): Promise<{ watcher?: Watcher; said: string; error?: string }> {
+export async function addChase(d: WatchDeps, b: { who?: unknown; day?: unknown; about?: unknown; thread?: unknown; from?: unknown; tz?: unknown; again?: unknown; wait?: unknown }): Promise<{ watcher?: Watcher; said: string; error?: string }> {
   const day = typeof b.day === 'string' ? b.day.toLowerCase().trim() : '';
   if (!/^(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/.test(day)) return { said: '', error: 'say by when: a day like Thursday, or tomorrow' };
   const who = typeof b.who === 'string' ? b.who.replace(/[^\p{L}\p{N} '’.-]/gu, '').trim().slice(0, 40) : '';
@@ -114,10 +126,14 @@ export async function addChase(d: WatchDeps, b: { who?: unknown; day?: unknown; 
   const now = nowOf(d);
   const by = chaseAt(day, now, tz);
   const mail = await mailLinked(d);
-  const label = `Chase ${who || 'a reply'}${about ? `: ${about.slice(0, 50)}` : ''}`;
-  const w: Watcher = { id: shortId(), kind: 'reply', url: '', label, created: now, checked: now, ok: true, last: {}, state: 'watching', ...(who ? { who } : {}), ...(about ? { about } : {}), ...(thread ? { thread } : {}), ...(from ? { from } : {}), by, mail };
+  const parcel = b.wait === 'parcel';
+  const againDay = typeof b.again === 'string' && /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/.test(b.again) ? b.again : '';
+  const again = againDay ? chaseAt(againDay, by + 3600_000, tz) : 0;
+  const label = parcel ? `The parcel${about ? `: ${about.slice(0, 50)}` : ''}` : `Chase ${who || 'a reply'}${about ? `: ${about.slice(0, 50)}` : ''}`;
+  const w: Watcher = { id: shortId(), kind: 'reply', url: '', label, created: now, checked: now, ok: true, last: {}, state: 'watching', ...(who ? { who } : {}), ...(about ? { about } : {}), ...(thread ? { thread } : {}), ...(from ? { from } : {}), by, mail, ...(again ? { again } : {}), ...(parcel ? { wait: 'parcel' as const } : {}) };
   await saveWatchers(d.storage, [...list, w]);
-  return { watcher: w, said: chaseSetLine(who, by, tz, mail) };
+  const said = parcel ? parcelSetLine(by, tz, mail) : chaseSetLine(who, by, tz, mail);
+  return { watcher: w, said: again ? `${said} ${againLine(again, tz)}` : said };
 }
 
 /** A chase on its morning: the reply looked for once, and the one line that fits told through the one notify path. */
@@ -134,14 +150,22 @@ async function chaseTick(d: WatchDeps, w: Watcher, now: number, tz: string): Pro
     }
     came = undefined;
   }
-  w.state = 'told';
   w.toldAt = now;
   w.checked = now;
   if (came) {
+    w.state = 'told';
     w.repliedAt = came;
-    w.line = repliedLine(w.who ?? '', came, tz);
-  } else w.line = chaseDueLine(w.who ?? '', w.about ?? '', came === null);
-  await d.notify({ kind: 'reminder', title: came ? 'Nothing to chase' : `Chase ${w.who || 'that reply'}`, text: w.line }).catch(() => undefined);
+    w.line = w.wait === 'parcel' ? parcelCameLine(came, tz) : repliedLine(w.who ?? '', came, tz);
+  } else {
+    w.line = w.wait === 'parcel' ? parcelDueLine(w.about ?? '', came === null) : chaseDueLine(w.who ?? '', w.about ?? '', came === null);
+    // "and again Monday": it holds, and looks once more that morning (then it is told and done)
+    if (w.again && w.again > now) {
+      w.by = w.again;
+      delete w.again;
+      w.line = `${w.line} ${againLine(w.by, tz)}`;
+    } else w.state = 'told';
+  }
+  await d.notify({ kind: 'reminder', title: came ? (w.wait === 'parcel' ? 'Your parcel' : 'Nothing to chase') : w.wait === 'parcel' ? 'Your parcel' : `Chase ${w.who || 'that reply'}`, text: w.line }).catch(() => undefined);
   return w.line;
 }
 export const loadWatchers = async (s: DurableObjectStorage): Promise<Watcher[]> => (await s.get<Watcher[]>(WATCHERS_KEY)) ?? [];

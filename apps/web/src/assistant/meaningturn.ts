@@ -40,6 +40,20 @@ export async function meaningTurn(text: string, opts: Opts = {}): Promise<boolea
     chat.set((s) => ({ entries: s.entries.map((e, i) => (i >= n && e.kind === 'user' && e.text === m.say ? { ...e, text } : e)) }));
     return true;
   }
+  // [voice.c1] his own names for his stations
+  if (m.act === 'radio-name' && m.label) {
+    const now = player.get().now;
+    if (!now || (player.get().state !== 'playing' && player.get().state !== 'loading')) return answer(text, `Nothing’s playing to call your ${m.label} station. Put a station on, then say it again.`, { kind: 'can', go: [{ id: 'screen:radio', ask: -1, label: 'Open the radio', open: 'radio' }] }, opts);
+    favourites.name(now, m.label);
+    return answer(text, `Saved: ${now.name} is your ${m.label} station. Say “put on my ${m.label} station” any time.`, { kind: 'can' }, opts);
+  }
+  if (m.act === 'radio-named' && m.label) {
+    const s = favourites.byName(m.label);
+    // (no station by that name: left to the radio's own words and the brain, as before)
+    if (!s) return false;
+    const ok = await playStation(s);
+    return answer(text, ok ? `Playing ${s.name}, your ${m.label} station.` : `${s.name} needs a tap first: open Radio and tap PLAY.`, { kind: 'can', go: [{ id: 'screen:radio', ask: -1, label: 'Open the radio', open: 'radio' }] }, opts);
+  }
   if (m.act === 'radio-stop') {
     const on = player.get().state === 'playing' || player.get().state === 'loading';
     if (on) stopAudio();

@@ -158,6 +158,12 @@ export const STATES = {
   'eye.cam': { dir: 'eye', base: 2, now: 2 },
   'eye.roadahead': { dir: 'eye', base: 1, now: 1 },
   'machine.view': { dir: 'eye', base: 0, now: 2 },
+  // the camera wall (NEXT ROUND, see.u2): its empty wall and a camera that will not come
+  'eye.wall': { dir: 'eye', base: 0, now: 2 },
+  // the full-screen rain radar (see.s3): fetching, unreachable, no signal
+  'eye.rain': { dir: 'eye', base: 0, now: 3 },
+  // THE WORLD in the morning Brief (see.c2; features/eye/briefworld.ts): looking, offline, no commute saved
+  'world.brief': { dir: 'eye', base: 0, now: 3 },
   'lens.camera': { dir: 'lens', base: 3, now: 3 },
   'lens.see': { dir: 'lens', base: 0, now: 1 },
   'lens.read': { dir: 'lens', base: 0, now: 1 },
@@ -166,7 +172,10 @@ export const STATES = {
   'lens.name': { dir: 'lens', base: 0, now: 2 },
   'lens.people': { dir: 'lens', base: 0, now: 2 },
   'lens.measure': { dir: 'lens', base: 1, now: 1 },
-  'lens.photo': { dir: 'lens', base: 1, now: 1 },
+  // PHOTO TOOLS: a job the free online tools did not do (BACKGROUND offers the cut-out on this phone; SHARPER and ERASE say they wait)
+  'lens.photo': { dir: 'lens', base: 1, now: 2 },
+  // [lens.u6] SCAN's DOCUMENT AUTO, new (base 0): no page in view, holding still, a page it could not keep, no signal (and none needed)
+  'lens.scan': { dir: 'lens', base: 0, now: 4 },
   'threats.signals': { dir: 'threats', base: 2, now: 4 },
   'threats.nearhome': { dir: 'threats', base: 2, now: 4 },
   'settings.packs': { dir: 'settings', base: 3, now: 3 },
@@ -188,6 +197,8 @@ export const STATES = {
   'space.photo': { dir: 'space', base: 3, now: 3 },
   // FINAL ROUND (MAKE lane): MATERIALS says what it needs when there is no room to work from
   'space.materials': { dir: 'space', base: 0, now: 1 },
+  // NEXT ROUND (MAKE lane): MATERIALS' makeover set against his own statements, all four states (new, so base 0)
+  'space.budget': { dir: 'space', base: 0, now: 4 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
   'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },
@@ -198,6 +209,8 @@ export const STATES = {
   'markets.prices': { dir: 'markets', base: 3, now: 4 },
   'radio.stations': { dir: 'radio', base: 3, now: 4 },
   'memory.timeline': { dir: 'memory', base: 2, now: 4 },
+  // NEXT ROUND (MEMORY lane): YOUR WORD, new, draws its loading, empty, error and offline states
+  'memory.keep': { dir: 'memory', base: 0, now: 4 },
   'settings.faces': { dir: 'settings', base: 1, now: 2 },
   'settings.principles': { dir: 'settings', base: 1, now: 3 },
   'system.loops': { dir: 'system', base: 1, now: 2 },
@@ -251,7 +264,7 @@ export const STATES = {
   'core.hud': { dir: 'core', base: 1, now: 2 },
   // THE COMIC (FINAL ROUND, lane COMIC): its own screen, new; base 0 since nothing was drawn before it.
   'comic.shelf': { dir: 'comic', base: 0, now: 3 },
-  'comic.maker': { dir: 'comic', base: 0, now: 3 },
+  'comic.maker': { dir: 'comic', base: 0, now: 4 },
   'comic.reader': { dir: 'comic', base: 0, now: 2 },
   'comic.library': { dir: 'comic', base: 0, now: 4 },
   // SECURITY (NEXT ROUND, lane SECURITY): its own screen, new; base 0 since nothing was drawn before it.

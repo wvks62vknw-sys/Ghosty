@@ -358,6 +358,12 @@ export const APP_3: Record<string, CatValue> = {
   'panel:workshop:VERSIONS': { same: 'tool:restore_version' },
   'panel:workshop:WIDGETS': { same: 'tool:list_widgets' },
   'panel:workshop:PUBLISHED PAGES': { same: 'tool:list_sites' },
+  // [sites] NEXT ROUND sites.u12
+  'panel:workshop:PHOTOS FOR YOUR SITES': {
+    name: 'Your own photos on your sites', line: 'You can keep your own photos for the sites I build you, so they show your place and your work instead of stock pictures.',
+    more: 'Each photo is made smaller on your phone and its location removed before it leaves. The first is the main picture; a caption is what a screen reader says. Nothing is public until a page you approved shows it.',
+    say: ['Build a website for my café with my photos', 'Use my own photos on the site', 'Make my barber shop site with our pictures'], scene: ['making'], cat: 'build', where: 'Workshop → PHOTOS FOR YOUR SITES',
+  },
   'panel:workshop:KERNEL LOCK': {
     name: 'The lock on my core', line: 'You can keep my core locked, so I can never change my keys, my safety rules or my checks.',
     more: 'Even when you ask me to change myself, the core stays out of reach unless you unlock it here.',

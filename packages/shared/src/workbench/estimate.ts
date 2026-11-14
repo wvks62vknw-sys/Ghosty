@@ -35,6 +35,8 @@ export interface Estimate {
   values: Record<string, number>;
   /** Set when the case is outside the formula's range: it says so, and there are no numbers. */
   problem?: string;
+  /** A beam's shape along its span, SI (x m along, y m of deflection, m N·m of moment): the chart behind the answer (curves.ts). */
+  profile?: { x: number; y: number; m: number }[];
 }
 
 /** The standing label on every card. */
