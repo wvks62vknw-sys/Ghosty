@@ -8999,6 +8999,7 @@ html #app .px button.pxkey { white-space: normal; overflow-wrap: anywhere; min-w
 .pxstudio .pxslide { display: flex; align-items: center; gap: var(--g-s-half); flex: 1 1 0; min-width: 0; }
 .pxstudio .pxslide > .pxlab { flex: none; white-space: nowrap; }
 .pxstudio .pxslide input[type="range"] { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); accent-color: var(--g-accent); }
+.pxstudio textarea { width: 100%; min-height: calc(var(--g-target) * 1.6); box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); resize: vertical; }
 .pxstudio .pxslide select, .pxstudio input[type="text"] { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); }
 .pxstudio .pxval { flex: none; min-width: 3.2em; font: var(--g-t-caption); color: var(--g-ink-3); text-align: right; }
 .pxstudio .pxbar { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }

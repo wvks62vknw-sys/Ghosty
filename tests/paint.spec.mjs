@@ -194,6 +194,24 @@ async function run(viewport) {
   check((await S(page)).undo === steps0 + 1 && at0 !== at1 && beforeTwirl > 0, `[${W}] TWIRL moves the paint under the brush, as one step`);
   await tool(page, 'Brush');
 
+  // a rectangle selection, then words on the painting
+  await tool(page, 'Select');
+  await page.click('.pxstudio button[aria-label="Select a rectangle"]');
+  await stroke(page, [[150, 1300, 0.5], [600, 1550, 0.5]], { type: 'pen' });
+  s = await S(page);
+  check(s.selection, `[${W}] RECTANGLE drags a box round a part`);
+  await tool(page, 'Select');
+  await page.click('.pxstudio button[aria-label="Clear the selection"]');
+  await tool(page, 'More');
+  await page.click('.pxstudio button[aria-label="Add words to the painting"]');
+  await page.fill('.pxstudio textarea[aria-label="The words to put on the painting"]', 'HELLO');
+  await page.click('.pxstudio button[aria-label="Place the words: then tap the painting where they go"]');
+  const inkedBefore = (await page.evaluate(() => window.__ghosty.paintInked()))[1];
+  const stepsBefore = (await S(page)).undo;
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.evaluate(() => { const st = document.querySelector('.pxstudio .pxstage'); const r = st.getBoundingClientRect(); const d = window.__ghosty.paintDoc(); const e = (k) => st.dispatchEvent(new PointerEvent(k, { pointerId: 9, pointerType: 'pen', bubbles: true, clientX: r.left + d.tx + 600 * d.s, clientY: r.top + d.ty + 400 * d.s, pressure: 0.5, buttons: k === 'pointerup' ? 0 : 1 })); e('pointerdown'); e('pointerup'); });
+  check((await S(page)).undo === stepsBefore + 1 && (await page.evaluate(() => window.__ghosty.paintInked()))[1] > inkedBefore, `[${W}] TEXT puts his words on the painting, as one step`);
+
   // (f) layers
   await tool(page, 'Layers');
   await page.click('.pxstudio button[aria-label="Add a new layer"]');

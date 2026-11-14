@@ -18,6 +18,9 @@ export const BLENDS: { id: GlobalCompositeOperation; name: string }[] = [
 ];
 export const blendName = (id: string): string => BLENDS.find((b) => b.id === id)?.name ?? 'Normal';
 export const MAX_LAYERS = 12;
+/** TEXT's type faces, from the phone's own fonts. */
+export const FONTS: Record<string, string> = { lettering: 'ui-rounded, "SF Pro Rounded", system-ui, sans-serif', serif: 'Georgia, "Times New Roman", serif', hand: '"Bradley Hand", "Segoe Print", "Comic Sans MS", cursive', typewriter: 'ui-monospace, Menlo, Consolas, monospace' };
+export const FONT_NAMES: Record<string, string> = { lettering: 'Lettering', serif: 'Book', hand: 'Handwriting', typewriter: 'Typewriter' };
 
 export interface Layer {
   id: string;
@@ -48,6 +51,7 @@ export type Op =
   | { k: 'xform'; L: string; m: number[]; sel: Sel }
   | { k: 'pixels'; L: string; png: Blob; x: number; y: number; w: number; h: number }
   | { k: 'paper'; v: string }
+  | { k: 'text'; L: string; x: number; y: number; text: string; font: string; size: number; col: string; sel: Sel }
   | { k: 'undo' }
   | { k: 'redo' };
 
@@ -232,6 +236,7 @@ export class Painting {
       case 'stroke': return this.strokeOp(op);
       case 'xform': return this.transform(op.L, op.m, op.sel);
       case 'paper': return this.setPaper(op.v);
+      case 'text': return this.addText(op.L, op.x, op.y, op.text, op.font, op.size, op.col, op.sel);
       case 'undo': return void this.undo();
       case 'redo': return void this.redo();
       case 'pixels': return; // pictures are drawn by placeAsync
@@ -343,6 +348,29 @@ export class Painting {
     this.paper = v;
     this.record({ k: 'paper', v });
     this.push({ what: 'paper', undo: () => { this.paper = old; }, redo: () => { this.paper = v; } });
+  }
+
+  /** Words on a layer, centred on (x, y), a line at a time, in one of the type faces TEXT offers. */
+  addText(id: string, x: number, y: number, text: string, font: string, size: number, col: string, sel: Sel): void {
+    const L = this.byId(id);
+    if (!L || !text.trim()) return;
+    const g = ctx2(L.c);
+    const lines = text.split('\n').slice(0, 12);
+    g.save();
+    g.font = `700 ${size}px ${FONTS[font] ?? FONTS.lettering}`;
+    const wMax = Math.max(...lines.map((l) => g.measureText(l).width));
+    const lh = size * 1.2, hAll = lh * lines.length;
+    const box = { x: Math.max(0, Math.floor(x - wMax / 2 - size)), y: Math.max(0, Math.floor(y - hAll / 2 - size)), w: 0, h: 0 };
+    box.w = Math.max(1, Math.min(this.w - box.x, Math.ceil(wMax + size * 2))); box.h = Math.max(1, Math.min(this.h - box.y, Math.ceil(hAll + size * 2)));
+    const beforeData = g.getImageData(box.x, box.y, box.w, box.h);
+    const path = selPath(sel, this.w, this.h);
+    if (path) g.clip(path, 'evenodd');
+    if (L.alphaLock) g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'middle';
+    lines.forEach((l, i) => g.fillText(l, x, y - hAll / 2 + lh * (i + 0.5)));
+    g.restore();
+    this.record({ k: 'text', L: id, x, y, text, font, size, col, sel });
+    this.pixelStep('text', this.targetOf(id, false), box, beforeData);
   }
 
   /** A picture (his photo, line art, an import) drawn onto a layer, recorded with its pixels so the time-lapse shows it. */

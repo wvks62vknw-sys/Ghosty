@@ -27,7 +27,8 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - new, duplicate, up, down, merge down, clear, delete and rename;
   - **ADD A PICTURE** puts one of your pictures on its own layer to trace over.
 - **Shapes and selection**:
-  - **SELECT** draws round a part. Brushes and fills then stay inside it, and it can be inverted or cleared inside.
+  - **SELECT** draws round a part, freehand or as a rectangle. Brushes and fills then stay inside it, and it can be inverted or cleared inside.
+  - **TEXT** (in MORE) puts your words on the painting in one of four faces: lettering, book, handwriting or typewriter.
   - **MOVE** moves, scales, turns and flips a layer or the selection.
   - **Symmetry**: two, four or six ways.
   - **QuickShape**: hold still at the end of a stroke and it snaps to a clean line, circle, oval, box or triangle.
@@ -78,7 +79,7 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - the sample and the tour;
   - a stroke, UNDO, REDO and the two-finger undo;
   - pencil pressure making a wider line, and the palm rejected after the pencil;
-  - QuickShape, symmetry, brush settings, selection, twirl, layers, blend mode and alpha lock;
+  - QuickShape, symmetry, brush settings, freehand and rectangle selection, text, twirl, layers, blend mode and alpha lock;
   - Ghosty's palette, the time-lapse, and a PSD saved and opened again with its layers;
   - a colouring page's fill, the bin, and the gallery's search;
   - the Comic's DRAW ON IT, its two new balloons, angled gutters and comic art from a photo;
@@ -95,9 +96,8 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
 - I updated other specs to the new truth: MAKE holds sixteen and the EDITORS pills end with PAINT (deck, hubcards, awareness, deckshots). The plan count is now 58 screens.
 
 ## What's left
-- Selection by colour (a magic wand) and a rectangle selection.
+- Selection by colour (a magic wand).
 - Smudge, as its own tool beside liquify.
-- Text on a painting.
 - A Home card and a Brief line for PAINT.
 - Paintings in the phone backup. They are pictures, so they are bigger than the scripts the backup carries now.
 - **Comic**:
