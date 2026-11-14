@@ -10,6 +10,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { book, fillWeek, foodNotes, kcalOf, pantryScreen, recipeFor, recipesScreen, toShopping, weekShopping } from './larder';
+import { aisleOf, byAisle } from './aisles';
 import { addMinute, onTimers, startTimers, startedWords, stopTimer, stopTimers, timersNow } from './timers';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
@@ -214,12 +215,16 @@ function shoppingSheet(): { el: HTMLElement; stop(): void } {
     clear.hidden = !list.some((x) => x.done);
     /* state: kitchen.shopping empty */
     slot.replaceChildren(...(loaded && !list.length ? [emptyState('Nothing on the list', 'Type milk, eggs, bread below.')] : []));
+    const row = (x: ShopItem) => {
+      const box = h('input', { type: 'checkbox', checked: x.done, 'aria-label': `${x.text}${x.done ? ', got' : ''}` }) as HTMLInputElement;
+      box.addEventListener('change', () => void act({ id: x.id, op: box.checked ? 'tick' : 'untick' }));
+      return h(`li.pkitem${x.done ? '.done' : ''}` as 'li', { dataset: { aisle: aisleOf(x.text).id } }, h('label', box, x.text));
+    };
+    // what is still to get, in the order of the shop's aisles (display only); what he has got, at the bottom
+    const todo = list.filter((x) => !x.done);
     items.replaceChildren(
-      ...[...list.filter((x) => !x.done), ...list.filter((x) => x.done)].map((x) => {
-        const box = h('input', { type: 'checkbox', checked: x.done, 'aria-label': `${x.text}${x.done ? ', got' : ''}` }) as HTMLInputElement;
-        box.addEventListener('change', () => void act({ id: x.id, op: box.checked ? 'tick' : 'untick' }));
-        return h(`li.pkitem${x.done ? '.done' : ''}` as 'li', h('label', box, x.text));
-      }),
+      ...byAisle(todo).flatMap((g) => [h('li.ks-aisle', { role: 'presentation', dataset: { aisle: g.aisle.id } }, g.aisle.label), ...g.items.map(row)]),
+      ...(list.some((x) => x.done) ? [h('li.ks-aisle', { role: 'presentation' }, 'Got'), ...list.filter((x) => x.done).map(row)] : []),
     );
   };
   const act = async (args: Record<string, unknown>) => {

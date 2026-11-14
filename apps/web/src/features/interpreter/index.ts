@@ -38,7 +38,14 @@ export const interpState = {
   spoken: [] as { text: string; lang: string }[],
   /** Fixed 'nothing is kept': the lines are not written anywhere. */
   kept: false,
+  /** [apps.voice] AUTO: the conversation with no key to hold, and the side it is listening for ('' between turns). */
+  auto: false,
+  autoSide: '' as '' | Side,
 };
+
+/** AUTO: a pause this long after words ends a turn; a turn with no words this long is a quiet one; two quiet turns end AUTO. */
+export const AUTO_PAUSE_MS = 1300;
+export const AUTO_QUIET_MS = 9000;
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 const COPY = '<rect x="8.5" y="8.5" width="11" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 00-2-2h-7a2 2 0 00-2 2v9a2 2 0 002 2h2"/>';
@@ -95,6 +102,8 @@ export const interpreterTab: TabDef = {
       let ear: Ear | null = null;
       let down = false;
       const begin = () => {
+        // (holding a key takes over from AUTO)
+        if (interpState.auto) stopAuto('');
         if (busy) return half(side).say('One moment: still translating the last one.');
         if (down) return;
         down = true;
@@ -187,9 +196,15 @@ export const interpreterTab: TabDef = {
     bookKey.dataset.act = 'phrases';
     bookKey.setAttribute('aria-expanded', 'false');
     const book = h('div.fxbook', bookKey, h('p.fxbooknote', 'Tap one and I translate it from English and say it aloud to them.'), bookGrid);
+    // [apps.voice] AUTO: no key to hold. I listen for whoever's turn it is, translate when they pause, say it, then listen for the other.
+    const autoKey = button('AUTO · NO KEY TO HOLD', () => (interpState.auto ? stopAuto('Stopped. Tap AUTO to go on, or hold a key.') : startAuto()));
+    autoKey.classList.add('fxauto');
+    autoKey.dataset.case = 'keep';
+    autoKey.dataset.act = 'auto';
+    autoKey.setAttribute('aria-pressed', 'false');
     const note = h('p.fxnote', 'Nothing is recorded, and nothing of the other person is kept: what is written here goes when you leave this screen. I use this phone’s own listening and voice; their words (text only, never their voice) are translated through my brain when there is a signal, and nothing is kept; with no signal I translate on the phone, roughly.');
     const pairRow = h('div.fxpair', h('label', h('span', 'YOU SPEAK'), selA), swap, h('label', h('span', 'THEY SPEAK'), selB));
-    P.left.append(pairRow, h('div.fxhalves', halves.far.el, halves.near.el), book, note);
+    P.left.append(pairRow, autoKey, h('div.fxhalves', halves.far.el, halves.near.el), book, note);
     P.right.hidden = true;
     P.big.textContent = '';
     (P.big.parentElement?.querySelector('.swap') as HTMLElement | null)?.setAttribute('hidden', '');
@@ -312,6 +327,87 @@ export const interpreterTab: TabDef = {
       }
     }
 
+    // ---- AUTO: the conversation with no key to hold
+    let autoEar: Ear | null = null;
+    let autoTimer = 0;
+    let quiet = 0;
+    let autoRun = 0;
+    /** Wait until the phone has finished saying the translation, so I never hear my own voice as theirs. */
+    const spoken = () =>
+      new Promise<void>((r) => {
+        const t0 = Date.now();
+        const tick = () => (!window.speechSynthesis?.speaking || Date.now() - t0 > 15000 ? r() : setTimeout(tick, 120));
+        setTimeout(tick, 150);
+      });
+    function paintAuto(): void {
+      autoKey.setAttribute('aria-pressed', String(interpState.auto));
+      autoKey.textContent = interpState.auto ? 'STOP AUTO' : 'AUTO · NO KEY TO HOLD';
+      for (const s of ['near', 'far'] as const) halves[s].el.classList.toggle('hearing', interpState.autoSide === s);
+      interpState.listening = interpState.autoSide;
+    }
+    function stopAuto(why: string): void {
+      autoRun++;
+      clearTimeout(autoTimer);
+      autoEar?.abort();
+      autoEar = null;
+      interpState.auto = false;
+      interpState.autoSide = '';
+      paintAuto();
+      if (why) for (const s of ['near', 'far'] as const) half(s).say(why);
+    }
+    function startAuto(): void {
+      if (!canHear()) return toast('This browser has no speech recognition, so AUTO can’t listen. Hold a key, or type.', 'warn');
+      stopSpeaking();
+      interpState.auto = true;
+      quiet = 0;
+      listenFor('near');
+    }
+    /** One turn: listen on `side` until they pause after speaking, then translate and say it, then the other side's turn. */
+    function listenFor(side: Side): void {
+      if (!interpState.auto) return;
+      const run = ++autoRun;
+      const lang = side === 'near' ? pairNow().a : pairNow().b;
+      interpState.autoSide = side;
+      paintAuto();
+      half(side).say(`Listening in ${langName(lang)}… just talk, and pause when you are done.`);
+      half(side === 'near' ? 'far' : 'near').say('');
+      let heardSome = false;
+      const finish = async () => {
+        if (run !== autoRun) return;
+        clearTimeout(autoTimer);
+        const e = autoEar;
+        autoEar = null;
+        let said = '';
+        try {
+          said = e ? await e.stop() : '';
+        } catch (err) {
+          return stopAuto(sayError(err, 'hear that'));
+        }
+        if (run !== autoRun || !interpState.auto) return;
+        if (!said) {
+          quiet++;
+          if (quiet >= 2) return stopAuto('Stopped listening: nobody spoke. Tap AUTO to go on.');
+          return listenFor(side);
+        }
+        quiet = 0;
+        interpState.autoSide = '';
+        paintAuto();
+        await exchange(side, said);
+        await spoken();
+        if (run === autoRun && interpState.auto) listenFor(side === 'near' ? 'far' : 'near');
+      };
+      autoEar = hear(lang, (t) => {
+        if (run !== autoRun) return;
+        if (t) {
+          heardSome = true;
+          half(side).say(`Hearing: ${t}`);
+        }
+        clearTimeout(autoTimer);
+        autoTimer = window.setTimeout(() => void finish(), heardSome ? AUTO_PAUSE_MS : AUTO_QUIET_MS);
+      });
+      autoTimer = window.setTimeout(() => void finish(), AUTO_QUIET_MS);
+    }
+
     paintPair();
     paintLines();
     return {
@@ -320,7 +416,8 @@ export const interpreterTab: TabDef = {
         paintPair();
       },
       leave() {
-        // nothing of the other person is kept: the lines, what was heard and what was said aloud all go
+        // nothing of the other person is kept: the lines, what was heard and what was said aloud all go; AUTO stops listening
+        if (interpState.auto) stopAuto('');
         visit++;
         stopSpeaking();
         interpState.lines.length = 0;

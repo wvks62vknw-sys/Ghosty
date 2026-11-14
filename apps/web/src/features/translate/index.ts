@@ -17,6 +17,8 @@ import { navTo } from '../../shell/areas';
 import type { TabDef } from '../../shell/tabs';
 import { button, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
+import { listRow, skeleton as kitSkeleton, stateCard } from '../../ui/appkit';
+import { key } from '../../ui/machine';
 import { headers } from '../../api/brain';
 import { canHear, hear, translate, type Ear } from '../../further/interpret';
 import { LANGUAGES, langName } from '../../../../../packages/shared/src/scan';
@@ -28,6 +30,7 @@ import {
   SCRIPT_NAME,
   TRIP_KEY,
   TRIP_PHRASES,
+  bookCsv,
   byTrip,
   isStarred,
   readList,
@@ -44,6 +47,19 @@ import {
 type View = 'translate' | 'book' | 'history';
 type Style = '' | 'formal' | 'casual';
 const PAIR = 'ghosty.translate.pair';
+const SEEN = 'ghosty.translate.seen';
+const PREFS = 'ghosty.translate.settings';
+/** His settings: each answer said aloud (off), and translating as he types (on; off, it waits for TRANSLATE or Return). */
+interface Prefs {
+  aloud: boolean;
+  live: boolean;
+}
+/** The first run's three steps (the App Kit's tour). */
+const TOUR: [string, string, string] = [
+  'Type or paste, and the answer comes as you type, in the language you pick.',
+  'Tap the star to keep a line in your phrasebook, sorted by trip.',
+  'Everything you translate is kept in History, on this phone only.',
+];
 
 const load = <T>(key: string, fallback: T): T => {
   try {
@@ -74,6 +90,7 @@ export const trState = {
   book: [] as Starred[],
   trip: '',
   spoken: [] as { text: string; lang: string }[],
+  prefs: { aloud: false, live: true } as Prefs,
 };
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -117,6 +134,8 @@ export const translateTab: TabDef = {
     trState.history = readList<Done>(localStorage.getItem(HISTORY_KEY));
     trState.book = readList<Starred>(localStorage.getItem(BOOK_KEY));
     trState.trip = load<string>(TRIP_KEY, '');
+    const p0 = load<Partial<Prefs>>(PREFS, {});
+    trState.prefs = { aloud: p0.aloud === true, live: p0.live !== false };
 
     // ---- the three views, one tap apart
     const views: Record<View, HTMLElement> = { translate: h('div.tlxview'), book: h('div.tlxview'), history: h('div.tlxview') };
@@ -148,12 +167,13 @@ export const translateTab: TabDef = {
     selFrom.addEventListener('change', () => {
       trState.from = selFrom.value;
       savePair();
-      soon(0);
+      // (with "Translate as I type" off, nothing is translated until he asks)
+      if (trState.prefs.live) soon(0);
     });
     selTo.addEventListener('change', () => {
       trState.to = selTo.value;
       savePair();
-      soon(0);
+      if (trState.prefs.live) soon(0);
     });
     const swap = button('SWAP', () => {
       const found = trState.out?.from || trState.from;
@@ -215,7 +235,8 @@ export const translateTab: TabDef = {
     const alts = h('div.tlxalts', { role: 'list' });
     const altsBox = h('div.tlxaltbox', { hidden: true }, altsHead, alts);
     const card = h('div.tlxcard', { hidden: true }, found, outText, lettersOut, outKeys, styleSeg, altsBox);
-    const skeleton = h('div.tlxskel', { hidden: true, 'aria-hidden': 'true' }, h('i'), h('i'));
+    const skeleton = h('div.tlxwait', { hidden: true }, kitSkeleton(2, 'Translating'));
+    const failed = h('div.tlxfail', { hidden: true });
     const modes = h(
       'div.tlxmodes',
       Object.assign(button('CONVERSATION', () => navTo(`interpreter?to=${trState.to}`, 'push')), { title: 'Two halves of the screen, both of you talking' }),
@@ -223,7 +244,56 @@ export const translateTab: TabDef = {
     );
     for (const b of modes.querySelectorAll('button')) (b as HTMLElement).dataset.case = 'keep';
     const note = h('p.fxnote', 'Your words go to my brain to translate when there is a signal, and nothing of them is kept there. With no signal, the brain on this phone translates, roughly. Your history and phrasebook stay on this phone.');
-    views.translate.append(pairRow, boxRow, status, skeleton, card, modes, note);
+    // the first run: three steps, once (the App Kit's tour, in its own place at the top)
+    const tour = h('div.ak-tour', { role: 'note', hidden: true });
+    let tourAt = load<boolean>(SEEN, false) ? 0 : 1;
+    const drawTour = () => {
+      tour.hidden = !tourAt;
+      if (!tourAt) return;
+      const next = key(tourAt < 3 ? 'Next' : 'Got it', () => {
+        tourAt = tourAt < 3 ? tourAt + 1 : 0;
+        if (!tourAt) keep(SEEN, true);
+        drawTour();
+      }, { kind: 'fill' });
+      tour.replaceChildren(h('span.ak-tourn', `${tourAt} of 3`), h('p', TOUR[tourAt - 1]!), next);
+    };
+    drawTour();
+    // SETTINGS and HELP, folded under the note: good defaults, two switches, and how it works in four lines
+    const sw = (id: keyof Prefs, label: string) => {
+      const b = h('button.tlxswitch', { type: 'button', role: 'switch', 'aria-checked': String(trState.prefs[id]), dataset: { case: 'keep', pref: id } }, h('span', label), h('b', trState.prefs[id] ? 'On' : 'Off'));
+      b.addEventListener('click', () => {
+        trState.prefs = { ...trState.prefs, [id]: !trState.prefs[id] };
+        keep(PREFS, trState.prefs);
+        b.setAttribute('aria-checked', String(trState.prefs[id]));
+        b.querySelector('b')!.textContent = trState.prefs[id] ? 'On' : 'Off';
+        paintGo();
+      });
+      return b;
+    };
+    const go = button('TRANSLATE IT', () => soon(0));
+    go.dataset.case = 'keep';
+    go.dataset.act = 'go';
+    const paintGo = () => (go.hidden = trState.prefs.live);
+    const more = h(
+      'details.tlxmore',
+      h('summary', 'Settings and help'),
+      h('div.tlxprefs', sw('aloud', 'Say each answer aloud'), sw('live', 'Translate as I type')),
+      h(
+        'ul.tlxhelp',
+        h('li', 'Leave FROM on “Find it for me” and I work out the language; pick it when a short word could be several.'),
+        h('li', 'Formal uses the polite “you” where the language has one; casual the friendly one.'),
+        h('li', 'The star keeps a line in your phrasebook under the trip you name; EXPORT shares it as a file.'),
+        h('li', 'With no signal I translate on this phone, roughly, and say so. Settings, Offline brain is where that is set up.'),
+      ),
+    );
+    paintGo();
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !trState.prefs.live) {
+        e.preventDefault();
+        soon(0);
+      }
+    });
+    views.translate.append(tour, pairRow, boxRow, go, status, skeleton, failed, card, modes, note, more);
 
     let visit = 0;
     let asked = 0;
@@ -234,6 +304,7 @@ export const translateTab: TabDef = {
       trState.out = null;
       card.hidden = true;
       skeleton.hidden = true;
+      failed.hidden = true;
       say('Type or paste above, or tap the microphone and speak. The answer comes as you type.');
     };
     /** Translate after he pauses (`ms`); a newer word cancels an older answer still on its way. */
@@ -248,7 +319,8 @@ export const translateTab: TabDef = {
       const me = ++asked;
       const v = visit;
       trState.state = 'loading';
-      skeleton.hidden = !card.hidden ? true : false;
+      failed.hidden = true;
+      skeleton.hidden = !card.hidden;
       say(`Translating into ${langName(trState.to)}…`);
       try {
         const r = await translateRich(text, trState.to, trState.from, trState.style);
@@ -258,17 +330,22 @@ export const translateTab: TabDef = {
         trState.history = withDone(trState.history, { id: `t${Date.now().toString(36)}`, said: text, came: r.came, from: r.from, to: trState.to, at: Date.now(), style: trState.style });
         keep(HISTORY_KEY, trState.history);
         paintOut();
+        if (trState.prefs.aloud && r.how !== 'same') sayAloud(r.came, trState.to);
       } catch (e) {
         if (me !== asked || v !== visit) return;
         trState.state = 'failed';
         skeleton.hidden = true;
-        say(sayError(e, 'translate that'));
+        card.hidden = true;
+        say('');
+        failed.replaceChildren(stateCard('error', sayError(e, 'translate that'), { word: 'Try again', run: () => soon(0) }));
+        failed.hidden = false;
       }
     };
     const paintOut = () => {
       const o = trState.out;
       if (!o) return paintEmpty();
       skeleton.hidden = true;
+      failed.hidden = true;
       card.hidden = false;
       outText.textContent = o.came;
       outText.lang = trState.to;
@@ -285,13 +362,14 @@ export const translateTab: TabDef = {
       clear(alts);
       altsBox.hidden = o.alts.length === 0;
       for (const a of o.alts) {
-        const b = button(a, () => {
+        // (a plain key, not button(): a translation keeps its own capitals, never the interface's label case)
+        const b = h('button.tlxalt', { type: 'button' }, a);
+        b.addEventListener('click', () => {
           if (!trState.out) return;
           const was = trState.out.came;
           trState.out = { ...trState.out, came: a, alts: [was, ...trState.out.alts.filter((x) => x !== a)] };
           paintOut();
         });
-        b.classList.add('tlxalt');
         b.dataset.case = 'keep';
         b.setAttribute('role', 'listitem');
         b.lang = trState.to;
@@ -322,7 +400,11 @@ export const translateTab: TabDef = {
       paintOut();
       toast(was ? 'Taken out of the phrasebook.' : `Starred into the phrasebook, under ${trState.trip || NO_TRIP}.`, 'ok');
     });
-    box.addEventListener('input', () => soon());
+    box.addEventListener('input', () => {
+      if (trState.prefs.live) return soon();
+      if (!box.value.trim()) paintEmpty();
+      else say('Tap TRANSLATE IT, or Return, when you are ready.');
+    });
 
     // SPEAK: his voice fills the box, in the FROM language (English when it is to be found)
     let ear: Ear | null = null;
@@ -360,7 +442,26 @@ export const translateTab: TabDef = {
     const ready = h('div.tlxready');
     const starredBox = h('div.tlxbook');
     country.addEventListener('change', () => drawReady());
-    views.book.append(h('div.tlxtriprow', h('label', h('span', 'NEW STARS GO UNDER'), tripField)), starredBox, h('div.tlxtriprow', h('label', h('span', 'GOING SOMEWHERE?'), country)), ready);
+    // EXPORT: the phrasebook as a CSV file, through the phone's Share sheet where it has one, else saved on the phone
+    const exportKey = button('EXPORT', async () => {
+      const file = new File([bookCsv(trState.book, langName)], 'phrasebook.csv', { type: 'text/csv' });
+      const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean };
+      if (nav.canShare?.({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], title: 'Phrasebook' });
+          return;
+        } catch {
+          // (he closed the sheet: saved instead, so the tap still did something)
+        }
+      }
+      const a = h('a', { href: URL.createObjectURL(file), download: 'phrasebook.csv' }) as HTMLAnchorElement;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast('Saved phrasebook.csv on this phone.', 'ok');
+    });
+    exportKey.dataset.case = 'keep';
+    exportKey.dataset.act = 'export';
+    views.book.append(h('div.tlxtriprow', h('label', h('span', 'NEW STARS GO UNDER'), tripField)), starredBox, exportKey, h('div.tlxtriprow', h('label', h('span', 'GOING SOMEWHERE?'), country)), ready);
 
     const row = (d: Done, extra: HTMLElement[] = []) => {
       const say2 = h('button.fxkb', { type: 'button', 'aria-label': `Listen to it in ${langName(d.to)}`, dataset: { case: 'keep' } }, icon(SOUND));
@@ -370,8 +471,9 @@ export const translateTab: TabDef = {
     const drawBook = () => {
       clear(starredBox);
       const groups = byTrip(trState.book, trState.trip || NO_TRIP);
+      exportKey.hidden = !groups.length;
       if (!groups.length) {
-        starredBox.append(h('p.tlxempty', 'Nothing starred yet. Tap the star under a translation and it is kept here, under this trip, on this phone.'));
+        starredBox.append(stateCard('empty', 'Nothing starred yet. Tap the star under a translation and it is kept here, under this trip, on this phone.', { word: 'Translate something', run: () => show('translate') }));
         return;
       }
       for (const g of groups) {
@@ -411,7 +513,8 @@ export const translateTab: TabDef = {
             'div.tlxlist',
             { role: 'list' },
             ...g.lines.map((line) => {
-              const b = button(line, async () => {
+              const b = h('button.tlxline', { type: 'button' }, line);
+              b.addEventListener('click', async () => {
                 b.disabled = true;
                 const was = b.textContent;
                 b.textContent = `${line} · translating…`;
@@ -433,7 +536,6 @@ export const translateTab: TabDef = {
                   toast(sayError(e, 'translate that'), 'warn');
                 }
               });
-              b.classList.add('tlxline');
               b.dataset.case = 'keep';
               return b;
             }),
@@ -460,25 +562,49 @@ export const translateTab: TabDef = {
     clearAll.dataset.case = 'keep';
     search.addEventListener('input', () => drawHistory());
     views.history.append(search, histList, clearAll);
+    const when = (at: number) => {
+      const d = new Date(at);
+      return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    };
     const drawHistory = () => {
       clear(histList);
       const list = searchDone(trState.history, search.value);
       clearAll.hidden = !trState.history.length;
       if (!list.length) {
-        histList.append(h('p.tlxempty', trState.history.length ? 'Nothing matches that.' : 'No translations yet. Everything you translate is kept here, on this phone only.'));
+        histList.append(
+          trState.history.length
+            ? stateCard('empty', `No translations match “${search.value.trim()}”.`, { word: 'Clear search', run: () => ((search.value = ''), drawHistory()) })
+            : stateCard('empty', 'No translations yet. Everything you translate is kept here, on this phone only.', { word: 'Translate something', run: () => show('translate') }),
+        );
         return;
       }
       for (const d of list.slice(0, 60)) {
-        const again = button('OPEN', () => {
-          box.value = d.said;
-          trState.to = d.to;
-          selTo.value = d.to;
-          savePair();
-          show('translate');
-          soon(0);
-        });
-        again.dataset.case = 'keep';
-        histList.append(row(d, [again]));
+        histList.append(
+          listRow(
+            { id: d.id, title: d.came, sub: `${d.said} · ${langName(d.to)}`, meta: when(d.at) },
+            {
+              onTap: () => {
+                box.value = d.said;
+                trState.to = d.to;
+                selTo.value = d.to;
+                savePair();
+                show('translate');
+                soon(0);
+              },
+              onDelete: () => {
+                const before = trState.history;
+                trState.history = trState.history.filter((x) => x !== d);
+                keep(HISTORY_KEY, trState.history);
+                drawHistory();
+                undo('Translation deleted.', () => {
+                  trState.history = before;
+                  keep(HISTORY_KEY, trState.history);
+                  drawHistory();
+                });
+              },
+            },
+          ),
+        );
       }
     };
 

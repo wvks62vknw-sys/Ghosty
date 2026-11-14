@@ -37,12 +37,34 @@ export const merge: Board = (p) => {
     n++;
     fresh = M.spawn(b, rng(seed * 31 + n));
     draw();
+    slideIn(m.from);
     if (!reached && M.reached(b, target)) {
       reached = true;
       p.notice(`${target.toLocaleString('en-GB')} reached. Keep going for a higher score.`, 'ok');
     }
     if (!M.canMove(b)) return p.end({ won: reached, score, words: reached ? `No moves left. Best tile ${M.best(b)}.` : `No moves left. Best tile ${M.best(b)}.` });
     p.keep({ b, score, seed, n, reached });
+  }
+  /** Each tile starts where it came from and glides to its cell; joined tiles bump. */
+  function slideIn(from: number[][]): void {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const r0 = els[0]!.getBoundingClientRect();
+    const r1 = els[1]!.getBoundingClientRect();
+    const step = r1.left - r0.left;
+    els.forEach((el, i) => {
+      const src = from[i];
+      if (!src?.length) return;
+      const s = src[src.length - 1]!;
+      const dx = ((s % b.size) - (i % b.size)) * step;
+      const dy = (Math.floor(s / b.size) - Math.floor(i / b.size)) * step;
+      if (src.length > 1) el.classList.add('al-gbump');
+      if (!dx && !dy) return;
+      el.style.transition = 'none';
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      void el.offsetWidth;
+      el.style.transition = '';
+      el.style.transform = '';
+    });
   }
   function draw(): void {
     els.forEach((el, i) => {

@@ -13,7 +13,7 @@ export type Pose = 'stand' | 'point' | 'cheer' | 'run' | 'jump' | 'sit' | 'fall'
 export type Scene = 'town' | 'home' | 'park' | 'space' | 'sea' | 'forest' | 'stage' | 'lab' | 'kitchen' | 'school' | 'night' | 'plain';
 export type Time = 'day' | 'dusk' | 'night';
 export type Shot = 'wide' | 'mid' | 'close';
-export type BalloonKind = 'speech' | 'thought' | 'shout' | 'whisper';
+export type BalloonKind = 'speech' | 'thought' | 'shout' | 'whisper' | 'radio' | 'robot';
 
 export interface Look {
   species: Species;
@@ -79,6 +79,8 @@ export interface Page {
   /** an index into LAYOUTS for its panel count */
   layout: number;
   panels: Panel[];
+  /** angled gutters: how far (in page pixels) the gutters lean from top to bottom; none or 0 is straight */
+  slant?: number;
 }
 export interface Comic {
   id: string;
@@ -142,6 +144,17 @@ export function panelRects(p: Pick<Page, 'layout' | 'panels'>, w = PAGE_W, h = P
     const y1 = margin + (fy + fh) * lh - (fy + fh < 0.999 ? gutter / 2 : 0);
     return { x: Math.round(x0), y: Math.round(y0), w: Math.round(x1 - x0), h: Math.round(y1 - y0) };
   });
+}
+/** A panel's outline when the page's gutters are angled: every inner edge leans the same way across the whole page, so two
+ * panels side by side keep an even gutter between them; the page's outer edges stay straight. */
+export function panelShape(r: { x: number; y: number; w: number; h: number }, slant: number, w = PAGE_W, h = PAGE_H, margin = MARGIN): [number, number][] {
+  const lw = w - margin * 2, lh = h - margin * 2;
+  const offV = (y: number): number => slant * (((y - margin) / lh) - 0.5);
+  const offH = (x: number): number => -slant * 0.45 * (((x - margin) / lw) - 0.5);
+  const left = r.x > margin + 1, right = r.x + r.w < w - margin - 1, top = r.y > margin + 1, bottom = r.y + r.h < h - margin - 1;
+  const x0 = r.x, x1 = r.x + r.w, y0 = r.y, y1 = r.y + r.h;
+  const pt = (x: number, y: number, lx: boolean, ty: boolean): [number, number] => [Math.round(x + (lx ? offV(y) : 0)), Math.round(y + (ty ? offH(x) : 0))];
+  return [pt(x0, y0, left, top), pt(x1, y0, right, top), pt(x1, y1, right, bottom), pt(x0, y1, left, bottom)];
 }
 export const layoutCount = (n: number): number => LAYOUTS[Math.max(1, Math.min(MAX_PANELS, n))]!.length;
 
@@ -397,5 +410,7 @@ export const POSES: Pose[] = ['stand', 'point', 'cheer', 'run', 'jump', 'sit', '
 export const SCENES: Scene[] = ['town', 'home', 'park', 'space', 'sea', 'forest', 'stage', 'lab', 'kitchen', 'school', 'night', 'plain'];
 export const TIMES: Time[] = ['day', 'dusk', 'night'];
 export const SHOTS: Shot[] = ['wide', 'mid', 'close'];
-export const KINDS: BalloonKind[] = ['speech', 'thought', 'shout', 'whisper'];
+export const KINDS: BalloonKind[] = ['speech', 'thought', 'shout', 'whisper', 'radio', 'robot'];
+/** Each balloon's name, said in the editor. */
+export const KIND_NAMES: Record<BalloonKind, string> = { speech: 'Speech', thought: 'Thought', shout: 'Shout', whisper: 'Whisper', radio: 'Radio or phone', robot: 'Robot' };
 export const SPECIES: Species[] = ['person', 'cat', 'dog', 'robot', 'ghost', 'alien', 'bear', 'rabbit'];

@@ -2,9 +2,11 @@
 //   FIRST RUN   sample photos drawn on the phone and said to be samples (never an empty grey screen); the storage line; REMOVE SAMPLES
 //   ADD         a photo brought in through the picker: kept, counted, its line updated
 //   VIEWER      a photo full screen: FAVOURITE (in Albums → Favourites), DELETE with UNDO, Recently deleted and RECOVER
-//   SEARCH      "dog on a beach" finds the dog; "videos" says nothing found in plain words
+//   SEARCH      "dog on a beach" finds the dog; "videos" says nothing found in plain words; READ THE WORDS reads them on the phone
+//   PEOPLE      WHO'S IN IT names only people he introduced (none here: it says so, and names no one)
 //   ALBUMS      SELECT two, ALBUM, a new album with both in it; DUPLICATES' KEEP THE BEST (UNDO)
 //   FOR YOU     On this day; a memory PLAYs
+//   MORE        settings with good defaults, kept on the phone; storage; help; ASK GHOSTY
 //   DOORS       PHOTO's shelf has MY LIBRARY; open_photos opens on a search
 //   LAYOUT      every key 44 pt, nothing sideways, no page errors
 import { chromium } from 'playwright';
@@ -55,6 +57,17 @@ async function run(viewport) {
   const months = await page.locator('#pg-photos .phx-month .phx-h').allTextContents();
   check(months.length >= 4 && months.every((t) => /^[A-Z][a-z]+ \d{4} · \d+$/.test(t.trim())), `${T} [first run] the months read ${JSON.stringify(months)}`);
   await layout('library');
+  // MORE: settings with good defaults, the storage said, a short help page, ASK GHOSTY; every row 44 pt
+  await page.locator('#pg-photos .phx-more').click();
+  await page.waitForSelector('.modal .phx-sheet [data-set="autoName"]', { timeout: 5000 }).catch(() => problems.push(`${T} [more] MORE has no settings`));
+  await until(() => document.querySelector('.modal .mbox')?.getAnimations().every((a) => a.playState === 'finished') ?? false, null, 3000, '[more] the sheet did not settle');
+  const sheet = await page.evaluate(() => ({ name: document.querySelector('.modal [data-set="autoName"]')?.getAttribute('aria-checked'), read: document.querySelector('.modal [data-set="autoRead"]')?.getAttribute('aria-checked'), text: document.querySelector('.modal .phx-sheet')?.textContent ?? '', small: [...document.querySelectorAll('.modal .phx-sheet button')].filter((b) => { const r = b.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).length }));
+  check(sheet.name === 'true' && sheet.read === 'false', `${T} [more] the defaults: name ${sheet.name}, read ${sheet.read}`);
+  check(/on this phone/.test(sheet.text) && /Help/.test(sheet.text) && /ASK GHOSTY/i.test(sheet.text) && !sheet.small, `${T} [more] the sheet lacks storage, help or ASK, or has ${sheet.small} small keys`);
+  await page.locator('.modal [data-set="autoRead"]').click();
+  check((await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.photos.settings') ?? '{}').autoRead)) === true, `${T} [more] the setting was not kept on the phone`);
+  await page.locator('.modal [data-set="autoRead"]').click();
+  await page.locator('.modal .phx-sheet button', { hasText: /^\s*done\s*$/i }).click();
 
   // ---- ADD: a photo through the picker, kept and counted
   await page.evaluate(async () => {
@@ -80,6 +93,14 @@ async function run(viewport) {
   await page.click(`#pg-photos .phx-cell[data-id="${first}"]`);
   await until((id) => window.__ghosty.photos.viewer === id, first, 5000, '[viewer] the photo did not open full screen');
   await layout('viewer');
+  // a keyboard: the right arrow goes to the next photo, the left back
+  await page.keyboard.press('ArrowRight');
+  await until((id) => window.__ghosty.photos.viewer && window.__ghosty.photos.viewer !== id, first, 3000, '[viewer] the right arrow did not go to the next photo');
+  await page.keyboard.press('ArrowLeft');
+  await until((id) => window.__ghosty.photos.viewer === id, first, 3000, '[viewer] the left arrow did not come back');
+  // WHO'S IN IT: only people he introduced can be named; with nobody introduced it says so and names no one
+  await page.locator('.phx-viewer button', { hasText: /who.s in it/i }).click();
+  await until(() => /Only people you’ve introduced can be named here/.test(window.__ghosty.photos.said), null, 4000, `[viewer] WHO'S IN IT with nobody introduced said "${(await S()).said}"`);
   await page.locator('.phx-viewer button', { hasText: 'Favourite' }).click();
   await page.waitForTimeout(300);
   await page.locator('.phx-viewer button', { hasText: /^\s*delete\s*$/i }).click();
@@ -111,6 +132,10 @@ async function run(viewport) {
   await page.fill('#pg-photos .phx-search', 'videos');
   await until(() => window.__ghosty.photos.search.q === 'videos' && window.__ghosty.photos.search.results === 0 && !!document.querySelector('#pg-photos .phx-results [data-state="empty"]'), null, 5000, '[search] "videos" did not say nothing was found');
   await layout('search');
+  // the words in his photos, read on this phone on his tap (the picked photo is the only one not read yet; it has no words)
+  await until(() => window.__ghosty.photos.search.reading === 'needs' && !!document.querySelector('#pg-photos .phx-reading button'), null, 5000, `[search] READ THE WORDS is not offered for the photo not yet read: ${JSON.stringify((await S()).search)}`);
+  await page.locator('#pg-photos .phx-reading button').click();
+  await until(() => window.__ghosty.photos.search.reading === 'done', null, 90000, `[search] reading the words did not finish: ${JSON.stringify((await S()).search)}`);
 
   // ---- ALBUMS: two photos into a new album
   await seg('library');
@@ -153,5 +178,5 @@ async function run(viewport) {
 await run({ width: 440, height: 956 });
 await run({ width: 390, height: 844 });
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'photos clean at 440 and 390: sample photos on the first run, said to be samples; a picked photo kept and counted; a favourite in Favourites; DELETE with UNDO, Recently deleted with its 30 days and RECOVER; "dog on a beach" found and "videos" said not found; two photos into a new album; the sunset kept twice found with its best shot and KEEP THE BEST undone; On this day and a memory that plays; PHOTO\'s MY LIBRARY and open_photos on a search; every key 44 pt and nothing sideways.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'photos clean at 440 and 390: sample photos on the first run, said to be samples; MORE\'s settings kept on the phone, with storage, help and ASK GHOSTY; a picked photo kept and counted; WHO\'S IN IT names only people he introduced; a favourite in Favourites; DELETE with UNDO, Recently deleted with its 30 days and RECOVER; "dog on a beach" found, "videos" said not found and the words in a photo read on the phone; two photos into a new album; the sunset kept twice found with its best shot and KEEP THE BEST undone; On this day and a memory that plays; PHOTO\'s MY LIBRARY and open_photos on a search; every key 44 pt and nothing sideways.');
 process.exit(problems.length ? 1 : 0);

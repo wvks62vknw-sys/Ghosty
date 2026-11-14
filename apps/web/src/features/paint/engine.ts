@@ -37,7 +37,7 @@ export type LayerProp = 'name' | 'blend' | 'opacity' | 'visible' | 'alphaLock' |
 export type Op =
   | { k: 'stroke'; L: string; tool: 'brush' | 'erase' | 'liquify'; b: Brush; col: string; sym: Symmetry; cx: number; cy: number; seed: number; pts: Float32Array; onMask: boolean; sel: Sel }
   | { k: 'fill'; L: string; x: number; y: number; col: string; tol: number; ref: boolean; sel: Sel }
-  | { k: 'clear'; L: string }
+  | { k: 'clear'; L: string; sel?: Sel }
   | { k: 'add'; id: string; name: string; at: number }
   | { k: 'del'; L: string }
   | { k: 'move'; L: string; to: number }
@@ -227,7 +227,7 @@ export class Painting {
       case 'dup': return this.duplicate(op.L, op.id);
       case 'merge': return this.mergeDown(op.L);
       case 'mask': return this.setMask(op.L, op.on);
-      case 'clear': return this.clearLayer(op.L);
+      case 'clear': return this.clearLayer(op.L, op.sel ?? null);
       case 'fill': return void this.fill(op.L, op.x, op.y, op.col, op.tol, op.ref, op.sel);
       case 'stroke': return this.strokeOp(op);
       case 'xform': return this.transform(op.L, op.m, op.sel);
@@ -325,13 +325,16 @@ export class Painting {
     this.record({ k: 'mask', L: id, on });
     this.push({ what: on ? 'add mask' : 'remove mask', undo: () => { L.mask = old; }, redo: () => { L.mask = made; } });
   }
-  clearLayer(id: string): void {
+  /** Clear a layer, or only the part inside the selection. */
+  clearLayer(id: string, sel: Sel = null): void {
     const L = this.byId(id);
     if (!L) return;
     const g = ctx2(L.c);
     const beforeData = g.getImageData(0, 0, this.w, this.h);
-    g.clearRect(0, 0, this.w, this.h);
-    this.record({ k: 'clear', L: id });
+    const path = selPath(sel, this.w, this.h);
+    if (path) { g.save(); g.globalCompositeOperation = 'destination-out'; g.fill(path, 'evenodd'); g.restore(); }
+    else g.clearRect(0, 0, this.w, this.h);
+    this.record(sel ? { k: 'clear', L: id, sel } : { k: 'clear', L: id });
     this.pixelStep('clear layer', this.targetOf(id, false), { x: 0, y: 0, w: this.w, h: this.h }, beforeData);
   }
   setPaper(v: string): void {
@@ -400,7 +403,7 @@ export class Painting {
     for (const m of mirrored(p.x, p.y, sym, cx, cy)) {
       let x = m.x, y = m.y;
       if (sc) { x += (carry.rnd() - 0.5) * sc * r * 2; y += (carry.rnd() - 0.5) * sc * r * 2; }
-      if (tool === 'liquify') { this.push_(g, from, p, m, cx, cy, sym, r, b.flow * a0); continue; }
+      if (tool === 'liquify') { if (!b.lq || b.lq === 'push') this.push_(g, from, p, m, cx, cy, sym, r, b.flow * a0); else this.warp(g, m.x, m.y, r, b.lq, b.flow * a0 * (m.flip && b.lq === 'twirl' ? -1 : 1)); continue; }
       if (b.mix > 0 && this.live && !this.live.onMask) this.mixDab(g, from, p, m, cx, cy, sym, r, b.mix);
       const rot = ang + m.rot + (m.flip ? Math.PI / 2 : 0);
       const cos = Math.cos(rot), sin = Math.sin(rot);
@@ -429,6 +432,31 @@ export class Painting {
     g.globalAlpha = mix;
     g.drawImage(this.patch, 0, 0, s, s, m.x - r, m.y - r, s, s);
     void p;
+  }
+
+  /** Liquify's twirl, pinch and expand: each pixel under the brush is taken from a point turned round, or drawn in or out from,
+   * the brush's centre, most at the middle and fading to nothing at its edge. */
+  private warp(g: CanvasRenderingContext2D, x: number, y: number, r: number, kind: 'twirl' | 'pinch' | 'expand', strength: number): void {
+    const x0 = Math.max(0, Math.floor(x - r)), y0 = Math.max(0, Math.floor(y - r));
+    const x1 = Math.min(this.w, Math.ceil(x + r)), y1 = Math.min(this.h, Math.ceil(y + r));
+    const w = x1 - x0, h = y1 - y0;
+    if (w < 2 || h < 2) return;
+    const src = g.getImageData(x0, y0, w, h);
+    const out = new ImageData(new Uint8ClampedArray(src.data), w, h);
+    const k = Math.max(-1, Math.min(1, strength)) * 0.35;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const dx = x0 + i + 0.5 - x, dy = y0 + j + 0.5 - y;
+      const d = Math.hypot(dx, dy);
+      if (d >= r) continue;
+      const f = (1 - d / r) ** 2;
+      let sx: number, sy: number;
+      if (kind === 'twirl') { const a = k * f * 1.2, c = Math.cos(a), s = Math.sin(a); sx = x + dx * c - dy * s; sy = y + dx * s + dy * c; }
+      else { const sc = 1 + (kind === 'pinch' ? 1 : -1) * k * f; sx = x + dx * sc; sy = y + dy * sc; }
+      const u = Math.max(0, Math.min(w - 1, Math.round(sx - x0 - 0.5))), v = Math.max(0, Math.min(h - 1, Math.round(sy - y0 - 0.5)));
+      const a = (j * w + i) * 4, b = (v * w + u) * 4;
+      out.data[a] = src.data[b]!; out.data[a + 1] = src.data[b + 1]!; out.data[a + 2] = src.data[b + 2]!; out.data[a + 3] = src.data[b + 3]!;
+    }
+    g.putImageData(out, x0, y0);
   }
 
   /** Liquify: the pixels under the brush are pushed along the stroke. */

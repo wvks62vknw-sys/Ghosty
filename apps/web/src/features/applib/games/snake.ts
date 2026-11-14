@@ -21,6 +21,7 @@ export const snake: Board = (p) => {
   const unswipe = swipe(cv.el, (d) => S.turn(s, d));
   p.keys((['left', 'up', 'down', 'right'] as S.Dir[]).map((d) => ({ word: { left: '←', up: '↑', down: '↓', right: '→' }[d], label: `Turn ${d}`, run: () => S.turn(s, d) })));
   let acc = 0;
+  let keptAt = n;
   let started = !!saved;
   if (!started) p.notice('Swipe to start.');
   const startOnTurn = () => (started = true);
@@ -46,7 +47,10 @@ export const snake: Board = (p) => {
           break;
         }
       }
-      if (n % 20 === 0) p.keep({ s, seed, n });
+      if (n - keptAt >= 20 && s.alive) {
+        keptAt = n;
+        p.keep({ s, seed, n });
+      }
     }
     const { ctx, w } = cv;
     const cell = w / s.size;

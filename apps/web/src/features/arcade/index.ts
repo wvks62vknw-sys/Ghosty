@@ -24,6 +24,7 @@ import { primeAudio } from '../../arcade/engines/audio';
 import { dosStats, keyWord } from '../../arcade/engines/dos';
 import { engineFor, filesFor, playsToday, readsFor } from '../../arcade/engines/index';
 import { saveStore } from '../../arcade/engines/saves';
+import { continueArgs, lastSaveKept } from '../../arcade/lastsave';
 import type { EngineFiles, EngineHandle, EngineProbe } from '../../arcade/engines/types';
 import { LEVELS, LEVELS_BASE, type LevelPack, needsDeh, packArgs, packReads, packWads } from '../../arcade/levels';
 import { ratingTail } from '../../arcade/games/board/rating';
@@ -564,7 +565,7 @@ export const arcadeTab: TabDef = {
             said.push(line);
             p.say(line);
           },
-        }, { saves: saveStore(r.id), sound: soundOn(), args: r.args });
+        }, { saves: lastSaveKept(r.id, saveStore(r.id)), sound: soundOn(), args: r.args });
       arcadeState.started = pending.got ? 'tap' : 'after';
       arcadeState.args = r.args ?? [];
       const started = pending.got ? begin(pending.got) : pending.files.then(begin);
@@ -675,7 +676,11 @@ export const arcadeTab: TabDef = {
         const act = c.el.querySelector<HTMLButtonElement>('.arcact');
         const go = h('button.arcact', { type: 'button', 'aria-label': `${act?.textContent === 'PLAY' ? 'Continue' : act?.textContent ?? 'Open'}: ${st.title}` }, act?.textContent === 'PLAY' ? 'CONTINUE' : (act?.textContent ?? 'OPEN'));
         go.classList.add(act?.textContent === 'PLAY' ? 'play' : 'get');
-        go.addEventListener('click', () => act?.click());
+        // DOOM and Quake carry on from the game he saved last (their own -loadgame and +load); the rest load their own save
+        const g = games.find((x) => x.id === id);
+        const resume = g && act?.textContent === 'PLAY' ? continueArgs(g) : null;
+        if (resume) go.dataset.resume = resume.join(' ');
+        go.addEventListener('click', () => (g && resume ? play({ ...runOf(g), args: resume }) : act?.click()));
         const open = h('button.arcmore', { type: 'button', 'aria-label': `${st.title}: its page` }, '›');
         open.addEventListener('click', () => c.el.querySelector<HTMLElement>('.arcopen')?.click());
         return h('article.arccard.arccontcard', { role: 'listitem', dataset: { cont: id }, 'aria-label': st.title },

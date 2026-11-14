@@ -205,6 +205,50 @@ export function keepPanel(): Panel & { refresh(): Promise<void> } {
       else b.disabled = false;
     }, 'warn');
 
+  // [journal] APPS ROUND (Your word: a decision log with a look-back date): LOOK BACK sets a reminder on my brain three months on, holding
+  // his choice and his own reason, to ask whether it worked out; kept on this phone (`ghosty.keep.lookback`), NO LOOK BACK takes it off
+  const LB = 'ghosty.keep.lookback';
+  const lookbacks = (): Record<string, { at: number; job?: string }> => {
+    try {
+      return JSON.parse(localStorage.getItem(LB) ?? '{}') as Record<string, { at: number; job?: string }>;
+    } catch {
+      return {};
+    }
+  };
+  const keepLb = (m: Record<string, { at: number; job?: string }>) => {
+    try {
+      localStorage.setItem(LB, JSON.stringify(m));
+    } catch {
+      /* no room */
+    }
+  };
+  const lookBack = (it: KeepItem) => {
+    const lb = lookbacks()[it.id];
+    if (lb)
+      return key('NO LOOK BACK', `No look back on: ${it.what}`, async () => {
+        const m = lookbacks();
+        if (m[it.id]?.job) await import('../../api/brain').then((B) => B.brain.deleteJob(m[it.id]!.job!)).catch(() => undefined);
+        delete m[it.id];
+        keepLb(m);
+        paint();
+      });
+    return key('LOOK BACK', `Look back in three months on: ${it.what}`, async (b) => {
+      b.disabled = true;
+      const at = new Date();
+      at.setMonth(at.getMonth() + 3);
+      at.setHours(10, 0, 0, 0);
+      try {
+        const { brain } = await import('../../api/brain');
+        const r = await brain.addJob({ kind: 'reminder', title: 'Look back', text: K.lookBackText(it.what, it.detail ?? ''), at: at.getTime(), repeat: 'none' });
+        keepLb({ ...lookbacks(), [it.id]: { at: at.getTime(), job: r.job.id } });
+        toast(K.lookBackSet(day(at.getTime())), 'ok');
+      } catch (e) {
+        toast(sayError(e, 'set the look-back'), 'warn');
+      }
+      b.disabled = false;
+      paint();
+    });
+  };
   type Row = { key: string; kind: 'turn'; id: string; title: string; line: string; at: number; stamp: string; day: string };
   let extra: { pinned: Row[]; onThisDay: Row[] } = { pinned: [], onThisDay: [] };
   const paint = () => {
@@ -245,7 +289,7 @@ export function keepPanel(): Panel & { refresh(): Promise<void> } {
       head(K.H_WHERE),
       ...(where.length ? where.map((it) => row(it, [forget(it)], `${cap(it.what)} ${it.detail ?? ''}`, K.saidOn(day(it.at), it.via))) : [h('p.note.keepempty', K.WHERE_EMPTY)]),
       head(K.H_WHY),
-      ...(why.length ? why.map((it) => row(it, [forget(it)], `${cap(it.what)}: ${it.detail ?? ''}`, K.saidOn(day(it.at), it.via))) : [h('p.note.keepempty', K.WHY_EMPTY)]),
+      ...(why.length ? why.map((it) => row(it, [lookBack(it), forget(it)], `${cap(it.what)}: ${it.detail ?? ''}`, `${K.saidOn(day(it.at), it.via)}${lookbacks()[it.id] ? ` · ${K.lookBackOn(day(lookbacks()[it.id]!.at))}` : ''}`)) : [h('p.note.keepempty', K.WHY_EMPTY)]),
       // [recall] the sweep (Apple Notes' pinned, Day One's on this day): his pinned chats, and what he asked on this day last month
       ...(extra.pinned.length ? [head(K.H_PINNED), ...extra.pinned.map((f) => h('div.keeprow', { dataset: { kind: 'pinned', case: 'keep' } }, h('span.keeptxt', h('b', `“${f.line.slice(0, 120)}”`), h('small', f.stamp)), h('span.keepkeys', key('OPEN', `Open the chat of ${f.day}`, () => void import('./recallcard').then((c) => c.openFound(f))), key('UNPIN', `Unpin the chat of ${f.day}`, async () => {
         await import('./recall').then((R) => R.pinTurn({ key: f.key, at: f.at }, false));
