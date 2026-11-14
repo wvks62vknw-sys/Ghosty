@@ -102,7 +102,7 @@ await page.evaluate(() => (location.hash = 'lens'));
 await page.waitForSelector('#pg-lens .lensbar', { timeout: 15000 });
 await page.locator('#pg-lens .lensbar button', { hasText: 'MORE' }).click();
 await page.waitForSelector('#pg-lens .lensmodes', { timeout: 15000 });
-await page.locator('#pg-lens .lensmodes button', { hasText: 'PEOPLE' }).click();
+await page.locator('#pg-lens .lensmodes button', { hasText: 'FACES' }).click();
 await until(() => window.__ghosty?.lens?.mode === 'people', null, 5000, 'the PEOPLE tile did not open PEOPLE');
 check(await page.locator('#pg-lens .people button', { hasText: 'ENROL ME' }).isVisible(), 'no ENROL ME before he is enrolled');
 check(/stay on this phone|never sent to my brain/i.test(await page.locator('#pg-lens .pplpriv').textContent()), 'PEOPLE does not say where faces stay');

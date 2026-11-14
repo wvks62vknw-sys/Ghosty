@@ -160,7 +160,7 @@ export const hubLine = (c: Pick<MachineCounts, 'air' | 'transit'>) => `WATCHING 
 export const MACHINE_OFFLINE = 'No signal: these counts are the last I saw.';
 
 /** Said on the view when there is no saved home. */
-export const NO_HOME = "Save home in Memory → ME → PLACES and I'll watch your city; for now this is the phone's home.";
+export const NO_HOME = "Save home in Memory → ABOUT YOU → PLACES and I'll watch your city; for now this is the phone's home.";
 
 /** What the view shows, for the hub card, the chat and the specs (window.__ghosty.machine). */
 export const machineState = {

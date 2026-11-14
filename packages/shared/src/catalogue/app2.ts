@@ -230,7 +230,7 @@ export const APP_2: Record<string, CatValue> = {
     more: 'Only what you told me. Type a fact and SAVE, or tap ✕ to remove it.',
     say: ['What do you remember about me?'], scene: ['talking'], cat: 'know',
   },
-  'panel:memory:ME': {
+  'panel:memory:ABOUT YOU': {
     name: 'Your profile, in your words', line: 'You can see who I think you are, in your own words, and add or remove any line.',
     more: 'Built only from what you told me, never from what I read. Your saved places live here too.',
     say: ['What do you know about me?'], scene: ['talking'], cat: 'know',
