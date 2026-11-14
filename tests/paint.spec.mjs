@@ -273,6 +273,17 @@ async function run(viewport) {
   s = await S(page);
   check(s.layers.map((l) => l.name).join(',') === 'Paper,Background,Layer 1,Layer 3' && s.layers[3].blend === 'multiply' && s.layers[3].alphaLock === false, `[${W}] the opened PSD keeps its layers and blend modes: ${s.layers.map((l) => `${l.name}/${l.blend}`)}`);
   check((await page.evaluate(() => window.__ghosty.paintAt(300, 800, 2))) > 100, `[${W}] the opened PSD keeps the strokes`);
+  // and OpenRaster (Krita, GIMP) both ways
+  await tool(page, 'More');
+  const [dlOra] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.click('.pxstudio button[aria-label="Save as a layered OpenRaster file"]')]);
+  const ora = readFileSync(await dlOra.path());
+  await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+  await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
+  const [chooser2] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-paint button[aria-label="Open a PSD with its layers, or a picture, as a painting"]')]);
+  await chooser2.setFiles({ name: 'Painting 2.ora', mimeType: 'image/openraster', buffer: ora });
+  check(await until(page, () => window.__ghosty.paint.open && window.__ghosty.paint.layers.length === 5, null, 30000), `[${W}] OPEN A FILE opens the OpenRaster file`);
+  s = await S(page);
+  check(s.layers.map((l) => l.name).join(',') === 'Paper,Paper,Background,Layer 1,Layer 3' && s.layers[4].blend === 'multiply' && (await page.evaluate(() => window.__ghosty.paintAt(300, 800, 3))) > 100, `[${W}] the OpenRaster file keeps its layers, blend modes and strokes: ${s.layers.map((l) => `${l.name}/${l.blend}`)}`);
   await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
   await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
 

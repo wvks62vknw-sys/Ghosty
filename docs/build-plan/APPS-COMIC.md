@@ -36,7 +36,7 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
 - **The time-lapse.** Every step is recorded, so MORE → **PLAY** (or **TIME-LAPSE** on its gallery card) shows the painting being made, and **SAVE AS VIDEO** keeps it (MP4 on the iPhone).
 - **Files**:
   - Save as PNG, JPEG, a **layered PSD** (Photoshop, Procreate, Affinity and Photopea open it with every layer apart) or **OpenRaster** (Krita, GIMP). Or share it.
-  - **OPEN A FILE** opens a PSD with its layers apart, or a picture.
+  - **OPEN A FILE** opens a PSD or an OpenRaster file with its layers apart, or a picture.
 - **The gallery**:
   - Kept on this phone as you go, with search.
   - The first visit makes a sample painting and shows a three-step tour, so it is never an empty screen.
@@ -80,7 +80,7 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - a stroke, UNDO, REDO and the two-finger undo;
   - pencil pressure making a wider line, and the palm rejected after the pencil;
   - QuickShape, symmetry, brush settings, freehand, rectangle and by-colour selection, text, twirl, layers, blend mode and alpha lock;
-  - Ghosty's palette, the time-lapse, and a PSD saved and opened again with its layers;
+  - Ghosty's palette, the time-lapse, and a PSD and an OpenRaster file saved and opened again with their layers;
   - a colouring page's fill, the bin, and the gallery's search;
   - the Comic's DRAW ON IT, its two new balloons, angled gutters and comic art from a photo;
   - Drawing a day;

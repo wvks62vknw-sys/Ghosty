@@ -202,7 +202,33 @@ async function openFile(f: File): Promise<string> {
       }
     }, true);
   }
-  const bmp = await createImageBitmap(f).catch(() => { throw inHisWords(`I can’t read “${f.name}” as a picture. I open PSD, PNG and JPEG files.`); });
+  if (head[0] === 0x50 && head[1] === 0x4b && /\.ora$/i.test(f.name)) {
+    // OpenRaster (Krita, GIMP, MyPaint): a zip of each layer's PNG and a stack.xml listing them
+    const [{ zipEntries, zipRead }, { oraStack }] = await Promise.all([import('../../arcade/zip'), import('./io')]);
+    const buf = new Uint8Array(await f.arrayBuffer());
+    const entries = zipEntries(buf);
+    const stackE = entries.find((e) => e.name === 'stack.xml');
+    if (!stackE) throw inHisWords('That .ora file has no list of its layers (stack.xml), so I can’t open it.');
+    const st = oraStack(new TextDecoder().decode(await zipRead(buf, stackE)));
+    if (!st.w || !st.h || st.w * st.h > 4096 * 4096) throw inHisWords('That .ora file’s size is missing or larger than this phone can paint on (up to 4096 × 4096).');
+    const keep = st.layers.slice(-MAX_LAYERS);
+    return create(title, st.w, st.h, 'ora', async (p) => {
+      for (const L of keep) {
+        const e = entries.find((x) => x.name === L.src);
+        p.addLayer(L.name, p.layers.length);
+        if (e) {
+          const png = new Blob([(await zipRead(buf, e)) as BlobPart], { type: 'image/png' });
+          const bm = await createImageBitmap(png);
+          await p.placeAsync(p.layer.id, png, L.x, L.y, bm.width, bm.height);
+          bm.close?.();
+        }
+        if (L.blend !== 'source-over') p.setProp(p.layer.id, 'blend', L.blend);
+        if (L.opacity < 1) p.setProp(p.layer.id, 'opacity', Math.round(L.opacity * 100) / 100);
+        if (!L.visible) p.setProp(p.layer.id, 'visible', false);
+      }
+    }, true);
+  }
+  const bmp = await createImageBitmap(f).catch(() => { throw inHisWords(`I can’t read “${f.name}” as a picture. I open PSD, OpenRaster, PNG and JPEG files.`); });
   const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
   const w = Math.max(1, Math.round(bmp.width * k)), hh = Math.max(1, Math.round(bmp.height * k));
   const c = mk(w, hh);
@@ -249,7 +275,7 @@ export function galleryPart(): { el: HTMLElement; stop(): void } {
     h('li', 'Tap NEW PAINTING, or open the sample below.'),
     h('li', 'Draw with a finger or an Apple Pencil. Pinch to zoom; a two-finger tap undoes.'),
     h('li', 'Open MORE in the studio to play the time-lapse or save a layered PSD.'));
-  const pickFile = h('input', { type: 'file', accept: '.psd,image/vnd.adobe.photoshop,image/png,image/jpeg,image/heic,image/webp', hidden: true }) as HTMLInputElement;
+  const pickFile = h('input', { type: 'file', accept: '.psd,.ora,image/vnd.adobe.photoshop,image/openraster,image/png,image/jpeg,image/heic,image/webp', hidden: true }) as HTMLInputElement;
   pickFile.addEventListener('change', async () => {
     const f = pickFile.files?.[0];
     pickFile.value = '';

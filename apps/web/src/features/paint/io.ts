@@ -169,3 +169,25 @@ export async function playInto(view: HTMLCanvasElement, log: Op[], w: number, h:
   await done;
   return chunks.length ? new Blob(chunks, { type: type.split(';')[0] }) : null;
 }
+
+/** The layers an OpenRaster file (.ora, from Krita, GIMP or MyPaint) holds, read from its stack.xml as text: each layer's name,
+ * picture, place, opacity, visibility and blend mode, bottom layer first. */
+export function oraStack(xml: string): { w: number; h: number; layers: { name: string; src: string; x: number; y: number; opacity: number; visible: boolean; blend: string }[] } {
+  const attr = (tag: string, n: string): string | undefined => new RegExp(`\\b${n}="([^"]*)"`).exec(tag)?.[1];
+  const un = (s: string): string => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const img = /<image\b[^>]*>/.exec(xml)?.[0] ?? '';
+  const back = Object.fromEntries(Object.entries(ORA_BLEND).map(([k, v]) => [v, k]));
+  const layers = [...xml.matchAll(/<layer\b[^>]*>/g)].map((m) => {
+    const t = m[0];
+    return {
+      name: un(attr(t, 'name') ?? 'Layer').slice(0, 40),
+      src: attr(t, 'src') ?? '',
+      x: Number(attr(t, 'x') ?? 0) || 0,
+      y: Number(attr(t, 'y') ?? 0) || 0,
+      opacity: Math.max(0, Math.min(1, Number(attr(t, 'opacity') ?? 1))),
+      visible: attr(t, 'visibility') !== 'hidden',
+      blend: back[attr(t, 'composite-op') ?? ''] ?? 'source-over',
+    };
+  }).filter((l) => l.src).reverse();
+  return { w: Number(attr(img, 'w') ?? 0) || 0, h: Number(attr(img, 'h') ?? 0) || 0, layers };
+}
