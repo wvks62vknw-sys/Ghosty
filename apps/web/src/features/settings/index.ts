@@ -22,6 +22,7 @@ import { offlinePanel } from './offline';
 import { permissionsPanel } from './permissions'; // [health] PERMISSIONS: what the phone can be asked for
 import { eyesPanel, mapsPanel, voiceModelPanel } from './packs';
 import { saverPanel } from './saver';
+import { keptBlock } from './kept';
 import { wallPanel } from './wall'; // [wall] THE WALL: pair the second screen
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { switchRow } from './switch';
@@ -85,11 +86,15 @@ export const settingsTab: TabDef = {
     const privacy = panel('PRIVACY', { grow: false, status: 'Yours only' });
     // [guardian] FACES: his own and the people he introduced, on this phone only, each gone in one tap
     const fb = facesBlock();
+    const kept = keptBlock();
     privacy.body.append(
       h('p.note', 'What you tell me, what I remember and your keys are kept only in your own Cloudflare account and on this phone.'),
       ...para('p.note', 'Questions go only to the AI services you added keys for, with just the words needed. Memory never keeps passwords or what I read online.'),
       fb.el,
+      // [next] everything kept about him, by kind, each with its own key to forget it, and his memory as a document (kept.ts)
+      kept.el,
     );
+    privacy.el.addEventListener('ghosty:reveal', () => void kept.refresh());
     const help = panel('HELP', { grow: false, status: 'Tips' });
     help.body.append(
       // (nothing on screen is a reactor any more, and there is one look: OWNER-ISSUES 45, BRIEF-ONE-LOOK)

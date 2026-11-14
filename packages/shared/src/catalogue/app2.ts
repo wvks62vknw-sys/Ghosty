@@ -88,6 +88,13 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Show me the traffic cameras near home'], scene: ['out', 'morning'], cat: 'see',
   },
   'panel:eye:ROAD AHEAD': { same: 'tool:road_ahead' },
+  // (THE WORLD lives in the morning Brief, drawn from God's Eye's own feeds: features/eye/briefworld.ts)
+  'panel:eye:THE WORLD': {
+    name: 'The world in your Brief', line: 'You can see the world outside in your morning Brief: the threat level, your commute’s roads and your road’s camera.',
+    more: 'The threat level from the quake and storm feeds, road reports between your saved home and work, and a fresh picture from the public camera nearest home. Tap it to watch live.',
+    say: ['Brief me'], scene: ['morning', 'out'], cat: 'see', needs: ['home'],
+    since: '2026-11-14',
+  },
   // ---- THE GYM
   'panel:gym:GAMES': {
     name: 'All my games, with my levels', line: 'You can see every game I play with the level I have earned, and train them all with one tap.',
