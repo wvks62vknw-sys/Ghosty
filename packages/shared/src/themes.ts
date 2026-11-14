@@ -107,6 +107,17 @@ export type SwitchKey = keyof Switches;
 
 export const SWITCH_DEFAULTS: Switches = { glow: 'on', floor: 'on', corners: 'world', readings: 'mono', body: 17, motion: 'alive', sound: 'tone', day: 'off', safe: 'off' };
 
+/**
+ * ACCESSIBILITY (APPS ROUND, consistency): one switch for the easiest reading, in every look. It sets the reading switches together:
+ * body text at its biggest, nothing moving, no glow and no floor behind the words, the phone's own type, and the colour-blind-safe
+ * colours. Off puts back the switches he had before (kept on the phone), never the defaults over his own choices.
+ */
+export const EASY: Partial<Switches> = { body: 21, motion: 'calm', glow: 'off', floor: 'off', readings: 'system', safe: 'on' };
+export const EASY_KEYS = Object.keys(EASY) as SwitchKey[];
+export const easyOn = (s: Switches): boolean => EASY_KEYS.every((k) => s[k] === EASY[k]);
+export const EASY_ON_LINE = 'Accessibility on: body text at 21 points, nothing moving, no glow or floor behind the words, the phone’s own type, and colours anyone can tell apart. Say “accessibility off” to put your own back.';
+export const EASY_OFF_LINE = 'Accessibility off: your own switches are back.';
+
 export interface SwitchDef<K extends SwitchKey = SwitchKey> {
   key: K;
   label: string;
@@ -367,6 +378,8 @@ export interface LookAsk {
   room?: { tab: string; label: string; colour: ColourKey | null };
   /** [voice.s10] "calm colours", "focus colours", "lively colours": a colour and its switches together, named plainly. */
   feel?: 'calm' | 'focus' | 'lively';
+  /** [consistency] ACCESSIBILITY on or off: "accessibility on", "make it easier to read", "easy reading off". */
+  easy?: boolean;
 }
 
 export type ShadeWay = 'softer' | 'deeper' | 'brighter' | 'warmer' | 'cooler';
@@ -462,6 +475,8 @@ export function lookAsked(text: string): LookAsk | null {
   }
   const feel = /^(?:(calm|calming|relaxing|soothing|chilled?|peaceful|gentle|soft)|(focus|focused|focussed|work|concentrat(?:e|ion)|study|serious)|(lively|energetic|energy|bright|fun|party|loud|vibrant)) (?:colou?rs?|look|theme|mode|vibes?)(?: please)?$/.exec(t0.replace(VERB, ''));
   if (feel) return { feel: feel[1] ? 'calm' : feel[2] ? 'focus' : 'lively' };
+  const easy = /^(?:(?:turn|switch|put|set)(?: the)? )?(?:accessibility|easy reading|easiest reading|easy to read)(?: mode| switch| setting)? (on|off)$|^(?:(?:turn|switch|put)(?: the)? )?(on|off)(?: the)? (?:accessibility|easy reading)(?: mode| switch)?$|^make (?:it|everything|the screen|the text|ghosty) easier to (read|see)$/.exec(t0);
+  if (easy) return { easy: (easy[1] ?? easy[2]) !== 'off' };
   if (/^(?:put it back|change it back|switch it back|the one before|the one before that|undo that|go back to how it was|as it was|back how it was|no,? (?:put it |change it )?back)$/.test(t0)) return { back: { generic: true } };
   const t = t0.replace(VERB, '').trim();
   const verb = t !== t0;
@@ -561,7 +576,7 @@ const bodyStep = (b: Switches['body'], dir: 'bigger' | 'smaller'): Switches['bod
  * A change applied to a recipe: the new recipe, and what I say about it, in one or two sentences (what changed, what stayed,
  * and the honest edge where there is one). Pure: the phone applies the recipe (state/theme.ts) and says the words.
  */
-export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: HomePlace | null } = {}): { recipe: Recipe; said: string } {
+export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: HomePlace | null; before?: Partial<Switches> } = {}): { recipe: Recipe; said: string } {
   const next: Recipe = { ...r, switches: { ...r.switches } };
   const setGround = (g: GroundKey) => {
     next.ground = g;
@@ -617,6 +632,11 @@ export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: Home
     next.colour = f.colour;
     Object.assign(next.switches, f.switches);
     said = f.line;
+  } else if (ask.easy !== undefined) {
+    // (off: the switches he had before it, where the phone kept them; else each one's default)
+    if (ask.easy) Object.assign(next.switches, EASY);
+    else for (const k of EASY_KEYS) Object.assign(next.switches, { [k]: o.before?.[k] ?? SWITCH_DEFAULTS[k] });
+    said = ask.easy ? EASY_ON_LINE : EASY_OFF_LINE;
   } else if (ask.two) {
     said = TWO_WAYS[ask.two]?.q ?? '';
   } else if (ask.body) {

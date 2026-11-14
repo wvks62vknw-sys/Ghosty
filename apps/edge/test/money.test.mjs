@@ -9,8 +9,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { bundles, ctxOf, deps, fakeFetch, fixture, Mem, NOW } from './packs-kit.mjs';
 
-const B = await bundles(['src/tools/money.ts', 'src/packs/index.ts', 'src/spending.ts', '../../packages/shared/src/money.ts', '../../packages/shared/src/cards.ts', '../../packages/shared/src/packs.ts', 'src/schedule.ts', 'src/watchers.ts', 'src/tools/moneyapp.ts', '../../packages/shared/src/moneyplan.ts']);
+const B = await bundles(['src/tools/money.ts', 'src/packs/index.ts', 'src/spending.ts', '../../packages/shared/src/money.ts', '../../packages/shared/src/cards.ts', '../../packages/shared/src/packs.ts', 'src/schedule.ts', 'src/watchers.ts', 'src/tools/moneyapp.ts', '../../packages/shared/src/moneyplan.ts', '../../packages/shared/src/spending.ts']);
 const MP = B['../../packages/shared/src/moneyplan.ts'];
+const SPS = B['../../packages/shared/src/spending.ts'];
 const M = B['src/tools/money.ts'];
 const P = B['src/packs/index.ts'];
 const SP = B['src/spending.ts'];
@@ -588,4 +589,91 @@ test('PEOPLE: several group plans at once, each answered and called off by its o
   assert.equal(r.data.plan, null);
   assert.equal(r.data.plans.length, 1, 'the other plan stays open');
   assert.equal((await call('plans', { op: 'reply', id: pub.id, name: 'Jo', s: 'yes' })).status, 400);
+});
+
+// ---------------------------------------------------------------- THE APPS ROUND: money, effortless
+
+const OFX = `OFXHEADER:100
+DATA:OFXSGML
+VERSION:102
+
+<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>GBP
+<BANKTRANLIST><DTSTART>20261001<DTEND>20261031
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261003120000[0:GMT]<TRNAMT>-23.45<FITID>1<NAME>TESCO STORES 2041
+<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20261005<TRNAMT>2100.00<FITID>2<NAME>ACME WIDGETS LTD<MEMO>SALARY
+<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261007<TRNAMT>-10.99<FITID>3<NAME>NETFLIX.COM &amp; CO
+</BANKTRANLIST><LEDGERBAL><BALAMT>3254.26<DTASOF>20261031</LEDGERBAL></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+const QIF = `!Type:Bank
+D03/10/2026
+T-23.45
+PTESCO STORES 2041
+^
+D07/10/2026
+T-45.10
+PSHELL BIRMINGHAM
+MFUEL
+^
+D9/10/26
+T1,250.00
+PREFUND FROM HMRC
+^
+`;
+
+test('every statement shape: an OFX file (with its closing balance) and a QIF file are read in code; overlapping files keep each payment once', async () => {
+  const o = S.readAnyStatement(OFX);
+  assert.equal(o.shape, 'ofx');
+  assert.deepEqual(o.rows.map((r) => [r.d, r.t, r.a]), [['2026-10-03', 'TESCO STORES 2041', -23.45], ['2026-10-05', 'ACME WIDGETS LTD SALARY', 2100], ['2026-10-07', 'NETFLIX.COM & CO', -10.99]]);
+  assert.equal(o.rows[2].b, 3254.26, 'the closing balance stands on the newest row');
+  const q = S.readAnyStatement(QIF);
+  assert.equal(q.shape, 'qif');
+  assert.deepEqual(q.rows.map((r) => [r.d, r.t, r.a]), [['2026-10-03', 'TESCO STORES 2041', -23.45], ['2026-10-07', 'SHELL BIRMINGHAM FUEL', -45.1], ['2026-10-09', 'REFUND FROM HMRC', 1250]]);
+  assert.throws(() => S.readAnyStatement('!Type:Bank\n^\n'), /QIF file holds no payments/);
+  // two files from the same account that overlap: the Tesco on the 3rd is kept once
+  const storage = new Mem();
+  const route = (body) => SP.spendingRoute(new Request('https://g/api/profile/spending/import', { method: 'POST', body: JSON.stringify(body) }), '/profile/spending/import', 'POST', new URL('https://g/api/profile/spending/import'), { storage, ai: async () => { throw new Error('none'); } }).then((r) => r.json());
+  const a = await route({ csv: OFX, rulesOnly: true });
+  assert.equal(a.result.added, 3);
+  const b = await route({ csv: QIF, rulesOnly: true });
+  assert.equal(b.result.duplicates, 1, 'the payment both files hold is not kept twice');
+  assert.equal(b.result.added, 2);
+});
+
+test('a shop’s page: every payment there across the statements, a total for each month, the average and its rule', async () => {
+  const storage = new Mem();
+  await storage.put({ spend: { months: ['2026-09', '2026-10'], rows: 4, rules: { 'TESCO STORES': 'groceries' }, budgets: {} }, 'spend:m:2026-09': ROWS.slice(0, 1).concat([{ d: '2026-09-12', t: 'TESCO STORES', a: -30, k: 'TESCO STORES', c: 'groceries', by: 'you' }]), 'spend:m:2026-10': ROWS.slice(1) });
+  const r = await B['src/tools/moneyapp.ts'].MONEY_APP.shop({ k: 'TESCO STORES' }, deps(storage));
+  assert.deepEqual(r.data.months, [{ month: '2026-09', out: 30, n: 1 }, { month: '2026-10', out: 50, n: 1 }]);
+  assert.equal(r.data.total, 80);
+  assert.equal(r.data.average, 40);
+  assert.equal(r.data.rule, 'groceries');
+  assert.deepEqual([r.data.first, r.data.last], ['2026-09-12', '2026-10-29']);
+});
+
+test('several accounts: each statement tagged with its account; a move between his own accounts is paired, kept out of spending, and safe to spend adds every account’s balance', async () => {
+  const storage = new Mem();
+  const route = (body) => SP.spendingRoute(new Request('https://g/api/profile/spending/import', { method: 'POST', body: JSON.stringify(body) }), '/profile/spending/import', 'POST', new URL('https://g/api/profile/spending/import'), { storage, ai: async () => { throw new Error('none'); } }).then((r) => r.json());
+  const current = 'Date,Description,Amount,Balance\n2026-10-03,TESCO STORES,-40.00,960.00\n2026-10-04,TO SAVINGS,-200.00,760.00\n';
+  const savings = 'Date,Description,Amount,Balance\n2026-10-05,FROM CURRENT,200.00,5200.00\n';
+  await route({ csv: current, rulesOnly: true, account: 'Current' });
+  const s = await route({ csv: savings, rulesOnly: true, account: 'Savings' });
+  assert.equal(s.result.transfers, 2, 'the £200 out of Current and into Savings two days later are paired');
+  assert.equal(s.view.out, 40, 'the move is not spending');
+  assert.equal(s.view.in, 0, 'and not income');
+  assert.ok(s.rows.filter((r) => r.tr).length === 2, 'it is still listed, marked');
+  const d = deps(storage);
+  const A = B['src/tools/moneyapp.ts'].MONEY_APP;
+  let r = await A.accounts({ today: '2026-11-01' }, d);
+  assert.deepEqual(r.data.accounts.map((x) => [x.name, x.balance, x.out]), [['Current', 760, 40], ['Savings', 5200, 0]]);
+  assert.equal(r.data.total, 5960);
+  assert.equal(r.data.moves.length, 2);
+  await storage.put('money:payday', { day: 2 });
+  r = await A.safe({ today: '2026-11-01' }, d);
+  assert.equal(r.data.balance, 5960, 'safe to spend counts every account’s newest balance');
+  r = await A.accounts({ op: 'rename', from: 'Current', to: 'Everyday' }, d);
+  assert.deepEqual(r.data.accounts.map((x) => x.name), ['Everyday', 'Savings']);
+  r = await A.accounts({ op: 'unmark', row: { d: '2026-10-04', t: 'TO SAVINGS', a: -200 } }, d);
+  assert.equal(r.data.moves.length, 1);
+  // a pair inside one account is a refund, not a move: left alone
+  const one = [{ d: '2026-10-01', t: 'A', a: -5, k: 'A', c: 'other', by: 'rule', ac: 'X' }, { d: '2026-10-02', t: 'B', a: 5, k: 'B', c: 'other', by: 'rule', ac: 'X' }];
+  assert.equal(SPS.markTransfers(one), 0);
 });

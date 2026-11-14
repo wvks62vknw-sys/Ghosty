@@ -35,7 +35,11 @@ const dayOf = (a: Record<string, unknown>, d: PackDeps) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : todayOf(d);
 };
 
+/** His rows for the sums: a move between his own accounts left out (it is neither spending nor income). */
 async function rowsOf(d: PackDeps): Promise<SpendRow[]> {
+  return (await allRowsOf(d)).filter((r) => !r.tr);
+}
+async function allRowsOf(d: PackDeps): Promise<SpendRow[]> {
   const idx = await load<{ months?: string[] }>(d, KEYS.spend, {});
   const months = idx.months ?? [];
   if (!months.length) return [];
@@ -45,13 +49,14 @@ async function rowsOf(d: PackDeps): Promise<SpendRow[]> {
 
 const safe: ActionFn = async (a, d) => {
   const today = dayOf(a, d);
-  const [rule, rows, bills, listed, goals] = await Promise.all([load<Payday | null>(d, KEYS.payday, null), rowsOf(d), load<HomeBillLike[]>(d, KEYS.bills, []), load<Sub[]>(d, KEYS.subs, []), load<Goal[]>(d, KEYS.goals, [])]);
+  // (every row, a move between his accounts too, for each account's newest balance; safeToSpend leaves moves out of money in and out)
+  const [rule, rows, bills, listed, goals] = await Promise.all([load<Payday | null>(d, KEYS.payday, null), allRowsOf(d), load<HomeBillLike[]>(d, KEYS.bills, []), load<Sub[]>(d, KEYS.subs, []), load<Goal[]>(d, KEYS.goals, [])]);
   if (!rule) return { text: 'Tell me your payday first, like “the 28th” or “the last Friday of the month”, and I work out what is safe to spend until then.', data: { payday: null, rows: rows.length } };
-  const subs = findSubscriptions(rows);
+  const subs = findSubscriptions(rows.filter((r) => !r.tr));
   const first = safeToSpend(rows, subs, bills, listed, rule, today);
   const aside = goalsAside(goals, today, first.days);
   const s = aside ? safeToSpend(rows, subs, bills, listed, rule, today, aside) : first;
-  const rowsSince = rows.filter((r) => r.d >= s.last && r.d <= today).length;
+  const rowsSince = rows.filter((r) => r.d >= s.last && r.d <= today && !r.tr).length;
   return {
     text: `Safe to spend until payday (${s.payday}): ${pounds(s.safe)}, about ${pounds(s.perDay)} a day for ${s.days} day${s.days === 1 ? '' : 's'}. ${s.due.length} payment${s.due.length === 1 ? '' : 's'} still due before then: ${pounds(s.dueSum)}.`,
     data: { ...s, rowsSince, rows: rows.length },
@@ -259,6 +264,86 @@ const car: ActionFn = async (a, d) => {
   return { text: `Your car: about ${pounds(monthly)} a month from your statements.`, data: { months, kinds, monthly, dates, rows: rows.length } };
 };
 
+/** A page for one shop (by its merchant key): every payment there across his statements, a total for each month, its rule. */
+const shop: ActionFn = async (a, d) => {
+  const k = arg.str(a, 'k', false);
+  if (!k) throw new Error('pick a shop');
+  const rows = (await rowsOf(d)).filter((r) => r.k === k).sort((x, y) => (x.d < y.d ? 1 : x.d > y.d ? -1 : 0));
+  const idx = await load<{ rules?: Record<string, Category> }>(d, KEYS.spend, {});
+  const months = new Map<string, { month: string; out: number; n: number }>();
+  for (const r of rows) {
+    const m = months.get(r.d.slice(0, 7)) ?? { month: r.d.slice(0, 7), out: 0, n: 0 };
+    m.out = Math.round((m.out - r.a) * 100) / 100;
+    m.n++;
+    months.set(m.month, m);
+  }
+  const list = [...months.values()].sort((x, y) => (x.month < y.month ? -1 : 1));
+  const total = Math.round(rows.reduce((t, r) => t - r.a, 0) * 100) / 100;
+  return {
+    text: `${k}: ${rows.length} payment${rows.length === 1 ? '' : 's'}, ${pounds(total)} in all.`,
+    data: { k, rows: rows.slice(0, 200), months: list, total, average: list.length ? Math.round((total / list.length) * 100) / 100 : 0, first: rows[rows.length - 1]?.d ?? '', last: rows[0]?.d ?? '', rule: idx.rules?.[k] ?? null, category: rows[0]?.c ?? null },
+  };
+};
+
+/** [moneyapps] His accounts side by side: each with its newest balance, its payments, its money in and out last month, and the moves
+ * between his own accounts spotted (never counted as spending). Rename an account, or mark / unmark one payment as a move. */
+const accounts: ActionFn = async (a, d) => {
+  const today = dayOf(a, d);
+  const op = arg.str(a, 'op', false);
+  let said = '';
+  const idx = await load<{ months?: string[] }>(d, KEYS.spend, {});
+  const months = idx.months ?? [];
+  if (op === 'rename' || op === 'mark' || op === 'unmark') {
+    const got = await d.storage.get<SpendRow[]>(months.map((m) => `spend:m:${m}`));
+    const writes: Record<string, SpendRow[]> = {};
+    const from = arg.str(a, 'from', false);
+    const to = arg.str(a, 'to', false).trim().slice(0, 40);
+    const row = a.row as { d?: string; t?: string; a?: number } | undefined;
+    if (op === 'rename' && (!from || !to)) throw new Error('type the account’s new name');
+    let n = 0;
+    for (const m of months) {
+      const list = got.get(`spend:m:${m}`) ?? [];
+      let changed = false;
+      for (const r of list) {
+        if (op === 'rename' && r.ac === from) (r.ac = to), (changed = true), n++;
+        if (op !== 'rename' && row && r.d === row.d && r.t === row.t && Math.abs(r.a - Number(row.a)) < 0.005) {
+          if (op === 'mark') r.tr = true;
+          else delete r.tr;
+          changed = true;
+          n++;
+        }
+      }
+      if (changed) writes[`spend:m:${m}`] = list;
+    }
+    if (!n) throw new Error(op === 'rename' ? 'that account is not in your statements' : 'that payment is not in your statements any more');
+    await d.storage.put(writes);
+    said = op === 'rename' ? `Renamed: ${from} is ${to} now.` : op === 'mark' ? 'Marked as a move between your own accounts: it is left out of your spending.' : 'Counted again as spending or income.';
+  }
+  const rows = await allRowsOf(d);
+  const lastMonth = (() => {
+    const y = +today.slice(0, 4);
+    const m = +today.slice(5, 7) - 1;
+    return m === 0 ? `${y - 1}-12` : `${y}-${String(m).padStart(2, '0')}`;
+  })();
+  const by = new Map<string, { name: string; n: number; newest: string; balance: number | null; balanceOn: string; in: number; out: number }>();
+  for (const r of [...rows].sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0))) {
+    const name = r.ac || '';
+    const x = by.get(name) ?? { name, n: 0, newest: '', balance: null, balanceOn: '', in: 0, out: 0 };
+    x.n++;
+    x.newest = r.d;
+    if (typeof r.b === 'number' && Number.isFinite(r.b)) (x.balance = r.b), (x.balanceOn = r.d);
+    if (r.d.startsWith(lastMonth) && !r.tr) {
+      if (r.a > 0) x.in = Math.round((x.in + r.a) * 100) / 100;
+      else x.out = Math.round((x.out - r.a) * 100) / 100;
+    }
+    by.set(name, x);
+  }
+  const list = [...by.values()].sort((x, y) => (x.name || '~').localeCompare(y.name || '~'));
+  const moves = rows.filter((r) => r.tr).sort((x, y) => (x.d < y.d ? 1 : -1)).slice(0, 30).map((r) => ({ d: r.d, t: r.t, a: r.a, ac: r.ac ?? '' }));
+  const total = list.filter((x) => x.balance !== null).reduce((k, x) => k + x.balance!, 0);
+  return { text: said || `${list.length} account${list.length === 1 ? '' : 's'}.`, data: { accounts: list, moves, total: Math.round(total * 100) / 100, lastMonth, rows: rows.length } };
+};
+
 const NUDGE = 'Add last month’s statement';
 /** money.u8: a reminder on the 2nd of each month at 9am to add last month's statement, only when he turns it on (the brain's Web Push). */
 const nudge: ActionFn = async (a, d) => {
@@ -285,7 +370,7 @@ export async function dueSoon(d: PackDeps, days = 7): Promise<{ on: string; name
 }
 
 /** The money screen's own actions, joined to the money pack's for POST /packs/do (packs/index.ts); never in the tool's enum. */
-export const MONEY_APP: Record<string, ActionFn> = { safe, calendar, goals, household, year, rules, nudge, cancel, car };
+export const MONEY_APP: Record<string, ActionFn> = { safe, calendar, goals, household, year, rules, nudge, cancel, car, shop, accounts };
 
 // ---------------------------------------------------------------- HOUSEHOLD → PAPERS: warranties and household papers (money.s1, money.s12)
 

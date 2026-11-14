@@ -69,11 +69,18 @@ export const systemTab: TabDef = {
     P.left.append(sp.el, kp.el, mp.el, rp.el, orp.el, rc.el, lg.el, fsp.el, lp.el, tp.el, np.el, ip.el, ...hl.panels.map((x) => x.el));
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
-    P.right.append(stp.el, bkp.el);
+    // [polish3] APPS ROUND: the CLOCK and the CALCULATOR, apps of their own (clock/app.ts, calc/app.ts), each one tap from here
+    const ccp = panel('CLOCK AND CALCULATOR', { grow: false, cls: 'sysapps' });
+    const clockKey = button('OPEN THE CLOCK', () => void import('../../clock/app').then((m) => m.openClock()));
+    clockKey.dataset.act = 'openclock';
+    const calcKey = button('OPEN THE CALCULATOR', () => void import('../../calc/app').then((m) => m.openCalculator()));
+    calcKey.dataset.act = 'opencalc';
+    ccp.body.append(h('div.note', 'World clocks, a stopwatch and timers; sums with a tape you can use again. Both work with no signal.'), h('div.keyrow', clockKey, calcKey));
+    P.right.append(stp.el, bkp.el, ccp.el);
     // Sections (ui/sections.ts; the navigation sheet): a pill each for the status and the brain's keys (what he opens
     // System for, so first), the offline brain's report card and loops, its training and Night School, and the backup.
     sections(root, 'system', [
-      { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|OFFLINE READY|GITHUB)/ },
+      { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|OFFLINE READY|GITHUB|CLOCK AND CALCULATOR)/ },
       { id: 'health', label: 'Health', match: /^(HEALTH|CRASHES|FELT OFF|THE BRAIN)/ },
       { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|WHAT I LEARNED|FORESIGHT|LOOPS|INDEPENDENCE)/ },
       { id: 'training', label: 'Training', match: /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/ },

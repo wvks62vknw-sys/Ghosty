@@ -3,7 +3,7 @@
 //
 //   SAFE      YOUR MONTH asks for payday first, keeps it, then shows safe to spend and a day's worth equal to the brain's own sums
 //             to the penny, with every payment still due before payday; his sorting rules are listed with their counts and change;
-//             one payment split across two categories.
+//             one payment split across two categories; a shop's own page from WHERE IT WENT MOST.
 //   CAR       the car's money a month from his statements, a first estimate; CANCEL: a subscription's own cancel page on his tap.
 //   GOALS     a goal kept from the screen with its bar and what it is a month; money put in; taken away.
 //   SHARED    a household bill shared three ways says who owes whom; settled on a tap says nothing was paid or sent.
@@ -17,6 +17,10 @@
 //             birthday in COMING UP gets a message drafted in his voice, never sent; two group plans at once, each answered.
 //   WORK      every document shown is kept in the library on the phone, a new version when its words change, reopened and forgotten
 //             (asked once more).
+//   MANY      four statements picked at once (OFX, QIF, CSV and one that is not a statement): each file's line, the overlap kept
+//             once, the total.
+//   ACCOUNTS  two accounts with their balances side by side, the move between them paired and kept out of spending, renamed,
+//             and counted again on his say.
 //   STATES    each new page offline and failed, in his words with TRY AGAIN; the bar: 44 pt keys, nothing sideways, no raw string;
 //             BODY 21 and the seven looks; the chat's words open the pages.
 import { launch, webkitNoise } from './browser.mjs';
@@ -203,6 +207,13 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     await bar(page, T('RULES bar'), 'money', '.modal .pk');
     await page.click('.modal button[aria-label="Take away the rule for TESCO STORES"]');
     check(await until(page, () => !(window.__ghosty.moneyplan.rules ?? []).length, null, 10000) && /No rules of your own yet/.test(await txt(page, '.modal [data-state="empty"]')), T('RULES a rule taken away goes, and the empty list says how one is made'));
+    await page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
+    // a shop's own page, from WHERE IT WENT MOST
+    await page.locator(`${P} button[aria-label^="Open the page for "]`).first().click();
+    check(await until(page, () => /^\S.* \d+ £[\d,]+\.\d\d$/.test(window.__ghosty.moneyplan.shop ?? ''), null, 10000), T(`SHOP its page with every payment there: "${await page.evaluate(() => window.__ghosty.moneyplan.shop)}"`));
+    await page.waitForTimeout(400);
+    check(/MONTH BY MONTH/.test(await txt(page, '.modal .lab')) && /EVERY PAYMENT/.test(await txt(page, '.modal .lab')), T('SHOP month by month and every payment'));
+    await bar(page, T('SHOP bar'), 'money', '.modal .pk');
     await page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
     // one payment split across two categories
     await page.fill(`${P} input.mnsearch`, 'tesco');
@@ -511,6 +522,50 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await page.click(`${Pp} button[aria-label="Call off the plan"]`);
       check(await until(page, () => window.__ghosty.people.plan === null && window.__ghosty.people.plans.length === 1, null, 10000), 'PLANS one called off, the other stays');
       for (const x of (await pk('people', 'plans', {})).data?.plans ?? []) await pk('people', 'plans', { op: 'close', id: x.id });
+    });
+
+    await block('many statements', async () => {
+      log('many statements');
+      await fetch(`${base}/api/profile/spending`, { method: 'DELETE', headers: H }).catch(() => undefined);
+      const m0 = ym(1);
+      const day = (n) => `${m0.replace('-', '')}${String(n).padStart(2, '0')}`;
+      const ofx = `OFXHEADER:100\n\n<OFX><BANKTRANLIST>\n<STMTTRN><DTPOSTED>${day(3)}<TRNAMT>-23.45<NAME>TESCO STORES 2041\n<STMTTRN><DTPOSTED>${day(5)}<TRNAMT>2100.00<NAME>ACME WIDGETS LTD\n</BANKTRANLIST><LEDGERBAL><BALAMT>3254.26<DTASOF>${day(28)}</LEDGERBAL></OFX>`;
+      const qif = `!Type:Bank\nD03/${m0.slice(5)}/${m0.slice(0, 4)}\nT-23.45\nPTESCO STORES 2041\n^\nD07/${m0.slice(5)}/${m0.slice(0, 4)}\nT-45.10\nPSHELL BIRMINGHAM\n^\n`;
+      const csv = `Date,Description,Amount\n${m0}-09,GREGGS,-3.20\n${m0}-10,PRET A MANGER,-6.50\n`;
+      await open(page, 'money', 'Statement');
+      await page.setInputFiles(`${P} input[type=file][multiple]`, [
+        { name: 'current.ofx', mimeType: 'application/x-ofx', buffer: Buffer.from(ofx) },
+        { name: 'current.qif', mimeType: 'application/qif', buffer: Buffer.from(qif) },
+        { name: 'card.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) },
+        { name: 'notes.csv', mimeType: 'text/csv', buffer: Buffer.from('hello there') },
+      ]);
+      check(await until(page, () => (window.__ghosty.money?.batch ?? []).length === 4, null, 20000), `MANY four files read in one go: ${JSON.stringify(await page.evaluate(() => window.__ghosty.money?.batch))}`);
+      const b = await page.evaluate(() => window.__ghosty.money.batch);
+      check(/^current\.ofx: 2 kept · OFX/.test(b[0] ?? '') && /^current\.qif: 1 kept, 1 I had already · QIF/.test(b[1] ?? '') && /^card\.csv: 2 kept · CSV/.test(b[2] ?? ''), `MANY each file says what it kept, the overlap caught: ${b.slice(0, 3).join(' / ')}`);
+      check(/^notes\.csv: /.test(b[3] ?? '') && !RAW.test(b[3] ?? ''), `MANY a file that is not a statement is said in his words: "${b[3]}"`);
+      check(/^5 payments kept from 3 of 4 statements; 1 I already had was left out\./.test(await txt(page, `${P} p.pknote[aria-live]`)), `MANY the total: "${await txt(page, `${P} p.pknote[aria-live]`)}"`);
+      await bar(page, 'MANY bar', 'money');
+      await page.screenshot({ path: `${out}/moneynext-many-440.png` });
+    });
+
+    await block('accounts', async () => {
+      log('accounts');
+      await fetch(`${base}/api/profile/spending`, { method: 'DELETE', headers: H }).catch(() => undefined);
+      const m0 = ym(1);
+      await api('/profile/spending/import', { csv: `Date,Description,Amount,Balance\n${m0}-03,TESCO STORES,-40.00,960.00\n${m0}-04,TO SAVINGS,-200.00,760.00\n`, rulesOnly: true, account: 'Current' });
+      const sv = await api('/profile/spending/import', { csv: `Date,Description,Amount,Balance\n${m0}-05,FROM CURRENT,200.00,5200.00\n`, rulesOnly: true, account: 'Savings' });
+      check(sv?.result?.transfers === 2 && sv?.view?.out === 40, `ACCOUNTS the move between his own accounts is paired and not spending: ${JSON.stringify(sv?.result?.transfers)} / out ${sv?.view?.out}`);
+      await open(page, 'money', 'Month');
+      check(await until(page, () => window.__ghosty.moneyplan?.state?.accounts === 'ready' && (window.__ghosty.moneyplan.accounts ?? []).join('|') === 'Current £760.00|Savings £5,200.00', null, 15000), `ACCOUNTS side by side with their balances: ${JSON.stringify(await page.evaluate(() => window.__ghosty.moneyplan?.accounts))}`);
+      check((await page.evaluate(() => window.__ghosty.moneyplan.moves)) === 2 && /All your accounts/.test(await txt(page, `${P} .mnacctotal`)) && /£5,960\.00/.test(await txt(page, `${P} .mnacctotal`)), 'ACCOUNTS the moves listed and the total of every balance');
+      await bar(page, 'ACCOUNTS bar', 'money');
+      await page.click(`${P} .ak-row[data-id="Current"] .ak-rowmain`);
+      await page.waitForSelector('.modal input[aria-label="The account’s name"]', { timeout: 5000 });
+      await page.fill('.modal input[aria-label="The account’s name"]', 'Everyday');
+      await page.click('.modal button[aria-label="Keep this name"]');
+      check(await until(page, () => (window.__ghosty.moneyplan.accounts ?? []).some((a) => a.startsWith('Everyday ')), null, 10000), 'ACCOUNTS renamed on a tap');
+      await page.locator(`${P} button[aria-label^="Count TO SAVINGS"]`).click();
+      check(await until(page, () => window.__ghosty.moneyplan.moves === 1, null, 10000), 'ACCOUNTS a move counted again on his say');
     });
 
     await block('states', async () => {

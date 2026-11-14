@@ -2,7 +2,8 @@
  * VOICE TIMERS (BRIEF-PACKS-1 item 3): "timer 8 minutes for the pasta", several at once, each named, on the phone's own
  * clock (clockNow) — kept in this phone's storage by their end times, so a reload carries on. When one ends it rings: a sound
  * (made by the phone, no file), a buzz, the words said, and a card in the chat; it rings for a minute or until STOP.
- * They ring while Ghosty is open (a phone web app cannot ring from the lock screen: a reminder can). The words are read
+ * They ring while Ghosty is open; one of a minute or more also rings on a locked phone, as a one-off reminder on my brain's clock
+ * (only its end time and its name go there), taken back when it is stopped or rings here first. The words are read
  * by packages/shared/src/kitchen.ts timerAsked; the brain's kitchen tool sends the same timers here (kitchen_timer).
  */
 import { card } from '../../../../../packages/shared/src/cards';
@@ -21,6 +22,8 @@ export interface Timer {
   /** Ringing since (ms), or done. */
   ringing?: number;
   done?: boolean;
+  /** Its ring on the lock screen: a one-off reminder on my brain's clock (APPS ROUND), taken back when it is stopped. */
+  job?: string;
 }
 
 const KEY = 'ghosty:timers';
@@ -62,19 +65,54 @@ export function startTimers(add: { secs: number; name: string; say?: string }[],
   list = [...list.filter((t) => !t.done), ...made];
   run();
   changed();
+  // (a minute or more: it rings on a locked phone too, through my brain's push; only its end time and its name go there)
+  for (const t of made) if (t.secs >= 60) void lockFor(t);
   return made;
+}
+
+/** Rings on the lock screen: the end time as a one-off reminder on my brain's clock (an iPhone pauses a hidden web app). */
+async function lockFor(t: Timer): Promise<void> {
+  try {
+    const { replaceLock } = await import('../body/lockpush');
+    const [id] = await replaceLock(`timer:${t.id}`, [], [{ at: t.end, title: 'Timer', text: `Your ${t.name} timer is done.`, repeat: 'none' }]);
+    const live = list.find((x) => x.id === t.id && !x.done);
+    if (id && live) {
+      live.job = id;
+      keep();
+    } else if (id) void unlock(id);
+  } catch {
+    /* it still rings while Ghosty is open */
+  }
+}
+/** Takes a timer's lock-screen ring back (stopped, or ringing here with Ghosty open). */
+function unlock(id: string | undefined): void {
+  if (!id) return;
+  void import('../body/lockpush').then((m) => m.replaceLock('timer', [id], [])).catch(() => undefined);
 }
 
 /** Stop the timers by name ('' for every one), ringing or not. How many stopped. */
 export function stopTimers(name = ''): number {
   const n = name.toLowerCase();
   let k = 0;
-  for (const t of list) if (!t.done && (!n || t.name.toLowerCase().includes(n) || n.includes(t.name.toLowerCase()))) (t.done = true), k++;
+  for (const t of list) if (!t.done && (!n || t.name.toLowerCase().includes(n) || n.includes(t.name.toLowerCase()))) (t.done = true), k++, unlock(t.job);
   list = list.filter((t) => !t.done);
   changed();
   return k;
 }
+/** One more minute on a running timer (its lock-screen ring moved with it). */
+export function addMinute(id: string): void {
+  const t = list.find((x) => x.id === id && !x.done && !x.ringing);
+  if (!t) return;
+  t.end += 60_000;
+  t.secs += 60;
+  const old = t.job;
+  t.job = undefined;
+  changed();
+  if (old) unlock(old);
+  if (t.end - clockNow() >= 60_000) void lockFor(t);
+}
 export const stopTimer = (id: string): void => {
+  unlock(list.find((t) => t.id === id)?.job);
   list = list.filter((t) => t.id !== id);
   changed();
 };
@@ -87,6 +125,12 @@ function step(): void {
   const now = clockNow();
   for (const t of list) {
     if (t.done) continue;
+    // (about to ring here, with Ghosty on screen: the lock-screen ring is taken back, so it never rings twice)
+    if (t.job && !t.ringing && t.end - now < 4000 && !document.hidden) {
+      unlock(t.job);
+      t.job = undefined;
+      keep();
+    }
     if (!t.ringing && now >= t.end) ring(t, now);
     else if (t.ringing && now - t.ringing > RING_MS) t.done = true;
     else if (t.ringing && Math.floor((now - t.ringing) / 2000) !== Math.floor((now - t.ringing - 250) / 2000)) beep();
