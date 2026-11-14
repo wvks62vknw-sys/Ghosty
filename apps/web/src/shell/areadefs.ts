@@ -26,7 +26,7 @@ export const AREAS: Area[] = [
   // [tabs] LIFE (BRIEF-TABS 1; OWNER-ISSUES 119, his words: "can't we add tabs for everything we have"): the eight everyday packs,
   // each a screen of its own now (they were sheets reached only by the chat), between Plan and Me on the tab bar
   { id: 'life', title: 'Life', sub: 'Money, body, kitchen, people, work, creative things, outside and home, all kept.', icon: '<circle cx="12" cy="12" r="3.6"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/>', tabs: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'], tint: '#bf5af2' },
-  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links', 'social'], tint: '#8e8e93' },
+  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'files', 'settings', 'system', 'links', 'social'], tint: '#8e8e93' },
 ];
 
 /**
@@ -61,6 +61,8 @@ export const hubTabs = (a: { id: string; tabs: string[] }): string[] => {
 /** The Me sheet's rows, in their two groups: the screens (`group` 'screens') and the rest ('more'); `deck` opens Every screen. */
 export const ME_ROWS: { id: string; label: string; sub: string; group: 'screens' | 'more' }[] = [
   { id: 'memory', label: 'Memory', sub: 'What I know about you', group: 'screens' },
+  // [files] FILES (THE APPS ROUND): everything Ghosty keeps, in one place (features/files)
+  { id: 'files', label: 'Files', sub: 'Everything you keep, in one place', group: 'screens' },
   { id: 'settings', label: 'Settings', sub: 'Look, voice, home and about', group: 'screens' },
   { id: 'system', label: 'System', sub: 'Keys, models, storage and backups', group: 'screens' },
   { id: 'links', label: 'Links', sub: 'Email, Spotify and your phone', group: 'more' },
