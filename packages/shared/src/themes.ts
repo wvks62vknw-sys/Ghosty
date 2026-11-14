@@ -349,7 +349,18 @@ export interface LookAsk {
   two?: string;
   /** The colour word he said, when it was not its plain name ("crimson", "navy"): said back beside the plain name. */
   word?: string;
+  /** [voice.u9] "put it back", "the old colour": the look before this one. `generic`: words that only mean it just after a look change. */
+  back?: { generic: boolean };
+  /** [voice.s10] "calm colours", "focus colours", "lively colours": a colour and its switches together, named plainly. */
+  feel?: 'calm' | 'focus' | 'lively';
 }
+
+/** The colour and switches each feeling picks (voice.s10), and the line said with it. */
+export const FEELS: Record<'calm' | 'focus' | 'lively', { colour: ColourKey; switches: Partial<Switches>; line: string }> = {
+  calm: { colour: 'ice', switches: { glow: 'off', motion: 'calm' }, line: 'Calm: light blue, the glow off and nothing moving.' },
+  focus: { colour: 'graphite', switches: { glow: 'off', floor: 'off', motion: 'calm' }, line: 'Focus: grey, no glow, a plain floor and nothing moving.' },
+  lively: { colour: 'lime', switches: { glow: 'on', floor: 'on', motion: 'alive' }, line: 'Lively: lime, the glow on and everything moving.' },
+};
 
 const DIRECTION_WORDS: [RegExp, string][] = [
   [/^the scan$/, 'scan'],
@@ -387,6 +398,11 @@ const LOOKISH = /(?: look| theme| world| preset| mode| style)$/;
 export function lookAsked(text: string): LookAsk | null {
   const t0 = bare(text);
   if (!t0 || t0.length > 60) return null;
+  // ---- the look before (voice.u9): plain about the look, or generic words that mean it just after a look change
+  if (/^(?:put (?:the )?(?:colou?r|look|theme|old colou?r|old look) back|change (?:the )?(?:colou?r|look|theme) back|undo (?:the |that )?(?:colou?r|look|theme)(?: change)?|(?:back to |go back to )?(?:the )?(?:old|last|previous|earlier) (?:colou?r|look|theme|one)(?: back)?|i (?:liked|preferred) the (?:old|last|previous|other) (?:colou?r|look|theme|one)(?: better)?|revert (?:the )?(?:colou?r|look|theme))$/.test(t0)) return { back: { generic: false } };
+  const feel = /^(?:(calm|calming|relaxing|soothing|chilled?|peaceful|gentle|soft)|(focus|focused|focussed|work|concentrat(?:e|ion)|study|serious)|(lively|energetic|energy|bright|fun|party|loud|vibrant)) (?:colou?rs?|look|theme|mode|vibes?)(?: please)?$/.exec(t0.replace(VERB, ''));
+  if (feel) return { feel: feel[1] ? 'calm' : feel[2] ? 'focus' : 'lively' };
+  if (/^(?:put it back|change it back|switch it back|the one before|the one before that|undo that|go back to how it was|as it was|back how it was|no,? (?:put it |change it )?back)$/.test(t0)) return { back: { generic: true } };
   const t = t0.replace(VERB, '').trim();
   const verb = t !== t0;
   // ---- the ground
@@ -522,6 +538,11 @@ export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: Home
     next.colour = ask.colour;
     const name = `${COLOUR_LABELS[ask.colour]}${ask.word ? ` (${ask.word})` : ''}`;
     said = r.colour === ask.colour ? `${name} is on already: nothing changed.` : `${name} now, instead of ${COLOUR_LABELS[r.colour].toLowerCase()}. Only my colour changed.`;
+  } else if (ask.feel) {
+    const f = FEELS[ask.feel];
+    next.colour = f.colour;
+    Object.assign(next.switches, f.switches);
+    said = f.line;
   } else if (ask.two) {
     said = TWO_WAYS[ask.two]?.q ?? '';
   } else if (ask.body) {

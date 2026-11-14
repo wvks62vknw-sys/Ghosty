@@ -116,7 +116,7 @@ test('not sure fails closed: too little voice, between the floor and the ceiling
   // two voices that both claim it (a twin enrolled twice under another name): tied, not sure
   const twin = { ...A, floor: A.floor };
   const tied = V.judge([{ id: 'me', name: 'You', me: true, print: A }, { id: 'v2', name: 'Twin', me: false, print: twin }], later('A', 3));
-  assert.deepEqual(tied.who, { kind: 'unknown', why: 'unsure' }, 'two claims is not sure');
+  assert.deepEqual(tied.who, { kind: 'unknown', why: 'unsure', two: true }, 'two claims is not sure, and says so (voice.u5)');
   // certainly another: over the ceiling of every voice
   assert.deepEqual(V.judge(both, later('C', 3)).who.kind, 'unknown');
   const far = V.judge(known(A), later('B', 3));

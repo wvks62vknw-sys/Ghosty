@@ -382,3 +382,51 @@ test('paint for a room opens SPACE on MATERIALS, and cameras on a road go to the
   assert.equal(M.meantNote(M.meaningOf('cameras on the M6')), '\n\n(The phone read this as: show the traffic cameras on the m6.)');
   assert.equal(M.meaningOf('is it raining at home')?.id, 'weather');
 });
+
+// ---------------------------------------------------------------- the look put back, feelings as colours, his station names (u9, s10, c1)
+
+test('"put it back" and "the old colour" ask for the look before; generic words only just after a look change (the phone checks that)', () => {
+  for (const t of ['the old colour', 'put the colour back', 'undo the colour', 'change the theme back', 'back to the previous look', 'I preferred the old one', 'revert the colour']) assert.deepEqual(TH.lookAsked(t), { back: { generic: false } }, t);
+  for (const t of ['put it back', 'change it back', 'the one before', 'undo that', 'no, put it back']) assert.deepEqual(TH.lookAsked(t), { back: { generic: true } }, t);
+  for (const t of ['put the milk back', 'go back', 'back to work', 'the old one is in the drawer']) assert.equal(TH.lookAsked(t)?.back, undefined, `"${t}" is not the look`);
+  const local = readFileSync(at('../../web/src/assistant/local.ts'), 'utf8');
+  assert.match(local, /if \(ask\.back\.generic && !lastWasLook\(\)\) return false;/, 'generic words need a look change just before');
+  const theme = readFileSync(at('../../web/src/state/theme.ts'), 'utf8');
+  assert.match(theme, /export function lookBack\(\): Recipe \| null/);
+  assert.match(theme, /o\.save !== false && o\.remember !== false && current && !sameRecipe\(current, r\)/, 'every saved change is remembered, the day flips and a put-back look are not');
+  assert.match(readFileSync(at('../../web/src/main.ts'), 'utf8'), /applyRecipe\(keptRecipe\(settleTheme\(\)\), \{ remember: false \}\)/, 'the start is not a change to put back');
+});
+
+test('"calm colours", "focus colours" and "lively colours" pick a plain-named colour and its look together (voice.s10)', () => {
+  const base = TH.recipeFrom('crimson');
+  for (const [t, feel, colour, line] of [['calm colours', 'calm', 'ice', 'Calm: light blue, the glow off and nothing moving.'], ['give me focus colours', 'focus', 'graphite', 'Focus: grey, no glow, a plain floor and nothing moving.'], ['switch to lively colours', 'lively', 'lime', 'Lively: lime, the glow on and everything moving.'], ['relaxing theme', 'calm', 'ice', null], ['study mode', 'focus', 'graphite', null]]) {
+    const ask = TH.lookAsked(t);
+    assert.equal(ask?.feel, feel, t);
+    const r = TH.applyAsk(base, ask);
+    assert.equal(r.recipe.colour, colour, t);
+    if (line) assert.equal(r.said, line);
+    assert.ok(r.said.toLowerCase().includes(TH.COLOUR_LABELS[colour].toLowerCase()), `${t}: the reply names ${TH.COLOUR_LABELS[colour]}`);
+  }
+  assert.equal(TH.applyAsk(base, { feel: 'calm' }).recipe.switches.motion, 'calm');
+  for (const t of ['calm down', 'focus', 'I need to focus']) assert.equal(TH.lookAsked(t)?.feel, undefined, `"${t}" is not a colour ask`);
+});
+
+test('his own names for his radio favourites: "call this my morning station", "put on my morning station" (voice.c1)', () => {
+  for (const [t, label] of [['call this my morning station', 'morning'], ['save this station as my drive home station', 'drive home'], ["name what's playing my sunday radio", 'sunday']]) assert.deepEqual([M.meaningOf(t)?.act, M.meaningOf(t)?.label], ['radio-name', label], t);
+  for (const [t, label] of [['put on my morning station', 'morning'], ['play my drive home station', 'drive home'], ['stick my sunday radio on', null]]) {
+    const m = M.meaningOf(t);
+    if (label) assert.deepEqual([m?.act, m?.label], ['radio-named', label], t);
+  }
+  assert.equal(M.meaningOf('play my favourite station')?.act, 'radio', 'his favourite stays the radio’s own');
+  const turn = readFileSync(at('../../web/src/assistant/meaningturn.ts'), 'utf8');
+  assert.match(turn, /if \(!s\) return false;/, 'no station by that name: left to the radio’s words and the brain');
+  assert.match(readFileSync(at('../../web/src/assistant/media.ts'), 'utf8'), /byName\(label: string\): NowPlaying \| null/);
+});
+
+test('when it is not sure whose voice it was, it says why in plain words (voice.u5)', () => {
+  const vk = readFileSync(at('../../web/src/assistant/voiceknown.ts'), 'utf8');
+  for (const w of ['Two voices I know sound alike in that', 'Too much noise around your voice', 'Close to a voice I know, not close enough']) assert.ok(vk.includes(w), w);
+  assert.match(vk, /r\.who\.two \? 'two' : v\.secs < 0\.35 \* \(pcm\.length \/ RATE\) \? 'noisy' : 'close'/);
+  assert.match(readFileSync(at('../../web/src/features/core/voicetag.ts'), 'utf8'), /if \(unknown && heard\.sure === false\) kids\.push\(truthLine\(BECAUSE\[heard\.because \?\? 'close'\]\)\);/);
+  for (const f of ['voiceprint.ts', 'speakerjudge.ts']) assert.match(readFileSync(at(`../../web/src/assistant/${f}`), 'utf8'), /why: 'unsure', two: true/, `${f}: two claims say so`);
+});

@@ -135,7 +135,7 @@ onLocalReminder((title, text) => {
 async function boot(): Promise<void> {
   // his recipe as this phone keeps it (BRIEF-THEMES-2): the colour, the ground, the world, the switches; a phone from before
   // opens in Graphite + its colour + The Scan
-  applyRecipe(keptRecipe(settleTheme()));
+  applyRecipe(keptRecipe(settleTheme()), { remember: false }); // (the start is not a change to put back)
   // his mood on the whole interface (state/mood.ts → theme.ts applyMood): a live overlay on the accent, never saved
   applyMood(mood.get().now.kind);
   mood.subscribe((s) => applyMood(s.now.kind));

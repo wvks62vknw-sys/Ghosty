@@ -68,6 +68,12 @@ export interface LocalAnswer {
   doIt?: string;
 }
 
+/** [voice lane] Was my last reply a change to the look, within ten minutes (so "put it back" means the look)? */
+function lastWasLook(now = Date.now()): boolean {
+  const last = chat.get().entries.findLast((e) => e.kind === 'assistant');
+  return !!last && last.kind === 'assistant' && last.local?.kind === 'look' && now - last.at < 600_000;
+}
+
 /** The label of reply that needed no model (the brain's small talk carries the same). */
 export const DIRECT = 'Direct · no AI';
 
@@ -209,6 +215,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (looks?.kind === 'gallery') return answer(text, `Seven looks, each a whole HUD: ${LOOKS.map((l) => `${l.name}${l.built ? '' : ' (coming)'}`).join(', ')}. Settings › Theme has them as pictures. Say a look, or a colour.`, { kind: 'look', go: [{ id: 'screen:settings', ask: -1, label: 'Open Settings', open: 'settings' }] }, opts);
     const ask = lookAsked(text) ?? (looks?.kind === 'colour' ? { colour: looks.colour } : null);
     if (!ask) return false;
+    // [voice lane] UNDO THE LOOK BY WORDS (voice.u9): "put it back" just after a look change, "the old colour" any time
+    if (ask.back) {
+      if (ask.back.generic && !lastWasLook()) return false;
+      const theme = await import('../state/theme');
+      const prev = theme.lookBack();
+      return answer(text, prev ? `Put back: ${theme.recipeNow()}.` : 'There’s no earlier look to go back to.', { kind: 'look', go: [{ id: 'screen:look', ask: -1, label: 'See it on The look', open: 'look' }] }, opts);
+    }
     // [voice lane] a word that is a colour and a ground both ("make it white"): one short question, both as keys; nothing changes yet
     const two = ask.two ? TWO_WAYS[ask.two] : undefined;
     if (two) return answer(text, two.q, { kind: 'look', go: [{ id: 'look:colour', ask: -1, label: two.a[0], send: `${ask.two} colour` }, { id: 'look:ground', ask: -1, label: two.a[1], send: `${ask.two} background` }] }, opts);

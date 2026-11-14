@@ -6,7 +6,7 @@
  * (assistant/voiceknown.ts). Every key is 44 pt and named for VoiceOver.
  */
 import { h } from '../../core/dom';
-import { goOnNow, giveGrace, endGrace, grace, graceEnds, graceOn, notNow, speaker, TAG_MS } from '../../assistant/voiceknown';
+import { BECAUSE, goOnNow, giveGrace, endGrace, grace, graceEnds, graceOn, notNow, speaker, TAG_MS } from '../../assistant/voiceknown';
 import { key, tag, truthLine } from '../../ui/machine';
 
 const clock = (t: number) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -33,6 +33,8 @@ export function voiceTag(): HTMLElement {
         h('div.vt-keys', key('GO ON', () => goOnNow(), { kind: 'fill', label: 'Go on: answer what that voice said' }), key('NOT NOW', () => notNow(), { kind: 'line', label: 'Not now: drop what that voice said' })),
       );
     }
+    // [voice lane] NOT SURE WHO says why, in plain words (voice.u5)
+    if (unknown && heard.sure === false) kids.push(truthLine(BECAUSE[heard.because ?? 'close']));
     if (unknown) {
       if (graceOn()) kids.push(truthLine([{ text: 'Not asking', tone: 'strong' }, `until ${clock(graceEnds())}`]), h('div.vt-keys', key('ASK AGAIN', () => endGrace(), { kind: 'ghost', label: 'Ask again: stop the hour of not asking' })));
       else kids.push(h('div.vt-keys', key('IT’S FINE FOR AN HOUR', () => giveGrace(), { kind: 'ghost', label: 'It’s fine for an hour: stop asking about voices I don’t know for an hour' })));

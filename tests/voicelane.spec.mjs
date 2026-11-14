@@ -121,6 +121,11 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check(await page.waitForFunction(() => document.documentElement.dataset.theme === 'mono', null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [colours] WHITE LIGHT left the theme on ${await theme(page)}`);
   await say(page, 'blue', /^Blue now/, `[${W}] [colours] a plain name alone`);
   check((await theme(page)) === 'reactor', `[${W}] [colours] back to blue: ${await theme(page)}`);
+  // [voice.s10] a feeling picks a colour and its look; [voice.u9] "put it back" returns the look before
+  await say(page, 'calm colours', /^Calm: light blue, the glow off and nothing moving\.$/, `[${W}] [colours] calm colours`);
+  check((await theme(page)) === 'ice', `[${W}] [colours] calm colours left the theme on ${await theme(page)}`);
+  await say(page, 'put it back', /^Put back: Blue · /, `[${W}] [colours] put it back`);
+  check((await theme(page)) === 'reactor', `[${W}] [colours] put it back left the theme on ${await theme(page)}`);
   await page.screenshot({ path: `${out}/voicelane-colours-${W}.png` });
   // Settings › Theme: every colour by its plain name
   await page.evaluate(() => (location.hash = 'settings'));

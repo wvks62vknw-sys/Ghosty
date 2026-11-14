@@ -29,7 +29,9 @@ export interface Meant {
   open?: string;
   panel?: string;
   /** Something the phone does itself. */
-  act?: 'radio' | 'radio-stop';
+  act?: 'radio' | 'radio-stop' | 'radio-name' | 'radio-named';
+  /** [voice.c1] his own name for a radio favourite ("morning", "drive home"). */
+  label?: string;
   /** An ask for the brain, as plain canonical words (sent beside his own). */
   brain?: string;
   /** What is said back when it is done here (`open` and `act`). */
@@ -130,7 +132,13 @@ const timer = (x: RegExpExecArray): Meant | null => {
   return d ? { id: 'timer', say: `set a timer for ${d}` } : null;
 };
 
+/** [voice.c1] His own name for a station, as said: "my morning station" → "morning". */
+const stationLabel = (s: string): string => s.trim().replace(/^(?:my|the) /, '').replace(/ (?:station|radio|one)$/, '').trim().slice(0, 30);
+
 const ROWS: Row[] = [
+  // ---- his own names for his stations (voice.c1): "call this my morning station", "put on my morning station"
+  R(/^(?:call|name|save|keep|make) (?:this|it|this station|the station|this one|what's playing|what is playing)(?: station)? (?:as )?my ([a-z0-9' ]{2,30}?) (?:station|radio|one)$/, (x) => ({ id: 'radio-name', act: 'radio-name', label: stationLabel(x[1]!) })),
+  R(/^(?:put on|play|stick on|start|bung on|switch to|whack on|turn on|i want) my ([a-z0-9' ]{2,30}?) (?:station|radio)(?: on)?$/, (x) => (/^(?:favou?rite|last|usual)$/.test(stationLabel(x[1]!)) ? null : { id: 'radio-named', act: 'radio-named', label: stationLabel(x[1]!) })),
   // ---- the radio and music
   R(new RegExp(`^${PLAY} ${MUSIC}(?: on)?$`), radio),
   R(new RegExp(`^(?:put|stick|bung|chuck|whack|pop|throw|get|bang) ${MUSIC} (?:on|going)$`), radio),
