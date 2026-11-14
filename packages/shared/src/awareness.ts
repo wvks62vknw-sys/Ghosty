@@ -54,9 +54,18 @@ export interface ClientContext {
   /**
    * This turn was spoken (the app's microphone, a Telegram voice note): the reply will be heard. When the phone also scored the
    * voice (BRIEF-VOICE-KNOWN: a courtesy signal, never a lock) it is the label alone: 'owner', 'unknown' (also "not sure"), or
-   * `{ name }` of a person he introduced; never a number. Any of them is true where `voice` was `true`.
+   * `{ name }` of a person he introduced; never a number. Any of them is true where `voice` was `true`. 'unsure' (FINAL ROUND, the
+   * voice lane): a voice the phone heard but could not be sure of (between his and a stranger's, or two voices claiming it); the
+   * phone treats it as unknown (it fails closed) and the brain is told "not sure".
    */
-  voice?: boolean | 'owner' | 'unknown' | { name: string };
+  voice?: boolean | 'owner' | 'unknown' | 'unsure' | { name: string };
+  /**
+   * What the phone knows of voices, on a turn from the app (FINAL ROUND, the voice lane: his "it says it recognises me in the
+   * settings … but the actual chat says he has no way of recognising me"): `taught`, whether his own voice is taught to this phone
+   * (Settings, Voices I know); `last`, whose voice it last recognised and `mins` how long ago (a typed turn, within half an hour).
+   * Words and a whole number only, never a score; never a lock.
+   */
+  heard?: { taught: boolean; last?: 'owner' | { name: string }; mins?: number };
   /**
    * Where he is, as the phone decided it (BRIEF-HUD-SCAN-1 5; features/core/scan/place.ts): at most a word and a saved place's
    * NAME, only with his question, never a coordinate, never live GPS; absent when his switch is off.

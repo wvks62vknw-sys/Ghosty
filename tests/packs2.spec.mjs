@@ -148,7 +148,8 @@ async function saves(page, label, W) {
   log('pomodoro');
   await say(page, 'start a pomodoro');
   await until(page, () => (window.__ghosty?.timers?.() ?? []).filter((t) => /^pomodoro (focus|break)/.test(t.name)).length === 8, null, 8000, async () => `[${W}] the pomodoro timers: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.timers?.()))}`);
-  if (!/Pomodoro: 4 × 25 minutes of focus with 5-minute breaks and a 15-minute long break at the end/.test(await lastReply(page))) problems.push(`[${W}] the pomodoro reply: ${await lastReply(page)}`);
+  // (the timers are set a moment before the reply is drawn: the reply is waited for, as it is said, never read early)
+  await until(page, () => /Pomodoro: 4 × 25 minutes of focus with 5-minute breaks and a 15-minute long break at the end/.test([...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').pop() ?? ''), null, 6000, async () => `[${W}] the pomodoro reply: ${await lastReply(page)}`);
   await say(page, 'stop the pomodoro');
   await until(page, () => (window.__ghosty?.timers?.() ?? []).length === 0, null, 6000, `[${W}] the pomodoro did not stop`);
 
@@ -194,7 +195,9 @@ async function saves(page, label, W) {
   await closeSheet(page);
 
   log('comic');
-  await say(page, 'A comic about a cat who learns to drive');
+  // [comic] (FINAL ROUND, lane COMIC) the chat's "a comic about…" now makes a whole comic in COMIC (comic2 holds that); the quick
+  // four-panel strip is still CREATIVE's, opened as the brain's creative tool opens it, with the captions it writes for this ask
+  await page.evaluate(() => window.__ghosty.run('open_creative', { what: 'comic', captions: ['A cat sits in the driver’s seat.', 'Oh no, the pedals are too far away!', 'It finds a cushion and tries again.', 'Off it goes, laughing, tail out of the window.'] }));
   await sheet(page, 'comic', W, 'the comic strip did not open');
   await until(page, () => window.__ghosty?.creative?.comic?.drawn >= 1 && window.__ghosty.creative.comic.captions.length === 4, null, 12000, async () => `[${W}] the comic was not drawn: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.creative?.comic))}`);
   const caps = await page.evaluate(() => window.__ghosty.creative.comic.captions);

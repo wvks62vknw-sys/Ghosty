@@ -233,7 +233,7 @@ export function createMeasureMode(L: LensContext): Mode {
     // what to do next, in one line
     let next = '';
     if (!photo) next = 'HOLD FRAME (or tap the picture) or PICK PHOTO: a still to measure on.';
-    else if (auto() && !depth) next = S.auto.state === 'failed' ? `AUTO could not run: ${S.auto.error}. Use a BANK CARD, A4 SHEET, DOOR or DISTANCE instead.` : 'Working out distances in the photo…';
+    else if (auto() && !depth) next = S.auto.state === 'failed' ? `AUTO could not run: ${S.auto.error.replace(/\.$/, '')}. Use a BANK CARD, A4 SHEET, DOOR or DISTANCE instead.` : 'Working out distances in the photo…';
     else if (!auto() && !cal) next = refDef().taps ? `Scale: ${refDef().hint} (${refPts.length} of ${refDef().taps}).` : 'Scale: type the distance to the wall, then SET.';
     else next = tool === 'thing' ? 'Tap a thing for its width × height × depth.' : tool === 'length' ? `Tap two points (${pts.length} of 2).` : `Tap the wall’s four corners (${pts.length} of 4).`;
     guide.textContent = next;
@@ -385,7 +385,8 @@ export function createMeasureMode(L: LensContext): Mode {
         // the time so far, every second, while it works
         window.clearInterval(tick);
         tick = window.setInterval(() => {
-          if (gen !== autoGen || S.auto.state !== 'working') return void window.clearInterval(tick);
+          // (it starts while the model may still be loading: it stops only when this run is over, not before it has begun)
+          if (gen !== autoGen || S.auto.state === 'ready' || S.auto.state === 'failed') return void window.clearInterval(tick);
           if (auto()) status(`working out distances… ${Math.round((performance.now() - t0) / 1000)} s (about half a minute)`, 'mid');
         }, 1000);
         const got = await scalePhoto(c, exif, (t) => {

@@ -2,6 +2,11 @@
  * LINKS tab: everything Ghosty is connected to, in one place — email, Spotify, Telegram, this
  * phone (app + notifications), live traffic (TomTom), GitHub (self-editing) and the AI brain.
  * Every secret goes straight into the brain's encrypted vault and is never shown again.
+ *
+ * (FINAL ROUND) Every connection says where it stands the same way (words.ts stateTag): not linked, linked as …, linked but not
+ * working (why, and the one next step), one step left, checking, not known while paused, or the brain out of reach (with TRY AGAIN).
+ * The top line counts those very rows. A TEST key sits where the brain can check (Spotify, Telegram, this phone's notifications), and
+ * what the last check said is kept on the phone (ghosty.links.checks), so a link whose check failed never shows as working.
  */
 import type { BrainStatus, EmailStatus, KeyStatus, SpotifyStatus, TelegramStatus } from '../../../../../packages/shared/src/protocol';
 import { brain, pauseEndsText } from '../../api/brain';
@@ -11,14 +16,19 @@ import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { ui } from '../../state/app';
-import { button, confirmSheet, panel, row, toast, undo } from '../../ui/components';
+import { button, confirmSheet, panel, row, toast, undo, type Panel } from '../../ui/components';
 import { page } from '../../ui/page';
 import { paintNotifications } from './notifications';
 import { TELEGRAM as TG, missedWords } from './words';
 import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { socialPanels } from './social'; // [social] his own accounts: BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL (BRIEF-SOCIAL)
 import { sayError } from '../../ui/hisWords';
-import { NO_DEVICE, sentTo, TELEGRAM_TEST_FAILED } from './words';
+import { NO_DEVICE, OFFLINE_LINE, PAUSED_LINE, checkLine, emailUnreached, emailWhy, heroWords, keyWhy, modelsReady, sentTo, spotifyWhy, stateDial, stateLight, stateTag, TELEGRAM_TEST_FAILED, type LinkCheck, type LinkState } from './words';
+
+import { checkOf, keepCheck } from './checks';
+/** The quiet line under a connection: when it was last tested, and what that said. */
+const checkNote = (c: LinkCheck | null) => (c ? h('small.note.lkcheck', checkLine(c)) : '');
+
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -76,6 +86,7 @@ const PROVIDERS: Record<string, Provider> = {
   },
 };
 
+
 export const linksTab: TabDef = {
   id: 'links',
   title: 'LINKS',
@@ -108,44 +119,92 @@ export const linksTab: TabDef = {
       { id: 'services', label: 'Services', match: /^(LIVE|AI|GITHUB|HOME ASSISTANT)/ },
     ]);
 
-    const online = { email: false, spotify: false, telegram: false, phone: false, traffic: false, brain: false, github: false };
+    // Each connection's state, as its panel says it: the top line counts these very rows (never a count of its own).
+    const NAMES = { email: 'EMAIL', spotify: 'MUSIC', telegram: 'TELEGRAM', phone: 'PHONE', traffic: 'TRAFFIC', brain: 'AI', github: 'GITHUB' } as const;
+    type Id = keyof typeof NAMES;
+    const state: Record<Id, LinkState> = { email: 'checking', spotify: 'checking', telegram: 'checking', phone: 'checking', traffic: 'checking', brain: 'checking', github: 'checking' };
+    const said: Record<Id, string> = { email: '', spotify: '', telegram: '', phone: '', traffic: '', brain: '', github: '' };
+    // The rows others draw here (his social accounts, Home Assistant) count in the top line too, read from their own status line.
+    const others: Panel[] = [...social.panels, hp];
+    const otherState = (p: Panel): LinkState => {
+      const t = (p.el.querySelector('h3 small')?.textContent ?? '').trim().toUpperCase();
+      return !t ? 'checking' : /^NOT LINKED|^NOT CONNECTED/.test(t) ? 'not' : /^OFFLINE|REACH/.test(t) ? 'offline' : /^CHECK|NOT WORKING/.test(t) ? 'failing' : /PAUSED|NOT KNOWN/.test(t) ? 'paused' : /^LINKED|^PAIRED/.test(t) ? 'linked' : 'not';
+    };
     const paintHero = () => {
-      const n = Object.values(online).filter(Boolean).length;
-      P.big.textContent = `${n} / 7 ONLINE`;
-      P.dials(([['EMAIL', online.email], ['MUSIC', online.spotify], ['TELEGRAM', online.telegram], ['PHONE', online.phone], ['TRAFFIC', online.traffic], ['AI', online.brain], ['GITHUB', online.github]] as [string, boolean][]).map(([l, on]) => [l, on ? 1 : 0.04, on ? 'ON' : 'OFF', on ? '#52f2b5' : '#ff9a3c']));
+      const w = heroWords([...(Object.keys(state) as Id[]).map((id) => ({ id, state: state[id] })), ...others.map((p, i) => ({ id: `other${i}`, state: otherState(p) }))]);
+      /* state: links.connections empty */
+      P.big.textContent = w.big;
+      P.sub.textContent = w.sub;
+      P.dials((Object.keys(NAMES) as Id[]).map((id) => {
+        const s = state[id];
+        return [NAMES[id], s === 'linked' ? 1 : s === 'failing' || s === 'broken' ? 0.5 : 0.04, stateDial(s), s === 'linked' ? 'var(--c)' : s === 'failing' || s === 'broken' || s === 'offline' ? 'var(--r)' : 'var(--a)'];
+      }));
+    };
+    for (const p of others) {
+      const line = p.el.querySelector('h3 small');
+      if (line) new MutationObserver(() => paintHero()).observe(line, { childList: true, characterData: true, subtree: true });
+    }
+    /** One connection's state: its panel's line and light, and the top line. `tag` is said in place of the plain words when given. */
+    const setState = (p: Panel, id: Id, s: LinkState, who?: string | null, tag?: string) => {
+      state[id] = s;
+      said[id] = tag ?? stateTag(s, who);
+      p.setStatus(said[id], stateLight(s));
+      paintHero();
+    };
+    /** The brain could not be reached, or its database is paused: said in the panel, with TRY AGAIN (never the link form, as if not linked). */
+    const unknownBody = (p: Panel, id: Id, s: 'offline' | 'paused', what: string, again: () => void, line?: string) => {
+      setState(p, id, s);
+      clear(p.body, h('div.note', line ?? (s === 'offline' ? OFFLINE_LINE(what) : PAUSED_LINE(what))), h('div.keyrow', button('TRY AGAIN', again, 'on')));
     };
 
     // ---- email
     let editing = false;
     const paintEmail = async () => {
+      /* state: links.connections loading */
+      if (state.email === 'checking') setState(ep, 'email', 'checking');
       let st: EmailStatus | null = null;
       try {
         st = await brain.emailStatus();
       } catch {
-        /* offline */
+        st = null;
       }
-      online.email = !!st?.linked && !st.problem;
-      paintHero();
+      /* state: links.connections offline */
+      if (!st) return unknownBody(ep, 'email', 'offline', 'your email', () => void paintEmail());
+      if (st.unknown) return unknownBody(ep, 'email', 'paused', 'email', () => void paintEmail());
       clear(ep.body);
-      ep.setStatus(st?.linked ? (st.problem ? 'CHECK' : 'LINKED') : st?.unknown ? 'NOT KNOWN WHILE PAUSED' : st ? 'NOT LINKED' : 'OFFLINE', st?.linked && !st.problem ? 'ok' : 'mid');
-      if (st?.linked && !editing) {
+      if (st.linked && !editing) {
+        // A link whose saved details cannot be used, or whose check (when he linked it) failed, is never said as working.
+        const c = checkOf('email', st.address);
+        const bad = st.problem ? emailWhy(st.problem) : c && !c.ok ? (c.why ?? emailWhy()) : '';
+        /* state: links.connections error */
+        setState(ep, 'email', bad ? 'failing' : 'linked', st.address);
         ep.body.append(
           row('ACCOUNT', st.address ?? 'linked'),
           st.server ? row('SERVER', st.server) : '',
-          st.problem ? h('div.note.bad', st.problem) : h('div.note', 'Ask Ghosty "any new email?", "read the one from Sam", or "email Sam that I\'m running late" — sending always waits for your OK.'),
-          h('div.keyrow', button('CHANGE ACCOUNT', () => {
+          bad ? h('div.note.bad.lkwhy', bad) : h('div.note', 'Ask Ghosty "any new email?", "read the one from Sam", or "email Sam that I\'m running late" — sending always waits for your OK.'),
+          st.problem ? '' : checkNote(c),
+          h('div.keyrow.wrapit', button('CHANGE ACCOUNT', () => {
             editing = true;
             void paintEmail();
-          }), button('UNLINK', async () => {
+          }, bad ? 'on' : ''), button('UNLINK', async () => {
             // The app password is not kept on this phone, so this cannot be undone: said plainly first.
             if (!(await confirmSheet('Unlink your email?', `Ghosty stops reading and sending email as ${st.address ?? 'this account'}. The app password is wiped, not kept anywhere: to link it again you paste a new one.`, 'UNLINK'))) return;
-            await brain.setKey('email', '').catch(() => undefined);
-            toast('Email unlinked', 'ok');
+            // (a failed unlink says so: never "unlinked" while it is still linked)
+            try {
+              await brain.setKey('email', '');
+              keepCheck('email', null);
+              toast('Email unlinked', 'ok');
+            } catch (e) {
+              toast(sayError(e, 'unlink your email: it is still linked'), 'bad');
+            }
             void paintEmail();
           }, 'warn')),
         );
         return;
       }
+      // Nothing linked: a check about a link that is gone says nothing about the next one.
+      if (!st.linked) keepCheck('email', null);
+      setState(ep, 'email', st.linked ? state.email : 'not', st.address, st.linked ? said.email : undefined);
       const prov = h('select', { 'aria-label': 'Email provider' }, ...Object.entries(PROVIDERS).map(([k, p]) => h('option', { value: k }, p.label)));
       const addr = h('input', { type: 'email', placeholder: 'you@gmail.com', ...NOSPELL, 'aria-label': 'Email address' });
       const pw = h('input', { type: 'password', placeholder: 'app password', autocomplete: 'new-password', 'aria-label': 'App password' });
@@ -166,19 +225,18 @@ export const linksTab: TabDef = {
         if (p.servers === 'ask' && (!hosts[0] || !hosts[1])) return void (msg.textContent = 'Type both server names.');
         b.disabled = true;
         msg.className = 'note';
-        msg.textContent = 'signing in to check it…';
+        msg.textContent = 'Signing in to check it…';
         try {
           const r = await brain.setKey('email', [a, pass, ...hosts].join(' '));
-          if (r.works === false) {
-            msg.textContent = `Saved, but it did not work: ${r.info}`;
-            msg.className = 'note bad';
-          } else {
-            toast('Email linked', 'ok');
-            editing = false;
-            void paintEmail();
-          }
+          // The brain keeps what was pasted even when the check fails: the panel then says it is linked but not working, and why. A mail
+          // server out of reach says nothing about what was pasted, so that is not kept (the chat's next "any new email?" tries it).
+          const unreached = r.works === false && emailUnreached(r.info);
+          keepCheck('email', unreached ? null : r.works === false ? { ok: false, at: Date.now(), who: a, why: emailWhy(r.info) } : { ok: true, at: Date.now(), who: a });
+          toast(unreached ? 'Saved. I couldn’t reach your mail server to check it just now; ask me “any new email?” in a minute to try it.' : r.works === false ? 'Saved, but it does not work yet: the reason is in EMAIL.' : 'Email linked', r.works === false ? 'warn' : 'ok');
+          editing = false;
+          void paintEmail();
         } catch (e) {
-          msg.textContent = sayError(e, 'send that');
+          msg.textContent = sayError(e, 'link your email');
           msg.className = 'note bad';
         } finally {
           b.disabled = false;
@@ -225,31 +283,56 @@ export const linksTab: TabDef = {
 
     // ---- Spotify: the owner links their own account (PKCE). The brain makes every Spotify call.
     const paintSpotify = async () => {
+      if (state.spotify === 'checking') setState(spot, 'spotify', 'checking');
       let st: SpotifyStatus | null = null;
       try {
         st = await brain.spotifyStatus();
       } catch {
-        /* offline */
+        st = null;
       }
-      online.spotify = !!st?.linked;
-      paintHero();
+      if (!st) return unknownBody(spot, 'spotify', 'offline', 'Spotify', () => void paintSpotify());
+      if (st.unknown) return unknownBody(spot, 'spotify', 'paused', 'Spotify', () => void paintSpotify());
       clear(spot.body);
-      spot.setStatus(st?.linked ? 'LINKED' : st?.unknown ? 'NOT KNOWN WHILE PAUSED' : st ? 'NOT LINKED' : 'OFFLINE', st?.linked ? 'ok' : 'mid');
-      if (st?.linked) {
+      if (st.linked) {
+        const c = checkOf('spotify', st.name);
+        const bad = c && !c.ok ? (c.why ?? spotifyWhy()) : '';
+        setState(spot, 'spotify', bad ? 'failing' : 'linked', st.name);
         spot.body.append(
           row('ACCOUNT', st.name ?? 'Spotify user', (st.product ?? '').toUpperCase() || null, { tone: st.product === 'premium' ? 'up' : undefined }),
-          h('div.note', st.product && st.product !== 'premium'
+          bad ? h('div.note.bad.lkwhy', bad) : h('div.note', st.product && st.product !== 'premium'
             ? 'Linked. Ghosty can see what is playing and your playlists; controlling playback (play, pause, skip, volume) needs Spotify Premium.'
             : 'Linked. Ask Ghosty "what\'s playing?", "play some jazz on Spotify", "skip", "turn it down".'),
-          h('div.keyrow', button('UNLINK', async () => {
+          checkNote(c),
+          h('div.keyrow.wrapit', button('TEST', async (b) => {
+            // One read of his own Spotify profile through the saved sign-in (the brain's /spotify/test): it works, or why not.
+            b.disabled = true;
+            spot.setStatus(stateTag('checking'), undefined);
+            const r = await brain.spotifyTest().catch((e) => {
+              toast(sayError(e, 'test Spotify'), 'warn');
+              return null;
+            });
+            if (r) keepCheck('spotify', { ok: r.works, at: Date.now(), who: st.name ?? undefined, ...(r.works ? {} : { why: spotifyWhy(r.why) }) });
+            b.disabled = false;
+            await paintSpotify();
+            // The brain lets a sign-in Spotify withdrew go: then the panel is the link form, and the toast says that (no UNLINK to tap).
+            if (r) toast(r.works ? 'Spotify works: I can see your account.' : state.spotify === 'not' ? spotifyWhy('not') : spotifyWhy(r.why), r.works ? 'ok' : 'warn');
+          }, 'on'), button('UNLINK', async () => {
             if (!(await confirmSheet('Unlink Spotify?', 'Ghosty stops seeing and playing your Spotify. To link it again you go through Spotify’s sign-in once more.', 'UNLINK'))) return;
-            await brain.spotifyUnlink().catch(() => undefined);
-            toast('Spotify unlinked', 'ok');
+            try {
+              await brain.spotifyUnlink();
+              keepCheck('spotify', null);
+              toast('Spotify unlinked', 'ok');
+            } catch (e) {
+              toast(sayError(e, 'unlink Spotify: it is still linked'), 'bad');
+            }
             void paintSpotify();
           }, 'warn')),
         );
         return;
       }
+      // Not linked: a check about the last link says nothing about the next one (he may link the same account again).
+      keepCheck('spotify', null);
+      setState(spot, 'spotify', 'not');
       const uri = redirectUri();
       const idIn = h('input', { type: 'text', value: st?.clientId ?? savedClientId.get(), placeholder: "paste your app's Client ID", ...NOSPELL, 'aria-label': 'Spotify Client ID' });
       const msg = h('small.note', '');
@@ -268,7 +351,7 @@ export const linksTab: TabDef = {
             await navigator.clipboard.writeText(uri);
             toast('Redirect URI copied', 'ok');
           } catch {
-            toast(`Copy this: ${uri}`, 'warn');
+            toast('The phone would not copy it: press on the address above and copy it from there.', 'warn');
           }
         })),
         h('div.lab', 'CLIENT ID'),
@@ -277,7 +360,7 @@ export const linksTab: TabDef = {
           try {
             await startSpotifyLink(idIn.value);
           } catch (e) {
-            msg.textContent = sayError(e, 'send that');
+            msg.textContent = sayError(e, 'start the Spotify sign-in');
             msg.className = 'note bad';
             b.disabled = false;
           }
@@ -289,24 +372,26 @@ export const linksTab: TabDef = {
     // ---- Telegram: the bot token lives in SYSTEM → KEYS; here the pairing and what is paired.
     let codeTimer = 0;
     const paintTelegram = async () => {
+      if (state.telegram === 'checking') setState(tg, 'telegram', 'checking');
       let st: TelegramStatus | null = null;
       try {
         st = await brain.telegramStatus();
       } catch {
-        /* offline */
+        st = null;
       }
       // The answer came after the owner left: nothing to paint, and no countdown ticking on a hidden panel.
       if (ui.get().tab !== 'links') return;
-      online.telegram = !!st?.paired;
-      paintHero();
       clearInterval(codeTimer);
+      if (!st) return unknownBody(tg, 'telegram', 'offline', 'Telegram', () => void paintTelegram(), TG.offline);
+      if (st.unknown) return unknownBody(tg, 'telegram', 'paused', 'Telegram', () => void paintTelegram(), TG.paused);
       clear(tg.body);
-      tg.setStatus(st?.paired ? `PAIRED · @${st.bot}` : st?.linked ? 'WAITING FOR PAIRING' : st?.unknown ? 'NOT KNOWN WHILE PAUSED' : st ? 'NOT CONNECTED' : 'OFFLINE', st?.paired ? 'ok' : 'mid');
-      if (!st) return void tg.body.append(h('div.note', TG.offline));
-      if (st.unknown) return void tg.body.append(h('div.note', TG.paused));
+      // Not paired: a check about the last pairing says nothing about the next one.
+      if (!st.linked || !st.paired) keepCheck('telegram', null);
       if (!st.linked) {
+        // A key saved that could not connect the bot is linked but not working, with its one next step; no key is not linked.
+        setState(tg, 'telegram', st.token ? 'failing' : 'not');
         tg.body.append(
-          h('div.note', st.token ? TG.keyNotConnected : TG.noKey),
+          h(st.token ? 'div.note.bad.lkwhy' : 'div.note', st.token ? TG.keyNotConnected : TG.noKey),
           h('div.keyrow', button('SYSTEM → KEYS', () => goToPanel('system', 'KEYS'), 'on')),
         );
         return;
@@ -316,11 +401,12 @@ export const linksTab: TabDef = {
         try {
           await brain.telegramCode();
         } catch (e) {
-          toast(sayError(e, 'send that'), 'warn');
+          toast(sayError(e, 'make a new code'), 'warn');
         }
         void paintTelegram();
       });
       if (!st.paired) {
+        setState(tg, 'telegram', 'waiting', null, 'One step left: send the code');
         const code = h('div.tgcode', st.code ?? '······');
         const left = h('small.note', '');
         const tick = () => {
@@ -340,20 +426,33 @@ export const linksTab: TabDef = {
         );
         return;
       }
+      // Paired: a TEST that failed, or messages that did not arrive, is linked but not working until a TEST gets through.
+      const c = checkOf('telegram', st.bot);
+      const bad = st.missed ? `${missedWords(st.missed)} Tap TEST to check it works now.` : c && !c.ok ? `${c.why ?? TELEGRAM_TEST_FAILED} Tap TEST to try again.` : '';
+      setState(tg, 'telegram', bad ? 'failing' : 'linked', `@${st.bot}`);
       tg.body.append(
-        row('BOT', `@${st.bot}`, null, { tone: 'up' }),
+        row('BOT', `@${st.bot}`, null, { tone: bad ? undefined : 'up' }),
         row('PAIRED WITH', st.name ?? 'you'),
-        h('div.note', TG.pairedNote),
-        ...(st.missed ? [h('div.note.tgmissed', missedWords(st.missed))] : []),
+        bad ? h('div.note.bad.lkwhy.tgmissed', bad) : h('div.note', TG.pairedNote),
+        checkNote(c),
         h('div.keyrow.wrapit', button('TEST', async (b) => {
           b.disabled = true;
-          const r = await brain.telegramTest().catch((e: Error) => ({ sent: false, error: sayError(e, 'send that') }));
+          tg.setStatus(stateTag('checking'), undefined);
+          // Kept only when the brain answered (sent, or its own reason: no chat, no key, Telegram out of reach). No signal, a sign-in or
+          // a paused database says nothing about Telegram: said in a toast, never kept as Telegram not working.
+          let answered = true;
+          const r = await brain.telegramTest().catch((e: unknown) => {
+            answered = typeof (e as { status?: unknown })?.status === 'number';
+            return { sent: false, error: sayError(e, 'send the test to your Telegram') };
+          });
+          if (answered) keepCheck('telegram', { ok: r.sent, at: Date.now(), who: st!.bot ?? undefined, ...(r.sent ? {} : { why: r.error ?? TELEGRAM_TEST_FAILED }) });
           toast(r.sent ? TG.testSent : (r.error ?? TELEGRAM_TEST_FAILED), r.sent ? 'ok' : 'warn');
           void paintTelegram();
           b.disabled = false;
         }, 'on'), button('UNPAIR', async () => {
           if (!(await confirmSheet(TG.unpairTitle, TG.unpairBody, TG.unpairKey))) return;
           const gone = await brain.telegramUnpair().then(() => true, () => false);
+          if (gone) keepCheck('telegram', null);
           toast(gone ? TG.unpaired : TG.unpairFailed, gone ? 'ok' : 'warn');
           void paintTelegram();
         }, 'warn')),
@@ -363,33 +462,42 @@ export const linksTab: TabDef = {
     // ---- this phone: install + push notifications
     /** Devices taken off with the UNDO bar still up. */
     const pushGoing = new Set<string>();
+    const sendTest = async () => {
+      // The brain out of reach is said as that, never as "no device has notifications on".
+      const r = await brain.pushTest().catch((e) => {
+        toast(sayError(e, 'send the test notification'), 'warn');
+        return null;
+      });
+      if (r) toast(r.sent ? sentTo(r.sent) : NO_DEVICE, r.sent ? 'ok' : 'warn');
+    };
     const paintApp = async () => {
       const st = pushState.get();
-      online.phone = st.status === 'on';
-      paintHero();
+      const s: LinkState = st.status === 'on' ? 'linked' : st.status === 'blocked' ? 'broken' : st.status === 'needs-install' ? 'waiting' : st.status === 'unknown' ? 'checking' : 'not';
+      setState(ap, 'phone', s, null, st.status === 'on' ? 'Notifications on' : st.status === 'blocked' ? 'Blocked by the browser' : st.status === 'needs-install' ? 'Add to Home Screen first' : st.status === 'unsupported' ? 'This browser can’t notify' : st.status === 'unknown' ? undefined : st.installed ? 'Installed · notifications off' : 'Notifications off');
       clear(ap.body);
-      ap.setStatus(st.status === 'on' ? 'NOTIFYING' : st.installed ? 'APP' : 'OFF', st.status === 'on' ? 'ok' : 'mid');
       ap.body.append(
         h('div.note', st.installed ? 'Ghosty is installed as an app on this device.' : `Install Ghosty like an app: ${installHelp()}`),
         h(
           'div.keyrow.wrapit',
-          canPromptInstall() && !st.installed ? button('INSTALL APP', async () => void (await promptInstall())) : '',
+          canPromptInstall() && !st.installed ? button('INSTALL APP', async () => {
+            await promptInstall();
+            void paintApp();
+          }) : '',
           st.status === 'on'
             ? button('TURN OFF HERE', async () => {
+                if (!(await confirmSheet('Turn notifications off here?', 'This phone stops getting Ghosty’s notifications. Your other devices keep theirs, and you can turn them on again here any time.', 'TURN OFF'))) return;
                 await disablePush();
+                toast('Notifications are off on this phone.', 'ok');
                 void paintApp();
               }, 'warn')
-            : button('TURN ON NOTIFICATIONS', async () => {
+            : st.status === 'unsupported' ? '' : button('TURN ON NOTIFICATIONS', async () => {
                 toast(await enablePush(), pushState.get().status === 'on' ? 'ok' : 'warn');
                 void paintApp();
               }, 'on'),
-          button('SEND TEST', async () => {
-            const r = await brain.pushTest().catch(() => ({ sent: 0 }));
-            toast(r.sent ? sentTo(r.sent) : NO_DEVICE, r.sent ? 'ok' : 'warn');
-          }),
+          button('SEND TEST', () => void sendTest()),
         ),
-        st.status === 'blocked' ? h('div.note.bad', "Notifications are blocked for this site. Allow them in the browser's site settings (padlock icon), then press TURN ON.") : '',
-        st.status === 'needs-install' ? h('div.note.bad', 'On iPhone, notifications only work after "Add to Home Screen". Open Ghosty from the home-screen icon and turn them on there.') : '',
+        st.status === 'blocked' ? h('div.note.bad.lkwhy', "Notifications are blocked for this site. Allow them in the browser's site settings (padlock icon), then press TURN ON.") : '',
+        st.status === 'needs-install' ? h('div.note.bad.lkwhy', 'On iPhone, notifications only work after "Add to Home Screen". Open Ghosty from the home-screen icon and turn them on there.') : '',
         h('div.note', 'Ghosty sends reminders, finished tasks and anything you ask for ("ping my phone when the build is done").'),
       );
       try {
@@ -414,7 +522,7 @@ export const linksTab: TabDef = {
                 void paintApp();
               },
               async () => {
-                await brain.pushRemove(d.id).catch((e) => toast(sayError(e, 'remove it'), 'bad'));
+                await brain.pushRemove(d.id).catch((e) => toast(sayError(e, `stop notifying ${d.label}: it still gets them`), 'bad'));
                 pushGoing.delete(d.id);
                 void paintApp();
               },
@@ -423,7 +531,8 @@ export const linksTab: TabDef = {
           ap.body.append(r);
         }
       } catch {
-        /* offline */
+        // (the devices are the brain's to list: out of reach, the panel says so in a line, and the rest of it still works here)
+        ap.body.append(h('small.note', 'I can’t reach my brain to list the devices that get notifications. They show here when it answers.'));
       }
     };
     pushState.subscribe(() => {
@@ -432,6 +541,8 @@ export const linksTab: TabDef = {
     });
 
     // ---- AI brain + GitHub (from the brain's status)
+    /** What a key's check says, kept as the connection's last check (GitHub → github, TomTom → traffic). */
+    const KEY_ID: Record<string, Id> = { github: 'github', tomtom: 'traffic' };
     const keyForm = (k: KeyStatus, done: () => void) => {
       const input = h('input', { type: 'password', placeholder: k.set ? 'saved — paste a new one to replace' : `paste here (${k.hint})`, autocomplete: 'new-password', 'aria-label': `${k.label}` });
       const msg = h('small.note', '');
@@ -439,16 +550,21 @@ export const linksTab: TabDef = {
         const v = input.value.trim();
         if (!v) return void (msg.textContent = 'Paste it into the box first.');
         b.disabled = true;
-        msg.textContent = 'checking…';
+        msg.textContent = 'Checking it…';
         try {
           const r = await brain.setKey(k.name, v);
           input.value = '';
           const later = r.waiting ? ` · in use now, written to the vault after ${pauseEndsText()}` : '';
-          msg.textContent = r.works === false ? `saved, but ${r.info}${later}` : `saved · ${r.info ?? 'ok'}${later}`;
-          msg.className = `note ${r.works === false ? 'bad' : 'good'}`;
+          // In his words, never the service's raw text; kept as "not working" only when the service said the key itself is wrong.
+          const w = r.works === false ? keyWhy(k.name, r.info) : null;
+          msg.textContent = w ? `${w.kept ? 'Saved, but it doesn’t work. ' : ''}${w.why}${later}` : `Saved · it works${later}`;
+          msg.className = `note ${w ? 'bad' : 'good'}`;
+          const id = KEY_ID[k.name];
+          if (id) keepCheck(id, w ? (w.kept ? { ok: false, at: Date.now(), why: w.why } : null) : { ok: true, at: Date.now() });
           setTimeout(done, 1200);
         } catch (e) {
-          msg.textContent = sayError(e, 'send that');
+          msg.textContent = sayError(e, `save the ${k.label} key`);
+          msg.className = 'note bad';
         } finally {
           b.disabled = false;
         }
@@ -456,45 +572,72 @@ export const linksTab: TabDef = {
       return h('div.stackf', h('div.note', k.why), h('ol.steps', ...k.steps.map((s) => h('li', s))), h('div.keyrow', h('a.lnk', { href: k.link, target: '_blank', rel: 'noopener' }, 'OPEN SITE ↗')), h('div.keyrow', input, save), msg);
     };
     const paintBrain = async () => {
+      for (const [p, id] of [[bp, 'brain'], [gp, 'github'], [tp, 'traffic']] as [Panel, Id][]) if (state[id] === 'checking') setState(p, id, 'checking');
       let st: BrainStatus | null = null;
       try {
         st = await brain.status();
       } catch {
-        /* offline */
+        st = null;
+      }
+      if (!st) {
+        // Out of reach: each of the three says so with TRY AGAIN (never an empty panel, never "off" as if not set up).
+        unknownBody(bp, 'brain', 'offline', 'the AI brain', () => void paintBrain(), 'I can’t reach my brain right now. The library on this phone still answers. Tap TRY AGAIN when you have a signal.');
+        unknownBody(gp, 'github', 'offline', 'GitHub', () => void paintBrain());
+        unknownBody(tp, 'traffic', 'offline', 'live traffic', () => void paintBrain());
+        return;
       }
       clear(bp.body);
       clear(gp.body);
       clear(tp.body);
-      if (!st) {
-        online.brain = online.github = online.traffic = false;
-        paintHero();
-        bp.setStatus('OFFLINE', 'off');
-        bp.body.append(h('div.note', 'The brain is not reachable right now.'));
-        return;
-      }
       const ready = st.models.filter((m) => m.state === 'ok');
       const missing = st.keys.filter((k) => k.need === 'needed' && !k.set);
-      online.brain = ready.length > 0;
-      online.github = st.repoReady;
-      const tt = st.keys.find((k) => k.name === 'tomtom');
-      online.traffic = !!tt?.set;
-      paintHero();
-      bp.setStatus(ready.length ? `${ready.length} MODELS READY` : 'NO MODELS', ready.length ? 'ok' : 'off');
+      setState(bp, 'brain', ready.length ? 'linked' : 'broken', null, modelsReady(ready.length));
       bp.body.append(
         row('MODELS', `${ready.length} ready of ${st.models.length}`, null, { tone: ready.length ? 'up' : 'dn' }),
         row('KEYS', `${st.keys.filter((k) => k.set).length} saved${missing.length ? ` · ${missing.length} needed` : ''}`, null, { tone: missing.length ? 'bad' : 'up' }),
-        st.lastModel ? row('LAST', st.lastModel) : '',
-        h('div.note', ready.length ? 'Free AI keys power Ghosty’s thinking; when one runs out, the next takes over. The library answers even with none.' : 'Add a free AI key (Gemini or Groq) so Ghosty can think. It takes about a minute.'),
+        st.lastModel ? row('LAST ANSWER BY', st.lastModel) : '',
+        h(ready.length ? 'div.note' : 'div.note.bad.lkwhy', ready.length ? 'Free AI keys power Ghosty’s thinking; when one runs out, the next takes over. The library answers even with none.' : 'No AI key works right now, so I can only answer from the library. Add a free AI key (Gemini or Groq) under MANAGE AI KEYS: it takes about a minute.'),
         h('div.note', 'Backup: save your AI keys as Cloudflare secrets too (GEMINI_KEY, GROQ_KEY… — SETUP.md "Keep Ghosty working when the database is paused") and Ghosty keeps chatting even if the free daily database allowance runs out.'),
-        h('div.keyrow', button('MANAGE AI KEYS', () => goToPanel('system', 'KEYS'), missing.length ? 'on' : '')),
+        h('div.keyrow', button('MANAGE AI KEYS', () => goToPanel('system', 'KEYS'), missing.length || !ready.length ? 'on' : '')),
       );
-      gp.setStatus(st.repoReady ? 'ON' : 'OFF', st.repoReady ? 'ok' : 'mid');
       const gh = st.keys.find((k) => k.name === 'github');
-      if (st.repoReady) gp.body.append(row('REPO', st.repo ?? '—', null, { tone: 'up' }), h('div.note', 'Ghosty can read its own code and propose, preview and ship changes to itself (Workshop).'), h('div.keyrow', button('OPEN WORKSHOP', () => go('workshop'))));
-      else if (gh) gp.body.append(keyForm(gh, () => void paintBrain()));
-      tp.setStatus(tt?.set ? 'LIVE' : 'OFF', tt?.set ? 'ok' : 'mid');
-      if (tt?.set) tp.body.append(h('div.note', 'Live speeds on every road in God\'s Eye (green flowing → red jammed), plus crashes, closures and queues when you ask — e.g. "how\'s the traffic in Birmingham city centre?"'), h('div.keyrow', button('SHOW ON GOD\'S EYE', () => go('eye')), button('REPLACE KEY', () => clear(tp.body, keyForm(tt, () => void paintBrain())))));
-      else if (tt) tp.body.append(keyForm(tt, () => void paintBrain()));
+      if (gh && !gh.set) keepCheck('github', null);
+      if (!st.repoReady && gh?.set === null) unknownBody(gp, 'github', 'paused', 'GitHub', () => void paintBrain());
+      else if (!st.repo) {
+        // The brain's own repository is not named: no token can fix that, so none is asked for.
+        setState(gp, 'github', 'not');
+        gp.body.append(h('div.note', `Self-editing is not set up on this brain: it needs its repository named in its settings (SETUP.md, GITHUB_REPO).${gh?.set ? ' Your token is saved and is used once it is.' : ''}`));
+      } else if (st.repoReady) {
+        // A token saved is not a token that works: the last check of it, if it failed, says so with the form to replace it.
+        const c = checkOf('github');
+        const bad = c && !c.ok ? (c.why ?? keyWhy('github', 'not valid').why) : '';
+        setState(gp, 'github', bad ? 'failing' : 'linked', st.repo);
+        gp.body.append(row('REPO', st.repo, null, { tone: bad ? undefined : 'up' }));
+        if (bad) gp.body.append(h('div.note.bad.lkwhy', bad), checkNote(c), ...(gh ? [keyForm(gh, () => void paintBrain())] : []));
+        else gp.body.append(h('div.note', 'Ghosty can read its own code and propose, preview and ship changes to itself (Workshop).'), checkNote(c), h('div.keyrow', button('OPEN WORKSHOP', () => go('workshop'))));
+      } else {
+        setState(gp, 'github', 'not');
+        if (gh) gp.body.append(keyForm(gh, () => void paintBrain()));
+      }
+      const tt = st.keys.find((k) => k.name === 'tomtom');
+      if (tt?.set === null) unknownBody(tp, 'traffic', 'paused', 'live traffic', () => void paintBrain());
+      else if (tt?.set) {
+        const c = checkOf('traffic');
+        const bad = c && !c.ok ? (c.why ?? keyWhy('tomtom', 'not valid').why) : '';
+        setState(tp, 'traffic', bad ? 'failing' : 'linked');
+        tp.body.append(
+          bad ? h('div.note.bad.lkwhy', bad.replace(/ paste it below\.$/, ' tap REPLACE KEY and paste it.')) : h('div.note', 'Live speeds on every road in God\'s Eye (green flowing → red jammed), plus crashes, closures and queues when you ask — e.g. "how\'s the traffic in Birmingham city centre?"'),
+          checkNote(c),
+          h('div.keyrow.wrapit', button('SHOW ON GOD\'S EYE', () => go('eye')), button('REPLACE KEY', () => clear(tp.body, keyForm(tt, () => void paintBrain())), bad ? 'on' : '')),
+        );
+      } else if (tt) {
+        keepCheck('traffic', null);
+        setState(tp, 'traffic', 'not');
+        tp.body.append(keyForm(tt, () => void paintBrain()));
+      } else {
+        setState(tp, 'traffic', 'not');
+        tp.body.append(h('div.note', 'Live traffic is not offered by this brain yet. Traffic in God’s Eye still works without it.'));
+      }
     };
 
     return {
@@ -516,7 +659,8 @@ export const linksTab: TabDef = {
         const sec = sectionNow('links') || 'Accounts';
         return screenSays('links', 'Links', `links, on ${sec.toLowerCase()}`, { looking: 'links', selected: { kind: 'group', id: `links:${sec}`, label: sec } });
       },
-      describe: () => `Links: ${Object.entries(online).map(([k, v]) => `${k} ${v ? 'on' : 'off'}`).join(', ')}.`,
+      // Each connection as its panel says it ("email: Linked as tony@gmail.com; spotify: Not linked; …").
+      describe: () => `Links: ${(Object.keys(NAMES) as Id[]).map((id) => `${id}: ${said[id] || stateTag(state[id])}`).join('; ')}.`,
     };
   },
 };

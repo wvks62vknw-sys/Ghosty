@@ -9,7 +9,8 @@ import { sheetPage } from '../../ui/sheetpage';
 
 export const homeadminTab: TabDef = {
   id: 'homeadmin',
-  title: 'HOME',
+  // [consistency] was HOME, which already names the first screen and the HOME room (FINAL-CONSISTENCY)
+  title: 'HOUSEHOLD',
   icon: '<rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 4.5V3h6v1.5M8.5 12l2.2 2.2 4.5-4.5M8.5 17.5h7"/>',
   scene: 'backdrop',
   blurb: 'what is due · bin days · bills · the meter · rooms',

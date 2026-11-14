@@ -14,6 +14,7 @@ import { goToPanel } from '../../ui/sections';
 import { bar, button, panel, toast, type Panel } from '../../ui/components';
 import { independenceBlock } from './independence';
 import { sayError } from '../../ui/hisWords';
+import { more } from '../lifeui';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const secs = (ms: number) => (ms >= 90_000 ? `${Math.round(ms / 60_000)} min` : `${Math.max(0, Math.round(ms / 1000))} s`);
@@ -90,7 +91,7 @@ export function reportCardPanel(): Panel & { refresh(): void } {
     const fresh = needsCheck();
     if (!ok) head.textContent = 'This phone cannot run the offline brain, so there is nothing to measure here.';
     else if (!ready) head.textContent = 'The offline brain is not on this phone yet: download it first, then run the check.';
-    else if (mine) head.textContent = `Checking ${modelKey().split('@')[0]} on this phone… keep Ghosty open. STOP keeps what is done.`;
+    else if (mine) head.textContent = `Checking ${modelKey().split('@')[0]} on this phone… keep Ghosty open; STOP keeps what is done.`;
     else if (lastRun) head.textContent = `${fresh ? 'NEW MODEL since the last check: run it again. ' : ''}Last checked ${day(lastRun.at)} on this phone (${lastRun.model.split('@')[0]}${lastRun.complete ? '' : ', stopped early'}).`;
     else head.textContent = 'Not checked yet. RUN CHECK asks 20 fixed questions on this phone: sums, logic puzzles, facts, exact instructions and tool calls.';
     p.setStatus(!ok ? 'UNSUPPORTED' : mine ? 'CHECKING' : !ready ? 'NOT DOWNLOADED' : fresh ? (lastRun ? 'NEW MODEL' : 'NOT RUN') : 'CHECKED', !ok ? 'off' : mine ? 'mid' : fresh ? 'mid' : 'ok');
@@ -129,7 +130,8 @@ export function reportCardPanel(): Panel & { refresh(): void } {
     independenceBlock(),
     // [health] how every ability and the brain itself are doing is on its own page: linked here, not repeated
     h('div.keyrow', button('HOW EVERYTHING IS DOING → HEALTH', () => goToPanel('system', 'HEALTH'), 'tohealth')),
-    h('div.note', 'Measured on this phone, not claimed: the same 20 questions each time, one try each as in chat, then THINK HARDER (which here may only use checks that work an answer out — never ones that already know it — so its score is the model’s own). Timings depend on the phone and how warm it is.'),
+    h('div.note', 'Measured on this phone, not claimed: the same 20 questions each time.'),
+    more('One try each as in chat, then THINK HARDER, which here may only use checks that work an answer out, never ones that already know it, so its score is the model’s own. Timings depend on the phone and how warm it is.'),
   );
   reportCard.subscribe(paint);
   thinking.subscribe(paint);

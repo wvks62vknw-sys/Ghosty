@@ -14,6 +14,7 @@ import type { NotifyKind } from './notifyprefs';
 import type { Card } from '../../../packages/shared/src/cards';
 import type { Vault } from './kernel/vault';
 import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
+import { guardedFetch, readCappedText, unsafeUrl } from './netguard';
 
 /**
  * Every kind of job the brain keeps on its clock: the registry `Job['kind']` is made from (the abilities catalogue lists
@@ -329,7 +330,8 @@ export function checkFeedUrl(raw: string): string {
   }
   if (u.protocol !== 'https:') throw new Error('calendar links must start with https:// (or webcal://)');
   const host = u.hostname.toLowerCase();
-  if (host === 'localhost' || /^(\d+\.){3}\d+$/.test(host) || host.includes(':') || host.endsWith('.local') || host.endsWith('.internal')) {
+  // [security] plus the shared gate: *.localhost, .home.arpa, one-word names, private addresses
+  if (host === 'localhost' || /^(\d+\.){3}\d+$/.test(host) || host.includes(':') || host.endsWith('.local') || host.endsWith('.internal') || unsafeUrl(u.toString())) {
     throw new Error('that address is not allowed');
   }
   return u.toString();
@@ -402,10 +404,12 @@ async function fetchFeed(storage: DurableObjectStorage, vault: Vault, f: Feed, t
   const url = await vault.get(`cal:${f.id}`);
   if (!url) return { at: Date.now(), series: [], error: 'link missing' };
   try {
-    const r = await fetch(url, { headers: { Accept: 'text/calendar, text/plain, */*', 'User-Agent': 'Ghosty/2.0 (personal calendar reader)' }, redirect: 'follow' });
+    // [security] each redirect hop checked before it is asked, and the body read to 3 MB and no further
+    checkFeedUrl(url);
+    const r = await guardedFetch(url, { headers: { Accept: 'text/calendar, text/plain, */*', 'User-Agent': 'Ghosty/2.0 (personal calendar reader)' } });
     if (!r.ok) throw new Error(`calendar answered ${r.status}`);
     if (r.url) checkFeedUrl(r.url);
-    const text = (await r.text()).slice(0, 3_000_000);
+    const text = await readCappedText(r, 3_000_000);
     if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error('that link does not return a calendar (.ics)');
     // Keep repeating series and anything from two weeks ago to a year ahead.
     const now = Date.now();

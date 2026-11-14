@@ -16,6 +16,7 @@ export const PAD_WORDS = {
   copied: 'Copied.',
   cantCopy: 'I can’t copy on this phone just now: hold the answer to select it.',
   recentEmpty: 'Your conversions show here, kept on this phone.',
+  none: 'That has no answer in this unit (nothing goes no distance on no fuel). Try another number.',
 };
 
 interface Kept {
@@ -51,7 +52,9 @@ export const padState = { dim: '' as string, from: '', to: '', answer: '', every
 
 /** A number as he types it: commas allowed, a leading minus or the typographic one. */
 export const padNumber = (t: string): number | null => {
-  const s = t.trim().replace(/,/g, '').replace(/^−/, '-');
+  let s = t.trim().replace(/^−/, '-');
+  // a comma between thousands ("1,250") is dropped; any other comma is a decimal point, as a European keypad types it ("1,5")
+  s = /^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(s) ? s.replace(/,/g, '') : /^-?\d*,\d+$/.test(s) ? s.replace(',', '.') : s;
   if (!s || !/^-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?$/i.test(s)) return null;
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
@@ -119,7 +122,9 @@ export function unitPad(): HTMLElement {
     const a = convertByName(v, from.value, to.value);
     last = a;
     delete ans.dataset.state;
-    ans.textContent = a ? `${a.text}.` : PAD_WORDS.empty;
+    /* state: convert.units error */
+    ans.textContent = a ? `${a.text}.` : PAD_WORDS.none;
+    if (!a) ans.dataset.state = 'error';
     const all = everyUnit(v, from.value).filter((x) => x.to !== to.value);
     clear(every, h('small.cvgh', 'IN EVERY UNIT'), ...all.map((x) => h('div.cvpadrow', h('b', nice(x.value)), h('span', x.to))));
     padState.answer = ans.textContent;
@@ -131,33 +136,33 @@ export function unitPad(): HTMLElement {
     const d = kind.value as Dim;
     fill(from, d, KIND_PAIR[d][0]);
     fill(to, d, KIND_PAIR[d][1]);
-    go();
+    go(false);
   });
   val.addEventListener('input', () => go());
   val.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && last) {
+      clearTimeout(recentTimer);
       const v = padNumber(val.value);
       if (v !== null) remember(last, v);
     }
   });
-  from.addEventListener('change', () => go());
-  to.addEventListener('change', () => go());
+  from.addEventListener('change', () => go(false));
+  to.addEventListener('change', () => go(false));
   const swap = button('SWAP', () => {
     const f = from.value;
     from.value = to.value;
     to.value = f;
-    go();
+    go(false);
   }, 'cvpadswap');
   swap.setAttribute('aria-label', 'Swap the two units');
   const copy = button('COPY', async () => {
     if (!last) return;
     try {
       await navigator.clipboard.writeText(`${nice(last.value)} ${last.to}`);
-      ans.dataset.copied = '1';
       copy.textContent = PAD_WORDS.copied.toUpperCase().replace('.', '');
       window.setTimeout(() => (copy.textContent = 'COPY'), 1500);
     } catch {
-      ans.textContent = `${ans.textContent} ${PAD_WORDS.cantCopy}`;
+      if (!ans.textContent?.endsWith(PAD_WORDS.cantCopy)) ans.textContent = `${ans.textContent} ${PAD_WORDS.cantCopy}`;
     }
   }, 'cvpadcopy');
 

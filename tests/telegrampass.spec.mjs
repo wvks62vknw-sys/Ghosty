@@ -134,7 +134,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
 
     // 1. nothing saved yet
     s.state = NONE;
-    let t = await show(page, tag('not connected'), 'NOT CONNECTED');
+    let t = await show(page, tag('not connected'), 'Not linked');
     sound(t, tag('not connected'), { keys: ['SYSTEM → KEYS'] });
     if (full && TG) {
       check(t.notes[0] === TG.noKey, `[${tag('not connected')}] the note reads "${t.notes[0]}"`);
@@ -144,13 +144,13 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
     // 2. the key is saved, the bot is not connected
     if (full) {
       s.state = SAVED;
-      t = await show(page, tag('key saved'), 'NOT CONNECTED');
+      t = await show(page, tag('key saved'), 'Linked, but not working'); // (FINAL ROUND: a key that could not connect the bot is linked but not working)
       sound(t, tag('key saved'), { keys: ['SYSTEM → KEYS'] });
       if (TG) check(t.notes[0] === TG.keyNotConnected, `[${tag('key saved')}] the note reads "${t.notes[0]}"`);
     }
     // 3. waiting for the code: three taps in order, "about N minutes", NEW CODE under the thumb
     s.state = waiting(14);
-    t = await show(page, tag('waiting'), 'WAITING FOR PAIRING');
+    t = await show(page, tag('waiting'), 'One step left: send the code');
     sound(t, tag('waiting'), { keys: ['NEW CODE', 'OPEN THE BOT ↗'] });
     check(t.code === '482913', `[${tag('waiting')}] the code is not shown big (got "${t.code}")`);
     if (TG) {
@@ -167,14 +167,14 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
     }
     // 4. the code has run out: said in words, NEW CODE a 44 pt key
     s.state = { ...waiting(14), code: '111111', codeUntil: Date.now() - 1000 };
-    t = await show(page, tag('expired'), 'WAITING FOR PAIRING');
+    t = await show(page, tag('expired'), 'One step left: send the code');
     sound(t, tag('expired'), { keys: ['NEW CODE'] });
     check(t.code !== '111111', `[${tag('expired')}] an expired code is still shown`);
     if (TG) check(t.notes.includes(TG.left(0, false)) && /run out/.test(t.body) && /NEW CODE/.test(t.body), `[${tag('expired')}] the expired line reads "${t.notes.join(' | ')}"`);
     if (full) await still(page, 'expired', vp);
     // 5. paired
     s.state = PAIRED;
-    t = await show(page, tag('paired'), 'PAIRED');
+    t = await show(page, tag('paired'), 'Linked as @GhostyTestBot');
     sound(t, tag('paired'), { keys: ['TEST', 'UNPAIR'] });
     check(!t.buttons.some((b) => b.t === 'NEW CODE'), `[${tag('paired')}] paired panel offers NEW CODE`);
     if (TG) check(t.notes.includes(TG.pairedNote) && /PAIRED WITH\s*Sam/i.test(t.body), `[${tag('paired')}] the paired panel reads "${t.body.slice(0, 200)}"`);
@@ -182,14 +182,14 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
     if (full) {
       // a message that did not reach Telegram: said once, in words, under the panel
       s.state = { ...PAIRED, missed: { at: Date.now() - 60_000, what: 'reminder', n: 1 } };
-      t = await show(page, tag('missed'), 'PAIRED');
+      t = await show(page, tag('missed'), 'Linked, but not working'); // (FINAL ROUND: messages that did not arrive: linked but not working, until a TEST gets through)
       sound(t, tag('missed'));
-      if (TG && W) check(t.notes.includes(W.missedWords(s.state.missed)) && /didn't reach you on Telegram/.test(t.body) && /in your inbox in the app/.test(t.body), `[${tag('missed')}] the missed line reads "${t.notes.join(' | ')}"`);
+      if (TG && W) check(t.notes.some((n) => n.startsWith(W.missedWords(s.state.missed)) && /Tap TEST/.test(n)) && /didn't reach you on Telegram/.test(t.body) && /in your inbox in the app/.test(t.body), `[${tag('missed')}] the missed line reads "${t.notes.join(' | ')}"`);
       s.state = { ...PAIRED, missed: { at: Date.now() - 60_000, what: 'task', n: 3 } };
-      t = await show(page, tag('missed3'), 'PAIRED');
+      t = await show(page, tag('missed3'), 'Linked, but not working');
       check(/3 messages did not reach you/.test(t.body), `[${tag('missed3')}] a count of missed messages is not said: ${t.body.slice(0, 200)}`);
       s.state = PAIRED;
-      await show(page, tag('paired again'), 'PAIRED');
+      await show(page, tag('paired again'), 'Linked as @GhostyTestBot');
       // TEST: the toast says it was sent; a failing TEST is in his words, never "Could not send: …"
       await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn button')].find((b) => b.textContent === 'TEST')?.click());
       await page.waitForFunction(() => /Look in your Telegram/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => check(false, `[${tag('test')}] TEST showed no "Sent. Look in your Telegram."`));
@@ -218,7 +218,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
       await still(page, 'unpaired', vp);
       // paused: not known; offline: the brain is not reachable — each in his words
       s.state = { linked: false, bot: null, paired: false, name: null, unknown: true, token: true };
-      t = await show(page, tag('paused'), 'NOT KNOWN WHILE PAUSED');
+      t = await show(page, tag('paused'), 'Not known while paused');
       sound(t, tag('paused'));
       if (TG) check(t.notes[0] === TG.paused, `[${tag('paused')}] the note reads "${t.notes[0]}"`);
     }
@@ -226,7 +226,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
     if (full) {
       // the brain not reachable, on a phone that has never had an answer from it
       const dead = await open(vp, look, 0, true);
-      const t = await show(dead.page, tag('offline'), 'OFFLINE');
+      const t = await show(dead.page, tag('offline'), 'Can’t reach my brain');
       sound(t, tag('offline'));
       if (TG) check(t.notes[0] === TG.offline, `[${tag('offline')}] the note reads "${t.notes[0]}"`);
       await dead.ctx.close();
@@ -236,7 +236,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   // the panel at its biggest text (BODY 21): the code's sentence, the expired line and the paired panel cut nothing
   {
     const { ctx, page, s } = await open(vp, 'scan', 21);
-    for (const [name, st, want] of [['waiting', waiting(14), 'WAITING FOR PAIRING'], ['expired', { ...waiting(14), code: '111111', codeUntil: Date.now() - 1000 }, 'WAITING FOR PAIRING'], ['paired + missed', { ...PAIRED, missed: { at: Date.now() - 60_000, what: 'task', n: 3 } }, 'PAIRED']]) {
+    for (const [name, st, want] of [['waiting', waiting(14), 'One step left: send the code'], ['expired', { ...waiting(14), code: '111111', codeUntil: Date.now() - 1000 }, 'One step left: send the code'], ['paired + missed', { ...PAIRED, missed: { at: Date.now() - 60_000, what: 'task', n: 3 } }, 'Linked, but not working']]) {
       s.state = st;
       const t = await show(page, `${wd}/BODY 21/${name}`, want);
       sound(t, `${wd}/BODY 21/${name}`);

@@ -137,8 +137,8 @@ export interface PaperResult {
   title: string;
   official: boolean;
   at: number;
-  /** Where the paper was sat: this phone, or the free GPU with the same weights. */
-  where: 'phone' | 'kaggle';
+  /** Where the paper was sat: this phone, the free GPU with the same weights, or the brain's own model online (13 Nov). */
+  where: 'phone' | 'kaggle' | 'online';
   /** The model that sat it ('stock' or a trained week's label). */
   model: string;
   raw: number;

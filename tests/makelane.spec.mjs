@@ -71,6 +71,11 @@ await section('words', async () => {
   check(m.tins === '1 × 5 L + 1 × 2.5 L' && MAT.tinsFor(0.4) === '1 × 1 L' && MAT.tinsFor(11) === '2 × 5 L + 1 × 1 L' && MAT.tinsFor(0) === 'none', `[M tins] 7.1 L is "${m.tins}", 0.4 L "${MAT.tinsFor(0.4)}", 11 L "${MAT.tinsFor(11)}"`);
   const w = MAT.materialsWords(m);
   check(/^Paint: about 7\.1 L/.test(w.head) && /13\.2 m²/.test(w.head) && /7 standard rolls/.test(w.head) && !w.lines.length, `[M words] one room says "${w.head}"`);
+  // a tin too many costs more than a little paint left over: 5.2 L is a 5 L and a 1 L, not four small tins
+  check(MAT.tinsFor(5.2) === '1 × 5 L + 1 × 1 L' && MAT.tinsFor(3.6) === '1 × 5 L', `[M tins] 5.2 L is "${MAT.tinsFor(5.2)}", 3.6 L "${MAT.tinsFor(3.6)}"`);
+  // a high window (sill 200 on a 240 ceiling) takes only its 40 cm below the ceiling off the wall
+  const high = MAT.materialsFor([ROOM], [{ ...OPENINGS[1], sill: 200 }], 240);
+  check(high.total.walls === 33.2, `[M sill] a high window leaves ${high.total.walls} m² of wall (want 33.6 − 0.4 = 33.2)`);
   check(MAT.materialsWords(MAT.materialsFor([], [], 240)).head.startsWith('Draw a room first'), '[M words] no room says nothing useful');
   check(/first estimate/i.test(MAT.MATERIALS_NOTE) && /never a quote/.test(MAT.MATERIALS_NOTE), `[M words] the note "${MAT.MATERIALS_NOTE}" does not say it is a first estimate`);
   const two = MAT.materialsFor([ROOM, { id: 'r2', name: 'Hall', poly: [[400, 0], [600, 0], [600, 300], [400, 300]] }], OPENINGS, 240);
@@ -80,7 +85,11 @@ await section('words', async () => {
   check(UN.convertByName(100, '°F', '°C')?.text === '100 °F is 37.78 °C' && UN.convertByName(10, 'mile', 'km')?.text === '10 miles is 16.09 km', '[U by name] the pad\'s sums are not the chat\'s');
   check(UN.everyUnit(1, 'mile').length === UN.unitsOfKind('length').length - 1 && UN.UNIT_KINDS.length === 12 && UN.UNIT_KINDS.every(([k]) => UN.unitsOfKind(k).includes(UN.KIND_PAIR[k][0]) && UN.unitsOfKind(k).includes(UN.KIND_PAIR[k][1])), '[U kinds] a kind starts on a pair it does not have');
   check(PAD.padNumber('1,250.5') === 1250.5 && PAD.padNumber('−40') === -40 && PAD.padNumber('abc') === null && PAD.padNumber('') === null && PAD.padNumber('1e3') === 1000, '[U number] the pad reads a number wrong');
-  check(UN.convertByName(0, 'mpg', 'l/100km') === null, '[U fuel] 0 mpg gives an answer (it has none)');
+  check(UN.convertByName(0, 'mpg', 'l/100km') === null && /no answer/.test(PAD.PAD_WORDS.none), '[U fuel] 0 mpg gives an answer (it has none), or the pad has no words for it');
+  // a race is still a kilometre: "5K in miles" (a capital K is kelvin only beside a temperature)
+  check(UN.unitsAsked('5K in miles')?.text === '5 km is 3.107 miles' && UN.unitsAsked('10K in miles')?.text === '10 km is 6.214 miles', `[U race] "5K in miles" is "${UN.unitsAsked('5K in miles')?.text}"`);
+  // a European keypad's decimal comma is a decimal point; a thousands comma is not
+  check(PAD.padNumber('1,5') === 1.5 && PAD.padNumber('3,25') === 3.25 && PAD.padNumber('12,000') === 12000 && PAD.padNumber('1,2,3') === null, `[U comma] "1,5" reads ${PAD.padNumber('1,5')}, "12,000" ${PAD.padNumber('12,000')}`);
   // B and S · the words
   check(/first estimate, not certified/i.test(BW.COPY.done) && BW.COPY.key === 'COPY', `[B words] COPY says "${BW.COPY.done}"`);
   check(SW.SHADINGS.map((x) => x[1]).join() === 'SOLID,WIREFRAME,X-RAY' && SW.SHADINGS.every(([id]) => SW.SHADING_NOTE[id]?.length > 10), '[S words] VIEW has not its three looks');
@@ -171,6 +180,8 @@ for (const vp of [PHONE, PHONE2]) {
     await page.selectOption('#pg-convert .cvpadfrom', 'K');
     check((await ans(page)) === `${UN.convertByName(212, 'K', '°C').text}.`, `${T} [U5 kelvin] K says "${await ans(page)}"`);
     await page.selectOption('#pg-convert .cvpadfrom', '°F');
+    // changing the kind or a unit alone puts nothing in RECENT (only what he typed goes there)
+    check((await page.locator('#pg-convert .cvpadrec').count()) === 0 || !(await text(page, '#pg-convert .cvpadrecent')).includes('km is'), `${T} [U7 typed only] RECENT holds what he never typed: "${await text(page, '#pg-convert .cvpadrecent')}"`);
     // his words, never a raw one: not a number, then nothing
     await val.fill('abc');
     check((await page.locator('#pg-convert .cvpadans[data-state=error]').count()) === 1 && (await ans(page)) === PAD.PAD_WORDS.bad('abc'), `${T} [U6 not a number] "abc" says "${await ans(page)}"`);

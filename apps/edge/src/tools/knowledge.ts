@@ -1,6 +1,6 @@
 /**
  * Learning tools: look up the engineering handbook (study) and keep lessons from Ghosty's
- * own experience (learn_lesson), which are shown in every prompt afterwards.
+ * own experience (learn_lesson), which are shown in every coding prompt afterwards.
  */
 import { addLesson, findPlaybooks, loadLessons, playbookIndex, removeLesson } from '../knowledge';
 import { arg, clip, type Tool } from './types';
@@ -44,7 +44,7 @@ export const knowledgeTools: Tool[] = [
       const { lesson, repeat } = await addLesson(ctx.storage, arg.str(a, 'text'), tags);
       return repeat
         ? `You already knew this (now learned ${lesson.hits} times) — it stays near the top of your lessons. Follow it.`
-        : `Learned (id ${lesson.id}). It will be in your instructions from now on.`;
+        : `Learned (id ${lesson.id}). It will be in your instructions whenever you build or change code.`;
     },
   },
   {

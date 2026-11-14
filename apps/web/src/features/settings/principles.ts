@@ -48,7 +48,7 @@ export function principlesEditor(): { el: HTMLElement; refresh(): void } {
       paint();
       return true;
     } catch (e) {
-      const said = (e as { status?: number })?.status === 400 ? "I won't keep that: it looks like a password, key or card number." : "Not saved: I can't reach my brain right now. Try again in a moment.";
+      const said = (e as { status?: number })?.status === 400 ? "I won't keep that: it looks like a password, key or card number." : "Not saved: I can't reach my brain right now; try again in a moment.";
       toast(said, 'bad');
       return false;
     }

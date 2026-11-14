@@ -119,7 +119,7 @@ export function review(g: OwnerGame): { at: number; text: string }[] {
   } else if (st && g.result === 'you') {
     out.push({ at: 0, text: st.complete ? 'Every move I made was already lost: the mistake was before I could see.' : 'Where I went wrong is earlier than I can prove yet. I’ll keep solving it.' });
   }
-  if (st?.idea && g.result === 'you') out.push({ at: st.wonAt || g.moves.length, text: `Your ${st.idea.replace(/^an? /, '')}.` });
+  if (st?.idea && g.result === 'you') out.push({ at: st.wonAt || g.moves.length, text: `Your ${st.idea.replace(/^(an?|the) /, '')}.` });
   return out.sort((a, b) => a.at - b.at).slice(-6);
 }
 

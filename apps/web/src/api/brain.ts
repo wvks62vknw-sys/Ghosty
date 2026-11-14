@@ -491,6 +491,8 @@ export const brain = {
   /** [lifeeasier] WATCHERS (apps/edge/src/watchers.ts): public pages he named; and his own email's unread, subject and sender only, and a reply sent on his SEND tap (mailtriage.ts). */
   watchers: () => req<{ watchers: WatcherInfo[]; max: number }>('GET', '/guardian/watchers'),
   watchersAdd: (b: { kind: 'price' | 'page' | 'strike'; url: string; label?: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
+  // [recall] a chase (BRIEF-DEPTH-MEMORY 3): the one watcher system, kind `reply`
+  chaseAdd: (b: { kind: 'reply'; who: string; day: string; about: string; thread?: string; from?: string; tz: string }) => req<{ watcher: WatcherInfo; said: string }>('POST', '/guardian/watchers', b),
   watchersStop: (id: string) => req<{ removed: boolean; watchers: WatcherInfo[] }>('DELETE', `/guardian/watchers?id=${encodeURIComponent(id)}`),
   mailInbox: () => req<{ linked: boolean; address?: string; messages: MailLine[] }>('GET', '/guardian/mail/inbox'),
   mailReply: (b: { reply_to_uid: number; subject: string; body: string; confirm: true }) => req<{ sent: boolean; to: string[] }>('POST', '/guardian/mail/send', b),
@@ -555,6 +557,8 @@ export const brain = {
   spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),
   spotifyUnlink: () => req<{ ok: boolean }>('POST', '/spotify/unlink'),
+  /** LINKS → SPOTIFY's TEST: one read of his own Spotify profile through the saved sign-in (`why`: signin, busy, refused, not or reach). */
+  spotifyTest: () => req<{ works: boolean; name?: string | null; product?: string | null; why?: string }>('POST', '/spotify/test'),
   /** The Telegram bot (LINKS → TELEGRAM): its state, a fresh pairing code, forget the paired chat, a test message. */
   telegramStatus: () => req<TelegramStatus>('GET', '/telegram/status'),
   telegramCode: () => req<TelegramStatus>('POST', '/telegram/code'),

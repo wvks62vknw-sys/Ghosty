@@ -160,11 +160,13 @@ const waitBoot = (page) => page.waitForSelector('#boot', { state: 'detached', ti
     check(t.includes(name), `[offer] ${id} is not named "${name}": ${t.slice(0, 80)}`);
     check(new RegExp(`Get · ${sizeWords(packBytes(id)).replace(/[.]/g, '\\.')}`, 'i').test(t), `[offer] ${id}: the size on the button is not ${sizeWords(packBytes(id))}: ${t.slice(0, 220)}`);
     check(/on Wi-Fi/.test(t), `[offer] ${id} does not say on Wi-Fi`);
-    check(/Apache|MIT|LGPL|Research use only|licen|LICEN/.test(t), `[offer] ${id} has no licence`);
+    // (POLISH 3: a pack's card says what it is, its cost and one key; the licence is behind its WHY, so the row's whole text is read)
+    const whole = ((await row(page, id).textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ');
+    check(/Apache|MIT|LGPL|Research use only|licen|LICEN/.test(whole) && (await row(page, id).locator('details.pkmore summary').count()) >= 1, `[offer] ${id} has no licence`);
     check((await row(page, id).locator('button[data-act="get"]').getAttribute('aria-label')) === `Get ${name}, ${sizeWords(packBytes(id))}, on Wi-Fi`, `[offer] ${id}: the button's VoiceOver label`);
   }
   check(/Needs a signal, and says so: ASK about a picture, the plant, bird and insect names, a meal’s contents/.test(panel), '[offer] the panel does not say what cannot run on the phone');
-  check(/Nothing of what it sees is ever sent/.test(panel), '[offer] the panel does not say nothing is sent');
+  check(/kept on this phone so it works with no signal, and nothing of what it sees is ever sent\./.test(panel), '[offer] the panel does not say nothing is sent');
   check(st.asked.size === 0, `[offer] looking at the offers fetched ${st.asked.size} files`);
   await page.screenshot({ path: `${out}/eyes-offered.png` });
   const lensBytes = packBytes('eyes-lens');

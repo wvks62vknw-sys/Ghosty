@@ -61,20 +61,20 @@ const byName = Object.fromEntries(tokens.map((t) => [t.name, t]));
 const themes = T.parseThemes(css);
 const styles = read('../../web/styles.css');
 
-/** BRIEF-THEMES, exactly as rendered on 2 Nov (and the two before them, as they were in state/theme.ts). */
+/** BRIEF-THEMES, exactly as rendered on 2 Nov (and the two before them, as they were in state/theme.ts); named plainly since the final round (colours.ts). */
 const BRIEF = {
-  reactor: { label: 'Reactor', tag: 'Reactor cyan, bright and alive', c: '#64d2ff', pale: '#bff0ff', glow: 1 },
-  graphite: { label: 'Graphite', tag: 'Cool steel, a quieter light', c: '#9db7cc', pale: '#dbe6ef', glow: 0.55 },
-  ember: { label: 'Ember', tag: 'Forge orange, warm and bright', c: '#ff7a3d', pale: '#ffd2bd', glow: 1 },
-  gold: { label: 'Gold', tag: 'The armour’s gold, amber light', c: '#ffc53d', pale: '#ffeab8', glow: 0.95 },
-  crimson: { label: 'Crimson', tag: 'Deep red, the suit at night', c: '#ff3b4a', pale: '#ffc2c6', glow: 0.9 },
-  violet: { label: 'Violet', tag: 'Electric purple', c: '#b18cff', pale: '#e0d2ff', glow: 0.9 },
-  emerald: { label: 'Emerald', tag: 'Green glass, calm and alive', c: '#3ddc97', pale: '#bff4dc', glow: 0.85 },
-  ice: { label: 'Ice', tag: 'Pale blue-white, a low cold glow', c: '#cfe9ff', pale: '#f0f8ff', glow: 0.45 },
-  rose: { label: 'Rose', tag: 'Coral pink, soft', c: '#ff7eb6', pale: '#ffd0e4', glow: 0.8 },
+  reactor: { label: 'Blue', tag: 'Reactor cyan, bright and alive', c: '#64d2ff', pale: '#bff0ff', glow: 1 },
+  graphite: { label: 'Grey', tag: 'Cool steel, a quieter light', c: '#9db7cc', pale: '#dbe6ef', glow: 0.55 },
+  ember: { label: 'Orange', tag: 'Forge orange, warm and bright', c: '#ff7a3d', pale: '#ffd2bd', glow: 1 },
+  gold: { label: 'Yellow', tag: 'The armour’s gold, amber light', c: '#ffc53d', pale: '#ffeab8', glow: 0.95 },
+  crimson: { label: 'Red', tag: 'Deep red, the suit at night', c: '#ff3b4a', pale: '#ffc2c6', glow: 0.9 },
+  violet: { label: 'Purple', tag: 'Electric purple', c: '#b18cff', pale: '#e0d2ff', glow: 0.9 },
+  emerald: { label: 'Green', tag: 'Green glass, calm and alive', c: '#3ddc97', pale: '#bff4dc', glow: 0.85 },
+  ice: { label: 'Light blue', tag: 'Pale blue-white, a low cold glow', c: '#cfe9ff', pale: '#f0f8ff', glow: 0.45 },
+  rose: { label: 'Pink', tag: 'Coral pink, soft', c: '#ff7eb6', pale: '#ffd0e4', glow: 0.8 },
   lime: { label: 'Lime', tag: 'Acid green, the loud one', c: '#c6ff3d', pale: '#eaffb8', glow: 1 },
-  sunset: { label: 'Sunset', tag: 'Orange into pink', c: '#ff7f6e', pale: '#ffd3c8', glow: 0.9 },
-  mono: { label: 'Mono', tag: 'White light, glow off, the quietest', c: '#ffffff', pale: '#ffffff', glow: 0.25 },
+  sunset: { label: 'Peach', tag: 'Orange into pink', c: '#ff7f6e', pale: '#ffd3c8', glow: 0.9 },
+  mono: { label: 'White', tag: 'White light, glow off, the quietest', c: '#ffffff', pale: '#ffffff', glow: 0.25 },
 };
 
 const REQUIRED = [
@@ -304,7 +304,7 @@ test('THE LOOK has its five sections in the order the brief names, and its top l
   const secs = /sections\(root, 'look', \[([\s\S]*?)\]\)/.exec(src)?.[1] ?? '';
   assert.deepEqual([...secs.matchAll(/id: '([a-z]+)'/g)].map((m) => m[1]), ['tokens', 'type', 'marks', 'mind', 'themes']);
   for (const p of ['TOKENS', 'TYPE', 'MARKS', 'MIND', 'THEMES']) assert.match(src, new RegExp(`panel\\('${p}'`), `the ${p} panel`);
-  assert.ok(src.includes('This is how I draw everything from here. Tap a mark to see it work.'), 'his line at the top');
+  assert.ok(src.includes('This is how I draw everything from here; tap a mark to see it work.'), 'his line at the top');
   assert.ok(src.includes("import tokensCss from '../../design/tokens.css'"), 'the tokens are read from the file itself');
   assert.match(read('../../web/src/features/index.ts'), /settingsTab, lookTab,/, 'THE LOOK is a tab, after Settings');
   assert.match(read('../../web/src/features/settings/index.ts'), /goRow\('THE LOOK', 'look'/, 'Settings has the row that opens it');
@@ -573,8 +573,8 @@ test('THEMES-2: the sun times for his home give Paper by day and his night groun
     // when it flips is said on the Theme row
     const dl = TH.daylight(noon, home);
     assert.deepEqual([dl.day, dl.flipAt], [true, sun.set]);
-    assert.equal(TH.recipeWords(r, { now: noon, home }), `Reactor · Paper till ${TH.clockWords(sun.set)} · The Scan`);
-    assert.match(TH.recipeWords(r, { now: Date.UTC(2026, 10, 7, 20), home }), /^Reactor · Black till 07:\d\d · The Scan$/);
+    assert.equal(TH.recipeWords(r, { now: noon, home }), `Blue · Paper till ${TH.clockWords(sun.set)} · The Scan`);
+    assert.match(TH.recipeWords(r, { now: Date.UTC(2026, 10, 7, 20), home }), /^Blue · Black till 07:\d\d · The Scan$/);
     // no home saved: 08:00 to 18:00 on the phone's clock
     const at = (h, m) => new Date(2026, 10, 7, h, m).getTime();
     assert.deepEqual([at(7, 59), at(8, 1), at(17, 59), at(18, 1)].map((t) => TH.groundAt(r, t, null)), ['black', 'paper', 'paper', 'black']);
@@ -601,7 +601,7 @@ test('THEMES-2: the look by words, with no model — his asks taken and said in 
     ['dark mode', { night: true }], ['lighter', { step: 'lighter' }], ['a bit darker', { step: 'darker' }],
     ['the scan', { direction: 'scan' }], ['switch to the map', { direction: 'map' }], ['the eye look', { direction: 'eye' }], ['one ink', { direction: 'oneink' }], ['glass', { direction: 'glass' }],
     ['calm', { switches: { motion: 'calm' } }], ['bigger text', { body: 'bigger' }], ['make the text bigger', { body: 'bigger' }], ['follow the day', { switches: { day: 'on' } }],
-    ['glow off', { switches: { glow: 'off' } }], ['turn the glow off', { switches: { glow: 'off' } }], ['sharp corners', { switches: { corners: 'sharp' } }], ['switch to ember', { colour: 'ember' }],
+    ['glow off', { switches: { glow: 'off' } }], ['turn the glow off', { switches: { glow: 'off' } }], ['sharp corners', { switches: { corners: 'sharp' } }], ['switch to ember', { colour: 'ember', word: 'ember' }],
   ]) assert.deepEqual(A(text), want, `"${text}"`);
   for (const text of ["what's the map of london", 'the eye of the storm', 'paper towels on my shopping list', 'calm down', 'is it black friday', 'show me the map of Birmingham', 'glass of water', 'ember is a nice name', 'when is sunset', 'make it rain', 'lighter fluid', 'bigger picture', 'graphite', 'open the door']) assert.equal(A(text), null, `"${text}" is not about the look`);
   // applied, and said: what changed, what stayed, the honest edge
@@ -611,7 +611,7 @@ test('THEMES-2: the look by words, with no model — his asks taken and said in 
   assert.equal(black.said, 'Black: nothing lit but what I’m looking at.');
   const map = TH.applyAsk(r, A('the map'));
   assert.deepEqual([map.recipe.ground, map.recipe.world, map.recipe.colour], ['slate', 'map', 'ember']);
-  assert.match(map.said, /^The Map: .* On Slate, still in Ember\. Say “reactor” for its own colour\.$/);
+  assert.match(map.said, /^The Map: .* On Slate, still in Orange\. Say “blue” for its own colour\.$/);
   const paper = TH.applyAsk(r, A('lighter'));
   assert.equal(paper.recipe.ground, 'paper', 'lighter from Graphite: Paper');
   assert.equal(paper.recipe.night, 'graphite', 'the night ground kept under Paper');

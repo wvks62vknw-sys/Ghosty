@@ -46,6 +46,7 @@ import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
 import { localRow } from './localcard';
+import { recallChip } from '../memory/recallcard';
 import { heldReply, verifyRow } from './verifycard'; // [health] "Setting it…", the tick, RETRY and SHOW ME
 import { holdForWhy, whyButton } from './why';
 import { holdOrb } from '../further/mindmap';
@@ -488,6 +489,8 @@ function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
       if (e.verify) el.append(verifyRow(e) ?? '');
       // Answered from what he knows of himself ("can you …?"): GO, DO IT, and the offer to learn it (localcard.ts).
       if (e.local) el.append(localRow(e) ?? '');
+      // [recall] "like you said on Tuesday": the RECALL chip opens that turn (features/memory/recallcard.ts)
+      else el.append(recallChip(e.text, e.at) ?? '');
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
       // [offline2] answered FIRST on this phone: ASK THE CLOUD, one tap; tapped, it stays above the cloud's answer, struck faintly
@@ -1075,6 +1078,13 @@ export const coreTab: TabDef = {
       if (unseen) log.append(newest);
       else newest.remove();
     };
+    // [ci] The line is painted on the next frame, once, however many times the turn moves before it: painting it there and then
+    // read the log's height straight after a change (a forced layout) inside the brain's event, before the reply was handed to the
+    // voice, and so delayed his first spoken word (FINAL-CI 1). The frame comes before anything is drawn, so nothing flickers.
+    let turnFrame = 0;
+    const paintTurnSoon = () => {
+      if (!turnFrame) turnFrame = requestAnimationFrame(() => ((turnFrame = 0), paintTurn()));
+    };
     const paintLog = () => {
       // a plan card goes under the reply it came with (homecard.ts)
       const shown = homeAfterReply(chat.get().entries.slice(-40));
@@ -1144,6 +1154,9 @@ export const coreTab: TabDef = {
       lastSig = sig;
       if (atEnd || sent !== lastSent) log.scrollTop = log.scrollHeight;
       lastSent = sent;
+      // (the log is itself drawn in a frame now, or for his own words: the line goes back in the same paint, never a frame later)
+      cancelAnimationFrame(turnFrame);
+      turnFrame = 0;
       paintTurn();
       reveal(chat.get().live);
       paintCapRate();
@@ -1162,9 +1175,22 @@ export const coreTab: TabDef = {
         ...(done && last.first && !last.struck && last.text && ui.get().connected !== false ? [h('div.row.askrow', askCloudButton(last.at))] : []));
     };
     ui.subscribe((u, prev) => void ((u.busy !== prev.busy || (u.voice === 'speaking') !== (prev.voice === 'speaking')) && paintCapRate()));
-    turn.subscribe(paintTurn);
-    ui.subscribe((u, prev) => void (u.status !== prev.status && paintTurn()));
-    chat.subscribe(paintLog);
+    turn.subscribe(paintTurnSoon);
+    ui.subscribe((u, prev) => void (u.status !== prev.status && paintTurnSoon()));
+    // [ci] What the conversation holds is drawn once a frame: a reply landing moves the conversation two or three times in a row (the
+    // reply, its steps settled, the turn's end), and each whole repaint of the log, there and then, held up the clip the voice had
+    // just asked for, so his first spoken word came later (FINAL-CI 1). His own words, just sent, are drawn there and then.
+    let logFrame = 0;
+    chat.subscribe((s) => {
+      // (his newest message, even when its answer came in the same breath: the reader and the phone's own answers add both at once;
+      // and anything answered on the phone with no turn at work, such as "orbit": its line is there the moment its effect is)
+      const newest = s.entries.findLast((e) => e.kind === 'user');
+      if ((newest && newest.at !== lastSent) || !ui.get().busy) {
+        cancelAnimationFrame(logFrame);
+        logFrame = 0;
+        paintLog();
+      } else if (!logFrame) logFrame = requestAnimationFrame(() => ((logFrame = 0), paintLog()));
+    });
     canThink.subscribe(paintLog);
     settings.subscribe((st, prev) => st.offlineBrain !== prev.offlineBrain && paintLog());
     recheckThink();

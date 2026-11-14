@@ -183,6 +183,8 @@ async function boot(): Promise<void> {
   if (spotify) toast(spotify.text, spotify.ok ? 'ok' : 'warn');
   // [resta] a Siri shortcut's link (?say=, ?do=, ?open=): done on his own signed-in phone only (features/settings/shortcuts.ts)
   void import('./features/settings/shortcuts').then((s) => s.followLink(ui.get().connected || !!ownerKey.get())).catch(() => undefined);
+  // [polish3] what another app shared to Ghosty (the manifest's share_target): files to the library, words to the ask line
+  void import('./features/library/share').then((s) => s.followShared()).catch(() => undefined);
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), … (machine: the Machine's marks, so a check can lock a box on a thing: tests/hero.spec.mjs)
@@ -211,6 +213,8 @@ async function boot(): Promise<void> {
     // (once a day, a few minutes after it opens and only while it is on screen: the rooms' own throttled reads, nothing the plan would not ask)
     if (ui.get().connected) setTimeout(() => document.visibilityState === 'visible' && c.needsDailyRead() && void c.refreshChanged().catch(() => undefined), 180_000);
   }).catch(() => undefined);
+  // [recall] the phone's own index of his turns and things (features/memory/recall.ts): set up now, built at idle after Home is up
+  void import('./features/memory/recall').then((r) => r.startRecallIndex()).catch(() => undefined);
   gfx.post.flash = 0.6;
   // [lifeeasier] this open keeps its stamp fresh: the next open measures its gap from it (state/lastopen.ts)
   keepStamp();
