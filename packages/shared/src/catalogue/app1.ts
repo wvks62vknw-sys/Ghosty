@@ -402,6 +402,19 @@ export const APP_1: Record<string, CatValue> = {
     go: { open: 'eye' }, tryText: 'Opens God’s eye with the commute set',
     since: '2026-11-14',
   },
+  'phrase:camwall': {
+    name: 'Your camera wall', line: 'You can say "my camera wall" and I show up to nine public cameras you pinned, live, like a control room.',
+    more: 'On a public camera’s card in God’s eye, PIN TO WALL keeps it; WALL in the bar opens them all, each picture refreshing every few seconds; EDIT takes one off. Kept on your phone.',
+    say: ['My camera wall', 'Show my cameras', 'Open the camera wall'], scene: ['watching', 'out'], cat: 'see',
+    go: { open: 'eye' }, tryText: 'Opens God’s eye with your wall',
+    since: '2026-11-14',
+  },
+  'phrase:rainradar': {
+    name: 'Full-screen rain radar', line: 'You can say "rain radar" and I play the last two hours of rain over home, and say if rain is coming.',
+    more: 'The public radar’s last two hours, frame by frame (PLAY, PAUSE, or drag to a time), and one line for home from a free forecast: “rain at home in about 20 minutes”. RAIN in God’s eye’s bar opens it too.',
+    say: ['Rain radar', 'Show me the rain map', 'Replay the rain'], scene: ['morning', 'out'], cat: 'see',
+    since: '2026-11-14',
+  },
   'phrase:workbench': {
     name: 'Estimates by words', line: 'You can say "beam calculator" or "3 m steel beam 5 kN in the middle" and I answer on the phone, no AI.',
     more: 'A calculator’s name opens it; a problem with its numbers is filled in and answered at once. A question goes to my brain.',
