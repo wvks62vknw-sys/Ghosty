@@ -11053,7 +11053,21 @@ html #pg-gamestudio .gs3banner { position: absolute; left: 10%; right: 10%; top:
 html #pg-gamestudio .gs3banner b { display: block; margin-bottom: 8px; font: 600 18px/24px var(--sf); color: var(--g-ink-1); }
 html #pg-gamestudio .gs3things, html #pg-gamestudio .gs3add, html #pg-gamestudio .gs3nudge { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
 html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: anywhere; }
-=======
+#pg-journal .jnmap { margin: var(--g-s-1) 0; }
+#pg-journal .jnmaphost { height: 260px; border-radius: var(--g-radius-key); overflow: hidden; }
+/* GIFTS (APPS ROUND, MEMORY lane): a page of PEOPLE from the App Kit's parts; every class `gf…`, colours from the tokens */
+.gfsheet { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.gfform { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.gfform input, .gfbrow input { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; min-width: 0; }
+.gfpair > input { flex: 1 1 8em; width: auto; }
+.gfform button, .gfbrow button { min-height: var(--g-target); }
+.gfbrow { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.gfbrow input { flex: 1 1 6em; width: auto; }
+.gfbudget { margin: 0; color: var(--g-ink-2); }
+.gfbudget[data-over="true"] { color: var(--g-amber); }
+.gflist { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.gflist .ak-row.gfowed .ak-rowmeta { color: var(--g-amber); }
+.gflist .ak-row.gfdone .ak-rowmeta { color: var(--g-ink-3); }
 
 /* PRESENTATIONS, PRO EDITION (APPS ROUND, editors): free-form slides: the FREE panel, items dragged on the slide with snapping guides */
 .slbox.slfreeon { touch-action: none; }
@@ -11396,3 +11410,14 @@ html .phx-on { color: var(--g-red); }
 html .al-gpick { min-height: var(--g-target); max-width: 42%; padding: 0 var(--g-s-1); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); color: var(--g-ink-1); font: var(--g-t-caption); }
 html .al-gpick option { background: var(--g-canvas); color: var(--g-ink-1); }
 html .al-gpairword { display: block; padding: 0 4px; font: var(--g-t-caption); font-weight: 600; color: var(--g-accent-text); text-align: center; overflow-wrap: anywhere; }
+html .al-gpadkey { position: relative; }
+html .al-gpadkey::after { content: attr(data-left); position: absolute; top: 3px; right: 6px; font: var(--g-t-fine); color: var(--g-ink-3); }
+html .al-gpadkey.al-gdone { opacity: .35; }
+html .al-gwreveal .al-gwcell { animation: al-gflip 420ms ease both; }
+html .al-gwreveal .al-gwcell:nth-child(2) { animation-delay: 90ms; }
+html .al-gwreveal .al-gwcell:nth-child(3) { animation-delay: 180ms; }
+html .al-gwreveal .al-gwcell:nth-child(4) { animation-delay: 270ms; }
+html .al-gwreveal .al-gwcell:nth-child(5) { animation-delay: 360ms; }
+html .al-gwreveal .al-gwcell:nth-child(n+6) { animation-delay: 450ms; }
+@keyframes al-gflip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+@media (prefers-reduced-motion: reduce) { html .al-gwreveal .al-gwcell { animation: none; } }

@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts')],
+  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts'), at('../../web/src/features/people/gifts.ts')],
   bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/journal'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
 });
 const S = await import('./.build/journal/apps/web/src/features/journal/store.mjs');
@@ -99,7 +99,11 @@ test('journal: a photo’s own place is read on the phone and only names the nea
   assert.equal(await S.photoGps(new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])])), null, 'not a JPEG');
   assert.equal(await S.photoGps(new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])])), null, 'no EXIF');
   const ui = readFileSync(at('../../web/src/features/journal/index.ts'), 'utf8');
-  assert.ok(!/\.lat\b|\.lon\b/.test(ui.replace(/saved = r\.places;/, '')), 'the screen never keeps a position');
+  // (the map pins SAVED places by their own coordinates; an entry never holds a position)
+  assert.ok(!/\b(?:e|entry|was)\.(?:lat|lon)\b|\be\.(?:lat|lon)\s*=/.test(ui), 'the screen never writes a position into an entry');
+  const store = readFileSync(at('../../web/src/features/journal/store.ts'), 'utf8');
+  const entry = store.slice(store.indexOf('export interface Entry'), store.indexOf('export interface JournalPrefs'));
+  assert.ok(!/^\s*(?:lat|lon|lng|gps|coords?|position)\??:/im.test(entry), 'an entry has no field for a position');
 });
 
 test('keep in touch: due words, the order (most over first) and the due count, from the dates he marked alone', async () => {
@@ -118,4 +122,19 @@ test('keep in touch: due words, the order (most over first) and the due count, f
   assert.equal(P.lastWords(kim, now), 'not marked yet');
   assert.deepEqual(P.ordered([sam, kim, jo, al], now).map((p) => p.name), ['Jo', 'Kim', 'Al', 'Sam']);
   assert.equal(P.dueCount([sam, kim, jo, al], now), 3);
+});
+
+test('gifts: one step on each tap, spent per occasion (ideas cost nothing yet), thank-yous owed first, pounds from his words', async () => {
+  const Gm = await import('./.build/journal/apps/web/src/features/people/gifts.mjs');
+  const idea = { id: 'a', who: 'Jo', what: 'Gloves', occasion: 'Christmas', cost: 25, stage: 'idea', at: 1 };
+  assert.equal(Gm.advance(idea).stage, 'bought');
+  assert.equal(Gm.advance({ ...idea, stage: 'given' }).stage, 'given');
+  const got = { id: 'b', who: 'Sam', what: 'Maps', occasion: '', cost: 0, stage: 'given', received: true, thanked: false, at: 2 };
+  assert.equal(Gm.advance(got).thanked, true);
+  const d = { gifts: [idea, { ...idea, id: 'c', stage: 'bought', cost: 30 }, { ...idea, id: 'e', stage: 'given', cost: 12.5, occasion: 'Birthday' }, got], budgets: { Christmas: 40, Wedding: 100 } };
+  assert.deepEqual([...Gm.spent(d)].sort(), [['Birthday', 12.5], ['Christmas', 30], ['Wedding', 0]]);
+  assert.deepEqual(Gm.giftOrder(d.gifts).map((g) => g.id), ['b', 'c', 'a', 'e']);
+  assert.equal(Gm.pounds('£24.99'), 24.99);
+  assert.equal(Gm.pounds('24,5'), 24.5);
+  assert.equal(Gm.pounds('free'), 0);
 });
