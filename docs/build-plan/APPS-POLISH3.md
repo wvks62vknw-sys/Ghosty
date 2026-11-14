@@ -9,7 +9,8 @@ Branch `claude/new-session-4erjve-lane-polish3`, merged into `claude/new-session
 Everything below is kept on the phone and never sent anywhere. Games are still fetched only on his tap, on Wi-Fi, with the
 size said. Only free, openly licensed games are on the shelf, each with its licence and credit.
 
-- **A page for every game.** Tap a game's title on the shelf, in MY GAMES or in CONTINUE PLAYING. The page shows:
+- **A page for every game.** Tap a game's title on the shelf, in MY GAMES, in THE FREE LEVELS or in CONTINUE PLAYING. The
+  page shows:
   - its one key: GET with the size, or PLAY;
   - **screenshots** taken as he plays (the latest four kept for each game, a blank frame never kept);
   - **how to play** by touch, by controller and by keyboard;
