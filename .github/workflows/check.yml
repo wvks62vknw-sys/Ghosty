@@ -89,7 +89,8 @@ jobs:
       # [shards-fast] The brain suite runs once, in the brain job above. A shard only builds what the preview brain and the
       # specs load: the same esbuild steps npm test starts with, read from package.json so they never drift.
       - name: Build the brain's bundles (the brain suite itself runs in the brain job)
-        run: sh -c "$(node -p "require('./package.json').scripts.test.split(' && node --import')[0]")"
+        # npm puts node_modules/.bin on PATH for its scripts; a plain shell needs it added.
+        run: PATH="$PWD/node_modules/.bin:$PATH" sh -c "$(node -p "require('./package.json').scripts.test.split(' && node --import')[0]")"
         working-directory: apps/edge
       - uses: actions/cache@v4
         with: { path: ~/.cache/ms-playwright, key: playwright-1.56.0-chromium-webkit-ubuntu-24.04 }
