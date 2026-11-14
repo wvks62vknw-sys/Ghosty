@@ -1,0 +1,52 @@
+{
+  "lane": "CI TIMING (speed and reliability: the voice's first word, video, the games' brains, the shared checks)",
+  "features": [
+    {"name": "Hands-free conversation", "where": "Home → the mic key (tap once)", "say": ["(tap the mic) what's on today?", "tell me about the sea", "and tomorrow?"], "does": "Ghosty listens, answers aloud, and the ear opens again on its own after each reply, so ten turns need one tap", "status": "works", "note": "His first spoken word comes about 0.8 to 0.95 seconds after he stops; the check holds it under one second"},
+    {"name": "\"Ghosty listen\" from Siri", "where": "Settings → Shortcuts → Ghosty listen (a Siri shortcut)", "say": ["Hey Siri, Ghosty listen"], "does": "Opens Ghosty on Home already listening, as if he had tapped the mic", "status": "works", "note": "There is no always-on wake word inside Ghosty itself: Siri or a tap starts it"},
+    {"name": "Talking over Ghosty", "where": "Any spoken reply", "say": ["(just start talking while he speaks)", "stop", "go on"], "does": "Ghosty goes quiet within about 40 ms, marks the reply as cut, and \"go on\" carries on from the sentence he was in", "status": "works", "note": ""},
+    {"name": "Saying what he is doing while he works", "where": "Any slow spoken turn", "say": ["read this page for me", "what's the traffic like?"], "does": "While the brain works, a short line in plain words (\"reading that page…\") shows under his words, and is said aloud in spoken turns but never in typed ones", "status": "works", "note": "The early check on the final commit showed it waiting on the security lane's local-test fix; it passed once that landed"},
+    {"name": "The line under his words", "where": "Home → the conversation", "say": ["(any question)", "stop"], "does": "One line says where the turn is: Sending…, Asking my brain…, the step at work, Writing it now…, or Stopped", "status": "works", "note": ""},
+    {"name": "Read aloud (books and pages)", "where": "Library → a book → LISTEN, or say it", "say": ["read me The Lighthouse Keeper", "where were we", "stop reading"], "does": "Reads a book or page aloud, remembers the sentence he stopped at, and picks up from there", "status": "works", "note": "The first word comes about half a second after asking"},
+    {"name": "Notices read in turn", "where": "Automatic, between turns", "say": ["(nothing: it happens on its own)"], "does": "Reminders and notices are read after the greeting or a reply, never over them", "status": "works", "note": ""},
+    {"name": "Cooling down, said aloud", "where": "Automatic, in a spoken turn", "say": ["(any question while his models are resting)"], "does": "If every model is resting, he says so in one sentence with the time the first is back, then answers at that time", "status": "works", "note": ""},
+    {"name": "Choosing the voice", "where": "Settings → Voice", "say": ["change your voice", "try the voice"], "does": "Ghosty's own voice, or the phone's voice as the fallback, with a sample line", "status": "works", "note": ""},
+    {"name": "Knowing it is his voice", "where": "Settings → Me → Voice", "say": ["do you know my voice?", "who am I?"], "does": "The phone recognises his voice as a convenience; it stays on the phone and is never a lock", "status": "works", "note": "The voice lane made the brain aware of it"},
+    {"name": "A quick board-game opponent", "where": "ARCADE → draughts, othello, backgammon or connect four", "say": ["play draughts", "play backgammon at level 1"], "does": "Ghosty answers a move within his thinking time (about half a second at level 1), and the board never freezes", "status": "works", "note": "Before today's fix, a slow screen made it take about 4 seconds"},
+    {"name": "Video export on any phone", "where": "MAKE → EDITORS → VIDEO → EXPORT", "say": ["(tap EXPORT; exporting by voice is refused on purpose)"], "does": "Writes the video frame by frame where the phone can; otherwise records it in real time, and that file is now always as long as the timeline", "status": "works", "note": "The real-time file is .mp4 or .webm, depending on the phone"},
+    {"name": "Exact scrubbing and steadying", "where": "MAKE → EDITORS → VIDEO → SPEED → STEADY", "say": ["steady this clip"], "does": "Every seek shows the frame under the playhead, so steadying and scrubbing are exact", "status": "works", "note": ""}
+  ],
+  "upward": [
+    {"idea": "Start speaking on the first sentence while the rest is still arriving", "why": "His first word comes about a third of a second sooner on long answers", "builds_on": "Replies already arrive a sentence at a time, and the voice already queues sentences", "effort": "M"},
+    {"idea": "Keep the connection to the brain warm during a conversation", "why": "Removes the slower first turn after opening (today about 1 second, against about 0.85 seconds after that)", "builds_on": "The status call already made when a conversation starts", "effort": "S"},
+    {"idea": "A speed meter in Settings → System", "why": "He sees his own first-word, answer and ear-reopening times from the last day, kept on the phone", "builds_on": "The timings the talk checks already measure", "effort": "S"},
+    {"idea": "Draw nothing while nothing moves, on every screen", "why": "Longer battery, a cooler phone, and none of the second-long freezes after a screen opens (the board-game fix, applied everywhere)", "builds_on": "The board games' redraw-only-on-change fix", "effort": "M"},
+    {"idea": "A sign that the end of his speech was heard", "why": "A soft tick tells him he was heard, so he never wonders whether to say it again", "builds_on": "The ear's end-of-speech detection and the \"your turn\" tone", "effort": "S"},
+    {"idea": "Answer short things aloud even with no signal", "why": "Yes or no, the time and timers are answered aloud with no signal", "builds_on": "The brain on the phone and the phone's own voice", "effort": "M"},
+    {"idea": "Faster video export on more phones", "why": "Videos are made quicker than real time on more phones", "builds_on": "The existing frame-by-frame route and Ghosty's own file writer", "effort": "L"},
+    {"idea": "Export in the background, with progress in a notification", "why": "He can leave the editor while a long video is being made", "builds_on": "The export's progress line", "effort": "M"},
+    {"idea": "Board games that think during his turn", "why": "Ghosty's answer is instant on the easy levels", "builds_on": "The board-game helper that already searches off the main screen", "effort": "M"},
+    {"idea": "A voice that heals itself", "why": "If Ghosty's voice fails mid-reply, the phone's voice carries on from the same sentence with no silence", "builds_on": "The voice already hands what it could not say to the phone's voice", "effort": "S"},
+    {"idea": "A nightly check-up of the slow paths", "why": "Finds a slowdown before he does and tells him in plain words", "builds_on": "Night School and the health marks", "effort": "M"},
+    {"idea": "Screens that open instantly", "why": "Each screen opens from what is kept on the phone, then updates", "builds_on": "What each screen already keeps on the phone", "effort": "L"}
+  ],
+  "sideways": [
+    {"idea": "Hands-free cooking", "why": "\"Next step\", \"repeat\" and \"set a timer\" without touching the phone, with every step read aloud", "builds_on": "The conversation loop and read-aloud", "effort": "M"},
+    {"idea": "Hear my document read aloud while I edit it", "why": "Hearing his own writing catches mistakes", "builds_on": "Read-aloud and the document editor", "effort": "S"},
+    {"idea": "A spoken guide to any screen", "why": "\"What can I do here?\" answered aloud, step by step", "builds_on": "The list of everything he can do, and narration", "effort": "M"},
+    {"idea": "Voice notes that become text on the phone", "why": "Quick notes by voice, kept on the phone", "builds_on": "The microphone and the phone's own speech recognition", "effort": "S"},
+    {"idea": "Board games played by talking", "why": "\"Column four\" or \"take with the left piece\", with the move said back", "builds_on": "The board games and the conversation loop", "effort": "M"},
+    {"idea": "Practise a speech, with the pace and pauses timed", "why": "Coaching from his own voice only, with the timing measured", "builds_on": "Rehearse, the ear's speech detection and the timing tools", "effort": "M"},
+    {"idea": "Video voice-over by talking", "why": "He records narration straight onto the timeline, and the music dips under it", "builds_on": "The video editor's voice-over track and the microphone", "effort": "M"},
+    {"idea": "Captions for his own videos", "why": "Subtitles from his own spoken words, made on the phone", "builds_on": "The subtitle track and speech-to-text", "effort": "M"},
+    {"idea": "A read-aloud queue for the commute", "why": "Saved articles read one after another, with his place kept", "builds_on": "Read-aloud and the library", "effort": "S"},
+    {"idea": "Offer to steady shaky clips when they are added", "why": "Shaky clips fixed with one yes", "builds_on": "STEADY and the exact-frame seek", "effort": "S"}
+  ],
+  "cross": [
+    {"idea": "The radio fades under Ghosty while he speaks, and comes back after", "with": "PLAN AND HOME (radio)", "why": "Music and conversation never fight"},
+    {"idea": "The Lens reads aloud what it sees (text, signs, labels) the moment he points it", "with": "LENS", "why": "Reading without looking, in one gesture"},
+    {"idea": "School's tutor teaches as a spoken lesson that he can interrupt", "with": "LEARN (school)", "why": "He can stop it to ask a question, the way a real tutor allows"},
+    {"idea": "Comic panels read aloud, with a voice he picks for each character", "with": "COMIC", "why": "His comics become audio stories"},
+    {"idea": "The morning brief read aloud when he says \"Ghosty listen\" before 9", "with": "PLAN AND HOME (brief)", "why": "His day as a hands-free briefing, read a sentence at a time"},
+    {"idea": "Game-studio games drawn only when something changes", "with": "MAKE (gamestudio)", "why": "His own games run smoothly and stay cool on the phone"}
+  ]
+}
