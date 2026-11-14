@@ -14,6 +14,16 @@ import { sayError } from '../../ui/hisWords';
 import { keepPlace, placeOf } from './store';
 import { comicState } from './state';
 
+// A key of the design system (ui/machine.ts key()), as the shelf's keys are (app.ts): its word in capitals at the key's own size, never
+// the app-wide button type or the old sentence-case rule.
+const rkey = (label: string, fn: () => void): HTMLButtonElement => {
+  const b = button(label, () => fn(), 'g-key cxrkey');
+  b.dataset.g = 'key';
+  b.dataset.case = 'keep';
+  delete b.dataset.label;
+  return b;
+};
+
 export interface ReadSource {
   id: string;
   title: string;
@@ -108,32 +118,32 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
 
   const title = h('div.cxrtitle', src.title);
   const where = h('div.cxrwhere', { 'aria-live': 'polite' });
-  const close = button('✕', () => shut(), 'g-key cxrkey');
+  const close = rkey('✕', () => shut());
   close.setAttribute('aria-label', 'Close the comic');
   const sheet = h('div.cxrsheet');
   const stage = h('div.cxrstage', { role: 'img', 'aria-label': src.title, tabindex: '0' }, sheet);
   const note = h('p.cxrnote', { 'aria-live': 'polite', dataset: { state: 'loading' } }, 'Opening the comic…');
-  const prev = button('‹ Back', () => step(-1), 'g-key cxrkey');
+  const prev = rkey('‹ Back', () => step(-1));
   prev.setAttribute('aria-label', 'Previous page');
-  const next = button('Next ›', () => step(1), 'g-key cxrkey');
+  const next = rkey('Next ›', () => step(1));
   next.setAttribute('aria-label', 'Next page');
-  const guide = button('Guided', () => setGuided(!guided), 'g-key cxrkey');
+  const guide = rkey('Guided', () => setGuided(!guided));
   guide.setAttribute('aria-label', 'Guided view: one panel at a time');
-  const zin = button('+', () => setZoom(zoom * 1.5), 'g-key cxrkey');
+  const zin = rkey('+', () => setZoom(zoom * 1.5));
   zin.setAttribute('aria-label', 'Zoom in');
-  const zout = button('−', () => setZoom(zoom / 1.5), 'g-key cxrkey');
+  const zout = rkey('−', () => setZoom(zoom / 1.5));
   zout.setAttribute('aria-label', 'Zoom out');
-  const two = button('Two pages', () => {
+  const two = rkey('Two pages', () => {
     spreadOn = !spreadOn;
     void paint();
-  }, 'g-key cxrkey');
+  });
   two.setAttribute('aria-label', 'Two pages side by side');
-  const manga = button('Right to left', () => {
+  const manga = rkey('Right to left', () => {
     rtl = !rtl;
     panelsCache.clear();
     if (guided) panel = 0;
     void paint();
-  }, 'g-key cxrkey');
+  });
   manga.setAttribute('aria-label', 'Read right to left, as manga is');
   const slider = h('input.cxrslide', { type: 'range', min: '1', max: String(src.count), value: String(page + 1), 'aria-label': 'Go to page' }) as HTMLInputElement;
   slider.addEventListener('change', () => go(Number(slider.value) - 1, -1));
@@ -176,7 +186,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
   };
   // ---- read aloud, panel by panel, a voice for each character (comic.u12; a made comic: its words are known)
   let aloud = 0;
-  const aloudKey = src.words ? button('Read aloud', () => (aloud ? stopAloud() : void readAloud()), 'g-key cxrkey') : null;
+  const aloudKey = src.words ? rkey('Read aloud', () => (aloud ? stopAloud() : void readAloud())) : null;
   aloudKey?.setAttribute('aria-label', 'Read the comic aloud, a voice for each character');
   const say = (text: string, role: string, picked: string | undefined, i: number, ticket: number) => new Promise<void>((done) => {
     comicState.reader.aloud = { on: true, said: text, who: role, lines: comicState.reader.aloud.lines + 1 };
@@ -228,19 +238,19 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
       aloudKey.setAttribute('aria-pressed', 'false');
     }
   };
-  const pagesKey = button('Pages', () => {
+  const pagesKey = rkey('Pages', () => {
     strip.hidden = !strip.hidden;
     pagesKey.setAttribute('aria-pressed', String(!strip.hidden));
     paintStrip();
     void paint();
-  }, 'g-key cxrkey');
+  });
   pagesKey.setAttribute('aria-label', 'Show every page as a strip of small pictures');
-  const markKey = button('Bookmark', () => {
+  const markKey = rkey('Bookmark', () => {
     marks = marks.includes(page) ? marks.filter((x) => x !== page) : [...marks, page].sort((a, b) => a - b);
     keepMarks(src.id, marks);
     paintMarks();
     paintStrip();
-  }, 'g-key cxrkey');
+  });
   const paintMarks = () => {
     const on = marks.includes(page);
     markKey.textContent = on ? 'Bookmarked' : 'Bookmark';
@@ -249,18 +259,18 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
     comicState.reader.marks = [...marks];
   };
   let night = nightOn();
-  const nightKey = button('Night', () => {
+  const nightKey = rkey('Night', () => {
     night = !night;
     keepNight(night);
     root.classList.toggle('night', night);
     nightKey.setAttribute('aria-pressed', String(night));
     comicState.reader.night = night;
-  }, 'g-key cxrkey');
+  });
   nightKey.setAttribute('aria-label', 'Night reading: a warmer, dimmer page');
   nightKey.setAttribute('aria-pressed', String(night));
   let every = 0;
   let timer = 0;
-  const autoKey = button('Auto', () => {
+  const autoKey = rkey('Auto', () => {
     every = every === 0 ? 8 : every === 8 ? 15 : 0;
     clearInterval(timer);
     if (every) timer = window.setInterval(() => {
@@ -274,7 +284,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
       void step(1);
     }, every * 1000);
     paintAuto();
-  }, 'g-key cxrkey');
+  });
   const paintAuto = () => {
     autoKey.textContent = every ? `Auto · ${every} s` : 'Auto';
     autoKey.setAttribute('aria-pressed', String(!!every));

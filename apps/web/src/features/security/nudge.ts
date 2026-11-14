@@ -75,7 +75,9 @@ async function securityRow(today: string, now: number, sec: Awaited<ReturnType<t
     write({ levels: next, ...(line ? { day: today, line } : {}) });
     if (!line) return null;
   }
-  const r = row('SECURITY', line, '›', { wrap: true, onClick: () => go('security') });
+  // (the row's own SECURITY label says the word once: the line kept and spoken starts "Security: ", the row shows the rest)
+  const shown = line.replace(/^Security:\s*/, '');
+  const r = row('SECURITY', shown.charAt(0).toUpperCase() + shown.slice(1), '›', { wrap: true, onClick: () => go('security') });
   r.classList.add('brsecurity');
   return r;
 }
