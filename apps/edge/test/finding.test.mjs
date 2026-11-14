@@ -189,10 +189,10 @@ test('the Abilities page is not a way in: no tab, no row, no card, no deck card,
 });
 
 // ---------------------------------------------------------------- THE HOUSE AND ITS PLAN (BRIEF-SHELL-2): one list for the plan, a room, Every screen and this test
-test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from the one list (shell/rooms.ts); all 57 screens are on it or inside it', () => {
+test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from the one list (shell/rooms.ts); all 59 screens are on it or inside it', () => {
   assert.deepEqual(RM.ROOMS.map((r) => r.title), ['HOME', 'SEE', 'MAKE', 'LEARN', 'PLAN', 'LIFE', 'ME']);
   const counts = Object.fromEntries(RM.ROOMS.map((r) => [r.key, r.things.length]));
-  assert.deepEqual(counts, { home: 1, see: 3, make: 15, learn: 8, plan: 4, life: 8, me: 8 });
+  assert.deepEqual(counts, { home: 1, see: 3, make: 16, learn: 8, plan: 4, life: 8, me: 8 });
   for (const r of RM.ROOMS) assert.deepEqual(r.things.map((t) => t.n), r.things.map((_, i) => i + 1), `${r.key} is numbered 01, 02, 03 in order`);
   // the things are the screens of the areas (hub order), plus the two things under ME that are not screens of their own
   for (const a of D.AREAS) {
@@ -202,11 +202,11 @@ test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from t
   }
   assert.deepEqual(RM.ROOMS.find((r) => r.key === 'me').things.filter((t) => !t.screen).map((t) => t.id), ['origin', 'deck']);
   // every screen of the catalogue is on the plan: a thing (35), a room's own key (Home, and the six hubs), or inside another screen (THE LOOK, the reader)
-  const onPlan = new Set([...RM.THINGS.map((t) => t.screen).filter(Boolean), 'core', ...RM.ROOMS.map((r) => r.screen), ...Object.keys({ look: 1, security: 1, reader: 1, lab: 1 })]);
+  const onPlan = new Set([...RM.THINGS.map((t) => t.screen).filter(Boolean), 'core', ...RM.ROOMS.map((r) => r.screen), ...Object.keys({ look: 1, security: 1, journal: 1, reader: 1, lab: 1 })]);
   const missing = SCREENS.filter((id) => !onPlan.has(id) && !byId.get(id)?.hub);
   assert.deepEqual(missing, [], `screens on no plan: ${missing.join(', ')}`);
-  assert.equal(SCREENS.length, 57, 'the 57 screens (FILES joined in the apps round; the interpreter, the lab and REHEARSE joined on 11 Nov; Spreadsheets, Presentations, the Workspace, Photo, Video, the Game Studio and the Comic with their landings; SECURITY, a row of Settings, on 14 Nov)');
-  assert.equal(RM.THINGS.length, 47, 'forty-seven numbered things: the 45 screens of the rooms, the origin and Every screen');
+  assert.equal(SCREENS.length, 59, 'the 59 screens (FILES under Me in the apps round; JOURNAL, a row of Memory, and PAINT on 14 Nov in the apps round; the interpreter, the lab and REHEARSE joined on 11 Nov; Spreadsheets, Presentations, the Workspace, Photo, Video, the Game Studio and the Comic with their landings; SECURITY, a row of Settings, on 14 Nov)');
+  assert.equal(RM.THINGS.length, 48, 'forty-eight numbered things: the 46 screens of the rooms (PAINT and FILES joined in the apps round), the origin and Every screen');
   console.log(`plan: 7 rooms, ${RM.THINGS.length} numbered things (${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ')}); with the 7 room keys, THE LOOK and the reader all ${SCREENS.length} screens are on it`);
   // each thing has one name, said as in the mock
   assert.deepEqual(RM.ROOMS.find((r) => r.key === 'learn').things.map((t) => t.name), ['Courses', 'Arcade', 'Gym', 'School', 'Library', 'Learning', 'Coach', 'Rehearse']);
@@ -336,3 +336,4 @@ test('the finding rule holds in all seven worlds: The Scan, The Map, The Eye, On
 // THE COMIC (FINAL ROUND, lane COMIC): its pure parts (the writer, the grids, the chat's wordings, the panel finder, the files, the library),
 // run with the rest of the suite from here, so the protected package.json's test list need not change.
 await import('./comic.test.mjs');
+await import('./paint.test.mjs');

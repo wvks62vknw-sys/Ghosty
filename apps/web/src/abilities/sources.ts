@@ -39,7 +39,7 @@ export const SCREEN_CAT: Record<string, AbilityCat> = {
   'area-ask': 'talk', 'area-see': 'see', 'area-make': 'build', 'area-learn': 'learn', 'area-plan': 'do', 'area-me': 'talk',
   // [tabs] LIFE and the screens the sheets became (BRIEF-TABS)
   'area-life': 'do', money: 'do', body: 'do', kitchen: 'do', people: 'know', work: 'do', creative: 'build', outside: 'watch', homeadmin: 'do',
-  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', sheets: 'do', slides: 'do', workspace: 'do', video: 'build', gamestudio: 'build', comic: 'build', house: 'do',
+  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', sheets: 'do', slides: 'do', workspace: 'do', video: 'build', gamestudio: 'build', comic: 'build', paint: 'build', house: 'do',
   // [reader] THE READER (BRIEF-LIBRARY-READER): his books, read here or to him
   reader: 'learn',
 };
@@ -80,6 +80,8 @@ export const APP_WIDE = [
   { id: 'helpdesk', sel: '' },
   // [consistency] THE GUIDED TOUR (assistant/tour.ts)
   { id: 'tour', sel: '' },
+  // [consistency] SPEAK SCREEN (shell/speakscreen.ts, asked through assistant/helpdesk.ts)
+  { id: 'speakscreen', sel: '' },
 ] as const;
 
 /** A deck line's id: its screen and its first words ("deck:lens:translate-a-sign-or-a-menu"). */
@@ -140,6 +142,8 @@ export function appItems({ tabs, hubs }: AppInput): CatItem[] {
   for (const g of GROUNDS) add({ id: `theme:ground:${g.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: recipeGo, since: '2026-11-07' });
   for (const w of WORLDS) add({ id: `theme:world:${w.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: lookGo, since: '2026-11-07' });
   for (const sw of SWITCHES) add({ id: `theme:switch:${sw.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: recipeGo, since: '2026-11-07' });
+  // [consistency] ACCESSIBILITY (APPS ROUND): the one switch over the reading switches (themes.ts EASY), first in the dials
+  add({ id: 'theme:switch:easy', kind: 'theme', screen: 'look', cat: 'talk', go: recipeGo, since: '2026-11-14' });
   for (const d of DIRECTIONS) add({ id: `theme:preset:${d.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: d.preset ? recipeGo : { open: 'look' }, since: '2026-11-07' });
   for (const k of MOOD_KINDS) add({ id: `mood:${k}`, kind: 'mood', cat: 'talk', go: { run: 'open_me' }, since: '2026-10-31' });
   for (const a of APP_WIDE) add({ id: `app:${a.id}`, kind: 'app', cat: 'do' });

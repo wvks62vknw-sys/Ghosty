@@ -27,7 +27,8 @@ import { markSeen } from '../core/missed';
 import { nightKeyAt } from '../core/goodnightwords';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
-import { rawText } from '../../ui/hisWords';import { briefWorld } from '../eye/briefworld';
+import { rawText } from '../../ui/hisWords';import { briefWorld } from '../eye/briefworld';import { homeCard } from '../../ui/appkit';
+
 
 
 export const briefTab: TabDef = {
@@ -239,6 +240,11 @@ export const briefTab: TabDef = {
     const mail = briefMail();
     dp.el.append(mail.el);
     const wp = panel('WEATHER', { cls: 'wx' });
+    // [see] the WEATHER app (weather/app.ts): the full forecast for every saved place, one tap from the Brief's weather
+    // (the App Kit's Home card: the app's icon, its name and one line, a tap opens it)
+    const wxOpen = homeCard({ name: 'Weather', glyph: '<path d="M7 17.5h10a4 4 0 00.6-7.95A5.5 5.5 0 006.9 9.2 4.2 4.2 0 007 17.5z"/>', line: 'The next hour, 24 hours, ten days and the air', onTap: () => void import('../../weather/app').then((m) => m.openWeather()) });
+    wxOpen.dataset.act = 'weather';
+    wp.el.append(h('div.row.wrap.wxopen', wxOpen));
     // THE COMMUTE: one line, home to work with the live traffic, when both are saved (Memory → ABOUT YOU → PLACES; until
     // then one line saying where to save them).
     const commute = panel('COMMUTE', { cls: 'commute', grow: false });
