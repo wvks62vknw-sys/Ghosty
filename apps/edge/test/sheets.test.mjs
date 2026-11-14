@@ -320,9 +320,11 @@ test('[sheets] the file as Excel writes it: .xlsx read with shared strings, a sh
   assert.equal(e.text('Quarter', 'E1'), '20%');
   assert.equal(e.text('Quarter', 'B3'), '£250.50');
   const said = lost.join(' | ');
-  assert.ok(/merged/i.test(said), `merged cells said: ${said}`);
+  // (the pro edition keeps merged cells and borders now; a chart part it cannot read is still said)
+  assert.deepEqual(q.merges, ['G1:H1'], 'the merged cells kept');
+  assert.equal(q.cells.B2.x?.bd, 15, 'the borders kept, all four sides');
   assert.ok(/chart|picture|drawing/i.test(said), `the chart said: ${said}`);
-  assert.ok(/border/i.test(said), `borders said: ${said}`);
+  assert.ok(!/merged|border/i.test(said), `merged cells and borders not said lost: ${said}`);
   assert.equal(new Set(lost).size, lost.length, 'each said once');
   // and written again, it carries no `_xlfn.` it should not and keeps the formula
   const again = readXlsx(writeXlsx(book)).book;
@@ -550,4 +552,108 @@ test('[sheets] Σ over several columns: into an empty last row chosen, else the 
   const again = K.autoSum(r.book, new Engine(r.book), 0, { r1: 0, c1: 1, r2: 1, c2: 1 });
   assert.equal(again.blocked, undefined);
   assert.deepEqual(again.cells, ['B3']);
+});
+
+// THE APPS ROUND, PRO EDITION: the chart editor's kinds, sparklines, input checks and cell formatting, kept through .xlsx as Excel's own parts
+const unzipOf = async (bytes) => {
+  buildSync({ entryPoints: [here('../../web/src/convert/zip.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: here('./.build/sheets/zip.mjs'), logLevel: 'warning' });
+  const Z = await import(pathToFileURL(here('./.build/sheets/zip.mjs')).href);
+  const files = Z.unzipSync(bytes);
+  return (name) => (files.get(name) ? new TextDecoder().decode(files.get(name)) : null);
+};
+const shopBook = () => {
+  let b = newBook('Shops');
+  const rows = [['Month', 'Food', 'Fuel', 'Fun'], ['Jan', '120', '60', '30'], ['Feb', '140', '55', '45'], ['Mar', '110', '70', '25'], ['Apr', '150', '65', '50']];
+  rows.forEach((r, i) => r.forEach((t, c) => (b = setEntry(b, 'Sheet1', `${'ABCD'[c]}${i + 1}`, t))));
+  return b;
+};
+
+test('[sheets] the chart editor: every kind from the chosen cells, its numbers read back, an edit kept', () => {
+  const b = shopBook();
+  const e = new Engine(b);
+  const stacked = K.chartFrom(b, e, 'Sheet1', 'A1:D5', 'stackedcol');
+  assert.equal(stacked.labels, 'A2:A5');
+  assert.equal(stacked.values, 'B2:B5');
+  assert.deepEqual(stacked.more, ['C2:C5', 'D2:D5']);
+  assert.deepEqual(stacked.names, ['Food', 'Fuel', 'Fun']);
+  const d = K.chartData(b, e, { ...stacked, id: 'c1' });
+  assert.deepEqual(d.labels, ['Jan', 'Feb', 'Mar', 'Apr']);
+  assert.deepEqual(d.series.map((s) => s.values[0]), [120, 60, 30]);
+  const pie = K.chartFrom(b, e, 'Sheet1', 'A1:B5', 'pie');
+  assert.equal(pie.title, 'Food');
+  assert.equal(pie.more, undefined);
+  const sc = K.chartFrom(b, e, 'Sheet1', 'B1:C5', 'scatter');
+  assert.equal(sc.labels, 'B2:B5');
+  assert.equal(sc.values, 'C2:C5');
+  assert.deepEqual(K.chartData(b, e, { ...sc, id: 's' }).xs, [120, 140, 110, 150]);
+  assert.equal(K.chartFrom(b, e, 'Sheet1', 'A1:B5', 'combo'), null, 'a combo needs two columns of numbers');
+  for (const kind of K.CHART_KINDS) assert.ok(K.chartFrom(b, e, 'Sheet1', 'A1:D5', kind), kind);
+  let b2 = K.addChart(b, stacked);
+  const id = b2.charts[0].id;
+  b2 = K.updateChart(b2, id, { kind: 'combo', title: 'Spend', legend: false, xTitle: 'Month', yTitle: '£', tone: 3 });
+  assert.equal(b2.charts[0].kind, 'combo');
+  assert.equal(b2.charts[0].values, 'B2:B5', 'the cells stay');
+  const h = new History(b);
+  h.push(b2);
+  assert.equal(h.undo().charts.length, 0, 'UNDO takes the chart back');
+});
+
+test('[sheets] charts go out to .xlsx as real Excel charts and come back the same', async () => {
+  const b0 = shopBook();
+  const e = new Engine(b0);
+  let b = b0;
+  for (const kind of K.CHART_KINDS) b = K.addChart(b, { ...K.chartFrom(b0, e, 'Sheet1', kind === 'pie' || kind === 'scatter' ? 'A1:B5' : 'A1:D5', kind), title: `A ${kind}`, xTitle: 'Month', yTitle: 'Pounds', tone: 2 });
+  b = K.updateChart(b, b.charts[1].id, { legend: false });
+  const bytes = writeXlsx(b);
+  const read = await unzipOf(bytes);
+  assert.match(read('[Content_Types].xml'), /drawingml\.chart\+xml/);
+  assert.match(read('xl/worksheets/sheet1.xml'), /<drawing r:id="rId1"\/>/);
+  assert.match(read('xl/charts/chart1.xml'), /<c:barChart><c:barDir val="col"\/><c:grouping val="clustered"\/>/);
+  assert.match(read('xl/charts/chart1.xml'), /<c:f>Sheet1!\$A\$2:\$A\$5<\/c:f>/);
+  assert.match(read('xl/charts/chart9.xml'), /<c:barChart>[\s\S]*<c:lineChart>/, 'a combo is columns and a line');
+  const back = readXlsx(bytes).book;
+  assert.equal(back.charts.length, K.CHART_KINDS.length);
+  back.charts.forEach((c, i) => {
+    const want = b.charts[i];
+    for (const k of ["kind", "title", "labels", "values", "xTitle", "yTitle", "tone"]) assert.deepEqual(c[k], want.kind === "pie" && /Title/.test(k) ? undefined : want[k], `${want.kind}: ${k}`);
+    assert.deepEqual(c.more, want.more, `${want.kind}: more`);
+    assert.equal(c.legend !== false, want.legend !== false, `${want.kind}: legend`);
+  });
+  assert.ok(!readXlsx(bytes).lost.some((l) => /chart/.test(l)), 'nothing said lost about the charts');
+});
+
+test('[sheets] sparklines, input checks, merges, borders, wrap, number formats and table styles: kept in .xlsx and back', async () => {
+  let b = shopBook();
+  b = K.setSheetPart(b, 0, 'sparks', [{ at: 'E2', range: 'B2:D2', kind: 'line', tone: 3 }, { at: 'E3', range: 'B3:D3', kind: 'column' }]);
+  b = K.setSheetPart(b, 0, 'checks', [{ range: 'F2:F5', kind: 'list', items: ['Paid', 'Owed', 'Later'] }, { range: 'G2:G5', kind: 'tick' }, { range: 'H2:H5', kind: 'date' }]);
+  b = K.setSheetPart(b, 0, 'merges', ['A7:D7']);
+  b = K.setSheetPart(b, 0, 'tables', [{ range: 'A1:D5', tone: 3, header: true, banded: true }]);
+  b = K.setFormat(b, 0, 'A1:D1', { bd: 4, w: 1 });
+  b = setEntry(b, 'Sheet1', 'A9', '45123.5');
+  b = K.setFormat(b, 0, 'A9', { nx: 'datetime' });
+  b = setEntry(b, 'Sheet1', 'B9', '12.5');
+  b = K.setFormat(b, 0, 'B9', { nx: 'usd' });
+  assert.equal(K.formatValue(12.5, { nx: 'usd' }), '$12.50');
+  assert.equal(K.formatValue(45123.5, { nx: 'time' }), '12:00');
+  const bytes = writeXlsx(b);
+  const read = await unzipOf(bytes);
+  const ws = read('xl/worksheets/sheet1.xml');
+  assert.match(ws, /<x14:sparklineGroup displayEmptyCellsAs="gap">[\s\S]*<xm:f>Sheet1!\$B\$2:\$D\$2<\/xm:f><xm:sqref>E2<\/xm:sqref>/);
+  assert.match(ws, /<dataValidation type="list"[^>]*sqref="F2:F5"><formula1>&quot;Paid,Owed,Later&quot;<\/formula1>/);
+  assert.match(ws, /<mergeCells count="1"><mergeCell ref="A7:D7"\/><\/mergeCells>/);
+  assert.match(ws, /<tableParts count="1"><tablePart r:id="rId1"\/><\/tableParts>/);
+  assert.match(read('xl/tables/table1.xml'), /ref="A1:D5"[\s\S]*<tableColumn id="2" name="Food"\/>[\s\S]*TableStyleMedium7" [^>]*showRowStripes="1"/);
+  assert.match(read('xl/styles.xml'), /<bottom style="thin">/);
+  assert.match(read('xl/styles.xml'), /wrapText="1"/);
+  const { book: back, lost } = readXlsx(bytes);
+  const s = back.sheets[0];
+  assert.deepEqual(s.sparks, b.sheets[0].sparks.map((k) => ({ tone: 1, ...k })));
+  assert.deepEqual(s.checks, b.sheets[0].checks);
+  assert.deepEqual(s.merges, ['A7:D7']);
+  assert.deepEqual(s.tables, b.sheets[0].tables);
+  assert.equal(s.cells.A1.x.bd, 4);
+  assert.equal(s.cells.A1.x.w, 1);
+  assert.equal(s.cells.A9.x.nx, 'datetime');
+  assert.equal(s.cells.B9.x.nx, 'usd');
+  assert.ok(!lost.some((l) => /merged|border|drop-down|table|sparkline/.test(l)), `nothing said lost: ${lost.join(' | ')}`);
 });

@@ -1,5 +1,5 @@
 /**
- * The SNAKE board. Options (GameConfig.options): size (10 to 30, default 16), speed (4 to 15, default 7), wrap (default false).
+ * The SNAKE board. Options (GameConfig.options): size (10 to 30, default 16), speed (4 to 15, default 7), wrap (default false; walls: false also wraps), daily.
  * Swipe anywhere on the board (or the arrow keys, or the four keys under it) to turn. It quickens every five foods.
  */
 import * as S from '../../../../../../packages/shared/src/applib/games/snake';
@@ -11,10 +11,10 @@ export const snake: Board = (p) => {
   const size = num(p.opts, 'size', 16, 10, 30);
   const speed = num(p.opts, 'speed', 7, 4, 15);
   const saved = p.resume as { s: S.Snake; seed: number; n: number } | null;
-  const seed = saved?.seed ?? p.seed();
+  const seed = saved?.seed ?? p.seed(bool(p.opts, 'daily', false));
   let n = saved?.n ?? 0;
   const r = rng(seed + n * 7919);
-  const s = saved?.s ?? S.start(size, bool(p.opts, 'wrap', false), r);
+  const s = saved?.s ?? S.start(size, bool(p.opts, 'wrap', p.opts.walls === false), r);
   s.queued = [];
   const cv = canvas(p.stage, 1);
   cv.el.setAttribute('aria-label', 'The snake board');

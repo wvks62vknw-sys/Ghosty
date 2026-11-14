@@ -1,18 +1,21 @@
 /**
  * The SPRINT board. Options (GameConfig.options): secs (30 to 180, default 60), ops (any of + - × ÷, default '+-×÷'),
- * max (10 to 100, default 20). Type each answer on the number pad; a right answer moves on at once.
+ * max (10 to 100, default 20), tables (for ×), levels easy | medium | hard (a picker). Type each answer on the number pad; a right answer moves on at once.
  */
 import { h, clear } from '../../../core/dom';
 import * as S from '../../../../../../packages/shared/src/applib/games/sprint';
-import { num, rng } from '../../../../../../packages/shared/src/applib/games/rng';
+import { list, num, rng } from '../../../../../../packages/shared/src/applib/games/rng';
 import type { Board } from './frame';
 
 export const sprint: Board = (p) => {
   const secs = num(p.opts, 'secs', 60, 30, 180);
-  const ops = typeof p.opts.ops === 'string' ? p.opts.ops.replace(/\*/g, '×').replace(/\//g, '÷') : '+-×÷';
+  const rawOps = Array.isArray(p.opts.ops) ? p.opts.ops.join('') : typeof p.opts.ops === 'string' ? p.opts.ops : '+-×÷';
+  const ops = rawOps.replace(/\*/g, '×').replace(/\//g, '÷').replace(/x/g, '×');
+  const tables = list(p.opts, 'tables').map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 20);
   const max = num(p.opts, 'max', 20, 10, 100);
   const r = rng(p.seed());
-  let q = S.sum(r, ops, max);
+  const next = () => S.sum(r, ops, max, tables);
+  let q = next();
   let typed = '';
   let score = 0;
   let right = 0;
@@ -34,7 +37,7 @@ export const sprint: Board = (p) => {
       streak++;
       right++;
       score += S.points(streak);
-      q = S.sum(r, ops, max);
+      q = next();
       typed = '';
     } else if (typed.length >= String(q.answer).length && Number(typed) !== q.answer) {
       streak = 0;

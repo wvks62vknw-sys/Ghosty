@@ -34,6 +34,12 @@ import { run } from '../commands/registry';
 import { commentsPanel } from './commentsui';
 import { moveSection } from './sections';
 import { anchorOf, commentsOf } from './comments';
+import { sectionRange } from './sections';
+import { COLOUR_NAMES, effective, FONT_NAMES, LINES, redefineFrom, ROOMS, setFormat, setStyle, SIZE_MAX, SIZE_MIN, STYLE_IDS, STYLE_NAMES, styleIdOf, styleOf, styleWords, withoutFmt, type FontFamily, type ParaFormat, type ParaStyle, type StyleColour, type StyleId } from './styles';
+import { changesOf, changeWords, settle, settleAll, trackEdit, type Change } from './track';
+import { fromTemplate, TEMPLATES, type TemplateId } from './templates';
+import { applyAll, applyIssue, checkDoc, ignoreKey, issueWords, type Issue } from './proof';
+import { settings } from '../state/app';
 
 export const docsState = {
   open: false,
@@ -59,7 +65,19 @@ export const docsState = {
   /** [sweep] The words chosen in the page, and his word goal (0: none). */
   chosen: 0,
   goal: 0,
+  /** [docspro] TRACK CHANGES on, how many changes wait in REVIEW, the style being changed in STYLES, how many blocks are folded away. */
+  track: false,
+  changes: 0,
+  style: 'p',
+  folded: 0,
+  templates: 0,
+  /** [docspro] Spelling and grammar: findings waiting (-1: not checked yet). */
+  proof: -1,
 };
+/** [docspro] What he chose to IGNORE in the spelling and grammar check, by document (kept while the app is open). */
+const IGNORED = new Map<string, Set<string>>();
+/** [docspro] The sections folded away, by document (a view, not a change: kept while the app is open). */
+const FOLDS = new Map<string, Set<string>>();
 let current: { close(): void } | null = null;
 /** A button that shows its words as written ("In plain English", "HTML"), not in the buttons' sentence case. */
 const cased = (b: HTMLButtonElement, words = b.textContent ?? ''): HTMLButtonElement => {
@@ -69,7 +87,7 @@ const cased = (b: HTMLButtonElement, words = b.textContent ?? ''): HTMLButtonEle
 
 /** The sheet's name (its title, and its panel on the DOCUMENTS screen: features/docs/index.ts). */
 export const DOCS_TITLE = 'DOCUMENTS';
-type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill' | 'merge' | 'comments' | 'outline'; language?: string };
+type DocsAsk = { doc?: Doc; reply?: number; ask?: string; id?: string; what?: 'list' | 'new' | 'open' | 'translate' | 'letters' | 'fill' | 'merge' | 'comments' | 'outline' | 'templates'; language?: string };
 
 /** The sheet: a document to open (one read here, a chat reply laid out), or MY DOCUMENTS. */
 export async function openDocs(o: DocsAsk = {}): Promise<void> {
@@ -146,6 +164,39 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         : h('p.dcnote', 'Nothing kept yet. Ask me in the chat to write something (“write a letter to my landlord about the damp”), open a file, or start a new one.'),
     );
     say(docs.length ? `${docs.length} document${docs.length === 1 ? '' : 's'}, kept on this phone only.` : '');
+  };
+
+  // ---------------------------------------------------------------- [docspro] TEMPLATES: the designed gallery
+  const showGallery = () => {
+    setLiveDoc(null);
+    stopReading();
+    docsState.view = 'list';
+    docsState.templates = TEMPLATES.length;
+    const me = { name: myName(), town: settings.get().home?.name?.trim() || '', date: letterDate() };
+    const card = (t: (typeof TEMPLATES)[number]) => {
+      const sample = fromTemplate(t.id, me);
+      const ts = styleOf(sample, 'title');
+      const hs = styleOf(sample, 'h1');
+      const b = button(h('span.dctpl',
+        h('span.dctplpage', { 'aria-hidden': 'true', dataset: { sf: ts.font, ...(ts.colour !== 'ink' ? { sc: ts.colour } : {}) } }, h('b', sample.title), h('i.dctplbar', { dataset: { sf: hs.font, ...(hs.colour !== 'ink' ? { sc: hs.colour } : {}) } }), h('i.dctplline'), h('i.dctplline'), h('i.dctplline.short')),
+        h('span.dctpltext', h('b', t.name), h('small', t.line)),
+      ), () => useTemplate(t.id), 'dctplcard');
+      b.setAttribute('aria-label', `${t.name}: ${t.line}`);
+      b.dataset.template = t.id;
+      return b;
+    };
+    clear(view,
+      h('h3.dch', 'TEMPLATES'),
+      h('p.dcnote', `Each is laid out in its own styles, with ${me.name ? 'your name' : 'a place for your name'}${me.town ? `, ${me.town}` : ''} and today’s date filled in. Type over anything in [square brackets].`),
+      h('div.dctpls', ...TEMPLATES.map(card)),
+    );
+    say(me.name ? 'Choose a template to start from.' : 'Choose a template to start from. Your name isn’t set (Settings → your name), so “[Your name]” stays for you to fill in.');
+  };
+  const useTemplate = (id: TemplateId) => {
+    const d = fromTemplate(id, { name: myName(), town: settings.get().home?.name?.trim() || '', date: letterDate() });
+    if (!saveDoc(d)) say('This phone is not letting me keep documents (its storage is blocked or full). You can still write and export.');
+    showDoc(d);
+    say(`A new ${TEMPLATES.find((t) => t.id === id)!.name.toLowerCase()}, kept on this phone. Type over anything in [square brackets]; STYLES changes its look.`);
   };
 
   // ---------------------------------------------------------------- a document
@@ -276,6 +327,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     hl: boolean;
     href: string;
     c?: TextColour;
+    tc?: 'ins' | 'del';
+    tat?: number;
   }
   const safeLink = (u: string): string => {
     const t = u.trim();
@@ -285,7 +338,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     return /@/.test(t) && !/\s|\//.test(t) ? `mailto:${t}` : `https://${t}`;
   };
   function runsOf(node: Node, st: Marks = { b: false, i: false, u: false, s: false, hl: false, href: '' }, out: Run[] = []): Run[] {
-    const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.s ? { s: true } : {}), ...(m.hl ? { hl: true } : {}), ...(m.href ? { href: m.href } : {}), ...(m.c && !m.href ? { c: m.c } : {}) });
+    const mk = (text: string, m: Marks): Run => ({ text, ...(m.b ? { b: true } : {}), ...(m.i ? { i: true } : {}), ...(m.u && !m.href ? { u: true } : {}), ...(m.s ? { s: true } : {}), ...(m.hl ? { hl: true } : {}), ...(m.href ? { href: m.href } : {}), ...(m.c && !m.href ? { c: m.c } : {}), ...(m.tc ? { tc: m.tc, ...(m.tat ? { tat: m.tat } : {}) } : {}) });
     node.childNodes.forEach((n) => {
       if (n.nodeType === Node.TEXT_NODE) out.push(mk(n.textContent ?? '', st));
       else if (n.nodeType === Node.ELEMENT_NODE) {
@@ -300,10 +353,12 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
             b: st.b || tag === 'B' || tag === 'STRONG' || /bold|[6-9]00/.test(el.style.fontWeight),
             i: st.i || tag === 'I' || tag === 'EM' || el.style.fontStyle === 'italic',
             u: st.u || tag === 'U' || /underline/.test(el.style.textDecorationLine || el.style.textDecoration),
-            s: st.s || tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || /line-through/.test(el.style.textDecorationLine || el.style.textDecoration),
+            s: st.s || tag === 'S' || tag === 'STRIKE' || (tag === 'DEL' && !el.classList.contains('dcdel')) || /line-through/.test(el.style.textDecorationLine || el.style.textDecoration),
             hl: st.hl || tag === 'MARK',
             href: tag === 'A' ? safeLink(el.getAttribute('href') ?? '') : st.href,
             c: el.dataset.tc ? (['red', 'blue', 'green', 'orange'] as const)[Number(el.dataset.tc) - 1] ?? st.c : st.c,
+            tc: el.classList.contains('dcins') ? 'ins' : el.classList.contains('dcdel') ? 'del' : st.tc,
+            tat: el.classList.contains('dcins') || el.classList.contains('dcdel') ? Number(el.dataset.at) || undefined : st.tat,
           }, out);
       }
     });
@@ -422,8 +477,12 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   const focusOn = (id: string) => {
     focused = id;
     docsState.focus = id;
+    const b = hist?.doc.blocks.find((x) => x.id === id);
+    if (b && plainBlock(b)) chosenStyle = styleIdOf(b.t);
     paintContext();
+    if (!panels.styles?.hidden) paintStyles();
   };
+  let chosenStyle: StyleId = 'p';
 
   /** Where new things go: after the block he is in (at the end when he is in none), a paragraph kept after the last. */
   const insertAfter = (blocks: Block[]) => {
@@ -510,12 +569,46 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     }
     return editableEl(b, tag);
   };
+  /** [docspro] A paragraph drawn in its named style, with its own format on top (the family and colour by name: the stylesheet's tokens). */
+  const lookBlock = (el: HTMLElement, b: Block) => {
+    const s = effective(doc(), b);
+    el.dataset.sf = s.font;
+    if (s.colour !== 'ink') el.dataset.sc = s.colour;
+    else delete el.dataset.sc;
+    el.style.fontSize = `${+(s.size / 11.5).toFixed(3)}em`;
+    el.style.fontWeight = s.bold ? '700' : '400';
+    el.style.fontStyle = s.italic ? 'italic' : 'normal';
+    el.style.lineHeight = String(+(1.35 * s.line).toFixed(3));
+    if ((b.t !== 'todo' && b.t !== 'right') || b.fmt?.before !== undefined || b.fmt?.after !== undefined) {
+      el.style.marginTop = `${+(s.before / s.size).toFixed(3)}em`;
+      el.style.marginBottom = `${+(s.after / s.size).toFixed(3)}em`;
+    }
+  };
+  /** [docspro] One key while TRACK CHANGES is on: what went is struck, what came is marked as his, and the caret stays where he is. */
+  const trackNow = (el: HTMLElement) => {
+    clearTimeout(timer);
+    const id = el.dataset.id;
+    const b = id ? doc().blocks.find((x) => x.id === id) : undefined;
+    if (!b || !plainBlock(b) || !el.isConnected) return;
+    const r = trackEdit(b.runs, readRuns(el), Date.now());
+    if (r.changed) change(withBlock(doc(), b.id, (x) => ({ ...x, runs: r.runs })), false);
+    const now = doc().blocks.find((x) => x.id === b.id);
+    clear(el);
+    fillRuns(el, now?.runs ?? b.runs);
+    placeCaret(el, Math.max(0, r.caret));
+    paintReview();
+  };
   const editableEl = (b: Block, tag: string): HTMLElement => {
     const el = h(`${tag}.dcb` as 'p', { contentEditable: 'true', spellcheck: true, dataset: { id: b.id, t: b.t, ...(b.align && b.align !== 'left' ? { align: b.align } : {}) } });
     if (b.t === 'right') el.classList.add('right');
     fillRuns(el, b.runs);
+    lookBlock(el, b);
     el.addEventListener('focus', () => focusOn(b.id));
-    el.addEventListener('input', () => later(el));
+    el.addEventListener('input', (e) => {
+      if (!doc().track) return later(el);
+      if (!(e as InputEvent).isComposing) trackNow(el);
+    });
+    el.addEventListener('compositionend', () => doc().track && trackNow(el));
     el.addEventListener('blur', () => {
       clearTimeout(timer);
       sync(el);
@@ -583,6 +676,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         // (drawn by its number: the stylesheet names no colour of its own, only the tokens)
         if (isColour(r.c)) node = h('span.dctc', { dataset: { tc: String(['red', 'blue', 'green', 'orange'].indexOf(r.c) + 1) } }, node);
         if (r.href) node = h('a', { href: r.href, rel: 'noopener', target: '_blank' }, node);
+        // [docspro] his tracked change: put in (underlined) or deleted (struck), with its time
+        if (r.tc) node = h(r.tc === 'ins' ? 'ins.dcins' : 'del.dcdel', { title: changeWords({ id: '', block: '', kind: r.tc, text: r.text, at: r.tat ?? 0 }), dataset: { at: String(r.tat ?? 0) } }, node);
         el.append(node);
       });
     }
@@ -594,7 +689,25 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     page.lang = d.lang ? langCode(d.lang) : 'en-GB';
     const kids: HTMLElement[] = [];
     let list: HTMLElement | null = null;
-    for (const b of d.blocks) {
+    // [docspro] a folded heading's section is left off the page, with one line that says so and unfolds it
+    const folds = FOLDS.get(d.id) ?? new Set<string>();
+    let hideTo = -1;
+    let hidden = 0;
+    for (const [k, b] of d.blocks.entries()) {
+      if (k < hideTo) continue;
+      if (folds.has(b.id)) {
+        const r = sectionRange(d, b.id);
+        if (r && r[1] > r[0] + 1) {
+          list = null;
+          kids.push(blockEl(b));
+          hideTo = r[1];
+          const n = r[1] - r[0] - 1;
+          hidden += n;
+          const words = textOf(b).trim() || 'this heading';
+          kids.push(button(`▸ ${n} block${n === 1 ? '' : 's'} folded under “${words.slice(0, 40)}” · UNFOLD`, () => toggleFold(b.id), 'dcfolded'));
+          continue;
+        }
+      }
       if (b.t === 'ul' || b.t === 'ol') {
         if (!list || list.tagName.toLowerCase() !== b.t) {
           list = h(b.t === 'ul' ? 'ul.dcl' : 'ol.dcl');
@@ -607,6 +720,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       kids.push(blockEl(b));
     }
     clear(page, ...kids);
+    docsState.folded = hidden;
     if (focused) {
       const f = elOf(focused);
       if (!f) focused = '';
@@ -934,6 +1048,223 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     nums.setAttribute('aria-pressed', String(pg.numbers));
   };
 
+  // ---------------------------------------------------------------- [docspro] STYLES: named styles he can redefine, and this paragraph's own look
+  const sel = (label: string, opts: [string, string][], on: (v: string) => void): HTMLSelectElement => {
+    const el = h('select', { 'aria-label': label }, ...opts.map(([v, t]) => h('option', { value: v }, t))) as HTMLSelectElement;
+    el.addEventListener('change', () => on(el.value));
+    return el;
+  };
+  /** One set of look keys (family, size, colour, bold, italic, line spacing, room before and after) for a style or a paragraph. */
+  const lookKeys = (who: string, get: () => ParaStyle | null, set: (p: ParaFormat) => void) => {
+    const font = sel(`${who}: font`, (Object.keys(FONT_NAMES) as FontFamily[]).map((f) => [f, FONT_NAMES[f]]), (v) => set({ font: v as FontFamily }));
+    const colour = sel(`${who}: colour`, (Object.keys(COLOUR_NAMES) as StyleColour[]).map((c) => [c, COLOUR_NAMES[c]]), (v) => set({ colour: v as StyleColour }));
+    const line = sel(`${who}: line spacing`, LINES.map((l) => [String(l.v), `${l.name} line${l.v === 1 ? '' : 's'}`]), (v) => set({ line: Number(v) }));
+    const before = sel(`${who}: room before`, ROOMS.map((n) => [String(n), `${n} pt before`]), (v) => set({ before: Number(v) }));
+    const after = sel(`${who}: room after`, ROOMS.map((n) => [String(n), `${n} pt after`]), (v) => set({ after: Number(v) }));
+    const sizeSaid = h('b.dcnum', { 'aria-live': 'polite' });
+    const size = (by: number) => {
+      const now = get();
+      if (now) set({ size: Math.max(SIZE_MIN, Math.min(SIZE_MAX, now.size + by)) });
+    };
+    const bold = key('BOLD', () => set({ bold: !get()?.bold }), '', `${who}: bold`);
+    const italic = key('ITALIC', () => set({ italic: !get()?.italic }), '', `${who}: italic`);
+    const el = h('div.dclook',
+      h('div.dcrow', font, colour),
+      h('div.dcrow', key('SMALLER', () => size(-1), '', `${who}: smaller`), sizeSaid, key('LARGER', () => size(1), '', `${who}: larger`), bold, italic),
+      h('div.dcrow', line, before, after),
+    );
+    const near = (list: number[], v: number) => String(list.reduce((a, x) => (Math.abs(x - v) < Math.abs(a - v) ? x : a), list[0]!));
+    const paint = () => {
+      const s = get();
+      el.classList.toggle('dcoff', !s);
+      if (!s) return;
+      font.value = s.font;
+      colour.value = s.colour;
+      line.value = near(LINES.map((l) => l.v), s.line);
+      before.value = near(ROOMS, s.before);
+      after.value = near(ROOMS, s.after);
+      sizeSaid.textContent = `${s.size} pt`;
+      bold.setAttribute('aria-pressed', String(s.bold));
+      italic.setAttribute('aria-pressed', String(s.italic));
+    };
+    return { el, paint };
+  };
+  const focusedPara = (): Block | undefined => {
+    const b = hist?.doc.blocks.find((x) => x.id === focused);
+    return b && plainBlock(b) ? b : undefined;
+  };
+  const styleLook = lookKeys('The style', () => (hist ? styleOf(doc(), chosenStyle) : null), (patch) => {
+    flush();
+    change(setStyle(doc(), chosenStyle, patch));
+    say(`${STYLE_NAMES[chosenStyle]} is now ${styleWords(styleOf(doc(), chosenStyle))}. Every ${STYLE_NAMES[chosenStyle]} paragraph follows; UNDO puts it back.`);
+  });
+  const paraLook = lookKeys('This paragraph', () => {
+    const b = focusedPara();
+    return b ? effective(doc(), b) : null;
+  }, (patch) => {
+    const b = focusedPara();
+    if (!b) return say('Tap a paragraph first, then change its own look here.');
+    flush();
+    change(setFormat(doc(), b.id, patch));
+    elOf(b.id)?.focus({ preventScroll: true });
+    const now = doc().blocks.find((x) => x.id === b.id);
+    say(now?.fmt ? `This paragraph: ${styleWords(effective(doc(), now))}. REDEFINE makes every ${STYLE_NAMES[styleIdOf(now.t)]} paragraph look like it.` : `This paragraph is back to plain ${STYLE_NAMES[styleIdOf(b.t)]}.`);
+  });
+  const styleChoice = sel('The style to change', STYLE_IDS.map((id) => [id, STYLE_NAMES[id]]), (v) => {
+    chosenStyle = v as StyleId;
+    paintStyles();
+  });
+  const applyStyle = (id: StyleId) => {
+    if (id === 'title') {
+      chosenStyle = 'title';
+      paintStyles();
+      return say('Title is the look of the document’s title line, at the top. Change it below.');
+    }
+    const b = focusedPara();
+    if (!b) return say('Tap a paragraph first, then the style to set it in.');
+    const el = elOf(b.id);
+    const runs = el ? readRuns(el) : b.runs;
+    change(withBlock(doc(), b.id, (x) => ({ ...x, runs, t: id, ticked: undefined })));
+    chosenStyle = id;
+    elOf(b.id)?.focus();
+    say(`Set in ${STYLE_NAMES[id]}. UNDO puts it back.`);
+  };
+  const styleChips = h('div.dcrow.dcstylechips', ...STYLE_IDS.map((id) => {
+    const k = key(STYLE_NAMES[id], () => applyStyle(id), 'dcstylechip', id === 'title' ? 'Title: change the title line’s look' : `Set this paragraph in ${STYLE_NAMES[id]}`);
+    k.dataset.style = id;
+    return cased(k);
+  }));
+  const styleSaid = h('small.dcnote.dcstylesaid', { 'aria-live': 'polite' });
+  const paintStyles = () => {
+    if (!hist) return;
+    docsState.style = chosenStyle;
+    styleChoice.value = chosenStyle;
+    for (const k of styleChips.querySelectorAll<HTMLElement>('.dcstylechip')) {
+      const st = styleOf(doc(), k.dataset.style as StyleId);
+      k.dataset.sf = st.font;
+      if (st.colour !== 'ink') k.dataset.sc = st.colour;
+      else delete k.dataset.sc;
+      k.setAttribute('aria-pressed', String(k.dataset.style === chosenStyle));
+    }
+    styleSaid.textContent = `${STYLE_NAMES[chosenStyle]}: ${styleWords(styleOf(doc(), chosenStyle))}.`;
+    styleLook.paint();
+    paraLook.paint();
+    const b = focusedPara();
+    paraSaid.textContent = b ? (b.fmt ? `This paragraph is ${STYLE_NAMES[styleIdOf(b.t)]} with its own look on top.` : `This paragraph is plain ${STYLE_NAMES[styleIdOf(b.t)]}.`) : 'Tap a paragraph to change its own look.';
+  };
+  const paraSaid = h('small.dcnote', { 'aria-live': 'polite' });
+  const redefine = () => {
+    flush();
+    const b = focusedPara();
+    if (!b) return say('Tap the paragraph whose look the style should take first.');
+    const r = redefineFrom(doc(), b.id);
+    if (typeof r === 'string') return say(r);
+    const id = styleIdOf(b.t);
+    chosenStyle = id;
+    change(r);
+    const n = doc().blocks.filter((x) => styleIdOf(x.t) === id).length;
+    say(`${STYLE_NAMES[id]} redefined from this paragraph: ${styleWords(styleOf(doc(), id))}. ${n} paragraph${n === 1 ? '' : 's'} in ${STYLE_NAMES[id]} follow${n === 1 ? 's' : ''}; UNDO puts it back.`);
+  };
+
+  // ---------------------------------------------------------------- [docspro] REVIEW: his own tracked changes
+  const trackKey = key('TRACK CHANGES', () => {
+    flush();
+    const on = !doc().track;
+    change({ ...doc(), track: on || undefined }, false);
+    paintReview();
+    say(on ? 'Track changes is on: what you type is underlined and what you delete stays, struck through, until you accept or reject it here.' : 'Track changes is off. The changes already marked stay until you accept or reject them.');
+  }, 'dctrack', 'Track changes');
+  const reviewList = h('div.dcreview');
+  const settleOne = (c: Change, ok: boolean) => {
+    flush();
+    const next = settle(doc(), c.id, ok);
+    if (!next) return say('That change is not there any more.');
+    change(next);
+    say(`${ok ? 'Accepted' : 'Rejected'}: ${changeWords(c)}. UNDO takes it back.`);
+  };
+  const settleEvery = (ok: boolean) => {
+    flush();
+    const n = changesOf(doc()).length;
+    if (!n) return say('No tracked changes to settle.');
+    change(settleAll(doc(), ok));
+    say(`${ok ? 'Accepted' : 'Rejected'} all ${n} change${n === 1 ? '' : 's'}. UNDO takes ${n === 1 ? 'it' : 'them'} back.`);
+  };
+  // ---------------------------------------------------------------- [docspro] SPELLING AND GRAMMAR, checked on this phone
+  const proofList = h('div.dcreview.dcproof');
+  let proofRan = false;
+  let proofIssues: Issue[] = [];
+  const ignoredHere = (): Set<string> => {
+    const id = doc().id;
+    if (!IGNORED.has(id)) IGNORED.set(id, new Set());
+    return IGNORED.get(id)!;
+  };
+  const runProof = () => {
+    flush();
+    proofRan = true;
+    paintReview();
+    say(proofIssues.length ? `${proofIssues.length} thing${proofIssues.length === 1 ? '' : 's'} to look at, checked on this phone: ACCEPT puts the fix in, IGNORE leaves your words.` : 'No spelling or grammar problems found. Checked on this phone; nothing was sent.');
+  };
+  const acceptIssue = (i: Issue) => {
+    flush();
+    const r = applyIssue(doc(), i);
+    if (typeof r === 'string') {
+      paintReview();
+      return say(r);
+    }
+    change(r);
+    say(`Fixed: ${issueWords(i)}${doc().track ? ', as a tracked change' : ''}. UNDO puts it back.`);
+  };
+  const ignoreIssue = (i: Issue) => {
+    ignoredHere().add(ignoreKey(i));
+    paintReview();
+    say(`Ignored: “${i.found}” stays as you wrote it in that paragraph.`);
+  };
+  const paintProof = () => {
+    if (proofRan) proofIssues = checkDoc(doc(), ignoredHere());
+    docsState.proof = proofRan ? proofIssues.length : -1;
+    clear(proofList,
+      h('div.dcrow', cased(key('CHECK SPELLING AND GRAMMAR', runProof, proofRan ? '' : 'on'), 'Check spelling and grammar')),
+      h('p.dcnote', { 'aria-live': 'polite' }, !proofRan ? 'Checks the spelling and grammar here on this phone, with British spelling; nothing is sent or downloaded.' : proofIssues.length ? `${proofIssues.length} thing${proofIssues.length === 1 ? '' : 's'} to look at: ${proofIssues.filter((i) => i.kind === 'spelling').length} spelling, ${proofIssues.filter((i) => i.kind === 'grammar').length} grammar.` : 'No spelling or grammar problems found. Checked on this phone; nothing was sent.'),
+      ...(proofRan && proofIssues.length > 1 ? [h('div.dcrow', cased(key('FIX ALL', () => {
+        flush();
+        const r = applyAll(doc(), proofIssues);
+        if (!r.done) return say('Those words have changed since the check: CHECK again.');
+        change(r.doc);
+        say(`${r.done} fix${r.done === 1 ? '' : 'es'} put in. UNDO takes ${r.done === 1 ? 'it' : 'them all'} back.`);
+      }, 'on'), 'Fix all'))] : []),
+      ...(proofRan ? proofIssues.slice(0, 40).map((i) => h(`div.dcchg.dcissue.dcissue${i.kind}` as 'div', { dataset: { id: i.id } },
+        cased(button(issueWords(i), () => elOf(i.block)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 'dcchggo'), issueWords(i)),
+        key('ACCEPT', () => acceptIssue(i), '', `Accept: ${issueWords(i)}`),
+        key('IGNORE', () => ignoreIssue(i), '', `Ignore: ${issueWords(i)}`),
+      )) : []),
+    );
+  };
+
+  const paintReview = () => {
+    if (!hist) return;
+    paintProof();
+    const d = doc();
+    const list = changesOf(d);
+    docsState.track = !!d.track;
+    docsState.changes = list.length;
+    trackKey.setAttribute('aria-pressed', String(!!d.track));
+    trackKey.textContent = d.track ? 'TRACK CHANGES: ON' : 'TRACK CHANGES: OFF';
+    const ins = list.filter((c) => c.kind === 'ins').length;
+    clear(reviewList,
+      h('p.dcnote', { 'aria-live': 'polite' }, list.length ? `${list.length} change${list.length === 1 ? '' : 's'}: ${ins} put in, ${list.length - ins} deleted. Nothing is final until you accept it.` : d.track ? 'No changes yet: what you type and delete now is marked here.' : 'No tracked changes. Turn TRACK CHANGES on and what you type and delete is marked, to accept or reject here.'),
+      ...(list.length ? [h('div.dcrow', cased(key('ACCEPT ALL', () => settleEvery(true), 'on')), cased(key('REJECT ALL', () => settleEvery(false))))] : []),
+      ...list.slice(0, 60).map((c) => h(`div.dcchg.dcchg${c.kind}` as 'div', { dataset: { id: c.id } },
+        cased(button(changeWords(c), () => {
+          const el = elOf(c.block);
+          el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 'dcchggo'), changeWords(c)),
+        key('ACCEPT', () => settleOne(c, true), '', `Accept: ${changeWords(c)}`),
+        key('REJECT', () => settleOne(c, false), '', `Reject: ${changeWords(c)}`),
+      )),
+      ...(list.length > 60 ? [h('small.dcnote', `And ${list.length - 60} more: ACCEPT ALL or REJECT ALL settles every one.`)] : []),
+    );
+  };
+
   const panels: Record<string, HTMLElement> = {
     write: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Write' },
       h('div.dcrow', key('TEXT', () => setType('p'), '', 'Plain paragraph'), key('H1', () => setType('h1'), '', 'Heading 1'), key('H2', () => setType('h2'), '', 'Heading 2'), key('H3', () => setType('h3'), '', 'Heading 3'), key('QUOTE', () => setType('quote'))),
@@ -965,15 +1296,49 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       h('div.dcrow', footIn),
       h('div.dcrow', goalIn, key('SET GOAL', setGoal)),
     ),
+    styles: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Styles' },
+      h('small.cvgh', 'SET THIS PARAGRAPH IN'),
+      styleChips,
+      h('small.cvgh', 'CHANGE A STYLE'),
+      h('div.dcrow', styleChoice),
+      styleSaid,
+      styleLook.el,
+      h('div.dcrow', cased(key('REDEFINE FROM THIS PARAGRAPH', redefine, 'on')), cased(key('RESET THIS STYLE', () => {
+        flush();
+        const styles = { ...(doc().styles ?? {}) };
+        if (!styles[chosenStyle]) return say(`${STYLE_NAMES[chosenStyle]} is already as it came.`);
+        delete styles[chosenStyle];
+        change({ ...doc(), styles: Object.keys(styles).length ? styles : undefined });
+        say(`${STYLE_NAMES[chosenStyle]} is back as it came. UNDO puts your version back.`);
+      }))),
+      h('small.cvgh', 'THIS PARAGRAPH'),
+      paraSaid,
+      paraLook.el,
+      h('div.dcrow', cased(key('CLEAR ITS OWN LOOK', () => {
+        const b = focusedPara();
+        if (!b?.fmt) return say(b ? 'This paragraph has no look of its own: it is just its style.' : 'Tap a paragraph first.');
+        flush();
+        change(withBlock(doc(), b.id, withoutFmt));
+        say(`Back to plain ${STYLE_NAMES[styleIdOf(b.t)]}. UNDO puts its own look back.`);
+      }))),
+    ),
+    review: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Review' },
+      h('div.dcrow', trackKey),
+      reviewList,
+      h('small.cvgh', 'SPELLING AND GRAMMAR'),
+      proofList,
+    ),
   };
   const showPanel = (id: string) => {
     docsState.panel = id;
     for (const [k, el] of Object.entries(panels)) el.hidden = k !== id;
     for (const b of pills.querySelectorAll('button')) b.setAttribute('aria-selected', String(b.dataset.panel === id));
     if (id === 'page') paintPageKeys();
+    if (id === 'styles') paintStyles();
+    if (id === 'review') paintReview();
     paintContext();
   };
-  const pills = h('div.dcpills', { role: 'tablist', 'aria-label': 'Editing keys' }, ...(['write', 'insert', 'page'] as const).map((id) => {
+  const pills = h('div.dcpills', { role: 'tablist', 'aria-label': 'Editing keys' }, ...(['write', 'insert', 'page', 'styles', 'review'] as const).map((id) => {
     const b = button(id.toUpperCase(), () => showPanel(id), 'dcpill');
     b.dataset.panel = id;
     b.setAttribute('role', 'tab');
@@ -987,9 +1352,41 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       const words = x.text || 'A heading with no words';
       const up = key('▲', () => moveSec(x.id, -1), 'dcsecmv', `Move the section “${words.slice(0, 40)}” up`);
       const down = key('▼', () => moveSec(x.id, 1), 'dcsecmv', `Move the section “${words.slice(0, 40)}” down`);
-      return h(`div.dcsec.dclevel${x.level}` as 'div', { dataset: { id: x.id } }, button(words, () => elOf(x.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 'dcsecgo'), up, down);
+      const isFolded = !!FOLDS.get(doc().id)?.has(x.id);
+      const fold = key(isFolded ? '▸' : '▾', () => toggleFold(x.id), 'dcsecfold', `${isFolded ? 'Unfold' : 'Fold'} the section “${words.slice(0, 40)}”`);
+      fold.setAttribute('aria-pressed', String(isFolded));
+      return h(`div.dcsec.dclevel${x.level}` as 'div', { dataset: { id: x.id } }, button(words, () => elOf(x.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 'dcsecgo'), up, down, fold);
     };
-    clear(contentsBox, ...(c.length ? [...c.map(row), h('small.dcnote', '▲ and ▼ move a heading with everything under it.')] : [h('small', 'No headings in it.')]));
+    const any = !!FOLDS.get(doc().id)?.size;
+    clear(contentsBox, ...(c.length ? [...c.map(row), h('div.dcrow', cased(key('FOLD ALL', () => foldAll(true))), cased(key('UNFOLD ALL', () => foldAll(false)))), h('small.dcnote', `▲ and ▼ move a heading with everything under it; ▾ folds its section away in the page${any ? ', ▸ unfolds it' : ''}.`)] : [h('small', 'No headings in it.')]));
+  };
+  /** [docspro] A heading's section folded away in the page, or back (a view only: nothing in the document changes, so no UNDO step). */
+  const toggleFold = (id: string) => {
+    flush();
+    const d = doc();
+    const set = FOLDS.get(d.id) ?? new Set<string>();
+    const b = d.blocks.find((x) => x.id === id);
+    const r = sectionRange(d, id);
+    if (!b || !r) return;
+    if (r[1] === r[0] + 1 && !set.has(id)) return say(`“${textOf(b).trim() || 'That heading'}” has nothing under it to fold.`);
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+    FOLDS.set(d.id, set);
+    paintPage();
+    paintCommentMarks();
+    if (!contentsBox.hidden) paintContents();
+    const n = r[1] - r[0] - 1;
+    say(set.has(id) ? `“${textOf(b).trim()}” folded: ${n} block${n === 1 ? '' : 's'} under it hidden in the page. Nothing is deleted; ▸ or UNFOLD shows ${n === 1 ? 'it' : 'them'} again.` : `“${textOf(b).trim()}” unfolded.`);
+  };
+  const foldAll = (on: boolean) => {
+    flush();
+    const d = doc();
+    const heads = d.blocks.filter((b) => isHeading(b.t) && (sectionRange(d, b.id) ?? [0, 0])[1] > (sectionRange(d, b.id) ?? [0, 0])[0] + 1).map((b) => b.id);
+    FOLDS.set(d.id, new Set(on ? heads : []));
+    paintPage();
+    paintCommentMarks();
+    paintContents();
+    say(on ? `Every section folded to its heading (${heads.length}). Nothing is deleted.` : 'Every section unfolded.');
   };
   const moveSec = (id: string, dir: -1 | 1) => {
     flush();
@@ -1295,6 +1692,10 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     paintPage();
     const title = h('input.dctitle', { type: 'text', value: d.title, 'aria-label': 'The document’s title' }) as HTMLInputElement;
     title.addEventListener('change', () => change({ ...doc(), title: title.value.trim() || 'Untitled' }, false));
+    // [docspro] the title line in the Title style's family and colour
+    const ts = styleOf(d, 'title');
+    title.dataset.sf = ts.font;
+    if (ts.colour !== 'ink') title.dataset.sc = ts.colour;
     const tools = h('div.dctools', { role: 'toolbar', 'aria-label': 'Editing' },
       button('CONTENTS', () => {
         contentsBox.hidden = !contentsBox.hidden;
@@ -1413,7 +1814,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     saveDoc(d);
     showDoc(d);
     (page.querySelector('.dcb') as HTMLElement | null)?.focus();
-  }), button('OPEN A FILE', () => fileIn.click()), fileIn, button('SCAN A PAGE', async () => {
+  }), button('TEMPLATES', showGallery), button('OPEN A FILE', () => fileIn.click()), fileIn, button('SCAN A PAGE', async () => {
     // [editors.s3] paper into an editable document: SCAN → DOCUMENT, then READ ALL and INTO A DOCUMENT (docs/paperui.ts)
     const { wantPaper } = await import('./paperui');
     wantPaper('doc');
@@ -1442,6 +1843,7 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
       }
     } else if (o.id && getDoc(o.id)) showDoc(getDoc(o.id)!);
     else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
+    else if (o.what === 'templates') showGallery();
     else if (o.what === 'outline') {
       const d = listDocs()[0];
       if (!d) {

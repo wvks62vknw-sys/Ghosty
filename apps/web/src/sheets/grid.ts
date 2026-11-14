@@ -5,6 +5,7 @@
  * fill handle to carry a series on. It draws what the host says and tells the host what he did; it knows no formulas.
  */
 import { h } from '../core/dom';
+import { sparkSvg } from './chartpro';
 import { addr, formatValue, isErr, usedCols, usedRows, type Book } from './model';
 import type { Engine } from './formula';
 import { visibleRows } from './ops';
@@ -34,6 +35,15 @@ export interface GridHost {
   key(e: KeyboardEvent): void;
   /** What the colour rules make of each cell on the active sheet (rules.ts). */
   marks?(): Map<string, { tone?: number; bar?: number; scale?: number }>;
+  /** The pro edition's dressing of each cell on the active sheet: a sparkline, an input check, a merge, a table's band. */
+  deco?(): Map<string, Deco>;
+}
+export interface Deco {
+  spark?: { values: number[]; kind: 'line' | 'column'; tone: number };
+  check?: 'list' | 'tick' | 'date';
+  /** The top-left cell of a merge: how many columns and rows it covers; or 'hid' for the cells under it. */
+  merge?: { cols: number; rows: number } | 'hid';
+  band?: { tone: number; head: boolean; odd: boolean };
 }
 export interface Grid {
   el: HTMLElement;
@@ -155,7 +165,52 @@ export function makeGrid(host: GridHost): Grid {
         el1.style.setProperty('--shscale', `${Math.round(m.scale * 100)}%`);
       }
     }
-    el1.setAttribute('aria-label', `${a}${el1.textContent ? `: ${el1.textContent}` : ', empty'}`);
+    if (x?.bd) el1.dataset.bd = String(x.bd);
+    if (x?.w) el1.dataset.wrap = '1';
+    const d = host.deco?.().get(a);
+    let extra = '';
+    if (d) {
+      if (d.band) {
+        el1.dataset.band = d.band.head ? 'head' : d.band.odd ? 'odd' : 'even';
+        el1.dataset.btone = String(d.band.tone);
+      }
+      if (d.check) {
+        el1.dataset.check = d.check;
+        if (d.check === 'tick') {
+          const on = v === true || (typeof v === 'string' && /^(true|yes|x|✓)$/i.test(v));
+          el1.textContent = '';
+          el1.append(h('span.shtick', { 'aria-hidden': 'true', dataset: { on: on ? '1' : '0' } }));
+          el1.dataset.words = on ? 'a tick box, ticked' : 'a tick box, not ticked';
+        } else extra = d.check === 'list' ? ', a list to choose from' : ', a date';
+      }
+      if (d.spark) {
+        el1.dataset.spark = d.spark.kind;
+        el1.append(sparkSvg(d.spark.values, d.spark.kind, d.spark.tone));
+        extra += `, a ${d.spark.kind === 'line' ? 'line' : 'column'} sparkline of ${d.spark.values.length} numbers`;
+      }
+      if (d.merge === 'hid') {
+        el1.dataset.hid = '1';
+        el1.textContent = '';
+      } else if (d.merge) {
+        const p = { r: r + 1, c };
+        let w = 0;
+        for (let k = c; k < Math.min(widths.length, c + d.merge.cols); k++) w += widths[k]!;
+        let hh = 0;
+        const i0 = rowIndex(p.r);
+        for (let k = 0; k < d.merge.rows; k++) hh += (i0 >= 0 ? heights[i0 + k] : undefined) ?? base;
+        const words = el1.textContent;
+        el1.textContent = '';
+        el1.dataset.merge = '1';
+        const span = h('span.shmerge', words ?? '');
+        span.style.width = `${w}px`;
+        span.style.height = `${hh}px`;
+        el1.append(span);
+        extra += `, merged across ${d.merge.cols} column${d.merge.cols === 1 ? '' : 's'} and ${d.merge.rows} row${d.merge.rows === 1 ? '' : 's'}`;
+        el1.dataset.words = words ?? '';
+      }
+    }
+    const words = el1.dataset.words ?? el1.textContent;
+    el1.setAttribute('aria-label', `${a}${words ? `: ${words}` : ', empty'}${extra}`);
     return el1;
   };
   const rowEl = (r1: number, inStrip: boolean): HTMLElement => {
