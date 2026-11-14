@@ -926,3 +926,25 @@ test('trade courses (learn.s4): a lesson on mechanics, electrics or building say
   const poems = T.LESSON_PROMPT({ title: 'Romantic poetry', topic: 'romantic poetry', level: 'beginner', minutes: 10, lessons: [lesson] }, lesson);
   assert.doesNotMatch(poems, /first estimate/);
 });
+
+test('highlights and notes (learn.u4): a paragraph split into plain and marked parts; overlapping highlights join, keeping his notes; every note exported as Markdown with where it is', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/library/highlights.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/highlights.mjs'), logLevel: 'warning' });
+  globalThis.window ??= globalThis;
+  const HL = await import('./.build/highlights.mjs');
+  assert.deepEqual(HL.hlParts('The cat sat on the mat.', [{ start: 4, end: 7, id: 'a' }, { start: 19, end: 22, id: 'b' }]), [{ text: 'The ' }, { text: 'cat', id: 'a' }, { text: ' sat on the ' }, { text: 'mat', id: 'b' }, { text: '.' }]);
+  assert.deepEqual(HL.hlParts('Short.', [{ start: 2, end: 99, id: 'x' }]), [{ text: 'Sh' }, { text: 'ort.', id: 'x' }], 'a range past the end is clipped');
+  const a = HL.addHighlight('d1', { n: 3, at: 0, start: 4, end: 10, text: 'cat sat', note: 'nice', where: 'Chapter 1' });
+  const b = HL.addHighlight('d1', { n: 3, at: 0, start: 8, end: 16, text: 'sat on the', note: 'and this' });
+  assert.equal(b.id, a.id, 'an overlapping highlight joins the one there');
+  assert.deepEqual([b.start, b.end, b.note], [4, 16, 'and this · nice']);
+  HL.addHighlight('d1', { n: 1, at: 0, start: 0, end: 5, text: 'First', where: 'Chapter 1' });
+  const list = HL.highlightsOf('d1');
+  assert.deepEqual(list.map((x) => x.n), [1, 3], 'in the book’s order');
+  const md = HL.notesMarkdown('The Hobbit', list);
+  assert.match(md, /^# The Hobbit\n\nMy highlights and notes \(2\), from Ghosty\.\n\n> First\n\n\*Chapter 1\*\n\n> /);
+  assert.match(md, /and this · nice/);
+  HL.removeHighlight('d1', a.id);
+  assert.equal(HL.highlightsOf('d1').length, 1);
+});
