@@ -10789,6 +10789,50 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 @media (max-width: 899px) {
   html #pg-studio, html #pg-studio .hud, html #pg-studio .hud .col { transform-style: flat; }
 }
+/* ===================================================================================================================   TRANSLATE (THE APPS ROUND, the voice lane's flagship):
+   the three views, the box, the answer card, other ways to say it, the phrasebook by trip and the history. Every rule is under .tlx
+   (its own prefix); every colour, size and duration is a token; every key is the target's size.
+   ========================================================================================================================== */
+html .tlxpg .hero { display: none; }
+html .tlxseg { display: flex; gap: var(--g-s-half); padding: var(--g-s-half); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .tlxseg button { flex: 1 1 0; min-width: 0; min-height: var(--g-target); padding: 0 var(--g-s-1); background: transparent; border: 0; border-radius: var(--g-radius-key); color: var(--g-ink-2); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .tlxseg button[aria-selected="true"], html .tlxseg button[aria-checked="true"] { background: var(--g-canvas); color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-hair) var(--g-accent); }
+html .tlxview { display: flex; flex-direction: column; gap: var(--g-s-2); min-width: 0; padding-top: var(--g-s-2); }
+html .tlxview[hidden], html .tlxcard[hidden], html .tlxskel[hidden], html .tlxaltbox[hidden], html .tlxletters[hidden] { display: none; }
+html .tlxboxrow { display: flex; gap: var(--g-s-1); align-items: stretch; min-width: 0; }
+html .tlxboxrow textarea { flex: 1 1 auto; min-height: calc(var(--g-target) * 2.5); font: var(--g-t-reading); }
+html .tlxboxkeys { display: flex; flex-direction: column; gap: var(--g-s-1); flex: none; }
+html .tlxboxkeys button { min-width: var(--g-target); min-height: var(--g-target); }
+html button.tlxmic[aria-pressed="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
+html .tlxstate { margin: 0; min-height: 1.4em; font: var(--g-t-caption); color: var(--g-ink-3); }
+html .tlxstate:empty { display: none; }
+html .tlxcard { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); min-width: 0; }
+html .tlxfound { margin: 0; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); }
+html .tlxout { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; white-space: pre-wrap; }
+html .tlxletters { margin: 0; font: var(--g-t-reading); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html .tlxoutkeys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html .tlxoutkeys button { min-height: var(--g-target); min-width: var(--g-target); }
+html button.tlxstar[aria-pressed="true"] svg { fill: currentColor; }
+html button.tlxstar[aria-pressed="true"] { color: var(--g-amber); }
+html .tlxaltbox { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .tlxalts { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html button.tlxalt { justify-content: flex-start; min-height: var(--g-target); padding: 0 var(--g-s-2); text-align: start; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; white-space: normal; }
+html .tlxskel { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2); background: var(--g-plate-fill); border-radius: var(--g-radius-key); }
+html .tlxskel i { display: block; height: 1.1em; border-radius: var(--g-radius-key); background: var(--g-line-faint); }
+html .tlxskel i:last-child { width: 60%; }
+html .tlxmodes { display: flex; gap: var(--g-s-1); }
+html .tlxmodes button { flex: 1 1 0; min-width: 0; min-height: var(--g-target); }
+html .tlxtriprow label { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html .tlxtriprow label span { font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); text-transform: uppercase; color: var(--g-ink-3); }
+html .tlxtriprow select { box-sizing: border-box; width: 100%; min-height: var(--g-target); padding: 0 var(--g-s-1); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .tlxbook, html .tlxready, html .tlxlist { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .tlxrow { display: flex; align-items: center; gap: var(--g-s-1); min-width: 0; padding: var(--g-s-1) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+html .tlxrow > button { flex: none; min-width: var(--g-target); min-height: var(--g-target); }
+html .tlxrowtext { flex: 1 1 auto; min-width: 0; }
+html .tlxcame { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .tlxsaid { margin: 0; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html button.tlxline { justify-content: flex-start; min-height: var(--g-target); padding: 0 var(--g-s-2); text-align: start; white-space: normal; overflow-wrap: anywhere; }
+html .tlxempty { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
 
 /* JOURNAL (APPS ROUND, MEMORY lane): his own writing; every class `jn…`, colours from the tokens only */
 #pg-journal { --jn-tone: var(--g-accent); }
