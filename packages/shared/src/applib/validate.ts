@@ -46,7 +46,7 @@ export const BRANDS = [
   'snapchat', 'pinterest', 'reddit', 'google', 'microsoft', 'photoshop', 'strava', 'fitbit', 'duolingo', 'evernote',
   'trello', 'dropbox', 'paypal', 'venmo', 'revolut', 'monzo', 'airbnb', 'uber', 'tinder', 'shazam', 'wordle', 'tetris',
   'pokemon', 'pokémon', 'minecraft', 'monopoly', 'scrabble', 'lego', 'starbucks', 'peloton', 'myfitnesspal', 'headspace', 'nintendo',
-  'playstation', 'xbox', 'letterboxd', 'goodreads', 'chatgpt', 'openai', 'tesla', 'disney', 'candy crush',
+  'playstation', 'xbox', 'letterboxd', 'goodreads', 'openai', 'tesla', 'disney', 'candy crush',
   'angry birds', 'pac-man', 'pacman', 'zelda', 'mario', 'catan', 'wikipedia', 'imdb', 'deliveroo', 'tesco', 'ikea', 'nike', 'adidas',
 ];
 

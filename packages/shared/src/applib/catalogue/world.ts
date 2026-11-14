@@ -345,6 +345,7 @@ export const WORLD: AppDef[] = [
     keywords: ['tip', 'tipping', 'split', 'bill', 'restaurant', 'service'],
     tour: ['Type the bill, the tip you want and how many are paying.', 'Check the bill first: some already add a service charge.', 'Each pays shows the share rounded up to the next pound.'],
     calc: {
+      estimate: true,
       source: 'Percentage arithmetic: tip = bill × rate ÷ 100',
       inputs: [
         { id: 'bill', label: 'Bill', default: 80, min: 0 },

@@ -549,7 +549,9 @@ export const photosTab: TabDef = {
       const goName = button(kept ? 'NAME MY PHOTOS' : `GET THE NAMER · ${NAMER_SIZE}`, async (b) => {
         if (!kept) {
           const { onMobileData } = await import('../../wiki/store');
-          if (onMobileData()) return void say(`The namer (${NAMER_SIZE}) waits for Wi-Fi: you’re on mobile data. Join Wi-Fi and tap again.`, 'warn');
+          // (the iPhone's browser cannot tell Wi-Fi from mobile data: there a second tap within 20 s is his yes, as learn/wifi.ts says)
+          const { netUnknown, secondTap, unknownNet } = await import('../learn/wifi');
+          if ((onMobileData() || netUnknown()) && !secondTap('photos:namer')) return void say(onMobileData() ? `The namer (${NAMER_SIZE}) waits for Wi-Fi: you’re on mobile data. Join Wi-Fi and tap again.` : unknownNet(NAMER_SIZE), 'warn');
         }
         b.disabled = true;
         photosState.search.naming = 'working';

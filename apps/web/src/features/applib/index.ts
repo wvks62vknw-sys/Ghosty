@@ -308,7 +308,11 @@ export const appsTab: TabDef = {
     // (#apps typed or gone back to while an app is open: the Library's front again)
     addEventListener('hashchange', () => { if (location.hash === '#apps' && at !== 'home' && document.querySelector('#pg-apps.on')) show(''); });
     // the lanes' renderers and App Maker (registry.ts), then the screen drawn again with them
-    void loadLaneFiles().then(() => { if (!stopApp && libraryState.view === 'home') show(at === 'home' ? '' : at); });
+    // (also an app or App Maker opened before the lane files had loaded, a cold deep link to #apps/<game>: drawn again with them)
+    void loadLaneFiles().then(() => {
+      const early = (libraryState.view === 'app' && engineState.error === 'no renderer') || (libraryState.view === 'make' && !stopApp);
+      if (early || (!stopApp && libraryState.view === 'home')) show(at === 'home' ? '' : at);
+    });
     show('');
     return {
       open: (arg) => show(arg),
