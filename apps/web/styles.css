@@ -10662,7 +10662,7 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 #pg-journal [data-tone="violet"] { --jn-tone: var(--g-accent-pale); }
 #pg-journal .jnbar { display: flex; gap: var(--g-s-1); flex-wrap: wrap; }
 #pg-journal .jnnew { min-height: var(--g-target); flex: 1 1 12em; }
-#pg-journal .jnsearch input, #pg-journal .jnsettings input, #pg-journal .jneditor input, #pg-journal .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
+#pg-journal .jnsearch input, #pg-journal .jnsettings input, #pg-journal .jneditor input, #pg-journal .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
 #pg-journal .jnsearch { margin: var(--g-s-1) 0; }
 #pg-journal .jnchips { gap: var(--g-s-half); margin-bottom: var(--g-s-1); }
 #pg-journal .jnchips button[data-tone]:not([data-tone=""]) { box-shadow: inset 3px 0 0 var(--jn-tone); }
@@ -10686,7 +10686,7 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 #pg-journal .jnbin .jntext { flex: 1 1 12em; }
 #pg-journal .jnlock { display: flex; flex-direction: column; gap: var(--g-s-1); align-items: flex-start; }
 .jneditor { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
-.jneditor input, .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
+.jneditor input, .jneditor select { width: 100%; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; }
 .jneditor .jnmeta > * { flex: 1 1 10em; }
 .jneditor .jntextarea { width: 100%; min-height: 10em; font: var(--g-t-body); line-height: 1.55; color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: var(--g-s-1); box-sizing: border-box; resize: vertical; }
 .jneditor .jnprompt { margin: 0; font-style: italic; color: var(--g-accent-text); }
@@ -10752,3 +10752,10 @@ html body .ak-app .ak-rowmain, html body .ak-app .ak-rowmain > * { white-space: 
 .jneditor .jnversions summary { min-height: var(--g-target); display: flex; align-items: center; color: var(--g-ink-2); cursor: pointer; }
 .jneditor .jnversion { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half); }
 .jneditor .jnversion .jntext { flex: 1 1 12em; color: var(--g-ink-2); overflow-wrap: anywhere; }
+/* KEEP IN TOUCH (APPS ROUND, MEMORY lane): a page of PEOPLE from the App Kit's parts; every class `tc…`, colours from the tokens */
+.tcsheet { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.tcadd { gap: var(--g-s-half); }
+.tcadd input, .tcadd select { flex: 1 1 10em; min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); padding: 0 var(--g-s-1); box-sizing: border-box; min-width: 0; }
+.tcadd button { min-height: var(--g-target); }
+.tclist { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.tclist .ak-row.tcdue .ak-rowmeta { color: var(--g-amber); }

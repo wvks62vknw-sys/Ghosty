@@ -7,6 +7,7 @@
 //  (e) DELETE has UNDO, and RECENTLY DELETED brings an entry back; ASK GHOSTY ABOUT IT sends that one entry to the chat;
 //  (f) LOCK WITH FACE ID makes a passkey (a virtual authenticator here); leaving locks it; UNLOCK opens it again; while it is locked the
 //      entries are hidden;
+//  (h) KEEP IN TOUCH in People: add, mark caught up, take off, each with UNDO, and a nudge set on the brain;
 //  (g) Memory has a JOURNAL row that opens it; every key 44 pt, nothing sideways, nothing cut, in all seven looks at 390.
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/journal.spec.mjs [outDir]
@@ -210,6 +211,41 @@ if (lastYear) {
   await page.locator('.jneditor .jnversion button', { hasText: 'PUT BACK' }).click();
   const back = await page.evaluate(() => ({ text: document.querySelector('.jneditor textarea')?.value, kept: JSON.parse(localStorage.getItem('ghosty.journal')).entries[0] }));
   check(back.text === 'First day at the flat.' && back.kept.text === 'First day at the flat.' && back.kept.versions?.length === 2 && back.kept.versions[1].text.startsWith('First day at the new flat'), `${T} [e3] PUT BACK left ${JSON.stringify(back).slice(0, 200)}`);
+  await ctx.close();
+}
+
+// (h) KEEP IN TOUCH (People): add someone and how often, tap when caught up (UNDO), ✕ takes them off (UNDO); 44 pt, nothing sideways
+for (const vp of [PHONE, PHONE2]) {
+  const { ctx, page, T } = await open(vp);
+  await page.evaluate(() => localStorage.removeItem('ghosty.touch'));
+  await page.evaluate(() => (location.hash = 'people'));
+  await page.waitForSelector('#pg-people', { state: 'attached', timeout: 10000 });
+  await openSection(page, 'people', 'Keep in touch');
+  await page.waitForFunction(() => window.__ghosty?.touch?.state === 'empty', null, { timeout: 10000 }).catch(async () => problems.push(`${T} [h] KEEP IN TOUCH did not start empty: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.touch))}`));
+  const sheet = page.locator('#pg-people .tcsheet');
+  check(/No one yet/.test(await sheet.innerText().catch(() => '')), `${T} [h] no empty state`);
+  await sheet.locator('input[type=text]').fill('Jo');
+  await sheet.locator('select').selectOption('14');
+  await sheet.locator('button', { hasText: 'ADD' }).click();
+  await page.waitForFunction(() => window.__ghosty.touch.people === 1 && window.__ghosty.touch.due === 1, null, { timeout: 5000 }).catch(async () => problems.push(`${T} [h] after ADD ${JSON.stringify(await page.evaluate(() => window.__ghosty.touch))}`));
+  const row = () => sheet.locator('.ak-row', { hasText: 'Jo' }).first().innerText().catch(() => '');
+  check(/every 2 weeks/.test(await row()) && /Due/.test(await row()), `${T} [h] the row said "${await row()}"`);
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('ghosty.touch'))[0]?.jobId, null, { timeout: 8000 }).catch(() => problems.push(`${T} [h] no nudge was set on the brain`));
+  await sheet.locator('.ak-row .ak-rowmain').first().click();
+  await page.waitForFunction(() => window.__ghosty.touch.due === 0, null, { timeout: 5000 }).catch(() => problems.push(`${T} [h] marking did not clear the due`));
+  check(/In 14 days/.test(await row()) && /caught up today/.test(await row()), `${T} [h] after marking: "${await row()}"`);
+  const undoKey = page.locator('button', { hasText: 'UNDO' }).last();
+  await undoKey.click().catch(() => problems.push(`${T} [h] no UNDO after marking`));
+  await page.waitForFunction(() => window.__ghosty.touch.due === 1, null, { timeout: 5000 }).catch(() => problems.push(`${T} [h] UNDO did not bring the due back`));
+  await sheet.locator('.ak-rowdel').first().click();
+  await page.waitForFunction(() => window.__ghosty.touch.state === 'empty', null, { timeout: 5000 }).catch(() => problems.push(`${T} [h] ✕ did not take Jo off`));
+  await page.locator('button', { hasText: 'UNDO' }).last().click().catch(() => problems.push(`${T} [h] no UNDO after ✕`));
+  await page.waitForFunction(() => window.__ghosty.touch.people === 1, null, { timeout: 5000 }).catch(() => problems.push(`${T} [h] UNDO did not bring Jo back`));
+  const f = await fit(page, '#pg-people .tcsheet');
+  check(!f.small.length, `${T} [h] under 44 pt: ${f.small.join(', ')}`);
+  check(!f.sideways, `${T} [h] the page goes sideways`);
+  check(!f.cut.length, `${T} [h] words cut: ${JSON.stringify(f.cut)}`);
+  await page.screenshot({ path: `${out}/touch-${vp.width}.png` });
   await ctx.close();
 }
 

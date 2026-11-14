@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts')],
+  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts')],
   bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/journal'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
 });
 const S = await import('./.build/journal/apps/web/src/features/journal/store.mjs');
@@ -100,4 +100,22 @@ test('journal: a photo’s own place is read on the phone and only names the nea
   assert.equal(await S.photoGps(new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])])), null, 'no EXIF');
   const ui = readFileSync(at('../../web/src/features/journal/index.ts'), 'utf8');
   assert.ok(!/\.lat\b|\.lon\b/.test(ui.replace(/saved = r\.places;/, '')), 'the screen never keeps a position');
+});
+
+test('keep in touch: due words, the order (most over first) and the due count, from the dates he marked alone', async () => {
+  const P = await import('./.build/journal/apps/web/src/features/people/touch.mjs').catch((e) => ({ err: e }));
+  if (P.err) throw P.err;
+  const now = noon;
+  const jo = { id: 'a', name: 'Jo', every: 14, last: now - 20 * DAY };
+  const sam = { id: 'b', name: 'Sam', every: 30, last: now - 26 * DAY };
+  const kim = { id: 'c', name: 'Kim', every: 7, last: 0 };
+  const al = { id: 'd', name: 'Al', every: 7, last: now - 7 * DAY };
+  assert.equal(P.dueWords(jo, now), '6 days over');
+  assert.equal(P.dueWords(sam, now), 'In 4 days');
+  assert.equal(P.dueWords(kim, now), 'Due');
+  assert.equal(P.dueWords(al, now), 'Due today');
+  assert.equal(P.lastWords(jo, now), 'last caught up 20 days ago');
+  assert.equal(P.lastWords(kim, now), 'not marked yet');
+  assert.deepEqual(P.ordered([sam, kim, jo, al], now).map((p) => p.name), ['Jo', 'Kim', 'Al', 'Sam']);
+  assert.equal(P.dueCount([sam, kim, jo, al], now), 3);
 });

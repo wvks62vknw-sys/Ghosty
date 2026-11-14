@@ -435,7 +435,7 @@ export const journalTab: TabDef = {
           const at = new Date();
           at.setHours(hh ?? 20, mm ?? 30, 0, 0);
           if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
-          const r = await brain.addJob({ kind: 'reminder', title: 'Journal', text: 'A line in your journal?', at: at.getTime(), repeat: 'daily' as never });
+          const r = await brain.addJob({ kind: 'reminder', title: 'Journal', text: 'A line in your journal?', at: at.getTime(), repeat: 'daily' });
           data.prefs.remind = remindIn.value;
           data.prefs.remindId = r.job.id;
           keep();
