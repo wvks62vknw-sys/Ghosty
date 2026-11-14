@@ -119,9 +119,9 @@ export function planIcs(p: { id?: string; what: string; where?: string; when?: s
   return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ghosty//Group plan//EN', 'BEGIN:VEVENT', `UID:${p.id ?? d}-plan@ghosty`, `DTSTAMP:${stamp}`, ...when, `SUMMARY:${esc(p.what)}`, ...(p.where ? [`LOCATION:${esc(p.where)}`] : []), ...(p.yes.length ? [`DESCRIPTION:${esc(`Coming: ${p.yes.join(', ')}`)}`] : []), 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
 }
 
-// ---------------------------------------------------------------- groups and tags, kept on this phone (`ghosty.people.groups`)
+// ---------------------------------------------------------------- groups and tags, kept on this phone (`ghosty.groups`)
 
-export const GROUPS_KEY = 'ghosty.people.groups';
+export const GROUPS_KEY = 'ghosty.groups';
 /** His groups for a person, from his words: "family, school mums" → ["family", "school mums"] (lower case, no repeats, at most 8). */
 export const groupsFrom = (words: string): string[] => [...new Set(words.split(/[,;]+/).map((x) => x.replace(/\s+/g, ' ').trim().toLowerCase()).filter((x) => x.length > 1 && x.length <= 24))].slice(0, 8);
 /** Every group in use, most people first. */

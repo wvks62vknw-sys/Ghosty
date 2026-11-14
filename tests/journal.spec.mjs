@@ -327,7 +327,7 @@ for (const vp of [PHONE, PHONE2]) {
   await page.locator('#pg-people .ppgroups button', { hasText: `school ${stamp}` }).click().catch(() => problems.push(`${T} [l] no chip for the group`));
   await page.waitForFunction(() => window.__ghosty.people.shown === 1, null, { timeout: 5000 }).catch(async () => problems.push(`${T} [l] the group chip shows ${await page.evaluate(() => window.__ghosty.people.shown)}`));
   await page.locator('#pg-people .ppgroups button', { hasText: 'Everyone' }).click().catch(() => undefined);
-  await page.evaluate(() => localStorage.removeItem('ghosty.people.groups'));
+  await page.evaluate(() => localStorage.removeItem('ghosty.groups'));
   const dl = page.waitForEvent('download', { timeout: 8000 }).catch(() => null);
   await page.locator('#pg-people .ppvcf button', { hasText: /Export all/i }).click();
   const d = await dl;

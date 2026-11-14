@@ -67,7 +67,7 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
   address, a birthday with or without a year). It keeps each card on the brain through the people pack's own actions (note,
   contact, birthday). EXPORT ALL writes everyone as one vCard 3.0 file, through the Share sheet where the phone has one.
 - **Groups and tags (YOUR PEOPLE).** Under DETAILS, his groups for each person ("family, school, football") are kept on this
-  phone (`ghosty.people.groups`, in the backup). A chip row over the list shows one group, and search finds people by group too.
+  phone (`ghosty.groups`, in the backup). A chip row over the list shows one group, and search finds people by group too.
 - **Promises on a person's card.** His open promises from YOUR WORD that name that person show under DETAILS.
 - **The group plan into his Calendar.** ADD TO CALENDAR writes the plan as one .ics file: its day, its time (two hours, or all
   day), its place, and who's coming. Nobody is sent anything.
