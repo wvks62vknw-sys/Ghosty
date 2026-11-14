@@ -42,6 +42,7 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Named styles in documents', line: 'In a document, STYLES: set a paragraph in Title, Heading 1 to 3, Body, Quote or Caption, change a style’s font, size, colour and spacing everywhere at once, or REDEFINE it from a paragraph. Kept in Word files as real styles.' },
   { day: '2026-11-14', title: 'Track your own changes', line: 'In a document, REVIEW → TRACK CHANGES: what you type is underlined and what you delete stays struck, with its time, to ACCEPT or REJECT one by one or all. Word files keep them as tracked changes.' },
   { day: '2026-11-14', title: 'Document templates', line: 'DOCUMENTS → TEMPLATES: a letter, a CV, a report, a newsletter and an invoice, each designed, with your name and today’s date filled in.' },
+  { day: '2026-11-14', title: 'Spelling and grammar, on the phone', line: 'In a document, REVIEW → CHECK SPELLING AND GRAMMAR: each finding with its fix to ACCEPT or IGNORE, or FIX ALL. British spelling, checked here; nothing is sent or downloaded.' },
   { day: '2026-11-14', title: 'Fold sections away', line: 'In a document’s CONTENTS, ▾ folds a heading’s section away in the page and ▸ brings it back; FOLD ALL shows a long document as its headings.' },
   // [editors paper] the next round's paper tools
   { day: '2026-11-14', title: 'Coloured words', line: 'In a document choose some words, then WRITE → COLOUR: red, blue, green or orange, kept in the Word file, the PDF and the web page.' },

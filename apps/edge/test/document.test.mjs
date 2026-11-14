@@ -226,3 +226,37 @@ test('docspro templates: five designed documents in the named styles, his name, 
   }
   assert.match(JSON.stringify(TP.fromTemplate('letter', { date: '1 May 2027' })), /\[Your name\][\s\S]*1 May 2027/);
 });
+
+// ---------------------------------------------------------------- [docspro] spelling and grammar, checked on the phone (pure)
+await build({ entryPoints: { 'docs-proof': '../web/src/docs/proof.ts' }, bundle: true, format: 'esm', platform: 'neutral', outdir: 'test/.build', outExtension: { '.js': '.mjs' }, logLevel: 'warning' });
+const PR = await import('./.build/docs-proof.mjs');
+
+test('docspro proof: common misspellings, a word twice, a or an, a lone i, could of, a small sentence start, two spaces; British spelling and clean words left alone', () => {
+  const found = (t) => PR.checkText(t, 'b').map((i) => `${i.found}→${i.fix}`);
+  assert.deepEqual(found('I recieve teh letter on Wendesday.'), ['recieve→receive', 'teh→the', 'Wendesday→Wednesday']);
+  assert.deepEqual(found('Teh colour of the organisation is grey, and my judgement is sound.'), ['Teh→The']);
+  assert.deepEqual(found('Please send the the engineer.'), ['the the→the']);
+  assert.deepEqual(found('It had had enough.'), []);
+  assert.deepEqual(found('He waited a hour for an engineer, then a unit and an euro.'), ['a hour→an hour', 'an euro→a euro']);
+  assert.deepEqual(found('Yesterday i said we could of fixed it.'), ['i→I', 'could of→could have']);
+  assert.deepEqual(found('It broke. then it leaked , badly.  Again.'), ['then→Then', ' ,→,', '  → ']);
+  assert.deepEqual(found('Bring tea, e.g. milk and sugar.'), []);
+  assert.deepEqual(found('The boiler stopped on Monday night.'), []);
+});
+
+test('docspro proof: ACCEPT puts the fix in keeping bold, as a tracked change when TRACK CHANGES is on; IGNORE is remembered; a changed paragraph is said; FIX ALL does them all', () => {
+  const d = { id: 'd', title: 'T', at: 1, kind: 'document', blocks: [{ id: 'a', t: 'p', runs: [{ text: 'Please ' }, { text: 'recieve', b: true }, { text: ' teh parcel.' }] }, { id: 't', t: 'table', runs: [], rows: [[[{ text: 'teh' }]]] }] };
+  const list = PR.checkDoc(d);
+  assert.deepEqual(list.map((i) => i.found), ['recieve', 'teh'], 'a table cell is left alone');
+  const one = PR.applyIssue(d, list[0]);
+  assert.deepEqual(one.blocks[0].runs, [{ text: 'Please ' }, { text: 'receive', b: true }, { text: ' teh parcel.' }]);
+  const tracked = PR.applyIssue({ ...d, track: true }, list[1], 7);
+  assert.equal(tracked.blocks[0].runs.map((r) => `${r.tc ?? '='}:${r.text}`).join('|'), '=:Please |=:recieve|=: |del:teh|ins:the|=: parcel.'.replace('=:Please |=:recieve', '=:Please |=:recieve'));
+  assert.equal(PR.checkDoc(tracked).map((i) => i.found).join(','), 'recieve', 'struck words are not checked');
+  assert.match(PR.applyIssue(one, list[0]), /changed since the check/);
+  assert.deepEqual(PR.checkDoc(d, new Set([PR.ignoreKey(list[1])])).map((i) => i.found), ['recieve']);
+  const all = PR.applyAll(d, list);
+  assert.equal(all.done, 2);
+  assert.equal(all.doc.blocks[0].runs.map((r) => r.text).join(''), 'Please receive the parcel.');
+  assert.equal(PR.issueWords(list[1]), 'Spelling: “teh” → “the”');
+});

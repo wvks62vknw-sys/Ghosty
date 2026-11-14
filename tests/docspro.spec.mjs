@@ -5,5 +5,5 @@
 //   BASE=http://localhost:8788 node tests/docspro.spec.mjs [outDir]      PARTS=styles limits it to those parts.
 import { runParts } from './editorsharness.mjs';
 
-await runParts('DOCUMENTS, PRO EDITION (named styles, tracked changes, templates, folding)', ['docspro-styles.mjs', 'docspro-track.mjs', 'docspro-templates.mjs', 'docspro-fold.mjs', 'docspro-looks.mjs'],
-  'DOCUMENTS, PRO EDITION ran clean: styles, tracked changes, templates and folding, in all seven looks at 440 and 390 and at BODY 21.');
+await runParts('DOCUMENTS, PRO EDITION (named styles, tracked changes, templates, folding, spelling and grammar)', ['docspro-styles.mjs', 'docspro-track.mjs', 'docspro-templates.mjs', 'docspro-fold.mjs', 'docspro-proof.mjs', 'docspro-looks.mjs'],
+  'DOCUMENTS, PRO EDITION ran clean: styles, tracked changes, templates, folding and spelling, in all seven looks at 440 and 390 and at BODY 21.');

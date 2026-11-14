@@ -442,6 +442,7 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Track your own changes', act: { open: 'docs' } },
       { text: 'Start from a designed template', act: { run: 'open_docs', args: { what: 'templates' } } },
       { text: 'Fold sections away', act: { run: 'open_docs', args: { what: 'outline' } } },
+      { text: 'Check spelling and grammar', act: { open: 'docs' } },
     ],
     dyk: 'A translation keeps every heading and list in its place, beside the original.',
   },

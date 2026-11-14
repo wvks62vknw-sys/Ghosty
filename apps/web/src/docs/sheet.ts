@@ -38,6 +38,7 @@ import { sectionRange } from './sections';
 import { COLOUR_NAMES, effective, FONT_NAMES, LINES, redefineFrom, ROOMS, setFormat, setStyle, SIZE_MAX, SIZE_MIN, STYLE_IDS, STYLE_NAMES, styleIdOf, styleOf, styleWords, withoutFmt, type FontFamily, type ParaFormat, type ParaStyle, type StyleColour, type StyleId } from './styles';
 import { changesOf, changeWords, settle, settleAll, trackEdit, type Change } from './track';
 import { fromTemplate, TEMPLATES, type TemplateId } from './templates';
+import { applyAll, applyIssue, checkDoc, ignoreKey, issueWords, type Issue } from './proof';
 import { settings } from '../state/app';
 
 export const docsState = {
@@ -70,7 +71,11 @@ export const docsState = {
   style: 'p',
   folded: 0,
   templates: 0,
+  /** [docspro] Spelling and grammar: findings waiting (-1: not checked yet). */
+  proof: -1,
 };
+/** [docspro] What he chose to IGNORE in the spelling and grammar check, by document (kept while the app is open). */
+const IGNORED = new Map<string, Set<string>>();
 /** [docspro] The sections folded away, by document (a view, not a change: kept while the app is open). */
 const FOLDS = new Map<string, Set<string>>();
 let current: { close(): void } | null = null;
@@ -1184,8 +1189,60 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     change(settleAll(doc(), ok));
     say(`${ok ? 'Accepted' : 'Rejected'} all ${n} change${n === 1 ? '' : 's'}. UNDO takes ${n === 1 ? 'it' : 'them'} back.`);
   };
+  // ---------------------------------------------------------------- [docspro] SPELLING AND GRAMMAR, checked on this phone
+  const proofList = h('div.dcreview.dcproof');
+  let proofRan = false;
+  let proofIssues: Issue[] = [];
+  const ignoredHere = (): Set<string> => {
+    const id = doc().id;
+    if (!IGNORED.has(id)) IGNORED.set(id, new Set());
+    return IGNORED.get(id)!;
+  };
+  const runProof = () => {
+    flush();
+    proofRan = true;
+    paintReview();
+    say(proofIssues.length ? `${proofIssues.length} thing${proofIssues.length === 1 ? '' : 's'} to look at, checked on this phone: ACCEPT puts the fix in, IGNORE leaves your words.` : 'No spelling or grammar problems found. Checked on this phone; nothing was sent.');
+  };
+  const acceptIssue = (i: Issue) => {
+    flush();
+    const r = applyIssue(doc(), i);
+    if (typeof r === 'string') {
+      paintReview();
+      return say(r);
+    }
+    change(r);
+    say(`Fixed: ${issueWords(i)}${doc().track ? ', as a tracked change' : ''}. UNDO puts it back.`);
+  };
+  const ignoreIssue = (i: Issue) => {
+    ignoredHere().add(ignoreKey(i));
+    paintReview();
+    say(`Ignored: “${i.found}” stays as you wrote it in that paragraph.`);
+  };
+  const paintProof = () => {
+    if (proofRan) proofIssues = checkDoc(doc(), ignoredHere());
+    docsState.proof = proofRan ? proofIssues.length : -1;
+    clear(proofList,
+      h('div.dcrow', cased(key('CHECK SPELLING AND GRAMMAR', runProof, proofRan ? '' : 'on'), 'Check spelling and grammar')),
+      h('p.dcnote', { 'aria-live': 'polite' }, !proofRan ? 'Checks the spelling and grammar here on this phone, with British spelling; nothing is sent or downloaded.' : proofIssues.length ? `${proofIssues.length} thing${proofIssues.length === 1 ? '' : 's'} to look at: ${proofIssues.filter((i) => i.kind === 'spelling').length} spelling, ${proofIssues.filter((i) => i.kind === 'grammar').length} grammar.` : 'No spelling or grammar problems found. Checked on this phone; nothing was sent.'),
+      ...(proofRan && proofIssues.length > 1 ? [h('div.dcrow', cased(key('FIX ALL', () => {
+        flush();
+        const r = applyAll(doc(), proofIssues);
+        if (!r.done) return say('Those words have changed since the check: CHECK again.');
+        change(r.doc);
+        say(`${r.done} fix${r.done === 1 ? '' : 'es'} put in. UNDO takes ${r.done === 1 ? 'it' : 'them all'} back.`);
+      }, 'on'), 'Fix all'))] : []),
+      ...(proofRan ? proofIssues.slice(0, 40).map((i) => h(`div.dcchg.dcissue.dcissue${i.kind}` as 'div', { dataset: { id: i.id } },
+        cased(button(issueWords(i), () => elOf(i.block)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 'dcchggo'), issueWords(i)),
+        key('ACCEPT', () => acceptIssue(i), '', `Accept: ${issueWords(i)}`),
+        key('IGNORE', () => ignoreIssue(i), '', `Ignore: ${issueWords(i)}`),
+      )) : []),
+    );
+  };
+
   const paintReview = () => {
     if (!hist) return;
+    paintProof();
     const d = doc();
     const list = changesOf(d);
     docsState.track = !!d.track;
@@ -1268,6 +1325,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     review: h('div.dcpanel', { role: 'tabpanel', 'aria-label': 'Review' },
       h('div.dcrow', trackKey),
       reviewList,
+      h('small.cvgh', 'SPELLING AND GRAMMAR'),
+      proofList,
     ),
   };
   const showPanel = (id: string) => {

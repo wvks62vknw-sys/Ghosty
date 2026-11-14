@@ -104,6 +104,14 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
     go: { run: 'open_docs', args: { what: 'outline' } }, tryText: 'Opens the contents',
   },
+  'deck:docs:check-spelling-and-grammar': {
+    name: 'Check spelling and grammar',
+    line: 'You can have a document’s spelling and grammar checked on this phone, each fix shown for you to accept or ignore.',
+    more: 'In a document open REVIEW and press CHECK SPELLING AND GRAMMAR. It finds words people often misspell (British spelling is right here), a word typed twice, “a” or “an” before the wrong sound, a lone “i”, “could of”, a sentence that starts small and stray spaces. ACCEPT puts a fix in, IGNORE leaves your words, FIX ALL does the rest; UNDO takes any fix back. With TRACK CHANGES on, each fix is a tracked change. Nothing is sent or downloaded.',
+    say: ['Open my documents', 'My documents'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { open: 'docs' }, tryText: 'Opens my documents',
+  },
   'hub:sheets': {
     name: 'Budgets and lists with formulas',
     line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',
