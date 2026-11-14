@@ -31,13 +31,16 @@ export default async function (h) {
       return r.text === t || String(r.v) === t || r.text.length > 0;
     }, [a, text], 5000);
   };
-  const { ctx, page } = await open({ look: LOOKS.scan });
+  // a spending table kept on the phone as he would have typed it (3 Jan, 20 Jan, 2 Feb and 1 Mar 2026 as the dates Excel counts; pounds)
+  const D = (v) => ({ v, x: { n: 'date' } });
+  const P = (v) => ({ v, x: { n: 'currency' } });
+  const cells = { A1: { v: 'Date' }, B1: { v: 'Shop' }, C1: { v: 'Amount' }, A2: D(46025), B2: { v: 'Tesco' }, C2: P(12.5), A3: D(46042), B3: { v: 'Aldi' }, C3: P(8), A4: D(46055), B4: { v: 'Tesco' }, C4: P(30), A5: D(46082), B5: { v: 'Boots' }, C5: P(4) };
+  const book = { id: 'gsum', title: 'Spending', at: Date.now(), sheets: [{ name: 'Sheet1', cells, widths: {}, heights: {}, frozen: false }], names: {}, charts: [], view: { sheet: 0, sel: 'A1' }, from: 'made here' };
+  const { ctx, page } = await open({ look: LOOKS.scan, seed: { 'ghosty.sheets': [book] } });
   await page.evaluate(() => (location.hash = 'sheets'));
-  await page.waitForSelector('#pg-sheets .shsheet', { timeout: 15000 });
-  await page.locator('#pg-sheets .shbar button', { hasText: 'NEW' }).first().click();
+  await page.waitForSelector('#pg-sheets .shsheet .shopen', { timeout: 15000 });
+  await page.locator('#pg-sheets .shopen').first().click();
   await until(page, () => window.__ghosty.sheets.view === 'book');
-  const rows = [['Date', 'Shop', 'Amount'], ['3/1/2026', 'Tesco', '£12.50'], ['20/1/2026', 'Aldi', '£8'], ['2/2/2026', 'Tesco', '£30'], ['1/3/2026', 'Boots', '£4']];
-  for (let r = 0; r < rows.length; r++) for (let c = 0; c < 3; c++) await type(page, `${'ABC'[c]}${r + 1}`, rows[r][c]);
 
   // 1. the summary by month
   await go(page, 'A1:C5');

@@ -116,6 +116,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
     go: { open: 'slides' }, tryText: 'Opens my slides',
   },
+  // [editors grid, NEXT ROUND] present with a TV and the phone (editors.u5)
+  'deck:slides:present-on-a-tv-from-your': {
+    name: 'Present on a TV',
+    line: 'You can put the slide on a TV while your phone shows this slide, the next one, your notes and the time.',
+    more: 'Start the talk with PRESENT, then tap ON A TV: the slide opens in a window of its own for the second screen, and a tap there fills it. NEXT and BACK on the phone move the TV along. If this phone cannot open a second screen I say so plainly, and the talk carries on on the phone with everything in your hand.',
+    say: ['Open my slides', 'My slides'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { open: 'slides' }, tryText: 'Opens my slides',
+  },
   'hub:workspace': {
     name: 'Pages, projects and databases',
     line: 'You can keep pages inside pages and a project with its tasks and dates, and I read all of it before I answer.',

@@ -498,3 +498,56 @@ test('[sheets] one-tap summaries: by month and by shop, sum, count and average a
   const back = readXlsx(writeXlsx(r.book)).book;
   assert.equal(new Engine(back).value('Summary', 'B3'), 37.5, 'in Excel the summary is its formulas, and they work');
 });
+
+test('[sheets] your spending as a budget sheet: months by categories, totals as formulas, budgets and a chart; asked for in his words', async () => {
+  const months = [
+    { month: '2026-10', out: 300, in: 2000, categories: [{ c: 'groceries', spent: 200 }, { c: 'fuel', spent: 100 }] },
+    { month: '2026-09', out: 150, in: 2000, categories: [{ c: 'groceries', spent: 120 }, { c: 'eating out', spent: 30 }] },
+  ];
+  const b = K.moneyBook(months, [{ category: 'groceries', monthly: 250, spent: 200 }], '2026-11-14');
+  assert.deepEqual(b.sheets.map((s) => s.name), ['Spending', 'Budgets']);
+  assert.equal(b.title, 'My spending, 2026-11-14');
+  const e = new Engine(b);
+  const row = (r) => ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((c) => e.value('Spending', `${c}${r}`));
+  assert.deepEqual(row(1), ['Month', 'Groceries', 'Fuel', 'Eating out', 'Money out', 'Money in', 'Left over'], 'the biggest category first');
+  assert.deepEqual(row(2), ['Sep 2026', 120, 0, 30, 150, 2000, 1850], 'oldest month first');
+  assert.deepEqual(row(3), ['Oct 2026', 200, 100, 0, 300, 2000, 1700]);
+  assert.deepEqual(row(4), ['Total', 320, 100, 30, 450, 4000, 3550]);
+  assert.equal(e.value('Spending', 'E5'), 225, 'the average month');
+  assert.equal(b.sheets[0].cells.E2.f, 'SUM(B2:D2)', 'a row’s total is a formula');
+  assert.equal(e.text('Spending', 'B2'), '£120.00');
+  assert.deepEqual(['A2', 'B2', 'C2', 'D2'].map((a) => e.value('Budgets', a)), ['Groceries', 250, 200, 50]);
+  assert.deepEqual([b.charts[0].sheet, b.charts[0].labels, b.charts[0].values], ['Spending', 'A2:A3', 'E2:E3']);
+  // change a figure in the copy: the totals follow (the copy is his to play with)
+  const e2 = new Engine(setEntry(b, 'Spending', 'C2', '50'));
+  assert.equal(e2.value('Spending', 'E2'), 200);
+  assert.equal(e2.value('Spending', 'G4'), 3500);
+  // nothing set: the budgets sheet says where to set them
+  assert.match(String(K.moneyBook(months, [], '2026-11-14').sheets[1].cells.A2.v), /No budgets set yet/);
+  // .xlsx out keeps it
+  assert.equal(new Engine(readXlsx(writeXlsx(b)).book).value('Spending', 'G4'), 3550);
+  // his words
+  buildSync({ entryPoints: [here('../../web/src/sheets/asks.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: here('./.build/sheets/asks.mjs'), logLevel: 'warning' });
+  const A = await import(pathToFileURL(here('./.build/sheets/asks.mjs')).href);
+  for (const t of ['open my money as a spreadsheet', 'Make my spending a budget sheet', 'show my budgets as a spreadsheet', 'turn my money into a spreadsheet', 'my spending as a spreadsheet']) assert.deepEqual(A.sheetsAsked(t), { what: 'money' }, t);
+  assert.deepEqual(A.sheetsAsked('my spreadsheets'), { what: 'list' });
+  assert.equal(A.sheetsAsked('how much did I spend on fuel'), null);
+});
+
+test('[sheets] Σ over several columns: into an empty last row chosen, else the row under; never over what he typed', () => {
+  let b = newBook('Sum');
+  for (const [a, t] of [['B1', '10'], ['B2', '20'], ['C1', '1'], ['C2', '2'], ['B4', 'note'], ['C3', '=C1*0']]) b = setEntry(b, 'Sheet1', a, t);
+  const e = new Engine(b);
+  // B1:C3 chosen, row 3 not empty (C3 has a formula): the totals go under, in row 4, where B4 holds his note: refused, B4 named
+  let r = K.autoSum(b, e, 0, { r1: 0, c1: 1, r2: 2, c2: 2 });
+  assert.equal(r.blocked, 'B4');
+  assert.equal(r.book, b, 'nothing written');
+  // B1:B3 chosen with row 3 empty in B: Excel's way, the total goes in B3 and adds B1:B2
+  r = K.autoSum(b, e, 0, { r1: 0, c1: 1, r2: 2, c2: 1 });
+  assert.deepEqual(r.cells, ['B3']);
+  assert.equal(r.book.sheets[0].cells.B3.f, 'SUM(B1:B2)');
+  // a total already there is rewritten, not refused
+  const again = K.autoSum(r.book, new Engine(r.book), 0, { r1: 0, c1: 1, r2: 1, c2: 1 });
+  assert.equal(again.blocked, undefined);
+  assert.deepEqual(again.cells, ['B3']);
+});

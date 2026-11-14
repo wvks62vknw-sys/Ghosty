@@ -5,6 +5,7 @@
 //  3. OVERDUE over dates: a date before London's today is red, one to come is not. DATA BARS draw a bar by size. A rule that needs a number
 //     and has none says so.
 //  4. The round trip: the workbook out as .xlsx and IMPORTed back, every rule the same and nothing said lost about them.
+//  (and the sweep: quick sums of the chosen cells; AutoSum: Σ over cells whose row under is not empty writes nothing over it, and says which cell is in the way)
 import { readFileSync } from 'node:fs';
 
 export default async function (h) {
@@ -30,12 +31,22 @@ export default async function (h) {
       return (r.f !== undefined ? `=${r.f}` : r.text) === t || String(r.v) === t;
     }, [a, text], 5000);
   };
-  const { ctx, page } = await open({ look: LOOKS.scan });
+  // the numbers and two dates, kept on the phone as he would have typed them (1 Jan 2020 and 31 Dec 2099 as the dates Excel counts)
+  const cells = { A1: { v: 5 }, A2: { v: 120 }, A3: { v: 60 }, A4: { v: 130 }, A5: { v: 30 }, C1: { v: 43831, x: { n: 'date' } }, C2: { v: 73050, x: { n: 'date' } } };
+  const book = { id: 'grules', title: 'Rules', at: Date.now(), sheets: [{ name: 'Sheet1', cells, widths: {}, heights: {}, frozen: false }], names: {}, charts: [], view: { sheet: 0, sel: 'A1' }, from: 'made here' };
+  const { ctx, page } = await open({ look: LOOKS.scan, seed: { 'ghosty.sheets': [book] } });
   await page.evaluate(() => (location.hash = 'sheets'));
-  await page.waitForSelector('#pg-sheets .shsheet', { timeout: 15000 });
-  await page.locator('#pg-sheets .shbar button', { hasText: 'NEW' }).first().click();
+  await page.waitForSelector('#pg-sheets .shsheet .shopen', { timeout: 15000 });
+  await page.locator('#pg-sheets .shopen').first().click();
   await until(page, () => window.__ghosty.sheets.view === 'book');
-  for (const [a, t] of [['A1', '5'], ['A2', '120'], ['A3', '60'], ['A4', '130'], ['A5', '30']]) await type(page, a, t);
+
+  // (the sweep) QUICK SUMS: several cells chosen, their total, average, smallest and largest under the formula line
+  await go(page, 'A1:A5');
+  check(await until(page, () => window.__ghosty.sheets.quick === '5 numbers · total 345 · average 69 · smallest 5 · largest 130'), `sweep: quick sums of the chosen cells (${await page.evaluate(() => window.__ghosty.sheets.quick)})`);
+  // (the sweep) Σ over cells whose row under is not empty writes nothing over his 30, and says so
+  await go(page, 'A1:A4');
+  await page.locator('.shtools button[aria-label^="AutoSum"]').click();
+  check(await until(page, () => /The row under them is not empty \(A5 has 30\), so I wrote nothing/.test(window.__ghosty.sheets.said)) && (await page.evaluate(() => window.__ghosty.sheets.read('Sheet1', 'A5').v)) === 30, `sweep: Σ never writes over a full row; said (${await said(page)})`);
 
   // 1. MORE THAN 100
   await go(page, 'A1:A5');
@@ -68,8 +79,6 @@ export default async function (h) {
   await until(page, () => window.__ghosty.sheets.rules.length === 1);
 
   // 3. OVERDUE (London's today), DATA BARS, a rule with no number
-  await type(page, 'C1', '1/1/2020');
-  await type(page, 'C2', '31/12/2099');
   await go(page, 'C1:C2');
   await pill(page, 'RULES');
   await key(page, 'OVERDUE').click();

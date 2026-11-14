@@ -55,13 +55,17 @@ export const sheetsState = {
   opened: 0,
   recalcMs: 0,
   read: (_sheet: string, _a: string): { v: Val; f?: string; text: string } => ({ v: null, text: '' }),
+  /** QUICK SUMS of the chosen cells, as said under the formula line ('' for one cell). */
+  quick: '',
+  /** The budget sheet from MONEY: '' (not asked), loading, ready or none (said why). */
+  money: '',
   /** The active sheet's colour rules, in his words, first first. */
   rules: [] as string[],
 };
 let current: { close(): void } | null = null;
 /** The sheet's name (its title, and its panel on the SPREADSHEETS screen: features/sheets/index.ts). */
 export const SHEETS_TITLE = 'SPREADSHEETS';
-type SheetsAsk = { book?: Book; table?: string[][]; title?: string; id?: string; what?: 'list' | 'new' | 'budget' | 'import' };
+type SheetsAsk = { book?: Book; table?: string[][]; title?: string; id?: string; what?: 'list' | 'new' | 'budget' | 'import' | 'money' };
 
 /** The sheet: a workbook to open, a table from an answer, or MY SPREADSHEETS. */
 export async function openSheets(o: SheetsAsk = {}): Promise<void> {
@@ -261,6 +265,38 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     sheetsState.range = rangeText(g);
     clear(fns);
     paintErr();
+    paintQuick(g, one);
+  };
+  // QUICK SUMS (Numbers' and Excel's bar under the sheet): several cells chosen, their total, average, smallest and largest, said at once
+  const quick = h('p.shquick', { 'aria-live': 'polite' });
+  quick.hidden = true;
+  const paintQuick = (g: Rect, one: boolean): void => {
+    if (one || (g.r2 - g.r1 + 1) * (g.c2 - g.c1 + 1) > 20000) {
+      quick.hidden = true;
+      sheetsState.quick = '';
+      return;
+    }
+    const s = sheet();
+    const nums: number[] = [];
+    let money = false;
+    for (let r = g.r1; r <= g.r2; r++)
+      for (let c = g.c1; c <= g.c2; c++) {
+        const v = eng!.value(s.name, addr(r, c));
+        if (typeof v === 'number') {
+          nums.push(v);
+          if (s.cells[addr(r, c)]?.x?.n === 'currency') money = true;
+        }
+      }
+    if (nums.length < 2) {
+      quick.hidden = true;
+      sheetsState.quick = '';
+      return;
+    }
+    const fmt = (n: number) => (money ? `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : n.toLocaleString('en-GB', { maximumFractionDigits: 4 }));
+    const total = nums.reduce((k, n) => k + n, 0);
+    quick.hidden = false;
+    quick.textContent = `${nums.length} numbers · total ${fmt(total)} · average ${fmt(total / nums.length)} · smallest ${fmt(Math.min(...nums))} · largest ${fmt(Math.max(...nums))}`;
+    sheetsState.quick = quick.textContent;
   };
   const offer = () => {
     clear(fns);
@@ -543,6 +579,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     const g = rectOf(A, B);
     const r = autoSum(book(), eng!, si(), g);
     if (!r) return say('No numbers above or beside to add up. Choose the numbers, or the cell under them.');
+    if (r.blocked) return say(`The row under them is not empty (${r.blocked} has ${eng!.text(sheet().name, r.blocked) || 'something in it'}), so I wrote nothing. Choose the numbers and an empty row under them, or the one cell for a total.`);
     // (the engine marks cells as "Sheet!A1": a bare address would leave what leans on the total unrecalculated)
     const sn = sheet().name;
     commit(r.book, r.cells.map((a) => `${sn}!${a}`));
@@ -1078,7 +1115,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       });
     }
     clear(view, title, metaEl, savedEl, offline, h('p.shsaid', { 'aria-live': 'polite' }), empty,
-      h('div.shfbar', addrIn, line), fns, errLine, colMenu, grid.el, tabs, renameBox, tools, findBox, pills, ...Object.values(panels), charts, exportRow, askBox,
+      h('div.shfbar', addrIn, line), fns, errLine, quick, colMenu, grid.el, tabs, renameBox, tools, findBox, pills, ...Object.values(panels), charts, exportRow, askBox,
       h('div.shrow', key('REMOVE FROM MY SPREADSHEETS', () => {
         removeBook(book().id);
         say(`Removed “${book().title}” from this phone.`);
@@ -1144,7 +1181,20 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     } else if (o.id && getBook(o.id)) showBook(getBook(o.id)!);
     else if (o.what === 'new') (bar.children[1] as HTMLButtonElement).click();
     else if (o.what === 'budget') seedBudget();
-    else if (o.what === 'import') {
+    else if (o.what === 'money') {
+      // MONEY's figures, a fresh copy each time (sheets/moneyopen.ts); the list shows while it is read
+      showList();
+      say('Reading your money for the budget sheet…');
+      sheetsState.money = 'loading';
+      const { moneySheet } = await import('./moneyopen');
+      const r = await moneySheet();
+      sheetsState.money = r.book ? 'ready' : 'none';
+      if (r.book) {
+        saveBook(r.book);
+        showBook(r.book);
+      }
+      say(r.said);
+    } else if (o.what === 'import') {
       showList();
       fileIn.click();
     } else showList();

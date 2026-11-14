@@ -458,6 +458,17 @@ test('slide builds are PowerPoint animations: written in p:timing after p:transi
   assert.ok(rev.lost.some((x) => /order of the builds \(they come in top to bottom here\) on slide 1/.test(x)), rev.lost.join('; '));
 });
 
+test('REPLACE keeps the capitals of what it replaces, unless he typed his own', () => {
+  assert.equal(K.keepCase('Apples', 'pears'), 'Pears');
+  assert.equal(K.keepCase('APPLES', 'pears'), 'PEARS');
+  assert.equal(K.keepCase('apples', 'pears'), 'pears');
+  assert.equal(K.keepCase('Apples', 'iPhone'), 'iPhone', 'his own capitals are kept as typed');
+  assert.equal(K.keepCase('A', 'the'), 'The', 'one capital letter is a capitalised word, not shouting');
+  assert.equal(K.keepCase('“Apples', 'pears'), 'Pears');
+  assert.equal(K.keepCase('42', 'pears'), 'pears');
+  assert.equal(K.keepCase('Apples', ''), '');
+});
+
 test('a hand-built .pptx (not our writer’s) is read: its words, notes, table and picture kept, and what it could not keep said', async () => {
   const bytes = foreignPptx();
   const r = await K.readPptx(bytes, 'quarterly_review.pptx', keepFake);

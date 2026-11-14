@@ -95,6 +95,18 @@ export const SHAPE_NAMES: Record<ShapeKind, string> = { rect: 'Rectangle', round
 export const ANIMS: Anim[] = ['appear', 'fade', 'rise'];
 export const TRANSITIONS: Transition[] = ['none', 'fade', 'push', 'morph'];
 
+/**
+ * REPLACE keeping the capitals of what it replaces (Keynote's and Word's way): typed in small letters, the new words take the old words'
+ * case: "Apples" becomes "Pears", "APPLES" becomes "PEARS", "apples" becomes "pears". Typed with capitals of his own, they are kept as typed.
+ */
+export function keepCase(found: string, wanted: string): string {
+  if (!wanted || wanted !== wanted.toLowerCase() || !/\p{L}/u.test(found)) return wanted;
+  if (found.length > 1 && found === found.toUpperCase() && found !== found.toLowerCase()) return wanted.toUpperCase();
+  const first = [...found].find((ch) => /\p{L}/u.test(ch)) ?? '';
+  if (first && first === first.toUpperCase() && first !== first.toLowerCase()) return wanted.replace(/\p{L}/u, (ch) => ch.toUpperCase());
+  return wanted;
+}
+
 export const bullets = (lines: string[]): Block[] => lines.map((l) => block('ul', l));
 export const plainOf = (blocks: Block[]): string => blocks.map(textOf).join('\n');
 

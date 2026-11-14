@@ -23,6 +23,7 @@ export const WHATS_NEW: NewThing[] = [
   // [editors grid] the NEXT ROUND's spreadsheet and presentation tools
   { day: '2026-11-14', title: 'A table summed in one tap', line: 'Spreadsheets → SUMMARY: how much each month or at each shop, on its own sheet that keeps up with the table, and a chart of it in one more tap.' },
   { day: '2026-11-14', title: 'Cells that colour themselves', line: 'Spreadsheets → RULES: overdue dates in red, the top ten in green, data bars and a colour scale, listed per sheet to edit or delete, and kept in Excel files.' },
+  { day: '2026-11-14', title: 'Give a talk with a TV', line: 'Presentations → PRESENT → ON A TV: the slide on the second screen, and on your phone this slide, the next one, your notes and the time.' },
   { day: '2026-11-14', title: 'Slide builds go to PowerPoint', line: 'Presentations: what comes in on a tap, and the new MAGIC MOVE between slides, are kept in the PowerPoint file as its own animations and Morph, and come back when you open one.' },
   // [editors paper] the next round's paper tools
   { day: '2026-11-14', title: 'Move whole sections', line: 'In a document, CONTENTS now has ▲ and ▼ by every heading: a section moves with everything under it, in one step UNDO takes back.' },

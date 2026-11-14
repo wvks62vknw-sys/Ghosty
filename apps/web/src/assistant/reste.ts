@@ -94,6 +94,8 @@ export async function sheetsTurn(text: string): Promise<PackReply> {
         ? 'A blank spreadsheet is open: tap a cell and type, or start with a budget.'
         : ask.what === 'import'
           ? 'Choose the file and I open it here: an Excel .xlsx or a CSV. Nothing is uploaded, and what I could not keep I say once.'
+          : ask.what === 'money'
+            ? 'Making your spending a budget sheet: months by categories with the totals, your budgets and a chart, a fresh copy from MONEY each time you ask.'
           : 'My spreadsheets are open: the ones you made or opened, kept on this phone with their dates.';
   return { said: text, reply, go: [{ id: 'sheets', ask: -1, label: 'Open my spreadsheets', run: 'open_sheets', args: {} }] };
 }

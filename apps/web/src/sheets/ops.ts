@@ -276,9 +276,11 @@ export function moveLines(b: Book, sheet: string | number, axis: 'r' | 'c', at: 
 
 /**
  * AUTOSUM (Σ): one cell chosen adds up the numbers right above it (or, with none above, those to its left); several cells chosen get a
- * SUM under each column of them. What it wrote, and where; null when there are no numbers to add up.
+ * SUM under each column of them: in the last row chosen when that row is empty (Excel's way), else in the row under them, which must be
+ * empty where a total would go (nothing he typed is written over: `blocked` names the cell in the way). What it wrote, and where; null when
+ * there are no numbers to add up.
  */
-export function autoSum(b: Book, eng: Engine, sheet: string | number, g: { r1: number; c1: number; r2: number; c2: number }): { book: Book; cells: string[]; f: string } | null {
+export function autoSum(b: Book, eng: Engine, sheet: string | number, g: { r1: number; c1: number; r2: number; c2: number }): { book: Book; cells: string[]; f: string; blocked?: string } | null {
   const si = typeof sheet === 'number' ? sheet : sheetIndex(b, sheet);
   const s = b.sheets[si];
   if (!s) return null;
@@ -314,14 +316,21 @@ export function autoSum(b: Book, eng: Engine, sheet: string | number, g: { r1: n
     put(addr(r, c), f);
     done.push(addr(r, c));
   } else {
-    if (g.r2 + 1 >= MAXR) return null;
+    const filled = (r: number, c: number) => s.cells[addr(r, c)]?.v !== undefined || s.cells[addr(r, c)]?.f !== undefined;
+    let lastEmpty = g.r2 > g.r1;
+    for (let c = g.c1; c <= g.c2 && lastEmpty; c++) lastEmpty = !filled(g.r2, c);
+    const end = lastEmpty ? g.r2 - 1 : g.r2;
+    const at = lastEmpty ? g.r2 : g.r2 + 1;
+    if (at >= MAXR) return null;
     for (let c = g.c1; c <= g.c2; c++) {
       let any = false;
-      for (let r = g.r1; r <= g.r2 && !any; r++) any = num(r, c);
+      for (let r = g.r1; r <= end && !any; r++) any = num(r, c);
       if (!any) continue;
-      f = `SUM(${addr(g.r1, c)}:${addr(g.r2, c)})`;
-      put(addr(g.r2 + 1, c), f);
-      done.push(addr(g.r2 + 1, c));
+      f = `SUM(${addr(g.r1, c)}:${addr(end, c)})`;
+      // (the same total already there is no obstacle: Σ again rewrites it)
+      if (filled(at, c) && s.cells[addr(at, c)]?.f !== f) return { book: b, cells: [], f: '', blocked: addr(at, c) };
+      put(addr(at, c), f);
+      done.push(addr(at, c));
     }
     if (!done.length) return null;
   }

@@ -1,6 +1,6 @@
 // EDITORS GRID, THE LOOKS: every new screen of this round's spreadsheet and presentation tools in all seven looks at 440 × 956, The Scan at
 // 390 × 844 and BODY 21: every key 44 pt, nothing sideways, no words cut.
-//   - PRESENTATIONS: a slide's SLIDE keys (the transitions with MAGIC MOVE, the builds with their PowerPoint note).
+//   - PRESENTATIONS: a slide's SLIDE keys (the transitions with MAGIC MOVE, the builds with their PowerPoint note); the talk ON A TV.
 //   - SPREADSHEETS: RULES with a rule in its list (the kinds, the number, the colours, EDIT and DELETE); SUMMARY with a table's BY and OF.
 export default async function (h) {
   const { open, check, until, settle, measure, body21, LOOKS, PHONE, SMALL } = h;
@@ -27,6 +27,16 @@ export default async function (h) {
     lap('settle');
     check(await key(page, 'MAGIC MOVE').count() === 1, `looks, ${r.name}: MAGIC MOVE is a key among the transitions`);
     await measure(page, '#pg-slides', `looks, ${r.name}: a slide's SLIDE keys with MAGIC MOVE and the builds`);
+    // PRESENTATIONS: the talk with the slide ON A TV (the presenter's view: this slide, the next, notes, the time)
+    await key(page, 'ALL SLIDES').click();
+    await until(page, () => window.__ghosty.slides.view === 'deck');
+    await key(page, 'PRESENT').click();
+    await until(page, () => window.__ghosty.slides.present.on);
+    const [pop] = await Promise.all([page.waitForEvent('popup', { timeout: 10000 }), page.locator('.slptop button', { hasText: /^ON A TV$/ }).click()]);
+    check(await until(page, () => window.__ghosty.slides.present.tv === true), `looks, ${r.name}: the talk is ON A TV`);
+    await measure(page, '.slpresent', `looks, ${r.name}: the presenter's view with the slide on a TV`);
+    await pop.close();
+    await page.locator('.slptop button', { hasText: /^EXIT$/ }).click();
     lap('measured');
     // SPREADSHEETS: RULES with a rule listed
     await page.evaluate(() => (location.hash = 'sheets'));

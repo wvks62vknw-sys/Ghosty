@@ -460,6 +460,7 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Make slides from a report', act: { ask: 'Make slides from a report' } },
       { text: 'Open a PowerPoint file', act: { ask: 'Open a PowerPoint file' } },
       { text: 'Builds and Magic Move, kept in PowerPoint', act: { open: 'slides' } },
+      { text: 'Present on a TV from your phone', act: { open: 'slides' } },
     ],
     dyk: 'Press and hold a slide to move it; in the talk your notes and the next title are on the phone, not on the slide.',
   },

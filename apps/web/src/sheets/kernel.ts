@@ -9,3 +9,4 @@ export * from './xlsx';
 export * from './xlsxread';
 export * from './rules';
 export * from './pivot';
+export * from './money';
