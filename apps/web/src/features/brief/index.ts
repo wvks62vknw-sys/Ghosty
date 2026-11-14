@@ -239,6 +239,10 @@ export const briefTab: TabDef = {
     const mail = briefMail();
     dp.el.append(mail.el);
     const wp = panel('WEATHER', { cls: 'wx' });
+    // [see] the WEATHER app (weather/app.ts): the full forecast for every saved place, one tap from the Brief's weather
+    const wxOpen = button('OPEN WEATHER', () => void import('../../weather/app').then((m) => m.openWeather()));
+    wxOpen.dataset.act = 'weather';
+    wp.el.append(h('div.row.wrap.wxopen', wxOpen));
     // THE COMMUTE: one line, home to work with the live traffic, when both are saved (Memory → ABOUT YOU → PLACES; until
     // then one line saying where to save them).
     const commute = panel('COMMUTE', { cls: 'commute', grow: false });
