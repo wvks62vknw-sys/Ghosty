@@ -10,7 +10,7 @@ import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { clockNow } from '../kitchen/timers';
 import { sayError } from '../../ui/hisWords';
-import { adoptTodos, syncTodos } from '../agenda/todo';
+import { adoptTodos, loadTodos, syncTodos, tickTodo } from '../agenda/todo';
 import { daysTo, dueWords, emptyState, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
 export type WorkWhat = 'doc' | 'interview' | 'todo';
@@ -22,7 +22,7 @@ export const workState = {
   open: '' as '' | WorkWhat,
   doc: { title: '', text: '', done: '' },
   interview: { q: 0, of: 0, question: '', secs: 0, running: false, critique: '', answered: 0 },
-  todo: [] as { text: string; done: boolean; due?: string }[],
+  todo: [] as { id?: string; text: string; done: boolean; due?: string }[],
 };
 
 let open: { close(): void } | null = null;
@@ -257,7 +257,7 @@ function todoScreen(): Screen {
     }
     try {
       const r = await brain.packDo('work', 'todo', { words });
-      workState.todo = ((r.data as { list?: typeof workState.todo } | undefined)?.list ?? []).map((t) => ({ text: t.text, done: !!t.done, ...(t.due ? { due: t.due } : {}) }));
+      workState.todo = ((r.data as { list?: typeof workState.todo } | undefined)?.list ?? []).map((t) => ({ ...(t.id ? { id: t.id } : {}), text: t.text, done: !!t.done, ...(t.due ? { due: t.due } : {}) }));
       // [planlane2:onelist] the same one list as the Agenda's TO-DO, Home and the Brief: their copy on this phone follows
       adoptTodos((r.data as { list?: unknown } | undefined)?.list);
       loaded = true;
@@ -292,7 +292,17 @@ function todoScreen(): Screen {
       ...sorted.flatMap(({ t, g }) => {
         const when = t.due ? dueWords(t.due) || t.due : '';
         const box = h('input', { type: 'checkbox', checked: t.done, 'aria-label': `${t.text}${when ? `, ${when}` : ''}${t.done ? ', done' : ''}` }) as HTMLInputElement;
-        box.addEventListener('change', () => void act(`${box.checked ? 'tick' : 'untick'} ${t.text}`));
+        // [planlane2:onelist] the box ticks this very item by its id through the one list's outbox (so a repeat's done copies are never mixed up,
+        // and with no signal the tick waits on the phone and goes when the signal is back); words only when the copy does not have it yet
+        box.addEventListener('change', () => {
+          if (t.id && loadTodos().some((x) => x.id === t.id && x.done !== box.checked) && tickTodo(t.id)) {
+            workState.todo = loadTodos().map((x) => ({ id: x.id, text: x.text, done: x.done, ...(x.due ? { due: x.due } : {}) }));
+            loaded = true;
+            paint();
+            return;
+          }
+          void act(`${box.checked ? 'tick' : 'untick'} ${t.text}`);
+        });
         const head = g !== last && sorted.some((x) => x.g !== g) ? [h('li.pktodohead', { role: 'presentation', dataset: { group: String(g) } }, HEADS[g]!)] : [];
         last = g;
         return [...head, h(`li.pkitem${t.done ? '.done' : ''}${g === 0 ? '.late' : ''}` as 'li', h('label', box, `${t.text}${when ? ` · ${when}` : ''}`))];

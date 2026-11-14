@@ -82,7 +82,6 @@ export async function run(H) {
     // the jobs the brain added show on the Agenda (the copy follows the one list as the agenda opens)
     await open(page, 'agenda');
     await openSection(page, 'agenda', 'To-do');
-    await page.evaluate(() => dispatchEvent(new Event('online')));
     const both = await page.waitForFunction(() => {
       const b = [...document.querySelectorAll('#pg-agenda .todoit b')].map((x) => x.textContent);
       return b.includes('Book the van') && b.includes('Ring the landlord');

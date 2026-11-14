@@ -2,7 +2,7 @@
 import type { PackReply } from '../../assistant/packs';
 import { agendaAsked, type AgendaAsk } from './asks';
 import { undo } from '../../ui/components';
-import { addTodo, clearDone, loadTodos, removeTodo, tickTodo } from './todo';
+import { addTodo, clearDone, loadTodos, removeTodo, syncTodos, tickTodo } from './todo';
 import { daysTo, dayOf, dueWords, everyWords, findTodo, sortTodos, type Todo } from './todowords';
 
 // (the panel too: the chip opens the agenda on the to-do list or the month, not on whichever section was last chosen)
@@ -89,6 +89,8 @@ async function monthWords(next: boolean, now: number): Promise<string> {
 export async function agendaTurn(text: string): Promise<PackReply | null> {
   const ask = agendaAsked(text);
   if (!ask) return null;
+  // the copy follows the one list first (a change the brain made, e.g. "add to my to-do: …" through the model), never waiting long
+  if (ask.what !== 'add') await Promise.race([syncTodos(true), new Promise((r) => setTimeout(r, 2500))]);
   const now = Date.now();
   if (ask.what === 'add') {
     const t = addTodo(ask.text, ask.due, ask.every, ask.star);

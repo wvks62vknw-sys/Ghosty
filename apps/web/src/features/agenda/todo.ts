@@ -83,7 +83,7 @@ const fromBrain = (t: BrainTodo): Todo => ({
  * (then they are sent first, and the list read again). */
 export function adoptTodos(list: unknown): void {
   if (!Array.isArray(list)) return;
-  if (outbox().length) return void syncTodos(true);
+  if (outbox().length || !readJson<boolean>(JOINED, false)) return void syncTodos(true);
   const mine = (list as BrainTodo[]).filter((t) => t && typeof t.id === 'string' && typeof t.text === 'string').map(fromBrain);
   const now = loadTodos();
   const same = (a: Todo[]) => JSON.stringify([...a].sort((x, y) => (x.id < y.id ? -1 : 1)));

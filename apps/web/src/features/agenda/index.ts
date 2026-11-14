@@ -13,7 +13,7 @@ import { ADD_SHEET, DIARY_OFFLINE, dayLine, EMPTY_DAY, EMPTY_JOBS, parseWhen, pr
 import { page } from '../../ui/page';
 import { spendingPanel } from './spending';
 import { watchersPanel } from './watchers';
-import { todoPanel } from './todo';
+import { syncTodos, todoPanel } from './todo';
 import { monthPanel } from './month';
 import { AHEAD_DAYS } from './todowords';
 import { sectionNow, sections } from '../../ui/sections';
@@ -551,6 +551,7 @@ export const agendaTab: TabDef = {
       enter() {
         void load();
         tp.paint();
+        void syncTodos(); // the copy follows the one list each time the Agenda opens (the panel repaints on TODO_SYNCED)
         void sp.refresh();
         void wp.refresh();
         void pollInbox();
