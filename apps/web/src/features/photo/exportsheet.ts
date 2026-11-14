@@ -12,7 +12,7 @@ import type { exportCanvas } from '../../photo/gpu';
 import type { Recipe } from '../../photo/recipe';
 import { slider, thousands } from './slider';
 import { peState } from './editor';
-import { enlarge, enlargedSize } from '../../photo/enlarge';
+import { cannotGrow, enlarge, enlargedSize } from '../../photo/enlarge';
 
 export interface ExportCtx {
   name: string;
@@ -100,7 +100,9 @@ export function openExport(c: ExportCtx): void {
     sizeRow.hidden = exportState.format === 'original';
     const at2 = drawn ? enlargedSize(drawn.w, drawn.h, 2) : null;
     scaleNote.hidden = exportState.format === 'original';
-    scaleNote.textContent = exportState.scale === 2
+    scaleNote.textContent = exportState.scale === 2 && drawn && cannotGrow(drawn.w, drawn.h)
+      ? '2× BIGGER: this picture is already as big as a phone can make it (16.7 megapixels), so it goes out at its own size, unchanged.'
+      : exportState.scale === 2
       ? `2× BIGGER: ${at2 ? `${thousands(at2.w)} × ${thousands(at2.h)}, ` : ''}drawn up smoothly and sharpened on this phone${at2?.capped ? ' (held to the 16.7 megapixels a phone’s canvas takes)' : ''}. It adds no detail that was not there; no model is offered for that.`
       : '2× BIGGER makes the picture twice as wide and tall on this phone, for a small photo you want to print or crop.';
     bar.hidden = exportState.phase !== 'drawing' || exportState.format === 'original';

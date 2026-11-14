@@ -28,6 +28,8 @@ export const groundState = {
   said: 0,
   /** The phone's GL is software (the start is a silent ~2 s there; a phone's GPU is tens of ms and never shows the line). */
   soft: false,
+  /** On a software GL: how long the frame after a draw waited for it (ms, smoothed), what the draws are spaced by. */
+  gpu: 0,
   /** God's Eye's camera as it stands now (the checks: it is as it was once Home has let go). */
   cam: (): { lat: number; lon: number; range: number; tilt: number; hd: number } => ({ lat: globe.cam.lat, lon: globe.cam.lon, range: globe.cam.range, tilt: globe.cam.tilt, hd: globe.cam.hd }),
 };
@@ -57,6 +59,15 @@ let lastInput = 0;
 for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => (lastInput = Date.now()), { passive: true, capture: true });
 /** The ground is drawn small and thrown to grain by the CSS over it: the engine's resolution is held at this while it is the scene. */
 const SCALE = 0.55;
+/** [consistency] On a software GL (no GPU: CI's runners, an old laptop) the globe's frame is drawn by the CPU in the GPU process,
+ *  1 to 1.5 s a draw (measured: the same at 1x and 2x pixels, and with every layer over it hidden), and a tap waits for the frame in
+ *  flight: the jump bar opened in 1.2 to 2.5 s and a long press missed its moment. There the ground is drawn smaller, holds still
+ *  for SOFT_HOLD after any touch or key, and its draws are spaced by what they cost (SOFT_GAP of them, SOFT_MS to SOFT_MAX). */
+const SCALE_SOFT = 0.35;
+const SOFT_MS = 1500;
+const SOFT_MAX = 6000;
+const SOFT_GAP = 6;
+const SOFT_HOLD = 4000;
 let scaleWas = 1;
 
 /** Is the engine's GL software (SwiftShader, llvmpipe, a basic renderer)? Read from the context the engine already holds; unknown is a GPU. */
@@ -91,15 +102,16 @@ const scene = {
       return;
     }
     if (groundState.still && groundState.draws > 0) return;
-    if (Date.now() - lastInput < 1200) return;
-    const base = stats.fps < 20 ? 250 : stats.fps < 40 ? 125 : 83;
+    if (Date.now() - lastInput < (groundState.soft ? SOFT_HOLD : 1200)) return;
+    const base = groundState.soft ? Math.min(SOFT_MAX, Math.max(SOFT_MS, groundState.gpu * SOFT_GAP)) : stats.fps < 20 ? 250 : stats.fps < 40 ? 125 : 83;
     groundState.interval = Math.round(Math.max(base, groundState.cost * 7));
     if (now - this.last < groundState.interval) return;
     this.last = now;
     const dt = Math.min(0.5, this.acc);
     this.acc = 0;
-    if (gfx.scale > SCALE) {
-      gfx.scale = SCALE;
+    const scale = groundState.soft ? SCALE_SOFT : SCALE;
+    if (gfx.scale > scale) {
+      gfx.scale = scale;
       gfx.resize();
     }
     globe.update(dt);
@@ -107,6 +119,8 @@ const scene = {
     groundState.draws++;
     lamp(false);
     groundState.cost = groundState.cost * 0.7 + (performance.now() - now) * 0.3;
+    // (what the GPU took: the next frame waits for this one)
+    if (groundState.soft) requestAnimationFrame(() => (groundState.gpu = groundState.gpu ? groundState.gpu * 0.5 + (performance.now() - now) * 0.5 : performance.now() - now));
   },
 };
 

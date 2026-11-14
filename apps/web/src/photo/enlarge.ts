@@ -22,6 +22,10 @@ export function enlargedSize(w: number, h: number, k = 2): { w: number; h: numbe
   return { w: Math.max(1, W), h: Math.max(1, H), capped };
 }
 
+/** True when a w × h picture cannot get bigger on a phone (it is already at, or within 1% of, the canvas limit, as every 24 or 48 megapixel
+ *  photo is once drawn): 2× BIGGER then leaves it as it is rather than redrawing it for a few pixels. */
+export const cannotGrow = (w: number, h: number, k = 2): boolean => enlargedSize(w, h, k).w <= w * 1.01;
+
 /**
  * An unsharp mask on RGBA pixels in place: each colour pulled away from its 3 × 3 blur by `amount`, where the local contrast is over
  * `threshold` (0..255) so flat areas and their noise are left alone. Alpha untouched.
@@ -43,8 +47,11 @@ export function sharpen(px: Uint8ClampedArray, w: number, h: number, amount = 0.
 }
 
 /** The picture enlarged `k` times (2 by default): stepped up with the best smoothing, then sharpened. `say` hears the step. */
-export async function enlarge(src: HTMLCanvasElement, k = 2, say?: (words: string) => void): Promise<{ canvas: HTMLCanvasElement; w: number; h: number; capped: boolean }> {
+export async function enlarge(src: HTMLCanvasElement, k = 2, say?: (words: string) => void): Promise<{ canvas: HTMLCanvasElement; w: number; h: number; capped: boolean; already?: boolean }> {
   const want = enlargedSize(src.width, src.height, k);
+  // (a picture already at the canvas limit, as every 24 or 48 megapixel phone photo is, cannot grow: it is handed back untouched, never
+  // sharpened in place, so AS IT IS still exports the picture as drawn)
+  if (cannotGrow(src.width, src.height, k)) return { canvas: src, w: src.width, h: src.height, capped: true, already: true };
   let cur: HTMLCanvasElement = src;
   while (cur.width < want.w) {
     const next = document.createElement('canvas');
@@ -58,6 +65,14 @@ export async function enlarge(src: HTMLCanvasElement, k = 2, say?: (words: strin
     cur = next;
     await new Promise((r) => setTimeout(r, 0));
   }
+  if (cur === src) {
+    // (never sharpen the picture he is exporting AS IT IS: work on a copy)
+    const copy = document.createElement('canvas');
+    copy.width = src.width;
+    copy.height = src.height;
+    copy.getContext('2d')?.drawImage(src, 0, 0);
+    cur = copy;
+  }
   say?.('Sharpening the bigger picture…');
   await new Promise((r) => setTimeout(r, 0));
   const g = cur.getContext('2d', { willReadFrequently: true });
@@ -65,5 +80,5 @@ export async function enlarge(src: HTMLCanvasElement, k = 2, say?: (words: strin
   const img = g.getImageData(0, 0, cur.width, cur.height);
   sharpen(img.data, cur.width, cur.height);
   g.putImageData(img, 0, 0);
-  return { canvas: cur, w: cur.width, h: cur.height, capped: want.capped };
+  return { canvas: cur, w: cur.width, h: cur.height, capped: want.capped, already: false };
 }

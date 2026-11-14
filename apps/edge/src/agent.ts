@@ -13,7 +13,7 @@ import { collectAis, type AisShip } from './ais';
 import { loadReverseJobs, refreshReverse, removeReverse, startReverse } from './tools/reverse'; // [reverse]
 import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval, needsApprovalIn, outsideSource } from './kernel/permissions';
-import { LOCKED_TOOLS, LOCKED_WORDS, lockedAt, logApproval, securityRoute } from './security';
+import { LOCKED_WORDS, lockedAt, lockedTool, logApproval, securityRoute } from './security';
 import { checkLink, verdictWords } from './integrations/linkcheck'; // [security] CHECK A LINK (security.u9)
 import { Vault } from './kernel/vault';
 import { storageError } from './kv';
@@ -1187,7 +1187,7 @@ export class GhostyAgent {
       return false;
     }
     // [security] ONE TAP TO LOCK EVERYTHING (security.u11): while locked, nothing that leaves or changes Ghosty runs, approved or not
-    const locked = calls.some((c) => LOCKED_TOOLS.test(c.function.name)) ? await lockedAt(this.storage) : null;
+    const locked = calls.some((c) => { const t = toolByName.get(c.function.name); return !!t && lockedTool(t); }) ? await lockedAt(this.storage) : null;
     for (let i = 0; i < calls.length; i++) {
       const call = calls[i]!;
       const tool = toolByName.get(call.function.name);
@@ -1196,7 +1196,7 @@ export class GhostyAgent {
       let result: string;
       if (!tool) {
         result = `Error: there is no tool called ${call.function.name}.`;
-      } else if (locked && LOCKED_TOOLS.test(tool.name)) {
+      } else if (locked && lockedTool(tool)) {
         result = `Error: ${LOCKED_WORDS}`;
         emit({ t: 'tool_result', id: call.id, name: tool.name, ok: false, summary: LOCKED_WORDS });
       } else if (badJson) {

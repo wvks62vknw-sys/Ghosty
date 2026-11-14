@@ -91,6 +91,8 @@ export async function keepTurn(text: string, opts: Opts, answer: Answer): Promis
   if (said) {
     const now = Date.now();
     keepStore.set((s) => ({ items: [...items().filter((x) => !(x.kind === 'where' && norm(x.what) === norm(said.what))), { id: `local-${now}`, kind: 'where' as const, at: now, via: 'phone', text: t.slice(0, 160), what: said.what, detail: said.where }] }));
+    // (a turn kept on the phone, the offline brain set to "always" or asked here: kept on this phone only, never sent or queued for the brain)
+    if (opts.private) return answer(t, K.whereKept(said.what, said.where, 'phone'), { kind: 'pack', go }, opts);
     const sent = await Promise.race([call('POST', { op: 'add', text: t }).then(() => true, () => false), new Promise<boolean>((r) => setTimeout(() => r(false), 4000))]);
     if (!sent) keepStore.set((s) => ({ queue: [...s.queue.filter((x) => x !== t), t].slice(-30) }));
     else void refreshKeep();
@@ -107,7 +109,10 @@ export async function keepTurn(text: string, opts: Opts, answer: Answer): Promis
   if (thing) {
     const hit = await fresh(() => items().filter((x) => x.kind === 'where' && (norm(x.what).includes(norm(thing)) || norm(thing).includes(norm(x.what)))).sort((a, b) => b.at - a.at)[0]);
     if (hit) return answer(t, K.whereFound(hit.what, hit.detail ?? '', day(hit.at)), { kind: 'pack', go }, opts);
-    // not in the copy: the brain may know it from a chat (its recall), so it is asked when it can be; else said plainly
+    // not in the copy: unless he plainly means a thing of his ("where did I put…", "my …"), it is not his word at all ("where is Lisbon?",
+    // "where's the Eiffel Tower?" are God's Eye's and the brain's), so it goes on to them; the brain may also know his from a chat
+    const his = /\bwhere (?:did|do) I\b|\bhave you got where I\b|\b(?:my|our)\b/i.test(t);
+    if (!his) return false;
     if (navigator.onLine && !keepStore.get().at) return false;
     return answer(t, K.whereNone(thing), { kind: 'pack' }, opts);
   }

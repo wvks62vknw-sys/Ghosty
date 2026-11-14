@@ -105,7 +105,7 @@ export function timeOf(s: string): string | null {
   return `${String(hr).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 /** The times he typed: "8am, 8pm" or "08:00 20:00". */
-export const timesIn = (s: string): string[] => [...new Set(s.split(/[,;\s]+|\band\b/).map((x) => timeOf(x)).filter((x): x is string => !!x))].sort().slice(0, 6);
+export const timesIn = (s: string): string[] => [...new Set(s.replace(/(\d)\s+(am|pm)\b/gi, '$1$2').split(/[,;\s]+|\band\b/).map((x) => timeOf(x)).filter((x): x is string => !!x))].sort().slice(0, 6);
 
 /** How long the packet lasts at his own times, and the day it runs out (null: not counted, or no times). */
 export function refillOf(m: Med, day = today()): { days: number; by: string } | null {
@@ -158,7 +158,15 @@ export function weekOf(data = loadMeds()): { taken: number; skipped: number; due
 }
 
 /** The brain's daily reminders for every tablet: the old ones taken back, one a time of day set (only the times and a plain line). */
-export async function syncMedLock(): Promise<void> {
+let medBusy: Promise<void> = Promise.resolve();
+/** Every change to the brain's tablet reminders, one at a time (a double tap or Remove mid-sync never leaves one untracked). */
+function medChain(run: () => Promise<void>): Promise<void> {
+  return (medBusy = medBusy.then(run, run));
+}
+export function syncMedLock(): Promise<void> {
+  return medChain(runMedSync);
+}
+async function runMedSync(): Promise<void> {
   const data = loadMeds();
   const t = now();
   for (const m of data.meds) {
@@ -230,7 +238,8 @@ export function medsScreen(): { el: HTMLElement; stop(): void } {
       got.setAttribute('aria-label', `${m.name}: refilled`);
       const del = button('Remove', () => {
         const data2 = loadMeds();
-        void replaceLock(`meds:${m.id}`, m.jobs, []);
+        const gone = m.jobs.slice();
+        void medChain(async () => void (await replaceLock(`meds:${m.id}`, gone, [])));
         data2.meds = data2.meds.filter((x) => x.id !== m.id);
         save();
         say(`${m.name} taken off your list, and its reminders with it.`);
@@ -323,5 +332,5 @@ export function medsTurn(text: string): { reply: string } | null {
 
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (w.__ghosty) w.__ghosty.meds = { data: () => loadMeds(), reset: () => void (cache = null), sync: () => syncMedLock() };
+  if (w.__ghosty) w.__ghosty.meds = { data: () => loadMeds(), reset: () => void (cache = null), sync: () => syncMedLock(), timesIn };
 }
