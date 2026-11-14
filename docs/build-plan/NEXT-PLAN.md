@@ -129,8 +129,8 @@ All run on the integrated lane branch, after merging the integration branch into
 
   Result: 390 checks, 0 problems (382 s here; CI stops a spec at 480 s).
 - **`tests/planlane.spec.mjs`** (last round's 955 checks, now covering the one list, any month and the new change box):
-  957 checks, 0 problems. It took 590 s here: this container's load average was 16, from three spec runs and the brain suite at
-  once. On a quiet machine it was 447 s, and last round CI ran it in 383 s; CI stops a spec at 480 s. The to-do section now empties
+  957 checks, 0 problems on the final merge, in 309 s (CI stops a spec at 480 s). An earlier run took 590 s, while this container
+  ran three specs and the brain suite at once. The to-do section now empties
   the one list first. That list lives in the brain, which every spec before it in a CI shard shares.
 - **Specs of the screens touched:** agenda, brief, social, media, moneylane (WORK's to-do ticks by id), packs2 and planmepass:
   all green.
