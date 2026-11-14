@@ -53,8 +53,23 @@ export function nextClock(h: number, m: number, now: number, half: '' | 'am' | '
 export const hourKey = (now: number) => `AT ${hhmm(endOfHour(now))}`;
 /** The toast and the chat's line when he sets a time ("…goes quiet at 23:00 (in 45 min), then stops."). */
 export const sleepAtSet = (at: number, now: number) => `Sleep timer set: the radio goes quiet at ${hhmm(at)} (in ${inWords(at - now)}), then stops.`;
-/** After a reload: the radio stopped (the browser ends the sound) and its sleep timer went with it. Said once, honestly. */
-export const lostLine = (at: number, name: string) => `The page reloaded, so ${name || 'the radio'} stopped and its sleep timer for ${hhmm(at)} went with it. Tap PLAY and set it again if you want it.`;
+/** After a reload: the radio stopped (the browser ends the sound, and only his tap may start it again), but the stop time is kept
+ * on the phone, so the Radio offers to carry on: one tap plays it again with the same timer. Said honestly. */
+export const lostLine = (at: number, name: string, how = 'tap PLAY AND KEEP THE TIMER') => `The page reloaded, so ${name || 'the radio'} stopped. Its sleep timer for ${hhmm(at)} is kept: ${how} to carry on.`;
+/** The same, said in the chat (the words that carry on, as well as the key). */
+export const LOST_HOW_CHAT = 'say “carry on with the sleep timer” or tap PLAY AND KEEP THE TIMER';
+/** The key that plays the station shown again with the timer the reload left. */
+export const CARRY_ON = 'PLAY AND KEEP THE TIMER';
+/** The toast once it is playing again with that timer. */
+export const carriedOn = (at: number, now: number, name = '') => `${name ? `Playing ${name} again: it` : 'Playing again: the radio'} still goes quiet at ${hhmm(at)} (in ${inWords(at - now)}), then stops.`;
+/** PLAY AND KEEP THE TIMER when the station cannot start (offline, or an address the phone refuses): the timer stays kept, unset. */
+export const notCarried = (why: string, name: string, at: number) => `${why === 'offline' ? `You’re offline, so ${name} can’t play.` : `${name} wouldn’t play on this phone.`} Its sleep timer for ${hhmm(at)} is still kept.`;
+/** "Sleep timer off" after a reload, with nothing on: the kept one is dropped from the phone. */
+export const keptOff = (at: number) => `Sleep timer off: the one for ${hhmm(at)} that the reload kept is gone.`;
+/** The key tapped just after the kept stop time passed: nothing plays. */
+export const keptPassed = (at: number) => `The ${hhmm(at)} timer has passed. Tap PLAY to play without it.`;
+/** The top bar's chip while a sleep timer runs: "Radio 4 · stops 23:10" (the stop time is its own part, so a long name is cut, never the time). */
+export const chipStops = (at: number) => `stops ${hhmm(at)}`;
 export const clockWords = hhmm;
 export const SLEEP_OFF = 'TIMER OFF';
 export const sleepKey = (min: number) => (min === 60 ? '1 HOUR' : `${min} MIN`);

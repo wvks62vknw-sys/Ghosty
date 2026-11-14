@@ -321,6 +321,36 @@ test('Bluesky follows are drafts too: APPROVE follows (once), an unfollow delete
   assert.deepEqual([del.body.collection, del.body.rkey], ['app.bsky.graph.follow', '3fol']);
 });
 
+// [planlane2:fixes] SOCIAL's FOLLOW box (plan.u13): POST /social/draft takes kind 'follow' | 'unfollow' with who, and makes a DRAFT only
+test('POST /social/draft from the FOLLOW box: a follow or unfollow draft, never sent until APPROVE; refused where there are no follows', async () => {
+  const net = fakeBsky();
+  const d = depsWith(net);
+  await SO.APIS.bluesky.link(d, { handle: 'me.bsky.social', password: 'abcd-efgh-ijkl-mnop' });
+  const post = (b) => SO.socialRoute(new Request('https://x.test/social/draft', { method: 'POST', body: JSON.stringify(b) }), '/social/draft', 'POST', new URL('https://x.test/social/draft'), d);
+  const before = net.calls.length;
+  const r = await post({ account: 'bluesky', kind: 'follow', who: ' @nasa.gov ' });
+  const j = await r.json();
+  assert.equal(r.status, 200);
+  assert.deepEqual([j.draft.kind, j.draft.who, j.draft.state, j.draft.from, j.card.title], ['follow', '@nasa.gov', 'waiting', 'phone', 'Follow on Bluesky?']);
+  assert.equal(net.posts.length, 0, 'a draft follows nobody');
+  assert.equal(net.calls.length, before, 'making the draft asks Bluesky nothing');
+  const u = await (await post({ account: 'bluesky', kind: 'unfollow', who: 'https://bsky.app/profile/nasa.gov' })).json();
+  assert.equal(u.draft.kind, 'unfollow');
+  assert.equal((await Q.loadDrafts(d.storage, Date.now())).filter((x) => x.state === 'waiting').length, 2, 'both wait for his APPROVE');
+  // no handle, two words, an account with no follows, an account not linked: each refused in words, no draft made
+  assert.match((await (await post({ account: 'bluesky', kind: 'follow', who: '' })).json()).error, /^Who to follow\?/);
+  assert.match((await (await post({ account: 'bluesky', kind: 'follow', who: 'sam smith' })).json()).error, /^That is not one handle/);
+  assert.match((await (await post({ account: 'discord', kind: 'follow', who: 'someone' })).json()).error, /Discord|not linked/);
+  assert.match((await (await post({ account: 'mastodon', kind: 'follow', who: '@ann@toot.example.test' })).json()).error, /Mastodon/);
+  assert.equal((await Q.loadDrafts(d.storage, Date.now())).length, 2, 'nothing more was drafted');
+  // a post still makes a post draft (the kind left out)
+  assert.equal((await (await post({ account: 'bluesky', text: 'Hello' })).json()).draft.kind, 'post');
+  // which accounts have follows is APIS alone: GET /social says it per account (the phone's FOLLOW box reads it), and the refusal names them
+  const st = await SO.socialStatus(d);
+  assert.deepEqual(st.accounts.map((a) => [a.id, a.follows]), st.accounts.map((a) => [a.id, !!SO.APIS[a.id]?.follow]));
+  assert.equal(SO.followNames(), 'Bluesky and Mastodon');
+});
+
 test('the morning digest: his Bluesky timeline and his one search are filed as LEADs, never as fact sources', async () => {
   const net = fakeBsky();
   const d = depsWith(net);

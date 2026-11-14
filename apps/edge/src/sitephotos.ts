@@ -47,17 +47,28 @@ export function stripJpeg(input: Uint8Array): Uint8Array | null {
   if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
   const out: Uint8Array[] = [b.subarray(0, 2)];
   let i = 2;
-  while (i + 4 <= b.length) {
+  while (i + 2 <= b.length) {
     if (b[i] !== 0xff) return null;
     const marker = b[i + 1]!;
     if (marker === 0xff) {
       i++; // fill byte
       continue;
     }
-    // start of scan: the picture data follows to the end, untouched
+    // start of scan: its header, then the picture data up to the next marker, untouched. [security] Then the markers go on being
+    // read, so a detail block between scans is dropped too and nothing after the end marker (a motion photo, a hidden extra) is kept.
     if (marker === 0xda) {
-      out.push(b.subarray(i));
-      break;
+      if (i + 4 > b.length) return null;
+      const len = (b[i + 2]! << 8) | b[i + 3]!;
+      if (len < 2 || i + 2 + len > b.length) return null;
+      let j = i + 2 + len;
+      while (j + 1 < b.length && !(b[j] === 0xff && b[j + 1] !== 0x00 && b[j + 1] !== 0xff && !(b[j + 1]! >= 0xd0 && b[j + 1]! <= 0xd7))) j++;
+      if (j + 1 >= b.length) {
+        out.push(b.subarray(i)); // no end marker: kept as it was sent
+        break;
+      }
+      out.push(b.subarray(i, j));
+      i = j;
+      continue;
     }
     if (marker === 0xd9) {
       out.push(b.subarray(i, i + 2));
@@ -68,6 +79,7 @@ export function stripJpeg(input: Uint8Array): Uint8Array | null {
       i += 2;
       continue;
     }
+    if (i + 4 > b.length) return null;
     const len = (b[i + 2]! << 8) | b[i + 3]!;
     if (len < 2 || i + 2 + len > b.length) return null;
     const detail = (marker >= 0xe1 && marker <= 0xef) || marker === 0xfe;

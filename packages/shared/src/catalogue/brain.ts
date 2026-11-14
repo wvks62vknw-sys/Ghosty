@@ -131,8 +131,9 @@ const MORE: Record<string, CatValue> = {
   'say:transit': { same: 'say:time' },
   'say:roads': { same: 'say:time' },
   'say:greet': {
-    name: 'Hello, thanks and goodnight', line: 'I answer hello, thanks, okay and goodnight straight away, like a person would, with no AI.',
-    more: 'One short line back, never a menu. After I ask you something, "okay" or "yeah" is taken as your answer.',
+    name: 'Hello, thanks and night', line: 'I answer hello, thanks, okay and night straight away, like a person would, with no AI.',
+    // [planlane2:goodnight] "goodnight" itself is the phone's GOODNIGHT routine now (phrase:planradio), not a one-line reply
+    more: 'One short line back, never a menu. After I ask you something, "okay" or "yeah" is taken as your answer. Saying "goodnight" winds everything down instead.',
     say: ['Hey', 'Thanks', 'Night'], scene: ['talking'], cat: 'talk',
   },
   'say:how': { same: 'say:greet' },
