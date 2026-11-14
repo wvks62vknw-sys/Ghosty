@@ -44,7 +44,7 @@ export interface DeckScreen {
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter', 'translate']],
-  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'house']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'paint', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
   ['Life', ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin']],
@@ -540,6 +540,15 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Free public-domain comics', act: { ask: 'Public domain comics' } },
     ],
     dyk: 'A CBZ, a PDF or a folder of pictures becomes a comic on your shelf, read panel by panel, and it never leaves this phone.',
+  },
+  paint: {
+    name: 'Paint',
+    promise: 'Draw and paint with real brushes',
+    can: [
+      { text: 'Start a painting', act: { ask: 'Open paint' } },
+      { text: 'A colouring page', act: { ask: 'Colouring page' } },
+    ],
+    dyk: 'Every stroke is recorded, so MORE → PLAY shows your painting being made, and SAVE AS VIDEO keeps the time-lapse.',
   },
 };
 

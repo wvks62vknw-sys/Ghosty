@@ -246,6 +246,13 @@ export const APP_3: Record<string, CatValue> = {
     say: ['Check bbc.co.uk'], scene: ['watching'], cat: 'watch',
   },
   // ---- THE WORKBENCH (a first estimate each, never certified)
+  // APPS ROUND (MAKE lane): GAME STUDIO 3D
+  'panel:gamestudio:3-D GAMES': {
+    name: 'Make real 3-D games', line: 'You can make and play real 3-D games: a platformer, an explorer, a kart track, a physics puzzle, a marble roll or a shooter.',
+    more: 'Each template plays in one tap; then build the stage by touch and set its rules as when-then blocks, with real physics. Kept on your phone.',
+    say: ['Make a 3D game'], scene: ['making', 'playing'], cat: 'build',
+    since: '2026-11-14',
+  },
   // NEXT ROUND (MAKE lane): named projects and the DIY job planner, on the Workbench's PROJECTS section
   'panel:workbench:PROJECTS': {
     name: 'Save my Workbench projects', line: 'You can save a set of Workbench answers under a name, like “the shed beam”, and open it later with every number as you left it.',
