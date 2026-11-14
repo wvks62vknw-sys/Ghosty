@@ -1,0 +1,232 @@
+/* THE PRO ROUND, lane LOG (features/applib/renderers/log.ts): the log and importer views. The hero stat and its trend, metric
+   tiles with sparklines, rich rows that swipe, the item's own page, the quick-add bar, the board, the heatmap month, the masonry
+   gallery, the charts, the empty state and the skeleton. Every class is al-, every colour a token (SHELL's al-pro accent where
+   it is set, else the look's own). Injected once by drawLog. */
+html .al-app {
+  --al-l-acc: var(--al-accent, var(--g-accent));
+  --al-l-acc-text: var(--al-accent, var(--g-accent-text));
+  --al-l-soft: var(--al-accent-soft, color-mix(in srgb, var(--g-accent) 16%, transparent));
+  --al-l-card: var(--g-plate-fill);
+  --al-l-radius: max(var(--al-pro-cardr, 14px), 14px);
+  --al-l-num: 700 var(--al-pro-heronum, 44px)/1.1 var(--al-pro-face-num, var(--g-font-display));
+  --al-pro-on-accent: var(--al-on-accent, var(--g-ink-1));
+}
+
+/* (the page above takes no touches of its own; what a finger drags or swipes here does) */
+html .al-app :is(.al-row, .al-rowface, .al-swback, .al-col, .al-bcard, .al-grip, .al-item, .al-quick, .al-quickrow) { pointer-events: auto; }
+
+/* ── the hero and the tiles ───────────────────────────────────────────────────────────── */
+html .al-app .al-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--g-s-1); margin: 0 0 var(--g-s-2); }
+html .al-app .al-stat { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--g-s-half) var(--g-s-1); min-width: 0; padding: var(--g-s-1) var(--g-s-1) var(--g-s-1) calc(var(--g-s-1) + 2px); border: 0; border-radius: var(--al-l-radius); background: var(--al-l-card); overflow: hidden; animation: al-rise .32s var(--g-ease-bring) both; }
+html .al-app .al-stat { grid-column: span 3; }
+html .al-app .al-stat[data-span="2"] { grid-column: span 2; }
+html .al-app .al-stat[data-span="6"] { grid-column: 1 / -1; }
+html .al-app .al-stat[data-span="2"] .al-statwords b { font-size: 18px; line-height: 24px; }
+html .al-app .al-stat[data-span="2"] .al-ringbox { display: none; }
+html .al-app .al-stat .al-statwords { grid-column: 1; grid-row: 1; }
+html .al-app .al-stat .al-ringbox { grid-column: 2; grid-row: 1; position: relative; display: grid; place-items: center; }
+html .al-app .al-stat .al-spark { grid-column: 1 / -1; width: 100%; height: 28px; }
+html .al-app .al-statwords b { font: 600 22px/28px var(--g-font-display); color: var(--g-ink-1); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+html .al-app .al-statwords small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .al-app .al-trend { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font: 600 13px/16px var(--g-font-text); color: var(--g-ink-2); font-variant-numeric: tabular-nums; }
+html .al-app .al-trend i { font-style: normal; }
+html .al-app .al-stat[data-good="true"] .al-trend { color: var(--g-ok); }
+html .al-app .al-stat[data-good="false"] .al-trend { color: var(--g-amber); }
+html .al-app .al-stat.al-lhero { grid-column: 1 / -1; padding: var(--g-s-2); background: linear-gradient(160deg, color-mix(in srgb, var(--al-l-acc) 22%, var(--al-l-card)), var(--al-l-card) 70%); }
+html .al-app .al-lhero .al-statwords b { font: var(--al-l-num); letter-spacing: -0.02em; }
+html .al-app .al-lhero .al-statwords small { order: -1; font: 600 13px/18px var(--g-font-text); color: var(--g-ink-2); }
+html .al-app .al-lhero .al-statwords { display: flex; flex-direction: column; }
+html .al-app .al-lhero .al-trend { font-size: 15px; line-height: 20px; }
+html .al-app .al-lhero .al-spark { height: 44px; margin-top: var(--g-s-half); }
+html .al-app .al-lhero .al-ringpct { position: absolute; font: 700 17px/20px var(--g-font-display); color: var(--g-ink-1); font-variant-numeric: tabular-nums; }
+html .al-app .al-stat .al-ring { width: 40px; height: 40px; }
+html .al-app .al-stat.al-lhero .al-ring { width: 88px; height: 88px; }
+html .al-app .al-ringbg { stroke: var(--al-l-soft); stroke-width: 4.5; }
+html .al-app .al-ringfg { stroke: var(--al-l-acc); stroke-width: 4.5; transition: stroke-dasharray .6s var(--g-ease-bring); }
+html .al-app .al-ring.al-over .al-ringfg { stroke: var(--g-amber); }
+html .al-app .al-sparkline { fill: none; stroke: var(--al-l-acc); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+html .al-app .al-sparkfill { fill: var(--al-l-soft); stroke: none; }
+html .al-app .al-sparkdot { fill: var(--al-l-acc); }
+
+/* the data skin's story cards: one big number, one sentence, swiped one to the next */
+html .al-app .al-stories { display: block; }
+html .al-app .al-story { touch-action: pan-y; pointer-events: auto; }
+html .al-app .al-story .al-storycard { min-height: 200px; align-content: center; background: linear-gradient(150deg, var(--al-l-acc), color-mix(in srgb, var(--al-l-acc) 35%, var(--g-canvas))); animation: al-pop .24s var(--g-ease-bring) both; }
+html .al-app .al-storycard .al-statwords b, html .al-app .al-storycard .al-statwords small, html .al-app .al-storycard .al-trend, html .al-app .al-storycard .al-ringpct { color: var(--al-pro-on-accent) !important; }
+html .al-app .al-storycard .al-sparkline, html .al-app .al-storycard .al-ringfg { stroke: var(--al-pro-on-accent); }
+html .al-app .al-storycard .al-sparkfill, html .al-app .al-storycard .al-sparkdot { fill: var(--al-pro-on-accent); opacity: .35; }
+html .al-app .al-storyline { margin: var(--g-s-1) 0 0; font: 600 19px/26px var(--g-font-text); color: var(--al-pro-on-accent); overflow-wrap: anywhere; }
+html .al-app .al-storynav { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); margin-top: var(--g-s-half); }
+html .al-app .al-storydots { display: flex; gap: 6px; }
+html .al-app .al-storydots i { width: 7px; height: 7px; border-radius: 50%; background: var(--g-line); transition: width .2s; }
+html .al-app .al-storydots i.al-on { width: 20px; border-radius: 4px; background: var(--al-l-acc); }
+
+/* ── the chart ───────────────────────────────────────────────────────────────────────── */
+html .al-app .al-chartbox { margin: 0 0 var(--g-s-2); padding: var(--g-s-1) var(--g-s-1) var(--g-s-half); border-radius: var(--al-l-radius); background: var(--al-l-card); }
+html .al-app .al-chartbox .al-head small { font: 600 15px/20px var(--g-font-display); color: var(--g-ink-1); font-variant-numeric: tabular-nums; }
+html .al-app .al-axis { stroke: var(--g-line); stroke-width: 1; }
+html .al-app .al-grid { stroke: var(--g-line-faint); stroke-width: 1; stroke-dasharray: 2 3; }
+html .al-app .al-bar { fill: color-mix(in srgb, var(--al-l-acc) 45%, transparent); }
+html .al-app .al-bar.al-today { fill: var(--al-l-acc); }
+html .al-app .al-line { stroke: var(--al-l-acc); stroke-width: 2.5; }
+html .al-app .al-area { fill: var(--al-l-soft); }
+html .al-app .al-dot.al-today { fill: var(--al-l-acc); stroke: var(--al-l-card); stroke-width: 2; }
+html .al-app .al-axistick { fill: var(--g-ink-3); font: 500 9px var(--g-font-text); font-variant-numeric: tabular-nums; }
+html .al-app .al-nowtick, html .al-app .al-nowval { fill: var(--al-l-acc-text); font-weight: 700; }
+
+/* ── the quick-add bar ───────────────────────────────────────────────────────────────── */
+html .al-app .al-quick { margin: 0 0 var(--g-s-2); }
+html .al-app .al-quickrow { display: flex; align-items: center; gap: var(--g-s-half); min-height: 52px; padding: 4px 4px 4px var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: 999px; background: var(--al-l-card); }
+html .al-app .al-quickrow:focus-within { border-color: var(--al-l-acc); box-shadow: 0 0 0 3px var(--al-l-soft); }
+html .al-app .al-quickplus .ic { width: 20px; height: 20px; fill: none; stroke: var(--al-l-acc-text); stroke-width: 2.2; }
+html .al-app .al-quickin { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); padding: 0; border: 0 !important; background: none !important; box-shadow: none !important; outline: none; font: var(--g-t-body); color: var(--g-ink-1); text-overflow: ellipsis; }
+html .al-app .al-quickin::placeholder { color: var(--g-ink-3); }
+html .al-app .al-quickrow > .g-key { flex: none; min-height: var(--g-target); min-width: var(--g-target); border-radius: 999px; }
+html .al-app .al-quickread { display: flex; flex-wrap: wrap; gap: 6px; padding: var(--g-s-half) var(--g-s-1) 0; }
+html .al-app .al-quickchip { display: inline-flex; align-items: baseline; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--al-l-soft); font: 600 13px/18px var(--g-font-text); color: var(--g-ink-1); font-variant-numeric: tabular-nums; animation: al-pop .18s var(--g-ease-bring) both; }
+html .al-app .al-quickchip small { font: 500 12px/16px var(--g-font-text); color: var(--g-ink-2); }
+
+/* ── rich rows ───────────────────────────────────────────────────────────────────────── */
+html .al-app .al-list { border-radius: var(--al-l-radius); background: var(--al-l-card); overflow: hidden; }
+html .al-app .ak-row.al-row { position: relative; display: block; min-height: 64px; border-bottom: 0; overflow: hidden; touch-action: pan-y; }
+html .al-app .al-row + .al-row .al-rowface::before { content: ''; position: absolute; top: 0; left: 68px; right: 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+html .al-app .al-rowface { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--g-s-1); min-height: 64px; padding: 0 var(--g-s-1) 0 0; background: var(--al-l-card); transition: transform .26s var(--g-ease-bring); touch-action: pan-y; }
+html .al-app .al-rowface .ak-rowmain { flex: 1 1 auto; display: flex; flex-direction: row; align-items: center; gap: var(--g-s-1); min-width: 0; min-height: 64px; padding: var(--g-s-half) 0 var(--g-s-half) var(--g-s-1); border: 0; background: none; box-shadow: none; text-align: left; color: var(--g-ink-1); }
+html .al-app .al-rowface .ak-rowmain:active { background: var(--al-l-soft); }
+html .al-app .al-rowtext { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+html .al-app .al-rowtext .ak-rowtitle { font: 600 17px/22px var(--g-font-text); color: var(--g-ink-1); overflow-wrap: anywhere; text-transform: none; }
+html .al-app .al-rowtext .ak-rowsub { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .al-app .al-rowface .ak-rowmeta { flex: none; max-width: 45%; font: 600 17px/22px var(--g-font-display); color: var(--g-ink-1); font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+html .al-app .al-rowbits { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 2px; min-width: 0; }
+html .al-app .al-rowstars, html .al-app .al-itemstars { font: 13px/16px var(--g-font-text); color: var(--g-amber); letter-spacing: 1px; }
+html .al-app .al-rowstars i, html .al-app .al-itemstars i { font-style: normal; color: var(--g-line); }
+html .al-app .al-rowchip { padding: 1px 8px; border-radius: 999px; background: var(--al-l-soft); font: 600 12px/18px var(--g-font-text); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html .al-app .al-thumb { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--al-l-soft); font: 700 15px/1 var(--g-font-display); color: var(--al-l-acc-text); overflow: hidden; }
+html .al-app .al-thumb .ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+html .al-app .al-thumbpic img { width: 100%; height: 100%; object-fit: cover; }
+html .al-app :is(.al-thumb, .al-itemart, .al-tile)[data-tone="1"] { --al-l-tone: var(--g-ok); }
+html .al-app :is(.al-thumb, .al-itemart, .al-tile)[data-tone="2"] { --al-l-tone: var(--g-amber); }
+html .al-app :is(.al-thumb, .al-itemart, .al-tile)[data-tone="3"] { --al-l-tone: var(--g-red); }
+html .al-app :is(.al-thumb, .al-itemart, .al-tile)[data-tone="4"] { --al-l-tone: var(--g-accent-pale); }
+html .al-app :is(.al-thumb, .al-itemart, .al-tile)[data-tone="5"] { --al-l-tone: var(--g-ink-2); }
+html .al-app .al-thumb[data-tone]:not([data-tone="0"]) { background: color-mix(in srgb, var(--al-l-tone) 20%, transparent); color: var(--al-l-tone); }
+html .al-app .al-swback { position: absolute; inset: 0; display: flex; justify-content: space-between; }
+html .al-app .al-swback button { min-width: 84px; height: 100%; padding: 0 var(--g-s-1); border: 0; border-radius: 0; box-shadow: none; font: 600 15px/20px var(--g-font-text); color: var(--g-ink-1); text-transform: none; }
+html .al-app .al-swact { background: var(--al-l-acc); color: var(--al-pro-on-accent, var(--g-ink-1)) !important; }
+html .al-app .al-swdel { margin-left: auto; background: var(--g-red); }
+html .al-app .al-row:not([data-swipe="left"]) .al-swdel, html .al-app .al-row:not([data-swipe="right"]) .al-swact { visibility: hidden; }
+html .al-app .al-row[data-swipe="left"] .al-swback { justify-content: flex-end; }
+html .al-app .al-row[data-swipe="left"] .al-swdel { flex: 1 1 auto; text-align: right; }
+html .al-app .al-row[data-swipe="right"] .al-swact { flex: 1 1 auto; text-align: left; }
+html .al-app .ak-notice .al-undo { min-height: 36px; margin-left: var(--g-s-half); padding: 0 12px; vertical-align: middle; }
+
+/* the money skin: a bank's day groups, round category marks; the body skin: health tiles */
+html .al-app[data-lskin="money"] .al-thumb { border-radius: 50%; }
+html .al-app[data-lskin="money"] .al-dayg .al-head h3 { font: 600 15px/20px var(--g-font-text); color: var(--g-ink-2); text-transform: none; }
+html .al-app[data-lskin="money"] .al-dayg .al-head small { font: 600 15px/20px var(--g-font-display); color: var(--g-ink-2); font-variant-numeric: tabular-nums; }
+html .al-app[data-lskin="money"] .al-lhero .al-statwords b { font-size: 48px; line-height: 52px; }
+html .al-app[data-lskin="body"] .al-stat:not(.al-lhero) { padding-top: var(--g-s-1); }
+html .al-app[data-lskin="body"] .al-stat:not(.al-lhero) .al-statwords small { order: -1; font: 600 12px/16px var(--g-font-text); color: var(--al-l-acc-text); text-transform: uppercase; letter-spacing: .04em; }
+html .al-app[data-lskin="body"] .al-stat:not(.al-lhero) .al-statwords { display: flex; flex-direction: column; }
+html .al-app[data-lskin="body"] .al-thumb { border-radius: 50%; }
+html .al-app[data-lskin="maker"] .ak-rowmeta, html .al-app[data-lskin="maker"] .al-statwords b { font-family: var(--g-font-mono); }
+html .al-app[data-lskin="office"] .al-list { background: none; border-radius: 0; }
+html .al-app[data-lskin="office"] .al-rowface { background: transparent; }
+
+/* ── the item's own page ─────────────────────────────────────────────────────────────── */
+html .al-app .al-item { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--g-canvas); animation: al-in .28s var(--g-ease-bring) both; }
+html .al-app .al-item.al-leaving { animation: al-out .18s ease-in both; }
+html .al-app .al-itembar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); min-height: 52px; padding: env(safe-area-inset-top, 0px) var(--g-s-1) 0; }
+html .al-app .al-itembar .g-key { min-height: var(--g-target); min-width: var(--g-target); }
+html .al-app .al-itembarname { flex: 1 1 auto; min-width: 0; text-align: center; font: 600 15px/20px var(--g-font-text); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html .al-app .al-itemscroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 var(--g-s-2) calc(var(--g-s-2) + env(safe-area-inset-bottom, 0px)); }
+html .al-app .al-itemart { display: grid; place-items: center; aspect-ratio: 4 / 3; margin: 0 0 var(--g-s-2); border-radius: 24px; background: linear-gradient(150deg, color-mix(in srgb, var(--al-l-tone, var(--al-l-acc)) 40%, transparent), color-mix(in srgb, var(--al-l-tone, var(--al-l-acc)) 10%, transparent)); overflow: hidden; }
+html .al-app .al-itemart img { width: 100%; height: 100%; object-fit: cover; }
+html .al-app .al-itemglyph { width: 96px; height: 96px; fill: none; stroke: var(--g-ink-1); stroke-width: 1.4; opacity: .9; }
+html .al-app .al-itemtitle { margin: 0; font: var(--g-t-display); color: var(--g-ink-1); overflow-wrap: anywhere; text-transform: none; }
+html .al-app .al-itemsub { margin: 4px 0 0; font: var(--g-t-body); color: var(--g-ink-2); }
+html .al-app .al-itemstars { margin: 6px 0 0; font-size: 20px; line-height: 24px; }
+html .al-app .al-itemmeta { margin: 6px 0 0; font: 700 28px/34px var(--g-font-display); color: var(--al-l-acc-text); font-variant-numeric: tabular-nums; }
+html .al-app .al-itemsheet { margin: var(--g-s-2) 0 0; padding: 0 var(--g-s-1); border-radius: var(--al-l-radius); background: var(--al-l-card); }
+html .al-app .al-itemrow { display: flex; align-items: baseline; justify-content: space-between; gap: var(--g-s-1); min-height: var(--g-target); padding: 12px 0; }
+html .al-app .al-itemrow + .al-itemrow { border-top: var(--g-hair) solid var(--g-line-faint); }
+html .al-app .al-itemrow dt { flex: none; font: var(--g-t-body); color: var(--g-ink-2); }
+html .al-app .al-itemrow dd { margin: 0; min-width: 0; font: 600 17px/22px var(--g-font-text); color: var(--g-ink-1); text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+html .al-app .al-itemlong { margin: var(--g-s-2) 0 0; }
+html .al-app .al-itemlong h3 { margin: 0 0 4px; font: 600 13px/18px var(--g-font-text); color: var(--g-ink-3); text-transform: none; }
+html .al-app .al-itemlong p { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); white-space: pre-wrap; overflow-wrap: anywhere; }
+html .al-app .al-itemkeys { display: grid; grid-template-columns: 1fr 1fr; gap: var(--g-s-1); margin: var(--g-s-2) 0 0; }
+html .al-app .al-itemkeys .g-key { min-height: 50px; }
+html .al-app .al-itemkeys .g-key:last-child { color: var(--g-red); }
+
+/* ── the board ───────────────────────────────────────────────────────────────────────── */
+html .al-app .al-col { padding: var(--g-s-1); border-radius: var(--al-l-radius); background: color-mix(in srgb, var(--al-l-card) 60%, transparent); transition: box-shadow .15s; }
+html .al-app .al-col.al-dropping { box-shadow: inset 0 0 0 2px var(--al-l-acc); }
+html .al-app .al-bcard { position: relative; gap: var(--g-s-half); padding: 0; border: 0; border-radius: 14px; background: var(--al-l-card); touch-action: pan-y; }
+html .al-app .al-bcard.al-dragging { z-index: 20; opacity: .94; box-shadow: 0 12px 30px color-mix(in srgb, var(--g-ink-1) 22%, transparent); transition: none; }
+html .al-app .al-grip { flex: none; display: grid; align-content: center; gap: 3px; width: 32px; min-height: var(--g-target); padding: 0 10px; touch-action: none; cursor: grab; }
+html .al-app .al-grip i { display: block; height: 2px; border-radius: 1px; background: var(--g-ink-3); }
+html .al-app .al-bpic { flex: none; width: 40px; height: 40px; border-radius: 10px; object-fit: cover; }
+
+/* ── the heatmap month ───────────────────────────────────────────────────────────────── */
+html .al-app .al-calname { display: flex; flex-direction: column; align-items: center; }
+html .al-app .al-calname small { font: var(--g-t-caption); color: var(--g-ink-3); font-variant-numeric: tabular-nums; }
+html .al-app .al-cal { gap: 4px; }
+html .al-app .al-day { aspect-ratio: 1; min-height: var(--g-target); border-radius: 10px; background: color-mix(in srgb, var(--g-ink-1) 4%, transparent); }
+html .al-app .al-day span { position: relative; z-index: 1; }
+html .al-app .al-day[data-level="1"] { background: color-mix(in srgb, var(--al-l-acc) 25%, transparent) !important; }
+html .al-app .al-day[data-level="2"] { background: color-mix(in srgb, var(--al-l-acc) 45%, transparent) !important; }
+html .al-app .al-day[data-level="3"] { background: color-mix(in srgb, var(--al-l-acc) 68%, transparent) !important; }
+html .al-app .al-day[data-level="4"] { background: var(--al-l-acc) !important; color: var(--al-pro-on-accent, var(--g-ink-1)); font-weight: 700; }
+html .al-app .al-day[data-today="true"] { box-shadow: inset 0 0 0 2px var(--g-ink-1) !important; }
+html .al-app .al-day[aria-pressed="true"] { outline: 2px solid var(--al-l-acc-text); outline-offset: 1px; }
+html .al-app .al-heatkey { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin: 0 0 var(--g-s-2); }
+html .al-app .al-heatkey small { font: var(--g-t-fine); color: var(--g-ink-3); }
+html .al-app .al-heatkey i { width: 12px; height: 12px; border-radius: 3px; background: color-mix(in srgb, var(--g-ink-1) 6%, transparent); }
+html .al-app .al-heatkey i[data-level="1"] { background: color-mix(in srgb, var(--al-l-acc) 25%, transparent); }
+html .al-app .al-heatkey i[data-level="2"] { background: color-mix(in srgb, var(--al-l-acc) 45%, transparent); }
+html .al-app .al-heatkey i[data-level="3"] { background: color-mix(in srgb, var(--al-l-acc) 68%, transparent); }
+html .al-app .al-heatkey i[data-level="4"] { background: var(--al-l-acc); }
+
+/* ── the masonry gallery ─────────────────────────────────────────────────────────────── */
+html .al-app .al-gallery { display: block; columns: 2; column-gap: var(--g-s-1); }
+html .al-app .al-gallery .al-tile { position: relative; display: block; width: 100%; margin: 0 0 var(--g-s-1); padding: 0; break-inside: avoid; border: 0; border-radius: var(--al-l-radius); background: var(--al-l-card); text-align: left; overflow: hidden; animation: al-rise .3s var(--g-ease-bring) both; }
+html .al-app .al-gallery .al-tile img { display: block; width: 100%; height: auto; aspect-ratio: auto; border-radius: 0; }
+html .al-app .al-gallery .al-tileicon { display: grid; place-items: center; width: 100%; height: auto; border-radius: 0; background: linear-gradient(155deg, color-mix(in srgb, var(--al-l-tone, var(--al-l-acc)) 45%, transparent), color-mix(in srgb, var(--al-l-tone, var(--al-l-acc)) 12%, transparent)); }
+html .al-app .al-gallery .al-tileicon .ic { width: 40%; height: 40%; fill: none; stroke: var(--g-ink-1); stroke-width: 1.5; opacity: .85; }
+html .al-app .al-tilewords { display: flex; flex-direction: column; gap: 2px; padding: var(--g-s-1); }
+html .al-app .al-tilewords b { font: 600 15px/20px var(--g-font-text); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .al-app .al-tilewords small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .al-app .al-tilewords em { font: 600 13px/18px var(--g-font-display); font-style: normal; color: var(--al-l-acc-text); font-variant-numeric: tabular-nums; }
+
+/* ── the empty state and the skeleton ────────────────────────────────────────────────── */
+html .al-app .al-empty { display: flex; flex-direction: column; align-items: center; gap: var(--g-s-1); padding: var(--g-s-2) var(--g-s-1); border: 0; background: none; text-align: center; }
+html .al-app .al-emptyart { position: relative; display: grid; place-items: center; width: 132px; height: 132px; margin: var(--g-s-1) 0; }
+html .al-app .al-emptyart i { position: absolute; inset: 0; border-radius: 40px; background: var(--al-l-soft); transform: rotate(-8deg); }
+html .al-app .al-emptyart i + i { inset: 14px; border-radius: 30px; background: color-mix(in srgb, var(--al-l-acc) 28%, transparent); transform: rotate(6deg); }
+html .al-app .al-emptyart .ic { position: relative; width: 56px; height: 56px; fill: none; stroke: var(--g-ink-1); stroke-width: 1.6; }
+html .al-app .al-empty p { max-width: 30ch; margin: 0; font: var(--g-t-body); color: var(--g-ink-2); }
+html .al-skel i, html .al-skel .al-skelrow span i { display: block; border-radius: 8px; background: linear-gradient(90deg, color-mix(in srgb, var(--g-ink-1) 6%, transparent), color-mix(in srgb, var(--g-ink-1) 12%, transparent), color-mix(in srgb, var(--g-ink-1) 6%, transparent)); background-size: 200% 100%; animation: al-shine 1.2s linear infinite; }
+html .al-skelhero { display: flex; flex-direction: column; gap: 8px; padding: var(--g-s-2); margin: 0 0 var(--g-s-1); border-radius: 18px; background: var(--g-plate-fill); }
+html .al-skelhero i:nth-child(1) { width: 30%; height: 14px; }
+html .al-skelhero i:nth-child(2) { width: 55%; height: 44px; }
+html .al-skelhero i:nth-child(3) { width: 40%; height: 14px; }
+html .al-skeltiles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--g-s-1); margin: 0 0 var(--g-s-2); }
+html .al-skeltiles i { height: 72px; border-radius: 18px !important; }
+html .al-skelrow { display: flex; align-items: center; gap: var(--g-s-1); min-height: 64px; }
+html .al-skelrow .al-skelthumb { flex: none; width: 44px; height: 44px; border-radius: 12px; }
+html .al-skelrow span { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; }
+html .al-skelrow span i:first-child { width: 60%; height: 14px; }
+html .al-skelrow span i:last-child { width: 35%; height: 12px; }
+html .al-skelrow .al-skelmeta { flex: none; width: 52px; height: 16px; }
+
+@keyframes al-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes al-pop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes al-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes al-out { to { opacity: 0; transform: translateX(24px); } }
+@keyframes al-shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+html .al-app :is(.al-rowface .ak-rowmain, .al-tile, .al-cardmain, .al-day, .al-quickrow > .g-key):active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) {
+  html .al-app :is(.al-stat, .al-tile, .al-quickchip, .al-item, .al-rowface) { animation: none !important; transition: none !important; }
+  html .al-skel i { animation: none; }
+}

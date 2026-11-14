@@ -1,4 +1,5 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's learn apps (docs/build-plan/APPLIB.md, list docs/build-plan/applib/catalogue-learn.md).
@@ -90,7 +91,7 @@ const BASES: Card[] = [];
 for (const n of [1, 2, 3, 4, 5, 7, 8, 10, 12, 15, 16, 32, 64, 100, 127, 128, 255]) BASES.push({ q: `${n.toString(2)} in binary`, a: String(n) });
 for (const n of [10, 11, 12, 13, 14, 15, 16, 26, 32, 64, 100, 127, 128, 200, 255]) BASES.push({ q: `${n.toString(16).toUpperCase()} in hex`, a: String(n) });
 
-export const LEARN: AppDef[] = [
+export const LEARN: AppDef[] = pro([
   /* ===================== From the owner's list ===================== */
   {
     id: 'periodic-table', name: 'Periodic Table', family: 'learn', glyph: 'atom', archetype: 'guide', from: 'learn.19',
@@ -1108,26 +1109,6 @@ export const LEARN: AppDef[] = [
     ],
   },
   {
-    id: 'tempo-converter', name: 'Tempo Converter', family: 'learn', glyph: 'timer', archetype: 'calc',
-    pitch: 'Beats per minute into milliseconds per beat, half beat and quarter beat.',
-    keywords: ['tempo', 'bpm', 'delay', 'milliseconds', 'music', 'metronome'],
-    tour: ['Type the tempo in beats per minute.', 'The results are note lengths in milliseconds, handy for delay effects.', 'At 120 bpm one beat is exactly half a second.'],
-    calc: {
-      source: 'One beat lasts 60,000 ms ÷ bpm',
-      inputs: [{ id: 'bpm', label: 'Tempo', unit: 'bpm', default: 120, min: 20, max: 400 }],
-      outputs: [
-        { id: 'q', label: 'One beat', expr: '60000 / bpm', unit: 'ms', dp: 1 },
-        { id: 'e', label: 'Half beat', expr: 'q / 2', unit: 'ms', dp: 1 },
-        { id: 's', label: 'Quarter beat', expr: 'q / 4', unit: 'ms', dp: 1 },
-        { id: 'bar', label: 'Bar (4/4)', expr: 'q * 4 / 1000', unit: 's', dp: 2 },
-      ],
-      tests: [
-        { in: { bpm: 120 }, out: { q: 500, e: 250, s: 125, bar: 2 } },
-        { in: { bpm: 90 }, out: { q: 666.7, e: 333.3, s: 166.7, bar: 2.67 } },
-      ],
-    },
-  },
-  {
     id: 'clean-runs', name: 'Clean Runs', family: 'learn', glyph: 'check', archetype: 'counter',
     pitch: 'Count clean run-throughs of a hard passage against the slips, each day.',
     keywords: ['practice', 'repetition', 'passage', 'count', 'music'],
@@ -1316,38 +1297,6 @@ export const LEARN: AppDef[] = [
     },
   },
   {
-    id: 'reading-list', name: 'Reading List', family: 'learn', glyph: 'book', archetype: 'log',
-    pitch: 'Books to read, reading and read, with pages, dates, rating and a yearly goal.',
-    keywords: ['reading', 'books', 'list', 'library', 'pages'],
-    tour: ['Add a book to To read; move it to Reading when you start.', 'The ring counts books finished this year against your goal.', 'Board view is your shelf: drag books across as you go.'],
-    log: {
-      fields: [
-        { id: 'title', label: 'Title', type: 'text', required: true },
-        { id: 'author', label: 'Author', type: 'text' },
-        { id: 'status', label: 'Status', type: 'choice', options: ['To read', 'Reading', 'Read', 'Set aside'], default: 'To read' },
-        { id: 'genre', label: 'Genre', type: 'choice', options: ['Fiction', 'History', 'Science', 'Biography', 'Self-help', 'Faith', 'Poetry', 'Business', 'Other'] },
-        { id: 'pages', label: 'Pages', type: 'number', min: 1 },
-        { id: 'finished', label: 'Finished', type: 'date' },
-        { id: 'rating', label: 'Rating', type: 'rating' },
-        { id: 'cover', label: 'Cover', type: 'photo' },
-        { id: 'notes', label: 'Notes', type: 'long' },
-      ],
-      title: 'title', sub: '{author} · {pages} pages', meta: 'status', date: 'finished', group: 'status', sort: { field: 'finished', dir: 'desc' },
-      stats: [
-        { label: 'This year', kind: 'count', period: 'year', goal: 24, dir: 'reach' },
-        { label: 'Pages', kind: 'sum', field: 'pages', period: 'year' },
-        { label: 'Avg rating', kind: 'avg', field: 'rating' },
-      ],
-      views: ['board', 'list', 'gallery'],
-    },
-    sample: [
-      { title: 'The Count of Monte Cristo', author: 'Alexandre Dumas', status: 'Reading', genre: 'Fiction', pages: 1276 },
-      { title: 'A Short History of Nearly Everything', author: 'Bill Bryson', status: 'Read', genre: 'Science', pages: 544, finished: '2026-10-21', rating: 5 },
-      { title: 'Middlemarch', author: 'George Eliot', status: 'To read', genre: 'Fiction', pages: 880 },
-      { title: 'The Muqaddimah', author: 'Ibn Khaldun', status: 'Read', genre: 'History', pages: 512, finished: '2026-09-02', rating: 4 },
-    ],
-  },
-  {
     id: 'study-log', name: 'Study Log', family: 'learn', glyph: 'pen', archetype: 'log',
     pitch: 'Every study session by subject and minutes, with a weekly goal and a streak.',
     keywords: ['study', 'hours', 'sessions', 'revision', 'learning', 'focus'],
@@ -1508,4 +1457,4 @@ export const LEARN: AppDef[] = [
     tour: ['Press start and speak; a chime moves you to the next part.', 'Three points is the shape listeners remember best.', 'Run it three times; it gets smoother each time.'],
     timer: { rounds: 1, steps: [{ name: 'Opening', secs: 60 }, { name: 'Point one', secs: 120 }, { name: 'Point two', secs: 120 }, { name: 'Point three', secs: 120 }, { name: 'Close', secs: 60 }] },
   },
-];
+]);

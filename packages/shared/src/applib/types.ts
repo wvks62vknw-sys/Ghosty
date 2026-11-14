@@ -132,6 +132,10 @@ export interface CalcOutput {
   format?: 'number' | 'money' | 'percent' | 'duration';
   /** Decimal places shown (default 2). */
   dp?: number;
+  /** THE PRO ROUND: the answer said in words, by band: the first band whose upTo the value is at most (the last may leave upTo out). */
+  bands?: { upTo?: number; words: string; tone?: 'good' | 'ok' | 'warn' | 'bad' }[];
+  /** THE PRO ROUND: one plain sentence on what this number means for him. */
+  explain?: string;
 }
 export interface CalcConfig {
   inputs: CalcInput[];
@@ -196,6 +200,9 @@ export interface ImporterConfig {
   log: LogConfig;
 }
 
+/** THE PRO ROUND's look for a family: how its apps are laid out, like a company that specialises in that kind of app. */
+export type Skin = 'money' | 'body' | 'office' | 'create' | 'games' | 'learn' | 'world' | 'tools' | 'life' | 'maker' | 'data';
+
 export interface AppDef {
   /** Lower-case words joined by hyphens, unique across the Library; also the key under ghosty.app.<id>. */
   id: string;
@@ -225,4 +232,10 @@ export interface AppDef {
   screen?: { hash: string };
   /** The catalogue id this answers (from the Atlas, e.g. "office.11"); new apps leave it out. */
   from?: string;
+  /** THE PRO ROUND: essentials lead the Library; the rest sit under MORE APPS (never hidden). */
+  tier?: 'essential' | 'more';
+  /** THE PRO ROUND: the app's own hue (0 to 359) when its family's would not suit it; the look's tokens set lightness and chroma. */
+  hue?: number;
+  /** THE PRO ROUND: the family's look by default; another family's when the app is more like those (a budget app in a tools family). */
+  skin?: Skin;
 }
