@@ -125,6 +125,31 @@ const chat = async (page, words) => {
   await page.fill('#cin', words);
   await page.keyboard.press('Enter');
 };
+/**
+ * Say `words` in the chat and wait for Ghosty's reply to THEM: the first reply drawn after his own message (found by the time it was sent,
+ * `data-at`, on the page's own clock) whose words match `re`, up to `ms`. Never a count of replies (the log draws only its last 40 entries,
+ * so after twenty turns a count stops growing even when the reply is there), never a fixed sleep, never the last message read at once.
+ * Returns { ok, text (the reply's textContent), inner (its innerText, spaces folded) }; when no matching reply came, the newest reply after
+ * his message (or '') so the check can say what was there.
+ */
+const ask = async (page, words, re = /\S/, ms = 20000) => {
+  const t0 = await page.evaluate(() => Date.now());
+  await chat(page, words);
+  const find = ({ t0, src, flags, any }) => {
+    const rx = new RegExp(src, flags);
+    const msgs = [...document.querySelectorAll('#pg-core .msg')];
+    const mine = msgs.map((m) => m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t0).lastIndexOf(true);
+    if (mine < 0) return null;
+    const replies = msgs.slice(mine + 1).filter((m) => !m.classList.contains('me'));
+    const r = any ? replies.at(-1) : replies.find((m) => rx.test(m.textContent ?? ''));
+    return r ? { text: r.textContent ?? '', inner: (r.innerText ?? '').replace(/\s+/g, ' ').trim() } : null;
+  };
+  const arg = { t0, src: re.source, flags: re.flags.replace('g', ''), any: false };
+  const got = await page.waitForFunction(find, arg, { timeout: ms }).then((h) => h.jsonValue(), () => null);
+  if (got) return { ok: true, ...got };
+  const seen = await page.evaluate(find, { ...arg, any: true }).catch(() => null);
+  return { ok: false, text: seen?.text ?? '', inner: seen?.inner ?? '' };
+};
 /** Every visible key under `sel` that is under 44 pt, and whether the page scrolls sideways, and any word cut. */
 const fit = async (page, sel) => {
   // (once the screen's entrance has finished: mid-way every key reads a fraction short. The real condition, never a fixed sleep.)
@@ -311,7 +336,7 @@ if (core && ONLY.includes('looks')) for (const world of WORLDS) {
 log('seven looks');
 
 // ---- 6. THE PARTS: each screen's own checks (tests/planlane/<name>.mjs, each exporting `run(H)`), in name order, with the harness above
-const H = { browser, phone, open, fit, check, log, pure, chat, out, base, KEY, today, PHONE, PHONE2, WORLDS, RAW, TONE, DIRECTORY };
+const H = { browser, phone, open, fit, check, log, pure, chat, ask, out, base, KEY, today, PHONE, PHONE2, WORLDS, RAW, TONE, DIRECTORY };
 const partsDir = new URL('./planlane/', import.meta.url);
 const parts = existsSync(partsDir) ? readdirSync(partsDir).filter((f) => f.endsWith('.mjs')).sort() : [];
 // Two lanes at once (CI's eight minutes): the parts that read his diary on the shared preview brain run one after another in the first

@@ -79,15 +79,17 @@ export async function run(H) {
   {
     const { ctx, page } = await phone(PHONE, 'scan', {}, 21);
     const reply = async (words, re) => {
+      // (his own message found by its words AND the time it was sent, so an earlier one with the same words is never taken for it)
+      const t0 = await page.evaluate(() => Date.now());
       await chat(page, words);
-      const got = await page.waitForFunction(({ words, src }) => {
+      const got = await page.waitForFunction(({ words, src, t0 }) => {
         const msgs = [...document.querySelectorAll('#pg-core .msg')];
-        const me = msgs.map((m) => m.classList.contains('me') && (m.textContent ?? '').includes(words)).lastIndexOf(true);
+        const me = msgs.map((m) => m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t0 && (m.textContent ?? '').includes(words)).lastIndexOf(true);
         const r = me >= 0 ? msgs.slice(me + 1).find((m) => !m.classList.contains('me')) : null;
         // the reply's own words (its span), not the name line above it or the keys under it
         const said = r ? [...r.querySelectorAll(':scope > span')].map((s) => s.textContent ?? '').find((s) => new RegExp(src).test(s)) : null;
         return said ?? null;
-      }, { words, src: re.source }, { timeout: 10000 }).then((h) => h.jsonValue(), () => '');
+      }, { words, src: re.source, t0 }, { timeout: 20000 }).then((h) => h.jsonValue(), () => '');
       const last = got || (await page.evaluate(() => [...document.querySelectorAll('#pg-core .msg')].slice(-3).map((m) => `${m.className}: ${m.textContent}`).join(' | ')));
       check(!!got && !RAW.test(got), `[agenda chat] "${words}" → ${got || `(no reply matching ${re}; the chat shows: ${last.slice(0, 300)})`}`);
       return got;
