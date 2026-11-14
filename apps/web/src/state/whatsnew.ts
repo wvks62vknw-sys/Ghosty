@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  { day: '2026-11-14', title: 'Mind maps in the Workspace', line: 'NEW PAGE → A MIND MAP (or “make a mind map”): an idea in the middle and its branches, and any branch becomes to-dos in one tap.' },
+  { day: '2026-11-14', title: 'Forms that fill a list', line: 'Open a Workspace database and tap FORM: its columns become questions, and each answer you fill in becomes a new row. Sign-up sheets, checklists, surveys of your own.' },
   { day: '2026-11-14', title: 'Flashcards from your own notes', line: 'On a Workspace page, … → MAKE FLASHCARDS (or say “make flashcards from my notes”): “Term: meaning” lines, toggles and headings become cards in Learn’s revision.' },
   { day: '2026-11-14', title: 'Workspace deadlines on your agenda', line: 'The due dates in your Workspace lists now show on the Agenda under your to-dos, late ones first, and the Brief says them in one line. Tap one to open its page.' },
   { day: '2026-11-14', title: 'Toggles, synced blocks, your own templates', line: 'In the Workspace: a TOGGLE folds lines away, SYNC shows one block on several pages (change it once, it changes everywhere), and … → SAVE AS TEMPLATE puts your own page beside the five templates.' },

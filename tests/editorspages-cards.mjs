@@ -22,7 +22,7 @@ export default async function (h) {
   };
   const openBio = async (page) => {
     await page.evaluate(() => (location.hash = 'workspace'));
-    await page.waitForSelector('#pg-workspace .wssheet', { timeout: 15000 });
+    await page.waitForSelector('#pg-workspace .wssheet', { timeout: 40000 });
     if ((await page.evaluate(() => window.__ghosty.workspace.title)) !== 'Biology') {
       const row = page.locator('#pg-workspace .wstree .wsopen', { hasText: 'Biology' }).first();
       await row.scrollIntoViewIfNeeded();

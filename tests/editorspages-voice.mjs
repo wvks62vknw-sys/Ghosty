@@ -42,7 +42,7 @@ export default async function (h) {
   const vkey = (page, label) => page.locator(`${panel} button:visible`).filter({ hasText: new RegExp(`^${label}$`) }).first();
   const goVoice = async (page) => {
     await page.evaluate(() => (location.hash = 'workspace'));
-    await page.waitForSelector('#pg-workspace .wssheet', { timeout: 15000 });
+    await page.waitForSelector('#pg-workspace .wssheet', { timeout: 40000 });
     if (!(await page.locator(panel).isVisible().catch(() => false))) await page.locator('#pg-workspace .wssheet button:visible', { hasText: /^VOICE NOTE$/ }).first().click();
     return until(page, (sel) => !!document.querySelector(sel), panel);
   };

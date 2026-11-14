@@ -43,10 +43,13 @@ import {
 } from './model';
 import { fromOwnTemplate, saveAsTemplate } from './templates';
 import { cardsFrom, cardsWords, type NoteCard } from './cards';
+import { formAnswer, formQuestions, formSkipped, type FormRaw } from './form';
+import { addNode, branchTodos, kidsOf, layout, removeNode, renameNode, type MindNode } from './mind';
+import { changeWords, comparePage, restorePart, type Part } from './compare';
 import { loadOwnTemplates, saveOwnTemplates } from './store';
 
 export const WORKSPACE_TITLE = 'THE WORKSPACE';
-type WsAsk = { id?: string; what?: 'list' | 'project' | 'blank' | 'import' | 'due' | 'bin' | 'voice'; addDoc?: { text: string; title?: string }; template?: string };
+type WsAsk = { id?: string; what?: 'list' | 'project' | 'blank' | 'import' | 'due' | 'bin' | 'voice' | 'mind'; addDoc?: { text: string; title?: string }; template?: string };
 
 export const wsState = {
   open: false,
@@ -77,6 +80,7 @@ export const wsState = {
   letGo: 0,
   json: '',
   voice: voiceState,
+  compare: 0,
 };
 let current: { close(): void } | null = null;
 /** "Saved" fades in once while this page is open (every later save is quiet). */
@@ -113,6 +117,7 @@ const KIND_ITEMS: { id: string; label: string; line: string }[] = [
   { id: 'quote', label: 'QUOTATION', line: 'Words set apart' },
   { id: 'callout', label: 'CALLOUT', line: 'A note in a box: tap its mark for a tip or a warning' },
   { id: 'toggle', label: 'TOGGLE', line: 'A line that folds away the lines inside it' },
+  { id: 'mind', label: 'MIND MAP', line: 'Ideas and their branches; any branch becomes to-dos in one tap' },
 ];
 const TONE_WORDS: Record<Tone, { mark: string; name: string }> = { note: { mark: 'i', name: 'Note' }, tip: { mark: '✓', name: 'Tip' }, warn: { mark: '!', name: 'Warning' } };
 
@@ -456,6 +461,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
         return b;
       }),
       ...ownTemplatesEl(parent),
+      key('A MIND MAP', () => newMindMap(parent), '', 'A new page with a mind map'),
       key('BLANK', () => newBlank(parent), '', 'A blank page'));
   // ---- his own templates (editors.u6): SAVE AS TEMPLATE on a page's … puts it here
   const ownTemplatesEl = (parent: string | null): HTMLElement[] => {
@@ -480,6 +486,15 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     })];
   };
   let homePanel: '' | 'new' | 'export' | 'import' | 'voice' = '';
+  /** A page with a mind map on it (editors.s8: NEW PAGE → A MIND MAP, "make a mind map"). */
+  const newMindMap = (parent: string | null = null): void => {
+    flush();
+    const r = newPage(ws(), { title: 'Mind map', parent, from: 'made here', blocks: [wblock('mind', '', { mind: [{ id: 'm0', text: 'My idea', parent: null }] })] });
+    change(r.ws, 'none');
+    flush();
+    openPage(r.page.id);
+    say('A mind map page: tap the idea in the middle to rename it and add branches.');
+  };
   // ---------------------------------------------------------------- VOICE NOTE (editors.s6): one panel for the whole sheet, so a recording survives a redraw
   let voice: ReturnType<typeof voicePanel> | null = null;
   const voiceMade = (t: Tidy, target: 'page' | 'document', at: number): string => {
@@ -670,12 +685,13 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     if (!ws().pages[id] || ws().pages[id]!.deleted) return showHome();
     mode = 'page';
     cur = id;
+    comparing = 0;
     hist = new History(ws());
     savedOnce = savedOnce;
     keepWhere(id, '');
     showPage(id, focusTitle);
   };
-  let panelOpen: '' | 'more' | 'move' | 'icon' | 'kinds' | 'pick' | 'comment' | 'ask' | 'export' | 'sync' | 'cards' = '';
+  let panelOpen: '' | 'more' | 'move' | 'icon' | 'kinds' | 'pick' | 'comment' | 'ask' | 'export' | 'sync' | 'cards' | 'form' | 'mind' = '';
   let panelFor = '';
   const showPage = (id: string, focusTitle = false): void => {
     flush();
@@ -718,7 +734,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     mark.addEventListener('click', () => openPanel('icon'));
     const more = key('…', () => openPanel('more'), 'wsmore', 'More for this page: history, move, duplicate, delete');
     const head = h('div.wshead', mark, title);
-    const bar = h('div.wsrow.wspagekeys', key('UNDO', doUndo), key('REDO', doRedo), key('SEARCH', () => showHome(), '', 'Search every page'), key('ADD A BLOCK', () => openPanel('kinds', page()!.blocks.at(-1)?.id ?? ''), 'on'), key('ASK ABOUT THIS PROJECT', () => openPanel('ask'), '', 'Ask Ghosty about this project'), more);
+    const bar = h('div.wsrow.wspagekeys', key('UNDO', doUndo), key('REDO', doRedo), key('SEARCH', () => showHome(), '', 'Search every page'), key('ADD A BLOCK', () => openPanel('kinds', page()!.blocks.at(-1)?.id ?? ''), 'on'), key('ASK ABOUT THIS PROJECT', () => openPanel('ask'), '', 'Ask Ghosty about this project'), ...(dbPage ? [key('FORM', () => openPanel('form'), '', 'A form: each answer becomes a row of this database')] : []), more);
     let focused = '';
     const lineSlot = h('div.wslineslot');
     const panelHost = h('div.wspanelhost', { dataset: { for: id } });
@@ -726,7 +742,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     const tail = h('div.wstail');
     clear(view, crumbs, head, bar, lineSlot, panelHost, ...(row ? [propEditor(ctx, p.parent!, p)] : []), ...(dbPage ? [dbView(ctx, id)] : []), blocksEl, tail);
     const openPanel = (k: typeof panelOpen, f = ''): void => {
-      panelOpen = panelOpen === k && panelFor === f && k !== 'kinds' ? '' : k;
+      panelOpen = panelOpen === k && panelFor === f && k !== 'kinds' && k !== 'mind' ? '' : k;
       panelFor = f;
       wsState.panel = panelOpen;
       drawPanel();
@@ -737,7 +753,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
       drawPanel();
     };
     const drawPanel = (): void => {
-      const a = panelOpen === 'more' ? morePanel() : panelOpen === 'move' ? movePanel() : panelOpen === 'icon' ? iconPanel() : panelOpen === 'kinds' ? kindsPanel(panelFor) : panelOpen === 'pick' ? pickPanel(panelFor) : panelOpen === 'comment' ? commentPanel(panelFor) : panelOpen === 'ask' ? askPanel() : panelOpen === 'export' ? exportPanel(id) : panelOpen === 'sync' ? syncPanel(panelFor) : panelOpen === 'cards' ? cardsPanel(panelFor) : null;
+      const a = panelOpen === 'more' ? morePanel() : panelOpen === 'move' ? movePanel() : panelOpen === 'icon' ? iconPanel() : panelOpen === 'kinds' ? kindsPanel(panelFor) : panelOpen === 'pick' ? pickPanel(panelFor) : panelOpen === 'comment' ? commentPanel(panelFor) : panelOpen === 'ask' ? askPanel() : panelOpen === 'export' ? exportPanel(id) : panelOpen === 'sync' ? syncPanel(panelFor) : panelOpen === 'cards' ? cardsPanel(panelFor) : panelOpen === 'form' ? formPanel() : panelOpen === 'mind' ? mindPanel(panelFor) : null;
       clear(panelHost, ...(a ? [a, key('CLOSE', closePanel, 'wsclose', 'Close this panel')] : []));
     };
     // ---- the page's own sheets
@@ -930,7 +946,8 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
           const v = dbView(ctx, dbp.id, { embedded: true, view: b.view, onView: (vid) => change(patchBlock(ws(), id, b.id, (x) => ({ ...x, view: vid })), 'none') });
           row1.append(h('header.wsviewhead', markOf(dbp), h('b', titleOf(dbp)), key('OPEN', () => openPage(dbp.id), '', `Open the database ${titleOf(dbp)}`)), v, blockKeys(b, i));
         }
-      } else if (b.t === 'table') row1.append(tableEl(b), blockKeys(b, i));
+      } else if (b.t === 'mind') row1.append(mindEl(b), blockKeys(b, i));
+      else if (b.t === 'table') row1.append(tableEl(b), blockKeys(b, i));
       else if (b.t === 'img') {
         const src = b.img ? image(b.img) : null;
         row1.append(h('figure.wsfig', src ? h('img', { src, alt: b.alt ?? '' }) : h('div.wsnopic', 'A picture that is not on this phone any more'), h('figcaption', b.alt ?? '')), blockKeys(b, i));
@@ -1183,7 +1200,10 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
         put(wblock('view', '', { db: r.page.id, view: r.page.db!.views[0]!.id }), r.ws);
         say('A database inside this page, with a table, a board and a calendar of its rows.');
       } else if (kind === 'link') openPanel('pick', at);
-      else put(wblock(kind as WType));
+      else if (kind === 'mind') {
+        put(wblock('mind', '', { mind: [{ id: 'm0', text: titleOf(page()) === 'Untitled' ? 'My idea' : titleOf(page()), parent: null }] }));
+        say('A mind map: tap the idea in the middle to add a branch.');
+      } else put(wblock(kind as WType));
     };
     photoIn.addEventListener('change', () => {
       const f = photoIn.files?.[0];
@@ -1225,6 +1245,149 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
       q.addEventListener('input', draw);
       draw();
       return h('div.wspanel.wspickp', { dataset: { panel: 'pick' } }, h('small.wsh', 'LINK TO A PAGE OR A DOCUMENT'), q, list);
+    };
+    // ---- MIND MAP (editors.s8): the tree drawn from the left, each idea a 44 pt key; its panel adds, renames, deletes, makes to-dos
+    const COL = 176;
+    const ROW = 60;
+    const mindEl = (b: WBlock): HTMLElement => {
+      const L = layout(b.mind ?? []);
+      const w = (L.depth + 1) * COL;
+      const ht = Math.max(1, L.rows) * ROW;
+      const at = new Map(L.nodes.map((n) => [n.id, n]));
+      const ns = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(ns, 'svg');
+      svg.setAttribute('class', 'wsmindlines');
+      svg.setAttribute('width', String(w));
+      svg.setAttribute('height', String(ht));
+      svg.setAttribute('aria-hidden', 'true');
+      for (const [a, z] of L.edges) {
+        const p = at.get(a)!;
+        const q = at.get(z)!;
+        const x1 = p.depth * COL + COL - 20;
+        const y1 = p.row * ROW + ROW / 2;
+        const x2 = q.depth * COL;
+        const y2 = q.row * ROW + ROW / 2;
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', `M${x1} ${y1} C${x1 + 14} ${y1}, ${x2 - 14} ${y2}, ${x2} ${y2}`);
+        svg.append(path);
+      }
+      const nodes = L.nodes.map((n) => {
+        const kids = kidsOf(b.mind ?? [], n.id).length;
+        const k = h('button.wsmindnode', { type: 'button', dataset: { node: n.id, depth: String(n.depth) }, style: `left:${n.depth * COL}px;top:${n.row * ROW + 6}px;width:${COL - 24}px`, 'aria-label': `${n.text || 'An empty idea'}${kids ? `, ${kids} branch${kids === 1 ? '' : 'es'}` : ''}: tap to add a branch, rename it or make to-dos` }, n.text || '…') as HTMLButtonElement;
+        k.addEventListener('click', () => openPanel('mind', `${b.id}:${n.id}`));
+        return k;
+      });
+      return h('div.wsmind', { dataset: { scrolls: '1' }, role: 'group', 'aria-label': 'A mind map' }, h('div.wsmindin', { style: `width:${w}px;height:${ht}px` }, svg, ...nodes));
+    };
+    const mindPanel = (f: string): HTMLElement => {
+      const [bid, nid] = f.split(':') as [string, string];
+      const b = page()?.blocks.find((x) => x.id === bid);
+      const n = b?.mind?.find((x) => x.id === nid);
+      if (!b || !n) return h('div.wspanel', h('p.wsnote', 'That idea is not on the map any more.'));
+      const setMind = (m: MindNode[]): Workspace => patchBlock(ws(), id, bid, (x) => ({ ...x, mind: m }));
+      const name = h('input.wsfin', { type: 'text', value: n.text, 'aria-label': 'The idea', autocomplete: 'off', enterKeyHint: 'done' }) as HTMLInputElement;
+      const rename = (): void => {
+        const cur4 = page()?.blocks.find((x) => x.id === bid)?.mind ?? [];
+        if (cur4.find((x) => x.id === nid)?.text === name.value.trim()) return;
+        change(setMind(renameNode(cur4, nid, name.value)), 'none');
+        drawBlocks();
+      };
+      flushers.add(rename);
+      name.addEventListener('change', rename);
+      name.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), rename()));
+      const todos = branchTodos(b.mind ?? [], nid);
+      return h('div.wspanel.wsmindp', { dataset: { panel: 'mind', node: nid } }, h('small.wsh', n.parent === null ? 'THE IDEA IN THE MIDDLE' : 'A BRANCH'), name,
+        h('div.wsrow',
+          key('ADD A BRANCH', () => {
+            rename();
+            const r = addNode(page()?.blocks.find((x) => x.id === bid)?.mind ?? [], nid, '');
+            if ('error' in r) return say(r.error);
+            change(setMind(r.nodes), 'none');
+            drawBlocks();
+            openPanel('mind', `${bid}:${r.id}`);
+            panelHost.querySelector<HTMLInputElement>('.wsmindp input')?.focus();
+            say('A new branch: type its words.');
+          }, 'on', 'Add a branch to this idea'),
+          ...(todos.length ? [key(`MAKE ${todos.length} TO-DO${todos.length === 1 ? '' : 'S'}`, () => {
+            rename();
+            const list = branchTodos(page()?.blocks.find((x) => x.id === bid)?.mind ?? [], nid);
+            let w2 = ws();
+            let after = bid;
+            for (const t of list) {
+              const nb = wblock('todo', t);
+              w2 = insertBlock(w2, id, nb, after);
+              after = nb.id;
+            }
+            change(w2, 'none');
+            closePanel();
+            drawBlocks();
+            undoBar(`${list.length} to-do${list.length === 1 ? ' is' : 's are'} under the map: ${list.map((t) => `“${t}”`).join(', ')}.`);
+          }, '', `Turn this branch into ${todos.length} to-dos`)] : []),
+          ...(n.parent !== null ? [key('DELETE THIS BRANCH', () => {
+            change(setMind(removeNode(page()?.blocks.find((x) => x.id === bid)?.mind ?? [], nid)), 'none');
+            closePanel();
+            drawBlocks();
+            undoBar('The branch is deleted, with what grew from it.');
+          }, '', 'Delete this branch and what grows from it')] : [])));
+    };
+    // ---- FORM (editors.s1): the database's columns as questions; each answer a new row, the form clear for the next
+    const formPanel = (): HTMLElement => {
+      const d = page()?.db;
+      if (!d) return h('div.wspanel');
+      const qs = formQuestions(d);
+      const name = h('input.wsfin', { type: 'text', 'aria-label': 'Name', placeholder: 'Name', autocomplete: 'off', enterKeyHint: 'next' }) as HTMLInputElement;
+      const fields = new Map<string, () => string | boolean | string[]>();
+      const clearAll: (() => void)[] = [() => (name.value = '')];
+      const field = (pr: (typeof qs)[number]): HTMLElement => {
+        const lab = h('span.wsfqn', pr.name);
+        if (pr.kind === 'select') {
+          const sel = h('select.wsfin', { 'aria-label': pr.name }, h('option', { value: '' }, 'Not chosen'), ...(pr.options ?? []).map((o) => h('option', { value: o }, o))) as HTMLSelectElement;
+          fields.set(pr.id, () => sel.value);
+          clearAll.push(() => (sel.value = ''));
+          return h('label.wsfq', { dataset: { prop: pr.id } }, lab, sel);
+        }
+        if (pr.kind === 'multi' || pr.kind === 'check') {
+          const opts = pr.kind === 'check' ? [pr.name] : (pr.options ?? []);
+          const boxes = opts.map((o) => {
+            const b = h('input', { type: 'checkbox', value: o, 'aria-label': pr.kind === 'check' ? pr.name : `${pr.name}: ${o}` }) as HTMLInputElement;
+            clearAll.push(() => (b.checked = false));
+            return { o, b };
+          });
+          fields.set(pr.id, () => (pr.kind === 'check' ? boxes[0]!.b.checked : boxes.filter((x) => x.b.checked).map((x) => x.o)));
+          return h('fieldset.wsfq', { dataset: { prop: pr.id } }, h('legend.wsfqn', pr.name), ...boxes.map((x) => h('label.wsfbox', x.b, h('span', pr.kind === 'check' ? 'Yes' : x.o))));
+        }
+        const inp = h('input.wsfin', { type: pr.kind === 'date' ? 'date' : 'text', inputMode: pr.kind === 'number' ? 'decimal' : 'text', 'aria-label': pr.name, autocomplete: 'off' }) as HTMLInputElement;
+        fields.set(pr.id, () => inp.value);
+        clearAll.push(() => (inp.value = ''));
+        return h('label.wsfq', { dataset: { prop: pr.id } }, lab, inp);
+      };
+      const err = h('p.wsferr', { 'aria-live': 'assertive' });
+      const submit = (): void => {
+        flush();
+        const raw: FormRaw = {};
+        for (const [k, f] of fields) raw[k] = f();
+        const dd = page()?.db;
+        if (!dd) return;
+        const a = formAnswer(dd, name.value, raw);
+        if ('error' in a) {
+          err.textContent = a.error;
+          say(a.error);
+          return;
+        }
+        err.textContent = '';
+        const r = addRow(ws(), id, a.title, a.vals);
+        change(r.ws, 'views');
+        for (const c of clearAll) c();
+        name.focus();
+        undoBar(`Added: “${a.title}” is a new row of ${titleOf(page())}. The form is clear for the next one.`);
+      };
+      name.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), submit()));
+      const skipped = formSkipped(d);
+      return h('div.wspanel.wsformp', { dataset: { panel: 'form' } }, h('small.wsh', `FORM · ${titleOf(page()).toUpperCase()}`),
+        h('p.wsnote', 'Each answer becomes a new row of this database, kept on this phone. Leave a box empty to leave it blank.'),
+        h('label.wsfq', h('span.wsfqn', 'Name'), name), ...qs.map(field), err,
+        key('ADD THIS ANSWER', submit, 'on', 'Add this answer as a new row'),
+        ...(skipped.length ? [h('p.wsnote', `Not asked: ${skipped.join(', ')}.`)] : []));
     };
     // ---- MAKE FLASHCARDS (editors.c3, into LEARN's own revision): from this page, or from one of MY DOCUMENTS
     const cardsPanel = (src: string): HTMLElement => {
@@ -1347,6 +1510,8 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
   };
 
   // ---------------------------------------------------------------- history
+  /** The version being compared with now (kept through UNDO, so the compare stays open). */
+  let comparing = 0;
   const showHistory = (id: string): void => {
     flush();
     flushers.clear();
@@ -1360,6 +1525,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     const open = (at: number): void => {
       const v = list.find((x) => x.at === at)!;
       preview = at;
+      comparing = 0;
       clear(body,
         h('small.wsh', `AS IT WAS ${agoWords(v.at).toUpperCase()} · READ ONLY`),
         h('h4.wsvtitle', v.title.trim() || 'Untitled'),
@@ -1371,8 +1537,48 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
           mode = 'page';
           showPage(id);
           undoBar(`Restored to the version from ${agoWords(v.at)}. UNDO brings back what was here.`);
-        }, 'on'));
+        }, 'on'),
+        key('COMPARE WITH NOW', () => compare(v.at), '', 'Compare this version with the page as it is now, side by side'));
       for (const x of view.querySelectorAll<HTMLElement>('.wsver')) x.setAttribute('aria-pressed', String(Number(x.dataset.at) === at));
+    };
+    // COMPARE WITH NOW (editors.u10): the version and now side by side, changes coloured, one part brought back at a time
+    const compare = (at: number): void => {
+      const v = list.find((x) => x.at === at);
+      if (!v) return;
+      preview = at;
+      comparing = at;
+      wsState.compare = at;
+      const parts = comparePage(v.blocks, ws().pages[id]?.blocks ?? []);
+      const words = (b: WBlock | undefined): string => (b ? `${b.t === 'todo' ? `${b.done ? '☑' : '☐'} ` : b.t === 'ul' ? '• ' : ''}${wText(b, ws(), docTitle)}` : '');
+      const marked = (x: Part, side: 'then' | 'now'): Node[] => (x.words ?? []).flatMap((w): Node[] => (w.same !== undefined ? [document.createTextNode(w.same)] : side === 'then' && w.gone !== undefined ? [h('del.wscmpgone', w.gone)] : side === 'now' && w.came !== undefined ? [h('ins.wscmpcame', w.came)] : []));
+      const bring = (x: Part): void => {
+        flush();
+        change(withBlocks(ws(), id, (bs) => restorePart(v.blocks, bs, x.id)), 'none');
+        flush();
+        compare(at);
+        undoBar(x.kind === 'came' ? 'Taken out, as it was in that version. UNDO puts it back.' : 'Brought back from that version, just that part. UNDO takes it away again.');
+      };
+      const changed = parts.filter((x) => x.kind !== 'same');
+      const same = parts.length - changed.length;
+      clear(body,
+        h('small.wsh', `${agoWords(v.at).toUpperCase()} · BESIDE · NOW`),
+        h('p.wsnote.wscmpsum', changeWords(parts)),
+        h('div.wscmphead', { 'aria-hidden': 'true' }, h('b', 'THEN'), h('b', 'NOW')),
+        ...changed.map((x) => h('div.wscmp', { dataset: { kind: x.kind, id: x.id } },
+          h('div.wscmpcols',
+            h('p.wscmpthen', { 'aria-label': x.kind === 'came' ? 'Not in that version' : `Then: ${words(x.then)}` }, ...(x.kind === 'changed' ? marked(x, 'then') : x.kind === 'gone' ? [h('del.wscmpgone', words(x.then))] : [h('span.wscmpnone', 'not there')])),
+            h('p.wscmpnow', { 'aria-label': x.kind === 'gone' ? 'Not there now' : `Now: ${words(x.now)}` }, ...(x.kind === 'changed' ? marked(x, 'now') : x.kind === 'came' ? [h('ins.wscmpcame', words(x.now))] : [h('span.wscmpnone', 'gone now')]))),
+          key(x.kind === 'came' ? 'TAKE THIS OUT' : 'BRING THIS BACK', () => bring(x), '', x.kind === 'came' ? 'Take this added part out, as in that version' : 'Bring this part back from that version'))),
+        same ? h('p.wsnote', `${same} block${same === 1 ? '' : 's'} the same in both.`) : '',
+        h('div.wsrow', key('BACK TO THIS VERSION', () => open(at)), key('RESTORE THE WHOLE VERSION', () => {
+          flush();
+          change(restoreVersion(ws(), id, v.at), 'none');
+          flush();
+          mode = 'page';
+          showPage(id);
+          undoBar(`Restored to the version from ${agoWords(v.at)}. UNDO brings back what was here.`);
+        })));
+      say(changeWords(parts));
     };
     clear(view,
       h('nav.wscrumbs', key('BACK TO THE PAGE', () => openPage(id), 'wscrumb', 'Back to the page')),
@@ -1388,6 +1594,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     say(list.length ? `${list.length} version${list.length === 1 ? '' : 's'} of this page, newest first. Tap one to read it.` : '');
     wsState.view = 'history';
     paintState();
+    if (comparing && list.some((v) => v.at === comparing)) compare(comparing);
     void preview;
   };
 
@@ -1433,6 +1640,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     if (o.what === 'project') return startTemplate('project');
     if (o.what === 'blank') return newBlank();
     if (o.what === 'bin') return showBin();
+    if (o.what === 'mind') return newMindMap();
     if (o.what === 'voice') {
       homePanel = 'voice';
       voiceEl();

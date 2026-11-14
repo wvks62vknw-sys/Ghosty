@@ -150,6 +150,22 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['school', 'making'], cat: 'learn', since: '2026-11-14',
     go: { run: 'open_workspace' }, tryText: 'Opens my workspace',
   },
+  'phrase:wsform': {
+    name: 'Forms that fill a list',
+    line: 'You can fill in a form on your phone and each answer lands as a new row of one of your Workspace lists.',
+    more: 'Open a database in your Workspace and tap FORM: its columns are the questions (words, numbers, a choice, several choices, a date, a tick). ADD THIS ANSWER puts it in as a row and clears the form for the next one, with UNDO. Worked-out columns are left out and the form says so. Good for sign-up sheets, checklists and surveys of your own.',
+    say: ['Make a form', 'Make a sign-up sheet'],
+    scene: ['making', 'phone'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_workspace' }, tryText: 'Opens my workspace',
+  },
+  'phrase:wsmind': {
+    name: 'Mind maps that become to-dos',
+    line: 'You can plan on a mind map page, an idea in the middle with its branches, and turn any branch into to-dos in one tap.',
+    more: 'NEW PAGE → A MIND MAP, or ADD A BLOCK → MIND MAP on any page. Tap an idea to rename it, add a branch or delete one. MAKE TO-DOS puts its branches under the map as to-dos you can tick, with UNDO. It goes out to Markdown as a nested list any app reads, and comes back as a map.',
+    say: ['Make a mind map', 'Start a mind map about the garden'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_workspace', args: { what: 'mind' } }, tryText: 'Opens a new mind map',
+  },
   'phrase:wsvoice': {
     name: 'Voice notes into tidy pages',
     line: 'You can talk for a few minutes and I turn it into a clean page, with every action you said pulled out as a to-do.',

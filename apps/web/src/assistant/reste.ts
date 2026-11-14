@@ -156,6 +156,22 @@ export async function cardsTurn(text: string): Promise<PackReply> {
   return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
 }
 
+/** "make a form", "a sign-up sheet": THE WORKSPACE, and where a database's FORM is (editors.s1). */
+export async function formTurn(text: string): Promise<PackReply> {
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({});
+  const reply = 'Your workspace is open: open a database (or ADD A BLOCK → DATABASE for a new list), then FORM. Its columns are the questions, and each answer you fill in on the phone becomes a new row.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
+}
+
+/** "make a mind map": a new mind map page in THE WORKSPACE (editors.s8). */
+export async function mindTurn(text: string): Promise<PackReply> {
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({ what: 'mind' });
+  const reply = 'A mind map page is open in your workspace: tap the idea in the middle to name it and add branches. Any branch becomes to-dos in one tap.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: { what: 'mind' } }] };
+}
+
 /** "edit a photo", "my photos": the photo editor, open on my photos. */
 export async function photoTurn(text: string): Promise<PackReply> {
   const ask = photoAsked(text) ?? { what: 'shelf' as const };

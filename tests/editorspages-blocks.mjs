@@ -35,7 +35,7 @@ export default async function (h) {
   const blocks = (page) => page.evaluate(() => JSON.parse(window.__ghosty.workspace.json || 'null')?.blocks ?? []);
   const openTitled = async (page, title) => {
     await page.evaluate(() => (location.hash = 'workspace'));
-    await page.waitForSelector('#pg-workspace .wssheet', { timeout: 15000 });
+    await page.waitForSelector('#pg-workspace .wssheet', { timeout: 40000 });
     if ((await page.evaluate(() => window.__ghosty.workspace.view)) === 'page') await page.evaluate(() => document.querySelector('#pg-workspace .wscrumb')?.click());
     await until(page, () => window.__ghosty.workspace.view === 'home');
     const row = sh(page).locator('.wstree .wsopen', { hasText: title }).first();

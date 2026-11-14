@@ -10,3 +10,6 @@ export * from './md';
 export * from './voicenote';
 export * from './deadlines';
 export * from './cards';
+export * from './form';
+export * from './mind';
+export * from './compare';

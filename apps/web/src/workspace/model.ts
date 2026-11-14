@@ -5,8 +5,9 @@
  * workspace sharing what it did not touch), so undo is a step back and a snapshot is cheap. Pure: apps/edge/test/workspace.test.mjs.
  */
 import { blockId, tidyRuns, type Block, type Run } from '../docs/model';
+import type { MindNode } from './mind';
 
-export type WType = Block['t'] | 'todo' | 'link' | 'view' | 'callout' | 'toggle';
+export type WType = Block['t'] | 'todo' | 'link' | 'view' | 'callout' | 'toggle' | 'mind';
 /** A callout's kind: a note, a tip, or a warning (its mark and its tint). */
 export type Tone = 'note' | 'tip' | 'warn';
 export const TONES: Tone[] = ['note', 'tip', 'warn'];
@@ -34,6 +35,8 @@ export interface WBlock extends Omit<Block, 't'> {
   folded?: boolean;
   /** A synced block: its group's id; every block of the group, on any page, holds the same words. */
   sync?: string;
+  /** A mind map: its ideas (editors.s8). */
+  mind?: MindNode[];
 }
 
 export type PropKind = 'text' | 'number' | 'select' | 'multi' | 'date' | 'check' | 'person' | 'relation' | 'rollup' | 'formula';
@@ -154,6 +157,7 @@ export function wText(b: WBlock, ws?: Workspace, docTitle?: (id: string) => stri
     return t ?? b.runs.map((r) => r.text).join('');
   }
   if (b.t === 'view') return ws?.pages[b.db ?? '']?.title ?? '';
+  if (b.t === 'mind') return (b.mind ?? []).map((n) => n.text).join('\n');
   return b.runs.map((r) => r.text).join('');
 }
 

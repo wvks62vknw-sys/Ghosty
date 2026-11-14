@@ -7,7 +7,7 @@
  */
 import { wblock, type WBlock } from './model';
 
-export { voiceNoteAsked, cardsAsked } from './asks';
+export { voiceNoteAsked, cardsAsked, formAsked, mindAsked } from './asks';
 
 /** The whole tidy page: its title, its paragraphs (a "## " line is a heading), the actions, and the words as said. */
 export interface Tidy {

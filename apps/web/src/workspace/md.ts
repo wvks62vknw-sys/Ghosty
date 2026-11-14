@@ -8,6 +8,7 @@
 import { inline, tidyRuns, type Run } from '../docs/model';
 import { safeHref } from '../core/safeurl';
 import { importCsv, toCsv } from './csv';
+import { mindFromLines, mindMd } from './mind';
 import { newDatabase } from './db';
 import {
   newPage, patchPage, wblock, commentId, viewId, rowsOf, children, titleOf, ICONS, syncId,
@@ -140,6 +141,7 @@ function pageMd(ws: Workspace, p: Page, file: string, paths: Map<string, string>
       case 'todo': line = `- [${b.done ? 'x' : ' '}] ${inner}${b.done ? ` <!--done ${b.done}-->` : ''}`; break;
       case 'right': line = `<p align="right">${inner}</p>`; break;
       case 'toggle': line = `<details${b.folded ? '' : ' open'}><summary>${inner}</summary>`; break;
+      case 'mind': line = mindMd(b.mind ?? []).join('\n'); break;
       case 'pb': line = '---'; break;
       case 'img': onLoss(`a picture (${b.alt || 'no description'})`); line = `![${escText(b.alt ?? '')}](picture)`; break;
       case 'table': {
@@ -292,6 +294,14 @@ export function parseMd(text: string, fallbackTitle = 'Untitled', onLoss: (s: st
     settle();
     if (!line.trim()) {
       flush();
+      continue;
+    }
+    if (line === '<!--ghosty:mind-->') {
+      // a mind map: the nested list between Ghosty's marks
+      flush();
+      const list: string[] = [];
+      for (i++; i < lines.length && lines[i]!.trim() !== '<!--/ghosty:mind-->'; i++) list.push(lines[i]!);
+      out.blocks.push(wblock('mind', '', { mind: mindFromLines(list) }));
       continue;
     }
     if ((m = /^<!--ghosty:synced ([\w-]{1,40})-->$/.exec(line))) {
