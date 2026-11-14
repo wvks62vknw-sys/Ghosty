@@ -3,7 +3,7 @@
 // problems, base, out, LOOKS, PHONE, SMALL, KEY }. The spec words split the parts so none runs long on CI (480 s a spec there):
 //   editorslane  — documents, spreadsheets, presentations (tests/editorslane-{docs,sheets,slides}.mjs)
 //   editorslane2 — the workspace, photo, video (tests/editorslane-{workspace,photo,video}.mjs)
-//   editorsnext  — the NEXT ROUND's new tools (every tests/editorsnext-*.mjs)
+//   editorspaper, editorsgrid, editorsmedia, editorspages — the NEXT ROUND's new tools, each word with its own parts (tests/<word>-*.mjs)
 // PARTS=a,b limits a run to those parts.
 import { mkdirSync, readdirSync } from 'node:fs';
 import { launch, webkitNoise } from './browser.mjs';
@@ -107,7 +107,7 @@ export async function runParts(title, files, clean) {
   const T0 = Date.now();
   check(files.length > 0, `${title}: its parts are here (${files.join(', ')})`);
   for (const f of files) {
-    const name = f.replace(/^editors(?:lane|next)-/, '').replace(/\.mjs$/, '');
+    const name = f.replace(/^editors[a-z0-9]*-/, '').replace(/\.mjs$/, '');
     if (want.length && !want.includes(name)) continue;
     const t = Date.now();
     console.log(`\n== ${name}`);
