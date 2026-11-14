@@ -363,7 +363,8 @@ for (const vp of [PHONE, PHONE2]) {
     const a = { id: 'tp1', rating: 900, themes: ['mateIn1'], moves: ['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6'], solution: ['h5f7'] };
     const b = { id: 'tp2', rating: 1500, themes: ['opening'], moves: ['e4', 'e5'], solution: ['g1f3', 'b8c6', 'f1c4'] };
     let asked = 0;
-    await ctx.route(/\/api\/chess\/puzzles/, (r) => (asked++, r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ puzzles: [a, b, { ...a, id: 'tp3' }, { ...b, id: 'tp4' }], source: 'test' }) })));
+    await ctx.route(/\/api\/chess\/puzzles\/daily/, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ puzzle: { ...b, id: 'tpday', rating: 1700 } }) }));
+    await ctx.route(/\/api\/chess\/puzzles\?/, (r) => (asked++, r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ puzzles: [a, b, { ...a, id: 'tp3' }, { ...b, id: 'tp4' }], source: 'test' }) })));
     await page.evaluate(() => (location.hash = 'gym'));
     await until(page, () => window.__ghosty?.gym?.cards > 0, null, 15000);
     await page.locator('#pg-gym .gymcard[data-game="chess"]').click();
@@ -407,6 +408,10 @@ for (const vp of [PHONE, PHONE2]) {
     const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.chess.puzzles') ?? '{}'));
     check(kept.tried >= 2 && Object.keys(kept.done ?? {}).length >= 2 && Array.isArray(kept.pack), `${T} [chess] the puzzles and results were not kept on the phone: ${JSON.stringify({ tried: kept.tried, done: kept.done })}`);
     if (/tp[13]/.test(rid)) check(kept.rushBest === 1, `${T} [chess] the rush best was not kept: ${kept.rushBest}`);
+    // TODAY'S PUZZLE: on his tap, about 1 KB said on the key, set up first even though it is rated furthest from him
+    await box.locator('.cpactions button', { hasText: /^TODAY’S PUZZLE · ABOUT 1 KB$/i }).click();
+    check(await until(page, () => window.__ghosty?.chessPuzzles?.id === 'tpday' && window.__ghosty.chessPuzzles.mode === 'solve', null, 5000), `${T} [chess] today’s puzzle was not set up: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.chessPuzzles))}`);
+    check(/Rated about 1700/.test(await box.locator('.cpsay').innerText()), `${T} [chess] today’s puzzle says: "${await box.locator('.cpsay').innerText()}"`);
     await bar(page, `${T} [chess rush]`, 'gym');
   } catch (e) {
     check(false, `${T} [chess] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);

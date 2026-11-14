@@ -21,7 +21,7 @@ import { button, modal } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 import { isoDay } from '../brief/day';
 import { daysTo, emptyState, inWords, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
-import { openRules, safeBlock } from './plan';
+import { openRules, openShop, safeBlock } from './plan';
 
 export type MoneyPage = 'month' | 'budgets' | 'bills' | 'trends';
 /** Each page's name: its panel's title on the MONEY screen. */
@@ -276,7 +276,12 @@ function monthPage(): HTMLElement {
       pace,
       v.categories.length ? h('div.lab', 'BY CATEGORY') : h('p.pknote', { dataset: { case: 'keep' } }, `Nothing spent in ${monthName(s.month)}. ${i > 0 ? 'Tap ‹ for an earlier month.' : 'Add a newer statement and I sort it.'}`),
       ...cats,
-      ...(top.length ? [h('div.lab', 'WHERE IT WENT MOST'), ...top.map((t) => meter(cap(t.t.toLowerCase()), p2(t.out), t.out / topMost, 'soft', `${plural(t.n, 'payment')} this month.`))] : []),
+      // [moneyapps] each shop opens its own page: every payment there across his statements
+      ...(top.length ? [h('div.lab', 'WHERE IT WENT MOST'), ...top.map((t) => {
+        const m = meter(cap(t.t.toLowerCase()), p2(t.out), t.out / topMost, 'soft', `${plural(t.n, 'payment')} this month.`);
+        m.append(h('div.pkrow', label(button('Its page', () => openShop(t.t, () => void load(s?.month))), `Open the page for ${cap(t.t.toLowerCase())}`)));
+        return m;
+      })] : []),
       h('div.lab', cat ? `${cat.toUpperCase()} · TAP ONE TO FILE IT` : 'EVERY PAYMENT · TAP ONE TO FILE IT'),
       h('div.pkrow', label(button('Your sorting rules', () => openRules(() => void load(s?.month))), 'See and change your sorting rules')),
       search,
