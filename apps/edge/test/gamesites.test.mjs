@@ -166,7 +166,8 @@ test('served straight at /s/<name>/: the exact policy, its one pinned script, it
   assert.match(page, /<script type="application\/json" id="game" data-save="ghosty-site:fox-script-script-alert-1-script-run" data-sw="\/s\/fox-script-script-alert-1-script-run\/page" data-scope="\/s\/fox-script-script-alert-1-script-run\/">/);
   assert.equal(G.saveKeyOf(name), `ghosty-site:${name}`, 'its saves: its own key on the phone, and only that');
   assert.match(page, new RegExp(`<link rel="manifest" href="/s/${name}/page"><link rel="apple-touch-icon" href="/s/${name}/page">`));
-  assert.equal((page.match(/data:image\/png/g) ?? []).length, 0, 'the icon is not in the page: it is fetched once, at its own address');
+  // (sites.u11: the front page's room pictures are data PNGs in the body; the icon is never one, in the head or anywhere outside the front page)
+  assert.equal((page.replace(/<section id="front"[\s\S]*?<\/section>/, '').match(/data:image\/png/g) ?? []).length, 0, 'the icon is not in the page: it is fetched once, at its own address');
   // the manifest: installable, standalone, at its own address, its icon once
   const m = await w.go(`/s/${name}/page`, { headers: { 'sec-fetch-dest': 'manifest' } });
   assert.match(m.headers.get('content-type'), /application\/manifest\+json/);
