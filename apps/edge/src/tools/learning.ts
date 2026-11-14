@@ -538,7 +538,8 @@ const done: ActionFn = async (a, d) => {
     const to = nextLevel(level || prefs.maths || 1, recent);
     await save(d, LEARNING_KEYS.prefs, { ...prefs, maths: to, mathsRecent: to === (level || prefs.maths || 1) ? recent : [] });
     next = ` Next maths: level ${to}.`;
-  } else if (skill === 'memory' && entry.score !== undefined && entry.of) {
+  } else if (skill === 'memory' && entry.score !== undefined && entry.of && arg.str(a, 'kind', false).toLowerCase() !== 'palace') {
+    // (a memory palace is his own list, so it sets no drill level)
     const kind = (KINDS.find((k) => k === arg.str(a, 'kind', false).toLowerCase()) ?? 'number') as MemoryKind;
     const at = level || prefs.memory?.[kind] || 1;
     const to = entry.score >= entry.of ? Math.min(10, at + 1) : entry.score < entry.of / 2 ? Math.max(1, at - 1) : at;

@@ -22,7 +22,7 @@ export const BRAIN_STALE = 'I can’t reach my brain right now, so this is your 
 export const BOX_STALE = 'This is your house as I last saw it.';
 
 /** Under the scenes: what a tap does, and what still asks. */
-export const SCENES_NOTE = 'Your own scenes and scripts from Home Assistant: a tap runs one. A scene that sets a lock, the alarm or a garage door asks your confirm first.';
+export const SCENES_NOTE = 'Your own scenes and scripts from Home Assistant. A scene runs on your tap; one that sets a lock, the alarm, a garage door or a switch you marked asks your confirm first. A script always asks first: I can’t see what it does.';
 
 /** Where his pinned things are kept (on this phone, his own). */
 export const PINS_KEY = 'ghosty.house.pins';
