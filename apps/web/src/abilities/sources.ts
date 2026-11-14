@@ -80,6 +80,8 @@ export const APP_WIDE = [
   { id: 'helpdesk', sel: '' },
   // [consistency] THE GUIDED TOUR (assistant/tour.ts)
   { id: 'tour', sel: '' },
+  // [consistency] SPEAK SCREEN (shell/speakscreen.ts, asked through assistant/helpdesk.ts)
+  { id: 'speakscreen', sel: '' },
 ] as const;
 
 /** A deck line's id: its screen and its first words ("deck:lens:translate-a-sign-or-a-menu"). */
