@@ -243,3 +243,26 @@ test('two more balloons: a voice down a phone or a radio, and a robot; each name
   assert.deepEqual(r.pages[0].panels[0].balloons.map((b) => b.kind), ['radio', 'robot']);
   assert.equal(r.pages[0].panels[1].balloons[0].kind, 'radio');
 });
+
+test('angled gutters: the inner edges lean, the page edges stay straight, and two panels side by side keep an even gutter', () => {
+  const pg = { layout: 0, panels: [{}, {}, {}] };
+  const rects = M.panelRects(pg);
+  const shapes = rects.map((r) => M.panelShape(r, 48));
+  for (const [i, s] of shapes.entries()) {
+    assert.equal(s.length, 4);
+    const r = rects[i];
+    for (const [x, y] of s) assert.ok(x >= r.x - 30 && x <= r.x + r.w + 30 && y >= r.y - 30 && y <= r.y + r.h + 30, 'each corner stays near its panel');
+  }
+  // a pair side by side: the left one's right edge and the right one's left edge lean in step
+  for (let a = 0; a < rects.length; a++) for (let b = 0; b < rects.length; b++) {
+    const A = rects[a], B = rects[b];
+    if (Math.abs(A.y - B.y) > 2 || Math.abs(A.h - B.h) > 2 || B.x <= A.x + A.w) continue;
+    const gTop = shapes[b][0][0] - shapes[a][1][0], gBottom = shapes[b][3][0] - shapes[a][2][0];
+    assert.ok(Math.abs(gTop - gBottom) <= 2, `an even gutter: ${gTop} at the top, ${gBottom} at the bottom`);
+    assert.notEqual(shapes[a][1][0], shapes[a][2][0], 'the shared edge leans');
+  }
+  // the page's outer edges stay put
+  const outer = M.panelShape({ x: 34, y: 34, w: 300, h: 300 }, 48);
+  assert.deepEqual([outer[0][0], outer[0][1], outer[3][0]], [34, 34, 34], 'the page’s own margin edges stay straight');
+  assert.deepEqual(M.panelShape(rects[0], 0).map(([x, y]) => [x, y]), [[rects[0].x, rects[0].y], [rects[0].x + rects[0].w, rects[0].y], [rects[0].x + rects[0].w, rects[0].y + rects[0].h], [rects[0].x, rects[0].y + rects[0].h]]);
+});

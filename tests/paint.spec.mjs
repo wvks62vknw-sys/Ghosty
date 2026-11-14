@@ -194,6 +194,24 @@ async function run(viewport) {
   check((await S(page)).undo === steps0 + 1 && at0 !== at1 && beforeTwirl > 0, `[${W}] TWIRL moves the paint under the brush, as one step`);
   await tool(page, 'Brush');
 
+  // a rectangle selection, then words on the painting
+  await tool(page, 'Select');
+  await page.click('.pxstudio button[aria-label="Select a rectangle"]');
+  await stroke(page, [[150, 1300, 0.5], [600, 1550, 0.5]], { type: 'pen' });
+  s = await S(page);
+  check(s.selection, `[${W}] RECTANGLE drags a box round a part`);
+  await tool(page, 'Select');
+  await page.click('.pxstudio button[aria-label="Clear the selection"]');
+  await tool(page, 'More');
+  await page.click('.pxstudio button[aria-label="Add words to the painting"]');
+  await page.fill('.pxstudio textarea[aria-label="The words to put on the painting"]', 'HELLO');
+  await page.click('.pxstudio button[aria-label="Place the words: then tap the painting where they go"]');
+  const inkedBefore = (await page.evaluate(() => window.__ghosty.paintInked()))[1];
+  const stepsBefore = (await S(page)).undo;
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.evaluate(() => { const st = document.querySelector('.pxstudio .pxstage'); const r = st.getBoundingClientRect(); const d = window.__ghosty.paintDoc(); const e = (k) => st.dispatchEvent(new PointerEvent(k, { pointerId: 9, pointerType: 'pen', bubbles: true, clientX: r.left + d.tx + 600 * d.s, clientY: r.top + d.ty + 400 * d.s, pressure: 0.5, buttons: k === 'pointerup' ? 0 : 1 })); e('pointerdown'); e('pointerup'); });
+  check((await S(page)).undo === stepsBefore + 1 && (await page.evaluate(() => window.__ghosty.paintInked()))[1] > inkedBefore, `[${W}] TEXT puts his words on the painting, as one step`);
+
   // (f) layers
   await tool(page, 'Layers');
   await page.click('.pxstudio button[aria-label="Add a new layer"]');
@@ -316,6 +334,14 @@ await run(PHONE2);
   await page.selectOption('#pg-comic select[aria-label="Balloon 1"]', 'robot');
   check(await until(page, (d) => window.__ghosty.comic.editing.drawn > d, drawn0), '[440] a robot balloon redraws the page');
   await page.click('#pg-comic button[aria-label="Undo the last change"]').catch(() => undefined);
+
+  // angled gutters for an action page, and back
+  const drawn1 = await page.evaluate(() => window.__ghosty.comic.editing.drawn);
+  await page.click('#pg-comic button[aria-label="Lean this page’s gutters for an action page, or put them straight"]');
+  check(await until(page, (d) => window.__ghosty.comic.editing.drawn > d && [...document.querySelectorAll('#pg-comic button')].some((b) => b.textContent.trim() === 'Angle the other way'), drawn1), '[440] ANGLED GUTTERS leans the page’s gutters and redraws it');
+  await page.click('#pg-comic button[aria-label="Lean this page’s gutters for an action page, or put them straight"]');
+  await page.click('#pg-comic button[aria-label="Lean this page’s gutters for an action page, or put them straight"]');
+  check(await until(page, () => [...document.querySelectorAll('#pg-comic button')].some((b) => b.textContent.trim() === 'Angled gutters')), '[440] and straight again on the third tap');
 
   // his photo behind the panel, then MAKE IT COMIC ART (flat colours, inked outlines)
   const photo = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 320, 240); gr.addColorStop(0, '#3a7bd5'); gr.addColorStop(1, '#f4d03f'); g.fillStyle = gr; g.fillRect(0, 0, 320, 240); g.fillStyle = '#c0392b'; g.beginPath(); g.arc(160, 120, 60, 0, 7); g.fill(); return c.toDataURL('image/png'); })).split(',')[1], 'base64');

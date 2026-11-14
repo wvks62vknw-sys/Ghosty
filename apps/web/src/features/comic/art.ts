@@ -6,7 +6,7 @@
  * the sound effects lettered big. The cover is the hero large under the title. What is drawn where is given back, so a tap
  * on the page finds its panel and its balloon.
  */
-import { PAGE_H, PAGE_W, panelRects, type Actor, type Balloon, type CastMember, type Comic, type Look, type Mood, type Page, type Panel, type Pose, type Scene, type Time } from './model';
+import { PAGE_H, PAGE_W, panelRects, panelShape, type Actor, type Balloon, type CastMember, type Comic, type Look, type Mood, type Page, type Panel, type Pose, type Scene, type Time } from './model';
 
 const LETTER = "'Comic Neue', 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', system-ui, sans-serif";
 const DISPLAY = "'Oswald', Impact, 'Arial Narrow', sans-serif";
@@ -819,10 +819,11 @@ function caption(ctx: C, b: Box, text: string, at: 'top' | 'bottom'): void {
 
 /** One panel, drawn in its box; gives back each balloon's box. The balloons are laid out first, over where each speaker
  * stands, and the cast is then sized to stand under them, so no balloon covers a face. */
-export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hits?: { actors: { who: string; box: Box }[]; sfx: Box | null }, ready?: () => void): { id: string; box: Box }[] {
+export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hits?: { actors: { who: string; box: Box }[]; sfx: Box | null }, ready?: () => void, shape?: [number, number][]): { id: string; box: Box }[] {
   ctx.save();
   ctx.beginPath();
-  ctx.rect(b.x, b.y, b.w, b.h);
+  if (shape) { ctx.moveTo(shape[0]![0], shape[0]![1]); for (const [x, y] of shape.slice(1)) ctx.lineTo(x, y); ctx.closePath(); }
+  else ctx.rect(b.x, b.y, b.w, b.h);
   ctx.clip();
   const photo = p.photo ? photoOf(p.photo, ready) : null;
   let ground: number;
@@ -927,7 +928,8 @@ export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hit
   ctx.restore();
   ctx.strokeStyle = INK;
   ctx.lineWidth = 6;
-  ctx.strokeRect(b.x, b.y, b.w, b.h);
+  if (shape) { ctx.beginPath(); ctx.moveTo(shape[0]![0], shape[0]![1]); for (const [x, y] of shape.slice(1)) ctx.lineTo(x, y); ctx.closePath(); ctx.lineJoin = 'miter'; ctx.stroke(); ctx.lineJoin = 'round'; }
+  else ctx.strokeRect(b.x, b.y, b.w, b.h);
   return out;
 }
 
@@ -944,7 +946,11 @@ export function drawPage(cv: HTMLCanvasElement, c: Comic, pg: Page, n: number, r
   const drawn: Drawn = { panels: rects, balloons: [], actors: [], sfxs: [] };
   pg.panels.slice(0, rects.length).forEach((p, i) => {
     const hits: { actors: { who: string; box: Box }[]; sfx: Box | null } = { actors: [], sfx: null };
-    for (const bl of drawPanel(ctx, c, p, rects[i]!, (c.seed ^ (n * 131 + i * 17)) >>> 0, hits, ready)) drawn.balloons.push({ panel: i, ...bl });
+    // angled gutters: the panel's art fills the box round its leaning outline
+    const lean = typeof pg.slant === 'number' && Number.isFinite(pg.slant) ? Math.max(-80, Math.min(80, pg.slant)) : 0;
+    const shape = lean ? panelShape(rects[i]!, lean) : undefined;
+    const box = shape ? (() => { const xs = shape.map((q) => q[0]), ys = shape.map((q) => q[1]); const x = Math.min(...xs), y = Math.min(...ys); return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }; })() : rects[i]!;
+    for (const bl of drawPanel(ctx, c, p, box, (c.seed ^ (n * 131 + i * 17)) >>> 0, hits, ready, shape)) drawn.balloons.push({ panel: i, ...bl });
     for (const a of hits.actors) drawn.actors!.push({ panel: i, ...a });
     if (hits.sfx) drawn.sfxs!.push({ panel: i, box: hits.sfx });
   });
