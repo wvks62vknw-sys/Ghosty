@@ -10893,7 +10893,8 @@ html .al-gflagmark { display: block; width: 40%; aspect-ratio: 1; background: va
 /* merge and slide tiles */
 html .al-gmerge, html .al-gslide { gap: var(--g-s-half); padding: var(--g-s-half); border-radius: var(--g-radius-cell); background: var(--g-plate-strong-fill); }
 html .al-gtile { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; border-radius: var(--g-radius-key); background: var(--g-plate-fill); font: var(--g-t-head); font-size: clamp(14px, 6vw, 28px); font-variant-numeric: tabular-nums; color: var(--g-ink-1); transition: background-color 120ms ease, transform 120ms ease; }
-html .al-gmerge .al-gtile:not([data-v]) { background: color-mix(in srgb, var(--g-canvas) 40%, transparent); }
+html .al-gmerge .al-gtile:not([data-v]) { background: color-mix(in srgb, var(--g-canvas) 40%, transparent); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
+html .al-gmerge, html .al-gslide { border: var(--g-hair) solid var(--g-line-faint); }
 html .al-gtile[data-v="2"] { background: color-mix(in srgb, var(--g-accent) 12%, transparent); }
 html .al-gtile[data-v="4"] { background: color-mix(in srgb, var(--g-accent) 22%, transparent); }
 html .al-gtile:is([data-v="8"], [data-v="16"], [data-v="32"], [data-v="64"]) { background: color-mix(in srgb, var(--g-accent) 35%, transparent); }

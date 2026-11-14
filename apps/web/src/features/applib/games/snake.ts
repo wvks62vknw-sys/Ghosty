@@ -53,6 +53,9 @@ export const snake: Board = (p) => {
     ctx.clearRect(0, 0, w, w);
     ctx.fillStyle = col.bg;
     rr(ctx, 0, 0, w, w, 8);
+    ctx.strokeStyle = col.line;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, w - 1, w - 1);
     if (s.food >= 0) {
       ctx.fillStyle = col.food;
       ctx.beginPath();

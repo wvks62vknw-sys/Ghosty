@@ -95,6 +95,7 @@ export const blocks: Board = (p) => {
     rr(ctx, 0, 0, cell * cols, cell * rows, 6);
     ctx.strokeStyle = fc;
     ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, cell * cols - 1, cell * rows - 1);
     for (let x = 1; x < cols; x++) {
       ctx.beginPath();
       ctx.moveTo(x * cell, 0);
