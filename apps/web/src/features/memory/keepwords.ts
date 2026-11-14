@@ -43,5 +43,12 @@ export const K = {
   letGo: (what: string): string => `Let go: ${what}.`,
   later: (what: string): string => `I’ll remind you tomorrow: ${what}.`,
   forgotten: (what: string): string => `Forgotten: ${what}.`,
+  CHART_TOPICS: 'WHAT YOU ASKED ABOUT MOST',
+  CHART_DONE: 'YOUR WORD THIS WEEK',
+  CHART_FINISHED: 'Finished',
+  CHART_OPEN: 'Still open',
+  lookBackText: (what: string, why: string): string => `Three months ago you chose ${what}${why ? `, because ${why.replace(/^because\s+/i, '')}` : ''}. Did it work out?`,
+  lookBackSet: (on: string): string => `I’ll ask you on ${on} whether it worked out.`,
+  lookBackOn: (on: string): string => `look back ${on}`,
   queued: (n: number): string => `${n === 1 ? 'One thing you told me waits' : `${n} things you told me wait`} for a signal to reach my brain.`,
 };

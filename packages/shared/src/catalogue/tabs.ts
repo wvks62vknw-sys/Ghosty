@@ -99,6 +99,19 @@ export const TABS_WORDS: Record<string, CatValue> = {
   },
   'phrase:comic': { same: 'screen:comic' },
   'hub:comic': { same: 'screen:comic' },
+  'screen:files': {
+    name: 'Files: everything you keep', line: 'You can find any document, sheet, deck, photo, video, game, comic or file you keep, in one place.',
+    more: 'Search the names, tags and the words inside; folders, stars and recents; share in Word, Excel and PowerPoint formats or as one zip; deleted things wait 30 days.',
+    say: ['Open Files', 'Recently deleted', 'Show me my files'], scene: ['phone'], cat: 'build', since: '2026-11-14',
+  },
+  'hub:files': { same: 'screen:files' },
+  'me:files': { same: 'screen:files' },
+  'screen:paint': {
+    name: 'Paint: draw and paint', line: 'You can draw and paint with a finger or an Apple Pencil, with real brushes, layers and a time-lapse of every stroke.',
+    more: 'Six brushes (pencil you tilt to shade, ink, marker, watercolour, oils and airbrush) follow the pencil’s pressure, and a finger gets smoothing and a stabiliser. Layers have blend modes, masks, alpha lock and a reference layer for the fill bucket, with selection, move and turn, liquify, symmetry and QuickShape. Undo and redo every step, play the time-lapse or save it as a video, and save a PNG, JPEG, layered PSD or OpenRaster file. Colouring pages come from line art drawn here or from your own photo, and everything stays on this phone.',
+    say: ['Open paint', 'I want to draw', 'Colouring page'], scene: ['phone'], cat: 'build', since: '2026-11-14',
+  },
+  'hub:paint': { same: 'screen:paint' },
   // ---- the Me sheet's row for it
   'me:social': { same: 'screen:social' },
 
@@ -168,6 +181,8 @@ export const TABS_WORDS: Record<string, CatValue> = {
   'deck:comic:make-a-comic-about-a-cat': { same: 'screen:comic' },
   'deck:comic:read-a-comic': { same: 'screen:comic' },
   'deck:comic:free-public-domain-comics': { same: 'screen:comic' },
+  'deck:paint:start-a-painting': { same: 'screen:paint' },
+  'deck:paint:a-colouring-page': { same: 'screen:paint' },
   'deck:house:lights-heating-and-blinds-room-by': { same: 'screen:house' },
   'deck:house:is-the-back-door-open': { same: 'phrase:house' },
   'deck:house:whats-the-temperature-in-the-kitchen': { same: 'phrase:house' },

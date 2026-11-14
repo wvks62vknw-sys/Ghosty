@@ -35,11 +35,11 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 
 // ---- what the screens and the areas hold (shell/areadefs.ts; ui/sheetpage.ts draws a screen's pages under its pills)
 const AREA_TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
+  ask: ['core', 'brief', 'apps', 'voice'], see: ['eye', 'lens', 'interpreter', 'translate'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
-  me: ['memory', 'settings', 'system', 'links', 'social'], // (ABILITIES left on 7 Nov: BRIEF-SHELL pass 1)
+  me: ['memory', 'files', 'settings', 'system', 'links', 'social'], // (ABILITIES left on 7 Nov: BRIEF-SHELL pass 1; FILES joined in the apps round)
 };
 /** The pages that hold a table typed in by hand, and what their one plain line says (ui/sheetpage.ts SheetPart.line). */
 const STAND_IN = { learning: { WORDS: /starter set, typed in by hand/, 'FIRST AID': /NHS.*999/ }, coach: { WORDS: /starter set, typed in by hand/ } };
@@ -47,12 +47,12 @@ const STAND_IN = { learning: { WORDS: /starter set, typed in by hand/, 'FIRST AI
 const IN_THE_WORKS = ['coach', 'learning'];
 /** Each new screen: its area, its name as the jump bar and the deck show it, a plain word it is found by, its pills and pages. */
 const NEW = {
-  money: { area: 'life', name: 'Money', word: 'statement', pills: ['Month', 'Budgets', 'Bills', 'Calendar', 'Trends', 'Statement'], pages: ['YOUR MONTH', 'BUDGETS', 'SAVINGS GOALS', 'BILLS AND SUBSCRIPTIONS', 'SHARED BILLS', 'YOUR CAR’S MONEY', 'MONEY CALENDAR', 'TRENDS', 'YOUR YEAR IN MONEY', 'PRICE WATCHES', 'PASTE A STATEMENT'] },
-  body: { area: 'life', name: 'Body', word: 'squats', pills: ['Move', 'Water', 'Sleep', 'Mood', 'Weight', 'Health'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'STEPS', 'GYM LOG', 'SIX-WEEK PLANS', 'WATER TODAY', 'SLEEP', 'FASTING', 'MOOD', 'BREATHE', 'STRETCH SET', 'WEIGHT', 'MEASUREMENTS', 'MY HEALTH WEEK', 'TABLETS', 'YOUR WEEK', 'SYMPTOM DIARY'] },
+  money: { area: 'life', name: 'Money', word: 'statement', pills: ['Month', 'Budgets', 'Bills', 'Calendar', 'Trends', 'Statement'], pages: ['YOUR MONTH', 'YOUR ACCOUNTS', 'BUDGETS', 'SAVINGS GOALS', 'BILLS AND SUBSCRIPTIONS', 'SHARED BILLS', 'YOUR CAR’S MONEY', 'MONEY CALENDAR', 'TRENDS', 'YOUR YEAR IN MONEY', 'PRICE WATCHES', 'PASTE A STATEMENT'] },
+  body: { area: 'life', name: 'Body', word: 'squats', pills: ['Move', 'Water', 'Sleep', 'Mood', 'Weight', 'Health'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'STEPS', 'GYM LOG', 'SIX-WEEK PLANS', 'WATER TODAY', 'SLEEP', 'FASTING', 'MOOD', 'BREATHE', 'STRETCH SET', 'WEIGHT', 'MEASUREMENTS', 'HEALTH HUB', 'MY HEALTH WEEK', 'TABLETS', 'YOUR WEEK', 'SYMPTOM DIARY'] },
   kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan', 'Pantry', 'Recipes'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN', 'PANTRY', 'RECIPES'] },
-  people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Coming up', 'Group plan'], pages: ['YOUR PEOPLE', 'COMING UP', 'GROUP PLAN'] },
+  people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Coming up', 'Group plan', 'Gifts', 'Keep in touch'], pages: ['YOUR PEOPLE', 'COMING UP', 'GROUP PLAN', 'GIFTS', 'KEEP IN TOUCH'] },
   work: { area: 'life', name: 'Work', word: 'interview', pills: ['To-do', 'Jobs', 'Meetings', 'Interview', 'Document'], pages: ['TO-DO', 'JOB APPLICATIONS', 'MEETINGS', 'INTERVIEW PRACTICE', 'DOCUMENT'] },
-  creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },
+  creative: { area: 'life', name: 'Creative', word: 'poster', pills: ['Music', 'Poster', 'Card', 'Comic', 'Logo', 'Palette'], pages: ['YOUR SONG', 'DRUM PADS', 'DESIGN', 'POSTER', 'BIRTHDAY CARD', 'COMIC STRIP', 'LOGO SKETCH', 'PALETTE'] },
   outside: { area: 'life', name: 'Outside', word: 'toilets', pills: ['Walk', 'Nearby', 'My car', 'Lost', 'Split'], pages: ['WALK', 'NEARBY', 'MY CAR', 'LOST', 'SPLIT'] },
   homeadmin: { area: 'life', name: 'Household', word: 'bins', pills: ['Due', 'Bins', 'Bills', 'Meter', 'Rooms', 'Papers'], pages: ['DUE', 'BINS', 'BILLS', 'METER', 'ROOMS', 'PAPERS'] },
   learning: { area: 'learn', name: 'Learning', word: 'first aid', pills: ['Words', 'Draw', 'Typing', 'Drills', 'First aid', 'Plan'], pages: ['WORDS', 'CARDS', 'DRAW', 'WRITING', 'TYPING', 'READING', 'MEMORY', 'MATHS', 'SPELLING', 'FIRST AID', 'PLAN', 'STREAKS'] },

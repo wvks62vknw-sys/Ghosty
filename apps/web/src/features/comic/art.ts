@@ -6,7 +6,7 @@
  * the sound effects lettered big. The cover is the hero large under the title. What is drawn where is given back, so a tap
  * on the page finds its panel and its balloon.
  */
-import { PAGE_H, PAGE_W, panelRects, type Actor, type Balloon, type CastMember, type Comic, type Look, type Mood, type Page, type Panel, type Pose, type Scene, type Time } from './model';
+import { PAGE_H, PAGE_W, panelRects, panelShape, type Actor, type Balloon, type CastMember, type Comic, type Look, type Mood, type Page, type Panel, type Pose, type Scene, type Time } from './model';
 
 const LETTER = "'Comic Neue', 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', system-ui, sans-serif";
 const DISPLAY = "'Oswald', Impact, 'Arial Narrow', sans-serif";
@@ -46,7 +46,7 @@ export function photoOf(src: string, ready?: () => void): HTMLImageElement | nul
 }
 /** Every photo of a comic decoded (before it is saved or read, so no panel is drawn without its photo). */
 export async function photosReady(c: Comic): Promise<void> {
-  const all = c.pages.flatMap((pg) => pg.panels.map((p) => p.photo).filter((x): x is string => !!x));
+  const all = c.pages.flatMap((pg) => pg.panels.flatMap((p) => [p.photo, p.ink]).filter((x): x is string => !!x));
   await Promise.all(all.map((src) => new Promise<void>((ok) => {
     const img = photoOf(src, () => ok());
     if (img) ok();
@@ -688,8 +688,31 @@ function balloonShape(ctx: C, kind: Balloon['kind'], b: Box): void {
     ctx.fill();
     return;
   }
+  if (kind === 'robot') {
+    // a robot's voice: a box with clipped corners, its words in a typewriter face
+    const c = Math.min(18, b.h * 0.22);
+    const x0 = b.x - b.w * 0.04, y0 = b.y - b.h * 0.06, x1 = b.x + b.w * 1.04, y1 = b.y + b.h * 1.06;
+    ctx.beginPath();
+    ctx.moveTo(x0 + c, y0); ctx.lineTo(x1 - c, y0); ctx.lineTo(x1, y0 + c); ctx.lineTo(x1, y1 - c); ctx.lineTo(x1 - c, y1); ctx.lineTo(x0 + c, y1); ctx.lineTo(x0, y1 - c); ctx.lineTo(x0, y0 + c);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    return;
+  }
   ctx.beginPath();
-  if (kind === 'shout') {
+  if (kind === 'radio') {
+    // a voice down a phone or a radio: a jagged electric edge, finer than a shout's
+    const k = 30;
+    for (let i = 0; i <= k * 2; i++) {
+      const an = (i / (k * 2)) * Math.PI * 2;
+      const f = i % 2 ? 1.06 : 0.97;
+      const px = cx + Math.cos(an) * rx * f;
+      const py = cy + Math.sin(an) * ry * f;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  } else if (kind === 'shout') {
     const k = 18;
     for (let i = 0; i <= k * 2; i++) {
       const an = (i / (k * 2)) * Math.PI * 2;
@@ -718,6 +741,22 @@ function tail(ctx: C, kind: Balloon['kind'], b: Box, tx: number, ty: number): vo
   }
   const spread = Math.min(26, b.w * 0.12);
   const sx = cx + Math.max(-b.w * 0.25, Math.min(b.w * 0.25, (tx - cx) * 0.3));
+  if (kind === 'radio') {
+    // a lightning tail: the voice comes down the wire
+    const mx = (sx + tx) / 2, my = (by + ty) / 2;
+    ctx.beginPath();
+    ctx.moveTo(sx - spread * 0.6, by - 6);
+    ctx.lineTo(mx + spread * 0.5, my - 4);
+    ctx.lineTo(mx - spread * 0.2, my + 2);
+    ctx.lineTo(tx, ty);
+    ctx.lineTo(mx + spread * 0.25, my - 10);
+    ctx.lineTo(mx - spread * 0.35, my - 14);
+    ctx.lineTo(sx + spread * 0.6, by - 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    return;
+  }
   ctx.beginPath();
   ctx.moveTo(sx - spread, by - 6);
   ctx.quadraticCurveTo(sx + (tx - sx) * 0.3, by + (ty - by) * 0.55, tx, ty);
@@ -727,7 +766,7 @@ function tail(ctx: C, kind: Balloon['kind'], b: Box, tx: number, ty: number): vo
   ctx.stroke();
 }
 function lettering(ctx: C, size: number, kind: Balloon['kind']): void {
-  ctx.font = `${kind === 'whisper' ? 600 : 700} ${kind === 'shout' ? Math.round(size * 1.18) : kind === 'whisper' ? Math.round(size * 0.88) : size}px ${LETTER}`;
+  ctx.font = kind === 'robot' ? `700 ${Math.round(size * 0.92)}px ui-monospace, Menlo, Consolas, monospace` : `${kind === 'whisper' ? 600 : 700} ${kind === 'shout' ? Math.round(size * 1.18) : kind === 'whisper' ? Math.round(size * 0.88) : size}px ${LETTER}`;
 }
 function sfx(ctx: C, b: Box, text: string, seedN: number, below = b.y, at?: [number, number]): Box | null {
   if (!text.trim()) return null;
@@ -780,10 +819,11 @@ function caption(ctx: C, b: Box, text: string, at: 'top' | 'bottom'): void {
 
 /** One panel, drawn in its box; gives back each balloon's box. The balloons are laid out first, over where each speaker
  * stands, and the cast is then sized to stand under them, so no balloon covers a face. */
-export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hits?: { actors: { who: string; box: Box }[]; sfx: Box | null }, ready?: () => void): { id: string; box: Box }[] {
+export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hits?: { actors: { who: string; box: Box }[]; sfx: Box | null }, ready?: () => void, shape?: [number, number][]): { id: string; box: Box }[] {
   ctx.save();
   ctx.beginPath();
-  ctx.rect(b.x, b.y, b.w, b.h);
+  if (shape) { ctx.moveTo(shape[0]![0], shape[0]![1]); for (const [x, y] of shape.slice(1)) ctx.lineTo(x, y); ctx.closePath(); }
+  else ctx.rect(b.x, b.y, b.w, b.h);
   ctx.clip();
   const photo = p.photo ? photoOf(p.photo, ready) : null;
   let ground: number;
@@ -860,6 +900,9 @@ export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hit
   });
   const fx = sfx(ctx, b, p.sfx, seedN + 3, bottom, p.sfxAt);
   if (hits) hits.sfx = fx;
+  // his own ink over the art, under the balloons (drawn in PAINT's studio)
+  const ink = p.ink ? photoOf(p.ink, ready) : null;
+  if (ink) ctx.drawImage(ink, b.x, b.y, b.w, b.h);
   // tails first, then the balloons over them, then the words
   const out: { id: string; box: Box }[] = [];
   for (const { bl, box } of placed) {
@@ -885,7 +928,8 @@ export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hit
   ctx.restore();
   ctx.strokeStyle = INK;
   ctx.lineWidth = 6;
-  ctx.strokeRect(b.x, b.y, b.w, b.h);
+  if (shape) { ctx.beginPath(); ctx.moveTo(shape[0]![0], shape[0]![1]); for (const [x, y] of shape.slice(1)) ctx.lineTo(x, y); ctx.closePath(); ctx.lineJoin = 'miter'; ctx.stroke(); ctx.lineJoin = 'round'; }
+  else ctx.strokeRect(b.x, b.y, b.w, b.h);
   return out;
 }
 
@@ -902,7 +946,11 @@ export function drawPage(cv: HTMLCanvasElement, c: Comic, pg: Page, n: number, r
   const drawn: Drawn = { panels: rects, balloons: [], actors: [], sfxs: [] };
   pg.panels.slice(0, rects.length).forEach((p, i) => {
     const hits: { actors: { who: string; box: Box }[]; sfx: Box | null } = { actors: [], sfx: null };
-    for (const bl of drawPanel(ctx, c, p, rects[i]!, (c.seed ^ (n * 131 + i * 17)) >>> 0, hits, ready)) drawn.balloons.push({ panel: i, ...bl });
+    // angled gutters: the panel's art fills the box round its leaning outline
+    const lean = typeof pg.slant === 'number' && Number.isFinite(pg.slant) ? Math.max(-80, Math.min(80, pg.slant)) : 0;
+    const shape = lean ? panelShape(rects[i]!, lean) : undefined;
+    const box = shape ? (() => { const xs = shape.map((q) => q[0]), ys = shape.map((q) => q[1]); const x = Math.min(...xs), y = Math.min(...ys); return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }; })() : rects[i]!;
+    for (const bl of drawPanel(ctx, c, p, box, (c.seed ^ (n * 131 + i * 17)) >>> 0, hits, ready, shape)) drawn.balloons.push({ panel: i, ...bl });
     for (const a of hits.actors) drawn.actors!.push({ panel: i, ...a });
     if (hits.sfx) drawn.sfxs!.push({ panel: i, box: hits.sfx });
   });

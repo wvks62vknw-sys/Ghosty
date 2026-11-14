@@ -16,7 +16,37 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [files] THE APPS ROUND, lane BOOT
+  { day: '2026-11-14', title: 'Files: everything in one place', line: 'Me → FILES: every document, sheet, deck, photo, video, game, comic and file you bring in. Search inside them, star, tag and file them in folders, share as Word, Excel or PowerPoint or one zip, and deleted things wait 30 days.' },
+  // [lens] THE APPS ROUND: Photos
+  { day: '2026-11-14', title: 'Photos, your own library', line: 'Photo → MY LIBRARY: your photos and videos in one private library on this phone, with albums, favourites, a 30-day Recently deleted, duplicates found, search by what’s in them, and memories that play as a short film.' },
+  // [polish3] APPS ROUND, THE ARCADE, console-class (docs/build-plan/APPS-POLISH3.md)
+  { day: '2026-11-14', title: 'A page for every game', line: 'In the ARCADE, tap a game’s title: its screenshots, how to play by touch, controller and keyboard, your record, its trophies, and its licence and credit.' },
+  { day: '2026-11-14', title: 'Continue Playing and the Trophy Room', line: 'The ARCADE now opens on the games you played lately, and THE TROPHY ROOM counts what you earned: five for every game, yours included.' },
+  { day: '2026-11-14', title: 'Save slots, your buttons, gyro aim', line: 'A game’s page keeps your save under a name. In PAUSE, MOVE THE BUTTONS puts them under your thumb; in DOOM and Quake, GYRO AIM and a keyboard work too.' },
+  // [paint] THE APPS ROUND, lane COMIC: PAINT, a real painting app (docs/build-plan/APPS-COMIC.md)
+  { day: '2026-11-14', title: 'Paint', line: 'MAKE → PAINT: draw with a finger or an Apple Pencil. Six brushes that follow your pressure, layers with blend modes, undo, colouring pages, and a time-lapse of every stroke you can save as a video.' },
+  // [moneyapps] money, effortless
+  { day: '2026-11-14', title: 'All your statements at once', line: 'MONEY → Statement → Pick files: choose many at once, CSV, OFX, QIF or PDF from any bank. Each says what it kept, and payments you already had are left out. Each shop on Month now has its own page.' },
+  // [see] the APPS ROUND: the weather app
+  { day: '2026-11-14', title: 'Weather, an app of its own', line: 'Say “weather app” or tap OPEN WEATHER in the Brief: the next hour’s rain, a 24-hour graph, ten days, the details, the air and pollen, for every saved place and any city you add.' },
+  // APPS ROUND, MAKE lane
+  { day: '2026-11-14', title: 'Make real 3-D games', line: 'Make → GAME STUDIO → 3-D GAMES: a platformer, an explorer, a kart track, a physics puzzle, a marble roll and a shooter play in one tap, with real physics. EDIT builds the stage by touch and sets its rules as when-then blocks.' },
+  // [planlane4:tasks] THE APPS ROUND, CALENDAR AND TASKS: the to-do side (docs/build-plan/apps/plan.md)
+  { day: '2026-11-14', title: 'Projects, sections and tags', line: 'Type “#Home/Kitchen @phone” as you add a to-do, or set them in its change box. To-do → PROJECTS lists each project and tag with its count; tap one for its page, grouped by section.' },
+  { day: '2026-11-14', title: 'Checklists and notes inside a to-do', line: 'Tap a to-do: under its day, time and priority are its notes and a checklist. Add steps, tick them one by one (the row shows “2/5”), remove one, and UNDO any of it.' },
+  { day: '2026-11-14', title: 'Upcoming: your next two weeks', line: 'Agenda → To-do → UPCOMING: each of the next fourteen days with its events and its to-dos, quiet days in one line, then Later. Tap an event to open it in the diary.' },
+  { day: '2026-11-14', title: 'Quick add reads your words', line: 'Agenda → To-do: type “Call the bank tomorrow at 3pm p1 #Home @phone” and chips show the day, time, priority, project and tags before ADD. Tap a chip to keep it as words.' },
+  { day: '2026-11-14', title: 'Priorities P1 to P4', line: 'Every to-do has a coloured flag: tap it for P1 (the old star), or set P2 and P3 in its change box. The list goes late first, then by priority, then by day, and P1 shows the urgent ones.' },
+  { day: '2026-11-14', title: 'To-dos that ring', line: 'Give a to-do a time ("call the bank at 3pm", or the time in its change box) and my brain rings it then, with your phone locked once its notifications are on. A tick stops the ring; a new time moves it.' },
+  // [planlane4:calendar] THE APPS ROUND, CALENDAR: drag to move, the year, colour calendars (features/agenda/drag.ts, year.ts, calendars.ts)
+  { day: '2026-11-14', title: 'Your week by the hour', line: 'AGENDA → TIMELINE → WEEK: the seven days side by side by the hour, today first, free time shaded. Hold one of your events and drag it to another day or time.' },
+  { day: '2026-11-14', title: 'Colour calendars to show or hide', line: 'AGENDA → TIMELINE or MONTH → CALENDARS: give your diary and each linked calendar a colour, and hide one from the timeline, the month, the year and the diary with a tap.' },
+  { day: '2026-11-14', title: 'Any year at a glance', line: 'AGENDA → Diary → MONTH → YEAR: the twelve months of any year, a dot on each day with something on and today marked. Step ‹ › as far as you like; tap a month to open it.' },
+  { day: '2026-11-14', title: 'Drag to move an event', line: 'AGENDA → Diary → TIMELINE: hold one of your events and drag it to a new time, in 15-minute steps, with UNDO. Or tap it and use EARLIER, LATER or A DAY LATER.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
+  // [sites] THE APPS ROUND: Design
+  { day: '2026-11-14', title: 'Design anything', line: 'CREATIVE → Poster → Design: one canvas for posters, invitations, cards, menus, stories and posts. Move, resize and turn any part by hand, with layers, snapping and undo; start from a template; resize it to any size; save a PNG, a vector file or a print PDF, or put it on your sites after your APPROVE.' },
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },
   { day: '2026-11-14', title: 'Water nudges on a locked phone', line: 'Water nudges now reach your lock screen. My brain gets only the times to nudge, never how much you drink. Steps can come in from Health each evening with a Shortcut.' },
@@ -30,10 +60,22 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Toggles, synced blocks, your own templates', line: 'In the Workspace: a TOGGLE folds lines away, SYNC shows one block on several pages (change it once, it changes everywhere), and … → SAVE AS TEMPLATE puts your own page beside the five templates.' },
   { day: '2026-11-14', title: 'Voice notes into tidy pages', line: 'Workspace → VOICE NOTE (or say “take a voice note”): talk for a few minutes and I turn it into a clean page or document, with the actions as to-dos. Offline, the recording waits on your phone.' },
   // [editors grid] the NEXT ROUND's spreadsheet and presentation tools
+  // [apps round, editors] presentations, pro edition
+  { day: '2026-11-14', title: 'Free-form slides', line: 'Presentations → a slide → FREE: as many text boxes, pictures and shapes as you like, dragged with snapping guides, lined up, spread evenly, grouped and layered, and kept in PowerPoint files.' },
+  // [apps round, editors] spreadsheets, pro edition
+  { day: '2026-11-14', title: 'Charts of every kind', line: 'Spreadsheets → CHART: pie, scatter, area, stacked and line-with-columns charts with a title, a key, axis words and your colour, EDIT any chart later, and sparklines inside a cell. Excel keeps them as real charts.' },
+  { day: '2026-11-14', title: 'Drop-down lists and tick boxes', line: 'Spreadsheets → CELLS: keep cells to a list, a tick box or a date, picked under the formula line; anything else typed there is refused with the reason.' },
+  { day: '2026-11-14', title: 'Borders, merges and table styles', line: 'Spreadsheets → CELLS: borders, merge and unmerge, wrapped words, times, dollars and euros, and tables with a header row and banded rows, all kept in Excel files.' },
   { day: '2026-11-14', title: 'A table summed in one tap', line: 'Spreadsheets → SUMMARY: how much each month or at each shop, on its own sheet that keeps up with the table, and a chart of it in one more tap.' },
   { day: '2026-11-14', title: 'Cells that colour themselves', line: 'Spreadsheets → RULES: overdue dates in red, the top ten in green, data bars and a colour scale, listed per sheet to edit or delete, and kept in Excel files.' },
   { day: '2026-11-14', title: 'Give a talk with a TV', line: 'Presentations → PRESENT → ON A TV: the slide on the second screen, and on your phone this slide, the next one, your notes and the time.' },
   { day: '2026-11-14', title: 'Slide builds go to PowerPoint', line: 'Presentations: what comes in on a tap, and the new MAGIC MOVE between slides, are kept in the PowerPoint file as its own animations and Morph, and come back when you open one.' },
+  // [docspro] documents, pro edition (APPS ROUND)
+  { day: '2026-11-14', title: 'Named styles in documents', line: 'In a document, STYLES: set a paragraph in Title, Heading 1 to 3, Body, Quote or Caption, change a style’s font, size, colour and spacing everywhere at once, or REDEFINE it from a paragraph. Kept in Word files as real styles.' },
+  { day: '2026-11-14', title: 'Track your own changes', line: 'In a document, REVIEW → TRACK CHANGES: what you type is underlined and what you delete stays struck, with its time, to ACCEPT or REJECT one by one or all. Word files keep them as tracked changes.' },
+  { day: '2026-11-14', title: 'Document templates', line: 'DOCUMENTS → TEMPLATES: a letter, a CV, a report, a newsletter and an invoice, each designed, with your name and today’s date filled in.' },
+  { day: '2026-11-14', title: 'Spelling and grammar, on the phone', line: 'In a document, REVIEW → CHECK SPELLING AND GRAMMAR: each finding with its fix to ACCEPT or IGNORE, or FIX ALL. British spelling, checked here; nothing is sent or downloaded.' },
+  { day: '2026-11-14', title: 'Fold sections away', line: 'In a document’s CONTENTS, ▾ folds a heading’s section away in the page and ▸ brings it back; FOLD ALL shows a long document as its headings.' },
   // [editors paper] the next round's paper tools
   { day: '2026-11-14', title: 'Coloured words', line: 'In a document choose some words, then WRITE → COLOUR: red, blue, green or orange, kept in the Word file, the PDF and the web page.' },
   { day: '2026-11-14', title: 'Documents: a goal, a copy, a search', line: 'Set a word goal in PAGE and the line under the title counts towards it; it also says how many words you have chosen. MAKE A COPY duplicates a document, and MY DOCUMENTS has a search.' },
@@ -104,6 +146,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Chase from the Brief', line: 'CHASE on an email that needs an answer holds it for two working days; chases due today show under it. Say “and again Monday” and a chase looks twice.' },
   // [ci] NEXT ci.u3
   { day: '2026-11-14', title: 'How quickly I answer out loud', line: 'System → SPEED now shows your spoken turns too: how soon my first word comes after you stop, and how soon I listen again after I finish. Timed on your phone, kept on your phone.' },
+  // [learn, apps round] chess
+  { day: '2026-11-14', title: 'Chess, an app of its own', line: 'Say “open chess”: real puzzles from Lichess’s free database kept on your phone, a puzzle rating, a three-minute rush, today’s puzzle, and every puzzle you tried.' },
   // [learn, next round] learning that adapts and talks back (NEXT-LEARN.md)
   { day: '2026-11-14', title: 'Courses that pick up your mistakes', line: 'Each course’s map has TODAY: the lesson your answers say to look at again (a miss you were sure of counts most), with a quiz on just your misses.' },
   { day: '2026-11-14', title: 'Free classics for your shelf', line: 'Library → Add → CLASSICS: Project Gutenberg and Standard Ebooks’ newest, free. Each book’s size is said first, and it comes on your tap, on Wi-Fi.' },
@@ -216,6 +260,20 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Gym: he carries on by himself', line: 'WATCH keeps playing round after round, TRAIN ALL trains every game in turn, KEEP AWAKE holds the screen on while he trains.' },
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
+  // [journal] APPS ROUND, lane MEMORY: groups
+  { day: '2026-11-14', title: 'Groups for your people', line: 'Life → People → YOUR PEOPLE → Details: put someone in groups like family or football, then tap a group to see just them.' },
+  // [journal] APPS ROUND, lane MEMORY: the plan to the calendar
+  { day: '2026-11-14', title: 'Plans into your calendar', line: 'Life → People → GROUP PLAN: ADD TO CALENDAR puts the plan in your phone’s Calendar with its day, time, place and who’s coming.' },
+  // [journal] APPS ROUND, lane MEMORY: vCards
+  { day: '2026-11-14', title: 'Contacts in and out', line: 'Life → People → YOUR PEOPLE: IMPORT CONTACTS reads a .vcf from your phone’s Contacts, and EXPORT ALL writes everyone you told me about back out as one.' },
+  // [journal] APPS ROUND, lane MEMORY: your word's decision log
+  { day: '2026-11-14', title: 'Look back on a choice', line: 'Memory → YOUR WORD: LOOK BACK on any reason you gave me, and in three months I’ll ask whether it worked out.' },
+  // [journal] APPS ROUND, lane MEMORY: gifts
+  { day: '2026-11-14', title: 'Every gift in one place', line: 'Life → People → GIFTS: an idea for anyone, then bought, wrapped and given, with a budget per occasion; and the gifts you were given, each with its thank-you to send.' },
+  // [journal] APPS ROUND, lane MEMORY: keep in touch
+  { day: '2026-11-14', title: 'Keep in touch', line: 'Life → People → KEEP IN TOUCH: add the people you want to stay close to and how often; tap a name when you’ve caught up, and I’ll say when it’s been a while.' },
+  // [journal] APPS ROUND, lane MEMORY: his own journal
+  { day: '2026-11-14', title: 'Your own journal', line: 'Me → Memory → JOURNAL, or say "new journal entry": photos, a voice note, a mood and a place on each entry, a calendar and On this day, locked with Face ID if you like, kept on this phone.' },
 ];
 
 /**

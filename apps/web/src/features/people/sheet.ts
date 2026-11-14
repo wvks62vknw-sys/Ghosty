@@ -6,6 +6,8 @@
  * The state sits on window.__ghosty.people for the specs.
  */
 import { h } from '../../core/dom';
+import { keepStore } from '../memory/keep';
+import { allGroups, groupsFrom, loadGroups, promisesAbout, saveGroups } from './vcard';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
@@ -96,11 +98,25 @@ function whoSheet(): HTMLElement {
   };
   const find = h('input.ppfind', { type: 'search', placeholder: 'Find someone: a name, “cousin”, “fishing”', 'aria-label': 'Find someone', enterKeyHint: 'search', hidden: true }) as HTMLInputElement;
   find.addEventListener('input', () => paint());
+  // [journal] APPS ROUND (Your people: groups and tags): his groups for each person, kept on this phone; a chip shows one group
+  let group = '';
+  const chips = h('div.pkrow.ppgroups', { role: 'group', 'aria-label': 'Your groups' });
   const paint = () => {
     const q = find.value.trim().toLowerCase();
     find.hidden = peopleState.people.length < 2;
+    const groups = loadGroups();
+    const names = allGroups(Object.fromEntries(Object.entries(groups).filter(([n]) => peopleState.people.some((p) => p.name === n))));
+    if (group && !names.includes(group)) group = '';
+    chips.replaceChildren(...(names.length ? ['', ...names].map((g) => {
+      const b = button(g || 'Everyone', () => {
+        group = g;
+        paint();
+      }, group === g ? 'on' : '');
+      b.setAttribute('aria-pressed', String(group === g));
+      return b;
+    }) : []));
     const sorted = [...peopleState.people].sort((a, b) => a.name.localeCompare(b.name, 'en-GB', { sensitivity: 'base' }));
-    const shown = q ? sorted.filter((p) => [p.name, p.rel, ...p.notes].some((x) => x.toLowerCase().includes(q))) : sorted;
+    const shown = (q ? sorted.filter((p) => [p.name, p.rel, ...p.notes, ...(groups[p.name] ?? [])].some((x) => x.toLowerCase().includes(q))) : sorted).filter((p) => !group || (groups[p.name] ?? []).includes(group));
     peopleState.shown = shown.length;
     list.replaceChildren(
       ...(peopleState.people.length && !shown.length ? [h('p.pknote', { dataset: { case: 'keep' } }, `No one I know matches “${find.value.trim()}”.`)] : []),
@@ -118,6 +134,9 @@ function whoSheet(): HTMLElement {
               more.replaceChildren(
                 // [moneynext] money.u9: each thing he said, to change or take away; his own photo of them, kept on this phone
                 ...(p.notes.length ? p.notes.map((n) => noteRow(p, n)) : [h('p.pknote', 'Nothing else said yet.')]),
+                // [journal] APPS ROUND (Your word): his open promises that name them, from MEMORY → YOUR WORD
+                groupRow(p.name),
+                ...promisesAbout(p.name, keepStore.get().items).map((w) => h('p.pknote.pppromise', { dataset: { case: 'keep' } }, `You said you’d ${w}.`)),
                 photoRow(p),
                 giftRow(p),
                 ...(p.phone ? [button(`Copy number ${p.phone}`, () => void copy(p.phone, 'the number'))] : []),
@@ -281,6 +300,20 @@ function whoSheet(): HTMLElement {
     b.setAttribute('aria-label', `Forget ${p.name}`);
     return h('div.pkrow', b);
   };
+  const groupRow = (name: string) => {
+    const box = h('input', { type: 'text', value: (loadGroups()[name] ?? []).join(', '), placeholder: 'Groups: family, school, football', 'aria-label': `Groups for ${name}` }) as HTMLInputElement;
+    const keep = button('Keep groups', () => {
+      const m = loadGroups();
+      const gs = groupsFrom(box.value);
+      if (gs.length) m[name] = gs;
+      else delete m[name];
+      saveGroups(m);
+      stateIn(status, '', gs.length ? `${name} is in ${gs.join(', ')}. Kept on this phone.` : `${name} is in no group now.`);
+      paint();
+    });
+    keep.setAttribute('aria-label', `Keep the groups for ${name}`);
+    return h('div.pkrow.ppgrouprow', box, keep);
+  };
   const load = async () => {
     list.replaceChildren();
     /* state: people.who loading */
@@ -316,7 +349,47 @@ function whoSheet(): HTMLElement {
   what.addEventListener('keydown', (e) => e.key === 'Enter' && void add());
   const addBtn = button('Keep it', () => void add(), 'on');
   addBtn.setAttribute('aria-label', 'Keep what I said about them');
-  const el = h('div.pkcol', find, list, h('div.pkadd', name, what, addBtn), status, phrases(['who\'s who', 'Sam is my cousin']));
+  // [journal] APPS ROUND (Your people: vCard import and export, features/people/vcard.ts): his contacts file read on the phone and kept
+  // on his brain through the pack's own words; everyone written out as one .vcf for the phone's Contacts
+  const vcfIn = h('input', { type: 'file', accept: '.vcf,text/vcard,text/x-vcard', hidden: true }) as HTMLInputElement;
+  vcfIn.addEventListener('change', async () => {
+    const f = vcfIn.files?.[0];
+    vcfIn.value = '';
+    if (!f) return;
+    const V = await import('./vcard');
+    const cards = V.parseVcf(await f.text());
+    if (!cards.length) return stateIn(status, 'error', 'I found no contacts with a name in that file. Export a .vcf from your Contacts and try again.');
+    let n = 0;
+    for (const c of cards) {
+      stateIn(status, '', `Keeping ${c.name} (${n + 1} of ${cards.length})…`);
+      for (const s of V.cardSays(c)) {
+        const r = await say(s.action, s.args);
+        if (r.failed) {
+          stateIn(status, r.offline ? 'offline' : 'error', `${troubleWords(!!r.offline)} ${n} of ${cards.length} kept; import the file again to carry on.`);
+          return void load();
+        }
+      }
+      n++;
+    }
+    stateIn(status, '', `Kept ${n} ${n === 1 ? 'person' : 'people'} from your contacts. Only on your brain; nothing is looked up about anyone.`);
+    await load();
+  });
+  const importBtn = button('Import contacts', () => vcfIn.click());
+  importBtn.setAttribute('aria-label', 'Import contacts from a vCard file');
+  const exportBtn = button('Export all', async () => {
+    if (!peopleState.people.length) return stateIn(status, '', 'No one to export yet.');
+    const V = await import('./vcard');
+    const file = new File([V.writeVcf(peopleState.people)], 'my-people.vcf', { type: 'text/vcard' });
+    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+    if (nav.canShare?.({ files: [file] })) return void nav.share({ files: [file], title: 'My people' }).catch(() => undefined);
+    const a = h('a', { href: URL.createObjectURL(file), download: file.name }) as HTMLAnchorElement;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    stateIn(status, '', `Saved my-people.vcf with ${peopleState.people.length} ${peopleState.people.length === 1 ? 'person' : 'people'}; open it to add them to Contacts.`);
+  });
+  exportBtn.setAttribute('aria-label', 'Export everyone as a vCard file');
+  const el = h('div.pkcol', find, chips, list, h('div.pkadd', name, what, addBtn), h('div.pkrow.ppvcf', importBtn, exportBtn, vcfIn), status, phrases(['who\'s who', 'Sam is my cousin']));
   void load();
   return el;
 }
@@ -358,6 +431,23 @@ function planSheet(): HTMLElement {
     box.replaceChildren(
       h('b.pkmid', p.what),
       h('span.pklab', [p.when, p.time, p.where ? `at ${p.where}` : ''].filter(Boolean).join(' · ') || 'No day or place yet'),
+      // [journal] APPS ROUND: the plan into his phone's Calendar as one .ics (its day, time, place, who's coming); nobody is sent anything
+      ...(p.when ? [h('div.pkrow.ppics', (() => {
+        const b = button('Add to calendar', async () => {
+          const ics = (await import('./vcard')).planIcs(p);
+          if (!ics) return;
+          const file = new File([ics], 'plan.ics', { type: 'text/calendar' });
+          const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+          if (nav.canShare?.({ files: [file] })) return void nav.share({ files: [file], title: p.what }).catch(() => undefined);
+          const a = h('a', { href: URL.createObjectURL(file), download: file.name }) as HTMLAnchorElement;
+          document.body.append(a);
+          a.click();
+          a.remove();
+          stateIn(status, '', 'Saved plan.ics: open it to add the plan to your Calendar.');
+        });
+        b.setAttribute('aria-label', `Add ${p.what} to your calendar`);
+        return b;
+      })())] : []),
       ...names.map((n) =>
         h('div.pkperson', { role: 'group', 'aria-label': `${n}: ${now(n) || 'not heard from'}` }, h('b', n),
           h('div.pkrow', ...(['yes', 'maybe', 'no'] as const).map((s) => {

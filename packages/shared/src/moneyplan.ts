@@ -126,12 +126,13 @@ export function safeToSpend(rows: SpendRow[], subs: Subscription[], bills: HomeB
   const { last, next } = paydayPeriod(rule, today);
   const sorted = [...rows].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
   const newest = sorted[sorted.length - 1]?.d ?? '';
-  let withBal: SpendRow | undefined;
-  for (let i = sorted.length - 1; i >= 0; i--) if (typeof sorted[i]!.b === 'number' && Number.isFinite(sorted[i]!.b)) {
-    withBal = sorted[i];
-    break;
-  }
-  const since = sorted.filter((r) => r.d >= last && r.d <= today);
+  // [moneyapps] the newest balance of each of his accounts, added up (one account when the statements name none)
+  const newestOf = new Map<string, SpendRow>();
+  for (const r of sorted) if (typeof r.b === 'number' && Number.isFinite(r.b)) newestOf.set(r.ac ?? '', r);
+  const bals = [...newestOf.values()];
+  const withBal: SpendRow | undefined = bals.length ? { ...bals.reduce((a, b) => (a.d < b.d ? a : b)), b: bals.reduce((k, r) => k + r.b!, 0) } : undefined;
+  // (a move between his own accounts is neither money in nor money out)
+  const since = sorted.filter((r) => r.d >= last && r.d <= today && !r.tr);
   const inn = r2(since.filter((r) => r.a > 0).reduce((k, r) => k + r.a, 0));
   const out = r2(since.filter((r) => r.a < 0).reduce((k, r) => k - r.a, 0));
   const base: Safe['base'] = withBal && withBal.d >= last ? 'balance' : 'since';

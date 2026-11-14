@@ -16,11 +16,11 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const SMALL = { width: 390, height: 844 };
 const AREA_TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
+  ask: ['core', 'brief', 'apps', 'voice'], see: ['eye', 'lens', 'interpreter', 'translate'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)
-  me: ['memory', 'settings', 'system', 'links', 'social'], // (ABILITIES left on 7 Nov: BRIEF-SHELL pass 1)
+  me: ['memory', 'files', 'settings', 'system', 'links', 'social'], // (ABILITIES left on 7 Nov: BRIEF-SHELL pass 1; FILES joined in the apps round)
 };
 /** The pages that hold a table typed in by hand, and what their one plain line says (ui/sheetpage.ts SheetPart.line). */
 const STAND_IN = { learning: { WORDS: /starter set, typed in by hand/, 'FIRST AID': /NHS.*999/ }, coach: { WORDS: /starter set, typed in by hand/ } };
@@ -143,7 +143,7 @@ for (const viewport of [PHONE, SMALL]) {
     small: [...document.querySelectorAll('#plan button')].filter((b) => { const r = b.getBoundingClientRect(); return r.height < 43.5; }).length, expanded: document.querySelector('#dock .housebtn')?.getAttribute('aria-expanded'),
     names: [...document.querySelectorAll('#plan .planroom[data-room="learn"] .ptname')].map((x) => x.textContent).join(),
   }));
-  if (plan.rooms.join() !== 'home,see,make,learn,plan,life,me' || plan.things !== 46 || plan.lit !== 'learn') problems.push(`[${W}] the plan: ${JSON.stringify(plan)} (want 7 rooms, 46 numbered things, Learn lit)`);
+  if (plan.rooms.join() !== 'home,see,make,learn,plan,life,me' || plan.things !== 50 || plan.lit !== 'learn') problems.push(`[${W}] the plan: ${JSON.stringify(plan)} (want 7 rooms, 50 numbered things (APPS joined Home, FILES joined Me), Learn lit)`);
   if (plan.learn !== '1:learn,2:arcade,3:gym,4:school,5:library,6:learning,7:coach,8:rehearse' || plan.names !== 'Courses,Arcade,Gym,School,Library,Learning,Coach,Rehearse') problems.push(`[${W}] Learn's things on the plan: ${plan.learn} / ${plan.names}`);
   if (plan.starred.join() !== 'learn,gym' && plan.starred.join() !== 'gym,learn') problems.push(`[${W}] the plan stars ${plan.starred} (his favourites: gym, courses)`);
   if (plan.works.sort().join() !== 'coach,learning') problems.push(`[${W}] the plan dots IN THE WORKS on ${plan.works}`);

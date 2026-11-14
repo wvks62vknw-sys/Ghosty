@@ -5,7 +5,7 @@ const SHELL = ['/', '/index.html', '/early.js', '/app.js', '/styles.css', '/mani
 // Every Worker the build makes (build.mjs: dist/*.worker.js) is kept with the shell, so a game that searches in one (the board games'
 // board.worker.js), the Lens's reading and the globe's textures work from the first open with no signal. A test reads this list
 // against the build's own jobs and fails on a Worker that is missing from it.
-SHELL.push('/board.worker.js', '/lens.worker.js', '/textures.worker.js', '/steady.worker.js');
+SHELL.push('/board.worker.js', '/lens.worker.js', '/textures.worker.js', '/steady.worker.js', '/applibdata.worker.js');
 // The vendored libraries and models (maps, the Lens's vision and reading models, the 3D STUDIO's samples) are large and fixed:
 // kept in their own cache, served from it first, fetched once. Only what a mode actually used is kept.
 const VENDOR = 'ghosty-vendor-v1';

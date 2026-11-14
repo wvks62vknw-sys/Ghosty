@@ -85,7 +85,19 @@ export function openingLine(o: { name: string; hr: number; away: number; own: st
 }
 
 /** How smoothly the last opening ran (boot.u9), in one sentence: the cut, its length, its frame rate and its longest pause. */
-export interface BootRun { kind: string; film: boolean; ms: number; frames: number; worst: number; long: number; at: number }
+export interface BootRun { kind: string; film: boolean; ms: number; frames: number; worst: number; long: number; at: number; how?: 'cold' | 'resume' | 'reboot'; why?: string; skipped?: boolean }
+/** Why the whole film was not the film: the film itself is drawn for The Scan; the other looks open with their own 2.9-second version. */
+export const NOT_SCAN = 'the film is drawn for The Scan, and this look opens with its own';
+/**
+ * LAST OPENING (the owner's rule, APPS ROUND): which version played and why, in plain words, so a short one is never a mystery.
+ * "Last opening: the full film, 7.0 s." · "Last opening: the calm opening, because Reduce Motion is on." · "…, after you were away 4 minutes."
+ */
+export function lastWords(r: BootRun | null): string {
+  if (!r || !(r.ms > 0)) return 'Last opening: none yet on this phone.';
+  const what = r.kind === 'still' ? 'the calm opening' : r.kind === 'flat' ? 'the opening without 3-D' : r.kind === 'short' ? 'the short cut' : r.film ? 'the full film' : 'the opening for this look';
+  const when = r.how === 'resume' ? ', as you came back' : r.how === 'reboot' ? ', played again' : '';
+  return `Last opening: ${what}, ${(r.ms / 1000).toFixed(1)} s${when}${r.why ? `, because ${r.why}` : ''}.`;
+}
 export function runWords(r: BootRun | null): string {
   if (!r || !(r.ms > 0)) return 'No opening has played on this phone yet: close me fully and open me again to see one.';
   const what = r.kind === 'still' ? 'the calm opening' : r.kind === 'flat' ? 'the opening without 3-D' : r.kind === 'short' ? 'the short cut' : r.film ? 'the whole film' : 'the opening';

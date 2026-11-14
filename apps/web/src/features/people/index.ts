@@ -2,7 +2,7 @@
  * PEOPLE (BRIEF-TABS 2; LIFE): the people pack's own screen, its sheet's two pages (features/people/sheet.ts): the people he has
  * told me about (birthdays, gift ideas, what he said; found by a word; forgotten on his say), COMING UP (every birthday and date a year
  * ahead, with a birthday or a date kept there) and the group plan. I only know what he tells me and never look anyone up.
- * "who's who" still opens the sheet from the chat.
+ * "who's who" still opens the sheet from the chat. KEEP IN TOUCH (features/people/touch.ts): his own list of who to stay close to.
  */
 import type { TabDef } from '../../shell/tabs';
 import { cardBig, cardLoad, cardNow } from '../../shell/cardline';
@@ -29,6 +29,10 @@ export const peopleTab: TabDef = {
           { id: 'who', label: 'Your people', parts: [part('who')] },
           { id: 'coming', label: 'Coming up', parts: [part('coming')] },
           { id: 'plan', label: 'Group plan', parts: [part('plan')] },
+          // [journal] KEEP IN TOUCH (APPS ROUND, lane MEMORY): who he wants to stay close to, how often, and a nudge when it's been a while
+          // [journal] GIFTS (APPS ROUND, lane MEMORY): every gift for everyone, idea to given, budgets per occasion, thank-yous owed
+          { id: 'gifts', label: 'Gifts', parts: [{ title: 'GIFTS', build: async () => ({ el: (await import('./gifts')).giftsSheet(() => m.peopleState.people.map((p) => p.name)) }) }] },
+          { id: 'touch', label: 'Keep in touch', parts: [{ title: 'KEEP IN TOUCH', build: async () => ({ el: (await import('./touch')).touchSheet(() => m.peopleState.people.map((p) => p.name)) }) }] },
         ];
       },
     }),

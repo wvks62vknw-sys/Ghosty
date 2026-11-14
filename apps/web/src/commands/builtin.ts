@@ -13,7 +13,7 @@ import { tabCommand } from './rank';
 import { DECK } from '../shell/deckcopy';
 import { askFromHere } from '../shell/awareness';
 import { ui } from '../state/app';
-import { applyPreset, applyRecipe, applyTheme, PRESETS, recipe, savedHome, THEMES } from '../state/theme';
+import { applyPreset, applyRecipe, applyTheme, easyArgs, PRESETS, recipe, savedHome, THEMES } from '../state/theme';
 import { applyAsk, GROUNDS, lookAsked, WORLDS } from '../../../../packages/shared/src/themes';
 import { keepWidget } from '../state/widgets';
 import { enqueue, type NewEvent, type NewJob } from '../api/offline';
@@ -528,6 +528,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [paint] PAINT (features/paint): his paintings, colouring pages and the studio
+      id: 'open_paint',
+      title: 'Paint: draw and paint, colouring pages',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('paint');
+      },
+    },
+    {
       // [gamestudio] THE GAME STUDIO (studio-game/): his games, and a new one
       id: 'open_gamestudio',
       title: 'Game studio: make a 2-D game',
@@ -590,6 +600,17 @@ export function registerBuiltins(): void {
           id: typeof a?.id === 'string' ? a.id : undefined,
           tool: typeof a?.tool === 'string' ? a.tool : undefined,
         });
+      },
+    },
+    {
+      // [lens] PHOTOS (features/photos): his private library behind the photo editor; a view, or a search already typed
+      id: 'open_photos',
+      title: 'Photos: your library, albums, search and memories',
+      group: 'GO',
+      run: async (a) => {
+        const { openPhotos } = await import('../features/photos');
+        const view = typeof a?.view === 'string' && /^(library|albums|foryou|search)$/.test(a.view) ? (a.view as 'library' | 'albums' | 'foryou' | 'search') : undefined;
+        await openPhotos({ ...(view ? { view } : {}), ...(typeof a?.q === 'string' && a.q.trim() ? { q: a.q.trim().slice(0, 80) } : {}) });
       },
     },
     {
@@ -746,7 +767,7 @@ export function registerBuiltins(): void {
         if (hit) return applyTheme(hit[0]);
         const ask = lookAsked(raw) ?? lookAsked(`${raw} background`) ?? lookAsked(`switch to ${raw}`);
         if (ask) {
-          const { recipe: next, said } = applyAsk(recipe(), ask, { now: Date.now(), home: savedHome() });
+          const { recipe: next, said } = applyAsk(recipe(), ask, { now: Date.now(), home: savedHome(), ...easyArgs(ask) });
           applyRecipe(next);
           return toast(said, 'ok');
         }

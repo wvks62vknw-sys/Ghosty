@@ -16,7 +16,7 @@ import { drawCover, drawPage, hitOf, photosReady, type Drawn } from './art';
 import { bookletOf, cbzOf, importFiles, panelsOf, pdfOf, sniff } from './files';
 import { getRarReader, isRarNeeded, RAR_BYTES } from './rar';
 import { creditOf, fetchPd, fileOf, onMobileData, PD_QUERY, searchPd, type PdFile, type PdItem } from './library';
-import { nextIssue, blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
+import { KIND_NAMES, nextIssue, blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
 import { openReader, readingLog, type ReadSource } from './reader';
 import { allMade, bookOf, books, dropBook, keepBook, keepMade, madeOf, pageOf, shelfInfo, updateBook, type Book } from './store';
 import { comicState } from './state';
@@ -156,6 +156,7 @@ function bookSource(b: Book): ReadSource {
     id: b.id,
     title: b.title,
     count: b.pages,
+    ...(b.info?.rtl ? { rtl: true } : {}),
     page: async (n) => {
       const p = await pageOf(b.id, n);
       if (!p) throw new Error('this page is missing from the phone');
@@ -335,7 +336,7 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
       const from = b.from === 'made' ? 'Made by you' : b.from === 'library' ? 'Public domain' : 'Your file';
       const mark = markOf(b);
       return h('article.cxbook', { dataset: { from: b.from, id: b.id, mark } }, cover,
-        h('div.cxbookwords', h('h3.cxbooktitle', b.title), h('p.cxbookline', `${mark === 'read' ? 'Read · ' : mark === 'reading' ? 'Reading · ' : 'Unread · '}${from} · ${b.pages} page${b.pages === 1 ? '' : 's'}${b.bytes ? ` · ${sizeWords(b.bytes)}` : ''}`), b.credit ? h('p.cxcredit', b.credit) : null,
+        h('div.cxbookwords', h('h3.cxbooktitle', b.title), h('p.cxbookline', `${mark === 'read' ? 'Read · ' : mark === 'reading' ? 'Reading · ' : 'Unread · '}${from} · ${b.pages} page${b.pages === 1 ? '' : 's'}${b.bytes ? ` · ${sizeWords(b.bytes)}` : ''}`), b.info ? h('p.cxcredit', [b.info.writer && `Written by ${b.info.writer}`, b.info.artist && `drawn by ${b.info.artist}`, b.info.year].filter(Boolean).join(' · ') || null) : null, b.info?.summary ? h('p.cxcredit', b.info.summary.length > 160 ? `${b.info.summary.slice(0, 157)}…` : b.info.summary) : null, b.credit ? h('p.cxcredit', b.credit) : null,
           h('div.cxrow', read, edit, drop)));
     }));
   };
@@ -607,13 +608,82 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     input.click();
   };
 
+  // ---- his photo as inked comic art (bold flat colours, black outlines), done on this phone; UNDO puts the photo back
+  const comicArt = async (p: Panel): Promise<void> => {
+    if (!p.photo) return;
+    try {
+      const { comicArtOf } = await import('../paint/pixels');
+      const img = new Image();
+      img.src = p.photo;
+      await img.decode();
+      const cv = document.createElement('canvas');
+      cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      const g = cv.getContext('2d')!;
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, cv.width, cv.height);
+      g.putImageData(new ImageData(comicArtOf(d.data, cv.width, cv.height) as Uint8ClampedArray<ArrayBuffer>, cv.width, cv.height), 0, 0);
+      p.photo = cv.toDataURL('image/jpeg', 0.85);
+      comicState.editing.photoArt = (comicState.editing.photoArt ?? 0) + 1;
+      changed(true);
+      clear(status, h('span', { dataset: { state: 'done' } }, 'Your photo is now comic art: bold colours and inked outlines. UNDO puts the photo back.'));
+    } catch (e) {
+      clear(status, stateLine('error', sayError(e, 'turn the photo into comic art')));
+    }
+  };
+
+  // ---- freehand ink (PAINT's studio over the panel): the panel's art is the bottom layer, his ink the layer over it
+  let inking: { stop(): void } | null = null;
+  const inkPanel = async (c: Comic, p: Panel): Promise<void> => {
+    const pg = c.pages[page - 1];
+    const r = pg ? panelRects(pg)[panel] : undefined;
+    if (!pg || !r) return;
+    const [{ Painting, mk }, { openStudio }] = await Promise.all([import('../paint/engine'), import('../paint/studio')]);
+    const S = 2, w = Math.round(r.w * S), hh = Math.round(r.h * S);
+    const old = p.ink;
+    p.ink = undefined;
+    const full = document.createElement('canvas');
+    await photosReady(c);
+    drawPage(full, c, pg, page - 1);
+    p.ink = old;
+    const P = new Painting(w, hh);
+    P.recording = false;
+    P.addLayer('Panel art', 0);
+    P.layers[0]!.c.getContext('2d')!.drawImage(full, r.x, r.y, r.w, r.h, 0, 0, w, hh);
+    P.addLayer('Ink', 1);
+    if (old) {
+      const img = new Image();
+      img.src = old;
+      await img.decode().catch(() => undefined);
+      P.layers[1]!.c.getContext('2d')!.drawImage(img, 0, 0, w, hh);
+    }
+    P.recording = true;
+    P.log = [];
+    inking?.stop();
+    const done = (): void => {
+      const ink = P.byId(P.layers.find((L) => L.name === 'Ink')?.id ?? '');
+      if (ink && P.inked(ink.id) > 0) {
+        const out = mk(w, hh);
+        out.getContext('2d')!.drawImage(ink.c, 0, 0);
+        p.ink = out.toDataURL('image/png');
+      } else p.ink = undefined;
+      inking?.stop();
+      inking = null;
+      comicState.editing.inking = false;
+      comicState.editing.inked = c.pages.reduce((n, g) => n + g.panels.filter((q) => q.ink).length, 0);
+      changed(true);
+      clear(status, h('span', { dataset: { state: 'done' } }, p.ink ? 'Your drawing is on the panel, under its balloons, kept inside the comic on this phone.' : 'Nothing drawn, so the panel is as it was.'));
+    };
+    inking = openStudio(document.body, { p: P, title: `Panel ${panel + 1}`, doneWord: 'DONE', save: async () => undefined, close: done });
+    comicState.editing.inking = true;
+  };
+
   // ---- the editor's parts
   const panelEditor = (c: Comic, p: Panel): HTMLElement => {
     const nameOf = Object.fromEntries(c.cast.map((m) => [m.id, m.name]));
     const balloonRow = (b: Balloon, i: number) => h('div', { dataset: { balloon: b.id }, class: b.id === balloon ? 'cxballoon on' : 'cxballoon' },
       h('div.cxrow',
         sel(`Who says line ${i + 1}`, c.cast.map((m) => m.id), b.who as string, (v) => ((b.who = v), changed()), nameOf),
-        sel(`Balloon ${i + 1}`, KINDS, b.kind, (v) => ((b.kind = v), changed()), { speech: 'Speech', thought: 'Thought', shout: 'Shout', whisper: 'Whisper' }),
+        sel(`Balloon ${i + 1}`, KINDS, b.kind, (v) => ((b.kind = v), changed()), KIND_NAMES),
       ),
       text(`Line ${i + 1}`, b.text, (v) => ((b.text = v), changed()), { area: true, max: 200 }),
       h('div.cxrow',
@@ -644,7 +714,10 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       text('Caption', p.caption, (v) => ((p.caption = v), changed()), { max: 140, place: 'Meanwhile…' }),
       text('Sound effect', p.sfx, (v) => ((p.sfx = v), changed()), { max: 24, place: 'KA-BOOM!' }),
       h('div.cxrow',
+        key(p.ink ? 'Change my drawing' : 'Draw on it', () => void inkPanel(c, p), 'Draw or ink on this panel with a finger or an Apple Pencil'),
+        p.ink ? key('Remove drawing', () => ((p.ink = undefined), changed(true)), 'Take my drawing off this panel') : null,
         key(p.photo ? 'Change my photo' : 'My photo behind it', () => pickPhoto(p), 'Put one of my own photos behind this panel'),
+        p.photo ? key('Make it comic art', () => void comicArt(p), 'Turn my photo into inked comic art: bold flat colours with black outlines') : null,
         p.photo ? key('Remove photo', () => ((p.photo = undefined), changed(true)), 'Take the photo away from behind this panel') : null,
         p.sfxAt || p.balloons.some((b) => b.dx || b.dy) ? key('Put things back', () => {
           p.sfxAt = undefined;
@@ -730,6 +803,12 @@ export function makePart(): { el: HTMLElement; stop(): void } {
         pg.layout = (pg.layout + 1) % layoutCount(pg.panels.length);
         changed(true);
       }, 'Change this page’s panel grid') : null,
+      page > 0 ? key(c.pages[page - 1]?.slant ? (c.pages[page - 1]!.slant! > 0 ? 'Angle the other way' : 'Straight gutters') : 'Angled gutters', () => {
+        const pg = c.pages[page - 1]!;
+        pg.slant = !pg.slant ? 48 : pg.slant > 0 ? -48 : undefined;
+        if (!pg.slant) delete pg.slant;
+        changed(true);
+      }, 'Lean this page’s gutters for an action page, or put them straight') : null,
       page > 0 ? key('Add panel', () => {
         const pg = c.pages[page - 1]!;
         if (pg.panels.length >= MAX_PANELS) return toast(`A page holds up to ${MAX_PANELS} panels. Add a page instead.`, 'warn');
@@ -1063,6 +1142,9 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       hooks.make = undefined;
       hooks.edit = undefined;
       hooks.week = undefined;
+      inking?.stop();
+      inking = null;
+      comicState.editing.inking = false;
     },
   };
 }

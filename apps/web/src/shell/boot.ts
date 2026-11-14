@@ -66,7 +66,7 @@ import { previousOpen } from '../state/lastopen';
 import { lockBox, marksState, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
-import { FAULT_WORDS, FILM_SHOTS, HOLD_AFTER, STORY_SHOTS, greetingFor, holdWords, lengthFor, offlineLine, openingLine, ownLines, settledFeeds, shotWords, type BootRun } from './bootwords';
+import { FAULT_WORDS, FILM_SHOTS, HOLD_AFTER, STORY_SHOTS, greetingFor, holdWords, lengthFor, NOT_SCAN, offlineLine, openingLine, ownLines, settledFeeds, shotWords, type BootRun } from './bootwords';
 import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../features/core/scan/film';
 import { resetScoreState, scoreState, scoreTuning, startScore, type Score } from '../features/core/scan/score';
 import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
@@ -123,9 +123,19 @@ const SHORT_BY = 1700;
  * the flat cut and the film never played; only the checks, which pick the version, ever saw it).
  */
 const FILM_FULL_BY = 1500;
-const FILM_SHORT_BY = 2700;
-/** A cold open this soon after he last had Ghosty on screen (the phone closed it behind him) plays the short cut (FINAL-BOOT's rule). */
+/**
+ * THE OWNER'S RULE (APPS ROUND, "the 7 second cinematic every time I boot up"): a late Mind is waited for, never cut. The room breathes
+ * up to MIND_WAIT more after FILM_FULL_BY and then the whole film plays; only Mind still not drawing after that (or no WebGL at all)
+ * gets the flat cut. The film is never rushed to make up the wait (FILM_PACE at most): it ends a little later instead.
+ */
+export const MIND_WAIT = 2500;
+const FILM_SHORT_BY = FILM_FULL_BY + MIND_WAIT;
+const FILM_PACE = 1.25;
+/** Measured and reported, no longer a cut: a cold open this soon after he last had Ghosty on screen once played the short cut; now every
+ *  cold open plays the whole film unless he chose SHORT (the owner's rule, APPS ROUND). */
 export const QUICK_REOPEN_MS = 3 * 60_000;
+/** A resume after he has been away this long or more (ms) plays the opening again, as a cold open does; a quicker switch gets the breath. */
+export const RESUME_FILM_MS = 60_000;
 /** The most the short cut started at a quick reopen is quickened to make up a wait for Mind (a quarter: never rushed). */
 const QUICK_PACE = 1.25;
 /** The three feeds the guardian reads, in the order their lines come (packages/shared/src/guardian.ts). */
@@ -203,6 +213,12 @@ export const bootState = {
    *  soon enough (QUICK_REOPEN_MS) for the short cut. */
   reopen: -1,
   quick: false,
+  /** How this opening began: a cold open, a resume after RESUME_FILM_MS away, or a replay ("reboot", the director). */
+  how: 'cold' as 'cold' | 'resume' | 'reboot',
+  /** Why it played the version it did, in his words ('' for the whole film as asked): kept with the run for Settings' LAST OPENING line. */
+  why: '',
+  /** Resumes after RESUME_FILM_MS that played the opening again. */
+  resumes: 0,
   /** Start-up jobs that waited for the landing (afterLanding), and when (ms after the first frame) they were let go (-1: none waited). */
   deferred: 0,
   deferredAt: -1,
@@ -380,13 +396,29 @@ export function startBoot(): void {
   bootState.quick = bootState.reopen >= 0 && bootState.reopen < QUICK_REOPEN_MS;
   // his choice of length (Settings → THE OPENING): the short cut every time, or the whole film only on the day's first open
   const chosen = lengthFor(settings.get().bootLength, previousOpen, Date.now());
-  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : calmWanted() ? 'still' : tvNow() || bootState.quick || chosen === 'short' ? 'short' : 'full';
+  bootState.how = 'cold';
+  let kind: Kind = automated ? 'quiet' : !toHome ? 'warm' : openingKind(chosen);
   // a check may pick which version plays (software WebGL is too slow for the full one to choose itself)
-  if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm') kind = f.__ghostyBootKind;
+  if (f.__ghostyBoot && f.__ghostyBootKind && kind !== 'quiet' && kind !== 'warm' && kind !== f.__ghostyBootKind) {
+    kind = f.__ghostyBootKind;
+    bootState.why = 'a check chose it';
+  }
   bootState.kind = kind;
   el.classList.add(kind);
   if (kind === 'quiet' || kind === 'warm') return;
   play(el, kind, false);
+}
+
+/** Which opening plays, by the owner's rule: the whole film, unless the phone asks for calm, a television, or he chose SHORT (or ONCE A DAY
+ *  after the day's first). Sets bootState.why to say which. */
+function openingKind(chosen: 'full' | 'short'): Kind {
+  bootState.why = '';
+  if (reduced()) bootState.why = 'Reduce Motion is on';
+  else if (document.documentElement.dataset.motion === 'calm') bootState.why = 'MOTION is set to calm';
+  if (bootState.why) return 'still';
+  if (tvNow()) bootState.why = 'it is on a television';
+  else if (chosen === 'short') bootState.why = settings.get().bootLength === 'daily' ? 'ONCE A DAY: the whole film already played today' : 'you chose SHORT';
+  return bootState.why ? 'short' : 'full';
 }
 
 /**
@@ -441,7 +473,8 @@ export async function reboot(): Promise<void> {
   // (a replay is not a reopen: no "welcome back", and the readings say so)
   bootState.reopen = -1;
   bootState.quick = false;
-  const kind: Kind = calmWanted() ? 'still' : 'full';
+  bootState.how = 'reboot';
+  const kind: Kind = openingKind('full');
   bootState.kind = kind;
   el.classList.add(kind);
   play(el, kind, true);
@@ -506,14 +539,59 @@ function watchReturns(): void {
   if (watching) return;
   watching = true;
   let hiddenAt = 0;
+  let hiddenHash = '';
+  const back = (fromCache = false) => {
+    // (a page back from the back-forward cache with no leaving seen: how long it was away is unknown, so only the breath)
+    if (fromCache && !hiddenAt) return void (document.getElementById('boot') || breatheWhenReady());
+    const away = hiddenAt ? Date.now() - hiddenAt : 0;
+    const was = hiddenHash;
+    hiddenAt = 0;
+    if (document.getElementById('boot')) return;
+    // away a minute or more: the opening again, as a cold open (the owner's rule); a quick switch only the breath
+    if (away >= RESUME_FILM_MS) {
+      // (a notification or a link that brought him back opens its own screen: give it a moment to say so, then only the breath)
+      setTimeout(() => {
+        const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? '') || (document.activeElement as HTMLElement | null)?.isContentEditable;
+        const linked = location.hash !== was && !/^#?(core)?$/.test(location.hash);
+        if (document.hidden || document.getElementById('boot')) return;
+        if (typing || linked || navigator.webdriver && !flags().__ghostyBoot) breatheWhenReady();
+        else void replayOnResume(away);
+      }, 250);
+    } else if (away > 3000) breatheWhenReady();
+  };
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) hiddenAt = Date.now();
-    else if (hiddenAt && Date.now() - hiddenAt > 3000 && !document.getElementById('boot')) breatheWhenReady();
+    if (document.hidden) {
+      hiddenAt = Date.now();
+      hiddenHash = location.hash;
+    } else back();
   });
   // a page the browser kept whole and showed again (the back-forward cache): the same page life, so a resume
-  addEventListener('pageshow', (e) => {
-    if (e.persisted && !document.getElementById('boot')) breatheWhenReady();
+  addEventListener('pagehide', () => {
+    if (!hiddenAt) {
+      hiddenAt = Date.now();
+      hiddenHash = location.hash;
+    }
   });
+  addEventListener('pageshow', (e) => {
+    if (e.persisted) back(true);
+  });
+}
+/** A resume after RESUME_FILM_MS away: Home, then the opening over it by the same rule as a cold open (his SHORT and ONCE A DAY kept). */
+async function replayOnResume(away: number): Promise<void> {
+  if (document.getElementById('boot')) return;
+  const { go } = await import('./tabs');
+  go('core');
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  if (document.getElementById('boot')) return;
+  const el = document.body.appendChild(h('div#boot'));
+  bootState.reopen = away;
+  bootState.quick = away < QUICK_REOPEN_MS;
+  bootState.how = 'resume';
+  bootState.resumes++;
+  const kind = openingKind(lengthFor(settings.get().bootLength, Date.now() - away, Date.now()));
+  bootState.kind = kind;
+  el.classList.add(kind);
+  play(el, kind, true);
 }
 /** Mind's light breathes out once behind whatever is on screen (when Mind is there to breathe). */
 function breatheWhenReady(): void {
@@ -874,6 +952,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   if (!mind && kind !== 'flat') {
     // no 3-D at all: the flat cut from the first frame (its own timeline, not the full one's)
     kind = 'flat';
+    bootState.why = 'this phone has no 3-D';
     tl = L[kind];
     bootState.timeline = tl;
     bootState.kind = kind;
@@ -1005,10 +1084,14 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const slow = gaps >= 4 && gapSum / gaps > 22;
     // (the film judges the phone by its own draw: the ground's stutter and a late first frame are the app starting underneath, which
     // every phone does on a cold open, not the phone failing the film; the wait for Mind is made up by the pace)
-    const late = filmWanted ? e > FILM_FULL_BY : slow || e > FULL_BY || bootState.firstFrame > 2500;
+    // (the film never drops to the short cut for a late Mind: it waits up to MIND_WAIT more, then plays whole; the owner's rule)
+    const late = filmWanted ? false : slow || e > FULL_BY || bootState.firstFrame > 2500;
     const tooLate = e > (filmWanted ? FILM_SHORT_BY : SHORT_BY);
     if (mindState === 'ready') {
-      if (kind === 'full' && late && !forced()) kind = tooLate ? 'flat' : 'short';
+      if (kind === 'full' && late && !forced()) {
+        kind = tooLate ? 'flat' : 'short';
+        bootState.why = tooLate ? 'the 3-D started too late' : 'the 3-D started late';
+      }
       else if (kind === 'full' && mind) {
         // one draw to warm it up (its shaders), then the quicker of two timed: a phone that cannot draw MIND inside one of its frames
         // gets the short version (no gather, no push-in) rather than a cinematic that stutters (the film: inside a 60 Hz frame,
@@ -1022,10 +1105,16 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
           best = Math.min(best, performance.now() - t1);
         }
         bootState.drawMs = Math.round(best * 10) / 10;
-        if (bootState.drawMs > (B.hz === 120 && !filmWanted ? 1000 / 120 : 1000 / 60) && !forced()) kind = 'short';
+        // (the film keeps its whole length on a phone that draws slowly: it leans mid-flight, shedding its extras, never its shots)
+        if (bootState.drawMs > (B.hz === 120 && !filmWanted ? 1000 / 120 : 1000 / 60) && !forced() && !filmWanted) {
+          kind = 'short';
+          bootState.why = 'this phone could not draw it smoothly';
+        }
       }
-    } else if (mindState === 'none' || (tooLate && !forced())) kind = 'flat';
-    else return false;
+    } else if (mindState === 'none' || (tooLate && !forced())) {
+      kind = 'flat';
+      bootState.why = mindState === 'none' ? 'this phone has no 3-D' : 'the 3-D did not start in time';
+    } else return false;
     tl = L[kind];
     bootState.timeline = tl;
     bootState.kind = kind;
@@ -1039,6 +1128,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     const left = tl.end - from;
     rate = Math.max(1, left / Math.max(300, CAP - e - 1));
     if (startedShort) rate = Math.min(rate, QUICK_PACE);
+    if (filmWanted && kind === 'full') rate = Math.min(rate, FILM_PACE);
     paceE = e;
     paceT = from;
     bootState.pace = Math.round(rate * 1000) / 1000;
@@ -1070,7 +1160,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
     letGo();
     // how smoothly it ran, kept on this phone for Settings and "how did the opening run?" (boot.u9)
     try {
-      const run: BootRun = { kind, film: !!film, ms: Math.max(0, bootState.ended - bootState.held), frames: bootState.frames, worst: bootState.worstGap, long: bootState.budget.long, at: Date.now() };
+      const run: BootRun = { kind, film: !!film, ms: Math.max(0, bootState.ended - bootState.held), frames: bootState.frames, worst: bootState.worstGap, long: bootState.budget.long, at: Date.now(), how: bootState.how, why: bootState.why || (bootState.skipped ? 'you tapped to skip it' : !film && kind === 'full' ? NOT_SCAN : ''), skipped: bootState.skipped };
       localStorage.setItem(RUN_KEY, JSON.stringify(run));
     } catch {
       /* no storage: nothing kept */
