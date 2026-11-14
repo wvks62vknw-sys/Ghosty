@@ -15,6 +15,7 @@ import { brain } from '../../api/brain';
 import { bodyState, type Screen } from './sheet';
 import { sayError } from '../../ui/hisWords';
 import { phrases, stateIn, waitFor } from '../lifeui';
+import { formFrame, formRep, formStart, type FormWatch } from './formtips';
 
 export const POSE_MODEL = '/vendor/pose/pose_landmarker_lite.task';
 
@@ -65,6 +66,8 @@ const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'e
 export function repsScreen(first: string): Screen {
   let ex: Exercise = EXERCISES.some((e) => e.id === first) ? (first as Exercise) : 'squats';
   let state: RepState = repStart(ex);
+  let form: FormWatch = formStart(ex);
+  let tips = true;
   let started = 0;
   let raf = 0;
   let live = false;
@@ -83,6 +86,7 @@ export function repsScreen(first: string): Screen {
         const b = button(e.label, () => {
           ex = e.id;
           state = repStart(ex);
+          form = formStart(ex);
           bodyState.exercise = ex;
           bodyState.reps = 0;
           count.textContent = '0';
@@ -126,11 +130,19 @@ export function repsScreen(first: string): Screen {
       const aspect = (video as HTMLVideoElement).videoWidth && (video as HTMLVideoElement).videoHeight ? (video as HTMLVideoElement).videoWidth / (video as HTMLVideoElement).videoHeight : 0.75;
       const r = repStep(state, p, t, aspect);
       state = r.s;
+      form = formFrame(form, p, aspect);
       draw(p);
       if (r.rep) {
         bodyState.reps = state.n;
         count.textContent = String(state.n);
-        speakIn(WORDS[state.n] ?? String(state.n), 'en');
+        // (a form tip, now and then, as the rep lands: worked out here from the joints, never kept)
+        const f = formRep(form);
+        form = f.w;
+        if (f.tip && tips) {
+          bodyState.tip = f.tip;
+          status.textContent = f.tip;
+        }
+        speakIn(`${WORDS[state.n] ?? String(state.n)}${f.tip && tips ? `. ${f.tip}` : ''}`, 'en');
         navigator.vibrate?.(30);
       }
       if (r.hint) {
@@ -212,6 +224,15 @@ export function repsScreen(first: string): Screen {
   });
   done.setAttribute('aria-label', 'Done: put the count in the chat');
   // START and STOP right under the exercise chips, where the thumb is; the picture of the camera below them
-  const el = h('div.pkcol', chips, h('div.pkhero', count, h('span.pklab', 'counted on this phone')), h('div.pkrow', start, stop, done), h('div.pkstage', video, dots, off), status, phrases(['count my squats', 'start a run', 'breathe']));
+  // FORM TIPS (body.u6): one short tip now and then as a rep lands, from the joints the camera sees; his to switch off
+  const tipKey = button('Form tips: on', () => {
+    tips = !tips;
+    tipKey.textContent = tips ? 'Form tips: on' : 'Form tips: off';
+    tipKey.setAttribute('aria-checked', String(tips));
+  });
+  tipKey.setAttribute('role', 'switch');
+  tipKey.setAttribute('aria-checked', 'true');
+  tipKey.setAttribute('aria-label', 'Form tips as each rep lands');
+  const el = h('div.pkcol', chips, h('div.pkhero', count, h('span.pklab', 'counted on this phone')), h('div.pkrow', start, stop, done), h('div.pkstage', video, dots, off), status, h('div.pkrow', tipKey), phrases(['count my squats', 'start a run', 'breathe']));
   return { el, stop: stopCam };
 }
