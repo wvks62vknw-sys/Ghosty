@@ -59,6 +59,30 @@ approval listed, and the fixes that live in your Cloudflare account set out as p
   nothing.
 - The match is made on the phone, and nothing is kept.
 
+### Approvals in the Brief (security.c1)
+- Beside the self-check, YOUR DAY gets one APPROVALS row: what you approved and turned down yesterday, and anything still
+  waiting. A tap opens the waiting card, or the list.
+
+### Approvals read aloud while talking (security.c4)
+- When an approval comes up while you're talking to me, I say exactly what will happen: "If you approve, I'll do exactly this:
+  … Tap APPROVE on the card when you're sure; your voice alone never approves."
+- The approve itself stays a tap.
+
+### One tap to lock everything (security.u11)
+- LOCK EVERYTHING on the SECURITY screen, or say "lock everything" (that opens the same confirm; the lock is still your tap).
+- Once locked:
+  - Telegram is unpaired.
+  - The public demo is left as it is: it never touches your data or your Cloudflare storage (a rule of its own), and DEMO_OFF=1
+    in Cloudflare closes it.
+  - Nothing that publishes, sends, pays or ships runs; no approval is even asked.
+- Tools that only read still work.
+- It stays locked until you type your owner key under UNLOCK. A wrong key keeps it locked. Pair Telegram again in Links
+  afterwards.
+
+### Said in the chat, with no model
+- "Lock everything", "has my password leaked?", "show my approvals" and "how safe am I?" open the screen at the right place,
+  with one line.
+
 ### STEPS: the fixes that live in your Cloudflare account (the two half-done items, security.u8, and more)
 - **Stop hammering hard:** the free rate-limit rule for the public doors, with its exact settings. DONE turns that line green.
 - **Keep previews apart:** turn off preview addresses, or give previews their own settings without your live keys.
@@ -91,7 +115,9 @@ approval listed, and the fixes that live in your Cloudflare account set out as p
     green.
 
 ## What is left
-- The owner key change walked through in the app (u2, beyond STEPS), the slow
-  lock on the phone's keys copy (u3), tighter page rules (u10), one tap to lock everything (u11), weak or reused passwords (s1), the phone privacy walkthrough (s5), locked notes (s6), travel mode (s8), approvals in the
-  Brief (c1), a scam check on letters in the Lens (c2), approvals read aloud (c4), and sharing by expiring link (c5): built in the
+- The owner key change walked through in the app (u2, beyond STEPS).
+- The slow lock on the phone's keys copy (u3): that copy is opened in the brain, and a slow lock there could use more of the free
+  plan's compute per request than it allows, which would break the copy's one job (standing in while the database is paused).
+  It is left for a version that does the slow part on the phone.
+- tighter page rules (u10), weak or reused passwords (s1), the phone privacy walkthrough (s5), locked notes (s6), travel mode (s8), a scam check on letters in the Lens (c2), and sharing by expiring link (c5): built in the
   order of the brief as time allows; this section is updated with each merge.
