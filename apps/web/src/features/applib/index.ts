@@ -1,6 +1,7 @@
 /**
  * APPS: THE APP LIBRARY's screen (docs/build-plan/APPLIB.md, ENGINE 3), an app store on the phone. Featured apps, the families,
- * search as he types, each app's page (its icon, name, pitch and what it keeps) with OPEN, PIN TO HOME and MAKE MY OWN, recently
+ * search as he types, every app A to Z at the foot of the front page (a key for each letter), each app's page (its icon, name,
+ * pitch and what it keeps) with OPEN, PIN TO HOME and MAKE MY OWN, recently
  * used, and his pinned apps as Home cards. An app opens at #apps/<id> (by a tap, the Jump bar, or "open wine cellar" said or typed,
  * found on the phone with no brain), drawn by the engine (engine.ts) on THE APP KIT. Nothing here leaves the phone.
  */
@@ -123,6 +124,31 @@ function featured(list: AppDef[], n = 6): AppDef[] {
   return [...picks.slice(at), ...picks.slice(0, at)].slice(0, n);
 }
 
+// ── the A–Z: every app, once, under its first letter ───────────────────────────────────────────
+
+/** The letter an app is filed under: its name's first letter (no accent), or # for a number or a symbol. */
+const initial = (name: string): string => {
+  const c = name.normalize('NFD').replace(/\p{M}/gu, '').trim().charAt(0).toUpperCase();
+  return c >= 'A' && c <= 'Z' ? c : '#';
+};
+
+/** The apps by name, under their letters: A to Z, then # (numbers and symbols) last. */
+function azGroups(list: AppDef[]): { letter: string; apps: AppDef[] }[] {
+  const by = new Map<string, AppDef[]>();
+  for (const d of [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }) || a.id.localeCompare(b.id))) {
+    const l = initial(d.name);
+    const g = by.get(l);
+    if (g) g.push(d);
+    else by.set(l, [d]);
+  }
+  return [...by].map(([letter, apps]) => ({ letter, apps })).sort((a, b) => (a.letter === '#' ? 1 : b.letter === '#' ? -1 : a.letter < b.letter ? -1 : 1));
+}
+
+/** Scroll smoothly, unless he has asked for less motion. */
+const smooth = (): ScrollBehavior => {
+  try { return matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'; } catch { return 'auto'; }
+};
+
 function tile(d: AppDef, onTap: () => void): HTMLElement {
   const b = h('button.al-tile.al-apptile', { type: 'button', 'aria-label': `${d.name}: ${d.pitch}`, dataset: { app: d.id } }, tileOf(d, 'l'), h('b', d.name));
   b.addEventListener('click', onTap);
@@ -168,6 +194,8 @@ export const appsTab: TabDef = {
     let stopApp: (() => void) | null = null;
     let q = '';
     let at = 'home';
+    // where the front page was scrolled to when he left it for another page, so Back is to the same place (the A–Z list is long)
+    let homeY = 0;
     // THE PRO ROUND: an app opens in its own full-screen frame over the Library (pro.ts); the Library page stays drawn under it
     let frame: Frame | null = null;
     let appStop: (() => void) | null = null;
@@ -229,11 +257,37 @@ export const appsTab: TabDef = {
     const section = (shelf: string, title: string, kids: (Node | null)[], right?: HTMLElement | null) =>
       h('section.al-shelf.al-pro-section', { dataset: { shelf } }, h('div.al-head.al-pro-sechead', h('h3', title), right ?? null), ...kids);
 
+    /** THE A–Z: every app the Library holds, once, under its first letter, with a key for each letter that goes to it. */
+    const azShelf = (list: AppDef[]): HTMLElement => {
+      const groups = azGroups(list);
+      const said = (letter: string) => (letter === '#' ? 'a number or a symbol' : letter);
+      const blocks = groups.map(({ letter, apps }) => h('div.al-azgroup', { dataset: { letter } },
+        h('h4.al-azletter', letter),
+        h('div.al-azlist.al-pro-store', { role: 'list', 'aria-label': `Apps starting with ${said(letter)}` },
+          ...apps.map((d) => row(d, () => show(`about/${d.id}`), () => openApp(d.id))))));
+      const keys = groups.map(({ letter }, i) => {
+        const k = h('button.al-chip.al-azkey', { type: 'button', dataset: { letter }, 'aria-label': `Jump to apps starting with ${said(letter)}` }, letter);
+        k.addEventListener('click', () => blocks[i]!.scrollIntoView({ block: 'start', behavior: smooth() }));
+        return k;
+      });
+      return h('section.al-shelf.al-azshelf', { dataset: { shelf: 'all' } },
+        h('div.al-head.al-pro-sechead', h('h3', 'All apps'), h('small', String(list.length))),
+        h('nav.al-azindex', { 'aria-label': 'Jump to a letter' }, ...keys),
+        ...blocks);
+    };
+
     const homeParts = (): HTMLElement[] => {
       const list = allApps();
       const lead = list.filter((d) => d.tier !== 'more');
       const more = list.filter((d) => d.tier === 'more');
       const out: HTMLElement[] = [];
+      // every app, A to Z, at the foot of the page; "Browse A–Z" in the Families heading goes straight to it
+      const az = list.length ? azShelf(list) : null;
+      let browse: HTMLElement | null = null;
+      if (az) {
+        browse = h('button.al-pro-seeall', { type: 'button' }, 'Browse A–Z');
+        browse.addEventListener('click', () => az.scrollIntoView({ block: 'start', behavior: smooth() }));
+      }
       const feat = featured(lead.length >= 3 ? lead : list, 5);
       if (feat.length) {
         const hero = feat[0]!;
@@ -257,7 +311,7 @@ export const appsTab: TabDef = {
           identity(b, { family: f });
           b.addEventListener('click', () => show(`family/${f}`));
           return b;
-        }))]));
+        }))], browse));
         for (const { f, apps, lead: top } of fams) {
           const shown = (top.length ? top : apps).slice(0, 4);
           const all = h('button.al-pro-seeall', { type: 'button', 'aria-label': `See all ${apps.length} ${FAMILIES[f]} apps` }, 'See all');
@@ -274,6 +328,7 @@ export const appsTab: TabDef = {
       if (others.length && !fams.some((x) => x.apps.some((d) => d.archetype === 'screen'))) out.push(section('own', 'Ghosty’s own', [h('div.al-tiles.al-pro-tiles', ...others.slice(0, 6).map((d) => tile(d, () => openApp(d.id))))]));
       if (!list.length) out.push(h('div.ak-state.ak-empty', { role: 'status' }, h('p', 'The Library is filling up. Apps arrive here as they are made.')));
       if (makerFn()) out.push(h('section.al-shelf.al-makeshelf.al-pro-section', h('p', 'Nothing quite right? Make your own app: pick what it keeps, and it is drawn like every app here.'), key('Make my own', () => show('make'), { kind: 'fill' })));
+      if (az) out.push(az);
       return out;
     };
 
@@ -304,6 +359,8 @@ export const appsTab: TabDef = {
         closeFrame();
         if (same && !isApp && !force) return;
       } else if (frame && !force) return;
+      // leaving the front page for another page: note where it was scrolled to (Back draws it again there)
+      if (!isApp && what && what !== 'home' && libraryState.view === 'home') homeY = shell.querySelector<HTMLElement>('.al-libbody')?.scrollTop ?? 0;
       leaveApp();
       if (!isApp) {
         at = arg || 'home';
@@ -315,6 +372,7 @@ export const appsTab: TabDef = {
         setHash('');
         const body = page('Apps', [], { find: true });
         drawResults(body);
+        if (homeY) { body.scrollTop = homeY; homeY = 0; }
         return;
       }
       if (what === 'family' || what === 'more') {
@@ -398,7 +456,11 @@ export const appsTab: TabDef = {
       if (frame && engineState.error === 'no renderer') { const id = proState.open; closeFrame('now'); show(id, true); return; }
       if (frame) return;
       const early = libraryState.view === 'make' && !stopApp;
-      if (early || (!stopApp && libraryState.view === 'home')) show(at === 'home' ? '' : at, true);
+      if (early || (!stopApp && libraryState.view === 'home')) {
+        // (the front page drawn again with the lanes in: where he had scrolled to is kept)
+        if (at === 'home' && libraryState.view === 'home') homeY = shell.querySelector<HTMLElement>('.al-libbody')?.scrollTop ?? 0;
+        show(at === 'home' ? '' : at, true);
+      }
     });
     show('');
     return {

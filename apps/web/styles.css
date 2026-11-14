@@ -12173,6 +12173,11 @@ html body .al-lib .al-approwwords b { font: var(--al-pro-t-name); color: var(--g
 html body .al-pro-get { flex: none; display: inline-grid; place-items: center; min-height: var(--g-target); min-width: 72px; padding: 0 var(--g-s-2); border: 0; border-radius: var(--al-pro-pill); background: var(--al-accent-soft); color: var(--g-ink-1); font: 700 14px/18px var(--g-font-text); text-transform: none; box-shadow: none; }
 html body .al-pro-seeall { min-height: var(--g-target); padding: 0 var(--g-s-1); border: 0; background: none; box-shadow: none; color: var(--g-ink-1); font: 600 15px/20px var(--g-font-text); text-transform: none; text-decoration: underline; text-decoration-color: var(--al-accent); text-underline-offset: 4px; }
 html body .al-lib .al-chip.al-pro { background: var(--al-accent-soft); border-color: var(--al-accent-line); }
+/* ── the Library's A–Z (features/applib/index.ts): every app once under its first letter, and a 44 pt key for each letter that goes to it ── */
+html .al-azindex { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--g-target), 1fr)); gap: var(--g-s-half); }
+html .al-chip.al-azkey { justify-content: center; min-width: var(--g-target); padding: 0; font-weight: 600; }
+html .al-azletter { margin: var(--g-s-2) 0 0; padding-bottom: var(--g-s-half); border-bottom: var(--g-hair) solid var(--g-line); font: var(--g-t-head); color: var(--g-ink-2); text-transform: none; }
+html .al-azlist { display: flex; flex-direction: column; }
 html body .al-lib .al-pro-about { padding: var(--g-s-2); border-radius: var(--al-pro-r8); background: linear-gradient(170deg, var(--al-accent-soft), transparent 85%); }
 html body .al-lib .al-pro-about .al-bigicon { width: auto; height: auto; border: 0; background: none; }
 html body .al-lib .al-pro-about h3 { font: var(--al-pro-t-large); color: var(--g-ink-1); margin: 0; overflow-wrap: anywhere; }

@@ -43,6 +43,7 @@
 - `index.ts`, the **Apps** screen (Home room, `#apps`):
   - search as he types (Enter opens the best match);
   - pinned apps as Home cards, Recently used, Featured (a hero and four more, changing daily), the families with counts, and a shelf per family with SEE ALL;
+  - **every app A to Z** at the foot of the front page (`data-shelf="all"`): the whole Library once, under its first letter (A to Z, then # for numbers and symbols), with a 44 pt key per letter that scrolls to it and "Browse A–Z" in the Families heading that scrolls to the list. Back from an app's page returns to the same place in the list;
   - each app's page: icon, name, family, pitch, what it keeps and how it works, with OPEN, PIN TO HOME and MAKE MY OWN once App Maker lands.
 - **Addresses:** `#apps/<id>` opens an app; `#apps/about/<id>` is its page; `#apps/family/<f>` is a family; `#apps/make[/<id>]` is App Maker. `shell/tabs.ts` hands the part after the first `/` to the screen, as it already did after `?`.
 - **Open by name on the phone, with no brain:** "open wine cellar" (also "please open the wine cellar app") matches an exact app name in `features/applib/open.ts`, called from `session.ts` before the help desk. The Jump bar finds every app by name and keywords (a command per app). Ghosty's own screens are left to the existing paths, so "open radio" still opens Radio. The Library list never goes to the brain.

@@ -1,5 +1,6 @@
 // THE APP LIBRARY (APPLIB, lane ENGINE; apps/web/src/features/applib/): the Apps screen and the engine that draws every AppDef.
-// - The Library: featured, families, search as he types, an app's page with OPEN and PIN TO HOME, recently used, pinned Home cards;
+// - The Library: featured, families, every app A to Z with a key per letter, search as he types, an app's page with OPEN and PIN TO HOME,
+//   recently used, pinned Home cards;
 //   "open <app>" found on the phone with no brain, and #apps/<id> opening the app.
 // - Every app in LIBRARY opens and draws with no page error, one scroll area, nothing sideways and every key 44 pt.
 // - One app of each archetype driven through its main move: add (log, with every field type), tick (checklist), calculate (calc),
@@ -94,6 +95,38 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
   check(await page.locator('#pg-apps .al-shelf[data-shelf="families"] .al-chip').count() >= 3, '[library] the families are missing');
   let m = await fit(page, '#pg-apps');
   check(fitOk(m), `[library fit] ${JSON.stringify(m)}`);
+  // THE A–Z at the foot of the front page: every app once, A to Z then #, each under its own letter; a key goes to its letter, and Back
+  // from an app's page is to the same place in the list (reduced motion, so the jumps are not animated and can be read at once)
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const az = await page.evaluate(() => ({
+    ids: window.__ghosty.applib.ids(),
+    groups: [...document.querySelectorAll('#pg-apps .al-shelf[data-shelf="all"] .al-azgroup')].map((g) => ({ letter: g.dataset.letter, apps: [...g.querySelectorAll('.al-approw')].map((r) => r.dataset.app), names: [...g.querySelectorAll('.al-approw b')].map((b) => b.textContent ?? '') })),
+  }));
+  const azRows = az.groups.flatMap((g) => g.apps);
+  check(azRows.length === az.ids.length && new Set(azRows).size === az.ids.length && az.ids.every((id) => azRows.includes(id)), `[a-z] ${azRows.length} rows for ${az.ids.length} apps: every app should be there once`);
+  const azLetters = az.groups.map((g) => g.letter);
+  const azSorted = [...azLetters].sort((a, b) => (a === '#' ? 1 : b === '#' ? -1 : a < b ? -1 : 1));
+  check(azLetters.length >= 10 && azLetters.join('') === azSorted.join(''), `[a-z] the letters are not in order: ${azLetters.join('')}`);
+  check(az.groups.every((g) => g.names.every((n) => (g.letter === '#' ? !/^[A-Za-z]/.test(n) : n.normalize('NFD').replace(/\p{M}/gu, '').trim().toUpperCase().startsWith(g.letter)))), '[a-z] an app is under the wrong letter');
+  check(await page.locator('#pg-apps .al-azindex .al-azkey').count() === azLetters.length, '[a-z] not a key for every letter');
+  if (azLetters.length) {
+    const azMid = azLetters[Math.floor(azLetters.length / 2)];
+    const azAtTop = (sel) => page.waitForFunction((s) => { const e = document.querySelector(s), b = document.querySelector('#pg-apps .al-libbody'); return !!e && !!b && Math.abs(e.getBoundingClientRect().top - b.getBoundingClientRect().top) < 8; }, sel, { timeout: 6000 }).then(() => true, () => false);
+    await page.click(`#pg-apps .al-azkey[data-letter="${azMid}"]`);
+    check(await azAtTop(`#pg-apps .al-azgroup[data-letter="${azMid}"]`), `[a-z] the key for ${azMid} did not go to its apps`);
+    const azY = await page.evaluate(() => document.querySelector('#pg-apps .al-libbody').scrollTop);
+    await page.click(`#pg-apps .al-azgroup[data-letter="${azMid}"] .al-approw`);
+    await page.waitForSelector('#pg-apps .al-about');
+    await page.click('#pg-apps .al-libhead .al-back');
+    await page.waitForSelector('#pg-apps .al-shelf[data-shelf="all"]');
+    const azBack = await page.evaluate(() => document.querySelector('#pg-apps .al-libbody').scrollTop);
+    check(azY > 500 && Math.abs(azBack - azY) < 8, `[a-z] Back from an app's page was not to the same place in the list: ${azY} then ${azBack}`);
+    await page.evaluate(() => { document.querySelector('#pg-apps .al-libbody').scrollTop = 0; });
+    await page.click('#pg-apps .al-shelf[data-shelf="families"] .al-head .al-pro-seeall');
+    check(await azAtTop('#pg-apps .al-shelf[data-shelf="all"]'), '[a-z] Browse A–Z did not go to the list');
+    await page.evaluate(() => { document.querySelector('#pg-apps .al-libbody').scrollTop = 0; });
+  }
+  await page.emulateMedia({ reducedMotion: null });
   // search as he types
   await page.fill('#pg-apps .al-find', 'spreadsheets');
   const hit = await page.locator('#pg-apps .al-results .al-approw').first().getAttribute('data-app');
