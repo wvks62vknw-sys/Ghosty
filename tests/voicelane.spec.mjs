@@ -318,6 +318,9 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   // his own typed turn afterwards is his again
   await say(page, 'my wordings', /^I haven’t learned/, `[${W}] [quiet] his own turn after`);
   check(await page.evaluate(() => !window.__ghosty.chat.get().entries.filter((e) => e.kind === 'user').at(-1)?.theirs), `[${W}] [quiet] his own typed turn was marked theirs`);
+  // [voice.s2] a timer Sam sets carries Sam's name
+  await sayAs('set a timer for 10 minutes', { name: 'Sam' }, /^Set: Sam’s timer 10:00 \(rings at /, `[${W}] [quiet] Sam's timer`);
+  await say(page, 'cancel all timers', /^(?:Stopped|No timer)/, `[${W}] [quiet] the timers stopped`);
   log(`[${W}] quiet: ${checks} checks`);
 
   // ---------------------------------------------------------------- spoken notes kept as his (NEXT ROUND, voice.s9)
