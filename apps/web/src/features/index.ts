@@ -65,6 +65,8 @@ import { comicTab } from './comic';
 import { securityTab } from './security';
 // [journal] JOURNAL (APPS ROUND, lane MEMORY): his own journal, Day One's kind, a row of Memory
 import { journalTab } from './journal';
+// THE APP LIBRARY (APPLIB, lane ENGINE): every app as data, drawn by one engine on THE APP KIT; #apps/<id> opens one
+import { appsTab } from './applib';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, securityTab, journalTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, videoTab, gamestudioTab, comicTab, houseTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, securityTab, journalTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, videoTab, gamestudioTab, comicTab, houseTab, appsTab, ...HUB_TABS];

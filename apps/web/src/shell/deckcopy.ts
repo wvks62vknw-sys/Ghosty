@@ -43,7 +43,7 @@ export interface DeckScreen {
 
 /** The deck's groups, in order (the tab bar's areas: Learn and Plan share one). */
 export const DECK_GROUPS: [string, string[]][] = [
-  ['Ask and see', ['core', 'brief', 'eye', 'lens', 'interpreter']],
+  ['Ask and see', ['core', 'brief', 'apps', 'eye', 'lens', 'interpreter']],
   ['Make', ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'house']],
   ['Learn and plan', ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse', 'agenda', 'markets', 'threats', 'radio']],
   // [tabs] LIFE (BRIEF-TABS 4): the tab bar's seventh area, its eight everyday screens
@@ -439,6 +439,16 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Translate my letter into Urdu', act: { ask: 'Translate my letter into Urdu' } },
     ],
     dyk: 'A translation keeps every heading and list in its place, beside the original.',
+  },
+  // [applib] THE APP LIBRARY (lane ENGINE): every app as data, drawn by one engine; open any by name
+  apps: {
+    name: 'Apps',
+    promise: 'Every app, kept on this phone, open by name',
+    can: [
+      { text: 'Find an app for anything', act: { open: 'apps' } },
+      { text: 'Open an app by saying its name', act: { open: 'apps' } },
+      { text: 'Pin your favourite apps to Home', act: { open: 'apps' } },
+    ],
   },
   sheets: {
     name: 'Spreadsheets',
