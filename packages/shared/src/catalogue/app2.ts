@@ -42,8 +42,8 @@ export const APP_2: Record<string, CatValue> = {
     since: '2026-11-14',
   },
   'panel:agenda:MONTH': {
-    name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
-    more: 'Any month, back or on with ‹ and ›, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
+    name: 'Any month or year', line: 'You can see any month or any year as a calendar: a dot on each day with something on, and tap a day to see it.',
+    more: 'Any month, back or on with ‹ and ›, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day. YEAR shows the twelve months of any year with today marked; tap a month to open it.',
     say: ['Show me my month', 'What’s on this month?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-13',
   },

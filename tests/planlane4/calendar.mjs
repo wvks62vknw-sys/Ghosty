@@ -197,7 +197,8 @@ export async function run(H) {
     await page.click('#pg-agenda .evcard .agmove button:text-is("EARLIER")').catch(() => check(false, `${tag} no EARLIER`));
     k = await brainUntil(page, id, (e) => e.start === tm.s1);
     check(!k.timedOut && k.job?.next === tm.s1 - 15 * 60_000, `${tag} EARLIER: back 15 minutes: ${JSON.stringify(k)}`);
-    await page.click('#pg-agenda .evcard button:has-text("Close")').catch(() => undefined);
+    // (a click on what is not there waits half a minute: only what is there is pressed)
+    if (await page.$('#pg-agenda .evcard')) await page.click('#pg-agenda .evcard button:has-text("Close")', { timeout: 3000 }).catch(() => undefined);
 
     // ---- with no signal: the move waits on this phone, said, drawn where it was dropped, and goes when Ghosty next opens
     if (vp === PHONE) {
@@ -231,6 +232,60 @@ export async function run(H) {
       await evSel(title).waitFor({ timeout: 8000 }).catch(() => undefined);
     }
 
+    // ---- ANY YEAR: YEAR in the month, twelve small months, a dot on a day with events, today marked, ‹ › without limit, a month opens
+    {
+      const yrs = await page.evaluate(() => { const n = new Date(); const t = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); return { y: n.getFullYear(), ty: t.getFullYear(), tm: t.getMonth() + 1, td: t.getDate(), m: n.getMonth() + 1, d: n.getDate(), tname: t.toLocaleDateString('en-GB', { month: 'long' }) }; });
+      if (await page.$('#pg-agenda .pn.month button.monhome')) await page.click('#pg-agenda .pn.month button.monhome', { timeout: 3000 }).catch(() => undefined);
+      await page.click('#pg-agenda .pn.month button.monyear');
+      await page.waitForFunction(() => document.querySelectorAll('#pg-agenda .pn.month .yrmon').length === 12, null, { timeout: 5000 }).catch(() => check(false, `${tag} YEAR did not open twelve months`));
+      const yline = () => page.waitForFunction(() => { const s = document.querySelector('#pg-agenda .pn.month .yrsay'); return s && s.dataset.state !== 'loading' ? s.textContent : null; }, null, { timeout: 10000 }).then((x) => x.jsonValue(), () => null);
+      const l0 = await yline();
+      check(new RegExp(`^${yrs.y}: \\d+ days? with something on\\.$`).test(l0 ?? ''), `${tag} the year in a line: ${l0}`);
+      check((await page.textContent('#pg-agenda .pn.month .yrnum')) === String(yrs.y), `${tag} this year shown`);
+      const today = await page.$eval(`#pg-agenda .pn.month .yrmon[data-month="${yrs.m}"]`, (b) => [...b.querySelectorAll('.yrday.today')].map((x) => x.textContent).join()).catch(() => '');
+      check(today === String(yrs.d), `${tag} today marked in this month: ${today}`);
+      if (yrs.ty === yrs.y) {
+        const dot = await page.$eval(`#pg-agenda .pn.month .yrmon[data-month="${yrs.tm}"]`, (b, d) => [...b.querySelectorAll('.yrday.has')].some((x) => x.textContent === d), String(yrs.td)).catch(() => false);
+        check(dot, `${tag} a dot on tomorrow, the day with his event`);
+      }
+      const lab = await page.getAttribute(`#pg-agenda .pn.month .yrmon[data-month="${yrs.m}"]`, 'aria-label');
+      check(new RegExp(`^\\w+ ${yrs.y}, this month: (\\d+ days? with something on|nothing on)\\. Tap to open it\\.$`).test(lab ?? ''), `${tag} VoiceOver hears each month: ${lab}`);
+      const fy = await fit(page, '#pg-agenda .pn.month');
+      check(!fy.small.length && !fy.sideways && !fy.cut.length, `${tag} the year fits: ${JSON.stringify(fy)}`);
+      await page.locator('#pg-agenda .pn.month').screenshot({ path: `${H.out}/planlane4-calendar-year-${W}.png` }).catch(() => undefined);
+      // ‹ › without limit, THIS YEAR home
+      for (let i = 0; i < 2; i++) await page.click('#pg-agenda .pn.month .yrbar button[aria-label="Next year"]');
+      check((await page.textContent('#pg-agenda .pn.month .yrnum')) === String(yrs.y + 2) && !!(await page.$('#pg-agenda .pn.month button.yrhome')), `${tag} › steps on, THIS YEAR offered`);
+      const l3 = await yline();
+      check(new RegExp(`^(${yrs.y + 2}: \\d+ days? with something on\\.|Nothing in your diary in ${yrs.y + 2}\\.)$`).test(l3 ?? ''), `${tag} a far year read and said: ${l3}`);
+      for (let i = 0; i < 3; i++) await page.click('#pg-agenda .pn.month .yrbar button[aria-label="Last year"]');
+      check((await page.textContent('#pg-agenda .pn.month .yrnum')) === String(yrs.y - 1), `${tag} ‹ steps back past this year`);
+      await page.click('#pg-agenda .pn.month button.yrhome');
+      check((await page.textContent('#pg-agenda .pn.month .yrnum')) === String(yrs.y) && !(await page.$('#pg-agenda .pn.month button.yrhome')), `${tag} THIS YEAR comes home`);
+      // a year the brain can't give, and no signal: said, in his words
+      if (vp === PHONE) {
+        await page.route(/\/api\/agenda\?.*from=/, (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"paused"}' }));
+        for (let i = 0; i < 4; i++) await page.click('#pg-agenda .pn.month .yrbar button[aria-label="Next year"]');
+        const bad = await page.waitForSelector('#pg-agenda .pn.month .yrsay[data-state="error"]', { timeout: 10000 }).then((e) => e.textContent(), () => '');
+        check(bad === 'I couldn’t read January, February, March, April, May, June, July, August, September, October, November, December from your brain. Step away and back to try again.', `${tag} a year the brain can't give says so: ${bad}`);
+        await page.unroute(/\/api\/agenda\?.*from=/);
+        await page.route(/\/api\/agenda\?.*from=/, (r) => r.abort('internetdisconnected'));
+        await page.click('#pg-agenda .pn.month .yrbar button[aria-label="Next year"]');
+        const off = await page.waitForSelector('#pg-agenda .pn.month .yrsay[data-state="offline"]', { timeout: 10000 }).then((e) => e.textContent(), () => '');
+        check(off === 'I can’t reach your brain, so the months marked not read show only what your diary already has. Step away and back to try again.', `${tag} no signal: said: ${off}`);
+        const notRead = await page.getAttribute('#pg-agenda .pn.month .yrmon[data-month="3"]', 'aria-label');
+        check(/: not read\. Tap to open it\.$/.test(notRead ?? ''), `${tag} a month not read says so: ${notRead}`);
+        await page.unroute(/\/api\/agenda\?.*from=/);
+        await page.click('#pg-agenda .pn.month button.yrhome');
+        await yline();
+      }
+      // a tap on a month opens it in MONTH
+      await page.click(`#pg-agenda .pn.month .yrmon[data-month="${yrs.tm}"]`);
+      const mn = await page.textContent('#pg-agenda .pn.month .monname').catch(() => '');
+      check(mn === `${yrs.tname} ${yrs.ty}` || yrs.ty !== yrs.y, `${tag} a month tapped opens in MONTH: ${mn}`);
+      if (await page.$('#pg-agenda .pn.month button.monhome')) await page.click('#pg-agenda .pn.month button.monhome', { timeout: 3000 }).catch(() => undefined);
+    }
+
     // ---- the seven looks (390, BODY 21): his event and the feed's laid out, the hint, the move keys
     if (vp === PHONE2) {
       for (const world of WORLDS) {
@@ -244,6 +299,15 @@ export async function run(H) {
         const cc = await evSel(title).evaluate((b) => ({ color: getComputedStyle(b.querySelector('.tltitle')).color, bg: getComputedStyle(b).backgroundColor }));
         check(cc.color !== cc.bg, `${tag0} ${world}] his event's words stand off its block: ${JSON.stringify(cc)}`);
         if (world === 'ink' || world === 'glass') await page.locator('#pg-agenda .pn.timeline').screenshot({ path: `${H.out}/planlane4-calendar-${world}-390.png` }).catch(() => undefined);
+        // the year in each look (its months read already: kept for the visit)
+        await page.click('#pg-agenda .pn.month button.monyear');
+        await page.waitForFunction(() => document.querySelectorAll('#pg-agenda .pn.month .yrmon').length === 12, null, { timeout: 5000 }).catch(() => check(false, `${tag0} ${world}] no year`));
+        const fy = await fit(page, '#pg-agenda .pn.month');
+        check(!fy.small.length && !fy.sideways && !fy.cut.length, `${tag0} ${world}] the year fits: ${JSON.stringify(fy)}`);
+        const ty = await page.$eval('#pg-agenda .pn.month .yrday.today', (d) => ({ color: getComputedStyle(d).color, bg: getComputedStyle(d).backgroundColor })).catch(() => null);
+        check(ty && ty.color !== ty.bg, `${tag0} ${world}] today stands off its mark in the year: ${JSON.stringify(ty)}`);
+        if (world === 'grown') await page.locator('#pg-agenda .pn.month').screenshot({ path: `${H.out}/planlane4-calendar-year-${world}-390.png` }).catch(() => undefined);
+        await page.click('#pg-agenda .pn.month button.yrback');
       }
     }
     const raw = await page.textContent('#pg-agenda').catch(() => '');

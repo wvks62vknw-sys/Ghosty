@@ -10584,4 +10584,23 @@ html #pg-agenda .pn.timeline .tlmovesay { margin: 0 0 var(--g-s-1); overflow-wra
 /* EARLIER / LATER / A DAY LATER in the event's sheet: 44 pt keys that wrap, never sideways */
 html #pg-agenda .evcard .agmove { gap: 6px; }
 html #pg-agenda .evcard .agmove button.agmovekey { width: auto; min-height: var(--g-target) !important; padding: 0 14px; }
+/* THE YEAR (features/agenda/year.ts, in the MONTH panel): twelve small months, two a row at a phone's width, each a key that opens it; the
+   day numbers small and even, a dot in the calendar's colour under a day with something on, today lit; YEAR and THIS YEAR as THIS MONTH */
+html #pg-agenda .pn.month .monhomerow { gap: 6px; }
+html #pg-agenda .pn.month :is(button.monyear, button.yrhome, button.yrback) { width: auto; min-height: var(--g-target) !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .pn.month .yrkeys { justify-content: center; gap: 6px; padding: 0 0 6px; }
+html #pg-agenda .pn.month .yrsay { display: block; padding: 0 0 var(--g-s-1); overflow-wrap: anywhere; }
+html #pg-agenda .pn.month .yrgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); }
+html #pg-agenda .pn.month button.yrmon { display: flex; flex-direction: column; align-items: stretch; gap: var(--g-s-half); width: 100%; min-width: 0; height: auto; min-height: var(--g-target) !important; padding: var(--g-s-1) 6px; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; border-radius: var(--rad); }
+html #pg-agenda .pn.month button.yrmon.now { box-shadow: inset 0 0 0 var(--g-stroke) var(--c) !important; }
+html #pg-agenda .pn.month button.yrmon.bad { opacity: .7; }
+html #pg-agenda .pn.month .yrname { color: var(--ink); font-variant-numeric: tabular-nums; }
+html #pg-agenda .pn.month button.yrmon.now .yrname { color: var(--c); }
+html #pg-agenda .pn.month .yrdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 1px; font: 500 .62em/1.5 var(--sf); font-variant-numeric: tabular-nums; color: var(--ink2); text-align: center; }
+html #pg-agenda .pn.month .yrdays i { position: relative; min-width: 0; font-style: normal; }
+html #pg-agenda .pn.month .yrdays .yrwd { color: var(--ink3); }
+html #pg-agenda .pn.month .yrdays .yrday.past { color: var(--ink3); }
+html #pg-agenda .pn.month .yrdays .yrday.has::after { content: ''; position: absolute; left: 50%; bottom: 0; width: .36em; height: .36em; margin-left: -.18em; border-radius: 50%; background: var(--c); }
+html #pg-agenda .pn.month .yrdays .yrday.today { color: var(--g-canvas, var(--ink)); background: var(--acc); border-radius: var(--rad); font-weight: 700; }
+html #pg-agenda .pn.month .yrhint { display: block; padding: var(--g-s-1) 0 0; color: var(--ink2); overflow-wrap: anywhere; }
 /* ==== [planlane4:calendar end] ==== */
