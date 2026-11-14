@@ -228,6 +228,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Gym: he carries on by himself', line: 'WATCH keeps playing round after round, TRAIN ALL trains every game in turn, KEEP AWAKE holds the screen on while he trains.' },
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
+  // [journal] APPS ROUND, lane MEMORY: keep in touch
+  { day: '2026-11-14', title: 'Keep in touch', line: 'Life → People → KEEP IN TOUCH: add the people you want to stay close to and how often; tap a name when you’ve caught up, and I’ll say when it’s been a while.' },
   // [journal] APPS ROUND, lane MEMORY: his own journal
   { day: '2026-11-14', title: 'Your own journal', line: 'Me → Memory → JOURNAL, or say "new journal entry": photos, a voice note, a mood and a place on each entry, a calendar and On this day, locked with Face ID if you like, kept on this phone.' },
 ];

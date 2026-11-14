@@ -128,6 +128,8 @@ export const STATES = {
   'people.who': { dir: 'people', base: 2, now: 4 },
   'people.plan': { dir: 'people', base: 1, now: 4 },
   'people.coming': { dir: 'people', base: 0, now: 4 },
+  // APPS ROUND (the memory lane): KEEP IN TOUCH, kept on the phone (features/people/touch.ts): only the empty state applies
+  'people.touch': { dir: 'people', base: 0, now: 1 },
   'work.todo': { dir: 'work', base: 2, now: 4 },
   'work.interview': { dir: 'work', base: 2, now: 3 },
   'work.doc': { dir: 'work', base: 1, now: 1 },
