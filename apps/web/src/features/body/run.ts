@@ -11,12 +11,15 @@ import { speakIn } from '../../assistant/voice';
 import { brain } from '../../api/brain';
 import { bodyState, type Screen } from './sheet';
 import { phrases, stateIn } from '../lifeui';
+import { historyBox, keepRun, runsHooks } from './runs';
 
 export function runScreen(): Screen {
   let s: RunState = runStart(Date.now());
   let watch: number | null = null;
   let tick = 0;
   let lock: { release(): Promise<void> } | null = null;
+  // the route, for RUN HISTORY (./runs.ts): kept on this phone only when he taps STOP AND KEEP, never sent
+  let route: [number, number, number][] = [];
   const dist = h('b.pkbig', { 'aria-live': 'off' }, '0.00');
   const time = h('b.pkmid', '0:00');
   const pace = h('span.pklab', 'pace — now · — average (min per km)');
@@ -45,6 +48,7 @@ export function runScreen(): Screen {
       return;
     }
     s = runStart(Date.now());
+    route = [];
     splits.replaceChildren();
     bodyState.run.saved = false;
     try {
@@ -57,6 +61,7 @@ export function runScreen(): Screen {
     watch = navigator.geolocation.watchPosition(
       (p) => {
         const r = runStep(s, { lat: p.coords.latitude, lon: p.coords.longitude, t: p.timestamp || Date.now(), acc: p.coords.accuracy });
+        if (r.s.last !== s.last && r.s.last) route.push([p.coords.latitude, p.coords.longitude, ((p.timestamp || Date.now()) - r.s.start) / 1000]);
         s = r.s;
         if (r.split) {
           const words = splitWords(r.split.n, s.splits[s.splits.length - 1] ?? s.secs, r.split.secs);
@@ -85,16 +90,18 @@ export function runScreen(): Screen {
       return;
     }
     bodyState.run.saved = true;
+    const kept = keepRun(sum.km, sum.secs, s.splits, route);
+    runsHooks.redraw();
     void import('../core/cards').then((m) => m.postCard(runCard(sum))).catch(() => undefined);
     try {
       await brain.packDo('body', 'log', { run: sum });
-      status.textContent = `Kept: ${sum.km.toFixed(2)} km in ${clock(sum.secs)}, measured by the phone. The route stayed on this phone.`;
+      status.textContent = `Kept: ${sum.km.toFixed(2)} km in ${clock(sum.secs)}, measured by the phone. ${kept ? 'The route is in Your runs below, on this phone only.' : 'The route stayed on this phone.'}`;
     } catch {
       stateIn(status, 'error', `Saved here (${sum.km.toFixed(2)} km, measured by the phone), but my brain didn’t answer, so it isn’t kept there this time.`);
     }
   });
   save.setAttribute('aria-label', 'Stop the run and keep it');
   paint();
-  const el = h('div.pkcol', h('div.pkhero', dist, h('span.pklab', 'kilometres, measured by the phone')), h('div.pkhero', time, pace), h('div.pkrow', start, save), splits, status, phrases(['start a run']));
+  const el = h('div.pkcol', h('div.pkhero', dist, h('span.pklab', 'kilometres, measured by the phone')), h('div.pkhero', time, pace), h('div.pkrow', start, save), splits, status, historyBox(), phrases(['start a run']));
   return { el, stop };
 }

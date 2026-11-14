@@ -101,6 +101,7 @@ function zip(files) {
 const cbz = (title, n) => zip(Array.from({ length: n }, (_, i) => ({ name: `${title}/${String(i + 1).padStart(3, '0')}.png`, data: pagePng(300, 450, [[10, 10, 280, 210], [10, 230, 280, 210]], [40 * i, 120, 200]) })));
 
 const live = [];
+const agendaAsked = [];
 async function open(viewport, o = {}) {
   const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, acceptDownloads: true, ...UK, serviceWorkers: 'block' });
   live.push(ctx);
@@ -113,7 +114,7 @@ async function open(viewport, o = {}) {
     const list = (o.todos ?? []).map((t) => ({ ...t, doneAt: Date.now() - t.ago }));
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'ok', data: { list, added: 0 } }) });
   });
-  await ctx.route(/\/api\/agenda\?/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tz: 'Europe/London', events: [], errors: [], jobs: [], feeds: [] }) }));
+  await ctx.route(/\/api\/agenda\?/, (route) => (agendaAsked.push(route.request().url()), route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tz: 'Europe/London', events: [], errors: [], jobs: [], feeds: [] }) })));
   const page = await ctx.newPage();
   page.setDefaultTimeout(10000);
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
@@ -190,6 +191,24 @@ for (const vp of [PHONE, PHONE2]) {
     await chat(page, 'make my week into a comic');
     check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.week === 2 && window.__ghosty.comic.editing.by === 'brain' && window.__ghosty.comic.editing.pages > 0, null, 20000), `${T} (a) "make my week into a comic" makes it, Ghosty writing from his two ticked to-dos`);
     check((await C(page)).editing.cast[0] === 'Tony', `${T} (a) he is the hero: ${(await C(page)).editing.cast.join(', ')}`);
+    // the week is asked for from its Monday, not from today (a Friday's Monday to Thursday are in it)
+    const mon = await page.evaluate(() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); });
+    check(agendaAsked.some((u) => new URL(u).searchParams.get('from') === String(mon) && new URL(u).searchParams.get('days') === '7'), `${T} (a) the agenda is read from this week's Monday: ${agendaAsked.slice(-1)[0]?.slice(-60)}`);
+    // a page turned is no change: UNDO stays dark, and the drag mode ends with the chosen panel
+    await page.click('#pg-comic button[aria-label="Next page"]');
+    await page.click('#pg-comic button[aria-label="Next page"]');
+    check(await until(page, () => window.__ghosty.comic.editing.undo === 0 && document.querySelector('#pg-comic button[aria-label="Undo the last change"]').disabled), `${T} (a) turning pages is no change: UNDO stays dark (${(await C(page)).editing.undo})`);
+    // a panel picked takes the finger for dragging; another page, and the page scrolls again
+    await page.locator('#pg-comic .cxpage').scrollIntoViewIfNeeded();
+    const bb = await page.locator('#pg-comic .cxpage').boundingBox();
+    await page.mouse.click(bb.x + bb.width * 0.3, bb.y + bb.height * 0.7);
+    check(await until(page, () => window.__ghosty.comic.editing.panel >= 0 && document.querySelector('#pg-comic .cxpage').classList.contains('cxdrag')), `${T} (a) a panel picked: the page takes the finger for dragging (panel ${(await C(page)).editing.panel})`);
+    await page.click('#pg-comic button[aria-label="Previous page"]');
+    check(await until(page, () => !document.querySelector('#pg-comic .cxpage').classList.contains('cxdrag')), `${T} (a) another page: no panel picked, the page scrolls again`);
+    // MAKE closed and opened again from the chat: the week lands on the screen he sees
+    await goComic(page, 'shelf');
+    await chat(page, 'a comic of my week');
+    check(await until(page, () => location.hash.startsWith('#comic') && !!document.querySelector('#pg-comic .cxpage')?.getClientRects().length && window.__ghosty.comic.editing.pages > 0, null, 20000), `${T} (a) asked again after MAKE was put away, the week comic is on screen`);
     // with no signal, the phone's own week comic
     await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
     await ctx.setOffline(true);
@@ -331,10 +350,24 @@ for (const vp of [PHONE, PHONE2]) {
     await bar(page, `${T} (g) MAKE with its shapes`);
     // "make it a comic": what I last said becomes the comic
     await page.selectOption('#pg-comic select[aria-label="What to make"]', 'comic').catch(() => undefined);
+    // (his message found by when it was sent, data-at, and the reply after it waited for: never a fixed sleep)
+    const t0 = await page.evaluate(() => Date.now());
     await chat(page, 'what is the weather like');
-    await page.waitForTimeout(1500);
+    const said = await page.waitForFunction((t) => {
+      const msgs = [...document.querySelectorAll('#pg-core .msg')];
+      const mine = msgs.map((m) => m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t).lastIndexOf(true);
+      if (mine < 0) return null;
+      const r = msgs.slice(mine + 1).find((m) => !m.classList.contains('me') && (m.textContent ?? '').replace(/\s+/g, ' ').trim().length > 20);
+      return r ? (r.textContent ?? '').replace(/\s+/g, ' ').trim() : null;
+    }, t0, { timeout: 20000 }).then((h) => h.jsonValue(), () => '');
+    check(!!said, `${T} (g) Ghosty answered first: "${said.slice(0, 60)}"`);
     await chat(page, 'make it a comic');
-    check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.pages > 0 && window.__ghosty.comic.editing.writing === false, null, 20000), `${T} (g) “make it a comic” makes what I last said into a comic`);
+    check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.pages > 0 && window.__ghosty.comic.editing.writing === false, null, 20000), `${T} (g) “make it a comic” makes a comic`);
+    // (the comic is made from that reply: its first words are the comic's opening caption)
+    await page.click('#pg-comic button[aria-label="Next page"]');
+    const p1 = await page.evaluate(() => (document.querySelector('#pg-comic .cxpage').getAttribute('aria-label') ?? '').replace(/\s+/g, ' '));
+    const head = (/as a comic: (.{24})/.exec(p1)?.[1] ?? '').trim();
+    check(head.length >= 20 && said.includes(head), `${T} (g) …made from what I last said ("${head}" is in the reply "${said.slice(0, 90)}")`);
     await ctx.close();
   }
 }

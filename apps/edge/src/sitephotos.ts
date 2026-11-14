@@ -11,7 +11,8 @@
 import type { Env } from './env';
 import { imageKey, isImageId, LensError, storeImage } from './lens';
 import { durableGet, durablePut } from './kv';
-import { siteStore } from './tools/sites';
+import { PREV, siteSlug, siteStore } from './tools/sites';
+import { waitingPage } from './sitepage';
 import type { ImageRef } from '../../../packages/shared/src/sitekit/types';
 import type { StockSet } from '../../../packages/shared/src/sitekit/stock-data';
 
@@ -113,10 +114,20 @@ export const photoSrc = (c: Pick<Ctx, 'env' | 'origin'>, id: string): string => 
 export async function pagesUsing(c: Ctx, id: string): Promise<string[]> {
   const store = siteStore(c.env, c.storage);
   const used: string[] = [];
+  const uses = (html: unknown) => typeof html === 'string' && html.includes(`/i/${id}`);
   for (const e of await store.list().catch(() => [])) {
     const s = await store.get(e.name).catch(() => undefined);
-    if (s?.html.includes(`/i/${id}`)) used.push(s.title);
+    if (uses(s?.html)) used.push(s!.title);
+    // (review fix) its kept earlier versions and its waiting draft too, so UNDO LAST UPDATE never brings back a broken picture
+    else {
+      const prev = (await durableGet<{ site: { title: string; html: string } }[]>(c.env, c.storage, PREV + siteSlug(e.name)).catch(() => undefined)) ?? [];
+      const old = prev.find((v) => uses(v.site?.html));
+      if (old) used.push(`${e.title} (an earlier version)`);
+      else if ((await store.draft(e.name).catch(() => undefined))?.parts.some(uses)) used.push(`${e.title} (a draft)`);
+    }
   }
+  const w = await waitingPage(c).catch(() => undefined);
+  if (w && uses(w.html)) used.push(`${w.title} (waiting from your phone)`);
   return used;
 }
 

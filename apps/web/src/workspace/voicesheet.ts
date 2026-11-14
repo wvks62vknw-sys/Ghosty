@@ -9,7 +9,7 @@ import { h, clear } from '../core/dom';
 import { button } from '../ui/components';
 import { encodeWav } from '../convert/audio';
 import { pieces } from '../video/subs';
-import { clockWords, doneWords, MAX_NOTE_MS, parseTidy, tidyAsk, tidyHere, type Tidy } from './voicenote';
+import { clockWords, doneWords, letGoOfRecording, MAX_NOTE_MS, parseTidy, tidyAsk, tidyHere, type Tidy } from './voicenote';
 
 export type VoiceState = 'idle' | 'recording' | 'listening' | 'writing' | 'done' | 'offline' | 'error';
 export const voiceState = { state: 'idle' as VoiceState, said: '', kept: 0, target: 'page' as 'page' | 'document', made: '' };
@@ -73,8 +73,8 @@ async function wavPieces(blob: Blob): Promise<Blob[]> {
 }
 
 export interface VoiceHooks {
-  /** A tidy note made into a page or a document; returns what to say. */
-  made(t: Tidy, target: 'page' | 'document', at: number): string;
+  /** A tidy note made into a page or a document; returns what to say, and whether it was kept (when not, the recording stays on the phone). */
+  made(t: Tidy, target: 'page' | 'document', at: number): { words: string; ok: boolean };
 }
 
 /** The panel. `start` true: the microphone starts at once (asked for by voice). */
@@ -233,9 +233,15 @@ export function voicePanel(hooks: VoiceHooks, o: { start?: boolean } = {}): { el
       t = null;
     }
     t ??= tidyHere(said);
-    const words = hooks.made(t, k.target, k.at);
-    await dropNote(k.id);
+    const made = hooks.made(t, k.target, k.at);
+    const { words } = made;
     busy = false;
+    // (the recording and its words are let go only once the page or document is really kept: TIDY IT NOW must have something to try again)
+    if (!letGoOfRecording(made)) {
+      set('error', words);
+      return draw();
+    }
+    await dropNote(k.id);
     voiceState.made = t.title;
     set('done', words || doneWords(t, k.target));
     draw();

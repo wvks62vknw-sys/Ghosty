@@ -236,6 +236,47 @@ if ((await page.$$eval('.toast', (l) => l.length)) <= toastsBefore || !/speech r
 const state = await page.evaluate(() => document.body.className);
 if (/listening/.test(state)) problems.push('the mic stayed in listening after failing');
 
+// The 3-D studio's engine on an iPhone (WebKit): the picture keeps its place while the keys under it scroll in their own box, never
+// under it, over it, above it or through its corners. Chromium never showed this; Safari did, with the page in a 3-D rendering context.
+// (no WebGL is needed: the layout is checked, so it holds whether or not this runner can draw the scene)
+await page.evaluate(() => (location.hash = 'studio'));
+const studioOpen = await page.waitForSelector('#pg-studio .studioseg button[data-pane="engine"]', { timeout: 20000 }).then(() => true, () => false);
+if (!studioOpen) problems.push('3D studio: its engine key never appeared');
+else {
+  await page.click('#pg-studio .studioseg button[data-pane="engine"]');
+  await page.waitForFunction(() => !!document.querySelector('.hud.studio[data-pane="engine"] > .studioscroll'), null, { timeout: 10000 }).catch(() => undefined);
+  const studio = await page.evaluate(async () => {
+    const hud = document.querySelector('.hud.studio[data-pane="engine"]');
+    const view = hud?.querySelector('.studioview');
+    const under = hud?.querySelector(':scope > .studioscroll');
+    if (!hud || !view || !under) return { missing: true };
+    const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const top0 = view.getBoundingClientRect().top;
+    const bad = [];
+    for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+      under.scrollTop = f * Math.max(0, under.scrollHeight - under.clientHeight);
+      await frame();
+      const v = view.getBoundingClientRect();
+      const u = under.getBoundingClientRect();
+      if (Math.abs(v.top - top0) > 1) bad.push(`the picture moved ${Math.round(v.top - top0)} px with the keys at ${f * 100}%`);
+      if (u.top < v.bottom - 1) bad.push(`the keys' box starts ${Math.round(v.bottom - u.top)} px inside the picture`);
+      const hb = hud.getBoundingClientRect();
+      const pts = [[v.left + 3, v.top + 3], [v.right - 3, v.top + 3], [v.left + 3, v.bottom - 3], [v.right - 3, v.bottom - 3], [v.left + v.width / 2, v.top + v.height / 2]];
+      for (let y = Math.ceil(hb.top) + 1; y < v.top; y += 2) pts.push([v.left + v.width / 2, y]);
+      for (const [x, y] of pts) {
+        const e = document.elementFromPoint(x, y);
+        if (e && under.contains(e)) bad.push(`a key or a word from under the picture is drawn at ${Math.round(x)},${Math.round(y)} with the keys at ${f * 100}%`);
+      }
+    }
+    return { bad: [...new Set(bad)].slice(0, 6), box: under.clientHeight, needs: under.scrollHeight > under.clientHeight + 8 };
+  });
+  if (studio.missing) problems.push('3D studio: the engine pane has no picture or no box for its keys');
+  else {
+    for (const b of studio.bad) problems.push(`3D studio: ${b}`);
+    if (studio.needs && studio.box < 140) problems.push(`3D studio: the keys' box under the picture is only ${studio.box} px tall`);
+  }
+}
+
 // The mic when the brain can hear (Whisper): the recording is made the iPhone's way. A stand-in microphone that
 // answers after a moment (as the permission prompt does) and a recorder that, like Safari's, only makes
 // audio/mp4. The level meter's AudioContext must be made in the tap itself, before that wait: Safari starts a

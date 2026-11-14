@@ -160,7 +160,8 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onT
   const pills = fold
     ? h('span.hubpills', { role: 'group', 'aria-label': 'The editors' },
       ...EDITORS.map((e) => {
-        const b = h('button.hubpill', { type: 'button', dataset: { editor: e.id }, 'aria-label': `Open ${e.pill.toLowerCase()}` }, e.pill) as HTMLButtonElement;
+        // (marked as a house key, as ui/machine.ts key() marks one: its type and its capitals come from the pill's own rule, not the old buttons')
+        const b = h('button.hubpill', { type: 'button', dataset: { editor: e.id, g: 'key', case: 'keep' }, 'aria-label': `Open ${e.pill.toLowerCase()}` }, e.pill) as HTMLButtonElement;
         b.addEventListener('click', (ev) => {
           ev.stopPropagation();
           navTo(e.id, 'push');

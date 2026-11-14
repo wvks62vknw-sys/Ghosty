@@ -272,3 +272,33 @@ test('[security] check a link: the guardian’s check, for a pasted link or mess
   await route({ text: `https://x.example/ ${'y'.repeat(10_000)}` });
   assert.ok(seen[1].length <= 4000, 'a huge paste is cut, never sent whole');
 });
+
+test('[security] lock everything stops a website build too, and any page going live: a new build_website is refused, and a build already running cannot publish (the store itself refuses)', async () => {
+  const S = await import('./.build/tools/sites.mjs');
+  // a site build already running when the lock goes on: its publish step goes through the store, which refuses while locked
+  const st = new MemStorage();
+  const store = S.siteStore(undefined, st);
+  await store.put({ name: 'before-lock', title: 'A', html: '<p>a</p>', source: '', at: Date.now() });
+  await st.put(SEC.LOCK_KEY, { at: Date.now() });
+  await assert.rejects(store.put({ name: 'during-build', title: 'B', html: '<p>b</p>', source: '', at: Date.now() }), /Ghosty is locked/);
+  await assert.rejects(store.put({ name: 'before-lock', title: 'A2', html: '<p>a2</p>', source: '', at: Date.now() }), /Ghosty is locked/, 'an update or a restore is refused too');
+  assert.equal(await store.get('during-build'), undefined, 'nothing went live');
+  assert.equal((await store.get('before-lock')).title, 'A', 'the live page is untouched');
+  await st.delete(SEC.LOCK_KEY);
+  await store.put({ name: 'during-build', title: 'B', html: '<p>b</p>', source: '', at: Date.now() });
+  assert.equal((await store.get('during-build')).title, 'B', 'unlocked: it publishes again');
+  // every tool that asks for APPROVE is locked, named or not, so one added later cannot slip past the names
+  assert.equal(SEC.lockedTool({ name: 'build_website', risk: 'confirm' }), true);
+  assert.equal(SEC.lockedTool({ name: 'some_new_action', risk: 'confirm' }), true);
+  assert.equal(SEC.lockedTool({ name: 'weather', risk: 'auto' }), false);
+  // through a turn: a new website build while locked is refused at once, no approval even asked
+  await call('/api/security/lock', { method: 'POST', body: '{}' });
+  try {
+    const ev = await chat('build a website for my bakery');
+    assert.ok(!ev.some((e) => e.t === 'approval'), 'no approval asked while locked');
+    const res = ev.find((e) => e.t === 'tool_result' && e.name === 'build_website');
+    assert.ok(res && res.ok === false && /Ghosty is locked/.test(res.summary), JSON.stringify(ev.filter((e) => e.t !== 'text')));
+  } finally {
+    await call('/api/security/unlock', { method: 'POST', body: '{}' });
+  }
+});
