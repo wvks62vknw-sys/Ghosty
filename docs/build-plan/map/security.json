@@ -1,0 +1,348 @@
+{
+  "lane": "SECURITY",
+  "features": [
+    {
+      "name": "Owner key sign-in",
+      "where": "First run → the key step; later SETTINGS → SYSTEM → THIS PHONE",
+      "say": [
+        "is this phone paired?",
+        "how am I signed in?"
+      ],
+      "does": "Only your owner key (or Cloudflare Access) opens the brain; anything else is turned away, and the key is checked in a way that leaks nothing about it.",
+      "status": "works",
+      "note": "Your key's fingerprint sits in the public repository, so the key must be long and random (32+ characters); moving it to a Cloudflare secret is a one-time job for you."
+    },
+    {
+      "name": "APPROVE before anything acts",
+      "where": "Any chat: the APPROVE / NOT NOW card",
+      "say": [
+        "email my landlord that I'm late",
+        "post this on Bluesky",
+        "ship it"
+      ],
+      "does": "Sends, posts, payments, publishing and shipping a change always wait for your APPROVE, on the phone or in Telegram, and the card shows exactly what will happen.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Planted-words guard",
+      "where": "Any chat, after Ghosty reads a page, a feed, a file or a photo",
+      "say": [
+        "read this page and summarise it",
+        "what does this sign say?"
+      ],
+      "does": "Once a turn has read outside words, the things that change Ghosty (a code change, a widget, a lasting memory, a lesson, a library item, a roadmap) wait for APPROVE unless your own words asked for them.",
+      "status": "works",
+      "note": "Browsing itself is not blocked: a page could still steer what Ghosty reads next."
+    },
+    {
+      "name": "Public-web-only reading",
+      "where": "Any chat that reads a link; price watches; calendar links; the Library's web import",
+      "say": [
+        "read https://…",
+        "watch the price of this",
+        "add this calendar link"
+      ],
+      "does": "Ghosty only reads the public web: never your home network, private addresses or the cloud's own hidden addresses, and every redirect is checked before it is followed.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Keys kept locked",
+      "where": "SETTINGS → SYSTEM → KEYS",
+      "say": [
+        "which keys have I added?",
+        "add my Groq key"
+      ],
+      "does": "Each service key is encrypted in your own Cloudflare vault; it is never shown back, never put in a message, a log or the trail.",
+      "status": "works",
+      "note": "Set VAULT_KEY as a Cloudflare secret, or the vault's own key sits beside it."
+    },
+    {
+      "name": "Encrypted backup and restore",
+      "where": "SETTINGS → SYSTEM → BACKUP & RESTORE",
+      "say": [
+        "back up now",
+        "when was my last backup?",
+        "restore my backup"
+      ],
+      "does": "The phone's data is locked with your owner key before it leaves the phone; only your key opens it again.",
+      "status": "works",
+      "note": "The lock's key is made from your owner key quickly rather than slowly, so a weak owner key would be easier to guess offline; a long random key makes this a non-issue."
+    },
+    {
+      "name": "Faces only of you and people you introduce",
+      "where": "SETTINGS → PRIVACY → FACES",
+      "say": [
+        "who have I introduced?",
+        "forget Sam's face"
+      ],
+      "does": "Faces stay on the phone, each removable in one tap; a stranger is never named.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "What's kept, said plainly",
+      "where": "SETTINGS → PRIVACY",
+      "say": [
+        "what do you keep about me?",
+        "where is my data?"
+      ],
+      "does": "Says where everything lives (your Cloudflare account and this phone) and that memory never keeps passwords or what was read online.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Memory you can see and remove",
+      "where": "Memory screen; or say it",
+      "say": [
+        "what do you remember about me?",
+        "forget that",
+        "forget everything"
+      ],
+      "does": "Shows what Ghosty knows and removes any of it; forgetting everything asks for APPROVE.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Telegram pairing",
+      "where": "SETTINGS → LINKS → Telegram",
+      "say": [
+        "pair Telegram",
+        "unpair Telegram"
+      ],
+      "does": "Your bot only answers the chat that typed the six-digit code; strangers are ignored, and the code burns after 20 wrong guesses from anyone.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Signed Telegram buttons",
+      "where": "Telegram: APPROVE / NOT NOW on a card",
+      "say": [
+        "(tap APPROVE in Telegram)"
+      ],
+      "does": "A button press only counts from your own chat, unaltered and before it expires.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Safe file imports",
+      "where": "DOCS / SLIDES / SHEETS / WORKSPACE / LIBRARY / GAME STUDIO → import",
+      "say": [
+        "open this Word file",
+        "import my deck"
+      ],
+      "does": "Huge files and zip bombs are refused in plain words instead of freezing the phone (150 MB for documents, 30 MB for a shared game).",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Safe links everywhere",
+      "where": "Any link in a reply, feed, card or imported document",
+      "say": [],
+      "does": "A link can never run code when tapped; feed links open in a new tab only when they are ordinary web links.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Locked-down published pages and widgets",
+      "where": "Your published sites (/s/…), widgets in the app",
+      "say": [
+        "publish my page",
+        "make me a widget"
+      ],
+      "does": "Pages and widgets run sealed off: they cannot reach your data, the brain or the network beyond what they are allowed.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Doors that slow down hammering",
+      "where": "Behind the scenes on the public doors",
+      "say": [],
+      "does": "A caller hammering the training hook, the pages, the pictures or the demo, or guessing owner keys, is told to wait a minute.",
+      "status": "partial",
+      "note": "Counted per Cloudflare server, so best effort; a free Cloudflare rate-limit rule would make it hard."
+    },
+    {
+      "name": "Demo off switch",
+      "where": "Cloudflare → Settings → Variables: DEMO_OFF=1",
+      "say": [],
+      "does": "Closes the public demo at once with no deploy.",
+      "status": "works",
+      "note": "Not reachable from the phone."
+    },
+    {
+      "name": "Change previews kept apart",
+      "where": "Workshop → a proposed change's PREVIEW",
+      "say": [
+        "show me the preview"
+      ],
+      "does": "Previews of a change are view-only and never ask for your password.",
+      "status": "partial",
+      "note": "Branch previews may still run with your live secrets; turning previews off or giving them their own settings in Cloudflare closes it."
+    }
+  ],
+  "upward": [
+    {
+      "idea": "A Security screen of its own",
+      "why": "One place showing: how you're signed in, last backup, keys added, faces kept, Telegram paired, previews on/off, the last approvals, with a green/amber/red line each.",
+      "builds_on": "SYSTEM's STATUS and PRIVACY panels, the health checks",
+      "effort": "M"
+    },
+    {
+      "idea": "Owner key strength check and rotation",
+      "why": "Ghosty tells you if your key is too short, and walks you through a new long random one without losing the vault or backups.",
+      "builds_on": "owner key sign-in, the vault's re-seal, backup",
+      "effort": "M"
+    },
+    {
+      "idea": "Slow-made backup lock",
+      "why": "Make the backup's key the slow, guess-resistant way, reading old backups as before and writing new ones safer.",
+      "builds_on": "encrypted backup",
+      "effort": "S"
+    },
+    {
+      "idea": "An approvals history",
+      "why": "Every APPROVE and NOT NOW in one list (what, when, from phone or Telegram), so you can see what Ghosty did for you.",
+      "builds_on": "the approval cards, the trail",
+      "effort": "S"
+    },
+    {
+      "idea": "Undo window after APPROVE",
+      "why": "A few seconds to cancel an approved send or post before it leaves.",
+      "builds_on": "the approval flow, the social queue",
+      "effort": "M"
+    },
+    {
+      "idea": "'Why was this asked?' on the planted-words card",
+      "why": "The card names the page whose words came before it, so you can see the planted instruction yourself.",
+      "builds_on": "the planted-words guard, the trail",
+      "effort": "S"
+    },
+    {
+      "idea": "Daily self-audit",
+      "why": "Each night the brain checks itself (key length, vault key set, previews, demo on, backup age) and tells you once if anything slipped.",
+      "builds_on": "the daily jobs, the health checks",
+      "effort": "S"
+    },
+    {
+      "idea": "Hard limits via free Cloudflare rules",
+      "why": "A guided one-time setup of Cloudflare's free rate-limit rules for the public doors.",
+      "builds_on": "the doors' allowances",
+      "effort": "S"
+    },
+    {
+      "idea": "Link check before you tap",
+      "why": "Long-press any link to see where it really goes and whether it looks like a known scam pattern.",
+      "builds_on": "the guardian's link check, safe links",
+      "effort": "S"
+    },
+    {
+      "idea": "Stricter page policy",
+      "why": "Trusted Types and a tighter media list in the app's page policy, now that only a handful of raw-HTML spots remain.",
+      "builds_on": "the tightened page headers",
+      "effort": "M"
+    },
+    {
+      "idea": "Panic button",
+      "why": "One tap (or 'lock everything'): ends all phone sessions, unpairs Telegram, pauses the demo and publishing until you unlock with your key.",
+      "builds_on": "sign-in, Telegram unpair, demo switch",
+      "effort": "M"
+    },
+    {
+      "idea": "Per-key usage watch",
+      "why": "For each key you added, a plain line on how much it was used today against its free allowance, so nothing runs out by surprise.",
+      "builds_on": "the meter, the keys panel",
+      "effort": "S"
+    }
+  ],
+  "sideways": [
+    {
+      "idea": "Password health from your own exports",
+      "why": "Check a password-manager export on the phone for reused or weak passwords; nothing leaves the phone.",
+      "builds_on": "safe file imports, on-phone processing",
+      "effort": "M"
+    },
+    {
+      "idea": "Has this password leaked?",
+      "why": "Check a password against the free public list of leaked passwords; only the first few characters of its scrambled fingerprint ever leave the phone, never the password.",
+      "builds_on": "public-web-only reading, on-phone processing",
+      "effort": "S"
+    },
+    {
+      "idea": "Scam message checker",
+      "why": "Paste or forward a text or email: Ghosty says if it matches known scam signs, links included.",
+      "builds_on": "the guardian's link check, Telegram",
+      "effort": "S"
+    },
+    {
+      "idea": "Your domain's health",
+      "why": "For your own sites: certificate expiry, email-spoofing protection, exposed pages, from public records.",
+      "builds_on": "recon tools",
+      "effort": "S"
+    },
+    {
+      "idea": "Phone privacy walkthrough",
+      "why": "A guided check of the phone's own settings (location sharing, app permissions) in plain steps.",
+      "builds_on": "the coach, checklists",
+      "effort": "S"
+    },
+    {
+      "idea": "Secure notes",
+      "why": "A notes page locked with your owner key, kept on the phone and in the encrypted backup.",
+      "builds_on": "the backup lock, the workspace",
+      "effort": "M"
+    },
+    {
+      "idea": "Share once, then gone",
+      "why": "Share a file or picture by a link that works for a day and can be taken down in one tap.",
+      "builds_on": "the Lens's 24-hour picture links",
+      "effort": "S"
+    },
+    {
+      "idea": "Travel mode",
+      "why": "Hides chosen screens and memories until you switch it off yourself (no location used).",
+      "builds_on": "settings, memory",
+      "effort": "M"
+    },
+    {
+      "idea": "Phones list",
+      "why": "See every phone registered for your notifications and remove one in a tap.",
+      "builds_on": "owner key sign-in, push devices",
+      "effort": "M"
+    },
+    {
+      "idea": "Approve from the lock screen",
+      "why": "APPROVE / NOT NOW right in the notification.",
+      "builds_on": "push notifications, approval cards",
+      "effort": "M"
+    }
+  ],
+  "cross": [
+    {
+      "idea": "Approvals in the Brief",
+      "with": "PLAN AND HOME",
+      "why": "The morning Brief lists yesterday's approvals and anything still waiting."
+    },
+    {
+      "idea": "Scam check in the Lens",
+      "with": "LENS",
+      "why": "Point the camera at a letter or a QR code and hear whether it looks like a scam, before you scan or pay."
+    },
+    {
+      "idea": "Money-safe mode",
+      "with": "MONEY AND PEOPLE",
+      "why": "Bank-looking messages and payment links get the scam check and an extra APPROVE."
+    },
+    {
+      "idea": "Spoken APPROVE read back",
+      "with": "VOICE, MEANINGS AND COLOURS",
+      "why": "When you approve by voice, Ghosty first reads back exactly what will happen; recognising your voice never replaces APPROVE."
+    },
+    {
+      "idea": "Safe sharing of what you make",
+      "with": "MAKE / EDITORS",
+      "why": "Documents, decks and games shared by an expiring link, with private details flagged before they go."
+    }
+  ]
+}
