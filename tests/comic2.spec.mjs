@@ -190,7 +190,7 @@ const CBZ = zip([
   { name: 'Moon Patrol 01/001.png', data: pagePng(W, H, [[20, 20, 560, 860]], [230, 80, 60]) },
   { name: 'Moon Patrol 01/002.png', data: pagePng(W, H, [[20, 20, 560, 420], [20, 460, 270, 420], [310, 460, 270, 420]], [60, 140, 230]) },
   { name: 'Moon Patrol 01/003.png', data: pagePng(W, H, [[20, 20, 270, 420], [310, 20, 270, 420], [20, 460, 560, 420]], [80, 200, 90]) },
-  { name: 'Moon Patrol 01/ComicInfo.xml', data: Buffer.from('<ComicInfo><Title>Moon Patrol</Title></ComicInfo>') },
+  { name: 'Moon Patrol 01/ComicInfo.xml', data: Buffer.from('<ComicInfo><Title>Moon Patrol</Title><Series>Moon Patrol</Series><Number>1</Number><Writer>Ada Quill</Writer><Year>1952</Year></ComicInfo>') },
 ]);
 const PDF = pdf();
 const RAR = rar5([
@@ -301,7 +301,9 @@ for (const vp of [PHONE, PHONE2]) {
   // (b) his files
   let st = await take(page, [{ name: 'Moon Patrol 01.cbz', mimeType: 'application/zip', buffer: CBZ }]);
   check(st.import.state === 'done' && st.books === 1, `${T} (b) a CBZ goes onto the shelf (${st.import.state}, ${st.books})`);
-  check(/“Moon Patrol 01” is on your shelf: 3 pages, from a CBZ file/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) it says so: "${await txt(page, '#pg-comic .cxnote')}"`);
+  // (its own ComicInfo.xml names it: the series and issue, and who wrote it, said on the shelf)
+  check(/“Moon Patrol #1” is on your shelf: 3 pages, from a CBZ file/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) it says so, named by its ComicInfo.xml: "${await txt(page, '#pg-comic .cxnote')}"`);
+  check(/Written by Ada Quill · 1952/.test(await txt(page, '#pg-comic .cxbook')), `${T} (b) the shelf says who wrote it and the year, from its ComicInfo.xml`);
   st = await take(page, [{ name: 'Night Watch.pdf', mimeType: 'application/pdf', buffer: PDF }]);
   check(st.import.state === 'done' && st.books === 2 && /2 pages, from a PDF/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a PDF is drawn into pages (${await txt(page, '#pg-comic .cxnote')})`);
   // a real CBR (a RAR 5 made here): the free RAR reader is offered with its size, waits on mobile data, then opens it
@@ -319,7 +321,8 @@ for (const vp of [PHONE, PHONE2]) {
   await bar(page, `${T} (b) the shelf with four comics`);
 
   // (c) the reader
-  await page.locator('#pg-comic .cxbook', { hasText: 'Moon Patrol 01' }).locator('button', { hasText: /^Read$/ }).click();
+  // (the zip named .cbr holds the same ComicInfo.xml, so it shares the name: the CBZ is the older of the two, last on the newest-first shelf)
+  await page.locator('#pg-comic .cxbook', { hasText: 'Moon Patrol #1' }).last().locator('button', { hasText: /^Read$/ }).click();
   check(await until(page, () => window.__ghosty.comic.reader.open && document.querySelector('.cxread .cxrpage')?.complete), `${T} (c) READ opens the reader`);
   check(/Page 1 of 3/.test(await txt(page, '.cxread .cxrwhere')), `${T} (c) it says where: "${await txt(page, '.cxread .cxrwhere')}"`);
   await bar(page, `${T} (c) the reader`, '.cxread');
@@ -342,7 +345,8 @@ for (const vp of [PHONE, PHONE2]) {
   check(await until(page, () => window.__ghosty.comic.reader.page === 1), `${T} (c) BACK turns back`);
   await page.click('.cxread button[aria-label="Close the comic"]');
   check(await until(page, () => !document.querySelector('.cxread') && !window.__ghosty.comic.reader.open), `${T} (c) ✕ closes it`);
-  await page.locator('#pg-comic .cxbook', { hasText: 'Moon Patrol 01' }).locator('button', { hasText: /^Read$/ }).click();
+  // (the zip named .cbr holds the same ComicInfo.xml, so it shares the name: the CBZ is the older of the two, last on the newest-first shelf)
+  await page.locator('#pg-comic .cxbook', { hasText: 'Moon Patrol #1' }).last().locator('button', { hasText: /^Read$/ }).click();
   check(await until(page, () => window.__ghosty.comic.reader.open && window.__ghosty.comic.reader.page === 1), `${T} (c) opened again, it comes back to page 2 where he stopped`);
   await page.keyboard.press('Escape');
   await until(page, () => !document.querySelector('.cxread'));
