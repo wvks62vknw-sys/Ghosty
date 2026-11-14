@@ -31,7 +31,7 @@ import { timeZone, ui } from '../state/app';
 import { lastReplyAt, resolveTrail } from '../features/core/why';
 import { brain } from '../api/brain';
 import { allAbilities, loadBrainSide, type AppAbility } from '../abilities/registry';
-import { chat, type Entry } from './session';
+import { chat, turnIsTheirs, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
@@ -70,12 +70,20 @@ export interface LocalAnswer {
   doIt?: string;
 }
 
+/** [voice lane] Was my last reply a change to the look, within ten minutes (so "put it back" means the look)? */
+function lastWasLook(now = Date.now()): boolean {
+  const last = chat.get().entries.findLast((e) => e.kind === 'assistant');
+  return !!last && last.kind === 'assistant' && last.local?.kind === 'look' && now - last.at < 600_000;
+}
+
 /** The label of reply that needed no model (the brain's small talk carries the same). */
 export const DIRECT = 'Direct · no AI';
 
 let lastStamp = 0;
 const stamp = () => (lastStamp = Math.max(Date.now(), lastStamp + 1));
 function add(e: Entry): void {
+  // [voice lane] a turn someone else said is marked theirs, so it stays out of his recall (voice.c5)
+  if (e.kind === 'user' && turnIsTheirs()) e = { ...e, theirs: true };
   chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
 }
 
@@ -179,7 +187,8 @@ function packAnswer(r: PackReply, opts: Opts): true {
 /** A read of the brain that gives up after six seconds (null), so the chat never hangs on it. */
 const within = <T>(p: Promise<T>, ms = 6000): Promise<T | null> => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null);
 
-type Opts = { voice?: boolean; private?: boolean };
+/** (`who`: [voice lane] whose voice this turn was, as the phone judged it, for the tables that care: a spoken note) */
+type Opts = { voice?: boolean; private?: boolean; who?: import('./voiceknown').Label };
 
 /**
  * Each table's answer, by its id in assistant/phrases.ts LOCAL_ASKS (the order they are tried in): true when it answered,
@@ -188,6 +197,10 @@ type Opts = { voice?: boolean; private?: boolean };
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
   // [voice lane] "do you know it's me?", "who's talking?": from the phone's own tag, truly (voiceknown.ts whoWords); never a lock
+  // [voice lane] a note he says (voice.s9): kept in his memory, marked "by you" only when the phone is sure the voice was his
+  voicenote: (text, opts) => import('./voicenote').then((m) => m.noteTurn(text, opts, answer)),
+  // [voice lane] his own wordings (voice.u1): a taught wording opens its screen; "my wordings" lists them (assistant/learnwords.ts)
+  learned: (text, opts) => import('./learnwords').then((m) => m.learnedTurn(text, opts, answer)),
   speaker: (text, opts) => import('./voiceknown').then((v) => answer(text, v.whoWords(!!opts.voice), { kind: 'can', go: [{ id: 'screen:settings', ask: -1, label: 'My voice', open: 'settings' }] }, opts)),
   // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)
   independent: async (text, opts) => answer(text, await import('../features/system/independence').then((m) => m.independenceTurn()), { kind: 'pack' }, opts),
@@ -211,6 +224,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (looks?.kind === 'gallery') return answer(text, `Seven looks, each a whole HUD: ${LOOKS.map((l) => `${l.name}${l.built ? '' : ' (coming)'}`).join(', ')}. Settings › Theme has them as pictures. Say a look, or a colour.`, { kind: 'look', go: [{ id: 'screen:settings', ask: -1, label: 'Open Settings', open: 'settings' }] }, opts);
     const ask = lookAsked(text) ?? (looks?.kind === 'colour' ? { colour: looks.colour } : null);
     if (!ask) return false;
+    // [voice lane] UNDO THE LOOK BY WORDS (voice.u9): "put it back" just after a look change, "the old colour" any time
+    if (ask.back) {
+      if (ask.back.generic && !lastWasLook()) return false;
+      const theme = await import('../state/theme');
+      const prev = theme.lookBack();
+      return answer(text, prev ? `Put back: ${theme.recipeNow()}.` : 'There’s no earlier look to go back to.', { kind: 'look', go: [{ id: 'screen:look', ask: -1, label: 'See it on The look', open: 'look' }] }, opts);
+    }
     // [voice lane] a word that is a colour and a ground both ("make it white"): one short question, both as keys; nothing changes yet
     const two = ask.two ? TWO_WAYS[ask.two] : undefined;
     if (two) return answer(text, two.q, { kind: 'look', go: [{ id: 'look:colour', ask: -1, label: two.a[0], send: `${ask.two} colour` }, { id: 'look:ground', ask: -1, label: two.a[1], send: `${ask.two} background` }] }, opts);

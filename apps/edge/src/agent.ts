@@ -51,7 +51,7 @@ import { dropPlace, placeRoute } from './library/place';
 import { loadPrinciples, loadProfile, profileRoute, reflect, reflectSummary } from './profile';
 import { projectsRoute, runProjectStep, type ProjectDeps } from './projects';
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
-import { capabilityLines, lengthBand, systemPrompt, type ClientContext, type PromptGroups } from './prompt';
+import { capabilityLines, lengthBand, notHis, systemPrompt, type ClientContext, type PromptGroups } from './prompt';
 import { mindSnapshot, observe, toolEpisode, turnGist } from './mind'; // [mind] the one shared mind (OWNER-ISSUES 74)
 import { clipResult, compact, noteHeard, trimContext } from './context';
 import { backAt, directPlan, directReply, localTimeAnswer, noModelLine, noModelMessage, raisedReply, smallTalk, waitOf, type DirectPlan } from './direct';
@@ -837,16 +837,19 @@ export class GhostyAgent {
       // [talk] his last reply was cut off as it was read out: its copy here says what he heard of it (BRIEF-TALK-1A 2)
       if (extra.heard) noteHeard(prev, extra.heard);
       await this.addTurn({ role: 'user', text: markPhotos(text, images.length), at: Date.now() });
+      // [voice lane] QUIET HOUSEHOLD MODE (voice.s1, voice.c5; prompt.ts notHis): a turn said in a voice he introduced, or one the
+      // phone doesn't know, is not his: it stays out of his day log and recall, and never moves his mood or rates his replies
+      const theirs = notHis(client);
       // (the day log: what he asked, in a line — the nightly reflection consolidates it; mind.ts)
-      await observe(this.storage, { kind: 'turn', text: turnGist(ownerWords(text)), via: client.tab === 'telegram' ? 'telegram' : 'app' }).catch(() => null);
+      if (!theirs) await observe(this.storage, { kind: 'turn', text: turnGist(ownerWords(text)), via: client.tab === 'telegram' ? 'telegram' : 'app' }).catch(() => null);
       const ctx: Msg[] = [...trimContext(prev), { role: 'user', content: images.length ? withImages(turn, images) : turn }];
       // Raising him (OWNER-ISSUES 64, 69c; intent.ts raising): praise or a telling-off goes on his last reply as a rating the
       // weekly training reads, with its weight; a standing rule in his words becomes a conduct lesson. His own words only.
-      const raised = plain ? raising(text, lastReply(prev)) : null;
+      const raised = plain && !theirs ? raising(text, lastReply(prev)) : null;
       if (raised) await this.raise(raised, prev).catch(() => undefined);
       // His mood (OWNER-ISSUES 70b, 63): moved only by his own words — praise or a telling-off, a stand-down, "go dark", a
       // kind word after a sharp one, being taught, danger he is in — never by a page, a tool or what the camera read.
-      const ev = raised?.kind ? ({ kind: raised.kind, weight: raised.weight ?? 1 } as const) : moodEvent(text);
+      const ev = theirs ? null : raised?.kind ? ({ kind: raised.kind, weight: raised.weight ?? 1 } as const) : moodEvent(text);
       if (ev) {
         const before = await loadMood(this.storage);
         const mood = await feel(this.storage, ev);

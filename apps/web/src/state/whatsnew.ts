@@ -26,6 +26,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A soft tick when I hear you', line: 'When you finish speaking, a soft tick says I heard you, so you never wonder whether to say it again. It goes with the other sounds in Settings → VOICE & HOME.' },
   // [ci] NEXT ci.u1
   { day: '2026-11-14', title: 'I start talking sooner', line: 'On a long answer I start speaking as soon as its first sentence is written, while the rest is still coming, so you hear me about a third of a second sooner. The words are the same as before.' },
+  // [security] NEXT ROUND, lane SECURITY: a few seconds to take it back (security.u5)
+  { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
   { day: '2026-11-14', title: 'See what a restore brings back', line: 'RESTORE now shows each thing in the backup and whether it comes back, is joined with yours or is already the same, and you untick what you would rather keep.' },
@@ -44,6 +46,14 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Undo for your pages', line: 'Every page you publish keeps its last three versions. Workshop → PUBLISHED PAGES → UNDO LAST UPDATE, or “undo my last update to the party page”, puts the one before back at the same link.' },
   // [sites] NEXT ROUND sites.u12
   { day: '2026-11-14', title: 'Your own photos on your sites', line: 'Workshop → PHOTOS FOR YOUR SITES: add your own photos, made smaller on your phone with their location removed. Say “build a website for my café with my photos” and they replace the stock pictures.' },
+  // [voice lane] the next round: Talk to it your own way
+  { day: '2026-11-14', title: 'Notes, lights and Telegram, your way', line: '“Note: buy milk” is kept in Memory, marked “by you” when I’m sure it was your voice; “make the lights red” sets your bulbs with the app’s colour words; on Telegram, “give us a shout in ten” becomes a reminder.' },
+  { day: '2026-11-14', title: 'Put it back, calm colours, your stations', line: '“Put it back” returns the look before; “calm colours”, “focus colours” or “lively colours” set a colour and look together; “call this my morning station”, then “put on my morning station”. When I’m not sure it’s you, I say why.' },
+  { day: '2026-11-14', title: 'Private when others talk', line: 'When someone you introduced (or a voice I don’t know) asks about your money, health, messages or diary, I keep it to you; their other questions leave your private things out of my answer, and their turns stay out of your memory.' },
+  { day: '2026-11-14', title: 'Every screen, your way', line: 'Every screen opens from everyday names (“bring up the game maker”, “open the translator”, “show me my portfolio”); amounts are understood exactly (“log half a litre”, “a quarter of an hour”); “how much paint for my lounge” opens Materials.' },
+  { day: '2026-11-14', title: 'I learn your own words', line: 'Say something your own way, then tap the screen you meant: I offer to remember it, and next time it opens straight away. “My wordings” lists them, each with FORGET; nothing that sends or pays is ever learned.' },
+  // [voice lane] the final round, unsaid until now
+  { day: '2026-11-13', title: 'Say it your way, colours by name', line: '“Put some tunes on”, “log a pint” or “give us a shout in ten minutes” just work; “make it red” changes my colour, and every colour now has a plain name. Ask “do you know it’s me?” and I answer from what this phone heard.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

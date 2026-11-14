@@ -9988,3 +9988,7 @@ html .rpsheet .rpitem[aria-checked="true"] .setknob::after { transform: translat
 #pg-security .secpwrow input { flex: 1 1 auto; min-width: 0; min-height: max(44px, var(--g-target)); }
 #pg-security .secpwrow button { min-height: max(44px, var(--g-target)); min-width: max(44px, var(--g-target)); }
 #pg-security .secpwnedsaid:empty { display: none; }
+/* [voice lane] HIS OWN WORDINGS (assistant/learnwords.ts): the floating bar's two keys at 44 pt, its words wrapping, never cut */
+html .rcundo.undofloat.wordbar { flex-wrap: wrap; }
+html .rcundo.undofloat.wordbar span { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
+html .rcundo.undofloat.wordbar button { height: auto; min-height: 44px !important; padding: 0 18px; }
