@@ -248,6 +248,15 @@ for (const vp of VIEWPORTS) {
   check(/Lap 1: 1:0\d\.\d/.test(await txt(page, `${KT} .kt-laps`)), `[440] the lap is listed: "${await txt(page, `${KT} .kt-laps`)}"`);
   await page.evaluate(() => (window.__ghostyClockOffset = 0));
   await bar(page, '[440] timers', 'kitchen');
+  // THE SHOPPING LIST BY AISLE: what is to get, in the shop's order, under each aisle's name (display only)
+  await brainDo('kitchen', 'shop', { words: 'clear' });
+  await brainDo('kitchen', 'shop', { words: 'add toilet roll, pasta, milk, bread, apples' });
+  await open(page, 'kitchen', 'Shopping');
+  await until(page, (s2) => document.querySelectorAll(`${s2} .pkitems li.pkitem`).length === 5, KT, 10000);
+  const order = await page.$$eval(`${KT} .pkitems li.ks-aisle`, (e) => e.map((x) => x.dataset.aisle));
+  check(JSON.stringify(order) === JSON.stringify(['fruit', 'bakery', 'dairy', 'cupboard', 'home']), `[440] the list reads in the shop's order, aisle by aisle: ${JSON.stringify(order)}`);
+  await bar(page, '[440] shopping by aisle', 'kitchen');
+  await brainDo('kitchen', 'shop', { words: 'clear' });
   await page.evaluate(() => window.__ghosty.timers().forEach(() => undefined));
   await ctx.close();
 }
