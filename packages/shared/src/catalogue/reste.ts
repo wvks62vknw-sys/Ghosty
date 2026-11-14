@@ -115,6 +115,14 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { open: 'docs' }, tryText: 'Opens my documents',
   },
   'phrase:workspace': { same: 'hub:workspace' },
+  'phrase:wscards': {
+    name: 'Flashcards from your notes',
+    line: 'You can turn a page of your notes into flashcards for Learn’s revision, written the way you already write.',
+    more: 'On a Workspace page, tap … then MAKE FLASHCARDS, or pick one of your documents. A line like “Term: what it means”, a toggle with the answer inside it, a heading with the answer under it, or a two-column table each become a card, shown to you before they are made. Learn then brings each back just before you would forget it.',
+    say: ['Make flashcards from my notes', 'Turn this page into flashcards'],
+    scene: ['school', 'making'], cat: 'learn', since: '2026-11-14',
+    go: { run: 'open_workspace' }, tryText: 'Opens my workspace',
+  },
   'phrase:wsvoice': {
     name: 'Voice notes into tidy pages',
     line: 'You can talk for a few minutes and I turn it into a clean page, with every action you said pulled out as a to-do.',

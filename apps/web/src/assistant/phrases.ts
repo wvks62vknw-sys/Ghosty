@@ -49,7 +49,7 @@ import { convertAsked } from '../convert/asks';
 import { docsAsked, fillAsked, mergeAsked, paperAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
-import { voiceNoteAsked, workspaceAsked } from '../workspace/asks';
+import { cardsAsked, voiceNoteAsked, workspaceAsked } from '../workspace/asks';
 import { photoAsked } from '../photo/asks';
 import { videoAsked } from '../video/asks';
 import { gameAsked } from '../studio-game/asks';
@@ -180,6 +180,8 @@ export const LOCAL_ASKS = [
   { id: 'docsfill', test: (t: string) => fillAsked(t) },
   // [editors.s2] mail merge: one letter, a copy for every row of a spreadsheet (docs/mergeui.ts)
   { id: 'docsmerge', test: (t: string) => mergeAsked(t) },
+  // [editors] flashcards from his own notes (workspace/cards.ts): "make flashcards from my notes"
+  { id: 'wscards', test: (t: string) => cardsAsked(t) },
   { id: 'docs', test: (t: string) => !!docsAsked(t) },
   { id: 'sheets', test: (t: string) => !!sheetsAsked(t) },
   { id: 'slides', test: (t: string) => !!slidesAsked(t) },

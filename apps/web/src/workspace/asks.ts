@@ -23,3 +23,9 @@ export function voiceNoteAsked(text: string): boolean {
     || /^(?:please |ghosty,? )?(?:turn|make|tidy|change) (?:my|this|a|the) (?:last )?voice ?(?:note|memo|recording) (?:into|in to|to) (?:a |my )?(?:tidy |clean |neat )?(?:page|document|doc|notes?|workspace page)$/i.test(t)
     || /^(?:my )?voice ?notes?$/i.test(t);
 }
+/** "make flashcards from my notes", "turn this page into flashcards": the workspace, where MAKE FLASHCARDS is on a page's … (editors.c3). */
+export function cardsAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '');
+  return /^(?:please |ghosty,? )?(?:make|create|turn|get) (?:me )?(?:some )?flash ?cards (?:from|out of|of) (?:my|this|the|a) (?:notes|page|workspace page|document|doc|workspace)$/i.test(t)
+    || /^(?:please |ghosty,? )?(?:turn|make) (?:my|this|the) (?:notes|page|workspace page|document|doc) (?:into|in to) flash ?cards$/i.test(t);
+}

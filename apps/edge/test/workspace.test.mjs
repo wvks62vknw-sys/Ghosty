@@ -758,3 +758,29 @@ test('workspace deadlines on the agenda and in the brief (editors.c4): due-like 
   assert.equal(K.deadlineLine(list.slice(1, 2), today), 'Book the tiler is due today in your workspace');
   assert.equal(K.deadlineLine([], today), '');
 });
+
+test('flashcards from his own notes (editors.c3): term lines, toggles, headings, two-column tables; each front once', () => {
+  const tg = K.wblock('toggle', 'What does SM-2 do?');
+  const blocks = [
+    K.wblock('h1', 'Photosynthesis'),
+    K.wblock('p', 'Plants turn light, water and carbon dioxide into sugar and oxygen.'),
+    K.wblock('ul', 'Mitochondria: the part of the cell that makes energy'),
+    K.wblock('ul', 'Osmosis — water moving through a membrane'),
+    K.wblock('p', 'See https://example.com for more'),
+    tg,
+    { ...K.wblock('p', 'It brings a card back just before you would forget it'), under: tg.id },
+    K.wblock('table', '', { head: true, rows: [[[{ text: 'French' }], [{ text: 'English' }]], [[{ text: 'la pomme' }], [{ text: 'the apple' }]], [[{ text: '' }], [{ text: 'blank' }]]] }),
+    K.wblock('p', 'Mitochondria: said twice'),
+  ];
+  const cards = K.cardsFrom(blocks);
+  assert.deepEqual(cards.map((c) => c.front), ['Photosynthesis', 'Mitochondria', 'Osmosis', 'What does SM-2 do?', 'la pomme']);
+  assert.equal(cards[0].back, 'Plants turn light, water and carbon dioxide into sugar and oxygen.');
+  assert.equal(cards[2].back, 'water moving through a membrane');
+  assert.equal(cards[3].back, 'It brings a card back just before you would forget it', 'a toggle: its line on the front, the lines inside on the back');
+  assert.equal(cards[4].back, 'the apple');
+  assert.equal(K.cardsFrom([K.wblock('p', 'Just a line')]).length, 0);
+  assert.match(K.cardsWords(0, 'X'), /^No cards in this page yet/);
+  assert.match(K.cardsWords(5, 'Biology'), /^5 cards from “Biology”/);
+  for (const t of ['make flashcards from my notes', 'Turn this page into flashcards', 'make me some flash cards from this document']) assert.ok(K.cardsAsked(t), t);
+  assert.ok(!K.cardsAsked('revise my flashcards'));
+});

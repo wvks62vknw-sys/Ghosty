@@ -14,6 +14,7 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  { day: '2026-11-14', title: 'Flashcards from your own notes', line: 'On a Workspace page, … → MAKE FLASHCARDS (or say “make flashcards from my notes”): “Term: meaning” lines, toggles and headings become cards in Learn’s revision.' },
   { day: '2026-11-14', title: 'Workspace deadlines on your agenda', line: 'The due dates in your Workspace lists now show on the Agenda under your to-dos, late ones first, and the Brief says them in one line. Tap one to open its page.' },
   { day: '2026-11-14', title: 'Toggles, synced blocks, your own templates', line: 'In the Workspace: a TOGGLE folds lines away, SYNC shows one block on several pages (change it once, it changes everywhere), and … → SAVE AS TEMPLATE puts your own page beside the five templates.' },
   { day: '2026-11-14', title: 'Voice notes into tidy pages', line: 'Workspace → VOICE NOTE (or say “take a voice note”): talk for a few minutes and I turn it into a clean page or document, with the actions as to-dos. Offline, the recording waits on your phone.' },

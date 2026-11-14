@@ -9022,6 +9022,10 @@ html body .modal :is(.feltrow, .feltbody) button { min-height: 44px !important; 
 .wssynced { flex-basis: 100%; color: var(--g-accent-text); font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); }
 .wsownt { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); min-width: 0; }
 .wsownt .wstemplate { flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: var(--g-s-2); padding: var(--g-s-1) var(--g-s-2); }
+/* [editors.c3] MAKE FLASHCARDS: the cards shown before they are made */
+.wscards { display: flex; flex-direction: column; gap: var(--g-s-1); margin: 0; padding-inline-start: var(--g-s-2); color: var(--g-ink-1); }
+.wscards li { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.wscards li span { color: var(--g-ink-2); white-space: pre-line; }
 /* [editors.s6] VOICE NOTE: the state line, the clock while recording, the kept recordings */
 .wsvoiceline { color: var(--g-ink-1); overflow-wrap: anywhere; }
 .wsvoice[data-state="recording"] .wsvoiceline, .wsvoice[data-state="listening"] .wsvoiceline, .wsvoice[data-state="writing"] .wsvoiceline { color: var(--g-accent-text); }

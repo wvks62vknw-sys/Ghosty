@@ -42,6 +42,7 @@ import {
   addInside, foldToggle, hiddenBlocks, syncPages, syncRuns, syncTo, toggleDepth, unsync, withInside,
 } from './model';
 import { fromOwnTemplate, saveAsTemplate } from './templates';
+import { cardsFrom, cardsWords, type NoteCard } from './cards';
 import { loadOwnTemplates, saveOwnTemplates } from './store';
 
 export const WORKSPACE_TITLE = 'THE WORKSPACE';
@@ -674,7 +675,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     keepWhere(id, '');
     showPage(id, focusTitle);
   };
-  let panelOpen: '' | 'more' | 'move' | 'icon' | 'kinds' | 'pick' | 'comment' | 'ask' | 'export' | 'sync' = '';
+  let panelOpen: '' | 'more' | 'move' | 'icon' | 'kinds' | 'pick' | 'comment' | 'ask' | 'export' | 'sync' | 'cards' = '';
   let panelFor = '';
   const showPage = (id: string, focusTitle = false): void => {
     flush();
@@ -736,7 +737,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
       drawPanel();
     };
     const drawPanel = (): void => {
-      const a = panelOpen === 'more' ? morePanel() : panelOpen === 'move' ? movePanel() : panelOpen === 'icon' ? iconPanel() : panelOpen === 'kinds' ? kindsPanel(panelFor) : panelOpen === 'pick' ? pickPanel(panelFor) : panelOpen === 'comment' ? commentPanel(panelFor) : panelOpen === 'ask' ? askPanel() : panelOpen === 'export' ? exportPanel(id) : panelOpen === 'sync' ? syncPanel(panelFor) : null;
+      const a = panelOpen === 'more' ? morePanel() : panelOpen === 'move' ? movePanel() : panelOpen === 'icon' ? iconPanel() : panelOpen === 'kinds' ? kindsPanel(panelFor) : panelOpen === 'pick' ? pickPanel(panelFor) : panelOpen === 'comment' ? commentPanel(panelFor) : panelOpen === 'ask' ? askPanel() : panelOpen === 'export' ? exportPanel(id) : panelOpen === 'sync' ? syncPanel(panelFor) : panelOpen === 'cards' ? cardsPanel(panelFor) : null;
       clear(panelHost, ...(a ? [a, key('CLOSE', closePanel, 'wsclose', 'Close this panel')] : []));
     };
     // ---- the page's own sheets
@@ -753,6 +754,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
           say('A copy is made, with everything inside it.');
         }),
         key('EXPORT THIS PAGE', () => openPanel('export')),
+        key('MAKE FLASHCARDS', () => openPanel('cards'), '', 'Make flashcards from this page for Learn’s revision'),
         key('SAVE AS TEMPLATE', () => {
           flush();
           const t = saveAsTemplate(ws(), id);
@@ -1223,6 +1225,46 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
       q.addEventListener('input', draw);
       draw();
       return h('div.wspanel.wspickp', { dataset: { panel: 'pick' } }, h('small.wsh', 'LINK TO A PAGE OR A DOCUMENT'), q, list);
+    };
+    // ---- MAKE FLASHCARDS (editors.c3, into LEARN's own revision): from this page, or from one of MY DOCUMENTS
+    const cardsPanel = (src: string): HTMLElement => {
+      const doc = src.startsWith('doc:') ? listDocs().find((d) => d.id === src.slice(4)) : undefined;
+      const title = doc ? doc.title : titleOf(page());
+      const cards: NoteCard[] = cardsFrom(doc ? (doc.blocks as WBlock[]) : (page()?.blocks ?? []));
+      const out = h('div.wscardsout', { 'aria-live': 'polite' });
+      const sayCards = (w: string, state: string): void => {
+        out.dataset.state = state;
+        clear(out, h('p.wsnote', w));
+        say(w);
+      };
+      const make = async (): Promise<void> => {
+        if (!navigator.onLine) return sayCards('Offline: Learn keeps its cards with your brain, so I make them when you are back online. Your page is as it was.', 'offline');
+        const L = await import('../features/learn/store');
+        let made = 0;
+        try {
+          for (const c of cards) {
+            sayCards(`Making your cards… ${made + 1} of ${cards.length}.`, 'loading');
+            await L.addCard('general', c.front, c.back);
+            made++;
+          }
+        } catch {
+          return sayCards(made ? `I made ${made} of ${cards.length} cards; the rest could not reach Learn just now. MAKE them again adds only the missing ones.` : 'I could not reach Learn just now, so no cards were made. Try again in a moment.', 'error');
+        }
+        out.dataset.state = 'done';
+        const w = `Done: ${made} card${made === 1 ? ' is' : 's are'} in Learn’s revision, from “${title}”.`;
+        clear(out, h('p.wsnote', w), key('REVISE NOW', () => void import('../features/learn').then((m) => m.openLearn({ view: 'revise' })), 'on', 'Revise these cards now in Learn'));
+        say(w);
+        wsState.said = w;
+      };
+      const docs = listDocs().slice(0, 8);
+      return h('div.wspanel.wscardsp', { dataset: { panel: 'cards', src } }, h('small.wsh', 'MAKE FLASHCARDS'),
+        h('p.wsnote', cardsWords(cards.length, title)),
+        ...(cards.length ? [h('ol.wscards', ...cards.slice(0, 8).map((c) => h('li', h('b', c.front), h('span', c.back)))), cards.length > 8 ? h('p.wsnote', `and ${cards.length - 8} more`) : '',
+          h('p.wsnote', 'They go into Learn’s revision with your other cards (Learn keeps its cards with your brain), and this page stays as it is.'),
+          key(`MAKE ${cards.length} CARD${cards.length === 1 ? '' : 'S'}`, () => void make(), 'on', `Make ${cards.length} flashcards for Learn`)] : []),
+        out,
+        ...(docs.length ? [h('small.wsh', 'OR FROM ONE OF MY DOCUMENTS'), ...docs.map((d) => key(d.title, () => openPanel('cards', `doc:${d.id}`), 'wspick wspickdoc', `Flashcards from my document ${d.title}`))] : []),
+        ...(doc ? [key('FROM THIS PAGE', () => openPanel('cards', ''), '', 'Flashcards from this page')] : []));
     };
     // ---- SYNC (editors.u6): one block shown on several pages; editing one edits all
     const syncPanel = (bid: string): HTMLElement => {

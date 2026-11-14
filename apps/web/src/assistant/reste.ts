@@ -136,6 +136,14 @@ export async function voiceNoteTurn(text: string): Promise<PackReply> {
   return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: { what: 'voice' } }] };
 }
 
+/** "make flashcards from my notes": THE WORKSPACE where he was, and how to make them (editors.c3). */
+export async function cardsTurn(text: string): Promise<PackReply> {
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({});
+  const reply = 'Your workspace is open: on the page of notes, tap … then MAKE FLASHCARDS (one of your documents works too). “Term: what it means” lines, toggles and headings with the answer under them become cards in Learn’s revision.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
+}
+
 /** "edit a photo", "my photos": the photo editor, open on my photos. */
 export async function photoTurn(text: string): Promise<PackReply> {
   const ask = photoAsked(text) ?? { what: 'shelf' as const };

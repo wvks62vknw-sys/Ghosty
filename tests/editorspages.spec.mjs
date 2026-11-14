@@ -4,5 +4,5 @@
 //   BASE=http://localhost:8788 node tests/editorspages.spec.mjs [outDir]      PARTS=voice limits it to that part.
 import { runParts } from './editorsharness.mjs';
 
-await runParts('THE EDITORS LANE (pages)', ['editorspages-voice.mjs', 'editorspages-blocks.mjs', 'editorspages-deadlines.mjs'],
-  'THE EDITORS LANE (pages) ran clean: voice notes into tidy pages, toggles, synced blocks and his own templates, workspace deadlines on the agenda and in the brief, in all seven looks at 440 and 390.');
+await runParts('THE EDITORS LANE (pages)', ['editorspages-voice.mjs', 'editorspages-blocks.mjs', 'editorspages-deadlines.mjs', 'editorspages-cards.mjs'],
+  'THE EDITORS LANE (pages) ran clean: voice notes into tidy pages, toggles, synced blocks and his own templates, workspace deadlines on the agenda and in the brief, flashcards from his notes, in all seven looks at 440 and 390.');
