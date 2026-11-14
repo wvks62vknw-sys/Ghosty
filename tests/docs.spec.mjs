@@ -463,7 +463,7 @@ await page.fill('#cin', 'write a letter to my landlord about the damp');
 await page.keyboard.press('Enter');
 check(await until(page, () => document.querySelector('#thestage')?.dataset.kind === 'document', null, 20000), 'the Stage shows the letter');
 await page.click('#thestage button[aria-label^="Open"]');
-check(await until(page, () => !!document.querySelector('.modal .dcsheet .dcpage') && /Dear Mr Smith/.test(window.__ghosty?.docs?.text ?? ''), null, 15000) && await page.locator('.modal .dcpill').count() === 3 && await page.locator('.modal .dcwrite').count() === 1, 'OPEN on the Stage opens this same editor, with its keys and Ghosty’s box');
+check(await until(page, () => !!document.querySelector('.modal .dcsheet .dcpage') && /Dear Mr Smith/.test(window.__ghosty?.docs?.text ?? ''), null, 15000) && await page.locator('.modal .dcpill').count() === 5 && await page.locator('.modal .dcwrite').count() === 1, 'OPEN on the Stage opens this same editor, with its keys and Ghosty’s box');
 await page.screenshot({ path: `${out}/docs-stage-open.png` });
 await ctx.close();
 

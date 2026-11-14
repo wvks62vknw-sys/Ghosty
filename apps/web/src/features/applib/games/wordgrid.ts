@@ -75,5 +75,6 @@ export const wordgrid: Board = (p) => {
     p.score(found.size * 100, `${found.size} of ${g.words.length} found`);
   }
   draw();
+  p.keep({ g, found: [...found] });
   return () => window.removeEventListener('pointerup', up);
 };

@@ -67,6 +67,7 @@ export const dots: Board = (p) => {
     p.score(t.me * 10, `You ${t.me} · phone ${t.cpu} · ${d.turn === 1 ? 'your turn' : 'the phone is thinking'}`);
   }
   draw();
+  p.keep(d);
   if (d.turn === 2) cpuTimer = window.setTimeout(cpu, 420);
   return () => clearTimeout(cpuTimer);
 };
