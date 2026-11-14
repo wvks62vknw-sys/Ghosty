@@ -2,6 +2,7 @@
 import type { PackReply } from '../../assistant/packs';
 import { agendaAsked, type AgendaAsk } from './asks';
 import { undo } from '../../ui/components';
+import { pushState } from '../../assistant/push';
 import { addTodo, clearDone, loadTodos, removeTodo, syncTodos, tickTodo } from './todo';
 import { daysTo, dayOf, dueWords, everyWords, findTodo, sortTodos, type Todo } from './todowords';
 
@@ -113,10 +114,12 @@ export async function agendaTurn(text: string): Promise<PackReply | null> {
   if (ask.what !== 'add') await Promise.race([syncTodos(true), new Promise((r) => setTimeout(r, 2500))]);
   const now = Date.now();
   if (ask.what === 'add') {
-    const t = addTodo(ask.text, ask.due, ask.every, ask.star);
+    const t = addTodo(ask.text, ask.due, ask.every, ask.star, ask.time ?? '');
     if (!t) return reply(text, NOT_KEPT);
     const when = [t.due ? dueWords(t.due, now).replace(/^Due /, 'due ') : '', ask.every ? `repeats ${everyWords(ask.every)}` : '', ask.star ? 'starred' : ''].filter(Boolean).join(', ');
-    return reply(text, `Added to your to-do list: ${t.text}${when ? `, ${when}` : ''}. ${loadTodos().filter((x) => !x.done).length} to do.`);
+    // [planlane4:tasks] a timed one rings by the brain's reminder, with the phone locked when this phone has notifications on
+    const ring = t.time ? ` It rings at ${t.time}${pushState.get().status === 'on' ? ', even with the phone locked' : '; tap NOTIFY THIS DEVICE under Reminders so it rings with the phone locked'}.` : '';
+    return reply(text, `Added to your to-do list: ${t.text}${when ? `, ${when}` : ''}.${ring} ${loadTodos().filter((x) => !x.done).length} to do.`);
   }
   if (ask.what === 'list') {
     if (ask.when === 'all') void show('TO-DO');

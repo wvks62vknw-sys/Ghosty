@@ -5,6 +5,7 @@
  * meanings), "remind me…" and "add dinner on Friday at 7" (the brain's own reminder and diary tools), the shopping list (the kitchen).
  *
  *   "add buy milk to my to-do list", "put call the bank on my list for tomorrow", "to-do: renew passport by Friday"   → add
+ *   "add call the bank at 3pm to my to-do list", "to-do: call the bank tomorrow at 3"   → add, ringing at its time ([planlane4:tasks])
  *   "what's on my to-do list", "what do I need to do today", "what's due this week"                                  → list
  *   "tick off buy milk", "I've done the passport", "cross the bank off my list", "mark buy milk as done"            → tick
  *   "take buy milk off my list", "remove the passport from my to-dos"                                               → remove
@@ -12,9 +13,10 @@
  *   "show my month", "what's on this month", "what's on next month"                                                 → month
  */
 import { dayOf, type Every } from './todowords';
+import { splitTime } from '../../../../../packages/shared/src/work';
 
 export type AgendaAsk =
-  | { what: 'add'; text: string; due: string; every?: Every; star?: boolean }
+  | { what: 'add'; text: string; due: string; every?: Every; star?: boolean; time?: string }
   | { what: 'list'; when: 'all' | 'today' | 'week' | 'late' | 'starred' }
   | { what: 'tick'; text: string; loose: boolean }
   | { what: 'remove'; text: string }
@@ -199,8 +201,10 @@ export function agendaAsked(text: string, now = Date.now()): AgendaAsk | null {
     star = true;
     item = item.replace(/,?\s*(?:it'?s |that'?s |mark it )?(?:important|urgent|starred|star it)$/i, '');
   }
-  const w = splitWhen(item, now);
+  // [planlane4:tasks] "call the bank at 3pm (tomorrow)": the time it rings, then the day
+  const tm = splitTime(item);
+  const w = splitWhen(tm.text, now);
   const words = strip(w.text);
   if (!words || /^(?:it|that|this|something)$/i.test(words)) return null;
-  return { what: 'add', text: words.charAt(0).toUpperCase() + words.slice(1), due: w.due, ...(w.every ? { every: w.every } : {}), ...(star ? { star: true } : {}) };
+  return { what: 'add', text: words.charAt(0).toUpperCase() + words.slice(1), due: w.due, ...(w.every ? { every: w.every } : {}), ...(star ? { star: true } : {}), ...(tm.time ? { time: tm.time } : {}) };
 }

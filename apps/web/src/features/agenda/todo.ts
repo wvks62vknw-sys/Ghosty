@@ -13,8 +13,11 @@
 import { clear, h } from '../../core/dom';
 import { brain } from '../../api/brain';
 import { button, panel, toast, undo } from '../../ui/components';
+import { pushState } from '../../assistant/push';
+import { splitTime } from '../../../../../packages/shared/src/work';
 import {
   dayOf, dueWords, EVERY, everyWords, inView, nextDue, sortTodos, TODO_ALL_DONE, TODO_EMPTY, TODO_NEED_TEXT, todoLine, todoWaitWords, daysTo, VIEW_EMPTY, VIEWS,
+  ringDayOf, RING_OFF, whenWords,
   type Every, type Todo, type TodoView,
 } from './todowords';
 
@@ -47,7 +50,7 @@ const newId = () => `t${Date.now().toString(36)}${Math.random().toString(36).sli
 const OUTBOX = 'ghosty.agenda.todo.outbox';
 /** set once the list this phone kept on its own has joined the brain's */
 const JOINED = 'ghosty.agenda.todo.one';
-type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
+type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string; time?: string } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
 const readJson = <T,>(k: string, d: T): T => {
   try {
     return (JSON.parse(localStorage.getItem(k) ?? 'null') as T) ?? d;
@@ -74,10 +77,11 @@ function queue(op: TodoOp): void {
   void syncTodos(true);
 }
 /** The brain's to-do (its own shape: high is the star) as this phone's. */
-type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string };
+type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string; time?: string };
 const fromBrain = (t: BrainTodo): Todo => ({
   id: t.id, text: t.text, due: t.due ?? '', done: !!t.done, at: t.at,
   ...(t.doneAt ? { doneAt: t.doneAt } : {}), ...(t.nextId ? { nextId: t.nextId } : {}), ...(t.high ? { star: true } : {}), ...(t.every ? { every: t.every } : {}),
+  ...(typeof t.time === 'string' && /^\d\d:\d\d$/.test(t.time) ? { time: t.time } : {}),
 });
 /** The brain's list (from any screen that read it: WORK's too) becomes this phone's copy, unless changes made here are still to go
  * (then they are sent first, and the list read again). */
@@ -155,10 +159,12 @@ if (typeof addEventListener === 'function') {
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void syncTodos());
 }
 
-/** Add a to-do (the box, or the chat): the one added, or null when this phone would not keep it. */
-export function addTodo(text: string, due = '', every?: Every, star?: boolean): Todo | null {
+/** Add a to-do (the box, or the chat): the one added, or null when this phone would not keep it. [planlane4:tasks] `time` ("15:00")
+ * makes it ring at that time on its day (one with a time and no day rings today while the time is ahead, else tomorrow). */
+export function addTodo(text: string, due = '', every?: Every, star?: boolean, time = ''): Todo | null {
   // (a repeating one with no day starts today: "water the plants every day" is due today)
-  const t: Todo = { id: newId(), text: text.trim().slice(0, 200), due: due || (every ? dayOf(Date.now()) : ''), done: false, at: Date.now(), ...(every ? { every } : {}), ...(star ? { star: true } : {}) };
+  const day = due || (time ? ringDayOf(time, Date.now()) : every ? dayOf(Date.now()) : '');
+  const t: Todo = { id: newId(), text: text.trim().slice(0, 200), due: day, done: false, at: Date.now(), ...(every ? { every } : {}), ...(star ? { star: true } : {}), ...(time ? { time } : {}) };
   const l = loadTodos();
   l.push(t);
   if (!saveTodos(l)) return null;
@@ -176,7 +182,7 @@ export function tickTodo(id: string): { done: boolean; next: Todo | null } | nul
   x.doneAt = x.done ? Date.now() : undefined;
   let next: Todo | null = null;
   if (x.done && x.every) {
-    next = { id: newId(), text: x.text, due: nextDue(x.due, x.every, Date.now()), done: false, at: Date.now(), every: x.every, ...(x.star ? { star: true } : {}) };
+    next = { id: newId(), text: x.text, due: nextDue(x.due, x.every, Date.now()), done: false, at: Date.now(), every: x.every, ...(x.star ? { star: true } : {}), ...(x.time ? { time: x.time } : {}) };
     l.push(next);
     x.nextId = next.id;
   } else if (!x.done && x.nextId) {
@@ -221,19 +227,23 @@ export function clearDone(): number {
   });
   return n;
 }
-/** Change a to-do's words, day, repeat or star. */
-export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 'every' | 'star'>>): boolean {
+/** Change a to-do's words, day, repeat, star or the time it rings ('' takes the ring off). */
+export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 'every' | 'star' | 'time'>>): boolean {
   const l = loadTodos();
   const x = l.find((y) => y.id === id);
   if (!x) return false;
   Object.assign(x, patch);
   if (!x.every) delete x.every;
   if (!x.star) delete x.star;
+  if (!x.time) delete x.time;
+  // (a time with no day rings today while it is ahead, else tomorrow: the brain rings only a to-do with both)
+  if (x.time && !x.due) x.due = ringDayOf(x.time, Date.now());
   if (!saveTodos(l)) return false;
   queue({
     op: 'edit', id,
-    ...('text' in patch ? { text: x.text } : {}), ...('due' in patch ? { due: x.due } : {}),
+    ...('text' in patch ? { text: x.text } : {}), ...('due' in patch || ('time' in patch && x.time) ? { due: x.due } : {}),
     ...('every' in patch ? { every: x.every ?? '' } : {}), ...('star' in patch ? { high: !!x.star } : {}),
+    ...('time' in patch ? { time: x.time ?? '' } : {}),
   });
   return true;
 }
@@ -260,11 +270,13 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
   let view: TodoView = loadView();
   /** the to-do whose words are open to change (one at a time), and what he has typed there so far (kept across repaints) */
   let editing = '';
-  let draft: { id: string; text: string; due: string; every: string } | null = null;
+  let draft: { id: string; text: string; due: string; every: string; time: string } | null = null;
   const add = () => {
-    const v = text.value.trim();
+    // [planlane4:tasks] "call the bank at 3pm": the time it rings, read from the words
+    const st = splitTime(text.value.trim());
+    const v = st.text.trim();
     if (!v) return toast(TODO_NEED_TEXT, 'warn');
-    addTodo(v, due.value || '', (rep.value || undefined) as Every | undefined);
+    addTodo(v, due.value || '', (rep.value || undefined) as Every | undefined, undefined, st.time);
     text.value = '';
     due.value = '';
     rep.value = '';
@@ -301,23 +313,25 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     const d = draft?.id === t.id ? draft : null;
     const tx = h('input', { value: d ? d.text : t.text, 'aria-label': 'Change the words', maxlength: '200' });
     const dd = h('input', { type: 'date', value: d ? d.due : t.due, 'aria-label': 'Change the day' });
+    // [planlane4:tasks] the time it rings on its day (cleared: no ring)
+    const tm = h('input', { type: 'time', value: d ? d.time : t.time ?? '', 'aria-label': 'Change the time it rings' });
     const rp = everySelect((d ? d.every : t.every ?? '') as Every | '');
-    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value });
-    for (const x of [tx, dd, rp]) x.addEventListener('input', keep);
+    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value, time: tm.value });
+    for (const x of [tx, dd, tm, rp]) x.addEventListener('input', keep);
     rp.addEventListener('change', keep);
     const save = () => {
       const v = tx.value.trim();
       if (!v) return toast(TODO_NEED_TEXT, 'warn');
       editing = '';
       draft = null;
-      const was = { text: t.text, due: t.due, every: t.every, star: t.star };
-      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined })) return paint();
+      const was = { text: t.text, due: t.due, every: t.every, star: t.star, time: t.time ?? '' };
+      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined, time: tm.value || '' })) return paint();
       undo(`Changed: ${v}`, () => void editTodo(t.id, was));
     };
     tx.addEventListener('keydown', (e) => e.key === 'Enter' && save());
     queueMicrotask(() => tx.focus());
     return h('div.todoedit', { dataset: { case: 'keep' } },
-      h('div.keyrow.wrapit.addev', tx, dd, rp),
+      h('div.keyrow.wrapit.addev', tx, dd, tm, rp),
       h('div.keyrow.wrapit', button('SAVE', save, 'on'), button('CANCEL', () => {
         editing = '';
         draft = null;
@@ -343,7 +357,7 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     star.setAttribute('aria-label', t.star ? `Unstar ${t.text}` : `Star ${t.text}`);
     const del = button('✕', () => void removeTodo(t.id), 'todox');
     del.setAttribute('aria-label', `Remove ${t.text}`);
-    const words = [t.done ? 'Done' : dueWords(t.due, now), t.every ? `repeats ${everyWords(t.every)}` : ''].filter(Boolean).join(' · ');
+    const words = [t.done ? 'Done' : whenWords(t, now), t.every ? `repeats ${everyWords(t.every)}` : ''].filter(Boolean).join(' · ');
     // tap the words to change them (and the day, and the repeat)
     const tx = h('button.todotx', { type: 'button', 'aria-label': `Change ${t.text}`, 'aria-expanded': String(editing === t.id) }, h('b', t.text), words ? h('small', words) : null);
     tx.addEventListener('click', () => {
@@ -378,6 +392,8 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     if (l.length) p.body.append(h('div.todolist', { role: 'list', 'aria-label': 'To-do' }, ...l.map(item)));
     const done = all.filter((t) => t.done);
     if (done.length) p.body.append(h('div.keyrow', button(`CLEAR DONE (${done.length})`, () => void clearDone())));
+    // [planlane4:tasks] a timed one rings by notification: with none on this phone, said once under the list
+    if (all.some((t) => !t.done && t.time) && pushState.get().status !== 'on') p.body.append(h('p.todoline.tdringoff', { dataset: { case: 'keep' } }, RING_OFF));
   };
   // every change (here, from the chat, an UNDO) repaints the list, the month and the agenda's top line
   addEventListener(TODO_CHANGED, () => {

@@ -19,6 +19,9 @@ export interface Todo {
   star?: boolean;
   /** a to-do that comes back: ticking it makes the next one (todo.ts) */
   every?: Every;
+  /** [planlane4:tasks] the time it rings on its day, "15:00" (London): the brain's own reminder job rings it by Web Push, so it rings
+   * with the phone locked; a tick or a removal stops it, a new time moves it */
+  time?: string;
 }
 export type Every = 'daily' | 'weekdays' | 'weekly' | 'monthly';
 export const EVERY: [Every | '', string][] = [['', 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['monthly', 'Every month']];
@@ -71,6 +74,24 @@ export function dueWords(due: string, now: number): string {
   const [y, m, d] = due.split('-').map(Number);
   return `Due ${new Date(y!, m! - 1, d!).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`;
 }
+
+/** [planlane4:tasks] A to-do's day and time in his words, for its row: "Due today · rings at 15:00", "Due today · rang at 09:00" (its
+ * time gone), "Due Fri 20 Nov · rings at 08:30"; a late one says only how late it is. */
+export function whenWords(t: Pick<Todo, 'due' | 'time' | 'done'>, now: number): string {
+  const d = dueWords(t.due, now);
+  if (!t.time || !t.due || t.done) return d;
+  const n = daysTo(t.due, now);
+  if (n < 0) return d;
+  const hm = `${p2(new Date(now).getHours())}:${p2(new Date(now).getMinutes())}`;
+  return `${d} · ${n === 0 && t.time <= hm ? 'rang' : 'rings'} at ${t.time}`;
+}
+/** The day a to-do given a time and no day rings: today while the time is still ahead, else tomorrow (a reminder app's "at 3"). */
+export const ringDayOf = (time: string, now: number): string => {
+  const d = new Date(now);
+  return `${p2(d.getHours())}:${p2(d.getMinutes())}` < time ? dayOf(now) : dayOf(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime());
+};
+/** Said under the list when a to-do has a time but this phone has no notifications on: it would ring only in Ghosty, not locked. */
+export const RING_OFF = 'Timed to-dos ring by notification. Tap NOTIFY THIS DEVICE under Reminders so they ring with the phone locked.';
 
 /** The order the list keeps: open ones first (late, then starred, then by day, then those with no day, oldest added first), the done ones last (newest ticked first). */
 export function sortTodos(l: readonly Todo[], now = Date.now()): Todo[] {
