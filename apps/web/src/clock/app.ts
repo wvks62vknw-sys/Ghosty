@@ -1,7 +1,7 @@
 /**
  * THE CLOCK (APPS ROUND, polish3.n1), an app of its own built on the App Kit (ui/appkit.ts): the time here, big, with the
  * date; WORLD CLOCKS for the cities he keeps (each with how it stands to here, summer time included); a STOPWATCH with
- * laps; and TIMERS that ring (the same timers as the kitchen's, so a lock screen reminder reaches him too). Everything works
+ * laps; and TIMERS that ring (the same timers as the kitchen's: they ring while Ghosty is open). Everything works
  * with no signal: the cities and their zones are in the app, and the phone keeps the time. Opened from the chat ("open the
  * clock", "world clock", "stopwatch") and from System.
  */
@@ -159,7 +159,7 @@ export async function openClock(start: 'world' | 'stopwatch' | 'timer' = 'world'
     clockState.laps = laps.length;
   };
 
-  // ---- TIMERS: the kitchen's timers (they ring here, and on a locked phone where reminders are on)
+  // ---- TIMERS: the kitchen's timers (they ring while Ghosty is open, on any screen)
   const timers = await import('../features/kitchen/timers');
   const timerList = h('div.clktimers', { role: 'list', 'aria-label': 'Timers running' });
   const paintTimers = () => {
@@ -168,7 +168,7 @@ export async function openClock(start: 'world' | 'stopwatch' | 'timer' = 'world'
       ? list.map((t) => h('div.clktimer', { role: 'listitem', dataset: { timer: t.id, ringing: String(t.ringing) } },
           h('span', h('b', t.name), h('span', ` ${t.ringing ? 'ringing' : leftWords(t.left * 1000)}`)),
           key(t.ringing ? 'Stop' : 'Cancel', () => (timers.stopTimer(t.id), paintTimers()), { kind: t.ringing ? 'fill' : 'ghost' })))
-      : [h('p.note', 'No timer running. Pick one above; it rings even with the clock shut.')]));
+      : [h('p.note', 'No timer running. Pick one above; it rings even with the clock shut, while Ghosty is open.')]));
     clockState.timers = list.length;
   };
   const offTimers = timers.onTimers(paintTimers);

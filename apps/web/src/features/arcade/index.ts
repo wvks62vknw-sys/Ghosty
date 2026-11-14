@@ -963,7 +963,7 @@ function player(e: ShelfEntry, title = e.title) {
     let ok = typeof DeviceMotionEvent !== 'undefined';
     if (ok && ask) ok = (await ask().catch(() => 'denied')) === 'granted';
     if (!ok) {
-      gyroNote.textContent = 'This phone did not allow motion, so gyro aim stays off. You can allow it in Settings, Safari, Motion & Orientation Access.';
+      gyroNote.textContent = 'This phone did not allow motion, so gyro aim stays off. ' + 'You can allow it in Settings, Safari, Motion & Orientation Access.';
       return paintGyro();
     }
     setGyro(true);

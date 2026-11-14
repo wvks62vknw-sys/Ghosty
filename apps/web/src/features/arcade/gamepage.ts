@@ -26,7 +26,7 @@ export const PAGE_WORDS = {
   fetch: 'Fetched only when you tap GET, on Wi-Fi, with its size said; then it plays with no signal.',
   saves: 'Your saved games stay on this phone: load them from the game’s own menu to carry on.',
   slots: 'SAVE SLOTS',
-  slotsLine: 'Keep where you are under a name, and come back to it whenever you like. Kept on this phone.',
+  slotsLine: 'Keep where you are under a name, and come back to it whenever you like. ' + 'Kept on this phone.',
   noSaves: 'Nothing saved in this game yet. Save in the game, then keep it here under a name.',
   slotName: 'A name for this slot',
   keep: 'KEEP A SLOT',
@@ -49,6 +49,8 @@ export interface PageOf {
   controls: string[];
   /** Where its scores are kept, when not under its id (a studio game's `studio.<id>`). */
   scoreKey?: string;
+  /** Close the page (ASK GHOSTY goes to the chat). */
+  close?: () => void;
 }
 
 const trophyRow = (t: Trophy) =>
@@ -124,11 +126,18 @@ export function gamePageBody(o: PageOf, onForget?: () => void): HTMLElement {
     const key = h('button.arcact.arcpageact', { type: 'button', 'aria-label': `${o.act()}: ${e.title}` }, o.act());
     key.classList.add(/^PLAY/.test(o.act()) ? 'play' : /^STOP/.test(o.act()) ? 'stop' : 'get');
     key.addEventListener('click', () => o.press());
+    // ASK GHOSTY: the chat, asked about this game (his tap; the question names the game, nothing of his)
+    const ask = h('button.arcask', { type: 'button', 'aria-label': `Ask Ghosty how to get better at ${e.title}` }, 'ASK GHOSTY');
+    ask.addEventListener('click', () => {
+      o.close?.();
+      location.hash = 'core';
+      void import('../../assistant/session').then((m) => m.send(`How do I get better at ${e.title}? Give me three tips.`));
+    });
     const sec = (title: string, ...kids: (Node | string | null)[]) => h('section.arcpsec', { dataset: { sec: title.toLowerCase() } }, h('div.lab', title), ...kids);
     clear(body,
       h('p.arcline', e.line),
       h('p.arcghost', h('b', 'Ghosty'), ` ${e.ghosty}`),
-      h('div.arcrow', key),
+      h('div.arcrow', key, ask),
       sec(PAGE_WORDS.shots, shots.length
         ? h('div.arcshots', { role: 'list', 'aria-label': `Screenshots of ${e.title}` }, ...shots.slice().reverse().map((s) => h('img.arcshot', { role: 'listitem', src: s.src, alt: `${e.title}, ${whenWords(s.at)}`, loading: 'lazy' })))
         : h('p.arcnote', { dataset: { state: 'empty' } }, PAGE_WORDS.noShots)),
@@ -164,7 +173,7 @@ export function gamePageBody(o: PageOf, onForget?: () => void): HTMLElement {
 /** Open a game's page over the Arcade. */
 export function openGamePage(o: PageOf, onClose?: () => void): { close(): void } {
   let m: { close(): void } | null = null;
-  const body = gamePageBody({ ...o, press: () => (m?.close(), o.press()) }, onClose);
+  const body = gamePageBody({ ...o, press: () => (m?.close(), o.press()), close: () => m?.close() }, onClose);
   m = modal(o.entry.title, body, onClose);
   return m;
 }

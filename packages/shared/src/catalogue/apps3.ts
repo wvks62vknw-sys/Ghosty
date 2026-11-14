@@ -52,4 +52,13 @@ export const APPS3_WORDS: Record<string, CatValue> = {
     cat: 'know',
     since: SINCE,
   },
+  'phrase:arcaderecord': {
+    name: 'Your arcade record by words',
+    line: 'You can say "show my trophies" or "continue my game" and I open the arcade there, with how many you have earned or what you played last.',
+    more: 'Worked out on your phone from what you played: nothing is sent anywhere. A game starts only on your tap, so its sound can play.',
+    say: ['Show my trophies', 'Continue my game', 'What did I play last?'],
+    scene: ['playing'],
+    cat: 'play',
+    since: SINCE,
+  },
 };

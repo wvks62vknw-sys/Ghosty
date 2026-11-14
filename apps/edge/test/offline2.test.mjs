@@ -426,5 +426,7 @@ test('apps round: the clock finds cities, knows each zone against here, and read
   assert.equal(ZO.leftWords(299_001), '5:00');
   assert.ok(WO.CLOCK_ASK.test('open the clock') && WO.CLOCK_ASK.test('Hey Ghosty, world clock') && WO.CLOCK_ASK.test('stopwatch'));
   assert.ok(!WO.CLOCK_ASK.test('set a timer for 5 minutes') && !WO.CLOCK_ASK.test('what time is it'));
+  assert.ok(WO.TROPHY_ASK.test('show my trophies') && WO.TROPHY_ASK.test('what have I earned') && WO.TROPHY_ASK.test('trophy room'));
+  assert.ok(WO.CONTINUE_ASK.test('continue my game') && WO.CONTINUE_ASK.test('what did I play last') && !WO.CONTINUE_ASK.test('continue'));
   assert.ok(WO.CALC_ASK.test('calculator') && WO.CALC_ASK.test('open the calculator') && !WO.CALC_ASK.test('beam calculator'));
 });

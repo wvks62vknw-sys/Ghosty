@@ -146,6 +146,13 @@ for (const [vp, tag] of [[PHONE, '440'], [PHONE2, '390']]) {
       await page.keyboard.press('Escape');
       await until(page, () => !document.querySelector('.modal .arcpage'));
     }
+    if (doom && tag === '440') {
+      // ASK GHOSTY: the page closes and the chat is asked about this game
+      await page.click(`#pg-arcade .arccard[data-id="${doom}"] .arcopen`);
+      await page.waitForSelector('.modal .arcask', { timeout: 10000 });
+      await page.click('.modal .arcask');
+      check(await until(page, () => !document.querySelector('.modal .arcpage') && location.hash === '#core' && [...document.querySelectorAll('#pg-core .msg.me')].some((m) => /How do I get better at/.test(m.textContent ?? '')), null, 15000), 'ASK GHOSTY did not ask the chat about the game');
+    }
     check(!fetched.length, `${tag} fresh: looking fetched ${fetched[0] ?? ''}`);
   } finally {
     await ctx.close();
@@ -170,6 +177,23 @@ for (const [i, world] of WORLDS.entries()) {
       for (const want of ['arcade:week', 'runner:first', 'runner:ten', 'runner:hour', 'runner:five', 'runner:best', 'flap:first']) check(s.earned.includes(want), `${world} ${tag}: THE TROPHY ROOM lacks ${want}`);
       check(/7 OF 15/.test(s.room), `${world} ${tag}: THE TROPHY ROOM counts "${s.room.slice(0, 80)}"`);
       await fit(page, `${world} ${tag} arcade`, '#pg-arcade .arccont, #pg-arcade .arcroom');
+      if (i === 0 && tag === '440') {
+        // by words: "show my trophies" answered on the phone, the arcade opened at THE TROPHY ROOM
+        await page.evaluate(() => (location.hash = 'core'));
+        await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
+        const sent = await page.evaluate(() => Date.now());
+        await page.fill('#cin', 'show my trophies');
+        await page.keyboard.press('Enter');
+        const reply = await page.waitForFunction(({ t }) => {
+          const msgs = [...document.querySelectorAll('#pg-core .msg')];
+          const mine = msgs.map((m) => m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t).lastIndexOf(true);
+          const r = mine < 0 ? null : msgs.slice(mine + 1).find((m) => !m.classList.contains('me') && /trophies/.test(m.textContent ?? ''));
+          return r ? (r.textContent ?? '').replace(/\s+/g, ' ') : null;
+        }, { t: sent }, { timeout: 20000 }).then((x) => x.jsonValue(), () => '');
+        check(/You have earned 7 of 15 trophies\. Last you played THE RUNNER, today\./.test(reply), `"show my trophies" answered "${reply.slice(0, 160)}"`);
+        check(await until(page, () => location.hash === '#arcade'), '"show my trophies" did not open the arcade');
+        await page.waitForSelector('#pg-arcade .arccard .arcopen', { timeout: 15000 });
+      }
       if (i === 0 || world === 'ink') {
         await page.click('#pg-arcade .arccontcard[data-cont="runner"] .arcmore');
         await page.waitForSelector('.modal .arcpage', { timeout: 10000 });

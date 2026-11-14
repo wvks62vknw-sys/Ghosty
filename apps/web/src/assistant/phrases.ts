@@ -78,7 +78,7 @@ import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shar
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
 import { TRIP_ASK } from '../ui/tripwords';
 import { WEATHER_ASK } from '../weather/words';
-import { CALC_ASK, CLOCK_ASK } from '../clock/words';
+import { CALC_ASK, CLOCK_ASK, CONTINUE_ASK, TROPHY_ASK } from '../clock/words';
 import { RAIN_ASK, setAsked, WALL_ASK } from '../features/eye/sets';
 import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
 
@@ -214,6 +214,7 @@ export const LOCAL_ASKS = [
   // [polish3] the CLOCK and the CALCULATOR, apps of their own (clock/app.ts, calc/app.ts)
   { id: 'clockapp', test: (t: string) => CLOCK_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'calcapp', test: (t: string) => CALC_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
+  { id: 'arcaderecord', test: (t: string) => TROPHY_ASK.test(t.trim().replace(/[?.!]+$/, '')) || CONTINUE_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'weatherapp', test: (t: string) => WEATHER_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },

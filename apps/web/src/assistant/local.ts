@@ -53,7 +53,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp' | 'clockapp' | 'calcapp';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp' | 'clockapp' | 'calcapp' | 'arcaderecord';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -440,6 +440,27 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const { openCalculator } = await import('../calc/app');
     openCalculator();
     return answer(text, 'Here’s the calculator. Your answers are kept on its tape.', { kind: 'calcapp' }, opts);
+  },
+  // [polish3] the ARCADE's record: "show my trophies" opens THE TROPHY ROOM, "continue my game" CONTINUE PLAYING (kept on the phone)
+  async arcaderecord(text, opts) {
+    const [{ allStats, playDays, recent, whenWords }, { trophyRoom }, { allScores }, { TROPHY_ASK }] = await Promise.all([import('../arcade/stats'), import('../arcade/trophies'), import('../arcade/scores'), import('../clock/words')]);
+    const trophies = TROPHY_ASK.test(text.trim().replace(/[?.!]+$/, ''));
+    const last = recent(allStats(), 1)[0];
+    const room = trophyRoom(allStats(), allScores(), playDays().length);
+    const title = trophies ? 'THE TROPHY ROOM' : 'CONTINUE PLAYING';
+    location.hash = 'arcade';
+    const t0 = Date.now();
+    const reveal = () => {
+      const p = [...document.querySelectorAll<HTMLElement>('#pg-arcade .pn')].find((x) => x.querySelector('.ptitle')?.textContent === title && !x.hidden);
+      if (p) p.scrollIntoView({ block: 'start' });
+      else if (Date.now() - t0 < 4000) setTimeout(reveal, 150);
+    };
+    setTimeout(reveal, 150);
+    const lastWords = last ? `Last you played ${last[1].title}, ${whenWords(last[1].last)}.` : 'You haven’t played anything yet.';
+    const say = trophies
+      ? `You have earned ${room.earned} of ${room.total} trophies.${room.games.length ? ` ${lastWords}` : ' Play anything on the shelf and they come.'}`
+      : last ? `${lastWords} CONTINUE is at the top of the Arcade.` : `${lastWords} The shelf is open.`;
+    return answer(text, say, { kind: 'arcaderecord' }, opts);
   },
   async camwall(text, opts) {
     location.hash = 'eye';
