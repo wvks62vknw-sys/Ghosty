@@ -181,6 +181,27 @@ export function changeField(d: AppDef, id: string, patch: Partial<Field>): AppDe
   if (!f) return d;
   Object.assign(f, { ...patch, id: f.id });
   if (patch.label) f.label = cap1(patch.label.trim().slice(0, 24));
+  if (patch.type) {
+    if (f.type === 'choice' || f.type === 'multi') f.options = f.options && f.options.length >= 2 ? f.options : DEFAULT_OPTIONS.slice();
+    else delete f.options;
+    if (f.type === 'money') delete f.unit;
+    if (f.type === 'scale') Object.assign(f, { min: f.min ?? 1, max: f.max ?? 10 });
+    if (f.type !== 'date' && f.default === 'today') delete f.default;
+    // what read the field as its old type and cannot read it now goes
+    const log = logOf(x)!;
+    const numeric = ['number', 'money', 'duration', 'rating', 'scale'].includes(f.type);
+    log.stats = (log.stats ?? []).filter((s) => s.field !== f.id || numeric || s.kind === 'count' || s.kind === 'distinct' || s.kind === 'last');
+    if (log.chart?.field === f.id && !numeric) delete log.chart;
+    if (log.group === f.id && f.type !== 'choice') delete log.group;
+    if (log.date === f.id && f.type !== 'date') delete log.date;
+    if (log.remind?.field === f.id && f.type !== 'date') delete log.remind;
+    if (log.views) {
+      const can = possibleViews(log);
+      log.views = log.views.filter((v) => can.includes(v) && (v !== 'board' || log.group) && (v !== 'calendar' || log.date));
+      if (!log.views.length) log.views = ['list'];
+    }
+    if (!log.date) log.stats = log.stats.filter((s) => s.kind !== 'streak' && (!s.period || s.period === 'all'));
+  }
   return finish(x, { sample: true });
 }
 
@@ -443,6 +464,34 @@ export const COLLECTIONS: Collection[] = [
     title: 'item', sub: '{country} {year}', meta: 'condition', date: 'added', group: 'condition', stats: [{ label: 'Items', kind: 'count' }, { label: 'Value', kind: 'sum', field: 'value' }, { label: 'Countries', kind: 'distinct', field: 'country' }], views: ['gallery', 'list', 'board'],
     sample: [{ item: 'Twopence piece', country: 'United Kingdom', year: 1971, condition: 'Fine', value: 1.5, added: '2026-08-14' }, { item: 'Ten franc coin', country: 'France', year: 1986, condition: 'Good', value: 2, added: '2026-09-30' }],
     keywords: ['collection', 'coins', 'stamps', 'collectables'], pitch: 'Every piece in your collection, with its year, condition and value.',
+  },
+  {
+    re: /\bwatch(?:es)?\b(?! ?list)|\bwristwatch(?:es)?\b|\btimepieces?\b/, name: 'Watches', glyph: 'clock', family: 'life',
+    fields: [{ id: 'model', label: 'Model', type: 'text', required: true }, { id: 'maker', label: 'Maker', type: 'text' }, { id: 'movement', label: 'Movement', type: 'choice', options: ['Automatic', 'Manual', 'Quartz', 'Solar'] }, { id: 'case', label: 'Case size', type: 'number', unit: 'mm', min: 20, max: 60 }, { id: 'year', label: 'Year', type: 'number', min: 1900, max: 2100 }, { id: 'paid', label: 'Paid', type: 'money' }, { id: 'serviced', label: 'Last serviced', type: 'date' }, PHOTO, NOTES],
+    title: 'model', sub: '{maker}, {case} mm', meta: 'movement', date: 'serviced', group: 'movement', stats: [{ label: 'Watches', kind: 'count' }, { label: 'Spent', kind: 'sum', field: 'paid' }], views: ['gallery', 'list', 'board'],
+    sample: [{ model: 'Field Automatic', maker: 'Harrow & Lane', movement: 'Automatic', case: 38, year: 2021, paid: 340, serviced: '2025-06-01' }, { model: 'Diver 200', maker: 'Northsea', movement: 'Quartz', case: 41, year: 2018, paid: 120 }],
+    keywords: ['watches', 'collection', 'timepieces'], pitch: 'Your watches, with movement, case size, what you paid and the last service.',
+  },
+  {
+    re: /\bcameras?\b|\blenses\b|\bfilm cameras?\b/, name: 'Cameras', glyph: 'camera', family: 'create',
+    fields: [{ id: 'model', label: 'Model', type: 'text', required: true }, { id: 'kind', label: 'Kind', type: 'choice', options: ['Film', 'Digital', 'Lens', 'Instant'] }, { id: 'mount', label: 'Mount', type: 'text' }, { id: 'year', label: 'Year', type: 'number', min: 1850, max: 2100 }, { id: 'condition', label: 'Condition', type: 'choice', options: ['Mint', 'Excellent', 'Good', 'Needs work'] }, { id: 'paid', label: 'Paid', type: 'money' }, { id: 'works', label: 'Working', type: 'check' }, PHOTO, NOTES],
+    title: 'model', sub: '{kind}, {year}', meta: 'condition', group: 'kind', stats: [{ label: 'Items', kind: 'count' }, { label: 'Spent', kind: 'sum', field: 'paid' }], views: ['gallery', 'list', 'board'],
+    sample: [{ model: 'Rangefinder 35', kind: 'Film', mount: 'Screw', year: 1968, condition: 'Good', paid: 95, works: true }, { model: '50 mm f/1.8', kind: 'Lens', mount: 'Bayonet', year: 1984, condition: 'Excellent', paid: 60, works: true }],
+    keywords: ['cameras', 'lenses', 'photography', 'collection'], pitch: 'Your cameras and lenses, with year, condition and whether each one works.',
+  },
+  {
+    re: /\bcoffee beans?\b|\bbeans i(?:'ve)? tried\b|\broasters?\b/, name: 'Coffee Beans', glyph: 'cup', family: 'body',
+    fields: [{ id: 'bean', label: 'Bean', type: 'text', required: true }, { id: 'roaster', label: 'Roaster', type: 'text' }, { id: 'origin', label: 'Origin', type: 'text' }, { id: 'roast', label: 'Roast', type: 'choice', options: ['Light', 'Medium', 'Dark'] }, { id: 'brew', label: 'Brewed as', type: 'multi', options: ['Espresso', 'Filter', 'Cafetière', 'Moka pot', 'Cold brew'] }, { id: 'notes', label: 'Tasting notes', type: 'text' }, { id: 'rating', label: 'Rating', type: 'rating' }, { id: 'opened', label: 'Opened', type: 'date', default: 'today' }],
+    title: 'bean', sub: '{roaster}, {origin}', meta: 'roast', date: 'opened', group: 'roast', stats: [{ label: 'Bags', kind: 'count' }, { label: 'Origins', kind: 'distinct', field: 'origin' }, { label: 'Average rating', kind: 'avg', field: 'rating' }], views: ['list', 'board', 'calendar'],
+    sample: [{ bean: 'Hill Farm Washed', roaster: 'Small Batch Roasters', origin: 'Ethiopia', roast: 'Light', brew: ['Filter'], notes: 'Jasmine and lemon', rating: 5, opened: '2026-10-28' }, { bean: 'House Blend', roaster: 'Corner Roastery', origin: 'Brazil and Colombia', roast: 'Medium', brew: ['Espresso', 'Moka pot'], notes: 'Chocolate and hazelnut', rating: 4, opened: '2026-11-09' }],
+    keywords: ['coffee', 'beans', 'roasts', 'tasting'], pitch: 'Coffee beans you have tried, with origin, roast, brew and tasting notes.',
+  },
+  {
+    re: /\bvideo ?games?\b|\bconsole games?\b|\bgame collection\b|\bbacklog\b/, name: 'Video Games', glyph: 'game', family: 'games',
+    fields: [{ id: 'title', label: 'Title', type: 'text', required: true }, { id: 'platform', label: 'Platform', type: 'text' }, { id: 'status', label: 'Status', type: 'choice', options: ['Backlog', 'Playing', 'Finished', 'Dropped'] }, { id: 'hours', label: 'Hours', type: 'number', unit: 'h', min: 0 }, { id: 'rating', label: 'Rating', type: 'rating' }, { id: 'finished', label: 'Finished', type: 'date' }, PHOTO, NOTES],
+    title: 'title', sub: 'platform', meta: 'status', date: 'finished', group: 'status', stats: [{ label: 'Games', kind: 'count' }, { label: 'Hours played', kind: 'sum', field: 'hours' }, { label: 'Finished this year', kind: 'count', period: 'year' }], views: ['board', 'list', 'gallery'],
+    sample: [{ title: 'Lantern Isles', platform: 'Handheld', status: 'Finished', hours: 32, rating: 5, finished: '2026-08-30' }, { title: 'Iron Orchard', platform: 'Console', status: 'Playing', hours: 11 }, { title: 'Star Courier', platform: 'Computer', status: 'Backlog' }],
+    keywords: ['video games', 'backlog', 'gaming', 'collection'], pitch: 'Your games, what you are playing, your backlog and the hours put in.',
   },
 ];
 

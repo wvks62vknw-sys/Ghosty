@@ -10946,6 +10946,15 @@ html .tlxsaid { margin: 0; font: var(--g-t-fine); letter-spacing: var(--g-tr-tru
 html button.tlxline { justify-content: flex-start; min-height: var(--g-target); padding: 0 var(--g-s-2); text-align: start; white-space: normal; overflow-wrap: anywhere; }
 /* (lines and other ways are his words or a translation, never interface labels: their own case, never capitals) */
 html #pg-translate button.tlxline, html #pg-translate button.tlxalt { text-transform: none; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); }
+html .tlxmore { border-top: var(--g-hair) solid var(--g-line-faint); padding-top: var(--g-s-1); }
+html .tlxmore summary { display: flex; align-items: center; min-height: var(--g-target); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); cursor: pointer; }
+html .tlxprefs { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html #pg-translate button.tlxswitch { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); width: 100%; min-height: var(--g-target); padding: 0 var(--g-s-2); text-transform: none; font: var(--g-t-body); color: var(--g-ink-1); }
+html #pg-translate button.tlxswitch b { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); }
+html #pg-translate button.tlxswitch[aria-checked="true"] b { color: var(--g-accent-text); }
+html .tlxhelp { margin: var(--g-s-1) 0 0; padding-inline-start: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-2); }
+html #pg-translate button[data-act="go"] { min-height: var(--g-target); }
+html #pg-translate button[data-act="go"][hidden] { display: none; }
 html .tlxempty { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
 
 /* JOURNAL (APPS ROUND, MEMORY lane): his own writing; every class `jn…`, colours from the tokens only */

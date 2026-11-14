@@ -317,6 +317,14 @@ await run(PHONE2);
   check(await until(page, (d) => window.__ghosty.comic.editing.drawn > d, drawn0), '[440] a robot balloon redraws the page');
   await page.click('#pg-comic button[aria-label="Undo the last change"]').catch(() => undefined);
 
+  // angled gutters for an action page, and back
+  const drawn1 = await page.evaluate(() => window.__ghosty.comic.editing.drawn);
+  await page.click('#pg-comic button[aria-label="Lean this page’s gutters for an action page, or put them straight"]');
+  check(await until(page, (d) => window.__ghosty.comic.editing.drawn > d && [...document.querySelectorAll('#pg-comic button')].some((b) => b.textContent.trim() === 'Angle the other way'), drawn1), '[440] ANGLED GUTTERS leans the page’s gutters and redraws it');
+  await page.click('#pg-comic button[aria-label="Lean this page’s gutters for an action page, or put them straight"]');
+  await page.click('#pg-comic button[aria-label="Lean this page’s gutters for an action page, or put them straight"]');
+  check(await until(page, () => [...document.querySelectorAll('#pg-comic button')].some((b) => b.textContent.trim() === 'Angled gutters')), '[440] and straight again on the third tap');
+
   // his photo behind the panel, then MAKE IT COMIC ART (flat colours, inked outlines)
   const photo = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 320, 240); gr.addColorStop(0, '#3a7bd5'); gr.addColorStop(1, '#f4d03f'); g.fillStyle = gr; g.fillRect(0, 0, 320, 240); g.fillStyle = '#c0392b'; g.beginPath(); g.arc(160, 120, 60, 0, 7); g.fill(); return c.toDataURL('image/png'); })).split(',')[1], 'base64');
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-comic button[aria-label="Put one of my own photos behind this panel"]')]);
