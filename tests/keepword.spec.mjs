@@ -38,6 +38,7 @@ const TURNS = [
   { at: lastWeekWed, q: 'are there trains to York on Saturday', a: 'Yes, every half hour from New Street.' },
   { at: lastWeekWed - 14 * DAY, q: 'trains to Bristol next month', a: 'From £24 if you book ahead.' },
   { at: yesterday - 3 * 3600_000, q: 'why is my Octopus Energy bill so high this month', a: 'It is 12% up on the same month last year.' },
+  { at: yesterday - 5 * 3600_000, q: 'the hedge at the back has grown over the footpath again', a: 'The council can ask the owner to cut it back.' },
 ];
 // (j) a bill on his HOME screen, from the same supplier as one of his questions
 const H = { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' };
@@ -77,6 +78,8 @@ async function run(vp, body) {
     if (!localStorage.getItem('ghosty.keep.seeded')) {
       localStorage.setItem('ghosty.keep.seeded', '1');
       localStorage.setItem('ghosty.chat', JSON.stringify({ entries: turns.flatMap((t) => [{ kind: 'user', text: t.q, at: t.at }, { kind: 'assistant', text: t.a, at: t.at + 4000 }]) }));
+      // (k) a letter of his
+      localStorage.setItem('ghosty.docs', JSON.stringify([{ id: 'doc-council', title: 'Letter to the council', kind: 'letter', at: Date.now() - 86_400_000, blocks: [{ id: 'b1', t: 'p', runs: [{ text: 'Dear Sir or Madam,' }] }, { id: 'b2', t: 'p', runs: [{ text: 'I am writing about the path behind my house.' }] }] }]));
       // (i) a workbook of his, its match four rows down
       localStorage.setItem('ghosty.sheets', JSON.stringify([{ id: 'bk-bills', title: 'House bills', at: Date.now() - 86_400_000, sheets: [{ name: 'Sheet1', cells: { A1: { v: 'Item' }, B1: { v: 'Cost' }, A2: { v: 'Council tax' }, B2: { v: 160 }, A3: { v: 'Water' }, B3: { v: 38 }, A4: { v: 'Boiler service' }, B4: { v: 95 } }, widths: {}, heights: {}, frozen: false }], names: {}, charts: [], view: { sheet: 0, sel: 'A1' } }]));
     }
@@ -229,6 +232,40 @@ async function run(vp, body) {
       check(shown, `${T} [j] the tap did not show the exchange`);
       await page.keyboard.press('Escape').catch(() => undefined);
     }
+  }
+
+  // (k) his past words while he writes (memory.c1): in the letter, FROM WHAT YOU SAID finds the hedge, and PUT IT IN puts it in the letter
+  if (!body) {
+    await page.evaluate(() => (location.hash = 'memory'));
+    await openSection(page, 'memory', 'Timeline');
+    const box = page.locator('#pg-memory input[type=search]').first();
+    await box.fill('path behind my house');
+    const doc = page.locator('#pg-memory .recallfind .recallrow[data-kind="doc"] .recallgo').first();
+    if (await doc.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false)) {
+      await doc.click();
+      const mineIn = page.locator('.dcminebox input').first();
+      const up = await mineIn.waitFor({ state: 'attached', timeout: 10000 }).then(() => true, () => false);
+      check(up, `${T} [k] the letter has no FROM WHAT YOU SAID`);
+      if (up) {
+        await mineIn.scrollIntoViewIfNeeded().catch(() => undefined);
+        await mineIn.fill('the hedge');
+        await page.locator('.dcminebox button', { hasText: 'SEARCH MY WORDS' }).click();
+        const line = page.locator('.dcminebox .dcmine').filter({ hasText: 'grown over the footpath' }).first();
+        const found = await line.waitFor({ state: 'visible', timeout: 6000 }).then(() => true, () => false);
+        check(found, `${T} [k] FROM WHAT YOU SAID did not find the hedge: "${await page.evaluate(() => document.querySelector('.dcminebox')?.textContent ?? '')}"`);
+        if (found) {
+          const put = line.locator('button');
+          const bx = await put.boundingBox();
+          check(bx && bx.height >= 43.5 && bx.width >= 43.5, `${T} [k] PUT IT IN is ${bx?.width}×${bx?.height}`);
+          await put.click();
+          const inDoc = await page.waitForFunction(() => [...document.querySelectorAll('.dcpage .dcb')].some((b) => /grown over the footpath again/.test(b.textContent ?? '')), null, { timeout: 6000 }).then(() => true, () => false);
+          check(inDoc, `${T} [k] PUT IT IN did not put the words in the letter`);
+        }
+      }
+      await page.keyboard.press('Escape').catch(() => undefined);
+      await page.waitForFunction(() => !document.querySelector('.modal'), null, { timeout: 5000 }).catch(() => undefined);
+    } else check(false, `${T} [k] FIND did not find the letter`);
+    await box.fill('');
   }
 
   // (f) MEMORY → YOUR WORD
