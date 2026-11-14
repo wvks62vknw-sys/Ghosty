@@ -458,6 +458,8 @@ export const libraryTab: TabDef = {
     const compact = (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
       r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH[d.kind] ?? PAGE)));
+      // (whose it is: a built-in book, or one of Ghosty's notebooks)
+      r.dataset.whose = d.builtin ? 'builtin' : 'notebook';
       (r.lastChild as HTMLElement).title = `${d.passages} passage${d.passages === 1 ? '' : 's'}`;
       return r;
     };
