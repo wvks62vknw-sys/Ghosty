@@ -14,7 +14,7 @@ import type { AppDef, Field, LogConfig, Skin, Stat } from '../../../../../../pac
 import { quickAdd, quickExample } from '../../../../../../packages/shared/src/applib/quickadd';
 import css from './log.css';
 import { registerRenderer, redraw, toolKey } from '../registry';
-import { blank, dayWords, extra, fill, mins, money, newId, num, queryOf, recordOf, sectionHead, show, today, type Rec, type Val } from '../engine';
+import { MINUTES, blank, dayWords, extra, fill, mins, money, newId, num, queryOf, recordOf, sectionHead, show, today, type Rec, type Val } from '../engine';
 import { glyphOf } from '../glyphs';
 
 const PLUS = '<path d="M12 5v14M5 12h14"/>';
@@ -72,7 +72,7 @@ export function statWords(log: LogConfig, s: Stat, v: number | null): string {
   const f = s.field ? log.fields.find((x) => x.id === s.field) : undefined;
   if (s.kind === 'count' || s.kind === 'streak' || s.kind === 'distinct') return s.kind === 'streak' ? `${v} ${v === 1 ? 'day' : 'days'}` : num(v, 0);
   if (f?.type === 'money') return money(v);
-  if (f?.type === 'duration') return mins(v);
+  if (f?.type === 'duration' || MINUTES.test(f?.unit ?? '')) return mins(v);
   return `${num(v, s.kind === 'avg' ? 1 : 2)}${f?.unit ? ` ${f.unit}` : ''}`;
 }
 
@@ -136,7 +136,7 @@ function sparkline(vals: number[], cls = 'al-spark'): SVGSVGElement {
 }
 
 /** The hero: the first stat big, with its trend, its goal ring and a sparkline; the others as metric tiles under it. */
-function heroStrip(log: LogConfig, rows: Rec[]): HTMLElement | null {
+function heroStrip(log: LogConfig, rows: Rec[], skin?: Skin): HTMLElement | null {
   if (!log.stats?.length) return null;
   const tile = (s: Stat, big: boolean) => {
     const v = statValue(log, s, rows);
@@ -155,7 +155,48 @@ function heroStrip(log: LogConfig, rows: Rec[]): HTMLElement | null {
       sp ? sparkline(sp) : null);
   };
   const [first, ...rest] = log.stats;
-  return h('div.al-stats', { role: 'group', 'aria-label': 'Summary' }, tile(first!, true), ...rest.map((s) => tile(s, false)));
+  // never one tile alone on a row: one fills the row, three sit three across, otherwise two across (the odd row three)
+  const n = rest.length;
+  const span = (i: number) => (n === 1 ? 6 : n === 3 ? 2 : n % 2 && i < 3 ? 2 : 3);
+  if (skin === 'data') return stories(log, rows, tile);
+  return h('div.al-stats', { role: 'group', 'aria-label': 'Summary' }, tile(first!, true), ...rest.map((s, i) => { const t = tile(s, false); t.dataset.span = String(span(i)); return t; }));
+}
+
+/** The data skin: story cards, one big number and one sentence each, swiped (or tapped) one to the next, like a year in review. */
+function stories(log: LogConfig, rows: Rec[], tile: (s: Stat, big: boolean) => HTMLElement): HTMLElement {
+  const all = log.stats!;
+  let at = 0;
+  const when = (s: Stat) => (s.period === 'day' ? 'today' : s.period && s.period !== 'all' ? `this ${s.period}` : 'in all');
+  const sentence = (s: Stat) => {
+    const v = statWords(log, s, statValue(log, s, rows));
+    const lead = s.kind === 'avg' ? 'On average' : s.kind === 'max' ? 'Your highest' : s.kind === 'min' ? 'Your lowest' : s.kind === 'last' ? 'The latest' : s.kind === 'streak' ? 'Your run of days' : '';
+    return `${lead ? `${lead}, ` : ''}${s.label.toLowerCase()} ${when(s)}: ${v}.`.replace(/^./, (c) => c.toUpperCase());
+  };
+  const card = h('div.al-story', { role: 'group', 'aria-roledescription': 'story' });
+  const dots = h('div.al-storydots', { 'aria-hidden': 'true' }, ...all.map(() => h('i')));
+  const show_ = (d: number) => {
+    at = (at + d + all.length) % all.length;
+    const s = all[at]!;
+    const t = tile(s, true);
+    t.classList.add('al-storycard');
+    t.querySelector('.al-statwords')?.append(h('p.al-storyline', sentence(s)));
+    t.setAttribute('aria-label', `${at + 1} of ${all.length}. ${t.getAttribute('aria-label')}`);
+    card.replaceChildren(t);
+    card.dataset.at = String(at);
+    [...dots.children].forEach((x, i) => x.classList.toggle('al-on', i === at));
+  };
+  let x0 = 0, on = false;
+  card.addEventListener('pointerdown', (e) => { x0 = e.clientX; on = true; });
+  card.addEventListener('pointerup', (e) => {
+    if (!on) return;
+    on = false;
+    const dx = e.clientX - x0;
+    if (Math.abs(dx) > 40) show_(dx < 0 ? 1 : -1);
+  });
+  const next = all.length > 1 ? key('', () => show_(1), { label: 'Next story', glyph: '<path d="M9 5l7 7-7 7"/>' }) : null;
+  const prev = all.length > 1 ? key('', () => show_(-1), { label: 'Previous story', glyph: '<path d="M15 5l-7 7 7 7"/>' }) : null;
+  show_(0);
+  return h('div.al-stats.al-stories', { role: 'group', 'aria-label': 'Your story' }, card, all.length > 1 ? h('div.al-storynav', prev, dots, next) : null);
 }
 
 /** The chart: one number field over the last 7 days, 30 days or 12 months; rounded bars, a labelled axis and today lit. */
@@ -179,8 +220,8 @@ function chart(log: LogConfig, rows: Rec[], now = new Date()): HTMLElement | nul
       buckets.push({ label: n === 7 ? WD[(d.getDay() + 6) % 7]! : i % 7 === 0 ? String(d.getDate()) : '', v: rows.filter((r) => dateOf(log, r) === day).reduce((a, r) => a + val(r), 0), now: i === 0 });
     }
   }
-  const sayN = (v: number) => (f?.type === 'money' ? money(v) : f?.type === 'duration' ? mins(v) : `${num(v)}${f?.unit ? ` ${f.unit}` : ''}`);
-  const short = (v: number) => (f?.type === 'money' ? `£${v >= 1000 ? `${num(v / 1000, 1)}k` : num(v, 0)}` : f?.type === 'duration' ? (v >= 60 ? `${num(v / 60, 1)}h` : `${num(v, 0)}m`) : v >= 1000 ? `${num(v / 1000, 1)}k` : num(v, 1));
+  const sayN = (v: number) => (f?.type === 'money' ? money(v) : f?.type === 'duration' || MINUTES.test(f?.unit ?? '') ? mins(v) : `${num(v)}${f?.unit ? ` ${f.unit}` : ''}`);
+  const short = (v: number) => (f?.type === 'money' ? `${v < 0 ? '−' : ''}£${Math.abs(v) >= 1000 ? `${num(Math.abs(v) / 1000, 1)}k` : num(Math.abs(v), 0)}` : f?.type === 'duration' || MINUTES.test(f?.unit ?? '') ? (v >= 60 ? `${num(v / 60, 1)}h` : `${num(v, 0)}m`) : v >= 1000 ? `${num(v / 1000, 1)}k` : num(v, 1));
   const top = Math.max(1e-9, ...buckets.map((b) => b.v));
   const L = 30, W = 320, H = 96, T = 14, n = buckets.length, bw = (W - L) / n;
   const total = buckets.reduce((a, b) => a + b.v, 0);
@@ -737,7 +778,7 @@ export function drawLog(root: HTMLElement, def: AppDef, k: KitApp, log: LogConfi
     const q = queryOf(k);
     const rows = sorted(log, all.filter((r) => matches(r, q)));
     const parts: (HTMLElement | null)[] = [opts.top?.() ?? null];
-    if (!q && all.length) parts.push(heroStrip(log, all), chart(log, all));
+    if (!q && all.length) parts.push(heroStrip(log, all, skin), chart(log, all));
     if (opts.add !== false && !q) parts.push(bar ??= quickBar(def, log, k));
     if (views.length > 1 && all.length) {
       parts.push(h('div.al-seg', { role: 'tablist', 'aria-label': 'Views' }, ...views.map((w) => {

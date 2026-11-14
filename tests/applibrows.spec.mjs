@@ -32,6 +32,19 @@ const SPEND = {
   },
   sample: [{ name: 'Lunch', amount: 12, category: 'Food', date: day(0), rating: 4 }, { name: 'Train', amount: 48, category: 'Travel', date: day(0) }, { name: 'Cinema', amount: 50, category: 'Fun', date: day(-7) }],
 };
+const SETS = {
+  id: 'spec-sets', name: 'Spec Sets', family: 'body', glyph: 'dumbbell', archetype: 'log', pitch: 'Every set, its weight and its reps.', keywords: ['spec sets'], tour: T,
+  log: { fields: [{ id: 'name', label: 'Exercise', type: 'text', required: true }, { id: 'weight', label: 'Weight', type: 'number', unit: 'kg' }, { id: 'reps', label: 'Reps', type: 'number' }, { id: 'pnl', label: 'Gain', type: 'money' }, { id: 'date', label: 'Date', type: 'date' }],
+    title: 'name', sub: '{reps} at {weight} kg', meta: 'pnl', date: 'date', stats: [{ label: 'Sets', kind: 'count' }, { label: 'Heaviest', kind: 'max', field: 'weight' }, { label: 'Gain', kind: 'sum', field: 'pnl' }] },
+  sample: [{ name: 'Squat', weight: 80, reps: 5, pnl: -640.35, date: day(0) }],
+};
+const YEAR = {
+  id: 'spec-year', name: 'Spec Year', family: 'data', glyph: 'music', archetype: 'log', pitch: 'Your listening, told as a year in review.', keywords: ['spec year'], tour: T,
+  log: { fields: [{ id: 'track', label: 'Track', type: 'text', required: true }, { id: 'artist', label: 'Artist', type: 'text' }, { id: 'mins', label: 'Listened', type: 'number', unit: 'min' }, { id: 'date', label: 'Date', type: 'date' }],
+    title: 'track', sub: 'artist', meta: 'mins', date: 'date',
+    stats: [{ label: 'Listening', kind: 'sum', field: 'mins' }, { label: 'Plays', kind: 'count' }, { label: 'Artists', kind: 'distinct', field: 'artist' }, { label: 'Longest', kind: 'max', field: 'mins' }] },
+  sample: [{ track: 'Hope', artist: 'A', mins: 100.2, date: day(0) }, { track: 'Tide', artist: 'B', mins: 32.2, date: day(-1) }],
+};
 const EMPTY = { ...SPEND, id: 'spec-spend-empty', name: 'Spec Empty', sample: [] };
 
 const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
@@ -43,12 +56,12 @@ await page.addInitScript(() => {
 });
 await page.goto(`${base}/#apps`);
 await page.waitForFunction(() => !!window.__ghosty?.applib, null, { timeout: 30000 });
-const A = '#pg-apps .ak-app';
+const A = '.al-pro-frame .ak-app';
 const wait = (ms) => page.evaluate((m) => new Promise((r) => setTimeout(r, m)), ms);
 const tryApp = async (def) => {
   await page.evaluate((d) => window.__ghosty.applib.try(d), def);
   await page.waitForSelector(`.ak-app[data-app="${def.id}"]`, { timeout: 8000 });
-  await page.evaluate(() => { for (const b of document.querySelectorAll('#pg-apps .ak-tour button')) b.click(); });
+  await page.evaluate(() => { for (let i = 0; i < 4; i++) document.querySelector('.ak-tour:not([hidden]) button')?.click(); });
   await wait(60);
 };
 const titles = () => page.$$eval(`${A} .al-row .ak-rowtitle`, (e) => e.map((x) => x.textContent));
@@ -148,6 +161,22 @@ const m = await page.evaluate((sel) => {
   return { small: keys.filter((b) => b.getBoundingClientRect().height < 43.5).map((b) => b.getAttribute('aria-label') || b.textContent).slice(0, 4), sideways: document.documentElement.scrollWidth > innerWidth };
 }, A);
 check(!m.small.length && !m.sideways, `[fit] ${JSON.stringify(m)}`);
+
+// ── units said once, a true minus, minutes as time, tiles never alone, the data skin's stories ──────────
+await tryApp(SETS);
+check((await page.textContent(`${A} .al-row .ak-rowsub`)) === '5 at 80 kg', `[units] the line doubles its unit: "${await page.textContent(`${A} .al-row .ak-rowsub`)}"`);
+check((await page.textContent(`${A} .al-row .ak-rowmeta`)) === '−£640.35', `[money] a loss reads "${await page.textContent(`${A} .al-row .ak-rowmeta`)}"`);
+check(await page.$$eval(`${A} .al-stat:not(.al-lhero)`, (e) => e.map((x) => x.dataset.span).join()) === '3,3', '[tiles] two tiles are not side by side');
+await tryApp(YEAR);
+check(await page.locator(`${A} .al-stories .al-storycard`).count() === 1 && /2 h 12 min/.test(await page.textContent(`${A} .al-storycard b`)), `[data] no story card with its time: "${await page.textContent(`${A} .al-stories`).catch(() => '')}"`);
+check(/Listening in all: 2 h 12 min\./.test(await page.textContent(`${A} .al-storyline`)), `[data] the story's sentence: "${await page.textContent(`${A} .al-storyline`).catch(() => '')}"`);
+await page.click(`${A} .al-storynav button[aria-label="Next story"]`);
+check(/^2$/.test((await page.textContent(`${A} .al-storycard b`)).trim()) && await page.getAttribute(`${A} .al-story`, 'data-at') === '1', '[data] Next did not show the second story');
+const sc = await page.locator(`${A} .al-story`).boundingBox();
+await page.mouse.move(sc.x + sc.width * 0.8, sc.y + sc.height / 2); await page.mouse.down(); await page.mouse.move(sc.x + sc.width * 0.2, sc.y + sc.height / 2, { steps: 6 }); await page.mouse.up();
+check(await page.getAttribute(`${A} .al-story`, 'data-at') === '2', '[data] a swipe did not move to the next story');
+check((await page.textContent(`${A} .al-row:has-text("Hope") .ak-rowmeta`)) === '1 h 40 min', '[data] minutes do not read as time in the row');
+await page.screenshot({ path: `${out}/applibrows-data.png` });
 
 // ── the empty state ──────────────────────────────────────────────────────────────────────────
 await tryApp(EMPTY);

@@ -26,7 +26,11 @@ export const engineState = { open: '', archetype: '', drawn: 0, error: '' };
 
 export type Val = string | number | boolean | string[] | undefined | null;
 
-export const money = (n: number) => `£${(Math.round(n * 100) / 100).toLocaleString('en-GB', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+/** Money as he reads it: £12.50, and a loss with a true minus before the pound sign (−£640.35). */
+export const money = (n: number) => {
+  const a = Math.round(Math.abs(n) * 100) / 100;
+  return `${n < 0 && a ? '−' : ''}£${a.toLocaleString('en-GB', { minimumFractionDigits: a % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+};
 export const mins = (m: number) => {
   const t = Math.round(m);
   return t >= 60 ? `${Math.floor(t / 60)} h${t % 60 ? ` ${t % 60} min` : ''}` : `${t} min`;
@@ -40,6 +44,9 @@ export const dayWords = (d: string) => {
 };
 export const today = (at = new Date()) => `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
 
+/** A number field kept in minutes reads as time (2 h 12 min), never "132.4 min". */
+export const MINUTES = /^(min|mins|minutes)$/i;
+
 /** One value of a field, said the way he reads it (£12.50, 1 h 20 min, ★★★★, 12 km). */
 export function show(f: Field, v: Val): string {
   if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '';
@@ -50,7 +57,7 @@ export function show(f: Field, v: Val): string {
     case 'rating': return '★'.repeat(Math.max(0, Math.min(5, Math.round(Number(v))))) + '☆'.repeat(5 - Math.max(0, Math.min(5, Math.round(Number(v)))));
     case 'check': return v ? 'Yes' : 'No';
     case 'multi': return (Array.isArray(v) ? v : [String(v)]).join(', ');
-    case 'number': case 'scale': return `${num(Number(v))}${f.unit ? ` ${f.unit}` : ''}`;
+    case 'number': case 'scale': return MINUTES.test(f.unit ?? '') ? mins(Number(v)) : `${num(Number(v))}${f.unit ? ` ${f.unit}` : ''}`;
     case 'photo': return '';
     case 'link': return String(v).replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
     default: return `${String(v)}${f.unit ? ` ${f.unit}` : ''}`;
@@ -60,9 +67,18 @@ export function show(f: Field, v: Val): string {
 /** A title, line or meta from its field id or template ("{name} ({year})"), with empty brackets tidied away. */
 export function fill(log: LogConfig, t: string | undefined, f: Record<string, Val>): string {
   if (!t) return '';
-  const by = (id: string) => { const fd = log.fields.find((x) => x.id === id); return fd ? show(fd, f[id]) : ''; };
+  const by = (id: string, after = '') => {
+    const fd = log.fields.find((x) => x.id === id);
+    if (!fd) return '';
+    // the template writes the unit itself ("{weight} kg"): the value goes in bare, so it never reads "80 kg kg"
+    if (fd.unit && (fd.type === 'number' || fd.type === 'scale') && new RegExp(`^\\s?${fd.unit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}])`, 'u').test(after)) {
+      const v = f[id];
+      return v == null || v === '' ? '' : num(Number(v));
+    }
+    return show(fd, f[id]);
+  };
   if (!t.includes('{')) return by(t);
-  return t.replace(/\{([a-z0-9_]+)\}/g, (_, id: string) => by(id)).replace(/\(\s*\)|\[\s*\]/g, '').replace(/\s+([,.])/g, '$1').replace(/(^|\s)·(\s·)+/g, '$1·').replace(/\s*·\s*$/, '').replace(/^\s*·\s*/, '').replace(/^[\s,·-]+|[\s,·-]+$/g, '').replace(/\s{2,}/g, ' ');
+  return t.replace(/\{([a-z0-9_]+)\}/g, (m: string, id: string, at: number) => by(id, t.slice(at + m.length))).replace(/\(\s*\)|\[\s*\]/g, '').replace(/\s+([,.])/g, '$1').replace(/(^|\s)·(\s·)+/g, '$1·').replace(/\s*·\s*$/, '').replace(/^\s*·\s*/, '').replace(/^[\s,·-]+|[\s,·-]+$/g, '').replace(/\s{2,}/g, ' ');
 }
 
 /** A record of a log app as the kit keeps it: its title, line and meta worked out, its fields in `f`. */

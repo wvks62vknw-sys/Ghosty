@@ -3,20 +3,26 @@
    gallery, the charts, the empty state and the skeleton. Every class is al-, every colour a token (SHELL's al-pro accent where
    it is set, else the look's own). Injected once by drawLog. */
 html .al-app {
-  --al-l-acc: var(--al-pro-accent, var(--g-accent));
-  --al-l-acc-text: var(--al-pro-accent-text, var(--g-accent-text));
-  --al-l-soft: color-mix(in srgb, var(--al-l-acc) 16%, transparent);
-  --al-l-card: var(--al-pro-card, var(--g-plate-fill));
-  --al-l-radius: var(--al-pro-radius, 18px);
-  --al-l-num: 700 44px/48px var(--g-font-display);
+  --al-l-acc: var(--al-accent, var(--g-accent));
+  --al-l-acc-text: var(--al-accent, var(--g-accent-text));
+  --al-l-soft: var(--al-accent-soft, color-mix(in srgb, var(--g-accent) 16%, transparent));
+  --al-l-card: var(--g-plate-fill);
+  --al-l-radius: max(var(--al-pro-cardr, 14px), 14px);
+  --al-l-num: 700 var(--al-pro-heronum, 44px)/1.1 var(--al-pro-face-num, var(--g-font-display));
+  --al-pro-on-accent: var(--al-on-accent, var(--g-ink-1));
 }
 
 /* (the page above takes no touches of its own; what a finger drags or swipes here does) */
 html .al-app :is(.al-row, .al-rowface, .al-swback, .al-col, .al-bcard, .al-grip, .al-item, .al-quick, .al-quickrow) { pointer-events: auto; }
 
 /* ── the hero and the tiles ───────────────────────────────────────────────────────────── */
-html .al-app .al-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); margin: 0 0 var(--g-s-2); }
+html .al-app .al-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--g-s-1); margin: 0 0 var(--g-s-2); }
 html .al-app .al-stat { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--g-s-half) var(--g-s-1); min-width: 0; padding: var(--g-s-1) var(--g-s-1) var(--g-s-1) calc(var(--g-s-1) + 2px); border: 0; border-radius: var(--al-l-radius); background: var(--al-l-card); overflow: hidden; animation: al-rise .32s var(--g-ease-bring) both; }
+html .al-app .al-stat { grid-column: span 3; }
+html .al-app .al-stat[data-span="2"] { grid-column: span 2; }
+html .al-app .al-stat[data-span="6"] { grid-column: 1 / -1; }
+html .al-app .al-stat[data-span="2"] .al-statwords b { font-size: 18px; line-height: 24px; }
+html .al-app .al-stat[data-span="2"] .al-ringbox { display: none; }
 html .al-app .al-stat .al-statwords { grid-column: 1; grid-row: 1; }
 html .al-app .al-stat .al-ringbox { grid-column: 2; grid-row: 1; position: relative; display: grid; place-items: center; }
 html .al-app .al-stat .al-spark { grid-column: 1 / -1; width: 100%; height: 28px; }
@@ -41,6 +47,19 @@ html .al-app .al-ring.al-over .al-ringfg { stroke: var(--g-amber); }
 html .al-app .al-sparkline { fill: none; stroke: var(--al-l-acc); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 html .al-app .al-sparkfill { fill: var(--al-l-soft); stroke: none; }
 html .al-app .al-sparkdot { fill: var(--al-l-acc); }
+
+/* the data skin's story cards: one big number, one sentence, swiped one to the next */
+html .al-app .al-stories { display: block; }
+html .al-app .al-story { touch-action: pan-y; pointer-events: auto; }
+html .al-app .al-story .al-storycard { min-height: 200px; align-content: center; background: linear-gradient(150deg, var(--al-l-acc), color-mix(in srgb, var(--al-l-acc) 35%, var(--g-canvas))); animation: al-in .28s var(--g-ease-bring) both; }
+html .al-app .al-storycard .al-statwords b, html .al-app .al-storycard .al-statwords small, html .al-app .al-storycard .al-trend, html .al-app .al-storycard .al-ringpct { color: var(--al-pro-on-accent) !important; }
+html .al-app .al-storycard .al-sparkline, html .al-app .al-storycard .al-ringfg { stroke: var(--al-pro-on-accent); }
+html .al-app .al-storycard .al-sparkfill, html .al-app .al-storycard .al-sparkdot { fill: var(--al-pro-on-accent); opacity: .35; }
+html .al-app .al-storyline { margin: var(--g-s-1) 0 0; font: 600 19px/26px var(--g-font-text); color: var(--al-pro-on-accent); overflow-wrap: anywhere; }
+html .al-app .al-storynav { display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); margin-top: var(--g-s-half); }
+html .al-app .al-storydots { display: flex; gap: 6px; }
+html .al-app .al-storydots i { width: 7px; height: 7px; border-radius: 50%; background: var(--g-line); transition: width .2s; }
+html .al-app .al-storydots i.al-on { width: 20px; border-radius: 4px; background: var(--al-l-acc); }
 
 /* ── the chart ───────────────────────────────────────────────────────────────────────── */
 html .al-app .al-chartbox { margin: 0 0 var(--g-s-2); padding: var(--g-s-1) var(--g-s-1) var(--g-s-half); border-radius: var(--al-l-radius); background: var(--al-l-card); }
@@ -72,7 +91,7 @@ html .al-app .al-list { border-radius: var(--al-l-radius); background: var(--al-
 html .al-app .ak-row.al-row { position: relative; display: block; min-height: 64px; border-bottom: 0; overflow: hidden; touch-action: pan-y; }
 html .al-app .al-row + .al-row .al-rowface::before { content: ''; position: absolute; top: 0; left: 68px; right: 0; border-top: var(--g-hair) solid var(--g-line-faint); }
 html .al-app .al-rowface { position: relative; z-index: 1; display: flex; align-items: center; gap: var(--g-s-1); min-height: 64px; padding: 0 var(--g-s-1) 0 0; background: var(--al-l-card); transition: transform .26s var(--g-ease-bring); touch-action: pan-y; }
-html .al-app .al-rowface .ak-rowmain { flex: 1 1 auto; display: flex; align-items: center; gap: var(--g-s-1); min-width: 0; min-height: 64px; padding: var(--g-s-half) 0 var(--g-s-half) var(--g-s-1); border: 0; background: none; box-shadow: none; text-align: left; color: var(--g-ink-1); }
+html .al-app .al-rowface .ak-rowmain { flex: 1 1 auto; display: flex; flex-direction: row; align-items: center; gap: var(--g-s-1); min-width: 0; min-height: 64px; padding: var(--g-s-half) 0 var(--g-s-half) var(--g-s-1); border: 0; background: none; box-shadow: none; text-align: left; color: var(--g-ink-1); }
 html .al-app .al-rowface .ak-rowmain:active { background: var(--al-l-soft); }
 html .al-app .al-rowtext { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 html .al-app .al-rowtext .ak-rowtitle { font: 600 17px/22px var(--g-font-text); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
@@ -115,7 +134,7 @@ html .al-app[data-lskin="office"] .al-list { background: none; border-radius: 0;
 html .al-app[data-lskin="office"] .al-rowface { background: transparent; }
 
 /* ── the item's own page ─────────────────────────────────────────────────────────────── */
-html .al-app .al-item { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--al-pro-ground, var(--g-canvas)); animation: al-in .28s var(--g-ease-bring) both; }
+html .al-app .al-item { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--g-canvas); animation: al-in .28s var(--g-ease-bring) both; }
 html .al-app .al-item.al-leaving { animation: al-out .18s ease-in both; }
 html .al-app .al-itembar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--g-s-1); min-height: 52px; padding: env(safe-area-inset-top, 0px) var(--g-s-1) 0; }
 html .al-app .al-itembar .g-key { min-height: var(--g-target); min-width: var(--g-target); }
