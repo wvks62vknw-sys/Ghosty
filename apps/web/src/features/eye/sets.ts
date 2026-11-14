@@ -24,3 +24,24 @@ export function setAsked(text: string): SetKey | null {
   if (!m) return null;
   return m[1] === 'commuting' ? 'commute' : m[1] === 'weather' ? 'storm' : (m[1] as SetKey);
 }
+/** His words for his camera wall (wall.ts): "my camera wall", "show my cameras", "open the camera wall". */
+export const WALL_ASK = /^(?:(?:hey |ok )?(?:ghosty,? )?)(?:(?:show|open|give)(?: me)? )?(?:my|the) (?:camera wall|wall of cameras|cameras wall|pinned cameras)$|^(?:(?:show|open)(?: me)? )?my cameras$|^camera wall$/i;
+
+/** The line for home from the next two hours in quarter hours (mm of rain each); pure, so the spec reads it. */
+export function rainLine(slots: { t: number; mm: number }[], now: number, place: string): string {
+  const next = slots.filter((s) => s.t + 15 * 60_000 > now).slice(0, 8);
+  if (!next.length) return '';
+  const wet = next.find((s) => s.mm >= 0.1);
+  const raining = next[0]!.mm >= 0.1;
+  const kind = (mm: number) => (mm >= 4 ? 'heavy rain' : mm >= 1 ? 'rain' : 'light rain');
+  if (raining) {
+    const dry = next.find((s) => s.mm < 0.1);
+    return dry ? `${kind(next[0]!.mm)[0]!.toUpperCase()}${kind(next[0]!.mm).slice(1)} at ${place} now, easing in about ${Math.max(15, Math.round((dry.t - now) / 60_000 / 5) * 5)} minutes.` : `${kind(next[0]!.mm)[0]!.toUpperCase()}${kind(next[0]!.mm).slice(1)} at ${place} now, for the next two hours.`;
+  }
+  if (!wet) return `No rain at ${place} in the next two hours.`;
+  const mins = Math.max(5, Math.round((wet.t - now) / 60_000 / 5) * 5);
+  return `${kind(wet.mm)[0]!.toUpperCase()}${kind(wet.mm).slice(1)} at ${place} in about ${mins} minutes.`;
+}
+
+/** His words for the radar: "rain radar", "show me the rain radar", "the rain map", "replay the rain". */
+export const RAIN_ASK = /^(?:(?:hey |ok )?(?:ghosty,? )?)(?:(?:show|open|give)(?: me)? )?(?:the )?(?:rain radar|rain map|weather radar|radar)(?: for home)?$|^replay the (?:rain|radar)$/i;

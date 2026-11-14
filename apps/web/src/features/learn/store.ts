@@ -251,7 +251,7 @@ export async function removeCourse(id: string): Promise<void> {
   });
 }
 
-export async function quiz(a: { course?: string; topic?: string; n?: number; lesson?: number }): Promise<Quiz> {
+export async function quiz(a: { course?: string; topic?: string; n?: number; lesson?: number; lessons?: number[] }): Promise<Quiz> {
   const { quiz: q } = await call<{ quiz: Quiz }>('POST', '/quiz', a);
   learn.set((s) => ({ quizzes: [q, ...s.quizzes.filter((x) => x.id !== q.id)].slice(0, 6) }));
   return q;
