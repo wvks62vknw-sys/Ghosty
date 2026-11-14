@@ -91,6 +91,11 @@ phone and reaches the brain when the signal is back.
   - "Where's that parking fine letter?" or FIND "parking penalty" finds them, and a tap shows them whole.
   - The photo itself is never kept.
 - **WHAT'S NEW:** six lines for the things you will notice.
+- **From the sweep, two more pieces in YOUR WORD:**
+  - "Chats you pinned", each with OPEN and UNPIN; a pin made from a chat's card shows there at once (Apple Notes' pinned).
+  - "On this day last month": what you asked on this date a month ago (Day One's "on this day").
+- **All seven looks:** keepword now opens YOUR WORD in every look (scan, map, eye, orbit, grown, ink and glass) and checks 44 pt keys,
+  nothing sideways and no word cut. The whole spec runs in about 50 seconds here.
 
 ## How to try it on your phone
 
@@ -104,6 +109,13 @@ phone and reaches the brain when the signal is back.
 7. Open the Brief: CHASE sits on an email that needs an answer.
 8. Type three words in the "Go to, or ask" bar: your own things show under "Your things".
 9. Tap a recall result: the whole exchange, with PIN.
+
+## Merged
+
+- Into `claude/new-session-4erjve-next`:
+  - 7d1a32d7 (02:51);
+  - 9ed2f3d3 (03:20);
+  - ed0b2515 (04:59), after merging the renames (no old names were in my code or specs).
 
 ## Checks
 
@@ -145,8 +157,8 @@ phone and reaches the brain when the signal is back.
 | --- | --- | --- |
 | Mem: everything found by one search | One search covers chats, documents, pages, decks, sheets, the library, links, to-dos and what the Lens read, also from the jump bar, landing on the paragraph, cell or slide | |
 | Mem: things resurface when relevant | RECALL lines in replies; "like you said on Tuesday" | |
-| Apple Notes: pinned notes | Pinned chats stay past 30 days | A "Pinned" filter in the timeline |
-| Day One: on this day, a journal by date | "What was I doing on the 3rd?", recall by month | An "On this day last month" card |
+| Apple Notes: pinned notes | Pinned chats stay past 30 days, listed in YOUR WORD with UNPIN | |
+| Day One: on this day, a journal by date | "What was I doing on the 3rd?", recall by month, "On this day last month" in YOUR WORD | |
 | Day One: weekly digest | The Sunday card and "how was my week?" | |
 | Readwise: daily review of highlights | — | A daily resurfacing of one pinned chat |
 | Things/Todoist-like: promises with due days | YOUR WORD with DONE, LATER, LET GO | Promises in PLAN's one list (the PLAN lane's `plan.u1` reads them) |
@@ -158,4 +170,4 @@ phone and reaches the brain when the signal is back.
 - **The exact email thread:** the chase follows the sender and the subject. A true thread id isn't used, because the Brief's mail lines
   don't carry one yet.
 - **Promises as items in PLAN's one list (`plan.u1`):** for the PLAN lane to read from `/profile/keep`.
-- **From the sweep:** a "Pinned" filter in the timeline, an "On this day last month" card, and a daily resurfacing of one pinned chat.
+- **From the sweep:** a daily resurfacing of one pinned chat (Readwise's daily review).

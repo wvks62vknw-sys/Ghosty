@@ -187,3 +187,7 @@ export const pastWords = 'This day has gone. The diary shows what is still to co
 export function dueToday(l: readonly Todo[], now: number): Todo[] {
   return sortTodos(l.filter((t) => !t.done && t.due && daysTo(t.due, now) <= 0), now);
 }
+
+/** ONELIST: changes made on this phone that are still to reach the one list (the brain's), in his words. */
+export const todoWaitWords = (n: number, offline: boolean): string =>
+  `${n} ${n === 1 ? 'change' : 'changes'} kept on this phone: ${n === 1 ? 'it goes' : 'they go'} to your one list ${offline ? 'when the signal is back' : 'when Ghosty’s brain answers again'}.`;

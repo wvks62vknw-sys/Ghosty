@@ -62,6 +62,11 @@ export async function run(H) {
   // ---- the page, stood in: the clock at `hour`:05 today, the forecast above, the BBC down until `bbc.up`, no places saved
   // (its own phone, as the harness's phone() makes one, but with the clock and the stand-ins in place before the first load: no reload)
   async function brief(vp, world, hour, seed = {}, wx = { up: true }) {
+    // [planlane2:onelist] a page that brings its own to-do list starts the one list (the brain's) empty, as the harness's phone() does
+    if (Object.hasOwn(seed, 'ghosty.agenda.todo')) {
+      const r = await fetch(`${H.base}/api/packs/do`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': H.KEY }, body: JSON.stringify({ pack: 'work', action: 'todo', args: { words: 'clear my to-do list' } }) });
+      if (!r.ok) throw new Error(`the preview brain would not clear the one to-do list (${r.status})`);
+    }
     const ctx = await H.browser.newContext({ viewport: vp, locale: 'en-GB', timezoneId: 'Europe/London' });
     const bbc = { up: false };
     await ctx.addInitScript(({ world, seed, hour }) => {
