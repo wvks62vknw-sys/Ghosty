@@ -97,6 +97,8 @@ export const lookTab: TabDef = {
     const context = (): ScreenContext => ({ screen: 'look', title: 'The look', line: `the look, ${looking}`, looking, at: Date.now() });
     const facts = (): StampFacts => stampFacts(lookingAt(context()));
     const stamp = stampLine(facts);
+    // (in the house the shell draws the stamp line on every screen and this head's own is hidden: it says what I look at now too)
+    const shellStamp = () => dispatchEvent(new Event('ghosty:deck'));
     const states = h('div.glook-states', { role: 'status', 'aria-live': 'polite' });
     // (the screen's name is the navigation bar's large title, "The look": the head starts with the stamp under it)
     const hero = h('div.hero.glook-head',
@@ -306,6 +308,7 @@ export const lookTab: TabDef = {
         sightSaid.replaceChildren(...truthLine(on ? [{ text: 'Looking at', tone: 'strong' }, { text: what, tone: 'on' }] : 'Tap a thing: I look at it').childNodes);
         looking = on ? what.toLowerCase() : SECTION_WORDS[secs.current()] ?? 'the look';
         stamp.refresh();
+        shellStamp();
       };
       const r1 = reticle({ name: 'Library', tag: tag('Library'), body: h('span.gthing', icon(GLYPH.book), 'Shelf'), onTap: (r) => aim(r, 'the library') });
       const r2 = reticle({ name: 'Agenda', tag: tag('Agenda'), body: h('span.gthing', icon(GLYPH.agenda), 'Today'), onTap: (r) => aim(r, 'the agenda') });
@@ -493,6 +496,7 @@ export const lookTab: TabDef = {
       ensure(id);
       looking = SECTION_WORDS[id] ?? 'the look';
       stamp.refresh();
+      shellStamp();
       if (id === 'mind') void borrow();
     };
     secs.el.addEventListener('click', () => requestAnimationFrame(showing));
