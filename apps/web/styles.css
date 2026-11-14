@@ -11868,6 +11868,7 @@ html {
   --al-pro-tile-l1: .86; --al-pro-tile-l2: .66; --al-pro-tile-c: .13; --al-pro-tile-ink: .22; --al-pro-tile-round: .26;
   --al-pro-t-large: 700 32px/38px var(--g-font-display); --al-pro-t-hero: 700 44px/50px var(--g-font-display);
   --al-pro-t-name: 600 17px/22px var(--g-font-text); --al-pro-t-small: 600 16px/20px var(--g-font-text);
+  --al-pro-pill: 999px; --al-pro-r8: max(var(--g-radius-cell), 8px); --al-pro-r12: max(var(--g-radius-cell), 12px);
   --al-pro-ease: cubic-bezier(.2, 1.06, .32, 1); --al-pro-edge: oklch(1 0 0 / .14); --al-pro-shade: oklch(0 0 0 / .28);
 }
 html[data-ground="paper"] { --al-pro-l: .45; --al-pro-c: .12; --al-pro-on-l: .985; --al-pro-soft-a: .1; --al-pro-tile-l1: .74; --al-pro-tile-l2: .52; --al-pro-tile-ink: .985; --al-pro-edge: oklch(0 0 0 / .1); --al-pro-shade: oklch(0 0 0 / .12); }
@@ -11973,34 +11974,34 @@ html .al-pro-rowmain b { font: var(--al-pro-t-name); color: var(--g-ink-1); over
 html .al-pro-rowmain small { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html .al-pro-rowval { font: 600 16px/20px var(--al-pro-face-num); font-variant-numeric: tabular-nums; color: var(--g-ink-1); text-align: right; white-space: nowrap; }
 html .al-pro-card { padding: var(--g-s-2); border-radius: var(--al-pro-cardr); background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
-html body .al-pro-chip { display: inline-flex; align-items: center; gap: var(--g-s-half); min-height: var(--g-target); padding: 0 var(--g-s-2); border: 0; border-radius: 999px; background: var(--al-accent-soft); color: var(--g-ink-1); font: var(--g-t-caption); text-transform: none; }
+html body .al-pro-chip { display: inline-flex; align-items: center; gap: var(--g-s-half); min-height: var(--g-target); padding: 0 var(--g-s-2); border: 0; border-radius: var(--al-pro-pill); background: var(--al-accent-soft); color: var(--g-ink-1); font: var(--g-t-caption); text-transform: none; }
 html body .al-pro-chip[aria-pressed="true"], html body .al-pro-chip[aria-checked="true"] { background: var(--al-accent); color: var(--al-on-accent); }
 html body .al-pro-key { display: inline-grid; place-items: center; min-height: var(--al-pro-keyh); min-width: var(--al-pro-keyh); padding: 0 var(--g-s-2); border: 0; border-radius: var(--al-pro-cardr); background: var(--g-plate-strong-fill); color: var(--g-ink-1); font: 600 20px/24px var(--al-pro-face-num); text-transform: none; }
 html .al-pro-sechead h3 { color: var(--g-ink-2); }
 html .al-pro[data-skin="maker"] :is(.al-pro-card, .al-pro-hero) { background-image: linear-gradient(var(--g-line-faint) 1px, transparent 1px), linear-gradient(90deg, var(--g-line-faint) 1px, transparent 1px); background-size: 16px 16px; }
 
 /* ── the Library at App Store class: the featured hero, large icons, store rows with an Open pill, app pages ── */
-html body .al-lib .al-pro-feature { display: flex; flex-direction: column; align-items: stretch; gap: var(--g-s-2); width: 100%; min-height: 200px; padding: var(--g-s-3) var(--g-s-2) var(--g-s-2); border: 0; border-radius: max(var(--g-radius-cell), 8px); text-align: left; background: radial-gradient(120% 90% at 100% 0%, var(--al-accent-soft), transparent 70%), linear-gradient(170deg, var(--al-accent-soft), var(--g-plate-fill)); box-shadow: inset 0 0 0 var(--g-hair) var(--al-accent-line) !important; color: var(--g-ink-1); }
+html body .al-lib .al-pro-feature { display: flex; flex-direction: column; align-items: stretch; gap: var(--g-s-2); width: 100%; min-height: 200px; padding: var(--g-s-3) var(--g-s-2) var(--g-s-2); border: 0; border-radius: var(--al-pro-r8); text-align: left; background: radial-gradient(120% 90% at 100% 0%, var(--al-accent-soft), transparent 70%), linear-gradient(170deg, var(--al-accent-soft), var(--g-plate-fill)); box-shadow: inset 0 0 0 var(--g-hair) var(--al-accent-line) !important; color: var(--g-ink-1); }
 html body .al-lib .al-pro-feature .al-kicker { margin: 0; color: var(--al-accent); }
 html .al-pro-featurerow { display: flex; align-items: center; gap: var(--g-s-2); min-width: 0; }
 html .al-pro-featurewords { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
 html body .al-lib .al-pro-feature b { font: var(--al-pro-t-large); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .al-pro-featurepitch { font: var(--g-t-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
-html .al-pro-featureget { align-self: flex-start; display: inline-grid; place-items: center; min-height: var(--g-target); padding: 0 var(--g-s-3); border-radius: 999px; background: var(--al-accent); color: var(--al-on-accent); font: 600 15px/20px var(--g-font-text); }
+html .al-pro-featureget { align-self: flex-start; display: inline-grid; place-items: center; min-height: var(--g-target); padding: 0 var(--g-s-3); border-radius: var(--al-pro-pill); background: var(--al-accent); color: var(--al-on-accent); font: 600 15px/20px var(--g-font-text); }
 html .al-pro-tiles { gap: var(--g-s-1) var(--g-s-half); }
 html body .al-lib .al-pro-tiles .al-tile { padding: var(--g-s-half) 0; }
 html body .al-lib .al-pro-tiles .al-tile b { font: 500 12px/15px var(--g-font-text); text-align: center; }
 html body .al-lib .al-pro-store .al-appline { gap: var(--g-s-1); min-height: 76px; }
 html body .al-lib .al-approw { gap: var(--g-s-2); }
 html body .al-lib .al-approwwords b { font: var(--al-pro-t-name); color: var(--g-ink-1); }
-html body .al-pro-get { flex: none; display: inline-grid; place-items: center; min-height: var(--g-target); min-width: 72px; padding: 0 var(--g-s-2); border: 0; border-radius: 999px; background: var(--al-accent-soft); color: var(--g-ink-1); font: 700 14px/18px var(--g-font-text); text-transform: none; box-shadow: none; }
+html body .al-pro-get { flex: none; display: inline-grid; place-items: center; min-height: var(--g-target); min-width: 72px; padding: 0 var(--g-s-2); border: 0; border-radius: var(--al-pro-pill); background: var(--al-accent-soft); color: var(--g-ink-1); font: 700 14px/18px var(--g-font-text); text-transform: none; box-shadow: none; }
 html body .al-pro-seeall { min-height: var(--g-target); padding: 0 var(--g-s-1); border: 0; background: none; box-shadow: none; color: var(--g-ink-1); font: 600 15px/20px var(--g-font-text); text-transform: none; text-decoration: underline; text-decoration-color: var(--al-accent); text-underline-offset: 4px; }
 html body .al-lib .al-chip.al-pro { background: var(--al-accent-soft); border-color: var(--al-accent-line); }
-html body .al-lib .al-pro-about { padding: var(--g-s-2); border-radius: max(var(--g-radius-cell), 8px); background: linear-gradient(170deg, var(--al-accent-soft), transparent 85%); }
+html body .al-lib .al-pro-about { padding: var(--g-s-2); border-radius: var(--al-pro-r8); background: linear-gradient(170deg, var(--al-accent-soft), transparent 85%); }
 html body .al-lib .al-pro-about .al-bigicon { width: auto; height: auto; border: 0; background: none; }
 html body .al-lib .al-pro-about h3 { font: var(--al-pro-t-large); color: var(--g-ink-1); margin: 0; overflow-wrap: anywhere; }
 html body .al-lib .al-pro-about small { color: var(--al-accent); }
-html .al-pro-shot { display: flex; flex-direction: column; gap: var(--g-s-1); margin: var(--g-s-1) 0 var(--g-s-2); padding: var(--g-s-2); border-radius: max(var(--g-radius-cell), 12px); background: var(--g-plate-strong); box-shadow: inset 0 0 0 var(--g-hair) var(--al-accent-line), 0 16px 32px -20px var(--al-pro-shade); }
+html .al-pro-shot { display: flex; flex-direction: column; gap: var(--g-s-1); margin: var(--g-s-1) 0 var(--g-s-2); padding: var(--g-s-2); border-radius: var(--al-pro-r12); background: var(--g-plate-strong); box-shadow: inset 0 0 0 var(--g-hair) var(--al-accent-line), 0 16px 32px -20px var(--al-pro-shade); }
 html .al-pro-shothead { display: flex; align-items: center; gap: var(--g-s-1); font: var(--al-pro-t-name); color: var(--g-ink-1); }
 html .al-pro-shothero { display: flex; flex-direction: column; gap: 2px; padding: var(--g-s-2); border-radius: var(--al-pro-cardr); background: linear-gradient(160deg, var(--al-accent-soft), transparent); }
 html .al-pro-shothero small { font: var(--g-t-caption); color: var(--al-accent); }
