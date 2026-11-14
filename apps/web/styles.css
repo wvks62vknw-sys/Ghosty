@@ -7209,6 +7209,9 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html[data-world="ink"] body.housed :is(.scanset, .planroom) { background: none; }
   html[data-world="ink"] body.housed .scanset { border-width: var(--g-hair) 0; border-color: var(--g-line-faint); }
   html[data-world="ink"] body.housed .g-ret-frame { border-color: var(--g-line-faint); }
+  /* (a room's band: no corner for its number to hang on, so the number stands over its icon, a step above it at any BODY, the pair in the middle of the frame) */
+  html[data-world="ink"] body.housed .roomband .bandret .g-index { left: 0; right: 0; top: auto; bottom: calc(50% + var(--g-s-1)); padding: 0; text-align: center; }
+  html[data-world="ink"] body.housed .roomband .bandret .bandglyph { margin-top: 0; }
 }
 
 /* =====================================================================================================================
