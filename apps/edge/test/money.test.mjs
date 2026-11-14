@@ -636,3 +636,14 @@ test('every statement shape: an OFX file (with its closing balance) and a QIF fi
   assert.equal(b.result.duplicates, 1, 'the payment both files hold is not kept twice');
   assert.equal(b.result.added, 2);
 });
+
+test('a shop’s page: every payment there across the statements, a total for each month, the average and its rule', async () => {
+  const storage = new Mem();
+  await storage.put({ spend: { months: ['2026-09', '2026-10'], rows: 4, rules: { 'TESCO STORES': 'groceries' }, budgets: {} }, 'spend:m:2026-09': ROWS.slice(0, 1).concat([{ d: '2026-09-12', t: 'TESCO STORES', a: -30, k: 'TESCO STORES', c: 'groceries', by: 'you' }]), 'spend:m:2026-10': ROWS.slice(1) });
+  const r = await B['src/tools/moneyapp.ts'].MONEY_APP.shop({ k: 'TESCO STORES' }, deps(storage));
+  assert.deepEqual(r.data.months, [{ month: '2026-09', out: 30, n: 1 }, { month: '2026-10', out: 50, n: 1 }]);
+  assert.equal(r.data.total, 80);
+  assert.equal(r.data.average, 40);
+  assert.equal(r.data.rule, 'groceries');
+  assert.deepEqual([r.data.first, r.data.last], ['2026-09-12', '2026-10-29']);
+});

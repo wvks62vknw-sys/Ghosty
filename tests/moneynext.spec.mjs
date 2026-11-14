@@ -3,7 +3,7 @@
 //
 //   SAFE      YOUR MONTH asks for payday first, keeps it, then shows safe to spend and a day's worth equal to the brain's own sums
 //             to the penny, with every payment still due before payday; his sorting rules are listed with their counts and change;
-//             one payment split across two categories.
+//             one payment split across two categories; a shop's own page from WHERE IT WENT MOST.
 //   CAR       the car's money a month from his statements, a first estimate; CANCEL: a subscription's own cancel page on his tap.
 //   GOALS     a goal kept from the screen with its bar and what it is a month; money put in; taken away.
 //   SHARED    a household bill shared three ways says who owes whom; settled on a tap says nothing was paid or sent.
@@ -205,6 +205,13 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     await bar(page, T('RULES bar'), 'money', '.modal .pk');
     await page.click('.modal button[aria-label="Take away the rule for TESCO STORES"]');
     check(await until(page, () => !(window.__ghosty.moneyplan.rules ?? []).length, null, 10000) && /No rules of your own yet/.test(await txt(page, '.modal [data-state="empty"]')), T('RULES a rule taken away goes, and the empty list says how one is made'));
+    await page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
+    // a shop's own page, from WHERE IT WENT MOST
+    await page.locator(`${P} button[aria-label^="Open the page for "]`).first().click();
+    check(await until(page, () => /^\S.* \d+ £[\d,]+\.\d\d$/.test(window.__ghosty.moneyplan.shop ?? ''), null, 10000), T(`SHOP its page with every payment there: "${await page.evaluate(() => window.__ghosty.moneyplan.shop)}"`));
+    await page.waitForTimeout(400);
+    check(/MONTH BY MONTH/.test(await txt(page, '.modal .lab')) && /EVERY PAYMENT/.test(await txt(page, '.modal .lab')), T('SHOP month by month and every payment'));
+    await bar(page, T('SHOP bar'), 'money', '.modal .pk');
     await page.evaluate(() => document.querySelector('.modal .mhead button')?.click());
     // one payment split across two categories
     await page.fill(`${P} input.mnsearch`, 'tesco');
