@@ -44,8 +44,12 @@ export function nextTry(tries: number, why: WaitWhy, now: number): number {
 
 /** The fail from the brain as a reason to wait, or null when waiting would not help (a real failure, not a busy one). */
 export function waitWhy(code: string | undefined, status: number | undefined, error = ''): WaitWhy | null {
-  if (code === 'quota' || status === 429 || /daily limit|more tomorrow|allowance/i.test(error)) return 'quota';
-  if (code === 'busy' || status === 503 || status === 504 || /\bbusy\b|took too long|queue/i.test(error)) return 'busy';
+  if (code === 'quota') return 'quota';
+  if (code === 'busy') return 'busy';
+  // a code that is neither of those names a real failure (no_picture: nothing could draw it here), which waiting would not mend
+  if (code) return null;
+  if (status === 429 || /daily limit|more tomorrow|allowance/i.test(error)) return 'quota';
+  if (status === 503 || status === 504 || /\bbusy\b|took too long|queue/i.test(error)) return 'busy';
   return null;
 }
 

@@ -180,6 +180,8 @@ export const STATES = {
   'space.photo': { dir: 'space', base: 3, now: 3 },
   // FINAL ROUND (MAKE lane): MATERIALS says what it needs when there is no room to work from
   'space.materials': { dir: 'space', base: 0, now: 1 },
+  // NEXT ROUND (MAKE lane): MATERIALS' makeover set against his own statements, all four states (new, so base 0)
+  'space.budget': { dir: 'space', base: 0, now: 4 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
   'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },

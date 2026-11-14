@@ -5,6 +5,10 @@
 //   THE 3D STUDIO's WAITING LIST (Q): a job the free makers are too busy for waits on the phone, is tried again by itself while
 //     Ghosty is open (3, 10, 30 minutes; after midnight when the day's tries are used), offers the catalogue's nearest real models
 //     meanwhile, survives a reload, and says when it is ready.
+//   SPACE FROM PHOTO, finished (P): after room photos he taps the outline where each door and window is; USE THIS PLAN puts them in
+//     those walls; the sizes say ROUGH above MATERIALS until one wall's real length is typed.
+//   MATERIALS' PRICES (M): typical UK prices beside paint, flooring and skirting from Design a build's table, LAMINATE or CARPET,
+//     the total and wallpaper instead, "not quotes"; SET AGAINST MY SPENDING sets the makeover against his own last three months.
 //   THE BAR (every one of them): every key 44 pt, nothing sideways, no word cut, at both sizes, at BODY 21, and in all seven looks.
 //   BASE=http://localhost:8788 node tests/makenext.spec.mjs [outDir]
 //   BASE=http://localhost:8788 node tests/makelane.spec.mjs [outDir]
@@ -189,7 +193,7 @@ await section('words', async () => {
   j = Q.triedAgain(Q.triedAgain(j, a.job.id, 'busy', now), a.job.id, 'busy', now);
   check(j[0].tries === 3 && j[0].next === 0 && /TRY NOW/.test(Q.jobWords(j[0], now)), `[Q2 stops] three tries by itself, then it waits for him: ${JSON.stringify(j[0])}`);
   check(Q.nextTry(0, 'quota', now) === Date.UTC(2026, 10, 15, 0, 5) && /midnight/.test(Q.jobWords(Q.addJob([], 'x', 'quota', now).job, now)), '[Q3 quota] today\'s tries used: just after midnight');
-  check(Q.waitWhy('busy') === 'busy' && Q.waitWhy(undefined, 429) === 'quota' && Q.waitWhy(undefined, 400, 'that is not a thing') === null && Q.waitWhy(undefined, 200, "10 models have been made today, which is Ghosty's own daily limit; more tomorrow") === 'quota', '[Q4 why] busy, quota and a real failure told apart');
+  check(Q.waitWhy('busy') === 'busy' && Q.waitWhy(undefined, 429) === 'quota' && Q.waitWhy(undefined, 400, 'that is not a thing') === null && Q.waitWhy('no_picture', 503, 'nothing could draw the object first') === null && Q.waitWhy(undefined, 200, "10 models have been made today, which is Ghosty's own daily limit; more tomorrow") === 'quota', '[Q4 why] busy, quota and a real failure told apart');
   check(Q.dueJob(a.jobs, now) === null && Q.dueJob(a.jobs, now + 3 * 60_000)?.id === a.job.id, '[Q5 due] a job is due at its time, not before');
   let many = [];
   for (let i = 0; i < 9; i++) many = Q.addJob(many, `thing ${i}`, 'busy', now + i).jobs;
@@ -261,6 +265,151 @@ await section('queue', async () => {
   await ctx.close();
 });
 
+// ================================================================ P · SPACE FROM PHOTO, finished: doors and windows tapped, sizes rough until measured
+const PM = await pure('apps/web/src/space/photomarks.ts');
+await section('words', async () => {
+  log('photo marks, by hand');
+  const b = { x: 20, y: 20, w: 200, h: 100 };
+  const t = PM.edgeHit(70, 22, b);
+  check(t?.wall === 0 && Math.abs(t.frac - 0.25) < 1e-9, `[P1 top] ${JSON.stringify(t)}`);
+  const r = PM.edgeHit(219, 70, b);
+  check(r?.wall === 1 && Math.abs(r.frac - 0.5) < 1e-9, `[P1 right] ${JSON.stringify(r)}`);
+  const bt = PM.edgeHit(170, 121, b);
+  check(bt?.wall === 2 && Math.abs(bt.frac - 0.25) < 1e-9, `[P1 bottom runs right to left] ${JSON.stringify(bt)}`);
+  check(PM.edgeHit(120, 70, b) === null && PM.edgeHit(400, 70, b) === null, '[P1 miss] a tap in the middle of the room, or off it, marks nothing');
+  let m = PM.tapMarks([], t, 'door', b);
+  m = PM.tapMarks(m, r, 'window', b);
+  check(m.length === 2 && PM.tapMarks(m, t, 'window', b).length === 1, '[P2 toggle] a second tap on a mark takes it off');
+  const plan = { v: 1, room: { w: 400, d: 300 }, items: [] };
+  const got = PM.placeMarks(plan, 'r1', [{ type: 'door', wall: 0, frac: 0.25 }, { type: 'window', wall: 1, frac: 0.5 }]);
+  const door = got.plan.openings.find((o) => o.type === 'door');
+  const win = got.plan.openings.find((o) => o.type === 'window');
+  check(got.placed === 2 && door.wall === 0 && Math.abs(door.at + door.w / 2 - 100) <= 10 && win.wall === 1 && Math.abs(win.at + win.w / 2 - 150) <= 10, `[P3 placed] ${JSON.stringify(got.plan.openings)}`);
+  check(/^ROUGH SIZES: from photos, give or take 12 cm\./.test(PM.roughWords({ room: 'r1', wSd: 12, dSd: 9, at: 1 })), '[P4 words] the rough line');
+});
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  await section('photo', async () => {
+    log(`from photo ${vp.width}`);
+    const { ctx, page } = await phone(vp);
+    await go(page, 'space');
+    await until(page, () => !!window.__ghosty?.space?.roomFound && !!document.querySelector('#pg-space .spacefromphoto'), null, 30000);
+    await page.evaluate(() => window.__ghosty.space.roomFound({ w: 400, d: 300, wSd: 12, dSd: 9, turned: false, notes: [] }));
+    await page.locator('#pg-space .spacefromphoto canvas').scrollIntoViewIfNeeded();
+    check(/Photos can’t see doors and windows: tap the outline where each one is\./.test(await text(page, '#pg-space .spacetapnote')), `${T} [P5 asks] "${await text(page, '#pg-space .spacetapnote')}"`);
+    /** A tap on FROM PHOTO's picture at a point of its own drawing (canvas px). */
+    const tapPic = async (cx, cy) => {
+      const p = await page.evaluate(([cx, cy]) => {
+        const c = document.querySelector('#pg-space .spacefromphoto canvas');
+        const r = c.getBoundingClientRect();
+        return { x: r.left + (cx / c.width) * r.width, y: r.top + (cy / c.height) * r.height };
+      }, [cx, cy]);
+      await page.touchscreen.tap(p.x, p.y);
+    };
+    // the outline: 320 × 240 canvas, k = min(280/400, 200/300) = 2/3, so 266.7 × 200 at (26.7, 20)
+    const B = { x: (320 - 400 * (2 / 3)) / 2, y: 20, w: 400 * (2 / 3), h: 200 };
+    await tapPic(B.x + B.w * 0.25, B.y);
+    await page.locator('#pg-space .spacephototap button[data-tap=window]').click();
+    await tapPic(B.x + B.w, B.y + B.h / 2);
+    let marks = await page.evaluate(() => window.__ghosty.space.fromPhoto.marks);
+    check(marks.length === 2 && marks[0].type === 'door' && marks[0].wall === 0 && marks[1].type === 'window' && marks[1].wall === 1, `${T} [P6 tapped] ${JSON.stringify(marks)}`);
+    check(/^Marked: 1 door and 1 window\./.test(await text(page, '#pg-space .spacetapnote')), `${T} [P6 said] "${await text(page, '#pg-space .spacetapnote')}"`);
+    // a tap in the room's middle marks nothing, and says where to tap
+    await tapPic(B.x + B.w / 2, B.y + B.h / 2);
+    check((await page.evaluate(() => window.__ghosty.space.fromPhoto.marks.length)) === 2 && /on the outline itself/.test(await text(page, '#pg-space .spacetapnote')), `${T} [P7 miss] "${await text(page, '#pg-space .spacetapnote')}"`);
+    await bar(page, `${T} [P bar]`, 'space', '#pg-space .spacefromphoto');
+    await page.locator('#pg-space .spacefromphoto button', { hasText: 'USE THIS PLAN' }).click();
+    const plan = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.space')).plan);
+    const door = plan.openings?.find((o) => o.type === 'door');
+    const win = plan.openings?.find((o) => o.type === 'window');
+    check(plan.rooms?.[0] && door && win && door.wall === 0 && Math.abs(door.at + door.w / 2 - 100) <= 12 && win.wall === 1 && Math.abs(win.at + win.w / 2 - 150) <= 12, `${T} [P8 in the plan] ${JSON.stringify(plan.openings)}`);
+    // rough until one real measurement: said above MATERIALS
+    check(await until(page, () => /^ROUGH SIZES: from photos, give or take 12 cm/.test(window.__ghosty.space.materials.rough), null, 5000), `${T} [P9 rough] MATERIALS says "${await page.evaluate(() => window.__ghosty.space.materials.rough)}"`);
+    await bar(page, `${T} [P rough bar]`, 'space', '#pg-space .spacematerials');
+    // one real length typed on a wall: measured now, and the rough line goes
+    const at = async (xcm, ycm) => {
+      const box = await page.locator('#pg-space .spacecanvas').boundingBox();
+      const { pad, k } = await page.evaluate(() => window.__ghosty.space.view);
+      return { x: box.x + pad + xcm * k, y: box.y + pad + ycm * k };
+    };
+    await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
+    const p = await at(200, 306);
+    await page.touchscreen.tap(p.x, p.y);
+    check(await until(page, () => /^wall:/.test(window.__ghosty.space.selected), null, 5000), `${T} [P10 wall] tapping the bottom wall chose "${await page.evaluate(() => window.__ghosty.space.selected)}"`);
+    await page.fill('#pg-space .spacelen input', '420');
+    await page.locator('#pg-space .spacelen button', { hasText: 'SET LENGTH' }).click();
+    check(await until(page, () => window.__ghosty.space.materials.rough === '' && !localStorage.getItem('ghosty.space.rough'), null, 5000), `${T} [P10 measured] still rough: "${await page.evaluate(() => window.__ghosty.space.materials.rough)}"`);
+    await ctx.close();
+  });
+}
+
+// ================================================================ M · MATERIALS' typical prices and the makeover against his spending
+const MAT = await pure('apps/web/src/space/materials.ts');
+const PR = await pure('apps/web/src/build/prices.ts');
+const P = { emulsion: PR.PRICES.emulsion.gbp, emulsion25: PR.PRICES.emulsion25.gbp, emulsion1: PR.PRICES.emulsion1.gbp, laminate: PR.PRICES.laminate.gbp, carpet: PR.PRICES.carpet.gbp, skirting: PR.PRICES.skirting.gbp, wallpaper: PR.PRICES.wallpaper.gbp };
+await section('words', async () => {
+  log('prices, by hand');
+  // a 4 × 3 m room with a door and a window: 7.1 L (a 5 L £28 and a 2.5 L £17 = £45), 13.2 m² of laminate at £22 = £290.40,
+  // 13.2 m of skirting at £3.20 = £42.24: £377.64; carpet at £32 = £422.40, so £509.64; 7 rolls at £14 = £98
+  const m = MAT.materialsFor([ROOM], OPENINGS, 240);
+  const lam = MAT.priceMaterials(m, 'laminate', P);
+  check(lam.lines[0].gbp === 45 && Math.abs(lam.lines[1].gbp - 290.4) < 1e-9 && Math.abs(lam.lines[2].gbp - 42.24) < 1e-9 && Math.abs(lam.total - 377.64) < 1e-9 && lam.wallpaper === 98, `[M1 laminate] ${JSON.stringify(lam)}`);
+  check(Math.abs(MAT.priceMaterials(m, 'carpet', P).total - 509.64) < 1e-9, `[M1 carpet] ${MAT.priceMaterials(m, 'carpet', P).total}`);
+  check(MAT.priceMaterials(MAT.materialsFor([], [], 240), 'laminate', P).lines.length === 0, '[M1 none] no room, no prices');
+  check(MAT.typicalMonth([1000, 1200, 1400]) === 1200 && MAT.typicalMonth([]) === null && MAT.typicalMonth([0, 900]) === 900, '[M2 month] a typical month is the mean of the months with spending');
+  check(MAT.budgetWords(377.64, 1200, 3) === 'About £378 is 31% of what you spent in a typical month (£1,200, the average of your last 3 months of statements). A first estimate, never a quote.', `[M3 words] "${MAT.budgetWords(377.64, 1200, 3)}"`);
+  check(/^No statements on your brain yet/.test(MAT.budgetWords(377.64, null, 0)), '[M3 none] no statements said in his words');
+  check(/not quotes/.test(PR.PRICE_LINE), `[M4 honest] the price line "${PR.PRICE_LINE}"`);
+});
+/** The three whole months before this one (London), as statements would hold them. */
+const lastMonths = () => {
+  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' }));
+  return [3, 2, 1].map((k) => {
+    const x = new Date(d.getFullYear(), d.getMonth() - k, 1);
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}`;
+  });
+};
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  await section('price', async () => {
+    log(`prices ${vp.width}`);
+    const { ctx, page } = await phone(vp, { store: SPACE_STORE });
+    const months = lastMonths();
+    const outs = { [months[0]]: 1000, [months[1]]: 1200, [months[2]]: 1400 };
+    let spendingMode = 'ok';
+    await page.route(/\/api\/profile\/spending/, (route) => {
+      if (spendingMode === 'fail') return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'boom' }) });
+      const mo = new URL(route.request().url()).searchParams.get('month') ?? months[2];
+      const body = { privacy: '', month: mo, months: spendingMode === 'none' ? [] : months, kept: 1, cap: 1, rules: 0, last: null, view: spendingMode === 'none' ? null : { month: mo, out: outs[mo] ?? 0, in: 0, categories: [] }, year: null, changes: [], subscriptions: [], budgets: [], rows: [] };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    });
+    await go(page, 'space');
+    check(await until(page, () => (window.__ghosty?.space?.materials?.priced?.total ?? 0) > 0, null, 20000), `${T} [M5 priced] no prices on MATERIALS`);
+    await page.locator('#pg-space .spaceprices').scrollIntoViewIfNeeded();
+    const priceRows = () => page.evaluate(() => [...document.querySelectorAll('#pg-space .spaceprice')].map((e) => e.innerText.replace(/\s+/g, ' ').trim()).join(' | '));
+    const rows = await priceRows();
+    check(/Paint 1 × 5 L \+ 1 × 2\.5 L £45/.test(rows) && /Laminate with underlay 13\.2 m² £290\.40/.test(rows) && /Skirting 13\.2 m £42\.24/.test(rows), `${T} [M5 rows] "${rows}"`);
+    check(/^About £377\.64 for paint, flooring and skirting\. Papering the walls instead: about £98 of rolls\.$/.test(await text(page, '#pg-space .spacepricetotal')), `${T} [M5 total] "${await text(page, '#pg-space .spacepricetotal')}"`);
+    check(/Typical prices from October 2026, not quotes/.test(await text(page, '#pg-space .spaceprices')), `${T} [M5 honest] no "not quotes" line`);
+    // CARPET changes the floor's line and the total at once, and is kept on the phone
+    await page.locator('#pg-space .spaceprices button[data-floor=carpet]').click();
+    check(await until(page, () => Math.abs(window.__ghosty.space.materials.priced.total - 509.64) < 1e-6, null, 5000) && /Carpet and underlay, fitted 13\.2 m² £422\.40/.test(await priceRows()), `${T} [M6 carpet] "${await priceRows()}"`);
+    check(await page.evaluate(() => localStorage.getItem('ghosty.space.floor') === 'carpet'), `${T} [M6 kept] the floor choice is not kept`);
+    await page.locator('#pg-space .spaceprices button[data-floor=laminate]').click();
+    // the makeover against his own statements: the last three whole months, averaged
+    await page.locator('#pg-space .spaceprices button', { hasText: 'SET AGAINST MY SPENDING' }).click();
+    check(await until(page, () => /^About £378 is 31% of what you spent in a typical month \(£1,200, the average of your last 3 months of statements\)\./.test(document.querySelector('#pg-space .spacebudget')?.textContent ?? ''), null, 10000), `${T} [M7 budget] "${await text(page, '#pg-space .spacebudget')}"`);
+    spendingMode = 'none';
+    await page.locator('#pg-space .spaceprices button', { hasText: 'SET AGAINST MY SPENDING' }).click();
+    check(await until(page, () => document.querySelector('#pg-space .spacebudget')?.dataset.state === 'empty', null, 10000) && /^No statements on your brain yet/.test(await text(page, '#pg-space .spacebudget')), `${T} [M8 empty] "${await text(page, '#pg-space .spacebudget')}"`);
+    spendingMode = 'fail';
+    await page.locator('#pg-space .spaceprices button', { hasText: 'SET AGAINST MY SPENDING' }).click();
+    check(await until(page, () => document.querySelector('#pg-space .spacebudget')?.dataset.state === 'error', null, 10000), `${T} [M9 error] "${await text(page, '#pg-space .spacebudget')}"`);
+    await bar(page, `${T} [M bar]`, 'space', '#pg-space .spacematerials');
+    await ctx.close();
+  });
+}
+
 // ================================================================ BODY 21 and the seven looks
 await section('body21', async () => {
   log('body 21');
@@ -270,6 +419,13 @@ await section('body21', async () => {
   await until(page, () => !!document.querySelector('#pg-workbench .wb-beam .wbcurve'), null, 15000);
   await bar(page, '[440] [BODY 21] [C]', 'workbench', '#pg-workbench .wb-beam .wbcurve');
   await ctx.close();
+  const two = await phone(PHONE, { body: 21, store: SPACE_STORE });
+  await go(two.page, 'space');
+  await until(two.page, () => (window.__ghosty?.space?.materials?.priced?.total ?? 0) > 0, null, 20000);
+  await two.page.locator('#pg-space .spaceprices').scrollIntoViewIfNeeded();
+  await until(two.page, () => [...document.querySelectorAll('#pg-space .spaceprices button')].every((b) => b.getBoundingClientRect().height >= 43.5), null, 5000);
+  await bar(two.page, '[440] [BODY 21] [M]', 'space', '#pg-space .spacematerials');
+  await two.ctx.close();
 });
 await section('looks', async () => {
   for (const world of WORLDS) {
@@ -283,10 +439,19 @@ await section('looks', async () => {
     const mark = await drawnColour(page, '#pg-workbench .wb-beam .wbc-mark', 'fill');
     check(line.ok && mark.ok, `[440] [${world}] the curve is drawn in ${line.c}, its mark in ${mark.c}`);
     await ctx.close();
+    const two = await phone(PHONE, { world, store: SPACE_STORE });
+    await go(two.page, 'space');
+    await until(two.page, () => (window.__ghosty?.space?.materials?.priced?.total ?? 0) > 0, null, 20000);
+    await two.page.locator('#pg-space .spaceprices').scrollIntoViewIfNeeded();
+    await until(two.page, () => [...document.querySelectorAll('#pg-space .spaceprices button')].every((b) => b.getBoundingClientRect().height >= 43.5), null, 5000);
+    await bar(two.page, `[440] [${world}] [M]`, 'space', '#pg-space .spacematerials');
+    const price = await drawnColour(two.page, '#pg-space .spaceprice .v', 'color');
+    check(price.ok, `[440] [${world}] a price is drawn in ${price.c}`);
+    await two.ctx.close();
   }
 });
 
 await browser.close();
 const secs = ((Date.now() - t0) / 1000).toFixed(0);
-console.log(problems.length ? `PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}` : `MAKE lane (next round) run clean: ${checks} checks in ${secs} s: the Workbench's curves, at 440 and 390, at BODY 21 and in all seven looks`);
+console.log(problems.length ? `PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}` : `MAKE lane (next round) run clean: ${checks} checks in ${secs} s: the Workbench's curves, the 3D studio's waiting list, FROM PHOTO's doors and windows and ROUGH sizes, MATERIALS' prices and the makeover against his spending, at 440 and 390, at BODY 21 and in all seven looks`);
 process.exit(problems.length ? 1 : 0);
