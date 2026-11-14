@@ -33,7 +33,7 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - **Symmetry**: two, four or six ways.
   - **QuickShape**: hold still at the end of a stroke and it snaps to a clean line, circle, oval, box or triangle.
 - **Undo and redo** for every step. Only the part of the picture a step changed is kept.
-- **The time-lapse.** Every step is recorded, so MORE → **PLAY** shows the painting being made, and **SAVE AS VIDEO** keeps it (MP4 on the iPhone).
+- **The time-lapse.** Every step is recorded, so MORE → **PLAY** (or **TIME-LAPSE** on its gallery card) shows the painting being made, and **SAVE AS VIDEO** keeps it (MP4 on the iPhone).
 - **Files**:
   - Save as PNG, JPEG, a **layered PSD** (Photoshop, Procreate, Affinity and Photopea open it with every layer apart) or **OpenRaster** (Krita, GIMP). Or share it.
   - **OPEN A FILE** opens a PSD with its layers apart, or a picture.

@@ -376,6 +376,13 @@ for (const [world, body] of [['scan', 21], ['map', 0], ['eye', 0], ['orbit', 0],
   await goPaint(page, 'gallery');
   await until(page, () => window.__ghosty?.paint?.gallery.state === 'ready', null, 30000);
   await bar(page, `${tag} the gallery`, '#pg-paint');
+  if (body) {
+    // the gallery's TIME-LAPSE key opens the painting straight onto its time-lapse, playing
+    await page.click('#pg-paint button[aria-label^="Watch Sample"]');
+    check(await until(page, () => window.__ghosty.paint.open && window.__ghosty.paint.timelapse.frames > 10 && !window.__ghosty.paint.timelapse.playing && window.__ghosty.paint.timelapse.shown >= window.__ghosty.paint.timelapse.frames, null, 30000), `${tag} TIME-LAPSE plays the sample being painted`);
+    await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+    await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
+  }
   await page.click('#pg-paint button[aria-label^="Open Sample"]');
   await until(page, () => window.__ghosty.paint.open, null, 15000);
   await page.waitForTimeout(300);

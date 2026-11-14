@@ -71,7 +71,7 @@ async function create(title: string, w: number, h: number, from: string, setup: 
   return id;
 }
 
-export async function openPainting(id: string, after?: (p: Painting) => void | Promise<void>): Promise<void> {
+export async function openPainting(id: string, after?: (p: Painting) => void | Promise<void>, autoplay = false): Promise<void> {
   host ??= document.body;
   const art = await artOf(id);
   const body = await savedBody(id);
@@ -88,6 +88,7 @@ export async function openPainting(id: string, after?: (p: Painting) => void | P
   };
   const s = openStudio(host, {
     p, title: art.title,
+    autoplay,
     save,
     ask: askPalette,
     versions: () => versionsOf(id),
@@ -280,6 +281,7 @@ export function galleryPart(): { el: HTMLElement; stop(): void } {
     const keys = inBin
       ? [key('RESTORE', async () => { await restore(a.id); await countGallery(); void paint(); }, `Restore ${a.title}`), key('DELETE FOREVER', async () => { await forget(a.id); await countGallery(); void paint(); }, `Delete ${a.title} for good`)]
       : [key('OPEN', () => void openPainting(a.id), `Open ${a.title}`),
+        key('TIME-LAPSE', () => void openPainting(a.id, undefined, true), `Watch ${a.title} being painted`),
         key('DUPLICATE', async () => { const b = await savedBody(a.id); if (!b) return; const id = newId(); await keep({ ...a, id, title: `${a.title} copy`, created: Date.now(), edited: Date.now() }, b); await countGallery(); void paint(); }, `Duplicate ${a.title}`),
         key('RENAME', async () => { const t = prompt('Painting name', a.title); if (t && t.trim()) { await keepArt({ ...a, title: t.trim().slice(0, 60) }); void paint(); } }, `Rename ${a.title}`),
         key('DELETE', async () => { await toBin(a.id); await countGallery(); note.textContent = `${a.title} is in Recently deleted for 30 days.`; void paint(); }, `Delete ${a.title}`)];

@@ -73,6 +73,8 @@ export interface StudioOpts {
   /** the Comic's inking: a word for the done key, and no gallery words */
   doneWord?: string;
   ask?: (mood: string) => Promise<string[]>;
+  /** open straight onto the time-lapse, playing (the gallery's TIME-LAPSE key) */
+  autoplay?: boolean;
 }
 
 export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement; stop(): void; repaint(): void } {
@@ -805,7 +807,10 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
 
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { size(); if (fitted) fit(); back = backdrop(); ask(); }) : null;
   ro?.observe(stage);
-  requestAnimationFrame(() => { size(); fit(); back = backdrop(); sync(); ask(); });
+  requestAnimationFrame(() => {
+    size(); fit(); back = backdrop(); sync(); ask();
+    if (o.autoplay) { morePanel(); sheet.querySelector<HTMLButtonElement>('button[aria-label="Play the time-lapse"]')?.click(); }
+  });
   showSliders();
   say(o.doneWord ? 'Ink straight onto the panel. Your lines sit on their own layer over the art.' : `${brush.name} on ${p.layer.name}. Pinch to zoom; a two-finger tap undoes.`);
 
