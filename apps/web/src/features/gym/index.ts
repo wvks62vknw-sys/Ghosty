@@ -41,6 +41,7 @@ import { ui } from '../../state/app';
 import { page } from '../../ui/page';
 import { gameArt } from './art';
 import { ratedCardLine, ratedSection, leaveRated } from './chessrated';
+import { puzzlesSection } from './chesspuzzles';
 import { BOARDS, type Sel } from './play';
 import * as store from './store';
 import { sayError, trail } from '../../ui/hisWords';
@@ -351,6 +352,8 @@ export const gymTab: TabDef = {
       });
     // [restb] RATED CHESS (chessrated.ts): a real engine on this phone, and a Glicko-2 rating for him and for me
     const rated = ratedSection({ renderFrame, ask, changed: () => paintCards() });
+    // [apps] CHESS PUZZLES (chesspuzzles.ts): Lichess's open puzzles, kept on this phone, and puzzle rush
+    const puzzles = puzzlesSection({ renderFrame });
     /** Train game `id` in the worker (once the saved games are in, and if it is still the one to train). */
     const sendTrain = (id: string) => {
       // A paper being sat (heavy mode, core/heavy.ts): he trains once it is handed in (onVisible carries on then).
@@ -798,7 +801,7 @@ export const gymTab: TabDef = {
           h('div.gymidea.league', h('b', 'League of my past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small.gymleaguehelp', LEAGUE_HELPER), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
         );
       }
-      if (open.id === 'chess') parts.push(rated.el);
+      if (open.id === 'chess') parts.push(rated.el, puzzles);
       const e = r?.edge;
       const line = edgeLine(e);
       if (line) parts.push(h('div.gymidea.edge', h('b', 'Puzzles at my edge'), h('span.gymedgeline', line), h('small', 'I make my own puzzles where I solve about half, and practise on them. The levels above are still the exam.')));
