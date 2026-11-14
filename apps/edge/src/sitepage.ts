@@ -50,6 +50,8 @@ export async function pageUpload(req: Request, s: Store): Promise<Response> {
     return json({ ok: true });
   }
   if (req.method !== 'POST') return json({ error: 'not here' }, 405);
+  // [security] a body past the limit is turned away before it is read whole
+  if (Number(req.headers.get('content-length') ?? 0) > MAX_PAGE * 1.2 * 4) return json({ error: `That is too big for one page on your sites (${Math.round(MAX_PAGE / 1024)} KB at most). Make the pictures smaller or split it.` }, 413);
   const text = await req.text();
   if (text.length > MAX_PAGE * 1.2) return json({ error: `That is too big for one page on your sites (${Math.round(text.length / 1024)} KB; ${Math.round(MAX_PAGE / 1024)} KB at most). Make the pictures smaller or split it.` }, 413);
   let b: { title?: unknown; html?: unknown; kind?: unknown };

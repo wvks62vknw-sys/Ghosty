@@ -483,6 +483,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     return answer(text, `${s.name[0]!.toUpperCase()}${s.name.slice(1)} is open.`, { kind: 'pack' }, opts);
   },
   // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
+  // [security] SECURITY: the screen opened at the right place, and one line (features/security/asks.ts); the lock is always his tap
+  security: async (text, opts) => {
+    const m = await import('../features/security/asks');
+    const k = m.securityAsked(text) ?? 'locks';
+    location.hash = k === 'lock' ? 'security?lock' : k === 'leaked' ? 'security?leaked' : 'security';
+    return answer(text, m.SECURITY_SAID[k], { kind: 'can', go: [{ id: 'screen:security', ask: -1, label: 'Security', open: 'security' }] }, opts);
+  },
   comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),

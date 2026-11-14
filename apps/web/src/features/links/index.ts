@@ -23,9 +23,9 @@ import { TELEGRAM as TG, missedWords } from './words';
 import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { socialPanels } from './social'; // [social] his own accounts: BLUESKY, MASTODON, DISCORD, TELEGRAM CHANNEL (BRIEF-SOCIAL)
 import { sayError } from '../../ui/hisWords';
-import { NO_DEVICE, OFFLINE_LINE, PAUSED_LINE, checkLine, emailUnreached, emailWhy, heroWords, keyWhy, modelsReady, sentTo, spotifyWhy, stateDial, stateLight, stateTag, TELEGRAM_TEST_FAILED, type LinkCheck, type LinkState } from './words';
+import { NO_DEVICE, OFFLINE_LINE, PAUSED_LINE, checkLine, emailTestKept, emailTestWhy, emailUnreached, emailWhy, emailWorks, healthWords, heroWords, keyWhy, modelsReady, sentTo, spotifyWhy, stateDial, stateLight, stateTag, TELEGRAM_TEST_FAILED, type LinkCheck, type LinkState } from './words';
 
-import { checkOf, keepCheck } from './checks';
+import { checkOf, emailTest, keepCheck } from './checks';
 /** The quiet line under a connection: when it was last tested, and what that said. */
 const checkNote = (c: LinkCheck | null) => (c ? h('small.note.lkcheck', checkLine(c)) : '');
 
@@ -130,11 +130,32 @@ export const linksTab: TabDef = {
       const t = (p.el.querySelector('h3 small')?.textContent ?? '').trim().toUpperCase();
       return !t ? 'checking' : /^NOT LINKED|^NOT CONNECTED/.test(t) ? 'not' : /^OFFLINE|REACH/.test(t) ? 'offline' : /^CHECK|NOT WORKING/.test(t) ? 'failing' : /PAUSED|NOT KNOWN/.test(t) ? 'paused' : /^LINKED|^PAIRED/.test(t) ? 'linked' : 'not';
     };
+    // [planlane2:fixes] THE ONE HEALTH LINE: everything he linked is fine, or the one thing to fix first, from the very rows the top counts
+    // (words.ts healthWords); SHOW ME goes to that panel.
+    const HEALTH: Record<Id, { name: string; panel: string }> = { email: { name: 'your email', panel: 'EMAIL' }, spotify: { name: 'Spotify', panel: 'SPOTIFY' }, telegram: { name: 'Telegram', panel: 'TELEGRAM' }, phone: { name: 'this phone’s notifications', panel: 'PHONE · APP & NOTIFICATIONS' }, traffic: { name: 'live traffic', panel: 'LIVE TRAFFIC · TOMTOM' }, brain: { name: 'the AI brain', panel: 'AI BRAIN' }, github: { name: 'GitHub', panel: 'GITHUB · SELF-EDIT' } };
+    const healthText = h('span.lkhealthline');
+    const healthGo = button('SHOW ME', () => healthAt && goToPanel('links', healthAt));
+    healthGo.dataset.case = 'keep';
+    let healthAt = '';
+    const health = h('div.lkhealth', { role: 'status', 'aria-live': 'polite', dataset: { health: 'checking' } }, healthText, healthGo);
+    P.sub.after(health);
+    const titleOf = (p: Panel) => (p.title.textContent ?? '').trim();
+    const OTHER_NAMES: Record<string, string> = { BLUESKY: 'Bluesky', MASTODON: 'Mastodon', DISCORD: 'Discord', 'TELEGRAM CHANNEL': 'your Telegram channel', 'HOME ASSISTANT': 'Home Assistant' };
     const paintHero = () => {
       const w = heroWords([...(Object.keys(state) as Id[]).map((id) => ({ id, state: state[id] })), ...others.map((p, i) => ({ id: `other${i}`, state: otherState(p) }))]);
       /* state: links.connections empty */
       P.big.textContent = w.big;
       P.sub.textContent = w.sub;
+      const hw = healthWords([...(Object.keys(state) as Id[]).map((id) => ({ ...HEALTH[id], state: state[id] })), ...others.map((p) => ({ name: OTHER_NAMES[titleOf(p)] ?? titleOf(p), panel: titleOf(p), state: otherState(p) }))]);
+      /* state: links.health loading */
+      /* state: links.health offline */
+      /* state: links.health error */
+      /* state: links.health empty */
+      health.dataset.health = hw.kind;
+      healthText.textContent = hw.line;
+      healthAt = hw.panel ?? '';
+      healthGo.hidden = !hw.panel;
+      healthGo.setAttribute('aria-label', hw.panel ? `Show me ${hw.panel}` : 'Show me');
       P.dials((Object.keys(NAMES) as Id[]).map((id) => {
         const s = state[id];
         return [NAMES[id], s === 'linked' ? 1 : s === 'failing' || s === 'broken' ? 0.5 : 0.04, stateDial(s), s === 'linked' ? 'var(--c)' : s === 'failing' || s === 'broken' || s === 'offline' ? 'var(--r)' : 'var(--a)'];
@@ -183,7 +204,20 @@ export const linksTab: TabDef = {
           st.server ? row('SERVER', st.server) : '',
           bad ? h('div.note.bad.lkwhy', bad) : h('div.note', 'Ask Ghosty "any new email?", "read the one from Sam", or "email Sam that I\'m running late" — sending always waits for your OK.'),
           st.problem ? '' : checkNote(c),
-          h('div.keyrow.wrapit', button('CHANGE ACCOUNT', () => {
+          h('div.keyrow.wrapit', st.problem ? '' : button('TEST', async (b) => {
+            // [planlane2:fixes] one sign-in to his mail with what he linked (the brain's /email/test): it works, or why not, in his words
+            b.disabled = true;
+            ep.setStatus(stateTag('checking'), undefined);
+            const r = await emailTest();
+            /* state: links.emailtest offline */
+            /* state: links.emailtest error */
+            if (!r) toast(OFFLINE_LINE('your email'), 'warn');
+            else if (r.works) keepCheck('email', { ok: true, at: Date.now(), who: r.address ?? st.address ?? undefined });
+            else if (emailTestKept(r.why)) keepCheck('email', { ok: false, at: Date.now(), who: r.address ?? st.address ?? undefined, why: emailTestWhy(r.why) });
+            b.disabled = false;
+            await paintEmail();
+            if (r) toast(r.works ? emailWorks(r.address ?? st.address) : emailTestWhy(r.why), r.works ? 'ok' : 'warn');
+          }, bad ? '' : 'on'), button('CHANGE ACCOUNT', () => {
             editing = true;
             void paintEmail();
           }, bad ? 'on' : ''), button('UNLINK', async () => {

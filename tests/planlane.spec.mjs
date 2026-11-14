@@ -88,10 +88,18 @@ const DIRECTORY = [
   { name: 'Spec Lane FM', url_resolved: 'https://spec-lane.test-radio.example/one', country: 'UK', countrycode: 'GB', tags: 'news', codec: 'MP3', bitrate: 128 },
   { name: 'Spec Lane Two', url_resolved: 'https://spec-lane.test-radio.example/two', country: 'UK', countrycode: 'GB', tags: 'news', codec: 'MP3', bitrate: 128 },
 ];
+/** [planlane2:onelist] the one to-do list in the preview brain, emptied (as a page that brings its own list needs). */
+async function clearOneList() {
+  const r = await fetch(`${base}/api/packs/do`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': KEY }, body: JSON.stringify({ pack: 'work', action: 'todo', args: { words: 'clear my to-do list' } }) });
+  if (!r.ok) throw new Error(`the preview brain would not clear the one to-do list (${r.status})`);
+}
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--autoplay-policy=no-user-gesture-required'] });
 
 /** A paired phone at `viewport` in the look `world`, with `seed` put in its storage first and BODY at `body` (21 = his largest text; 0 = the default). */
 async function phone(viewport, world = 'scan', seed = {}, body = 0) {
+  // [planlane2:onelist] the to-do list is one list kept in the brain, with this phone's copy: a page that brings its own list starts
+  // the brain's empty, so the list it brings is the whole of the one list (it joins the brain's on the first open)
+  if (Object.hasOwn(seed, 'ghosty.agenda.todo')) await clearOneList();
   // (paired by the key in storage, motion calm and no service worker: the app boots about 40% sooner, which keeps the run inside CI's eight
   // minutes; nothing checked here depends on the boot's motion. The pairing screen itself has its own specs.)
   const ctx = await browser.newContext({ viewport, ...UK, reducedMotion: 'reduce', serviceWorkers: 'block' });
@@ -178,6 +186,8 @@ const today = () => {
 // ---- 2. THE AGENDA: TO-DO and MONTH, at both sizes
 // (440 only: each screen's own part below proves both sizes; this keeps the run inside CI's eight minutes)
 if (core) for (const vp of [PHONE]) {
+  // the one list lives in the brain, which every spec before this one in the run shares: start it empty, so "an empty list" is true
+  await clearOneList();
   const { ctx, page } = await phone(vp);
   await open(page, 'agenda');
   const pills = await page.$$eval('#pg-agenda .secpill', (b) => b.map((x) => x.textContent));
@@ -237,7 +247,9 @@ if (core) for (const vp of [PHONE]) {
   check(/^\w+day \d+ \w+: /.test(dline2 ?? ''), `[${vp.width}] a tapped day is said: ${dline2}`);
   await page.click('#pg-agenda .monbar button[aria-label="Next month"]');
   const nm = await page.textContent('#pg-agenda .monname');
-  check(nm !== null && !(await page.isDisabled('#pg-agenda .monbar button[aria-label="This month"]')), `[${vp.width}] › steps to the next month: ${nm}`);
+  // (‹ and › step any month now: › shows next month by its name, and THIS MONTH comes home)
+  const nmWant = await page.evaluate(() => { const n = new Date(); const d = new Date(n.getFullYear(), n.getMonth() + 1, 1); return `${d.toLocaleDateString('en-GB', { month: 'long' })} ${d.getFullYear()}`; });
+  check(nm === nmWant && !(await page.isDisabled('#pg-agenda .monbar button[aria-label="Last month"]')) && !!(await page.$('#pg-agenda .pn.month button.monhome')), `[${vp.width}] › steps to the next month: ${nm}`);
   const fm = await fit(page, '#pg-agenda .pn.month');
   check(!fm.small.length && !fm.sideways && !fm.cut.length, `[${vp.width}] MONTH fits: ${JSON.stringify(fm)}`);
   if (vp === PHONE) await page.screenshot({ path: `${out}/planlane-month-${vp.width}.png` });
@@ -358,6 +370,8 @@ await Promise.all(lanes.map(async (lane) => {
   }
 }));
 
+// [planlane2:onelist] the one to-do list left empty for the specs after this one (they share the preview brain)
+await clearOneList().catch(() => undefined);
 await browser.close();
 console.log(`${checks} checks, ${problems.length} problems`);
 if (problems.length) {

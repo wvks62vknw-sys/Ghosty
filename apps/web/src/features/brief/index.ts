@@ -1,5 +1,5 @@
 /** BRIEF tab: what he reads first in the morning — the day's diary, the drive to work, the weather in detail, headlines by section, and a spoken briefing on request. */
-import { loadTodos, TODO_CHANGED } from '../agenda/todo';
+import { loadTodos, syncTodos, TODO_CHANGED } from '../agenda/todo';
 import { dueToday } from '../agenda/todowords';
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
@@ -24,6 +24,7 @@ import { onLibraryChange, passagesOf } from '../../library/local';
 import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
 import { home, ui } from '../../state/app';
 import { markSeen } from '../core/missed';
+import { nightKeyAt } from '../core/goodnightwords';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
 import { rawText } from '../../ui/hisWords';import { briefWorld } from '../eye/briefworld';
@@ -137,6 +138,13 @@ export const briefTab: TabDef = {
       void send(`Give me a sharp spoken briefing in about 90 words from these facts (no need to look anything up), flagging anything that needs my attention. ${greeting(d)}, ${dayName(d)}. WEATHER: ${summary({ ...facts(true), diary: undefined, commute: undefined, todo: undefined }) || 'not known'} DIARY TODAY: ${diary}. ${todos ? `TO-DO TODAY: ${todos}. ` : ''}${commuteWords ? `COMMUTE: ${commuteWords}. ` : ''}HEADLINES: ${topHeadlines().join(' | ') || 'none yet'}`);
     }, 'brme');
     say.after(h('div.bract', readBtn, briefBtn));
+    // [planlane2:goodnight] GOODNIGHT from six in the evening till five: the wind-down, said in the chat like his own "goodnight" (features/core/goodnight.ts)
+    // (always made, shown or hidden on every visit and each minute: the Brief is built once and its page kept)
+    const nightKey = button('GOODNIGHT', () => { go('core'); void send('goodnight'); }, 'brnight');
+    const nightShow = () => (nightKey.hidden = !nightKeyAt(new Date()));
+    nightShow();
+    setInterval(nightShow, 60_000);
+    say.nextElementSibling?.append(nightKey);
     // YOUR DAY: what is left of today in the diary, the reminders still to go off and anything new in the inbox,
     // first on the page (read from the Agenda's own routes; a tap opens the Agenda).
     const dp = panel('YOUR DAY', { cls: 'brday', grow: false });
@@ -173,7 +181,8 @@ export const briefTab: TabDef = {
         rows.push(row('NEXT', next.title, next.when, { wrap: true, onClick: open }));
       }
       // [packs] the packs' lines (BRIEF-PACKS-1): payday, a renewal tomorrow, a warranty ending, water so far…
-      for (const l of mind.packs ?? []) rows.push(row(null, l, null, { wrap: true }));
+      // ([planlane2:onelist] the work pack's "To-do: 2 due today" is the same one list as the TO-DO row below, which names them)
+      for (const l of (mind.packs ?? []).filter((x) => !/^To-do: /.test(x))) rows.push(row(null, l, null, { wrap: true }));
       // [consistency] c6 (with PLAN AND HOME): the next kitchen timer running on this phone, the one room line the Brief lacked
       const tm = timersNow().filter((t) => !t.ringing).sort((a, b) => a.left - b.left)[0];
       if (tm) {
@@ -188,7 +197,7 @@ export const briefTab: TabDef = {
         r.dataset.nudge = n.kind;
         rows.push(r);
       }
-      // [planlane] his to-dos due today or late (the agenda's TO-DO, kept on this phone): the brief and the agenda say the same
+      // [planlane] his to-dos due today or late (the one to-do list's copy on this phone): the brief and the agenda say the same
       const todo = dueToday(loadTodos(), Date.now());
       if (todo.length) {
         const r = row('TO-DO', todo.length === 1 ? todo[0]!.text : `${todo.length} to do today: ${todo.slice(0, 3).map((t) => t.text).join(', ')}${todo.length > 3 ? '…' : ''}`, '›', { wrap: true, onClick: () => goToPanel('agenda', 'TO-DO') });
@@ -207,9 +216,10 @@ export const briefTab: TabDef = {
       }
       dp.setStatus(dayItems.length ? `${dayItems.length} LEFT` : 'CLEAR', 'ok');
       clear(dp.body, ...rows);
-      // [security] the nightly self-check, told once: a lock that slipped since he was last told, as one row after the rest
+      // [security] the nightly self-check, told once (a lock that slipped since he was last told), and yesterday's approvals with
+      // anything still waiting (security.u7, security.c1), as rows after the rest
       // (features/security/nudge.ts; asked after the day is drawn, so it never holds the Brief up)
-      void import('../security/nudge').then((m) => m.securityRow(isoDay(new Date()))).then((r) => r && dp.body.isConnected && !dp.body.querySelector('.brsecurity') && dp.body.append(r)).catch(() => undefined);
+      void import('../security/nudge').then((m) => m.securityRows(isoDay(new Date()))).then((rs) => { if (dp.body.isConnected && !dp.body.querySelector('.brsecurity, .brapprovals')) dp.body.append(...rs); }).catch(() => undefined);
       paintSay();
     };
     // [lifeeasier] EMAIL TRIAGE: "two emails need an answer", with DRAFT on each, only with his own email linked (brief/mail.ts)
@@ -456,6 +466,8 @@ export const briefTab: TabDef = {
       paintSay();
       if (dayItems !== null) void paintDay();
     });
+    // [planlane2:onelist] the one list (the brain's) brought up to date here (a change repaints through the line above)
+    void syncTodos();
     air.onChange(paintWeather);
     news.onChange(paintNews);
     paintWeather();
@@ -465,6 +477,7 @@ export const briefTab: TabDef = {
     const describe = () => `Brief, ${dateEl.textContent}: ${[P.big.textContent, P.sub.textContent].filter(Boolean).join(' ')}. ${say.textContent} Diary: ${dayItems ? (dayItems.length ? dayItems.slice(0, 4).map((x) => `${x.when} ${x.title}`).join('; ') : 'nothing more today') : 'not known'}. Top headline: ${topHeadlines()[0] ?? 'none'}`;
     return {
       enter() {
+        nightShow();
         paintSay();
         loadDigest();
         // (readable by the spec at window.__ghosty.brief, as the vehicle check does)
