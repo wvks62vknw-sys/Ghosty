@@ -1,4 +1,5 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's Family & life apps (docs/build-plan/APPLIB.md, list: docs/build-plan/applib/catalogue-life.md).
@@ -1235,56 +1236,6 @@ const MORE: AppDef[] = [
     ],
   },
   {
-    id: 'game-nights', name: 'Game Nights', family: 'life', glyph: 'die',
-    pitch: 'Every board game night: what you played, who won and how the rivalry stands.',
-    keywords: ['board games', 'game night', 'winners', 'family games', 'scores'],
-    archetype: 'log',
-    tour: ['Log each game with the winner and the score.', 'Group by game to see who rules which one.', 'Rate the games to find the family favourite.'],
-    log: {
-      fields: [
-        { id: 'game', label: 'Game', type: 'text', required: true },
-        { id: 'winner', label: 'Winner', type: 'text' },
-        { id: 'players', label: 'Players', type: 'number', min: 1, max: 20, step: 1 },
-        { id: 'score', label: 'Top score', type: 'number' },
-        { id: 'rating', label: 'Rating', type: 'rating' },
-        { id: 'date', label: 'Date', type: 'date', default: 'today' },
-      ],
-      title: 'game', sub: 'Won by {winner}', meta: 'score', date: 'date', sort: { field: 'date', dir: 'desc' },
-      stats: [{ label: 'Games this month', kind: 'count', period: 'month' }, { label: 'Different games', kind: 'distinct', field: 'game', period: 'all' }],
-      views: ['list', 'calendar'],
-    },
-    sample: [
-      { game: 'Trading card game', winner: 'Mia', players: 4, score: 12, rating: 5, date: '2026-11-13' },
-      { game: 'Word tiles', winner: 'Dad', players: 3, score: 287, rating: 4, date: '2026-11-13' },
-      { game: 'Train routes', winner: 'Leo', players: 4, score: 104, rating: 5, date: '2026-11-06' },
-    ],
-  },
-  {
-    id: 'film-nights', name: 'Film Nights', family: 'life', glyph: 'film',
-    pitch: 'The family\'s film nights: who picked, what you watched and the verdicts.',
-    keywords: ['film night', 'movie night', 'family films', 'watchlist', 'ratings'],
-    archetype: 'log',
-    tour: ['Log a film with who picked it and the family verdict.', 'Keep ideas as Watchlist, then move them to Watched.', 'Who picked next is on the board.'],
-    log: {
-      fields: [
-        { id: 'film', label: 'Film', type: 'text', required: true },
-        { id: 'status', label: 'Status', type: 'choice', options: ['Watchlist', 'Watched'], default: 'Watchlist' },
-        { id: 'picked', label: 'Picked by', type: 'text' },
-        { id: 'rating', label: 'Verdict', type: 'rating' },
-        { id: 'date', label: 'Date', type: 'date' },
-      ],
-      title: 'film', sub: 'Picked by {picked}', meta: 'rating', date: 'date',
-      sort: { field: 'date', dir: 'desc' }, group: 'status',
-      stats: [{ label: 'Watched this year', kind: 'count', period: 'year' }, { label: 'Average verdict', kind: 'avg', field: 'rating', period: 'all' }],
-      views: ['board', 'list'],
-    },
-    sample: [
-      { film: 'The animated robot one', status: 'Watched', picked: 'Leo', rating: 5, date: '2026-11-08' },
-      { film: 'The old pirate adventure', status: 'Watched', picked: 'Dad', rating: 3, date: '2026-11-01' },
-      { film: 'Nature documentary about owls', status: 'Watchlist', picked: 'Mia' },
-    ],
-  },
-  {
     id: 'school-run', name: 'School Run', family: 'life', glyph: 'car',
     pitch: 'Who is doing the school run each day, shared fairly between the families.',
     keywords: ['school run', 'lift share', 'car share', 'rota', 'pick up'],
@@ -1508,4 +1459,4 @@ const MORE: AppDef[] = [
 ];
 
 /** Every Family & life app. */
-export const LIFE: AppDef[] = [...LISTED, ...MORE];
+export const LIFE: AppDef[] = pro([...LISTED, ...MORE]);
