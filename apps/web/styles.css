@@ -9880,3 +9880,10 @@ html .learntoday { display: flex; flex-direction: column; gap: 4px; margin: 10px
 html .learntoday .lab { color: var(--mute); letter-spacing: .08em; }
 html .learntoday small { color: var(--mute); overflow-wrap: anywhere; }
 html .learntoday .row { margin-top: 6px; }
+/* LIBRARY · CLASSICS (learn.u6): the free public-domain shop, a list of books that open to their size and one key */
+html .pn.classics .cllist { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+html .pn.classics .clrow { border-radius: 14px; background: var(--thin); box-shadow: inset 0 0 0 1px var(--hair); }
+html .pn.classics button.clhead { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 44px; padding: 10px 12px; text-align: left; text-transform: none; letter-spacing: normal; background: none; box-shadow: none; border: 0; white-space: normal; overflow-wrap: anywhere; color: var(--fg); }
+html .pn.classics button.clhead small { color: var(--mute); }
+html .pn.classics .clmore { padding: 0 12px 10px; }
+html .pn.classics .clsearch input { flex: 1 1 auto; min-width: 0; min-height: 44px; }

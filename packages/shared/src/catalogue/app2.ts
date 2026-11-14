@@ -121,6 +121,11 @@ export const APP_2: Record<string, CatValue> = {
     more: 'Read on this phone with no AI; a scanned page is read by a free service. Then it is searchable for good.',
     say: ['(tap ADD and pick a file)'], scene: ['school'], cat: 'learn',
   },
+  'panel:library:CLASSICS': {
+    name: 'Free classics for your shelf', line: 'You can browse thousands of free public-domain books and add one to your shelf with a tap.',
+    more: 'Project Gutenberg’s most read and a search by title or author, plus Standard Ebooks’ newest free releases. Each book’s size is said first, and it comes only on your tap, on Wi-Fi.',
+    say: ['(in the Library, under ADD, tap SHOW THE FREE CLASSICS)'], scene: ['school'], cat: 'learn',
+  },
   'panel:library:ASK THE LIBRARY': {
     name: 'Search the library by meaning', line: 'You can search my whole library by meaning or by keywords, even with no signal.',
     more: 'Once the small meaning model is on your phone, the search runs there and nothing leaves it.',
