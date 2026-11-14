@@ -17,6 +17,8 @@ export interface NewThing {
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
   // [planlane4:tasks] THE APPS ROUND, CALENDAR AND TASKS: the to-do side (docs/build-plan/apps/plan.md)
+  { day: '2026-11-14', title: 'Quick add reads your words', line: 'Agenda → To-do: type “Call the bank tomorrow at 3pm p1 #Home @phone” and chips show the day, time, priority, project and tags before ADD. Tap a chip to keep it as words.' },
+  { day: '2026-11-14', title: 'Priorities P1 to P4', line: 'Every to-do has a coloured flag: tap it for P1 (the old star), or set P2 and P3 in its change box. The list goes late first, then by priority, then by day, and P1 shows the urgent ones.' },
   { day: '2026-11-14', title: 'To-dos that ring', line: 'Give a to-do a time ("call the bank at 3pm", or the time in its change box) and my brain rings it then, with your phone locked once its notifications are on. A tick stops the ring; a new time moves it.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },

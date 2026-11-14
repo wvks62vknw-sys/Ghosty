@@ -22,6 +22,11 @@ export interface Todo {
   /** [planlane4:tasks] the time it rings on its day, "15:00" (London): the brain's own reminder job rings it by Web Push, so it rings
    * with the phone locked; a tick or a removal stops it, a new time moves it */
   time?: string;
+  /** [planlane4:tasks] its priority when P2 or P3 (P1 is the star, kept so in the brain too; none is P4) */
+  p?: 2 | 3;
+  /** [planlane4:tasks] its project ("Home") and tags ("phone"), his own words */
+  project?: string;
+  tags?: string[];
 }
 export type Every = 'daily' | 'weekdays' | 'weekly' | 'monthly';
 export const EVERY: [Every | '', string][] = [['', 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['monthly', 'Every month']];
@@ -93,19 +98,28 @@ export const ringDayOf = (time: string, now: number): string => {
 /** Said under the list when a to-do has a time but this phone has no notifications on: it would ring only in Ghosty, not locked. */
 export const RING_OFF = 'Timed to-dos ring by notification. Tap NOTIFY THIS DEVICE under Reminders so they ring with the phone locked.';
 
-/** The order the list keeps: open ones first (late, then starred, then by day, then those with no day, oldest added first), the done ones last (newest ticked first). */
+/** [planlane4:tasks] A to-do's priority, 1 (the star) to 4 (none). */
+export const prioOf = (t: Pick<Todo, 'star' | 'p'>): 1 | 2 | 3 | 4 => (t.star ? 1 : t.p ?? 4);
+/** [planlane4:tasks] The priorities in his words, for the change box and the flag's label. */
+export const PRIOS: [1 | 2 | 3 | 4, string][] = [[1, 'Priority 1'], [2, 'Priority 2'], [3, 'Priority 3'], [4, 'No priority']];
+/** The order the list keeps: open ones first (late, then by priority (P1, the star, first), then by day and time, then those with no day,
+ * oldest added first), the done ones last (newest ticked first). */
 export function sortTodos(l: readonly Todo[], now = Date.now()): Todo[] {
   const late = (t: Todo) => !!t.due && daysTo(t.due, now) < 0;
   return [...l].sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
     if (a.done) return (b.doneAt ?? 0) - (a.doneAt ?? 0);
     if (late(a) !== late(b)) return late(a) ? -1 : 1;
-    if (!!a.star !== !!b.star) return a.star ? -1 : 1;
+    if (prioOf(a) !== prioOf(b)) return prioOf(a) - prioOf(b);
     if (!!a.due !== !!b.due) return a.due ? -1 : 1;
     if (a.due !== b.due) return a.due < b.due ? -1 : 1;
+    if ((a.time ?? '') !== (b.time ?? '')) return !a.time ? 1 : !b.time ? -1 : a.time < b.time ? -1 : 1;
     return a.at - b.at;
   });
 }
+
+/** [planlane4:tasks] Its project and tags as the row says them: "#Home · @phone". */
+export const tagWords = (t: Pick<Todo, 'project' | 'tags'>): string => [t.project ? `#${t.project}` : '', ...(t.tags ?? []).map((x) => `@${x}`)].filter(Boolean).join(' · ');
 
 /** The list's line: "3 to do · 1 late · 2 done" or the empty words. */
 export function todoLine(l: readonly Todo[], now: number): string {
@@ -117,9 +131,9 @@ export function todoLine(l: readonly Todo[], now: number): string {
   return [`${open.length} to do`, late ? `${late} late` : '', today ? `${today} due today` : '', done ? `${done} done` : ''].filter(Boolean).join(' · ');
 }
 
-/** The views of the list: everything, what is due today (and late), what has a day ahead, the starred ones. */
+/** The views of the list: everything, what is due today (and late), what has a day ahead, P1 (the starred ones). */
 export type TodoView = 'all' | 'today' | 'upcoming' | 'starred';
-export const VIEWS: [TodoView, string][] = [['all', 'All'], ['today', 'Today'], ['upcoming', 'Upcoming'], ['starred', 'Starred']];
+export const VIEWS: [TodoView, string][] = [['all', 'All'], ['today', 'Today'], ['upcoming', 'Upcoming'], ['starred', 'P1']];
 export function inView(t: Todo, v: TodoView, now: number): boolean {
   if (v === 'all') return true;
   if (v === 'starred') return !!t.star;
@@ -130,7 +144,7 @@ export function inView(t: Todo, v: TodoView, now: number): boolean {
 export const VIEW_EMPTY: Record<Exclude<TodoView, 'all'>, string> = {
   today: 'Nothing due today. Tap All to see the rest.',
   upcoming: 'Nothing with a day ahead. Give a to-do a day and it shows here.',
-  starred: 'Nothing starred. Tap ☆ on a to-do that matters and it shows here.',
+  starred: 'Nothing at priority 1. Tap the flag on a to-do that matters, or type p1 as you add it.',
 };
 
 /** His words for a to-do, made plain for matching ("I've done the passport" finds "Renew passport"). */

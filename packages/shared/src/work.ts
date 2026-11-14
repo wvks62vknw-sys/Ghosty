@@ -416,6 +416,12 @@ export interface Todo {
   /** [planlane3:onelist2] (plan.u4) the time it rings on its day, "15:00" (his local time): the brain's own reminder job rings it
    * by Web Push, so it rings with the phone locked; ticking or removing it cancels the ring, a new time moves it */
   time?: string;
+  /** [planlane4:tasks] its priority when it is P2 or P3; P1 is the old star (`high`, so a phone or a screen that knows only the star
+   * still reads and sets it), and none is P4 */
+  p?: 2 | 3;
+  /** [planlane4:tasks] the project it belongs to ("Home") and its tags ("phone", "errands"), his own words */
+  project?: string;
+  tags?: string[];
 }
 export type TodoEvery = 'daily' | 'weekdays' | 'weekly' | 'monthly';
 export const TODO_EVERY: readonly TodoEvery[] = ['daily', 'weekdays', 'weekly', 'monthly'];
@@ -446,6 +452,15 @@ export const timeOk = (v: unknown): string => {
   const m = typeof v === 'string' ? /^(\d{1,2}):(\d{2})$/.exec(v.trim()) : null;
   return m && Number(m[1]) < 24 && Number(m[2]) < 60 ? `${pad(Number(m[1]))}:${m[2]}` : '';
 };
+/** [planlane4:tasks] A priority as the list keeps it: 1, 2 or 3; 0 for none (P4). */
+export const prioOk = (v: unknown): 0 | 1 | 2 | 3 => (v === 1 || v === 2 || v === 3 ? v : 0);
+/** [planlane4:tasks] A project's name ("Home"), or '' for none. */
+export const projectOk = (v: unknown): string => (typeof v === 'string' ? clean(v).replace(/^#+/, '').slice(0, 40) : '');
+/** [planlane4:tasks] Its tags: short words, no "@", no doubles, at most 8. */
+export const tagsOk = (v: unknown): string[] =>
+  Array.isArray(v) ? [...new Set(v.filter((t): t is string => typeof t === 'string').map((t) => clean(t).replace(/^@+/, '').toLowerCase().slice(0, 30)).filter(Boolean))].slice(0, 8) : [];
+/** [planlane4:tasks] How the list ranks it: P1 (or the old star) first, none (P4) last. */
+export const prioOf = (t: Pick<Todo, 'p' | 'high'>): number => (t.high ? 1 : t.p ?? 4);
 /** One to-do as the list keeps it, from whatever was sent (the phone's own shape too: star is high), or null when it has no words. */
 export function todoFrom(x: unknown, now: number): Todo | null {
   if (!x || typeof x !== 'object') return null;
@@ -457,7 +472,14 @@ export function todoFrom(x: unknown, now: number): Todo | null {
   const at = typeof o.at === 'number' && Number.isFinite(o.at) ? o.at : now;
   const doneAt = typeof o.doneAt === 'number' && Number.isFinite(o.doneAt) ? o.doneAt : undefined;
   const time = timeOk(o.time);
-  return { id: idOk(o.id) || shortId(), text, ...(due ? { due } : {}), ...(o.high || o.star ? { high: true } : {}), ...(o.done ? { done: true, ...(doneAt ? { doneAt } : {}) } : {}), at, ...(every ? { every } : {}), ...(time ? { time } : {}) };
+  // (P1 and the star are one: a P set wins, else the star reads as P1)
+  const p = prioOk(o.p) || (o.high || o.star ? 1 : 0);
+  const project = projectOk(o.project);
+  const tags = tagsOk(o.tags);
+  return {
+    id: idOk(o.id) || shortId(), text, ...(due ? { due } : {}), ...(p === 1 ? { high: true } : {}), ...(o.done ? { done: true, ...(doneAt ? { doneAt } : {}) } : {}), at, ...(every ? { every } : {}), ...(time ? { time } : {}),
+    ...(p === 2 || p === 3 ? { p } : {}), ...(project ? { project } : {}), ...(tags.length ? { tags } : {}),
+  };
 }
 /** Tick one off (or back on). A repeating one ticked off makes its next one; ticked back on, that next one goes again (while it
  * is still open and unchanged). */
@@ -472,7 +494,10 @@ export function tickTodoIn(list: Todo[], id: string, today: string, now: number,
     x.done = true;
     x.doneAt = now;
     if (x.every) {
-      next = { id: nextId && /^[\w-]{1,40}$/.test(nextId) && !list.some((y) => y.id === nextId) ? nextId : shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}), ...(x.time ? { time: x.time } : {}) };
+      next = {
+        id: nextId && /^[\w-]{1,40}$/.test(nextId) && !list.some((y) => y.id === nextId) ? nextId : shortId(), text: x.text, due: nextTodoDue(x.due ?? '', x.every, today), at: now, every: x.every, ...(x.high ? { high: true } : {}), ...(x.time ? { time: x.time } : {}),
+        ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}),
+      };
       out = [...list, next];
       x.nextId = next.id;
     }
@@ -504,6 +529,11 @@ export function mergeTodos(list: Todo[], items: unknown[], now: number): { list:
       if (!same.due && t.due) same.due = t.due;
       if (!same.every && t.every) same.every = t.every;
       if (!same.time && t.time) same.time = t.time;
+      // [planlane4:tasks] the higher priority of the two, and a project and tags this one lacks
+      if (t.high) delete same.p;
+      else if (t.p && prioOf(t) < prioOf(same)) same.p = t.p;
+      if (!same.project && t.project) same.project = t.project;
+      if (t.tags?.length) same.tags = [...new Set([...(same.tags ?? []), ...t.tags])].slice(0, 8);
       continue;
     }
     out.push(t);
@@ -585,11 +615,11 @@ export function todosFrom(raw: string, today: string, now: number, hm = ''): Tod
   return out.slice(0, 30);
 }
 /** Open items first: urgent and due soonest on top. */
-export const todoOrder = (list: Todo[]): Todo[] => [...list].sort((a, b) => Number(!!a.done) - Number(!!b.done) || (a.due && b.due ? (a.due < b.due ? -1 : a.due > b.due ? 1 : 0) : a.due ? -1 : b.due ? 1 : 0) || Number(!!b.high) - Number(!!a.high) || a.at - b.at);
+export const todoOrder = (list: Todo[]): Todo[] => [...list].sort((a, b) => Number(!!a.done) - Number(!!b.done) || (a.due && b.due ? (a.due < b.due ? -1 : a.due > b.due ? 1 : 0) : a.due ? -1 : b.due ? 1 : 0) || prioOf(a) - prioOf(b) || a.at - b.at);
 export function todoWords(list: Todo[], today: string): string {
   const open = todoOrder(list).filter((t) => !t.done);
   if (!open.length) return 'Your to-do list is empty.';
-  return `Your to-do list (${open.length} open):\n${open.map((t, i) => `${i + 1}. ${t.text}${t.due ? ` (${t.due < today ? 'was due ' : 'by '}${prettyDay(t.due, today.slice(0, 4))}${t.time ? `, rings at ${t.time}` : ''})` : ''}${t.high ? ' [urgent]' : ''}`).join('\n')}`;
+  return `Your to-do list (${open.length} open):\n${open.map((t, i) => `${i + 1}. ${t.text}${t.due ? ` (${t.due < today ? 'was due ' : 'by '}${prettyDay(t.due, today.slice(0, 4))}${t.time ? `, rings at ${t.time}` : ''})` : ''}${t.high ? ' [urgent]' : t.p ? ` [P${t.p}]` : ''}${t.project ? ` #${t.project}` : ''}`).join('\n')}`;
 }
 
 // ---------------------------------------------------------------- an email in his voice

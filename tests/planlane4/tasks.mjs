@@ -2,6 +2,9 @@
 //  1. TIMED TO-DOS THAT RING (plan.u4): a to-do with a day and a time gets one reminder job in the brain (Web Push, so it rings with the
 //     phone locked); a tick stops it, a new time moves it; the change box has a time; the row says it; the chat and the add field read
 //     "call the bank at 3pm".
+//  2. QUICK ADD: one field reads "Call the bank tomorrow at 3pm p1 #Home @phone" (and "every Monday", "next Friday", "in 3 days", "by
+//     the 20th"), shows chips of what it understood before ADD; a chip tapped is dropped. London days.
+//  3. PRIORITIES P1 TO P4: P1 is the old star both ways; a coloured flag; late first, then priority, then day; the P1 view.
 // Every part at 440 × 956 and 390 × 844, BODY 21; 44 pt keys, nothing sideways, no word cut; the seven looks for what is drawn.
 import { openSection } from '../nav.mjs';
 
@@ -103,22 +106,162 @@ export async function run(H) {
   }
   log('tasks: rings');
 
-  // ---- 3. 390 × 844, BODY 21, and the seven looks: the list with a timed to-do and its change box open
+  // ---- 4. QUICK ADD: the pure reading, then the field's chips at 440, BODY 21 (one tapped away), and what ADD keeps
+  const Q = await H.pure('apps/web/src/features/agenda/quickadd.ts');
+  {
+    const D = '2026-11-14'; // a Saturday
+    const q = (s, drop) => { const r = Q.quickParse(s, D, '14:00', drop ? new Set(drop) : undefined); return [r.text, r.due, r.time, r.p, r.project, r.tags.join(','), r.every ?? '', Q.quickLine(r)].join('|'); };
+    const cases = [
+      ['Call the bank tomorrow at 3pm p1 #Home @phone', 'Call the bank|2026-11-15|15:00|1|Home|phone||Tomorrow · 15:00 · P1 · #Home · @phone'],
+      ['Bins out every Monday', 'Bins out|2026-11-16||0|||weekly|Every Monday'],
+      ['Pay rent next Friday', 'Pay rent|2026-11-20||0||||Fri 20 Nov'],
+      ['Renew passport in 3 days', 'Renew passport|2026-11-17||0||||Tue 17 Nov'],
+      ['Send the invoice by the 20th', 'Send the invoice|2026-11-20||0||||Fri 20 Nov'],
+      ['Send the invoice by the 2nd', 'Send the invoice|2026-12-02||0||||Wed 2 Dec'],
+      ['Water the plants daily', 'Water the plants|||0|||daily|Every day'],
+      ['Gym every weekday at 7am', 'Gym||07:00|0|||weekdays|07:00 · Weekdays'],
+      ['Ring mum at half 4', 'Ring mum||16:30|0||||16:30 today'],
+      ['Call the vet at 9', 'Call the vet||09:00|0||||09:00 tomorrow'],
+      ['Dentist 20 Nov 15:30', 'Dentist|2026-11-20|15:30|0||||Fri 20 Nov · 15:30'],
+      ['Book the holiday end of the month p4', 'Book the holiday|2026-11-30||0||||Mon 30 Nov · No priority'],
+      ['Buy 2 tickets for the show', 'Buy 2 tickets for the show|||0||||'],
+      ['Email bob@example.com about Friday’s match', 'Email bob@example.com about Friday’s match|||0||||'],
+      ['Call the bank tomorrow at 3pm p1', 'Call the bank tomorrow||15:00|1||||15:00 today · P1', ['due']],
+    ];
+    for (const [s, want, drop] of cases) check(q(s, drop) === want, `[tasks pure] quick add "${s}"${drop ? ` (${drop} tapped away)` : ''}: ${q(s, drop)} (want ${want})`);
+    check(Q.londonNow(Date.UTC(2026, 6, 1, 23, 30)).day === '2026-07-02' && Q.londonNow(Date.UTC(2026, 0, 1, 23, 30)).day === '2026-01-01', '[tasks pure] days are London days (summer time too)');
+  }
+  await brain({ words: 'clear my to-do list' });
+  {
+    const { ctx, page } = await phone(PHONE, 'scan', {}, 21);
+    await open(page, 'agenda');
+    await openSection(page, 'agenda', 'To-do');
+    await page.fill('#pg-agenda .todoadd input[aria-label="To-do"]', 'Call the plumber tomorrow at 3pm p2 #Home @phone @errands');
+    const chipText = () => page.$$eval('#pg-agenda .tqchips button.tqchip span', (s) => s.map((x) => x.textContent).join(' · '));
+    await page.waitForFunction(() => document.querySelectorAll('#pg-agenda .tqchips button.tqchip').length === 6, null, { timeout: 3000 }).catch(() => undefined);
+    check((await chipText()) === 'Tomorrow · 15:00 · P2 · #Home · @phone · @errands', `[tasks 440] the chips say what it understood: ${await chipText()}`);
+    check((await page.getAttribute('#pg-agenda .tqchips button.tqchip.tq-due', 'aria-label')) === 'Keep Tomorrow as words', '[tasks 440] a chip says what a tap does');
+    const fq = await fit(page, '#pg-agenda .pn.todo');
+    check(!fq.small.length && !fq.sideways && !fq.cut.length, `[tasks 440] the field with its chips fits: ${JSON.stringify(fq)}`);
+    await page.click('#pg-agenda .tqchips button.tqchip:has-text("@errands")');
+    check((await chipText()) === 'Tomorrow · 15:00 · P2 · #Home · @phone', `[tasks 440] a chip tapped is dropped: ${await chipText()}`);
+    await page.click('#pg-agenda .todoadd button');
+    let l = await until(brainList, (x) => x.some((t) => /^Call the plumber/.test(t.text)));
+    const pl = l.find((t) => /^Call the plumber/.test(t.text));
+    check(pl && pl.text === 'Call the plumber @errands' && pl.due === tomorrow && pl.time === '15:00' && pl.p === 2 && !pl.high && pl.project === 'Home' && pl.tags?.join() === 'phone', `[tasks 440] ADD keeps what the chips said (the dropped one stays words): ${JSON.stringify(pl)}`);
+    check(await page.$eval('#pg-agenda .tqchips', (c) => c.hidden).catch(() => false) && (await page.inputValue('#pg-agenda .todoadd input[aria-label="To-do"]')) === '', '[tasks 440] after ADD the field and its chips are empty again');
+    await row(page, 'Call the plumber @errands').waitFor({ timeout: 6000 }).catch(() => check(false, '[tasks 440] the quick-added one is not on the list'));
+    const small = await row(page, 'Call the plumber @errands').locator('.todotx small').textContent().catch(() => '');
+    check(small === 'Due tomorrow · rings at 15:00 · #Home · @phone', `[tasks 440] its row says its day, time, project and tags: ${small}`);
+    // "every Monday" and "by the 20th", typed and sent with Enter
+    await page.fill('#pg-agenda .todoadd input[aria-label="To-do"]', 'Put the bins out every Monday');
+    await page.press('#pg-agenda .todoadd input[aria-label="To-do"]', 'Enter');
+    await page.fill('#pg-agenda .todoadd input[aria-label="To-do"]', 'Send the invoice by the 20th');
+    await page.press('#pg-agenda .todoadd input[aria-label="To-do"]', 'Enter');
+    l = await until(brainList, (x) => x.some((t) => t.text === 'Put the bins out') && x.some((t) => t.text === 'Send the invoice'));
+    const bins = l.find((t) => t.text === 'Put the bins out');
+    const inv = l.find((t) => t.text === 'Send the invoice');
+    check(bins?.every === 'weekly' && bins.due === Q.quickParse('every Monday', today, '00:00').due, `[tasks 440] "every Monday" repeats weekly from Monday: ${JSON.stringify(bins)}`);
+    check(inv?.due === Q.dayFrom('the 20th', today) && !inv.every, `[tasks 440] "by the 20th": ${JSON.stringify(inv)}`);
+    // an empty line is said, never added
+    await page.fill('#pg-agenda .todoadd input[aria-label="To-do"]', 'p1 #Home');
+    await page.click('#pg-agenda .todoadd button');
+    const said = await page.waitForFunction(() => [...document.querySelectorAll('#toasts > *')].map((t) => t.textContent ?? '').find((t) => /Type what needs doing first/.test(t)) ?? null, null, { timeout: 4000 }).then((h) => h.jsonValue(), () => '');
+    check(/Type what needs doing first/.test(said), `[tasks 440] a line with only a priority and a project asks for the words: ${said}`);
+    await page.fill('#pg-agenda .todoadd input[aria-label="To-do"]', '');
+    await page.screenshot({ path: `${H.out}/planlane4-tasks-quickadd-440.png` });
+    await ctx.close();
+  }
+  log('tasks: quick add');
+
+  // ---- 5. PRIORITIES P1 to P4: the order (late, then priority, then day), the flags, P1 both ways with the old star, the P1 view
+  {
+    const now2 = Date.now();
+    const L = [
+      { id: 'n', text: 'None', due: T.dayOf(now2), done: false, at: 1 },
+      { id: 'a', text: 'P3', due: T.dayOf(now2 + 86400_000), done: false, at: 2, p: 3 },
+      { id: 'b', text: 'P2', due: T.dayOf(now2 + 3 * 86400_000), done: false, at: 3, p: 2 },
+      { id: 'c', text: 'P1', due: '', done: false, at: 4, star: true },
+      { id: 'l', text: 'Late', due: T.dayOf(now2 - 86400_000), done: false, at: 5 },
+    ];
+    check(T.sortTodos(L, now2).map((t) => t.id).join('') === 'lcban', `[tasks pure] late first, then P1, P2, P3, then none: ${T.sortTodos(L, now2).map((t) => t.id).join('')}`);
+    check(T.prioOf({ star: true, p: 3 }) === 1 && T.prioOf({}) === 4 && L.filter((t) => T.inView(t, 'starred', now2)).map((t) => t.id).join('') === 'c', '[tasks pure] P1 is the star; the P1 view shows it alone');
+  }
+  await brain({ words: 'clear my to-do list' });
+  await brain({ op: 'add', item: { id: 'tpx1', text: 'Book the MOT', high: true } });
+  await brain({ op: 'add', item: { id: 'tpx2', text: 'Order the new filters', p: 3 } });
+  await brain({ op: 'add', item: { id: 'tpx3', text: 'Tidy the garage' } });
+  await brain({ op: 'add', item: { id: 'tpx4', text: 'Pay the parking fine', due: addDay(today, -2) } });
   {
     const { ctx, page } = await phone(PHONE2, 'scan', {}, 21);
     await open(page, 'agenda');
     await openSection(page, 'agenda', 'To-do');
-    await row(page, 'Ring the dentist').waitFor({ timeout: 8000 }).catch(() => check(false, '[tasks 390] the one list did not reach this phone'));
-    await row(page, 'Ring the dentist').locator('button.todotx').click().catch(() => undefined);
+    const order = () => page.$$eval('#pg-agenda .todoit', (e) => e.map((x) => x.dataset.id).join(','));
+    await page.waitForFunction(() => document.querySelectorAll('#pg-agenda .todoit').length === 4, null, { timeout: 8000 }).catch(() => undefined);
+    check((await order()) === 'tpx4,tpx1,tpx2,tpx3', `[tasks 390] late first, then P1 (the brain's star), P3, none: ${await order()}`);
+    const flag = (id) => page.$eval(`#pg-agenda .todoit[data-id="${id}"] button.todostar`, (b) => ({ t: b.textContent, cls: b.className, label: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-pressed'), color: getComputedStyle(b).color }));
+    const f1 = await flag('tpx1');
+    const f3 = await flag('tpx2');
+    const f4 = await flag('tpx3');
+    check(f1.t === '⚑' && /tdp1/.test(f1.cls) && f1.pressed === 'true' && f1.label === 'Take priority 1 off Book the MOT', `[tasks 390] the brain's star shows as the P1 flag: ${JSON.stringify(f1)}`);
+    check(f3.t === '⚑' && /tdp3/.test(f3.cls) && f3.label === 'Make Order the new filters priority 1 (now priority 3)' && f4.t === '⚐' && f4.label === 'Make Tidy the garage priority 1', `[tasks 390] P3 and none flagged: ${JSON.stringify([f3, f4])}`);
+    check(new Set([f1.color, f3.color, f4.color]).size === 3, `[tasks 390] each priority its own colour of the look: ${[f1.color, f3.color, f4.color]}`);
+    // P2 set in the change box: the brain keeps p 2 and no star
+    await page.click('#pg-agenda .todoit[data-id="tpx3"] button.todotx');
+    await page.selectOption('#pg-agenda .todoedit select[aria-label="Priority"]', '2');
+    const fe = await fit(page, '#pg-agenda .pn.todo');
+    check(!fe.small.length && !fe.sideways && !fe.cut.length, `[tasks 390] the change box with priority, project and tags fits: ${JSON.stringify(fe)}`);
+    await page.fill('#pg-agenda .todoedit input[aria-label="Project"]', 'Home');
+    await page.fill('#pg-agenda .todoedit input[aria-label="Tags"]', '@weekend diy');
+    await page.click('#pg-agenda .todoedit button:has-text("Save")');
+    let l = await until(brainList, (x) => x.find((t) => t.id === 'tpx3')?.p === 2);
+    const g = l.find((t) => t.id === 'tpx3');
+    check(g?.p === 2 && !g.high && g.project === 'Home' && g.tags?.join() === 'weekend,diy', `[tasks 390] P2, a project and tags from the change box reach the brain: ${JSON.stringify(g)}`);
+    await page.waitForFunction(() => document.querySelector('#pg-agenda .todoit[data-id="tpx3"] button.todostar')?.classList.contains('tdp2'), null, { timeout: 4000 }).catch(() => check(false, '[tasks 390] the P2 flag did not show'));
+    check((await order()) === 'tpx4,tpx1,tpx3,tpx2', `[tasks 390] P2 now sorts above P3: ${await order()}`);
+    // UNDO takes it back to none
+    await page.locator('.undofloat button').first().click({ timeout: 3000 }).catch(() => check(false, '[tasks 390] no UNDO after a priority change'));
+    l = await until(brainList, (x) => !x.find((t) => t.id === 'tpx3')?.p);
+    check(!l.find((t) => t.id === 'tpx3')?.p && !l.find((t) => t.id === 'tpx3')?.project, `[tasks 390] UNDO took its priority and project back: ${JSON.stringify(l.find((t) => t.id === 'tpx3'))}`);
+    // the flag tapped on a P3: P1 (the brain's star); tapped again: none
+    await page.click('#pg-agenda .todoit[data-id="tpx2"] button.todostar');
+    l = await until(brainList, (x) => x.find((t) => t.id === 'tpx2')?.high === true);
+    check(l.find((t) => t.id === 'tpx2')?.high === true && !l.find((t) => t.id === 'tpx2')?.p, `[tasks 390] the flag tapped makes it P1, the star WORK and the Brief read: ${JSON.stringify(l.find((t) => t.id === 'tpx2'))}`);
+    await page.click('#pg-agenda .todoviews button:has-text("P1")');
+    check((await order()) === 'tpx1,tpx2' || (await order()) === 'tpx2,tpx1', `[tasks 390] the P1 view: ${await order()}`);
+    await page.click('#pg-agenda .todoit[data-id="tpx2"] button.todostar');
+    l = await until(brainList, (x) => !x.find((t) => t.id === 'tpx2')?.high);
+    check(!l.find((t) => t.id === 'tpx2')?.high && !l.find((t) => t.id === 'tpx2')?.p, `[tasks 390] tapped again, no priority: ${JSON.stringify(l.find((t) => t.id === 'tpx2'))}`);
+    await page.click('#pg-agenda .todoviews button:has-text("All")');
+    await page.screenshot({ path: `${H.out}/planlane4-tasks-priorities-390.png` });
+    await ctx.close();
+  }
+  log('tasks: priorities');
+
+  // ---- 9. 390 × 844, BODY 21, the seven looks: a timed P2 to-do with its project and tags, its change box open, and quick add's chips
+  await brain({ op: 'add', item: { id: 'tlook', text: 'Ring the dentist about the crown', due: tomorrow, time: '16:00', p: 2, project: 'Health', tags: ['phone'] } });
+  {
+    const { ctx, page } = await phone(PHONE2, 'scan', {}, 21);
+    await open(page, 'agenda');
+    await openSection(page, 'agenda', 'To-do');
+    await page.locator('#pg-agenda .todoit[data-id="tlook"]').waitFor({ timeout: 8000 }).catch(() => check(false, '[tasks looks] the one list did not reach this phone'));
+    await page.click('#pg-agenda .todoit[data-id="tlook"] button.todotx').catch(() => undefined);
+    await page.fill('#pg-agenda .todoadd input[aria-label="To-do"]', 'Call the bank tomorrow at 3pm p1 #Home @phone');
     for (const world of WORLDS) {
       const on = await page.evaluate(async (w) => { await window.__ghosty.run(`world_${w}`); return window.__ghosty.theme.recipe().world; }, world).catch(() => '');
       check(on === world, `[tasks ${world}] the look is on: ${on}`);
       await page.waitForSelector('#pg-agenda .todoedit input[aria-label="Change the time it rings"]', { timeout: 3000 }).catch(() => check(false, `[tasks ${world}] no time in the change box`));
       const f = await fit(page, '#pg-agenda .pn.todo');
-      check(!f.small.length && !f.sideways && !f.cut.length, `[tasks ${world} 390] the list with a timed to-do and its change box fits: ${JSON.stringify(f)}`);
-      if (world === 'ink') await page.screenshot({ path: `${H.out}/planlane4-tasks-ink-390.png` });
+      check(!f.small.length && !f.sideways && !f.cut.length, `[tasks ${world} 390] the list, the chips and the change box fit: ${JSON.stringify(f)}`);
+      const c = await page.evaluate(() => {
+        const bg = getComputedStyle(document.body).backgroundColor;
+        const col = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).color : ''; };
+        return { bg, chip: col('#pg-agenda .tqchip.tq-due'), flag: col('#pg-agenda .todoit[data-id="tlook"] button.todostar') };
+      });
+      check(c.chip && c.flag && c.chip !== c.bg && c.flag !== c.bg, `[tasks ${world}] the chips and the flag are drawn in colours of the look: ${JSON.stringify(c)}`);
+      if (world === 'ink' || world === 'glass') await page.screenshot({ path: `${H.out}/planlane4-tasks-${world}-390.png` });
     }
     await ctx.close();
   }
-  log('tasks: 390 and the seven looks');
+  log('tasks: the seven looks');
 }

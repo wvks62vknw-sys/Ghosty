@@ -31,8 +31,8 @@ export async function run(H) {
     ['mark buy milk as done', { what: 'tick', text: 'buy milk', loose: true }],
     ['mark buy milk as done on my list', { what: 'tick', text: 'buy milk', loose: false }],
     ['Done: typing 52', { what: 'tick', text: 'typing 52', loose: true }],
-    // a bare number is a time or a count, never a day; "the 20th", "6 Dec" are days
-    ['to-do: call mum at 6', { what: 'add', text: 'Call mum at 6', due: '' }],
+    // a bare number is a time or a count, never a day; "the 20th", "6 Dec" are days ([planlane4:tasks] "at 6" is the time it rings: 18:00)
+    ['to-do: call mum at 6', { what: 'add', text: 'Call mum', due: '', time: '18:00' }],
     ['to-do: book a table for 4', { what: 'add', text: 'Book a table for 4', due: '' }],
     ['add buy 2 to my list', { what: 'add', text: 'Buy 2', due: '' }],
     ['add buy eggs x 12 to my to-do list', { what: 'add', text: 'Buy eggs x 12', due: '' }],
@@ -153,8 +153,9 @@ export async function run(H) {
     await page.waitForFunction(() => document.querySelector('#pg-agenda .todoit')?.dataset.id === 'a2', null, { timeout: 3000 }).catch(() => undefined);
     check((await order()) === 'a2,a3,a1' && (await page.getAttribute('#pg-agenda .todoit[data-id="a2"] button.todostar', 'aria-pressed')) === 'true', `[agenda ${vp.width}] a starred one comes first: ${await order()}`);
     // the views
-    await page.click('#pg-agenda .todoviews button:has-text("Starred")');
-    check((await order()) === 'a2', `[agenda ${vp.width}] STARRED shows the starred one only: ${await order()}`);
+    // ([planlane4:tasks] the starred view is P1 now: the star is priority 1)
+    await page.click('#pg-agenda .todoviews button:has-text("P1")');
+    check((await order()) === 'a2', `[agenda ${vp.width}] P1 shows the starred one only: ${await order()}`);
     await page.click('#pg-agenda .todoviews button:has-text("Upcoming")');
     check((await order()) === 'a1', `[agenda ${vp.width}] UPCOMING shows the one with a day ahead: ${await order()}`);
     await page.click('#pg-agenda .todoviews button:has-text("Today")');

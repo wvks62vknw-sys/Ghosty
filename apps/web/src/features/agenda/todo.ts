@@ -14,10 +14,10 @@ import { clear, h } from '../../core/dom';
 import { brain } from '../../api/brain';
 import { button, panel, toast, undo } from '../../ui/components';
 import { pushState } from '../../assistant/push';
-import { splitTime } from '../../../../../packages/shared/src/work';
+import { londonNow, quickParse } from './quickadd';
 import {
   dayOf, dueWords, EVERY, everyWords, inView, nextDue, sortTodos, TODO_ALL_DONE, TODO_EMPTY, TODO_NEED_TEXT, todoLine, todoWaitWords, daysTo, VIEW_EMPTY, VIEWS,
-  ringDayOf, RING_OFF, whenWords,
+  ringDayOf, RING_OFF, whenWords, prioOf, PRIOS, tagWords,
   type Every, type Todo, type TodoView,
 } from './todowords';
 
@@ -50,7 +50,7 @@ const newId = () => `t${Date.now().toString(36)}${Math.random().toString(36).sli
 const OUTBOX = 'ghosty.agenda.todo.outbox';
 /** set once the list this phone kept on its own has joined the brain's */
 const JOINED = 'ghosty.agenda.todo.one';
-type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string; time?: string } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
+type TodoOp = { op: 'add'; item: Todo } | { op: 'tick' | 'untick'; id: string; nextId?: string } | { op: 'remove'; id: string } | { op: 'edit'; id: string; text?: string; due?: string; high?: boolean; every?: string; time?: string; p?: number; project?: string; tags?: string[] } | { op: 'clear_done' } | { op: 'merge'; items: Todo[] };
 const readJson = <T,>(k: string, d: T): T => {
   try {
     return (JSON.parse(localStorage.getItem(k) ?? 'null') as T) ?? d;
@@ -77,11 +77,13 @@ function queue(op: TodoOp): void {
   void syncTodos(true);
 }
 /** The brain's to-do (its own shape: high is the star) as this phone's. */
-type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string; time?: string };
+type BrainTodo = { id: string; text: string; due?: string; high?: boolean; done?: boolean; at: number; every?: Every; doneAt?: number; nextId?: string; time?: string; p?: number; project?: string; tags?: string[] };
 const fromBrain = (t: BrainTodo): Todo => ({
   id: t.id, text: t.text, due: t.due ?? '', done: !!t.done, at: t.at,
   ...(t.doneAt ? { doneAt: t.doneAt } : {}), ...(t.nextId ? { nextId: t.nextId } : {}), ...(t.high ? { star: true } : {}), ...(t.every ? { every: t.every } : {}),
   ...(typeof t.time === 'string' && /^\d\d:\d\d$/.test(t.time) ? { time: t.time } : {}),
+  ...(!t.high && (t.p === 2 || t.p === 3) ? { p: t.p } : {}), ...(typeof t.project === 'string' && t.project ? { project: t.project } : {}),
+  ...(Array.isArray(t.tags) && t.tags.length ? { tags: t.tags.filter((x) => typeof x === 'string') } : {}),
 });
 /** The brain's list (from any screen that read it: WORK's too) becomes this phone's copy, unless changes made here are still to go
  * (then they are sent first, and the list read again). */
@@ -161,10 +163,13 @@ if (typeof addEventListener === 'function') {
 
 /** Add a to-do (the box, or the chat): the one added, or null when this phone would not keep it. [planlane4:tasks] `time` ("15:00")
  * makes it ring at that time on its day (one with a time and no day rings today while the time is ahead, else tomorrow). */
-export function addTodo(text: string, due = '', every?: Every, star?: boolean, time = ''): Todo | null {
+export function addTodo(text: string, due = '', every?: Every, star?: boolean, time = '', more: Pick<Todo, 'p' | 'project' | 'tags'> = {}): Todo | null {
   // (a repeating one with no day starts today: "water the plants every day" is due today)
   const day = due || (time ? ringDayOf(time, Date.now()) : every ? dayOf(Date.now()) : '');
-  const t: Todo = { id: newId(), text: text.trim().slice(0, 200), due: day, done: false, at: Date.now(), ...(every ? { every } : {}), ...(star ? { star: true } : {}), ...(time ? { time } : {}) };
+  const t: Todo = {
+    id: newId(), text: text.trim().slice(0, 200), due: day, done: false, at: Date.now(), ...(every ? { every } : {}), ...(star ? { star: true } : {}), ...(time ? { time } : {}),
+    ...(!star && more.p ? { p: more.p } : {}), ...(more.project ? { project: more.project } : {}), ...(more.tags?.length ? { tags: more.tags } : {}),
+  };
   const l = loadTodos();
   l.push(t);
   if (!saveTodos(l)) return null;
@@ -182,7 +187,8 @@ export function tickTodo(id: string): { done: boolean; next: Todo | null } | nul
   x.doneAt = x.done ? Date.now() : undefined;
   let next: Todo | null = null;
   if (x.done && x.every) {
-    next = { id: newId(), text: x.text, due: nextDue(x.due, x.every, Date.now()), done: false, at: Date.now(), every: x.every, ...(x.star ? { star: true } : {}), ...(x.time ? { time: x.time } : {}) };
+    next = { id: newId(), text: x.text, due: nextDue(x.due, x.every, Date.now()), done: false, at: Date.now(), every: x.every, ...(x.star ? { star: true } : {}), ...(x.time ? { time: x.time } : {}),
+      ...(x.p ? { p: x.p } : {}), ...(x.project ? { project: x.project } : {}), ...(x.tags?.length ? { tags: [...x.tags] } : {}) };
     l.push(next);
     x.nextId = next.id;
   } else if (!x.done && x.nextId) {
@@ -227,15 +233,25 @@ export function clearDone(): number {
   });
   return n;
 }
-/** Change a to-do's words, day, repeat, star or the time it rings ('' takes the ring off). */
-export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 'every' | 'star' | 'time'>>): boolean {
+/** Change a to-do's words, day, repeat, star, the time it rings ('' takes the ring off), [planlane4:tasks] its priority (`prio`, 1 to
+ * 4: 1 is the star), project or tags. */
+export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 'every' | 'star' | 'time' | 'project' | 'tags'>> & { prio?: number }): boolean {
   const l = loadTodos();
   const x = l.find((y) => y.id === id);
   if (!x) return false;
-  Object.assign(x, patch);
+  const { prio, ...rest } = patch;
+  Object.assign(x, rest);
+  if (prio !== undefined) {
+    x.star = prio === 1;
+    if (prio === 2 || prio === 3) x.p = prio;
+    else delete x.p;
+  }
+  if (x.star) delete x.p;
   if (!x.every) delete x.every;
   if (!x.star) delete x.star;
   if (!x.time) delete x.time;
+  if (!x.project) delete x.project;
+  if (!x.tags?.length) delete x.tags;
   // (a time with no day rings today while it is ahead, else tomorrow: the brain rings only a to-do with both)
   if (x.time && !x.due) x.due = ringDayOf(x.time, Date.now());
   if (!saveTodos(l)) return false;
@@ -244,6 +260,8 @@ export function editTodo(id: string, patch: Partial<Pick<Todo, 'text' | 'due' | 
     ...('text' in patch ? { text: x.text } : {}), ...('due' in patch || ('time' in patch && x.time) ? { due: x.due } : {}),
     ...('every' in patch ? { every: x.every ?? '' } : {}), ...('star' in patch ? { high: !!x.star } : {}),
     ...('time' in patch ? { time: x.time ?? '' } : {}),
+    ...(prio !== undefined ? { p: prioOf(x), high: !!x.star } : {}),
+    ...('project' in patch ? { project: x.project ?? '' } : {}), ...('tags' in patch ? { tags: x.tags ?? [] } : {}),
   });
   return true;
 }
@@ -264,20 +282,49 @@ const loadView = (): TodoView => {
 
 export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): void; list(): Todo[] } {
   const p = panel('TO-DO', { cls: 'scroll.todo' });
-  const text = h('input', { placeholder: 'Add a to-do (e.g. Renew passport)', 'aria-label': 'To-do', maxlength: '200' });
+  // [planlane4:tasks] QUICK ADD: the field reads the line as he would say it (quickadd.ts), and shows what it understood as chips
+  const text = h('input', { placeholder: 'Add a to-do (e.g. Call the bank tomorrow at 3pm p1)', 'aria-label': 'To-do', maxlength: '200', autocomplete: 'off' });
   const due = h('input', { type: 'date', 'aria-label': 'Due day (optional)' });
   const rep = everySelect();
   let view: TodoView = loadView();
   /** the to-do whose words are open to change (one at a time), and what he has typed there so far (kept across repaints) */
   let editing = '';
-  let draft: { id: string; text: string; due: string; every: string; time: string } | null = null;
+  let draft: { id: string; text: string; due: string; every: string; time: string; prio: string; project: string; tags: string } | null = null;
+  /** the chips he tapped away (their words stay words) */
+  let dropped = new Set<string>();
+  const chips = h('div.tqchips', { role: 'group', 'aria-label': 'What I understood (tap one to keep it as words)', hidden: true, dataset: { case: 'keep' } });
+  const read = () => {
+    const ln = londonNow();
+    return quickParse(text.value, ln.day, ln.hm, dropped);
+  };
+  const paintChips = () => {
+    const q = read();
+    clear(chips);
+    chips.hidden = !q.bits.length;
+    for (const b of q.bits) {
+      const c = button('', () => {
+        dropped = new Set([...dropped, b.key]);
+        paintChips();
+        text.focus();
+      }, `tqchip tq-${b.kind}`);
+      c.append(h('span', b.label), h('i', { 'aria-hidden': 'true' }, '✕'));
+      c.setAttribute('aria-label', `Keep ${b.label} as words`);
+      chips.append(c);
+    }
+  };
+  text.addEventListener('input', paintChips);
   const add = () => {
-    // [planlane4:tasks] "call the bank at 3pm": the time it rings, read from the words
-    const st = splitTime(text.value.trim());
-    const v = st.text.trim();
+    // [planlane4:tasks] the line read: its words, day, time, repeat, priority, project and tags (the day and repeat keys win when set)
+    const q = read();
+    const v = q.text.trim();
+    /* state: agenda.quickadd error */
     if (!v) return toast(TODO_NEED_TEXT, 'warn');
-    addTodo(v, due.value || '', (rep.value || undefined) as Every | undefined, undefined, st.time);
+    addTodo(v, due.value || q.due, ((rep.value || q.every) || undefined) as Every | undefined, q.p === 1 || undefined, q.time, {
+      ...(q.p === 2 || q.p === 3 ? { p: q.p } : {}), ...(q.project ? { project: q.project } : {}), ...(q.tags.length ? { tags: q.tags } : {}),
+    });
     text.value = '';
+    dropped = new Set();
+    paintChips();
     due.value = '';
     rep.value = '';
     // a new one shows whatever the view: back to All when the view would hide it
@@ -285,6 +332,7 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
   };
   text.addEventListener('keydown', (e) => e.key === 'Enter' && add());
   p.el.insertBefore(h('div.keyrow.wrapit.addev.todoadd', text, due, rep, button('ADD', add)), p.body);
+  p.el.insertBefore(chips, p.body);
   const line = h('p.todoline', { 'aria-live': 'polite', dataset: { case: 'keep' } });
   p.el.insertBefore(line, p.body);
   // ONELIST: changes made with no signal are kept here and said; they go to the one list when the signal is back
@@ -316,22 +364,29 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     // [planlane4:tasks] the time it rings on its day (cleared: no ring)
     const tm = h('input', { type: 'time', value: d ? d.time : t.time ?? '', 'aria-label': 'Change the time it rings' });
     const rp = everySelect((d ? d.every : t.every ?? '') as Every | '');
-    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value, time: tm.value });
-    for (const x of [tx, dd, tm, rp]) x.addEventListener('input', keep);
+    // [planlane4:tasks] its priority, project and tags
+    const pr = h('select', { 'aria-label': 'Priority' }, ...PRIOS.map(([k, w]) => h('option', { value: String(k) }, w)));
+    pr.value = d ? d.prio : String(prioOf(t));
+    const pj = h('input', { value: d ? d.project : t.project ?? '', 'aria-label': 'Project', placeholder: 'Project (e.g. Home)', maxlength: '40' });
+    const tg = h('input', { value: d ? d.tags : (t.tags ?? []).join(' '), 'aria-label': 'Tags', placeholder: 'Tags (e.g. phone errands)', maxlength: '120' });
+    const keep = () => void (draft = { id: t.id, text: tx.value, due: dd.value, every: rp.value, time: tm.value, prio: pr.value, project: pj.value, tags: tg.value });
+    for (const x of [tx, dd, tm, rp, pr, pj, tg]) x.addEventListener('input', keep);
+    pr.addEventListener('change', keep);
     rp.addEventListener('change', keep);
     const save = () => {
       const v = tx.value.trim();
       if (!v) return toast(TODO_NEED_TEXT, 'warn');
       editing = '';
       draft = null;
-      const was = { text: t.text, due: t.due, every: t.every, star: t.star, time: t.time ?? '' };
-      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined, time: tm.value || '' })) return paint();
+      const was = { text: t.text, due: t.due, every: t.every, prio: prioOf(t), time: t.time ?? '', project: t.project ?? '', tags: t.tags ?? [] };
+      const tags = [...new Set(tg.value.split(/[\s,]+/).map((x) => x.replace(/^@+/, '').toLowerCase().slice(0, 30)).filter(Boolean))].slice(0, 8);
+      if (!editTodo(t.id, { text: v, due: dd.value || '', every: (rp.value || undefined) as Every | undefined, time: tm.value || '', prio: Number(pr.value) || 4, project: pj.value.replace(/^#+/, '').trim().slice(0, 40), tags })) return paint();
       undo(`Changed: ${v}`, () => void editTodo(t.id, was));
     };
     tx.addEventListener('keydown', (e) => e.key === 'Enter' && save());
     queueMicrotask(() => tx.focus());
     return h('div.todoedit', { dataset: { case: 'keep' } },
-      h('div.keyrow.wrapit.addev', tx, dd, tm, rp),
+      h('div.keyrow.wrapit.addev', tx, dd, tm, rp, pr, pj, tg),
       h('div.keyrow.wrapit', button('SAVE', save, 'on'), button('CANCEL', () => {
         editing = '';
         draft = null;
@@ -352,12 +407,15 @@ export function todoPanel(onChange: () => void): { el: HTMLElement; paint(): voi
     tick.setAttribute('role', 'checkbox');
     tick.setAttribute('aria-checked', String(t.done));
     tick.setAttribute('aria-label', t.done ? `Not done: ${t.text}` : `Done: ${t.text}`);
-    const star = button(t.star ? '★' : '☆', () => void editTodo(t.id, { star: !t.star }), `todostar${t.star ? ' on' : ''}`);
+    // [planlane4:tasks] the flag: its priority in a colour of the look (P1 the star, P2, P3; an open flag for none); a tap sets P1 or
+    // takes it off, and P2 and P3 are set in its change box or typed as it is added
+    const pv = prioOf(t);
+    const star = button(pv < 4 ? '⚑' : '⚐', () => void editTodo(t.id, { prio: pv === 1 ? 4 : 1 }), `todostar tdp${pv}${t.star ? ' on' : ''}`);
     star.setAttribute('aria-pressed', String(!!t.star));
-    star.setAttribute('aria-label', t.star ? `Unstar ${t.text}` : `Star ${t.text}`);
+    star.setAttribute('aria-label', pv === 1 ? `Take priority 1 off ${t.text}` : `Make ${t.text} priority 1${pv < 4 ? ` (now priority ${pv})` : ''}`);
     const del = button('✕', () => void removeTodo(t.id), 'todox');
     del.setAttribute('aria-label', `Remove ${t.text}`);
-    const words = [t.done ? 'Done' : whenWords(t, now), t.every ? `repeats ${everyWords(t.every)}` : ''].filter(Boolean).join(' · ');
+    const words = [t.done ? 'Done' : whenWords(t, now), t.every ? `repeats ${everyWords(t.every)}` : '', tagWords(t)].filter(Boolean).join(' · ');
     // tap the words to change them (and the day, and the repeat)
     const tx = h('button.todotx', { type: 'button', 'aria-label': `Change ${t.text}`, 'aria-expanded': String(editing === t.id) }, h('b', t.text), words ? h('small', words) : null);
     tx.addEventListener('click', () => {

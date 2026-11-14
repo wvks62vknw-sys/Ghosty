@@ -46,7 +46,7 @@ function listWords(ask: Extract<AgendaAsk, { what: 'list' }>, now: number): stri
   if (ask.when === 'late') return late.length ? `${late.length} late: ${join(late.map((t) => one(t, now)))}.` : 'Nothing is late. Well done.';
   if (ask.when === 'starred') {
     const st = open.filter((t) => t.star);
-    return st.length ? `Starred: ${join(st.map((t) => one(t, now)))}.` : 'Nothing starred. Tap ☆ on a to-do that matters, or say “add … to my list, it’s important”.';
+    return st.length ? `Starred: ${join(st.map((t) => one(t, now)))}.` : 'Nothing at priority 1. Tap the flag on a to-do that matters, or say “add … to my list, it’s important”.';
   }
   if (ask.when === 'week') {
     const wk = open.filter((t) => t.due && daysTo(t.due, now) <= 7);

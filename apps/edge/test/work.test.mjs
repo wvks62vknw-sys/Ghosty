@@ -595,3 +595,35 @@ test('todo (ONELIST2, plan.s10): the list as read carries his bin days from the 
   assert.ok(r.data.bins.every((b) => b.day >= '2026-11-01' && b.day <= '2026-12-13'));
   assert.deepEqual((await storage.get('home:bins')).bins.length, 1);
 });
+
+// [planlane4:tasks]
+test('todo (planlane4:tasks): priorities P1 to P4 (P1 is the old star, both ways), a project and tags, kept by add, edit, merge and a repeat', async () => {
+  const storage = new Mem();
+  let r = await run(storage, 'todo', { op: 'add', item: { id: 'tp', text: 'Call the bank', p: 2, project: '#Home', tags: ['@Phone', 'phone', 'errands'], due: '2026-11-02', every: 'weekly' } });
+  assert.deepEqual(r.data.hit, { id: 'tp', text: 'Call the bank', due: '2026-11-02', at: r.data.hit.at, every: 'weekly', p: 2, project: 'Home', tags: ['phone', 'errands'] });
+  // P1 is the star: set by p, read as high (a screen that knows only the star sees it); set by the star, read as P1
+  r = await run(storage, 'todo', { op: 'edit', id: 'tp', p: 1 });
+  assert.equal(r.data.hit.high, true);
+  assert.equal(r.data.hit.p, undefined);
+  assert.equal(W.prioOf(r.data.hit), 1);
+  r = await run(storage, 'todo', { op: 'edit', id: 'tp', high: false });
+  assert.equal(W.prioOf(r.data.hit), 4);
+  r = await run(storage, 'todo', { op: 'edit', id: 'tp', p: 3, project: 'Work', tags: [] });
+  assert.equal(r.data.hit.p, 3);
+  assert.equal(r.data.hit.project, 'Work');
+  assert.equal(r.data.hit.tags, undefined);
+  r = await run(storage, 'todo', { op: 'edit', id: 'tp', p: 4, project: '' });
+  assert.equal(r.data.hit.p, undefined);
+  assert.equal(r.data.hit.project, undefined);
+  // a repeat ticked: the next one keeps its priority, project and tags
+  await run(storage, 'todo', { op: 'edit', id: 'tp', p: 2, project: 'Home', tags: ['phone'] });
+  r = await run(storage, 'todo', { op: 'tick', id: 'tp', nextId: 'tp2' });
+  assert.deepEqual([r.data.next.p, r.data.next.project, r.data.next.tags], [2, 'Home', ['phone']]);
+  // the order: by day, then priority (P1 first, none last)
+  const o = W.todoOrder([{ id: 'a', text: 'A', due: '2026-11-03', at: 1 }, { id: 'b', text: 'B', due: '2026-11-03', p: 2, at: 2 }, { id: 'c', text: 'C', due: '2026-11-03', high: true, at: 3 }]);
+  assert.deepEqual(o.map((t) => t.id), ['c', 'b', 'a']);
+  // a merge keeps the higher priority and fills a project and tags in
+  const m = W.mergeTodos([{ id: 'x', text: 'Buy milk', at: 1, p: 3 }], [{ id: 'y', text: 'buy milk', p: 2, project: 'Home', tags: ['shop'] }], 5);
+  assert.deepEqual([m.list[0].p, m.list[0].project, m.list[0].tags, m.added.length], [2, 'Home', ['shop'], 0]);
+  assert.equal(W.mergeTodos([{ id: 'x', text: 'Buy milk', at: 1, p: 3 }], [{ id: 'y', text: 'buy milk', star: true }], 5).list[0].high, true);
+});

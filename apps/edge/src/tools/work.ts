@@ -49,6 +49,9 @@ import {
   tickTodoIn,
   todoCard,
   todoFrom,
+  prioOk,
+  projectOk,
+  tagsOk,
   TODO_EVERY,
   TODO_MAX,
   todoOrder,
@@ -246,8 +249,26 @@ async function todoOp(op: string, a: Record<string, unknown>, d: PackDeps, list:
       else delete x.due;
     }
     if (typeof a.high === 'boolean') {
-      if (a.high) x.high = true;
+      if (a.high) (x.high = true), delete x.p;
       else delete x.high;
+    }
+    // [planlane4:tasks] its priority (1 to 3; 4 or 0 is none: P1 and the star are one), its project ('' none) and its tags
+    if (typeof a.p === 'number') {
+      const p = prioOk(a.p);
+      if (p === 2 || p === 3) x.p = p;
+      else delete x.p;
+      if (p === 1) x.high = true;
+      else delete x.high;
+    }
+    if (typeof a.project === 'string') {
+      const pr = projectOk(a.project);
+      if (pr) x.project = pr;
+      else delete x.project;
+    }
+    if (Array.isArray(a.tags)) {
+      const tg = tagsOk(a.tags);
+      if (tg.length) x.tags = tg;
+      else delete x.tags;
     }
     if (typeof a.every === 'string') {
       if ((TODO_EVERY as readonly string[]).includes(a.every)) x.every = a.every as TodoEvery;
