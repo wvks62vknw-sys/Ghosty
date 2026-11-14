@@ -108,6 +108,10 @@ async function run(vp, body) {
     await ed.locator('button', { hasText: 'PROMPT' }).click();
     const prompt = (await ed.locator('.jnprompt').innerText()).trim();
     check(prompt.length > 8, `${T} [b] no prompt shown ("${prompt}")`);
+    // (gratitude: three numbered lines and its prompt)
+    await ed.locator('button', { hasText: 'THREE GOOD THINGS' }).click();
+    check(/^1\. \n2\. \n3\. $/.test(await ed.locator('textarea').inputValue()) && /Three good things today/.test(await ed.locator('.jnprompt').innerText()), `${T} [b] THREE GOOD THINGS gave "${await ed.locator('textarea').inputValue()}"`);
+    await ed.locator('button', { hasText: 'PROMPT' }).click();
     await ed.locator('textarea').fill('Walked up Primrose Hill at sunset with a flask of tea. The city went pink.');
     await ed.locator('.jnmoods button', { hasText: 'Great' }).click();
     await ed.locator('input[list="jnplaces"]').fill('Primrose Hill');
