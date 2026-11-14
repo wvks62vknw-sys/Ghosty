@@ -137,7 +137,7 @@ free classics, and lessons can be heard, quizzed and argued with out loud. Every
     - Worked solutions (Khan Academy, Brilliant)
     - Progress charts (Speak)
     - Highlights and notes with export (Kindle)
+    - A mastery map (Khan Academy)
   - Next:
     - Move explanations (Lichess)
     - Streak freezes and daily goals (Duolingo)
-    - A mastery map (Khan Academy)
