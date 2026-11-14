@@ -145,7 +145,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:build_app': {
     name: 'Make an app for your phone', line: 'I can make you a small app that installs on your Home Screen: a tracker, a list, a timer, flash cards.',
-    more: 'One request and I build it, then publish it at a link you add to your Home Screen. It keeps what you save on your phone and works offline. I say what it does before it goes live. Change it later by asking (“add a habit”, “change my goal”): same link, and what you saved stays.',
+    more: 'One request and I build it, then publish it at a link you add to your Home Screen. It keeps what you save on your phone and works offline. I say what it does before it goes live. Change it later by asking (“add a habit”, “change my goal”): same link, and what you saved stays. A sheet’s first column, or a Learn course’s cards, can become an app too.',
     say: ['Make me a habit tracker app', 'Add stretching to my habits app', 'Change my water goal to 10', 'Make my French verbs cards an app'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me an app for ', send: false },
   },

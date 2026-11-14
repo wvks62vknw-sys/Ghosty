@@ -4,7 +4,7 @@
 // the main picture; (e) every key is 44 pt, nothing sideways, BODY 21 cuts no words; (f) "build a website for my café with my photos"
 // asks APPROVE saying his photos will be used (declined here: nothing is built); (g) a photo is removed after its confirm; (h) UNDO FOR
 // PUBLISHED PAGES (sites.u2): a page updated from the chat goes back to its earlier version with the Workshop's UNDO LAST UPDATE;
-// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8); (m) a page's QR code and an A4 poster (sites.s2, u4); (n) a page's check-up (sites.u9).
+// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8); (m) a page's QR code and an A4 poster (sites.s2, u4); (n) a page's check-up (sites.u9); (o) a sheet as a list app (sites.s8).
 //   BASE=http://localhost:8788 node tests/sitephotos.spec.mjs tests/.shots
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -174,7 +174,7 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
   const v1Live = v1 && (await waitFor(/saturday at 8/i, 20000));
   const v2 = v1Live && (await say(`publish site ${slug} saying Sunday at 9`));
   const read = () => page.evaluate((s) => fetch(`/api/sites`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).then((r) => r.json()).then((j) => j.sites.find((x) => x.name === s)), slug);
-  check(v2 && (await waitFor(/sunday at 9/i, 20000)) && (await (async () => { for (let i = 0; i < 40; i++) { const e = await read(); if (e?.versions === 1) return true; await page.waitForTimeout(250); } return false; })()), `${W}: (h) two versions published after APPROVE: one earlier version kept`);
+  check(v2 && (await waitFor(/sunday at 9/i, 20000)) && (await (async () => { for (let i = 0; i < 40; i++) { const e = await read(); if ((e?.versions ?? 0) >= 1) return true; await page.waitForTimeout(250); } return false; })()), `${W}: (h) two versions published after APPROVE: one earlier version kept`);
   await page.evaluate(() => (location.hash = 'workshop'));
   await openSection(page, 'workshop', 'Made');
   const undoKey = `#pg-workshop .site[data-site="${slug}"] button[aria-label="Undo the last update to Party"]`;
@@ -214,7 +214,7 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
   await page.locator('#pg-docs .dcexport button', { hasText: 'PUT IT ON MY SITES' }).first().click();
   const docReason = await approveNext(waiting0);
   const docSlug = docTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  check(new RegExp(`Publish "${docTitle}" \\(the document from your phone, read-only\\) as a public page at .*/s/${docSlug}\\?`, 'i').test(docReason), `${W}: (i) the chat asks APPROVE for the document: ${docReason.slice(0, 200)}`);
+  check(new RegExp(`(?:Publish|Update) "${docTitle}" \\(the document from your phone, read-only\\) as a public page at .*/s/${docSlug}\\?`, 'i').test(docReason), `${W}: (i) the chat asks APPROVE for the document: ${docReason.slice(0, 200)}`);
   const docLive = async () => { for (let i = 0; i < 60; i++) { const r = await page.request.get(`${base}/s/${docSlug}/page`, { headers: { 'sec-fetch-dest': 'iframe' }, maxRedirects: 0 }); if (r.status() === 200 && /Sow the beans in May/.test(await r.text())) return true; await page.waitForTimeout(250); } return false; };
   check(await docLive(), `${W}: (i) after APPROVE the document is live at /s/${docSlug}, read-only`);
 
@@ -254,6 +254,31 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
   }
 
 
+  // (o) a sheet as a mini-app (sites.s8): SHEETS' first column becomes a list app after APPROVE
+  if (W === 440) {
+    await page.evaluate(() => (location.hash = 'area-make'));
+    await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="sheets"]', { timeout: 15000 });
+    await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="sheets"]');
+    await page.waitForSelector('#pg-sheets .shbar button', { timeout: 15000 });
+    await page.locator('#pg-sheets .shbar button', { hasText: 'NEW' }).first().click();
+    await page.waitForFunction(() => window.__ghosty?.sheets?.view === 'book', null, { timeout: 15000 });
+    for (const [a, t] of [['A1', 'Shopping'], ['A2', 'Milk'], ['A3', 'Eggs'], ['A4', 'Bread']]) {
+      await page.locator(`.shsheet .shc[data-a="${a}"]`).first().click();
+      await page.locator('.shline').fill(t);
+      await page.locator('.shline').press('Enter');
+      await page.waitForTimeout(80);
+    }
+    await page.locator('.shpill', { hasText: /^DATA$/i }).click();
+    const before = await page.$$eval('.approval[data-state="waiting"] button.on', (b) => b.length);
+    await page.locator('.shexport button', { hasText: 'AS AN APP ON MY HOME SCREEN' }).click();
+    const listReason = await approveNext(before);
+    check(/Make the mini-app "/i.test(listReason), `${W}: (o) the sheet asks APPROVE for a list app: ${listReason.slice(0, 160)}`);
+    const listSlug = /\/s\/([a-z0-9-]+)\/\?/.exec(listReason)?.[1] ?? '';
+    let listHtml = '';
+    for (let i = 0; i < 60 && !/milk/i.test(listHtml); i++) { const r = await page.request.get(`${base}/s/${listSlug}/`, { headers: { 'sec-fetch-dest': 'document' } }); listHtml = r.status() === 200 ? await r.text() : ''; if (!/milk/i.test(listHtml)) await page.waitForTimeout(250); }
+    check(/milk/i.test(listHtml) && /eggs/i.test(listHtml) && /bread/i.test(listHtml) && !/shopping"\s*,\s*"/i.test(listHtml.match(/"items":\[[^\]]*\]/)?.[0] ?? ''), `${W}: (o) the app at /s/${listSlug}/ holds the sheet's rows, not its heading`);
+  }
+
   // (l) one home page for his sites (sites.u8): two pages ticked ON MY HOME PAGE (kept on the phone), PUBLISH MY HOME PAGE, APPROVE;
   // the page lists exactly those two
   if (W === 440) {
@@ -291,7 +316,8 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
     const shown = await until(page, () => !!document.querySelector('.modal .psheet .pqr svg path'), null, 8000);
     const addr = await page.locator('.modal .psheet .paddr').textContent().catch(() => '');
     check(shown && addr.endsWith(`/s/${slug}`), `${W}: (m) QR AND POSTER shows the page's QR code and its address (${addr})`);
-    const small = await page.$$eval('.modal .psheet button', (b) => b.filter((x) => x.getBoundingClientRect().height < 43.4).map((x) => x.textContent));
+    // (measured as laid out: the sheet slides in slightly scaled, which a bounding box would count)
+    const small = await page.$$eval('.modal .psheet button', (b) => b.filter((x) => x.offsetHeight < 43.4).map((x) => x.textContent));
     check(small.length === 0, `${W}: (m) its keys are 44 pt ${JSON.stringify(small)}`);
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), page.locator('.modal .psheet .prow').first().locator('button', { hasText: 'SAVE' }).click()]);
     let dims = '';

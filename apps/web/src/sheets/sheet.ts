@@ -7,6 +7,7 @@
  * of an .xlsx or a CSV with what it could not keep said once; Ghosty explaining a cell, writing a formula, tidying a column (chat turns with the
  * chosen cells as context). The workbook, its formulas and its files are the app's own code (this folder): no package.
  */
+import { firstColumn, sheetAppWords } from '../sites/sheetapp'; // [sites] a sheet as a mini-app (NEXT ROUND sites.s8)
 import { bytesOf } from '../core/safeurl';
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
@@ -823,6 +824,16 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     h('small.cvgh', 'EXPORT'),
     ...(['xlsx', 'csv', 'pdf'] as const).map((k) => h('div.shexrow', button(k.toUpperCase(), () => doExport(k)), sizeSpans[k])),
     h('p.shexportnote.shnote', 'The chart is in the PDF, the numbers are in the file. A CSV keeps the numbers and dates, not the £ and % look, and only this sheet.'),
+    // [sites] the sheet's first column as a list app on his Home Screen (NEXT ROUND sites.s8): asked in the chat, built after his APPROVE
+    h('div.shexrow', button('AS AN APP ON MY HOME SCREEN', () => {
+      const items = firstColumn(toCsv(book(), sheet().name));
+      if (!items.length) return say('Put the things for the list in the first column, under a heading row, then try again.');
+      void Promise.all([import('../assistant/session'), import('../shell/launcher')]).then(([{ send }, { openChat }]) => {
+        openChat();
+        void send(sheetAppWords(/^sheet\s*\d*$/i.test(sheet().name) ? book().title : sheet().name, items));
+      });
+      say(`Asking in the chat for a list app of ${items.length} row${items.length === 1 ? '' : 's'}: it is built after your APPROVE.`);
+    })),
     outs);
   const scheduleSizes = (ms = 1200) => {
     clearTimeout(sizeTimer);

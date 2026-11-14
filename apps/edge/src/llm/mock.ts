@@ -360,6 +360,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   if ((m = text.match(/^add (.+) to my app ([a-z0-9-]+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0], change: true, link_name: m[2], add_items: [m[1]] }), model };
   // [sites] a Learn course's cards as an app (learnapp.ts, NEXT ROUND sites.c2)
   if ((m = text.match(/^make my (.+) cards an app$/)) && has('build_app')) return { message: call('build_app', { request: m[0], from_learn: m[1] }), model };
+  // [sites] a sheet as a list app (web sites/sheetapp.ts, NEXT ROUND sites.s8)
+  if ((m = text.match(/^make a list app called (.+?) with: (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0], shape: 'list', title: m[1], items: m[2]!.split(/;\s*/).filter(Boolean) }), model };
   if ((m = text.match(/^make me an app (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0] }), model };
   // [sites] A game from his studio on his sites (tools/sites.ts publish_game): the chat turn the studio's key starts.
   if ((m = text.match(/^put (.+?) on my sites$/)) && has('publish_game')) return { message: call('publish_game', { name: m[1] }), model };
