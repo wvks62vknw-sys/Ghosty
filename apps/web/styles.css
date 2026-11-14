@@ -11800,3 +11800,5 @@ html .al-gmerge .al-gtile.al-gbump { animation: al-gbump 180ms ease-out 100ms; }
 @media (prefers-reduced-motion: reduce) { html .al-gmerge .al-gtile.al-gbump { animation: none; } }
 html .al-makerhost { display: flex; flex-direction: column; overflow: hidden !important; padding-bottom: 0 !important; }
 html .al-makerhost > .ak-app { flex: 1 1 auto; height: auto; min-height: 0; padding: 0; }
+html body :is(.al-lib, .al-app) .al-day:not([aria-pressed="true"]), html body .al-lib .al-back { background: none !important; box-shadow: none !important; }
+html body .al-lib .al-back:active { background: var(--g-plate-fill) !important; }
