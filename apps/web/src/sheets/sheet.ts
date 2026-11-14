@@ -36,6 +36,12 @@ import { londonToday, ruleMarks, ruleWords, type Mark } from './rules';
 import { rulesPanel } from './rulespanel';
 import { refreshPivots } from './pivot';
 import { summaryPanel } from './summarypanel';
+import { chartProSvg } from './chartpro';
+import { chartData } from './charts';
+import { CHART_WORDS } from './model';
+import { cellsPanel, chartPanel, checkPicker } from './propanel';
+import { checkProblem, proDeco } from './pro';
+import type { Deco } from './grid';
 
 export const sheetsState = {
   open: false,
@@ -103,7 +109,6 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
   let B: Pos = { r: 0, c: 0 };
   let zoom = 1;
   let panel = 'format';
-  let chartKind: 'bars' | 'line' = 'bars';
   let clip: { cells: (Cell | undefined)[][]; at: Pos } | null = null;
   let rev = 0;
   let editFor: { sheet: string; a: string } | null = null;
@@ -223,6 +228,20 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     },
     key: (e) => onKey(e),
     marks: () => marks(),
+    deco: () => deco(),
+  };
+  // the pro parts' dressing of the active sheet (sparklines, checks, merges, table bands), worked out once for each change
+  let decoFor = '';
+  let decoMap = new Map<string, Deco>();
+  const deco = (): Map<string, Deco> => {
+    const s = sheet();
+    if (!s.sparks?.length && !s.checks?.length && !s.merges?.length && !s.tables?.length) return decoMap.size ? (decoMap = new Map()) : decoMap;
+    const k = `${rev}|${si()}`;
+    if (k !== decoFor) {
+      decoFor = k;
+      decoMap = proDeco(s, (a) => eng!.value(s.name, a));
+    }
+    return decoMap;
   };
   // the colour rules' marks on the active sheet, worked out once for each change (and each London day)
   let marksFor = '';
@@ -256,7 +275,9 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       errLine.textContent = '';
     }
   };
+  let paintPicker: () => void = () => undefined;
   const paintLine = () => {
+    paintPicker();
     const cell = sheet().cells[aText(A)];
     line.value = cellInput(cell);
     lineOrig = line.value;
@@ -328,6 +349,15 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
   const commitLine = (move: 'down' | 'right' | null) => {
     const f = editFor ?? { sheet: sheet().name, a: aText(A) };
     if (line.value !== lineOrig) {
+      const fs = book().sheets.find((x) => x.name === f.sheet);
+      const bad = fs ? checkProblem(fs, f.a, line.value) : '';
+      if (bad) {
+        say(bad);
+        line.value = lineOrig;
+        editFor = null;
+        paintLine();
+        return;
+      }
       const next = setEntry(book(), f.sheet, f.a, line.value);
       commit(next, [`${f.sheet}!${f.a}`]);
     }
@@ -698,16 +728,22 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
         say(`${n} now means ${range()}. Use it in a formula, or type it in the box on the left.`);
         nameIn.value = '';
       }))),
-    chart: h('div.shpanel', { role: 'tabpanel', 'aria-label': 'Chart' },
-      h('p.shnote', 'Choose the cells first: the first column names each bar, the last column is the numbers, and a first row of words is the chart’s title.'),
-      h('div.shrow', key('BARS', () => { chartKind = 'bars'; paintChartKeys(); }), key('LINE', () => { chartKind = 'line'; paintChartKeys(); }), key('MAKE THE CHART', () => {
-        const c = chartOf(book(), eng!, sheet().name, range(), chartKind);
-        if (!c) return say('I need at least two numbers in the last column of what you chose.');
-        commit(addChart(book(), c), []);
-        say(`A ${chartKind === 'bars' ? 'bar' : 'line'} chart of ${c.values}, under the sheet. It follows the numbers.`);
-      }, 'on')),
-    ),
   };
+  const proHost = { book, sheet: si, range, at: () => aText(A), eng: () => eng!, commit: (next: Book) => commit(next, 'all', true), say };
+  const chartP = chartPanel(proHost);
+  panels.chart = chartP.el;
+  const cellsP = cellsPanel({ ...proHost, fmt, fmtOf });
+  panels.cells = cellsP.el;
+  const picker = checkPicker({
+    ...proHost,
+    put: (a, text) => {
+      const bad = checkProblem(sheet(), a, text);
+      if (bad) return say(bad);
+      commit(setEntry(book(), sheet().name, a, text), [`${sheet().name}!${a}`]);
+      say(text ? `${a} is ${text}. UNDO takes it back.` : `${a} is cleared. UNDO takes it back.`);
+    },
+  });
+  paintPicker = () => picker.paint();
   const rules = rulesPanel({ book, sheet: si, range, commit: (next) => commit(next, [], true), say });
   panels.rules = rules.el;
   const summary = summaryPanel({
@@ -723,12 +759,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     addChart: (c) => commit(addChart(book(), c), []),
   });
   panels.summary = summary.el;
-  const barsKey = panels.chart!.querySelectorAll('button')[0] as HTMLButtonElement;
-  const lineKey = panels.chart!.querySelectorAll('button')[1] as HTMLButtonElement;
-  const paintChartKeys = () => {
-    pressed(barsKey, chartKind === 'bars');
-    pressed(lineKey, chartKind === 'line');
-  };
+  const paintChartKeys = () => chartP.paint();
   const paintFormatKeys = () => {
     const x = fmtOf();
     pressed(boldKey, !!x?.b);
@@ -736,7 +767,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     pressed(freezeKey, sheet().frozen);
     for (const b of swatches) pressed(b, String(x?.fill ?? '') === b.dataset.fill);
   };
-  const pills = h('div.shpills', { role: 'tablist', 'aria-label': 'Editing keys' }, ...(['format', 'data', 'rules', 'summary', 'chart'] as const).map((id) => {
+  const pills = h('div.shpills', { role: 'tablist', 'aria-label': 'Editing keys' }, ...(['format', 'cells', 'data', 'rules', 'summary', 'chart'] as const).map((id) => {
     const b = button(id.toUpperCase(), () => showPanel(id), 'shpill');
     b.dataset.panel = id;
     b.setAttribute('role', 'tab');
@@ -750,6 +781,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     paintChartKeys();
     if (id === 'rules') rules.paint();
     if (id === 'summary') summary.paint();
+    if (id === 'cells') cellsP.paint();
   }
 
   // ---------------------------------------------------------------- the foot: sheets
@@ -842,11 +874,24 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
   const paintCharts = () => {
     clear(charts);
     for (const c of book().charts.filter((x) => x.sheet === sheet().name)) {
-      const s = chartSeries(book(), eng!, c);
-      const fig = h('figure.shchart', h('figcaption', h('b', c.title)));
-      if (s) fig.append(chartSvg(s, c.title));
-      else fig.append(h('p.shnote', 'This chart’s cells have fewer than two numbers now.'));
-      fig.append(h('div.shrow', key('REMOVE', () => {
+      // BARS and LINE of one column keep the classic drawing; every other kind, and any with more columns or axis words, the pro one
+      const classic = (c.kind === 'bars' || c.kind === 'line') && !c.more?.length && !c.xTitle && !c.yTitle && c.legend === undefined;
+      const fig = h('figure.shchart', { dataset: { kind: c.kind, tone: String(c.tone ?? 1), editing: chartP.editing() === c.id ? '1' : '0' } }, h('figcaption', h('b', c.title)));
+      if (classic) {
+        const s = chartSeries(book(), eng!, c);
+        if (s) fig.append(chartSvg(s, c.title));
+        else fig.append(h('p.shnote', 'This chart’s cells have fewer than two numbers now.'));
+      } else {
+        const d = chartData(book(), eng!, c);
+        if (d) fig.append(chartProSvg(c, d, CHART_WORDS[c.kind][0]!.toUpperCase() + CHART_WORDS[c.kind].slice(1)));
+        else fig.append(h('p.shnote', 'This chart’s cells have fewer than two numbers now.'));
+      }
+      fig.append(h('div.shrow', key('EDIT', () => {
+        chartP.edit(c.id);
+        showPanel('chart');
+        paintCharts();
+        panels.chart!.scrollIntoView({ block: 'nearest' });
+      }, '', `Edit the chart ${c.title}`), key('REMOVE', () => {
         commit(removeChart(book(), c.id), []);
         say('The chart is off the sheet; the numbers stay.');
       }, '', `Remove the chart ${c.title}`)));
@@ -910,7 +955,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
   const exportRow = h('div.shexport',
     h('small.cvgh', 'EXPORT'),
     ...(['xlsx', 'csv', 'pdf'] as const).map((k) => h('div.shexrow', button(k.toUpperCase(), () => doExport(k)), sizeSpans[k])),
-    h('p.shexportnote.shnote', 'The chart is in the PDF, the numbers are in the file. A CSV keeps the numbers and dates, not the £ and % look, and only this sheet.'),
+    h('p.shexportnote.shnote', 'Charts go in the Excel file as real Excel charts, and in the PDF. A CSV keeps the numbers and dates, not the £ and % look, and only this sheet.'),
     // [sites] the sheet's first column as a list app on his Home Screen (NEXT ROUND sites.s8): asked in the chat, built after his APPROVE
     h('div.shexrow', button('AS AN APP ON MY HOME SCREEN', () => {
       const items = firstColumn(toCsv(book(), sheet().name));
@@ -1136,7 +1181,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       });
     }
     clear(view, title, metaEl, savedEl, offline, h('p.shsaid', { 'aria-live': 'polite' }), empty,
-      h('div.shfbar', addrIn, line), fns, errLine, quick, colMenu, grid.el, tabs, renameBox, tools, findBox, pills, ...Object.values(panels), charts, exportRow, askBox,
+      h('div.shfbar', addrIn, line), picker.el, fns, errLine, quick, colMenu, grid.el, tabs, renameBox, tools, findBox, pills, ...Object.values(panels), charts, exportRow, askBox,
       h('div.shrow', key('REMOVE FROM MY SPREADSHEETS', () => {
         removeBook(book().id);
         say(`Removed “${book().title}” from this phone.`);

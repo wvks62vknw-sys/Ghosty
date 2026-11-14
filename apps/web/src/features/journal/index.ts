@@ -15,16 +15,17 @@ import type { TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, modal, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
+import { sayError } from '../../ui/hisWords';
 import { sections, sectionNow } from '../../ui/sections';
 import { canLock, makeKey, unlock } from './lock';
-import { asDataUrl, binned, dayKey, dropMedia, getMedia, live, load, matches, newId, onThisDay, putMedia, samples, save, shrink, streak, type Entry, type JournalData, type Mood, type Tone } from './store';
+import { photoGps, nearestSaved, asDataUrl, binned, dayKey, dropMedia, getMedia, live, load, matches, newId, onThisDay, putMedia, samples, save, shrink, streak, type Entry, type JournalData, type Mood, type Tone } from './store';
 import { J, PROMPTS } from './words';
 
 const ICON = '<path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h6M9.5 11.5h6"/>';
 const TONES: Tone[] = ['accent', 'amber', 'green', 'pink', 'violet'];
 
 /** What a spec reads: window.__ghosty.journal. */
-export const journalState = { entries: 0, shown: 0, locked: false, open: '' as string, streak: 0, state: 'idle' as 'idle' | 'shown' | 'empty' | 'locked' };
+export const journalState = { map: 0, entries: 0, shown: 0, locked: false, open: '' as string, streak: 0, state: 'idle' as 'idle' | 'shown' | 'empty' | 'locked' };
 
 let data: JournalData = load();
 const keep = (): boolean => {
@@ -77,7 +78,7 @@ export const journalTab: TabDef = {
 
     const entryRow = (e: Entry) => {
       const r = h('button.jnrow', { type: 'button', dataset: { id: e.id, tone: toneOf(e.journal), case: 'keep' }, 'aria-label': `${day(e.at)}: ${e.text.slice(0, 60)}` },
-        h('span.jnwhen', h('b', day(e.at)), h('small', `${time(e.at)}${e.place ? ` · ${e.place}` : ''}${e.mood ? ` · ${J.MOODS[e.mood - 1]}` : ''}${e.sample ? ' · example' : ''}`)),
+        h('span.jnwhen', h('b', day(e.at)), h('small', `${time(e.at)}${e.place ? ` · ${e.place}` : ''}${e.mood ? ` · ${J.MOODS[e.mood - 1]}` : ''}${e.weather ? ` · ${e.weather}` : ''}${e.sample ? ' · example' : ''}`)),
         h('span.jntext', e.text || (e.photos.length ? 'A photo' : e.voice ? 'A voice note' : '')),
         e.photos[0] ? h('img.jnthumb', { src: e.photos[0].thumb, alt: '' }) : '');
       r.addEventListener('click', () => openEntry(e.id));
@@ -137,10 +138,38 @@ export const journalTab: TabDef = {
       const text = h('textarea.jntextarea', { rows: 8, placeholder: J.WRITE_HINT, 'aria-label': 'Your entry' }) as HTMLTextAreaElement;
       text.value = e.text;
       const promptLine = h('p.jnprompt', e.prompt ?? '');
+      // the weather at his home town (Settings → home, never his live position), filled in for a new entry about today
+      const wx = h('small.jnweather', e.weather ?? '');
+      if (!was && !e.weather)
+        void import('../../data/weather').then(async (W) => {
+          const d = await W.weather.refresh();
+          if (!d?.current || e.weather || dayKey(e.at) !== dayKey(Date.now())) return;
+          e.weather = `${W.temp(d.current.temperature_2m)}, ${W.WMO(d.current.weather_code)}`;
+          wx.textContent = e.weather;
+          changed();
+        }).catch(() => undefined);
       const pk = button(J.PROMPT_KEY, () => {
         e.prompt = PROMPTS[(PROMPTS.indexOf(e.prompt ?? '') + 1 + Math.floor(Math.random() * (PROMPTS.length - 1))) % PROMPTS.length];
         promptLine.textContent = e.prompt!;
         changed();
+      });
+      // talk it: his words written in through the phone's own recogniser (as the keyboard's microphone does), added to the end
+      const talk = button(J.TALK, async (b) => {
+        b.disabled = true;
+        b.textContent = J.TALK_ON;
+        try {
+          const { listen } = await import('../../assistant/voice');
+          const heard = (await listen(false)).trim();
+          if (heard) {
+            text.value = `${text.value.trimEnd()}${text.value.trim() ? ' ' : ''}${heard}`;
+            changed();
+          }
+        } catch (err) {
+          toast(sayError(err, 'hear that'), 'warn');
+        } finally {
+          b.disabled = false;
+          b.textContent = J.TALK;
+        }
       });
       const moods = h('div.row.wrap.jnmoods', { role: 'group', 'aria-label': 'How you feel' }, ...J.MOODS.map((m, i) => {
         const b = button(m, () => {
@@ -155,7 +184,11 @@ export const journalTab: TabDef = {
       place.setAttribute('list', 'jnplaces');
       place.value = e.place ?? '';
       const placesList = h('datalist#jnplaces');
-      void brain.places().then((r) => clear(placesList, ...r.places.map((p) => h('option', { value: p.label })))).catch(() => undefined);
+      let saved: { label: string; lat: number; lon: number }[] = [];
+      void brain.places().then((r) => {
+        saved = r.places;
+        clear(placesList, ...r.places.map((p) => h('option', { value: p.label })));
+      }).catch(() => undefined);
       const jsel = h('select', { 'aria-label': 'Which journal' }, ...data.journals.map((j) => h('option', { value: j.id }, j.name))) as HTMLSelectElement;
       jsel.value = e.journal;
       const when = h('input', { type: 'date', 'aria-label': 'Which day it is about' }) as HTMLInputElement;
@@ -166,6 +199,15 @@ export const journalTab: TabDef = {
       const fileIn = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true }) as HTMLInputElement;
       fileIn.addEventListener('change', async () => {
         for (const f of [...(fileIn.files ?? [])].slice(0, 10)) {
+          // (a photo's own place, read here: only the nearest SAVED place's name is used, never the position)
+          if (!place.value.trim() && saved.length) {
+            const g = await photoGps(f);
+            const near = g ? nearestSaved(g, saved) : null;
+            if (near) {
+              place.value = near;
+              said.textContent = J.PLACE_FROM_PHOTO(near);
+            }
+          }
           const full = await shrink(f, 1600);
           const small = await shrink(f, 240, 0.7);
           if (!full || !small) {
@@ -221,7 +263,8 @@ export const journalTab: TabDef = {
         clearTimeout(timer);
         timer = setTimeout(commit, 500);
       };
-      const commit = () => {
+      // (a wording becomes a version when it had stood ten minutes, or when PUT BACK replaces it: not at every pause in typing)
+      const commit = (force = false) => {
         if (gone) return;
         const before = data.entries.find((x) => x.id === e.id);
         e.text = text.value;
@@ -230,7 +273,7 @@ export const journalTab: TabDef = {
         const d = when.value ? new Date(`${when.value}T${new Date(e.at).toTimeString().slice(0, 5)}`) : null;
         if (d && !Number.isNaN(d.getTime())) e.at = d.getTime();
         if (!e.text.trim() && !e.photos.length && !e.voice && !before) return;
-        if (before && before.text !== e.text && before.text.trim()) e.versions = [...(before.versions ?? []), { at: before.edited, text: before.text }].slice(-10);
+        if (before && before.text !== e.text && before.text.trim() && (force || Date.now() - before.edited > 10 * 60_000)) e.versions = [...(before.versions ?? []), { at: before.edited, text: before.text }].slice(-10);
         e.edited = Date.now();
         delete e.sample;
         data.entries = [...data.entries.filter((x) => x.id !== e.id), { ...e }];
@@ -256,14 +299,31 @@ export const journalTab: TabDef = {
         }
         m.close();
       }, 'warn');
+      // the one way an entry leaves the phone: his tap, the entry's words sent to me in the chat
+      const askKey = button(J.ASK_ME, async () => {
+        commit();
+        if (!e.text.trim()) return void text.focus();
+        m.close();
+        location.hash = 'core';
+        const { send } = await import('../../assistant/session');
+        void send(`About my journal entry of ${day(e.at)}: "${e.text.trim().slice(0, 1500)}"`);
+      });
       const done = button(J.SAVE, () => {
         commit();
         m.close();
       }, 'on');
+      // earlier wordings (the last ten), each put back with one tap (the wording it replaces is kept in turn)
+      const history = (e.versions ?? []).length
+        ? h('details.jnversions', h('summary', J.VERSIONS(e.versions!.length)), ...[...e.versions!].reverse().map((v) => h('div.row.jnversion', h('span.jntext', `${day(v.at)} ${time(v.at)}: ${v.text.slice(0, 80)}`), button(J.PUT_BACK, () => {
+            text.value = v.text;
+            commit(true);
+            toast(J.PUT_BACK_DONE, 'ok');
+          }))))
+        : '';
       const body = h('div.jneditor', { dataset: { case: 'keep' } },
-        h('div.row.wrap.jnmeta', jsel, when), promptLine, text, h('div.row.wrap', pk), h('small.jnlab', 'MOOD'), moods,
+        h('div.row.wrap.jnmeta', jsel, when), wx, promptLine, text, h('div.row.wrap', pk, talk), h('small.jnlab', 'MOOD'), moods,
         h('small.jnlab', 'PLACE'), place, placesList, h('small.jnlab', 'PHOTOS'), photos, h('div.row.wrap', button(J.PHOTO, () => fileIn.click()), fileIn),
-        h('small.jnlab', 'VOICE'), voiceBox, said, h('div.row.wrap.jnkeys', done, ...(was ? [del] : [])));
+        h('small.jnlab', 'VOICE'), voiceBox, history, said, h('div.row.wrap.jnkeys', done, askKey, ...(was ? [del] : [])), h('p.note', J.ASK_NOTE));
       const m = modal(was ? day(e.at) : 'New entry', body, () => {
         commit();
         journalState.open = '';
@@ -318,11 +378,54 @@ export const journalTab: TabDef = {
 
     // ---------------------------------------------------------------- PLACES
     const pp = panel('PLACES', { cls: 'jnplaces', status: '' });
+    const mapBox = h('div.jnmap', { hidden: true, role: 'img', 'aria-label': 'A map of your saved places with entries' });
+    let mapOn = false;
+    let theMap: L.Map | null = null;
+    /** The map of his SAVED places that have entries (a dot each, its count), drawn on his tap only (it loads map tiles). */
+    const drawMap = async (by: Map<string, Entry[]>) => {
+      try {
+        const [Lf, F, r] = await Promise.all([import('../../ui/flatmap').then((m) => m.loadLeaflet()), import('../../ui/flatmap'), brain.places()]);
+        const pins = r.places.filter((p) => by.has(p.label));
+        if (!pins.length) {
+          clear(mapBox, h('p.note', J.MAP_NONE));
+          return;
+        }
+        clear(mapBox);
+        theMap?.remove();
+        const host = h('div.jnmaphost');
+        mapBox.append(host);
+        const dark = F.STYLES.find((x) => x.id === 'dark')!;
+        theMap = Lf.map(host, { zoomControl: false, attributionControl: true });
+        Lf.tileLayer(dark.url(''), dark.options).addTo(theMap);
+        const pts: [number, number][] = [];
+        for (const p of pins) {
+          const n = by.get(p.label)!.length;
+          Lf.circleMarker([p.lat, p.lon], { radius: 6 + Math.min(10, n * 2), weight: 2 }).addTo(theMap).bindTooltip(`${p.label} · ${n}`, { permanent: true, direction: 'top' });
+          pts.push([p.lat, p.lon]);
+        }
+        if (pts.length === 1) theMap.setView(pts[0]!, 14);
+        else {
+          const lat = pts.map((x) => x[0]);
+          const lon = pts.map((x) => x[1]);
+          theMap.fitBounds(Lf.latLngBounds([Math.min(...lat), Math.min(...lon)], [Math.max(...lat), Math.max(...lon)]), { padding: [30, 30] });
+        }
+        journalState.map = pins.length;
+      } catch (e) {
+        clear(mapBox, h('p.note', sayError(e, 'draw the map')));
+      }
+    };
     const paintPlaces = () => {
       const by = new Map<string, Entry[]>();
       for (const e of live(data)) if (e.place) by.set(e.place, [...(by.get(e.place) ?? []), e]);
       pp.setStatus(by.size ? `${by.size}` : '', 'ok');
-      clear(pp.body, ...(by.size ? [...by].sort((a, b) => b[1].length - a[1].length).flatMap(([p, es]) => [h('h4.jnmonth', `${p} · ${es.length}`), ...es.slice(0, 5).map(entryRow)]) : [h('p.note.jnempty', J.PLACES_EMPTY)]));
+      const mapKey = button(mapOn ? J.MAP_HIDE : J.MAP_SHOW, () => {
+        mapOn = !mapOn;
+        mapBox.hidden = !mapOn;
+        mapKey.textContent = mapOn ? J.MAP_HIDE : J.MAP_SHOW;
+        if (mapOn) void drawMap(by);
+      });
+      clear(pp.body, ...(by.size ? [h('div.row.wrap', mapKey), mapBox, ...[...by].sort((a, b) => b[1].length - a[1].length).flatMap(([p, es]) => [h('h4.jnmonth', `${p} · ${es.length}`), ...es.slice(0, 5).map(entryRow)])] : [h('p.note.jnempty', J.PLACES_EMPTY)]));
+      if (mapOn && by.size) void drawMap(by);
     };
 
     // ---------------------------------------------------------------- SETTINGS: journals, the lock, the nudge, the book, the bin
@@ -375,7 +478,7 @@ export const journalTab: TabDef = {
           const at = new Date();
           at.setHours(hh ?? 20, mm ?? 30, 0, 0);
           if (at.getTime() <= Date.now()) at.setDate(at.getDate() + 1);
-          const r = await brain.addJob({ kind: 'reminder', title: 'Journal', text: 'A line in your journal?', at: at.getTime(), repeat: 'daily' as never });
+          const r = await brain.addJob({ kind: 'reminder', title: 'Journal', text: 'A line in your journal?', at: at.getTime(), repeat: 'daily' });
           data.prefs.remind = remindIn.value;
           data.prefs.remindId = r.job.id;
           keep();
@@ -420,7 +523,7 @@ export const journalTab: TabDef = {
       const es = live(data).filter((e) => new Date(e.at).getFullYear() === y && !e.sample).sort((a, b) => a.at - b.at);
       if (!es.length) return void toast(J.EXPORT_NONE, 'warn');
       const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-      const html = `<!doctype html><meta charset="utf-8"><title>My journal ${y}</title><style>body{font:16px/1.6 Georgia,serif;max-width:40em;margin:3em auto;padding:0 1em}h1{font-size:2em}h2{font-size:1.1em;margin-top:2.5em;page-break-after:avoid}p{white-space:pre-wrap}img{max-width:30%;margin:.3em}small{color:GrayText}@media print{h2{break-before:auto}}</style><h1>My journal, ${y}</h1>${es.map((e) => `<h2>${esc(day(e.at))}</h2><small>${esc([e.place, e.mood ? J.MOODS[e.mood - 1] : ''].filter(Boolean).join(' · '))}</small>${e.prompt ? `<p><i>${esc(e.prompt)}</i></p>` : ''}<p>${esc(e.text)}</p>${e.photos.map((p) => `<img src="${p.thumb}" alt="">`).join('')}`).join('')}`;
+      const html = `<!doctype html><meta charset="utf-8"><title>My journal ${y}</title><style>body{font:16px/1.6 Georgia,serif;max-width:40em;margin:3em auto;padding:0 1em}h1{font-size:2em}h2{font-size:1.1em;margin-top:2.5em;page-break-after:avoid}p{white-space:pre-wrap}img{max-width:30%;margin:.3em}small{color:GrayText}@media print{h2{break-before:auto}}</style><h1>My journal, ${y}</h1>${es.map((e) => `<h2>${esc(day(e.at))}</h2><small>${esc([e.place, e.mood ? J.MOODS[e.mood - 1] : '', e.weather].filter(Boolean).join(' · '))}</small>${e.prompt ? `<p><i>${esc(e.prompt)}</i></p>` : ''}<p>${esc(e.text)}</p>${e.photos.map((p) => `<img src="${p.thumb}" alt="">`).join('')}`).join('')}`;
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
       const win = window.open(url, '_blank', 'noopener');
       if (!win) toast('Allow pop-ups for Ghosty to see the book, then Print → Save as PDF.', 'warn');

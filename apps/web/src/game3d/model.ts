@@ -54,6 +54,8 @@ export interface Game3D {
   camera: 'third' | 'first' | 'chase' | 'top';
   sky: number;
   fog: number;
+  /** The sun's brightness, 0.3 (dusk) to 2.5 (noon); absent: 1.5. */
+  light?: number;
   /** Seconds on the clock (0: no clock). */
   time: number;
   /** Lives (0: no lives). */
@@ -298,3 +300,112 @@ export function readGames(raw: string | null): Game3D[] {
 }
 /** The list with this game saved first (the same id is saved over). */
 export const saveGame = (list: Game3D[], g: Game3D, now = Date.now()): Game3D[] => [{ ...g, at: now }, ...list.filter((x) => x.id !== g.id)].slice(0, 30);
+
+// ---------------------------------------------------------------- DESCRIBE A GAME: a draft from his words, as marked changes
+
+export interface Change {
+  id: string;
+  /** What it does, in his words: "10 coins", "a low-gravity world". */
+  words: string;
+  kind: 'count' | 'sky' | 'gravity' | 'time' | 'lives' | 'ice' | 'name';
+  thing?: ThingKind;
+  n?: number;
+  value?: string;
+}
+export interface Draft {
+  kind: Kind;
+  /** Why this template: the words that chose it, or the default. */
+  because: string;
+  changes: Change[];
+}
+
+const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20 };
+const numOf = (w: string) => (/^\d+$/.test(w) ? Number(w) : NUM[w] ?? NaN);
+
+/** His description read into a template and the changes to it, each to accept or reject (pure; nothing is changed until he says). */
+export function draftFromWords(text: string): Draft | null {
+  const t = String(text ?? '').toLowerCase().replace(/[^\w\s'-]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (t.length < 3) return null;
+  const pick: [Kind, RegExp][] = [
+    ['kart', /\b(kart|race|racing|racer|drive|driving|car|track|lap)s?\b/],
+    ['marble', /\b(marble|roll|rolling|ball)s?\b/],
+    ['shooter', /\b(shoot|shooter|shooting|space ?ship|ship|blast|laser)s?\b/],
+    ['puzzle', /\b(puzzle|crate|crates|push|sokoban|box)s?\b/],
+    ['explorer', /\b(explore|explorer|exploring|first[- ]person|maze|garden|find)\b/],
+    ['platformer', /\b(platform|platformer|jump|jumping|run and jump|mario)s?\b/],
+  ];
+  const hit = pick.find(([, re]) => re.test(t));
+  const kind = hit?.[0] ?? 'platformer';
+  const changes: Change[] = [];
+  let k = 0;
+  const add = (c: Omit<Change, 'id'>) => changes.push({ ...c, id: `c${++k}` });
+  const things: [ThingKind, RegExp][] = [['coin', /coins?/], ['gem', /gems?|jewels?|crystals?/], ['enemy', /enem(?:y|ies)|monsters?|baddies|aliens?/], ['crate', /crates?|boxes/], ['platform', /moving platforms?/], ['bumper', /bumpers?/]];
+  for (const [th, re] of things) {
+    const m = new RegExp(String.raw`\b(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty)\s+(?:\w+\s)?(?:${re.source})\b`).exec(t);
+    if (!m) continue;
+    const n = Math.max(1, Math.min(30, numOf(m[1]!)));
+    if (Number.isFinite(n)) add({ kind: 'count', thing: th, n, words: `${n} ${n === 1 ? THING_WORDS[th].toLowerCase() : `${THING_WORDS[th].toLowerCase()}s`.replace(/ys$/, 'ies').replace('enemys', 'enemies')}` });
+  }
+  if (/\b(night|dark|space)\b/.test(t)) add({ kind: 'sky', value: '0d1620', words: 'a night sky' });
+  else if (/\b(sunset|dusk|evening)\b/.test(t)) add({ kind: 'sky', value: 'c8743a', words: 'a sunset sky' });
+  else if (/\b(day|sunny|daytime|bright)\b/.test(t)) add({ kind: 'sky', value: '3a6f9c', words: 'a daytime sky' });
+  if (/\b(low[- ]gravity|moon|floaty|floating)\b/.test(t)) add({ kind: 'gravity', n: 1.62, words: 'low gravity, like the Moon (1.62 m/s²)' });
+  else if (/\b(high[- ]gravity|heavy|jupiter)\b/.test(t)) add({ kind: 'gravity', n: 24.8, words: 'high gravity, like Jupiter (24.8 m/s²)' });
+  if (/\b(ice|icy|slippery|frozen)\b/.test(t)) add({ kind: 'ice', words: 'slippery ice underfoot' });
+  const time = /\b(\d+)\s*(second|sec|minute|min)s?\b/.exec(t);
+  if (time) {
+    const secs = Math.min(900, Number(time[1]) * (time[2]!.startsWith('min') ? 60 : 1));
+    if (secs > 0) add({ kind: 'time', n: secs, words: `${secs} seconds on the clock` });
+  }
+  const lives = /\b(\d+|one|two|three|four|five)\s+lives\b/.exec(t);
+  if (lives) add({ kind: 'lives', n: Math.min(9, numOf(lives[1]!)), words: `${numOf(lives[1]!)} lives` });
+  const named = /\b(?:called|named)\s+([\w' -]{2,30})$/.exec(t);
+  if (named) add({ kind: 'name', value: named[1]!.trim().replace(/\b\w/g, (c) => c.toUpperCase()), words: `called “${named[1]!.trim()}”` });
+  return { kind, because: hit ? `“${hit[1].exec(t)![0]}”` : 'no kind named, so a platformer', changes };
+}
+
+/** One accepted change made to a game. */
+export function applyChange(g: Game3D, c: Change): void {
+  switch (c.kind) {
+    case 'count': {
+      const th = c.thing!;
+      const have = g.things.filter((x) => x.kind === th);
+      if (have.length > c.n!) {
+        const drop = new Set(have.slice(c.n!).map((x) => x.id));
+        g.things = g.things.filter((x) => !drop.has(x.id));
+      }
+      // more of them: set out on a ring round the spawn, a metre up, on the grid
+      for (let i = have.length; i < c.n!; i++) {
+        const a = (i / Math.max(1, c.n!)) * Math.PI * 2;
+        const r = 4 + (i % 3) * 2;
+        const t = addThing(g, th, { x: g.spawn.x + Math.cos(a) * r, z: g.spawn.z + Math.sin(a) * r });
+        if (th === 'coin' || th === 'gem') t.y = 0.8;
+      }
+      // a game with gems or coins of its own gets the rules that gather them, if it has none
+      if ((th === 'coin' || th === 'gem') && !g.rules.some((r) => r.when === 'touch' && r.what === th)) {
+        g.rules.push(newRule('touch', 'score', { what: th, arg: '1' }), newRule('touch', 'remove', { what: th }));
+      }
+      if (th === 'enemy' && !g.rules.some((r) => r.what === 'enemy')) g.rules.push(newRule('touch', 'lose', { what: 'enemy' }));
+      break;
+    }
+    case 'sky': g.sky = parseInt(c.value!, 16); break;
+    case 'gravity': g.gravity = c.n!; break;
+    case 'time':
+      g.time = c.n!;
+      if (!g.rules.some((r) => r.when === 'timer')) g.rules.push(newRule('timer', 'lose', { n: 0 }));
+      break;
+    case 'lives':
+      g.lives = c.n!;
+      if (!g.rules.some((r) => r.when === 'fall')) g.rules.push(newRule('fall', 'respawn'));
+      break;
+    case 'ice': for (const t of g.things) if (t.kind === 'block' || t.kind === 'ramp') t.friction = 0.05; break;
+    case 'name': g.name = c.value!.slice(0, 40); break;
+  }
+}
+
+/** The game the draft makes: its template, with only the changes he accepted. */
+export function makeDraft(d: Draft, accepted: Set<string>, now = Date.now()): Game3D {
+  const g = template(d.kind, now);
+  for (const c of d.changes) if (accepted.has(c.id)) applyChange(g, c);
+  return g;
+}

@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts')],
+  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts'), at('../../web/src/features/people/gifts.ts')],
   bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/journal'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
 });
 const S = await import('./.build/journal/apps/web/src/features/journal/store.mjs');
@@ -63,5 +63,78 @@ test('journal: nothing in its code reads a position or sends his words to the br
     assert.ok(!/brain\.(?:chat|send|remember|ask)\b|fetch\(/.test(src), `${f} sends something`);
   }
   const ui = readFileSync(at('../../web/src/features/journal/index.ts'), 'utf8');
+  assert.equal((ui.match(/\bsend\(/g) ?? []).length, 1, 'one way out: his tap on ASK GHOSTY ABOUT IT');
+  assert.match(ui, /const askKey = button\(J\.ASK_ME, async \(\) => \{[\s\S]{0,300}void send\(`About my journal entry/, 'the entry goes to the chat only from that key');
   assert.match(ui, /brain\.addJob\(\{ kind: 'reminder', title: 'Journal', text: 'A line in your journal\?'/, 'the nudge carries no words of his');
+});
+
+/** A JPEG's first bytes with an EXIF block holding only GPS (big-endian TIFF): lat/lon in degrees, minutes, seconds. */
+function jpegWithGps(lat, lon) {
+  const b = [];
+  const u16 = (n) => b.push((n >> 8) & 255, n & 255);
+  const u32 = (n) => b.push((n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255);
+  const dms = (d) => { const a = Math.abs(d); const D = Math.floor(a); const M = Math.floor((a - D) * 60); const S = Math.round(((a - D) * 60 - M) * 60 * 100); return [[D, 1], [M, 1], [S, 100]]; };
+  // TIFF: header(8) IFD0 at 8: 1 entry (12) + next(4) = 18 → GPS IFD at 26: 4 entries (48) + next(4) = 54 → rationals at 80
+  u16(0x4d4d); u16(42); u32(8);
+  u16(1); u16(0x8825); u16(4); u32(1); u32(26); u32(0);
+  u16(4);
+  u16(1); u16(2); u32(2); b.push(lat < 0 ? 83 : 78, 0, 0, 0);
+  u16(2); u16(5); u32(3); u32(80);
+  u16(3); u16(2); u32(2); b.push(lon < 0 ? 87 : 69, 0, 0, 0);
+  u16(4); u16(5); u32(3); u32(104);
+  u32(0);
+  for (const [n, d] of [...dms(lat), ...dms(lon)]) { u32(n); u32(d); }
+  const tiff = b;
+  const app1 = [0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff];
+  const len = app1.length + 2;
+  return new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe1, len >> 8, len & 255, ...app1, 0xff, 0xd9])]);
+}
+
+test('journal: a photo’s own place is read on the phone and only names the nearest saved place within 300 m', async () => {
+  const g = await S.photoGps(jpegWithGps(52.4797, -1.9027));
+  assert.ok(g && Math.abs(g.lat - 52.4797) < 1e-3 && Math.abs(g.lon + 1.9027) < 1e-3, JSON.stringify(g));
+  const saved = [{ label: 'Home', lat: 52.4800, lon: -1.9030 }, { label: 'Work', lat: 52.5, lon: -1.85 }];
+  assert.equal(S.nearestSaved(g, saved), 'Home');
+  assert.equal(S.nearestSaved({ lat: 51.5, lon: -0.12 }, saved), null, 'far from every saved place: no place at all');
+  assert.equal(await S.photoGps(new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])])), null, 'not a JPEG');
+  assert.equal(await S.photoGps(new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])])), null, 'no EXIF');
+  const ui = readFileSync(at('../../web/src/features/journal/index.ts'), 'utf8');
+  // (the map pins SAVED places by their own coordinates; an entry never holds a position)
+  assert.ok(!/\b(?:e|entry|was)\.(?:lat|lon)\b|\be\.(?:lat|lon)\s*=/.test(ui), 'the screen never writes a position into an entry');
+  const store = readFileSync(at('../../web/src/features/journal/store.ts'), 'utf8');
+  const entry = store.slice(store.indexOf('export interface Entry'), store.indexOf('export interface JournalPrefs'));
+  assert.ok(!/^\s*(?:lat|lon|lng|gps|coords?|position)\??:/im.test(entry), 'an entry has no field for a position');
+});
+
+test('keep in touch: due words, the order (most over first) and the due count, from the dates he marked alone', async () => {
+  const P = await import('./.build/journal/apps/web/src/features/people/touch.mjs').catch((e) => ({ err: e }));
+  if (P.err) throw P.err;
+  const now = noon;
+  const jo = { id: 'a', name: 'Jo', every: 14, last: now - 20 * DAY };
+  const sam = { id: 'b', name: 'Sam', every: 30, last: now - 26 * DAY };
+  const kim = { id: 'c', name: 'Kim', every: 7, last: 0 };
+  const al = { id: 'd', name: 'Al', every: 7, last: now - 7 * DAY };
+  assert.equal(P.dueWords(jo, now), '6 days over');
+  assert.equal(P.dueWords(sam, now), 'In 4 days');
+  assert.equal(P.dueWords(kim, now), 'Due');
+  assert.equal(P.dueWords(al, now), 'Due today');
+  assert.equal(P.lastWords(jo, now), 'last caught up 20 days ago');
+  assert.equal(P.lastWords(kim, now), 'not marked yet');
+  assert.deepEqual(P.ordered([sam, kim, jo, al], now).map((p) => p.name), ['Jo', 'Kim', 'Al', 'Sam']);
+  assert.equal(P.dueCount([sam, kim, jo, al], now), 3);
+});
+
+test('gifts: one step on each tap, spent per occasion (ideas cost nothing yet), thank-yous owed first, pounds from his words', async () => {
+  const Gm = await import('./.build/journal/apps/web/src/features/people/gifts.mjs');
+  const idea = { id: 'a', who: 'Jo', what: 'Gloves', occasion: 'Christmas', cost: 25, stage: 'idea', at: 1 };
+  assert.equal(Gm.advance(idea).stage, 'bought');
+  assert.equal(Gm.advance({ ...idea, stage: 'given' }).stage, 'given');
+  const got = { id: 'b', who: 'Sam', what: 'Maps', occasion: '', cost: 0, stage: 'given', received: true, thanked: false, at: 2 };
+  assert.equal(Gm.advance(got).thanked, true);
+  const d = { gifts: [idea, { ...idea, id: 'c', stage: 'bought', cost: 30 }, { ...idea, id: 'e', stage: 'given', cost: 12.5, occasion: 'Birthday' }, got], budgets: { Christmas: 40, Wedding: 100 } };
+  assert.deepEqual([...Gm.spent(d)].sort(), [['Birthday', 12.5], ['Christmas', 30], ['Wedding', 0]]);
+  assert.deepEqual(Gm.giftOrder(d.gifts).map((g) => g.id), ['b', 'c', 'a', 'e']);
+  assert.equal(Gm.pounds('£24.99'), 24.99);
+  assert.equal(Gm.pounds('24,5'), 24.5);
+  assert.equal(Gm.pounds('free'), 0);
 });

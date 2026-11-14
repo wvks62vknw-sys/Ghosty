@@ -7,7 +7,8 @@
  */
 import { clear, h } from '../../core/dom';
 import { button, panel, toast } from '../../ui/components';
-import { addThing, KIND_WORDS, KINDS, newRule, nudge, PALETTE_NAMES, readGames, ruleWords, SAVE_KEY, saveGame, template, THENS, THING_WORDS, WHENS, type Game3D, type Rule, type Then, type Thing, type ThingKind, type When } from '../../game3d/model';
+import { skeleton, stateCard } from '../../ui/appkit';
+import { addThing, draftFromWords, makeDraft, type Draft, KIND_WORDS, KINDS, newRule, nudge, PALETTE_NAMES, readGames, ruleWords, SAVE_KEY, saveGame, template, THENS, THING_WORDS, WHENS, type Game3D, type Rule, type Then, type Thing, type ThingKind, type When } from '../../game3d/model';
 import type { Run } from '../../game3d/run';
 
 /** What the screen shows, for the specs. */
@@ -21,6 +22,9 @@ export const game3dState = {
   selected: '' as string,
   /** The words the result banner says. */
   result: '',
+  /** DESCRIBE A GAME: the draft from his words, and the changes he accepted. */
+  draft: null as Draft | null,
+  accepted: new Set<string>(),
 };
 
 const GHOST_KEY = 'ghosty.game3d.ghost';
@@ -60,6 +64,14 @@ function keepGhost(id: string, path: { x: number; y: number; z: number }[]): voi
   }
 }
 
+let opener: ((wish?: string) => void) | null = null;
+let pendingWish: string | undefined | null = null;
+/** From the chat: 3-D GAMES shown, and his description drafted there when he gave one. */
+export function open3d(wish?: string): void {
+  if (opener) opener(wish);
+  else pendingWish = wish;
+}
+
 export function game3dPanel(): HTMLElement {
   const pn = panel('3-D GAMES', { cls: 'gs3', grow: false });
   game3dState.games = loadGames();
@@ -74,8 +86,50 @@ export function game3dPanel(): HTMLElement {
     store(game3dState.games);
   };
 
+  // DESCRIBE A GAME: his words read into a template and marked changes, each to accept or reject, then MAKE IT
+  const said = h('input', { type: 'text', placeholder: 'e.g. a night platformer with 10 coins and low gravity', 'aria-label': 'Describe a game', enterKeyHint: 'go', maxLength: 160 });
+  const draftBox = h('div.gs3draft', { 'aria-live': 'polite' });
+  const draftIt = () => {
+    const d = draftFromWords(said.value);
+    game3dState.draft = d;
+    game3dState.accepted = new Set(d?.changes.map((c) => c.id) ?? []);
+    paintDraft();
+  };
+  said.addEventListener('keydown', (e) => e.key === 'Enter' && draftIt());
+  function paintDraft(): void {
+    const d = game3dState.draft;
+    if (!d) return void clear(draftBox, said.value.trim() ? h('p.note', 'Tell me a little more: what kind of game, and what is in it.') : null);
+    clear(draftBox,
+      h('p.gs3rulewords', `A ${KIND_WORDS[d.kind].name.toLowerCase()}, from ${d.because}.${d.changes.length ? ' The changes, each yours to keep or not:' : ' Nothing else to change: MAKE IT plays the template.'}`),
+      ...d.changes.map((c) => {
+        const on = game3dState.accepted.has(c.id);
+        const b = button(on ? 'ACCEPTED' : 'REJECTED', () => {
+          if (on) game3dState.accepted.delete(c.id);
+          else game3dState.accepted.add(c.id);
+          paintDraft();
+        }, on ? 'on' : '');
+        b.setAttribute('aria-pressed', String(on));
+        b.dataset.change = c.id;
+        return h('div.gs3rule', { dataset: { change: c.id, state: on ? 'accepted' : 'rejected' } }, h('p.gs3rulewords', `${on ? '+' : '−'} ${c.words}`), b);
+      }),
+      h('div.row.wrap', button('MAKE IT', () => {
+        const g = makeDraft(d, game3dState.accepted);
+        game3dState.draft = null;
+        said.value = '';
+        clear(draftBox);
+        save(g);
+        paintMine();
+        void play(g);
+      }, 'on'), button('CANCEL', () => ((game3dState.draft = null), clear(draftBox)))),
+    );
+  }
+
   function paintShelf(): void {
-    clear(shelf, h('div.lab', 'START FROM A TEMPLATE'), h('div.gs3cards', ...KINDS.map((k) => {
+    clear(shelf,
+      h('div.lab', 'DESCRIBE A GAME'),
+      h('div.keyrow', said, button('DRAFT IT', draftIt, 'on')),
+      draftBox,
+      h('div.lab', 'START FROM A TEMPLATE'), h('div.gs3cards', ...KINDS.map((k) => {
       const b = h('button.gs3card', { type: 'button', dataset: { kind: k }, 'aria-label': `Play the ${KIND_WORDS[k].name} template` }, h('b', KIND_WORDS[k].name), h('span', KIND_WORDS[k].line));
       b.addEventListener('click', () => {
         const g = template(k);
@@ -90,7 +144,15 @@ export function game3dPanel(): HTMLElement {
     const list = game3dState.games;
     if (!list.length) {
       /* state: gamestudio.threed empty */
-      return void clear(mine, h('p.note.gs3none', { dataset: { state: 'empty' } }, 'No 3-D games of your own yet. Tap a template above: it plays at once, and it’s yours to change.'));
+      const card = stateCard('empty', 'No 3-D games of your own yet. Tap a template above: it plays at once, and it’s yours to change.', { word: 'PLAY THE PLATFORMER', run: () => {
+        const g = template('platformer');
+        save(g);
+        paintMine();
+        void play(g);
+      } });
+      card.classList.add('gs3none');
+      card.dataset.state = 'empty';
+      return void clear(mine, card);
     }
     clear(mine, h('div.lab', `MY 3-D GAMES · ${list.length}`), ...list.map((g) => h('div.gs3game', { dataset: { game: g.id } },
       h('div.gs3gametext', h('b', g.name), h('small', `${KIND_WORDS[g.kind].name} · ${g.things.length} things · ${g.rules.length} rules`)),
@@ -105,7 +167,7 @@ export function game3dPanel(): HTMLElement {
   // ---------------------------------------------------------------- the player
   let keyOff: (() => void) | null = null;
   let padTimer = 0;
-  async function play(g: Game3D): Promise<void> {
+  async function play(g: Game3D, from?: Thing): Promise<void> {
     stopRun();
     game3dState.open = g.id;
     game3dState.view = 'play';
@@ -116,7 +178,7 @@ export function game3dPanel(): HTMLElement {
     const banner = h('div.gs3banner', { hidden: true, role: 'alert' });
     const stick = h('div.gs3stick', { role: 'application', 'aria-label': 'The stick: drag to move' }, h('i.gs3knob'));
     const jump = h('button.gs3act', { type: 'button', 'aria-label': g.kind === 'shooter' ? 'Fire' : 'Jump' }, g.kind === 'shooter' ? 'FIRE' : 'JUMP');
-    const status = h('p.note.gs3status', { dataset: { state: 'loading' } }, 'Loading the 3-D engine and physics…');
+    const status = h('div.gs3status', { dataset: { state: 'loading' } }, skeleton(2, 'Loading the 3-D engine and physics'), h('p.note', 'Loading the 3-D engine and physics…'));
     const top = h('div.gs3top', h('b', g.name), h('span', KIND_WORDS[g.kind].controls), button('STOP', () => close(), 'warn'));
     clear(stage, top, h('div.gs3frame', host, hud, said, banner, stick, ...(g.kind === 'kart' || g.kind === 'marble' || g.kind === 'explorer' ? [] : [jump])), status);
     stage.hidden = false;
@@ -216,11 +278,13 @@ export function game3dPanel(): HTMLElement {
     if (!ok) {
       /* state: gamestudio.threed error */
       status.dataset.state = 'error';
-      status.textContent = run.info.error;
+      clear(status, stateCard('error', run.info.error, { word: 'TRY AGAIN', run: () => void play(g) }));
       return;
     }
     delete status.dataset.state;
-    status.textContent = run.info.ghost ? 'Racing your last run’s ghost (the pale ball).' : 'Play it, then EDIT it into your own.';
+    // PLAY FROM HERE: the player starts just above the thing he picked in the editor
+    if (from) run.teleport({ x: from.x, y: from.y + from.h / 2 + 0.6, z: from.z });
+    status.textContent = from ? `Playing from the ${THING_WORDS[from.kind].toLowerCase()} you picked.` : run.info.ghost ? 'Racing your last run’s ghost (the pale ball).' : 'Play it, then EDIT it into your own.';
     paintHud();
   }
   function stopRun(): void {
@@ -284,6 +348,8 @@ export function game3dPanel(): HTMLElement {
         h('div.wbf', h('label', 'Name'), name),
         h('div.lab', 'THE WORLD'),
         h('div.wbf', h('label', 'Sky'), sel('The sky', [['0d1620', 'Night'], ['3a6f9c', 'Day'], ['c8743a', 'Sunset'], ['10202a', 'Forest']], g.sky.toString(16).padStart(6, '0'), (v) => ((g.sky = parseInt(v, 16)), changed()))),
+        h('div.wbf', h('label', 'Fog'), sel('The fog', [['0', 'None'], ['0.012', 'Light'], ['0.03', 'Thick'], ['0.06', 'Dense']], String(g.fog), (v) => ((g.fog = Number(v)), changed()))),
+        h('div.wbf', h('label', 'Sunlight'), sel('The sunlight', [['0.5', 'Dim'], ['1.5', 'Normal'], ['2.3', 'Bright']], String(g.light ?? 1.5), (v) => ((g.light = Number(v)), changed()))),
         h('div.wbf', h('label', 'Gravity'), num('Gravity, metres a second squared', g.gravity, (v) => ((g.gravity = Math.max(0, Math.min(30, v))), changed())), h('span.wbu', 'm/s²')),
         h('div.wbf', h('label', 'Clock'), num('Seconds on the clock (0 for none)', g.time, (v) => ((g.time = Math.max(0, Math.round(v))), changed()), '5'), h('span.wbu', 's')),
         h('div.lab', `THE STAGE · ${g.things.length} THINGS`),
@@ -324,7 +390,7 @@ export function game3dPanel(): HTMLElement {
           if (t.body === 'moving' && !t.move) t.move = { axis: 'x', range: 2, speed: 1 };
           changed();
         })),
-        h('div.row.wrap', button('DELETE IT', () => {
+        h('div.row.wrap', button('PLAY FROM HERE', () => void play(g, t), 'on'), button('DELETE IT', () => {
           g.things = g.things.filter((x) => x.id !== t.id);
           game3dState.selected = '';
           changed();
@@ -359,6 +425,19 @@ export function game3dPanel(): HTMLElement {
 
   paintShelf();
   paintMine();
+  opener = (wish) => {
+    if (game3dState.view !== 'shelf') close();
+    if (wish) {
+      said.value = wish;
+      draftIt();
+    }
+    requestAnimationFrame(() => pn.el.scrollIntoView({ block: 'start', behavior: 'instant' as ScrollBehavior }));
+  };
+  if (pendingWish !== null) {
+    const w = pendingWish;
+    pendingWish = null;
+    setTimeout(() => opener?.(w ?? undefined), 0);
+  }
   return pn.el;
 }
 
