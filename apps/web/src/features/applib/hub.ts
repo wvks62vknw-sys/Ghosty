@@ -22,7 +22,7 @@ export const appsCard: HubCard = {
   status: () => 'READY',
   instrument: appsInst,
   readouts: () => [
-    { label: 'In the Library', value: String(allApps().length), none: 'None yet' },
+    { label: 'Apps', value: String(allApps().length), none: 'None yet' },
     { label: 'Pinned', value: pinned().length ? String(pinned().length) : null, none: 'None yet' },
   ],
   why: () => (pinned().length ? '' : 'Find an app, then pin it to Home'),

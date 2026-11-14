@@ -11240,7 +11240,7 @@ html .al-chart { display: block; width: 100%; height: auto; }
 html .al-axis { stroke: var(--g-line-faint); stroke-width: 1; }
 html .al-bar { fill: var(--g-accent); }
 html .al-line { fill: none; stroke: var(--g-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-html .al-tick { fill: var(--g-ink-3); font: 8px var(--g-font-text); }
+html .al-axistick { fill: var(--g-ink-3); font: 8px var(--g-font-text); }
 html .al-seg { display: flex; gap: 2px; margin: 0 0 var(--g-s-1); padding: 2px; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
 html .al-segkey { flex: 1 1 0; min-width: 0; min-height: var(--g-target); border: 0; border-radius: var(--g-radius-key); background: none; box-shadow: none; font: var(--g-t-caption); color: var(--g-ink-2); text-transform: none; }
 html .al-segkey[aria-selected="true"] { background: var(--g-plate-strong-fill); color: var(--g-ink-1); }
@@ -11850,6 +11850,8 @@ html .al-gmerge .al-gtile.al-gbump { animation: al-gbump 180ms ease-out 100ms; }
 .ppgrouprow input { flex: 1 1 12em; min-width: 0; min-height: var(--g-target); }
 html .al-makerhost { display: flex; flex-direction: column; overflow: hidden !important; padding-bottom: 0 !important; }
 html .al-makerhost > .ak-app { flex: 1 1 auto; height: auto; min-height: 0; padding: 0; }
+html body :is(.al-lib, .al-app) .al-day:not([aria-pressed="true"]), html body .al-lib .al-back { background: none !important; box-shadow: none !important; }
+html body .al-lib .al-back:active { background: var(--g-plate-fill) !important; }
 /* (the shell's #app passes taps through to the scene below, save for its keys and fields: a board's cells, cards, pads and
    canvas are taps too) */
 html .al-game, html .al-maker, html .al-makerhost { pointer-events: auto; }

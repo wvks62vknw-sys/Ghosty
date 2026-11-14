@@ -132,7 +132,7 @@ function chart(log: LogConfig, rows: Rec[], now = new Date()): HTMLElement | nul
   }
   buckets.forEach((b, i) => {
     if (!b.label) return;
-    const t = svgEl('text', { class: 'al-tick', x: (i * bw + bw / 2).toFixed(1), y: H + 12, 'text-anchor': 'middle' });
+    const t = svgEl('text', { class: 'al-axistick', x: (i * bw + bw / 2).toFixed(1), y: H + 12, 'text-anchor': 'middle' });
     t.textContent = b.label;
     svg.append(t);
   });
