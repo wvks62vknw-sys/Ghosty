@@ -81,6 +81,30 @@ export function promptFor(situation: string, round: number, talk: { other: strin
     .join('\n');
 }
 
+/**
+ * [learn.s8] DEBATE PRACTICE: he states his side of a topic and Ghosty argues the other side for three rounds, one point a
+ * round, answering what he said; then his strongest and weakest points.
+ */
+export function debatePrompt(topic: string, round: number, talk: { other: string; answer: string }[], fire: Dial): string {
+  const said = talk.map((t) => `YOU (the other side): ${t.other}\nHIM: ${t.answer}`).join('\n');
+  return [
+    'You are his debate partner. He has taken a side on the topic below; you argue the opposite side, honestly and fairly, so he can practise arguing.',
+    `The topic, and his side, in his words: ${topic.trim().slice(0, 300)}.`,
+    `How firmly you argue: ${TEMPER[fire]}.`,
+    `This is round ${round} of ${ROUNDS}. ${round === 1 ? 'Open with your strongest point against his side.' : 'Answer his last point directly, then make one new point against his side.'}`,
+    said ? `So far:\n${said}` : '',
+    'Reply with only your argument: two or three plain sentences, in the first person, no headings, no advice to him.',
+  ].filter(Boolean).join('\n');
+}
+/** After a debate: the words the brain is given for his strongest and weakest points. */
+export function debateNotesPrompt(topic: string, talk: { other: string; answer: string }[]): string {
+  return [
+    `He practised a debate: ${topic.trim().slice(0, 200)}. He argued his side; his partner argued the other.`,
+    talk.map((t) => `PARTNER: ${t.other}\nHIM: ${t.answer}`).join('\n'),
+    'Give him three short lines, as a fair debate coach would: "Strongest: …" (his best point and why it worked), "Weakest: …" (the point that was easiest to answer, and why), and "Next time: …" (one thing to do). Judge only what he said. No headings, nothing else.',
+  ].join('\n\n');
+}
+
 /** The languages Rehearse can be practised in (learn.s2): English, and the ones the interpreter speaks that learners pick most. */
 export const PRACTICE_LANGS = ['en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ar', 'zh', 'ja', 'hi'] as const;
 

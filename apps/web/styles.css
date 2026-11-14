@@ -9926,3 +9926,9 @@ html #pg-rehearse .rhweek { display: grid; grid-template-columns: 52px minmax(0,
 html #pg-rehearse .rhweek > small:last-child { grid-column: 2; color: var(--mute); overflow-wrap: anywhere; }
 html #pg-rehearse .rhbarbox { display: block; height: 10px; border-radius: 5px; background: var(--thin); overflow: hidden; }
 html #pg-rehearse .rhbar { display: block; height: 100%; border-radius: 5px; background: var(--acc); }
+/* READER · BOOK CLUB and SUMMARY ALOUD (learn.s5, learn.s6): two keys above the chapters, the questions and answers below */
+html .grd-club { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+html .grd-clubhead { letter-spacing: .04em; }
+html .grd-clubq { margin: 4px 0 0; overflow-wrap: anywhere; }
+html textarea.grd-clubans { width: 100%; min-height: 44px; }
+html .grd-clubsum, html .grd-clubreply { white-space: pre-wrap; overflow-wrap: anywhere; }

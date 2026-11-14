@@ -41,6 +41,7 @@ import { go, type TabInstance } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { guardian, loadGuardian } from '../../state/guardian';
 import { toast, type Panel } from '../../ui/components';
+import { ask as clubAsk, chapterText, clubPrompt, clubReplyPrompt, questionsOf, summaryPrompt } from '../../library/club';
 import { index, key, lockBox, plate, recognise, release, stampLine, tag, truthLine, typedLine, type StampFacts, type TruthPart } from '../../ui/machine';
 import type { Sections } from '../../ui/sections';
 import { offMobileData, onMobileData } from '../../wiki/store';
@@ -376,6 +377,9 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
 
   // ---------------------------------------------------------------- CHAPTERS, SEARCH, ABOUT
   const chList = h('div.grd-chapters', { role: 'list' });
+  /** [learn.s5, learn.s6] BOOK CLUB and SUMMARY ALOUD for the chapter he is in (library/club.ts): drawn above the list, kept across repaints. */
+  const clubBox = h('div.grd-club', { 'aria-live': 'polite' });
+  let clubFor = '';
   P.chapters.body.append(chList);
   const q = h('input.grd-q', { type: 'search', placeholder: 'Find in this book', enterKeyHint: 'search', 'aria-label': 'Find in this book' });
   const findKey = key('Find', () => runSearch(), { label: 'Find in this book' });
@@ -757,7 +761,43 @@ export function mountReader(shell: { hud: HTMLElement; hero: HTMLElement; col: H
     const p = placeOf(doc.id);
     const cur = book.passages[p?.n ?? 0]?.chapter ?? 0;
     P.chapters.setStatus(`${book.chapters.length} ${book.byHeadings ? (book.chapters.length === 1 ? 'chapter' : 'chapters') : book.hasPages ? 'page ranges' : 'parts'}`);
-    clear(chList, ...(book.byHeadings ? [] : [h('p.grd-cap', { dataset: { case: 'keep' } }, book.hasPages ? 'This book has no chapter headings of its own, so here are its pages.' : 'This has no chapter headings of its own, so here it is in parts.')]),
+    // [learn.s5, learn.s6] the chapter he is in: a book club of three questions, or a short summary read aloud
+    const curTitle = book.chapters[cur]?.title ?? 'this part';
+    const key2 = `${doc.id}:${cur}`;
+    if (clubFor !== key2) (clubFor = key2), clear(clubBox);
+    const words = () => chapterText(book!.passages, cur);
+    const bookTitle = doc.title;
+    const clubKey = key('Book club on this chapter', async () => {
+      clear(clubBox, h('p.grd-cap', { dataset: { case: 'keep' } }, `Reading ${curTitle} for three questions…`));
+      try {
+        const qs = questionsOf(await clubAsk(clubPrompt(bookTitle, curTitle, words())));
+        if (!qs.length) throw new Error('I couldn’t make questions from that chapter.');
+        const boxes = qs.map((q, i) => h('textarea.grd-clubans', { rows: 2, 'aria-label': `Your answer to question ${i + 1}`, placeholder: 'Your answer, in your words' }) as HTMLTextAreaElement);
+        const reply = h('p.grd-cap.grd-clubreply', { dataset: { case: 'keep' } });
+        const talk = key('Talk about it', async () => {
+          reply.textContent = 'Reading your answers…';
+          try {
+            reply.textContent = await clubAsk(clubReplyPrompt(bookTitle, curTitle, words(), qs.map((q, i) => ({ q, a: boxes[i]!.value.trim() }))));
+          } catch (e) {
+            reply.textContent = sayError(e, 'talk about it');
+          }
+        }, { label: 'Talk about my answers' });
+        clear(clubBox, h('b.grd-clubhead', `Book club · ${curTitle}`), ...qs.flatMap((q, i) => [h('p.grd-clubq', { dataset: { case: 'keep' } }, `${i + 1}. ${q}`), boxes[i]!]), h('div.grd-keys', talk), reply);
+      } catch (e) {
+        clear(clubBox, h('p.grd-cap', { dataset: { case: 'keep' } }, sayError(e, 'start the book club')));
+      }
+    }, { label: `Book club: three questions on ${curTitle}` });
+    const sumKey = key('Summary aloud', async () => {
+      clear(clubBox, h('p.grd-cap', { dataset: { case: 'keep' } }, `Summing up ${curTitle}…`));
+      try {
+        const t = await clubAsk(summaryPrompt(bookTitle, curTitle, words()));
+        clear(clubBox, h('b.grd-clubhead', `Summary · ${curTitle}`), h('p.grd-clubsum', { dataset: { case: 'keep' } }, t));
+        void speak(t, { here: !readingPrefs.get().bookVoice }).catch(() => undefined);
+      } catch (e) {
+        clear(clubBox, h('p.grd-cap', { dataset: { case: 'keep' } }, sayError(e, 'sum up that chapter')));
+      }
+    }, { label: `A short summary of ${curTitle}, read aloud` });
+    clear(chList, h('div.grd-keys.grd-clubkeys', clubKey, sumKey), clubBox, ...(book.byHeadings ? [] : [h('p.grd-cap', { dataset: { case: 'keep' } }, book.hasPages ? 'This book has no chapter headings of its own, so here are its pages.' : 'This has no chapter headings of its own, so here it is in parts.')]),
       ...book.chapters.map((c) => {
         const here = c.i === cur;
         const b = h('button.grd-chrow', { type: 'button', role: 'listitem', dataset: { i: String(c.i), case: 'keep' }, 'aria-label': `${c.title}${c.page ? `, page ${c.page}` : ''}${here ? ', you are here' : ''}`, 'aria-current': here ? 'true' : null },
