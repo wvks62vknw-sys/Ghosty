@@ -97,6 +97,7 @@ export const STATES = {
   'money.car': { dir: 'money', base: 0, now: 4 },
   'home.papers': { dir: 'homeadmin', base: 0, now: 4 },
   'work.jobs': { dir: 'work', base: 0, now: 4 },
+  'work.meetings': { dir: 'work', base: 0, now: 1 },
   'body.reps': { dir: 'body', base: 2, now: 3 },
   'body.run': { dir: 'body', base: 1, now: 1 },
   'body.breathe': { dir: 'body', base: 0, now: 1 },
@@ -202,6 +203,8 @@ export const STATES = {
   // NEXT ROUND (MAKE lane): MATERIALS' makeover set against his own statements, all four states (new, so base 0)
   'space.budget': { dir: 'space', base: 0, now: 4 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
+  // NEXT ROUND (MAKE lane): named Workbench projects, its empty list said in his words (new, so base 0)
+  'workbench.projects': { dir: 'workbench', base: 0, now: 1 },
   'workbench.tunnel': { dir: 'workbench', base: 1, now: 2 },
   'convert.units': { at: 'convert', dir: '', base: 1, now: 2 },
   'convert.files': { at: 'convert', dir: '', base: 3, now: 3 },
