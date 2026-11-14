@@ -1,0 +1,477 @@
+From a9f69c35373433269a3aafec9630b84556ede955 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 14 Nov 2026 03:22:14 +0000
+Subject: [PATCH] Podcasts in the brain: search, a show's feed and an episode's
+ audio, every address through the network guard
+
+GET /api/podcast/search asks Apple's free, keyless iTunes Search API for podcasts only; GET /api/podcast/feed reads a show's RSS to a
+cap and gives the phone the show and its episodes (date, length, size, newest first); GET or HEAD /api/podcast/audio streams one
+episode's audio with its size said and a Range passed on, refused past 600 MB. The page's security policy lets the phone fetch only
+its own address, so these must come through the brain. Every address is someone else's, so every fetch goes through netguard's
+guardedFetch: never a private, loopback or local address, and every redirect checked before it is followed.
+
+index.ts (protected) changes by one import and one route line, after the arcade's passthrough and behind the owner's sign-in like
+every other /api route: that is the only way the new route can be reached. The brain test is run from security.test.mjs, so the
+protected package.json is not changed.
+
+---
+ apps/edge/src/index.ts           |   3 +
+ apps/edge/src/podcasts.ts        | 269 +++++++++++++++++++++++++++++++
+ apps/edge/test/podcasts.test.mjs | 136 ++++++++++++++++
+ apps/edge/test/security.test.mjs |   3 +
+ 4 files changed, 411 insertions(+)
+ create mode 100644 apps/edge/src/podcasts.ts
+ create mode 100644 apps/edge/test/podcasts.test.mjs
+
+diff --git a/apps/edge/src/index.ts b/apps/edge/src/index.ts
+index 59adf63f..212e5291 100644
+--- a/apps/edge/src/index.ts
++++ b/apps/edge/src/index.ts
+@@ -10,6 +10,7 @@ import { gameSiteResponse } from './gamesite';
+ import { imageResponse } from './lens';
+ import { zimPassthrough } from './zim';
+ import { arcadePassthrough } from './arcade';
++import { podcastRoute } from './podcasts';
+ import { demoRoute } from './demo';
+ import { callerOf, DOOR_LIMITS, overLimit, slowDown, usedOf } from './ratelimit';
+ export { GhostyAgent } from './agent';
+@@ -225,6 +226,8 @@ export default {
+     // [arcade] A shelf package for the owner's phone when its network will not let it reach the Internet Archive itself: asked
+     // for here (arcade.ts), streamed from the Archive and kept nowhere; the brain never reads it.
+     if (url.pathname.startsWith('/api/arcade/')) return arcadePassthrough(req, url.pathname.slice('/api/arcade/'.length));
++    // [planlane3:podcasts] a podcast search, a show's feed and an episode's audio, read through netguard (podcasts.ts); kept nowhere
++    if (url.pathname.startsWith('/api/podcast/')) return podcastRoute(req, url);
+     const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
+     const fwd = new Request(req);
+     fwd.headers.set('x-ghosty-owner', auth.who);
+diff --git a/apps/edge/src/podcasts.ts b/apps/edge/src/podcasts.ts
+new file mode 100644
+index 00000000..fc4c572d
+--- /dev/null
++++ b/apps/edge/src/podcasts.ts
+@@ -0,0 +1,269 @@
++/**
++ * [planlane3:podcasts] PODCASTS for the owner's phone (apps/web/src/features/radio/podcasts.ts). The page's security policy lets the
++ * phone fetch only its own address, so a podcast search, a show's feed and an episode's audio for DOWNLOAD come through here:
++ *  - GET /api/podcast/search?q=   Apple's free, keyless iTunes Search API (podcasts only), tidied to what the phone shows;
++ *  - GET /api/podcast/feed?url=   the show's RSS, read to a cap and turned into the show and its episodes (date, length, size);
++ *  - GET|HEAD /api/podcast/audio?url=   one episode's audio, streamed as it comes (its size said, a Range passed on so it can be
++ *    resumed or sought), refused past AUDIO_CAP. Nothing is kept here and nothing is read: the bytes pass straight through.
++ * Only for the owner (index.ts checks his sign-in first). Every address is someone else's, so every fetch goes through netguard's
++ * guardedFetch: http(s) only, never a private, loopback or local address, and every redirect checked before it is followed.
++ */
++import { guardedFetch, readCappedText, unsafeUrl, type Fetcher } from './netguard';
++
++const UA = 'Ghosty/2.0 (personal podcast player; single user)';
++/** A feed is read this far and no further (the episodes before the cut are kept; a show with years of episodes is still read). */
++export const FEED_CAP = 4_000_000;
++const SEARCH_CAP = 800_000;
++/** The largest episode passed on (a three-hour video episode is about this). */
++export const AUDIO_CAP = 600 * 1024 * 1024;
++/** The most episodes one feed gives the phone (newest first). */
++export const MAX_EPISODES = 300;
++const RANGE = /^bytes=(?:\d+-\d*|-\d+)$/;
++const SEARCH = 'https://itunes.apple.com/search?media=podcast&entity=podcast&limit=25&term=';
++
++export interface Show {
++  title: string;
++  author: string;
++  image: string;
++  about: string;
++  link: string;
++  feed: string;
++}
++export interface Episode {
++  /** the feed's guid, else the audio's address */
++  id: string;
++  title: string;
++  /** when it came out (ms), 0 when the feed does not say */
++  date: number;
++  /** its length in seconds, 0 when the feed does not say */
++  dur: number;
++  url: string;
++  /** its size in bytes as the feed gives it, 0 when it does not */
++  size: number;
++  type: string;
++  about: string;
++}
++export interface Found {
++  title: string;
++  author: string;
++  feed: string;
++  image: string;
++  genre: string;
++  count: number;
++}
++
++const json = (data: unknown, status = 200, cache = 'no-store') =>
++  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': cache, 'x-content-type-options': 'nosniff' } });
++
++const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', hellip: '…', mdash: '—', ndash: '–', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“' };
++/** Text as a person reads it: CDATA opened, tags taken out, entities read, spaces folded. */
++export function plain(s: string): string {
++  return String(s ?? '')
++    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
++    .replace(/<(?:br|\/p|\/div|\/li)\s*\/?>/gi, ' ')
++    .replace(/<[^>]*>/g, '')
++    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
++      if (e[0] === '#') {
++        const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1));
++        return Number.isFinite(n) && n > 0 && n < 0x110000 ? String.fromCodePoint(n) : '';
++      }
++      return ENT[e.toLowerCase()] ?? m;
++    })
++    .replace(/\s+/g, ' ')
++    .trim();
++}
++
++/** The first `<tag>…</tag>` (any namespace prefix given in `tag`, e.g. "itunes:duration"), as plain text. */
++function tagText(xml: string, tag: string): string {
++  const m = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, 'i').exec(xml);
++  return m ? plain(m[1]!) : '';
++}
++/** An attribute of the first `<tag …>`. */
++function tagAttr(xml: string, tag: string, attr: string): string {
++  const m = new RegExp(`<${tag}\\s[^>]*?\\b${attr}\\s*=\\s*("([^"]*)"|'([^']*)')`, 'i').exec(xml);
++  return m ? plain(m[2] ?? m[3] ?? '') : '';
++}
++
++/** "1:02:03", "62:03", "3723", "3723.5": seconds, or 0. */
++export function seconds(s: string): number {
++  const t = String(s ?? '').trim();
++  if (/^\d+(?:\.\d+)?$/.test(t)) return Math.round(Number(t));
++  const m = /^(?:(\d{1,3}):)?(\d{1,3}):(\d{1,2})(?:\.\d+)?$/.exec(t);
++  if (!m) return 0;
++  return Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
++}
++
++/** A public web address (http or https) as the phone may be given it, or ''. */
++function safeLink(raw: string, base?: string): string {
++  if (!raw.trim()) return '';
++  try {
++    const u = new URL(raw.trim(), base);
++    return unsafeUrl(u.toString()) ? '' : u.toString();
++  } catch {
++    return '';
++  }
++}
++
++/** The show and its episodes (newest first, at most MAX_EPISODES) from an RSS feed's text, read with no parser library. */
++export function parseFeed(xml: string, feed: string): { show: Show; episodes: Episode[] } {
++  const head = xml.split(/<item[\s>]/i)[0] ?? '';
++  const imageBlock = /<image[\s>][\s\S]*?<\/image>/i.exec(head)?.[0] ?? '';
++  const image = safeLink(tagAttr(head, 'itunes:image', 'href') || tagText(imageBlock, 'url'), feed);
++  const show: Show = {
++    title: tagText(head, 'title').slice(0, 200) || 'A podcast',
++    author: (tagText(head, 'itunes:author') || tagText(head, 'managingEditor') || tagText(head, 'author')).slice(0, 120),
++    image,
++    about: (tagText(head, 'itunes:summary') || tagText(head, 'description')).slice(0, 600),
++    link: safeLink(tagText(head, 'link'), feed),
++    feed,
++  };
++  const episodes: Episode[] = [];
++  const items = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) ?? [];
++  for (const it of items) {
++    const url = safeLink(tagAttr(it, 'enclosure', 'url'), feed);
++    if (!url) continue;
++    const size = Number(tagAttr(it, 'enclosure', 'length'));
++    const date = Date.parse(tagText(it, 'pubDate') || tagText(it, 'dc:date'));
++    episodes.push({
++      id: (tagText(it, 'guid') || url).slice(0, 300),
++      title: tagText(it, 'title').slice(0, 240) || 'An episode',
++      date: Number.isFinite(date) ? date : 0,
++      dur: seconds(tagText(it, 'itunes:duration')),
++      url,
++      // a feed's "length" is often 0 or a made-up 1: under 10 kB is not an episode's size
++      size: Number.isFinite(size) && size > 10_000 ? Math.round(size) : 0,
++      type: tagAttr(it, 'enclosure', 'type').slice(0, 60) || 'audio/mpeg',
++      about: (tagText(it, 'itunes:summary') || tagText(it, 'description')).slice(0, 400),
++    });
++  }
++  episodes.sort((a, b) => b.date - a.date);
++  return { show, episodes: episodes.slice(0, MAX_EPISODES) };
++}
++
++/** Apple's answer, tidied: only shows with a feed the brain would read. */
++export function tidySearch(raw: unknown): Found[] {
++  const list = (raw as { results?: unknown[] })?.results;
++  if (!Array.isArray(list)) return [];
++  const out: Found[] = [];
++  for (const r of list as Record<string, unknown>[]) {
++    const feed = typeof r.feedUrl === 'string' ? safeLink(r.feedUrl) : '';
++    if (!feed || out.some((x) => x.feed === feed)) continue;
++    const image = [r.artworkUrl600, r.artworkUrl100].find((x) => typeof x === 'string' && safeLink(x)) as string | undefined;
++    out.push({
++      title: plain(String(r.collectionName ?? r.trackName ?? 'A podcast')).slice(0, 200),
++      author: plain(String(r.artistName ?? '')).slice(0, 120),
++      feed,
++      image: image ?? '',
++      genre: plain(String(r.primaryGenreName ?? '')).slice(0, 40),
++      count: Number(r.trackCount) || 0,
++    });
++  }
++  return out;
++}
++
++/** A plain line for a refused address or a fetch that failed (never the raw error). */
++const why = (e: unknown) => (e instanceof Error && /address|redirect|network|host|http/i.test(e.message) ? e.message : 'the podcast’s site did not answer');
++
++async function search(q: string, f?: Fetcher): Promise<Response> {
++  const term = q.trim().slice(0, 100);
++  if (!term) return json({ error: 'say what to look for' }, 400);
++  let r: Response;
++  try {
++    r = await guardedFetch(SEARCH + encodeURIComponent(term), { headers: { 'user-agent': UA, accept: 'application/json' }, signal: AbortSignal.timeout(15_000) }, { fetcher: f });
++  } catch {
++    return json({ error: 'the podcast directory did not answer' }, 502);
++  }
++  if (!r.ok) return json({ error: 'the podcast directory did not answer' }, 502);
++  try {
++    return json({ results: tidySearch(JSON.parse(await readCappedText(r, SEARCH_CAP))) }, 200, 'private, max-age=600');
++  } catch {
++    return json({ error: 'the podcast directory gave an answer I could not read' }, 502);
++  }
++}
++
++async function feed(raw: string, f?: Fetcher): Promise<Response> {
++  const bad = unsafeUrl(raw);
++  if (bad) return json({ error: bad }, 400);
++  let r: Response;
++  try {
++    r = await guardedFetch(raw.trim(), { headers: { 'user-agent': UA, accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8, */*;q=0.5' }, signal: AbortSignal.timeout(20_000) }, { fetcher: f });
++  } catch (e) {
++    return json({ error: why(e) }, 502);
++  }
++  if (!r.ok) return json({ error: r.status === 404 || r.status === 410 ? 'that feed is not there any more' : 'the podcast’s site did not answer' }, 502);
++  const text = await readCappedText(r, FEED_CAP);
++  if (!/<rss[\s>]|<feed[\s>]|<channel[\s>]/i.test(text.slice(0, 4000))) return json({ error: 'that link is a web page, not a podcast feed' }, 422);
++  const out = parseFeed(text, r.url || raw.trim());
++  if (!out.episodes.length) return json({ error: 'that feed has no episodes to play' }, 422);
++  return json(out, 200, 'private, max-age=300');
++}
++
++const AUDIO_TYPE = /^(?:audio\/|video\/|application\/(?:octet-stream|ogg|x-mpegurl|mp4)|binary\/octet-stream)/i;
++
++async function audio(req: Request, raw: string, f?: Fetcher): Promise<Response> {
++  const bad = unsafeUrl(raw);
++  if (bad) return json({ error: bad }, 400);
++  const range = (req.headers.get('range') ?? '').trim();
++  const ranged = RANGE.test(range);
++  let r: Response;
++  try {
++    r = await guardedFetch(raw.trim(), { method: req.method === 'HEAD' ? 'HEAD' : 'GET', headers: { 'user-agent': UA, ...(ranged ? { range } : {}) } }, { fetcher: f });
++  } catch (e) {
++    return json({ error: why(e) }, 502);
++  }
++  if (!r.ok) {
++    r.body?.cancel().catch(() => undefined);
++    return json({ error: r.status === 404 || r.status === 410 ? 'that episode is not there any more' : 'the podcast’s site did not give the episode' }, 502);
++  }
++  const type = r.headers.get('content-type') ?? '';
++  if (type && !AUDIO_TYPE.test(type)) {
++    r.body?.cancel().catch(() => undefined);
++    return json({ error: 'that link is not an episode’s sound' }, 415);
++  }
++  const len = Number(r.headers.get('content-length') ?? '');
++  const total = Number((r.headers.get('content-range') ?? '').split('/')[1] ?? '') || (r.status === 200 && len > 0 ? len : 0);
++  if (total > AUDIO_CAP || len > AUDIO_CAP) {
++    r.body?.cancel().catch(() => undefined);
++    return json({ error: 'that episode is too big to download', size: total || len }, 413);
++  }
++  const headers = new Headers({
++    'content-type': type || 'audio/mpeg',
++    'cache-control': 'private, no-store',
++    'content-security-policy': "sandbox; default-src 'none'",
++    'x-content-type-options': 'nosniff',
++    'content-disposition': 'attachment',
++    'accept-ranges': r.headers.get('accept-ranges') ?? 'bytes',
++  });
++  if (len > 0) headers.set('content-length', String(len));
++  if (r.headers.get('content-range')) headers.set('content-range', r.headers.get('content-range')!);
++  if (total) headers.set('x-podcast-size', String(total));
++  if (req.method === 'HEAD' || !r.body) {
++    r.body?.cancel().catch(() => undefined);
++    return new Response(null, { status: r.status, headers });
++  }
++  // a site that does not say the size is held to the cap as the bytes pass
++  let body: ReadableStream<Uint8Array> = r.body;
++  if (!(len > 0)) {
++    let seen = 0;
++    body = r.body.pipeThrough(
++      new TransformStream<Uint8Array, Uint8Array>({
++        transform(chunk, ctl) {
++          seen += chunk.length;
++          if (seen > AUDIO_CAP) ctl.error(new Error('too big'));
++          else ctl.enqueue(chunk);
++        },
++      }),
++    );
++  }
++  return new Response(body, { status: r.status, headers });
++}
++
++/** /api/podcast/<search|feed|audio> for the owner (`fetcher`: the tests give a stand-in). */
++export async function podcastRoute(req: Request, url: URL, fetcher?: Fetcher): Promise<Response> {
++  const what = url.pathname.slice('/api/podcast/'.length);
++  if (what === 'audio' && (req.method === 'GET' || req.method === 'HEAD')) return audio(req, url.searchParams.get('url') ?? '', fetcher);
++  if (req.method !== 'GET') return json({ error: 'GET only' }, 405);
++  if (what === 'search') return search(url.searchParams.get('q') ?? '', fetcher);
++  if (what === 'feed') return feed(url.searchParams.get('url') ?? '', fetcher);
++  return json({ error: 'not a podcast address' }, 404);
++}
+diff --git a/apps/edge/test/podcasts.test.mjs b/apps/edge/test/podcasts.test.mjs
+new file mode 100644
+index 00000000..c2e955b2
+--- /dev/null
++++ b/apps/edge/test/podcasts.test.mjs
+@@ -0,0 +1,136 @@
++// [planlane3:podcasts] PODCASTS through the brain (src/podcasts.ts), held with no network: the iTunes search tidied, a feed read
++// into a show and its episodes (dates, lengths, sizes, newest first, a cut feed still read), an episode's audio passed through with
++// its size and a Range, and every address someone else chose refused when it is private or loopback, before it is asked and at
++// every redirect. Run from security.test.mjs (the protected package.json's test list is not changed). Bundled here with esbuild.
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import { build } from 'esbuild';
++
++const at = (p) => new URL(p, import.meta.url).pathname;
++await build({ entryPoints: { podcasts: at('../src/podcasts.ts') }, outdir: at('./.build/podcasts/'), bundle: true, format: 'esm', platform: 'node', target: 'node20', logLevel: 'error' });
++const P = await import(at('./.build/podcasts/podcasts.js'));
++
++const FEED = `<?xml version="1.0"?><rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel>
++<title>The Allotment &amp; Me</title><link>https://allotment.example/</link><itunes:author>Sam Grower</itunes:author>
++<itunes:image href="https://allotment.example/art.jpg"/><description><![CDATA[<p>Growing <b>food</b> in a small plot.</p>]]></description>
++<item><title>Episode 1: Potatoes</title><guid>ep-1</guid><pubDate>Mon, 02 Nov 2026 07:00:00 GMT</pubDate><itunes:duration>45:30</itunes:duration>
++<enclosure url="https://cdn.allotment.example/ep1.mp3" length="48234567" type="audio/mpeg"/></item>
++<item><title>Episode 2: Beans</title><guid isPermaLink="false">ep-2</guid><pubDate>Mon, 09 Nov 2026 07:00:00 GMT</pubDate><itunes:duration>1:02:03</itunes:duration>
++<enclosure url="https://cdn.allotment.example/ep2.mp3" length="1" type="audio/mpeg"/></item>
++<item><title>No sound here</title><guid>ep-x</guid></item>
++<item><title>A private one</title><guid>ep-p</guid><enclosure url="http://192.168.1.4/secret.mp3" length="5000000" type="audio/mpeg"/></item>
++</channel></rss>`;
++
++const ok = (body, headers = {}, status = 200) => new Response(body, { status, headers });
++
++test('a feed becomes the show and its episodes: newest first, the length in seconds, the size in bytes (a made-up 1 is no size), no private address and no episode without sound', () => {
++  const { show, episodes } = P.parseFeed(FEED, 'https://allotment.example/feed.xml');
++  assert.equal(show.title, 'The Allotment & Me');
++  assert.equal(show.author, 'Sam Grower');
++  assert.equal(show.image, 'https://allotment.example/art.jpg');
++  assert.equal(show.about, 'Growing food in a small plot.');
++  assert.deepEqual(episodes.map((e) => e.id), ['ep-2', 'ep-1']);
++  assert.equal(episodes[0].dur, 3723);
++  assert.equal(episodes[1].dur, 2730);
++  assert.equal(episodes[1].size, 48234567);
++  assert.equal(episodes[0].size, 0);
++  assert.equal(episodes[1].date, Date.parse('2026-11-02T07:00:00Z'));
++  assert.equal(P.seconds('3723'), 3723);
++  assert.equal(P.seconds('nonsense'), 0);
++  // a feed cut at the cap still gives the episodes before the cut
++  const cut = FEED.slice(0, FEED.indexOf('<item><title>Episode 2'));
++  assert.equal(P.parseFeed(cut, 'https://allotment.example/feed.xml').episodes.length, 1);
++});
++
++test('the search asks Apple for podcasts only and gives the phone each show with a feed it may read', async () => {
++  let asked = '';
++  const fetcher = async (u) => {
++    asked = u;
++    return ok(JSON.stringify({ results: [
++      { collectionName: 'Gardeners’ Question Time', artistName: 'BBC Radio 4', feedUrl: 'https://podcasts.files.bbci.co.uk/b006qp2f.rss', artworkUrl600: 'https://is1.mzstatic.com/a.jpg', primaryGenreName: 'Leisure', trackCount: 300 },
++      { collectionName: 'No feed', artistName: 'X' },
++      { collectionName: 'Local one', feedUrl: 'http://localhost/feed' },
++    ] }), { 'content-type': 'application/json' });
++  };
++  const r = await P.podcastRoute(new Request('https://g.test/api/podcast/search?q=gardening'), new URL('https://g.test/api/podcast/search?q=gardening'), fetcher);
++  assert.equal(r.status, 200);
++  assert.match(asked, /^https:\/\/itunes\.apple\.com\/search\?media=podcast&entity=podcast&limit=25&term=gardening$/);
++  const j = await r.json();
++  assert.equal(j.results.length, 1);
++  assert.equal(j.results[0].title, 'Gardeners’ Question Time');
++  assert.equal(j.results[0].count, 300);
++  const empty = await P.podcastRoute(new Request('https://g.test/api/podcast/search?q='), new URL('https://g.test/api/podcast/search?q='), fetcher);
++  assert.equal(empty.status, 400);
++});
++
++test('the feed route reads the feed through the guard: a page that is not a feed is said, a private address and a redirect into one are never asked', async () => {
++  const seen = [];
++  const fetcher = async (u) => {
++    seen.push(u);
++    if (u === 'https://allotment.example/feed.xml') return ok(FEED, { 'content-type': 'application/rss+xml' });
++    if (u === 'https://allotment.example/page') return ok('<html><body>hello</body></html>', { 'content-type': 'text/html' });
++    if (u === 'https://allotment.example/moved') return ok('', { location: 'http://127.0.0.1:8080/feed.xml' }, 302);
++    throw new Error('not stood in');
++  };
++  const call = (target) => P.podcastRoute(new Request(`https://g.test/api/podcast/feed?url=${encodeURIComponent(target)}`), new URL(`https://g.test/api/podcast/feed?url=${encodeURIComponent(target)}`), fetcher);
++  const good = await call('https://allotment.example/feed.xml');
++  assert.equal(good.status, 200);
++  assert.equal((await good.json()).episodes.length, 2);
++  assert.equal((await call('https://allotment.example/page')).status, 422);
++  for (const bad of ['http://localhost/feed.xml', 'http://10.0.0.2/feed.xml', 'http://[::1]/feed', 'file:///etc/passwd', 'http://router.local/feed']) {
++    const r = await call(bad);
++    assert.equal(r.status, 400, bad);
++  }
++  const moved = await call('https://allotment.example/moved');
++  assert.equal(moved.status, 502);
++  assert.match((await moved.json()).error, /redirected/);
++  assert.ok(!seen.some((u) => /127\.0\.0\.1|localhost|10\.0\.0\.2|::1|router\.local/.test(u)), `a private address was asked: ${seen.join(', ')}`);
++});
++
++test('the audio route streams an episode with its size, passes a Range on, refuses a web page, a private address and an episode over the cap', async () => {
++  const sent = [];
++  const bytes = new Uint8Array(32_000).fill(7);
++  const fetcher = async (u, init) => {
++    sent.push({ u, range: new Headers(init?.headers).get('range'), method: init?.method });
++    if (u.endsWith('/ep1.mp3')) {
++      const range = new Headers(init?.headers).get('range');
++      if (range === 'bytes=1000-') return ok(bytes.slice(1000), { 'content-type': 'audio/mpeg', 'content-length': String(bytes.length - 1000), 'content-range': `bytes 1000-${bytes.length - 1}/${bytes.length}` }, 206);
++      return ok(init?.method === 'HEAD' ? null : bytes, { 'content-type': 'audio/mpeg', 'content-length': String(bytes.length) });
++    }
++    if (u.endsWith('/page.html')) return ok('<html></html>', { 'content-type': 'text/html' });
++    if (u.endsWith('/huge.mp3')) return ok('x', { 'content-type': 'audio/mpeg', 'content-length': String(P.AUDIO_CAP + 1) });
++    throw new Error('not stood in');
++  };
++  const call = (target, init = {}) => P.podcastRoute(new Request(`https://g.test/api/podcast/audio?url=${encodeURIComponent(target)}`, init), new URL(`https://g.test/api/podcast/audio?url=${encodeURIComponent(target)}`), fetcher);
++  const whole = await call('https://cdn.allotment.example/ep1.mp3');
++  assert.equal(whole.status, 200);
++  assert.equal(whole.headers.get('content-length'), '32000');
++  assert.equal(whole.headers.get('x-podcast-size'), '32000');
++  assert.equal(whole.headers.get('content-disposition'), 'attachment');
++  assert.equal((await whole.arrayBuffer()).byteLength, 32000);
++  const head = await call('https://cdn.allotment.example/ep1.mp3', { method: 'HEAD' });
++  assert.equal(head.status, 200);
++  assert.equal(head.headers.get('x-podcast-size'), '32000');
++  const part = await call('https://cdn.allotment.example/ep1.mp3', { headers: { range: 'bytes=1000-' } });
++  assert.equal(part.status, 206);
++  assert.equal(part.headers.get('x-podcast-size'), '32000');
++  assert.equal((await part.arrayBuffer()).byteLength, 31000);
++  assert.equal((await call('https://cdn.allotment.example/page.html')).status, 415);
++  const huge = await call('https://cdn.allotment.example/huge.mp3');
++  assert.equal(huge.status, 413);
++  assert.equal((await huge.json()).size, P.AUDIO_CAP + 1);
++  for (const bad of ['http://127.0.0.1/ep.mp3', 'http://169.254.169.254/latest/meta-data', 'http://[fd00::1]/a.mp3']) assert.equal((await call(bad)).status, 400, bad);
++  assert.ok(!sent.some((s) => /127\.0\.0\.1|169\.254|fd00/.test(s.u)));
++  // a range that is not one piece of a file is not passed on
++  await call('https://cdn.allotment.example/ep1.mp3', { headers: { range: 'bytes=0-1,5-9' } });
++  assert.equal(sent.at(-1).range, null);
++});
++
++test('the route is wired in index.ts behind his sign-in: no key, no podcast', async () => {
++  const brain = await import(at('./.build/brain.mjs'));
++  const env = { OWNER_KEY: 'k'.repeat(32) };
++  const r = await brain.default.fetch(new Request('https://g.test/api/podcast/search?q=gardening'), env, { waitUntil() {} });
++  assert.equal(r.status, 401);
++  const r2 = await brain.default.fetch(new Request('https://g.test/api/podcast/feed?url=http%3A%2F%2F127.0.0.1%2Ffeed', { headers: { 'x-ghosty-key': env.OWNER_KEY } }), env, { waitUntil() {} });
++  assert.equal(r2.status, 400);
++});
+diff --git a/apps/edge/test/security.test.mjs b/apps/edge/test/security.test.mjs
+index 3c15a7f7..4e65b32c 100644
+--- a/apps/edge/test/security.test.mjs
++++ b/apps/edge/test/security.test.mjs
+@@ -345,3 +345,6 @@ test('[security] the app’s own calls without a key never lock him out; only wr
+   assert.equal((await ask(env.OWNER_KEY)).status, 400, 'his right key still gets through');
+   RL.resetLimits();
+ });
++
++// [planlane3:podcasts] the podcast routes (src/podcasts.ts), every address through this file's guard
++await import('./podcasts.test.mjs');
+-- 
+2.43.0
+

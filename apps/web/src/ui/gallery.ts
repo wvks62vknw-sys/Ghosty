@@ -59,15 +59,15 @@ export function looksGallery(): { el: HTMLElement; paint(): void } {
   const row = (a: number, b: number, label: string) => h('div.gg-looks', { role: 'radiogroup', 'aria-label': label }, ...cards.slice(a, b).map((c) => c.b));
   el.append(
     lookHead,
-    row(0, 3, 'The look, first row'),
+    row(0, 3, 'The world, first row'),
     h('div.gg-colour', { dataset: { g: 'colour' } }, colourHead, h('div.gg-row', { role: 'radiogroup', 'aria-label': 'The colour' }, ...swatches.map((s) => s.b))),
-    row(3, 7, 'The look, second row'),
+    row(3, 7, 'The world, second row'),
     ask);
 
   const paint = () => {
     const r = recipe();
     const here = lookOfWorld(r.world);
-    clear(lookHead, tag('The look', { count: here.name }), h('small', { dataset: { case: 'keep' } }, GALLERY_COUNT));
+    clear(lookHead, tag('The world', { count: here.name }), h('small', { dataset: { case: 'keep' } }, GALLERY_COUNT));
     clear(colourHead, tag('The colour', { count: COLOUR_LABELS[r.colour] }), truthLine('12 · yours to change'));
     for (const { l, b, name, sub } of cards) {
       const on = l.key === here.key;

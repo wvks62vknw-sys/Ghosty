@@ -36,7 +36,10 @@ process.on('uncaughtException', (e) => {
   process.exit(1);
 });
 const cleanBrain = await brainBefore(base);
-const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--disable-dev-shm-usage'] });
+const launchBrowser = () => launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--disable-dev-shm-usage'] });
+let browser = await launchBrowser();
+/** Every phone a section opens, closed when the section ends however it ends, so one part's failure never leaves heavy pages behind. */
+const openNow = new Set();
 
 async function pure(entry) {
   const r = buildSync({ entryPoints: [new URL(`../${entry}`, import.meta.url).pathname], bundle: true, write: false, format: 'esm', platform: 'neutral', logLevel: 'silent' });
@@ -47,17 +50,30 @@ const until = (page, fn, arg, ms = 8000) => page.waitForFunction(fn, arg, { time
 const ONLY = process.env.ONLY?.split(',');
 async function section(name, fn) {
   if (ONLY && !ONLY.includes(name[0])) return;
+  // (a browser that died in an earlier part is started again, so the parts after it still run and say what they find)
+  if (!browser.isConnected()) {
+    problems.push(`[${name}] the browser had closed before this part: started again`);
+    browser = await launchBrowser();
+  }
   try {
     await fn();
   } catch (e) {
     problems.push(`[${name}] could not run: ${String(e.message).split('\n')[0]}`);
+  } finally {
+    for (const c of [...openNow]) await c.close().catch(() => undefined);
+    openNow.clear();
   }
 }
 
 /** A phone opened on Ghosty. `time`: a fixed clock (Date only; timers run). `reduced`: Reduce Motion. */
 async function open({ W = 440, hash = 'core', time = null, reduced = false, speaker = false, settings = {}, seed = null, pre = null } = {}) {
   const ctx = await browser.newContext({ viewport: W === 440 ? PHONE : { width: 390, height: 844 }, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: reduced ? 'reduce' : 'no-preference' });
+  openNow.add(ctx);
+  ctx.on('close', () => openNow.delete(ctx));
   const page = await ctx.newPage();
+  page.on('crash', () => problems.push(`[${W}] the page crashed (${hash})`));
+  // (SLOW=4: the CPU slowed, to stand in for the runner: a local proof only, CI never sets it)
+  if (Number(process.env.SLOW) > 1) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.SLOW) }).catch(() => undefined);
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   if (speaker) await ctx.addInitScript(fakeSpeaker);
   if (time) await page.clock.setFixedTime(time);
@@ -307,13 +323,6 @@ for (const W of [440, 390]) {
     const eh = await empty.evaluate(() => document.querySelector('#pg-agenda .hero .bigv')?.textContent ?? '');
     check(/Nothing today/.test(eh), `${T} [6 the empty day] the line at the top reads "${eh}"`);
     await empty.close();
-    // 7. no signal and nothing kept: said, not a bare OFFLINE
-    const off = await open({ W, pre: (p) => mockAgenda(p, { fail: true }) });
-    await off.page.evaluate(() => (location.hash = 'agenda'));
-    await off.page.waitForSelector('#pg-agenda .agoff', { timeout: 15000 }).catch(() => problems.push(`${T} [7 no signal] the diary says nothing in his words when the brain cannot be reached`));
-    const offText = await off.page.evaluate(() => document.querySelector('#pg-agenda .agoff')?.textContent ?? '');
-    check(offText === AGENDA.DIARY_OFFLINE, `${T} [7 no signal] says "${offText}"`);
-    await off.ctx.close();
     // 8. a time that has gone is refused, not added
     await go(page, 'agenda', 500);
     await openSection(page, 'agenda', 'Diary');
@@ -335,6 +344,13 @@ for (const W of [440, 390]) {
     check(!big.cut.length && !big.sideways, `${T} [10 BODY 21] clips ${big.cut.slice(0, 4).join('; ')}${big.sideways ? ' and goes sideways' : ''}`);
     await page.evaluate(() => delete document.documentElement.dataset.body);
     await ctx.close();
+    // 7. no signal and nothing kept: said, not a bare OFFLINE (its own phone, opened once the first has closed: one phone at a time)
+    const off = await open({ W, pre: (p) => mockAgenda(p, { fail: true }) });
+    await off.page.evaluate(() => (location.hash = 'agenda'));
+    await off.page.waitForSelector('#pg-agenda .agoff', { timeout: 15000 }).catch(() => problems.push(`${T} [7 no signal] the diary says nothing in his words when the brain cannot be reached`));
+    const offText = await off.page.evaluate(() => document.querySelector('#pg-agenda .agoff')?.textContent ?? '');
+    check(offText === AGENDA.DIARY_OFFLINE, `${T} [7 no signal] says "${offText}"`);
+    await off.ctx.close();
     const calm = await open({ W, time: NOW, reduced: true });
     await mockAgenda(calm.page);
     await agendaOpen(calm.page);

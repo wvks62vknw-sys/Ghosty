@@ -5,6 +5,7 @@ import { voiceTag } from './voicetag'; // [voiceknown] whose voice, on the talk 
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
 import { pillWords } from './pill';
+import { goodnightAsked } from './goodnightwords';
 import { cancelTakeBack, startTakeBack, takeBackLeft, takeBackWords, takesBack } from './takeback'; // [security] security.u5
 import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, toolWords, turn, type Entry } from '../../assistant/session';
 import { sfx } from '../../assistant/sfx';
@@ -210,6 +211,11 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
     // [reader] with a book being read (or just cut), the sign-off is where we are in it ("Page 48. I'll carry on from here.")
     if (endIntent(text)) {
       endConversation();
+      // [planlane2:goodnight] "goodnight" to the mic runs GOODNIGHT (its reply spoken), not the sign-off
+      if (goodnightAsked(text)) {
+        await send(text, { speak: true, voice: true });
+        return;
+      }
       const book = await import('../library/reader').then((r) => r.bookSignOff(text)).catch(() => false);
       if (!book) await signOff(text);
       return;
@@ -627,7 +633,8 @@ function homeContext(): ScreenContext {
 
 export const coreTab: TabDef = {
   id: 'core',
-  title: 'CORE',
+  // [consistency] one name: the first screen is Home in the bar, the deck, the jump bar and "where it lives"
+  title: 'HOME',
   icon: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   scene: 'backdrop',
   blurb: 'talk to Ghosty · arc reactor HUD',

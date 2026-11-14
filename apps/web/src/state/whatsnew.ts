@@ -4,6 +4,7 @@
  * device (`ghosty.whatsNew`, the build's commit). Add a line here with every merge worth telling him about.
  */
 import { BUILD } from './build';
+import { CATALOGUE, isSame } from '../../../../packages/shared/src/catalogue';
 
 export interface NewThing {
   /** The day it was merged (YYYY-MM-DD). */
@@ -13,7 +14,33 @@ export interface NewThing {
   line: string;
 }
 
+/** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [planlane2:fixes] the half-done ones, finished: scripts ask first, follow from SOCIAL, email TEST, one health line on LINKS
+  { day: '2026-11-14', title: 'Scripts ask first', line: 'A Home Assistant script now asks “Run Bedtime?” before it runs, every time, on the screen and from the chat: I can’t see what a script does. Scenes still run on one tap unless they set a lock, the alarm, a garage door or a switch you marked.' },
+  { day: '2026-11-14', title: 'Follow from SOCIAL', line: 'SOCIAL → WAITING (under WAITING FOR YOUR APPROVE) has a FOLLOW OR UNFOLLOW box for Bluesky and Mastodon: it makes a draft, and nothing happens until you tap APPROVE.' },
+  { day: '2026-11-14', title: 'Email TEST and one health line', line: 'LINKS → EMAIL has a TEST key that signs in to your mail and says if it works, and the top of LINKS says in one line that all is fine, or the one thing to fix first.' },
+  // [planlane2:podcasts] the radio's sleep timer after a reload, and in the top bar
+  { day: '2026-11-14', title: 'The sleep timer keeps its time', line: 'The top bar shows when the radio stops (“Radio 4 · stops 23:10”). If the page reloads, the Radio offers PLAY AND KEEP THE TIMER: one tap plays on with the same stop time.' },
+  // [planlane2:goodnight] one word winds everything down (features/core/goodnight.ts)
+  { day: '2026-11-14', title: 'Say goodnight', line: 'Say “goodnight” (or “night night”, “time for bed”): the screen winds down, the night look comes on, your lights go off, the radio gets a 30-minute sleep timer, sleep tracking starts and I tell you tomorrow’s first event. Locks, the alarm, garage doors and gates are only listed, each with a LOCK UP key that needs your tap and a confirm. After six, the Brief has a GOODNIGHT key too.' },
+  // [planlane2:onelist] (plan.u1)
+  { day: '2026-11-14', title: 'One to-do list', line: 'The Agenda’s TO-DO, WORK’s to-do, the Brief, Home and the chat now share one list, kept in my brain with a copy on your phone for no signal. Your phone’s old list joined it once.' },
+  // [planlane2:timeline] the day by the hour, PLAN MY WEEK, any month, and an event changed in place
+  { day: '2026-11-14', title: 'Your day by the hour', line: 'Agenda → Diary → TIMELINE: today and tomorrow by the hour, your free gaps said in words, a line at now, and PLAN MY WEEK with each day’s free time.' },
+  { day: '2026-11-14', title: 'Change an event properly', line: 'Tap an event: change its time, end, place, ALL DAY and reminder in place, and its reminder moves with it. The month now steps to any month, back or on.' },
+  { day: '2026-11-14', title: 'Your own one-word routines', line: 'Settings → ROUTINES: make one word, like “morning”, run a few things in turn. Say it or type it. Anything that would send still waits for your APPROVE.' },
+  { day: '2026-11-14', title: 'Ask how, and get the taps', line: 'Ask “how do I paste a bank statement?” and I give the exact taps with TRY IT; “what can I say here?” gives that screen’s own words. The search understands whole sentences too.' },
+  { day: '2026-11-14', title: 'A tour of the house', line: 'Say “show me around” and I walk you through the seven rooms, with one thing to try in each. The search does sums as you type, too.' },
+  { day: '2026-11-14', title: 'One name for every screen', line: 'Courses, Interpret, Game Studio, Home, FACES in the Lens, ABOUT YOU in Memory: each called the same in the bar, the search, the lists and my speech.' },
+  // [moneynext] money and papers handled for you (NEXT-MONEY)
+  { day: '2026-11-14', title: 'Safe to spend until payday', line: 'Life → MONEY: tell me your payday and the top of your month shows what is safe to spend until then, after the bills still due. Plain sums, not a forecast.' },
+  { day: '2026-11-14', title: 'A money calendar, goals and your year', line: 'MONEY → CALENDAR puts every bill and payday on its day; BUDGETS keeps savings goals with what each needs a month; TRENDS adds your year in money, ready to print.' },
+  { day: '2026-11-14', title: 'Shared bills and your sorting rules', line: 'MONEY → BILLS splits household bills and says who owes whom; YOUR MONTH lists the rules that sort your payments, to change or take away. Nothing is paid or sent.' },
+  { day: '2026-11-14', title: 'Warranties, papers and the car', line: 'HOUSEHOLD → PAPERS keeps each warranty with a photo of its receipt on your phone, and your tenancy, insurance and licences with a reminder before each renews. MONEY → BILLS adds up your car and shows each subscription’s own cancel page.' },
+  { day: '2026-11-14', title: 'Price watches, energy and split payments', line: 'MONEY → TRENDS lists your price watches and how each moved; METER shows your use and a first estimate of its cost; a payment can be split across two categories.' },
+  { day: '2026-11-14', title: 'Gift lists and job applications', line: 'PEOPLE keeps gift ideas per person with what you gave last year, lets you change one note, and keeps your own photo on the phone. WORK → JOBS tracks each application with a day to follow up.' },
+  { day: '2026-11-14', title: 'Paid bills kept, documents kept', line: 'HOUSEHOLD → BILLS keeps the paid ones with what each supplier cost this year and last. WORK → DOCUMENT keeps every CV, letter and email I write, with older versions.' },
   // [lens] THE NEXT ROUND: the camera as the front door
   { day: '2026-11-14', title: 'Two packets side by side', line: 'Scan one packet, then another, and say “which is better”: the two side by side per 100 g, the better figure marked, from the open food databases.' },
   { day: '2026-11-14', title: 'What a heater costs to run', line: 'Point the Lens at an appliance’s rating plate: about what an hour costs at full power, at your own price per unit if you set it. Always a first estimate.' },
@@ -43,6 +70,7 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Worked answers to study', line: 'Any paper in SCHOOL → STUDY THE WORKED ANSWERS: my full working a question at a time, kept on this phone. Higher stages now have practice papers.' },
   { day: '2026-11-14', title: 'Bedtime listening', line: 'In the reader: reading speed, a 15 or 30 minute sleep timer, and a voice for each book.' },
   { day: '2026-11-14', title: 'Speak another language, and quiz night', line: 'REHEARSE in Spanish, French and more, with gentle notes after; QUIZ NIGHT under COURSES hosts a quiz for friends at the table.' },
+  { day: '2026-11-14', title: 'Highlights, a quiz aloud and a memory palace', line: 'Highlight and note sentences in your books and export them; QUIZ ME ALOUD asks your course questions hands-free; Learning → MEMORY has a memory palace.' },
   // [comic] NEXT ROUND (comic.u2, u4, u5, u7)
   { day: '2026-11-14', title: 'Ghosty writes your comic', line: 'COMIC → MAKE: I write the story for your exact idea and the phone draws it with the same characters; drag balloons, people and sound effects with a finger, put your own photo behind a panel, and UNDO or REDO any change. Real CBR comics open too (the free RAR reader comes on your tap, on Wi-Fi), and MY WEEK AS A COMIC turns your agenda’s week into a comic to keep.' },
   // [see] the next round: an appointment to the whole journey, and the journey kept for no signal
@@ -59,10 +87,13 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A soft tick when I hear you', line: 'When you finish speaking, a soft tick says I heard you, so you never wonder whether to say it again. It goes with the other sounds in Settings → VOICE & HOME.' },
   // [ci] NEXT ci.u1
   { day: '2026-11-14', title: 'I start talking sooner', line: 'On a long answer I start speaking as soon as its first sentence is written, while the rest is still coming, so you hear me about a third of a second sooner. The words are the same as before.' },
+  // [security] NEXT ROUND, lane SECURITY: one tap to lock everything (security.u11)
+  { day: '2026-11-14', title: 'One tap to lock everything', line: 'Settings → SECURITY → LOCK EVERYTHING, or say "lock everything": Telegram unpaired, nothing that publishes, sends, pays or ships runs, until your owner key unlocks it.' },
   // [security] NEXT ROUND, lane SECURITY: a few seconds to take it back (security.u5)
   { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  { day: '2026-11-14', title: 'Export everything', line: 'System → BACKUP: EXPORT EVERYTHING saves your documents as Word files, sheets as Excel, decks as PowerPoint, the workspace as Markdown and your memory as a document, in one zip.' },
   { day: '2026-11-14', title: 'A log of camera, mic and location use', line: 'Settings → PERMISSIONS lists every time the camera, the microphone or your location was actually used, and on which screen, kept on your phone.' },
   { day: '2026-11-14', title: 'Screens that got slower are flagged', line: 'System → STATUS, SPEED: a screen that opens slower on your phone since the last update is named, with how long it took before.' },
   { day: '2026-11-14', title: 'Everything I keep about you, one place', line: 'Settings → PRIVACY counts what I keep by kind (memory, places, faces, voices), each with its own key to forget it, and EXPORT MY MEMORY saves it all as one document.' },
@@ -99,11 +130,11 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Doors and windows from room photos', line: 'Make → Space → FROM PHOTO: after photos of the room, tap its outline where each door and window is. The sizes say ROUGH until you type one wall’s real length.' },
   { day: '2026-11-14', title: '3D made from words, even when the makers are busy', line: 'Make → 3D studio → MAKE: when the free makers are busy, your model waits on the phone and is made by itself while Ghosty is open; meanwhile it offers real models near it, and says when yours is ready.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
+  { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and GAME STUDIO, each a pill of its own, each kept on your phone.' },
   // [comic] the final round's comic, unsaid until now
   { day: '2026-11-13', title: 'Comics, read and made', line: 'Make → EDITORS → COMIC: read your own CBZ and PDF comics panel by panel, get free public-domain ones from the Internet Archive on Wi-Fi, and make a whole comic from an idea.' },
-  { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },
-  { day: '2026-11-13', title: 'Games of your own', line: 'THE GAME STUDIO makes a game from its own kit; it plays in the Arcade under MY GAMES. In the GYM you can play me at poker and WORDS too.' },
+  { day: '2026-11-13', title: 'Games of your own', line: 'GAME STUDIO makes a game from its own kit; it plays in the Arcade under MY GAMES. In the GYM you can play me at poker and WORDS too.' },
   { day: '2026-11-13', title: 'I can work on what you have open', line: 'Ask me about the deck, the video, the workspace or the game you have open: I read it, and any change I make is only proposed, marked for you to accept or reject.' },
   { day: '2026-11-13', title: 'Chat and Telegram in my own words', line: 'The chat, its states and the talk bar, and everything I say in Telegram, now in one plain voice.' },
   { day: '2026-11-13', title: 'THE WALL and THE EYE', line: 'THE WALL fits your words to the television; THE EYE draws the room as the wall, with the ask line at the biggest text.' },
@@ -126,6 +157,31 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
 ];
+
+/**
+ * [consistency] u2, WHAT'S NEW WRITES ITSELF: every ability arrives in the catalogue with the day it came (its `since`), so the list
+ * says the new ones by itself, a line a day for the last fortnight, even when no one wrote a line by hand.
+ */
+export const AUTO_DAYS = 14;
+export function fromCatalogue(now = Date.now()): NewThing[] {
+  const from = new Date(now - AUTO_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const today = new Date(now).toISOString().slice(0, 10);
+  const byDay = new Map<string, string[]>();
+  for (const v of Object.values(CATALOGUE)) {
+    if (!v || isSame(v) || !v.since || v.since < from || v.since > today) continue;
+    byDay.set(v.since, [...(byDay.get(v.since) ?? []), v.name]);
+  }
+  // (an ability that already has its own line by hand that day is said once, there)
+  const said = new Set(WHATS_NEW.map((x) => `${x.day}|${x.title.toLowerCase()}`));
+  return [...byDay].map(([day, names]) => [day, [...new Set(names)].filter((x) => !said.has(`${day}|${x.toLowerCase()}`))] as const).filter(([, n]) => n.length).map(([day, n]) => {
+    return { day, title: n.length === 1 ? 'Something new I can do' : `${n.length} new things I can do`, line: `${n.slice(0, 5).join(', ')}${n.length > 5 ? `, and ${n.length - 5} more` : ''}. Ask me “can you …?” about any of them.` };
+  });
+}
+
+/** What the Workshop shows: the lines written by hand, then each day's new abilities said by the catalogue, newest first (in place,
+ *  so every lane keeps adding its lines to the one list above as before). */
+WHATS_NEW.push(...fromCatalogue());
+WHATS_NEW.sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
 
 const KEY = 'ghosty.whatsNew';
 

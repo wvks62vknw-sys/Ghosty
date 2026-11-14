@@ -10,7 +10,11 @@ import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { clockNow } from '../kitchen/timers';
 import { sayError } from '../../ui/hisWords';
+import { adoptTodos, loadTodos, syncTodos, tickTodo } from '../agenda/todo';
 import { daysTo, dueWords, emptyState, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
+import { forgetFromLibrary, keepInLibrary, KIND_WORDS, listLibrary, type LibDoc } from './library';
+import { run as runCommand } from '../../commands/registry';
+import { fromText, newDoc } from '../../docs/model';
 
 export type WorkWhat = 'doc' | 'interview' | 'todo';
 /** Each sheet's name, as its title and as its panel on the WORK screen (features/work/index.ts). */
@@ -21,7 +25,8 @@ export const workState = {
   open: '' as '' | WorkWhat,
   doc: { title: '', text: '', done: '' },
   interview: { q: 0, of: 0, question: '', secs: 0, running: false, critique: '', answered: 0 },
-  todo: [] as { text: string; done: boolean; due?: string }[],
+  todo: [] as { id?: string; text: string; done: boolean; due?: string }[],
+  library: [] as string[],
 };
 
 let open: { close(): void } | null = null;
@@ -59,7 +64,9 @@ function docScreen(a: Record<string, unknown>): Screen {
   const title = String(a.title ?? 'DOCUMENT');
   workState.doc = { title, text, done: '' };
   const nWords = (text.match(/\S+/g) ?? []).length;
-  const status = h('p.pknote', { 'aria-live': 'polite' }, `${nWords} word${nWords === 1 ? '' : 's'}. Shown for you to check: nothing is sent unless you send it yourself.`);
+  // [moneynext] every document I write is kept in his library on this phone as it is shown, a new version when its words change
+  const kept = a.keep === false ? null : keepInLibrary(title, String(a.kind ?? 'document'), text);
+  const status = h('p.pknote', { 'aria-live': 'polite' }, `${nWords} word${nWords === 1 ? '' : 's'}. Shown for you to check: nothing is sent unless you send it yourself.${kept ? (kept.added ? ' Kept in your library on WORK → Document.' : ' Already in your library.') : ''}`);
   const note = (t: string) => {
     workState.doc.done = t;
     status.textContent = t;
@@ -89,7 +96,9 @@ function docScreen(a: Record<string, unknown>): Screen {
   });
   share.setAttribute('aria-label', `Share the ${title.toLowerCase()}`);
   const mail = typeof a.mailto === 'string' && a.mailto.startsWith('mailto:') ? a.mailto : '';
-  const rowButtons = [copy, share];
+  const edit = button('Edit in Documents', () => void editInDocs(title, text, note));
+  edit.setAttribute('aria-label', `Open the ${title.toLowerCase()} in Documents to edit it`);
+  const rowButtons = [copy, share, edit];
   if (mail) {
     const m = button('Open in mail', () => {
       note('Opened in your mail app. You press send, not me.');
@@ -99,6 +108,67 @@ function docScreen(a: Record<string, unknown>): Screen {
     rowButtons.push(m);
   }
   return { el: h('div.pkcol', body, h('div.pkrow', ...rowButtons), status), stop: () => undefined };
+}
+
+/** A document opened in DOCUMENTS (the editor) as a new document there: his library copy stays as it was. */
+async function editInDocs(title: string, text: string, note: (t: string) => void): Promise<void> {
+  const name = title.charAt(0) + title.slice(1).toLowerCase();
+  const ok = await runCommand('open_docs', { doc: newDoc(name, fromText(text)) }).catch(() => false);
+  note(ok ? 'Opened in Documents: your edits are kept there, and this copy stays in your library.' : 'Documents could not open just now. Copy it instead.');
+}
+
+const DAY = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
+/** WORK → DOCUMENT: his library, newest first, each to open, edit in Documents, see its older versions or forget (asked once more). */
+export function libraryScreen(): Screen {
+  const win = window as unknown as { __ghosty?: Record<string, unknown> };
+  if (win.__ghosty) win.__ghosty.work = workState;
+  const status = h('p.pknote', { 'aria-live': 'polite' });
+  const list = h('div.pkcol', { 'aria-live': 'polite' });
+  const find = h('input.mnsearch', { type: 'search', placeholder: 'Find a document: CV, Tesco, cover', 'aria-label': 'Find a document', enterKeyHint: 'search' }) as HTMLInputElement;
+  const named = (b: HTMLButtonElement, l: string) => (b.setAttribute('aria-label', l), b);
+  const openOne = (d: LibDoc, v = d.versions.length - 1) => void openWork('doc', { title: d.title, text: d.versions[v]!.text, kind: d.kind, keep: false });
+  const paint = () => {
+    const all = listLibrary();
+    workState.library = all.map((d) => `${d.title} ${d.versions.length}`);
+    const q = find.value.trim().toLowerCase();
+    const docs = q ? all.filter((d) => d.title.toLowerCase().includes(q) || d.kind.includes(q) || d.versions[d.versions.length - 1]!.text.toLowerCase().includes(q)) : all;
+    find.hidden = all.length < 4;
+    if (!all.length) {
+      /* state: work.doc empty */
+      list.replaceChildren(emptyState('No document yet', 'Ask me in the chat for a CV, a cover letter or an email.'));
+      return;
+    }
+    list.replaceChildren(
+      h('p.pknote', { dataset: { case: 'keep' } }, `${all.length} document${all.length === 1 ? '' : 's'} kept on this phone, newest first.`),
+      ...(docs.length ? docs : [null]).map((d) => {
+        if (!d) return h('p.pknote', { dataset: { case: 'keep' } }, `No document matches “${find.value.trim()}”.`);
+        const last = d.versions[d.versions.length - 1]!;
+        const n = (last.text.match(/\S+/g) ?? []).length;
+        const older = h('div.pkcol', { hidden: true });
+        const box = h('div.pkperson.wklib', { role: 'group', dataset: { doc: d.id }, 'aria-label': `${d.title}, ${KIND_WORDS[d.kind] ?? d.kind}` },
+          h('b', d.title.charAt(0) + d.title.slice(1).toLowerCase()),
+          h('span.pklab', `${KIND_WORDS[d.kind] ?? d.kind} · ${DAY(last.at)} · ${n} word${n === 1 ? '' : 's'}${d.versions.length > 1 ? ` · ${d.versions.length} versions` : ''}`),
+          h('div.pkrow',
+            named(button('Open', () => openOne(d), 'on'), `Open ${d.title.toLowerCase()}`),
+            named(button('Edit in Documents', () => void editInDocs(d.title, last.text, (t) => stateIn(status, '', t))), `Edit ${d.title.toLowerCase()} in Documents`),
+            ...(d.versions.length > 1 ? [named(button('Older versions', () => {
+              older.hidden = !older.hidden;
+              older.replaceChildren(...d.versions.slice(0, -1).map((v, i) => h('div.pkrow', named(button(`${DAY(v.at)} · version ${i + 1}`, () => openOne(d, i)), `Open version ${i + 1} from ${DAY(v.at)}`))).reverse());
+            }), `Show the older versions of ${d.title.toLowerCase()}`)] : []),
+            named(button('Forget', () => {
+              const m = modal('Forget it?', h('div.pkcol', h('p.pknote', `Forget ${d.title.toLowerCase()} and its ${d.versions.length === 1 ? 'one version' : `${d.versions.length} versions`}? This can’t be undone.`),
+                h('div.pkrow', named(button('Forget it', () => { forgetFromLibrary(d.id); m.close(); stateIn(status, '', `Forgot ${d.title.toLowerCase()}.`); paint(); }, 'on'), `Yes, forget ${d.title.toLowerCase()}`),
+                  named(button('Keep it', () => m.close()), 'No, keep it'))));
+            }), `Forget ${d.title.toLowerCase()}`)),
+          older);
+        return box;
+      }),
+    );
+  };
+  find.addEventListener('input', paint);
+  paint();
+  return { el: h('div.pkcol', find, list, status, phrases(['my documents library', 'my cvs and letters'])), stop: () => undefined };
 }
 
 interface Crit {
@@ -239,7 +309,7 @@ function interviewScreen(a: Record<string, unknown>): Screen {
   return { el, stop: () => (stopTimer(), void import('../../assistant/voice').then((v) => v.stopListening()).catch(() => undefined)) };
 }
 
-/** The to-do list, ticked on the phone and kept in my brain. */
+/** The to-do list, ticked on the phone and kept in my brain: the one list the Agenda's TO-DO, Home and the Brief read too. */
 function todoScreen(): Screen {
   const items = h('ul.pkitems', { 'aria-label': 'To-do list' });
   const count = h('p.pknote.pktodocount', { dataset: { case: 'keep' }, hidden: true });
@@ -256,7 +326,9 @@ function todoScreen(): Screen {
     }
     try {
       const r = await brain.packDo('work', 'todo', { words });
-      workState.todo = ((r.data as { list?: typeof workState.todo } | undefined)?.list ?? []).map((t) => ({ text: t.text, done: !!t.done, ...(t.due ? { due: t.due } : {}) }));
+      workState.todo = ((r.data as { list?: typeof workState.todo } | undefined)?.list ?? []).map((t) => ({ ...(t.id ? { id: t.id } : {}), text: t.text, done: !!t.done, ...(t.due ? { due: t.due } : {}) }));
+      // [planlane2:onelist] the same one list as the Agenda's TO-DO, Home and the Brief: their copy on this phone follows
+      adoptTodos((r.data as { list?: unknown } | undefined)?.list);
       loaded = true;
       paint();
       return r.text;
@@ -289,7 +361,17 @@ function todoScreen(): Screen {
       ...sorted.flatMap(({ t, g }) => {
         const when = t.due ? dueWords(t.due) || t.due : '';
         const box = h('input', { type: 'checkbox', checked: t.done, 'aria-label': `${t.text}${when ? `, ${when}` : ''}${t.done ? ', done' : ''}` }) as HTMLInputElement;
-        box.addEventListener('change', () => void act(`${box.checked ? 'tick' : 'untick'} ${t.text}`));
+        // [planlane2:onelist] the box ticks this very item by its id through the one list's outbox (so a repeat's done copies are never mixed up,
+        // and with no signal the tick waits on the phone and goes when the signal is back); words only when the copy does not have it yet
+        box.addEventListener('change', () => {
+          if (t.id && loadTodos().some((x) => x.id === t.id && x.done !== box.checked) && tickTodo(t.id)) {
+            workState.todo = loadTodos().map((x) => ({ id: x.id, text: x.text, done: x.done, ...(x.due ? { due: x.due } : {}) }));
+            loaded = true;
+            paint();
+            return;
+          }
+          void act(`${box.checked ? 'tick' : 'untick'} ${t.text}`);
+        });
         const head = g !== last && sorted.some((x) => x.g !== g) ? [h('li.pktodohead', { role: 'presentation', dataset: { group: String(g) } }, HEADS[g]!)] : [];
         last = g;
         return [...head, h(`li.pkitem${t.done ? '.done' : ''}${g === 0 ? '.late' : ''}` as 'li', h('label', box, `${t.text}${when ? ` · ${when}` : ''}`))];
@@ -316,6 +398,7 @@ function todoScreen(): Screen {
   const el = h('div.pkcol', h('div.pkadd', input, addBtn), slot, count, items, h('div.pkrow', clear), status, phrases(['interview practice', 'add to my to-do: send the invoice by Friday']));
   /* state: work.todo loading */
   const done = waitFor(el, 'Opening your list…');
-  void act('').finally(done);
+  // ([planlane2:onelist] changes made on the Agenda with no signal go first, so this screen opens on the one list as it is)
+  void syncTodos(true).finally(() => void act('').finally(done));
   return { el, stop: () => undefined };
 }

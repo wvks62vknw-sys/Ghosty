@@ -171,7 +171,9 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail|^\/guardian\/(?:health|feltoff)/.test(path);
+// (the diary's reads are not kept here: brain.agenda keeps its own copy and says when it shows it, and a month read (&from=) is never
+// shown as fresh from an old read)
+const cacheable = (path: string) => !/^\/agenda\?|^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail|^\/guardian\/(?:health|feltoff)/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -382,7 +384,7 @@ export const brain = {
   /** His PRINCIPLES (profile.ts): his own lines, the whole list each time. */
   principles: () => req<{ lines: string[]; max: number }>('GET', '/profile/principles'),
   setPrinciples: (lines: string[]) => req<{ lines: string[]; max: number }>('POST', '/profile/principles', { lines }),
-  /** Memory → ME → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
+  /** Memory → ABOUT YOU → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
   places: () => req<{ places: SavedPlace[] }>('GET', '/profile/places'),
   placeFind: (label: string, query: string) => req<{ found: PlaceCandidate }>('POST', '/profile/places/find', { label, query }),
   /** `back` (UNDO): the place put back exactly — its date and its place in the list. */
@@ -397,6 +399,8 @@ export const brain = {
   /** [packs] One pack action with no model (apps/edge/src/packs/index.ts): a card's UNDO, a glass of water, a tick, a run saved. */
   packDo: (pack: PackName, action: string, args: Record<string, unknown> = {}) => req<PackOut>('POST', '/packs/do', { pack, action, args }),
   spendingFile: (k: string, c: Category, month: string) => req<SpendingSummary & { filed: number }>('POST', '/profile/spending/file', { k, c, month }),
+  // [moneynext] one payment split across categories (parts empty: put back whole)
+  spendingSplit: (row: { d: string; t: string; a: number }, parts: { c: Category; a: number }[], month: string) => req<SpendingSummary & { parts: number }>('POST', '/profile/spending/split', { row, parts, month }),
   spendingBudget: (words: string, month: string) => req<SpendingSummary & { set: { category: Category; monthly: number } }>('POST', '/profile/spending/budget', { words, month }),
   spendingForget: () => req<SpendingSummary>('DELETE', '/profile/spending'),
   /** EXPORT AS CSV: every kept row (Date, Description, Amount, Category). */
@@ -527,6 +531,11 @@ export const brain = {
   agenda: (days = 14) => req<{ tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] }>('GET', `/agenda?days=${days}&tz=${encodeURIComponent(TZ)}`),
   addEvent: (e: { title: string; start: number; end?: number; allDay?: boolean; location?: string; remindMin?: number | null }) => req<{ event: AgendaEventInfo }>('POST', '/agenda/events', { ...e, tz: TZ }),
   deleteEvent: (id: string) => req('DELETE', `/agenda/events/${encodeURIComponent(id)}`),
+  // [planlane2:timeline] change one of his events in place (its reminder moves with it; null clears end, place or reminder)
+  editEvent: (id: string, e: { title?: string; start?: number; end?: number | null; allDay?: boolean; location?: string | null; notes?: string | null; remindMin?: number | null }) =>
+    req<{ event: AgendaEventInfo }>('POST', `/agenda/events/${encodeURIComponent(id)}`, { ...e, tz: TZ }),
+  // [planlane2:timeline] any month's days, read for the month view alone (never kept as the phone's copy of the diary)
+  agendaFrom: (from: number, days: number) => req<{ tz: string; events: AgendaEventInfo[]; errors: string[] }>('GET', `/agenda?days=${days}&from=${from}&tz=${encodeURIComponent(TZ)}`),
   addJob: (j: { kind: 'reminder' | 'task'; title?: string; text: string; at: number; repeat: JobInfo['repeat'] }) => req<{ job: JobInfo }>('POST', '/jobs', { ...j, tz: TZ }),
   deleteJob: (id: string) => req('DELETE', `/jobs/${encodeURIComponent(id)}`),
   runJob: (id: string) => req<{ item: InboxEntry }>('POST', `/jobs/${encodeURIComponent(id)}/run`),
@@ -562,8 +571,13 @@ export const brain = {
   /** The Telegram bot (LINKS → TELEGRAM): its state, a fresh pairing code, forget the paired chat, a test message. */
   telegramStatus: () => req<TelegramStatus>('GET', '/telegram/status'),
   /** [security] the brain's locks and every APPROVE and NOT NOW (security.ts), for the SECURITY screen */
-  security: () => req<{ locks: import('../features/security/locks').BrainLocks; approvals: import('../features/security/locks').ApprovalEntry[] }>('GET', '/security'),
+  security: () => req<{ locks: import('../features/security/locks').BrainLocks; approvals: import('../features/security/locks').ApprovalEntry[]; lockedAt?: number | null }>('GET', '/security'),
   clearApprovals: () => req<{ ok: boolean }>('DELETE', '/security/approvals'),
+  /** [security] CHECK A LINK: the guardian's scam check from public records, no model (security.u9) */
+  securityLinkCheck: (text: string) => req<{ verdict: string; words: string; links: string[] }>('POST', '/security/linkcheck', { text }),
+  /** [security] ONE TAP TO LOCK EVERYTHING (security.u11) and its unlock */
+  securityLock: () => req<{ locked: boolean; at: number | null; telegram: boolean }>('POST', '/security/lock', {}),
+  securityUnlock: () => req<{ locked: boolean }>('POST', '/security/unlock', {}),
   /** [security] HAS THIS PASSWORD LEAKED?: only the first five characters of its fingerprint leave the phone (security.s2) */
   pwnedRange: (prefix: string) => req<{ list: string }>('GET', `/security/pwned/${encodeURIComponent(prefix)}`),
   /** [security] a waiting APPROVE as a phone notification, once, when he walks away from the card (security.s10) */
@@ -826,7 +840,8 @@ export async function refreshKeyCopy(): Promise<void> {
 }
 /** [social] What GET /social answers: each account and who is linked, the drafts, and what went out today. */
 export interface SocialInfo {
-  accounts: { id: Account; name: string; who: string | null }[];
+  /** `follows`: the account has follows (the brain's own list, for SOCIAL's FOLLOW box; [planlane2:fixes]). */
+  accounts: { id: Account; name: string; who: string | null; follows?: boolean }[];
   drafts: Draft[];
   sent: { at: number; account: Account; kind: string; text: string; who?: string; link?: string }[];
 }

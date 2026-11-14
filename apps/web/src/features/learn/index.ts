@@ -191,7 +191,8 @@ export function openLearn(a: Record<string, unknown> = {}): void {
 
 export const learnTab: TabDef = {
   id: 'learn',
-  title: 'LEARN',
+  // [consistency] one name: the screen is Courses everywhere (Learn is the room it sits in)
+  title: 'COURSES',
   icon: '<path d="M2 8l10-5 10 5-10 5z"/><path d="M6 10v5c0 2 3 3.5 6 3.5s6-1.5 6-3.5v-5"/><path d="M22 8v6"/>',
   scene: 'backdrop',
   blurb: 'courses · quizzes · flashcards',
@@ -272,7 +273,18 @@ export const learnTab: TabDef = {
       startBtn.disabled = false;
     };
     topicIn.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
-    np.body.append(h('div.keyrow.learntopic', topicIn), levelChips, minChips, topicSay, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
+    // [learn.s3, learn.s4] ready starts: driving theory from the public Highway Code, and trade basics (figures marked first estimates)
+    const STARTS: [string, string][] = [['Driving theory', 'driving theory from the Highway Code'], ['Car mechanics', 'car mechanics basics'], ['Home electrics', 'home electrics basics'], ['First aid', 'first aid basics']];
+    const starts = h('div.learnstarts', { role: 'group', 'aria-label': 'Ready starts' }, ...STARTS.map(([label, topic]) => {
+      const b = button(label.toUpperCase(), () => {
+        topicIn.value = topic;
+        topicIn.focus();
+        topicSay.textContent = /mechanic|electric/.test(topic) ? 'Every figure in it is a first estimate, never certified: check the maker’s figure, and a qualified person for anything dangerous.' : '';
+      });
+      b.dataset.label = label;
+      return b;
+    }));
+    np.body.append(h('div.keyrow.learntopic', topicIn), starts, levelChips, minChips, topicSay, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
 
     // [learn.u3] MY LEARNING MAP: one picture of courses, reading, speaking and revision, and the one thing to try next
     const mp = panel('MY LEARNING MAP', { cls: 'learnmapall', grow: false });
@@ -331,7 +343,10 @@ export const learnTab: TabDef = {
       // [learn.s10] QUIZ NIGHT: Ghosty hosts a quiz at the table from these courses' own questions (works with no signal)
       const night = button('QUIZ NIGHT', () => void import('./quiznight').then((q) => q.openQuizNight()));
       night.classList.add('learnnight');
-      cp.body.append(h('div.row.wrap.learnnightrow', night, h('small', 'I host a quiz for you and friends at the table, from your courses.')));
+      // [learn.c6] QUIZ ME ALOUD: hands-free, every question and answer spoken, nothing to look at ("quiz me while I drive")
+      const aloud = button('QUIZ ME ALOUD', () => void import('./aloud').then((q) => q.openAloud()));
+      aloud.classList.add('learnaloud');
+      cp.body.append(h('div.row.wrap.learnnightrow', night, h('small', 'I host a quiz for you and friends at the table, from your courses.')), h('div.row.wrap.learnnightrow', aloud, h('small', 'Hands-free: I ask aloud and you answer by voice, nothing to look at.')));
     };
 
     // ======================= views
