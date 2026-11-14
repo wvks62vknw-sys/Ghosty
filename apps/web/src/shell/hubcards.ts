@@ -44,6 +44,7 @@ import { listKept } from '../features/studio/catalog';
 import { benchInst, countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
 import { niceCase } from '../ui/components';
 import { convertTally } from '../convert/tally';
+import { appsCard } from '../features/applib/hub';
 import { convertInst, docsInst, editorsInst, photoInst, sheetsInst, slidesInst, workspaceInst } from '../convert/inst';
 import { listDocs } from '../docs/store';
 import { listBooks } from '../sheets/store';
@@ -359,6 +360,8 @@ const workspacePages = () => {
 };
 
 export const CARDS: Record<string, HubCard> = {
+  // [applib] HOME → APPS (features/applib/hub.ts): the Library's count and his pinned apps
+  apps: appsCard,
   core: {
     title: 'Talk to me',
     status: () => (ui.get().connected == null ? 'READY' : ui.get().connected ? 'LIVE' : 'OFF'),

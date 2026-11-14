@@ -10,7 +10,7 @@
 //      entries are hidden;
 //  (h) KEEP IN TOUCH in People: add, mark caught up, take off, each with UNDO, and a nudge set on the brain;
 //  (i) GIFTS in People: idea to bought, a budget and over it, a gift received with its thank-you, UNDO;
-//  (j) YOUR PEOPLE imports a contacts file and exports everyone as one .vcf;
+//  (j) YOUR PEOPLE imports a contacts file and exports everyone as one .vcf; (k) the group plan goes to the Calendar as one .ics;
 //  (g) Memory has a JOURNAL row that opens it; every key 44 pt, nothing sideways, nothing cut, in all seven looks at 390.
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/journal.spec.mjs [outDir]
@@ -108,6 +108,10 @@ async function run(vp, body) {
     await ed.locator('button', { hasText: 'PROMPT' }).click();
     const prompt = (await ed.locator('.jnprompt').innerText()).trim();
     check(prompt.length > 8, `${T} [b] no prompt shown ("${prompt}")`);
+    // (gratitude: three numbered lines and its prompt)
+    await ed.locator('button', { hasText: 'THREE GOOD THINGS' }).click();
+    check(/^1\. \n2\. \n3\. $/.test(await ed.locator('textarea').inputValue()) && /Three good things today/.test(await ed.locator('.jnprompt').innerText()), `${T} [b] THREE GOOD THINGS gave "${await ed.locator('textarea').inputValue()}"`);
+    await ed.locator('button', { hasText: 'PROMPT' }).click();
     await ed.locator('textarea').fill('Walked up Primrose Hill at sunset with a flask of tea. The city went pink.');
     await ed.locator('.jnmoods button', { hasText: 'Great' }).click();
     await ed.locator('input[list="jnplaces"]').fill('Primrose Hill');
@@ -318,6 +322,20 @@ for (const vp of [PHONE, PHONE2]) {
   const d = await dl;
   const text = d ? await d.createReadStream().then((st) => new Promise((ok) => { let b = ''; st.on('data', (c) => (b += c)); st.on('end', () => ok(b)); })) : '';
   check(new RegExp(`FN:Priya Vcard${stamp}[\\s\\S]*TEL;TYPE=CELL:07700 900123[\\s\\S]*BDAY:--06-12`).test(text), `${T} [j] the export said ${String(text).slice(0, 160)}`);
+  // (k) the group plan into his Calendar: one .ics with its day, time and place
+  await openSection(page, 'people', 'Group plan');
+  const words = page.locator('#pg-people input[aria-label="The plan, in your words"]');
+  await words.waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
+  await words.fill('pub on Friday at 8 at the Crown, asked Ali');
+  await page.locator('#pg-people button', { hasText: /Make the plan/i }).click();
+  const cal = page.locator('#pg-people .ppics button');
+  await cal.waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push(`${T} [k] no ADD TO CALENDAR on the plan`));
+  const dl2 = page.waitForEvent('download', { timeout: 8000 }).catch(() => null);
+  if (await cal.isVisible().catch(() => false)) await cal.click();
+  const d2 = await dl2;
+  const ics = d2 ? await d2.createReadStream().then((st) => new Promise((ok) => { let b = ''; st.on('data', (c) => (b += c)); st.on('end', () => ok(b)); })) : '';
+  check(/BEGIN:VEVENT[\s\S]*DTSTART:\d{8}T200000[\s\S]*SUMMARY:[\s\S]*LOCATION:[\s\S]*Crown/i.test(String(ics)), `${T} [k] the .ics said ${String(ics).slice(0, 200)}`);
+  await page.locator('#pg-people button', { hasText: /Call off the plan/i }).click().catch(() => undefined);
   // (the preview brain's people put back as they were)
   for (const who of [`Priya Vcard${stamp}`, `Omar Vcard${stamp}`]) await fetch(`${base}/api/packs/do`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ pack: 'people', action: 'forget', args: { who } }) }).catch(() => undefined);
   await ctx.close();

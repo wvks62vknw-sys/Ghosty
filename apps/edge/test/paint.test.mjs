@@ -107,6 +107,17 @@ test('the bucket fills up to the lines (and tucks under their soft edge), and st
   assert.equal(X.floodMask(px, w, h, -1, 5, 24), null);
 });
 
+test('the magic wand\'s outline: a filled area traced round its edge as one closed path', () => {
+  const w = 30, h = 20;
+  const mask = new Uint8Array(w * h);
+  for (let y = 5; y < 15; y++) for (let x = 8; x < 22; x++) mask[y * w + x] = 255;
+  const ring = X.traceOutline(mask, w, h);
+  const xs = ring.filter((_, i) => i % 2 === 0), ys = ring.filter((_, i) => i % 2 === 1);
+  assert.deepEqual([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)], [8.5, 21.5, 5.5, 14.5], 'the path runs round the area\'s edge');
+  assert.ok(ring.length / 2 >= 40 && ring.length / 2 <= 50, `every edge pixel once (${ring.length / 2})`);
+  assert.deepEqual(X.traceOutline(new Uint8Array(w * h), w, h), []);
+});
+
 test('his photo as outlines: an edge becomes a dark line, a flat area stays clear', () => {
   const w = 60, h = 40;
   const px = new Uint8ClampedArray(w * h * 4);

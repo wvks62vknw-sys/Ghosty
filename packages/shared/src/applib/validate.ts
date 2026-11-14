@@ -33,7 +33,7 @@ export const US_SPELLINGS: Record<string, string> = {
   donut: 'doughnut', airplane: 'aeroplane', math: 'maths', zucchini: 'courgette', eggplant: 'aubergine', cilantro: 'coriander',
   diaper: 'nappy', diapers: 'nappies', faucet: 'tap', sidewalk: 'pavement', mom: 'mum',
   skeptic: 'sceptic', skeptical: 'sceptical', curb: 'kerb',
-  meters: 'metres', kilometer: 'kilometre', kilometers: 'kilometres', centimeter: 'centimetre', centimeters: 'centimetres',
+  kilometer: 'kilometre', kilometers: 'kilometres', centimeter: 'centimetre', centimeters: 'centimetres',
   millimeter: 'millimetre', millimeters: 'millimetres', judgment: 'judgement', practicing: 'practising',
   dialog: 'dialogue', analog: 'analogue', omelet: 'omelette', yogurt: 'yoghurt', ameba: 'amoeba', estrogen: 'oestrogen',
   pediatric: 'paediatric', anemia: 'anaemia', esophagus: 'oesophagus', fetus: 'foetus', maneuver: 'manoeuvre', sulfur: 'sulphur',
