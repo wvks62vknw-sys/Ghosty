@@ -977,3 +977,29 @@ test('memory palace (learn.s7): each thing goes to a place in order (only as man
   assert.equal(P.palaceScore(pairs, ['some milk', 'Call the Garage!', 'recycling']), 2);
   assert.equal(P.palaceScore(pairs, ['', 'the', '']), 0, 'blank or only “the” is nothing');
 });
+
+test('chess puzzles (apps round): Lichess’s answer read into a puzzle; the position set up from its moves; a right move, a wrong one, another mate accepted; the rating steps', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../src/chess/puzzles.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/puzzles-edge.mjs'), logLevel: 'warning' });
+  const { puzzleOf, PACK_MAX } = await import('./.build/puzzles-edge.mjs');
+  assert.equal(PACK_MAX, 20);
+  const z = puzzleOf({ game: { pgn: '1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6' }, puzzle: { id: 'test1', rating: 900, themes: ['mateIn1', 'oneMove'], solution: ['h5f7'] } });
+  assert.deepEqual(z, { id: 'test1', rating: 900, themes: ['mateIn1', 'oneMove'], moves: ['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6'], solution: ['h5f7'] });
+  assert.equal(puzzleOf({ puzzle: { id: 'x', solution: [] } }), null, 'no game, no puzzle');
+  await build({ entryPoints: [at('../../web/src/gym/chesspuzzle.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/chesspuzzle.mjs'), logLevel: 'warning' });
+  const C = await import('./.build/chesspuzzle.mjs');
+  const p = C.puzzleStart(z);
+  assert.ok(p, 'the position sets up');
+  assert.equal(p.side > 0, true, 'White to move');
+  assert.equal(C.judge(p, z, 0, C.moveOfUci(p, 'h5f7')), 'solved');
+  assert.equal(C.judge(p, z, 0, C.moveOfUci(p, 'h5h7')), 'wrong');
+  assert.equal(C.puzzleStart({ ...z, moves: ['e4', 'Ke7', 'Bc4'] }), null, 'a move that doesn’t fit sets up nothing');
+  const two = { id: 't2', rating: 1500, themes: [], moves: ['e4', 'e5'], solution: ['g1f3', 'b8c6', 'f1c4'] };
+  const q = C.puzzleStart(two);
+  assert.equal(C.judge(q, two, 0, C.moveOfUci(q, 'g1f3')), 'right', 'right, and it goes on');
+  assert.equal(C.puzzleRating(1500, 1500, true, 0), 1516);
+  assert.equal(C.puzzleRating(1500, 1500, false, 40), 1492);
+  assert.equal(C.themeWords('backRankMate'), 'back rank mate');
+  assert.equal(C.themeWords('mateIn2'), 'mate in 2');
+});
