@@ -11,6 +11,9 @@ await build({
   stdin: {
     contents: `export * from './src/sitephotos.ts';
 export { pageUpload, MAX_PAGE } from './src/sitepage.ts';
+export { briefFrom, startOf, planFrom, assemble } from '../../packages/shared/src/sitekit/index.ts';
+export { googleCalendarUrl, icsOf, eventIn } from '../../packages/shared/src/sitekit/calendar.ts';
+export { siteIcsResponse } from './src/tools/sites.ts';
 export * as SB from './src/sitebuild.ts';
 export * as PJ from './src/projects.ts';
 export { checkHtml } from './src/tools/check.ts';
@@ -285,4 +288,37 @@ test('a mini-app changed after it is made: a habit added, a goal changed, the sa
   await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'habits' }, ctx), /nothing to change/);
   await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'nope', add_items: ['a'] }, ctx), /no mini-app is published at \/s\/nope\//);
   await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'habits', goal: 5 }, ctx), /has no goal/);
+});
+
+// NEXT ROUND sites.s1: add-to-calendar on an event page. The start is read from his words; the page gets Google Calendar's public link
+// and, at its own address, a calendar file an iPhone adds; its search listing carries the start as a calendar reads it.
+test('an event page: its start read from his words, two add-to-calendar buttons, and a calendar file from the page itself', async () => {
+  const now = new Date(Date.UTC(2026, 10, 14));
+  assert.equal(P.startOf('Saturday 14 June', 'party on saturday 14 june at 8pm', now), '2027-06-14T20:00', 'a day gone by this year is next year');
+  assert.equal(P.startOf('14 December 2026', 'club night 14 december 2026 7.30pm', now), '2026-12-14T19:30');
+  assert.equal(P.startOf('20 November', 'quiz on 20 november from 19:00', now), '2026-11-20T19:00');
+  assert.equal(P.startOf('20 November', 'quiz on 20 november', now), '2026-11-20', 'no time: all day');
+  assert.equal(P.startOf('31 February', 'x', now), undefined);
+  const b = P.briefFrom('make a page for our club night at the Robin 2 in Bilston on 14 December 2026 at 8pm', { kind: 'event', name: 'Northern Soul Night', venue: 'The Robin 2', town: 'Bilston' });
+  assert.equal(b.start, '2026-12-14T20:00');
+  const { plan, brief } = P.planFrom(b, { url: 'https://ghosty.example/s/soul-night' });
+  const html = P.assemble(plan, brief).html;
+  const g = /href="(https:\/\/calendar\.google\.com\/calendar\/render\?[^"]+)"/.exec(html)?.[1]?.replace(/&amp;/g, '&');
+  assert.ok(g, 'Add to Google Calendar is on the page');
+  const q = new URL(g).searchParams;
+  assert.deepEqual([q.get('action'), q.get('text'), q.get('dates'), q.get('ctz')], ['TEMPLATE', 'Northern Soul Night', '20261214T200000/20261214T230000', 'Europe/London']);
+  assert.match(q.get('location'), /The Robin 2/);
+  assert.match(html, /href="https:\/\/ghosty\.example\/s\/soul-night\/event\.ics" class="btn btn-outline" target="_blank"/);
+  assert.match(html, /"startDate":"2026-12-14T20:00"/, 'the search listing carries the start as a calendar reads it');
+  // the Worker's calendar file, from the stored page
+  const r = P.siteIcsResponse({ name: 'soul-night', title: 'Soul', html, source: '', at: 1 }, 'https://ghosty.example');
+  assert.equal(r.headers.get('content-type'), 'text/calendar; charset=utf-8');
+  const ics = await r.text();
+  for (const line of ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'DTSTART;TZID=Europe/London:20261214T200000', 'DTEND;TZID=Europe/London:20261214T230000', 'SUMMARY:Northern Soul Night', 'END:VCALENDAR']) assert.ok(ics.includes(line), line);
+  assert.ok(ics.split('\r\n').every((l) => new TextEncoder().encode(l).length <= 75), 'folded at 75 octets');
+  // a page with no event, an app, a game: none
+  assert.equal(P.siteIcsResponse({ name: 'x', title: 'x', html: '<p>hi</p>', source: '', at: 1 }, 'https://ghosty.example').status, 404);
+  // no date: no buttons
+  const none = P.assemble(...Object.values(P.planFrom(P.briefFrom('a page for our club night', { kind: 'event', name: 'Soul' })))).html;
+  assert.doesNotMatch(none, /calendar\.google\.com/);
 });

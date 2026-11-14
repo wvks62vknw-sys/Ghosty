@@ -68,6 +68,8 @@ export interface Brief {
   extras?: string;
   /** For an event: when and where. */
   date?: string;
+  /** [sites] When it starts, read from his words: "2026-06-14T20:00" (UK time), or "2026-06-14" with no time (sites.s1). */
+  start?: string;
   venue?: string;
   /** Work to show (a portfolio, a trade's jobs, a product's customers): only what the owner named. */
   projects?: { title: string; summary?: string; result?: string; tag?: string; image?: ImageRef }[];

@@ -38,6 +38,11 @@ every time, and nothing is bought.
 - Only what you named changes. The app keeps its link and its kind, so what you saved on your phone stays.
 - The change is said before your APPROVE, checked by the app kit, and undoable with UNDO LAST UPDATE.
 
+### 5. One home page for your sites (`sites.u8`)
+- Workshop → PUBLISHED PAGES: tick **ON MY HOME PAGE** on the pages you want on it. The choice is kept on your phone.
+- Then tap **PUBLISH MY HOME PAGE (N)**. One clean page listing only those pages (title and link, no script) waits with me and goes
+  up after your APPROVE in the chat.
+
 ## How to try it on your phone
 1. **Your photos:**
    - Workshop → Made → PHOTOS FOR YOUR SITES → ADD PHOTOS, and pick three photos of your place.
@@ -52,6 +57,8 @@ every time, and nothing is bought.
    - Tap APPROVE in the chat and open the link. A deck works the same way from PRESENTATIONS → EXPORT.
 4. **Change an app:** "Make me an app to tick off my daily habits water and walk", APPROVE; then "add stretching to my habits app",
    APPROVE. Your ticks are still there.
+5. **Your home page:** Workshop → PUBLISHED PAGES, tick ON MY HOME PAGE on two pages, then PUBLISH MY HOME PAGE, APPROVE, and open
+   the link.
 
 ## Tests
 - **Brain test:** `apps/edge/test/sitephotos.test.mjs`, named in the test list, 6 tests. It covers:
@@ -63,7 +70,8 @@ every time, and nothing is bought.
   - a changed mini-app (same link, same kind, said first, undoable, and the refusals in words).
 - **Spec:** `tests/sitephotos.spec.mjs`, its word at the end of check.yml's `all=`, at 440 × 956 and 390 × 844. It proves the
   photos panel, location removed (read back from the kept bytes), caption, main picture, 44 pt keys, BODY 21, the approval naming
-  your photos, remove, undo from the Workshop, a document and a deck at their own links, and an app changed after it's made.
+  your photos, remove, undo from the Workshop, a document and a deck at their own links, an app changed after it's made, and your
+  home page listing exactly the pages you chose.
 - **nav.spec:** its Workshop "Made" section now also checks PHOTOS FOR YOUR SITES.
 
 ## Decisions I made
@@ -75,13 +83,15 @@ every time, and nothing is bought.
   - `apps/edge/package.json`: the test list only.
 - **Undo from the Workshop is a confirmed tap**, as UNPUBLISH already is. From the chat it is an APPROVE.
 
+## Merged
+- Into the integration branch at `e903fac2` (02:47 UTC): items 1 to 5 above, with their tests, catalogue and WHAT'S NEW lines.
+
 ## What is left (sections 5 and 6)
 The rest of section 5 is not built yet (each would be its own whole piece):
 - edit a live site by tapping (u1);
 - a private visitor count (u3);
 - sites in more languages (u5);
 - more mini-app kinds (u7, with recipe timers);
-- one home page for your sites (u8);
 - a weekly check-up (u9);
 - a high-score table (u10);
 - a front page for each game (u11);
@@ -99,13 +109,13 @@ The rest of section 5 is not built yet (each would be its own whole piece):
 ## The specialist sweep (against Carrd, Squarespace, Linktree, Glide)
 - **Built this round:**
   - your own photos (Squarespace's image library, kept private and location-free);
+  - one home page listing chosen pages (Linktree);
   - version history and restore (Squarespace's page history);
   - publishing a document or a deck as a page (Carrd and Glide publish pages from content);
   - editing an app after it is made (Glide's live app editing).
 - **Still missing, by app:**
   - Carrd: a one-page link list and custom domains (only one he already owns).
   - Squarespace: in-place editing of a live page, visitor analytics, and multi-language sites.
-  - Linktree: a single home page for all his links.
   - Glide: apps from a spreadsheet.
 
   Each of these is a section 5 item above.

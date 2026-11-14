@@ -21,6 +21,7 @@ import { guardedFetch, unsafeUrl } from '../netguard';
 import { durableDelete, durableGet, durablePut } from '../kv';
 import { siteApproval, startSiteBuild } from '../sitebuild';
 import { formTarget } from '../../../../packages/shared/src/sitekit/blocks/formkit';
+import { eventIn, icsOf } from '../../../../packages/shared/src/sitekit/calendar';
 import { checkHtml, refusal } from './check';
 import { gameApproval, publishGame } from '../gamesite';
 import { dropWaitingPage, waitingPage } from '../sitepage';
@@ -777,6 +778,17 @@ export const siteTools: Tool[] = [
     },
   },
 ];
+
+/**
+ * [sites] /s/<name>/event.ics (sites.s1): the calendar file of the event a published page describes (its own search listing), for a
+ * guest's iPhone or Outlook to add. Made from the stored page each time; a page with no event, or an app or a game, has none.
+ */
+export function siteIcsResponse(site: Site | undefined, origin: string): Response {
+  const ev = site && !site.app && !site.game ? eventIn(site.html) : null;
+  if (!site || !ev) return notFound();
+  const body = icsOf({ ...ev, url: ev.url ?? `${origin}/s/${site.name}` }, `${site.name}-${ev.start}@ghosty`);
+  return new Response(body, { headers: { ...common, 'content-type': 'text/calendar; charset=utf-8', 'content-disposition': `inline; filename="${site.name}.ics"`, 'cache-control': 'no-cache' } });
+}
 
 /** [sites] UNDO for a published page (sites.u2): what goes back, said before his APPROVE. */
 async function undoApproval(name: string, a: Record<string, unknown>, ctx: { env: Env; storage?: DurableObjectStorage; origin?: string }): Promise<{ args: Record<string, unknown>; reason: string }> {

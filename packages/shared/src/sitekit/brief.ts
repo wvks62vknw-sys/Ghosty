@@ -137,7 +137,37 @@ export function briefFrom(text: string, base: Partial<Brief> = {}): Brief {
     ...pick({ town: townOf(text), phone: phoneOf(text), email: emailOf(text), postcode: postcodeOf(text), hours: hoursOf(text), services: servicesOf(text), date: DATED.includes(kind) ? dateOf(text) : undefined, formEndpoint: formEndpointOf(text) }),
     ...pick(base as Record<string, unknown>),
   } as Brief;
+  // [sites] a dated kind's start, for its calendar buttons and its search listing (sites.s1)
+  if (DATED.includes(kind) && b.date && !b.start) {
+    const st = startOf(b.date, text);
+    if (st) b.start = st;
+  }
   return b;
+}
+/**
+ * [sites] When it starts as a calendar wants it (sites.s1): the day from `date` ("Saturday 14 June [2026]"), the year the next one from
+ * `now` when he gave none, and a time from his words ("8pm", "7.30pm", "19:00") when he gave one. "2026-06-14T20:00" (UK time) or
+ * "2026-06-14"; undefined when the day cannot be read.
+ */
+export function startOf(date: string | undefined, text: string, now = new Date()): string | undefined {
+  const m = date?.match(/(\d{1,2}) ([A-Z][a-z]+)(?: (20\d\d))?$/);
+  if (!m) return undefined;
+  const mo = MONTHS.findIndex((x) => x.toLowerCase() === m[2]!.toLowerCase());
+  if (mo < 0) return undefined;
+  const d = Number(m[1]);
+  let y = m[3] ? Number(m[3]) : now.getUTCFullYear();
+  if (!m[3] && Date.UTC(y, mo, d) < Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) y++;
+  const check = new Date(Date.UTC(y, mo, d));
+  if (check.getUTCMonth() !== mo) return undefined;
+  const day = `${y}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const t12 = text.match(/\b(1[0-2]|0?[1-9])(?:[:.]([0-5]\d))?\s*(am|pm)\b/i);
+  const t24 = t12 ? null : text.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+  if (t12) {
+    const h = (Number(t12[1]) % 12) + (/pm/i.test(t12[3]!) ? 12 : 0);
+    return `${day}T${String(h).padStart(2, '0')}:${t12[2] ?? '00'}`;
+  }
+  if (t24) return `${day}T${t24[1]!.padStart(2, '0')}:${t24[2]}`;
+  return day;
 }
 /** The kinds with a day of their own (an event, an occasion, a launch): a date in the words is theirs. */
 const DATED: KindId[] = ['event', 'invite', 'launch'];

@@ -139,8 +139,8 @@ export const TOOLS_1: Record<string, CatValue> = {
   // ---- websites
   'tool:build_website': {
     name: 'Build a whole website', line: 'I can build a proper website for a business, an event or a person from one sentence, and put it online.',
-    more: 'I plan the pages, write the words, pick the photos with their credits and check it all. It stays a draft until you say yes, then it gets its own free link. Forms open WhatsApp or email.',
-    say: ['Build a website for my friend’s barber shop in Walsall', 'Make a site for my football team'], scene: ['making'], cat: 'build',
+    more: 'I plan the pages, write the words, pick the photos with their credits and check it all. It stays a draft until you say yes, then it gets its own free link. Forms open WhatsApp or email. An event or invitation with a date gets add-to-calendar buttons for its guests.',
+    say: ['Build a website for my friend’s barber shop in Walsall', 'Make a site for my football team', 'Make a page for our club night on 14 December at 8pm'], scene: ['making'], cat: 'build',
     go: { ask: 'Build a website for ', send: false },
   },
   'tool:build_app': {
