@@ -14,6 +14,8 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [sites] NEXT ROUND sites.s4 (with s3)
+  { day: '2026-11-14', title: 'Documents and decks at their own link', line: 'In DOCS or PRESENTATIONS, EXPORT → PUT IT ON MY SITES: a clean read-only page (a deck swipes like a book), live after your APPROVE in the chat.' },
   // [sites] NEXT ROUND sites.u2
   { day: '2026-11-14', title: 'Undo for your pages', line: 'Every page you publish keeps its last three versions. Workshop → PUBLISHED PAGES → UNDO LAST UPDATE, or “undo my last update to the party page”, puts the one before back at the same link.' },
   // [sites] NEXT ROUND sites.u12

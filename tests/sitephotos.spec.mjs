@@ -187,6 +187,56 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
   await put?.click();
   check(await waitFor(/saturday at 8/i, 15000), `${W}: (h) the live page is the earlier version again`);
   check(await until(page, () => /the earlier version is live again/.test(document.body.textContent ?? ''), null, 8000), `${W}: (h) it says so`);
+
+  // (i) a document at its own link (sites.s4): DOCS → PUT IT ON MY SITES hands the page over and asks in the chat; APPROVE puts it up
+  const approveNext = async (before) => {
+    const ok = await until(page, (n) => document.querySelectorAll('.approval[data-state="waiting"] button.on').length > n, before, 30000);
+    const reason = ok ? await page.evaluate(() => [...document.querySelectorAll('.approval[data-state="waiting"]')].pop()?.textContent ?? '') : '';
+    if (ok) await page.evaluate(() => [...document.querySelectorAll('.approval[data-state="waiting"] button.on')].pop()?.click());
+    return reason;
+  };
+  const docTitle = `Garden guide ${W}`;
+  await page.evaluate(() => (location.hash = 'area-make'));
+  await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]', { timeout: 15000 });
+  await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="docs"]');
+  await page.waitForSelector('#pg-docs .dcsheet', { timeout: 15000 });
+  await page.locator('#pg-docs .dcbar button', { hasText: 'NEW' }).click();
+  await page.waitForFunction(() => window.__ghosty?.docs?.view === 'doc', null, { timeout: 15000 });
+  await page.fill('.dctitle', docTitle);
+  await page.press('.dctitle', 'Tab');
+  await page.locator('.dcpage .dcb').first().click();
+  await page.keyboard.type('Sow the beans in May.');
+  await page.waitForTimeout(400);
+  const docLine = await page.locator('#pg-docs .dcsites').first().textContent().catch(() => '');
+  check(docLine === 'Put this document on your sites as a read-only page at its own link. I ask your APPROVE in the chat first.', `${W}: (i) DOCS says what PUT IT ON MY SITES does: ${docLine}`);
+  const waiting0 = await page.$$eval('.approval[data-state="waiting"] button.on', (b) => b.length);
+  await page.locator('#pg-docs .dcexport button', { hasText: 'PUT IT ON MY SITES' }).first().click();
+  const docReason = await approveNext(waiting0);
+  const docSlug = docTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  check(new RegExp(`Publish "${docTitle}" \\(the document from your phone, read-only\\) as a public page at .*/s/${docSlug}\\?`, 'i').test(docReason), `${W}: (i) the chat asks APPROVE for the document: ${docReason.slice(0, 200)}`);
+  const docLive = async () => { for (let i = 0; i < 60; i++) { const r = await page.request.get(`${base}/s/${docSlug}/page`, { headers: { 'sec-fetch-dest': 'iframe' }, maxRedirects: 0 }); if (r.status() === 200 && /Sow the beans in May/.test(await r.text())) return true; await page.waitForTimeout(250); } return false; };
+  check(await docLive(), `${W}: (i) after APPROVE the document is live at /s/${docSlug}, read-only`);
+
+  // (j) a deck at its own link (sites.s3): START BLANK, EXPORT → PUT IT ON MY SITES, APPROVE; the page plays with no script
+  await page.evaluate(() => (location.hash = 'area-make'));
+  await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="slides"]', { timeout: 15000 });
+  await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="slides"]');
+  await page.waitForSelector('#pg-slides .slsheet', { timeout: 15000 });
+  const slKey = (label) => page.locator('.slsheet button:visible').filter({ hasText: new RegExp(`^${label}$`, 'i') }).first();
+  if (await slKey('START BLANK').count()) await slKey('START BLANK').click();
+  else await slKey('NEW').click().catch(() => undefined);
+  await page.waitForFunction(() => window.__ghosty?.slides?.view === 'deck' || window.__ghosty?.slides?.view === 'slide', null, { timeout: 15000 }).catch(() => undefined);
+  const deckTitle = await page.evaluate(() => JSON.parse(window.__ghosty.slides.json || 'null')?.title ?? '');
+  await slKey('EXPORT').click().catch(() => undefined);
+  const waiting1 = await page.$$eval('.approval[data-state="waiting"] button.on', (b) => b.length);
+  await page.locator('.slexport button', { hasText: 'PUT IT ON MY SITES' }).first().click();
+  const deckReason = await approveNext(waiting1);
+  check(/\(the deck from your phone, read-only\) as a public page/.test(deckReason), `${W}: (j) the chat asks APPROVE for the deck "${deckTitle}": ${deckReason.slice(0, 200)}`);
+  const deckSlug = /\/s\/([a-z0-9-]+)\?/.exec(deckReason)?.[1] ?? '';
+  let deckHtml = '';
+  for (let i = 0; i < 60 && !deckHtml; i++) { const r = await page.request.get(`${base}/s/${deckSlug}/page`, { headers: { 'sec-fetch-dest': 'iframe' }, maxRedirects: 0 }); if (r.status() === 200) deckHtml = await r.text(); else await page.waitForTimeout(250); }
+  check(/<section aria-label="Slide 1 of \d+/.test(deckHtml) && /<svg/.test(deckHtml) && !/<script/i.test(deckHtml) && /scroll-snap-type/.test(deckHtml), `${W}: (j) the deck is live as its slides, drawn, swiped like a book, with no script`);
+
   check(errors.length === 0, `${W}: no page error${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   await ctx.close();
 }

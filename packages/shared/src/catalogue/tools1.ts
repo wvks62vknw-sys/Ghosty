@@ -162,8 +162,8 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:publish_site': {
     name: 'Put a page online', line: 'I can put a page I made online at its own free link the moment you tap APPROVE.',
-    more: 'A CV, a menu, an invitation, a landing page: one page, built for phones, on my own address, with no account or hosting to set up. I always give you the exact link. Each page keeps its last three versions: UNDO LAST UPDATE in the Workshop, or ask me, puts the one before back.',
-    say: ['Make a page for my party and put it online', 'Make me an online CV', 'Undo my last update to the party page'], scene: ['making'], cat: 'build',
+    more: 'A CV, a menu, an invitation, a landing page: one page, built for phones, on my own address, with no account or hosting to set up. I always give you the exact link. Each page keeps its last three versions: UNDO LAST UPDATE in the Workshop, or ask me, puts the one before back. A document or a deck goes up too: PUT IT ON MY SITES in its editor.',
+    say: ['Make a page for my party and put it online', 'Make me an online CV', 'Undo my last update to the party page', 'Publish my garden guide as a page'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me a one-page invitation for my birthday and put it online', send: false },
   },
   'tool:draft_site': {
