@@ -51,7 +51,7 @@ import {
   type Person,
   type Plan,
 } from '../../../../packages/shared/src/people';
-import { addDays, daysBetween, prettyDay, shortId } from '../../../../packages/shared/src/packs';
+import { addDays, daysBetween, pounds, prettyDay, shortId } from '../../../../packages/shared/src/packs';
 import { listCars, knownPeople } from '../cars';
 import { addJob, loadJobs, removeJob } from '../schedule';
 import { fromZoned, zoned } from '../time';
@@ -467,6 +467,12 @@ const forget: ActionFn = async (a, d) => {
   }
   book.people = book.people.filter((x) => x.id !== p.id);
   await saveBook(d, book);
+  // [moneynext] their gift list goes with them
+  const giftLists = await load<Record<string, unknown>>(d, 'people:gifts', {});
+  if (giftLists[p.id]) {
+    delete giftLists[p.id];
+    await save(d, 'people:gifts', giftLists);
+  }
   await cancelReminders(d, remTitle('Birthday', p.name));
   await dropMemory(d, p);
   return { text: `Forgot ${p.name} completely: their notes, birthday reminders, details and the line in your Memory.` };
@@ -489,6 +495,104 @@ const voice: ActionFn = async (a, d) => {
   }
   return { text: `How you write: ${toneWords(toneOf(kept))}.${kept.length ? '' : ' Paste a few of your own messages ("this is how I text: …") and my drafts will sound like you.'}` };
 };
+
+// ---------------------------------------------------------------- [moneynext] the PEOPLE screen's own keys (POST /packs/do only)
+
+/** money.u9: change or take away one thing he said about someone, by its words; the Memory line follows. */
+const notes: ActionFn = async (a, d) => {
+  const name = arg.str(a, 'who', false).trim();
+  const old = arg.str(a, 'text', false).trim();
+  const to = arg.str(a, 'to', false).trim().replace(/[.]+$/, '').slice(0, 160);
+  const book = await loadBook(d);
+  const p = book.people.find((x) => x.name.toLowerCase() === name.toLowerCase());
+  if (!p) throw new Error(`I have no one called ${name || 'that'}`);
+  const n = p.notes.find((x) => x.text === old);
+  if (!n) throw new Error('that note is not kept any more');
+  if (arg.str(a, 'op', false) === 'remove') p.notes = p.notes.filter((x) => x !== n);
+  else {
+    if (to.length < 2) throw new Error('type what it should say');
+    n.text = to;
+    n.at = d.now();
+  }
+  await syncMemory(d, p);
+  await saveBook(d, book);
+  return { text: arg.str(a, 'op', false) === 'remove' ? `Took away “${old}” about ${p.name}.` : `Changed: ${p.name} ${to}.`, data: { person: p.name, notes: p.notes.map((x) => x.text) } };
+};
+
+/** One gift on his list for someone: an idea, or bought (the day, and the price when he gave one). */
+export interface GiftItem {
+  id: string;
+  idea: string;
+  price?: number;
+  bought?: string;
+}
+const GIFTS = 'people:gifts';
+/** money.u10: a gift list per person: ideas kept, marked bought with a price, and what he gave last year so a present is never repeated. */
+const gifts: ActionFn = async (a, d) => {
+  const name = arg.str(a, 'who', false).trim();
+  const today = todayOf(d);
+  const book = await loadBook(d);
+  const p = book.people.find((x) => x.name.toLowerCase() === name.toLowerCase());
+  if (!p) throw new Error(`I have no one called ${name || 'that'}`);
+  const all = await load<Record<string, GiftItem[]>>(d, GIFTS, {});
+  let list = all[p.id] ?? [];
+  const op = arg.str(a, 'op', false);
+  let said = '';
+  if (op === 'add') {
+    const idea = arg.str(a, 'idea', false).trim().slice(0, 80);
+    if (!idea) throw new Error('type the idea first, like “a fishing reel”');
+    const price = Number(a.price);
+    list = [...list, { id: shortId(), idea, ...(Number.isFinite(price) && price > 0 ? { price: Math.round(price * 100) / 100 } : {}) }].slice(-40);
+    said = `Kept for ${p.name}: ${idea}.`;
+  } else if (op === 'bought' || op === 'unbought' || op === 'remove') {
+    const g = list.find((x) => x.id === arg.str(a, 'id', false));
+    if (!g) throw new Error('that gift is not on the list any more');
+    if (op === 'remove') list = list.filter((x) => x !== g);
+    else if (op === 'unbought') delete g.bought;
+    else {
+      g.bought = today;
+      const price = Number(a.price);
+      if (Number.isFinite(price) && price > 0) g.price = Math.round(price * 100) / 100;
+    }
+    said = op === 'remove' ? `Took ${g.idea} off ${p.name}’s list.` : op === 'bought' ? `Bought for ${p.name}: ${g.idea}${g.price ? `, ${pounds(g.price)}` : ''}.` : `${g.idea} is an idea again.`;
+  }
+  if (op) {
+    all[p.id] = list;
+    await save(d, GIFTS, all);
+  }
+  const lastYear = String(+today.slice(0, 4) - 1);
+  const given = list.filter((g) => g.bought?.startsWith(lastYear)).map((g) => g.idea);
+  const spent = list.filter((g) => g.bought?.startsWith(today.slice(0, 4))).reduce((k, g) => k + (g.price ?? 0), 0);
+  return { text: said || `${list.length} on ${p.name}’s list.`, data: { person: p.name, gifts: list, lastYear: given, spentThisYear: Math.round(spent * 100) / 100 } };
+};
+
+/** money.u11: several group plans at once: each open plan listed, a reply or calling one off by its id (nobody is messaged). */
+const plans: ActionFn = async (a, d) => {
+  const today = todayOf(d);
+  const all = await load<Plan[]>(d, PEOPLE_KEYS.plans, []);
+  const op = arg.str(a, 'op', false);
+  const p = all.find((x) => x.id === arg.str(a, 'id', false) && !x.closed);
+  let said = '';
+  if (op === 'reply' || op === 'close') {
+    if (!p) throw new Error('that plan is not open any more');
+    if (op === 'close') {
+      p.closed = true;
+      said = `Plan closed: ${p.what}.`;
+    } else {
+      const name = arg.str(a, 'name', false).trim().slice(0, 30);
+      const s = arg.str(a, 's', false);
+      if (!name || !['yes', 'no', 'maybe'].includes(s)) throw new Error('pick a name and yes, maybe or no');
+      Object.assign(p, applyReplies(p, [{ name, say: s as 'yes' | 'no' | 'maybe' }]));
+      said = `Updated: ${planWords(p, today.slice(0, 4))}`;
+    }
+    await save(d, PEOPLE_KEYS.plans, all);
+  }
+  const open = all.filter((x) => !x.closed).reverse();
+  return { text: said || `${open.length} open plan${open.length === 1 ? '' : 's'}.`, data: { plans: open, plan: op === 'close' ? null : p ?? open[0] ?? null } };
+};
+
+/** The PEOPLE screen's own keys, joined to the people pack's for POST /packs/do (packs/index.ts); never in the tool's enum. */
+export const PEOPLE_APP: Record<string, ActionFn> = { notes, gifts, plans };
 
 export const PEOPLE: Record<string, ActionFn> = { birthday, date, gift, note, who, call, thanks, message, card: cardAction, plan, contact, cars, coming, forget, voice };
 export const PEOPLE_ACTIONS = Object.keys(PEOPLE);

@@ -51,7 +51,7 @@ const toasts = () => page.evaluate(() => document.querySelector('#toasts')?.text
 const until = (fn, arg, ms, what) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => (problems.push(what), false));
 const text = (sel) => page.evaluate((s) => document.querySelector(s)?.textContent?.replace(/\s+/g, ' ').trim() ?? '', sel);
 
-// his home, as Memory → ME → PLACES keeps it
+// his home, as Memory → ABOUT YOU → PLACES keeps it
 const had = (await api('/profile/places')).places ?? [];
 await api('/profile/places', { method: 'POST', body: JSON.stringify({ found: { id: 'home', label: 'Home', query: 'B13 8PX', address: 'B13 8PX, Moseley, Birmingham', lat: 52.443186, lon: -1.892525 } }) });
 

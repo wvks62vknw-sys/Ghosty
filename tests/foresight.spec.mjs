@@ -65,7 +65,7 @@ const shot = async (sel, name) => {
   await page.screenshot({ path: `${out}/${name}.png` });
 };
 
-// his home and work, as Memory → ME → PLACES keeps them (no TomTom key on the preview: the commute's prediction is said missing)
+// his home and work, as Memory → ABOUT YOU → PLACES keeps them (no TomTom key on the preview: the commute's prediction is said missing)
 const had = (await api('/profile/places')).places ?? [];
 await api('/profile/places', { method: 'POST', body: JSON.stringify({ found: { id: 'home', label: 'Home', query: 'B13 8PX', address: 'B13 8PX, Moseley, Birmingham', lat: 52.443186, lon: -1.892525 } }) });
 await api('/profile/places', { method: 'POST', body: JSON.stringify({ found: { id: 'work', label: 'Work', query: 'WV1 1LY', address: 'WV1 1LY, Wolverhampton', lat: 52.5862, lon: -2.1288 } }) });

@@ -50,6 +50,8 @@ export interface Watcher {
   line?: string;
   /** Why the last read failed, in a plain line. */
   note?: string;
+  /** [moneynext] A price watch's history: each price it read that differed from the one before (at most 60), for MONEY's price watches. */
+  hist?: { at: number; p: number }[];
   /**
    * [recall] A chase (kind `reply`, BRIEF-DEPTH-MEMORY 3): the name he used for his own correspondent, what it is about, the
    * thread's message id when the Brief's mail gave one, the morning it is checked (ms), whether a mail account was linked when it
@@ -354,6 +356,8 @@ export async function watchersTick(d: WatchDeps, o: { force?: boolean } = {}): P
         w.note = w.kind === 'price' ? 'I could not find a price on the page this time' : 'I could not read the page this time';
         continue;
       }
+      // [moneynext] a price that moved is kept in the watch's history (the first reading too)
+      if (got.price !== undefined && (!w.hist?.length || Math.abs(w.hist[w.hist.length - 1]!.p - got.price) >= 0.005)) w.hist = [...(w.hist ?? []), { at: now, p: got.price }].slice(-60);
       const line = tripped(w, got, r);
       if (line) {
         w.state = 'told';
@@ -374,7 +378,7 @@ export async function watchersTick(d: WatchDeps, o: { force?: boolean } = {}): P
 }
 
 /** A watcher as the phone lists it (never the hash). */
-export const publicWatcher = (w: Watcher) => ({ id: w.id, kind: w.kind, url: w.url, label: w.label, created: w.created, checked: w.checked, ok: w.ok, state: w.state, ...(w.kind === 'reply' ? { ...(w.who ? { who: w.who } : {}), ...(w.about ? { about: w.about } : {}), ...(w.by ? { by: w.by } : {}), mail: !!w.mail, ...(w.repliedAt ? { repliedAt: w.repliedAt } : {}) } : {}), ...(w.toldAt ? { toldAt: w.toldAt } : {}), ...(w.line ? { line: w.line } : {}), ...(w.note ? { note: w.note } : {}), ...(w.last.price !== undefined ? { price: w.last.price } : {}), ...(w.last.strike !== undefined ? { strikeNow: w.last.strike } : {}) });
+export const publicWatcher = (w: Watcher) => ({ id: w.id, kind: w.kind, url: w.url, label: w.label, created: w.created, checked: w.checked, ok: w.ok, state: w.state, ...(w.kind === 'reply' ? { ...(w.who ? { who: w.who } : {}), ...(w.about ? { about: w.about } : {}), ...(w.by ? { by: w.by } : {}), mail: !!w.mail, ...(w.repliedAt ? { repliedAt: w.repliedAt } : {}) } : {}), ...(w.toldAt ? { toldAt: w.toldAt } : {}), ...(w.line ? { line: w.line } : {}), ...(w.note ? { note: w.note } : {}), ...(w.last.price !== undefined ? { price: w.last.price } : {}), ...(w.hist?.length ? { hist: w.hist } : {}), ...(w.last.strike !== undefined ? { strikeNow: w.last.strike } : {}) });
 
 const shortId = () => [...crypto.getRandomValues(new Uint8Array(5))].map((x) => x.toString(16).padStart(2, '0')).join('');
 
@@ -398,7 +402,7 @@ export async function addWatcher(d: WatchDeps, b: { kind?: unknown; url?: unknow
   if (!got) return { said: '', error: kind === 'price' ? 'I couldn’t find a price on that page, so there is nothing to watch. Try the product’s own page.' : 'I couldn’t read any words on that page.' };
   const label = (typeof b.label === 'string' && b.label.trim().slice(0, 70)) || titleOf(r.html, r.url);
   const now = nowOf(d);
-  const w: Watcher = { id: shortId(), kind, url: parseTarget(url).url, label, created: now, checked: now, ok: true, last: got, state: 'watching' };
+  const w: Watcher = { id: shortId(), kind, url: parseTarget(url).url, label, created: now, checked: now, ok: true, last: got, state: 'watching', ...(got.price !== undefined ? { hist: [{ at: now, p: got.price }] } : {}) };
   await saveWatchers(d.storage, [...list.filter((x) => x.url !== w.url || x.kind !== w.kind), w]);
   const said =
     kind === 'price' ? `Watching ${label}: ${pounds(got.price!)} now. I look every hour and tell you once when it drops.`

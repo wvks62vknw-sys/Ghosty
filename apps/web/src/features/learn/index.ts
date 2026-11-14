@@ -191,7 +191,8 @@ export function openLearn(a: Record<string, unknown> = {}): void {
 
 export const learnTab: TabDef = {
   id: 'learn',
-  title: 'LEARN',
+  // [consistency] one name: the screen is Courses everywhere (Learn is the room it sits in)
+  title: 'COURSES',
   icon: '<path d="M2 8l10-5 10 5-10 5z"/><path d="M6 10v5c0 2 3 3.5 6 3.5s6-1.5 6-3.5v-5"/><path d="M22 8v6"/>',
   scene: 'backdrop',
   blurb: 'courses · quizzes · flashcards',
