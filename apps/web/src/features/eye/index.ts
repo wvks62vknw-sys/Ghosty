@@ -241,7 +241,6 @@ export const eyeTab: TabDef = {
       if (exactShip) return select({ kind: 'ship', ref: exactShip, w: shipLayer.world(exactShip, Date.now()) }, true);
       const list = matches(s);
       const things = list.filter((p) => p.kind !== 'city');
-      /* state: eye.search done */
       if (things.length > 1 || (things.length && list.length > things.length)) return void showPicks(list);
       if (things.length === 1) return void things[0]!.go();
       const sat = sats.list.find((x) => x.name.toLowerCase().includes(lo));
