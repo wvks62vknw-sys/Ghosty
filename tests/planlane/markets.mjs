@@ -77,13 +77,10 @@ async function phone(H, viewport, world, seed, body) {
 
 /** The screen's or the sheet's entrance scales it in: measured once its keys have their laid-out size (the real condition, no fixed sleep). */
 const settled = (page, sel) => page.waitForFunction((sel) => [...document.querySelectorAll(sel)].every((b) => !b.offsetHeight || b.getBoundingClientRect().height >= b.offsetHeight - 0.5), sel, { timeout: 4000 }).catch(() => undefined);
-const lastReply = (page) => page.evaluate(() => [...document.querySelectorAll('.msg:not(.me)')].pop()?.innerText.replace(/\s+/g, ' ') ?? '');
 async function say(H, page, words, want, tag) {
-  const before = await page.evaluate(() => document.querySelectorAll('.msg:not(.me)').length);
-  await H.chat(page, words);
-  const ok = await page.waitForFunction((n) => document.querySelectorAll('.msg:not(.me)').length > n, before, { timeout: 12000 }).then(() => true, () => false);
-  await page.waitForTimeout(150);
-  const got = ok ? await lastReply(page) : '';
+  // (the reply to these words: the first after his own message that matches, waited for on that condition: H.ask)
+  const r = await H.ask(page, words, want);
+  const got = r.inner;
   H.check(want.test(got) && !H.RAW.test(got) && !/\b(?:buy|sell) (?:it|now|more)\b|will (?:go|rise|fall)/i.test(got), `[${tag}] "${words}" answered on the phone: ${got.slice(0, 220)}`);
   return got;
 }
@@ -237,7 +234,8 @@ export async function run(H) {
     await say(H, page, 'convert 50 pounds to euros', /£50\.00 is €59\.69 \(£1 buys €1\.1937\)/, 'chat');
     const sent = st.chat.length;
     await H.chat(page, 'should I buy bitcoin');
-    await page.waitForTimeout(1200);
+    // (the real condition: the words reach the brain's stand-in, within 15 s; polled, never a fixed sleep)
+    for (const t0 = Date.now(); st.chat.length <= sent && Date.now() - t0 < 15000; ) await new Promise((r) => setTimeout(r, 100));
     check(st.chat.length > sent, `[chat] "should I buy bitcoin" is not answered on the phone (it goes on to the brain, which never says buy or sell)`);
     await H.open(page, 'markets');
     await page.waitForFunction(() => /0\.2 ETH/.test(document.querySelector('#pg-markets .pn.held')?.innerText ?? '') && /Polkadot/.test(document.querySelector('#pg-markets .pn.coins')?.innerText ?? ''), null, { timeout: 8000 }).catch(() => check(false, '[chat] the tab does not show what the chat kept'));
