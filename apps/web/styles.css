@@ -10492,3 +10492,9 @@ html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px
 .pkpalacebox textarea, .pkpalacebox input { width: 100%; min-height: 44px; font: inherit; }
 .pkpairs { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 8px; }
 .pkpairs li small { display: block; color: var(--mute); }
+/* NEXT ROUND (MAKE lane), the owner's iPhone: the 3D studio's docked picture and its scrolling panel overlapped on Safari. .pg and .hud
+   are 3-D rendering contexts (preserve-3d), where WebKit orders a sticky child by depth, not z-index, and clips it wrongly. On a phone
+   the studio page is flat, so the docked view and the panel stack and clip as ordinary layers in every engine. */
+@media (max-width: 899px) {
+  html #pg-studio, html #pg-studio .hud, html #pg-studio .hud .col { transform-style: flat; }
+}
