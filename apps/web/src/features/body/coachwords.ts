@@ -2,7 +2,7 @@
  * KITCHEN AND BODY AS ONE COACH (NEXT ROUND, BODY AND KITCHEN lane): the chat's words for it, pure so the chat's tables can read
  * them without loading the screens (assistant/phrases.ts → assistant/local.ts → ./coach.ts). Each answered on the phone, no model.
  */
-export type CoachAsk = 'weekshop' | 'fillweek' | 'meds' | 'sleepscore' | 'patterns' | 'review' | 'drink' | 'fast' | 'symptom' | 'gym' | 'walk' | 'plan';
+export type CoachAsk = 'weekshop' | 'fillweek' | 'meds' | 'sleepscore' | 'patterns' | 'review' | 'drink' | 'fast' | 'symptom' | 'gym' | 'walk' | 'plan' | 'hub';
 
 const MEDS = /tablets?|pills?|medication|meds|medicines?|supplements?|vitamins?/;
 const norm = (t: string) => t.trim().toLowerCase().replace(/’/g, "'").replace(/[.!?]+$/, '').replace(/^(?:hey ghosty,?\s+|ghosty,?\s+|please\s+|can you\s+|could you\s+)/, '').replace(/\s+please$/, '');
@@ -11,6 +11,7 @@ export function bodyCoachAsked(text: string): CoachAsk | null {
   const t = norm(text);
   if (t.length > 90) return null;
   if (drinkAsked(t)) return 'drink';
+  if (/^(?:open |show )?(?:my )?health hub$|^(?:a |my )?health summary(?: for (?:my |an )?appointment)?$|^(?:what'?s |what is |show |tell me )?(?:my )?(?:resting heart rate|hrv|heart rate variability|vo2 ?max|cardio fitness|blood pressure|breathing rate)(?: this month| lately)?$/.test(t)) return 'hub';
   if (/^start (?:a |my |the )?(?:six[- ]week )?(squat|push-?up|running|run) plan$|^i (?:hit|did|smashed|nailed) my (?:plan|session)(?: today)?$|^i (?:missed|didn'?t (?:hit|finish)) my (?:plan|session)(?: today)?$/.test(t)) return 'plan';
   if (/^(?:what'?s |when'?s |what is |when is )?(?:the )?best (?:time|hour) (?:for|to go for|to take) a walk(?: today)?$|^when should i (?:go for a |take a )?walk(?: today)?$/.test(t)) return 'walk';
   if (/^(?:start(?:ing)?|begin|end|stop|break|finish) (?:a |the |my )?fast(?:ing)?$|^i'?m (?:starting|beginning) (?:a |my )?fast$|^i'?ve (?:broken|ended) my fast$|^how long have i been fasting$|^(?:my )?fast(?:ing)? (?:so far|status)$/.test(t)) return 'fast';

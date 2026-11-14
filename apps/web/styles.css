@@ -6822,6 +6822,45 @@ html .br-seg.steady { stroke: var(--g-ink-3); }
 html .br-seg.slow { stroke: var(--g-amber); }
 html .bt .bp-dot { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; padding: 0 var(--g-s-half); font: var(--g-t-caption); font-variant-numeric: var(--g-num); color: var(--g-ink-3); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-mark); }
 html .bt .bp-dot[data-hit="1"] { color: var(--g-accent-text); }
+/* HEALTH HUB (APPS ROUND, features/body/hub.ts): every rule under .hh, tokens only */
+html .bt.hh .hh-top { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html .bt.hh .hh-date { font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt.hh .hh-top small, html .bt.hh .hh-ringwords small, html .bt.hh .hh-legend small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .bt.hh .hh-tour { padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .bt.hh .hh-today { display: flex; align-items: center; gap: var(--g-s-2); min-width: 0; }
+html .bt.hh .hh-rings { flex: none; width: clamp(108px, 32vw, 140px); aspect-ratio: 1; }
+html .bt.hh .hh-ringtrack { fill: none; stroke: var(--g-line-faint); stroke-width: 10; }
+html .bt.hh .hh-ringfill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray var(--g-dur-turn) var(--g-ease-bring); }
+html .bt.hh .hh-ringfill.move { stroke: var(--g-accent); }
+html .bt.hh .hh-ringfill.exercise { stroke: var(--g-ink-1); }
+html .bt.hh .hh-ringfill.stand { stroke: var(--g-amber); }
+html .bt.hh .hh-ringwords { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+html .bt.hh .hh-ringwords p { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); }
+html .bt.hh .hh-ringwords b { font-variant-numeric: var(--g-num); }
+html .bt.hh .hh-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .bt.hh .hh-cards > button { height: auto; min-height: 96px; padding: var(--g-s-1); justify-content: flex-start; text-align: left; white-space: normal; }
+html .bt.hh .hh-card { display: flex; flex-direction: column; gap: 2px; width: 100%; min-width: 0; }
+html .bt.hh .hh-card small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .bt.hh .hh-card b { font: var(--g-t-value); font-variant-numeric: var(--g-num); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt.hh .hh-spark { display: block; width: 100%; height: 24px; }
+html .bt.hh .hh-sparkline { fill: none; stroke: var(--g-accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+html .bt.hh .hh-ranges button { flex: 1 1 0; min-width: 44px; }
+html .bt.hh .hh-chartbox { min-width: 0; touch-action: pan-y; }
+html .bt.hh .hh-chart { display: block; width: 100%; height: 160px; }
+html .bt.hh .hh-bar { fill: var(--g-accent); }
+html .bt.hh .hh-line, html .bt.hh .hh-dots { fill: none; stroke: var(--g-accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+html .bt.hh .hh-dots { stroke: var(--g-ink-3); stroke-dasharray: 1 4; stroke-linecap: round; }
+html .bt.hh .hh-trend { fill: none; stroke: var(--g-accent); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+html .bt.hh .hh-stages { display: flex; height: 18px; border-radius: var(--g-radius-mark); overflow: hidden; }
+html .bt.hh .hh-st, html .bt.hh .hh-key { display: block; background: var(--g-ink-3); }
+html .bt.hh .hh-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; }
+html .bt.hh .hh-st.deep, html .bt.hh .hh-key.deep { background: var(--g-accent); }
+html .bt.hh .hh-st.core, html .bt.hh .hh-key.core { background: var(--g-ink-2); }
+html .bt.hh .hh-st.rem, html .bt.hh .hh-key.rem { background: var(--g-amber); }
+html .bt.hh .hh-st.awake, html .bt.hh .hh-key.awake { background: var(--g-line-faint); }
+html .bt.hh .hh-legend { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html .bt.hh .hh-in { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+@media (prefers-reduced-motion: reduce) { html .bt.hh .hh-ringfill { transition: none; } }
 html .bt .bc-pattern { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 
 /* =====================================================================================================================
