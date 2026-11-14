@@ -97,8 +97,13 @@ const text = (label: string, value: string, on: (v: string) => void, opts: { are
   el.addEventListener('input', () => on(el.value));
   return h('label.cxfield', h('span.cxlab', label), el);
 };
+// A key of the design system (ui/machine.ts key()): data-g and data-case keep the app-wide button type and the old sentence-case rule
+// off it, so its word is in capitals at the key's own size; capitals keep an abbreviation whole, so it needs no data-label either.
 const key = (label: string, fn: () => void, aria?: string, cls = ''): HTMLButtonElement => {
   const b = button(label, () => fn(), `g-key cxkey${cls ? ` ${cls}` : ''}`);
+  b.dataset.g = 'key';
+  b.dataset.case = 'keep';
+  delete b.dataset.label;
   if (aria) b.setAttribute('aria-label', aria);
   return b;
 };
@@ -348,7 +353,7 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
     }
   });
   const el = h('div.cx.cxcol',
-    h('div.cxrow', key('Import a comic', () => pickFile.click(), 'Import a comic file: CBZ, PDF or pictures'), key('Import a folder', () => pickDir.click(), 'Import a folder of page pictures')),
+    h('div.cxrow.cximport', key('Import a comic', () => pickFile.click(), 'Import a comic file: CBZ, PDF or pictures'), key('Import a folder', () => pickDir.click(), 'Import a folder of page pictures')),
     h('p.cxsmall', 'CBZ, CBR, PDF, pictures or a folder of them. A CBR needs the free RAR reader once (1.1 MB, on your tap, on Wi-Fi). Everything stays on this phone.'),
     note, pickFile, pickDir, lasting,
     h('div.cxrow', h('label.cxfield', h('span.cxlab', 'Find on my shelf'), find),
