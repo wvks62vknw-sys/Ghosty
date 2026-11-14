@@ -98,6 +98,31 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
     go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
   },
+  // [apps round, editors] the chart editor and sparklines, input checks, cell formatting (the pro edition)
+  'deck:sheets:charts-of-every-kind': {
+    name: 'Charts of every kind',
+    line: 'You can draw pie, scatter, area, stacked and line-with-columns charts from your cells, and little sparklines inside a cell.',
+    more: 'Choose the cells, open CHART and pick a kind: bars, line, columns, area, pie, scatter, stacked columns or bars, or a line over columns. Give it a title, the words along the bottom and up the side, the key on or off and a colour, then MAKE THE CHART. EDIT changes a chart later. SPARKLINE draws a tiny line or columns in the cell after a row of numbers. Excel files keep them as real charts and sparklines, both ways.',
+    say: ['Open my spreadsheets', 'Open a spreadsheet'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
+  'deck:sheets:drop-down-lists-and-tick-boxes': {
+    name: 'Drop-down lists and tick boxes',
+    line: 'You can keep cells to a list of choices, a tick box or a date, and anything else typed there is refused with the reason.',
+    more: 'Choose the cells, open CELLS and pick DROP-DOWN LIST (type the choices with commas), TICK BOXES or DATES. Choose a checked cell and its choices, a TICK key or a date picker appear under the formula line. NO CHECK takes it off, UNDO takes any change back, and Excel files keep the checks both ways.',
+    say: ['Open my spreadsheets', 'Open a spreadsheet'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
+  'deck:sheets:borders-merges-and-table-styles': {
+    name: 'Borders, merges and table styles',
+    line: 'You can draw borders, merge cells, wrap long words, use times, dollars and euros, and style a table with a header row and banded rows.',
+    more: 'Choose the cells and open CELLS: ALL LINES, OUTLINE or LINE UNDER for borders; MERGE and UNMERGE; WRAP; TIME, DATE + TIME, LONG DATE, $, € and ACCOUNTING; and MAKE IT A TABLE in one of five colours, with or without a header row and banded rows. Excel files keep all of it, both ways.',
+    say: ['Open my spreadsheets', 'Open a spreadsheet'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
   'hub:slides': {
     name: 'Slides and talks',
     line: 'You can make a deck of slides from a report, or from scratch, give the talk with your notes in your hand, and send it as a PowerPoint file.',
