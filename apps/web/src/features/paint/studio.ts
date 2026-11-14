@@ -8,7 +8,7 @@ import { h, clear } from '../../core/dom';
 import { button } from '../../ui/components';
 import { sayError, trail } from '../../ui/hisWords';
 import { BRUSHES, brushOf, curveOf, ERASER, forgetTweak, keepTweak, LIQUIFY_NAMES, PALETTES, seeded, SMUDGE, tweaks, type Brush, type Curve, type Liquify } from './brushes';
-import { BLENDS, blendName, MAX_LAYERS, mk, pack, Painting, type Sel } from './engine';
+import { BLENDS, blendName, FONT_NAMES, MAX_LAYERS, mk, pack, Painting, type Sel } from './engine';
 import { fingerPressure, quickShape, smoother, SYMMETRY_NAMES, type Pt, type Symmetry } from './stroke';
 import { jpegOf, oraBlob, playInto, pngOf, psdBlob, videoType, framesIn } from './io';
 import { paintState } from './state';
@@ -86,6 +86,8 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
   const recent: string[] = [];
   let sym: Symmetry = 'off';
   let sel: Sel = null;
+  let selMode: 'free' | 'rect' = 'free';
+  let pendingText: { text: string; font: string; size: number } | null = null;
   let pencilSeen = false;
   let onMask = false;
   let strokes = 0;
@@ -254,7 +256,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
     if (t === 'move' && tool !== 'move') startMove();
     if (t !== 'move' && tool === 'move') endMove(true);
     tool = t; paintState.tool = t;
-    if (t === 'select') say(sel ? 'Draw round another part, or tap once to clear the selection.' : 'Draw round the part to work on. Brushes and fills then stay inside it.');
+    if (t === 'select') { say(sel ? 'Draw round another part, or tap once to clear the selection.' : selMode === 'rect' ? 'Drag a box round the part to work on.' : 'Draw round the part to work on. Brushes and fills then stay inside it.'); tool = t; paintState.tool = t; showSliders(); selectModes(); return; }
     else if (t === 'fill') say(p.layers.some((L) => L.reference) ? 'Tap an area: it fills up to the lines of your reference layer.' : 'Tap an area to fill it with your colour.');
     else if (t === 'liquify') say('Push the picture with your finger, like wet paint.');
     else if (t === 'erase') say('Rubbing out on this layer.');
@@ -319,6 +321,26 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
   const liquifyPanel = (): void => {
     const keys = (Object.keys(LIQUIFY_NAMES) as Liquify[]).map((m) => { const b = key(LIQUIFY_NAMES[m].toUpperCase(), () => { SMUDGE.lq = m; say(`Liquify: ${LIQUIFY_NAMES[m].toLowerCase()}.`); closeSheet(); }, `Liquify: ${LIQUIFY_NAMES[m]}`); b.setAttribute('aria-pressed', String((SMUDGE.lq ?? 'push') === m)); return b; });
     openSheet('liquify', 'Liquify', h('div.pxrow', ...keys), h('p.pxsmall', 'Push moves the picture along your stroke. Twirl turns it round, pinch draws it in, expand swells it out.'));
+  };
+  const selectModes = (): void => {
+    const mode = (m: 'free' | 'rect', word: string, aria: string): HTMLButtonElement => { const b = key(word, () => { selMode = m; say(m === 'rect' ? 'Drag a box round the part to work on.' : 'Draw round the part to work on.'); selectModes(); }, aria); b.setAttribute('aria-pressed', String(selMode === m)); return b; };
+    openSheet('selectmode', 'Select', h('div.pxrow', mode('free', 'FREEHAND', 'Select by drawing round a part'), mode('rect', 'RECTANGLE', 'Select a rectangle')));
+  };
+  const textPanel = (): void => {
+    const words = h('textarea', { rows: 2, maxLength: 200, placeholder: 'Your words', 'aria-label': 'The words to put on the painting' }) as HTMLTextAreaElement;
+    const font = h('select', { 'aria-label': 'Type face' }, ...Object.entries(FONT_NAMES).map(([v, n]) => h('option', { value: v }, n))) as HTMLSelectElement;
+    const size = h('input', { type: 'range', min: '16', max: '240', value: '72', 'aria-label': 'Text size' }) as HTMLInputElement;
+    const sizeV = h('span.pxval', '72 px');
+    size.addEventListener('input', () => { sizeV.textContent = `${size.value} px`; });
+    openSheet('text', 'Text', words, h('label.pxslide', h('span.pxlab', 'Face'), font), h('label.pxslide', h('span.pxlab', 'Size'), size, sizeV),
+      key('PLACE IT', () => {
+        if (!words.value.trim()) { say('Type the words first.'); return; }
+        pendingText = { text: words.value.trim(), font: font.value, size: Number(size.value) };
+        tool = 'text'; paintState.tool = 'text';
+        closeSheet(); showSliders();
+        say('Tap the painting where the words go.');
+      }, 'Place the words: then tap the painting where they go'));
+    words.focus();
   };
   const selectPanel = (): void => {
     openSheet('select', 'Selection', h('div.pxrow',
@@ -510,6 +532,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
       h('label.pxslide', h('span.pxlab', 'Symmetry'), symSel),
       quick,
       h('label.pxslide', h('span.pxlab', 'Paper'), paperSel),
+      h('div.pxrow', key('ADD TEXT', () => textPanel(), 'Add words to the painting')),
       h('div.pxrow', key('FLIP THE VIEW', () => { view.flip = !view.flip; say(view.flip ? 'The view is flipped (your painting is not): fresh eyes on its balance.' : 'The view is back.'); sync(); ask(); }, 'Flip the view left to right'), key('FIT', () => { fit(); sync(); }, 'Fit the canvas to the screen')),
       h('p.pxsheetsub', 'Time-lapse'),
       h('div.pxrow', key('PLAY', () => void play(false), 'Play the time-lapse'), key('SAVE AS VIDEO', () => void play(true), 'Save the time-lapse as a video')),
@@ -719,11 +742,23 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
       const ok = p.fill(L.id, d.x, d.y, colour, 24, p.layers.some((q) => q.reference), sel);
       say(ok ? 'Filled.' : 'Nothing to fill there.');
       if (ok) { strokes++; tick(pf.cue); changed('fill'); }
+    } else if (tool === 'text' && pendingText) {
+      if (d.x < 0 || d.y < 0 || d.x >= p.w || d.y >= p.h) return;
+      p.addText(p.layer.id, d.x, d.y, pendingText.text, pendingText.font, pendingText.size, colour, sel);
+      pendingText = null;
+      strokes++;
+      tool = 'brush'; paintState.tool = 'brush'; showSliders();
+      say('Your words are on the painting. UNDO takes them off.');
+      changed('text');
     } else if (tool === 'pick') {
       setColour(p.colourAt(d.x, d.y), '');
       say(`Took ${colour} from the picture.`);
       tool = 'brush'; paintState.tool = 'brush'; showSliders(); sync();
     } else if (tool === 'select') {
+      if (selMode === 'rect' && lasso.length >= 4) {
+        const x0 = lasso[0]!, y0 = lasso[1]!, x1 = lasso[lasso.length - 2]!, y1 = lasso[lasso.length - 1]!;
+        lasso = Math.abs(x1 - x0) > 4 && Math.abs(y1 - y0) > 4 ? [x0, y0, x1, y0, x1, y1, x0, y1, x0, y0, x0, y0] : [];
+      }
       if (lasso.length >= 12) { sel = { pts: lasso.slice(), inv: false }; say('Selected. Brushes and fills stay inside it; MOVE moves just this part. Tap SELECT for invert and clear.'); }
       else { sel = null; say('Selection cleared.'); }
       lasso = [];
