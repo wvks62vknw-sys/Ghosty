@@ -5,6 +5,7 @@ import { voiceTag } from './voicetag'; // [voiceknown] whose voice, on the talk 
 import { peopleOpen } from '../lens/people'; // [guardian]
 import { brain, speechCaps } from '../../api/brain';
 import { pillWords } from './pill';
+import { goodnightAsked } from './goodnightwords';
 import { cancelTakeBack, startTakeBack, takeBackLeft, takeBackWords, takesBack } from './takeback'; // [security] security.u5
 import { answerApproval, askBigBrain, askCloud, askPhone, chat, send, signOff, thinkHarderAbout, toolWords, turn, type Entry } from '../../assistant/session';
 import { sfx } from '../../assistant/sfx';
@@ -210,6 +211,11 @@ async function voiceTurn(id: number, afterSpeech = false): Promise<void> {
     // [reader] with a book being read (or just cut), the sign-off is where we are in it ("Page 48. I'll carry on from here.")
     if (endIntent(text)) {
       endConversation();
+      // [planlane2:goodnight] "goodnight" to the mic runs GOODNIGHT (its reply spoken), not the sign-off
+      if (goodnightAsked(text)) {
+        await send(text, { speak: true, voice: true });
+        return;
+      }
       const book = await import('../library/reader').then((r) => r.bookSignOff(text)).catch(() => false);
       if (!book) await signOff(text);
       return;

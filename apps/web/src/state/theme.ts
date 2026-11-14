@@ -280,7 +280,9 @@ export function applyRecipe(r: Recipe, o: { save?: boolean; remember?: boolean }
   if (o.save !== false && o.remember !== false && current && !sameRecipe(current, r)) keepBefore([...looksBefore(), { ...current, switches: { ...current.switches } }]);
   current = { ...r, switches: { ...r.switches } };
   const el = document.documentElement;
-  const ground = groundNow(current);
+  // [planlane2:goodnight] tonight's night look: shown over Paper till it ends (or his next look change), never in `current`
+  if (o.save !== false || Date.now() >= nightUntil) nightUntil = 0;
+  const ground = nightUntil && groundNow(current) === 'paper' ? current.night : groundNow(current);
   const d = el.dataset;
   d.theme = current.colour;
   d.ground = ground;
@@ -312,6 +314,19 @@ export function applyRecipe(r: Recipe, o: { save?: boolean; remember?: boolean }
   recipeEvents.emit('change', current);
 }
 
+/** [planlane2:goodnight] Until when tonight's night look is shown (0: not): a passing override, never kept in the recipe or saved. */
+let nightUntil = 0;
+/** [planlane2:goodnight] The night look over Paper until `until` (goodnight: the next five in the morning), then his own look again. */
+export function nightFor(until: number): void {
+  nightUntil = until;
+  applyRecipe(current, { save: false });
+  setTimeout(() => {
+    if (nightUntil && Date.now() >= nightUntil) applyRecipe(current, { save: false });
+  }, Math.min(2 ** 31 - 1, Math.max(0, until - Date.now()) + 1000));
+}
+/** [planlane2:goodnight] Whether tonight's night look is showing over his own. */
+export const nightShowing = (): boolean => nightUntil > Date.now();
+
 /** Apply a colour at once and keep the rest of the recipe (the twelve, by words, a mood's end: what a theme always did). */
 export function applyTheme(name: string): void {
   const key = themeKey(name);
@@ -332,7 +347,9 @@ export const isCurrent = (r: Recipe): boolean => sameRecipe(r, current) && r.nig
 // the day's turn while the phone was asleep or away: looked at again when it comes back, and when his home changes
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && current.switches.day === 'on' && groundNow() !== document.documentElement.dataset.ground) applyRecipe(current, { save: false });
+    if (!document.hidden && current.switches.day === 'on' && groundNow() !== document.documentElement.dataset.ground && !nightShowing()) applyRecipe(current, { save: false });
+    // [planlane2:goodnight] tonight's night look ended while the phone was asleep: his own look again
+    else if (!document.hidden && nightUntil && Date.now() >= nightUntil) applyRecipe(current, { save: false });
   });
   settings.subscribe((st, prev) => {
     if (st.home !== prev.home && current.switches.day === 'on') applyRecipe(current, { save: false });

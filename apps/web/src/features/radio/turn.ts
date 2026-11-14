@@ -1,8 +1,8 @@
 /** THE RADIO FROM THE CHAT (planlane): what was asked, done on the phone, and said back in one line (assistant/local.ts calls this). */
 import type { PackReply } from '../../assistant/packs';
-import { favourites, lastPlayed, player, playStation, recentStations, setSleepAt, stepStation, type NowPlaying } from '../../assistant/media';
+import { carryOn, dropKept, favourites, lastPlayed, player, playStation, recentStations, setSleepAt, sleepLost, stepStation, type NowPlaying } from '../../assistant/media';
 import { radioAsked, type RadioAsk } from './asks';
-import { clockWords, endOfHour, inWords, nextClock, ordinal, sleepAtSet, sleepLine } from './words';
+import { carriedOn, clockWords, endOfHour, inWords, keptOff, lostLine, LOST_HOW_CHAT, nextClock, notCarried, ordinal, sleepAtSet, sleepLine } from './words';
 
 const OPEN = [{ id: 'radio', ask: -1, label: 'Open the radio', open: 'radio' }];
 /** Something is on (playing, tuning in or paused): there is a station to time, save or say. */
@@ -13,7 +13,7 @@ const on = () => {
 const NOTHING = 'Nothing is playing, so there is nothing to stop. Play a station first, then set the timer.';
 
 /** The words of the reply, and what was done (pure of the chat: the spec reads it through radioTurn). */
-async function act(ask: RadioAsk): Promise<string> {
+async function act(ask: Exclude<RadioAsk, { what: 'goodnight' }>): Promise<string> {
   const now = Date.now();
   const p = player.get();
   switch (ask.what) {
@@ -26,15 +26,36 @@ async function act(ask: RadioAsk): Promise<string> {
       return sleepAtSet(at, now);
     }
     case 'sleepOff': {
+      // [planlane2:podcasts] after a reload with nothing on: the timer the reload kept is the one he means, and it is dropped
+      const kept = on() ? null : sleepLost();
+      if (kept) {
+        dropKept();
+        return keptOff(kept.at);
+      }
       const stays = p.now ? (p.state === 'paused' ? `${p.now.name} is paused and stays on until you stop it` : `${p.now.name} keeps playing until you stop it`) : '';
       if (!p.sleepAt) return stays ? `There is no sleep timer set: ${stays}.` : 'There is no sleep timer set.';
       setSleepAt(0);
       return stays ? `Sleep timer off: ${stays}.` : 'Sleep timer off.';
     }
     case 'sleepLeft': {
+      // [planlane2:podcasts] after a reload the timer is kept on the phone: said, with the way to carry on
+      const lost = on() ? null : sleepLost();
+      if (lost) return lostLine(lost.at, (lastPlayed() ?? { name: lost.name }).name, LOST_HOW_CHAT);
       if (!p.now) return 'Nothing is playing, so there is no sleep timer.';
       if (!p.sleepAt || p.sleepAt <= now) return `There is no sleep timer: ${p.now.name} plays until you stop it. Say “turn the radio off in 30 minutes” to set one.`;
       return `${p.now.name} stops at ${clockWords(p.sleepAt)}, in ${inWords(p.sleepAt - now)}.`;
+    }
+    case 'carryOn': {
+      const playing = on();
+      if (playing) return p.sleepAt && p.sleepAt > now ? `${playing.name} is already on, and stops at ${clockWords(p.sleepAt)}, in ${inWords(p.sleepAt - now)}.` : `${playing.name} is already on, with no sleep timer. Say “turn the radio off in 30 minutes” to set one.`;
+      const lost = sleepLost();
+      const last = lastPlayed();
+      if (!lost || !last) return 'There is no sleep timer to carry on. Play a station, then say “turn the radio off in 30 minutes”.';
+      void carryOn(last);
+      // offline, or an address the phone refuses: it did not start, and the timer stays kept (said as the Radio says it)
+      const q = player.get();
+      if (q.state === 'error') return notCarried(q.why, last.name, lost.at);
+      return carriedOn(lost.at, now, last.name);
     }
     case 'step': {
       const n = stepStation(ask.dir);
@@ -86,5 +107,7 @@ export async function radioTurn(text: string): Promise<PackReply | null> {
   if (!ask) return null;
   // words that do not name the radio ("what's playing", "add this to my favourites") are the radio's only while a station is on
   if ('loose' in ask && ask.loose && !on()) return null;
+  // [planlane2:goodnight] the whole wind-down: the house, this radio's sleep timer, sleep tracking and the day ahead (features/core/goodnight.ts)
+  if (ask.what === 'goodnight') return import('../core/goodnight').then((g) => g.goodnightTurn(text));
   return { said: text, reply: await act(ask), go: OPEN };
 }

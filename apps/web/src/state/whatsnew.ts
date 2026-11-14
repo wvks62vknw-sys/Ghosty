@@ -16,6 +16,19 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [planlane2:fixes] the half-done ones, finished: scripts ask first, follow from SOCIAL, email TEST, one health line on LINKS
+  { day: '2026-11-14', title: 'Scripts ask first', line: 'A Home Assistant script now asks “Run Bedtime?” before it runs, every time, on the screen and from the chat: I can’t see what a script does. Scenes still run on one tap unless they set a lock, the alarm, a garage door or a switch you marked.' },
+  { day: '2026-11-14', title: 'Follow from SOCIAL', line: 'SOCIAL → WAITING (under WAITING FOR YOUR APPROVE) has a FOLLOW OR UNFOLLOW box for Bluesky and Mastodon: it makes a draft, and nothing happens until you tap APPROVE.' },
+  { day: '2026-11-14', title: 'Email TEST and one health line', line: 'LINKS → EMAIL has a TEST key that signs in to your mail and says if it works, and the top of LINKS says in one line that all is fine, or the one thing to fix first.' },
+  // [planlane2:podcasts] the radio's sleep timer after a reload, and in the top bar
+  { day: '2026-11-14', title: 'The sleep timer keeps its time', line: 'The top bar shows when the radio stops (“Radio 4 · stops 23:10”). If the page reloads, the Radio offers PLAY AND KEEP THE TIMER: one tap plays on with the same stop time.' },
+  // [planlane2:goodnight] one word winds everything down (features/core/goodnight.ts)
+  { day: '2026-11-14', title: 'Say goodnight', line: 'Say “goodnight” (or “night night”, “time for bed”): the screen winds down, the night look comes on, your lights go off, the radio gets a 30-minute sleep timer, sleep tracking starts and I tell you tomorrow’s first event. Locks, the alarm, garage doors and gates are only listed, each with a LOCK UP key that needs your tap and a confirm. After six, the Brief has a GOODNIGHT key too.' },
+  // [planlane2:onelist] (plan.u1)
+  { day: '2026-11-14', title: 'One to-do list', line: 'The Agenda’s TO-DO, WORK’s to-do, the Brief, Home and the chat now share one list, kept in my brain with a copy on your phone for no signal. Your phone’s old list joined it once.' },
+  // [planlane2:timeline] the day by the hour, PLAN MY WEEK, any month, and an event changed in place
+  { day: '2026-11-14', title: 'Your day by the hour', line: 'Agenda → Diary → TIMELINE: today and tomorrow by the hour, your free gaps said in words, a line at now, and PLAN MY WEEK with each day’s free time.' },
+  { day: '2026-11-14', title: 'Change an event properly', line: 'Tap an event: change its time, end, place, ALL DAY and reminder in place, and its reminder moves with it. The month now steps to any month, back or on.' },
   { day: '2026-11-14', title: 'Your own one-word routines', line: 'Settings → ROUTINES: make one word, like “morning”, run a few things in turn. Say it or type it. Anything that would send still waits for your APPROVE.' },
   { day: '2026-11-14', title: 'Ask how, and get the taps', line: 'Ask “how do I paste a bank statement?” and I give the exact taps with TRY IT; “what can I say here?” gives that screen’s own words. The search understands whole sentences too.' },
   { day: '2026-11-14', title: 'A tour of the house', line: 'Say “show me around” and I walk you through the seven rooms, with one thing to try in each. The search does sums as you type, too.' },

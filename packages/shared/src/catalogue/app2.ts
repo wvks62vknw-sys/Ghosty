@@ -31,15 +31,22 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:agenda:TO-DO': {
     name: 'Your to-do list', line: 'You can keep a to-do list in the Agenda: give each a day, tick it off, and late ones come first.',
-    more: 'Kept on this phone. Star the ones that matter, give one a repeat (every day, weekdays, week or month), tap its words to change it, and see All, Today, Upcoming or Starred. The Brief tells you what is due today, and every removal has UNDO.',
+    more: 'One list with WORK’s to-do and the chat, kept in my brain with a copy on this phone for no signal (changes made offline go when the signal is back). Star the ones that matter, give one a repeat (every day, weekdays, week or month), tap its words to change it, and see All, Today, Upcoming or Starred. The Brief tells you what is due today, and every removal has UNDO.',
     say: ['Open my to-do list', 'What’s on my to-do list?'], scene: ['morning', 'phone'], cat: 'watch',
     since: '2026-11-13',
   },
   'panel:agenda:MONTH': {
     name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
-    more: 'This month and the next, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
+    more: 'Any month, back or on with ‹ and ›, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
     say: ['Show me my month', 'What’s on this month?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-13',
+  },
+  // [planlane2:timeline] the day by the hour and PLAN MY WEEK (features/agenda/timeline.ts)
+  'panel:agenda:TIMELINE': {
+    name: 'Your day by the hour', line: 'You can see today and tomorrow by the hour, with your free gaps said in words, and plan your week.',
+    more: 'Two things at once sit side by side, all-day ones and your to-dos due sit at the top, and a line marks now. PLAN MY WEEK lays out the next seven days with each day’s free time, worked out on your phone. Tap an event to change it in place.',
+    say: ['Plan my week', 'When am I free tomorrow?'], scene: ['morning'], cat: 'watch',
+    since: '2026-11-14',
   },
   // ---- THE BRIEF
   'panel:brief:FORESIGHT': { same: 'job:foresee' },
@@ -267,8 +274,9 @@ export const APP_2: Record<string, CatValue> = {
   'panel:radio:NOW PLAYING': {
     name: 'What’s playing now', line: 'You can see what is playing now, and pause or stop it.',
     // [planlane:radio] the sleep timer and what's on, said in the chat (no model)
-    more: 'It quietens by itself while I speak, then comes back up. A sleep timer stops it after a while, at a time, or at the end of the hour.',
-    say: ['Stop the radio', 'Turn the radio off in 20 minutes', 'What station is this?'], scene: ['playing'], cat: 'play',
+    // [planlane2:podcasts] the timer's stop time in the top bar, and kept on the phone so a reload offers it back
+    more: 'It quietens by itself while I speak, then comes back up. A sleep timer stops it after a while, at a time, or at the end of the hour; the top bar shows when, and after a reload one tap plays on with it.',
+    say: ['Stop the radio', 'Turn the radio off in 20 minutes', 'What station is this?', 'Carry on with the sleep timer'], scene: ['playing'], cat: 'play',
   },
   'panel:radio:RECENT': {
     name: 'Stations you played lately', line: 'You can play again any of the last eight stations you listened to, newest first.',
@@ -283,7 +291,13 @@ export const APP_2: Record<string, CatValue> = {
     say: ['Play my favourites', 'Play my second favourite', 'Next station', 'Save this station'], scene: ['playing'], cat: 'play',
   },
   // [planlane:radio] the radio's words answered on the phone with no model (features/radio/asks.ts): the sleep timer, what's on
-  'phrase:planradio': { same: 'panel:radio:NOW PLAYING' },
+  // [planlane2:goodnight] and GOODNIGHT (features/core/goodnight.ts), which this table reaches: its own words, so Abilities shows it
+  'phrase:planradio': {
+    name: 'Goodnight, and the radio by words', line: 'You can say goodnight and I turn your lights off, set the radio to sleep, track your sleep and say tomorrow.',
+    more: 'Lights only: locks, the alarm, garage doors and gates are listed, each with a LOCK UP key that needs your tap and a confirm. The radio’s 30-minute timer only while it plays. Nothing is sent. The radio’s sleep timer and what’s on are answered here too.',
+    say: ['Goodnight', 'Night night', 'Time for bed', 'Turn the radio off in 20 minutes'], scene: ['talking', 'playing'], cat: 'talk',
+    since: '2026-11-14',
+  },
   // ---- REVERSE
   'panel:reverse:TAKE SOMETHING APART': {
     name: 'Take software apart', line: 'You can paste a website, an app package, a code project or a file link, and I take it apart.',
