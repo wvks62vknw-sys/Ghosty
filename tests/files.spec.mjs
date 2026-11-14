@@ -71,8 +71,8 @@ const search = async (page, q) => {
 };
 const pill = (page, sec) => page.evaluate((s) => document.querySelector(`#pg-files .secpill[data-sec="${s}"]`)?.click(), sec);
 const docs = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.docs') ?? '[]').map((d) => d.title));
-// (the card scales in as it opens: measured once it has settled, the same size on two frames running)
-const cardKeys = async (page) => (await page.waitForFunction(() => { const b = document.querySelector('.fcard .fkeys button'); const h = b ? Math.round(b.getBoundingClientRect().height * 10) : 0; const same = h > 0 && h === window.__cardH; window.__cardH = h; return same; }, null, { timeout: 5000, polling: 'raf' }).catch(() => undefined), page.evaluate(() => [...document.querySelectorAll('.fcard .fkeys button')].map((b) => { const r = b.getBoundingClientRect(); return { t: (b.dataset.label || b.textContent || '').trim().toUpperCase(), w: Math.round(r.width), h: Math.round(r.height) }; })));
+// (the card scales in as it opens: measured once it has settled, the same size on two frames running and nothing still animating)
+const cardKeys = async (page) => (await page.waitForFunction(() => { const b = document.querySelector('.fcard .fkeys button'); const h = b ? Math.round(b.getBoundingClientRect().height * 10) : 0; const same = h > 0 && h === window.__cardH; window.__cardH = h; const moving = [...document.querySelectorAll('.mbox, .fcard')].some((e) => e.getAnimations?.({ subtree: true }).some((x) => x.playState === 'running')); return same && !moving; }, null, { timeout: 5000, polling: 'raf' }).catch(() => undefined), page.evaluate(() => [...document.querySelectorAll('.fcard .fkeys button')].map((b) => { const r = b.getBoundingClientRect(); return { t: (b.dataset.label || b.textContent || '').trim().toUpperCase(), w: Math.round(r.width), h: Math.round(r.height) }; })));
 const closeCard = (page) => page.keyboard.press('Escape');
 
 for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
