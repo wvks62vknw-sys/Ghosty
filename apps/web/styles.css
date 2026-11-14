@@ -9891,3 +9891,21 @@ html .pn.classics .clsearch input { flex: 1 1 auto; min-width: 0; min-height: 44
 html .grd-voicerow { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 html .grd-voicerow .lab { color: var(--mute); overflow-wrap: anywhere; }
 html select.grd-voicepick { width: 100%; min-height: 44px; }
+/* REHEARSE · THE LANGUAGE (learn.s2): practise speaking another language, the picker at full width and 44 pt */
+html #pg-rehearse select.rhlang { width: 100%; min-height: 44px; }
+html #pg-rehearse .rhlangnotes ul { margin: 4px 0 0; }
+/* LEARN · QUIZ NIGHT (learn.s10): the scoreboard, the question big, and a key per player */
+html .learnnightrow { align-items: center; gap: 10px; margin-top: 8px; }
+html .learnnightrow small { color: var(--mute); flex: 1 1 160px; }
+html .qnight { display: flex; flex-direction: column; gap: 10px; }
+html .qnplayers { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+html .qnplayers input { min-height: 44px; }
+html .qnboard { display: flex; flex-wrap: wrap; gap: 8px; }
+html .qnscore { display: flex; flex-direction: column; align-items: center; min-width: 64px; padding: 6px 10px; border-radius: 12px; background: var(--thin); }
+html .qnscore b { font-size: 22px; }
+html .qnscore small { color: var(--mute); overflow-wrap: anywhere; text-align: center; }
+html .qnhead { color: var(--mute); margin: 0; }
+html .qnq { font-size: 22px; line-height: 1.3; margin: 0; overflow-wrap: anywhere; }
+html .qnchoices { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+html .qnreveal { margin: 0; color: var(--fg); }
+html .qnwho button, html .qnight .keyrow button { min-height: 44px; }

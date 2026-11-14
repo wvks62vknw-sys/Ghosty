@@ -64,18 +64,33 @@ export function keptRehearsals(): number {
 }
 
 /** The words the brain is given to play the other side: one turn at a time (the talk so far is inside it, since nothing else goes). */
-export function promptFor(situation: string, round: number, talk: { other: string; answer: string }[], fire: Dial): string {
+export function promptFor(situation: string, round: number, talk: { other: string; answer: string }[], fire: Dial, lang?: { code: string; name: string }): string {
   const said = talk.map((t) => `OTHER SIDE: ${t.other}\nHIM: ${t.answer}`).join('\n');
+  // [learn.s2] speaking practice in another language: the other side speaks only that language, simply, so he can answer in it
+  const foreign = lang && lang.code !== 'en' ? `Speak only ${lang.name}, simply and clearly, at a learner's level, in short everyday sentences; never switch to English.` : '';
   return [
     'You are playing the other person in a rehearsal, so the owner can practise a real conversation. Stay in character the whole time.',
     `The situation, in his words: ${situation.trim().slice(0, 300)}.`,
     `How you play it: ${TEMPER[fire]}.`,
+    foreign,
     `This is round ${round} of ${ROUNDS}. ${round === 1 ? 'Open the conversation.' : 'Answer what he just said and push the conversation one step further.'}`,
     said ? `So far:\n${said}` : '',
     'Reply with only what the other person says: one or two plain sentences, in the first person, no stage directions, no advice, no coaching, no notes.',
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+/** The languages Rehearse can be practised in (learn.s2): English, and the ones the interpreter speaks that learners pick most. */
+export const PRACTICE_LANGS = ['en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ar', 'zh', 'ja', 'hi'] as const;
+
+/** After a practice in another language: the words the brain is given for gentle notes, in English. */
+export function langNotesPrompt(lang: { code: string; name: string }, situation: string, talk: { other: string; answer: string }[]): string {
+  return [
+    `The owner practised a conversation in ${lang.name}: ${situation.trim().slice(0, 200)}. Here is what was said.`,
+    talk.map((t) => `OTHER SIDE: ${t.other}\nHIM: ${t.answer}`).join('\n'),
+    `Give gentle notes in English, as a kind language teacher would: first one line on what he made himself understood well, then at most three corrections, each as "You said: … → Say: … (why, in a few words)". If there is nothing to correct, say so. No more than four lines in all, one per line, no headings.`,
+  ].join('\n\n');
 }
 
 /** The words he fills silence with (counted whole-word, lower case). */

@@ -323,6 +323,10 @@ export const learnTab: TabDef = {
         r.addEventListener('click', () => void showCourse(c.id));
         cp.body.append(r);
       }
+      // [learn.s10] QUIZ NIGHT: Ghosty hosts a quiz at the table from these courses' own questions (works with no signal)
+      const night = button('QUIZ NIGHT', () => void import('./quiznight').then((q) => q.openQuizNight()));
+      night.classList.add('learnnight');
+      cp.body.append(h('div.row.wrap.learnnightrow', night, h('small', 'I host a quiz for you and friends at the table, from your courses.')));
     };
 
     // ======================= views
