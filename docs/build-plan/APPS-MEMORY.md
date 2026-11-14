@@ -71,6 +71,8 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
   day), its place, and who's coming. Nobody is sent anything.
 - **A decision log with a look-back date (YOUR WORD).** LOOK BACK on any reason he gave sets a reminder three months on, asking
   whether it worked out. NO LOOK BACK takes it off.
+- **A chart for his week (YOUR WORD).** Under the week's lines, bars show what he asked about most, and finished against still
+  open. The Sunday card itself was already on the brain.
 
 ## How to try it
 - Me → Memory → JOURNAL. Write, take a prompt, add a photo, tap a mood, then look at Calendar, On this day and Places.
@@ -91,7 +93,7 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
   - (j) vCard import and export;
   - (k) the plan's .ics;
   - (g) every key 44 pt, nothing sideways, no word cut, in all seven looks.
-- `tests/keepword.spec.mjs` (p): LOOK BACK and NO LOOK BACK.
+- `tests/keepword.spec.mjs`: (p) LOOK BACK and NO LOOK BACK; (q) the week's bars.
 - `apps/edge/test/journal.test.mjs`:
   - streak, On this day and search;
   - the chat's asks, and Memory's own diary asks left alone;
@@ -111,7 +113,6 @@ It's proved by `tests/journal.spec.mjs` at 440 × 956, 390 × 844 and BODY 21, a
 - Date polls and invite cards for the group plan.
 - Groups and tags, and a dated timeline per person.
 - His own lead time per person in COMING UP.
-- A Sunday push and a chart for his week in YOUR WORD.
 - The Letter studio: left to the editors lane, whose Documents already have letter templates.
 - A heads-up, not mine: on the integration branch, the web typecheck has 6 errors in
   `packages/shared/src/applib/catalogue/{learn,world}.ts` (APPLIB CAT-C). @parent was told.
