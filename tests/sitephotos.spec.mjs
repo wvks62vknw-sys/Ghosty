@@ -282,6 +282,8 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
     await page.evaluate(() => (location.hash = 'area-make'));
     await page.waitForSelector('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="sheets"]', { timeout: 15000 });
     await page.click('#pg-area-make .hubtile[data-id="editors"] .hubpill[data-editor="sheets"]');
+    await page.waitForSelector('#pg-sheets .shlist, #pg-sheets .shsheet', { timeout: 15000 });
+    if (await page.evaluate(() => window.__ghosty?.sheets?.view === 'list')) await page.locator('#pg-sheets .shlist .shrowitem button').first().click(); // the newest book first
     await page.waitForFunction(() => window.__ghosty?.sheets?.view === 'book', null, { timeout: 15000 });
     for (const [a, t] of [['B1', 'Price'], ['B2', '1.2'], ['B3', '2'], ['B4', '1.5']]) {
       await page.locator(`.shsheet .shc[data-a="${a}"]`).first().click();
