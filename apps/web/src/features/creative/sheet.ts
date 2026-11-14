@@ -171,10 +171,12 @@ function songScreen(a: Record<string, unknown>): Screen {
     song = build();
     tempoLab.textContent = `${tempo.value} beats a minute`;
     const secs = Math.round((song.beats * 60) / song.tempo);
-    info.textContent = `${song.title === `${song.key} ${song.mode} chords` ? '' : `${song.title}: `}${song.key} ${song.mode}, ${song.bars} bars, about ${secs} seconds. Chords: ${chordWords(song).replace(/\s*\([^)]*\)\s*$/, '')}`;
+    // With no words there are no lines to number: the list goes and the song's one line says so (a status is never a numbered lyric).
+    info.textContent = `${song.lines.length ? '' : 'No words, so a chord loop: '}${song.title === `${song.key} ${song.mode} chords` ? '' : `${song.title}: `}${song.key} ${song.mode}, ${song.bars} bars, about ${secs} seconds. Chords: ${chordWords(song).replace(/\s*\([^)]*\)\s*$/, '')}`;
     sized(wav, 'Save WAV', Math.round(((song.beats * 60) / song.tempo) * RATE) * 2 + 44, true);
     sized(mid, 'Save MIDI', toMidi(song).byteLength);
-    list.replaceChildren(...(song.lines.length ? song.lines.map((l) => h('li', l.text)) : [h('li', 'No words: a chord loop with a simple tune')]));
+    list.hidden = !song.lines.length;
+    list.replaceChildren(...song.lines.map((l) => h('li', l.text)));
     Object.assign(creativeState.song, { title: song.title, key: song.key, mode: song.mode, tempo: song.tempo, seed: song.seed, bars: song.bars, notes: song.notes.length, chords: chordWords(song) });
   };
   const play = async () => {
