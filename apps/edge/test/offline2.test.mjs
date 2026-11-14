@@ -373,3 +373,58 @@ test('slower since the update: a quarter slower and 80 ms more on three opens ea
   assert.deepEqual(SW.slowerSince(samples.filter((s) => !(s.id === 'agenda' && s.b === 'new' && s.ms === 440)), 'new').map((x) => x.id), [], 'two opens in this build are not enough');
   assert.deepEqual(SW.slowerSince(samples, 'old'), [], 'faster now says nothing');
 });
+
+// ---- THE APPS ROUND (polish3): the calculator's sums and the clock's places, worked out on the phone
+await build({
+  entryPoints: [at('../../web/src/calc/eval.ts'), at('../../web/src/clock/zones.ts'), at('../../web/src/clock/words.ts')],
+  bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/apps3'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
+});
+const CA = await import('./.build/apps3/calc/eval.mjs');
+const ZO = await import('./.build/apps3/clock/zones.mjs');
+const WO = await import('./.build/apps3/clock/words.mjs');
+
+test('apps round: the calculator works sums out, a shop percent included, and says why not in plain words', () => {
+  const v = (s) => { const r = CA.calc(s); assert.ok(r.ok, `${s}: ${r.why}`); return r.value; };
+  assert.equal(v('1250×12'), 15000);
+  assert.equal(v('2+3×4'), 14);
+  assert.equal(v('(2+3)×4'), 20);
+  assert.equal(v('2^3^2'), 512);
+  assert.equal(v('−5+2'), -3);
+  assert.equal(v('50%'), 0.5);
+  assert.equal(v('200+10%'), 220);
+  assert.equal(v('200−10%'), 180);
+  assert.equal(v('200×10%'), 20);
+  assert.ok(Math.abs(v('64.80+15%') - 74.52) < 1e-9);
+  assert.equal(v('7÷2'), 3.5);
+  assert.match(CA.calc('1÷0').why, /divide by nothing/);
+  assert.match(CA.calc('(1+2').why, /bracket is open/);
+  assert.match(CA.calc('1+').why, /stops short/);
+  assert.match(CA.calc('abc').why, /numbers/);
+  assert.match(CA.calc('').why, /Type a sum/);
+  assert.equal(CA.show(15000), '15,000');
+  assert.equal(CA.show(0.1 + 0.2), '0.3');
+  assert.equal(CA.show(-1234.5), '−1,234.5');
+  assert.equal(CA.pretty('12*7-1'), '12 × 7 − 1');
+});
+
+test('apps round: the clock finds cities, knows each zone against here, and reads a stopwatch and a timer', () => {
+  assert.equal(ZO.findCity('tok')[0][0], 'Tokyo');
+  assert.equal(ZO.findCity('sao')[0][0], 'São Paulo');
+  assert.deepEqual(ZO.findCity(''), []);
+  const july = Date.UTC(2026, 6, 1, 12);
+  const jan = Date.UTC(2026, 0, 15, 12);
+  assert.equal(ZO.offsetMin('Europe/London', july), 60);
+  assert.equal(ZO.offsetMin('Europe/London', jan), 0);
+  assert.equal(ZO.offsetMin('Asia/Kolkata', jan), 330);
+  assert.equal(ZO.timeIn('Asia/Tokyo', jan), '21:00');
+  assert.equal(ZO.against('Asia/Tokyo', 'Europe/London', jan), 'Today, 9 h ahead');
+  assert.equal(ZO.against('Asia/Kolkata', 'Europe/London', jan), 'Today, 5 h 30 min ahead');
+  assert.equal(ZO.against('America/New_York', 'Europe/London', Date.UTC(2026, 0, 15, 2)), 'Yesterday, 5 h behind');
+  assert.equal(ZO.against('Europe/London', 'Europe/London', jan), 'Today, same time');
+  assert.equal(ZO.lapWords(83_450), '1:23.45');
+  assert.equal(ZO.lapWords(3_723_000), '1:02:03.00');
+  assert.equal(ZO.leftWords(299_001), '5:00');
+  assert.ok(WO.CLOCK_ASK.test('open the clock') && WO.CLOCK_ASK.test('Hey Ghosty, world clock') && WO.CLOCK_ASK.test('stopwatch'));
+  assert.ok(!WO.CLOCK_ASK.test('set a timer for 5 minutes') && !WO.CLOCK_ASK.test('what time is it'));
+  assert.ok(WO.CALC_ASK.test('calculator') && WO.CALC_ASK.test('open the calculator') && !WO.CALC_ASK.test('beam calculator'));
+});

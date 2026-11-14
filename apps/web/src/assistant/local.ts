@@ -53,7 +53,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine' | 'weatherapp' | 'clockapp' | 'calcapp';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -428,6 +428,18 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     const t0 = Date.now();
     while (weatherState.state === 'loading' && Date.now() - t0 < 5000) await new Promise((r) => setTimeout(r, 150));
     return answer(text, weatherState.line ? `Weather for ${weatherState.place}: ${weatherState.line}` : 'Here’s the weather.', { kind: 'weatherapp' }, opts);
+  },
+  // [polish3] the CLOCK ("open the clock", "world clock", "stopwatch") and the CALCULATOR ("calculator")
+  async clockapp(text, opts) {
+    const { openClock } = await import('../clock/app');
+    const part = /stop ?watch/i.test(text) ? 'stopwatch' : /timers?\b/i.test(text) ? 'timer' : 'world';
+    void openClock(part);
+    return answer(text, part === 'stopwatch' ? 'Here’s the stopwatch.' : part === 'timer' ? 'Here are your timers.' : 'Here’s the clock, with your world clocks.', { kind: 'clockapp' }, opts);
+  },
+  async calcapp(text, opts) {
+    const { openCalculator } = await import('../calc/app');
+    openCalculator();
+    return answer(text, 'Here’s the calculator. Your answers are kept on its tape.', { kind: 'calcapp' }, opts);
   },
   async camwall(text, opts) {
     location.hash = 'eye';
