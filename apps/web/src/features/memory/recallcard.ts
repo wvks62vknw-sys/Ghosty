@@ -63,6 +63,7 @@ export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line' | 'id'> & { 
   // [security] a link rebuilt from history opens only when it is an ordinary web link (core/safeurl.ts)
   } else if (r.kind === 'link') openSafe(r.id);
   else if (r.kind === 'todo') navTo('agenda', 'push');
+  else if (r.kind === 'journal') navTo('journal', 'push');
   else if (r.kind === 'book') navTo('library', 'push');
   if (r.bid) land(r.bid);
 }

@@ -1,6 +1,6 @@
 // WEATHER, an app of its own (the APPS ROUND, SEE's flagship; apps/web/src/weather/{app,words}.ts; docs/build-plan/APPS-SEE.md), on the
 // owner's 440 × 956 and a 390 × 844 phone, against the preview's real brain with the forecast stood in (no internet):
-//   a. OPEN WEATHER in the Brief opens it on home: the temperature, the sky, today's high and low, feels like, and Ghosty's dry line;
+//   a. the Weather card (the App Kit's Home card) in the Brief opens it on home: the temperature, the sky, today's high and low, feels like, and Ghosty's dry line;
 //   b. the next hour: the rain line for home ("Light rain at Birmingham in about … minutes") and its quarter hours;
 //   c. the next 24 hours as a graph: a line of 24 points for temperature, 24 bars when RAIN is picked;
 //   d. ten days, each with its range; the details (feels like, dew point, pressure and its trend, visibility, wind, UV, the sun, the
@@ -127,8 +127,8 @@ for (const vp of [PHONE, PHONE2]) {
   const { ctx, page, asked } = await phone(vp);
   // a. from the Brief
   await page.evaluate(() => (location.hash = 'brief'));
-  const key = await until(page, () => !!document.querySelector('#pg-brief button[data-act="weather"]'), null, 15000);
-  if (!check(key, `${T} [a open] the Brief's weather has no OPEN WEATHER (tab ${await page.evaluate(() => document.body.dataset.tab)}, wx ${await page.evaluate(() => !!document.querySelector(".pn.wx"))}, btns ${await page.evaluate(() => document.querySelectorAll("button[data-act=weather]").length)})`)) {
+  const key = await until(page, () => !!document.querySelector('#pg-brief button.ak-card[data-act="weather"]'), null, 15000);
+  if (!check(key, `${T} [a open] the Brief's weather has no Weather card (tab ${await page.evaluate(() => document.body.dataset.tab)}, wx ${await page.evaluate(() => !!document.querySelector(".pn.wx"))}, btns ${await page.evaluate(() => document.querySelectorAll("button[data-act=weather]").length)})`)) {
     await ctx.close();
     continue;
   }
