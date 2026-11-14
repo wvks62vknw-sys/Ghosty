@@ -7,8 +7,8 @@ Files: `packages/shared/src/applib/catalogue/body.ts` (BODY) and `packages/share
 | Family | Apps | From the owner's list | Invented | Archetypes |
 |---|---|---|---|---|
 | Health & food (`body`) | 74 | 27 apps answering 26 list entries | 47 | 31 log, 19 calc, 9 timer, 5 guide, 4 deck, 3 checklist, 3 counter |
-| Family & life (`life`) | 64 | 32 apps answering 30 list entries | 32 | 44 log, 9 checklist, 4 guide, 4 timer, 3 counter |
-| **Total** | **138** | **59** | **79** | |
+| Family & life (`life`) | 62 | 32 apps answering 30 list entries | 30 | 43 log, 8 checklist, 4 guide, 4 timer, 3 counter |
+| **Total** | **136** | **59** | **77** | |
 
 Every app passes `apps/edge/test/applib.test.mjs` (format, lengths, field references, calc tests, glyphs, British spelling,
 brand deny list).
@@ -85,7 +85,7 @@ Family & life:
 - **life.50 Travel journal** (route from photo places, map): the journal is here.
 - **life.52 Dog walks** (GPS route): a manual walk log is here.
 
-## Invented (79)
+## Invented (77)
 Health & food: BMI, Waist Ratio, Daily Energy, Protein Need, Hydration, Macro Maths, Alcohol Units, Caffeine Count, Oven
 Temps, Gas Marks, Kitchen Units, Recipe Scaler, One Rep Max, Plate Maths, Exercise Energy, Treadmill Pace, Boxing Rounds,
 EMOM Clock, Calm Breathing, Desk Stretch, Rep Counter, Five a Day, Weight Log, Blood Pressure, Sleep Diary, Health Checks,
@@ -94,6 +94,10 @@ Restaurant Notes, Stargazing Log, Gym Bag, Eatwell Guide, Food Labels, Activity 
 Birds, Tree ID, Muscle Map.
 
 Family & life: Star Chart, Egg Count, Toothbrush Timer, Tidy-up Race, Growth Log, Dates to Remember, Date Nights, Story
-Time, Pocket Money, Lost Teeth, Thank-you Notes, Lent Items, Gratitude Journal, Dream Journal, Kid Quotes, Fish Tank,
+Time, Lost Teeth, Thank-you Notes, Lent Items, Gratitude Journal, Dream Journal, Kid Quotes, Fish Tank,
 Volunteering, Game Nights, Film Nights, School Run, Baby Names, Clothes Sizes, Wedding Planner, Party Planner, Hospital
-Bag, Moving House, Home Safety, First Aid Kit, Kids Bedtime, Pet Safety, Car Seats, Register a Birth.
+Bag, Home Safety, First Aid Kit, Kids Bedtime, Pet Safety, Car Seats, Register a Birth.
+
+Pocket Money and Moving House were dropped from LIFE: the money family already makes both (Moving House is money.38).
+
+Fixes after the independent check: gas marks now follow the scale's defining °F values; pace outputs round before splitting minutes and seconds; Food Safety, Eatwell Guide and Activity Guide cite pages that hold every fact; Food Labels no longer states the 2,000 kcal basis; After a Death follows the medical examiner process in place since September 2024.
