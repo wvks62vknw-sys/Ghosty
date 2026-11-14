@@ -53,7 +53,7 @@ export const FURTHER_WORDS: Record<string, CatValue> = {
   },
   'panel:rehearse:A CONVERSATION': {
     name: 'Three rounds against me',
-    line: 'You can say the situation, answer the other side by voice or text for three rounds, in English or another language, and get notes on your answers.',
+    line: 'You can say the situation, answer the other side for three rounds, in English or another language, and get notes on your answers.',
     more: 'The notes say what landed and what to tighten in five lines: your most concrete answer, how steady you were, the line to cut, your filler words and how you began. The other side’s lines are never kept; KEEP keeps your answers and the notes on this phone.',
     say: ['Rehearse telling my landlord about the damp', '(pick Spanish under THE LANGUAGE to practise ordering in a café)', '(pick A DEBATE under WHAT KIND, and I argue the other side)'], scene: ['school', 'talking'], cat: 'learn', since: SINCE,
   },
