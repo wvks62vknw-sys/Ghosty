@@ -11453,3 +11453,7 @@ html .al-gwreveal .al-gwcell:nth-child(5) { animation-delay: 360ms; }
 html .al-gwreveal .al-gwcell:nth-child(n+6) { animation-delay: 450ms; }
 @keyframes al-gflip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
 @media (prefers-reduced-motion: reduce) { html .al-gwreveal .al-gwcell { animation: none; } }
+/* [files] asking in place (features/files/app.ts askIn): a label, a field, SAVE and CANCEL under the card's keys, never the phone's pop-up box */
+.fask { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--g-line-faint); }
+.fask .fask-in { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
+.fask .faskkeys > button { min-height: var(--g-target); box-sizing: border-box; }

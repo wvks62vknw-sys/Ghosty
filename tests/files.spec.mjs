@@ -47,9 +47,11 @@ async function open(viewport) {
   const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: 1, isMobile: true, hasTouch: true, acceptDownloads: true });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
-  // his answers to the phone's own text boxes (RENAME, TAGS, MOVE, NEW FOLDER) and its are-you-sure questions, in order
-  const answers = [];
-  page.on('dialog', (d) => void (d.type() === 'confirm' ? d.accept() : d.accept(answers.shift() ?? '')));
+  // Files never uses the phone's own pop-up boxes: any one that appears is a failure
+  page.on('dialog', (d) => {
+    problems.push(`a native ${d.type()} box appeared: "${d.message()}" (Files asks in place)`);
+    void d.dismiss();
+  });
   await page.addInitScript(({ key, doc, book, deck }) => {
     if (sessionStorage.getItem('files.seeded')) return;
     sessionStorage.setItem('files.seeded', '1');
@@ -61,10 +63,21 @@ async function open(viewport) {
   }, { key: KEY, doc, book, deck });
   await page.goto(`${base}/#files`);
   await page.waitForFunction(() => document.querySelectorAll('#pg-files .frow').length >= 3, null, { timeout: 20000 }).catch(() => problems.push(`[${viewport.width}] Files never listed the three things`));
-  return { ctx, page, answers };
+  return { ctx, page };
 }
 const rows = (page) => page.evaluate(() => [...document.querySelectorAll('#pg-files .flistbox:not([hidden]) .frow')].filter((r) => r.offsetParent).map((r) => ({ key: r.dataset.key, name: r.querySelector('.fname')?.textContent, snip: r.querySelector('.fsnip')?.textContent ?? '' })));
 const status = (page) => page.evaluate(() => document.querySelector('#pg-files [data-id="filesstatus"]')?.textContent ?? '');
+// answer Files' in-place field (RENAME, TAGS, MOVE, NEW FOLDER): it must appear with its label, keys at 44 pt, then SAVE
+const ask = async (page, words) => {
+  const box = await page.waitForSelector('.fask .fask-in', { timeout: 5000 }).catch(() => null);
+  if (!box) return void problems.push(`the in-place field never appeared for "${words}"`);
+  await page.waitForFunction(() => ![...document.querySelectorAll('.mbox, .fcard')].some((e) => e.getAnimations?.({ subtree: true }).some((x) => x.playState === 'running')), null, { timeout: 5000, polling: 'raf' }).catch(() => undefined);
+  const k = await page.evaluate(() => [...document.querySelectorAll('.fask button, .fask .fask-in')].map((b) => Math.round(b.getBoundingClientRect().height)));
+  if (!k.every((x) => x >= 44)) problems.push(`the in-place field's keys are ${JSON.stringify(k)} tall (want 44 pt)`);
+  await box.fill(words);
+  await page.evaluate(() => [...document.querySelectorAll('.fask button')].find((b) => /^save$/i.test((b.dataset.label || b.textContent || '').trim()))?.click());
+  await page.waitForTimeout(250);
+};
 const search = async (page, q) => {
   await page.fill('#pg-files .fsearch', q);
   await page.waitForTimeout(150);
@@ -77,7 +90,7 @@ const closeCard = (page) => page.keyboard.press('Escape');
 
 for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   const T = `[${tag}]`;
-  const { ctx, page, answers } = await open(vp);
+  const { ctx, page } = await open(vp);
   // a. browse and search
   let r = await rows(page);
   check(['docs', 'sheets', 'slides'].every((s) => r.some((x) => x.key?.startsWith(`${s}:`))), `${T} a. Browse lists ${JSON.stringify(r.map((x) => x.key))} (want the document, the spreadsheet and the presentation)`);
@@ -115,16 +128,16 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   check(want.every((k) => keys.some((x) => x.t === k)) && keys.every((k) => k.w >= 44 && k.h >= 44), `${T} c. the card's keys ${JSON.stringify(keys)} (want ${want.join(', ')} at 44 pt)`);
   check(await page.evaluate(() => /wisteria/.test(document.querySelector('.fcard .ftext')?.textContent ?? '')), `${T} c. the preview does not show the document's words`);
   if (tag === '440') {
-    answers.push('garden, spring');
     await page.evaluate(() => [...document.querySelectorAll('.fcard .fkeys button')].find((b) => /^tags$/i.test((b.dataset.label || b.textContent || '').trim()))?.click());
-    await page.waitForTimeout(400);
+    await ask(page, 'garden, spring');
+        await page.waitForTimeout(400);
     let note = await page.evaluate((k) => JSON.parse(localStorage.getItem('ghosty.files') ?? '{}').items?.[k], `docs:${doc.id}`);
     check(JSON.stringify(note?.tags) === '["garden","spring"]', `${T} c. TAGS kept ${JSON.stringify(note)}`);
     await page.click(`#pg-files .frow[data-key="docs:${doc.id}"] .fname`);
     await page.waitForSelector('.fcard', { timeout: 8000 });
-    answers.push('House');
     await page.evaluate(() => [...document.querySelectorAll('.fcard .fkeys button')].find((b) => /^move$/i.test((b.dataset.label || b.textContent || '').trim()))?.click());
-    await page.waitForTimeout(400);
+    await ask(page, 'House');
+        await page.waitForTimeout(400);
     note = await page.evaluate((k) => JSON.parse(localStorage.getItem('ghosty.files') ?? '{}'), `docs:${doc.id}`);
     check(note.items?.[`docs:${doc.id}`]?.folder === 'House' && note.folders?.includes('House'), `${T} c. MOVE kept ${JSON.stringify(note)}`);
     await search(page, 'spring');
@@ -132,9 +145,9 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
     await search(page, '');
     await page.click(`#pg-files .frow[data-key="docs:${doc.id}"] .fname`);
     await page.waitForSelector('.fcard', { timeout: 8000 });
-    answers.push('Garden plan 2026');
     await page.evaluate(() => [...document.querySelectorAll('.fcard .fkeys button')].find((b) => /^rename$/i.test((b.dataset.label || b.textContent || '').trim()))?.click());
-    await page.waitForTimeout(400);
+    await ask(page, 'Garden plan 2026');
+        await page.waitForTimeout(400);
     check((await docs(page)).includes('Garden plan 2026'), `${T} c. RENAME left the documents ${JSON.stringify(await docs(page))}`);
     await page.click(`#pg-files .frow[data-key="docs:${doc.id}"] .fname`);
     await page.waitForSelector('.fcard', { timeout: 8000 });

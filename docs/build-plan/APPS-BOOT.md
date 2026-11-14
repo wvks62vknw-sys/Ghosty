@@ -31,13 +31,15 @@ One place for everything Ghosty keeps. All of it stays on this phone.
   - MOVE to a folder;
   - TAGS;
   - DELETE.
+  - RENAME, MOVE, TAGS and NEW FOLDER ask in place: a labelled field under the keys with SAVE and CANCEL (Enter saves, Escape
+    cancels), never the phone's own pop-up box.
 - **Import:** IMPORT brings files in from the phone's Files app, kept untouched. A zip opens to the files inside it.
 - **Select several:** SELECT, then ZIP (one zip of them all, each in its own format) or DELETE.
 - **Recents and Favourites:** what you changed or opened last, and everything you starred.
 - **Recently deleted:**
   - every delete waits here for 30 days, kept whole, so RESTORE puts it back exactly, tags and folder too;
   - each delete also shows an UNDO bar straight away;
-  - DELETE NOW and EMPTY RECENTLY DELETED ask first.
+  - DELETE NOW and EMPTY RECENTLY DELETED ask once more on the key itself ("FOR GOOD?"), tap again within four seconds to do it.
 - **Storage:** the total, each kind's space as a bar, how much the phone lets Ghosty keep, and the biggest things first, so you can
   clear them.
 - **Its front door:**
@@ -67,13 +69,15 @@ One place for everything Ghosty keeps. All of it stays on this phone.
   - IMPORT of a text file and a zip;
   - ZIP of two things, holding a .docx and a .xlsx;
   - STORAGE;
-  - nothing sideways and every key 44 pt in every section.
-- The brain tests that count the screens now say six screens under Me and 57 in all (finding.test), as strictly as before. tabs.spec
+  - nothing sideways and every key 44 pt in every section;
+  - the in-place field and its keys at 44 pt, and no native pop-up box ever (one appearing fails the check).
+- The brain tests that count the screens now say the new Me count and 61 screens in all (finding.test), as strictly as before. tabs.spec
   and tabs2.spec say the same.
 
 ## What is left
-- **Rename, Tags, Move and New folder use the phone's own small text box.** They will move onto the App Kit's sheet once CONSISTENCY's
-  kit lands.
+- **The App Kit, adopted in part.** Files uses the kit's `skeleton` while it gathers, and asks in place instead of pop-up boxes. Its
+  frame is still the shared `sheetPage` rather than the kit's `app()` frame: moving the whole screen onto `app()` would change every
+  section's layout an hour before the stop, so it is left for the next round rather than half done.
 - **Photo, Video, Game Studio and Comic things are listed, sized, starred, tagged, filed and shared, but deleted in their own app.**
   Each of those apps already has its own way back, and Files does not duplicate it.
 - **Every new app saves into Files** automatically only where its store is one of the eight above. An app that adds a new store needs

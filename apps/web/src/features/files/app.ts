@@ -11,6 +11,7 @@
 import { h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, modal, toast, undoBar } from '../../ui/components';
+import { skeleton } from '../../ui/appkit';
 import { sayError } from '../../ui/hisWords';
 import { addFolder, binned, dropFolder, filesStore, keepOwn, noteOf, notes, outOfBin, setNote, toBin, type Binned } from './store';
 import { asFile, binOf, duplicate, gather, putBack, removeFromApp, rename, type Item } from './sources';
@@ -142,6 +143,49 @@ async function importFiles(list: FileList | File[]): Promise<number> {
   return n;
 }
 
+// ---------------------------------------------------------------- asking in place (never the phone's own pop-up box)
+/** A field in place under `host`: its label, the field, SAVE and CANCEL (Enter saves, Escape cancels); the words, or null when cancelled. */
+function askIn(host: HTMLElement, label: string, value: string, hint = ''): Promise<string | null> {
+  host.querySelector('.fask')?.remove();
+  return new Promise((done) => {
+    const input = h('input.fask-in', { type: 'text', value, placeholder: hint, 'aria-label': label, enterKeyHint: 'done' }) as HTMLInputElement;
+    const box = h('div.fask', { role: 'group', 'aria-label': label }, h('label.lab', label), input);
+    const end = (v: string | null) => {
+      box.remove();
+      done(v);
+    };
+    box.append(h('div.keyrow.faskkeys', button('SAVE', () => end(input.value), 'on'), button('CANCEL', () => end(null))));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') end(input.value);
+      else if (e.key === 'Escape') {
+        e.stopPropagation();
+        end(null);
+      }
+    });
+    host.append(box);
+    input.focus();
+    input.select();
+  });
+}
+/** A key that asks once more in its own words before something that cannot be undone ("DELETE FOR GOOD?"), then does it. */
+function twice(word: string, again: string, run: () => Promise<void> | void, cls = 'warn'): HTMLButtonElement {
+  let armed = 0;
+  const b = button(word, async () => {
+    if (Date.now() - armed > 4000) {
+      armed = Date.now();
+      b.textContent = again;
+      setTimeout(() => {
+        if (Date.now() - armed >= 4000) b.textContent = word;
+      }, 4100);
+      return;
+    }
+    armed = 0;
+    b.textContent = word;
+    await run();
+  }, cls);
+  return b;
+}
+
 // ---------------------------------------------------------------- the card: a preview and every action
 async function preview(it: Item): Promise<HTMLElement> {
   const box = h('div.fpreview', { dataset: { case: 'keep' } });
@@ -179,8 +223,9 @@ export async function showCard(it: Item): Promise<void> {
   const keys = h('div.keyrow.fkeys');
   keys.append(button(it.src === 'own' ? 'SHARE' : `OPEN IN ${it.app.toUpperCase()}`, () => (it.src === 'own' ? void share([it]) : (close(), void openItem(it)))));
   if (it.src !== 'own') keys.append(button('SHARE', () => void share([it])));
+  const askHere = h('div.faskhost');
   if (it.can.rename) keys.append(button('RENAME', async () => {
-    const n = prompt('A new name', it.name);
+    const n = await askIn(askHere, 'A new name', it.name);
     if (n && n.trim() && (await rename(it, n))) await done();
   }));
   if (it.can.duplicate) keys.append(button('DUPLICATE', async () => {
@@ -190,13 +235,13 @@ export async function showCard(it: Item): Promise<void> {
     }
   }));
   keys.append(button('MOVE', async () => {
-    const f = prompt(`Move to which folder? (${notes().folders.join(', ') || 'none yet'}; empty takes it out of its folder)`, note.folder ?? '');
+    const f = await askIn(askHere, notes().folders.length ? `Move to a folder (yours: ${notes().folders.join(', ')}); empty takes it out` : 'Move to a new folder; empty takes it out', note.folder ?? '', 'A folder’s name');
     if (f === null) return;
     setNote(it.key, { folder: cleanFolder(f) || undefined });
     await done();
   }));
   keys.append(button('TAGS', async () => {
-    const t = prompt('Tags, separated by commas', (note.tags ?? []).join(', '));
+    const t = await askIn(askHere, 'Tags, separated by commas', (note.tags ?? []).join(', '), 'work, receipts, 2026');
     if (t === null) return;
     setNote(it.key, { tags: [...new Set(t.split(',').map(cleanTag).filter(Boolean))].slice(0, 8) });
     await done();
@@ -205,7 +250,7 @@ export async function showCard(it: Item): Promise<void> {
     close();
     await deleteItems([it]);
   }, 'warn'));
-  body.append(meta, folderLine, tagLine, await preview(it), keys);
+  body.append(meta, folderLine, tagLine, await preview(it), keys, askHere);
   const m = modal(it.name.toUpperCase().slice(0, 60), body);
   close = () => m.close();
 }
@@ -252,6 +297,7 @@ export function browsePart(): { el: HTMLElement; stop(): void } {
   const picker = h('input', { type: 'file', multiple: true, hidden: true, 'aria-hidden': 'true' }) as HTMLInputElement;
   const status = h('p.note.fstatus', { role: 'status', dataset: { case: 'keep', id: 'filesstatus' } });
   const list = h('div.flistbox', { 'aria-live': 'polite' });
+  const folderAsk = h('div.faskhost');
   const selectBar = h('div.keyrow.fselbar', { hidden: true });
   let kind: Kind | '' = '';
   let folder = '';
@@ -279,7 +325,9 @@ export function browsePart(): { el: HTMLElement; stop(): void } {
   selectBar.append(zipKey, delKey);
   const paint = async () => {
     if (!filesState.loaded) {
+      /* state: files.browse loading */
       status.textContent = 'Gathering everything Ghosty keeps…';
+      list.replaceChildren(skeleton(4, 'Gathering everything Ghosty keeps'));
       await refresh();
     }
     const n = notes();
@@ -296,8 +344,8 @@ export function browsePart(): { el: HTMLElement; stop(): void } {
       b.setAttribute('aria-pressed', String(folder === f));
       b.classList.toggle('on', folder === f);
       return b;
-    }), button('NEW FOLDER', () => {
-      const f = cleanFolder(prompt('The new folder’s name') ?? '');
+    }), button('NEW FOLDER', async () => {
+      const f = cleanFolder((await askIn(folderAsk, 'The new folder’s name', '', 'Receipts')) ?? '');
       if (!f) return;
       addFolder(f);
       folder = f;
@@ -321,7 +369,7 @@ export function browsePart(): { el: HTMLElement; stop(): void } {
   sortSel.addEventListener('change', () => void paint());
   const stop = live(paint);
   void refresh().then(paint);
-  return { el: h('div.files', h('div.keyrow.ftop', q), h('div.keyrow.ftools', importKey, selKey, sortSel), kinds, folders, selectBar, status, list, picker, undo.el), stop };
+  return { el: h('div.files', h('div.keyrow.ftop', q), h('div.keyrow.ftools', importKey, selKey, sortSel), kinds, folders, folderAsk, selectBar, status, list, picker, undo.el), stop };
 }
 
 // ---------------------------------------------------------------- RECENTS and FAVOURITES
@@ -347,12 +395,11 @@ export const favouritesPart = () => shortList('favourites');
 export function binPart(): { el: HTMLElement; stop(): void } {
   const status = h('p.note', { role: 'status', dataset: { case: 'keep', id: 'filesbin' } });
   const list = h('div.flistbox');
-  const empty = button('EMPTY RECENTLY DELETED', async () => {
-    if (!confirm('Delete everything in Recently deleted for good? This can’t be undone.')) return;
+  const empty = twice('EMPTY RECENTLY DELETED', 'DELETE ALL FOR GOOD?', async () => {
     for (const b of await binned()) await outOfBin(b.key);
     await refresh();
     changed();
-  }, 'warn');
+  });
   const paint = async () => {
     const l = await binned();
     filesState.binned = l.length;
@@ -370,12 +417,11 @@ export function binPart(): { el: HTMLElement; stop(): void } {
           await refresh();
           changed();
         } else toast(`${b.name} could not go back: its app’s store is full. Make room there and try again.`, 'warn');
-      }), button('DELETE NOW', async () => {
-        if (!confirm(`Delete ${b.name} for good?`)) return;
+      }), twice('DELETE NOW', 'FOR GOOD?', async () => {
         await outOfBin(b.key);
         await refresh();
         changed();
-      }, 'warn')))));
+      })))));
   };
   const stop = live(paint);
   void paint();
