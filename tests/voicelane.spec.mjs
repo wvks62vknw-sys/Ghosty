@@ -266,6 +266,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await page.click('#wordbar button:has-text("REMEMBER IT")');
   check(await page.evaluate(() => window.__ghosty.learnwords.learned().some((l) => l.words === 'wonga page' && l.tab === 'money')), `[${W}] [learn] REMEMBER IT kept nothing: ${JSON.stringify(await page.evaluate(() => window.__ghosty.learnwords.learned()))}`);
   check(await page.evaluate(() => document.querySelector('#wordbar')?.hidden === true), `[${W}] [learn] the bar stayed after REMEMBER IT`);
+  check(await page.waitForFunction(() => /^Kept: “wonga page” opens Money\./.test(document.querySelector('.undofloat:not(.wordbar):not([hidden]) span')?.textContent ?? ''), null, { timeout: 4000 }).then(() => true, () => false), `[${W}] [learn] no UNDO after REMEMBER IT`);
   r = await say(page, 'wonga page', /^Opening Money: you taught me “wonga page”\.$/, `[${W}] [learn] the taught wording`);
   check(await page.waitForFunction(() => /money/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [learn] the taught wording did not open Money (${await page.evaluate(() => location.hash)})`);
   check(!toBrain('wonga page') || sent.filter((b) => String(b.message ?? '').startsWith('wonga page')).length === 1, `[${W}] [learn] once taught, it still went to the brain`);
