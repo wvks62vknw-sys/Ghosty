@@ -12,7 +12,7 @@ import { zipStore } from '../../convert/zip';
 export async function saveLayers(p: Painting): Promise<SavedLayer[]> {
   const out: SavedLayer[] = [];
   for (const L of p.layers) {
-    out.push({ id: L.id, name: L.name, png: await blobOf(L.c), mask: L.mask ? await blobOf(L.mask) : undefined, blend: L.blend, opacity: L.opacity, visible: L.visible, alphaLock: L.alphaLock, reference: L.reference });
+    out.push({ id: L.id, name: L.name, png: await blobOf(L.c), mask: L.mask ? await blobOf(L.mask) : undefined, blend: L.blend, opacity: L.opacity, visible: L.visible, alphaLock: L.alphaLock, reference: L.reference, ...(L.clip ? { clip: true } : {}) });
   }
   return out;
 }
@@ -29,7 +29,7 @@ export async function openBody(w: number, h: number, paper: string, layers: Save
   const p = new Painting(w, h);
   p.paper = paper;
   for (const s of layers) {
-    const L: Layer = { id: s.id, name: s.name, c: mk(w, h), blend: s.blend as GlobalCompositeOperation, opacity: s.opacity, visible: s.visible, alphaLock: s.alphaLock, reference: s.reference, mask: null };
+    const L: Layer = { id: s.id, name: s.name, c: mk(w, h), blend: s.blend as GlobalCompositeOperation, opacity: s.opacity, visible: s.visible, alphaLock: s.alphaLock, reference: s.reference, ...(s.clip ? { clip: true } : {}), mask: null };
     await drawBlob(L.c, s.png);
     if (s.mask) { L.mask = mk(w, h); await drawBlob(L.mask, s.mask); }
     p.layers.push(L);
@@ -64,7 +64,7 @@ export function psdBlob(p: Painting): Blob {
   for (const L of p.layers) {
     let src = L.c;
     if (L.mask) { src = mk(p.w, p.h); const g = src.getContext('2d')!; g.drawImage(L.c, 0, 0); g.globalCompositeOperation = 'destination-in'; g.drawImage(L.mask, 0, 0); }
-    layers.push({ name: L.name, rgba: data(src), opacity: L.opacity, visible: L.visible, blend: L.blend });
+    layers.push({ name: L.name, rgba: data(src), opacity: L.opacity, visible: L.visible, blend: L.blend, clip: !!L.clip });
   }
   const bytes = psdOf(p.w, p.h, layers, data(p.composite(mk(p.w, p.h), { paper: true })));
   return new Blob([bytes as BlobPart], { type: 'image/vnd.adobe.photoshop' });
@@ -168,4 +168,26 @@ export async function playInto(view: HTMLCanvasElement, log: Op[], w: number, h:
   rec.stop();
   await done;
   return chunks.length ? new Blob(chunks, { type: type.split(';')[0] }) : null;
+}
+
+/** The layers an OpenRaster file (.ora, from Krita, GIMP or MyPaint) holds, read from its stack.xml as text: each layer's name,
+ * picture, place, opacity, visibility and blend mode, bottom layer first. */
+export function oraStack(xml: string): { w: number; h: number; layers: { name: string; src: string; x: number; y: number; opacity: number; visible: boolean; blend: string }[] } {
+  const attr = (tag: string, n: string): string | undefined => new RegExp(`\\b${n}="([^"]*)"`).exec(tag)?.[1];
+  const un = (s: string): string => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const img = /<image\b[^>]*>/.exec(xml)?.[0] ?? '';
+  const back = Object.fromEntries(Object.entries(ORA_BLEND).map(([k, v]) => [v, k]));
+  const layers = [...xml.matchAll(/<layer\b[^>]*>/g)].map((m) => {
+    const t = m[0];
+    return {
+      name: un(attr(t, 'name') ?? 'Layer').slice(0, 40),
+      src: attr(t, 'src') ?? '',
+      x: Number(attr(t, 'x') ?? 0) || 0,
+      y: Number(attr(t, 'y') ?? 0) || 0,
+      opacity: Math.max(0, Math.min(1, Number(attr(t, 'opacity') ?? 1))),
+      visible: attr(t, 'visibility') !== 'hidden',
+      blend: back[attr(t, 'composite-op') ?? ''] ?? 'source-over',
+    };
+  }).filter((l) => l.src).reverse();
+  return { w: Number(attr(img, 'w') ?? 0) || 0, h: Number(attr(img, 'h') ?? 0) || 0, layers };
 }

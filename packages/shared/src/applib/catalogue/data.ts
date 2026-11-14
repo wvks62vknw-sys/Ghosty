@@ -31,7 +31,7 @@ export const DATA: AppDef[] = [
     ],
     importer: imp('apple-health', HEALTH_HOW, {
       fields: [date, { id: 'steps', label: 'Steps', type: 'number' }, { id: 'km', label: 'Distance', type: 'number', unit: 'km', step: 0.01 }, { id: 'flights', label: 'Stairs', type: 'number', unit: 'flights' }],
-      title: '{steps} steps', sub: '{km} km · {flights} flights', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
+      title: '{steps} steps', sub: '{km} · {flights}', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
       stats: [
         { label: 'Today', kind: 'sum', field: 'steps', period: 'day', goal: 10000, dir: 'reach' },
         { label: 'Daily average', kind: 'avg', field: 'steps', period: 'month' },
@@ -75,7 +75,7 @@ export const DATA: AppDef[] = [
     ],
     importer: imp('apple-health', HEALTH_HOW, {
       fields: [date, { id: 'avg', label: 'Average', type: 'number', unit: 'bpm' }, { id: 'low', label: 'Lowest', type: 'number', unit: 'bpm' }, { id: 'high', label: 'Highest', type: 'number', unit: 'bpm' }, { id: 'resting', label: 'Resting', type: 'number', unit: 'bpm' }, { id: 'hrv', label: 'Variability', type: 'number', unit: 'ms' }],
-      title: '{resting} bpm resting', sub: '{low} to {high} bpm', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
+      title: '{resting} resting', sub: '{low} to {high}', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
       stats: [
         { label: 'Resting', kind: 'last', field: 'resting' },
         { label: 'Month average', kind: 'avg', field: 'resting', period: 'month' },
@@ -97,7 +97,7 @@ export const DATA: AppDef[] = [
     ],
     importer: imp('apple-health', HEALTH_HOW, {
       fields: [date, time, { id: 'type', label: 'Workout', type: 'text' }, { id: 'mins', label: 'Time', type: 'duration' }, { id: 'km', label: 'Distance', type: 'number', unit: 'km', step: 0.01 }, { id: 'kcal', label: 'Energy', type: 'number', unit: 'kcal' }],
-      title: 'type', sub: '{mins} min · {km} km', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
+      title: 'type', sub: '{mins} · {km}', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
       stats: [
         { label: 'This month', kind: 'count', period: 'month' },
         { label: 'Minutes', kind: 'sum', field: 'mins', period: 'week', goal: 150, dir: 'reach' },
@@ -119,7 +119,7 @@ export const DATA: AppDef[] = [
     ],
     importer: imp('apple-health', HEALTH_HOW, {
       fields: [date, { id: 'kg', label: 'Weight', type: 'number', unit: 'kg', step: 0.1 }, { id: 'fat', label: 'Body fat', type: 'number', unit: '%', step: 0.1 }],
-      title: '{kg} kg', sub: '{fat}% body fat', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
+      title: 'kg', sub: '{fat} body fat', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
       stats: [
         { label: 'Latest', kind: 'last', field: 'kg' },
         { label: 'Year low', kind: 'min', field: 'kg', period: 'year' },
@@ -141,7 +141,7 @@ export const DATA: AppDef[] = [
     ],
     importer: imp('apple-health', HEALTH_HOW, {
       fields: [date, { id: 'move', label: 'Move', type: 'number', unit: 'kcal' }, { id: 'goal', label: 'Move goal', type: 'number', unit: 'kcal' }, { id: 'exercise', label: 'Exercise', type: 'duration' }, { id: 'stand', label: 'Stand', type: 'number', unit: 'hours' }],
-      title: '{move} kcal', sub: '{exercise} min exercise · {stand} h stand', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
+      title: 'move', sub: '{exercise} exercise · {stand} stand', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' },
       stats: [
         { label: 'Exercise', kind: 'sum', field: 'exercise', period: 'week', goal: 150, dir: 'reach' },
         { label: 'Move average', kind: 'avg', field: 'move', period: 'month' },
@@ -322,7 +322,7 @@ export const DATA: AppDef[] = [
       'Pick the files or the zip here. Routes stay on the phone.',
     ], {
       fields: [date, time, { id: 'sport', label: 'Sport', type: 'choice', options: ['Run', 'Ride', 'Walk', 'Hike', 'Swim', 'Other'] }, { id: 'name', label: 'Name', type: 'text' }, { id: 'km', label: 'Distance', type: 'number', unit: 'km', step: 0.01 }, { id: 'mins', label: 'Time', type: 'duration' }, { id: 'pace', label: 'Pace', type: 'text' }, { id: 'kmh', label: 'Speed', type: 'number', unit: 'km/h', step: 0.1 }, { id: 'climb', label: 'Climb', type: 'number', unit: 'm' }, { id: 'hr', label: 'Heart rate', type: 'number', unit: 'bpm' }, { id: 'kcal', label: 'Energy', type: 'number', unit: 'kcal' }, { id: 'splits', label: 'Splits', type: 'long' }],
-      title: 'name', sub: '{km} km · {pace}', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'sport',
+      title: 'name', sub: '{km} · {pace}', meta: 'date', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'sport',
       stats: [
         { label: 'This week', kind: 'sum', field: 'km', period: 'week', goal: 20, dir: 'reach' },
         { label: 'This year', kind: 'sum', field: 'km', period: 'year' },

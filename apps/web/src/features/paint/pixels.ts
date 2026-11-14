@@ -135,7 +135,7 @@ export function comicArtOf(rgba: Uint8ClampedArray, w: number, h: number, levels
 }
 
 // ---- PSD (Adobe Photoshop's own format), PackBits-packed, 8 bits, RGB, every layer kept with its name and blend mode
-export type PsdLayer = { name: string; rgba: Uint8ClampedArray; opacity: number; visible: boolean; blend: string };
+export type PsdLayer = { name: string; rgba: Uint8ClampedArray; opacity: number; visible: boolean; blend: string; clip?: boolean };
 
 export const PSD_BLEND: Record<string, string> = {
   'source-over': 'norm', multiply: 'mul ', screen: 'scrn', overlay: 'over', darken: 'dark', lighten: 'lite', 'color-dodge': 'div ',
@@ -220,7 +220,7 @@ export function psdOf(w: number, h: number, layers: PsdLayer[], merged: Uint8Cla
     chans.push(cs);
     for (const [id, c] of [[-1, cs[0]!], [0, cs[1]!], [1, cs[2]!], [2, cs[3]!]] as const) { li.i16(id); li.u32(c.length); }
     li.ascii('8BIM'); li.ascii(PSD_BLEND[L.blend] ?? 'norm');
-    li.u8(Math.round(Math.max(0, Math.min(1, L.opacity)) * 255)); li.u8(0); li.u8(L.visible ? 0 : 2); li.u8(0);
+    li.u8(Math.round(Math.max(0, Math.min(1, L.opacity)) * 255)); li.u8(L.clip ? 1 : 0); li.u8(L.visible ? 0 : 2); li.u8(0);
     const name = Uint8Array.from(L.name.slice(0, 200), (c) => (c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 63));
     const nameLen = 1 + name.length, padded = Math.ceil(nameLen / 4) * 4;
     li.u32(4 + 4 + padded);
@@ -268,7 +268,7 @@ export function psdInfo(b: Uint8Array): { w: number; h: number; layers: string[]
 
 /** Open a PSD's layers (8-bit RGB, raw or PackBits, as Photoshop, Procreate and Krita save them): each layer's name, box, blend
  * mode, opacity, visibility and pixels. Null when it is another kind (16-bit, CMYK) the app can't open yet, said by `why`. */
-export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: string; x: number; y: number; w: number; h: number; rgba: Uint8ClampedArray; opacity: number; visible: boolean; blend: string }[] } | { why: string } {
+export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: string; x: number; y: number; w: number; h: number; rgba: Uint8ClampedArray; opacity: number; visible: boolean; blend: string; clip: boolean }[] } | { why: string } {
   if (b.length < 26 || String.fromCharCode(b[0]!, b[1]!, b[2]!, b[3]!) !== '8BPS') return { why: 'That is not a PSD file.' };
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
   if (v.getUint16(4) !== 1) return { why: 'That is a large-document PSB, which I can’t open yet.' };
@@ -282,7 +282,7 @@ export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: 
   at += 4;
   const n = Math.abs(v.getInt16(at)); at += 2;
   const BLEND = Object.fromEntries(Object.entries(PSD_BLEND).map(([k, val]) => [val, k]));
-  const recs: { name: string; top: number; left: number; bottom: number; right: number; chans: { id: number; len: number }[]; blend: string; opacity: number; visible: boolean }[] = [];
+  const recs: { name: string; top: number; left: number; bottom: number; right: number; chans: { id: number; len: number }[]; blend: string; opacity: number; visible: boolean; clip: boolean }[] = [];
   for (let i = 0; i < n; i++) {
     const top = v.getInt32(at), left = v.getInt32(at + 4), bottom = v.getInt32(at + 8), right = v.getInt32(at + 12); at += 16;
     const nc = v.getUint16(at); at += 2;
@@ -290,7 +290,7 @@ export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: 
     for (let k = 0; k < nc; k++) { chans.push({ id: v.getInt16(at), len: v.getUint32(at + 2) }); at += 6; }
     at += 4;
     const key = String.fromCharCode(b[at]!, b[at + 1]!, b[at + 2]!, b[at + 3]!); at += 4;
-    const opacity = b[at]! / 255, flags = b[at + 2]!; at += 4;
+    const opacity = b[at]! / 255, clip = b[at + 1] === 1, flags = b[at + 2]!; at += 4;
     const extra = v.getUint32(at); at += 4;
     const end = at + extra;
     at += 4 + v.getUint32(at);
@@ -308,7 +308,7 @@ export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: 
       q += 12 + len + (len % 2);
     }
     at = end;
-    recs.push({ name: name.replace(/\0+$/, '') || `Layer ${i + 1}`, top, left, bottom, right, chans, blend: BLEND[key] ?? 'source-over', opacity, visible: !(flags & 2) });
+    recs.push({ name: name.replace(/\0+$/, '') || `Layer ${i + 1}`, top, left, bottom, right, chans, blend: BLEND[key] ?? 'source-over', opacity, visible: !(flags & 2), clip });
   }
   const layers = [];
   for (const r of recs) {
@@ -336,7 +336,7 @@ export function readPsd(b: Uint8Array): { w: number; h: number; layers: { name: 
       for (let i = 0; i < lw * lh; i++) rgba[i * 4 + target] = plane[i]!;
     }
     if (!hasAlpha) for (let i = 0; i < lw * lh; i++) rgba[i * 4 + 3] = 255;
-    layers.push({ name: r.name, x: r.left, y: r.top, w: lw, h: lh, rgba, opacity: r.opacity, visible: r.visible, blend: r.blend });
+    layers.push({ name: r.name, x: r.left, y: r.top, w: lw, h: lh, rgba, opacity: r.opacity, visible: r.visible, blend: r.blend, clip: r.clip });
   }
   return { w, h, layers };
 }

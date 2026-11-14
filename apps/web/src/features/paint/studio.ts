@@ -73,6 +73,8 @@ export interface StudioOpts {
   /** the Comic's inking: a word for the done key, and no gallery words */
   doneWord?: string;
   ask?: (mood: string) => Promise<string[]>;
+  /** open straight onto the time-lapse, playing (the gallery's TIME-LAPSE key) */
+  autoplay?: boolean;
 }
 
 export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement; stop(): void; repaint(): void } {
@@ -199,7 +201,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
     const st = p.steps();
     Object.assign(paintState, {
       open: true, title: o.title, tool, brush: brush.id, colour, size: brush.size, opacity: brush.opacity, sym,
-      layers: p.layers.map((L) => ({ id: L.id, name: L.name, blend: L.blend, opacity: L.opacity, visible: L.visible, alphaLock: L.alphaLock, reference: L.reference, mask: !!L.mask })),
+      layers: p.layers.map((L) => ({ id: L.id, name: L.name, blend: L.blend, opacity: L.opacity, visible: L.visible, alphaLock: L.alphaLock, reference: L.reference, clip: !!L.clip, mask: !!L.mask })),
       cur: p.cur, undo: st.undo, redo: st.redo, strokes, selection: !!sel,
       view: { zoom: Math.round((view.s / Math.max(1e-6, fitScale())) * 100) / 100, rot: view.rot, flip: view.flip },
     });
@@ -443,7 +445,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
       thumb.className = 'pxthumb';
       const pickK = key(L.name, () => { p.cur = i; onMask = false; say(`Drawing on ${L.name}.`); sync(); layersPanel(); }, `Draw on ${L.name}${on ? ' (chosen)' : ''}`, `pxlname${on ? ' on' : ''}`);
       const eye = key(L.visible ? 'SHOWN' : 'HIDDEN', () => { p.setProp(L.id, 'visible', !L.visible); changed('visible'); }, `${L.visible ? 'Hide' : 'Show'} ${L.name}`);
-      const row = h('div.pxlayer', { dataset: { on: String(on), id: L.id } }, thumb, h('div.pxlwords', pickK, h('span.pxsmall', `${blendName(L.blend)} · ${Math.round(L.opacity * 100)}%${L.alphaLock ? ' · alpha locked' : ''}${L.reference ? ' · reference' : ''}${L.mask ? ' · mask' : ''}`)), eye);
+      const row = h('div.pxlayer', { dataset: { on: String(on), id: L.id } }, thumb, h('div.pxlwords', pickK, h('span.pxsmall', `${blendName(L.blend)} · ${Math.round(L.opacity * 100)}%${L.alphaLock ? ' · alpha locked' : ''}${L.reference ? ' · reference' : ''}${L.clip ? ' · clipped' : ''}${L.mask ? ' · mask' : ''}`)), eye);
       return row;
     });
     const L = p.layer;
@@ -457,6 +459,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
       h('label.pxslide', h('span.pxlab', 'Opacity'), op),
       h('div.pxrow',
         toggle('ALPHA LOCK', L.alphaLock, () => { p.setProp(L.id, 'alphaLock', !L.alphaLock); say(L.alphaLock ? 'Alpha lock on: paint only lands where this layer already has paint.' : 'Alpha lock off.'); changed('lock'); }, 'Alpha lock: paint only where this layer has paint'),
+        toggle('CLIPPING MASK', !!L.clip, () => { if (p.cur === 0 && !L.clip) { say('The bottom layer has nothing under it to clip to.'); return; } p.setProp(L.id, 'clip', !L.clip); say(L.clip ? `${L.name} shows only where the layer under it has paint: shade and texture without going over the edge.` : 'Clipping mask off.'); changed('clip'); }, 'Clipping mask: this layer shows only where the layer under it has paint'),
         toggle('REFERENCE', L.reference, () => { p.setProp(L.id, 'reference', !L.reference); say(L.reference ? `${L.name} is the reference: fills on any layer stop at its lines.` : 'No reference layer.'); changed('ref'); }, 'Reference: fills stop at this layer’s lines'),
         toggle(L.mask ? (onMask ? 'DRAWING ON MASK' : 'MASK') : 'ADD MASK', !!L.mask && onMask, () => {
           if (!L.mask) { p.setMask(L.id, true); onMask = true; say('Mask added. Brush hides this layer, eraser brings it back.'); }
@@ -805,7 +808,10 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
 
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { size(); if (fitted) fit(); back = backdrop(); ask(); }) : null;
   ro?.observe(stage);
-  requestAnimationFrame(() => { size(); fit(); back = backdrop(); sync(); ask(); });
+  requestAnimationFrame(() => {
+    size(); fit(); back = backdrop(); sync(); ask();
+    if (o.autoplay) { morePanel(); sheet.querySelector<HTMLButtonElement>('button[aria-label="Play the time-lapse"]')?.click(); }
+  });
   showSliders();
   say(o.doneWord ? 'Ink straight onto the panel. Your lines sit on their own layer over the art.' : `${brush.name} on ${p.layer.name}. Pinch to zoom; a two-finger tap undoes.`);
 

@@ -141,7 +141,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Keep', 'Review', 'Cancel'] }),
         fd('link', 'Manage Page', 'link'),
       ],
-      title: 'service', sub: '{kind} · {status}', meta: 'monthly', date: 'renews', sort: { field: 'renews', dir: 'asc' }, group: 'status',
+      title: 'service', sub: 'kind', meta: 'monthly', date: 'renews', sort: { field: 'renews', dir: 'asc' }, group: 'status',
       stats: [
         { label: 'Per Month', kind: 'sum', field: 'monthly', period: 'all' },
         { label: 'Services', kind: 'count', period: 'all' },
@@ -290,7 +290,7 @@ export const MONEY: AppDef[] = [
         { label: 'Items', kind: 'count', period: 'all' },
         { label: 'Most Valuable', kind: 'max', field: 'value', period: 'all' },
       ],
-      views: ['gallery', 'list', 'board'],
+      views: ['list', 'gallery', 'board'],
     },
     sample: [
       { item: 'Corner sofa', room: 'Living Room', value: 950, bought: '2024-03-12' },
@@ -403,6 +403,7 @@ export const MONEY: AppDef[] = [
         { in: { p1: 10, p2: 5, p5: 4, p10: 3, p20: 2, p50: 1, l1: 2, l2: 1 }, out: { total: 5.6, coins: 28 } },
         { in: { p1: 0, p2: 0, p5: 0, p10: 0, p20: 0, p50: 0, l1: 0, l2: 10 }, out: { total: 20, weight: 0.12 } },
       ],
+      estimate: true,
       source: 'Royal Mint coin specifications (face values and weights)',
     },
   },
@@ -479,6 +480,7 @@ export const MONEY: AppDef[] = [
         { in: { essentials: 1500, months: 3, saved: 2500, monthly: 200 }, out: { target: 4500, covered: 1.67, gap: 2000, wait: 10 } },
         { in: { essentials: 1000, months: 6, saved: 7000, monthly: 0 }, out: { covered: 7, gap: 0 } },
       ],
+      estimate: true,
       source: 'MoneyHelper emergency savings guide: essential costs × the months you want covered',
     },
   },
@@ -809,6 +811,7 @@ export const MONEY: AppDef[] = [
         { in: { rent: 1800, people: 3, mine: 12, rooms: 33, shared: 40 }, out: { share: 632.73, equal: 600, diff: 32.73 } },
         { in: { rent: 1000, people: 2, mine: 10, rooms: 20, shared: 50 }, out: { share: 500, diff: 0 } },
       ],
+      estimate: true,
       source: 'Proportional split by floor area, with the shared share divided equally',
     },
   },
@@ -956,26 +959,6 @@ export const MONEY: AppDef[] = [
       ],
     },
   },
-  {
-    id: 'help-finder', name: 'Help Finder', family: 'money', glyph: 'shield', from: 'money.10', archetype: 'guide',
-    pitch: 'Discounts, reliefs and social tariffs you may qualify for, from GOV.UK’s rules.',
-    keywords: ['discounts', 'reliefs', 'benefits', 'social tariff', 'council tax', 'marriage allowance'],
-    tour: ['Search for the help you think may fit, such as council tax.', 'Each section says who qualifies and where to apply.', 'It never applies for you, and it is not advice.'],
-    guide: {
-      source: { name: 'GOV.UK', url: 'https://www.gov.uk/browse/benefits' },
-      sections: [
-        { title: 'Council Tax single person discount', body: 'If you are the only adult (18 or over) living in your home, you can get 25% off your Council Tax bill. Apply to your local council.', tags: ['council tax', 'discount'] },
-        { title: 'Council Tax Reduction', body: 'If you are on a low income or get benefits, your council may reduce your bill. Each council runs its own scheme; apply to your local council.', tags: ['council tax', 'low income'] },
-        { title: 'Marriage Allowance', body: 'If you are married or in a civil partnership and one of you earns less than the Personal Allowance, they can transfer £1,260 of it to the other, as long as the other is a basic rate taxpayer. It can cut the couple’s tax by up to £252 a year. Apply on GOV.UK.', tags: ['tax', 'couples'] },
-        { title: 'Working from home relief', body: 'If your employer requires you to work from home and does not pay your extra costs, you can claim tax relief on £6 a week without keeping receipts. Choosing to work from home does not qualify.', tags: ['tax', 'work'] },
-        { title: 'Uniform and work clothing', body: 'If you wash, repair or replace a uniform or protective clothing you must wear for work, you may claim tax relief. Many jobs have a set flat rate; check the list on GOV.UK.', tags: ['tax', 'work'] },
-        { title: 'Warm Home Discount', body: 'A one-off £150 discount on your electricity bill for the winter, for people who get certain means-tested benefits. Most eligible people get it automatically.', tags: ['energy', 'winter'] },
-        { title: 'Social broadband and phone tariffs', body: 'Cheaper broadband and phone deals for people on Universal Credit, Pension Credit and some other benefits. Ofcom keeps a public list of providers that offer them.', tags: ['broadband', 'phone'] },
-        { title: 'Water bill help', body: 'Every water company in England and Wales has a social tariff or a support scheme for people who struggle to pay. Ask your water company.', tags: ['water', 'bills'] },
-        { title: 'Free benefit checkers', body: 'GOV.UK lists free, independent benefit calculators that show which benefits you could get and how much. They are anonymous.', tags: ['benefits', 'calculator'] },
-      ],
-    },
-  },
 
   // ——— Work and business ———
   {
@@ -994,7 +977,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Draft', 'Sent', 'Overdue', 'Paid'], default: 'Draft' }),
         fd('work', 'Work', 'long', { hint: 'Line items' }),
       ],
-      title: '{number} · {client}', sub: '{status} · due {due}', meta: 'amount', date: 'issued', sort: { field: 'issued', dir: 'desc' }, group: 'status',
+      title: '{number} · {client}', sub: 'Due {due}', meta: 'amount', date: 'issued', sort: { field: 'issued', dir: 'desc' }, group: 'status',
       stats: [
         { label: 'Invoiced Month', kind: 'sum', field: 'amount', period: 'month' },
         { label: 'Invoiced Year', kind: 'sum', field: 'amount', period: 'year' },
@@ -1027,7 +1010,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Draft', 'Sent', 'Won', 'Lost'], default: 'Draft' }),
         fd('notes', 'Notes', 'long'),
       ],
-      title: 'job', sub: '{client} · {status}', meta: 'total', date: 'sent', sort: { field: 'sent', dir: 'desc' }, group: 'status',
+      title: 'job', sub: 'client', meta: 'total', date: 'sent', sort: { field: 'sent', dir: 'desc' }, group: 'status',
       stats: [
         { label: 'Quoted Month', kind: 'sum', field: 'total', period: 'month' },
         { label: 'Quotes', kind: 'count', period: 'year' },
@@ -1118,7 +1101,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Idea', 'Drafted', 'Ready', 'Posted'], default: 'Idea' }),
         fd('photo', 'Picture', 'photo'),
       ],
-      title: 'title', sub: '{account} · {status}', date: 'date', sort: { field: 'date', dir: 'asc' }, group: 'status',
+      title: 'title', sub: 'account', date: 'date', sort: { field: 'date', dir: 'asc' }, group: 'status',
       stats: [
         { label: 'Planned', kind: 'count', period: 'month' },
         { label: 'Posted Week', kind: 'count', period: 'week', goal: 3, dir: 'reach' },
@@ -1180,6 +1163,7 @@ export const MONEY: AppDef[] = [
         { in: { cost: 6, price: 10, target: 50, vat: 0 }, out: { profit: 4, margin: 40, markup: 66.67, fortarget: 12, withvat: 10 } },
         { in: { cost: 8, price: 10, target: 20, vat: 20 }, out: { margin: 20, markup: 25, fortarget: 10, withvat: 12 } },
       ],
+      estimate: true,
       source: 'Standard definitions: margin = profit ÷ price, markup = profit ÷ cost',
     },
   },
@@ -1222,7 +1206,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Listed', 'Sold', 'Posted', 'Withdrawn'], default: 'Listed' }),
         fd('photo', 'Photo', 'photo'),
       ],
-      title: 'item', sub: '{site} · {status}', meta: 'sold', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'status',
+      title: 'item', sub: 'site', meta: 'sold', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'status',
       stats: [
         { label: 'Sales This Year', kind: 'count', period: 'year', goal: 30, dir: 'limit' },
         { label: 'Takings Year', kind: 'sum', field: 'sold', period: 'year' },
@@ -1418,7 +1402,7 @@ export const MONEY: AppDef[] = [
         fd('got', 'Got Back', 'money'),
         fd('notes', 'Notes', 'long'),
       ],
-      title: 'firm', sub: '{situation} · {stage}', meta: 'asked', date: 'sent', sort: { field: 'sent', dir: 'desc' }, group: 'stage',
+      title: 'firm', sub: 'situation', meta: 'asked', date: 'sent', sort: { field: 'sent', dir: 'desc' }, group: 'stage',
       stats: [
         { label: 'Won Back', kind: 'sum', field: 'got', period: 'all' },
         { label: 'Open', kind: 'count', period: 'all' },
@@ -1478,7 +1462,7 @@ export const MONEY: AppDef[] = [
         fd('photo', 'Photo', 'photo'),
         fd('notes', 'Notes', 'long'),
       ],
-      title: 'name', sub: '{kind} · {verdict}', meta: 'price', sort: { field: 'price', dir: 'asc' }, group: 'verdict',
+      title: 'name', sub: 'kind', meta: 'price', sort: { field: 'price', dir: 'asc' }, group: 'verdict',
       stats: [
         { label: 'Options', kind: 'count', period: 'all' },
         { label: 'Cheapest', kind: 'min', field: 'price', period: 'all' },
@@ -1506,7 +1490,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Deciding', 'Sent Back', 'Refunded', 'Kept'], default: 'Deciding' }),
         fd('label', 'Label Photo', 'photo'),
       ],
-      title: 'item', sub: '{shop} · {status}', meta: 'amount', date: 'returnby', sort: { field: 'returnby', dir: 'asc' }, group: 'status',
+      title: 'item', sub: 'shop', meta: 'amount', date: 'returnby', sort: { field: 'returnby', dir: 'asc' }, group: 'status',
       stats: [
         { label: 'Waiting', kind: 'count', period: 'all' },
         { label: 'Value', kind: 'sum', field: 'amount', period: 'all' },
@@ -1601,7 +1585,7 @@ export const MONEY: AppDef[] = [
         { label: 'Boxes', kind: 'count', period: 'all' },
         { label: 'Places', kind: 'distinct', field: 'place', period: 'all' },
       ],
-      views: ['gallery', 'list', 'board'],
+      views: ['list', 'gallery', 'board'],
     },
     sample: [
       { box: 'Box 1', place: 'Loft', contents: 'Christmas decorations, tree lights, wreath', packed: '2026-01-06' },
@@ -1641,7 +1625,7 @@ export const MONEY: AppDef[] = [
         fd('amount', 'Amount', 'money'),
         fd('photo', 'Photo', 'photo'),
       ],
-      title: 'what', sub: '{kind} · {status}', meta: 'amount', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'status',
+      title: 'what', sub: 'kind', meta: 'amount', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'status',
       stats: [
         { label: 'Open Repairs', kind: 'count', period: 'all' },
         { label: 'Rent Year', kind: 'sum', field: 'amount', period: 'year' },
@@ -2134,7 +2118,7 @@ export const MONEY: AppDef[] = [
         { label: 'Cheapest', kind: 'min', field: 'price', period: 'all' },
         { label: 'Best Economy', kind: 'max', field: 'mpg', period: 'all' },
       ],
-      views: ['board', 'gallery', 'list'],
+      views: ['list', 'board', 'gallery'],
     },
     sample: [
       { car: 'Small hatchback, petrol', price: 8995, year: 2020, miles: 31000, mpg: 52, tax: 195, insurance: 620, stage: 'Viewing' },
@@ -2185,28 +2169,6 @@ export const MONEY: AppDef[] = [
         { name: 'Outside', items: ['Panel gaps even and paint matches', 'Tyre tread at least 1.6 mm and even wear', 'No rust on sills and arches', 'All lights work'] },
         { name: 'Inside And Engine', items: ['Warning lights go out after starting', 'Oil level and colour', 'No smell of damp', 'Air conditioning blows cold', 'Mileage fits the wear'] },
         { name: 'Test Drive', items: ['Starts cleanly from cold', 'Brakes pull straight', 'Gears change smoothly', 'No knocks over bumps', 'Steering straight on a flat road'] },
-      ],
-    },
-  },
-  {
-    id: 'dashboard-lights', name: 'Dashboard Lights', family: 'money', glyph: 'car', from: 'money.49', archetype: 'guide',
-    pitch: 'What common warning lights mean and how urgent each one is.',
-    keywords: ['warning light', 'dashboard', 'engine light', 'car warning', 'symbols', 'breakdown'],
-    tour: ['Red means stop as soon as it is safe; amber means get it checked soon.', 'Search by what you see, such as oil can or battery.', 'Your car’s handbook has the final word for your model.'],
-    guide: {
-      source: { name: 'ISO 2575 road vehicle symbols', url: 'https://www.iso.org/standard/72542.html' },
-      sections: [
-        { title: 'Colours', body: 'Red warning lights mean a serious fault or safety risk: stop as soon as it is safe. Amber or yellow means something needs checking soon. Green and blue show something is switched on, such as lights.', tags: ['red', 'amber'] },
-        { title: 'Oil pressure (red oil can)', body: 'Oil pressure is low. Stop as soon as it is safe and switch off the engine; driving on can wreck it. Check the oil level when the engine is cool.', tags: ['red', 'oil'] },
-        { title: 'Engine temperature (red thermometer)', body: 'The engine is overheating. Stop safely and switch off. Do not open the coolant cap while hot. Check the coolant level once cool.', tags: ['red', 'coolant'] },
-        { title: 'Battery or charging (red battery)', body: 'The battery is not being charged, often a fault with the alternator or its belt. Electrics will run down; head to a garage or stop safely.', tags: ['red', 'battery'] },
-        { title: 'Brake system (red circle with exclamation mark)', body: 'The handbrake may be on, the brake fluid may be low or there is a brake fault. If the handbrake is off, stop safely and get help.', tags: ['red', 'brakes'] },
-        { title: 'Airbag (red seated figure)', body: 'There is a fault with the airbags or seat belt tensioners, so they may not work in a crash. Get it checked promptly.', tags: ['red', 'airbag'] },
-        { title: 'Engine management (amber engine outline)', body: 'The engine computer has found a fault. If steady, get it checked soon. If flashing, reduce speed and get it checked straight away.', tags: ['amber', 'engine'] },
-        { title: 'ABS (amber ABS)', body: 'The anti-lock braking system has a fault. Normal brakes still work but will not prevent skids in an emergency stop. Get it checked.', tags: ['amber', 'brakes'] },
-        { title: 'Tyre pressure (amber horseshoe with exclamation mark)', body: 'One or more tyres may be low. Check and inflate all tyres to the pressures in the handbook or door frame.', tags: ['amber', 'tyres'] },
-        { title: 'Glow plug (amber coil, diesel)', body: 'Diesel only: wait for it to go out before starting. If it flashes or stays on while driving, there is a fault to get checked.', tags: ['amber', 'diesel'] },
-        { title: 'Diesel particulate filter (amber box with dots)', body: 'The filter is clogging. A steady drive at higher speed on a main road often clears it; if it stays on, see a garage.', tags: ['amber', 'diesel'] },
       ],
     },
   },
@@ -2267,24 +2229,5 @@ export const MONEY: AppDef[] = [
       { place: 'High street', date: '2026-11-09', hours: 1.5, cost: 3.6, kind: 'Street', business: false },
       { place: 'Retail park chargers', date: '2026-11-06', hours: 0.75, cost: 14.2, kind: 'Charging', business: false },
     ],
-  },
-  {
-    id: 'gov-services', name: 'Gov Services', family: 'money', glyph: 'flag', from: 'money.59', archetype: 'guide',
-    pitch: 'The GOV.UK jobs you do every few years, with what you need and the official page.',
-    keywords: ['gov uk', 'passport', 'driving licence', 'car tax', 'sorn', 'electoral roll'],
-    tour: ['Search for the job, such as passport.', 'Each section lists what to have ready and the official page.', 'Use only gov.uk pages: copycat sites charge extra.'],
-    guide: {
-      source: { name: 'GOV.UK', url: 'https://www.gov.uk' },
-      sections: [
-        { title: 'Copycat sites', body: 'Official services are on gov.uk addresses. Other sites may look official and charge extra for the same form. Check the address before you pay.', tags: ['safety'] },
-        { title: 'Renew a passport', body: 'Apply online at gov.uk/renew-adult-passport. Have your old passport, a digital photo that meets the rules and a card to pay. Allow up to three weeks, longer in busy months.', tags: ['passport', 'travel'] },
-        { title: 'Driving licence photo', body: 'The photocard must be renewed every ten years. Renew at gov.uk/renew-driving-licence; a reminder letter usually comes first.', tags: ['licence', 'driving'] },
-        { title: 'Car tax', body: 'Tax a vehicle at gov.uk/vehicle-tax with the 11 or 12 digit reference from the V5C log book or a reminder letter.', tags: ['car', 'tax'] },
-        { title: 'SORN', body: 'If a vehicle is kept off the road and untaxed, make a Statutory Off Road Notification at gov.uk/make-a-sorn. It is free.', tags: ['car', 'sorn'] },
-        { title: 'Electoral roll', body: 'Register to vote at gov.uk/register-to-vote, especially after moving. You need your National Insurance number.', tags: ['vote', 'moving'] },
-        { title: 'TV Licence', body: 'Buy, change or cancel at the official TV Licensing site, linked from gov.uk/tv-licence.', tags: ['tv'] },
-        { title: 'Change of address', body: 'Tell the DVLA, HMRC, your council and the electoral roll. Each has its own page on gov.uk.', tags: ['moving'] },
-      ],
-    },
   },
 ];

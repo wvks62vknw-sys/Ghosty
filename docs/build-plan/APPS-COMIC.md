@@ -21,7 +21,7 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - Once the pencil has touched the glass, a resting palm never draws.
   - Two fingers pinch to zoom and turn. A two-finger tap undoes, a three-finger tap redoes. A keyboard works too.
 - **Layers** (up to 12):
-  - sixteen blend modes, opacity and alpha lock;
+  - sixteen blend modes, opacity, alpha lock and a clipping mask (kept in the PSD too);
   - a mask (the brush hides, the eraser brings back);
   - a reference layer, so the fill bucket stops at its lines;
   - new, duplicate, up, down, merge down, clear, delete and rename;
@@ -33,10 +33,10 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - **Symmetry**: two, four or six ways.
   - **QuickShape**: hold still at the end of a stroke and it snaps to a clean line, circle, oval, box or triangle.
 - **Undo and redo** for every step. Only the part of the picture a step changed is kept.
-- **The time-lapse.** Every step is recorded, so MORE → **PLAY** shows the painting being made, and **SAVE AS VIDEO** keeps it (MP4 on the iPhone).
+- **The time-lapse.** Every step is recorded, so MORE → **PLAY** (or **TIME-LAPSE** on its gallery card) shows the painting being made, and **SAVE AS VIDEO** keeps it (MP4 on the iPhone).
 - **Files**:
   - Save as PNG, JPEG, a **layered PSD** (Photoshop, Procreate, Affinity and Photopea open it with every layer apart) or **OpenRaster** (Krita, GIMP). Or share it.
-  - **OPEN A FILE** opens a PSD with its layers apart, or a picture.
+  - **OPEN A FILE** opens a PSD or an OpenRaster file with its layers apart, or a picture.
 - **The gallery**:
   - Kept on this phone as you go, with search.
   - The first visit makes a sample painting and shows a three-step tour, so it is never an empty screen.
@@ -75,12 +75,12 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
 6. In COMIC → Make, tap a panel, then **DRAW ON IT**. Also try **ANGLED GUTTERS**.
 
 ## Checks
-- **paint** (new spec word, about 66 s in my container) covers the real app at 440 and 390:
+- **paint** (new spec word, about 75 s in my container, 164 checks) covers the real app at 440 and 390:
   - the sample and the tour;
   - a stroke, UNDO, REDO and the two-finger undo;
   - pencil pressure making a wider line, and the palm rejected after the pencil;
   - QuickShape, symmetry, brush settings, freehand, rectangle and by-colour selection, text, twirl, layers, blend mode and alpha lock;
-  - Ghosty's palette, the time-lapse, and a PSD saved and opened again with its layers;
+  - Ghosty's palette, the time-lapse, and a PSD and an OpenRaster file saved and opened again with their layers;
   - a colouring page's fill, the bin, and the gallery's search;
   - the Comic's DRAW ON IT, its two new balloons, angled gutters and comic art from a photo;
   - Drawing a day;
@@ -92,7 +92,8 @@ Ghosty had nowhere to draw. Now it has a painting app of its own.
   - the fill stopping at lines, the wand's traced outline, photo outlines and comic art;
   - the PSD writer and reader, with PackBits.
 - **The comic test** also covers ComicInfo.xml, the new balloons and the angled gutters.
-- **The full brain suite** passes.
+- **The full brain suite** passes (2,484 tests on the merged branch).
+- On the merged branch, hubcards and awareness pass too. deck now fails only on the APP LIBRARY's and TRANSLATE's new screens (`apps` in Home, `translate`), which belong to those lanes.
 - I updated other specs to the new truth: MAKE holds sixteen and the EDITORS pills end with PAINT (deck, hubcards, awareness, deckshots). The plan count is now 58 screens.
 
 ## What's left
