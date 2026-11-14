@@ -316,6 +316,16 @@ await run(PHONE2);
   await until(page, () => window.__ghosty.comic.editing.photo === true);
   await page.click('#pg-comic button[aria-label="Turn my photo into inked comic art: bold flat colours with black outlines"]');
   check(await until(page, () => window.__ghosty.comic.editing.photoArt === 1 && /Your photo is now comic art/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), '[440] MAKE IT COMIC ART turns his photo into inked comic art, and says UNDO puts it back');
+
+  // DRAWING A DAY (Coach → DRAW): DRAW IT HERE opens the studio on today's prompt; what he drew goes beside the prompt
+  await page.evaluate(() => (location.hash = 'coach?draw'));
+  await page.waitForSelector('#pg-coach', { state: 'attached', timeout: 30000 });
+  await page.evaluate(() => document.querySelector('#pg-coach .secpill[data-sec="draw"]')?.click());
+  await page.click('#pg-coach button[aria-label="Draw it here with a finger or an Apple Pencil"]');
+  check(await until(page, () => window.__ghosty.paint?.open && /^Drawing a day: Draw /.test(window.__ghosty.paint.title), null, 20000), '[440] DRAW IT HERE opens the studio on today’s prompt');
+  await stroke(page, Array.from({ length: 30 }, (_, i) => [300 + i * 20, 600 + Math.sin(i / 4) * 80, 0.8]), { type: 'pen' });
+  await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
+  check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.coach?.draw?.done && document.querySelector('#pg-coach .codrawpic img'), null, 20000), '[440] what he drew goes beside the prompt, and the day counts');
   await ctx.close();
 }
 

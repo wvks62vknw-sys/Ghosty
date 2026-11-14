@@ -71,8 +71,8 @@ async function create(title: string, w: number, h: number, from: string, setup: 
   return id;
 }
 
-export async function openPainting(id: string): Promise<void> {
-  if (!host) return;
+export async function openPainting(id: string, after?: (p: Painting) => void | Promise<void>): Promise<void> {
+  host ??= document.body;
   const art = await artOf(id);
   const body = await savedBody(id);
   if (!art || !body) { paintState.error = 'That painting is no longer on this phone.'; return; }
@@ -111,6 +111,7 @@ export async function openPainting(id: string): Promise<void> {
         } catch (e) { trail(e, 'paint close'); }
         studio?.stop(); studio = null;
         Object.assign(paintState, { open: false, id: '', title: '' });
+        if (after) await Promise.resolve(after(p)).catch((e) => trail(e, 'paint after'));
         await countGallery();
         refresh();
       })();
@@ -211,6 +212,23 @@ async function openFile(f: File): Promise<string> {
     p.addLayer('Picture', 1);
     await p.placeAsync(p.layer.id, png);
     p.addLayer('Layer 1', 2);
+  });
+}
+
+/** DRAWING A DAY (Coach → DRAW): today's prompt as a painting in the studio; when he leaves it, a picture of what he drew (or
+ * null when he drew nothing). It stays in the gallery too. */
+export function drawToday(prompt: string): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    void (async () => {
+      try {
+        const id = await create(`Drawing a day: ${prompt.replace(/[.!]+$/, '').slice(0, 50)}`, 1200, 1600, 'daily', () => undefined);
+        await countGallery();
+        await openPainting(id, async (p) => {
+          const drew = p.log.some((o) => o.k === 'stroke' || o.k === 'fill');
+          resolve(drew ? await thumbOf(p, 600) : null);
+        });
+      } catch (e) { trail(e, 'drawing a day'); resolve(null); }
+    })();
   });
 }
 
