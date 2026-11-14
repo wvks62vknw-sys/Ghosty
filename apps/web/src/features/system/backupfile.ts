@@ -1,0 +1,62 @@
+/**
+ * SYSTEM → BACKUP & RESTORE: the backup kept as a file (NEXT ROUND, polish3.u5). SAVE AS A FILE makes the same locked copy the daily
+ * backup sends and hands it to the phone's share sheet (an iPhone's Save to Files, iCloud Drive) or its downloads; OPEN A BACKUP
+ * FILE reads one back and joins it with what is here, exactly as RESTORE does (newer wins, nothing deleted, a reload after).
+ * It opens only with his owner key. Nothing is sent anywhere by either key.
+ */
+import { h } from '../../core/dom';
+import { button, confirmSheet } from '../../ui/components';
+import { sayError } from '../../ui/hisWords';
+import { backupFile, readBackupFile, restoreAndReload, sizeText } from './backup';
+
+export const FILE_WORDS = {
+  save: 'SAVE AS A FILE',
+  open: 'OPEN A BACKUP FILE',
+  making: 'Locking a copy for the file…',
+  saved: (name: string, size: string) => `Saved ${name} (${size}), locked with your owner key; keep it in Files or iCloud Drive.`,
+  shared: (name: string, size: string) => `${name} (${size}) is ready to keep: choose Save to Files.`,
+  reading: 'Opening the backup file…',
+  line: 'Keep a copy as a file too, so your backup never depends only on the brain.',
+};
+
+/** The two keys and the line under them, for the backup panel. `say` writes into the panel's message line. */
+export function backupFileKeys(say: (text: string, tone: '' | 'good' | 'bad') => void): HTMLElement {
+  const pick = h('input', { type: 'file', accept: '.json,application/json', hidden: true, 'aria-label': 'Pick a backup file' }) as HTMLInputElement;
+  const save = button(FILE_WORDS.save, async (b) => {
+    b.disabled = true;
+    say(FILE_WORDS.making, '');
+    try {
+      const f = await backupFile();
+      const run = await import('../../convert/run');
+      const size = sizeText(f.size);
+      if (await run.shareBlob(f.blob, f.name)) say(FILE_WORDS.shared(f.name, size), 'good');
+      else {
+        run.saveBlob(f.blob, f.name);
+        say(FILE_WORDS.saved(f.name, size), 'good');
+      }
+    } catch (e) {
+      say(sayError(e, 'save the backup file'), 'bad');
+    } finally {
+      b.disabled = false;
+    }
+  });
+  save.dataset.act = 'backupfile';
+  const open = button(FILE_WORDS.open, () => pick.click());
+  open.dataset.act = 'openbackupfile';
+  pick.addEventListener('change', async () => {
+    const file = pick.files?.[0];
+    pick.value = '';
+    if (!file) return;
+    const read = readBackupFile(await file.text().catch(() => ''));
+    if (!read.ok) return say(read.why, 'bad');
+    const day = read.file.at ? new Date(read.file.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : 'an unknown day';
+    if (!(await confirmSheet(`Restore the file from ${day}?`, 'It is joined with what is here: the newer of each thing wins and nothing is deleted. ' + 'I reload straight after.', 'RESTORE'))) return;
+    say(FILE_WORDS.reading, '');
+    try {
+      say(`${await restoreAndReload(read.file.sealed)} Reloading…`, 'good');
+    } catch (e) {
+      say(sayError(e, 'open the backup file'), 'bad');
+    }
+  });
+  return h('div.backupfile', h('div.note', FILE_WORDS.line), h('div.keyrow', save, open), pick);
+}

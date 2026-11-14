@@ -14,6 +14,8 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  { day: '2026-11-14', title: 'Your backup as a file', line: 'System → BACKUP: SAVE AS A FILE keeps the locked copy in Files or iCloud Drive, and OPEN A BACKUP FILE brings it back on any phone of yours.' },
+  { day: '2026-11-14', title: 'A heads-up before things run out', line: 'I tell you once when a free allowance is nearly used up or a key stops working, with what to do; System → AI ROOM keeps the line.' },
   { day: '2026-11-14', title: 'How ready I am offline', line: 'System → OFFLINE READY: one number for how much of me works with no signal, and the one download that helps most, with its size. Ask “how ready are you offline?”.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },

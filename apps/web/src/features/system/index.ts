@@ -19,6 +19,8 @@ import { offlineReadyPanel } from './offlineready';
 import { healthPanels } from './health'; // [health] SYSTEM → HEALTH
 import { backupName, backUpNow, estimateSize, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
+import { backupFileKeys } from './backupfile';
+import { headsUps } from '../../state/keyshealth';
 import { trainingPanel } from './training';
 import { nightPanel } from './night';
 import { statusDials } from '../../ui/statusdials';
@@ -164,6 +166,8 @@ export const systemTab: TabDef = {
     // The free AI allowances right now (the brain's quota engine): room this minute, used today, when it resets.
     const paintRoom = () => {
       clear(rp.body);
+      // [next] what is nearly used up or failing, said at the top while it stands (state/keyshealth.ts)
+      for (const x of headsUps(status)) rp.body.append(h(`div.note.headsup${x.tone === 'bad' ? '.bad' : ''}` as 'div', { dataset: { headsup: x.id.split(':')[0]!, case: 'keep' } }, `${x.text} `, h('small', x.fix)));
       const cap = status?.capacity;
       if (!cap) {
         rp.setStatus('', 'off');
@@ -337,6 +341,8 @@ export const systemTab: TabDef = {
           }
         }, 'on')),
         msg,
+        // [next] the same locked copy kept as a file of his own, and read back (backupfile.ts)
+        ...(ownerKey.get() ? [backupFileKeys((text, tone) => { msg.textContent = text; msg.className = `note backupmsg${tone ? ` ${tone}` : ''}`; })] : []),
       );
       // the size said before the tap: what this phone would send, as the sealed copy will be (an estimate)
       void estimateSize().then((n) => {

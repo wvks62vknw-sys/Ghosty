@@ -320,3 +320,23 @@ test('offline readiness: his ways of asking are heard, and nothing else is taken
   for (const t of ['how ready are you offline?', 'How ready are you with no signal', 'what works offline?', 'What still works with no internet?', 'offline readiness', 'show me the offline readiness score', 'Ghosty, how offline-ready are you?', 'are you ready for no signal?']) assert.ok(RW.READY_ASK.test(t), t);
   for (const t of ['download the offline brain', 'go offline', 'offline maps', 'how independent are you?', 'are you ready?', 'what works?']) assert.ok(!RW.READY_ASK.test(t), t);
 });
+
+// ---- NEXT ROUND (polish3.s9): a heads-up before an allowance runs out or when a key starts failing, told once a day
+await build({ entryPoints: [at('../../web/src/state/keyshealth.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/offline2/keyshealth.mjs'), logLevel: 'error' });
+const KH = await import('./.build/offline2/keyshealth.mjs');
+test('keys health: a failing key, a provider out or nearly out, and the database nearly full are each said with what to do', () => {
+  const now = Date.UTC(2026, 10, 14, 10, 0);
+  const st = { models: [{ provider: 'groq', model: 'x', state: 'dead', info: 'The key was refused.' }, { provider: 'gemini', model: 'y', state: 'ok', info: '' }],
+    capacity: { summary: '', providers: [{ provider: 'gemini', state: 'busy', roomNow: 2, perMinute: 10, usedToday: 430, perDay: 500, resetAt: now + 3600e3 }, { provider: 'mistral', state: 'out', roomNow: 0, perMinute: 2, usedToday: 50, perDay: 50, resetAt: null, backAt: now + 7200e3 }, { provider: 'cerebras', state: 'ready', roomNow: 30, perMinute: 30, usedToday: 3, perDay: 1000, resetAt: null }] },
+    meter: { day: '2026-11-14', reads: 0, writes: 0, by: [], limits: { reads: 1, writes: 1 }, level: 0.9, resetAt: now + 5 * 3600e3 } };
+  const list = KH.headsUps(st, now);
+  assert.deepEqual(list.map((x) => x.id.split(':')[0]), ['dead', 'near', 'out', 'db']);
+  assert.equal(list[0].text, 'Groq’s key has stopped working: The key was refused.');
+  assert.match(list[0].fix, /^System, Keys: paste a fresh key/);
+  assert.match(list[1].text, /^Gemini has used 430 of its 500 free calls today; it resets at \d\d:\d\d\.$/);
+  assert.match(list[2].text, /^Mistral has no free room left today; it comes back at \d\d:\d\d\.$/);
+  assert.match(list[3].text, /^My free database allowance is 90% used today; it resets at \d\d:\d\d\.$/);
+  assert.ok(!list.some((x) => /cerebras/i.test(x.text)), 'a provider with room says nothing');
+  assert.deepEqual(KH.headsUps(null, now), []);
+  assert.deepEqual(KH.headsUps({ models: [], meter: { ...st.meter, level: 1.2 } }, now), [], 'a database already paused is the top bar’s, not a heads-up');
+});

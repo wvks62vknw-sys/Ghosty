@@ -276,9 +276,15 @@ export interface RestoreReport {
  * writes to localStorage again (core/store.ts freezeStorage): the caller reloads straight away.
  */
 export async function restore(b: BackupInfo): Promise<RestoreReport> {
+  if (!ownerKey.get()) throw new Error('Backups open with your owner key: pair this phone with it first.');
+  const { backup } = await brain.getBackup(b);
+  return restoreSealed(backup);
+}
+
+/** The same restore from a sealed copy in hand: the brain's, or a backup file he kept (NEXT ROUND, polish3.u5). */
+export async function restoreSealed(backup: SealedBackup): Promise<RestoreReport> {
   const owner = ownerKey.get();
   if (!owner) throw new Error('Backups open with your owner key: pair this phone with it first.');
-  const { backup } = await brain.getBackup(b);
   const bundle = await open(backup, owner);
   const out: RestoreReport = { restored: [], merged: [], same: [], skipped: [], docs: 0, photos: 0, looks: 0, videos: 0, photosAway: 0 };
   // Older backups also carry entries that are never put back: they go through the same rule (restoreEntry).
@@ -337,8 +343,8 @@ export async function restoreEditors(e: Editors | undefined, out: RestoreReport)
 }
 
 /** Restore, then reload at once; the report is shown again after the reload (takeRestoreReport). */
-export async function restoreAndReload(b: BackupInfo): Promise<string> {
-  const text = reportText(await restore(b));
+export async function restoreAndReload(b: BackupInfo | SealedBackup): Promise<string> {
+  const text = reportText('ct' in b ? await restoreSealed(b) : await restore(b));
   try {
     sessionStorage.setItem(REPORT, text);
   } catch {
@@ -372,4 +378,46 @@ export function reportText(r: RestoreReport): string {
   if (!parts.length) parts.push('Everything in that backup was already on this phone.');
   if (r.skipped.length) parts.push(`Not taken from the backup: ${r.skipped.join(', ')}.`);
   return parts.join(' ');
+}
+
+// ---------------------------------------------------------------------------------------
+// A backup kept as a file (NEXT ROUND, polish3.u5): the same locked copy, saved where he chooses (Files, iCloud Drive), so it
+// never depends only on the brain. It opens only with his owner key, on any phone of his.
+// ---------------------------------------------------------------------------------------
+
+export const BACKUP_FILE_KIND = 'ghosty-backup';
+export interface BackupFile {
+  kind: typeof BACKUP_FILE_KIND;
+  v: 1;
+  /** Which phone it came from, in words, and when. */
+  label: string;
+  at: number;
+  sealed: SealedBackup;
+}
+
+/** The file's name: the day, so a folder of them sorts by date. */
+export const backupFileName = (at: number): string => `ghosty-backup-${new Date(at).toISOString().slice(0, 10)}.json`;
+
+/** Make the file now: everything that lives only on this phone, locked with the owner key here. */
+export async function backupFile(): Promise<{ name: string; blob: Blob; size: number }> {
+  const owner = ownerKey.get();
+  if (!owner) throw new Error('Backup files are locked with your owner key; pair this phone with it first.');
+  const sealed = await seal(await collect(), owner);
+  const doc: BackupFile = { kind: BACKUP_FILE_KIND, v: 1, label: deviceLabel(), at: sealed.at, sealed };
+  const blob = new Blob([JSON.stringify(doc)], { type: 'application/json' });
+  return { name: backupFileName(sealed.at), blob, size: blob.size };
+}
+
+/** A picked file read back: the sealed copy inside it, or why it is not one of his backups. Pure. */
+export function readBackupFile(text: string): { ok: true; file: BackupFile } | { ok: false; why: string } {
+  let d: unknown;
+  try {
+    d = JSON.parse(text);
+  } catch {
+    return { ok: false, why: 'That file isn’t one of my backups: it isn’t the file BACKUP saves.' };
+  }
+  const f = d as Partial<BackupFile> | null;
+  const s = f?.sealed as Partial<SealedBackup> | undefined;
+  if (!f || f.kind !== BACKUP_FILE_KIND || !s || typeof s.ct !== 'string' || typeof s.iv !== 'string' || typeof s.salt !== 'string') return { ok: false, why: 'That file isn’t one of my backups: it isn’t the file BACKUP saves.' };
+  return { ok: true, file: { kind: BACKUP_FILE_KIND, v: 1, label: typeof f.label === 'string' ? f.label : 'a phone', at: Number(f.at) || Number(s.at) || 0, sealed: s as SealedBackup } };
 }
