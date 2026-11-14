@@ -50,14 +50,14 @@ type scale, Elo).
 | games.31 Dungeon Master | `campaign-journal` | log |
 | games.37 Cube | `cube-times` | log |
 
-### Games (new, 35)
+### Games (new, 37)
 Difficulty ladders and variants: `easy-sudoku` and `hard-sudoku` (with `sudoku` and `daily-sudoku`), `daily-picture` and
 `big-nonograms`, `eight-puzzle` and `slide-five`, `big-lights-out`, `merge-mini`, `merge-tiles` and `merge-big`,
 `patience-three`, `snake-wrap`, `echo-rush`, `memory-match`. Words and numbers: `word-scramble`, `word-hunt-big`,
 `kids-word-search`, `typing-test`, `maths-sprint`, `times-tables`, `reaction-time`. Quizzes (every fact checked, plain
 and well known): `capital-cities`, `space-quiz`, `body-quiz`, `world-quiz`, `uk-quiz`, `animal-quiz`, `science-quiz`,
 `elements-quiz`, `sport-quiz`. For players: `board-game-shelf`, `game-backlog`, `dice-odds`, `elo-calc`,
-`chess-openings`.
+`chess-openings`. Memory with text pairs: `capital-pairs`, `element-pairs`.
 
 ## Game options
 Every game uses only the options its kind documents at the top of `packages/shared/src/applib/games/<kind>.ts`, and every
@@ -66,8 +66,7 @@ draw one or three, speeds). Quiz questions are written `question | right | wrong
 
 Not landed because no kind can do it yet (each is a small addition to its kind, then a one-line app): spider, free
 cell, pyramid and peaks patience (solitaire variants); the letter hive and anagram wheel (anagram modes); the timed
-letter-grid hunt (a wordgrid mode); the falling-word typing game (a typing mode); themed memory pairs such as countries
-and capitals (pairs with text faces); the two-player reaction duel (reaction with two players).
+letter-grid hunt (a wordgrid mode); the falling-word typing game (a typing mode); the two-player reaction duel (reaction with two players).
 
 ## Needs its own build
 Each is a real engine or a live device feature that no archetype can give truthfully, so none is faked.

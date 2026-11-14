@@ -11563,8 +11563,8 @@ html .al-gcard.al-gback { background: repeating-linear-gradient(45deg, var(--g-p
 html .al-gcard.al-gpicked { box-shadow: 0 0 0 2px var(--g-accent); }
 html .al-gpile > .al-gcard { position: absolute; inset: 0; }
 /* wordguess and the letter keyboard */
-html .al-gwrows { display: flex; flex-direction: column; gap: 5px; align-items: center; }
-html .al-gwrow { display: grid; grid-template-columns: repeat(var(--al-len), minmax(0, 54px)); gap: 5px; width: min(100%, calc(var(--al-len) * 59px)); }
+html .al-gwrows { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+html .al-gwrow { display: grid; grid-template-columns: repeat(var(--al-len), minmax(0, clamp(32px, 4.6dvh, 54px))); gap: 4px; width: min(100%, calc(var(--al-len) * (clamp(32px, 4.6dvh, 54px) + 4px))); }
 html .al-gwcell { display: grid; place-items: center; aspect-ratio: 1; border: var(--g-stroke) solid var(--g-line-faint); border-radius: var(--g-radius-mark); font: var(--g-t-head); text-transform: uppercase; color: var(--g-ink-1); }
 html .al-gwcell.al-gwfull { border-color: var(--g-ink-3); }
 html .al-gwcell[data-m="hit"], html .al-gkbkey[data-m="hit"], html .al-gchoice[data-m="hit"] { background: var(--g-ok); border-color: var(--g-ok); color: var(--g-canvas); }
@@ -11575,7 +11575,7 @@ html .al-gshake { animation: al-gshake 320ms ease; }
 @keyframes al-gshake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 html .al-gkb { display: flex; flex-direction: column; gap: 6px; }
 html .al-gkbrow { display: flex; gap: 4px; justify-content: center; }
-html .al-gkbkey { flex: 1 1 0; display: grid; place-items: center; max-width: 44px; min-height: 52px; border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); color: var(--g-ink-1); font: var(--g-t-body); font-weight: 600; cursor: pointer; }
+html .al-gkbkey { flex: 1 1 0; display: grid; place-items: center; max-width: 44px; min-height: clamp(44px, 5dvh, 52px); border-radius: var(--g-radius-key); background: var(--g-plate-strong-fill); color: var(--g-ink-1); font: var(--g-t-body); font-weight: 600; cursor: pointer; }
 html .al-gkbkey.al-gkbwide { flex: 1.6 1 0; max-width: 72px; font: var(--g-t-caption); }
 html .al-gkbkey:active { background: var(--g-plate-strong); }
 /* nonogram */

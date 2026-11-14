@@ -50,7 +50,7 @@ Every app has:
 No brand or app name appears anywhere he reads.
 
 ### The renderer: `apps/web/src/features/applib/importer.ts`
-- It registers `importer` through `registry.ts`, and draws the records with the engine's `log` renderer when it is registered (otherwise the kit's own list).
+- It registers `importer` through `registry.ts` (the Library loads the file by name). The records are drawn by the engine's `drawLog(…, { add: false, top })`, with stats, chart, views, search and export, and each record has the engine's `recordOf` shape.
 - A panel sits at the top of the one scroll area:
   - the AppDef's `how` steps, then PICK FILE;
   - while reading, a progress bar and a CANCEL key;
@@ -88,5 +88,4 @@ Checked by hand in Chromium at 390 pt: a GPX file was picked, read in the worker
 - No location goes to the brain. Routes are kept as a shape (no coordinates) on the phone only.
 
 ## Notes for the other lanes
-- **ENGINE:** the Library screen must import `features/applib/importer.ts` (as it does for the game renderers) so that `importer` registers. The renderer calls `rendererFor('log')` with `{ ...def, archetype: 'log', log: def.importer.log }`. The kit items it hands over are `{ id: record._key, title, sub, meta, ...fields }`.
 - `ImportFormat` values `tcx` and `fit` have no app of their own: Runs and Rides (`gpx`) reads all three, because two apps must never do the same job.
