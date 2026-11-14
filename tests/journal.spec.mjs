@@ -9,6 +9,7 @@
 //  (f) LOCK WITH FACE ID makes a passkey (a virtual authenticator here); leaving locks it; UNLOCK opens it again; while it is locked the
 //      entries are hidden;
 //  (h) KEEP IN TOUCH in People: add, mark caught up, take off, each with UNDO, and a nudge set on the brain;
+//  (i) GIFTS in People: idea to bought, a budget and over it, a gift received with its thank-you, UNDO;
 //  (g) Memory has a JOURNAL row that opens it; every key 44 pt, nothing sideways, nothing cut, in all seven looks at 390.
 // Dates are anchored to London's day (CI runs at any hour).
 //   node tests/journal.spec.mjs [outDir]
@@ -235,11 +236,11 @@ for (const vp of [PHONE, PHONE2]) {
   await sheet.locator('button', { hasText: 'ADD' }).click();
   await page.waitForFunction(() => window.__ghosty.touch.people === 1 && window.__ghosty.touch.due === 1, null, { timeout: 5000 }).catch(async () => problems.push(`${T} [h] after ADD ${JSON.stringify(await page.evaluate(() => window.__ghosty.touch))}`));
   const row = () => sheet.locator('.ak-row', { hasText: 'Jo' }).first().innerText().catch(() => '');
-  check(/every 2 weeks/.test(await row()) && /Due/.test(await row()), `${T} [h] the row said "${await row()}"`);
+  check(/every 2 weeks/i.test(await row()) && /Due/i.test(await row()), `${T} [h] the row said "${await row()}"`);
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('ghosty.touch'))[0]?.jobId, null, { timeout: 8000 }).catch(() => problems.push(`${T} [h] no nudge was set on the brain`));
   await sheet.locator('.ak-row .ak-rowmain').first().click();
   await page.waitForFunction(() => window.__ghosty.touch.due === 0, null, { timeout: 5000 }).catch(() => problems.push(`${T} [h] marking did not clear the due`));
-  check(/In 14 days/.test(await row()) && /caught up today/.test(await row()), `${T} [h] after marking: "${await row()}"`);
+  check(/In 14 days/i.test(await row()) && /caught up today/i.test(await row()), `${T} [h] after marking: "${await row()}"`);
   const undoKey = page.locator('button', { hasText: 'UNDO' }).last();
   await undoKey.click().catch(() => problems.push(`${T} [h] no UNDO after marking`));
   await page.waitForFunction(() => window.__ghosty.touch.due === 1, null, { timeout: 5000 }).catch(() => problems.push(`${T} [h] UNDO did not bring the due back`));
@@ -252,6 +253,47 @@ for (const vp of [PHONE, PHONE2]) {
   check(!f.sideways, `${T} [h] the page goes sideways`);
   check(!f.cut.length, `${T} [h] words cut: ${JSON.stringify(f.cut)}`);
   await page.screenshot({ path: `${out}/touch-${vp.width}.png` });
+  await ctx.close();
+}
+
+// (i) GIFTS (People): an idea for Jo at Christmas, moved to bought, a budget, over it; a gift he was given, its thank-you owed then sent
+for (const vp of [PHONE, PHONE2]) {
+  const { ctx, page, T } = await open(vp);
+  await page.evaluate(() => localStorage.removeItem('ghosty.gifts'));
+  await page.evaluate(() => (location.hash = 'people'));
+  await page.waitForSelector('#pg-people', { state: 'attached', timeout: 10000 });
+  await openSection(page, 'people', 'Gifts');
+  await page.waitForFunction(() => window.__ghosty?.gifts?.state === 'empty', null, { timeout: 10000 }).catch(() => problems.push(`${T} [i] GIFTS did not start empty`));
+  const sheet = page.locator('#pg-people .gfsheet');
+  await sheet.locator('input[aria-label="Who it is for"]').fill('Jo');
+  await sheet.locator('input[aria-label="The gift"]').fill('Gardening gloves');
+  await sheet.locator('input[aria-label="The occasion"]').fill('Christmas');
+  await sheet.locator('input[aria-label="What it costs, in pounds"]').fill('£24.99');
+  await sheet.locator('button', { hasText: 'ADD GIFT' }).click();
+  await page.waitForFunction(() => window.__ghosty.gifts.gifts === 1, null, { timeout: 5000 }).catch(() => problems.push(`${T} [i] ADD GIFT did not keep it`));
+  const row = (t) => sheet.locator('.ak-row', { hasText: t }).first().innerText().catch(() => '');
+  check(/for Jo · Christmas · £24\.99 · Idea/i.test(await row('gloves')) && /Next: Bought/.test(await row('gloves')), `${T} [i] the idea row said "${await row('gloves')}"`);
+  check(/Christmas: £0\.00 spent/i.test(await sheet.locator('.gfbudgets').innerText()), `${T} [i] an idea counted as spent`);
+  await sheet.locator('.ak-row', { hasText: 'gloves' }).locator('.ak-rowmain').click();
+  check(/Bought/i.test(await row('gloves')) && /Next: Wrapped/.test(await row('gloves')), `${T} [i] after a tap: "${await row('gloves')}"`);
+  await sheet.locator('.gfbrow input').fill('20');
+  await sheet.locator('.gfbrow button', { hasText: 'SET BUDGET' }).click();
+  const b = await sheet.locator('.gfbudgets').innerText();
+  check(/Christmas: £24\.99 of £20\.00, over budget/i.test(b), `${T} [i] the budget said "${b}"`);
+  await sheet.locator('input[aria-label="Who it is for"]').fill('Sam');
+  await sheet.locator('input[aria-label="The gift"]').fill('A book of maps');
+  await sheet.locator('button', { hasText: 'I WAS GIVEN THIS' }).click();
+  await page.waitForFunction(() => window.__ghosty.gifts.owed === 1, null, { timeout: 5000 }).catch(() => problems.push(`${T} [i] no thank-you owed`));
+  check((await sheet.locator('.ak-row').first().innerText()).includes('A book of maps'), `${T} [i] the thank-you owed is not first`);
+  await sheet.locator('.ak-row', { hasText: 'maps' }).locator('.ak-rowmain').click();
+  await page.waitForFunction(() => window.__ghosty.gifts.owed === 0, null, { timeout: 5000 }).catch(() => problems.push(`${T} [i] the thank-you was not marked`));
+  await page.locator('button', { hasText: 'UNDO' }).last().click().catch(() => problems.push(`${T} [i] no UNDO`));
+  await page.waitForFunction(() => window.__ghosty.gifts.owed === 1, null, { timeout: 5000 }).catch(() => problems.push(`${T} [i] UNDO did not bring the thank-you back`));
+  const f = await fit(page, '#pg-people .gfsheet');
+  check(!f.small.length, `${T} [i] under 44 pt: ${f.small.join(', ')}`);
+  check(!f.sideways, `${T} [i] the page goes sideways`);
+  check(!f.cut.length, `${T} [i] words cut: ${JSON.stringify(f.cut)}`);
+  await page.screenshot({ path: `${out}/gifts-${vp.width}.png` });
   await ctx.close();
 }
 

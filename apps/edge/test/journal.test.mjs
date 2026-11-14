@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts')],
+  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts'), at('../../web/src/features/people/gifts.ts')],
   bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/journal'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
 });
 const S = await import('./.build/journal/apps/web/src/features/journal/store.mjs');
@@ -122,4 +122,19 @@ test('keep in touch: due words, the order (most over first) and the due count, f
   assert.equal(P.lastWords(kim, now), 'not marked yet');
   assert.deepEqual(P.ordered([sam, kim, jo, al], now).map((p) => p.name), ['Jo', 'Kim', 'Al', 'Sam']);
   assert.equal(P.dueCount([sam, kim, jo, al], now), 3);
+});
+
+test('gifts: one step on each tap, spent per occasion (ideas cost nothing yet), thank-yous owed first, pounds from his words', async () => {
+  const Gm = await import('./.build/journal/apps/web/src/features/people/gifts.mjs');
+  const idea = { id: 'a', who: 'Jo', what: 'Gloves', occasion: 'Christmas', cost: 25, stage: 'idea', at: 1 };
+  assert.equal(Gm.advance(idea).stage, 'bought');
+  assert.equal(Gm.advance({ ...idea, stage: 'given' }).stage, 'given');
+  const got = { id: 'b', who: 'Sam', what: 'Maps', occasion: '', cost: 0, stage: 'given', received: true, thanked: false, at: 2 };
+  assert.equal(Gm.advance(got).thanked, true);
+  const d = { gifts: [idea, { ...idea, id: 'c', stage: 'bought', cost: 30 }, { ...idea, id: 'e', stage: 'given', cost: 12.5, occasion: 'Birthday' }, got], budgets: { Christmas: 40, Wedding: 100 } };
+  assert.deepEqual([...Gm.spent(d)].sort(), [['Birthday', 12.5], ['Christmas', 30], ['Wedding', 0]]);
+  assert.deepEqual(Gm.giftOrder(d.gifts).map((g) => g.id), ['b', 'c', 'a', 'e']);
+  assert.equal(Gm.pounds('£24.99'), 24.99);
+  assert.equal(Gm.pounds('24,5'), 24.5);
+  assert.equal(Gm.pounds('free'), 0);
 });
