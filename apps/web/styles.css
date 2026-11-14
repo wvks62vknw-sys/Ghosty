@@ -4572,6 +4572,10 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 .ptstatus.bad, .ptwho.bad { color: var(--a); }
 .ptlink { word-break: break-all; font: 400 12px var(--m); }
 .ptprivacy { font-size: 12px; }
+/* BACKGROUND not done online: CUT IT OUT ON THIS PHONE, or the download it needs (said, never started from here) */
+.ptfallback { display: grid; gap: 8px; }
+.ptfbline.bad { color: var(--a); }
+html .modal .ptfallback button { min-height: var(--g-target) !important; height: auto; white-space: normal; }
 
 /* the DRAFT card (features/workshop/draftcard.ts): a website as a phone and a laptop, CHANGE in words */
 .draftcard { display: grid; gap: 12px; margin-top: 12px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); }

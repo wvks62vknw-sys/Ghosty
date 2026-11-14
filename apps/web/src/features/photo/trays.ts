@@ -826,10 +826,16 @@ function brain(ed: Ed): HTMLElement {
     b.disabled = off;
     return b;
   };
+  // the cut-out model, not kept: its size and GET (PHOTO TOOLS sends him here when the free online tools cannot take the background out)
+  const offerSlot = h('div.pecutoffer');
+  void packHere('cutout').then((here) => {
+    if (!here) offerSlot.append(packOffer('cutout', () => ed.refreshTray(), 'With it kept here, PHOTO TOOLS can take the background out on this phone when the free online tools are asleep: nothing leaves it.'));
+  });
   return h('div.petrayin',
     h('div.pebrainkeys', key('background', 'BACKGROUND', 'takes it out'), key('sharper', 'SHARPER', 'twice the size'), key('erase', 'ERASE', 'draw over a thing')),
     line,
     off ? h('p.pnote', 'No signal to the brain right now. These three wait; LIGHT, COLOUR, CURVES, CROP, MASKS, HEAL and the rest work as they are.') : h('p.pnote', 'Each one says who does it and asks for your tap before anything is sent. A face is never looked for and never changed.'),
+    offerSlot,
   );
 }
 
