@@ -206,9 +206,15 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
     const bar = h('div.keyrow.wrapit.tlbar', ...keys);
     /* state: agenda.timeline loading */
     if (!loaded) return void clear(p.body, bar, h('p.note.wait', { dataset: { case: 'keep', state: 'loading' } }, 'Reading your diary to lay out the day.'));
-    const body = view === 'week' ? weekView(events, now) : dayView(events, view === 'today' ? midnight(now) : dayAfter(now, 1), now);
+    // no diary at all (the brain out of reach, no copy on this phone): no free time is guessed, only his to-dos due are shown
+    const blind = offline && !events.length;
+    const days = view === 'week' ? Array.from({ length: 7 }, (_, i) => dayAfter(now, i)) : [view === 'today' ? midnight(now) : dayAfter(now, 1)];
+    const due = days.flatMap((d) => dueOn(loadTodos(), dayOf(d)));
+    const body = blind
+      ? due.length ? [h('div.tltodo', { role: 'list', 'aria-label': 'To-dos due' }, ...due.map((t) => h('span.tltd', { role: 'listitem', dataset: { case: 'keep' } }, h('span.tlwhen', 'To-do'), h('span', t.text))))] : []
+      : view === 'week' ? weekView(events, now) : dayView(events, days[0]!, now);
     /* state: agenda.timeline offline */
-    const note = offline ? [h('p.note.bad.tlcopy', { dataset: { case: 'keep', state: 'offline' } }, 'Laid out from the last copy of your diary on this phone: I can’t reach your brain right now.')] : [];
+    const note = offline ? [h('p.note.bad.tlcopy', { dataset: { case: 'keep', state: 'offline' } }, events.length ? 'Laid out from the last copy of your diary on this phone: I can’t reach your brain right now.' : 'I can’t reach your brain and this phone has no copy of your diary yet, so only your to-dos show here. It fills in when I can.')] : [];
     clear(p.body, bar, ...note, ...body);
   };
   // his list changed somewhere (the TO-DO panel, the chat): the to-dos beside the day follow it

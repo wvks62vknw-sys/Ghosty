@@ -511,6 +511,9 @@ export const agendaTab: TabDef = {
         if (!events.length) {
           loaded = true;
           paintFeeds();
+          // [planlane2:timeline] the timeline says it too, instead of waiting for a diary that is not coming
+          stale = true;
+          tl.paint();
           /* state: agenda.diary offline */
           return void clear(ep.body, h('p.note.agoff', { role: 'status', dataset: { case: 'keep', state: 'offline' } }, DIARY_OFFLINE), h('p.note', { dataset: { case: 'keep' } }, 'Your to-do list still works on this phone.'));
         }

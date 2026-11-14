@@ -105,6 +105,8 @@ export async function run(H) {
     check(/Saving changes it in place, and its reminder moves with it\. UNDO puts it back as it was\./.test(card) && !RAW.test(card), `[timeline ${W}] the change box says what saving does: ${card.slice(-140)}`);
     const fc = await fit(page, '#pg-agenda .evcard');
     check(!fc.small.length && !fc.sideways && !fc.cut.length, `[timeline ${W}] the change box with ALL DAY and the reminder fits: ${JSON.stringify(fc)}`);
+    // (the change itself at 440 only, with the brain read back: the box and its fit are proved at both sizes above; this keeps the part short)
+    if (vp === PHONE) {
     const gymId = made[2];
     await page.fill('#pg-agenda .evcard input[aria-label="Change the event"]', `${tag} gym moved`);
     await page.selectOption('#pg-agenda .evcard select[aria-label="Change the reminder"]', '30');
@@ -136,6 +138,7 @@ export async function run(H) {
     await page.locator('#pg-agenda .pn:has(input[aria-label="Event title"]) .undo button').first().click({ timeout: 4000 }).catch(() => check(false, `[timeline ${W}] no UNDO after ALL DAY`));
     d1 = await brainHas(false);
     check(!d1?.allDay && d1?.start === tm.s2 && d1?.end === tm.e2, `[timeline ${W}] UNDO gives back its hours: ${JSON.stringify(d1)}`);
+    }
 
     // ---- THE MONTH on any month: ‹ twice back, › on past next month, THIS MONTH home; each month read for itself
     const names = await page.evaluate(() => [-2, 0, 2].map((k) => { const n = new Date(); const d = new Date(n.getFullYear(), n.getMonth() + k, 1); return `${d.toLocaleDateString('en-GB', { month: 'long' })} ${d.getFullYear()}`; }));
@@ -174,6 +177,31 @@ export async function run(H) {
       }
     }
     for (const id of made) await api(page, 'DELETE', `/agenda/events/${id}`);
+    await ctx.close();
+  }
+  // ---- the brain out of reach with no copy of the diary on this phone: the timeline says so, guesses no free time, keeps the to-dos
+  {
+    // (its own phone, the brain refused before the app even opens, so no copy of the diary is ever kept: the same set-up as H.phone)
+    const ctx = await H.browser.newContext({ viewport: PHONE2, locale: 'en-GB', timezoneId: 'Europe/London', reducedMotion: 'reduce', serviceWorkers: 'block' });
+    await ctx.addInitScript(({ key }) => {
+      const d = new Date();
+      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      localStorage.setItem('ghosty.ownerKey', key);
+      localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world: 'scan', night: 'graphite', switches: { body: 21 } }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
+      localStorage.setItem('ghosty.agenda.todo', JSON.stringify([{ id: 'tl2', text: 'Spec offline parcel', due: day, done: false, at: 1 }]));
+    }, { key: H.KEY });
+    await ctx.route(/\/api\/agenda(\?|$)/, (r) => r.abort('internetdisconnected'));
+    const page = await ctx.newPage();
+    await page.goto(H.base, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+    await open(page, 'agenda');
+    await openSection(page, 'agenda', 'Diary');
+    await page.click('#pg-agenda .pn.timeline button.tlkey:has-text("TODAY")').catch(() => undefined);
+    const said = await page.waitForSelector('#pg-agenda .pn.timeline .tlcopy', { timeout: 15000 }).then((e) => e.textContent(), () => '');
+    check(said === 'I can’t reach your brain and this phone has no copy of your diary yet, so only your to-dos show here. It fills in when I can.', `[timeline offline] said in his words: ${said}`);
+    check(!(await page.$('#pg-agenda .pn.timeline .tlgap')) && /Spec offline parcel/.test((await page.textContent('#pg-agenda .pn.timeline .tltodo').catch(() => '')) ?? ''), '[timeline offline] no free time guessed, the to-do due today kept');
+    const f = await fit(page, '#pg-agenda .pn.timeline');
+    check(!f.small.length && !f.sideways && !f.cut.length, `[timeline offline] fits: ${JSON.stringify(f)}`);
     await ctx.close();
   }
   log('timeline');
