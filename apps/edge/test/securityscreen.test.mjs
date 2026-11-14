@@ -217,3 +217,18 @@ test('[security] has this password leaked: only five characters of the fingerpri
   assert.equal(r.status, 200);
   assert.equal((await SEC.securityRoute('/security/pwned/password', 'GET', { env: {}, storage: new MemStorage(), previews: null, fetcher })).status, 404, 'a whole password in the path is never even read');
 });
+
+test('[security] approvals in the Brief: yesterday’s answers by his own calendar day, and anything still waiting', () => {
+  const now = new Date(2026, 10, 14, 8, 0).getTime();
+  const at = (d, h) => new Date(2026, 10, d, h, 0).getTime();
+  const list = [
+    { tool: 'send_email', what: 'a', allow: true, from: 'phone', at: at(13, 23) },
+    { tool: 'post', what: 'b', allow: false, from: 'telegram', at: at(13, 9), after: 'https://x.example/' },
+    { tool: 'send_email', what: 'c', allow: true, from: 'phone', at: at(14, 7) },
+    { tool: 'send_email', what: 'd', allow: true, from: 'phone', at: at(12, 22) },
+  ];
+  assert.equal(LK.approvalsDigest(list, 0, now), 'Yesterday you approved 1 and turned down 1, one after I read a page.');
+  assert.equal(LK.approvalsDigest(list, 2, now), 'Yesterday you approved 1 and turned down 1, one after I read a page. 2 still waiting for your APPROVE.');
+  assert.equal(LK.approvalsDigest([], 1, now), '1 still waiting for your APPROVE.');
+  assert.equal(LK.approvalsDigest([list[2]], 0, now), '', 'today’s answers wait for tomorrow’s Brief');
+});

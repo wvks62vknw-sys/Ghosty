@@ -165,3 +165,23 @@ export function slippedLine(news: Lock[]): string {
   const first = news[0]!;
   return news.length === 1 ? `Security: ${first.label.toLowerCase()} needs a look. ${first.line}` : `Security: ${news.length} locks need a look, first ${first.label.toLowerCase()}. ${first.line}`;
 }
+
+const dayOf = (ms: number): string => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * APPROVALS IN THE BRIEF (security.c1): what he approved and turned down yesterday (his phone's own calendar day), and anything
+ * still waiting for him, in one line; '' when there is nothing to say.
+ */
+export function approvalsDigest(list: ApprovalEntry[], waiting: number, now: number): string {
+  const y = dayOf(now - 86_400_000);
+  const yday = list.filter((a) => dayOf(a.at) === y);
+  const yes = yday.filter((a) => a.allow).length;
+  const no = yday.length - yes;
+  const parts: string[] = [];
+  if (yday.length) parts.push(`Yesterday you approved ${yes} and turned down ${no}${yday.some((a) => a.after) ? ', one after I read a page' : ''}.`);
+  if (waiting) parts.push(`${waiting} still waiting for your APPROVE.`);
+  return parts.join(' ');
+}

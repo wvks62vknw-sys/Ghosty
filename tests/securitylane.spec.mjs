@@ -265,8 +265,13 @@ await section('offline', async () => {
 // g. the nightly self-check, told once in the Brief: a lock that slipped is one SECURITY row that opens the screen
 await section('brief', async () => {
   log('brief');
-  const { ctx, page } = await phone(PHONE, { security: { locks: { vaultKey: true, demoOpen: true, previews: null, access: false, keyByHash: false }, approvals: [] } });
+  const yday = Date.now() - 86_400_000;
+  const { ctx, page } = await phone(PHONE, { security: { locks: { vaultKey: true, demoOpen: true, previews: null, access: false, keyByHash: false }, approvals: [{ tool: 'send_email', what: 'Send an email to Sam', allow: true, from: 'phone', at: yday }, { tool: 'post', what: 'Post on Bluesky', allow: false, from: 'telegram', at: yday }] } });
   await go(page, 'brief');
+  // security.c1: yesterday's approvals, one row, beside the self-check
+  check(await until(page, () => !!document.querySelector('#pg-brief .brday .brapprovals'), null, 20000), '[brief] no APPROVALS row for yesterday');
+  const al = (await page.locator('#pg-brief .brday .brapprovals .v').textContent().catch(() => '')) ?? '';
+  check(/^Yesterday you approved 1 and turned down 1\.$/.test(al), `[brief] the approvals row says "${al}"`);
   const shown = await until(page, () => !!document.querySelector('#pg-brief .brday .brsecurity'), null, 20000);
   check(shown, '[brief] no SECURITY row in YOUR DAY when locks slipped');
   if (shown) {
