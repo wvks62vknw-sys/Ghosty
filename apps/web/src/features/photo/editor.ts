@@ -58,6 +58,8 @@ export const peState = {
   holdHint: '',
   saved: '',
   saves: 0,
+  /** The recipe last written to the phone, as JSON (so a check can wait for exactly the save of the change it made). */
+  savedJson: '',
   steps: 1,
   at: 0,
   canUndo: false,
@@ -1031,9 +1033,11 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     const keepHole = () => {
       if (holeKeep && holeMask.alpha && !getAlpha(holeMask.alpha)) putAlpha(holeKeep, holeMask.alpha);
     };
-    let ok = await saveRecipe(was, recipe, { tool });
+    const snap = recipe;
+    let ok = await saveRecipe(was, snap, { tool });
     keepHole();
     if (!ok) return;
+    if (id === was) peState.savedJson = JSON.stringify(snap);
     let thumb: Blob | null = null;
     try {
       const c = thumbOf(recipe, 360);

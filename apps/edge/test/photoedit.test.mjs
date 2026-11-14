@@ -373,3 +373,17 @@ test('ENLARGE with no model: twice the size held under the canvas limit, and the
   En.sharpen(edge, w, w);
   assert.ok(edge[(2 * w + 1) * 4] < 60 && edge[(2 * w + 2) * 4] > 200, 'an edge is made crisper on both sides');
 });
+
+// The second review (14 Nov): a photo already at the canvas limit cannot grow; 2× BIGGER hands it back untouched (never sharpened in place,
+// so AS IT IS still exports the picture as drawn).
+test('2× BIGGER on a photo already at the canvas limit leaves the picture as it is', async () => {
+  assert.equal(En.cannotGrow(5016, 3344), true); // a 24 MP photo as the editor draws it, held to 16.7 MP
+  assert.equal(En.cannotGrow(4096, 4096), true);
+  assert.equal(En.cannotGrow(5000, 3350), true);
+  assert.equal(En.cannotGrow(1000, 750), false);
+  const src = { width: 5000, height: 3350, getContext: () => { throw new Error('the picture he exports was touched'); } };
+  const r = await En.enlarge(src, 2);
+  assert.equal(r.canvas, src);
+  assert.equal(r.already, true);
+  assert.deepEqual([r.w, r.h], [5000, 3350]);
+});
