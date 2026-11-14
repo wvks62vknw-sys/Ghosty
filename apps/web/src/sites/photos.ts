@@ -81,6 +81,7 @@ async function call<T>(method: string, body?: unknown, query = ''): Promise<T> {
 
 /** The panel, in the Workshop's MADE section. */
 export function mountSitePhotos(p: Panel): { refresh(): void } {
+  p.el.dataset.panel = 'sitephotos';
   let photos: SitePhoto[] = [];
   let max = 24;
   let known = false;
