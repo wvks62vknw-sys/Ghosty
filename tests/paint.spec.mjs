@@ -309,6 +309,14 @@ await run(PHONE2);
   await page.click('.pxstudio button[aria-label="DONE"]');
   check(await until(page, () => !document.querySelector('.pxstudio') && window.__ghosty.comic.editing.inked === 1 && /Your drawing is on the panel/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `[440] DONE puts his ink on the panel, under its balloons (${layers})`);
   check(await page.locator('#pg-comic button[aria-label="Take my drawing off this panel"]').count() === 1, '[440] the panel offers to take the drawing off again');
+  // two more balloons: a voice down a phone or a radio, and a robot
+  const kinds = await page.$$eval('#pg-comic select[aria-label="Balloon 1"] option', (os) => os.map((o) => o.textContent));
+  check(kinds.includes('Radio or phone') && kinds.includes('Robot'), `[440] the balloons include a radio voice and a robot: ${kinds.join(', ')}`);
+  const drawn0 = await page.evaluate(() => window.__ghosty.comic.editing.drawn);
+  await page.selectOption('#pg-comic select[aria-label="Balloon 1"]', 'robot');
+  check(await until(page, (d) => window.__ghosty.comic.editing.drawn > d, drawn0), '[440] a robot balloon redraws the page');
+  await page.click('#pg-comic button[aria-label="Undo the last change"]').catch(() => undefined);
+
   // his photo behind the panel, then MAKE IT COMIC ART (flat colours, inked outlines)
   const photo = Buffer.from((await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 240; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 320, 240); gr.addColorStop(0, '#3a7bd5'); gr.addColorStop(1, '#f4d03f'); g.fillStyle = gr; g.fillRect(0, 0, 320, 240); g.fillStyle = '#c0392b'; g.beginPath(); g.arc(160, 120, 60, 0, 7); g.fill(); return c.toDataURL('image/png'); })).split(',')[1], 'base64');
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pg-comic button[aria-label="Put one of my own photos behind this panel"]')]);
