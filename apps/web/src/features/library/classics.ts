@@ -42,6 +42,8 @@ export function classicsPanel(onAdded: () => void): HTMLElement {
   const box = h('input', { type: 'search', placeholder: 'Search by title or author', 'aria-label': 'Search the free classics', enterKeyHint: 'search' }) as HTMLInputElement;
   const topKey = button('MOST READ', () => void load('top'), 'on');
   const newKey = button('NEW FROM STANDARD EBOOKS', () => void load('new'));
+  // (the name as written, not re-cased by the stylesheet's sentence case)
+  newKey.dataset.label = 'New from Standard Ebooks';
   const tell = (t: string) => ((say.textContent = t), (classicsState.line = t));
 
   /** One book's row: tap to see its size, then ADD TO MY SHELF with the size on the key. */

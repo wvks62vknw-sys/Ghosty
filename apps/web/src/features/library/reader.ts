@@ -34,9 +34,9 @@ import type { LocalAnswer } from '../../assistant/local';
 import { holdEars, interrupt, primeSpeech, speak, talkHooks } from '../../assistant/voice';
 import { findIn, markParts, pageStart, placeInfo, type Book, type BookPassage } from '../../library/book';
 import { coverNow, coverOf, dropCover, onCover } from '../../library/covers';
-import { canResume, CARRY_MS, listenLog, loadBook, onlyThisChapter, placeLine, reading, resumeReading, setBook, shortTitle, startReading, stopQuietly, stopReading, bookNow, bookVoiceLeft } from '../../library/listen';
+import { canResume, CARRY_MS, listenLog, loadBook, onlyThisChapter, placeLine, reading, resumeReading, setBook, setSleep, shortTitle, sleep, startReading, stopQuietly, stopReading, bookNow, bookVoiceLeft } from '../../library/listen';
 import { keepBookHere, keptHere } from '../../library/local';
-import { forgetPlace, lineFor, placeOf, places, placeStats, readingPrefs, setPlace, SIZES, sizeNow, syncPlace, syncPlaces, whenWords, type Place } from '../../library/place';
+import { forgetPlace, lineFor, placeOf, places, placeStats, readingPrefs, setPlace, SIZES, sizeNow, SPEEDS, speedNow, syncPlace, syncPlaces, whenWords, type Place } from '../../library/place';
 import { go, type TabInstance } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { guardian, loadGuardian } from '../../state/guardian';
@@ -196,11 +196,46 @@ export function readingControls(): HTMLElement {
     voice.classList.add('grd-voicekey');
     voice.setAttribute('aria-pressed', String(p.bookVoice));
     const left = Math.max(0, Math.round(bookVoiceLeft() / 60));
+    // [learn.u5] bedtime listening: the phone's voice faster or slower, a sleep timer, and a voice for the book open now
+    const sp = speedNow();
+    const speeds = SPEEDS.map((x) => {
+      const b = key(`${x}×`, () => readingPrefs.set({ speed: x }), { label: `Read at ${x} times the voice's own pace` });
+      b.setAttribute('aria-pressed', String(x === sp));
+      return b;
+    });
+    const sl = sleep.get();
+    const sleeps = [0, 15, 30].map((m) => {
+      const b = key(m ? `${m} min` : 'Off', () => setSleep(m), { label: m ? `Stop reading after ${m} minutes` : 'No sleep timer' });
+      b.setAttribute('aria-pressed', String(sl.minutes === m));
+      return b;
+    });
+    const sleepLine = sl.minutes ? `I stop reading at ${new Date(sl.at).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit' })} and say where we got to.` : 'No sleep timer: I read on until you stop me or the chapter you asked for ends.';
+    const doc = docNow;
+    const voices = typeof speechSynthesis === 'undefined' ? [] : speechSynthesis.getVoices().filter((v) => /^en\b|^en-/i.test(v.lang));
+    const picked = doc ? readingPrefs.get().voices?.[doc.id] ?? '' : '';
+    const pick = doc && voices.length
+      ? (() => {
+          const sel = h('select.grd-voicepick', { 'aria-label': `The voice for ${doc.title}` }, h('option', { value: '' }, 'The usual voice'), ...voices.map((v) => h('option', { value: v.name, ...(v.name === picked ? { selected: true } : {}) }, `${v.name} (${v.lang})`))) as HTMLSelectElement;
+          sel.addEventListener('change', () => {
+            const all = { ...(readingPrefs.get().voices ?? {}) };
+            if (sel.value) all[doc.id] = sel.value;
+            else delete all[doc.id];
+            readingPrefs.set({ voices: all });
+          });
+          return sel;
+        })()
+      : null;
     clear(box,
       tag('Reading'),
       h('div.grd-keys', scroll, pages),
       h('div.grd-keys.size', smaller, h('span.grd-size', { 'aria-live': 'polite', dataset: { case: 'keep' } }, `${size} pt`), bigger),
       h('p.grd-cap', { dataset: { case: 'keep' } }, 'Night text follows your theme: always light on the graphite, with your theme’s colour for what I attend to.'),
+      tag('Listening'),
+      h('div.grd-keys.speed', ...speeds),
+      h('p.grd-cap', { dataset: { case: 'keep' } }, `Speed ${sp}× for the phone’s voice${p.bookVoice ? ' (my own voice keeps its pace)' : ''}. It takes effect the next time I start reading.`),
+      h('div.grd-keys.sleep', ...sleeps),
+      h('p.grd-cap.grd-sleepline', { dataset: { case: 'keep' } }, sleepLine),
+      pick ? h('label.grd-voicerow', h('span.lab', `Voice for ${doc!.title.split(/\s*[:—–]\s+/)[0]}`), pick) : doc ? h('p.grd-cap', { dataset: { case: 'keep' } }, 'This phone lists no English voices to choose from, so the usual voice reads.') : h('p.grd-cap', { dataset: { case: 'keep' } }, 'Open a book to choose a voice for it.'),
       voice,
       ...para('p.grd-cap', p.bookVoice
         ? `My own voice reads your books for about an hour a day (${left} minutes left today), within the free share it has. When it runs out mid-read I say “My own voice from here.” and the phone’s voice carries on.`
@@ -208,6 +243,12 @@ export function readingControls(): HTMLElement {
   };
   paint();
   readingPrefs.subscribe(() => box.isConnected ? paint() : undefined);
+  sleep.subscribe(() => box.isConnected ? paint() : undefined);
+  // (a different book opened: its own voice is offered)
+  let shownDoc = docNow?.id ?? '';
+  reading.subscribe((r) => {
+    if (r.doc !== shownDoc && box.isConnected) (shownDoc = r.doc), paint();
+  });
   return box;
 }
 

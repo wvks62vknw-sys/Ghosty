@@ -9887,3 +9887,7 @@ html .pn.classics button.clhead { display: flex; flex-direction: column; align-i
 html .pn.classics button.clhead small { color: var(--mute); }
 html .pn.classics .clmore { padding: 0 12px 10px; }
 html .pn.classics .clsearch input { flex: 1 1 auto; min-width: 0; min-height: 44px; }
+/* READER · LISTENING (learn.u5): speed, the sleep timer and the voice for the book open now */
+html .grd-voicerow { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+html .grd-voicerow .lab { color: var(--mute); overflow-wrap: anywhere; }
+html select.grd-voicepick { width: 100%; min-height: 44px; }

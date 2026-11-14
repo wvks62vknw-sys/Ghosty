@@ -160,6 +160,87 @@ for (const vp of [PHONE, PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================ U2 · courses that pick up his mistakes (next round, learn.u2)
+// A course whose lesson 2 holds an answer he was SURE of and got wrong: the map's TODAY names lesson 2, says why, and its quiz
+// asks the brain for just the missed lessons. Stood in by routes: the course list, the course and the quiz request.
+const COURSE = { id: 'c-light', topic: 'light', title: 'Light and leaves', level: 'beginner', minutes: 10, summary: 'How leaves use light.', created: Date.now() - 86400000, updated: Date.now(), basis: 'library', lessons: [{ n: 1, title: 'What light is', goal: '', done: true }, { n: 2, title: 'How leaves catch it', goal: '', done: true }, { n: 3, title: 'Sugar from light', goal: '', done: false }] };
+const SUMMARY = { id: 'c-light', topic: 'light', title: 'Light and leaves', level: 'beginner', minutes: 10, lessons: 3, done: 2, next: 3, nextTitle: 'Sugar from light', asked: 4, right: 2, cards: 0, due: 0, updated: Date.now(), stats: { lessons: { 1: { asked: 2, right: 1, recent: [1, 0], conf: ['sure', 'guess'] }, 2: { asked: 2, right: 1, recent: [0, 1], conf: ['sure', 'think'] } }, conf: { sure: { n: 2, right: 1 } } } };
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  const { ctx, page } = await phone(vp);
+  const quizAsked = [];
+  try {
+    await ctx.route('**/api/learn', (r) => (r.request().method() === 'GET' ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ courses: [SUMMARY], cards: [], quizzes: [], streak: { days: [], best: 0 }, tz: 'Europe/London' }) }) : r.fallback()));
+    await ctx.route('**/api/learn/course/c-light', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ course: COURSE }) }));
+    await ctx.route('**/api/learn/quiz', async (r) => {
+      quizAsked.push(JSON.parse(r.request().postData() ?? '{}'));
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ quiz: { id: 'q1', course: 'c-light', topic: 'Light and leaves', at: Date.now(), basis: 'written from the passages', sources: [], questions: [{ id: 'a', kind: 'mc', q: 'What do leaves catch?', choices: ['Light', 'Sound'], answer: 0, lesson: 2 }] } }) });
+    });
+    await go(page, 'learn');
+    const row = page.locator('#pg-learn button.learncourse').first();
+    check(await row.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U2] the course is not listed`);
+    await row.click();
+    const today = await until(page, () => !!document.querySelector('#pg-learn .learntoday[data-kind="misses"]'), null, 10000);
+    check(today, `${T} [U2 TODAY] no TODAY card for a course with misses`);
+    const t = await page.evaluate(() => ({ head: document.querySelector('#pg-learn .learntoday b')?.textContent ?? '', why: document.querySelector('#pg-learn .learntoday small')?.textContent ?? '', aim: window.__ghosty?.learn?.aim }));
+    check(t.head === '2. How leaves catch it', `${T} [U2 TODAY] names "${t.head}"`);
+    check(t.why === 'Lesson 2 again: 1 answer you were sure of but missed in your last answers there.', `${T} [U2 TODAY] says "${t.why}"`);
+    check(JSON.stringify(t.aim?.quiz) === '[2,1]', `${T} [U2 TODAY] the misses quiz covers ${JSON.stringify(t.aim?.quiz)}`);
+    await bar(page, `${T} [U2 course map]`, 'learn');
+    if (vp.width === 440) await page.screenshot({ path: `${out}/learnlane-today-440.png` }).catch(() => undefined);
+    await page.locator('#pg-learn .learntoday button', { hasText: /^QUIZ ME ON MY MISSES$/i }).click();
+    check(await until(page, () => !!document.querySelector('#pg-learn button.learnchoice'), null, 10000), `${T} [U2 quiz] the misses quiz did not open`);
+    check(quizAsked.length === 1 && JSON.stringify(quizAsked[0].lessons) === '[2,1]' && quizAsked[0].course === 'c-light', `${T} [U2 quiz] asked the brain for ${JSON.stringify(quizAsked)}`);
+  } catch (e) {
+    check(false, `${T} [U2] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
+// ================================================================ U6 · the classics shop (next round, learn.u6)
+// Nothing is listed until SHOW THE FREE CLASSICS; a book opens to its size (a header-only ask) and ADD TO MY SHELF carries
+// it; the book comes in parts until the last; nothing is fetched from anywhere else. Stood in by routes.
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  const { ctx, page } = await phone(vp);
+  const asked = [];
+  try {
+    await ctx.route('**/api/library/classics**', async (r) => {
+      const u = new URL(r.request().url());
+      asked.push(`${r.request().method()} ${u.pathname}${u.search}`);
+      const body = u.pathname.endsWith('/size') ? { id: 1342, bytes: 772000 }
+        : u.pathname.endsWith('/add') ? (() => { const b = JSON.parse(r.request().postData() ?? '{}'); return { next: b.offset >= 1 ? null : 1, note: 'ok', passages: 3 }; })()
+        : u.pathname.endsWith('/new') ? { books: [{ title: 'Persuasion', author: 'Jane Austen', link: 'https://standardebooks.org/ebooks/jane-austen/persuasion', line: '', gutenberg: 105 }] }
+        : { books: [{ id: 1342, title: 'Pride and Prejudice', authors: ['Jane Austen'], downloads: 50123, subjects: [] }], next: null };
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    });
+    await go(page, 'library');
+    await openSection(page, 'library', 'Add').catch(() => undefined);
+    const show = page.locator('#pg-library .pn.classics button', { hasText: /^SHOW THE FREE CLASSICS$/i });
+    check(await show.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U6] no SHOW THE FREE CLASSICS key`);
+    check(asked.length === 0, `${T} [U6] the classics were asked for before his tap: ${asked.join(' | ')}`);
+    await show.click();
+    check(await until(page, () => document.querySelectorAll('#pg-library .pn.classics .clrow').length === 1, null, 10000), `${T} [U6] the list did not draw`);
+    const head = page.locator('#pg-library .pn.classics button.clhead').first();
+    check(/Pride and Prejudice/.test((await head.textContent()) ?? '') && /Jane Austen/.test((await head.textContent()) ?? ''), `${T} [U6] the row reads "${await head.textContent()}"`);
+    check(!asked.some((a) => /\/size|\/add/.test(a)), `${T} [U6] a size or a book was asked for before the book was opened`);
+    await head.click();
+    const key = page.locator('#pg-library .pn.classics .clmore button', { hasText: /^ADD TO MY SHELF · 772 KB$/i });
+    check(await key.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U6 size] the key does not say the size: "${await page.locator('#pg-library .pn.classics .clmore').textContent().catch(() => '')}"`);
+    check(asked.filter((a) => /\/add/.test(a)).length === 0, `${T} [U6 size] the book came before ADD was tapped`);
+    await bar(page, `${T} [U6 classics]`, 'library');
+    if (vp.width === 440) await page.screenshot({ path: `${out}/learnlane-classics-440.png` }).catch(() => undefined);
+    await key.click();
+    check(await until(page, () => window.__ghosty?.classics?.added?.includes(1342), null, 10000), `${T} [U6 add] the book was not added`);
+    check(asked.filter((a) => /^POST \/api\/library\/classics\/add/.test(a)).length === 2, `${T} [U6 add] it should come in its two parts: ${asked.join(' | ')}`);
+    await page.locator('#pg-library .pn.classics button', { hasText: /^NEW FROM STANDARD EBOOKS$/i }).click();
+    check(await until(page, () => /Persuasion/.test(document.querySelector('#pg-library .pn.classics .cllist')?.textContent ?? ''), null, 10000), `${T} [U6 new] Standard Ebooks' new releases did not draw`);
+  } catch (e) {
+    check(false, `${T} [U6] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
 // ================================================================ L · every screen of the lane
 const LANE = ['learn', 'learning', 'library', 'reader', 'school', 'gym', 'arcade', 'coach', 'rehearse', 'lab', 'interpreter'];
 for (const vp of [PHONE, PHONE2]) {
