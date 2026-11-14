@@ -54,6 +54,7 @@ export const wordguess: Board = (p) => {
     guesses.push(typing);
     typing = '';
     draw();
+    rows.children[guesses.length - 1]?.classList.add('al-gwreveal');
     if (guesses[guesses.length - 1] === answer) {
       done = true;
       return p.end({ won: true, score: W.score(guesses.length, tries), words: `Found in ${guesses.length} of ${tries}.` });
