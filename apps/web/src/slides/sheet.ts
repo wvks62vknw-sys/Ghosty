@@ -9,6 +9,8 @@
  * .pptx, PDF (with notes pages if he asks) and one slide as a PNG, the size said; autosave said once; reopened where he was.
  * Everything is on the phone; nothing is sent.
  */
+import { pageLine, putOnSites } from '../sites/handover'; // [sites] a deck at its own link (NEXT ROUND sites.s3/s4)
+import { deckPage } from './web';
 import { bytesOf } from '../core/safeurl';
 import { h, clear } from '../core/dom';
 import { button, modal } from '../ui/components';
@@ -604,6 +606,16 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
         }),
       ),
       notesKey,
+      // [sites] the deck at its own link (NEXT ROUND sites.s3/s4): a read-only page that plays on any phone, after his APPROVE in the chat
+      h('small.slh', 'ON YOUR SITES'),
+      h('p.slnote.slsites', pageLine('deck')),
+      h('div.slrow', key('PUT IT ON MY SITES', () => {
+        void wait('Making the page on this phone…', async () => {
+          await ready();
+          const r = await putOnSites(deck().title || 'My slides', deckPage(deck(), image), 'deck');
+          say(r.said);
+        }).catch(() => say('I could not make the page. Try again in a moment.'));
+      })),
       out,
       h('p.slnote', 'In the PowerPoint file a chart is its numbers, a table on the slide; transitions, builds and skipped slides go with it (each build is a PowerPoint animation). In the PDF and the picture each slide is drawn as a picture, the chart as it looks here.'),
       sizeNote,

@@ -57,6 +57,8 @@ export function imageId(): string {
   return s;
 }
 export const isImageId = (s: string): boolean => /^[A-Za-z0-9_-]{16}$/.test(s);
+/** [sites] Where a kept picture's bytes live (a site photo he removes, and no page uses, is deleted from here: sitephotos.ts). */
+export const imageKey = (id: string): string => PREFIX + id;
 
 const dayKey = (counter: string, now: number) => `${counter}${new Date(now).toISOString().slice(0, 10)}`;
 

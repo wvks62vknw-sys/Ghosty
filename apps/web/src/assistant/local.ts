@@ -52,8 +52,10 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
+  /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
+  promises?: { id: string; what: string; due: string }[];
   found?: { key: string; bid?: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string }[];
   /**
    * Found, best first: the ability (by id) and which of its asks fits (−1: its own GO); or a screen to open (`open`), a
@@ -189,6 +191,10 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   speaker: (text, opts) => import('./voiceknown').then((v) => answer(text, v.whoWords(!!opts.voice), { kind: 'can', go: [{ id: 'screen:settings', ask: -1, label: 'My voice', open: 'settings' }] }, opts)),
   // [offline2] "how independent are you?": SYSTEM → INDEPENDENCE opened, and the last seven days said (system/independence.ts)
   independent: async (text, opts) => answer(text, await import('../features/system/independence').then((m) => m.independenceTurn()), { kind: 'pack' }, opts),
+  // [next] "how ready are you offline?": the number, what is here and the one download that helps most (system/offlineready.ts)
+  // [next] "turn on the saver": switched on the phone, and said (state/saver.ts)
+  saver: async (text, opts) => answer(text, await import('../state/saver').then((m) => m.saverTurn(text)), { kind: 'pack' }, opts),
+  offlineready: async (text, opts) => answer(text, await import('../features/system/offlineready').then((m) => m.readyTurn()), { kind: 'pack' }, opts),
   // [themes2] THE LOOK BY WORDS (BRIEF-THEMES-2 6): "black background", "lighter", "paper", "the scan", "calm", "bigger text",
   // "follow the day", a switch or a colour by name: applied at once, said in a sentence (what changed, what stayed), no model
   async look(text, opts) {
@@ -221,6 +227,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   // [lifeeasier] WHAT DID I MISS?, TEACH ME WHAT YOU LEARNED and WATCHERS: from his own records and the pages he names, no model (assistant/life.ts)
   missed: (text, opts) => import('./life').then((m) => m.missedTurn(text, opts, answer)).catch(() => false),
   teach: (text, opts) => import('./life').then((m) => m.teachTurn(text, opts, answer)).catch(() => false),
+  keep: (text, opts) => import('../features/memory/keep').then((m) => m.keepTurn(text, opts, answer)).catch(() => false),
   recall: (text, opts) => import('../features/memory/recallturn').then((m) => m.recallTurn(text, opts, answer)).catch(() => false),
   chase: (text, opts) => import('../features/memory/recallturn').then((m) => m.chaseTurn(text, opts, answer)).catch(() => false),
   watcher: (text, opts) => import('./life').then((m) => m.watcherTurn(text, opts, answer)).catch(() => false),
@@ -320,6 +327,23 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   learning: async (text, opts) => {
     const r = await learningTurn(text);
     return r ? packAnswer(r, opts) : false;
+  },
+  // [see] TRIP MODE: "how do I get to my next appointment?" opens GETTING THERE on it (ui/tripsheet.ts), the answer one line
+  async trip(text, opts) {
+    const { openNextTrip } = await import('../ui/tripsheet');
+    return answer(text, await openNextTrip(), { kind: 'trip' }, opts);
+  },
+  // [see] "commute view", "storm layers", "sky mode": the set picked on God's Eye, said in one line
+  async layerset(text, opts) {
+    const { setAsked, LAYER_SETS } = await import('../features/eye/sets');
+    const k = setAsked(text);
+    if (!k) return false;
+    location.hash = 'eye';
+    const eye = await import('../features/eye');
+    const t0 = Date.now();
+    while (!eye.pickLayerSet && Date.now() - t0 < 6000) await new Promise((r) => setTimeout(r, 150));
+    const said = eye.pickLayerSet?.(k) ?? LAYER_SETS.find((s) => s.key === k)!.said;
+    return answer(text, said, { kind: 'layerset' }, opts);
   },
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {

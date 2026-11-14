@@ -352,7 +352,10 @@ let mine = [];
   check(cards > 0 && (await page.locator('.approval button.on').count()) > 0 && /NEEDS YOUR APPROVAL/i.test(await page.locator('.approval').first().textContent()), `[lock] the approval card went away without a tap (${cards} cards, ${await page.locator('.approval button.on').count()} buttons, "${(await page.locator('.approval').first().textContent().catch(() => '')).slice(0, 80)}")`);
   await page.screenshot({ path: `${out}/speaker-lock.png` });
   await page.locator('.approval button.on').first().click();
-  check(await page.waitForFunction(() => /Approved\./.test(document.body.innerText), null, { timeout: 8000 }).then(() => true, () => false) && seen.approves.length === 1, `[lock] the tap did not approve exactly once (${seen.approves.length})`);
+  // [security] an email counts down a few seconds first, TAKE IT BACK on the card (security.u5); then the one call to /approve
+  check(await page.waitForSelector('.approval button.apback', { state: 'visible', timeout: 3000 }).then(() => true, () => false), '[lock] the tap did not start the few seconds to take it back');
+  for (let i = 0; i < 60 && seen.approves.length === 0; i++) await page.waitForTimeout(200);
+  check(await page.waitForFunction(() => /Approved\. I’m on it\./.test(document.body.innerText), null, { timeout: 8000 }).then(() => true, () => false) && seen.approves.length === 1, `[lock] the tap did not approve exactly once (${seen.approves.length})`);
   notes.push('an approval waited for the tap with his voice scored as him, twice, and /approve was asked once, after the tap');
 
   // 8. DELETE with UNDO: the voice and its model numbers; then the pack
