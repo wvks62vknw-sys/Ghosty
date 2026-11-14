@@ -20,6 +20,18 @@ export interface ReadSource {
   count: number;
   page(n: number): Promise<Blob>;
   panels(n: number, rtl?: boolean): Promise<[number, number, number, number][]>;
+  /** a made comic's words, panel by panel, for reading aloud (comic.u12): who says each line, and the voice picked for them */
+  words?(n: number): { who: string; role: string; voice?: string; text: string }[][];
+}
+
+/** A phone voice for each character: the one he picked, else one chosen by their place in the cast, pitched apart. */
+function voiceFor(role: string, picked: string | undefined, i: number): { voice: SpeechSynthesisVoice | null; pitch: number; rate: number } {
+  const all = typeof speechSynthesis === 'undefined' ? [] : speechSynthesis.getVoices();
+  const en = all.filter((v) => /^en/i.test(v.lang));
+  const pool = en.length ? en : all;
+  const voice = (picked && all.find((v) => v.voiceURI === picked)) || pool[(i * 3) % Math.max(1, pool.length)] || null;
+  const pitch = role === 'friend' ? 1.25 : role === 'rival' ? 0.72 : role === 'narrator' ? 1 : role === 'hero' ? 1.05 : 1.12;
+  return { voice, pitch, rate: role === 'narrator' ? 0.95 : 1.02 };
 }
 
 // ---- bookmarks, the night tint and the reading log, kept on this phone (small, so in localStorage; a private window keeps them for the visit)
@@ -162,6 +174,60 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
     }
     strip.querySelector<HTMLElement>('.cxrthumb.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   };
+  // ---- read aloud, panel by panel, a voice for each character (comic.u12; a made comic: its words are known)
+  let aloud = 0;
+  const aloudKey = src.words ? button('Read aloud', () => (aloud ? stopAloud() : void readAloud()), 'g-key cxrkey') : null;
+  aloudKey?.setAttribute('aria-label', 'Read the comic aloud, a voice for each character');
+  const say = (text: string, role: string, picked: string | undefined, i: number, ticket: number) => new Promise<void>((done) => {
+    comicState.reader.aloud = { on: true, said: text, who: role, lines: comicState.reader.aloud.lines + 1 };
+    // (a phone with no voices, or one that never says it finished: the time the line takes, then on)
+    const t = window.setTimeout(done, Math.max(1200, text.length * 65));
+    if (typeof speechSynthesis === 'undefined' || ticket !== aloud) return;
+    const u = new SpeechSynthesisUtterance(text);
+    const v = voiceFor(role, picked, i);
+    if (v.voice) u.voice = v.voice;
+    u.pitch = v.pitch;
+    u.rate = v.rate;
+    u.onend = () => {
+      clearTimeout(t);
+      done();
+    };
+    u.onerror = () => {
+      clearTimeout(t);
+      done();
+    };
+    speechSynthesis.speak(u);
+  });
+  const readAloud = async () => {
+    const ticket = (aloud = Date.now());
+    comicState.reader.aloud = { on: true, said: '', who: '', lines: 0 };
+    aloudKey!.textContent = 'Stop reading';
+    aloudKey!.setAttribute('aria-pressed', 'true');
+    if (!guided) setGuided(true);
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 250));
+      if (ticket !== aloud) return;
+      const lines = src.words!(page)[Math.max(0, panel)] ?? [];
+      for (const [k, l] of lines.entries()) {
+        if (ticket !== aloud) return;
+        await say(l.text, l.role, l.voice, k, ticket);
+      }
+      if (ticket !== aloud) return;
+      const ps = await panelsAt(page);
+      if (page >= src.count - 1 && panel >= ps.length - 1) break;
+      await step(1);
+    }
+    stopAloud();
+  };
+  const stopAloud = () => {
+    aloud = 0;
+    if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+    comicState.reader.aloud.on = false;
+    if (aloudKey) {
+      aloudKey.textContent = 'Read aloud';
+      aloudKey.setAttribute('aria-pressed', 'false');
+    }
+  };
   const pagesKey = button('Pages', () => {
     strip.hidden = !strip.hidden;
     pagesKey.setAttribute('aria-pressed', String(!strip.hidden));
@@ -222,7 +288,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
     note,
     strip,
     h('div.cxrbar', prev, guide, zout, zin, two, manga, next),
-    h('div.cxrbar', pagesKey, markKey, nightKey, autoKey),
+    h('div.cxrbar', pagesKey, markKey, nightKey, autoKey, aloudKey),
     slider,
   );
   root.classList.toggle('night', night);
@@ -230,7 +296,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
   const opened = Date.now();
   const seenPages = new Set<number>();
   document.body.append(root);
-  comicState.reader = { open: true, id: src.id, page, panel, guided, rtl, zoom, spread: false, pages: src.count, shown: [], marks: [...marks], night, auto: 0, turned: 0 };
+  comicState.reader = { aloud: { on: false, said: '', who: '', lines: 0 }, open: true, id: src.id, page, panel, guided, rtl, zoom, spread: false, pages: src.count, shown: [], marks: [...marks], night, auto: 0, turned: 0 };
 
   const wide = () => stage.clientWidth > stage.clientHeight * 1.05 && innerWidth >= 700;
   /** The pages on screen now: the cover alone, then pairs when two fit. */
@@ -448,6 +514,7 @@ export async function openReader(src: ReadSource, at?: number): Promise<void> {
   const ro = new ResizeObserver(() => void paint());
   ro.observe(stage);
   const shut = () => {
+    stopAloud();
     clearInterval(timer);
     for (const u of thumbUrls) URL.revokeObjectURL(u);
     logReading(src.id, seenPages.size, Date.now() - opened, Math.max(...seenPages, 0) >= src.count - 1);

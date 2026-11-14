@@ -147,5 +147,5 @@ export function readScript(text: string, cast: CastMember[], min: { pages: numbe
 
 /** The local comic with the brain's script in place of the phone's own: the same cast (names and looks), its pages. */
 export function withScript(base: Comic, s: ScriptRead): Comic {
-  return { ...base, title: s.title || base.title, tagline: s.tagline || base.tagline, pages: s.pages, premise: `${base.premise.split('.')[0]}. Written by Ghosty for your idea.` };
+  return { ...base, title: base.series ? base.title : s.title || base.title, tagline: s.tagline || base.tagline, pages: s.pages, premise: `${base.premise.split('.')[0]}. Written by Ghosty for your idea.` };
 }

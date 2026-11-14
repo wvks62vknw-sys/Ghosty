@@ -14,6 +14,8 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [comic] NEXT ROUND (comic.u3, u12)
+  { day: '2026-11-14', title: 'Comics in a series, read aloud', line: 'COMIC: ISSUE 2 continues a comic with the same cast, numbered on its cover; READ ALOUD reads a comic you made panel by panel, a phone voice for each character, which you can pick in THE CAST.' },
   // [comic] NEXT ROUND (comic.c6, s12, u8, s5, s6, s2)
   { day: '2026-11-14', title: 'Jokes, cards and picture books', line: 'COMIC → MAKE: a one-panel joke, a greeting card or a picture book as well as a comic; say “make it a comic” about what I just told you; translate a comic’s words for family abroad; and pick your own cartoon look by hand to cast in any comic.' },
   // [comic] NEXT ROUND (comic.u9, u11, u13, s7, s11)

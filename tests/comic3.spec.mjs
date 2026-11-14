@@ -288,6 +288,27 @@ for (const vp of [PHONE, PHONE2]) {
       const st = (await C(page)).editing;
       check(test(st), `${T} (g) ${fmt}: ${st.pages} page(s), ${st.panels} panel(s) on the first, "${st.title}"`);
     }
+    // issue 2 with the same cast (comic.u3), and the comic read aloud, a voice a character (comic.u12)
+    await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
+    await page.selectOption('#pg-comic select[aria-label="What to make"]', 'comic');
+    await page.fill('#pg-comic textarea', 'a robot who wants to bake bread');
+    await page.click('#pg-comic button[aria-label="Make a whole comic from this idea"]');
+    await until(page, () => window.__ghosty.comic.editing.pages === 4 && window.__ghosty.comic.editing.by === 'phone');
+    const first = await C(page);
+    await page.click('#pg-comic button[aria-label="Make issue 2 with the same cast"]');
+    check(await until(page, (t) => window.__ghosty.comic.editing.series === 2 && window.__ghosty.comic.editing.title !== t, first.editing.title), `${T} (g) ISSUE 2 makes the next issue`);
+    const second = await C(page);
+    check(second.editing.cast.join() === first.editing.cast.join() && /, No\. 2$/.test(second.editing.title), `${T} (g) …with the same cast, numbered: "${second.editing.title}" (${second.editing.cast.join(', ')})`);
+    check(/^The cover: .+, No\. 2/.test(await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (g) its cover says No. 2`);
+    await page.click('#pg-comic button[aria-label="Read your comic full screen"]');
+    await until(page, () => window.__ghosty.comic.reader.open);
+    await page.click('.cxread button[aria-label="Read the comic aloud, a voice for each character"]');
+    check(await until(page, () => window.__ghosty.comic.reader.aloud.on && window.__ghosty.comic.reader.guided && window.__ghosty.comic.reader.aloud.lines >= 1), `${T} (g) READ ALOUD reads panel by panel in the guided view`);
+    check(await until(page, () => window.__ghosty.comic.reader.page >= 1 && window.__ghosty.comic.reader.aloud.lines >= 3, null, 20000), `${T} (g) …and goes on to the next panels by itself (${(await C(page)).reader.aloud.lines} lines, page ${(await C(page)).reader.page + 1})`);
+    await page.click('.cxread button[aria-pressed="true"]:has-text("Stop reading")');
+    check(await until(page, () => !window.__ghosty.comic.reader.aloud.on), `${T} (g) STOP READING stops it`);
+    await page.keyboard.press('Escape');
+    await until(page, () => !document.querySelector('.cxread'));
     // Ghosty writes a joke too, kept to one panel whatever comes back
     await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
     await page.selectOption('#pg-comic select[aria-label="Who writes it"]', 'ghosty');

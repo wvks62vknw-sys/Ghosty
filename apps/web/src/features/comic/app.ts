@@ -16,7 +16,7 @@ import { drawCover, drawPage, hitOf, photosReady, type Drawn } from './art';
 import { bookletOf, cbzOf, importFiles, panelsOf, pdfOf, sniff } from './files';
 import { getRarReader, isRarNeeded, RAR_BYTES } from './rar';
 import { creditOf, fetchPd, fileOf, onMobileData, PD_QUERY, searchPd, type PdFile, type PdItem } from './library';
-import { blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
+import { nextIssue, blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
 import { openReader, readingLog, type ReadSource } from './reader';
 import { allMade, bookOf, books, dropBook, keepBook, keepMade, madeOf, pageOf, shelfInfo, updateBook, type Book } from './store';
 import { comicState } from './state';
@@ -50,6 +50,17 @@ const keepPerson = (name: string, look: Person['look']) => {
     /* (for this visit only) */
   }
 };
+/** The phone voice a character speaks in when the comic is read aloud (the phone's own voices; nothing is sent). */
+function voicePick(m: Comic['cast'][number], onChange: () => void): HTMLElement {
+  const all = typeof speechSynthesis === 'undefined' ? [] : speechSynthesis.getVoices();
+  const list = ['', ...all.slice(0, 40).map((v) => v.voiceURI)];
+  const names: Record<string, string> = { '': 'A voice chosen for them' };
+  for (const v of all.slice(0, 40)) names[v.voiceURI] = `${v.name} (${v.lang})`;
+  return sel(`${m.name}’s voice when read aloud`, list, m.voice && list.includes(m.voice) ? m.voice : '', (v) => {
+    m.voice = v || undefined;
+    onChange();
+  }, names);
+}
 /** Languages a comic can be put into for family abroad. */
 const LANGS = ['French', 'Spanish', 'German', 'Italian', 'Portuguese', 'Polish', 'Urdu', 'Punjabi', 'Arabic', 'Hindi', 'Bengali', 'Turkish', 'Chinese', 'Japanese'] as const;
 const WRITERS = ['ghosty', 'phone'] as const;
@@ -118,6 +129,15 @@ export function madeSource(c: Comic): ReadSource {
     title: c.title,
     count: c.pages.length + 1,
     page: (n) => pagePic(c, n),
+    words: (n) => {
+      const role = (who: string) => c.cast.find((m) => m.id === who);
+      if (n === 0) return [[{ who: 'narrator', role: 'narrator', text: `${c.title}. ${c.tagline}` }]];
+      return (c.pages[n - 1]?.panels ?? []).map((p) => [
+        ...(p.caption ? [{ who: 'narrator', role: 'narrator', text: p.caption }] : []),
+        ...p.balloons.map((b) => ({ who: b.who, role: role(b.who)?.role ?? 'extra', voice: role(b.who)?.voice, text: b.text })),
+        ...(p.sfx ? [{ who: 'narrator', role: 'narrator', text: p.sfx }] : []),
+      ]);
+    },
     panels: async (n, rtl) => {
       if (n === 0) return [[0, 0, 1, 1]];
       const rs = panelRects(c.pages[n - 1]!).map((r) => [r.x / PAGE_W, r.y / PAGE_H, r.w / PAGE_W, r.h / PAGE_H] as [number, number, number, number]);
@@ -412,6 +432,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     where.textContent = page === 0 ? `The cover · ${c.pages.length} pages after it` : `Page ${page} of ${c.pages.length} · ${pg!.panels.length} panels${panel >= 0 ? ` · panel ${panel + 1} chosen` : ' · tap a panel to change it'}`;
     comicState.editing.boxes = drawn.balloons.filter((q) => q.panel === panel).map((q) => ({ id: q.id, ...q.box }));
     comicState.editing.photo = !!(page > 0 && panel >= 0 && c.pages[page - 1]?.panels[panel]?.photo);
+    comicState.editing.series = c.series?.n ?? 1;
     Object.assign(comicState.editing, { id: c.id, title: c.title, pages: c.pages.length, page, panel, balloon, drawn: comicState.editing.drawn + 1, panels: pg?.panels.length ?? 0, balloons: pg ? pg.panels.reduce((n, p) => n + p.balloons.length, 0) : 0, cast: c.cast.map((m) => m.name) });
   };
   const soon = () => {
@@ -660,6 +681,7 @@ export function makePart(): { el: HTMLElement; stop(): void } {
             sel(`${m.name}’s hat`, ['0', '1', '2', '3'], String(m.look.hat), (v) => ((m.look.hat = Number(v)), changed(true)), { 0: 'No hat', 1: 'Cap', 2: 'Top hat', 3: 'Bow' }),
             sel(`${m.name}’s glasses`, ['no', 'yes'], m.look.glasses ? 'yes' : 'no', (v) => ((m.look.glasses = v === 'yes'), changed(true)), { no: 'No glasses', yes: 'Glasses' }),
             sel(`${m.name}’s height`, ['0.86', '0.98', '1.1'], m.look.height < 0.92 ? '0.86' : m.look.height < 1.04 ? '0.98' : '1.1', (v) => ((m.look.height = Number(v)), changed(true)), { '0.86': 'Short', '0.98': 'Middle', '1.1': 'Tall' })),
+          voicePick(m, () => changed()),
           key('Keep this look', () => {
             keepPerson(m.name, m.look);
             clear(status, h('span', { dataset: { state: 'done' } }, `${m.name}’s look is kept on this phone: cast them in any comic from THE CAST.`));
@@ -725,6 +747,11 @@ export function makePart(): { el: HTMLElement; stop(): void } {
       key('Phone scroll', () => void exportMore('scroll'), 'Save the comic as one long picture to scroll on a phone'),
       key('Panels', () => void exportMore('panels'), 'Save every panel as its own picture'),
       key('Booklet', () => void exportMore('booklet'), 'Save a PDF to print, fold and staple into a booklet'),
+      key(`Issue ${(c.series?.n ?? 1) + 1}`, () => {
+        // the next issue: the same cast, a new adventure (comic.u3), written by Ghosty or the phone
+        const next = nextIssue(c);
+        void start(`the next issue of the comic “${c.series?.name ?? c.title}”: ${c.premise} A brand new adventure with the same cast, a new problem, and a joke that calls back to the first issue.`, next);
+      }, `Make issue ${(c.series?.n ?? 1) + 1} with the same cast`),
       key('New comic', () => ((cur = null), paintIdea()), 'Start a new comic from an idea'),
     );
     const script = h('details.cxscript', { dataset: { k: 'script' } }, h('summary', 'The script'), h('pre.cxpre', scriptOf(c)));
