@@ -8888,6 +8888,71 @@ html .hud.core .convo .localacts button, html .localacts button { min-height: va
 html :is(.log, #talkline, #thestage, .citedoc, .modal) button.g-key, html #app .approval .row button.apkey { min-height: var(--g-target) !important; height: auto; }
 /* ==== TELEGRAM pass: LINKS → TELEGRAM's keys (NEW CODE, OPEN THE BOT, TEST, UNPAIR, SYSTEM → KEYS) and the keys of a one-tap sheet (KEEP IT / UNPAIR, UNLINK…) are 44 pt, which the phone-wide 40 px rule held them under ==== */
 html .tgbody button, html .modal .confirm.sure button { min-height: var(--g-target) !important; height: auto; }
+/* ---- PAINT (APPS ROUND, lane COMIC; features/paint): the gallery's pages (.px) and the full-screen studio (.pxstudio). Tokens only. ---- */
+.px { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.px .pxrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); align-items: flex-end; min-width: 0; }
+html #app .px button, html #app .px select, html #app .px input[type="search"], html #app .px input[type="text"], html #app .px summary, html #app .px .pxcheck { min-height: var(--g-target) !important; height: auto; }
+html #app .px button.pxkey { white-space: normal; overflow-wrap: anywhere; min-width: var(--g-target); }
+.px .pxfield { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 160px; }
+.px .pxlab, .pxstudio .pxlab { font: var(--g-t-caption); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); overflow-wrap: anywhere; }
+.px input[type="search"], .px input[type="text"], .px select { width: 100%; box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); }
+.px .pxcheck { display: flex; align-items: center; gap: var(--g-s-half); font: var(--g-t-body); color: var(--g-ink-1); }
+.px .pxcheck input { width: var(--g-target); height: var(--g-target); margin: 0; flex: none; accent-color: var(--g-accent); }
+.px .pxnote, .px .pxsmall, .px .pxtour, .px .pxhelp { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
+.px .pxsmall { font: var(--g-t-caption); color: var(--g-ink-3); }
+.px .pxnote:empty { display: none; }
+.px .pxtour, .px .pxhelp { padding-left: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-half); }
+.px .pxtour[hidden] { display: none; }
+.px .pxgallery { display: flex; flex-direction: column; gap: var(--g-s-1); }
+.px .pxcard { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: var(--g-s-1); padding: var(--g-s-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.px .pxcover { width: 84px; height: 112px; object-fit: cover; border-radius: var(--g-radius-key); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); }
+.px .pxcover.none { display: flex; align-items: center; justify-content: center; font: var(--g-t-head); color: var(--g-ink-3); }
+.px .pxcardwords { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+.px .pxcardtitle { margin: 0; font: var(--g-t-body); font-weight: 600; color: var(--g-ink-1); overflow-wrap: anywhere; }
+.px details > summary { display: flex; align-items: center; cursor: pointer; font: var(--g-t-body); color: var(--g-ink-1); }
+.pxstudio { position: fixed; inset: 0; z-index: 320; display: flex; flex-direction: column; gap: var(--g-s-half); padding: calc(var(--g-s-half) + env(safe-area-inset-top, 0px)) calc(var(--g-s-1) + env(safe-area-inset-right, 0px)) calc(var(--g-s-half) + env(safe-area-inset-bottom, 0px)) calc(var(--g-s-1) + env(safe-area-inset-left, 0px)); background: var(--g-canvas); color: var(--g-ink-1); box-sizing: border-box; pointer-events: auto; overscroll-behavior: none; }
+.pxstudio .pxtop { display: flex; align-items: center; gap: var(--g-s-half); min-width: 0; }
+.pxstudio .pxtitle { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pxstudio .pxstage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; outline: none; border-radius: var(--g-radius-cell); }
+.pxstudio .pxcanvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; }
+.pxstudio .pxnote { margin: 0; min-height: 1.4em; font: var(--g-t-caption); letter-spacing: var(--g-tr-truth); color: var(--g-ink-2); overflow-wrap: anywhere; }
+.pxstudio .pxsliders { display: flex; gap: var(--g-s-1); min-width: 0; }
+.pxstudio .pxsliders[hidden] { display: none; }
+.pxstudio .pxslide { display: flex; align-items: center; gap: var(--g-s-half); flex: 1 1 0; min-width: 0; }
+.pxstudio .pxslide > .pxlab { flex: none; white-space: nowrap; }
+.pxstudio .pxslide input[type="range"] { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); accent-color: var(--g-accent); }
+.pxstudio .pxslide select, .pxstudio input[type="text"] { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); }
+.pxstudio .pxval { flex: none; min-width: 3.2em; font: var(--g-t-caption); color: var(--g-ink-3); text-align: right; }
+.pxstudio .pxbar { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
+html .pxstudio .pxbar button.pxtool { flex: 1 1 auto; padding-left: var(--g-s-half); padding-right: var(--g-s-half); }
+html .pxstudio button.pxkey { min-height: var(--g-target) !important; min-width: var(--g-target); height: auto; flex: none; white-space: nowrap; }
+html .pxstudio button.pxkey[aria-pressed="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
+html .pxstudio button.pxkey:disabled { opacity: .45; }
+.pxstudio .pxswatch { display: inline-block; width: 1.1em; height: 1.1em; margin-right: var(--g-s-half); border-radius: 50%; border: var(--g-hair) solid var(--g-line); vertical-align: middle; }
+.pxstudio .pxsheet { max-height: 44vh; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.pxstudio .pxsheet[hidden] { display: none; }
+.pxstudio .pxsheethead { display: flex; align-items: center; gap: var(--g-s-1); }
+.pxstudio .pxsheettitle { flex: 1 1 auto; margin: 0; font: var(--g-t-head); color: var(--g-ink-1); }
+.pxstudio .pxsheetsub { margin: var(--g-s-half) 0 0; font: var(--g-t-caption); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+.pxstudio .pxsheetbody, .pxstudio .pxlist, .pxstudio .pxlayers, .pxstudio .pxlopts, .pxstudio .pxpals, .pxstudio .pxcolour, .pxstudio .pxvers { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+.pxstudio .pxrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); min-width: 0; }
+html .pxstudio button.pxrow { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; white-space: normal; }
+html .pxstudio button.pxrow.on { border-color: var(--g-accent); }
+.pxstudio .pxrowsay, .pxstudio .pxsmall { font: var(--g-t-caption); color: var(--g-ink-3); text-transform: none; overflow-wrap: anywhere; }
+.pxstudio .pxlayer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: var(--g-s-half); align-items: center; padding: var(--g-s-half); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+.pxstudio .pxlayer[data-on="true"] { border-color: var(--g-accent); }
+.pxstudio .pxthumb { width: 48px; height: 64px; border-radius: var(--g-radius-key); border: var(--g-hair) solid var(--g-line-faint); }
+.pxstudio .pxlwords { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html .pxstudio button.pxlname { justify-content: flex-start; text-align: left; white-space: normal; overflow-wrap: anywhere; text-transform: none; }
+html .pxstudio button.pxlname.on { color: var(--g-accent-text); }
+.pxstudio .pxsv { width: 100%; max-width: 420px; height: auto; aspect-ratio: 8 / 5; border-radius: var(--g-radius-key); touch-action: none; }
+.pxstudio .pxpal { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.pxstudio .pxdots { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
+html .pxstudio button.pxdot { width: var(--g-target); min-width: var(--g-target); padding: 0; border-radius: 50%; border: var(--g-hair) solid var(--g-line); }
+.pxstudio .pxcheck { display: flex; align-items: center; gap: var(--g-s-half); min-height: var(--g-target); font: var(--g-t-body); color: var(--g-ink-1); }
+.pxstudio .pxcheck input { width: var(--g-target); height: var(--g-target); margin: 0; flex: none; accent-color: var(--g-accent); }
+.pxstudio .pxtl { width: 100%; max-width: 360px; height: auto; border-radius: var(--g-radius-key); border: var(--g-hair) solid var(--g-line-faint); }
+.pxstudio .pxtl[hidden] { display: none; }
 /* ==== end THE SYSTEM ==== */
 /* DOCUMENTS' text colours (NEXT ROUND sweep), by number, each a token of the world's own */
 .dcpage .dctc[data-tc="1"], .dccolours [data-tc="1"] { color: var(--g-red); }

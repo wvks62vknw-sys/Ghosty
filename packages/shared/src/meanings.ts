@@ -109,6 +109,8 @@ const map = open('map', 'eye', 'Opening the map.');
 const lens = open('lens', 'lens', 'Opening the Lens: point it at anything.');
 // [comic] THE COMIC is its own screen since the FINAL ROUND's comic lane (features/comic): its shelf, MAKE and the public-domain library
 const comic = open('comic', 'comic', 'Opening Comic: your shelf, MAKE and the free library.');
+// [paint] PAINT is its own screen since the APPS ROUND's comic lane (features/paint): the gallery, colouring pages and the studio
+const paint = open('paint', 'paint', 'Opening Paint: your gallery, colouring pages and the studio.');
 const arcade = open('games', 'arcade', 'Opening the arcade.');
 const gym = open('board games', 'gym', 'Opening the gym: chess, draughts and the board games.');
 const settings = open('settings', 'settings', 'Opening Settings.');
@@ -180,6 +182,7 @@ const ROWS: Row[] = [
   R(/^(?:open|show|show me|bring up|pull up|load|go to|take me to|get|i need|i want|see|lemme see) (?:the |a |my )?(?:map|maps|world map|globe|god's eye|gods eye|the world)$|^where am i on the map$|^show me where i am(?: on the map)?$|^(?:open|show) (?:google|apple) maps$|^(?:god's eye|gods eye|world map|the globe)$/, map),
   R(/^(?:open|start|launch|fire up|bring up|pull up|go to|use|get|show me) (?:the |my )?(?:lens|camera lens|scanner|camera to look|look camera|visual search|google lens|lens camera)$|^(?:the )?(?:lens|google lens|visual search)$|^(?:point and look|look at this for me|have a look at this|tell me what this is|what is that thing)$/, lens),
   R(/^(?:open|start|make|draw|write|create|show|show me|read|go to|bring up) (?:the |a |my |me a )?(?:comic|comics|comic book|comic strip|graphic novel|manga|strip)$|^(?:i want to|let's) (?:make|draw|read) (?:a )?comics?$|^comic time$|^new comic$/, comic),
+  R(/^(?:open|start|launch|show me|go to|bring up) (?:the |my )?(?:paint|paint app|painting app|drawing app|sketchbook|sketch pad|sketchpad|paintings|drawings)$|^(?:i want to|let's|let me) (?:draw|paint|sketch|doodle)(?: something)?$|^(?:start|make|do|new) (?:a )?(?:painting|drawing|sketch|doodle)$|^(?:a |open a |make a |give me a )?colou?ring (?:page|pages|in|sheet)$|^(?:paint|draw) time$|^(?:draw|paint|sketch|doodle)(?: something)?$/, paint),
   // ---- the editors (their own tables take the canonical words)
   R(/^(?:write|start|make|create|open|draft|type|type up|begin) (?:a |an |up a |me a )?(?:new )?(?:document|doc|letter|word doc|word document|essay|note|text document|report)$|^new (?:document|doc|letter|word doc|word document|text document)$|^(?:open|show) (?:my )?(?:documents|docs|word)$/, { id: 'docs', say: 'new document' }),
   R(/^(?:make|start|create|open|build|do) (?:a |an |me a )?(?:new )?(?:spreadsheet|sheet|excel|excel sheet|table|budget sheet|workbook)$|^new (?:spreadsheet|sheet|excel sheet|workbook)$|^(?:open|show) (?:my )?(?:spreadsheets|sheets|excel)$/, { id: 'sheets', say: 'new spreadsheet' }),
@@ -269,6 +272,7 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'video', label: 'Video', names: ['video editor', 'videos', 'my videos', 'clips', 'films'], bare: ['video editor'] },
   { tab: 'gamestudio', label: 'Game Studio', names: ['game studio', 'game maker', 'game builder', 'make games', 'my game projects'], bare: ['game studio', 'game maker'] },
   { tab: 'comic', label: 'the comic', names: ['comic', 'comics', 'comic book', 'comic maker', 'graphic novels', 'manga'] },
+  { tab: 'paint', label: 'Paint', names: ['paint', 'painting app', 'sketchbook', 'my paintings', 'my drawings', 'colouring pages'] },
   { tab: 'house', label: 'the house', place: true, names: ['house', 'smart home', 'home controls', 'lights and heating', 'heating', 'thermostat', 'my house'] },
 ];
 
@@ -394,7 +398,7 @@ export function meaningOf(text: string): Meant | TwoWays | null {
 export const isTwo = (m: Meant | TwoWays | null): m is TwoWays => !!m && 'two' in m;
 
 /** The ids this layer can mean (for the checks: each must have wordings in the table test). */
-export const MEANING_IDS = ['radio', 'radio-stop', 'radio screen', 'water', 'lights-on', 'lights-off', 'timer', 'map', 'lens', 'comic', 'docs', 'sheets', 'slides', 'photo', 'video', 'games', 'board games', 'weather', 'news', 'settings', 'look', 'agenda', 'materials', 'cameras', 'money', 'library', 'learn'] as const;
+export const MEANING_IDS = ['radio', 'radio-stop', 'radio screen', 'water', 'lights-on', 'lights-off', 'timer', 'map', 'lens', 'comic', 'paint', 'docs', 'sheets', 'slides', 'photo', 'video', 'games', 'board games', 'weather', 'news', 'settings', 'look', 'agenda', 'materials', 'cameras', 'money', 'library', 'learn'] as const;
 
 /** The note the brain is given beside his words when the phone read a meaning it cannot do itself (one short line). */
 export const meantNote = (m: Meant): string => (m.brain ? `\n\n(The phone read this as: ${m.brain}.)` : '');

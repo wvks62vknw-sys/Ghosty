@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [paint] THE APPS ROUND, lane COMIC: PAINT, a real painting app (docs/build-plan/APPS-COMIC.md)
+  { day: '2026-11-14', title: 'Paint', line: 'MAKE → PAINT: draw with a finger or an Apple Pencil. Six brushes that follow your pressure, layers with blend modes, undo, colouring pages, and a time-lapse of every stroke you can save as a video.' },
   // [moneyapps] money, effortless
   { day: '2026-11-14', title: 'All your statements at once', line: 'MONEY → Statement → Pick files: choose many at once, CSV, OFX, QIF or PDF from any bank. Each says what it kept, and payments you already had are left out. Each shop on Month now has its own page.' },
   // [see] the APPS ROUND: the weather app
