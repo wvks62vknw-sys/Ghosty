@@ -41,7 +41,8 @@ export async function thatOneTurn(text: string, opts: Opts, answer: Answer): Pro
   // the one Lens: "read that", "what is that", "translate it", "measure it" act on the tag he tapped (else the one that fits), with no model
   if (screen === 'lens' && (that.act === 'lens' || that.act === 'read')) {
     const { oneHooks } = await import('../features/lens/one');
-    const said = oneHooks.act?.(that.act === 'read' ? 'read' : that.word);
+    // (his own words go along: "I'm allergic to peanuts" fills his avoid list with what he named)
+    const said = oneHooks.act?.(that.act === 'read' ? 'read' : that.word, text);
     return said ? answer(text, said, { kind: 'pack' }, opts) : false;
   }
   // the car in 3-D: "what is this?" with a part lit is answered from its own sheet (and the numbers of this engine), with no model
