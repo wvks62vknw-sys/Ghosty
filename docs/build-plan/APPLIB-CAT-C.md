@@ -4,9 +4,9 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
 
 ## What is in
 
-**Learning (73 apps).**
+**Learning (72 apps).**
 - From the list, with `from`:
-  - Periodic Table (learn.19): a guide to all 118 elements; group, period and block are worked out from the atomic number, not typed.
+  - Periodic Table (learn.19): a guide to all 118 elements; group, period and block are worked out from the atomic number, not typed. Its source is the live list of chemical elements.
   - Music Theory (learn.36), Memory Palace (learn.53), Exam Planner (learn.54).
   - Highway Code (learn.55): written from the public text and labelled as not the official bank.
   - Typing Arcade (learn.56), Course Tracker (learn.48), Listening Log (learn.50), Gallery Visits (learn.43), Coding Log (learn.33).
@@ -14,7 +14,7 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
 - Maths calcs: Quadratic Solver, Triangle Solver, Circle and Sphere, Weighted Grade. Maths decks: Squares and Roots, Roman Numerals, Maths Formulas. Squares and Roman Numerals are generated in code, not typed by hand.
 - Statistics: Z-Score (normal percentile by Abramowitz and Stegun 26.2.17), Margin of Error, Hardy-Weinberg.
 - Physics and electronics: Resistor Network, Pendulum, Projectile, Motion Equations, Energy and Power, Speed of Sound, Drag Force, Light Travel Time. Every engineering figure is marked `estimate`.
-- Chemistry: Molar Mass, Dilution, Ideal Gas, Half-Life, Element Cards, SI Units (a BIPM guide), Constants.
+- Chemistry: Molar Mass, Dilution, Ideal Gas, Half-Life, Element Cards, Constants.
 - Music: Tempo Converter, Clean Runs (counter).
 - Knowledge decks: Planets, Bones of the Body, Morse Code, Major System, Fallacies, History Dates, British Monarchs, the four Capitals decks, Latin Phrases, Word Roots, Git Commands, Big O.
 - Logs and lists: Reading List, Study Log, Vocabulary Book, Lab Notebook, Language Daily, Exam Day.
@@ -35,10 +35,11 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
 - Phrasebooks for 16 languages, each in its own script with a romanisation after non-Latin scripts: French, Spanish, German, Italian, Portuguese, Dutch, Greek, Turkish, Polish, Russian, Arabic, Urdu, Hindi, Japanese, Mandarin, Korean.
 - Decks: Phonetic Alphabet, World Currencies, Dialling Codes, Emergency Numbers, Driving Sides.
 - Guides:
-  - Plug Types (IEC World Plugs)
-  - Beaufort Scale (Met Office)
-  - Cloud Spotter (Met Office)
-  - Countryside Code (GOV.UK)
+  - Plug Types (the live AC power plugs and sockets page)
+  - Beaufort Scale (the Met Office sea-state table)
+  - Cloud Spotter (Met Office: levels and name roots)
+  - Countryside Code (the GOV.UK advice page, in its own words)
+- Every guide fact was checked against the live page it names. SI Units was dropped because its page lists only the base units.
 - Logs: Places Visited, Flight Log, Rail Journeys, Summits, Sky Log, Stays, Where I Parked.
 - Checklists: Hiking Kit, Before You Fly, Leaving Home, Car Check (weekly), Winter Car Kit, Camping Kit.
 - Timer: Driver Breaks, from Highway Code rule 91.
