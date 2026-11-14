@@ -23,7 +23,7 @@ import { progressOf, type Progress } from '../features/core/progress';
 import { clientContext } from '../shell/awareness';
 import { clearTag, graceOn, hear, heardNote, hold, labelOf, type Label } from './voiceknown';
 import { noteBrainActed, noteWordMiss } from './learnwords';
-import { keptLine, privateAsk } from '../../../../packages/shared/src/household'; // [voice lane] his own wordings: a miss, then his tap, offers to learn it
+import { PRIVATE_TABLES, keptLine, privateAsk } from '../../../../packages/shared/src/household'; // [voice lane] his own wordings: a miss, then his tap, offers to learn it
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
@@ -32,7 +32,7 @@ import { BARE, afterLine, askLine, progressLine, toolLine } from './narrate';
 import { continueIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
-import { NOTE_ASK, REBOOT } from './phrases';
+import { LOCAL_ASKS, NOTE_ASK, REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
@@ -970,7 +970,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // (and every turn such a voice says is marked theirs: it stays out of his recall on this phone, features/memory/recall.ts)
   theirsNow = !!who && who !== 'owner';
   // (a note someone else asks to keep is the notes' own question: assistant/voicenote.ts says it is not kept)
-  if (who && who !== 'owner' && privateAsk(t) && !NOTE_ASK.test(t.trim())) {
+  // (and a phone table that answers from his private things never answers another voice, whatever the wording: review fix)
+  if (who && who !== 'owner' && !NOTE_ASK.test(t.trim()) && (privateAsk(t) || PRIVATE_TABLES.includes(LOCAL_ASKS.find((p) => p.test(t))?.id ?? ''))) {
     const name = typeof who === 'object' ? who.name : null;
     await import('./local').then((m) => m.answer(t, keptLine(settings.get().name, name), { kind: 'can' }, { voice: opts.voice }));
     return;
