@@ -334,6 +334,25 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
     drawSv();
   };
 
+  const pickPic = h('input', { type: 'file', accept: 'image/*', hidden: true }) as HTMLInputElement;
+  pickPic.addEventListener('change', async () => {
+    const f = pickPic.files?.[0];
+    pickPic.value = '';
+    if (!f) return;
+    if (p.layers.length >= MAX_LAYERS) { say(`A painting holds up to ${MAX_LAYERS} layers. Merge two to make room.`); return; }
+    try {
+      const bmp = await createImageBitmap(f);
+      const k = Math.min(p.w / bmp.width, p.h / bmp.height);
+      const w = bmp.width * k, hh = bmp.height * k;
+      bmp.close?.();
+      p.addLayer(f.name.replace(/\.[^.]+$/, '').slice(0, 40) || 'Picture');
+      await p.placeAsync(p.layer.id, f, (p.w - w) / 2, (p.h - hh) / 2, w, hh);
+      onMask = false;
+      say('Your picture is a new layer. Lower its opacity to trace over it, or MOVE it into place.');
+      changed('picture');
+    } catch (e) { say(sayError(e, 'add that picture')); }
+  });
+  el.append(pickPic);
   const layersPanel = (): void => {
     const rows = p.layers.map((L, i) => ({ L, i })).reverse().map(({ L, i }) => {
       const on = i === p.cur;
@@ -375,7 +394,8 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
         key('MERGE DOWN', () => { if (p.cur === 0) return say('This is the bottom layer: nothing under it to merge into.'); p.mergeDown(L.id); changed('merge'); }, 'Merge into the layer below'),
         key('CLEAR', () => { p.clearLayer(L.id); say('Layer cleared. UNDO brings it back.'); changed('clear'); }, 'Clear this layer'),
         key('DELETE', () => { if (p.layers.length <= 1) return say('A painting keeps at least one layer.'); p.deleteLayer(L.id); say('Layer deleted. UNDO brings it back.'); changed('del'); }, 'Delete this layer'),
-        key('RENAME', () => { const n = prompt('Layer name', L.name); if (n && n.trim()) { p.setProp(L.id, 'name', n.trim().slice(0, 40)); changed('name'); } }, 'Rename this layer')));
+        key('RENAME', () => { const n = prompt('Layer name', L.name); if (n && n.trim()) { p.setProp(L.id, 'name', n.trim().slice(0, 40)); changed('name'); } }, 'Rename this layer'),
+        key('ADD A PICTURE', () => pickPic.click(), 'Add one of my pictures as a new layer, to trace or paint over')));
     openSheet('layers', `Layers (${p.layers.length} of ${MAX_LAYERS})`, h('div.pxlayers', ...rows), opts);
   };
 
