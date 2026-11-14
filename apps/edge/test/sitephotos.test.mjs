@@ -246,3 +246,40 @@ test('a document from his phone waits, then goes up only through publish_site\'s
   await up({ title: 'Broken', html: '<!doctype html><html><head><title>Broken</title></head><body><script>if (</script></body></html>', kind: 'deck' });
   await assert.rejects(pub.approval({ name: 'broken', from_phone: true }, ctx), /not published/);
 });
+
+// NEXT ROUND sites.u6: change a mini-app after it is made. Only what he named changes, at the same link and of the same kind (so what is
+// saved on his phone stays), said before his APPROVE, built on the kit and kept undoable.
+test('a mini-app changed after it is made: a habit added, a goal changed, the same link and kind, said first, undoable', async () => {
+  const st = new MemStorage();
+  const env = { PUBLIC_ORIGIN: ORIGIN };
+  const ctx = { env, storage: st, origin: ORIGIN, emit() {}, progress() {} };
+  const app = P.siteTools.find((t) => t.name === 'build_app');
+  const store = P.siteStore(env, st);
+  await app.run((await app.approval({ request: 'make me a habits app for water, walk and read', shape: 'habits', title: 'Habits', items: ['Water', 'Walk', 'Read'] }, ctx)).args, ctx);
+  const before = await store.get('habits');
+  assert.deepEqual(before.app.config.habits.names, ['Water', 'Walk', 'Read']);
+  // add one, take one out
+  const ap = await app.approval({ request: 'add stretch and take walk off my habits app', change: true, link_name: 'habits', add_items: ['Stretch'], remove_items: ['walk'] }, ctx);
+  assert.match(ap.reason, /^Change the mini-app "Habits" at https:\/\/ghosty\.example\/s\/habits\/: habits: “Water”, “Walk”, “Read” → “Water”, “Read”, “Stretch”\? Same link; what is saved on your phone stays\./);
+  assert.equal((await store.get('habits')).app.config.habits.names.length, 3, 'nothing changes before APPROVE');
+  assert.match(await app.run(ap.args, ctx), /^Changed "Habits" at https:\/\/ghosty\.example\/s\/habits\/: habits:/);
+  const after = await store.get('habits');
+  assert.deepEqual(after.app.config.habits.names, ['Water', 'Read', 'Stretch']);
+  assert.equal(after.app.config.shape, 'habits');
+  assert.equal(after.app.config.id, 'habits', 'the same name: its saves on the phone stay');
+  assert.match(after.app.config.does, /stretch/, 'its own words follow the change');
+  assert.equal(after.app.icon, before.app.icon, 'the same icon');
+  // undoable
+  assert.equal((await store.versions('habits')).length, 1);
+  // a goal on a tracker
+  await app.run((await app.approval({ request: 'make me an app that tracks my water intake', shape: 'tracker', title: 'Water' }, ctx)).args, ctx);
+  const ap2 = await app.approval({ request: 'change my water goal to 10', change: true, link_name: 'water', goal: 10 }, ctx);
+  assert.match(ap2.reason, /goal: \d+ → 10/);
+  await app.run(ap2.args, ctx);
+  assert.equal((await store.get('water')).app.config.tracker.goal, 10);
+  // refused in words: another kind, nothing to change, no such app, a goal on a habits app
+  await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'habits', shape: 'timer' }, ctx), /cannot become a timer/);
+  await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'habits' }, ctx), /nothing to change/);
+  await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'nope', add_items: ['a'] }, ctx), /no mini-app is published at \/s\/nope\//);
+  await assert.rejects(app.approval({ request: 'x', change: true, link_name: 'habits', goal: 5 }, ctx), /has no goal/);
+});

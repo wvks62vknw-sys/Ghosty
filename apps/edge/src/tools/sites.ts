@@ -14,6 +14,7 @@
  */
 import { APP_SW, appBase, appCsp, appManifest, renderApp, type AppConfig } from '../../../../packages/shared/src/appkit/index';
 import { appApproval, buildApp } from '../appbuild';
+import { changeApp, changeApproval } from '../appchange';
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import { guardedFetch, unsafeUrl } from '../netguard';
@@ -593,12 +594,15 @@ export const siteTools: Tool[] = [
         cards: { type: 'array', items: { type: 'object', properties: { q: { type: 'string' }, a: { type: 'string' } } } },
         accent: { type: 'string', enum: ['cyan', 'blue', 'teal', 'mint', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'indigo'] },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>/' },
+        change: { type: 'boolean', description: 'true: change his app at link_name, only what he named' },
+        add_items: { type: 'array', items: { type: 'string' }, description: 'change: habits, list items or players to add' },
+        remove_items: { type: 'array', items: { type: 'string' }, description: 'change: ones to take out' },
       },
       required: ['request'],
     },
     risk: 'confirm', // it ends on the public internet: the owner approves the app in plain words first
-    approval: (a, ctx) => appApproval(a, ctx),
-    run: (a, ctx) => buildApp(a, ctx),
+    approval: (a, ctx) => (a.change === true ? changeApproval(a, ctx) : appApproval(a, ctx)),
+    run: (a, ctx) => (a.change === true ? changeApp(a, ctx) : buildApp(a, ctx)),
   },
   {
     name: 'study_site',

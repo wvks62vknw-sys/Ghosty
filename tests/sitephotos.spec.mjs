@@ -3,7 +3,8 @@
 // smaller on the phone and kept with none of that (the kept bytes are read back); (c) a caption is kept; (d) a second photo is made
 // the main picture; (e) every key is 44 pt, nothing sideways, BODY 21 cuts no words; (f) "build a website for my café with my photos"
 // asks APPROVE saying his photos will be used (declined here: nothing is built); (g) a photo is removed after its confirm; (h) UNDO FOR
-// PUBLISHED PAGES (sites.u2): a page updated from the chat goes back to its earlier version with the Workshop's UNDO LAST UPDATE.
+// PUBLISHED PAGES (sites.u2): a page updated from the chat goes back to its earlier version with the Workshop's UNDO LAST UPDATE;
+// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6).
 //   BASE=http://localhost:8788 node tests/sitephotos.spec.mjs tests/.shots
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -236,6 +237,21 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
   let deckHtml = '';
   for (let i = 0; i < 60 && !deckHtml; i++) { const r = await page.request.get(`${base}/s/${deckSlug}/page`, { headers: { 'sec-fetch-dest': 'iframe' }, maxRedirects: 0 }); if (r.status() === 200) deckHtml = await r.text(); else await page.waitForTimeout(250); }
   check(/<section aria-label="Slide 1 of \d+/.test(deckHtml) && /<svg/.test(deckHtml) && !/<script/i.test(deckHtml) && /scroll-snap-type/.test(deckHtml), `${W}: (j) the deck is live as its slides, drawn, swiped like a book, with no script`);
+
+
+  // (k) a mini-app changed after it is made (sites.u6): a habit added at the same link after APPROVE
+  if (W === 440) {
+    const made = await say('make me an app to tick off my daily habits water and walk');
+    const appSlug = made ? ((await page.evaluate(() => [...document.querySelectorAll('.approval')].pop()?.textContent ?? '')).match(/\/s\/([a-z0-9-]+)\/\?/)?.[1] ?? '') : '';
+    const appLive = async (re) => { for (let i = 0; i < 60; i++) { const r = await page.request.get(`${base}/s/${appSlug}/`, { headers: { 'sec-fetch-dest': 'document' } }); if (r.status() === 200 && re.test(await r.text())) return true; await page.waitForTimeout(250); } return false; };
+    check(!!appSlug && (await appLive(/"habits"/)), `${W}: (k) a habits app is made after APPROVE (${appSlug})`);
+    const before = await page.$$eval('.approval[data-state="waiting"] button.on', (b) => b.length);
+    await page.fill('#cin', `add stretch to my app ${appSlug}`);
+    await page.keyboard.press('Enter');
+    const changeReason = await approveNext(before);
+    check(/Change the mini-app "Habits" at .*: habits: .* → .*“Stretch”\? Same link; what is saved on your phone stays\./.test(changeReason), `${W}: (k) the change is said before APPROVE: ${changeReason.slice(0, 220)}`);
+    check(await appLive(/Stretch/), `${W}: (k) after APPROVE the app at the same link has the new habit`);
+  }
 
   check(errors.length === 0, `${W}: no page error${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   await ctx.close();

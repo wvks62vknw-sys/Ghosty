@@ -356,6 +356,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[], avoid?: s
   if ((m = text.match(/^publish my draft website at \S*\/s\/([a-z0-9-]+)/i)) && has('build_website')) return { message: call('build_website', { request: text, link_name: m[1]!, confirm: true }), model };
   if ((m = text.match(/^build (?:me )?a website (.+)$/)) && has('build_website')) return { message: call('build_website', { request: m[0], ...(/barber/.test(m[1]!) ? { kind: 'barber', name: 'Fade & Co. Barbers', phone: '07700 900461' } : {}) }), model };
   // A mini-app for the Home Screen (tools/sites.ts build_app), so a chat-flow spec can ask for one without a model.
+  // [sites] a mini-app changed after it is made (appchange.ts, NEXT ROUND sites.u6)
+  if ((m = text.match(/^add (.+) to my app ([a-z0-9-]+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0], change: true, link_name: m[2], add_items: [m[1]] }), model };
   if ((m = text.match(/^make me an app (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0] }), model };
   // [sites] A game from his studio on his sites (tools/sites.ts publish_game): the chat turn the studio's key starts.
   if ((m = text.match(/^put (.+?) on my sites$/)) && has('publish_game')) return { message: call('publish_game', { name: m[1] }), model };
