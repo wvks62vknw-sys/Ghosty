@@ -14,6 +14,7 @@ import { monthCard, monthWords, unflatten } from '../../../../packages/shared/sr
 import { bodyAsked, EXERCISES } from '../../../../packages/shared/src/body';
 import { mmss, ovenAsked, shoppingAsked, timerAsked } from '../../../../packages/shared/src/kitchen';
 import { INTERVIEW_ASK, POMO_ASK, pomodoroPlan, questionsFor } from '../../../../packages/shared/src/work';
+import { COMING_ASK } from '../../../../packages/shared/src/people';
 import { beatFromWords, DRAW_ASK, drawingPrompt } from '../../../../packages/shared/src/creative';
 import { outsideAsked, type OutsideView } from '../../../../packages/shared/src/outside';
 import { homeAsked, type HomeView } from '../../../../packages/shared/src/homeadmin';
@@ -68,6 +69,10 @@ export async function statementTurn(text: string): Promise<PackReply> {
 /** [packs2] "who's who", "my people": the people sheet (features/people), over the chat; nothing is looked up. */
 export async function peopleTurn(text: string): Promise<PackReply> {
   const { openPeople } = await import('../features/people/sheet');
+  if (COMING_ASK.test(text.trim())) {
+    void openPeople('coming');
+    return { said: text, reply: 'Here is what is coming up: the birthdays and dates you told me, a year ahead. I remind you a week before and on the day.', go: [{ id: 'people', ask: -1, label: 'Open it again', run: 'open_people', args: { what: 'coming' } }] };
+  }
   void openPeople('who');
   return { said: text, reply: 'Here are the people you’ve told me about: tap one for gift ideas or the details you gave me. I only know what you tell me, and I never look anyone up.', go: [{ id: 'people', ask: -1, label: 'Open it again', run: 'open_people', args: { what: 'who' } }] };
 }
@@ -147,11 +152,11 @@ export async function outsideTurn(text: string): Promise<PackReply> {
 
 /**
  * [packs3] The home pack's words on this phone: "when are the bins?", "what's due at home?" and "my bills" are answered from my
- * brain's own records with no model (and the HOME sheet a tap away); the meter and the rooms open their pages.
+ * brain's own records with no model (and the HOUSEHOLD sheet a tap away); the meter and the rooms open their pages.
  */
 export async function homeTurn(text: string): Promise<PackReply> {
   const view: HomeView = homeAsked(text) ?? 'due';
-  const again = [{ id: 'homeadmin', ask: -1, label: 'Open the HOME sheet', run: 'open_homeadmin', args: { what: view } }];
+  const again = [{ id: 'homeadmin', ask: -1, label: 'Open the HOUSEHOLD sheet', run: 'open_homeadmin', args: { what: view } }];
   if (view === 'bins' || view === 'due' || view === 'bills') {
     try {
       const r = await brain.packDo('homeadmin', view, view === 'due' ? { days: 14 } : {});

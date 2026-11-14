@@ -3,8 +3,8 @@
  * the globe (heading up, following them); the panel shows speed and heading, the nearest
  * motorway junction, and what lies in the cone ahead — live road incidents, safety-camera sites,
  * public motorway cameras to tap (opened only when tapped: the pictures are for private viewing,
- * never streamed as a driving service), and buses nearby. Nothing about the position leaves the
- * phone; the brain only ever knows the saved home.
+ * never streamed as a driving service), and buses nearby. The position itself never leaves the
+ * phone: while the globe follows it, the feeds are asked about a centre snapped to 0.02° (eye/index.ts).
  */
 import { cams, nearestCameras, type Camera } from '../../data/cameras';
 import { enforce, ENFORCE_LABEL, type EnforceCam } from '../../data/enforce';
@@ -116,7 +116,7 @@ export function createRoadAhead(deps: RoadAheadDeps): { el: HTMLElement; panel: 
     if (detached) acts.append(button('RE-CENTRE', () => { detached = false; globe.cam.flyTo({ lat: m.lat, lon: m.lon, range: 3, tilt: 55, hd: hd ?? globe.cam.hd }); setTimeout(follow, 2200); }, 'on'));
     acts.append(button(headingUp ? 'NORTH UP' : 'HEADING UP', () => { headingUp = !headingUp; if (!headingUp) globe.cam.target.hd = 0; paint(); }));
     acts.append(button('STOP', stop, 'warn'));
-    p.body.append(acts, h('small.dim', 'Your position stays on this phone. Motorway pictures open only when you tap them.'));
+    p.body.append(acts, h('small.dim', 'Where you are stays on this phone: the live feeds are asked only about the area around you, to the nearest two kilometres. Motorway pictures open only when you tap them.'));
   };
 
   const showCam = (c: Camera) => {

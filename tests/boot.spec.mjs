@@ -20,7 +20,8 @@
 //      only Mind's breath;
 //   4. Reduce Motion: the two-frame version, nothing moves, 1.2 s;  5. "reboot" plays it again over Home (and SYSTEM has the
 //      line), the greeting spoken at once, once, the recognition's tone heard (he has tapped);  6. a phone that cannot keep
-//      up: long frames counted and the cinematic shortened (the short version chosen, or the full cut leaning mid-flight);
+//      up: long frames counted and the cinematic lightened (the short version chosen, or the full cut leaning mid-flight: the
+//      storyboard's cut quickens as it leans, THE FILM sheds its extras and keeps its seven seconds: FINAL-BOOT);
 //      7. automated checks (no flag) see no cinematic at all.
 // It also photographs each moment (the cinematic stepped by hand), checks what those moments draw (the floor forming, the
 // stamp typing with its cursor, the feeds' lines, the box on the orb, the name, the greeting), and prints the timings.
@@ -505,7 +506,8 @@ async function checkWords(page, s, what, { tapped }) {
 
 // ---- 6. a phone that cannot keep up (software WebGL is one): every long frame counted, and the cinematic shortened
 {
-  // left to choose for itself: the point of light already stutters here, so it picks the short version (or flat)
+  // left to choose for itself: the storyboard's cut sees the point of light stutter and picks the short version (or flat); THE FILM
+  // judges the phone by its own frames (FINAL-BOOT), so here, with every frame long, it leans mid-flight and keeps its length
   const { ctx, page } = await open();
   await page.goto(base);
   await page.waitForSelector('#boot', { state: 'detached', timeout: 40000 }).catch(() => problems.push('slow phone: it never ended'));
@@ -513,10 +515,10 @@ async function checkWords(page, s, what, { tapped }) {
   const B = s?.budget;
   if (!B || !(B.long > 0)) problems.push(`slow phone: no long frames counted (${JSON.stringify(B && { hz: B.hz, long: B.long })})`);
   if (s?.kind === 'full' && !B?.lean) problems.push('slow phone: the full cut played on, with every frame long');
-  if (s && !(s.ended - s.held <= CUT_OF(s).end + s.worstGap)) problems.push(`slow phone: it ran ${s.ended - s.held} ms (want shorter than the full cut, ${CUT_OF(s).end})`);
+  if (s && !(s.ended - s.held <= CUT_OF(s).end + s.worstGap)) problems.push(`slow phone: it ran ${s.ended - s.held} ms (want no longer than the full cut, ${CUT_OF(s).end})`);
   if (s) timings.push(`slow phone, its own choice: ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; budget ${B?.hz} Hz / ${B?.ms} ms: ${B?.long} of ${B?.gaps?.length} frames long; ended ${s.ended} ms`);
   await ctx.close();
-  // the full cut, then the phone falling behind mid-flight: it leans (no depths, trails or refraction) and quickens
+  // the full cut, then the phone falling behind mid-flight: it leans (no depths, trails or refraction); the storyboard's cut quickens, the film keeps its length
   const L = await open({ kind: 'full', lean: true });
   // every frame from the gathering on takes longer than a 60 Hz frame and a bit (as a phone that cannot keep up would)
   await L.page.addInitScript(() => {
@@ -533,7 +535,10 @@ async function checkWords(page, s, what, { tapped }) {
   await L.page.waitForSelector('#boot', { state: 'detached', timeout: 40000 }).catch(() => problems.push('lean: it never ended'));
   const l = await state(L.page);
   if (!l?.budget?.lean) problems.push(`lean: the full cut did not lean with its frames long (${l?.budget?.long} long of ${l?.budget?.gaps?.length})`);
-  if (l?.budget?.lean && !(l.pace > 1)) problems.push(`lean: it leaned but did not quicken (pace ${l.pace})`);
+  // (the storyboard's cut quickens when it leans; THE FILM keeps its length, his seven seconds (FINAL-BOOT): it sheds its extras and
+  // plays on at the pace it had, so its own part still ends at 7,000)
+  if (l?.budget?.lean && !l.film && !(l.pace > 1)) problems.push(`lean: it leaned but did not quicken (pace ${l.pace})`);
+  if (l?.budget?.lean && l.film && Math.abs(l.ended - l.held - CUT_OF(l).end) > l.worstGap + 120) problems.push(`lean: the film leaned and ran ${l.ended - l.held} ms of its own (want its whole ${CUT_OF(l).end}: a lean never cuts the film short)`);
   if (!landedOk(l?.landed)) problems.push(`lean: it did not land on the hero (${JSON.stringify(l?.landed)})`);
   if (l) timings.push(`lean: leaned at ${l.budget?.lean}, pace ${l.pace}; ${ORDER.map((p) => `${p} ${l.marks[p]}`).join(' · ')} ms; ${l.budget?.long} of ${l.budget?.gaps?.length} frames long`);
   await L.ctx.close();

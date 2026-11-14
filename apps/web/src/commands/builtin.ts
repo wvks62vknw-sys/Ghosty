@@ -448,7 +448,7 @@ export function registerBuiltins(): void {
     {
       // [packs2] THE PEOPLE PACK's sheets (features/people): who's who, the group plan.
       id: 'open_people',
-      title: 'People: who is who, group plan',
+      title: 'People: who is who, coming up, group plan',
       group: 'GO',
       run: async (a) => {
         const { openPeople } = await import('../features/people/sheet');
@@ -515,6 +515,16 @@ export function registerBuiltins(): void {
       run: async (a) => {
         const { openConvert } = await import('../convert/sheet');
         await openConvert([], { ...(typeof a?.tool === 'string' ? { tool: a.tool } : {}), ...(typeof a?.conversion === 'string' ? { conversion: a.conversion } : {}) });
+      },
+    },
+    {
+      // [comic] THE COMIC (features/comic): his shelf, MAKE and the public-domain library
+      id: 'open_comic',
+      title: 'Comic: read, import and make comics',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('comic');
       },
     },
     {

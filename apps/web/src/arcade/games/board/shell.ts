@@ -611,15 +611,28 @@ async function startBoard(id: BoardId, ui: BoardUI<any>, entry: { ghosty: string
     const list = selectables();
     return { w: size.w, h: size.h, t: clock, accent, sel, targets: targets(), origins: origins(), last, hint, cursor: list.length && (overlay.menuOpen ? false : true) ? (list[Math.min(cursorIdx, list.length - 1)] ?? -1) : -1, human, turnHuman: humanTurn(), thinking, still: reduced(), over: !!result };
   };
+  // [ci] The board is drawn again only when its picture changes: a move, a touch, the size, or the gold pulse on what he may touch
+  // (that one ten times a second: it takes a second and a quarter to swell and fade). Drawing the same board sixty times a second kept a
+  // software GPU so far behind that the page itself stalled for seconds, Ghosty's answer waiting behind it (FINAL-CI 4).
+  let drawnKey = '';
+  let drawnState: unknown = null;
+  let drawnClock = -1;
   const draw = () => {
     fit();
+    const v = view();
+    const key = JSON.stringify([size, accent, { ...v, t: 0 }]);
+    const pulsing = !v.still && !v.over && v.targets.length > 0; // (only the places he may play pulse: none while Ghosty thinks)
+    if (key === drawnKey && state === drawnState && (!pulsing || clock - drawnClock < 0.1)) return;
+    drawnKey = key;
+    drawnState = state;
+    drawnClock = clock;
     g.setTransform(res.scale, 0, 0, res.scale, 0, 0);
     const bg = g.createLinearGradient(0, 0, 0, size.h);
     bg.addColorStop(0, '#080b11');
     bg.addColorStop(1, '#10151e');
     g.fillStyle = bg;
     g.fillRect(0, 0, size.w, size.h);
-    ui.draw(g, state, view(), lay);
+    ui.draw(g, state, v, lay);
     if (firstFrameMs === null) firstFrameMs = performance.now() - t0;
   };
   const frame = (dt: number) => {

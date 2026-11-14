@@ -30,7 +30,7 @@ const CLOCK = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>';
 const BOOK = '<path d="M5 4.5h11.5a2 2 0 012 2V19a1.5 1.5 0 01-1.5 1.5H6.5A1.5 1.5 0 015 19z"/><path d="M8.5 8.5h6M8.5 12h6M8.5 15.5h3.5"/>';
 const CAL = '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>';
 const LISTEN = '<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9.5a3.5 3.5 0 010 5M17.5 7a7 7 0 010 10"/>';
-const GLYPH: Record<string, string> = { book: BOOK, agenda: CAL, brief: BOOK };
+const GLYPH: Record<string, string> = { book: BOOK, agenda: CAL, todo: CAL, brief: BOOK };
 /** The frame is the phone's (styles.css draws it under 900 px); at a desk today's three-column Home stays as it is. */
 const phone = () => innerWidth < 900;
 /** The row holds this many things before its three dots (the field and THE ROOMS layer have the rest). */
@@ -154,7 +154,7 @@ export function grownHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption
     const book = e.kind === 'book' ? bookNow() : null;
     return {
       ...e,
-      kicker: e.kind === 'book' ? 'Carry on reading' : e.kind === 'agenda' ? `${hourWord(new Date(now()))} · next on your agenda` : 'The Brief',
+      kicker: e.kind === 'book' ? 'Carry on reading' : e.kind === 'agenda' ? `${hourWord(new Date(now()))} · next on your agenda` : e.kind === 'todo' ? `${hourWord(new Date(now()))} · on your to-do list` : 'The Brief',
       pct: book ? Math.max(0, Math.min(1, book.pct)) : null,
       // (the card's own line, as the mock says it: where he is in the book and when he was last there)
       meta: book ? [book.page ? `Page ${book.page}` : '', `${Math.round(book.pct * 100)}% read`, `you were here ${whenWord(book.at)}`].filter(Boolean).join(' · ') : e.line,

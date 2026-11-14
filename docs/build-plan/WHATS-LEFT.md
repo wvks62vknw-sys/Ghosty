@@ -1,4 +1,11 @@
-# WHAT'S LEFT — everything not yet on your phone, said plainly, 12 Nov
+# WHAT'S LEFT — everything not yet on your phone, said plainly, 12 Nov (checked against the code 13 Nov)
+
+> **13 Nov, the consistency check (FINAL-CONSISTENCY):** list 1 has thirty items, not twenty-seven (four already live). These items
+> further down are no longer "being built" or "waiting": they are in the code and checked, waiting only to go live with the final
+> round — the chat made right (CHAT pass), Telegram made right (TELEGRAM pass), the EYE look finished (THE EYE 2), the boot and the orb
+> made right (BOOT AND ORB pass) and Kernel 3's four tools (the deck, the video, the workspace and the game with his message). The stray
+> stylesheet line is gone (and a check keeps it gone). Polish 3 was built once and taken back out on 13 Nov; it is finished in this round
+> on its own lane. The cut-out model is about 19 MB with its runtime (4.6 MB of it the model).
 
 Four lists in the order things happen, then the questions only you can answer. QUEUE-11-NOV has the builders' detail; this page is yours.
 

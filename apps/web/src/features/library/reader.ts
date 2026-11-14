@@ -17,6 +17,7 @@
  * 3", "stop reading", "go on" after a cut) is answered here with no model (`readingTurn`), and "that's all" signs off with the
  * page (`bookSignOff`). Every state is said in a sentence: no book yet, opening, not on this phone with no signal, a failure.
  */
+import { para } from '../../ui/oneline';
 import { netUnknown, secondTap, unknownNet } from '../learn/wifi';
 import type { LibraryDoc } from '../../../../../packages/shared/src/protocol';
 import type { ScreenContext, Selected } from '../../../../../packages/shared/src/awareness';
@@ -201,8 +202,8 @@ export function readingControls(): HTMLElement {
       h('div.grd-keys.size', smaller, h('span.grd-size', { 'aria-live': 'polite', dataset: { case: 'keep' } }, `${size} pt`), bigger),
       h('p.grd-cap', { dataset: { case: 'keep' } }, 'Night text follows your theme: always light on the graphite, with your theme’s colour for what I attend to.'),
       voice,
-      h('p.grd-cap', { dataset: { case: 'keep' } }, p.bookVoice
-        ? `My own voice reads your books for about an hour a day (${left} minutes left today), within the free share it has; when it runs out mid-read I say “My own voice from here.” and the phone’s voice carries on.`
+      ...para('p.grd-cap', p.bookVoice
+        ? `My own voice reads your books for about an hour a day (${left} minutes left today), within the free share it has. When it runs out mid-read I say “My own voice from here.” and the phone’s voice carries on.`
         : 'Off: the phone’s own voice reads your books. A book is hours of speech, and my own voice has a daily share that would run out mid-chapter.'));
   };
   paint();

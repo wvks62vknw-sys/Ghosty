@@ -27,6 +27,7 @@ import { drawGrain, inkOf } from './grain';
 import { startGround, stopGround } from './ground';
 import { readingOf } from './reading';
 import { ABILITIES_LINE, LIGHTING } from './words';
+import { freeSquare } from '../todaywords';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 const STAR = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>';
@@ -183,7 +184,7 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     sideKey = sig;
     for (const n of sideEls) n.remove();
     const cells: { kind: string; id: string }[] = [];
-    const tb = h('button.eyefeed.sharp', { type: 'button', dataset: { slot: 't', kind: 'tonight', case: 'keep' }, 'aria-label': `${word}: ${e.name}. ${e.fill.label}` },
+    const tb = h('button.eyefeed.sharp', { type: 'button', dataset: { slot: 't', kind: 'tonight', what: e.kind, case: 'keep' }, 'aria-label': `${word}: ${e.name}. ${e.fill.label}` },
       h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, icon(CLOCK, 'ic eyeic'), h('span', word)),
       h('span.eyename', { dataset: { case: 'keep' } }, e.name),
       h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, e.line));
@@ -197,8 +198,12 @@ export function eyeHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     SLOTS.forEach((slot, i) => {
       const it = placed[i];
       if (!it) {
+        // [planlane:home] /* state: core.home empty */ a free feed says what fills it (once), not "nothing yet" in each
+        // (slots 0-1 are the recents', 2 and up the pins': the words say what will really fill this one)
+        const role = i < 2 ? 'recent' : 'pin';
+        const say = freeSquare(role, !placed.some((q, j) => !q && j < i && j < 2 === i < 2));
         cells.push({ kind: 'free', id: '' });
-        out.push(h('div.eyefeed.free', { dataset: { slot, kind: 'free', case: 'keep' } }, h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, h('span', 'Free')), h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, 'nothing yet')));
+        out.push(h('div.eyefeed.free', { dataset: { slot, kind: 'free', role, case: 'keep' } }, h('span.eyetag.g-truth', { dataset: { case: 'keep' } }, h('span', 'Free')), say ? h('span.eyeline.g-truth', { dataset: { case: 'keep' } }, say) : null));
         return;
       }
       const { t, kind } = it;
