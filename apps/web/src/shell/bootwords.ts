@@ -87,7 +87,7 @@ export function openingLine(o: { name: string; hr: number; away: number; own: st
 /** How smoothly the last opening ran (boot.u9), in one sentence: the cut, its length, its frame rate and its longest pause. */
 export interface BootRun { kind: string; film: boolean; ms: number; frames: number; worst: number; long: number; at: number }
 export function runWords(r: BootRun | null): string {
-  if (!r || !(r.ms > 0)) return 'No opening has played on this phone yet. Close me fully and open me again to see one.';
+  if (!r || !(r.ms > 0)) return 'No opening has played on this phone yet: close me fully and open me again to see one.';
   const what = r.kind === 'still' ? 'the calm opening' : r.kind === 'flat' ? 'the opening without 3-D' : r.kind === 'short' ? 'the short cut' : r.film ? 'the whole film' : 'the opening';
   const fps = Math.round(r.frames / (r.ms / 1000));
   const smooth = r.worst <= 50 ? 'with no stutter' : r.worst <= 120 ? `with one small catch (${r.worst} ms)` : `with a stutter of ${r.worst} ms`;
