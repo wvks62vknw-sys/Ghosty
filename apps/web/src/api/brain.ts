@@ -6,7 +6,7 @@
 import type { ClientContext } from '../../../../packages/shared/src/awareness';
 import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
-import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
+import { agendaWithOutbox, armBrainReminders, enqueue, enqueueEdit, factsWithOutbox, flushOutbox, offline, offlineContext, type EventPatch } from './offline';
 import { persistAsksQuietly } from '../features/system/storage';
 import { keepForever, meaningPossible, mirrorLibrary, passagesFor, passagesHere, pendingDocs, removeDoc, removedHere, searchLocalHow, shelf, syncLocalDocs } from '../library/local';
 import { interleave, type SearchHow } from '../../../../packages/shared/src/meaning';
@@ -668,7 +668,7 @@ function keepForLater(e: unknown): boolean {
   return unreachable(e) || e instanceof AuthError || typeof status !== 'number' || status >= 500 || status === 408 || status === 429;
 }
 
-const raw = { addTurns: brain.addTurns, library: brain.library, librarySearch: brain.librarySearch, libraryRemove: brain.libraryRemove, libraryPassages: brain.libraryPassages, memory: brain.memory, addMemory: brain.addMemory, forget: brain.forget, agenda: brain.agenda, addEvent: brain.addEvent, deleteEvent: brain.deleteEvent, addJob: brain.addJob, deleteJob: brain.deleteJob, inbox: brain.inbox };
+const raw = { addTurns: brain.addTurns, library: brain.library, librarySearch: brain.librarySearch, libraryRemove: brain.libraryRemove, libraryPassages: brain.libraryPassages, memory: brain.memory, addMemory: brain.addMemory, forget: brain.forget, agenda: brain.agenda, addEvent: brain.addEvent, deleteEvent: brain.deleteEvent, editEvent: brain.editEvent, addJob: brain.addJob, deleteJob: brain.deleteJob, inbox: brain.inbox };
 
 brain.memory = async () => {
   try {
@@ -822,6 +822,12 @@ brain.addEvent = (e) =>
     return { event: { id: op.id, title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, source: 'this device (not saved yet)' } };
   });
 brain.deleteEvent = (id: string) => orQueue(isLocal(id), () => raw.deleteEvent(id), () => (enqueue({ kind: 'deleteEvent', eventId: id }), { queued: true }));
+/**
+ * [planlane4:calendar] Move one of his events (a drag on the timeline, EARLIER / LATER): changed IN PLACE by the brain's edit (the same id,
+ * its length kept, its reminder moving with it), or, with no signal, kept on this phone and sent when the brain is back (`queued`).
+ */
+export const moveEvent = (id: string, p: EventPatch): Promise<{ queued: boolean }> =>
+  orQueue(isLocal(id), () => raw.editEvent(id, p).then(() => ({ queued: false })), () => (enqueueEdit(id, p), { queued: true }));
 brain.addJob = (j) =>
   orQueue(false, () => raw.addJob(j), () => {
     const op = enqueue({ kind: 'addJob', job: j });

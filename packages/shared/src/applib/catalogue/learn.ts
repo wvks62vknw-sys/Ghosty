@@ -31,7 +31,7 @@ const ELEMENTS =
   'Sg Seaborgium,Bh Bohrium,Hs Hassium,Mt Meitnerium,Ds Darmstadtium,Rg Roentgenium,Cn Copernicium,Nh Nihonium,' +
   'Fl Flerovium,Mc Moscovium,Lv Livermorium,Ts Tennessine,Og Oganesson';
 const ELS = ELEMENTS.split(',').map((s, i) => {
-  const [sym, name] = s.split(' ');
+  const [sym = '', name = ''] = s.split(' ');
   return { z: i + 1, sym, name };
 });
 const GASES = new Set(['H', 'He', 'N', 'O', 'F', 'Ne', 'Cl', 'Ar', 'Kr', 'Xe', 'Rn']);
@@ -39,9 +39,9 @@ const LIQUIDS = new Set(['Br', 'Hg']);
 function place(z: number): { period: number; group?: number; block: string; series?: string } {
   const ends = [2, 10, 18, 36, 54, 86, 118];
   const period = ends.findIndex((e) => z <= e) + 1;
-  const start = period === 1 ? 1 : ends[period - 2] + 1;
+  const start = period === 1 ? 1 : (ends[period - 2] ?? 0) + 1;
   const pos = z - start + 1;
-  const len = ends[period - 1] - start + 1;
+  const len = (ends[period - 1] ?? 0) - start + 1;
   if (period === 1) return { period, group: z === 1 ? 1 : 18, block: 's' };
   if (pos <= 2) return { period, group: pos, block: 's' };
   if (len === 8) return { period, group: pos + 10, block: 'p' };
@@ -60,15 +60,15 @@ function stateOf(z: number, sym: string): string {
 }
 const ELEMENT_SECTIONS = ELS.map(({ z, sym, name }) => {
   const p = place(z);
-  const where = p.series ? `Period ${p.period}, ${p.block}-block, ${a(p.series)} ${p.series}.` : `Period ${p.period}, group ${p.group}, ${p.block}-block.`;
+  const where = p.series ? `Period ${p.period}, ${a(p.series)}.` : `Period ${p.period}, group ${p.group}, ${p.block}-block.`;
   return {
     title: `${z} ${name} (${sym})`,
     body: `Symbol ${sym}, atomic number ${z}. ${where} ${stateOf(z, sym)}`,
-    tags: [sym.toLowerCase(), `period ${p.period}`, `${p.block}-block`, ...(p.series ? [p.series] : [`group ${p.group}`])],
+    tags: [sym.toLowerCase(), `period ${p.period}`, ...(p.series ? [p.series] : [`${p.block}-block`, `group ${p.group}`])],
   };
 });
-function a(word: string): string {
-  return /^[aeiou]/.test(word) ? 'an' : 'a';
+function a(series: string): string {
+  return series === 'actinide' ? 'an actinide' : 'a lanthanide';
 }
 
 /* ---------- Squares and roots: worked out, never typed by hand. */
@@ -93,6 +93,11 @@ const MORSE: Record<string, string> = {
   1: '.----', 2: '..---', 3: '...--', 4: '....-', 5: '.....', 6: '-....', 7: '--...', 8: '---..', 9: '----.', 0: '-----',
 };
 const MORSE_CARDS: Card[] = Object.entries(MORSE).map(([k, v]) => ({ q: v.replace(/\./g, '·').replace(/-/g, '–').split('').join(' '), a: k }));
+
+/* ---------- Binary and hex, worked out. */
+const BASES: Card[] = [];
+for (const n of [1, 2, 3, 4, 5, 7, 8, 10, 12, 15, 16, 32, 64, 100, 127, 128, 255]) BASES.push({ q: `${n.toString(2)} in binary`, a: String(n) });
+for (const n of [10, 11, 12, 13, 14, 15, 16, 26, 32, 64, 100, 127, 128, 200, 255]) BASES.push({ q: `${n.toString(16).toUpperCase()} in hex`, a: String(n) });
 
 export const LEARN: AppDef[] = [
   /* ===================== From the owner's list ===================== */
@@ -220,7 +225,7 @@ export const LEARN: AppDef[] = [
         'Double white lines with the line nearest you solid=Do not cross or straddle it;' +
         'Double yellow lines at the kerb=No waiting at any time;Minimum tyre tread for cars=1.6 mm across the central three-quarters;' +
         'Break advised on a long drive=At least 15 minutes after every two hours;' +
-        'Legal age to drive a car on a full licence=17;When to use dipped headlights=When visibility is seriously reduced and at night;' +
+        'Youngest age to drive a car on the road=17;When to use dipped headlights=When visibility is seriously reduced and at night;' +
         'Use of fog lights=Only when visibility is seriously reduced, generally under 100 metres;' +
         'A hard shoulder is for=Emergencies only, unless signs open it as a lane;' +
         'Rule H1 of the hierarchy=Those who can do the greatest harm have the greatest responsibility;' +
@@ -1220,7 +1225,7 @@ export const LEARN: AppDef[] = [
         'Columbus reaches the Americas=1492;Defeat of the Spanish Armada=1588;Gunpowder Plot=1605;Great Fire of London=1666;' +
         'Acts of Union of England and Scotland=1707;American Declaration of Independence=1776;Storming of the Bastille=1789;' +
         'Battle of Trafalgar=1805;Battle of Waterloo=1815;Slavery Abolition Act passed=1833;Queen Victoria crowned=1838;' +
-        'First World War begins=1914;First World War ends=1918;Women over 30 win the vote in Britain=1918;' +
+        'First World War begins=1914;First World War ends=1918;Some women over 30 win the vote in Britain=1918;' +
         'Second World War begins=1939;D-Day landings=1944;Second World War ends=1945;NHS founded=1948;' +
         'Partition of India and Pakistan=1947;First person on the Moon=1969;Fall of the Berlin Wall=1989;' +
         'Channel Tunnel opens=1994;UK leaves the European Union=2020',
@@ -1423,5 +1428,121 @@ export const LEARN: AppDef[] = [
         { name: 'Morning', items: ['Breakfast', 'Leave with time to spare', 'Phone off and away before you go in'] },
       ],
     },
+  },
+  /* ===================== More: maths, science, words ===================== */
+  {
+    id: 'binary-hex', name: 'Binary and Hex', family: 'learn', glyph: 'chip', archetype: 'deck',
+    pitch: 'Numbers in binary and hexadecimal, read at sight, from 0 to 255.',
+    keywords: ['binary', 'hex', 'hexadecimal', 'bits', 'coding', 'numbers'],
+    tour: ['Each card shows binary or hex; say the number.', 'Each binary place doubles: 1, 2, 4, 8, 16 and on.', 'Hex runs 0 to 9, then A to F for 10 to 15.'],
+    deck: { mode: 'srs', cards: BASES },
+  },
+  {
+    id: 'trig-values', name: 'Trig Values', family: 'learn', glyph: 'ruler', archetype: 'deck',
+    pitch: 'The exact sine, cosine and tangent of the key angles, and degrees in radians.',
+    keywords: ['trigonometry', 'sine', 'cosine', 'tangent', 'radians', 'maths'],
+    tour: ['Each card asks for one exact value; say it as a fraction or root.', 'Sine climbs 0, ½, √2/2, √3/2, 1 as cosine falls the same way.', 'Missed cards come back sooner.'],
+    deck: {
+      mode: 'srs',
+      cards: list(
+        'sin 0°=0;sin 30°=1/2;sin 45°=√2/2;sin 60°=√3/2;sin 90°=1;cos 0°=1;cos 30°=√3/2;cos 45°=√2/2;cos 60°=1/2;cos 90°=0;' +
+        'tan 0°=0;tan 30°=√3/3, which is 1/√3;tan 45°=1;tan 60°=√3;tan 90°=Undefined;180° in radians=π;90° in radians=π/2;' +
+        '60° in radians=π/3;45° in radians=π/4;30° in radians=π/6;360° in radians=2π;sin² θ + cos² θ=1',
+      ),
+    },
+  },
+  {
+    id: 'chemical-formulas', name: 'Chemical Formulas', family: 'learn', glyph: 'flask', archetype: 'deck',
+    pitch: 'The formulas of everyday chemicals, from water to baking soda.',
+    keywords: ['chemistry', 'formulas', 'compounds', 'molecules', 'science'],
+    tour: ['Each card names a chemical; say its formula.', 'Count the atoms aloud: CO2 is one carbon, two oxygens.', 'Molar Mass turns any of these into grams per mole.'],
+    deck: {
+      mode: 'srs',
+      cards: list(
+        'Water=H2O;Carbon dioxide=CO2;Oxygen gas=O2;Ozone=O3;Methane=CH4;Ammonia=NH3;Table salt, sodium chloride=NaCl;' +
+        'Glucose=C6H12O6;Ethanol=C2H5OH;Hydrochloric acid=HCl;Sulphuric acid=H2SO4;Nitric acid=HNO3;Sodium hydroxide=NaOH;' +
+        'Calcium carbonate, chalk and limestone=CaCO3;Baking soda, sodium hydrogencarbonate=NaHCO3;Hydrogen peroxide=H2O2;' +
+        'Carbon monoxide=CO;Hydrogen gas=H2;Nitrogen gas=N2',
+      ),
+    },
+  },
+  {
+    id: 'cell-biology', name: 'Cell Biology', family: 'learn', glyph: 'leaf', archetype: 'deck',
+    pitch: 'The parts of a cell and the core facts of DNA, division and respiration.',
+    keywords: ['biology', 'cells', 'dna', 'organelles', 'science', 'revision'],
+    tour: ['Each card asks for a part\'s job or one core fact.', 'Picture the cell as you answer: where each part sits.', 'Missed cards come back sooner.'],
+    deck: {
+      mode: 'srs',
+      cards: list(
+        'Nucleus=Holds the DNA and controls the cell;Mitochondria=Where aerobic respiration releases energy;' +
+        'Ribosomes=Where proteins are made;Chloroplasts=Where photosynthesis happens, in plant cells;' +
+        'Cell membrane=Controls what enters and leaves the cell;Cell wall=Made of cellulose in plants; supports the cell;' +
+        'Permanent vacuole=Holds cell sap and keeps a plant cell firm;Cytoplasm=Where most of the cell\'s reactions take place;' +
+        'Prokaryotic cells=Have no nucleus; DNA lies in a loop, often with plasmids;DNA\'s shape=A double helix;' +
+        'DNA base pairs=A with T, C with G;Base in RNA instead of T=U, uracil;Mitosis makes=Two identical cells;' +
+        'Meiosis makes=Four gametes, each genetically different;An enzyme is=A biological catalyst;' +
+        'Photosynthesis=Carbon dioxide + water → glucose + oxygen, using light;Aerobic respiration=Glucose + oxygen → carbon dioxide + water',
+      ),
+    },
+  },
+  {
+    id: 'shakespeare-lines', name: 'Shakespeare Lines', family: 'learn', glyph: 'quote', archetype: 'deck',
+    pitch: 'Famous lines from Shakespeare, each matched to the play it comes from.',
+    keywords: ['shakespeare', 'quotes', 'plays', 'literature', 'english'],
+    tour: ['Each card is a line; name the play.', 'Hamlet and Macbeth give the most, so start there.', 'Missed cards come back sooner.'],
+    deck: {
+      mode: 'srs',
+      cards: list(
+        'To be, or not to be, that is the question=Hamlet;Brevity is the soul of wit=Hamlet;' +
+        'Something is rotten in the state of Denmark=Hamlet;The lady doth protest too much, methinks=Hamlet;' +
+        'All the world\'s a stage=As You Like It;Now is the winter of our discontent=Richard III;' +
+        'Friends, Romans, countrymen, lend me your ears=Julius Caesar;Et tu, Brute?=Julius Caesar;' +
+        'Cry havoc, and let slip the dogs of war=Julius Caesar;Out, damned spot=Macbeth;' +
+        'Is this a dagger which I see before me=Macbeth;Double, double toil and trouble=Macbeth;' +
+        'The course of true love never did run smooth=A Midsummer Night\'s Dream;If music be the food of love, play on=Twelfth Night;' +
+        'We few, we happy few, we band of brothers=Henry V;O brave new world, that has such people in\'t=The Tempest;' +
+        'Parting is such sweet sorrow=Romeo and Juliet;What\'s in a name? That which we call a rose by any other name would smell as sweet=Romeo and Juliet;' +
+        'The quality of mercy is not strained=The Merchant of Venice;Uneasy lies the head that wears a crown=Henry IV, Part 2',
+      ),
+    },
+  },
+  {
+    id: 'grammar-terms', name: 'Grammar Terms', family: 'learn', glyph: 'type', archetype: 'deck',
+    pitch: 'The names of the parts of English grammar, each with a plain example.',
+    keywords: ['grammar', 'english', 'terms', 'words', 'school'],
+    tour: ['Each card names a term; say what it means.', 'Find one in the last thing you read.', 'Missed cards come back sooner.'],
+    deck: {
+      mode: 'srs',
+      cards: list(
+        'Noun=A naming word: city, idea, Sara;Verb=A doing or being word: run, is;Adjective=Describes a noun: a red door;' +
+        'Adverb=Describes a verb, adjective or adverb: ran quickly;Pronoun=Stands in for a noun: she, it, they;' +
+        'Preposition=Shows place, time or relation: under, before, with;Conjunction=Joins words or clauses: and, but, because;' +
+        'Determiner=Comes before a noun to pin it down: the, a, this, some;Clause=A group of words with a subject and a verb;' +
+        'Subordinate clause=A clause that cannot stand alone: because it rained;Active voice=The subject does the action: the dog bit him;' +
+        'Passive voice=The subject receives the action: he was bitten;Homophones=Words that sound alike but differ: there, their, they\'re;' +
+        'Synonym=A word with the same meaning: big, large;Antonym=A word with the opposite meaning: hot, cold;' +
+        'Prefix=Added to the start of a word: un- in unhappy;Suffix=Added to the end of a word: -ness in kindness',
+      ),
+    },
+  },
+  {
+    id: 'urdu-numbers', name: 'Urdu Numbers', family: 'learn', glyph: 'type', archetype: 'deck',
+    pitch: 'Urdu digits and the words for one to ten, in Urdu script with sounds.',
+    keywords: ['urdu', 'numbers', 'digits', 'counting', 'language'],
+    tour: ['Each card shows an Urdu digit; say the number and its word.', 'Numbers read left to right, even inside right-to-left text.', 'Mind ۴, ۵ and ۶: they differ from the Arabic forms.'],
+    deck: {
+      mode: 'srs',
+      cards: list(
+        '۰=0, صفر (sifr);۱=1, ایک (ek);۲=2, دو (do);۳=3, تین (tīn);۴=4, چار (chār);۵=5, پانچ (pāñch);۶=6, چھ (chhe);' +
+        '۷=7, سات (sāt);۸=8, آٹھ (āṭh);۹=9, نو (nau);۱۰=10, دس (das)',
+      ),
+    },
+  },
+  {
+    id: 'speech-practice', name: 'Speech Practice', family: 'learn', glyph: 'mic', archetype: 'timer',
+    pitch: 'A timed run-through of a short talk: opening, three points and a close.',
+    keywords: ['speech', 'talk', 'presentation', 'practice', 'timer'],
+    tour: ['Press start and speak; a chime moves you to the next part.', 'Three points is the shape listeners remember best.', 'Run it three times; it gets smoother each time.'],
+    timer: { rounds: 1, steps: [{ name: 'Opening', secs: 60 }, { name: 'Point one', secs: 120 }, { name: 'Point two', secs: 120 }, { name: 'Point three', secs: 120 }, { name: 'Close', secs: 60 }] },
   },
 ];

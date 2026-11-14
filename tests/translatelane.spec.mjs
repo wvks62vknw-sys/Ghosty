@@ -100,7 +100,7 @@ async function phone(viewport, asked, init = null) {
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
   await page.evaluate(() => {
-    for (const k of ['ghosty.translate.history', 'ghosty.translate.book', 'ghosty.translate.trip', 'ghosty.translate.pair', 'ghosty.translate.seen']) localStorage.removeItem(k);
+    for (const k of ['ghosty.translate.history', 'ghosty.translate.book', 'ghosty.translate.trip', 'ghosty.translate.pair', 'ghosty.translate.seen', 'ghosty.translate.settings']) localStorage.removeItem(k);
   });
   return { ctx, page };
 }
@@ -172,6 +172,10 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check(await page.evaluate(() => window.__ghosty.translate.book.length === 0), `[${W}] [book] taking it out did not`);
   await page.click('#undo button, .undo button').catch(() => undefined);
   await until(page, () => window.__ghosty.translate.book.length === 1, null, 4000, `[${W}] [book] the undo did not put it back`);
+  // (EXPORT: the phrasebook as a CSV file, saved where the browser has no Share sheet)
+  const [file] = await Promise.all([page.waitForEvent('download', { timeout: 6000 }).catch(() => null), page.click('#pg-translate [data-act="export"]')]);
+  const csv = file ? await file.path().then((p) => import('node:fs').then((fs) => fs.readFileSync(p, 'utf8'))).catch(() => '') : '';
+  check(file?.suggestedFilename() === 'phrasebook.csv' && csv.split('\n')[0] === 'Trip,You said,Translation,Language' && /^Spain in May,Where is the station\?,/m.test(csv), `[${W}] [export] the phrasebook file: ${file?.suggestedFilename()} ${JSON.stringify(csv.slice(0, 160))}`);
 
   // ---- a country's ready phrasebook
   await page.selectOption('#tlxcountry', 'France');
@@ -182,6 +186,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await page.click('.tlxready .tlxrow .tlxstar');
   check(await page.evaluate(() => window.__ghosty.translate.book.some((p) => p.trip === 'France' && p.came === 'Merci.')), `[${W}] [country] starring the line did not keep it under France`);
   for (const s of await sideways(page)) check(false, `[${W}] [country] off the side: ${s}`);
+  await page.screenshot({ path: `${out}/translate-book-${W}.png` });
 
   // ---- letters in another script
   await tapKey(page, 'TRANSLATE');
@@ -194,6 +199,27 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   for (const s of await small(page)) check(false, `[${W}] [translate] a key under 44 pt: ${s}`);
   for (const s of await sideways(page)) check(false, `[${W}] [translate] off the side: ${s}`);
   await page.screenshot({ path: `${out}/translate-${W}.png` });
+
+  // ---- SETTINGS: translate only when asked, and say each answer aloud
+  await page.click('#pg-translate .tlxmore summary');
+  await page.click('#pg-translate [data-pref="live"]');
+  await page.click('#pg-translate [data-pref="aloud"]');
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.translate.settings') ?? '{}').live === false && window.__ghosty.translate.prefs.aloud === true), `[${W}] [settings] not kept: ${await page.evaluate(() => localStorage.getItem('ghosty.translate.settings'))}`);
+  await page.evaluate(() => { const s = document.querySelector('#tlxto'); s.value = 'es'; s.dispatchEvent(new Event('change')); });
+  const n1 = asked.length;
+  await page.fill('#tlxin', 'Where is the station?');
+  await page.waitForFunction(() => /TRANSLATE IT/.test(document.querySelector('#pg-translate .tlxstate')?.textContent ?? ''), null, { timeout: 3000 }).catch(() => undefined);
+  check(asked.length === n1, `[${W}] [settings] typing translated with "Translate as I type" off (${asked.length - n1} asks)`);
+  check(await visible(page, '#pg-translate [data-act="go"]'), `[${W}] [settings] no TRANSLATE IT key with "Translate as I type" off`);
+  const spoken0 = await page.evaluate(() => window.__ghosty.translate.spoken.length);
+  await page.click('#pg-translate [data-act="go"]');
+  await until(page, () => window.__ghosty.translate.state === 'done' && document.querySelector('#tlxout')?.textContent === '¿Dónde está la estación?', null, 8000, `[${W}] [settings] TRANSLATE IT did not translate`);
+  check(asked.length > n1, `[${W}] [settings] TRANSLATE IT asked nothing`);
+  await until(page, (n) => window.__ghosty.translate.spoken.length === n + 1 && window.__ghosty.translate.spoken.at(-1).lang === 'es', spoken0, 6000, `[${W}] [settings] "Say each answer aloud" did not say it: ${JSON.stringify(await page.evaluate(() => window.__ghosty.translate.spoken.slice(-2)))}`);
+  await page.click('#pg-translate [data-pref="live"]');
+  await page.click('#pg-translate [data-pref="aloud"]');
+  check(!(await visible(page, '#pg-translate [data-act="go"]')), `[${W}] [settings] TRANSLATE IT stayed with "Translate as I type" on`);
+  for (const s of await small(page)) check(false, `[${W}] [settings] a key under 44 pt: ${s}`);
 
   // ---- the history: kept, searched, cleared with an undo
   await tapKey(page, 'HISTORY');
@@ -210,6 +236,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await page.click('#undo button, .undo button').catch(() => undefined);
   await until(page, () => window.__ghosty.translate.history.length >= 2, null, 4000, `[${W}] [history] the undo did not bring it back`);
   for (const s of await small(page)) check(false, `[${W}] [history] a key under 44 pt: ${s}`);
+  await page.screenshot({ path: `${out}/translate-history-${W}.png` });
   await page.click('#pg-translate .tlxview:not([hidden]) .ak-row .ak-rowmain');
   check(await page.evaluate(() => window.__ghosty.translate.view === 'translate' && document.querySelector('#tlxin').value.length > 0), `[${W}] [history] OPEN did not bring it back into the box`);
 

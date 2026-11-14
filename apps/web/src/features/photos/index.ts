@@ -190,8 +190,24 @@ export const photosTab: TabDef = {
         h('span.phx-selcount', n ? `${n} selected` : 'Tap photos to choose them'),
         ...(inBin
           ? [button('RECOVER', () => n && void act('recover', ids)), button('DELETE FOR GOOD', () => n && void act('forgood', ids))]
-          : [button('FAVOURITE', () => n && void act('fav', ids)), button('ALBUM', () => n && void pickAlbum(ids)), button(sub === 'hidden' ? 'UNHIDE' : 'HIDE', () => n && void act(sub === 'hidden' ? 'unhide' : 'hide', ids)), button('DELETE', () => n && void act('delete', ids))]),
+          : [button('FAVOURITE', () => n && void act('fav', ids)), button('ALBUM', () => n && void pickAlbum(ids)), button('SHARE', () => n && void shareMany(ids)), button(sub === 'hidden' ? 'UNHIDE' : 'HIDE', () => n && void act(sub === 'hidden' ? 'unhide' : 'hide', ids)), button('DELETE', () => n && void act('delete', ids))]),
       );
+    };
+
+    /** Several photos through the phone's Share sheet (saved to Photos, sent in a message: his choice there). */
+    const shareMany = async (ids: string[]) => {
+      const files: File[] = [];
+      for (const i of ids.slice(0, 30)) {
+        const it = list.find((x) => x.id === i);
+        const b = it ? await L.blobOf(i) : null;
+        if (it && b) files.push(new File([b], it.name, { type: it.type }));
+      }
+      try {
+        if (files.length && navigator.canShare?.({ files })) await navigator.share({ files });
+        else say('This phone has no share sheet here. Open a photo and hold it to save it.', 'warn');
+      } catch {
+        /* he closed the share sheet */
+      }
     };
 
     // ---- the changes, each one with UNDO
@@ -284,7 +300,9 @@ export const photosTab: TabDef = {
         const n = await L.removeSamples();
         say(`${n} sample photos removed.`);
       })));
-      for (const m of months) out.push(h('section.phx-month', h('h3.phx-h', m.title, h('span.phx-count', ` · ${m.items.length}`)), grid(m.items, live)));
+      // the viewer goes through them in the grid's own order (newest first), so → is always the next one along
+      const ordered = months.flatMap((m) => m.items);
+      for (const m of months) out.push(h('section.phx-month', h('h3.phx-h', m.title, h('span.phx-count', ` · ${m.items.length}`)), grid(m.items, ordered)));
       return out;
     };
 
@@ -704,11 +722,17 @@ export const photosTab: TabDef = {
       vAt = n;
       void drawViewer();
     };
-    viewer.addEventListener('keydown', (e) => {
+    // a keyboard (an iPad's, a Mac's): the arrows go through the photos, Escape closes
+    // (heard first, while the viewer is open: the shell's own keys do not move the screen under it)
+    window.addEventListener('keydown', (e) => {
+      const t = e.target as HTMLElement | null;
+      if (viewer.hidden || (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable))) return;
+      if (e.key !== 'Escape' && e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      e.stopPropagation();
       if (e.key === 'Escape') closeViewer();
-      if (e.key === 'ArrowRight') step(1);
-      if (e.key === 'ArrowLeft') step(-1);
-    });
+      else step(e.key === 'ArrowRight' ? 1 : -1);
+    }, true);
     const info = (it: Item) => {
       const rows: [string, string][] = [
         ['Taken', new Date(it.taken).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })],

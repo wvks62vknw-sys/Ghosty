@@ -46,6 +46,35 @@ export function floodMask(src: Uint8ClampedArray, w: number, h: number, x: numbe
   return { mask, box: { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 } };
 }
 
+/** The outer edge of a filled area (a mask from floodMask) as a closed path of points: Moore-neighbour tracing round its
+ * boundary pixels, so the magic wand's selection is an outline like a hand-drawn one. */
+export function traceOutline(mask: Uint8Array, w: number, h: number): number[] {
+  let start = -1;
+  for (let i = 0; i < mask.length; i++) if (mask[i]) { start = i; break; }
+  if (start < 0) return [];
+  const D = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]] as const;
+  const at = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < w && y < h && mask[y * w + x]! > 0;
+  const dirOf = (dx: number, dy: number): number => D.findIndex(([a, b]) => a === dx && b === dy);
+  const sx = start % w, sy = (start / w) | 0;
+  let cx = sx, cy = sy, back = 4;
+  const out: number[] = [cx + 0.5, cy + 0.5];
+  for (let step = 0; step < 400_000; step++) {
+    let found = -1;
+    for (let k = 1; k <= 8; k++) {
+      const d = (back + k) % 8;
+      if (at(cx + D[d]![0], cy + D[d]![1])) { found = d; break; }
+    }
+    if (found < 0) break;
+    const bx = cx + D[(found + 7) % 8]![0], by = cy + D[(found + 7) % 8]![1];
+    cx += D[found]![0]; cy += D[found]![1];
+    back = dirOf(bx - cx, by - cy);
+    if (back < 0) back = (found + 4) % 8;
+    if (cx === sx && cy === sy) break;
+    out.push(cx + 0.5, cy + 0.5);
+  }
+  return out;
+}
+
 /** His photo as a colouring page: soft grey, the edges found (a difference of two blurs), then clean black lines on clear. */
 export function outlinesOf(rgba: Uint8ClampedArray, w: number, h: number, detail = 0.5): Uint8ClampedArray {
   const grey = new Float32Array(w * h);

@@ -15,6 +15,8 @@ import { key } from '../../ui/machine';
 import { app, type KitApp, type KitItem } from '../../ui/appkit';
 import { APP_GLYPHS, GAME_KINDS, type AppDef, type AppGlyph, type FieldType, type GameKind, type Stat, type StatKind } from '../../../../../packages/shared/src/applib/types';
 import * as D from '../../../../../packages/shared/src/applib/draft';
+import { LIBRARY } from '../../../../../packages/shared/src/applib/index';
+import * as reg from './registry';
 
 const MAKER_ID = 'maker';
 type Mine = KitItem & { def: AppDef };
@@ -222,7 +224,9 @@ export function openMaker(root: HTMLElement, o: MakerOptions = {}): KitApp {
     for (const f of log.fields) {
       const label = h('input.al-mkinput', { value: f.label, maxLength: 24, 'aria-label': 'Field name' }) as HTMLInputElement;
       label.addEventListener('change', () => set(D.changeField(d, f.id, { label: label.value })));
-      const kids: HTMLElement[] = [label, h('small.al-mktype', D.FIELD_TYPES.find((t) => t.type === f.type)?.name ?? f.type)];
+      const type = choose(D.FIELD_TYPES.map((t) => t.type), f.type, (v) => set(D.changeField(d, f.id, { type: v as FieldType })), Object.fromEntries(D.FIELD_TYPES.map((t) => [t.type, t.name])));
+      type.setAttribute('aria-label', `${f.label} type`);
+      const kids: HTMLElement[] = [label, type];
       const keys = h('div.al-mkfieldkeys',
         key('↑', () => set(D.moveField(d, f.id, -1)), { label: `Move ${f.label} up` }),
         key('↓', () => set(D.moveField(d, f.id, 1)), { label: `Move ${f.label} down` }),
@@ -338,3 +342,15 @@ export const GAME_OPTIONS: Partial<Record<GameKind, { key: string; label: string
   wordgrid: [{ key: 'size', label: 'Size', dflt: 10, lo: 8, hi: 14 }, { key: 'count', label: 'Words', dflt: 8, lo: 4, hi: 12 }, { key: 'diagonal', label: 'Diagonal words', dflt: true }, { key: 'words', label: 'Your words, one a line', dflt: [] }],
 };
 
+
+// ---- registered with the Library (the ENGINE lane's registry loads this file by name): MAKE MY OWN opens App Maker in the
+// page it hands over, and his made apps join the Library's list. The page's body becomes a plain host, so the kit's own
+// scroll area is the one scroll area. (Read through the namespace, so this file builds before and after those hooks land.)
+const hooks = reg as unknown as { registerMaker?: (fn: (root: HTMLElement, from?: AppDef) => void | (() => void)) => void; registerAppSource?: (fn: () => AppDef[]) => void };
+hooks.registerAppSource?.(myApps);
+hooks.registerMaker?.((root, from) => {
+  root.classList.add('al-makerhost');
+  root.replaceChildren();
+  openMaker(root, { from, taken: () => LIBRARY.map((d) => d.id) });
+  return () => root.classList.remove('al-makerhost');
+});

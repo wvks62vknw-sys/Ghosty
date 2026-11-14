@@ -8,7 +8,8 @@
  */
 import { brushOf, dabOf, seeded, type Brush, type TipKind } from './brushes';
 import { dabsAlong, mirrored, taperAt, type Pt, type Symmetry } from './stroke';
-import { floodMask } from './pixels';
+import { floodMask, traceOutline } from './pixels';
+import { simplify } from './stroke';
 
 export const BLENDS: { id: GlobalCompositeOperation; name: string }[] = [
   { id: 'source-over', name: 'Normal' }, { id: 'multiply', name: 'Multiply' }, { id: 'screen', name: 'Screen' }, { id: 'overlay', name: 'Overlay' },
@@ -18,6 +19,9 @@ export const BLENDS: { id: GlobalCompositeOperation; name: string }[] = [
 ];
 export const blendName = (id: string): string => BLENDS.find((b) => b.id === id)?.name ?? 'Normal';
 export const MAX_LAYERS = 12;
+/** TEXT's type faces, from the phone's own fonts. */
+export const FONTS: Record<string, string> = { lettering: 'ui-rounded, "SF Pro Rounded", system-ui, sans-serif', serif: 'Georgia, "Times New Roman", serif', hand: '"Bradley Hand", "Segoe Print", "Comic Sans MS", cursive', typewriter: 'ui-monospace, Menlo, Consolas, monospace' };
+export const FONT_NAMES: Record<string, string> = { lettering: 'Lettering', serif: 'Book', hand: 'Handwriting', typewriter: 'Typewriter' };
 
 export interface Layer {
   id: string;
@@ -37,7 +41,7 @@ export type LayerProp = 'name' | 'blend' | 'opacity' | 'visible' | 'alphaLock' |
 export type Op =
   | { k: 'stroke'; L: string; tool: 'brush' | 'erase' | 'liquify'; b: Brush; col: string; sym: Symmetry; cx: number; cy: number; seed: number; pts: Float32Array; onMask: boolean; sel: Sel }
   | { k: 'fill'; L: string; x: number; y: number; col: string; tol: number; ref: boolean; sel: Sel }
-  | { k: 'clear'; L: string }
+  | { k: 'clear'; L: string; sel?: Sel }
   | { k: 'add'; id: string; name: string; at: number }
   | { k: 'del'; L: string }
   | { k: 'move'; L: string; to: number }
@@ -48,6 +52,7 @@ export type Op =
   | { k: 'xform'; L: string; m: number[]; sel: Sel }
   | { k: 'pixels'; L: string; png: Blob; x: number; y: number; w: number; h: number }
   | { k: 'paper'; v: string }
+  | { k: 'text'; L: string; x: number; y: number; text: string; font: string; size: number; col: string; sel: Sel }
   | { k: 'undo' }
   | { k: 'redo' };
 
@@ -227,11 +232,12 @@ export class Painting {
       case 'dup': return this.duplicate(op.L, op.id);
       case 'merge': return this.mergeDown(op.L);
       case 'mask': return this.setMask(op.L, op.on);
-      case 'clear': return this.clearLayer(op.L);
+      case 'clear': return this.clearLayer(op.L, op.sel ?? null);
       case 'fill': return void this.fill(op.L, op.x, op.y, op.col, op.tol, op.ref, op.sel);
       case 'stroke': return this.strokeOp(op);
       case 'xform': return this.transform(op.L, op.m, op.sel);
       case 'paper': return this.setPaper(op.v);
+      case 'text': return this.addText(op.L, op.x, op.y, op.text, op.font, op.size, op.col, op.sel);
       case 'undo': return void this.undo();
       case 'redo': return void this.redo();
       case 'pixels': return; // pictures are drawn by placeAsync
@@ -325,13 +331,16 @@ export class Painting {
     this.record({ k: 'mask', L: id, on });
     this.push({ what: on ? 'add mask' : 'remove mask', undo: () => { L.mask = old; }, redo: () => { L.mask = made; } });
   }
-  clearLayer(id: string): void {
+  /** Clear a layer, or only the part inside the selection. */
+  clearLayer(id: string, sel: Sel = null): void {
     const L = this.byId(id);
     if (!L) return;
     const g = ctx2(L.c);
     const beforeData = g.getImageData(0, 0, this.w, this.h);
-    g.clearRect(0, 0, this.w, this.h);
-    this.record({ k: 'clear', L: id });
+    const path = selPath(sel, this.w, this.h);
+    if (path) { g.save(); g.globalCompositeOperation = 'destination-out'; g.fill(path, 'evenodd'); g.restore(); }
+    else g.clearRect(0, 0, this.w, this.h);
+    this.record(sel ? { k: 'clear', L: id, sel } : { k: 'clear', L: id });
     this.pixelStep('clear layer', this.targetOf(id, false), { x: 0, y: 0, w: this.w, h: this.h }, beforeData);
   }
   setPaper(v: string): void {
@@ -340,6 +349,29 @@ export class Painting {
     this.paper = v;
     this.record({ k: 'paper', v });
     this.push({ what: 'paper', undo: () => { this.paper = old; }, redo: () => { this.paper = v; } });
+  }
+
+  /** Words on a layer, centred on (x, y), a line at a time, in one of the type faces TEXT offers. */
+  addText(id: string, x: number, y: number, text: string, font: string, size: number, col: string, sel: Sel): void {
+    const L = this.byId(id);
+    if (!L || !text.trim()) return;
+    const g = ctx2(L.c);
+    const lines = text.split('\n').slice(0, 12);
+    g.save();
+    g.font = `700 ${size}px ${FONTS[font] ?? FONTS.lettering}`;
+    const wMax = Math.max(...lines.map((l) => g.measureText(l).width));
+    const lh = size * 1.2, hAll = lh * lines.length;
+    const box = { x: Math.max(0, Math.floor(x - wMax / 2 - size)), y: Math.max(0, Math.floor(y - hAll / 2 - size)), w: 0, h: 0 };
+    box.w = Math.max(1, Math.min(this.w - box.x, Math.ceil(wMax + size * 2))); box.h = Math.max(1, Math.min(this.h - box.y, Math.ceil(hAll + size * 2)));
+    const beforeData = g.getImageData(box.x, box.y, box.w, box.h);
+    const path = selPath(sel, this.w, this.h);
+    if (path) g.clip(path, 'evenodd');
+    if (L.alphaLock) g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'middle';
+    lines.forEach((l, i) => g.fillText(l, x, y - hAll / 2 + lh * (i + 0.5)));
+    g.restore();
+    this.record({ k: 'text', L: id, x, y, text, font, size, col, sel });
+    this.pixelStep('text', this.targetOf(id, false), box, beforeData);
   }
 
   /** A picture (his photo, line art, an import) drawn onto a layer, recorded with its pixels so the time-lapse shows it. */
@@ -400,7 +432,7 @@ export class Painting {
     for (const m of mirrored(p.x, p.y, sym, cx, cy)) {
       let x = m.x, y = m.y;
       if (sc) { x += (carry.rnd() - 0.5) * sc * r * 2; y += (carry.rnd() - 0.5) * sc * r * 2; }
-      if (tool === 'liquify') { this.push_(g, from, p, m, cx, cy, sym, r, b.flow * a0); continue; }
+      if (tool === 'liquify') { if (!b.lq || b.lq === 'push') this.push_(g, from, p, m, cx, cy, sym, r, b.flow * a0); else this.warp(g, m.x, m.y, r, b.lq, b.flow * a0 * (m.flip && b.lq === 'twirl' ? -1 : 1)); continue; }
       if (b.mix > 0 && this.live && !this.live.onMask) this.mixDab(g, from, p, m, cx, cy, sym, r, b.mix);
       const rot = ang + m.rot + (m.flip ? Math.PI / 2 : 0);
       const cos = Math.cos(rot), sin = Math.sin(rot);
@@ -429,6 +461,31 @@ export class Painting {
     g.globalAlpha = mix;
     g.drawImage(this.patch, 0, 0, s, s, m.x - r, m.y - r, s, s);
     void p;
+  }
+
+  /** Liquify's twirl, pinch and expand: each pixel under the brush is taken from a point turned round, or drawn in or out from,
+   * the brush's centre, most at the middle and fading to nothing at its edge. */
+  private warp(g: CanvasRenderingContext2D, x: number, y: number, r: number, kind: 'twirl' | 'pinch' | 'expand', strength: number): void {
+    const x0 = Math.max(0, Math.floor(x - r)), y0 = Math.max(0, Math.floor(y - r));
+    const x1 = Math.min(this.w, Math.ceil(x + r)), y1 = Math.min(this.h, Math.ceil(y + r));
+    const w = x1 - x0, h = y1 - y0;
+    if (w < 2 || h < 2) return;
+    const src = g.getImageData(x0, y0, w, h);
+    const out = new ImageData(new Uint8ClampedArray(src.data), w, h);
+    const k = Math.max(-1, Math.min(1, strength)) * 0.35;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const dx = x0 + i + 0.5 - x, dy = y0 + j + 0.5 - y;
+      const d = Math.hypot(dx, dy);
+      if (d >= r) continue;
+      const f = (1 - d / r) ** 2;
+      let sx: number, sy: number;
+      if (kind === 'twirl') { const a = k * f * 1.2, c = Math.cos(a), s = Math.sin(a); sx = x + dx * c - dy * s; sy = y + dx * s + dy * c; }
+      else { const sc = 1 + (kind === 'pinch' ? 1 : -1) * k * f; sx = x + dx * sc; sy = y + dy * sc; }
+      const u = Math.max(0, Math.min(w - 1, Math.round(sx - x0 - 0.5))), v = Math.max(0, Math.min(h - 1, Math.round(sy - y0 - 0.5)));
+      const a = (j * w + i) * 4, b = (v * w + u) * 4;
+      out.data[a] = src.data[b]!; out.data[a + 1] = src.data[b + 1]!; out.data[a + 2] = src.data[b + 2]!; out.data[a + 3] = src.data[b + 3]!;
+    }
+    g.putImageData(out, x0, y0);
   }
 
   /** Liquify: the pixels under the brush are pushed along the stroke. */
@@ -639,6 +696,20 @@ export class Painting {
     s.globalCompositeOperation = tool === 'erase' ? 'destination-out' : L.alphaLock ? 'source-atop' : b.mode === 'multiply' ? 'multiply' : 'source-over';
     s.drawImage(this.wet, 0, 0);
     s.restore();
+  }
+
+  /** The magic wand: the area of like colour round a point of what he sees, as a selection outline. */
+  wand(x: number, y: number, tol = 28): Sel {
+    const c = this.composite(this.scratch, {});
+    const data = ctx2(c).getImageData(0, 0, this.w, this.h).data;
+    const got = floodMask(data, this.w, this.h, x, y, tol, 1);
+    if (!got) return null;
+    const ring = traceOutline(got.mask, this.w, this.h);
+    if (ring.length < 6) return null;
+    const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i < ring.length; i += 2) pts.push({ x: ring[i]!, y: ring[i + 1]! });
+    const s = simplify(pts, 1.2);
+    return s.length >= 3 ? { pts: s.flatMap((q) => [q.x, q.y]), inv: false } : null;
   }
 
   /** The colour at a point of the whole picture (the eyedropper). */

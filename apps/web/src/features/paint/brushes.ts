@@ -43,7 +43,19 @@ export interface Brush {
   scatter: number;
   /** the nib's own squash (1 is round) */
   roundness: number;
+  /** liquify only: push the picture along, twirl it round, pinch it in or swell it out */
+  lq?: Liquify;
 }
+export type Liquify = 'push' | 'twirl' | 'pinch' | 'expand';
+export const LIQUIFY_NAMES: Record<Liquify, string> = { push: 'Push', twirl: 'Twirl', pinch: 'Pinch', expand: 'Expand' };
+
+/** His own tweaks of a brush (streamline, how much pressure changes size and opacity, the taper), kept on this phone. */
+export type Tweak = Partial<Pick<Brush, 'smooth' | 'pSize' | 'pAlpha' | 'taper' | 'spacing'>>;
+export const tweaks = (): Record<string, Tweak> => {
+  try { const t = JSON.parse(localStorage.getItem('ghosty.paint.tweaks') ?? '{}') as Record<string, Tweak>; return t && typeof t === 'object' ? t : {}; } catch { return {}; }
+};
+export const keepTweak = (id: string, t: Tweak): void => { try { localStorage.setItem('ghosty.paint.tweaks', JSON.stringify({ ...tweaks(), [id]: { ...(tweaks()[id] ?? {}), ...t } })); } catch { /* kept for this visit only */ } };
+export const forgetTweak = (id: string): void => { try { const all = tweaks(); delete all[id]; localStorage.setItem('ghosty.paint.tweaks', JSON.stringify(all)); } catch { /* nothing kept */ } };
 
 const B = (b: Partial<Brush> & Pick<Brush, 'id' | 'name' | 'says' | 'tip'>): Brush => ({
   hardness: 0.9, spacing: 0.12, size: 12, opacity: 1, flow: 1, pSize: 0.6, pAlpha: 0.2, tilt: 0, smooth: 0.35,

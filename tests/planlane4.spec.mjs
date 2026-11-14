@@ -144,7 +144,8 @@ const parts = existsSync(partsDir) ? readdirSync(partsDir).filter((f) => f.endsW
 // Two lanes at once (CI's eight minutes): the parts that read his diary on the shared preview brain run one after another in the first
 // (the agenda adds and removes its own event, so Home and the Brief never see it half-way); the parts whose sources are all stood in by
 // page.route run in the second. A part named in neither joins the first.
-const LANES = [['tasks'], ['calendar']];
+// (one after the other: the calendar's events would show in the tasks part's Upcoming)
+const LANES = [['tasks', 'calendar'], []];
 const named = parts.map((f) => f.replace(/\.mjs$/, '')).filter((n) => !ONLY.length || ONLY.includes(n));
 const lanes = [named.filter((n) => !LANES[1].includes(n)).sort((a, b) => (LANES[0].indexOf(a) + 1 || 99) - (LANES[0].indexOf(b) + 1 || 99)), LANES[1].filter((n) => named.includes(n))];
 await Promise.all(lanes.map(async (lane) => {

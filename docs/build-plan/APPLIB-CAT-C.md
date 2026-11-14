@@ -4,7 +4,7 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
 
 ## What is in
 
-**Learning (65 apps).**
+**Learning (73 apps).**
 - From the list, with `from`:
   - Periodic Table (learn.19): a guide to all 118 elements; group, period and block are worked out from the atomic number, not typed.
   - Music Theory (learn.36), Memory Palace (learn.53), Exam Planner (learn.54).
@@ -18,8 +18,9 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
 - Music: Tempo Converter, Clean Runs (counter).
 - Knowledge decks: Planets, Bones of the Body, Morse Code, Major System, Fallacies, History Dates, British Monarchs, the four Capitals decks, Latin Phrases, Word Roots, Git Commands, Big O.
 - Logs and lists: Reading List, Study Log, Vocabulary Book, Lab Notebook, Language Daily, Exam Day.
+- Also: Binary and Hex (generated), Trig Values, Chemical Formulas, Cell Biology, Shakespeare Lines, Grammar Terms, Urdu Numbers, Speech Practice (timer).
 
-**Travel & world (58 apps).**
+**Travel & world (64 apps).**
 - From the list, with `from`:
   - Trips (world.13), Tickets & Passes (world.16), Car Logbook (world.45), Trip Spend (world.23), Packing (world.15).
   - Travel Papers (world.17): the document and renewal half.
@@ -41,6 +42,7 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
 - Logs: Places Visited, Flight Log, Rail Journeys, Summits, Sky Log, Stays, Where I Parked.
 - Checklists: Hiking Kit, Before You Fly, Leaving Home, Car Check (weekly), Winter Car Kit, Camping Kit.
 - Timer: Driver Breaks, from Highway Code rule 91.
+- Also: Daylight (sunrise, sunset and day length from the PVEducation solar formulas, on his typed place), Sailing Terms, Compass Points (generated), World Languages, Beach Day, Ski Trip.
 
 No app reads location. Great Circle and Time Zones take only what he types.
 
@@ -51,6 +53,7 @@ Other lanes had already landed apps doing the same job, so mine were dropped:
 - Developer & maker: Ohm's Law, LED Resistor, HTTP Status Codes.
 - Family & life: Bucket List, Travel Journal.
 - Money: Mileage Claim (the same job as its Mileage Allowance).
+- Another lane's Reading Time.
 
 ## Needs its own build
 

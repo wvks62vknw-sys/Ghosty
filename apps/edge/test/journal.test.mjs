@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts'), at('../../web/src/features/people/gifts.ts')],
+  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts'), at('../../web/src/features/people/gifts.ts'), at('../../web/src/features/people/vcard.ts')],
   bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/journal'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
 });
 const S = await import('./.build/journal/apps/web/src/features/journal/store.mjs');
@@ -137,4 +137,46 @@ test('gifts: one step on each tap, spent per occasion (ideas cost nothing yet), 
   assert.equal(Gm.pounds('£24.99'), 24.99);
   assert.equal(Gm.pounds('24,5'), 24.5);
   assert.equal(Gm.pounds('free'), 0);
+});
+
+test('vCards: his contacts file read (folded lines, N or FN, phones, emails, address, a birthday with or without a year), and written back', async () => {
+  const V = await import('./.build/journal/apps/web/src/features/people/vcard.mjs');
+  const vcf = 'BEGIN:VCARD\r\nVERSION:3.0\r\nN:Patel;Priya;;;\r\nTEL;TYPE=CELL:07700 900123\r\nEMAIL;TYPE=HOME:priya@example.com\r\nADR;TYPE=HOME:;;12 Acacia\r\n  Avenue;Birmingham;;B13 9AA;UK\r\nBDAY:1984-06-12\r\nEND:VCARD\r\n'
+    + 'BEGIN:VCARD\nVERSION:4.0\nFN:Sam O\\, Brien\nitem1.TEL:+44 7700 900456\nBDAY:--03-09\nNOTE:my cousin\nEND:VCARD\nBEGIN:VCARD\nVERSION:3.0\nTEL:123\nEND:VCARD\n';
+  const cards = V.parseVcf(vcf);
+  assert.equal(cards.length, 2, 'the card with no name is left out');
+  assert.deepEqual(cards[0], { name: 'Priya Patel', phones: ['07700 900123'], emails: ['priya@example.com'], address: '12 Acacia Avenue, Birmingham, B13 9AA, UK', born: '1984-06-12', note: '' });
+  assert.equal(cards[1].name, 'Sam O, Brien');
+  assert.equal(cards[1].born, '--03-09');
+  assert.equal(V.bornWords('1984-06-12'), '12 June 1984');
+  assert.equal(V.bornWords('--03-09'), '9 March');
+  assert.deepEqual(V.cardSays(cards[0]).map((x) => x.action), ['note', 'contact', 'contact', 'contact', 'birthday']);
+  assert.equal(V.cardSays(cards[1])[0].args.words, 'Sam O, Brien my cousin');
+  const out = V.writeVcf([{ name: 'Priya Patel', phone: '07700 900123', email: 'priya@example.com', address: '12 Acacia Avenue, Birmingham', born: '06-12', rel: 'friend' }]);
+  assert.match(out, /^BEGIN:VCARD\r\nVERSION:3\.0\r\nFN:Priya Patel\r\nN:Patel;Priya;;;\r\nTEL;TYPE=CELL:07700 900123\r\nEMAIL:priya@example\.com\r\nADR;TYPE=HOME:;;12 Acacia Avenue\\, Birmingham;;;;\r\nBDAY:--06-12\r\nNOTE:friend\r\nEND:VCARD$/);
+  const back = V.parseVcf(out)[0];
+  assert.equal(back.name, 'Priya Patel');
+  assert.equal(back.address, '12 Acacia Avenue, Birmingham');
+});
+
+test('your word on their card: his open promises that name a person by first or whole name, never a part of another word', async () => {
+  const Sh = await import('./.build/journal/apps/web/src/features/people/vcard.mjs');
+  const items = [
+    { id: '1', kind: 'promise', state: 'open', what: 'send Jo the photos', at: 1 },
+    { id: '2', kind: 'promise', state: 'done', what: 'ring Jo back', at: 2 },
+    { id: '3', kind: 'promise', state: 'open', what: 'fix the joist in the loft', at: 3 },
+    { id: '4', kind: 'where', what: 'Jo’s present', at: 4 },
+    { id: '5', kind: 'promise', state: 'open', what: 'take Jo Smith to the station', at: 5 },
+  ];
+  assert.deepEqual(Sh.promisesAbout('Jo Smith', items), ['send Jo the photos', 'take Jo Smith to the station']);
+  assert.deepEqual(Sh.promisesAbout('Sam', items), []);
+});
+
+test('a group plan as one .ics: its day and time (two hours) or all day, its place, who is coming; none without a day', async () => {
+  const V = await import('./.build/journal/apps/web/src/features/people/vcard.mjs');
+  const at = Date.UTC(2026, 10, 14, 15, 0, 0);
+  const ics = V.planIcs({ id: 'p1', what: 'Pub, then curry', where: 'The Crown; Moseley', when: '2026-11-20', time: '23:00', yes: ['Ali', 'Sam'] }, at);
+  assert.equal(ics, ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ghosty//Group plan//EN', 'BEGIN:VEVENT', 'UID:p1-plan@ghosty', 'DTSTAMP:20261114T150000Z', 'DTSTART:20261120T230000', 'DTEND:20261121T010000', 'SUMMARY:Pub\\, then curry', 'LOCATION:The Crown\\; Moseley', 'DESCRIPTION:Coming: Ali\\, Sam', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n'));
+  assert.match(V.planIcs({ what: 'Picnic', when: '2026-12-31', yes: [] }, at), /DTSTART;VALUE=DATE:20261231\r\nDTEND;VALUE=DATE:20270101/);
+  assert.equal(V.planIcs({ what: 'Some day', yes: [] }, at), null);
 });
