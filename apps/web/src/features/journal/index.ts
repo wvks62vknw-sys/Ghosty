@@ -15,6 +15,7 @@ import type { TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { button, modal, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
+import { sayError } from '../../ui/hisWords';
 import { sections, sectionNow } from '../../ui/sections';
 import { canLock, makeKey, unlock } from './lock';
 import { photoGps, nearestSaved, asDataUrl, binned, dayKey, dropMedia, getMedia, live, load, matches, newId, onThisDay, putMedia, samples, save, shrink, streak, type Entry, type JournalData, type Mood, type Tone } from './store';
@@ -141,6 +142,24 @@ export const journalTab: TabDef = {
         e.prompt = PROMPTS[(PROMPTS.indexOf(e.prompt ?? '') + 1 + Math.floor(Math.random() * (PROMPTS.length - 1))) % PROMPTS.length];
         promptLine.textContent = e.prompt!;
         changed();
+      });
+      // talk it: his words written in through the phone's own recogniser (as the keyboard's microphone does), added to the end
+      const talk = button(J.TALK, async (b) => {
+        b.disabled = true;
+        b.textContent = J.TALK_ON;
+        try {
+          const { listen } = await import('../../assistant/voice');
+          const heard = (await listen(false)).trim();
+          if (heard) {
+            text.value = `${text.value.trimEnd()}${text.value.trim() ? ' ' : ''}${heard}`;
+            changed();
+          }
+        } catch (err) {
+          toast(sayError(err, 'hear that'), 'warn');
+        } finally {
+          b.disabled = false;
+          b.textContent = J.TALK;
+        }
       });
       const moods = h('div.row.wrap.jnmoods', { role: 'group', 'aria-label': 'How you feel' }, ...J.MOODS.map((m, i) => {
         const b = button(m, () => {
@@ -274,7 +293,7 @@ export const journalTab: TabDef = {
         m.close();
       }, 'on');
       const body = h('div.jneditor', { dataset: { case: 'keep' } },
-        h('div.row.wrap.jnmeta', jsel, when), promptLine, text, h('div.row.wrap', pk), h('small.jnlab', 'MOOD'), moods,
+        h('div.row.wrap.jnmeta', jsel, when), promptLine, text, h('div.row.wrap', pk, talk), h('small.jnlab', 'MOOD'), moods,
         h('small.jnlab', 'PLACE'), place, placesList, h('small.jnlab', 'PHOTOS'), photos, h('div.row.wrap', button(J.PHOTO, () => fileIn.click()), fileIn),
         h('small.jnlab', 'VOICE'), voiceBox, said, h('div.row.wrap.jnkeys', done, ...(was ? [del] : [])));
       const m = modal(was ? day(e.at) : 'New entry', body, () => {
