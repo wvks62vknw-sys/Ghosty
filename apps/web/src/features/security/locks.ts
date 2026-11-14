@@ -165,3 +165,34 @@ export function slippedLine(news: Lock[]): string {
   const first = news[0]!;
   return news.length === 1 ? `Security: ${first.label.toLowerCase()} needs a look. ${first.line}` : `Security: ${news.length} locks need a look, first ${first.label.toLowerCase()}. ${first.line}`;
 }
+
+const dayOf = (ms: number): string => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * APPROVALS IN THE BRIEF (security.c1): what he approved and turned down yesterday (his phone's own calendar day), and anything
+ * still waiting for him, in one line; '' when there is nothing to say.
+ */
+export function approvalsDigest(list: ApprovalEntry[], waiting: number, now: number): string {
+  const y = dayOf(now - 86_400_000);
+  const yday = list.filter((a) => dayOf(a.at) === y);
+  const yes = yday.filter((a) => a.allow).length;
+  const no = yday.length - yes;
+  const parts: string[] = [];
+  if (yday.length) parts.push(`Yesterday you approved ${yes} and turned down ${no}${yday.some((a) => a.after) ? ', one after I read a page' : ''}.`);
+  if (waiting) parts.push(`${waiting} still waiting for your APPROVE.`);
+  return parts.join(' ');
+}
+
+/**
+ * APPROVALS READ ALOUD WHILE TALKING (security.c4, built small into the voice's turn): when an approval comes up in a spoken
+ * conversation, exactly what will happen is said, and that the tap is his. His voice is never a lock on its own, so the approve
+ * itself stays a tap on the card.
+ */
+export function approvalSpoken(reason: string, thing: string): string {
+  const r = reason.replace(/\s+/g, ' ').trim();
+  const t = thing.replace(/\s+/g, ' ').trim().replace(/[.:\s]+$/, '');
+  return `${r}${/[.?!)]$/.test(r) ? '' : '.'} If you approve, I’ll do exactly this: ${t}. Tap APPROVE on the card when you’re sure; your voice alone never approves.`;
+}

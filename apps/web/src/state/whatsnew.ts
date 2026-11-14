@@ -43,6 +43,19 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Freeze frame', line: 'VIDEO → SPLIT → FREEZE FRAME holds the picture at the playhead for two seconds, between the two halves of the clip.' },
   { day: '2026-11-14', title: 'Photos twice the size', line: 'PHOTO → EXPORT → 2× BIGGER draws the picture up smoothly and sharpens it on your phone, for printing a small photo.' },
   { day: '2026-11-14', title: 'Exports exactly as long as the video', line: 'A video you export now ends where your timeline ends, to the frame, its sound trimmed to match.' },
+  // [planlane2:fixes] the half-done ones, finished: scripts ask first, follow from SOCIAL, email TEST, one health line on LINKS
+  { day: '2026-11-14', title: 'Scripts ask first', line: 'A Home Assistant script now asks “Run Bedtime?” before it runs, every time, on the screen and from the chat: I can’t see what a script does. Scenes still run on one tap unless they set a lock, the alarm, a garage door or a switch you marked.' },
+  { day: '2026-11-14', title: 'Follow from SOCIAL', line: 'SOCIAL → WAITING (under WAITING FOR YOUR APPROVE) has a FOLLOW OR UNFOLLOW box for Bluesky and Mastodon: it makes a draft, and nothing happens until you tap APPROVE.' },
+  { day: '2026-11-14', title: 'Email TEST and one health line', line: 'LINKS → EMAIL has a TEST key that signs in to your mail and says if it works, and the top of LINKS says in one line that all is fine, or the one thing to fix first.' },
+  // [planlane2:podcasts] the radio's sleep timer after a reload, and in the top bar
+  { day: '2026-11-14', title: 'The sleep timer keeps its time', line: 'The top bar shows when the radio stops (“Radio 4 · stops 23:10”). If the page reloads, the Radio offers PLAY AND KEEP THE TIMER: one tap plays on with the same stop time.' },
+  // [planlane2:goodnight] one word winds everything down (features/core/goodnight.ts)
+  { day: '2026-11-14', title: 'Say goodnight', line: 'Say “goodnight” (or “night night”, “time for bed”): the screen winds down, the night look comes on, your lights go off, the radio gets a 30-minute sleep timer, sleep tracking starts and I tell you tomorrow’s first event. Locks, the alarm, garage doors and gates are only listed, each with a LOCK UP key that needs your tap and a confirm. After six, the Brief has a GOODNIGHT key too.' },
+  // [planlane2:onelist] (plan.u1)
+  { day: '2026-11-14', title: 'One to-do list', line: 'The Agenda’s TO-DO, WORK’s to-do, the Brief, Home and the chat now share one list, kept in my brain with a copy on your phone for no signal. Your phone’s old list joined it once.' },
+  // [planlane2:timeline] the day by the hour, PLAN MY WEEK, any month, and an event changed in place
+  { day: '2026-11-14', title: 'Your day by the hour', line: 'Agenda → Diary → TIMELINE: today and tomorrow by the hour, your free gaps said in words, a line at now, and PLAN MY WEEK with each day’s free time.' },
+  { day: '2026-11-14', title: 'Change an event properly', line: 'Tap an event: change its time, end, place, ALL DAY and reminder in place, and its reminder moves with it. The month now steps to any month, back or on.' },
   { day: '2026-11-14', title: 'Your own one-word routines', line: 'Settings → ROUTINES: make one word, like “morning”, run a few things in turn. Say it or type it. Anything that would send still waits for your APPROVE.' },
   { day: '2026-11-14', title: 'Ask how, and get the taps', line: 'Ask “how do I paste a bank statement?” and I give the exact taps with TRY IT; “what can I say here?” gives that screen’s own words. The search understands whole sentences too.' },
   { day: '2026-11-14', title: 'A tour of the house', line: 'Say “show me around” and I walk you through the seven rooms, with one thing to try in each. The search does sums as you type, too.' },
@@ -84,6 +97,7 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Worked answers to study', line: 'Any paper in SCHOOL → STUDY THE WORKED ANSWERS: my full working a question at a time, kept on this phone. Higher stages now have practice papers.' },
   { day: '2026-11-14', title: 'Bedtime listening', line: 'In the reader: reading speed, a 15 or 30 minute sleep timer, and a voice for each book.' },
   { day: '2026-11-14', title: 'Speak another language, and quiz night', line: 'REHEARSE in Spanish, French and more, with gentle notes after; QUIZ NIGHT under COURSES hosts a quiz for friends at the table.' },
+  { day: '2026-11-14', title: 'Highlights, a quiz aloud and a memory palace', line: 'Highlight and note sentences in your books and export them; QUIZ ME ALOUD asks your course questions hands-free; Learning → MEMORY has a memory palace.' },
   // [comic] NEXT ROUND (comic.u2, u4, u5, u7)
   { day: '2026-11-14', title: 'Ghosty writes your comic', line: 'COMIC → MAKE: I write the story for your exact idea and the phone draws it with the same characters; drag balloons, people and sound effects with a finger, put your own photo behind a panel, and UNDO or REDO any change. Real CBR comics open too (the free RAR reader comes on your tap, on Wi-Fi), and MY WEEK AS A COMIC turns your agenda’s week into a comic to keep.' },
   // [see] the next round: an appointment to the whole journey, and the journey kept for no signal
@@ -99,10 +113,13 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A soft tick when I hear you', line: 'When you finish speaking, a soft tick says I heard you, so you never wonder whether to say it again. It goes with the other sounds in Settings → VOICE & HOME.' },
   // [ci] NEXT ci.u1
   { day: '2026-11-14', title: 'I start talking sooner', line: 'On a long answer I start speaking as soon as its first sentence is written, while the rest is still coming, so you hear me about a third of a second sooner. The words are the same as before.' },
+  // [security] NEXT ROUND, lane SECURITY: one tap to lock everything (security.u11)
+  { day: '2026-11-14', title: 'One tap to lock everything', line: 'Settings → SECURITY → LOCK EVERYTHING, or say "lock everything": Telegram unpaired, nothing that publishes, sends, pays or ships runs, until your owner key unlocks it.' },
   // [security] NEXT ROUND, lane SECURITY: a few seconds to take it back (security.u5)
   { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  { day: '2026-11-14', title: 'Export everything', line: 'System → BACKUP: EXPORT EVERYTHING saves your documents as Word files, sheets as Excel, decks as PowerPoint, the workspace as Markdown and your memory as a document, in one zip.' },
   { day: '2026-11-14', title: 'A log of camera, mic and location use', line: 'Settings → PERMISSIONS lists every time the camera, the microphone or your location was actually used, and on which screen, kept on your phone.' },
   { day: '2026-11-14', title: 'Screens that got slower are flagged', line: 'System → STATUS, SPEED: a screen that opens slower on your phone since the last update is named, with how long it took before.' },
   { day: '2026-11-14', title: 'Everything I keep about you, one place', line: 'Settings → PRIVACY counts what I keep by kind (memory, places, faces, voices), each with its own key to forget it, and EXPORT MY MEMORY saves it all as one document.' },

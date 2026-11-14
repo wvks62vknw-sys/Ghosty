@@ -5,6 +5,7 @@
  * brings it back. Every key is 44 pt (the house's `button`).
  */
 import { h } from '../../core/dom';
+import { openSafe } from '../../core/safeurl';
 import { button, modal, toast } from '../../ui/components';
 import { forgetTurn, foundState, KIND_WORD, turnFor, undoForgetTurn, type ThingKind } from './recall';
 import { LENS_READ_NOTE, EXCHANGE_NO_ANSWER, EXCHANGE_PINNED, EXCHANGE_UNPINNED, TURN_FORGOTTEN } from './words';
@@ -59,7 +60,8 @@ export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line' | 'id'> & { 
     const all = await import('./recall').then((R) => R.allThings());
     const text = all.filter((x) => x.kind === 'scan' && x.id === r.id).map((x) => x.text).join(' ');
     modal(`Read with the Lens · ${new Date(Number(r.id)).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`, h('div.readwrap.exchange', { dataset: { case: 'keep' } }, h('div.reader', h('p', text || r.line), h('p.note', LENS_READ_NOTE))));
-  } else if (r.kind === 'link') window.open(r.id, '_blank', 'noopener');
+  // [security] a link rebuilt from history opens only when it is an ordinary web link (core/safeurl.ts)
+  } else if (r.kind === 'link') openSafe(r.id);
   else if (r.kind === 'todo') navTo('agenda', 'push');
   else if (r.kind === 'book') navTo('library', 'push');
   if (r.bid) land(r.bid);

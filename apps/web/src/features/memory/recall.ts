@@ -504,6 +504,8 @@ export async function pinTurn(f: { key: string; at: number }, on: boolean): Prom
   } catch {
     /* the phone keeps nothing: the brain's pin still holds */
   }
+  // (YOUR WORD's "Chats you pinned" follows at once)
+  dispatchEvent(new Event('ghosty:pins'));
   await brain.memoryChange(`t:${f.at}`, on ? 'lock' : 'unlock').catch(() => undefined);
   return on;
 }
