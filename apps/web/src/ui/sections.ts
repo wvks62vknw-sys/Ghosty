@@ -199,3 +199,15 @@ export function revealSection(tab: string, title: string): HTMLElement | null {
 export function goToPanel(tab: string, title: string): void {
   if (go(tab)) revealSection(tab, title);
 }
+
+/** The same, and on a phone (where the screen is a list) the panel itself opened, as a tap on its row would (NEXT ROUND). */
+export function showPanel(tab: string, title: string): void {
+  goToPanel(tab, title);
+  let tries = 0;
+  const open = (): void => {
+    const head = [...document.querySelectorAll<HTMLElement>(`#pg-${tab} .pn[data-row] > h3`)].find((x) => (x.querySelector('.ptitle')?.textContent ?? '').startsWith(title));
+    if (head && !head.parentElement!.classList.contains('pushed')) head.click();
+    else if (!head && ++tries < 10) setTimeout(open, 200);
+  };
+  setTimeout(open, 250);
+}

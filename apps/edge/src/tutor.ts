@@ -42,7 +42,7 @@ import { ensureJob, rearm } from './schedule';
 import { safeTz } from './time';
 
 // The pure course helpers (packages/shared/src/learn.ts), here too for the brain's tests.
-export { calibrationLine, drawExam, examGrade, examSeconds, masteryOf, paceDue, paceOf, poolOf, scoreAnswer, stopState, EXAM_MAX, EXAM_MIN, EXAM_SECONDS, LESSON_MINUTES, MIN_ANSWERS } from '../../../packages/shared/src/learn';
+export { aimOf, calibrationLine, drawExam, examGrade, examSeconds, masteryOf, needOf, paceDue, paceOf, poolOf, scoreAnswer, stopState, EXAM_MAX, EXAM_MIN, EXAM_SECONDS, LESSON_MINUTES, MIN_ANSWERS } from '../../../packages/shared/src/learn';
 
 export const INDEX_KEY = 'learn:index';
 export const STREAK_KEY = 'learn:streak';
@@ -484,7 +484,7 @@ async function bumpScores(storage: DurableObjectStorage, course: string, marks: 
     if (m.correct) s.right++;
     if (m.lesson && course !== GENERAL) {
       s.lessons ??= {};
-      s.lessons[String(m.lesson)] = scoreAnswer(s.lessons[String(m.lesson)], m.correct);
+      s.lessons[String(m.lesson)] = scoreAnswer(s.lessons[String(m.lesson)], m.correct, m.conf);
     }
     if (m.conf && CONFIDENCES.includes(m.conf)) {
       s.conf ??= {};
@@ -905,7 +905,7 @@ export function addToPools(c: Course, questions: QuizQuestion[]): number[] {
  * cheap model call over the passages, kept to be marked. A course's questions each name their
  * lesson and go into its pool for the exam.
  */
-export async function makeQuiz(deps: TutorDeps, a: { course?: string; topic?: string; n?: unknown; spoken?: boolean; lesson?: unknown }): Promise<Quiz> {
+export async function makeQuiz(deps: TutorDeps, a: { course?: string; topic?: string; n?: unknown; spoken?: boolean; lesson?: unknown; lessons?: unknown }): Promise<Quiz> {
   const n = Math.max(3, Math.min(8, Math.round(Number(a.n) || 5)));
   const entry = a.course || !a.topic ? await pickCourse(deps.storage, a.course) : null;
   const course = entry ? await loadCourse(deps.storage, entry.id) : null;
@@ -914,7 +914,9 @@ export async function makeQuiz(deps: TutorDeps, a: { course?: string; topic?: st
   const level = course?.level ?? 'beginner';
   const read = course?.lessons.filter((l) => l.done) ?? [];
   const one = course?.lessons.find((l) => l.n === Number(a.lesson));
-  const about = course ? (one ? [one] : read.length ? read.slice(-4) : course.lessons.slice(0, 4)) : [];
+  // (learn.u2: a quiz on his misses names the lessons he got wrong, most needed first)
+  const aimed = course && Array.isArray(a.lessons) ? course.lessons.filter((l) => (a.lessons as unknown[]).map(Number).includes(l.n)).slice(0, 4) : [];
+  const about = course ? (aimed.length ? aimed : one ? [one] : read.length ? read.slice(-4) : course.lessons.slice(0, 4)) : [];
   const focus = course ? `${course.topic} ${about.map((l) => l.query ?? l.title).join(' ')}` : topic;
   const m = await gather(deps, a.topic && course ? `${course.topic} ${a.topic}` : focus, { level, k: 6, ...(course ? { notebook: { id: course.id, title: course.title } } : {}) });
   let questions: QuizQuestion[] = [];
@@ -926,7 +928,7 @@ export async function makeQuiz(deps: TutorDeps, a: { course?: string; topic?: st
   }
   let basis = 'written from the passages';
   if (!questions.length && course) {
-    questions = quizFromChecks(course, one ? [one.n] : undefined).slice(-n);
+    questions = quizFromChecks(course, aimed.length ? aimed.map((l) => l.n) : one ? [one.n] : undefined).slice(-n);
     basis = 'the lessons\' check questions (no model was free to write new ones)';
   }
   if (!questions.length) throw new Error(m.text ? 'no model is free to write the questions right now; try again in a few minutes' : `I have nothing on "${topic}" to quiz you from yet — start a course on it first`);
@@ -1253,7 +1255,7 @@ export async function learnRoute(req: Request, path: string, method: string, dep
       const r = await finishLesson(deps, String(body.course ?? ''), Number(body.n));
       return json({ course: r.entry, ...(r.card ? { card: r.card } : {}) });
     }
-    if (path === '/learn/quiz') return json({ quiz: await makeQuiz(deps, { course: body.course ? String(body.course) : undefined, topic: body.topic ? String(body.topic) : undefined, n: body.n, lesson: body.lesson }) });
+    if (path === '/learn/quiz') return json({ quiz: await makeQuiz(deps, { course: body.course ? String(body.course) : undefined, topic: body.topic ? String(body.topic) : undefined, n: body.n, lesson: body.lesson, lessons: body.lessons }) });
     if (path === '/learn/answer') return json(await answer(deps, { quiz: body.quiz ? String(body.quiz) : undefined, q: body.q ? String(body.q) : undefined, course: body.course ? String(body.course) : undefined, lesson: Number(body.lesson) || undefined, answer: body.answer, conf: body.conf }));
     // With the brain's clock, so the phone counts down from what is really left (its own clock may differ).
     if (path === '/learn/exam') return json({ exam: await startExam(deps, String(body.course ?? '')), now: deps.now ?? Date.now() });

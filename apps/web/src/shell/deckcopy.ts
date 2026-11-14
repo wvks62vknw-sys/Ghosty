@@ -57,7 +57,7 @@ const camerasNearHome: DeckAct = { run: 'show_cameras', args: () => ({ lat: home
 
 export const DECK: Record<string, DeckScreen> = {
   core: {
-    name: 'Core',
+    name: 'Home',
     promise: 'Talk or type, and he gets it done',
     can: [
       { text: 'Ask with sources, each claim checked', act: { ask: 'How much sleep do adults need? With sources.' } },
@@ -98,7 +98,7 @@ export const DECK: Record<string, DeckScreen> = {
     dyk: 'He names things on the phone itself, from 4,624 everyday names. Nothing leaves it until you ask.',
   },
   interpreter: {
-    name: 'Interpreter',
+    name: 'Interpret',
     promise: 'Two halves, two languages: hold and talk',
     can: [
       { text: 'Hold your key and speak: the far half writes and says it', act: { open: 'interpreter' } },
@@ -176,7 +176,7 @@ export const DECK: Record<string, DeckScreen> = {
     dyk: 'Every answer says how it was worked out, what it assumed and what would change it — and that it is a first estimate, never certified.',
   },
   learn: {
-    name: 'Learn',
+    name: 'Courses',
     promise: 'Say “teach me…” and he builds you a course',
     can: [
       { text: '“Teach me how the stock market works”', act: { ask: 'Teach me how the stock market works' } },

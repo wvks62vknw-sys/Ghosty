@@ -73,6 +73,24 @@ phone and reaches the brain when the signal is back.
   Tuesday").
 - **On Telegram.** The brain's `recall` now answers about promises, places and reasons too. Its description wasn't lengthened, so the
   tool ceiling holds.
+- **Recall by meaning on Telegram too (`memory.u1`).** When words find little, the brain compares your newest 150 chats by meaning.
+  - It uses the same free embedding the library already uses, within the day's free allowance; there is nothing to pay.
+  - Ask on Telegram about "the trip north" and it finds your "trains to Leeds" chat.
+- **Find lands on the exact cell (`memory.u9`).** A spreadsheet match opens at its cell (sheet and cell set before it opens). A deck
+  match opens at its slide.
+- **Chases follow the exact email (`memory.u2`).** A chase made from a mail in the Brief counts only a reply from that sender with that
+  subject, so a different email from the same person doesn't close it.
+- **Bill questions next to the bill (`memory.c3`).** This went into the money lane's BILLS, small and additive. Under a bill:
+  - "You asked me about this yesterday ›";
+  - a tap shows that whole exchange.
+- **Your past words while you write (`memory.c1`).** This went into the editors lane's Docs, small and additive.
+  - FROM WHAT YOU SAID at the foot of a document: type "the hedge" and your own words come up.
+  - PUT IT IN places them after your paragraph, for you to edit.
+- **Find in photographed letters (`memory.s1`).** This is one additive line in the Lens's READ.
+  - The words the Lens reads are kept on your phone only (the newest 60, a number plate never kept).
+  - "Where's that parking fine letter?" or FIND "parking penalty" finds them, and a tap shows them whole.
+  - The photo itself is never kept.
+- **WHAT'S NEW:** six lines for the things you will notice.
 
 ## How to try it on your phone
 
@@ -98,7 +116,19 @@ phone and reaches the brain when the signal is back.
   - the import guard.
 - **recall test:** new cases for the second look, the parcel, the pin, and the new wordings.
 - **New spec:** `tests/keepword.spec.mjs`. Its word `keepword` is at the end of check.yml's `all=`. It runs at 440, 390, and 390 with
-  BODY 21: **"keepword spec: all good"**.
+  BODY 21: **"keepword spec: all good"**. It also proves:
+  - CHASE on a Brief email;
+  - a spreadsheet opening at its cell;
+  - the bill's question line;
+  - FROM WHAT YOU SAID in a letter;
+  - a Lens-read letter found.
+- **Other lanes' specs touched by the additive pieces, all passing:**
+  - docs: ran clean;
+  - reste: all good;
+  - moneylane: ran clean;
+  - lens2: clean.
+- **No test of its own:** the chase's thread rule (`memory.u2`), because it runs against the real mail account; the spec tests stand in
+  for that account.
 - **Specs rerun, all passing:**
   - recall: all good;
   - memory: run clean;
@@ -113,7 +143,7 @@ phone and reaches the brain when the signal is back.
 
 | They have | Ghosty now | Left |
 | --- | --- | --- |
-| Mem: everything found by one search | One search covers chats, documents, pages, decks, sheets, the library, links and to-dos, also from the jump bar | Spreadsheets at the exact cell, decks at the slide (`memory.u9`) |
+| Mem: everything found by one search | One search covers chats, documents, pages, decks, sheets, the library, links, to-dos and what the Lens read, also from the jump bar, landing on the paragraph, cell or slide | |
 | Mem: things resurface when relevant | RECALL lines in replies; "like you said on Tuesday" | |
 | Apple Notes: pinned notes | Pinned chats stay past 30 days | A "Pinned" filter in the timeline |
 | Day One: on this day, a journal by date | "What was I doing on the 3rd?", recall by month | An "On this day last month" card |
@@ -123,12 +153,9 @@ phone and reaches the brain when the signal is back.
 
 ## What is left (listed, not built)
 
-- **Recall by meaning on the brain and Telegram (`memory.u1`).** Words only on the brain. The phone matches by meaning once its model
-  is downloaded.
-- **Chases follow the exact email thread (`memory.u2`).** The Brief's mail lines carry no message id yet. The chase looks by the
-  sender's address.
-- **Find lands on the exact cell or slide (`memory.u9`).** Documents and workspace pages land on the paragraph. Sheets and decks open
-  at the file.
-- **Find in photographed letters (`memory.s1`).** The scanner keeps pages in memory only. A page saved as a document is found.
-- **Your past words while you write (`memory.c1`)** and **bill questions next to the bill (`memory.c3`)**: not built this round.
-- **Promises as items in PLAN's one list (`memory.c2`'s sibling, `plan.u1`):** for the PLAN lane to read from `/profile/keep`.
+- **Scanned pages:** the SCAN screen keeps its pages in memory only, so a page is found once it is saved as a document. What the Lens
+  reads is found at once.
+- **The exact email thread:** the chase follows the sender and the subject. A true thread id isn't used, because the Brief's mail lines
+  don't carry one yet.
+- **Promises as items in PLAN's one list (`plan.u1`):** for the PLAN lane to read from `/profile/keep`.
+- **From the sweep:** a "Pinned" filter in the timeline, an "On this day last month" card, and a daily resurfacing of one pinned chat.

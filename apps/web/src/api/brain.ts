@@ -382,7 +382,7 @@ export const brain = {
   /** His PRINCIPLES (profile.ts): his own lines, the whole list each time. */
   principles: () => req<{ lines: string[]; max: number }>('GET', '/profile/principles'),
   setPrinciples: (lines: string[]) => req<{ lines: string[]; max: number }>('POST', '/profile/principles', { lines }),
-  /** Memory → ME → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
+  /** Memory → ABOUT YOU → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
   places: () => req<{ places: SavedPlace[] }>('GET', '/profile/places'),
   placeFind: (label: string, query: string) => req<{ found: PlaceCandidate }>('POST', '/profile/places/find', { label, query }),
   /** `back` (UNDO): the place put back exactly — its date and its place in the list. */
@@ -397,6 +397,8 @@ export const brain = {
   /** [packs] One pack action with no model (apps/edge/src/packs/index.ts): a card's UNDO, a glass of water, a tick, a run saved. */
   packDo: (pack: PackName, action: string, args: Record<string, unknown> = {}) => req<PackOut>('POST', '/packs/do', { pack, action, args }),
   spendingFile: (k: string, c: Category, month: string) => req<SpendingSummary & { filed: number }>('POST', '/profile/spending/file', { k, c, month }),
+  // [moneynext] one payment split across categories (parts empty: put back whole)
+  spendingSplit: (row: { d: string; t: string; a: number }, parts: { c: Category; a: number }[], month: string) => req<SpendingSummary & { parts: number }>('POST', '/profile/spending/split', { row, parts, month }),
   spendingBudget: (words: string, month: string) => req<SpendingSummary & { set: { category: Category; monthly: number } }>('POST', '/profile/spending/budget', { words, month }),
   spendingForget: () => req<SpendingSummary>('DELETE', '/profile/spending'),
   /** EXPORT AS CSV: every kept row (Date, Description, Amount, Category). */

@@ -398,7 +398,9 @@ let mine = [];
   await row(page).locator('button[data-act="get"]').click();
   check(await page.waitForFunction(() => /on your phone/.test(document.querySelector('#pg-settings .wikioffer[data-pack="voice-model"]')?.textContent ?? ''), null, { timeout: 30000 }).then(() => true, () => false), '[B] the pack was not fetched again on his tap');
   // his record from before the model's return has the model numbers: they judge now
-  seen.said = 'what is on my calendar';
+  // (a sentence with nothing of his in it: one about his calendar, money or messages is kept on the phone for a voice it doesn't
+  //  know, never sent at all — quiet household mode, voice.s1, proven in voicelane.spec)
+  seen.said = 'who painted the mona lisa';
   check(await speakTurn(page, 'unknown'), `[B] another voice did not show A VOICE I DON'T KNOW (${JSON.stringify(await score(page))})`);
   check((await score(page)).via === 'model', `[B] the judge was "${(await score(page)).via}" (want the model)`);
   const t = await page.innerText('#voicetag');

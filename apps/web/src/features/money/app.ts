@@ -21,6 +21,7 @@ import { button, modal } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 import { isoDay } from '../brief/day';
 import { daysTo, emptyState, inWords, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
+import { openRules, safeBlock } from './plan';
 
 export type MoneyPage = 'month' | 'budgets' | 'bills' | 'trends';
 /** Each page's name: its panel's title on the MONEY screen. */
@@ -38,6 +39,8 @@ export const moneyApp = {
   trend: [] as string[],
   shown: 0,
   refiled: 0,
+  split: 0,
+  cancel: [] as string[],
   state: {} as Record<string, string>,
 };
 const expose = () => {
@@ -127,7 +130,9 @@ export function moneyPage(page: MoneyPage): { el: HTMLElement; stop(): void } {
 function monthPage(): HTMLElement {
   const slot = h('div.pkcol', { 'aria-live': 'polite' });
   const status = h('p.pknote', { 'aria-live': 'polite' });
-  const el = h('div.pkcol.mnapp', slot, status, phrases(['my spending', 'spending this month']));
+  // [moneynext] safe to spend until payday stands at the top once the month is read (features/money/plan.ts)
+  const top = h('div.pkcol');
+  const el = h('div.pkcol.mnapp', top, slot, status, phrases(['my spending', 'spending this month', 'safe to spend']));
   let cat: Category | '' = '';
   let find = '';
   let all = false;
@@ -150,7 +155,7 @@ function monthPage(): HTMLElement {
     moneyApp.shown = shown.length;
     const list = shown.map((r) => {
       const b = h('button.mntxn', { type: 'button', dataset: { k: r.k, c: r.c, by: r.by }, 'aria-label': `${r.t}, ${p2(r.a)} on ${dayWords(r.d)}, filed as ${r.c}. Tap to file it somewhere else.` },
-        h('span.mnwhat', h('b', r.t), h('small', `${dayWords(r.d)} · ${r.c}${r.by === 'you' ? ' (you filed it)' : r.by === 'model' ? ' (sorted by the free AI)' : r.by === 'none' ? ' — tap to file it' : ''}`)),
+        h('span.mnwhat', h('b', r.t), h('small', `${dayWords(r.d)} · ${r.c}${r.sp ? ' (part of a split)' : ''}${r.by === 'you' && !r.sp ? ' (you filed it)' : r.by === 'model' ? ' (sorted by the free AI)' : r.by === 'none' ? ' — tap to file it' : ''}`)),
         h('span.mnamt', { dataset: { tone: r.a > 0 ? 'in' : '' } }, r.a > 0 ? `+${p2(r.a)}` : p2(-r.a)));
       b.addEventListener('click', () => refile(r));
       return b;
@@ -163,8 +168,39 @@ function monthPage(): HTMLElement {
   };
 
   const refile = (r: SpendRow) => {
+    // [moneynext] money.u4: or split this one payment across two categories, to the penny (a split one can be put back whole)
+    const whole = Math.abs(r.sp ? r.sp.of : r.a);
+    const partAmt = h('input.mnsplitin', { type: 'text', inputMode: 'decimal', placeholder: `£${(whole / 2).toFixed(2)}`, 'aria-label': 'How much of it goes to the first category' }) as HTMLInputElement;
+    const first = h('select.mnsplitsel', { 'aria-label': 'The first category' }, ...CATEGORIES.map((c) => h('option', { value: c, selected: c === r.c }, cap(c)))) as HTMLSelectElement;
+    const second = h('select.mnsplitsel', { 'aria-label': 'Where the rest goes' }, ...CATEGORIES.map((c) => h('option', { value: c, selected: c === 'shopping' && r.c !== 'shopping' }, cap(c)))) as HTMLSelectElement;
+    const splitSay = h('p.pknote', { 'aria-live': 'polite' });
+    const doSplit = async (parts: { c: Category; a: number }[]) => {
+      const mine = ++ticket;
+      try {
+        const x = await brain.spendingSplit({ d: r.d, t: r.t, a: r.sp ? r.sp.of : r.a }, parts, s?.month ?? '');
+        m.close();
+        moneyApp.split++;
+        stateIn(status, '', parts.length ? `Split “${r.t}”: ${parts.map((p, i) => `${p2(i === parts.length - 1 ? whole - parts.slice(0, -1).reduce((k, q) => k + q.a, 0) : p.a)} ${p.c}`).join(', ')}.` : `“${r.t}” is whole again.`);
+        if (mine !== ticket) return;
+        s = x;
+        paint();
+      } catch (e) {
+        stateIn(splitSay, 'error', sayError(e, 'split it'));
+      }
+    };
+    const goSplit = () => {
+      const n = Number(partAmt.value.replace(/[£,\s]/g, ''));
+      if (!Number.isFinite(n) || n <= 0 || n >= whole) return void stateIn(splitSay, '', `Type how much goes to the first category, under ${p2(whole)}.`);
+      if (first.value === second.value) return void stateIn(splitSay, '', 'Pick two different categories.');
+      void doSplit([{ c: first.value as Category, a: n }, { c: second.value as Category, a: whole - n }]);
+    };
+    const splitBox = h('details.mnmore', h('summary', r.sp ? 'Split across categories (it is split now)' : 'Split it across categories'),
+      h('div.pkcol', h('div.pkrow', partAmt, first), h('div.pkrow', h('span.pklab', 'and the rest to'), second),
+        h('div.pkrow', label(button('Split it', goSplit, 'on'), 'Split this payment'), ...(r.sp ? [label(button('Put it back whole', () => void doSplit([])), 'Put this payment back whole')] : [])),
+        splitSay));
     const m = modal(`File “${r.t}” as…`, h(
       'div.pkcol',
+      splitBox,
       h('p.pknote', `Every payment to ${cap(r.k.toLowerCase())} goes there, and the next statement remembers it.`),
       h('div.pkrow.mnchips', ...CATEGORIES.map((c) => label(button(cap(c), async () => {
         m.close();
@@ -242,6 +278,7 @@ function monthPage(): HTMLElement {
       ...cats,
       ...(top.length ? [h('div.lab', 'WHERE IT WENT MOST'), ...top.map((t) => meter(cap(t.t.toLowerCase()), p2(t.out), t.out / topMost, 'soft', `${plural(t.n, 'payment')} this month.`))] : []),
       h('div.lab', cat ? `${cat.toUpperCase()} · TAP ONE TO FILE IT` : 'EVERY PAYMENT · TAP ONE TO FILE IT'),
+      h('div.pkrow', label(button('Your sorting rules', () => openRules(() => void load(s?.month))), 'See and change your sorting rules')),
       search,
       listBox,
     );
@@ -251,6 +288,7 @@ function monthPage(): HTMLElement {
     const mine = ++ticket;
     const got = await read(el, slot, 'month', month, () => void load(month));
     if (mine !== ticket || !got) return;
+    if (!top.childElementCount) top.append(safeBlock());
     s = got;
     cat = '';
     all = false;
@@ -404,10 +442,33 @@ function billsPage(): HTMLElement {
     const row = (d: Due) => {
       const n = daysTo(d.on);
       const when = n === null ? '' : n < 0 ? `was due around ${dayWords(d.on)}` : `${inWords(d.on)} · ${dayWords(d.on)}`;
-      return h('div.mndue', { dataset: { kind: d.kind, on: d.on, case: 'keep' }, role: 'group', 'aria-label': `${d.name}, ${p2(d.amount)}, ${when}` },
+      // [moneynext] money.u7: a subscription's own public cancel page and the plain steps, found on his tap (nothing is cancelled for him)
+      const how = h('div.pkcol.mncancel', { 'aria-live': 'polite' });
+      const ask = d.kind === 'sub' ? label(button('How to cancel', async () => {
+        if (lacksSignal()) return void how.replaceChildren(stateLine('offline', 'No signal. Try again when the phone is back online.'));
+        const done = waitFor(how, `Finding ${d.name}’s own cancel page…`);
+        try {
+          const r = await brain.packDo('money', 'cancel', { name: d.name });
+          const x = r.data as { links: { title: string; url: string }[]; steps: string };
+          moneyApp.cancel = x.links.map((l) => l.url);
+          how.replaceChildren(
+            ...x.links.map((l) => h('div.pkrow', label(button(`Open: ${l.title.slice(0, 60)}`, () => void window.open(l.url, '_blank', 'noopener,noreferrer')), `Open ${l.title}`))),
+            h('small.mnhow', x.links.length ? `${x.steps} From ${new URL(x.links[0]!.url).hostname.replace(/^www\./, '')}, the company’s own site.` : x.steps),
+          );
+        } catch (e) {
+          how.replaceChildren(stateLine('error', sayError(e, 'find its cancel page')));
+        } finally {
+          done();
+        }
+      }), `How to cancel ${d.name}`) : null;
+      const el = h('div.mndue', { dataset: { kind: d.kind, on: d.on, case: 'keep' }, role: 'group', 'aria-label': `${d.name}, ${p2(d.amount)}, ${when}` },
         h('div.mnline', h('b', d.name), h('span', p2(d.amount))),
         h('span.pklab', when),
-        h('small.mnhow', d.how));
+        h('small.mnhow', d.how),
+        ...(ask ? [h('div.pkrow', ask), how] : []));
+      // [recall] memory.c3 (memory lane, additive): what he asked me about this bill before, from his own chats on this phone, one tap away
+      void askedAbout(d.name).then((b) => b && el.append(b));
+      return el;
     };
     slot.replaceChildren(
       ...(subs.length || due.length
@@ -496,4 +557,19 @@ function trendsPage(): HTMLElement {
   };
   void load();
   return el;
+}
+
+/** [recall] memory.c3: "You asked me about Octopus on Tue 10 Nov ›" under a bill, when his own chats on this phone hold it; null when they don't. */
+async function askedAbout(name: string): Promise<HTMLElement | null> {
+  const R = await import('../memory/recall');
+  if (!(await R.recallWarm())) return null;
+  const word = name.toLowerCase().replace(/\b(?:ltd|limited|plc|uk|the)\b/g, '').trim();
+  if (word.length < 3) return null;
+  const hits = (await R.findLocal(name, { turns: true, k: 6 })).filter((f) => f.line.toLowerCase().includes(word.split(/\s+/)[0]!));
+  if (!hits.length) return null;
+  const f = hits.sort((a, b) => b.at - a.at)[0]!;
+  const { openFound } = await import('../memory/recallcard');
+  const b = h('button.mnasked', { type: 'button', dataset: { case: 'keep' }, 'aria-label': `What you asked me about ${name}` }, `You asked me about this ${f.day}${hits.length > 1 ? ` (and ${hits.length - 1} more)` : ''} ›`);
+  b.addEventListener('click', () => void openFound(f));
+  return b;
 }

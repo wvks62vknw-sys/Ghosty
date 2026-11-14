@@ -53,14 +53,14 @@ export const FURTHER_WORDS: Record<string, CatValue> = {
   },
   'panel:rehearse:A CONVERSATION': {
     name: 'Three rounds against me',
-    line: 'You can say the situation, answer the other side by voice or text for three rounds, and get notes counted from your own answers.',
+    line: 'You can say the situation, answer the other side for three rounds, in English or another language, and get notes on your answers.',
     more: 'The notes say what landed and what to tighten in five lines: your most concrete answer, how steady you were, the line to cut, your filler words and how you began. The other side’s lines are never kept; KEEP keeps your answers and the notes on this phone.',
-    say: ['Rehearse telling my landlord about the damp'], scene: ['school', 'talking'], cat: 'learn', since: SINCE,
+    say: ['Rehearse telling my landlord about the damp', '(pick Spanish under THE LANGUAGE to practise ordering in a café)', '(pick A DEBATE under WHAT KIND, and I argue the other side)'], scene: ['school', 'talking'], cat: 'learn', since: SINCE,
   },
   'panel:rehearse:A TALK FOR A MINUTE': {
     name: 'Talk for a minute',
     line: 'You can talk for a minute, or type what you would say, and get your filler words, your pace and the one line to cut.',
-    more: 'The pace is words a minute against the 110 to 160 that people follow easily. The one line to cut is the longest sentence, or the one fullest of filler words. Nothing is kept.',
+    more: 'The pace is words a minute against the 110 to 160 that people follow easily. The one line to cut is the longest sentence, or the one fullest of filler words. Only the numbers are kept on this phone, charted week by week; never what you said.',
     say: ['Practise my presentation'], scene: ['school', 'talking'], cat: 'learn', since: SINCE,
   },
   'panel:rehearse:KEPT': {

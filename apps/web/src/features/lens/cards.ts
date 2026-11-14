@@ -17,18 +17,20 @@
 import { brain, headers } from '../../api/brain';
 import { openSafe } from '../../core/safeurl';
 import { h } from '../../core/dom';
-import { confirmSheet, toast } from '../../ui/components';
+import { confirmSheet, modal, toast, undo } from '../../ui/components';
 import { key } from '../../ui/machine';
 import { askWithImage } from '../../vision/ask';
 import { toJpegDataUrl } from '../../vision/camera';
-import { DOC_SHARE, jobsOf, sureWords, textActs, type JobId, type Seen, type TextAct } from '../../vision/jobs';
+import { ALLERGENS, DIETS, DOC_SHARE, avoidFromWords, avoidVerdict, bandOf, comparePackets, jobsOf, nhsSearch, readBusStop, readBusinessCard, readMedicine, readRating, receiptCsv, runningCost, sureWords, textActs, vcardOf, type CardContact, type JobId, type Seen, type TextAct } from '../../vision/jobs';
+import { readReceipt } from '../../../../../packages/shared/src/homeadmin';
 import { classifyCode } from '../../scan/codes';
-import { longDay } from '../../../../../packages/shared/src/lifeeasier';
+import { letterOf, longDay } from '../../../../../packages/shared/src/lifeeasier';
 import { firstJson } from '../../../../../packages/shared/src/living';
 import type { LookupResult } from '../../../../../packages/shared/src/scan';
 import { isoDay } from '../brief/day';
 import { sayIn } from '../learning/voices';
 import { STRANGER } from './words';
+import { looksEnglish } from '../../vision/tags';
 
 /** What a spec reads (window.__ghosty.cards): the jobs in view, the cards drawn, and the last act done. */
 export const cardsState = {
@@ -39,6 +41,54 @@ export const cardsState = {
   product: { state: 'none' as 'none' | 'looking' | 'found' | 'unknown' | 'offline' | 'failed', name: '' },
   place: { state: 'none' as 'none' | 'asking' | 'found' | 'unsure' | 'offline' | 'failed', name: '', summary: '' },
   said: '',
+  /** What he avoids (kept on this phone only), and the last verdict a packet got against it. */
+  avoid: [] as string[],
+  verdict: { tone: '' as string, line: '' },
+  /** The last receipt put into his spending (or 'duplicate'), and what HOME kept from it. */
+  spent: { state: '' as '' | 'adding' | 'added' | 'duplicate' | 'failed', line: '' },
+  /** The last contact made for his phone's contacts from a business card or a contact code (made on the phone; nobody is looked up). */
+  contact: { state: '' as '' | 'shared' | 'saved' | 'failed', name: '', vcf: '' },
+  /** A bus stop's next buses, asked by the stop's name on the sign (never where he is). */
+  buses: { state: '' as '' | 'asking' | 'found' | 'offline' | 'failed', stop: '', text: '' },
+  /** An appliance's running cost at his price (a first estimate), and the price it used. */
+  cost: { watts: 0, price: 0, line: '' },
+  /** The last two packets put side by side (lens.u8): their names and the one line. */
+  compare: { a: '', b: '', line: '' },
+};
+
+/** His price for a unit of electricity (pence a kWh), kept on this phone; 25p until he says his own. */
+const KWH_KEY = 'ghosty.lens.kwh';
+export const DEFAULT_KWH = 25;
+export function loadKwh(): { price: number; his: boolean } {
+  try {
+    const v = Number(localStorage.getItem(KWH_KEY));
+    return v > 0 && v < 500 ? { price: v, his: true } : { price: DEFAULT_KWH, his: false };
+  } catch {
+    return { price: DEFAULT_KWH, his: false };
+  }
+}
+
+/** What he avoids: kept on this phone and nowhere else (never sent with a lookup: only the barcode's number goes out). */
+const AVOID_KEY = 'ghosty.lens.avoid';
+export function loadAvoid(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(AVOID_KEY) ?? '[]') as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+export function saveAvoid(list: string[]): boolean {
+  try {
+    localStorage.setItem(AVOID_KEY, JSON.stringify([...new Set(list)]));
+    return true;
+  } catch {
+    return false;
+  }
+}
+const avoidSaid = (list: string[]): string => {
+  const words = list.map((id) => ALLERGENS.find((a) => a.id === id)?.say ?? DIETS.find((d) => d.id === id)?.say ?? id);
+  return words.length <= 1 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 };
 
 /** The words for each state with nothing to show, in his voice. */
@@ -55,9 +105,14 @@ export interface CardInput extends Seen {
   langTag?: string;
   /** The thing's own tag (the place a WHAT PLACE IS THIS answer belongs to: that thing, never the next one with the same name). */
   thingId?: number;
+  /** A menu read line by line: the lines, and the English for each when it came back lined up (lens.u1). */
+  lines?: string[];
+  lineEnglish?: string[];
   /** The text's own tag (a page stays a page while this tag stays, through a re-read). */
   textId?: number;
   english?: string;
+  /** Its words are out to be put into English, or that came back with nothing. */
+  translating?: '' | 'sending' | 'failed';
   /** The Lens is still reading the text. */
   reading?: boolean;
   online: boolean;
@@ -76,18 +131,22 @@ export interface CardDeps {
 const day = (): string => isoDay(new Date());
 
 /** A job by his words (vision/tags.ts lensWord): the card it belongs to, the key it presses, and what is said when there is none. */
-export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy', { jobs: string[]; key: string; done: string; none: string }> = {
+export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'contacts' | 'buses' | 'nhs' | 'compare', { jobs: string[]; key: string; done: string; none: string }> = {
   solve: { jobs: ['sum'], key: 'COPY ANSWER', done: 'It’s worked out on the card.', none: 'I don’t see a sum yet. Hold the page still.' },
-  call: { jobs: ['phone', 'code'], key: 'CALL', done: 'Calling.', none: 'I don’t see a phone number yet.' },
+  call: { jobs: ['phone', 'code', 'contact'], key: 'CALL', done: 'Calling.', none: 'I don’t see a phone number yet.' },
   agenda: { jobs: ['date'], key: 'ADD TO AGENDA', done: 'Putting it in your agenda.', none: 'I don’t see a date yet.' },
   map: { jobs: ['address'], key: 'ON THE MAP', done: 'Finding it on the map.', none: 'I don’t see an address yet.' },
   species: { jobs: ['living'], key: 'WHICH SPECIES', done: 'Asking my model that sees for the species.', none: 'I don’t see a plant or an animal yet. Getting the eyes helps.' },
   place: { jobs: ['place'], key: 'WHAT PLACE IS THIS', done: 'Asking my model that sees which place it is.', none: 'I don’t see a building or a work of art yet. Getting the eyes helps.' },
-  aloud: { jobs: ['text', 'letter', 'document'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
-  copy: { jobs: ['text', 'letter', 'phone', 'link', 'email', 'sum', 'code'], key: 'COPY', done: 'Copying it.', none: 'I don’t see anything to copy yet.' },
+  aloud: { jobs: ['text', 'letter', 'document', 'medicine'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
+  copy: { jobs: ['text', 'letter', 'phone', 'link', 'email', 'sum', 'code', 'contact', 'stop'], key: 'COPY', done: 'Copying it.', none: 'I don’t see anything to copy yet.' },
+  contacts: { jobs: ['contact', 'code'], key: 'ADD TO CONTACTS', done: 'Handing it to your phone’s contacts.', none: 'I don’t see a business card or a contact code yet.' },
+  buses: { jobs: ['stop'], key: 'NEXT BUSES', done: 'Asking for the next buses from this stop.', none: 'I don’t see a bus stop sign yet. Hold it so its name is in view.' },
+  nhs: { jobs: ['medicine'], key: 'OPEN THE NHS PAGE', done: 'Opening the NHS page about it.', none: 'I don’t see a medicine box yet. Hold it so its name is in view.' },
+  compare: { jobs: ['product'], key: 'COMPARE', done: 'Side by side, per 100 g.', none: 'Scan two packets, one after the other, and I’ll put them side by side.' },
 };
 
-export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardInput): void; clear(): void; press(word: keyof typeof CARD_WORDS): string } {
+export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardInput): void; clear(): void; press(word: keyof typeof CARD_WORDS): string; avoid(text: string): string; openAvoid(): void } {
   const el = h('div.lenscards', { role: 'region', 'aria-label': 'What I understand', 'aria-live': 'polite' });
   let sig = '';
   let last: CardInput | null = null;
@@ -101,6 +160,184 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   const added = new Set<string>();
   /** The text tag that is a page: it became one at DOC_SHARE of the picture and stays one down to DOC_SHARE − 0.07 (no flicker at the line). */
   let docFor = -1;
+  /** The receipts already put into his spending this visit (by their CSV line), so a held receipt is never added twice. */
+  const spentOnce = new Set<string>();
+  /** The food packets found this visit, newest last: the one before the packet in view is offered to COMPARE with it. */
+  const foods: string[] = [];
+  /** A stop's next buses, by the stop's name on its sign: asked once a visit, on his tap. */
+  const buses = new Map<string, { state: 'asking' | 'found' | 'failed'; text: string }>();
+
+  /** WHAT I AVOID: his allergies and ways of eating, ticked once, kept on this phone; every packet then gets its line. */
+  const openAvoid = (prefill: string[] = []): void => {
+    const have = new Set([...loadAvoid(), ...prefill]);
+    const box = (id: string, say: string) => {
+      const input = h('input', { type: 'checkbox', checked: have.has(id), 'aria-label': say, dataset: { avoid: id } }) as HTMLInputElement;
+      return h('label.lc-tick', input, h('span', say));
+    };
+    const msg = h('p.lc-small', { role: 'status', 'aria-live': 'polite' }, 'Kept only on this phone. Every packet you point me at then gets a red, amber or green line for you.');
+    const body = h('div.lc-avoid',
+      msg,
+      h('p.lc-head', 'ALLERGIES'),
+      h('div.lc-ticks', ...ALLERGENS.map((a) => box(a.id, a.say))),
+      h('p.lc-head', 'WAYS OF EATING'),
+      h('div.lc-ticks', ...DIETS.map((d) => box(d.id, d.say))),
+      h('div.lc-keys',
+        key('KEEP THIS LIST', () => {
+          const list = [...body.querySelectorAll<HTMLInputElement>('input[data-avoid]')].filter((i) => i.checked).map((i) => i.dataset.avoid!);
+          if (!saveAvoid(list)) return void (msg.textContent = 'This phone would not keep it: its storage is full or blocked.');
+          cardsState.avoid = list;
+          cardsState.done = `avoid: ${list.join(', ')}`;
+          sheet.close();
+          toast(list.length ? `Kept on this phone: you avoid ${avoidSaid(list)}.` : 'Your list is empty: packets get no line for you.', 'ok');
+          sig = '';
+          if (last) update(last);
+        }, { label: 'Keep this list on this phone' }),
+        key('CANCEL', () => sheet.close()),
+      ),
+    );
+    const sheet = modal('WHAT I AVOID', body);
+  };
+
+  /** A receipt into this month's spending: one row, by the rules alone (no shop name goes to any model), then its category's budget. */
+  const intoSpending = async (b: HTMLButtonElement, rc: { store: string; date: string; total: number }): Promise<void> => {
+    const csv = receiptCsv(rc, day());
+    b.disabled = true;
+    cardsState.spent = { state: 'adding', line: '' };
+    try {
+      const r = await brain.spendingImport(csv, true);
+      spentOnce.add(csv);
+      if (!r.result.added && r.result.duplicates) {
+        cardsState.spent = { state: 'duplicate', line: 'That receipt is in your spending already.' };
+        done(cardsState.spent.line);
+      } else {
+        const row = r.rows.find((x) => x.d === (rc.date || day()) && Math.abs(x.a + rc.total) < 0.005);
+        const bud = row ? r.budgets.find((x) => x.category === row.c) : undefined;
+        const line = `In your spending: £${rc.total.toFixed(2)}${rc.store ? ` at ${rc.store}` : ''}, ${longDay(rc.date || day())}${row ? ` (${row.c})` : ''}.${bud ? ` ${bud.line}` : ''}`;
+        cardsState.spent = { state: 'added', line };
+        done(line);
+      }
+    } catch {
+      b.disabled = false;
+      cardsState.spent = { state: 'failed', line: 'I couldn’t reach my brain to add it. Tap again when there is a signal.' };
+      toast(cardsState.spent.line, 'warn');
+    }
+    sig = '';
+    if (last) update(last);
+  };
+
+  /** A contact into his phone's own contacts: a vCard made here, handed to the phone's share sheet (or saved as a file). */
+  let handing = false;
+  const toContacts = async (c: Pick<CardContact, 'name'> & Partial<CardContact>): Promise<void> => {
+    // (a second tap while the share sheet opens would throw: the first one is still handing it over)
+    if (handing) return;
+    handing = true;
+    setTimeout(() => (handing = false), 1500);
+    const vcf = vcardOf(c);
+    const fileName = `${(c.name || 'contact').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 40) || 'contact'}.vcf`;
+    cardsState.contact = { state: '', name: c.name, vcf };
+    try {
+      const file = new File([vcf], fileName, { type: 'text/vcard' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: c.name });
+        cardsState.contact.state = 'shared';
+        done(`${c.name}: choose Contacts to add them.`);
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const a = h('a', { href: url, download: fileName, hidden: true });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      cardsState.contact.state = 'saved';
+      done(`${c.name}: open the file to add them to your contacts.`);
+    } catch (e) {
+      // he closed the share sheet: nothing to say
+      if ((e as { name?: string } | null)?.name === 'AbortError') return;
+      cardsState.contact.state = 'failed';
+      toast('This phone would not take the contact. COPY the details and add them yourself.', 'warn');
+    }
+  };
+
+  /** A bus stop's next buses: the stop's name from its sign goes to the brain's free departures (never where he is). */
+  const nextBuses = async (b: HTMLButtonElement, stop: string): Promise<void> => {
+    if (!last?.online) {
+      cardsState.buses = { state: 'offline', stop, text: '' };
+      return void toast('No signal: the next buses need one. Hold the sign again when there is.', 'warn');
+    }
+    b.disabled = true;
+    buses.set(stop, { state: 'asking', text: '' });
+    cardsState.buses = { state: 'asking', stop, text: '' };
+    sig = '';
+    update(last);
+    try {
+      const r = await askWithImage(`next buses from ${stop}`, null, undefined, { quiet: true, bare: true });
+      const text = r.text.trim();
+      buses.set(stop, text && !r.error ? { state: 'found', text } : { state: 'failed', text: '' });
+    } catch {
+      buses.set(stop, { state: 'failed', text: '' });
+    }
+    const got = buses.get(stop)!;
+    cardsState.buses = { state: got.state === 'asking' ? 'failed' : got.state, stop, text: got.text };
+    if (got.state === 'failed') setTimeout(() => buses.get(stop)?.state === 'failed' && buses.delete(stop), 20_000);
+    sig = '';
+    if (last) update(last);
+  };
+
+  /** Two packets side by side, per 100 g, from the databases' own figures (lens.u8): the better on each row marked, one line said. */
+  const openCompare = (a: LookupResult, b: LookupResult): void => {
+    const c = comparePackets(a, b);
+    cardsState.compare = { a: a.title, b: b.title, line: c.line };
+    const mark = (r: { better: string }, side: 'a' | 'b') => (r.better === side ? { dataset: { better: '1' } } : {});
+    const table = h('table.lc-compare',
+      h('thead', h('tr', h('th', { scope: 'col' }, 'Per 100 g'), h('th', { scope: 'col' }, a.title), h('th', { scope: 'col' }, b.title))),
+      h('tbody', ...c.rows.map((r) => h('tr', h('th', { scope: 'row' }, r.what), h('td', mark(r, 'a'), r.a, r.better === 'a' ? h('b', ' ✓') : ''), h('td', mark(r, 'b'), r.b, r.better === 'b' ? h('b', ' ✓') : '')))),
+    );
+    const body = h('div.lc-avoid', h('p.lc-small', c.line), table, h('p.lc-small', `From ${a.source}. ✓ marks less sugar, fat, saturates, salt and energy, more protein, and the better Nutri-Score.`), h('div.lc-keys', key('READ ALOUD', () => speak(c.line, 'en-GB')), key('DONE', () => sheet.close())));
+    const sheet = modal('TWO PACKETS', body);
+    done(c.line);
+  };
+
+  /** His price for a unit of electricity, by a small sheet: kept on this phone, and every rating plate is costed at it. */
+  const openKwh = (): void => {
+    const now = loadKwh();
+    const input = h('input.lc-price', { type: 'number', inputmode: 'decimal', min: '1', max: '200', step: '0.1', value: String(now.price), 'aria-label': 'Your price for a unit of electricity, in pence a kWh' }) as HTMLInputElement;
+    const body = h('div.lc-avoid',
+      h('p.lc-small', 'Your price for a unit (kWh) of electricity, in pence: it is on your bill or your supplier’s app. Kept on this phone only.'),
+      h('label.lc-pricerow', input, h('span', 'p a kWh')),
+      h('div.lc-keys',
+        key('KEEP MY PRICE', () => {
+          const v = Math.round(Number(input.value) * 10) / 10;
+          if (!(v >= 1 && v <= 200)) return void toast('Put in a price between 1p and 200p a unit.', 'warn');
+          try {
+            localStorage.setItem(KWH_KEY, String(v));
+          } catch {
+            return void toast('This phone would not keep it (private browsing?). The plate is costed at 25p.', 'warn');
+          }
+          sheet.close();
+          toast(`Kept on this phone: ${v}p a unit.`, 'ok');
+          sig = '';
+          if (last) update(last);
+        }, { label: 'Keep this price on this phone' }),
+        key('CANCEL', () => sheet.close()),
+      ),
+    );
+    const sheet = modal('MY ELECTRICITY PRICE', body);
+  };
+
+  /** One HOME action from a card (a bill kept with its reminder, a warranty from a receipt): its own words come back. */
+  const homeDo = async (b: HTMLButtonElement, action: 'bill' | 'warranty', args: Record<string, unknown>, what: string): Promise<void> => {
+    b.disabled = true;
+    try {
+      const r = await brain.packDo('homeadmin', action, args);
+      cardsState.done = `${action}: ${r.text}`;
+      toast(r.text || `Kept ${what}.`, 'ok');
+      b.querySelector('span')!.textContent = action === 'bill' ? 'IN YOUR BILLS' : 'WARRANTY KEPT';
+    } catch {
+      b.disabled = false;
+      toast(`I couldn’t reach my brain to keep ${what}. Tap again when there is a signal.`, 'warn');
+    }
+  };
 
   const card = (job: string, head: string, line: string | Node, ...keys: (HTMLElement | null)[]): HTMLElement => {
     const k = keys.filter((x): x is HTMLElement => !!x);
@@ -151,10 +388,21 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           b.disabled = true;
           const [y, m, d] = a.value.split('-').map(Number);
           try {
-            await brain.addEvent({ title: line.slice(0, 80) || 'From the Lens', start: new Date(y!, m! - 1, d!, 9, 0).getTime(), allDay: true });
+            const r = await brain.addEvent({ title: line.slice(0, 80) || 'From the Lens', start: new Date(y!, m! - 1, d!, 9, 0).getTime(), allDay: true });
             added.add(id);
-            done(`In your agenda for ${longDay(a.value)}.`);
+            cardsState.done = `In your agenda for ${longDay(a.value)}.`;
             b.querySelector('span')!.textContent = 'IN YOUR AGENDA';
+            // (the sweep) a misread date is taken back in one tap: UNDO takes the day out of his agenda again
+            const evId = (r as { event?: { id?: string } } | null)?.event?.id;
+            if (evId) {
+              undo(`In your agenda for ${longDay(a.value)}.`, async () => {
+                await brain.deleteEvent(evId);
+                added.delete(id);
+                cardsState.done = `taken out of your agenda: ${longDay(a.value)}`;
+                sig = '';
+                if (last) update(last);
+              });
+            } else done(`In your agenda for ${longDay(a.value)}.`);
           } catch {
             b.disabled = false;
             toast('I couldn’t reach my brain to put it in your agenda. Tap again when there is a signal.', 'warn');
@@ -201,7 +449,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       }
       case 'contact': {
         const c = info.contact!;
-        return card('code', 'A CONTACT CODE', [c.name, c.org].filter(Boolean).join(' · ') || 'A contact card', c.phones[0] ? link('CALL', `tel:${c.phones[0].replace(/[^\d+]/g, '')}`, `Call ${c.name || 'them'}`) : null, c.emails[0] ? link('WRITE', `mailto:${c.emails[0]}`, `Write to ${c.name || c.emails[0]}`) : null, more());
+        return card('code', 'A CONTACT CODE', [c.name, c.org].filter(Boolean).join(' · ') || 'A contact card', c.phones[0] ? link('CALL', `tel:${c.phones[0].replace(/[^\d+]/g, '')}`, `Call ${c.name || 'them'}`) : null, c.emails[0] ? link('WRITE', `mailto:${c.emails[0]}`, `Write to ${c.name || c.emails[0]}`) : null, c.name ? key('ADD TO CONTACTS', () => void toContacts({ name: c.name, org: c.org, phones: c.phones, emails: c.emails, web: c.urls[0] ?? '', address: c.address }), { label: `Add ${c.name} to your phone's contacts` }) : null, more());
       }
       case 'phone':
         return card('code', 'A PHONE CODE', info.phone ?? code, info.phone ? link('CALL', `tel:${info.phone.replace(/[^\d+]/g, '')}`, `Call ${info.phone}`) : null, more());
@@ -229,17 +477,31 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   const productBody = (p: LookupResult): HTMLElement => {
     const n = p.nutrition ?? {};
     const g = (v: number | undefined, unit: string, word: string) => (v == null ? '' : `${word} ${v < 1 ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10}${unit}`);
-    const per = [g(n.kcal, ' kcal', 'energy').replace('energy ', ''), g(n.sugars, ' g', 'sugars'), g(n.fat, ' g', 'fat'), g(n.saturates, ' g', 'saturates'), g(n.salt, ' g', 'salt'), g(n.protein, ' g', 'protein')].filter(Boolean);
+    // each figure with its UK traffic-light band in words (and in colour), as UK packs show them
+    const fig = (v: number | undefined, unit: string, word: string, key: string): HTMLElement | null => {
+      const t = g(v, unit, word);
+      if (!t) return null;
+      const b = bandOf(key, v);
+      return h('span.lc-fig', { ...(b ? { dataset: { band: b } } : {}) }, key === 'kcal' ? t.replace('energy ', '') : t, ...(b ? [h('b', ` ${b.toUpperCase()}`)] : []));
+    };
+    const per = [fig(n.kcal, ' kcal', 'energy', 'kcal'), fig(n.sugars, ' g', 'sugars', 'sugars'), fig(n.fat, ' g', 'fat', 'fat'), fig(n.saturates, ' g', 'saturates', 'saturates'), fig(n.salt, ' g', 'salt', 'salt'), fig(n.protein, ' g', 'protein', 'protein')].filter((x): x is HTMLElement => !!x);
     const grades = [p.nutriscore ? `Nutri-Score ${p.nutriscore.toUpperCase()}` : '', p.ecoscore ? `Green-Score ${p.ecoscore.toUpperCase()}` : ''].filter(Boolean).join(' · ');
     const book = p.kind === 'book' ? [p.authors?.join(', '), p.year, p.publisher, p.pages ? `${p.pages} pages` : ''].filter(Boolean).join(' · ') : '';
     return h('div.lc-body',
       h('p.lc-line', [p.title, p.brand, p.quantity].filter(Boolean).join(' · ')),
       ...(book ? [h('p.lc-line', book)] : []),
       ...(grades ? [h('p.lc-line', grades)] : []),
-      ...(per.length ? [h('p.lc-small', `Per 100 g: ${per.join(' · ')}`)] : []),
+      ...(per.length ? [h('p.lc-small', 'Per 100 g: ', ...per.flatMap((x, i) => (i ? [' · ', x] : [x])))] : []),
       ...(p.allergens?.length ? [h('p.lc-warn', `Contains: ${p.allergens.join(', ')}`)] : []),
       h('p.lc-small', `From ${p.source}${p.credit ? ` (${p.credit})` : ''}.`),
+      ...verdictOf(p),
     );
+  };
+  /** The packet against what he avoids: one line in red, amber or green (lens.u7). None when his list is empty. */
+  const verdictOf = (p: LookupResult): HTMLElement[] => {
+    const v = avoidVerdict(loadAvoid(), { allergens: p.allergens, ingredients: p.ingredients, nutrition: p.nutrition });
+    cardsState.verdict = { tone: v.tone, line: v.line };
+    return v.tone === 'none' ? [] : [h('p.lc-verdict', { dataset: { tone: v.tone }, role: 'note' }, h('b', v.tone === 'red' ? 'NOT FOR YOU' : v.tone === 'amber' ? 'CHECK' : 'FINE FOR YOU'), ` ${v.line.replace(/^(?:Not for you|Check the pack|Go easy|Fine for you): /, '')}`)];
   };
 
   const lookProduct = (code: string): void => {
@@ -320,7 +582,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     const pe = k.thingId != null ? places.get(k.thingId) : undefined;
     const place = pe && pe.label === (k.thing?.label ?? '') ? pe.v : undefined;
     const asking = k.thingId != null && askingFor.id === k.thingId && askingFor.label === (k.thing?.label ?? '');
-    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size]);
+    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, k.translating ?? '', spentOnce.size, [...buses.values()].map((x) => x.state).join(','), cardsState.contact.state, loadKwh().price]);
     if (s === sig) return;
     sig = s;
     cardsState.jobs = jobs;
@@ -356,31 +618,122 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
             out.push(card('product', `A PRODUCT · ${code}`, p === 'unknown' ? 'No open database knows this barcode yet.' : 'I couldn’t reach the product databases. Tap to try in SCAN.', key('MORE ABOUT IT', () => deps.act('look'))));
           } else {
             cardsState.product = { state: 'found', name: p.title };
-            out.push(card('product', p.kind === 'book' ? 'A BOOK' : 'A PRODUCT', productBody(p), key('MORE ABOUT IT', () => deps.act('look'))));
+            if (p.kind !== 'book' && foods[foods.length - 1] !== code) {
+              const at = foods.indexOf(code);
+              if (at >= 0) foods.splice(at, 1);
+              foods.push(code);
+              if (foods.length > 6) foods.shift();
+            }
+            const otherCode = p.kind === 'book' ? '' : [...foods].reverse().find((c) => c !== code && typeof products.get(c) === 'object') ?? '';
+            const other = otherCode ? (products.get(otherCode) as LookupResult) : null;
+            out.push(card('product', p.kind === 'book' ? 'A BOOK' : 'A PRODUCT', productBody(p), key('MORE ABOUT IT', () => deps.act('look')), p.kind === 'book' ? null : key('WHAT I AVOID', () => openAvoid(), { label: 'What I avoid: my allergies and ways of eating, kept on this phone' }), other ? key('COMPARE', () => openCompare(p, other), { label: `Compare ${p.title} with ${other.title}, per 100 g` }) : null));
           }
           break;
         }
         case 'code':
           out.push(codeCard(code));
           break;
-        case 'letter':
-          out.push(card('letter', 'A LETTER', 'REMIND ME and FILE are under its words above.', key('READ ALOUD', () => speak(k.text ?? '', k.langTag || 'en-GB')), copy('COPY', k.text ?? '', 'the letter')));
+        case 'receipt': {
+          const rc = readReceipt(k.text ?? '', day());
+          const head = `A RECEIPT${rc.store ? ` · ${rc.store.toUpperCase()}` : ''}${rc.total != null ? ` · £${rc.total.toFixed(2)}` : ''}`;
+          if (rc.total == null) {
+            out.push(card('receipt', head, 'I can’t find the total on it. Hold it flatter, with the TOTAL line in view.'));
+            break;
+          }
+          const one = { store: rc.store, date: rc.date, total: rc.total };
+          const csv = receiptCsv(one, day());
+          const added = spentOnce.has(csv);
+          const into = added ? null : k.online ? key('INTO SPENDING', (b) => void intoSpending(b, one), { label: `Put £${rc.total.toFixed(2)}${rc.store ? ` at ${rc.store}` : ''} into this month’s spending` }) : null;
+          const warranty = k.online ? key('KEEP A WARRANTY', (b) => void homeDo(b, 'warranty', { text: k.text ?? '', ...(rc.item ? { item: rc.item } : {}) }, 'the warranty'), { label: 'Keep a warranty for what this receipt bought' }) : null;
+          const said = added ? (cardsState.spent.line || 'In your spending.') : !k.online ? 'No signal: I’ll put it in your spending when there is one. Hold it again then.' : `${longDay(rc.date || day())}${rc.date ? '' : ' (no date on it: today)'}. One tap files it in this month’s spending; I read it from the photo, so check the total.`;
+          out.push(card('receipt', head, said, into, warranty, copy('COPY', k.text ?? '', 'the receipt')));
           break;
+        }
+        case 'contact': {
+          // (lens.s1) a business card: its details as printed, into his phone's contacts on his tap; nobody is looked up
+          const c = readBusinessCard(k.text ?? '');
+          if (!c) break;
+          const said = [c.title, c.org].filter(Boolean).join(' · ') || [c.phones[0], c.emails[0]].filter(Boolean).join(' · ');
+          out.push(card('contact', `A BUSINESS CARD · ${c.name.toUpperCase()}`, `${said}. ADD TO CONTACTS hands it to your phone’s contacts; I don’t look anyone up.`,
+            key('ADD TO CONTACTS', () => void toContacts(c), { label: `Add ${c.name} to your phone's contacts` }),
+            c.phones[0] ? link('CALL', `tel:${c.phones[0]}`, `Call ${c.name}`) : null,
+            c.emails[0] ? link('WRITE', `mailto:${c.emails[0]}`, `Write to ${c.name}`) : null,
+            copy('COPY', [c.name, c.title, c.org, ...c.phones, ...c.emails, c.web, c.address].filter(Boolean).join('\n'), 'the card')));
+          break;
+        }
+        case 'stop': {
+          // (lens.s7) a bus stop sign: the next buses from the stop it names, on his tap
+          const st = readBusStop(k.text ?? '');
+          if (!st) break;
+          const name = st.name || `stop ${st.sms}`;
+          const got = buses.get(name);
+          const head = `A BUS STOP · ${name.toUpperCase()}${st.letter ? ` · STOP ${st.letter}` : ''}`;
+          const about = [st.routes.length ? `Buses ${st.routes.join(', ')}` : '', st.towards ? `towards ${st.towards}` : ''].filter(Boolean).join(' ');
+          const line =
+            got?.state === 'asking' ? `${about ? `${about}. ` : ''}Asking for the next buses from ${name}…`
+            : got?.state === 'found' ? h('div.lc-buses', h('p.lc-line', about ? `${about}.` : `From ${name}.`), h('pre.lc-times', got.text.split('\n').filter((l) => l.trim()).slice(0, 8).join('\n')))
+            : got?.state === 'failed' ? `${about ? `${about}. ` : ''}I couldn’t get the times for ${name} just now. Tap again in a minute.`
+            : !k.online ? `${about ? `${about}. ` : ''}No signal: the next buses need one.`
+            : `${about ? `${about}. ` : ''}NEXT BUSES asks the free timetables by this stop’s name, not by where you are.`;
+          out.push(card('stop', head, line,
+            k.online && got?.state !== 'asking' ? key(got?.state === 'found' ? 'AGAIN' : 'NEXT BUSES', (b) => void nextBuses(b, name), { label: `The next buses from ${name}` }) : null,
+            copy('COPY', k.text ?? '', 'the sign')));
+          break;
+        }
+        case 'medicine': {
+          // (lens.s2) a medicine box: read aloud, and its public NHS page opened on his tap; no advice of mine, ever
+          const m = readMedicine(k.text ?? '');
+          if (!m) break;
+          out.push(card('medicine', `A MEDICINE · ${m.name.toUpperCase()}${m.strength ? ` ${m.strength.toUpperCase()}` : ''}`, `${m.form.charAt(0).toUpperCase()}${m.form.slice(1)}. OPEN THE NHS PAGE shows the NHS’s own public page about it. I don’t give medical advice: the leaflet in the box and your pharmacist do.`,
+            k.online ? link('OPEN THE NHS PAGE', nhsSearch(m.name), `Open the NHS page about ${m.name}`) : null,
+            key('READ ALOUD', () => speak(k.text ?? '', 'en-GB')),
+            copy('COPY', k.text ?? '', 'the box')));
+          break;
+        }
+        case 'rating': {
+          // (lens.s3) an appliance's rating plate: what an hour costs at his price, always a first estimate
+          const r = readRating(k.text ?? '');
+          if (!r) break;
+          const price = loadKwh();
+          const c = runningCost(r.watts, price.price);
+          cardsState.cost = { watts: r.watts, price: price.price, line: c.line };
+          const power = r.watts >= 1000 ? `${(r.watts / 1000).toFixed(r.watts % 1000 ? 1 : 0)} kW` : `${r.watts} W`;
+          out.push(card('rating', `A RATING PLATE · ${power}${r.volts ? ` · ${r.volts} V` : ''}`, `${c.line}${price.his ? '' : ' That is at 25p a unit until you put in yours.'}`,
+            key(price.his ? 'CHANGE MY PRICE' : 'SET MY PRICE', () => openKwh(), { label: 'Set your price for a unit of electricity' }),
+            copy('COPY', c.line, 'the running cost')));
+          break;
+        }
+        case 'letter': {
+          const bill = letterOf(k.text ?? '', day());
+          const keepBill = bill?.kind === 'bill' && k.online ? key('ADD TO MY BILLS', (b) => void homeDo(b, 'bill', { text: k.text ?? '' }, 'the bill'), { label: 'Add this bill to my bills, with a reminder before it is due' }) : null;
+          out.push(card('letter', bill?.kind === 'bill' ? 'A BILL' : 'A LETTER', bill?.kind === 'bill' ? 'ADD TO MY BILLS keeps it with your bills and reminds you two days before it is due. REMIND ME and FILE are under its words above.' : 'REMIND ME and FILE are under its words above.', keepBill, key('READ ALOUD', () => speak(k.text ?? '', k.langTag || 'en-GB')), copy('COPY', k.text ?? '', 'the letter')));
+          break;
+        }
         case 'document':
           out.push(card('document', `A PAGE · ${(k.text ?? '').match(/\S+/g)?.length ?? 0} WORDS`, 'Scan it flat and keep it, or have it read to you.', key('SCAN IT FLAT', () => deps.act('document')), key('READ ALOUD', () => speak(k.text ?? '', k.langTag || 'en-GB'))));
           break;
         case 'text': {
           const own = (k.text ?? '').replace(/\s+/g, ' ').trim();
-          const foreign = !!k.lang && k.lang !== 'ENGLISH' && k.lang !== 'UNKNOWN';
+          // (the sweep) words in a language the phone cannot name are offered TRANSLATE too, when they do not read as English
+          const unnamed = k.lang === 'UNKNOWN' && (own.match(/\p{L}{3,}/gu)?.length ?? 0) >= 2 && !looksEnglish(own);
+          const foreign = (!!k.lang && k.lang !== 'ENGLISH' && k.lang !== 'UNKNOWN') || unnamed;
+          // a menu or a page in another language: each line with its English, in order (lens.u1)
+          if (foreign && k.lines?.length && k.lineEnglish?.length === k.lines.length) {
+            const en = k.lineEnglish;
+            const list = h('ol.lc-pairs', ...k.lines.map((l, i) => h('li', h('span.lc-orig', l), h('span.lc-en', en[i]!))));
+            out.push(card('text', `A MENU · ${k.lang} · ${k.lines.length} LINES IN ENGLISH`, list, key('READ ALOUD', () => speak(en.join('. '), 'en-GB')), copy('COPY', k.lines.map((l, i) => `${l} — ${en[i]}`).join('\n'), 'the menu in English')));
+            break;
+          }
           const shown = foreign && k.english ? k.english : own;
+          const trLine = foreign && !k.english ? (k.translating === 'sending' ? 'Putting it into English… (the words only)' : k.translating === 'failed' ? 'The English didn’t come back. TRY AGAIN sends the words once more.' : '') : '';
           out.push(
             card(
               'text',
-              foreign ? `TEXT · ${k.lang}${k.english ? ' · IN ENGLISH' : ''}` : 'TEXT',
-              shown.slice(0, 160) + (shown.length > 160 ? '…' : ''),
+              foreign ? `TEXT${unnamed ? '' : ` · ${k.lang}`}${k.english ? ' · IN ENGLISH' : ''}` : 'TEXT',
+              trLine ? h('div.lc-body', h('p.lc-line', shown.slice(0, 160) + (shown.length > 160 ? '…' : '')), h('p.lc-small', { role: 'status' }, trLine)) : shown.slice(0, 160) + (shown.length > 160 ? '…' : ''),
               // (in its own language's voice until it has its English)
               key('READ ALOUD', () => speak(shown, foreign && !k.english ? k.langTag || 'en-GB' : 'en-GB')),
-              foreign && !k.english && k.online ? key('TRANSLATE', () => deps.act('translate')) : null,
+              foreign && !k.english && k.online && k.translating !== 'sending' ? key(k.translating === 'failed' ? 'TRY AGAIN' : 'TRANSLATE', () => deps.act('translate'), { label: k.translating === 'failed' ? 'The English did not come back: send the words again' : 'Put these words into English' }) : null,
               copy('COPY', shown, 'the words'),
             ),
           );
@@ -426,15 +779,41 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     el.hidden = !out.length;
   };
 
+  /** READ ALOUD: a second tap while it is reading the same words stops it. A phone with no voice for the language still reads in its own. */
+  let saying = '';
   const speak = (text: string, tag: string): void => {
     if (!text) return;
+    if (typeof speechSynthesis === 'undefined') return void toast('This phone has no voice to read it with.', 'warn');
+    if (saying === text && speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+      saying = '';
+      cardsState.done = 'stopped reading';
+      return;
+    }
+    saying = text;
     cardsState.done = `said aloud: ${text.slice(0, 60)}`;
-    if (!sayIn(text, tag || 'en-GB')) toast('This phone has no voice to read it with.', 'warn');
+    sayIn(text, tag || 'en-GB');
   };
 
   return {
     el,
     update,
+    openAvoid: () => openAvoid(),
+    /** What he avoids, by his words while the Lens is open ("I'm allergic to peanuts", "I'm vegan", "what do I avoid"). */
+    avoid(text) {
+      const found = avoidFromWords(text);
+      if (!found.length) {
+        const have = loadAvoid();
+        openAvoid();
+        return have.length ? `You avoid ${avoidSaid(have)}. Change it on the list.` : 'Tick what you avoid on the list, and every packet gets a line for you.';
+      }
+      const list = [...new Set([...loadAvoid(), ...found])];
+      if (!saveAvoid(list)) return 'This phone would not keep it: its storage is full or blocked.';
+      cardsState.avoid = list;
+      sig = '';
+      if (last) update(last);
+      return `Kept on this phone: you avoid ${avoidSaid(list)}. Every packet now gets a line for you.`;
+    },
     /** Do a card's job by his words: the first card of its jobs that has the key (a sum is shown worked already: saying so is the job). */
     press(word) {
       const w = CARD_WORDS[word];
@@ -467,6 +846,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       askingFor = { id: -2, label: '' };
       docFor = -1;
       added.clear();
+      foods.length = 0;
       cardsState.jobs = [];
       cardsState.cards = [];
       cardsState.acts = [];

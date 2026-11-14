@@ -17,6 +17,9 @@
  * home as he saved it in Settings (sunTimes, from his latitude and longitude), else 08:00 to 18:00.
  */
 import { colourWord, FANCY, PLAIN, TWO_WAYS } from './colours';
+import { screenOf } from './meanings';
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // ---------------------------------------------------------------- the ground
 
@@ -97,10 +100,12 @@ export interface Switches {
   motion: 'alive' | 'calm';
   sound: 'tone' | 'click' | 'off';
   day: 'off' | 'on';
+  /** [voice lane] COLOUR-BLIND SAFE (voice.s5): failure, success and warning in colours told apart without red and green. */
+  safe: 'off' | 'on';
 }
 export type SwitchKey = keyof Switches;
 
-export const SWITCH_DEFAULTS: Switches = { glow: 'on', floor: 'on', corners: 'world', readings: 'mono', body: 17, motion: 'alive', sound: 'tone', day: 'off' };
+export const SWITCH_DEFAULTS: Switches = { glow: 'on', floor: 'on', corners: 'world', readings: 'mono', body: 17, motion: 'alive', sound: 'tone', day: 'off', safe: 'off' };
 
 export interface SwitchDef<K extends SwitchKey = SwitchKey> {
   key: K;
@@ -111,7 +116,7 @@ export interface SwitchDef<K extends SwitchKey = SwitchKey> {
   options: { value: Switches[K]; label: string; line: string }[];
 }
 
-/** The eight switches: each one visible thing, each a sentence, each kept. */
+/** The nine switches: each one visible thing, each a sentence, each kept. */
 export const SWITCHES: SwitchDef[] = [
   { key: 'glow', label: 'Glow', line: 'Whether my light glows round what is lit.', options: [
     { value: 'on', label: 'On', line: 'My light glows round what is lit: the room, my orb’s halo.' },
@@ -147,6 +152,11 @@ export const SWITCHES: SwitchDef[] = [
   { key: 'day', label: 'Ground follows the day', line: 'Paper by day, your night ground after sunset, from your home’s sun times.', options: [
     { value: 'off', label: 'Off', line: 'The ground stays as you chose it, day and night.' },
     { value: 'on', label: 'On', line: 'Paper from sunrise to sunset at your home, your night ground after. Never your live location.' },
+  ] },
+  // [voice lane] (voice.s5) the state colours in a set told apart by every eye: orange for a failure, sky blue for a success, yellow for a warning
+  { key: 'safe', label: 'Colour-blind safe', line: 'Failures, successes and warnings in colours anyone can tell apart, never red against green.', options: [
+    { value: 'off', label: 'Off', line: 'Red for a failure, green for a success, amber for a warning.' },
+    { value: 'on', label: 'On', line: 'Orange for a failure, sky blue for a success, yellow for a warning: easy to tell apart with any colour vision.' },
   ] },
 ];
 export const switchOf = <K extends SwitchKey>(k: K): SwitchDef<K> => SWITCHES.find((s) => s.key === k) as unknown as SwitchDef<K>;
@@ -349,7 +359,50 @@ export interface LookAsk {
   two?: string;
   /** The colour word he said, when it was not its plain name ("crimson", "navy"): said back beside the plain name. */
   word?: string;
+  /** [voice.u9] "put it back", "the old colour": the look before this one. `generic`: words that only mean it just after a look change. */
+  back?: { generic: boolean };
+  /** [voice.u7] "softer blue", "a bit deeper red", "a warmer colour": the neighbouring plain colour, in that direction. */
+  shade?: { way: ShadeWay; from?: ColourKey };
+  /** [voice.u8] "make the money screen green": one screen keeps its own colour (null: back to his colour there). */
+  room?: { tab: string; label: string; colour: ColourKey | null };
+  /** [voice.s10] "calm colours", "focus colours", "lively colours": a colour and its switches together, named plainly. */
+  feel?: 'calm' | 'focus' | 'lively';
 }
+
+export type ShadeWay = 'softer' | 'deeper' | 'brighter' | 'warmer' | 'cooler';
+/**
+ * SHADES BY WORDS (voice.u7): the twelve colours are fixed blocks (tokens.css), so a shade is the neighbouring plain colour in that
+ * direction ("softer blue" is light blue, "deeper pink" is red); where there is none, I say this is the end of that way.
+ */
+export const SHADES: Record<ColourKey, Partial<Record<ShadeWay, ColourKey>>> = {
+  reactor: { softer: 'ice', brighter: 'ice', warmer: 'violet' },
+  ice: { deeper: 'reactor', softer: 'mono', warmer: 'rose' },
+  graphite: { softer: 'mono', brighter: 'mono', warmer: 'sunset', cooler: 'ice' },
+  mono: { deeper: 'graphite', cooler: 'ice', warmer: 'sunset' },
+  ember: { softer: 'sunset', brighter: 'gold', deeper: 'crimson', cooler: 'rose' },
+  gold: { deeper: 'ember', softer: 'sunset', brighter: 'lime', warmer: 'ember' },
+  crimson: { softer: 'rose', brighter: 'ember', warmer: 'ember', cooler: 'violet' },
+  violet: { softer: 'rose', cooler: 'reactor', warmer: 'crimson' },
+  emerald: { brighter: 'lime', softer: 'ice', cooler: 'reactor', warmer: 'lime' },
+  rose: { deeper: 'crimson', softer: 'sunset', cooler: 'violet', warmer: 'sunset' },
+  lime: { deeper: 'emerald', cooler: 'emerald', warmer: 'gold' },
+  sunset: { deeper: 'ember', softer: 'rose', brighter: 'gold', cooler: 'rose' },
+};
+const SHADE_WORDS: [RegExp, ShadeWay][] = [
+  [/^(?:softer|paler|lighter|gentler|pastel|lighter shade of|softer shade of|paler shade of)$/, 'softer'],
+  [/^(?:deeper|darker|richer|stronger|bolder|darker shade of|deeper shade of)$/, 'deeper'],
+  [/^(?:brighter|lighter and brighter|more vivid|more vibrant|punchier|louder)$/, 'brighter'],
+  [/^(?:warmer)$/, 'warmer'],
+  [/^(?:cooler|colder)$/, 'cooler'],
+];
+const shadeWay = (w: string): ShadeWay | null => SHADE_WORDS.find(([re]) => re.test(w))?.[1] ?? null;
+
+/** The colour and switches each feeling picks (voice.s10), and the line said with it. */
+export const FEELS: Record<'calm' | 'focus' | 'lively', { colour: ColourKey; switches: Partial<Switches>; line: string }> = {
+  calm: { colour: 'ice', switches: { glow: 'off', motion: 'calm' }, line: 'Calm: light blue, the glow off and nothing moving.' },
+  focus: { colour: 'graphite', switches: { glow: 'off', floor: 'off', motion: 'calm' }, line: 'Focus: grey, no glow, a plain floor and nothing moving.' },
+  lively: { colour: 'lime', switches: { glow: 'on', floor: 'on', motion: 'alive' }, line: 'Lively: lime, the glow on and everything moving.' },
+};
 
 const DIRECTION_WORDS: [RegExp, string][] = [
   [/^the scan$/, 'scan'],
@@ -387,6 +440,29 @@ const LOOKISH = /(?: look| theme| world| preset| mode| style)$/;
 export function lookAsked(text: string): LookAsk | null {
   const t0 = bare(text);
   if (!t0 || t0.length > 60) return null;
+  // ---- the look before (voice.u9): plain about the look, or generic words that mean it just after a look change
+  if (/^(?:put (?:the )?(?:colou?r|look|theme|old colou?r|old look) back|change (?:the )?(?:colou?r|look|theme) back|undo (?:the |that )?(?:colou?r|look|theme)(?: change)?|(?:back to |go back to )?(?:the )?(?:old|last|previous|earlier) (?:colou?r|look|theme|one)(?: back)?|i (?:liked|preferred) the (?:old|last|previous|other) (?:colou?r|look|theme|one)(?: better)?|revert (?:the )?(?:colou?r|look|theme))$/.test(t0)) return { back: { generic: false } };
+  // ---- a colour for one screen (voice.u8): "make the money screen green", "the radio page in red", "money screen back to normal"
+  const rm = /^(?:(?:make|turn|set|change|paint|colou?r) )?(?:the |my )?([a-z' -]{2,30}?) (?:screen|page|room|tab)(?: colou?r)? (?:to |in |into )?(?:a |an )?([a-z][a-z ]{1,20})$/.exec(t0);
+  if (rm) {
+    const sc = screenOf(`open the ${rm[1]}`);
+    const back = /^(?:normal|default|usual|my colou?r|the usual|back to normal|back|same as the rest)$/.test(rm[2]!.replace(/^back to /, 'back to '));
+    const c = back ? null : colourWord(rm[2]!);
+    if (sc && (back || c)) return { room: { tab: sc.tab, label: sc.label.replace(/^the /, ''), colour: c } };
+  }
+  // ---- a shade by words (voice.u7): "a bit softer blue", "deeper red", "a warmer colour", "make it a bit softer" (the colour, said so)
+  const sh = /^(?:make it |go |something |a |an |one )?(?:(?:little |tiny |touch |wee )?bit |touch |shade |little |lot )?(softer|paler|lighter|gentler|pastel|deeper|darker|richer|stronger|bolder|brighter|more vivid|more vibrant|punchier|warmer|cooler|colder)(?: shade of)? ([a-z][a-z ]{1,20}?)$/.exec(t0.replace(/^(?:make it|make the colour|go|switch to|change it to) /, ''));
+  if (sh) {
+    const way = shadeWay(sh[1]!);
+    const rest = sh[2]!.trim();
+    const c = colourWord(rest);
+    if (way && c) return { shade: { way, from: c } };
+    if (way && /^(?:colou?r|theme|accent|light|one|shade)$/.test(rest) && way !== 'deeper' && !(way === 'softer' && /lighter|paler/.test(sh[1]!))) return { shade: { way } };
+    if (way && /^(?:colou?r|accent)$/.test(rest)) return { shade: { way } };
+  }
+  const feel = /^(?:(calm|calming|relaxing|soothing|chilled?|peaceful|gentle|soft)|(focus|focused|focussed|work|concentrat(?:e|ion)|study|serious)|(lively|energetic|energy|bright|fun|party|loud|vibrant)) (?:colou?rs?|look|theme|mode|vibes?)(?: please)?$/.exec(t0.replace(VERB, ''));
+  if (feel) return { feel: feel[1] ? 'calm' : feel[2] ? 'focus' : 'lively' };
+  if (/^(?:put it back|change it back|switch it back|the one before|the one before that|undo that|go back to how it was|as it was|back how it was|no,? (?:put it |change it )?back)$/.test(t0)) return { back: { generic: true } };
   const t = t0.replace(VERB, '').trim();
   const verb = t !== t0;
   // ---- the ground
@@ -424,6 +500,8 @@ export function lookAsked(text: string): LookAsk | null {
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) off|no (?:recognition|lock) (?:sound|tone)|silent (?:lock|recognition))$/.test(t)) return { switches: { sound: 'off' } };
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) (?:to )?click|(?:the )?click (?:sound|for the lock)|click when you lock on)$/.test(t)) return { switches: { sound: 'click' } };
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) (?:to )?tone|(?:the )?tone (?:sound|for the lock)|(?:the )?(?:recognition|lock) (?:sound|tone) on)$/.test(t)) return { switches: { sound: 'tone' } };
+  if (/^(?:colou?r ?blind(?:ness)?(?: safe| friendly| mode| colours| colors| setting)?(?: on)?|colou?r[- ]blind[- ](?:safe|friendly)(?: colou?rs| mode| look)?(?: on)?|safe colou?rs(?: for colou?r ?blindness)?|i'?m colou?r ?blind)$/.test(t)) return { switches: { safe: 'on' } };
+  if (/^(?:colou?r ?blind(?:ness)?(?: safe| friendly)? mode off|colou?r[- ]blind[- ](?:safe|friendly)(?: mode)? off|turn off colou?r ?blind(?:ness)?(?: safe| friendly)? mode|normal (?:status )?colou?rs)$/.test(t)) return { switches: { safe: 'off' } };
   if (/^(?:follow the (?:day|sun|daylight)|ground follows the day|paper by day|day and night|follow sunrise and sunset)$/.test(t)) return { switches: { day: 'on' } };
   if (/^(?:stop following the (?:day|sun)|don't follow the (?:day|sun)|(?:follow the day|ground follows the day) off)$/.test(t)) return { switches: { day: 'off' } };
   // ---- a colour, by its plain name, its old name or a common synonym (colours.ts): after a verb ("make it red", "switch to
@@ -522,6 +600,23 @@ export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: Home
     next.colour = ask.colour;
     const name = `${COLOUR_LABELS[ask.colour]}${ask.word ? ` (${ask.word})` : ''}`;
     said = r.colour === ask.colour ? `${name} is on already: nothing changed.` : `${name} now, instead of ${COLOUR_LABELS[r.colour].toLowerCase()}. Only my colour changed.`;
+  } else if (ask.room) {
+    // (the recipe itself is unchanged: the phone keeps the room's colour and shows it on that screen, state/roomcolour.ts)
+    said = ask.room.colour ? `${cap(ask.room.label)} keeps ${COLOUR_LABELS[ask.room.colour].toLowerCase()} from now on; everywhere else stays ${COLOUR_LABELS[r.colour].toLowerCase()}.` : `${cap(ask.room.label)} is back in your colour, ${COLOUR_LABELS[r.colour].toLowerCase()}.`;
+  } else if (ask.shade) {
+    const from = ask.shade.from ?? r.colour;
+    const to = SHADES[from]?.[ask.shade.way];
+    if (!to) said = `${COLOUR_LABELS[from]} is as ${ask.shade.way.replace(/er$/, '')} as I go that way.${from !== r.colour ? ` ${COLOUR_LABELS[from]} now.` : ''}`;
+    if (!to && from !== r.colour) next.colour = from;
+    if (to) {
+      next.colour = to;
+      said = `${ask.shade.way.charAt(0).toUpperCase()}${ask.shade.way.slice(1)}${ask.shade.from ? ` ${COLOUR_LABELS[from].toLowerCase()}` : ''}: ${COLOUR_LABELS[to].toLowerCase()} now. Only my colour changed.`;
+    }
+  } else if (ask.feel) {
+    const f = FEELS[ask.feel];
+    next.colour = f.colour;
+    Object.assign(next.switches, f.switches);
+    said = f.line;
   } else if (ask.two) {
     said = TWO_WAYS[ask.two]?.q ?? '';
   } else if (ask.body) {

@@ -1293,7 +1293,26 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     const sc = scriptOf(d.blocks.map(textOf).join(' '));
     if (sc) scriptPick.value = sc.id;
     const lets = h('div.dcasks', h('small.cvgh', 'LETTERS'), h('div.dcrow', scriptPick, cased(button('TO LATIN', () => letters('to')), 'To Latin'), cased(button('FROM LATIN', () => letters('from')), 'From Latin')), h('small.dcnote', THE_LINE));
-    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, mergeHolder, commentsHolder, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
+    // [recall] memory.c1 (memory lane, additive): FROM WHAT YOU SAID: "what did I say about the hedge?" while he writes; his own chats on this
+    // phone (features/memory/recall.ts), each line a 44 pt PUT IT IN that lands after the paragraph he is in, for his edit
+    const mineIn = h('input', { type: 'search', placeholder: 'the hedge', 'aria-label': 'What you said about…', enterkeyhint: 'search' }) as HTMLInputElement;
+    const mineOut = h('div.dcmineout', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep' } });
+    const searchMine = async () => {
+      const q = mineIn.value.trim().replace(/^(?:what did I say about|what did I tell you about)\s+/i, '').replace(/\?$/, '');
+      if (q.length < 3) return void clear(mineOut, h('small.dcnote', MINE_ASK));
+      const R = await import('../features/memory/recall');
+      if (!(await R.recallWarm())) return void clear(mineOut, h('small.dcnote', MINE_COLD));
+      const hits = await R.findLocal(q, { turns: true, k: 4 });
+      clear(mineOut, ...(hits.length
+        ? hits.map((f) => h('div.dcmine', { dataset: { case: 'keep' } }, h('span.dcmineline', h('small', f.stamp), `“${f.line}”`), cased(button('PUT IT IN', () => {
+            insertAfter([block('p', f.line)]);
+            say(MINE_PUT);
+          }), `Put what you said ${f.day} into the document`)))
+        : [h('small.dcnote', mineNone(q))]));
+    };
+    mineIn.addEventListener('keydown', (e) => e.key === 'Enter' && void searchMine());
+    const mine = h('div.dcasks.dcminebox', h('small.cvgh', 'FROM WHAT YOU SAID'), h('div.dcrow', mineIn, cased(button('SEARCH MY WORDS', () => void searchMine()), 'Search what you said in our chats')), mineOut);
+    clear(view, title, metaEl, savedEl, tools, findBox, contentsBox, mergeHolder, commentsHolder, pills, ...Object.values(panels), photoIn, sugBox, page, asks, write, trans, lets, mine, exportRow(doc), h('div.dcrow', button('REMOVE FROM MY DOCUMENTS', () => {
       removeDoc(doc().id);
       say(`Removed “${doc().title}” from this phone.`);
       showList();
@@ -1417,3 +1436,8 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
   };
 }
 
+/** [recall] memory.c1: FROM WHAT YOU SAID's lines. */
+const MINE_ASK = 'Type what you talked about, like “the hedge”, and I find what you said.';
+const MINE_COLD = 'Still reading your chats; ask me again in a minute.';
+const MINE_PUT = 'Put in after your paragraph; change it as you like.';
+const mineNone = (q: string): string => `Nothing you said about “${q.slice(0, 40)}” in our chats on this phone.`;

@@ -44,19 +44,36 @@ export interface Score {
 const NONE: Score = { scan() {}, thing() {}, sphere() {}, typing() {}, feed() {}, lock() {}, voice() {}, stop() {}, on: false };
 
 /** What the score did, for the checks (window.__bootState.score). */
-export const scoreState = { on: false, cues: [] as string[] };
+export const scoreState = { on: false, cues: [] as string[], tuning: null as Tuning | null };
+
+/**
+ * THE SCORE IN HIS COLOUR'S KEY (NEXT ROUND boot.u7): each colour has its key (the root moved a few semitones, never far from the
+ * low A the pad was written in), and the hour its texture: the filter opens brighter in the morning and closes darker at night, when
+ * the chord's third goes minor. Pure, so the boot and the checks agree.
+ */
+export interface Tuning { key: number; ratio: number; bright: number; third: number; minor: boolean }
+const KEYS: Record<string, number> = { reactor: 0, graphite: -2, ember: 3, gold: 5, crimson: -4, violet: 1, emerald: -5, ice: 4, rose: 2, lime: 6, sunset: -1, mono: -3 };
+export function scoreTuning(theme: string, hour: number): Tuning {
+  const key = KEYS[theme] ?? 0;
+  const night = hour < 6 || hour >= 21;
+  // the morning brightest, the evening warmer, the night darkest
+  const bright = night ? 0.25 : hour < 12 ? 1 : hour < 18 ? 0.8 : 0.55;
+  return { key, ratio: Math.pow(2, key / 12), bright, third: night ? 1.1892 : 1.2599, minor: night };
+}
 /** A boot begins: what the last one did is forgotten (A plays no score and says so by an empty list). */
 export function resetScoreState(): void {
   scoreState.on = false;
   scoreState.cues = [];
+  scoreState.tuning = null;
 }
 
 /**
  * Start the score under the boot (B). Null where the phone allows no sound now (a cold open before any tap: iOS's rule), or his
  * sounds are off, or he chose A: the boot then has the one tone alone.
  */
-export function startScore(): Score {
+export function startScore(tune: Tuning = scoreTuning('reactor', 12)): Score {
   scoreState.cues = [];
+  scoreState.tuning = tune;
   if (!sfxAllowed()) {
     scoreState.on = false;
     return NONE;
@@ -82,7 +99,9 @@ export function startScore(): Score {
   padGain.gain.exponentialRampToValueAtTime(0.11, now() + 0.9);
   const lp = a.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.setValueAtTime(240, now());
+  // (the hour's texture: the filter a little brighter in the morning, darker at night)
+  const tone = 0.7 + 0.6 * tune.bright;
+  lp.frequency.setValueAtTime(240 * tone, now());
   padGain.connect(lp).connect(out);
   const voices: OscillatorNode[] = [];
   const voice = (f: number, type: OscillatorType, g: number) => {
@@ -96,7 +115,7 @@ export function startScore(): Score {
     voices.push(o);
     return o;
   };
-  const root = 55; // A1
+  const root = 55 * tune.ratio; // A1, moved to his colour's key
   const v1 = voice(root, 'triangle', 0.5);
   const v2 = voice(root * 1.004, 'triangle', 0.4);
   const v3 = voice(root * 2, 'sine', 0.18);
@@ -104,7 +123,7 @@ export function startScore(): Score {
   const chordGain = a.createGain();
   chordGain.gain.value = 0.0001;
   chordGain.connect(lp);
-  const chord = [root * 3, root * 2.997 * 1.5, root * 4 * 1.2599].map((f, i) => {
+  const chord = [root * 3, root * 2.997 * 1.5, root * 4 * tune.third].map((f, i) => {
     const o = a.createOscillator();
     const gg = a.createGain();
     o.type = i === 2 ? 'sine' : 'triangle';
@@ -165,7 +184,7 @@ export function startScore(): Score {
       // the pad rises a fifth as the front crosses the desk
       for (const o of [v1, v2]) o.frequency.exponentialRampToValueAtTime(o.frequency.value * 1.5, t + 0.7);
       v3.frequency.exponentialRampToValueAtTime(v3.frequency.value * 1.5, t + 0.7);
-      lp.frequency.linearRampToValueAtTime(520, t + 1.8);
+      lp.frequency.linearRampToValueAtTime(520 * tone, t + 1.8);
       // the points landing: grains thick at first, thinning as the room fills (about 2 s)
       for (let i = 0; i < 70; i++) {
         const k = i / 70;
@@ -176,7 +195,7 @@ export function startScore(): Score {
     thing() {
       cue('thing');
       // each a semitone lower than the last, from A5 down
-      tick(880 * Math.pow(2, -things / 12), 0.03, 0.07);
+      tick(880 * tune.ratio * Math.pow(2, -things / 12), 0.03, 0.07);
       things++;
     },
     sphere() {
@@ -184,7 +203,7 @@ export function startScore(): Score {
       const t = now();
       chordGain.gain.setValueAtTime(0.0001, t);
       chordGain.gain.exponentialRampToValueAtTime(0.5, t + 0.9);
-      lp.frequency.linearRampToValueAtTime(1100, t + 1.2);
+      lp.frequency.linearRampToValueAtTime(1100 * tone, t + 1.2);
     },
     typing() {
       // a faint dry tick under the cursor, one every few characters (never a clatter)
@@ -193,7 +212,7 @@ export function startScore(): Score {
     },
     feed() {
       cue('feed');
-      tick([1175, 1319, 1480][Math.min(2, feeds)]!, 0.028, 0.08);
+      tick([1175, 1319, 1480][Math.min(2, feeds)]! * tune.ratio, 0.028, 0.08);
       // under the third the chord warms a shade (its upper voice a touch brighter)
       if (feeds === 2) chord[2]!.gg.gain.setTargetAtTime(0.14, now(), 0.3);
       feeds++;

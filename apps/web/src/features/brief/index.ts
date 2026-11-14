@@ -18,6 +18,7 @@ import { briefIndependence } from '../system/independence';
 import { briefNudges } from '../money/nudges';
 import { briefMail } from './mail';
 import { goToPanel } from '../../ui/sections';
+import { timersNow } from '../kitchen/timers'; // [consistency] c6: the next kitchen timer beside the rooms' lines
 import { briefHealth } from '../system/health';
 import { onLibraryChange, passagesOf } from '../../library/local';
 import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
@@ -25,7 +26,8 @@ import { home, ui } from '../../state/app';
 import { markSeen } from '../core/missed';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
-import { rawText } from '../../ui/hisWords';
+import { rawText } from '../../ui/hisWords';import { briefWorld } from '../eye/briefworld';
+
 
 export const briefTab: TabDef = {
   id: 'brief',
@@ -172,6 +174,14 @@ export const briefTab: TabDef = {
       }
       // [packs] the packs' lines (BRIEF-PACKS-1): payday, a renewal tomorrow, a warranty ending, water so far…
       for (const l of mind.packs ?? []) rows.push(row(null, l, null, { wrap: true }));
+      // [consistency] c6 (with PLAN AND HOME): the next kitchen timer running on this phone, the one room line the Brief lacked
+      const tm = timersNow().filter((t) => !t.ringing).sort((a, b) => a.left - b.left)[0];
+      if (tm) {
+        const mins = Math.ceil(tm.left / 60);
+        const r = row('TIMER', `${tm.name}: ${mins <= 1 ? 'under a minute' : `${mins} minutes`} left`, '›', { wrap: true, onClick: () => goToPanel('kitchen', 'TIMERS') });
+        r.classList.add('brtimer');
+        rows.push(r);
+      }
       for (const n of briefNudges(money?.nudges ?? [], isoDay(new Date()))) {
         const r = row('MONEY', n.line, '›', { wrap: true, onClick: () => goToPanel('agenda', 'SPENDING') });
         r.classList.add('brmoney');
@@ -218,16 +228,18 @@ export const briefTab: TabDef = {
     const mail = briefMail();
     dp.el.append(mail.el);
     const wp = panel('WEATHER', { cls: 'wx' });
-    // THE COMMUTE: one line, home to work with the live traffic, when both are saved (Memory → ME → PLACES; until
+    // THE COMMUTE: one line, home to work with the live traffic, when both are saved (Memory → ABOUT YOU → PLACES; until
     // then one line saying where to save them).
     const commute = panel('COMMUTE', { cls: 'commute', grow: false });
     commute.el.hidden = true;
     // FORESIGHT (foresight.ts): today's expectations, yesterday's score and his questions on record, after the drive to work.
     const fore = briefForesight();
-    P.left.append(dp.el, commute.el, fore.el, wp.el);
+    // [see] THE WORLD (see.c2): the threat level, road reports on the commute and a fresh picture from the camera nearest home
+    const world = briefWorld();
+    P.left.append(dp.el, commute.el, fore.el, world.el, wp.el);
     // (PLACES sits under the whole of ME: the tap brings PLACES itself on screen, not the top of ME)
     const toPlaces = () => {
-      goToPanel('memory', 'ME');
+      goToPanel('memory', 'ABOUT YOU');
       let tries = 0;
       const show = () => {
         const pl = document.querySelector<HTMLElement>('#pg-memory .places');
@@ -249,7 +261,7 @@ export const briefTab: TabDef = {
           commuteCost = '';
           commute.setStatus('');
           // [planlane:brief] the same path Foresight and the Eye name, and the tap lands on it (not on whichever section Memory was left on)
-          return void clear(commute.body, row(null, `Save ${!home && !work ? 'home and work' : !home ? 'home' : 'work'} in Memory → ME → PLACES and the drive to work shows here.`, '›', { wrap: true, onClick: toPlaces }));
+          return void clear(commute.body, row(null, `Save ${!home && !work ? 'home and work' : !home ? 'home' : 'work'} in Memory → ABOUT YOU → PLACES and the drive to work shows here.`, '›', { wrap: true, onClick: toPlaces }));
         }
         // Offline the phone would answer with the last drive it was told (kept for every read): an old "LIVE"
         // time is not this morning's, so say it plainly instead.
@@ -279,7 +291,7 @@ export const briefTab: TabDef = {
         paintSay();
         const msg = rawText(e);
         commute.setStatus('CAN’T TIME IT', 'mid');
-        clear(commute.body, row('HOME → WORK', /no road route/i.test(msg) ? 'There’s no road route between home and work: check the two places in Memory → ME → PLACES.' : 'The drive can’t be timed right now. It tries again when you next open the Brief.', null, { wrap: true }));
+        clear(commute.body, row('HOME → WORK', /no road route/i.test(msg) ? 'There’s no road route between home and work: check the two places in Memory → ABOUT YOU → PLACES.' : 'The drive can’t be timed right now. It tries again when you next open the Brief.', null, { wrap: true }));
       }
     };
     // [further] The money line (PLACES AND SPENDING TOGETHER): this week's money near a saved place, when a statement's words name it; said
@@ -473,6 +485,7 @@ export const briefTab: TabDef = {
         void paintDay();
         void mail.paint();
         void paintCommute();
+        void world.paint();
         void paintMoney();
         setTimeout(() => ui.get().tab === 'brief' && markSeen(topHeadlines()), 1500);
         void fore.paint();
