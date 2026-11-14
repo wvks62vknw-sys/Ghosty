@@ -23,6 +23,7 @@ import { permissionsPanel } from './permissions'; // [health] PERMISSIONS: what 
 import { eyesPanel, mapsPanel, voiceModelPanel } from './packs';
 import { saverPanel } from './saver';
 import { keptBlock } from './kept';
+import { lookClockBlock } from './lookclock';
 import { wallPanel } from './wall'; // [wall] THE WALL: pair the second screen
 import { shortcutsPanel } from './shortcuts'; // [resta] SHORTCUTS: Siri Shortcuts from Ghosty's links
 import { routinesPanel } from './routines'; // [consistency] ROUTINES: his own one-word routines
@@ -149,6 +150,8 @@ export const settingsTab: TabDef = {
     units.value = settings.get().units;
     units.addEventListener('change', () => settings.set({ units: units.value as 'metric' | 'imperial' }));
     lp.body.append(themeStamp.el, gallery.el);
+    // [next] BY THE CLOCK: one look by day, one by night, calm motion from an hour he sets (lookclock.ts)
+    lp.body.append(lookClockBlock());
     // the Theme page is drawn in the system (its floor, its bar), as THE LOOK is: a class on the page while it is open
     new MutationObserver(() => document.body.classList.toggle('g-themepage', lp.el.classList.contains('pushed'))).observe(lp.el, { attributes: true, attributeFilter: ['class'] });
     // the recipe changing by itself (the day turning at sunrise or sunset) or from another screen: the row and the presets follow
