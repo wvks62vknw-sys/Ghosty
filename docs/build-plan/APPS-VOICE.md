@@ -40,7 +40,7 @@ HISTORY.
 - **Kept on this phone:** every translation, newest first, a hundred at most. The same words into the same language move up rather
   than show twice.
 - **Search** finds a translation by either side.
-- **OPEN** brings one back into the box.
+- **Tap a row** to bring it back into the box; its × deletes it, with an undo.
 - **CLEAR HISTORY** has an undo.
 
 **Settings and help** (folded under the note)
@@ -82,13 +82,14 @@ HISTORY.
 2. **Phrasebook:** tap the star. Open PHRASEBOOK and name the trip "Spain in May"; it's there. Then pick France under "Going somewhere?"
    and tap "Thank you.".
 3. **Letters:** set INTO to Russian, then tap IN ENGLISH LETTERS.
-4. **History:** open HISTORY, search for a word, then tap OPEN.
+4. **History:** open HISTORY, search for a word, then tap a row.
 5. **By words:** say "open the translate app" or "show my phrasebook".
 6. **AUTO:** open SEE → INTERPRET, pick French for them, tap AUTO and just talk. Pause, and it says it in French, then listens for their
    answer.
 
 ## Checks
-- **Typechecks:** web and edge, clean.
+- **Typechecks:** web and edge, clean for everything this lane changed. At the time of writing the apps branch has 6 errors in two App
+  Library catalogue files from other lanes (`applib/catalogue/learn.ts`, `world.ts`); I reported them and left them alone.
 - **Brain tests:** `translateapp.test.mjs`, 4 tests:
   - letters in every script it changes;
   - the history (newest first, never twice, a hundred at most, searchable, read back safely);
