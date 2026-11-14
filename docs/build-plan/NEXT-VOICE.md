@@ -98,6 +98,18 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 - "Is it gonna chuck it down" is noted as the weather.
 - The radio and water, which only the app keeps, are named as such, so I say so instead of guessing.
 
+### Everyday asks in other languages (voice.u10)
+- Spanish, French, and Urdu or Hindi as people type them in English letters reach the same abilities as the English:
+  - the radio: "pon música", "mets de la musique", "gaana chalao";
+  - the lights: "apaga la luz", "allume la lumière", "batti bujhao";
+  - timers: "pon un temporizador de diez minutos", "minuteur de 5 minutes", "10 minute ka timer lagao";
+  - water: "me he tomado un vaso de agua", "ek glass paani piya";
+  - the map: "abre el mapa", "naqsha dikhao";
+  - the weather: "qué tiempo hace", "mausam kaisa hai";
+  - the news: "las noticias", "khabrein sunao";
+  - settings: "ajustes".
+- Other sentences in those languages are left to my brain, which speaks them anyway.
+
 ### Also fixed on the way
 - The look table no longer takes "show me the map" as the Map look (since the final round).
 
@@ -120,7 +132,8 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 
 ## What is left (later items, listed for the next round)
 - **A colour for each room (voice.u8):** not built.
-- **Everyday wordings in other languages (voice.u10):** not built.
+- **More languages and abilities for voice.u10:** a first set is built (Spanish, French, Urdu/Hindi in English letters, for nine
+  abilities); more abilities and Urdu in its own script are left.
 - **Settings for each person introduced (voice.s2):** not built.
 - **Colour-blind safe looks (voice.s5):** not built.
 - **Say "Ghosty" to start listening (voice.s8):** not built; it needs a listening pack and the download rule.

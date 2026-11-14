@@ -486,3 +486,21 @@ test('shades by words: "softer blue", "a bit deeper pink", "a warmer colour" mov
   // every shade lands on one of the twelve
   for (const [k, ways] of Object.entries(TH.SHADES)) for (const to of Object.values(ways)) assert.ok(TH.COLOUR_LABELS[to] && to !== k, `${k} → ${to}`);
 });
+
+test('the same everyday asks in other languages he speaks reach the same abilities (voice.u10)', () => {
+  const T = {
+    radio: ['pon música', 'pon la radio', 'ponme algo de música', 'mets de la musique', 'gaana chalao', 'music lagao', 'kuch gaane sunao', 'radio chala do'],
+    'radio-stop': ['para la música', 'arrête la musique', 'gaana band karo'],
+    water: ['me he tomado un vaso de agua', "j'ai bu un verre d'eau", 'ek glass paani piya', 'paani pi liya'],
+    map: ['abre el mapa', 'ouvre la carte', 'naqsha dikhao'],
+    weather: ['qué tiempo hace', 'va a llover mañana', 'quel temps fait-il', 'mausam kaisa hai', 'kya baarish hogi'],
+    news: ['las noticias', 'les infos', 'khabrein sunao'],
+    settings: ['ajustes', 'ouvre les paramètres', 'settings kholo'],
+  };
+  for (const [id, words] of Object.entries(T)) for (const t of words) assert.equal(M.meaningOf(t)?.id, id, t);
+  for (const [t, say] of [['enciende las luces', 'turn on the lights'], ['apaga la luz', 'turn off the lights'], ['allume la lumière', 'turn on the lights'], ['éteins la lumière', 'turn off the lights'], ['batti jalao', 'turn on the lights'], ['batti bujhao', 'turn off the lights'], ['pon un temporizador de diez minutos', 'set a timer for 10 minutes'], ['minuteur de 5 minutes', 'set a timer for 5 minutes'], ['10 minute ka timer lagao', 'set a timer for 10 minutes']]) {
+    assert.equal(M.meaningOf(t)?.say, say, t);
+    assert.ok(tableOf(say), `"${say}" is taken by its own table`);
+  }
+  for (const t of ['pon la mesa', 'la musique classique est belle', 'mausam', 'gaana kaun sa hai']) assert.equal(M.meaningOf(t), null, `"${t}" is left to the brain`);
+});

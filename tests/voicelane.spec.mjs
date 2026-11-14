@@ -176,6 +176,10 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check(r.mine.includes('put some tunes on'), `[${W}] [meanings] his words are what the chat shows: "${r.mine}"`);
   check(!toBrain('put some tunes on'), `[${W}] [meanings] "put some tunes on" went to the model`);
   check(/radio/.test(await page.evaluate(() => location.hash)) || /^Playing /.test(r.text), `[${W}] [meanings] with no station kept, the Radio opened to pick one (${await page.evaluate(() => location.hash)})`);
+  // [voice.u10] the same ask in Spanish and in Urdu as people type it
+  r = await say(page, 'pon música', /^(?:No station yet|Playing |.* needs a tap first)/, `[${W}] [languages] pon música`);
+  r = await say(page, 'gaana chalao', /^(?:No station yet|Playing |.* needs a tap first)/, `[${W}] [languages] gaana chalao`);
+  check(!toBrain('pon música') && !toBrain('gaana chalao'), `[${W}] [languages] another language's ask went to the model`);
   r = await say(page, 'log a pint', /water|pint|glass|ml/i, `[${W}] [meanings] a pint is water`);
   check(r.mine.includes('log a pint'), `[${W}] [meanings] the chat shows what he said, not the table's words: "${r.mine}"`);
   check(!toBrain('log a pint') && !toBrain('I drank'), `[${W}] [meanings] "log a pint" went to the model`);
