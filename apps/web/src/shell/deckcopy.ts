@@ -447,6 +447,8 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Your spreadsheets, kept on this phone', act: { open: 'sheets' } },
       { text: 'Start a household budget', act: { ask: 'New spreadsheet' } },
       { text: 'Open an Excel file', act: { ask: 'Open a spreadsheet' } },
+      { text: 'Colour cells by rules', act: { open: 'sheets' } },
+      { text: 'Summarise a table in one tap', act: { open: 'sheets' } },
     ],
     dyk: 'Change a rent in March and the month, the summary and the year all move at once.',
   },

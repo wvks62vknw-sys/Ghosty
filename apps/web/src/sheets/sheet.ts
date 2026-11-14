@@ -29,6 +29,10 @@ import { getBook, listBooks, removeBook, saveBook, whenWords } from './store';
 import { addr, colName, MAXC, MAXR, parseAddr, parseRange, rangeText, type Pos, type Rect } from './tokens';
 import { readXlsx, } from './xlsxread';
 import { writeXlsx } from './xlsx';
+import { londonToday, ruleMarks, ruleWords, type Mark } from './rules';
+import { rulesPanel } from './rulespanel';
+import { refreshPivots } from './pivot';
+import { summaryPanel } from './summarypanel';
 
 export const sheetsState = {
   open: false,
@@ -51,6 +55,8 @@ export const sheetsState = {
   opened: 0,
   recalcMs: 0,
   read: (_sheet: string, _a: string): { v: Val; f?: string; text: string } => ({ v: null, text: '' }),
+  /** The active sheet's colour rules, in his words, first first. */
+  rules: [] as string[],
 };
 let current: { close(): void } | null = null;
 /** The sheet's name (its title, and its panel on the SPREADSHEETS screen: features/sheets/index.ts). */
@@ -209,6 +215,21 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       requestAnimationFrame(() => grid.paint());
     },
     key: (e) => onKey(e),
+    marks: () => marks(),
+  };
+  // the colour rules' marks on the active sheet, worked out once for each change (and each London day)
+  let marksFor = '';
+  let marksMap = new Map<string, Mark>();
+  const marks = (): Map<string, Mark> => {
+    const s = sheet();
+    if (!s.rules?.length) return marksMap.size ? (marksMap = new Map()) : marksMap;
+    const today = londonToday();
+    const k = `${rev}|${si()}|${today}`;
+    if (k !== marksFor) {
+      marksFor = k;
+      marksMap = ruleMarks(s, (a) => eng!.value(s.name, a), today);
+    }
+    return marksMap;
   };
   const grid: Grid = makeGrid(host);
 
@@ -325,6 +346,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     paintLine();
     grid.paintSel();
     schedule(false);
+    if (panel === 'summary') summary.paint();
   }
   const lastCol = () => Math.max(usedCols(sheet()) - 1, 0);
   function onKey(e: KeyboardEvent): void {
@@ -368,6 +390,15 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     hist!.push(next);
     rev++;
     eng!.update(next, changed === 'all' ? undefined : changed);
+    // a summary whose table changed shape (a new shop, a new month) is made again, in the same step (one UNDO takes both back)
+    if (next.pivots?.length) {
+      const fresh = refreshPivots(next, (s, a) => eng!.value(s, a));
+      if (fresh !== next) {
+        hist!.book = fresh;
+        eng!.update(fresh);
+        changed = 'all';
+      }
+    }
     refresh(structure || changed === 'all');
     sheetsState.recalcMs = Math.round(performance.now() - t0);
     schedule(true);
@@ -637,6 +668,21 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       }, 'on')),
     ),
   };
+  const rules = rulesPanel({ book, sheet: si, range, commit: (next) => commit(next, [], true), say });
+  panels.rules = rules.el;
+  const summary = summaryPanel({
+    book, sheet: si, range, say,
+    value: (s, a) => eng!.value(s, a),
+    commit: (next) => {
+      commit(next, 'all', true);
+      A = { r: 0, c: 0 };
+      B = A;
+      paintLine();
+      grid.paintSel();
+    },
+    addChart: (c) => commit(addChart(book(), c), []),
+  });
+  panels.summary = summary.el;
   const barsKey = panels.chart!.querySelectorAll('button')[0] as HTMLButtonElement;
   const lineKey = panels.chart!.querySelectorAll('button')[1] as HTMLButtonElement;
   const paintChartKeys = () => {
@@ -650,7 +696,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     pressed(freezeKey, sheet().frozen);
     for (const b of swatches) pressed(b, String(x?.fill ?? '') === b.dataset.fill);
   };
-  const pills = h('div.shpills', { role: 'tablist', 'aria-label': 'Editing keys' }, ...(['format', 'data', 'chart'] as const).map((id) => {
+  const pills = h('div.shpills', { role: 'tablist', 'aria-label': 'Editing keys' }, ...(['format', 'data', 'rules', 'summary', 'chart'] as const).map((id) => {
     const b = button(id.toUpperCase(), () => showPanel(id), 'shpill');
     b.dataset.panel = id;
     b.setAttribute('role', 'tab');
@@ -662,6 +708,8 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     for (const b of pills.querySelectorAll('button')) b.setAttribute('aria-selected', String(b.dataset.panel === id));
     paintFormatKeys();
     paintChartKeys();
+    if (id === 'rules') rules.paint();
+    if (id === 'summary') summary.paint();
   }
 
   // ---------------------------------------------------------------- the foot: sheets
@@ -943,6 +991,9 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     paintCharts();
     paintEmpty();
     paintFormatKeys();
+    if (panel === 'rules') rules.paint();
+    if (panel === 'summary') summary.paint();
+    sheetsState.rules = (sheet().rules ?? []).map(ruleWords);
     closeIfStale();
     sheetsState.view = 'book';
     sheetsState.title = book().title;

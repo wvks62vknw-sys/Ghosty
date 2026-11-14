@@ -62,6 +62,24 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_sheets' }, tryText: 'Opens my spreadsheets',
   },
   'phrase:sheets': { same: 'hub:sheets' },
+  // [editors grid, NEXT ROUND] colour by rules (editors.u2)
+  'deck:sheets:colour-cells-by-rules': {
+    name: 'Colour cells by rules',
+    line: 'You can have cells colour themselves: overdue dates red, the top ten green, bars that show how big each number is.',
+    more: 'Choose the cells, open RULES and pick one: more than, less than, between, equal to, contains, overdue, top or bottom, duplicates, data bars or a colour scale. The colours follow the numbers as they change. Each sheet lists its rules with EDIT and DELETE, UNDO takes any change back, and an Excel file keeps them both ways.',
+    say: ['Open my spreadsheets', 'Open a spreadsheet'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
+  // [editors grid, NEXT ROUND] one-tap table summaries (editors.u3)
+  'deck:sheets:summarise-a-table-in-one-tap': {
+    name: 'Summarise a table in one tap',
+    line: 'You can see how much went where each month, or at each shop, without writing a single formula.',
+    more: 'Choose a table, open SUMMARY and pick BY (each month of a date column, or each shop or category) and OF (the total, count or average of a column of numbers). The summary lands on a sheet of its own and follows the table: change a number, add a row or a new shop, and it keeps up. MAKE A CHART OF IT draws it as bars in one more tap.',
+    say: ['Open my spreadsheets', 'Start a household budget'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
   'hub:slides': {
     name: 'Slides and talks',
     line: 'You can make a deck of slides from a report, or from scratch, give the talk with your notes in your hand, and send it as a PowerPoint file.',

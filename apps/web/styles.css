@@ -8309,6 +8309,24 @@ html .shsheet .shch.on, html .shsheet button.shrh.on { color: var(--g-accent-tex
 .shc[data-fill="4"] { background: color-mix(in srgb, var(--g-fail) 26%, transparent); }
 .shc[data-fill="5"] { background: color-mix(in srgb, var(--g-ink-3) 26%, transparent); }
 .shc.err { color: var(--g-amber); font-family: var(--g-font-mono); }
+/* [editors grid] colour by rules (sheets/rules.ts): a rule's fill over the cell's own, a data bar under the number, a red-to-green scale */
+.shc[data-cf="1"] { background-color: color-mix(in srgb, var(--g-accent) 38%, transparent); }
+.shc[data-cf="2"] { background-color: color-mix(in srgb, var(--g-amber) 38%, transparent); }
+.shc[data-cf="3"] { background-color: color-mix(in srgb, var(--g-ok) 38%, transparent); }
+.shc[data-cf="4"] { background-color: color-mix(in srgb, var(--g-fail) 38%, transparent); }
+.shc[data-cf="5"] { background-color: color-mix(in srgb, var(--g-ink-3) 38%, transparent); }
+.shc[data-scale="1"] { background-color: color-mix(in srgb, color-mix(in srgb, var(--g-ok) var(--shscale, 50%), var(--g-fail)) 36%, transparent); }
+.shc[data-bar="1"] { background-image: linear-gradient(90deg, color-mix(in srgb, var(--g-accent) 46%, transparent) calc(var(--shbar, 0) * 100%), transparent calc(var(--shbar, 0) * 100%)); background-repeat: no-repeat; background-size: 100% 60%; background-position: 0 50%; }
+.shrules { display: flex; flex-direction: column; gap: var(--g-s-1); }
+.shrule { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); min-width: 0; }
+.shrulewords { flex: 1 1 12em; min-width: 0; font: var(--g-t-caption); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.shruledot { flex: none; width: 1em; height: 1em; border-radius: 50%; background: var(--g-ink-3); }
+.shruledot[data-fill="1"] { background: var(--g-accent); } .shruledot[data-fill="2"] { background: var(--g-amber); } .shruledot[data-fill="3"] { background: var(--g-ok); } .shruledot[data-fill="4"] { background: var(--g-fail); } .shruledot[data-fill="5"] { background: var(--g-ink-3); }
+.shruledot[data-shade="bars"] { background: linear-gradient(90deg, var(--g-accent) 60%, transparent 60%); border-radius: var(--g-radius-mark); }
+.shruledot[data-shade="scale"] { background: linear-gradient(90deg, var(--g-fail), var(--g-amber), var(--g-ok)); border-radius: var(--g-radius-mark); }
+.shrulein { flex: 1 1 8em; min-width: 0; min-height: var(--g-target); }
+.shrulein[hidden], .shpanel .shrow[hidden] { display: none; }
+
 .shc.rng { background: rgba(var(--g-accent-rgb), .16); }
 .shc.sel { box-shadow: inset 0 0 0 calc(var(--g-stroke) * 1.5) var(--g-accent); }
 html .shsheet button.shh { position: absolute; left: 0; top: 0; z-index: 5; width: 44px; height: 44px; min-height: 44px; min-width: 44px; margin: -22px 0 0 -22px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; touch-action: none; }

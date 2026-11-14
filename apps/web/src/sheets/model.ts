@@ -7,6 +7,8 @@
  */
 import { addr, colName, MAXC, MAXR, parseAddr, parseRange, renameSheetIn, shiftFormula, type Pos, type Rect } from './tokens';
 import { applyCode, general, serialOf } from './numfmt';
+import type { Rule } from './rules';
+import type { Pivot } from './pivot';
 
 export type ErrCode = '#DIV/0!' | '#REF!' | '#NAME?' | '#VALUE!' | '#N/A' | '#NUM!' | '#CALC!' | '#SPILL!' | '#CIRCULAR!';
 export interface ErrVal {
@@ -43,6 +45,8 @@ export interface Sheet {
   heights: Record<number, number>;
   frozen: boolean;
   filter?: Filter | null;
+  /** Colour by rules (rules.ts), first first. */
+  rules?: Rule[];
 }
 export interface Chart {
   id: string;
@@ -63,6 +67,8 @@ export interface Book {
   view: { sheet: number; sel: string };
   /** Where it came from, for the list ("made here", "read from a file", "from an answer"). */
   from?: string;
+  /** One-tap summaries (pivot.ts): each kept up to date with its table. */
+  pivots?: Pivot[];
 }
 export { addr, colName, MAXC, MAXR, parseAddr, parseRange, shiftFormula };
 export type { Pos, Rect };

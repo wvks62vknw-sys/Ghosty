@@ -16,6 +16,8 @@ export interface NewThing {
 export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Voice notes into tidy pages', line: 'Workspace → VOICE NOTE (or say “take a voice note”): talk for a few minutes and I turn it into a clean page or document, with the actions as to-dos. Offline, the recording waits on your phone.' },
   // [editors grid] the NEXT ROUND's spreadsheet and presentation tools
+  { day: '2026-11-14', title: 'A table summed in one tap', line: 'Spreadsheets → SUMMARY: how much each month or at each shop, on its own sheet that keeps up with the table, and a chart of it in one more tap.' },
+  { day: '2026-11-14', title: 'Cells that colour themselves', line: 'Spreadsheets → RULES: overdue dates in red, the top ten in green, data bars and a colour scale, listed per sheet to edit or delete, and kept in Excel files.' },
   { day: '2026-11-14', title: 'Slide builds go to PowerPoint', line: 'Presentations: what comes in on a tap, and the new MAGIC MOVE between slides, are kept in the PowerPoint file as its own animations and Morph, and come back when you open one.' },
   // [editors paper] the next round's paper tools
   { day: '2026-11-14', title: 'Mail merge', line: 'In a document, MAIL MERGE: one letter with {{Name}} fields and a spreadsheet of names gives a copy for every row, as one PDF, one Word file or a file each.' },

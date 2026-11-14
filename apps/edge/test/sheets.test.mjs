@@ -362,3 +362,139 @@ test('rows in and out: cross-sheet #REF! reads back, full-height ranges survive 
   assert.equal(K.moveLinesIn('=SUM(A3:A9)', 'Sheet1', 'Sheet1', 'r', 4, 1), '=SUM(A3:A10)');
   assert.equal(K.moveLinesIn('=A10000', 'Sheet1', 'Sheet1', 'r', 4, 1), '=#REF!');
 });
+
+test('[sheets] colour by rules: each kind marks the right cells, follows rows put in, and goes to .xlsx and back as Excel’s own', () => {
+  let b = newBook('Rules');
+  const put = (a, t) => (b = setEntry(b, 'Sheet1', a, t));
+  [['A1', '5'], ['A2', '120'], ['A3', '60'], ['A4', '120'], ['A5', '30'], ['B1', 'paid'], ['B2', 'Unpaid'], ['B3', 'due'], ['C1', '1/1/2020'], ['C2', '31/12/2099'], ['C3', '=TODAY()']].forEach(([a, t]) => put(a, t));
+  const today = K.londonToday(Date.UTC(2026, 10, 14, 0, 30));
+  assert.equal(today, K.serialOf(2026, 11, 14), 'half past midnight in London is the 14th');
+  assert.equal(K.londonToday(Date.UTC(2026, 6, 14, 23, 30)), K.serialOf(2026, 7, 15), 'in summer London is an hour on: 23:30 UTC is the next day');
+  const rule = (o) => ({ id: K.ruleId(), ...o });
+  const rules = [
+    rule({ range: 'A1:A5', kind: 'over', a: 100, tone: 3 }),
+    rule({ range: 'A1:A5', kind: 'under', a: 10, tone: 4 }),
+    rule({ range: 'A1:A5', kind: 'between', a: 50, b: 70, tone: 2 }),
+    rule({ range: 'B1:B3', kind: 'contains', a: 'paid', tone: 1 }),
+    rule({ range: 'C1:C3', kind: 'overdue', tone: 4 }),
+  ];
+  for (const r of rules) assert.equal(K.ruleProblem(r), '', K.ruleWords(r));
+  b = { ...b, sheets: b.sheets.map((s) => rules.reduce((x, r) => K.setRule(x, r), s)) };
+  const marks = (bk, d = today) => {
+    const en = new Engine(bk);
+    return K.ruleMarks(bk.sheets[0], (a) => en.value('Sheet1', a), d);
+  };
+  // TODAY() in C3 is the machine's today; the rules are asked about the real today for that cell
+  let m = marks(b, K.londonToday());
+  assert.equal(m.get('C3'), undefined, 'today itself is not overdue');
+  m = marks(b);
+  assert.equal(m.get('A2').tone, 3, 'more than 100: green');
+  assert.equal(m.get('A1').tone, 4, 'less than 10: red');
+  assert.equal(m.get('A3').tone, 2, 'between 50 and 70: amber');
+  assert.equal(m.get('A5'), undefined, '30 fits none');
+  assert.equal(m.get('B1').tone, 1, 'contains paid');
+  assert.equal(m.get('B2').tone, 1, 'Unpaid contains paid, in any capitals');
+  assert.equal(m.get('B3'), undefined);
+  assert.equal(m.get('C1').tone, 4, 'a date before today is overdue');
+  assert.equal(m.get('C2'), undefined, 'a date to come is not');
+  // the first rule that fits wins
+  const first = K.setRule(b.sheets[0], rule({ range: 'A2', kind: 'equal', a: 120, tone: 5 }));
+  assert.equal(marks({ ...b, sheets: [first] }).get('A2').tone, 3, 'an earlier rule keeps its colour');
+  // top, bottom (ties at the edge come in), duplicates, bars, the scale
+  const s2 = [rule({ range: 'A1:A5', kind: 'top', n: 1, tone: 3 }), rule({ range: 'A1:A5', kind: 'bottom', n: 2, tone: 4 }), rule({ range: 'A1:A5', kind: 'bars' }), rule({ range: 'A1:A5', kind: 'scale' })];
+  const b2 = { ...b, sheets: [s2.reduce((x, r) => K.setRule(x, r), { ...b.sheets[0], rules: [] })] };
+  m = marks(b2);
+  assert.deepEqual(['A1', 'A2', 'A3', 'A4', 'A5'].map((a) => m.get(a).tone ?? null), [4, 3, null, 3, 4], 'top 1 (both 120s), bottom 2 (5 and 30)');
+  assert.equal(m.get('A2').bar, 1);
+  assert.ok(Math.abs(m.get('A3').bar - 0.5) < 1e-9, 'a bar from 0: 60 of 120 is half');
+  assert.equal(m.get('A1').scale, 0, 'the lowest is red');
+  assert.equal(m.get('A2').scale, 1, 'the highest is green');
+  const dup = marks({ ...b, sheets: [K.setRule({ ...b.sheets[0], rules: [] }, rule({ range: 'A1:A5', kind: 'dupes', tone: 2 }))] });
+  assert.deepEqual(['A1', 'A2', 'A4'].map((a) => dup.get(a)?.tone ?? null), [null, 2, 2], 'only the two 120s are duplicates');
+  // a rule follows the numbers: change A5 to 200 and it is green
+  assert.equal(marks(setEntry(b, 'Sheet1', 'A5', '200')).get('A5').tone, 3);
+  // problems said in his words
+  assert.match(K.ruleProblem({ id: 'x', range: 'A1:A5', kind: 'over' }), /number/);
+  assert.match(K.ruleProblem({ id: 'x', range: 'A1:A5', kind: 'top', n: 0 }), /how many/i);
+  assert.match(K.ruleProblem({ id: 'x', range: '', kind: 'dupes' }), /Choose the cells/);
+  assert.equal(K.ruleWords(rules[0]), 'A1:A5: more than 100, green');
+  // a row put in above moves the rule's cells; deleting every cell of a rule takes it away
+  assert.equal(K.moveLines(b, 0, 'r', 0, 1).sheets[0].rules[0].range, 'A2:A6');
+  assert.ok(!K.moveLines(b, 0, 'c', 1, -1).sheets[0].rules.some((r) => r.kind === 'contains'), 'the rule on column B goes with it');
+  // .xlsx out and back: every kind, its colour and its numbers
+  const all = [...rules, ...s2, rule({ range: 'A1:A5', kind: 'dupes', tone: 2 }), rule({ range: 'A1:A5', kind: 'equal', a: 60, tone: 1 })];
+  const bytes = writeXlsx({ ...b, sheets: [{ ...b.sheets[0], rules: all }] });
+  const back = readXlsx(bytes);
+  const strip = (r) => JSON.stringify({ range: r.range, kind: r.kind, a: r.a, b: r.b, n: r.n, tone: r.tone });
+  assert.deepEqual(back.book.sheets[0].rules.map(strip), all.map(strip), 'every rule comes back the same');
+  assert.ok(!back.lost.some((x) => /colour rules|conditional/.test(x)), back.lost.join('; '));
+  // Excel's kinds that have no rule here (a time period, a percent top 10) are said, once; the rest of the sheet's rules are kept
+  buildSync({ entryPoints: [here('../../web/src/convert/zip.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: here('./.build/sheets/zip.mjs'), logLevel: 'warning' });
+  return import(pathToFileURL(here('./.build/sheets/zip.mjs')).href).then((Z) => {
+    const files = Z.unzipSync(bytes);
+    const xml = new TextDecoder().decode(files.get('xl/worksheets/sheet1.xml'));
+    const odd = '<conditionalFormatting sqref="B1:B3"><cfRule type="timePeriod" dxfId="0" priority="1" timePeriod="lastWeek"><formula>x</formula></cfRule></conditionalFormatting><conditionalFormatting sqref="A1:A5 C1:C3"><cfRule type="top10" dxfId="2" priority="2" rank="10" percent="1"/><cfRule type="duplicateValues" dxfId="1" priority="3"/></conditionalFormatting>';
+    files.set('xl/worksheets/sheet1.xml', new TextEncoder().encode(xml.replace(/<conditionalFormatting.*<\/conditionalFormatting>/, odd)));
+    const r = readXlsx(Z.zipStore([...files].map(([name, data]) => ({ name, data }))));
+    assert.deepEqual(r.book.sheets[0].rules.map((x) => [x.range, x.kind, x.tone]), [['A1:A5', 'dupes', 2], ['C1:C3', 'dupes', 2]], 'two ranges in one sqref are two rules');
+    assert.equal(r.lost.filter((x) => /some colour rules/.test(x)).length, 1, `said once: ${r.lost.join('; ')}`);
+  });
+});
+
+test('[sheets] one-tap summaries: by month and by shop, sum, count and average as live formulas; a new shop or month makes the rows again', () => {
+  let b = newBook('Spending');
+  const rows = [['Date', 'Shop', 'Amount'], ['3/1/2026', 'Tesco', '£12.50'], ['20/1/2026', 'Aldi', '£8'], ['2/2/2026', 'Tesco', '£30'], ['14/2/2026', 'tesco', '£7.50'], ['1/3/2026', 'Boots', '£4']];
+  rows.forEach((r, i) => r.forEach((t, c) => (b = setEntry(b, 'Sheet1', `${'ABC'[c]}${i + 1}`, t))));
+  let e = new Engine(b);
+  const value = (s, a) => e.value(s, a);
+  const s = b.sheets[0];
+  const t = K.tableOf(s, 'A1:C6');
+  assert.deepEqual(t, { head: 0, c1: 0, c2: 2 });
+  assert.deepEqual(K.tableOf(s, 'B3'), { head: 0, c1: 0, c2: 2 }, 'one cell: the sheet’s table');
+  const heads = K.headersOf(s, t, value);
+  assert.deepEqual(heads.map((x) => [x.name, x.dates, x.numbers]), [['Date', true, true], ['Shop', false, false], ['Amount', false, true]]);
+  // by month, the total of Amount
+  const r = K.addPivot(b, { src: 'Sheet1', ...t, by: 0, month: true, of: 2, how: 'sum' }, value);
+  assert.equal(r.pivot.sheet, 'Summary');
+  assert.equal(r.rows, 3);
+  assert.equal(r.book.view.sheet, 1, 'the summary is chosen, after the table');
+  e = new Engine(r.book);
+  const at = (bk, a) => new Engine(bk).value('Summary', a);
+  assert.deepEqual(['A2', 'A3', 'A4', 'A5'].map((a) => at(r.book, a)), ['Jan 2026', 'Feb 2026', 'Mar 2026', 'Total']);
+  assert.deepEqual(['B2', 'B3', 'B4', 'B5'].map((a) => at(r.book, a)), [20.5, 37.5, 4, 62]);
+  assert.match(r.book.sheets[1].cells.B2.f, /^SUMIFS\(Sheet1!\$C\$2:\$C\$6,Sheet1!\$A\$2:\$A\$6,">=\d+",Sheet1!\$A\$2:\$A\$6,"<\d+"\)$/, 'a real formula over the table');
+  assert.equal(r.book.sheets[1].cells.B2.x?.n, 'currency', 'pounds stay pounds');
+  assert.equal(K.pivotWords(r.book, r.pivot, value), 'Total of Amount by month');
+  // the figures follow the table: Jan's Aldi changed to £18
+  const b2 = setEntry(r.book, 'Sheet1', 'C3', '£18');
+  assert.equal(at(b2, 'B2'), 30.5);
+  assert.equal(K.refreshPivots(b2, (sh, a) => new Engine(b2).value(sh, a)), b2, 'nothing changed shape: the same book');
+  // a new month added under the table: its row appears
+  const b3 = setEntry(setEntry(setEntry(b2, 'Sheet1', 'A7', '9/4/2026'), 'Sheet1', 'B7', 'Aldi'), 'Sheet1', 'C7', '£10');
+  const e3 = new Engine(b3);
+  const f3 = K.refreshPivots(b3, (sh, a) => e3.value(sh, a));
+  assert.notEqual(f3, b3);
+  assert.deepEqual(['A5', 'B5', 'A6', 'B6'].map((a) => at(f3, a)), ['Apr 2026', 10, 'Total', 82]);
+  // by shop (capitals told apart only by how they first appear), count and average
+  const c = K.addPivot(b, { src: 'Sheet1', ...t, by: 1, month: false, of: null, how: 'count' }, value);
+  assert.deepEqual(['A2', 'B2', 'A3', 'B3', 'A4', 'B4', 'A5', 'B5'].map((a) => at(c.book, a)), ['Tesco', 3, 'Aldi', 1, 'Boots', 1, 'Total', 5]);
+  assert.equal(c.book.sheets[1].cells.B1.v, 'Count');
+  const av = K.addPivot(c.book, { src: 'Sheet1', ...t, by: 1, month: false, of: 2, how: 'average' }, value);
+  assert.equal(av.pivot.sheet, 'Summary 2', 'a second summary gets a name of its own');
+  const ea = new Engine(av.book);
+  assert.equal(ea.value('Summary 2', 'B2'), (12.5 + 30 + 7.5) / 3);
+  assert.equal(ea.value('Summary 2', 'A5'), 'All');
+  assert.equal(ea.value('Summary 2', 'B5'), 62 / 5);
+  // the chart follows the summary's rows
+  const ch = K.pivotChart(r.pivot, r.rows, 'Spending by month');
+  assert.deepEqual([ch.sheet, ch.labels, ch.values], ['Summary', 'A2:A4', 'B2:B4']);
+  const withChart = K.addChart(b3, ch);
+  const e4 = new Engine(withChart);
+  const f4 = K.refreshPivots(withChart, (sh, a) => e4.value(sh, a));
+  assert.equal(f4.charts[0].values, 'B2:B5', 'a new month: the chart grows with it');
+  // a deleted summary sheet lets its summary go; the file carries the summary as its formulas
+  const gone = K.removeSheet(r.book, 'Summary');
+  assert.deepEqual(K.refreshPivots(gone, value).pivots, []);
+  const back = readXlsx(writeXlsx(r.book)).book;
+  assert.equal(new Engine(back).value('Summary', 'B3'), 37.5, 'in Excel the summary is its formulas, and they work');
+});

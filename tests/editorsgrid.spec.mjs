@@ -4,5 +4,5 @@
 //   BASE=http://localhost:8788 node tests/editorsgrid.spec.mjs [outDir]      PARTS=builds,looks limits it to those parts.
 import { runParts } from './editorsharness.mjs';
 
-await runParts('EDITORS GRID (spreadsheets and presentations)', ['editorsgrid-builds.mjs', 'editorsgrid-looks.mjs'],
-  'EDITORS GRID ran clean: builds and Magic Move through PowerPoint, in all seven looks at 440 and 390.');
+await runParts('EDITORS GRID (spreadsheets and presentations)', ['editorsgrid-builds.mjs', 'editorsgrid-rules.mjs', 'editorsgrid-summary.mjs', 'editorsgrid-looks.mjs'],
+  'EDITORS GRID ran clean: builds and Magic Move through PowerPoint, colour by rules through Excel, one-tap summaries that follow their table, in all seven looks at 440 and 390.');

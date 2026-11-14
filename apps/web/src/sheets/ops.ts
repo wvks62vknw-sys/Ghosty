@@ -257,7 +257,12 @@ export function moveLines(b: Book, sheet: string | number, axis: 'r' | 'c', at: 
     }
     if (k !== si) return cells === x.cells ? x : { ...x, cells };
     const filter = x.filter && axis === 'c' ? (to(x.filter.c) === null ? null : { ...x.filter, c: to(x.filter.c)! }) : x.filter;
-    return { ...x, cells, widths: axis === 'c' ? lines(x.widths) : x.widths, heights: axis === 'r' ? lines(x.heights) : x.heights, filter };
+    // a rule's cells follow the rows and columns, as a formula's do; a rule whose cells are all gone goes with them
+    const rules = x.rules?.flatMap((r) => {
+      const range = moveLinesIn(r.range, x.name, s.name, axis, at, n);
+      return /#REF!/.test(range) ? [] : [range === r.range ? r : { ...r, range }];
+    });
+    return { ...x, cells, widths: axis === 'c' ? lines(x.widths) : x.widths, heights: axis === 'r' ? lines(x.heights) : x.heights, filter, ...(rules ? { rules } : {}) };
   });
   const names: Record<string, string> = {};
   for (const [k, v] of Object.entries(b.names)) names[k] = moveLinesIn(v, '', s.name, axis, at, n);
