@@ -10298,7 +10298,7 @@ html #pg-links .lkhealth[data-health='ok'] { border-color: var(--ok); }
 
 
 /* [boot] THE OPENING in Settings → Voice & home (features/settings/opening.ts): three keys for its length, his own line, how the last one ran */
-.openlen > button { min-height: var(--g-target); min-width: var(--g-target); flex: 1 1 0; }
+.openlen > button, #pg-settings .keyrow.openlen > button { min-height: var(--g-target); min-width: var(--g-target); flex: 1 1 0; box-sizing: border-box; }
 textarea.openown { width: 100%; box-sizing: border-box; }
 .openguestrow > .note { flex: 1 1 auto; min-width: 0; }
 .openguestrow > button { min-height: var(--g-target); }
