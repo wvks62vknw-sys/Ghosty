@@ -152,6 +152,8 @@ export const STATES = {
   'machine.view': { dir: 'eye', base: 0, now: 2 },
   // the camera wall (NEXT ROUND, see.u2): its empty wall and a camera that will not come
   'eye.wall': { dir: 'eye', base: 0, now: 2 },
+  // the full-screen rain radar (see.s3): fetching, unreachable, no signal
+  'eye.rain': { dir: 'eye', base: 0, now: 3 },
   'lens.camera': { dir: 'lens', base: 3, now: 3 },
   'lens.see': { dir: 'lens', base: 0, now: 1 },
   'lens.read': { dir: 'lens', base: 0, now: 1 },

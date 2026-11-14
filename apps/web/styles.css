@@ -647,6 +647,15 @@ html body .wall .walllook { position: absolute; inset: 0; width: 100%; height: 1
 html body .wall .walltile button[data-act="off"] { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-height: var(--g-target) !important; }
 html body .wall .wallacts button { min-height: var(--g-target) !important; }
 @media (max-width: 400px) { .wall .wallgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* RAIN RADAR, full screen (see.s3; features/eye/rain.ts) */
+.rain { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
+.rain .rainmap { height: min(56vh, 520px); min-height: 240px; border-radius: var(--g-radius-key); overflow: hidden; background: var(--g-plate-fill); }
+.rain .rainline { margin: 0; font: var(--g-t-key); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.rain .rainline[hidden], .rain .raincontrols[hidden] { display: none; }
+.rain .raincontrols { display: flex; align-items: center; gap: var(--g-s-1); min-width: 0; }
+.rain .rainslider { flex: 1 1 auto; min-width: 0; min-height: var(--g-target); accent-color: var(--g-accent); }
+.rain .rainwhen { flex: none; font: var(--g-t-caption); color: var(--g-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+html body .rain .raincontrols button { flex: none; min-height: var(--g-target) !important; }
 .jstale { margin: var(--g-s-half) 0; padding: var(--g-s-half) var(--g-s-1); border-radius: var(--g-radius-key); color: var(--g-amber, var(--amber)); background: var(--g-plate-fill); overflow-wrap: anywhere; }
 
 /* Training ground */

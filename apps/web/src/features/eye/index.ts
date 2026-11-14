@@ -985,6 +985,7 @@ export const eyeTab: TabDef = {
       HOME: '<path d="M4.5 11L12 4.5l7.5 6.5V19a1.5 1.5 0 01-1.5 1.5h-3.5V15h-5v5.5H6A1.5 1.5 0 014.5 19z"/>',
       NORTH: '<circle cx="12" cy="12" r="8.5"/><path d="M12 6.5l2.6 7H9.4z"/><path d="M9.4 13.5L12 17.5l2.6-4" opacity=".5"/>',
       TILT: '<path d="M3.5 18.5h17L16 8H8z"/><path d="M9.5 13.5h5"/>',
+      RAIN: '<path d="M7 14.5h10a4 4 0 00.6-7.95A5.5 5.5 0 006.9 6.2 4.2 4.2 0 007 14.5z"/><path d="M8.5 17.5l-1 2.5M12.5 17.5l-1 2.5M16.5 17.5l-1 2.5"/>',
       WALL: '<rect x="3.5" y="4.5" width="7" height="6" rx="1.2"/><rect x="13.5" y="4.5" width="7" height="6" rx="1.2"/><rect x="3.5" y="13.5" width="7" height="6" rx="1.2"/><rect x="13.5" y="13.5" width="7" height="6" rx="1.2"/>',
     };
     const glyphed = (b: HTMLButtonElement) => {
@@ -1016,6 +1017,7 @@ export const eyeTab: TabDef = {
         h('small.bcap', 'VIEW'),
         glyphed(lookBtn),
         glyphed(button('WALL', () => openCameraWall?.())),
+        glyphed(button('RAIN', () => void import('./rain').then((m) => m.openRainRadar()))),
         glyphed(button('HOME', () => {
           const L = home();
           globe.cam.flyTo({ lat: L.lat, lon: L.lon, range: 300, tilt: 0, hd: 0 });

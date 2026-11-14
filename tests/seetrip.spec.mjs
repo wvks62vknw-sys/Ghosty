@@ -10,7 +10,9 @@
 //   d. GOD'S EYE (see.u3, see.u6): COMMUTE, STORM and SKY each set their layers in one tap; a search for "BAW" lists every matching
 //      flight to pick from (a tap opens its card), an exact call sign goes straight to it; every key 44 pt;
 //   e. YOUR CAMERA WALL (see.u2): PIN TO WALL on a camera's card keeps it on the phone; WALL in the bar opens the wall, its tile live;
-//      EDIT and TAKE OFF empty it, said in his words; "my camera wall" is its wording.
+//      EDIT and TAKE OFF empty it, said in his words; "my camera wall" is its wording;
+//   f. RAIN RADAR (see.s3): RAIN in the bar plays the last two hours of radar frames over home, the slider moves through them, and the
+//      line for home says rain is coming in about 20 minutes (the quarter-hour forecast stood in); the line itself, read from source.
 //   BASE=http://localhost:8788 node tests/seetrip.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
@@ -66,6 +68,8 @@ const hours = () => {
   const days = Array.from({ length: 3 }, (_, i) => new Date(Date.now() + i * 86400_000).toISOString().slice(0, 10));
   return {
     current: { temperature_2m: 9.4, apparent_temperature: 7, relative_humidity_2m: 80, weather_code: 61, wind_speed_10m: 12, wind_direction_10m: 220, pressure_msl: 1008 },
+    // the quarter hours for the radar's line: dry now, rain from twenty minutes on
+    minutely_15: { time: Array.from({ length: 12 }, (_, i) => Math.floor(Date.now() / 900_000) * 900 + i * 900), precipitation: Array.from({ length: 12 }, (_, i) => (i >= 2 ? 0.6 : 0)) },
     hourly: { time, temperature_2m: time.map(() => 9.4), precipitation_probability: time.map(() => 60), weather_code: time.map(() => 61) },
     daily: { time: days, temperature_2m_max: [11, 11, 11], temperature_2m_min: [5, 5, 5], precipitation_probability_max: [60, 60, 60], sunrise: days.map((d) => `${d}T07:20`), sunset: days.map((d) => `${d}T16:10`), uv_index_max: [1, 1, 1] },
   };
@@ -81,6 +85,7 @@ async function phone(viewport) {
     if (/\.(jpg|jpeg)$/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'image/png' }, body: IMG });
     if (/api\.tfl\.gov\.uk/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify([0, 1, 2].map(tfl)) });
     if (/api\.adsb\.lol|airplanes\.live/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ac: AC }) });
+    if (/api\.rainviewer\.com/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ host: 'https://tilecache.rainviewer.com', radar: { past: Array.from({ length: 13 }, (_, i) => ({ time: Math.floor(Date.now() / 1000) - (12 - i) * 600, path: `/v2/radar/${i}` })) } }) });
     if (/api\.open-meteo\.com/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(hours()) });
     return route.fulfill({ status: 404, body: '' });
   });
@@ -154,6 +159,14 @@ const WALL_EMPTY = /export const WALL_EMPTY = '([^']+)'/.exec(readFileSync(new U
   for (const t of ['what is the weather', 'sky news', 'storm in a teacup']) check(S.setAsked(t) === null, `[c words] "${t}" was taken as a layer set`);
   for (const t of ['my camera wall', 'show my cameras', 'open the camera wall', 'camera wall']) check(S.WALL_ASK.test(t), `[c words] "${t}" is not the camera wall`);
   for (const t of ['the wall', 'show me the cameras on the Strand', 'wall mode']) check(!S.WALL_ASK.test(t), `[c words] "${t}" was taken as the camera wall`);
+  for (const t of ['rain radar', 'show me the rain map', 'replay the rain', 'weather radar']) check(S.RAIN_ASK.test(t), `[c words] "${t}" is not the rain radar`);
+  for (const t of ['will it rain tomorrow', 'radar on']) check(!S.RAIN_ASK.test(t), `[c words] "${t}" was taken as the rain radar`);
+  // the line for home, from the quarter hours (now, a dry spell, rain coming, raining now)
+  const n0 = Date.UTC(2026, 10, 14, 9, 0);
+  const q = (mm) => mm.map((m, i) => ({ t: n0 + i * 900_000, mm: m }));
+  check(S.rainLine(q([0, 0, 0, 0, 0, 0, 0, 0]), n0, 'Birmingham') === 'No rain at Birmingham in the next two hours.', `[f rain] dry reads "${S.rainLine(q([0, 0, 0, 0, 0, 0, 0, 0]), n0, 'Birmingham')}"`);
+  check(S.rainLine(q([0, 0, 0.6, 1, 0, 0, 0, 0]), n0, 'Birmingham') === 'Light rain at Birmingham in about 30 minutes.', `[f rain] coming reads "${S.rainLine(q([0, 0, 0.6, 1, 0, 0, 0, 0]), n0, 'Birmingham')}"`);
+  check(S.rainLine(q([2, 2, 0, 0, 0, 0, 0, 0]), n0, 'Birmingham') === 'Rain at Birmingham now, easing in about 30 minutes.', `[f rain] raining reads "${S.rainLine(q([2, 2, 0, 0, 0, 0, 0, 0]), n0, 'Birmingham')}"`);
 }
 
 for (const vp of [PHONE, PHONE2]) {
@@ -264,6 +277,22 @@ for (const vp of [PHONE, PHONE2]) {
       }
     }
     await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'cams', on: false }));
+  }
+  // f. the rain radar from the bar: frames over home, the slider, the line for home
+  {
+    await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+    await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyebot .btns button')].find((b) => /^rain$/i.test((b.dataset.label || b.textContent).trim()))?.click());
+    const ready = await until(page, () => window.__ghosty?.rain?.state === 'ready' && window.__ghosty.rain.frames === 13, null, 15000);
+    if (check(ready, `${T} [f rain] the radar never played its frames: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.rain))} "${await text(page, '.rain')}"`)) {
+      await page.evaluate(() => { const s = document.querySelector('.rain .rainslider'); s.value = '3'; s.dispatchEvent(new Event('input')); });
+      check((await page.evaluate(() => window.__ghosty.rain.frame)) === 3 && /min ago/.test(await text(page, '.rain .rainwhen')), `${T} [f rain] the slider did not move to an earlier frame: "${await text(page, '.rain .rainwhen')}"`);
+      check(/^Light rain at Birmingham in about (15|20) minutes\.$/.test(await text(page, '.rain .rainline')), `${T} [f rain] the line for home reads "${await text(page, '.rain .rainline')}"`);
+      await still(page);
+      const b = await bar(page, '.rain');
+      check(!b.length, `${T} [f rain] ${b.join(', ')}`);
+      if (vp === PHONE) await page.screenshot({ path: `${out}/seetrip-rain-${vp.width}.png` }).catch(() => undefined);
+    }
+    await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
   }
   // b. no signal: the planner offers the kept journey, which opens with its warning
   await ctx.setOffline(true);
