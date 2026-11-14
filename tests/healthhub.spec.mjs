@@ -232,6 +232,15 @@ for (const vp of VIEWPORTS) {
   const n = await page.evaluate(() => window.__ghosty.lockpush.gone.length);
   await page.locator(`${KT} button[aria-label^="Cancel the"]`).first().click();
   check(await until(page, (k) => window.__ghosty.lockpush.gone.length > k, n, 8000), '[440] CANCEL takes the lock-screen ring back');
+  // a preset, and one more minute (its lock-screen ring moved with it)
+  await page.locator(`${KT} button[aria-label="A 10 minute timer for the pasta"]`).click();
+  check(await until(page, () => window.__ghosty.timers().some((t) => t.name === 'pasta' && t.left > 590 && t.left <= 600)), '[440] PASTA 10 MIN starts a ten-minute timer');
+  await until(page, () => (window.__ghosty.lockpush.sent ?? []).some((x) => /pasta/.test(x.text)), null, 8000);
+  await page.locator(`${KT} button[aria-label="One more minute on the pasta timer"]`).click();
+  check(await until(page, () => window.__ghosty.timers().some((t) => t.name === 'pasta' && t.left > 650)), '[440] +1 MIN adds a minute');
+  check(await until(page, () => window.__ghosty.lockpush.sent.filter((x) => /pasta/.test(x.text)).length === 2, null, 8000), '[440] and the lock-screen ring moves with it');
+  await bar(page, '[440] timers', 'kitchen');
+  await page.evaluate(() => window.__ghosty.timers().forEach(() => undefined));
   await ctx.close();
 }
 

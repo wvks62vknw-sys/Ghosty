@@ -10,7 +10,7 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { book, fillWeek, foodNotes, kcalOf, pantryScreen, recipeFor, recipesScreen, toShopping, weekShopping } from './larder';
-import { onTimers, startTimers, startedWords, stopTimer, stopTimers, timersNow } from './timers';
+import { addMinute, onTimers, startTimers, startedWords, stopTimer, stopTimers, timersNow } from './timers';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
 
@@ -94,7 +94,9 @@ function timersSheet(): { el: HTMLElement; stop(): void } {
             stop.setAttribute('aria-label', `${t.ringing ? 'Stop' : 'Cancel'} the ${t.name} timer`);
             const clock = h('b', t.ringing ? 'Up' : mmss(t.left));
             if (!t.ringing) clocks.set(t.id, clock);
-            const card = h(`div.pktimer${t.ringing ? '.ringing' : ''}` as 'div', { role: 'timer', 'aria-label': `${t.name}: ${t.ringing ? 'ringing, tap to stop' : `${mmss(t.left)} left`}` }, clock, h('span', t.ringing ? `${t.name} is done. Tap anywhere to stop.` : t.name), stop);
+            const more = t.ringing ? null : button('+1 min', () => addMinute(t.id));
+            more?.setAttribute('aria-label', `One more minute on the ${t.name} timer`);
+            const card = h(`div.pktimer${t.ringing ? '.ringing' : ''}` as 'div', { role: 'timer', 'aria-label': `${t.name}: ${t.ringing ? 'ringing, tap to stop' : `${mmss(t.left)} left`}` }, clock, h('span', t.ringing ? `${t.name} is done. Tap anywhere to stop.` : t.name), ...(more ? [more] : []), stop);
             // a ringing one stops on one tap anywhere on its card
             if (t.ringing) card.addEventListener('click', () => stopTimer(t.id));
             return card;
@@ -117,6 +119,12 @@ function timersSheet(): { el: HTMLElement; stop(): void } {
     }
   };
   input.addEventListener('keydown', (e) => e.key === 'Enter' && add());
+  // PRESETS: the common ones, one tap each
+  const presets = h('div.pkrow.kt-presets', { role: 'group', 'aria-label': 'Quick timers' }, ...([['Soft egg', 6], ['Pasta', 10], ['Rice', 12], ['Tea', 4], ['Roast', 60]] as const).map(([name, min]) => {
+    const b = button(`${name} ${min >= 60 ? `${min / 60} h` : `${min} min`}`, () => void startTimers([{ secs: min * 60, name: name.toLowerCase() }]));
+    b.setAttribute('aria-label', `A ${min >= 60 ? `${min / 60} hour` : `${min} minute`} timer for the ${name.toLowerCase()}`);
+    return b;
+  }));
   const set = button('Set', add, 'on');
   set.setAttribute('aria-label', 'Set the timer');
   const all = button('Stop all', () => stopTimers(''));
@@ -124,7 +132,7 @@ function timersSheet(): { el: HTMLElement; stop(): void } {
   paint();
   /* state: kitchen.timers offline */
   const net = lacksSignal() ? [stateLine('offline', 'No signal needed: timers run on this phone.')] : [];
-  const el = h('div.pkcol', rows, h('div.pkadd', input, set), msg, h('p.pknote', 'They ring here, and one of a minute or more on your lock screen too, through my push (only its end time and name go there).'), h('div.pkrow', all), ...net, phrases(['shopping list', 'timer 8 minutes for the pasta']));
+  const el = h('div.pkcol', rows, h('div.pkadd', input, set), presets, msg, h('p.pknote', 'They ring here, and one of a minute or more on your lock screen too, through my push (only its end time and name go there).'), h('div.pkrow', all), ...net, phrases(['shopping list', 'timer 8 minutes for the pasta']));
   return { el, stop: off };
 }
 
