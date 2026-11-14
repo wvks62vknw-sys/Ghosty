@@ -33,7 +33,7 @@ const log = (s) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)} s · ${
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--disable-dev-shm-usage'] });
 const live = [];
 process.on('uncaughtException', async (e) => {
-  problems.push(`crashed: ${String(e.message).split('\n')[0]}`);
+  problems.push(`crashed: ${String(e.message).split('\n')[0]} ${String(e.stack ?? '').split('\n').filter((l) => l.includes('.spec.mjs')).slice(0, 2).join(' ')}`);
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 });

@@ -162,13 +162,27 @@ export async function openClock(start: 'world' | 'stopwatch' | 'timer' = 'world'
   // ---- TIMERS: the kitchen's timers (they ring while Ghosty is open, on any screen)
   const timers = await import('../features/kitchen/timers');
   const timerList = h('div.clktimers', { role: 'list', 'aria-label': 'Timers running' });
+  // each timer's row is kept and only its words change each tick, so a key is never swapped out from under his finger
+  const rows = new Map<string, { el: HTMLElement; left: HTMLElement; key: HTMLButtonElement; ringing: boolean }>();
+  const empty = h('p.note', 'No timer running. Pick one above; it rings even with the clock shut, while Ghosty is open.');
   const paintTimers = () => {
     const list = timers.timersNow(now());
-    timerList.replaceChildren(...(list.length
-      ? list.map((t) => h('div.clktimer', { role: 'listitem', dataset: { timer: t.id, ringing: String(t.ringing) } },
-          h('span', h('b', t.name), h('span', ` ${t.ringing ? 'ringing' : leftWords(t.left * 1000)}`)),
-          key(t.ringing ? 'Stop' : 'Cancel', () => (timers.stopTimer(t.id), paintTimers()), { kind: t.ringing ? 'fill' : 'ghost' })))
-      : [h('p.note', 'No timer running. Pick one above; it rings even with the clock shut, while Ghosty is open.')]));
+    for (const [id, r] of rows) if (!list.some((t) => t.id === id)) (r.el.remove(), rows.delete(id));
+    for (const t of list) {
+      let r = rows.get(t.id);
+      if (!r || r.ringing !== t.ringing) {
+        r?.el.remove();
+        const left = h('span');
+        const k2 = key(t.ringing ? 'Stop' : 'Cancel', () => (timers.stopTimer(t.id), paintTimers()), { kind: t.ringing ? 'fill' : 'ghost' });
+        const el = h('div.clktimer', { role: 'listitem', dataset: { timer: t.id, ringing: String(t.ringing) } }, h('span', h('b', t.name), left), k2);
+        r = { el, left, key: k2, ringing: t.ringing };
+        rows.set(t.id, r);
+        timerList.append(el);
+      }
+      r.left.textContent = ` ${t.ringing ? 'ringing' : leftWords(t.left * 1000)}`;
+    }
+    if (list.length) empty.remove();
+    else if (!empty.isConnected) timerList.append(empty);
     clockState.timers = list.length;
   };
   const offTimers = timers.onTimers(paintTimers);
