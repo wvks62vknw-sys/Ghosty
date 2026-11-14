@@ -18,7 +18,8 @@ export const gamestudioTab: TabDef = {
   blurb: 'make a 2-D game · play it · share it',
   now: () => (info.games ? `${info.games} game${info.games === 1 ? '' : 's'}${info.last ? `, the newest “${info.last}”` : ''}` : ''),
   mount(root) {
-    const P = page(root, { tag: 'MAKE // GAME STUDIO', sub: '', leftLabel: 'GAMES', rightLabel: '?' });
+    // (stacked, as every page() screen: About follows My games in one scrolling page, never behind a lone "?")
+    const P = page(root, { tag: 'MAKE // GAME STUDIO', sub: '', leftLabel: 'GAMES', rightLabel: 'ABOUT', stack: true });
     root.classList.add('studiopg');
     P.big.dataset.case = 'keep';
     let studio: import('../../studio-game/editor').Studio | null = null;
