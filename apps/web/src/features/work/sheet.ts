@@ -10,7 +10,8 @@ import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { clockNow } from '../kitchen/timers';
 import { sayError } from '../../ui/hisWords';
-import { adoptTodos, loadTodos, syncTodos, tickTodo } from '../agenda/todo';
+import { adoptTodos, loadTodos, syncTodos, tickTodo, todoWaiting, TODO_SYNCED } from '../agenda/todo';
+import { todoWaitWords } from '../agenda/todowords';
 import { daysTo, dueWords, emptyState, lacksSignal, phrases, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 import { forgetFromLibrary, keepInLibrary, KIND_WORDS, listLibrary, type LibDoc } from './library';
 import { run as runCommand } from '../../commands/registry';
@@ -316,6 +317,15 @@ function todoScreen(): Screen {
   const slot = h('div.pkcol', { 'aria-live': 'polite' });
   const status = h('p.pknote', { 'aria-live': 'polite' }, 'Kept in my brain. Add by voice too: “add to my to-do: send the invoice by Friday”.');
   let loaded = false;
+  // [planlane2:onelist] a tick made with no signal (or while my brain does not answer) stays ticked and waits on this phone: said here, in
+  // the same words as the Agenda's TO-DO, until it has reached the one list
+  const waitLine = h('p.pknote.pktodowait', { 'aria-live': 'polite', dataset: { case: 'keep' }, hidden: true });
+  const paintWait = () => {
+    const n = todoWaiting();
+    waitLine.hidden = !n;
+    waitLine.textContent = n ? todoWaitWords(n, typeof navigator !== 'undefined' && navigator.onLine === false) : '';
+  };
+  addEventListener(TODO_SYNCED, paintWait);
   const act = async (words: string) => {
     if (lacksSignal()) {
       /* state: work.todo offline */
@@ -368,6 +378,7 @@ function todoScreen(): Screen {
             workState.todo = loadTodos().map((x) => ({ id: x.id, text: x.text, done: x.done, ...(x.due ? { due: x.due } : {}) }));
             loaded = true;
             paint();
+            paintWait();
             return;
           }
           void act(`${box.checked ? 'tick' : 'untick'} ${t.text}`);
@@ -395,10 +406,11 @@ function todoScreen(): Screen {
   addBtn.setAttribute('aria-label', 'Add the job');
   const clear = button('Clear done', () => void act('clear done'));
   clear.hidden = true;
-  const el = h('div.pkcol', h('div.pkadd', input, addBtn), slot, count, items, h('div.pkrow', clear), status, phrases(['interview practice', 'add to my to-do: send the invoice by Friday']));
+  const el = h('div.pkcol', h('div.pkadd', input, addBtn), slot, count, items, waitLine, h('div.pkrow', clear), status, phrases(['interview practice', 'add to my to-do: send the invoice by Friday']));
   /* state: work.todo loading */
   const done = waitFor(el, 'Opening your list…');
   // ([planlane2:onelist] changes made on the Agenda with no signal go first, so this screen opens on the one list as it is)
   void syncTodos(true).finally(() => void act('').finally(done));
-  return { el, stop: () => undefined };
+  paintWait();
+  return { el, stop: () => removeEventListener(TODO_SYNCED, paintWait) };
 }

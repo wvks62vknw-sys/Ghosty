@@ -90,6 +90,7 @@ export function puzzlesSection(io: { renderFrame(f: Frame | null, onCell?: (i: n
       ...(live ? [button('STOP', () => end(), '')] : [
         ...(left().length ? [button('SOLVE', () => next('solve'), 'on'), button('PUZZLE RUSH', () => rush(), '')] : []),
         button(book.pack.length ? `GET ${PACK} MORE · ABOUT 12 KB` : `GET PUZZLES · ABOUT 12 KB`, () => void getPack()),
+        button('TODAY’S PUZZLE · ABOUT 1 KB', () => void getDaily()),
       ]));
     for (const b of actions.querySelectorAll('button')) (b as HTMLButtonElement).disabled = busy;
   };
@@ -119,12 +120,45 @@ export function puzzlesSection(io: { renderFrame(f: Frame | null, onCell?: (i: n
     }
   };
 
-  /** The next puzzle: nearest his rating (solve), or the easiest left (rush). */
+  /** Lichess's puzzle of the day (about 1 KB, on his tap): kept with the pack and set up at once. */
+  const getDaily = async () => {
+    if ((onMobileData() || netUnknown()) && !secondTap('chess:daily')) return caption(onMobileData() ? 'You’re on mobile data: tap again to fetch today’s puzzle now (about 1 KB), or wait for Wi-Fi.' : unknownNet('about 1 KB'));
+    puzzlesState.fetching = true;
+    keys();
+    caption('Fetching today’s puzzle from Lichess…');
+    try {
+      const r = await fetch('/api/chess/puzzles/daily', { headers: headers(), credentials: 'same-origin' }).catch(() => {
+        throw new Error('I can’t reach my brain right now (no connection?), so today’s puzzle can’t be fetched.');
+      });
+      const j = (await r.json().catch(() => ({}))) as { puzzle?: Puzzle; error?: string };
+      if (!r.ok || !j.puzzle || !puzzleStart(j.puzzle)) throw new Error(j.error || `my brain answered ${r.status}`);
+      const d = j.puzzle;
+      if (d.id in book.done) {
+        puzzlesState.fetching = false;
+        keys();
+        return caption(`You’ve done today’s puzzle already${book.done[d.id] ? ', and solved it' : ''}. Another one comes tomorrow.`);
+      }
+      book = { ...book, pack: [d, ...book.pack.filter((x) => x.id !== d.id)] };
+      save(book);
+      puzzlesState.fetching = false;
+      paintLine();
+      daily = d.id;
+      next('solve');
+    } catch (e) {
+      puzzlesState.fetching = false;
+      caption(sayError(e, 'fetch today’s puzzle'));
+      keys();
+    }
+  };
+  let daily = '';
+
+  /** The next puzzle: nearest his rating (solve), or the easiest left (rush); today's puzzle first when he just fetched it. */
   const next = (mode: 'solve' | 'rush') => {
     puzzlesState.mode = mode;
     clear(after);
     const pool = left().sort((a, b) => (mode === 'rush' ? a.rating - b.rating : Math.abs(a.rating - book.rating) - Math.abs(b.rating - book.rating)));
-    z = pool[0] ?? null;
+    z = (daily && pool.find((x) => x.id === daily)) || pool[0] || null;
+    daily = '';
     p = z ? puzzleStart(z) : null;
     if (!z || !p) {
       z = null;
