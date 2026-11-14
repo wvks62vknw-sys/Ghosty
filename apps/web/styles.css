@@ -7659,6 +7659,14 @@ html .studioseg button[data-pane="engine"] { grid-column: 1 / -1; }
 html .hud.studio[data-pane="engine"] :is(.studiohud, .studiocredit, .studiomeasure, .studiomodes, .studiostick, .studiobar) { display: none !important; }
 html .hud.studio[data-pane="engine"] .studioview, html body.housed .hud.studio[data-pane="engine"] .studioview { aspect-ratio: auto; height: min(48vh, 460px); max-height: none; position: sticky; top: 0; z-index: 6; }
 html :is(#pg-studio:has(.hud.studio[data-pane="engine"]), .hud.studio[data-pane="engine"]) { scroll-padding-top: calc(min(48vh, 460px) + var(--g-s-1)); }
+/* THE DOCK (phones, where the studio scrolls as one page). The picture stays in view while the panel scrolls under it, so it docks flat
+   against the scroller's top edge: the scroller's own 6 px top padding moves onto the picture as a margin (it starts exactly where it
+   did, then docks), and the docked picture is square-cornered. Before, it docked 6 px below that edge and rounded, so the words
+   scrolling under it showed in the strip above it and through its corners, in every world. The car's working engine docks the same way. */
+@media (max-width: 899px) {
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) { padding-top: 0 !important; }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) .studioview { margin-top: 6px; border-radius: 0; }
+}
 html .e3stage { position: absolute; inset: 0; z-index: 3; overflow: hidden; background: rgb(var(--g-canvas-rgb)); touch-action: none; user-select: none; -webkit-user-select: none; border-radius: inherit; }
 html .e3stage[hidden] { display: none; }
 html .e3stage canvas.e3canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
