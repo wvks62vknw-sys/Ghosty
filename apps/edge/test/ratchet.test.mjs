@@ -160,6 +160,8 @@ export const STATES = {
   'lens.measure': { dir: 'lens', base: 1, now: 1 },
   // PHOTO TOOLS: a job the free online tools did not do (BACKGROUND offers the cut-out on this phone; SHARPER and ERASE say they wait)
   'lens.photo': { dir: 'lens', base: 1, now: 2 },
+  // [lens.u6] SCAN's DOCUMENT AUTO, new (base 0): no page in view, holding still, a page it could not keep, no signal (and none needed)
+  'lens.scan': { dir: 'lens', base: 0, now: 4 },
   'threats.signals': { dir: 'threats', base: 2, now: 4 },
   'threats.nearhome': { dir: 'threats', base: 2, now: 4 },
   'settings.packs': { dir: 'settings', base: 3, now: 3 },

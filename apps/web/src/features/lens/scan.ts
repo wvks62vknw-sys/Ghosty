@@ -10,7 +10,10 @@
  *
  * DOCUMENT — a page photographed: its corners found (or dragged by hand), straightened to A4,
  * cleaned up; more pages added; EXPORT PDF (made on the phone, scan/pdf.ts) through the share
- * sheet or as a download; READ ALL turns the pages into text for the library, on a tap.
+ * sheet or as a download; READ ALL turns the pages into text for the library, on a tap. AUTO (on
+ * unless he turns it off; remembered on this phone) looks at a shrunk live frame four times a
+ * second and takes the page itself once its corners have held still for about a second (the
+ * decision is scan/page.ts steadyStep), then waits for the page to turn before taking another.
  *
  * TRANSLATE — the text in a picture (the READ reader) → the brain's translator → both shown.
  *
@@ -30,7 +33,7 @@ import { cleanOcr, titleFrom } from '../../vision/ocrtext';
 import { LANGUAGES, langName, type LookupResult } from '../../../../../packages/shared/src/scan';
 import { freeBarcodes, readCodes, warmBarcodes, type FoundCode } from '../../scan/barcode';
 import { classifyCode, describeCode, type CodeInfo } from '../../scan/codes';
-import { defaultQuad, findPageIn, straighten, type Quad } from '../../scan/page';
+import { defaultQuad, findPageIn, STEADY_START, steadyStep, straighten, type Quad, type Steady } from '../../scan/page';
 import { makePdf, type PdfPage } from '../../scan/pdf';
 import type { LensContext, Mode, ModeOpts } from './index';
 import { sayError } from '../../ui/hisWords';
@@ -57,13 +60,28 @@ export interface ScanState {
   /** 'offline': the brain could not be reached and the phone's own model translated (roughly). */
   engine: string;
   error: string;
+  /** DOCUMENT's AUTO: pages taken by themselves when he holds still (remembered on this phone). */
+  auto: boolean;
+  /** AUTO is ready to take the next page (false from a take until the page turns, and while AUTO is off). */
+  armed: boolean;
+  /** Pages AUTO has taken since the Lens opened. */
+  autoTaken: number;
+  /** AUTO's line under the keys, in his words. */
+  autoLine: string;
 }
 
-export const scanState: ScanState = { sub: 'code', status: '', codes: [], lookup: null, pages: 0, pdf: null, original: '', translation: '', engine: '', error: '' };
+export const scanState: ScanState = { sub: 'code', status: '', codes: [], lookup: null, pages: 0, pdf: null, original: '', translation: '', engine: '', error: '', auto: true, armed: true, autoTaken: 0, autoLine: '' };
 
 const LOOK_MS = 300;
 const MAX_PAGES = 30;
 const LANG_KEY = 'ghosty.scan.to';
+const AUTO_KEY = 'ghosty.scan.auto';
+/** AUTO looks this often, at a frame this small (the page finder works at 256 px anyway). */
+const AUTO_MS = 250;
+const AUTO_SIDE = 256;
+
+/** A design token's colour, for drawing on a canvas (the overlay's outline). */
+const token = (name: string): string => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
@@ -414,7 +432,11 @@ export function createScanMode(L: LensContext): Mode {
     b.classList.toggle('on', enhanceOn);
   }, 'on');
   const editor = h('div.stackf', edit, editNote,
-    h('div.row.wrap', button('KEEP PAGE', () => void keepPage(), 'on'), button('FIND EDGES', () => autoFind()), enhanceBtn, button('CANCEL', () => closeEditor())),
+    h('div.row.wrap', button('KEEP PAGE', () => void keepPage(), 'on'), button('FIND EDGES', () => autoFind()), enhanceBtn, button('CANCEL', () => {
+      closeEditor();
+      // let go of by hand: AUTO does not take that page either, and waits for the next
+      passOver(['Turn to the next page: AUTO takes it when you hold still.', '']);
+    })),
   );
   editor.hidden = true;
   const strip = h('div.scanpages');
@@ -427,8 +449,185 @@ export function createScanMode(L: LensContext): Mode {
     await L.saveNote(titleFrom(t, 'Scanned document'), t, 'scan');
   });
   docSave.hidden = true;
+
+  // ---- AUTO: the page taken by itself once he holds still (lens.u6)
+  let autoOn = true;
+  try {
+    autoOn = localStorage.getItem(AUTO_KEY) !== '0';
+  } catch {
+    /* on, as it starts */
+  }
+  S.auto = autoOn;
+  let steady: Steady = { ...STEADY_START };
+  let autoLast = 0;
+  let autoBusy = false;
+  /** The corners AUTO last saw (in its small frame), so a page kept by hand is not taken again by AUTO. */
+  let lastSeen: Quad | null = null;
+  let outlined = false;
+  /** What the line says while AUTO waits for the page to turn: the last page kept, or why it could not be. */
+  let waitLine: [string, string] = ['Turn to the next page.', ''];
+  const autoBtn = button(autoOn ? 'AUTO: ON' : 'AUTO: OFF', () => setAuto(!autoOn), autoOn ? 'on' : '');
+  const autoLine = h('div.note.scanauto', { 'aria-live': 'polite' });
+  const syncAutoBtn = () => {
+    autoBtn.textContent = autoOn ? 'AUTO: ON' : 'AUTO: OFF';
+    autoBtn.classList.toggle('on', autoOn);
+    autoBtn.setAttribute('aria-pressed', String(autoOn));
+    autoBtn.setAttribute('aria-label', `Auto ${autoOn ? 'on' : 'off'}: take each page by itself when you hold still`);
+  };
+  syncAutoBtn();
+  /** AUTO's line under the keys, and the same words over the viewfinder while the camera is live. `kind` is its
+   *  state for the checks (data-state) when it is one of the four. */
+  const sayAuto = (text: string, kind = '') => {
+    S.autoLine = text;
+    autoLine.textContent = text;
+    autoLine.hidden = !text;
+    if (kind) autoLine.dataset.state = kind;
+    else delete autoLine.dataset.state;
+    if (sub === 'document') L.lines(L.state.camera === 'on' && autoOn ? text : '', pages.length ? `${pages.length} PAGE${pages.length === 1 ? '' : 'S'}` : '');
+  };
+  /** No page in view (or none big enough): what to do, said; with no signal, that none is needed. */
+  const sayLooking = () => {
+    if (navigator.onLine === false) {
+      /* state: lens.scan offline */
+      sayAuto('No signal, and none needed: hold the phone over a page and keep still. Pages are found and kept on this phone.', 'offline');
+    } else {
+      /* state: lens.scan empty */
+      sayAuto('No page in view yet: hold the phone over a page, filling most of the picture, and keep still.', 'empty');
+    }
+  };
+  /** The line for where AUTO is now, when no look has said anything newer. */
+  const refreshAuto = () => {
+    if (!autoOn) sayAuto('AUTO is off: CAPTURE PAGE takes each page.');
+    else if (L.state.camera !== 'on') sayAuto('AUTO takes each page when you hold still: START the camera.');
+    else if (pages.length >= MAX_PAGES) sayAuto(`${MAX_PAGES} pages is the most: EXPORT PDF, then CLEAR for more.`);
+    else sayLooking();
+  };
+  const unoutline = () => {
+    if (!outlined) return;
+    outlined = false;
+    // (a fresh overlay, not a clear: Chromium can keep showing a cleared drawing)
+    L.clearOverlay();
+  };
+  /** The corners AUTO is about to take, drawn over the live picture (`q` in a frame `c` wide; `done`: just taken). */
+  const outline = (q: Quad, cw: number, progress: number, done = false) => {
+    L.clearOverlay();
+    const g = L.overlay();
+    if (!g) return;
+    outlined = true;
+    const k = L.camera.size.w / Math.max(1, cw);
+    const pts = q.map((p) => L.viewPoint(p.x * k, p.y * k));
+    const ink = token(done ? '--g-ok' : '--g-accent');
+    if (ink) {
+      g.strokeStyle = ink;
+      g.fillStyle = ink;
+    }
+    g.lineWidth = done ? 3 : 2;
+    g.beginPath();
+    pts.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
+    g.closePath();
+    g.globalAlpha = done ? 0.22 : 0.06 + 0.12 * progress;
+    g.fill();
+    g.globalAlpha = 1;
+    g.stroke();
+    // the corners grow as it settles: a page about to be taken
+    for (const p of pts) {
+      g.beginPath();
+      g.arc(p.x, p.y, 5 + 5 * progress, 0, Math.PI * 2);
+      g.fill();
+    }
+  };
+  /** The page in front of the camera was just dealt with by hand (kept, or let go of): AUTO does not take it again,
+   *  and says `line` until the page turns. */
+  const passOver = (line: [string, string]) => {
+    if (L.state.camera === 'on' && lastSeen) steady = { ...STEADY_START, armed: false, taken: lastSeen };
+    S.armed = autoOn && steady.armed;
+    waitLine = line;
+    if (autoOn && L.state.camera === 'on' && !steady.armed) sayAuto(...waitLine);
+    else refreshAuto();
+  };
+  const setAuto = (on: boolean) => {
+    autoOn = on;
+    S.auto = on;
+    try {
+      localStorage.setItem(AUTO_KEY, on ? '1' : '0');
+    } catch {
+      /* this visit only */
+    }
+    syncAutoBtn();
+    // (a page just taken stays taken: turning AUTO off and on does not take it again)
+    steady = { ...steady, anchor: null };
+    S.armed = on && steady.armed;
+    unoutline();
+    refreshAuto();
+  };
+  /** One look at the live frame: is there a page, holding still, ready to take? */
+  const autoLook = async (now: number) => {
+    const c = L.camera.capture(AUTO_SIDE);
+    if (!c) return;
+    const q = findPageIn(c, AUTO_SIDE);
+    lastSeen = q;
+    const r = steadyStep(steady, q, now, { w: c.width, h: c.height });
+    steady = r.s;
+    S.armed = steady.armed;
+    if (r.act === 'search') {
+      unoutline();
+      return sayLooking();
+    }
+    if (r.act === 'wait') {
+      unoutline();
+      return sayAuto(...waitLine);
+    }
+    if (r.act === 'settle') {
+      outline(q!, c.width, r.progress);
+      /* state: lens.scan loading */
+      return sayAuto('Hold still…', 'loading');
+    }
+    // take: the frame now, full size, straightened and cleaned exactly as KEEP PAGE does
+    outline(q!, c.width, 1, true);
+    const big = L.still(2000);
+    if (!big) return;
+    const k = big.width / c.width;
+    try {
+      const n = await addPage(big, q!.map((p) => ({ x: p.x * k, y: p.y * k })) as Quad);
+      S.autoTaken++;
+      beep();
+      const said = `Page ${n} kept. Turn to the next page.`;
+      waitLine = [said, ''];
+      toast(said, 'ok');
+      status(said, 'ok');
+      sayAuto(said);
+    } catch (e) {
+      S.error = errText(e, 'keep that page');
+      /* state: lens.scan error */
+      waitLine = [`${S.error} To try again: move the page away and back, or CAPTURE PAGE.`, 'error'];
+      sayAuto(...waitLine);
+      status(S.error, 'off');
+    }
+  };
+  const autoTick = (now: number) => {
+    if (!autoOn || autoBusy || L.state.frozen || now - autoLast < AUTO_MS) return;
+    autoLast = now;
+    if (photo) {
+      // the corners are being placed by hand: AUTO only watches (so the page kept by hand is not taken again after)
+      const c = L.camera.capture(AUTO_SIDE);
+      lastSeen = c ? findPageIn(c, AUTO_SIDE) : null;
+      unoutline();
+      return sayAuto('AUTO waits while you place the corners.');
+    }
+    if (pages.length >= MAX_PAGES) return refreshAuto();
+    autoBusy = true;
+    void autoLook(now)
+      .catch((e: unknown) => {
+        S.error = errText(e, 'look for the page');
+        /* state: lens.scan error */
+        sayAuto(`${S.error} CAPTURE PAGE still works.`, 'error');
+      })
+      .finally(() => (autoBusy = false));
+  };
+
   const docBody = h('div.stackf',
-    h('div.row', button('CAPTURE PAGE', () => void openEditor(L.still(2000)), 'on'), button('PICK PHOTO', () => file.click())),
+    h('div.row.wrap', button('CAPTURE PAGE', () => void openEditor(L.still(2000)), 'on'), autoBtn, button('PICK PHOTO', () => file.click())),
+    autoLine,
     editor,
     pagesLabel,
     strip,
@@ -535,18 +734,26 @@ export function createScanMode(L: LensContext): Mode {
         });
     }))));
   };
+  /** A page straightened (and cleaned up while CLEAN UP is on) and added to the pages: the one way a page is kept,
+   *  by KEEP PAGE or by AUTO. Its number. */
+  const addPage = async (src: HTMLCanvasElement, q: Quad): Promise<number> => {
+    const flat = straighten(src, q, { enhance: enhanceOn, long: 1600 });
+    const jpeg = await jpegOf(flat);
+    pages.push({ jpeg, w: flat.width, h: flat.height, thumb: drawScaled(flat, { w: flat.width, h: flat.height }, 120).toDataURL('image/jpeg', 0.6) });
+    renderPages();
+    return pages.length;
+  };
   const keepPage = async () => {
     if (!photo || !quad) return;
     try {
       status('straightening the page…', 'mid');
       // a breath for the status line to show before the work
       await new Promise((r) => setTimeout(r, 30));
-      const flat = straighten(photo, quad, { enhance: enhanceOn, long: 1600 });
-      const jpeg = await jpegOf(flat);
-      pages.push({ jpeg, w: flat.width, h: flat.height, thumb: drawScaled(flat, { w: flat.width, h: flat.height }, 120).toDataURL('image/jpeg', 0.6) });
+      const n = await addPage(photo, quad);
       closeEditor();
-      renderPages();
-      status(`page ${pages.length} kept · CAPTURE PAGE for the next, or EXPORT PDF`, 'ok');
+      // the page in front of the camera was just kept by hand: AUTO waits for the next one
+      passOver([`Page ${n} kept. Turn to the next page.`, '']);
+      status(`page ${n} kept · CAPTURE PAGE for the next, or EXPORT PDF`, 'ok');
     } catch (e) {
       S.error = errText(e);
       toast(`Could not keep the page: ${S.error}`, 'bad');
@@ -728,6 +935,7 @@ export function createScanMode(L: LensContext): Mode {
     S.sub = s;
     for (const [id, b] of subBtns) b.classList.toggle('on', id === s);
     L.clearOverlay();
+    L.lines('', '');
     if (still && s !== 'code') {
       still = null;
       L.showStill(null);
@@ -742,6 +950,11 @@ export function createScanMode(L: LensContext): Mode {
       // the progress bar lives with whichever part reads
       docBody.insertBefore(progress, docText);
       status(pages.length ? `${pages.length} page(s) · CAPTURE PAGE for more` : 'CAPTURE PAGE, or PICK PHOTO', undefined);
+      // AUTO starts afresh on the page in view (a page it took before is still not taken twice)
+      steady = { ...steady, anchor: null };
+      S.armed = autoOn && steady.armed;
+      outlined = false;
+      refreshAuto();
     } else {
       clear(body, trBody);
       trBody.insertBefore(progress, original);
@@ -797,6 +1010,7 @@ export function createScanMode(L: LensContext): Mode {
       freeBarcodes();
     },
     tick(now) {
+      if (sub === 'document') return autoTick(now);
       if (sub !== 'code' || held || busy || L.state.frozen || now - lastLook < LOOK_MS) return;
       lastLook = now;
       busy = true;
@@ -811,6 +1025,18 @@ export function createScanMode(L: LensContext): Mode {
     },
     froze(c) {
       if (sub === 'code' && !held) void scanPhoto(c);
+      if (sub === 'document') {
+        // the picture is held: AUTO waits for the live picture again
+        unoutline();
+        steady = { ...steady, anchor: null };
+        if (autoOn) sayAuto('AUTO waits while the picture is frozen.');
+      }
+    },
+    cameraOff() {
+      // no live picture: AUTO says what it needs, and starts afresh when the camera comes back
+      outlined = false;
+      steady = { ...steady, anchor: null };
+      if (sub === 'document') refreshAuto();
     },
     unfroze() {
       // the held frame was the picture being scanned: it has gone from the screen
