@@ -18,7 +18,7 @@ const list = (text: string, sep = ';'): Card[] =>
 /* ---------- Periodic table: names and symbols (IUPAC), group, period and block worked out from the atomic number. */
 const ELEMENTS =
   'H Hydrogen,He Helium,Li Lithium,Be Beryllium,B Boron,C Carbon,N Nitrogen,O Oxygen,F Fluorine,Ne Neon,Na Sodium,' +
-  'Mg Magnesium,Al Aluminium,Si Silicon,P Phosphorus,S Sulfur,Cl Chlorine,Ar Argon,K Potassium,Ca Calcium,Sc Scandium,' +
+  'Mg Magnesium,Al Aluminium,Si Silicon,P Phosphorus,S Sulphur,Cl Chlorine,Ar Argon,K Potassium,Ca Calcium,Sc Scandium,' +
   'Ti Titanium,V Vanadium,Cr Chromium,Mn Manganese,Fe Iron,Co Cobalt,Ni Nickel,Cu Copper,Zn Zinc,Ga Gallium,' +
   'Ge Germanium,As Arsenic,Se Selenium,Br Bromine,Kr Krypton,Rb Rubidium,Sr Strontium,Y Yttrium,Zr Zirconium,' +
   'Nb Niobium,Mo Molybdenum,Tc Technetium,Ru Ruthenium,Rh Rhodium,Pd Palladium,Ag Silver,Cd Cadmium,In Indium,Sn Tin,' +
@@ -617,15 +617,15 @@ export const LEARN: AppDef[] = [
         { id: 'c', label: 'Side c', default: 5, min: 0 },
       ],
       outputs: [
-        { id: 'A', label: 'Angle A', expr: 'acos((b^2 + c^2 - a^2) / (2*b*c))', unit: '°' },
-        { id: 'B', label: 'Angle B', expr: 'acos((a^2 + c^2 - b^2) / (2*a*c))', unit: '°' },
-        { id: 'C', label: 'Angle C', expr: '180 - A - B', unit: '°' },
+        { id: 'ang_a', label: 'Angle A', expr: 'acos((b^2 + c^2 - a^2) / (2*b*c))', unit: '°' },
+        { id: 'ang_b', label: 'Angle B', expr: 'acos((a^2 + c^2 - b^2) / (2*a*c))', unit: '°' },
+        { id: 'ang_c', label: 'Angle C', expr: '180 - ang_a - ang_b', unit: '°' },
         { id: 'p', label: 'Perimeter', expr: 'a + b + c' },
         { id: 'area', label: 'Area', expr: 'sqrt((p/2) * (p/2 - a) * (p/2 - b) * (p/2 - c))' },
       ],
       tests: [
-        { in: { a: 3, b: 4, c: 5 }, out: { A: 36.8699, B: 53.1301, C: 90, p: 12, area: 6 } },
-        { in: { a: 2, b: 2, c: 2 }, out: { A: 60, B: 60, C: 60, p: 6, area: 1.7321 } },
+        { in: { a: 3, b: 4, c: 5 }, out: { ang_a: 36.8699, ang_b: 53.1301, ang_c: 90, p: 12, area: 6 } },
+        { in: { a: 2, b: 2, c: 2 }, out: { ang_a: 60, ang_b: 60, ang_c: 60, p: 6, area: 1.7321 } },
       ],
     },
   },
@@ -1027,7 +1027,7 @@ export const LEARN: AppDef[] = [
         { id: 'h', label: 'Hydrogen', default: 12, min: 0, step: 1 },
         { id: 'o', label: 'Oxygen', default: 6, min: 0, step: 1 },
         { id: 'n', label: 'Nitrogen', default: 0, min: 0, step: 1 },
-        { id: 's', label: 'Sulfur', default: 0, min: 0, step: 1 },
+        { id: 's', label: 'Sulphur', default: 0, min: 0, step: 1 },
         { id: 'cl', label: 'Chlorine', default: 0, min: 0, step: 1 },
         { id: 'na', label: 'Sodium', default: 0, min: 0, step: 1 },
         { id: 'g', label: 'Sample', unit: 'g', default: 18, min: 0 },
