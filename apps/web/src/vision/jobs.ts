@@ -15,7 +15,7 @@ import { datesIn } from '../../../../packages/shared/src/lifeeasier';
 
 // ---------------------------------------------------------------- the job
 
-export type JobId = 'nothing' | 'text' | 'receipt' | 'letter' | 'document' | 'code' | 'product' | 'thing' | 'living' | 'place' | 'known' | 'stranger';
+export type JobId = 'nothing' | 'text' | 'receipt' | 'contact' | 'stop' | 'letter' | 'document' | 'code' | 'product' | 'thing' | 'living' | 'place' | 'known' | 'stranger';
 
 /** What the one view has understood of the frame, as plain facts. */
 export interface Seen {
@@ -35,6 +35,10 @@ export interface Seen {
   letter?: boolean;
   /** The read words look like a till receipt (looksLikeReceipt). */
   receipt?: boolean;
+  /** The read words are a business card's (readBusinessCard). */
+  contact?: boolean;
+  /** The read words are a bus stop sign's (readBusStop). */
+  stop?: boolean;
 }
 
 /** What a living thing is called by the phone's finder and namer: the species then comes from the free model that sees, on his tap. */
@@ -73,6 +77,8 @@ export function jobsOf(s: Seen): JobId[] {
   const words = (s.text ?? '').match(/\S+/g)?.length ?? 0;
   if (words) {
     if (s.receipt) out.push('receipt');
+    else if (s.contact) out.push('contact');
+    else if (s.stop) out.push('stop');
     else if (s.letter) out.push('letter');
     else if ((s.textShare ?? 0) >= DOC_SHARE && words >= DOC_WORDS) out.push('document');
     else out.push('text');
@@ -516,4 +522,109 @@ export const isMenuLike = (text: string): boolean => String(text ?? '').split('\
 export function pairLines(lines: string[], english: string): string[] | null {
   const en = String(english ?? '').split('\n').map((l) => l.replace(/^\s*(?:\d+[.)]|[-•*])\s+/, '').trim()).filter(Boolean);
   return en.length === lines.length && lines.length ? en : null;
+}
+
+// ---------------------------------------------------------------- a business card (lens.s1: into his contacts, on the phone)
+
+/** A business card's details, only as the card prints them: nothing is looked up about the person. */
+export interface CardContact {
+  name: string;
+  title: string;
+  org: string;
+  phones: string[];
+  emails: string[];
+  web: string;
+  address: string;
+}
+
+const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+const PHONE_RE = /(?:\+|\b0)[\d\s().-]{8,16}\d/g;
+const ORG_WORDS = /\b(?:ltd|limited|plc|llp|inc|gmbh|group|services|solutions|company|consulting|partners|associates|studio|agency|council|trust|university|college|nhs)\b|&/i;
+const TITLE_WORDS = /\b(?:manager|director|engineer|officer|consultant|head|lead|founder|co-founder|ceo|cto|cfo|coo|partner|sales|developer|designer|assistant|associate|specialist|executive|advisor|adviser|architect|analyst|president|owner|accountant|solicitor|surveyor|agent|nurse|doctor|dr|teacher|coordinator|administrator|technician|electrician|plumber|builder|chef|photographer|editor|producer|representative|secretary)\b/i;
+const POSTCODE_RE = /\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/i;
+
+/** Is this line a person's name as cards print it: two to four words, each capitalised, letters only. */
+const nameLike = (l: string): boolean => {
+  const w = l.split(/\s+/);
+  return w.length >= 2 && w.length <= 4 && w.every((x) => /^(?:[A-Z][a-z'’-]+|[A-Z][A-Z'’-]+|[A-Z]\.)$/.test(x)) && !ORG_WORDS.test(l) && !TITLE_WORDS.test(l) && !/\b(?:street|road|lane|avenue|close|way|house|floor|unit|park|hall|centre|center|church|school|station|market|night|day|club|shop|cafe|bar|hotel|the|and|of|for|at)\b/i.test(l);
+};
+
+/**
+ * The read words of a business card → its details; null when the words are not a card's (more than 45 words, nothing to
+ * reach anyone by, or no name). Phone numbers are kept with their digits only (and a leading +).
+ */
+export function readBusinessCard(text: string): CardContact | null {
+  const t = String(text ?? '');
+  const words = t.match(/\S+/g)?.length ?? 0;
+  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (words < 3 || words > 45 || lines.length < 2 || lines.length > 14) return null;
+  const emails = [...new Set(t.match(EMAIL_RE) ?? [])].slice(0, 3);
+  const phones = [...new Set((t.replace(EMAIL_RE, ' ').match(PHONE_RE) ?? []).map((p) => p.replace(/[^\d+]/g, '')).filter((p) => p.replace(/\D/g, '').length >= 10 && p.replace(/\D/g, '').length <= 13))].slice(0, 3);
+  if (!emails.length && !phones.length) return null;
+  // the name stands near the top of a card
+  const nameLine = lines.slice(0, 3).find(nameLike);
+  if (!nameLine) return null;
+  const webM = t.replace(EMAIL_RE, ' ').match(/\b(?:https?:\/\/)?(?:www\.)[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?|\bhttps?:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?/i);
+  const strip = (l: string) => l.replace(/^(?:t|tel|telephone|m|mob|mobile|e|email|w|web|p|phone)\s*[:.]\s*/i, '').trim();
+  const titleLine = lines.find((l) => l !== nameLine && TITLE_WORDS.test(l) && !EMAIL_RE.test(l) && !/\d{4}/.test(l));
+  EMAIL_RE.lastIndex = 0;
+  const orgLine = lines.find((l) => l !== nameLine && l !== titleLine && ORG_WORDS.test(l) && !/@/.test(l) && !/\d{5}/.test(l));
+  const at = lines.findIndex((l) => POSTCODE_RE.test(l));
+  const address = at < 0 ? '' : [at > 0 && /\d/.test(lines[at - 1]!) && !/@|\d{6}/.test(lines[at - 1]!) ? lines[at - 1]! : '', lines[at]!].filter(Boolean).map(strip).join(', ');
+  return { name: nameLine, title: titleLine ? strip(titleLine) : '', org: orgLine ? strip(orgLine) : '', phones, emails, web: webM ? webM[0] : '', address };
+}
+
+/** One vCard field's value, escaped as the format needs. */
+const vEsc = (s: string): string => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
+
+/** A contact as a vCard (3.0), for the phone's own contacts: made on the phone, and nothing else is told. */
+export function vcardOf(c: Pick<CardContact, 'name'> & Partial<CardContact>): string {
+  const parts = c.name.trim().split(/\s+/);
+  const last = parts.length > 1 ? parts[parts.length - 1]! : '';
+  const first = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] ?? '';
+  const lines = ['BEGIN:VCARD', 'VERSION:3.0', `N:${vEsc(last)};${vEsc(first)};;;`, `FN:${vEsc(c.name.trim())}`];
+  if (c.org) lines.push(`ORG:${vEsc(c.org)}`);
+  if (c.title) lines.push(`TITLE:${vEsc(c.title)}`);
+  for (const p of c.phones ?? []) lines.push(`TEL;TYPE=${/^(?:\+44)?0?7/.test(p) ? 'CELL' : 'WORK'}:${p}`);
+  for (const e of c.emails ?? []) lines.push(`EMAIL;TYPE=INTERNET:${vEsc(e)}`);
+  if (c.web) lines.push(`URL:${vEsc(/^https?:/i.test(c.web) ? c.web : `https://${c.web}`)}`);
+  if (c.address) lines.push(`ADR;TYPE=WORK:;;${vEsc(c.address)};;;;`);
+  lines.push('END:VCARD');
+  return lines.join('\r\n') + '\r\n';
+}
+
+// ---------------------------------------------------------------- a bus stop sign (lens.s7: its next buses)
+
+/** What a bus stop's sign says: its name, its letter, the buses that stop, where they go, and its text-message code. */
+export interface BusStop {
+  name: string;
+  letter: string;
+  routes: string[];
+  towards: string;
+  sms: string;
+}
+
+const ROUTE_TOKEN = /^(?:[A-Z]{1,2}\d{1,3}[A-Z]?|\d{1,3}[A-Z]?)$/;
+
+/** The read words of a bus stop sign → what it says; null when the words are not a stop's. */
+export function readBusStop(text: string): BusStop | null {
+  const t = String(text ?? '');
+  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length || lines.length > 16) return null;
+  const sms = /\btext\s+['"‘’]?([a-z0-9]{5,8})['"‘’]?\s+to\s+\d{5}\b/i.exec(t)?.[1] ?? '';
+  const letter = /\b(?:stop|Stop|STOP)\s+([A-Z]{1,2})\b(?![a-z])/.exec(t)?.[1] ?? '';
+  const towardsM = /\btowards\s+([^\n]+)/i.exec(t);
+  const towards = towardsM ? towardsM[1]!.trim().replace(/[.,;]+$/, '') : '';
+  const cue = /\bbus\s*stop\b|\bbus\s*station\b|\bbuses\b/i.test(t) || !!letter || !!sms || !!towards;
+  const routes: string[] = [];
+  const isRouteLine = (l: string) => {
+    const tok = l.replace(/[,·•|/]/g, ' ').split(/\s+/).filter(Boolean);
+    return tok.length >= 1 && tok.length <= 14 && tok.filter((x) => ROUTE_TOKEN.test(x)).length / tok.length >= 0.7 && !/\b(?:19|20)\d{2}\b/.test(l) && !/\d{1,2}:\d{2}/.test(l);
+  };
+  for (const l of lines) if (isRouteLine(l)) for (const x of l.replace(/[,·•|/]/g, ' ').split(/\s+/)) if (ROUTE_TOKEN.test(x) && !routes.includes(x)) routes.push(x);
+  if (!cue || (!routes.length && !towards && !sms && !/\bbus\s*stop\b/i.test(t))) return null;
+  const nameLine = lines.find((l) => !/^(?:bus\s*stop|buses|bus\s*station)$/i.test(l) && !/\btowards\b|\btext\s+\S+\s+to\b|\bfor\s+(?:live|next)\b/i.test(l) && !isRouteLine(l) && /\p{L}{3}/u.test(l) && !/^(?:stop|Stop|STOP)\s+[A-Z]{1,2}$/.test(l) && !/^(?:request|compulsory|fare\s*stage)\b/i.test(l));
+  const name = (nameLine ?? '').replace(/\b(?:stop|Stop|STOP)\s+[A-Z]{1,2}\b/, '').replace(/\bbus\s*stop\b/i, '').replace(/\s{2,}/g, ' ').replace(/^[\s,.-]+|[\s,.-]+$/g, '');
+  if (!name && !sms) return null;
+  return { name, letter, routes: routes.slice(0, 12), towards, sms };
 }

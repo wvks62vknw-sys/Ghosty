@@ -618,3 +618,40 @@ test('a menu is four lines or more, and its English is used line for line only w
   assert.deepEqual(F.pairLines(['Soupe', 'Salade'], '1. Soup\n2. Salad'), ['Soup', 'Salad'], 'a numbered answer is read as its lines');
   assert.equal(F.pairLines(['Soupe', 'Salade', 'Boeuf'], 'Soup and salad\nBeef'), null, 'two lines for three: no pairing, the whole translation instead');
 });
+
+test('(lens.s1) a business card: its details as printed, into a vCard made on the phone; a notice or a bill is no card', () => {
+  const c = F.readBusinessCard('Sarah J. Okafor\nSenior Project Manager\nBrightline Consulting Ltd\nT: 020 7946 0321\nM: +44 7700 900123\nsarah.okafor@brightline.co.uk\nwww.brightline.co.uk\n12 Bank Street, London EC2N 4AB');
+  assert.equal(c.name, 'Sarah J. Okafor');
+  assert.equal(c.title, 'Senior Project Manager');
+  assert.equal(c.org, 'Brightline Consulting Ltd');
+  assert.deepEqual(c.phones, ['02079460321', '+447700900123']);
+  assert.deepEqual(c.emails, ['sarah.okafor@brightline.co.uk']);
+  assert.equal(c.web, 'www.brightline.co.uk');
+  assert.match(c.address, /EC2N 4AB/);
+  const v = F.vcardOf(c);
+  assert.match(v, /^BEGIN:VCARD\r\nVERSION:3\.0\r\nN:Okafor;Sarah J\.;;;\r\nFN:Sarah J\. Okafor\r\n/);
+  assert.match(v, /TEL;TYPE=CELL:\+447700900123\r\n/);
+  assert.match(v, /TEL;TYPE=WORK:02079460321\r\n/);
+  assert.match(v, /ADR;TYPE=WORK:;;12 Bank Street\\, London EC2N 4AB;;;;\r\n/, 'a comma is escaped');
+  assert.match(v, /URL:https:\/\/www\.brightline\.co\.uk\r\nADR/);
+  assert.match(v, /END:VCARD\r\n$/);
+  assert.equal(F.readBusinessCard('Quiz Night at the Village Hall\nFriday 4 December 2026, doors at 7\nTickets: call 0121 496 0123\nwww.example.org\n12 High Street\nBirmingham B1 1AA\nhello@example.org'), null, 'a notice with a number is no business card');
+  assert.equal(F.readBusinessCard('BRITISH GAS\nYour balance is £84.20.\nPlease pay by 14 December 2026.\nReference 4471 2290'), null);
+  assert.equal(F.readBusinessCard('Village Hall\ncall 0121 496 0123'), null, 'a place is no person');
+  assert.equal(F.readBusinessCard('Jamie Patel\nPlumbing and Heating'), null, 'nothing to reach them by');
+  assert.deepEqual(F.jobsOf({ text: 'a b c', contact: true, letter: true }), ['contact']);
+  assert.equal(F.lensWord('add them to my contacts'), 'contacts');
+  assert.equal(F.lensWord('save this card'), 'contacts');
+  assert.equal(F.lensWord('save that'), 'keep', 'saving the words is still KEEP');
+});
+
+test('(lens.s7) a bus stop sign: its name, letter, buses, where they go and its text code; other signs are no stop', () => {
+  assert.deepEqual(F.readBusStop('Oxford Circus\nStop OB\n25 N8 73 390\ntowards Holborn\nText 47589 to 87287'), { name: 'Oxford Circus', letter: 'OB', routes: ['25', 'N8', '73', '390'], towards: 'Holborn', sms: '47589' });
+  assert.deepEqual(F.readBusStop('BUS STOP\nHigh Street\n12 X1 50\nTowards City Centre'), { name: 'High Street', letter: '', routes: ['12', 'X1', '50'], towards: 'City Centre', sms: '' });
+  assert.equal(F.readBusStop('SORTIE DE SECOURS\nNe pas bloquer cette issue'), null);
+  assert.equal(F.readBusStop('STOP\nPolice'), null);
+  assert.equal(F.readBusStop('Quiz Night at the Village Hall\nFriday 4 December 2026, doors at 7'), null);
+  assert.deepEqual(F.jobsOf({ text: 'a b c', stop: true, letter: true }), ['stop']);
+  assert.equal(F.lensWord("when's the next bus"), 'buses');
+  assert.equal(F.lensWord('next buses from this stop'), 'buses');
+});

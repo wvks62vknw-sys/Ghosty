@@ -573,7 +573,7 @@ export function looksEnglish(text: string): boolean {
 }
 
 /** The words that ask the Lens to act on its tag ("read that", "what is that", "translate it", "measure it", "name it"). */
-export type LensWord = 'read' | 'what' | 'translate' | 'measure' | 'name' | 'ask' | 'look' | 'keep' | 'part' | 'who' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'avoid';
+export type LensWord = 'read' | 'what' | 'translate' | 'measure' | 'name' | 'ask' | 'look' | 'keep' | 'part' | 'who' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'avoid' | 'contacts' | 'buses';
 
 export function lensWord(text: string): LensWord | null {
   if (String(text ?? '').length > 60) return null;
@@ -602,5 +602,8 @@ export function lensWord(text: string): LensWord | null {
   // (lens.u7) what he avoids, kept on the phone: "I'm allergic to peanuts", "I avoid gluten", "I'm vegan", "what do I avoid"
   if (/^(?:i'?m|i am) (?:allergic|intolerant) to .{3,40}$/.test(t) || /^i (?:avoid|don'?t eat|can'?t eat|cannot eat|can'?t have) .{3,40}$/.test(t) || /^(?:i'?m|i am) (?:a )?(?:vegan|vegetarian|coeliac|celiac)$/.test(t)) return 'avoid';
   if (/^(?:what do i avoid|what am i allergic to|(?:show |open |set |change )?my (?:allerg(?:y|ies)|avoid) list|(?:set|change) my allergies)$/.test(t)) return 'avoid';
+  // (lens.s1) a business card or a contact code into his contacts; (lens.s7) a bus stop sign's next buses
+  if (/^(?:add|save|put) (?:that|this|it|them|him|her|(?:that|this|the) (?:card|contact|person)) (?:to|in|into) (?:my |the )?(?:contacts|phone)$/.test(t) || /^(?:add|save) (?:that|this|the) (?:card|contact|business card)$/.test(t) || /^add to (?:my )?contacts$/.test(t)) return 'contacts';
+  if (/^(?:when(?:'s| is| are) the next (?:bus|buses)(?: from (?:here|this stop))?|(?:the )?next (?:bus|buses)(?: from (?:here|this stop))?|what buses are (?:coming|due)(?: here)?|when(?:'s| is) my bus)$/.test(t)) return 'buses';
   return null;
 }

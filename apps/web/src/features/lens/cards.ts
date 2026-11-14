@@ -21,7 +21,7 @@ import { confirmSheet, modal, toast } from '../../ui/components';
 import { key } from '../../ui/machine';
 import { askWithImage } from '../../vision/ask';
 import { toJpegDataUrl } from '../../vision/camera';
-import { ALLERGENS, DIETS, DOC_SHARE, avoidFromWords, avoidVerdict, jobsOf, receiptCsv, sureWords, textActs, type JobId, type Seen, type TextAct } from '../../vision/jobs';
+import { ALLERGENS, DIETS, DOC_SHARE, avoidFromWords, avoidVerdict, jobsOf, readBusStop, readBusinessCard, receiptCsv, sureWords, textActs, vcardOf, type CardContact, type JobId, type Seen, type TextAct } from '../../vision/jobs';
 import { readReceipt } from '../../../../../packages/shared/src/homeadmin';
 import { classifyCode } from '../../scan/codes';
 import { letterOf, longDay } from '../../../../../packages/shared/src/lifeeasier';
@@ -45,6 +45,10 @@ export const cardsState = {
   verdict: { tone: '' as string, line: '' },
   /** The last receipt put into his spending (or 'duplicate'), and what HOME kept from it. */
   spent: { state: '' as '' | 'adding' | 'added' | 'duplicate' | 'failed', line: '' },
+  /** The last contact made for his phone's contacts from a business card or a contact code (made on the phone; nobody is looked up). */
+  contact: { state: '' as '' | 'shared' | 'saved' | 'failed', name: '', vcf: '' },
+  /** A bus stop's next buses, asked by the stop's name on the sign (never where he is). */
+  buses: { state: '' as '' | 'asking' | 'found' | 'offline' | 'failed', stop: '', text: '' },
 };
 
 /** What he avoids: kept on this phone and nowhere else (never sent with a lookup: only the barcode's number goes out). */
@@ -108,15 +112,17 @@ export interface CardDeps {
 const day = (): string => isoDay(new Date());
 
 /** A job by his words (vision/tags.ts lensWord): the card it belongs to, the key it presses, and what is said when there is none. */
-export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy', { jobs: string[]; key: string; done: string; none: string }> = {
+export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'contacts' | 'buses', { jobs: string[]; key: string; done: string; none: string }> = {
   solve: { jobs: ['sum'], key: 'COPY ANSWER', done: 'It’s worked out on the card.', none: 'I don’t see a sum yet. Hold the page still.' },
-  call: { jobs: ['phone', 'code'], key: 'CALL', done: 'Calling.', none: 'I don’t see a phone number yet.' },
+  call: { jobs: ['phone', 'code', 'contact'], key: 'CALL', done: 'Calling.', none: 'I don’t see a phone number yet.' },
   agenda: { jobs: ['date'], key: 'ADD TO AGENDA', done: 'Putting it in your agenda.', none: 'I don’t see a date yet.' },
   map: { jobs: ['address'], key: 'ON THE MAP', done: 'Finding it on the map.', none: 'I don’t see an address yet.' },
   species: { jobs: ['living'], key: 'WHICH SPECIES', done: 'Asking my model that sees for the species.', none: 'I don’t see a plant or an animal yet. Getting the eyes helps.' },
   place: { jobs: ['place'], key: 'WHAT PLACE IS THIS', done: 'Asking my model that sees which place it is.', none: 'I don’t see a building or a work of art yet. Getting the eyes helps.' },
   aloud: { jobs: ['text', 'letter', 'document'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
-  copy: { jobs: ['text', 'letter', 'phone', 'link', 'email', 'sum', 'code'], key: 'COPY', done: 'Copying it.', none: 'I don’t see anything to copy yet.' },
+  copy: { jobs: ['text', 'letter', 'phone', 'link', 'email', 'sum', 'code', 'contact', 'stop'], key: 'COPY', done: 'Copying it.', none: 'I don’t see anything to copy yet.' },
+  contacts: { jobs: ['contact', 'code'], key: 'ADD TO CONTACTS', done: 'Handing it to your phone’s contacts.', none: 'I don’t see a business card or a contact code yet.' },
+  buses: { jobs: ['stop'], key: 'NEXT BUSES', done: 'Asking for the next buses from this stop.', none: 'I don’t see a bus stop sign yet. Hold it so its name is in view.' },
 };
 
 export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardInput): void; clear(): void; press(word: keyof typeof CARD_WORDS): string; avoid(text: string): string; openAvoid(): void } {
@@ -135,6 +141,8 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   let docFor = -1;
   /** The receipts already put into his spending this visit (by their CSV line), so a held receipt is never added twice. */
   const spentOnce = new Set<string>();
+  /** A stop's next buses, by the stop's name on its sign: asked once a visit, on his tap. */
+  const buses = new Map<string, { state: 'asking' | 'found' | 'failed'; text: string }>();
 
   /** WHAT I AVOID: his allergies and ways of eating, ticked once, kept on this phone; every packet then gets its line. */
   const openAvoid = (prefill: string[] = []): void => {
@@ -190,6 +198,60 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       cardsState.spent = { state: 'failed', line: 'I couldn’t reach my brain to add it. Tap again when there is a signal.' };
       toast(cardsState.spent.line, 'warn');
     }
+    sig = '';
+    if (last) update(last);
+  };
+
+  /** A contact into his phone's own contacts: a vCard made here, handed to the phone's share sheet (or saved as a file). */
+  const toContacts = async (c: Pick<CardContact, 'name'> & Partial<CardContact>): Promise<void> => {
+    const vcf = vcardOf(c);
+    const fileName = `${(c.name || 'contact').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 40) || 'contact'}.vcf`;
+    cardsState.contact = { state: '', name: c.name, vcf };
+    try {
+      const file = new File([vcf], fileName, { type: 'text/vcard' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: c.name });
+        cardsState.contact.state = 'shared';
+        done(`${c.name}: choose Contacts to add them.`);
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const a = h('a', { href: url, download: fileName, hidden: true });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      cardsState.contact.state = 'saved';
+      done(`${c.name}: open the file to add them to your contacts.`);
+    } catch (e) {
+      // he closed the share sheet: nothing to say
+      if ((e as { name?: string } | null)?.name === 'AbortError') return;
+      cardsState.contact.state = 'failed';
+      toast('This phone would not take the contact. COPY the details and add them yourself.', 'warn');
+    }
+  };
+
+  /** A bus stop's next buses: the stop's name from its sign goes to the brain's free departures (never where he is). */
+  const nextBuses = async (b: HTMLButtonElement, stop: string): Promise<void> => {
+    if (!last?.online) {
+      cardsState.buses = { state: 'offline', stop, text: '' };
+      return void toast('No signal: the next buses need one. Hold the sign again when there is.', 'warn');
+    }
+    b.disabled = true;
+    buses.set(stop, { state: 'asking', text: '' });
+    cardsState.buses = { state: 'asking', stop, text: '' };
+    sig = '';
+    update(last);
+    try {
+      const r = await askWithImage(`next buses from ${stop}`, null, undefined, { quiet: true, bare: true });
+      const text = r.text.trim();
+      buses.set(stop, text && !r.error ? { state: 'found', text } : { state: 'failed', text: '' });
+    } catch {
+      buses.set(stop, { state: 'failed', text: '' });
+    }
+    const got = buses.get(stop)!;
+    cardsState.buses = { state: got.state === 'asking' ? 'failed' : got.state, stop, text: got.text };
+    if (got.state === 'failed') setTimeout(() => buses.get(stop)?.state === 'failed' && buses.delete(stop), 20_000);
     sig = '';
     if (last) update(last);
   };
@@ -307,7 +369,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       }
       case 'contact': {
         const c = info.contact!;
-        return card('code', 'A CONTACT CODE', [c.name, c.org].filter(Boolean).join(' · ') || 'A contact card', c.phones[0] ? link('CALL', `tel:${c.phones[0].replace(/[^\d+]/g, '')}`, `Call ${c.name || 'them'}`) : null, c.emails[0] ? link('WRITE', `mailto:${c.emails[0]}`, `Write to ${c.name || c.emails[0]}`) : null, more());
+        return card('code', 'A CONTACT CODE', [c.name, c.org].filter(Boolean).join(' · ') || 'A contact card', c.phones[0] ? link('CALL', `tel:${c.phones[0].replace(/[^\d+]/g, '')}`, `Call ${c.name || 'them'}`) : null, c.emails[0] ? link('WRITE', `mailto:${c.emails[0]}`, `Write to ${c.name || c.emails[0]}`) : null, c.name ? key('ADD TO CONTACTS', () => void toContacts({ name: c.name, org: c.org, phones: c.phones, emails: c.emails, web: c.urls[0] ?? '', address: c.address }), { label: `Add ${c.name} to your phone's contacts` }) : null, more());
       }
       case 'phone':
         return card('code', 'A PHONE CODE', info.phone ?? code, info.phone ? link('CALL', `tel:${info.phone.replace(/[^\d+]/g, '')}`, `Call ${info.phone}`) : null, more());
@@ -433,7 +495,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     const pe = k.thingId != null ? places.get(k.thingId) : undefined;
     const place = pe && pe.label === (k.thing?.label ?? '') ? pe.v : undefined;
     const asking = k.thingId != null && askingFor.id === k.thingId && askingFor.label === (k.thing?.label ?? '');
-    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, spentOnce.size]);
+    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, spentOnce.size, [...buses.values()].map((x) => x.state).join(','), cardsState.contact.state]);
     if (s === sig) return;
     sig = s;
     cardsState.jobs = jobs;
@@ -490,6 +552,37 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           const warranty = k.online ? key('KEEP A WARRANTY', (b) => void homeDo(b, 'warranty', { text: k.text ?? '', ...(rc.item ? { item: rc.item } : {}) }, 'the warranty'), { label: 'Keep a warranty for what this receipt bought' }) : null;
           const said = added ? (cardsState.spent.line || 'In your spending.') : !k.online ? 'No signal: I’ll put it in your spending when there is one. Hold it again then.' : `${longDay(rc.date || day())}${rc.date ? '' : ' (no date on it: today)'}. One tap files it in this month’s spending; I read it from the photo, so check the total.`;
           out.push(card('receipt', head, said, into, warranty, copy('COPY', k.text ?? '', 'the receipt')));
+          break;
+        }
+        case 'contact': {
+          // (lens.s1) a business card: its details as printed, into his phone's contacts on his tap; nobody is looked up
+          const c = readBusinessCard(k.text ?? '');
+          if (!c) break;
+          const said = [c.title, c.org].filter(Boolean).join(' · ') || [c.phones[0], c.emails[0]].filter(Boolean).join(' · ');
+          out.push(card('contact', `A BUSINESS CARD · ${c.name.toUpperCase()}`, `${said}. ADD TO CONTACTS hands it to your phone’s contacts; I don’t look anyone up.`,
+            key('ADD TO CONTACTS', () => void toContacts(c), { label: `Add ${c.name} to your phone's contacts` }),
+            c.phones[0] ? link('CALL', `tel:${c.phones[0]}`, `Call ${c.name}`) : null,
+            c.emails[0] ? link('WRITE', `mailto:${c.emails[0]}`, `Write to ${c.name}`) : null,
+            copy('COPY', [c.name, c.title, c.org, ...c.phones, ...c.emails, c.web, c.address].filter(Boolean).join('\n'), 'the card')));
+          break;
+        }
+        case 'stop': {
+          // (lens.s7) a bus stop sign: the next buses from the stop it names, on his tap
+          const st = readBusStop(k.text ?? '');
+          if (!st) break;
+          const name = st.name || `stop ${st.sms}`;
+          const got = buses.get(name);
+          const head = `A BUS STOP · ${name.toUpperCase()}${st.letter ? ` · STOP ${st.letter}` : ''}`;
+          const about = [st.routes.length ? `Buses ${st.routes.join(', ')}` : '', st.towards ? `towards ${st.towards}` : ''].filter(Boolean).join(' ');
+          const line =
+            got?.state === 'asking' ? `${about ? `${about}. ` : ''}Asking for the next buses from ${name}…`
+            : got?.state === 'found' ? h('div.lc-buses', h('p.lc-line', about ? `${about}.` : `From ${name}.`), h('pre.lc-times', got.text.split('\n').filter((l) => l.trim()).slice(0, 8).join('\n')))
+            : got?.state === 'failed' ? `${about ? `${about}. ` : ''}I couldn’t get the times for ${name} just now. Tap again in a minute.`
+            : !k.online ? `${about ? `${about}. ` : ''}No signal: the next buses need one.`
+            : `${about ? `${about}. ` : ''}NEXT BUSES asks the free timetables by this stop’s name, not by where you are.`;
+          out.push(card('stop', head, line,
+            k.online && got?.state !== 'asking' ? key(got?.state === 'found' ? 'AGAIN' : 'NEXT BUSES', (b) => void nextBuses(b, name), { label: `The next buses from ${name}` }) : null,
+            copy('COPY', k.text ?? '', 'the sign')));
           break;
         }
         case 'letter': {

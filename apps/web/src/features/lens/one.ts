@@ -46,10 +46,10 @@ import type { LensContext, Mode, ModeOpts } from './index';
 import { letterKeys } from './letter';
 import { sayError } from '../../ui/hisWords';
 import { waiting as putUpWait } from '../../ui/wait';
-import { createCards, type CardInput } from './cards';
+import { cardsState, createCards, type CardInput } from './cards';
 import { letterOf } from '../../../../../packages/shared/src/lifeeasier';
 import { isoDay } from '../brief/day';
-import { isMenuLike, livingKind, looksLikeReceipt, pairLines, type JobId } from '../../vision/jobs';
+import { isMenuLike, livingKind, looksLikeReceipt, pairLines, readBusStop, readBusinessCard, type JobId } from '../../vision/jobs';
 
 /** The grey frame's width: the "text present" check and the steadiness work on this, not on the camera's pixels. */
 const GREY_W = 160;
@@ -667,6 +667,12 @@ export function createOneMode(L: LensContext): Mode {
     return letterFor.is;
   };
   /** What the cards are told about the frame: the facts, never a face's numbers (a known face by the name he gave, a stranger as one). */
+  /** What kind of print the words are (a business card, a bus stop sign), worked out once for each text read. */
+  let printKind = { text: '', contact: false, stop: false };
+  const printOf = (read: string) => {
+    if (printKind.text !== read) printKind = { text: read, contact: !!read && !!readBusinessCard(read), stop: !!read && !!readBusStop(read) };
+    return printKind;
+  };
   const cardInput = (list: Tag[], labels: Map<number, string>): CardInput => {
     const frame = L.camera.size;
     const area = Math.max(1, frame.w * frame.h);
@@ -687,6 +693,8 @@ export function createOneMode(L: LensContext): Mode {
       stranger: list.some((t) => t.kind === 'stranger'),
       letter: !!read && isLetter(read),
       receipt: !!read && looksLikeReceipt(read),
+      contact: printOf(read).contact,
+      stop: printOf(read).stop,
       ...(read && ocr.lineEn ? { lines: ocr.lines, lineEnglish: ocr.lineEn } : {}),
       lang: read ? ocr.lang.name : '',
       langTag: read ? ocr.lang.tag : '',
@@ -1484,12 +1492,14 @@ export function createOneMode(L: LensContext): Mode {
       return line;
     }
     if (w === 'translate') return translateWord();
-    if (w === 'solve' || w === 'call' || w === 'agenda' || w === 'map' || w === 'species' || w === 'place' || w === 'aloud' || w === 'copy') {
+    // "when's the next bus" with no stop sign in view is the brain's (the stops near where he is), not the Lens's
+    if (w === 'buses' && !cardsState.jobs.includes('stop')) return null;
+    if (w === 'solve' || w === 'call' || w === 'agenda' || w === 'map' || w === 'species' || w === 'place' || w === 'aloud' || w === 'copy' || w === 'contacts' || w === 'buses') {
       const line = cards.press(w);
       say(line);
       return line;
     }
-    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'avoid'>, { kinds: TagKind[]; act: ActId; none: string }> = {
+    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'avoid' | 'contacts' | 'buses'>, { kinds: TagKind[]; act: ActId; none: string }> = {
       read: { kinds: ['text'], act: 'read', none: 'I don’t see any text to read yet.' },
       look: { kinds: ['code'], act: 'look', none: 'I don’t see a code yet.' },
       name: { kinds: ['object'], act: 'nameit', none: 'I don’t see an object to name yet. Getting the eyes helps.' },

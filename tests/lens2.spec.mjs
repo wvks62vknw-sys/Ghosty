@@ -8,6 +8,8 @@
 //   A SUM    solved and shown worked; an equation too
 //   A SIGN   in French: said to be French, translated by itself, the request carrying the words and no picture
 //   A BILL   the letter card, the plate's REMIND and FILE, and ADD TO MY BILLS (HOME keeps it, with its reminder)
+//   A BUSINESS CARD  "add them to my contacts": a vCard made on the phone with the card's details; nobody looked up
+//   A BUS STOP  "when's the next bus": the times by the stop's name on its sign, never where he is
 //   A RECEIPT  one tap into this month's spending (the month's rows hold it), one more keeps its warranty
 //   A MENU   in French: each line's English laid over that line, the card listing every line, the words only sent
 //   AVOID    "I'm allergic to milk" lights the packet red; the WHAT I AVOID sheet adds peanuts; kept on this phone
@@ -94,6 +96,8 @@ async function run(viewport, all) {
   // (lens.u1) a menu's line-for-line translation, answered here: one English line for each line; every other chat goes on to the brain
   await page.route('**/api/chat', (r) => {
     const b = r.request().postData() ?? '';
+    // (lens.s7) the next buses from the stop the sign names, as the brain's free timetables would answer
+    if (/next buses from Oxford Circus/.test(b)) return r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'text', text: 'Next departures from Oxford Circus:\n25 to Holborn — 2 min\nN8 to Hainault — 6 min\n73 to Stoke Newington — 9 min' }, { t: 'done', model: 'mock' }].map((e) => JSON.stringify(e)).join('\n') + '\n' });
     if (!/Translate each line into English/.test(b)) return r.continue();
     return r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'text', text: 'STARTERS\nSoup of the day\nNiçoise salad\nMAINS\nBeef bourguignon' }, { t: 'done', model: 'mock' }].map((e) => JSON.stringify(e)).join('\n') + '\n' });
   });
@@ -311,6 +315,37 @@ async function run(viewport, all) {
   await letGo();
   await reset();
 
+  // ---- A BUSINESS CARD (lens.s1): its details as printed, into his phone's contacts as a vCard made here; nobody looked up
+  await words('Sarah J. Okafor\nSenior Project Manager\nBrightline Consulting Ltd\nT: 020 7946 0321\nsarah.okafor@brightline.co.uk\nwww.brightline.co.uk');
+  await hold([TEXT_BOX]);
+  await until(() => window.__ghosty.cards.jobs[0] === 'contact', null, 4000, `[contact] the job for a business card is ${(await cards()).jobs[0]}`);
+  const bc = (await cards()).cards.find((c) => c.job === 'contact');
+  check(bc?.head === 'A BUSINESS CARD · SARAH J. OKAFOR' && ['ADD TO CONTACTS', 'CALL', 'WRITE', 'COPY'].every((k) => bc.keys.includes(k)), `${T} [contact] the card: ${JSON.stringify(bc)}`);
+  await layout('contact');
+  const vcfFile = page.waitForEvent('download', { timeout: 6000 }).catch(() => null);
+  await page.evaluate(() => window.__ghosty.send('add them to my contacts'));
+  await until(() => !!window.__ghosty.cards.contact.state, null, 6000, `[contact] "add them to my contacts" made no contact: ${JSON.stringify((await cards()).contact)}`);
+  const ct = (await cards()).contact;
+  check(['saved', 'shared'].includes(ct.state) && /FN:Sarah J\. Okafor\r\n/.test(ct.vcf) && /TEL;TYPE=WORK:02079460321/.test(ct.vcf) && /EMAIL;TYPE=INTERNET:sarah\.okafor@brightline\.co\.uk/.test(ct.vcf), `${T} [contact] the vCard: ${JSON.stringify(ct)}`);
+  if (ct.state === 'saved') check(/\.vcf$/.test((await vcfFile)?.suggestedFilename() ?? ''), `${T} [contact] no .vcf file was handed to the phone`);
+  check(!chats.some((b) => /Okafor/.test(b)), `${T} [contact] the card's person went to the brain`);
+  await letGo();
+  await reset();
+
+  // ---- A BUS STOP (lens.s7): the next buses by the stop's name on its sign, on his word; never where he is
+  await words('Oxford Circus\nStop OB\n25 N8 73 390\ntowards Holborn\nText 47589 to 87287');
+  await hold([TEXT_BOX]);
+  await until(() => window.__ghosty.cards.jobs[0] === 'stop', null, 4000, `[stop] the job for a bus stop is ${(await cards()).jobs[0]}`);
+  check((await cards()).cards.some((c) => c.job === 'stop' && c.head === 'A BUS STOP · OXFORD CIRCUS · STOP OB' && c.keys.includes('NEXT BUSES') && /Buses 25, N8, 73, 390 towards Holborn/.test(c.line)), `${T} [stop] the card: ${JSON.stringify((await cards()).cards.filter((c) => c.job === 'stop'))}`);
+  await page.evaluate(() => window.__ghosty.send("when's the next bus"));
+  await until(() => window.__ghosty.cards.buses.state === 'found', null, 10000, `[stop] "when's the next bus" did not bring the times: ${JSON.stringify((await cards()).buses)}`);
+  await until(() => /25 to Holborn — 2 min/.test(document.querySelector('#pg-lens .lenscard[data-job="stop"] .lc-times')?.textContent ?? ''), null, 4000, '[stop] the times are not on the card');
+  const askedBus = chats.filter((b) => /next buses from Oxford Circus/.test(b));
+  check(askedBus.length === 1 && askedBus.every((b) => !/"lat"|"lon"|"latitude"|data:image/.test(b)), `${T} [stop] the stop went ${askedBus.length} time(s), by its name alone: ${askedBus.map((b) => b.slice(0, 200)).join(' | ')}`);
+  await layout('stop');
+  await letGo();
+  await reset();
+
   // ---- A PAGE: scanned flat
   const page60 = Array.from({ length: 12 }, (_, i) => `Line ${i + 1} of the long page about the harbour and its boats`).join('\n');
   await words(page60);
@@ -446,5 +481,5 @@ async function run(viewport, all) {
 await run({ width: 440, height: 956 }, true);
 await run({ width: 390, height: 844 }, false);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a business card into his contacts, made on the phone; a bus stop’s next buses by its name; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
 process.exit(problems.length ? 1 : 0);

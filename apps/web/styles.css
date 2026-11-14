@@ -8596,6 +8596,9 @@ html #app .lc-avoid .lc-keys > button.g-key, html .modal .lc-avoid .lc-keys > bu
 /* (lens.u1) a menu line by line: in the card, each line with its English; on the picture, each line's English in its own place */
 html .lenscard .lc-pairs { margin: var(--g-s-half) 0 0; padding-left: var(--g-s-3); display: flex; flex-direction: column; gap: var(--g-s-half); }
 html .lenscard .lc-pairs li { font: var(--g-t-body); overflow-wrap: anywhere; }
+/* (lens.s7) a bus stop's next buses, as the timetable said them: wrapped, never sideways */
+html .lenscard .lc-buses { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .lenscard .lc-times { margin: 0; font: var(--g-t-body); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--g-ink-1); max-height: 40vh; overflow-y: auto; }
 html .lenscard .lc-pairs .lc-orig { display: block; color: var(--g-ink-3); }
 html .lenscard .lc-pairs .lc-en { display: block; color: var(--g-ink-1); }
 html .lenslines { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
