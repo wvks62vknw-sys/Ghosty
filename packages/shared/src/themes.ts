@@ -100,10 +100,12 @@ export interface Switches {
   motion: 'alive' | 'calm';
   sound: 'tone' | 'click' | 'off';
   day: 'off' | 'on';
+  /** [voice lane] COLOUR-BLIND SAFE (voice.s5): failure, success and warning in colours told apart without red and green. */
+  safe: 'off' | 'on';
 }
 export type SwitchKey = keyof Switches;
 
-export const SWITCH_DEFAULTS: Switches = { glow: 'on', floor: 'on', corners: 'world', readings: 'mono', body: 17, motion: 'alive', sound: 'tone', day: 'off' };
+export const SWITCH_DEFAULTS: Switches = { glow: 'on', floor: 'on', corners: 'world', readings: 'mono', body: 17, motion: 'alive', sound: 'tone', day: 'off', safe: 'off' };
 
 export interface SwitchDef<K extends SwitchKey = SwitchKey> {
   key: K;
@@ -114,7 +116,7 @@ export interface SwitchDef<K extends SwitchKey = SwitchKey> {
   options: { value: Switches[K]; label: string; line: string }[];
 }
 
-/** The eight switches: each one visible thing, each a sentence, each kept. */
+/** The nine switches: each one visible thing, each a sentence, each kept. */
 export const SWITCHES: SwitchDef[] = [
   { key: 'glow', label: 'Glow', line: 'Whether my light glows round what is lit.', options: [
     { value: 'on', label: 'On', line: 'My light glows round what is lit: the room, my orb’s halo.' },
@@ -150,6 +152,11 @@ export const SWITCHES: SwitchDef[] = [
   { key: 'day', label: 'Ground follows the day', line: 'Paper by day, your night ground after sunset, from your home’s sun times.', options: [
     { value: 'off', label: 'Off', line: 'The ground stays as you chose it, day and night.' },
     { value: 'on', label: 'On', line: 'Paper from sunrise to sunset at your home, your night ground after. Never your live location.' },
+  ] },
+  // [voice lane] (voice.s5) the state colours in a set told apart by every eye: orange for a failure, sky blue for a success, yellow for a warning
+  { key: 'safe', label: 'Colour-blind safe', line: 'Failures, successes and warnings in colours anyone can tell apart, never red against green.', options: [
+    { value: 'off', label: 'Off', line: 'Red for a failure, green for a success, amber for a warning.' },
+    { value: 'on', label: 'On', line: 'Orange for a failure, sky blue for a success, yellow for a warning: easy to tell apart with any colour vision.' },
   ] },
 ];
 export const switchOf = <K extends SwitchKey>(k: K): SwitchDef<K> => SWITCHES.find((s) => s.key === k) as unknown as SwitchDef<K>;
@@ -493,6 +500,8 @@ export function lookAsked(text: string): LookAsk | null {
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) off|no (?:recognition|lock) (?:sound|tone)|silent (?:lock|recognition))$/.test(t)) return { switches: { sound: 'off' } };
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) (?:to )?click|(?:the )?click (?:sound|for the lock)|click when you lock on)$/.test(t)) return { switches: { sound: 'click' } };
   if (/^(?:(?:the )?(?:recognition|lock) (?:sound|tone) (?:to )?tone|(?:the )?tone (?:sound|for the lock)|(?:the )?(?:recognition|lock) (?:sound|tone) on)$/.test(t)) return { switches: { sound: 'tone' } };
+  if (/^(?:colou?r ?blind(?:ness)?(?: safe| friendly| mode| colours| colors| setting)?(?: on)?|colou?r[- ]blind[- ](?:safe|friendly)(?: colou?rs| mode| look)?(?: on)?|safe colou?rs(?: for colou?r ?blindness)?|i'?m colou?r ?blind)$/.test(t)) return { switches: { safe: 'on' } };
+  if (/^(?:colou?r ?blind(?:ness)?(?: safe| friendly)? mode off|colou?r[- ]blind[- ](?:safe|friendly)(?: mode)? off|turn off colou?r ?blind(?:ness)?(?: safe| friendly)? mode|normal (?:status )?colou?rs)$/.test(t)) return { switches: { safe: 'off' } };
   if (/^(?:follow the (?:day|sun|daylight)|ground follows the day|paper by day|day and night|follow sunrise and sunset)$/.test(t)) return { switches: { day: 'on' } };
   if (/^(?:stop following the (?:day|sun)|don't follow the (?:day|sun)|(?:follow the day|ground follows the day) off)$/.test(t)) return { switches: { day: 'off' } };
   // ---- a colour, by its plain name, its old name or a common synonym (colours.ts): after a verb ("make it red", "switch to

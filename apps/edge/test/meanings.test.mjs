@@ -518,3 +518,30 @@ test('a colour for one screen: "make the money screen green", and back to normal
   const rc = readFileSync(at('../../web/src/state/roomcolour.ts'), 'utf8');
   assert.match(rc, /applyRecipe\(\{ \.\.\.recipe\(\), colour: c \}, \{ save: false, remember: false \}\)/, 'shown unsaved, never his kept look');
 });
+
+test('colour-blind safe: one of the look’s switches, by words too, and every safe colour clear against its ground (voice.s5)', () => {
+  for (const t of ['colour blind mode on', 'colour-blind safe', 'colourblind mode', 'safe colours for colour blindness', "I'm colour blind", 'color blind friendly colours']) assert.deepEqual(TH.lookAsked(t), { switches: { safe: 'on' } }, t);
+  for (const t of ['colour blind mode off', 'normal colours', 'colour-blind safe mode off']) assert.deepEqual(TH.lookAsked(t), { switches: { safe: 'off' } }, t);
+  assert.equal(TH.SWITCH_DEFAULTS.safe, 'off');
+  assert.equal(TH.cleanSwitches({ safe: 'maybe' }).safe, 'off', 'an odd value is off');
+  const r = TH.applyAsk(TH.recipeFrom('reactor'), { switches: { safe: 'on' } });
+  assert.equal(r.recipe.switches.safe, 'on');
+  assert.match(r.said, /^Colour-blind safe: on\. Orange for a failure, sky blue for a success, yellow for a warning/);
+  // contrast: each safe colour at least 3:1 against every ground it is drawn on (dark grounds, and Paper's deeper inks)
+  const css = readFileSync(at('../../web/src/design/tokens.css'), 'utf8');
+  const block = (sel) => css.slice(css.indexOf(sel)).split('}')[0];
+  const val = (b, k) => new RegExp(`${k}: (#[0-9a-f]{6})`).exec(b)?.[1];
+  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((s) => (s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  const dark = block(':root[data-safe="on"] {');
+  const paper = block(':root[data-safe="on"][data-ground="paper"] {');
+  for (const g of ['black', 'graphite', 'slate', 'warm']) {
+    const canvas = val(block(`:root[data-ground="${g}"]`), '--g-canvas');
+    for (const k of ['--g-red', '--g-ok', '--g-amber']) assert.ok(ratio(val(dark, k), canvas) >= 3, `${k} on ${g}: ${ratio(val(dark, k), canvas).toFixed(2)}`);
+  }
+  const pc = val(block(':root[data-ground="paper"]'), '--g-canvas');
+  for (const k of ['--g-red', '--g-ok', '--g-amber']) assert.ok(ratio(val(paper, k), pc) >= 3, `${k} on paper: ${ratio(val(paper, k), pc).toFixed(2)}`);
+  // and the three are told apart from each other (none two alike in lightness and hue: the red/green pair is gone)
+  assert.notEqual(val(dark, '--g-red'), val(dark, '--g-ok'));
+  assert.match(readFileSync(at('../../web/src/state/theme.ts'), 'utf8'), /d\.safe = s\.safe;/);
+});

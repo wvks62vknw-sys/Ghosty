@@ -72,6 +72,12 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 - It shows while that screen is open, and your own colour comes back everywhere else; your saved look is never changed by it.
 - "Money screen back to normal" lets it go.
 
+### Colour-blind safe looks (voice.s5)
+- A ninth switch on THE LOOK, "Colour-blind safe", also said as "colour-blind mode on".
+- With it on, failures show orange, successes sky blue and warnings yellow (the Okabe–Ito set), never red against green; on Paper,
+  their deeper inks.
+- Each colour is checked for contrast against every background it is drawn on.
+
 ### Calm, focus or lively colours (voice.s10)
 - "Calm colours" gives light blue, the glow off and nothing moving.
 - "Focus colours" gives grey, no glow and a plain floor.
@@ -139,7 +145,6 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 - **More languages and abilities for voice.u10:** a first set is built (Spanish, French, Urdu/Hindi in English letters, for nine
   abilities); more abilities and Urdu in its own script are left.
 - **Settings for each person introduced (voice.s2):** not built.
-- **Colour-blind safe looks (voice.s5):** not built.
 - **Say "Ghosty" to start listening (voice.s8):** not built; it needs a listening pack and the download rule.
 - **Comic colours by plain names (voice.c3):** not built. The comic's speech balloons have no colour of their own yet, so this needs
   the COMIC lane's drawing to take a colour first.

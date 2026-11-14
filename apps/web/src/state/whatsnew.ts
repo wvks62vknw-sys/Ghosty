@@ -45,6 +45,7 @@ export const WHATS_NEW: NewThing[] = [
   // [sites] NEXT ROUND sites.u12
   { day: '2026-11-14', title: 'Your own photos on your sites', line: 'Workshop → PHOTOS FOR YOUR SITES: add your own photos, made smaller on your phone with their location removed. Say “build a website for my café with my photos” and they replace the stock pictures.' },
   // [voice lane] the next round: Talk to it your own way
+  { day: '2026-11-14', title: 'Colour-blind safe, and a colour per screen', line: 'THE LOOK has a Colour-blind safe switch (or say “colour-blind mode on”): orange, sky blue and yellow, never red against green. “Make the money screen green” gives one screen its own colour.' },
   { day: '2026-11-14', title: 'Your way, in your languages', line: '“Pon música”, “gaana chalao”, “batti bujhao”, “qué tiempo hace”: everyday asks in Spanish, French and Urdu or Hindi reach the same things as the English. And “a bit softer blue” nudges my colour.' },
   { day: '2026-11-14', title: 'Notes, lights and Telegram, your way', line: '“Note: buy milk” is kept in Memory, marked “by you” when I’m sure it was your voice; “make the lights red” sets your bulbs with the app’s colour words; on Telegram, “give us a shout in ten” becomes a reminder.' },
   { day: '2026-11-14', title: 'Put it back, calm colours, your stations', line: '“Put it back” returns the look before; “calm colours”, “focus colours” or “lively colours” set a colour and look together; “call this my morning station”, then “put on my morning station”. When I’m not sure it’s you, I say why.' },

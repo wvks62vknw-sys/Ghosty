@@ -163,6 +163,11 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check(await page.evaluate(() => window.__ghosty.settings.get().theme) === 'reactor', `[${W}] [colours] the room's colour changed his saved colour`);
   await say(page, 'money screen back to normal', /^Money is back in your colour, blue\.$/, `[${W}] [colours] the money screen back to normal`);
   check(await page.evaluate(() => window.__ghosty.roomcolour.roomColour('money') === null), `[${W}] [colours] Money kept its colour after "back to normal"`);
+  // [voice.s5] colour-blind safe: the state colours change to a set told apart by every eye, and back
+  await say(page, 'colour blind mode on', /^Colour-blind safe: on\. Orange for a failure, sky blue for a success/, `[${W}] [colours] colour-blind safe`);
+  check(await page.evaluate(() => document.documentElement.dataset.safe === 'on' && getComputedStyle(document.documentElement).getPropertyValue('--g-ok').trim().toLowerCase() === '#56b4e9'), `[${W}] [colours] colour-blind safe did not change the success colour (${await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--g-ok'))})`);
+  await say(page, 'colour blind mode off', /^Colour-blind safe: off\./, `[${W}] [colours] colour-blind safe off`);
+  check(await page.evaluate(() => document.documentElement.dataset.safe === 'off'), `[${W}] [colours] colour-blind safe stayed on`);
   await page.screenshot({ path: `${out}/voicelane-colours-${W}.png` });
   // Settings › Theme: every colour by its plain name
   await page.evaluate(() => (location.hash = 'settings'));
