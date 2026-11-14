@@ -23,6 +23,7 @@ import { DIARY_DOC, diaryEntries, loadProfile, looksSecret, saveProfile, type Pr
 import { isoLocal, safeTz, startOfDay, zoned } from './time';
 import { loadLog, LOG_KEY, type Episode } from './mind';
 import { forgetGist, GISTS_KEY, restoreGist } from './recall';
+import { keepRoute } from './keep';
 import type { Gist } from '../../../packages/shared/src/recall';
 import { loadMemory, MEMORY_KEY } from './tools/memory';
 
@@ -720,6 +721,8 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
  * /profile/patterns/clear (CLEAR CONVERSATION). Null when the path is not one of these.
  */
 export async function memoryRoute(req: Request, path: string, method: string, deps: ProfileDeps): Promise<Response | null> {
+  // [keep] Memory → YOUR WORD: his promises, where things are, why he chose, and the week (keep.ts)
+  if (path === '/profile/keep') return keepRoute(req, path, method, deps.storage);
   if (path === '/profile/timeline' && method === 'GET') {
     const items = await timeline(deps);
     // FADING: what will be let go unless he keeps it (OWNER-ISSUES 75a)

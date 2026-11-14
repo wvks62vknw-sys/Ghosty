@@ -47,7 +47,9 @@ function withAnswers(list: Gist[], turns: ChatTurn[]): boolean {
   let changed = false;
   for (const g of list) {
     if (g.a !== undefined) continue;
-    const i = turns.findIndex((t) => t.role === 'user' && Math.abs(t.at - g.at) < 5000);
+    // (the same moment AND the same words: two messages a second apart are never mixed up)
+    const head = g.q.replace(/…$/, '').slice(0, 40).toLowerCase();
+    const i = turns.findIndex((t) => t.role === 'user' && Math.abs(t.at - g.at) < 5000 && t.text.replace(/\s+/g, ' ').trim().toLowerCase().startsWith(head));
     if (i < 0) continue;
     const r = turns.slice(i + 1).find((t) => t.role === 'assistant' || t.role === 'user');
     if (!r || r.role !== 'assistant' || r.at - g.at > 10 * 60_000) continue;
