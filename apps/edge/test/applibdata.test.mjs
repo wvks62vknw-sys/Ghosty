@@ -4,7 +4,7 @@
 // (both layouts, skips left out); viewing history (profiles kept apart, trailers left out); the video site's JSON and
 // HTML; highlights (a stretched highlight kept once); reading and film exports; GPX, TCX and a hand-encoded FIT file
 // (distance, splits, climb, the route as a shape only); calendar, contacts, bank (OFX and QIF), any CSV, bookmarks,
-// feeds and subtitles; merging without duplicates; the top list; cancelling. Every fixture is invented. Run from appkit.test.mjs.
+// feeds and subtitles; merging without duplicates; the top list; cancelling. Every fixture is invented. Run from applib.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { deflateRawSync } from 'node:zlib';
