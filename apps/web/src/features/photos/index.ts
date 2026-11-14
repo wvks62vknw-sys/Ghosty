@@ -17,11 +17,11 @@ import type { TabDef, TabInstance } from '../../shell/tabs';
 import { h } from '../../core/dom';
 import { button, confirmSheet, modal, toast, undo } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
-import { byMonth, bin, clock, duplicateGroups, libraryLine, matches, memories, onThisDay, parseQuery, visible, type Item } from '../../photos/pure';
+import { byMonth, bin, clock, duplicateGroups, libraryLine, matches, memories, onThisDay, parseQuery, placesOf, visible, type Item } from '../../photos/pure';
 import * as L from '../../photos/lib';
 
 type View = 'library' | 'albums' | 'foryou' | 'search';
-type Sub = '' | 'favourites' | 'videos' | 'duplicates' | 'people' | 'hidden' | 'deleted' | `album:${string}` | `memory:${string}` | `year:${number}`;
+type Sub = '' | 'favourites' | 'videos' | 'duplicates' | 'people' | 'places' | `place:${string}` | 'hidden' | 'deleted' | `album:${string}` | `memory:${string}` | `year:${number}`;
 
 /** What a spec reads. */
 export const photosState = {
@@ -274,6 +274,10 @@ export const photosTab: TabDef = {
           row('Videos', String(vids.length), () => go('albums', 'videos')),
           row('Duplicates', dupes.length ? `${dupes.length} ${dupes.length === 1 ? 'group' : 'groups'}` : 'none', () => go('albums', 'duplicates')),
           row('People', 'you and who you introduced', () => go('albums', 'people')),
+          row('Places', (() => {
+            const n = placesOf(list).length;
+            return n ? `${n} ${n === 1 ? 'place' : 'places'}` : 'none yet';
+          })(), () => go('albums', 'places')),
           row('Hidden', hid.length ? String(hid.length) : 'none', () => go('albums', 'hidden')),
           row('Recently deleted', del.length ? String(del.length) : 'empty', () => go('albums', 'deleted')),
         ),
@@ -369,6 +373,19 @@ export const photosTab: TabDef = {
               })))
             : empty('Nobody introduced yet', 'Introduce yourself or someone you know in the Lens (FACES): then the photos they’re in can be found by name, on this phone.'),
         ];
+      }
+      if (sub === 'places') {
+        // where his photos were taken, from their own data: grouped and named on the phone, never looked up, never sent
+        const ps = placesOf(list);
+        return [
+          backRow('Places', 'albums'),
+          h('p.phx-small', 'Where your photos were taken, from the photos’ own data. It stays on this phone: nothing is looked up or sent.'),
+          ps.length ? h('div.phx-tiles', ...ps.map((p) => tile(p.title, p.items.length, p.items[0], () => go('albums', `place:${p.key}`)))) : empty('No places yet', 'Photos taken with location on in the camera show here by where they were taken.'),
+        ];
+      }
+      if (sub.startsWith('place:')) {
+        const p = placesOf(list).find((x) => `place:${x.key}` === sub);
+        return [backRow(p ? p.title : 'Place', 'albums'), p ? grid(p.items) : empty('Nothing here now', 'Those photos may have been deleted or hidden.')];
       }
       if (sub.startsWith('album:')) {
         const aid = sub.slice(6);

@@ -817,4 +817,8 @@ test('PHOTOS: search by what is in a photo, by words in it, by date and kind; mo
   assert.equal(m[0].items.length, 5);
   assert.equal(PH.libraryLine([beach, menu, vid]), '2 photos and 1 video · 3 MB on this phone');
   assert.equal(PH.clock(65), '1:05');
+  // places, from the photos' own data alone: grouped within about 10 km, named by their numbers (nothing looked up)
+  const at = (id, lat, lon) => it(id, now - 1000, { place: { lat, lon } });
+  const ps = PH.placesOf([at('L1', 51.507, -0.127), at('L2', 51.52, -0.11), at('P1', 48.856, 2.352), menu]);
+  assert.deepEqual(ps.map((p) => [p.title, p.items.length]), [['51.5° N, 0.1° W', 2], ['48.9° N, 2.4° E', 1]]);
 });

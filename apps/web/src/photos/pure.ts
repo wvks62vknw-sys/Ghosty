@@ -365,3 +365,24 @@ export function libraryLine(items: Item[]): string {
 
 /** A video's length: "0:42", "12:05". */
 export const clock = (secs: number): string => `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
+
+// ---------------------------------------------------------------- places, from the photos' own data (on the phone only)
+
+/** "51.5° N, 0.1° W": a place in his words from its numbers alone (nothing is looked up, so where stays on the phone). */
+export const placeWords = (lat: number, lon: number): string => `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(1)}° ${lon >= 0 ? 'E' : 'W'}`;
+
+/** The places his photos were taken: groups of photos within about 10 km of each other (a tenth of a degree), the biggest first. */
+export function placesOf(items: Item[]): { key: string; lat: number; lon: number; title: string; items: Item[] }[] {
+  const m = new Map<string, Item[]>();
+  for (const it of visible(items)) {
+    if (!it.place) continue;
+    const key = `${Math.round(it.place.lat * 10) / 10},${Math.round(it.place.lon * 10) / 10}`;
+    m.set(key, [...(m.get(key) ?? []), it]);
+  }
+  return [...m]
+    .map(([key, list]) => {
+      const lat = list.reduce((s, i) => s + i.place!.lat, 0) / list.length, lon = list.reduce((s, i) => s + i.place!.lon, 0) / list.length;
+      return { key, lat, lon, title: placeWords(lat, lon), items: list.sort((a, b) => b.taken - a.taken) };
+    })
+    .sort((a, b) => b.items.length - a.items.length || b.items[0]!.taken - a.items[0]!.taken);
+}

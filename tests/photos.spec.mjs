@@ -89,6 +89,8 @@ async function run(viewport) {
   await seg('albums');
   await until(() => window.__ghosty.photos.view === 'albums' && document.querySelector('#pg-photos .phx-tile[aria-label^="Favourites, 1"]'), null, 5000, '[albums] Favourites does not hold the favourite');
   await layout('albums');
+  // places come only from the photos' own data: none of these carries any, and it says so
+  check(/none yet/.test(await page.locator('#pg-photos .phx-row', { hasText: 'Places' }).textContent().catch(() => '')), `${T} [albums] Places does not say there are none yet`);
   // delete it again, find it in Recently deleted, recover it
   await seg('library');
   await page.click(`#pg-photos .phx-cell[data-id="${first}"]`);
