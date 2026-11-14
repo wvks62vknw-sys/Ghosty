@@ -354,6 +354,36 @@ for (const vp of [PHONE, PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================== f. A SCREEN THAT GOT SLOWER (polish3.u11)
+{
+  log('390: slower since the update');
+  // the build this preview serves (build.mjs writes it into the app), and screen timings kept from an older one
+  const sha = ([...readFileSync(new URL('../apps/web/dist/app.js', import.meta.url), 'utf8').matchAll(/sha:"([^"]+)"/g)].map((m) => m[1]).find((x) => x !== 'dev')) ?? 'dev';
+  const { ctx, page } = await phone(PHONE2);
+  const seeded = await page.evaluate((sha) => new Promise((ok) => {
+    const r = indexedDB.open('ghosty-speed');
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('kv')) r.result.createObjectStore('kv'); };
+    r.onsuccess = () => {
+      const db = r.result;
+      const tab = (ms, b) => ({ k: 'tab', at: Date.now() - 60000, id: 'agenda', title: 'AGENDA', ms, b });
+      const t = db.transaction('kv', 'readwrite');
+      t.objectStore('kv').put([...[100, 110, 105, 100].map((ms) => tab(ms, 'spec-older-build')), ...[400, 420, 410].map((ms) => tab(ms, sha))], 'samples');
+      t.oncomplete = () => { db.close(); ok(true); };
+      t.onerror = () => ok(false);
+    };
+    r.onerror = () => ok(false);
+  }), sha);
+  check(seeded, '[f] the timings could not be seeded');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await openSystem(page, 'STATUS');
+  const ok = await until(page, () => /^Slower since the update/.test(document.querySelector('#pg-system .spdrow[data-speed="slower"]')?.textContent ?? ''), null, 15000);
+  const words = await text(page, '#pg-system .spdrow[data-speed="slower"]');
+  check(ok && /Agenda 0\.4 s, was 0\.1 s/i.test(words), `[f] the SPEED card says "${words}"`);
+  await fit(page, '[390] [f]', '#pg-system .spdrow[data-speed="slower"]');
+  await ctx.close();
+}
+
 // ================================================================== c. A HEADS-UP
 for (const vp of [PHONE, PHONE2]) {
   const W = vp.width;
@@ -381,4 +411,4 @@ const secs = ((Date.now() - t0) / 1000).toFixed(0);
 if (problems.length) {
   process.exitCode = 1;
   console.log(`PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}`);
-} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, what I keep about you with its forget keys and the memory document, and a heads-up told once.`);
+} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, what I keep about you with its forget keys and the memory document, a screen that got slower since the update, and a heads-up told once.`);
