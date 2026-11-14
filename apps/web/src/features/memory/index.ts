@@ -18,6 +18,7 @@ import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/c
 import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { placesBlock } from './places';
+import { keepPanel } from './keep';
 import { OFFLINE_SUB, PAGE_SUB } from './words';
 import { phrases } from '../lifeui';
 import { principlesEditor } from '../settings/principles';
@@ -306,13 +307,16 @@ export const memoryTab: TabDef = {
     // CLEAR CONVERSATION: gone from the screen at once, from the brain when the UNDO bar goes (session.ts);
     // UNDO puts every message back. What he remembers about you stays either way.
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));
-    P.right.append(dp.el, fp.el, lp.el, cp.el);
+    // [keep] YOUR WORD (keep.ts): his promises, where things are, why he chose, his week
+    const kp = keepPanel();
+    P.right.append(dp.el, fp.el, lp.el, cp.el, kp.el);
     sections(root, 'memory', [
       { id: 'me', label: 'Me', match: /^(?:ME|PRINCIPLES)$/ },
       { id: 'patterns', label: 'Patterns', match: /^PATTERNS/ },
       { id: 'timeline', label: 'Timeline', match: /^TIMELINE/ },
       { id: 'diary', label: 'Diary', match: /^DIARY/ },
       { id: 'chat', label: 'Chat', match: /^(WHAT I REMEMBER|LESSONS|CONVERSATION)/ },
+      { id: 'word', label: 'Your word', match: /^YOUR WORD/ },
     ]);
     const paintChat = () => {
       const list = chat.get().entries.filter((e) => e.kind === 'user' || e.kind === 'assistant') as { kind: 'user' | 'assistant'; text: string }[];
@@ -329,6 +333,7 @@ export const memoryTab: TabDef = {
         void refreshLessons();
         void refreshProfile();
         void pl.refresh();
+        void kp.refresh();
       },
       // (BRIEF-SHELL pass 1) the page open; what he writes is never in it
       context: () => {

@@ -14,6 +14,7 @@
  */
 import { APP_SW, appBase, appCsp, appManifest, renderApp, type AppConfig } from '../../../../packages/shared/src/appkit/index';
 import { appApproval, buildApp } from '../appbuild';
+import { changeApp, changeApproval } from '../appchange';
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import { guardedFetch, unsafeUrl } from '../netguard';
@@ -22,6 +23,7 @@ import { siteApproval, startSiteBuild } from '../sitebuild';
 import { formTarget } from '../../../../packages/shared/src/sitekit/blocks/formkit';
 import { checkHtml, refusal } from './check';
 import { gameApproval, publishGame } from '../gamesite';
+import { dropWaitingPage, waitingPage } from '../sitepage';
 import type { Game } from '../../../web/src/studio-game/model';
 import { arg, clip, type Tool } from './types';
 import { readCapped, UA } from './web';
@@ -30,6 +32,19 @@ const PREFIX = 'site:';
 /** The list of published pages (name, title, source, when, size), kept in both places like the pages. */
 const INDEX = 'site:index';
 const DRAFT = 'site:draft:';
+/** [sites] The versions a page had before its last updates (NEXT ROUND sites.u2): the newest first, three at most. */
+const PREV = 'site:prev:';
+export const MAX_VERSIONS = 3;
+/** One earlier version of a page, as its list shows it. */
+export interface SiteVersion {
+  at: number;
+  title: string;
+  bytes: number;
+  /** When it was replaced by the next one. */
+  replaced: number;
+}
+const sizeOf = (s: Site): number => (s.game ? JSON.stringify(s.game).length : s.html.length);
+const sameSite = (a: Site, b: Site): boolean => a.title === b.title && a.html === b.html && JSON.stringify(a.app ?? null) === JSON.stringify(b.app ?? null) && JSON.stringify(a.game ?? null) === JSON.stringify(b.game ?? null);
 const MAX_HTML = 400_000;
 const MAX_SITES = 500;
 
@@ -64,6 +79,8 @@ export interface SiteEntry {
   bytes: number;
   app?: boolean;
   game?: boolean;
+  /** [sites] Earlier versions kept (sites.u2): UNDO LAST UPDATE puts the newest back. */
+  versions?: number;
 }
 /** A page sent in parts (draft_site) before it is published. */
 interface Draft {
@@ -91,17 +108,31 @@ export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: Durable
   draft(name: string): Promise<Draft | undefined>;
   addPart(name: string, part: string): Promise<Draft>;
   dropDraft(name: string): Promise<void>;
+  versions(name: string): Promise<SiteVersion[]>;
+  restore(name: string): Promise<Site | undefined>;
 } {
   const list = async () => (await durableGet<SiteEntry[]>(env, storage, INDEX)) ?? [];
   const saveList = (entries: SiteEntry[]) => durablePut(env, storage, INDEX, entries.slice(0, MAX_SITES));
   return {
     get: (name) => durableGet<Site>(env, storage, PREFIX + siteSlug(name)),
     async put(site) {
+      // [sites] the version it replaces is kept (three at most), so a bad update goes back in one tap (sites.u2)
+      let prev: { site: Site; replaced: number }[] = [];
+      try {
+        prev = (await durableGet<{ site: Site; replaced: number }[]>(env, storage, PREV + site.name)) ?? [];
+        const before = await durableGet<Site>(env, storage, PREFIX + site.name);
+        if (before && !sameSite(before, site)) {
+          prev = [{ site: before, replaced: Date.now() }, ...prev].slice(0, MAX_VERSIONS);
+          await durablePut(env, storage, PREV + site.name, prev);
+        }
+      } catch {
+        /* the page itself matters more than its history */
+      }
       await durablePut(env, storage, PREFIX + site.name, site);
       // The page is live now; the list is for finding it again, so a hiccup here is not a failure.
       try {
         const entries = (await list()).filter((e) => e.name !== site.name);
-        entries.unshift({ name: site.name, title: site.title, source: site.source, at: site.at, bytes: site.game ? JSON.stringify(site.game).length : site.html.length, ...(site.app ? { app: true } : {}), ...(site.game ? { game: true } : {}) });
+        entries.unshift({ name: site.name, title: site.title, source: site.source, at: site.at, bytes: sizeOf(site), ...(site.app ? { app: true } : {}), ...(site.game ? { game: true } : {}), ...(prev.length ? { versions: prev.length } : {}) });
         await saveList(entries);
       } catch {
         /* listed next time */
@@ -113,6 +144,7 @@ export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: Durable
       const entries = await list();
       const had = entries.some((e) => e.name === slug) || !!(await durableGet<Site>(env, storage, PREFIX + slug));
       await durableDelete(env, storage, PREFIX + slug);
+      await durableDelete(env, storage, PREV + slug).catch(() => undefined);
       await saveList(entries.filter((e) => e.name !== slug)).catch(() => undefined);
       return had;
     },
@@ -129,6 +161,22 @@ export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: Durable
       return d;
     },
     dropDraft: (name) => durableDelete(env, storage, DRAFT + siteSlug(name)).catch(() => undefined),
+    async versions(name) {
+      const prev = (await durableGet<{ site: Site; replaced: number }[]>(env, storage, PREV + siteSlug(name)).catch(() => undefined)) ?? [];
+      return prev.map((v) => ({ at: v.site.at, title: v.site.title, bytes: sizeOf(v.site), replaced: v.replaced }));
+    },
+    /** The newest earlier version put back as the page (what was live becomes the newest earlier version: an undo can be undone). */
+    async restore(name) {
+      const slug = siteSlug(name);
+      const prev = (await durableGet<{ site: Site; replaced: number }[]>(env, storage, PREV + slug)) ?? [];
+      const back = prev[0];
+      if (!back) return undefined;
+      // drop it from the list first, so put() files what is live now in its place
+      await durablePut(env, storage, PREV + slug, prev.slice(1));
+      const restored: Site = { ...back.site, at: Date.now() };
+      await this.put(restored);
+      return restored;
+    },
   };
 }
 
@@ -512,6 +560,7 @@ export const siteTools: Tool[] = [
         form_endpoint: { type: 'string', description: 'the owner\'s free Formspree form address (https://formspree.io/f/…), if given' },
         experience: { type: 'array', description: 'a CV: the jobs the owner gave, only', items: { type: 'object', properties: { when: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' } }, required: ['when', 'title'] } },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>' },
+        my_photos: { type: 'boolean', description: 'true when he asks for his own photos' },
         confirm: { type: 'boolean', description: 'true only to publish the draft waiting at link_name once the owner confirmed its list' },
       },
       required: ['request'],
@@ -545,12 +594,15 @@ export const siteTools: Tool[] = [
         cards: { type: 'array', items: { type: 'object', properties: { q: { type: 'string' }, a: { type: 'string' } } } },
         accent: { type: 'string', enum: ['cyan', 'blue', 'teal', 'mint', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'indigo'] },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>/' },
+        change: { type: 'boolean', description: 'true: change his app at link_name, only what he named' },
+        add_items: { type: 'array', items: { type: 'string' }, description: 'change: habits, list items or players to add' },
+        remove_items: { type: 'array', items: { type: 'string' }, description: 'change: ones to take out' },
       },
       required: ['request'],
     },
     risk: 'confirm', // it ends on the public internet: the owner approves the app in plain words first
-    approval: (a, ctx) => appApproval(a, ctx),
-    run: (a, ctx) => buildApp(a, ctx),
+    approval: (a, ctx) => (a.change === true ? changeApproval(a, ctx) : appApproval(a, ctx)),
+    run: (a, ctx) => (a.change === true ? changeApp(a, ctx) : buildApp(a, ctx)),
   },
   {
     name: 'study_site',
@@ -599,6 +651,8 @@ export const siteTools: Tool[] = [
         title: { type: 'string' },
         html: { type: 'string', description: 'the complete HTML document (leave out when from_draft is true)' },
         from_draft: { type: 'boolean', description: 'true: publish the parts sent with draft_site under this name' },
+        undo: { type: 'boolean', description: 'true: put back the version before its last update (no html)' },
+        from_phone: { type: 'boolean', description: 'true: the document or deck he handed over from his phone (no html)' },
         source_url: { type: 'string', description: 'the original site it was rebuilt from (if any)' },
       },
       required: ['name'],
@@ -608,6 +662,7 @@ export const siteTools: Tool[] = [
     async approval(a, ctx) {
       const name = siteSlug(arg.str(a, 'name'));
       if (!name) throw new Error('name must contain letters or numbers');
+      if (a.undo === true) return undoApproval(name, a, ctx);
       const source = arg.str(a, 'source_url', false);
       const { html } = prepareSite(await pageHtml(a, name, ctx), source);
       // The quality gate: a broken page is never put to the owner for approval.
@@ -621,11 +676,16 @@ export const siteTools: Tool[] = [
         /* not a URL */
       }
       const had = await siteStore(ctx.env, ctx.storage).get(name);
+      if (a.from_phone === true) {
+        const k = (await waitingPage(ctx))?.kind;
+        from = k === 'home' ? ' (your home page from your phone: only the pages you chose)' : ` (the ${k === 'deck' ? 'deck' : 'document'} from your phone, read-only)`;
+      }
       return { args: a, reason: `${had ? 'Update' : 'Publish'} "${title}"${from} as a public page at ${siteLink(ctx.origin, ctx.env, name)}? (${kb(html.length)}; anyone with the link can open it${had ? '; this replaces the page already there' : ''})` };
     },
     async run(a, ctx) {
       const name = siteSlug(arg.str(a, 'name'));
       if (!name) throw new Error('name must contain letters or numbers');
+      if (a.undo === true) return undoRun(name, ctx);
       const source = arg.str(a, 'source_url', false);
       const store = siteStore(ctx.env, ctx.storage);
       // Progress under this tool's line in the chat (?. — tests call tools with a bare context).
@@ -641,6 +701,7 @@ export const siteTools: Tool[] = [
       ctx.progress?.(`publishing "${title}"…`);
       await store.put({ name, title, html, source, at: Date.now() });
       if (a.from_draft) await store.dropDraft(name);
+      if (a.from_phone === true) await dropWaitingPage(ctx);
       const link = siteLink(ctx.origin, ctx.env, name);
       ctx.emit({ t: 'client', name: 'show_link', args: { url: link, title } });
       const requests = 1 + (html.match(/<script\b[^>]*\ssrc=/gi) ?? []).length + (html.match(/<link\b[^>]*stylesheet/gi) ?? []).length + (html.match(/<img\b/gi) ?? []).length;
@@ -717,8 +778,48 @@ export const siteTools: Tool[] = [
   },
 ];
 
+/** [sites] UNDO for a published page (sites.u2): what goes back, said before his APPROVE. */
+async function undoApproval(name: string, a: Record<string, unknown>, ctx: { env: Env; storage?: DurableObjectStorage; origin?: string }): Promise<{ args: Record<string, unknown>; reason: string }> {
+  const store = siteStore(ctx.env, ctx.storage);
+  const now = await store.get(name);
+  if (!now) throw new Error(`nothing is published at /s/${name}`);
+  const [back] = await store.versions(name);
+  if (!back) throw new Error(`"${now.title}" has no earlier version kept: it has not been updated since it went up (or the earlier ones were older than the last ${MAX_VERSIONS})`);
+  return { args: { name, undo: true }, reason: `Put back the earlier version of "${back.title}" at ${siteLink(ctx.origin, ctx.env, name)} (published ${when(back.at)} UTC, replaced ${when(back.replaced)} UTC)? What is live now is kept, so you can undo this too.` };
+}
+async function undoRun(name: string, ctx: { env: Env; storage?: DurableObjectStorage; origin?: string; emit: (e: { t: 'client'; name: 'show_link'; args: Record<string, unknown> }) => void }): Promise<string> {
+  const back = await siteStore(ctx.env, ctx.storage).restore(name);
+  if (!back) throw new Error(`no earlier version of /s/${name} is kept`);
+  const link = siteLink(ctx.origin, ctx.env, name);
+  ctx.emit({ t: 'client', name: 'show_link', args: { url: link, title: back.title } });
+  return `Put back: "${back.title}" is live again at ${link} (the version that was there is kept, so this can be undone). Give the owner this exact link.`;
+}
+
+/**
+ * [sites] /sites/<name>/versions (GET: the earlier versions kept) and /sites/<name>/restore (POST: the newest put back) in the brain
+ * (agent.ts, behind his sign-in): the Workshop's UNDO LAST UPDATE, a tap he confirms on his own phone, as UNPUBLISH is.
+ */
+export async function siteVersionsRoute(req: Request, path: string, c: { env: Env; storage?: DurableObjectStorage }): Promise<Response> {
+  const m = /^\/sites\/([a-z0-9-]{1,48})\/(versions|restore)$/.exec(path);
+  const out = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+  if (!m) return out({ error: 'not here' }, 404);
+  const store = siteStore(c.env, c.storage);
+  if (m[2] === 'versions' && req.method === 'GET') return out({ versions: await store.versions(m[1]!) });
+  if (m[2] === 'restore' && req.method === 'POST') {
+    const back = await store.restore(m[1]!);
+    return back ? out({ ok: true, title: back.title, at: back.at, versions: (await store.versions(m[1]!)).length }) : out({ error: 'That page has no earlier version kept.' }, 404);
+  }
+  return out({ error: 'not here' }, 405);
+}
+
 /** The document to publish: sent whole, or assembled from the parts sent with draft_site. */
 async function pageHtml(a: Record<string, unknown>, name: string, ctx: { env: Env; storage?: DurableObjectStorage }): Promise<string> {
+  // [sites] a document or a deck from his phone (sitepage.ts, sites.s4)
+  if (a.from_phone === true) {
+    const w = await waitingPage(ctx);
+    if (!w) throw new Error('nothing is waiting from his phone: tell him to open the document or deck and tap PUT IT ON MY SITES there, then ask again');
+    return w.html;
+  }
   if (a.from_draft) {
     const d = await siteStore(ctx.env, ctx.storage).draft(name);
     if (!d?.parts.length) throw new Error(`no draft for "${name}": send its parts with draft_site first`);

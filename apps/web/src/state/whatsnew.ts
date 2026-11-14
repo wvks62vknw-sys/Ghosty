@@ -24,6 +24,22 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  { day: '2026-11-14', title: 'See what a restore brings back', line: 'RESTORE now shows each thing in the backup and whether it comes back, is joined with yours or is already the same, and you untick what you would rather keep.' },
+  { day: '2026-11-14', title: 'A saver switch', line: 'Settings → SAVER holds big downloads and the background feeds until you turn it off, and lists what it held back. Say “turn on the saver”.' },
+  { day: '2026-11-14', title: 'Your comics and games are backed up', line: 'The daily locked backup now carries the comics and the games you made, so they come back on a new phone like your documents do.' },
+  { day: '2026-11-14', title: 'Your backup as a file', line: 'System → BACKUP: SAVE AS A FILE keeps the locked copy in Files or iCloud Drive, and OPEN A BACKUP FILE brings it back on any phone of yours.' },
+  { day: '2026-11-14', title: 'A heads-up before things run out', line: 'I tell you once when a free allowance is nearly used up or a key stops working, with what to do; System → AI ROOM keeps the line.' },
+  { day: '2026-11-14', title: 'How ready I am offline', line: 'System → OFFLINE READY: one number for how much of me works with no signal, and the one download that helps most, with its size. Ask “how ready are you offline?”.' },
+  // [sites] NEXT ROUND sites.u8
+  { day: '2026-11-14', title: 'One home page for your sites', line: 'Workshop → PUBLISHED PAGES: tick ON MY HOME PAGE on the pages you want, then PUBLISH MY HOME PAGE: one link listing only those, live after your APPROVE.' },
+  // [sites] NEXT ROUND sites.u6
+  { day: '2026-11-14', title: 'Change an app after it is made', line: 'Ask “add stretching to my habits app” or “change my water goal to 10”: the app changes at the same link after your APPROVE, and what you saved on your phone stays.' },
+  // [sites] NEXT ROUND sites.s4 (with s3)
+  { day: '2026-11-14', title: 'Documents and decks at their own link', line: 'In DOCS or PRESENTATIONS, EXPORT → PUT IT ON MY SITES: a clean read-only page (a deck swipes like a book), live after your APPROVE in the chat.' },
+  // [sites] NEXT ROUND sites.u2
+  { day: '2026-11-14', title: 'Undo for your pages', line: 'Every page you publish keeps its last three versions. Workshop → PUBLISHED PAGES → UNDO LAST UPDATE, or “undo my last update to the party page”, puts the one before back at the same link.' },
+  // [sites] NEXT ROUND sites.u12
+  { day: '2026-11-14', title: 'Your own photos on your sites', line: 'Workshop → PHOTOS FOR YOUR SITES: add your own photos, made smaller on your phone with their location removed. Say “build a website for my café with my photos” and they replace the stock pictures.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

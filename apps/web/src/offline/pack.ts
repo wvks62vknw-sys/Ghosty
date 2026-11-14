@@ -185,6 +185,8 @@ export const keptWords = (p: Pick<PackDef, 'name' | 'month' | 'id'>, k: Kept): s
  * cannot go on; what is stored so far stays, and GET again carries on.
  */
 export async function getPack(p: PackDef, onProgress?: (g: GetProgress) => void, signal?: AbortSignal): Promise<void> {
+  // [next] the saver holds big downloads until he turns it off (state/saver.ts)
+  if ((await import('../state/saver')).held(p.name)) throw new Error((await import('../state/saver')).SAVER_HELD);
   if (typeof caches === 'undefined') throw new Error(`This browser cannot keep a download, so ${p.name} cannot be kept on it.`);
   goneFiles.delete(p.id);
   if (!askedKeep) {
