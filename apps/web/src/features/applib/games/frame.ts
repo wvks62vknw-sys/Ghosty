@@ -59,11 +59,13 @@ interface Kept {
   bestStreak: number;
   played: number;
   won: number;
-  save?: { state: unknown; secs: number; seed?: number };
+  save?: { state: unknown; secs: number; seed?: number; daily?: boolean };
   /** The level, size or theme picked above the board. */
   variant?: number;
   /** The best for each level, size or theme (by its label). */
   bests?: Record<string, number>;
+  /** The day (YYYYMMDD) today's daily puzzle was finished, so it is played once and the rest are fresh. */
+  dailyDone?: number;
 }
 
 /** A choice offered above the board (a level, a size, a theme), and the options it sets. */
@@ -214,6 +216,7 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
   let pauseFns: ((p: boolean) => void)[] = [];
   let stop: void | (() => void);
   let seedNow = 0;
+  let dailyNow = false;
 
   const level = () => (variants.length ? variants[pickAt()]!.label : '');
   const bestNow = (): number | undefined => (level() ? kept.bests?.[level()] : kept.best);
@@ -270,6 +273,8 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
     st.over = false;
     st.paused = false;
     st.score = 0;
+    // (a kept game carries whether it is today's daily one)
+    dailyNow = resume != null && !!load(id).save?.daily;
     cover.hidden = true;
     stage.classList.remove('al-ghide');
     clear(stage);
@@ -294,7 +299,7 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
             future = [];
           }
         }
-        kept.save = { state, secs: Math.round(secs()), seed: seedNow };
+        kept.save = { state, secs: Math.round(secs()), seed: seedNow, daily: dailyNow };
         save(id, kept);
       },
       score(n, line) {
@@ -309,6 +314,7 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
         kept = load(id);
         delete kept.save;
         kept.played++;
+        if (dailyNow) kept.dailyDone = daySeed();
         const prev = bestNow();
         const better = o.lower ? prev == null || o.score < prev : prev == null || o.score > prev;
         const isBest = o.won && o.score > 0 && better;
@@ -325,7 +331,7 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
         st.best = bestNow() ?? null;
         st.streak = kept.streak;
         showBest();
-        const head = o.words ?? (o.won ? 'Well played.' : 'Game over.');
+        const head = `${o.words ?? (o.won ? 'Well played.' : 'Game over.')}${dailyNow ? ' A new daily one comes tomorrow.' : ''}`;
         const tail = isBest ? `A new best: ${fmtNum(o.score)}.` : o.won ? `Score ${fmtNum(o.score)}.` : '';
         const record = `Played ${kept.played} · won ${Math.round((kept.won / kept.played) * 100)}%${kept.bestStreak > 1 ? ` · longest streak ${kept.bestStreak}` : ''}`;
         clear(cover, h('div.al-gend', h('b.al-gendhead', head), tail ? h('p.al-gcovertext', tail) : null, h('small.al-gstat', record)), key('Play again', () => restart(), { kind: 'fill' }));
@@ -344,7 +350,10 @@ export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board
       secs,
       paused: () => st.paused,
       onPause: (fn) => void pauseFns.push(fn),
-      seed: (daily) => (seedNow = daily ? daySeed() : freshSeed()),
+      seed: (daily) => {
+        dailyNow = !!daily && load(id).dailyDone !== daySeed();
+        return (seedNow = dailyNow ? daySeed() : freshSeed());
+      },
       token: (name) => getComputedStyle(stage).getPropertyValue(name).trim(),
     };
     stop = board(play);

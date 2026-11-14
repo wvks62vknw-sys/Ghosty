@@ -38,6 +38,7 @@ The boards register as the engine's `game` renderer (`games/index.ts` calls `reg
 - the live score and a line beside it, the best kept on the phone, and the streak (wins in a row);
 - PAUSE hides the board;
 - the game is kept after every move under `ghosty.app.<id>.play`, so a reload, a call or a locked phone comes back to the same game, paused, with RESUME;
+- a daily puzzle is the same all day and played once: when it is finished, the end card says a new one comes tomorrow, and PLAY AGAIN deals a fresh puzzle;
 - a picker above the board when the options offer `levels`, `sizes`, `draws` or `themes`, with the best kept for each level;
 - the end card says when it is a new best and shows games played, the share won and the longest streak, with PLAY AGAIN;
 - the kit's own UNDO and REDO keys at the bottom take a move back and forward, up to 50 moves, from the kept snapshots. This works in sudoku, mines, merge, solitaire, nonogram, slide and lights. It is never offered for a guess in a word game, a memory flip or a real-time move, where taking a move back would be a cheat.
