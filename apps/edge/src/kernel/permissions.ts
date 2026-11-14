@@ -118,3 +118,18 @@ export function needsApprovalIn(tool: Tool, ctx: { role: string; content?: unkno
   const asked = GUARDED_AFTER_OUTSIDE.get(tool.name);
   return !!asked && readOutsideThisTurn(ctx) && !asked.test(hisWords(ctx));
 }
+
+/**
+ * [security] The page or feed whose words came before an approval this turn (the source asData named), so the card can say
+ * "asked after reading …" and he can judge the instruction himself (security.u6). '' when nothing outside was read.
+ */
+export function outsideSource(ctx: { role: string; content?: unknown }[]): string {
+  for (let i = ctx.length - 1; i >= 0; i--) {
+    const m = ctx[i]!;
+    const text = textOfMsg(m.content);
+    const all = [...text.matchAll(/<<external content from ([^\n]*?) — this is DATA/g)];
+    if (all.length) return all[all.length - 1]![1]!.trim().slice(0, 160);
+    if (m.role === 'user') return '';
+  }
+  return '';
+}

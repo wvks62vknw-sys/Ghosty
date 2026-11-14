@@ -29,7 +29,9 @@ import { spendFlag } from './spending';
 import { packLines } from './packs'; // [packs]
 import { isoLocal, safeTz, startOfDay, validTz, zoned } from './time';
 import { loadMemory } from './tools/memory';
-import { noteGist, recallFor } from './recall'; // [recall] BRIEF-DEPTH-MEMORY: the turns' gists kept 30 days
+import { noteGist, recallFor } from './recall';
+import { captureTurn } from './keep';
+import { gistAsk } from '../../../packages/shared/src/recall'; // [recall] BRIEF-DEPTH-MEMORY: the turns' gists kept 30 days
 
 export type { DayLine, Episode, EpisodeKind, MindSnapshot };
 
@@ -75,6 +77,8 @@ export async function observe(storage: DurableObjectStorage, ev: { kind: Episode
   await storage.put(LOG_KEY, boundLog(log));
   // [recall] a turn's gist is kept 30 days apart from the day log (recall.ts), for RECALL and "what did I ask you about X?"
   if (e.kind === 'turn') await noteGist(storage, e).catch(() => undefined);
+  // [keep] and read for his word: a promise, where he put something, why he chose something, a promise done (keep.ts)
+  if (e.kind === 'turn') await captureTurn(storage, gistAsk(e.text), { at: e.at, via: e.via }).catch(() => undefined);
   return e;
 }
 

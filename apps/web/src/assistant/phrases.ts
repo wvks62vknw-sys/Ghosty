@@ -40,6 +40,8 @@ import { tvAsked } from '../tv/detect';
 import { lookAsked } from '../../../../packages/shared/src/themes';
 import { looksAsked } from '../../../../packages/shared/src/looks';
 import { INDEPENDENT_ASK } from '../offline/trust';
+import { READY_ASK } from '../offline/readywords';
+import { saverAsked } from '../state/saver';
 import { buildAsked } from '../build/words';
 import { thatOne } from './thatwords';
 import { whatCanAsked } from './words';
@@ -69,6 +71,17 @@ import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
+import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
+
+/** [keep] Does his message ask about his word (the same test as features/memory/keep.ts keepAsked, kept pure here)? */
+export const keepAsked = (t: string): boolean =>
+  !!whereAsked(t) || !!whereIn(t) || !!whyChoseAsked(t) || promisesAsked(t) || !!dayAsked(t) ||
+  /^(?:(?:hey )?ghosty[, ]+)?(?:(?:show me |give me |read me )?my week in review|(?:how was|how's|review) my week|week in review|what did I do this week|sum up my week|my weekly review|what did I never get an answer to|what (?:questions )?(?:did|have) you (?:never|not) answer(?:ed)?|(?:my |any )?(?:open|unanswered) questions|what's still unanswered|what did you not know)[?.!]*$/i.test(t.trim());
+/** [recall] "what did I ask last March about the car?", "what did I ask in October?": recall within the days he named. */
+export const datedRecall = (t: string): boolean => {
+  const s = dateSpan(t, Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+  return !!s && (recallAsked(s.rest) !== null || /^(?:what|which things) did I (?:ask|say|tell)(?: you)?(?: about)?$/i.test(s.rest.replace(/[?.!]+$/, '').trim()));
+};
 
 /** [recall] FIND over his own things: "find garden in my things", "search my notes for garden"; the words looked for, else null. */
 export function findAsked(text: string): string | null {
@@ -99,7 +112,10 @@ export const LOCAL_ASKS = [
   // [lifeeasier] "what did I miss?", "teach me what you learned this week", "tell me when this price drops": his own records and the pages he names (assistant/life.ts)
   // [recall] "what did I ask you about trains?", "find garden in my things", "remind me to chase this if Sam doesn't reply by Thursday":
   // his own turns and things, answered from the phone's own index with no model (features/memory/recall.ts); a chase set on the brain
-  { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null },
+  // [keep] his word (features/memory/keep.ts): "where's the spare key?", "the spare key is in the blue tin", "why did I pick the canal
+  // flat?", "what did I say I'd do?", "my week", "what did I never get an answer to?", "what was I doing on the 3rd?"
+  { id: 'keep', test: (t: string) => keepAsked(t) },
+  { id: 'recall', test: (t: string) => recallAsked(t) !== null || findAsked(t) !== null || datedRecall(t) },
   { id: 'chase', test: (t: string) => chaseAsked(t) !== null || chasingAsked(t) },
   { id: 'missed', test: (t: string) => missedAsked(t) },
   { id: 'teach', test: (t: string) => teachAsked(t) },
@@ -150,6 +166,10 @@ export const LOCAL_ASKS = [
   { id: 'tvmode', test: (t: string) => tvAsked(t) !== null },
   // [offline2] "how independent are you?": the INDEPENDENCE sheet (features/system/independence.ts), and the week said
   { id: 'independent', test: (t: string) => INDEPENDENT_ASK.test(t.trim()) },
+  // [next] "how ready are you offline?": SYSTEM → OFFLINE READY opened, and the number and the next download said (system/offlineready.ts)
+  { id: 'offlineready', test: (t: string) => READY_ASK.test(t.trim()) },
+  // [next] "turn on the saver", "pause big downloads": SETTINGS → SAVER switched (state/saver.ts)
+  { id: 'saver', test: (t: string) => saverAsked(t) !== null },
   // [restd] DESIGN A BUILD with no model: "design me a shed three by two", "show me the build", "price the roof", "make it 4 by 3"
   { id: 'build', test: (t: string) => !!buildAsked(t) },
   // [restd] his house through his own Home Assistant, with no model: "turn off the hall light", "set the heating to 21"
