@@ -82,3 +82,15 @@ that has an app, plus the Library at 390 in each look.
   dark. That is the shell's, not the Library's, so the Library under Paper reads poorly. The app frame paints its own canvas, so
   apps are right on Paper.
 - **`applibplay`** (the game launcher frame) still draws its own; KINDS owns the launcher.
+
+## After the lead's review (20:10)
+- **The back chevron points left.** KINDS's card-flip rule `.al-back { transform: rotateY(180deg) }` shares the chevron's class
+  and was mirroring it, so the header now overrides it. KINDS could scope that rule to `.al-flip .al-back`.
+- **The header's back, search and ⋯ keys** are 44 pt, with 26 px glyphs in the app's accent.
+- **Today's picks** are four even columns across the width.
+- **applibpro** now checks all three.
+
+## Spec runs at the last landing
+- Green: `npm test` (2485 of 2485), applib, applibplay, applibkinds, applibpro, appkit, hubcards and deck.
+- `tabs` failed once on "[pins] a long press on a hub card opened no pin sheet". That is the Learn area's hub cards, outside the
+  Library. I did not compare it against the base branch, so it is unconfirmed whether this round caused it.

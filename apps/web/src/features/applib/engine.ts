@@ -167,7 +167,7 @@ export function mountApp(host: HTMLElement, def: AppDef): { k: KitApp; stop: () 
   } else {
     try {
       // (a game opens on its launcher, THE PRO ROUND's art tile with PLAY; the board starts on PLAY)
-      stop = def.archetype === 'game' ? launcher(k, def, () => r(k.body, def, k)) : r(k.body, def, k);
+      stop = def.archetype === 'game' ? launcher(k, def, (d) => r(k.body, d, k)) : r(k.body, def, k);
     } catch (e) {
       engineState.error = e instanceof Error ? e.name : 'threw';
       k.state('error', 'This app could not draw. Your things in it are kept.', { word: 'Try again', run: () => location.reload() });

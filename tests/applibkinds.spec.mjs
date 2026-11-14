@@ -31,6 +31,7 @@ const BMI = {
     outputs: [
       { id: 'bmi', label: 'BMI', expr: 'kg / (cm / 100) ^ 2', dp: 1, explain: 'A healthy adult BMI is 18.5 to 24.9.', bands: [{ upTo: 18.4, words: 'Underweight', tone: 'warn' }, { upTo: 24.9, words: 'Healthy weight', tone: 'good' }, { upTo: 29.9, words: 'Overweight', tone: 'warn' }, { words: 'Obese', tone: 'bad' }] },
       { id: 'over', label: 'Over 25', expr: 'if(bmi > 25, 1, 0)', dp: 0 },
+      { id: 'aim', label: 'At a healthy weight', expr: 'bmi >= 18.5 and bmi <= 24.9', bands: [{ upTo: 0, words: 'Not yet', tone: 'warn' }, { words: 'Yes', tone: 'good' }] },
       { id: 'to', label: 'To a BMI of 25', expr: '25 * (cm / 100) ^ 2 - kg', unit: 'kg', dp: 1 },
     ],
     tests: [{ in: { kg: 70, cm: 175 }, out: { bmi: 22.86 } }, { in: { kg: 90, cm: 180 }, out: { bmi: 27.78 } }], estimate: true, source: 'NHS BMI formula',
@@ -97,12 +98,14 @@ for (const vp of [PHONE, SMALL]) {
   check(!/Over 25/.test(words), `[${W} calc] the yes-or-no flag shows`);
   const raw = await page.$$eval(`${A} .al-outval`, (e) => e.map((x) => x.textContent.trim()).filter((t) => /^(0|1|true|false)$/.test(t)));
   check(!raw.length, `[${W} calc] a raw 0, 1 or boolean shows: ${raw}`);
+  check(await text(page, `${A} .al-tile[data-output="aim"] .al-outval`) === 'Yes', `[${W} calc] a yes-or-no with bands is not said in words: ${await text(page, `${A} .al-tile[data-output="aim"] .al-outval`)}`);
   check(await text(page, `${A} .al-tile[data-output="to"] .al-outval`) === '6.6 kg', `[${W} calc] the second answer as a tile: ${await text(page, `${A} .al-tile[data-output="to"] .al-outval`)}`);
   check(await page.locator(`${A} .al-field[data-input="kg"] input[type=range]`).count() === 1 && await page.locator(`${A} .al-field[data-input="kg"] button[aria-label="Weight up"]`).count() === 1, `[${W} calc] the weight has no slider or steppers`);
   // the slider changes the answer
   await page.locator(`${A} .al-field[data-input="kg"] input[type=range]`).fill('90');
   check(await text(page, `${A} .al-hero .al-heroval`) === '29.4' && await text(page, `${A} .al-hero .al-herowords`) === 'Overweight', `[${W} calc] the slider did not change the answer: ${await text(page, `${A} .al-hero`)}`);
   check(await page.getAttribute(`${A} .al-hero`, 'data-tone') === 'warn', `[${W} calc] the overweight band's tone is not warn`);
+  check(await text(page, `${A} .al-tile[data-output="aim"] .al-outval`) === 'Not yet', `[${W} calc] the yes-or-no did not follow: ${await text(page, `${A} .al-tile[data-output="aim"] .al-outval`)}`);
   check(await page.inputValue(`${A} .al-field[data-input="kg"] input[type=number]`) === '90', `[${W} calc] the number box did not follow the slider`);
   // typing still works, and the steppers step
   await page.fill(`${A} .al-field[data-input="cm"] input[type=number]`, '180');
@@ -212,8 +215,17 @@ for (const vp of [PHONE, SMALL]) {
     m = await fit(page);
     check(fitOk(m), `[${W} launcher fit] ${JSON.stringify(m)}`);
     await page.screenshot({ path: `${out}/applibkinds-launcher-${W}.png` });
+    check(await page.locator(`${A} .al-launch h2`).count() === 0 && !(await text(page, `${A} .al-launch`)).includes('Sudoku'), `[${W} launcher] the name shows twice`);
+    const undoShown = () => page.evaluate(() => [...document.querySelectorAll('.ak-app .ak-tools > button')].filter((b) => /^(Undo|Redo)$/.test(b.textContent.trim()) && b.offsetParent).length);
+    check(await undoShown() === 0, `[${W} launcher] Undo and Redo show on the launcher`);
+    check(await page.locator(`${A} .al-modes .al-modechip`).count() >= 2 && await page.locator(`${A} .al-todaycard`).count() === 1 && await page.locator(`${A} .al-record`).count() === 1, `[${W} launcher] no levels, today's game or record under the chips`);
+    await page.click(`${A} .al-modechip >> nth=1`);
+    const lvl = (await text(page, `${A} .al-modechip >> nth=1`)).split(/Best/)[0].trim();
     await page.click(`${A} .al-playkey`);
     check(await page.waitForSelector(`${A} .al-game`, { timeout: 8000 }).then(() => true, () => false), `[${W} launcher] PLAY did not start the board`);
+    check(await undoShown() === 2, `[${W} launcher] Undo and Redo did not come back in play`);
+    const picked = await page.evaluate(() => { const s = document.querySelector('.ak-app .al-gpick'); return s ? s.options[s.selectedIndex].text : ''; });
+    check(!picked || picked === lvl, `[${W} launcher] the level picked (${lvl}) is not the board's (${picked})`);
   }
   await ctx.close();
 }
