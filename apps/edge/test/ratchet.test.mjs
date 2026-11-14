@@ -150,6 +150,8 @@ export const STATES = {
   'eye.cam': { dir: 'eye', base: 2, now: 2 },
   'eye.roadahead': { dir: 'eye', base: 1, now: 1 },
   'machine.view': { dir: 'eye', base: 0, now: 2 },
+  // the camera wall (NEXT ROUND, see.u2): its empty wall and a camera that will not come
+  'eye.wall': { dir: 'eye', base: 0, now: 2 },
   'lens.camera': { dir: 'lens', base: 3, now: 3 },
   'lens.see': { dir: 'lens', base: 0, now: 1 },
   'lens.read': { dir: 'lens', base: 0, now: 1 },
