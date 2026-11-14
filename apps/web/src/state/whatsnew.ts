@@ -15,6 +15,7 @@ export interface NewThing {
 
 export const WHATS_NEW: NewThing[] = [
   // [lens] THE NEXT ROUND: the camera as the front door
+  { day: '2026-11-14', title: 'Stars and planets in AIM', line: 'Hold the Lens up at the night sky in AIM: the Moon (and how full it is), the planets and the brightest stars are named over the picture, worked out on your phone with no internet. The SKY button hides them.' },
   { day: '2026-11-14', title: 'A business card into your contacts', line: 'Point the Lens at a business card: ADD TO CONTACTS hands its name, numbers and email to your phone’s contacts. It is made on the phone, and nobody is looked up.' },
   { day: '2026-11-14', title: 'The next buses from a stop sign', line: 'Point the Lens at a bus stop sign and say “when’s the next bus”: the times come up on the card, asked by the stop’s name, never by where you are.' },
   { day: '2026-11-14', title: 'Receipts and bills from the Lens', line: 'Point the Lens at a receipt: one tap puts it into this month’s spending, one more keeps its warranty. A bill goes into your bills, with a reminder two days before it is due.' },

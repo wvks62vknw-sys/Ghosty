@@ -1,7 +1,9 @@
 /**
  * AIM: point the phone at anything. The camera, the compass and GPS together put labels over
  * what is out there — aircraft overhead, ships, buses and trams, hilltops, towers and other
- * places, the space station — each with its distance and height, a compass ribbon along the top
+ * places, the space station, and the night sky (the Sun, the Moon, the planets and the brightest
+ * stars, worked out on the phone from the date and the position, never fetched: aim/sky.ts)
+ * — each with its distance and height, a compass ribbon along the top
  * and the horizon across the picture. Tap a label for its card (a place's card has a few lines
  * from Wikipedia); WHAT'S THAT? asks Ghosty about the thing nearest the cross in the middle,
  * sending what the phone knows about it as `seen` (data, never the owner's words).
@@ -20,20 +22,22 @@ import { createStore } from '../../core/store';
 import { home } from '../../state/app';
 import { button, toast } from '../../ui/components';
 import { askWithImage } from '../../vision/ask';
-import { compassPoint, declutter, distanceText, focalFor, groundDistance, headingOf, horizonLine, poseFrom, poseFromOrientation, project, rotatePose, turn, wrap360, type Pose, type Projected, type Viewport } from '../../aim/project';
-import { AIM_KINDS, KIND_GLYPH, KIND_LABEL, describeTarget, issFrom, labelLine, locate, placesFrom, planesFrom, shipsFrom, transitFrom, type AimKind, type Seen, type Target } from '../../aim/targets';
+import { compassPoint, declutter, focalFor, groundDistance, headingOf, horizonLine, poseFrom, poseFromOrientation, project, rotatePose, turn, wrap360, type Pose, type Projected, type Viewport } from '../../aim/project';
+import { AIM_KINDS, KIND_GLYPH, KIND_LABEL, describeTarget, issFrom, labelLine, locate, placesFrom, planesFrom, shipsFrom, skyAt, skySeen, skyShown, transitFrom, whereLine, type AimKind, type Seen, type Target } from '../../aim/targets';
 import type { LensContext, Mode } from './index';
 import { sayError } from '../../ui/hisWords';
 
+const KINDS_ON: Record<AimKind, boolean> = { plane: true, ship: true, transit: true, place: true, space: true, sky: true };
 /** Saved on this phone: the compass correction, which kinds show, the manual heading. */
-const prefs = createStore(
-  { offset: 0, kinds: { plane: true, ship: true, transit: true, place: true, space: true } as Record<AimKind, boolean>, heading: 0, pitch: 5 },
-  { persist: 'ghosty.aim' },
-);
+const prefs = createStore({ offset: 0, kinds: { ...KINDS_ON }, heading: 0, pitch: 5 }, { persist: 'ghosty.aim' });
+/** Which kinds show: what he chose, and on for a kind newer than his choice (the sky, on a phone that saved its kinds before it came). */
+const kindsOn = (): Record<AimKind, boolean> => ({ ...KINDS_ON, ...prefs.get().kinds });
 
-const COLORS: Record<AimKind, string> = { plane: '#62e4ff', ship: '#6fa8ff', transit: '#ffb23e', place: '#4fe3a8', space: '#e7a6ff' };
-/** How often each feed is asked again (ms); places when the owner has moved a kilometre. */
-const EVERY: Record<AimKind, number> = { plane: 10_000, ship: 30_000, transit: 30_000, place: 10 * 60_000, space: 10_000 };
+// the sky's colour is the look's own first ink (starlight), read from the design tokens when AIM opens
+const COLORS: Record<AimKind, string> = { plane: '#62e4ff', ship: '#6fa8ff', transit: '#ffb23e', place: '#4fe3a8', space: '#e7a6ff', sky: '' };
+const skyInk = (): string => getComputedStyle(document.documentElement).getPropertyValue('--g-ink-1').trim() || COLORS.space;
+/** How often each feed is asked again (ms); places when the owner has moved a kilometre; the sky is worked out again on the phone every few seconds. */
+const EVERY: Record<AimKind, number> = { plane: 10_000, ship: 30_000, transit: 30_000, place: 10 * 60_000, space: 10_000, sky: 5_000 };
 const MAX_LABELS = 25;
 const MAX_ARROWS = 8;
 
@@ -58,8 +62,8 @@ export const aimState: AimState = {
   pitch: 0,
   offset: 0,
   pos: null,
-  counts: { plane: 0, ship: 0, transit: 0, place: 0, space: 0 },
-  feeds: { plane: '', ship: '', transit: '', place: '', space: '' },
+  counts: { plane: 0, ship: 0, transit: 0, place: 0, space: 0, sky: 0 },
+  feeds: { plane: '', ship: '', transit: '', place: '', space: '', sky: '' },
   markers: [],
   aimed: '',
   selected: '',
@@ -76,7 +80,10 @@ type OrientationEvt = DeviceOrientationEvent & { webkitCompassHeading?: number }
 export function createAimMode(L: LensContext): Mode {
   const S = L.state;
   const A = aimState;
-  const targets: Record<AimKind, Target[]> = { plane: [], ship: [], transit: [], place: [], space: [] };
+  // (the sky is never a target at a place: it is worked out as bearings and heights straight into `sky`)
+  const targets: Record<AimKind, Target[]> = { plane: [], ship: [], transit: [], place: [], space: [], sky: [] };
+  let sky: Seen[] = [];
+  let skyAtMs = -Infinity;
   let seen: Seen[] = [];
   let seenDirty = true;
   let sensorPose: Pose | null = null;
@@ -86,8 +93,8 @@ export function createAimMode(L: LensContext): Mode {
   let stopFrame: (() => void) | null = null;
   let timer = 0;
   let waitTimer = 0;
-  const lastFetch: Record<AimKind, number> = { plane: 0, ship: 0, transit: 0, place: 0, space: 0 };
-  const busy: Record<AimKind, boolean> = { plane: false, ship: false, transit: false, place: false, space: false };
+  const lastFetch: Record<AimKind, number> = { plane: 0, ship: 0, transit: 0, place: 0, space: 0, sky: 0 };
+  const busy: Record<AimKind, boolean> = { plane: false, ship: false, transit: false, place: false, space: false, sky: false };
   let placesAt: { lat: number; lon: number } | null = null;
   let drawn: { t: Seen; p: Projected; box?: { x: number; y: number; w: number; h: number } }[] = [];
   let entered = false;
@@ -107,14 +114,15 @@ export function createAimMode(L: LensContext): Mode {
   const chips = h('div.lenschips.aimchips');
   for (const k of AIM_KINDS) {
     const b = button(KIND_LABEL[k], () => {
-      const kinds = { ...prefs.get().kinds, [k]: !prefs.get().kinds[k] };
+      const kinds = { ...kindsOn(), [k]: !kindsOn()[k] };
       prefs.set({ kinds });
       b.classList.toggle('on', kinds[k]);
+      b.setAttribute('aria-pressed', String(kinds[k]));
       seenDirty = true;
       if (kinds[k]) void refresh(k, true);
     });
-    b.classList.toggle('on', prefs.get().kinds[k]);
-    b.setAttribute('aria-pressed', String(prefs.get().kinds[k]));
+    b.classList.toggle('on', kindsOn()[k]);
+    b.setAttribute('aria-pressed', String(kindsOn()[k]));
     chipBtns.set(k, b);
     chips.append(b);
   }
@@ -134,8 +142,8 @@ export function createAimMode(L: LensContext): Mode {
   const reply = h('div.lensreply', replyModel, replyText);
   reply.hidden = true;
   const feedsLine = h('div.note.aimfeeds');
-  const note = h('div.note', 'Hold the phone up and look through it: labels sit over planes, ships, buses, places and the space station. Tap one for its card. Compass off? Tap a marker for something you can see, put the cross on it, ALIGN. Your position stays on the phone except to ask for what is near it.');
-  const credit = h('div.note.aimcredit', 'Places: Wikipedia, OpenStreetMap · aircraft: adsb.lol / airplanes.live · station: wheretheiss.at');
+  const note = h('div.note', 'Hold the phone up and look through it: labels sit over planes, ships, buses, places, the space station and the stars and planets. Tap one for its card. Compass off? Tap a marker for something you can see, put the cross on it, ALIGN. Your position stays on the phone except to ask for what is near it.');
+  const credit = h('div.note.aimcredit', 'Places: Wikipedia, OpenStreetMap · aircraft: adsb.lol / airplanes.live · station: wheretheiss.at · sky: worked out on this phone (JPL planet tables)');
   const root = h('div.stackf', h('div.row.wrap', startBtn, whatBtn, alignBtn, resetBtn), chips, manual, card, reply, feedsLine, note, credit);
 
   // ---- the phone's position
@@ -144,6 +152,7 @@ export function createAimMode(L: LensContext): Mode {
     A.pos = { lat, lon, alt, from };
     if (!old || groundDistance(old, A.pos) > 25 || Math.abs(old.alt - alt) > 10) seenDirty = true;
     if (!placesAt || groundDistance(placesAt, A.pos) > 1000) void refresh('place', true);
+    if (!old || groundDistance(old, A.pos) > 5000) skyNow(true);
   };
   const startGps = () => {
     if (watchId >= 0) return;
@@ -245,10 +254,23 @@ export function createAimMode(L: LensContext): Mode {
     return poseFrom(p.heading, p.pitch);
   };
 
+  // ---- the night sky: arithmetic on the clock and the position, on this phone, every few seconds (never fetched)
+  const skyNow = (force = false) => {
+    const pos = A.pos;
+    if (!pos || !kindsOn().sky) return;
+    const now = performance.now();
+    if (!force && now - skyAtMs < EVERY.sky) return;
+    skyAtMs = now;
+    sky = skySeen(skyShown(skyAt(new Date(), pos.lat, pos.lon)), pos);
+    A.feeds.sky = 'worked out on this phone';
+    seenDirty = true;
+  };
+
   // ---- the feeds
   const refresh = async (k: AimKind, force = false) => {
+    if (k === 'sky') return void skyNow(true);
     const pos = A.pos;
-    if (!pos || busy[k] || !prefs.get().kinds[k]) return;
+    if (!pos || busy[k] || !kindsOn()[k]) return;
     if (!force && Date.now() - lastFetch[k] < EVERY[k]) return;
     busy[k] = true;
     lastFetch[k] = Date.now();
@@ -305,7 +327,7 @@ export function createAimMode(L: LensContext): Mode {
   const showFeeds = () => {
     const bits: string[] = [];
     for (const k of AIM_KINDS) {
-      if (!prefs.get().kinds[k]) continue;
+      if (!kindsOn()[k]) continue;
       const f = A.feeds[k];
       if (f.startsWith('problem') || f.startsWith('note')) bits.push(`${KIND_LABEL[k]}: ${f.replace(/^note: /, '')}`);
     }
@@ -316,7 +338,8 @@ export function createAimMode(L: LensContext): Mode {
   /** Due feeds, once a second. */
   const poll = () => {
     if (!L.active() || S.mode !== 'aim') return;
-    for (const k of AIM_KINDS) if (k !== 'place') void refresh(k);
+    for (const k of AIM_KINDS) if (k !== 'place' && k !== 'sky') void refresh(k);
+    skyNow();
   };
 
   // ---- drawing
@@ -336,11 +359,12 @@ export function createAimMode(L: LensContext): Mode {
     A.pitch = hp.pitch;
     A.offset = prefs.get().offset;
     if (seenDirty && A.pos) {
-      const kinds = prefs.get().kinds;
+      const kinds = kindsOn();
       const all: Target[] = [];
       for (const k of AIM_KINDS) if (kinds[k]) all.push(...targets[k]);
-      // the station only when it is above the horizon
+      // the station only when it is above the horizon; the sky as it was last worked out (already only what is up)
       seen = locate(all, A.pos).filter((t) => t.kind !== 'space' || t.elevation > 0);
+      if (kinds.sky) seen.push(...sky);
       for (const k of AIM_KINDS) A.counts[k] = seen.filter((t) => t.kind === k).length;
       seenDirty = false;
     }
@@ -367,7 +391,8 @@ export function createAimMode(L: LensContext): Mode {
     let aimed: (typeof on)[number] | null = null;
     let best = 70;
     for (const x of on) {
-      const d = Math.hypot(x.p.x - cx, x.p.y - cy);
+      // a thing on the ground in front of the sky wins a near tie: the tower, not the star behind it
+      const d = Math.hypot(x.p.x - cx, x.p.y - cy) + (x.t.kind === 'sky' ? 24 : 0);
       if (d < best) {
         best = d;
         aimed = x;
@@ -380,8 +405,8 @@ export function createAimMode(L: LensContext): Mode {
       const l2 = labelLine(x.t);
       lines.set(x.t.id, [l1, l2]);
       const w = Math.min(170, Math.max(c.measureText(l1).width, c.measureText(l2).width * 0.9) + 12);
-      // the aimed and the selected one go first
-      const pri = x.t.id === A.selected || x === aimed ? -1 : x.t.kind === 'plane' || x.t.kind === 'space' ? x.t.range / 4 : x.t.ground;
+      // the aimed and the selected one go first; the sky after what is near (the Sun, the Moon and the planets before the stars, the brightest first)
+      const pri = x.t.id === A.selected || x === aimed ? -1 : x.t.kind === 'sky' ? (x.t.body === 'star' ? 1e6 : 9e4) + (x.t.mag ?? 0) * 100 : x.t.kind === 'plane' || x.t.kind === 'space' ? x.t.range / 4 : x.t.ground;
       return { id: x.t.id, x: x.p.x, y: x.p.y, w, h: 28, dist: pri };
     });
     const placed = new Map(declutter(ins, MAX_LABELS, { w: vp.w, h: vp.h }).map((l) => [l.id, l]));
@@ -395,11 +420,16 @@ export function createAimMode(L: LensContext): Mode {
       c.fillStyle = 'rgba(2, 7, 13, .55)';
       c.lineWidth = sel || isAimed ? 2 : 1.4;
       c.beginPath();
-      c.moveTo(x.p.x, x.p.y - 6);
-      c.lineTo(x.p.x + 6, x.p.y);
-      c.lineTo(x.p.x, x.p.y + 6);
-      c.lineTo(x.p.x - 6, x.p.y);
-      c.closePath();
+      if (x.t.kind === 'sky') {
+        // the sky as a ring (a star, a planet, the Moon), not the diamond of a thing at a place
+        c.arc(x.p.x, x.p.y, x.t.body === 'star' ? 4 : 6, 0, Math.PI * 2);
+      } else {
+        c.moveTo(x.p.x, x.p.y - 6);
+        c.lineTo(x.p.x + 6, x.p.y);
+        c.lineTo(x.p.x, x.p.y + 6);
+        c.lineTo(x.p.x - 6, x.p.y);
+        c.closePath();
+      }
       c.fill();
       c.stroke();
       const l = placed.get(x.t.id);
@@ -428,9 +458,9 @@ export function createAimMode(L: LensContext): Mode {
       A.markers.push({ id: x.t.id, kind: x.t.kind, title: x.t.title, x: Math.round(x.p.x), y: Math.round(x.p.y), on: true, angle: x.p.angle, labelled: !!l });
     }
 
-    // edge arrows for the nearest things out of view (and the selected one)
+    // edge arrows for the nearest things out of view (and the selected one); none for the stars, there are too many
     const off = proj
-      .filter((x) => !x.p.on)
+      .filter((x) => !x.p.on && (x.t.body !== 'star' || x.t.id === A.selected))
       .sort((a, b) => (a.t.id === A.selected ? -1 : b.t.id === A.selected ? 1 : a.t.ground - b.t.ground))
       .slice(0, MAX_ARROWS);
     for (const x of off) {
@@ -483,7 +513,7 @@ export function createAimMode(L: LensContext): Mode {
     const aimedText = aimed ? `${KIND_GLYPH[aimed.t.kind]} ${aimed.t.title} · ${labelLine(aimed.t)}` : '';
     S.counts = aimed ? `aimed at ${aimed.t.title} (${labelLine(aimed.t)})` : `${n} labelled around`;
     const left = `${String(Math.round(hp.heading) % 360).padStart(3, '0')}° ${compassPoint(hp.heading)} · ${hp.pitch >= 0 ? '+' : ''}${Math.round(hp.pitch)}°${A.pos?.from === 'home' ? ' · home position' : ''}`;
-    const right = aimedText || `${A.counts.plane} ✈ · ${A.counts.ship} ⛴ · ${A.counts.transit} ▣ · ${A.counts.place} ⌖${A.counts.space ? ' · ✦' : ''}`;
+    const right = aimedText || `${A.counts.plane} ✈ · ${A.counts.ship} ⛴ · ${A.counts.transit} ▣ · ${A.counts.place} ⌖${A.counts.space ? ' · ✦' : ''}${A.counts.sky ? ` · ${A.counts.sky} ★` : ''}`;
     if (left + right !== shownLines) {
       shownLines = left + right;
       L.lines(left, right);
@@ -589,14 +619,14 @@ export function createAimMode(L: LensContext): Mode {
     S.lastAction = `selected ${t.title}`;
     const extract = h('div.aimextract');
     const rows = h('div.lenshow');
-    rows.append(h('b', 'WHERE'), h('span', `${Math.round(t.bearing)}° ${compassPoint(t.bearing)} · ${t.elevation >= 0 ? `${t.elevation.toFixed(1)}° up` : `${(-t.elevation).toFixed(1)}° down`} · ${distanceText(t.kind === 'plane' || t.kind === 'space' ? t.range : t.ground)}`));
+    rows.append(h('b', 'WHERE'), h('span', whereLine(t)));
     for (const [k, v] of t.facts) rows.append(h('b', k.toUpperCase()), h('span', v));
     clear(
       card,
       h('b', `${KIND_GLYPH[t.kind]} ${t.title}`),
       rows,
       extract,
-      h('div.row.wrap', button('ASK GHOSTY', () => void askAbout(t, `Tell me about this ${t.kind === 'transit' ? 'bus' : t.kind === 'space' ? 'satellite' : t.kind}.`), 'warn'), button('CLOSE', () => select(''))),
+      h('div.row.wrap', button('ASK GHOSTY', () => void askAbout(t, t.kind === 'sky' ? `Tell me about ${t.body === 'star' || t.body === 'planet' ? t.title : `the ${t.title}`}, up in the sky now.` : `Tell me about this ${t.kind === 'transit' ? 'bus' : t.kind === 'space' ? 'satellite' : t.kind}.`), 'warn'), button('CLOSE', () => select(''))),
     );
     card.hidden = false;
     if (t.wiki) {
@@ -662,6 +692,7 @@ export function createAimMode(L: LensContext): Mode {
     id: 'aim',
     enter() {
       expose();
+      COLORS.sky = skyInk();
       clear(L.panel);
       L.panel.append(root);
       if (!entered) {
