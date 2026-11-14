@@ -141,7 +141,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Keep', 'Review', 'Cancel'] }),
         fd('link', 'Manage Page', 'link'),
       ],
-      title: 'service', sub: '{kind} · {status}', meta: 'monthly', date: 'renews', sort: { field: 'renews', dir: 'asc' }, group: 'status',
+      title: 'service', sub: 'kind', meta: 'monthly', date: 'renews', sort: { field: 'renews', dir: 'asc' }, group: 'status',
       stats: [
         { label: 'Per Month', kind: 'sum', field: 'monthly', period: 'all' },
         { label: 'Services', kind: 'count', period: 'all' },
@@ -290,7 +290,7 @@ export const MONEY: AppDef[] = [
         { label: 'Items', kind: 'count', period: 'all' },
         { label: 'Most Valuable', kind: 'max', field: 'value', period: 'all' },
       ],
-      views: ['gallery', 'list', 'board'],
+      views: ['list', 'gallery', 'board'],
     },
     sample: [
       { item: 'Corner sofa', room: 'Living Room', value: 950, bought: '2024-03-12' },
@@ -994,7 +994,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Draft', 'Sent', 'Overdue', 'Paid'], default: 'Draft' }),
         fd('work', 'Work', 'long', { hint: 'Line items' }),
       ],
-      title: '{number} · {client}', sub: '{status} · due {due}', meta: 'amount', date: 'issued', sort: { field: 'issued', dir: 'desc' }, group: 'status',
+      title: '{number} · {client}', sub: 'Due {due}', meta: 'amount', date: 'issued', sort: { field: 'issued', dir: 'desc' }, group: 'status',
       stats: [
         { label: 'Invoiced Month', kind: 'sum', field: 'amount', period: 'month' },
         { label: 'Invoiced Year', kind: 'sum', field: 'amount', period: 'year' },
@@ -1027,7 +1027,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Draft', 'Sent', 'Won', 'Lost'], default: 'Draft' }),
         fd('notes', 'Notes', 'long'),
       ],
-      title: 'job', sub: '{client} · {status}', meta: 'total', date: 'sent', sort: { field: 'sent', dir: 'desc' }, group: 'status',
+      title: 'job', sub: 'client', meta: 'total', date: 'sent', sort: { field: 'sent', dir: 'desc' }, group: 'status',
       stats: [
         { label: 'Quoted Month', kind: 'sum', field: 'total', period: 'month' },
         { label: 'Quotes', kind: 'count', period: 'year' },
@@ -1118,7 +1118,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Idea', 'Drafted', 'Ready', 'Posted'], default: 'Idea' }),
         fd('photo', 'Picture', 'photo'),
       ],
-      title: 'title', sub: '{account} · {status}', date: 'date', sort: { field: 'date', dir: 'asc' }, group: 'status',
+      title: 'title', sub: 'account', date: 'date', sort: { field: 'date', dir: 'asc' }, group: 'status',
       stats: [
         { label: 'Planned', kind: 'count', period: 'month' },
         { label: 'Posted Week', kind: 'count', period: 'week', goal: 3, dir: 'reach' },
@@ -1222,7 +1222,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Listed', 'Sold', 'Posted', 'Withdrawn'], default: 'Listed' }),
         fd('photo', 'Photo', 'photo'),
       ],
-      title: 'item', sub: '{site} · {status}', meta: 'sold', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'status',
+      title: 'item', sub: 'site', meta: 'sold', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'status',
       stats: [
         { label: 'Sales This Year', kind: 'count', period: 'year', goal: 30, dir: 'limit' },
         { label: 'Takings Year', kind: 'sum', field: 'sold', period: 'year' },
@@ -1418,7 +1418,7 @@ export const MONEY: AppDef[] = [
         fd('got', 'Got Back', 'money'),
         fd('notes', 'Notes', 'long'),
       ],
-      title: 'firm', sub: '{situation} · {stage}', meta: 'asked', date: 'sent', sort: { field: 'sent', dir: 'desc' }, group: 'stage',
+      title: 'firm', sub: 'situation', meta: 'asked', date: 'sent', sort: { field: 'sent', dir: 'desc' }, group: 'stage',
       stats: [
         { label: 'Won Back', kind: 'sum', field: 'got', period: 'all' },
         { label: 'Open', kind: 'count', period: 'all' },
@@ -1478,7 +1478,7 @@ export const MONEY: AppDef[] = [
         fd('photo', 'Photo', 'photo'),
         fd('notes', 'Notes', 'long'),
       ],
-      title: 'name', sub: '{kind} · {verdict}', meta: 'price', sort: { field: 'price', dir: 'asc' }, group: 'verdict',
+      title: 'name', sub: 'kind', meta: 'price', sort: { field: 'price', dir: 'asc' }, group: 'verdict',
       stats: [
         { label: 'Options', kind: 'count', period: 'all' },
         { label: 'Cheapest', kind: 'min', field: 'price', period: 'all' },
@@ -1506,7 +1506,7 @@ export const MONEY: AppDef[] = [
         fd('status', 'Status', 'choice', { options: ['Deciding', 'Sent Back', 'Refunded', 'Kept'], default: 'Deciding' }),
         fd('label', 'Label Photo', 'photo'),
       ],
-      title: 'item', sub: '{shop} · {status}', meta: 'amount', date: 'returnby', sort: { field: 'returnby', dir: 'asc' }, group: 'status',
+      title: 'item', sub: 'shop', meta: 'amount', date: 'returnby', sort: { field: 'returnby', dir: 'asc' }, group: 'status',
       stats: [
         { label: 'Waiting', kind: 'count', period: 'all' },
         { label: 'Value', kind: 'sum', field: 'amount', period: 'all' },
@@ -1601,7 +1601,7 @@ export const MONEY: AppDef[] = [
         { label: 'Boxes', kind: 'count', period: 'all' },
         { label: 'Places', kind: 'distinct', field: 'place', period: 'all' },
       ],
-      views: ['gallery', 'list', 'board'],
+      views: ['list', 'gallery', 'board'],
     },
     sample: [
       { box: 'Box 1', place: 'Loft', contents: 'Christmas decorations, tree lights, wreath', packed: '2026-01-06' },
@@ -1641,7 +1641,7 @@ export const MONEY: AppDef[] = [
         fd('amount', 'Amount', 'money'),
         fd('photo', 'Photo', 'photo'),
       ],
-      title: 'what', sub: '{kind} · {status}', meta: 'amount', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'status',
+      title: 'what', sub: 'kind', meta: 'amount', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'status',
       stats: [
         { label: 'Open Repairs', kind: 'count', period: 'all' },
         { label: 'Rent Year', kind: 'sum', field: 'amount', period: 'year' },
@@ -2134,7 +2134,7 @@ export const MONEY: AppDef[] = [
         { label: 'Cheapest', kind: 'min', field: 'price', period: 'all' },
         { label: 'Best Economy', kind: 'max', field: 'mpg', period: 'all' },
       ],
-      views: ['board', 'gallery', 'list'],
+      views: ['list', 'board', 'gallery'],
     },
     sample: [
       { car: 'Small hatchback, petrol', price: 8995, year: 2020, miles: 31000, mpg: 52, tax: 195, insurance: 620, stage: 'Viewing' },
