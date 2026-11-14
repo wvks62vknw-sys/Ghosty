@@ -36,6 +36,7 @@ const tone = () => MOOD_TONE[mood.get().now.kind] ?? { rate: 1, pitch: 1, volume
 import { brief, clean, quickFirst, sentences, SpokenPlan } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
 import { encodeWav, toMono16k } from './wav';
 import { MIC_BLOCKED, MIC_BROWSER, MIC_NONE, NO_SIGNAL } from './words';
+import { sfx } from './sfx';
 
 let voices: SpeechSynthesisVoice[] = [];
 const loadVoices = () => {
@@ -846,7 +847,11 @@ function listenBrowser(onInterim: (t: string) => void): Promise<string> {
       reject(new Error(e.error === 'not-allowed' ? MIC_BLOCKED : e.error === 'service-not-allowed' ? MIC_BROWSER : e.error === 'network' ? NO_SIGNAL : e.error === 'audio-capture' ? MIC_NONE : 'I couldn’t turn that into words. Try again, or type it.'));
     };
     let dropped = false;
-    rc.onend = () => resolve(dropped ? '' : fin.trim());
+    rc.onend = () => {
+      // ([ci] the phone's own recogniser heard him finish: the same soft tick, NEXT ci.u5)
+      if (!dropped && fin.trim()) sfx('heard');
+      resolve(dropped ? '' : fin.trim());
+    };
     abortListen = (drop) => {
       dropped = !!drop;
       rc.abort();
@@ -1138,6 +1143,8 @@ async function listenWhisper(onReady: () => void = () => undefined, soundOnly = 
   // writing down is no longer added to his wait). If he speaks again, they are set aside and the whole recording is sent.
   let early: { from: number; text: Promise<string | null> } | null = null;
   let lastLoud = c ? performance.now() : 0;
+  // [ci] the ear heard him finish (his voice, then the quiet that ends a turn): a soft tick says so (NEXT ci.u5)
+  let endHeard = false;
   const done = new Promise<void>((resolve) => {
     let floor = carriedFloor(m);
     let speechAt = 0;
@@ -1176,6 +1183,7 @@ async function listenWhisper(onReady: () => void = () => undefined, soundOnly = 
       const silence = speech && now - lastLoud > END_SILENCE_MS;
       const tooLong = now - t0 > (speech ? 30000 : 12000);
       if (stopped || silence || tooLong || mic !== m) {
+        endHeard = silence && !stopped && mic === m;
         if (calib >= 20) floors.set(m, floor);
         resolve();
         return;
@@ -1185,6 +1193,7 @@ async function listenWhisper(onReady: () => void = () => undefined, soundOnly = 
     requestAnimationFrame(tick);
   });
   await done;
+  if (endHeard && !dropped) sfx('heard');
   // the words written down early are his whole utterance when nothing louder than the room came after them
   const sent = early as { from: number; text: Promise<string | null> } | null; // (set inside the meter's loop above)
   const earlyText = sent && sent.from === lastLoud && !dropped ? sent.text : null;

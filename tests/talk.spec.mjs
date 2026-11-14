@@ -608,6 +608,8 @@ if (part('convo')) {
   await settle(page);
   const reopen = [];
   const firstWords = [];
+  const noTick = [];
+  const heardAt = [];
   let answered = 0;
   for (let i = 1; i <= 10; i++) {
     const said = `turn ${i} of ten ${RUN}`;
@@ -619,6 +621,11 @@ if (part('convo')) {
     const ok = await seen(page, new RegExp(`Mock reply to: ${said}`), 15000);
     const first = await page.waitForFunction((t) => window.__talk.clips.find((c) => c.at >= t && c.ev === 'playing' && c.dur > 0.3)?.at, endAt0, { timeout: 8000 }).then((h) => h.jsonValue(), () => null);
     if (first) firstWords.push(Math.round(first - endAt0));
+    // [ci] NEXT ci.u5: the soft tick that says he was heard, after his last word and before Ghosty's first
+    const tick = await page.evaluate((t) => window.__talk.sfx.find((x) => x.kind === 'heard' && x.at >= t)?.at ?? null, endAt0);
+    if (tick === null) noTick.push(i);
+    else if (first && tick > first) noTick.push(`${i} (after the reply began)`);
+    else heardAt.push(Math.round(tick - endAt0));
     if (!ok) {
       problems.push(`[${name}] turn ${i} was not answered (heard ${JSON.stringify(io.stt.slice(-2))})`);
       break;
@@ -641,6 +648,8 @@ if (part('convo')) {
   // his last word to Ghosty's first, turn after turn of a running conversation: within the second
   if (!(median <= 1000)) problems.push(`[${name}] the first word came a median ${ms(median)} after he stopped speaking (${firstWords.join(', ')} ms; budget 1,000 ms)`);
   if (answered < 10) problems.push(`[${name}] ${answered} of ten turns answered with no tap`);
+  if (noTick.length) problems.push(`[${name}] no soft "heard" tick on turn ${noTick.join(', ')} (want one each time he finishes speaking)`);
+  console.log(`[${name}] the "heard" tick came ${heardAt.join(', ')} ms after he stopped`);
   if ((await page.evaluate(() => window.__mic.calls)) !== 1) problems.push(`[${name}] the microphone was asked for ${await page.evaluate(() => window.__mic.calls)} times in one conversation`);
   if (reopen.some((r) => r > 400)) problems.push(`[${name}] the ear opened again late after a reply: ${reopen.join(', ')} ms`);
   console.log(`[${name}] ten turns: ${answered} answered with ${taps} tap (the one that started it); ear open again ${reopen.join(', ')} ms after each reply; his last word to the first of Ghosty's ${firstWords.join(', ')} ms (median ${median})`);
