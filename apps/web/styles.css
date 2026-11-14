@@ -10297,6 +10297,11 @@ html body .mnnav button { min-width: var(--g-target, 44px) !important; }
 .pkpaid .pklab { color: var(--l2); }
 @media print { .mnapp .pkrow, .mnapp .mnnav button { display: none !important; } }
 /* [moneyapps] many statements at once: the page lit as files are dragged over it; each file's line */
+/* [moneyapps] YOUR ACCOUNTS: the App Kit's rows inside MONEY's panel, their words wrapping (never cut), the row's own key below when narrow */
+html body .mnaccts .ak-row { flex-wrap: wrap; min-width: 0; }
+html body .mnaccts .ak-rowmain { flex: 1 1 180px; min-width: 0; white-space: normal; text-align: left; text-transform: none; letter-spacing: normal; height: auto; }
+html body .mnaccts .ak-rowtitle, html body .mnaccts .ak-rowsub { white-space: normal; overflow-wrap: anywhere; }
+html body .mnaccts .ak-row > button:not(.ak-rowmain) { flex: 0 0 auto; }
 .mndrop { outline: 2px dashed var(--c); outline-offset: 4px; }
 .mnimport { padding: 6px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .mnimport[data-ok=""] { color: var(--amber, var(--fg)); }

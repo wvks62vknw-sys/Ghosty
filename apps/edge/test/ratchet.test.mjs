@@ -95,6 +95,7 @@ export const STATES = {
   'money.rules': { dir: 'money', base: 0, now: 1 },
   'money.watches': { dir: 'money', base: 0, now: 4 },
   'money.car': { dir: 'money', base: 0, now: 4 },
+  'money.accounts': { dir: 'money', base: 0, now: 4 },
   'home.papers': { dir: 'homeadmin', base: 0, now: 4 },
   'work.jobs': { dir: 'work', base: 0, now: 4 },
   'work.meetings': { dir: 'work', base: 0, now: 1 },

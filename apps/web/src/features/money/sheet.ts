@@ -32,7 +32,12 @@ export function statementScreen(): { el: HTMLElement; stop(): void } {
   const file = h('input', { type: 'file', multiple: true, accept: '.csv,.pdf,.ofx,.qfx,.qif,.txt,text/csv,application/pdf,application/x-ofx,application/qif', 'aria-label': 'Your statements as files (CSV, OFX, QIF or PDF)', hidden: true }) as HTMLInputElement;
   const status = h('p.pknote', { 'aria-live': 'polite' }, 'Read here by plain rules, then kept in my brain. No model sees it. No bank access, ever.');
   const slot = h('div.pkcol');
-  const body = h('div.pkcol', box, file);
+  // [moneyapps] which of his accounts these statements are for (his own name for it); an OFX file names its own when this is empty
+  const accountIn = h('input.mnamount', { type: 'text', placeholder: 'Current, Savings, Credit card', 'aria-label': 'Which account (you can leave it)', enterKeyHint: 'done' }) as HTMLInputElement;
+  accountIn.setAttribute('list', 'mnaccounts');
+  const accountList = h('datalist', { id: 'mnaccounts' });
+  void brain.packDo('money', 'accounts', {}).then((r) => accountList.replaceChildren(...((r.data as { accounts?: { name: string }[] } | undefined)?.accounts ?? []).filter((x) => x.name).map((x) => h('option', { value: x.name })))).catch(() => undefined);
+  const body = h('div.pkcol', box, file, h('div.pkrow', accountIn), accountList);
   // nothing kept yet (or no signal): said at the top, with the one next thing
   const top = async () => {
     if (lacksSignal()) {
@@ -60,7 +65,7 @@ export function statementScreen(): { el: HTMLElement; stop(): void } {
     /* state: money.statement loading */
     const done = waitFor(body.parentElement!, 'Reading your statement…');
     try {
-      const r = await statementTurn(text);
+      const r = await statementTurn(text, accountIn.value.trim());
       moneyState.reply = r.reply;
       if (r.failed) {
         /* state: money.statement error */
@@ -94,12 +99,12 @@ export function statementScreen(): { el: HTMLElement; stop(): void } {
         try {
           const text = await textOf(f);
           if (!text.trim()) throw new Error('there was nothing in it I could read');
-          const r = await brain.spendingImport(text, true);
+          const r = await brain.spendingImport(text, true, accountIn.value.trim());
           added += r.result.added;
           dupes += r.result.duplicates;
           const kind = r.result.shape === 'ofx' ? 'OFX' : r.result.shape === 'qif' ? 'QIF' : /\.pdf$/i.test(f.name) ? 'PDF' : 'CSV';
           const span = r.result.months.length ? `${r.result.months[0]}${r.result.months.length > 1 ? ` to ${r.result.months[r.result.months.length - 1]}` : ''}` : '';
-          const line = `${f.name}: ${r.result.added} kept${r.result.duplicates ? `, ${r.result.duplicates} I had already` : ''} · ${kind}${r.result.bank ? ` · ${r.result.bank}` : ''}${span ? ` · ${span}` : ''}`;
+          const line = `${f.name}: ${r.result.added} kept${r.result.duplicates ? `, ${r.result.duplicates} I had already` : ''} · ${kind}${r.result.bank ? ` · ${r.result.bank}` : ''}${span ? ` · ${span}` : ''}${r.result.transfers ? ` · ${r.result.transfers} moves between your accounts left out of spending` : ''}`;
           moneyState.batch.push(line);
           lines.push(h('p.pknote.mnimport', { dataset: { case: 'keep', ok: '1' } }, line));
         } catch (e) {
