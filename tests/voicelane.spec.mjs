@@ -208,9 +208,9 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await tap(page, 'A GAME');
   check(await page.waitForFunction(() => /arcade/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [meanings] A GAME did not open the arcade (${await page.evaluate(() => location.hash)})`);
   // [voice.u2] every screen by its everyday names; paint for a room opens SPACE on MATERIALS (make.c6)
-  await say(page, 'bring up the game maker', /^Opening the Game Studio\.$/, `[${W}] [screens] the game maker`);
+  await say(page, 'bring up the game maker', /^Opening Game Studio\.$/, `[${W}] [screens] the game maker`);
   check(await page.waitForFunction(() => /gamestudio/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] the game maker did not open (${await page.evaluate(() => location.hash)})`);
-  await say(page, 'open the translator', /^Opening the Interpreter\.$/, `[${W}] [screens] the translator`);
+  await say(page, 'open the translator', /^Opening Interpret\.$/, `[${W}] [screens] the translator`);
   check(await page.waitForFunction(() => /interpreter/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] the translator did not open (${await page.evaluate(() => location.hash)})`);
   r = await say(page, 'how much paint for my lounge', /^Materials are open: paint, flooring, skirting and wallpaper for your plan, first estimates\. Draw or pick the lounge on the plan/, `[${W}] [screens] paint for the lounge`);
   check(await page.waitForFunction(() => /space/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] paint did not open Space (${await page.evaluate(() => location.hash)})`);

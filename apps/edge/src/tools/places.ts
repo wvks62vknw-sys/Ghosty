@@ -30,10 +30,10 @@ export const placesTools: Tool[] = [
         if (name && name.trim().toLowerCase() !== p.id && name.trim().toLowerCase() !== p.label.toLowerCase()) {
           const found = await findPlace(name, p.query);
           await keepPlace(ctx.storage, found);
-          return `Kept ${found.label}: ${found.address}. Journeys, directions and the Brief use it now; it is in Memory → ME → PLACES.`;
+          return `Kept ${found.label}: ${found.address}. Journeys, directions and the Brief use it now; it is in Memory → ABOUT YOU → PLACES.`;
         }
         await keepPlace(ctx.storage, p);
-        return `Kept ${p.label}: ${p.address}. Journeys, directions and the Brief use it now; it is in Memory → ME → PLACES (only in his memory, nowhere else).`;
+        return `Kept ${p.label}: ${p.address}. Journeys, directions and the Brief use it now; it is in Memory → ABOUT YOU → PLACES (only in his memory, nowhere else).`;
       }
       const found = await findPlace(arg.str(a, 'name'), arg.str(a, 'address'), await ownerPlace(ctx).catch(() => null));
       await proposePlace(ctx.storage, found);

@@ -32,6 +32,13 @@ const yesterday = londonNoon - DAY;
 const dow = (new Date(londonNoon).getUTCDay() + 6) % 7; // Monday 0
 const lastWeekWed = londonNoon - (dow + 5) * DAY;
 const now = Date.now();
+// this day last month, at noon (none on a day the month before did not have, like the 31st)
+const monthAgo = (() => {
+  const d = new Date(londonNoon);
+  const want = d.getUTCDate();
+  d.setUTCMonth(d.getUTCMonth() - 1);
+  return d.getUTCDate() === want ? d.getTime() : 0;
+})();
 const TURNS = [
   { at: now - 3 * 3600_000 > londonNoon - 12 * 3600_000 ? now - 3 * 3600_000 : now - 60_000 * 30, q: 'how do I fix a squeaky door?', a: 'I couldn’t find anything useful on that.' },
   { at: yesterday, q: "what's the best paint for a fence", a: 'An oil-based wood stain lasts longest.' },
@@ -39,6 +46,7 @@ const TURNS = [
   { at: lastWeekWed - 14 * DAY, q: 'trains to Bristol next month', a: 'From £24 if you book ahead.' },
   { at: yesterday - 3 * 3600_000, q: 'why is my Octopus Energy bill so high this month', a: 'It is 12% up on the same month last year.' },
   { at: yesterday - 5 * 3600_000, q: 'the hedge at the back has grown over the footpath again', a: 'The council can ask the owner to cut it back.' },
+  ...(monthAgo ? [{ at: monthAgo, q: 'what time does the tip open on Sundays', a: 'From 9 until 4.' }] : []),
 ];
 // (j) a bill on his HOME screen, from the same supplier as one of his questions
 const H = { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' };
@@ -288,7 +296,11 @@ async function run(vp, body) {
     await box.fill('');
   }
 
-  // (f) MEMORY → YOUR WORD
+  // (f) MEMORY → YOUR WORD (with one chat pinned, as the exchange card's PIN keeps it)
+  if (!body) await page.evaluate((k) => localStorage.setItem('ghosty.recall.pinned', JSON.stringify([k])), `t:${TURNS[0].at}`);
+  // (from Home, so MEMORY is entered afresh and reads what is pinned)
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForFunction(() => document.body.dataset.tab === 'core', null, { timeout: 8000 }).catch(() => undefined);
   await page.evaluate(() => (location.hash = 'memory'));
   await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
   await openSection(page, 'memory', 'Your word');
@@ -297,6 +309,14 @@ async function run(vp, body) {
   check(shown, `${T} [f] YOUR WORD did not show: "${panelText.slice(0, 200)}"`);
   for (const [what, re] of [['the heading', /You said you’d/], ['the place', /The spare key in the blue tin/], ['the reason', /The canal flat: it(?:'|’)s quieter/], ['the week', /Your week/]]) check(re.test(panelText), `${T} [f] ${what} is not in YOUR WORD: "${panelText.slice(0, 260)}"`);
   check(/send Jo the photos/.test(panelText), `${T} [f] the promise is not in YOUR WORD (open or done)`);
+  // (n) a chat he pinned (the exchange card's PIN) is listed under "Chats you pinned" with UNPIN (the sweep: Apple Notes' pinned)
+  if (!body) {
+    const pinned = await page.waitForFunction(() => /Chats you pinned.*how do I fix a squeaky door/.test(document.querySelector('#pg-memory .pn.keep')?.textContent ?? ''), null, { timeout: 8000 }).then(() => true, () => false);
+    check(pinned, `${T} [n] the pinned chat is not listed in YOUR WORD: ${JSON.stringify(await page.evaluate(() => ({ pins: localStorage.getItem('ghosty.recall.pinned'), heads: [...document.querySelectorAll('#pg-memory .pn.keep .keephead')].map((x) => x.textContent) })))} ${await page.evaluate(() => new Promise((ok) => { const r = indexedDB.open('ghosty-recall', 1); r.onsuccess = () => { const q = r.result.transaction('things').objectStore('things').getAllKeys(); q.onsuccess = () => ok(q.result.filter((k) => String(k).startsWith('t:')).join(',')); }; }))}`);
+    check(await page.locator('#pg-memory .pn.keep .keeprow[data-kind="pinned"] button', { hasText: 'UNPIN' }).count() > 0, `${T} [n] no UNPIN on the pinned chat`);
+    // (o) on this day last month (Day One's), when the month before had this day
+    if (monthAgo) check(/On this day last month.*what time does the tip open on Sundays/.test(await page.evaluate(() => document.querySelector('#pg-memory .pn.keep')?.textContent ?? '')), `${T} [o] "On this day last month" is not in YOUR WORD`);
+  }
   const f = await fit(page, '#pg-memory .pn.keep');
   check(!f.small.length, `${T} [f] under 44 pt: ${f.small.join(', ')}`);
   check(!f.sideways, `${T} [f] the page goes sideways`);
@@ -307,6 +327,33 @@ async function run(vp, body) {
 
 for (const vp of [PHONE, PHONE2]) await run(vp, 0);
 await run(PHONE2, 21);
+
+// (m) YOUR WORD in all seven looks at 390: drawn, every key 44 pt, nothing sideways, no word cut
+for (const world of ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass']) {
+  const T = `[390 ${world}]`;
+  const ctx = await browser.newContext({ viewport: PHONE2, ...UK, reducedMotion: 'reduce' });
+  await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`${T} pageerror: ${e.message}`));
+  await page.addInitScript(({ key, world }) => {
+    localStorage.setItem('ghosty.ownerKey', key);
+    localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: {} }, home: { name: 'London', lat: 51.5, lon: -0.12 } }));
+    window.__ghostyHero = true;
+    window.__ghostyPlace = { none: true };
+  }, { key: KEY, world });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await page.evaluate(() => (location.hash = 'memory'));
+  await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
+  await openSection(page, 'memory', 'Your word');
+  const shown = await page.waitForFunction(() => window.__ghosty?.keep?.state === 'shown', null, { timeout: 12000 }).then(() => true, () => false);
+  check(shown, `${T} [m] YOUR WORD did not show`);
+  const f = await fit(page, '#pg-memory .pn.keep');
+  check(!f.small.length, `${T} [m] under 44 pt: ${f.small.join(', ')}`);
+  check(!f.sideways, `${T} [m] the page goes sideways`);
+  check(!f.cut.length, `${T} [m] words cut: ${JSON.stringify(f.cut)}`);
+  await ctx.close();
+}
 
 await browser.close();
 if (problems.length) {

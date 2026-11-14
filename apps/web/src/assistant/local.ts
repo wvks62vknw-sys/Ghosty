@@ -35,7 +35,7 @@ import { chat, turnIsTheirs, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
-import { moneyAsked, MONEY_OPENS } from '../features/money/words';
+import { moneyAsked, moneySection, MONEY_OPENS } from '../features/money/words';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
 import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn, gameTurn } from './reste';
@@ -52,7 +52,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset' | 'camwall' | 'rainradar' | 'routine';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -298,7 +298,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   async moneyapp(text, opts) {
     const page = moneyAsked(text);
     if (!page) return false;
-    location.hash = `money?${page}`;
+    location.hash = `money?${moneySection(page)}`;
     return answer(text, MONEY_OPENS[page], { kind: 'pack' }, opts);
   },
   // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened
@@ -484,6 +484,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     return answer(text, `${s.name[0]!.toUpperCase()}${s.name.slice(1)} is open.`, { kind: 'pack' }, opts);
   },
   // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
+  // [security] SECURITY: the screen opened at the right place, and one line (features/security/asks.ts); the lock is always his tap
+  security: async (text, opts) => {
+    const m = await import('../features/security/asks');
+    const k = m.securityAsked(text) ?? 'locks';
+    location.hash = k === 'lock' ? 'security?lock' : k === 'leaked' ? 'security?leaked' : 'security';
+    return answer(text, m.SECURITY_SAID[k], { kind: 'can', go: [{ id: 'screen:security', ask: -1, label: 'Security', open: 'security' }] }, opts);
+  },
   comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),

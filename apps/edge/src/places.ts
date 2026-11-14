@@ -4,7 +4,7 @@
  * the free map (Nominatim, as directions do; a bare UK postcode on postcodes.io) and the answer is shown for a
  * yes before it is kept (`findPlace` → `keepPlace`; in a chat, `remember_place` keeps the found one as pending
  * until he says yes). Journeys and directions read them ("take me home": `savedPlace`), the Brief shows the
- * commute when home and work are both set, God's Eye shows them as pins to fly to, Memory → ME lists them with
+ * commute when home and work are both set, God's Eye shows them as pins to fly to, Memory → ABOUT YOU lists them with
  * EDIT and FORGET. Routes under /profile/places (profile.ts sends them here).
  */
 import { isNamedPlace, matchPlace, placeLabel, type PlaceCandidate, type SavedPlace } from '../../../packages/shared/src/places';
@@ -33,7 +33,7 @@ export async function savedPlace(storage: Pick<DurableObjectStorage, 'get'>, wor
 export function notSavedYet(words: string): string | null {
   if (!isNamedPlace(words)) return null;
   const l = placeLabel(words)!;
-  return `I don't know where ${l.id === 'parents' ? "your parents' is" : l.id === 'home' ? 'home is' : `${l.label.toLowerCase()} is`} yet: tell me ("remember ${l.id === 'parents' ? "my parents' house" : l.id} is …" with the address or postcode) or add it in Memory → ME → PLACES.`;
+  return `I don't know where ${l.id === 'parents' ? "your parents' is" : l.id === 'home' ? 'home is' : `${l.label.toLowerCase()} is`} yet: tell me ("remember ${l.id === 'parents' ? "my parents' house" : l.id} is …" with the address or postcode) or add it in Memory → ABOUT YOU → PLACES.`;
 }
 
 const POSTCODE = /^\s*([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\s*$/i;
@@ -89,7 +89,7 @@ export async function keepPlace(storage: DurableObjectStorage, c: PlaceCandidate
 }
 
 /**
- * UNDO (Memory → ME → PLACES): a place put back exactly as it was — its date and its place in the list — after a
+ * UNDO (Memory → ABOUT YOU → PLACES): a place put back exactly as it was — its date and its place in the list — after a
  * FORGET, or the old one back after KEEP IT replaced it.
  */
 export async function restorePlace(storage: DurableObjectStorage, p: SavedPlace, index: number): Promise<SavedPlace[]> {
@@ -123,7 +123,7 @@ export async function pendingPlace(storage: DurableObjectStorage, now = Date.now
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 
 /**
- * Memory → ME → PLACES: GET /profile/places → { places }; POST /profile/places/find { label, query } → { found }
+ * Memory → ABOUT YOU → PLACES: GET /profile/places → { places }; POST /profile/places/find { label, query } → { found }
  * (nothing kept yet); POST /profile/places { found } → { places } (kept: his yes; with `at` and `index`, an UNDO: back exactly as it was); DELETE /profile/places?id= → { places }.
  */
 export async function placesRoute(req: Request, path: string, method: string, url: URL, storage: DurableObjectStorage): Promise<Response> {

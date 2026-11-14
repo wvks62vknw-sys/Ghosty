@@ -197,7 +197,7 @@ function mapCards(o: ToolOutcome, at: number): Card[] {
 function placeCards(o: ToolOutcome, at: number): Card[] {
   const r = unwrap(o.result);
   const kept = /^Kept (.+?): (.+?)\. Journeys, directions and the Brief use it now/m.exec(r);
-  if (kept) return [card({ id: `place:${kept[1]!.toLowerCase()}`, kind: 'place', at, title: `${kept[1]} saved`, line: kept[2]!, place: { label: kept[1]!, saved: true }, acts: [{ label: 'OPEN PLACES', open: { tab: 'memory', panel: 'ME' } }] })];
+  if (kept) return [card({ id: `place:${kept[1]!.toLowerCase()}`, kind: 'place', at, title: `${kept[1]} saved`, line: kept[2]!, place: { label: kept[1]!, saved: true }, acts: [{ label: 'OPEN PLACES', open: { tab: 'memory', panel: 'ABOUT YOU' } }] })];
   const found = /^Found for (.+?): (.+) \((-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?)\), shown on the map\. NOT kept yet/m.exec(r);
   if (!found) return [];
   const label = found[1]!;
