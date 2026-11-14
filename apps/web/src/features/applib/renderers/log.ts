@@ -701,10 +701,19 @@ function galleryView(def: AppDef, log: LogConfig, k: KitApp, rows: Rec[]): HTMLE
   }))];
 }
 
+/** The quick-add bar's example, whole words only and short enough never to be cut in the box at a phone's width. */
+function shortHint(hint: string, max = 26): string {
+  if (hint.length <= max) return hint;
+  const words = hint.split(/\s+/);
+  let out = '';
+  for (const w of words) { if ((out ? out.length + 1 : 0) + w.length > max) break; out = out ? `${out} ${w}` : w; }
+  return (out || hint.slice(0, max)).replace(/[,;:·]+$/, '');
+}
+
 /** The quick-add bar: one line of plain words, read into the fields as he types (shown as chips); the full form one tap away. */
 function quickBar(def: AppDef, log: LogConfig, k: KitApp): HTMLElement {
   const hint = quickExample(log, def.sample?.[0] as Record<string, unknown> | undefined);
-  const input = h('input.al-quickin', { type: 'text', enterKeyHint: 'done', autocomplete: 'off', placeholder: hint ? `For example, ${hint}` : `Add to ${def.name} in plain words`, 'aria-label': `Quick add to ${def.name}` }) as HTMLInputElement;
+  const input = h('input.al-quickin', { type: 'text', enterKeyHint: 'done', autocomplete: 'off', placeholder: hint ? shortHint(hint) : 'Add in plain words', 'aria-label': hint ? `Quick add to ${def.name}, for example ${hint}` : `Quick add to ${def.name}` }) as HTMLInputElement;
   const read = h('div.al-quickread', { 'aria-live': 'polite' });
   const preview = () => {
     const t = input.value.trim();
@@ -731,7 +740,7 @@ function quickBar(def: AppDef, log: LogConfig, k: KitApp): HTMLElement {
   input.addEventListener('input', preview);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
   read.hidden = true;
-  return h('div.al-quick', h('div.al-quickrow', h('span.al-quickplus', { 'aria-hidden': 'true' }, icon(PLUS)), input, key('Add', add, { kind: 'fill', label: 'Quick add' }), key('', () => editSheet(def, log, k, undefined, input.value.trim() ? (quickAdd(log, input.value).fields as Record<string, Val>) : {}), { label: 'The full form', glyph: '<path d="M4 7h16M4 12h16M4 17h10"/>' })), read);
+  return h('div.al-quick', h('div.al-quickrow', h('span.al-quickplus', { 'aria-hidden': 'true' }, icon(PLUS)), input, key('', add, { kind: 'fill', label: 'Quick add', glyph: '<path d="M12 19V5M5 12l7-7 7 7"/>' }), key('', () => editSheet(def, log, k, undefined, input.value.trim() ? (quickAdd(log, input.value).fields as Record<string, Val>) : {}), { label: 'The full form', glyph: '<path d="M4 7h16M4 12h16M4 17h10"/>' })), read);
 }
 
 /** The empty state: the app's own art and one inviting line. */
