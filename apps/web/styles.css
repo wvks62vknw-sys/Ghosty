@@ -10061,3 +10061,6 @@ html .rpsheet .rpitem[aria-checked="true"] .setknob::after { transform: translat
 html .rcundo.undofloat.wordbar { flex-wrap: wrap; }
 html .rcundo.undofloat.wordbar span { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
 html .rcundo.undofloat.wordbar button { height: auto; min-height: 44px !important; padding: 0 18px; }
+/* LEARN · READY STARTS (learn.s3, learn.s4): driving theory, car mechanics, home electrics and first aid, one tap to fill the topic */
+html .learnstarts { gap: 6px; margin: 6px 0; }
+html .learnstarts button { min-height: 44px; }

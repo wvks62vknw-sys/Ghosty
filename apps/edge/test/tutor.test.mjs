@@ -917,3 +917,12 @@ test('revision days up to an exam (learn.s12): every other day while more than a
   assert.equal(new Date(RD.londonAt('2026-12-01', '18:30')).toISOString(), '2026-12-01T18:30:00.000Z');
   assert.equal(new Date(RD.londonAt('2026-07-01', '18:30')).toISOString(), '2026-07-01T17:30:00.000Z');
 });
+
+test('trade courses (learn.s4): a lesson on mechanics, electrics or building says every figure is a first estimate, never certified; other lessons do not', () => {
+  const lesson = { n: 1, title: 'Brakes', goal: 'g' };
+  const car = T.LESSON_PROMPT({ title: 'Car mechanics basics', topic: 'car mechanics basics', level: 'beginner', minutes: 10, lessons: [lesson] }, lesson);
+  assert.match(car, /first estimate, never certified/);
+  assert.match(car, /check the maker's figure/);
+  const poems = T.LESSON_PROMPT({ title: 'Romantic poetry', topic: 'romantic poetry', level: 'beginner', minutes: 10, lessons: [lesson] }, lesson);
+  assert.doesNotMatch(poems, /first estimate/);
+});

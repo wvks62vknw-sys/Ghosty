@@ -272,7 +272,18 @@ export const learnTab: TabDef = {
       startBtn.disabled = false;
     };
     topicIn.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
-    np.body.append(h('div.keyrow.learntopic', topicIn), levelChips, minChips, topicSay, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
+    // [learn.s3, learn.s4] ready starts: driving theory from the public Highway Code, and trade basics (figures marked first estimates)
+    const STARTS: [string, string][] = [['Driving theory', 'driving theory from the Highway Code'], ['Car mechanics', 'car mechanics basics'], ['Home electrics', 'home electrics basics'], ['First aid', 'first aid basics']];
+    const starts = h('div.row.wrap.learnstarts', { role: 'group', 'aria-label': 'Ready starts' }, ...STARTS.map(([label, topic]) => {
+      const b = button(label.toUpperCase(), () => {
+        topicIn.value = topic;
+        topicIn.focus();
+        topicSay.textContent = /mechanic|electric/.test(topic) ? 'Every figure in it is a first estimate, never certified: check the maker’s figure, and a qualified person for anything dangerous.' : '';
+      });
+      b.dataset.label = label;
+      return b;
+    }));
+    np.body.append(h('div.keyrow.learntopic', topicIn), starts, levelChips, minChips, topicSay, h('div.row.wrap', startBtn), h('div.note', 'Or just say "teach me …" to Ghosty. Lessons come from your library and Wikipedia, with their sources.'));
 
     // [learn.u3] MY LEARNING MAP: one picture of courses, reading, speaking and revision, and the one thing to try next
     const mp = panel('MY LEARNING MAP', { cls: 'learnmapall', grow: false });
