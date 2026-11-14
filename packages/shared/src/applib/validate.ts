@@ -4,7 +4,7 @@
  * (no emoji, no "!", no TODO or lorem) and no brand names. apps/edge/test/applib.test.mjs runs it over LIBRARY and fails on
  * any problem, naming the app and the reason. App Maker runs the same checks on what he makes.
  */
-import { APP_GLYPHS, ARCHETYPES, FAMILIES, GAME_KINDS, type AppDef, type Field, type LogConfig } from './types';
+import { APP_GLYPHS, ARCHETYPES, FAMILIES, GAME_KINDS, type AppDef, type CalcConfig, type Field, type LogConfig } from './types';
 import { ExprError, names, parse, runCalc } from './expr';
 
 export interface Problem {
@@ -142,7 +142,7 @@ function checkLog(log: LogConfig | undefined, where: string, add: (why: string) 
   if (log.views?.includes('gallery') && !log.fields.some((f) => f.type === 'photo')) add('the gallery view needs a photo field');
   if (log.remind) { need(log.remind.field, 'remind', ['date']); if (!isStr(log.remind.words) || !log.remind.words.trim()) add('remind needs words'); }
   if (needSample) {
-    if (!Array.isArray(sample) || sample.length < 2 || sample.length > 6) add('needs 2 to 6 sample records');
+    if (!Array.isArray(sample) || sample.length < 2 || sample.length > 8) add('needs 2 to 8 sample records');
     for (const [i, r] of (sample ?? []).entries()) {
       for (const k of Object.keys(r)) if (!byId.has(k)) add(`sample ${i + 1} has a key that is not a field (“${k}”)`);
       for (const f of log.fields) {
@@ -190,6 +190,38 @@ export function visibleWords(d: AppDef): { text: string; where: string; brands?:
   for (const s of d.guide?.sections ?? []) { add(s.title, 'a guide title'); add(s.body, `guide “${s.title}”`); (s.tags ?? []).forEach((t) => add(t, `guide “${s.title}”'s tags`)); }
   add(d.guide?.source.name, 'the guide source', false);
   return out;
+}
+
+const TONES = ['good', 'ok', 'warn', 'bad'];
+
+/** THE PRO ROUND: a calc output's bands (ordered, short words that follow the word rules) and its one-sentence explain. */
+function checkWords(o: CalcConfig['outputs'][number], add: (why: string) => void): void {
+  if (o.bands != null) {
+    if (!Array.isArray(o.bands) || !o.bands.length) add(`output “${o.id}”'s bands must be a list of one or more`);
+    else {
+      let last = -Infinity;
+      for (const [i, b] of o.bands.entries()) {
+        const end = i === o.bands.length - 1;
+        if (!isStr(b.words) || !b.words.trim() || b.words.length > 32) add(`output “${o.id}”'s band ${i + 1} needs words (32 characters at most)`);
+        else {
+          if (/[.!?]$/.test(b.words)) add(`output “${o.id}”'s band “${b.words}” must not end with a stop`);
+          if (!/^[A-Z0-9]/.test(b.words)) add(`output “${o.id}”'s band “${b.words}” must start with a capital`);
+          for (const p of wordProblems(b.words, `output “${o.id}”'s band`)) add(p);
+        }
+        if (b.tone != null && !TONES.includes(b.tone)) add(`output “${o.id}”'s band ${i + 1} has an unknown tone “${String(b.tone)}”`);
+        if (b.upTo == null) { if (!end) add(`output “${o.id}”'s band ${i + 1} leaves out upTo but is not the last`); continue; }
+        if (typeof b.upTo !== 'number' || !Number.isFinite(b.upTo)) { add(`output “${o.id}”'s band ${i + 1} needs a number upTo`); continue; }
+        if (!(b.upTo > last)) add(`output “${o.id}”'s bands must rise (band ${i + 1} is at ${b.upTo})`);
+        last = b.upTo;
+      }
+    }
+  }
+  if (o.explain != null) {
+    const x = o.explain;
+    if (!isStr(x) || x.length < 12 || x.length > 140) add(`output “${o.id}”'s explain must be 12 to 140 characters`);
+    else if (!/^[A-Z0-9]/.test(x) || !x.endsWith('.') || x.endsWith('..') || /[.?!] [A-Z]/.test(x.slice(0, -1))) add(`output “${o.id}”'s explain must be one sentence ending with a full stop`);
+    else for (const p of wordProblems(x, `output “${o.id}”'s explain`)) add(p);
+  }
 }
 
 /** The problems with one app (ids across the Library are checked by validateLibrary). */
@@ -264,6 +296,7 @@ export function validateApp(d: AppDef): string[] {
           if (!(Math.abs(got[k]! - want) <= tol)) add(`test ${i + 1}: “${k}” came out ${Number.isFinite(got[k]) ? +got[k]!.toFixed(6) : got[k]} but the source says ${want}`);
         }
       }
+      for (const o of c.outputs) checkWords(o, add);
       if (!isStr(c.source) || !c.source.trim()) add('calc needs its public source');
       break;
     }
@@ -306,6 +339,10 @@ export function validateApp(d: AppDef): string[] {
       break;
     }
   }
+  // THE PRO ROUND's fields
+  if (d.tier != null && d.tier !== 'essential' && d.tier !== 'more') add(`tier must be essential or more (“${String(d.tier)}”)`);
+  if (d.hue != null && !(Number.isInteger(d.hue) && d.hue >= 0 && d.hue <= 359)) add(`hue must be a whole number from 0 to 359 (“${String(d.hue)}”)`);
+  if (d.skin != null && !(d.skin in FAMILIES)) add(`unknown skin “${String(d.skin)}”`);
   if (d.sample != null && d.archetype !== 'log' && d.archetype !== 'importer') add('only log and importer apps have sample records');
 
   for (const w of visibleWords(d)) out.push(...wordProblems(w.text, w.where, { brands: w.brands }));
@@ -326,5 +363,11 @@ export function validateLibrary(apps: AppDef[]): Problem[] {
     else if (key) nm.set(key, id);
   }
   for (const [id, n] of ids) if (n > 1) out.push({ id, why: `the id is used ${n} times` });
+  // THE PRO ROUND: the whole Library leads with at least 250 essentials (a small set, such as App Maker's, is not held to it)
+  if (apps.length >= 300) {
+    const ess = apps.filter((d) => d?.tier === 'essential').length;
+    if (ess < 250) out.push({ id: '(library)', why: `only ${ess} apps are essential (at least 250)` });
+    for (const d of apps) if (d?.archetype === 'screen' && d.tier !== 'essential') out.push({ id: d.id, why: 'Ghosty’s own screens are essential' });
+  }
   return out;
 }

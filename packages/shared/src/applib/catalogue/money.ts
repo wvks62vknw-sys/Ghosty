@@ -1,4 +1,5 @@
 import type { AppDef, Field, FieldType, CalcInput, CalcOutput } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's Money & home apps (docs/build-plan/APPLIB.md, list in docs/build-plan/applib/catalogue-money.md).
@@ -30,7 +31,7 @@ function lead(id: string, outs: CalcOutput[]): CalcOutput[] {
   return [top, ...outs.filter((_, n) => n !== at)];
 }
 
-export const MONEY: AppDef[] = [
+export const MONEY: AppDef[] = pro([
   // ——— Everyday money ———
   {
     id: 'receipts', name: 'Receipts', family: 'money', glyph: 'receipt', from: 'money.11', archetype: 'log',
@@ -2231,4 +2232,4 @@ export const MONEY: AppDef[] = [
       { place: 'Retail park chargers', date: '2026-11-06', hours: 0.75, cost: 14.2, kind: 'Charging', business: false },
     ],
   },
-];
+]);

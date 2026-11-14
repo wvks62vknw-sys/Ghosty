@@ -1,4 +1,5 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's Health & food apps (docs/build-plan/APPLIB.md, list: docs/build-plan/applib/catalogue-body.md).
@@ -1506,38 +1507,6 @@ const MORE: AppDef[] = [
     ],
   },
   {
-    id: 'hike-log', name: 'Hike Log', family: 'body', glyph: 'tent',
-    pitch: 'Every walk and hike with distance, ascent and summits, adding up through the year.',
-    keywords: ['hiking', 'walking', 'hills', 'summits', 'ascent', 'rambling'],
-    archetype: 'log',
-    tour: ['Log a walk with its distance, ascent and any summit.', 'The year\'s distance fills a ring towards your goal.', 'Add a photo from the top to make the gallery sing.'],
-    log: {
-      fields: [
-        { id: 'walk', label: 'Walk', type: 'text', required: true },
-        { id: 'km', label: 'Distance', type: 'number', unit: 'km', min: 0, step: 0.1 },
-        { id: 'ascent', label: 'Ascent', type: 'number', unit: 'm', min: 0 },
-        { id: 'summit', label: 'Summit', type: 'text' },
-        { id: 'mins', label: 'Time', type: 'duration' },
-        { id: 'with', label: 'With', type: 'text' },
-        { id: 'date', label: 'Date', type: 'date', default: 'today' },
-        { id: 'photo', label: 'Photo', type: 'photo' },
-      ],
-      title: 'walk', sub: '{km} km, {ascent} m up', meta: 'km', date: 'date', sort: { field: 'date', dir: 'desc' },
-      stats: [
-        { label: 'This year', kind: 'sum', field: 'km', period: 'year', goal: 500, dir: 'reach' },
-        { label: 'Ascent this year', kind: 'sum', field: 'ascent', period: 'year' },
-        { label: 'Summits', kind: 'distinct', field: 'summit', period: 'all' },
-      ],
-      chart: { field: 'km', kind: 'bar', period: 'year' },
-      views: ['gallery', 'list', 'calendar'],
-    },
-    sample: [
-      { walk: 'Ridge horseshoe', km: 16.2, ascent: 980, summit: 'High Crag', mins: 390, with: 'Sam', date: '2026-11-07' },
-      { walk: 'Canal and woods', km: 9.5, ascent: 120, mins: 140, date: '2026-11-01' },
-      { walk: 'Coast path stretch', km: 12.8, ascent: 410, mins: 230, date: '2026-10-24' },
-    ],
-  },
-  {
     id: 'starter-log', name: 'Starter Log', family: 'body', glyph: 'flask',
     pitch: 'Feed your sourdough starter on time and note how it rises after each feed.',
     keywords: ['sourdough starter', 'levain', 'feeding', 'starter', 'bread'],
@@ -1844,4 +1813,4 @@ const GUIDES: AppDef[] = [
 ];
 
 /** Every Health & food app. */
-export const BODY: AppDef[] = [...LISTED, ...CALCS, ...MORE, ...GUIDES];
+export const BODY: AppDef[] = pro([...LISTED, ...CALCS, ...MORE, ...GUIDES]);

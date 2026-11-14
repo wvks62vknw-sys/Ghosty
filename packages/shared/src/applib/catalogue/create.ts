@@ -1,11 +1,12 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's create apps (docs/build-plan/APPLIB.md): the planning, logging, maths and reference side of making
  * things. The heavy editors on the owner's list (video, audio, 3-D, camera) need their own builds and are listed in
  * docs/build-plan/APPLIB-CAT-B.md, never faked here.
  */
-export const CREATE: AppDef[] = [
+export const CREATE: AppDef[] = pro([
   // ---------------------------------------------------------------- from the owner's list
   {
     id: 'shot-list',
@@ -1888,4 +1889,4 @@ export const CREATE: AppDef[] = [
       { title: 'Paper Lanterns', year: 2023, date: '2026-10-25', where: 'Home', genre: 'Animation', rating: 5, rewatch: true, review: 'Every frame looks hand painted.' },
     ],
   },
-];
+]);

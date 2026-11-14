@@ -1,4 +1,5 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's maker apps (docs/build-plan/APPLIB.md; the owner's list is docs/build-plan/applib/catalogue-maker.md).
@@ -25,7 +26,7 @@ const PERMS = [
   { label: 'Read, write and run', value: 7 },
 ];
 
-export const MAKER: AppDef[] = [
+export const MAKER: AppDef[] = pro([
   // ───────────────────────── From the owner's list ─────────────────────────
   {
     id: 'parts-bin',
@@ -994,41 +995,6 @@ export const MAKER: AppDef[] = [
 
   // ───────────────────────── More maker apps: software ─────────────────────────
   {
-    id: 'colour-contrast',
-    name: 'Colour Contrast',
-    family: 'maker',
-    glyph: 'palette',
-    pitch: 'Check the contrast ratio of text on a background against the WCAG levels.',
-    keywords: ['contrast', 'colour', 'wcag', 'accessibility', 'a11y', 'design'],
-    archetype: 'calc',
-    tour: [
-      'Type the text colour and the background as red, green and blue.',
-      'Normal text needs 4.5 to 1 for level AA, 7 to 1 for AAA.',
-      'Large text and icons need 3 to 1.',
-    ],
-    calc: {
-      inputs: [
-        { id: 'fr', label: 'Text red', default: 119, min: 0, max: 255, step: 1 },
-        { id: 'fg', label: 'Text green', default: 119, min: 0, max: 255, step: 1 },
-        { id: 'fb', label: 'Text blue', default: 119, min: 0, max: 255, step: 1 },
-        { id: 'br', label: 'Background red', default: 255, min: 0, max: 255, step: 1 },
-        { id: 'bg', label: 'Background green', default: 255, min: 0, max: 255, step: 1 },
-        { id: 'bb', label: 'Background blue', default: 255, min: 0, max: 255, step: 1 },
-      ],
-      outputs: [
-        { id: 'l1', label: 'Text luminance', expr: lum('fr', 'fg', 'fb'), dp: 4 },
-        { id: 'l2', label: 'Background luminance', expr: lum('br', 'bg', 'bb'), dp: 4 },
-        { id: 'ratio', label: 'Contrast ratio', expr: '(max(l1, l2) + 0.05) / (min(l1, l2) + 0.05)', unit: ': 1', dp: 2 },
-      ],
-      tests: [
-        { in: { fr: 0, fg: 0, fb: 0, br: 255, bg: 255, bb: 255 }, out: { l1: 0, l2: 1, ratio: 21 } },
-        { in: { fr: 119, fg: 119, fb: 119, br: 255, bg: 255, bb: 255 }, out: { l1: 0.18447, l2: 1, ratio: 4.478 } },
-        { in: { fr: 255, fg: 255, fb: 255, br: 255, bg: 255, bb: 255 }, out: { ratio: 1 } },
-      ],
-      source: 'W3C Web Content Accessibility Guidelines 2.2, contrast ratio and relative luminance',
-    },
-  },
-  {
     id: 'subnet-calc',
     name: 'Subnet Calculator',
     family: 'maker',
@@ -1640,4 +1606,4 @@ export const MAKER: AppDef[] = [
       ],
     },
   },
-];
+]);
