@@ -192,7 +192,25 @@ function shoppingSheet(): { el: HTMLElement; stop(): void } {
     }
   });
   clear.hidden = true;
-  const el = h('div.pkcol', h('div.pkadd', input, addBtn), slot, items, h('div.pkrow', share, clear), status);
+  // THE GROCERIES BUDGET (body.c1, with MONEY): what is left of his own groceries budget, from his statements, said on the list;
+  // nothing at all when he has set no groceries budget (statements give shop totals, never item prices, so nothing is costed)
+  const budget = h('p.pknote', { dataset: { budget: '' } });
+  void (async () => {
+    if (lacksSignal()) return;
+    try {
+      const sum = await brain.spending();
+      const g = sum.budgets.find((b) => b.category === 'groceries');
+      if (!g) return;
+      const now = new Date();
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const weeks = Math.max(1, Math.ceil((end - now.getDate() + 1) / 7));
+      budget.dataset.budget = String(Math.round(g.left));
+      budget.textContent = `Groceries budget: ${g.line}${g.left > 0 ? `, about £${Math.floor(g.left / weeks)} a week for the rest of the month` : ''}. From your own statements on MONEY.`;
+    } catch {
+      /* no line when the statements can't be read */
+    }
+  })();
+  const el = h('div.pkcol', h('div.pkadd', input, addBtn), budget, slot, items, h('div.pkrow', share, clear), status);
   /* state: kitchen.shopping loading */
   const done = waitFor(el, 'Opening your list…');
   void act({ words: '' }).finally(done);

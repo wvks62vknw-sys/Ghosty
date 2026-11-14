@@ -180,6 +180,18 @@ const kcalLine = (x: ReturnType<typeof book>[number]) => {
   return h('p.pknote', { dataset: { kcal: String(e.kcal), protein: String(e.protein) } }, estimateWords(e));
 };
 
+/** Where a packet goes and a rough use-by, from its name and Open Food Facts' categories (always his to change). */
+export function guessPlace(words: string): { where: Place; days: number | null } {
+  const w = words.toLowerCase();
+  if (/frozen|ice cream|ice-cream/.test(w)) return { where: 'freezer', days: 90 };
+  if (/milk|yogh?urt|cream|cheese|butter|chicken|beef|pork|lamb|mince|sausage|bacon|ham|fish|salmon|meat|dairy|egg|salad|fresh/.test(w)) return { where: 'fridge', days: /cheese|butter|egg/.test(w) ? 14 : 4 };
+  if (/bread|bakery/.test(w)) return { where: 'cupboard', days: 4 };
+  if (/fruit|vegetable|banana|apple/.test(w)) return { where: 'fridge', days: 6 };
+  return { where: 'cupboard', days: null };
+}
+/** For the specs: a scanned code handed in as the decoder would (window.__ghosty.larder.scanned). */
+export const larderHooks = { scanned: async (_code: string) => undefined as void };
+
 /** Puts things on the shopping list in my brain (the one step that needs a signal). */
 export async function toShopping(names: string[], status: HTMLElement): Promise<void> {
   if (!names.length) return;
@@ -218,7 +230,50 @@ export function pantryScreen(): { el: HTMLElement; stop(): void } {
   name.addEventListener('keydown', (e) => e.key === 'Enter' && add());
   const addBtn = button('Add', add, 'on');
   addBtn.setAttribute('aria-label', 'Add to the pantry');
-  const form = h('div.pkcol', h('div.pkadd', name, addBtn), h('div.kl-grid2', h('div.pkfield', h('label', 'Where'), where), h('div.pkfield', h('label', 'Use by'), by)));
+  // SCAN A PACKET (body.u11): a photo of its barcode read on the phone (ZXing), the name from Open Food Facts through my brain,
+  // and the form filled with where it goes and a rough use-by, for him to change and ADD (nothing is kept until he does)
+  const shot = h('input', { type: 'file', accept: 'image/*', hidden: true, 'aria-label': 'A photo of the barcode' }) as HTMLInputElement;
+  shot.setAttribute('capture', 'environment');
+  const scanned = async (code: string) => {
+    if (lacksSignal()) return stateIn(status, 'offline', `Barcode ${code} read. No signal, so I can’t look up its name: type it above.`);
+    try {
+      const r = await brain.packDo('kitchen', 'barcode', { code });
+      const d = (r.data ?? {}) as { product?: string; categories?: string };
+      if (!d.product) return stateIn(status, 'error', `Barcode ${code} read, but Open Food Facts doesn’t know it. Type its name above.`);
+      const g = guessPlace(`${d.product} ${d.categories ?? ''}`);
+      name.value = d.product.slice(0, 60);
+      where.value = g.where;
+      by.value = g.days == null ? '' : dayAfter(g.days);
+      stateIn(status, '', `${d.product}: ${g.where}${g.days == null ? '' : `, use by ${useWords(by.value)} (a rough guess)`}. Change anything, then tap ADD.`);
+    } catch {
+      stateIn(status, 'error', 'My brain didn’t answer, so I couldn’t look the barcode up. Try again in a moment.');
+    }
+  };
+  shot.addEventListener('change', async () => {
+    const f = shot.files?.[0];
+    shot.value = '';
+    if (!f) return;
+    /* state: kitchen.pantry loading */
+    stateIn(status, 'loading', 'Reading the barcode…');
+    try {
+      const bmp = await createImageBitmap(f);
+      const c = document.createElement('canvas');
+      const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+      c.width = Math.round(bmp.width * k);
+      c.height = Math.round(bmp.height * k);
+      c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+      const { readCodes } = await import('../../scan/barcode');
+      const code = (await readCodes(c, true)).map((x) => x.text.replace(/\D/g, '')).find((x) => x.length >= 8 && x.length <= 14);
+      if (!code) return stateIn(status, 'error', 'I couldn’t find a barcode in that photo. Try again closer, with the stripes filling the frame.');
+      await scanned(code);
+    } catch {
+      stateIn(status, 'error', 'I couldn’t read that photo. Try again in good light.');
+    }
+  });
+  const scan = button('Scan a packet', () => shot.click());
+  scan.setAttribute('aria-label', 'Scan a packet’s barcode into the pantry');
+  larderHooks.scanned = scanned;
+  const form = h('div.pkcol', h('div.pkadd', name, addBtn), h('div.kl-grid2', h('div.pkfield', h('label', 'Where'), where), h('div.pkfield', h('label', 'Use by'), by)), h('div.pkrow', scan), shot);
   const list = h('div.pkcol');
   const draw = () => {
     const data = load();
@@ -499,5 +554,5 @@ export function larderTurn(text: string): { reply: string; open: 'pantry' | 'rec
 
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
-  if (w.__ghosty) w.__ghosty.larder = { data: () => load(), reset: () => void (cache = null) };
+  if (w.__ghosty) w.__ghosty.larder = { data: () => load(), reset: () => void (cache = null), scanned: (code: string) => larderHooks.scanned(code) };
 }

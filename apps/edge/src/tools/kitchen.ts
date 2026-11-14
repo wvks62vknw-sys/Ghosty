@@ -191,7 +191,8 @@ const barcode: ActionFn = async (a, d) => {
   const name = r.kind === 'product' ? r.title : '';
   if (/\badd\b|\blist\b/i.test(wordsOf(a)) && name) await shop({ words: `add ${name.replace(/,|;|\band\b/gi, ' ').replace(/\s+/g, ' ')}` }, d);
   const allergens = r.allergens;
-  return { text: `${allergens?.length ? `Allergens: ${allergens.join(', ')}.\n` : ''}${out}\nNothing kept${/\badd\b|\blist\b/i.test(wordsOf(a)) && name ? ', except on your shopping list as you asked' : ' unless you ask'}.` };
+  // [bodynext] the product's name and kind as data too, for the pantry's SCAN A PACKET (the phone guesses where it goes and a use-by he can change)
+  return { text: `${allergens?.length ? `Allergens: ${allergens.join(', ')}.\n` : ''}${out}\nNothing kept${/\badd\b|\blist\b/i.test(wordsOf(a)) && name ? ', except on your shopping list as you asked' : ' unless you ask'}.`, data: { product: name, kind: r.kind, categories: r.kind === 'product' ? String((r as { categories?: unknown }).categories ?? '') : '' } };
 };
 
 // ---------------------------------------------------------------- the sums
@@ -274,7 +275,9 @@ const importRecipe: ActionFn = async (a, d) => {
   return { text: `Read: ${r.name}, ${r.ingredients.length} things and ${r.steps.length} steps.`, data: { recipe: r } };
 };
 
-export const KITCHEN: Record<string, ActionFn> = { fridge, dishes, recipe, shop, timer, barcode, portions, convert, oven, plan, useup, leftovers, import: importRecipe };
+export const KITCHEN: Record<string, ActionFn> = { fridge, dishes, recipe, shop, timer, barcode, portions, convert, oven, plan, useup, leftovers };
+/** [bodynext] What the phone's own keys may run (POST /packs/do): the tool's actions and IMPORT FROM A LINK, which the model never sees. */
+export const KITCHEN_PHONE: Record<string, ActionFn> = { ...KITCHEN, import: importRecipe };
 export const KITCHEN_ACTIONS = Object.keys(KITCHEN);
 
 export const kitchenTools: Tool[] = [

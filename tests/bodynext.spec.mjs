@@ -470,6 +470,62 @@ for (const vp of VIEWPORTS) {
   site.close();
 }
 
+// ---- k. SCAN A PACKET INTO THE PANTRY (the decoder's read handed in; the brain's Open Food Facts answer stood in for at the phone's door)
+{
+  log('pantry scan');
+  const { ctx, page } = await phone(VIEWPORTS[0]);
+  await page.route(/\/api\/packs\/do/, async (r) => {
+    const b = JSON.parse(r.request().postData() ?? '{}');
+    if (b.action !== 'barcode') return r.continue();
+    return r.fulfill({ contentType: 'application/json', body: JSON.stringify(b.args.code === '5000000000017' ? { text: 'Semi-skimmed milk', data: { product: 'Semi-skimmed milk', kind: 'product', categories: 'Dairies, Milks' } } : { text: 'not known', data: { product: '', kind: 'none', categories: '' } }) });
+  });
+  await open(page, 'kitchen', 'Pantry');
+  const KP = PK('kitchen');
+  check((await page.locator(`${KP} button[aria-label^="Scan a packet"]`).count()) === 1, '[440] the pantry has SCAN A PACKET');
+  await page.evaluate(() => window.__ghosty.larder.scanned('5000000000017'));
+  check(await until(page, (s) => document.querySelector(`${s} input[aria-label="What to add to the pantry"]`)?.value === 'Semi-skimmed milk' && document.querySelector(`${s} select[aria-label="Where it goes"]`)?.value === 'fridge' && !!document.querySelector(`${s} input[aria-label^="Use by"]`)?.value, KP), '[440] a scanned packet fills the form: its name, the fridge and a rough use-by');
+  check(!(await page.evaluate(() => window.__ghosty.larder.data().items.some((i) => /milk/i.test(i.name)))), '[440] nothing is kept until he taps ADD');
+  await page.locator(`${KP} button[aria-label="Add to the pantry"]`).click();
+  check(await until(page, () => window.__ghosty.larder.data().items.some((i) => i.name === 'Semi-skimmed milk' && i.where === 'fridge' && i.useBy)), '[440] ADD keeps it with the use-by he could change');
+  await page.evaluate(() => window.__ghosty.larder.scanned('4000000000006'));
+  check(await until(page, (s) => /doesn’t know it\. Type its name above/.test(document.querySelector(s)?.textContent ?? ''), KP), '[440] an unknown barcode says so in his words');
+  await bar(page, '[440] pantry scan', 'kitchen');
+  // the groceries budget on the shopping list, from his statements (MONEY's budgets stood in for at the phone's door)
+  await page.route(/\/api\/profile\/spending(?:\?|$)/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ budgets: [{ category: 'groceries', monthly: 200, spent: 120, left: 80, frac: 0.6, line: '£80 left this month' }], rows: [], subscriptions: [], months: [], changes: [] }) }));
+  await open(page, 'kitchen', 'Shopping');
+  check(await until(page, (s) => /^Groceries budget: £80 left this month, about £\d+ a week for the rest of the month\. From your own statements on MONEY\.$/.test(document.querySelector(`${s} [data-budget]`)?.textContent ?? ''), KP), `[440] the shopping list says what's left of his groceries budget: "${await txt(page, `${KP} [data-budget]`)}"`);
+  await ctx.close();
+}
+
+// ---- l. RUN HISTORY: two kept runs (seeded on the phone), their bests, the route drawn in pace bands, and nothing of a route sent
+{
+  log('run history');
+  const { ctx, page } = await phone(VIEWPORTS[1]);
+  const sent = [];
+  page.on('request', (r) => { if (r.url().includes('/api/') && /5[12]\.4\d{3}/.test(r.postData() ?? '')) sent.push(r.url()); });
+  await page.evaluate(() => {
+    const route = (n, slow) => Array.from({ length: n }, (_, i) => [52.48 + i * 0.0004, -1.9 + Math.sin(i / 5) * 0.0006, i * (slow && i > n / 2 ? 30 : 15)]);
+    localStorage.setItem('ghosty.body.runs', JSON.stringify([
+      { id: 'a', at: Date.now() - 3 * 864e5, km: 5.2, secs: 1680, splits: [320, 640, 965, 1290, 1610], route: route(60, true) },
+      { id: 'b', at: Date.now() - 864e5, km: 3.1, secs: 1000, splits: [300, 630, 960], route: route(40, false) },
+    ]));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await open(page, 'body', 'Move');
+  const RH = `${PK('body')} .br-history`;
+  await page.waitForSelector(RH);
+  check((await page.getAttribute(`${RH} [data-runs]`, 'data-runs')) === '2', '[390] both kept runs are listed');
+  const cells = await txt(page, `${RH} .bc-cell`);
+  check(/Longest \| ?5\.20 km|Longest5\.20 km/.test(cells.replace(/\s+\|\s+/g, ' | ')) || (/5\.20 km/.test(cells) && /5:00/.test(cells) && /26:50/.test(cells)), `[390] the bests: the longest, the quickest km (5:00) and 5 km (26:50): "${cells}"`);
+  check((await page.locator(`${RH} .br-route line.br-seg`).count()) >= 30 && (await page.locator(`${RH} .br-route line.br-seg.quick`).count()) >= 1, '[390] the route is drawn in pace bands');
+  await page.locator(`${RH} .pkitems button`).nth(1).click();
+  check(await until(page, (s) => document.querySelector(`${s} [data-route]`)?.dataset.route === 'a' && (document.querySelector(`${s} .br-route line.br-seg.slow`) !== null), RH), '[390] an older run opens with its own route and its slower stretch');
+  check(!sent.length, `[390] no route ever goes to the brain: ${sent.join(', ')}`);
+  await bar(page, '[390] run history', 'body');
+  await ctx.close();
+}
+
 // ---- f. offline: the tablets and the meal plan say it in his words
 {
   log('offline');

@@ -190,17 +190,11 @@ export const PACK_WORDS: Record<string, CatValue> = {
   },
   'act:kitchen:recipe': {
     name: 'A recipe step by step', line: 'I can give you a dish’s whole recipe: what you need and every step.',
-    more: 'From TheMealDB’s free recipes or my own list, with how long it takes. Say the dish. KITCHEN → PANTRY keeps your fridge, freezer and cupboard with use-by dates; RECIPES keeps your own, scales them, cooks them step by step with a timer, and puts first what you have.',
+    more: 'From TheMealDB’s free recipes or my own list, with how long it takes. Say the dish. KITCHEN → PANTRY keeps your fridge, freezer and cupboard with use-by dates; RECIPES keeps your own, scales them, cooks them step by step with a timer (HANDS-FREE reads each step out), imports one from a link (IMPORT FROM A LINK), and puts first what you have.',
     say: ['How do I make a chicken curry?', 'Open my recipes', 'Add milk to the fridge'], scene: ['making'], cat: 'do', since: SINCE,
     go: { run: 'open_kitchen', args: { what: 'recipes' } }, tryText: 'Opens your recipe book',
   },
   'phrase:larder': { same: 'act:kitchen:recipe' },
-  'act:kitchen:import': {
-    name: 'Import a recipe from a link', line: 'You can paste a recipe page’s link and it lands in your recipe book with its things and steps split out.',
-    more: 'KITCHEN → RECIPES → IMPORT FROM A LINK. My brain reads the page once, on the public web only, and takes just its recipe data; the recipe is kept on your phone. A page that publishes none says so.',
-    say: ['Open my recipes'], scene: ['making'], cat: 'do', since: SINCE,
-    go: { run: 'open_kitchen', args: { what: 'recipes' } }, tryText: 'Opens your recipe book',
-  },
   'phrase:bodycoach': {
     name: 'Kitchen and body coach', line: 'You can plan the week from your recipes, put what the pantry lacks on the list, and keep your tablets with lock-screen reminders.',
     more: 'KITCHEN → MEAL PLAN: FILL THE EMPTY DAYS from your book, then SHOPPING FOR THE WEEK adds what is missing, each once. BODY → Health → TABLETS: each reminder is on my brain’s clock so it reaches a locked phone, with only the time; ticks and the refill countdown stay on the phone. BODY → Health → YOUR WEEK: the week side by side with your best day, a rough sleep score, a wind-down nudge, and patterns told as what happened. Never medical advice.',
@@ -223,7 +217,7 @@ export const PACK_WORDS: Record<string, CatValue> = {
   'phrase:timer': { same: 'act:kitchen:timer' },
   'act:kitchen:barcode': {
     name: 'What is in a packet', line: 'I can read a packet’s barcode and tell you its name, ingredients and allergens.',
-    more: 'From Open Food Facts, free. Nothing is kept unless you ask me to add it to your shopping list.',
+    more: 'From Open Food Facts, free. Nothing is kept unless you ask me to add it to your shopping list. KITCHEN → PANTRY → SCAN A PACKET fills the pantry from a photo of its barcode, with where it goes and a rough use-by for you to change.',
     say: ['What allergens are in this? (scan it)'], scene: ['camera', 'making'], cat: 'do', since: SINCE,
     go: { run: 'open_lens', args: { mode: 'scan' } }, tryText: 'Opens the Lens on SCAN',
   },

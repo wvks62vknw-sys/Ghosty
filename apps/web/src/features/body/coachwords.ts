@@ -19,7 +19,7 @@ export function bodyCoachAsked(text: string): CoachAsk | null {
   if (/^(?:do |make |write |sort )?(?:the |my )?(?:shopping|shopping list|food shop|weekly shop) (?:for|from) (?:the|this|my) (?:week|meal plan|week's (?:meals|dinners|meal plan))$|^(?:put|add) (?:the |this |my )?(?:week's |weekly )?(?:meals|dinners|meal plan) (?:on|to|onto) (?:the |my )?(?:shopping )?list$|^(?:what do i need|what should i buy) (?:for|from) (?:the|this|my) (?:week's )?(?:meals|dinners|meal plan)$/.test(t)) return 'weekshop';
   if (/^plan (?:my|the|this week's|the week's) (?:dinners|meals|tea|teas)(?: for (?:me|the week))?$|^(?:fill|plan) (?:in )?(?:my|the) meal plan(?: for me)?$|^what should i (?:cook|have for dinner|make) this week$/.test(t)) return 'fillweek';
   if (new RegExp(`^(?:i\\s+)?(?:took|have taken|had|skipped|missed)\\s+(?:my\\s+)?(?:morning |evening |night |lunchtime )?.*(?:${MEDS.source})`).test(t) || new RegExp(`^(?:did|have) i (?:take|taken|had) (?:my )?(?:${MEDS.source})(?: today)?$|^(?:open|show(?: me)?) (?:my )?(?:${MEDS.source})$`).test(t)) return 'meds';
-  if (/^(?:how was|how's|how has been) (?:my|the) week(?: been)?$|^(?:my |the )?(?:weekly|sunday|week'?s?) (?:body )?review$|^review my week$|^show me my week$/.test(t)) return 'review';
+  if (/^(?:how was|how's|how has been) (?:my|the) week(?: been)?$|^(?:my |the )?(?:weekly|sunday|week'?s?) (?:body )?review$|^review my week$/.test(t)) return 'review';
   if (/^(?:what'?s |what is |show me )?(?:my )?sleep score$|^how (?:well |regularly )?(?:am i|have i been) sleeping$|^score my sleep$/.test(t)) return 'sleepscore';
   if (/^(?:any|show me (?:my )?|what are my|find|spot) patterns?(?: in my (?:numbers|health|body))?$|^what goes with my good days$/.test(t)) return 'patterns';
   return null;

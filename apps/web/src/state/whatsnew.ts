@@ -14,6 +14,13 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
+  { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
+  { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },
+  { day: '2026-11-14', title: 'Water nudges on a locked phone', line: 'Water nudges now reach your lock screen. My brain gets only the times to nudge, never how much you drink. Steps can come in from Health each evening with a Shortcut.' },
+  { day: '2026-11-14', title: 'Cook with messy hands', line: 'HANDS-FREE in a recipe reads each step out; say “next”, “back”, “repeat” or “timer”. Import a recipe from a link too, and batch cook into the freezer.' },
+  { day: '2026-11-14', title: 'Your week, side by side', line: 'BODY → Health → YOUR WEEK: the week with your best day, a rough sleep score, a wind-down nudge, and patterns in your own numbers, said as what happened.' },
+  { day: '2026-11-14', title: 'More of the body', line: 'Coffee, tea and drinks on Water; mood tags; and new rooms: FASTING, MEASUREMENTS, a GYM LOG with personal bests, and a SYMPTOM DIARY that saves one page for the doctor.' },
   // [ci] NEXT ci.u4
   { day: '2026-11-14', title: 'Screens rest when still', line: 'The quiet room behind the screens is drawn only as often as it moves, and the board games only when a piece or a highlight changes: a longer battery, a cooler phone, and no freeze just after a screen opens.' },
   // [ci] NEXT ci.u5

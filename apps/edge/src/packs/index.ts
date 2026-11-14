@@ -10,7 +10,7 @@ import { PACKS } from '../../../../packages/shared/src/packs';
 import { zoneOf } from '../guardstate';
 import { alreadySaid, type Cadence } from '../../../../packages/shared/src/cadence';
 import { BODY, bodyLines, bodyPieces } from '../tools/body';
-import { KITCHEN, kitchenLines } from '../tools/kitchen';
+import { KITCHEN_PHONE, kitchenLines } from '../tools/kitchen';
 import { followTick, MONEY, moneyLines } from '../tools/money';
 import { PEOPLE, peopleLines } from '../tools/people';
 import { WORK, workLines } from '../tools/work';
@@ -21,7 +21,7 @@ import { LEARNING, learningLines } from '../tools/learning';
 import { runAction, type ActionFn, type PackDeps } from './base';
 
 /** Every pack's actions, by pack: what /packs/do may run. */
-export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY, body: BODY, kitchen: KITCHEN, people: PEOPLE, work: WORK, creative: CREATIVE, outside: OUTSIDE, homeadmin: HOME, learning: LEARNING };
+export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY, body: BODY, kitchen: KITCHEN_PHONE, people: PEOPLE, work: WORK, creative: CREATIVE, outside: OUTSIDE, homeadmin: HOME, learning: LEARNING };
 
 export interface PacksDeps {
   storage: DurableObjectStorage;

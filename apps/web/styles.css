@@ -6676,6 +6676,14 @@ html .bt .bc-grid { display: grid; grid-template-columns: repeat(auto-fit, minma
 html .bt .bc-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
 html .bt .bc-cell small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
 html .bt .bc-cell b { font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .br-history { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .br-history .pkitem button { flex: 1 1 auto; justify-content: flex-start; white-space: normal; height: auto; text-align: left; }
+html .br-map { width: 100%; max-width: 320px; aspect-ratio: 1; margin: 0 auto; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .br-route { display: block; width: 100%; height: 100%; }
+html .br-seg { stroke-width: 2.2; stroke-linecap: round; fill: none; }
+html .br-seg.quick { stroke: var(--g-accent); }
+html .br-seg.steady { stroke: var(--g-ink-3); }
+html .br-seg.slow { stroke: var(--g-amber); }
 html .bt .bc-pattern { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 
 /* =====================================================================================================================
