@@ -342,7 +342,10 @@ export const learnTab: TabDef = {
       // [learn.s10] QUIZ NIGHT: Ghosty hosts a quiz at the table from these courses' own questions (works with no signal)
       const night = button('QUIZ NIGHT', () => void import('./quiznight').then((q) => q.openQuizNight()));
       night.classList.add('learnnight');
-      cp.body.append(h('div.row.wrap.learnnightrow', night, h('small', 'I host a quiz for you and friends at the table, from your courses.')));
+      // [learn.c6] QUIZ ME ALOUD: hands-free, every question and answer spoken, nothing to look at ("quiz me while I drive")
+      const aloud = button('QUIZ ME ALOUD', () => void import('./aloud').then((q) => q.openAloud()));
+      aloud.classList.add('learnaloud');
+      cp.body.append(h('div.row.wrap.learnnightrow', night, h('small', 'I host a quiz for you and friends at the table, from your courses.')), h('div.row.wrap.learnnightrow', aloud, h('small', 'Hands-free: I ask aloud and you answer by voice, nothing to look at.')));
     };
 
     // ======================= views

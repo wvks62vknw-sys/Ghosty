@@ -948,3 +948,20 @@ test('highlights and notes (learn.u4): a paragraph split into plain and marked p
   HL.removeHighlight('d1', a.id);
   assert.equal(HL.highlightsOf('d1').length, 1);
 });
+
+test('quiz me aloud (learn.c6): what he says is read as a choice: a letter, how it sounds, an ordinal, or the answer’s own words; nothing heard is no answer', async () => {
+  const { build } = await import('esbuild');
+  const at = (p) => new URL(p, import.meta.url).pathname;
+  await build({ entryPoints: [at('../../web/src/features/learn/aloudwords.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/aloudwords.mjs'), logLevel: 'warning' });
+  const AW = await import('./.build/aloudwords.mjs');
+  const ch = ['Oxygen', 'Carbon dioxide', 'Nitrogen', 'Helium'];
+  assert.equal(AW.choiceOf('B', ch), 1);
+  assert.equal(AW.choiceOf('bee', ch), 1);
+  assert.equal(AW.choiceOf("it's C", ch), 2);
+  assert.equal(AW.choiceOf('the answer is a', ch), 0);
+  assert.equal(AW.choiceOf('the fourth one', ch), 3);
+  assert.equal(AW.choiceOf('I think carbon dioxide', ch), 1);
+  assert.equal(AW.choiceOf('', ch), -1);
+  assert.equal(AW.choiceOf('banana', ch), -1);
+  assert.equal(AW.choiceOf('F', ch), -1, 'a letter past the choices is no answer');
+});

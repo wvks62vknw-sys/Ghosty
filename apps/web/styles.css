@@ -10073,3 +10073,7 @@ html .grd-notes { display: flex; flex-direction: column; gap: 6px; margin-top: 1
 html .grd-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 html button.grd-noterow { flex: 1 1 220px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 44px; padding: 8px 10px; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; background: var(--thin); border: 0; box-shadow: none; border-radius: var(--g-radius-cell); color: var(--fg); }
 html button.grd-noterow small { color: var(--mute); }
+/* LEARN · QUIZ ME ALOUD (learn.c6): hands-free, the question large for anyone beside him and one big STOP */
+html .qaloud { display: flex; flex-direction: column; gap: 14px; }
+html .qaline { font-size: 22px; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
+html .qaloud button.qastop { min-height: 64px; min-width: 160px; font-size: 20px; }

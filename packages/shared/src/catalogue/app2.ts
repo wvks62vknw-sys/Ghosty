@@ -107,8 +107,8 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:learn:COURSES': {
     name: 'Your learning courses', line: 'You can see every course you started and how much of each you have mastered.',
-    more: 'Pick one up any time; your streak and your progress are kept.',
-    say: ['What courses am I doing?'], scene: ['school'], cat: 'learn',
+    more: 'Pick one up any time; your streak and your progress are kept. QUIZ NIGHT hosts a quiz for friends at the table, and QUIZ ME ALOUD asks hands-free, for the car.',
+    say: ['What courses am I doing?', '(tap QUIZ ME ALOUD to be quizzed while you drive)'], scene: ['school'], cat: 'learn',
   },
   'panel:learn:START A COURSE': {
     name: 'Start a new course', line: 'You can start a course on anything: type what you want to learn and how much you know already.',
