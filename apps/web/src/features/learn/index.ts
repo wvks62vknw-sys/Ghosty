@@ -419,6 +419,14 @@ export const learnTab: TabDef = {
           button('QUIZ ME', () => void startQuiz({ course: c.id })),
           button(open ? `RESUME EXAM · ${mmss(Math.ceil((open.endsAt - now) / 1000))}` : 'EXAM', () => void showExam(c.id), 'learnexambtn'),
           due ? button(`REVISE ${Math.min(10, due)}`, () => showRevise({ course: c.id, limit: 10 }), 'learnrevisebtn') : '',
+          // [sites] this course's cards as an offline app on the Home Screen (NEXT ROUND sites.c2): asked in the chat, built after his APPROVE
+          L.learn.get().cards.some((x) => x.course === c.id)
+            ? button('CARDS ON MY HOME SCREEN', () => void (async () => {
+                const [{ send }, { openChat }] = await Promise.all([import('../../assistant/session'), import('../../shell/launcher')]);
+                openChat();
+                void send(`Make my ${c.topic} cards an app`);
+              })(), 'learncardsapp')
+            : '',
           del,
         ),
       );

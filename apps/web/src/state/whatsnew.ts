@@ -22,6 +22,10 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'I start talking sooner', line: 'On a long answer I start speaking as soon as its first sentence is written, while the rest is still coming, so you hear me about a third of a second sooner. The words are the same as before.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  // [sites] NEXT ROUND sites.c2 (with learn)
+  { day: '2026-11-14', title: 'Your flash cards as an app', line: 'In LEARN, a course with cards has CARDS ON MY HOME SCREEN (or say “make my French verbs cards an app”): its cards become an app that revises offline, after your APPROVE.' },
+  // [sites] NEXT ROUND sites.s2 (with u4)
+  { day: '2026-11-14', title: 'QR codes and posters for your pages', line: 'Workshop → PUBLISHED PAGES → QR AND POSTER: a page’s QR code, and an A4 poster or A6 flyer with its title, code and address, made on your phone to save, share or print.' },
   // [sites] NEXT ROUND sites.s1
   { day: '2026-11-14', title: 'Add to calendar on event pages', line: 'An event or invitation site with a date now has buttons that put it in each guest’s own calendar: Google Calendar, or an iPhone or Outlook calendar file.' },
   // [sites] NEXT ROUND sites.u8

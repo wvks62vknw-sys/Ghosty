@@ -4,7 +4,7 @@
 // the main picture; (e) every key is 44 pt, nothing sideways, BODY 21 cuts no words; (f) "build a website for my café with my photos"
 // asks APPROVE saying his photos will be used (declined here: nothing is built); (g) a photo is removed after its confirm; (h) UNDO FOR
 // PUBLISHED PAGES (sites.u2): a page updated from the chat goes back to its earlier version with the Workshop's UNDO LAST UPDATE;
-// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8).
+// (i) a document and (j) a deck at their own link after APPROVE (sites.s4, s3); (k) a mini-app changed after it is made (sites.u6); (l) one home page listing the pages he chose (sites.u8); (m) a page's QR code and an A4 poster (sites.s2, u4).
 //   BASE=http://localhost:8788 node tests/sitephotos.spec.mjs tests/.shots
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
@@ -278,6 +278,30 @@ for (const [W, size] of [[440, PHONE], [390, { width: 390, height: 844 }]]) {
     for (let i = 0; i < 60 && !homeHtml; i++) { const r = await page.request.get(`${base}/s/my-pages/page`, { headers: { 'sec-fetch-dest': 'iframe' }, maxRedirects: 0 }); if (r.status() === 200) homeHtml = await r.text(); else await page.waitForTimeout(250); }
     const listed = [...homeHtml.matchAll(/<li><a href="([^"]+)"/g)].map((m) => m[1].replace(/^.*\/s\//, ''));
     check(listed.includes(slug) && listed.includes(docSlug) && !/<script/i.test(homeHtml), `${W}: (l) the home page lists the pages he chose, with no script: ${listed.join(', ')}`);
+  }
+
+
+  // (m) QR AND POSTER (sites.s2, u4): a page's QR code, and an A4 poster saved, made on the phone
+  {
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await openSection(page, 'workshop', 'Made');
+    const qrKey = `#pg-workshop .site[data-site="${slug}"] button[aria-label="QR code and poster for Party"]`;
+    await page.waitForSelector(qrKey, { timeout: 15000 });
+    await page.click(qrKey);
+    const shown = await until(page, () => !!document.querySelector('.modal .psheet .pqr svg path'), null, 8000);
+    const addr = await page.locator('.modal .psheet .paddr').textContent().catch(() => '');
+    check(shown && addr.endsWith(`/s/${slug}`), `${W}: (m) QR AND POSTER shows the page's QR code and its address (${addr})`);
+    const small = await page.$$eval('.modal .psheet button', (b) => b.filter((x) => x.getBoundingClientRect().height < 43.4).map((x) => x.textContent));
+    check(small.length === 0, `${W}: (m) its keys are 44 pt ${JSON.stringify(small)}`);
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }).catch(() => null), page.locator('.modal .psheet .prow').first().locator('button', { hasText: 'SAVE' }).click()]);
+    let dims = '';
+    if (dl) {
+      const p = await dl.path();
+      const b = p ? (await import('node:fs')).readFileSync(p) : Buffer.alloc(0);
+      dims = b.length > 24 && b[1] === 0x50 ? `${b.readUInt32BE(16)}x${b.readUInt32BE(20)}` : '';
+    }
+    check(dims === '1240x1754' && /Party poster\.png$/.test(dl?.suggestedFilename() ?? ''), `${W}: (m) SAVE gives an A4 poster picture made on the phone (${dims}, ${dl?.suggestedFilename()})`);
+    await page.keyboard.press('Escape');
   }
 
   check(errors.length === 0, `${W}: no page error${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);

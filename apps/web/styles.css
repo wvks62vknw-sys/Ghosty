@@ -3726,6 +3726,14 @@ html #pg-workshop .site .keyrow { flex-wrap: wrap; }
 html #pg-workshop .site .keyrow button { flex: 1 1 auto; white-space: normal; height: auto; }
 #pg-workshop .sitehome { display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; border-bottom: 1px solid var(--hair); }
 #pg-workshop .sitehome .keyrow button { min-height: 44px; white-space: normal; }
+/* [sites] QR AND POSTER's sheet (sites/poster.ts): the code big and centred on its own white, the keys in rows */
+.psheet { display: flex; flex-direction: column; gap: 10px; }
+.psheet .pqr { align-self: center; width: min(70vw, 280px); line-height: 0; }
+.psheet .pqr svg { width: 100%; height: auto; display: block; }
+.psheet .paddr { text-align: center; overflow-wrap: anywhere; }
+.psheet .prow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.psheet .prow b { flex: 1 1 100%; }
+.modal .psheet .prow button { flex: 1 1 auto; min-height: 44px !important; height: auto; }
 /* [sites] PHOTOS FOR YOUR SITES (sites/photos.ts): his own photos, a two-across grid that keeps its words whole at BODY 21 */
 #pg-workshop .sphTop { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
 #pg-workshop .sphAsk { color: var(--ink); }

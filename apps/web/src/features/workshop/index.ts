@@ -30,6 +30,7 @@ import { mountSitePhotos } from '../../sites/photos';
 import { restoreSite } from '../../sites/versions';
 import { choose, chosen, HOME_TITLE, homePage } from '../../sites/home';
 import { putOnSites } from '../../sites/handover';
+import { openPoster } from '../../sites/poster';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 /** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
@@ -603,7 +604,10 @@ export const workshopTab: TabDef = {
         }, onHome.has(s.name) ? 'on' : '');
         home.setAttribute('aria-pressed', String(onHome.has(s.name)));
         home.setAttribute('aria-label', `${s.title} on my home page`);
-        pp.body.append(h('div.site', { dataset: { site: s.name } }, open, h('div.keyrow', copy, back, home, down)));
+        // [sites] QR AND POSTER (sites.s2, u4): the page's QR code, and a poster or flyer made on the phone
+        const poster = button('QR AND POSTER', () => openPoster(s.title, urlOf(s)));
+        poster.setAttribute('aria-label', `QR code and poster for ${s.title}`);
+        pp.body.append(h('div.site', { dataset: { site: s.name } }, open, h('div.keyrow', copy, poster, back, home, down)));
       }
     };
     /** Self-editing set up on the brain (GitHub): null until the change list first answers. */

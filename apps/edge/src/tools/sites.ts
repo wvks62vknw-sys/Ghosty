@@ -15,6 +15,7 @@
 import { APP_SW, appBase, appCsp, appManifest, renderApp, type AppConfig } from '../../../../packages/shared/src/appkit/index';
 import { appApproval, buildApp } from '../appbuild';
 import { changeApp, changeApproval } from '../appchange';
+import { withLearn } from '../learnapp';
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import { guardedFetch, unsafeUrl } from '../netguard';
@@ -596,14 +597,24 @@ export const siteTools: Tool[] = [
         accent: { type: 'string', enum: ['cyan', 'blue', 'teal', 'mint', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'indigo'] },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>/' },
         change: { type: 'boolean', description: 'true: change his app at link_name, only what he named' },
+        from_learn: { type: 'string', description: 'a Learn course: its flash cards as the app' },
         add_items: { type: 'array', items: { type: 'string' }, description: 'change: habits, list items or players to add' },
         remove_items: { type: 'array', items: { type: 'string' }, description: 'change: ones to take out' },
       },
       required: ['request'],
     },
     risk: 'confirm', // it ends on the public internet: the owner approves the app in plain words first
-    approval: (a, ctx) => (a.change === true ? changeApproval(a, ctx) : appApproval(a, ctx)),
-    run: (a, ctx) => (a.change === true ? changeApp(a, ctx) : buildApp(a, ctx)),
+    async approval(a, ctx) {
+      if (a.change === true) return changeApproval(a, ctx);
+      // [sites] a Learn course's cards as the app (learnapp.ts, sites.c2): the cards stay out of the card's arguments
+      const l = await withLearn(a, ctx);
+      const r = await appApproval(l.args, ctx);
+      return l.said ? { args: { ...a, link_name: r.args.link_name }, reason: `${r.reason}${l.said}` } : r;
+    },
+    async run(a, ctx) {
+      if (a.change === true) return changeApp(a, ctx);
+      return buildApp((await withLearn(a, ctx)).args, ctx);
+    },
   },
   {
     name: 'study_site',

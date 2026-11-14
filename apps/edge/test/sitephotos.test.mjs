@@ -322,3 +322,26 @@ test('an event page: its start read from his words, two add-to-calendar buttons,
   const none = P.assemble(...Object.values(P.planFrom(P.briefFrom('a page for our club night', { kind: 'event', name: 'Soul' })))).html;
   assert.doesNotMatch(none, /calendar\.google\.com/);
 });
+
+// NEXT ROUND sites.c2 (with learn): a Learn course's flash cards as an offline app. The course is found by its topic; its own cards become
+// the app's deck; said before APPROVE, the cards themselves kept out of the approval's arguments.
+test('a Learn course\'s cards as a flash-cards mini-app: found by its topic, its own cards, said first, cards kept off the approval card', async () => {
+  const st = new MemStorage();
+  const env = { PUBLIC_ORIGIN: ORIGIN };
+  const ctx = { env, storage: st, origin: ORIGIN, emit() {}, progress() {} };
+  await st.put('learn:index', [{ id: 'c1', topic: 'French verbs', title: 'French verbs: the basics', level: 'beginner', minutes: 10, lessons: 5, done: 2 }]);
+  await st.put('cards:c1', [{ id: 'k1', course: 'c1', front: 'to be', back: 'être', added: 1 }, { id: 'k2', course: 'c1', front: 'to have', back: 'avoir', added: 2 }, { id: 'k3', course: 'c1', front: '', back: 'x', added: 3 }]);
+  const app = P.siteTools.find((t) => t.name === 'build_app');
+  const ap = await app.approval({ request: 'make my french verbs cards an app', from_learn: 'french verbs' }, ctx);
+  assert.match(ap.reason, /^Make the mini-app "French verbs"/);
+  assert.match(ap.reason, /From your Learn course "French verbs": 2 cards\.$/);
+  assert.equal(ap.args.cards, undefined, 'the cards are not on the approval card');
+  await app.run(ap.args, ctx);
+  const site = await P.siteStore(env, st).get(ap.args.link_name);
+  assert.equal(site.app.config.shape, 'cards');
+  assert.deepEqual(site.app.config.cards.cards, [{ q: 'to be', a: 'être' }, { q: 'to have', a: 'avoir' }]);
+  // no such course; a course with no cards
+  await assert.rejects(app.approval({ request: 'x', from_learn: 'Spanish' }, ctx), /no Learn course called "Spanish" \(his courses: French verbs\)/);
+  await st.put('learn:index', [{ id: 'c2', topic: 'Chess', title: 'Chess', level: 'beginner', minutes: 10, lessons: 3, done: 0 }]);
+  await assert.rejects(app.approval({ request: 'x', from_learn: 'chess' }, ctx), /has no cards yet/);
+});

@@ -146,7 +146,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   'tool:build_app': {
     name: 'Make an app for your phone', line: 'I can make you a small app that installs on your Home Screen: a tracker, a list, a timer, flash cards.',
     more: 'One request and I build it, then publish it at a link you add to your Home Screen. It keeps what you save on your phone and works offline. I say what it does before it goes live. Change it later by asking (“add a habit”, “change my goal”): same link, and what you saved stays.',
-    say: ['Make me a habit tracker app', 'Make an app to track my gym sessions', 'Add stretching to my habits app', 'Change my water goal to 10'], scene: ['making'], cat: 'build',
+    say: ['Make me a habit tracker app', 'Make an app to track my gym sessions', 'Add stretching to my habits app', 'Change my water goal to 10', 'Make my French verbs cards an app'], scene: ['making'], cat: 'build',
     go: { ask: 'Make me an app for ', send: false },
   },
   'tool:publish_game': {
@@ -174,8 +174,8 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:list_sites': {
     name: 'The pages I put online', line: 'I can list every page I have put online for you, with its link.',
-    more: 'Name, link, when and how big. Ask for a link again, an update, or for one to be taken down. Tick ON MY HOME PAGE on the ones you want, and PUBLISH MY HOME PAGE gives you one link listing only those.',
-    say: ['What have you published?', 'Give me the link to my CV again', 'Publish my home page'], scene: ['making'], cat: 'build', where: 'Workshop → PUBLISHED PAGES, or ask me',
+    more: 'Name, link, when and how big. Ask for a link again, an update, or for one to be taken down. Tick ON MY HOME PAGE on the ones you want, and PUBLISH MY HOME PAGE gives you one link listing only those. QR AND POSTER gives a page’s QR code, and a poster or flyer to print.',
+    say: ['What have you published?', 'Give me the link to my CV again', 'Publish my home page', 'A poster with the QR code for my party page'], scene: ['making'], cat: 'build', where: 'Workshop → PUBLISHED PAGES, or ask me',
   },
   'tool:unpublish_site': {
     name: 'Take a page down', line: 'I can take a page down when you ask, so its link stops working.',
