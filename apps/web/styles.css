@@ -10852,3 +10852,5 @@ html #pg-gamestudio .gs3banner { position: absolute; left: 10%; right: 10%; top:
 html #pg-gamestudio .gs3banner b { display: block; margin-bottom: 8px; font: 600 18px/24px var(--sf); color: var(--g-ink-1); }
 html #pg-gamestudio .gs3things, html #pg-gamestudio .gs3add, html #pg-gamestudio .gs3nudge { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
 html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: anywhere; }
+#pg-journal .jnmap { margin: var(--g-s-1) 0; }
+#pg-journal .jnmaphost { height: 260px; border-radius: var(--g-radius-key); overflow: hidden; }

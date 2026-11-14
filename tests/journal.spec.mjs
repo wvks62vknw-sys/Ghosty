@@ -3,7 +3,8 @@
 //  (b) NEW ENTRY: his words, a prompt, a mood, his home town's weather, a place and a photo (made smaller on the phone), kept as he types; the list shows it and
 //      search finds it by a word, and says so plainly when nothing matches;
 //  (c) "add to my journal: …" in the chat opens a new entry with his words in it, kept;
-//  (d) the calendar dots today; ON THIS DAY shows the entry from this day last year; PLACES groups by the place he gave;
+//  (d) the calendar dots today; ON THIS DAY shows the entry from this day last year; PLACES groups by the place he gave, and its map
+//      pins the saved places that have entries;
 //  (e) DELETE has UNDO, and RECENTLY DELETED brings an entry back; ASK GHOSTY ABOUT IT sends that one entry to the chat;
 //  (f) LOCK WITH FACE ID makes a passkey (a virtual authenticator here); leaving locks it; UNLOCK opens it again; while it is locked the
 //      entries are hidden;
@@ -147,6 +148,11 @@ async function run(vp, body) {
     // PLACES
     await openSection(page, 'journal', 'Places');
     check(/Primrose Hill · 1/i.test(await page.locator('#pg-journal .jnplaces').innerText().catch(() => '')), `${T} [d] PLACES does not group Primrose Hill`);
+    // the map of his saved places (a saved Primrose Hill answered here), drawn on his tap: one dot with its count
+    await page.route('**/api/profile/places', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ places: [{ id: 'ph', label: 'Primrose Hill', query: 'Primrose Hill', address: 'Primrose Hill, London', lat: 51.5394, lon: -0.1608, at: 0 }, { id: 'work', label: 'Work', query: 'x', address: 'x', lat: 51.52, lon: -0.1, at: 0 }] }) }));
+    await page.locator('#pg-journal .jnplaces button', { hasText: 'SHOW ON A MAP' }).click();
+    await page.waitForFunction(() => window.__ghosty.journal.map === 1 && document.querySelectorAll('#pg-journal .jnmap .leaflet-interactive').length === 1, null, { timeout: 10000 }).catch(async () => problems.push(`${T} [d] the map did not pin one saved place: ${await page.locator('#pg-journal .jnmap').innerText().catch(() => '')}`));
+    check(/Primrose Hill · 1/.test(await page.locator('#pg-journal .jnmap .leaflet-tooltip').first().innerText().catch(() => '')), `${T} [d] the pin is not labelled`);
 
     // (e) DELETE, UNDO; DELETE, then RECENTLY DELETED → RESTORE
     await openSection(page, 'journal', 'Entries');
