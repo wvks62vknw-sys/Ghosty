@@ -22,6 +22,7 @@ import { noteAnswer, noteStopped, unnoteAnswer } from '../core/independence';
 import { progressOf, type Progress } from '../features/core/progress';
 import { clientContext } from '../shell/awareness';
 import { clearTag, graceOn, hear, heardNote, hold, labelOf, type Label } from './voiceknown';
+import { noteBrainActed, noteWordMiss } from './learnwords'; // [voice lane] his own wordings: a miss, then his tap, offers to learn it
 import { home, settings, timeZone, ui } from '../state/app';
 import { fmt } from '../core/dom';
 import { flushUndo, toast, undo } from '../ui/components';
@@ -335,6 +336,7 @@ function handle(ev: ChatEvent): void {
       break;
     }
     case 'client':
+      noteBrainActed(); // [voice lane] the brain moved the screen, not his tap: nothing to learn from it
       void run(ev.name, ev.args);
       break;
     case 'approval':
@@ -961,6 +963,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
     return;
   }
+  // [voice lane] nothing on the phone took his words: if he now taps the screen he meant, offer to learn them (assistant/learnwords.ts)
+  if (!opts.cloud && !opts.plain) noteWordMiss(t);
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   turnVoice = spokenTurn ? who : undefined;

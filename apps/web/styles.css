@@ -9875,3 +9875,7 @@ html .recallidx .recallindex, html .recallfind .note { flex: 1 1 12em; min-width
 html body .wrow button.wdraft { flex: none; min-width: var(--g-target) !important; min-height: var(--g-target) !important; }
 /* [recall] a FIND tap lands on its paragraph in Workspace: lit a moment, like the document's */
 html .wsblock.found { outline: var(--g-stroke) solid var(--g-amber); outline-offset: var(--g-s-half); }
+/* [voice lane] HIS OWN WORDINGS (assistant/learnwords.ts): the floating bar's two keys at 44 pt, its words wrapping, never cut */
+html .rcundo.undofloat.wordbar { flex-wrap: wrap; }
+html .rcundo.undofloat.wordbar span { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
+html .rcundo.undofloat.wordbar button { height: auto; min-height: 44px !important; padding: 0 18px; }

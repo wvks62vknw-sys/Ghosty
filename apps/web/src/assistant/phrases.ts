@@ -18,6 +18,7 @@ import { canYouAsked, todayAsked, whyAsked } from '../../../../packages/shared/s
 import { foresightAsked, rightSaid } from '../../../../packages/shared/src/foresight';
 import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/src/guardian';
 import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
+import { learnedAsked, learnedFor, storedLearned } from '../../../../packages/shared/src/learned';
 import { workbenchAsked } from '../../../../packages/shared/src/workbench';
 import { machineAsked } from '../features/eye/machine';
 import { looksLikeStatement } from '../../../../packages/shared/src/money';
@@ -91,6 +92,9 @@ export const LOCAL_ASKS = [
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
   // [voice lane] "do you know it's me?": from the phone's own tag (before "can you…?" could call it an ability he lacks)
   { id: 'speaker', test: (t: string) => SPEAKER_ASK.test(t.trim().replace(/[’]/g, "'")) },
+  // [voice lane] HIS OWN WORDINGS (voice.u1, assistant/learnwords.ts): a wording he taught opens its screen before any table reads it;
+  // "my wordings" lists them; "forget the wording …" forgets one
+  { id: 'learned', test: (t: string) => !!learnedAsked(t) || !!learnedFor(storedLearned(), t) },
   // [awareness] "make that wall longer", "add a wardrobe there", "find me a replacement", "open that one": the words that point at what is
   // selected on the screen, acted on here with no model (assistant/thatone.ts); when nothing fitting is selected the next table, then the brain
   { id: 'thatone', test: (t: string) => thatOne(t) !== null },

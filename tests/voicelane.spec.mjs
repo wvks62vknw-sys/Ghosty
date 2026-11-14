@@ -6,6 +6,8 @@
 //  - MANY WORDINGS, ONE MEANING ("if i say play music it should play the radio"): "put some tunes on" is the radio, "log a pint"
 //    is a pint of water (his words kept in the chat), "show me the map" opens the map, "play something" asks music or a game, and
 //    "is it gonna chuck it down" goes to the brain with the meaning noted beside his words;
+//  - HIS OWN WORDINGS (NEXT ROUND, voice.u1): a miss, then his tap to the screen he meant, offers REMEMBER IT / NO; the taught wording
+//    opens that screen at once, "my wordings" lists them with FORGET, NO is never asked again, a sending ask is never learned;
 //  - HIS VOICE, KNOWN IN THE CHAT ("the actual chat says he has no way of recognising me"): "do you know it's me?" is answered on
 //    the phone from what it really knows, and every chat turn carries what the phone knows of voices (`heard`), never a number.
 // Every key it shows is 44 pt and nothing goes sideways.
@@ -174,6 +176,53 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   for (const s of await sideways(page)) check(false, `[${W}] [voice] sideways: ${s}`);
   await page.screenshot({ path: `${out}/voicelane-voice-${W}.png` });
   log(`[${W}] voice: ${checks} checks`);
+
+  // ---------------------------------------------------------------- his own wordings, learned (NEXT ROUND, voice.u1)
+  const miss = async (words, tab) => {
+    await chatOpen(page);
+    const n = sent.length;
+    await page.fill('#cin', words);
+    await page.press('#cin', 'Enter');
+    const until = Date.now() + 8000;
+    while (!sent.slice(n).some((b) => String(b.message ?? '').startsWith(words)) && Date.now() < until) await page.waitForTimeout(100);
+    check(sent.slice(n).some((b) => String(b.message ?? '').startsWith(words)), `[${W}] [learn] "${words}" did not go to the brain (a miss)`);
+    await page.waitForFunction(() => !window.__ghosty.ui.get().busy, null, { timeout: 15000 }).catch(() => undefined);
+    // his own tap to the screen he meant (not the brain opening it)
+    await page.evaluate((t) => (location.hash = t), tab);
+  };
+  const barShown = () => page.waitForFunction(() => { const b = document.querySelector('#wordbar'); return b && !b.hidden && b.getClientRects().length > 0; }, null, { timeout: 5000 }).then(() => true, () => false);
+  await miss('wonga page', 'money');
+  check(await barShown(), `[${W}] [learn] no offer after a miss and his tap to Money`);
+  const bar = await page.evaluate(() => ({ text: document.querySelector('#wordbar span')?.textContent ?? '', keys: [...document.querySelectorAll('#wordbar button')].map((b) => ({ t: b.textContent, w: b.offsetWidth, h: b.offsetHeight, l: b.getBoundingClientRect().left, r: b.getBoundingClientRect().right })) }));
+  check(bar.text === 'Next time you say “wonga page”, open Money?', `[${W}] [learn] the offer reads "${bar.text}"`);
+  check(JSON.stringify(bar.keys.map((k) => k.t)) === '["REMEMBER IT","NO"]', `[${W}] [learn] the offer's keys: ${JSON.stringify(bar.keys.map((k) => k.t))}`);
+  for (const k of bar.keys) {
+    check(k.w >= 44 && k.h >= 44, `[${W}] [learn] "${k.t}" is ${k.w}×${k.h} (under 44 pt)`);
+    check(k.l >= -1 && k.r <= W + 1, `[${W}] [learn] "${k.t}" is sideways`);
+  }
+  await page.screenshot({ path: `${out}/voicelane-learn-${W}.png` });
+  await page.click('#wordbar button:has-text("REMEMBER IT")');
+  check(await page.evaluate(() => window.__ghosty.learnwords.learned().some((l) => l.words === 'wonga page' && l.tab === 'money')), `[${W}] [learn] REMEMBER IT kept nothing: ${JSON.stringify(await page.evaluate(() => window.__ghosty.learnwords.learned()))}`);
+  check(await page.evaluate(() => document.querySelector('#wordbar')?.hidden === true), `[${W}] [learn] the bar stayed after REMEMBER IT`);
+  r = await say(page, 'wonga page', /^Opening Money: you taught me “wonga page”\.$/, `[${W}] [learn] the taught wording`);
+  check(await page.waitForFunction(() => /money/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [learn] the taught wording did not open Money (${await page.evaluate(() => location.hash)})`);
+  check(!toBrain('wonga page') || sent.filter((b) => String(b.message ?? '').startsWith('wonga page')).length === 1, `[${W}] [learn] once taught, it still went to the brain`);
+  r = await say(page, 'my wordings', /^Your own wordings \(1\):\n“wonga page” opens Money$/, `[${W}] [learn] the list`);
+  check(JSON.stringify(r.keys) === '["FORGET “wonga page”"]', `[${W}] [learn] the list's keys: ${JSON.stringify(r.keys)}`);
+  for (const s of await small(page)) check(false, `[${W}] [learn] a key under 44 pt: ${s}`);
+  await tap(page, 'FORGET');
+  check(await page.waitForFunction(() => window.__ghosty.learnwords.learned().length === 0, null, { timeout: 5000 }).then(() => true, () => false), `[${W}] [learn] FORGET left ${JSON.stringify(await page.evaluate(() => window.__ghosty.learnwords.learned()))}`);
+  await say(page, 'my wordings', /^I haven’t learned any of your own wordings yet\./, `[${W}] [learn] the empty list says how`);
+  // NO is remembered: the same words are never offered again
+  await miss('dosh corner', 'markets');
+  check(await barShown(), `[${W}] [learn] no offer for "dosh corner"`);
+  await page.click('#wordbar button:has-text("NO")');
+  await miss('dosh corner', 'money');
+  check(!(await barShown()), `[${W}] [learn] "dosh corner" was offered again after NO`);
+  // a sending ask is never offered as a screen's name
+  await miss('send the dosh to Sam', 'money');
+  check(!(await barShown()), `[${W}] [learn] a sending ask was offered as a wording`);
+  log(`[${W}] learn: ${checks} checks`);
   await ctx.close();
 }
 

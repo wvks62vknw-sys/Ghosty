@@ -12,7 +12,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts'), screenasks: at('../../web/src/assistant/screenasks.ts') },
+  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts'), screenasks: at('../../web/src/assistant/screenasks.ts'), learned: at('../../../packages/shared/src/learned.ts') },
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -25,6 +25,7 @@ const C = await import('./.build/meanings/colours.mjs');
 const TH = await import('./.build/meanings/themes.mjs');
 const P = await import('./.build/meanings/phrases.mjs');
 const SA = await import('./.build/meanings/screenasks.mjs');
+const L = await import('./.build/meanings/learned.mjs');
 
 /** The table that answers words first on the phone (assistant/local.ts localTurn's order), or null. */
 const tableOf = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
@@ -241,4 +242,54 @@ test('"make it red", "red theme" and "change the colour to blue" change the colo
   assert.equal(TH.lookAsked('white colour')?.colour, 'mono');
   // never taken: words about something else
   for (const t of ['what colour is the sky', 'turn the lights blue', 'make it snappy', 'olive', 'mint', 'I feel blue today', 'the red one', 'red sky at night', 'paint the fence green']) assert.equal(TH.lookAsked(t)?.colour, undefined, `"${t}" → ${JSON.stringify(TH.lookAsked(t))}`);
+});
+
+// ---------------------------------------------------------------- his own wordings, learned (NEXT ROUND, voice.u1)
+
+test('his own wordings: a short ask that opens a screen can be learned; one that sends, pays, posts or deletes never is', () => {
+  for (const t of ['money stuff', 'my dosh', 'the wonga page please', 'Ghosty, bills and that', 'how am I doing for cash', 'gym things']) assert.ok(L.learnKey(t), `"${t}" can be learned`);
+  for (const t of ['send mum a text', 'pay the gas bill', 'post this to my page', 'delete my notes', 'remind me at 5', 'email Sam', 'call dad', 'yes', 'no', '42', 'ok thanks', 'a', 'one two three four five six seven eight nine ten']) assert.equal(L.learnKey(t), '', `"${t}" is never learned`);
+  // the polite wrapping changes nothing: one wording, however it is wrapped
+  assert.equal(L.learnKey('please money stuff'), L.learnKey('money stuff mate'));
+  const kept = L.withLearned([], { words: 'money stuff', key: L.learnKey('money stuff'), tab: 'money', label: 'Money', at: 1 });
+  assert.equal(L.learnedFor(kept, 'Money stuff, please!')?.tab, 'money');
+  assert.equal(L.learnedFor(kept, 'money'), null, 'only that wording, not a part of it');
+  assert.equal(L.learnedFor(kept, 'send money stuff'), null, 'a sending ask is never read as the wording');
+  // taught again, it points at the new screen; never two of one wording; capped
+  const again = L.withLearned(kept, { words: 'money stuff', key: L.learnKey('money stuff'), tab: 'markets', label: 'Markets', at: 2 });
+  assert.equal(again.length, 1);
+  assert.equal(L.learnedFor(again, 'money stuff').tab, 'markets');
+  let many = [];
+  for (let i = 0; i < 130; i++) many = L.withLearned(many, { words: `thing ${i} page`, key: L.learnKey(`thing ${i} page`), tab: 'money', label: 'Money', at: i });
+  assert.equal(many.length, L.MAX_LEARNED);
+  // forgotten by its words, wrapped or not
+  const f = L.withoutLearned(again, 'please money stuff');
+  assert.equal(f.gone?.words, 'money stuff');
+  assert.equal(f.list.length, 0);
+  assert.equal(L.withoutLearned(again, 'nothing like it').gone, null);
+  // his words about the list
+  for (const t of ['what wordings have you learned?', 'my wordings', 'show me my wordings', 'Ghosty, which words have you learnt from me', 'list the words you have learned']) assert.equal(L.learnedAsked(t)?.kind, 'list', t);
+  for (const [t, w] of [['forget the wording money stuff', 'money stuff'], ['unlearn “money stuff”', 'money stuff'], ['please forget the phrase gym things', 'gym things']]) assert.deepEqual(L.learnedAsked(t), { kind: 'forget', words: w }, t);
+  for (const t of ['forget that I like tea', 'forget it', 'what words do you know', 'my words are my own']) assert.equal(L.learnedAsked(t), null, `"${t}" is not about the wordings (memory's "forget" stays memory's)`);
+  assert.equal(L.offerLine('money stuff', 'Money'), 'Next time you say “money stuff”, open Money?');
+  assert.equal(L.usedLine({ words: 'money stuff', label: 'Money' }), 'Opening Money: you taught me “money stuff”.');
+});
+
+test('a taught wording is read first, before any table, and only once it is kept', () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  try {
+    const first = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
+    assert.notEqual(first('wonga page'), 'learned', 'not before it is taught');
+    store.set(L.LEARNED_KEY, JSON.stringify([{ words: 'wonga page', key: L.learnKey('wonga page'), tab: 'money', label: 'Money', at: 1 }]));
+    assert.equal(first('wonga page'), 'learned');
+    assert.equal(first('please, wonga page'), 'learned');
+    assert.equal(first('my wordings'), 'learned');
+    // the car's two stay first (car.test), and a stop is never the table's (session.ts runs it before any table)
+    assert.deepEqual(P.LOCAL_ASKS.slice(0, 2).map((a) => a.id), ['carview', 'carfault']);
+    store.set(L.LEARNED_KEY, 'not json');
+    assert.deepEqual(L.storedLearned(), [], 'a hurt list reads as none');
+  } finally {
+    delete globalThis.localStorage;
+  }
 });
