@@ -12,6 +12,7 @@
  * It is not indexed by search engines, and password fields are refused before publishing, so it
  * can't pass for a real login or payment page.
  */
+import { LOCKED_WORDS, lockedAt } from '../security';
 import { APP_SW, appBase, appCsp, appManifest, renderApp, runAppGates, type AppConfig } from '../../../../packages/shared/src/appkit/index';
 import { appApproval, buildApp } from '../appbuild';
 import { changeApp, changeApproval } from '../appchange';
@@ -121,6 +122,9 @@ export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: Durable
   return {
     get: (name) => durableGet<Site>(env, storage, PREFIX + siteSlug(name)),
     async put(site) {
+      // [security] LOCK EVERYTHING (security.u11): no page goes live while he has locked everything, whoever asks: a tool, a site
+      // build already running, a game, an app, a restore. Checked here, where every publish passes, so nothing can go round it.
+      if (storage && (await lockedAt(storage))) throw new Error(LOCKED_WORDS);
       // [sites] the version it replaces is kept (three at most), so a bad update goes back in one tap (sites.u2)
       let prev: { site: Site; replaced: number }[] = [];
       try {
@@ -614,10 +618,12 @@ export const siteTools: Tool[] = [
       // [sites] a Learn course's cards as the app (learnapp.ts, sites.c2): the cards stay out of the card's arguments
       const l = await withLearn(a, ctx);
       const r = await appApproval(l.args, ctx);
-      return l.said ? { args: { ...a, link_name: r.args.link_name }, reason: `${r.reason}${l.said}` } : r;
+      // pinned to the course and the cards it counted: run builds only those (review fix)
+      return l.said ? { args: { ...a, link_name: r.args.link_name, ...l.pin }, reason: `${r.reason}${l.said}` } : r;
     },
     async run(a, ctx) {
       if (a.change === true) return changeApp(a, ctx);
+      if (typeof a.from_learn === 'string' && a.from_learn.trim() && typeof a.learn_id !== 'string') throw new Error('those Learn cards were not the ones approved: ask again');
       return buildApp((await withLearn(a, ctx)).args, ctx);
     },
   },

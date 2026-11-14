@@ -34,7 +34,7 @@ export function googleCalendarUrl(e: CalEvent): string {
   return `https://calendar.google.com/calendar/render?${q.toString()}`;
 }
 
-const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 /** The calendar file (RFC 5545), lines folded at 75 octets. */
 export function icsOf(e: CalEvent, uid: string, now = new Date()): string {
   const s = span(e.start);
@@ -51,7 +51,7 @@ export function icsOf(e: CalEvent, uid: string, now = new Date()): string {
     s.allDay ? `DTEND;VALUE=DATE:${s.end}` : `DTEND;TZID=Europe/London:${s.end}`,
     `SUMMARY:${icsText(e.name)}`,
     ...(e.place ? [`LOCATION:${icsText(e.place)}`] : []),
-    ...(e.url ? [`URL:${e.url}`, `DESCRIPTION:${icsText(e.url)}`] : []),
+    ...(e.url ? [`URL:${e.url.replace(/[\r\n]/g, '')}`, `DESCRIPTION:${icsText(e.url)}`] : []), // (review fix) no line break can ride in on the URL
     'END:VEVENT',
     'END:VCALENDAR',
   ];
