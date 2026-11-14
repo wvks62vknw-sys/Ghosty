@@ -158,3 +158,16 @@ test('vCards: his contacts file read (folded lines, N or FN, phones, emails, add
   assert.equal(back.name, 'Priya Patel');
   assert.equal(back.address, '12 Acacia Avenue, Birmingham');
 });
+
+test('your word on their card: his open promises that name a person by first or whole name, never a part of another word', async () => {
+  const Sh = await import('./.build/journal/apps/web/src/features/people/vcard.mjs');
+  const items = [
+    { id: '1', kind: 'promise', state: 'open', what: 'send Jo the photos', at: 1 },
+    { id: '2', kind: 'promise', state: 'done', what: 'ring Jo back', at: 2 },
+    { id: '3', kind: 'promise', state: 'open', what: 'fix the joist in the loft', at: 3 },
+    { id: '4', kind: 'where', what: 'Jo’s present', at: 4 },
+    { id: '5', kind: 'promise', state: 'open', what: 'take Jo Smith to the station', at: 5 },
+  ];
+  assert.deepEqual(Sh.promisesAbout('Jo Smith', items), ['send Jo the photos', 'take Jo Smith to the station']);
+  assert.deepEqual(Sh.promisesAbout('Sam', items), []);
+});

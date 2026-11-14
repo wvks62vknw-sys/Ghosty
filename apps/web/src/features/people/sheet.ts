@@ -6,6 +6,8 @@
  * The state sits on window.__ghosty.people for the specs.
  */
 import { h } from '../../core/dom';
+import { keepStore } from '../memory/keep';
+import { promisesAbout } from './vcard';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
@@ -118,6 +120,8 @@ function whoSheet(): HTMLElement {
               more.replaceChildren(
                 // [moneynext] money.u9: each thing he said, to change or take away; his own photo of them, kept on this phone
                 ...(p.notes.length ? p.notes.map((n) => noteRow(p, n)) : [h('p.pknote', 'Nothing else said yet.')]),
+                // [journal] APPS ROUND (Your word): his open promises that name them, from MEMORY → YOUR WORD
+                ...promisesAbout(p.name, keepStore.get().items).map((w) => h('p.pknote.pppromise', { dataset: { case: 'keep' } }, `You said you’d ${w}.`)),
                 photoRow(p),
                 giftRow(p),
                 ...(p.phone ? [button(`Copy number ${p.phone}`, () => void copy(p.phone, 'the number'))] : []),

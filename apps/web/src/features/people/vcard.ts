@@ -87,3 +87,12 @@ export function writeVcf(people: { name: string; phone?: string; email?: string;
     })
     .join('\r\n');
 }
+
+/** His open promises (MEMORY → YOUR WORD) that name this person by their first or whole name, as he said them (for their card). */
+export function promisesAbout(name: string, items: { kind: string; state?: string; what: string }[]): string[] {
+  const first = name.trim().split(/\s+/)[0] ?? '';
+  if (first.length < 2) return [];
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`\\b(?:${esc(name.trim())}|${esc(first)})\\b`, 'i');
+  return items.filter((x) => x.kind === 'promise' && x.state === 'open' && re.test(x.what)).map((x) => x.what).slice(0, 5);
+}
