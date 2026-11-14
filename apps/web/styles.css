@@ -42,7 +42,8 @@ input, textarea, select {
   width: 100%; min-width: 0; 
 }
 textarea { resize: vertical; }
-input:focus, textarea:focus, select:focus { outline: 0; border-color: rgba(var(--cr), .6); background: rgba(var(--cr), .07); }
+/* (background-color, not the shorthand: a focused select keeps its chevron's size, place and no-repeat, never an hourglass across its words) */
+input:focus, textarea:focus, select:focus { outline: 0; border-color: rgba(var(--cr), .6); background-color: rgba(var(--cr), .07); }
 input[type=checkbox] { width: auto; accent-color: var(--c); }
 select { appearance: none; -webkit-appearance: none; }
 .lnk { text-decoration: none; }
@@ -8702,12 +8703,17 @@ html[data-motion="calm"] :is(.slin-appear, .slin-fade, .slin-rise, .sltr-fade, .
 .cx { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
 .cx .cxrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); align-items: center; min-width: 0; }
 html #app .cx button, html #app .cx select, html #app .cx input[type="text"], html #app .cx input[type="search"], html #app .cx textarea, html #app .cx summary, html #app .cx .cxcheck { min-height: var(--g-target) !important; height: auto; }
-html #app .cx button.cxkey { text-transform: none; white-space: normal; overflow-wrap: anywhere; min-width: var(--g-target); }
-html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-align: left; }
+html #app .cx button.cxkey { white-space: normal; overflow-wrap: anywhere; min-width: var(--g-target); }
+/* (the shelf's two import keys share the row, so in One Ink their rules run to the panel's edge like the divider under them) */
+html #app .cx .cximport > button.cxkey { flex: 1 1 auto; }
+/* (an idea to try is his own sentence, not a key's word: it keeps its case) */
+html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-align: left; text-transform: none; }
 .cx .cxtries { display: flex; flex-direction: column; gap: var(--g-s-half); }
 .cx .cxfield { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 150px; }
 .cx .cxlab { font: var(--g-t-caption); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); overflow-wrap: anywhere; }
-.cx input[type="text"], .cx input[type="search"], .cx textarea, .cx select { width: 100%; box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); }
+.cx input[type="text"], .cx input[type="search"], .cx textarea, .cx select { width: 100%; box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); }
+/* (background-color, not the shorthand: the chevron keeps the global select rule's size, place and no-repeat; the label stays clear of it) */
+.cx select { padding-right: calc(var(--g-s-3) + var(--g-s-1)); }
 .cx textarea { resize: vertical; }
 .cx input[type="range"] { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
 .cx .cxcheck { display: flex; align-items: center; gap: var(--g-s-half); font: var(--g-t-body); color: var(--g-ink-1); }
@@ -8742,7 +8748,7 @@ html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-alig
 .cxread .cxrpage { display: block; width: auto; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .cxread .cxrnote { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
 .cxread .cxrbar { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--g-s-half); }
-html .cxread button.cxrkey { min-height: var(--g-target) !important; min-width: var(--g-target); height: auto; text-transform: none; }
+html .cxread button.cxrkey { min-height: var(--g-target) !important; min-width: var(--g-target); height: auto; }
 html .cxread button.cxrkey[aria-pressed="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
 html .cxread button[hidden] { display: none; }
 .cxread .cxrslide { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
