@@ -71,10 +71,10 @@ const ALL = ['core', 'brief', 'eye', 'lens', 'studio', 'workshop', 'reverse', 's
   'money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin', 'learning', 'coach', 'social', 'convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'paint', 'house',
   // (the interpreter and REHEARSE joined on 11 Nov: BRIEF-OCT-IDEAS-3; THE LAB sits inside the Workshop)
   'interpreter', 'rehearse',
-  // (TRANSLATE, the apps round, 14 Nov)
-  'translate'];
+  // (TRANSLATE and APPS, THE APP LIBRARY in the Home room, the apps round, 14 Nov)
+  'translate', 'apps'];
 // and each sits in its area's group, never in a More row
-const GROUP = { 'Ask and see': ['interpreter', 'translate'], Make: ['convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'paint', 'house'], 'Learn and plan': ['learning', 'coach', 'rehearse'], Life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'], Me: ['social'] };
+const GROUP = { 'Ask and see': ['apps', 'interpreter', 'translate'], Make: ['convert', 'docs', 'sheets', 'slides', 'workspace', 'photo', 'video', 'gamestudio', 'comic', 'paint', 'house'], 'Learn and plan': ['learning', 'coach', 'rehearse'], Life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'], Me: ['social'] };
 const inGroups = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#deck .dkgroup')].map((g) => [g.dataset.group, [...g.querySelectorAll('.dkcard')].map((c) => c.dataset.id)])));
 for (const [g, ids] of Object.entries(GROUP)) for (const id of ids) if (!inGroups[g]?.includes(id)) problems.push(`${id} is not in the deck's ${g} group: ${JSON.stringify(inGroups)}`);
 if (inGroups.More?.some((id) => ALL.includes(id) && Object.values(GROUP).flat().includes(id))) problems.push(`a new screen is in the deck's More row: ${inGroups.More.join(', ')}`);
@@ -255,8 +255,8 @@ await page.keyboard.press('Escape');
   if (inv.recent.join() !== '01 library,02 eye,03 brief') problems.push(`[scan] RECENT is ${inv.recent.join()}`);
   if (inv.small.pins !== 'Hold a thing to pin it' || inv.small.recent !== 'Newest first') problems.push(`[scan] the groups' small lines: ${JSON.stringify(inv.small)}`);
   // (MAKE holds sixteen: its hub folds the nine editors under one EDITORS card, but THE PLAN and Every screen number every screen, so the editors keep 07 to 15)
-  // (TRANSLATE joined SEE in the apps round, 14 Nov)
-  const want = { home: 1, see: 4, make: 16, learn: 8, plan: 4, life: 8, me: 6 };
+  // (TRANSLATE joined SEE, and APPS joined HOME, in the apps round, 14 Nov)
+  const want = { home: 2, see: 4, make: 16, learn: 8, plan: 4, life: 8, me: 6 };
   for (const [r, n] of Object.entries(want)) {
     const got = inv.rooms[r] ?? [];
     if (got.length !== n || got.some((x, i) => !x.startsWith(String(i + 1).padStart(2, '0') + ':'))) problems.push(`[scan] the ${r} room lists ${got.join()} (want ${n}, numbered 01, 02 …)`);

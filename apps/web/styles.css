@@ -11208,7 +11208,7 @@ html .al-chart { display: block; width: 100%; height: auto; }
 html .al-axis { stroke: var(--g-line-faint); stroke-width: 1; }
 html .al-bar { fill: var(--g-accent); }
 html .al-line { fill: none; stroke: var(--g-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-html .al-tick { fill: var(--g-ink-3); font: 8px var(--g-font-text); }
+html .al-axistick { fill: var(--g-ink-3); font: 8px var(--g-font-text); }
 html .al-seg { display: flex; gap: 2px; margin: 0 0 var(--g-s-1); padding: 2px; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
 html .al-segkey { flex: 1 1 0; min-width: 0; min-height: var(--g-target); border: 0; border-radius: var(--g-radius-key); background: none; box-shadow: none; font: var(--g-t-caption); color: var(--g-ink-2); text-transform: none; }
 html .al-segkey[aria-selected="true"] { background: var(--g-plate-strong-fill); color: var(--g-ink-1); }
