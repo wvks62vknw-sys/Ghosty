@@ -11,7 +11,7 @@ import type { AgendaEventInfo, ChatTurn, FeedInfo, InboxEntry, JobInfo, MemoryFa
 import { createStore } from '../core/store';
 
 export type AgendaData = { tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] };
-export type NewEvent = { title: string; start: number; end?: number; allDay?: boolean; location?: string; remindMin?: number | null };
+export type NewEvent = { title: string; start: number; end?: number; allDay?: boolean; location?: string; notes?: string; remindMin?: number | null };
 export type NewJob = { kind: 'reminder' | 'task'; title?: string; text: string; at: number; repeat: JobInfo['repeat'] };
 
 export type Op =
@@ -49,7 +49,7 @@ export function agendaWithOutbox(a: AgendaData): AgendaData {
   let events = [...a.events];
   let jobs = [...a.jobs];
   for (const op of offline.get().outbox) {
-    if (op.kind === 'addEvent') events.push({ id: op.id, title: op.event.title, start: op.event.start, end: op.event.end, allDay: op.event.allDay, location: op.event.location, source: 'this device (not saved yet)' });
+    if (op.kind === 'addEvent') events.push({ id: op.id, title: op.event.title, start: op.event.start, end: op.event.end, allDay: op.event.allDay, location: op.event.location, notes: op.event.notes, source: 'this device (not saved yet)' });
     if (op.kind === 'deleteEvent') events = events.filter((e) => e.id !== op.eventId);
     if (op.kind === 'addJob') jobs.push({ id: op.id, kind: op.job.kind, title: op.job.title ?? op.job.text.slice(0, 120), text: op.job.text, next: op.job.at, repeat: op.job.repeat, tz: a.tz });
     if (op.kind === 'deleteJob') jobs = jobs.filter((j) => j.id !== op.jobId);
