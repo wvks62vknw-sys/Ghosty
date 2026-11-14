@@ -32,4 +32,5 @@ export const lights: Board = (p) => {
     p.score(0, `${presses} presses · par ${l.par}`);
   }
   draw();
+  p.keep({ l: { size: l.size, on: l.on, par: l.par }, presses });
 };

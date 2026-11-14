@@ -114,6 +114,7 @@ export const sudoku: Board = (p) => {
   }
   setKeys();
   draw();
+  p.keep(st);
   const tick = setInterval(() => !p.paused() && p.score(0, line()), 1000);
   const keyd = (e: KeyboardEvent) => {
     if (!board.isConnected) return;

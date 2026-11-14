@@ -9,6 +9,7 @@
  */
 import { block, blockId, textOf, type Block, type Run } from '../docs/model';
 import type { Palette } from './themes';
+import type { FreeItem } from './free';
 
 export type Layout = 'title' | 'bullets' | 'two' | 'picture' | 'chart' | 'table' | 'quote' | 'section' | 'blank';
 export const LAYOUTS: { id: Layout; name: string; line: string }[] = [
@@ -65,6 +66,8 @@ export interface Slide {
   builds: Build[];
   /** Skipped in the talk (kept in the deck, its place and its number kept; PowerPoint's hidden slide). */
   skip?: boolean;
+  /** Free-form items laid over the layout (free.ts): text boxes, pictures and shapes, in drawing order. */
+  free?: FreeItem[];
 }
 export interface Master {
   align: 'left' | 'center';
