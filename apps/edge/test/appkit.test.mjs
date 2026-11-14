@@ -607,3 +607,9 @@ test('a mini-app build that failed or was cut short carries on from its record w
   assert.match(ran.project.steps[4].result, /^"Ideas" is live at https:\/\/ghosty\.example\/s\/ideas\//);
   assert.equal((await K.siteStore(ctx.env, storage).get('ideas')).title, 'Ideas');
 });
+
+// THE APP LIBRARY's engine checks and every app in it (applib.test.mjs), run with the mini-apps here in the brain suite
+await import('./applib.test.mjs');
+
+// THE APP LIBRARY's game kinds (applibgames.test.mjs), the PLAY & MAKE lane's logic
+await import('./applibgames.test.mjs');

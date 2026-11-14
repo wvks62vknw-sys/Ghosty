@@ -129,6 +129,8 @@ export const STATES = {
   'people.who': { dir: 'people', base: 2, now: 4 },
   'people.plan': { dir: 'people', base: 1, now: 4 },
   'people.coming': { dir: 'people', base: 0, now: 4 },
+  // APPS ROUND (the memory lane): KEEP IN TOUCH, kept on the phone (features/people/touch.ts): only the empty state applies
+  'people.touch': { dir: 'people', base: 0, now: 1 },
   'work.todo': { dir: 'work', base: 2, now: 4 },
   'work.interview': { dir: 'work', base: 2, now: 3 },
   'work.doc': { dir: 'work', base: 1, now: 1 },
@@ -213,6 +215,8 @@ export const STATES = {
   'space.materials': { dir: 'space', base: 0, now: 1 },
   // NEXT ROUND (MAKE lane): MATERIALS' makeover set against his own statements, all four states (new, so base 0)
   'space.budget': { dir: 'space', base: 0, now: 4 },
+  // APPS ROUND (MAKE lane): GAME STUDIO 3D, its empty shelf of his own games and a game that cannot start (new, so base 0)
+  'gamestudio.threed': { dir: 'gamestudio', base: 0, now: 2 },
   'workbench.panels': { dir: 'workbench', base: 1, now: 2 },
   // NEXT ROUND (MAKE lane): named Workbench projects, its empty list said in his words (new, so base 0)
   'workbench.projects': { dir: 'workbench', base: 0, now: 1 },

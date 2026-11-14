@@ -35,7 +35,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 
 // ---- what the screens and the areas hold (shell/areadefs.ts; ui/sheetpage.ts draws a screen's pages under its pills)
 const AREA_TOOLS = {
-  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
+  ask: ['core', 'brief', 'voice'], see: ['eye', 'lens', 'interpreter', 'translate'], make: ['studio', 'workshop', 'reverse', 'space', 'workbench', 'convert', 'editors', 'house'],
   learn: ['learn', 'arcade', 'gym', 'school', 'library', 'learning', 'coach', 'rehearse'], plan: ['agenda', 'markets', 'threats', 'radio'],
   life: ['money', 'body', 'kitchen', 'people', 'work', 'creative', 'outside', 'homeadmin'],
   // (Me's hub is the jump bar's "Me": its screens were there with nothing on their cards until 2 Nov)

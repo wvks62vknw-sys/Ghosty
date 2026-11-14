@@ -8,6 +8,7 @@ import type { TabDef } from '../../shell/tabs';
 import { screenSays } from '../../shell/awareness';
 import { info } from '../../studio-game/hub';
 import { page } from '../../ui/page';
+import { game3dPanel } from './game3d';
 
 export const gamestudioTab: TabDef = {
   id: 'gamestudio',
@@ -22,6 +23,8 @@ export const gamestudioTab: TabDef = {
     const P = page(root, { tag: 'MAKE // GAME STUDIO', sub: '', leftLabel: 'GAMES', rightLabel: 'ABOUT', stack: true });
     root.classList.add('studiopg');
     P.big.dataset.case = 'keep';
+    // GAME STUDIO 3D (APPS ROUND): real 3-D games, first on the page
+    P.left.prepend(game3dPanel());
     let studio: import('../../studio-game/editor').Studio | null = null;
     let pending = '';
     void import('../../studio-game/editor').then((m) => {

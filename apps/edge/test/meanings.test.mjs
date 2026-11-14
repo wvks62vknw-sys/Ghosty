@@ -61,6 +61,7 @@ const W = {
   map: ['show me the map', 'open the map', 'bring up the map', 'pull up the map', 'open maps', 'take me to the map', 'show me the globe', "open god's eye", 'gods eye', 'let me see the map', 'I need the map', 'where am I on the map', 'show me where I am', 'open google maps', 'show me the world map'],
   lens: ['open the lens', 'open lens', 'start the lens', 'launch the scanner', 'fire up the lens', 'use the lens', 'tell me what this is', 'have a look at this', 'bring up the lens', 'google lens', 'open visual search'],
   comic: ['open the comic', 'make a comic', 'draw a comic', 'write a comic', 'create a comic book', 'make me a comic strip', 'read a comic', 'open my comics', 'show me the comics', 'start a graphic novel', 'make a manga', "let's make a comic", 'comic time', 'new comic'],
+  paint: ['open paint', 'open the painting app', 'I want to draw', "let's paint", 'start a painting', 'new drawing', 'colouring page', 'a coloring page', 'open my sketchbook', 'draw time'],
   docs: ['write a letter', 'write a document', 'start a doc', 'open a new document', 'draft a letter', 'type up a report', 'make a word document', 'create a document', 'write an essay', 'open my documents', 'type a letter'],
   sheets: ['make a spreadsheet', 'start a spreadsheet', 'create a sheet', 'open excel', 'make an excel sheet', 'build a budget sheet', 'open my spreadsheets', 'make a table', 'new workbook'],
   slides: ['make a presentation', 'build a slideshow', 'create a slide deck', 'make a powerpoint', 'put together a presentation', 'open my presentations', 'start a deck', 'make some slides', 'make a keynote'],
@@ -555,3 +556,6 @@ test('settings that follow the people he introduced: their station names, their 
   const local = readFileSync(at('../../web/src/assistant/local.ts'), 'utf8');
   assert.match(local, /kitchenTurn\(text, opts\.who && typeof opts\.who === 'object' \? opts\.who\.name : undefined\)/, 'only a person he introduced, never a stranger');
 });
+
+// [apps.voice] the TRANSLATE app's own checks run with this lane's
+await import('./translateapp.test.mjs');

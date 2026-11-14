@@ -16,10 +16,18 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [polish3] APPS ROUND, THE ARCADE, console-class (docs/build-plan/APPS-POLISH3.md)
+  { day: '2026-11-14', title: 'A page for every game', line: 'In the ARCADE, tap a game’s title: its screenshots, how to play by touch, controller and keyboard, your record, its trophies, and its licence and credit.' },
+  { day: '2026-11-14', title: 'Continue Playing and the Trophy Room', line: 'The ARCADE now opens on the games you played lately, and THE TROPHY ROOM counts what you earned: five for every game, yours included.' },
+  { day: '2026-11-14', title: 'Save slots, your buttons, gyro aim', line: 'A game’s page keeps your save under a name. In PAUSE, MOVE THE BUTTONS puts them under your thumb; in DOOM and Quake, GYRO AIM and a keyboard work too.' },
+  // [paint] THE APPS ROUND, lane COMIC: PAINT, a real painting app (docs/build-plan/APPS-COMIC.md)
+  { day: '2026-11-14', title: 'Paint', line: 'MAKE → PAINT: draw with a finger or an Apple Pencil. Six brushes that follow your pressure, layers with blend modes, undo, colouring pages, and a time-lapse of every stroke you can save as a video.' },
   // [moneyapps] money, effortless
   { day: '2026-11-14', title: 'All your statements at once', line: 'MONEY → Statement → Pick files: choose many at once, CSV, OFX, QIF or PDF from any bank. Each says what it kept, and payments you already had are left out. Each shop on Month now has its own page.' },
   // [see] the APPS ROUND: the weather app
   { day: '2026-11-14', title: 'Weather, an app of its own', line: 'Say “weather app” or tap OPEN WEATHER in the Brief: the next hour’s rain, a 24-hour graph, ten days, the details, the air and pollen, for every saved place and any city you add.' },
+  // APPS ROUND, MAKE lane
+  { day: '2026-11-14', title: 'Make real 3-D games', line: 'Make → GAME STUDIO → 3-D GAMES: a platformer, an explorer, a kart track, a physics puzzle, a marble roll and a shooter play in one tap, with real physics. EDIT builds the stage by touch and sets its rules as when-then blocks.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },
@@ -109,7 +117,7 @@ export const WHATS_NEW: NewThing[] = [
   // [ci] NEXT ci.u3
   { day: '2026-11-14', title: 'How quickly I answer out loud', line: 'System → SPEED now shows your spoken turns too: how soon my first word comes after you stop, and how soon I listen again after I finish. Timed on your phone, kept on your phone.' },
   // [learn, apps round] chess
-  { day: '2026-11-14', title: 'Chess puzzles and puzzle rush', line: 'GYM → chess → PUZZLES: real puzzles from Lichess’s free puzzle database, kept on your phone; a puzzle rating, and a three-minute rush with three lives.' },
+  { day: '2026-11-14', title: 'Chess, an app of its own', line: 'Say “open chess”: real puzzles from Lichess’s free database kept on your phone, a puzzle rating, a three-minute rush, today’s puzzle, and every puzzle you tried.' },
   // [learn, next round] learning that adapts and talks back (NEXT-LEARN.md)
   { day: '2026-11-14', title: 'Courses that pick up your mistakes', line: 'Each course’s map has TODAY: the lesson your answers say to look at again (a miss you were sure of counts most), with a quiz on just your misses.' },
   { day: '2026-11-14', title: 'Free classics for your shelf', line: 'Library → Add → CLASSICS: Project Gutenberg and Standard Ebooks’ newest, free. Each book’s size is said first, and it comes on your tap, on Wi-Fi.' },
@@ -222,6 +230,10 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Gym: he carries on by himself', line: 'WATCH keeps playing round after round, TRAIN ALL trains every game in turn, KEEP AWAKE holds the screen on while he trains.' },
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
+  // [journal] APPS ROUND, lane MEMORY: keep in touch
+  { day: '2026-11-14', title: 'Keep in touch', line: 'Life → People → KEEP IN TOUCH: add the people you want to stay close to and how often; tap a name when you’ve caught up, and I’ll say when it’s been a while.' },
+  // [journal] APPS ROUND, lane MEMORY: his own journal
+  { day: '2026-11-14', title: 'Your own journal', line: 'Me → Memory → JOURNAL, or say "new journal entry": photos, a voice note, a mood and a place on each entry, a calendar and On this day, locked with Face ID if you like, kept on this phone.' },
 ];
 
 /**
