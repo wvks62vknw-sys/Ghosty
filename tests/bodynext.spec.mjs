@@ -31,11 +31,14 @@ const check = (ok, msg) => {
     console.log(`  red: ${msg.slice(0, 260)}`);
   }
 };
+const planCalls = [];
 const log = (s) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)} s · ${s}`);
 const RAW = /aborted|fetch failed|undefined|NaN|\[object Object\]|TypeError|NetworkError|Failed to|Load failed|HTTP \d/i;
 const VIEWPORTS = [{ width: 440, height: 956 }, { width: 390, height: 844 }];
 await standDown(base, KEY);
-const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
+/** The stood-in forecast: dry and 15°C at 17:00, wet and 9°C otherwise, sunset 19:40. */
+const FORECAST = (day) => ({ current: { temperature_2m: 12, apparent_temperature: 11, relative_humidity_2m: 70, weather_code: 3, wind_speed_10m: 10, wind_direction_10m: 200, pressure_msl: 1012 }, hourly: { temperature_2m: Array.from({ length: 72 }, (_, i) => (i % 24 === 17 ? 15 : 9)), precipitation_probability: Array.from({ length: 72 }, (_, i) => (i % 24 === 17 ? 5 : 60)) }, daily: { temperature_2m_max: [15, 14, 13], temperature_2m_min: [6, 5, 4], precipitation_probability_max: [60, 50, 40], sunrise: [`${day}T07:20`], sunset: [`${day}T19:40`], uv_index_max: [1, 1, 1] } });
 const brainDo = (pack, action, args) => fetch(`${base}/api/packs/do`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ pack, action, args }) }).then((r) => r.json());
 const jobs = () => fetch(`${base}/api/agenda?days=2&tz=Europe%2FLondon`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).then((r) => r.json()).then((j) => j.jobs ?? []);
 
@@ -47,6 +50,8 @@ async function phone(viewport, o = {}) {
   const page = await ctx.newPage();
   page.setDefaultTimeout(8000);
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
+  // (every change the phone asks of the meal plan, so a red can say who changed it)
+  page.on('request', (r) => { if (r.url().includes('/api/packs/do') && /"action":"plan"/.test(r.postData() ?? '') && /"days"|clear/.test(r.postData() ?? '')) planCalls.push(`${((Date.now() - t0) / 1000).toFixed(1)} s ${r.postData()?.slice(0, 160)}`); });
   await page.addInitScript(({ key, world, larder }) => {
     if (!sessionStorage.getItem('bn.seeded')) {
       localStorage.setItem('ghosty.ownerKey', key);
@@ -60,6 +65,8 @@ async function phone(viewport, o = {}) {
     window.__ghostyHeat = 18;
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => window.__off !== true });
   }, { key: KEY, world: o.world ?? 'scan', larder: o.larder ?? null });
+  // (stand-ins at the phone's door go on before the page loads: once the service worker holds the page, a later route misses its calls)
+  if (o.before) await o.before(page);
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
   return { ctx, page };
@@ -121,7 +128,7 @@ for (const vp of VIEWPORTS) {
   // the brain's kitchen starts empty for each size (the preview's brain is shared)
   await brainDo('kitchen', 'plan', { days: ['', '', '', '', '', '', ''] });
   await brainDo('kitchen', 'shop', { words: 'clear' });
-  for (const j of await jobs()) if (j.kind === 'reminder' && /^(?:Water|Tablets)$/.test(j.title)) await fetch(`${base}/api/jobs/${j.id}`, { method: 'DELETE', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } });
+  for (const j of await jobs()) if (j.kind === 'reminder' && /^(?:Water|Tablets|Wind down)$/.test(j.title)) await fetch(`${base}/api/jobs/${j.id}`, { method: 'DELETE', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } });
   const larder = { v: 1, items: [{ id: 'a', name: 'pasta', where: 'cupboard', useBy: '', added: 1 }, { id: 'b', name: 'cheese', where: 'fridge', useBy: '', added: 1 }], recipes: [] };
   const { ctx, page } = await phone(vp, { larder });
 
@@ -241,7 +248,7 @@ for (const vp of VIEWPORTS) {
   if (vp.width === 440) {
     await brainDo('kitchen', 'shop', { words: 'clear' });
     let r = await ask(page, 'shopping for the week', /On the shopping list for|pantry has everything/);
-    check(r.ok, `${T} "shopping for the week": "${r.text.slice(0, 160)}"`);
+    check(r.ok, `${T} "shopping for the week": "${r.text.slice(0, 160)}" (the plan's changes: ${planCalls.join(' ; ')})`);
     r = await ask(page, 'plan my dinners', /Every day of the week already has a dinner|Planned from your recipe book/);
     check(r.ok, `${T} "plan my dinners": "${r.text.slice(0, 160)}"`);
     r = await ask(page, 'did I take my tablets?', /08:00 Vitamin D: taken; 20:00 Vitamin D: skipped/);
@@ -416,18 +423,14 @@ for (const vp of VIEWPORTS) {
   const vp = VIEWPORTS[0];
   const T = `[${vp.width}]`;
   log('calories and the walk hour');
-  const { ctx, page } = await phone(vp);
-  const hourly = { temperature_2m: Array.from({ length: 72 }, (_, i) => (i % 24 === 17 ? 15 : 9)), precipitation_probability: Array.from({ length: 72 }, (_, i) => (i % 24 === 17 ? 5 : 60)) };
-  const day = ymd(Date.now());
-  await page.route(/api\.open-meteo\.com(?:%2F|\/)v1(?:%2F|\/)forecast/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: { temperature_2m: 12, apparent_temperature: 11, relative_humidity_2m: 70, weather_code: 3, wind_speed_10m: 10, wind_direction_10m: 200, pressure_msl: 1012 }, hourly, daily: { temperature_2m_max: [15, 14, 13], temperature_2m_min: [6, 5, 4], precipitation_probability_max: [60, 50, 40], sunrise: [`${day}T07:20`], sunset: [`${day}T19:40`], uv_index_max: [1, 1, 1] } }) }));
-  // (the forecast read at the boot was the real one: read again with the stand-in)
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  const day0 = ymd(Date.now());
+  const { ctx, page } = await phone(vp, { before: (page) => page.route(/api\.open-meteo\.com(?:%2F|\/)v1(?:%2F|\/)forecast/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(FORECAST(day0)) })) });
   await open(page, 'kitchen', 'Recipes');
   const RC = PK('kitchen');
   await page.locator(`${RC} button[aria-label="Open Spaghetti bolognese"]`).click();
   const kc = Number(await page.getAttribute(`${RC} [data-kcal]`, 'data-kcal'));
   check(kc >= 400 && kc <= 1200 && /a rough estimate/.test(await txt(page, `${RC} [data-kcal]`)), `${T} a recipe's rough calories a serving, marked an estimate: ${kc} "${await txt(page, `${RC} [data-kcal]`)}"`);
+  await brainDo('kitchen', 'plan', { days: ['Spaghetti bolognese', 'Shakshuka', '', '', '', '', ''] });
   await open(page, 'kitchen', 'Meal plan');
   await page.waitForFunction((s) => document.querySelector(`${s} input[aria-label="Mon’s dinner"]`) && !document.querySelector(`${s} [data-state="loading"]`), RC, { timeout: 10000 }).catch(() => undefined);
   check(await until(page, (s) => Number(document.querySelector(`${s} [data-plankcal]`)?.dataset.plankcal) >= 1 && /Rough calories a serving: Mon \d/.test(document.querySelector(`${s} [data-plankcal]`)?.textContent ?? ''), RC), `${T} the week's plan says each dinner's rough calories: "${await txt(page, `${RC} [data-plankcal]`)}"`);
@@ -473,12 +476,14 @@ for (const vp of VIEWPORTS) {
 // ---- k. SCAN A PACKET INTO THE PANTRY (the decoder's read handed in; the brain's Open Food Facts answer stood in for at the phone's door)
 {
   log('pantry scan');
-  const { ctx, page } = await phone(VIEWPORTS[0]);
+  const { ctx, page } = await phone(VIEWPORTS[0], { before: async (page) => {
   await page.route(/\/api\/packs\/do/, async (r) => {
     const b = JSON.parse(r.request().postData() ?? '{}');
     if (b.action !== 'barcode') return r.continue();
     return r.fulfill({ contentType: 'application/json', body: JSON.stringify(b.args.code === '5000000000017' ? { text: 'Semi-skimmed milk', data: { product: 'Semi-skimmed milk', kind: 'product', categories: 'Dairies, Milks' } } : { text: 'not known', data: { product: '', kind: 'none', categories: '' } }) });
   });
+  await page.route(/\/api\/profile\/spending(?:\?|$)/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ budgets: [{ category: 'groceries', monthly: 200, spent: 120, left: 80, frac: 0.6, line: '£80 left this month' }], rows: [], subscriptions: [], months: [], changes: [] }) }));
+  } });
   await open(page, 'kitchen', 'Pantry');
   const KP = PK('kitchen');
   check((await page.locator(`${KP} button[aria-label^="Scan a packet"]`).count()) === 1, '[440] the pantry has SCAN A PACKET');
@@ -491,7 +496,6 @@ for (const vp of VIEWPORTS) {
   check(await until(page, (s) => /doesn’t know it\. Type its name above/.test(document.querySelector(s)?.textContent ?? ''), KP), '[440] an unknown barcode says so in his words');
   await bar(page, '[440] pantry scan', 'kitchen');
   // the groceries budget on the shopping list, from his statements (MONEY's budgets stood in for at the phone's door)
-  await page.route(/\/api\/profile\/spending(?:\?|$)/, (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ budgets: [{ category: 'groceries', monthly: 200, spent: 120, left: 80, frac: 0.6, line: '£80 left this month' }], rows: [], subscriptions: [], months: [], changes: [] }) }));
   await open(page, 'kitchen', 'Shopping');
   check(await until(page, (s) => /^Groceries budget: £80 left this month, about £\d+ a week for the rest of the month\. From your own statements on MONEY\.$/.test(document.querySelector(`${s} [data-budget]`)?.textContent ?? ''), KP), `[440] the shopping list says what's left of his groceries budget: "${await txt(page, `${KP} [data-budget]`)}"`);
   await ctx.close();
@@ -518,11 +522,87 @@ for (const vp of VIEWPORTS) {
   check((await page.getAttribute(`${RH} [data-runs]`, 'data-runs')) === '2', '[390] both kept runs are listed');
   const cells = await txt(page, `${RH} .bc-cell`);
   check(/Longest \| ?5\.20 km|Longest5\.20 km/.test(cells.replace(/\s+\|\s+/g, ' | ')) || (/5\.20 km/.test(cells) && /5:00/.test(cells) && /26:50/.test(cells)), `[390] the bests: the longest, the quickest km (5:00) and 5 km (26:50): "${cells}"`);
-  check((await page.locator(`${RH} .br-route line.br-seg`).count()) >= 30 && (await page.locator(`${RH} .br-route line.br-seg.quick`).count()) >= 1, '[390] the route is drawn in pace bands');
+  check((await page.locator(`${RH} .br-route line.br-seg`).count()) >= 30 && (await page.locator(`${RH} .br-route line.br-seg`).count()) === (await page.locator(`${RH} .br-route line.br-seg:is(.quick, .steady, .slow)`).count()), '[390] the route is drawn, every stretch in a pace band');
   await page.locator(`${RH} .pkitems button`).nth(1).click();
   check(await until(page, (s) => document.querySelector(`${s} [data-route]`)?.dataset.route === 'a' && (document.querySelector(`${s} .br-route line.br-seg.slow`) !== null), RH), '[390] an older run opens with its own route and its slower stretch');
   check(!sent.length, `[390] no route ever goes to the brain: ${sent.join(', ')}`);
   await bar(page, '[390] run history', 'body');
+  await ctx.close();
+}
+
+// ---- m. SIX-WEEK PLANS: started, hit steps it up, a miss keeps it, the chat too
+{
+  log('six-week plans');
+  const { ctx, page } = await phone(VIEWPORTS[0]);
+  await open(page, 'body', 'Move');
+  const PL = `${PK('body')} .bt[data-track="plans"]`;
+  await page.waitForSelector(PL);
+  check((await page.locator(`${PL} [data-state="empty"]`).count()) === 1, '[440] no plan yet is a designed state');
+  await page.locator(`${PL} button[aria-label="Start the six-week squats plan"]`).click();
+  check(await until(page, (s) => document.querySelector(`${s} [data-target]`)?.dataset.target === '10', PL), '[440] the squat plan starts at 10');
+  await page.locator(`${PL} button[aria-label^="Today's session: hit"]`).click();
+  await page.evaluate(() => (window.__ghostyClockOffset = 2 * 864e5));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await open(page, 'body', 'Mood');
+  await open(page, 'body', 'Move');
+  check(await until(page, (s) => document.querySelector(`${s} [data-target]`)?.dataset.target === '12', PL), `[440] a hit steps the next target up to 12: ${await page.getAttribute(`${PL} [data-target]`, 'data-target')}`);
+  await page.locator(`${PL} button[aria-label="Today’s session: not quite"]`).click();
+  check(await until(page, (s) => /next time stays at 12/.test(document.querySelector(s)?.textContent ?? ''), PL), '[440] a miss keeps the target where it is');
+  await bar(page, '[440] six-week plans', 'body');
+  await page.evaluate(() => (window.__ghostyClockOffset = 4 * 864e5));
+  const r = await ask(page, 'I hit my plan today', /Hit: 12 squats a set, 3 sets\. Next time: 14/);
+  check(r.ok, `[440] "I hit my plan today": "${r.text.slice(0, 120)}"`);
+  await ctx.close();
+}
+
+// ---- n. FORM TIPS: shallow squats (the knee to 95°, the stand-in pose model) are counted, and "go a little deeper" is said
+{
+  log('form tips');
+  const { ctx, page } = await phone(VIEWPORTS[0]);
+  await page.evaluate(() => {
+    const blank = () => Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, visibility: 0.9 }));
+    const legs = (deg) => {
+      const p = blank();
+      const hip = { x: 0.5, y: 0.4 }, knee = { x: 0.5, y: 0.6 }, a = ((180 - deg) * Math.PI) / 180;
+      const ankle = { x: knee.x + 0.2 * Math.sin(a), y: knee.y + 0.2 * Math.cos(a) };
+      for (const [i, m] of [[23, hip], [24, hip], [25, knee], [26, knee], [27, ankle], [28, ankle]]) p[i] = { ...m, visibility: 0.95 };
+      return p;
+    };
+    let first = 0;
+    window.__ghostyPoseEngine = { detect: (_v, t) => { first ||= t; const k = Math.floor((t - first) / 500); return legs(k >= 1 && k <= 6 && k % 2 === 1 ? 95 : 175); }, close: () => undefined };
+  });
+  await open(page, 'body', 'Move');
+  const RP = `${PK('body')}[data-screen="reps"]`;
+  await page.locator(`${RP} button[aria-label="Start counting"]`).click();
+  check(await until(page, () => (window.__ghosty?.body?.reps ?? 0) >= 2, null, 12000), `[440] shallow squats are still counted: ${await page.evaluate(() => window.__ghosty?.body?.reps)}`);
+  check((await page.evaluate(() => window.__ghosty.body.tip)) === 'Go a little deeper.', `[440] a form tip as the rep lands: "${await page.evaluate(() => window.__ghosty.body.tip)}"`);
+  check((await page.locator(`${RP} button[aria-label="Form tips as each rep lands"][aria-checked="true"]`).count()) === 1, '[440] FORM TIPS is a switch, on');
+  await page.locator(`${RP} button[aria-label="Stop counting"]`).click().catch(() => undefined);
+  await bar(page, '[440] form tips', 'body');
+  await ctx.close();
+}
+
+// ---- o. THE FAMILY DINNER ROTA: who's eating (the people he introduced, stood in for at the phone's door) steers FILL THE EMPTY DAYS
+{
+  log('family rota');
+  await brainDo('kitchen', 'plan', { days: ['', '', '', '', '', '', ''] });
+  const { ctx, page } = await phone(VIEWPORTS[1], { before: (page) => page.route(/\/api\/packs\/do/, async (r) => {
+    const b = JSON.parse(r.request().postData() ?? '{}');
+    if (b.pack !== 'people') return r.continue();
+    return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ text: '', data: { people: [{ name: 'Sam', notes: ['likes curry'] }, { name: 'Mia', notes: ['is vegetarian'] }] } }) });
+  }) });
+  await open(page, 'kitchen', 'Meal plan');
+  const KP = PK('kitchen');
+  await page.waitForFunction((s) => document.querySelector(`${s} input[aria-label="Mon’s dinner"]`) && !document.querySelector(`${s} [data-state="loading"]`), KP, { timeout: 10000 }).catch(() => undefined);
+  await page.evaluate((s) => { const d = document.querySelector(`${s} .kp-who`); d.open = true; d.dispatchEvent(new Event('toggle')); }, KP);
+  await page.waitForSelector(`${KP} .kp-who button`, { timeout: 8000 }).catch(() => undefined);
+  await page.locator(`${KP} .kp-who button`, { hasText: /^Mia$/ }).click();
+  check(await until(page, (s) => /For Mia: leaving out mince, chicken/.test(document.querySelector(`${s} [data-eaters]`)?.textContent ?? ''), KP), `[390] who's eating reads his own notes: "${await txt(page, `${KP} [data-eaters]`)}"`);
+  await page.locator(`${KP} button[aria-label="Fill the empty days from my recipe book"]`).click();
+  await until(page, (s) => /empty days? filled/.test(document.querySelector(s)?.textContent ?? ''), KP, 10000);
+  const plan = (await brainDo('kitchen', 'plan', { words: '' })).data?.plan?.days ?? [];
+  check(plan.filter(Boolean).length >= 3 && !plan.some((d) => /bolognese|stir-fry|chilli con carne|chicken curry|sausage|tuna/i.test(d)), `[390] a vegetarian at the table: no meat in the week: ${plan.join(' / ')}`);
+  await bar(page, '[390] family rota', 'kitchen');
   await ctx.close();
 }
 
@@ -538,6 +618,10 @@ for (const vp of VIEWPORTS) {
   await ctx.close();
 }
 
+// the brain left as this spec found it (CI's other specs share it on the shard): no plan, no list, none of these reminders
+await brainDo('kitchen', 'plan', { days: ['', '', '', '', '', '', ''] }).catch(() => undefined);
+await brainDo('kitchen', 'shop', { words: 'clear' }).catch(() => undefined);
+for (const j of await jobs().catch(() => [])) if (j.kind === 'reminder' && /^(?:Water|Tablets|Wind down)$/.test(j.title)) await fetch(`${base}/api/jobs/${j.id}`, { method: 'DELETE', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).catch(() => undefined);
 await browser.close();
 console.log(`\n${checks} checks, ${problems.length} red, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 if (problems.length) {

@@ -9,7 +9,7 @@ import { DAYS, mmss, timerAsked } from '../../../../../packages/shared/src/kitch
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
-import { book, fillWeek, kcalOf, pantryScreen, recipeFor, recipesScreen, toShopping, weekShopping } from './larder';
+import { book, fillWeek, foodNotes, kcalOf, pantryScreen, recipeFor, recipesScreen, toShopping, weekShopping } from './larder';
 import { onTimers, startTimers, startedWords, stopTimer, stopTimers, timersNow } from './timers';
 import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
@@ -269,8 +269,36 @@ function planSheet(): { el: HTMLElement; stop(): void } {
   };
   const save = button('Save the week', () => void keep(inputs.map((i) => i.value.trim()), 'Saving the week…'), 'on');
   // PLAN IT FOR ME: the empty days filled from the book, what the pantry covers first
+  // WHO'S EATING (body.c6): the people he introduced, their food likes and can't-eats read from his own notes about them
+  let eaters: { name: string; notes: string[] }[] = [];
+  const picked = new Set<string>();
+  const whoNote = h('p.pknote', { dataset: { eaters: '' } });
+  const whoRow = h('div.pkrow', { role: 'group', 'aria-label': 'Who’s eating' });
+  const whoBox = h('details.pkmore.kp-who', h('summary', 'Who’s eating'), whoRow, whoNote) as HTMLDetailsElement;
+  const drawWho = () => {
+    const f = foodNotes(eaters.filter((e) => picked.has(e.name)).flatMap((e) => e.notes));
+    whoNote.dataset.eaters = [...picked].join(',');
+    whoNote.textContent = !eaters.length ? 'Tell me about the people you cook for (“Sam likes chicken”, “Mia can’t eat nuts”) and pick them here.' : picked.size ? `For ${[...picked].join(' and ')}: ${f.avoid.length ? `leaving out ${f.avoid.slice(0, 6).join(', ')}` : 'nothing to leave out'}${f.like.length ? `; leaning to ${f.like.slice(0, 4).join(', ')}` : ''}. From your own notes. One shared shopping list.` : 'Pick who’s eating and FILL THE EMPTY DAYS plans round them.';
+    whoRow.replaceChildren(...eaters.map((e) => {
+      const b = button(e.name, () => {
+        if (picked.has(e.name)) picked.delete(e.name);
+        else picked.add(e.name);
+        drawWho();
+      }, picked.has(e.name) ? 'on' : '');
+      b.setAttribute('aria-pressed', String(picked.has(e.name)));
+      return b;
+    }));
+  };
+  whoBox.addEventListener('toggle', () => {
+    if (!whoBox.open || eaters.length || lacksSignal()) return drawWho();
+    void brain.packDo('people', 'who', {}).then((r) => {
+      eaters = ((r.data as { people?: { name: string; notes?: string[] }[] } | undefined)?.people ?? []).slice(0, 12).map((p) => ({ name: p.name, notes: p.notes ?? [] }));
+      drawWho();
+    }).catch(() => drawWho());
+  });
+  drawWho();
   const auto = button('Fill the empty days', async () => {
-    const days = fillWeek(inputs.map((i) => i.value.trim()));
+    const days = fillWeek(inputs.map((i) => i.value.trim()), foodNotes(eaters.filter((e) => picked.has(e.name)).flatMap((e) => e.notes)));
     const added = days.filter((d, k) => d && !inputs[k]!.value.trim()).length;
     if (!added) return stateIn(status, '', 'Every day already has a dinner.');
     fill(days);
@@ -300,7 +328,7 @@ function planSheet(): { el: HTMLElement; stop(): void } {
     note.textContent = `On the shopping list for ${w.dishes.length} dinner${w.dishes.length === 1 ? '' : 's'}: ${w.add.map((n) => (w.count[n]! > 1 ? `${n} (×${w.count[n]})` : n)).join(', ')}.`;
   }, 'on');
   shop.setAttribute('aria-label', 'Put what the week needs on the shopping list');
-  const el = h('div.pkcol', names, ...DAYS.map((d, k) => h('div.pkitem', h('label', { style: 'flex:0 0 3.2em' }, d), inputs[k]!)), h('div.pkrow', save, auto), kcal, h('div.pkrow', shop), shopNote, status,
+  const el = h('div.pkcol', names, ...DAYS.map((d, k) => h('div.pkitem', h('label', { style: 'flex:0 0 3.2em' }, d), inputs[k]!)), h('div.pkrow', save, auto), whoBox, kcal, h('div.pkrow', shop), shopNote, status,
     h('p.pknote', 'Pick from your recipe book as you type. The week’s shopping leaves out what your pantry already has.'), phrases(['plan my week', 'shopping for the week']));
   /* state: kitchen.plan loading */
   const done0 = waitFor(el, 'Opening this week…');

@@ -87,7 +87,30 @@ check.yml's `all=`.
 - **Batch cook** (body.s9). Every recipe has BATCH COOK, which puts that many portions on the freezer list with a use-within
   date three months on.
 
-### 10. Outside
+### 10. More for workouts
+- **Run history with routes drawn** (body.u8). Under the running coach, YOUR RUNS lists each run you keep, its route drawn small
+  on the phone in pace bands (quicker than that run's average in the accent, steady in grey, slower in amber), its splits, and
+  your bests (the longest, the quickest kilometre, the quickest 5 km). The route is kept on the phone only when you tap STOP AND
+  KEEP. Your brain still gets only the distance, the time and the splits, never a position.
+- **Six-week plans that step up** (body.u7). Move → SIX-WEEK PLANS: squats, push-ups or running, three sessions a week. Hit the
+  target and the next one steps up; miss it and it stays where it is. A session is ticked by itself when your gym log or a kept
+  run already shows it. Chat: "start a squat plan", "I hit my plan today".
+- **Form tips while counting reps** (body.u6). As a rep lands, the camera's joints may give one short tip, such as "go a little
+  deeper" or "keep your back straight". You get at most one every three reps, never the same one twice running, all worked
+  out on the phone. FORM TIPS is a switch.
+
+### 11. The kitchen with the rest of the house
+- **Scan a packet into the pantry** (body.u11). PANTRY → SCAN A PACKET: take a photo of the barcode and the phone reads it with
+  ZXing. Your brain looks up its name in Open Food Facts, free, and the add form fills in with where it goes and a rough
+  use-by. Nothing is kept until you tap ADD.
+- **The groceries budget on the shopping list** (body.c1, with MONEY). If you've set a groceries budget on MONEY, the list
+  says what's left of it this month and about how much a week, from your own statements. Statements give shop totals, not item
+  prices, so nothing on the list is priced.
+- **The family dinner rota** (body.c6, with PEOPLE). MEAL PLAN → WHO'S EATING lists the people you've told me about. Pick who's
+  at the table, and FILL THE EMPTY DAYS reads your own notes about them ("Sam likes curry", "Mia is vegetarian", "can't eat
+  nuts"): it leans to what they like and leaves out what they can't eat. There is one shared shopping list.
+
+### 12. Outside
 - **The best hour for a walk today** (body.s10) is at the top of WALK. It is worked out on the phone from the forecast it
   already reads: the least rain, then the nearest to a mild 15°C, in daylight still to come, plus the air now. Chat: "best time
   for a walk today".
@@ -105,13 +128,11 @@ check.yml's `all=`.
 6. Steps: open the STEPS FROM HEALTH fold and make the Shortcut once.
 
 ## What is left
-- **Pantry by barcode or receipt** (body.u11, with lens.c2). A camera barcode reader on the pantry needs a decoder that works in
-  Safari, which has no built-in barcode reader. The brain's barcode reader still works by chat. Not built this round.
-- **Form tips while counting reps** (body.u6), **six-week plans** (body.u7) and **run history with routes drawn** (body.u8).
-  Not built this round.
-- **Groceries budget on the shopping list** (body.c1) and **the family dinner rota** (body.c6), both with MONEY AND PEOPLE.
-  Not built this round.
+- **A till receipt into the pantry** (the receipt half of body.u11) and **the fridge photo** (lens.c2, which the LENS lane builds
+  into the pantry). The barcode scan is built.
 - The gym log stays on the phone. The brain's workout log isn't fed from it yet.
+- WHO'S EATING reads only plain food words in your notes ("likes", "can't eat", "allergic to", "vegetarian"). An allergy
+  written any other way isn't caught, so always check the week yourself.
 
 ## The specialist sweep (screen by screen against the best apps of each kind)
 | Screen | What the best apps have | Ghosty now |
@@ -125,5 +146,7 @@ check.yml's `all=`.
 | Tablets (Medisafe) | reminders, taken/skipped log, refill alerts | built: lock-screen reminders, ticks, refill countdown |
 | Food (MyFitnessPal) | calories and protein per meal | built: rough calories and protein per recipe and per planned day |
 | Mood (Daylio) | tags and notes, what goes with good days | built: tags, a line, good-day tags |
-| Pantry (Paprika / NoWaste) | leftovers, freezer portions, barcode | built: leftovers shelf, batch cook; barcode left |
-| Runs (Strava) | route history, pace bands, PBs | left (body.u8) |
+| Pantry (Paprika / NoWaste) | leftovers, freezer portions, barcode | built: leftovers shelf, batch cook, barcode scan; receipt left |
+| Runs (Strava) | route history, pace bands, PBs | built: your runs with routes in pace bands and bests |
+| Plans (Couch to 5K / Strong) | a plan that steps up | built: six-week plans |
+| Reps (Form apps) | form feedback | built: form tips as each rep lands |

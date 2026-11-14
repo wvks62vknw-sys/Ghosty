@@ -6684,6 +6684,8 @@ html .br-seg { stroke-width: 2.2; stroke-linecap: round; fill: none; }
 html .br-seg.quick { stroke: var(--g-accent); }
 html .br-seg.steady { stroke: var(--g-ink-3); }
 html .br-seg.slow { stroke: var(--g-amber); }
+html .bt .bp-dot { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; padding: 0 var(--g-s-half); font: var(--g-t-caption); font-variant-numeric: var(--g-num); color: var(--g-ink-3); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-mark); }
+html .bt .bp-dot[data-hit="1"] { color: var(--g-accent-text); }
 html .bt .bc-pattern { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 
 /* =====================================================================================================================

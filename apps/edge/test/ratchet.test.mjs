@@ -105,6 +105,7 @@ export const STATES = {
   'body.measure': { dir: 'body', base: 0, now: 2 },
   'body.gym': { dir: 'body', base: 0, now: 2 },
   'body.symptoms': { dir: 'body', base: 0, now: 2 },
+  'body.plans': { dir: 'body', base: 0, now: 2 },
   'kitchen.timers': { dir: 'kitchen', base: 1, now: 3 },
   'kitchen.shopping': { dir: 'kitchen', base: 2, now: 4 },
   'kitchen.plan': { dir: 'kitchen', base: 1, now: 4 },

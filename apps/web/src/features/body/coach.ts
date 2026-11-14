@@ -32,6 +32,13 @@ export async function coachTurn(text: string): Promise<CoachReply | null> {
     for (let i = 0; i < a.n; i++) words = dr.addDrink(a.id, (v, name) => void t.add('water', v, 'words', name));
     return { reply: words, go: body('water') };
   }
+  if (k === 'plan') {
+    const p = await import('./plans');
+    const t = text.toLowerCase();
+    const m = /start (?:a |my |the )?(?:six[- ]week )?(squat|push-?up|running|run) plan/.exec(t);
+    const reply = m ? p.startPlan(/squat/.test(m[1]!) ? 'squats' : /push/.test(m[1]!) ? 'pushups' : 'run') : p.logSession(!/missed|didn/.test(t));
+    return { reply, go: body('plans') };
+  }
   if (k === 'walk') {
     const r = await import('../outside/walkhour').then((m) => m.walkHourLine()).catch(() => null);
     return { reply: r?.words || 'I can’t read the forecast just now, so I can’t pick an hour. Try again in a moment.', go: { id: 'outside', ask: -1, label: 'Open it', run: 'open_outside', args: { what: 'safewalk' } } };

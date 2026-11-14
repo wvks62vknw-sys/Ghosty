@@ -14,9 +14,9 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 
-export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water' | 'sleep' | 'steps' | 'weight' | 'mood' | 'meds' | 'week' | 'fast' | 'measure' | 'gym' | 'symptoms';
+export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water' | 'sleep' | 'steps' | 'weight' | 'mood' | 'meds' | 'week' | 'fast' | 'measure' | 'gym' | 'symptoms' | 'plans';
 /** Each screen's name, as its sheet's title and as its panel on the BODY screen (features/body/index.ts). */
-export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY', sleep: 'SLEEP', steps: 'STEPS', weight: 'WEIGHT', mood: 'MOOD', meds: 'TABLETS', week: 'YOUR WEEK', fast: 'FASTING', measure: 'MEASUREMENTS', gym: 'GYM LOG', symptoms: 'SYMPTOM DIARY' };
+export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY', sleep: 'SLEEP', steps: 'STEPS', weight: 'WEIGHT', mood: 'MOOD', meds: 'TABLETS', week: 'YOUR WEEK', fast: 'FASTING', measure: 'MEASUREMENTS', gym: 'GYM LOG', symptoms: 'SYMPTOM DIARY', plans: 'SIX-WEEK PLANS' };
 const TITLES = BODY_TITLES;
 
 /** What the screens are doing, for the specs (window.__ghosty.body). */
@@ -27,6 +27,8 @@ export const bodyState = {
   engine: '' as '' | 'pose' | 'stand-in' | 'none',
   camera: '' as '' | 'on' | 'off' | 'refused',
   hint: '',
+  /** The last form tip said as a rep landed (./formtips.ts). */
+  tip: '',
   run: { on: false, km: 0, secs: 0, splits: 0, saved: false },
   breath: { say: '', round: 0 },
   stretch: { i: -1, left: 0 },
@@ -57,6 +59,7 @@ export async function bodyScreen(w: BodyWhat, args: Record<string, unknown> = {}
     : w === 'measure' ? (await import('./more')).measureScreen()
     : w === 'gym' ? (await import('./more')).gymScreen()
     : w === 'symptoms' ? (await import('./more')).symptomScreen()
+    : w === 'plans' ? (await import('./plans')).plansScreen()
     : (await import('./track')).trackScreen(w);
 }
 

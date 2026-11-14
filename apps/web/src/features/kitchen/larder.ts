@@ -161,11 +161,33 @@ export function weekShopping(days: string[]): { add: string[]; count: Record<str
  * Fills the week's empty days from the recipe book: the ones the pantry covers most first, and those using something that must
  * be used soon before those; never the same dinner twice in a week. The days he already planned stay as they are.
  */
-export function fillWeek(days: string[]): string[] {
-  const all = book();
+/**
+ * THE FAMILY DINNER ROTA (body.c6, with MONEY AND PEOPLE): what his own notes about the people eating say about food ("Sam likes
+ * chicken", "Mia can't eat nuts", "Jo is vegetarian"): the foods to lean to and the ones to leave out. Only his own words.
+ */
+export function foodNotes(notes: string[]): { like: string[]; avoid: string[] } {
+  const like: string[] = [];
+  const avoid: string[] = [];
+  const MEAT = ['mince', 'chicken', 'sausages', 'beef', 'bacon', 'tuna', 'salmon', 'pork', 'lamb', 'prawns', 'fish'];
+  const words = (x: string) => x.toLowerCase().split(/,|\band\b|\bor\b/).map((w) => w.replace(/[^a-z' ]/g, '').trim()).filter((w) => w.length >= 3 && w.length <= 30);
+  for (const n of notes) {
+    const t = n.toLowerCase();
+    if (/\b(?:vegetarian|vegan|doesn'?t eat meat|no meat)\b/.test(t)) avoid.push(...MEAT);
+    const no = /\b(?:doesn'?t like|does not like|hates?|dislikes?|can'?t eat|cannot eat|can'?t have|allergic to|is allergic to|avoids?|no)\s+(.+)/.exec(t);
+    if (no) avoid.push(...words(no[1]!));
+    else {
+      const yes = /\b(?:likes?|loves?|enjoys?|favourite (?:food|dinner) is)\s+(.+)/.exec(t);
+      if (yes) like.push(...words(yes[1]!));
+    }
+  }
+  return { like: [...new Set(like)].slice(0, 20), avoid: [...new Set(avoid)].slice(0, 30) };
+}
+
+export function fillWeek(days: string[], who: { like: string[]; avoid: string[] } = { like: [], avoid: [] }): string[] {
+  const all = book().filter((x) => !who.avoid.length || !haveOf(x.d, who.avoid).got);
   const soon = load().items.filter((i) => i.useBy && daysLeft(i.useBy) <= 3).map((i) => i.name.toLowerCase());
   const taken = new Set(days.map((d) => recipeFor(d, all)?.d.id).filter(Boolean));
-  const score = (x: (typeof all)[number]) => x.got / Math.max(1, x.d.ingredients.length) + (soon.length && haveOf(x.d, soon).got ? 1 : 0) + (x.mine ? 0.3 : 0);
+  const score = (x: (typeof all)[number]) => x.got / Math.max(1, x.d.ingredients.length) + (soon.length && haveOf(x.d, soon).got ? 1 : 0) + (x.mine ? 0.3 : 0) + (who.like.length && (haveOf(x.d, who.like).got || who.like.some((l) => x.d.name.toLowerCase().includes(l))) ? 1.5 : 0);
   const pick = all.filter((x) => !taken.has(x.d.id)).sort((a, b) => score(b) - score(a));
   return Array.from({ length: 7 }, (_, k) => (days[k]?.trim() ? days[k]!.trim() : (pick.shift()?.d.name ?? '')));
 }
@@ -244,7 +266,7 @@ export function pantryScreen(): { el: HTMLElement; stop(): void } {
       name.value = d.product.slice(0, 60);
       where.value = g.where;
       by.value = g.days == null ? '' : dayAfter(g.days);
-      stateIn(status, '', `${d.product}: ${g.where}${g.days == null ? '' : `, use by ${useWords(by.value)} (a rough guess)`}. Change anything, then tap ADD.`);
+      stateIn(status, '', `${d.product}: ${g.where}${g.days == null ? '' : `, ${useWords(by.value)} (a rough guess)`}. Change anything, then tap ADD.`);
     } catch {
       stateIn(status, 'error', 'My brain didn’t answer, so I couldn’t look the barcode up. Try again in a moment.');
     }

@@ -706,7 +706,15 @@ export function homeLine(): string {
   const d = today();
   const w = dayValue(data, 'water', d);
   const s = dayValue(data, 'sleep', d);
-  const parts = [w != null ? `water ${ml(w)} of ${ml(goalOf('water', data).v)}` : '', s != null ? `slept ${hours(s)}` : ''].filter(Boolean);
+  // (tablets still to tick today, from ./meds.ts's own storage: read here without loading that screen)
+  let doses = 0;
+  try {
+    const m = JSON.parse(localStorage.getItem('ghosty.body.meds') ?? '{}') as { meds?: { id: string; times?: string[] }[]; log?: { med: string; d: string; time: string }[] };
+    for (const med of m.meds ?? []) for (const t of med.times ?? []) if (!(m.log ?? []).some((x) => x.med === med.id && x.d === d && x.time === t)) doses++;
+  } catch {
+    doses = 0;
+  }
+  const parts = [w != null ? `water ${ml(w)} of ${ml(goalOf('water', data).v)}` : '', s != null ? `slept ${hours(s)}` : '', doses ? `${doses} tablet dose${doses === 1 ? '' : 's'} to tick` : ''].filter(Boolean);
   return parts.length ? `${parts.join(', ').replace(/^./, (c) => c.toUpperCase())}` : '';
 }
 

@@ -28,7 +28,7 @@ export const bodyTab: TabDef = {
         // (six pills at most, ui/sections.ts: each holds its rooms, drawn one under another)
         return [
           // (Move first, as Reps was: the camera's START in reach when the screen opens)
-          { id: 'move', label: 'Move', parts: [part('reps'), part('run'), part('steps'), part('gym')] },
+          { id: 'move', label: 'Move', parts: [part('reps'), part('run'), part('steps'), part('gym'), part('plans')] },
           { id: 'water', label: 'Water', parts: [part('water')] },
           { id: 'sleep', label: 'Sleep', parts: [part('sleep'), part('fast')] },
           { id: 'mood', label: 'Mood', parts: [part('mood'), part('breathe'), part('stretch')] },
