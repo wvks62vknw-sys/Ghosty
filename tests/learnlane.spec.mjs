@@ -419,6 +419,41 @@ for (const vp of [PHONE, PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================ CHESS, the app (apps round, on the App Kit): the first run's examples, a puzzle tried from the library, logged back into it
+{
+  const T = '[440]';
+  const { ctx, page } = await phone(PHONE);
+  try {
+    await page.evaluate(() => (location.hash = 'gym'));
+    await until(page, () => window.__ghosty?.gym?.cards > 0, null, 15000);
+    await page.locator('#pg-gym .gymcard[data-game="chess"]').click();
+    const card = page.locator('#pg-gym .ak-card', { hasText: /^Chess/ });
+    check(await card.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [chess app] no Chess card in the GYM's chess`);
+    await card.click();
+    const appEl = page.locator('.modal .ak-app[data-app="chess"]');
+    check(await appEl.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false), `${T} [chess app] the Chess app did not open`);
+    check(await until(page, () => window.__ghosty?.chessApp?.open === true && document.querySelectorAll('.modal .ak-app[data-app="chess"] .ak-body > *').length === 2, null, 5000), `${T} [chess app] the first run does not show its two examples`);
+    check(/Every puzzle you try lands here/.test(await appEl.locator('.ak-tour').innerText().catch(() => '')), `${T} [chess app] no tour on the first run`);
+    const keysAt = await appEl.locator('.ak-tools button').allInnerTexts();
+    check(['Puzzles', 'Play'].every((k) => keysAt.some((x) => new RegExp(`^${k}$`, 'i').test(x.trim()))), `${T} [chess app] the keys along the bottom: ${keysAt.join(' | ')}`);
+    // an example tried from the library: the trainer opens on it; solved; the library gains a row
+    await appEl.locator('.ak-body > *', { hasText: /Mate in 1/ }).first().click();
+    check(await until(page, () => window.__ghosty?.chessApp?.sheet === 'puzzles' && window.__ghosty?.chessPuzzles?.id === 'sample-mate', null, 8000), `${T} [chess app] the example was not set up in the trainer: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.chessPuzzles))}`);
+    const cell = (n) => page.locator('.modal .chesssheet .gymgrid .gymcell').nth(n);
+    await cell(31).click();
+    await cell(13).click();
+    check(await until(page, () => window.__ghosty?.chessPuzzles?.last === 'solved', null, 5000), `${T} [chess app] the example puzzle was not solved`);
+    check(await until(page, () => (window.__ghosty?.appkit?.state?.chess?.items ?? JSON.parse(localStorage.getItem('ghosty.app.chess') ?? '{"items":[]}').items.length) === 3, null, 5000), `${T} [chess app] the solved puzzle did not land in the library: ${await page.evaluate(() => localStorage.getItem('ghosty.app.chess')?.slice(0, 300))}`);
+    await page.locator('.modal .mbox[aria-label="PUZZLES"] .mhead button', { hasText: /^CLOSE$/ }).click();
+    const first = await appEl.locator('.ak-body > *').first().innerText();
+    check(/^Mate in 1/.test(first) && /Solved · \d+ \w+ · your rating about \d+/.test(first), `${T} [chess app] the library's newest row reads "${first.replace(/\s+/g, ' ')}"`);
+    await bar(page, `${T} [chess app]`, 'gym');
+  } catch (e) {
+    check(false, `${T} [chess app] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
 // ================================================================ S12 · revision days up to an exam: shown first, nothing added before ADD
 {
   const T = '[440]';

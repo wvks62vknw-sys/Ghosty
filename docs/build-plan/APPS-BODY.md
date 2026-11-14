@@ -41,6 +41,16 @@ It's proved by `tests/healthhub.spec.mjs` at 440 × 956 and 390 × 844, and its 
 - A timer of a minute or more now rings on your lock screen too. It's a one-off reminder on your brain's clock, and only its
   end time and its name go there. CANCEL or STOP takes it back. If the timer is about to ring while Ghosty is on screen, the
   lock-screen ring is taken back, so it never rings twice.
+- **Presets:** one tap each for a soft egg (6 min), pasta (10), rice (12), tea (4) or a roast (1 hour).
+- **+1 MIN** on a running timer moves its lock-screen ring with it.
+- **A stopwatch** with laps, kept on the phone so a reload carries on.
+
+### The Body card on Home
+- Once your own numbers arrive, the Body card's line includes your latest resting heart rate from the hub (never the sample's).
+
+### On the App Kit
+- The hub's workouts use the kit's list rows, and while your export is read the kit's skeleton rows hold the page's shape so
+  nothing jumps when the days land. The hub lives as a room inside BODY rather than as a whole kit app.
 
 ## How to try it on your phone
 1. BODY → Health: HEALTH HUB opens with the sample and the tour. Tap a card, then try the range keys or pinch the chart.
@@ -52,6 +62,6 @@ It's proved by `tests/healthhub.spec.mjs` at 440 × 956 and 390 × 844, and its 
 - Workout routes (the GPX files in the export) aren't drawn on the hub yet. Runs you record in Ghosty already keep their
   routes under the running coach.
 - Hour-by-hour views within a day.
-- The rest of the BODY list in `docs/build-plan/apps/body.md`: shopping by aisle, a stopwatch, presets and an across-the-room
+- The rest of the BODY list in `docs/build-plan/apps/body.md`: shopping by aisle, pause and an across-the-room
   timer view, and the new apps (Food Log, Birds, Nature ID). Run Plans, Form Coach, Meds and the Workout Log already have their
   first versions from the last round.
