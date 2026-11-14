@@ -579,7 +579,6 @@ export function makePart(): { el: HTMLElement; stop(): void } {
     if (page === 0) return;
     panel = hit.panel;
     balloon = hit.balloon;
-    canvas.classList.toggle('cxdrag', panel >= 0);
     redraw();
     paintEditor();
     editBox.querySelector<HTMLElement>(balloon ? `[data-balloon="${balloon}"] textarea` : '.cxpanel input')?.focus({ preventScroll: true });
