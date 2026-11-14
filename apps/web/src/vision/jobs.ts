@@ -15,7 +15,7 @@ import { datesIn } from '../../../../packages/shared/src/lifeeasier';
 
 // ---------------------------------------------------------------- the job
 
-export type JobId = 'nothing' | 'text' | 'letter' | 'document' | 'code' | 'product' | 'thing' | 'living' | 'place' | 'known' | 'stranger';
+export type JobId = 'nothing' | 'text' | 'receipt' | 'contact' | 'stop' | 'medicine' | 'rating' | 'letter' | 'document' | 'code' | 'product' | 'thing' | 'living' | 'place' | 'known' | 'stranger';
 
 /** What the one view has understood of the frame, as plain facts. */
 export interface Seen {
@@ -33,6 +33,16 @@ export interface Seen {
   stranger?: boolean;
   /** The read words look like a letter or a bill (packages/shared/src/lifeeasier.ts letterOf). */
   letter?: boolean;
+  /** The read words look like a till receipt (looksLikeReceipt). */
+  receipt?: boolean;
+  /** The read words are a business card's (readBusinessCard). */
+  contact?: boolean;
+  /** The read words are a bus stop sign's (readBusStop). */
+  stop?: boolean;
+  /** The read words are a medicine box's (readMedicine). */
+  medicine?: boolean;
+  /** The read words are an appliance's rating plate (readRating). */
+  rating?: boolean;
 }
 
 /** What a living thing is called by the phone's finder and namer: the species then comes from the free model that sees, on his tap. */
@@ -70,7 +80,12 @@ export function jobsOf(s: Seen): JobId[] {
   if (s.code?.text) out.push(ean(s.code) ? 'product' : 'code');
   const words = (s.text ?? '').match(/\S+/g)?.length ?? 0;
   if (words) {
-    if (s.letter) out.push('letter');
+    if (s.receipt) out.push('receipt');
+    else if (s.contact) out.push('contact');
+    else if (s.stop) out.push('stop');
+    else if (s.medicine) out.push('medicine');
+    else if (s.rating) out.push('rating');
+    else if (s.letter) out.push('letter');
     else if ((s.textShare ?? 0) >= DOC_SHARE && words >= DOC_WORDS) out.push('document');
     else out.push('text');
   }
@@ -377,4 +392,373 @@ export function livingKind(label: string): 'plant' | 'bird' | 'insect' | 'other'
   if (/\b(insect|butterfly|moth|bee|wasp|beetle|ladybird|ladybug|ant|fly|dragonfly|grasshopper|caterpillar|spider)s?\b/.test(l)) return 'insect';
   if (/\b(plant|potted plant|flower|tree|leaf|leaves|daisy|rose|tulip|sunflower|fern|cactus|moss|shrub|bush|grass|weed|herb)s?\b/.test(l)) return 'plant';
   return 'other';
+}
+
+// ---------------------------------------------------------------- a receipt (lens.c1: into this month's spending)
+
+/** Does the read text look like a till receipt: two prices or more, a total, and a till's words (card, change, VAT…)? */
+export function looksLikeReceipt(text: string): boolean {
+  const t = String(text ?? '');
+  const prices = (t.match(/£?\s?\d{1,5}\.\d{2}\b/g) ?? []).length;
+  const total = /\b(?:total|sub-?total|balance due|amount due|to pay|amount paid)\b/i.test(t);
+  const till = /\b(?:card|visa|mastercard|amex|contactless|chip|cash|change|vat|receipt|till|cashier|thank you|items?|qty|auth(?:orisation)? code)\b/i.test(t);
+  return prices >= 2 && total && till;
+}
+
+/** One spend as the statement importer reads it (date, description, signed amount: money out is negative), never a formula. */
+export function receiptCsv(r: { store: string; date: string; total: number }, today: string): string {
+  const name = (r.store || 'Receipt').replace(/[",\r\n]/g, ' ').replace(/^[=+\-@]+/, '').trim() || 'Receipt';
+  return `Date,Description,Amount\n${r.date || today},${name},-${r.total.toFixed(2)}\n`;
+}
+
+// ---------------------------------------------------------------- what he avoids (lens.u7: kept on his phone only)
+
+/** The fourteen allergens UK food law names, with the words an ingredients list uses for each. */
+export const ALLERGENS: { id: string; say: string; words: RegExp }[] = [
+  { id: 'gluten', say: 'gluten', words: /\b(?:gluten|wheat|barley|rye|oats?|spelt|kamut|semolina|couscous)\b/i },
+  { id: 'milk', say: 'milk', words: /\b(?:milk|lactose|dairy|cheese|butter|cream|whey|casein|yoghurt|yogurt)\b/i },
+  { id: 'eggs', say: 'eggs', words: /\beggs?\b/i },
+  { id: 'peanuts', say: 'peanuts', words: /\b(?:peanuts?|groundnuts?|arachis)\b/i },
+  { id: 'nuts', say: 'tree nuts', words: /\b(?:nuts?|almonds?|hazelnuts?|walnuts?|cashews?|pecans?|pistachios?|macadamias?|brazil nuts?)\b/i },
+  { id: 'soya', say: 'soya', words: /\b(?:soy|soya|soybeans?|soja|edamame|tofu)\b/i },
+  { id: 'fish', say: 'fish', words: /\b(?:fish|anchov(?:y|ies)|salmon|tuna|cod|haddock|sardines?|mackerel|pollock)\b/i },
+  { id: 'crustaceans', say: 'crustaceans', words: /\b(?:crustaceans?|prawns?|shrimps?|crabs?|lobsters?|langoustines?|crayfish)\b/i },
+  { id: 'molluscs', say: 'molluscs', words: /\b(?:molluscs?|mussels?|oysters?|squid|clams?|scallops?|octopus|snails?)\b/i },
+  { id: 'sesame', say: 'sesame', words: /\bsesame\b/i },
+  { id: 'celery', say: 'celery', words: /\b(?:celery|celeriac)\b/i },
+  { id: 'mustard', say: 'mustard', words: /\bmustard\b/i },
+  { id: 'sulphites', say: 'sulphites', words: /\b(?:sulphites?|sulfites?|sulphur dioxide|sulfur dioxide|e22[0-8])\b/i },
+  { id: 'lupin', say: 'lupin', words: /\blupin[es]?\b/i },
+];
+/** The ways of eating he can set, each checked against the packet's own figures (the UK front-of-pack bands, per 100 g). */
+export const DIETS: { id: string; say: string }[] = [
+  { id: 'vegan', say: 'vegan' },
+  { id: 'vegetarian', say: 'vegetarian' },
+  { id: 'low sugar', say: 'low sugar' },
+  { id: 'low salt', say: 'low salt' },
+  { id: 'low fat', say: 'low fat' },
+];
+const MEAT = /\b(?:beef|pork|chicken|lamb|mutton|turkey|duck|ham|bacon|gelatine|gelatin|lard|suet|anchov(?:y|ies)|meat|fish|prawns?|carmine|cochineal|rennet)\b/i;
+const NOT_VEGAN = /\b(?:honey|milk|cheese|butter|cream|whey|casein|eggs?|lactose|yoghurt|yogurt|beeswax|shellac)\b/i;
+
+export interface AvoidProduct {
+  allergens?: string[];
+  ingredients?: string;
+  nutrition?: Partial<Record<'sugars' | 'salt' | 'fat', number>>;
+}
+export type Tone = 'red' | 'amber' | 'green';
+export interface Verdict {
+  tone: Tone | 'none';
+  /** One line for the card, in his words. */
+  line: string;
+  /** What he avoids that it holds (red) or that cannot be told (amber). */
+  hits: string[];
+  unsure: string[];
+}
+
+const listWords = (xs: string[]): string => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
+/**
+ * A packet against what he avoids: RED when it holds one (its allergens, or its ingredients' words), or a figure is over the high
+ * band; AMBER when it cannot be told (no ingredients listed, no figure) or a figure is in the middle band; GREEN when every one is
+ * checked and clear. Never a health claim: what the open database says, against the list he set.
+ */
+export function avoidVerdict(avoid: string[], p: AvoidProduct): Verdict {
+  const list = [...new Set(avoid.map((a) => a.toLowerCase().trim()).filter(Boolean))];
+  if (!list.length) return { tone: 'none', line: '', hits: [], unsure: [] };
+  const tags = (p.allergens ?? []).map((t) => t.toLowerCase());
+  const ing = String(p.ingredients ?? '');
+  const hits: string[] = [];
+  const unsure: string[] = [];
+  const amberFigures: string[] = [];
+  for (const id of list) {
+    const al = ALLERGENS.find((a) => a.id === id);
+    if (al) {
+      if (tags.some((t) => al.words.test(t) || t.includes(al.id)) || (ing && al.words.test(ing))) hits.push(al.say);
+      else if (!ing && !tags.length) unsure.push(`whether it has ${al.say}`);
+      continue;
+    }
+    const n = p.nutrition ?? {};
+    const band = (v: number | undefined, high: number, low: number, word: string) => {
+      if (v == null) unsure.push(`its ${word} figure`);
+      else if (v > high) hits.push(`high ${word}`);
+      else if (v > low) amberFigures.push(`medium ${word}`);
+    };
+    if (id === 'low sugar') band(n.sugars, 22.5, 5, 'sugar');
+    else if (id === 'low salt') band(n.salt, 1.5, 0.3, 'salt');
+    else if (id === 'low fat') band(n.fat, 17.5, 3, 'fat');
+    else if (id === 'vegan') {
+      if ((ing && (MEAT.test(ing) || NOT_VEGAN.test(ing))) || tags.some((t) => /milk|egg|fish|crustacean|mollusc/.test(t))) hits.push('animal products');
+      else if (!ing) unsure.push('whether it is vegan');
+    } else if (id === 'vegetarian') {
+      if ((ing && MEAT.test(ing)) || tags.some((t) => /fish|crustacean|mollusc/.test(t))) hits.push('meat or fish');
+      else if (!ing) unsure.push('whether it is vegetarian');
+    }
+  }
+  if (hits.length) return { tone: 'red', line: `Not for you: it has ${listWords(hits)}.`, hits, unsure };
+  if (unsure.length) return { tone: 'amber', line: `Check the pack: the open database does not say ${listWords(unsure)}.`, hits, unsure };
+  if (amberFigures.length) return { tone: 'amber', line: `Go easy: ${listWords(amberFigures)} for you.`, hits, unsure };
+  return { tone: 'green', line: `Fine for you: nothing you avoid, by its ingredients and figures.`, hits, unsure };
+}
+
+/** What he says he avoids, in his words ("I'm allergic to peanuts and milk", "I'm vegan", "I avoid gluten"): the list's ids. */
+export function avoidFromWords(text: string): string[] {
+  const t = String(text ?? '').toLowerCase();
+  const out = new Set<string>();
+  // (whole words only: "peanuts" is not tree nuts)
+  for (const a of ALLERGENS) if (a.words.test(t) || new RegExp(`\\b${a.id}\\b`).test(t) || new RegExp(`\\b${a.say}\\b`).test(t)) out.add(a.id);
+  if (out.has('peanuts') && !/\b(?:tree nuts?|nuts?)\b/.test(t.replace(/\bpeanuts?\b/g, ''))) out.delete('nuts');
+  if (/\b(?:coeliac|celiac)\b/.test(t)) out.add('gluten');
+  if (/\blactose\b/.test(t)) out.add('milk');
+  if (/\bvegan\b/.test(t)) out.add('vegan');
+  else if (/\bvegetarian\b/.test(t)) out.add('vegetarian');
+  const less = '(?:low|less|no|cut(?:ting)?(?: down)?(?: on)?|avoid(?:ing)?)\\s+';
+  if (new RegExp(`\\b${less}sugar\\b`).test(t)) out.add('low sugar');
+  if (new RegExp(`\\b${less}salt\\b`).test(t)) out.add('low salt');
+  if (new RegExp(`\\b${less}fat\\b`).test(t)) out.add('low fat');
+  return [...out];
+}
+
+// ---------------------------------------------------------------- a menu, line by line (lens.u1)
+
+/** A menu or a page: four lines or more of a few words each. A short sign is translated whole, as before. */
+export const isMenuLike = (text: string): boolean => String(text ?? '').split('\n').filter((l) => /\p{L}{2}/u.test(l)).length >= 4;
+
+/** The English for each line, in order, when the answer has exactly one line for each line read; null when it does not line up. */
+export function pairLines(lines: string[], english: string): string[] | null {
+  const en = String(english ?? '').split('\n').map((l) => l.replace(/^\s*(?:\d+[.)]|[-•*])\s+/, '').trim()).filter(Boolean);
+  return en.length === lines.length && lines.length ? en : null;
+}
+
+// ---------------------------------------------------------------- a business card (lens.s1: into his contacts, on the phone)
+
+/** A business card's details, only as the card prints them: nothing is looked up about the person. */
+export interface CardContact {
+  name: string;
+  title: string;
+  org: string;
+  phones: string[];
+  emails: string[];
+  web: string;
+  address: string;
+}
+
+const EMAIL_RE = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+const PHONE_RE = /(?:\+|\b0)[\d\s().-]{8,16}\d/g;
+const ORG_WORDS = /\b(?:ltd|limited|plc|llp|inc|gmbh|group|services|solutions|company|consulting|partners|associates|studio|agency|council|trust|university|college|nhs)\b|&/i;
+const TITLE_WORDS = /\b(?:manager|director|engineer|officer|consultant|head|lead|founder|co-founder|ceo|cto|cfo|coo|partner|sales|developer|designer|assistant|associate|specialist|executive|advisor|adviser|architect|analyst|president|owner|accountant|solicitor|surveyor|agent|nurse|doctor|dr|teacher|coordinator|administrator|technician|electrician|plumber|builder|chef|photographer|editor|producer|representative|secretary)\b/i;
+const POSTCODE_RE = /\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/i;
+
+/** Is this line a person's name as cards print it: two to four words, each capitalised, letters only. */
+const nameLike = (l: string): boolean => {
+  const w = l.split(/\s+/);
+  return w.length >= 2 && w.length <= 4 && w.every((x) => /^(?:[A-Z][a-z'’-]+|[A-Z][A-Z'’-]+|[A-Z]\.)$/.test(x)) && !ORG_WORDS.test(l) && !TITLE_WORDS.test(l) && !/\b(?:street|road|lane|avenue|close|way|house|floor|unit|park|hall|centre|center|church|school|station|market|night|day|club|shop|cafe|bar|hotel|the|and|of|for|at)\b/i.test(l);
+};
+
+/**
+ * The read words of a business card → its details; null when the words are not a card's (more than 45 words, nothing to
+ * reach anyone by, or no name). Phone numbers are kept with their digits only (and a leading +).
+ */
+export function readBusinessCard(text: string): CardContact | null {
+  const t = String(text ?? '');
+  const words = t.match(/\S+/g)?.length ?? 0;
+  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (words < 3 || words > 45 || lines.length < 2 || lines.length > 14) return null;
+  const emails = [...new Set(t.match(EMAIL_RE) ?? [])].slice(0, 3);
+  const phones = [...new Set((t.replace(EMAIL_RE, ' ').match(PHONE_RE) ?? []).map((p) => p.replace(/[^\d+]/g, '')).filter((p) => p.replace(/\D/g, '').length >= 10 && p.replace(/\D/g, '').length <= 13))].slice(0, 3);
+  if (!emails.length && !phones.length) return null;
+  // the name stands near the top of a card
+  const nameLine = lines.slice(0, 3).find(nameLike);
+  if (!nameLine) return null;
+  const webM = t.replace(EMAIL_RE, ' ').match(/\b(?:https?:\/\/)?(?:www\.)[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?|\bhttps?:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?/i);
+  const strip = (l: string) => l.replace(/^(?:t|tel|telephone|m|mob|mobile|e|email|w|web|p|phone)\s*[:.]\s*/i, '').trim();
+  const titleLine = lines.find((l) => l !== nameLine && TITLE_WORDS.test(l) && !EMAIL_RE.test(l) && !/\d{4}/.test(l));
+  EMAIL_RE.lastIndex = 0;
+  const orgLine = lines.find((l) => l !== nameLine && l !== titleLine && ORG_WORDS.test(l) && !/@/.test(l) && !/\d{5}/.test(l));
+  const at = lines.findIndex((l) => POSTCODE_RE.test(l));
+  const address = at < 0 ? '' : [at > 0 && /\d/.test(lines[at - 1]!) && !/@|\d{6}/.test(lines[at - 1]!) ? lines[at - 1]! : '', lines[at]!].filter(Boolean).map(strip).join(', ');
+  return { name: nameLine, title: titleLine ? strip(titleLine) : '', org: orgLine ? strip(orgLine) : '', phones, emails, web: webM ? webM[0] : '', address };
+}
+
+/** One vCard field's value, escaped as the format needs. */
+const vEsc = (s: string): string => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
+
+/** A contact as a vCard (3.0), for the phone's own contacts: made on the phone, and nothing else is told. */
+export function vcardOf(c: Pick<CardContact, 'name'> & Partial<CardContact>): string {
+  const parts = c.name.trim().split(/\s+/);
+  const last = parts.length > 1 ? parts[parts.length - 1]! : '';
+  const first = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] ?? '';
+  const lines = ['BEGIN:VCARD', 'VERSION:3.0', `N:${vEsc(last)};${vEsc(first)};;;`, `FN:${vEsc(c.name.trim())}`];
+  if (c.org) lines.push(`ORG:${vEsc(c.org)}`);
+  if (c.title) lines.push(`TITLE:${vEsc(c.title)}`);
+  for (const p of c.phones ?? []) lines.push(`TEL;TYPE=${/^(?:\+44)?0?7/.test(p) ? 'CELL' : 'WORK'}:${p}`);
+  for (const e of c.emails ?? []) lines.push(`EMAIL;TYPE=INTERNET:${vEsc(e)}`);
+  if (c.web) lines.push(`URL:${vEsc(/^https?:/i.test(c.web) ? c.web : `https://${c.web}`)}`);
+  if (c.address) lines.push(`ADR;TYPE=WORK:;;${vEsc(c.address)};;;;`);
+  lines.push('END:VCARD');
+  return lines.join('\r\n') + '\r\n';
+}
+
+// ---------------------------------------------------------------- a bus stop sign (lens.s7: its next buses)
+
+/** What a bus stop's sign says: its name, its letter, the buses that stop, where they go, and its text-message code. */
+export interface BusStop {
+  name: string;
+  letter: string;
+  routes: string[];
+  towards: string;
+  sms: string;
+}
+
+const ROUTE_TOKEN = /^(?:[A-Z]{1,2}\d{1,3}[A-Z]?|\d{1,3}[A-Z]?)$/;
+
+/** The read words of a bus stop sign → what it says; null when the words are not a stop's. */
+export function readBusStop(text: string): BusStop | null {
+  const t = String(text ?? '');
+  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length || lines.length > 16) return null;
+  const sms = /\btext\s+['"‘’]?([a-z0-9]{5,8})['"‘’]?\s+to\s+\d{5}\b/i.exec(t)?.[1] ?? '';
+  const letter = /\b(?:stop|Stop|STOP)\s+([A-Z]{1,2})\b(?![a-z])/.exec(t)?.[1] ?? '';
+  const towardsM = /\btowards\s+([^\n]+)/i.exec(t);
+  const towards = towardsM ? towardsM[1]!.trim().replace(/[.,;]+$/, '') : '';
+  const cue = /\bbus\s*stop\b|\bbus\s*station\b|\bbuses\b/i.test(t) || !!letter || !!sms || !!towards;
+  const routes: string[] = [];
+  const isRouteLine = (l: string) => {
+    const tok = l.replace(/[,·•|/]/g, ' ').split(/\s+/).filter(Boolean);
+    return tok.length >= 1 && tok.length <= 14 && tok.filter((x) => ROUTE_TOKEN.test(x)).length / tok.length >= 0.7 && !/\b(?:19|20)\d{2}\b/.test(l) && !/\d{1,2}:\d{2}/.test(l);
+  };
+  for (const l of lines) if (isRouteLine(l)) for (const x of l.replace(/[,·•|/]/g, ' ').split(/\s+/)) if (ROUTE_TOKEN.test(x) && !routes.includes(x)) routes.push(x);
+  if (!cue || (!routes.length && !towards && !sms && !/\bbus\s*stop\b/i.test(t))) return null;
+  const nameLine = lines.find((l) => !/^(?:bus\s*stop|buses|bus\s*station)$/i.test(l) && !/\btowards\b|\btext\s+\S+\s+to\b|\bfor\s+(?:live|next)\b/i.test(l) && !isRouteLine(l) && /\p{L}{3}/u.test(l) && !/^(?:stop|Stop|STOP)\s+[A-Z]{1,2}$/.test(l) && !/^(?:request|compulsory|fare\s*stage)\b/i.test(l));
+  const name = (nameLine ?? '').replace(/\b(?:stop|Stop|STOP)\s+[A-Z]{1,2}\b/, '').replace(/\bbus\s*stop\b/i, '').replace(/\s{2,}/g, ' ').replace(/^[\s,.-]+|[\s,.-]+$/g, '');
+  if (!name && !sms) return null;
+  return { name, letter, routes: routes.slice(0, 12), towards, sms };
+}
+
+// ---------------------------------------------------------------- a medicine box (lens.s2: its public NHS page, on his tap; never advice)
+
+/** A medicine box: the medicine's name as printed, its strength and its form. */
+export interface MedicineBox {
+  name: string;
+  strength: string;
+  form: string;
+}
+
+const FORM_RE = /\b(tablets?|caplets?|capsules?|soft capsules|oral suspension|oral solution|syrup|liquid|cream|ointment|gel|eye drops|ear drops|nasal spray|drops|inhaler|lozenges?|patch(?:es)?|suppositor(?:y|ies)|sachets?|granules|powder)\b/i;
+const STRENGTH_RE = /\b(\d+(?:\.\d+)?\s?(?:mg|micrograms?|mcg|µg|g|ml|%|iu|units?)(?:\s?\/\s?\d+(?:\.\d+)?\s?(?:mg|ml|g|micrograms?|mcg))?)\b/i;
+
+/**
+ * The read words of a medicine's box → its name, strength and form; null when the words are not a medicine box's (a form of
+ * medicine and either a strength, a UK product licence number or the box's own warnings).
+ */
+export function readMedicine(text: string): MedicineBox | null {
+  const t = String(text ?? '');
+  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length || (t.match(/\S+/g)?.length ?? 0) > 120) return null;
+  const formLine = lines.find((l) => FORM_RE.test(l));
+  if (!formLine) return null;
+  const licence = /\bPL\s?\d{4,5}\s?\/\s?\d{4}\b/.test(t);
+  const warning = /\b(?:keep (?:all medicines )?out of the (?:sight and )?reach|read the (?:enclosed )?(?:package )?leaflet|do not take more than|do not exceed|pharmacy medicine|prescription only medicine|for oral use)\b/i.test(t);
+  const strengthM = STRENGTH_RE.exec(formLine) ?? STRENGTH_RE.exec(t);
+  if (!licence && !warning && !strengthM) return null;
+  const form = FORM_RE.exec(formLine)![1]!.toLowerCase();
+  // the name: the words before the strength or the form on its line, else the line above it
+  let name = formLine.replace(STRENGTH_RE, ' ').replace(FORM_RE, ' ').replace(/\b(?:film[- ]coated|effervescent|soluble|dispersible|extra|max(?:imum)? strength|for adults|for children|\d+\s*(?:x|pack)|pack of \d+)\b/gi, ' ').replace(/[^\p{L}\s'-]/gu, ' ').replace(/\s{2,}/g, ' ').trim();
+  if (!/\p{L}{4}/u.test(name)) {
+    const i = lines.indexOf(formLine);
+    name = (i > 0 ? lines[i - 1]! : '').replace(STRENGTH_RE, ' ').replace(/[^\p{L}\s'-]/gu, ' ').replace(/\s{2,}/g, ' ').trim();
+  }
+  if (!/\p{L}{4}/u.test(name)) return null;
+  const words = name.split(' ').slice(0, 4).join(' ');
+  return { name: words.replace(/\b\p{L}/gu, (c) => c.toUpperCase()).replace(/\B\p{Lu}+/gu, (c) => c.toLowerCase()), strength: strengthM ? strengthM[1]!.replace(/\s+/g, '') : '', form };
+}
+
+/** The public NHS search for a medicine by its name: opened only on his tap, and nothing else about him goes with it. */
+export const nhsSearch = (name: string): string => `https://www.nhs.uk/search/results?q=${encodeURIComponent(name.trim())}`;
+
+// ---------------------------------------------------------------- an appliance's rating plate (lens.s3: what an hour costs, a first estimate)
+
+/** An appliance's rating plate: its most power in watts, and its volts when printed. */
+export interface RatingPlate {
+  watts: number;
+  volts: string;
+}
+
+/** The read words of a rating plate → its power; null when the words are not a plate's (watts and volts or hertz). */
+export function readRating(text: string): RatingPlate | null {
+  const t = String(text ?? '').replace(/,(?=\d{3}\b)/g, '');
+  if (!/\b\d{2,3}(?:\s?-\s?\d{2,3})?\s?V\b|\bV\s?~|\b50\s?Hz\b|\b60\s?Hz\b/i.test(t)) return null;
+  let watts = 0;
+  for (const m of t.matchAll(/\b(\d+(?:\.\d+)?)(?:\s?-\s?(\d+(?:\.\d+)?))?\s?(kW|W)\b(?!h)/g)) {
+    const k = m[3] === 'kW' ? 1000 : 1;
+    watts = Math.max(watts, Number(m[2] ?? m[1]) * k);
+  }
+  if (!(watts >= 1 && watts <= 15000)) return null;
+  const volts = /\b(\d{2,3}(?:\s?-\s?\d{2,3})?)\s?V\b/.exec(t)?.[1]?.replace(/\s/g, '') ?? '';
+  return { watts: Math.round(watts), volts };
+}
+
+/** What an hour at full power costs at his price (pence a kWh), in his words, always a first estimate. */
+export function runningCost(watts: number, pencePerKwh: number): { pence: number; line: string } {
+  const pence = (watts / 1000) * pencePerKwh;
+  const say = (p: number) => (p >= 100 ? `£${(p / 100).toFixed(2)}` : `${p < 10 ? p.toFixed(1) : Math.round(p)}p`);
+  return { pence, line: `About ${say(pence)} an hour at full power, at ${pencePerKwh}p a unit (kWh): ${say(pence * 5)} for five hours. A first estimate: a thermostat or a lower setting uses less.` };
+}
+
+// ---------------------------------------------------------------- two packets side by side (lens.u8)
+
+/** One packet as the open databases give it: its name, score and figures per 100 g. */
+export interface PacketFacts {
+  title: string;
+  nutriscore?: string;
+  nutrition?: Partial<Record<'kcal' | 'fat' | 'saturates' | 'sugars' | 'salt' | 'protein' | 'carbs', number>>;
+}
+export interface CompareRow {
+  what: string;
+  a: string;
+  b: string;
+  /** Which is better for him on this row (less sugar, salt, fat, saturates and energy; more protein; the better Nutri-Score), or '' when one is not known. */
+  better: 'a' | 'b' | 'same' | '';
+}
+
+/**
+ * Two packets side by side, per 100 g, from the open databases' own figures: each row says which is better, and one line says it
+ * all. Nothing is guessed: a figure the database does not have is "not given", and that row picks neither.
+ */
+export function comparePackets(a: PacketFacts, b: PacketFacts): { rows: CompareRow[]; line: string } {
+  const rows: CompareRow[] = [];
+  const fmt = (v: number | undefined, unit: string) => (v == null ? 'not given' : `${v < 1 ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10}${unit}`);
+  const less = (x?: number, y?: number): CompareRow['better'] => (x == null || y == null ? '' : Math.abs(x - y) < 0.05 ? 'same' : x < y ? 'a' : 'b');
+  const ns = (s?: string) => (s && /^[a-e]$/i.test(s) ? s.toLowerCase().charCodeAt(0) : undefined);
+  rows.push({ what: 'Nutri-Score', a: a.nutriscore ? a.nutriscore.toUpperCase() : 'not given', b: b.nutriscore ? b.nutriscore.toUpperCase() : 'not given', better: less(ns(a.nutriscore), ns(b.nutriscore)) });
+  const na = a.nutrition ?? {}, nb = b.nutrition ?? {};
+  const fig: [keyof NonNullable<PacketFacts['nutrition']>, string, string][] = [['kcal', 'Energy', ' kcal'], ['sugars', 'Sugars', ' g'], ['fat', 'Fat', ' g'], ['saturates', 'Saturates', ' g'], ['salt', 'Salt', ' g'], ['protein', 'Protein', ' g']];
+  for (const [k, what, unit] of fig) {
+    if (na[k] == null && nb[k] == null) continue;
+    const better = k === 'protein' ? less(nb[k], na[k]) : less(na[k], nb[k]);
+    rows.push({ what, a: fmt(na[k], unit), b: fmt(nb[k], unit), better: k === 'protein' ? (better === 'a' ? 'a' : better === 'b' ? 'b' : better) : better });
+  }
+  const wins = (w: 'a' | 'b') => rows.filter((r) => r.better === w && r.what !== 'Energy' && r.what !== 'Protein' && r.what !== 'Nutri-Score').map((r) => (r.what === 'Sugars' ? 'sugar' : r.what === 'Saturates' ? 'saturated fat' : r.what.toLowerCase()));
+  const list = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+  const wa = wins('a'), wb = wins('b');
+  const known = rows.filter((r) => r.better !== '').length;
+  const line = !known
+    ? 'The open databases don’t give enough figures to compare these two.'
+    : wa.length && !wb.length ? `${a.title} has less ${list(wa)} per 100 g.`
+    : wb.length && !wa.length ? `${b.title} has less ${list(wb)} per 100 g.`
+    : wa.length && wb.length ? `${a.title} has less ${list(wa)}; ${b.title} has less ${list(wb)} (per 100 g).`
+    : 'Much the same per 100 g, by the figures the databases give.';
+  return { rows, line };
+}
+
+// ---------------------------------------------------------------- the UK traffic lights on a packet (the sweep: as UK packs and the best food apps show them)
+
+export type Band = 'high' | 'medium' | 'low';
+/** The UK front-of-pack bands per 100 g of food (FSA): above the first is HIGH, at or under the second is LOW. */
+const BANDS: Record<'fat' | 'saturates' | 'sugars' | 'salt', [number, number]> = { fat: [17.5, 3], saturates: [5, 1.5], sugars: [22.5, 5], salt: [1.5, 0.3] };
+/** A figure per 100 g in its UK band; '' for a nutrient with no band (energy, protein) or no figure. */
+export function bandOf(what: string, per100g: number | undefined): Band | '' {
+  const b = BANDS[what as keyof typeof BANDS];
+  if (!b || per100g == null || !Number.isFinite(per100g)) return '';
+  return per100g > b[0] ? 'high' : per100g <= b[1] ? 'low' : 'medium';
 }

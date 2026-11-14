@@ -627,7 +627,8 @@ function homeContext(): ScreenContext {
 
 export const coreTab: TabDef = {
   id: 'core',
-  title: 'CORE',
+  // [consistency] one name: the first screen is Home in the bar, the deck, the jump bar and "where it lives"
+  title: 'HOME',
   icon: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   scene: 'backdrop',
   blurb: 'talk to Ghosty · arc reactor HUD',

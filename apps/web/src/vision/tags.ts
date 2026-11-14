@@ -573,7 +573,7 @@ export function looksEnglish(text: string): boolean {
 }
 
 /** The words that ask the Lens to act on its tag ("read that", "what is that", "translate it", "measure it", "name it"). */
-export type LensWord = 'read' | 'what' | 'translate' | 'measure' | 'name' | 'ask' | 'look' | 'keep' | 'part' | 'who' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy';
+export type LensWord = 'read' | 'what' | 'translate' | 'measure' | 'name' | 'ask' | 'look' | 'keep' | 'part' | 'who' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'avoid' | 'contacts' | 'buses' | 'nhs' | 'running' | 'compare';
 
 export function lensWord(text: string): LensWord | null {
   if (String(text ?? '').length > 60) return null;
@@ -599,5 +599,16 @@ export function lensWord(text: string): LensWord | null {
   if (/^(?:what|which) (?:place|building|landmark|painting|statue|artwork|monument) is (?:that|this|it)$/.test(t) || /^where is (?:that|this) building$/.test(t)) return 'place';
   if (new RegExp(`^read ${it} (?:aloud|out loud|out)$`).test(t) || new RegExp(`^read ${it} to me$`).test(t)) return 'aloud';
   if (new RegExp(`^copy ${it}(?: text| number| link)?$`).test(t)) return 'copy';
+  // (lens.u7) what he avoids, kept on the phone: "I'm allergic to peanuts", "I avoid gluten", "I'm vegan", "what do I avoid"
+  if (/^(?:i'?m|i am) (?:allergic|intolerant) to .{3,40}$/.test(t) || /^i (?:avoid|don'?t eat|can'?t eat|cannot eat|can'?t have) .{3,40}$/.test(t) || /^(?:i'?m|i am) (?:a )?(?:vegan|vegetarian|coeliac|celiac)$/.test(t)) return 'avoid';
+  if (/^(?:what do i avoid|what am i allergic to|(?:show |open |set |change )?my (?:allerg(?:y|ies)|avoid) list|(?:set|change) my allergies)$/.test(t)) return 'avoid';
+  // (lens.s1) a business card or a contact code into his contacts; (lens.s7) a bus stop sign's next buses
+  if (/^(?:add|save|put) (?:that|this|it|them|him|her|(?:that|this|the) (?:card|contact|person)) (?:to|in|into) (?:my |the )?(?:contacts|phone)$/.test(t) || /^(?:add|save) (?:that|this|the) (?:card|contact|business card)$/.test(t) || /^add to (?:my )?contacts$/.test(t)) return 'contacts';
+  if (/^(?:when(?:'s| is| are) the next (?:bus|buses)(?: from (?:here|this stop))?|(?:the )?next (?:bus|buses)(?: from (?:here|this stop))?|what buses are (?:coming|due)(?: here)?|when(?:'s| is) my bus)$/.test(t)) return 'buses';
+  // (lens.s2) a medicine box's public NHS page; (lens.s3) what an appliance costs to run
+  if (/^(?:open|show(?: me)?) (?:the |its )?nhs page(?: for (?:that|this|it))?$/.test(t) || /^what is (?:this|that) medicine$/.test(t)) return 'nhs';
+  if (/^(?:how much|what) (?:does|will|would) (?:it|that|this) cost to run$/.test(t) || /^(?:what(?:'s| is) the )?running cost$/.test(t) || /^how much is (?:it|that|this) an hour$/.test(t)) return 'running';
+  // (lens.u8) the packet in view against the one before it
+  if (/^(?:compare (?:them|these|those|the two|both|it|this|that)(?: (?:two|packets))?|which (?:one )?is (?:better|healthier)|which is the (?:better|healthier) (?:one|packet))$/.test(t)) return 'compare';
   return null;
 }

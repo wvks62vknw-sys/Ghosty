@@ -9,7 +9,7 @@
 import { h, clear } from '../core/dom';
 import { LEARNED_KEY, learnedAsked, learnedFor, learnKey, offerLine, keptLine, storedLearned, usedLine, withLearned, withoutLearned, type Learned } from '../../../../packages/shared/src/learned';
 import { ui } from '../state/app';
-import { button, toast } from '../ui/components';
+import { button, toast, undo } from '../ui/components';
 import { go, tabs } from '../shell/tabs';
 import { register } from '../commands/registry';
 
@@ -103,7 +103,8 @@ function offer(words: string, key: string, tab: string, label: string): void {
     button('REMEMBER IT', () => {
       remember(words, key, tab, label);
       close();
-      toast(keptLine(words, label), 'ok');
+      // (a few seconds to take it back: UNDO forgets it again)
+      undo(keptLine(words, label), () => void forget(words));
     }, 'on'),
     button('NO', () => {
       write(NO_KEY, [key, ...declined().filter((k) => k !== key)].slice(0, 200));

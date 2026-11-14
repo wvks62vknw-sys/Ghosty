@@ -263,37 +263,9 @@ if (on('orb')) {
       }, st);
       await page.waitForTimeout(ms);
     };
-    const order = ['idle', 'listening', 'attending', 'thinking', 'speaking'];
-    const shots = {};
-    for (const st of order) {
-      await setState(st);
-      shots[st] = await shotOf(st);
-    }
-    // the orb's five states told apart with the motion off by the light alone: each pair differs by a measured amount, read in the orb's
-    // own square (MIND's stage rect, else the Scan's orb), relative to the canvas
-    const orbBox = await page.evaluate(() => {
-      const c = document.querySelector('canvas.mindhero').getBoundingClientRect();
-      const r = window.__ghosty.hero?.stage?.rect;
-      if (r && r[2] > 8) return r;
-      const o = document.querySelector('.scanorb')?.getBoundingClientRect();
-      return o && o.width > 8 ? [o.left - c.left, o.top - c.top, o.width, o.height] : null;
-    });
-    const reads = {};
-    let least = 1e9, pair = '';
-    for (let i = 0; i < order.length; i++) {
-      reads[order[i]] = Math.round((await px(shots[order[i]], null, orbBox)).lum * 100) / 100;
-      for (let j = i + 1; j < order.length; j++) {
-        const r = await px(shots[order[i]], shots[order[j]], orbBox);
-        if (r.diff < least) { least = r.diff; pair = `${order[i]}/${order[j]}`; }
-      }
-    }
     await setState('idle', 600);
     const idle2 = await shotOf('idle2');
     const idleP97 = (await px(idle2)).p97;
-    // (the same state shot twice is the floor: two states must differ by twice what idle differs from itself, so a world that moves
-    // between shots can never pass for states told apart)
-    const floor = (await px(shots.idle, idle2, orbBox)).diff;
-    check(!!orbBox && least >= 5 && least >= 2 * floor, `[THE ORB · ${tag} · five states told apart with the motion off] in the orb's square ${JSON.stringify(orbBox)} the two most alike are ${pair}, a mean difference of ${least.toFixed(2)} of 255 (want 5 or more, and twice idle against itself: ${floor.toFixed(2)}); light ${JSON.stringify(reads)}`);
     // the press target is 44 pt at least
     const tgt = await page.evaluate(() => { const r = document.querySelector('canvas.mindhero')?.getBoundingClientRect(); const o = document.querySelector('.scanorb')?.getBoundingClientRect(); return { w: Math.round(r?.width ?? 0), h: Math.round(r?.height ?? 0), hw: Math.round(o?.width ?? 0), hh: Math.round(o?.height ?? 0) }; });
     check(tgt.w >= 44 && tgt.h >= 44 && tgt.hw >= 44 && tgt.hh >= 44, `[THE ORB · ${tag} · the press target is 44 pt] ${JSON.stringify(tgt)}`);
@@ -316,6 +288,79 @@ if (on('orb')) {
     if (vp === PHONE) await still(page, 'orb-dead-says');
     check(offSay.state === 'offline' && off.p97 < idleP97 * 0.75 && offSay.text === ow?.offlineWords(true), `[THE ORB · ${tag} · a dead brain dims the orb and says why] state ${offSay.state}, brightest light ${off.p97.toFixed(1)} against idle ${idleP97.toFixed(1)} (want under 75 % of it), line "${offSay.text}"`);
     await page.evaluate(() => window.__ghosty.ui.set({ connected: true }));
+    await ctx.close();
+  }
+  // the five states measured on a plain, fixed backdrop (NEXT ROUND boot: the check read the scene behind the orb as much as the orb, so it
+  // drifted with the hour): ONE INK, where MIND is drawn alone in the hero's box; the same thresholds as ever
+  for (const vp of [PHONE, PHONE2]) {
+    const tag = `${vp.width}`;
+    const { ctx, page } = await phone(vp, { hero: true, reduced: true, world: 'ink', settle: 2500 });
+    await until(page, () => window.__ghosty?.hero?.mode === 'mind', null, 60000);
+    await page.evaluate(() => { const c = document.querySelector('canvas.mindhero'); document.querySelectorAll('body *').forEach((e) => { if (!e.contains(c) && !c.contains(e)) e.style.visibility = 'hidden'; }); c.style.visibility = 'visible'; });
+    const shotOf = async (name) => {
+      const loc = page.locator('canvas.mindhero');
+      const b = await loc.screenshot({ timeout: 90000 });
+      if (vp === PHONE) await loc.screenshot({ path: `${out}/bootpass-orb-${name}-440-${STILL}.png`, timeout: 90000 }).catch(() => undefined);
+      return b.toString('base64');
+    };
+    /** Mean brightness 0..255 of a screenshot, and the mean absolute difference between two (read in the page: no image library). */
+    // (`box`, in the canvas's CSS px: only that part is read; the orb's own square, so the world drawn behind it is left out)
+    const px = (a, b, box = null) => page.evaluate(async ([a, b, box]) => {
+      const load = (s) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = `data:image/png;base64,${s}`; });
+      const cw = document.querySelector('canvas.mindhero')?.getBoundingClientRect().width || 1;
+      const get = async (s) => { const i = await load(s); const k = i.width / cw; const [x, y, w, h] = box ? box.map((v) => Math.round(v * k)) : [0, 0, i.width, i.height]; const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.drawImage(i, x, y, w, h, 0, 0, w, h); return g.getImageData(0, 0, w, h).data; };
+      const A = await get(a);
+      const B = b ? await get(b) : null;
+      let sum = 0, d = 0;
+      const L = [];
+      for (let k = 0; k < A.length; k += 4) { L.push((A[k] + A[k + 1] + A[k + 2]) / 3); sum += (A[k] + A[k + 1] + A[k + 2]) / 3; if (B) d += (Math.abs(A[k] - B[k]) + Math.abs(A[k + 1] - B[k + 1]) + Math.abs(A[k + 2] - B[k + 2])) / 3; }
+      L.sort((x, y) => x - y);
+      return { lum: sum / (A.length / 4), p97: L[Math.floor(L.length * 0.97)], diff: B ? d / (A.length / 4) : 0 };
+    }, [a, b, box]);
+    const setState = async (st, ms = 900) => {
+      await page.evaluate(async (st) => {
+        const U = window.__ghosty.ui;
+        U.set({ voice: 'idle', busy: false });
+        if (window.__box) { window.__box.hidden = true; window.__box.remove(); window.__box = null; }
+        if (st === 'listening') U.set({ voice: 'listening' });
+        if (st === 'thinking') U.set({ busy: true, voice: 'idle' });
+        if (st === 'speaking') U.set({ voice: 'speaking' });
+        if (st === 'attending') {
+          const M = window.__ghosty.machine;
+          window.__box = M.lockBox(document.querySelector('.hud.core .rwrap') ?? document.body);
+          await M.recognise(window.__box, document.querySelector('.hud.core canvas.reactor'), { name: 'Mind' });
+        }
+      }, st);
+      await page.waitForTimeout(ms);
+    };
+    const order = ['idle', 'listening', 'attending', 'thinking', 'speaking'];
+    const shots = {};
+    for (const st of order) {
+      await setState(st);
+      shots[st] = await shotOf(st);
+    }
+    // the orb's five states told apart with the motion off by the light alone: each pair differs by a measured amount, read in the orb's
+    // own canvas (One Ink draws MIND alone in the hero's box over a plain ground: nothing behind it moves with the hour or the scene)
+    const orbBox = await page.evaluate(() => {
+      const c = document.querySelector('canvas.mindhero')?.getBoundingClientRect();
+      return c && c.width > 8 && !window.__ghosty.hero?.stage?.on ? [0, 0, c.width, c.height] : null;
+    });
+    const reads = {};
+    let least = 1e9, pair = '';
+    for (let i = 0; i < order.length; i++) {
+      reads[order[i]] = Math.round((await px(shots[order[i]], null, orbBox)).lum * 100) / 100;
+      for (let j = i + 1; j < order.length; j++) {
+        const r = await px(shots[order[i]], shots[order[j]], orbBox);
+        if (r.diff < least) { least = r.diff; pair = `${order[i]}/${order[j]}`; }
+      }
+    }
+    await setState('idle', 600);
+    const idle2 = await shotOf('idle2');
+    const idleP97 = (await px(idle2)).p97;
+    // (the same state shot twice is the floor: two states must differ by twice what idle differs from itself, so a world that moves
+    // between shots can never pass for states told apart)
+    const floor = (await px(shots.idle, idle2, orbBox)).diff;
+    check(!!orbBox && least >= 5 && least >= 2 * floor, `[THE ORB · ${tag} · five states told apart with the motion off] in the orb's square ${JSON.stringify(orbBox)} the two most alike are ${pair}, a mean difference of ${least.toFixed(2)} of 255 (want 5 or more, and twice idle against itself: ${floor.toFixed(2)}); light ${JSON.stringify(reads)}`);
     await ctx.close();
   }
   // the models cooling: the time said, and the pulses slowed (read from the one number the light is drawn with)
