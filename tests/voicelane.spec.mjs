@@ -154,6 +154,20 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await say(page, 'a bit softer blue', /^Softer blue: light blue now\. Only my colour changed\.$/, `[${W}] [colours] softer blue`);
   check((await theme(page)) === 'ice', `[${W}] [colours] softer blue left the theme on ${await theme(page)}`);
   await say(page, 'put it back', /^Put back: Blue · /, `[${W}] [colours] put it back after the shade`);
+  // [voice.u8] a colour for one screen: shown there, his own colour everywhere else, his saved look unchanged
+  await say(page, 'make the money screen green', /^Money keeps green from now on; everywhere else stays blue\.$/, `[${W}] [colours] the money screen green`);
+  await page.evaluate(() => (location.hash = 'money'));
+  check(await page.waitForFunction(() => document.documentElement.dataset.theme === 'emerald', null, { timeout: 6000 }).then(() => true, () => false), `[${W}] [colours] Money did not show green (${await theme(page)})`);
+  await page.evaluate(() => (location.hash = 'core'));
+  check(await page.waitForFunction(() => document.documentElement.dataset.theme === 'reactor', null, { timeout: 6000 }).then(() => true, () => false), `[${W}] [colours] leaving Money did not put blue back (${await theme(page)})`);
+  check(await page.evaluate(() => window.__ghosty.settings.get().theme) === 'reactor', `[${W}] [colours] the room's colour changed his saved colour`);
+  await say(page, 'money screen back to normal', /^Money is back in your colour, blue\.$/, `[${W}] [colours] the money screen back to normal`);
+  check(await page.evaluate(() => window.__ghosty.roomcolour.roomColour('money') === null), `[${W}] [colours] Money kept its colour after "back to normal"`);
+  // [voice.s5] colour-blind safe: the state colours change to a set told apart by every eye, and back
+  await say(page, 'colour blind mode on', /^Colour-blind safe: on\. Orange for a failure, sky blue for a success/, `[${W}] [colours] colour-blind safe`);
+  check(await page.evaluate(() => document.documentElement.dataset.safe === 'on' && getComputedStyle(document.documentElement).getPropertyValue('--g-ok').trim().toLowerCase() === '#56b4e9'), `[${W}] [colours] colour-blind safe did not change the success colour (${await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--g-ok'))})`);
+  await say(page, 'colour blind mode off', /^Colour-blind safe: off\./, `[${W}] [colours] colour-blind safe off`);
+  check(await page.evaluate(() => document.documentElement.dataset.safe === 'off'), `[${W}] [colours] colour-blind safe stayed on`);
   await page.screenshot({ path: `${out}/voicelane-colours-${W}.png` });
   // Settings › Theme: every colour by its plain name
   await page.evaluate(() => (location.hash = 'settings'));
@@ -176,6 +190,10 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check(r.mine.includes('put some tunes on'), `[${W}] [meanings] his words are what the chat shows: "${r.mine}"`);
   check(!toBrain('put some tunes on'), `[${W}] [meanings] "put some tunes on" went to the model`);
   check(/radio/.test(await page.evaluate(() => location.hash)) || /^Playing /.test(r.text), `[${W}] [meanings] with no station kept, the Radio opened to pick one (${await page.evaluate(() => location.hash)})`);
+  // [voice.u10] the same ask in Spanish and in Urdu as people type it
+  r = await say(page, 'pon música', /^(?:No station yet|Playing |.* needs a tap first)/, `[${W}] [languages] pon música`);
+  r = await say(page, 'gaana chalao', /^(?:No station yet|Playing |.* needs a tap first)/, `[${W}] [languages] gaana chalao`);
+  check(!toBrain('pon música') && !toBrain('gaana chalao'), `[${W}] [languages] another language's ask went to the model`);
   r = await say(page, 'log a pint', /water|pint|glass|ml/i, `[${W}] [meanings] a pint is water`);
   check(r.mine.includes('log a pint'), `[${W}] [meanings] the chat shows what he said, not the table's words: "${r.mine}"`);
   check(!toBrain('log a pint') && !toBrain('I drank'), `[${W}] [meanings] "log a pint" went to the model`);
@@ -253,6 +271,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await page.click('#wordbar button:has-text("REMEMBER IT")');
   check(await page.evaluate(() => window.__ghosty.learnwords.learned().some((l) => l.words === 'wonga page' && l.tab === 'money')), `[${W}] [learn] REMEMBER IT kept nothing: ${JSON.stringify(await page.evaluate(() => window.__ghosty.learnwords.learned()))}`);
   check(await page.evaluate(() => document.querySelector('#wordbar')?.hidden === true), `[${W}] [learn] the bar stayed after REMEMBER IT`);
+  check(await page.waitForFunction(() => /^Kept: “wonga page” opens Money\./.test(document.querySelector('.undofloat:not(.wordbar):not([hidden]) span')?.textContent ?? ''), null, { timeout: 4000 }).then(() => true, () => false), `[${W}] [learn] no UNDO after REMEMBER IT`);
   r = await say(page, 'wonga page', /^Opening Money: you taught me “wonga page”\.$/, `[${W}] [learn] the taught wording`);
   check(await page.waitForFunction(() => /money/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [learn] the taught wording did not open Money (${await page.evaluate(() => location.hash)})`);
   check(!toBrain('wonga page') || sent.filter((b) => String(b.message ?? '').startsWith('wonga page')).length === 1, `[${W}] [learn] once taught, it still went to the brain`);
