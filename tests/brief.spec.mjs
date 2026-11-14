@@ -210,7 +210,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
   check(2, /6 to 13°C today, rain likely from 09:00\./.test(say) && /3 things today, first Dentist at 09:30\./.test(say) && /24 min to work, 5 min of it traffic\./.test(say), `the hero's sentence reads "${say}"`);
 
   // 3. READ IT TO ME and BRIEF ME on the first screen, 44 pt.
-  const acts = await page.$$eval('#pg-brief .hero .bract button', (bs) => bs.map((b) => ({ t: b.textContent, h: Math.round(b.getBoundingClientRect().height), bottom: Math.round(b.getBoundingClientRect().bottom) })));
+  const acts = await page.$$eval('#pg-brief .hero .bract button:not([hidden])', (bs) => bs.map((b) => ({ t: b.textContent, h: Math.round(b.getBoundingClientRect().height), bottom: Math.round(b.getBoundingClientRect().bottom) })));
   const bar = await page.evaluate(() => document.querySelector('#dock .tabcap')?.getBoundingClientRect().top ?? innerHeight);
   check(3, acts.length === 2 && acts.every((a) => a.h >= 44 && a.bottom <= Math.min(bar, 956)), `the hero's buttons: ${JSON.stringify(acts)} (the tab bar at ${Math.round(bar)})`);
   await page.click('#pg-brief .hero .bract button.brread', { timeout: 3000 }).catch(() => problems.push('[3] no READ IT TO ME in the hero'));
@@ -321,7 +321,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
   const { page, ctx } = await open(browser, { viewport: { width: 1280, height: 800 } });
   await toBrief(page);
   await page.waitForTimeout(1500);
-  const acts = await page.$$eval('#pg-brief .hero .bract button', (bs) => bs.map((b) => Math.round(b.getBoundingClientRect().bottom)));
+  const acts = await page.$$eval('#pg-brief .hero .bract button:not([hidden])', (bs) => bs.map((b) => Math.round(b.getBoundingClientRect().bottom)));
   check(3, acts.length === 2 && acts.every((b) => b > 0 && b <= 800), `at 1280 × 800 the hero's buttons end at ${acts.join(', ')}`);
   await page.screenshot({ path: `${out}/brief-desktop.png` });
   await sideways(page, 'the Brief at 1280 × 800');

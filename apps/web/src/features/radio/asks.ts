@@ -9,6 +9,8 @@
  * The kitchen's timer table comes first and takes "sleep timer 30 minutes", "set a sleep timer for ..." and "cancel the sleep timer"
  * (it starts or stops a kitchen timer named "sleep"): the words below match them, but the chat says only the ones that reach here.
  */
+import { goodnightAsked } from '../core/goodnightwords';
+
 export type RadioAsk =
   | { what: 'sleep'; min: number }
   | { what: 'sleepAt'; h: number; m: number; half: '' | 'am' | 'pm' }
@@ -22,7 +24,10 @@ export type RadioAsk =
   | { what: 'fav'; n: number }
   | { what: 'save'; loose?: true }
   | { what: 'unsave'; loose?: true }
-  | { what: 'now'; loose?: true };
+  | { what: 'now'; loose?: true }
+  // [planlane2:goodnight] "goodnight", "night night", "time for bed": the whole wind-down (features/core/goodnight.ts), which sets this
+  // radio's sleep timer among its steps; read here so the chat reaches it through this table (features/core/goodnightwords.ts owns the words)
+  | { what: 'goodnight' };
 
 const NUM: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20, thirty: 30, forty: 40, 'forty five': 45, 'forty-five': 45, fifty: 50, sixty: 60, ninety: 90 };
 const ORD: Record<string, number> = { first: 1, '1st': 1, second: 2, '2nd': 2, third: 3, '3rd': 3, fourth: 4, '4th': 4, fifth: 5, '5th': 5, sixth: 6, '6th': 6, seventh: 7, '7th': 7, eighth: 8, '8th': 8, ninth: 9, '9th': 9, tenth: 10, '10th': 10, top: 1 };
@@ -81,6 +86,7 @@ export function radioAsked(text: string): RadioAsk | null {
   if (String(text ?? '').length > 90) return null;
   const t = clean(text);
   if (!t || /\bspotify\b|\bpodcast\b|\bsong\b|\btrack\b|\balbum\b/.test(t)) return null;
+  if (goodnightAsked(text)) return { what: 'goodnight' };
 
   // THE SLEEP TIMER: off, how long left, a length, a clock time, the end of the hour
   if (new RegExp(`^(?:cancel|clear|stop|remove|turn off|switch off|kill|delete|end) ${SLEEP}$|^${SLEEP} off$|^no ${SLEEP}$|^don't stop (?:${IT}|${SLEEP})$|^turn ${SLEEP} off$`).test(t) || /^(?:keep|leave) (?:the )?radio (?:on|playing)$/.test(t)) return { what: 'sleepOff' };

@@ -23,6 +23,7 @@ import { onLibraryChange, passagesOf } from '../../library/local';
 import { fuelEstimate, nearPlaces, nearShort } from '../../further/spendnear';
 import { home, ui } from '../../state/app';
 import { markSeen } from '../core/missed';
+import { nightKeyAt } from '../core/goodnightwords';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
 import { rawText } from '../../ui/hisWords';
@@ -135,6 +136,13 @@ export const briefTab: TabDef = {
       void send(`Give me a sharp spoken briefing in about 90 words from these facts (no need to look anything up), flagging anything that needs my attention. ${greeting(d)}, ${dayName(d)}. WEATHER: ${summary({ ...facts(true), diary: undefined, commute: undefined, todo: undefined }) || 'not known'} DIARY TODAY: ${diary}. ${todos ? `TO-DO TODAY: ${todos}. ` : ''}${commuteWords ? `COMMUTE: ${commuteWords}. ` : ''}HEADLINES: ${topHeadlines().join(' | ') || 'none yet'}`);
     }, 'brme');
     say.after(h('div.bract', readBtn, briefBtn));
+    // [planlane2:goodnight] GOODNIGHT from six in the evening till five: the wind-down, said in the chat like his own "goodnight" (features/core/goodnight.ts)
+    // (always made, shown or hidden on every visit and each minute: the Brief is built once and its page kept)
+    const nightKey = button('GOODNIGHT', () => { go('core'); void send('goodnight'); }, 'brnight');
+    const nightShow = () => (nightKey.hidden = !nightKeyAt(new Date()));
+    nightShow();
+    setInterval(nightShow, 60_000);
+    say.nextElementSibling?.append(nightKey);
     // YOUR DAY: what is left of today in the diary, the reminders still to go off and anything new in the inbox,
     // first on the page (read from the Agenda's own routes; a tap opens the Agenda).
     const dp = panel('YOUR DAY', { cls: 'brday', grow: false });
@@ -450,6 +458,7 @@ export const briefTab: TabDef = {
     const describe = () => `Brief, ${dateEl.textContent}: ${[P.big.textContent, P.sub.textContent].filter(Boolean).join(' ')}. ${say.textContent} Diary: ${dayItems ? (dayItems.length ? dayItems.slice(0, 4).map((x) => `${x.when} ${x.title}`).join('; ') : 'nothing more today') : 'not known'}. Top headline: ${topHeadlines()[0] ?? 'none'}`;
     return {
       enter() {
+        nightShow();
         paintSay();
         loadDigest();
         // (readable by the spec at window.__ghosty.brief, as the vehicle check does)
