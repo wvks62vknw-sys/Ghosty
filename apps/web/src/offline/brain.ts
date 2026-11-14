@@ -642,6 +642,9 @@ async function getFiles(m: ModelDef, onProgress?: (frac: number, text: string) =
  * first reply loads it). A trained brain whose files are gone or wrong goes back to its base's stock build.
  */
 export async function downloadOffline(onProgress?: (frac: number, text: string) => void): Promise<void> {
+  // [next] the saver holds big downloads until he turns it off (state/saver.ts)
+  const sv = await import('../state/saver');
+  if (sv.held('the offline brain')) throw new Error(sv.SAVER_HELD);
   const m = currentModel();
   try {
     await getFiles(m, onProgress);

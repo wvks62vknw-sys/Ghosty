@@ -43,6 +43,21 @@ export class Backdrop {
     this.t += dt;
   }
 
+  // [ci] NEXT ci.u4, A SCREEN THAT RESTS WHEN STILL: the stars turn and the dust drifts well under a pixel a frame, so between moves
+  // the room is drawn 30 times a second, not at the display's full rate (60 or 120, each with its glow pass). The canvas keeps its
+  // last picture meanwhile. Anything that moves it — the view (tilt, pointer), a new size, new colours, a flash — draws at once.
+  private shown = '';
+  private since = 0;
+  rest(dt: number): boolean {
+    const g = gfx;
+    const key = `${view.sx.toFixed(3)},${view.sy.toFixed(3)},${g.w}x${g.h},${g.theme.c.join()},${g.post.flash > 0.01 ? g.time.toFixed(3) : ''}`;
+    this.since += dt;
+    if (key === this.shown && this.since < 1 / 30) return true;
+    this.shown = key;
+    this.since = 0;
+    return false;
+  }
+
   draw(): void {
     if (this.built !== gfx.theme.c.join()) this.build();
     const g = gfx;

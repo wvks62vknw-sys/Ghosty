@@ -10,6 +10,7 @@
  * its tables, links and pictures, and Ghosty writing into the page after the paragraph he is in. The EDITORS lane added strikethrough,
  * the highlighter (MARK) and checklists with a box to tick, each kept through Markdown, HTML, Word and the PDF.
  */
+import { pageLine, putOnSites } from '../sites/handover'; // [sites] a document at its own link (NEXT ROUND sites.s4)
 import { h, clear } from '../core/dom';
 import { button, modal, toast } from '../ui/components';
 import { MIME, sizeWords } from '../convert/bytes';
@@ -1050,6 +1051,18 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
         button('MARKDOWN', () => go((d) => new Blob([toMarkdown(d, imageNow)], { type: 'text/markdown;charset=utf-8' }), 'md')),
         cased(button('HTML', () => go((d) => new Blob([toHtml(d, true, imageNow)], { type: 'text/html;charset=utf-8' }), 'html'))),
       ),
+      // [sites] the document at its own link (NEXT ROUND sites.s4): handed over, then his APPROVE in the chat
+      h('small.cvgh', 'ON YOUR SITES'),
+      h('p.note.dcsites', pageLine('document')),
+      h('div.cvbtns', button('PUT IT ON MY SITES', (b) => {
+        if (b.disabled) return;
+        b.disabled = true;
+        say('Making the page on this phone…');
+        void ready()
+          .then((d) => putOnSites(d.title || 'My document', toHtml(d, true, imageNow), 'document'))
+          .then((r) => say(r.said), (e: unknown) => say(sayError(e, 'make the page')))
+          .finally(() => (b.disabled = false));
+      })),
       out,
     );
   };
