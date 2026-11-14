@@ -437,6 +437,11 @@ export const DECK: Record<string, DeckScreen> = {
       { text: 'Your documents, kept on this phone', act: { open: 'docs' } },
       { text: 'Write a letter to my landlord about the damp', act: { ask: 'Write a letter to my landlord about the damp' } },
       { text: 'Translate my letter into Urdu', act: { ask: 'Translate my letter into Urdu' } },
+      // [docspro] documents, pro edition
+      { text: 'Named styles you can redefine', act: { open: 'docs' } },
+      { text: 'Track your own changes', act: { open: 'docs' } },
+      { text: 'Start from a designed template', act: { run: 'open_docs', args: { what: 'templates' } } },
+      { text: 'Fold sections away', act: { run: 'open_docs', args: { what: 'outline' } } },
     ],
     dyk: 'A translation keeps every heading and list in its place, beside the original.',
   },
