@@ -46,7 +46,7 @@ export function photoOf(src: string, ready?: () => void): HTMLImageElement | nul
 }
 /** Every photo of a comic decoded (before it is saved or read, so no panel is drawn without its photo). */
 export async function photosReady(c: Comic): Promise<void> {
-  const all = c.pages.flatMap((pg) => pg.panels.map((p) => p.photo).filter((x): x is string => !!x));
+  const all = c.pages.flatMap((pg) => pg.panels.flatMap((p) => [p.photo, p.ink]).filter((x): x is string => !!x));
   await Promise.all(all.map((src) => new Promise<void>((ok) => {
     const img = photoOf(src, () => ok());
     if (img) ok();
@@ -860,6 +860,9 @@ export function drawPanel(ctx: C, c: Comic, p: Panel, b: Box, seedN: number, hit
   });
   const fx = sfx(ctx, b, p.sfx, seedN + 3, bottom, p.sfxAt);
   if (hits) hits.sfx = fx;
+  // his own ink over the art, under the balloons (drawn in PAINT's studio)
+  const ink = p.ink ? photoOf(p.ink, ready) : null;
+  if (ink) ctx.drawImage(ink, b.x, b.y, b.w, b.h);
   // tails first, then the balloons over them, then the words
   const out: { id: string; box: Box }[] = [];
   for (const { bl, box } of placed) {
