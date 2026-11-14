@@ -10969,6 +10969,7 @@ html #pg-gamestudio .gs3banner { position: absolute; left: 10%; right: 10%; top:
 html #pg-gamestudio .gs3banner b { display: block; margin-bottom: 8px; font: 600 18px/24px var(--sf); color: var(--g-ink-1); }
 html #pg-gamestudio .gs3things, html #pg-gamestudio .gs3add, html #pg-gamestudio .gs3nudge { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
 html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: anywhere; }
+/* ===================================================================================================================
    THE APP LIBRARY: the importer (DATA lane; features/applib/importer.ts). The panel at the top of a "Your data" app: the steps
    to get his file, the progress bar, the top list over any span and a route's shape. Every class al-imp, every colour a token.
    ===================================================================================================================== */
