@@ -222,7 +222,9 @@ export function openMaker(root: HTMLElement, o: MakerOptions = {}): KitApp {
     for (const f of log.fields) {
       const label = h('input.al-mkinput', { value: f.label, maxLength: 24, 'aria-label': 'Field name' }) as HTMLInputElement;
       label.addEventListener('change', () => set(D.changeField(d, f.id, { label: label.value })));
-      const kids: HTMLElement[] = [label, h('small.al-mktype', D.FIELD_TYPES.find((t) => t.type === f.type)?.name ?? f.type)];
+      const type = choose(D.FIELD_TYPES.map((t) => t.type), f.type, (v) => set(D.changeField(d, f.id, { type: v as FieldType })), Object.fromEntries(D.FIELD_TYPES.map((t) => [t.type, t.name])));
+      type.setAttribute('aria-label', `${f.label} type`);
+      const kids: HTMLElement[] = [label, type];
       const keys = h('div.al-mkfieldkeys',
         key('↑', () => set(D.moveField(d, f.id, -1)), { label: `Move ${f.label} up` }),
         key('↓', () => set(D.moveField(d, f.id, 1)), { label: `Move ${f.label} down` }),

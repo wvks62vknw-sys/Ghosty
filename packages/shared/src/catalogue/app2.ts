@@ -31,7 +31,7 @@ export const APP_2: Record<string, CatValue> = {
   },
   'panel:agenda:TO-DO': {
     name: 'Your to-do list', line: 'You can keep a to-do list in the Agenda: give each a day, tick it off, and late ones come first.',
-    more: 'One list with WORK’s to-do and the chat, kept in my brain with a copy on this phone for no signal (changes made offline go when the signal is back). Star the ones that matter, give one a repeat (every day, weekdays, week or month), tap its words to change it, and see All, Today, Upcoming or Starred. The Brief tells you what is due today, and every removal has UNDO.',
+    more: 'One list with WORK’s to-do and the chat, kept in my brain with a copy on this phone for no signal. Type it as you would say it (“Call the bank tomorrow at 3pm p1 #Home @phone”) and chips show what I understood. Flag the ones that matter (P1 to P3), give one a time it rings or a repeat, tap it for its notes and a checklist of steps, and see All, Today, Upcoming (the next two weeks with your diary), P1 or Projects (each project by section, and each tag). Every change has UNDO.',
     say: ['Open my to-do list', 'What’s on my to-do list?'], scene: ['morning', 'phone'], cat: 'watch',
     since: '2026-11-13',
   },
@@ -42,15 +42,15 @@ export const APP_2: Record<string, CatValue> = {
     since: '2026-11-14',
   },
   'panel:agenda:MONTH': {
-    name: 'Your month at a glance', line: 'You can see your month as a calendar: a dot on each day with something on, and tap a day to see it.',
-    more: 'Any month, back or on with ‹ and ›, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day.',
+    name: 'Any month or year', line: 'You can see any month or any year as a calendar: a dot on each day with something on, and tap a day to see it.',
+    more: 'Any month, back or on with ‹ and ›, from your diary and connected calendars, with your to-dos due marked, and this week under it day by day. YEAR shows the twelve months of any year with today marked; tap a month to open it.',
     say: ['Show me my month', 'What’s on this month?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-13',
   },
   // [planlane2:timeline] the day by the hour and PLAN MY WEEK (features/agenda/timeline.ts)
   'panel:agenda:TIMELINE': {
     name: 'Your day by the hour', line: 'You can see today and tomorrow by the hour, with your free gaps said in words, and plan your week.',
-    more: 'Two things at once sit side by side, all-day ones and your to-dos due sit at the top, and a line marks now. PLAN MY WEEK lays out the next seven days with each day’s free time, worked out on your phone. Tap an event to change it in place.',
+    more: 'Two things at once sit side by side, all-day ones and your to-dos due sit at the top, and a line marks now. Hold one of your events and drag it to a new time in 15-minute steps, with UNDO, or tap it for EARLIER, LATER or A DAY LATER (calendar feeds are read only). WEEK lays the seven days side by side by the hour with free time shaded, and PLAN MY WEEK lists each day’s free time. CALENDARS gives each calendar a colour of your choice and shows or hides it everywhere.',
     say: ['Plan my week', 'When am I free tomorrow?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-14',
   },

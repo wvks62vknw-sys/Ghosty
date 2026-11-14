@@ -71,7 +71,7 @@ The boards register as the engine's `game` renderer (`games/index.ts` calls `reg
   - timer: steps and rounds;
   - cards: question and answer, and the mode;
   - game: any of the twenty kinds, with that kind's options.
-- **DESCRIBE:** "make me an app for my vinyl" becomes a first draft, shown with what was assumed, for his OK before anything is kept. The reading builds on `appkit/brief.ts`'s `readApp`, which handles trackers, lists, timers, counters, habits, notes and cards. On top of it, draft.ts adds the things people collect, each with the fields a category leader has: vinyl, books, films, wine, plants, board games, recipes, gigs, spirits, trainers, comics, and coins or stamps. It also reads game genres by their words, and turns "an app for my <thing>" into a collection of that thing.
+- **DESCRIBE:** "make me an app for my vinyl" becomes a first draft, shown with what was assumed, for his OK before anything is kept. The reading builds on `appkit/brief.ts`'s `readApp`, which handles trackers, lists, timers, counters, habits, notes and cards. On top of it, draft.ts adds the things people collect, each with the fields a category leader has: vinyl, books, films, wine, plants, board games, recipes, gigs, spirits, trainers, comics, coins or stamps, watches, cameras, coffee beans and video games. It also reads game genres by their words, and turns "an app for my <thing>" into a collection of that thing.
 - **Duplicate and change:** `openMaker(root, { from: def })` opens a copy of any Library app under his own id.
 
 **How it is kept and checked:**

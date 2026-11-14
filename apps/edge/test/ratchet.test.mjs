@@ -275,6 +275,20 @@ export const STATES = {
   // and the month's own read of any month (on its way, the brain not giving it): new parts (base 0)
   'agenda.timeline': { dir: 'agenda', base: 0, now: 3 },
   'agenda.monthread': { dir: 'agenda', base: 0, now: 2 },
+  // [planlane4:tasks] QUICK ADD (a line with nothing left to do once the day, time, priority, project and tags are read: said, with its fix)
+  'agenda.quickadd': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane4:tasks] UPCOMING (the diary on its way with skeleton rows, the brain out of reach with the phone's copy or none, nothing in two weeks)
+  'agenda.upcoming': { dir: 'agenda', base: 0, now: 3 },
+  // [planlane4:tasks] a to-do opened whole: its checklist with no steps yet, said with what to do
+  'agenda.taskdetail': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane4:tasks] PROJECTS (no project or tag yet, a project with nothing open: each said with what to do)
+  'agenda.projects': { dir: 'agenda', base: 0, now: 1 },
+  // [planlane4:calendar] DRAG TO MOVE and EARLIER / LATER (a move that waits on the phone with no signal, one the brain refused): new (base 0)
+  'agenda.drag': { dir: 'agenda', base: 0, now: 2 },
+  // [planlane4:calendar] YEAR (its months on their way, nothing in it, a month the brain refused, no signal): new (base 0)
+  'agenda.year': { dir: 'agenda', base: 0, now: 4 },
+  // [planlane4:calendar] the CALENDARS sheet (its calendars on their way, only his diary, no signal, a change the phone could not keep): new
+  'agenda.calendars': { dir: 'agenda', base: 0, now: 4 },
   // LEARN (BRIEF-QUALITY-LEARN): COURSES, the Arcade's shelf, the GYM's cards, SCHOOL's ladder, the Library's shelf and reader, LEARNING's pills and
   // the Coach's tuner. `base` is what each drew, in words of its own, before that pass (a toast that was gone, or a raw worker message, is not a state).
   'learn.courses': { dir: 'learn', base: 3, now: 4 },

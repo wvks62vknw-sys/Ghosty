@@ -6,6 +6,8 @@
  * The state sits on window.__ghosty.people for the specs.
  */
 import { h } from '../../core/dom';
+import { keepStore } from '../memory/keep';
+import { promisesAbout } from './vcard';
 import { button, modal, toast } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { sayError } from '../../ui/hisWords';
@@ -118,6 +120,8 @@ function whoSheet(): HTMLElement {
               more.replaceChildren(
                 // [moneynext] money.u9: each thing he said, to change or take away; his own photo of them, kept on this phone
                 ...(p.notes.length ? p.notes.map((n) => noteRow(p, n)) : [h('p.pknote', 'Nothing else said yet.')]),
+                // [journal] APPS ROUND (Your word): his open promises that name them, from MEMORY → YOUR WORD
+                ...promisesAbout(p.name, keepStore.get().items).map((w) => h('p.pknote.pppromise', { dataset: { case: 'keep' } }, `You said you’d ${w}.`)),
                 photoRow(p),
                 giftRow(p),
                 ...(p.phone ? [button(`Copy number ${p.phone}`, () => void copy(p.phone, 'the number'))] : []),
@@ -316,7 +320,47 @@ function whoSheet(): HTMLElement {
   what.addEventListener('keydown', (e) => e.key === 'Enter' && void add());
   const addBtn = button('Keep it', () => void add(), 'on');
   addBtn.setAttribute('aria-label', 'Keep what I said about them');
-  const el = h('div.pkcol', find, list, h('div.pkadd', name, what, addBtn), status, phrases(['who\'s who', 'Sam is my cousin']));
+  // [journal] APPS ROUND (Your people: vCard import and export, features/people/vcard.ts): his contacts file read on the phone and kept
+  // on his brain through the pack's own words; everyone written out as one .vcf for the phone's Contacts
+  const vcfIn = h('input', { type: 'file', accept: '.vcf,text/vcard,text/x-vcard', hidden: true }) as HTMLInputElement;
+  vcfIn.addEventListener('change', async () => {
+    const f = vcfIn.files?.[0];
+    vcfIn.value = '';
+    if (!f) return;
+    const V = await import('./vcard');
+    const cards = V.parseVcf(await f.text());
+    if (!cards.length) return stateIn(status, 'error', 'I found no contacts with a name in that file. Export a .vcf from your Contacts and try again.');
+    let n = 0;
+    for (const c of cards) {
+      stateIn(status, '', `Keeping ${c.name} (${n + 1} of ${cards.length})…`);
+      for (const s of V.cardSays(c)) {
+        const r = await say(s.action, s.args);
+        if (r.failed) {
+          stateIn(status, r.offline ? 'offline' : 'error', `${troubleWords(!!r.offline)} ${n} of ${cards.length} kept; import the file again to carry on.`);
+          return void load();
+        }
+      }
+      n++;
+    }
+    stateIn(status, '', `Kept ${n} ${n === 1 ? 'person' : 'people'} from your contacts. Only on your brain; nothing is looked up about anyone.`);
+    await load();
+  });
+  const importBtn = button('Import contacts', () => vcfIn.click());
+  importBtn.setAttribute('aria-label', 'Import contacts from a vCard file');
+  const exportBtn = button('Export all', async () => {
+    if (!peopleState.people.length) return stateIn(status, '', 'No one to export yet.');
+    const V = await import('./vcard');
+    const file = new File([V.writeVcf(peopleState.people)], 'my-people.vcf', { type: 'text/vcard' });
+    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+    if (nav.canShare?.({ files: [file] })) return void nav.share({ files: [file], title: 'My people' }).catch(() => undefined);
+    const a = h('a', { href: URL.createObjectURL(file), download: file.name }) as HTMLAnchorElement;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    stateIn(status, '', `Saved my-people.vcf with ${peopleState.people.length} ${peopleState.people.length === 1 ? 'person' : 'people'}; open it to add them to Contacts.`);
+  });
+  exportBtn.setAttribute('aria-label', 'Export everyone as a vCard file');
+  const el = h('div.pkcol', find, list, h('div.pkadd', name, what, addBtn), h('div.pkrow.ppvcf', importBtn, exportBtn, vcfIn), status, phrases(['who\'s who', 'Sam is my cousin']));
   void load();
   return el;
 }
