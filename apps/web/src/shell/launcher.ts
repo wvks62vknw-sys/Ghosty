@@ -141,6 +141,26 @@ export function buildLauncher(): Launcher {
   const hits = h('section.dkhits');
   const groups = h('div.dkgroups');
   const none = h('p.dknone', 'Nothing here by that name. Press return and I’ll answer it.');
+  // [recall] YOUR THINGS (memory lane, memory.s2/u10): three words or more also search his own things on this phone (features/memory/recall.ts)
+  const mine = h('section.dkhits.dkmine', { hidden: true, dataset: { case: 'keep' } });
+  let mineTimer: ReturnType<typeof setTimeout> | undefined;
+  const findMine = (raw: string) => {
+    clearTimeout(mineTimer);
+    const q = raw.trim();
+    if (q.split(/\s+/).length < 3 || q.length < 8) {
+      mine.hidden = true;
+      return;
+    }
+    mineTimer = setTimeout(() => void import('../features/memory/recall').then(async (r) => {
+      if (!(await r.recallWarm()) || input.value.trim() !== q) return;
+      const got = (await r.findLocal(q, { k: 4 })).filter((f) => input.value.trim() === q);
+      const { openFound } = await import('../features/memory/recallcard');
+      mine.hidden = !got.length;
+      clear(mine, ...(got.length ? [h('small.dkk', 'Your things'), h('div.dkhitrows', ...got.map((f) =>
+        h('button.dkrow.dkhit', { type: 'button', dataset: { kind: f.kind, case: 'keep' }, onclick: () => { close(true); void openFound(f); } },
+          h('span', f.line.slice(0, 90), h('small', f.kind === 'turn' ? f.stamp : `${r.KIND_WORD[f.kind]} · ${f.title}`)))))] : []));
+    }).catch(() => undefined), 220);
+  };
   // EVERY SCREEN as the Machine's inventory (BRIEF-SHELL-2; deck.png), in The Scan: the stamp line, the name and its way back, then FAVOURITES,
   // RECENT and each room's things with their numbers and one true line; the cards above are Glass's (the CSS shows one set)
   const stamp = stampLine(() => stampFacts(lookingAt(screenContext())));
@@ -157,6 +177,7 @@ export function buildLauncher(): Launcher {
     ),
     tryBox,
     hits,
+    mine,
     groups,
     none,
   );
@@ -401,6 +422,7 @@ export function buildLauncher(): Launcher {
     deckState.shown = [...show];
   };
   input.addEventListener('input', filter);
+  input.addEventListener('input', () => findMine(input.value));
   pill.addEventListener('submit', (e) => {
     e.preventDefault();
     const text = input.value.trim();

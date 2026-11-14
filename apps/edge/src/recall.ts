@@ -28,7 +28,8 @@ export async function loadGists(storage: DurableObjectStorage): Promise<Gist[]> 
 
 /** The gists within their 30 days and their bounds (the oldest go first). */
 export function boundGists(list: Gist[], now: number): Gist[] {
-  let out = list.filter((g) => g.at >= now - RECALL_DAYS * DAY).sort((a, b) => a.at - b.at).slice(-MAX_GISTS);
+  // (a pinned turn stays past the 30 days: memory.u11)
+  let out = list.filter((g) => g.pinned || g.at >= now - RECALL_DAYS * DAY).sort((a, b) => a.at - b.at).slice(-MAX_GISTS);
   while (out.length > 1 && JSON.stringify(out).length > MAX_BYTES) out = out.slice(Math.ceil(out.length / 10));
   return out;
 }
@@ -47,7 +48,9 @@ function withAnswers(list: Gist[], turns: ChatTurn[]): boolean {
   let changed = false;
   for (const g of list) {
     if (g.a !== undefined) continue;
-    const i = turns.findIndex((t) => t.role === 'user' && Math.abs(t.at - g.at) < 5000);
+    // (the same moment AND the same words: two messages a second apart are never mixed up)
+    const head = g.q.replace(/…$/, '').slice(0, 40).toLowerCase();
+    const i = turns.findIndex((t) => t.role === 'user' && Math.abs(t.at - g.at) < 5000 && t.text.replace(/\s+/g, ' ').trim().toLowerCase().startsWith(head));
     if (i < 0) continue;
     const r = turns.slice(i + 1).find((t) => t.role === 'assistant' || t.role === 'user');
     if (!r || r.role !== 'assistant' || r.at - g.at > 10 * 60_000) continue;
@@ -100,6 +103,17 @@ export async function forgetGist(storage: DurableObjectStorage, at: number): Pro
   const g = list.filter((x) => Math.abs(x.at - at) <= 120_000).sort((a, b) => Math.abs(a.at - at) - Math.abs(b.at - at))[0];
   if (!g) return null;
   await storage.put(GISTS_KEY, list.filter((x) => x !== g));
+  return g;
+}
+
+/** [recall] memory.u11: PIN or UNPIN a turn (the nearest gist within two minutes of the time the asker knows). The gist, or null. */
+export async function pinGist(storage: DurableObjectStorage, at: number, pinned: boolean): Promise<Gist | null> {
+  const list = await loadGists(storage);
+  const g = list.filter((x) => Math.abs(x.at - at) <= 120_000).sort((a, b) => Math.abs(a.at - at) - Math.abs(b.at - at))[0];
+  if (!g) return null;
+  if (pinned) g.pinned = true;
+  else delete g.pinned;
+  await storage.put(GISTS_KEY, list);
   return g;
 }
 

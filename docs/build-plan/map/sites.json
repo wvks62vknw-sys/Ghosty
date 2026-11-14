@@ -1,0 +1,347 @@
+{
+  "lane": "sites (his sites and everything that publishes)",
+  "features": [
+    {
+      "name": "Build a whole website for a business, event or person",
+      "where": "Ask in the chat (Talk to me); progress in MAKE → WORKSHOP → PROJECTS",
+      "say": [
+        "Build a website for my friend's barber shop in Walsall",
+        "Make a site for my football team",
+        "Make me an online CV"
+      ],
+      "does": "Plans the pages, finds free credited photos, writes the words, checks and critiques it, then publishes it at its own free link",
+      "status": "works",
+      "note": "Anything I had to guess (hours, prices) keeps it as a private draft until you confirm the list. Forms work only through your own free Formspree address, or open WhatsApp/email"
+    },
+    {
+      "name": "Confirm a draft website and put it live",
+      "where": "Chat, after the build report",
+      "say": [
+        "Publish my draft website",
+        "Yes, those hours are right, put it live"
+      ],
+      "does": "Puts the draft live once you confirm what I assumed, behind APPROVE",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Make a mini-app for the Home Screen",
+      "where": "Chat",
+      "say": [
+        "Make me a water tracker app",
+        "Make a tip calculator for the group",
+        "Make me flash cards for French verbs"
+      ],
+      "does": "Builds a tracker, list, timer, calculator, counter, habit grid, notes pad, flash cards or a small game; it installs from its link, saves on the phone and works offline",
+      "status": "works",
+      "note": "Nine kinds only. No live data, no syncing between phones, no reminders"
+    },
+    {
+      "name": "Put a studio game on your sites",
+      "where": "MAKE → GAME STUDIO → a game → AS AN APP → PUT IT ON MY SITES, or the chat",
+      "say": [
+        "Put Fox Run on my sites",
+        "Put my game on my sites"
+      ],
+      "does": "Your game as its own page: installs on a Home Screen, plays offline, keeps its saves; live only after APPROVE, every time",
+      "status": "works",
+      "note": "The game must be open in the studio when you ask"
+    },
+    {
+      "name": "Rebuild a website, better",
+      "where": "Chat",
+      "say": [
+        "Rebuild this site but better: https://example.com",
+        "How is this website made?"
+      ],
+      "does": "Studies a site's layout, words, colours and scripts, then writes a faster phone-first version and publishes it, labelled as not the official site",
+      "status": "works",
+      "note": "The copy is a look-alike only: no logins, carts or real forms"
+    },
+    {
+      "name": "Put a page online",
+      "where": "Chat",
+      "say": [
+        "Make a page for my party and put it online",
+        "Make me a menu page"
+      ],
+      "does": "Publishes one page I write at a free link the moment you tap APPROVE, after a quality check",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Long pages in parts",
+      "where": "Chat (happens on its own)",
+      "say": [
+        "Make a long guide to every café in my town and put it online"
+      ],
+      "does": "Builds a big page in pieces and publishes it as one, up to 400 KB",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Check a page before it goes up",
+      "where": "Chat",
+      "say": [
+        "Check the page you made me",
+        "Is my site broken anywhere?"
+      ],
+      "does": "Lists broken tags, script errors and missing basics, line by line; a page with errors is never published",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "The pages I put online",
+      "where": "MAKE → WORKSHOP → PUBLISHED PAGES, or the chat",
+      "say": [
+        "What have you published?",
+        "Give me the link to my CV again"
+      ],
+      "does": "Every page, app and game with its link, size and date; open or take down from there",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Take a page down",
+      "where": "WORKSHOP → PUBLISHED PAGES, or the chat",
+      "say": [
+        "Take my party page down",
+        "Take fox-run down"
+      ],
+      "does": "The link stops working for everyone; an installed app or game forgets itself",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Little games and tools in the chat (widgets)",
+      "where": "Chat; MAKE → WORKSHOP → WIDGETS",
+      "say": [
+        "Make me a little snake game",
+        "Make me a pomodoro timer"
+      ],
+      "does": "A sealed little game or tool that runs right in the chat",
+      "status": "works",
+      "note": "Lives in the chat only: not on your sites, not installable"
+    },
+    {
+      "name": "Remove a widget",
+      "where": "WORKSHOP → WIDGETS, or the chat",
+      "say": [
+        "Delete the snake game"
+      ],
+      "does": "Removes a widget you no longer want",
+      "status": "works",
+      "note": "Cannot be undone"
+    },
+    {
+      "name": "Build projects you can follow",
+      "where": "MAKE → WORKSHOP → PROJECTS",
+      "say": [
+        "How's my website build going?",
+        "Carry on",
+        "Pause the project"
+      ],
+      "does": "Each website or app build shows its steps, what is running now and the report; RESUME or RUN NEXT NOW if it stopped",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Export a game as one file",
+      "where": "MAKE → GAME STUDIO → a game → AS AN APP → Export",
+      "say": [
+        "(tap only)"
+      ],
+      "does": "One self-contained page kept in the studio's library, to save as a file",
+      "status": "works",
+      "note": "Not reachable by voice"
+    },
+    {
+      "name": "Link previews",
+      "where": "Automatic on every published page",
+      "say": [
+        "(automatic)"
+      ],
+      "does": "Pages carry a title, description and picture, so a shared link shows a proper card",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Pages stay up when the brain's database is paused",
+      "where": "Automatic",
+      "say": [
+        "(automatic)"
+      ],
+      "does": "Published pages, apps and games are kept in a second free store and served without the brain",
+      "status": "works",
+      "note": ""
+    }
+  ],
+  "upward": [
+    {
+      "idea": "A real editor for his sites: change any word, photo or price on a live page by tapping it or saying it, shown as a marked change he accepts",
+      "why": "Today a change means asking for a rebuild; this makes his sites his to tend",
+      "builds_on": "the website builder's blocks and the editors' accept/reject proposals",
+      "effort": "M"
+    },
+    {
+      "idea": "Version history and one-tap UNDO for every published page",
+      "why": "A bad update can be rolled back in seconds",
+      "builds_on": "the store of his published pages",
+      "effort": "S"
+    },
+    {
+      "idea": "A private, cookie-free visitor count on each page (views per day, no tracking of who)",
+      "why": "He sees whether his site is used, without spying on anyone",
+      "builds_on": "the server that shows his pages, and its free storage",
+      "effort": "M"
+    },
+    {
+      "idea": "Tidier links: short names, a QR code on every page card, and his own domain only if he already owns one (nothing bought)",
+      "why": "Easier to share on a poster, a van or a business card",
+      "builds_on": "the list of his pages and the phone's QR maker",
+      "effort": "S"
+    },
+    {
+      "idea": "More website kinds and multi-language pages (Urdu, Polish, Arabic…) from one request",
+      "why": "Fits the businesses and people around him",
+      "builds_on": "the website templates and the translation he already has",
+      "effort": "M"
+    },
+    {
+      "idea": "Mini-apps that can be edited after they are made (add a habit, change a goal) by voice",
+      "why": "Today an app is fixed once built",
+      "builds_on": "the mini-app kit and its settings",
+      "effort": "S"
+    },
+    {
+      "idea": "More mini-app kinds: a workout log, a reading list, a recipe box, a packing list, a shared-scoreboard style score sheet",
+      "why": "More of his everyday needs as apps on his Home Screen",
+      "builds_on": "the mini-app kit's nine kinds",
+      "effort": "M"
+    },
+    {
+      "idea": "A home page for all his sites, opt-in, listing only the pages he chooses",
+      "why": "One link to give people",
+      "builds_on": "the published-pages list",
+      "effort": "S"
+    },
+    {
+      "idea": "Accessibility and speed report card on each page, re-run weekly with fixes proposed",
+      "why": "Keeps his pages specialist-grade over time",
+      "builds_on": "the page check and the website quality checks",
+      "effort": "S"
+    },
+    {
+      "idea": "Game pages with a scoreboard kept on the player's phone and a share card of a high score",
+      "why": "Makes his games feel finished and shareable",
+      "builds_on": "the game page's own saves",
+      "effort": "S"
+    },
+    {
+      "idea": "A gallery page for a published game: its rooms as pictures, how to play, the maker's note",
+      "why": "A proper landing page instead of straight into the game",
+      "builds_on": "the studio's room drawings and icon",
+      "effort": "S"
+    },
+    {
+      "idea": "Photo choice he controls: pick from his own photos for a site, kept credited and resized on the phone",
+      "why": "His real business in the pictures, nothing stock",
+      "builds_on": "the website builder's picture step and the photo editor",
+      "effort": "M"
+    }
+  ],
+  "sideways": [
+    {
+      "idea": "Event pages with RSVPs that open WhatsApp or email to him, and add-to-calendar buttons",
+      "why": "Parties and club nights without a sign-up site",
+      "builds_on": "the website builder's forms and the agenda",
+      "effort": "S"
+    },
+    {
+      "idea": "A printable poster and flyer for any page, with its QR code",
+      "why": "The same site, on paper, at once",
+      "builds_on": "the page builder and DOCS/SLIDES export",
+      "effort": "S"
+    },
+    {
+      "idea": "Slides published as a page: a deck at its own link that plays on any phone",
+      "why": "Share a talk without sending a file",
+      "builds_on": "PRESENTATIONS and the publishing route",
+      "effort": "M"
+    },
+    {
+      "idea": "A written document or report published as a clean read-only page",
+      "why": "Share a guide or letter as a link",
+      "builds_on": "DOCS and putting a page online",
+      "effort": "S"
+    },
+    {
+      "idea": "A comic he made, published as a swipeable reader page that installs and works offline",
+      "why": "His comics read anywhere",
+      "builds_on": "the COMIC editor and the game page's installable route",
+      "effort": "M"
+    },
+    {
+      "idea": "A menu or price list page that updates when he edits a sheet",
+      "why": "One source of truth for a café or a trade",
+      "builds_on": "SHEETS and the website blocks",
+      "effort": "M"
+    },
+    {
+      "idea": "A portfolio page made from his own photos and videos",
+      "why": "A clean showcase in one request",
+      "builds_on": "the photo and video editors and the website builder",
+      "effort": "S"
+    },
+    {
+      "idea": "Mini-apps made from a sheet: a table becomes a list or tracker app",
+      "why": "Turns his own data into a phone app",
+      "builds_on": "SHEETS and the mini-app kit",
+      "effort": "M"
+    },
+    {
+      "idea": "A link-in-bio page for his social accounts, posts shown only after APPROVE",
+      "why": "One public link for everything he shares",
+      "builds_on": "the social screen and the sites route",
+      "effort": "S"
+    },
+    {
+      "idea": "Workshop apps as installable pages: a tool he built in the Workshop published like a mini-app",
+      "why": "Use his own tools away from Ghosty",
+      "builds_on": "the widgets and the game page's installable route",
+      "effort": "M"
+    }
+  ],
+  "cross": [
+    {
+      "idea": "A business site whose opening hours and closures come from his agenda",
+      "with": "plan",
+      "why": "No double typing; the site is never wrong about when he is open"
+    },
+    {
+      "idea": "Learn: flash-card decks from his studies published as an installable mini-app",
+      "with": "learn",
+      "why": "Revise on the bus, offline"
+    },
+    {
+      "idea": "A garden or home project page made from the Workspace with its photos",
+      "with": "editors",
+      "why": "Share progress with family by link"
+    },
+    {
+      "idea": "A walking or running route page from his own saved places (never live location)",
+      "with": "see",
+      "why": "Share a route without sharing where he is"
+    },
+    {
+      "idea": "A recipe page or box from the Kitchen with timers inside",
+      "with": "body and kitchen",
+      "why": "Recipes he can cook from on any phone"
+    },
+    {
+      "idea": "Boot or brand look: his sites wear one of Ghosty's seven looks, or a look matched to his business",
+      "with": "system and settings",
+      "why": "Every page he publishes looks like his own"
+    }
+  ]
+}

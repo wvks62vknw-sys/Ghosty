@@ -1,0 +1,529 @@
+{
+  "lane": "SYSTEM AND SETTINGS (POLISH 3): System, Settings, Me, THE LOOK",
+  "features": [
+    {
+      "name": "System: the honest line",
+      "where": "ME → SYSTEM (top)",
+      "say": [
+        "is everything working?",
+        "system status",
+        "how are you running?"
+      ],
+      "does": "One line at the top: WORKING, or exactly what is not, with the time it was checked.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Keys",
+      "where": "ME → SYSTEM → Status → KEYS",
+      "say": [
+        "what keys do I need?",
+        "add my Gemini key",
+        "which keys are missing?"
+      ],
+      "does": "Shows the two keys you need and the optional ones, each with HOW TO GET IT steps; keys are locked away and never shown again.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "AI models and AI room",
+      "where": "ME → SYSTEM → Status → AI MODELS / AI ROOM",
+      "say": [
+        "which brain are you using?",
+        "how much free room is left today?"
+      ],
+      "does": "Which free brains are connected, and how much of today's free allowance is left, with units and the time.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Storage",
+      "where": "ME → SYSTEM → Status → STORAGE",
+      "say": [
+        "how much space are you using?",
+        "what's taking up room?"
+      ],
+      "does": "What the phone and the brain are storing, the biggest things named in words, with sizes.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Health",
+      "where": "ME → SYSTEM → Health",
+      "say": [
+        "run a health check",
+        "is anything broken?",
+        "that felt off"
+      ],
+      "does": "Every ability with a works/does-not mark, the brain's jobs and feeds with their last run, the keys you have and the ones still missing, and anything you said felt off.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Report card and foresight",
+      "where": "ME → SYSTEM → Report card",
+      "say": [
+        "how right have your predictions been?",
+        "show the report card"
+      ],
+      "does": "What I expected (rain, a late train, your commute) scored against what really happened, as a percentage with a count.",
+      "status": "works",
+      "note": "The commute needs the free TomTom key."
+    },
+    {
+      "name": "Independence meter and Sovereign mode",
+      "where": "ME → SYSTEM → Report card → INDEPENDENCE",
+      "say": [
+        "how independent are you?",
+        "how much stayed on the phone this week?"
+      ],
+      "does": "How much of what you asked was answered on your own brains over 7 and 30 days, week by week, and what Sovereign mode (cloud off) would stop.",
+      "status": "works",
+      "note": "Telegram questions are not counted yet."
+    },
+    {
+      "name": "Offline brain training (self-training)",
+      "where": "ME → SYSTEM → Training",
+      "say": [
+        "train now",
+        "how did this week's training go?",
+        "roll back the offline brain"
+      ],
+      "does": "Each week I train the small phone brain for free on Kaggle and keep it only if it tests better; TRAIN NOW, ROLLBACK, and a plain report of what changed.",
+      "status": "partial",
+      "note": "Needs your free Kaggle and Hugging Face keys; until a week has really finished on Kaggle it says it has not been tried for real."
+    },
+    {
+      "name": "Daily GPU, loops and night school",
+      "where": "ME → SYSTEM → Training",
+      "say": [
+        "use the daily GPU",
+        "what did you learn overnight?"
+      ],
+      "does": "Optional extra free practice each day and overnight, each asked for first and reported in plain words.",
+      "status": "partial",
+      "note": "Depends on the same free keys; off until you allow it."
+    },
+    {
+      "name": "Phone hardware card",
+      "where": "ME → SYSTEM → Status (phone card)",
+      "say": [
+        "how fast is my phone?",
+        "measure the brain"
+      ],
+      "does": "Reads the screen's refresh rate, memory and graphics, and times the offline brain on your phone.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Backup and restore",
+      "where": "ME → SYSTEM → Backup",
+      "say": [
+        "back up now",
+        "restore my backup",
+        "when did you last back up?"
+      ],
+      "does": "Once a day, a locked copy of what lives only on this phone (courses, plans, documents, photo edits, video projects, settings), its size said before you tap; RESTORE puts back whatever is newer.",
+      "status": "works",
+      "note": "The photos and clips themselves stay on the phone; faces and voices are never backed up."
+    },
+    {
+      "name": "Reboot and forget owner key",
+      "where": "ME → SYSTEM → Status",
+      "say": [
+        "restart yourself",
+        "forget the owner key on this phone"
+      ],
+      "does": "Restarts Ghosty, or makes this phone forget its key, each with a confirm first.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Theme: seven looks, twelve colours",
+      "where": "ME → SETTINGS → Appearance → THEME",
+      "say": [
+        "make it red",
+        "switch to the ink look",
+        "glow off"
+      ],
+      "does": "Changes the whole look (scan, map, eye, orbit, grown, ink, glass) and the colour, by tap or by plain colour words.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "THE LOOK",
+      "where": "ME → SETTINGS → THE LOOK",
+      "say": [
+        "show me the look",
+        "how do you draw things?"
+      ],
+      "does": "How I draw everything: the colours and their jobs, the type, the marks (tap one to see it work), my orb, and the themes, grounds and switches.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Reading",
+      "where": "ME → SETTINGS → Appearance → READING",
+      "say": [
+        "make the text bigger",
+        "read my books in your voice"
+      ],
+      "does": "Text size up to the biggest (BODY 21), how a book is shown, and who reads it aloud.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Name and units",
+      "where": "ME → SETTINGS → You → NAME & UNITS",
+      "say": [
+        "call me Boss",
+        "use miles",
+        "my home is Birmingham"
+      ],
+      "does": "What I call you, metric or imperial, and where home is.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Permissions",
+      "where": "ME → SETTINGS → You → PERMISSIONS",
+      "say": [
+        "what can you use on my phone?",
+        "why do you need the microphone?"
+      ],
+      "does": "Each phone permission, what I use it for, and what I never do with it.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Character",
+      "where": "ME → SETTINGS → You → CHARACTER",
+      "say": [
+        "be drier",
+        "shorter answers",
+        "be warmer"
+      ],
+      "does": "Dials for how dry, warm, firm and brief I am, saved to the brain so the app, voice, Telegram and notices all sound the same.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Principles",
+      "where": "ME → SETTINGS → You → CHARACTER (lines I hold to)",
+      "say": [
+        "add a principle",
+        "always tell me when you're unsure"
+      ],
+      "does": "Lines in your own words that I hold to.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Guardian",
+      "where": "ME → SETTINGS → You → GUARDIAN",
+      "say": [
+        "walk me home",
+        "is this a scam?"
+      ],
+      "does": "Watches near your places, WALK ME HOME, the panic phrase and scam checks; your position goes with a walk message only if you switch that on.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Voice and home",
+      "where": "ME → SETTINGS → Voice & home",
+      "say": [
+        "stop when I talk over you",
+        "turn sounds off"
+      ],
+      "does": "How I speak, whether you can talk over me, interface sounds and the Home screen.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "My voice and people I know",
+      "where": "ME → SETTINGS → Voice & home → MY VOICE / PEOPLE I KNOW",
+      "say": [
+        "learn my voice",
+        "introduce my brother"
+      ],
+      "does": "I learn your voice and the people you introduce, kept on this phone only; it helps me know it is you but is never a lock.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Voice model",
+      "where": "ME → SETTINGS → Voice & home → VOICE MODEL",
+      "say": [
+        "get the voice model"
+      ],
+      "does": "A small free download (41 MB, on Wi-Fi, on your tap) that tells voices apart better.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Faces",
+      "where": "ME → SETTINGS → About → PRIVACY (faces)",
+      "say": [
+        "forget my face",
+        "who do you know?"
+      ],
+      "does": "Your face and those you introduce, kept on the phone, with UNDO; a stranger is never identified.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Offline brain",
+      "where": "ME → SETTINGS → Ghosty → OFFLINE",
+      "say": [
+        "download the offline brain",
+        "answer on the phone only",
+        "test the offline brain"
+      ],
+      "does": "Pick and download a phone brain (0.6B to 4B), its size and memory said, when the phone answers, TEST after it loads.",
+      "status": "works",
+      "note": "Whether a bigger one fits is only known by trying on the phone."
+    },
+    {
+      "name": "Search by meaning",
+      "where": "ME → SETTINGS → Ghosty → OFFLINE (meaning)",
+      "say": [
+        "search my library by meaning"
+      ],
+      "does": "A 70 MB download that lets the library and offline brain find passages by what they mean.",
+      "status": "works",
+      "note": "Reads English best."
+    },
+    {
+      "name": "Offline eyes and maps",
+      "where": "ME → SETTINGS → Ghosty → OFFLINE EYES / OFFLINE MAPS",
+      "say": [
+        "get the Lens eyes",
+        "download maps for offline"
+      ],
+      "does": "The Lens's on-phone models and offline map areas, each with size, licence and Wi-Fi.",
+      "status": "partial",
+      "note": "Only one size of the eyes for now: no larger free model with a clear licence yet."
+    },
+    {
+      "name": "Links, shortcuts, the wall, workspace",
+      "where": "ME → SETTINGS → Ghosty",
+      "say": [
+        "connect Spotify",
+        "make a Siri shortcut",
+        "put this on the TV"
+      ],
+      "does": "Connected services, Siri shortcut links, a screen of mine on a TV or second display, and the workspace.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "Share to Ghosty",
+      "where": "any app's Share sheet → Ghosty",
+      "say": [],
+      "does": "Files you share go to the library; words or a link land in my ask line, never sent by themselves.",
+      "status": "works",
+      "note": "Needs Ghosty installed to the Home Screen."
+    },
+    {
+      "name": "About, help and the origin page",
+      "where": "ME → SETTINGS → About / CHARACTER → origin",
+      "say": [
+        "who made you?",
+        "what's new?",
+        "help"
+      ],
+      "does": "Who made me, when I was born, what I am made of and my promises, What's New, and help.",
+      "status": "works",
+      "note": ""
+    },
+    {
+      "name": "One sentence a screen",
+      "where": "everywhere in Settings and System",
+      "say": [],
+      "does": "Every line is one sentence; the rest is behind a WHY right under it.",
+      "status": "works",
+      "note": ""
+    }
+  ],
+  "upward": [
+    {
+      "idea": "A daily health digest in the Brief",
+      "why": "One morning line saying everything worked overnight, or the one thing that did not, with a fix key",
+      "builds_on": "Health, the honest line, the Brief",
+      "effort": "S"
+    },
+    {
+      "idea": "Self-repair keys",
+      "why": "Where Health finds a known problem (a feed down, a key expired, storage nearly full), offer the exact fix in one tap instead of only naming it",
+      "builds_on": "Health, Keys, Storage",
+      "effort": "M"
+    },
+    {
+      "idea": "Training you can see learning",
+      "why": "A week-by-week chart of the offline brain's test scores per area, so you see it actually getting better",
+      "builds_on": "Training report, the report card's sparkline",
+      "effort": "S"
+    },
+    {
+      "idea": "Restore preview",
+      "why": "Before RESTORE, show exactly what would come back and what is newer here, item by item, with a choice per item",
+      "builds_on": "Backup and restore",
+      "effort": "M"
+    },
+    {
+      "idea": "Backup to your own file",
+      "why": "Export the locked backup as one file you keep (Files or iCloud Drive), so it never depends only on the brain",
+      "builds_on": "Backup's locked bundle",
+      "effort": "S"
+    },
+    {
+      "idea": "Theme from a photo",
+      "why": "Point the camera or pick a photo and I build a look from its colours, still checked for readability",
+      "builds_on": "THE LOOK's tokens and contrast floor, Theme",
+      "effort": "M"
+    },
+    {
+      "idea": "Schedules for looks",
+      "why": "Ink by day, a dark look after sunset, calm motion at night, automatically",
+      "builds_on": "Theme, switches, night grounds",
+      "effort": "S"
+    },
+    {
+      "idea": "Character that remembers context",
+      "why": "Terse at work hours, warmer in the evening, by your own rules",
+      "builds_on": "Character dials, Agenda times",
+      "effort": "M"
+    },
+    {
+      "idea": "Permissions audit timeline",
+      "why": "A plain log of every time the camera, microphone or position was actually used, and by which screen",
+      "builds_on": "Permissions page, the abilities register",
+      "effort": "M"
+    },
+    {
+      "idea": "Offline readiness score",
+      "why": "One number for how much works with no signal right now (brain, eyes, maps, meaning), with what to download next and its size",
+      "builds_on": "Independence meter, offline packs",
+      "effort": "S"
+    },
+    {
+      "idea": "Speed budget dashboard",
+      "why": "Show how fast each screen opens on this phone and flag any that got slower after an update",
+      "builds_on": "Phone hardware card, speed checks",
+      "effort": "M"
+    },
+    {
+      "idea": "Guided first week",
+      "why": "A short, skippable path that sets keys, voice, faces, backup and the offline brain in order, each with why",
+      "builds_on": "First run, Keys, My voice, Backup",
+      "effort": "M"
+    },
+    {
+      "idea": "Accessibility pass beyond text size",
+      "why": "Bold text, higher contrast, reduce transparency and VoiceOver hints as real switches, checked in all seven looks",
+      "builds_on": "Reading, THE LOOK's contrast floor",
+      "effort": "M"
+    }
+  ],
+  "sideways": [
+    {
+      "idea": "Battery and data saver",
+      "why": "A switch that pauses heavy work (training downloads, feeds) on low battery or mobile data and says what paused",
+      "builds_on": "Phone hardware card, the Wi-Fi rule",
+      "effort": "S"
+    },
+    {
+      "idea": "Privacy dashboard",
+      "why": "Everything I know about you in one place by kind (memory, faces, voices, places), with forget keys",
+      "builds_on": "Faces, My voice, Memory, Permissions",
+      "effort": "M"
+    },
+    {
+      "idea": "Export everything",
+      "why": "A complete copy of your data in open formats (documents, sheets, notes) whenever you want it",
+      "builds_on": "Backup, the editors' exporters",
+      "effort": "M"
+    },
+    {
+      "idea": "Second phone or iPad pairing",
+      "why": "Set up another device with a scan of a code, its own backups kept apart",
+      "builds_on": "Owner key, per-device backups",
+      "effort": "M"
+    },
+    {
+      "idea": "Quiet hours",
+      "why": "No spoken notices or pushes in hours you choose, urgent Guardian alerts still through",
+      "builds_on": "Voice & home, notifications, Guardian",
+      "effort": "S"
+    },
+    {
+      "idea": "Home Screen widgets designer",
+      "why": "Choose what the Home Screen and lock-screen shortcuts show, drawn from the same looks",
+      "builds_on": "Shortcuts, Theme",
+      "effort": "M"
+    },
+    {
+      "idea": "Voice commands cheat sheet",
+      "why": "Every screen's spoken phrases in one searchable page, tap to try",
+      "builds_on": "Each screen's phrase lists, abilities",
+      "effort": "S"
+    },
+    {
+      "idea": "What changed since you last looked",
+      "why": "After an update, a short tour of only the screens that changed",
+      "builds_on": "What's New, the origin page",
+      "effort": "S"
+    },
+    {
+      "idea": "Keys health",
+      "why": "Warn before a free allowance runs out or a key stops working, with the steps to renew",
+      "builds_on": "Keys, AI room",
+      "effort": "S"
+    },
+    {
+      "idea": "Family profiles on one phone",
+      "why": "Someone you introduced gets their own name and look, recognised by voice as a convenience only, never unlocking your things",
+      "builds_on": "People I know, My voice",
+      "effort": "L"
+    },
+    {
+      "idea": "Car and TV modes",
+      "why": "Big-text, voice-first layouts that switch on with CarPlay-like or TV connections",
+      "builds_on": "The wall, Reading, BODY 21",
+      "effort": "M"
+    }
+  ],
+  "cross": [
+    {
+      "idea": "Backup carries the comic studio's projects and the game studio's games",
+      "with": "COMIC / MAKE",
+      "why": "Your made things survive a lost phone like documents now do"
+    },
+    {
+      "idea": "Character dials shape Telegram and the radio's spoken links",
+      "with": "VOICE",
+      "why": "One voice everywhere, set in one place"
+    },
+    {
+      "idea": "Training learns from School and Gym results",
+      "with": "LEARN",
+      "why": "The offline brain gets better at exactly what you practise"
+    },
+    {
+      "idea": "Independence meter counts the Lens and Interpreter working offline",
+      "with": "LENS / LEARN",
+      "why": "A true picture of what works with no signal"
+    },
+    {
+      "idea": "Theme follows the boot film's colours and God's Eye's night mode",
+      "with": "BOOT / SEE",
+      "why": "The whole app feels like one designed thing"
+    },
+    {
+      "idea": "Health watches the money pack's price watchers and the Guardian's jobs",
+      "with": "MONEY / PLAN",
+      "why": "You hear early when a watch or alert stopped working"
+    }
+  ]
+}
