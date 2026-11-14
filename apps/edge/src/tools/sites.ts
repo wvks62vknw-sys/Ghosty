@@ -512,6 +512,7 @@ export const siteTools: Tool[] = [
         form_endpoint: { type: 'string', description: 'the owner\'s free Formspree form address (https://formspree.io/f/…), if given' },
         experience: { type: 'array', description: 'a CV: the jobs the owner gave, only', items: { type: 'object', properties: { when: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' } }, required: ['when', 'title'] } },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>' },
+        my_photos: { type: 'boolean', description: 'true when he asks for his own photos' },
         confirm: { type: 'boolean', description: 'true only to publish the draft waiting at link_name once the owner confirmed its list' },
       },
       required: ['request'],

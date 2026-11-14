@@ -26,6 +26,7 @@ import { draftCard } from './draftcard';
 import { draftedPanel } from './selfdraft';
 import { earlierWords, newCount, NOTHING_NEW, offlineWords, PROJECT_WORD, projectWords, PROJECTS_NONE, splitWeek } from './words';
 import { sayError } from '../../ui/hisWords';
+import { mountSitePhotos } from '../../sites/photos';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 /** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
@@ -391,6 +392,9 @@ export const workshopTab: TabDef = {
     const wp = panel('WIDGETS', { status: '' });
     // published pages (publish_site): every live link, to open, copy or take down
     const pp = panel('PUBLISHED PAGES', { status: '' });
+    // [sites] his own photos for the sites I build him (sites/photos.ts): resized and stripped on the phone
+    const php = panel('PHOTOS FOR YOUR SITES', { status: '' });
+    mountSitePhotos(php);
     // kernel
     const kp = panel('KERNEL LOCK', { grow: false });
     // WHAT'S NEW: this week's merges, once per build (state/whatsnew.ts), above everything else until GOT IT
@@ -512,14 +516,14 @@ export const workshopTab: TabDef = {
     tp.body.append(tStats, tNow, tLog);
     tp.foot!.append(tLevel, startBtn);
     // what he made first (his pages and apps, his widgets), then the versions; the coding practice and the lock last
-    P.right.append(pp.el, wp.el, vp.el, tp.el, kp.el);
+    P.right.append(pp.el, php.el, wp.el, vp.el, tp.el, kp.el);
     // Sections: what he asks for and the projects that run for days first, then the ideas and the roadmap, the changes
     // to ship or roll back (with the kernel lock), what he made (his pages and widgets) and the coding practice.
     sections(root, 'workshop', [
       { id: 'build', label: 'Build', match: /^(TELL GHOSTY|PROJECTS|THE LAB)/ },
       { id: 'ideas', label: 'Ideas', match: /^(UPGRADE|DRAFTED)/ },
       { id: 'changes', label: 'Changes', match: /^(PROPOSED|VERSIONS|KERNEL)/ },
-      { id: 'made', label: 'Made', match: /^(WIDGETS|PUBLISHED)/ },
+      { id: 'made', label: 'Made', match: /^(WIDGETS|PUBLISHED|PHOTOS FOR)/ },
       { id: 'training', label: 'Training', match: /^TRAINING/ },
     ]);
 
