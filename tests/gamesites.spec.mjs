@@ -183,6 +183,23 @@ for (const [W, size, animal] of [[440, PHONE, 'fox'], [390, { width: 390, height
   await game.reload({ waitUntil: 'load' }).catch(() => undefined);
   check(await until(game, () => [...document.querySelectorAll('.gpEnd button')].some((b) => b.textContent === 'Continue'), null, 10000), `${W}: (h) offline it opens, with CONTINUE`);
   await ctx.setOffline(false);
+
+  // (r) its high scores (NEXT ROUND sites.u10): kept on this phone under the game's own key, highest first, 44 pt keys, a picture to share
+  await game.evaluate((s) => localStorage.setItem(`ghosty-site:${s}:scores`, JSON.stringify([{ score: 120, won: false, at: Date.UTC(2026, 10, 12) }, { score: 470, won: true, at: Date.UTC(2026, 10, 13) }, { score: 60, won: false, at: Date.UTC(2026, 10, 14) }])), slug);
+  await game.reload({ waitUntil: 'load' });
+  check(await until(game, () => [...document.querySelectorAll('.gpEnd button')].some((b) => b.textContent === 'High scores'), null, 10000), `${W}: (r) the title card has HIGH SCORES once a score is kept`);
+  await game.evaluate(() => [...document.querySelectorAll('.gpEnd button')].find((b) => b.textContent === 'High scores')?.click());
+  const tableOf = await game.evaluate(() => ({ rows: [...document.querySelectorAll('.gpTop li b')].map((b) => Number(b.textContent)), note: document.querySelector('.gpScores p')?.textContent ?? '', keys: [...document.querySelectorAll('.gpScores button')].map((b) => [b.textContent, b.offsetHeight]), wide: document.documentElement.scrollWidth > innerWidth + 1 }));
+  check(JSON.stringify(tableOf.rows) === '[470,120,60]' && /this phone only/.test(tableOf.note), `${W}: (r) the table: highest first, kept on this phone only (${tableOf.rows.join(', ')})`);
+  check(tableOf.keys.length === 2 && tableOf.keys.every(([, hgt]) => hgt >= 44) && !tableOf.wide, `${W}: (r) SHARE MY BEST and BACK at 44 pt, nothing sideways (${JSON.stringify(tableOf.keys)})`);
+  const dl = game.waitForEvent('download', { timeout: 8000 }).catch(() => null);
+  await game.evaluate(() => [...document.querySelectorAll('.gpScores button')].find((b) => b.textContent === 'Share my best')?.click());
+  const shareSaid = (await until(game, () => /^(Shared|Not shared|Saved as a picture)\./.test(document.querySelector('.gpScores p')?.textContent ?? ''), null, 8000)) ? await game.evaluate(() => document.querySelector('.gpScores p').textContent) : '';
+  const got = /Saved as a picture/.test(String(shareSaid)) ? await dl : null;
+  const cardPng = got ? await (await import('node:fs/promises')).readFile(await got.path()) : null;
+  check(!!shareSaid && (!/Saved as a picture/.test(String(shareSaid)) || (cardPng?.[1] === 80 && cardPng.readUInt32BE(16) === 1080)), `${W}: (r) SHARE MY BEST hands over a 1080 px picture of the best score (${shareSaid}${cardPng ? `, ${cardPng.length} bytes` : ''})`);
+  await game.evaluate(() => [...document.querySelectorAll('.gpScores button')].find((b) => b.textContent === 'Back')?.click());
+  check(await until(game, () => [...document.querySelectorAll('.gpEnd button')].some((b) => b.textContent === 'Continue'), null, 5000), `${W}: (r) BACK returns to the title card`);
   check(gameErrors.length === 0, `${W}: (f) the page runs with no error and no policy refusal${gameErrors.length ? `: ${gameErrors[0]}` : ''}`);
   await game.close();
 

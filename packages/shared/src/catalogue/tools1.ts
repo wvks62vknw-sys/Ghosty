@@ -151,7 +151,7 @@ export const TOOLS_1: Record<string, CatValue> = {
   },
   'tool:publish_game': {
     name: 'Put your game on your sites', line: 'I can put a game you made in the Game Studio on your sites, as a page that installs on a Home Screen and plays offline.',
-    more: 'Open the game in the studio and ask, or tap PUT IT ON MY SITES there. I say where it goes before it goes live, and nothing goes up until you tap APPROVE, every time. Its saves stay on the phone that plays it. Its link opens on a front page first: its name, how to play, pictures of its rooms, a note from you if you give one, and PLAY.',
+    more: 'Open the game in the studio and ask, or tap PUT IT ON MY SITES there. I say where it goes before it goes live, and nothing goes up until you tap APPROVE, every time. Its saves stay on the phone that plays it. Its link opens on a front page first: its name, how to play, pictures of its rooms, a note from you if you give one, and PLAY. Each phone that plays keeps its own top-ten high scores, with a picture of the best to share.',
     say: ['Put Fox Run on my sites', 'Put my game on my sites'], scene: ['making'], cat: 'build', where: 'Game Studio → AS AN APP → PUT IT ON MY SITES, or ask me',
   },
   'tool:study_site': {

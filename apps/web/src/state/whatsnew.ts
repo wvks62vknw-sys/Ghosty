@@ -61,6 +61,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  // [sites] NEXT ROUND sites.u10
+  { day: '2026-11-14', title: 'High scores in your games', line: 'A game on your sites keeps a top-ten high-score table on each phone that plays it, no names and nothing sent, and SHARE MY BEST makes a picture of the best score to send.' },
   // [sites] NEXT ROUND sites.u11
   { day: '2026-11-14', title: 'A front page for your games', line: 'A game on your sites now opens on its own front page: its name, how to play, pictures of its rooms, a note from you if you give one, and a big PLAY. It shows once on each phone.' },
   // [sites] NEXT ROUND sites.s6

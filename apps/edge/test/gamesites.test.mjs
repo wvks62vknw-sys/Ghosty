@@ -244,3 +244,39 @@ test('a game\'s front page: its name, how to play, its rooms as pictures, his no
   assert.ok(r.headers.get('content-security-policy').includes(`style-src 'sha256-${sha(style)}'`), 'the one style, front page and all, pinned by its hash');
   assert.match(style, /--fsky:#[0-9a-f]{6}/i);
 });
+
+// NEXT ROUND sites.u10: a game's high-score table, kept on the phone that plays it (beside its saves, under its own key), no names,
+// nothing sent; the line under GAME OVER says where the run landed; the share card's words.
+test('a game\'s high scores: the top ten on the phone, highest first, where a run landed, and the share card\'s words', async () => {
+  await build({ entryPoints: ['../web/src/studio-game/scores.ts', '../web/src/studio-game/play.ts'], bundle: true, format: 'esm', platform: 'neutral', outdir: 'test/.build/gamesites/scores', logLevel: 'warning' });
+  const S = await import('./.build/gamesites/scores/scores.js');
+  const P = await import('./.build/gamesites/scores/play.js');
+  assert.equal(S.scoresKey('ghosty-site:fox-run'), 'ghosty-site:fox-run:scores', 'its own key, beside the saves');
+  assert.deepEqual(S.readScores(null), []);
+  assert.deepEqual(S.readScores('not json'), []);
+  assert.deepEqual(S.readScores(JSON.stringify([{ score: 'x' }, { score: 5, won: false, at: 1, name: 'Sam' }, null])), [{ score: 5, won: false, at: 1 }], 'only score rows are kept, and nothing else they carry');
+  let list = [];
+  const places = [];
+  for (let i = 0; i < 12; i++) {
+    const r = S.addScore(list, { score: (i * 37) % 100, won: i % 3 === 0, at: 1000 + i });
+    list = r.list;
+    places.push(r.place);
+  }
+  assert.equal(list.length, S.TOP, 'ten rows at most');
+  assert.ok(list.every((s, i) => i === 0 || list[i - 1].score >= s.score), 'highest first');
+  assert.equal(places[0], 1);
+  const low = S.addScore(list, { score: 0, won: false, at: 5000 });
+  assert.equal(low.place, 0, 'a run below the table does not make it');
+  assert.equal(low.list.length, 10);
+  const tie = S.addScore(list, { score: list[0].score, won: false, at: 9000 });
+  assert.equal(tie.place, 2, 'on a tie, the earlier one stays above');
+  const best = { score: 999, won: true, at: Date.UTC(2026, 10, 14, 12) };
+  const top = S.addScore(list, best);
+  assert.equal(top.place, 1);
+  assert.match(S.scoreLine(best, top.list, 1), /^Score 999: a new best!$/);
+  assert.match(S.scoreLine({ score: 3, won: false, at: 1 }, [{ score: 3, won: false, at: 1 }], 1), /your first on this phone/);
+  assert.match(S.scoreLine(low.list[4], low.list, 5), /number 5 on this phone\. Your best is \d+\./);
+  assert.deepEqual(S.cardWords('Fox Run', best), ['Fox Run', 'I finished it with', '999', 'points on 14 Nov 2026', 'Made in Ghosty’s game studio']);
+  // what a run scores: ten a coin, fifty a quest, two hundred for the end (the same sum the arcade's engine uses)
+  assert.equal(P.scoreOf({ coins: 7, quests: { a: { done: true }, b: { done: false } }, over: 'won' }), 70 + 50 + 200);
+});
