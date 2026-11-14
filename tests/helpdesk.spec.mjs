@@ -66,10 +66,14 @@ async function ask(page, words, re, ms = 15000) {
   };
   return page.waitForFunction(find, { t0, src: re.source }, { timeout: ms }).then((h) => h.jsonValue(), () => null);
 }
+/** The jump bar opened as his keyboard opens it (Ctrl+K works even with the chat box focused), and his words typed in it. */
+async function openJump(page) {
+  if (!(await page.locator('#palette.on').count())) await page.keyboard.press('Control+KeyK');
+  await page.waitForSelector('#palette.on input', { timeout: 5000 });
+}
 async function jumpFind(page, words) {
   await go(page, 'core');
-  await page.keyboard.press('/');
-  await page.waitForSelector('#palette.on input', { timeout: 5000 });
+  await openJump(page);
   await page.fill('#palette input', words);
 }
 
@@ -85,6 +89,14 @@ for (const viewport of [{ width: 440, height: 956 }, { width: 390, height: 844 }
   await jumpFind(page, 'set a timer for the pasta');
   await until(page, () => window.__ghosty?.jump?.sentence === 'kitchen', null, 5000, `[sentence ${W}] the bar did not find the Kitchen`);
   await page.keyboard.press('Escape');
+  // a sum, answered as he types; a lone number is still the room's thing, never a sum
+  await jumpFind(page, '15% of 80');
+  await until(page, () => window.__ghosty?.jump?.sum === '12' && !!document.querySelector('#palette .jsum'), null, 5000, `[sum ${W}] "15% of 80" is not 12 in the bar: ${await page.evaluate(() => JSON.stringify(window.__ghosty?.jump ?? null))}`);
+  await page.fill('#palette input', '12*7');
+  await until(page, () => window.__ghosty?.jump?.sum === '84', null, 5000, `[sum ${W}] "12*7" is not 84`);
+  await page.fill('#palette input', '2');
+  await until(page, () => !window.__ghosty?.jump?.sum, null, 5000, `[sum ${W}] a lone "2" was read as a sum`);
+  await page.keyboard.press('Escape');
   await jumpFind(page, 'rad');
   await until(page, () => /^radio/i.test(window.__ghosty?.jump?.found ?? '') && !window.__ghosty?.jump?.sentence, null, 5000, `[sentence ${W}] "rad" is no longer the Radio`);
   await page.keyboard.press('Escape');
@@ -92,10 +104,14 @@ for (const viewport of [{ width: 440, height: 956 }, { width: 390, height: 844 }
   // [how]
   const how = await ask(page, 'how do I paste a bank statement?', /Money/);
   check(!!how && /Life → Money/.test(how.text) && /statement/i.test(how.text), `[how ${W}] the reply reads "${how?.text}"`);
-  const tryIt = how?.keys.find((k) => /^try it$/i.test(k.t));
-  check(!!tryIt && tryIt.w >= 43.5 && tryIt.h >= 43.5, `[how ${W}] TRY IT is missing or under 44 pt: ${JSON.stringify(how?.keys)}`);
+  // (measured with the conversation open: on a phone it sits behind its own button)
+  await page.evaluate(() => { const hud = document.querySelector('#pg-core .hud.core'); if (hud && !hud.classList.contains('logopen')) document.querySelector('.logbtn')?.click(); });
+  await page.waitForFunction(() => { const b = [...document.querySelectorAll('#pg-core .msg:not(.me) button')].filter((x) => /^try it$/i.test(x.textContent.trim())).pop(); return !!b && b.getBoundingClientRect().height > 0; }, null, { timeout: 5000 }).catch(() => undefined);
+  const tryIt = await page.evaluate(() => { const b = [...document.querySelectorAll('#pg-core .msg:not(.me) button')].filter((x) => /^try it$/i.test(x.textContent.trim())).pop(); if (!b) return null; b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); return { w: r.width, h: r.height }; });
+  check(!!tryIt && tryIt.w >= 43.5 && tryIt.h >= 43.5, `[how ${W}] TRY IT is missing or under 44 pt: ${JSON.stringify(tryIt)}`);
   if (tryIt) {
-    await page.locator('#pg-core .msg:not(.me) button', { hasText: /^try it$/i }).last().click();
+    // (on a phone the conversation sits behind its own button: the key is pressed where it is drawn)
+    await page.locator('#pg-core .msg:not(.me) button', { hasText: /^try it$/i }).last().evaluate((b) => b.click());
     await until(page, () => document.body.dataset.tab === 'money', null, 8000, `[how ${W}] TRY IT did not open Money`);
   }
   const door = await ask(page, 'how do I fix a squeaky door?', /\S/, 15000);
@@ -103,13 +119,25 @@ for (const viewport of [{ width: 440, height: 956 }, { width: 390, height: 844 }
 
   // [say] asked from the Kitchen (the jump bar's "Or ask me": the question goes to Home, the Kitchen is what "here" means)
   await go(page, 'kitchen');
-  await page.keyboard.press('/');
-  await page.waitForSelector('#palette.on input', { timeout: 5000 });
+  await openJump(page);
   await page.fill('#palette input', 'what can I say here?');
   await page.waitForSelector('#palette .jask', { timeout: 5000 });
   await page.click('#palette .jask');
   const said = await page.waitForFunction(() => [...document.querySelectorAll('#pg-core .msg:not(.me)')].map((m) => m.textContent ?? '').find((x) => /On Kitchen you can say/.test(x)) ?? null, null, { timeout: 10000 }).then((h) => h.jsonValue(), () => null);
   check(!!said && /“/.test(said), `[say ${W}] "what can I say here?" from the Kitchen read "${said}"`);
+
+  // [tour] "show me around": the rooms in a reply, each a key, then the walk through them and back to Home (only at 440: it takes
+  // half a minute); a new word stops it
+  if (W === 440) {
+    const tour = await ask(page, 'show me around', /room by room/);
+    check(!!tour && ['Home', 'See', 'Make', 'Learn', 'Plan', 'Life', 'Me'].every((r) => tour.text.includes(`${r}:`)) && /Try:/.test(tour.text), `[tour] the reply reads "${tour?.text?.slice(0, 300)}"`);
+    check((tour?.keys ?? []).filter((k) => /^(Home|See|Make|Learn|Plan|Life|Me)$/.test(k.t)).length === 7, `[tour] the reply's room keys: ${JSON.stringify(tour?.keys?.map((k) => k.t))}`);
+    await until(page, () => (window.__ghosty?.tour?.shown ?? []).length >= 2, null, 15000, '[tour] the walk did not go through the rooms');
+    await until(page, () => document.body.dataset.tab?.startsWith('area-'), null, 5000, '[tour] no room is on screen during the walk');
+    await ask(page, 'thanks', /\S/, 15000);
+    const at = await page.evaluate(() => ({ ...window.__ghosty?.tour }));
+    check(at.stopped === true && at.done !== true, `[tour] a new word did not stop it: ${JSON.stringify(at)}`);
+  }
 
   // [timer] the Brief's TIMER line
   await page.evaluate(() => {

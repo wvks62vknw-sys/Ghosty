@@ -15,7 +15,7 @@ import { grownOn, houseOn, openThing } from './house';
 import { DECK } from './deckcopy';
 import { ROOMS, roomOf, thingOf } from './rooms';
 import { nearestRoom } from './near';
-import { screenForSentence } from './sentence';
+import { screenForSentence, sumOf } from './sentence';
 import { roomWord, thingForNumber, worksLine } from './inventory';
 import { ui } from '../state/app';
 import { allCommands, jumpOpen, togglePalette, type Command, type JumpCtx } from '../commands/registry';
@@ -26,7 +26,7 @@ const STAR = '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9
 const CLOCK = '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>';
 
 /** What the jump bar shows, for specs (window.__ghosty.jump). */
-export const jumpState = { open: false, found: '', checked: '', locks: 0, listening: false, sentence: '' };
+export const jumpState = { open: false, found: '', checked: '', locks: 0, listening: false, sentence: '', sum: '' };
 
 let root: HTMLElement | null = null;
 let slot: HTMLElement | null = null;
@@ -117,6 +117,23 @@ function draw(ctx: JumpCtx): number {
     jumpState.checked = '';
     clear(root, ...out);
     return 0;
+  }
+  // [consistency] a sum ("12*7", "15% of 80") is answered here as he types, with COPY; Enter still asks me
+  const sum = sumOf(q);
+  jumpState.sum = '';
+  if (sum !== null) {
+    release(box!);
+    lastFind = '';
+    const said = sum.toLocaleString('en-GB', { maximumFractionDigits: 10 });
+    jumpState.sum = said;
+    jumpState.found = '';
+    jumpState.checked = '';
+    const copyKey = key('Copy', () => {
+      void navigator.clipboard?.writeText(String(sum)).then(() => toast(`Copied ${said}.`, 'ok'), () => toast('This browser would not copy it.', 'warn'));
+    }, { kind: 'fill', label: `Copy ${said}` });
+    const ask = items.findIndex((c) => c.group === 'ASK');
+    clear(root!, h('div.jplate.jsum', { dataset: { sum: String(sum) } }, h('span.g-index', '='), h('div.jwords', h('b.jname', { dataset: { case: 'keep' } }, said), h('span.jsub', { dataset: { case: 'keep' } }, q)), copyKey));
+    return ask >= 0 ? ask : 0;
   }
   // a number said or typed is the thing it means where he is ("two" in a room)
   const num = thingForNumber(q, ui.get().tab);

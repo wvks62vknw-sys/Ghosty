@@ -98,7 +98,7 @@ export const DECK: Record<string, DeckScreen> = {
     dyk: 'He names things on the phone itself, from 4,624 everyday names. Nothing leaves it until you ask.',
   },
   interpreter: {
-    name: 'Interpreter',
+    name: 'Interpret',
     promise: 'Two halves, two languages: hold and talk',
     can: [
       { text: 'Hold your key and speak: the far half writes and says it', act: { open: 'interpreter' } },

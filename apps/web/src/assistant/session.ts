@@ -889,6 +889,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   const t = wallSplit(text.trim()); // [wall] "where is Lisbon, on the wall": the ask, with this turn's picture bound for the wall
   if (!t) return;
   showBegin(t); // [showme] his next word takes the Stage away and starts this turn's tally
+  void import('./tour').then((m) => m.stopTour()).catch(() => undefined); // [consistency] a new word of his ends a guided tour
   // [voiceknown] the sound of this spoken turn is taken now, before anything waits (a later listen would replace it)
   const snd = opts.voice ? takeSound() : null;
   // [guardian] Before anything reads his words: the panic phrase (the message goes at once, and nothing of it reaches the
@@ -951,7 +952,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
   const localPriv = settings.get().offlineBrain === 'always' || !!opts.here;
   // [consistency] HIS OWN ROUTINES (assistant/routines.ts): one word of his runs a few things in turn, on the phone, with no model
-  if (!opts.cloud && !opts.plain && !opts.again && (await import('./routineturn').then((m) => m.routineTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
+  if (!opts.cloud && !opts.plain && !opts.again && ((await import('./routineturn').then((m) => m.routineTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false)) || (await import('./tour').then((m) => m.tourTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false)))) {
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
     return;
   }

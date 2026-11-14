@@ -84,3 +84,38 @@ export function screenForSentence(q: string, has: (screen: string) => boolean = 
   if (best && strict && best.hits.length * 3 < mine.length * 2) return null;
   return best ? { screen: best.d.screen, ...(best.d.panel ? { panel: best.d.panel } : {}), by: 'words', hits: best.hits } : null;
 }
+
+/**
+ * [consistency] SUMS IN THE JUMP BAR (the sweep against Spotlight and Raycast): "12*7", "(3+4)/2", "15% of 80", "2^10" answered as
+ * he types, with no model and no eval: a small parser of numbers, + − × ÷, brackets, powers and "% of". A lone number stays the
+ * thing it means in a room ("2" is still the room's second thing): only words with a sum in them are sums.
+ */
+export function sumOf(q: string): number | null {
+  const t = q.trim().toLowerCase().replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/,/g, '');
+  const pct = /^([\d.]+)\s*%\s*of\s*([\d.]+)$/.exec(t);
+  if (pct) return round((Number(pct[1]) / 100) * Number(pct[2]));
+  if (!/^[\d.\s+\-*/^()]+$/.test(t) || !/\d\s*[+\-*/^]\s*[\d(]|\)\s*[+\-*/^]/.test(t)) return null;
+  let i = 0;
+  const peek = () => t[i];
+  const skip = () => { while (t[i] === ' ') i++; };
+  const num = (): number => {
+    skip();
+    if (peek() === '(') { i++; const v = add(); skip(); if (t[i] !== ')') throw new Error('bracket'); i++; return v; }
+    if (peek() === '-') { i++; return -num(); }
+    const m = /^\d*\.?\d+/.exec(t.slice(i));
+    if (!m) throw new Error('number');
+    i += m[0].length;
+    return Number(m[0]);
+  };
+  const pow = (): number => { const b = num(); skip(); if (peek() === '^') { i++; return b ** pow(); } return b; };
+  const mul = (): number => { let v = pow(); for (skip(); peek() === '*' || peek() === '/'; skip()) { const o = t[i++]; const r = pow(); v = o === '*' ? v * r : v / r; } return v; };
+  const add = (): number => { let v = mul(); for (skip(); peek() === '+' || peek() === '-'; skip()) { const o = t[i++]; const r = mul(); v = o === '+' ? v + r : v - r; } return v; };
+  try {
+    const v = add();
+    skip();
+    return i === t.length && Number.isFinite(v) ? round(v) : null;
+  } catch {
+    return null;
+  }
+}
+const round = (v: number) => Math.round(v * 1e10) / 1e10;
