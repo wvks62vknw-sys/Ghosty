@@ -803,6 +803,12 @@ export function makePart(): { el: HTMLElement; stop(): void } {
         pg.layout = (pg.layout + 1) % layoutCount(pg.panels.length);
         changed(true);
       }, 'Change this page’s panel grid') : null,
+      page > 0 ? key(c.pages[page - 1]?.slant ? (c.pages[page - 1]!.slant! > 0 ? 'Angle the other way' : 'Straight gutters') : 'Angled gutters', () => {
+        const pg = c.pages[page - 1]!;
+        pg.slant = !pg.slant ? 48 : pg.slant > 0 ? -48 : undefined;
+        if (!pg.slant) delete pg.slant;
+        changed(true);
+      }, 'Lean this page’s gutters for an action page, or put them straight') : null,
       page > 0 ? key('Add panel', () => {
         const pg = c.pages[page - 1]!;
         if (pg.panels.length >= MAX_PANELS) return toast(`A page holds up to ${MAX_PANELS} panels. Add a page instead.`, 'warn');
