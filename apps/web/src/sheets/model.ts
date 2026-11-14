@@ -240,6 +240,13 @@ export const usedCols = (s: Sheet): number => {
   }
   return m;
 };
+/** A new row after the last used one, its cells as typed (A, B, C…): the book and the row's number (1-based). The scan's receipts use it (docs/paper.ts). */
+export function appendRow(b: Book, sheet: string | number, values: string[]): { book: Book; row: number } {
+  const s = b.sheets[sheetOf(b, sheet)];
+  if (!s) return { book: b, row: 0 };
+  const r = usedRows(s);
+  return { book: setEntries(b, sheet, values.map((v, c) => [addr(r, c), v] as [string, string])), row: r + 1 };
+}
 export const isEmptyBook = (b: Book): boolean => b.sheets.every((s) => !Object.values(s.cells).some((c) => c.v !== undefined || c.f !== undefined));
 
 export function setWidth(b: Book, sheet: string | number, col: number, px: number): Book {

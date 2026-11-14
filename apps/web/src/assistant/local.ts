@@ -364,6 +364,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   // [reste] the converter, and its units and numbers answered here (assistant/reste.ts, convert/)
   convert: async (text, opts) => packAnswer(await convertTurn(text), opts),
   docs: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  docspaper: async (text, opts) => packAnswer(await docsTurn(text), opts),
   sheets: async (text, opts) => packAnswer(await sheetsTurn(text), opts),
   slides: async (text, opts) => packAnswer(await slidesTurn(text), opts),
   workspace: async (text, opts) => packAnswer(await workspaceTurn(text), opts),

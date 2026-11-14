@@ -46,7 +46,7 @@ import { whatCanAsked } from './words';
 import { numberIn, roomNumberIn } from '../shell/rooms';
 import { houseAsked } from '../../../../packages/shared/src/house';
 import { convertAsked } from '../convert/asks';
-import { docsAsked } from '../docs/asks';
+import { docsAsked, paperAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
 import { voiceNoteAsked, workspaceAsked } from '../workspace/asks';
@@ -174,6 +174,8 @@ export const LOCAL_ASKS = [
   { id: 'convert', test: (t: string) => !!convertAsked(t) },
   // [editors] a voice note into a tidy page (workspace/voicenote.ts): "take a voice note", "turn my voice note into a page"
   { id: 'wsvoice', test: (t: string) => voiceNoteAsked(t) },
+  // [editors.s3] paper into an editable document, a receipt into a spreadsheet row (docs/asks.ts paperAsked; docs/paperui.ts)
+  { id: 'docspaper', test: (t: string) => !!paperAsked(t) },
   { id: 'docs', test: (t: string) => !!docsAsked(t) },
   { id: 'sheets', test: (t: string) => !!sheetsAsked(t) },
   { id: 'slides', test: (t: string) => !!slidesAsked(t) },

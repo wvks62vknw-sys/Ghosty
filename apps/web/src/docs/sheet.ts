@@ -28,6 +28,7 @@ import {
   type Align, type Block, type BlockType, type Doc, type EditKind, type PageSetup, type Run, type Suggestion,
 } from './model';
 import { sayError } from '../ui/hisWords';
+import { run } from '../commands/registry';
 
 export const docsState = {
   open: false,
@@ -1183,7 +1184,13 @@ export function docsParts(): { el: HTMLElement; start(o: DocsAsk): Promise<void>
     saveDoc(d);
     showDoc(d);
     (page.querySelector('.dcb') as HTMLElement | null)?.focus();
-  }), button('OPEN A FILE', () => fileIn.click()), fileIn);
+  }), button('OPEN A FILE', () => fileIn.click()), fileIn, button('SCAN A PAGE', async () => {
+    // [editors.s3] paper into an editable document: SCAN → DOCUMENT, then READ ALL and INTO A DOCUMENT (docs/paperui.ts)
+    const { wantPaper } = await import('./paperui');
+    wantPaper('doc');
+    current?.close();
+    await run('open_lens', { mode: 'document' });
+  }));
   const root = h('div.dcsheet', bar, status, view);
   const start = async (o: DocsAsk) => {
     if (o.doc) {

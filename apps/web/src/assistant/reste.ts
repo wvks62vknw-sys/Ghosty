@@ -37,8 +37,19 @@ export async function convertTurn(text: string): Promise<PackReply> {
 /** "my documents", "new document", "read a document", "translate my letter into Urdu": the DOCUMENTS sheet, open on it. */
 export async function docsTurn(text: string): Promise<PackReply> {
   const ask = docsAsked(text) ?? { what: 'list' as const };
+  // [editors.s3] paper into a document or a spreadsheet row: the scan opens on DOCUMENT, its key for this waiting
+  if (ask.what === 'scan' || ask.what === 'receipt') {
+    const { wantPaper } = await import('../docs/paperui');
+    wantPaper(ask.what === 'scan' ? 'doc' : 'receipt');
+    const { openLens } = await import('../features/lens');
+    openLens('document');
+    const reply = ask.what === 'scan'
+      ? 'The scanner is open on DOCUMENT: lay the letter flat, CAPTURE PAGE (or PICK PHOTO), KEEP PAGE, then READ ALL and INTO A DOCUMENT. Its headings and paragraphs come with it, to edit, kept on this phone.'
+      : 'The scanner is open on DOCUMENT: capture the receipt, KEEP PAGE, READ ALL, then RECEIPT TO SPREADSHEET. You check the date, shop and total, and ADD ROW puts them in your Receipts spreadsheet, kept on this phone.';
+    return { said: text, reply, go: [{ id: 'docspaper', ask: -1, label: 'Open the scanner', run: 'open_lens', args: { mode: 'document' } }] };
+  }
   const { openDocs } = await import('../docs/sheet');
-  void openDocs(ask);
+  void openDocs({ ...ask, what: ask.what });
   const reply = ask.what === 'new'
     ? 'A new document is open: type, or ask me to write it in the chat and it comes laid out.'
     : ask.what === 'open'

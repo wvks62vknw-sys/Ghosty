@@ -26,6 +26,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_docs' }, tryText: 'Opens my documents',
   },
   'phrase:docs': { same: 'hub:docs' },
+  // [editors.s3] paper into an editable document, a receipt into a spreadsheet row
+  'phrase:docspaper': {
+    name: 'Scan paper into a document',
+    line: 'You can scan a letter into a document to edit, or a receipt into a new row of your spreadsheet.',
+    more: 'Lay the page flat and capture it in the scanner, then READ ALL. INTO A DOCUMENT keeps its headings, paragraphs, lists and the address on the right, as well as the reader can, ready to edit. RECEIPT TO SPREADSHEET shows the date, shop and total for you to check, and ADD ROW puts them in your Receipts spreadsheet. All of it stays on this phone.',
+    say: ['Scan this letter into a document', 'Scan a receipt into my spreadsheet', 'Turn this letter into a document I can edit'],
+    scene: ['making', 'money', 'phone'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_lens', args: { mode: 'document' } }, tryText: 'Opens the scanner on a page',
+  },
   'hub:sheets': {
     name: 'Budgets and lists with formulas',
     line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',
