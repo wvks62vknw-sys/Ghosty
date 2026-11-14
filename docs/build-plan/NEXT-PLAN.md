@@ -120,14 +120,18 @@ kept as a patch in `docs/build-plan/next/plan-left/`, ready to apply with `git a
 ## Checks
 
 All run on the integrated lane branch, after merging the integration branch into it.
-- **`tests/planlane2.spec.mjs`**, this round's spec, its word last in check.yml's `all=`. It has a part for each piece of wave 1
-  (`tests/planlane2/{onelist,timeline,goodnight,fixes,podcasts}.mjs`, where podcasts is the sleep timer). Each part checks:
+- **`tests/planlane2.spec.mjs` and `tests/planlane3.spec.mjs`**, this round's specs, their words last in check.yml's `all=`. There
+  is a part for each piece of wave 1 in `tests/planlane2/`:
+  - planlane2 runs onelist, timeline and podcasts (podcasts is the sleep timer);
+  - planlane3 runs goodnight and fixes, with the same harness.
+
+  They were one spec until it came near CI's time limit. Each part checks:
   - 440 × 956 and 390 × 844, BODY 21, and the seven looks;
   - 44 pt keys, nothing sideways, no word cut;
   - every state in your words;
   - the chat's wordings, with no model.
 
-  Result: 390 checks, 0 problems (382 s here; CI stops a spec at 480 s).
+  Result: planlane2 228 checks, 0 problems (129 s here); planlane3 162 checks, 0 problems (95 s). CI stops a spec at 480 s.
 - **`tests/planlane.spec.mjs`** (last round's 955 checks, now covering the one list, any month and the new change box):
   957 checks, 0 problems on the final merge, in 309 s (CI stops a spec at 480 s). An earlier run took 590 s, while this container
   ran three specs and the brain suite at once. The to-do section now empties
