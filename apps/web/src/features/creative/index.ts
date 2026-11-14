@@ -13,19 +13,21 @@ export const creativeTab: TabDef = {
   title: 'CREATIVE',
   icon: '<path d="M12 3.5a8.5 8.5 0 100 17c1.2 0 1.8-.8 1.8-1.7 0-1.3-1.2-1.6-1.2-2.8 0-1 .8-1.7 1.8-1.7h2.1a4 4 0 004-4c0-3.9-3.8-6.8-8.5-6.8z"/><circle cx="7.8" cy="11" r="1.1"/><circle cx="10.5" cy="7.5" r="1.1"/><circle cx="15" cy="7.8" r="1.1"/>',
   scene: 'backdrop',
-  blurb: 'a song · poster · birthday card · comic · logo · palette · drum pads',
+  blurb: 'design · a song · poster · birthday card · comic · logo · palette · drum pads',
   now: () => cardNow('creative'),
   mount: (root) =>
     sheetPage(root, {
       screen: 'creative',
       tag: 'LIFE // CREATIVE',
-      sub: 'A song, a poster, a card, a comic, a logo, a palette and drum pads.',
+      sub: 'Design anything, and a song, a poster, a card, a comic, a logo, a palette and drum pads.',
       big: () => cardBig('creative'),
       load: () => cardLoad('creative'),
       sections: async () => {
         const m = await import('./sheet');
         const part = (what: 'song' | 'poster' | 'birthday' | 'comic' | 'logo' | 'palette' | 'beat') => ({ title: m.CREATIVE_TITLES[what], pack: 'creative', screen: what, build: () => m.creativeScreen(what) });
         return [
+          // [sites] DESIGN (THE APPS ROUND): one free canvas for posters, invitations, cards, menus, stories and posts
+          { id: 'design', label: 'Design', parts: [{ title: 'DESIGN', build: async () => (await import('../design/editor')).designScreen() }] },
           { id: 'music', label: 'Music', parts: [part('song'), part('beat')] },
           { id: 'poster', label: 'Poster', parts: [part('poster')] },
           { id: 'card', label: 'Card', parts: [part('birthday')] },
