@@ -17,11 +17,11 @@
 import { brain, headers } from '../../api/brain';
 import { openSafe } from '../../core/safeurl';
 import { h } from '../../core/dom';
-import { confirmSheet, modal, toast } from '../../ui/components';
+import { confirmSheet, modal, toast, undo } from '../../ui/components';
 import { key } from '../../ui/machine';
 import { askWithImage } from '../../vision/ask';
 import { toJpegDataUrl } from '../../vision/camera';
-import { ALLERGENS, DIETS, DOC_SHARE, avoidFromWords, avoidVerdict, comparePackets, jobsOf, nhsSearch, readBusStop, readBusinessCard, readMedicine, readRating, receiptCsv, runningCost, sureWords, textActs, vcardOf, type CardContact, type JobId, type Seen, type TextAct } from '../../vision/jobs';
+import { ALLERGENS, DIETS, DOC_SHARE, avoidFromWords, avoidVerdict, bandOf, comparePackets, jobsOf, nhsSearch, readBusStop, readBusinessCard, readMedicine, readRating, receiptCsv, runningCost, sureWords, textActs, vcardOf, type CardContact, type JobId, type Seen, type TextAct } from '../../vision/jobs';
 import { readReceipt } from '../../../../../packages/shared/src/homeadmin';
 import { classifyCode } from '../../scan/codes';
 import { letterOf, longDay } from '../../../../../packages/shared/src/lifeeasier';
@@ -30,6 +30,7 @@ import type { LookupResult } from '../../../../../packages/shared/src/scan';
 import { isoDay } from '../brief/day';
 import { sayIn } from '../learning/voices';
 import { STRANGER } from './words';
+import { looksEnglish } from '../../vision/tags';
 
 /** What a spec reads (window.__ghosty.cards): the jobs in view, the cards drawn, and the last act done. */
 export const cardsState = {
@@ -110,6 +111,8 @@ export interface CardInput extends Seen {
   /** The text's own tag (a page stays a page while this tag stays, through a re-read). */
   textId?: number;
   english?: string;
+  /** Its words are out to be put into English, or that came back with nothing. */
+  translating?: '' | 'sending' | 'failed';
   /** The Lens is still reading the text. */
   reading?: boolean;
   online: boolean;
@@ -385,10 +388,21 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           b.disabled = true;
           const [y, m, d] = a.value.split('-').map(Number);
           try {
-            await brain.addEvent({ title: line.slice(0, 80) || 'From the Lens', start: new Date(y!, m! - 1, d!, 9, 0).getTime(), allDay: true });
+            const r = await brain.addEvent({ title: line.slice(0, 80) || 'From the Lens', start: new Date(y!, m! - 1, d!, 9, 0).getTime(), allDay: true });
             added.add(id);
-            done(`In your agenda for ${longDay(a.value)}.`);
+            cardsState.done = `In your agenda for ${longDay(a.value)}.`;
             b.querySelector('span')!.textContent = 'IN YOUR AGENDA';
+            // (the sweep) a misread date is taken back in one tap: UNDO takes the day out of his agenda again
+            const evId = (r as { event?: { id?: string } } | null)?.event?.id;
+            if (evId) {
+              undo(`In your agenda for ${longDay(a.value)}.`, async () => {
+                await brain.deleteEvent(evId);
+                added.delete(id);
+                cardsState.done = `taken out of your agenda: ${longDay(a.value)}`;
+                sig = '';
+                if (last) update(last);
+              });
+            } else done(`In your agenda for ${longDay(a.value)}.`);
           } catch {
             b.disabled = false;
             toast('I couldn’t reach my brain to put it in your agenda. Tap again when there is a signal.', 'warn');
@@ -463,14 +477,21 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   const productBody = (p: LookupResult): HTMLElement => {
     const n = p.nutrition ?? {};
     const g = (v: number | undefined, unit: string, word: string) => (v == null ? '' : `${word} ${v < 1 ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10}${unit}`);
-    const per = [g(n.kcal, ' kcal', 'energy').replace('energy ', ''), g(n.sugars, ' g', 'sugars'), g(n.fat, ' g', 'fat'), g(n.saturates, ' g', 'saturates'), g(n.salt, ' g', 'salt'), g(n.protein, ' g', 'protein')].filter(Boolean);
+    // each figure with its UK traffic-light band in words (and in colour), as UK packs show them
+    const fig = (v: number | undefined, unit: string, word: string, key: string): HTMLElement | null => {
+      const t = g(v, unit, word);
+      if (!t) return null;
+      const b = bandOf(key, v);
+      return h('span.lc-fig', { ...(b ? { dataset: { band: b } } : {}) }, key === 'kcal' ? t.replace('energy ', '') : t, ...(b ? [h('b', ` ${b.toUpperCase()}`)] : []));
+    };
+    const per = [fig(n.kcal, ' kcal', 'energy', 'kcal'), fig(n.sugars, ' g', 'sugars', 'sugars'), fig(n.fat, ' g', 'fat', 'fat'), fig(n.saturates, ' g', 'saturates', 'saturates'), fig(n.salt, ' g', 'salt', 'salt'), fig(n.protein, ' g', 'protein', 'protein')].filter((x): x is HTMLElement => !!x);
     const grades = [p.nutriscore ? `Nutri-Score ${p.nutriscore.toUpperCase()}` : '', p.ecoscore ? `Green-Score ${p.ecoscore.toUpperCase()}` : ''].filter(Boolean).join(' · ');
     const book = p.kind === 'book' ? [p.authors?.join(', '), p.year, p.publisher, p.pages ? `${p.pages} pages` : ''].filter(Boolean).join(' · ') : '';
     return h('div.lc-body',
       h('p.lc-line', [p.title, p.brand, p.quantity].filter(Boolean).join(' · ')),
       ...(book ? [h('p.lc-line', book)] : []),
       ...(grades ? [h('p.lc-line', grades)] : []),
-      ...(per.length ? [h('p.lc-small', `Per 100 g: ${per.join(' · ')}`)] : []),
+      ...(per.length ? [h('p.lc-small', 'Per 100 g: ', ...per.flatMap((x, i) => (i ? [' · ', x] : [x])))] : []),
       ...(p.allergens?.length ? [h('p.lc-warn', `Contains: ${p.allergens.join(', ')}`)] : []),
       h('p.lc-small', `From ${p.source}${p.credit ? ` (${p.credit})` : ''}.`),
       ...verdictOf(p),
@@ -561,7 +582,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     const pe = k.thingId != null ? places.get(k.thingId) : undefined;
     const place = pe && pe.label === (k.thing?.label ?? '') ? pe.v : undefined;
     const asking = k.thingId != null && askingFor.id === k.thingId && askingFor.label === (k.thing?.label ?? '');
-    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, spentOnce.size, [...buses.values()].map((x) => x.state).join(','), cardsState.contact.state, loadKwh().price]);
+    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, k.translating ?? '', spentOnce.size, [...buses.values()].map((x) => x.state).join(','), cardsState.contact.state, loadKwh().price]);
     if (s === sig) return;
     sig = s;
     cardsState.jobs = jobs;
@@ -693,7 +714,9 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           break;
         case 'text': {
           const own = (k.text ?? '').replace(/\s+/g, ' ').trim();
-          const foreign = !!k.lang && k.lang !== 'ENGLISH' && k.lang !== 'UNKNOWN';
+          // (the sweep) words in a language the phone cannot name are offered TRANSLATE too, when they do not read as English
+          const unnamed = k.lang === 'UNKNOWN' && (own.match(/\p{L}{3,}/gu)?.length ?? 0) >= 2 && !looksEnglish(own);
+          const foreign = (!!k.lang && k.lang !== 'ENGLISH' && k.lang !== 'UNKNOWN') || unnamed;
           // a menu or a page in another language: each line with its English, in order (lens.u1)
           if (foreign && k.lines?.length && k.lineEnglish?.length === k.lines.length) {
             const en = k.lineEnglish;
@@ -702,14 +725,15 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
             break;
           }
           const shown = foreign && k.english ? k.english : own;
+          const trLine = foreign && !k.english ? (k.translating === 'sending' ? 'Putting it into English… (the words only)' : k.translating === 'failed' ? 'The English didn’t come back. TRY AGAIN sends the words once more.' : '') : '';
           out.push(
             card(
               'text',
-              foreign ? `TEXT · ${k.lang}${k.english ? ' · IN ENGLISH' : ''}` : 'TEXT',
-              shown.slice(0, 160) + (shown.length > 160 ? '…' : ''),
+              foreign ? `TEXT${unnamed ? '' : ` · ${k.lang}`}${k.english ? ' · IN ENGLISH' : ''}` : 'TEXT',
+              trLine ? h('div.lc-body', h('p.lc-line', shown.slice(0, 160) + (shown.length > 160 ? '…' : '')), h('p.lc-small', { role: 'status' }, trLine)) : shown.slice(0, 160) + (shown.length > 160 ? '…' : ''),
               // (in its own language's voice until it has its English)
               key('READ ALOUD', () => speak(shown, foreign && !k.english ? k.langTag || 'en-GB' : 'en-GB')),
-              foreign && !k.english && k.online ? key('TRANSLATE', () => deps.act('translate')) : null,
+              foreign && !k.english && k.online && k.translating !== 'sending' ? key(k.translating === 'failed' ? 'TRY AGAIN' : 'TRANSLATE', () => deps.act('translate'), { label: k.translating === 'failed' ? 'The English did not come back: send the words again' : 'Put these words into English' }) : null,
               copy('COPY', shown, 'the words'),
             ),
           );

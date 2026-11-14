@@ -750,3 +750,15 @@ export function comparePackets(a: PacketFacts, b: PacketFacts): { rows: CompareR
     : 'Much the same per 100 g, by the figures the databases give.';
   return { rows, line };
 }
+
+// ---------------------------------------------------------------- the UK traffic lights on a packet (the sweep: as UK packs and the best food apps show them)
+
+export type Band = 'high' | 'medium' | 'low';
+/** The UK front-of-pack bands per 100 g of food (FSA): above the first is HIGH, at or under the second is LOW. */
+const BANDS: Record<'fat' | 'saturates' | 'sugars' | 'salt', [number, number]> = { fat: [17.5, 3], saturates: [5, 1.5], sugars: [22.5, 5], salt: [1.5, 0.3] };
+/** A figure per 100 g in its UK band; '' for a nutrient with no band (energy, protein) or no figure. */
+export function bandOf(what: string, per100g: number | undefined): Band | '' {
+  const b = BANDS[what as keyof typeof BANDS];
+  if (!b || per100g == null || !Number.isFinite(per100g)) return '';
+  return per100g > b[0] ? 'high' : per100g <= b[1] ? 'low' : 'medium';
+}

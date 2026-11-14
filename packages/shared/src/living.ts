@@ -273,7 +273,9 @@ export function livingCard(l: Living): LivingCard {
   if (l.kind === 'person') return { ...blank, lead: "That's a person. Ghosty doesn't identify people.", sure: '' };
   if (l.level === 'cant' || !title) return { ...blank, lead: "I can't tell from this photo. Try closer, in good light, with one thing filling the frame.", sure: l.score != null ? `${aboutPercent(l.score)} of anything` : l.said ? `the model said “${l.said}”` : '' };
   const a = aName(l);
-  const lead = l.level === 'sure' ? `It's ${a}.` : l.level === 'probably' ? `Probably ${a}.` : `A guess: ${a}.`;
+  const named = l.level === 'sure' ? `It's ${a}.` : l.level === 'probably' ? `Probably ${a}.` : `A guess: ${a}.`;
+  // (the sweep, as the best naming apps do) a safety line: a photo's name is never a reason to eat anything wild
+  const lead = l.kind === 'fungus' ? `${named} Never eat a wild mushroom because a photo named it: deadly ones look like safe ones.` : named;
   const sure = l.score != null ? aboutPercent(l.score) : `${l.level}${l.said ? ` — the model said “${l.said}”` : ''}`;
   const tell = l.tell ? (/^family /.test(l.tell) ? `Family: ${l.tell.slice(7)}` : `Tell-tale: ${l.tell}`) : '';
   const others = (l.alt ?? []).map((x) => `${x.common || x.species} (${aboutPercent(x.score).replace(/ sure$/, '')})`).join(', ');

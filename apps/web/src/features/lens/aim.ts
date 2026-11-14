@@ -587,15 +587,14 @@ export function createAimMode(L: LensContext): Mode {
   const onCancel = () => (down = null);
 
   const tapAt = (x: number, y: number) => {
+    // the marker nearest his finger: one whose label he touched, or whose mark is within 26 px; where labels overlap (a planet
+    // under the Moon, stars over a plane) the nearest mark wins, never just the first label drawn
     let hit: (typeof drawn)[number] | null = null;
-    let best = 26;
+    let best = Infinity;
     for (const d of drawn) {
-      if (d.box && x >= d.box.x && x <= d.box.x + d.box.w && y >= d.box.y && y <= d.box.y + d.box.h) {
-        hit = d;
-        break;
-      }
       const dist = Math.hypot(d.p.x - x, d.p.y - y);
-      if (dist < best) {
+      const onLabel = !!d.box && x >= d.box.x && x <= d.box.x + d.box.w && y >= d.box.y && y <= d.box.y + d.box.h;
+      if ((onLabel || dist < 26) && dist < best) {
         best = dist;
         hit = d;
       }

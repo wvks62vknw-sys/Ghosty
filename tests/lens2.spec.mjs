@@ -4,7 +4,7 @@
 //   COLOUR   the picture is in true colour in all seven looks: the colour on screen is the camera's own (no grey filter, no wash)
 //   STATES   the eyes not on the phone (the offer with its size, on Wi-Fi, never fetched without his tap), no signal: each in his words
 //            (looking and waking the eyes need the eyes downloaded: lens.spec and offlineeyes prove those)
-//   TEXT     read aloud, copied; its date ADD TO AGENDA, its number CALL, its address ON THE MAP, its link OPEN, its email WRITE
+//   TEXT     read aloud, copied; its date ADD TO AGENDA (and UNDO), its number CALL, its address ON THE MAP, its link OPEN, its email WRITE
 //   A SUM    solved and shown worked; an equation too
 //   A SIGN   in French: said to be French, translated by itself, the request carrying the words and no picture
 //   A BILL   the letter card, the plate's REMIND and FILE, and ADD TO MY BILLS (HOME keeps it, with its reminder)
@@ -14,6 +14,7 @@
 //   A RATING PLATE  what an hour costs at 25p, then at his price kept on this phone; "what does it cost to run" says it
 //   COMPARE  a second packet: "which is better" puts the two side by side per 100 g, the better figure marked
 //   A RECEIPT  one tap into this month's spending (the month's rows hold it), one more keeps its warranty
+//   UNNAMED  a Polish sign: TRANSLATE offered (the phone cannot name the language), done in place, the words sent once
 //   A MENU   in French: each line's English laid over that line, the card listing every line, the words only sent
 //   AVOID    "I'm allergic to milk" lights the packet red; the WHAT I AVOID sheet adds peanuts; kept on this phone
 //   A PAGE   SCAN IT FLAT opens SCAN's document part on the frame
@@ -102,6 +103,8 @@ async function run(viewport, all) {
   await page.route('**/api/chat', (r) => {
     const b = r.request().postData() ?? '';
     // (lens.s7) the next buses from the stop the sign names, as the brain's free timetables would answer
+    // (the sweep) a Polish sign, a language the phone cannot name: put into English when he asks
+    if (/Wyj/.test(b) && /Translate this into English/.test(b)) return r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'text', text: 'Emergency exit. Do not block the door.' }, { t: 'done', model: 'mock' }].map((e) => JSON.stringify(e)).join('\n') + '\n' });
     if (/next buses from Oxford Circus/.test(b)) return r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'text', text: 'Next departures from Oxford Circus:\n25 to Holborn — 2 min\nN8 to Hainault — 6 min\n73 to Stoke Newington — 9 min' }, { t: 'done', model: 'mock' }].map((e) => JSON.stringify(e)).join('\n') + '\n' });
     if (!/Translate each line into English/.test(b)) return r.continue();
     return r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: [{ t: 'text', text: 'STARTERS\nSoup of the day\nNiçoise salad\nMAINS\nBeef bourguignon' }, { t: 'done', model: 'mock' }].map((e) => JSON.stringify(e)).join('\n') + '\n' });
@@ -223,6 +226,10 @@ async function run(viewport, all) {
   check(/Quiz Night/.test(clip), `${T} [text] the clipboard holds "${clip.slice(0, 40)}"`);
   await keyIn('date', 'ADD TO AGENDA').click();
   await until(() => /In your agenda for 4 December 2026/.test(window.__ghosty.cards.done), null, 20000, `[date] ADD TO AGENDA did not put it in the agenda: ${(await cards()).done}`);
+  // (the sweep) a misread date is taken back: UNDO takes it out of the agenda, and the card offers it again
+  await page.locator('.undofloat button', { hasText: 'UNDO' }).click({ timeout: 5000 }).catch(() => problems.push(`${T} [date] no UNDO after ADD TO AGENDA`));
+  await until(() => /^taken out of your agenda: .*4 December 2026/.test(window.__ghosty.cards.done), null, 10000, `[date] UNDO did not take it out: ${(await cards()).done}`);
+  await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'date' && c.keys.includes('ADD TO AGENDA')), null, 4000, '[date] after UNDO the card does not offer ADD TO AGENDA again');
   const call = await keyIn('phone', 'CALL').getAttribute('href');
   check(call === 'tel:01214960123', `${T} [phone] CALL dials ${call}`);
   await keyIn('link', 'OPEN').click();
@@ -272,6 +279,19 @@ async function run(viewport, all) {
   check(sent.length >= 1, `${T} [sign] no request carried the sign's words`);
   check(sent.every((b) => !/data:image|"images":\s*\[/.test(b)), `${T} [sign] the translation request carried a picture`);
   await layout('sign');
+  await letGo();
+  await reset();
+
+  // ---- A SIGN in a language the phone cannot name (the sweep): TRANSLATE offered, done in place, the words only, once
+  await words('Wyjście ewakuacyjne\nNie blokować drzwi');
+  await hold([TEXT_BOX]);
+  await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'text' && c.head === 'TEXT' && c.keys.includes('TRANSLATE')), null, 4000, `[unnamed] a Polish sign has no TRANSLATE: ${JSON.stringify((await cards()).cards.map((c) => [c.head, c.keys]))}`);
+  check(!chats.some((b) => /Wyj/.test(b)), `${T} [unnamed] the words went before he asked`);
+  await keyIn('text', 'TRANSLATE').click();
+  await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'text' && c.head === 'TEXT · IN ENGLISH' && /^Emergency exit\. Do not block the door\./.test(c.line)), null, 8000, `[unnamed] the English is not on the card: ${JSON.stringify((await cards()).cards.map((c) => [c.head, c.line]))}`);
+  const polish = chats.filter((b) => /Wyj/.test(b));
+  check(polish.length === 1 && !/data:image/.test(polish[0]), `${T} [unnamed] the Polish went ${polish.length} time(s), and no picture: ${!/data:image/.test(polish[0] ?? '')}`);
+  check((await page.evaluate(() => window.__ghosty.lens.mode)) === 'lens', `${T} [unnamed] TRANSLATE left the one view for ${await page.evaluate(() => window.__ghosty.lens.mode)}`);
   await letGo();
   await reset();
 
@@ -413,7 +433,7 @@ async function run(viewport, all) {
   cs = await cards();
   const prod = cs.cards.find((c) => c.job === 'product');
   // what a specialist food app shows: what it is, its grade, the figures per 100 g, the allergens, and whose data it is
-  const want = 'Digestive biscuits · Fixture Bakery · 400 gNutri-Score EPer 100 g: 474 kcal · sugars 16.6 g · fat 20.9 g · saturates 9.6 g · salt 0.95 g · protein 7.1 gContains: gluten, milkFrom Open Food Facts (Open Food Facts, ODbL).';
+  const want = 'Digestive biscuits · Fixture Bakery · 400 gNutri-Score EPer 100 g: 474 kcal · sugars 16.6 g MEDIUM · fat 20.9 g HIGH · saturates 9.6 g HIGH · salt 0.95 g MEDIUM · protein 7.1 gContains: gluten, milkFrom Open Food Facts (Open Food Facts, ODbL).';
   check(prod?.line === want, `${T} [product] the card says "${prod?.line}", want "${want}"`);
   await layout('product');
   // (lens.u7) what he avoids, by his words while the Lens is open: kept on this phone, and the packet gets its line
@@ -544,5 +564,5 @@ async function run(viewport, all) {
 await run({ width: 440, height: 956 }, true);
 await run({ width: 390, height: 844 }, false);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a business card into his contacts, made on the phone; a bus stop’s next buses by its name; a medicine box to its NHS page; a rating plate costed at his price; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words, and a second packet compared side by side; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a Polish sign put into English in place on his tap; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a business card into his contacts, made on the phone; a bus stop’s next buses by its name; a medicine box to its NHS page; a rating plate costed at his price; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words, and a second packet compared side by side; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
 process.exit(problems.length ? 1 : 0);

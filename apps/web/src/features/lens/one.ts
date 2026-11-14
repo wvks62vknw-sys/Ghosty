@@ -305,8 +305,9 @@ export function createOneMode(L: LensContext): Mode {
         L.setMode('scan', { sub: 'document', still: c });
       } else if (what === 'translate') {
         // the text card's TRANSLATE: its words, and only its words, to be translated (never the picture)
+        // (the sweep) in place: its English over the words and on the card, the state said; never a second send while one is out
         if (needBrain('translating')) return;
-        if (ocr.text && needsTranslation(ocr.lang)) L.setMode('ask', { text: ocr.text, question: 'Translate this text into English. Tell me which language it is.', send: true });
+        translateWord();
       } else {
         // a thing card's ASK ABOUT IT: the question about that thing with its picture, which he sends himself
         if (needBrain('asking')) return;
@@ -710,6 +711,7 @@ export function createOneMode(L: LensContext): Mode {
       lang: read ? ocr.lang.name : '',
       langTag: read ? ocr.lang.tag : '',
       english: ocr.tr === 'done' ? ocr.translation : '',
+      translating: ocr.tr === 'sending' ? 'sending' : ocr.tr === 'failed' ? 'failed' : '',
       reading: ocr.state === 'reading',
       online,
       eyes: oneState.finder === 'ready',
@@ -1456,8 +1458,10 @@ export function createOneMode(L: LensContext): Mode {
       say(line);
       return line;
     }
-    if (!needsTranslation(ocr.lang)) {
-      const line = ocr.lang.id === 'en' ? 'That reads as English already, so there is nothing to translate.' : 'I can’t tell which language that is, so I haven’t translated it.';
+    // (the sweep) a language the phone cannot name (Polish, Swedish, Turkish…) is translated when he asks, if the words are not English
+    const askedUnknown = ocr.lang.id === 'unknown' && (ocr.text.match(/\p{L}{3,}/gu)?.length ?? 0) >= 2 && !looksEnglish(ocr.text);
+    if (!needsTranslation(ocr.lang) && !askedUnknown) {
+      const line = ocr.lang.id === 'en' ? 'That reads as English already, so there is nothing to translate.' : 'I can’t tell which language that is, and it doesn’t read as words to put into English.';
       say(line);
       return line;
     }

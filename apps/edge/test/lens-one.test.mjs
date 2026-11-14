@@ -673,3 +673,16 @@ test('(lens.s2, s3) a medicine box (its NHS page; never advice) and a rating pla
   assert.equal(F.lensWord('open the NHS page'), 'nhs');
   assert.equal(F.lensWord('what does it cost to run'), 'running');
 });
+
+test('the UK traffic lights on a packet: HIGH over the first line, LOW at or under the second, none for energy or protein', () => {
+  assert.equal(F.bandOf('sugars', 16.6), 'medium');
+  assert.equal(F.bandOf('sugars', 22.6), 'high');
+  assert.equal(F.bandOf('sugars', 5), 'low');
+  assert.equal(F.bandOf('fat', 20.9), 'high');
+  assert.equal(F.bandOf('saturates', 1.5), 'low');
+  assert.equal(F.bandOf('salt', 0.95), 'medium');
+  assert.equal(F.bandOf('salt', 1.6), 'high');
+  assert.equal(F.bandOf('kcal', 474), '');
+  assert.equal(F.bandOf('protein', 7.1), '');
+  assert.equal(F.bandOf('fat', undefined), '');
+});
