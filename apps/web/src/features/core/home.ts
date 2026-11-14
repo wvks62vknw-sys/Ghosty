@@ -375,10 +375,11 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   };
   addEventListener(TODO_CHANGED, () => paintToday());
   const loadToday = async (force = false) => {
-    // [planlane2:onelist] the one to-do list (the brain's): its copy here is brought up to date (it repaints this card on a change)
-    void syncTodos();
     if (!force && Date.now() - agendaAt < 120_000) return paintToday();
     agendaAt = Date.now();
+    // [planlane2:onelist] the one to-do list (the brain's): its copy here is brought up to date (it repaints this card on a change);
+    // behind the same two-minute gate as the diary, so Home's 15 s repaint never asks the brain each time
+    void syncTodos();
     const done = waitOn('Reading what is left in your diary…');
     const ag = await brain.agenda(2).catch(() => null);
     done();
