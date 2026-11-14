@@ -34,6 +34,7 @@ import { REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
+import { approvalSpoken } from '../features/security/locks'; // [security] security.c4
 import { wallSplit, wallTurn } from '../wall/phone'; // [wall] THE WALL: "pair the wall", "on the wall", "clear the wall" (BRIEF-MACHINE-WALL)
 import { showBegin, showEnd, showNote } from '../show/turn'; // [showme] the Stage: what a turn brought, and the picture after the sentence (BRIEF-SHOW-ME-1)
 import { sayError } from '../ui/hisWords';
@@ -343,7 +344,11 @@ function handle(ev: ChatEvent): void {
       approvalAsked = true;
       push({ kind: 'approval', id: ev.id, name: ev.name, reason: ev.reason, args: ev.args, state: 'waiting' });
       followApproval(ev.id);
-      if (speakReplies && settings.get().speak) void speak(ev.reason);
+      // [security] read aloud exactly what will happen, and that the tap is his (security.c4: his voice is never a lock on its own)
+      if (speakReplies && settings.get().speak) {
+        const aw = argWords(ev.args);
+        void speak(approvalSpoken(ev.reason, `${toolWords(ev.name, ev.args)}${aw ? ` (${aw})` : ''}`));
+      }
       break;
     case 'text': {
       narr.replied = true; // (no aside once the reply has begun: it is said instead)

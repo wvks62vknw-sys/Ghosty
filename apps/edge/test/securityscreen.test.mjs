@@ -232,3 +232,10 @@ test('[security] approvals in the Brief: yesterday’s answers by his own calend
   assert.equal(LK.approvalsDigest([], 1, now), '1 still waiting for your APPROVE.');
   assert.equal(LK.approvalsDigest([list[2]], 0, now), '', 'today’s answers wait for tomorrow’s Brief');
 });
+
+test('[security] an approval read aloud while talking says exactly what will happen and that the tap is his; it never says a spoken yes will do', () => {
+  const said = LK.approvalSpoken('Send an email to Sam about Friday?', 'Sending an email (to: sam@example.com · subject: Friday).');
+  assert.equal(said, 'Send an email to Sam about Friday? If you approve, I’ll do exactly this: Sending an email (to: sam@example.com · subject: Friday). Tap APPROVE on the card when you’re sure; your voice alone never approves.');
+  assert.match(LK.approvalSpoken('Allow send email', 'Sending an email'), /^Allow send email\. If you approve/);
+  assert.doesNotMatch(said, /say yes|say approve/i);
+});

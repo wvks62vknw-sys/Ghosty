@@ -185,3 +185,14 @@ export function approvalsDigest(list: ApprovalEntry[], waiting: number, now: num
   if (waiting) parts.push(`${waiting} still waiting for your APPROVE.`);
   return parts.join(' ');
 }
+
+/**
+ * APPROVALS READ ALOUD WHILE TALKING (security.c4, built small into the voice's turn): when an approval comes up in a spoken
+ * conversation, exactly what will happen is said, and that the tap is his. His voice is never a lock on its own, so the approve
+ * itself stays a tap on the card.
+ */
+export function approvalSpoken(reason: string, thing: string): string {
+  const r = reason.replace(/\s+/g, ' ').trim();
+  const t = thing.replace(/\s+/g, ' ').trim().replace(/[.:\s]+$/, '');
+  return `${r}${/[.?!)]$/.test(r) ? '' : '.'} If you approve, I’ll do exactly this: ${t}. Tap APPROVE on the card when you’re sure; your voice alone never approves.`;
+}
