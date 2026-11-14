@@ -40,7 +40,7 @@ const go = async (page, hash) => {
   await page.evaluate((h) => (location.hash = h), hash);
   await page.waitForTimeout(600);
   if (await page.locator('.al-launch .al-playkey').count()) {
-    for (let i = 0; i < 3; i++) await page.locator('.ak-tour button').click({ timeout: 300 }).catch(() => {});
+    await page.evaluate(() => { for (let i = 0; i < 4; i++) document.querySelector('.ak-tour:not([hidden]) button')?.click(); });
     await page.locator('.al-launch .al-playkey').click();
     await page.waitForTimeout(300);
   }

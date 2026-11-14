@@ -208,7 +208,7 @@ for (const vp of [PHONE, SMALL]) {
   check(launched, `[${W} launcher] the game did not open on its launcher`);
   if (launched) {
     check(await page.locator(`${A} .al-art`).count() === 1 && await page.locator(`${A} .al-gchip`).count() === 3 && /Best/.test(await text(page, `${A} .al-gchips`)) && /Streak/.test(await text(page, `${A} .al-gchips`)) && /Today/.test(await text(page, `${A} .al-gchips`)), `[${W} launcher] the art tile or best, streak and today are missing`);
-    for (let i = 0; i < 3; i++) await page.locator('.ak-tour button').click({ timeout: 300 }).catch(() => {});
+    await page.evaluate(() => { for (let i = 0; i < 4; i++) document.querySelector('.ak-tour:not([hidden]) button')?.click(); }); // (THE PRO ROUND: the tour is the coach marks now, ended with it)
     m = await fit(page);
     check(fitOk(m), `[${W} launcher fit] ${JSON.stringify(m)}`);
     await page.screenshot({ path: `${out}/applibkinds-launcher-${W}.png` });
