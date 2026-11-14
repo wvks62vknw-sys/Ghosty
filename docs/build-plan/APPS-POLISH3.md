@@ -79,10 +79,9 @@ redo, Recently deleted, search, share as CSV or JSON, and a first run with sampl
 
 ## Checks
 - **Brain tests:**
-  - arcade.test covers the trophies, the keyboard layer, play time, the save slots, gyro aim and the layout;
+  - arcade.test covers the trophies, the keyboard layer, play time, the save slots, gyro aim, the layout and CONTINUE's save;
   - offline2.test covers the calculator's sums and the clock's zones and words.
-- **Full brain suite:** run on the merged tree. Its one red (the error-voice check on the calculator's first draft) is fixed,
-  and that test passes.
+- **Full brain suite:** 2,484 of 2,484 on the merged tree (d274f0e47).
 - **arcadeapp.spec:** at 440 × 956 and 390 × 844, in all seven looks and at BODY 21. It checks:
   - a fresh phone: nothing played, nothing fetched by looking, and the shelf's search;
   - a phone that has played: CONTINUE PLAYING, THE TROPHY ROOM, a game's page, FORGET MY RECORD;
@@ -96,7 +95,19 @@ redo, Recently deleted, search, share as CSV or JSON, and a first run with sampl
   - the stopwatch (start, lap, stop, reset) and a timer;
   - the calculator's keys, keyboard, tape, percent, the division by nothing and COPY.
 - **arcade.spec:** MOVE THE BUTTONS drags and sizes a button, keeps the layout, and RESET clears it.
-- **Specs that read the Arcade or System,** re-run green: arcade, games5, games6, gamestudio, deck, systemnext, appkit.
+- **Specs that read the Arcade, System or the chat's words,** re-run green on the merged tree: arcade, games5, games6,
+  gamestudio, deck, systemnext, appkit, tabs, tabs2, hubcards, learnpass, learnlane, awareness, polish3, homepass, grownhud,
+  orbithud, restc and nav.
+- **Fixed along the way:**
+  - the Clock's timer list rebuilt its keys four times a second, so CANCEL could be swapped out from under a finger; each row
+    is now kept;
+  - System's new line said two sentences (polish3.spec); it says one.
+
+**For the whole branch:**
+- **styles.css:** a stray merge-marker clean-up had removed the opening line of the app library importer's comment, which
+  failed the knowledge self-check for every lane. I put that one line back (b8d385f63).
+- **Typecheck:** packages/shared/src/applib/catalogue/learn.ts (APPLIB CAT-C) fails the typecheck on the integration branch,
+  lines 42, 44 and 66. It is that lane's file, so I left it, and told the orchestrator at 15:17.
 
 ## What is left
 - **The Arcade, not built:**
