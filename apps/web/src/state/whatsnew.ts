@@ -16,6 +16,8 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  // [lens] THE APPS ROUND: Photos
+  { day: '2026-11-14', title: 'Photos, your own library', line: 'Photo → MY LIBRARY: your photos and videos in one private library on this phone, with albums, favourites, a 30-day Recently deleted, duplicates found, search by what’s in them, and memories that play as a short film.' },
   // [bodynext] NEXT ROUND, BODY AND KITCHEN: kitchen and body as one coach (docs/build-plan/NEXT-BODY.md)
   { day: '2026-11-14', title: 'The meal plan writes the list', line: 'KITCHEN → MEAL PLAN: fill the empty days from your recipe book, then SHOPPING FOR THE WEEK puts what is missing from your pantry on the list. Every recipe shows rough calories and protein.' },
   { day: '2026-11-14', title: 'Tablet reminders', line: 'BODY → Health → TABLETS: your tablets with their times, ticked TAKEN or SKIPPED, a refill countdown, and a reminder on your lock screen. My brain gets only the time.' },
