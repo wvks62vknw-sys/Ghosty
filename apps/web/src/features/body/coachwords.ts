@@ -31,10 +31,11 @@ export function drinkAsked(text: string): { id: string; n: number } | { ask: 'ca
   const t = text.trim().toLowerCase().replace(/[.!?]+$/, '').replace(/’/g, "'");
   if (/^how much caffeine(?: have i had)?(?: today)?$|^my caffeine(?: today)?$/.test(t)) return { ask: 'caffeine' };
   if (/^how many (?:units|drinks)(?: of alcohol)?(?: have i had)?(?: this week)?$|^my (?:alcohol )?units(?: this week)?$/.test(t)) return { ask: 'units' };
-  const m = /^(?:i(?:'ve| have)? (?:had|drank|drunk)|had|drank|log|add)\s+(a|an|one|two|2|three|3)?\s*(?:cup of |mug of |glass of |can of |bottle of |double )?(coffee|latte|cappuccino|flat white|americano|espresso|tea|cuppa|juice|orange juice|apple juice|cola|coke|pint of (?:beer|lager|bitter|cider)|pint of (?:ale)|beer|lager|cider|wine|red wine|white wine|vodka|gin|whisky|whiskey|rum|spirit)s?$/.exec(t);
+  const m = /^(?:i(?:'ve| have)? (?:had|drank|drunk)|had|drank|log|add)\s+(a|an|one|two|2|three|3)?\s*(?:cup of |mug of |glass of |can of |bottle of )?(double )?(coffee|latte|cappuccino|flat white|americano|espresso|tea|cuppa|juice|orange juice|apple juice|cola|coke|pint of (?:beer|lager|bitter|cider)|pint of (?:ale)|beer|lager|cider|wine|red wine|white wine|vodka|gin|whisky|whiskey|rum|spirit)s?$/.exec(t);
   if (!m) return null;
   const n = ({ two: 2, '2': 2, three: 3, '3': 3 } as Record<string, number>)[m[1] ?? ''] ?? 1;
-  const w = m[2]!;
+  const w = m[3]!;
   const id = /espresso/.test(w) ? 'espresso' : /coffee|latte|cappuccino|flat white|americano/.test(w) ? 'coffee' : /tea|cuppa/.test(w) ? 'tea' : /juice/.test(w) ? 'juice' : /cola|coke/.test(w) ? 'cola' : /wine/.test(w) ? 'wine' : /vodka|gin|whisk|rum|spirit/.test(w) ? 'spirit' : 'beer';
-  return { id, n };
+  // (a double is two measures: "a double vodka" is two singles)
+  return { id, n: id === 'spirit' && m[2] ? n * 2 : n };
 }

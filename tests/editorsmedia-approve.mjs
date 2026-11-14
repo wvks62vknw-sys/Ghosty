@@ -92,6 +92,8 @@ export default async function (h) {
     check(await until(page, (e) => Math.abs(window.__ghosty.photoedit.recipe().light.exposure - e - 0.3) < 1e-6, exp0, 5000), 'approve: accepted, the exposure is up by 0.3');
     // the round trip: the save after the accept written, the app opened again, the photo reopened with the accepted changes
     check(await until(page, (n) => window.__ghosty.photoedit.saves > n, saves0, 15000), 'approve: the edit is saved on the phone');
+    // (and that save is of the recipe with the accepted change in it, not an earlier save finishing late)
+    check(await until(page, () => window.__ghosty.photoedit.savedJson === JSON.stringify(window.__ghosty.photoedit.recipe()), null, 15000), 'approve: the recipe written to the phone is the one with the accepted change');
     const kept = JSON.stringify(await P.recipe());
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#boot', { state: 'detached', timeout: 40000 }).catch(() => undefined);
