@@ -7,8 +7,9 @@ import { settings } from '../state/app';
 
 /** `turn`: his turn to talk in a voice conversation (BRIEF-TALK-1A 4): the ear has just opened and can hear him.
  *  `lock`: the moment of recognition (ui/machine.ts `recognise`): the box snaps onto what he asked for, once.
- *  `click`: the same moment as one small click, when THE SOUND is set to click (BRIEF-THEMES-2). */
-export type Sfx = 'tab' | 'open' | 'close' | 'tap' | 'ok' | 'turn' | 'lock' | 'click';
+ *  `click`: the same moment as one small click, when THE SOUND is set to click (BRIEF-THEMES-2).
+ *  `heard`: the ear heard him finish speaking, so he never wonders whether to say it again (NEXT ci.u5). */
+export type Sfx = 'tab' | 'open' | 'close' | 'tap' | 'ok' | 'turn' | 'lock' | 'click' | 'heard';
 
 /** Whether the interface may make a sound now: his setting on and the phone already tapped (said on THE LOOK when not). */
 export function sfxAllowed(): boolean {
@@ -76,6 +77,9 @@ export function sfx(kind: Sfx, afterMs = 0): void {
   } else if (kind === 'click') {
     // the lock as a click: a dry tick, shorter and lower than the tone, the box landing rather than ringing
     tone(a, 2400, 1800, 0.018, 0, 0.03, 'square');
+  } else if (kind === 'heard') {
+    // heard: one soft falling tick, the quietest of the set and gone in 40 ms, so it never sounds like his turn again
+    tone(a, 1320, 990, 0.04, 0, 0.012);
   } else tone(a, 1500, 1200, 0.03, 0, 0.02);
   // (what played, for the checks that listen for it: tests/talk.spec.mjs)
   document.dispatchEvent(new CustomEvent('ghosty-sfx', { detail: kind }));

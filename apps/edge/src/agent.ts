@@ -12,7 +12,8 @@ import { GitHub } from './github';
 import { collectAis, type AisShip } from './ais';
 import { loadReverseJobs, refreshReverse, removeReverse, startReverse } from './tools/reverse'; // [reverse]
 import { KEYS, keyDefs, testKey } from './keys';
-import { asData, BACKGROUND_BLOCKED, needsApproval, needsApprovalIn } from './kernel/permissions';
+import { asData, BACKGROUND_BLOCKED, needsApproval, needsApprovalIn, outsideSource } from './kernel/permissions';
+import { logApproval, securityRoute } from './security';
 import { Vault } from './kernel/vault';
 import { storageError } from './kv';
 import { Meter } from './meter';
@@ -91,7 +92,7 @@ import { CITED_PROMPT, citeAnswer, citedAsked, GIVEN, type Read } from './cited'
 import { findRights, RIGHTS_HEAD, rightsRead, rightsText } from './knowledge/rights';
 import { refusedWords } from '../../../packages/shared/src/refusal'; // [refusal]
 import { designRoute } from './tools/design';
-import { addSub, loadSubs, removeSub, vapidKeys } from './push';
+import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { notifyPrefsRoute, pushIfWanted, pushWanted } from './notifyprefs';
 import { backupRoute } from './backup';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
@@ -115,6 +116,9 @@ interface Pending {
   calls: ToolCall[];
   client: ClientContext;
   at: number;
+  /** [security] the card's own line and the page whose words came before it, for the approvals list (security.ts) */
+  reason?: string;
+  after?: string;
 }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
@@ -499,6 +503,8 @@ export class GhostyAgent {
       if (path === '/school' || path.startsWith('/school/')) return await schoolRoute(req, path, method, { env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] SCHOOL (school/routes.ts)
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
+      // [security] SAFE, PRIVATE AND IN YOUR HANDS: the brain's locks and every approval, for the SECURITY screen (security.ts)
+      if (path === '/security' || path.startsWith('/security/')) return await securityRoute(path, method, { env: this.env, storage: this.storage, push: (m) => pushAll(this.storage, m), previews: this.env.PAGES_PROJECT ? `${this.env.PAGES_PROJECT}.pages.dev` : this.host?.endsWith('.workers.dev') ? `<change>-${this.host}` : null });
       if (path === '/keys/public' && method === 'GET') {
         // Only a key that is public by design: Mapbox's "pk." token goes in the map's tile addresses.
         let mapbox = '';
@@ -1104,11 +1110,13 @@ export class GhostyAgent {
    * what was waiting under that id is taken, and `run` carries the turn on with its events
    * going to `emit`; or why nothing could be, with the status the route answers.
    */
-  private async takeApproval(id: string, allow: boolean): Promise<{ error: string; status: number } | { run: (emit: (ev: ChatEvent) => void, signal: AbortSignal) => Promise<void> }> {
+  private async takeApproval(id: string, allow: boolean, from: 'phone' | 'telegram' = 'phone'): Promise<{ error: string; status: number } | { run: (emit: (ev: ChatEvent) => void, signal: AbortSignal) => Promise<void> }> {
     const pp = this.pausedPending;
     if (pp && pp.id === id && Date.now() - pp.at < 3600_000) {
       // Asked while the database was paused: carry on the same way.
       this.pausedPending = null;
+      const first = pp.calls[0];
+      if (first) await logApproval(this.storage, { tool: first.function.name, what: describe(first.function.name, safeArgs(first.function.arguments)), allow, from, at: Date.now() });
       return {
         run: async (emit, signal) => {
           try {
@@ -1128,6 +1136,9 @@ export class GhostyAgent {
     }
     if (!pending || pending.id !== id) return { error: 'nothing is waiting for approval', status: 404 };
     const found = pending;
+    // [security] every APPROVE and NOT NOW kept as a short list, from whichever channel (security.ts, security.u4)
+    const first = found.calls[0];
+    if (first) await logApproval(this.storage, { tool: first.function.name, what: found.reason ?? describe(first.function.name, safeArgs(first.function.arguments)), allow, from, at: Date.now(), ...(found.after ? { after: found.after } : {}) });
     return {
       run: async (emit, signal) => {
         try {
@@ -1191,7 +1202,10 @@ export class GhostyAgent {
         }
         const id = crypto.randomUUID().slice(0, 12);
         const pinnedCalls = [{ ...call, function: { ...call.function, arguments: JSON.stringify(pinned) } }, ...calls.slice(i + 1)];
-        await this.storage.put(PENDING_KEY, { id, calls: pinnedCalls, client, at: Date.now() } satisfies Pending);
+        // [security] the card names the page whose words came before it, so he can judge the instruction himself (security.u6)
+        const after = outsideSource(ctx);
+        if (after) reason = `${reason} (Asked after reading ${after}: judge its words yourself.)`;
+        await this.storage.put(PENDING_KEY, { id, calls: pinnedCalls, client, at: Date.now(), reason, ...(after ? { after } : {}) } satisfies Pending);
         await this.storage.put(CTX_KEY, stripImages(forgetVehicleChecks(ctx)));
         emit({ t: 'approval', id, name: tool.name, args: pinned, reason });
         emit({ t: 'done', model: (await this.storage.get<string>('llm:last')) ?? '' });
@@ -1698,7 +1712,7 @@ export class GhostyAgent {
         return this.busy ? null : this.claim();
       },
       runTurn: (text, images, client, emit, signal, note) => this.runTurn(text, images, client, emit, signal, note ? { note } : {}),
-      takeApproval: (id, allow) => this.takeApproval(id, allow),
+      takeApproval: (id, allow) => this.takeApproval(id, allow, 'telegram'),
       statusLine: async () => {
         const st = await this.status('owner');
         return `${st.models.filter((m) => m.state === 'ok').length} of ${st.models.length} models ready · ${st.keys.filter((k) => k.set).length} keys set${st.paused ? ' · memory paused until midnight UTC' : ''}`;
