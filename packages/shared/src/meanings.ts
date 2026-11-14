@@ -242,6 +242,7 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'space', label: 'Space', names: ['space', 'space planner', 'room planner', 'floor plan', 'floorplan', 'room layout', 'house plan', 'interior design'], bare: ['room planner', 'floor plan', 'floorplan'] },
   { tab: 'workbench', label: 'the Workbench', names: ['workbench', 'calculators', 'engineering', 'wind tunnel', 'beam calculator', 'estimates'], bare: ['workbench', 'wind tunnel'] },
   { tab: 'links', label: 'Links', names: ['links', 'connections', 'connected accounts', 'integrations', 'linked accounts'] },
+  { tab: 'security', label: 'Security', names: ['security', 'security screen', 'locks', 'my locks', 'privacy', 'privacy settings', 'approvals', 'my approvals', 'security check'], bare: ['security check', 'privacy settings'] },
   { tab: 'settings', label: 'Settings', names: ['settings', 'preferences', 'options', 'setup', 'control panel', 'config'] },
   { tab: 'look', label: 'The look', names: ['look', 'the look', 'themes', 'theme', 'colours', 'colors', 'looks', 'appearance', 'wallpaper'] },
   { tab: 'system', label: 'System', names: ['system', 'status', 'diagnostics', 'system status', 'health check', 'brain status'] },
