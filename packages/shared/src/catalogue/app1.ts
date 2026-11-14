@@ -435,6 +435,12 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Rain radar', 'Show me the rain map', 'Replay the rain'], scene: ['morning', 'out'], cat: 'see',
     since: '2026-11-14',
   },
+  'phrase:weatherapp': {
+    name: 'The weather app', line: 'You can say "weather app" and I open the full forecast: the next hour, 24 hours, ten days, the air.',
+    more: 'For each saved place and any city you add: the next hour’s rain, a graph of temperature, rain, wind or UV, ten days, feels like, dew point, pressure, visibility, the sun, the moon and the pollen. Free, and kept for when there is no signal.',
+    say: ['Weather app', 'Open the weather', '10 day forecast'], scene: ['morning', 'out'], cat: 'see',
+    since: '2026-11-14',
+  },
   'phrase:workbench': {
     name: 'Estimates by words', line: 'You can say "beam calculator" or "3 m steel beam 5 kN in the middle" and I answer on the phone, no AI.',
     more: 'A calculator’s name opens it; a problem with its numbers is filled in and answered at once. A question goes to my brain.',

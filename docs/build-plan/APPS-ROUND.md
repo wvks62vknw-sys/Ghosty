@@ -14,9 +14,9 @@ ranked 580 proposed apps and 175 existing ones against the market leaders.
 > "i don't want any sloppy text i want it all to fit the clean aesthetic … everything must be genuine jaw dropping quality"
 
 ## Times (UTC, 14 Nov) and usage
-- **CONSISTENCY merges the App Kit's core by 12:45.** Everyone else starts on their app's engine and features, and adopts the kit as soon as it lands (fetch, merge).
-- **13:00:** your first merge of whatever is whole and green.
-- **15:00: HARD STOP.** Your last merge, your report `docs/build-plan/APPS-<LANE>.md`, then a message to `@parent` with the sha and what's left. Then stop completely.
+- **CONSISTENCY merges the App Kit's core by 14:45.** Everyone else starts on their app's engine and features, and adopts the kit as soon as it lands (fetch, merge).
+- **15:00:** your first merge of whatever is whole and green.
+- **17:00: HARD STOP.** Your last merge, your report `docs/build-plan/APPS-<LANE>.md`, then a message to `@parent` with the sha and what's left. Then stop completely.
 - **Usage is tight:** the owner's weekly allowance is limited, and the account hit its 5-hour cap once today. So use at most one or two helper agents at a time, no parallel builder waves, and finish whole pieces rather than start big new ones.
 
 ## The standard every app meets (the judge's quality bar)

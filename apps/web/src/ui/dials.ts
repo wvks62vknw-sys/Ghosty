@@ -7,16 +7,16 @@
  *   COLOUR    the twelve accents, each chip in its own block (data-accent), on the ground in force
  *   WORLD     the five, each tile drawn IN its world (its floor, its corners, its reticle) on the ground in force; then the line
  *             that Orbit is a way round, not a look, and that every room follows the world fully with the shell
- *   SWITCHES  the eight, each a row: its name, the sentence of what the choice does now, and its choices as square keys
+ *   SWITCHES  Accessibility first (one switch over the reading ones), then the nine, each a row: its name, the sentence of what the choice does now, and its choices as square keys
  *
  * A tap applies at once, everywhere (state/theme.ts applyRecipe), with the toast; a dial changed under a preset makes Custom,
  * kept exactly as set. Nothing here names a colour of its own: every tile and chip draws from the tokens it stands on.
  */
 import { clear, h } from '../core/dom';
 import { para } from './oneline';
-import { applyRecipe, groundNow, recipe, recipeEvents, savedHome, THEMES } from '../state/theme';
+import { applyRecipe, easyArgs, groundNow, recipe, recipeEvents, savedHome, THEMES } from '../state/theme';
 import { settings } from '../state/app';
-import { clockWords, COLOUR_KEYS, COLOUR_LABELS, daylight, groundOf, GROUNDS, ROOMS_LINE, SWITCHES, worldOf, WORLDS, type GroundKey, type NightKey, type Recipe, type SwitchKey, type Switches } from '../../../../packages/shared/src/themes';
+import { applyAsk, easyOn, clockWords, COLOUR_KEYS, COLOUR_LABELS, daylight, groundOf, GROUNDS, ROOMS_LINE, SWITCHES, worldOf, WORLDS, type GroundKey, type NightKey, type Recipe, type SwitchKey, type Switches } from '../../../../packages/shared/src/themes';
 import { toast } from './components';
 import { eyeGlyph, tag, truthLine } from './machine';
 
@@ -101,7 +101,25 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
         h('p.gdial-note', { dataset: { case: 'keep' } }, ROOMS_LINE)));
     }
     if (parts.includes('switches')) {
-      const rows = SWITCHES.map((def) => {
+      // [consistency] ACCESSIBILITY (APPS ROUND): one switch over the reading switches, its own row first; OFF puts his own back
+      const easy = easyOn(r.switches);
+      const easyKeys = [true, false].map((want) => {
+        const on = easy === want;
+        const word = want ? 'On' : 'Off';
+        const b = h('button.g-key.gsw', { type: 'button', role: 'radio', 'aria-checked': String(on), 'aria-label': `Accessibility: ${word}${on ? ', chosen' : ''}`, dataset: { case: 'keep', g: 'key', sw: 'easy', val: want ? 'on' : 'off' } }, h('span', word));
+        b.addEventListener('click', () => {
+          if (on) return;
+          const ask = { easy: want };
+          const { recipe: next, said } = applyAsk(r, ask, { ...easyArgs(ask) });
+          change(next, said);
+        });
+        return b;
+      });
+      const easyLine = easy ? 'Everything set for the easiest reading: the biggest text, nothing moving, plain colours anyone can tell apart.' : 'One switch for the easiest reading: the biggest text, nothing moving, colours anyone can tell apart.';
+      const easyRow = h('div.gswitch', { dataset: { switch: 'easy' } },
+        h('div.gswitch-text', h('span.gswitch-name', 'Accessibility'), h('span.gswitch-line', { dataset: { case: 'keep' } }, easyLine)),
+        h('div.gswitch-keys', { role: 'radiogroup', 'aria-label': 'Accessibility' }, ...easyKeys));
+      const rows = [easyRow, ...SWITCHES.map((def) => {
         const keys = def.options.map((opt) => {
           const on = r.switches[def.key] === opt.value;
           const b = h('button.g-key.gsw', { type: 'button', role: 'radio', 'aria-checked': String(on), 'aria-label': `${def.label}: ${opt.label}${on ? ', chosen' : ''}`, dataset: { case: 'keep', g: 'key', sw: def.key, val: String(opt.value) } }, h('span', opt.label));
@@ -115,8 +133,8 @@ export function lookDials(o: { parts?: DialPart[]; label?: string } = {}): { el:
         return h('div.gswitch', { dataset: { switch: def.key } },
           h('div.gswitch-text', h('span.gswitch-name', def.label), h('span.gswitch-line', { dataset: { case: 'keep' } }, switchLine(def.key, r))),
           h('div.gswitch-keys', { role: 'radiogroup', 'aria-label': def.label }, ...keys));
-      });
-      blocks.push(h('section.gdial', { dataset: { dial: 'switches' } }, head('Switches', String(SWITCHES.length), 'Each one changes one thing you can see, and I keep it.'), ...rows));
+      })];
+      blocks.push(h('section.gdial', { dataset: { dial: 'switches' } }, head('Switches', String(rows.length), 'Each one changes one thing you can see, and I keep it.'), ...rows));
     }
     clear(el, ...blocks);
   };

@@ -202,10 +202,10 @@ test('THE PLAN: seven rooms, every thing numbered 01, 02, 03 in its room, from t
   }
   assert.deepEqual(RM.ROOMS.find((r) => r.key === 'me').things.filter((t) => !t.screen).map((t) => t.id), ['origin', 'deck']);
   // every screen of the catalogue is on the plan: a thing (35), a room's own key (Home, and the six hubs), or inside another screen (THE LOOK, the reader)
-  const onPlan = new Set([...RM.THINGS.map((t) => t.screen).filter(Boolean), 'core', ...RM.ROOMS.map((r) => r.screen), ...Object.keys({ look: 1, security: 1, reader: 1, lab: 1 })]);
+  const onPlan = new Set([...RM.THINGS.map((t) => t.screen).filter(Boolean), 'core', ...RM.ROOMS.map((r) => r.screen), ...Object.keys({ look: 1, security: 1, journal: 1, reader: 1, lab: 1 })]);
   const missing = SCREENS.filter((id) => !onPlan.has(id) && !byId.get(id)?.hub);
   assert.deepEqual(missing, [], `screens on no plan: ${missing.join(', ')}`);
-  assert.equal(SCREENS.length, 57, 'the 57 screens (the interpreter, the lab and REHEARSE joined on 11 Nov; Spreadsheets, Presentations, the Workspace, Photo, Video, the Game Studio and the Comic with their landings; SECURITY, a row of Settings, on 14 Nov; TRANSLATE in the apps round)');
+  assert.equal(SCREENS.length, 58, 'the 58 screens (JOURNAL, a row of Memory, and TRANSLATE in SEE, on 14 Nov in the apps round; the interpreter, the lab and REHEARSE joined on 11 Nov; Spreadsheets, Presentations, the Workspace, Photo, Video, the Game Studio and the Comic with their landings; SECURITY, a row of Settings, on 14 Nov)');
   assert.equal(RM.THINGS.length, 47, 'forty-seven numbered things: the 45 screens of the rooms, the origin and Every screen');
   console.log(`plan: 7 rooms, ${RM.THINGS.length} numbered things (${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ')}); with the 7 room keys, THE LOOK and the reader all ${SCREENS.length} screens are on it`);
   // each thing has one name, said as in the mock
