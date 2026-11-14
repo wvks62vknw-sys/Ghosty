@@ -502,3 +502,96 @@ test('the phone’s buttons: POST /packs/do runs one work action with no model (
   assert.match(r.text, /^Length: 20 seconds, 24 words:/);
   assert.equal((await call({ pack: 'work', action: 'spy' })).status, 400);
 });
+
+// [planlane3:onelist2] (plan.u4, plan.s10 and the one list's open ends)
+test('todo (ONELIST2): a to-do with a time rings through the brain’s own reminder job; a tick or a removal cancels it, a new time moves it, a repeating one rings each time', async () => {
+  const storage = new Mem();
+  const rings = async () => (await J.loadJobs(storage)).filter((j) => j.eventId?.startsWith('todo:'));
+  // NOW is Sun 1 Nov 2026, 12:00 in London (GMT)
+  let r = await run(storage, 'todo', { op: 'add', item: { id: 'tbank', text: 'Call the bank', due: '2026-11-01', time: '15:00' } });
+  assert.equal(r.text, 'Added: Call the bank. It rings at 15:00 on Sun 1 Nov.');
+  let j = await rings();
+  assert.equal(j.length, 1);
+  assert.deepEqual([j[0].kind, j[0].eventId, j[0].next, j[0].repeat, j[0].title], ['reminder', 'todo:tbank', Date.UTC(2026, 10, 1, 15, 0), 'none', 'To-do: Call the bank']);
+  assert.match(j[0].text, /^Call the bank: it is 15:00\. Tick it off/);
+  // a new time moves it (the same job), new words re-word it
+  await run(storage, 'todo', { op: 'edit', id: 'tbank', time: '16:30', text: 'Call the bank about the card' });
+  j = await rings();
+  assert.equal(j.length, 1);
+  assert.equal(j[0].next, Date.UTC(2026, 10, 1, 16, 30));
+  assert.equal(j[0].title, 'To-do: Call the bank about the card');
+  // ticked: the ring is cancelled; ticked back on: it rings again; removed: gone
+  await run(storage, 'todo', { op: 'tick', id: 'tbank' });
+  assert.equal((await rings()).length, 0);
+  await run(storage, 'todo', { op: 'untick', id: 'tbank' });
+  assert.equal((await rings()).length, 1);
+  await run(storage, 'todo', { op: 'edit', id: 'tbank', time: '' });
+  assert.equal((await rings()).length, 0, 'the time taken off: no ring');
+  await run(storage, 'todo', { op: 'edit', id: 'tbank', time: '17:00' });
+  await run(storage, 'todo', { op: 'remove', id: 'tbank' });
+  assert.equal((await rings()).length, 0);
+  // a one-off whose time has gone gets no ring (it rang, or was set late)
+  await run(storage, 'todo', { op: 'add', item: { id: 'tlate', text: 'Feed the cat', due: '2026-11-01', time: '09:00' } });
+  assert.equal((await rings()).length, 0);
+  // a repeating one rings each time it comes round: today's 09:00 has gone, so tomorrow's, repeating daily
+  await run(storage, 'todo', { op: 'add', item: { id: 'tpills', text: 'Take the pills', due: '2026-11-01', time: '09:00', every: 'daily' } });
+  j = await rings();
+  assert.deepEqual(j.map((x) => [x.eventId, x.next, x.repeat]), [['todo:tpills', Date.UTC(2026, 10, 2, 9, 0), 'daily']]);
+  // ticked, its next one (with the time) takes the ring
+  r = await run(storage, 'todo', { op: 'tick', id: 'tpills', nextId: 'tpills2' });
+  assert.equal(r.data.next.time, '09:00');
+  j = await rings();
+  assert.deepEqual(j.map((x) => x.eventId), ['todo:tpills2']);
+  // the other jobs on the clock are never touched
+  await J.addJob(storage, { kind: 'reminder', title: 'Dentist', text: 'Dentist at 4', next: Date.UTC(2026, 10, 3, 16, 0), tz: 'Europe/London' }, NOW);
+  await run(storage, 'todo', { op: 'clear_done' });
+  assert.equal((await J.loadJobs(storage)).filter((x) => x.title === 'Dentist').length, 1);
+  // the words path: "call the plumber at 3" rings at 15:00 today (the time is still ahead)
+  r = await run(storage, 'todo', { words: 'add to my to-do: call the plumber at 3' });
+  assert.match(r.text, /^Added 1 to your list:\n- Call the plumber \(Sun 1 Nov\), rings at 15:00/);
+  assert.ok((await rings()).some((x) => x.title === 'To-do: Call the plumber' && x.next === Date.UTC(2026, 10, 1, 15, 0)));
+  // at 11 (the morning) is past at noon: tomorrow
+  assert.deepEqual(W.todosFrom('ring mum at 11am', '2026-11-01', NOW, '12:00').map((t) => [t.text, t.due, t.time]), [['Ring mum', '2026-11-02', '11:00']]);
+  assert.deepEqual(['at 3', 'at 3pm', 'at 15:30', 'at half 4', 'at noon', 'at 8', 'at quarter to 6', 'at 10.15am'].map((w) => W.splitTime(`call the bank ${w}`).time), ['15:00', '15:00', '15:30', '16:30', '12:00', '08:00', '17:45', '10:15']);
+  assert.deepEqual(W.splitTime('meet at the cafe'), { text: 'meet at the cafe', time: '' });
+});
+
+test('todo (ONELIST2): the merge keeps the phone’s star, day, repeat and time; two of the same words on different days stay two; nothing doubled; the cap drops the oldest done first and refuses only when all are open; a late offline tick uses its own day', async () => {
+  const m = W.mergeTodos([{ id: 'b1', text: 'Gym', due: '2026-11-02', at: 1 }, { id: 'b2', text: 'Send the invoice', at: 1 }], [
+    { id: 'p1', text: 'Gym', due: '2026-11-04' },
+    { id: 'p2', text: 'send the invoice', due: '2026-11-06', star: true, every: 'weekly', time: '10:00' },
+    { id: 'p3', text: 'Buy milk' }, { id: 'p3', text: 'Buy milk' }, { id: 'p4', text: 'buy MILK' },
+  ], 5);
+  assert.deepEqual(m.list.map((t) => [t.id, t.text, t.due ?? '', !!t.high, t.every ?? '', t.time ?? '']), [
+    ['b1', 'Gym', '2026-11-02', false, '', ''], ['b2', 'Send the invoice', '2026-11-06', true, 'weekly', '10:00'], ['p1', 'Gym', '2026-11-04', false, '', ''], ['p3', 'Buy milk', '', false, '', ''],
+  ]);
+  assert.equal(m.added.length, 2);
+  const many = Array.from({ length: 300 }, (_, i) => ({ id: `o${i}`, text: `Job ${i}`, at: i, ...(i < 3 ? { done: true, doneAt: 100 - i } : {}) }));
+  const capped = W.capTodos([...many, { id: 'new', text: 'One more', at: 999 }]);
+  assert.equal(capped.length, 300);
+  assert.ok(!capped.some((t) => t.id === 'o2') && capped.some((t) => t.id === 'o0'), 'the oldest ticked one goes first');
+  assert.equal(W.capTodos([...many.map((t) => ({ ...t, done: false })), { id: 'new', text: 'One more', at: 999 }]), null);
+  const storage = new Mem();
+  await storage.put('work:todo', many.map((t) => ({ id: t.id, text: t.text, at: t.at })));
+  const full = await run(storage, 'todo', { op: 'add', item: { id: 'x', text: 'One more' } });
+  assert.equal(full.text, 'Your list is full: 300 open to-dos. Tick off or remove one, then add this again.');
+  assert.equal((await storage.get('work:todo')).length, 300);
+  // a tick made at 23:50 on the 1st with no signal, sent at 00:10 on the 2nd: the next one is due from the 1st (the 2nd), not the 3rd
+  const s2 = new Mem();
+  await run(s2, 'todo', { op: 'add', item: { id: 'tw', text: 'Water the plants', due: '2026-11-01', every: 'daily' } });
+  const after = Date.UTC(2026, 10, 2, 0, 10);
+  const r = await run(s2, 'todo', { op: 'tick', id: 'tw', nextId: 'tw2', day: '2026-11-01', at: Date.UTC(2026, 10, 1, 23, 50) }, after);
+  assert.equal(r.data.next.due, '2026-11-02');
+  assert.equal(r.data.hit.doneAt, Date.UTC(2026, 10, 1, 23, 50));
+});
+
+test('todo (ONELIST2, plan.s10): the list as read carries his bin days from the home pack (read, never changed)', async () => {
+  const storage = new Mem();
+  let r = await run(storage, 'todo', { op: 'list' });
+  assert.deepEqual(r.data.bins, []);
+  await storage.put('home:bins', { bins: [{ id: 'b', name: 'General waste', weekday: 2, every: 1 }], moves: [], slip: false });
+  r = await run(storage, 'todo', { op: 'list' });
+  assert.deepEqual(r.data.bins.slice(0, 2), [{ day: '2026-11-03', name: 'General waste' }, { day: '2026-11-10', name: 'General waste' }]);
+  assert.ok(r.data.bins.every((b) => b.day >= '2026-11-01' && b.day <= '2026-12-13'));
+  assert.deepEqual((await storage.get('home:bins')).bins.length, 1);
+});
