@@ -39,7 +39,7 @@ export const SCREEN_CAT: Record<string, AbilityCat> = {
   'area-ask': 'talk', 'area-see': 'see', 'area-make': 'build', 'area-learn': 'learn', 'area-plan': 'do', 'area-me': 'talk',
   // [tabs] LIFE and the screens the sheets became (BRIEF-TABS)
   'area-life': 'do', money: 'do', body: 'do', kitchen: 'do', people: 'know', work: 'do', creative: 'build', outside: 'watch', homeadmin: 'do',
-  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', sheets: 'do', slides: 'do', workspace: 'do', video: 'build', gamestudio: 'build', comic: 'build', house: 'do',
+  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', sheets: 'do', slides: 'do', workspace: 'do', video: 'build', gamestudio: 'build', comic: 'build', paint: 'build', house: 'do',
   // [reader] THE READER (BRIEF-LIBRARY-READER): his books, read here or to him
   reader: 'learn',
 };
@@ -80,6 +80,8 @@ export const APP_WIDE = [
   { id: 'helpdesk', sel: '' },
   // [consistency] THE GUIDED TOUR (assistant/tour.ts)
   { id: 'tour', sel: '' },
+  // [consistency] SPEAK SCREEN (shell/speakscreen.ts, asked through assistant/helpdesk.ts)
+  { id: 'speakscreen', sel: '' },
 ] as const;
 
 /** A deck line's id: its screen and its first words ("deck:lens:translate-a-sign-or-a-menu"). */

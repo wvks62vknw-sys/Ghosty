@@ -42,7 +42,8 @@ const save = (b: Book) => {
 
 export const puzzlesState = { left: 0, rating: 1500, solved: 0, tried: 0, id: '', step: 0, said: '', last: '' as '' | 'right' | 'wrong' | 'solved', mode: 'idle' as 'idle' | 'solve' | 'rush', rush: { solved: 0, lives: 3, best: 0, over: false }, fetching: false };
 
-export function puzzlesSection(io: { renderFrame(f: Frame | null, onCell?: (i: number) => void): HTMLElement }): HTMLElement {
+export interface PuzzleResult { z: Puzzle; solved: boolean; rating: number; rush: boolean }
+export function puzzlesSection(io: { renderFrame(f: Frame | null, onCell?: (i: number) => void): HTMLElement; onResult?: (r: PuzzleResult) => void; start?: Puzzle }): HTMLElement {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   if (w.__ghosty) w.__ghosty.chessPuzzles = puzzlesState;
   let book = load();
@@ -236,6 +237,7 @@ export function puzzlesSection(io: { renderFrame(f: Frame | null, onCell?: (i: n
     book = { ...book, done: { ...book.done, [z.id]: ok ? 1 : 0 }, rating: puzzleRating(book.rating, z.rating, ok, book.tried), solved: book.solved + (ok ? 1 : 0), tried: book.tried + 1 };
     save(book);
     paintLine();
+    io.onResult?.({ z, solved: ok, rating: book.rating, rush: puzzlesState.mode === 'rush' });
   };
   const solved = () => {
     if (!missed) mark(true);
@@ -312,5 +314,13 @@ export function puzzlesSection(io: { renderFrame(f: Frame | null, onCell?: (i: n
 
   paintLine();
   keys();
+  // (a puzzle to try again, from the CHESS app's library: set up at once, even one done before)
+  if (io.start && puzzleStart(io.start)) {
+    const again = io.start;
+    const { [again.id]: _was, ...rest } = book.done;
+    book = { ...book, done: rest, pack: [again, ...book.pack.filter((x) => x.id !== again.id)] };
+    daily = again.id;
+    next('solve');
+  }
   return el;
 }
