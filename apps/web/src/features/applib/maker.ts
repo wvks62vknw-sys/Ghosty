@@ -19,13 +19,15 @@ import { LIBRARY } from '../../../../../packages/shared/src/applib/index';
 import * as reg from './registry';
 
 const MAKER_ID = 'maker';
+/** The first run's sample app: shown in App Maker to teach it, never listed in the Library as one of his. */
+const SAMPLE_ID = 'mine-sample';
 type Mine = KitItem & { def: AppDef };
 
 /** His made apps, as AppDefs (for the Library's list and for opening one by name). */
 export function myApps(): AppDef[] {
   try {
     const v = JSON.parse(localStorage.getItem(`ghosty.app.${MAKER_ID}`) ?? 'null') as { items?: Mine[] } | null;
-    return (v?.items ?? []).map((x) => x.def).filter((d): d is AppDef => !!d && typeof d.id === 'string');
+    return (v?.items ?? []).filter((x) => x.id !== SAMPLE_ID).map((x) => x.def).filter((d): d is AppDef => !!d && typeof d.id === 'string');
   } catch {
     return [];
   }
@@ -50,7 +52,7 @@ const itemOf = (d: AppDef): Mine => ({ id: d.id, title: d.name, sub: D.ARCHETYPE
 /** Draw App Maker into root. Returns the kit app (and its clean-up via the root being cleared). */
 export function openMaker(root: HTMLElement, o: MakerOptions = {}): KitApp {
   const libraryIds = () => o.taken?.() ?? [];
-  const sampleDraft = D.fromWords('make me an app for my vinyl', []).def;
+  const sampleDraft = { ...D.fromWords('make me an app for my vinyl', []).def, id: SAMPLE_ID };
   let editing: AppDef | null = null;
   let assumed: string[] = [];
   let ownRender: (() => void) | null = null;
@@ -65,9 +67,10 @@ export function openMaker(root: HTMLElement, o: MakerOptions = {}): KitApp {
       { word: 'New app', run: () => pickKind() },
       { word: 'Describe', run: () => describe() },
     ],
-    open: (item) => edit((item as Mine).def ?? sampleDraft),
+    // (the sample opens as a copy of its own, so keeping it makes a real app of his)
+    open: (item) => (item.id === SAMPLE_ID ? edit({ ...sampleDraft, id: D.freeId(sampleDraft.name, taken()) }) : edit((item as Mine).def ?? sampleDraft)),
   });
-  const taken = () => [...libraryIds(), ...k.items().map((x) => x.id)];
+  const taken = () => [...libraryIds(), ...k.items().map((x) => x.id), ...myApps().map((d) => d.id), SAMPLE_ID];
 
   /** While a page of the Maker is up, the kit's redraws keep it (the list comes back with BACK). */
   function page(...kids: HTMLElement[]): void {
