@@ -71,6 +71,8 @@ import { typingPending } from '../features/learning/typing';
 import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
+import { TRIP_ASK } from '../ui/tripwords';
+import { setAsked } from '../features/eye/sets';
 import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
 
 /** [keep] Does his message ask about his word (the same test as features/memory/keep.ts keepAsked, kept pure here)? */
@@ -179,6 +181,10 @@ export const LOCAL_ASKS = [
   { id: 'homeadmin', test: (t: string) => homeAsked(t) !== null },
   // (and while a typing test is up in the chat's own box, what he sends next: features/learning/typing.ts)
   { id: 'learning', test: (t: string) => typingPending() || learningAsked(t) !== null },
+  // [see] TRIP MODE: the next appointment to the whole journey (ui/tripsheet.ts)
+  { id: 'trip', test: (t: string) => TRIP_ASK.test(t.trim()) },
+  // [see] a one-tap layer set on God's Eye: "commute view", "storm layers", "sky mode" (features/eye/sets.ts)
+  { id: 'layerset', test: (t: string) => setAsked(t) !== null },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

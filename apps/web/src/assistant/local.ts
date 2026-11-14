@@ -52,7 +52,7 @@ import { TWO_WAYS } from '../../../../packages/shared/src/colours';
 
 /** What a local answer's buttons do: GO to what was found, YES / NO to learning it, DO IT (his words to the brain after all). */
 export interface LocalAnswer {
-  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall';
+  kind: 'further' | 'can' | 'why' | 'today' | 'first' | 'offer' | 'foresight' | 'machine' | 'workbench' | 'pack' | 'car' | 'origin' | 'shapes' | 'tv' | 'look' | 'missed' | 'teach' | 'watcher' | 'recall' | 'trip' | 'layerset';
   /** [recall] The RECALL card's rows (features/memory/recall.ts): a turn or a thing of his, each a tap into it. */
   /** [keep] Open promises of his under "what did I say I'd do?": each with DONE (features/memory/keepcard.ts). */
   promises?: { id: string; what: string; due: string }[];
@@ -327,6 +327,23 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   learning: async (text, opts) => {
     const r = await learningTurn(text);
     return r ? packAnswer(r, opts) : false;
+  },
+  // [see] TRIP MODE: "how do I get to my next appointment?" opens GETTING THERE on it (ui/tripsheet.ts), the answer one line
+  async trip(text, opts) {
+    const { openNextTrip } = await import('../ui/tripsheet');
+    return answer(text, await openNextTrip(), { kind: 'trip' }, opts);
+  },
+  // [see] "commute view", "storm layers", "sky mode": the set picked on God's Eye, said in one line
+  async layerset(text, opts) {
+    const { setAsked, LAYER_SETS } = await import('../features/eye/sets');
+    const k = setAsked(text);
+    if (!k) return false;
+    location.hash = 'eye';
+    const eye = await import('../features/eye');
+    const t0 = Date.now();
+    while (!eye.pickLayerSet && Date.now() - t0 < 6000) await new Promise((r) => setTimeout(r, 150));
+    const said = eye.pickLayerSet?.(k) ?? LAYER_SETS.find((s) => s.key === k)!.said;
+    return answer(text, said, { kind: 'layerset' }, opts);
   },
   // (with the Lens open, "what can you see?" is about what its camera sees: that stays the Lens's and the brain's)
   async machine(text, opts) {

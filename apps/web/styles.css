@@ -613,6 +613,28 @@ html .hud.eye .eyeinfo .bd > .row.wrap:last-child { position: sticky; bottom: 0;
 html .hud.eye .eyeinfo .bd > .row.wrap:last-child::-webkit-scrollbar { display: none; }
 html .hud.eye .eyeinfo .bd > .row.wrap:last-child > button { flex: none; }
 html .hud.eye .eyeinfo .bd > .row.wrap:last-child > button:nth-last-child(-n+2) { order: -1; }
+/* GETTING THERE (lane SEE, next round; ui/tripsheet.ts): an appointment to the whole journey, and the journey kept on the phone */
+.trip { display: flex; flex-direction: column; gap: var(--g-s-2); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
+.trip .triphead { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.trip .triphead b { font: var(--g-t-title, 600 20px/1.2 var(--sf)); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.trip .triphead span { color: var(--g-ink-2); overflow-wrap: anywhere; }
+.trip .tripsec[hidden] { display: none; }
+.trip .tripsec .note { margin: var(--g-s-half) 0 0; overflow-wrap: anywhere; }
+.trip .tripinc[data-sev="3"], .trip .tripinc[data-sev="2"] { color: var(--g-red, var(--r)); }
+.trip .tripcams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--g-s-1); margin-top: var(--g-s-half); }
+html .trip .tripcam { position: relative; display: block; min-height: var(--g-target) !important; aspect-ratio: 4 / 3; padding: 0; overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-plate-fill); text-align: left; }
+.trip .tripcam img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.trip .tripcam.dead img { visibility: hidden; }
+.trip .tripcam span { position: absolute; left: 0; right: 0; bottom: 0; padding: var(--g-s-half); font: var(--g-t-caption, 500 12px/1.3 var(--sf)); color: var(--g-ink-1); background: var(--g-scrim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
+html body .modal :is(.trip, .jsheet) button, html body .evtrip button { min-height: var(--g-target) !important; }
+/* God's Eye: every match to pick from (see.u6), and the one-tap layer sets (see.u3) */
+html #pg-eye .searchlist { display: flex; flex-direction: column; gap: var(--g-s-half); max-height: 36vh; overflow-y: auto; overscroll-behavior: contain; padding: var(--g-s-half); border-radius: var(--g-radius-key); background: var(--g-plate-strong); pointer-events: auto; }
+html #pg-eye .searchlist[hidden] { display: none; }
+html body #pg-eye .searchpick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: var(--g-target) !important; padding: var(--g-s-half) var(--g-s-1); text-align: left; text-transform: none; background: var(--g-plate-fill); border-radius: var(--g-radius-key); }
+html #pg-eye .searchpick b { color: var(--g-ink-1); overflow-wrap: anywhere; }
+html #pg-eye .searchpick span { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html body #pg-eye .eyesets button { min-height: var(--g-target) !important; }
+.jstale { margin: var(--g-s-half) 0; padding: var(--g-s-half) var(--g-s-1); border-radius: var(--g-radius-key); color: var(--g-amber, var(--amber)); background: var(--g-plate-fill); overflow-wrap: anywhere; }
 
 /* Training ground */
 .trainnow { font: 400 10.5px var(--m); color: var(--c); min-height: 14px; margin: 6px 0; }
