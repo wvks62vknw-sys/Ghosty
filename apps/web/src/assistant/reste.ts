@@ -208,9 +208,16 @@ export function numbersTurn(text: string): PackReply | null {
 /** "make a game", "my games", "sketch a cave room with two ledges": the game studio, open on it (the sketch is made in the editor). */
 export async function gameTurn(text: string): Promise<PackReply> {
   const ask = gameAsked(text) ?? { what: 'list' as const };
-  const { ask: studioAsk } = await import('../studio-game/hub');
   const { go } = await import('../shell/tabs');
-  studioAsk(ask.what === 'sketch' ? { what: 'sketch', wish: ask.wish } : { what: ask.what });
+  // (APPS ROUND) GAME STUDIO 3D: its shelf, or his description drafted as marked changes there
+  if (ask.what === 'three') {
+    const { open3d } = await import('../features/gamestudio/game3d');
+    go('gamestudio');
+    open3d(ask.wish);
+    return { said: text, reply: ask.wish ? `I drafted “${ask.wish}” in GAME STUDIO → 3-D GAMES as changes you accept or reject. MAKE IT plays it.` : 'GAME STUDIO → 3-D GAMES is open: tap a template and it plays at once, or describe the game you want.', go: [{ id: 'gamestudio', ask: -1, label: 'Open the game studio', run: 'open_gamestudio', args: {} }] };
+  }
+  const { ask: studioAsk } = await import('../studio-game/hub');
+  studioAsk(ask.what === 'sketch' ? { what: 'sketch', wish: ask.wish } : { what: ask.what as 'list' | 'new' });
   go('gamestudio');
   const reply = ask.what === 'new'
     ? 'The game studio is open: pick a template, or blank, and you are making a game.'
