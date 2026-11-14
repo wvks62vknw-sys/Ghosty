@@ -346,6 +346,13 @@ async function run(viewport, all) {
   await letGo();
   await reset();
 
+  // ---- (review) a real energy bill (prices, VAT, a total, "card") is A BILL with ADD TO MY BILLS, never a receipt
+  await words('OCTOPUS ENERGY\nYour energy bill\nElectricity 312 kWh £98.40\nStanding charge £15.20\nVAT 5% £5.68\nTotal amount due £119.28\nPay by Direct Debit or card by 2 December 2026');
+  await hold([TEXT_BOX]);
+  await until(() => window.__ghosty.cards.jobs[0] === 'letter' && window.__ghosty.cards.cards.some((c) => c.job === 'letter' && c.head === 'A BILL' && c.keys.includes('ADD TO MY BILLS')), null, 4000, `[bill] an energy bill was taken for ${JSON.stringify((await cards()).jobs)}: ${JSON.stringify((await cards()).cards.map((c) => [c.job, c.head]))}`);
+  await letGo();
+  await reset();
+
   // ---- A RECEIPT (lens.c1): one tap into this month's spending, by the rules alone; one more keeps its warranty
   const pence = String(10 + (Date.now() % 89)).padStart(2, '0');
   const total = `${viewport.width === 440 ? 4 : 6}.${pence}`;
@@ -393,6 +400,11 @@ async function run(viewport, all) {
   await until(() => /25 to Holborn — 2 min/.test(document.querySelector('#pg-lens .lenscard[data-job="stop"] .lc-times')?.textContent ?? ''), null, 4000, '[stop] the times are not on the card');
   const askedBus = chats.filter((b) => /next buses from Oxford Circus/.test(b));
   check(askedBus.length === 1 && askedBus.every((b) => !/"lat"|"lon"|"latitude"|data:image/.test(b)), `${T} [stop] the stop went ${askedBus.length} time(s), by its name alone: ${askedBus.map((b) => b.slice(0, 200)).join(' | ')}`);
+  // (review) asked again with the times on the card: it asks again, and never says it sees no stop
+  await page.evaluate(() => window.__ghosty.send("when's the next bus"));
+  await until(() => /Asking for the next buses|Next departures from Oxford Circus/.test(window.__ghosty.one.said) || window.__ghosty.cards.buses.state === 'asking', null, 5000, `[stop] asked again it said "${await page.evaluate(() => window.__ghosty.one.said)}"`);
+  check(!/don’t see a bus stop sign/.test(await page.evaluate(() => window.__ghosty.one.said)), `${T} [stop] asked again with the sign in view it said "${await page.evaluate(() => window.__ghosty.one.said)}"`);
+  await until(() => window.__ghosty.cards.buses.state === 'found', null, 10000, '[stop] the second ask did not bring the times');
   await layout('stop');
   await letGo();
   await reset();
