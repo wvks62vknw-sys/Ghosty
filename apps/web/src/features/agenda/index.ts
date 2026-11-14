@@ -82,6 +82,8 @@ export const agendaTab: TabDef = {
     // On the phone one page in sections (ui/sections.ts) instead of two sides to swap between.
     const P = page(root, { tag: 'AGENDA', rightLabel: 'REMINDERS & INBOX', leftLabel: 'DIARY', stack: true });
     const ep = panel('DIARY · NEXT 14 DAYS', { cls: 'scroll' });
+    // (a phrase after the dot, not a name: drawn in sentence case like every other heading here; the title itself, which the pills match, stays)
+    ep.title.dataset.label = 'Diary · next 14 days';
     const cp = panel('CALENDARS', { grow: false, cls: 'scroll.feeds' });
     // SPENDING (spending.ts): the statements he adds himself, under his diary — the month's money is part of its plan.
     const sp = spendingPanel();
@@ -300,7 +302,8 @@ export const agendaTab: TabDef = {
         if (Number.isFinite(endMs) && endMs <= start) return toast('It has to end after it starts', 'warn');
         const remindNew = remSel.value === '' ? null : Number(remSel.value);
         b.disabled = true;
-        const changed = { title, start, end: Number.isFinite(endMs) ? endMs : undefined, allDay, location: where.value.trim() || undefined, remindMin: remindNew };
+        // (its notes too: on the paths below that put it back as a new one, a change never loses them)
+        const changed = { title, start, end: Number.isFinite(endMs) ? endMs : undefined, allDay, location: where.value.trim() || undefined, notes: e.notes, remindMin: remindNew };
         // one waiting on this phone (added with no signal) has no brain id yet: the changed one is added first, and only then the old one
         // taken out (an add that fails leaves the old one where it was)
         if (waiting) {
@@ -345,7 +348,7 @@ export const agendaTab: TabDef = {
           } catch (err) {
             if (!unreachable(err)) throw err;
             // (out of reach: put back as it was on this phone, queued like any change)
-            await brain.addEvent({ title: was.title, start: was.start, end: was.end, allDay: !!was.allDay, location: was.location, remindMin: was.remindMin });
+            await brain.addEvent({ title: was.title, start: was.start, end: was.end, allDay: !!was.allDay, location: was.location, notes: was.notes, remindMin: was.remindMin });
             await brain.deleteEvent(e.id);
           }
           toast(`Back as it was: ${e.title}`, 'ok');
@@ -539,8 +542,9 @@ export const agendaTab: TabDef = {
         jobs = a.jobs;
         feeds = a.feeds;
         errors = a.errors;
-        ep.setStatus(stale ? 'COPY' : `${events.length}`, stale ? 'off' : 'ok');
-        jp.setStatus(stale ? 'COPY' : `${jobs.length}`, stale ? 'off' : 'ok');
+        // (no bare 0 beside an empty list: the list's own empty line says it)
+        ep.setStatus(stale ? 'COPY' : events.length ? `${events.length}` : '', stale ? 'off' : 'ok');
+        jp.setStatus(stale ? 'COPY' : jobs.length ? `${jobs.length}` : '', stale ? 'off' : 'ok');
       } catch {
         ep.setStatus('OFFLINE', 'off');
         if (!events.length) {

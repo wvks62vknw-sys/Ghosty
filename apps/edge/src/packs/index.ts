@@ -10,7 +10,7 @@ import { PACKS } from '../../../../packages/shared/src/packs';
 import { zoneOf } from '../guardstate';
 import { alreadySaid, type Cadence } from '../../../../packages/shared/src/cadence';
 import { BODY, bodyLines, bodyPieces } from '../tools/body';
-import { KITCHEN, kitchenLines } from '../tools/kitchen';
+import { KITCHEN_PHONE, kitchenLines } from '../tools/kitchen';
 import { followTick, MONEY, moneyLines } from '../tools/money';
 import { HOME_APP, MONEY_APP, WORK_APP } from '../tools/moneyapp'; // [moneynext] the MONEY screen's own keys: run here only, never in the tool's enum
 import { PEOPLE, PEOPLE_APP, peopleLines } from '../tools/people';
@@ -22,7 +22,7 @@ import { LEARNING, learningLines } from '../tools/learning';
 import { runAction, type ActionFn, type PackDeps } from './base';
 
 /** Every pack's actions, by pack: what /packs/do may run. */
-export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: { ...MONEY, ...MONEY_APP }, body: BODY, kitchen: KITCHEN, people: { ...PEOPLE, ...PEOPLE_APP }, work: { ...WORK, ...WORK_APP }, creative: CREATIVE, outside: OUTSIDE, homeadmin: { ...HOME, ...HOME_APP }, learning: LEARNING };
+export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: { ...MONEY, ...MONEY_APP }, body: BODY, kitchen: KITCHEN_PHONE, people: { ...PEOPLE, ...PEOPLE_APP }, work: { ...WORK, ...WORK_APP }, creative: CREATIVE, outside: OUTSIDE, homeadmin: { ...HOME, ...HOME_APP }, learning: LEARNING };
 
 export interface PacksDeps {
   storage: DurableObjectStorage;

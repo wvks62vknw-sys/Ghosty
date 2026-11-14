@@ -293,15 +293,15 @@ for (const vp of [PHONE, PHONE2]) {
         check(kept.length === 1 && /Strand/.test(kept[0].name), `${T} [e wall] the wall kept: ${JSON.stringify(kept).slice(0, 120)}`);
         await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyeinfo button')].find((x) => x.textContent.trim() === '✕')?.click());
         await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyebot .btns button')].find((b) => /^wall$/i.test((b.dataset.label || b.textContent).trim()))?.click());
-        const live = await until(page, () => window.__ghosty?.wall?.open && document.querySelectorAll('.wall .walltile').length === 1 && !document.querySelector('.wall .wallstamp[data-state]'), null, 10000);
-        check(live, `${T} [e wall] the wall did not show its camera live: "${await text(page, '.wall')}"`);
+        const live = await until(page, () => window.__ghosty?.wall?.open && document.querySelectorAll('.camwall .walltile').length === 1 && !document.querySelector('.camwall .wallstamp[data-state]'), null, 10000);
+        check(live, `${T} [e wall] the wall did not show its camera live: "${await text(page, '.camwall')}"`);
         await still(page);
-        const b = await bar(page, '.wall');
+        const b = await bar(page, '.camwall');
         check(!b.length, `${T} [e wall] ${b.join(', ')}`);
         if (vp === PHONE) await page.screenshot({ path: `${out}/seetrip-wall-${vp.width}.png` }).catch(() => undefined);
-        await page.evaluate(() => document.querySelector('.wall button[data-act="edit"]')?.click());
-        await page.evaluate(() => document.querySelector('.wall button[data-act="off"]')?.click());
-        check(await until(page, (w) => document.querySelector('.wall .wallnote')?.textContent === w, WALL_EMPTY, 5000), `${T} [e wall] the empty wall reads "${await text(page, '.wall .wallnote')}"`);
+        await page.evaluate(() => document.querySelector('.camwall button[data-act="edit"]')?.click());
+        await page.evaluate(() => document.querySelector('.camwall button[data-act="off"]')?.click());
+        check(await until(page, (w) => document.querySelector('.camwall .wallnote')?.textContent === w, WALL_EMPTY, 5000), `${T} [e wall] the empty wall reads "${await text(page, '.camwall .wallnote')}"`);
         await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
       }
     }
@@ -327,7 +327,7 @@ for (const vp of [PHONE, PHONE2]) {
   {
     await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
     await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyebot .btns button')].find((b) => /^map$/i.test((b.dataset.label || b.textContent).trim()))?.click());
-    const chip = await until(page, () => !!document.querySelector('.modal .fmchips button[data-overlay="fuel"]') && !!window.L, null, 15000);
+    const chip = await until(page, () => !!document.querySelector('.modal .fmchips button[data-overlay="fuel"]') && !!window.L && !!document.querySelector('.modal .flathost .leaflet-container .leaflet-tile-pane'), null, 15000);
     if (check(chip, `${T} [h fuel] the map has no FUEL & CHARGE`)) {
       await page.evaluate(() => document.querySelector('.modal .fmchips button[data-overlay="fuel"]')?.click());
       const said = await until(page, () => /fuel stations? and \d car chargers? here/.test(document.querySelector('.modal .flathost')?.textContent ?? '') || /fuel station/.test(document.querySelector('.modal')?.textContent ?? ''), null, 10000);

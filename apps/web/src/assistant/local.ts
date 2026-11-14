@@ -302,6 +302,12 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     location.hash = `money?${moneySection(page)}`;
     return answer(text, MONEY_OPENS[page], { kind: 'pack' }, opts);
   },
+  // [bodynext] kitchen and body as one coach (features/body/coach.ts), on the phone with no model
+  bodycoach: async (text, opts) => {
+    const r = await import('../features/body/coach').then((m) => m.coachTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, ...(r.go ? { go: [r.go] } : {}) }, opts);
+  },
   // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened
   track: async (text, opts) => {
     const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);

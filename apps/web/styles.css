@@ -25,7 +25,7 @@ body { position: fixed; inset: 0; }
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; background: var(--bg); }
 body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 3; }
 #app { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; pointer-events: none; padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
-#app button, #app input, #app textarea, #app select, #app a, #app .pn, #app .rw.link { pointer-events: auto; }
+#app button, #app input, #app textarea, #app select, #app a, #app summary, #app .pn, #app .rw.link { pointer-events: auto; }
 ::selection { color: #fff; }
 ::-webkit-scrollbar-thumb { background: rgba(var(--cr), .18); border-radius: 3px; } ::-webkit-scrollbar-track { background: transparent; }
 
@@ -42,7 +42,8 @@ input, textarea, select {
   width: 100%; min-width: 0; 
 }
 textarea { resize: vertical; }
-input:focus, textarea:focus, select:focus { outline: 0; border-color: rgba(var(--cr), .6); background: rgba(var(--cr), .07); }
+/* (background-color, not the shorthand: a focused select keeps its chevron's size, place and no-repeat, never an hourglass across its words) */
+input:focus, textarea:focus, select:focus { outline: 0; border-color: rgba(var(--cr), .6); background-color: rgba(var(--cr), .07); }
 input[type=checkbox] { width: auto; accent-color: var(--c); }
 select { appearance: none; -webkit-appearance: none; }
 .lnk { text-decoration: none; }
@@ -635,18 +636,18 @@ html #pg-eye .searchpick b { color: var(--g-ink-1); overflow-wrap: anywhere; }
 html #pg-eye .searchpick span { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html body #pg-eye .eyesets button { min-height: var(--g-target) !important; }
 /* YOUR CAMERA WALL (see.u2; features/eye/wall.ts): up to nine live tiles, three across */
-.wall { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
-.wall .wallnote { margin: 0; overflow-wrap: anywhere; }
-.wall .wallgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-s-half); }
-.wall .walltile { position: relative; aspect-ratio: 4 / 3; min-height: var(--g-target); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
-.wall .walltile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.wall .walltile.dead img { visibility: hidden; }
-.wall .wallstamp { position: absolute; left: var(--g-s-half); top: var(--g-s-half); right: var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); text-shadow: 0 0 4px var(--g-canvas); overflow-wrap: anywhere; }
-.wall .wallname { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html body .wall .walllook { position: absolute; inset: 0; width: 100%; height: 100%; min-height: var(--g-target) !important; padding: 0; margin: 0; border: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
-html body .wall .walltile button[data-act="off"] { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-height: var(--g-target) !important; }
-html body .wall .wallacts button { min-height: var(--g-target) !important; }
-@media (max-width: 400px) { .wall .wallgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.camwall { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
+.camwall .wallnote { margin: 0; overflow-wrap: anywhere; }
+.camwall .wallgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--g-s-half); }
+.camwall .walltile { position: relative; aspect-ratio: 4 / 3; min-height: var(--g-target); overflow: hidden; border-radius: var(--g-radius-key); background: var(--g-plate-fill); }
+.camwall .walltile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.camwall .walltile.dead img { visibility: hidden; }
+.camwall .wallstamp { position: absolute; left: var(--g-s-half); top: var(--g-s-half); right: var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); text-shadow: 0 0 4px var(--g-canvas); overflow-wrap: anywhere; }
+.camwall .wallname { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px var(--g-s-half); font: var(--g-t-caption); color: var(--g-ink-1); background: var(--g-scrim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body .camwall .walllook { position: absolute; inset: 0; width: 100%; height: 100%; min-height: var(--g-target) !important; padding: 0; margin: 0; border: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
+html body .camwall .walltile button[data-act="off"] { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); min-height: var(--g-target) !important; }
+html body .camwall .wallacts button { min-height: var(--g-target) !important; }
+@media (max-width: 400px) { .camwall .wallgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* RAIN RADAR, full screen (see.s3; features/eye/rain.ts) */
 .rain { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); box-sizing: border-box; min-width: 0; }
 .rain .rainmap { height: min(56vh, 520px); min-height: 240px; border-radius: var(--g-radius-key); overflow: hidden; background: var(--g-plate-fill); }
@@ -1431,9 +1432,6 @@ body[data-depth="home"] #top .navtitle { display: none; }
 .hubtile b { font: 600 17px/1.2 var(--sf); letter-spacing: -.02em; color: var(--fg); text-transform: none; }
 .hubtile small { font: 400 14px/1.3 var(--sf); color: var(--l2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hubrecent { display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 4px; }
-.recent { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 70px; min-height: 0; padding: 0; background: none; box-shadow: none; }
-.recent .sq { width: 60px; height: 60px; border-radius: 16px; margin: 0; }
-.recent b { font: 500 12px var(--sf); letter-spacing: 0; color: var(--fg); text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 /* ---------- boot + pairing ---------- */
 #boot { gap: 26px; background: radial-gradient(ellipse 60% 45% at 50% 44%, rgba(var(--cr), .12), var(--bg) 70%); }
@@ -2924,6 +2922,8 @@ html #pg-gym .gymall .gymswtxt small { position: absolute; width: 1px; height: 1
 html #pg-gym .gymall .gymswitch:disabled .gymswtxt small { position: static; width: auto; height: auto; clip-path: none; white-space: normal; display: block; font: 400 12px/15px var(--sf); color: var(--ink3); }
 html #pg-gym .gymall .gymswitch[aria-checked="true"] .knob { background: var(--c); }
 html #pg-gym .gymall .gymswitch:disabled { opacity: .55; }
+/* (the training path row, under the status line: a full-width row like the rest, never squeezed into the first column) */
+html #pg-gym .gymall > .gympath { grid-column: 1 / -1; }
 html #pg-gym .gymallst { grid-column: 1 / -1; position: relative; margin-top: 12px; padding-left: 15px; font: 400 13px/18px var(--sf); color: var(--ink2); }
 html #pg-gym .gymallst::before { content: ''; position: absolute; left: 0; top: 6px; width: 7px; height: 7px; border-radius: 4px; background: var(--ink3); }
 html #pg-gym .gymall:has(.gymallbtn[data-label="Stop"]) .gymallst::before { background: var(--c); box-shadow: 0 0 8px var(--c); }
@@ -3946,8 +3946,13 @@ html #pg-brief .pn.news .brone b { font: 600 12px/14px var(--sf); letter-spacing
 html #pg-brief .pn.news .brone span { font: 400 16px/22px var(--sf); color: var(--ink); }
 /* YOUR DAY (the upgrade pass): the diary's rows are taps that open the Agenda, 44 pt each. */
 html #pg-brief .pn.brday .rw { min-height: 44px; align-items: center; gap: 12px; }
-html #pg-brief .pn.brday .rw .k { flex: none; min-width: 52px; font: 600 15px/20px var(--sf); letter-spacing: 0; text-transform: none; color: var(--c); font-variant-numeric: tabular-nums; }
+/* (straight dividers edge to edge, as the news and markets cards have: a tap's rounded, out-set highlight bent each hairline up at its ends) */
+html #pg-brief .pn.brday .rw.link { margin: 0; padding-left: 0; padding-right: 0; border-radius: 0; }
+/* (one label column: Diary, Markets, Security, a time, Next, To-do and Inbox all fit it, so those rows' words start at the same place) */
+html #pg-brief .pn.brday .rw .k { flex: none; min-width: 64px; font: 600 15px/20px var(--sf); letter-spacing: 0; text-transform: none; color: var(--c); font-variant-numeric: tabular-nums; }
 html #pg-brief .pn.brday .rw .v { font: 500 16px/22px var(--sf); }
+/* (a row's whole line, never cut after three lines: the advice in it is what he acts on, as the commute's) */
+html #pg-brief .pn.brday .rw.wrap .v { display: block; -webkit-line-clamp: unset; overflow: visible; }
 html #pg-brief .pn.brday .rw .n { font: 400 13px/18px var(--sf); color: var(--ink3); }
 html #pg-brief .pn.news > .ft > button.warn { height: 48px; min-height: 48px !important; padding: 0 26px; border-radius: 24px; font: 600 17px var(--sf) !important; color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25) !important; }
 
@@ -4053,7 +4058,7 @@ html #pg-radio .pn.nowp .npsleep { display: flex; flex-direction: column; gap: 8
 html #pg-radio .pn.nowp .npsleepl { font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
 html #pg-radio .pn.nowp .keyrow.npsleepk { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0; }
 html #pg-radio .pn.nowp .keyrow.npsleepk button { flex: 1 1 auto; min-width: 72px; }
-html #pg-radio .pn.recent .keyrow button { min-height: 44px !important; height: 44px; }
+html #pg-radio .pn.radrecent .keyrow button { min-height: 44px !important; height: 44px; }
 
 /* ---------- Threats (features/threats): the level, signals worst first, near you as tiles, space weather, launches, RECON ---------- */
 html #pg-threats .pn.signals .rw.link { display: grid; grid-template-columns: 3px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; min-height: 60px; margin: 0; padding: 10px 0; border-radius: 0; }
@@ -4481,8 +4486,6 @@ html .hud.core .ccenter.replying #suggest { display: none !important; }
 :is(.sq, .rowic, .gic, .rctile) .ic { width: 22px !important; height: 22px !important; padding: 0 !important; fill: none; stroke: var(--l2, var(--mute)) !important; stroke-width: 1.7 !important; stroke-linecap: round; stroke-linejoin: round; background: none !important; box-shadow: none !important; }
 :is(.rowic, .gic, .rctile, .merow .sq, .addrow .sq) { width: 28px !important; height: 28px !important; }
 :is(.hubtile, .hubhero) .sq { width: 28px !important; height: 28px !important; justify-items: start; }
-.recent .sq { width: 40px !important; height: 40px !important; }
-.recent .sq .ic { width: 28px !important; height: 28px !important; stroke-width: 1.6 !important; }
 :root #pg-gym .gymcard .sq.gymglyph { width: 28px; height: 28px; background: none !important; box-shadow: none !important; }
 :root #pg-gym .gymcard .sq.gymglyph .ic { stroke: var(--l2, var(--mute)) !important; }
 :root #pg-memory .addrow .sq.sq { background: none !important; }
@@ -4937,14 +4940,14 @@ html .spaceprice .k small { font: 400 12px/16px var(--sf); color: var(--ink3); }
 html .spaceprice .v { flex: none; font: 600 16px/20px var(--sf); color: var(--ink); font-variant-numeric: tabular-nums; }
 html .spacepricetotal { margin: 8px 0; font: 600 15px/20px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
 html .spacebudget { overflow-wrap: anywhere; }
-html #pg-space .spaceprices button, html #pg-space .spacephototap button, html #pg-studio .studioqueue button, html #pg-studio .studiomeanwhile button { min-height: 44px; }
+html #pg-space .spaceprices button, html #pg-space .spacephototap button, html #pg-studio .studioqueue button, html #pg-studio .studiomeanwhile button { min-height: var(--g-target); }
 /* NEXT ROUND (MAKE lane, make.u5): named Workbench projects; and the 3D studio's waiting list, a row a job */
 html .wbproj, html .studiojob { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-bottom: 1px solid var(--hair); min-width: 0; }
 html .wbprojtext, html .studiojobtext { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
 html .wbprojtext b, html .studiojobtext b { font: 600 15px/20px var(--sf); color: var(--ink); }
 html .wbprojtext small { font: 400 12px/16px var(--sf); color: var(--ink3); }
 html .wbprojsaid, html .wbprojnone { overflow-wrap: anywhere; }
-html #pg-workbench .wb-projects button { min-height: 44px; }
+html #pg-workbench .wb-projects button { min-height: var(--g-target); }
 html .studioqueue, html .studiomeanwhile { margin-top: 8px; min-width: 0; }
 /* NEXT ROUND (MAKE lane, make.u6): the curve behind an answer, drawn under its numbers; words around the picture wrap, never cut */
 html .wbcurve { margin: 10px 0 2px; padding: 10px 0 0; border-top: 1px solid var(--hair); min-width: 0; }
@@ -5057,19 +5060,19 @@ html .ccard.wall:focus-visible { outline: 2px solid rgba(var(--cr), .7); outline
    the top), PAUSE's sheet. */
 html .arcgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 2px 0 8px; }
 @media (min-width: 760px) { html .arcgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-html .arccard { min-width: 0; padding: 12px 14px; border-radius: 18px; background: var(--rcglass, rgba(255, 255, 255, .05)); box-shadow: inset 0 0 0 1px var(--hair2); overflow-wrap: anywhere; }
-html .arccard.kept { box-shadow: inset 0 0 0 1px rgba(48, 209, 88, .35); }
+html .arccard { min-width: 0; padding: 12px 14px; border-radius: var(--card); background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); overflow-wrap: anywhere; }
+html .arccard.kept { box-shadow: inset 0 0 0 var(--g-hair) var(--g-line); }
 html .arctitle { margin: 0 0 2px; font: 700 15px/20px var(--sf); letter-spacing: .04em; color: var(--ink); }
 html .arcline { margin: 0 0 6px; font: 400 15px/20px var(--sf); color: var(--ink2); }
 html .arcghost { margin: 0 0 6px; font: 400 14px/19px var(--sf); color: var(--ink2); }
-html .arcghost b { color: var(--c); font-weight: 600; }
+html .arcghost b { color: var(--g-accent-text); font-weight: 600; }
 html .arcscore { margin: 0 0 8px; font: 500 13px/18px var(--sf); color: var(--ink3); font-variant-numeric: tabular-nums; }
 html .arcrow { display: flex; gap: 8px; align-items: center; }
-html .arcact { flex: 1 1 auto; min-width: 0; min-height: 44px; border-radius: 12px; font: 700 14px/18px var(--sf); letter-spacing: .06em; --lfs: 16px; }
-html .arcact.play { background: var(--ok); color: #04170a; }
-html .arcact.get { background: rgba(var(--cr), .16); color: var(--c2); box-shadow: inset 0 0 0 1px rgba(var(--cr), .4); }
+html .arcact { flex: 1 1 auto; min-width: 0; min-height: 44px; border-radius: var(--g-radius-key); font: 700 14px/18px var(--sf); letter-spacing: .06em; --lfs: 16px; }
+html .arcact.play { background: var(--g-ink-1); color: var(--g-canvas); }
+html .arcact.get { background: var(--g-plate-fill); color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-line); }
 html .arcact.stop { background: rgba(255, 105, 97, .14); color: var(--r); }
-html .arcmore { flex: none; width: 44px; min-height: 44px; border-radius: 12px; font: 700 18px/1 var(--sf); color: var(--ink2); background: rgba(255, 255, 255, .06); }
+html .arcmore { flex: none; width: 44px; min-height: 44px; border-radius: var(--g-radius-key); font: 700 18px/1 var(--sf); color: var(--g-ink-1); background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-line); }
 html .arcstatus { margin: 6px 0 0; font: 400 13px/18px var(--sf); color: var(--ink2); }
 html .arcstatus:empty { display: none; }
 html .arcbar { height: 4px; margin: 8px 0 0; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; }
@@ -5132,7 +5135,7 @@ html .arcsaid { position: absolute; left: 50%; top: calc(env(safe-area-inset-top
 html .arcfps { margin: -4px 0 4px; font: 500 12px/16px var(--sf); color: var(--ink3); font-variant-numeric: tabular-nums; }
 html .arcsaid[hidden], html .arcfps[hidden] { display: none; }
 /* THE FREE LEVELS' cards: the pack's author under its title; what it plays over; the DeHackEd line where it ships one */
-html .arcby { margin: -2px 0 4px; font: 500 13px/18px var(--sf); color: var(--c2); }
+html .arcby { margin: -2px 0 4px; font: 500 13px/18px var(--sf); color: var(--g-accent-text); }
 html .arcover, html .arcdeh { margin: 0 0 6px; font: 400 13px/18px var(--sf); color: var(--ink3); }
 @media (orientation: landscape) {
   html .arcscreen.doom { top: 0; height: 100dvh; width: auto; max-height: none; max-width: 100vw; }
@@ -5256,7 +5259,7 @@ html .arcover, html .arcdeh { margin: 0 0 6px; font: 400 13px/18px var(--sf); co
 .pkitems { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .pkitem { display: flex; align-items: center; gap: 10px; min-height: 44px; min-width: 0; }
 .pkitem label { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; min-height: 44px; font: 400 16px/1.3 var(--sf); color: var(--fg); overflow-wrap: anywhere; }
-.pkitem input[type=checkbox] { width: 24px; height: 24px; flex: none; accent-color: var(--acc); }
+.pkitem input[type=checkbox] { width: 44px; height: 44px; margin: 0 -6px 0 -10px; flex: none; accent-color: var(--acc); }
 .pkitem.done label { color: var(--mute); text-decoration: line-through; }
 .pkitem input[type=text] { flex: 1 1 auto; min-width: 0; min-height: 44px; }
 .pkadd { display: flex; gap: 8px; min-width: 0; }
@@ -6381,6 +6384,20 @@ html[data-world] body[data-tab="eye"]::before { display: none; }
 /* a floor of its own (a tile, a preset's preview): the world's floor in the points of the ground it stands on */
 html .g-floor { position: absolute; inset: 0; z-index: 0; display: block; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
 
+/* ---- what I say first under a screen's name (a sheet screen's reading, "Nothing logged this week…"): one sentence in the world's
+   face of what I say (One Ink's serif), never a bold second headline under the title. A screen with its own rule (the Brief's
+   clock, Settings, the Markets' tone) keeps it: an id beats this. */
+html[data-world] .two .bigv { font: var(--g-t-say); font-family: var(--g-face-say); letter-spacing: var(--g-tr-say); color: var(--g-ink-1); }
+
+/* ---- ONE INK on the rooms' section tabs and the keys of a sheet page (the rep counter's exercises, Start and Done): square corners,
+   nothing glows, what is lit is a line with its words in the ink, and the camera's stage a ruled frame, never a black block */
+html[data-world="ink"] :is(.secpills, .secpills .secpill, .pkrow button, .pkstage) { border-radius: var(--g-radius-chip); }
+html[data-world="ink"] .secpills { background: var(--g-room-canvas); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-world="ink"] .secpills .secpill.on { color: var(--g-accent-text); background: none !important; box-shadow: inset 0 calc(-1 * var(--g-stroke) * 2) 0 var(--g-accent) !important; text-shadow: none; }
+html[data-world="ink"] .pkrow button { background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
+html[data-world="ink"] .pkrow button:is(.on, [aria-pressed="true"]) { color: var(--g-accent-text); background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+html[data-world="ink"] .pkstage { background: var(--g-plate-fill); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
+
 /* ---- the pages drawn in the system (THE LOOK, the Theme page): on the ground in force with the world's floor, their bar too */
 /* (a panel's ::before is today's 9 px corner bracket: the floor takes the whole page, with no bracket edge) */
 html #pg-look::before, html #pg-settings .pn.themepn.pushed::before { content: ''; display: block; position: absolute; inset: 0; width: auto; height: auto; border: 0; border-radius: 0; z-index: 0; pointer-events: none; background-color: rgba(var(--g-bone-rgb), var(--g-floor-a)); -webkit-mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; mask: var(--g-floor-mask) 0 0 / var(--g-floor-size) repeat; }
@@ -6784,6 +6801,28 @@ html .kl .kl-serves b { flex: 1 1 auto; text-align: center; font: var(--g-t-valu
 html .kl .kl-step { display: flex; flex-direction: column; gap: var(--g-s-half); margin: 0; font: var(--g-t-reading); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .kl .kl-step small { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
 html .pkfield label { overflow-wrap: anywhere; }
+/* NEXT ROUND, BODY AND KITCHEN (features/body/meds.ts, coach.ts, track.ts): tablets, the coach's cards, the Shortcut's link. Tokens only. */
+html .bt .bt-link { display: block; font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; word-break: break-all; }
+html .bt .bm-dose { flex-wrap: wrap; row-gap: var(--g-s-half); }
+html .bt .bm-dose .pkrow { flex: 0 1 auto; flex-wrap: wrap; }
+html .bt .bm-dose small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .bt .bc-score { display: flex; align-items: baseline; gap: var(--g-s-1); flex-wrap: wrap; margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .bc-score b { font: var(--g-t-value); font-variant-numeric: var(--g-num); color: var(--g-ink-1); }
+html .bt .bc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .bt .bc-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--g-s-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .bt .bc-cell small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .bt .bc-cell b { font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .br-history { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .br-history .pkitem button { flex: 1 1 auto; justify-content: flex-start; white-space: normal; height: auto; text-align: left; }
+html .br-map { width: 100%; max-width: 320px; aspect-ratio: 1; margin: 0 auto; border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html .br-route { display: block; width: 100%; height: 100%; }
+html .br-seg { stroke-width: 2.2; stroke-linecap: round; fill: none; }
+html .br-seg.quick { stroke: var(--g-accent); }
+html .br-seg.steady { stroke: var(--g-ink-3); }
+html .br-seg.slow { stroke: var(--g-amber); }
+html .bt .bp-dot { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; padding: 0 var(--g-s-half); font: var(--g-t-caption); font-variant-numeric: var(--g-num); color: var(--g-ink-3); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-mark); }
+html .bt .bp-dot[data-hit="1"] { color: var(--g-accent-text); }
+html .bt .bc-pattern { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 
 /* =====================================================================================================================
    THE SHELL IN THE SCAN (BRIEF-SHELL-2; shell/house.ts, jump.ts, rooms.ts, inventory.ts): the house on every screen, the plan, the
@@ -6831,6 +6870,8 @@ html #top .headstamp { display: none; }
   /* the top: the stamp line, then the page's name in the system's display type, with its way back and the keys at the right */
   html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top { padding: var(--g-s-2) var(--g-gutter) 0; gap: var(--g-s-half) var(--g-s-1); align-items: center; }
   html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .headstamp { display: block; flex: 1 1 100%; order: -5; padding: 0 var(--g-s-half); }
+  /* (THE LOOK's head carries its own stamp line, for Glass, which draws none: here the shell's is on, so it is said once) */
+  html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #pg-look .glook-head > .g-stamp { display: none; }
   html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle { display: block; flex: 1 1 0; order: -4; min-width: 0; margin: 0; padding: 0 var(--g-s-half); font: var(--g-t-display); letter-spacing: var(--g-tr-display); color: var(--g-ink-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   html body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { font-size: 28px; }
   /* a long title (a panel's "Phone · App & Notifications") is said whole on two lines, never cut with dots */
@@ -7160,8 +7201,8 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html[data-world="ink"] #plan .planthing .g-index { color: var(--g-ink-3); }
   /* the stamp and the page's name on every screen: the title in the serif, a rule under the stamp */
   html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle { font: var(--g-print-title); letter-spacing: -.01em; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { font-size: 28px; }
-  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="xl"] { font-size: 22px; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="l"] { font-size: 28px; line-height: 1.15; }
+  html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .navtitle[data-len="xl"] { font-size: 22px; line-height: 1.15; }
   html[data-world="ink"] body.housed:not(.scanhome, .inkhome, .maphome, .eyehome, .orbithome) #top .headstamp { padding-bottom: var(--g-s-1); border-bottom: var(--g-stroke) solid var(--g-ink-1); }
   /* rules instead of boxes: a plate is a rule above and below, a key keeps its edge */
   html[data-world="ink"] body.housed .g-plate, html[data-world="ink"] body.housed .jplate { border-width: var(--g-hair) 0; }
@@ -7780,13 +7821,17 @@ html .studioseg button[data-pane="engine"] { grid-column: 1 / -1; }
 html .hud.studio[data-pane="engine"] :is(.studiohud, .studiocredit, .studiomeasure, .studiomodes, .studiostick, .studiobar) { display: none !important; }
 html .hud.studio[data-pane="engine"] .studioview, html body.housed .hud.studio[data-pane="engine"] .studioview { aspect-ratio: auto; height: min(48vh, 460px); max-height: none; position: sticky; top: 0; z-index: 6; }
 html :is(#pg-studio:has(.hud.studio[data-pane="engine"]), .hud.studio[data-pane="engine"]) { scroll-padding-top: calc(min(48vh, 460px) + var(--g-s-1)); }
-/* THE DOCK (phones, where the studio scrolls as one page). The picture stays in view while the panel scrolls under it, so it docks flat
-   against the scroller's top edge: the scroller's own 6 px top padding moves onto the picture as a margin (it starts exactly where it
-   did, then docks), and the docked picture is square-cornered. Before, it docked 6 px below that edge and rounded, so the words
-   scrolling under it showed in the strip above it and through its corners, in every world. The car's working engine docks the same way. */
+/* THE DOCK (phones). In the 3-D engine and the car's working engine the picture stays in view while he works the keys under it. It
+   used to be a sticky picture over a page that scrolled under it: in WebKit the words could show above it, through its corners or over
+   it, because the page sits in a 3-D rendering context. Now nothing scrolls under it at all: the picture has its own row, which gives up
+   height on a short phone, and everything else scrolls in its own box below (at least 170 px), so the two can never overlap. */
+.studioscroll { display: contents; }
 @media (max-width: 899px) {
-  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) { padding-top: 0 !important; }
-  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) .studioview { margin-top: 6px; border-radius: 0; }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) { overflow: hidden; grid-template-areas: 'view' 'under'; grid-template-rows: minmax(0, min(48vh, 460px)) minmax(170px, 1fr); align-content: stretch; }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) .studioview { position: relative; top: auto; height: auto; align-self: stretch; }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) > .studioscroll { grid-area: under; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 14px; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    padding-block: var(--g-s-1); -webkit-mask-image: linear-gradient(to bottom, transparent, black var(--g-s-1), black calc(100% - var(--g-s-1)), transparent); mask-image: linear-gradient(to bottom, transparent, black var(--g-s-1), black calc(100% - var(--g-s-1)), transparent); }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) > .studioscroll > * { grid-area: auto; }
 }
 html .e3stage { position: absolute; inset: 0; z-index: 3; overflow: hidden; background: rgb(var(--g-canvas-rgb)); touch-action: none; user-select: none; -webkit-user-select: none; border-radius: inherit; }
 html .e3stage[hidden] { display: none; }
@@ -7846,7 +7891,7 @@ html .eyesize .row { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
 html .eyesize .row button { min-height: var(--g-target) !important; min-width: var(--g-target); }
 html .eyesize .row button[aria-pressed="true"] { color: var(--g-accent); }
 html .gympath { display: flex; flex-direction: column; gap: var(--g-s-1); margin-top: var(--g-s-1); }
-html .gympath small { font: var(--g-t-fine); color: var(--g-ink-2); overflow-wrap: anywhere; }
+html .gympath small { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
 html .gympath button, html #pg-gym .gympath button { height: auto; min-height: var(--g-target) !important; align-self: flex-start; }
 html .phonecard { display: flex; flex-direction: column; gap: var(--g-s-1); margin: var(--g-s-2) 0; padding: var(--g-s-2); border: var(--g-hair) solid var(--g-line-faint); background: var(--g-plate); min-width: 0; }
 html .phonecard .pchead { font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-2); }
@@ -8658,12 +8703,17 @@ html[data-motion="calm"] :is(.slin-appear, .slin-fade, .slin-rise, .sltr-fade, .
 .cx { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
 .cx .cxrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); align-items: center; min-width: 0; }
 html #app .cx button, html #app .cx select, html #app .cx input[type="text"], html #app .cx input[type="search"], html #app .cx textarea, html #app .cx summary, html #app .cx .cxcheck { min-height: var(--g-target) !important; height: auto; }
-html #app .cx button.cxkey { text-transform: none; white-space: normal; overflow-wrap: anywhere; min-width: var(--g-target); }
-html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-align: left; }
+html #app .cx button.cxkey { white-space: normal; overflow-wrap: anywhere; min-width: var(--g-target); }
+/* (the shelf's two import keys share the row, so in One Ink their rules run to the panel's edge like the divider under them) */
+html #app .cx .cximport > button.cxkey { flex: 1 1 auto; }
+/* (an idea to try is his own sentence, not a key's word: it keeps its case) */
+html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-align: left; text-transform: none; }
 .cx .cxtries { display: flex; flex-direction: column; gap: var(--g-s-half); }
 .cx .cxfield { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 150px; }
 .cx .cxlab { font: var(--g-t-caption); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); overflow-wrap: anywhere; }
-.cx input[type="text"], .cx input[type="search"], .cx textarea, .cx select { width: 100%; box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); }
+.cx input[type="text"], .cx input[type="search"], .cx textarea, .cx select { width: 100%; box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background-color: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); }
+/* (background-color, not the shorthand: the chevron keeps the global select rule's size, place and no-repeat; the label stays clear of it) */
+.cx select { padding-right: calc(var(--g-s-3) + var(--g-s-1)); }
 .cx textarea { resize: vertical; }
 .cx input[type="range"] { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
 .cx .cxcheck { display: flex; align-items: center; gap: var(--g-s-half); font: var(--g-t-body); color: var(--g-ink-1); }
@@ -8698,7 +8748,7 @@ html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-alig
 .cxread .cxrpage { display: block; width: auto; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .cxread .cxrnote { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
 .cxread .cxrbar { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--g-s-half); }
-html .cxread button.cxrkey { min-height: var(--g-target) !important; min-width: var(--g-target); height: auto; text-transform: none; }
+html .cxread button.cxrkey { min-height: var(--g-target) !important; min-width: var(--g-target); height: auto; }
 html .cxread button.cxrkey[aria-pressed="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
 html .cxread button[hidden] { display: none; }
 .cxread .cxrslide { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
@@ -10069,7 +10119,11 @@ html #pg-links .rw .n.del { display: grid; place-items: center; min-width: 44px;
 
 /* ---- POLISH 3: the Agenda's ADD key and sheet, a finished thing dimmed, the biggest text and reduced motion ---- */
 html #pg-agenda .agaddkey { min-height: var(--g-target) !important; min-width: var(--g-target); }
-html #pg-agenda .secpills .agaddkey { flex: none; }
+/* (ADD is the one action in the pills' row: set apart from the last pill, held whole at the row's end when the row scrolls (390), on a
+   ground of its own so the pills passing under it do not show through) */
+html #pg-agenda .secpills .agaddkey { position: sticky; right: 0; z-index: 1; margin-left: var(--g-s-1); background: color-mix(in srgb, var(--g-accent) 13%, var(--g-canvas)); }
+/* (and on the phone it is only there: the copy under the day's line, two keys 16 pt apart, shows on the wide screen, which has no pills) */
+html #pg-agenda .hud.secs > .hero > .agaddkey { display: none; }
 html .agaddsheet { display: flex; flex-direction: column; gap: var(--g-s-1); }
 html .agaddsheet input { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
 html .agaddsheet .agsay { margin: 0; overflow-wrap: anywhere; }
@@ -10214,8 +10268,8 @@ html #pg-agenda .todowait[hidden] { display: none; }
 /* TIMELINE: TODAY / TOMORROW / PLAN MY WEEK keys; the free gaps in words; all-day and to-dos at the top; the hours, sized in em so the
    day grows with his text (BODY 21) and never needs a fixed height; two at once side by side; the line at now */
 html #pg-agenda .pn.timeline .tlbar { padding: 0 0 8px; gap: 6px; }
-html #pg-agenda .pn.timeline .tlbar button.tlkey { width: auto; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
-html #pg-agenda .pn.timeline .tlbar button.tlkey.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+/* (the keys take the screen's own key and its lit look, as ADD beside them does: no corner or ring of their own) */
+html #pg-agenda .pn.timeline .tlbar button.tlkey { width: auto; min-height: 44px !important; padding: 0 14px; }
 html #pg-agenda .pn.timeline .tlfree { display: flex; flex-direction: column; gap: 4px; padding: 2px 0 8px; }
 html #pg-agenda .pn.timeline .tlgap { color: var(--ink); overflow-wrap: anywhere; }
 html #pg-agenda .pn.timeline .tlgap::before { content: ''; display: inline-block; width: .55em; height: .55em; margin-right: .5em; border-radius: 50%; background: var(--g-ok); vertical-align: .08em; }
@@ -10291,9 +10345,11 @@ html #pg-social .socfollow .socfmsg:empty { display: none; }
 html #pg-social .socfollow .keyrow.wrapit { flex-wrap: wrap; }
 html #pg-social .socfollow .keyrow button[aria-pressed='false'] { opacity: .85; }
 /* LINKS' one health line: everything fine, or the one thing to fix first (wraps, never cut) */
-html #pg-links .lkhealth { margin: 0 0 8px; padding: 10px 12px; border: 1px solid var(--line2); border-radius: var(--rad); color: var(--ink); font: 500 14px/1.4 var(--sf); white-space: normal; overflow-wrap: anywhere; }
-html #pg-links .lkhealth[data-health='fix'] { border-color: var(--g-amber); }
-html #pg-links .lkhealth[data-health='ok'] { border-color: var(--ok); }
+/* (a card of the list's own kind: the hero's full width, lined up with the pills and the list card, set apart from the count above it;
+   the list card's own 20 pt corner and fill, its hairline tinted by the state) */
+html #pg-links .lkhealth { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); margin: var(--g-s-1) calc(-1 * var(--g-s-half)) var(--g-s-1); padding: 12px var(--g-s-2); border: 0; border-radius: 20px; background: var(--fill); box-shadow: inset 0 0 0 var(--g-hair) var(--hair); color: var(--ink); font: 500 14px/1.4 var(--sf); white-space: normal; overflow-wrap: anywhere; }
+html #pg-links .lkhealth[data-health='fix'] { box-shadow: inset 0 0 0 var(--g-hair) var(--g-amber); }
+html #pg-links .lkhealth[data-health='ok'] { box-shadow: inset 0 0 0 var(--g-hair) color-mix(in srgb, var(--ok) 40%, transparent); }
 /* ==== [planlane2:fixes end] ==== */
 
 

@@ -113,6 +113,14 @@ test('kept, listed, captioned, made the main one and removed; the bytes stay whi
   assert.deepEqual(d1.keptFor, ['Little Fern']);
   assert.ok(kv.m.has(`img:${id}`), 'the page keeps its picture');
   assert.deepEqual(d1.photos.map((p) => p.id), [second]);
+  // (review fix) one that only a page's kept earlier version shows: its bytes stay, so UNDO LAST UPDATE brings it back whole
+  const third = (await (await P.photosRoute(req('POST', { data: b64(camera()), caption: 'Window' }), c)).json()).photo.id;
+  const st3 = P.siteStore(c.env, c.storage);
+  await st3.put({ name: 'shop', title: 'Shop', html: `<img src="${ORIGIN}/i/${third}">`, source: '', at: 2 });
+  await st3.put({ name: 'shop', title: 'Shop', html: '<p>no pictures now</p>', source: '', at: 3 });
+  const d3 = await (await P.photosRoute(req('DELETE', undefined, `?id=${third}`), c)).json();
+  assert.deepEqual(d3.keptFor, ['Shop (an earlier version)']);
+  assert.ok(kv.m.has(`img:${third}`), 'the earlier version keeps its picture');
   // one no page shows: its bytes go too
   const d2 = await (await P.photosRoute(req('DELETE', undefined, `?id=${second}`), c)).json();
   assert.equal(d2.removed, true);
@@ -201,12 +209,18 @@ test('undo for a published page: the earlier versions kept, the newest put back 
   // undo: said, then done only on the approved call
   const ap = await pub.approval({ name: 'party', undo: true, html: '<script>evil()</script>' }, ctx);
   assert.match(ap.reason, /^Put back the earlier version of "Party" at https:\/\/ghosty\.example\/s\/party \(published .* UTC, replaced .* UTC\)\? What is live now is kept, so you can undo this too\.$/);
-  assert.deepEqual(ap.args, { name: 'party', undo: true }, 'nothing but the undo goes through');
+  assert.deepEqual(Object.keys(ap.args).sort(), ['back_at', 'back_replaced', 'name', 'undo'], 'nothing but the undo, pinned to the version it names, goes through');
+  // (review fix) a Workshop UNDO LAST UPDATE in between changes what is kept: the chat's earlier APPROVE no longer applies
+  const ap2 = await pub.approval({ name: 'party', undo: true }, ctx);
+  assert.equal(ap2.args.back_at, ap.args.back_at);
+  await assert.rejects(pub.run({ name: 'party', undo: true }, ctx), /not the one he approved/, 'an undo with no approved version is refused');
   assert.match(await pub.run(ap.args, ctx), /^Put back: "Party" is live again at https:\/\/ghosty\.example\/s\/party/);
   assert.match((await store.get('party')).html, /Saturday at 8/);
   // the undo is undoable: the typo version is the newest earlier one now
   assert.equal((await store.versions('party')).length, 1);
-  await pub.run({ name: 'party', undo: true }, ctx);
+  await assert.rejects(pub.run(ap2.args, ctx), /changed since he was asked/, 'the approval named a version that is no longer the newest kept: refused');
+  assert.match((await store.get('party')).html, /Saturday at 8/, 'nothing changed');
+  await pub.run((await pub.approval({ name: 'party', undo: true }, ctx)).args, ctx);
   assert.match((await store.get('party')).html, /Sunday at 9/);
   // three kept at most
   for (const t of ['v3', 'v4', 'v5', 'v6']) await pub.run({ name: 'party', html: page(t) }, ctx);
@@ -242,7 +256,17 @@ test('a document from his phone waits, then goes up only through publish_site\'s
   assert.equal(await P.siteStore(env, st).get('garden-guide'), undefined, 'waiting is not published');
   const ap = await pub.approval({ name: 'garden-guide', from_phone: true }, ctx);
   assert.match(ap.reason, /^Publish "Garden guide" \(the document from your phone, read-only\) as a public page at https:\/\/ghosty\.example\/s\/garden-guide\?/);
-  assert.match(await pub.run(ap.args, ctx), /live now at https:\/\/ghosty\.example\/s\/garden-guide/);
+  assert.equal(typeof ap.args.phone_at, 'number', 'the APPROVE is pinned to the page it showed');
+  // (review fix) a different page handed over after the card was shown is not published under it
+  const was = (await P.siteStore(env, st).get('garden-guide'));
+  await new Promise((ok) => setTimeout(ok, 5));
+  await up({ title: 'Other', html: doc.replace(/Garden guide/g, 'Other').replace('Sow the beans in May.', 'Something else.'), kind: 'document' });
+  await assert.rejects(pub.run(ap.args, ctx), /changed since you were asked/);
+  await assert.rejects(pub.run({ name: 'garden-guide', from_phone: true }, ctx), /not the one approved/, 'never without an approval');
+  assert.equal(await P.siteStore(env, st).get('garden-guide'), was, 'nothing went up');
+  await up({ title: 'Garden guide', html: doc, kind: 'document' });
+  const apNow = await pub.approval({ name: 'garden-guide', from_phone: true }, ctx);
+  assert.match(await pub.run(apNow.args, ctx), /live now at https:\/\/ghosty\.example\/s\/garden-guide/);
   const site = await P.siteStore(env, st).get('garden-guide');
   assert.match(site.html, /Sow the beans in May/);
   assert.equal((await (await P.pageUpload(new Request(`${ORIGIN}/api/sites/page`), { env, storage: st })).json()).title, null, 'used once');
@@ -317,6 +341,10 @@ test('an event page: its start read from his words, two add-to-calendar buttons,
   const ics = await r.text();
   for (const line of ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'DTSTART;TZID=Europe/London:20261214T200000', 'DTEND;TZID=Europe/London:20261214T230000', 'SUMMARY:Northern Soul Night', 'END:VCALENDAR']) assert.ok(ics.includes(line), line);
   assert.ok(ics.split('\r\n').every((l) => new TextEncoder().encode(l).length <= 75), 'folded at 75 octets');
+  // (review fix) TEXT escaped as RFC 5545 says (a semicolon as backslash-semicolon), and no line break rides in on the URL
+  const odd = P.icsOf({ name: 'Soul; night, live', start: '2026-12-14T20:00', url: 'https://ghosty.example/s/x\r\nATTENDEE:evil@example.com' }, 'u1', new Date(Date.UTC(2026, 10, 14)));
+  assert.ok(odd.includes('SUMMARY:Soul\\; night\\, live'), 'the semicolon and the comma escaped');
+  assert.ok(!odd.split('\r\n').some((l) => l.startsWith('ATTENDEE')), 'no line of its own from the URL');
   // a page with no event, an app, a game: none
   assert.equal(P.siteIcsResponse({ name: 'x', title: 'x', html: '<p>hi</p>', source: '', at: 1 }, 'https://ghosty.example').status, 404);
   // no date: no buttons
@@ -337,7 +365,16 @@ test('a Learn course\'s cards as a flash-cards mini-app: found by its topic, its
   assert.match(ap.reason, /^Make the mini-app "French verbs"/);
   assert.match(ap.reason, /From your Learn course "French verbs": 2 cards\.$/);
   assert.equal(ap.args.cards, undefined, 'the cards are not on the approval card');
-  await app.run(ap.args, ctx);
+  // (review fix) pinned to that course and the cards it counted: changed cards, or no approval, are refused
+  assert.equal(ap.args.learn_id, 'c1');
+  await assert.rejects(app.run({ request: 'x', from_learn: 'french verbs' }, ctx), /not the ones approved/);
+  const cardsWere = await st.get('cards:c1');
+  await st.put('cards:c1', [...cardsWere, { id: 'k4', course: 'c1', front: 'to go', back: 'aller', added: 4 }]);
+  await assert.rejects(app.run(ap.args, ctx), /changed since he was asked/);
+  await st.put('cards:c1', cardsWere);
+  await st.put('learn:index', [{ id: 'c9', topic: 'French verbs', title: 'French verbs: more', level: 'beginner', minutes: 10, lessons: 5, done: 0 }, { id: 'c1', topic: 'French verbs (old)', title: 'French verbs: the basics', level: 'beginner', minutes: 10, lessons: 5, done: 2 }]);
+  await app.run(ap.args, ctx); // built from c1 by its id, though a newer course now has its old name
+  await st.put('learn:index', [{ id: 'c1', topic: 'French verbs', title: 'French verbs: the basics', level: 'beginner', minutes: 10, lessons: 5, done: 2 }]);
   const site = await P.siteStore(env, st).get(ap.args.link_name);
   assert.equal(site.app.config.shape, 'cards');
   assert.deepEqual(site.app.config.cards.cards, [{ q: 'to be', a: 'être' }, { q: 'to have', a: 'avoir' }]);

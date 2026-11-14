@@ -458,6 +458,8 @@ export const libraryTab: TabDef = {
     const compact = (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
       r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH[d.kind] ?? PAGE)));
+      // (whose it is: a built-in book, or one of Ghosty's notebooks)
+      r.dataset.whose = d.builtin ? 'builtin' : 'notebook';
       (r.lastChild as HTMLElement).title = `${d.passages} passage${d.passages === 1 ? '' : 's'}`;
       return r;
     };
@@ -873,6 +875,8 @@ export const libraryTab: TabDef = {
           screen: 'library',
           title: 'Library',
           line: `the library, ${mine.length} of his books${words ? `, finding “${find.value.trim().slice(0, 40)}”` : ''}${secs ? `, the ${secs.current()} section` : ''}`,
+          // (the stamp line's LOOKING AT: the short name, as every screen gives; the sentence above is the brain's)
+          looking: 'the library',
           ...(one.length === 1 ? { selected: { kind: 'book', id: one[0]!.id, label: `“${one[0]!.title}”` } } : {}),
           at: Date.now(),
         };

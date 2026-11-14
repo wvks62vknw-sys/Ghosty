@@ -217,10 +217,13 @@ export function sheetPage(root: HTMLElement, o: SheetPageOptions): TabInstance &
       const name = (o.name ?? o.tag.split('//').pop() ?? o.screen).trim();
       const nice = name.charAt(0) + name.slice(1).toLowerCase();
       const open = list.find((x) => x.id === pills?.current());
+      // (the page open is named only when there is a choice of pages — the pills show — and it is not the screen's own name:
+      // HOUSE, CONVERT and DOCUMENTS have one page each, called what the screen is, and say their name once)
+      const named = open && list.length > 1 && open.label.toLowerCase() !== nice.toLowerCase() ? open : undefined;
       const shown = slots.filter((x) => !x.pn.el.hidden).map((x) => x.part.title);
       const extra = o.also?.() ?? '';
-      return screenSays(o.screen, nice, `the ${nice.toLowerCase()} screen${open ? `, open on ${open.label.toLowerCase()}` : ''}${extra ? `, ${extra}` : ''}`, {
-        looking: open ? `${nice.toLowerCase()}, ${open.label.toLowerCase()}` : nice.toLowerCase(),
+      return screenSays(o.screen, nice, `the ${nice.toLowerCase()} screen${named ? `, open on ${named.label.toLowerCase()}` : ''}${extra ? `, ${extra}` : ''}`, {
+        looking: named ? `${nice.toLowerCase()}, ${named.label.toLowerCase()}` : nice.toLowerCase(),
         ...(open ? { selected: { kind: 'group', id: `${o.screen}:${open.id}`, label: open.label, ...(shown.length ? { detail: shown.join(', ').toLowerCase() } : {}) } } : {}),
       });
     },

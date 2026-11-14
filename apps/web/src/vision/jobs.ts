@@ -80,7 +80,8 @@ export function jobsOf(s: Seen): JobId[] {
   if (s.code?.text) out.push(ean(s.code) ? 'product' : 'code');
   const words = (s.text ?? '').match(/\S+/g)?.length ?? 0;
   if (words) {
-    if (s.receipt) out.push('receipt');
+    // a bill has prices, a total and VAT too: when the words read as a bill, it is the bill (ADD TO MY BILLS, its reminder)
+    if (s.receipt && !s.letter) out.push('receipt');
     else if (s.contact) out.push('contact');
     else if (s.stop) out.push('stop');
     else if (s.medicine) out.push('medicine');

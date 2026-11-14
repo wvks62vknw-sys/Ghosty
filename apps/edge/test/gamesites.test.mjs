@@ -245,6 +245,18 @@ test('a game\'s front page: its name, how to play, its rooms as pictures, his no
   assert.match(style, /--fsky:#[0-9a-f]{6}/i);
 });
 
+// (review fix) the APPROVE card carries the whole note, every word that goes on the public front page (up to its 400 characters)
+test('a long note is shown whole on the APPROVE card, as it goes public', async () => {
+  const w = world();
+  await w.api('/api/sites/game', 'POST', { game: await fox() });
+  const note = `${'This is our game. '.repeat(15)}The end is a secret.`;
+  const ap = await tool.approval({ name: 'Fox Run', note }, w.ctx);
+  assert.ok(ap.reason.includes(`“${note.trim()}”`), 'the whole note on the card');
+  await tool.run(ap.args, w.ctx);
+  const page = await (await w.go('/s/fox-run/', { headers: { 'sec-fetch-dest': 'document' } })).text();
+  assert.ok(page.includes('The end is a secret.'), 'and the same words on the page');
+});
+
 // NEXT ROUND sites.u10: a game's high-score table, kept on the phone that plays it (beside its saves, under its own key), no names,
 // nothing sent; the line under GAME OVER says where the run landed; the share card's words.
 test('a game\'s high scores: the top ten on the phone, highest first, where a run landed, and the share card\'s words', async () => {

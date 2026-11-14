@@ -79,6 +79,12 @@ approval listed, and the fixes that live in your Cloudflare account set out as p
 - It stays locked until you type your owner key under UNLOCK. A wrong key keeps it locked. Pair Telegram again in Links
   afterwards.
 
+- A second review found that a website build slipped past the lock: `build_website` was not on its list, and a build already
+  running could still publish. That is fixed at its cause:
+  - The page store itself refuses to put anything live while locked. Every publish passes through it: a tool, a build already
+    running, a game, an app, a restore.
+  - Every tool that asks for your APPROVE is locked, not only the named ones, so a tool added later cannot slip past.
+
 ### Said in the chat, with no model
 - "Lock everything", "has my password leaked?", "show my approvals" and "how safe am I?" open the screen at the right place,
   with one line.

@@ -528,8 +528,9 @@ export const brain = {
   ship: (n: number, sha: string) => req<{ result: string }>('POST', `/changes/${n}/ship`, { sha }),
   discard: (n: number) => req<{ result: string }>('POST', `/changes/${n}/discard`),
   restore: (sha: string) => req<{ result: string }>('POST', `/versions/${sha}/restore`),
-  agenda: (days = 14) => req<{ tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] }>('GET', `/agenda?days=${days}&tz=${encodeURIComponent(TZ)}`),
-  addEvent: (e: { title: string; start: number; end?: number; allDay?: boolean; location?: string; remindMin?: number | null }) => req<{ event: AgendaEventInfo }>('POST', '/agenda/events', { ...e, tz: TZ }),
+  /** `from`: where the window starts (ms; the brain's default is today's midnight), e.g. COMIC's week from its Monday */
+  agenda: (days = 14, from?: number) => req<{ tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] }>('GET', `/agenda?days=${days}&tz=${encodeURIComponent(TZ)}${from ? `&from=${Math.round(from)}` : ''}`),
+  addEvent: (e: { title: string; start: number; end?: number; allDay?: boolean; location?: string; notes?: string; remindMin?: number | null }) => req<{ event: AgendaEventInfo }>('POST', '/agenda/events', { ...e, tz: TZ }),
   deleteEvent: (id: string) => req('DELETE', `/agenda/events/${encodeURIComponent(id)}`),
   // [planlane2:timeline] change one of his events in place (its reminder moves with it; null clears end, place or reminder)
   editEvent: (id: string, e: { title?: string; start?: number; end?: number | null; allDay?: boolean; location?: string | null; notes?: string | null; remindMin?: number | null }) =>
@@ -680,10 +681,11 @@ brain.memory = async () => {
     throw e;
   }
 };
-brain.agenda = async (days = 14) => {
+brain.agenda = async (days = 14, from?: number) => {
   try {
-    const r = await raw.agenda(days);
-    offline.set({ agenda: r });
+    const r = await raw.agenda(days, from);
+    // (only the usual window is the offline copy: a week from another start is not)
+    if (from === undefined) offline.set({ agenda: r });
     return agendaWithOutbox(r);
   } catch (e) {
     const kept = offline.get().agenda;

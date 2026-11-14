@@ -171,7 +171,8 @@ export async function gameApproval(a: Record<string, unknown>, ctx: Ctx, get: (n
       `${replaces ? 'Update' : 'Put'} your game "${game.name}" on your sites at ${link(name)}/? Anyone with the link can play it (${kb} KB). ` +
       'It installs to a Home Screen, plays offline and keeps its saves on the phone that plays it; it reaches nothing on the network and asks for no camera, microphone or location.' +
       (replaces ? ' This replaces the copy already there.' : '') +
-      (note ? ` Its front page carries your note: “${note.slice(0, 120)}${note.length > 120 ? '…' : ''}”.` : ''),
+      // the whole note, every word that goes public (review fix: it is capped at 400 above)
+      (note ? ` Its front page carries your note: “${note}”.` : ''),
   };
 }
 

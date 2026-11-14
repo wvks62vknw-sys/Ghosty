@@ -148,6 +148,64 @@ export async function run(H) {
     await page.locator('#pg-agenda .pn:has(input[aria-label="Event title"]) .undo button').first().click({ timeout: 4000 }).catch(() => check(false, `[timeline ${W}] no UNDO after ALL DAY`));
     d1 = await brainHas(false);
     check(!d1?.allDay && d1?.start === tm.s2 && d1?.end === tm.e2, `[timeline ${W}] UNDO gives back its hours: ${JSON.stringify(d1)}`);
+    // an event's NOTES go with every change (the card's promise), on the paths that put it back as a new one too: UNDO when the brain's
+    // edit can't be reached, and a change made with the edit out of reach (each is a re-add and a delete, queued like any change)
+    const nTag = `${tag} notes`;
+    const mk = await api(page, 'POST', '/agenda/events', { title: nTag, start: tm.s3 + 2 * 3600_000, end: tm.s3 + 3 * 3600_000, notes: 'Bring the blue folder', remindMin: 15, tz: 'Europe/London' });
+    check(!!mk?.event?.id, `[timeline ${W}] the event with notes went in: ${JSON.stringify(mk).slice(0, 160)}`);
+    // (where the change is kept: in the brain, or, when the phone has marked the brain out of reach, in the phone's own queue of changes
+    // that goes when it's back: either way it is what he will get, so its notes are read from wherever it is)
+    const brainTitled = async (title) => {
+      // (polled from here: page.evaluate waits for the page's answer, which a waitForFunction with an async check would not)
+      for (const until = Date.now() + 30000; Date.now() < until; await page.waitForTimeout(250)) {
+        const got = await page.evaluate(async ({ title, key }) => {
+          const r = await fetch('/api/agenda?days=3', { headers: { 'x-ghosty': '1', 'x-ghosty-key': key } }).then((x) => x.json(), () => null);
+          const inBrain = r?.events?.find((x) => x.title === title);
+          if (inBrain) return inBrain;
+          const box = JSON.parse(localStorage.getItem('ghosty.offline') ?? '{}')?.outbox ?? [];
+          const queued = box.find((o) => o.kind === 'addEvent' && o.event?.title === title);
+          return queued ? { ...queued.event, queued: true } : null;
+        }, { title, key: H.KEY }).catch(() => null);
+        if (got) return got;
+      }
+      return null;
+    };
+    const openEvent = async (title) => {
+      await open(page, 'core');
+      await open(page, 'agenda');
+      await openSection(page, 'agenda', 'Diary');
+      await page.waitForFunction((t) => [...document.querySelectorAll('#pg-agenda .rw.ev .evt')].some((b) => b.textContent === t), title, { timeout: 8000 }).catch(() => check(false, `[timeline ${W}] ${title} is not in the diary`));
+      await page.locator('#pg-agenda .rw.ev', { has: page.locator('.evt', { hasText: new RegExp(`^${title}$`) }) }).first().locator('.evt').click();
+      await page.waitForSelector('#pg-agenda .evcard input[aria-label="Change the event"]', { timeout: 4000 });
+    };
+    await openEvent(nTag);
+    await page.fill('#pg-agenda .evcard input[aria-label="Change the event"]', `${nTag} moved`);
+    await page.click('#pg-agenda .evcard button:has-text("Save changes")');
+    const n1 = await brainTitled(`${nTag} moved`);
+    check(n1?.notes === 'Bring the blue folder', `[timeline ${W}] changed in place, its notes kept: ${JSON.stringify(n1)}`);
+    // the brain's edit out of reach from here on (its add and delete still answer): UNDO puts it back as a new one, notes and all
+    const editDown = (r) => (r.request().method() === 'POST' ? r.abort('internetdisconnected') : r.continue());
+    await page.route(/\/api\/agenda\/events\/[^/?]+$/, editDown);
+    await page.locator('#pg-agenda .pn:has(input[aria-label="Event title"]) .undo button').first().click({ timeout: 4000 }).catch(() => check(false, `[timeline ${W}] no UNDO after the notes change`));
+    const n2 = await brainTitled(nTag);
+    check(n2?.notes === 'Bring the blue folder', `[timeline ${W}] UNDO with the brain's edit out of reach keeps the notes: ${JSON.stringify(n2)}`);
+    // and a change made while the edit is out of reach: the changed one goes in as a new one, notes and all
+    await openEvent(nTag);
+    await page.fill('#pg-agenda .evcard input[aria-label="Change the event"]', `${nTag} offline`);
+    await page.click('#pg-agenda .evcard button:has-text("Save changes")');
+    const n3 = await brainTitled(`${nTag} offline`);
+    const seen3 = n3 ? '' : await page.evaluate(async (key) => {
+      const r = await fetch('/api/agenda?days=3', { headers: { 'x-ghosty': '1', 'x-ghosty-key': key } }).then((x) => x.json(), () => null);
+      const box = JSON.parse(localStorage.getItem('ghosty.offline') ?? '{}')?.outbox ?? [];
+      return JSON.stringify({ brain: (r?.events ?? []).map((e) => e.title), queued: box.map((o) => `${o.kind}:${o.event?.title ?? o.eventId ?? ''}`), card: document.querySelector('#pg-agenda .evcard')?.textContent?.slice(0, 160) ?? null });
+    }, H.KEY);
+    check(n3?.notes === 'Bring the blue folder', `[timeline ${W}] a change with the brain's edit out of reach keeps the notes: ${JSON.stringify(n3)} ${seen3}`);
+    await page.unroute(/\/api\/agenda\/events\/[^/?]+$/, editDown);
+    // (whatever is still queued on this phone goes now the edit is back; then every one of them is taken out of the brain)
+    await page.evaluate(() => dispatchEvent(new Event('online')));
+    await page.waitForFunction(() => !(JSON.parse(localStorage.getItem('ghosty.offline') ?? '{}')?.outbox ?? []).length, null, { timeout: 8000, polling: 250 }).catch(() => undefined);
+    const left = await api(page, 'GET', '/agenda?days=3');
+    for (const ev of left?.events ?? []) if (ev.title?.startsWith(nTag)) await api(page, 'DELETE', `/agenda/events/${ev.id}`);
     }
 
     // ---- THE MONTH on any month: ‹ twice back, › on past next month, THIS MONTH home; each month read for itself

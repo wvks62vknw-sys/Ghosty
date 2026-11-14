@@ -722,7 +722,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
             : !k.online ? `${about ? `${about}. ` : ''}No signal: the next buses need one.`
             : `${about ? `${about}. ` : ''}NEXT BUSES asks the free timetables by this stop’s name, not by where you are.`;
           out.push(card('stop', head, line,
-            k.online && got?.state !== 'asking' ? key(got?.state === 'found' ? 'AGAIN' : 'NEXT BUSES', (b) => void nextBuses(b, name), { label: `The next buses from ${name}` }) : null,
+            k.online && got?.state !== 'asking' ? key(got?.state === 'found' ? 'NEXT BUSES AGAIN' : 'NEXT BUSES', (b) => void nextBuses(b, name), { label: `The next buses from ${name}` }) : null,
             copy('COPY', k.text ?? '', 'the sign')));
           break;
         }
@@ -883,6 +883,11 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       // the card is there but its key is not, for a reason its own words give: a date already in the agenda; a plant or a place
       // with no signal, or already being asked about. Any other card is not this job's, and says nothing for it.
       if (word === 'agenda' && el.querySelector('.lenscard[data-job="date"] .lc-keys > [disabled]')) return 'That’s already in your agenda.';
+      // a stop whose times are on their way: its card says so
+      if (word === 'buses') {
+        const stop = el.querySelector('.lenscard[data-job="stop"] .lc-line');
+        if (stop) return (stop.textContent ?? '').trim() || w.done;
+      }
       if (word === 'species' || word === 'place') {
         const there = el.querySelector(`.lenscard[data-job="${word === 'species' ? 'living' : 'place'}"]`);
         if (there) return (there.querySelector('.lc-line')?.textContent ?? '').trim() || w.none;
@@ -898,6 +903,8 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       docFor = -1;
       added.clear();
       foods.length = 0;
+      // a stop's times are for now: never shown as current on a later visit
+      buses.clear();
       cardsState.jobs = [];
       cardsState.cards = [];
       cardsState.acts = [];

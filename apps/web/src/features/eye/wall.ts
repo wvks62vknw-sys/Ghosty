@@ -128,7 +128,7 @@ export function openWall(watch: (c: Pinned) => void): void {
       grid.append(tile);
     }
   };
-  const body = h('div.wall', head, grid, h('div.row.wrap.wallacts', edit));
+  const body = h('div.camwall', head, grid, h('div.row.wrap.wallacts', edit));
   const close = modal('YOUR CAMERA WALL', body, () => {
     stop();
     wallState.open = false;
