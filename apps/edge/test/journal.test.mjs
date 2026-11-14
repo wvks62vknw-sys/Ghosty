@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts'), at('../../web/src/features/people/gifts.ts')],
+  entryPoints: [at('../../web/src/features/journal/store.ts'), at('../../web/src/features/journal/words.ts'), at('../../web/src/features/people/touch.ts'), at('../../web/src/features/people/gifts.ts'), at('../../web/src/features/people/vcard.ts')],
   bundle: true, format: 'esm', platform: 'neutral', outdir: at('./.build/journal'), outbase: at('../../..'), outExtension: { '.js': '.mjs' }, logLevel: 'warning',
 });
 const S = await import('./.build/journal/apps/web/src/features/journal/store.mjs');
@@ -137,4 +137,24 @@ test('gifts: one step on each tap, spent per occasion (ideas cost nothing yet), 
   assert.equal(Gm.pounds('£24.99'), 24.99);
   assert.equal(Gm.pounds('24,5'), 24.5);
   assert.equal(Gm.pounds('free'), 0);
+});
+
+test('vCards: his contacts file read (folded lines, N or FN, phones, emails, address, a birthday with or without a year), and written back', async () => {
+  const V = await import('./.build/journal/apps/web/src/features/people/vcard.mjs');
+  const vcf = 'BEGIN:VCARD\r\nVERSION:3.0\r\nN:Patel;Priya;;;\r\nTEL;TYPE=CELL:07700 900123\r\nEMAIL;TYPE=HOME:priya@example.com\r\nADR;TYPE=HOME:;;12 Acacia\r\n  Avenue;Birmingham;;B13 9AA;UK\r\nBDAY:1984-06-12\r\nEND:VCARD\r\n'
+    + 'BEGIN:VCARD\nVERSION:4.0\nFN:Sam O\\, Brien\nitem1.TEL:+44 7700 900456\nBDAY:--03-09\nNOTE:my cousin\nEND:VCARD\nBEGIN:VCARD\nVERSION:3.0\nTEL:123\nEND:VCARD\n';
+  const cards = V.parseVcf(vcf);
+  assert.equal(cards.length, 2, 'the card with no name is left out');
+  assert.deepEqual(cards[0], { name: 'Priya Patel', phones: ['07700 900123'], emails: ['priya@example.com'], address: '12 Acacia Avenue, Birmingham, B13 9AA, UK', born: '1984-06-12', note: '' });
+  assert.equal(cards[1].name, 'Sam O, Brien');
+  assert.equal(cards[1].born, '--03-09');
+  assert.equal(V.bornWords('1984-06-12'), '12 June 1984');
+  assert.equal(V.bornWords('--03-09'), '9 March');
+  assert.deepEqual(V.cardSays(cards[0]).map((x) => x.action), ['note', 'contact', 'contact', 'contact', 'birthday']);
+  assert.equal(V.cardSays(cards[1])[0].args.words, 'Sam O, Brien my cousin');
+  const out = V.writeVcf([{ name: 'Priya Patel', phone: '07700 900123', email: 'priya@example.com', address: '12 Acacia Avenue, Birmingham', born: '06-12', rel: 'friend' }]);
+  assert.match(out, /^BEGIN:VCARD\r\nVERSION:3\.0\r\nFN:Priya Patel\r\nN:Patel;Priya;;;\r\nTEL;TYPE=CELL:07700 900123\r\nEMAIL:priya@example\.com\r\nADR;TYPE=HOME:;;12 Acacia Avenue\\, Birmingham;;;;\r\nBDAY:--06-12\r\nNOTE:friend\r\nEND:VCARD$/);
+  const back = V.parseVcf(out)[0];
+  assert.equal(back.name, 'Priya Patel');
+  assert.equal(back.address, '12 Acacia Avenue, Birmingham');
 });
