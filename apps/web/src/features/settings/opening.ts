@@ -10,7 +10,7 @@ import { h } from '../../core/dom';
 import { settings } from '../../state/app';
 import { button } from '../../ui/components';
 import { LENGTHS, LINE_MAX, LINES_MAX, runWords, type BootLength } from '../../shell/bootwords';
-import { lastRun } from '../../shell/boot';
+import { director, lastRun } from '../../shell/boot';
 
 export function openingControls(): { nodes: HTMLElement[]; paint: () => void } {
   const keys = LENGTHS.map((l) => {
@@ -46,5 +46,7 @@ export function openingControls(): { nodes: HTMLElement[]; paint: () => void } {
   };
   paint();
   settings.subscribe(paint);
-  return { nodes: [h('div.lab', 'THE OPENING'), row, line, h('div.lab', 'YOUR OPENING LINE'), lines, guest, h('div.lab', 'HOW THE LAST OPENING RAN'), run], paint };
+  const step = button('STEP THROUGH IT', () => void director());
+  step.dataset.id = 'bootdirector';
+  return { nodes: [h('div.lab', 'THE OPENING'), row, line, h('div.lab', 'YOUR OPENING LINE'), lines, guest, h('div.lab', 'HOW THE LAST OPENING RAN'), run, h('div.keyrow', step)], paint };
 }

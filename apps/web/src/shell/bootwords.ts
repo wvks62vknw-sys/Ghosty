@@ -95,7 +95,7 @@ export function runWords(r: BootRun | null): string {
 }
 
 /** What he can say about the opening (boot.u4, boot.u9, boot.s7), read here so the boot, the chat and the checks share one source. */
-export type OpeningAsk = { kind: 'length'; length: BootLength } | { kind: 'run' } | { kind: 'guest'; name: string } | { kind: 'noguest' };
+export type OpeningAsk = { kind: 'length'; length: BootLength } | { kind: 'run' } | { kind: 'guest'; name: string } | { kind: 'noguest' } | { kind: 'director' };
 export function openingAsked(text: string): OpeningAsk | null {
   const t = text.trim().toLowerCase().replace(/[’]/g, "'").replace(/[.!?]+$/, '');
   if (/^(?:(?:always |play )?(?:the )?short (?:opening|boot|intro|film|version)(?: every time| always)?|make (?:the )?(?:opening|boot|intro) short(?:er)?)$/.test(t)) return { kind: 'length', length: 'short' };
@@ -103,7 +103,31 @@ export function openingAsked(text: string): OpeningAsk | null {
   if (/^(?:(?:the )?(?:full |whole )?(?:opening|boot|film|intro) once a day|(?:the )?(?:full |whole )?film only (?:on )?(?:the )?first open(?: of the day)?)$/.test(t)) return { kind: 'length', length: 'daily' };
   if (/^(?:how (?:did|smooth(?:ly)? (?:did|was)) (?:the |my )?(?:opening|boot|intro)(?: run| play| go)?|how smooth was (?:the |my )?(?:opening|boot|intro)|opening (?:frame rate|smoothness))$/.test(t)) return { kind: 'run' };
   if (/^(?:no guest|it's me again|i'm back|cancel (?:the )?guest)$/.test(t)) return { kind: 'noguest' };
+  if (/^(?:director(?:'s)? mode|step through (?:the |my )?(?:opening|boot|intro)|(?:show me )?(?:the |my )?(?:opening|boot|intro) shot by shot)$/.test(t)) return { kind: 'director' };
   const g = /^(?:it's |now it's )?([a-z][a-z' -]{0,30}?)'s turn$/.exec(t);
   if (g && !/^(?:my|your|whose|his|her|their|it)$/.test(g[1]!)) return { kind: 'guest', name: g[1]!.replace(/\b[a-z]/g, (c) => c.toUpperCase()) };
   return null;
+}
+
+/** The offline opening's line (boot.s10): with no signal, what still works, true of this phone (its own brain downloaded or not). */
+export function offlineLine(brainHere: boolean): string {
+  return brainHere ? 'Working offline: I still answer from this phone, and what is saved here opens.' : 'Working offline: what is saved on this phone opens; answers wait for a signal.';
+}
+
+/** The opening's shots by name (boot.u12, the director's mode), each with when it starts (ms of its cut): the film's, and the storyboard's of the other looks. */
+export const FILM_SHOTS: [string, number][] = [['The eye opens', 0], ['The scan', 500], ['The edges, the things', 900], ['The orb forms', 2000], ['The stamp', 3100], ['The feeds answer', 4000], ['The recognition', 4900], ['The greeting', 5400], ['The search', 5800], ['The landing', 6500]];
+export const STORY_SHOTS: [string, number][] = [['The ground', 0], ['The floor forms', 240], ['The orb forms', 560], ['The stamp', 1240], ['The feeds answer', 1700], ['The recognition', 2180], ['The greeting', 2460], ['The landing', 2640]];
+/** The director's line for a shot: "3 of 10 · The edges, the things · 0.9 s". */
+export const shotWords = (i: number, shots: [string, number][]): string => `${i + 1} of ${shots.length} · ${shots[i]![0]} · ${(shots[i]![1] / 1000).toFixed(1)} s`;
+
+/**
+ * What matters today, as the opening's search locks on (boot.u2), from his own records only: the next thing in today's diary, else a
+ * to-do due today, else rain on the way. '' when there is nothing to say (the opening then ends as it always did).
+ */
+export function dayFocusLine(f: { event?: { when: string; title: string }; todo?: string; rain?: string }): string {
+  const cut = (s: string, n = 40) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
+  if (f.event) return `Today · ${f.event.when} · ${cut(f.event.title)}`;
+  if (f.todo) return `Due today · ${cut(f.todo)}`;
+  if (f.rain) return `Rain · ${f.rain}`;
+  return '';
 }

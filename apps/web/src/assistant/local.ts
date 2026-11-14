@@ -198,6 +198,10 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
       return answer(text, `The opening: ${l.label.toLowerCase()}. ${l.line}`, { kind: 'can', go }, opts);
     }
     if (a.kind === 'run') return answer(text, w.runWords((await import('../shell/boot')).lastRun()), { kind: 'can', go }, opts);
+    if (a.kind === 'director') {
+      const started = await import('../shell/boot').then((b) => b.director());
+      return answer(text, started ? 'Director’s mode: the opening, one shot at a time. NEXT and PREV step through it; DONE lands on Home.' : 'The opening is already playing: try again once it has landed.', { kind: 'can' }, opts);
+    }
     if (a.kind === 'noguest') {
       const had = settings.get().bootGuest?.until > Date.now() ? settings.get().bootGuest.name : '';
       settings.set({ bootGuest: { name: '', until: 0 } });

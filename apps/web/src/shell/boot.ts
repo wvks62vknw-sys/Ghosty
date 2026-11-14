@@ -66,7 +66,7 @@ import { previousOpen } from '../state/lastopen';
 import { lockBox, marksState, recognise, release, stampTyped, stampWords, truthLine, type TruthPart } from '../ui/machine';
 import { sfxAllowed } from '../assistant/sfx';
 import { feedsAnswered, stampFacts } from './awareness';
-import { FAULT_WORDS, HOLD_AFTER, greetingFor, holdWords, lengthFor, openingLine, ownLines, settledFeeds, type BootRun } from './bootwords';
+import { FAULT_WORDS, FILM_SHOTS, HOLD_AFTER, STORY_SHOTS, greetingFor, holdWords, lengthFor, offlineLine, openingLine, ownLines, settledFeeds, shotWords, type BootRun } from './bootwords';
 import { Film, FILM, FILM_SHORT, type FilmCut, type FilmState } from '../features/core/scan/film';
 import { resetScoreState, scoreState, startScore, type Score } from '../features/core/scan/score';
 import { litByHour, scanHooks, scanScene } from '../features/core/scan/home';
@@ -206,6 +206,10 @@ export const bootState = {
   /** Start-up jobs that waited for the landing (afterLanding), and when (ms after the first frame) they were let go (-1: none waited). */
   deferred: 0,
   deferredAt: -1,
+  /** The offline opening's line (boot.s10), '' with a signal. */
+  offlineLine: '',
+  /** What matters today, the line the search ends on (boot.u2: the diary's next thing, a to-do due, rain); '' when there is none. */
+  todayLine: '',
   /** THE FILM played (the world is The Scan and Mind drew it): the descent, the things found, the orb's viewport (film.ts). */
   film: false,
   scan: null as FilmState | null,
@@ -385,6 +389,59 @@ export async function reboot(): Promise<void> {
   bootState.kind = kind;
   el.classList.add(kind);
   play(el, kind, true);
+}
+
+/**
+ * THE DIRECTOR'S MODE (NEXT ROUND boot.u12): the opening again over Home, one named shot at a time: PREV and NEXT (and the arrow keys)
+ * step, DONE lands on Home as the film does. The bar sits outside the boot's layer, so its keys never count as a tap to skip. False when an
+ * opening is already on screen.
+ */
+export const directorState = { on: false, shot: -1, shots: 0, line: '' };
+export async function director(): Promise<boolean> {
+  if (document.getElementById('boot') || directorState.on) return false;
+  const f = flags();
+  f.__ghostyBootManual = true;
+  await reboot();
+  const seek = f.__bootSeek;
+  if (!seek || !document.getElementById('boot')) {
+    f.__ghostyBootManual = false;
+    return false;
+  }
+  // (the first step decides which cut plays: the film's shots, or the storyboard's in the other looks)
+  seek(0);
+  const shots = bootState.film ? FILM_SHOTS : STORY_SHOTS;
+  const end = bootState.timeline?.end ?? 7000;
+  directorState.on = true;
+  directorState.shots = shots.length;
+  const line = h('p.bdline', { role: 'status', dataset: { case: 'keep' } });
+  const go = (i: number) => {
+    const k = Math.max(0, Math.min(shots.length - 1, i));
+    directorState.shot = k;
+    directorState.line = shotWords(k, shots);
+    line.textContent = directorState.line;
+    // (each shot photographed half way through, so what it does is on screen)
+    const next = k + 1 < shots.length ? shots[k + 1]![1] : end;
+    seek(Math.round((shots[k]![1] + next) / 2));
+  };
+  const done = () => {
+    removeEventListener('keydown', onKey);
+    bar.remove();
+    seek(end);
+    f.__ghostyBootManual = false;
+    directorState.on = false;
+    directorState.shot = -1;
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'ArrowRight') go(directorState.shot + 1);
+    else if (e.key === 'ArrowLeft') go(directorState.shot - 1);
+    else if (e.key === 'Escape') done();
+  };
+  const bar = h('div#bdirector', { role: 'group', 'aria-label': 'The opening, shot by shot' }, line,
+    h('div.bdkeys', h('button', { type: 'button', onclick: () => go(directorState.shot - 1) }, 'PREV'), h('button', { type: 'button', onclick: () => go(directorState.shot + 1) }, 'NEXT'), h('button.on', { type: 'button', onclick: done }, 'DONE')));
+  document.body.append(bar);
+  addEventListener('keydown', onKey);
+  go(0);
+  return true;
 }
 
 // ---------------------------------------------------------------- the resume
@@ -690,7 +747,25 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   const slow = h('p.bslow', { dataset: { case: 'keep' }, role: 'status', hidden: true }, 'Still waking. The signal is slow.');
   // the landing held for a late app: after a second, in the stamp's small type, what it waits for (never a frozen frame)
   const hold = h('p.bhold.g-truth', { dataset: { case: 'keep' }, role: 'status', hidden: true });
-  const top = h('div.btop', stamp, greet, feeds, hold, slow);
+  // no signal at the open: one line says so, and what still works on this phone (boot.s10)
+  const off = h('p.boffline.g-truth', { dataset: { case: 'keep' }, role: 'status', hidden: true });
+  bootState.offlineLine = '';
+  if (navigator.onLine === false) {
+    off.textContent = offlineLine(false);
+    bootState.offlineLine = off.textContent;
+    void import('../offline/brain').then((b) => {
+      off.textContent = offlineLine(!!b.offlineBrain.get().downloaded);
+      bootState.offlineLine = off.textContent;
+    }).catch(() => undefined);
+  }
+  // what matters today (boot.u2): looked up now, shown from the greeting on, where the search ends
+  const today = h('p.btoday.g-truth', { dataset: { case: 'keep' }, hidden: true });
+  bootState.todayLine = '';
+  void import('./bootday').then((d) => d.dayFocus()).then((line) => {
+    today.textContent = line;
+    bootState.todayLine = line;
+  }).catch(() => undefined);
+  const top = h('div.btop', stamp, greet, today, feeds, hold, off, slow);
   const name = h('p.bname', { dataset: { case: 'keep' } }, 'GHOSTY');
   const skip = h('p.bskip', { dataset: { case: 'keep' } }, 'Tap to skip');
   bootState.greeting = greet.textContent ?? '';
@@ -1159,6 +1234,11 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       }
     });
     feeds.hidden = gone <= 0;
+    today.hidden = !bootState.todayLine || T < tl.greeting || bootState.skipped;
+    today.style.opacity = (today.hidden ? 0 : seg(tl.greeting, tl.greeting + 200) * textsOut).toFixed(3);
+    // (offline: its line from the feeds' moment, where the feeds would have answered, until the words go)
+    off.hidden = !bootState.offlineLine || T < tl.feeds;
+    off.style.opacity = (off.hidden ? 0 : textsOut).toFixed(3);
     // 6. the recognition: the box snaps onto the orb with the tone, G H O S T Y under it
     // (on a phone whose frame jumped past it to the landing, the recognition still happens on the cut's clock: the box is gone with the words)
     if (T >= tl.recognise && !bootState.skipped) recogniseOrb(push);

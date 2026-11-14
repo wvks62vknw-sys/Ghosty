@@ -301,10 +301,48 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   await ctx.close();
 }
 
+// f. what matters today (boot.u2): a to-do due today is the line the search ends on (unless the diary has a next thing, which comes first);
+//    offline (boot.s10): one line says so and what still works; the director's mode (boot.u12) steps the opening shot by shot and lands
+{
+  const day = await (async () => { const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' })); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const { ctx, page } = await open();
+  await page.addInitScript((day) => {
+    if (!localStorage.getItem('ghosty.agenda.todo')) localStorage.setItem('ghosty.agenda.todo', JSON.stringify([{ id: 't1', text: 'Pay the window cleaner', due: day, done: false, at: Date.now() - 3_600_000 }]));
+  }, day);
+  await page.goto(base);
+  const seenToday = await page.waitForFunction(() => { const e = document.querySelector('#boot .btoday'); return e && !e.hidden && Number(e.style.opacity) > 0.5 ? e.textContent : null; }, null, { timeout: 30000 }).then((h) => h.jsonValue()).catch(() => null);
+  const s = await ended(page, 'today');
+  const line = s?.todayLine ?? '';
+  if (!(line === 'Due today · Pay the window cleaner' || /^Today · (\d{2}:\d{2}|All day|By \d{2}:\d{2}) · .+/.test(line)) || seenToday !== line) problems.push(`today: the opening's day line was "${line}", seen on screen as "${seenToday}" (want the to-do due today, or the diary's next thing)`);
+  report.push(`today line: ${line}`);
+  // the director's mode, by words: the bar, the first shot, NEXT, then DONE lands on Home with Mind in the hero
+  await page.evaluate(() => window.__ghosty.send('director mode'));
+  const first = await page.waitForFunction(() => document.querySelector('#bdirector .bdline')?.textContent || null, null, { timeout: 20000 }).then((h) => h.jsonValue()).catch(() => null);
+  const keys = await page.evaluate(() => [...document.querySelectorAll('#bdirector button')].map((b) => { const r = b.getBoundingClientRect(); return { t: b.textContent, w: Math.round(r.width), h: Math.round(r.height) }; }));
+  await page.click('#bdirector button:nth-child(2)').catch(() => undefined);
+  const second = await page.evaluate(() => document.querySelector('#bdirector .bdline')?.textContent ?? '');
+  const phase = await page.evaluate(() => window.__bootState.phase);
+  await page.click('#bdirector button.on').catch(() => undefined);
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 }).catch(() => problems.push('director: DONE did not land'));
+  const after = await page.evaluate(() => ({ bar: !!document.getElementById('bdirector'), manual: !!window.__ghostyBootManual, landed: window.__bootState.landed }));
+  if (first !== '1 of 10 · The eye opens · 0.0 s' || second !== '2 of 10 · The scan · 0.5 s' || phase !== 'floor') problems.push(`director: the shots read "${first}" then "${second}" (phase ${phase})`);
+  if (keys.length !== 3 || keys.some((k) => k.w < 44 || k.h < 44)) problems.push(`director: its keys ${JSON.stringify(keys)} (want PREV, NEXT, DONE at 44 pt)`);
+  if (after.bar || after.manual || !landedOk(after.landed)) problems.push(`director: after DONE ${JSON.stringify(after)}`);
+  await ctx.close();
+  const o = await open();
+  await o.page.addInitScript(() => Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }));
+  await o.page.goto(base);
+  const seenOff = await o.page.waitForFunction(() => { const e = document.querySelector('#boot .boffline'); return e && !e.hidden ? e.textContent : null; }, null, { timeout: 30000 }).then((h) => h.jsonValue()).catch(() => null);
+  const so = await ended(o.page, 'offline');
+  const OFF = ['Working offline: I still answer from this phone, and what is saved here opens.', 'Working offline: what is saved on this phone opens; answers wait for a signal.'];
+  if (!OFF.includes(so?.offlineLine) || seenOff !== so?.offlineLine) problems.push(`offline: the opening's line was "${so?.offlineLine}", seen as "${seenOff}"`);
+  await o.ctx.close();
+}
+
 await browser.close();
 for (const r of report) console.log(`  ${r}`);
 if (problems.length) {
   console.error(`\nbootfilm: ${problems.length} problem(s):\n${problems.map((p) => `  - ${p}`).join('\n')}`);
   process.exit(1);
 }
-console.log(`ok bootfilm (${Math.round((Date.now() - t0) / 1000)} s): a cold open left to choose plays THE FILM, the full cut, its whole 7,000 ms (at 440 and 390), every shot in order, every frame counted; the hand-over on the hero to the pixel with the HUD a beat after and nothing moving after; a tap skips to the landing; Reduce Motion the calm still 1,200 ms; a quick reopen (under three minutes) the short cut 4,800 ms, after four minutes and on the first open ever the whole film`);
+console.log(`ok bootfilm (${Math.round((Date.now() - t0) / 1000)} s): a cold open left to choose plays THE FILM, the full cut, its whole 7,000 ms (at 440 and 390), every shot in order, every frame counted; the hand-over on the hero to the pixel with the HUD a beat after and nothing moving after; a tap skips to the landing; Reduce Motion the calm still 1,200 ms; a quick reopen (under three minutes) the short cut 4,800 ms, after four minutes and on the first open ever the whole film; THE NEXT ROUND: its length his way (SHORT, ONCE A DAY), the jobs that can wait waiting for the landing, how it ran kept and said, the greeting that remembers, his own lines in turn, a guest once, by words and by Settings' keys at 440 and 390, today's line, the offline line and the director's mode`);
