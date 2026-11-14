@@ -64,12 +64,12 @@ export const bounds = (items: Box[]): Box => {
 };
 
 /**
- * Where a box dragged to (x, y) lands: within 10 px of the slide's centre or edges, or another item's edges or centre, it snaps there, and
- * the guides it snapped to come back with it.
+ * Where a box dragged to (x, y) lands: within 10 px of the slide's centre or edges (first), or another item's edges or centre, it snaps
+ * there, and the guides it snapped to come back with it.
  */
 export function snap(box: Box, others: Box[], tol = 10): { x: number; y: number; guides: Guide[] } {
-  const xs = [0, W / 2, W, ...others.flatMap((o) => [o.x, o.x + o.w / 2, o.x + o.w])];
-  const ys = [0, H / 2, H, ...others.flatMap((o) => [o.y, o.y + o.h / 2, o.y + o.h])];
+  const xo = others.flatMap((o) => [o.x, o.x + o.w / 2, o.x + o.w]);
+  const yo = others.flatMap((o) => [o.y, o.y + o.h / 2, o.y + o.h]);
   const best = (pos: number, size: number, lines: number[]) => {
     let pick: { d: number; to: number; at: number } | null = null;
     for (const at of lines)
@@ -79,8 +79,9 @@ export function snap(box: Box, others: Box[], tol = 10): { x: number; y: number;
       }
     return pick;
   };
-  const bx = best(box.x, box.w, xs);
-  const by = best(box.y, box.h, ys);
+  // the slide's own middle and edges win over another item's (as Keynote's centre guides do)
+  const bx = best(box.x, box.w, [0, W / 2, W]) ?? best(box.x, box.w, xo);
+  const by = best(box.y, box.h, [0, H / 2, H]) ?? best(box.y, box.h, yo);
   const guides: Guide[] = [];
   if (bx) guides.push({ axis: 'x', at: bx.at });
   if (by) guides.push({ axis: 'y', at: by.at });
@@ -206,5 +207,5 @@ export function layerFree(s: Slide, ids: string[], how: 'forward' | 'back' | 'fr
 }
 /** An item in his words, for a screen reader and for what he hears. */
 export function freeWords(i: FreeItem): string {
-  return i.kind === 'text' ? `A text box: ${i.text?.trim() || 'empty'}` : i.kind === 'pic' ? `A picture${i.alt ? `: ${i.alt}` : ''}` : `A ${i.shape === 'round' ? 'rounded' : (i.shape ?? 'rect') === 'rect' ? 'rectangle' : i.shape} shape`;
+  return i.kind === 'text' ? `A text box: ${i.text?.trim() || 'empty'}` : i.kind === 'pic' ? `A picture${i.alt ? `: ${i.alt}` : ''}` : (i.shape === 'ellipse' || i.shape === 'arrow' ? 'An ' : 'A ') + `${i.shape === 'round' ? 'rounded' : (i.shape ?? 'rect') === 'rect' ? 'rectangle' : i.shape} shape`;
 }

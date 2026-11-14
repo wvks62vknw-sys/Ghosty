@@ -173,6 +173,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_slides' }, tryText: 'Opens my slides',
   },
   'phrase:slides': { same: 'hub:slides' },
+  // [apps round, editors] free-form slides (the pro edition)
+  'deck:slides:free-slides-with-snapping-guides': {
+    name: 'Free slides with snapping guides',
+    line: 'You can lay any number of text boxes, pictures and shapes on a slide, drag them with guides, line them up, group them and layer them.',
+    more: 'Open a slide and tap FREE: TEXT BOX, PICTURE and the shapes add as many as you like. Drag one and it snaps to the middle and the edges of the slide and to the other items, with a guide line. SELECT MORE chooses several to ALIGN left, centre, right, top, middle or bottom, SPREAD them evenly, GROUP them, or send them FORWARD and BACK. A PowerPoint file keeps them all, groups too, both ways.',
+    say: ['My slides', 'Open a PowerPoint file'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_slides' }, tryText: 'Opens my slides',
+  },
   // [editors grid, NEXT ROUND] the builds and Magic Move carried in and out of PowerPoint (editors.u4)
   'deck:slides:builds-and-magic-move-kept-in': {
     name: 'Builds and Magic Move in PowerPoint',

@@ -131,8 +131,8 @@ export function chartPanel(host: ProHost): { el: HTMLElement; paint(): void; edi
     }
     if (kind === 'combo' && !c.more?.length) return host.say('A line and columns chart needs two columns of numbers. Make a new chart from the labels and two columns.');
     const next = { ...patch(), title: titleIn.value.trim() || c.title };
-    host.commit(updateChart(b, c.id, next));
     editing = '';
+    host.commit(updateChart(b, c.id, next));
     host.say(`Saved: ${next.title}, now a ${CHART_WORDS[kind]} chart. UNDO takes the change back.`);
     paint();
   }

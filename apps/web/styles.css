@@ -10918,3 +10918,12 @@ html #pg-gamestudio .gs3banner { position: absolute; left: 10%; right: 10%; top:
 html #pg-gamestudio .gs3banner b { display: block; margin-bottom: 8px; font: 600 18px/24px var(--sf); color: var(--g-ink-1); }
 html #pg-gamestudio .gs3things, html #pg-gamestudio .gs3add, html #pg-gamestudio .gs3nudge { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
 html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: anywhere; }
+
+/* PRESENTATIONS, PRO EDITION (APPS ROUND, editors): free-form slides: the FREE panel, items dragged on the slide with snapping guides */
+.slbox.slfreeon { touch-action: none; }
+.slbox.slfreeon .slfree { cursor: move; }
+.slfreelist { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.slfreelist .slfreeitem { justify-content: flex-start; text-align: left; white-space: normal; overflow-wrap: anywhere; min-height: var(--g-target); }
+.slfreelist .slfreeitem[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
+.slfree-panel .slrow button[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
+.slfree-panel .slrow[hidden] { display: none; }

@@ -76,7 +76,8 @@ export function chartProSvg(c: Chart, d: ChartData, words: string): SVGSVGElemen
     const left = x0 + (horiz ? 84 : 44);
     const right = W - 10;
     for (let k = 0; k <= 3; k++) {
-      const v = lo + (span * k) / 3;
+      const raw = lo + (span * k) / 3;
+      const v = span >= 12 ? Math.round(raw) : raw;
       if (horiz) {
         const x = left + ((v - lo) / span) * (right - left);
         svg.append(svgEl('line', { x1: x, y1: top, x2: x, y2: bottom, class: 'shaxis' }));
