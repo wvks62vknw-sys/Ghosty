@@ -50,6 +50,9 @@ round made it yours to shape, made it know your day, and made it faster and more
 - **The opening's music in your colour's key (boot.u7).** The score under the film moves to your colour's key: Blue in A, Orange three
   semitones up, each colour its own. It takes the hour's texture: brighter in the morning, warmer in the evening, darker at night with a
   minor chord. It is still made on the phone, and still silent until your first tap.
+- **Lens shortcut opens straight to the Lens (boot.c6).** Opened from your Lens shortcut, the reticle snaps onto the middle of the
+  screen with LENS under it (the tone, where the phone allows sound) for about a second, and then you are in the Lens. The camera still
+  waits for your tap on START.
 - **An offline opening (boot.s10).** With no signal, one line says "Working offline" and what still works on this phone:
   - with its own brain downloaded: "I still answer from this phone";
   - without it: "answers wait for a signal".
@@ -79,6 +82,17 @@ Measured against Apple's boot and the best iPhone app launches (instant, never i
 6. Turn on Airplane Mode and open Ghosty cold. The opening says it is working offline and what still works.
 7. Say "Sam's turn" (for someone you introduced in the Lens), hand the phone over, and close and open it: "Good evening, Sam."
 
+## The red from main's check, fixed
+
+On GitHub's software-rendered runner, bootfilm said "76 gaps recorded for 78 frames".
+- **The cause:** the film counts the time between frames. When a loaded runner handed two frames the same time, the second was drawn
+  but not written down, so the record came out short of the frames.
+- **The fix:** every frame after the first is now written down, a zero-length gap included. A zero gap is never counted as a long
+  frame, and never taken as a sign of a 120 Hz screen.
+- **Proof:** with the computer slowed four times at 440 and 390, the record holds exactly one gap fewer than the frames, every long
+  one counted.
+- The check itself is unchanged.
+
 ## The checks
 - `tests/bootfilm.spec.mjs` (this lane's spec) checks everything above at 440 × 956 and 390 × 844:
   - the length keys, by tap and by words;
@@ -91,7 +105,8 @@ Measured against Apple's boot and the best iPhone app launches (instant, never i
   - today's line;
   - the offline line;
   - the director's mode;
-  - the score's key in Blue and in Orange, and its night texture.
+  - the score's key in Blue and in Orange, and its night texture;
+  - the Lens shortcut's lock-in, from both kinds of link.
 - `tests/bootpass.spec.mjs` measures the orb's states in One Ink.
 - `tests/boot.spec.mjs` allows today's and the offline line only as the very lines the boot says it showed.
 
@@ -101,5 +116,5 @@ Measured against Apple's boot and the best iPhone app launches (instant, never i
   round of its own. Not started, rather than half done.
 - **Opening lit by the hour and season (boot.u3), short films for big moments (boot.s2), saving
   your opening as a video (boot.s3), a big-screen TV opening (boot.s4), a film of your day (boot.s8), a comic-panel opening (boot.c3),
-  the Eye opening on your camera wall (boot.c4), the Lens shortcut's lock-in (boot.c6), and landing straight on today's lesson
+  the Eye opening on your camera wall (boot.c4), and landing straight on today's lesson
   (boot.c5).** These are listed for a later round, so the opening stays whole and green now.

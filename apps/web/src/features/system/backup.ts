@@ -72,7 +72,7 @@ export interface Editors {
   photos: RecipeCopy[];
   looks: Preset[];
   videos: Project[];
-  /** (NEXT ROUND, polish3.c1) the comics he made, as their scripts (they draw again), and the games he made in THE GAME STUDIO. */
+  /** (NEXT ROUND, polish3.c1) the comics he made, as their scripts (they draw again), and the games he made in GAME STUDIO. */
   comics?: { book: Book; made: unknown }[];
   games?: { game: Game; thumb: string; at: number }[];
 }
@@ -98,7 +98,7 @@ async function comicsNow(): Promise<{ book: Book; made: unknown }[]> {
   }
   return out;
 }
-/** The games he made in THE GAME STUDIO: each game whole (its rooms, its rules), with its small picture. */
+/** The games he made in GAME STUDIO: each game whole (its rooms, its rules), with its small picture. */
 async function gamesNow(): Promise<{ game: Game; thumb: string; at: number }[]> {
   const g = await import('../../studio-game/store');
   const out: { game: Game; thumb: string; at: number }[] = [];

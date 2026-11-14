@@ -110,7 +110,7 @@ for (const vp of [PHONE, PHONE2]) {
   check(r0.rows.filter((x) => x.state === 'missing').every((x) => x.k === 'TO GET' && /^(about )?\d[\d.]* (KB|MB|GB)$/.test(x.size)), `[${W}] [a] a missing piece does not say its size: ${JSON.stringify(r0.rows.map((x) => [x.k, x.size]))}`);
   // the next download: the heaviest this phone can run, with its size and what it keeps working
   const runsBrain = await page.evaluate(() => 'gpu' in navigator);
-  check(runsBrain ? /^Next: The offline brain, \d+ MB on Wi-Fi, for answers, the interpreter’s translations and School papers \(34% after\)\.$/.test(r0.next) : /^Next: The (offline map|Lens’s eyes), /.test(r0.next), `[${W}] [a] the next download reads "${r0.next}"`);
+  check(runsBrain ? /^Next: The offline brain, \d+ MB on Wi-Fi, for answers, Interpret’s translations and School papers \(34% after\)\.$/.test(r0.next) : /^Next: The (offline map|Lens’s eyes), /.test(r0.next), `[${W}] [a] the next download reads "${r0.next}"`);
   check(r0.get, `[${W}] [a] no GET IT IN SETTINGS`);
   if (!runsBrain) check(r0.rows.some((x) => x.id === 'brain' && x.state === 'cannot' && x.k === 'CAN’T'), `[${W}] [a] a phone with no WebGPU does not say it can’t run the brain`);
   await fit(page, `[${W}] [a scan]`, READY);

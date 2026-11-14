@@ -41,7 +41,7 @@ the end of check.yml's `all=`).
   - **Faces** and **voices**, yours and the people you introduced, counted on this phone: FORGET ALL, asked first.
   - **EXPORT MY MEMORY** saves everything I remember as one plain document.
 - **Your comics and games are backed up** (polish3.c1, built into the COMIC and MAKE areas, small and additive):
-  - the daily locked backup carries each comic you made as its script, and each game from THE GAME STUDIO whole;
+  - the daily locked backup carries each comic you made as its script, and each game from GAME STUDIO whole;
   - a restore puts back what this phone doesn't have, or has an older copy of.
 
 - **Export everything in ordinary formats** (polish3.s3). System → Backup → EXPORT EVERYTHING saves one zip on your phone:
