@@ -40,6 +40,7 @@ export const moneyApp = {
   shown: 0,
   refiled: 0,
   split: 0,
+  cancel: [] as string[],
   state: {} as Record<string, string>,
 };
 const expose = () => {
@@ -441,10 +442,30 @@ function billsPage(): HTMLElement {
     const row = (d: Due) => {
       const n = daysTo(d.on);
       const when = n === null ? '' : n < 0 ? `was due around ${dayWords(d.on)}` : `${inWords(d.on)} · ${dayWords(d.on)}`;
+      // [moneynext] money.u7: a subscription's own public cancel page and the plain steps, found on his tap (nothing is cancelled for him)
+      const how = h('div.pkcol.mncancel', { 'aria-live': 'polite' });
+      const ask = d.kind === 'sub' ? label(button('How to cancel', async () => {
+        if (lacksSignal()) return void how.replaceChildren(stateLine('offline', 'No signal. Try again when the phone is back online.'));
+        const done = waitFor(how, `Finding ${d.name}’s own cancel page…`);
+        try {
+          const r = await brain.packDo('money', 'cancel', { name: d.name });
+          const x = r.data as { links: { title: string; url: string }[]; steps: string };
+          moneyApp.cancel = x.links.map((l) => l.url);
+          how.replaceChildren(
+            ...x.links.map((l) => h('div.pkrow', label(button(`Open: ${l.title.slice(0, 60)}`, () => void window.open(l.url, '_blank', 'noopener,noreferrer')), `Open ${l.title}`))),
+            h('small.mnhow', x.links.length ? `${x.steps} From ${new URL(x.links[0]!.url).hostname.replace(/^www\./, '')}, the company’s own site.` : x.steps),
+          );
+        } catch (e) {
+          how.replaceChildren(stateLine('error', sayError(e, 'find its cancel page')));
+        } finally {
+          done();
+        }
+      }), `How to cancel ${d.name}`) : null;
       return h('div.mndue', { dataset: { kind: d.kind, on: d.on, case: 'keep' }, role: 'group', 'aria-label': `${d.name}, ${p2(d.amount)}, ${when}` },
         h('div.mnline', h('b', d.name), h('span', p2(d.amount))),
         h('span.pklab', when),
-        h('small.mnhow', d.how));
+        h('small.mnhow', d.how),
+        ...(ask ? [h('div.pkrow', ask), how] : []));
     };
     slot.replaceChildren(
       ...(subs.length || due.length

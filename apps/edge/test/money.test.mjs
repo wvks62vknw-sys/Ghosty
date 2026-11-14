@@ -558,3 +558,18 @@ test('WORK → JOBS: an application kept with a follow-up reminder at 9am; its s
   r = await call({ op: 'remove', id });
   assert.deepEqual(r.data.jobs, []);
 });
+
+test('the cancel helper: a stable cancel page from the company’s own site, else a search kept to its own site; never signs in', async () => {
+  const MA = B['src/tools/moneyapp.ts'];
+  const d = deps(new Mem());
+  let r = await MA.MONEY_APP.cancel({ name: 'Netflix' }, d);
+  assert.deepEqual(r.data.links.map((l) => l.url), ['https://www.netflix.com/cancelplan']);
+  assert.match(r.data.steps, /I never sign in or cancel for you/);
+  MA.cancelHooks.search = async () => [{ title: 'Cancel Spotify Premium', url: 'https://support.spotify.com/uk/article/cancel-premium/' }, { title: 'How to cancel Spotify (a blog)', url: 'https://blog.example/cancel-spotify' }];
+  r = await MA.MONEY_APP.cancel({ name: 'SPOTIFY' }, d);
+  assert.deepEqual(r.data.links.map((l) => l.url), ['https://support.spotify.com/uk/article/cancel-premium/'], 'only the company’s own site');
+  MA.cancelHooks.search = async () => [{ title: 'somewhere else', url: 'https://blog.example/x' }];
+  r = await MA.MONEY_APP.cancel({ name: 'Acme Gym Ltd' }, d);
+  assert.deepEqual(r.data.links, []);
+  assert.match(r.text, /no cancel page on Acme Gym Ltd’s own site/);
+});

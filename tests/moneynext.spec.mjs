@@ -4,6 +4,7 @@
 //   SAFE      YOUR MONTH asks for payday first, keeps it, then shows safe to spend and a day's worth equal to the brain's own sums
 //             to the penny, with every payment still due before payday; his sorting rules are listed with their counts and change;
 //             one payment split across two categories.
+//   CAR       the car's money a month from his statements, a first estimate; CANCEL: a subscription's own cancel page on his tap.
 //   GOALS     a goal kept from the screen with its bar and what it is a month; money put in; taken away.
 //   SHARED    a household bill shared three ways says who owes whom; settled on a tap says nothing was paid or sent.
 //   CALENDAR  the month as a grid, a HOME bill on its day, payday filled, a tapped day says what falls on it.
@@ -47,7 +48,9 @@ await standDown(base, KEY);
 const H = { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' };
 const api = (path, body, method) => fetch(`${base}/api${path}`, { method: method ?? (body ? 'POST' : 'GET'), headers: H, ...(body ? { body: JSON.stringify(body) } : {}) }).then((r) => r.json()).catch(() => ({}));
 const pk = (packName, action, args = {}) => api('/packs/do', { pack: packName, action, args });
-const RAW = /aborted|fetch failed|undefined|\[object Object\]|TypeError|NetworkError|Failed to|Load failed|HTTP \d|NaN/i;
+const RAW_WORDS = /aborted|fetch failed|undefined|\[object Object\]|TypeError|NetworkError|Failed to|Load failed|HTTP \d/i;
+// (NaN is matched as a word and in its own case: “tenancy” holds the letters)
+const RAW = { test: (t) => RAW_WORDS.test(t) || /\bNaN\b/.test(t), exec: (t) => RAW_WORDS.exec(t) ?? /\bNaN\b/.exec(t) };
 const pounds = (n) => `${n < 0 ? '−' : ''}£${Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 
 // London's day (CI runs at any hour): every date here is anchored to it
@@ -65,6 +68,8 @@ const CSV = ['Date,Description,Amount,Balance', ...M.flatMap((m, i) => [
   `${m}-01,PAYROLL ACME,1500.00,${(2000 + i * 100).toFixed(2)}`,
   `${m}-01,SPOTIFY,-11.99,${(1988.01 + i * 100).toFixed(2)}`,
   `${m}-01,TESCO STORES,-40.00,${(1948.01 + i * 100).toFixed(2)}`,
+  `${m}-01,NETFLIX.COM,-10.99,${(1937.02 + i * 100).toFixed(2)}`,
+  `${m}-01,SHELL BIRMINGHAM,-45.00,${(1892.02 + i * 100).toFixed(2)}`,
 ]), `${TODAY},COSTA COFFEE,-3.50,2144.51`].join('\n') + '\n';
 const inDays = (n) => london(Date.now() + n * 864e5);
 
@@ -126,7 +131,9 @@ async function open(page, id, pill) {
 }
 /** A new money page once it has said its state. */
 async function plan(page, pill, key, want = 'ready') {
-  await page.evaluate((k) => window.__ghosty?.moneyplan && delete window.__ghosty.moneyplan.state[k], key);
+  // (a page already on screen is not drawn again: its state stands as it is)
+  const here = await page.evaluate((p) => document.body.dataset.tab === 'money' && window.__ghosty?.sheetpages?.money?.section === p.toLowerCase(), pill);
+  if (!here) await page.evaluate((k) => window.__ghosty?.moneyplan && delete window.__ghosty.moneyplan.state[k], key);
   await open(page, 'money', pill);
   const ok = await until(page, ([k, w]) => window.__ghosty?.moneyplan?.state?.[k] === w && !document.querySelector('#pg-money .pn:not([hidden]) [data-wait]'), [key, want], 15000);
   check(ok, `money/${pill}: the page did not come to "${want}" (it is "${await page.evaluate((k) => window.__ghosty?.moneyplan?.state?.[k], key)}")`);
@@ -246,6 +253,17 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     check(await until(page, () => !(window.__ghosty.moneyplan.owes ?? []).length, null, 10000) && /Nothing was paid or sent/.test(await txt(page, `${P} p.pknote[aria-live]`)), T('SHARED settled on a tap, and nothing paid or sent'));
   });
 
+  await block(`car and cancel ${W}`, async () => {
+    log(`car and cancel ${W}`);
+    await plan(page, 'Bills', 'car');
+    check(await until(page, () => /^£45\.00 fuel$/.test(window.__ghosty.moneyplan.car ?? ''), null, 10000), T(`CAR the fuel from his statements, a month: "${await page.evaluate(() => window.__ghosty.moneyplan.car)}"`));
+    check(/A first estimate/.test(await txt(page, `${P} .mnhow`)), T('CAR said to be a first estimate'));
+    await page.click(`${P} button[aria-label="How to cancel Netflix"]`);
+    check(await until(page, () => (window.__ghosty.moneyapp.cancel ?? []).includes('https://www.netflix.com/cancelplan'), null, 10000), T('CANCEL a subscription’s own cancel page, on his tap'));
+    check(/I never sign in or cancel for you/.test(await txt(page, `${P} .mncancel`)), T('CANCEL says it never cancels for him'));
+    await bar(page, T('BILLS car and cancel bar'), 'money');
+  });
+
   await block(`calendar ${W}`, async () => {
     log(`calendar ${W}`);
     await plan(page, 'Calendar', 'calendar');
@@ -348,7 +366,7 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       await pk('homeadmin', 'meter', { text: '01100', kind: 'electricity' });
       await open(page, 'homeadmin', 'Meter');
       const Hm = PK('homeadmin');
-      check(await until(page, () => (window.__ghosty.homeadmin.energy ?? []).some((e) => /^electricity 1$/.test(e)), null, 10000), `ENERGY the use between two readings: ${JSON.stringify(await page.evaluate(() => window.__ghosty.homeadmin.energy))}`);
+      check(await until(page, () => (window.__ghosty.homeadmin.energy ?? []).some((e) => /^electricity 1( £\d+\.\d\d)?$/.test(e)), null, 10000), `ENERGY the use between two readings: ${JSON.stringify(await page.evaluate(() => window.__ghosty.homeadmin.energy))}`);
       await page.fill(`${Hm} input[aria-label="The electricity price of a unit, in pence"]`, '24.5');
       await page.fill(`${Hm} input[aria-label="The electricity standing charge, in pence a day"]`, '60');
       await page.click(`${Hm} button[aria-label="Keep the electricity tariff"]`);

@@ -22,6 +22,7 @@ import { fromZoned } from '../time';
 import { findSubscriptions, isCategory, type Category, type SpendRow } from '../../../../packages/shared/src/spending';
 import { load, save, todayOf, type ActionFn, type PackDeps } from '../packs/base';
 import { fileMerchant } from '../spending';
+import { HOME, homeHooks } from './homeadmin';
 import { arg } from './types';
 
 /** His own keys in the brain: the money pack's (tools/money.ts) and the home pack's bills (tools/homeadmin.ts), read here. */
@@ -164,6 +165,100 @@ const rules: ActionFn = async (a, d) => {
   return { text: said || `${list.length} rule${list.length === 1 ? '' : 's'}.`, data: { rules: list } };
 };
 
+/**
+ * The companies' own sites for the subscriptions most often found, and the cancel page itself where it is a stable public address.
+ * A search result is kept only when it is on that site.
+ */
+export const CANCEL_SITES: [RegExp, string, string, string?][] = [
+  [/netflix/i, 'Netflix', 'netflix.com', 'https://www.netflix.com/cancelplan'],
+  [/spotify/i, 'Spotify', 'spotify.com'],
+  [/amazon ?prime|prime video|amzn/i, 'Amazon Prime', 'amazon.co.uk'],
+  [/disney/i, 'Disney+', 'disneyplus.com'],
+  [/apple\.com|itunes|apple music|icloud/i, 'Apple', 'apple.com', 'https://support.apple.com/en-gb/118428'],
+  [/\bnow ?tv\b|\bnow\.com\b/i, 'NOW', 'nowtv.com'],
+  [/audible/i, 'Audible', 'audible.co.uk'],
+  [/youtube/i, 'YouTube Premium', 'google.com'],
+  [/playstation|\bpsn\b/i, 'PlayStation Plus', 'playstation.com'],
+  [/xbox/i, 'Xbox Game Pass', 'xbox.com'],
+  [/microsoft ?365|office ?365/i, 'Microsoft 365', 'microsoft.com'],
+  [/dazn/i, 'DAZN', 'dazn.com'],
+  [/paramount/i, 'Paramount+', 'paramountplus.com'],
+  [/patreon/i, 'Patreon', 'patreon.com'],
+];
+/**
+ * money.u7: how to cancel a subscription: the company's own public cancel page (a stable address from the table above, else a
+ * keyless web search kept to pages on the company's own site), with the plain steps. Public pages only; it never signs in or
+ * cancels for him.
+ */
+/** The search the cancel helper uses (a seam for the tests: the home pack's keyless search). */
+export const cancelHooks = homeHooks;
+const cancel: ActionFn = async (a) => {
+  const name = arg.str(a, 'name', false).trim().slice(0, 60);
+  if (!name) throw new Error('say which subscription');
+  const known = CANCEL_SITES.find(([re]) => re.test(name));
+  const steps = 'Open the page, sign in to your own account there, and follow its cancel steps. Keep the email that confirms it. I never sign in or cancel for you.';
+  const label = known?.[1] ?? name;
+  if (known?.[3]) return { text: `${label}: ${known[3]}`, data: { name: label, links: [{ title: `${label}: how to cancel`, url: known[3] }], steps } };
+  const word = known ? known[2].split('.')[0]! : name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !/^(?:ltd|limited|com|www|subscription|direct|debit|uk|plc)$/.test(w))[0] ?? '';
+  let hits: { title: string; url: string }[] = [];
+  try {
+    hits = word ? await homeHooks.search(`how to cancel ${label} subscription${known ? ` site:${known[2]}` : ''}`) : [];
+  } catch {
+    hits = [];
+  }
+  // the company's own pages only: on its site, or carrying its name in the address
+  const own = hits.filter((x) => {
+    try {
+      const host = new URL(x.url).hostname.replace(/^www\./, '');
+      return known ? host === known[2] || host.endsWith(`.${known[2]}`) : host.includes(word);
+    } catch {
+      return false;
+    }
+  }).slice(0, 3);
+  return {
+    text: own.length ? `${label}: ${own[0]!.url}` : `I found no cancel page on ${label}’s own site.`,
+    data: { name: label, links: own, steps: own.length ? steps : `Look in the email that confirmed ${label}, or your account on its site, for “cancel”. Your bank can also stop a direct debit, but that alone may not end the contract.` },
+  };
+};
+
+/** What a statement line spent on the car is, by its words (fuel, charging, parking, insurance, tax, servicing, tolls). */
+export const CAR_KINDS: [string, RegExp][] = [
+  ['fuel', /\b(?:shell|bp|esso|texaco|jet|gulf|murco|applegreen|valero|petrol|diesel|fuel|pfs|filling station|service station)\b/i],
+  ['charging', /\b(?:pod ?point|ionity|bp pulse|instavolt|gridserve|osprey|tesla supercharg\w*|chargepoint|ev charg\w*|zapmap)\b/i],
+  ['parking', /\b(?:parking|car park|ncp|ringgo|paybyphone|justpark|apcoa|q-park|euro car parks)\b/i],
+  ['insurance', /\b(?:car insurance|motor insurance|admiral|hastings direct|churchill|direct line|aviva motor|lv= ?motor|esure|sheilas|tesco motor)\b/i],
+  ['tax', /\b(?:dvla|vehicle tax|car tax|vehicle licen[cs]e)\b/i],
+  ['servicing', /\b(?:kwik ?fit|halfords|ats euromaster|national tyres|mot test|garage|tyres?|service centre|autocentre)\b/i],
+  ['tolls', /\b(?:dart ?charge|m6 toll|congestion charge|ulez|clean air zone|tfl road)\b/i],
+];
+/** money.s4: the car's money in one place: what his statements spent on it a month (the last three whole months) and its dates. */
+const car: ActionFn = async (a, d) => {
+  const today = dayOf(a, d);
+  const rows = await rowsOf(d);
+  const thisMonth = today.slice(0, 7);
+  const months = [...new Set(rows.map((r) => r.d.slice(0, 7)))].filter((m) => m < thisMonth).sort().slice(-3);
+  const by = new Map<string, { kind: string; total: number; n: number; places: Set<string> }>();
+  for (const r of rows) {
+    if (r.a >= 0 || !months.includes(r.d.slice(0, 7))) continue;
+    const kind = CAR_KINDS.find(([, re]) => re.test(r.t))?.[0];
+    if (!kind) continue;
+    const x = by.get(kind) ?? { kind, total: 0, n: 0, places: new Set<string>() };
+    x.total -= r.a;
+    x.n++;
+    x.places.add(r.k);
+    by.set(kind, x);
+  }
+  const kinds = [...by.values()].map((x) => ({ kind: x.kind, monthly: Math.round((x.total / Math.max(1, months.length)) * 100) / 100, total: Math.round(x.total * 100) / 100, n: x.n, places: [...x.places].slice(0, 4) })).sort((x, y) => y.monthly - x.monthly);
+  const monthly = Math.round(kinds.reduce((k, x) => k + x.monthly, 0) * 100) / 100;
+  let dates: string[] = [];
+  try {
+    dates = ((await HOME.renewals!({}, d)).data as { cars?: string[] } | undefined)?.cars ?? [];
+  } catch {
+    dates = [];
+  }
+  return { text: `Your car: about ${pounds(monthly)} a month from your statements.`, data: { months, kinds, monthly, dates, rows: rows.length } };
+};
+
 const NUDGE = 'Add last month’s statement';
 /** money.u8: a reminder on the 2nd of each month at 9am to add last month's statement, only when he turns it on (the brain's Web Push). */
 const nudge: ActionFn = async (a, d) => {
@@ -190,7 +285,7 @@ export async function dueSoon(d: PackDeps, days = 7): Promise<{ on: string; name
 }
 
 /** The money screen's own actions, joined to the money pack's for POST /packs/do (packs/index.ts); never in the tool's enum. */
-export const MONEY_APP: Record<string, ActionFn> = { safe, calendar, goals, household, year, rules, nudge };
+export const MONEY_APP: Record<string, ActionFn> = { safe, calendar, goals, household, year, rules, nudge, cancel, car };
 
 // ---------------------------------------------------------------- HOUSEHOLD → PAPERS: warranties and household papers (money.s1, money.s12)
 

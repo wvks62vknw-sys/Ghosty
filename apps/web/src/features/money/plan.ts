@@ -20,8 +20,8 @@ import { sayError } from '../../ui/hisWords';
 import { isoDay } from '../brief/day';
 import { emptyState, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
 
-export type PlanPage = 'calendar' | 'goals' | 'shared' | 'year' | 'watches';
-export const PLAN_TITLES: Record<PlanPage, string> = { calendar: 'MONEY CALENDAR', goals: 'SAVINGS GOALS', shared: 'SHARED BILLS', year: 'YOUR YEAR IN MONEY', watches: 'PRICE WATCHES' };
+export type PlanPage = 'calendar' | 'goals' | 'shared' | 'year' | 'watches' | 'car';
+export const PLAN_TITLES: Record<PlanPage, string> = { calendar: 'MONEY CALENDAR', goals: 'SAVINGS GOALS', shared: 'SHARED BILLS', year: 'YOUR YEAR IN MONEY', watches: 'PRICE WATCHES', car: 'YOUR CAR’S MONEY' };
 
 /** What a spec reads: window.__ghosty.moneyplan. */
 export const moneyPlan = {
@@ -33,6 +33,7 @@ export const moneyPlan = {
   owes: [] as string[],
   year: '',
   watches: [] as string[],
+  car: '',
   rules: [] as string[],
   state: {} as Record<string, string>,
 };
@@ -72,6 +73,7 @@ async function read<T>(el: HTMLElement, slot: HTMLElement, page: string, action:
     /* state: money.goals offline */
     /* state: money.shared offline */
     /* state: money.year offline */
+    /* state: money.car offline */
     slot.replaceChildren(stateLine('offline', 'No signal. This comes back when the phone is online again.'));
     return null;
   }
@@ -79,6 +81,7 @@ async function read<T>(el: HTMLElement, slot: HTMLElement, page: string, action:
   /* state: money.goals loading */
   /* state: money.shared loading */
   /* state: money.year loading */
+  /* state: money.car loading */
   const done = waitFor(el, waiting);
   try {
     return await act<T>(action, args);
@@ -88,6 +91,7 @@ async function read<T>(el: HTMLElement, slot: HTMLElement, page: string, action:
     /* state: money.goals error */
     /* state: money.shared error */
     /* state: money.year error */
+    /* state: money.car error */
     slot.replaceChildren(stateLine('error', sayError(e, 'read that')), h('div.pkrow', label(button('Try again', again), 'Try reading it again')));
     return null;
   } finally {
@@ -568,9 +572,40 @@ function watchesPage(): HTMLElement {
   return el;
 }
 
+// ---------------------------------------------------------------- YOUR CAR'S MONEY (money.s4)
+
+const CAR_SAY: Record<string, string> = { fuel: 'Fuel', charging: 'Charging', parking: 'Parking', insurance: 'Insurance', tax: 'Vehicle tax', servicing: 'Servicing and tyres', tolls: 'Tolls and zones' };
+
+function carPage(): HTMLElement {
+  const slot = h('div.pkcol', { 'aria-live': 'polite' });
+  const el = h('div.pkcol.mnapp', slot, phrases(['what does my car cost', 'car costs']));
+  const load = async () => {
+    const got = await read<{ months: string[]; kinds: { kind: string; monthly: number; total: number; n: number; places: string[] }[]; monthly: number; dates: string[]; rows: number }>(el, slot, 'car', 'car', {}, () => void load(), 'Adding up your car…');
+    if (!got) return;
+    const c = got.data;
+    moneyPlan.car = `${p2(c.monthly)} ${c.kinds.map((k) => k.kind).join(',')}`;
+    moneyPlan.state.car = 'ready';
+    const most = Math.max(1, ...c.kinds.map((k) => k.monthly));
+    slot.replaceChildren(
+      ...(c.kinds.length
+        ? [
+            h('div.mnline.mncar', { dataset: { case: 'keep' } }, h('b', 'About a month'), h('span', p2(c.monthly))),
+            h('small.mnhow', `A first estimate: the car’s lines in your statements over ${plural(c.months.length, 'whole month')} (${c.months.map((m) => monthName(m)).join(', ')}), shared over them.`),
+            ...c.kinds.map((k) => meter(CAR_SAY[k.kind] ?? cap(k.kind), `${p2(k.monthly)} a month`, k.monthly / most, 'soft', `${plural(k.n, 'payment')}: ${k.places.map((x) => cap(x.toLowerCase())).join(', ')}.`)),
+          ]
+        /* state: money.car empty */
+        : [emptyState('No car costs found yet', c.rows ? 'Your statements show no fuel, parking, insurance or tax in the last whole months.' : 'Add a statement and fuel, parking, insurance and tax show here.')]),
+      h('div.lab', 'ITS DATES'),
+      ...(c.dates.length ? c.dates.map((t) => h('p.pknote', { dataset: { case: 'keep' } }, t)) : [h('p.pknote', { dataset: { case: 'keep' } }, 'Name your car in the chat (“my car is AB12 CDE”) and open its card once: its MOT and tax months show here, and insurance dates you tell me.')]),
+    );
+  };
+  void load();
+  return el;
+}
+
 /** One of the new pages, made by its own function (the MONEY screen's panels: features/money/index.ts). */
 export function planPage(page: PlanPage): { el: HTMLElement; stop(): void } {
   expose();
-  const el = page === 'calendar' ? calendarPage() : page === 'goals' ? goalsPage() : page === 'shared' ? sharedPage() : page === 'watches' ? watchesPage() : yearPage();
+  const el = page === 'calendar' ? calendarPage() : page === 'goals' ? goalsPage() : page === 'shared' ? sharedPage() : page === 'watches' ? watchesPage() : page === 'car' ? carPage() : yearPage();
   return { el, stop: () => undefined };
 }
