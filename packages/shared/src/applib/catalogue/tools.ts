@@ -1,4 +1,5 @@
 import type { AppDef, AppGlyph, Field, FieldType, CalcInput, CalcOutput } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's Utilities (docs/build-plan/APPLIB.md, list in docs/build-plan/applib/catalogue-tools.md): unit
@@ -40,7 +41,7 @@ function lead(id: string, outs: CalcOutput[]): CalcOutput[] {
   return [top, ...outs.filter((_, n) => n !== at)];
 }
 
-export const TOOLS: AppDef[] = [
+export const TOOLS: AppDef[] = pro([
   // ——— Pay, tax and everyday sums ———
   {
     id: 'take-home-pay', name: 'Take-Home Pay', family: 'tools', glyph: 'wallet', from: 'tools.21', archetype: 'calc',
@@ -808,4 +809,4 @@ export const TOOLS: AppDef[] = [
       { who: 'Window cleaner', opens: 'Garage', given: '2026-03-02', returned: true },
     ],
   },
-];
+]);

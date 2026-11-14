@@ -1,4 +1,5 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's games apps (docs/build-plan/APPLIB.md): puzzles, word games, quick reflex games, card patience and
@@ -227,7 +228,7 @@ const SEARCH = [
 /** Short, friendly words for the children's word search. */
 const KIDSEARCH = ['cat', 'dog', 'sun', 'hat', 'bed', 'pig', 'cup', 'bus', 'fish', 'frog', 'duck', 'cake', 'tree', 'star', 'moon', 'ball'];
 
-export const GAMES: AppDef[] = [
+export const GAMES: AppDef[] = pro([
   {
     id: 'sudoku',
     name: 'Sudoku',
@@ -1377,4 +1378,4 @@ export const GAMES: AppDef[] = [
       ],
     },
   },
-];
+]);

@@ -1,4 +1,5 @@
 import type { AppDef, Field, ImporterConfig } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's data apps (docs/build-plan/APPLIB.md, "Reverse engineered, done for you"): each reads one of his own
@@ -18,7 +19,7 @@ const HEALTH_HOW = [
   'Save the zip to Files, then pick it here. It is read on the phone.',
 ];
 
-export const DATA: AppDef[] = [
+export const DATA: AppDef[] = pro([
   {
     id: 'health-steps', name: 'Health Steps', family: 'data', glyph: 'target', archetype: 'importer',
     pitch: 'Every day of steps, distance and stairs from your Health export.',
@@ -515,4 +516,4 @@ export const DATA: AppDef[] = [
       views: ['list'],
     }),
   },
-];
+]);
