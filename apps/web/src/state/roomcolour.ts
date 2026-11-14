@@ -5,7 +5,7 @@
  */
 import { isColour, type ColourKey } from '../../../../packages/shared/src/themes';
 import { settings, ui } from './app';
-import { applyRecipe, keptRecipe, recipe } from './theme';
+import { applyRecipe, keptRecipe, recipe, setRoomShown } from './theme';
 
 const KEY = 'ghosty.roomcolours';
 
@@ -41,6 +41,7 @@ export function setRoomColour(tab: string, colour: ColourKey | null): void {
 
 function show(tab: string): void {
   const c = rooms[tab];
+  setRoomShown(c ?? null);
   if (c) {
     if (recipe().colour !== c) applyRecipe({ ...recipe(), colour: c }, { save: false, remember: false });
     showing = true;
@@ -58,4 +59,4 @@ ui.subscribe((s, p) => {
 if (rooms[ui.get().tab]) show(ui.get().tab);
 
 // for the checks and the console (window.__ghosty.roomcolour, set in main.ts)
-export const probe = { roomColour, roomColours, setRoomColour };
+export const probe = { roomColour, roomColours, setRoomColour, recipe, applyRecipe };
