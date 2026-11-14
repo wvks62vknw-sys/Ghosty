@@ -23,6 +23,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Mail merge', line: 'In a document, MAIL MERGE: one letter with {{Name}} fields and a spreadsheet of names gives a copy for every row, as one PDF, one Word file or a file each.' },
   { day: '2026-11-14', title: 'Fill in and sign PDFs', line: 'DOCUMENTS → FILL AND SIGN A PDF: type into a form’s boxes, tick them, sign with your finger, and save or share it. Your signature stays only if you say KEEP IT.' },
   { day: '2026-11-14', title: 'Paper into a document', line: 'Scan a letter and INTO A DOCUMENT makes it a document you can edit, its headings and paragraphs kept; a receipt goes into a row of your Receipts spreadsheet.' },
+  // [editors, media] the next round's photo and video tools
+  { day: '2026-11-14', title: 'Exports exactly as long as the video', line: 'A video you export now ends where your timeline ends, to the frame, its sound trimmed to match.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

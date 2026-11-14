@@ -15,6 +15,7 @@ import { Reader } from './reader';
 import { buildSpec, paintText, planFrame, type LayerPlan } from './compose';
 import { renderMix, type Buffers, decodeAudio } from './mix';
 import { muxMp4, type AudioSample, type VideoSample } from './mp4';
+import { exactLength } from './math';
 import { sizeWords } from '../convert/bytes';
 
 /** The places a video goes, by shape (never by a company's name). */
@@ -404,6 +405,8 @@ async function viaWebCodecs(p: Project, o: ExportOptions, c: Ctx & { codec: stri
   pull.dispose();
   gpu.dispose();
   if (!avcC || !vsamples.length) throw new Error('this phone’s encoder gave nothing');
+  // the file is exactly as long as the timeline: the last picture and the last packet of sound trimmed or padded to it
+  exactLength(vsamples, asamples, c.dur);
   const out = muxMp4({ width: c.s.w, height: c.s.h, avcC, samples: vsamples }, o.silent || !aconfig ? null : { rate: 48_000, channels: 2, config: aconfig, samples: asamples });
   const blob = new Blob(out.parts as BlobPart[], { type: 'video/mp4' });
   void read;
@@ -418,38 +421,79 @@ async function viaRecorder(p: Project, o: ExportOptions, c: Ctx & { mime: string
   player.setSize(Math.max(c.s.w, c.s.h));
   player.setProject(p);
   await player.loadSound();
-  const stream = new MediaStream([...c.canvas.captureStream(c.fps).getVideoTracks(), ...tap.stream.getAudioTracks()]);
+  // [NEXT ROUND] The recorder records a picture of its own (a 2D canvas the player's picture is copied onto), and only while the
+  // timeline plays: each picture the player draws then is copied and asked for one by one (a capture at rate 0 and requestFrame).
+  // A capture of the player's own canvas at a frame rate also took the picture drawn before the play and the player's redraws after
+  // the end, and the file came out anywhere from 10 to 200 ms long; and a WebGL canvas asked for its pictures one by one hands over
+  // a stale one. Where the phone cannot ask for pictures one by one, its copy is captured at the frame rate (it changes only while
+  // the timeline plays, so nothing stray reaches the file either).
+  const copy = document.createElement('canvas');
+  const g2 = copy.getContext('2d');
+  const sized = (): void => {
+    if (copy.width !== c.canvas.width || copy.height !== c.canvas.height) {
+      copy.width = c.canvas.width;
+      copy.height = c.canvas.height;
+    }
+  };
+  sized();
+  const vstream = copy.captureStream(0);
+  const vtrack = vstream.getVideoTracks()[0] as (MediaStreamTrack & { requestFrame?: () => void }) | undefined;
+  const byHand = typeof vtrack?.requestFrame === 'function';
+  const vtracks = byHand ? [vtrack!] : copy.captureStream(c.fps).getVideoTracks();
+  if (!byHand) vstream.getTracks().forEach((t) => t.stop());
+  const stream = new MediaStream([...vtracks, ...tap.stream.getAudioTracks()]);
   const rec = new MediaRecorder(stream, { mimeType: c.mime, videoBitsPerSecond: o.bitrate ?? videoBitrate(c.s.w, c.s.h, c.fps, o.quality), audioBitsPerSecond: AUDIO_BITRATE });
   const parts: Blob[] = [];
   rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
   const stopped = new Promise<void>((ok) => (rec.onstop = () => ok()));
   await player.seek(0);
+  let taking = false;
+  const take = (): void => {
+    if (!taking || !g2) return;
+    sized();
+    g2.drawImage(c.canvas, 0, 0);
+    if (byHand) vtrack!.requestFrame!();
+  };
+  const draw0 = player.draw.bind(player);
+  player.draw = () => {
+    draw0();
+    take();
+  };
   rec.start(1000);
   const tStart = performance.now();
   const ended = new Promise<void>((ok) => {
     (player as unknown as { o: { onEnd?: () => void; onTick?: (t: number) => void } }).o.onEnd = ok;
     (player as unknown as { o: { onTick?: (t: number) => void } }).o.onTick = (t) => {
+      // (the play's own loop draws and then ticks, in the same task: the picture just drawn is taken here)
+      take();
       const left = Math.max(0, (c.dur - t) / 1000);
       o.onProgress?.({ frames: player.drawn, of: Math.round((c.dur / 1000) * c.fps), frac: Math.min(1, t / c.dur), left, words: `${Math.round(t / 1000)} of ${Math.round(c.dur / 1000)} s, ${leftWords(left)}` });
       if (o.cancel?.cancelled) ok();
     };
   });
   const playedAt = performance.now();
+  taking = true;
+  // the first picture at the start of the play: the file's own zero
+  take();
   player.play();
-  // [ci] The file ends at the last picture the recorder's encoder has handed on when it is stopped, and an encoder hands a picture on
-  // only once the next one has come in: the last picture drawn is lost. With the player drawing three pictures a second (CI's
-  // software GPU, or a slow phone) that cost the file up to a third of a second (54797 ms against 54902: FINAL-CI 2). So the timeline's
-  // last picture is drawn at the timeline's own length after the start, and the same picture twice more, 40 ms apart, to push it
-  // through; where nothing is held back, the file runs at most 80 ms over. Then two frames and 150 ms for it to arrive.
-  const atEnd = new Promise<void>((ok) => setTimeout(ok, Math.max(0, playedAt + c.dur - performance.now())));
+  // [ci] The file ends at the last picture the recorder's encoder has handed on when it is stopped, and an encoder may hand a picture
+  // on only once the next one has come in, so the last picture asked for can be lost. With the player drawing three pictures a second
+  // (CI's software GPU, or a slow phone) that cost the file up to a third of a second (54797 ms against 54902: FINAL-CI 2). So the
+  // timeline's last picture is asked for twice, one frame and two frames before the end: the file's last picture lasts one frame, so it
+  // ends at the timeline's end when both arrive, and a frame short when the last is held back. Then the player stops asking, and two
+  // frames and 150 ms let the last of it arrive.
+  const frame = 1000 / Math.max(10, c.fps);
+  const PUSH = byHand ? [-2 * frame, -frame] : [-60, -20, 20];
+  const atEnd = new Promise<void>((ok) => setTimeout(ok, Math.max(0, playedAt + c.dur + PUSH[0]! - performance.now())));
   await Promise.race([ended, atEnd]);
   player.pause();
-  player.t = Math.min(player.t, Math.max(0, c.dur - 1));
-  for (let k = 0; k < 3; k++) {
-    await new Promise((r) => setTimeout(r, Math.max(0, playedAt + c.dur + k * 40 - performance.now())));
+  player.t = Math.max(0, c.dur - 1);
+  for (const k of PUSH) {
+    await new Promise((r) => setTimeout(r, Math.max(0, playedAt + c.dur + k - performance.now())));
     player.draw();
     await new Promise((r) => requestAnimationFrame(() => r(undefined)));
   }
+  taking = false;
   const drawnAt = performance.now();
   for (let k = 0; k < 2; k++) await new Promise((r) => requestAnimationFrame(() => r(undefined)));
   await new Promise((r) => setTimeout(r, Math.max(0, drawnAt + 150 - performance.now())));

@@ -434,3 +434,22 @@ test('the mp4 reader finds every sample of a flat file (the muxer\'s own) and of
   assert.equal(f.samples[1].key, false);
   assert.equal(Dx.demuxMp4(Uint8Array.from([0, 0, 0, 8, 102, 114, 101, 101])), null, 'not an mp4 with a video track');
 });
+
+test('the frame-by-frame file is exactly as long as the timeline: the last picture and the sound trimmed or padded to it', async () => {
+  const { exactLength } = await load('math');
+  // 54,901 ms at 30 frames a second: 1,647 whole frames would be 54,900 ms; the last picture stretched by 1 ms
+  const v = Array.from({ length: 1647 }, () => ({ dur: Math.round(1e6 / 30) }));
+  const a = Array.from({ length: Math.ceil((54.901 * 48000 + 2112) / 1024) }, () => ({ dur: 1024 }));
+  exactLength(v, a, 54901);
+  assert.equal(v.reduce((n, s) => n + s.dur, 0), 54_901_000, 'the pictures end at the timeline’s end, to the microsecond');
+  assert.equal(a.reduce((n, s) => n + s.dur, 0), Math.round(54.901 * 48000), 'the sound ends at the timeline’s end, to the sample');
+  assert.ok(a.every((s) => s.dur >= 1 && s.dur <= 1024), 'no packet of sound is longer than it was');
+  // too short a sound is padded on its last packet
+  const short = [{ dur: 1024 }, { dur: 1024 }];
+  exactLength([], short, 50);
+  assert.equal(short.reduce((n, s) => n + s.dur, 0), 2400);
+  // a picture never gets a duration of nothing
+  const one = [{ dur: 99999 }, { dur: 99999 }];
+  exactLength(one, [], 10);
+  assert.ok(one[1].dur >= 1);
+});
