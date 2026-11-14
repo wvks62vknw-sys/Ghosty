@@ -56,6 +56,8 @@ import { createMachine } from './machineview';
 import { fetchImage } from '../../api/feed';
 import { waiting } from '../../ui/wait';
 import { phrases } from '../lifeui';
+import { LAYER_SETS, type SetKey } from './sets';
+import { onWall, openWall, togglePin, type Pinned } from './wall';
 import { cardWords, noCamerasWords, noFindWords, noSignalFindWords, CAM_DOWN, CAM_CONNECTING, CLIP_DOWN, STREAM_DOWN } from './words';
 
 /** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
@@ -64,6 +66,10 @@ export let openNearestCamera: ((lat: number, lon: number, maxKm?: number) => num
 /** ROAD AHEAD on/off (the brain's road_ahead command and the bar button). */
 export let startRoadAhead: (() => void) | null = null;
 export let stopRoadAhead: (() => void) | null = null;
+/** A one-tap layer set (sets.ts) picked by words while God's Eye is mounted: returns what it said. */
+export let pickLayerSet: ((k: SetKey) => string) | null = null;
+/** Open his camera wall (wall.ts) while God's Eye is mounted. */
+export let openCameraWall: (() => void) | null = null;
 
 let layersInstalled = false;
 function installLayers(): void {
@@ -181,16 +187,66 @@ export const eyeTab: TabDef = {
       if (kind) found.dataset.state = kind;
       else delete found.dataset.state;
     };
-    q.addEventListener('input', () => sayFind('', ''));
+    // every match, to pick from (as a flight tracker lists "BA"): flights, ships, satellites and cities, one row each, a tap goes there
+    const picks = h('div.searchlist', { role: 'listbox', 'aria-label': 'What I found', hidden: true, dataset: { case: 'keep' } });
+    const clearPicks = () => {
+      picks.hidden = true;
+      clear(picks);
+    };
+    q.addEventListener('input', () => (sayFind('', ''), clearPicks()));
+    type Pick = { kind: string; label: string; sub: string; go: () => void };
+    const matches = (s: string): Pick[] => {
+      const t = s.toLowerCase();
+      const out: Pick[] = [];
+      const now = Date.now();
+      let n = 0;
+      for (const a of air.list.values()) {
+        if (n >= 6) break;
+        if (![a.call, a.reg, a.hex].some((x) => x && x.toLowerCase().startsWith(t))) continue;
+        n++;
+        out.push({ kind: 'flight', label: (a.call || a.hex).toUpperCase(), sub: [a.type, a.gnd ? 'on the ground' : cardWords.altitude(a.altft)].filter(Boolean).join(' · '), go: () => select({ kind: 'air', ref: a, w: air.world(a, now) }, true) });
+      }
+      n = 0;
+      for (const v of ships.list.values()) {
+        if (n >= 3) break;
+        if (!v.name || !v.name.toLowerCase().startsWith(t)) continue;
+        n++;
+        out.push({ kind: 'ship', label: v.name.toUpperCase(), sub: `${shipKind(v.type).toLowerCase()} · ${cardWords.knots(v.sog, 1)}`, go: () => select({ kind: 'ship', ref: v, w: shipLayer.world(v, now) }, true) });
+      }
+      for (const st of sats.list.filter((x) => x.name.toLowerCase().includes(t)).slice(0, 3)) out.push({ kind: 'satellite', label: st.name, sub: `${Math.round(st.alt)} km up`, go: () => select({ kind: 'sat', ref: st, w: st.w }, true) });
+      for (const c of World.cities.filter((x) => x.name.toLowerCase().startsWith(t)).slice(0, 4)) out.push({ kind: 'city', label: c.name, sub: c.country, go: () => void flyTo({ place: `${c.name}, ${c.country}`, range_km: 300, quiet: true }) });
+      return out;
+    };
+    const showPicks = (list: Pick[]) => {
+      clear(picks);
+      for (const p of list.slice(0, 8)) {
+        const b = h('button.searchpick', { type: 'button', role: 'option', dataset: { kind: p.kind, case: 'keep' } }, h('b', p.label), h('span', `${p.kind} · ${p.sub}`));
+        b.addEventListener('click', () => {
+          clearPicks();
+          p.go();
+        });
+        picks.append(b);
+      }
+      picks.hidden = false;
+    };
     const search = async () => {
       const s = q.value.trim();
       sayFind('', '');
+      clearPicks();
       if (!s) return;
       const saved = mine.find(s);
       if (saved) return flyToPlace(saved);
-      const a = air.find(s);
-      if (a) return select({ kind: 'air', ref: a, w: air.world(a, Date.now()) }, true);
-      const sat = sats.list.find((x) => x.name.toLowerCase().includes(s.toLowerCase()));
+      // an exact flight, ship or satellite goes straight there; a start of a name lists every match to pick from
+      const lo = s.toLowerCase();
+      const exactAir = [...air.list.values()].find((x) => [x.call, x.reg, x.hex].some((y) => y && y.toLowerCase() === lo));
+      if (exactAir) return select({ kind: 'air', ref: exactAir, w: air.world(exactAir, Date.now()) }, true);
+      const exactShip = [...ships.list.values()].find((v) => String(v.mmsi) === lo || v.name.toLowerCase() === lo);
+      if (exactShip) return select({ kind: 'ship', ref: exactShip, w: shipLayer.world(exactShip, Date.now()) }, true);
+      const list = matches(s);
+      const things = list.filter((p) => p.kind !== 'city');
+      if (things.length > 1 || (things.length && list.length > things.length)) return void showPicks(list);
+      if (things.length === 1) return void things[0]!.go();
+      const sat = sats.list.find((x) => x.name.toLowerCase().includes(lo));
       if (sat) return select({ kind: 'sat', ref: sat, w: sat.w }, true);
       const ship = ships.find(s);
       if (ship) return select({ kind: 'ship', ref: ship, w: shipLayer.world(ship, Date.now()) }, true);
@@ -325,6 +381,28 @@ export const eyeTab: TabDef = {
       idx.forEach((i) => placed.add(i));
       lay.body.append(h('div.lgroup', title), h('div.lgrid', ...idx.map((i) => tiles[i]!)));
     }
+    // one tap for a whole set (COMMUTE, STORM, SKY) instead of many switches; the switches below show what it did
+    const setChips = h('div.chips.eyesets', { role: 'group', 'aria-label': 'Layer sets' });
+    const applySet = (k: SetKey): string => {
+      const set = LAYER_SETS.find((s) => s.key === k)!;
+      const vis = { ...globe.vis } as Record<string, boolean>;
+      for (const n of set.off) if (n in vis) vis[n] = false;
+      for (const n of set.on) if (n in vis) vis[n] = true;
+      globe.vis = vis as unknown as LayerVisibility;
+      sats.showOrbit = globe.vis.orbits;
+      if (globe.vis.cams) loadCameras();
+      keepLayers();
+      for (const b of setChips.children) b.classList.toggle('on', (b as HTMLElement).dataset.set === k);
+      return set.said;
+    };
+    for (const s of LAYER_SETS) {
+      const b = button(s.name, () => toast(applySet(s.key), 'ok'));
+      b.dataset.set = s.key;
+      b.dataset.case = 'keep';
+      setChips.append(b);
+    }
+    pickLayerSet = applySet;
+    lay.body.prepend(h('div.lgroup', 'ONE TAP'), setChips);
     const rest = tiles.filter((_, i) => !placed.has(i));
     if (rest.length) lay.body.append(h('div.lgroup', 'MORE'), h('div.lgrid', ...rest));
     if (innerWidth < 700) lay.el.classList.add('min');
@@ -450,7 +528,13 @@ export const eyeTab: TabDef = {
           if (next) select({ kind: 'cam', ref: next, w: GEO.ecef(next.lat, next.lon, 0.08) }, true);
           else toast('No other camera nearby', 'warn');
         };
-        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), button('STREET VIEW', () => void openStreetView({ lat: c.lat, lon: c.lon, name: c.name })));
+        // his wall of public cameras (wall.ts): pinned here, up to nine, kept on the phone
+        const pin = button(onWall(c.id) ? 'ON YOUR WALL ✓' : 'PIN TO WALL', () => {
+          toast(togglePin(c), 'ok');
+          pin.textContent = onWall(c.id) ? 'ON YOUR WALL ✓' : 'PIN TO WALL';
+        });
+        pin.dataset.act = 'pin';
+        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), pin, button('STREET VIEW', () => void openStreetView({ lat: c.lat, lon: c.lon, name: c.name })));
       } else if (s.kind === 'ship') {
         const v = s.ref as Ship;
         info.title.textContent = (v.name || `MMSI ${v.mmsi}`).toUpperCase();
@@ -785,6 +869,14 @@ export const eyeTab: TabDef = {
       raBtn.classList.remove('on');
     };
     const raBtn = button('ROAD AHEAD', () => (ra.on ? stopRoadAhead!() : startRoadAhead!()));
+    // the wall: a tile tapped opens that camera live here (from the camera lists when they have it, else from what was pinned)
+    const watchPinned = (p: Pinned) => {
+      loadCameras();
+      globe.vis = { ...globe.vis, cams: true };
+      const c = cams.list.find((x) => x.id === p.id) ?? ({ ...p } as Camera);
+      select({ kind: 'cam', ref: c, w: GEO.ecef(c.lat, c.lon, 0.08) }, true);
+    };
+    openCameraWall = () => openWall(watchPinned);
     openNearestCamera = (lat, lon, maxKm = 40) => {
       loadCameras();
       if (inCalifornia(lat, lon)) loadCalifornia();
@@ -893,6 +985,8 @@ export const eyeTab: TabDef = {
       HOME: '<path d="M4.5 11L12 4.5l7.5 6.5V19a1.5 1.5 0 01-1.5 1.5h-3.5V15h-5v5.5H6A1.5 1.5 0 014.5 19z"/>',
       NORTH: '<circle cx="12" cy="12" r="8.5"/><path d="M12 6.5l2.6 7H9.4z"/><path d="M9.4 13.5L12 17.5l2.6-4" opacity=".5"/>',
       TILT: '<path d="M3.5 18.5h17L16 8H8z"/><path d="M9.5 13.5h5"/>',
+      RAIN: '<path d="M7 14.5h10a4 4 0 00.6-7.95A5.5 5.5 0 006.9 6.2 4.2 4.2 0 007 14.5z"/><path d="M8.5 17.5l-1 2.5M12.5 17.5l-1 2.5M16.5 17.5l-1 2.5"/>',
+      WALL: '<rect x="3.5" y="4.5" width="7" height="6" rx="1.2"/><rect x="13.5" y="4.5" width="7" height="6" rx="1.2"/><rect x="3.5" y="13.5" width="7" height="6" rx="1.2"/><rect x="13.5" y="13.5" width="7" height="6" rx="1.2"/>',
     };
     const glyphed = (b: HTMLButtonElement) => {
       const t = (b.textContent ?? '').trim();
@@ -922,6 +1016,8 @@ export const eyeTab: TabDef = {
         'div.bgroup',
         h('small.bcap', 'VIEW'),
         glyphed(lookBtn),
+        glyphed(button('WALL', () => openCameraWall?.())),
+        glyphed(button('RAIN', () => void import('./rain').then((m) => m.openRainRadar()))),
         glyphed(button('HOME', () => {
           const L = home();
           globe.cam.flyTo({ lat: L.lat, lon: L.lon, range: 300, tilt: 0, hd: 0 });
@@ -994,7 +1090,7 @@ export const eyeTab: TabDef = {
     const eyeChips = h('div.eyechips', layBtn, ...quick.map((x) => x.b));
 
     const labels = h('div.labels');
-    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), found, eyeChips, mine.el);
+    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), found, picks, eyeChips, mine.el);
     const bot = h('div.eyebot', look, readout, btns);
     const mid = h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail);
     const hud = h('div.hud.eye', top, mid, bot);

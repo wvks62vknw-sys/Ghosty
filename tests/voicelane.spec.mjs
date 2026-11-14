@@ -6,6 +6,10 @@
 //  - MANY WORDINGS, ONE MEANING ("if i say play music it should play the radio"): "put some tunes on" is the radio, "log a pint"
 //    is a pint of water (his words kept in the chat), "show me the map" opens the map, "play something" asks music or a game, and
 //    "is it gonna chuck it down" goes to the brain with the meaning noted beside his words;
+//  - HIS OWN WORDINGS (NEXT ROUND, voice.u1): a miss, then his tap to the screen he meant, offers REMEMBER IT / NO; the taught wording
+//    opens that screen at once, "my wordings" lists them with FORGET, NO is never asked again, a sending ask is never learned;
+//  - QUIET HOUSEHOLD MODE (voice.s1, voice.c5): Sam (introduced) or a stranger asking about his money or messages is answered on the phone,
+//    kindly, and no brain sees it; Sam's other turns go with his label and are marked theirs, kept out of his recall;
 //  - HIS VOICE, KNOWN IN THE CHAT ("the actual chat says he has no way of recognising me"): "do you know it's me?" is answered on
 //    the phone from what it really knows, and every chat turn carries what the phone knows of voices (`heard`), never a number.
 // Every key it shows is 44 pt and nothing goes sideways.
@@ -52,27 +56,51 @@ async function chatOpen(page) {
   await page.waitForFunction(() => { const i = document.querySelector('#cin'); return i && i.getClientRects().length > 0; }, null, { timeout: 5000 }).catch(() => undefined);
 }
 
-/** Say something as he would; wait for a new reply matching `want`; its words, keys and what the chat shows of his own words. */
-async function say(page, words, want, why) {
-  await chatOpen(page);
-  // the replies already there are marked, so only a new one counts (an earlier turn's reply can still be arriving)
-  await page.evaluate(() => document.querySelectorAll('#pg-core .msg').forEach((m) => (m.dataset.vlSeen = '1')));
-  await page.fill('#cin', words);
-  await page.press('#cin', 'Enter');
-  const found = (re) => {
-    const m = [...document.querySelectorAll('#pg-core .msg:not(.me):not([data-vl-seen])')].find((x) => new RegExp(re).test(x.querySelector(':scope > span')?.textContent ?? ''));
-    return m ? (m.dataset.vlHit = '1') : null;
-  };
-  const ok = await page.waitForFunction(found, want.source, { timeout: 10000 }).then(() => true, () => false);
-  const r = await page.evaluate(() => {
-    const m = document.querySelector('#pg-core .msg[data-vl-hit]:not([data-vl-seen])') ?? [...document.querySelectorAll('#pg-core .msg:not(.me):not([data-vl-seen])')].at(-1);
-    const me = [...document.querySelectorAll('#pg-core .msg.me:not([data-vl-seen])')].at(-1);
-    return { text: m?.querySelector(':scope > span')?.textContent ?? '', keys: [...(m?.querySelectorAll('.localacts button.localgo') ?? [])].map((b) => b.textContent?.trim()), mine: me?.textContent ?? '' };
+/**
+ * Find his message by the time it was sent (data-at), then the first reply after it that matches (the chat log draws only its last
+ * entries and redraws them, so nothing is counted or marked: the pattern of tests/planlane.spec.mjs H.ask).
+ */
+const findReply = ({ t0, src }) => {
+  const rx = new RegExp(src);
+  const msgs = [...document.querySelectorAll('#pg-core .msg')];
+  let mine = -1;
+  msgs.forEach((m, i) => {
+    if (m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t0) mine = i;
   });
+  if (mine < 0) return null;
+  const replies = msgs.slice(mine + 1).filter((m) => !m.classList.contains('me'));
+  const r = src ? replies.find((m) => rx.test(m.querySelector(':scope > span')?.textContent ?? '')) : replies.at(-1);
+  if (!r) return null;
+  return { text: r.querySelector(':scope > span')?.textContent ?? '', keys: [...r.querySelectorAll('.localacts button.localgo')].map((b) => b.textContent?.trim()), mine: msgs[mine].textContent ?? '' };
+};
+/** The last reply found, for tap(): its time and pattern. */
+let lastAsk = { t0: 0, src: '' };
+async function said(page, t0, want, why, words) {
+  lastAsk = { t0, src: want.source };
+  const ok = await page.waitForFunction(findReply, lastAsk, { timeout: 10000 }).then(() => true, () => false);
+  const r = (await page.evaluate(findReply, ok ? lastAsk : { t0, src: '' })) ?? { text: '', keys: [], mine: '' };
   check(ok, `${why}: "${words}" was answered "${r.text}" (want ${want})`);
   return r;
 }
-const tap = (page, label) => page.locator('#pg-core .msg[data-vl-hit]:not([data-vl-seen]) .localacts button.localgo', { hasText: label }).click();
+/** Say something as he would; wait for the phone's own reply after it; its words, keys and what the chat shows of his own. */
+async function say(page, words, want, why) {
+  await chatOpen(page);
+  const t0 = await page.evaluate(() => Date.now());
+  await page.fill('#cin', words);
+  await page.press('#cin', 'Enter');
+  return said(page, t0, want, why, words);
+}
+/** Tap a key under the last reply found. */
+const tap = (page, label) => page.evaluate(({ t0, src, label }) => {
+  const rx = new RegExp(src);
+  const msgs = [...document.querySelectorAll('#pg-core .msg')];
+  let mine = -1;
+  msgs.forEach((m, i) => {
+    if (m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t0) mine = i;
+  });
+  const r = msgs.slice(mine + 1).filter((m) => !m.classList.contains('me')).find((m) => rx.test(m.querySelector(':scope > span')?.textContent ?? ''));
+  [...(r?.querySelectorAll('.localacts button.localgo') ?? [])].find((b) => (b.textContent ?? '').includes(label))?.click();
+}, { ...lastAsk, label });
 // (the laid-out size: a reply still easing in is drawn a touch smaller for a moment, and its keys are not)
 const small = (page) => page.$$eval('#pg-core .msg:not(.me) .localacts button.localgo', (els) => els.filter((e) => e.getClientRects().length).map((e) => {
   const r = { width: e.offsetWidth, height: e.offsetHeight };
@@ -117,6 +145,15 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   check(await page.waitForFunction(() => document.documentElement.dataset.theme === 'mono', null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [colours] WHITE LIGHT left the theme on ${await theme(page)}`);
   await say(page, 'blue', /^Blue now/, `[${W}] [colours] a plain name alone`);
   check((await theme(page)) === 'reactor', `[${W}] [colours] back to blue: ${await theme(page)}`);
+  // [voice.s10] a feeling picks a colour and its look; [voice.u9] "put it back" returns the look before
+  await say(page, 'calm colours', /^Calm: light blue, the glow off and nothing moving\.$/, `[${W}] [colours] calm colours`);
+  check((await theme(page)) === 'ice', `[${W}] [colours] calm colours left the theme on ${await theme(page)}`);
+  await say(page, 'put it back', /^Put back: Blue · /, `[${W}] [colours] put it back`);
+  check((await theme(page)) === 'reactor', `[${W}] [colours] put it back left the theme on ${await theme(page)}`);
+  // [voice.u7] a shade by words moves to the neighbouring plain colour, and says so
+  await say(page, 'a bit softer blue', /^Softer blue: light blue now\. Only my colour changed\.$/, `[${W}] [colours] softer blue`);
+  check((await theme(page)) === 'ice', `[${W}] [colours] softer blue left the theme on ${await theme(page)}`);
+  await say(page, 'put it back', /^Put back: Blue · /, `[${W}] [colours] put it back after the shade`);
   await page.screenshot({ path: `${out}/voicelane-colours-${W}.png` });
   // Settings › Theme: every colour by its plain name
   await page.evaluate(() => (location.hash = 'settings'));
@@ -142,11 +179,25 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   r = await say(page, 'log a pint', /water|pint|glass|ml/i, `[${W}] [meanings] a pint is water`);
   check(r.mine.includes('log a pint'), `[${W}] [meanings] the chat shows what he said, not the table's words: "${r.mine}"`);
   check(!toBrain('log a pint') && !toBrain('I drank'), `[${W}] [meanings] "log a pint" went to the model`);
+  // [voice.u3] amounts understood exactly: half a litre is 500 ml, a pint and a half 852 ml, a quarter of an hour fifteen minutes
+  r = await say(page, 'log half a litre', /^500 ml kept\./, `[${W}] [amounts] half a litre`);
+  r = await say(page, 'I drank a pint and a half', /^852 ml kept\./, `[${W}] [amounts] a pint and a half`);
+  r = await say(page, 'give us a shout in a quarter of an hour', /15 minutes|15:00/, `[${W}] [amounts] a quarter of an hour`);
+  check(r.mine.includes('give us a shout in a quarter of an hour'), `[${W}] [amounts] the chat shows his words: "${r.mine}"`);
   r = await say(page, 'play something', /^Music, or a game\?$/, `[${W}] [meanings] two meanings ask`);
   check(JSON.stringify(r.keys) === '["MUSIC","A GAME"]', `[${W}] [meanings] the keys: ${JSON.stringify(r.keys)}`);
   for (const s of await small(page)) check(false, `[${W}] [meanings] a key under 44 pt: ${s}`);
   await tap(page, 'A GAME');
   check(await page.waitForFunction(() => /arcade/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [meanings] A GAME did not open the arcade (${await page.evaluate(() => location.hash)})`);
+  // [voice.u2] every screen by its everyday names; paint for a room opens SPACE on MATERIALS (make.c6)
+  await say(page, 'bring up the game maker', /^Opening the Game Studio\.$/, `[${W}] [screens] the game maker`);
+  check(await page.waitForFunction(() => /gamestudio/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] the game maker did not open (${await page.evaluate(() => location.hash)})`);
+  await say(page, 'open the translator', /^Opening the Interpreter\.$/, `[${W}] [screens] the translator`);
+  check(await page.waitForFunction(() => /interpreter/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] the translator did not open (${await page.evaluate(() => location.hash)})`);
+  r = await say(page, 'how much paint for my lounge', /^Materials are open: paint, flooring, skirting and wallpaper for your plan, first estimates\. Draw or pick the lounge on the plan/, `[${W}] [screens] paint for the lounge`);
+  check(await page.waitForFunction(() => /space/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] paint did not open Space (${await page.evaluate(() => location.hash)})`);
+  check(await page.waitForFunction(() => [...document.querySelectorAll('#pg-space .pn')].some((p) => /^MATERIALS/i.test(p.querySelector('.ptitle')?.textContent ?? '') && p.getClientRects().length > 0), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [screens] MATERIALS was not shown`);
+  check(!toBrain('how much paint'), `[${W}] [screens] paint went to the model`);
   await say(page, 'show me the map', /^Opening the map\.$/, `[${W}] [meanings] the map`);
   check(await page.waitForFunction(() => /eye/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [meanings] the map did not open (${await page.evaluate(() => location.hash)})`);
   check((await theme(page)) === 'reactor', `[${W}] [meanings] "show me the map" changed the look`);
@@ -174,6 +225,90 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   for (const s of await sideways(page)) check(false, `[${W}] [voice] sideways: ${s}`);
   await page.screenshot({ path: `${out}/voicelane-voice-${W}.png` });
   log(`[${W}] voice: ${checks} checks`);
+
+  // ---------------------------------------------------------------- his own wordings, learned (NEXT ROUND, voice.u1)
+  const miss = async (words, tab) => {
+    await chatOpen(page);
+    const n = sent.length;
+    await page.fill('#cin', words);
+    await page.press('#cin', 'Enter');
+    const until = Date.now() + 8000;
+    while (!sent.slice(n).some((b) => String(b.message ?? '').startsWith(words)) && Date.now() < until) await page.waitForTimeout(100);
+    check(sent.slice(n).some((b) => String(b.message ?? '').startsWith(words)), `[${W}] [learn] "${words}" did not go to the brain (a miss)`);
+    await page.waitForFunction(() => !window.__ghosty.ui.get().busy, null, { timeout: 15000 }).catch(() => undefined);
+    // his own tap to the screen he meant (not the brain opening it)
+    await page.evaluate((t) => (location.hash = t), tab);
+  };
+  const barShown = () => page.waitForFunction(() => { const b = document.querySelector('#wordbar'); return b && !b.hidden && b.getClientRects().length > 0; }, null, { timeout: 5000 }).then(() => true, () => false);
+  await miss('wonga page', 'money');
+  check(await barShown(), `[${W}] [learn] no offer after a miss and his tap to Money`);
+  const bar = await page.evaluate(() => ({ text: document.querySelector('#wordbar span')?.textContent ?? '', keys: [...document.querySelectorAll('#wordbar button')].map((b) => ({ t: b.textContent, w: b.offsetWidth, h: b.offsetHeight, l: b.getBoundingClientRect().left, r: b.getBoundingClientRect().right })) }));
+  check(bar.text === 'Next time you say “wonga page”, open Money?', `[${W}] [learn] the offer reads "${bar.text}"`);
+  check(JSON.stringify(bar.keys.map((k) => k.t)) === '["REMEMBER IT","NO"]', `[${W}] [learn] the offer's keys: ${JSON.stringify(bar.keys.map((k) => k.t))}`);
+  for (const k of bar.keys) {
+    check(k.w >= 44 && k.h >= 44, `[${W}] [learn] "${k.t}" is ${k.w}×${k.h} (under 44 pt)`);
+    check(k.l >= -1 && k.r <= W + 1, `[${W}] [learn] "${k.t}" is sideways`);
+  }
+  await page.screenshot({ path: `${out}/voicelane-learn-${W}.png` });
+  await page.click('#wordbar button:has-text("REMEMBER IT")');
+  check(await page.evaluate(() => window.__ghosty.learnwords.learned().some((l) => l.words === 'wonga page' && l.tab === 'money')), `[${W}] [learn] REMEMBER IT kept nothing: ${JSON.stringify(await page.evaluate(() => window.__ghosty.learnwords.learned()))}`);
+  check(await page.evaluate(() => document.querySelector('#wordbar')?.hidden === true), `[${W}] [learn] the bar stayed after REMEMBER IT`);
+  r = await say(page, 'wonga page', /^Opening Money: you taught me “wonga page”\.$/, `[${W}] [learn] the taught wording`);
+  check(await page.waitForFunction(() => /money/.test(location.hash), null, { timeout: 8000 }).then(() => true, () => false), `[${W}] [learn] the taught wording did not open Money (${await page.evaluate(() => location.hash)})`);
+  check(!toBrain('wonga page') || sent.filter((b) => String(b.message ?? '').startsWith('wonga page')).length === 1, `[${W}] [learn] once taught, it still went to the brain`);
+  r = await say(page, 'my wordings', /^Your own wordings \(1\):\n“wonga page” opens Money$/, `[${W}] [learn] the list`);
+  check(JSON.stringify(r.keys) === '["FORGET “wonga page”"]', `[${W}] [learn] the list's keys: ${JSON.stringify(r.keys)}`);
+  for (const s of await small(page)) check(false, `[${W}] [learn] a key under 44 pt: ${s}`);
+  await tap(page, 'FORGET');
+  check(await page.waitForFunction(() => window.__ghosty.learnwords.learned().length === 0, null, { timeout: 5000 }).then(() => true, () => false), `[${W}] [learn] FORGET left ${JSON.stringify(await page.evaluate(() => window.__ghosty.learnwords.learned()))}`);
+  await say(page, 'my wordings', /^I haven’t learned any of your own wordings yet\./, `[${W}] [learn] the empty list says how`);
+  // NO is remembered: the same words are never offered again
+  await miss('dosh corner', 'markets');
+  check(await barShown(), `[${W}] [learn] no offer for "dosh corner"`);
+  await page.click('#wordbar button:has-text("NO")');
+  await miss('dosh corner', 'money');
+  check(!(await barShown()), `[${W}] [learn] "dosh corner" was offered again after NO`);
+  // a sending ask is never offered as a screen's name
+  await miss('send the dosh to Sam', 'money');
+  check(!(await barShown()), `[${W}] [learn] a sending ask was offered as a wording`);
+  log(`[${W}] learn: ${checks} checks`);
+
+  // ---------------------------------------------------------------- quiet household mode (NEXT ROUND, voice.s1, voice.c5)
+  // a turn said as Sam (a person he introduced: the label the phone gives, handed in as the voice check would), and as a voice it doesn't know
+  const sayAs = async (words, who, want, why) => {
+    await chatOpen(page);
+    const t0 = await page.evaluate(() => Date.now());
+    const n = sent.length;
+    await page.evaluate(([t, w]) => void window.__ghosty.send(t, true, w), [words, who]);
+    if (want) await said(page, t0, want, why, words);
+    return { brain: sent.slice(n) };
+  };
+  let q = await sayAs('how much did I spend this month?', { name: 'Sam' }, /^Sorry Sam, that’s .+ to see, so I keep it to him\.$/, `[${W}] [quiet] Sam asking about his money`);
+  check(!q.brain.length, `[${W}] [quiet] Sam's money ask reached the brain`);
+  q = await sayAs('read me my messages', 'unknown', /^That’s .+ to see, so I keep it to him\.$/, `[${W}] [quiet] a voice I don't know asking for his messages`);
+  check(!q.brain.length, `[${W}] [quiet] a stranger's messages ask reached the brain`);
+  q = await sayAs('what is the capital of France', { name: 'Sam' }, null, `[${W}] [quiet] Sam asking something else`);
+  const until2 = Date.now() + 8000;
+  while (!sent.some((b) => String(b.message ?? '').startsWith('what is the capital of France')) && Date.now() < until2) await page.waitForTimeout(100);
+  const fr = sent.find((b) => String(b.message ?? '').startsWith('what is the capital of France'));
+  check(fr && JSON.stringify(fr.context?.voice) === '{"name":"Sam"}', `[${W}] [quiet] Sam's ordinary ask went with voice ${JSON.stringify(fr?.context?.voice)}`);
+  await page.waitForFunction(() => !window.__ghosty.ui.get().busy, null, { timeout: 15000 }).catch(() => undefined);
+  const marks = await page.evaluate(() => window.__ghosty.chat.get().entries.filter((e) => e.kind === 'user').slice(-6).map((e) => ({ t: e.text, theirs: !!e.theirs })));
+  for (const w of ['how much did I spend this month?', 'read me my messages', 'what is the capital of France']) check(marks.some((m) => m.t === w && m.theirs), `[${W}] [quiet] "${w}" was not marked theirs: ${JSON.stringify(marks)}`);
+  check(marks.some((m) => m.t === 'wonga page' && !m.theirs) || !marks.some((m) => m.t === 'wonga page'), `[${W}] [quiet] his own turn was marked theirs`);
+  // his own typed turn afterwards is his again
+  await say(page, 'my wordings', /^I haven’t learned/, `[${W}] [quiet] his own turn after`);
+  check(await page.evaluate(() => !window.__ghosty.chat.get().entries.filter((e) => e.kind === 'user').at(-1)?.theirs), `[${W}] [quiet] his own typed turn was marked theirs`);
+  log(`[${W}] quiet: ${checks} checks`);
+
+  // ---------------------------------------------------------------- spoken notes kept as his (NEXT ROUND, voice.s9)
+  const notes0 = sent.length;
+  await sayAs('note: buy oat milk', 'owner', /^Kept, by you: “buy oat milk”\. It’s in Memory\.$/, `[${W}] [notes] his own spoken note`);
+  await sayAs('note: pick up the parcel', { name: 'Sam' }, /^Not kept: that was someone else’s voice, and I only keep a spoken note when I’m sure it’s you\. Type it and I’ll keep it\.$/, `[${W}] [notes] Sam's note`);
+  await sayAs('note: water the plants', 'unsure', /^Not kept: I wasn’t sure that was you/, `[${W}] [notes] a voice it isn't sure of`);
+  await say(page, 'note to self, call the garage', /^Kept: “call the garage”\. It’s in Memory\.$/, `[${W}] [notes] a typed note`);
+  check(!sent.slice(notes0).some((b) => /note|parcel|garage|oat milk/i.test(String(b.message ?? ''))), `[${W}] [notes] a note went to the model as a chat`);
+  log(`[${W}] notes: ${checks} checks`);
   await ctx.close();
 }
 

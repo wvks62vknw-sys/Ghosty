@@ -166,6 +166,12 @@ test("stopwatch (phone): medians per screen, for replies, the start and the roun
     'Start: first paint 0.6 s, first screen 1.2 s (median of 1 start)',
     'Brain round trip 84 ms · slowest: /library 1.2 s',
   ]);
+  // [ci] NEXT ci.u3: the voice's own line, from today's spoken turns only (his last word to my first; my last to the ear open again)
+  const v = W.summarise([...s, { k: 'voice', at: at(1), first: 820 }, { k: 'voice', at: at(1), first: 900, reopen: 60 }, { k: 'voice', at: at(1), reopen: 90 }, { k: 'voice', at: now - 2 * 86_400_000, first: 3000 }], now);
+  assert.equal(v.voice.first.median, 820);
+  assert.equal(v.voice.reopen.median, 60);
+  assert.ok(v.lines.includes("Voice: first word 0.8 s after you stop, ear open again 60 ms after I finish (today's medians, 2 spoken turns)"), v.lines.join(' | '));
+  assert.equal(sum.voice.first, null, 'no spoken turn, no voice line');
   // the newest 500 kept, round trips at most 150 of them
   let list = [];
   for (let i = 0; i < 400; i++) list = W.keep(list, { k: 'trip', at: i, path: '/status', ms: i });

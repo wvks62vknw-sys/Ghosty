@@ -24,7 +24,7 @@ import { World } from './engine/world';
 import { TABS } from './features';
 import { autoBackup } from './features/system/backup';
 import { checkStorage, persistAsksQuietly } from './features/system/storage';
-import { bootFault, bootReady, bootState, startBoot } from './shell/boot';
+import { afterLanding, bootFault, bootReady, bootState, startBoot } from './shell/boot';
 import { buildLayout } from './shell/layout';
 import { go, registerTabs } from './shell/tabs';
 import { settings, ui } from './state/app';
@@ -135,7 +135,7 @@ onLocalReminder((title, text) => {
 async function boot(): Promise<void> {
   // his recipe as this phone keeps it (BRIEF-THEMES-2): the colour, the ground, the world, the switches; a phone from before
   // opens in Graphite + its colour + The Scan
-  applyRecipe(keptRecipe(settleTheme()));
+  applyRecipe(keptRecipe(settleTheme()), { remember: false }); // (the start is not a change to put back)
   // his mood on the whole interface (state/mood.ts → theme.ts applyMood): a live overlay on the accent, never saved
   applyMood(mood.get().now.kind);
   mood.subscribe((s) => applyMood(s.now.kind));
@@ -156,25 +156,29 @@ async function boot(): Promise<void> {
   layout.buildDock();
   if (ui.get().connected) {
     await loadHistory(historyAhead ?? undefined);
-    startNotices();
-    void initApp();
-    // Paired: ask the phone to keep Ghosty's data (Safari grants it to Home Screen apps) when asking
-    // makes no pop-up (Firefox would ask the owner on every start: there, PROTECT in SYSTEM asks); keep the daily backup going.
-    void checkStorage(persistAsksQuietly());
-    setTimeout(() => void autoBackup(), 20_000);
-    window.setInterval(() => void autoBackup(), 3_600_000);
-    // Changes made while the brain was unreachable (memory, agenda) go to it now.
-    void sendQueued();
-    void refreshKeyCopy();
-    // Ghosty's whole library is copied to this device, so it can be searched with no database or connection.
-    void mirrorLibraryNow();
-    window.setInterval(() => void (navigator.onLine && mirrorLibraryNow()), 30 * 60_000);
-    // Searched by meaning once that model is on the phone: the index keeps up with the copy (library/meaning.ts).
-    startMeaning();
-    window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
-    // The offline brain follows the weekly self-training's kept brains (a new week, a ROLLBACK) without opening its panel.
-    void syncTrained();
-    window.setInterval(() => void (navigator.onLine && syncTrained()), 3 * 3600_000);
+    // [boot] the jobs that can wait start once the opening film has landed (the first seconds stay the film's and Home's); with no
+    // film playing they start now, as always (shell/boot.ts afterLanding)
+    afterLanding(() => {
+      startNotices();
+      void initApp();
+      // Paired: ask the phone to keep Ghosty's data (Safari grants it to Home Screen apps) when asking
+      // makes no pop-up (Firefox would ask the owner on every start: there, PROTECT in SYSTEM asks); keep the daily backup going.
+      void checkStorage(persistAsksQuietly());
+      setTimeout(() => void autoBackup(), 20_000);
+      window.setInterval(() => void autoBackup(), 3_600_000);
+      // Changes made while the brain was unreachable (memory, agenda) go to it now.
+      void sendQueued();
+      void refreshKeyCopy();
+      // Ghosty's whole library is copied to this device, so it can be searched with no database or connection.
+      void mirrorLibraryNow();
+      window.setInterval(() => void (navigator.onLine && mirrorLibraryNow()), 30 * 60_000);
+      // Searched by meaning once that model is on the phone: the index keeps up with the copy (library/meaning.ts).
+      startMeaning();
+      window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
+      // The offline brain follows the weekly self-training's kept brains (a new week, a ROLLBACK) without opening its panel.
+      void syncTrained();
+      window.setInterval(() => void (navigator.onLine && syncTrained()), 3 * 3600_000);
+    });
   }
   // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show Links.
   const spotify = await finishSpotifyLink().catch(() => null);
@@ -190,9 +194,9 @@ async function boot(): Promise<void> {
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), … (machine: the Machine's marks, so a check can lock a box on a thing: tests/hero.spec.mjs)
-  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState, mood, theme: themeState, machine: await import('./ui/machine'), awareness: await import('./shell/awareness'), voiceknown: (await import('./assistant/voiceknown')).probe,
+  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState, mood, theme: themeState, machine: await import('./ui/machine'), awareness: await import('./shell/awareness'), voiceknown: (await import('./assistant/voiceknown')).probe, learnwords: (await import('./assistant/learnwords')).probe,
     // (a check's way of saying something on any screen: the chat's box is on Home only; the microphone says it anywhere)
-    send: (t: string, voice = false) => import('./assistant/session').then((m) => m.send(t, { voice })),
+    send: (t: string, voice = false, as?: 'owner' | 'unknown' | 'unsure' | { name: string }) => import('./assistant/session').then((m) => m.send(t, { voice, ...(as ? { as } : {}) })),
     // the catalogue as this build has it, for the checks (no page shows it: BRIEF-SHELL pass 1), and FAVOURITES (shell/favourites.ts)
     // [health] the marks, the crash records and the test hook (abilities/health.ts, core/crash.ts)
     healthcheck: async () => (await import('./abilities/health')).healthCheck(), loadHealth: async (force = false) => (await import('./abilities/health')).loadHealth(force), crash: await import('./core/crash'), permissions: await import('./features/settings/permissions'),

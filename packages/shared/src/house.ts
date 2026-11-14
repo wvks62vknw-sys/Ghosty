@@ -13,6 +13,18 @@
  *    open|closed)?", "what's the temperature in the …?", "pause the telly", "close the blinds", "unlock the back door"; the
  *    names matched to his entities' friendly names and rooms, with "which one?" when two match.
  */
+import { colourWord, PLAIN, type ThemeColour } from './colours';
+
+/** [voice lane] Each plain colour as a bulb shows it (voice.s6): saturated, so a bulb reads as the colour named. Grey has none. */
+export const LIGHT_RGB: Partial<Record<ThemeColour, [number, number, number]>> = {
+  crimson: [255, 0, 0], ember: [255, 110, 0], gold: [255, 190, 0], emerald: [0, 255, 60], reactor: [0, 90, 255], ice: [140, 200, 255],
+  violet: [150, 0, 255], rose: [255, 60, 160], lime: [170, 255, 0], sunset: [255, 130, 90], mono: [255, 255, 255],
+};
+/** The plain name of a bulb colour the phone set, for what is said back ("the Hall light is on, in red"). */
+export function colourOfRgb(rgb: unknown): string {
+  const hit = (Object.entries(LIGHT_RGB) as [ThemeColour, [number, number, number]][]).find(([, v]) => Array.isArray(rgb) && v.every((x, i) => x === rgb[i]));
+  return hit ? PLAIN[hit[0]].toLowerCase() : 'that colour';
+}
 
 /** A state as Home Assistant's REST API gives it (GET /api/states). */
 export interface HaState {
@@ -136,9 +148,13 @@ export function shapeCall(domain: string, service: string, entity: string, data:
   const body: Record<string, unknown> = { entity_id: entity };
   const n = (k: string) => numOf(data[k]);
   switch (`${domain}.${service}`) {
-    case 'light.turn_on':
+    case 'light.turn_on': {
       if (n('brightness_pct') !== null) body.brightness_pct = Math.round(clamp(n('brightness_pct')!, 1, 100));
+      // [voice lane] a colour (voice.s6): three whole numbers, each held to 0–255; its plain name only for what is said back
+      const rgb = data.rgb_color;
+      if (Array.isArray(rgb) && rgb.length === 3 && rgb.every((v) => numOf(v) !== null)) body.rgb_color = rgb.map((v) => Math.round(clamp(numOf(v)!, 0, 255)));
       break;
+    }
     case 'climate.set_temperature': {
       const t = n('temperature');
       if (t === null) return { error: 'What temperature? Between 5 and 30 °C.' };
@@ -462,6 +478,8 @@ export type HouseAsk =
   | { kind: 'sheet' }
   | { kind: 'power'; on: boolean; name: string }
   | { kind: 'dim'; name: string; pct: number }
+  // [voice lane] LIGHT COLOURS BY PLAIN NAMES (voice.s6): "make the lights red", "turn the lamp light blue", in the app's own colour words
+  | { kind: 'colour'; name: string; colour: string; rgb: [number, number, number] }
   | { kind: 'heat'; temp: number; name: string }
   | { kind: 'is'; name: string; want: 'on' | 'off' | 'open' | 'closed' | 'locked' | 'unlocked' }
   | { kind: 'temp'; room: string }
@@ -546,6 +564,12 @@ export function houseAsked(text: string): HouseAsk | null {
     if (h) return { kind: 'heat', temp, name: clean(h[1] ?? '') };
     if (!/^make it/.test(t) && mine(clean(m[1]!)) && temp <= 100) return { kind: 'dim', name: clean(m[1]!), pct: temp };
   }
+  // [voice lane] a light's colour by its plain name or any synonym ("make the lights red", "turn the bedroom lamp navy", "lights to pink")
+  m = /^(?:please )?(?:make|turn|set|change|switch|put) (?:the |my |all the )?(.+? )?(lights?|lamps?|bulbs?|led strip|leds)(?: to| into)? (?:a |an )?([a-z][a-z -]{1,24})$/.exec(t) ?? /^(?:the |my |all the )?(.+? )?(lights?|lamps?|bulbs?) (?:to |in )?(?:a |an )?([a-z][a-z -]{1,24})$/.exec(t);
+  if (m) {
+    const c = colourWord(m[3]!);
+    if (c && LIGHT_RGB[c]) return { kind: 'colour', name: clean(`${m[1] ?? ''}${m[2]}`), colour: PLAIN[c].toLowerCase(), rgb: LIGHT_RGB[c]! };
+  }
   m = /^(?:please )?(?:dim|brighten|set) (?:the |my )?(.+?) (?:to|at) (\d{1,3})\s*(?:%|percent)?$/.exec(t);
   if (m && mine(clean(m[1]!)) && Number(m[2]) <= 100) return { kind: 'dim', name: clean(m[1]!), pct: Number(m[2]) };
   m = /^(?:please )?(?:turn|switch|put) (on|off) (?:the |my )?(.+)$/.exec(t) ?? /^(?:please )?(?:turn|switch|put) (?:the |my )?(.+?) (on|off)$/.exec(t);
@@ -574,6 +598,7 @@ function domainsFor(a: HouseAsk, name: string): string[] {
   switch (a.kind) {
     case 'power': return heat ? ['climate'] : water ? ['water_heater'] : /\b(?:tv|telly|television|speakers?)\b/.test(name) ? ['media_player'] : /\b(?:hoover|vacuum)\b/.test(name) ? ['vacuum'] : ['light', 'switch', 'input_boolean', 'fan', 'media_player', 'climate', 'water_heater', 'scene', 'script', 'vacuum'];
     case 'dim': return ['light'];
+    case 'colour': return ['light'];
     case 'heat': return water ? ['water_heater'] : ['climate'];
     case 'is': return a.want === 'locked' || a.want === 'unlocked' ? ['lock', 'binary_sensor'] : ['light', 'switch', 'input_boolean', 'fan', 'binary_sensor', 'cover', 'lock', 'media_player', 'climate', 'alarm_control_panel'];
     case 'temp': return ['sensor', 'climate'];
@@ -630,6 +655,7 @@ function callFor(a: HouseAsk, e: HouseEntity): { service: string; data: Record<s
       if (e.domain === 'scene' || e.domain === 'script') return a.on ? { service: 'turn_on', data: {}, verb: 'run' } : null;
       return { service: a.on ? 'turn_on' : 'turn_off', data: {}, verb: a.on ? 'turn on' : 'turn off' };
     case 'dim': return { service: a.pct === 0 ? 'turn_off' : 'turn_on', data: a.pct === 0 ? {} : { brightness_pct: a.pct }, verb: `dim to ${a.pct}%` };
+    case 'colour': return { service: 'turn_on', data: { rgb_color: a.rgb, colour: a.colour }, verb: `turn ${a.colour}` };
     case 'heat': return { service: 'set_temperature', data: { temperature: a.temp, ...(e.domain === 'climate' && e.state === 'off' && e.modes?.includes('heat') ? { hvac_mode: 'heat' } : {}) }, verb: `set to ${a.temp} °C` };
     case 'media': return a.act === 'mute' || a.act === 'unmute' ? { service: 'volume_mute', data: { is_volume_muted: a.act === 'mute' }, verb: a.act } : { service: a.act === 'pause' ? 'media_pause' : a.act === 'play' ? 'media_play' : 'media_stop', data: {}, verb: a.act };
     case 'cover': return { service: a.open ? 'open_cover' : 'close_cover', data: {}, verb: a.open ? 'open' : 'close' };
@@ -692,7 +718,7 @@ export function resolveAsk(a: HouseAsk, list: HouseEntity[], marked: readonly st
 export function doneWords(e: Pick<HouseEntity, 'name' | 'domain'>, service: string, body: Record<string, unknown>): string {
   const n = `the ${e.name}`;
   switch (service) {
-    case 'turn_on': return body.brightness_pct !== undefined ? `${n} is on at ${body.brightness_pct}%` : e.domain === 'scene' || e.domain === 'script' ? `${n} has run` : `${n} is on`;
+    case 'turn_on': return body.rgb_color !== undefined ? `${n} is on, in ${colourOfRgb(body.rgb_color)}` : body.brightness_pct !== undefined ? `${n} is on at ${body.brightness_pct}%` : e.domain === 'scene' || e.domain === 'script' ? `${n} has run` : `${n} is on`;
     case 'turn_off': return `${n} is off`;
     case 'toggle': return `${n} is switched`;
     case 'set_temperature': return `${n} is set to ${body.temperature} °C${body.hvac_mode ? `, ${MODE_WORDS[String(body.hvac_mode)] ?? body.hvac_mode}` : ''}`;

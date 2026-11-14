@@ -307,7 +307,8 @@ export function isPrint(p: unknown): p is Print {
   return !!q && q.v === 1 && Array.isArray(q.pooled) && q.pooled.length === PROFILE_LEN && Array.isArray(q.looks) && q.looks.length > 0 && q.looks.every((l) => Array.isArray(l) && l.length === PROFILE_LEN && l.every(Number.isFinite)) && q.pooled.every(Number.isFinite) && Number.isFinite(q.floor) && (q.emb === undefined || isEmb(q.emb));
 }
 
-export type Who = { kind: 'owner' } | { kind: 'person'; id: string; name: string } | { kind: 'unknown'; why: 'voice' | 'unsure' | 'short' };
+// (`two`: [voice lane, voice.u5] not sure because two of the voices it knows both claimed it — said to him in plain words)
+export type Who = { kind: 'owner' } | { kind: 'person'; id: string; name: string } | { kind: 'unknown'; why: 'voice' | 'unsure' | 'short'; two?: true };
 
 export interface Known {
   id: string;
@@ -331,7 +332,7 @@ export function judge(known: Known[], capture: Voiced): { who: Who; d: number } 
   if (inside.length === 1) {
     return { who: best.k.me ? { kind: 'owner' } : { kind: 'person', id: best.k.id, name: best.k.name }, d: best.d };
   }
-  if (inside.length > 1) return { who: { kind: 'unknown', why: 'unsure' }, d: best.d };
+  if (inside.length > 1) return { who: { kind: 'unknown', why: 'unsure', two: true }, d: best.d };
   return { who: { kind: 'unknown', why: near.every((n) => n.d >= CEILING) ? 'voice' : 'unsure' }, d: best.d };
 }
 

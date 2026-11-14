@@ -461,11 +461,14 @@ function billsPage(): HTMLElement {
           done();
         }
       }), `How to cancel ${d.name}`) : null;
-      return h('div.mndue', { dataset: { kind: d.kind, on: d.on, case: 'keep' }, role: 'group', 'aria-label': `${d.name}, ${p2(d.amount)}, ${when}` },
+      const el = h('div.mndue', { dataset: { kind: d.kind, on: d.on, case: 'keep' }, role: 'group', 'aria-label': `${d.name}, ${p2(d.amount)}, ${when}` },
         h('div.mnline', h('b', d.name), h('span', p2(d.amount))),
         h('span.pklab', when),
         h('small.mnhow', d.how),
         ...(ask ? [h('div.pkrow', ask), how] : []));
+      // [recall] memory.c3 (memory lane, additive): what he asked me about this bill before, from his own chats on this phone, one tap away
+      void askedAbout(d.name).then((b) => b && el.append(b));
+      return el;
     };
     slot.replaceChildren(
       ...(subs.length || due.length
@@ -554,4 +557,19 @@ function trendsPage(): HTMLElement {
   };
   void load();
   return el;
+}
+
+/** [recall] memory.c3: "You asked me about Octopus on Tue 10 Nov ›" under a bill, when his own chats on this phone hold it; null when they don't. */
+async function askedAbout(name: string): Promise<HTMLElement | null> {
+  const R = await import('../memory/recall');
+  if (!(await R.recallWarm())) return null;
+  const word = name.toLowerCase().replace(/\b(?:ltd|limited|plc|uk|the)\b/g, '').trim();
+  if (word.length < 3) return null;
+  const hits = (await R.findLocal(name, { turns: true, k: 6 })).filter((f) => f.line.toLowerCase().includes(word.split(/\s+/)[0]!));
+  if (!hits.length) return null;
+  const f = hits.sort((a, b) => b.at - a.at)[0]!;
+  const { openFound } = await import('../memory/recallcard');
+  const b = h('button.mnasked', { type: 'button', dataset: { case: 'keep' }, 'aria-label': `What you asked me about ${name}` }, `You asked me about this ${f.day}${hits.length > 1 ? ` (and ${hits.length - 1} more)` : ''} ›`);
+  b.addEventListener('click', () => void openFound(f));
+  return b;
 }

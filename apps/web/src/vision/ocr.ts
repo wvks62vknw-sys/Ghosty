@@ -53,7 +53,10 @@ export function flattenRaw(d: RawData): { lines: OcrLine[]; words: OcrWord[] } {
   const lines: OcrLine[] = [];
   const words: OcrWord[] = [];
   const takeLine = (l: RawLine) => {
-    lines.push({ text: String(l.text ?? '').replace(/\n$/, ''), confidence: Number(l.confidence) || 0 });
+    // the line's box: the reader's own, else the box round its words (a menu's English is laid over each line by it)
+    const ws = (l.words ?? []).map((w) => w.bbox).filter(Boolean);
+    const box = l.bbox ?? (ws.length ? { x0: Math.min(...ws.map((b) => b.x0)), y0: Math.min(...ws.map((b) => b.y0)), x1: Math.max(...ws.map((b) => b.x1)), y1: Math.max(...ws.map((b) => b.y1)) } : undefined);
+    lines.push({ text: String(l.text ?? '').replace(/\n$/, ''), confidence: Number(l.confidence) || 0, ...(box ? { bbox: box } : {}) });
     for (const w of l.words ?? []) words.push({ text: String(w.text ?? ''), confidence: Number(w.confidence) || 0, bbox: w.bbox });
   };
   if (d.lines?.length) {

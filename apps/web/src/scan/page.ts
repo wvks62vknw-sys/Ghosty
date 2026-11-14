@@ -250,6 +250,78 @@ export function enhance(rgba: Uint8ClampedArray): Uint8ClampedArray {
   return rgba;
 }
 
+// ---- AUTO: take the page when he holds still (pure: a run of corners and times in, a decision out)
+
+/** Where AUTO is between looks. Start from `STEADY_START`; each look gives the next one. */
+export interface Steady {
+  /** Ready to take a page. False from a take until the scene changes (the page turned, or moved away). */
+  armed: boolean;
+  /** Where the corners were when they began to hold still (null: no page held). */
+  anchor: Quad | null;
+  /** When they began to hold still there (ms). */
+  since: number;
+  /** The corners of the page last taken (while not armed). */
+  taken: Quad | null;
+  /** When the scene first looked changed since that take (-1: it has not). */
+  changed: number;
+}
+
+export const STEADY_START: Steady = { armed: true, anchor: null, since: 0, taken: null, changed: -1 };
+
+/** search: no page fit to take in view; settle: a page, holding still but not yet for long enough; take: take it
+ *  now; wait: a page was just taken and the scene has not changed since. */
+export type SteadyAct = 'search' | 'settle' | 'take' | 'wait';
+
+export interface SteadyOpts {
+  /** How long the corners must hold still before the page is taken (ms). */
+  holdMs?: number;
+  /** "Still": every corner within this share of the frame's long side of where it began. */
+  still?: number;
+  /** "Changed" after a take: a corner this share of the long side away from where it was taken, or the page gone... */
+  moved?: number;
+  /** ...for at least this long (one look that misses the page is a blink, not a turned page). */
+  goneMs?: number;
+  /** The page must cover at least this share of the frame. */
+  minShare?: number;
+}
+
+/** The furthest any corner has gone from one quad to the other. */
+export function cornerShift(a: Quad, b: Quad): number {
+  let most = 0;
+  for (let i = 0; i < 4; i++) most = Math.max(most, Math.hypot(a[i]!.x - b[i]!.x, a[i]!.y - b[i]!.y));
+  return most;
+}
+
+/**
+ * One look of AUTO: given where it was, the corners found in this frame (or null) at time `t` (ms) in a frame of
+ * `size`, what to do and where it is now. A page fit to take (four corners, a fair share of the frame) whose
+ * corners each stay within 2 % of the frame of where they began for 900 ms is taken, once; then nothing again
+ * until the scene changes (a corner moves a long way, or the page is lost, for more than a blink), so the same
+ * page is never taken twice. `progress` is how far through holding still it is (0–1).
+ */
+export function steadyStep(s: Steady, q: Quad | null, t: number, size: { w: number; h: number }, opts: SteadyOpts = {}): { s: Steady; act: SteadyAct; progress: number } {
+  const holdMs = opts.holdMs ?? 900;
+  const long = Math.max(1, size.w, size.h);
+  const still = (opts.still ?? 0.02) * long;
+  const moved = (opts.moved ?? 0.08) * long;
+  const goneMs = opts.goneMs ?? 200;
+  const page = q && quadArea(q) >= (opts.minShare ?? 0.2) * size.w * size.h ? q : null;
+  let next: Steady = { ...s };
+  if (!next.armed) {
+    const changed = !page || !next.taken || cornerShift(page, next.taken) > moved;
+    if (!changed) return { s: { ...next, changed: -1 }, act: 'wait', progress: 0 };
+    if (next.changed < 0) next.changed = t;
+    if (t - next.changed < goneMs) return { s: next, act: 'wait', progress: 0 };
+    // the scene changed: ready again, and this frame is the first look at the next page
+    next = { ...STEADY_START };
+  }
+  if (!page) return { s: { ...next, anchor: null }, act: 'search', progress: 0 };
+  if (!next.anchor || cornerShift(page, next.anchor) > still) return { s: { ...next, anchor: page, since: t }, act: 'settle', progress: 0 };
+  const held = t - next.since;
+  if (held >= holdMs) return { s: { armed: false, anchor: null, since: 0, taken: page, changed: -1 }, act: 'take', progress: 1 };
+  return { s: next, act: 'settle', progress: held / holdMs };
+}
+
 // ---- on a canvas (the browser)
 
 /** The page's corners in a canvas (in its pixels), or null when no page stands out. */

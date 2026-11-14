@@ -8,6 +8,8 @@ import { h, icon } from '../../core/dom';
 import { estimateText, LABEL, type Estimate } from '../../../../../packages/shared/src/workbench';
 import { button } from '../../ui/components';
 import { COPY } from './words';
+import { curveFigure } from './chart';
+import type { Curve } from '../../../../../packages/shared/src/workbench/curves';
 import { noteWith, unitNote } from './words';
 
 /** The caution shape: a triangle with a mark in it (the shape carries the meaning as well as the words). */
@@ -24,8 +26,8 @@ function fold(title: string, body: Node): HTMLElement {
   return h('details.wbfold', h('summary', title), body);
 }
 
-/** One estimate as a card. */
-export function estimateCard(e: Estimate): HTMLElement {
+/** One estimate as a card, with the curve behind it when the answer has a shape. */
+export function estimateCard(e: Estimate, curve: Curve | null = null): HTMLElement {
   const card = h('div.wbcard', { role: 'group', 'aria-label': `${e.title}, first estimate, not certified`, dataset: { kind: e.kind } });
   card.append(labelRow(), h('div.wbtitle', e.title));
   if (e.problem) {
@@ -35,6 +37,8 @@ export function estimateCard(e: Estimate): HTMLElement {
       h('div.wblines', ...e.lines.map((l) => { const note = noteWith(l.note, unitNote(l.label, l.value)); return h('div.wbline', h('span.k', h('span', l.label), note ? h('small.n', note) : null), h('span.v', l.value)); })),
       h('div.wbconf', { 'aria-label': `Confidence: ${e.confidence}` }, h('span.wbbars', { 'aria-hidden': 'true' }, ...[1, 2, 3].map((i) => h(`i${i <= CONF[e.confidence] ? '.on' : ''}` as 'i'))), h('span', `Confidence: ${e.confidence}`)),
     );
+    // the shape behind the answer (make.u6), open on the card: the curve the same formulae draw, its note a first estimate too
+    if (curve && curve.points.length >= 3) card.append(curveFigure(curve));
     if (e.assumptions.length) card.append(fold('ASSUMED', h('ul', ...e.assumptions.map((a) => h('li', a)))));
     if (e.method) card.append(fold('HOW', h('p', e.method)));
     if (e.changes.length) card.append(fold('WHAT WOULD CHANGE IT', h('ul', ...e.changes.map((c) => h('li', c)))));

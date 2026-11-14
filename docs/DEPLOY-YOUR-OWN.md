@@ -134,6 +134,7 @@ folder holding the licence text and a note of where it came from:
 
 | In | What | Licence |
 | --- | --- | --- |
+| `vendor/libarchive` | libarchive.js (libarchive in WebAssembly), for opening a CBR, CB7 or CBT comic he imports (fetched on his tap, on Wi-Fi) | MIT (`LICENSE`); libarchive itself BSD-2-Clause; Comlink inside it Apache-2.0 |
 | `vendor/stockfish` | Stockfish 19 (lite, single-threaded WebAssembly), for rated chess | GPL-3.0 (`LICENCE`; source: upstream, named in `SOURCE.md`) |
 | `vendor/doom` | the DOOM engine (doomgeneric), for the arcade (the free game data is fetched on a tap) | GPL-2.0 |
 | `vendor/quake` | WebQuake, for the arcade | GPL-2.0 |
