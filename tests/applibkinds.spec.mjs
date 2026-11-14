@@ -215,8 +215,17 @@ for (const vp of [PHONE, SMALL]) {
     m = await fit(page);
     check(fitOk(m), `[${W} launcher fit] ${JSON.stringify(m)}`);
     await page.screenshot({ path: `${out}/applibkinds-launcher-${W}.png` });
+    check(await page.locator(`${A} .al-launch h2`).count() === 0 && !(await text(page, `${A} .al-launch`)).includes('Sudoku'), `[${W} launcher] the name shows twice`);
+    const undoShown = () => page.evaluate(() => [...document.querySelectorAll('.ak-app .ak-tools > button')].filter((b) => /^(Undo|Redo)$/.test(b.textContent.trim()) && b.offsetParent).length);
+    check(await undoShown() === 0, `[${W} launcher] Undo and Redo show on the launcher`);
+    check(await page.locator(`${A} .al-modes .al-modechip`).count() >= 2 && await page.locator(`${A} .al-todaycard`).count() === 1 && await page.locator(`${A} .al-record`).count() === 1, `[${W} launcher] no levels, today's game or record under the chips`);
+    await page.click(`${A} .al-modechip >> nth=1`);
+    const lvl = (await text(page, `${A} .al-modechip >> nth=1`)).split(/Best/)[0].trim();
     await page.click(`${A} .al-playkey`);
     check(await page.waitForSelector(`${A} .al-game`, { timeout: 8000 }).then(() => true, () => false), `[${W} launcher] PLAY did not start the board`);
+    check(await undoShown() === 2, `[${W} launcher] Undo and Redo did not come back in play`);
+    const picked = await page.evaluate(() => { const s = document.querySelector('.ak-app .al-gpick'); return s ? s.options[s.selectedIndex].text : ''; });
+    check(!picked || picked === lvl, `[${W} launcher] the level picked (${lvl}) is not the board's (${picked})`);
   }
   await ctx.close();
 }

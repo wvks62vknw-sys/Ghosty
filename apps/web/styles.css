@@ -12185,3 +12185,38 @@ html .al-pro-shothero b { font: 700 22px/28px var(--g-font-display); color: var(
 html .al-pro-shotrow { display: flex; align-items: center; gap: var(--g-s-1); min-height: 36px; border-bottom: var(--g-hair) solid var(--g-line-faint); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .al-pro-shotrow i { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--al-accent-soft); }
 html.al-covered #pg-apps .al-lib { visibility: hidden; }
+/* PRO KINDS inside SHELL's frame: each app's own accent (from its family or hue) colours the rings, sliders, chips and keys */
+html body .al-pro-app .al-ringarc, html body .al-pro-app .al-timer[data-on="true"] .al-ringarc { stroke: var(--al-accent); }
+html body .al-pro-app .al-slider { accent-color: var(--al-accent); }
+html body .al-pro-app .al-slider::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--al-accent) var(--fill), var(--g-line-faint) var(--fill)); }
+html body .al-pro-app .al-slider::-moz-range-track { background: linear-gradient(to right, var(--al-accent) var(--fill), var(--g-line-faint) var(--fill)); }
+html body .al-pro-app .al-unitchip[aria-checked="true"], html body .al-pro-app span.al-unitchip, html body .al-pro-app .al-leadchip { background: var(--al-accent); border-color: var(--al-accent); color: var(--al-on-accent); }
+html body .al-pro-app .al-hero[data-tone="none"] .al-heroval, html body .al-pro-app .al-hero .al-heroval { font-size: var(--al-pro-heronum, clamp(48px, 15vw, 68px)); }
+html body .al-pro-app .al-hero[data-tone="ok"] .al-herowords, html body .al-pro-app .al-hero[data-tone="none"] .al-herowords { color: var(--al-accent); }
+html body .al-pro-app .al-dots i[data-on="done"], html body .al-pro-app .al-dots i[data-on="now"] { background: var(--al-accent); }
+html body .al-pro-app .al-tick[aria-checked="true"] i { background: var(--al-accent); border-color: var(--al-accent); }
+html body .al-pro-app .al-tick[aria-checked="true"] i::after { border-color: var(--al-on-accent); }
+html body .al-pro-app .al-count[data-lead="true"] { border-color: var(--al-accent-line, var(--al-accent)); }
+html body .al-pro-app .al-guideicon { background: var(--al-accent); color: var(--al-on-accent); }
+html body .al-pro-app .al-art { background: radial-gradient(120% 90% at 20% 10%, var(--al-accent), var(--al-accent-soft) 60%, var(--g-canvas)); }
+html body .al-pro-app .al-artglyph svg { stroke: var(--al-on-accent); }
+html body .al-pro-app .al-bar1 i { background: var(--al-accent); }
+/* the game's home under the chips: levels, today's game, the record */
+html .al-launchpitch { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); }
+html .al-launch .al-card { margin: 0; }
+html .al-modechips { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+html .al-modechip { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; min-height: var(--g-target); min-width: var(--g-target); padding: var(--g-s-half) var(--g-s-2); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); background: none; box-shadow: none; font: var(--g-t-body); color: var(--g-ink-1); text-transform: none; }
+html .al-modechip small { font: var(--g-t-fine); color: var(--g-ink-3); }
+html .al-modechip[aria-checked="true"] { background: var(--g-accent); border-color: var(--g-accent); color: var(--g-canvas); }
+html .al-modechip[aria-checked="true"] small { color: var(--g-canvas); }
+html body .al-pro-app .al-modechip[aria-checked="true"] { background: var(--al-accent); border-color: var(--al-accent); color: var(--al-on-accent); }
+html body .al-pro-app .al-modechip[aria-checked="true"] small { color: var(--al-on-accent); }
+html .al-todaycard { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: var(--g-target); text-align: left; text-transform: none; box-shadow: none; color: var(--g-ink-1); }
+html .al-todaycard small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .al-todaycard b { font: var(--g-t-head); }
+html .al-todaycard span { font: var(--g-t-body); color: var(--g-ink-2); white-space: normal; }
+html .al-recstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--g-s-1); }
+html .al-recstat { display: flex; flex-direction: column; gap: 2px; }
+html .al-recstat b { font: var(--g-t-value); color: var(--g-ink-1); font-variant-numeric: tabular-nums; }
+html .al-recstat small { font: var(--g-t-fine); color: var(--g-ink-3); }
+html .al-recnone { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); }

@@ -20,6 +20,7 @@ import { runCalc } from '../../../../../../packages/shared/src/applib/expr';
 import { freshCard, nextText, rate, type Rating, type Sm2State } from '../../../../../../packages/shared/src/sm2';
 import { registerRenderer, redraw, toolKey } from '../registry';
 import { appIcon, extra, num, queryOf, sectionHead, today } from '../engine';
+import { variantsFor } from '../games/frame';
 import { ask, outWords, periodKey, whereAt, clock, chime, say } from './simple';
 
 const PLUS = '<path d="M12 5v14M5 12h14"/>';
@@ -587,36 +588,89 @@ registerRenderer('guide', (root, def, k) => {
 
 // ── the game launcher ────────────────────────────────────────────────────────────────────
 
-interface Played { best?: number; bests?: Record<string, number>; streak?: number; played?: number; save?: unknown }
+/** Levels a game kind is good at when its app names none (picked on the launcher, and above the board in play). */
+const LEVELS: Record<string, Record<string, string[]>> = {
+  sudoku: { levels: ['easy', 'medium', 'hard', 'expert'] },
+  mines: { levels: ['beginner', 'intermediate', 'expert'] },
+  sprint: { levels: ['easy', 'medium', 'hard'] },
+  pairs: { levels: ['6 pairs', '8 pairs', '10 pairs'] },
+  solitaire: { draws: ['1', '3'] },
+  merge: { sizes: ['4 by 4', '5 by 5', '6 by 6'] },
+  slide: { sizes: ['3 by 3', '4 by 4', '5 by 5'] },
+};
+function withLevels(def: AppDef): AppDef {
+  const g = def.game;
+  if (!g || variantsFor(g.kind, g.options ?? {}).length || !LEVELS[g.kind]) return def;
+  return { ...def, game: { ...g, options: { ...(g.options ?? {}), ...LEVELS[g.kind] } } };
+}
+
+interface Played { best?: number; bests?: Record<string, number>; streak?: number; bestStreak?: number; played?: number; won?: number; variant?: number; save?: unknown }
 
 /**
- * A game app's front: a big art tile with its glyph and PLAY, then its best, its streak and today's games. PLAY hands over to
- * the board (`start`, the PLAY & MAKE lane's frame). A game left part-way goes straight back to its board.
+ * A game app's home: a big art tile, PLAY, its best, streak and today, then its levels or modes (from its options, picked here
+ * for the board), today's game and his record. PLAY hands over to the board (`start`, the PLAY & MAKE lane's frame); the kit's
+ * Undo and Redo keys wait until then. A game left part-way goes straight back to its board.
  */
-export function launcher(k: KitApp, def: AppDef, start: () => void | (() => void)): () => void {
+export function launcher(k: KitApp, def0: AppDef, start: (def: AppDef) => void | (() => void)): () => void {
+  const def = withLevels(def0);
   let stop: void | (() => void);
+  const store = `ghosty.app.${def.id}.play`;
   let kept: Played = {};
-  try { kept = (JSON.parse(localStorage.getItem(`ghosty.app.${def.id}.play`) ?? 'null') as Played | null) ?? {}; } catch { /* (a private window) */ }
-  if (kept.save) return start() ?? (() => {});
+  try { kept = (JSON.parse(localStorage.getItem(store) ?? 'null') as Played | null) ?? {}; } catch { /* (a private window) */ }
+  if (kept.save) return start(def) ?? (() => {});
+  const undoRedo = [...k.el.querySelectorAll<HTMLElement>('.ak-tools > button')].filter((b) => /^(Undo|Redo)$/.test(b.textContent?.trim() ?? ''));
+  for (const b of undoRedo) b.hidden = true;
   const day = extra(def.id, 'today', { day: '', n: 0 });
   const t = day.get().day === today() ? day.get().n : 0;
   const best = kept.best ?? (kept.bests && Object.values(kept.bests).length ? Math.max(...Object.values(kept.bests)) : undefined);
+  const variants = def.game ? variantsFor(def.game.kind, def.game.options ?? {}) : [];
+  const base = def.game?.options ?? {};
+  const atBase = variants.findIndex((v) => Object.entries(v.patch).every(([n, x]) => String(base[n]) === String(x)));
+  let pick = kept.variant != null && variants[kept.variant] ? kept.variant : Math.max(0, atBase);
   let unhook = () => {};
-  const play = key('Play', () => {
+  const go = () => {
+    if (variants.length) {
+      try {
+        const now = (JSON.parse(localStorage.getItem(store) ?? 'null') as Played | null) ?? {};
+        localStorage.setItem(store, JSON.stringify({ ...now, variant: pick }));
+      } catch { /* (a full phone: the board picks its own level) */ }
+    }
     day.set({ day: today(), n: t + 1 });
     buzz(12);
     unhook();
+    for (const b of undoRedo) b.hidden = false;
     k.body.replaceChildren();
-    stop = start();
-  }, { kind: 'fill', label: `Play ${def.name}` });
+    stop = start(def);
+  };
+  const play = key('Play', go, { kind: 'fill', label: `Play ${def.name}` });
   play.classList.add('al-playkey');
   const chip = (label: string, v: string) => h('div.al-gchip', h('small', label), h('b', v));
+  const modes = variants.length > 1
+    ? h('section.al-card.al-modes', h('div.al-cardhead', h('h3', 'Levels'), h('small', variants[pick]!.label)),
+      h('div.al-modechips', { role: 'radiogroup', 'aria-label': 'Level' }, ...variants.map((v, i) => {
+        const b = h('button.al-modechip', { type: 'button', role: 'radio', 'aria-checked': String(i === pick) }, v.label, kept.bests?.[v.label] != null ? h('small', `Best ${Math.round(kept.bests[v.label]!).toLocaleString('en-GB')}`) : null);
+        b.addEventListener('click', () => { pick = i; for (const x of b.parentElement!.children) x.setAttribute('aria-checked', String(x === b)); b.closest('.al-modes')!.querySelector('.al-cardhead small')!.textContent = v.label; buzz(4); });
+        return b;
+      })))
+    : null;
+  const when = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const todayCard = h('button.al-card.al-todaycard', { type: 'button', 'aria-label': `Today's game, ${when}` },
+    h('small', "Today's game"), h('b', when), h('span', t ? `${t} ${t === 1 ? 'game' : 'games'} played today. One more?` : 'A fresh game is waiting. Tap to start.'));
+  todayCard.addEventListener('click', go);
+  const played = kept.played ?? 0;
+  const won = kept.won ?? 0;
+  const stat = (label: string, v: string) => h('div.al-recstat', h('b', v), h('small', label));
+  const record = h('section.al-card.al-record', h('div.al-cardhead', h('h3', 'Your record'), h('small', played ? `${played} played` : 'No games yet')),
+    played
+      ? h('div.al-recstats', stat('Won', String(won)), stat('Win rate', `${Math.round((won / played) * 100)}%`), stat('Best run', String(kept.bestStreak ?? 0)))
+      : h('p.al-recnone', 'Your wins, best run and best score gather here as you play.'));
   const front = h('section.al-launch', { dataset: { kind: def.game?.kind ?? '' } },
     h('div.al-art', { 'aria-hidden': 'true' }, h('span.al-artglyph', appIcon(def)), h('span.al-artglyph.al-artghost', appIcon(def))),
-    h('div.al-launchtext', h('h2', def.name), h('p', def.pitch)),
+    h('p.al-launchpitch', def.pitch),
     play,
-    h('div.al-gchips', chip('Best', best != null ? Math.round(best).toLocaleString('en-GB') : '–'), chip('Streak', String(kept.streak ?? 0)), chip('Today', t ? `${t} ${t === 1 ? 'game' : 'games'}` : 'Not yet')));
+    h('div.al-gchips', chip('Best', best != null ? Math.round(best).toLocaleString('en-GB') : '–'), chip('Streak', String(kept.streak ?? 0)), chip('Today', t ? `${t} ${t === 1 ? 'game' : 'games'}` : 'Not yet')),
+    modes, todayCard, record);
   // (drawn after each of the kit's own renders until PLAY, so the tour and the kit's redraws keep it)
   unhook = redraw(k, () => k.body.replaceChildren(front));
-  return () => stop?.();
+  return () => { for (const b of undoRedo) b.hidden = false; stop?.(); };
 }
