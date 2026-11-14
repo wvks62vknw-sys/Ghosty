@@ -47,7 +47,7 @@ const STAND_IN = { learning: { WORDS: /starter set, typed in by hand/, 'FIRST AI
 const IN_THE_WORKS = ['coach', 'learning'];
 /** Each new screen: its area, its name as the jump bar and the deck show it, a plain word it is found by, its pills and pages. */
 const NEW = {
-  money: { area: 'life', name: 'Money', word: 'statement', pills: ['Month', 'Budgets', 'Bills', 'Trends', 'Statement'], pages: ['YOUR MONTH', 'BUDGETS', 'BILLS AND SUBSCRIPTIONS', 'TRENDS', 'PASTE A STATEMENT'] },
+  money: { area: 'life', name: 'Money', word: 'statement', pills: ['Month', 'Budgets', 'Bills', 'Calendar', 'Trends', 'Statement'], pages: ['YOUR MONTH', 'BUDGETS', 'SAVINGS GOALS', 'BILLS AND SUBSCRIPTIONS', 'SHARED BILLS', 'MONEY CALENDAR', 'TRENDS', 'YOUR YEAR IN MONEY', 'PASTE A STATEMENT'] },
   body: { area: 'life', name: 'Body', word: 'squats', pills: ['Move', 'Water', 'Sleep', 'Mood', 'Weight', 'Health'], pages: ['COUNT MY REPS', 'RUNNING COACH', 'STEPS', 'WATER TODAY', 'SLEEP', 'MOOD', 'BREATHE', 'STRETCH SET', 'WEIGHT', 'MY HEALTH WEEK'] },
   kitchen: { area: 'life', name: 'Kitchen', word: 'shopping list', pills: ['Timers', 'Shopping', 'Meal plan', 'Pantry', 'Recipes'], pages: ['TIMERS', 'SHOPPING LIST', 'MEAL PLAN', 'PANTRY', 'RECIPES'] },
   people: { area: 'life', name: 'People', word: 'gift ideas', pills: ['Your people', 'Coming up', 'Group plan'], pages: ['YOUR PEOPLE', 'COMING UP', 'GROUP PLAN'] },

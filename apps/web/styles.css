@@ -9793,11 +9793,11 @@ html .watchers .wrow .k { flex: none; min-width: 58px; }
 .mnnav.mnhead b { text-align: left; }
 .mnnav button { flex: none; min-width: 44px; min-height: 44px; }
 .mnfigs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
-.mnfig { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); }
-.mnfig .mnname { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--l2); overflow-wrap: anywhere; }
-.mnfig .mnval { font: var(--g-t-value); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.mnfig[data-tone="ok"] .mnval { color: var(--ok); }
-.mnfig[data-tone="over"] .mnval { color: var(--g-red); }
+.mnfig, .mnsfig { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); }
+.mnfig .mnname, .mnsfig .mnname { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--l2); overflow-wrap: anywhere; }
+.mnfig .mnval, .mnsfig .mnval { font: var(--g-t-value); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mnfig[data-tone="ok"] .mnval, .mnsfig[data-tone="ok"] .mnval { color: var(--ok); }
+.mnfig[data-tone="over"] .mnval, .mnsfig[data-tone="over"] .mnval { color: var(--g-red); }
 .mnhow { display: block; font: var(--g-t-caption); color: var(--l2); overflow-wrap: anywhere; }
 .mnmeter { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .mnline { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; min-width: 0; }
@@ -9809,9 +9809,9 @@ html .watchers .wrow .k { flex: none; min-width: 58px; }
 .mnmeter[data-tone="soft"] .mnbar i { background: var(--amber, var(--c)); }
 .mnmeter[data-tone="over"] .mnbar i { background: var(--g-red); }
 .mnmeter .pkrow button { flex: 0 1 auto; }
-.mnsearch, .mnamount, .mnselect { min-height: 44px; min-width: 0; box-sizing: border-box; font: var(--g-t-body); }
+.mnsearch, .mnamount, .mngoalin, .mnselect { min-height: 44px; min-width: 0; box-sizing: border-box; font: var(--g-t-body); }
 .mnsearch { width: 100%; }
-.mnamount { flex: 1 1 120px; }
+.mnamount, .mngoalin { flex: 1 1 120px; }
 .mnselect { flex: 1 1 160px; }
 .mntxn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left; border-radius: var(--g-radius-cell); background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--fg); }
 .mnwhat { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
@@ -9824,6 +9824,24 @@ html .watchers .wrow .k { flex: none; min-width: 58px; }
 .mnup { color: var(--amber, var(--fg)); }
 html body .mnapp :is(button, input, select) { min-height: var(--g-target, 44px) !important; }
 html body .mnnav button { min-width: var(--g-target, 44px) !important; }
+/* [moneynext] safe to spend, the money calendar, goals, shared bills and the year (features/money/plan.ts) */
+.mnsafe { gap: 8px; }
+.mnwarn { color: var(--amber, var(--fg)); }
+.mnmore > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font: var(--g-t-body); color: var(--fg); }
+.mncal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; min-width: 0; }
+.mncalhd { text-align: center; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--l2); }
+.mncalday { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 44px; padding: 4px 0; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); color: var(--fg); font-variant-numeric: tabular-nums; }
+.mncalday b { font: var(--g-t-reading); overflow-wrap: anywhere; }
+.mncalday i { width: 6px; height: 6px; border-radius: var(--g-radius-capsule); background: var(--c); }
+.mncalday[data-heavy="1"] { border-color: var(--g-red); }
+.mncalday[data-heavy="1"] i { background: var(--g-red); }
+.mncalday[data-pay="1"] { background: var(--ok); color: var(--bg, var(--fg)); }
+.mncalday[data-today="1"] b { text-decoration: underline; }
+.mncalday[data-on="1"] { outline: 2px solid var(--c); outline-offset: 1px; }
+.mnowe, .mnplace { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.mndue[data-settled="1"] { opacity: .7; }
+.pkpaid .pklab { color: var(--l2); }
+@media print { .mnapp .pkrow, .mnapp .mnnav button { display: none !important; } }
 /* [moneylane] the to-do list in a good to-do app's order (features/work/sheet.ts): the group heads, a late job in the warning colour */
 .pkitems .pktodohead { list-style: none; margin: 10px 0 2px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--l2); overflow-wrap: anywhere; }
 .pkitems .pkitem.late label { color: var(--amber, var(--fg)); }

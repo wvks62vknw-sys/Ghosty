@@ -87,6 +87,12 @@ export const STATES = {
   'money.budgets': { dir: 'money', base: 0, now: 4 },
   'money.bills': { dir: 'money', base: 0, now: 4 },
   'money.trends': { dir: 'money', base: 0, now: 4 },
+  // THE NEXT ROUND (the money lane): money and papers handled for you (features/money/plan.ts), each new page with its states
+  'money.calendar': { dir: 'money', base: 0, now: 4 },
+  'money.goals': { dir: 'money', base: 0, now: 4 },
+  'money.shared': { dir: 'money', base: 0, now: 4 },
+  'money.year': { dir: 'money', base: 0, now: 4 },
+  'money.rules': { dir: 'money', base: 0, now: 1 },
   'body.reps': { dir: 'body', base: 2, now: 3 },
   'body.run': { dir: 'body', base: 1, now: 1 },
   'body.breathe': { dir: 'body', base: 0, now: 1 },

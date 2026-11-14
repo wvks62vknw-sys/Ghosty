@@ -14,7 +14,7 @@ export const moneyTab: TabDef = {
   title: 'MONEY',
   icon: '<rect x="3" y="6.5" width="18" height="11" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.5v5M17.5 9.5v5"/>',
   scene: 'backdrop',
-  blurb: 'your month · budgets · bills due · subscriptions · trends · from a statement, no bank access',
+  blurb: 'safe to spend · your month · budgets · goals · bills · calendar · your year · from a statement, no bank access',
   now: () => cardNow('money'),
   mount: (root) =>
     sheetPage(root, {
@@ -24,13 +24,17 @@ export const moneyTab: TabDef = {
       big: () => cardBig('money'),
       load: () => cardLoad('money'),
       sections: async () => {
-        const [a, m] = await Promise.all([import('./app'), import('./sheet')]);
+        const [a, m, n] = await Promise.all([import('./app'), import('./sheet'), import('./plan')]);
         const part = (p: 'month' | 'budgets' | 'bills' | 'trends') => ({ title: a.MONEY_TITLES[p], pack: 'money', screen: p, build: () => a.moneyPage(p) });
+        // [moneynext] money and papers handled for you: the calendar, goals, shared bills and the year (features/money/plan.ts)
+        const plan = (p: 'calendar' | 'goals' | 'shared' | 'year') => ({ title: n.PLAN_TITLES[p], pack: 'money', screen: p, build: () => n.planPage(p) });
         return [
+          // (six pills at most, ui/sections.ts: goals stand with the budgets, shared bills with the bills, the year with the trends)
           { id: 'month', label: 'Month', parts: [part('month')] },
-          { id: 'budgets', label: 'Budgets', parts: [part('budgets')] },
-          { id: 'bills', label: 'Bills', parts: [part('bills')] },
-          { id: 'trends', label: 'Trends', parts: [part('trends')] },
+          { id: 'budgets', label: 'Budgets', parts: [part('budgets'), plan('goals')] },
+          { id: 'bills', label: 'Bills', parts: [part('bills'), plan('shared')] },
+          { id: 'calendar', label: 'Calendar', parts: [plan('calendar')] },
+          { id: 'trends', label: 'Trends', parts: [part('trends'), plan('year')] },
           { id: 'statement', label: 'Statement', parts: [{ title: m.STATEMENT_TITLE, pack: 'money', screen: 'statement', build: m.statementScreen }] },
         ];
       },

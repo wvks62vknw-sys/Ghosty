@@ -9,7 +9,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { bundles, ctxOf, deps, fakeFetch, fixture, Mem, NOW } from './packs-kit.mjs';
 
-const B = await bundles(['src/tools/money.ts', 'src/packs/index.ts', 'src/spending.ts', '../../packages/shared/src/money.ts', '../../packages/shared/src/cards.ts', '../../packages/shared/src/packs.ts', 'src/schedule.ts', 'src/watchers.ts']);
+const B = await bundles(['src/tools/money.ts', 'src/packs/index.ts', 'src/spending.ts', '../../packages/shared/src/money.ts', '../../packages/shared/src/cards.ts', '../../packages/shared/src/packs.ts', 'src/schedule.ts', 'src/watchers.ts', 'src/tools/moneyapp.ts', '../../packages/shared/src/moneyplan.ts']);
+const MP = B['../../packages/shared/src/moneyplan.ts'];
 const M = B['src/tools/money.ts'];
 const P = B['src/packs/index.ts'];
 const SP = B['src/spending.ts'];
@@ -324,4 +325,126 @@ test('the phone’s buttons: POST /packs/do runs one action with no model (a car
   assert.match(r.text, /^Taken back: £5 on coffee/);
   assert.equal((await call({ pack: 'bank', action: 'pay' })).status, 400);
   assert.equal((await call({ pack: 'money', action: 'transfer' })).status, 400);
+});
+
+// ---------------------------------------------------------------- THE NEXT ROUND: money and papers handled for you
+
+const ROWS = [
+  { d: '2026-09-30', t: 'NETFLIX.COM', a: -10.99, k: 'NETFLIX.COM', c: 'subscriptions', by: 'rule' },
+  { d: '2026-10-28', t: 'ACME SALARY', a: 2000, b: 2500, k: 'ACME SALARY', c: 'income', by: 'rule' },
+  { d: '2026-10-29', t: 'TESCO STORES', a: -50, b: 2450, k: 'TESCO STORES', c: 'groceries', by: 'rule' },
+  { d: '2026-10-30', t: 'NETFLIX.COM', a: -10.99, b: 2439.01, k: 'NETFLIX.COM', c: 'subscriptions', by: 'rule' },
+];
+const HOMEBILLS = [
+  { id: 'a', supplier: 'Octopus Energy', kind: 'electricity', amount: 84.2, due: '2026-11-10' },
+  { id: 'b', supplier: 'Severn Trent', kind: 'water', amount: 30, due: '2026-10-20' },
+  { id: 'c', supplier: 'BT', kind: 'broadband', amount: 40, due: '2026-11-05', paid: '2026-10-31' },
+];
+const LISTED = [{ id: 's', name: 'Spotify', amount: 11.99, every: 'month', next: '2026-10-03' }];
+
+test('safe to spend: the balance on his statement, less every bill still due before payday (late ones too, paid ones not), a day at a time', () => {
+  const subs = MP.dueBetween([], [], [], '2026-11-01', '2026-11-01', '2026-11-01');
+  assert.deepEqual(subs, []);
+  assert.deepEqual(MP.paydayPeriod({ day: 28 }, '2026-11-01'), { last: '2026-10-28', next: '2026-11-27' }, 'the 28th of November is a Saturday: the Friday before');
+  assert.deepEqual(MP.paydayPeriod({ day: 28 }, '2026-10-28'), { last: '2026-10-28', next: '2026-11-27' }, 'on payday itself the period runs to the next one');
+  const found = [{ name: 'Netflix', k: 'NETFLIX.COM', cadence: 'monthly', amount: 10.99, yearly: 131.88, last: '2026-10-30', next: '2026-11-30', count: 2 }];
+  const s = MP.safeToSpend(ROWS, found, HOMEBILLS, LISTED, { day: 28 }, '2026-11-01');
+  assert.equal(s.base, 'balance');
+  assert.equal(s.balance, 2439.01);
+  assert.equal(s.balanceOn, '2026-10-30');
+  assert.deepEqual(s.due.map((d) => [d.on, d.name, d.amount, d.kind]), [
+    ['2026-10-20', 'Severn Trent', 30, 'bill'],
+    ['2026-11-03', 'Spotify', 11.99, 'listed'],
+    ['2026-11-10', 'Octopus Energy', 84.2, 'bill'],
+  ], 'Netflix falls after payday; the paid BT bill is not counted; the late water bill is');
+  assert.equal(s.dueSum, 126.19);
+  assert.equal(s.safe, 2312.82);
+  assert.equal(s.days, 26);
+  assert.equal(s.perDay, 88.95);
+  assert.equal(s.stale, 2);
+  // with no balance printed: what came in less what went out since payday
+  const plain = MP.safeToSpend(ROWS.map(({ b, ...r }) => r), found, HOMEBILLS, LISTED, { day: 28 }, '2026-11-01');
+  assert.equal(plain.base, 'since');
+  assert.deepEqual([plain.in, plain.out, plain.safe], [2000, 60.99, 1812.82]);
+  // his goals are kept aside
+  const g = { id: 'g', name: 'holiday', target: 800, saved: 100, by: '2027-06-30', at: '2026-11-01' };
+  assert.deepEqual(MP.goalPlan(g, '2026-11-01'), { frac: 0.125, left: 700, months: 8, monthly: 87.5, late: false, done: false });
+  assert.equal(MP.goalsAside([g], '2026-11-01', 26), 75.83);
+  assert.equal(MP.safeToSpend(ROWS, found, HOMEBILLS, LISTED, { day: 28 }, '2026-11-01', 75.83).safe, 2236.99);
+  assert.equal(MP.goalPlan({ ...g, by: '2026-10-01' }, '2026-11-01').late, true);
+  assert.equal(MP.goalPlan({ ...g, saved: 800 }, '2026-11-01').done, true);
+});
+
+test('the money calendar, paid bills by supplier and year, a split payment, the household’s shares and the year looked back on', () => {
+  const cal = MP.monthCalendar('2026-11', [], HOMEBILLS, LISTED, { day: 28 }, '2026-11-01');
+  assert.equal(cal.days.length, 30);
+  assert.deepEqual(cal.days.filter((d) => d.items.length).map((d) => [d.day, d.items.map((x) => x.name).join('+'), d.sum]), [
+    ['2026-11-03', 'Spotify', 11.99],
+    ['2026-11-10', 'Octopus Energy', 84.2],
+    ['2026-11-27', 'Payday', 0],
+  ], 'the late water bill is not put on a day of November; payday on the Friday');
+  assert.equal(cal.total, 96.19);
+  assert.deepEqual(cal.heavy, ['2026-11-10']);
+  assert.deepEqual(MP.supplierYears([...HOMEBILLS, { supplier: 'BT', amount: 38, due: '2025-11-05', paid: '2025-11-02' }], '2026'), [{ supplier: 'BT', now: 40, before: 38, n: 1 }]);
+  assert.deepEqual(MP.splitRow(-60, [{ c: 'groceries', a: 40 }, { c: 'shopping', a: 1 }]), [{ c: 'groceries', a: -40 }, { c: 'shopping', a: -20 }]);
+  assert.equal(MP.splitRow(-60, [{ c: 'groceries', a: 70 }, { c: 'shopping', a: 1 }]), null);
+  const o = MP.householdOwes([
+    { id: '1', what: 'electric', amount: 96, paidBy: 'you', shares: ['you', 'Sam', 'Jo'], on: '2026-11-01' },
+    { id: '2', what: 'milk', amount: 10, paidBy: 'Sam', shares: ['Sam', 'Jo'], on: '2026-11-01' },
+    { id: '3', what: 'old', amount: 50, paidBy: 'Jo', shares: ['you', 'Jo'], on: '2026-10-01', settled: '2026-10-02' },
+  ]);
+  assert.deepEqual(o.pay, [{ from: 'Jo', to: 'you', amount: 37 }, { from: 'Sam', to: 'you', amount: 27 }]);
+  const y = MP.yearInMoney(ROWS, [{ name: 'Netflix', k: 'NETFLIX.COM', cadence: 'monthly', amount: 10.99, yearly: 131.88, last: '2026-10-30', next: '2026-11-30', count: 2 }], '2026');
+  assert.deepEqual([y.out, y.in, y.dearest, y.cheapest], [71.98, 2000, '2026-10', '2026-09']);
+  assert.deepEqual(y.categories.map((c) => c.c), ['groceries', 'subscriptions']);
+});
+
+test('the MONEY screen’s own keys run through POST /packs/do with no model, and never join the tool’s enum', async () => {
+  const storage = new Mem();
+  const call = (action, args = {}, pack = 'money') => P.packsRoute(new Request('https://g/api/packs/do', { method: 'POST', body: JSON.stringify({ pack, action, args }) }), '/packs/do', 'POST', { storage, notify: async () => undefined, now: () => NOW, fetch: fakeFetch({}) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  assert.ok(!M.moneyTools[0].parameters.properties.action.enum.includes('safe'), 'not one prompt word added');
+  let r = await call('safe');
+  assert.equal(r.data.payday, null);
+  assert.match(r.text, /Tell me your payday first/);
+  await storage.put({ spend: { months: ['2026-09', '2026-10'], rows: 4, rules: { 'TESCO STORES': 'groceries' }, budgets: {} }, 'spend:m:2026-09': ROWS.slice(0, 1), 'spend:m:2026-10': ROWS.slice(1) });
+  await storage.put('home:bills', HOMEBILLS);
+  await storage.put('money:subs', LISTED);
+  assert.match((await call('payday', { words: 'the 28th' })).text, /^Payday kept/);
+  r = await call('safe', { today: '2026-11-01' });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.safe, 2312.82);
+  assert.equal(r.data.rowsSince, 3);
+  r = await call('goals', { op: 'add', name: 'holiday', target: 800, saved: 100, by: '2027-06-30', today: '2026-11-01' });
+  assert.match(r.text, /^Goal kept: holiday, £800/);
+  const id = r.data.goals[0].id;
+  assert.equal(r.data.goals[0].monthly, 87.5);
+  r = await call('safe', { today: '2026-11-01' });
+  assert.equal(r.data.aside, 75.83, 'safe to spend keeps his goals aside');
+  assert.equal(r.data.safe, 2236.99);
+  r = await call('goals', { op: 'put', id, amount: 50, today: '2026-11-01' });
+  assert.equal(r.data.goals[0].saved, 150);
+  assert.equal((await call('goals', { op: 'put', id, amount: 'x' })).status, 400);
+  r = await call('goals', { op: 'remove', id });
+  assert.deepEqual(r.data.goals, []);
+  r = await call('calendar', { month: '2026-11', today: '2026-11-01' });
+  assert.deepEqual(r.data.heavy, ['2026-11-10']);
+  r = await call('household', { op: 'add', what: 'electric', amount: 96, paidBy: 'you', shares: 'you, Sam and Jo' });
+  assert.deepEqual(r.data.pay, [{ from: 'Sam', to: 'you', amount: 32 }, { from: 'Jo', to: 'you', amount: 32 }]);
+  assert.equal((await call('household', { op: 'add', what: 'x', amount: 5, shares: 'just me' })).status, 400);
+  r = await call('household', { op: 'settle' });
+  assert.match(r.text, /Nothing was paid or sent/);
+  assert.deepEqual(r.data.pay, []);
+  r = await call('rules');
+  assert.deepEqual(r.data.rules, [{ k: 'TESCO STORES', c: 'groceries', n: 1 }]);
+  r = await call('rules', { op: 'change', k: 'TESCO STORES', c: 'shopping' });
+  assert.deepEqual(r.data.rules, [{ k: 'TESCO STORES', c: 'shopping', n: 1 }]);
+  r = await call('rules', { op: 'remove', k: 'TESCO STORES' });
+  assert.deepEqual(r.data.rules, []);
+  r = await call('year', {});
+  assert.equal(r.data.year, '2026');
+  assert.equal(r.data.out, 71.98);
+  // HOME's bills send the paid ones too, so the page can keep them under Paid and forget one
+  r = await call('bills', {}, 'homeadmin');
+  assert.deepEqual(r.data.bills.map((b) => b.supplier), ['Severn Trent', 'Octopus Energy']);
+  assert.deepEqual(r.data.paid.map((b) => b.supplier), ['BT']);
 });

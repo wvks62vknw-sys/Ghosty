@@ -10,6 +10,7 @@ import { h } from '../../core/dom';
 import { button, modal } from '../../ui/components';
 import { brain } from '../../api/brain';
 import { thingsFromLabels } from '../../../../../packages/shared/src/homeadmin';
+import { supplierYears } from '../../../../../packages/shared/src/moneyplan';
 import { sayError } from '../../ui/hisWords';
 import { dueWords, emptyState, inWords, lacksSignal, phrases, sizeWords, stateIn, stateLine, troubleWords, waitFor } from '../lifeui';
 
@@ -30,7 +31,7 @@ export const HOME_VIEWS: { id: HomeWhat; label: string }[] = [
   { id: 'meter', label: 'Meter' },
   { id: 'things', label: 'Rooms' },
 ];
-export const homeState = { open: '' as '' | HomeWhat, said: '', due: [] as { on: string; text: string }[], bills: [] as BillRow[], csv: '', lines: [] as string[] };
+export const homeState = { open: '' as '' | HomeWhat, said: '', due: [] as { on: string; text: string }[], bills: [] as BillRow[], paid: [] as BillRow[], years: [] as string[], csv: '', lines: [] as string[] };
 let openSheet: { close(): void } | null = null;
 
 export async function openHomeadmin(what: string): Promise<void> {
@@ -211,25 +212,43 @@ function billsView(): HTMLElement {
   const paint = () => {
     /* state: home.bills empty */
     slot.replaceChildren(...(loaded && !homeState.bills.length ? [allPaid ? emptyState('All paid', allPaid) : emptyState('No bills kept yet', 'Photograph one or paste its text below.')] : []));
-    // [moneylane] what is still to pay first, soonest first, then what is paid; with what the unpaid ones come to
-    const order = [...homeState.bills].sort((a, b) => Number(!!a.paid) - Number(!!b.paid) || (a.due || '9999').localeCompare(b.due || '9999'));
-    const unpaid = order.filter((b) => !b.paid);
+    // [moneylane] what is still to pay first, soonest first, with what the unpaid ones come to
+    const unpaid = [...homeState.bills].filter((b) => !b.paid).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
     const owe = unpaid.reduce((k, b) => k + (Number.isFinite(b.amount) ? b.amount : 0), 0);
+    // [moneynext] then the paid ones, kept (newest paid first), each with Forget, and what each supplier cost this year and last
+    const paid = homeState.paid;
+    const year = new Date().getFullYear();
+    const years = supplierYears(paid, String(year));
+    homeState.years = years.map((y) => `${y.supplier} ${y.now.toFixed(2)} ${y.before.toFixed(2)}`);
+    const forget = (b: BillRow) => named(button('Forget', async () => { said(status, await run('paid', { id: b.id, remove: true })); await load(false); }), `Forget the ${b.supplier} bill`);
     list.replaceChildren(
       ...(unpaid.length ? [h('p.pknote.pkbilltotal', { dataset: { case: 'keep' } }, `£${owe.toFixed(2)} still to pay across ${unpaid.length} bill${unpaid.length === 1 ? '' : 's'}, from the bills you showed me.`)] : []),
-      ...order.slice(0, 10).map((b) =>
+      ...unpaid.slice(0, 12).map((b) =>
         h('div.pkperson', { role: 'group', 'aria-label': `${b.supplier} ${b.amount} pounds, ${b.due ? dueWords(b.due) || `due ${niceDay(b.due)}` : 'no due date'}` }, h('b', `${b.supplier} £${b.amount.toFixed(2)}`),
-          h('span.pklab', `${b.kind}${b.due ? ` · ${dueWords(b.due) || `due ${niceDay(b.due)}`} · ${niceDay(b.due)}` : ''}${b.paid ? ` · paid ${niceDay(b.paid)}` : ''} · from the bill you showed me`),
+          h('span.pklab', `${b.kind}${b.due ? ` · ${dueWords(b.due) || `due ${niceDay(b.due)}`} · ${niceDay(b.due)}` : ''} · from the bill you showed me`),
           h('div.pkrow',
             named(button('Paid', async () => { said(status, await run('paid', { id: b.id })); await load(false); }), `Mark ${b.supplier} paid`),
-            named(button('Forget', async () => { said(status, await run('paid', { id: b.id, remove: true })); await load(false); }), `Forget the ${b.supplier} bill`))),
+            forget(b))),
       ),
+      ...(paid.length
+        ? [
+            h('div.lab', 'PAID'),
+            ...(years.length ? [h('div.pkcol.pkyears', ...years.map((y) => h('p.pknote.pkyear', { dataset: { case: 'keep' } }, `${y.supplier}: £${y.now.toFixed(2)} in ${year}${y.before ? `, £${y.before.toFixed(2)} in ${year - 1}` : ''}.`)))] : []),
+            ...paid.slice(0, 24).map((b) =>
+              h('div.pkperson.pkpaid', { role: 'group', 'aria-label': `${b.supplier} ${b.amount} pounds, paid ${niceDay(b.paid ?? '')}` }, h('b', `${b.supplier} £${b.amount.toFixed(2)}`),
+                h('span.pklab', `${b.kind} · paid ${niceDay(b.paid ?? '')}${b.due ? ` · was due ${niceDay(b.due)}` : ''}`),
+                h('div.pkrow', forget(b)))),
+            h('p.pknote', { dataset: { case: 'keep' } }, 'Paid is your word: I don’t see your bank. Each year adds up the bills you marked paid in it.'),
+          ]
+        : []),
     );
   };
   const load = async (first = true) => {
     const r = await run('bills', {});
     if (r.failed) return void (first && said(status, r));
-    homeState.bills = ((r.data as { bills?: BillRow[] } | undefined)?.bills ?? []).slice();
+    const data = r.data as { bills?: BillRow[]; paid?: BillRow[] } | undefined;
+    homeState.bills = (data?.bills ?? []).slice();
+    homeState.paid = (data?.paid ?? []).slice();
     // (every bill marked paid is not "no bills": my brain says so in its own words, and that is what shows)
     allPaid = /^Nothing unpaid/i.test(r.text) ? r.text : '';
     loaded = true;

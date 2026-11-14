@@ -12,6 +12,7 @@ import { alreadySaid, type Cadence } from '../../../../packages/shared/src/caden
 import { BODY, bodyLines, bodyPieces } from '../tools/body';
 import { KITCHEN, kitchenLines } from '../tools/kitchen';
 import { followTick, MONEY, moneyLines } from '../tools/money';
+import { MONEY_APP } from '../tools/moneyapp'; // [moneynext] the MONEY screen's own keys: run here only, never in the tool's enum
 import { PEOPLE, peopleLines } from '../tools/people';
 import { WORK, workLines } from '../tools/work';
 import { CREATIVE, creativeLines } from '../tools/creative';
@@ -21,7 +22,7 @@ import { LEARNING, learningLines } from '../tools/learning';
 import { runAction, type ActionFn, type PackDeps } from './base';
 
 /** Every pack's actions, by pack: what /packs/do may run. */
-export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: MONEY, body: BODY, kitchen: KITCHEN, people: PEOPLE, work: WORK, creative: CREATIVE, outside: OUTSIDE, homeadmin: HOME, learning: LEARNING };
+export const PACK_ACTIONS: Record<string, Record<string, ActionFn>> = { money: { ...MONEY, ...MONEY_APP }, body: BODY, kitchen: KITCHEN, people: PEOPLE, work: WORK, creative: CREATIVE, outside: OUTSIDE, homeadmin: HOME, learning: LEARNING };
 
 export interface PacksDeps {
   storage: DurableObjectStorage;

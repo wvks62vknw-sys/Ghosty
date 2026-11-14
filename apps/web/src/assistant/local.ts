@@ -35,7 +35,7 @@ import { chat, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
-import { moneyAsked, MONEY_OPENS } from '../features/money/words';
+import { moneyAsked, moneySection, MONEY_OPENS } from '../features/money/words';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
 import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn, gameTurn } from './reste';
@@ -232,7 +232,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   async moneyapp(text, opts) {
     const page = moneyAsked(text);
     if (!page) return false;
-    location.hash = `money?${page}`;
+    location.hash = `money?${moneySection(page)}`;
     return answer(text, MONEY_OPENS[page], { kind: 'pack' }, opts);
   },
   // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened

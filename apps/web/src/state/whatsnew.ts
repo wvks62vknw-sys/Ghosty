@@ -14,6 +14,11 @@ export interface NewThing {
 }
 
 export const WHATS_NEW: NewThing[] = [
+  // [moneynext] money and papers handled for you (NEXT-MONEY)
+  { day: '2026-11-14', title: 'Safe to spend until payday', line: 'Life → MONEY: tell me your payday and the top of your month shows what is safe to spend until then, after the bills still due. Plain sums, not a forecast.' },
+  { day: '2026-11-14', title: 'A money calendar, goals and your year', line: 'MONEY → CALENDAR puts every bill and payday on its day; BUDGETS keeps savings goals with what each needs a month; TRENDS adds your year in money, ready to print.' },
+  { day: '2026-11-14', title: 'Shared bills and your sorting rules', line: 'MONEY → BILLS splits household bills and says who owes whom; YOUR MONTH lists the rules that sort your payments, to change or take away. Nothing is paid or sent.' },
+  { day: '2026-11-14', title: 'Paid bills kept, documents kept', line: 'HOUSEHOLD → BILLS keeps the paid ones with what each supplier cost this year and last. WORK → DOCUMENT keeps every CV, letter and email I write, with older versions.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

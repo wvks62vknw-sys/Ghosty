@@ -21,6 +21,7 @@ import { button, modal } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 import { isoDay } from '../brief/day';
 import { daysTo, emptyState, inWords, lacksSignal, phrases, stateIn, stateLine, waitFor } from '../lifeui';
+import { openRules, safeBlock } from './plan';
 
 export type MoneyPage = 'month' | 'budgets' | 'bills' | 'trends';
 /** Each page's name: its panel's title on the MONEY screen. */
@@ -127,7 +128,9 @@ export function moneyPage(page: MoneyPage): { el: HTMLElement; stop(): void } {
 function monthPage(): HTMLElement {
   const slot = h('div.pkcol', { 'aria-live': 'polite' });
   const status = h('p.pknote', { 'aria-live': 'polite' });
-  const el = h('div.pkcol.mnapp', slot, status, phrases(['my spending', 'spending this month']));
+  // [moneynext] safe to spend until payday stands at the top once the month is read (features/money/plan.ts)
+  const top = h('div.pkcol');
+  const el = h('div.pkcol.mnapp', top, slot, status, phrases(['my spending', 'spending this month', 'safe to spend']));
   let cat: Category | '' = '';
   let find = '';
   let all = false;
@@ -242,6 +245,7 @@ function monthPage(): HTMLElement {
       ...cats,
       ...(top.length ? [h('div.lab', 'WHERE IT WENT MOST'), ...top.map((t) => meter(cap(t.t.toLowerCase()), p2(t.out), t.out / topMost, 'soft', `${plural(t.n, 'payment')} this month.`))] : []),
       h('div.lab', cat ? `${cat.toUpperCase()} · TAP ONE TO FILE IT` : 'EVERY PAYMENT · TAP ONE TO FILE IT'),
+      h('div.pkrow', label(button('Your sorting rules', () => openRules(() => void load(s?.month))), 'See and change your sorting rules')),
       search,
       listBox,
     );
@@ -251,6 +255,7 @@ function monthPage(): HTMLElement {
     const mine = ++ticket;
     const got = await read(el, slot, 'month', month, () => void load(month));
     if (mine !== ticket || !got) return;
+    if (!top.childElementCount) top.append(safeBlock());
     s = got;
     cat = '';
     all = false;
