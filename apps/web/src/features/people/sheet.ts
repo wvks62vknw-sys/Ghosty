@@ -272,6 +272,8 @@ function whoSheet(): HTMLElement {
             m.close();
             const r = await say('forget', { who: p.name });
             if (r.failed) return void stateIn(status, r.offline ? 'offline' : 'error', troubleWords(!!r.offline));
+            // [moneynext] everything goes: his own photo of them on this phone too
+            await forgetReceipt(`person:${p.name.toLowerCase()}`);
             stateIn(status, '', r.text);
             await load();
           }, 'warn'))));
