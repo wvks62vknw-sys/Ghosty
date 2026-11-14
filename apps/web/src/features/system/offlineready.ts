@@ -23,11 +23,12 @@ export function offlineReadyPanel(): Panel & { refresh(): void; now(): Readiness
     p.setStatus(`${r.pct}%`, r.pct >= 80 ? 'ok' : r.pct >= 40 ? 'mid' : 'off');
     const bar = h('div.ordybar', { role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(r.pct), 'aria-label': readyHead(r) }, h('i', { style: { width: `${r.pct}%` } }));
     const next = h('p.ordynext', { dataset: { case: 'keep' } }, readyNext(r));
-    const get = r.next ? button('GET IT IN SETTINGS', () => goToPanel(r.next!.where.tab, r.next!.where.panel), 'on') : null;
+    const get = r.next ? button('GET IT IN SETTINGS', () => showPanel(r.next!.where.tab, r.next!.where.panel), 'on') : null;
     if (get) get.setAttribute('aria-label', `Open ${r.next!.where.panel} in Settings to get ${r.next!.name}, ${r.next!.size}`);
     const rows = [...r.held, ...r.missing, ...r.cannot].map((x) => {
-      const k = !x.can ? 'CAN’T' : x.held ? 'HERE' : x.size.toUpperCase();
-      const rw = row(k, h('span.ordyv', h('b', x.name), h('small', x.can ? x.gives : (x.why ?? ''))), null, { wrap: true, ...(x.held ? { tone: 'up' as const } : {}) });
+      const k = !x.can ? 'CAN’T' : x.held ? 'HERE' : 'TO GET';
+      const name = h('b', x.name, x.can && !x.held ? h('span.ordysize', ` · ${x.size}`) : '');
+      const rw = row(k, h('span.ordyv', name, h('small', x.can ? x.gives : (x.why ?? ''))), null, { wrap: true, ...(x.held ? { tone: 'up' as const } : {}) });
       rw.classList.add('ordyrow');
       Object.assign(rw.dataset, { piece: x.id, state: !x.can ? 'cannot' : x.held ? 'here' : 'missing', case: 'keep' });
       return rw;
@@ -48,16 +49,20 @@ export function offlineReadyPanel(): Panel & { refresh(): void; now(): Readiness
   return { ...p, refresh: paint, now: () => last };
 }
 
-/** "How ready are you offline?" (assistant/local.ts): the panel opened, and the number, what is here and the next download said. */
-export function readyTurn(): string {
-  goToPanel('system', READY_TITLE);
-  // on a phone the screen is a list: the panel itself is opened (its row tapped), not only its section
+/** A panel on another screen shown: its section, and on a phone (where the screen is a list) the panel itself opened. */
+export function showPanel(tab: string, title: string): void {
+  goToPanel(tab, title);
   let tries = 0;
   const open = (): void => {
-    const head = document.querySelector<HTMLElement>('#pg-system .pn.offready[data-row] > h3');
+    const head = [...document.querySelectorAll<HTMLElement>(`#pg-${tab} .pn[data-row] > h3`)].find((x) => (x.querySelector('.ptitle')?.textContent ?? '').startsWith(title));
     if (head && !head.parentElement!.classList.contains('pushed')) head.click();
     else if (!head && ++tries < 10) setTimeout(open, 200);
   };
   setTimeout(open, 250);
+}
+
+/** "How ready are you offline?" (assistant/local.ts): the panel opened, and the number, what is here and the next download said. */
+export function readyTurn(): string {
+  showPanel('system', READY_TITLE);
   return readySay(readinessNow());
 }

@@ -9887,3 +9887,4 @@ html .offready .ordyrow .ordyv b { font: var(--g-t-body); color: var(--g-ink-1);
 html .offready .ordyrow .ordyv small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
 html .offready .ordyrow .k { flex: none; min-width: 64px; }
 @media (prefers-reduced-motion: no-preference) { html .offready .ordybar > i { transition: width .4s ease; } }
+html .offready .ordyrow .ordysize { font: var(--g-t-caption); color: var(--g-ink-2); white-space: nowrap; }

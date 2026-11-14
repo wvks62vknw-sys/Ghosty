@@ -1,0 +1,235 @@
+// SYSTEM AND SETTINGS, the next round (docs/build-plan/next/polish3.md), at 440 × 956 and 390 × 844:
+//   a. OFFLINE READY (System → Status): the number, its bar, what is here and what is not with sizes, the next download and GET IT IN
+//      SETTINGS opening the panel that fetches it (nothing fetched by looking); a kept pack raises the number; every key 44 pt, nothing
+//      sideways, no word cut, in all seven worlds and at BODY 21; "how ready are you offline?" answered on the phone and the panel opened.
+//   b. YOUR BACKUP AS A FILE (System → Backup): SAVE AS A FILE hands over the locked copy (a download here), its name and size said;
+//      OPEN A BACKUP FILE reads it back, asks first, restores and reloads with what it put back; a file that is not a backup is refused
+//      in his words.
+//   c. A HEADS-UP: a failing key and a provider nearly out are told once (a toast) and stand at the top of AI ROOM.
+//   BASE=http://localhost:8788 node tests/systemnext.spec.mjs [outDir]
+import { mkdirSync, readFileSync } from 'node:fs';
+import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK, openPanel } from './nav.mjs';
+
+const out = process.argv[2] ?? 'tests/.shots';
+mkdirSync(out, { recursive: true });
+const base = process.env.BASE ?? 'http://localhost:8788';
+const KEY = 'preview-owner-key-0123456789';
+const PHONE2 = { width: 390, height: 844 };
+const WORLDS = ['scan', 'map', 'eye', 'orbit', 'grown', 'ink', 'glass'];
+const RAW = /\b(undefined|NaN|null|\[object Object\])\b|\$\{/;
+const problems = [];
+let checks = 0;
+const t0 = Date.now();
+const check = (ok, msg) => {
+  checks++;
+  if (!ok) {
+    problems.push(msg);
+    console.log(`  red: ${msg.slice(0, 280)}`);
+  }
+};
+const log = (s) => console.log(`${((Date.now() - t0) / 1000).toFixed(1)} s · ${s}`);
+
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--disable-dev-shm-usage'] });
+const live = [];
+process.on('uncaughtException', async (e) => {
+  problems.push(`crashed: ${String(e.message).split('\n')[0]}`);
+  console.log(`PROBLEMS:\n${problems.join('\n')}`);
+  process.exit(1);
+});
+
+/** One phone, paired, in a world and a text size; `store` seeds localStorage once; `status` replaces the brain's /api/status answer. */
+async function phone(viewport, o = {}) {
+  const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block', acceptDownloads: true });
+  live.push(ctx);
+  await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  if (o.status) await ctx.route('**/api/status', async (route) => {
+    const r = await route.fetch().catch(() => null);
+    const real = r ? await r.json().catch(() => ({})) : {};
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...real, ...o.status }) });
+  });
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(10000);
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
+  await page.addInitScript(({ key, body, world, store }) => {
+    if (sessionStorage.getItem('sn.seeded')) return;
+    sessionStorage.setItem('sn.seeded', '1');
+    localStorage.setItem('ghosty.ownerKey', key);
+    localStorage.setItem('ghosty.themes1', '1');
+    localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, favourites: [], look: { ground: 'graphite', world, night: 'graphite', switches: body ? { body } : {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
+    for (const [k, v] of Object.entries(store ?? {})) localStorage.setItem(k, v);
+  }, { key: KEY, body: o.body ?? 0, world: o.world ?? 'scan', store: o.store ?? {} });
+  await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  return { ctx, page };
+}
+const until = (page, fn, arg, ms = 10000) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true, () => false);
+const text = (page, sel) => page.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.getClientRects().length).map((e) => (e.textContent ?? '').replace(/\s+/g, ' ').trim()).join(' | '), sel);
+async function openSystem(page, title) {
+  await page.evaluate(() => (location.hash = 'system'));
+  await page.waitForSelector('#pg-system .pn', { state: 'attached', timeout: 30000 });
+  await openPanel(page, 'system', title);
+}
+/** Every key in `root` at 44 pt, nothing sideways on the page, no word cut inside `root`, no raw string. */
+async function fit(page, tag, root) {
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
+  const r = await page.evaluate((root) => {
+    const vis = (e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]');
+    const all = [...document.querySelectorAll(root)].flatMap((x) => [x, ...x.querySelectorAll('*')]).filter(vis);
+    const small = all.filter((e) => e.matches('button, summary, input:not([type=hidden]):not([type=file]), select, [role=button]')).map((e) => {
+      const b = e.getBoundingClientRect();
+      return b.width >= 43.5 && b.height >= 43.5 ? '' : `${e.tagName.toLowerCase()} "${(e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 24)}" ${Math.round(b.width)}×${Math.round(b.height)}`;
+    }).filter(Boolean);
+    const sideways = document.documentElement.scrollWidth > innerWidth + 1;
+    const cut = all.filter((e) => !e.matches('input, select, textarea') && e.textContent.trim() && e.scrollWidth > e.clientWidth + 1 && /(hidden|clip)/.test(getComputedStyle(e).overflowX)).map((e) => e.textContent.trim().slice(0, 30));
+    return { small: small.slice(0, 6), sideways, cut: cut.slice(0, 4), words: [...document.querySelectorAll(root)].map((x) => x.innerText).join(' ') };
+  }, root);
+  check(!r.small.length, `${tag}: under 44 pt: ${r.small.join(', ')}`);
+  check(!r.sideways, `${tag}: sideways`);
+  check(!r.cut.length, `${tag}: words cut: ${r.cut.join(' | ')}`);
+  check(!RAW.test(r.words), `${tag}: a raw string: ${(RAW.exec(r.words) ?? [''])[0]}`);
+}
+const READY = '#pg-system .pn.offready';
+const readyNow = (page) => page.evaluate((sel) => {
+  const p = document.querySelector(sel);
+  return { pct: p?.querySelector('.ordyhead b')?.textContent ?? '', head: (p?.querySelector('.ordyhead')?.textContent ?? '').trim(), next: p?.querySelector('.ordynext')?.textContent ?? '', bar: p?.querySelector('.ordybar')?.getAttribute('aria-valuenow') ?? '', rows: [...(p?.querySelectorAll('.ordyrow') ?? [])].map((r) => ({ id: r.dataset.piece, state: r.dataset.state, k: r.querySelector('.k')?.textContent ?? '', size: (r.querySelector('.ordysize')?.textContent ?? '').replace(/^ · /, '') })), get: !!p?.querySelector('button.on') };
+}, READY);
+
+// ================================================================== a. OFFLINE READY
+for (const vp of [PHONE, PHONE2]) {
+  const W = vp.width;
+  log(`${W}: OFFLINE READY`);
+  const asked = [];
+  const { ctx, page } = await phone(vp);
+  page.on('request', (r) => /\/models\/|huggingface|\/vendor\/webllm|tiles\.openfreemap/.test(r.url()) && asked.push(r.url()));
+  await openSystem(page, 'OFFLINE READY');
+  check(await until(page, (s) => !!document.querySelector(s)?.querySelector('.ordyhead'), READY), `[${W}] [a] no OFFLINE READY panel`);
+  const r0 = await readyNow(page);
+  check(r0.head === '0% works with no signal' && r0.bar === '0', `[${W}] [a] nothing kept reads "${r0.head}" (bar ${r0.bar})`);
+  check(r0.rows.length === 11 && r0.rows.every((x) => x.state === 'missing' || x.state === 'cannot'), `[${W}] [a] the pieces: ${JSON.stringify(r0.rows)}`);
+  check(r0.rows.filter((x) => x.state === 'missing').every((x) => x.k === 'TO GET' && /^(about )?\d[\d.]* (KB|MB|GB)$/.test(x.size)), `[${W}] [a] a missing piece does not say its size: ${JSON.stringify(r0.rows.map((x) => [x.k, x.size]))}`);
+  // the next download: the heaviest this phone can run, with its size and what it keeps working
+  const runsBrain = await page.evaluate(() => 'gpu' in navigator);
+  check(runsBrain ? /^Next: The offline brain, \d+ MB on Wi-Fi, for answers, the interpreter’s translations and School papers \(34% after\)\.$/.test(r0.next) : /^Next: The (offline map|Lens’s eyes), /.test(r0.next), `[${W}] [a] the next download reads "${r0.next}"`);
+  check(r0.get, `[${W}] [a] no GET IT IN SETTINGS`);
+  if (!runsBrain) check(r0.rows.some((x) => x.id === 'brain' && x.state === 'cannot' && x.k === 'CAN’T'), `[${W}] [a] a phone with no WebGPU does not say it can’t run the brain`);
+  await fit(page, `[${W}] [a scan]`, READY);
+  await page.screenshot({ path: `${out}/systemnext-ready-${W}.png` });
+  // GET IT opens the panel that fetches it; nothing is fetched by looking or by opening
+  await page.locator(`${READY} button.on`).click();
+  const want = runsBrain ? 'OFFLINE BRAIN' : 'OFFLINE';
+  check(await until(page, (w) => document.body.dataset.tab === 'settings' && [...document.querySelectorAll('#pg-settings .pn.pushed .ptitle')].some((t) => t.textContent.startsWith(w)), want, 10000), `[${W}] [a] GET IT did not open Settings → ${want} (on ${await page.evaluate(() => document.body.dataset.tab)})`);
+  await page.waitForTimeout(300);
+  check(asked.length === 0, `[${W}] [a] looking fetched ${asked.length} files: ${asked.slice(0, 2).join(', ')}`);
+  // a pack that finished (its kept record) raises the number, and the panel says it is here
+  await page.evaluate(() => localStorage.setItem('ghosty.pack.kept', JSON.stringify({ 'eyes-lens': { files: 4, bytes: 20e6, at: Date.now() } })));
+  // (System counts again each time it is opened)
+  await page.evaluate(() => { location.hash = 'core'; });
+  await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
+  await openSystem(page, 'OFFLINE READY');
+  await until(page, (s) => /HERE/.test(document.querySelector(s)?.textContent ?? ''), READY, 8000);
+  const r1 = await readyNow(page);
+  const lensPct = runsBrain ? 15 : Math.round((15 / 58) * 100);
+  check(r1.pct === `${lensPct}%` && r1.rows.some((x) => x.id === 'eyes-lens' && x.state === 'here' && x.k === 'HERE'), `[${W}] [a] with the Lens's eyes kept it reads ${r1.pct} (want ${lensPct}%): ${JSON.stringify(r1.rows.find((x) => x.id === 'eyes-lens'))}`);
+  // the chat: answered on the phone, the panel opened
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForSelector('#cin', { state: 'visible', timeout: 15000 });
+  const sent = await page.evaluate(() => Date.now());
+  await page.fill('#cin', 'how ready are you offline?');
+  await page.keyboard.press('Enter');
+  const reply = await page.waitForFunction(({ t }) => {
+    const msgs = [...document.querySelectorAll('#pg-core .msg')];
+    const mine = msgs.map((m) => m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t).lastIndexOf(true);
+    const r = mine < 0 ? null : msgs.slice(mine + 1).find((m) => !m.classList.contains('me') && /works with no signal/.test(m.textContent ?? ''));
+    return r ? (r.textContent ?? '').replace(/\s+/g, ' ') : null;
+  }, { t: sent }, { timeout: 20000 }).then((h) => h.jsonValue(), () => '');
+  check(new RegExp(`${lensPct}% works with no signal right now\\. Here: the Lens’s eyes\\. Next: `).test(reply), `[${W}] [a chat] "how ready are you offline?" answered "${reply.slice(0, 200)}"`);
+  check(await until(page, () => document.body.dataset.tab === 'system', null, 8000), `[${W}] [a chat] the answer did not open System`);
+  await ctx.close();
+}
+
+// the seven worlds at 390, and BODY 21 at 440: nothing small, sideways or cut
+for (const world of WORLDS) {
+  const { ctx, page } = await phone(PHONE2, { world });
+  await openSystem(page, 'OFFLINE READY');
+  await until(page, (s) => !!document.querySelector(s)?.querySelector('.ordyhead'), READY);
+  await fit(page, `[390 ${world}] [a]`, READY);
+  await ctx.close();
+}
+{
+  const { ctx, page } = await phone(PHONE, { body: 21 });
+  await openSystem(page, 'OFFLINE READY');
+  await until(page, (s) => !!document.querySelector(s)?.querySelector('.ordyhead'), READY);
+  await fit(page, '[440 body 21] [a]', READY);
+  await page.screenshot({ path: `${out}/systemnext-ready-body21.png` });
+  await ctx.close();
+}
+
+// ================================================================== b. YOUR BACKUP AS A FILE
+for (const vp of [PHONE2]) {
+  const W = vp.width;
+  log(`${W}: the backup as a file`);
+  const { ctx, page } = await phone(vp, { store: { 'ghosty.radio.favs': JSON.stringify([{ id: 'sn-test', name: 'Spec Radio' }]) } });
+  await openSystem(page, 'BACKUP');
+  const save = page.locator('#pg-system button[data-act="backupfile"]');
+  check(await save.waitFor({ timeout: 15000 }).then(() => true, () => false), `[${W}] [b] no SAVE AS A FILE`);
+  await fit(page, `[${W}] [b]`, '#pg-system .backupfile');
+  const dl = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+  await save.click();
+  const d = await dl;
+  const name = d?.suggestedFilename() ?? '';
+  check(/^ghosty-backup-\d{4}-\d\d-\d\d\.json$/.test(name), `[${W}] [b] the file is named "${name}"`);
+  const path = d ? await d.path().catch(() => null) : null;
+  const body = path ? readFileSync(path, 'utf8') : '';
+  let doc = null;
+  try { doc = JSON.parse(body); } catch { /* checked below */ }
+  check(doc?.kind === 'ghosty-backup' && typeof doc?.sealed?.ct === 'string' && !body.includes('Spec Radio'), `[${W}] [b] the file is not the locked copy (or shows its contents): ${body.slice(0, 120)}`);
+  const said = await until(page, () => /^Saved ghosty-backup-.+\.json \(\d+(\.\d)? (KB|MB)\), locked with your owner key; keep it in Files or iCloud Drive\.$/.test(document.querySelector('#pg-system .backupmsg')?.textContent ?? ''), null, 10000);
+  check(said, `[${W}] [b] after SAVE it says "${await text(page, '#pg-system .backupmsg')}"`);
+  // a file that is not a backup is refused in his words
+  await page.locator('#pg-system .backupfile input[type=file]').setInputFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') });
+  check(await until(page, () => /isn’t one of my backups/.test(document.querySelector('#pg-system .backupmsg')?.textContent ?? ''), null, 8000), `[${W}] [b] a wrong file says "${await text(page, '#pg-system .backupmsg')}"`);
+  // the favourite gone from this phone, then the file brings it back: asked first, then restored and reloaded
+  await page.evaluate(() => localStorage.removeItem('ghosty.radio.favs'));
+  if (path) {
+    await page.locator('#pg-system .backupfile input[type=file]').setInputFiles(path);
+    const sheet = page.locator('.modal .confirm.sure, .modal button.sureyes').first();
+    check(await sheet.waitFor({ timeout: 8000 }).then(() => true, () => false), `[${W}] [b] OPEN A BACKUP FILE did not ask first`);
+    const nav = page.waitForEvent('load', { timeout: 30000 }).catch(() => null);
+    await page.locator('.modal button.sureyes').click();
+    await nav;
+    await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 }).catch(() => undefined);
+    const fav = await page.evaluate(() => localStorage.getItem('ghosty.radio.favs') ?? '');
+    check(/Spec Radio/.test(fav), `[${W}] [b] the restore from the file did not bring back the radio favourite: "${fav}"`);
+  }
+  await ctx.close();
+}
+
+// ================================================================== c. A HEADS-UP
+for (const vp of [PHONE, PHONE2]) {
+  const W = vp.width;
+  log(`${W}: the heads-up`);
+  const now = Date.now();
+  const status = { models: [{ provider: 'groq', model: 'chat', state: 'dead', info: 'The key was refused.' }], capacity: { summary: 'Plenty of room', providers: [{ provider: 'gemini', state: 'busy', roomNow: 2, perMinute: 10, usedToday: 460, perDay: 500, resetAt: now + 3600e3 }] } };
+  const { ctx, page } = await phone(vp, { status });
+  const toasted = await until(page, () => [...document.querySelectorAll('.toast, #toasts *')].some((t) => /Groq’s key has stopped working/.test(t.textContent ?? '')), null, 20000);
+  check(toasted, `[${W}] [c] no heads-up for the failing key`);
+  await openSystem(page, 'AI ROOM');
+  check(await until(page, () => document.querySelectorAll('#pg-system .headsup').length >= 2, null, 15000), `[${W}] [c] AI ROOM does not keep the heads-ups: "${await text(page, '#pg-system .airoom .bd')}"`);
+  const lines = await text(page, '#pg-system .headsup');
+  check(/Groq’s key has stopped working: The key was refused\. System, Keys: paste a fresh key/.test(lines) && /Gemini has used 460 of its 500 free calls today/.test(lines), `[${W}] [c] the heads-ups read "${lines}"`);
+  await fit(page, `[${W}] [c]`, '#pg-system .airoom');
+  // told once: a reload says nothing again
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  const again = await until(page, () => [...document.querySelectorAll('.toast, #toasts *')].some((t) => /Groq’s key has stopped working/.test(t.textContent ?? '')), null, 6000);
+  check(!again, `[${W}] [c] the heads-up was told twice`);
+  await ctx.close();
+}
+
+await browser.close();
+const secs = ((Date.now() - t0) / 1000).toFixed(0);
+if (problems.length) {
+  process.exitCode = 1;
+  console.log(`PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}`);
+} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, and a heads-up told once.`);
