@@ -9,7 +9,7 @@
  */
 import { A4, writePdf, type PdfImage, type PdfPage, type PdfRun } from '../convert/pdfwrite';
 import { fitsAnsi, textWidth, type PdfFont } from '../convert/fonts';
-import { pageOf, textOf, type Block, type Doc, type PageSetup, type Run } from './model';
+import { isColour, pageOf, textOf, TEXT_COLOURS, type Block, type Doc, type PageSetup, type Run } from './model';
 
 export const MARGIN = 70.87; // 2.5 cm
 const MARGINS = { normal: 70.87, narrow: 36.85, wide: 107.7 } as const;
@@ -48,6 +48,8 @@ interface Piece {
   w: number;
   u?: boolean;
   link?: boolean;
+  /** Its colour (WRITE → COLOUR). */
+  rgb?: [number, number, number];
 }
 
 /** Words broken into lines no wider than `width` (a word too long for a line is broken by letters). */
@@ -69,7 +71,7 @@ export function breakLines(runs: Run[], kind: 'serif' | 'sans', size: number, wi
   };
   for (const r of runs) {
     const font = fontFor(kind, !!r.b, italic || !!r.i);
-    const flags = { ...(r.u || r.href ? { u: true } : {}), ...(r.href ? { link: true } : {}) };
+    const flags = { ...(r.u || r.href ? { u: true } : {}), ...(r.href ? { link: true } : {}), ...(isColour(r.c) && !r.href ? { rgb: TEXT_COLOURS[r.c].rgb } : {}) };
     const parts = r.text.split(/(\n| +)/);
     for (const part of parts) {
       if (!part) continue;
@@ -153,7 +155,7 @@ export function layoutPages(d: Doc, imageOf?: (id: string) => PdfImage | null): 
   const drawLine = (line: Piece[], x0: number, base: number, size: number, extra: number, quote: boolean) => {
     let x = x0;
     for (const p of line) {
-      if (p.text.trim()) page.runs!.push({ x, y: base, text: p.text, font: p.font, size, ...(p.link ? { rgb: LINK } : quote ? { rgb: [0.27, 0.27, 0.27] as [number, number, number] } : {}) });
+      if (p.text.trim()) page.runs!.push({ x, y: base, text: p.text, font: p.font, size, ...(p.link ? { rgb: LINK } : p.rgb ? { rgb: p.rgb } : quote ? { rgb: [0.27, 0.27, 0.27] as [number, number, number] } : {}) });
       const adv = p.w + (p.text === ' ' ? extra : 0);
       if (p.u && p.text.trim()) page.lines!.push({ x1: x, y1: base - 1.6, x2: x + p.w, y2: base - 1.6, width: 0.6, ...(p.link ? { rgb: LINK } : {}) });
       x += adv;

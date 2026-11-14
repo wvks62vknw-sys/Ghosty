@@ -166,7 +166,8 @@ test('served straight at /s/<name>/: the exact policy, its one pinned script, it
   assert.match(page, /<script type="application\/json" id="game" data-save="ghosty-site:fox-script-script-alert-1-script-run" data-sw="\/s\/fox-script-script-alert-1-script-run\/page" data-scope="\/s\/fox-script-script-alert-1-script-run\/">/);
   assert.equal(G.saveKeyOf(name), `ghosty-site:${name}`, 'its saves: its own key on the phone, and only that');
   assert.match(page, new RegExp(`<link rel="manifest" href="/s/${name}/page"><link rel="apple-touch-icon" href="/s/${name}/page">`));
-  assert.equal((page.match(/data:image\/png/g) ?? []).length, 0, 'the icon is not in the page: it is fetched once, at its own address');
+  // (sites.u11: the front page's room pictures are data PNGs in the body; the icon is never one, in the head or anywhere outside the front page)
+  assert.equal((page.replace(/<section id="front"[\s\S]*?<\/section>/, '').match(/data:image\/png/g) ?? []).length, 0, 'the icon is not in the page: it is fetched once, at its own address');
   // the manifest: installable, standalone, at its own address, its icon once
   const m = await w.go(`/s/${name}/page`, { headers: { 'sec-fetch-dest': 'manifest' } });
   assert.match(m.headers.get('content-type'), /application\/manifest\+json/);
@@ -220,4 +221,62 @@ test('a game published a moment ago is served by the brain while KV has not caug
   const r2 = await w2.go('/s/fox-run/', { headers: { 'sec-fetch-dest': 'document' } });
   assert.equal(r2.status, 503);
   assert.match(await r2.text(), /player is being set up/);
+});
+
+// NEXT ROUND sites.u11: a published game's front page: its name, how to play, its rooms as pictures (made here, in the page as data),
+// his note if he gave one (said in the approval, written as text), and PLAY; the page's one style still pinned by its hash.
+test('a game\'s front page: its name, how to play, its rooms as pictures, his note as text, and PLAY', async () => {
+  const w = world();
+  const g = await fox();
+  await w.api('/api/sites/game', 'POST', { game: g });
+  const ap = await tool.approval({ name: 'Fox Run', note: 'Made with my nephew <b>Sam</b>.' }, w.ctx);
+  assert.match(ap.reason, /Its front page carries your note: “Made with my nephew <b>Sam<\/b>\.”\./);
+  await tool.run(ap.args, w.ctx);
+  const r = await w.go('/s/fox-run/', { headers: { 'sec-fetch-dest': 'document' } });
+  const page = await r.text();
+  const front = /<section id="front"[\s\S]*?<\/section>/.exec(page)?.[0] ?? '';
+  assert.match(front, /<h1>Fox Run<\/h1>/);
+  assert.match(front, /How to play<\/h2><ul><li>/);
+  assert.ok((front.match(/<img src="data:image\/png;base64,/g) ?? []).length === Math.min(6, g.rooms.length), 'a picture for each room');
+  assert.match(front, /<p class="note">Made with my nephew &lt;b>Sam&lt;\/b>\.<\/p>/, 'his note as text, never as markup');
+  assert.match(front, /<button class="play" type="button">PLAY<\/button>/);
+  const style = /<style>([\s\S]*?)<\/style>/.exec(page)[1];
+  assert.ok(r.headers.get('content-security-policy').includes(`style-src 'sha256-${sha(style)}'`), 'the one style, front page and all, pinned by its hash');
+  assert.match(style, /--fsky:#[0-9a-f]{6}/i);
+});
+
+// NEXT ROUND sites.u10: a game's high-score table, kept on the phone that plays it (beside its saves, under its own key), no names,
+// nothing sent; the line under GAME OVER says where the run landed; the share card's words.
+test('a game\'s high scores: the top ten on the phone, highest first, where a run landed, and the share card\'s words', async () => {
+  await build({ entryPoints: ['../web/src/studio-game/scores.ts', '../web/src/studio-game/play.ts'], bundle: true, format: 'esm', platform: 'neutral', outdir: 'test/.build/gamesites/scores', logLevel: 'warning' });
+  const S = await import('./.build/gamesites/scores/scores.js');
+  const P = await import('./.build/gamesites/scores/play.js');
+  assert.equal(S.scoresKey('ghosty-site:fox-run'), 'ghosty-site:fox-run:scores', 'its own key, beside the saves');
+  assert.deepEqual(S.readScores(null), []);
+  assert.deepEqual(S.readScores('not json'), []);
+  assert.deepEqual(S.readScores(JSON.stringify([{ score: 'x' }, { score: 5, won: false, at: 1, name: 'Sam' }, null])), [{ score: 5, won: false, at: 1 }], 'only score rows are kept, and nothing else they carry');
+  let list = [];
+  const places = [];
+  for (let i = 0; i < 12; i++) {
+    const r = S.addScore(list, { score: (i * 37) % 100, won: i % 3 === 0, at: 1000 + i });
+    list = r.list;
+    places.push(r.place);
+  }
+  assert.equal(list.length, S.TOP, 'ten rows at most');
+  assert.ok(list.every((s, i) => i === 0 || list[i - 1].score >= s.score), 'highest first');
+  assert.equal(places[0], 1);
+  const low = S.addScore(list, { score: 0, won: false, at: 5000 });
+  assert.equal(low.place, 0, 'a run below the table does not make it');
+  assert.equal(low.list.length, 10);
+  const tie = S.addScore(list, { score: list[0].score, won: false, at: 9000 });
+  assert.equal(tie.place, 2, 'on a tie, the earlier one stays above');
+  const best = { score: 999, won: true, at: Date.UTC(2026, 10, 14, 12) };
+  const top = S.addScore(list, best);
+  assert.equal(top.place, 1);
+  assert.match(S.scoreLine(best, top.list, 1), /^Score 999: a new best!$/);
+  assert.match(S.scoreLine({ score: 3, won: false, at: 1 }, [{ score: 3, won: false, at: 1 }], 1), /your first on this phone/);
+  assert.match(S.scoreLine(low.list[4], low.list, 5), /number 5 on this phone\. Your best is \d+\./);
+  assert.deepEqual(S.cardWords('Fox Run', best), ['Fox Run', 'I finished it with', '999', 'points on 14 Nov 2026', 'Made in Ghosty’s game studio']);
+  // what a run scores: ten a coin, fifty a quest, two hundred for the end (the same sum the arcade's engine uses)
+  assert.equal(P.scoreOf({ coins: 7, quests: { a: { done: true }, b: { done: false } }, over: 'won' }), 70 + 50 + 200);
 });
