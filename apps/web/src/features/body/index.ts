@@ -33,7 +33,7 @@ export const bodyTab: TabDef = {
           { id: 'sleep', label: 'Sleep', parts: [part('sleep')] },
           { id: 'mood', label: 'Mood', parts: [part('mood'), part('breathe'), part('stretch')] },
           { id: 'weight', label: 'Weight', parts: [part('weight')] },
-          { id: 'health', label: 'Health', parts: [part('health'), part('meds')] },
+          { id: 'health', label: 'Health', parts: [part('health'), part('meds'), part('week')] },
         ];
       },
     })),

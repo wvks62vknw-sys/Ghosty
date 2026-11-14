@@ -144,6 +144,30 @@ for (const vp of VIEWPORTS) {
   await page.screenshot({ path: `${out}/bodynext-plan-${vp.width}.png` });
   await bar(page, `${T} meal plan`, 'kitchen');
 
+  // ---- a2. HANDS-FREE COOKING (the ear stood in for by window.__ghosty.handsfree.hear)
+  log(`hands-free ${vp.width}`);
+  await open(page, 'kitchen', 'Recipes');
+  const RC = PK('kitchen');
+  await page.locator(`${RC} button[aria-label="Open Cheese omelette"]`).click();
+  await page.locator(`${RC} button[aria-label^="Cook hands-free"]`).click();
+  check(await until(page, (s) => document.querySelector(`${s} [data-step]`)?.dataset.step === '1' && (window.__ghosty?.handsfree?.said ?? []).some((x) => /^Step 1\. Beat 3 eggs/.test(x)), RC), `${T} HANDS-FREE opens on step 1 and reads it out`);
+  const tn = await page.evaluate(() => window.__ghosty.timers().length);
+  await page.evaluate(() => window.__ghosty.handsfree.hear('next please'));
+  check(await until(page, (s) => document.querySelector(`${s} [data-step]`)?.dataset.step === '2', RC), `${T} "next please" moves on`);
+  check(await until(page, (k) => window.__ghosty.timers().length === k + 1, tn), `${T} a step that names its minute starts its timer as it is read`);
+  check((await page.evaluate(() => window.__ghosty.handsfree.said.at(-1))).includes('started the timer'), `${T} it says the timer is on`);
+  await page.evaluate(() => window.__ghosty.handsfree.hear('go back'));
+  check(await until(page, (s) => document.querySelector(`${s} [data-step]`)?.dataset.step === '1', RC), `${T} "go back" goes back`);
+  const n1 = await page.evaluate(() => window.__ghosty.handsfree.said.length);
+  await page.evaluate(() => window.__ghosty.handsfree.hear('say that again'));
+  check(await until(page, (k) => window.__ghosty.handsfree.said.length === k + 1 && /^Step 1\./.test(window.__ghosty.handsfree.said.at(-1)), n1), `${T} "say that again" reads the step again`);
+  await page.evaluate(() => window.__ghosty.handsfree.hear('what a lovely day'));
+  check((await page.evaluate(() => window.__ghosty.handsfree.said.length)) === n1 + 1 && (await page.locator(`${RC} [data-step="1"]`).count()) === 1, `${T} other words are not cook-mode words`);
+  await bar(page, `${T} hands-free`, 'kitchen');
+  await page.evaluate(() => window.__ghosty.handsfree.hear('stop listening'));
+  check(await until(page, () => window.__ghosty.handsfree.on === false), `${T} "stop listening" ends hands-free`);
+  await page.evaluate(() => window.__ghosty.timers().forEach(() => undefined));
+
   // ---- b. TABLETS
   log(`tablets ${vp.width}`);
   const at = (h, m = 0) => page.evaluate(([hr, mi]) => { const d = new Date(); d.setHours(hr, mi, 0, 0); window.__ghostyClockOffset = d.getTime() - Date.now(); }, [h, m]);
@@ -218,6 +242,72 @@ for (const vp of VIEWPORTS) {
     check(r.ok, `${T} "did I take my tablets?": "${r.text.slice(0, 160)}"`);
     r = await ask(page, 'open my tablets', /Your tablets are open/);
     check(r.ok, `${T} "open my tablets": "${r.text.slice(0, 160)}"`);
+  }
+  await ctx.close();
+}
+
+// ---- g. YOUR WEEK: the review, the sleep score, the wind-down nudge and patterns, from 20 seeded days (made in the page, his own clock)
+for (const vp of VIEWPORTS) {
+  const T = `[${vp.width}]`;
+  log(`your week ${vp.width}`);
+  const { ctx, page } = await phone(vp);
+  await page.evaluate(() => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const dayOf = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    const noon = new Date(); noon.setHours(12, 0, 0, 0);
+    const log = { water: [], sleep: [], steps: [], weight: [], mood: [] };
+    for (let k = 1; k <= 20; k++) {
+      const t = noon.getTime() - k * 864e5;
+      const d = dayOf(t);
+      const walked = k % 2 === 0;
+      log.steps.push({ d, t, v: walked ? 10000 : 3000, from: 'tap' });
+      // the night after: kept on the next day, from a bedtime of 22:30 (a walked day) or 23:30
+      const wake = new Date(t + 864e5); wake.setHours(7, 0, 0, 0);
+      const hrs = walked ? 8.5 : 7.5;
+      log.sleep.push({ d: dayOf(wake.getTime()), t: wake.getTime(), v: hrs, from: 'tap', note: 'bed' });
+      log.mood.push({ d, t, v: walked ? 5 : 3, from: 'tap' });
+      log.water.push({ d, t, v: 2500, from: 'tap' });
+    }
+    localStorage.setItem('ghosty.body.track', JSON.stringify({ v: 1, log, set: {}, nudged: 0 }));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+  await open(page, 'body', 'Health');
+  const Y = `${PK('body')} .bt[data-track="week"]`;
+  await page.waitForSelector(`${Y} [data-review]`);
+  check((await page.locator(`${Y} .bc-cell[data-cell]`).count()) >= 5, `${T} the week side by side: water, sleep, steps, weight, mood`);
+  check(/^Best day: .*goals? met/.test(await txt(page, `${Y} [data-best]`)), `${T} the best day is picked out: "${await txt(page, `${Y} [data-best]`)}"`);
+  const score = Number(await page.getAttribute(`${Y} [data-score]`, 'data-score'));
+  check(score >= 50 && score <= 100, `${T} a sleep score out of 100: ${score}`);
+  check(/out of 100 from your last 7 nights, a rough score/.test(await txt(page, `${Y} .bc-score`)), `${T} the score says it is rough: "${await txt(page, `${Y} .bc-score`)}"`);
+  check(/^\d\d:\d\d$/.test(await page.getAttribute(`${Y} [data-usual]`, 'data-usual') ?? ''), `${T} his usual bedtime from his own nights`);
+  const pats = await txt(page, `${Y} [data-pattern]`);
+  check(/On the 10 days you walked 8,000 steps or more, you slept 60 min longer that night on average than on the 10 days you walked less/.test(pats), `${T} the steps and sleep pattern, as what happened: "${pats.slice(0, 200)}"`);
+  check(!/\b(?:should|will|try to|recommend|aim to)\b/i.test(pats) && /not advice or a forecast/.test(await txt(page, `${Y}`)), `${T} patterns are never advice or a forecast`);
+  await page.evaluate((s) => (document.querySelector(`${s} .bc-wind`).open = true), Y);
+  const n0 = await page.evaluate(() => (window.__ghosty?.lockpush?.sent ?? []).length);
+  await page.locator(`${Y} button[aria-label^="A wind-down nudge"]`).click();
+  check(await until(page, (n) => (window.__ghosty?.lockpush?.sent ?? []).slice(n).some((x) => x.key === 'wind' && x.repeat === 'daily'), n0, 10000), `${T} the wind-down nudge goes to the brain as a daily time`);
+  const wind = await page.evaluate(() => window.__ghosty.lockpush.sent.filter((x) => x.key === 'wind').at(-1));
+  check(wind && new Date(wind.at).getHours() === 22 && new Date(wind.at).getMinutes() === 30 && !/\d/.test(wind.text), `${T} half an hour before the usual 23:00, only the time: ${wind && new Date(wind.at).toTimeString().slice(0, 5)} "${wind?.text}"`);
+  await page.screenshot({ path: `${out}/bodynext-week-${vp.width}.png` });
+  await bar(page, `${T} your week`, 'body');
+  // mood tags
+  await open(page, 'body', 'Mood');
+  const MD = `${PK('body')} .bt[data-track="mood"]`;
+  await page.waitForSelector(`${MD} .bc-tags`);
+  await page.locator(`${MD} .bt-moods button`, { hasText: /^Great$/ }).first().click();
+  await page.locator(`${MD} .bc-tags button`, { hasText: /^Family$/ }).click();
+  check(await until(page, (s) => document.querySelector(`${s} .bc-tags button[aria-pressed="true"]`)?.textContent === 'Family', MD), `${T} a tag kept with today`);
+  check(await until(page, (s) => /On your good days this month: family \(1\)/.test(document.querySelector(`${s} [data-goodtags]`)?.textContent ?? ''), MD), `${T} the tags of good days: "${await txt(page, `${MD} [data-goodtags]`)}"`);
+  await bar(page, `${T} mood tags`, 'body');
+  if (vp.width === 440) {
+    let r = await ask(page, 'how was my week?', /The last 7 days: .*Best day/);
+    check(r.ok, `${T} "how was my week?": "${r.text.slice(0, 160)}"`);
+    r = await ask(page, 'my sleep score', /Your sleep score: \d+ out of 100/);
+    check(r.ok, `${T} "my sleep score": "${r.text.slice(0, 160)}"`);
+    r = await ask(page, 'any patterns?', /slept 60 min longer/);
+    check(r.ok, `${T} "any patterns?": "${r.text.slice(0, 160)}"`);
   }
   await ctx.close();
 }

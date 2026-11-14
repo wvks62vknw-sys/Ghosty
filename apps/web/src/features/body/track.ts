@@ -359,7 +359,9 @@ export function trackScreen(m: Metric): { el: HTMLElement; stop(): void } {
       b.setAttribute('aria-pressed', String(dayValue(data, 'mood', today()) === i + 1));
       return b;
     }));
-    return [row];
+    const tags = h('div.pkcol');
+    void import('./moodtags').then((t) => tags.replaceChildren(t.tagBox(today(), (d) => dayValue(load(), 'mood', d), say))).catch(() => undefined);
+    return [row, tags];
   }
   /** Steps from Health each evening: the Shortcut to make once, in four steps, and its link (the number lands here). */
   function shortcutBox(): HTMLElement {
@@ -489,7 +491,9 @@ export function trackScreen(m: Metric): { el: HTMLElement; stop(): void } {
       save();
       say(r.lock ? 'Nudges reach your lock screen too, through my brain’s push. It gets only the times to nudge, never how much you drink.' : 'Nudges only while Ghosty is open now.');
     });
-    b.setAttribute('aria-pressed', String(r.lock));
+    // (a switch, so it is told apart from the nudges' own on/off key)
+    b.setAttribute('role', 'switch');
+    b.setAttribute('aria-checked', String(r.lock));
     b.setAttribute('aria-label', 'Nudges on the lock screen');
     const n = nudgeState.lock.length;
     return h('div.pkcol', h('div.pkrow', b), h('p.pknote', { dataset: { lock: r.on && r.lock ? String(n) : 'off' } }, !r.on ? 'Turn nudges on first.' : !r.lock ? 'Off: nudges come only while Ghosty is open.' : n ? `The next ${n === 1 ? 'nudge' : `${n} nudges`} today ${n === 1 ? 'is' : 'are'} with my brain, from ${new Date(nudgeState.lock[0]!).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}: only the times, never your amounts. They need notifications on (Settings, Notifications).` : 'No nudge needed for the rest of today at this pace.'));
@@ -529,7 +533,9 @@ export function up(): string {
     save();
     return `That was ${hours(Math.max(0, hrs))}, which doesn’t look like a night, so I didn’t keep it. Tap last night’s hours instead.`;
   }
-  return add('sleep', hrs, 'tap');
+  const words = add('sleep', hrs, 'tap', 'bed');
+  void syncWind();
+  return words;
 }
 
 // ---------------------------------------------------------------- nudges
@@ -597,6 +603,33 @@ export async function syncLock(): Promise<void> {
   }
   nudgeState.lock = times.slice();
   for (const f of listeners) f();
+}
+
+// ---------------------------------------------------------------- for the week's room (./week.ts)
+
+export const todayKey = (): string => today();
+export const failedNow = (): string => failed;
+export const saveNow = (): boolean => save();
+/** Redraws on any change; returns what stops it. */
+export function onChange(f: () => void): () => void {
+  listeners.add(f);
+  return () => void listeners.delete(f);
+}
+/** The wind-down nudge: a daily reminder half an hour before his usual bedtime (only the time goes to my brain), sent again when it moves 10 minutes. */
+export async function syncWind(): Promise<void> {
+  const data = load();
+  const w = data.set.wind;
+  const { usualBed } = await import('./week');
+  const usual = w.on ? usualBed(data, today()) : null;
+  if (usual != null && w.jobs.length && w.at != null && Math.abs(usual - w.at) < 10) return;
+  if (usual == null && !w.jobs.length) return;
+  const { replaceLock, nextAt } = await import('./lockpush');
+  const { clockOf } = await import('./week');
+  const old = w.jobs.slice();
+  w.jobs = [];
+  w.jobs = await replaceLock('wind', old, usual == null ? [] : [{ at: nextAt(clockOf(usual - 30), now()), title: 'Wind down', text: 'Half an hour to your usual bedtime: time to wind down.', repeat: 'daily' }]);
+  w.at = usual;
+  save();
 }
 
 // ---------------------------------------------------------------- the chat

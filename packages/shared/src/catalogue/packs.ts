@@ -197,8 +197,8 @@ export const PACK_WORDS: Record<string, CatValue> = {
   'phrase:larder': { same: 'act:kitchen:recipe' },
   'phrase:bodycoach': {
     name: 'Kitchen and body coach', line: 'You can plan the week from your recipes, put what the pantry lacks on the list, and keep your tablets with lock-screen reminders.',
-    more: 'KITCHEN → MEAL PLAN: FILL THE EMPTY DAYS from your book, then SHOPPING FOR THE WEEK adds what is missing, each once. BODY → Health → TABLETS: each reminder is on my brain’s clock so it reaches a locked phone, with only the time; ticks and the refill countdown stay on the phone. Never medical advice.',
-    say: ['Plan my dinners', 'Shopping for the week', 'I took my tablets', 'Did I take my tablets?'], scene: ['making', 'morning', 'phone'], cat: 'do', since: SINCE,
+    more: 'KITCHEN → MEAL PLAN: FILL THE EMPTY DAYS from your book, then SHOPPING FOR THE WEEK adds what is missing, each once. BODY → Health → TABLETS: each reminder is on my brain’s clock so it reaches a locked phone, with only the time; ticks and the refill countdown stay on the phone. BODY → Health → YOUR WEEK: the week side by side with your best day, a rough sleep score, a wind-down nudge, and patterns told as what happened. Never medical advice.',
+    say: ['Plan my dinners', 'Shopping for the week', 'I took my tablets', 'How was my week?', 'My sleep score', 'Any patterns?'], scene: ['making', 'morning', 'phone'], cat: 'do', since: SINCE,
     go: { run: 'open_kitchen', args: { what: 'plan' } }, tryText: 'Opens the meal plan',
   },
   'act:kitchen:shop': {

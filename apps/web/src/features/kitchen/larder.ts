@@ -251,6 +251,11 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
   let openId = '';
   let serves = 0;
   let step = -1;
+  let hands: { say(text: string): Promise<void>; stop(): void } | null = null;
+  const handsOff = () => {
+    hands?.stop();
+    hands = null;
+  };
   const draw = () => {
     const all = book();
     const cur = all.find((x) => x.d.id === openId);
@@ -281,6 +286,7 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
     const base = x.mine?.serves ?? 2;
     const back = button('All recipes', () => {
       openId = '';
+      handsOff();
       draw();
     });
     back.setAttribute('aria-label', 'Back to all recipes');
@@ -311,37 +317,70 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
         stateIn(status, 'error', 'My brain didn’t answer, so the meal plan didn’t change. Try again in a moment.');
       }
     });
-    // cook mode: one step at a time, a timer for a step that says its minutes
+    // cook mode: one step at a time, a timer for a step that says its minutes; HANDS-FREE reads each step and hears next/back
+    const timerFor = async (secs: number) => {
+      const m = await import('./timers');
+      m.startTimers([{ secs, name: d.name.toLowerCase() }]);
+      stateIn(status, '', `A ${Math.round(secs / 60)}-minute timer for the ${d.name.toLowerCase()} is running: the Timers pill has it.`);
+    };
+    const goStep = (n: number) => {
+      if (n >= d.steps.length) {
+        step = -1;
+        handsOff();
+        stateIn(status, '', `${d.name}: done. Enjoy it.`);
+      } else step = Math.max(0, n);
+      draw();
+      if (hands && step >= 0) readStep();
+    };
+    const readStep = () => {
+      const s = d.steps[step] ?? '';
+      const secs = secondsIn(s);
+      void hands?.say(`Step ${step + 1}. ${s}${secs ? ' I’ve started the timer.' : ''}`);
+      if (secs) void timerFor(secs);
+    };
     const cook: HTMLElement[] = [];
+    const handsKey = button(hands ? 'Hands-free: on' : 'Hands-free', async () => {
+      if (hands) {
+        handsOff();
+        stateIn(status, '', 'Hands-free off: tap the keys to move on.');
+        return draw();
+      }
+      const m = await import('./handsfree');
+      hands = m.handsFree((w) => {
+        if (w === 'next') goStep(step + 1);
+        else if (w === 'back') goStep(step - 1);
+        else if (w === 'repeat') readStep();
+        else if (w === 'timer') {
+          const secs = secondsIn(d.steps[step] ?? '');
+          if (secs) void timerFor(secs);
+          else void hands?.say('This step has no time in it.');
+        } else {
+          handsOff();
+          draw();
+        }
+      }, (why) => stateIn(status, '', why));
+      if (step < 0) step = 0;
+      stateIn(status, '', 'Hands-free: I read each step. Say “next”, “back”, “repeat” or “timer”.');
+      draw();
+      readStep();
+    }, hands ? 'on' : '');
+    handsKey.setAttribute('aria-pressed', String(!!hands));
+    handsKey.setAttribute('aria-label', 'Cook hands-free: each step read out, say next or back');
     if (step < 0) {
-      const go = button('Cook it, step by step', () => {
-        step = 0;
-        draw();
-      }, 'on');
-      cook.push(h('div.pkrow', go), h('ol.pklist', ...d.steps.map((s) => h('li', s))));
+      const go = button('Cook it, step by step', () => goStep(0), 'on');
+      cook.push(h('div.pkrow', go, handsKey), h('ol.pklist', ...d.steps.map((s) => h('li', s))));
     } else {
       const s = d.steps[step] ?? '';
       const secs = secondsIn(s);
-      const prev = button('Back a step', () => {
-        step = Math.max(0, step - 1);
-        draw();
-      });
-      const next = button(step + 1 < d.steps.length ? 'Next step' : 'Done', () => {
-        step = step + 1 < d.steps.length ? step + 1 : -1;
-        if (step < 0) stateIn(status, '', `${d.name}: done. Enjoy it.`);
-        draw();
-      }, 'on');
+      const prev = button('Back a step', () => goStep(step - 1));
+      const next = button(step + 1 < d.steps.length ? 'Next step' : 'Done', () => goStep(step + 1), 'on');
       const row = h('div.pkrow', prev, next);
       if (secs) {
-        const t = button(`Timer ${Math.round(secs / 60)} min`, async () => {
-          const m = await import('./timers');
-          m.startTimers([{ secs, name: d.name.toLowerCase() }]);
-          stateIn(status, '', `A ${Math.round(secs / 60)}-minute timer for the ${d.name.toLowerCase()} is running: the Timers pill has it.`);
-        });
+        const t = button(`Timer ${Math.round(secs / 60)} min`, () => void timerFor(secs));
         t.setAttribute('aria-label', `Start a ${Math.round(secs / 60)} minute timer`);
         row.append(t);
       }
-      cook.push(h('p.kl-step', { dataset: { step: String(step + 1) } }, h('small', `Step ${step + 1} of ${d.steps.length}`), h('span', s)), row);
+      cook.push(h('p.kl-step', { dataset: { step: String(step + 1) } }, h('small', `Step ${step + 1} of ${d.steps.length}`), h('span', s)), row, h('div.pkrow', handsKey));
     }
     const kids: (HTMLElement | null)[] = [
       h('div.pkrow', back),
@@ -379,7 +418,10 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
   };
   listeners.add(draw);
   draw();
-  return { el, stop: () => void listeners.delete(draw) };
+  return { el, stop: () => {
+    handsOff();
+    listeners.delete(draw);
+  } };
 }
 
 // ---------------------------------------------------------------- the chat

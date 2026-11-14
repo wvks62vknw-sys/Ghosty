@@ -50,6 +50,8 @@ export interface TrackSettings {
   weightGoal: number | null;
   /** When he said he went to bed (ms), until he says he is up. */
   bedAt: number | null;
+  /** The wind-down nudge before his usual bedtime: on or off, the brain's daily reminder, the bedtime it was set from (min after 18:00). */
+  wind: { on: boolean; jobs: string[]; at: number | null };
 }
 export const DEFAULTS: TrackSettings = {
   waterGoal: null,
@@ -60,6 +62,7 @@ export const DEFAULTS: TrackSettings = {
   heightCm: null,
   weightGoal: null,
   bedAt: null,
+  wind: { on: false, jobs: [], at: null },
 };
 
 export interface TrackData {
@@ -69,7 +72,7 @@ export interface TrackData {
   /** The last water nudge (ms). */
   nudged: number;
 }
-export const empty = (): TrackData => ({ v: 1, log: { water: [], sleep: [], steps: [], weight: [], mood: [] }, set: { ...DEFAULTS, remind: { ...DEFAULTS.remind, jobs: [] }, cups: [] }, nudged: 0 });
+export const empty = (): TrackData => ({ v: 1, log: { water: [], sleep: [], steps: [], weight: [], mood: [] }, set: { ...DEFAULTS, remind: { ...DEFAULTS.remind, jobs: [] }, wind: { on: false, jobs: [], at: null }, cups: [] }, nudged: 0 });
 
 /** Reads what the phone kept, mending anything missing or of the wrong shape, so a broken record never breaks the screen. */
 export function mend(raw: unknown): TrackData {
@@ -91,6 +94,8 @@ export function mend(raw: unknown): TrackData {
   out.set.heightCm = s.heightCm == null ? null : num(s.heightCm, 100, 250, 0) || null;
   out.set.weightGoal = s.weightGoal == null ? null : num(s.weightGoal, 25, 350, 0) || null;
   out.set.bedAt = typeof s.bedAt === 'number' && Number.isFinite(s.bedAt) ? s.bedAt : null;
+  const wd = (s.wind ?? {}) as Partial<TrackSettings['wind']>;
+  out.set.wind = { on: wd.on === true, jobs: Array.isArray(wd.jobs) ? wd.jobs.filter((x): x is string => typeof x === 'string').slice(0, 2) : [], at: typeof wd.at === 'number' && Number.isFinite(wd.at) ? wd.at : null };
   out.nudged = num(r.nudged, 0, 1e15, 0);
   return out;
 }

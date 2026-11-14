@@ -14,9 +14,9 @@ import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { sayError } from '../../ui/hisWords';
 
-export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water' | 'sleep' | 'steps' | 'weight' | 'mood' | 'meds';
+export type BodyWhat = 'reps' | 'run' | 'breathe' | 'stretch' | 'health' | 'water' | 'sleep' | 'steps' | 'weight' | 'mood' | 'meds' | 'week';
 /** Each screen's name, as its sheet's title and as its panel on the BODY screen (features/body/index.ts). */
-export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY', sleep: 'SLEEP', steps: 'STEPS', weight: 'WEIGHT', mood: 'MOOD', meds: 'TABLETS' };
+export const BODY_TITLES: Record<BodyWhat, string> = { reps: 'COUNT MY REPS', run: 'RUNNING COACH', breathe: 'BREATHE', stretch: 'STRETCH SET', health: 'MY HEALTH WEEK', water: 'WATER TODAY', sleep: 'SLEEP', steps: 'STEPS', weight: 'WEIGHT', mood: 'MOOD', meds: 'TABLETS', week: 'YOUR WEEK' };
 const TITLES = BODY_TITLES;
 
 /** What the screens are doing, for the specs (window.__ghosty.body). */
@@ -52,6 +52,7 @@ export async function bodyScreen(w: BodyWhat, args: Record<string, unknown> = {}
     : w === 'stretch' ? (await import('./calm')).stretchScreen()
     : w === 'health' ? (await import('./health')).healthScreen()
     : w === 'meds' ? (await import('./meds')).medsScreen()
+    : w === 'week' ? await (await import('./week')).weekScreen()
     : (await import('./track')).trackScreen(w);
 }
 

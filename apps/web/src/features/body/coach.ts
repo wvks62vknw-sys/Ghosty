@@ -56,5 +56,24 @@ export async function coachTurn(text: string): Promise<CoachReply | null> {
     }
     return { reply: `On the shopping list for ${w.dishes.length} dinner${w.dishes.length === 1 ? '' : 's'}: ${w.add.map((n) => (w.count[n]! > 1 ? `${n} (×${w.count[n]})` : n)).join(', ')}.${tail}`, go: kitchen('shopping') };
   }
+  if (k === 'review' || k === 'sleepscore' || k === 'patterns') {
+    const t = await import('./track');
+    const w = await import('./week');
+    const data = t.load();
+    const day = t.todayKey();
+    if (k === 'sleepscore') {
+      const sc = w.sleepScore(data, day);
+      return { reply: sc ? `Your sleep score: ${sc.score} out of 100 from your last ${sc.nights} nights (how long ${sc.duration}, how regular ${sc.regularity}, sleep debt ${sc.debt}). ${w.ROUGH}` : 'Keep three nights in a week, with GOING TO BED and I’M UP or last night’s hours, and your sleep score shows.', go: body('week') };
+    }
+    if (k === 'patterns') {
+      const tags = await import('./moodtags').then((m) => m.tagDays()).catch(() => []);
+      const ps = w.patterns(data, day, { tags });
+      return { reply: ps.length ? `${ps.map((p) => p.words).join(' ')} ${w.WHAT_HAPPENED}` : 'No pattern yet: each needs at least three days on each side in your own numbers.', go: body('week') };
+    }
+    const meds = await import('./meds').catch(() => null);
+    const r = w.weekReview(data, day, { water: t.goalOf('water', data).v, sleep: t.goalOf('sleep', data).v, steps: t.goalOf('steps', data).v }, meds && meds.loadMeds().meds.length ? meds.weekOf() : undefined);
+    if (!r.kept) return { reply: 'Nothing kept this week yet. Log water, sleep, steps or your mood and the week fills in.', go: body('week') };
+    return { reply: `The last 7 days: ${r.cells.filter((c) => c.value !== 'none kept').map((c) => `${c.label.toLowerCase()} ${c.value}`).join('; ')}.${r.best ? ` Best day: ${r.best.words}` : ''} ${w.ROUGH}`, go: body('week') };
+  }
   return null;
 }

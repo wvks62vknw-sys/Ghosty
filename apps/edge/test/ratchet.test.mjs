@@ -100,6 +100,7 @@ export const STATES = {
   'body.mood': { dir: 'body', base: 0, now: 2 },
   // NEXT ROUND, BODY AND KITCHEN lane: tablets and supplements (features/body/meds.ts)
   'body.meds': { dir: 'body', base: 0, now: 3 },
+  'body.week': { dir: 'body', base: 0, now: 2 },
   'kitchen.timers': { dir: 'kitchen', base: 1, now: 3 },
   'kitchen.shopping': { dir: 'kitchen', base: 2, now: 4 },
   'kitchen.plan': { dir: 'kitchen', base: 1, now: 4 },
