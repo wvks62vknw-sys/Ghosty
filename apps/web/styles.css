@@ -12185,3 +12185,12 @@ html .al-pro-shothero b { font: 700 22px/28px var(--g-font-display); color: var(
 html .al-pro-shotrow { display: flex; align-items: center; gap: var(--g-s-1); min-height: 36px; border-bottom: var(--g-hair) solid var(--g-line-faint); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .al-pro-shotrow i { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--al-accent-soft); }
 html.al-covered #pg-apps .al-lib { visibility: hidden; }
+/* the header's keys: the chevron points back (left) whatever another rule turns, and every glyph reads at size in the app's accent */
+html body .ak-head .al-back { transform: none; }
+html body .ak-head .al-back:active { transform: scale(.97); }
+html body .al-pro-app .ak-head .ak-hkey { width: var(--g-target); height: var(--g-target); min-width: var(--g-target); color: var(--al-accent); }
+html body .al-pro-app .ak-head .ak-hkey .ic { width: 26px; height: 26px; stroke: currentColor; stroke-width: 2.2; }
+html body .al-pro-app .ak-head .al-pro-more .ic { fill: currentColor; stroke-width: 1.2; }
+/* Today's picks and every icon row: four even columns across the width, each icon centred in its column */
+html body .al-lib .al-pro-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); justify-items: stretch; width: 100%; }
+html body .al-lib .al-pro-tiles .al-tile { width: 100%; align-items: center; }

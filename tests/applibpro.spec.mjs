@@ -125,6 +125,10 @@ let SK = {};
   check(!tierMore || await page.locator('#pg-apps .al-shelf[data-shelf="more"]').count() === 1, `[library] ${tierMore} apps are tier 'more' but there is no MORE APPS`);
   let m = await measure(page, '#pg-apps');
   check(ok(m), `[library 440] ${JSON.stringify(m)}`);
+  // Today's picks: four across, evenly spaced over the width
+  const picks = await page.evaluate(() => [...document.querySelectorAll('#pg-apps [data-shelf="featured"] .al-pro-tiles .al-pro-tile')].map((t) => { const r = t.getBoundingClientRect(); return r.left + r.width / 2; }));
+  const gaps = picks.slice(1).map((x, i) => x - picks[i]);
+  check(picks.length === 4 && Math.max(...gaps) - Math.min(...gaps) < 2 && picks[0] > 40 && Math.abs((picks[0] + picks[3]) / 2 - 220) < 4, `[library] Today's picks are not four evenly across: ${picks.map(Math.round).join(', ')}`);
   await page.screenshot({ path: `${out}/applibpro-library.png` });
   // accents differ across the families (each tile's gradient from its family's hue)
   const accents = await page.evaluate((ids) => {
@@ -159,6 +163,9 @@ let SK = {};
   let s = await A(page);
   check(s.hash === `#apps/${first.id}` && s.pro.open === first.id && s.lib.view === 'app', `[open] ${JSON.stringify(s)}`);
   check(await page.evaluate(() => document.documentElement.classList.contains('al-open')), '[open] the page is not marked open');
+  // the header: the chevron points left (never mirrored), and back, search and ⋯ are 44 pt with a glyph at size in the accent
+  const head = await page.evaluate(() => [...document.querySelectorAll('.al-pro-frame .ak-head .ak-hkey')].map((k) => { const r = k.getBoundingClientRect(), g = k.querySelector('.ic').getBoundingClientRect(), t = new DOMMatrix(getComputedStyle(k).transform === 'none' ? undefined : getComputedStyle(k).transform); return { l: k.getAttribute('aria-label'), w: r.width, h: r.height, g: g.width, flip: t.a < 0 || t.m11 < 0 || /rotateY|matrix3d/.test(getComputedStyle(k).transform) }; }));
+  check(head.length >= 3 && head.every((x) => x.w >= 44 && x.h >= 44 && x.g >= 22 && !x.flip), `[header] the keys: ${JSON.stringify(head)}`);
   // the coach marks: once, then never again; ⋯ → How it works plays them again
   check(await page.locator('.al-pro-coach .al-pro-coachwords').count() === 1, '[coach] the coach marks did not show on the first run');
   check(await page.locator('.al-pro-frame .ak-tour:visible').count() === 0, '[coach] the tour banner still shows');
