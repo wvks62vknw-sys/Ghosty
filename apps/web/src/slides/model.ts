@@ -50,7 +50,8 @@ export interface Build {
   el: Elem;
   how: Anim;
 }
-export type Transition = 'none' | 'fade' | 'push';
+/** 'morph' is MAGIC MOVE: what is on both slides glides from its old place to its new one (PowerPoint's Morph). */
+export type Transition = 'none' | 'fade' | 'push' | 'morph';
 export interface Slide {
   id: string;
   layout: Layout;
@@ -92,7 +93,7 @@ let seq = 0;
 const uid = (p: string): string => `${p}${Date.now().toString(36)}${(++seq).toString(36)}`;
 export const SHAPE_NAMES: Record<ShapeKind, string> = { rect: 'Rectangle', round: 'Rounded', ellipse: 'Ellipse', arrow: 'Arrow', line: 'Line' };
 export const ANIMS: Anim[] = ['appear', 'fade', 'rise'];
-export const TRANSITIONS: Transition[] = ['none', 'fade', 'push'];
+export const TRANSITIONS: Transition[] = ['none', 'fade', 'push', 'morph'];
 
 export const bullets = (lines: string[]): Block[] => lines.map((l) => block('ul', l));
 export const plainOf = (blocks: Block[]): string => blocks.map(textOf).join('\n');

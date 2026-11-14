@@ -605,7 +605,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       ),
       notesKey,
       out,
-      h('p.slnote', 'In the PowerPoint file a chart is its numbers, a table on the slide; transitions and skipped slides go with it, the builds do not. In the PDF and the picture each slide is drawn as a picture, the chart as it looks here.'),
+      h('p.slnote', 'In the PowerPoint file a chart is its numbers, a table on the slide; transitions, builds and skipped slides go with it (each build is a PowerPoint animation). In the PDF and the picture each slide is drawn as a picture, the chart as it looks here.'),
       sizeNote,
     );
   };
@@ -1252,9 +1252,10 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     up.disabled = i === 0;
     down.disabled = i === d.slides.length - 1;
     const trans = h('div.slrow', ...TRANSITIONS.map((t) => {
-      const b = key(t === 'none' ? 'NO TRANSITION' : t === 'fade' ? 'FADE' : 'PUSH', () => {
+      const b = key(t === 'none' ? 'NO TRANSITION' : t === 'fade' ? 'FADE' : t === 'push' ? 'PUSH' : 'MAGIC MOVE', () => {
         change(withSlide(deck(), curId, (x) => ({ ...x, transition: t as Transition })), 'none');
         trans.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        if (t === 'morph') say('Magic Move: in the talk, what is on both slides glides from the last slide to its place here. PowerPoint plays it as Morph.');
       });
       b.setAttribute('aria-pressed', String(s.transition === t));
       return b;
@@ -1319,7 +1320,7 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
       trans,
       h('small.slh', 'ON A TAP IN THE TALK'),
       builds,
-      h('p.slnote', 'Transitions and builds show in the talk. The PowerPoint file carries the transition, not the builds.'),
+      h('p.slnote', 'Transitions and builds show in the talk, and the PowerPoint file carries both: APPEARS, FADES IN and RISES IN become its Appear, Fade and Fly In.'),
     );
   }
 
@@ -1422,13 +1423,34 @@ export function slidesParts(hooks: { onChange?: () => void } = {}): { el: HTMLEl
     };
     const paint = (fresh: boolean, changed: boolean): void => {
       const s = d.slides[i]!;
+      // MAGIC MOVE: where each part was on the slide before (in the slide's own units), so the same part glides to its new place
+      const before = new Map<string, DOMRect>();
+      if (changed && s.transition === 'morph') holder.querySelectorAll<SVGGraphicsElement>('[data-el]').forEach((g) => { try { before.set(g.dataset.el ?? '', g.getBBox()); } catch { /* not drawn */ } });
       holder.innerHTML = slideSvg(d, s, { n: i + 1, of: d.slides.length, image, measure });
-      holder.classList.remove('sltr-fade', 'sltr-push');
+      holder.classList.remove('sltr-fade', 'sltr-push', 'sltr-morph');
       slidesState.present.transition = '';
       if (changed && s.transition !== 'none' && !still()) {
         void holder.offsetWidth;
         holder.classList.add(`sltr-${s.transition}`);
         slidesState.present.transition = s.transition;
+        if (s.transition === 'morph') {
+          let moved = 0;
+          holder.querySelectorAll<SVGGraphicsElement>('[data-el]').forEach((g) => {
+            const o = before.get(g.dataset.el ?? '');
+            let n: DOMRect | null = null;
+            try { n = g.getBBox(); } catch { n = null; }
+            if (!o || !n || !n.width || !n.height || !o.width || !o.height) {
+              g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease-out', fill: 'backwards', delay: 200 });
+              return;
+            }
+            const sx = o.width / n.width;
+            const sy = o.height / n.height;
+            moved++;
+            g.style.transformOrigin = '0 0';
+            g.animate([{ transform: `translate(${o.x - n.x * sx}px, ${o.y - n.y * sy}px) scale(${sx}, ${sy})` }, { transform: 'none' }], { duration: 700, easing: 'cubic-bezier(.3,.7,.2,1)' });
+          });
+          holder.dataset.moved = String(moved);
+        }
       }
       reveal(fresh);
       count.textContent = `${i + 1} of ${d.slides.length}`;

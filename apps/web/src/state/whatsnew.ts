@@ -15,6 +15,8 @@ export interface NewThing {
 
 export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Voice notes into tidy pages', line: 'Workspace → VOICE NOTE (or say “take a voice note”): talk for a few minutes and I turn it into a clean page or document, with the actions as to-dos. Offline, the recording waits on your phone.' },
+  // [editors grid] the NEXT ROUND's spreadsheet and presentation tools
+  { day: '2026-11-14', title: 'Slide builds go to PowerPoint', line: 'Presentations: what comes in on a tap, and the new MAGIC MOVE between slides, are kept in the PowerPoint file as its own animations and Morph, and come back when you open one.' },
   // [consistency] the list stopped at 31 Oct while every November landing went unsaid (FINAL-CONSISTENCY)
   { day: '2026-11-13', title: 'Seven editors under EDITORS', line: 'Make → EDITORS: documents, spreadsheets, presentations, the workspace, a photo editor, a video editor and THE GAME STUDIO, each a pill of its own, each kept on your phone.' },
   { day: '2026-11-13', title: 'Photo and video, done properly', line: 'PHOTO opens RAW photos, cuts out a subject and removes an object; VIDEO steadies a clip, finds the best ones, cuts on the beat, reverses and ramps the speed. Every download waits for your tap on Wi-Fi.' },

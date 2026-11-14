@@ -8450,6 +8450,7 @@ html .hubtile .kick.long .nm { letter-spacing: 0; }
 .slin-rise { animation: slrise .55s var(--g-ease, ease) both; }
 .sltr-fade { animation: slfadein .45s var(--g-ease, ease) both; }
 .sltr-push { animation: slpush .4s var(--g-ease, ease) both; }
+.sltr-morph [data-el] { transform-box: view-box; }
 @keyframes slappear { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slfadein { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slrise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }

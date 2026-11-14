@@ -44,6 +44,15 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_slides' }, tryText: 'Opens my slides',
   },
   'phrase:slides': { same: 'hub:slides' },
+  // [editors grid, NEXT ROUND] the builds and Magic Move carried in and out of PowerPoint (editors.u4)
+  'deck:slides:builds-and-magic-move-kept-in': {
+    name: 'Builds and Magic Move in PowerPoint',
+    line: 'You can have parts of a slide come in on a tap and glide between slides, and PowerPoint plays both the same way.',
+    more: 'On a slide, SLIDE sets how each part comes in: it appears, fades in or rises in. MAGIC MOVE glides what is on both slides from the last slide to its place. The PowerPoint file carries them as its own Appear, Fade, Fly In and Morph, and a PowerPoint file you open brings its animations in as builds, saying once what it could not keep.',
+    say: ['Open my slides', 'Open a PowerPoint file'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { open: 'slides' }, tryText: 'Opens my slides',
+  },
   'hub:workspace': {
     name: 'Pages, projects and databases',
     line: 'You can keep pages inside pages and a project with its tasks and dates, and I read all of it before I answer.',
