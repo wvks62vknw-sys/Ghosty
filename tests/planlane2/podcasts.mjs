@@ -16,8 +16,8 @@ function longTone(sec = 240, rate = 8000) {
   return b;
 }
 const LONG = longTone();
-async function radioPhone(H, vp, world) {
-  const p = await H.phone(vp, world, { 'ghosty.radio.last': JSON.stringify(FM) }, 21);
+async function radioPhone(H, vp, world, seed = {}) {
+  const p = await H.phone(vp, world, { 'ghosty.radio.last': JSON.stringify(FM), ...seed }, 21);
   await p.page.route(/^https:\/\/spec-lane\.test-radio\.example\//, (r) => r.fulfill({ status: 200, contentType: 'audio/wav', body: LONG }));
   return p;
 }
@@ -29,6 +29,8 @@ async function leftByReload(H, page, at, kind = '30') {
   await H.open(page, 'radio');
 }
 const onAir = (page) => page.waitForFunction(() => /ON AIR/i.test(document.querySelector('#pg-radio .pn.nowp .nptx small')?.textContent ?? '') || navigator.mediaSession?.playbackState === 'playing', null, { timeout: 15000 }).then(() => true, () => false);
+/** The chip once it reads `want` (a stream that buffers says Connecting for a moment), else what it reads. */
+const chipSays = (page, want) => page.waitForFunction((w) => document.querySelector('#top .nowplaying')?.textContent === w, want, { timeout: 8000 }).then(() => want, () => chipText(page));
 const chipText = (page) => page.evaluate(() => { const b = document.querySelector('#top .nowplaying'); return b && !b.hidden ? b.textContent ?? '' : ''; });
 
 export async function run(H) {
@@ -40,6 +42,14 @@ export async function run(H) {
   check(W.CARRY_ON === 'PLAY AND KEEP THE TIMER', 'the key in his words');
   check(W.chipStops(t23) === 'stops 23:10', `the chip's part: ${W.chipStops(t23)}`);
   check(W.carriedOn(t23, t23 - 25 * 60_000) === 'Playing again: the radio still goes quiet at 23:10 (in 25 min), then stops.', `the toast: ${W.carriedOn(t23, t23 - 25 * 60_000)}`);
+  check(W.carriedOn(t23, t23 - 25 * 60_000, 'Radio 4') === 'Playing Radio 4 again: it still goes quiet at 23:10 (in 25 min), then stops.', `the chat's line: ${W.carriedOn(t23, t23 - 25 * 60_000, 'Radio 4')}`);
+  const A = await H.pure('apps/web/src/features/radio/asks.ts');
+  for (const w of ['carry on with the sleep timer', 'play and keep the timer', 'Play it again and keep the sleep timer', 'keep the sleep timer', 'put the sleep timer back on', 'bring back the sleep timer', 'carry on with the radio and the timer'])
+    check(A.radioAsked(w)?.what === 'carryOn', `"${w}" carries on: ${JSON.stringify(A.radioAsked(w))}`);
+  // never VOICE's words, and the old ones keep their meaning
+  for (const w of ['play music', 'play the radio', 'stop the radio', 'open the radio', 'keep the radio on', 'play my podcast'])
+    check(A.radioAsked(w)?.what !== 'carryOn', `"${w}" is not the carry-on: ${JSON.stringify(A.radioAsked(w))}`);
+  check(A.radioAsked('keep the radio on')?.what === 'sleepOff', '"keep the radio on" still takes the timer off');
   log('podcasts: the sleep timer words');
 
   // ---- 2. the phone: the offer after a reload, one tap carries on with the same stop time, the chip shows it; PLAY alone drops it
@@ -66,7 +76,7 @@ export async function run(H) {
     await page.waitForFunction((t) => (document.querySelector('#pg-radio .npsleepl')?.textContent ?? '').startsWith(`Goes quiet at ${t}`), hhmm(at), { timeout: 5000 }).catch(async () => check(false, `[${vp.width}] the timer's line: ${await page.textContent('#pg-radio .npsleepl').catch(() => '')}`));
     check((await page.getAttribute('#pg-radio .npsleepk button[aria-label="Stop the radio in 30 minutes"]', 'aria-pressed').catch(() => '')) === 'true', `[${vp.width}] the key that set it is still lit`);
     check(!(await page.$('#pg-radio .pn.nowp .nplost')), `[${vp.width}] the offer goes once it plays`);
-    const chip = await chipText(page);
+    const chip = await chipSays(page, `♪ Spec Lane FM · stops ${hhmm(at)}`);
     check(chip === `♪ Spec Lane FM · stops ${hhmm(at)}`, `[${vp.width}] the top bar's chip: ${chip}`);
     const cf = await page.evaluate(() => {
       const c = document.querySelector('#top .nowplaying')?.getBoundingClientRect();
@@ -111,11 +121,36 @@ export async function run(H) {
   }
   log('podcasts: the sleep timer after a reload, the phone');
 
+  // ---- 2b. the same by chat, with no model: how long is left says it is kept; "carry on with the sleep timer" plays on with it
+  {
+    const vp = H.PHONE2;
+    const { ctx, page } = await radioPhone(H, vp, 'scan');
+    await H.open(page, 'radio');
+    const at = Date.now() + 35 * 60_000;
+    await leftByReload(H, page, at, '45');
+    const left = await H.ask(page, 'how long until the radio stops', /sleep timer for \d\d:\d\d is kept/);
+    check(left.ok && left.text.includes(`The page reloaded, so Spec Lane FM stopped. Its sleep timer for ${hhmm(at)} is kept: say “carry on with the sleep timer” or tap PLAY AND KEEP THE TIMER to carry on.`), `[chat] how long is left, after a reload: ${left.text}`);
+    const go = await H.ask(page, 'carry on with the sleep timer', /again: it still goes quiet/);
+    check(go.ok && new RegExp(`Playing Spec Lane FM again: it still goes quiet at ${hhmm(at)} \\(in 3\\d min\\), then stops\\.`).test(go.text) && !H.RAW.test(go.text), `[chat] carry on: ${go.text}`);
+    check(await onAir(page), '[chat] it plays');
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.radio.sleep') ?? 'null'));
+    check(kept?.at === at && kept?.kind === '45', `[chat] the same timer, the 45 MIN key's: ${JSON.stringify(kept)}`);
+    const cc = await chipSays(page, `♪ Spec Lane FM · stops ${hhmm(at)}`);
+    check(cc === `♪ Spec Lane FM · stops ${hhmm(at)}`, `[chat] the chip: ${cc}`);
+    const again = await H.ask(page, 'carry on with the sleep timer', /already on/);
+    check(again.ok && new RegExp(`Spec Lane FM is already on, and stops at ${hhmm(at)}, in 3\\d min\\.`).test(again.text), `[chat] asked again while it plays: ${again.text}`);
+    await page.evaluate(() => window.__specActions.stop?.());
+    const none = await H.ask(page, 'carry on with the sleep timer', /no sleep timer to carry on/);
+    check(none.ok, `[chat] with nothing kept: ${none.text}`);
+    await ctx.close();
+  }
+  log('podcasts: the carry-on by chat');
+
   // ---- 3. the offer in the seven looks, at BODY 21
   for (const world of H.WORLDS) {
-    const { ctx, page } = await radioPhone(H, H.PHONE2, world);
+    // (the timer a reload left, put on the phone before it opens: the same as a reload, one load fewer)
+    const { ctx, page } = await radioPhone(H, H.PHONE2, world, { 'ghosty.radio.sleep': JSON.stringify({ at: Date.now() + 40 * 60_000, kind: '30', name: FM.name }) });
     await H.open(page, 'radio');
-    await leftByReload(H, page, Date.now() + 40 * 60_000);
     await page.waitForSelector('#pg-radio .pn.nowp .npcarry', { timeout: 8000 }).catch(() => check(false, `[${world}] no offer`));
     const f = await H.fit(page, '#pg-radio .pn.nowp');
     check(!f.small.length && !f.sideways && !f.cut.length, `[${world}] the offer fits: ${JSON.stringify(f)}`);
