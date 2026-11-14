@@ -1,4 +1,5 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's world apps (docs/build-plan/APPLIB.md, list docs/build-plan/applib/catalogue-world.md).
@@ -43,7 +44,7 @@ const ZONES: { label: string; value: number }[] = [
 const COMPASS: Card[] = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
   .map((p, i) => ({ q: p, a: `${i * 22.5}°` }));
 
-export const WORLD: AppDef[] = [
+export const WORLD: AppDef[] = pro([
   /* ===================== From the owner's list ===================== */
   {
     id: 'trips', name: 'Trips', family: 'world', glyph: 'plane', archetype: 'log', from: 'world.13',
@@ -316,55 +317,6 @@ export const WORLD: AppDef[] = [
     },
   },
   {
-    id: 'currency', name: 'Currency', family: 'world', glyph: 'coins', archetype: 'calc',
-    pitch: 'Convert pounds and local prices both ways at your own rate, with card fees.',
-    keywords: ['currency', 'exchange', 'rate', 'money', 'convert', 'abroad'],
-    tour: ['Type the rate your card or bureau gives: local money per pound.', 'Add the card\'s fee if it charges one.', 'The price line tells you what that menu item really costs.'],
-    calc: {
-      source: 'Direct conversion at the rate he enters: local = pounds × rate; pounds = local ÷ rate, plus any fee',
-      estimate: true,
-      inputs: [
-        { id: 'rate', label: 'Rate', unit: 'per £1', default: 1.15, min: 0.000001, step: 0.0001 },
-        { id: 'gbp', label: 'Pounds', unit: '£', default: 100, min: 0 },
-        { id: 'local', label: 'Local price', default: 50, min: 0 },
-        { id: 'fee', label: 'Card fee', unit: '%', default: 0, min: 0, max: 10, step: 0.01 },
-      ],
-      outputs: [
-        { id: 'get', label: 'You get', expr: 'gbp * rate * (1 - fee/100)', dp: 2 },
-        { id: 'costs', label: 'In pounds', expr: 'local / rate * (1 + fee/100)', format: 'money' },
-      ],
-      tests: [
-        { in: { rate: 1.15, gbp: 100, local: 50, fee: 0 }, out: { get: 115, costs: 43.48 } },
-        { in: { rate: 1.15, gbp: 100, local: 50, fee: 2 }, out: { get: 112.7, costs: 44.35 } },
-      ],
-    },
-  },
-  {
-    id: 'tipping', name: 'Tip and Split', family: 'world', glyph: 'receipt', archetype: 'calc',
-    pitch: 'Add a tip to the bill and split it fairly, rounded up to a tidy amount.',
-    keywords: ['tip', 'tipping', 'split', 'bill', 'restaurant', 'service'],
-    tour: ['Type the bill, the tip you want and how many are paying.', 'Check the bill first: some already add a service charge.', 'Each pays shows the share rounded up to the next pound.'],
-    calc: {
-      estimate: true,
-      source: 'Percentage arithmetic: tip = bill × rate ÷ 100',
-      inputs: [
-        { id: 'bill', label: 'Bill', default: 80, min: 0 },
-        { id: 'pct', label: 'Tip', unit: '%', default: 12.5, min: 0, max: 50, step: 0.5 },
-        { id: 'people', label: 'People', default: 4, min: 1, step: 1 },
-      ],
-      outputs: [
-        { id: 'tip', label: 'Tip', expr: 'bill * pct / 100', format: 'money' },
-        { id: 'total', label: 'Total', expr: 'bill + tip', format: 'money' },
-        { id: 'each', label: 'Each', expr: 'total / people', format: 'money' },
-        { id: 'round', label: 'Each, rounded', expr: 'ceil(each)', format: 'money' },
-      ],
-      tests: [
-        { in: { bill: 80, pct: 12.5, people: 4 }, out: { tip: 10, total: 90, each: 22.5, round: 23 } },
-        { in: { bill: 47.3, pct: 10, people: 3 }, out: { tip: 4.73, total: 52.03, each: 17.34, round: 18 } },
-      ],
-    },
-  },
-  {
     id: 'travel-units', name: 'Travel Units', family: 'world', glyph: 'ruler', archetype: 'calc',
     pitch: 'Kilometres, kilos, litres and Celsius into the units you think in, and back.',
     keywords: ['units', 'convert', 'miles', 'kilometres', 'celsius', 'fahrenheit'],
@@ -394,32 +346,6 @@ export const WORLD: AppDef[] = [
     },
   },
   {
-    id: 'fuel-cost', name: 'Fuel Cost', family: 'world', glyph: 'car', archetype: 'calc',
-    pitch: 'What a drive will cost in fuel from miles, mpg and the pump price, split.',
-    keywords: ['fuel', 'petrol', 'diesel', 'cost', 'journey', 'road', 'trip'],
-    tour: ['Type the miles, your car\'s mpg and the pump price in pence.', 'Your Car Logbook gives your real mpg, not the brochure one.', 'Split it between the people sharing the drive.'],
-    calc: {
-      source: 'Fuel used = miles ÷ mpg × 4.54609 litres per UK gallon; cost = litres × price',
-      estimate: true,
-      inputs: [
-        { id: 'miles', label: 'Distance', unit: 'miles', default: 200, min: 0 },
-        { id: 'mpg', label: 'Economy', unit: 'mpg', default: 50, min: 1 },
-        { id: 'ppl', label: 'Pump price', unit: 'p/L', default: 145, min: 0, step: 0.1 },
-        { id: 'people', label: 'Sharing', default: 2, min: 1, step: 1 },
-      ],
-      outputs: [
-        { id: 'litres', label: 'Fuel', expr: 'miles / mpg * 4.54609', unit: 'L', dp: 1 },
-        { id: 'cost', label: 'Cost', expr: 'litres * ppl / 100', format: 'money' },
-        { id: 'each', label: 'Each', expr: 'cost / people', format: 'money' },
-        { id: 'ppm', label: 'Per mile', expr: 'cost * 100 / max(miles, 0.000001)', unit: 'p', dp: 1 },
-      ],
-      tests: [
-        { in: { miles: 200, mpg: 50, ppl: 145, people: 2 }, out: { litres: 18.18, cost: 26.37, each: 13.18, ppm: 13.18 } },
-        { in: { miles: 100, mpg: 40, ppl: 150, people: 1 }, out: { litres: 11.37, cost: 17.05, each: 17.05 } },
-      ],
-    },
-  },
-  {
     id: 'fuel-economy', name: 'Fuel Economy', family: 'world', glyph: 'drop', archetype: 'calc',
     pitch: 'Your real mpg and litres per 100 km from the miles driven and litres filled.',
     keywords: ['mpg', 'economy', 'fuel', 'litres', 'car', 'consumption'],
@@ -438,35 +364,6 @@ export const WORLD: AppDef[] = [
       tests: [
         { in: { miles: 400, litres: 36.4 }, out: { mpg: 49.96, l100: 5.65 } },
         { in: { miles: 300, litres: 45.4609 }, out: { mpg: 30, l100: 9.42 } },
-      ],
-    },
-  },
-  {
-    id: 'ev-charge-cost', name: 'EV Charge Cost', family: 'world', glyph: 'battery', archetype: 'calc',
-    pitch: 'The cost of a charge and the miles it adds, from battery size and price.',
-    keywords: ['ev', 'electric', 'charge', 'cost', 'kwh', 'battery', 'car'],
-    tour: ['Type the battery size, the charge you start and end at, and the price.', 'Losses cover the energy lost as heat while charging.', 'Pence per mile compares it straight with petrol.'],
-    calc: {
-      source: 'Energy added = capacity × change in charge; energy bought = added ÷ (1 − losses); cost = energy × unit price',
-      estimate: true,
-      inputs: [
-        { id: 'kwh', label: 'Battery', unit: 'kWh', default: 60, min: 1 },
-        { id: 'from', label: 'Start charge', unit: '%', default: 20, min: 0, max: 100 },
-        { id: 'to', label: 'End charge', unit: '%', default: 80, min: 0, max: 100 },
-        { id: 'price', label: 'Price', unit: 'p/kWh', default: 28, min: 0, step: 0.1 },
-        { id: 'loss', label: 'Losses', unit: '%', default: 10, min: 0, max: 50 },
-        { id: 'eff', label: 'Efficiency', unit: 'mi/kWh', default: 3.5, min: 0.5, step: 0.1 },
-      ],
-      outputs: [
-        { id: 'added', label: 'Energy added', expr: 'kwh * (to - from) / 100', unit: 'kWh', dp: 1 },
-        { id: 'bought', label: 'Energy bought', expr: 'added / (1 - loss/100)', unit: 'kWh', dp: 1 },
-        { id: 'cost', label: 'Cost', expr: 'bought * price / 100', format: 'money' },
-        { id: 'miles', label: 'Miles added', expr: 'added * eff', unit: 'miles', dp: 0 },
-        { id: 'ppm', label: 'Per mile', expr: 'cost * 100 / max(miles, 0.000001)', unit: 'p', dp: 1 },
-      ],
-      tests: [
-        { in: { kwh: 60, from: 20, to: 80, price: 28, loss: 10, eff: 3.5 }, out: { added: 36, bought: 40, cost: 11.2, miles: 126, ppm: 8.89 } },
-        { in: { kwh: 50, from: 10, to: 90, price: 7.5, loss: 0, eff: 4 }, out: { added: 40, bought: 40, cost: 3, miles: 160, ppm: 1.88 } },
       ],
     },
   },
@@ -1152,4 +1049,4 @@ export const WORLD: AppDef[] = [
       ],
     },
   },
-];
+]);

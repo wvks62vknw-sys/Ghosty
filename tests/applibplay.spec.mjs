@@ -35,14 +35,20 @@ async function open(world = 'glass') {
   return { ctx, page };
 }
 // (in-page, after the Library has loaded its lanes' files)
+// (a game opens on its launcher, THE PRO ROUND: its PLAY starts the board, so a run goes on from there)
 const go = async (page, hash) => {
   await page.evaluate((h) => (location.hash = h), hash);
   await page.waitForTimeout(600);
+  if (await page.locator('.al-launch .al-playkey').count()) {
+    await page.evaluate(() => { for (let i = 0; i < 4; i++) document.querySelector('.ak-tour:not([hidden]) button')?.click(); });
+    await page.locator('.al-launch .al-playkey').click();
+    await page.waitForTimeout(300);
+  }
 };
 const fit = (page) => page.evaluate(() => {
-  const scope = document.querySelector('.ak-app') ?? document.body;
+  const scope = document.querySelector('.al-pro-frame .ak-app') ?? document.querySelector('.ak-app') ?? document.body;
   const small = [...scope.querySelectorAll('button')].filter((b) => b.getClientRects().length && b.offsetParent).map((b) => [b.textContent.trim().slice(0, 14), b.getBoundingClientRect()]).filter(([, r]) => r.height < 43.5 || r.width < 43.5).map(([t, r]) => `${t}:${Math.round(r.width)}x${Math.round(r.height)}`);
-  const scrollers = [...document.querySelectorAll('#pg-apps *, .ak-app *')].filter((e) => e.scrollHeight > e.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(e).overflowY) && e.getClientRects().length).length;
+  const scrollers = [...document.querySelectorAll(document.querySelector('.al-pro-frame') ? '.al-pro-frame *' : '#pg-apps *, .ak-app *')].filter((e) => e.scrollHeight > e.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(e).overflowY) && e.getClientRects().length).length;
   return { small, scrollers, sideways: document.documentElement.scrollWidth > innerWidth };
 });
 const okFit = (m, what) => check(!m.small.length && m.scrollers <= 1 && !m.sideways, `[fit ${what}] ${JSON.stringify(m)}`);
@@ -59,7 +65,7 @@ const kind = (page) => page.locator('.al-game').getAttribute('data-kind').catch(
     if (!shown) continue;
     check((await kind(page)) === k, `[${id}] drew ${await kind(page)}, not ${k}`);
     // (the first run's tour steps away, so the board is the thing in view)
-    for (let i = 0; i < 3; i++) await page.locator('.ak-tour button').click({ timeout: 500 }).catch(() => {});
+    await page.evaluate(() => { for (let i = 0; i < 4; i++) document.querySelector('.ak-tour:not([hidden]) button')?.click(); }); // (THE PRO ROUND: the tour is the coach marks now, ended with it)
     okFit(await fit(page), id);
     if (k === 'sudoku') {
       const empty = await page.evaluate(() => [...document.querySelectorAll('.al-gsudoku .al-gcell')].findIndex((c) => !c.textContent.trim()));
@@ -160,7 +166,7 @@ for (const world of WORLDS) {
   for (const id of ['merge-tiles', 'daily-word']) {
     await go(page, `#apps/${id}`);
     await page.waitForSelector('.al-game', { timeout: 10000 }).catch(() => {});
-    for (let i = 0; i < 3; i++) await page.locator('.ak-tour button').click({ timeout: 500 }).catch(() => {});
+    await page.evaluate(() => { for (let i = 0; i < 4; i++) document.querySelector('.ak-tour:not([hidden]) button')?.click(); }); // (THE PRO ROUND: the tour is the coach marks now, ended with it)
     okFit(await fit(page), `${id} ${world}`);
   }
   await page.screenshot({ path: `${out}/applibplay-${world}-390.png` });

@@ -9,8 +9,9 @@ import { h, icon } from '../../core/dom';
 import { key } from '../../ui/machine';
 import { homeCard } from '../../ui/appkit';
 import { FAMILIES, LIBRARY, type AppDef, type Family } from '../../../../../packages/shared/src/applib/index';
-import { appIcon, engineState, extra, mountApp } from './engine';
+import { engineState, extra, mountApp } from './engine';
 import { glyphOf } from './glyphs';
+import { iconRect, identity, openFrame, proState, tileOf, type Frame } from './pro';
 import { extraApps, loadLaneFiles, makerFn, registerAppSource } from './registry';
 import { register } from '../../commands/registry';
 
@@ -123,15 +124,17 @@ function featured(list: AppDef[], n = 6): AppDef[] {
 }
 
 function tile(d: AppDef, onTap: () => void): HTMLElement {
-  const b = h('button.al-tile.al-apptile', { type: 'button', 'aria-label': `${d.name}: ${d.pitch}`, dataset: { app: d.id } }, h('span.al-tileicon', appIcon(d)), h('b', d.name));
+  const b = h('button.al-tile.al-apptile', { type: 'button', 'aria-label': `${d.name}: ${d.pitch}`, dataset: { app: d.id } }, tileOf(d, 'l'), h('b', d.name));
   b.addEventListener('click', onTap);
   return b;
 }
 
 function row(d: AppDef, onTap: () => void, onOpen: () => void): HTMLElement {
-  const main = h('button.al-approw', { type: 'button', dataset: { app: d.id } }, h('span.al-tileicon', appIcon(d)), h('span.al-approwwords', h('b', d.name), h('small', d.pitch)));
+  const main = h('button.al-approw', { type: 'button', dataset: { app: d.id } }, tileOf(d, 'm'), h('span.al-approwwords', h('b', d.name), h('small', d.pitch)));
   main.addEventListener('click', onTap);
-  return h('div.al-appline', { role: 'listitem' }, main, key('Open', onOpen, { label: `Open ${d.name}` }));
+  const open = h('button.al-pro-get', { type: 'button', 'aria-label': `Open ${d.name}` }, 'Open');
+  open.addEventListener('click', onOpen);
+  return identity(h('div.al-appline', { role: 'listitem' }, main, open), d);
 }
 
 /** What an app keeps, said plainly for its page. */
@@ -165,11 +168,32 @@ export const appsTab: TabDef = {
     let stopApp: (() => void) | null = null;
     let q = '';
     let at = 'home';
+    // THE PRO ROUND: an app opens in its own full-screen frame over the Library (pro.ts); the Library page stays drawn under it
+    let frame: Frame | null = null;
+    let appStop: (() => void) | null = null;
+    let under: { at: string; view: string; family: string; app: string } = { at: 'home', view: 'home', family: '', app: '' };
 
     const setHash = (arg: string) => {
       try { history.replaceState(null, '', arg ? `#apps/${arg}` : '#apps'); } catch { /* (a sandbox without history) */ }
     };
     const leaveApp = () => { stopApp?.(); stopApp = null; };
+    /** Close the open app: it shrinks into its icon (or slides away after a swipe), and the Library page under it is where he is. */
+    const closeFrame = (how?: 'icon' | 'swipe' | 'now') => {
+      const f = frame, stop = appStop;
+      frame = null;
+      appStop = null;
+      if (!f) return;
+      at = under.at;
+      shell.dataset.view = under.view;
+      Object.assign(libraryState, { view: under.view, family: under.family, app: under.app });
+      void f.close(how).finally(() => stop?.());
+    };
+    /** The app's back (the chevron and the edge swipe): the history entry its open pushed, or straight to the Library page. */
+    const backFrom = (id: string) => {
+      const st = history.state as { alApp?: string } | null;
+      if (st?.alApp === id) history.back();
+      else { setHash(under.at === 'home' ? '' : under.at); closeFrame(); }
+    };
     const backKey = (to: () => void, words = 'Back to Apps') => {
       const b = h('button.ak-hkey.al-back', { type: 'button', 'aria-label': words }, icon(BACK));
       b.addEventListener('click', to);
@@ -202,46 +226,90 @@ export const appsTab: TabDef = {
         : h('div.ak-state.ak-empty', { role: 'status' }, h('p', `No app matches “${q.trim()}”.`), makerFn() ? key('Make my own', () => show('make'), { kind: 'fill' }) : null));
     };
 
+    const section = (shelf: string, title: string, kids: (Node | null)[], right?: HTMLElement | null) =>
+      h('section.al-shelf.al-pro-section', { dataset: { shelf } }, h('div.al-head.al-pro-sechead', h('h3', title), right ?? null), ...kids);
+
     const homeParts = (): HTMLElement[] => {
       const list = allApps();
+      const lead = list.filter((d) => d.tier !== 'more');
+      const more = list.filter((d) => d.tier === 'more');
       const out: HTMLElement[] = [];
-      const pc = pinnedCards();
-      if (pc.length) out.push(h('section.al-shelf', { dataset: { shelf: 'pinned' } }, h('div.al-head', h('h3', 'Pinned')), h('div.al-cardgrid', ...pc)));
-      const rec = recent.get().map(appById).filter((d): d is AppDef => !!d).slice(0, 4);
-      if (rec.length) out.push(h('section.al-shelf', { dataset: { shelf: 'recent' } }, h('div.al-head', h('h3', 'Recently used')), h('div.al-tiles', ...rec.map((d) => tile(d, () => openApp(d.id))))));
-      const feat = featured(list, 5);
+      const feat = featured(lead.length >= 3 ? lead : list, 5);
       if (feat.length) {
         const hero = feat[0]!;
-        const heroEl = h('button.al-hero', { type: 'button', dataset: { app: hero.id }, 'aria-label': `Featured: ${hero.name}. ${hero.pitch}` },
-          h('small.al-kicker', `Featured · ${FAMILIES[hero.family]}`), h('span.al-heroicon', appIcon(hero)), h('b', hero.name), h('p', hero.pitch));
+        const heroEl = identity(h('button.al-hero.al-pro-feature', { type: 'button', dataset: { app: hero.id }, 'aria-label': `Featured: ${hero.name}. ${hero.pitch}` },
+          h('small.al-kicker.al-pro-kicker', `Featured · ${FAMILIES[hero.family]}`),
+          h('span.al-pro-featurerow', tileOf(hero, 'xl'), h('span.al-pro-featurewords', h('b', hero.name), h('span.al-pro-featurepitch', hero.pitch))),
+          h('span.al-pro-featureget', 'View')), hero);
         heroEl.addEventListener('click', () => show(`about/${hero.id}`));
-        out.push(h('section.al-shelf', { dataset: { shelf: 'featured' } }, heroEl, h('div.al-tiles', ...feat.slice(1, 5).map((d) => tile(d, () => show(`about/${d.id}`))))));
+        out.push(h('section.al-shelf.al-pro-section', { dataset: { shelf: 'featured' } }, heroEl,
+          feat.length > 1 ? h('div.al-head.al-pro-sechead', h('h3', 'Today’s picks')) : null,
+          h('div.al-tiles.al-pro-tiles', ...feat.slice(1, 5).map((d) => tile(d, () => show(`about/${d.id}`))))));
       }
-      const fams = familyOrder.map((f) => ({ f, apps: list.filter((d) => d.family === f) })).filter((x) => x.apps.length);
+      const pc = pinnedCards();
+      if (pc.length) out.push(section('pinned', 'Pinned', [h('div.al-cardgrid', ...pc)]));
+      const rec = recent.get().map(appById).filter((d): d is AppDef => !!d).slice(0, 4);
+      if (rec.length) out.push(section('recent', 'Recently used', [h('div.al-tiles.al-pro-tiles', ...rec.map((d) => tile(d, () => openApp(d.id))))]));
+      const fams = familyOrder.map((f) => ({ f, apps: list.filter((d) => d.family === f), lead: lead.filter((d) => d.family === f) })).filter((x) => x.apps.length);
       if (fams.length) {
-        out.push(h('section.al-shelf', { dataset: { shelf: 'families' } }, h('div.al-head', h('h3', 'Families')), h('div.al-chips', ...fams.map(({ f, apps }) => {
+        out.push(section('families', 'Families', [h('div.al-chips', ...fams.map(({ f, apps }) => {
           const b = h('button.al-chip', { type: 'button', dataset: { family: f } }, `${FAMILIES[f]} `, h('small', String(apps.length)));
+          identity(b, { family: f });
           b.addEventListener('click', () => show(`family/${f}`));
           return b;
-        }))));
-        for (const { f, apps } of fams) {
-          const more = key(`See all ${apps.length}`, () => show(`family/${f}`), { label: `See all ${apps.length} ${FAMILIES[f]} apps` });
-          out.push(h('section.al-shelf', { dataset: { shelf: f } }, h('div.al-head', h('h3', FAMILIES[f]), apps.length > 8 ? more : null), h('div.al-tiles', ...apps.slice(0, 8).map((d) => tile(d, () => show(`about/${d.id}`))))));
+        }))]));
+        for (const { f, apps, lead: top } of fams) {
+          const shown = (top.length ? top : apps).slice(0, 4);
+          const all = h('button.al-pro-seeall', { type: 'button', 'aria-label': `See all ${apps.length} ${FAMILIES[f]} apps` }, 'See all');
+          all.addEventListener('click', () => show(`family/${f}`));
+          out.push(section(f, FAMILIES[f], [h('div.al-results.al-pro-store', { role: 'list' }, ...shown.map((d) => row(d, () => show(`about/${d.id}`), () => openApp(d.id))))], apps.length > shown.length ? all : null));
         }
       }
+      if (more.length) {
+        const all = key(`See all ${more.length} more apps`, () => show('more'), { label: `See all ${more.length} more apps` });
+        out.push(section('more', 'More apps', [h('p.al-keeps', `${more.length} more apps, each kept on this phone, from every family.`),
+          h('div.al-results.al-pro-store', { role: 'list' }, ...more.slice(0, 3).map((d) => row(d, () => show(`about/${d.id}`), () => openApp(d.id)))), all]));
+      }
       const others = list.filter((d) => d.archetype === 'screen');
-      if (others.length && !fams.some((x) => x.apps.some((d) => d.archetype === 'screen'))) out.push(h('section.al-shelf', h('div.al-head', h('h3', 'Ghosty’s own')), h('div.al-tiles', ...others.slice(0, 6).map((d) => tile(d, () => openApp(d.id))))));
+      if (others.length && !fams.some((x) => x.apps.some((d) => d.archetype === 'screen'))) out.push(section('own', 'Ghosty’s own', [h('div.al-tiles.al-pro-tiles', ...others.slice(0, 6).map((d) => tile(d, () => openApp(d.id))))]));
       if (!list.length) out.push(h('div.ak-state.ak-empty', { role: 'status' }, h('p', 'The Library is filling up. Apps arrive here as they are made.')));
-      if (makerFn()) out.push(h('section.al-shelf.al-makeshelf', h('p', 'Nothing quite right? Make your own app: pick what it keeps, and it is drawn like every app here.'), key('Make my own', () => show('make'), { kind: 'fill' })));
+      if (makerFn()) out.push(h('section.al-shelf.al-makeshelf.al-pro-section', h('p', 'Nothing quite right? Make your own app: pick what it keeps, and it is drawn like every app here.'), key('Make my own', () => show('make'), { kind: 'fill' })));
       return out;
     };
 
-    const show = (arg: string) => {
-      leaveApp();
+    /** The app's page: a picture of it at work, drawn in its own skin from what it keeps. */
+    const shot = (d: AppDef): HTMLElement => {
+      const lines: string[] = [];
+      const log = d.log ?? d.importer?.log;
+      if (log && d.sample) for (const r of d.sample.slice(0, 3)) lines.push(String((r as Record<string, unknown>)[log.title.replace(/[{}]/g, '').split(/[ (]/)[0]!] ?? ''));
+      if (d.calc) lines.push(...d.calc.outputs.slice(0, 3).map((o) => o.label));
+      if (d.checklist) lines.push(...d.checklist.sections.flatMap((x) => x.items).slice(0, 3));
+      if (d.deck) lines.push(...d.deck.cards.slice(0, 3).map((c) => c.q));
+      if (d.counter) lines.push(...d.counter.names.slice(0, 3));
+      if (d.timer) lines.push(...d.timer.steps.slice(0, 3).map((x) => x.name));
+      if (d.guide) lines.push(...d.guide.sections.slice(0, 3).map((x) => x.title));
+      const rows = lines.filter(Boolean).slice(0, 3);
+      return identity(h('div.al-pro-shot', { 'aria-label': `${d.name} at work`, role: 'img' },
+        h('div.al-pro-shothead', tileOf(d, 's'), h('b', d.name)),
+        h('div.al-pro-shothero', h('small', FAMILIES[d.family]), h('b', d.pitch.split(/[.,:]/)[0]!)),
+        ...rows.map((t) => h('div.al-pro-shotrow', h('i'), h('span', t)))), d);
+    };
+
+    const show = (arg: string, force = false) => {
       const [what, rest] = arg.includes('/') ? [arg.slice(0, arg.indexOf('/')), arg.slice(arg.indexOf('/') + 1)] : [arg, ''];
-      at = arg || 'home';
-      shell.dataset.view = what || 'home';
-      Object.assign(libraryState, { view: what || 'home', app: '', family: '' });
+      const isApp = !!what && !['home', 'family', 'make', 'about', 'more'].includes(what);
+      // an app open and the Library asked for: close it into its icon; the page under it is kept as he left it (its scroll too)
+      if (frame && !(isApp && what === proState.open)) {
+        const same = (arg || 'home') === under.at && shell.childElementCount;
+        closeFrame();
+        if (same && !isApp && !force) return;
+      } else if (frame && !force) return;
+      leaveApp();
+      if (!isApp) {
+        at = arg || 'home';
+        shell.dataset.view = what || 'home';
+        Object.assign(libraryState, { view: what || 'home', app: '', family: '' });
+      }
       const home = () => show('');
       if (!arg || what === 'home') {
         setHash('');
@@ -249,12 +317,14 @@ export const appsTab: TabDef = {
         drawResults(body);
         return;
       }
-      if (what === 'family') {
+      if (what === 'family' || what === 'more') {
         const f = rest as Family;
-        const apps = allApps().filter((d) => d.family === f);
-        libraryState.family = f;
+        const apps = what === 'more' ? allApps().filter((d) => d.tier === 'more') : allApps().filter((d) => d.family === f);
+        const top = apps.filter((d) => d.tier !== 'more'), rest_ = apps.filter((d) => d.tier === 'more');
+        libraryState.family = what === 'more' ? '' : f;
         setHash(arg);
-        page(FAMILIES[f] ?? 'Apps', [h('div.al-results', { role: 'list' }, ...apps.map((d) => row(d, () => show(`about/${d.id}`), () => openApp(d.id))))], { back: home });
+        const list = (xs: AppDef[]) => h('div.al-results.al-pro-store', { role: 'list' }, ...xs.map((d) => row(d, () => show(`about/${d.id}`), () => openApp(d.id))));
+        page(what === 'more' ? 'More apps' : FAMILIES[f] ?? 'Apps', what === 'more' || !top.length || !rest_.length ? [list(apps)] : [list(top), section('more', 'More apps', [list(rest_)])], { back: home });
         return;
       }
       if (what === 'make') {
@@ -278,46 +348,63 @@ export const appsTab: TabDef = {
         }, { label: `Pin ${d.name} to Home` });
         const said = h('p.al-said', { role: 'status', 'aria-live': 'polite' });
         page(d.name, [
-          h('div.al-about', { dataset: { app: d.id } },
-            h('span.al-bigicon', appIcon(d)),
-            h('div.al-aboutwords', h('h3', d.name), h('small', FAMILIES[d.family]), h('p', d.pitch))),
-          h('div.al-sheetkeys.al-aboutkeys', key('Open', () => openApp(d.id), { kind: 'fill', label: `Open ${d.name}` }), pin, makerFn() && d.archetype !== 'screen' ? key('Make my own', () => show(`make/${d.id}`), { label: `Make my own from ${d.name}` }) : null),
+          identity(h('div.al-about.al-pro-about', { dataset: { app: d.id } },
+            h('span.al-bigicon', tileOf(d, 'xl')),
+            h('div.al-aboutwords', h('h3', d.name), h('small', FAMILIES[d.family]), h('p', d.pitch))), d),
+          identity(h('div.al-sheetkeys.al-aboutkeys', key('Open', () => openApp(d.id), { kind: 'fill', label: `Open ${d.name}` }), pin, makerFn() && d.archetype !== 'screen' ? key('Make my own', () => show(`make/${d.id}`), { label: `Make my own from ${d.name}` }) : null), d),
           said,
-          h('section.al-shelf', h('div.al-head', h('h3', 'What it keeps')), ...keeps(d).map((l) => h('p.al-keeps', l))),
-          h('section.al-shelf', h('div.al-head', h('h3', 'How it works')), h('ol.al-how', ...d.tour.map((t) => h('li', t)))),
+          shot(d),
+          section('keeps', 'What it keeps', keeps(d).map((l) => h('p.al-keeps', l))),
+          section('how', 'How it works', [h('ol.al-how', ...d.tour.map((t) => h('li', t)))]),
           h('p.al-keeps.al-fine', d.archetype === 'screen' ? 'Part of Ghosty.' : `Kept on this phone only. Nothing it holds is sent anywhere.`),
         ], { back: home });
         return;
       }
-      // an app, opened
+      // an app, opened: full screen, grown from its icon, one history entry
       const d = appById(what);
       if (!d) { show(''); return; }
       if (d.archetype === 'screen' && d.screen) { openApp(d.id); return; }
       used(d.id);
+      if (!shell.childElementCount) { const body = page('Apps', [], { find: true }); drawResults(body); at = 'home'; Object.assign(libraryState, { view: 'home', app: '', family: '' }); shell.dataset.view = 'home'; }
+      under = { at, view: libraryState.view, family: libraryState.family, app: libraryState.app };
+      const from = iconRect(d.id);
+      try {
+        if (location.hash !== `#apps/${d.id}`) history.pushState({ alApp: d.id }, '', `#apps/${d.id}`);
+      } catch { /* (a sandbox without history) */ }
       libraryState.app = d.id;
       libraryState.view = 'app';
-      shell.dataset.view = 'app';
-      setHash(d.id);
-      const host = h('div.al-host');
-      shell.replaceChildren(host);
-      const m = mountApp(host, d);
-      m.k.el.querySelector('.ak-head')?.prepend(backKey(home));
-      stopApp = m.stop;
+      const f = openFrame(d, from);
+      frame = f;
+      const m = mountApp(f.host, d);
+      appStop = m.stop;
+      f.dress(m.k, {
+        back: () => backFrom(d.id),
+        pin: { on: () => isPinned(d.id), toggle: () => togglePin(d.id) },
+        make: makerFn() ? () => { closeFrame('now'); show(`make/${d.id}`); } : undefined,
+      });
     };
     goTo = show;
-    // (#apps typed or gone back to while an app is open: the Library's front again)
-    addEventListener('hashchange', () => { if (location.hash === '#apps' && at !== 'home' && document.querySelector('#pg-apps.on')) show(''); });
+    // phone back and #apps typed: the open app closes into the Library page under it (or the page the address names)
+    const follow = () => {
+      if (!document.querySelector('#pg-apps.on') || !location.hash.startsWith('#apps')) return;
+      const arg = location.hash.replace(/^#apps\/?/, '');
+      if (frame ? arg !== proState.open : (arg || 'home') !== at) show(arg);
+    };
+    addEventListener('hashchange', follow);
+    addEventListener('popstate', follow);
     // the lanes' renderers and App Maker (registry.ts), then the screen drawn again with them
     // (also an app or App Maker opened before the lane files had loaded, a cold deep link to #apps/<game>: drawn again with them)
     void loadLaneFiles().then(() => {
-      const early = (libraryState.view === 'app' && engineState.error === 'no renderer') || (libraryState.view === 'make' && !stopApp);
-      if (early || (!stopApp && libraryState.view === 'home')) show(at === 'home' ? '' : at);
+      if (frame && engineState.error === 'no renderer') { const id = proState.open; closeFrame('now'); show(id, true); return; }
+      if (frame) return;
+      const early = libraryState.view === 'make' && !stopApp;
+      if (early || (!stopApp && libraryState.view === 'home')) show(at === 'home' ? '' : at, true);
     });
     show('');
     return {
       open: (arg) => show(arg),
-      leave: () => leaveApp(),
-      enter: () => { if (libraryState.view === 'app' && !stopApp) show(at); },
+      leave: () => { closeFrame('now'); leaveApp(); },
+      enter: () => {},
       describe: () => (libraryState.app ? `Apps: ${appById(libraryState.app)?.name ?? ''}` : 'Apps: the Library'),
     };
   },
@@ -344,6 +431,8 @@ const attach = (n = 0): unknown =>
       try: (d: AppDef) => { const i = tried.findIndex((x) => x.id === d.id); if (i >= 0) tried.splice(i, 1); tried.push(d); try { sessionStorage.setItem('ghosty.applib.tried', JSON.stringify(tried)); } catch { /* (private window) */ } location.hash = `#apps/${d.id}`; },
       open: openApp,
       pin: togglePin,
+      pro: proState,
+      defs: () => allApps().map((d) => ({ id: d.id, name: d.name, family: d.family, archetype: d.archetype, tier: d.tier ?? 'essential', skin: d.skin ?? d.family, hue: d.hue ?? null })),
     })
     : n < 150 && setTimeout(() => attach(n + 1), 100);
 attach();

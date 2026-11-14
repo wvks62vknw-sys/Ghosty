@@ -189,4 +189,4 @@ test('the Library: never in the brain\'s prompt', () => {
 });
 
 // the lanes building on the engine bring their own brain tests; they run here too
-for (const f of ['./applibgames.test.mjs', './applibdata.test.mjs']) if (existsSync(at(f))) await import(f);
+for (const f of ['./applibgames.test.mjs', './applibdata.test.mjs', './applibquick.test.mjs']) if (existsSync(at(f))) await import(f);

@@ -1,4 +1,5 @@
 import type { AppDef } from '../types';
+import { pro } from './pro';
 
 /**
  * The Library's office apps (docs/build-plan/APPLIB.md; the owner's list is docs/build-plan/applib/catalogue-office.md).
@@ -6,7 +7,7 @@ import type { AppDef } from '../types';
  * `screen` entries in catalogue/ghosty.ts, so they are not repeated here. Apps on the list that need their own
  * engineering are named in docs/build-plan/APPLIB-CAT-A.md, never faked here.
  */
-export const OFFICE: AppDef[] = [
+export const OFFICE: AppDef[] = pro([
   // ───────────────────────── From the owner's list ─────────────────────────
   {
     id: 'day-planner',
@@ -1770,4 +1771,4 @@ export const OFFICE: AppDef[] = [
       ],
     },
   },
-];
+]);
