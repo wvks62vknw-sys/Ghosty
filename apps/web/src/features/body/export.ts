@@ -85,3 +85,24 @@ export async function readExport(file: File, today: string, progress: (frac: num
   }
   return { acc, week: healthWeek(acc) };
 }
+
+/**
+ * HEALTH HUB (APPS ROUND): the same export read for every type the hub shows (./hubcore.ts), from `from` on only, so a second
+ * import reads just the new days. Streamed: nothing held whole, nothing leaves the phone.
+ */
+export async function readHubExport(file: File, from: string, progress: (frac: number) => void = () => undefined): Promise<import('./hubcore').HubAcc> {
+  const { feedHub, hubStart, HUB_LINE } = await import('./hubcore');
+  const acc = hubStart(from);
+  let got = 0;
+  const reader = (await exportText(file, (n, of) => progress(Math.min(1, (got += n) / of)))).getReader();
+  let rest = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    const text = rest + (value ?? '');
+    const lines = text.split('\n');
+    rest = done ? '' : lines.pop() ?? '';
+    for (const l of lines) if (HUB_LINE.test(l)) feedHub(acc, l);
+    if (done) break;
+  }
+  return acc;
+}

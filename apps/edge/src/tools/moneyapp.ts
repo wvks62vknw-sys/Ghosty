@@ -259,6 +259,27 @@ const car: ActionFn = async (a, d) => {
   return { text: `Your car: about ${pounds(monthly)} a month from your statements.`, data: { months, kinds, monthly, dates, rows: rows.length } };
 };
 
+/** A page for one shop (by its merchant key): every payment there across his statements, a total for each month, its rule. */
+const shop: ActionFn = async (a, d) => {
+  const k = arg.str(a, 'k', false);
+  if (!k) throw new Error('pick a shop');
+  const rows = (await rowsOf(d)).filter((r) => r.k === k).sort((x, y) => (x.d < y.d ? 1 : x.d > y.d ? -1 : 0));
+  const idx = await load<{ rules?: Record<string, Category> }>(d, KEYS.spend, {});
+  const months = new Map<string, { month: string; out: number; n: number }>();
+  for (const r of rows) {
+    const m = months.get(r.d.slice(0, 7)) ?? { month: r.d.slice(0, 7), out: 0, n: 0 };
+    m.out = Math.round((m.out - r.a) * 100) / 100;
+    m.n++;
+    months.set(m.month, m);
+  }
+  const list = [...months.values()].sort((x, y) => (x.month < y.month ? -1 : 1));
+  const total = Math.round(rows.reduce((t, r) => t - r.a, 0) * 100) / 100;
+  return {
+    text: `${k}: ${rows.length} payment${rows.length === 1 ? '' : 's'}, ${pounds(total)} in all.`,
+    data: { k, rows: rows.slice(0, 200), months: list, total, average: list.length ? Math.round((total / list.length) * 100) / 100 : 0, first: rows[rows.length - 1]?.d ?? '', last: rows[0]?.d ?? '', rule: idx.rules?.[k] ?? null, category: rows[0]?.c ?? null },
+  };
+};
+
 const NUDGE = 'Add last month’s statement';
 /** money.u8: a reminder on the 2nd of each month at 9am to add last month's statement, only when he turns it on (the brain's Web Push). */
 const nudge: ActionFn = async (a, d) => {
@@ -285,7 +306,7 @@ export async function dueSoon(d: PackDeps, days = 7): Promise<{ on: string; name
 }
 
 /** The money screen's own actions, joined to the money pack's for POST /packs/do (packs/index.ts); never in the tool's enum. */
-export const MONEY_APP: Record<string, ActionFn> = { safe, calendar, goals, household, year, rules, nudge, cancel, car };
+export const MONEY_APP: Record<string, ActionFn> = { safe, calendar, goals, household, year, rules, nudge, cancel, car, shop };
 
 // ---------------------------------------------------------------- HOUSEHOLD → PAPERS: warranties and household papers (money.s1, money.s12)
 

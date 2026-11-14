@@ -32,6 +32,10 @@ export async function coachTurn(text: string): Promise<CoachReply | null> {
     for (let i = 0; i < a.n; i++) words = dr.addDrink(a.id, (v, name) => void t.add('water', v, 'words', name));
     return { reply: words, go: body('water') };
   }
+  if (k === 'hub') {
+    const r = (await import('./hub')).hubTurn(text);
+    return r ? { reply: r.reply, go: body('hub') } : null;
+  }
   if (k === 'plan') {
     const p = await import('./plans');
     const t = text.toLowerCase();

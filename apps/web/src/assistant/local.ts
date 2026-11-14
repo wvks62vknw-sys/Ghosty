@@ -522,6 +522,15 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     location.hash = k === 'lock' ? 'security?lock' : k === 'leaked' ? 'security?leaked' : 'security';
     return answer(text, m.SECURITY_SAID[k], { kind: 'can', go: [{ id: 'screen:security', ask: -1, label: 'Security', open: 'security' }] }, opts);
   },
+  // [journal] JOURNAL: the journal opened, a new entry with his words in it when he gave some (kept on this phone, never sent)
+  journal: async (text, opts) => {
+    const m = await import('../features/journal/words');
+    const j = m.journalAsked(text);
+    if (!j) return false;
+    if (j.write) (window as unknown as { __journalWrite?: { words?: string } }).__journalWrite = { words: j.words ?? '' };
+    location.hash = 'journal';
+    return answer(text, j.words ? m.J.ASK_ADDED : j.write ? m.J.ASK_NEW : m.J.ASK_OPEN, { kind: 'can', go: [{ id: 'screen:journal', ask: -1, label: 'Journal', open: 'journal' }] }, opts);
+  },
   comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
