@@ -225,7 +225,8 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'core', label: 'Home', place: true, names: ['home', 'home screen', 'chat', 'the chat', 'conversation', 'main screen', 'start screen'] },
   { tab: 'eye', label: 'God’s Eye', names: ['god’s eye', "god's eye", 'gods eye', 'the eye', 'globe', 'world view', 'live map', 'flight tracker', 'planes', 'ships'], bare: ["god's eye", 'gods eye'] },
   { tab: 'lens', label: 'the Lens', names: ['lens', 'camera lens', 'scanner', 'visual search'] },
-  { tab: 'interpreter', label: 'Interpret', names: ['interpret', 'interpreter', 'translator', 'translation', 'live translation', 'translate app'], bare: ['interpreter', 'translator'] },
+  { tab: 'translate', label: 'Translate', names: ['translate', 'translate app', 'the translate app', 'phrasebook', 'my phrasebook', 'translation history', 'my translations'], bare: ['translate app', 'phrasebook'] },
+  { tab: 'interpreter', label: 'Interpret', names: ['interpret', 'interpreter', 'translator', 'live translation'], bare: ['interpreter', 'translator'] },
   { tab: 'lab', label: 'the Lab', place: true, names: ['lab', 'laboratory', 'science lab', 'experiments'] },
   { tab: 'rehearse', label: 'Rehearse', names: ['rehearse', 'rehearsal', 'practice a speech', 'speech practice', 'presentation practice'] },
   { tab: 'brief', label: 'the Brief', names: ['brief', 'briefing', 'morning brief', 'daily brief', 'my day', 'daily summary'], bare: ['morning brief', 'daily brief', 'my briefing'] },
@@ -269,6 +270,8 @@ export const SCREENS: { tab: string; label: string; names: string[]; bare?: stri
   { tab: 'slides', label: 'Presentations', names: ['presentations', 'slides', 'decks', 'powerpoint', 'keynote', 'slideshows'] },
   { tab: 'workspace', label: 'the Workspace', names: ['workspace', 'notion', 'wiki', 'pages', 'my pages', 'notebook'] },
   { tab: 'photo', label: 'Photo', names: ['photo editor', 'photos', 'pictures', 'camera roll', 'gallery', 'my photos'], bare: ['photo editor'] },
+  // [lens] PHOTOS (THE APPS ROUND): his library behind the editor, by the names a library goes by (the editor keeps 'my photos')
+  { tab: 'photos', label: 'Photos', names: ['photo library', 'my photo library', 'my albums', 'photo albums', 'my photo albums'], bare: ['photo library', 'my photo library'] },
   { tab: 'video', label: 'Video', names: ['video editor', 'videos', 'my videos', 'clips', 'films'], bare: ['video editor'] },
   { tab: 'gamestudio', label: 'Game Studio', names: ['game studio', 'game maker', 'game builder', 'make games', 'my game projects'], bare: ['game studio', 'game maker'] },
   { tab: 'comic', label: 'the comic', names: ['comic', 'comics', 'comic book', 'comic maker', 'graphic novels', 'manga'] },

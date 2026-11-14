@@ -19,6 +19,8 @@
 //             (asked once more).
 //   MANY      four statements picked at once (OFX, QIF, CSV and one that is not a statement): each file's line, the overlap kept
 //             once, the total.
+//   ACCOUNTS  two accounts with their balances side by side, the move between them paired and kept out of spending, renamed,
+//             and counted again on his say.
 //   STATES    each new page offline and failed, in his words with TRY AGAIN; the bar: 44 pt keys, nothing sideways, no raw string;
 //             BODY 21 and the seven looks; the chat's words open the pages.
 import { launch, webkitNoise } from './browser.mjs';
@@ -544,6 +546,26 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
       check(/^5 payments kept from 3 of 4 statements; 1 I already had was left out\./.test(await txt(page, `${P} p.pknote[aria-live]`)), `MANY the total: "${await txt(page, `${P} p.pknote[aria-live]`)}"`);
       await bar(page, 'MANY bar', 'money');
       await page.screenshot({ path: `${out}/moneynext-many-440.png` });
+    });
+
+    await block('accounts', async () => {
+      log('accounts');
+      await fetch(`${base}/api/profile/spending`, { method: 'DELETE', headers: H }).catch(() => undefined);
+      const m0 = ym(1);
+      await api('/profile/spending/import', { csv: `Date,Description,Amount,Balance\n${m0}-03,TESCO STORES,-40.00,960.00\n${m0}-04,TO SAVINGS,-200.00,760.00\n`, rulesOnly: true, account: 'Current' });
+      const sv = await api('/profile/spending/import', { csv: `Date,Description,Amount,Balance\n${m0}-05,FROM CURRENT,200.00,5200.00\n`, rulesOnly: true, account: 'Savings' });
+      check(sv?.result?.transfers === 2 && sv?.view?.out === 40, `ACCOUNTS the move between his own accounts is paired and not spending: ${JSON.stringify(sv?.result?.transfers)} / out ${sv?.view?.out}`);
+      await open(page, 'money', 'Month');
+      check(await until(page, () => window.__ghosty.moneyplan?.state?.accounts === 'ready' && (window.__ghosty.moneyplan.accounts ?? []).join('|') === 'Current £760.00|Savings £5,200.00', null, 15000), `ACCOUNTS side by side with their balances: ${JSON.stringify(await page.evaluate(() => window.__ghosty.moneyplan?.accounts))}`);
+      check((await page.evaluate(() => window.__ghosty.moneyplan.moves)) === 2 && /All your accounts/.test(await txt(page, `${P} .mnacctotal`)) && /£5,960\.00/.test(await txt(page, `${P} .mnacctotal`)), 'ACCOUNTS the moves listed and the total of every balance');
+      await bar(page, 'ACCOUNTS bar', 'money');
+      await page.click(`${P} .ak-row[data-id="Current"] .ak-rowmain`);
+      await page.waitForSelector('.modal input[aria-label="The account’s name"]', { timeout: 5000 });
+      await page.fill('.modal input[aria-label="The account’s name"]', 'Everyday');
+      await page.click('.modal button[aria-label="Keep this name"]');
+      check(await until(page, () => (window.__ghosty.moneyplan.accounts ?? []).some((a) => a.startsWith('Everyday ')), null, 10000), 'ACCOUNTS renamed on a tap');
+      await page.locator(`${P} button[aria-label^="Count TO SAVINGS"]`).click();
+      check(await until(page, () => window.__ghosty.moneyplan.moves === 1, null, 10000), 'ACCOUNTS a move counted again on his say');
     });
 
     await block('states', async () => {
