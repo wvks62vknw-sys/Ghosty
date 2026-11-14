@@ -470,3 +470,31 @@ test('narration: each step said as he would say it, short enough to say aloud, n
 });
 
 
+
+// [ci] NEXT ci.u1: a reply said as it is written — the pieces said sentence by sentence are exactly those the whole reply is said in
+test('said as it is written: the streamed pieces are the whole reply\'s pieces, the first short, the half minute kept, a mismatch caught', () => {
+  const whole = 'The sea: I could talk about it for hours, but here is the short version for you tonight. It is older than it looks. It changes with the seasons, and the light on it is never quite the same twice. And most people never notice the best part, which is how quiet it is.';
+  const sent = ['The sea: I could talk about it for hours, but here is the short version for you tonight.', ' It is older than it looks.', ' It changes with the seasons, and the light on it is never quite the same twice.'];
+  for (const isBrief of [true, false]) {
+    const p = new SP.SpokenPlan(isBrief);
+    const got = sent.flatMap((t) => p.add(t));
+    const rest = p.finish(whole);
+    assert.ok(rest, 'the pieces said so far match the whole');
+    assert.deepEqual([...got, ...rest], SP.plan(whole, isBrief));
+    // the first sentence is cut short, so the voice starts on a few words
+    assert.ok(got[0].split(/\s+/).length <= 12, got[0]);
+  }
+  // a long reply read out by itself stops after about half a minute, with "The rest is on screen.", and nothing more is taken
+  const long = Array.from({ length: 12 }, (_, i) => `Sentence number ${i + 1} is about this long, give or take a few words.`).join(' ');
+  const p = new SP.SpokenPlan(true);
+  const got = long.split(/(?<=\.) /).flatMap((t) => p.add(t));
+  assert.equal(got.at(-1), SP.REST_ON_SCREEN);
+  assert.ok(p.full);
+  assert.deepEqual(p.add(' One more.'), []);
+  assert.deepEqual(p.finish(long), []);
+  assert.deepEqual(p.said, SP.plan(long, true));
+  // what was sent is not how the whole reads (the brain wrote something else): caught, so the whole is said instead
+  const q = new SP.SpokenPlan(true);
+  q.add('First it said this.');
+  assert.equal(q.finish('Then it said something else entirely.'), null);
+});
