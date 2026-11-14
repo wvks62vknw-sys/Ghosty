@@ -348,6 +348,8 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
   let serves = 0;
   let step = -1;
   let hands: { say(text: string): Promise<void>; stop(): void } | null = null;
+  /** The steps whose timer hands-free has started this cook (by step number). */
+  const timed = new Set<number>();
   const handsOff = () => {
     hands?.stop();
     hands = null;
@@ -369,6 +371,7 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
         openId = x.d.id;
         serves = x.mine?.serves ?? 2;
         step = -1;
+        timed.clear();
         draw();
       });
       b.setAttribute('aria-label', `Open ${x.d.name}`);
@@ -431,8 +434,11 @@ export function recipesScreen(): { el: HTMLElement; stop(): void } {
     const readStep = () => {
       const s = d.steps[step] ?? '';
       const secs = secondsIn(s);
-      void hands?.say(`Step ${step + 1}. ${s}${secs ? ' I’ve started the timer.' : ''}`);
-      if (secs) void timerFor(secs);
+      // (a step's timer starts the first time the step is read: "repeat", or back then next, never starts a second)
+      const first = secs && !timed.has(step);
+      if (first) timed.add(step);
+      void hands?.say(`Step ${step + 1}. ${s}${first ? ' I’ve started the timer.' : ''}`);
+      if (first) void timerFor(secs);
     };
     const cook: HTMLElement[] = [];
     const handsKey = button(hands ? 'Hands-free: on' : 'Hands-free', async () => {

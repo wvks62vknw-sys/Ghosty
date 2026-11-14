@@ -15,7 +15,7 @@ export interface LockTime {
 }
 
 /** What the specs read: each set's ids and the times sent (window.__ghosty.lockpush). */
-export const lockState = { sent: [] as { key: string; at: number; title: string; text: string; repeat: string }[], gone: [] as string[], error: '' };
+export const lockState = { sent: [] as { key: string; at: number; title: string; text: string; repeat: string }[], gone: [] as string[], dropped: [] as string[], error: '' };
 
 /** Takes back the old reminders and sets the new ones; returns the new ids (any that failed are left out). */
 export async function replaceLock(key: string, old: string[], times: LockTime[]): Promise<string[]> {
@@ -33,6 +33,14 @@ export async function replaceLock(key: string, old: string[], times: LockTime[])
     try {
       const r = await brain.addJob({ kind: 'reminder', title: t.title, text: t.text, at: t.at, repeat: t.repeat });
       const id = (r as { job?: { id?: string } }).job?.id;
+      if (id && id.startsWith('local-')) {
+        // (no signal: a queued add would reach the brain under an id this phone never learns, so it could never be taken back;
+        // the queued add is dropped and the next sync sends the times again)
+        await brain.deleteJob(id).catch(() => undefined);
+        lockState.error = 'No signal, so the lock-screen reminder waits: it’s sent the next time you’re online and change something.';
+        lockState.dropped.push(id);
+        continue;
+      }
       if (id) ids.push(id);
       lockState.sent.push({ key, ...t });
       lockState.error = '';
