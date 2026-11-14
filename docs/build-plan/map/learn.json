@@ -1,68 +1,487 @@
-{"lane":"LEARN (courses, learning, library, reader, school, gym, arcade, coach, rehearse, lab, interpreter, further)",
-"features":[
-{"name":"Courses","where":"LEARN → COURSES","say":["Teach me how engines work","Quiz me on photosynthesis","Revise my flashcards"],"does":"Builds a course from his words: a map of units and lessons with sources, quizzes with how sure he was, flashcards, a streak and a timed exam.","status":"works","note":"Offline it shows the copy on the phone; a lesson not yet written needs the brain."},
-{"name":"Course exam","where":"LEARN → COURSES → a course → EXAM","say":["Give me the exam on my engines course"],"does":"A timed exam with no marks until the end; an open exam can be resumed from another course.","status":"works","note":""},
-{"name":"Learning: words in eight languages","where":"LEARN → LEARNING → WORDS","say":["Ten words in Spanish","Review my words"],"does":"Daily word cards with spaced review.","status":"works","note":""},
-{"name":"Learning: typing, handwriting, speed reading, memory, maths, spelling, first aid","where":"LEARN → LEARNING","say":["Maths drill","Typing test","Read faster"],"does":"Short drills that are scored and kept, with a streak; handwriting is read from a photo on the phone.","status":"works","note":"The first handwriting read fetches about 6 MB from Ghosty's own site, said first."},
-{"name":"Learning: four-week plan","where":"LEARN → LEARNING → PLAN","say":["Plan four weeks of drawing"],"does":"A plan of a few minutes a day, with the day's line in the Brief.","status":"works","note":"It is a plan, not a teacher."},
-{"name":"Streaks and progress","where":"LEARN → LEARNING → PROGRESS","say":["My streaks"],"does":"What he practised each day, and his best runs.","status":"works","note":""},
-{"name":"The Library shelf","where":"LEARN → LIBRARY → SHELF","say":["What’s in your library?","Find my volcano notes"],"does":"His books and documents (PDF, Word, e-books, web pages, photos of pages) with covers, kept on the phone and searchable.","status":"works","note":""},
-{"name":"Ask the library","where":"LEARN → LIBRARY → ASK THE LIBRARY","say":["What do my books say about sulphur dioxide?"],"does":"Answers from his own books with the passage shown.","status":"works","note":""},
-{"name":"Wikipedia, offline","where":"LEARN → LIBRARY → WIKIPEDIA, OFFLINE","say":["Get offline Wikipedia"],"does":"A downloadable offline encyclopedia, fetched on his tap on Wi-Fi with the size said.","status":"works","note":""},
-{"name":"Self-study and Fresh today","where":"LEARN → LIBRARY → SELF-STUDY / FRESH TODAY","say":["What did you study today?","Study engines"],"does":"Ghosty reads chosen fields on his own and writes notes; today's digest of news notes.","status":"works","note":"Offline it says so; the digest needs the brain."},
-{"name":"Nature diary, gadgets, rights and law","where":"LEARN → LIBRARY","say":["My nature diary","What are my rights as a tenant?"],"does":"Birds, plants and insects he kept from the Lens, his gadget manuals, and plain-English law guides.","status":"works","note":""},
-{"name":"The reader","where":"LEARN → LIBRARY → a book","say":["Read me The Hobbit","Where were we?","Just this chapter"],"does":"Reads any book from where he left off, with chapters, search and page marks; reads aloud and can be talked over.","status":"works","note":"What happens when the phone locks mid-reading is not yet checked on his iPhone."},
-{"name":"School: papers sat in full working","where":"LEARN → SCHOOL → THIS STAGE → SIT","say":["How’s school going?","Sit Key Stage 2 maths"],"does":"With signal the brain's own model sits real-style papers in full working and they are marked properly; with no signal the phone's brain sits them.","status":"works","note":"The catalogue still says 'the brain on your phone sits real exam papers': it should say online in full working, the phone with no signal."},
-{"name":"School: ladder, placement, results, weak spots, nightly report","where":"LEARN → SCHOOL","say":["Sit a placement test","What are my weak spots?"],"does":"Stages from nursery up, a placement test to skip ahead, every paper to spot-check, weak topics and an optional nightly push.","status":"works","note":""},
-{"name":"School: official papers and question banks","where":"LEARN → SCHOOL → OFFICIAL PAPERS / WRITE THE PAPERS","say":["Fetch the 2024 SATs"],"does":"Real public papers (SATs, GCSE, A-level) read on the phone and kept private; banks of checked questions for higher stages.","status":"partial","note":"Higher stages need their banks written first, a little each night."},
-{"name":"School: reading shelf and borrow","where":"LEARN → SCHOOL → READING","say":["What should I read next?"],"does":"Graded books, a reading check, and borrowing up to two stages ahead once earned.","status":"partial","note":"The reading check is sat only on the phone's brain."},
-{"name":"School on the free GPU","where":"LEARN → SCHOOL → SIT ON THE FREE GPU","say":["Sit it on the free GPU"],"does":"The same brain sits a paper on Kaggle's free computers in about ten minutes.","status":"partial","note":"Needs his own Kaggle key in SYSTEM → KEYS."},
-{"name":"The Gym","where":"LEARN → GYM","say":["Play me at chess","Train all","Watch the maze"],"does":"Ghosty trains himself by playing 22 games and you can play him: tic-tac-toe, Connect 4, checkers, chess, Go, puzzles and reasoning games, with levels and progress.","status":"works","note":"The line 'Training on the graphics chip' is only true for the timing test; the long training runs on the processor."},
-{"name":"Rated chess","where":"LEARN → GYM → CHESS → RATED","say":["Rate me at chess","Give me a hint"],"does":"Rated games against an engine with your rating, hints and a game check.","status":"works","note":""},
-{"name":"The Arcade","where":"LEARN → ARCADE","say":["Open the arcade","Play DOOM","Play Quake"],"does":"Real free classics and free levels, fetched once on his tap on Wi-Fi, with pause, saves and best scores; his own studio games under MY GAMES.","status":"works","note":"On an iPhone the phone can't tell Wi-Fi from mobile data, so a second tap is his yes."},
-{"name":"The Coach","where":"LEARN → COACH","say":["Teach me guitar","Tune my guitar","Typing test"],"does":"A tuner, ten lessons each for guitar, piano and voice, a typing test and a drawing a day.","status":"works","note":""},
-{"name":"Rehearse","where":"LEARN → REHEARSE","say":["Rehearse a job interview","Help me practise telling my landlord about the damp","Practise my presentation"],"does":"Ghosty plays the other side for three rounds and gives five lines of notes; a talk for a minute gets pace and filler words; KEPT lists rehearsals to reread.","status":"works","note":""},
-{"name":"The Interpreter","where":"SEE → INTERPRET","say":["Translate for us","Help me talk to a French speaker"],"does":"Two halves of the screen: each person holds a key and speaks, the other half writes it and says it aloud; translated lines can be heard again or copied; a phrasebook of twelve everyday lines.","status":"works","note":"With no signal it translates roughly on the phone; the phrasebook is in English only."},
-{"name":"The Lab","where":"Jump bar or voice: 'Open the lab'","say":["Open the lab","Run the quakes page again"],"does":"Experiments on free public data kept as pages, run again any time, exportable.","status":"works","note":"Not on a LEARN or MAKE tab yet: reached by voice or the jump bar only."},
-{"name":"Mind map","where":"Home: long hold on the orb","say":["What do you know about me?"],"does":"A map of what Ghosty knows about him and his places.","status":"works","note":""},
-{"name":"Walk","where":"voice","say":["Take me on a walk"],"does":"A walking companion route from his own places.","status":"partial","note":"Small; little on screen."}
+{
+"lane": "LEARN (courses, learning, library, reader, school, gym, arcade, coach, rehearse, lab, interpreter, further)",
+"features": [
+{
+"name": "Courses",
+"where": "LEARN → COURSES",
+"say": [
+"Teach me how engines work",
+"Quiz me on photosynthesis",
+"Revise my flashcards"
 ],
-"upward":[
-{"idea":"School that teaches him back: every paper Ghosty sits becomes a worked-solutions booklet he can study, step by step, from the full working","why":"Turns Ghosty's exams into his own revision guide for any stage","builds_on":"School's online sitting in full working and the paper view","effort":"M"},
-{"idea":"Courses that adapt every day: the next lesson and quiz picked from what he got wrong and what he was 'sure' about but missed","why":"A real tutor's pacing instead of a fixed path","builds_on":"Courses' confidence marks, flashcards and mastery","effort":"M"},
-{"idea":"Mastery map across everything: one picture of what he knows, from courses, drills, rehearse and reading","why":"He sees growth at a glance and where to go next","builds_on":"Course mastery, Learning streaks, School weak spots","effort":"M"},
-{"idea":"Library highlights and notes: hold a sentence to highlight, add a note, export all notes for a book","why":"Matches the best reading apps","builds_on":"The reader's passages, place keeping and search","effort":"M"},
-{"idea":"Reader with a sleep timer, reading speed, and a voice per book","why":"Bedtime listening like an audiobook app","builds_on":"Reader read-aloud and its voice switch","effort":"S"},
-{"idea":"Public-domain bookstore: browse Project Gutenberg and Standard Ebooks, add a book in one tap on Wi-Fi with the size said","why":"Thousands of free classics on his shelf","builds_on":"Library import and the Wi-Fi download rule","effort":"M"},
-{"idea":"Interpreter conversation mode with a transcript he chooses to keep, and phrasebooks per country","why":"Travel-ready like a dedicated translator","builds_on":"Interpreter halves, phrasebook, copy","effort":"M"},
-{"idea":"Interpreter offline language packs, fetched on his tap on Wi-Fi with the size said","why":"Good translation with no signal abroad","builds_on":"The phone's rough offline translation","effort":"L"},
-{"idea":"Gym: show Ghosty's thinking on any move he plays (what he looked at and why)","why":"Learn the game from his reasoning","builds_on":"Gym search and the move review","effort":"M"},
-{"idea":"Gym: training on the graphics chip for real","why":"Faster self-training, and the screen's line becomes true","builds_on":"The GPU timing code already in the Gym","effort":"L"},
-{"idea":"Arcade: controller support and save slots per game","why":"Plays like a console","builds_on":"Arcade engines and saves","effort":"M"},
-{"idea":"Rehearse scored across time: his pace, filler words and concreteness charted session by session","why":"Proof he is getting better at talking","builds_on":"Rehearse notes and the KEPT list","effort":"S"},
-{"idea":"Coach: hear him play and say which notes were off","why":"A music teacher in his pocket","builds_on":"The tuner's pitch reading","effort":"M"},
-{"idea":"School: the reading check online too, in full working","why":"No phone brain needed to borrow books","builds_on":"School's online sitter","effort":"S"},
-{"idea":"Lab with charts on every page and a weekly re-run he chooses","why":"Public data becomes a living dashboard","builds_on":"Lab pages and their re-run","effort":"M"}
+"does": "Builds a course from his words: a map of units and lessons with sources, quizzes with how sure he was, flashcards, a streak and a timed exam.",
+"status": "works",
+"note": "Offline it shows the copy on the phone; a lesson not yet written needs the brain."
+},
+{
+"name": "Course exam",
+"where": "LEARN → COURSES → a course → EXAM",
+"say": [
+"Give me the exam on my engines course"
 ],
-"sideways":[
-{"idea":"Homework helper: photograph a worksheet and get it marked with what was missed and flashcards for the misses","why":"Uses School's marker on his own work","builds_on":"Lens 'mark my work' and School's marking","effort":"S"},
-{"idea":"Language course with speaking practice: Rehearse in Spanish, French and others","why":"Real conversation practice","builds_on":"Rehearse and the Interpreter's languages","effort":"M"},
-{"idea":"Driving theory practice from the public Highway Code","why":"Pass the theory test","builds_on":"Courses and School-style papers","effort":"M"},
-{"idea":"Trade and engineering courses (mechanic, electrician basics) from public sources, with numbers marked as first estimates","why":"Learning that pays off in his work","builds_on":"Courses and the Library","effort":"M"},
-{"idea":"Book club with Ghosty: after each chapter, three questions and a short chat","why":"Remembers more of what he reads","builds_on":"Reader chapters and quizzes","effort":"S"},
-{"idea":"Podcast-style summaries of his books, read aloud","why":"Learn on the move","builds_on":"Reader read-aloud and Self-study notes","effort":"S"},
-{"idea":"Memory palace drills for names and facts he chooses","why":"Better recall","builds_on":"Learning's memory drill","effort":"S"},
-{"idea":"Debate practice: Ghosty takes the other side of a topic","why":"Sharper arguments","builds_on":"Rehearse rounds and notes","effort":"S"},
-{"idea":"Puzzle of the day in the Brief (chess, Sudoku, a logic puzzle at his level)","why":"A daily habit","builds_on":"Gym puzzles at his edge","effort":"S"},
-{"idea":"Quiz night: Ghosty hosts a quiz from his own books and courses for friends at the table","why":"Social and fun","builds_on":"Course quizzes and the Interpreter's two-halves screen","effort":"M"},
-{"idea":"Sign language basics from public resources","why":"A new skill","builds_on":"Learning drills and courses","effort":"M"},
-{"idea":"Exam timetable planner: revision days in his calendar up to an exam","why":"Planned revision","builds_on":"Learning's four-week plan and the agenda","effort":"S"}
+"does": "A timed exam with no marks until the end; an open exam can be resumed from another course.",
+"status": "works",
+"note": ""
+},
+{
+"name": "Learning: words in eight languages",
+"where": "LEARN → LEARNING → WORDS",
+"say": [
+"Ten words in Spanish",
+"Review my words"
 ],
-"cross":[
-{"idea":"Lens → Library: point at a book's cover or barcode and add it, or find a public-domain copy","with":"LENS","why":"Building his shelf in seconds"},
-{"idea":"Comic from a course: turn a lesson into a short comic","with":"COMIC","why":"Lessons that stick"},
-{"idea":"Game Studio → Arcade and Gym: games he makes are played by Ghosty, who trains on them","with":"MAKE","why":"His games come alive"},
-{"idea":"Brief: today's lesson, word cards due and puzzle of the day in one line each","with":"PLAN AND HOME","why":"Learning without opening anything"},
-{"idea":"Body: a typing or drawing drill counts toward a screen-break and posture reminder","with":"BODY AND KITCHEN","why":"Healthy practice habits"},
-{"idea":"Voice: 'quiz me while I drive', every question and answer spoken, no screen","with":"VOICE, MEANINGS AND COLOURS","why":"Learning hands-free"}
-]}
+"does": "Daily word cards with spaced review.",
+"status": "works",
+"note": ""
+},
+{
+"name": "Learning: typing, handwriting, speed reading, memory, maths, spelling, first aid",
+"where": "LEARN → LEARNING",
+"say": [
+"Maths drill",
+"Typing test",
+"Read faster"
+],
+"does": "Short drills that are scored and kept, with a streak; handwriting is read from a photo on the phone.",
+"status": "works",
+"note": "The first handwriting read fetches about 6 MB from Ghosty's own site, said first."
+},
+{
+"name": "Learning: four-week plan",
+"where": "LEARN → LEARNING → PLAN",
+"say": [
+"Plan four weeks of drawing"
+],
+"does": "A plan of a few minutes a day, with the day's line in the Brief.",
+"status": "works",
+"note": "It is a plan, not a teacher."
+},
+{
+"name": "Streaks and progress",
+"where": "LEARN → LEARNING → PROGRESS",
+"say": [
+"My streaks"
+],
+"does": "What he practised each day, and his best runs.",
+"status": "works",
+"note": ""
+},
+{
+"name": "The Library shelf",
+"where": "LEARN → LIBRARY → SHELF",
+"say": [
+"What’s in your library?",
+"Find my volcano notes"
+],
+"does": "His books and documents (PDF, Word, e-books, web pages, photos of pages) with covers, kept on the phone and searchable.",
+"status": "works",
+"note": ""
+},
+{
+"name": "Ask the library",
+"where": "LEARN → LIBRARY → ASK THE LIBRARY",
+"say": [
+"What do my books say about sulphur dioxide?"
+],
+"does": "Answers from his own books with the passage shown.",
+"status": "works",
+"note": ""
+},
+{
+"name": "Wikipedia, offline",
+"where": "LEARN → LIBRARY → WIKIPEDIA, OFFLINE",
+"say": [
+"Get offline Wikipedia"
+],
+"does": "A downloadable offline encyclopedia, fetched on his tap on Wi-Fi with the size said.",
+"status": "works",
+"note": ""
+},
+{
+"name": "Self-study and Fresh today",
+"where": "LEARN → LIBRARY → SELF-STUDY / FRESH TODAY",
+"say": [
+"What did you study today?",
+"Study engines"
+],
+"does": "Ghosty reads chosen fields on his own and writes notes; today's digest of news notes.",
+"status": "works",
+"note": "Offline it says so; the digest needs the brain."
+},
+{
+"name": "Nature diary, gadgets, rights and law",
+"where": "LEARN → LIBRARY",
+"say": [
+"My nature diary",
+"What are my rights as a tenant?"
+],
+"does": "Birds, plants and insects he kept from the Lens, his gadget manuals, and plain-English law guides.",
+"status": "works",
+"note": ""
+},
+{
+"name": "The reader",
+"where": "LEARN → LIBRARY → a book",
+"say": [
+"Read me The Hobbit",
+"Where were we?",
+"Just this chapter"
+],
+"does": "Reads any book from where he left off, with chapters, search and page marks; reads aloud and can be talked over.",
+"status": "works",
+"note": "What happens when the phone locks mid-reading is not yet checked on his iPhone."
+},
+{
+"name": "School: papers sat in full working",
+"where": "LEARN → SCHOOL → THIS STAGE → SIT",
+"say": [
+"How’s school going?",
+"Sit Key Stage 2 maths"
+],
+"does": "With signal the brain's own model sits real-style papers in full working and they are marked properly; with no signal the phone's brain sits them.",
+"status": "works",
+"note": "The catalogue still says 'the brain on your phone sits real exam papers': it should say online in full working, the phone with no signal."
+},
+{
+"name": "School: ladder, placement, results, weak spots, nightly report",
+"where": "LEARN → SCHOOL",
+"say": [
+"Sit a placement test",
+"What are my weak spots?"
+],
+"does": "Stages from nursery up, a placement test to skip ahead, every paper to spot-check, weak topics and an optional nightly push.",
+"status": "works",
+"note": ""
+},
+{
+"name": "School: official papers and question banks",
+"where": "LEARN → SCHOOL → OFFICIAL PAPERS / WRITE THE PAPERS",
+"say": [
+"Fetch the 2024 SATs"
+],
+"does": "Real public papers (SATs, GCSE, A-level) read on the phone and kept private; banks of checked questions for higher stages.",
+"status": "partial",
+"note": "Higher stages need their banks written first, a little each night."
+},
+{
+"name": "School: reading shelf and borrow",
+"where": "LEARN → SCHOOL → READING",
+"say": [
+"What should I read next?"
+],
+"does": "Graded books, a reading check, and borrowing up to two stages ahead once earned.",
+"status": "partial",
+"note": "The reading check is sat only on the phone's brain."
+},
+{
+"name": "School on the free GPU",
+"where": "LEARN → SCHOOL → SIT ON THE FREE GPU",
+"say": [
+"Sit it on the free GPU"
+],
+"does": "The same brain sits a paper on Kaggle's free computers in about ten minutes.",
+"status": "partial",
+"note": "Needs his own Kaggle key in SYSTEM → KEYS."
+},
+{
+"name": "The Gym",
+"where": "LEARN → GYM",
+"say": [
+"Play me at chess",
+"Train all",
+"Watch the maze"
+],
+"does": "Ghosty trains himself by playing 22 games and you can play him: tic-tac-toe, Connect 4, checkers, chess, Go, puzzles and reasoning games, with levels and progress.",
+"status": "works",
+"note": "The line 'Training on the graphics chip' is only true for the timing test; the long training runs on the processor."
+},
+{
+"name": "Rated chess",
+"where": "LEARN → GYM → CHESS → RATED",
+"say": [
+"Rate me at chess",
+"Give me a hint"
+],
+"does": "Rated games against an engine with your rating, hints and a game check.",
+"status": "works",
+"note": ""
+},
+{
+"name": "The Arcade",
+"where": "LEARN → ARCADE",
+"say": [
+"Open the arcade",
+"Play DOOM",
+"Play Quake"
+],
+"does": "Real free classics and free levels, fetched once on his tap on Wi-Fi, with pause, saves and best scores; his own studio games under MY GAMES.",
+"status": "works",
+"note": "On an iPhone the phone can't tell Wi-Fi from mobile data, so a second tap is his yes."
+},
+{
+"name": "The Coach",
+"where": "LEARN → COACH",
+"say": [
+"Teach me guitar",
+"Tune my guitar",
+"Typing test"
+],
+"does": "A tuner, ten lessons each for guitar, piano and voice, a typing test and a drawing a day.",
+"status": "works",
+"note": ""
+},
+{
+"name": "Rehearse",
+"where": "LEARN → REHEARSE",
+"say": [
+"Rehearse a job interview",
+"Help me practise telling my landlord about the damp",
+"Practise my presentation"
+],
+"does": "Ghosty plays the other side for three rounds and gives five lines of notes; a talk for a minute gets pace and filler words; KEPT lists rehearsals to reread.",
+"status": "works",
+"note": ""
+},
+{
+"name": "The Interpreter",
+"where": "SEE → INTERPRET",
+"say": [
+"Translate for us",
+"Help me talk to a French speaker"
+],
+"does": "Two halves of the screen: each person holds a key and speaks, the other half writes it and says it aloud; translated lines can be heard again or copied; a phrasebook of twelve everyday lines.",
+"status": "works",
+"note": "With no signal it translates roughly on the phone; the phrasebook is in English only."
+},
+{
+"name": "The Lab",
+"where": "Jump bar or voice: 'Open the lab'",
+"say": [
+"Open the lab",
+"Run the quakes page again"
+],
+"does": "Experiments on free public data kept as pages, run again any time, exportable.",
+"status": "works",
+"note": "Not on a LEARN or MAKE tab yet: reached by voice or the jump bar only."
+},
+{
+"name": "Mind map",
+"where": "Home: long hold on the orb",
+"say": [
+"What do you know about me?"
+],
+"does": "A map of what Ghosty knows about him and his places.",
+"status": "works",
+"note": ""
+},
+{
+"name": "Walk me through it",
+"where": "voice, or a long press on a thing in the house plan",
+"say": [
+"Walk me through the library",
+"Walk me through it"
+],
+"does": "A guided tour of any screen: a soft pointer rings the next key to press, one line of why (said aloud when his voice is on), with NEXT, BACK and DONE.",
+"status": "works",
+"note": "Corrected 14 Nov: this was wrongly described before as a walking route; it is the guided tour, and it is whole."
+}
+],
+"upward": [
+{
+"idea": "School that teaches him back: every paper Ghosty sits becomes a worked-solutions booklet he can study, step by step, from the full working",
+"why": "Turns Ghosty's exams into his own revision guide for any stage",
+"builds_on": "School's online sitting in full working and the paper view",
+"effort": "M"
+},
+{
+"idea": "Courses that adapt every day: the next lesson and quiz picked from what he got wrong and what he was 'sure' about but missed",
+"why": "A real tutor's pacing instead of a fixed path",
+"builds_on": "Courses' confidence marks, flashcards and mastery",
+"effort": "M"
+},
+{
+"idea": "Mastery map across everything: one picture of what he knows, from courses, drills, rehearse and reading",
+"why": "He sees growth at a glance and where to go next",
+"builds_on": "Course mastery, Learning streaks, School weak spots",
+"effort": "M"
+},
+{
+"idea": "Library highlights and notes: hold a sentence to highlight, add a note, export all notes for a book",
+"why": "Matches the best reading apps",
+"builds_on": "The reader's passages, place keeping and search",
+"effort": "M"
+},
+{
+"idea": "Reader with a sleep timer, reading speed, and a voice per book",
+"why": "Bedtime listening like an audiobook app",
+"builds_on": "Reader read-aloud and its voice switch",
+"effort": "S"
+},
+{
+"idea": "Public-domain bookstore: browse Project Gutenberg and Standard Ebooks, add a book in one tap on Wi-Fi with the size said",
+"why": "Thousands of free classics on his shelf",
+"builds_on": "Library import and the Wi-Fi download rule",
+"effort": "M"
+},
+{
+"idea": "Interpreter conversation mode with a transcript he chooses to keep, and phrasebooks per country",
+"why": "Travel-ready like a dedicated translator",
+"builds_on": "Interpreter halves, phrasebook, copy",
+"effort": "M"
+},
+{
+"idea": "Interpreter offline language packs, fetched on his tap on Wi-Fi with the size said",
+"why": "Good translation with no signal abroad",
+"builds_on": "The phone's rough offline translation",
+"effort": "L"
+},
+{
+"idea": "Gym: show Ghosty's thinking on any move he plays (what he looked at and why)",
+"why": "Learn the game from his reasoning",
+"builds_on": "Gym search and the move review",
+"effort": "M"
+},
+{
+"idea": "Gym: training on the graphics chip for real",
+"why": "Faster self-training, and the screen's line becomes true",
+"builds_on": "The GPU timing code already in the Gym",
+"effort": "L"
+},
+{
+"idea": "Arcade: controller support and save slots per game",
+"why": "Plays like a console",
+"builds_on": "Arcade engines and saves",
+"effort": "M"
+},
+{
+"idea": "Rehearse scored across time: his pace, filler words and concreteness charted session by session",
+"why": "Proof he is getting better at talking",
+"builds_on": "Rehearse notes and the KEPT list",
+"effort": "S"
+},
+{
+"idea": "Coach: hear him play and say which notes were off",
+"why": "A music teacher in his pocket",
+"builds_on": "The tuner's pitch reading",
+"effort": "M"
+},
+{
+"idea": "School: the reading check online too, in full working",
+"why": "No phone brain needed to borrow books",
+"builds_on": "School's online sitter",
+"effort": "S"
+},
+{
+"idea": "Lab with charts on every page and a weekly re-run he chooses",
+"why": "Public data becomes a living dashboard",
+"builds_on": "Lab pages and their re-run",
+"effort": "M"
+}
+],
+"sideways": [
+{
+"idea": "Homework helper: photograph a worksheet and get it marked with what was missed and flashcards for the misses",
+"why": "Uses School's marker on his own work",
+"builds_on": "Lens 'mark my work' and School's marking",
+"effort": "S"
+},
+{
+"idea": "Language course with speaking practice: Rehearse in Spanish, French and others",
+"why": "Real conversation practice",
+"builds_on": "Rehearse and the Interpreter's languages",
+"effort": "M"
+},
+{
+"idea": "Driving theory practice from the public Highway Code",
+"why": "Pass the theory test",
+"builds_on": "Courses and School-style papers",
+"effort": "M"
+},
+{
+"idea": "Trade and engineering courses (mechanic, electrician basics) from public sources, with numbers marked as first estimates",
+"why": "Learning that pays off in his work",
+"builds_on": "Courses and the Library",
+"effort": "M"
+},
+{
+"idea": "Book club with Ghosty: after each chapter, three questions and a short chat",
+"why": "Remembers more of what he reads",
+"builds_on": "Reader chapters and quizzes",
+"effort": "S"
+},
+{
+"idea": "Podcast-style summaries of his books, read aloud",
+"why": "Learn on the move",
+"builds_on": "Reader read-aloud and Self-study notes",
+"effort": "S"
+},
+{
+"idea": "Memory palace drills for names and facts he chooses",
+"why": "Better recall",
+"builds_on": "Learning's memory drill",
+"effort": "S"
+},
+{
+"idea": "Debate practice: Ghosty takes the other side of a topic",
+"why": "Sharper arguments",
+"builds_on": "Rehearse rounds and notes",
+"effort": "S"
+},
+{
+"idea": "Puzzle of the day in the Brief (chess, Sudoku, a logic puzzle at his level)",
+"why": "A daily habit",
+"builds_on": "Gym puzzles at his edge",
+"effort": "S"
+},
+{
+"idea": "Quiz night: Ghosty hosts a quiz from his own books and courses for friends at the table",
+"why": "Social and fun",
+"builds_on": "Course quizzes and the Interpreter's two-halves screen",
+"effort": "M"
+},
+{
+"idea": "Sign language basics from public resources",
+"why": "A new skill",
+"builds_on": "Learning drills and courses",
+"effort": "M"
+},
+{
+"idea": "Exam timetable planner: revision days in his calendar up to an exam",
+"why": "Planned revision",
+"builds_on": "Learning's four-week plan and the agenda",
+"effort": "S"
+}
+],
+"cross": [
+{
+"idea": "Lens → Library: point at a book's cover or barcode and add it, or find a public-domain copy",
+"with": "LENS",
+"why": "Building his shelf in seconds"
+},
+{
+"idea": "Comic from a course: turn a lesson into a short comic",
+"with": "COMIC",
+"why": "Lessons that stick"
+},
+{
+"idea": "Game Studio → Arcade and Gym: games he makes are played by Ghosty, who trains on them",
+"with": "MAKE",
+"why": "His games come alive"
+},
+{
+"idea": "Brief: today's lesson, word cards due and puzzle of the day in one line each",
+"with": "PLAN AND HOME",
+"why": "Learning without opening anything"
+},
+{
+"idea": "Body: a typing or drawing drill counts toward a screen-break and posture reminder",
+"with": "BODY AND KITCHEN",
+"why": "Healthy practice habits"
+},
+{
+"idea": "Voice: 'quiz me while I drive', every question and answer spoken, no screen",
+"with": "VOICE, MEANINGS AND COLOURS",
+"why": "Learning hands-free"
+}
+]
+}

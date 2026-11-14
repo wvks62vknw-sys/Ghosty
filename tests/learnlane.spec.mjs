@@ -163,7 +163,7 @@ for (const vp of [PHONE, PHONE2]) {
 // ================================================================ U2 · courses that pick up his mistakes (next round, learn.u2)
 // A course whose lesson 2 holds an answer he was SURE of and got wrong: the map's TODAY names lesson 2, says why, and its quiz
 // asks the brain for just the missed lessons. Stood in by routes: the course list, the course and the quiz request.
-const COURSE = { id: 'c-light', topic: 'light', title: 'Light and leaves', level: 'beginner', minutes: 10, summary: 'How leaves use light.', created: Date.now() - 86400000, updated: Date.now(), basis: 'library', lessons: [{ n: 1, title: 'What light is', goal: '', done: true }, { n: 2, title: 'How leaves catch it', goal: '', done: true }, { n: 3, title: 'Sugar from light', goal: '', done: false }] };
+const COURSE = { id: 'c-light', topic: 'light', title: 'Light and leaves', level: 'beginner', minutes: 10, summary: 'How leaves use light.', created: Date.now() - 86400000, updated: Date.now(), basis: 'library', lessons: [{ n: 1, title: 'What light is', goal: '', done: true, check: { q: 'What do leaves catch?', choices: ['Light', 'Sound', 'Smell'], answer: 0, why: 'Leaves catch light to make sugar.' }, pool: [{ id: 'p1', kind: 'mc', q: 'Which gas do leaves give out?', choices: ['Oxygen', 'Helium'], answer: 0 }] }, { n: 2, title: 'How leaves catch it', goal: '', done: true }, { n: 3, title: 'Sugar from light', goal: '', done: false }] };
 const SUMMARY = { id: 'c-light', topic: 'light', title: 'Light and leaves', level: 'beginner', minutes: 10, lessons: 3, done: 2, next: 3, nextTitle: 'Sugar from light', asked: 4, right: 2, cards: 0, due: 0, updated: Date.now(), stats: { lessons: { 1: { asked: 2, right: 1, recent: [1, 0], conf: ['sure', 'guess'] }, 2: { asked: 2, right: 1, recent: [0, 1], conf: ['sure', 'think'] } }, conf: { sure: { n: 2, right: 1 } } } };
 for (const vp of [PHONE, PHONE2]) {
   const T = `[${vp.width}]`;
@@ -191,6 +191,29 @@ for (const vp of [PHONE, PHONE2]) {
     await page.locator('#pg-learn .learntoday button', { hasText: /^QUIZ ME ON MY MISSES$/i }).click();
     check(await until(page, () => !!document.querySelector('#pg-learn button.learnchoice'), null, 10000), `${T} [U2 quiz] the misses quiz did not open`);
     check(quizAsked.length === 1 && JSON.stringify(quizAsked[0].lessons) === '[2,1]' && quizAsked[0].course === 'c-light', `${T} [U2 quiz] asked the brain for ${JSON.stringify(quizAsked)}`);
+    // S10 · quiz night, hosted from this course's own questions (the check and the pool), with no brain asked
+    if (vp.width === 440) {
+      // (a fresh open lands on COURSES; the course opened above is kept on this phone, its questions with it)
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+      await go(page, 'learn');
+      const night = page.locator('#pg-learn button.learnnight');
+      check(await night.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [S10] no QUIZ NIGHT key under COURSES`);
+      await night.click();
+      await page.locator('.qnplayers input').nth(0).fill('Sam');
+      await page.locator('.qnplayers input').nth(1).fill('Jo');
+      await page.locator('.qnight button', { hasText: /^START THE QUIZ$/i }).click();
+      check(await until(page, () => window.__ghosty?.quiznight?.of === 2 && !!document.querySelector('.qnight .qnq'), null, 8000), `${T} [S10] the quiz did not start with the course's two questions: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.quiznight))}`);
+      await page.locator('.qnwho button', { hasText: /^SAM$/i }).click();
+      const after = await page.evaluate(() => ({ scores: window.__ghosty.quiznight.scores, line: window.__ghosty.quiznight.line }));
+      check(JSON.stringify(after.scores) === '[1,0]' && /^A point to Sam\. The answer: [AB]\) /.test(after.line), `${T} [S10] a point to Sam: ${JSON.stringify(after)}`);
+      await page.locator('.qnight button', { hasText: /^NEXT QUESTION$/i }).click();
+      await page.locator('.qnwho button', { hasText: /^NOBODY$/i }).click();
+      await page.locator('.qnight button', { hasText: /^THE RESULT$/i }).click();
+      check(await until(page, () => window.__ghosty?.quiznight?.winner === 'Sam wins with 1 point.', null, 5000), `${T} [S10] the winner line: "${await page.evaluate(() => window.__ghosty?.quiznight?.winner)}"`);
+      const smallKeys = await small(page, '.qnight');
+      check(!smallKeys.length, `${T} [S10] under 44 pt: ${smallKeys.join(', ')}`);
+    }
   } catch (e) {
     check(false, `${T} [U2] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
   }

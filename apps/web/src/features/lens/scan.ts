@@ -294,6 +294,8 @@ export function createScanMode(L: LensContext): Mode {
       ...web,
       r.note ? h('div.note', r.note) : null,
       r.url ? h('div.row.wrap', button(r.kind === 'book' ? 'OPEN LIBRARY PAGE' : 'PRODUCT PAGE', () => openOut(r.url!))) : null,
+      // [learn.c1] a book: on his reading list in the Library, and a free copy looked for among the classics (library/classics.ts)
+      r.kind === 'book' && r.title ? h('div.row.wrap', button('ON MY SHELF', (b) => void import('../library/classics').then((m) => m.bookFromLens({ title: r.title!, authors: r.authors, code: r.code, url: r.url, description: r.description })).then((line) => ((b.disabled = true), toast(line, 'ok'))).catch((e) => toast(sayError(e, 'put it on your shelf'), 'bad')))) : null,
       r.credit ? h('div.scancredit', r.credit) : null,
       actions({ ...info, raw: info.code ?? info.raw }, `${r.title}\n${extra}`),
     );

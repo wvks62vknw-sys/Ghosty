@@ -142,10 +142,52 @@ export function classicsPanel(onAdded: () => void): HTMLElement {
   }
 
   box.addEventListener('keydown', (e) => e.key === 'Enter' && box.value.trim() && void load('search'));
+  // a book from the Lens: its search runs at once (and again whenever another comes while the panel is on screen)
+  liveSearch = (words: string) => {
+    start.remove();
+    box.value = words;
+    void load('search');
+  };
   const find = button('SEARCH', () => (box.value.trim() ? void load('search') : tell('Type a title or an author first.')));
   // nothing is fetched until he opens it: the list is asked for the first time the panel comes into view
   const start = h('div.keyrow', button('SHOW THE FREE CLASSICS', () => (start.remove(), void load('top')), 'on'));
   pn.body.append(h('p.note', 'Thousands of free public-domain books (Project Gutenberg, and Standard Ebooks’ new releases). Nothing comes until you tap, and then only on Wi-Fi, with its size said.'), start, h('div.keyrow.clsearch', box, find), h('div.keyrow', topKey, newKey), say, list);
   pn.setStatus('FREE', 'ok');
+  if (pendingSearch) {
+    const w = pendingSearch;
+    pendingSearch = '';
+    queueMicrotask(() => liveSearch?.(w));
+  }
   return pn.el;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// [learn.c1, with lens.s11] A BOOK FROM THE LENS: a book's barcode, looked up in the Lens, goes on his reading list in the
+// Library (its details only, as a note to read: nothing is downloaded), and the free classics are searched for a free copy
+// by its title, which he can add with its size said, on Wi-Fi, as any other.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** The search the panel runs when it next opens (a book from the Lens), or ''. */
+let pendingSearch = '';
+/** The open panel's search, while it is on screen. */
+let liveSearch: ((words: string) => void) | null = null;
+
+/** Search the free classics for these words: now when the panel is open, else when it next opens. */
+export function findClassic(words: string): void {
+  const w = words.trim().slice(0, 100);
+  if (!w) return;
+  if (liveSearch) liveSearch(w);
+  else pendingSearch = w;
+}
+
+/** The Lens's book card: on his reading list, and the free classics searched for it. Returns the line to show. */
+export async function bookFromLens(b: { title: string; authors?: string[]; code?: string; url?: string; description?: string }): Promise<string> {
+  const title = b.title.trim().slice(0, 160);
+  if (!title) return 'That book has no title to file it under.';
+  const text = [title, b.authors?.length ? `By ${b.authors.join(', ')}` : '', b.code ? `ISBN ${b.code}` : '', b.description ?? '', b.url ? `More: ${b.url}` : '', 'On my reading list, from the Lens.'].filter(Boolean).join('\n');
+  const r = await fetch('/api/library/text', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ title: `To read: ${title}`, text, kind: 'note', source: b.url ?? '' }), credentials: 'same-origin' }).catch(() => null);
+  const ok = !!r?.ok;
+  findClassic(`${title} ${b.authors?.[0]?.split(' ').at(-1) ?? ''}`);
+  void import('../../shell/areas').then((a) => a.navTo('library', 'push')).then(() => import('../../ui/sections')).then((s) => s.revealSection('library', 'CLASSICS')).catch(() => undefined);
+  return ok ? `“${title}” is on your reading list in the Library. I’m looking for a free copy among the classics.` : `I couldn’t put “${title}” on your reading list just now, so I’m only looking for a free copy among the classics.`;
 }
