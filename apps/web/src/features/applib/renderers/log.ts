@@ -662,8 +662,8 @@ function galleryView(def: AppDef, log: LogConfig, k: KitApp, rows: Rec[]): HTMLE
 
 /** The quick-add bar: one line of plain words, read into the fields as he types (shown as chips); the full form one tap away. */
 function quickBar(def: AppDef, log: LogConfig, k: KitApp): HTMLElement {
-  const ex = quickExample(log, def.sample?.[0] as Record<string, unknown> | undefined);
-  const input = h('input.al-quickin', { type: 'text', enterKeyHint: 'done', autocomplete: 'off', placeholder: ex ? `e.g. ${ex}` : `Add to ${def.name} in plain words`, 'aria-label': `Quick add to ${def.name}` }) as HTMLInputElement;
+  const hint = quickExample(log, def.sample?.[0] as Record<string, unknown> | undefined);
+  const input = h('input.al-quickin', { type: 'text', enterKeyHint: 'done', autocomplete: 'off', placeholder: hint ? `For example, ${hint}` : `Add to ${def.name} in plain words`, 'aria-label': `Quick add to ${def.name}` }) as HTMLInputElement;
   const read = h('div.al-quickread', { 'aria-live': 'polite' });
   const preview = () => {
     const t = input.value.trim();

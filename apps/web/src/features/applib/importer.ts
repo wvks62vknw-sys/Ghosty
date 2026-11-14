@@ -13,7 +13,7 @@ import { key } from '../../ui/machine';
 import { KIT_ICONS, type KitApp, type KitItem } from '../../ui/appkit';
 import { registerRenderer, toolKey } from './registry';
 import { recordOf, type Val } from './engine';
-import { drawLog } from './renderers/log';
+import { drawLog, logSkeleton } from './renderers/log';
 import type { AppDef, Field, LogConfig } from '../../../../../packages/shared/src/applib/types';
 import { READER_META } from '../../../../../packages/shared/src/applib/importers/meta';
 import { mergeRecords, topList } from '../../../../../packages/shared/src/applib/importers/merge';
@@ -243,7 +243,7 @@ export const importerRenderer = (root: HTMLElement, def: AppDef, k: KitApp): (()
   const drawProgress = (f: number, cancel: () => void) => {
     const pct = Math.round(f * 100);
     const bar = h('div.al-imp-bar', { role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct), 'aria-label': 'Reading' }, h('i', { style: `width: ${pct}%` }));
-    body.replaceChildren(h('p.al-imp-lead', `Reading your file. ${pct}%`), bar, key('Cancel', cancel));
+    body.replaceChildren(h('p.al-imp-lead', `Reading your file. ${pct}%`), bar, key('Cancel', cancel), logSkeleton(3));
   };
 
   /** He picked: profiles to choose from first (a shared account), then merge or replace, then keep it. */
