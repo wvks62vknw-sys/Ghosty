@@ -93,6 +93,11 @@ async function run(viewport) {
   await page.click(`#pg-photos .phx-cell[data-id="${first}"]`);
   await until((id) => window.__ghosty.photos.viewer === id, first, 5000, '[viewer] the photo did not open full screen');
   await layout('viewer');
+  // a keyboard: the right arrow goes to the next photo, the left back
+  await page.keyboard.press('ArrowRight');
+  await until((id) => window.__ghosty.photos.viewer && window.__ghosty.photos.viewer !== id, first, 3000, '[viewer] the right arrow did not go to the next photo');
+  await page.keyboard.press('ArrowLeft');
+  await until((id) => window.__ghosty.photos.viewer === id, first, 3000, '[viewer] the left arrow did not come back');
   // WHO'S IN IT: only people he introduced can be named; with nobody introduced it says so and names no one
   await page.locator('.phx-viewer button', { hasText: /who.s in it/i }).click();
   await until(() => /Only people you’ve introduced can be named here/.test(window.__ghosty.photos.said), null, 4000, `[viewer] WHO'S IN IT with nobody introduced said "${(await S()).said}"`);
