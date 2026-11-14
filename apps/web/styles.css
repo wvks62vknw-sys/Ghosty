@@ -11798,5 +11798,22 @@ html .al-gmerge .al-gtile { transition: transform 110ms ease-out, background-col
 html .al-gmerge .al-gtile.al-gbump { animation: al-gbump 180ms ease-out 100ms; }
 @keyframes al-gbump { 50% { transform: scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { html .al-gmerge .al-gtile.al-gbump { animation: none; } }
+/* YOUR WORD · the week as bars (APPS ROUND, MEMORY lane): colours from the tokens */
+.keepchart { display: flex; flex-direction: column; gap: var(--g-s-half); margin: var(--g-s-1) 0; }
+.keepchartlab { font: var(--g-t-caption); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); margin-top: var(--g-s-half); }
+.keepbar { display: grid; grid-template-columns: minmax(0, 7em) minmax(0, 1fr) auto; align-items: center; gap: var(--g-s-1); }
+.keepbarlab { color: var(--g-ink-2); overflow-wrap: anywhere; }
+.keepbartrack { height: 10px; border-radius: 5px; background-color: var(--g-line-faint); overflow: hidden; }
+.keepbartrack i { display: block; height: 100%; border-radius: 5px; background-color: var(--g-accent); }
+.keepbar[data-tone="ok"] .keepbartrack i { background-color: var(--g-ok); }
+.keepbar[data-tone="mid"] .keepbartrack i { background-color: var(--g-amber); }
+.keepbarn { font-variant-numeric: tabular-nums; color: var(--g-ink-1); }
+.ppgroups { flex-wrap: wrap; gap: var(--g-s-half); }
+.ppgroups button, .ppgrouprow button { min-height: var(--g-target); }
+.ppgrouprow { flex-wrap: wrap; gap: var(--g-s-half); }
+.ppgrouprow input { flex: 1 1 12em; min-width: 0; min-height: var(--g-target); }
 html .al-makerhost { display: flex; flex-direction: column; overflow: hidden !important; padding-bottom: 0 !important; }
 html .al-makerhost > .ak-app { flex: 1 1 auto; height: auto; min-height: 0; padding: 0; }
+/* (the shell's #app passes taps through to the scene below, save for its keys and fields: a board's cells, cards, pads and
+   canvas are taps too) */
+html .al-game, html .al-maker, html .al-makerhost { pointer-events: auto; }

@@ -180,3 +180,9 @@ test('a group plan as one .ics: its day and time (two hours) or all day, its pla
   assert.match(V.planIcs({ what: 'Picnic', when: '2026-12-31', yes: [] }, at), /DTSTART;VALUE=DATE:20261231\r\nDTEND;VALUE=DATE:20270101/);
   assert.equal(V.planIcs({ what: 'Some day', yes: [] }, at), null);
 });
+
+test('your people’s groups: his words to a clean list, and every group in use, most people first', async () => {
+  const V = await import('./.build/journal/apps/web/src/features/people/vcard.mjs');
+  assert.deepEqual(V.groupsFrom(' Family,  school mums; family , x'), ['family', 'school mums']);
+  assert.deepEqual(V.allGroups({ Jo: ['family', 'football'], Sam: ['football'], Ali: ['work', 'football'] }), ['football', 'family', 'work']);
+});
