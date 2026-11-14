@@ -141,6 +141,40 @@ async function run(vp, body) {
     check(/You asked me \d+ things? this week|A quiet week/.test(week), `${T} [g] said "${week}"`);
   }
 
+  // (h) the Brief's email line: CHASE on a mail that needs an answer sets the chase in one tap; a chase due today shows as its own line
+  if (!body) {
+    const json = (route, data) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+    await page.route(/\/api\/email\/status$/, (r) => json(r, { linked: true, address: 'tony@example.com', server: 'imap.example.com' }));
+    await page.route(/\/api\/guardian\/mail\/inbox$/, (r) => json(r, { linked: true, address: 'tony@example.com', messages: [{ uid: 41, from: 'Sam Jones <sam@example.com>', name: 'Sam Jones', address: 'sam@example.com', subject: 'Can you do Thursday?', date: '' }] }));
+    let chaseBody = null;
+    await page.route(/\/api\/guardian\/watchers$/, (r) => {
+      if (r.request().method() === 'POST') {
+        chaseBody = r.request().postDataJSON();
+        return json(r, { watcher: { id: 'c1', kind: 'reply', url: '', label: 'Chase Sam: Can you do Thursday?', created: Date.now(), checked: Date.now(), ok: true, state: 'watching', who: 'Sam', by: Date.now() + 2 * DAY, mail: true }, said: "If nothing comes from Sam by Thursday 9 am, I'll remind you to chase it." });
+      }
+      return json(r, { watchers: [{ id: 'c0', kind: 'reply', url: '', label: 'Chase Ann', created: Date.now() - DAY, checked: Date.now(), ok: true, state: 'watching', who: 'Ann', about: 'the invoice', by: Date.now() + 60_000, mail: true }], max: 8 });
+    });
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(250);
+    await page.evaluate(() => (location.hash = 'brief'));
+    const rowUp = await page.waitForFunction(() => !!document.querySelector('#pg-brief .bremail .bremrow .bremchasekey'), null, { timeout: 20000 }).then(() => true, () => false);
+    check(rowUp, `${T} [h] no CHASE key on the Brief's email row`);
+    const due = await page.evaluate(() => document.querySelector('#pg-brief .bremail .bremchase')?.textContent ?? '');
+    check(/Chasing today: Ann \(the invoice\)\./.test(due), `${T} [h] the chases due today read "${due}"`);
+    if (rowUp) {
+      const key = page.locator('#pg-brief .bremail .bremchasekey').first();
+      await key.scrollIntoViewIfNeeded().catch(() => undefined);
+      const box = await key.boundingBox();
+      check(box && box.height >= 43.5 && box.width >= 43.5, `${T} [h] CHASE is ${box?.width}×${box?.height}`);
+      await key.click();
+      const set = await page.waitForFunction(() => document.querySelector('#pg-brief .bremail .bremchasekey')?.textContent === 'CHASING', null, { timeout: 8000 }).then(() => true, () => false);
+      check(set && chaseBody?.kind === 'reply' && chaseBody.who === 'Sam' && chaseBody.from === 'sam@example.com' && chaseBody.about === 'Can you do Thursday?' && /^(monday|tuesday|wednesday|thursday|friday)$/.test(chaseBody.day), `${T} [h] CHASE set ${JSON.stringify(chaseBody)}`);
+    }
+    await page.unroute(/\/api\/email\/status$/);
+    await page.unroute(/\/api\/guardian\/mail\/inbox$/);
+    await page.unroute(/\/api\/guardian\/watchers$/);
+  }
+
   // (f) MEMORY → YOUR WORD
   await page.evaluate(() => (location.hash = 'memory'));
   await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });

@@ -5,10 +5,11 @@
  * brings it back. Every key is 44 pt (the house's `button`).
  */
 import { h } from '../../core/dom';
-import { button, toast } from '../../ui/components';
+import { button, modal, toast } from '../../ui/components';
 import { forgetTurn, foundState, KIND_WORD, turnFor, undoForgetTurn, type ThingKind } from './recall';
-import { TURN_FORGOTTEN } from './words';
+import { EXCHANGE_NO_ANSWER, EXCHANGE_PINNED, EXCHANGE_UNPINNED, TURN_FORGOTTEN } from './words';
 import { chat } from '../../assistant/session';
+import { navTo } from '../../shell/areas';
 
 type Row = { key: string; kind: string; id: string; title: string; line: string; at: number; stamp: string; day: string; bid?: string };
 
@@ -29,14 +30,51 @@ function land(bid: string): void {
 }
 
 /** Open what a row found: a turn in the log, a thing in its own editor at its line. */
-export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line' | 'id'> & { bid?: string }): Promise<void> {
+export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line' | 'id'> & { bid?: string; stamp?: string; key?: string }, o: { inChat?: boolean } = {}): Promise<void> {
   Object.assign(foundState, { kind: r.kind, id: r.id, bid: r.bid ?? '', landed: false });
+  if (r.kind === 'turn' && !o.inChat) return showExchange(r);
   if (r.kind === 'turn') return void import('./timeline').then((m) => m.openChatAt(r.at, r.line));
   if (r.kind === 'doc') await import('../../docs/sheet').then((m) => m.openDocs({ id: r.id }));
   else if (r.kind === 'page') await import('../../workspace/sheet').then((m) => m.openWorkspace({ id: r.id }));
   else if (r.kind === 'deck') await import('../../slides/sheet').then((m) => m.openSlides({ id: r.id }));
   else if (r.kind === 'sheet') await import('../../sheets/sheet').then((m) => m.openSheets({ id: r.id }));
+  else if (r.kind === 'link') window.open(r.id, '_blank', 'noopener');
+  else if (r.kind === 'todo') navTo('agenda', 'push');
+  else if (r.kind === 'book') navTo('library', 'push');
   if (r.bid) land(r.bid);
+}
+
+/**
+ * [recall] memory.u7: a turn found, shown where he is: what he said and what I answered (the whole answer when the log still has it,
+ * else its first sentence), with OPEN IN CHAT and PIN (kept past the 30 days, memory.u11).
+ */
+function showExchange(r: Pick<Row, 'at' | 'line'> & { stamp?: string; key?: string }): void {
+  const es = chat.get().entries;
+  const i = es.findIndex((e) => e.kind === 'user' && Math.abs(e.at - r.at) < 10 * 60_000 && e.text.replace(/\s+/g, ' ').trim().startsWith(r.line.slice(0, 40)));
+  const reply = i >= 0 ? es.slice(i + 1, i + 6).find((e): e is Extract<typeof e, { kind: 'assistant' }> => e.kind === 'assistant') : undefined;
+  const said = i >= 0 ? (es[i] as { text: string }).text : r.line;
+  void import('./recall').then(async (R) => {
+    const thing = (await R.allThings()).find((x) => x.key === (r.key ?? `t:${r.at}`));
+    const answerText = reply?.text ?? thing?.a ?? '';
+    const pinned = R.isPinned(r.key ?? `t:${r.at}`);
+    let m: { close(): void } | null = null;
+    const pin = button(pinned ? 'UNPIN' : 'PIN', async (b) => {
+      b.disabled = true;
+      const now = await R.pinTurn({ key: r.key ?? `t:${r.at}`, at: r.at }, b.textContent === 'PIN');
+      b.textContent = now ? 'UNPIN' : 'PIN';
+      toast(now ? EXCHANGE_PINNED : EXCHANGE_UNPINNED, 'ok');
+      b.disabled = false;
+    }, 'recallpin');
+    pin.setAttribute('aria-label', 'Keep this chat in recall past 30 days');
+    const open = button('OPEN IN CHAT', () => {
+      m?.close();
+      void import('./timeline').then((t) => t.openChatAt(r.at, r.line));
+    }, 'on');
+    const body = h('div.readwrap.exchange', { dataset: { case: 'keep' } },
+      h('div.reader', h('p', h('b', 'You: '), said), answerText ? h('p', h('b', 'Ghosty: '), answerText) : h('p.note', EXCHANGE_NO_ANSWER)),
+      h('div.row.wrap.exkeys', open, pin));
+    m = modal(`Your chat · ${r.stamp ?? new Date(r.at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`, body);
+  });
 }
 
 export function recallRows(rows: Row[]): HTMLElement {
@@ -84,7 +122,7 @@ export function recallChip(reply: string, at: number): HTMLElement | null {
   const question = mine?.text ?? '';
   void turnFor(reply, question).then((t) => {
     if (!t) return slot.remove();
-    const b = button(`RECALL · ${t.day[0]!.toUpperCase()}${t.day.slice(1)}`, () => void openFound(t), 'on');
+    const b = button(`RECALL · ${t.day[0]!.toUpperCase()}${t.day.slice(1)}`, () => void openFound(t, { inChat: true }), 'on');
     b.dataset.case = 'keep';
     b.classList.add('recallchipkey');
     b.setAttribute('aria-label', `Open what you said ${t.day}`);

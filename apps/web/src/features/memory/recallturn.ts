@@ -16,7 +16,7 @@ import { sayError } from '../../ui/hisWords';
 import { buildIndex, findLocal, recallWarm, wordsOnly } from './recall';
 import { turnsBetween } from './keep';
 import { dateSpan } from '../../../../../packages/shared/src/keep';
-import { BY_WORDS, recallNoneOn, recallOn, CHASE_LIST_OFFLINE, CHASE_OFFLINE, CHASING_NONE, chasingLine, findHead, findNone, RECALL_COLD, recallHead, recallNone } from './words';
+import { BY_WORDS, recallNoneOn, recallOn, recallSpoken, CHASE_LIST_OFFLINE, CHASE_OFFLINE, CHASING_NONE, chasingLine, findHead, findNone, RECALL_COLD, recallHead, recallNone } from './words';
 
 type Opts = { voice?: boolean; private?: boolean };
 type Answer = (text: string, reply: string, local: LocalAnswer, opts: Opts) => true;
@@ -48,6 +48,8 @@ export async function recallTurn(text: string, opts: Opts, answer: Answer): Prom
   const how = wordsOnly() ? ` ${BY_WORDS}` : '';
   if (about) {
     if (!found.length) return answer(text, dated ? recallNoneOn(dated.said, about) : recallNone(about), { kind: 'recall' }, opts);
+    // (asked aloud, in the car: one short line, the count and the last time; the card has the rest — memory.c5)
+    if (opts.voice) return answer(text, recallSpoken(found.length, about, found[0]!.day), { kind: 'recall', found: rows }, opts);
     const top = found.slice(0, 3).map((f) => `${f.day[0]!.toUpperCase()}${f.day.slice(1)} (${f.stamp}): “${f.line.slice(0, 80)}”`);
     return answer(text, [`${recallHead(found.length, about)}${how}`, ...top].join('\n'), { kind: 'recall', found: rows }, opts);
   }
@@ -76,9 +78,9 @@ export async function chaseTurn(text: string, opts: Opts, answer: Answer): Promi
   const c = chaseAsked(text);
   if (!c) return false;
   // "this": the mail the Brief shows from the person he named (the same inbox the Brief reads; nothing new is fetched or read)
-  const mail = await mailFrom(c.who);
+  const mail = c.wait ? null : await mailFrom(c.who);
   try {
-    const r = await Promise.race([brain.chaseAdd({ kind: 'reply', who: c.who || mail?.name || '', day: c.day, about: mail?.subject ?? '', ...(mail?.address ? { from: mail.address } : {}), tz: timeZone }), new Promise<null>((ok) => setTimeout(() => ok(null), 8000))]);
+    const r = await Promise.race([brain.chaseAdd({ kind: 'reply', who: c.wait ? '' : c.who || mail?.name || '', day: c.day, about: c.wait ? '' : mail?.subject ?? '', ...(!c.wait && mail?.address ? { from: mail.address } : {}), ...(c.again ? { again: c.again } : {}), ...(c.wait ? { wait: c.wait } : {}), tz: timeZone }), new Promise<null>((ok) => setTimeout(() => ok(null), 8000))]);
     if (!r) return answer(text, CHASE_OFFLINE, { kind: 'watcher' }, opts);
     return answer(text, r.said, { kind: 'watcher', go }, opts);
   } catch (e) {

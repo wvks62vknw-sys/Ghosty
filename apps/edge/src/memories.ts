@@ -22,7 +22,7 @@ import type { Library } from './library/store';
 import { DIARY_DOC, diaryEntries, loadProfile, looksSecret, saveProfile, type ProfileDeps } from './profile';
 import { isoLocal, safeTz, startOfDay, zoned } from './time';
 import { loadLog, LOG_KEY, type Episode } from './mind';
-import { forgetGist, GISTS_KEY, restoreGist } from './recall';
+import { forgetGist, GISTS_KEY, pinGist, restoreGist } from './recall';
 import { keepRoute } from './keep';
 import type { Gist } from '../../../packages/shared/src/recall';
 import { loadMemory, MEMORY_KEY } from './tools/memory';
@@ -224,7 +224,12 @@ export async function changeMemory(deps: Pick<ProfileDeps, 'storage' | 'library'
   if (op === 'restore') return restore(deps, id, now);
   // [recall] a turn (id `t:<its time>`): FORGET takes it out of the 30 days' gists, kept a day for UNDO; nothing else is done to one
   if (kind === 't:') {
-    if (op !== 'forget') throw new MemoryError(400, 'a turn can only be forgotten');
+    // [recall] memory.u11: LOCK on a turn is its PIN (kept past the 30 days); UNLOCK lets it fade again
+    if (op === 'lock' || op === 'unlock') {
+      if (!(await pinGist(storage, Number(key), op === 'lock'))) throw new MemoryError(404, 'that turn is not there any more');
+      return null;
+    }
+    if (op !== 'forget') throw new MemoryError(400, 'a turn can only be pinned or forgotten');
     const g = await forgetGist(storage, Number(key));
     if (!g) throw new MemoryError(404, 'that turn is not there any more');
     await stash(storage, { id, gone: now, gist: g });

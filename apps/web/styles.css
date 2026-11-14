@@ -9888,3 +9888,4 @@ html .keep .keepweek { margin: 0; font: var(--g-t-body); letter-spacing: var(--g
 html .keep details.keepdone > summary { min-height: var(--g-target); display: flex; align-items: center; cursor: pointer; font: var(--g-t-caption); color: var(--g-ink-2); }
 html .keepcard .keepline { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; min-height: var(--g-target); font: var(--g-t-body); overflow-wrap: anywhere; }
 html .keepcard .recallrow.kept .keepline { text-decoration: line-through; color: var(--g-ink-3); }
+html .bremrow .bremkeys { display: flex; flex: none; gap: var(--g-s-half); }

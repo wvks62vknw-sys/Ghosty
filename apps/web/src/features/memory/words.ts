@@ -64,3 +64,9 @@ export const recallOn = (n: number, said: string): string => `${n === 1 ? 'One t
 export const recallNoneOn = (said: string, about?: string): string => `Nothing${about ? ` about “${about.slice(0, 40)}”` : ''} from ${said.replace(/^(?:on|in) /, '')}.`;
 /** Meaning search downloaded but not ready this moment: the answer came by its words. */
 export const BY_WORDS = '(By words only: meaning search is still waking up.)';
+/** [recall] the exchange card (memory.u7) and PIN (memory.u11). */
+export const EXCHANGE_NO_ANSWER = 'My answer to it is no longer kept on this phone.';
+export const EXCHANGE_PINNED = 'Pinned: this chat stays in recall past 30 days.';
+export const EXCHANGE_UNPINNED = 'Unpinned: it fades from recall after 30 days, like the rest.';
+/** [recall] memory.c5: recall said aloud, in one short line. */
+export const recallSpoken = (n: number, about: string, last: string): string => `You asked me about ${about.slice(0, 40)} ${n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`}, last ${last}.`;
