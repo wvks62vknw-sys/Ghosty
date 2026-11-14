@@ -30,6 +30,16 @@ function converter(o: {
 }
 const SI = 'SI definitions and the UK Weights and Measures Act 1985 (exact factors)';
 
+
+/** Puts output `id` first (the engine shows the first output as the headline and keeps it), inlining any earlier outputs it reads. */
+function lead(id: string, outs: CalcOutput[]): CalcOutput[] {
+  const at = outs.findIndex((o) => o.id === id);
+  const exprs = new Map(outs.slice(0, at).map((o) => [o.id, o.expr]));
+  const inline = (expr: string): string => expr.replace(/\b[a-z][a-z0-9_]*\b/g, (w) => (exprs.has(w) ? `(${inline(exprs.get(w)!)})` : w));
+  const top = { ...outs[at]!, expr: inline(outs[at]!.expr) };
+  return [top, ...outs.filter((_, n) => n !== at)];
+}
+
 export const TOOLS: AppDef[] = [
   // ——— Pay, tax and everyday sums ———
   {
@@ -44,7 +54,7 @@ export const TOOLS: AppDef[] = [
         inp('plan', 'Student Loan', 0, { choices: [{ label: 'None', value: 0 }, { label: 'Plan 1', value: 1 }, { label: 'Plan 2', value: 2 }, { label: 'Plan 4', value: 4 }, { label: 'Plan 5', value: 5 }] }),
         inp('pg', 'Postgraduate Loan', 0, { choices: [{ label: 'No', value: 0 }, { label: 'Yes', value: 1 }] }),
       ],
-      outputs: [
+      outputs: lead('month', [
         money('pen', 'Pension', 'salary * pension / 100'),
         money('allowance', 'Personal Allowance', 'max(0, 12570 - max(0, salary - pen - 100000) / 2)', 0),
         money('tax', 'Income Tax', 'min(max(0, salary - pen - allowance), 37700) * 0.2 + clamp(salary - pen - allowance - 37700, 0, 87440) * 0.4 + max(0, salary - pen - allowance - 125140) * 0.45'),
@@ -52,7 +62,7 @@ export const TOOLS: AppDef[] = [
         money('loan', 'Student Loan', 'if(plan == 0, 0, max(0, salary - if(plan == 1, 26900, if(plan == 2, 29385, if(plan == 4, 33795, 25000)))) * 0.09) + pg * max(0, salary - 21000) * 0.06'),
         money('net', 'Take-Home A Year', 'salary - pen - tax - ni - loan'),
         money('month', 'Take-Home A Month', 'net / 12'),
-      ],
+      ]),
       tests: [
         { in: { salary: 30000, pension: 0, plan: 0, pg: 0 }, out: { tax: 3486, ni: 1394.4, net: 25119.6, month: 2093.3 } },
         { in: { salary: 60000, pension: 5, plan: 2, pg: 0 }, out: { tax: 10232, ni: 3210.6, loan: 2755.35, net: 40802.05 } },
@@ -98,11 +108,11 @@ export const TOOLS: AppDef[] = [
         inp('tip', 'Tip', 12.5, { unit: '%', min: 0, max: 30, step: 0.5 }),
         inp('people', 'People', 4, { min: 1, max: 30 }),
       ],
-      outputs: [
+      outputs: lead('each', [
         money('tipamt', 'Tip', 'bill * tip / 100'),
         money('total', 'Total', 'bill + tipamt'),
         money('each', 'Each Pays', 'total / people'),
-      ],
+      ]),
       tests: [
         { in: { bill: 84, tip: 12.5, people: 4 }, out: { tipamt: 10.5, total: 94.5, each: 23.63 } },
         { in: { bill: 60, tip: 0, people: 3 }, out: { each: 20 } },
@@ -189,11 +199,11 @@ export const TOOLS: AppDef[] = [
         inp('people', 'Sharing', 1, { min: 1, max: 9 }),
         inp('ret', 'Return Trip', 1, { choices: [{ label: 'One way', value: 1 }, { label: 'There and back', value: 2 }] }),
       ],
-      outputs: [
+      outputs: lead('cost', [
         out('litres', 'Fuel', 'miles * ret / mpg * 4.54609', { unit: 'litres', dp: 1 }),
         money('cost', 'Cost', 'litres * price / 100'),
         money('each', 'Each Pays', 'cost / people'),
-      ],
+      ]),
       tests: [
         { in: { miles: 100, mpg: 50, price: 140, people: 1, ret: 1 }, out: { litres: 9.09, cost: 12.73 } },
         { in: { miles: 100, mpg: 50, price: 140, people: 2, ret: 2 }, out: { cost: 25.46, each: 12.73 } },
@@ -234,10 +244,10 @@ export const TOOLS: AppDef[] = [
         inp('makes', 'It Makes', 4, { min: 0.01 }),
         inp('want', 'I Want', 6, { min: 0 }),
       ],
-      outputs: [
+      outputs: lead('scaled', [
         out('factor', 'Scale Factor', 'want / makes', { dp: 3 }),
         out('scaled', 'New Amount', 'amount * factor', { dp: 2 }),
-      ],
+      ]),
       tests: [
         { in: { amount: 200, makes: 4, want: 6 }, out: { factor: 1.5, scaled: 300 } },
         { in: { amount: 90, makes: 6, want: 2 }, out: { scaled: 30 } },
@@ -259,11 +269,11 @@ export const TOOLS: AppDef[] = [
         inp('brk', 'Break', 30, { unit: 'min', min: 0, max: 240 }),
         inp('rate', 'Hourly Rate', 0, { unit: '£', min: 0, step: 0.01 }),
       ],
-      outputs: [
+      outputs: lead('hours', [
         out('mins', 'Minutes Worked', 'max(0, if(eh * 60 + em >= sh * 60 + sm, 0, 1440) + eh * 60 + em - sh * 60 - sm - brk)', { dp: 0 }),
         out('hours', 'Hours Worked', 'mins / 60', { dp: 2 }),
         money('pay', 'Pay', 'hours * rate'),
-      ],
+      ]),
       tests: [
         { in: { sh: 9, sm: 0, eh: 17, em: 30, brk: 30, rate: 0 }, out: { mins: 480, hours: 8 } },
         { in: { sh: 22, sm: 0, eh: 6, em: 0, brk: 0, rate: 15 }, out: { hours: 8, pay: 120 } },
@@ -496,11 +506,11 @@ export const TOOLS: AppDef[] = [
         inp('price', 'Unit Price', 26, { unit: 'p per kWh', min: 0, step: 0.1 }),
         inp('cost', 'LED Price Each', 3, { unit: '£', min: 0, step: 0.1 }),
       ],
-      outputs: [
+      outputs: lead('saving', [
         out('kwh', 'Energy Saved', '(old - led) * count * hours * 365 / 1000', { unit: 'kWh a year', dp: 0 }),
         money('saving', 'Saved A Year', 'kwh * price / 100'),
         out('payback', 'Pays Back In', 'if(saving > 0, cost * count / saving * 12, 0)', { unit: 'months', dp: 1 }),
-      ],
+      ]),
       tests: [
         { in: { old: 60, led: 8, count: 6, hours: 4, price: 26, cost: 3 }, out: { kwh: 455.52, saving: 118.44, payback: 1.82 } },
         { in: { old: 50, led: 5, count: 1, hours: 2, price: 30, cost: 0 }, out: { kwh: 32.85, saving: 9.86 } },
@@ -557,10 +567,10 @@ export const TOOLS: AppDef[] = [
         inp('from', 'From', 0, { choices: [{ label: 'Celsius', value: 0 }, { label: 'Fahrenheit', value: 1 }, { label: 'Kelvin', value: 2 }] }),
         inp('to', 'To', 1, { choices: [{ label: 'Celsius', value: 0 }, { label: 'Fahrenheit', value: 1 }, { label: 'Kelvin', value: 2 }] }),
       ],
-      outputs: [
+      outputs: lead('result', [
         out('c', 'In Celsius', 'if(from == 0, value, if(from == 1, (value - 32) * 5 / 9, value - 273.15))', { unit: '°C', dp: 2 }),
         out('result', 'Result', 'if(to == 0, c, if(to == 1, c * 9 / 5 + 32, c + 273.15))', { dp: 2 }),
-      ],
+      ]),
       tests: [
         { in: { value: 20, from: 0, to: 1 }, out: { result: 68 } },
         { in: { value: 212, from: 1, to: 0 }, out: { result: 100 } },

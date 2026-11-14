@@ -1161,6 +1161,36 @@ export const GAMES: AppDef[] = [
 
   // ---------------------------------------------------------------- new: more for players
   {
+    id: 'capital-pairs',
+    name: 'Capital Pairs',
+    family: 'games',
+    glyph: 'globe',
+    pitch: 'A memory game where each country must be matched to its capital city.',
+    keywords: ['memory', 'capitals', 'pairs', 'geography', 'matching'],
+    archetype: 'game',
+    tour: [
+      'Turn two cards: a country and its capital make a pair.',
+      'Learn the capitals while training your memory.',
+      'Fewer turns means a better score.',
+    ],
+    game: { kind: 'pairs', options: { pairs: 8, cols: 4, set: ['France|Paris', 'Spain|Madrid', 'Norway|Oslo', 'Japan|Tokyo', 'Canada|Ottawa', 'Kenya|Nairobi', 'Egypt|Cairo', 'Italy|Rome'] } },
+  },
+  {
+    id: 'element-pairs',
+    name: 'Element Pairs',
+    family: 'games',
+    glyph: 'atom',
+    pitch: 'Match each chemical symbol to its element in a memory game.',
+    keywords: ['elements', 'symbols', 'memory', 'chemistry', 'pairs'],
+    archetype: 'game',
+    tour: [
+      'Turn two cards: a symbol and its element make a pair.',
+      'Watch for the Latin ones, like Fe and Au.',
+      'Clear the board in as few turns as you can.',
+    ],
+    game: { kind: 'pairs', options: { pairs: 8, cols: 4, set: ['H|Hydrogen', 'C|Carbon', 'O|Oxygen', 'Na|Sodium', 'Fe|Iron', 'Au|Gold', 'Ag|Silver', 'Pb|Lead'] } },
+  },
+  {
     id: 'board-game-shelf',
     name: 'Game Shelf',
     family: 'games',
