@@ -6863,6 +6863,9 @@ html .br-seg.slow { stroke: var(--g-amber); }
 html .bt .bp-dot { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; padding: 0 var(--g-s-half); font: var(--g-t-caption); font-variant-numeric: var(--g-num); color: var(--g-ink-3); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-mark); }
 html .bt .bp-dot[data-hit="1"] { color: var(--g-accent-text); }
 /* HEALTH HUB (APPS ROUND, features/body/hub.ts): every rule under .hh, tokens only */
+html .kt-sw { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .kt-swface { font: var(--g-t-value); font-size: 44px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--g-ink-1); }
+html .kt-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--g-s-1); }
 html .bt.hh .hh-top { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 html .bt.hh .hh-date { font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
 html .bt.hh .hh-top small, html .bt.hh .hh-ringwords small, html .bt.hh .hh-legend small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
