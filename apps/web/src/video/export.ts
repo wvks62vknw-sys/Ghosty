@@ -249,7 +249,8 @@ class Pull {
     let r = this.readers.get(l.clip.id);
     if (r === undefined) {
       const b = await this.blobOf(l.clip.src);
-      r = b ? await Reader.open(b) : null;
+      // (a still photo is drawn from the feeder's own picture of it: there is nothing to decode)
+      r = b && !/^image\//.test(b.type) ? await Reader.open(b) : null;
       this.readers.set(l.clip.id, r);
     }
     if (r && l.clip.reverse) return this.reversed(l, r);

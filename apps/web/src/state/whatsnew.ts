@@ -34,6 +34,12 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Fill in and sign PDFs', line: 'DOCUMENTS → FILL AND SIGN A PDF: type into a form’s boxes, tick them, sign with your finger, and save or share it. Your signature stays only if you say KEEP IT.' },
   { day: '2026-11-14', title: 'Paper into a document', line: 'Scan a letter and INTO A DOCUMENT makes it a document you can edit, its headings and paragraphs kept; a receipt goes into a row of your Receipts spreadsheet.' },
   // [editors, media] the next round's photo and video tools
+  { day: '2026-11-14', title: 'Photo changes you approve', line: 'Say “make this photo warmer” or tap FIX IT: each change is marked in the Photo editor, like +0.3 exposure, for you to accept or reject one by one.' },
+  { day: '2026-11-14', title: 'Fades and colour over time', line: 'VIDEO: each fade has its own length, 0.1 s up to a third of the clip, and KEY THE GRADE lets a clip’s colour change as it plays.' },
+  { day: '2026-11-14', title: 'Post an edited photo', line: 'PHOTO → EXPORT → DRAFT A POST puts the picture in a new post on SOCIAL. It goes out only when you tap APPROVE, every time.' },
+  { day: '2026-11-14', title: 'A photo film with music', line: 'VIDEO → PROJECT → PHOTO FILM: pick photos and a song, and I cut them to its beat with a slow zoom. Photos go into any video as still clips too.' },
+  { day: '2026-11-14', title: 'Freeze frame', line: 'VIDEO → SPLIT → FREEZE FRAME holds the picture at the playhead for two seconds, between the two halves of the clip.' },
+  { day: '2026-11-14', title: 'Photos twice the size', line: 'PHOTO → EXPORT → 2× BIGGER draws the picture up smoothly and sharpens it on your phone, for printing a small photo.' },
   { day: '2026-11-14', title: 'Exports exactly as long as the video', line: 'A video you export now ends where your timeline ends, to the frame, its sound trimmed to match.' },
   { day: '2026-11-14', title: 'Your own one-word routines', line: 'Settings → ROUTINES: make one word, like “morning”, run a few things in turn. Say it or type it. Anything that would send still waits for your APPROVE.' },
   { day: '2026-11-14', title: 'Ask how, and get the taps', line: 'Ask “how do I paste a bank statement?” and I give the exact taps with TRY IT; “what can I say here?” gives that screen’s own words. The search understands whole sentences too.' },

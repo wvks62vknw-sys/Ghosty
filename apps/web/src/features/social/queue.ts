@@ -77,6 +77,29 @@ const madeEvents = new EventTarget();
 /** How an account counts a post's length (as the brain does: Bluesky's 300 are graphemes, the others letters). */
 export const lengthOn = (a: Account, text: string): number => (a === 'bluesky' ? graphemes(text.trim()) : [...text.trim()].length);
 
+/**
+ * [editors, media: editors.c6 and comic.c5, built into SOCIAL small and additive] An editor hands WRITE A POST a picture (and words): the
+ * Photo editor's DRAFT A POST, and any editor after it. It only fills the box here: he still picks the accounts and taps MAKE THE DRAFT,
+ * and the draft still waits in the queue for his APPROVE, every time. The picture stays on the phone until he makes the draft.
+ */
+const prefilled = new EventTarget();
+export async function prefillPost(o: { blob: Blob; text?: string; alt?: string }): Promise<void> {
+  let blob = o.blob;
+  if (blob.size > PICTURE_MAX || !PICTURE_TYPES.includes(blob.type)) {
+    try {
+      const { loadImageFile, toJpegBlob } = await import('../../vision/camera');
+      blob = await toJpegBlob(await loadImageFile(new File([blob], 'picture', { type: blob.type || 'image/jpeg' }), 2048), PICTURE_MAX, 2048);
+    } catch {
+      /* kept as it is: the box says if it is too big */
+    }
+  }
+  if (picture) URL.revokeObjectURL(picture.url);
+  picture = { blob, url: URL.createObjectURL(blob) };
+  const k = loadKept();
+  saveKept({ ...k, text: o.text ?? k.text, alt: o.alt ?? k.alt });
+  prefilled.dispatchEvent(new Event('set'));
+}
+
 /** POST /social/draft with a picture: the brain's draft route takes `image` (one of his /i/ pictures) and `alt`. */
 const draftWith = brain.socialDraft as unknown as (b: { account: Account; text: string; image?: string; alt?: string; from: 'phone' }) => Promise<DraftAnswer>;
 
@@ -239,6 +262,17 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     void paint(true);
   };
   madeEvents.addEventListener('made', onMade);
+  // an editor's picture handed over while this page is open: the box and the picture painted again
+  const onPrefill = () => {
+    if (gone) return;
+    const k = loadKept();
+    box.value = k.text;
+    alt.value = k.alt;
+    msg.textContent = '';
+    recount();
+    paintPicture();
+  };
+  prefilled.addEventListener('set', onPrefill);
 
   let first = true;
   const paintCompose = (info: SocialInfo | null) => {
@@ -291,7 +325,7 @@ export function queueScreen(): { el: HTMLElement; stop(): void } {
     paintPicture();
   };
   void paint();
-  return { el: h('div.pkcol', note, list, compose, phrases(['post that to Bluesky', 'who made you?'])), stop: () => ((gone = true), madeEvents.removeEventListener('made', onMade)) };
+  return { el: h('div.pkcol', note, list, compose, phrases(['post that to Bluesky', 'who made you?'])), stop: () => ((gone = true), madeEvents.removeEventListener('made', onMade), prefilled.removeEventListener('set', onPrefill)) };
 }
 
 /** What went out today: each post, follow or unfollow with its account, its time and its link. */

@@ -176,6 +176,17 @@ export async function mindTurn(text: string): Promise<PackReply> {
 export async function photoTurn(text: string): Promise<PackReply> {
   const ask = photoAsked(text) ?? { what: 'shelf' as const };
   const { openPhotoEditor } = await import('../features/photo');
+  if (ask.what === 'change') {
+    // editors.u7: marked changes in the Photo editor, on the photo open there (or the last one he edited); nothing changes until he accepts
+    const [{ lastOpen }, { peState }, { changesFor }] = await Promise.all([import('../photo/store'), import('../features/photo/editor'), import('../photo/suggest')]);
+    const n = changesFor(ask.ask ?? text).length;
+    const has = peState.open || !!lastOpen();
+    void openPhotoEditor({ suggest: ask.ask ?? text });
+    const reply = has
+      ? `I marked ${n === 1 ? 'one change' : `${n} changes`} in the Photo editor, on ${peState.open && peState.name ? `“${peState.name}”` : 'the photo you edited last'}. Accept or reject each; nothing changes the photo until you accept it.`
+      : 'Open a photo first: OPEN A PHOTO in the Photo editor, and I mark the changes on it for you to accept or reject.';
+    return { said: text, reply, go: [{ id: 'photo', ask: -1, label: 'Open the photo editor', run: 'open_photo', args: {} }] };
+  }
   void openPhotoEditor({});
   const reply = ask.what === 'edit'
     ? 'The photo editor is open: OPEN A PHOTO from your camera roll and I keep it here untouched, with every edit beside it.'

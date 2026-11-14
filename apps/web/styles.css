@@ -9623,6 +9623,8 @@ html .pephoto .pekeys > button { flex: 1 1 auto; white-space: normal; overflow-w
 .vd[data-empty="true"] .vdempty { display: flex; }
 .vd[data-empty="true"] :is(.vdstrip, .vdpills, .vdtray, .vdtransport, .vdtitleline, .vdzoom) { display: none; }
 .vd[data-empty="true"] .vdstage { display: none; }
+/* [NEXT ROUND] an empty video still opens PROJECT (MY VIDEOS, PHOTO FILM): its tray shows under the empty words */
+.vd[data-empty="true"][data-tool="project"] .vdtray { display: flex; }
 .vdempty1 { margin: 0; font: 600 20px/1.3 var(--sf); color: var(--fg); }
 .vdpills { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .vdpill, .vdchoice, .vdkey { flex: 0 1 auto; max-width: 100%; text-align: center; }
@@ -10306,3 +10308,18 @@ html .dcminebox .dcrow input { flex: 1 1 auto; min-width: 0; min-height: var(--g
 html .rcundo.undofloat.wordbar { flex-wrap: wrap; }
 html .rcundo.undofloat.wordbar span { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; }
 html .rcundo.undofloat.wordbar button { height: auto; min-height: 44px !important; padding: 0 18px; }
+
+/* GHOSTY'S CHANGES (editors.u7): each change marked, ACCEPT and REJECT on its own row, ACCEPT ALL and NO THANKS under them */
+html .pephoto .pesugg { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1); background: var(--g-plate-strong); border-radius: var(--g-radius-cell); box-shadow: inset 0 0 0 1px var(--g-accent); max-height: 34vh; overflow-y: auto; overscroll-behavior: contain; }
+html .pephoto .pesugg[hidden] { display: none; }
+html .pephoto .pesuggline { margin: 0; text-transform: none; letter-spacing: 0; font: var(--g-t-caption); color: var(--g-ink-1); }
+html .pephoto .pesugglist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .pephoto .pesuggrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--g-s-half); }
+html .pephoto .pesugglabel { flex: 1 1 8em; min-width: 0; font: var(--g-t-body); color: var(--g-accent-text); overflow-wrap: anywhere; font-variant-numeric: var(--g-num); }
+html .pephoto .pesuggkeys, html .pephoto .pesuggfoot { display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
+html .pephoto .pesuggfoot > button { flex: 1 1 auto; }
+html .pephoto :is(.pesuggyes, .pesuggall) { background: var(--g-accent); color: var(--g-canvas); }
+html .pephoto .pesugg button, html .pephoto .peask button { min-height: 44px; min-width: 44px; padding: 0 var(--g-s-1); }
+html .pephoto .peask { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .pephoto .pequicks { flex-wrap: wrap; }
+html .pephoto .peaskline { margin: 0; font: var(--g-t-caption); color: var(--g-ink-2); }
