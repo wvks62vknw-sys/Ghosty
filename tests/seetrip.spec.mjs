@@ -6,7 +6,9 @@
 //      the journey asked from "Here" never carries finer than the square kilometre (the brain never gets live GPS);
 //   b. THE JOURNEY WITH NO SIGNAL (the half-done one): the journey shown is kept on the phone; with the signal cut, the planner says it
 //      cannot plan and offers the kept one, which opens on the offline map with "its times may be out of date";
-//   c. the words: every wording of TRIP MODE is one meaning (read from the very source the page is built from).
+//   c. the words: every wording of TRIP MODE and of the layer sets is one meaning (read from the very source the page is built from);
+//   d. GOD'S EYE (see.u3, see.u6): COMMUTE, STORM and SKY each set their layers in one tap; a search for "BAW" lists every matching
+//      flight to pick from (a tap opens its card), an exact call sign goes straight to it; every key 44 pt.
 //   BASE=http://localhost:8788 node tests/seetrip.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
@@ -53,6 +55,8 @@ const journey = (arrive) => {
   };
 };
 const tfl = (i) => ({ id: `JamCams_00001.0${2000 + i}`, commonName: `Strand / Camera ${i + 1}`, lat: 51.5107 + i * 0.0006, lon: -0.1235 + i * 0.0006, additionalProperties: [{ key: 'available', value: 'true' }, { key: 'imageUrl', value: `https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/0001${i}.jpg` }] });
+// three aircraft over London: two of them British Airways (a search for "BAW" lists both)
+const AC = [['406a1b', 'BAW123  ', 'A320', 'G-EUYA', 51.47, -0.3, 12000], ['406b2c', 'BAW456  ', 'A35K', 'G-XWBA', 51.5, -0.1, 36000], ['4ca9f1', 'EIN154  ', 'A21N', 'EI-LRA', 51.55, -0.2, 22000]].map(([hex, flight, t, r, lat, lon, alt]) => ({ hex, flight, t, r, lat, lon, alt_baro: alt, gs: 410, track: 90 }));
 const hours = () => {
   const h0 = Math.floor(Date.now() / 3600_000) * 3600;
   const time = Array.from({ length: 72 }, (_, i) => h0 + i * 3600);
@@ -74,6 +78,7 @@ async function phone(viewport) {
     const target = decodeURIComponent(new URL(route.request().url()).searchParams.get('url') ?? '');
     if (/\.(jpg|jpeg)$/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'image/png' }, body: IMG });
     if (/api\.tfl\.gov\.uk/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify([0, 1, 2].map(tfl)) });
+    if (/api\.adsb\.lol|airplanes\.live/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ac: AC }) });
     if (/api\.open-meteo\.com/.test(target)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(hours()) });
     return route.fulfill({ status: 404, body: '' });
   });
@@ -129,6 +134,7 @@ const bar = (page, scope) =>
   }, scope);
 
 const W = await pure('apps/web/src/ui/tripwords.ts');
+const S = await pure('apps/web/src/features/eye/sets.ts');
 
 // c. the words (one meaning, many wordings; nothing else taken)
 {
@@ -136,6 +142,12 @@ const W = await pure('apps/web/src/ui/tripwords.ts');
     check(W.TRIP_ASK.test(t), `[c words] "${t}" is not TRIP MODE`);
   for (const t of ['plan a journey to Manchester', 'how do I get to Leeds?', 'when is my next appointment?', 'trip to Paris'])
     check(!W.TRIP_ASK.test(t), `[c words] "${t}" was taken as TRIP MODE`);
+}
+
+{
+  const want = { 'commute view': 'commute', 'show me the storm layers': 'storm', 'Sky mode': 'sky', 'weather view': 'storm', 'switch to the commute set': 'commute' };
+  for (const [t, k] of Object.entries(want)) check(S.setAsked(t) === k, `[c words] "${t}" is not the ${k} set (${S.setAsked(t)})`);
+  for (const t of ['what is the weather', 'sky news', 'storm in a teacup']) check(S.setAsked(t) === null, `[c words] "${t}" was taken as a layer set`);
 }
 
 for (const vp of [PHONE, PHONE2]) {
@@ -184,6 +196,40 @@ for (const vp of [PHONE, PHONE2]) {
   await page.evaluate(() => window.__ghosty.send('how do I get to my next appointment?'));
   check(await until(page, () => !!document.querySelector('.trip .triphead'), null, 15000), `${T} [a words] "how do I get to my next appointment?" did not open GETTING THERE`);
   await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+  // d. God's Eye: the layer sets and every match of a search (the God's Eye page is open now)
+  {
+    await page.evaluate(() => { const b = document.querySelector('#pg-eye .eyechips .lchip.ico'); const pill = document.querySelector('#pg-eye .eyelay.min > h3'); (b && getComputedStyle(b).visibility !== 'hidden' ? b : pill)?.click(); });
+    const sets = await until(page, () => document.querySelectorAll('#pg-eye .eyesets button').length === 3, null, 8000);
+    if (check(sets, `${T} [d sets] WHAT TO SHOW has no COMMUTE / STORM / SKY`)) {
+      for (const [k, on, off] of [['commute', ['cams', 'traffic', 'incidents', 'transit', 'enforce'], ['air', 'ships', 'sats']], ['storm', ['radar', 'alerts', 'quakes'], ['air', 'transit']], ['sky', ['air', 'sats', 'orbits'], ['radar', 'transit']]]) {
+        await page.evaluate((k) => document.querySelector(`#pg-eye .eyesets button[data-set="${k}"]`)?.click(), k);
+        const v = await page.evaluate(() => ({ ...window.__ghosty.globe.vis }));
+        check(on.every((n) => v[n]) && off.every((n) => !v[n]), `${T} [d sets] ${k}: on ${on.filter((n) => !v[n]).join(',') || 'ok'} / off ${off.filter((n) => v[n]).join(',') || 'ok'}`);
+        check(await page.evaluate((k) => document.querySelector(`#pg-eye .eyesets button[data-set="${k}"]`)?.classList.contains('on'), k), `${T} [d sets] ${k} is not marked as picked`);
+      }
+      const b = await bar(page, '#pg-eye .eyelay');
+      check(!b.length, `${T} [d sets] ${b.join(', ')}`);
+      await page.evaluate(() => document.querySelector('#pg-eye .eyelay:not(.min) > h3')?.click());
+    }
+    // every match: the aircraft over London arrive, then "BAW" lists both British Airways flights
+    await page.evaluate(() => { const c = window.__ghosty.globe.cam; c.fly = null; Object.assign(c, { lat: 51.5, lon: -0.15, range: 200 }); c.target = { lat: 51.5, lon: -0.15, range: 200, tilt: 0, hd: 0 }; });
+    const flying = await until(page, () => /EIN154|BAW/.test(document.querySelector('#pg-eye .eyebot .readout')?.textContent ?? '') || /\d+ planes?/.test(document.querySelector('#pg-eye .eyebot .readout')?.textContent ?? ''), null, 20000);
+    if (check(flying, `${T} [d search] the stand-in aircraft never arrived: "${await text(page, '#pg-eye .eyebot .readout')}"`)) {
+      await page.fill('#pg-eye .search input', 'BAW');
+      await page.keyboard.press('Enter');
+      const listed = await until(page, () => document.querySelectorAll('#pg-eye .searchlist:not([hidden]) .searchpick[data-kind="flight"]').length === 2, null, 5000);
+      check(listed, `${T} [d search] "BAW" did not list both flights: "${await text(page, '#pg-eye .searchlist')}"`);
+      const b = await bar(page, '#pg-eye .searchlist');
+      check(!b.length, `${T} [d search] ${b.join(', ')}`);
+      await page.evaluate(() => [...document.querySelectorAll('#pg-eye .searchpick')].find((x) => /BAW456/.test(x.textContent))?.click());
+      check(await until(page, () => /BAW456/.test(document.querySelector('#pg-eye .eyeinfo:not([hidden])')?.textContent ?? '') && document.querySelector('#pg-eye .searchlist').hidden, null, 5000), `${T} [d search] a tapped match did not open its card`);
+      await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyeinfo button')].find((x) => x.textContent.trim() === '✕')?.click());
+      await page.fill('#pg-eye .search input', 'ein154');
+      await page.keyboard.press('Enter');
+      check(await until(page, () => /EIN154/.test(document.querySelector('#pg-eye .eyeinfo:not([hidden])')?.textContent ?? '') && document.querySelector('#pg-eye .searchlist').hidden, null, 5000), `${T} [d search] an exact call sign did not go straight to its card`);
+      await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyeinfo button')].find((x) => x.textContent.trim() === '✕')?.click());
+    }
+  }
   // b. no signal: the planner offers the kept journey, which opens with its warning
   await ctx.setOffline(true);
   await page.evaluate(() => window.__ghosty.run('journey_planner', {}));

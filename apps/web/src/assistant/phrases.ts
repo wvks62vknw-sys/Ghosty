@@ -70,6 +70,7 @@ import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
 import { TRIP_ASK } from '../ui/tripwords';
+import { setAsked } from '../features/eye/sets';
 
 /** [recall] FIND over his own things: "find garden in my things", "search my notes for garden"; the words looked for, else null. */
 export function findAsked(text: string): string | null {
@@ -162,6 +163,8 @@ export const LOCAL_ASKS = [
   { id: 'learning', test: (t: string) => typingPending() || learningAsked(t) !== null },
   // [see] TRIP MODE: the next appointment to the whole journey (ui/tripsheet.ts)
   { id: 'trip', test: (t: string) => TRIP_ASK.test(t.trim()) },
+  // [see] a one-tap layer set on God's Eye: "commute view", "storm layers", "sky mode" (features/eye/sets.ts)
+  { id: 'layerset', test: (t: string) => setAsked(t) !== null },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

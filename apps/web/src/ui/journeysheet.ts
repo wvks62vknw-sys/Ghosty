@@ -146,15 +146,6 @@ export function showJourney(raw: JourneyAnswer, pick = 0, o: { keptAt?: number }
   const stops = [at, ...its[pick]!.legs.map((l) => l.to)].map((p, i) => ({ lat: p.lat, lon: p.lon, label: i === 0 ? 'START' : undefined }));
   shown = openMapSheet('map', { lat: at.lat, lon: at.lon, name: `JOURNEY · ${answer.to.name}` }, { below: sheet, map3d: { points: stops, line: false, route: path } });
   draw(pick);
-  // the flat map opens a moment later (its script and tiles): the picked journey is drawn on it as soon as it is there
-  const j0 = its[pick]!;
-  let tries = 0;
-  const later = () => {
-    const f = shown?.flat();
-    if (f) return f.showJourney(its[last?.pick ?? pick] ?? j0);
-    if (++tries < 20 && sheet.isConnected) setTimeout(later, 250);
-  };
-  setTimeout(later, 250);
 }
 
 export interface PlannerPrefill {
@@ -300,7 +291,8 @@ export function openJourneyPlanner(prefill: PlannerPrefill = {}): void {
   function paintKept(): void {
     if (!last) return;
     const k = last;
-    paint(k.answer, `LAST PLANNED ${plannedWhen(k.at).toUpperCase()} · ${k.answer.from.name} → ${k.answer.to.name}`, offline() ? k.at : undefined);
+    // (with no signal it says when it was planned, since its times may have moved on)
+    paint(k.answer, offline() ? `LAST PLANNED ${plannedWhen(k.at).toUpperCase()} · ${k.answer.from.name} → ${k.answer.to.name}` : `LAST PLANNED · ${k.answer.from.name} → ${k.answer.to.name}`, offline() ? k.at : undefined);
   }
   if (last && !prefill.to) paintKept();
   if (offline()) {
