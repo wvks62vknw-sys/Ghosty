@@ -49,6 +49,10 @@ nothing reaches a bank, nothing pays or sends, and no new key was needed.
 - **Jobs** (a new pill): each job you applied for, with the day, where it stands (applied, interview, offer, turned down, withdrawn)
   and a reminder to follow up on the day you pick.
 
+- **Meetings** (a new pill): add a meeting with its agenda, open it to type notes as it goes (kept on this phone as you type), then
+  **Sum it up** turns the agenda and notes into the decisions, the actions and who has them. The summary is kept with the meeting and
+  in your documents library, and your own actions go to your to-do list in one tap. Nothing is sent to anyone.
+
 ### PEOPLE (Life → PEOPLE)
 - Each thing you told me about someone can be changed or taken away, and the Memory line follows.
 - Your own photo of someone you introduced, kept only on this phone. It is never sent and never used to recognise anyone.
@@ -86,16 +90,17 @@ Abilities says so.
 7. **Trends**: scroll to Your year in money (Print it) and Price watches (paste a shop's page).
 8. **HOUSEHOLD → Papers**: add your washing machine with its receipt photo, and your house insurance's renewal day.
 9. **HOUSEHOLD → Bills**: mark a bill paid and see it stay under PAID with the year's total.
-10. **WORK → Document**: ask me in the chat for a CV, then find it kept here. **WORK → Jobs**: add an application.
+10. **WORK → Document**: ask me in the chat for a CV, then find it kept here. **WORK → Jobs**: add an application. **WORK → Meetings**:
+    add one, type notes, tap Sum it up.
 11. **PEOPLE**: open someone's details; change a note, add a gift idea, mark it bought.
 
 ## Checks
 - New spec **`tests/moneynext.spec.mjs`** (its word is at the end of check.yml's `all=`): at 440 × 956 and 390 × 844, safe to spend to
   the penny against the brain's own sums, rules, a split, goals, shared bills, the car and the cancel page, the calendar, the year, price
-  watches, HOME's paid bills, Papers with a receipt photo, energy, the documents library, jobs, people's notes, gifts and photo, a
+  watches, HOME's paid bills, Papers with a receipt photo, energy, the documents library, jobs, meetings, people's notes, gifts and photo, a
   birthday message drafted from Coming up, every new
-  page offline and failed in his words with TRY AGAIN, every key 44 pt, nothing sideways, BODY 21 and the seven looks. 247 checks,
-  about 100 s here.
+  page offline and failed in his words with TRY AGAIN, every key 44 pt, nothing sideways, BODY 21 and the seven looks. About 260 checks,
+  under 90 s here.
 - Brain tests in `apps/edge/test/money.test.mjs` cover every new sum and action (safe to spend, calendar, supplier years, goals, split,
   household shares, the year, meter spans, papers and their reminders, the statement nudge, notes, gifts, jobs, the cancel helper).
 - `tests/tabs.spec.mjs` reads the new pills and pages. The states ratchet has rows for every new page.
@@ -119,7 +124,7 @@ Abilities says so.
 
 ## What is left (for the next pass)
 - **Unequal shares** on Shared bills (Splitwise's "by amount" and "by percent"), and splitting a payment into more than two parts.
-- **Moving-house checklist** (money.s6), **meeting prep** (money.s9), **invites from a group plan** (money.s10) and **more drum sounds and
+- **Moving-house checklist** (money.s6), **invites from a group plan** (money.s10) and **more drum sounds and
   your own loops** (money.s11) were not reached this round.
 - Safe to spend could later count a budget's money still to spend as set aside, if you want it to.
 - The cancel helper's list of stable cancel addresses is short on purpose; others come from a search kept to the company's own site.

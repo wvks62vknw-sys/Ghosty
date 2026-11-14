@@ -71,7 +71,7 @@ await page.waitForTimeout(400);
 await page.evaluate(() => (location.hash = 'workbench'));
 await until(() => document.body.dataset.tab === 'workbench', null, 10000, '#workbench did not open it');
 const pills = await page.$$eval('#pg-workbench .secpill', (ps) => ps.map((p) => p.textContent));
-check(pills.join(',') === 'Wind tunnel,Structure,Drive,Flight,Home', `the sections: ${pills.join(',')}`);
+check(pills.join(',') === 'Wind tunnel,Structure,Drive,Flight,Home,Projects', `the sections: ${pills.join(',')}`);
 // every panel's default answer, with its label (each section shown in turn)
 const PANELS = { structure: ['beam', 'column'], drive: ['gears', 'engine'], flight: ['wing', 'projectile', 'orbit'], home: ['heat', 'sun', 'circuit'] };
 for (const [sec, ids] of Object.entries(PANELS)) {

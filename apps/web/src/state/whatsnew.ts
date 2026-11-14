@@ -43,6 +43,12 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Freeze frame', line: 'VIDEO → SPLIT → FREEZE FRAME holds the picture at the playhead for two seconds, between the two halves of the clip.' },
   { day: '2026-11-14', title: 'Photos twice the size', line: 'PHOTO → EXPORT → 2× BIGGER draws the picture up smoothly and sharpens it on your phone, for printing a small photo.' },
   { day: '2026-11-14', title: 'Exports exactly as long as the video', line: 'A video you export now ends where your timeline ends, to the frame, its sound trimmed to match.' },
+  // [comic] NEXT ROUND (comic.u3, u12)
+  { day: '2026-11-14', title: 'Comics in a series, read aloud', line: 'COMIC: ISSUE 2 continues a comic with the same cast, numbered on its cover; READ ALOUD reads a comic you made panel by panel, a phone voice for each character, which you can pick in THE CAST.' },
+  // [comic] NEXT ROUND (comic.c6, s12, u8, s5, s6, s2)
+  { day: '2026-11-14', title: 'Jokes, cards and picture books', line: 'COMIC → MAKE: a one-panel joke, a greeting card or a picture book as well as a comic; say “make it a comic” about what I just told you; translate a comic’s words for family abroad; and pick your own cartoon look by hand to cast in any comic.' },
+  // [comic] NEXT ROUND (comic.u9, u11, u13, s7, s11)
+  { day: '2026-11-14', title: 'A comic reader like the best', line: 'COMIC: a strip of every page, bookmarks, a night tint and AUTO page turns; search and sort your shelf with read marks and a reading log; save a comic as one long phone scroll, as single panels, or as a booklet to print, fold and staple.' },
   // [planlane2:fixes] the half-done ones, finished: scripts ask first, follow from SOCIAL, email TEST, one health line on LINKS
   { day: '2026-11-14', title: 'Scripts ask first', line: 'A Home Assistant script now asks “Run Bedtime?” before it runs, every time, on the screen and from the chat: I can’t see what a script does. Scenes still run on one tap unless they set a lock, the alarm, a garage door or a switch you marked.' },
   { day: '2026-11-14', title: 'Follow from SOCIAL', line: 'SOCIAL → WAITING (under WAITING FOR YOUR APPROVE) has a FOLLOW OR UNFOLLOW box for Bluesky and Mastodon: it makes a draft, and nothing happens until you tap APPROVE.' },
@@ -103,6 +109,7 @@ export const WHATS_NEW: NewThing[] = [
   // [see] the next round: an appointment to the whole journey, and the journey kept for no signal
   { day: '2026-11-14', title: 'Getting there, in one tap', line: 'An appointment with a place in AGENDA has GETTING THERE: when to leave, the weather when you arrive, the roads and public cameras on the way. Or ask “how do I get to my next appointment?”' },
   { day: '2026-11-14', title: 'God’s eye: one tap, every match', line: 'WHAT TO SHOW has COMMUTE, STORM and SKY at the top (or say “commute view”), and a search like “BAW” lists every matching flight, ship and city to pick from.' },
+  { day: '2026-11-14', title: 'Fuel, chargers, timelapse, the ISS', line: 'The map’s FUEL & CHARGE shows fuel stations and car chargers; a camera’s card can play its last minute as a TIMELAPSE; NUDGE ME puts the space station’s next pass in your diary with a reminder.' },
   { day: '2026-11-14', title: 'The world in your Brief', line: 'The morning Brief has THE WORLD: the threat level, road reports on your commute and a fresh picture from the public camera nearest home.' },
   { day: '2026-11-14', title: 'Rain radar, full screen', line: 'RAIN in God’s eye, or “rain radar”: the last two hours of rain over home played back, and a line saying if rain is coming in the next two hours.' },
   { day: '2026-11-14', title: 'Your own camera wall', line: 'Pin up to nine public cameras from God’s eye (PIN TO WALL on a camera’s card); WALL in the bar, or “my camera wall”, shows them all live.' },
@@ -119,6 +126,7 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'A few seconds to take it back', line: 'After you approve a send, a post, a payment or a publish, the card counts down four seconds with TAKE IT BACK before anything leaves.' },
   // [security] NEXT ROUND, lane SECURITY: Settings → Security
   { day: '2026-11-14', title: 'Every lock on one screen', line: 'Settings → SECURITY: sign-in, your backup, your keys’ lock, faces, Telegram, previews, the demo and the public doors, each green, amber or red; every APPROVE and NOT NOW listed; and steps for the fixes in your Cloudflare account.' },
+  { day: '2026-11-14', title: 'Looks that change by the clock', line: 'Settings → THEME, BY THE CLOCK: one look by day and one by night from your home’s sunrise and sunset, and calm motion from an hour you choose.' },
   { day: '2026-11-14', title: 'Export everything', line: 'System → BACKUP: EXPORT EVERYTHING saves your documents as Word files, sheets as Excel, decks as PowerPoint, the workspace as Markdown and your memory as a document, in one zip.' },
   { day: '2026-11-14', title: 'A log of camera, mic and location use', line: 'Settings → PERMISSIONS lists every time the camera, the microphone or your location was actually used, and on which screen, kept on your phone.' },
   { day: '2026-11-14', title: 'Screens that got slower are flagged', line: 'System → STATUS, SPEED: a screen that opens slower on your phone since the last update is named, with how long it took before.' },
@@ -151,6 +159,7 @@ export const WHATS_NEW: NewThing[] = [
   // [voice lane] the final round, unsaid until now
   { day: '2026-11-13', title: 'Say it your way, colours by name', line: '“Put some tunes on”, “log a pint” or “give us a shout in ten minutes” just work; “make it red” changes my colour, and every colour now has a plain name. Ask “do you know it’s me?” and I answer from what this phone heard.' },
   // NEXT ROUND, MAKE lane
+  { day: '2026-11-14', title: 'Workbench projects and DIY jobs', line: 'Make → Workbench → PROJECTS: save every number as “the shed beam” and open it later just as it was. Say “put up a shelf” for the tools, materials, steps and a load check, each a first estimate.' },
   { day: '2026-11-14', title: 'The curve behind a Workbench answer', line: 'Make → Workbench: under the numbers, the shape of the answer: how a beam sags along its span, the power a car needs as it speeds up, a room’s heat month by month, the sun through the day. Each a first estimate, never certified.' },
   { day: '2026-11-14', title: 'Prices on your paint and flooring', line: 'Make → Space → MATERIALS: a typical UK price beside the paint, the flooring (laminate or carpet) and the skirting, the total, and SET AGAINST MY SPENDING to see it beside your usual month from your own statements. First estimates, never quotes.' },
   { day: '2026-11-14', title: 'Doors and windows from room photos', line: 'Make → Space → FROM PHOTO: after photos of the room, tap its outline where each door and window is. The sizes say ROUGH until you type one wall’s real length.' },

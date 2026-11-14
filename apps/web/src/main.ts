@@ -187,6 +187,8 @@ async function boot(): Promise<void> {
   if (spotify) toast(spotify.text, spotify.ok ? 'ok' : 'warn');
   // [resta] a Siri shortcut's link (?say=, ?do=, ?open=): done on his own signed-in phone only (features/settings/shortcuts.ts)
   void import('./features/settings/shortcuts').then((s) => s.followLink(ui.get().connected || !!ownerKey.get())).catch(() => undefined);
+  // [next] the look by the clock, when he has switched it on (state/lookclock.ts)
+  void import('./state/lookclock').then((m) => m.startLookClock()).catch(() => undefined);
   // [next] a heads-up once when a free allowance is nearly used up or a key starts failing (state/keyshealth.ts)
   void Promise.all([import('./state/keyshealth'), import('./api/brain')]).then(([k, b]) => b.lastSeen.subscribe((s) => { for (const x of k.untold(k.headsUps(s.status))) toast(`${x.text} ${x.fix}`, x.tone === 'bad' ? 'bad' : 'warn'); })).catch(() => undefined);
   // [polish3] what another app shared to Ghosty (the manifest's share_target): files to the library, words to the ask line

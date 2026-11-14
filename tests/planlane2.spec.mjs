@@ -140,11 +140,13 @@ const today = () => {
 // ---- 6. THE PARTS: each screen's own checks (tests/planlane/<name>.mjs, each exporting `run(H)`), in name order, with the harness above
 const H = { browser, phone, open, fit, check, log, pure, chat, ask, out, base, KEY, today, PHONE, PHONE2, WORLDS, RAW, TONE, DIRECTORY };
 const partsDir = new URL('./planlane2/', import.meta.url);
-const parts = existsSync(partsDir) ? readdirSync(partsDir).filter((f) => f.endsWith('.mjs')).sort() : [];
+// (split in two for CI's eight minutes: this spec runs these parts; tests/planlane3.spec.mjs runs the rest of tests/planlane2/, the same way)
+const MINE = ['onelist', 'timeline', 'podcasts'];
+const parts = existsSync(partsDir) ? readdirSync(partsDir).filter((f) => f.endsWith('.mjs') && MINE.includes(f.replace(/\.mjs$/, ''))).sort() : [];
 // Two lanes at once (CI's eight minutes): the parts that read his diary on the shared preview brain run one after another in the first
 // (the agenda adds and removes its own event, so Home and the Brief never see it half-way); the parts whose sources are all stood in by
 // page.route run in the second. A part named in neither joins the first.
-const LANES = [['onelist', 'timeline', 'goodnight', 'fixes'], ['radio', 'podcasts']];
+const LANES = [['onelist', 'timeline'], ['podcasts']];
 const named = parts.map((f) => f.replace(/\.mjs$/, '')).filter((n) => !ONLY.length || ONLY.includes(n));
 const lanes = [named.filter((n) => !LANES[1].includes(n)).sort((a, b) => (LANES[0].indexOf(a) + 1 || 99) - (LANES[0].indexOf(b) + 1 || 99)), LANES[1].filter((n) => named.includes(n))];
 await Promise.all(lanes.map(async (lane) => {

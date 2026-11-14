@@ -74,7 +74,7 @@ import { worldDesc, ORB_FILL } from '../features/core/scan/world';
 import { eyeShot, type EyeShot, type EyeShotState } from '../features/core/eye/film';
 import { FEED_NAMES, type FeedId, type GuardianInfo } from '../../../../packages/shared/src/guardian';
 
-type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet';
+type Kind = 'full' | 'short' | 'still' | 'flat' | 'warm' | 'quiet' | 'lock';
 type Phase = 'ground' | 'floor' | 'orb' | 'stamp' | 'feeds' | 'recognise' | 'greeting' | 'land' | 'done';
 type Timeline = Record<Exclude<Phase, 'done'> | 'end', number>;
 
@@ -360,6 +360,15 @@ export function startBoot(): void {
   const toHome = (!hash || hash === 'core') && !/[?&]code=/.test(location.search);
   // every cold open plays it (the page is new: nothing of the app was running); a resume never reaches here
   // [restc] on a television (TV MODE) the short cut: the orb and the words, nothing that needs WebGPU; with no 3-D at all it is the flat one
+  // [boot.c6] opened from his Lens shortcut (?do=lens, ?do=lens:read, #lens): a one-second lock-in, then the Lens (the camera still waits for START)
+  const q = new URLSearchParams(location.search);
+  const lensLink = /^lens(?::|$)/i.test(q.get('do') ?? '') || /^lens$/i.test(q.get('open') ?? '') || /^lens\b/i.test(hash);
+  if (lensLink && !automated) {
+    bootState.kind = 'lock';
+    el.classList.add('lock');
+    lockIn(el);
+    return;
+  }
   // a quick reopen (he had it on screen under three minutes ago, and the phone closed it behind him): the short cut, not the whole film again
   bootState.reopen = previousOpen > 0 ? Math.max(0, Date.now() - previousOpen) : -1;
   bootState.quick = bootState.reopen >= 0 && bootState.reopen < QUICK_REOPEN_MS;
@@ -372,6 +381,47 @@ export function startBoot(): void {
   el.classList.add(kind);
   if (kind === 'quiet' || kind === 'warm') return;
   play(el, kind, false);
+}
+
+/**
+ * THE LENS'S LOCK-IN (NEXT ROUND boot.c6): opened from his Lens shortcut, the reticle snaps onto the middle of the screen with LENS under
+ * it (the recognition's tone where the phone allows sound), and the layer fades onto the Lens once the app is up: a second at least, two
+ * and a half at most. The camera is never opened here: the Lens still waits for his tap on START.
+ */
+const LOCK_MIN = 900;
+const LOCK_MAX = 2500;
+function lockIn(el: HTMLElement): void {
+  bootState.plays++;
+  bootState.marks = {};
+  bootState.ended = -1;
+  const t0 = performance.now();
+  started = t0;
+  bootState.firstFrame = Math.round(t0);
+  bootState.marks.lock = 0;
+  const side = Math.round(Math.min(innerWidth, innerHeight) * 0.42);
+  const target = h('i.borb.block', { 'aria-hidden': 'true' });
+  Object.assign(target.style, { left: `${Math.round((innerWidth - side) / 2)}px`, top: `${Math.round((innerHeight - side) / 2)}px`, width: `${side}px`, height: `${side}px` });
+  const name = h('p.bname', { dataset: { case: 'keep' } }, 'LENS');
+  name.style.top = `${Math.round((innerHeight + side) / 2) + 14}px`;
+  el.append(target, name);
+  const lock = lockBox(el);
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-label', 'Opening the Lens.');
+  bootState.tone = sfxAllowed() ? ((document.documentElement.dataset.sound ?? 'tone') as 'tone' | 'click' | 'off') : 'quiet';
+  void recognise(lock, target, { name: 'Lens' });
+  name.style.opacity = '1';
+  const end = () => {
+    const e = performance.now() - t0;
+    if ((!appIsReady || e < LOCK_MIN) && e < LOCK_MAX) return void setTimeout(end, 50);
+    release(lock);
+    bootState.ended = Math.round(e);
+    bootState.marks.done = bootState.ended;
+    bootState.phase = 'done';
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 200);
+    watchReturns();
+  };
+  setTimeout(end, LOCK_MIN);
 }
 
 /** "reboot" and SYSTEM → REBOOT HIM: Home, then the whole cinematic again over it. */
@@ -1270,7 +1320,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
   /** Each frame against the budget: the gap since the last one (long: over 12 ms at 120 Hz, over 20 at 60). */
   const budget = (gap: number) => {
     if (B.gaps.length < 600) B.gaps.push(Math.round(gap * 10) / 10);
-    if (gap < 11.5) quick++;
+    if (gap > 1 && gap < 11.5) quick++; // (a zero-length gap is two frames handed the same time, never a sign of a 120 Hz display)
     const hz = B.gaps.length < 3 ? 0 : quick >= 2 ? 120 : 60;
     if (hz !== B.hz) {
       B.hz = hz;
@@ -1341,14 +1391,16 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
       enter('ground', 0);
     }
     // a long gap is not made up in one jump (no stutter), but the end still comes on time (the rate after a hold)
-    const gap = now - last;
+    // (every frame after the first is a gap in the record, a zero-length one too: a loaded software renderer can hand two frames the
+    // same time, and a frame drawn must never go uncounted; FINAL-BOOT's check on CI, "76 gaps recorded for 78 frames")
+    const gap = Math.max(0, now - last);
     const dt = Math.min(250, gap);
-    if (now > last) {
-      bootState.worstGap = Math.max(bootState.worstGap, Math.round(now - last));
+    if (bootState.frames > 0) {
+      bootState.worstGap = Math.max(bootState.worstGap, Math.round(gap));
       budget(gap);
       if (T < tl.orb) {
         gaps++;
-        gapSum += now - last;
+        gapSum += gap;
       }
     }
     last = now;
