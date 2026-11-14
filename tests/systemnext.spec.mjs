@@ -304,6 +304,56 @@ for (const vp of [PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================== e. WHAT I KEEP ABOUT YOU (polish3.s2, memory.s6)
+for (const vp of [PHONE, PHONE2]) {
+  const W = vp.width;
+  log(`${W}: what I keep about you`);
+  const { ctx, page } = await phone(vp);
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForSelector('#pg-settings .pn', { state: 'attached', timeout: 30000 });
+  await openPanel(page, 'settings', 'PRIVACY');
+  check(await until(page, () => document.querySelectorAll('#pg-settings .keptblock .keptkind').length >= 2, null, 15000), `[${W}] [e] no WHAT I KEEP ABOUT YOU: "${await text(page, '#pg-settings .keptblock')}"`);
+  const kinds = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#pg-settings .keptblock .keptkind')].map((k) => [k.dataset.kind, (k.querySelector('.rw .v')?.textContent ?? '').trim()])));
+  check(/^(Nothing remembered yet|\d+ things? remembered, in your brain)$/.test(kinds.memory ?? '') && /^(No places saved|\d+ places? saved: .+)$/.test(kinds.places ?? ''), `[${W}] [e] memory and places read ${JSON.stringify(kinds)}`);
+  check(kinds.faces === 'No faces kept' && kinds.voices === 'No voices kept', `[${W}] [e] faces and voices on a fresh phone read ${JSON.stringify([kinds.faces, kinds.voices])}`);
+  await fit(page, `[${W}] [e]`, '#pg-settings .keptblock');
+  if (W === 390) {
+    const dl = page.waitForEvent('download', { timeout: 20000 }).catch(() => null);
+    await page.locator('#pg-settings button[data-act="exportmemory"]').click();
+    const d = await dl;
+    const name = d?.suggestedFilename() ?? '';
+    const path = d ? await d.path().catch(() => null) : null;
+    const doc = path ? readFileSync(path, 'utf8') : '';
+    check(/^ghosty-memory-\d{4}-\d\d-\d\d\.txt$/.test(name) && /^What Ghosty remembers about you\nWritten on \d{1,2} \w{3} \d{4}: \d+ things?\.\n/.test(doc), `[${W}] [e] the memory document: "${name}" ${JSON.stringify(doc.slice(0, 120))}`);
+    // a face on this phone is counted, and FORGET ALL FACES asks first, then they go
+    await page.evaluate(() => new Promise((ok) => {
+      const r = indexedDB.open('ghosty-faces', 1);
+      r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('people')) r.result.createObjectStore('people', { keyPath: 'id' }); };
+      r.onsuccess = () => {
+        const db = r.result;
+        const names = [...db.objectStoreNames];
+        if (!names.length) return ok(false);
+        const t = db.transaction(names[0], 'readwrite');
+        t.objectStore(names[0]).put({ id: 'me', name: 'You', me: true, looks: [Array.from({ length: 128 }, (_, i) => (i % 7) / 7)], at: Date.now() });
+        t.oncomplete = () => ok(true);
+        t.onerror = () => ok(false);
+      };
+      r.onerror = () => ok(false);
+    }));
+    await page.click('#top .navback').catch(() => undefined);
+    await openPanel(page, 'settings', 'PRIVACY');
+    const faceLine = await until(page, () => /^Your face, on this phone only$/.test(document.querySelector('#pg-settings .keptkind[data-kind="faces"] .rw .v')?.textContent?.trim() ?? ''), null, 10000);
+    check(faceLine, `[${W}] [e] a kept face reads "${await text(page, '#pg-settings .keptkind[data-kind="faces"] .rw .v')}"`);
+    if (faceLine) {
+      await page.locator('#pg-settings button[data-act="forgetfaces"]').click();
+      check(await page.locator('.modal button.sureyes').waitFor({ timeout: 5000 }).then(() => true, () => false), `[${W}] [e] FORGET ALL FACES did not ask first`);
+      await page.locator('.modal button.sureyes').click();
+      check(await until(page, () => document.querySelector('#pg-settings .keptkind[data-kind="faces"] .rw .v')?.textContent?.trim() === 'No faces kept', null, 10000), `[${W}] [e] the face did not go: "${await text(page, '#pg-settings .keptkind[data-kind="faces"] .rw .v')}"`);
+    }
+  }
+  await ctx.close();
+}
+
 // ================================================================== c. A HEADS-UP
 for (const vp of [PHONE, PHONE2]) {
   const W = vp.width;
@@ -331,4 +381,4 @@ const secs = ((Date.now() - t0) / 1000).toFixed(0);
 if (problems.length) {
   process.exitCode = 1;
   console.log(`PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}`);
-} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, and a heads-up told once.`);
+} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, what I keep about you with its forget keys and the memory document, and a heads-up told once.`);

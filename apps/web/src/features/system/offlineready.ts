@@ -10,7 +10,7 @@ import { embedState } from '../../offline/embed';
 import { readinessNow } from '../../offline/readiness';
 import { readyHead, readyNext, readySay, type Readiness } from '../../offline/readywords';
 import { button, panel, row, type Panel } from '../../ui/components';
-import { goToPanel } from '../../ui/sections';
+import { showPanel } from '../../ui/sections';
 import { more } from '../lifeui';
 
 export const READY_TITLE = 'OFFLINE READY';
@@ -47,18 +47,6 @@ export function offlineReadyPanel(): Panel & { refresh(): void; now(): Readiness
   embedState.subscribe(paint);
   addEventListener('storage', (e) => { if (e.key === 'ghosty.pack.kept') paint(); });
   return { ...p, refresh: paint, now: () => last };
-}
-
-/** A panel on another screen shown: its section, and on a phone (where the screen is a list) the panel itself opened. */
-export function showPanel(tab: string, title: string): void {
-  goToPanel(tab, title);
-  let tries = 0;
-  const open = (): void => {
-    const head = [...document.querySelectorAll<HTMLElement>(`#pg-${tab} .pn[data-row] > h3`)].find((x) => (x.querySelector('.ptitle')?.textContent ?? '').startsWith(title));
-    if (head && !head.parentElement!.classList.contains('pushed')) head.click();
-    else if (!head && ++tries < 10) setTimeout(open, 200);
-  };
-  setTimeout(open, 250);
 }
 
 /** "How ready are you offline?" (assistant/local.ts): the panel opened, and the number, what is here and the next download said. */
