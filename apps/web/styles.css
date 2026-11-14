@@ -10888,7 +10888,7 @@ html .tlxempty { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
 .files .flistbox { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .files .frow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 4px; border-bottom: 1px solid var(--g-line-faint); cursor: pointer; min-width: 0; }
 .files .frow:focus-visible { outline: 2px solid var(--g-line); outline-offset: -2px; }
-.files .fglyph { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--g-line-faint); border-radius: var(--g-r-s, 8px); font: var(--g-t-label); letter-spacing: .06em; color: var(--g-ink-2); }
+.files .fglyph { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--g-line-faint); border-radius: var(--g-radius-key); font: var(--g-t-label); letter-spacing: .06em; color: var(--g-ink-2); }
 .files .fbody { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .files .fname { color: var(--g-ink-1); overflow-wrap: anywhere; }
 .files .fsub, .files .fsnip { color: var(--g-ink-3); font-size: .86em; overflow-wrap: anywhere; }
@@ -10901,7 +10901,7 @@ html .tlxempty { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
 .files .fbig { margin: 0; font: var(--g-t-value); color: var(--g-ink-1); }
 .files .fbars { display: flex; flex-direction: column; gap: 8px; }
 .files .fbar { display: grid; grid-template-columns: minmax(0, 7.5em) 1fr auto; align-items: center; gap: 10px; }
-.files .fbartrack { height: 8px; border-radius: 4px; background: var(--g-line-faint); overflow: hidden; }
+.files .fbartrack { height: 8px; border-radius: var(--g-radius-chip); background: var(--g-line-faint); overflow: hidden; }
 .files .fbartrack > i { display: block; height: 100%; background: var(--c); }
 .files .fbarsize { color: var(--g-ink-2); }
 .fcard { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -10909,7 +10909,7 @@ html .tlxempty { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
 .fcard .fkeys > button { min-height: var(--g-target); box-sizing: border-box; }
 .fcard .fmeta, .fcard .ftags { margin: 0; color: var(--g-ink-2); }
 .fpreview { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; overscroll-behavior: contain; }
-.fpreview .fpic { max-width: 100%; max-height: 40vh; object-fit: contain; border-radius: var(--g-r-s, 8px); }
+.fpreview .fpic { max-width: 100%; max-height: 40vh; object-fit: contain; border-radius: var(--g-radius-key); }
 .fpreview .ftext { margin: 0; white-space: pre-wrap; color: var(--g-ink-1); overflow-wrap: anywhere; }
 .fpreview .flist { margin: 0; padding-left: 1.2em; color: var(--g-ink-2); }
 /* JOURNAL (APPS ROUND, MEMORY lane): his own writing; every class `jn…`, colours from the tokens only */
