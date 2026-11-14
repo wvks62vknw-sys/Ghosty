@@ -418,5 +418,5 @@ for (const w of ['scan', 'ink', 'map', 'glass']) {
 await browser.close();
 timings.push(`whole run ${Math.round((Date.now() - T0) / 1000)} s`);
 console.log(timings.map((t) => `TIMING ${t}`).join('\n'));
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'THE EYE 2 run clean at 440 × 956 and 390 × 844: every room the wall (one sharp feed, the line of sight, the kick row, EDITORS holding seven feeds, a tap opens, a hold pins, under budget), the film ending as the wall, ABILITIES as the wall with a tap that asks, BODY 21 with the ask line above the instruments, the ground\'s one line, offline readings with their age, the other worlds untouched.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'THE EYE 2 run clean at 440 × 956 and 390 × 844: every room the wall (one sharp feed, the line of sight, the kick row, EDITORS holding eight feeds, a tap opens, a hold pins, under budget), the film ending as the wall, ABILITIES as the wall with a tap that asks, BODY 21 with the ask line above the instruments, the ground\'s one line, offline readings with their age, the other worlds untouched.');
 process.exit(problems.length ? 1 : 0);

@@ -545,3 +545,13 @@ test('colour-blind safe: one of the look’s switches, by words too, and every s
   assert.notEqual(val(dark, '--g-red'), val(dark, '--g-ok'));
   assert.match(readFileSync(at('../../web/src/state/theme.ts'), 'utf8'), /d\.safe = s\.safe;/);
 });
+
+test('settings that follow the people he introduced: their station names, their timers (voice.s2)', () => {
+  const turn = readFileSync(at('../../web/src/assistant/meaningturn.ts'), 'utf8');
+  assert.match(turn, /const key = \(label: string\) => \(person \? `\$\{person\.toLowerCase\(\)\}:\$\{label\}` : label\);/, 'a person’s station names are their own');
+  assert.match(turn, /favourites\.byName\(key\(m\.label\)\) \?\? \(person \? favourites\.byName\(m\.label\) : null\)/, 'theirs first, then the household’s');
+  const packs = readFileSync(at('../../web/src/assistant/packs.ts'), 'utf8');
+  assert.match(packs, /name: `\$\{person\}’s \$\{x\.name\}`/, 'their timers carry their name');
+  const local = readFileSync(at('../../web/src/assistant/local.ts'), 'utf8');
+  assert.match(local, /kitchenTurn\(text, opts\.who && typeof opts\.who === 'object' \? opts\.who\.name : undefined\)/, 'only a person he introduced, never a stranger');
+});

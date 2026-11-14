@@ -943,3 +943,6 @@ export function walk(p: Play, tx: number, ty: number, o: { door?: boolean; max?:
   }
   return true;
 }
+
+/** What a run scores: ten a coin, fifty a quest, and two hundred for getting to the end. */
+export const scoreOf = (p: Play): number => p.coins * 10 + Object.values(p.quests).filter((q) => q.done).length * 50 + (p.over === 'won' ? 200 : 0);

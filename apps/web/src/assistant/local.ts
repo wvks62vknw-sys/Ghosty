@@ -39,7 +39,7 @@ import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { moneyAsked, moneySection, MONEY_OPENS } from '../features/money/words';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
-import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn, gameTurn } from './reste';
+import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, voiceNoteTurn, cardsTurn, formTurn, mindTurn, photoTurn, gameTurn } from './reste';
 import { videoTurn } from './video';
 import { carFaultTurn, carViewTurn } from '../car/ask';
 import { fromMorse, morseAsked, toMorse } from '../morse/code';
@@ -318,7 +318,8 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (r) return packAnswer({ said: text, reply: r.reply, go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] }, opts);
     return packAnswer(await bodyTurn(text), opts);
   },
-  timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [voice lane] a timer set in the voice of a person he introduced carries their name (voice.s2)
+  timer: async (text, opts) => packAnswer(await kitchenTurn(text, opts.who && typeof opts.who === 'object' ? opts.who.name : undefined), opts),
   // [bodylane] the pantry and the recipe book on this phone (features/kitchen/larder.ts)
   larder: async (text, opts) => {
     const r = await import('../features/kitchen/larder').then((m) => m.larderTurn(text)).catch(() => null);
@@ -474,9 +475,18 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   // [reste] the converter, and its units and numbers answered here (assistant/reste.ts, convert/)
   convert: async (text, opts) => packAnswer(await convertTurn(text), opts),
   docs: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  docspaper: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  docsfill: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  docsmerge: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  docscomments: async (text, opts) => packAnswer(await docsTurn(text), opts),
+  docsoutline: async (text, opts) => packAnswer(await docsTurn(text), opts),
   sheets: async (text, opts) => packAnswer(await sheetsTurn(text), opts),
   slides: async (text, opts) => packAnswer(await slidesTurn(text), opts),
   workspace: async (text, opts) => packAnswer(await workspaceTurn(text), opts),
+  wsvoice: async (text, opts) => packAnswer(await voiceNoteTurn(text), opts),
+  wscards: async (text, opts) => packAnswer(await cardsTurn(text), opts),
+  wsform: async (text, opts) => packAnswer(await formTurn(text), opts),
+  wsmind: async (text, opts) => packAnswer(await mindTurn(text), opts),
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
   video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   gamestudio: async (text, opts) => packAnswer(await gameTurn(text), opts),
