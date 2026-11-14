@@ -135,7 +135,7 @@ export async function voiceKnown({ base, out, problems, tag = 'voiceknown' }) {
     if ((await mark(page)) !== 'degraded') bad(`before enrolling the mark is "${await mark(page)}" (want degraded)`);
     const before = await page.evaluate(() => document.querySelector('#pg-settings [data-id="myvoice"]').textContent);
     if (!/no voice enrolled yet/i.test(before)) bad('the DEGRADED mark does not say "no voice enrolled yet"');
-    if (!/I’ll know it’s you\. It never unlocks anything: the confirm tap still does\./.test(before)) bad('MY VOICE does not say what it is for and what it is not in his words');
+    if (!/I’ll know it’s you; it never unlocks anything: the confirm tap still does\./.test(before)) bad('MY VOICE does not say what it is for and what it is not in his words');
     if (!/What it is not: a lock/.test(before) || !/never a recording/.test(before) || !/not in a backup/.test(before)) bad('MY VOICE does not say that it is not a lock, that it keeps no recording and that it is not in a backup');
     if (!/no connection/i.test(before)) bad('MY VOICE does not say it needs no signal');
     await page.screenshot({ path: `${out}/phone-voiceknown-empty.png` });

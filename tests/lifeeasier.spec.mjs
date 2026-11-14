@@ -556,7 +556,7 @@ for (const sz of SIZES) {
     await page.locator('#pg-agenda .watchers .wrow button', { hasText: 'STOP' }).first().click();
     check(await until(page, () => document.querySelectorAll('#pg-agenda .watchers .wrow').length === 1, null, 8000), 'STOP takes one off the list');
     await page.locator('#pg-agenda .watchers .wrow button', { hasText: 'STOP' }).first().click();
-    check(await until(page, () => document.querySelectorAll('#pg-agenda .watchers .wrow').length === 0 && /I’m not watching anything/.test(document.querySelector('#pg-agenda .watchers .wempty')?.textContent ?? ''), null, 8000), 'and the other; the empty list says what to do');
+    check(await until(page, () => document.querySelectorAll('#pg-agenda .watchers .wrow').length === 0 && /^Nothing watched\. Paste a page’s address below\.$/.test(document.querySelector('#pg-agenda .watchers .wempty')?.textContent ?? ''), null, 8000), 'and the other; the empty list says what to do');
     check(!(await wide(page)), 'nothing sideways');
     await fetch(`${base}/__test/watcher?reset=1&forget=1`);
     await ctx.close();

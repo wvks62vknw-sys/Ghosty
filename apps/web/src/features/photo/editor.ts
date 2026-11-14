@@ -83,6 +83,8 @@ export const peState = {
   /** The RAW opened on this screen: what the reader said (empty for any other photo). */
   raw: '',
   rawMs: 0,
+  /** The photo whose edits COPY EDITS last kept (its name), for PASTE EDITS on another. */
+  copied: '',
 };
 
 export interface Ed {
@@ -1007,6 +1009,16 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   async function save(): Promise<void> {
     clearTimeout(saveTimer);
     if (!id || !orig) return;
+    // the recipe first, on its own (a few kilobytes, at once), so the app swiped away or the phone locked mid-save keeps the edit; the
+    // shelf's thumbnail (a draw and an encode, slow on a big photo) follows and is written beside it
+    const was = id;
+    // (a save lets go of every mask picture the recipe does not hold; the ERASE brush's hole is put back after each)
+    const keepHole = () => {
+      if (holeKeep && holeMask.alpha && !getAlpha(holeMask.alpha)) putAlpha(holeKeep, holeMask.alpha);
+    };
+    let ok = await saveRecipe(was, recipe, { tool });
+    keepHole();
+    if (!ok) return;
     let thumb: Blob | null = null;
     try {
       const c = thumbOf(recipe, 360);
@@ -1014,8 +1026,8 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
     } catch {
       thumb = null;
     }
-    const ok = await saveRecipe(id, recipe, { thumb, tool });
-    if (holeKeep && holeMask.alpha && !getAlpha(holeMask.alpha)) putAlpha(holeKeep, holeMask.alpha);
+    if (thumb && id === was) ok = await saveRecipe(was, recipe, { thumb, tool });
+    keepHole();
     peState.persistent = storeState.persistent;
     if (!ok) return;
     peState.saves++;
@@ -1031,6 +1043,9 @@ export function photoEditor(onShelf: () => void): PhotoEditor {
   function flush(): void {
     if (saveTimer) void save();
   }
+  // the app swiped away or the phone locked inside the 200 ms before a save: the edit is written now, not lost
+  window.addEventListener('pagehide', () => peState.open && flush());
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && peState.open && flush());
 
   function thumbOf(r: Recipe, wpx: number): HTMLCanvasElement {
     const size = outputSize(r, srcSize.w, srcSize.h);

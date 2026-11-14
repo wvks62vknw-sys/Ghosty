@@ -45,8 +45,8 @@ export const RESTD_WORDS: Record<string, CatValue> = {
   'phrase:house': {
     name: 'Run the house by words',
     line: 'You can say “turn off the hall light” or “set the heating to 21” and I do it in your house, with no AI.',
-    more: 'Also “dim the lamp to 40”, “is the back door open?”, “what’s the temperature in the kitchen?”, “pause the telly”, “close the blinds”, and “the house” for the HOUSE sheet. Two things with one name get “which one?”. A lock, an alarm or a garage door is only ever a button for your tap and a confirm, and nothing acts on a schedule unless you set the rule yourself.',
-    say: ['Turn off the hall light', 'Set the heating to 21', 'Is the back door open?', 'Pause the telly'],
+    more: 'Also “dim the lamp to 40”, “is the back door open?”, “is the front door locked?”, “what’s the temperature in the kitchen?” or “… inside?”, “which lights are on?”, “is anything open?”, “turn everything off in the kitchen” (lights, fans and TVs; never a switch or a lock), “run movie night” (your own scene), “pause the telly”, “close the blinds”, and “the house” for the HOUSE sheet. Two things with one name get “which one?”. A lock, an alarm or a garage door, or a scene that sets one, is only ever a button for your tap and a confirm, and nothing acts on a schedule unless you set the rule yourself.',
+    say: ['Turn off the hall light', 'Is the back door open?', 'Which lights are on?', 'Turn everything off in the kitchen'],
     scene: ['talking', 'watching'], cat: 'do',
     go: { ask: 'Is the back door open?', send: false }, since: SINCE,
   },

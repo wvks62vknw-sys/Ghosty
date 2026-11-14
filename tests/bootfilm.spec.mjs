@@ -161,7 +161,9 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   const s = await ended(page, what);
   if (s?.kind !== 'still') problems.push(`${what}: it played "${s?.kind}", not the calm still version`);
   if (s?.timeline?.end !== 1200) problems.push(`${what}: the still version is ${s?.timeline?.end} ms (want 1,200: two frames)`);
-  if (s && s.ended - s.held > 1200 + s.worstGap + 120) problems.push(`${what}: it ran ${s.ended - s.held} ms of its own (want 1,200)`);
+  // (the still version holds its first frame until Mind draws, then its second frame and the landing come at its own pace: 1,000 ms from the orb)
+  if (s && s.ended - s.held - (s.marks?.orb ?? 0) > 1000 + s.worstGap + 120) problems.push(`${what}: it ran ${s.ended - s.held - (s.marks?.orb ?? 0)} ms after Mind came (want 1,000: two frames)`);
+  if (s && !(s.pace >= 1 && s.pace <= 1.01)) problems.push(`${what}: the still version ran at pace ${s.pace} (want 1: never hurried)`);
   if (s && s.budget?.lean) problems.push(`${what}: the still version leaned (${s.budget.lean})`);
   if (s?.mind && !landedOk(s.landed)) problems.push(`${what}: it did not land on the hero: ${JSON.stringify(s?.landed)}`);
   if (s) report.push(`${what}: ${line(s)}`);
@@ -177,7 +179,8 @@ for (const [vp, tag] of [[PHONE, '440'], [SMALL, '390']]) {
   if (s?.kind !== 'short' || !s?.quick) problems.push(`${what}: a cold open a minute after he last had it on screen played "${s?.kind}" (quick ${s?.quick}, ${s?.reopen} ms) (want the short cut)`);
   if (s?.film && s.timeline?.end !== 4800) problems.push(`${what}: the short cut is ${s.timeline?.end} ms (want 4,800)`);
   if (s && !(s.reopen >= 55_000 && s.reopen < 180_000)) problems.push(`${what}: it measured ${s.reopen} ms since he last had it on screen (want about 60,000)`);
-  if (s && s.ended - s.held > 4800 + s.worstGap + 120) problems.push(`${what}: the short cut ran ${s.ended - s.held} ms of its own (want 4,800)`);
+  if (s && s.ended - s.held > Math.max(4800, (s.marks?.floor ?? 0) + 4500 / 1.25) + s.worstGap + 120) problems.push(`${what}: the short cut ran ${s.ended - s.held} ms of its own (want 4,800, or a late Mind's wait made up at most a quarter quicker)`);
+  if (s && !(s.pace >= 1 && s.pace <= 1.25)) problems.push(`${what}: the short cut ran at pace ${s.pace} (want 1 to 1.25: never rushed)`);
   if (!landedOk(s?.landed)) problems.push(`${what}: it did not land on the hero: ${JSON.stringify(s?.landed)}`);
   if (s) report.push(`${what} (a minute away): ${line(s)}`);
   // a reload is a cold open too: the page stamped its leaving a moment ago, so it is a quick reopen as well

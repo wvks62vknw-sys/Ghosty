@@ -199,7 +199,8 @@ if (!process.env.WORLDS) {
     await gone(page, '[keys] Escape did not take the Stage away');
   }
   // two numbers are a sentence
-  await say(page, 'how much did I spend', 'You spent £120 on food and £95 on fuel.');
+  // ("how much did I spend" alone now opens MONEY by its meaning, packages/shared/src/meanings.ts: the question with what it was on stays the brain's)
+  await say(page, 'how much did I spend on food and fuel', 'You spent £120 on food and £95 on fuel.');
   await page.waitForTimeout(1500);
   check((await stageKind(page)) === null, '[chart] two numbers brought a Stage');
 

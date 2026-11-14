@@ -21,6 +21,7 @@ import { currentMind } from '../mind';
 import { decide } from '../scan/place';
 import { sayTwo } from '../scan/home';
 import { hourWord, tonightEntry } from '../ink/home';
+import { freeSquare, mapFreeRoles } from '../todaywords';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 /** The frame is the phone's (styles.css draws it under 900 px); at a desk today's three-column Home stays as it is. */
@@ -133,7 +134,7 @@ export function mapHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     if (sig === nineKey) return;
     nineKey = sig;
     const cells: { kind: string; id: string }[] = [];
-    const tb = h('button.mapcell.lit', { type: 'button', dataset: { slot: 't', kind: 'tonight', case: 'keep' }, 'aria-label': `${word}: ${e.name}. ${e.fill.label}` },
+    const tb = h('button.mapcell.lit', { type: 'button', dataset: { slot: 't', kind: 'tonight', what: e.kind, case: 'keep' }, 'aria-label': `${word}: ${e.name}. ${e.fill.label}` },
       h('span.g-truth.mctag', { dataset: { case: 'keep' } }, word),
       h('span.mcname', { dataset: { case: 'keep' } }, e.name),
       h('span.mcline.g-truth', { dataset: { case: 'keep' } }, e.line));
@@ -144,8 +145,11 @@ export function mapHome(o: { orbWrap: HTMLElement; stamp: HTMLElement; caption: 
     AREAS.forEach((area, i) => {
       const it = items[i];
       if (!it) {
+        // [planlane:home] /* state: core.home empty */ a free square says what fills it (once), not "nothing yet" in each
+        const role = mapFreeRoles(recents.length, favs.length)[cells.filter((c) => c.kind === 'free').length] ?? 'none';
+        const say = freeSquare(role, true);
         cells.push({ kind: 'free', id: '' });
-        out.push(h('div.mapcell.free', { dataset: { slot: area, kind: 'free', case: 'keep' } }, h('span.g-truth.mctag', { dataset: { case: 'keep' } }, 'Free'), h('span.mcline.g-truth', { dataset: { case: 'keep' } }, 'nothing yet')));
+        out.push(h('div.mapcell.free', { dataset: { slot: area, kind: 'free', role, case: 'keep' } }, h('span.g-truth.mctag', { dataset: { case: 'keep' } }, 'Free'), say ? h('span.mcline.g-truth', { dataset: { case: 'keep' } }, say) : null));
         return;
       }
       const { t, kind } = it;

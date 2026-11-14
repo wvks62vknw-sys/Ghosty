@@ -2,7 +2,8 @@
  * THE SPREADSHEETS SHEET (BRIEF-EDITOR-SPREADSHEETS; MAKE → SPREADSHEETS, "my spreadsheets", the Stage's OPEN on a table, a file shared to
  * Ghosty): MY SPREADSHEETS kept on this phone; a workbook as a grid he touches (grid.ts) with a formula line above it, a name box, the function
  * names offered as he types, FORMAT, SORT and FILTER on a column's header, a chart from a range, several sheets along the foot (long press to
- * rename), UNDO and REDO, FIND, a fill handle, copy and paste; autosave said once; export as .xlsx, CSV and PDF with the size said before; import
+ * rename), UNDO and REDO, FIND and REPLACE, Σ (AutoSum), rows and columns put in and taken out (every formula following its cells), a fill
+ * handle, FILL DOWN and FILL RIGHT, copy and paste; autosave said once; export as .xlsx, CSV and PDF with the size said before; import
  * of an .xlsx or a CSV with what it could not keep said once; Ghosty explaining a cell, writing a formula, tidying a column (chat turns with the
  * chosen cells as context). The workbook, its formulas and its files are the app's own code (this folder): no package.
  */
@@ -22,7 +23,7 @@ import {
   addChart, addSheet, bookFromTable, budget, cellInput, clearRange, History, isEmptyBook, isErr, looking, newBook, removeChart, removeSheet, renameSheet, retitle, setEntry, setFilter, setFormat, setFrozen, setName, setWidth,
   sheetNameProblem, usedCols, usedRows, validName, type Book, type Cell, type Fmt, type Val,
 } from './model';
-import { chartOf, chartSeries, fillRange, sortRows, visibleRows } from './ops';
+import { autoSum, chartOf, chartSeries, fillRange, moveLines, sortRows, visibleRows } from './ops';
 import { pdfOfBook } from './pdf';
 import { getBook, listBooks, removeBook, saveBook, whenWords } from './store';
 import { addr, colName, MAXC, MAXR, parseAddr, parseRange, rangeText, type Pos, type Rect } from './tokens';
@@ -477,8 +478,51 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
   clear(colMenu, colLabel,
     h('div.shrow', button('SORT SMALLEST FIRST', () => sortBy('asc')), button('SORT LARGEST FIRST', () => sortBy('desc'))),
     h('div.shrow', fop, fval, button('FILTER', applyFilter, 'on'), clearFilterKey),
+    h('div.shrow', button('INSERT A COLUMN BEFORE', () => lines('c', colOpen, 1)), button('DELETE THIS COLUMN', () => lines('c', colOpen, -1))),
     h('div.shrow', button('WIDER', () => widen(24)), button('NARROWER', () => widen(-24)), button('CLOSE', () => closeColumn())));
   fval.addEventListener('keydown', (e) => e.key === 'Enter' && applyFilter());
+
+  // ---------------------------------------------------------------- rows and columns put in or taken out, and AUTOSUM
+  /** `n` lines (rows 'r', columns 'c') put in before `at`, or `-n` taken out from `at`; every formula follows its cells. */
+  function lines(axis: 'r' | 'c', at: number, n: number): void {
+    const what = axis === 'r' ? 'row' : 'column';
+    const k = Math.abs(n);
+    const name = (i: number) => (axis === 'r' ? String(i + 1) : colName(i));
+    const span = k === 1 ? `${what} ${name(at)}` : `${what}s ${name(at)} to ${name(at + k - 1)}`;
+    if (n > 0 && (axis === 'r' ? usedRows(sheet()) + n > MAXR : usedCols(sheet()) + n > MAXC)) return say(`The sheet is full: take a ${what} out first.`);
+    closeColumn();
+    commit(moveLines(book(), si(), axis, at, n), 'all', true);
+    if (n > 0) {
+      A = axis === 'r' ? { r: at, c: A.c } : { r: A.r, c: at };
+      B = axis === 'r' ? { r: at + k - 1, c: B.c } : { r: B.r, c: at + k - 1 };
+      say(`${k === 1 ? `A new ${what}` : `${k} new ${what}s`} in at ${name(at)}; the formulas moved with their cells. UNDO takes ${k === 1 ? 'it' : 'them'} out.`);
+    } else {
+      A = clampPos(A);
+      B = A;
+      say(`Took out ${span}; the formulas moved with their cells. UNDO brings ${k === 1 ? 'it' : 'them'} back.`);
+    }
+    paintLine();
+    grid.paintSel();
+  }
+  const selLines = (axis: 'r' | 'c'): [number, number] => {
+    const g = rectOf(A, B);
+    return axis === 'r' ? [g.r1, g.r2 - g.r1 + 1] : [g.c1, g.c2 - g.c1 + 1];
+  };
+  function sum(): void {
+    const g = rectOf(A, B);
+    const r = autoSum(book(), eng!, si(), g);
+    if (!r) return say('No numbers above or beside to add up. Choose the numbers, or the cell under them.');
+    // (the engine marks cells as "Sheet!A1": a bare address would leave what leans on the total unrecalculated)
+    const sn = sheet().name;
+    commit(r.book, r.cells.map((a) => `${sn}!${a}`));
+    if (r.cells.length === 1) {
+      A = posOf(r.cells[0]!);
+      B = A;
+      say(`=${r.f} is in ${r.cells[0]}: ${eng!.text(sheet().name, r.cells[0]!)}. UNDO takes it out.`);
+    } else say(`A total under each column, in ${r.cells[0]} to ${r.cells[r.cells.length - 1]}. UNDO takes them out.`);
+    paintLine();
+    grid.paintSel();
+  }
 
   // ---------------------------------------------------------------- the panels
   const key = (label: string, run: () => void, cls = '', name = '') => {
@@ -574,6 +618,8 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
         say('Filled right. UNDO takes it back.');
       })),
       h('div.shrow', key('COPY', copy), key('PASTE', () => void paste()), key('CLEAR', clearCells)),
+      h('div.shrow', key('ROW ABOVE', () => lines('r', selLines('r')[0], selLines('r')[1]), '', 'Insert a row above'), key('ROW BELOW', () => lines('r', selLines('r')[0] + selLines('r')[1], selLines('r')[1]), '', 'Insert a row below'), key('DELETE ROWS', () => lines('r', selLines('r')[0], -selLines('r')[1]), '', 'Delete the chosen rows')),
+      h('div.shrow', key('COLUMN BEFORE', () => lines('c', selLines('c')[0], selLines('c')[1]), '', 'Insert a column before'), key('COLUMN AFTER', () => lines('c', selLines('c')[0] + selLines('c')[1], selLines('c')[1]), '', 'Insert a column after'), key('DELETE COLUMNS', () => lines('c', selLines('c')[0], -selLines('c')[1]), '', 'Delete the chosen columns')),
       h('div.shrow', nameIn, key('NAME THE CELLS', () => {
         const n = nameIn.value.trim();
         if (!validName(n)) return say('A name is letters, numbers and _, starting with a letter, and not like a cell (B2).');
@@ -752,8 +798,8 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     try {
       sizeSpans.xlsx.textContent = sizeWords(made('xlsx').bytes.length);
       sizeSpans.csv.textContent = sizeWords(made('csv').bytes.length);
-      if (all || cache.get('pdf')?.rev === rev) sizeSpans.pdf.textContent = sizeWords(made('pdf').bytes.length);
-      else sizeSpans.pdf.textContent = 'working it out…';
+      if (cache.get('pdf')?.rev === rev || (all && countCells(book()) < 5_000)) sizeSpans.pdf.textContent = sizeWords(made('pdf').bytes.length);
+      else sizeSpans.pdf.textContent = all ? 'said when it is made (a big sheet)' : 'working it out…';
     } catch {
       sizeSpans.xlsx.textContent = '';
     }
@@ -778,9 +824,9 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     ...(['xlsx', 'csv', 'pdf'] as const).map((k) => h('div.shexrow', button(k.toUpperCase(), () => doExport(k)), sizeSpans[k])),
     h('p.shexportnote.shnote', 'The chart is in the PDF, the numbers are in the file. A CSV keeps the numbers and dates, not the £ and % look, and only this sheet.'),
     outs);
-  const scheduleSizes = () => {
+  const scheduleSizes = (ms = 1200) => {
     clearTimeout(sizeTimer);
-    sizeTimer = window.setTimeout(() => paintSizes(true), 1200);
+    sizeTimer = window.setTimeout(() => paintSizes(true), ms);
   };
 
   // Ghosty in it
@@ -802,7 +848,22 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       paintSug();
     })));
     else if (s.edits) {
-      box.append(h('ul.shedits', ...s.edits.slice(0, 12).map((x) => h('li', h('del', x.old), ' → ', h('ins', x.text)))), h('div.shrow', key('ACCEPT ALL', () => {
+      // Ghosty's marked changes, each one his to accept or reject (every one shown: ACCEPT ALL never takes a change he did not see)
+      const decided = (x: { a: string }) => {
+        s.edits = s.edits!.filter((y) => y !== x);
+        if (!s.edits.length) suggestion = null;
+        paintSug();
+      };
+      box.append(h('ul.shedits', ...s.edits.map((x) => h('li', h('span.shedit', h('b', x.a), ' ', h('del', x.old), ' → ', h('ins', x.text)), h('div.shrow',
+        key('ACCEPT', () => {
+          commit(setEntry(book(), sheet().name, x.a, x.text), [`${sheet().name}!${x.a}`]);
+          say(`${x.a} is now “${x.text}”. UNDO puts it back.`);
+          decided(x);
+        }, '', `Accept the change to ${x.a}`),
+        key('REJECT', () => {
+          say(`${x.a} stays “${x.old}”.`);
+          decided(x);
+        }, '', `Reject the change to ${x.a}`))))), h('div.shrow', key('ACCEPT ALL', () => {
         let next = book();
         for (const x of s.edits!) next = setEntry(next, sheet().name, x.a, x.text);
         commit(next, s.edits!.map((x) => `${sheet().name}!${x.a}`));
@@ -860,7 +921,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     const edits = items.flatMap((x, i) => (got[i] && got[i] !== x.old ? [{ a: x.a, old: x.old, text: got[i]! }] : []));
     suggestion = { kind: 'clean', text: edits.length ? `${edits.length} of ${items.length} would change.` : 'My brain would leave every one as it is.', edits };
     paintSug();
-    say(edits.length ? 'Tap ACCEPT ALL, or NO THANKS.' : 'Nothing to tidy.');
+    say(edits.length ? 'Each change is marked: ACCEPT or REJECT it, or ACCEPT ALL, or NO THANKS.' : 'Nothing to tidy.');
   };
   const askBox = h('div.shask', h('small.cvgh', 'GHOSTY IN IT'), h('div.shrow', askIn), h('div.shrow', key('EXPLAIN THIS CELL', () => void explain()), key('WRITE ME A FORMULA', () => void writeFormula(), 'on'), key('CLEAN THIS COLUMN', () => void cleanColumn())), sug);
   askIn.addEventListener('keydown', (e) => e.key === 'Enter' && void writeFormula());
@@ -887,9 +948,12 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
     sheetsState.title = book().title;
     sheetsState.sheets = book().sheets.map((s) => s.name);
     sheetsState.active = sheet().name;
-    sheetsState.json = countCells(book()) < 20_000 ? JSON.stringify(book()) : '';
-    paintSizes(false);
-    scheduleSizes();
+    const cells = countCells(book());
+    sheetsState.json = cells < 20_000 ? JSON.stringify(book()) : '';
+    // the files' sizes are worked out at once for a small workbook; a big one waits until he stops (each edit stays quick)
+    if (cells < 5_000) paintSizes(false);
+    else for (const sp of Object.values(sizeSpans)) sp.textContent = 'working it out…';
+    scheduleSizes(cells < 5_000 ? 1200 : 3000);
   }
   const closeIfStale = () => {
     if (colOpen >= 0 && !sheet().cells && colOpen >= MAXC) closeColumn();
@@ -951,7 +1015,7 @@ export function sheetsParts(): { el: HTMLElement; start(o: SheetsAsk): Promise<v
       commit(retitle(book(), title.value.trim() || 'Untitled spreadsheet'), []);
     });
     const tools = h('div.shtools', { role: 'toolbar', 'aria-label': 'Editing' },
-      key('UNDO', undo), key('REDO', redo),
+      key('UNDO', undo), key('REDO', redo), key('Σ', sum, 'shsum', 'AutoSum: add up the numbers'),
       key('FIND', () => {
         findBox.hidden = !findBox.hidden;
         if (!findBox.hidden) findIn.focus();

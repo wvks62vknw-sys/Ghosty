@@ -160,9 +160,10 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
         const ln = c.localName;
         if (ln === 'r') {
           const rp = first(c, 'rPr');
-          const run = { b: on(first(rp, 'b')), i: on(first(rp, 'i')), u: on(first(rp, 'u')) };
+          const hlv = attr(first(rp, 'highlight'), 'val');
+          const run = { b: on(first(rp, 'b')), i: on(first(rp, 'i')), u: on(first(rp, 'u')), s: on(first(rp, 'strike')) || on(first(rp, 'dstrike')), hl: !!hlv && hlv !== 'none' };
           for (const k of kids(c)) {
-            if (k.localName === 't') out.push({ text: k.textContent ?? '', ...(run.b ? { b: true } : {}), ...(run.i ? { i: true } : {}), ...(run.u && !link ? { u: true } : {}), ...(link ? { href: link } : {}) });
+            if (k.localName === 't') out.push({ text: k.textContent ?? '', ...(run.b ? { b: true } : {}), ...(run.i ? { i: true } : {}), ...(run.u && !link ? { u: true } : {}), ...(run.s ? { s: true } : {}), ...(run.hl ? { hl: true } : {}), ...(link ? { href: link } : {}) });
             else if (k.localName === 'tab') out.push({ text: '    ' });
             else if (k.localName === 'br') out.push({ text: attr(k, 'type') === 'page' ? '\f' : '\n' });
             else if (k.localName === 'noBreakHyphen') out.push({ text: '-' });
@@ -223,6 +224,13 @@ export async function readDocx(bytes: Uint8Array, name: string): Promise<DocxRea
         continue;
       }
       const t = kind === 'title' ? 'h1' : kind.startsWith('h') ? kind : kind === 'quote' ? 'quote' : listKind || 'p';
+      // a line that starts with a box (☐ / ☑) is a checklist item
+      const box = /^\s*([☐☑☒])\s?/.exec(runs[0]?.text ?? '');
+      if (box && !kind.startsWith('h')) {
+        const rest = tidyRuns([{ ...runs[0]!, text: runs[0]!.text.slice(box[0].length) }, ...runs.slice(1)]);
+        blocks.push({ ...block('todo', rest), ...(box[1] !== '☐' ? { ticked: true } : {}), ...(align ? { align } : {}) });
+        continue;
+      }
       blocks.push({ ...block(t as Block['t'], runs), ...(align ? { align } : {}) });
     }
     for (const d of imgs) {

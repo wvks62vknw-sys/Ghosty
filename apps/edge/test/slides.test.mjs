@@ -379,6 +379,14 @@ test('the .pptx writer: layouts, pictures, links, notes and a deck of nothing ar
   assert.ok(names.every((n) => !/\.(png|gif)$/.test(n)));
   const back = await K.readPptx(bytes, 'x.pptx', keepFake);
   assert.deepEqual(back.deck.slides.map((s) => s.layout), K.LAYOUTS.map((l) => l.id), 'the layout of each slide comes back');
+  // a slide's transition (fade, push) and a skipped slide are written as PowerPoint's own and come back the same
+  const tr = { ...d, slides: d.slides.map((s, i) => ({ ...s, transition: ['none', 'fade', 'push'][i % 3], ...(i === 2 ? { skip: true } : {}) })) };
+  const trBytes = K.writePptx(tr, { measure: K.approx });
+  packageChecks(trBytes, tr);
+  const trBack = await K.readPptx(trBytes, 't.pptx', keepFake);
+  assert.deepEqual(trBack.deck.slides.map((s) => s.transition), tr.slides.map((s) => s.transition), 'each slide’s transition comes back');
+  assert.deepEqual(trBack.deck.slides.map((s) => !!s.skip), tr.slides.map((s) => !!s.skip), 'the skipped slide comes back skipped, the others shown');
+  assert.ok(!trBack.lost.some((x) => /transition/.test(x)), 'nothing said lost for a transition we know');
   // a deck with no slides at all is still a package
   const none = K.writePptx(K.newDeck('Empty', []));
   assert.ok(parts(none).has('ppt/presentation.xml'));
@@ -424,6 +432,7 @@ test('a hand-built .pptx (not our writer’s) is read: its words, notes, table a
   assert.ok(lost.some((x) => /chart on slide 2/.test(x)), lost.join('; '));
   assert.ok(lost.some((x) => /animations on slide 2/.test(x)), lost.join('; '));
   assert.ok(lost.some((x) => /transition on slide 2/.test(x)), lost.join('; '));
+  assert.ok(deck.slides.every((s) => s.transition === 'none'), 'a wipe it has no word for is not passed off as another');
   assert.ok(!lost.some((x) => /picture/.test(x)), 'the picture was kept');
   assert.match(K.lostWords(lost), /^I couldn’t keep: .*video/);
   assert.equal(K.lostWords([]), '', 'nothing lost, nothing said');

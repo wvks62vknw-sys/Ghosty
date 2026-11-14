@@ -253,7 +253,12 @@ function innerHeightOf(vp) { return vp.height; }
 }
 
 // ---- c. the scale on every screen: LEARN, Settings; the plan from the kick; the jump bar
+// (In THE MAP a key that carries a badge draws the badge in place of its tick, and PLAN's badge is the inbox's unread count: a notice an
+// earlier spec left unread on the shared preview brain would hide PLAN's tick. The inbox is marked read first, with the owner's key; the
+// tick checks below are as strict as ever.)
+const inboxRead = () => fetch(`${base}/api/inbox/read`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' }, body: '{}' }).then((r) => r.ok, () => false);
 for (const [vp, tag] of [[PHONE, '440'], [WIDE, '390']]) {
+  check(await inboxRead(), `[scale ${tag}] the inbox could not be marked read before the scale was read`);
   const { ctx, page } = await open({ viewport: vp });
   await go(page, 'core');
   await until(page, HOME_READY, 15000, `[scale ${tag}] Home never became the map`);
