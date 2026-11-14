@@ -9034,6 +9034,43 @@ html .pxstudio button.pxdot { width: var(--g-target); min-width: var(--g-target)
 .dcpage .dctc[data-tc="2"], .dccolours [data-tc="2"] { color: var(--g-accent-text); }
 .dcpage .dctc[data-tc="3"], .dccolours [data-tc="3"] { color: var(--g-ok); }
 .dcpage .dctc[data-tc="4"], .dccolours [data-tc="4"] { color: var(--g-amber); }
+/* DOCUMENTS PRO (APPS ROUND): the named styles' families and colours by name, his tracked changes, folded sections, the STYLES and
+   REVIEW panels and the template gallery. Every colour is a token; the families are the phone's own. */
+.dcsheet [data-sf="serif"] { font-family: var(--g-font-serif); }
+.dcsheet [data-sf="sans"] { font-family: var(--g-font-text); }
+.dcsheet [data-sf="rounded"] { font-family: ui-rounded, 'SF Pro Rounded', 'Nunito', 'Varela Round', var(--g-font-text); }
+.dcsheet [data-sf="mono"] { font-family: var(--g-font-mono); }
+.dcsheet [data-sc="grey"] { color: var(--g-ink-3); }
+.dcsheet [data-sc="red"] { color: var(--g-red); }
+.dcsheet [data-sc="blue"] { color: var(--g-accent-text); }
+.dcsheet [data-sc="green"] { color: var(--g-ok); }
+.dcsheet [data-sc="orange"] { color: var(--g-amber); }
+.dcpage ins.dcins { color: var(--g-ok); text-decoration: underline; text-decoration-thickness: var(--g-stroke); text-underline-offset: 2px; }
+.dcpage del.dcdel { color: var(--g-red); text-decoration: line-through; text-decoration-thickness: var(--g-stroke); }
+.dcreview { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.dcchg { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half); min-width: 0; padding-inline-start: var(--g-s-1); border-inline-start: var(--g-stroke) solid var(--g-line-faint); }
+.dcchg.dcchgins { border-inline-start-color: var(--g-ok); } .dcchg.dcchgdel { border-inline-start-color: var(--g-red); }
+.dcchg button { min-height: var(--g-target); min-width: var(--g-target); }
+.dcchg .dcchggo { flex: 1 1 200px; min-width: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; height: auto; }
+.dcchg .dcchggo[data-label]::before { white-space: normal; }
+.dccontents .dcsec .dcsecfold { flex: none; width: var(--g-target); padding: 0; }
+.dcpage .dcfolded { display: block; width: 100%; min-height: var(--g-target); height: auto; margin: 0 0 var(--g-s-2); padding: var(--g-s-1); text-align: left; white-space: normal; overflow-wrap: anywhere; text-transform: none; letter-spacing: 0; font: var(--g-t-caption); color: var(--g-ink-3); background: transparent; border: var(--g-hair) dashed var(--g-line-faint); border-radius: var(--g-radius-key); }
+.dclook { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.dclook.dcoff { opacity: .55; }
+.dcstylechips .dcstylechip { flex: 1 1 auto; }
+.dcstylechip[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.dcstylesaid { overflow-wrap: anywhere; }
+.dctpls { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--g-s-2); min-width: 0; }
+.dctplcard { display: block; width: 100%; height: auto; min-height: var(--g-target); padding: var(--g-s-1); text-align: left; white-space: normal; text-transform: none; letter-spacing: 0; }
+.dctpl { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.dctplpage { display: flex; flex-direction: column; gap: var(--g-s-half); aspect-ratio: 3 / 4; padding: var(--g-s-1); overflow: hidden; background: var(--g-plate); color: var(--g-ink-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.dctplpage b { font-size: 15px; line-height: 1.2; font-weight: 700; overflow-wrap: anywhere; }
+.dctplpage .dctplbar { display: block; height: 6px; width: 62%; background: currentColor; border-radius: var(--g-radius-mark); opacity: .75; }
+.dctplpage .dctplline { display: block; height: 4px; background: var(--g-line-faint); border-radius: var(--g-radius-mark); }
+.dctplpage .dctplline.short { width: 55%; }
+.dctpltext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dctpltext b { font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.dctpltext small { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
 
 /* ---------------------------------------------------------------------------------------------------------------------------
    THE ONE LENS (BRIEF-LENS): the Machine's marks laid over the camera. A tag is a thin reticle round the thing (the box from the
@@ -10937,6 +10974,49 @@ html body .ak-app :is(.ak-rowmain, .ak-hkey, .ak-rowdel, .ak-switch) { backgroun
 html body .ak-app :is(.ak-rowsub, .ak-rowtitle, .ak-tour p, .ak-state p, .ak-notice) { text-transform: none !important; }
 html body .ak-app .ak-rowmain:active, html body .ak-app .ak-hkey:active, html body .ak-app .ak-rowdel:active { background: var(--g-plate-fill) !important; }
 html body .ak-app .ak-rowmain, html body .ak-app .ak-rowmain > * { white-space: normal; max-width: 100%; }
+/* SPREADSHEETS, PRO EDITION (APPS ROUND, editors): the chart editor's kinds and colours, sparklines in a cell, input checks, borders, merges, wrap, table bands */
+.shk1 { --shk: var(--g-accent); } .shk2 { --shk: var(--g-amber); } .shk3 { --shk: var(--g-ok); } .shk4 { --shk: var(--g-fail); } .shk5 { --shk: var(--g-ink-3); }
+.shsvg .shbarp, .shsvg .shslice, .shsvg .shkey, .shsvg .shpt { fill: var(--shk); }
+.shsvg .shslice { stroke: var(--g-plate-fill); stroke-width: 1.5; }
+.shsvg .shlinep, .shspark .shlinep { fill: none; stroke: var(--shk); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.shsvg .sharea { fill: color-mix(in srgb, var(--shk) 34%, transparent); }
+.shsvg .shfig.shon { fill: var(--g-ink-1); font-weight: 700; }
+.shsvg .shlegend { fill: var(--g-ink-2, var(--g-ink-1)); }
+.shchart[data-tone="2"] .shbarfill { fill: var(--g-amber); } .shchart[data-tone="3"] .shbarfill { fill: var(--g-ok); } .shchart[data-tone="4"] .shbarfill { fill: var(--g-fail); } .shchart[data-tone="5"] .shbarfill { fill: var(--g-ink-3); }
+.shchart[data-tone="2"] .shlinefill { stroke: var(--g-amber); } .shchart[data-tone="3"] .shlinefill { stroke: var(--g-ok); } .shchart[data-tone="4"] .shlinefill { stroke: var(--g-fail); } .shchart[data-tone="5"] .shlinefill { stroke: var(--g-ink-3); }
+.shchart[data-editing="1"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.shkinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: var(--g-s-1); }
+.shkinds button { white-space: normal; line-height: 1.15; }
+.shchedit { display: flex; flex-direction: column; gap: var(--g-s-1); }
+.shchedit label, .shvbox label { display: flex; flex-direction: column; gap: 2px; font: var(--g-t-fine); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); min-width: 0; flex: 1 1 140px; }
+.shchedit label input, .shvbox label input { min-height: var(--g-target); font: 400 16px/1.3 var(--g-font-text); min-width: 0; width: 100%; box-sizing: border-box; }
+.shspark { position: absolute; inset: 6px var(--g-s-1); width: calc(100% - 2 * var(--g-s-1)); height: calc(100% - 12px); pointer-events: none; }
+.shspark rect { fill: var(--shk); }
+.shc[data-spark] { position: relative; color: transparent; }
+.shc[data-check="list"]::after { content: '▾'; margin-left: auto; padding-left: 4px; color: var(--g-ink-3); }
+.shc[data-check="date"]::after { content: '◷'; margin-left: auto; padding-left: 4px; color: var(--g-ink-3); }
+.shtick { display: inline-block; width: 20px; height: 20px; margin: auto; border-radius: 5px; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-ink-3); }
+.shtick[data-on="1"] { background: var(--g-ok); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-ok); }
+.shtick[data-on="1"]::after { content: '✓'; display: block; text-align: center; font: 700 15px/20px var(--g-font-text); color: var(--g-plate-fill); }
+.shc[data-bd] { --shbd: var(--g-ink-1); }
+.shc[data-bd="1"], .shc[data-bd="3"], .shc[data-bd="5"], .shc[data-bd="7"], .shc[data-bd="9"], .shc[data-bd="11"], .shc[data-bd="13"], .shc[data-bd="15"] { border-top: var(--g-stroke) solid var(--shbd); }
+.shc[data-bd="2"], .shc[data-bd="3"], .shc[data-bd="6"], .shc[data-bd="7"], .shc[data-bd="10"], .shc[data-bd="11"], .shc[data-bd="14"], .shc[data-bd="15"] { border-right: var(--g-stroke) solid var(--shbd); }
+.shc[data-bd="4"], .shc[data-bd="5"], .shc[data-bd="6"], .shc[data-bd="7"], .shc[data-bd="12"], .shc[data-bd="13"], .shc[data-bd="14"], .shc[data-bd="15"] { border-bottom: var(--g-stroke) solid var(--shbd); }
+.shc[data-bd="8"], .shc[data-bd="9"], .shc[data-bd="10"], .shc[data-bd="11"], .shc[data-bd="12"], .shc[data-bd="13"], .shc[data-bd="14"], .shc[data-bd="15"] { border-left: var(--g-stroke) solid var(--shbd); }
+.shc[data-wrap="1"] { white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
+.shc[data-hid="1"] { border-color: transparent; }
+.shc[data-merge="1"] { position: relative; overflow: visible; z-index: 2; padding: 0; }
+.shmerge { position: absolute; left: 0; top: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 0 var(--g-s-1); background: var(--g-plate-fill); border-right: var(--g-hair) solid var(--g-line-faint); border-bottom: var(--g-hair) solid var(--g-line-faint); overflow: hidden; white-space: normal; text-align: center; }
+.shc[data-band="head"] { font-weight: 700; background-color: color-mix(in srgb, var(--shbt) 42%, transparent); }
+.shc[data-band="odd"] { background-color: color-mix(in srgb, var(--shbt) 14%, transparent); }
+.shc[data-btone="1"] { --shbt: var(--g-accent); } .shc[data-btone="2"] { --shbt: var(--g-amber); } .shc[data-btone="3"] { --shbt: var(--g-ok); } .shc[data-btone="4"] { --shbt: var(--g-fail); } .shc[data-btone="5"] { --shbt: var(--g-ink-3); }
+.shvbox { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.shvbox[hidden] { display: none; }
+.shvbox .shvtitle { margin: 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); }
+.shvopts { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+.shvopts button[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
+.shvbox input[type="date"] { min-height: var(--g-target); font: 400 16px/1.3 var(--g-font-text); }
+.shsub { margin: var(--g-s-half) 0 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); }
 .jneditor .jnweather { color: var(--g-ink-3); } .jneditor .jnweather:empty { display: none; }
 .jneditor .jnversions summary { min-height: var(--g-target); display: flex; align-items: center; color: var(--g-ink-2); cursor: pointer; }
 .jneditor .jnversion { display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-half); }
@@ -10973,6 +11053,15 @@ html #pg-gamestudio .gs3banner { position: absolute; left: 10%; right: 10%; top:
 html #pg-gamestudio .gs3banner b { display: block; margin-bottom: 8px; font: 600 18px/24px var(--sf); color: var(--g-ink-1); }
 html #pg-gamestudio .gs3things, html #pg-gamestudio .gs3add, html #pg-gamestudio .gs3nudge { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
 html #pg-gamestudio .gs3status, html #pg-gamestudio .gs3none { overflow-wrap: anywhere; }
+
+/* PRESENTATIONS, PRO EDITION (APPS ROUND, editors): free-form slides: the FREE panel, items dragged on the slide with snapping guides */
+.slbox.slfreeon { touch-action: none; }
+.slbox.slfreeon .slfree { cursor: move; }
+.slfreelist { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.slfreelist .slfreeitem { justify-content: flex-start; text-align: left; white-space: normal; overflow-wrap: anywhere; min-height: var(--g-target); }
+.slfreelist .slfreeitem[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
+.slfree-panel .slrow button[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
+.slfree-panel .slrow[hidden] { display: none; }
 /* =====================================================================================================================
    THE APP LIBRARY: the importer (DATA lane; features/applib/importer.ts). The panel at the top of a "Your data" app: the steps
    to get his file, the progress bar, the top list over any span and a route's shape. Every class al-imp, every colour a token.
