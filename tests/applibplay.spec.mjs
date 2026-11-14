@@ -74,6 +74,9 @@ const kind = (page) => page.locator('.al-game').getAttribute('data-kind').catch(
       await page.getByRole('button', { name: 'Pause the game' }).click();
       check(await page.evaluate(() => document.querySelector('.al-gstage').classList.contains('al-ghide')), '[sudoku] pause did not hide the board');
       await page.reload();
+      // (back to the Library and in again, so the Library has loaded its lanes' files before the app opens)
+      await go(page, '#apps');
+      await go(page, '#apps/sudoku');
       await page.waitForSelector('.al-game', { timeout: 15000 }).catch(() => {});
       check(await page.getByRole('button', { name: 'Resume', exact: true }).isVisible().catch(() => false), '[sudoku] after a reload the game is not back, paused');
       check((await filled()) === after, `[sudoku] after a reload the grid changed (${await filled()} for ${after})`);
@@ -105,6 +108,7 @@ const kind = (page) => page.locator('.al-game').getAttribute('data-kind').catch(
     }
     if (k === 'blocks') {
       await page.getByRole('button', { name: 'Drop the piece' }).click();
+      await page.waitForTimeout(150); // (the score is drawn on the next frame)
       check(Number((await page.locator('.al-gnum').textContent()).replace(/\D/g, '')) > 0, '[blocks] a drop scored nothing');
     }
     if (k === 'pairs') {
@@ -134,7 +138,7 @@ const kind = (page) => page.locator('.al-game').getAttribute('data-kind').catch(
   await page.locator('.al-maker input[aria-label="New field name"]').fill('Weight');
   await page.locator('.al-mkadd select').first().selectOption('number');
   await page.getByRole('button', { name: 'Add field' }).click();
-  check(await page.locator('.al-mkfield input[value="Weight"]').count(), '[maker] the new field is not listed');
+  check(await page.evaluate(() => [...document.querySelectorAll('.al-mkfield input')].some((i) => i.value === 'Weight')), '[maker] the new field is not listed');
   check(await page.locator('.al-mkok').isVisible(), `[maker] the app is not ready to keep: ${await page.locator('.al-mkproblems').textContent().catch(() => '')}`);
   await page.getByRole('button', { name: 'Keep it' }).click();
   okFit(await fit(page), 'maker editor');
