@@ -70,7 +70,7 @@ export async function changeKeep(op: string, id: string, extra: Record<string, u
 
 const items = (): KeepItem[] => { const l = keepStore.get().items; return Array.isArray(l) ? l : []; };
 const open = (): KeepItem[] => items().filter((x) => x.kind === 'promise' && x.state === 'open').sort((a, b) => (a.remindAt ?? a.at) - (b.remindAt ?? b.at));
-const day = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const day = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
 const norm = (s: string) => s.toLowerCase().replace(/^(?:the|my|our) /, '').replace(/[^a-z0-9 ]/g, '').trim();
 
 // ---------------------------------------------------------------- the chat, answered here

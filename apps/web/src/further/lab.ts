@@ -114,7 +114,7 @@ export const RAIN: Experiment = {
       compared++;
       const same = (was >= WET) === (f >= WET);
       if (same) matched++;
-      rows.push([new Date(`${d}T12:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }), `forecast ${oneDp(was)} mm · fell ${oneDp(f)} mm${same ? '' : ' · not as forecast'}`]);
+      rows.push([new Date(`${d}T12:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', ''), `forecast ${oneDp(was)} mm · fell ${oneDp(f)} mm${same ? '' : ' · not as forecast'}`]);
     }
     for (const [d, v] of told) kept[d] = v;
     for (const d of Object.keys(kept)) if (d < new Date(now - 30 * 86_400_000).toISOString().slice(0, 10)) delete kept[d];

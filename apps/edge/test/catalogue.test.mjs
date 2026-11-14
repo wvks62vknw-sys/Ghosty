@@ -59,7 +59,8 @@ function tabsOfSource() {
 /** The hub cards: shell/hubcards.ts CARDS, by their keys. */
 function hubsOfSource() {
   const src = readFileSync(join(web, 'shell/hubcards.ts'), 'utf8');
-  return [...src.slice(src.indexOf('export const CARDS')).matchAll(/^ {2}([a-z0-9]+): \{$/gm)].map((m) => m[1]);
+  // (a card written in place, `  core: {`, or one made in its own file, `  apps: appsCard,`)
+  return [...src.slice(src.indexOf('export const CARDS')).matchAll(/^ {2}([a-z0-9]+): (?:\{|[A-Za-z_$][\w$]*,)$/gm)].map((m) => m[1]);
 }
 /** Every panel the screens make, by its literal title (features/<screen>/…), and the Workbench's from its PANELS list. */
 function panelsOfSource() {

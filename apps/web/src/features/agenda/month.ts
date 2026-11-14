@@ -178,7 +178,7 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
       b.setAttribute('role', 'listitem');
       // a day gone this week was never read (the diary shows what is still to come): "Gone", never "Nothing on"
       const gone = k < today && !de.length && !dt.length;
-      b.setAttribute('aria-label', gone ? `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}: gone` : dayLine(d.getTime(), de.length, dt.length));
+      b.setAttribute('aria-label', gone ? `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')}: gone` : dayLine(d.getTime(), de.length, dt.length));
       b.dataset.case = 'keep';
       b.append(h('b', d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })),
         h('span', gone ? 'Gone' : weekWords(de.map((e) => `${e.title}${e.allDay ? '' : ` ${fmt.time(new Date(e.start))}`}`), dt.length)));

@@ -229,7 +229,9 @@ for (const vp of VIEWPORTS) {
 
   // ---- c. WATER ON THE LOCK SCREEN
   log(`water lock ${vp.width}`);
-  await at(10);
+  // (the next 10:00 still ahead of the real clock: the brain refuses a one-off reminder in the past by ITS clock, so a run in the
+  // evening that set the phone to this morning's 10:00 had every nudge refused; tomorrow's 10:00 is the same morning to the phone)
+  await page.evaluate(() => { const d = new Date(); d.setHours(10, 0, 0, 0); if (d.getTime() <= Date.now() + 60_000) d.setDate(d.getDate() + 1); window.__ghostyClockOffset = d.getTime() - Date.now(); });
   await open(page, 'body', 'Water');
   const W = `${PK('body')} .bt[data-track="water"]`;
   await page.waitForSelector(`${W} .bt-nudges`);

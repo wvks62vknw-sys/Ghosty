@@ -35,7 +35,7 @@ export const K = {
   dayLines: (said: string, lines: string[]): string => `${said.replace(/^on /, 'On ').replace(/^(\w)/, (c) => c.toUpperCase())}: ${lines.join('; ')}.`,
   dayNone: (said: string): string => `I have nothing of yours from ${said.replace(/^on /, '')}.`,
   promiseSub: (said: string, via: string, due: string, remindAt: number | undefined, nudged: boolean): string =>
-    `Said ${said}${via === 'telegram' ? ' on Telegram' : ''}${due ? ` · ${due}` : ''}${nudged ? ' · reminded' : remindAt ? ` · I’ll remind you ${new Date(remindAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : ''}`,
+    `Said ${said}${via === 'telegram' ? ' on Telegram' : ''}${due ? ` · ${due}` : ''}${nudged ? ' · reminded' : remindAt ? ` · I’ll remind you ${new Date(remindAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')}` : ''}`,
   doneSub: (done: boolean, at: number, day: (ms: number) => string): string => `${done ? 'Done' : 'Let go'} ${day(at)}`,
   doneHead: (n: number): string => `Done or let go (${n})`,
   saidOn: (on: string, via: string): string => `You said it ${on}${via === 'telegram' ? ' on Telegram' : via === 'phone' ? ' on this phone' : ''}`,

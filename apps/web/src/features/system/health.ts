@@ -28,7 +28,7 @@ import { feltSheet } from '../core/feltoff';
 
 const ORDER: Mark[] = ['NEEDS KEY', 'DEGRADED', 'OFFLINE', 'WORKING'];
 const FIX: Record<'key' | 'offline' | 'retry', string> = { key: 'PUT IN THE KEY', offline: 'THE OFFLINE BRAIN', retry: 'RETRY' };
-const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
 
 /** One ability under its mark: his line, the mark as a word, the one reason, the one key to put it right. */
 function abilityRow(a: Ability, m: Marked, again: () => void): HTMLElement {

@@ -3,7 +3,7 @@
  * "as of", and the size always said on the storage line. The pages' numbers themselves are the brain's; only the words are here.
  */
 export const clockOf = (t: number): string => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-export const dayOf = (t: number): string => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+export const dayOf = (t: number): string => new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
 
 /** What each page that fetches says while it waits. */
 export const WAIT = { loops: 'Reading this week…', ledger: 'Reading what I learned…', foresight: 'Reading my record…', keys: 'Looking at my keys and models…', training: 'Reading my training record…', backups: 'Looking for backups…', status: 'Asking my brain how it is…' };

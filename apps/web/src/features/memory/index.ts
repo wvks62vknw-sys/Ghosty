@@ -31,7 +31,7 @@ function dayWord(t: number): string {
   const d = new Date(t);
   const today = new Date();
   const days = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86_400_000);
-  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
 }
 
 /** ME's sections, headed in his words (the brain keeps them as about, likes, dislikes …). */

@@ -76,7 +76,7 @@ async function monthWords(next: boolean, now: number): Promise<string> {
   const toDay = dayOf(to.getTime());
   const todos = loadTodos().filter((t) => !t.done && t.due && t.due >= fromDay && t.due < toDay);
   const evs = events.sort((a, b) => a.start - b.start).slice(0, 6).map((e) => {
-    const d = new Date(e.start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const d = new Date(e.start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
     return `${e.title}, ${d}${e.allDay ? '' : ` ${new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}`;
   });
   const head = `${name}${next ? '' : ' (from today)'}: ${events.length} ${events.length === 1 ? 'event' : 'events'}${todos.length ? ` and ${todos.length} ${todos.length === 1 ? 'to-do' : 'to-dos'} due` : ''}.`;

@@ -38,7 +38,7 @@ export function dragStart(start: number, dy: number, hourPx: number, days = 0, l
 export function whenWords(start: number, end: number | undefined, now = Date.now()): string {
   const d0 = new Date(now);
   const mid = (n: number) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + n).getTime();
-  const day = start >= mid(0) && start < mid(1) ? 'Today' : start >= mid(1) && start < mid(2) ? 'Tomorrow' : new Date(start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const day = start >= mid(0) && start < mid(1) ? 'Today' : start >= mid(1) && start < mid(2) ? 'Tomorrow' : new Date(start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
   return `${day} ${hm(start)}${end && end > start ? `–${hm(end)}` : ''}`;
 }
 /** His own (his diary, or one waiting on this phone to be sent): only these move. */
