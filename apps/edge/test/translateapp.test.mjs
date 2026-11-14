@@ -55,6 +55,10 @@ test('the phrasebook: a star keeps it under the trip now, a second tap takes it 
   assert.deepEqual(g[0].phrases.map((p) => p.said), ['the bill', 'hello'], 'newest first inside a trip');
   b = K.toggleStar(b, d('hello', 4), 'Spain in May');
   assert.ok(!K.isStarred(b, { said: 'hello', to: 'es' }));
+  const csv = K.bookCsv(K.toggleStar(b, { id: 'q', said: 'Say "hi", please', came: 'Di "hola", por favor', from: 'en', to: 'es', at: 9 }, 'Spain in May'), (c) => (c === 'es' ? 'Spanish' : c));
+  assert.equal(csv.split('\n')[0], 'Trip,You said,Translation,Language');
+  assert.ok(csv.includes('Spain in May,"Say ""hi"", please","Di ""hola"", por favor",Spanish'), 'quotes and commas kept whole');
+  assert.equal(csv.split('\n').length, 4, 'a heading and one row per phrase');
   assert.ok(K.COUNTRIES.every((c) => /^[a-z]{2}$/.test(c.lang)));
   assert.ok(K.TRIP_PHRASES.flatMap((g2) => g2.lines).length >= 20);
 });
