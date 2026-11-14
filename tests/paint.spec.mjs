@@ -165,6 +165,35 @@ async function run(viewport) {
   const mirror = await page.evaluate(() => { const col = (x) => { let n = 0; for (let y = 1420; y <= 1490; y++) if (window.__ghosty.paintAt(x, y, 1) > 60) n++; return n; }; return { left: col(300), right: col(1200 - 300) }; });
   check(mirror.left > 0 && mirror.right > 0 && Math.abs(mirror.left - mirror.right) <= 2, `[${W}] symmetry mirrors the stroke to the other side (${mirror.left} px on the left, ${mirror.right} px on the right)`);
 
+  // the brush's own settings are kept on the phone
+  await tool(page, 'Brush');
+  await page.locator('.pxstudio input[aria-label="Ink: Streamline"]').fill('80');
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.paint.tweaks') ?? '{}').ink?.smooth === 0.8), `[${W}] the ink's streamline is kept as his own setting`);
+  await page.click('.pxstudio .pxsheet button[aria-label^="Close"]');
+
+  // selection: draw round the firm stroke's middle, CLEAR INSIDE takes only that part away
+  await tool(page, 'Select');
+  await stroke(page, [[500, 740, 0.5], [700, 740, 0.5], [700, 860, 0.5], [500, 860, 0.5], [500, 745, 0.5], [505, 742, 0.5], [510, 741, 0.5]], { type: 'pen' });
+  check((await S(page)).selection, `[${W}] SELECT draws round a part`);
+  await tool(page, 'Select');
+  await page.click('.pxstudio button[aria-label="Clear the part of this layer inside the selection"]');
+  const cleared = await page.evaluate(() => ({ inside: window.__ghosty.paintAt(600, 800, 1), outside: window.__ghosty.paintAt(900, 800, 1) }));
+  check(cleared.inside === 0 && cleared.outside > 100, `[${W}] CLEAR INSIDE clears only inside the selection (${JSON.stringify(cleared)})`);
+  await page.click('.pxstudio button[aria-label="Clear the selection"]');
+  check(!(await S(page)).selection, `[${W}] DESELECT clears the selection`);
+
+  // liquify: TWIRL turns the paint under the brush round
+  await tool(page, 'Liquify');
+  await tool(page, 'Liquify');
+  await page.click('.pxstudio button[aria-label="Liquify: Twirl"]');
+  const beforeTwirl = await page.evaluate(() => window.__ghosty.paintInked()[1]);
+  const steps0 = (await S(page)).undo;
+  const at0 = await page.evaluate(() => Array.from({ length: 41 }, (_, i) => window.__ghosty.paintAt(880 + i * 2, 800, 1)).join(','));
+  await stroke(page, Array.from({ length: 20 }, (_, i) => [900 + i * 3, 800 + i * 2, 1]), { type: 'pen' });
+  const at1 = await page.evaluate(() => Array.from({ length: 41 }, (_, i) => window.__ghosty.paintAt(880 + i * 2, 800, 1)).join(','));
+  check((await S(page)).undo === steps0 + 1 && at0 !== at1 && beforeTwirl > 0, `[${W}] TWIRL moves the paint under the brush, as one step`);
+  await tool(page, 'Brush');
+
   // (f) layers
   await tool(page, 'Layers');
   await page.click('.pxstudio button[aria-label="Add a new layer"]');
@@ -225,7 +254,7 @@ async function run(viewport) {
   check(await until(page, () => window.__ghosty.paint.open && window.__ghosty.paint.layers.length === 4, null, 30000), `[${W}] OPEN A FILE opens the PSD`);
   s = await S(page);
   check(s.layers.map((l) => l.name).join(',') === 'Paper,Background,Layer 1,Layer 3' && s.layers[3].blend === 'multiply' && s.layers[3].alphaLock === false, `[${W}] the opened PSD keeps its layers and blend modes: ${s.layers.map((l) => `${l.name}/${l.blend}`)}`);
-  check((await page.evaluate(() => window.__ghosty.paintAt(600, 800, 2))) > 100, `[${W}] the opened PSD keeps the strokes`);
+  check((await page.evaluate(() => window.__ghosty.paintAt(300, 800, 2))) > 100, `[${W}] the opened PSD keeps the strokes`);
   await page.click('.pxstudio button[aria-label^="Back to the gallery"]');
   await until(page, () => !document.querySelector('.pxstudio'), null, 15000);
 
