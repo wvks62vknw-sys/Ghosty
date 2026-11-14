@@ -75,7 +75,8 @@ export async function run(H) {
   for (const world of H.WORLDS) {
     const { ctx, page } = await H.phone(H.PHONE2, world, seed, 21);
     await H.open(page, 'core');
-    await page.waitForTimeout(world === 'scan' ? 2500 : 1500);
+    // (the real condition: Home drawn with its words, within 10 s; fit() below also waits for its entrance to finish)
+    await page.waitForFunction(() => (document.querySelector('#pg-core')?.innerText ?? '').trim().length > 40, null, { timeout: 10000 }).catch(() => undefined);
     // the hour's thing: with no book and nothing next in the diary, the to-do due today (not the Brief) in every look that draws one
     const st = { ink: 'ink', map: 'map', eye: 'eyehome', grown: 'grownHome', orbit: 'orbitHome' }[world];
     if (st) {

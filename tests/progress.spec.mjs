@@ -78,7 +78,7 @@ const slow = createServer((req, res) => {
 });
 await new Promise((r) => slow.listen(0, '127.0.0.1', r));
 const port = slow.address().port;
-await page.fill('#cin', `read http://127.0.0.1:${port}/a and http://127.0.0.1:${port}/b together`);
+await page.fill('#cin', `read http://slow.loopback.test:${port}/a and http://slow.loopback.test:${port}/b together`);
 await page.keyboard.press('Enter');
 const hudShown = await page.waitForFunction(() => {
   const el = document.querySelector('.hudtask');
