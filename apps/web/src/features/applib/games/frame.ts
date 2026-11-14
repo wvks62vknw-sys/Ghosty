@@ -60,7 +60,39 @@ interface Kept {
   played: number;
   won: number;
   save?: { state: unknown; secs: number; seed?: number };
+  /** The level, size or theme picked above the board. */
+  variant?: number;
 }
+
+/** A choice offered above the board (a level, a size, a theme), and the options it sets. */
+export interface Variant {
+  label: string;
+  patch: Opts;
+}
+const sizeOf = (x: string): number => Number(/^(\d+)/.exec(x.trim())?.[1] ?? NaN);
+/** The pickers a game's options ask for: `sizes`, `levels`, `draws` and `themes`, read for each kind. */
+export function variantsFor(kind: string, opts: Opts): Variant[] {
+  const arr = (k: string) => (Array.isArray(opts[k]) ? (opts[k] as string[]).map(String) : []);
+  const themes = arr('themes');
+  if (themes.length > 1) return themes.map((t) => ({ label: t, patch: { theme: t } }));
+  const levels = arr('levels');
+  if (kind === 'sudoku' && levels.length) return levels.filter((l) => ['easy', 'medium', 'hard', 'expert'].includes(l)).map((l) => ({ label: cap(l), patch: { difficulty: l } }));
+  if (kind === 'mines' && levels.length) {
+    const preset: Record<string, Opts> = { beginner: { rows: 9, cols: 9, mines: 10 }, intermediate: { rows: 16, cols: 12, mines: 30 }, expert: { rows: 22, cols: 14, mines: 62 } };
+    return levels.filter((l) => preset[l]).map((l) => ({ label: cap(l), patch: preset[l]! }));
+  }
+  if (kind === 'sprint' && levels.length) {
+    const max: Record<string, number> = { easy: 10, medium: 20, hard: 50 };
+    return levels.filter((l) => max[l]).map((l) => ({ label: cap(l), patch: { max: max[l]! } }));
+  }
+  if (kind === 'pairs' && levels.length) return levels.filter((l) => Number.isFinite(sizeOf(l))).map((l) => ({ label: `${sizeOf(l)} pairs`, patch: { pairs: sizeOf(l) } }));
+  const draws = arr('draws');
+  if (kind === 'solitaire' && draws.length) return draws.map((d) => ({ label: d === '1' ? 'Turn one' : `Turn ${d}`, patch: { draw: Number(d) } }));
+  const sizes = arr('sizes').length ? arr('sizes') : levels.filter((l) => /^\d+ by \d+$/.test(l));
+  if (sizes.length && ['merge', 'slide', 'lights', 'nonogram', 'dots', 'wordgrid'].includes(kind)) return sizes.filter((x) => Number.isFinite(sizeOf(x))).map((x) => ({ label: `${sizeOf(x)} by ${sizeOf(x)}`, patch: { size: sizeOf(x) } }));
+  return [];
+}
+const cap = (x: string) => (x ? x[0]!.toUpperCase() + x.slice(1) : x);
 
 /** For the spec and the console: each game's live numbers. */
 export const playState: Record<string, { kind: string; score: number; paused: boolean; over: boolean; best: number | null; streak: number; line: string }> = {};
@@ -129,15 +161,31 @@ export function grid(cols: number, cls: string, cells: number, make: (i: number)
 }
 
 /** Draw the frame into the kit app's scroll area and start the board. Returns the clean-up. */
-export function frame(k: KitApp, id: string, kind: string, opts: Opts, board: Board): () => void {
+export function frame(k: KitApp, id: string, kind: string, baseOpts: Opts, board: Board): () => void {
   let kept = load(id);
+  const variants = variantsFor(kind, baseOpts);
+  const pickAt = () => {
+    if (!variants.length) return -1;
+    if (kept.variant != null && variants[kept.variant]) return kept.variant;
+    const i = variants.findIndex((v) => Object.entries(v.patch).every(([k2, v2]) => String(baseOpts[k2]) === String(v2)));
+    return i >= 0 ? i : 0;
+  };
+  let opts: Opts = pickAt() >= 0 ? { ...baseOpts, ...variants[pickAt()]!.patch } : baseOpts;
   const st = (playState[id] = { kind, score: 0, paused: false as boolean, over: false as boolean, best: kept.best ?? null, streak: kept.streak, line: '' });
   const scoreEl = h('b.al-gnum', '0');
   const lineEl = h('small.al-gline', '');
   const bestEl = h('span.al-gstat', '');
   const pauseKey = key('Pause', () => setPaused(!st.paused), { label: 'Pause the game' });
   const newKey = key('New', () => restart(), { label: 'Start a new game' });
-  const bar = h('div.al-gbar', h('div.al-gscore', h('span.al-glabel', 'Score'), scoreEl, lineEl), bestEl, h('span.ak-sp'), pauseKey, newKey);
+  const picker = variants.length > 1 ? (h('select.al-gpick', { 'aria-label': 'Level' }, ...variants.map((v, i) => h('option', { value: String(i), selected: i === pickAt() }, v.label))) as HTMLSelectElement) : null;
+  picker?.addEventListener('change', () => {
+    kept = load(id);
+    kept.variant = Number(picker.value);
+    save(id, kept);
+    opts = { ...baseOpts, ...variants[kept.variant]!.patch };
+    restart();
+  });
+  const bar = h('div.al-gbar', h('div.al-gscore', h('span.al-glabel', 'Score'), scoreEl, lineEl), bestEl, h('span.ak-sp'), picker, pauseKey, newKey);
   const stage = h('div.al-gstage');
   const keysEl = h('div.al-gkeys');
   const cover = h('div.al-gcover', { hidden: true });

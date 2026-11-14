@@ -1,6 +1,7 @@
 /**
  * SUDOKU (the number-place genre). Options the board reads from GameConfig.options:
- *   difficulty: 'easy' | 'medium' | 'hard'  (default 'medium'; 38, 31 and 26 clues kept)
+ *   difficulty: 'easy' | 'medium' | 'hard' | 'expert'  (default 'medium'; 38, 31, 26 and 24 clues kept, as far as one answer allows)
+ *   levels:     string[] (the difficulties offered in a picker above the board)
  *   mistakes:   number  (wrong entries allowed before the game is lost; 0 means unlimited; default 3)
  *   daily:      boolean (the same puzzle all day; default false)
  * A puzzle is made by filling a grid at random and taking clues out one at a time, keeping a removal only if the puzzle
@@ -8,8 +9,9 @@
  */
 import { type Rng, rng, shuffle } from './rng';
 
-export type Difficulty = 'easy' | 'medium' | 'hard';
-export const CLUES: Record<Difficulty, number> = { easy: 38, medium: 31, hard: 26 };
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
+export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'expert'];
+export const CLUES: Record<Difficulty, number> = { easy: 38, medium: 31, hard: 26, expert: 24 };
 
 const UNITS: number[][] = (() => {
   const u: number[][] = [];
@@ -126,6 +128,6 @@ export function hintCell(grid: readonly number[]): number {
 
 /** The score for a solved puzzle: harder and faster is more, each mistake and hint costs. Never below 100. */
 export function score(difficulty: Difficulty, secs: number, mistakes: number, hints: number): number {
-  const base = { easy: 1000, medium: 2000, hard: 3500 }[difficulty];
+  const base = { easy: 1000, medium: 2000, hard: 3500, expert: 5000 }[difficulty];
   return Math.max(100, Math.round(base - secs * 1.5 - mistakes * 150 - hints * 200));
 }

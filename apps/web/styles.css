@@ -11298,3 +11298,6 @@ html .phx-vprev { left: var(--g-s-1); }
 html .phx-vnext { right: var(--g-s-1); }
 html .phx-vbar { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--g-s-1); padding: var(--g-s-1) var(--g-s-2) var(--g-s-2); }
 html .phx-on { color: var(--g-red); }
+html .al-gpick { min-height: var(--g-target); max-width: 42%; padding: 0 var(--g-s-1); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); background: var(--g-plate-fill); color: var(--g-ink-1); font: var(--g-t-caption); }
+html .al-gpick option { background: var(--g-canvas); color: var(--g-ink-1); }
+html .al-gpairword { display: block; padding: 0 4px; font: var(--g-t-caption); font-weight: 600; color: var(--g-accent-text); text-align: center; overflow-wrap: anywhere; }
