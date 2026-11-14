@@ -215,7 +215,7 @@ export const briefTab: TabDef = {
     const fore = briefForesight();
     // [see] THE WORLD (see.c2): the threat level, road reports on the commute and a fresh picture from the camera nearest home
     const world = briefWorld();
-    P.left.append(dp.el, commute.el, world.el, fore.el, wp.el);
+    P.left.append(dp.el, commute.el, fore.el, world.el, wp.el);
     // (PLACES sits under the whole of ME: the tap brings PLACES itself on screen, not the top of ME)
     const toPlaces = () => {
       goToPanel('memory', 'ME');
