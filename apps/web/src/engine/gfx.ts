@@ -66,9 +66,21 @@ export class Gfx {
   lineQuad!: WebGLBuffer;
   ptQuad!: WebGLBuffer;
 
+  /** [ci] The canvas's size on the page, kept by a ResizeObserver (null: read each time, where there is none). Read every frame, it
+   *  made the browser lay the page out in the middle of the frame: on the frame after a screen was built, the whole screen twice
+   *  (Workbench opened in 2.6 s here, House in 2 s: FINAL sweep, NEXT ci.u4). */
+  private css: { w: number; h: number } | null = null;
+
   init(cv: HTMLCanvasElement): boolean {
     // [restc] the canvas is kept even when WebGL2 is refused (the PS5's browser): the screens bind their pointers to it
     this.cv = cv;
+    if (typeof ResizeObserver === 'function') {
+      this.css = { w: cv.clientWidth, h: cv.clientHeight };
+      new ResizeObserver((es) => {
+        const r = es[es.length - 1]!.contentRect;
+        this.css = { w: Math.round(r.width), h: Math.round(r.height) };
+      }).observe(cv);
+    }
     const gl = cv.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' });
     if (!gl) return false;
     this.gl = gl;
@@ -140,8 +152,8 @@ export class Gfx {
   resize(): void {
     if (!this.gl) return;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2) * this.scale;
-    const w = Math.max(2, Math.floor(this.cv.clientWidth * this.dpr));
-    const h = Math.max(2, Math.floor(this.cv.clientHeight * this.dpr));
+    const w = Math.max(2, Math.floor((this.css?.w ?? this.cv.clientWidth) * this.dpr));
+    const h = Math.max(2, Math.floor((this.css?.h ?? this.cv.clientHeight) * this.dpr));
     if (w === this.w && h === this.h && this.scene) return;
     this.cv.width = w;
     this.cv.height = h;
