@@ -19,6 +19,9 @@ export async function noteTurn(text: string, opts: { voice?: boolean; private?: 
   const m = NOTE_ASK.exec(text.trim());
   const note = m?.[1]?.trim().replace(/[.!]+$/, '');
   if (!note) return false;
+  // (a turn kept on the phone, the offline brain set to "always" or asked here: nothing of it goes to the brain, not even as a note, so
+  // the phone's own model answers it as before; onphone.spec's marker proves nothing leaves)
+  if (opts.private) return false;
   const go: LocalAnswer['go'] = [{ id: 'screen:memory', ask: -1, label: 'Open Memory', open: 'memory' }];
   if (opts.voice) {
     // (this turn's own label only: the talk bar's tag can still be an earlier turn's when this one was too short to judge, review fix)
