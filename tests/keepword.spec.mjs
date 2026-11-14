@@ -78,6 +78,8 @@ async function run(vp, body) {
     if (!localStorage.getItem('ghosty.keep.seeded')) {
       localStorage.setItem('ghosty.keep.seeded', '1');
       localStorage.setItem('ghosty.chat', JSON.stringify({ entries: turns.flatMap((t) => [{ kind: 'user', text: t.q, at: t.at }, { kind: 'assistant', text: t.a, at: t.at + 4000 }]) }));
+      // (l) a letter he read with the Lens yesterday
+      localStorage.setItem('ghosty.lens.read', JSON.stringify([{ at: Date.now() - 86_400_000, text: 'PENALTY CHARGE NOTICE. Westshire Council. A penalty charge of £70 is now payable for parking in a restricted zone on Mill Lane. Pay within 14 days and it is reduced to £35.' }]));
       // (k) a letter of his
       localStorage.setItem('ghosty.docs', JSON.stringify([{ id: 'doc-council', title: 'Letter to the council', kind: 'letter', at: Date.now() - 86_400_000, blocks: [{ id: 'b1', t: 'p', runs: [{ text: 'Dear Sir or Madam,' }] }, { id: 'b2', t: 'p', runs: [{ text: 'I am writing about the path behind my house.' }] }] }]));
       // (i) a workbook of his, its match four rows down
@@ -265,6 +267,24 @@ async function run(vp, body) {
       await page.keyboard.press('Escape').catch(() => undefined);
       await page.waitForFunction(() => !document.querySelector('.modal'), null, { timeout: 5000 }).catch(() => undefined);
     } else check(false, `${T} [k] FIND did not find the letter`);
+    await box.fill('');
+  }
+
+  // (l) the letter he photographed (memory.s1): FIND "parking fine" finds what the Lens read, and a tap shows it whole
+  if (!body) {
+    await page.evaluate(() => (location.hash = 'memory'));
+    await openSection(page, 'memory', 'Timeline');
+    const box = page.locator('#pg-memory input[type=search]').first();
+    await box.fill('parking penalty charge');
+    const row = page.locator('#pg-memory .recallfind .recallrow[data-kind="scan"] .recallgo').first();
+    const seen = await row.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false);
+    check(seen && /Read with the Lens/.test((await row.textContent()) ?? ''), `${T} [l] FIND did not find the letter the Lens read: "${await page.evaluate(() => document.querySelector('#pg-memory .recallfind')?.textContent?.slice(0, 200) ?? '')}"`);
+    if (seen) {
+      await row.click();
+      const whole = await page.waitForFunction(() => /Mill Lane/.test(document.querySelector('.modal .exchange')?.textContent ?? '') && /the photo itself was not kept/.test(document.querySelector('.modal .exchange')?.textContent ?? ''), null, { timeout: 6000 }).then(() => true, () => false);
+      check(whole, `${T} [l] the tap did not show what the Lens read`);
+      await page.keyboard.press('Escape').catch(() => undefined);
+    }
     await box.fill('');
   }
 

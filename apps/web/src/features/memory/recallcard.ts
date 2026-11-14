@@ -7,7 +7,7 @@
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { forgetTurn, foundState, KIND_WORD, turnFor, undoForgetTurn, type ThingKind } from './recall';
-import { EXCHANGE_NO_ANSWER, EXCHANGE_PINNED, EXCHANGE_UNPINNED, TURN_FORGOTTEN } from './words';
+import { LENS_READ_NOTE, EXCHANGE_NO_ANSWER, EXCHANGE_PINNED, EXCHANGE_UNPINNED, TURN_FORGOTTEN } from './words';
 import { chat } from '../../assistant/session';
 import { navTo } from '../../shell/areas';
 
@@ -54,7 +54,12 @@ export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line' | 'id'> & { 
     foundState.landed = !!at;
     return;
   }
-  else if (r.kind === 'link') window.open(r.id, '_blank', 'noopener');
+  else if (r.kind === 'scan') {
+    // (memory.s1: what the Lens read, whole, where he is; the photo itself was never kept)
+    const all = await import('./recall').then((R) => R.allThings());
+    const text = all.filter((x) => x.kind === 'scan' && x.id === r.id).map((x) => x.text).join(' ');
+    modal(`Read with the Lens · ${new Date(Number(r.id)).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`, h('div.readwrap.exchange', { dataset: { case: 'keep' } }, h('div.reader', h('p', text || r.line), h('p.note', LENS_READ_NOTE))));
+  } else if (r.kind === 'link') window.open(r.id, '_blank', 'noopener');
   else if (r.kind === 'todo') navTo('agenda', 'push');
   else if (r.kind === 'book') navTo('library', 'push');
   if (r.bid) land(r.bid);
