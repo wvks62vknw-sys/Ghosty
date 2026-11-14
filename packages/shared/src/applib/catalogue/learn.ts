@@ -71,9 +71,7 @@ function a(word: string): string {
   return /^[aeiou]/.test(word) ? 'an' : 'a';
 }
 
-/* ---------- Times tables, squares and roots: worked out, never typed by hand. */
-const TIMES: Card[] = [];
-for (let x = 2; x <= 12; x++) for (let y = 2; y <= 12; y++) TIMES.push({ q: `${x} × ${y}`, a: String(x * y) });
+/* ---------- Squares and roots: worked out, never typed by hand. */
 const SQUARES: Card[] = [];
 for (let n = 2; n <= 20; n++) SQUARES.push({ q: `${n} squared`, a: String(n * n) }, { q: `Square root of ${n * n}`, a: String(n) });
 for (let n = 2; n <= 10; n++) SQUARES.push({ q: `${n} cubed`, a: String(n ** 3) });
@@ -135,38 +133,6 @@ export const LEARN: AppDef[] = [
         'A quaver lasts=Half a crotchet beat;A dot after a note=Adds half its value again',
       ),
     },
-  },
-  {
-    id: 'practice-log', name: 'Practice Log', family: 'learn', glyph: 'headphones', archetype: 'log', from: 'learn.39',
-    pitch: 'Every practice session by piece, minutes and tempo, with a weekly goal.',
-    keywords: ['practice', 'instrument', 'music', 'piano', 'guitar', 'tempo'],
-    tour: ['Log each session with the piece, the minutes and the tempo reached.', 'The ring fills towards five hours a week; the streak counts the days.', 'Group by piece to watch the tempo climb on the hard passages.'],
-    log: {
-      fields: [
-        { id: 'piece', label: 'Piece', type: 'text', required: true, hint: 'e.g. Minuet in G' },
-        { id: 'date', label: 'Date', type: 'date', default: 'today', required: true },
-        { id: 'minutes', label: 'Minutes', type: 'duration', required: true },
-        { id: 'focus', label: 'Focus', type: 'choice', options: ['Scales', 'Technique', 'Repertoire', 'Sight reading', 'Ear work', 'Improvising'] },
-        { id: 'tempo', label: 'Tempo', type: 'number', unit: 'bpm', min: 20, max: 300 },
-        { id: 'quality', label: 'Quality', type: 'rating' },
-        { id: 'notes', label: 'Notes', type: 'long', hint: 'What to fix next time' },
-      ],
-      title: 'piece', sub: '{focus} · {tempo} bpm', meta: 'minutes', date: 'date', sort: { field: 'date', dir: 'desc' }, group: 'focus',
-      stats: [
-        { label: 'This week', kind: 'sum', field: 'minutes', period: 'week', goal: 300, dir: 'reach' },
-        { label: 'Streak', kind: 'streak' },
-        { label: 'Top tempo', kind: 'max', field: 'tempo', period: 'all' },
-        { label: 'Pieces', kind: 'distinct', field: 'piece' },
-      ],
-      chart: { field: 'minutes', kind: 'bar', period: 'week' },
-      views: ['list', 'calendar'],
-    },
-    sample: [
-      { piece: 'Minuet in G', date: '2026-11-13', minutes: 30, focus: 'Repertoire', tempo: 96, quality: 4, notes: 'Bars 9 to 12 still uneven.' },
-      { piece: 'C major scale', date: '2026-11-13', minutes: 10, focus: 'Scales', tempo: 120, quality: 5 },
-      { piece: 'Minuet in G', date: '2026-11-12', minutes: 25, focus: 'Repertoire', tempo: 88, quality: 3 },
-      { piece: 'Sight reading book 2', date: '2026-11-11', minutes: 15, focus: 'Sight reading', quality: 3 },
-    ],
   },
   {
     id: 'memory-palace', name: 'Memory Palace', family: 'learn', glyph: 'home', archetype: 'log', from: 'learn.53',
@@ -651,13 +617,6 @@ export const LEARN: AppDef[] = [
     },
   },
   {
-    id: 'times-tables', name: 'Times Tables', family: 'learn', glyph: 'grid', archetype: 'deck',
-    pitch: 'Every times table from 2 to 12, drilled until each answer is instant.',
-    keywords: ['times', 'tables', 'multiplication', 'maths', 'arithmetic'],
-    tour: ['Answer aloud before you turn; speed matters as much as being right.', 'The hard ones, like 7 × 8, come back until they stick.', 'Five minutes a day is plenty.'],
-    deck: { mode: 'srs', cards: TIMES },
-  },
-  {
     id: 'squares-roots', name: 'Squares and Roots', family: 'learn', glyph: 'grid', archetype: 'deck',
     pitch: 'Squares to 20, their square roots and cubes to 10, for quick mental maths.',
     keywords: ['squares', 'roots', 'cubes', 'mental', 'maths'],
@@ -790,28 +749,6 @@ export const LEARN: AppDef[] = [
 
   /* ===================== Physics, electronics and chemistry ===================== */
   {
-    id: 'ohms-law', name: 'Ohm\'s Law', family: 'learn', glyph: 'bolt', archetype: 'calc',
-    pitch: 'Voltage and resistance give the current and the power in a circuit.',
-    keywords: ['ohm', 'voltage', 'current', 'resistance', 'power', 'circuit'],
-    tour: ['Type the voltage across the part and its resistance.', 'Current is V ÷ R; power is V × I, the heat it gives off.', 'Check the power against the part\'s rating before you build.'],
-    calc: {
-      source: 'Ohm\'s law, V = IR, and electrical power, P = VI',
-      estimate: true,
-      inputs: [
-        { id: 'v', label: 'Voltage', unit: 'V', default: 12, min: 0 },
-        { id: 'r', label: 'Resistance', unit: 'Ω', default: 6, min: 0.000001 },
-      ],
-      outputs: [
-        { id: 'i', label: 'Current', expr: 'v / r', unit: 'A', dp: 4 },
-        { id: 'p', label: 'Power', expr: 'v * i', unit: 'W', dp: 3 },
-      ],
-      tests: [
-        { in: { v: 12, r: 6 }, out: { i: 2, p: 24 } },
-        { in: { v: 9, r: 1000 }, out: { i: 0.009, p: 0.081 } },
-      ],
-    },
-  },
-  {
     id: 'resistor-network', name: 'Resistor Network', family: 'learn', glyph: 'chip', archetype: 'calc',
     pitch: 'Up to three resistors in series or in parallel, combined into one value.',
     keywords: ['resistor', 'series', 'parallel', 'electronics', 'circuit'],
@@ -831,29 +768,6 @@ export const LEARN: AppDef[] = [
       tests: [
         { in: { r1: 100, r2: 100, r3: 0 }, out: { series: 200, parallel: 50 } },
         { in: { r1: 100, r2: 100, r3: 100 }, out: { series: 300, parallel: 33.33 } },
-      ],
-    },
-  },
-  {
-    id: 'led-resistor', name: 'LED Resistor', family: 'learn', glyph: 'bolt', archetype: 'calc',
-    pitch: 'The series resistor an LED needs for your supply, and the heat it carries.',
-    keywords: ['led', 'resistor', 'electronics', 'current', 'arduino'],
-    tour: ['Type the supply voltage, the LED\'s forward voltage and its current.', 'Pick the next standard resistor above the answer.', 'Red LEDs drop about 2 V; blue and white about 3 V.'],
-    calc: {
-      source: 'Ohm\'s law applied to the series resistor, R = (Vs − Vf) / I',
-      estimate: true,
-      inputs: [
-        { id: 'vs', label: 'Supply', unit: 'V', default: 5, min: 0 },
-        { id: 'vf', label: 'LED drop', unit: 'V', default: 2, min: 0 },
-        { id: 'ma', label: 'Current', unit: 'mA', default: 20, min: 0.1 },
-      ],
-      outputs: [
-        { id: 'r', label: 'Resistor', expr: '(vs - vf) / (ma/1000)', unit: 'Ω', dp: 0 },
-        { id: 'mw', label: 'Resistor heat', expr: '(vs - vf) * ma', unit: 'mW', dp: 0 },
-      ],
-      tests: [
-        { in: { vs: 5, vf: 2, ma: 20 }, out: { r: 150, mw: 60 } },
-        { in: { vs: 12, vf: 3, ma: 15 }, out: { r: 600, mw: 135 } },
       ],
     },
   },
@@ -1226,29 +1140,6 @@ export const LEARN: AppDef[] = [
     ],
   },
   {
-    id: 'note-frequency', name: 'Note Frequency', family: 'learn', glyph: 'music', archetype: 'calc',
-    pitch: 'The pitch in hertz of any note in equal temperament, tuned to A4 at 440 Hz.',
-    keywords: ['note', 'frequency', 'pitch', 'hertz', 'tuning', 'music'],
-    tour: ['Pick the note and the octave; middle C is C4.', 'Each octave up doubles the frequency.', 'Change the reference if your band tunes to 442.'],
-    calc: {
-      source: 'Twelve-tone equal temperament, f = A × 2^(n/12), with A4 = 440 Hz (ISO 16)',
-      inputs: [
-        { id: 'note', label: 'Note', default: 9, choices: ['C', 'C sharp', 'D', 'E flat', 'E', 'F', 'F sharp', 'G', 'A flat', 'A', 'B flat', 'B'].map((label, value) => ({ label, value })) },
-        { id: 'oct', label: 'Octave', default: 4, min: 0, max: 8, step: 1 },
-        { id: 'ref', label: 'A4 tuning', unit: 'Hz', default: 440, min: 400, max: 480 },
-      ],
-      outputs: [
-        { id: 'f', label: 'Frequency', expr: 'ref * 2^((note - 9 + (oct - 4)*12) / 12)', unit: 'Hz', dp: 2 },
-        { id: 'ms', label: 'Wave period', expr: '1000 / f', unit: 'ms', dp: 3 },
-      ],
-      tests: [
-        { in: { note: 9, oct: 4, ref: 440 }, out: { f: 440, ms: 2.273 } },
-        { in: { note: 0, oct: 4, ref: 440 }, out: { f: 261.63 } },
-        { in: { note: 9, oct: 5, ref: 440 }, out: { f: 880 } },
-      ],
-    },
-  },
-  {
     id: 'tempo-converter', name: 'Tempo Converter', family: 'learn', glyph: 'timer', archetype: 'calc',
     pitch: 'Beats per minute into milliseconds per beat, half beat and quarter beat.',
     keywords: ['tempo', 'bpm', 'delay', 'milliseconds', 'music', 'metronome'],
@@ -1265,22 +1156,6 @@ export const LEARN: AppDef[] = [
       tests: [
         { in: { bpm: 120 }, out: { q: 500, e: 250, s: 125, bar: 2 } },
         { in: { bpm: 90 }, out: { q: 666.7, e: 333.3, s: 166.7, bar: 2.67 } },
-      ],
-    },
-  },
-  {
-    id: 'practice-routine', name: 'Practice Routine', family: 'learn', glyph: 'timer', archetype: 'timer',
-    pitch: 'A timed half hour of warm-up, technique, pieces and sight reading.',
-    keywords: ['practice', 'routine', 'warm', 'up', 'instrument', 'timer'],
-    tour: ['Press start and play; a chime moves you to the next block.', 'The order is deliberate: warm hands first, new music last.', 'Change the times in settings to fit your day.'],
-    timer: {
-      rounds: 1,
-      steps: [
-        { name: 'Warm-up and scales', secs: 300 },
-        { name: 'Technique', secs: 300 },
-        { name: 'Hard passage, slowly', secs: 600 },
-        { name: 'Whole piece', secs: 420 },
-        { name: 'Sight reading', secs: 180 },
       ],
     },
   },
@@ -1451,22 +1326,6 @@ export const LEARN: AppDef[] = [
         'Put work aside for later=git stash;Bring stashed work back=git stash pop;Undo a commit with a new commit=git revert <commit>;' +
         'Unstage a file=git restore --staged <file>;Throw away changes to a file=git restore <file>;List branches=git branch;' +
         'Show who last changed each line=git blame <file>',
-      ),
-    },
-  },
-  {
-    id: 'http-status', name: 'HTTP Status Codes', family: 'learn', glyph: 'code', archetype: 'deck',
-    pitch: 'The web\'s status codes, from 200 to 503, and what each one means.',
-    keywords: ['http', 'status', 'codes', 'web', 'api', 'coding'],
-    tour: ['Each card shows a code; say what it means.', 'The first digit is the family: 2 fine, 4 your fault, 5 the server.', 'Missed cards come back sooner.'],
-    deck: {
-      mode: 'srs',
-      cards: list(
-        '200=OK;201=Created;204=No Content;301=Moved Permanently;302=Found (a temporary redirect);304=Not Modified;' +
-        '307=Temporary Redirect;308=Permanent Redirect;400=Bad Request;401=Unauthorised (no valid credentials);403=Forbidden;' +
-        '404=Not Found;405=Method Not Allowed;409=Conflict;410=Gone;418=I\'m a teapot (an April Fools\' code);' +
-        '422=Unprocessable Content;429=Too Many Requests;500=Internal Server Error;502=Bad Gateway;503=Service Unavailable;' +
-        '504=Gateway Timeout;1xx family=Informational;2xx family=Success;3xx family=Redirection;4xx family=Client error;5xx family=Server error',
       ),
     },
   },

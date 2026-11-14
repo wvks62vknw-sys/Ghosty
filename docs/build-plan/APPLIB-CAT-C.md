@@ -4,22 +4,22 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
 
 ## What is in
 
-**Learning (72 apps).**
+**Learning (65 apps).**
 - From the list, with `from`:
   - Periodic Table (learn.19): a guide to all 118 elements; group, period and block are worked out from the atomic number, not typed.
-  - Music Theory (learn.36), Practice Log (learn.39), Memory Palace (learn.53), Exam Planner (learn.54).
+  - Music Theory (learn.36), Memory Palace (learn.53), Exam Planner (learn.54).
   - Highway Code (learn.55): written from the public text and labelled as not the official bank.
   - Typing Arcade (learn.56), Course Tracker (learn.48), Listening Log (learn.50), Gallery Visits (learn.43), Coding Log (learn.33).
 - Scripts: Greek, Cyrillic, Hiragana, Katakana, Arabic, Urdu, Hangul. These give the reading half of learn.4; the tracing half needs its own build.
-- Maths calcs: Quadratic Solver, Triangle Solver, Circle and Sphere, Weighted Grade. Maths decks: Times Tables, Squares and Roots, Roman Numerals, Maths Formulas. Times Tables, Squares and Roman Numerals are generated in code, not typed by hand.
+- Maths calcs: Quadratic Solver, Triangle Solver, Circle and Sphere, Weighted Grade. Maths decks: Squares and Roots, Roman Numerals, Maths Formulas. Squares and Roman Numerals are generated in code, not typed by hand.
 - Statistics: Z-Score (normal percentile by Abramowitz and Stegun 26.2.17), Margin of Error, Hardy-Weinberg.
-- Physics and electronics: Ohm's Law, Resistor Network, LED Resistor, Pendulum, Projectile, Motion Equations, Energy and Power, Speed of Sound, Drag Force, Light Travel Time. Every engineering figure is marked `estimate`.
+- Physics and electronics: Resistor Network, Pendulum, Projectile, Motion Equations, Energy and Power, Speed of Sound, Drag Force, Light Travel Time. Every engineering figure is marked `estimate`.
 - Chemistry: Molar Mass, Dilution, Ideal Gas, Half-Life, Element Cards, SI Units (a BIPM guide), Constants.
-- Music: Note Frequency, Tempo Converter, Practice Routine (timer), Clean Runs (counter).
-- Knowledge decks: Planets, Bones of the Body, Morse Code, Major System, Fallacies, History Dates, British Monarchs, the four Capitals decks, Latin Phrases, Word Roots, Git Commands, HTTP Status Codes, Big O.
+- Music: Tempo Converter, Clean Runs (counter).
+- Knowledge decks: Planets, Bones of the Body, Morse Code, Major System, Fallacies, History Dates, British Monarchs, the four Capitals decks, Latin Phrases, Word Roots, Git Commands, Big O.
 - Logs and lists: Reading List, Study Log, Vocabulary Book, Lab Notebook, Language Daily, Exam Day.
 
-**Travel & world (61 apps).**
+**Travel & world (59 apps).**
 - From the list, with `from`:
   - Trips (world.13), Tickets & Passes (world.16), Car Logbook (world.45), Trip Spend (world.23), Packing (world.15).
   - Travel Papers (world.17): the document and renewal half.
@@ -39,11 +39,18 @@ Files: `packages/shared/src/applib/catalogue/learn.ts` (LEARN) and `packages/sha
   - Beaufort Scale (Met Office)
   - Cloud Spotter (Met Office)
   - Countryside Code (GOV.UK)
-- Logs: Places Visited, Flight Log, Rail Journeys, Summits, Sky Log, Travel Journal, Bucket List, Stays, Where I Parked.
+- Logs: Places Visited, Flight Log, Rail Journeys, Summits, Sky Log, Stays, Where I Parked.
 - Checklists: Hiking Kit, Before You Fly, Leaving Home, Car Check (weekly), Winter Car Kit, Camping Kit.
 - Timer: Driver Breaks, from Highway Code rule 91.
 
 No app reads location. Great Circle and Time Zones take only what he types.
+
+## Merged with other lanes
+Other lanes had already landed apps doing the same job, so mine were dropped:
+- Creative: Practice Log, Note Frequency, Practice Routine.
+- Games: Times Tables.
+- Developer & maker: Ohm's Law, LED Resistor, HTTP Status Codes.
+- Family & life: Bucket List, Travel Journal.
 
 ## Needs its own build
 
@@ -63,10 +70,10 @@ These apps from the two lists have no archetype that gives them a true core. The
 - learn.5 Pronunciation: needs on-phone speech scoring and pitch contours.
 - learn.6 Sign Language: needs camera hand tracking.
 - learn.13 Geometry: needs a construction canvas.
-- learn.14 Maths Path: needs generated questions and a skill map. Times Tables and Squares and Roots are the drill part.
+- learn.14 Maths Path: needs generated questions and a skill map. Squares and Roots is the drill part, and the games family's Times Tables is the tables drill.
 - learn.16 Statistics Lab: needs simulations and reading of his sheets. Z-Score and Margin of Error are the calc part.
 - learn.17 Physics Sandbox: needs a physics engine. The physics calcs are the formula part.
-- learn.18 Circuit Lab: needs a circuit simulator. Ohm's Law, Resistor Network and LED Resistor are the formula part.
+- learn.18 Circuit Lab: needs a circuit simulator. Resistor Network, and the maker family's Ohm's Law and LED Resistor, are the formula part.
 - learn.20 Molecule Lab: needs 3-D molecules and an equation balancer. Molar Mass, Dilution and Ideal Gas are the calc part.
 - learn.21 Anatomy 3D: needs 3-D models. Bones of the Body is the naming part.
 - learn.23 Atlas: needs the globe and map quizzes. The Capitals decks are the fact part.
@@ -77,7 +84,7 @@ These apps from the two lists have no archetype that gives them a true core. The
 - learn.32 Algorithm Visualiser: animated algorithms. Big O is the fact part.
 - learn.37 Ear Trainer: needs audio playback and pitch detection.
 - learn.38 Sight Reading: needs generated notation and note detection.
-- learn.39 Practice Room (metronome, tuner, drone, looper): live audio. Practice Log, Practice Routine and Clean Runs are the log part.
+- learn.39 Practice Room (metronome, tuner, drone, looper): live audio. Clean Runs, and the creative family's Practice Log and Practice Routine, are the log part.
 - learn.42 History Atlas: needs a map with a year slider and live Wikidata. History Dates and British Monarchs are the fact part.
 - learn.44 Archive Explorer: live archive search.
 - learn.45 History Around Me: region packs and on-phone place matching.
