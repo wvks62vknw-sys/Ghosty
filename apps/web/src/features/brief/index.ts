@@ -216,9 +216,10 @@ export const briefTab: TabDef = {
       }
       dp.setStatus(dayItems.length ? `${dayItems.length} LEFT` : 'CLEAR', 'ok');
       clear(dp.body, ...rows);
-      // [security] the nightly self-check, told once: a lock that slipped since he was last told, as one row after the rest
+      // [security] the nightly self-check, told once (a lock that slipped since he was last told), and yesterday's approvals with
+      // anything still waiting (security.u7, security.c1), as rows after the rest
       // (features/security/nudge.ts; asked after the day is drawn, so it never holds the Brief up)
-      void import('../security/nudge').then((m) => m.securityRow(isoDay(new Date()))).then((r) => r && dp.body.isConnected && !dp.body.querySelector('.brsecurity') && dp.body.append(r)).catch(() => undefined);
+      void import('../security/nudge').then((m) => m.securityRows(isoDay(new Date()))).then((rs) => { if (dp.body.isConnected && !dp.body.querySelector('.brsecurity, .brapprovals')) dp.body.append(...rs); }).catch(() => undefined);
       paintSay();
     };
     // [lifeeasier] EMAIL TRIAGE: "two emails need an answer", with DRAFT on each, only with his own email linked (brief/mail.ts)
