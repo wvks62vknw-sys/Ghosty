@@ -15,6 +15,7 @@ feel made by one company.
 | Lane | Branch | Owns |
 |---|---|---|
 | ENGINE | `claude/new-session-4erjve-lane-applib` | `types.ts` (additive changes only, told to every lane), `index.ts`, `expr.ts`, `validate.ts`, `apps/edge/test/applib.test.mjs`, `apps/web/src/features/applib/**`, `catalogue/ghosty.ts`, the `applib` spec, the screen's styles block |
+| PLAY & MAKE | `claude/new-session-4erjve-lane-applib-play` | the game kinds (`packages/shared/src/applib/games/**` for the logic with brain tests in `apps/edge/test/applibgames.test.mjs`, `apps/web/src/features/applib/games/**` for the boards), App Maker (`features/applib/maker.ts`, `packages/shared/src/applib/draft.ts`) |
 | DATA | `claude/new-session-4erjve-lane-applib-data` | `packages/shared/src/applib/importers/**`, `catalogue/data.ts`, `apps/edge/test/applibdata.test.mjs`, the importer renderer hook in `features/applib/importer.ts` |
 | CAT-A | `claude/new-session-4erjve-lane-applib-a` | `catalogue/office.ts`, `catalogue/maker.ts` |
 | CAT-B | `claude/new-session-4erjve-lane-applib-b` | `catalogue/create.ts`, `catalogue/games.ts` |
@@ -83,7 +84,7 @@ The Library does that work for him. He picks the file, it is read on the phone (
 ## Many more
 Each catalogue lane covers its two families' lists, then invents at least 60 more apps of the same quality in those families (30 each). Pick what real people install most, plus the clever niche ones that delight. The DATA lane makes one app per import format, and more where one export holds several worth seeing. The ENGINE lane lists every one of Ghosty's own full screens in `catalogue/ghosty.ts` (archetype `screen`), so the Library holds everything.
 
-## ENGINE: what the engine must give (in this order)
+## ENGINE (and PLAY & MAKE for the games and App Maker): what the engine must give (in this order)
 1. **`expr.ts`:** the safe expression language in `CalcConfig`'s comment (a hand-written parser: no `eval`, no `Function`). Also `validate.ts`, which checks every AppDef against this brief:
    - the format and the lengths;
    - unique ids;
@@ -102,14 +103,16 @@ Each catalogue lane covers its two families' lists, then invents at least 60 mor
    - **timer:** steps, rounds, a voice or chime per step, and it survives a reload.
    - **deck:** spaced repetition.
    - **counter**, **guide** (searchable) and **screen** (opens the hash).
-   - **game:** as many of the 20 kinds as can be made excellent. The polish3 lane is building the Arcade, so reuse its games where they exist and never duplicate them.
+   - **game:** comes from the PLAY & MAKE lane (see below).
+
+   The renderers are wired through `apps/web/src/features/applib/registry.ts`, which lands by 14:55 with `expr.ts`. It exports `type Renderer = (root: HTMLElement, def: AppDef, k: KitApp) => void | (() => void)` and `registerRenderer(archetype, fn)`. The importer and game renderers register themselves there from their lanes' files.
 3. **The Library screen.** An app store as good as the best phone one:
    - featured apps, families, search as he types, and each app's page (icon, name, pitch, what it keeps);
    - OPEN, PIN TO HOME and "make my own from this".
    - Open by voice or the Jump bar: "open wine cellar" opens `#apps/wine-cellar` on the phone, without the brain.
    - Recently used, and a Home card for pinned apps.
    - It is one screen in the rooms, with one name: Apps.
-4. **App Maker.** "Make your own app": he picks an archetype, adds fields, stats and views, and names it. It is saved on the phone as an AppDef and drawn by the same engine, so the possibilities really are endless. He can also duplicate any Library app and change it. "Make me an app for my vinyl" builds a first draft from the words (extend `packages/shared/src/appkit/brief.ts`'s reading), shown for his OK.
+4. **App Maker** (built by the PLAY & MAKE lane, on the engine's renderers). "Make your own app": he picks an archetype, adds fields, stats and views, and names it. It is saved on the phone as an AppDef and drawn by the same engine, so the possibilities really are endless. He can also duplicate any Library app and change it. "Make me an app for my vinyl" builds a first draft from the words (extend `packages/shared/src/appkit/brief.ts`'s reading), shown for his OK.
 5. **The `applib` spec,** with its word appended at the very end of `all=` in check.yml:
    - Every app in `LIBRARY` opens, draws with no console error, keeps one scroll area, has nothing sideways and every key at 44 pt.
    - One app of each archetype is driven through its main move (add, tick, calculate, time, review, count, search, play, import a fixture).
