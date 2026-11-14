@@ -1,5 +1,5 @@
 /**
- * The SUDOKU board. Options (GameConfig.options): difficulty 'easy' | 'medium' | 'hard' (default 'medium'),
+ * The SUDOKU board. Options (GameConfig.options): difficulty 'easy' | 'medium' | 'hard' | 'expert' (default 'medium'), levels (a picker),
  * mistakes (wrong entries allowed, 0 for unlimited, default 3), daily (boolean, default false).
  * Tap a cell, then a number; NOTES pencils small candidates in; HINT fills the cell with fewest candidates.
  */
@@ -19,7 +19,7 @@ interface State {
 }
 
 export const sudoku: Board = (p) => {
-  const diff = str(p.opts, 'difficulty', ['easy', 'medium', 'hard'] as const, 'medium');
+  const diff = str(p.opts, 'difficulty', S.DIFFICULTIES, 'medium');
   const maxMistakes = num(p.opts, 'mistakes', 3, 0, 9);
   let s = p.resume as State | null;
   if (!s) {
@@ -114,6 +114,7 @@ export const sudoku: Board = (p) => {
   }
   setKeys();
   draw();
+  p.keep(st);
   const tick = setInterval(() => !p.paused() && p.score(0, line()), 1000);
   const keyd = (e: KeyboardEvent) => {
     if (!board.isConnected) return;

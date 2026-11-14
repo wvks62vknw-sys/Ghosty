@@ -30,6 +30,8 @@ export const peopleTab: TabDef = {
           { id: 'coming', label: 'Coming up', parts: [part('coming')] },
           { id: 'plan', label: 'Group plan', parts: [part('plan')] },
           // [journal] KEEP IN TOUCH (APPS ROUND, lane MEMORY): who he wants to stay close to, how often, and a nudge when it's been a while
+          // [journal] GIFTS (APPS ROUND, lane MEMORY): every gift for everyone, idea to given, budgets per occasion, thank-yous owed
+          { id: 'gifts', label: 'Gifts', parts: [{ title: 'GIFTS', build: async () => ({ el: (await import('./gifts')).giftsSheet(() => m.peopleState.people.map((p) => p.name)) }) }] },
           { id: 'touch', label: 'Keep in touch', parts: [{ title: 'KEEP IN TOUCH', build: async () => ({ el: (await import('./touch')).touchSheet(() => m.peopleState.people.map((p) => p.name)) }) }] },
         ];
       },

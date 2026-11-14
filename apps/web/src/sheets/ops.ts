@@ -214,7 +214,7 @@ export function chartSeries(b: Book, eng: Engine, c: Chart): Series | null {
   }
   if (points.length < 2) return null;
   const cur = fmt?.n === 'currency';
-  return { kind: c.kind, points, unit: cur ? '£' : pct ? '%' : '', before: cur };
+  return { kind: c.kind === 'line' || c.kind === 'area' ? 'line' : 'bars', points, unit: cur ? '£' : pct ? '%' : '', before: cur };
 }
 
 /**

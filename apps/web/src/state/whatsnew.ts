@@ -44,10 +44,22 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-11-14', title: 'Toggles, synced blocks, your own templates', line: 'In the Workspace: a TOGGLE folds lines away, SYNC shows one block on several pages (change it once, it changes everywhere), and … → SAVE AS TEMPLATE puts your own page beside the five templates.' },
   { day: '2026-11-14', title: 'Voice notes into tidy pages', line: 'Workspace → VOICE NOTE (or say “take a voice note”): talk for a few minutes and I turn it into a clean page or document, with the actions as to-dos. Offline, the recording waits on your phone.' },
   // [editors grid] the NEXT ROUND's spreadsheet and presentation tools
+  // [apps round, editors] presentations, pro edition
+  { day: '2026-11-14', title: 'Free-form slides', line: 'Presentations → a slide → FREE: as many text boxes, pictures and shapes as you like, dragged with snapping guides, lined up, spread evenly, grouped and layered, and kept in PowerPoint files.' },
+  // [apps round, editors] spreadsheets, pro edition
+  { day: '2026-11-14', title: 'Charts of every kind', line: 'Spreadsheets → CHART: pie, scatter, area, stacked and line-with-columns charts with a title, a key, axis words and your colour, EDIT any chart later, and sparklines inside a cell. Excel keeps them as real charts.' },
+  { day: '2026-11-14', title: 'Drop-down lists and tick boxes', line: 'Spreadsheets → CELLS: keep cells to a list, a tick box or a date, picked under the formula line; anything else typed there is refused with the reason.' },
+  { day: '2026-11-14', title: 'Borders, merges and table styles', line: 'Spreadsheets → CELLS: borders, merge and unmerge, wrapped words, times, dollars and euros, and tables with a header row and banded rows, all kept in Excel files.' },
   { day: '2026-11-14', title: 'A table summed in one tap', line: 'Spreadsheets → SUMMARY: how much each month or at each shop, on its own sheet that keeps up with the table, and a chart of it in one more tap.' },
   { day: '2026-11-14', title: 'Cells that colour themselves', line: 'Spreadsheets → RULES: overdue dates in red, the top ten in green, data bars and a colour scale, listed per sheet to edit or delete, and kept in Excel files.' },
   { day: '2026-11-14', title: 'Give a talk with a TV', line: 'Presentations → PRESENT → ON A TV: the slide on the second screen, and on your phone this slide, the next one, your notes and the time.' },
   { day: '2026-11-14', title: 'Slide builds go to PowerPoint', line: 'Presentations: what comes in on a tap, and the new MAGIC MOVE between slides, are kept in the PowerPoint file as its own animations and Morph, and come back when you open one.' },
+  // [docspro] documents, pro edition (APPS ROUND)
+  { day: '2026-11-14', title: 'Named styles in documents', line: 'In a document, STYLES: set a paragraph in Title, Heading 1 to 3, Body, Quote or Caption, change a style’s font, size, colour and spacing everywhere at once, or REDEFINE it from a paragraph. Kept in Word files as real styles.' },
+  { day: '2026-11-14', title: 'Track your own changes', line: 'In a document, REVIEW → TRACK CHANGES: what you type is underlined and what you delete stays struck, with its time, to ACCEPT or REJECT one by one or all. Word files keep them as tracked changes.' },
+  { day: '2026-11-14', title: 'Document templates', line: 'DOCUMENTS → TEMPLATES: a letter, a CV, a report, a newsletter and an invoice, each designed, with your name and today’s date filled in.' },
+  { day: '2026-11-14', title: 'Spelling and grammar, on the phone', line: 'In a document, REVIEW → CHECK SPELLING AND GRAMMAR: each finding with its fix to ACCEPT or IGNORE, or FIX ALL. British spelling, checked here; nothing is sent or downloaded.' },
+  { day: '2026-11-14', title: 'Fold sections away', line: 'In a document’s CONTENTS, ▾ folds a heading’s section away in the page and ▸ brings it back; FOLD ALL shows a long document as its headings.' },
   // [editors paper] the next round's paper tools
   { day: '2026-11-14', title: 'Coloured words', line: 'In a document choose some words, then WRITE → COLOUR: red, blue, green or orange, kept in the Word file, the PDF and the web page.' },
   { day: '2026-11-14', title: 'Documents: a goal, a copy, a search', line: 'Set a word goal in PAGE and the line under the title counts towards it; it also says how many words you have chosen. MAKE A COPY duplicates a document, and MY DOCUMENTS has a search.' },
@@ -232,6 +244,8 @@ export const WHATS_NEW: NewThing[] = [
   { day: '2026-10-23', title: 'Gym: he carries on by himself', line: 'WATCH keeps playing round after round, TRAIN ALL trains every game in turn, KEEP AWAKE holds the screen on while he trains.' },
   { day: '2026-10-23', title: 'Study at scale', line: 'Self-study reads one field at a time, hundreds of topics a day, from a curriculum that grows on its own.' },
   { day: '2026-10-23', title: 'Sturdier weekly training', line: 'The offline brain’s weekly training on Kaggle checks the free GPU time first and recovers from a failed run.' },
+  // [journal] APPS ROUND, lane MEMORY: gifts
+  { day: '2026-11-14', title: 'Every gift in one place', line: 'Life → People → GIFTS: an idea for anyone, then bought, wrapped and given, with a budget per occasion; and the gifts you were given, each with its thank-you to send.' },
   // [journal] APPS ROUND, lane MEMORY: keep in touch
   { day: '2026-11-14', title: 'Keep in touch', line: 'Life → People → KEEP IN TOUCH: add the people you want to stay close to and how often; tap a name when you’ve caught up, and I’ll say when it’s been a while.' },
   // [journal] APPS ROUND, lane MEMORY: his own journal
