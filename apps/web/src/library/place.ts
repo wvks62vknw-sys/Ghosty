@@ -129,7 +129,15 @@ export interface ReadingPrefs {
   size: number;
   /** HIS VOICE FOR BOOKS: my own voice from the brain reads a book (about an hour a day), the phone's voice after it. */
   bookVoice: boolean;
+  /** Reading speed for the phone's voice (learn.u5): 0.8, 1, 1.25 or 1.5 times its own pace. */
+  speed?: number;
+  /** A phone voice for each book, by the book's id (its name as the phone lists it); absent: the usual voice. */
+  voices?: Record<string, string>;
 }
+
+/** The reading speeds offered, and the speed kept within them. */
+export const SPEEDS = [0.8, 1, 1.25, 1.5] as const;
+export const speedNow = (): number => (SPEEDS as readonly number[]).includes(Number(readingPrefs.get().speed)) ? Number(readingPrefs.get().speed) : 1;
 
 /** SETTINGS → READING (and the reader's own TEXT key): kept on this phone. */
 export const readingPrefs = createStore<ReadingPrefs>({ mode: 'scroll', size: DEFAULT_SIZE, bookVoice: false }, { persist: 'ghosty.reading' });
