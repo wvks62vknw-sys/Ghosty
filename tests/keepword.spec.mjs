@@ -61,6 +61,8 @@ async function run(vp, body) {
     if (!localStorage.getItem('ghosty.keep.seeded')) {
       localStorage.setItem('ghosty.keep.seeded', '1');
       localStorage.setItem('ghosty.chat', JSON.stringify({ entries: turns.flatMap((t) => [{ kind: 'user', text: t.q, at: t.at }, { kind: 'assistant', text: t.a, at: t.at + 4000 }]) }));
+      // (i) a workbook of his, its match four rows down
+      localStorage.setItem('ghosty.sheets', JSON.stringify([{ id: 'bk-bills', title: 'House bills', at: Date.now() - 86_400_000, sheets: [{ name: 'Sheet1', cells: { A1: { v: 'Item' }, B1: { v: 'Cost' }, A2: { v: 'Council tax' }, B2: { v: 160 }, A3: { v: 'Water' }, B3: { v: 38 }, A4: { v: 'Boiler service' }, B4: { v: 95 } }, widths: {}, heights: {}, frozen: false }], names: {}, charts: [], view: { sheet: 0, sel: 'A1' } }]));
     }
     window.__ghostyHero = true;
     window.__ghostyPlace = { none: true };
@@ -173,6 +175,26 @@ async function run(vp, body) {
     await page.unroute(/\/api\/email\/status$/);
     await page.unroute(/\/api\/guardian\/mail\/inbox$/);
     await page.unroute(/\/api\/guardian\/watchers$/);
+  }
+
+  // (i) FIND lands on the cell (memory.u9): MEMORY's search for "boiler service" finds the workbook's row; a tap opens it at A4
+  if (!body) {
+    await page.evaluate(() => (location.hash = 'memory'));
+    await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
+    await openSection(page, 'memory', 'Timeline');
+    const box = page.locator('#pg-memory input[type=search]').first();
+    await box.fill('boiler service');
+    const row = page.locator('#pg-memory .recallfind .recallrow[data-kind="sheet"] .recallgo').first();
+    const seen = await row.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false);
+    check(seen, `${T} [i] FIND did not find the workbook's row`);
+    if (seen) {
+      await row.click();
+      const landed = await page.waitForFunction(() => window.__ghosty?.sheets?.view === 'book' && window.__ghosty.sheets.sel === 'A4', null, { timeout: 10000 }).then(() => true, () => false);
+      check(landed, `${T} [i] the workbook did not open at A4: ${JSON.stringify(await page.evaluate(() => ({ view: window.__ghosty?.sheets?.view, sel: window.__ghosty?.sheets?.sel })))}`);
+      await page.keyboard.press('Escape').catch(() => undefined);
+      await page.waitForFunction(() => !document.querySelector('.modal'), null, { timeout: 5000 }).catch(() => undefined);
+    }
+    await box.fill('');
   }
 
   // (f) MEMORY → YOUR WORD

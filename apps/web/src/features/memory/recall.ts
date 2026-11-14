@@ -176,7 +176,32 @@ function thingsFromStores(): Thing[] {
   }
   const ws = readJson<{ pages?: Record<string, { id: string; title: string; at: number; blocks?: B[] }> }>('ghosty.workspace', {});
   for (const p of Object.values(ws.pages ?? {})) if (p?.id) add('page', p.id, p.title, p.at, [...paras(p.title), ...blockLines(p.blocks ?? [])]);
-  for (const [key, kind] of [['ghosty.slides', 'deck'], ['ghosty.sheets', 'sheet'], ['ghosty.scan.pages', 'scan']] as const) {
+  // [recall] memory.u9: a spreadsheet's rows, each with the address of its first cell ("0!B4": sheet 1, cell B4), and a deck's slides, each
+  // with its slide's id, so a tap lands on the cell or the slide
+  for (const b of readJson<{ id: string; title: string; at: number; sheets?: { name: string; cells?: Record<string, { v?: unknown }> }[] }[]>('ghosty.sheets', [])) {
+    if (!b?.id || !Array.isArray(b.sheets)) continue;
+    const lines: [string, string][] = [];
+    b.sheets.forEach((sh, si) => {
+      const rows = new Map<number, { col: string; v: string }[]>();
+      for (const [ad, c] of Object.entries(sh.cells ?? {})) {
+        const m = /^([A-Z]+)(\d+)$/.exec(ad);
+        const v = c?.v;
+        if (!m || v == null || typeof v === 'object' || v === '') continue;
+        const r = Number(m[2]);
+        rows.set(r, [...(rows.get(r) ?? []), { col: m[1]!, v: String(v) }]);
+      }
+      for (const [r, cs] of [...rows].sort((x, y) => x[0] - y[0])) {
+        cs.sort((x, y) => x.col.length - y.col.length || x.col.localeCompare(y.col));
+        lines.push([`${b.sheets!.length > 1 ? `${sh.name}: ` : ''}${cs.map((c) => c.v).join(' · ')}`, `${si}!${cs[0]!.col}${r}`]);
+      }
+    });
+    add('sheet', b.id, b.title, b.at, lines);
+  }
+  for (const d of readJson<{ id: string; title: string; at: number; slides?: { id: string; title?: { runs?: { text?: string }[] }; body?: { runs?: { text?: string }[] }[]; body2?: { runs?: { text?: string }[] }[]; notes?: string }[] }[]>('ghosty.slides', [])) {
+    if (!d?.id || !Array.isArray(d.slides)) continue;
+    add('deck', d.id, d.title, d.at, d.slides.map((sl): [string, string] => [[runsText(sl.title?.runs), ...(sl.body ?? []).map((x) => runsText(x.runs)), ...(sl.body2 ?? []).map((x) => runsText(x.runs)), sl.notes ?? ''].filter(Boolean).join(' · ').slice(0, 400), sl.id]).filter(([t]) => t.length > 2));
+  }
+  for (const [key, kind] of [['ghosty.scan.pages', 'scan']] as const) {
     const v = readJson<unknown>(key, null);
     const list = Array.isArray(v) ? v : v && typeof v === 'object' && Array.isArray((v as { list?: unknown }).list) ? (v as { list: unknown[] }).list : [];
     for (const x of list as Record<string, unknown>[]) {

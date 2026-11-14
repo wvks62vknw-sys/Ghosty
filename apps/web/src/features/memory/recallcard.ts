@@ -36,8 +36,24 @@ export async function openFound(r: Pick<Row, 'kind' | 'at' | 'line' | 'id'> & { 
   if (r.kind === 'turn') return void import('./timeline').then((m) => m.openChatAt(r.at, r.line));
   if (r.kind === 'doc') await import('../../docs/sheet').then((m) => m.openDocs({ id: r.id }));
   else if (r.kind === 'page') await import('../../workspace/sheet').then((m) => m.openWorkspace({ id: r.id }));
-  else if (r.kind === 'deck') await import('../../slides/sheet').then((m) => m.openSlides({ id: r.id }));
-  else if (r.kind === 'sheet') await import('../../sheets/sheet').then((m) => m.openSheets({ id: r.id }));
+  else if (r.kind === 'deck') {
+    // (memory.u9: at the slide: the deck opens where it was last left, so that is set to the slide first)
+    if (r.bid) await import('../../slides/store').then((st) => st.keepWhere(r.id, r.bid!));
+    await import('../../slides/sheet').then((m) => (r.bid ? m.openSlides() : m.openSlides({ id: r.id })));
+    foundState.landed = !!r.bid;
+    return;
+  } else if (r.kind === 'sheet') {
+    // (memory.u9: at the cell: the workbook opens on its kept sheet and selection, so they are set to the match first)
+    const at = /^(\d+)!([A-Z]+\d+)$/.exec(r.bid ?? '');
+    if (at) {
+      const st = await import('../../sheets/store');
+      const b = st.getBook(r.id);
+      if (b) st.saveBook({ ...b, view: { sheet: Number(at[1]), sel: at[2]! } });
+    }
+    await import('../../sheets/sheet').then((m) => m.openSheets({ id: r.id }));
+    foundState.landed = !!at;
+    return;
+  }
   else if (r.kind === 'link') window.open(r.id, '_blank', 'noopener');
   else if (r.kind === 'todo') navTo('agenda', 'push');
   else if (r.kind === 'book') navTo('library', 'push');
