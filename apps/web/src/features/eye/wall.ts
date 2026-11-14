@@ -104,8 +104,15 @@ export function openWall(watch: (c: Pinned) => void): void {
       const load = async () => {
         try {
           const u = await fetchImage(c.image, c.src === 'New York' ? 5 : 15);
+          // the tile's previous picture is freed as the new one arrives (nine tiles refreshing all hour would fill the phone's memory)
+          const prev = img.src;
           urls.push(u);
           img.src = u;
+          if (prev.startsWith('blob:') && prev !== u) {
+            URL.revokeObjectURL(prev);
+            const i = urls.indexOf(prev);
+            if (i >= 0) urls.splice(i, 1);
+          }
           if (stamp.dataset.state) wallState.live++;
           stamp.textContent = `● ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · ${c.src}`;
           delete stamp.dataset.state;
@@ -121,7 +128,7 @@ export function openWall(watch: (c: Pinned) => void): void {
       grid.append(tile);
     }
   };
-  const body = h('div.wall', head, grid, h('div.row.wrap.wallacts', edit));
+  const body = h('div.camwall', head, grid, h('div.row.wrap.wallacts', edit));
   const close = modal('YOUR CAMERA WALL', body, () => {
     stop();
     wallState.open = false;
