@@ -35,6 +35,7 @@ import { cropRect, fromMediaPipe, type Box } from '../../vision/boxes';
 import { cropCanvas } from '../../vision/camera';
 import { memoryTrouble, namer, NAMER_SIZE, NamerMemoryError } from '../../vision/clip';
 import { EYES_LENS, EYES_NAMER, eyesKept } from '../../offline/eyes';
+import { onMobileData } from '../../wiki/store';
 import { bestMatch, iou, type KnownFace } from '../../vision/facemath';
 import { faces, type FaceSeen } from '../../vision/faces';
 import { knownFaces } from '../../vision/facestore';
@@ -49,7 +50,7 @@ import { waiting as putUpWait } from '../../ui/wait';
 import { cardsState, createCards, type CardInput } from './cards';
 import { letterOf } from '../../../../../packages/shared/src/lifeeasier';
 import { isoDay } from '../brief/day';
-import { isMenuLike, livingKind, looksLikeReceipt, pairLines, readBusStop, readBusinessCard, type JobId } from '../../vision/jobs';
+import { isMenuLike, livingKind, looksLikeReceipt, pairLines, readBusStop, readBusinessCard, readMedicine, readRating, type JobId } from '../../vision/jobs';
 
 /** The grey frame's width: the "text present" check and the steadiness work on this, not on the camera's pixels. */
 const GREY_W = 160;
@@ -246,9 +247,9 @@ export function createOneMode(L: LensContext): Mode {
   // NAMER OFF, said beside the mark while the namer is not on the phone (the object finder works without it)
   const namerOffEl = h('span.lensmark.lensnameroff', tagMark('NAMER OFF', { tone: 'warn' }));
   namerOffEl.hidden = true;
-  const getBtn = key('GET THE EYES', () => void loadFinder());
+  const getBtn = key('GET THE EYES', () => wifiFirst(EYES_LENS.id, FINDER_SIZE, 'The eyes') && void loadFinder());
   getBtn.classList.add('lensget');
-  const namerBtn = key('GET THE NAMER', () => void loadNamer());
+  const namerBtn = key('GET THE NAMER', () => wifiFirst(EYES_NAMER.id, NAMER_SIZE, 'The namer') && void loadNamer());
   namerBtn.classList.add('lensgetnamer');
   namerBtn.hidden = true;
   // what could not start, in words, once (a step's own words; never the runtime's text)
@@ -380,6 +381,14 @@ export function createOneMode(L: LensContext): Mode {
     if (f != null) setter(`GETTING THE ${word} · ${Math.round(f * 100)}%`);
   };
   /** Step 1: the object finder, alone. Objects are tagged from here on, without the namer. */
+  /** A download is his tap on Wi-Fi only: on mobile data (or with data saver on) it waits, and says so; files kept on the phone just load. */
+  function wifiFirst(id: string, size: string, what: string): boolean {
+    if (!onMobileData() || eyesKept(id)) return true;
+    oneState.stepSaid = `${what} (${size}) wait for Wi-Fi: you’re on mobile data. Join Wi-Fi and tap again.`;
+    toast(oneState.stepSaid, 'warn');
+    markAll();
+    return false;
+  }
   const loadFinder = async (): Promise<void> => {
     if (oneState.finder === 'loading' || oneState.finder === 'ready') return;
     const v = visit;
@@ -668,9 +677,9 @@ export function createOneMode(L: LensContext): Mode {
   };
   /** What the cards are told about the frame: the facts, never a face's numbers (a known face by the name he gave, a stranger as one). */
   /** What kind of print the words are (a business card, a bus stop sign), worked out once for each text read. */
-  let printKind = { text: '', contact: false, stop: false };
+  let printKind = { text: '', contact: false, stop: false, medicine: false, rating: false };
   const printOf = (read: string) => {
-    if (printKind.text !== read) printKind = { text: read, contact: !!read && !!readBusinessCard(read), stop: !!read && !!readBusStop(read) };
+    if (printKind.text !== read) printKind = { text: read, contact: !!read && !!readBusinessCard(read), stop: !!read && !!readBusStop(read), medicine: !!read && !!readMedicine(read), rating: !!read && !!readRating(read) };
     return printKind;
   };
   const cardInput = (list: Tag[], labels: Map<number, string>): CardInput => {
@@ -695,6 +704,8 @@ export function createOneMode(L: LensContext): Mode {
       receipt: !!read && looksLikeReceipt(read),
       contact: printOf(read).contact,
       stop: printOf(read).stop,
+      medicine: printOf(read).medicine,
+      rating: printOf(read).rating,
       ...(read && ocr.lineEn ? { lines: ocr.lines, lineEnglish: ocr.lineEn } : {}),
       lang: read ? ocr.lang.name : '',
       langTag: read ? ocr.lang.tag : '',
@@ -1494,12 +1505,18 @@ export function createOneMode(L: LensContext): Mode {
     if (w === 'translate') return translateWord();
     // "when's the next bus" with no stop sign in view is the brain's (the stops near where he is), not the Lens's
     if (w === 'buses' && !cardsState.jobs.includes('stop')) return null;
-    if (w === 'solve' || w === 'call' || w === 'agenda' || w === 'map' || w === 'species' || w === 'place' || w === 'aloud' || w === 'copy' || w === 'contacts' || w === 'buses') {
+    // "what does it cost to run" is said from the rating plate's card (a first estimate); with no plate in view it is the brain's
+    if (w === 'running') {
+      if (!cardsState.jobs.includes('rating') || !cardsState.cost.line) return null;
+      say(cardsState.cost.line);
+      return cardsState.cost.line;
+    }
+    if (w === 'solve' || w === 'call' || w === 'agenda' || w === 'map' || w === 'species' || w === 'place' || w === 'aloud' || w === 'copy' || w === 'contacts' || w === 'buses' || w === 'nhs' || w === 'compare') {
       const line = cards.press(w);
       say(line);
       return line;
     }
-    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'avoid' | 'contacts' | 'buses'>, { kinds: TagKind[]; act: ActId; none: string }> = {
+    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'avoid' | 'contacts' | 'buses' | 'nhs' | 'running' | 'compare'>, { kinds: TagKind[]; act: ActId; none: string }> = {
       read: { kinds: ['text'], act: 'read', none: 'I don’t see any text to read yet.' },
       look: { kinds: ['code'], act: 'look', none: 'I don’t see a code yet.' },
       name: { kinds: ['object'], act: 'nameit', none: 'I don’t see an object to name yet. Getting the eyes helps.' },

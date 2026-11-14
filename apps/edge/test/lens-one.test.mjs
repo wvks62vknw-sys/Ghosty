@@ -655,3 +655,21 @@ test('(lens.s7) a bus stop sign: its name, letter, buses, where they go and its 
   assert.equal(F.lensWord("when's the next bus"), 'buses');
   assert.equal(F.lensWord('next buses from this stop'), 'buses');
 });
+
+test('(lens.s2, s3) a medicine box (its NHS page; never advice) and a rating plate (an hour at his price, a first estimate)', () => {
+  assert.deepEqual(F.readMedicine('Paracetamol 500mg Tablets\n16 tablets\nFor oral use\nRead the enclosed leaflet\nPL 12345/0001'), { name: 'Paracetamol', strength: '500mg', form: 'tablets' });
+  assert.deepEqual(F.readMedicine('IBUPROFEN\n200 mg film-coated tablets\nKeep out of the sight and reach of children'), { name: 'Ibuprofen', strength: '200mg', form: 'tablets' });
+  assert.equal(F.readMedicine('Cetirizine Hydrochloride 10mg\n30 Tablets').name, 'Cetirizine Hydrochloride');
+  assert.equal(F.readMedicine('Beef bourguignon'), null);
+  assert.equal(F.readMedicine('TESCO EXTRA\nBread 1.10\nTOTAL 4.30\nVISA'), null);
+  assert.equal(F.nhsSearch('Paracetamol'), 'https://www.nhs.uk/search/results?q=Paracetamol');
+  assert.deepEqual(F.readRating('Model HX200\n220-240V~ 50Hz\n1850-2200W\nMade in China'), { watts: 2200, volts: '220-240' });
+  assert.deepEqual(F.readRating('230V 50Hz 3kW'), { watts: 3000, volts: '230' });
+  assert.equal(F.readRating('Energy 120 kWh/annum'), null, 'a yearly energy figure is no rating plate');
+  assert.equal(F.readRating('TOTAL 4.30 VISA'), null);
+  assert.match(F.runningCost(2200, 25).line, /^About 55p an hour at full power, at 25p a unit \(kWh\): £2\.75 for five hours\. A first estimate/);
+  assert.match(F.runningCost(60, 25).line, /^About 1\.5p an hour/);
+  assert.deepEqual(F.jobsOf({ text: 'a b c', medicine: true, letter: true }), ['medicine']);
+  assert.equal(F.lensWord('open the NHS page'), 'nhs');
+  assert.equal(F.lensWord('what does it cost to run'), 'running');
+});

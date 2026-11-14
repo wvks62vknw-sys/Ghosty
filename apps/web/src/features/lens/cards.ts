@@ -21,7 +21,7 @@ import { confirmSheet, modal, toast } from '../../ui/components';
 import { key } from '../../ui/machine';
 import { askWithImage } from '../../vision/ask';
 import { toJpegDataUrl } from '../../vision/camera';
-import { ALLERGENS, DIETS, DOC_SHARE, avoidFromWords, avoidVerdict, jobsOf, readBusStop, readBusinessCard, receiptCsv, sureWords, textActs, vcardOf, type CardContact, type JobId, type Seen, type TextAct } from '../../vision/jobs';
+import { ALLERGENS, DIETS, DOC_SHARE, avoidFromWords, avoidVerdict, comparePackets, jobsOf, nhsSearch, readBusStop, readBusinessCard, readMedicine, readRating, receiptCsv, runningCost, sureWords, textActs, vcardOf, type CardContact, type JobId, type Seen, type TextAct } from '../../vision/jobs';
 import { readReceipt } from '../../../../../packages/shared/src/homeadmin';
 import { classifyCode } from '../../scan/codes';
 import { letterOf, longDay } from '../../../../../packages/shared/src/lifeeasier';
@@ -49,7 +49,23 @@ export const cardsState = {
   contact: { state: '' as '' | 'shared' | 'saved' | 'failed', name: '', vcf: '' },
   /** A bus stop's next buses, asked by the stop's name on the sign (never where he is). */
   buses: { state: '' as '' | 'asking' | 'found' | 'offline' | 'failed', stop: '', text: '' },
+  /** An appliance's running cost at his price (a first estimate), and the price it used. */
+  cost: { watts: 0, price: 0, line: '' },
+  /** The last two packets put side by side (lens.u8): their names and the one line. */
+  compare: { a: '', b: '', line: '' },
 };
+
+/** His price for a unit of electricity (pence a kWh), kept on this phone; 25p until he says his own. */
+const KWH_KEY = 'ghosty.lens.kwh';
+export const DEFAULT_KWH = 25;
+export function loadKwh(): { price: number; his: boolean } {
+  try {
+    const v = Number(localStorage.getItem(KWH_KEY));
+    return v > 0 && v < 500 ? { price: v, his: true } : { price: DEFAULT_KWH, his: false };
+  } catch {
+    return { price: DEFAULT_KWH, his: false };
+  }
+}
 
 /** What he avoids: kept on this phone and nowhere else (never sent with a lookup: only the barcode's number goes out). */
 const AVOID_KEY = 'ghosty.lens.avoid';
@@ -112,17 +128,19 @@ export interface CardDeps {
 const day = (): string => isoDay(new Date());
 
 /** A job by his words (vision/tags.ts lensWord): the card it belongs to, the key it presses, and what is said when there is none. */
-export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'contacts' | 'buses', { jobs: string[]; key: string; done: string; none: string }> = {
+export const CARD_WORDS: Record<'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy' | 'contacts' | 'buses' | 'nhs' | 'compare', { jobs: string[]; key: string; done: string; none: string }> = {
   solve: { jobs: ['sum'], key: 'COPY ANSWER', done: 'It’s worked out on the card.', none: 'I don’t see a sum yet. Hold the page still.' },
   call: { jobs: ['phone', 'code', 'contact'], key: 'CALL', done: 'Calling.', none: 'I don’t see a phone number yet.' },
   agenda: { jobs: ['date'], key: 'ADD TO AGENDA', done: 'Putting it in your agenda.', none: 'I don’t see a date yet.' },
   map: { jobs: ['address'], key: 'ON THE MAP', done: 'Finding it on the map.', none: 'I don’t see an address yet.' },
   species: { jobs: ['living'], key: 'WHICH SPECIES', done: 'Asking my model that sees for the species.', none: 'I don’t see a plant or an animal yet. Getting the eyes helps.' },
   place: { jobs: ['place'], key: 'WHAT PLACE IS THIS', done: 'Asking my model that sees which place it is.', none: 'I don’t see a building or a work of art yet. Getting the eyes helps.' },
-  aloud: { jobs: ['text', 'letter', 'document'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
+  aloud: { jobs: ['text', 'letter', 'document', 'medicine'], key: 'READ ALOUD', done: 'Reading it to you.', none: 'I don’t see any words to read yet.' },
   copy: { jobs: ['text', 'letter', 'phone', 'link', 'email', 'sum', 'code', 'contact', 'stop'], key: 'COPY', done: 'Copying it.', none: 'I don’t see anything to copy yet.' },
   contacts: { jobs: ['contact', 'code'], key: 'ADD TO CONTACTS', done: 'Handing it to your phone’s contacts.', none: 'I don’t see a business card or a contact code yet.' },
   buses: { jobs: ['stop'], key: 'NEXT BUSES', done: 'Asking for the next buses from this stop.', none: 'I don’t see a bus stop sign yet. Hold it so its name is in view.' },
+  nhs: { jobs: ['medicine'], key: 'OPEN THE NHS PAGE', done: 'Opening the NHS page about it.', none: 'I don’t see a medicine box yet. Hold it so its name is in view.' },
+  compare: { jobs: ['product'], key: 'COMPARE', done: 'Side by side, per 100 g.', none: 'Scan two packets, one after the other, and I’ll put them side by side.' },
 };
 
 export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardInput): void; clear(): void; press(word: keyof typeof CARD_WORDS): string; avoid(text: string): string; openAvoid(): void } {
@@ -141,6 +159,8 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   let docFor = -1;
   /** The receipts already put into his spending this visit (by their CSV line), so a held receipt is never added twice. */
   const spentOnce = new Set<string>();
+  /** The food packets found this visit, newest last: the one before the packet in view is offered to COMPARE with it. */
+  const foods: string[] = [];
   /** A stop's next buses, by the stop's name on its sign: asked once a visit, on his tap. */
   const buses = new Map<string, { state: 'asking' | 'found' | 'failed'; text: string }>();
 
@@ -203,7 +223,12 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
   };
 
   /** A contact into his phone's own contacts: a vCard made here, handed to the phone's share sheet (or saved as a file). */
+  let handing = false;
   const toContacts = async (c: Pick<CardContact, 'name'> & Partial<CardContact>): Promise<void> => {
+    // (a second tap while the share sheet opens would throw: the first one is still handing it over)
+    if (handing) return;
+    handing = true;
+    setTimeout(() => (handing = false), 1500);
     const vcf = vcardOf(c);
     const fileName = `${(c.name || 'contact').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 40) || 'contact'}.vcf`;
     cardsState.contact = { state: '', name: c.name, vcf };
@@ -254,6 +279,47 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     if (got.state === 'failed') setTimeout(() => buses.get(stop)?.state === 'failed' && buses.delete(stop), 20_000);
     sig = '';
     if (last) update(last);
+  };
+
+  /** Two packets side by side, per 100 g, from the databases' own figures (lens.u8): the better on each row marked, one line said. */
+  const openCompare = (a: LookupResult, b: LookupResult): void => {
+    const c = comparePackets(a, b);
+    cardsState.compare = { a: a.title, b: b.title, line: c.line };
+    const mark = (r: { better: string }, side: 'a' | 'b') => (r.better === side ? { dataset: { better: '1' } } : {});
+    const table = h('table.lc-compare',
+      h('thead', h('tr', h('th', { scope: 'col' }, 'Per 100 g'), h('th', { scope: 'col' }, a.title), h('th', { scope: 'col' }, b.title))),
+      h('tbody', ...c.rows.map((r) => h('tr', h('th', { scope: 'row' }, r.what), h('td', mark(r, 'a'), r.a, r.better === 'a' ? h('b', ' ✓') : ''), h('td', mark(r, 'b'), r.b, r.better === 'b' ? h('b', ' ✓') : '')))),
+    );
+    const body = h('div.lc-avoid', h('p.lc-small', c.line), table, h('p.lc-small', `From ${a.source}. ✓ marks less sugar, fat, saturates, salt and energy, more protein, and the better Nutri-Score.`), h('div.lc-keys', key('READ ALOUD', () => speak(c.line, 'en-GB')), key('DONE', () => sheet.close())));
+    const sheet = modal('TWO PACKETS', body);
+    done(c.line);
+  };
+
+  /** His price for a unit of electricity, by a small sheet: kept on this phone, and every rating plate is costed at it. */
+  const openKwh = (): void => {
+    const now = loadKwh();
+    const input = h('input.lc-price', { type: 'number', inputmode: 'decimal', min: '1', max: '200', step: '0.1', value: String(now.price), 'aria-label': 'Your price for a unit of electricity, in pence a kWh' }) as HTMLInputElement;
+    const body = h('div.lc-avoid',
+      h('p.lc-small', 'Your price for a unit (kWh) of electricity, in pence: it is on your bill or your supplier’s app. Kept on this phone only.'),
+      h('label.lc-pricerow', input, h('span', 'p a kWh')),
+      h('div.lc-keys',
+        key('KEEP MY PRICE', () => {
+          const v = Math.round(Number(input.value) * 10) / 10;
+          if (!(v >= 1 && v <= 200)) return void toast('Put in a price between 1p and 200p a unit.', 'warn');
+          try {
+            localStorage.setItem(KWH_KEY, String(v));
+          } catch {
+            return void toast('This phone would not keep it (private browsing?). The plate is costed at 25p.', 'warn');
+          }
+          sheet.close();
+          toast(`Kept on this phone: ${v}p a unit.`, 'ok');
+          sig = '';
+          if (last) update(last);
+        }, { label: 'Keep this price on this phone' }),
+        key('CANCEL', () => sheet.close()),
+      ),
+    );
+    const sheet = modal('MY ELECTRICITY PRICE', body);
   };
 
   /** One HOME action from a card (a bill kept with its reminder, a warranty from a receipt): its own words come back. */
@@ -495,7 +561,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     const pe = k.thingId != null ? places.get(k.thingId) : undefined;
     const place = pe && pe.label === (k.thing?.label ?? '') ? pe.v : undefined;
     const asking = k.thingId != null && askingFor.id === k.thingId && askingFor.label === (k.thing?.label ?? '');
-    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, spentOnce.size, [...buses.values()].map((x) => x.state).join(','), cardsState.contact.state]);
+    const s = JSON.stringify([jobs, k.text, k.english, k.lang, k.reading, code, k.thing?.label, k.thingId, Math.round((k.thing?.score ?? 0) * 100), k.knownName, k.online, k.eyes, prod ? 1 : 0, productBusy, typeof place === 'object' ? 1 : place ?? 0, asking, added.size, loadAvoid().join(','), k.lineEnglish?.length ?? 0, spentOnce.size, [...buses.values()].map((x) => x.state).join(','), cardsState.contact.state, loadKwh().price]);
     if (s === sig) return;
     sig = s;
     cardsState.jobs = jobs;
@@ -531,7 +597,15 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
             out.push(card('product', `A PRODUCT · ${code}`, p === 'unknown' ? 'No open database knows this barcode yet.' : 'I couldn’t reach the product databases. Tap to try in SCAN.', key('MORE ABOUT IT', () => deps.act('look'))));
           } else {
             cardsState.product = { state: 'found', name: p.title };
-            out.push(card('product', p.kind === 'book' ? 'A BOOK' : 'A PRODUCT', productBody(p), key('MORE ABOUT IT', () => deps.act('look')), p.kind === 'book' ? null : key('WHAT I AVOID', () => openAvoid(), { label: 'What I avoid: my allergies and ways of eating, kept on this phone' })));
+            if (p.kind !== 'book' && foods[foods.length - 1] !== code) {
+              const at = foods.indexOf(code);
+              if (at >= 0) foods.splice(at, 1);
+              foods.push(code);
+              if (foods.length > 6) foods.shift();
+            }
+            const otherCode = p.kind === 'book' ? '' : [...foods].reverse().find((c) => c !== code && typeof products.get(c) === 'object') ?? '';
+            const other = otherCode ? (products.get(otherCode) as LookupResult) : null;
+            out.push(card('product', p.kind === 'book' ? 'A BOOK' : 'A PRODUCT', productBody(p), key('MORE ABOUT IT', () => deps.act('look')), p.kind === 'book' ? null : key('WHAT I AVOID', () => openAvoid(), { label: 'What I avoid: my allergies and ways of eating, kept on this phone' }), other ? key('COMPARE', () => openCompare(p, other), { label: `Compare ${p.title} with ${other.title}, per 100 g` }) : null));
           }
           break;
         }
@@ -583,6 +657,29 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
           out.push(card('stop', head, line,
             k.online && got?.state !== 'asking' ? key(got?.state === 'found' ? 'AGAIN' : 'NEXT BUSES', (b) => void nextBuses(b, name), { label: `The next buses from ${name}` }) : null,
             copy('COPY', k.text ?? '', 'the sign')));
+          break;
+        }
+        case 'medicine': {
+          // (lens.s2) a medicine box: read aloud, and its public NHS page opened on his tap; no advice of mine, ever
+          const m = readMedicine(k.text ?? '');
+          if (!m) break;
+          out.push(card('medicine', `A MEDICINE · ${m.name.toUpperCase()}${m.strength ? ` ${m.strength.toUpperCase()}` : ''}`, `${m.form.charAt(0).toUpperCase()}${m.form.slice(1)}. OPEN THE NHS PAGE shows the NHS’s own public page about it. I don’t give medical advice: the leaflet in the box and your pharmacist do.`,
+            k.online ? link('OPEN THE NHS PAGE', nhsSearch(m.name), `Open the NHS page about ${m.name}`) : null,
+            key('READ ALOUD', () => speak(k.text ?? '', 'en-GB')),
+            copy('COPY', k.text ?? '', 'the box')));
+          break;
+        }
+        case 'rating': {
+          // (lens.s3) an appliance's rating plate: what an hour costs at his price, always a first estimate
+          const r = readRating(k.text ?? '');
+          if (!r) break;
+          const price = loadKwh();
+          const c = runningCost(r.watts, price.price);
+          cardsState.cost = { watts: r.watts, price: price.price, line: c.line };
+          const power = r.watts >= 1000 ? `${(r.watts / 1000).toFixed(r.watts % 1000 ? 1 : 0)} kW` : `${r.watts} W`;
+          out.push(card('rating', `A RATING PLATE · ${power}${r.volts ? ` · ${r.volts} V` : ''}`, `${c.line}${price.his ? '' : ' That is at 25p a unit until you put in yours.'}`,
+            key(price.his ? 'CHANGE MY PRICE' : 'SET MY PRICE', () => openKwh(), { label: 'Set your price for a unit of electricity' }),
+            copy('COPY', c.line, 'the running cost')));
           break;
         }
         case 'letter': {
@@ -658,10 +755,20 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
     el.hidden = !out.length;
   };
 
+  /** READ ALOUD: a second tap while it is reading the same words stops it. A phone with no voice for the language still reads in its own. */
+  let saying = '';
   const speak = (text: string, tag: string): void => {
     if (!text) return;
+    if (typeof speechSynthesis === 'undefined') return void toast('This phone has no voice to read it with.', 'warn');
+    if (saying === text && speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+      saying = '';
+      cardsState.done = 'stopped reading';
+      return;
+    }
+    saying = text;
     cardsState.done = `said aloud: ${text.slice(0, 60)}`;
-    if (!sayIn(text, tag || 'en-GB')) toast('This phone has no voice to read it with.', 'warn');
+    sayIn(text, tag || 'en-GB');
   };
 
   return {
@@ -715,6 +822,7 @@ export function createCards(deps: CardDeps): { el: HTMLElement; update(k: CardIn
       askingFor = { id: -2, label: '' };
       docFor = -1;
       added.clear();
+      foods.length = 0;
       cardsState.jobs = [];
       cardsState.cards = [];
       cardsState.acts = [];

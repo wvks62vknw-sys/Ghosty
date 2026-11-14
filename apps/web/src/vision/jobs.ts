@@ -15,7 +15,7 @@ import { datesIn } from '../../../../packages/shared/src/lifeeasier';
 
 // ---------------------------------------------------------------- the job
 
-export type JobId = 'nothing' | 'text' | 'receipt' | 'contact' | 'stop' | 'letter' | 'document' | 'code' | 'product' | 'thing' | 'living' | 'place' | 'known' | 'stranger';
+export type JobId = 'nothing' | 'text' | 'receipt' | 'contact' | 'stop' | 'medicine' | 'rating' | 'letter' | 'document' | 'code' | 'product' | 'thing' | 'living' | 'place' | 'known' | 'stranger';
 
 /** What the one view has understood of the frame, as plain facts. */
 export interface Seen {
@@ -39,6 +39,10 @@ export interface Seen {
   contact?: boolean;
   /** The read words are a bus stop sign's (readBusStop). */
   stop?: boolean;
+  /** The read words are a medicine box's (readMedicine). */
+  medicine?: boolean;
+  /** The read words are an appliance's rating plate (readRating). */
+  rating?: boolean;
 }
 
 /** What a living thing is called by the phone's finder and namer: the species then comes from the free model that sees, on his tap. */
@@ -79,6 +83,8 @@ export function jobsOf(s: Seen): JobId[] {
     if (s.receipt) out.push('receipt');
     else if (s.contact) out.push('contact');
     else if (s.stop) out.push('stop');
+    else if (s.medicine) out.push('medicine');
+    else if (s.rating) out.push('rating');
     else if (s.letter) out.push('letter');
     else if ((s.textShare ?? 0) >= DOC_SHARE && words >= DOC_WORDS) out.push('document');
     else out.push('text');
@@ -627,4 +633,120 @@ export function readBusStop(text: string): BusStop | null {
   const name = (nameLine ?? '').replace(/\b(?:stop|Stop|STOP)\s+[A-Z]{1,2}\b/, '').replace(/\bbus\s*stop\b/i, '').replace(/\s{2,}/g, ' ').replace(/^[\s,.-]+|[\s,.-]+$/g, '');
   if (!name && !sms) return null;
   return { name, letter, routes: routes.slice(0, 12), towards, sms };
+}
+
+// ---------------------------------------------------------------- a medicine box (lens.s2: its public NHS page, on his tap; never advice)
+
+/** A medicine box: the medicine's name as printed, its strength and its form. */
+export interface MedicineBox {
+  name: string;
+  strength: string;
+  form: string;
+}
+
+const FORM_RE = /\b(tablets?|caplets?|capsules?|soft capsules|oral suspension|oral solution|syrup|liquid|cream|ointment|gel|eye drops|ear drops|nasal spray|drops|inhaler|lozenges?|patch(?:es)?|suppositor(?:y|ies)|sachets?|granules|powder)\b/i;
+const STRENGTH_RE = /\b(\d+(?:\.\d+)?\s?(?:mg|micrograms?|mcg|µg|g|ml|%|iu|units?)(?:\s?\/\s?\d+(?:\.\d+)?\s?(?:mg|ml|g|micrograms?|mcg))?)\b/i;
+
+/**
+ * The read words of a medicine's box → its name, strength and form; null when the words are not a medicine box's (a form of
+ * medicine and either a strength, a UK product licence number or the box's own warnings).
+ */
+export function readMedicine(text: string): MedicineBox | null {
+  const t = String(text ?? '');
+  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length || (t.match(/\S+/g)?.length ?? 0) > 120) return null;
+  const formLine = lines.find((l) => FORM_RE.test(l));
+  if (!formLine) return null;
+  const licence = /\bPL\s?\d{4,5}\s?\/\s?\d{4}\b/.test(t);
+  const warning = /\b(?:keep (?:all medicines )?out of the (?:sight and )?reach|read the (?:enclosed )?(?:package )?leaflet|do not take more than|do not exceed|pharmacy medicine|prescription only medicine|for oral use)\b/i.test(t);
+  const strengthM = STRENGTH_RE.exec(formLine) ?? STRENGTH_RE.exec(t);
+  if (!licence && !warning && !strengthM) return null;
+  const form = FORM_RE.exec(formLine)![1]!.toLowerCase();
+  // the name: the words before the strength or the form on its line, else the line above it
+  let name = formLine.replace(STRENGTH_RE, ' ').replace(FORM_RE, ' ').replace(/\b(?:film[- ]coated|effervescent|soluble|dispersible|extra|max(?:imum)? strength|for adults|for children|\d+\s*(?:x|pack)|pack of \d+)\b/gi, ' ').replace(/[^\p{L}\s'-]/gu, ' ').replace(/\s{2,}/g, ' ').trim();
+  if (!/\p{L}{4}/u.test(name)) {
+    const i = lines.indexOf(formLine);
+    name = (i > 0 ? lines[i - 1]! : '').replace(STRENGTH_RE, ' ').replace(/[^\p{L}\s'-]/gu, ' ').replace(/\s{2,}/g, ' ').trim();
+  }
+  if (!/\p{L}{4}/u.test(name)) return null;
+  const words = name.split(' ').slice(0, 4).join(' ');
+  return { name: words.replace(/\b\p{L}/gu, (c) => c.toUpperCase()).replace(/\B\p{Lu}+/gu, (c) => c.toLowerCase()), strength: strengthM ? strengthM[1]!.replace(/\s+/g, '') : '', form };
+}
+
+/** The public NHS search for a medicine by its name: opened only on his tap, and nothing else about him goes with it. */
+export const nhsSearch = (name: string): string => `https://www.nhs.uk/search/results?q=${encodeURIComponent(name.trim())}`;
+
+// ---------------------------------------------------------------- an appliance's rating plate (lens.s3: what an hour costs, a first estimate)
+
+/** An appliance's rating plate: its most power in watts, and its volts when printed. */
+export interface RatingPlate {
+  watts: number;
+  volts: string;
+}
+
+/** The read words of a rating plate → its power; null when the words are not a plate's (watts and volts or hertz). */
+export function readRating(text: string): RatingPlate | null {
+  const t = String(text ?? '').replace(/,(?=\d{3}\b)/g, '');
+  if (!/\b\d{2,3}(?:\s?-\s?\d{2,3})?\s?V\b|\bV\s?~|\b50\s?Hz\b|\b60\s?Hz\b/i.test(t)) return null;
+  let watts = 0;
+  for (const m of t.matchAll(/\b(\d+(?:\.\d+)?)(?:\s?-\s?(\d+(?:\.\d+)?))?\s?(kW|W)\b(?!h)/g)) {
+    const k = m[3] === 'kW' ? 1000 : 1;
+    watts = Math.max(watts, Number(m[2] ?? m[1]) * k);
+  }
+  if (!(watts >= 1 && watts <= 15000)) return null;
+  const volts = /\b(\d{2,3}(?:\s?-\s?\d{2,3})?)\s?V\b/.exec(t)?.[1]?.replace(/\s/g, '') ?? '';
+  return { watts: Math.round(watts), volts };
+}
+
+/** What an hour at full power costs at his price (pence a kWh), in his words, always a first estimate. */
+export function runningCost(watts: number, pencePerKwh: number): { pence: number; line: string } {
+  const pence = (watts / 1000) * pencePerKwh;
+  const say = (p: number) => (p >= 100 ? `£${(p / 100).toFixed(2)}` : `${p < 10 ? p.toFixed(1) : Math.round(p)}p`);
+  return { pence, line: `About ${say(pence)} an hour at full power, at ${pencePerKwh}p a unit (kWh): ${say(pence * 5)} for five hours. A first estimate: a thermostat or a lower setting uses less.` };
+}
+
+// ---------------------------------------------------------------- two packets side by side (lens.u8)
+
+/** One packet as the open databases give it: its name, score and figures per 100 g. */
+export interface PacketFacts {
+  title: string;
+  nutriscore?: string;
+  nutrition?: Partial<Record<'kcal' | 'fat' | 'saturates' | 'sugars' | 'salt' | 'protein' | 'carbs', number>>;
+}
+export interface CompareRow {
+  what: string;
+  a: string;
+  b: string;
+  /** Which is better for him on this row (less sugar, salt, fat, saturates and energy; more protein; the better Nutri-Score), or '' when one is not known. */
+  better: 'a' | 'b' | 'same' | '';
+}
+
+/**
+ * Two packets side by side, per 100 g, from the open databases' own figures: each row says which is better, and one line says it
+ * all. Nothing is guessed: a figure the database does not have is "not given", and that row picks neither.
+ */
+export function comparePackets(a: PacketFacts, b: PacketFacts): { rows: CompareRow[]; line: string } {
+  const rows: CompareRow[] = [];
+  const fmt = (v: number | undefined, unit: string) => (v == null ? 'not given' : `${v < 1 ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10}${unit}`);
+  const less = (x?: number, y?: number): CompareRow['better'] => (x == null || y == null ? '' : Math.abs(x - y) < 0.05 ? 'same' : x < y ? 'a' : 'b');
+  const ns = (s?: string) => (s && /^[a-e]$/i.test(s) ? s.toLowerCase().charCodeAt(0) : undefined);
+  rows.push({ what: 'Nutri-Score', a: a.nutriscore ? a.nutriscore.toUpperCase() : 'not given', b: b.nutriscore ? b.nutriscore.toUpperCase() : 'not given', better: less(ns(a.nutriscore), ns(b.nutriscore)) });
+  const na = a.nutrition ?? {}, nb = b.nutrition ?? {};
+  const fig: [keyof NonNullable<PacketFacts['nutrition']>, string, string][] = [['kcal', 'Energy', ' kcal'], ['sugars', 'Sugars', ' g'], ['fat', 'Fat', ' g'], ['saturates', 'Saturates', ' g'], ['salt', 'Salt', ' g'], ['protein', 'Protein', ' g']];
+  for (const [k, what, unit] of fig) {
+    if (na[k] == null && nb[k] == null) continue;
+    const better = k === 'protein' ? less(nb[k], na[k]) : less(na[k], nb[k]);
+    rows.push({ what, a: fmt(na[k], unit), b: fmt(nb[k], unit), better: k === 'protein' ? (better === 'a' ? 'a' : better === 'b' ? 'b' : better) : better });
+  }
+  const wins = (w: 'a' | 'b') => rows.filter((r) => r.better === w && r.what !== 'Energy' && r.what !== 'Protein' && r.what !== 'Nutri-Score').map((r) => (r.what === 'Sugars' ? 'sugar' : r.what === 'Saturates' ? 'saturated fat' : r.what.toLowerCase()));
+  const list = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+  const wa = wins('a'), wb = wins('b');
+  const known = rows.filter((r) => r.better !== '').length;
+  const line = !known
+    ? 'The open databases don’t give enough figures to compare these two.'
+    : wa.length && !wb.length ? `${a.title} has less ${list(wa)} per 100 g.`
+    : wb.length && !wa.length ? `${b.title} has less ${list(wb)} per 100 g.`
+    : wa.length && wb.length ? `${a.title} has less ${list(wa)}; ${b.title} has less ${list(wb)} (per 100 g).`
+    : 'Much the same per 100 g, by the figures the databases give.';
+  return { rows, line };
 }

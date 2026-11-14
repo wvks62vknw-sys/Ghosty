@@ -10,6 +10,9 @@
 //   A BILL   the letter card, the plate's REMIND and FILE, and ADD TO MY BILLS (HOME keeps it, with its reminder)
 //   A BUSINESS CARD  "add them to my contacts": a vCard made on the phone with the card's details; nobody looked up
 //   A BUS STOP  "when's the next bus": the times by the stop's name on its sign, never where he is
+//   A MEDICINE  its public NHS page on "open the NHS page", nothing sent before, never advice
+//   A RATING PLATE  what an hour costs at 25p, then at his price kept on this phone; "what does it cost to run" says it
+//   COMPARE  a second packet: "which is better" puts the two side by side per 100 g, the better figure marked
 //   A RECEIPT  one tap into this month's spending (the month's rows hold it), one more keeps its warranty
 //   A MENU   in French: each line's English laid over that line, the card listing every line, the words only sent
 //   AVOID    "I'm allergic to milk" lights the packet red; the WHAT I AVOID sheet adds peanuts; kept on this phone
@@ -81,6 +84,8 @@ async function run(viewport, all) {
   page.on('pageerror', (e) => problems.push(`${T} pageerror: ${e.message}`));
   await page.addInitScript(colourCamera);
   // the open product databases and the encyclopedia, as fixtures (the brain's own routes, answered here so no outside call is made)
+  // (lens.u8) a second packet, to put side by side with the first
+  await page.route('**/api/lookup/barcode?code=5012345678900', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '5012345678900', kind: 'product', source: 'Open Food Facts', credit: 'Open Food Facts, ODbL', title: 'Oat bars', brand: 'Fixture Mill', quantity: '5 x 30 g', nutriscore: 'b', nutrition: { kcal: 410, sugars: 12, fat: 10.5, saturates: 2.1, salt: 0.2, protein: 8.4 }, allergens: ['gluten', 'oats'] }) }));
   await page.route('**/api/lookup/barcode?code=5000159484695', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: '5000159484695', kind: 'product', source: 'Open Food Facts', credit: 'Open Food Facts, ODbL', title: 'Digestive biscuits', brand: 'Fixture Bakery', quantity: '400 g', nutriscore: 'e', nutrition: { kcal: 474, sugars: 16.6, fat: 20.9, saturates: 9.6, salt: 0.95, protein: 7.1 }, allergens: ['gluten', 'milk'] }) }));
   // the map's geocoder (through the brain's proxy) answers with the address's place; nothing else outside is reached
   await page.route('**/api/proxy?**', (r) => {
@@ -115,6 +120,12 @@ async function run(viewport, all) {
   const offer = ((await page.locator('#pg-lens .lensknow .lensget').textContent().catch(() => '')) ?? '').trim();
   check(/GET THE EYES/.test(offer) && /18 MB/.test(offer) && /WI-FI/.test(offer), `${T} [states] the pack offer says "${offer}": want GET THE EYES with its size, on Wi-Fi`);
   check((await page.evaluate(() => window.__ghosty.one.finder)) === 'off', `${T} [states] the eyes started downloading without his tap`);
+  // on mobile data his tap does not start the download: it waits for Wi-Fi, and says so
+  await page.evaluate(() => Object.defineProperty(navigator, 'connection', { configurable: true, value: { type: 'cellular', saveData: false, addEventListener() {}, removeEventListener() {} } }));
+  await page.locator('#pg-lens .lensknow .lensget').click();
+  await page.waitForTimeout(300);
+  check((await page.evaluate(() => window.__ghosty.one.finder)) === 'off' && /wait for Wi-Fi: you’re on mobile data/.test(await page.evaluate(() => window.__ghosty.one.stepSaid)), `${T} [states] on mobile data GET THE EYES started (${await page.evaluate(() => window.__ghosty.one.finder)}) or said "${await page.evaluate(() => window.__ghosty.one.stepSaid)}"`);
+  await page.evaluate(() => delete navigator.connection);
   if ((await page.evaluate(() => window.__ghosty.lens.camera)) !== 'on') {
     if ((await page.evaluate(() => window.__ghosty.lens.camera)) === 'off') await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
   }
@@ -346,6 +357,44 @@ async function run(viewport, all) {
   await letGo();
   await reset();
 
+  // ---- A MEDICINE BOX (lens.s2): read aloud, its public NHS page on his word; nothing sent before, no advice ever
+  await ctx.route('https://www.nhs.uk/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>NHS</title><p>NHS</p>' }));
+  await words('Paracetamol 500mg Tablets\n16 tablets\nFor oral use\nRead the enclosed leaflet\nPL 12345/0001');
+  await hold([TEXT_BOX]);
+  await until(() => window.__ghosty.cards.jobs[0] === 'medicine', null, 4000, `[medicine] the job for a medicine box is ${(await cards()).jobs[0]}`);
+  const med = (await cards()).cards.find((c) => c.job === 'medicine');
+  check(med?.head === 'A MEDICINE · PARACETAMOL 500MG' && ['OPEN THE NHS PAGE', 'READ ALOUD', 'COPY'].every((k) => med.keys.includes(k)) && /I don’t give medical advice/.test(med.line), `${T} [medicine] the card: ${JSON.stringify(med)}`);
+  check(await page.evaluate(() => document.querySelector('#pg-lens .lenscard[data-job="medicine"] a.lc-link')?.getAttribute('href') === 'https://www.nhs.uk/search/results?q=Paracetamol'), `${T} [medicine] OPEN THE NHS PAGE does not lead to the NHS's public search for it`);
+  await layout('medicine');
+  const nhsTab = ctx.waitForEvent('page', { timeout: 6000 }).catch(() => null);
+  await page.evaluate(() => window.__ghosty.send('open the NHS page'));
+  await until(() => window.__ghosty.cards.done === 'open the nhs page: https://www.nhs.uk/search/results?q=Paracetamol', null, 5000, `[medicine] "open the NHS page" did ${JSON.stringify((await cards()).done)}`);
+  await (await nhsTab)?.close();
+  check(!chats.some((b) => /Paracetamol/.test(b)), `${T} [medicine] the box went to the brain`);
+  await letGo();
+  await reset();
+
+  // ---- A RATING PLATE (lens.s3): what an hour costs at his price, a first estimate; his price kept on this phone
+  await words('Model HX200\n220-240V~ 50Hz\n1850-2200W\nMade in China');
+  await hold([TEXT_BOX]);
+  await until(() => window.__ghosty.cards.jobs[0] === 'rating', null, 4000, `[rating] the job for a rating plate is ${(await cards()).jobs[0]}`);
+  const plate = (await cards()).cards.find((c) => c.job === 'rating');
+  check(plate?.head === 'A RATING PLATE · 2.2 kW · 220-240 V' && /^About 55p an hour at full power, at 25p a unit \(kWh\): £2\.75 for five hours\. A first estimate/.test(plate.line) && plate.keys.includes('SET MY PRICE'), `${T} [rating] the card: ${JSON.stringify(plate)}`);
+  await layout('rating');
+  await keyIn('rating', 'SET MY PRICE').click();
+  await page.waitForSelector('.modal .lc-price', { timeout: 5000 });
+  await until(() => document.querySelector('.modal .mbox')?.getAnimations().every((a) => a.playState === 'finished') ?? false, null, 3000, '[rating] the sheet did not settle');
+  const priceSmall = await page.evaluate(() => [...document.querySelectorAll('.modal .lc-price, .modal .lc-avoid button')].map((e) => e.getBoundingClientRect()).filter((r) => r.width < 43.5 || r.height < 43.5).length);
+  check(!priceSmall, `${T} [rating] ${priceSmall} control(s) on the price sheet under 44 pt`);
+  await page.fill('.modal .lc-price', '30');
+  await page.locator('.modal .lc-avoid button', { hasText: 'KEEP MY PRICE' }).click();
+  await until(() => window.__ghosty.cards.cost.price === 30 && /^About 66p an hour at full power, at 30p a unit/.test(window.__ghosty.cards.cost.line), null, 4000, `[rating] his price did not cost the plate: ${JSON.stringify((await cards()).cost)}`);
+  await page.evaluate(() => window.__ghosty.send('what does it cost to run'));
+  await until(() => /^About 66p an hour at full power/.test(window.__ghosty.one.said), null, 5000, `[rating] "what does it cost to run" said "${await page.evaluate(() => window.__ghosty.one.said)}"`);
+  await page.evaluate(() => localStorage.removeItem('ghosty.lens.kwh'));
+  await letGo();
+  await reset();
+
   // ---- A PAGE: scanned flat
   const page60 = Array.from({ length: 12 }, (_, i) => `Line ${i + 1} of the long page about the harbour and its boats`).join('\n');
   await words(page60);
@@ -384,6 +433,20 @@ async function run(viewport, all) {
   await page.locator('.modal .lc-avoid button', { hasText: 'KEEP THIS LIST' }).click();
   await until(() => JSON.parse(localStorage.getItem('ghosty.lens.avoid') ?? '[]').sort().join(',') === 'milk,peanuts', null, 4000, '[avoid] the sheet did not keep peanuts');
   await until(() => /^Not for you: it has milk\.$/.test(window.__ghosty.cards.verdict.line), null, 4000, `[avoid] after the sheet the line reads "${(await cards()).verdict.line}"`);
+  await letGo();
+  await reset();
+  // (lens.u8) a second packet: COMPARE puts the two side by side per 100 g, the better figure marked, one line said
+  await hold([{ kind: 'code', box: { x: 200, y: 140, w: 240, h: 160 }, score: 0.95, truth: 'a code', data: { text: '5012345678900', format: 'ean_13', codeKind: 'product' } }]);
+  await until(() => window.__ghosty.cards.product.state === 'found' && window.__ghosty.cards.product.name === 'Oat bars', null, 8000, `[compare] the second packet was not looked up: ${JSON.stringify((await cards()).product)}`);
+  await until(() => window.__ghosty.cards.cards.some((c) => c.job === 'product' && c.keys.includes('COMPARE')), null, 3000, `[compare] the second packet's card has no COMPARE: ${JSON.stringify((await cards()).cards.map((c) => c.keys))}`);
+  await page.evaluate(() => window.__ghosty.send('which is better'));
+  await page.waitForSelector('.modal .lc-compare', { timeout: 5000 });
+  await until(() => document.querySelector('.modal .mbox')?.getAnimations().every((a) => a.playState === 'finished') ?? false, null, 3000, '[compare] the sheet did not settle');
+  check((await cards()).compare.line === 'Oat bars has less sugar, fat, saturated fat and salt per 100 g.', `${T} [compare] the line reads "${(await cards()).compare.line}"`);
+  const cmp = await page.evaluate(() => { const t = document.querySelector('.modal .lc-compare'); const box = document.querySelector('.modal .mbox'); return { rows: [...t.querySelectorAll('tbody tr')].map((r) => [...r.children].map((c) => c.textContent.trim()).join('|')), marked: t.querySelectorAll('td[data-better]').length, sideways: box.scrollWidth > box.clientWidth + 1, small: [...document.querySelectorAll('.modal .lc-avoid button')].filter((b) => { const r = b.getBoundingClientRect(); return r.width < 43.5 || r.height < 43.5; }).length }; });
+  check(cmp.rows[0] === 'Nutri-Score|B ✓|E' && cmp.rows.includes('Sugars|12 g ✓|16.6 g') && cmp.rows.includes('Protein|8.4 g ✓|7.1 g') && cmp.marked === 7, `${T} [compare] the table: ${JSON.stringify(cmp.rows)} (${cmp.marked} marked)`);
+  check(!cmp.sideways && !cmp.small, `${T} [compare] the sheet is sideways (${cmp.sideways}) or has ${cmp.small} small key(s)`);
+  await page.locator('.modal .lc-avoid button', { hasText: 'DONE' }).click();
   await letGo();
   await reset();
   await hold([{ kind: 'code', box: { x: 200, y: 140, w: 200, h: 200 }, score: 0.95, truth: 'a code', data: { text: 'https://example.org/menu', format: 'qr_code', codeKind: 'url' } }]);
@@ -481,5 +544,5 @@ async function run(viewport, all) {
 await run({ width: 440, height: 956 }, true);
 await run({ width: 390, height: 844 }, false);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a business card into his contacts, made on the phone; a bus stop’s next buses by its name; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'lens2 clean at 440 and 390: the picture in true colour in all seven looks; the pack offered with its size on Wi-Fi and no signal said in his words; a notice read aloud, copied, its date in the agenda, its number called (by tap and by "call that number"), its link opened, its email to write and its address opened on the map; two sums worked (and said for "solve that"); a French sign said and sent as words with no picture; a French menu laid over line by line in English; a bill on the letter card with REMIND and FILE, kept in his bills; a receipt in this month’s spending in one tap and its warranty kept; a business card into his contacts, made on the phone; a bus stop’s next buses by its name; a medicine box to its NHS page; a rating plate costed at his price; a page scanned flat; a barcode looked up with its grades, figures per 100 g and allergens, lit red for a milk allergy said in his words, and a second packet compared side by side; a QR link opened, a Wi-Fi password copied and a risky link only OPEN ANYWAY; a mug named 82% sure and measured; a robin named European robin in one tap; a clock tower named Big Ben with its summary, and another clock tower not taken for it; a stranger never named and Mum named as he named her; every card’s keys 44 pt, nothing sideways, no words cut.');
 process.exit(problems.length ? 1 : 0);
