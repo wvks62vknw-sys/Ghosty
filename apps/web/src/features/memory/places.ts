@@ -1,5 +1,5 @@
 /**
- * Memory → ME → PLACES: home, work, school, the gym, his parents' and any place he names, kept in the brain's
+ * Memory → ABOUT YOU → PLACES: home, work, school, the gym, his parents' and any place he names, kept in the brain's
  * memory (apps/edge/src/places.ts) and nowhere else. FIND looks the address or postcode up on the free map and
  * shows what it found; KEEP IT is his yes (nothing is kept before). Each place has EDIT and FORGET (with UNDO).
  * Journeys and directions ("take me home"), the Brief's commute and God's Eye's pins read them.

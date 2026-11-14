@@ -368,7 +368,7 @@ export function diaryEntries(library: Library, n = 14): DiaryEntry[] {
  */
 export async function profileRoute(req: Request, path: string, method: string, url: URL, deps: ProfileDeps): Promise<Response> {
   const { storage, library } = deps;
-  // Memory → ME → PLACES (places.ts) and the Agenda tab's SPENDING card (spending.ts): both kept in his memory here.
+  // Memory → ABOUT YOU → PLACES (places.ts) and the Agenda tab's SPENDING card (spending.ts): both kept in his memory here.
   if (path === '/profile/places' || path.startsWith('/profile/places/')) return placesRoute(req, path, method, url, storage);
   if (path === '/profile/spending' || path.startsWith('/profile/spending/')) return spendingRoute(req, path, method, url, deps);
   if (path === '/profile' && method === 'GET') {

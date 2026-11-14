@@ -186,6 +186,8 @@ const today = () => {
 // ---- 2. THE AGENDA: TO-DO and MONTH, at both sizes
 // (440 only: each screen's own part below proves both sizes; this keeps the run inside CI's eight minutes)
 if (core) for (const vp of [PHONE]) {
+  // the one list lives in the brain, which every spec before this one in the run shares: start it empty, so "an empty list" is true
+  await clearOneList();
   const { ctx, page } = await phone(vp);
   await open(page, 'agenda');
   const pills = await page.$$eval('#pg-agenda .secpill', (b) => b.map((x) => x.textContent));

@@ -101,8 +101,9 @@ export function navTo(id: string, dir: NavDir): void {
 }
 
 const def = (id: string) => tabs().find((t) => t.id === id);
-/** A tool's name inside its area: LEARN's own course tool is "Courses" there (not "Learn" inside Learn). */
-const ALIAS: Record<string, string> = { learn: 'Courses', interpreter: 'Interpret' };
+/** A tool's name inside its area. [consistency] Empty now: every screen has one name, its own title (Courses, Interpreter), so no
+ *  second name is made here; kept as the one place a room-only name would go. */
+const ALIAS: Record<string, string> = {};
 export const toolName = (t: TabDef) => ALIAS[t.id] ?? niceCase(t.title);
 
 /** A tool's glyph: a bare thin line, no tile behind it (the id is kept so callers need not change). */

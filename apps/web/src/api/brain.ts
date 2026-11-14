@@ -384,7 +384,7 @@ export const brain = {
   /** His PRINCIPLES (profile.ts): his own lines, the whole list each time. */
   principles: () => req<{ lines: string[]; max: number }>('GET', '/profile/principles'),
   setPrinciples: (lines: string[]) => req<{ lines: string[]; max: number }>('POST', '/profile/principles', { lines }),
-  /** Memory → ME → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
+  /** Memory → ABOUT YOU → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
   places: () => req<{ places: SavedPlace[] }>('GET', '/profile/places'),
   placeFind: (label: string, query: string) => req<{ found: PlaceCandidate }>('POST', '/profile/places/find', { label, query }),
   /** `back` (UNDO): the place put back exactly — its date and its place in the list. */

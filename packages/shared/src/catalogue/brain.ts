@@ -185,7 +185,7 @@ const MORE: Record<string, CatValue> = {
   'job:revise': {
     name: 'Revise your flashcards', line: 'I bring your flashcards back just before you would forget them, and remind you each morning some are due.',
     more: 'Spaced repetition: a card you know comes back later, one you missed comes back sooner. The morning note only comes when cards are due.',
-    say: ['Revise my flashcards'], scene: ['morning', 'school'], cat: 'learn', go: { run: 'open_learn', args: { view: 'revise' } }, tryText: 'Opens your flashcards', where: 'Learn → STUDY',
+    say: ['Revise my flashcards'], scene: ['morning', 'school'], cat: 'learn', go: { run: 'open_learn', args: { view: 'revise' } }, tryText: 'Opens your flashcards', where: 'Courses → STUDY',
   },
   'job:train': {
     name: 'My weekly training', line: 'I train the brain on your phone once a week on free GPUs, and only keep it if it got better.',
