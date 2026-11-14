@@ -251,6 +251,21 @@ test('recall by meaning on the brain (memory.u1): "the trip north" finds his "tr
   }
 });
 
+test('a pinned turn survives the caps (memory.u11): a month of 25 turns a day, and a store full to its bytes, never push a PIN out', () => {
+  const now = NOW;
+  const pin = { at: now - 40 * D, via: 'app', q: 'the boiler code is E119', pinned: true };
+  const busy = Array.from({ length: 30 * 25 }, (_, i) => ({ at: now - 30 * D + i * (D / 25) + 1, via: 'app', q: `a long question about something or other number ${i} ${'x'.repeat(100)}`, a: `An answer to it, kept as the first sentence of the reply ${i}.` }));
+  const out = R.boundGists([pin, ...busy], now);
+  assert.ok(out.some((g) => g.pinned && g.q === pin.q), 'the PIN is still there');
+  assert.ok(JSON.stringify(out).length <= 110_000, 'and the store stays within its bytes');
+  assert.ok(out.length < busy.length + 1, 'the unpinned ones were the ones trimmed');
+  // at most MAX_PINS pins, the newest kept
+  const many = Array.from({ length: R.MAX_PINS + 5 }, (_, i) => ({ at: now - 100 * D + i, via: 'app', q: `pin ${i}`, pinned: true }));
+  const kept = R.boundGists(many, now);
+  assert.equal(kept.length, R.MAX_PINS);
+  assert.equal(kept[0].q, 'pin 5');
+});
+
 test('"what did I ask you about X?" in its wordings; the RECALL chip\'s words; nothing about anyone he never named', () => {
   for (const [t, about] of [['what did I ask you about trains?', 'trains'], ['When did I mention the boiler', 'boiler'], ['did I tell you about my knee', 'knee'], ['find where I said garden', 'garden'], ['what have I asked you about Leeds', 'Leeds']]) assert.equal(S.recallAsked(t), about, t);
   for (const t of ['what did you do today?', 'what trains go to Leeds', 'tell me about trains']) assert.equal(S.recallAsked(t), null, t);

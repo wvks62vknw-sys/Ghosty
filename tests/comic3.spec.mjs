@@ -105,6 +105,15 @@ async function open(viewport, o = {}) {
   const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, acceptDownloads: true, ...UK, serviceWorkers: 'block' });
   live.push(ctx);
   await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  // (his agenda is this spec's own: empty, so the week is exactly the to-dos it seeds)
+  // (and his to-do list too: the one list lives in the brain, which keeps what other runs left; here it is exactly this run's)
+  await ctx.route(/\/api\/packs\/do$/, async (route) => {
+    const b = JSON.parse(route.request().postData() ?? '{}');
+    if (b.pack !== 'work' || b.action !== 'todo') return route.continue();
+    const list = (o.todos ?? []).map((t) => ({ ...t, doneAt: Date.now() - t.ago }));
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'ok', data: { list, added: 0 } }) });
+  });
+  await ctx.route(/\/api\/agenda\?/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tz: 'Europe/London', events: [], errors: [], jobs: [], feeds: [] }) }));
   const page = await ctx.newPage();
   page.setDefaultTimeout(10000);
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${viewport.width}] pageerror: ${e.message}`));
@@ -112,6 +121,7 @@ async function open(viewport, o = {}) {
     localStorage.setItem('ghosty.ownerKey', key);
     localStorage.setItem('ghosty.themes1', '1');
     localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Tony', speak: false, sounds: false, theme: 'reactor', favourites: [], look: { ground: 'graphite', world: 'scan', night: 'graphite', switches: body ? { body } : {} }, home: { name: 'Birmingham', lat: 52.48, lon: -1.9 } }));
+    if (!todos && !sessionStorage.getItem('seeded')) localStorage.setItem('ghosty.agenda.todo', '[]');
     if (todos && !sessionStorage.getItem('seeded')) {
       sessionStorage.setItem('seeded', '1');
       localStorage.setItem('ghosty.agenda.todo', JSON.stringify(todos.map((t) => ({ ...t, doneAt: Date.now() - t.ago }))));
@@ -190,6 +200,141 @@ for (const vp of [PHONE, PHONE2]) {
     check(/Ticked off: (Call the bank|Book the dentist)/.test(p1) && /THE END… until next week\./.test(p1) && /Done\. Look at me, getting things done\./.test(p1), `${T} (a) a panel for the day, a line for it, and the last word: "${p1.slice(0, 160)}"`);
     await ctx.setOffline(false);
     await bar(page, `${T} (a) the week comic`);
+    await ctx.close();
+  }
+  // (b) the reader: the page strip, a bookmark, the night tint, turning by itself; (c) the shelf: search, sort, read marks, the log
+  {
+    const { ctx, page } = await open(vp);
+    await goComic(page, 'shelf');
+    await until(page, () => window.__ghosty?.comic?.shelf.state === 'empty');
+    for (const [t, n] of [['Zebra Patrol', 4], ['Apple Squad', 3]]) {
+      await page.setInputFiles('#pg-comic .cx input[type=file][accept]', [{ name: `${t}.cbz`, mimeType: 'application/zip', buffer: cbz(t, n) }]);
+      await until(page, (title) => window.__ghosty.comic.import.state === 'done' && window.__ghosty.comic.last === title, t, 15000);
+    }
+    check(/Your reading log starts when you read/.test(await txt(page, '#pg-comic .cxlog')), `${T} (c) before any reading, the log says how it starts`);
+    await page.selectOption('#pg-comic select[aria-label="Sort"]', 'title');
+    check(await until(page, () => window.__ghosty.comic.shelf.titles.join() === 'Apple Squad,Zebra Patrol'), `${T} (c) SORT by title`);
+    await page.fill('#pg-comic input[aria-label="Find a comic on my shelf"]', 'zeb');
+    check(await until(page, () => window.__ghosty.comic.shelf.titles.join() === 'Zebra Patrol'), `${T} (c) FIND narrows the shelf`);
+    await page.fill('#pg-comic input[aria-label="Find a comic on my shelf"]', 'nothing like it');
+    check(await until(page, () => /No comic on your shelf matches “nothing like it”/.test(document.querySelector('#pg-comic .cxshelf')?.textContent ?? '')), `${T} (c) nothing found is said`);
+    await page.fill('#pg-comic input[aria-label="Find a comic on my shelf"]', '');
+    await until(page, () => window.__ghosty.comic.shelf.titles.length === 2);
+    await bar(page, `${T} (c) the shelf with its search`);
+    // read Zebra Patrol to the end with the strip, a bookmark, the night tint and AUTO
+    await page.locator('#pg-comic .cxbook', { hasText: 'Zebra Patrol' }).locator('button', { hasText: /^Read$/ }).click();
+    await until(page, () => window.__ghosty.comic.reader.open && document.querySelector('.cxread .cxrpage')?.complete);
+    await page.click('.cxread button[aria-label="Show every page as a strip of small pictures"]');
+    check(await until(page, () => document.querySelectorAll('.cxread .cxrthumb').length === 4 && document.querySelectorAll('.cxread .cxrthumb img').length >= 1), `${T} (b) PAGES shows the strip, its pictures filling in`);
+    await page.click('.cxread .cxrthumb[data-n="2"]');
+    check(await until(page, () => window.__ghosty.comic.reader.page === 2 && document.querySelector('.cxread .cxrthumb[data-n="2"]').classList.contains('on')), `${T} (b) a tap on a page in the strip goes there`);
+    await page.click('.cxread button[aria-label="Bookmark page 3"]');
+    check(await until(page, () => window.__ghosty.comic.reader.marks.join() === '2' && document.querySelector('.cxread .cxrthumb[data-n="2"]').classList.contains('marked')), `${T} (b) BOOKMARK marks the page, in the strip too`);
+    await page.click('.cxread button[aria-label^="Night reading"]');
+    check(await until(page, () => window.__ghosty.comic.reader.night && document.querySelector('.cxread').classList.contains('night')), `${T} (b) NIGHT tints the page`);
+    await bar(page, `${T} (b) the reader with its strip`, '.cxread');
+    await page.click('.cxread button[aria-label="Turn the pages by themselves"]');
+    check(await until(page, () => window.__ghosty.comic.reader.auto === 8 && window.__ghosty.comic.reader.page === 3, null, 12000), `${T} (b) AUTO turns the page by itself (every 8 s)`);
+    check(await until(page, () => window.__ghosty.comic.reader.auto === 0, null, 12000), `${T} (b) AUTO stops at the last page`);
+    await page.click('.cxread button[aria-label="Close the comic"]');
+    await until(page, () => !document.querySelector('.cxread'));
+    check(await until(page, () => window.__ghosty.comic.shelf.log.pages >= 2 && /This month: \d+ pages read/.test(document.querySelector('#pg-comic .cxlog')?.textContent ?? '')), `${T} (c) the reading log counts the pages read: "${await txt(page, '#pg-comic .cxlog')}"`);
+    check(/^Read · /.test(await page.locator('#pg-comic .cxbook', { hasText: 'Zebra Patrol' }).locator('.cxbookline').textContent()) && /^Unread · /.test(await page.locator('#pg-comic .cxbook', { hasText: 'Apple Squad' }).locator('.cxbookline').textContent()), `${T} (c) READ and UNREAD marks on the shelf`);
+    await page.selectOption('#pg-comic select[aria-label="Show"]', 'unread');
+    check(await until(page, () => window.__ghosty.comic.shelf.titles.join() === 'Apple Squad'), `${T} (c) SHOW unread`);
+    await page.selectOption('#pg-comic select[aria-label="Show"]', 'all');
+    // reopened, the bookmark and the night tint are kept
+    await page.locator('#pg-comic .cxbook', { hasText: 'Zebra Patrol' }).locator('button', { hasText: /^Read$/ }).click();
+    await until(page, () => window.__ghosty.comic.reader.open);
+    check(await until(page, () => window.__ghosty.comic.reader.marks.join() === '2' && window.__ghosty.comic.reader.night), `${T} (b) the bookmark and the night tint are kept`);
+    await page.keyboard.press('Escape');
+    await until(page, () => !document.querySelector('.cxread'));
+    // (d) the new exports: the phone scroll, the panels, the booklet
+    await goComic(page, 'make');
+    await page.selectOption('#pg-comic select[aria-label="Who writes it"]', 'phone');
+    await page.click('#pg-comic button[aria-label="Make a whole comic from this idea"]');
+    await until(page, () => window.__ghosty.comic.editing.pages === 4);
+    for (const [label, kind, test] of [['Save the comic as one long picture to scroll on a phone', 'jpg', /-scroll\.jpg, .+: the whole comic as one long picture/], ['Save every panel as its own picture', 'zip', /-panels\.zip, .+: 14 panels, each its own picture/], ['Save a PDF to print, fold and staple into a booklet', 'pdf', /-booklet\.pdf, .+: print it on both sides/]]) {
+      const dl = page.waitForEvent('download', { timeout: 20000 });
+      await page.click(`#pg-comic button[aria-label="${label}"]`);
+      const d = await dl.catch(() => null);
+      check(!!d && d.suggestedFilename().endsWith(`.${kind}`) && test.test(await txt(page, '#pg-comic .cxedit .cxnote')), `${T} (d) ${label}: ${d?.suggestedFilename()} — "${(await txt(page, '#pg-comic .cxedit .cxnote')).slice(0, 100)}"`);
+    }
+    // (e) translate its words (comic.s12), and UNDO puts them back
+    await page.click('#pg-comic summary:has-text("Translate its words")');
+    await page.selectOption('#pg-comic select[aria-label="Translate into"]', 'Spanish');
+    await page.click('#pg-comic button[aria-label="Translate every balloon and caption"]');
+    check(await until(page, () => window.__ghosty.comic.editing.translated === 'Spanish' && /Translated \d+ of \d+ lines into Spanish/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `${T} (e) TRANSLATE puts every line into Spanish: "${(await txt(page, '#pg-comic .cxedit .cxnote')).slice(0, 80)}"`);
+    check(/\(sp\) /.test(await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (e) the page shows the new words`);
+    await page.click('#pg-comic button[aria-label="Undo the last change"]');
+    check(await until(page, () => !/\(sp\) /.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (e) UNDO puts the old words back`);
+    // (f) his own look, picked by hand and kept, cast again (comic.u8)
+    await page.click('#pg-comic summary:has-text("The cast")');
+    const hero = (await C(page)).editing.cast[0];
+    await page.click(`#pg-comic summary:has-text("Pick ${hero}’s look by hand")`);
+    await page.selectOption(`#pg-comic select[aria-label="${hero}’s hair"]`, 'Red');
+    await page.selectOption(`#pg-comic select[aria-label="${hero}’s glasses"]`, 'yes');
+    await page.click(`#pg-comic button[aria-label="Keep ${hero}’s look to cast again"]`);
+    check(await until(page, (n) => JSON.parse(localStorage.getItem('ghosty.comic.people') ?? '[]').some((p) => p.name === n && p.look.hair === '#b8342f' && p.look.glasses), hero), `${T} (f) KEEP THIS LOOK keeps ${hero}’s hand-picked look on the phone`);
+    await page.selectOption('#pg-comic select[aria-label="Cast someone I saved"]', hero);
+    check(await until(page, (n) => window.__ghosty.comic.editing.cast.filter((x) => x === n).length === 2, hero), `${T} (f) CAST SOMEONE I SAVED puts them in the comic`);
+    check((await C(page)).saved.count === 4, `${T} (d) the booklet is 2 sheets, 4 sides, for 5 pages padded to 8 (${(await C(page)).saved.count} sides)`);
+    await bar(page, `${T} (d) the editor with its exports`);
+    await ctx.close();
+  }
+  // (g) the other shapes (comic.s5, s6, s2): a one-panel joke, a greeting card, a picture book; and "make it a comic" (comic.c6)
+  {
+    const { ctx, page } = await open(vp);
+    await goComic(page, 'make');
+    await page.selectOption('#pg-comic select[aria-label="Who writes it"]', 'phone');
+    for (const [fmt, words, test] of [['joke', 'a dog who wants to drive', (st) => st.pages === 1 && st.panels === 1], ['card', 'a birthday card for Dad', (st) => st.pages === 1 && st.panels === 3 && /Happy Birthday, Dad/.test(st.title)], ['book', 'a little bear who wants to fly', (st) => st.pages === 6 && st.panels === 1]]) {
+      if (await page.$('#pg-comic button[aria-label="Start a new comic from an idea"]')) await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
+      await page.selectOption('#pg-comic select[aria-label="What to make"]', fmt);
+      await page.fill('#pg-comic textarea', words);
+      await page.click('#pg-comic button[aria-label="Make a whole comic from this idea"]');
+      await until(page, () => window.__ghosty.comic.editing.pages > 0 && window.__ghosty.comic.editing.by === 'phone');
+      await page.click('#pg-comic button[aria-label="Next page"]');
+      await page.waitForTimeout(150);
+      const st = (await C(page)).editing;
+      check(test(st), `${T} (g) ${fmt}: ${st.pages} page(s), ${st.panels} panel(s) on the first, "${st.title}"`);
+    }
+    // issue 2 with the same cast (comic.u3), and the comic read aloud, a voice a character (comic.u12)
+    await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
+    await page.selectOption('#pg-comic select[aria-label="What to make"]', 'comic');
+    await page.fill('#pg-comic textarea', 'a robot who wants to bake bread');
+    await page.click('#pg-comic button[aria-label="Make a whole comic from this idea"]');
+    await until(page, () => window.__ghosty.comic.editing.pages === 4 && window.__ghosty.comic.editing.by === 'phone');
+    const first = await C(page);
+    await page.click('#pg-comic button[aria-label="Make issue 2 with the same cast"]');
+    check(await until(page, (t) => window.__ghosty.comic.editing.series === 2 && window.__ghosty.comic.editing.title !== t, first.editing.title), `${T} (g) ISSUE 2 makes the next issue`);
+    const second = await C(page);
+    check(second.editing.cast.join() === first.editing.cast.join() && /, No\. 2$/.test(second.editing.title), `${T} (g) …with the same cast, numbered: "${second.editing.title}" (${second.editing.cast.join(', ')})`);
+    check(/^The cover: .+, No\. 2/.test(await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (g) its cover says No. 2`);
+    await page.click('#pg-comic button[aria-label="Read your comic full screen"]');
+    await until(page, () => window.__ghosty.comic.reader.open);
+    await page.click('.cxread button[aria-label="Read the comic aloud, a voice for each character"]');
+    check(await until(page, () => window.__ghosty.comic.reader.aloud.on && window.__ghosty.comic.reader.guided && window.__ghosty.comic.reader.aloud.lines >= 1), `${T} (g) READ ALOUD reads panel by panel in the guided view`);
+    check(await until(page, () => window.__ghosty.comic.reader.page >= 1 && window.__ghosty.comic.reader.aloud.lines >= 3, null, 20000), `${T} (g) …and goes on to the next panels by itself (${(await C(page)).reader.aloud.lines} lines, page ${(await C(page)).reader.page + 1})`);
+    await page.click('.cxread button[aria-pressed="true"]:has-text("Stop reading")');
+    check(await until(page, () => !window.__ghosty.comic.reader.aloud.on), `${T} (g) STOP READING stops it`);
+    await page.keyboard.press('Escape');
+    await until(page, () => !document.querySelector('.cxread'));
+    // Ghosty writes a joke too, kept to one panel whatever comes back
+    await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
+    await page.selectOption('#pg-comic select[aria-label="Who writes it"]', 'ghosty');
+    await page.selectOption('#pg-comic select[aria-label="What to make"]', 'joke');
+    await page.fill('#pg-comic textarea', 'a dog who wants to drive');
+    await page.click('#pg-comic button[aria-label="Make a whole comic from this idea"]');
+    check(await until(page, () => window.__ghosty.comic.editing.by === 'brain' && window.__ghosty.comic.editing.pages === 1, null, 20000), `${T} (g) Ghosty's joke is one page`);
+    await page.click('#pg-comic button[aria-label="Next page"]');
+    check(await until(page, () => window.__ghosty.comic.editing.panels === 1), `${T} (g) …of one panel`);
+    await bar(page, `${T} (g) MAKE with its shapes`);
+    // "make it a comic": what I last said becomes the comic
+    await page.selectOption('#pg-comic select[aria-label="What to make"]', 'comic').catch(() => undefined);
+    await chat(page, 'what is the weather like');
+    await page.waitForTimeout(1500);
+    await chat(page, 'make it a comic');
+    check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.pages > 0 && window.__ghosty.comic.editing.writing === false, null, 20000), `${T} (g) “make it a comic” makes what I last said into a comic`);
     await ctx.close();
   }
 }

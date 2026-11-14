@@ -186,9 +186,9 @@ for (const tab of TABS) for (const side of ['', ' (other side)']) {
 // Date and time boxes (AGENDA's new event and reminder) render as real pickers with a value, finger-sized.
 // (The event's box is on the first side, the reminder's on the other.)
 await page.evaluate(() => (location.hash = 'core'));
-await page.waitForTimeout(500);
+await page.waitForFunction(() => document.querySelector('#pg-core')?.classList.contains('on'), null, { timeout: 15000 }).catch(() => undefined);
 await page.evaluate(() => (location.hash = 'agenda'));
-await page.waitForTimeout(1200);
+await page.waitForFunction(() => document.querySelector('#pg-agenda')?.classList.contains('on'), null, { timeout: 15000 }).catch(() => undefined);
 const dateBoxes = () =>
   page.$$eval('#pg-agenda input[type="datetime-local"]', (l) =>
     l.filter((i) => i.getClientRects().length).map((i) => {
@@ -196,15 +196,18 @@ const dateBoxes = () =>
       return { label: i.getAttribute('aria-label'), type: i.type, value: i.value, w: Math.round(r.width), h: Math.round(r.height) };
     }),
   );
-// (A screen in sections remembers the one last chosen: the tabs loop above opened the Agenda's other side, so start
-//  from its first pill, the Diary, or the first count and the "other side" would both be the Reminders.)
-const firstPill = page.locator('#pg-agenda .secpills .secpill').nth(0);
-if (await firstPill.isVisible().catch(() => false)) {
-  await firstPill.click();
-  await page.waitForTimeout(500);
+/** The box with this name drawn on the screen (waited for: CI's runner draws a side later than this container). */
+const boxShown = (label) => page.waitForFunction((l) => [...document.querySelectorAll('#pg-agenda input[type="datetime-local"]')].some((i) => i.getAttribute('aria-label') === l && i.getClientRects().length), label, { timeout: 15000 }).then(() => true, () => false);
+// (A screen in sections remembers the one last chosen: the tabs loop above opened another side, so the event's box is looked for
+//  on the Diary pill and the reminder's on the Reminders pill, each by its name: the Agenda's pills are Diary, To-do, Reminders,
+//  Spending and Calendars since the PLAN lane's to-do list, so its second pill is no longer the reminders' side.)
+const pillNamed = (name) => page.locator('#pg-agenda .secpills .secpill', { hasText: new RegExp(`^\\s*${name}\\s*$`, 'i') }).first();
+const dates = [];
+for (const [pill, box] of [['Diary', 'Event start'], ['Reminders', 'Reminder time']]) {
+  if (await pillNamed(pill).isVisible().catch(() => false)) await pillNamed(pill).click();
+  if (!(await boxShown(box))) continue;
+  dates.push(...(await dateBoxes()).filter((d) => !dates.some((x) => x.label === d.label)));
 }
-const dates = await dateBoxes();
-if (await otherSide('agenda')) dates.push(...(await dateBoxes()).filter((d) => !dates.some((x) => x.label === d.label)));
 if (dates.length < 2) problems.push(`AGENDA has ${dates.length} date and time boxes, expected the event's and the reminder's`);
 for (const d of dates) if (d.type !== 'datetime-local' || !d.value || d.w < 120 || d.h < 39.5) problems.push(`a date and time box does not render properly: ${JSON.stringify(d)}`);
 
