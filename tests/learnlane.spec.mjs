@@ -156,6 +156,8 @@ for (const vp of [PHONE, PHONE2]) {
             if (k === 0) check(/^Working:[\s\S]*\nAnswer: /.test(working), `${T} [U1] the working shown is not the full working: "${working.slice(0, 80)}"`);
             await page.locator('.bkstudy button', { hasText: k % 2 ? /^STILL LEARNING$/i : /^GOT IT$/i }).click();
           }
+          // (the phone keeps it a moment after the last tap: waited for, never a fixed sleep)
+          await until(page, () => JSON.parse(localStorage.getItem('ghosty.school.booklets') ?? '{}')?.list?.[0]?.studied === 1, null, 5000);
           const end = await page.evaluate(() => ({ b: window.__ghosty.booklet, kept: JSON.parse(localStorage.getItem('ghosty.school.booklets') ?? '{}') }));
           check(end.b.done && end.b.line === `You got ${Math.ceil(n / 2)} of ${n}. The ones still to learn come first next time.`, `${T} [U1] the end: ${JSON.stringify(end.b)}`);
           const kept = end.kept?.list?.[0];
@@ -286,6 +288,31 @@ for (const vp of [PHONE, PHONE2]) {
     check(await until(page, () => /Persuasion/.test(document.querySelector('#pg-library .pn.classics .cllist')?.textContent ?? ''), null, 10000), `${T} [U6 new] Standard Ebooks' new releases did not draw`);
   } catch (e) {
     check(false, `${T} [U6] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
+// ================================================================ S2 and U12 · Rehearse in another language, and his speaking week by week
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  const { ctx, page } = await phone(vp);
+  try {
+    await go(page, 'rehearse');
+    const langs = await page.$$eval('#pg-rehearse select.rhlang option', (os) => os.map((o) => [o.value, o.textContent]));
+    check(langs[0]?.[0] === 'en' && langs.some(([v, t]) => v === 'es' && /^Spanish: practise speaking it$/.test(t ?? '')) && langs.some(([v]) => v === 'fr'), `${T} [S2] the language picker offers ${JSON.stringify(langs.slice(0, 4))}`);
+    // a talk's numbers are kept and charted; what was said is not
+    await openSection(page, 'rehearse', 'Talk').catch(() => undefined);
+    await page.fill('#pg-rehearse textarea[name="talk"]', 'Um, so basically I want to talk about my car. It is red. Um, I fixed the brakes myself last week, and it stops well now.');
+    await page.fill('#pg-rehearse input[name="seconds"]', '12');
+    await page.locator('#pg-rehearse button[data-act="check"]').click();
+    check(await until(page, () => document.querySelectorAll('#pg-rehearse .rhchart .rhweek').length === 1, null, 5000), `${T} [U12] the week is not charted`);
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.talks') ?? '[]'));
+    check(kept.length === 1 && kept[0].fillers === 3 && kept[0].wpm > 0 && !JSON.stringify(kept).includes('brakes'), `${T} [U12] what is kept: ${JSON.stringify(kept)}`);
+    const trend = (await page.locator('#pg-rehearse .rhtrend').textContent()) ?? '';
+    check(trend === 'One week so far: talk again next week to see the change.', `${T} [U12] the trend says "${trend}"`);
+    await bar(page, `${T} [S2 U12 rehearse]`, 'rehearse');
+  } catch (e) {
+    check(false, `${T} [S2 U12] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
   }
   await ctx.close();
 }

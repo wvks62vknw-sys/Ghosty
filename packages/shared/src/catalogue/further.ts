@@ -60,7 +60,7 @@ export const FURTHER_WORDS: Record<string, CatValue> = {
   'panel:rehearse:A TALK FOR A MINUTE': {
     name: 'Talk for a minute',
     line: 'You can talk for a minute, or type what you would say, and get your filler words, your pace and the one line to cut.',
-    more: 'The pace is words a minute against the 110 to 160 that people follow easily. The one line to cut is the longest sentence, or the one fullest of filler words. Nothing is kept.',
+    more: 'The pace is words a minute against the 110 to 160 that people follow easily. The one line to cut is the longest sentence, or the one fullest of filler words. Only the numbers are kept on this phone, charted week by week; never what you said.',
     say: ['Practise my presentation'], scene: ['school', 'talking'], cat: 'learn', since: SINCE,
   },
   'panel:rehearse:KEPT': {

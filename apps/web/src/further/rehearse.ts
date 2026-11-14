@@ -93,6 +93,59 @@ export function langNotesPrompt(lang: { code: string; name: string }, situation:
   ].join('\n\n');
 }
 
+/**
+ * [learn.u12] HIS SPEAKING, CHARTED: each one-minute talk keeps only its numbers on this phone (when, words a minute, filler
+ * words, length), never what was said, so the weeks can be compared.
+ */
+export const TALKS_KEY = 'ghosty.talks';
+export const TALKS_MAX = 120;
+export interface TalkMark { at: number; wpm: number; fillers: number; words: number; seconds: number }
+export function loadTalks(): TalkMark[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(TALKS_KEY) ?? '[]') as TalkMark[];
+    return Array.isArray(v) ? v.filter((x) => Number.isFinite(x?.at) && Number.isFinite(x?.wpm)) : [];
+  } catch {
+    return [];
+  }
+}
+export function addTalk(m: TalkMark): TalkMark[] {
+  const all = [...loadTalks(), m].slice(-TALKS_MAX);
+  try {
+    localStorage.setItem(TALKS_KEY, JSON.stringify(all));
+  } catch {
+    /* storage full or blocked: the chart shows what it has */
+  }
+  return all;
+}
+/** The Monday that starts a talk's week, in London (the key a week is charted under). */
+export function weekOf(at: number): string {
+  const d = new Date(new Date(at).toLocaleString('en-US', { timeZone: 'Europe/London' }));
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/** Week by week, oldest first: talks, the average words a minute and filler words a minute (the last eight weeks). */
+export function talkWeeks(talks: TalkMark[]): { week: string; n: number; wpm: number; fpm: number }[] {
+  const by = new Map<string, TalkMark[]>();
+  for (const t of talks) by.set(weekOf(t.at), [...(by.get(weekOf(t.at)) ?? []), t]);
+  return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-8).map(([week, ts]) => ({
+    week,
+    n: ts.length,
+    wpm: Math.round(ts.reduce((a, t) => a + t.wpm, 0) / ts.length),
+    fpm: Math.round((ts.reduce((a, t) => a + t.fillers, 0) / Math.max(1, ts.reduce((a, t) => a + t.seconds, 0) / 60)) * 10) / 10,
+  }));
+}
+/** One line on the change since the first week charted (what happened, in his own numbers; never a forecast). */
+export function talkTrend(weeks: { wpm: number; fpm: number }[]): string {
+  if (weeks.length < 2) return weeks.length ? 'One week so far: talk again next week to see the change.' : 'No talks yet: CHECK IT on a talk and its numbers start the chart.';
+  const a = weeks[0]!;
+  const b = weeks.at(-1)!;
+  const f = b.fpm < a.fpm ? `filler words down from ${a.fpm} to ${b.fpm} a minute` : b.fpm > a.fpm ? `filler words up from ${a.fpm} to ${b.fpm} a minute` : `filler words steady at ${b.fpm} a minute`;
+  const inBand = (w: number) => w >= 110 && w <= 160;
+  const p = inBand(b.wpm) ? `pace ${b.wpm} a minute, in the easy-to-follow band` : `pace ${b.wpm} a minute (easy to follow is 110 to 160)`;
+  return `Since your first week: ${f}; ${p}.`;
+}
+
 /** The words he fills silence with (counted whole-word, lower case). */
 export const FILLERS = ['um', 'uh', 'er', 'erm', 'like', 'you know', 'basically', 'actually', 'sort of', 'kind of', 'i mean', 'literally'];
 

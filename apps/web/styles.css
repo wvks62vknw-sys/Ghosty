@@ -9920,3 +9920,9 @@ html .bkq { font-size: 19px; line-height: 1.35; margin: 0; overflow-wrap: anywhe
 html .bkopts { margin: 0; padding: 0; list-style: none; }
 html .bkworking { white-space: pre-wrap; overflow-wrap: anywhere; }
 html .bkstudy .keyrow button, html .schbk button { min-height: 44px; }
+/* REHEARSE · YOUR SPEAKING, WEEK BY WEEK (learn.u12): a bar per week for pace, with filler words beside it */
+html #pg-rehearse .rhchart { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+html #pg-rehearse .rhweek { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 2px 8px; align-items: center; }
+html #pg-rehearse .rhweek > small:last-child { grid-column: 2; color: var(--mute); overflow-wrap: anywhere; }
+html #pg-rehearse .rhbarbox { display: block; height: 10px; border-radius: 5px; background: var(--thin); overflow: hidden; }
+html #pg-rehearse .rhbar { display: block; height: 100%; border-radius: 5px; background: var(--acc); }

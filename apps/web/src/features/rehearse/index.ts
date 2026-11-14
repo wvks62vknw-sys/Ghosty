@@ -22,6 +22,7 @@ import { sections } from '../../ui/sections';
 import { panel } from '../../ui/components';
 import { askWithImage } from '../../vision/ask';
 import { canHear, hear, type Ear } from '../../further/interpret';
+import { addTalk, loadTalks, talkTrend, talkWeeks } from '../../further/rehearse';
 import { deleteKept, KEEP_KEY, langNotesPrompt, loadKept, notesOf, PRACTICE_LANGS, promptFor, ROUNDS, saveKept, talkNotes, TEMPER_WORD, wordCount, type Kept } from '../../further/rehearse';
 
 export { KEEP_KEY };
@@ -280,13 +281,28 @@ export const rehearseTab: TabDef = {
       if (!Number.isFinite(secs2) || secs2 < 5) return void (tState.textContent = 'Tell me how many seconds it took (at least five), so I can work out your pace.');
       const n = talkNotes(t, secs2);
       tState.textContent = '';
-      clear(tOut, h('b.rhnotehead', 'YOUR TALK · counted from what was said'), h('ul', ...n.lines.map((l) => h('li', l))), h('small.rhnote', `${wordCount(t)} words. Nothing is kept.`));
+      // [learn.u12] only the numbers are kept, on this phone: never what was said
+      addTalk({ at: Date.now(), wpm: n.wpm, fillers: n.fillers.reduce((a, f) => a + f.n, 0), words: n.words, seconds: n.seconds });
+      paintChart();
+      clear(tOut, h('b.rhnotehead', 'YOUR TALK · counted from what was said'), h('ul', ...n.lines.map((l) => h('li', l))), h('small.rhnote', `${wordCount(t)} words. Only its numbers (pace and filler words) are kept on this phone, never what you said.`));
       tOut.hidden = false;
       talk.setStatus(`${n.wpm} A MINUTE`, 'ok');
     });
     check.dataset.act = 'check';
     check.dataset.case = 'keep';
-    talk.body.append(h('div.rhconv', said, h('div.row.wrap', startTalk), secsIn, h('div.row.wrap', check), tState, tOut));
+    // [learn.u12] the weeks charted: pace and filler words a minute, from the numbers kept on this phone
+    const chart = h('div.rhchart', { role: 'group', 'aria-label': 'Your speaking, week by week' });
+    function paintChart(): void {
+      const weeks = talkWeeks(loadTalks());
+      const top = Math.max(160, ...weeks.map((w) => w.wpm));
+      clear(chart, h('b.rhnotehead', 'YOUR SPEAKING, WEEK BY WEEK'), h('p.rhnote.rhtrend', talkTrend(weeks)),
+        ...weeks.map((w) => h('div.rhweek', { dataset: { week: w.week } },
+          h('small', new Date(`${w.week}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
+          h('span.rhbarbox', h('i.rhbar', { style: `width:${Math.round((w.wpm / top) * 100)}%` })),
+          h('small', `${w.wpm} a min · ${w.fpm} fillers a min · ${w.n} talk${w.n === 1 ? '' : 's'}`))));
+    }
+    paintChart();
+    talk.body.append(h('div.rhconv', said, h('div.row.wrap', startTalk), secsIn, h('div.row.wrap', check), tState, tOut, chart));
 
     // ------------------------------------------------------------------------------------------------ KEPT
     // every rehearsal he tapped KEEP on, newest first: each opens to its answers and notes (read only), with DELETE (tapped twice)
