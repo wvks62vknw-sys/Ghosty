@@ -129,7 +129,7 @@ export async function dropSource(project: string, src: string): Promise<void> {
 }
 
 /** Saves a project 200 ms after the last change; `onSaved` says "Saved" (the first time a project is, only once). */
-export function autosaver(onSaved: () => void): { change(p: Project): void; flush(): Promise<void> } {
+export function autosaver(onSaved: (p: Project) => void): { change(p: Project): void; flush(): Promise<void> } {
   let timer = 0;
   let latest: Project | null = null;
   const run = async () => {
@@ -138,7 +138,7 @@ export function autosaver(onSaved: () => void): { change(p: Project): void; flus
     if (!p) return;
     try {
       await saveProject(p);
-      onSaved();
+      onSaved(p);
     } catch {
       /* a full or blocked store is said by the screen when it adds a clip */
     }
@@ -179,4 +179,18 @@ export async function importZip(bytes: Uint8Array): Promise<Project> {
     if (data) await putSource(q.id, id, new Blob([data as BlobPart]), await posterBlob(old, id));
   }
   return q;
+}
+
+// ---------------------------------------------------------------- the daily backup (POLISH 3, 2d)
+/** Every project's JSON (not its clips: they stay on this phone), for the daily backup. Those in the bin are left out. */
+export async function projectsForBackup(): Promise<Project[]> {
+  const rows = (await req((await tx(['projects'], 'readonly')).objectStore('projects').getAll())) as Row[];
+  return rows.filter((r) => !r.gone).map((r) => r.project);
+}
+/** A backed-up project put back when this phone has none by its id, or an older one (the newer wins). Its clips come back only if they are still here. */
+export async function restoreProject(p: Project): Promise<'kept' | 'same'> {
+  const now = await loadProject(p.id).catch(() => null);
+  if (now && (now.at ?? 0) >= (p.at ?? 0)) return 'same';
+  await saveProject(p);
+  return 'kept';
 }

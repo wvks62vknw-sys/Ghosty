@@ -6,7 +6,10 @@
  */
 import { blockId, tidyRuns, type Block, type Run } from '../docs/model';
 
-export type WType = Block['t'] | 'todo' | 'link' | 'view';
+export type WType = Block['t'] | 'todo' | 'link' | 'view' | 'callout';
+/** A callout's kind: a note, a tip, or a warning (its mark and its tint). */
+export type Tone = 'note' | 'tip' | 'warn';
+export const TONES: Tone[] = ['note', 'tip', 'warn'];
 export interface Comment {
   id: string;
   text: string;
@@ -21,6 +24,8 @@ export interface WBlock extends Omit<Block, 't'> {
   /** A database view: the database's page id, and which of its views this block shows. */
   db?: string;
   view?: string;
+  /** A callout: which kind (left out: a note). */
+  tone?: Tone;
   /** His own words to himself on this block, dated. */
   comments?: Comment[];
 }

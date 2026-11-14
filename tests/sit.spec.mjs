@@ -97,6 +97,9 @@ const school = (page) => page.evaluate(() => (location.hash = 'school'));
 
 async function signIn(big = false) {
   const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 2, ...UK });
+  // (13 Nov) No signal for the brain's own model: the phone's brain sits the papers, as this spec checks. Online sitting,
+  // in full working, is learnlane.spec's.
+  await ctx.route('**/api/school/sit-online', (r) => r.abort('internetdisconnected'));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   await page.addInitScript(engine, big);

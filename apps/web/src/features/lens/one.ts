@@ -46,6 +46,10 @@ import type { LensContext, Mode, ModeOpts } from './index';
 import { letterKeys } from './letter';
 import { sayError } from '../../ui/hisWords';
 import { waiting as putUpWait } from '../../ui/wait';
+import { createCards, type CardInput } from './cards';
+import { letterOf } from '../../../../../packages/shared/src/lifeeasier';
+import { isoDay } from '../brief/day';
+import { livingKind, type JobId } from '../../vision/jobs';
 
 /** The grey frame's width: the "text present" check and the steadiness work on this, not on the camera's pixels. */
 const GREY_W = 160;
@@ -180,11 +184,17 @@ export interface OneFeed {
   reset(): void;
   /** A tag of this kind goes (it leaves the picture). */
   drop(kind: TagKind): void;
+  /** The words the reader read off the text in view, as if it had just read them (the fixture frames of lens2). */
+  text?(words: string): void;
+  /** Whether the phone has a signal, as the browser would say (the no-signal cards). */
+  online?(on: boolean): void;
 }
 export const oneFeed: OneFeed = {
   see: (s) => oneHooks.feed?.see(s),
   reset: () => oneHooks.feed?.reset(),
   drop: (k) => oneHooks.feed?.drop(k),
+  text: (w) => oneHooks.feed?.text?.(w),
+  online: (on) => oneHooks.feed?.online?.(on),
 };
 
 /** The follow: a box eases to where its tag is (the time constant, ms), never a jump; a long gap between frames counts as at most this much. */
@@ -257,7 +267,53 @@ export function createOneMode(L: LensContext): Mode {
   const markRow = h('div.lensmarkrow', markEl, sentEl, namerOffEl, whyEl);
   // the download keys and the one true line sit UNDER the viewfinder: never on the picture, never in the camera's bar
   const truthEl = h('div.lenstruth');
-  const knowRow = h('div.lensknow', truthEl, getBtn, namerBtn);
+  // THE CARDS (FINAL-LENS): one for each thing the frame holds, each with the keys that do its job (cards.ts; the decisions in vision/jobs.ts)
+  const cards = createCards({
+    picture: (job: JobId) => {
+      const kind: TagKind | null = job === 'place' || job === 'living' || job === 'thing' ? 'object' : job === 'code' || job === 'product' ? 'code' : job === 'text' || job === 'document' ? 'text' : null;
+      const t = kind ? textOrKind(kind) : undefined;
+      return t ? cropOf(t) : L.still(1600);
+    },
+    act: (what) => {
+      const now = performance.now();
+      const alive = tags.alive(now);
+      const pick = (k: TagKind) => alive.find((t) => t.kind === k);
+      if (what === 'look') {
+        const t = pick('code');
+        if (t) void doAct(t, 'look');
+      } else if (what === 'nameit') {
+        // the species, in one tap: NAME's LIVING THING runs at once on the crop, as the kind the phone's name says (a plant to Pl@ntNet)
+        const t = pick('object');
+        const c = t ? cropOf(t) : L.still(1600);
+        if (!c) return void toast('Open the camera first', 'warn');
+        const label = (t && nodes.get(t.id)?.label) || t?.data?.label || '';
+        S.lastAction = `which species: ${label || 'the picture'}`;
+        L.setMode('name', { still: c, living: livingKind(label) });
+      } else if (what === 'measure') {
+        const t = pick('object');
+        if (t) void doAct(t, what);
+        else if (what === 'measure') {
+          L.freeze(true);
+          L.setMode('measure');
+        }
+      } else if (what === 'document') {
+        const c = L.still(1600);
+        if (!c) return void toast('Open the camera first', 'warn');
+        L.setMode('scan', { sub: 'document', still: c });
+      } else if (what === 'translate') {
+        // the text card's TRANSLATE: its words, and only its words, to be translated (never the picture)
+        if (needBrain('translating')) return;
+        if (ocr.text && needsTranslation(ocr.lang)) L.setMode('ask', { text: ocr.text, question: 'Translate this text into English. Tell me which language it is.', send: true });
+      } else {
+        // a thing card's ASK ABOUT IT: the question about that thing with its picture, which he sends himself
+        if (needBrain('asking')) return;
+        const t = pick('object');
+        if (t) void doAct(t, 'ask');
+        else L.setMode('ask', { still: L.still(1600) ?? undefined });
+      }
+    },
+  });
+  const knowRow = h('div.lensknow', truthEl, cards.el, getBtn, namerBtn);
   /** Nothing tagged and the eyes not on the phone: the one true line is the key (his tap, the size said). Set by paint. */
   let honest = true;
   const getWords = (): string => (oneState.finder === 'failed' ? `TRY AGAIN · ${FINDER_SIZE}` : honest ? eyesLine(FINDER_SIZE) : `GET THE EYES · ${FINDER_SIZE}, ON WI-FI`);
@@ -565,6 +621,7 @@ export function createOneMode(L: LensContext): Mode {
 
   /** Forget the words (the text left the picture, or the Lens was left). */
   const forgetText = (): void => {
+    fixtureWords = false;
     ocr.state = 'idle';
     ocr.text = '';
     ocr.tokens = [];
@@ -577,10 +634,49 @@ export function createOneMode(L: LensContext): Mode {
     drawPlates();
   };
 
+  /** The words in view came from a spec's fixture frame (oneFeed.text): the reader leaves them be until the text leaves. */
+  let fixtureWords = false;
   const textTagNow = (now: number): Tag | undefined => tags.alive(now).find((t) => t.kind === 'text');
+  /** The live tag of a kind, for a card's act that needs its picture. */
+  const textOrKind = (k: TagKind): Tag | undefined => tags.alive(performance.now()).find((t) => t.kind === k);
+  /** Does the read text look like a letter or a bill (kept for the text, not worked out again on every frame)? */
+  let letterFor = { text: '', is: false };
+  const isLetter = (text: string): boolean => {
+    if (letterFor.text !== text) letterFor = { text, is: !!text && !!letterOf(text, isoDay(new Date())) };
+    return letterFor.is;
+  };
+  /** What the cards are told about the frame: the facts, never a face's numbers (a known face by the name he gave, a stranger as one). */
+  const cardInput = (list: Tag[], labels: Map<number, string>): CardInput => {
+    const frame = L.camera.size;
+    const area = Math.max(1, frame.w * frame.h);
+    const text = list.find((t) => t.kind === 'text');
+    const code = list.find((t) => t.kind === 'code');
+    const objs = list.filter((t) => t.kind === 'object' && (labels.get(t.id) || t.data?.label)).sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h);
+    const face = list.find((t) => t.kind === 'face');
+    // (while the words are read again after a small move, the cards know the words were there, and say they are being read again)
+    const read = ocr.state === 'read' || (ocr.state === 'reading' && ocr.text) ? ocr.text : '';
+    return {
+      text: read,
+      textShare: text ? (text.box.w * text.box.h) / area : 0,
+      ...(text ? { textId: text.id } : {}),
+      ...(code?.data?.text ? { code: { text: code.data.text, format: code.data.format } } : {}),
+      ...(objs[0] ? { thing: { label: labels.get(objs[0].id) || objs[0].data?.label || '', score: objs[0].score }, thingId: objs[0].id } : {}),
+      known: !!face,
+      knownName: face?.data?.label ?? '',
+      stranger: list.some((t) => t.kind === 'stranger'),
+      letter: !!read && isLetter(read),
+      lang: read ? ocr.lang.name : '',
+      langTag: read ? ocr.lang.tag : '',
+      english: ocr.tr === 'done' ? ocr.translation : '',
+      reading: ocr.state === 'reading',
+      online,
+      eyes: oneState.finder === 'ready',
+      camera: S.camera === 'on',
+    };
+  };
 
   /** May the OCR READ run now: a steady scene it has not read, text in it, one heavy pass at a time, the reader free. */
-  const wantsRead = (now: number): boolean => !heavyInFlight && !gate.busy && mirror.steady && mirror.epoch !== ocr.epoch && !L.reader.busy && !!textTagNow(now);
+  const wantsRead = (now: number): boolean => !fixtureWords && !heavyInFlight && !gate.busy && mirror.steady && mirror.epoch !== ocr.epoch && !L.reader.busy && !!textTagNow(now);
 
   /** The words of a sign go to the brain, by themselves, to be put into English: never the picture, nothing of where he is (BRIEF-LENS-KNOWS 4). */
   const sendWords = async (v: number, text: string): Promise<void> => {
@@ -872,6 +968,9 @@ export function createOneMode(L: LensContext): Mode {
       truthEl.replaceChildren(truthLine(parts));
     }
     looked(lookingWords(knowns), now);
+    const labels = new Map<number, string>();
+    for (const t of list) if (t.kind === 'object') labels.set(t.id, nodes.get(t.id)?.label ?? '');
+    cards.update(cardInput(list, labels));
     const counts = list.length ? contextWords(list) : '';
     if (S.counts !== counts) {
       S.counts = counts;
@@ -1317,7 +1416,12 @@ export function createOneMode(L: LensContext): Mode {
       return line;
     }
     if (w === 'translate') return translateWord();
-    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate'>, { kinds: TagKind[]; act: ActId; none: string }> = {
+    if (w === 'solve' || w === 'call' || w === 'agenda' || w === 'map' || w === 'species' || w === 'place' || w === 'aloud' || w === 'copy') {
+      const line = cards.press(w);
+      say(line);
+      return line;
+    }
+    const map: Record<Exclude<LensWord, 'what' | 'who' | 'keep' | 'translate' | 'solve' | 'call' | 'agenda' | 'map' | 'species' | 'place' | 'aloud' | 'copy'>, { kinds: TagKind[]; act: ActId; none: string }> = {
       read: { kinds: ['text'], act: 'read', none: 'I don’t see any text to read yet.' },
       look: { kinds: ['code'], act: 'look', none: 'I don’t see a code yet.' },
       name: { kinds: ['object'], act: 'nameit', none: 'I don’t see an object to name yet. Getting the eyes helps.' },
@@ -1371,6 +1475,29 @@ export function createOneMode(L: LensContext): Mode {
             tags.drop((x) => x.kind === kind);
             paint(performance.now());
           },
+          // a fixture frame of print: a text tag over the page, and the words as the reader would have read them
+          text: (words) => {
+            const t = performance.now();
+            const f = L.camera.size.w ? L.camera.size : { w: 640, h: 480 };
+            const share = (words.match(/\S+/g)?.length ?? 0) >= 40 ? 0.8 : 0.5;
+            note(tags.see([{ kind: 'text', box: { x: f.w * 0.05, y: f.h * 0.1, w: f.w * 0.9, h: f.h * share }, score: 0.95, truth: TEXT_TRUTH }], t, f), t);
+            fixtureWords = true;
+            ocr.text = words;
+            ocr.tokens = words.match(/\S+/g) ?? [];
+            ocr.lang = languageOf(words);
+            ocr.state = 'read';
+            ocr.tr = 'none';
+            ocr.translation = '';
+            ocr.epoch = mirror.epoch;
+            oneState.ocr = { ...oneState.ocr, state: 'read', words: ocr.tokens.length, lang: ocr.lang.name };
+            if (needsTranslation(ocr.lang)) void sendWords(visit, words);
+            paint(t);
+          },
+          online: (on) => {
+            online = on;
+            markAll();
+            paint(performance.now());
+          },
         };
       }
       oneState.faces = 'off';
@@ -1396,6 +1523,7 @@ export function createOneMode(L: LensContext): Mode {
       for (const n of nodes.values()) n.box.remove();
       nodes.clear();
       forgetText();
+      cards.clear();
       translated.clear();
       hush();
       tags.clear();
@@ -1434,6 +1562,7 @@ export function createOneMode(L: LensContext): Mode {
     },
     cameraOff() {
       forgetText();
+      cards.clear();
       tags.clear();
       tracks = [];
       steady.reset();

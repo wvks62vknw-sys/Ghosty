@@ -3,7 +3,7 @@
  * source, with what transform and transition, which overlays, which title and subtitle — worked out once for the screen's player
  * and the export. `planFrame` is pure (the brain test and the spec read it); `buildSpec` turns it into the layers the GPU draws.
  */
-import { activeMain, clipLen, place, shape, sourceTime, type Clip, type Cue, type Overlay, type Project } from './model';
+import { activeMain, clipLen, fadeFactor, place, shape, sourceTime, type Clip, type Cue, type Overlay, type Project } from './model';
 import { clamp, cornerPos, transformAt, transitionProgress } from './math';
 import type { FrameSpec, Layer } from './gpu';
 import { cueAt } from './subs';
@@ -60,7 +60,7 @@ export function buildSpec(plan: FramePlan, p: Project, get: Provider, text: Canv
       y += c.y;
       scale *= l.ov.size ?? 0.35;
     }
-    return { el: f.el, w: f.w, h: f.h, crop: l.clip.crop, fit: l.clip.fit, x, y, scale, rot: tr.rot, opacity: tr.opacity, grade: l.clip.grade, ...(l.clip.lut ? { lut: l.clip.lut } : {}), ...(l.clip.mask ? { mask: l.clip.mask } : {}), ...(l.clip.chroma ? { chroma: l.clip.chroma } : {}) };
+    return { el: f.el, w: f.w, h: f.h, crop: l.clip.crop, fit: l.clip.fit, x, y, scale, rot: tr.rot, opacity: tr.opacity * (l.role === 'overlay' ? 1 : fadeFactor(l.clip, l.tIn)), grade: l.clip.grade, ...(l.clip.lut ? { lut: l.clip.lut } : {}), ...(l.clip.mask ? { mask: l.clip.mask } : {}), ...(l.clip.chroma ? { chroma: l.clip.chroma } : {}) };
   };
   const main = plan.layers.find((l) => l.role === 'main');
   const b = plan.layers.find((l) => l.role === 'mainB');

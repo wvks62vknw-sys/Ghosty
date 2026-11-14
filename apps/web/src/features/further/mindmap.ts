@@ -291,13 +291,20 @@ export function openMindMap(): void {
       more.hidden = false;
       say.textContent = offlineNow(t.reason)
         ? 'I can’t reach my brain, so I can’t draw what I know. Try again when you’re back online.'
-        : `I couldn’t read my memory just now (${String((t.reason as Error)?.message ?? t.reason)}).`;
+        : sayError(t.reason, 'read my memory');
       clear(more, button('TRY AGAIN', () => void load()));
       return;
     }
     items = t.status === 'fulfilled' ? t.value.items : [];
     places = p.status === 'fulfilled' ? p.value.places : [];
     paint();
+    // half read: what came is drawn, and the line says the rest did not come (never "I don't know anything" when it failed)
+    if (t.status === 'rejected' || p.status === 'rejected') {
+      const missed = t.status === 'rejected' ? 'my memory' : 'your places';
+      say.textContent = items.length + places.length ? `${say.textContent} I couldn’t read ${missed} just now.` : sayError(t.status === 'rejected' ? t.reason : (p as PromiseRejectedResult).reason, `read ${missed}`);
+      more.hidden = false;
+      clear(more, button('TRY AGAIN', () => void load()));
+    }
   }
   const offlineNow = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
   void load();

@@ -154,5 +154,5 @@ export function threatLevel(list = signals()): { n: 0 | 1 | 2 | 3; label: string
   const n = list.reduce<number>((m, x) => Math.max(m, x.sev), 0) as 0 | 1 | 2 | 3;
   const major = list.filter((x) => x.sev >= 2).length;
   const gap = !quakes.data ? 'the quake feed' : !events.data ? 'the storm and fire feed' : '';
-  return { n, label: ['CLEAR', 'WATCH', 'ELEVATED', 'SEVERE'][n]!, why: `${major ? `${major} major signals` : `${list.length} signals`}${gap ? ` · can’t reach ${gap}` : ''}`, known: true };
+  return { n, label: ['CLEAR', 'WATCH', 'ELEVATED', 'SEVERE'][n]!, why: `${major ? `${major} major` : 'none major'}${gap ? ` · can’t reach ${gap}` : ''}`, known: true };
 }

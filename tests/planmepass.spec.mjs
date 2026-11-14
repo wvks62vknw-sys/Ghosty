@@ -104,10 +104,10 @@ await section('words', async () => {
 
   // ---- SETTINGS
   const EW = await pure('apps/web/src/features/settings/words.ts');
-  const offs = Object.entries(EW.SWITCHES).filter(([, v]) => !/ Off, /.test(v)).map(([k]) => k);
-  check(!offs.length && Object.values(EW.SWITCHES).every((v) => words(v) <= 20) && EW.SWITCHES.barge === 'I stop when you talk over me. Off, only a tap stops me.', `[E1 switches] a switch does not say what changes when off: ${offs.join(', ') || EW.SWITCHES.barge}`);
+  const offs = Object.entries(EW.SWITCHES).filter(([, v]) => !/; off, /.test(v)).map(([k]) => k);
+  check(!offs.length && Object.values(EW.SWITCHES).every((v) => words(v) <= 20) && EW.SWITCHES.barge === 'I stop when you talk over me; off, only a tap stops me.', `[E1 switches] a switch does not say what changes when off: ${offs.join(', ') || EW.SWITCHES.barge}`);
   check(src('features/settings/voice.ts').includes('SWITCHES.barge') && src('features/settings/faces.ts').includes('SWITCHES.live') && src('features/settings/guardian.ts').includes('SWITCHES.share'), '[E1 switches] a page does not draw its switch from the words');
-  check(/never identify a stranger/.test(EW.FACES_NONE) && /^None yet\./.test(EW.FACES_NONE) && src('features/settings/faces.ts').includes('FACES_NONE'), `[E2 faces] with none says "${EW.FACES_NONE}"`);
+  check(/never identify a stranger/.test(EW.FACES_NONE) && /^None yet:/.test(EW.FACES_NONE) && src('features/settings/faces.ts').includes('FACES_NONE'), `[E2 faces] with none says "${EW.FACES_NONE}"`);
   check(words(EW.PRINCIPLES_EMPTY) <= 14 && /^Reading/.test(EW.PRINCIPLES_LOADING) && src('features/settings/principles.ts').includes('waiting(host, PRINCIPLES_LOADING)') && src('features/settings/principles.ts').includes('PRINCIPLES_ERROR'), `[E3 principles] empty reads "${EW.PRINCIPLES_EMPTY}"`);
   const longG = Object.entries(EW.GUARDIAN).filter(([, c]) => words(c.short) > 20).map(([k]) => k);
   check(!longG.length && src('features/settings/guardian.ts').includes('cut(G.intro)') && !/Typed or said/.test(src('features/settings/guardian.ts')) && !/try Safari/.test(src('features/settings/voiceknown.ts')), `[E4 guardian] a paragraph is over 20 words: ${longG.join(', ')}`);
@@ -322,7 +322,7 @@ for (const vp of [PHONE, PHONE2]) {
     await openPanel(page, 'settings', 'VOICE');
     await page.waitForTimeout(500);
     const sw = await txt(page, '#pg-settings .pn.pushed .setsw');
-    check(/Off, only a tap stops me\./.test(sw), `${T} [E1 switches] the voice switch reads "${sw}"`);
+    check(/; off, only a tap stops me\./.test(sw), `${T} [E1 switches] the voice switch reads "${sw}"`);
     await bar(page, `${T} [settings voice]`, 'settings');
     await still(page, 'settings', vp);
     await openPanel(page, 'settings', 'PRIVACY');
@@ -330,7 +330,7 @@ for (const vp of [PHONE, PHONE2]) {
     const faces = await txt(page, '#pg-settings .pn.pushed .facecount');
     check(!faces || /never identify a stranger/.test(faces) || /^\d+ face/.test(faces), `${T} [E2 faces] faces reads "${faces}"`);
     const live = await txt(page, '#pg-settings .pn.pushed .livesw');
-    check(!live || /Off, I save it without\./.test(live), `${T} [E1 switches] CHECK IT’S LIVE reads "${live}"`);
+    check(!live || /; off, I save it without\./.test(live), `${T} [E1 switches] CHECK IT’S LIVE reads "${live}"`);
     await bar(page, `${T} [settings privacy]`, 'settings');
     await openPanel(page, 'settings', 'GUARDIAN');
     await page.waitForTimeout(600);

@@ -41,6 +41,8 @@ export function healthScreen(): Screen {
       none.remove();
       bodyState.health = { read: acc.records, avgSteps: week.avgSteps, avgSleep: week.avgSleep };
       paint(week);
+      // [bodylane] the week's steps and sleep kept on the Steps and Sleep trackers too (never over a day he kept himself)
+      void import('./track').then((t) => t.fromHealth(week.days)).catch(() => undefined);
       stateIn(status, '', `Read ${acc.records.toLocaleString('en-GB')} records from the last 30 days, here on the phone. ${NOT_ADVICE}`);
       void import('../core/cards').then((m) => m.postCard(healthCard(week))).catch(() => undefined);
       await brain.packDo('body', 'health', { week }).catch(() => stateIn(status, 'error', 'Read here, but my brain didn’t answer. Pick the export again later.'));

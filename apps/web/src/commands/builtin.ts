@@ -418,7 +418,7 @@ export function registerBuiltins(): void {
       // [packs] THE BODY PACK's screens (features/body): reps by camera, the running coach, breathing, the stretch set, the
       // Health export, water — from the brain's body tool, a card's button or the chat's own words.
       id: 'open_body',
-      title: 'Body: reps, run, breathe, stretch',
+      title: 'Body: water, sleep, steps, weight, mood, reps, run, breathe, stretch',
       group: 'GO',
       run: async (a) => {
         const { openBody } = await import('../features/body/sheet');
@@ -438,7 +438,7 @@ export function registerBuiltins(): void {
     {
       // [packs] THE KITCHEN PACK's sheets (features/kitchen): the timers, the shopping list, the week's meal plan.
       id: 'open_kitchen',
-      title: 'Kitchen: timers, shopping list, meal plan',
+      title: 'Kitchen: timers, shopping list, meal plan, pantry, recipes',
       group: 'GO',
       run: async (a) => {
         const { openKitchen } = await import('../features/kitchen/sheet');
@@ -448,7 +448,7 @@ export function registerBuiltins(): void {
     {
       // [packs2] THE PEOPLE PACK's sheets (features/people): who's who, the group plan.
       id: 'open_people',
-      title: 'People: who is who, group plan',
+      title: 'People: who is who, coming up, group plan',
       group: 'GO',
       run: async (a) => {
         const { openPeople } = await import('../features/people/sheet');
@@ -515,6 +515,16 @@ export function registerBuiltins(): void {
       run: async (a) => {
         const { openConvert } = await import('../convert/sheet');
         await openConvert([], { ...(typeof a?.tool === 'string' ? { tool: a.tool } : {}), ...(typeof a?.conversion === 'string' ? { conversion: a.conversion } : {}) });
+      },
+    },
+    {
+      // [comic] THE COMIC (features/comic): his shelf, MAKE and the public-domain library
+      id: 'open_comic',
+      title: 'Comic: read, import and make comics',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('comic');
       },
     },
     {

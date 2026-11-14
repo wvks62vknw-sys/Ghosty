@@ -5,7 +5,8 @@
  * deck uses, a slide for each slide with its title, text, picture (JPEG, in media), table, shapes and a picture or table in its own
  * box, a notes slide for each slide that has notes (with the notes master PowerPoint wants), and the document's title and dates.
  * A chart is not written as a chart part: its numbers are a table on the slide (marked, so this app's own reader makes the chart
- * again), and it lives in the PDF as a picture; animations and transitions are not carried: the export sheet says so once.
+ * again), and it lives in the PDF as a picture; a slide's transition (fade, push) and a skipped slide are PowerPoint's own; the builds
+ * (animations) are not carried: the export sheet says so once.
  * Read back by pptxread.ts and, in the tests, by a parser that is not ours.
  */
 import { textOf, type Block, type Run } from '../docs/model';
@@ -216,7 +217,8 @@ function slideXml(deck: Deck, s: Slide, c: Ctx, measure: Measure, image: (id: st
     else if (md.chart.points.length) shapes.push(tableFrame(c, 'Chart numbers', chartTag(md.chart), b, chartRows(md.chart), false));
   }
   s.shapes.forEach((sh, i) => shapes.push(shapeSp(c, sh, i + 1)));
-  return `${XML}<p:sld ${NSD}><p:cSld><p:spTree>${grp}${shapes.join('')}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+  const tr = s.transition === 'fade' ? '<p:transition spd="med"><p:fade/></p:transition>' : s.transition === 'push' ? '<p:transition spd="med"><p:push dir="l"/></p:transition>' : '';
+  return `${XML}<p:sld ${NSD}${s.skip ? ' show="0"' : ''}><p:cSld><p:spTree>${grp}${shapes.join('')}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${tr}</p:sld>`;
 }
 
 /** A layout part: its placeholders in the places the layout puts them. */

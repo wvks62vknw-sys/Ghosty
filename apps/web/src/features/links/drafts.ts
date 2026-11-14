@@ -5,17 +5,42 @@
  * stays a draft), NO drops it; a draft is gone after 24 hours. After APPROVE the chat keeps what was done, with WHY under it.
  * Also here: POST THAT? on a line of his own (the musing card) — it makes a draft, never a post.
  */
-import { stateWords, accountInfo, graphemes, type Draft } from '../../../../../packages/shared/src/social';
+import { stateWords, accountInfo, graphemes, postProblem, type Account, type Draft } from '../../../../../packages/shared/src/social';
 import type { Card } from '../../../../../packages/shared/src/cards';
 import { draftReply, type MailLine } from '../../../../../packages/shared/src/lifeeasier';
-import { brain } from '../../api/brain';
+import { brain, type SocialInfo } from '../../api/brain';
 import { chat, type Entry } from '../../assistant/session';
 import { register } from '../../commands/registry';
 import { h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
 import { settings } from '../../state/app';
-import { sayError } from '../../ui/hisWords';
-import { exactLine, failedWords, NO, sendKey } from '../social/words';
+import { inHisWords, rawText, sayError } from '../../ui/hisWords';
+import { exactLine, failedWords, lengthWords, NO, sendKey, tooLong } from '../social/words';
+
+/** Each account's own length as the brain last said it (GET /social: his Mastodon server's own, saved when he linked it). */
+export const ownMax = new Map<Account, number>();
+export function noteMax(info: SocialInfo | null): void {
+  for (const a of (info?.accounts ?? []) as (SocialInfo['accounts'][number] & { max?: number })[]) if (typeof a.max === 'number' && a.max > 0) ownMax.set(a.id, a.max);
+}
+/** Mastodon's length is his server's own: known only once the brain has said it (the others are fixed). */
+const knownMax = (a: Account): number | null => ownMax.get(a) ?? (a === 'mastodon' ? null : accountInfo(a).max);
+/**
+ * GET /social as the brain answers it now, never the phone's kept copy of an earlier answer (api/brain.ts keeps reads for
+ * when the brain is out of reach): out of reach, he is told so, instead of being shown yesterday's accounts and sends as now.
+ */
+export function socialRead(): Promise<SocialInfo> {
+  try {
+    localStorage.removeItem('ghosty.read:/social');
+  } catch {
+    /* nothing kept */
+  }
+  return brain.social();
+}
+/** A refusal the brain wrote in his words (400/409: too long, no picture words): said as it is, not as a fault. */
+export function brainRefusal(e: unknown, what: string): string {
+  const st = (e as { status?: unknown } | null)?.status;
+  return st === 400 || st === 409 ? sayError(inHisWords(rawText(e)), what) : sayError(e, what);
+}
 
 /** The chat's entries with this draft's card, given its new card (its state after an answer). */
 function patchCard(card: Card): void {
@@ -57,30 +82,41 @@ async function refuse(d: Draft, after?: () => void): Promise<void> {
   try {
     const r = await brain.socialNo(d.id);
     if (r.card) patchCard(r.card);
-    toast('Dropped: nothing went out.', 'ok');
+    if (r.error) toast(r.error, 'warn');
+    else toast('Dropped: nothing went out.', 'ok');
   } catch (e) {
-    toast(sayError(e, 'send that'), 'bad');
+    toast(sayError(e, 'drop that draft: it still waits, and nothing went out'), 'bad');
   }
   after?.();
 }
 
 /** EDIT: the words (and a picture's words) in a sheet; SAVE keeps it a draft, waiting for APPROVE. */
 function edit(d: Draft, after?: () => void): void {
-  const max = accountInfo(d.account).max;
+  const max = () => knownMax(d.account) ?? accountInfo(d.account).max;
   const box = h('textarea.drbox', { rows: '6', 'aria-label': 'The words of the post' }) as HTMLTextAreaElement;
   box.value = d.text;
   const alt = d.image ? (h('input.dralt', { type: 'text', 'aria-label': 'What is in the picture, for anyone who cannot see it' }) as HTMLInputElement) : null;
   if (alt) alt.value = d.image!.alt;
   const count = h('small.drcount', { 'aria-live': 'polite' });
   const paint = () => {
-    const n = d.account === 'bluesky' ? graphemes(box.value) : [...box.value].length;
-    count.textContent = `${n} / ${max}`;
-    count.classList.toggle('over', n > max);
+    // counted as the brain counts it (trimmed; Bluesky's 300 are graphemes), and said in words
+    const n = d.account === 'bluesky' ? graphemes(box.value.trim()) : [...box.value.trim()].length;
+    count.textContent = lengthWords(n, max(), accountInfo(d.account).name);
+    count.classList.toggle('over', n > max());
+    return n;
   };
   box.addEventListener('input', paint);
   paint();
+  // his Mastodon server's own length, when the chat opened this before SOCIAL had read it
+  if (!knownMax(d.account)) void socialRead().then((i) => (noteMax(i), paint())).catch(() => undefined);
   const msg = h('small.note');
   const save = button('SAVE', async (b) => {
+    // what the brain would refuse, said here first (and SAVE asks nothing of it): the length, then a picture's words
+    const n = paint();
+    const own = knownMax(d.account);
+    if (own !== null && n > own) return void (msg.textContent = tooLong(accountInfo(d.account).name, n, own));
+    const problem = postProblem(d.account, box.value, d.image ? { ...d.image, alt: alt?.value ?? d.image.alt } : null, Number.MAX_SAFE_INTEGER);
+    if (problem) return void (msg.textContent = problem);
     b.disabled = true;
     try {
       const r = await brain.socialEdit(d.id, { text: box.value, ...(alt ? { alt: alt.value } : {}) });
@@ -93,7 +129,7 @@ function edit(d: Draft, after?: () => void): void {
       toast('Changed: it still waits for your APPROVE.', 'ok');
       after?.();
     } catch (e) {
-      msg.textContent = sayError(e, 'send that');
+      msg.textContent = brainRefusal(e, 'save the new words: the draft still has the old ones');
     } finally {
       b.disabled = false;
     }
@@ -155,7 +191,7 @@ register({
       const { postCard } = await import('../core/cards');
       postCard(r.card);
     } catch (e) {
-      toast(sayError(e, 'send that'), 'bad');
+      toast(sayError(e, 'make the draft'), 'bad');
     }
   },
 });

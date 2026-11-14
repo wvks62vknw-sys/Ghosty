@@ -3,7 +3,7 @@
  * page with none says the rule, and the long paragraphs are cut to one sentence with their fact kept behind a "?".
  */
 /** A switch's helper: what it does, then what changes when it is off, in his voice (one line). */
-export const switchLine = (does: string, off: string): string => `${does} Off, ${off}`;
+export const switchLine = (does: string, off: string): string => `${does.replace(/\.$/, ';')} off, ${off}`;
 
 export const SWITCHES = {
   barge: switchLine('I stop when you talk over me.', 'only a tap stops me.'),
@@ -12,12 +12,12 @@ export const SWITCHES = {
 };
 
 /** Faces with none: the people rule's own line. */
-export const FACES_NONE = 'None yet. I only know you, and people you introduce. I never identify a stranger.';
-export const FACES_ERROR = 'I can’t read the faces on this phone just now. Close Ghosty and open it again.';
+export const FACES_NONE = 'None yet: I only know you and people you introduce, and I never identify a stranger.';
+export const FACES_ERROR = 'I can’t read the faces on this phone just now; close Ghosty and open it again.';
 
-export const PRINCIPLES_EMPTY = 'Nothing here yet. Add a line I should hold to, in your own words.';
+export const PRINCIPLES_EMPTY = 'Nothing here yet: add a line I should hold to, in your own words.';
 export const PRINCIPLES_LOADING = 'Reading your lines…';
-export const PRINCIPLES_ERROR = 'I can’t reach my brain, so these lines may be old. They update when I can.';
+export const PRINCIPLES_ERROR = 'I can’t reach my brain, so these lines may be old, and they update when I can.';
 
 /** A paragraph cut to one sentence, with the rest behind its "?". */
 export interface Cut {
@@ -33,4 +33,4 @@ export const GUARDIAN: Record<'intro' | 'panic' | 'limits' | 'people', Cut> = {
 
 /** The voice page's tip about the phone's own voices, in a line. */
 export const IOS_TIP = 'An iPhone has free natural British voices. Settings, Accessibility, Spoken Content, Voices, English, then Serena (Premium) or Daniel (Enhanced).';
-export const NO_LISTEN = 'This browser gives me no way to listen for a voice. Open Ghosty from the Home Screen on your phone.';
+export const NO_LISTEN = 'This browser gives me no way to listen for a voice; open Ghosty from the Home Screen on your phone.';

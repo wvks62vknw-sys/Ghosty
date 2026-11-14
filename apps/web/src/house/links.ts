@@ -21,7 +21,7 @@ export async function paintHouseLink(p: Panel): Promise<boolean> {
     p.setStatus('LINKED', 'ok');
     p.body.append(
       row('YOUR HOUSE', v.line || `${v.entities.length} things`),
-      h('div.note', 'Say “turn off the hall light”, “set the heating to 21” or “is the back door open?”. Locks, alarms, garage doors and gates need your own tap and a confirm, every time, and never act on a schedule.'),
+      h('div.note', 'Say “turn off the hall light”, “set the heating to 21”, “which lights are on?”, “turn everything off in the kitchen” or “is the back door open?”. Locks, alarms, garage doors and gates, and a scene that sets one, need your own tap and a confirm, every time, and never act on a schedule.'),
       h('div.keyrow', sheet, keys),
     );
     return true;

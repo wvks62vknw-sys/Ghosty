@@ -14,7 +14,7 @@ import { h, clear } from '../core/dom';
 import { button } from '../ui/components';
 import { costWords, faultFor, symptomOf, type FaultPick } from './faults';
 import { ESTIMATE, PARTS, VIEWS, isPart, money, motFor, viewOf, type MotLine, type View } from './parts';
-import { openGuide } from './guide';
+import { closeGuide, openGuide } from './guide';
 import { CarScene, labelOf } from './scene';
 import { carNow, motOf, setFault } from './state';
 import { shapeWords, specFrom, standInLine, type CarFacts, type CarSpec } from './spec';
@@ -367,6 +367,8 @@ export function carPane(view: HTMLElement): CarPane {
     on = false;
     stage.hidden = true;
     scene.stop();
+    // (left by a tab or by voice with FIND IT ON THE CAR open: its camera and its stage go with the pane)
+    closeGuide();
   };
   // a car shown while the pane is open replaces the one on the stage; a view asked for is gone to
   carNow.subscribe((s, prev) => {

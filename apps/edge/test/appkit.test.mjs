@@ -574,7 +574,7 @@ test('a mini-app build that failed or was cut short carries on from its record w
   let [p] = await K.PJ.listProjects(ctx);
   assert.equal(p.status, 'paused');
   assert.deepEqual(p.steps.map((s) => s.status), ['done', 'done', 'done', 'failed', 'todo']);
-  assert.equal(p.note, 'step 4 "Publish" stopped: publishing "Darts" did not finish (storage blip). RESUME carries on from here.');
+  assert.equal(p.note, 'step 4 "Publish" stopped: publishing "Darts" did not finish (storage blip). RETRY carries on from here.');
   const icon = (await K.AB.loadAppJob(ctx, 'darts')).icon;
   const seen = watchProjects(storage);
   const resumed = await (await K.PJ.projectsRoute(new Request('https://x'), `/projects/${p.id}/resume`, 'POST', deps)).json();

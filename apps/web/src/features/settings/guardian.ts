@@ -110,13 +110,13 @@ export function guardianPanel(): { el: HTMLElement; refresh(): void } {
         h('span', 'Their one-tap invite: '),
         a,
         button('SHARE', () => {
-          const text = `Ghosty, my assistant, may message you if I don't answer on a walk home. Tap this once and press START: ${per.invite}`;
+          const text = `Ghosty, my assistant, may message you if I don't answer on a walk home; tap this once and press START: ${per.invite}`;
           if (navigator.share) void navigator.share({ text }).catch(() => undefined);
           else void navigator.clipboard?.writeText(text).then(() => toast('Copied: send it to them', 'ok'), () => undefined);
         }),
       );
     }
-    phraseState.textContent = info?.panic ? `Set (${info.panic.n} words). Change it by setting a new one.` : 'Not set.';
+    phraseState.textContent = info?.panic ? `Set (${info.panic.n} words); change it by setting a new one.` : 'Not set.';
     dropPhrase.disabled = !info?.panic;
   };
 

@@ -81,8 +81,8 @@ test('a group that needs a key or a link says so honestly, and GO goes where it 
     const on = all.find((a) => a.id === `g:${name}`);
     assert.equal(on.off, undefined, `${name} works once it is there`);
     assert.deepEqual(on.go, { ask: on.asks[0] });
-    // every name it needs is a key System → Keys knows (Spotify keeps its link in the vault under its own name)
-    for (const k of need.any) assert.ok(K.KEYS.some((d) => d.name === k) || k === 'spotify', `${name} needs "${k}", a real key`);
+    // every name it needs is a key System → Keys knows (Spotify, Bluesky, Mastodon and Discord keep their links in the vault under their own names: LINKS)
+    for (const k of need.any) assert.ok(K.KEYS.some((d) => d.name === k) || k === 'spotify' || ['bluesky', 'mastodon', 'discord'].includes(k), `${name} needs "${k}", a real key`);
   }
   // only those: the rest work with no key at all
   assert.deepEqual(none.filter((a) => a.off).map((a) => a.id.slice(2)).sort(), Object.keys(A.GROUP_NEEDS).sort());

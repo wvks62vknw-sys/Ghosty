@@ -38,7 +38,12 @@ export async function paintNotifications(p: Panel): Promise<void> {
   if (!got) {
     /* state: links.notes offline */
     p.setStatus('', 'off');
-    p.body.append(h('div.note', (failed as { status?: number }).status === 404 ? 'The brain cannot keep these choices yet: it needs an update first.' : 'These choices are kept by the brain, which is not reachable right now.'));
+    const old = (failed as { status?: number }).status === 404;
+    // Out of reach: what it means and the one next thing (TRY AGAIN), as every other panel on LINKS says it.
+    p.body.append(
+      h('div.note', old ? 'The brain cannot keep these choices yet: it needs an update first.' : 'These choices are kept by my brain, which I can’t reach right now. Tap TRY AGAIN when you have a signal.'),
+      old ? '' : h('div.keyrow', button('TRY AGAIN', () => void paintNotifications(p), 'on')),
+    );
     return;
   }
   const prefs = { ...got.prefs };
@@ -72,8 +77,12 @@ export async function paintNotifications(p: Panel): Promise<void> {
   p.body.append(
     h('div.note.notifyscope', NOTIFY_SCOPE.short, h('details.patwhy', h('summary', { 'aria-label': 'More about what OFF stops' }, '?'), h('p', NOTIFY_SCOPE.more))),
     h('div.keyrow', button('SEND A TEST', async () => {
-      const r = await brain.pushTest().catch(() => ({ sent: 0 }));
-      toast(r.sent ? sentTo(r.sent) : homeOnly ? HOME_SCREEN_ONLY : NO_DEVICE, r.sent ? 'ok' : 'warn');
+      // (the brain out of reach is said as that, never as "no device has notifications on")
+      const r = await brain.pushTest().catch((e) => {
+        toast(sayError(e, 'send the test notification'), 'warn');
+        return null;
+      });
+      if (r) toast(r.sent ? sentTo(r.sent) : homeOnly ? HOME_SCREEN_ONLY : NO_DEVICE, r.sent ? 'ok' : 'warn');
     })),
   );
 }

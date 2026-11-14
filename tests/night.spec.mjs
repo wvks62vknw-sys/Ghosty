@@ -131,7 +131,7 @@ check((await page.inputValue('#pg-system .nightsch input[aria-label="Night Schoo
 check(/UK time/.test(text), 'the window says UK time');
 const plan = await page.$$eval('#pg-system .nightsch ol.nightplan li', (l) => l.map((x) => x.textContent));
 check(plan.length === 3 && /^School practice/.test(plan[0]) && /^Gym/.test(plan[1]) && /^Study/.test(plan[2]), `the plan in order: ${JSON.stringify(plan)}`);
-check(/Stops after 40 questions/.test(plan[0]) && /Stops after 3 hours, or with an hour of the night left/.test(plan[1]) && /Until the end of the night/.test(plan[2]), 'each part says where it stops');
+check(/[Ss]tops after 40 questions/.test(plan[0]) && /[Ss]tops after 3 hours, or with an hour of the night left/.test(plan[1]) && /[Uu]ntil the end of the night/.test(plan[2]), 'each part says where it stops');
 check(/leave Ghosty open on the screen and the phone plugged in/.test(text) && /nothing runs with the screen off/.test(text) && /pauses the plan/.test(text), `the iPhone words are honest: ${text.slice(0, 400)}`);
 await shot('off');
 await noSideways('the card');

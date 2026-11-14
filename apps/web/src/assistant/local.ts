@@ -35,6 +35,7 @@ import { chat, type Entry } from './session';
 import { CAN_NEAR, CAN_NONE, whatCanAsked } from './words';
 import { AREAS } from '../shell/areadefs';
 import { LOCAL_ASKS, type LocalAsk } from './phrases';
+import { moneyAsked, MONEY_OPENS } from '../features/money/words';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
 import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn, gameTurn } from './reste';
@@ -44,6 +45,7 @@ import { fromMorse, morseAsked, toMorse } from '../morse/code';
 import { speak } from './voice';
 import { originLines } from '../../../../packages/shared/src/social';
 import { card } from '../../../../packages/shared/src/cards';
+import { screenAsked } from './screenasks';
 import { applyAsk, lookAsked } from '../../../../packages/shared/src/themes';
 import { comingLine, LOOKS, looksAsked } from '../../../../packages/shared/src/looks';
 import { TWO_WAYS } from '../../../../packages/shared/src/colours';
@@ -226,12 +228,36 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   roomnumber: (text, opts) => import('./roomnumber').then((m) => m.roomNumberTurn(text, opts, answer)).catch(() => false),
   // [packs] THE PACKS (BRIEF-PACKS-1, assistant/packs.ts): a pasted statement read on its way to his brain, never by a model
   statement: async (text, opts) => packAnswer(await statementOrBox(text), opts),
+  // [moneylane] the MONEY screen on the page his words name (features/money/words.ts), no model
+  async moneyapp(text, opts) {
+    const page = moneyAsked(text);
+    if (!page) return false;
+    location.hash = `money?${page}`;
+    return answer(text, MONEY_OPENS[page], { kind: 'pack' }, opts);
+  },
+  // [bodylane] water, sleep, steps, weight and mood: kept and answered on this phone (features/body/track.ts), the tracker opened
+  track: async (text, opts) => {
+    const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, ...(r.open ? { go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: r.open } }] } : {}) }, opts);
+  },
   reps: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   run: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   breathe: async (text, opts) => packAnswer(await bodyTurn(text), opts),
   stretch: async (text, opts) => packAnswer(await bodyTurn(text), opts),
-  water: async (text, opts) => packAnswer(await bodyTurn(text), opts),
+  // [bodylane] a drink, kept on this phone by the water tracker (features/body/track.ts), in any of his wordings
+  water: async (text, opts) => {
+    const r = await import('../features/body/track').then((m) => m.trackTurn(text)).catch(() => null);
+    if (r) return packAnswer({ said: text, reply: r.reply, go: [{ id: 'body', ask: -1, label: 'Open it', run: 'open_body', args: { what: 'water' } }] }, opts);
+    return packAnswer(await bodyTurn(text), opts);
+  },
   timer: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
+  // [bodylane] the pantry and the recipe book on this phone (features/kitchen/larder.ts)
+  larder: async (text, opts) => {
+    const r = await import('../features/kitchen/larder').then((m) => m.larderTurn(text)).catch(() => null);
+    if (!r) return false;
+    return packAnswer({ said: text, reply: r.reply, go: [{ id: 'kitchen', ask: -1, label: 'Open it', run: 'open_kitchen', args: { what: r.open } }] }, opts);
+  },
   shopping: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   oven: async (text, opts) => packAnswer(await kitchenTurn(text), opts),
   // [social] FATHER AND THE ORIGIN (BRIEF-SOCIAL item 1): the page's first lines, and its card to open the whole page
@@ -344,6 +370,18 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
   video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   gamestudio: async (text, opts) => packAnswer(await gameTurn(text), opts),
+  // [planlane] each screen's own turn (features/<screen>/turn.ts): done on the phone and said in one line; null lets the next table try
+  planagenda: async (text, opts) => { const r = await import('../features/agenda/turn').then((m) => m.agendaTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planradio: async (text, opts) => { const r = await import('../features/radio/turn').then((m) => m.radioTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planmarkets: async (text, opts) => { const r = await import('../features/markets/turn').then((m) => m.marketsTurn(text)); return r ? packAnswer(r, opts) : false; },
+  planbrief: async (text, opts) => { const r = await import('../features/brief/turn').then((m) => m.briefTurn(text)); return r ? packAnswer(r, opts) : false; },
+  async openscreen(text, opts) {
+    const s = screenAsked(text);
+    if (!s || !(await import('../shell/tabs')).go(s.tab)) return false;
+    return answer(text, `${s.name[0]!.toUpperCase()}${s.name.slice(1)} is open.`, { kind: 'pack' }, opts);
+  },
+  // [comic] THE COMIC: the comic made, the shelf, the import or the library opened, said in one line (features/comic/turn.ts)
+  comic: async (text, opts) => packAnswer(await import('../features/comic/turn').then((m) => m.comicTurn(text)), opts),
   units: (text, opts) => numberAnswer(text, opts),
   base64: (text, opts) => numberAnswer(text, opts),
   unixtime: (text, opts) => numberAnswer(text, opts),

@@ -129,7 +129,7 @@ export const APP_1: Record<string, CatValue> = {
   },
   'screen:links': {
     name: 'Links: what I am connected to', line: 'You can link me to your email, Spotify, Telegram and your phone’s notifications here.',
-    more: 'Each one once, each one undoable. Keys for my AI brains are in SYSTEM.',
+    more: 'Each one says whether it is linked and working, with TEST for Spotify, Telegram and the phone’s notifications, and asks before it unlinks. Keys for my AI brains are in SYSTEM.',
     say: ['Link my email'], scene: ['talking'], cat: 'talk',
   },
   'screen:settings': {
@@ -337,6 +337,14 @@ export const APP_1: Record<string, CatValue> = {
     say: ['(tap ASK THE BIG BRAIN under an answer)'], scene: ['phone', 'talking'], cat: 'talk',
   },
   // ---- the phrases answered on the phone with no model
+  // [planlane:agenda] the to-do list and the month by chat (features/agenda/asks.ts, turn.ts)
+  'phrase:planagenda': {
+    name: 'Your to-do list by chat', line: 'You can add to your to-do list, tick things off and hear what is due, just by saying it, with no AI.',
+    more: 'A day ("for tomorrow", "by Friday") and a repeat ("every Monday") are understood. Done on the phone, with UNDO; "show my month" opens the month and says what is on.',
+    say: ['Add buy milk to my to-do list', 'Put call the bank on my list for tomorrow', 'What do I need to do today?', 'Tick off buy milk'],
+    scene: ['morning', 'phone'], cat: 'watch',
+    since: '2026-11-13',
+  },
   'phrase:walk': {
     name: 'Walk me home', line: 'You can say "walk me home" and I check you got home, then message your named person if you did not.',
     more: 'I ask "Home?" at your walking time and again ten minutes later; if there is still no answer five minutes after that, your person is messaged once. "Home" ends it. Your position only goes if you switched that on. On Telegram too.',
@@ -375,6 +383,12 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Beam calculator', 'Wind tunnel', '3 m steel beam 5 kN in the middle'], scene: ['making'], cat: 'build',
     since: '2026-10-31',
   },
+  'phrase:openscreen': {
+    name: 'Open a screen by name', line: 'You can say "open the workshop", "the arcade" or "plan my room" and that screen opens, no AI.',
+    more: 'The Workshop, the 3D studio, Reverse, Space, your courses, the Arcade and School open by their names on the phone. A line that asks more than the name goes to my brain.',
+    say: ['Open the workshop', 'Plan my room', 'Open my courses', 'The arcade'], scene: ['talking'], cat: 'talk',
+    since: '2026-11-13',
+  },
   'phrase:foresight': {
     name: 'What I expect, and my record', line: 'You can ask what I expect today, or how often I am right, and I answer from my record.',
     more: 'No AI needed: straight from my predictions and their scores. On Telegram too.',
@@ -404,5 +418,13 @@ export const APP_1: Record<string, CatValue> = {
     more: 'Ask me “can you …?” in the chat. Say yes to "want me to learn it?" and it goes on my learning list. "Can you remind me at 5…" is a request, and I just do it.',
     say: ['Can you translate signs?', 'Can you check my car’s MOT?'], scene: ['talking'], cat: 'talk',
     since: '2026-10-31',
+  },
+  // [planlane:brief] the day asked for in the chat, answered on the phone from the Brief's own facts (features/brief/asks.ts, turn.ts)
+  'phrase:planbrief': {
+    name: 'Your day in one line', line: 'You can say "good morning" or "give me the rundown" and I open the Brief and say your day in one line.',
+    more: 'No AI needed: the weather (tonight and tomorrow in the evening), what is left in your diary, your to-dos due today, the drive to work, then the top headlines, from the same facts the Brief shows and READ IT TO ME says. "Brief me on" a subject still goes to my brain.',
+    say: ['Good morning', 'What’s my day look like?', 'Give me the rundown', 'What do I need to know today?'], scene: ['morning'], cat: 'know',
+    go: { open: 'brief' }, tryText: 'Opens the Brief and says your day in one line',
+    since: '2026-11-13',
   },
 };

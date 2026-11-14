@@ -591,6 +591,28 @@ canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
 .camgrid[hidden] { display: none; }
 .eyeinfo .camview.big { margin-bottom: 6px; }
 @media (max-width: 700px) { .camgrid { width: 62vw; } }
+/* THE BAND (lane SEE, 13 Nov; features/eye/index.ts reach()): the card, the CCTV grid, the layers sheet, ROAD AHEAD and the zoom rail live in one
+   measured band, from the foot of the search, its chips and his places down to the sheet's keys; never over the chips or the keys, in any look,
+   with the house on or off. One corner, one thing: the newest wins (a card folds the sheet and closes LOOK; the sheet or LOOK opened hides the card
+   until it folds). */
+html .hud.eye .eyeinfo { top: var(--eye-band-top, 0px); max-height: min(420px, var(--eye-reach, 100%)); display: flex; flex-direction: column; }
+html .hud.eye .eyeinfo[hidden] { display: none; }
+html .hud.eye .eyeinfo > .bd { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+html .hud.eye .eyelay:not(.min) { top: var(--eye-band-top, 0px); max-height: var(--eye-band-h, 100%); }
+html .hud.eye .camgrid { max-height: var(--eye-grid-h, none); }
+html .hud.eye .roadahead { max-height: var(--eye-grid-h, 62%); }
+html .hud.eye .zoomrail { top: max(var(--eye-band-top, 0px), calc(50% - 61px)); transform: none; }
+html .hud.eye:has(.eyelay:not(.min)) :is(.eyeinfo, .camgrid, .roadahead),
+html .hud.eye:has(.lookmenu:not([hidden])) :is(.eyeinfo, .camgrid, .roadahead),
+html .hud.eye:has(.eyeinfo:not([hidden])) .roadahead { display: none; }
+html .hud.eye.eyecovered .eyebot .readout { visibility: hidden; }
+/* every key on the card and the sheet 44 pt, in every look (the card's were 40, Glass's MACHINE VIEW 40) */
+html body #pg-eye :is(.eyeinfo button, .eyebot .btns > button) { min-height: var(--g-target) !important; min-width: var(--g-target); }
+/* the card's keys: one row at its foot, ASK GHOSTY and ✕ first, the rest beside them (a short card still shows its picture and its words) */
+html .hud.eye .eyeinfo .bd > .row.wrap:last-child { position: sticky; bottom: 0; z-index: 1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: auto; padding: var(--g-s-half) 0; background: var(--g-plate-strong); }
+html .hud.eye .eyeinfo .bd > .row.wrap:last-child::-webkit-scrollbar { display: none; }
+html .hud.eye .eyeinfo .bd > .row.wrap:last-child > button { flex: none; }
+html .hud.eye .eyeinfo .bd > .row.wrap:last-child > button:nth-last-child(-n+2) { order: -1; }
 
 /* Training ground */
 .trainnow { font: 400 10.5px var(--m); color: var(--c); min-height: 14px; margin: 6px 0; }
@@ -1128,7 +1150,10 @@ button.markchip { border-color: var(--ok); font-weight: 600; }
 @media (hover: none) {
   input, textarea, select { font-size: 16px !important; }
   .vcform .vcinput { font-size: 20px !important; }
-  html button:not(.scanthumb button, .maplibregl-ctrl button) { min-height: 40px !important; }
+  /* (POLISH 3, 2d: measured on every screen at 390 and 440, 13 Nov: ten keys sat at exactly 40 because of this rule (System's three,
+     the interpreter's five, rehearse's and photo's one each); the rule now holds the 44 pt token instead, so they are made right here,
+     not one by one. A key drawn at its own fixed size has its own, more specific rule and is not moved.) */
+  html button:not(.scanthumb button, .maplibregl-ctrl button) { min-height: var(--g-target) !important; }
 }
 
 /* =====================================================================
@@ -3180,6 +3205,9 @@ html .hubsub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-
 .schsub button { flex: 0 0 auto; }
 .schlive { margin: 8px 0 2px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
 .schliveh { display: flex; flex-direction: column; }
+.schworking { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 12px; background: var(--thin); }
+.schworking small { color: var(--mute); letter-spacing: .08em; }
+.schworking pre { margin: 0; max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 15px/1.45 var(--sf); color: var(--fg); }
 .schliveh small { color: var(--mute); }
 .schbtns { margin-top: 8px; }
 .schbtns > button { flex: 1 1 140px; }
@@ -3711,6 +3739,36 @@ html #pg-agenda .keyrow.addev > * { min-width: 0; width: 100%; }
 html #pg-agenda .keyrow.addev input[type="datetime-local"] { font-size: 15px; font-variant-numeric: tabular-nums; }
 html #pg-agenda .keyrow.addev select { font-size: 15px; }
 html #pg-agenda .keyrow.addev > button { grid-column: 1 / -1; height: 44px; min-height: 44px !important; }
+/* [planlane] TO-DO: a 44 pt tick, the words (wrapping, never cut), a 44 pt remove; late ones in amber, done ones quieter */
+html #pg-agenda .todoline { margin: 0; padding: 0 16px 6px; font: 400 15px/20px var(--sf); color: var(--ink2); }
+html #pg-agenda .todolist { display: flex; flex-direction: column; }
+html #pg-agenda .todoit { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; column-gap: 10px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+html #pg-agenda .todoit .todotx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+html #pg-agenda .todoit .todotx b { font: 500 17px/22px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html #pg-agenda .todoit .todotx small { font: 400 13px/17px var(--sf); color: var(--ink3); }
+html #pg-agenda .todoit.late .todotx small { color: var(--amber); }
+html #pg-agenda .todoit.done .todotx b { color: var(--ink3); text-decoration: line-through; }
+html #pg-agenda .todoit button { width: 44px; height: 44px; min-height: 44px !important; min-width: 44px; padding: 0; }
+html #pg-agenda .todoit button.todotick { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--hair2) !important; background: none !important; }
+html #pg-agenda .todoit button.todotick.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+/* [planlane] MONTH: seven columns, each day a 44 pt key; a dot for events, a ring for a to-do due, today lit */
+html #pg-agenda .monbar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; padding: 0 0 8px; }
+html #pg-agenda .monbar button { width: 44px; height: 44px; min-height: 44px !important; padding: 0; }
+html #pg-agenda .monname { text-align: center; font: 600 17px/22px var(--sf); color: var(--ink); }
+html #pg-agenda .mongrid { display: flex; flex-direction: column; gap: 2px; }
+html #pg-agenda .monrow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+html #pg-agenda .monhead span { text-align: center; font: 600 12px/20px var(--sf); color: var(--ink3); }
+html #pg-agenda .mday { position: relative; min-width: 0; width: 100%; height: 44px; min-height: 44px !important; padding: 0; font: 500 16px/1 var(--sf); font-variant-numeric: tabular-nums; color: var(--ink); background: none !important; box-shadow: none !important; }
+html #pg-agenda .mday.past { color: var(--ink3); }
+html #pg-agenda .mday.today { color: var(--c); font-weight: 700; }
+html #pg-agenda .mday.on { box-shadow: inset 0 0 0 2px var(--c) !important; border-radius: var(--rad); }
+html #pg-agenda .mday.has::after { content: ''; position: absolute; left: 50%; bottom: 6px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--c); }
+html #pg-agenda .mday.due::before { content: ''; position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--amber); }
+html #pg-agenda .monlist { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; }
+html #pg-agenda .monlist .mdayline { font: 600 15px/20px var(--sf); color: var(--ink); }
+html #pg-agenda .monev { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .monev .monwhen { color: var(--ink3); font-variant-numeric: tabular-nums; }
+html #pg-agenda .monev.todo .monwhen { color: var(--amber); }
 /* a day: its name as a header with a hairline */
 html #pg-agenda .lab.daylab { display: flex; align-items: center; gap: 10px; margin: 16px 0 2px; font: 600 13px/18px var(--sf); letter-spacing: .06em; color: var(--ink2); }
 html #pg-agenda .lab.daylab::after { content: ''; flex: 1; height: 1px; background: var(--hair); }
@@ -3906,7 +3964,7 @@ html #pg-radio .rw.station { display: grid; grid-template-columns: 44px minmax(0
 html #pg-radio .rw.station .k { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-width: 0; font: 400 19px/1 var(--sf); color: var(--ink3); letter-spacing: 0; cursor: pointer; }
 html #pg-radio .rw.station .v b { font: 600 16px/21px var(--sf); color: var(--ink); }
 html #pg-radio .rw.station .v br { display: none; }
-html #pg-radio .rw.station .v .note { display: block; font: 400 13px/17px var(--sf); color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #pg-radio .rw.station .v .note { display: block; font: 400 13px/17px var(--sf); color: var(--ink3); overflow-wrap: anywhere; } /* [planlane] the station's line wraps: no word is cut */
 html #pg-radio .rw.station .n { display: grid; place-items: center; width: 44px; height: 44px; padding-left: 2px; border-radius: 22px; font: 400 13px/1 var(--sf); color: var(--ink); background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px var(--hair); }
 html #pg-radio .rw.station.playing .n { color: #03141b; background: var(--c); box-shadow: 0 0 12px rgba(var(--cr), .45); }
 html #pg-radio .rw.station.playing .v b { color: var(--c); }
@@ -3914,6 +3972,12 @@ html #pg-radio .pn.favs .rw.station .k { color: var(--c); }
 html #pg-radio .rw.station.tuning .n { animation: rctune 1.2s ease-in-out infinite; }
 @keyframes rctune { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { html #pg-radio .rw.station.tuning .n { animation: none; } }
+/* [planlane] the sleep timer under now playing: its line, then a 44 pt key for each choice, wrapping (never sideways) */
+html #pg-radio .pn.nowp .npsleep { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hair); }
+html #pg-radio .pn.nowp .npsleepl { font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-radio .pn.nowp .keyrow.npsleepk { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0; }
+html #pg-radio .pn.nowp .keyrow.npsleepk button { flex: 1 1 auto; min-width: 72px; }
+html #pg-radio .pn.recent .keyrow button { min-height: 44px !important; height: 44px; }
 
 /* ---------- Threats (features/threats): the level, signals worst first, near you as tiles, space weather, launches, RECON ---------- */
 html #pg-threats .pn.signals .rw.link { display: grid; grid-template-columns: 3px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; min-height: 60px; margin: 0; padding: 10px 0; border-radius: 0; }
@@ -6552,6 +6616,56 @@ html body.scanhome .hud.core.logopen .scanframe > :is(.scanmarks, .scanorb, .sca
 #boot .bflash { position: absolute; inset: 0; z-index: 9; display: block; pointer-events: none; background: var(--g-ink-1); opacity: 0; mix-blend-mode: screen; }
 #boot .g-lock.bsearch { z-index: 3; }
 
+/* ---- THE BODY TRACKERS (FINAL ROUND, BODY lane; features/body/track.ts): water, sleep, steps, weight and mood. The ring,
+   the history's chart and the keys, all in tokens: the accent for what is met, ink for the rest, the line for the goal */
+html .bt .bt-hero { display: flex; align-items: center; gap: var(--g-s-2); min-width: 0; }
+html .bt .bt-ringbox { position: relative; flex: none; width: clamp(112px, 34vw, 150px); aspect-ratio: 1; }
+html .bt .bt-ring { display: block; width: 100%; height: 100%; }
+html .bt .bt-track { fill: none; stroke: var(--g-line-faint); stroke-width: 12; }
+html .bt .bt-fill { fill: none; stroke: var(--g-ink-2); stroke-width: 12; stroke-linecap: round; transition: stroke-dasharray var(--g-dur-turn) var(--g-ease-bring); }
+html .bt .bt-fill.met { stroke: var(--g-accent); }
+html .bt .bt-ringmid { position: absolute; inset: 14%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0; }
+html .bt .bt-ringbig { font: var(--g-t-value); font-variant-numeric: var(--g-num); color: var(--g-ink-1); overflow-wrap: anywhere; line-height: 1.1; }
+html .bt .bt-ringsmall { font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .bt .bt-herotext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .bt .bt-line { margin: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .bt-h { margin: var(--g-s-1) 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .bt .bt-hist { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .bt .bt-chartbox { min-width: 0; }
+html .bt .bt-chart { display: block; width: 100%; height: 120px; }
+html .bt .bt-bar { fill: var(--g-ink-3); }
+html .bt .bt-bar.met { fill: var(--g-accent); }
+html .bt .bt-goal { stroke: var(--g-ink-2); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+html .bt .bt-days { display: grid; gap: 0; min-width: 0; }
+html .bt .bt-days small { text-align: center; font: var(--g-t-fine); color: var(--g-ink-3); min-width: 0; white-space: nowrap; }
+html .bt .bt-cups { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+html .bt .bt-cups button { min-height: 56px; }
+html .bt .bt-cup { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+html .bt .bt-cup small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .bt .bt-moods { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+html .bt .bt-entry { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .bt .pkitem button, html .bt .pkadd button { min-height: var(--g-target); min-width: var(--g-target); flex: none; }
+html .bt .bt-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .bt select { min-height: var(--g-target); width: 100%; }
+html .bt .pkfield label { font: var(--g-t-caption); color: var(--g-ink-3); }
+@media (prefers-reduced-motion: reduce) { html .bt .bt-fill { transition: none; } }
+/* ---- THE PANTRY AND THE RECIPE BOOK (features/kitchen/larder.ts) */
+html .kl .kl-h { margin: var(--g-s-1) 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .kl .kl-title { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .kl .kl-name { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; text-align: left; }
+html .kl .kl-name small { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .kl .kl-soon .kl-name small, html .kl .kl-past .kl-name small { color: var(--g-amber); }
+html .kl .kl-got .kl-name small { color: var(--g-accent-text); }
+html .kl .pkitem button { min-height: var(--g-target); min-width: var(--g-target); flex: none; }
+html .kl .kl-book .pkitem button { flex: 1 1 auto; justify-content: flex-start; white-space: normal; height: auto; padding-top: var(--g-s-1); padding-bottom: var(--g-s-1); }
+html .kl .kl-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .kl select, html .kl input[type=date], html .kl textarea { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
+html .kl .kl-serves { align-items: center; }
+html .kl .kl-serves b { flex: 1 1 auto; text-align: center; font: var(--g-t-value); color: var(--g-ink-1); }
+html .kl .kl-step { display: flex; flex-direction: column; gap: var(--g-s-half); margin: 0; font: var(--g-t-reading); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .kl .kl-step small { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+html .pkfield label { overflow-wrap: anywhere; }
+
 /* =====================================================================================================================
    THE SHELL IN THE SCAN (BRIEF-SHELL-2; shell/house.ts, jump.ts, rooms.ts, inventory.ts): the house on every screen, the plan, the
    jump bar, the stamp and the page's name, a room, Every screen and Settings, drawn in THE SCAN's language. On while the world is The
@@ -6888,6 +7002,9 @@ html .inkframe { display: none; position: absolute; left: 0; right: 0; top: 0; b
   html .inkl > .g-truth { width: 96px; flex: none; }
   /* (a blur of 0 px is still a blur: nothing on the printed page is frosted) */
   html[data-world="ink"] #app :is(button.g-key, .g-key, .g-plate, .g-tag, .g-lock, .g-ret) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  /* (a toast is printed too, the proactive thought's included: the page's own ground and ink, two rules, no frost, no glow, no shadow) */
+  html[data-world="ink"] #toasts .toast { -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; text-shadow: none; background: var(--g-canvas); color: var(--g-ink-1); border: 0; border-top: var(--g-hair) solid var(--g-ink-1); border-bottom: var(--g-hair) solid var(--g-ink-1); border-radius: 0; animation: none; }
+  html[data-world="ink"] #toasts .toast :is(*, *::before, *::after) { box-shadow: none; text-shadow: none; filter: none; }
   html .inkl .inknone { font: var(--g-t-caption); color: var(--g-ink-3); }
   html #app button.inkword { display: inline-flex; align-items: center; min-width: var(--g-target); min-height: var(--g-target) !important; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; font: var(--g-t-body) !important; letter-spacing: var(--g-tr-body); text-transform: none; color: var(--g-ink-1); text-decoration: underline; text-decoration-color: var(--g-line-faint); text-decoration-thickness: var(--g-hair); text-underline-offset: 5px; }
   html .inkask { flex: none; display: flex; align-items: center; min-height: 48px; margin: 4px 0 var(--g-s-2); border-bottom: var(--g-hair) solid var(--g-line-faint); }
@@ -7542,6 +7659,14 @@ html .studioseg button[data-pane="engine"] { grid-column: 1 / -1; }
 html .hud.studio[data-pane="engine"] :is(.studiohud, .studiocredit, .studiomeasure, .studiomodes, .studiostick, .studiobar) { display: none !important; }
 html .hud.studio[data-pane="engine"] .studioview, html body.housed .hud.studio[data-pane="engine"] .studioview { aspect-ratio: auto; height: min(48vh, 460px); max-height: none; position: sticky; top: 0; z-index: 6; }
 html :is(#pg-studio:has(.hud.studio[data-pane="engine"]), .hud.studio[data-pane="engine"]) { scroll-padding-top: calc(min(48vh, 460px) + var(--g-s-1)); }
+/* THE DOCK (phones, where the studio scrolls as one page). The picture stays in view while the panel scrolls under it, so it docks flat
+   against the scroller's top edge: the scroller's own 6 px top padding moves onto the picture as a margin (it starts exactly where it
+   did, then docks), and the docked picture is square-cornered. Before, it docked 6 px below that edge and rounded, so the words
+   scrolling under it showed in the strip above it and through its corners, in every world. The car's working engine docks the same way. */
+@media (max-width: 899px) {
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) { padding-top: 0 !important; }
+  html body .hud.studio:is([data-pane="engine"], [data-pane="car"]:has(.carengine:not([hidden]))) .studioview { margin-top: 6px; border-radius: 0; }
+}
 html .e3stage { position: absolute; inset: 0; z-index: 3; overflow: hidden; background: rgb(var(--g-canvas-rgb)); touch-action: none; user-select: none; -webkit-user-select: none; border-radius: inherit; }
 html .e3stage[hidden] { display: none; }
 html .e3stage canvas.e3canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
@@ -7632,6 +7757,14 @@ html .phonecard button, html #pg-system .phonecard button { height: auto; min-he
 .dcrow button[aria-pressed="true"] { box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); color: var(--g-accent-text); }
 .dcnum { font: var(--g-t-reading); color: var(--g-ink-1); min-width: 56px; text-align: center; }
 .dcbold { font-weight: 800; } .dcital { font-style: italic; } .dcund { text-decoration: underline; }
+.dcstrike { text-decoration: line-through; } .dcmark { box-shadow: inset 0 calc(-1 * var(--g-s-1)) 0 color-mix(in srgb, var(--g-amber) 45%, transparent); }
+.dcpage mark.dchl { background: color-mix(in srgb, var(--g-amber) 38%, transparent); color: inherit; border-radius: var(--g-radius-mark); }
+.dcpage s { text-decoration-thickness: var(--g-stroke); }
+.dcpage .dctodo { display: flex; align-items: flex-start; gap: var(--g-s-1); margin: 0 0 var(--g-s-1); min-width: 0; }
+.dcpage .dctodo > .dcb { flex: 1; min-width: 0; margin: 0; padding-top: var(--g-s-1); }
+.dcpage .dctodo.ticked > .dcb { text-decoration: line-through; color: var(--g-ink-3); }
+.dcpage .dcbox { flex: none; width: var(--g-target); height: var(--g-target); min-width: var(--g-target); min-height: var(--g-target); padding: 0; display: grid; place-items: center; border-radius: var(--g-radius-key); border: var(--g-stroke) solid var(--g-line-faint); background: transparent; color: var(--g-accent-text); font: 700 20px/1 var(--g-font-text); }
+.dcpage .dcbox[aria-checked="true"] { background: color-mix(in srgb, var(--g-accent) 22%, transparent); border-color: var(--g-accent); }
 .dcpage, .dccol { background: var(--g-plate); color: var(--g-ink-1); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); padding: var(--g-s-3) var(--g-s-2); font: 400 17px/1.6 var(--g-font-serif); min-width: 0; overflow-wrap: anywhere; }
 .dcpage :is(h2, h3, h4), .dccol h4 { font-family: var(--g-font-text); color: var(--g-ink-1); line-height: 1.3; margin: var(--g-s-2) 0 var(--g-s-half); }
 .dcpage h2 { font-size: 21px; } .dcpage h3 { font-size: 18px; } .dcpage h4, .dccol h4 { font-size: 16px; }
@@ -8179,6 +8312,8 @@ html .shsheet .shtab, html .shsheet .shtabs > button { flex: none; padding: 0 va
 .shcode { font: var(--g-t-reading); color: var(--g-accent-text); overflow-wrap: anywhere; }
 .shedits { margin: 0; padding-inline-start: var(--g-s-2); font: var(--g-t-caption); color: var(--g-ink-1); }
 .shedits del { color: var(--g-amber); } .shedits ins { color: var(--g-ok); text-decoration: underline; }
+.shedits li { display: flex; flex-direction: column; gap: var(--g-s-half); padding-block: var(--g-s-half); border-bottom: var(--g-hair) solid var(--g-line-faint); }
+.shedit { overflow-wrap: anywhere; }
 /* ---------------------------------------------------------------- THE WORKING ENGINE (BRIEF-WORKING-ENGINE)
    Under the bonnet-up view of the car: the cover to lift, then the strokes named as they happen with the firing order under them, REVS,
    PAUSE and STEP, TAKE APART, SECTION and MEASURE. The keys are the engine pane's own (e3tool); everything else is in the system's tokens. */
@@ -8243,6 +8378,10 @@ h3.slh { margin-top: var(--g-s-half); }
 .slcard { display: flex; flex-direction: column; gap: var(--g-s-1); width: 100%; padding: var(--g-s-1); text-align: left; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; background: var(--g-plate); }
 .slcard.slgrab { box-shadow: 0 0 0 var(--g-stroke) var(--g-accent); opacity: .85; }
 .slcard.slover { box-shadow: 0 calc(var(--g-stroke) * -2) 0 var(--g-accent); }
+.slcard.skip svg, .slcard.skip img { opacity: .45; }
+.slcap .slskipped { flex: none; margin-left: auto; padding: 0 var(--g-s-1); font: var(--g-t-caption); color: var(--g-ink-2); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.slhits { display: flex; flex-wrap: wrap; gap: var(--g-s-1); }
+.slhits:empty { display: none; }
 .slthumb { display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: var(--g-hair) solid var(--g-line-faint); pointer-events: none; }
 .slthumb svg, .slbox svg { display: block; width: 100%; height: auto; }
 /* a slide drawn inside a key keeps its words as written (the keys show theirs in sentence case) */
@@ -8317,6 +8456,53 @@ html .hubtile .kick.long .nm { letter-spacing: 0; }
 @keyframes slpush { from { transform: translateX(14%); opacity: .2; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .slin-appear, .slin-fade, .slin-rise, .sltr-fade, .sltr-push, .slflash.go { animation: none; } .slflash.go { opacity: 1; } }
 html[data-motion="calm"] :is(.slin-appear, .slin-fade, .slin-rise, .sltr-fade, .sltr-push) { animation: none; }
+/* ---- THE COMIC (FINAL ROUND, lane COMIC): the shelf, the maker and the library, and the reader over everything. Tokens only; every key 44 pt; words wrap, never cut. ---- */
+.cx { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.cx .cxrow { display: flex; flex-wrap: wrap; gap: var(--g-s-half); align-items: center; min-width: 0; }
+html #app .cx button, html #app .cx select, html #app .cx input[type="text"], html #app .cx input[type="search"], html #app .cx textarea, html #app .cx summary, html #app .cx .cxcheck { min-height: var(--g-target) !important; height: auto; }
+html #app .cx button.cxkey { text-transform: none; white-space: normal; overflow-wrap: anywhere; min-width: var(--g-target); }
+html #app .cx button.cxtry { width: 100%; justify-content: flex-start; text-align: left; }
+.cx .cxtries { display: flex; flex-direction: column; gap: var(--g-s-half); }
+.cx .cxfield { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 150px; }
+.cx .cxlab { font: var(--g-t-caption); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); overflow-wrap: anywhere; }
+.cx input[type="text"], .cx input[type="search"], .cx textarea, .cx select { width: 100%; box-sizing: border-box; font: var(--g-t-body); color: var(--g-ink-1); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line); border-radius: var(--g-radius-key); padding: var(--g-s-half) var(--g-s-1); }
+.cx textarea { resize: vertical; }
+.cx input[type="range"] { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
+.cx .cxcheck { display: flex; align-items: center; gap: var(--g-s-half); font: var(--g-t-body); color: var(--g-ink-1); }
+.cx .cxcheck input { width: var(--g-target); height: var(--g-target); margin: 0; flex: none; accent-color: var(--g-accent); }
+.cx .cxnote, .cx .cxsmall, .cx .cxwhere { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
+.cx .cxsmall { font: var(--g-t-caption); color: var(--g-ink-3); }
+.cx .cxnote:empty { display: none; }
+.cx .cxhead { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); }
+.cx .cxsub { margin: var(--g-s-half) 0 0; font: var(--g-t-caption); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-ink-3); }
+.cx .cxshelf, .cx .cxlib { display: flex; flex-direction: column; gap: var(--g-s-1); }
+.cx .cxbook { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--g-s-1); padding: var(--g-s-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); }
+.cx .cxthumb { width: 72px; height: 108px; object-fit: cover; border-radius: var(--g-radius-key); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); }
+.cx .cxthumb.none { display: flex; align-items: center; justify-content: center; font: var(--g-t-head); color: var(--g-ink-3); }
+.cx .cxbookwords { display: flex; flex-direction: column; gap: var(--g-s-half); min-width: 0; }
+.cx .cxbooktitle { margin: 0; font: var(--g-t-body); font-weight: 600; color: var(--g-ink-1); overflow-wrap: anywhere; }
+.cx .cxbookline, .cx .cxcredit { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); overflow-wrap: anywhere; }
+.cx .cxstage { display: flex; justify-content: center; }
+.cx .cxpage { display: block; width: min(100%, 560px); height: auto; aspect-ratio: 2 / 3; border-radius: var(--g-radius-key); border: var(--g-hair) solid var(--g-line); cursor: pointer; touch-action: manipulation; }
+.cx .cxedit { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+.cx .cxpanel, .cx .cxcast, .cx .cxscript, .cx .cxnames { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-1); background: var(--g-plate); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-cell); min-width: 0; }
+.cx details > summary { display: flex; align-items: center; cursor: pointer; font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+.cx .cxactor, .cx .cxballoon { display: flex; flex-direction: column; gap: var(--g-s-half); padding: var(--g-s-half) 0; border-top: var(--g-hair) solid var(--g-line-faint); }
+.cx .cxballoon.on { border-top-color: var(--g-accent); }
+.cx .cxpre { margin: 0; max-height: 50vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: var(--g-t-caption); color: var(--g-ink-2); }
+.cxread { position: fixed; inset: 0; z-index: 320; display: flex; flex-direction: column; gap: var(--g-s-half); padding: calc(var(--g-s-half) + env(safe-area-inset-top, 0px)) calc(var(--g-s-1) + env(safe-area-inset-right, 0px)) calc(var(--g-s-half) + env(safe-area-inset-bottom, 0px)) calc(var(--g-s-1) + env(safe-area-inset-left, 0px)); background: var(--g-canvas); color: var(--g-ink-1); box-sizing: border-box; }
+.cxread .cxrtop { display: flex; align-items: center; gap: var(--g-s-1); min-width: 0; }
+.cxread .cxrtitle { flex: 1 1 auto; min-width: 0; font: var(--g-t-body); font-weight: 600; overflow-wrap: anywhere; }
+.cxread .cxrwhere { flex: none; font: var(--g-t-caption); color: var(--g-ink-3); }
+.cxread .cxrstage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; touch-action: none; outline: none; }
+.cxread .cxrsheet { position: absolute; left: 0; top: 0; display: flex; transform-origin: 0 0; will-change: transform; }
+.cxread .cxrpage { display: block; width: auto; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.cxread .cxrnote { margin: 0; font: var(--g-t-body); color: var(--g-ink-2); overflow-wrap: anywhere; }
+.cxread .cxrbar { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--g-s-half); }
+html .cxread button.cxrkey { min-height: var(--g-target) !important; min-width: var(--g-target); height: auto; text-transform: none; }
+html .cxread button.cxrkey[aria-pressed="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
+html .cxread button[hidden] { display: none; }
+.cxread .cxrslide { width: 100%; min-height: var(--g-target); accent-color: var(--g-accent); }
 /* ---- THE CHAT (BRIEF-QUALITY-CHAT): the first open, the turn's one line, the folded reply, the newest key, the talk bar's words, the approval's keys. Tokens only. ---- */
 html .hud.core .convo .logfirst { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-2) 0; }
 html .logfirst .logidle { margin: 0; font: var(--g-t-head); color: var(--g-ink-1); }
@@ -8378,8 +8564,23 @@ html .lensmark[hidden] { display: none; }
    and ONE true line under the viewfinder (or, with nothing in view and no eyes, the one key that is that line). Every colour and size is a token. */
 html .lensstamp { position: absolute; z-index: 4; left: var(--g-s-1); top: var(--g-s-1); width: fit-content; max-width: calc(100% - 2 * var(--g-s-1)); padding: 2px 6px; background: var(--g-plate-fill); border-radius: var(--g-radius-mark); pointer-events: none; }
 html .lensstamp[hidden] { display: none; }
-html .hud.onelens .lensview video { filter: grayscale(.8) brightness(.86); }
-html .hud.onelens .lensview::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background-image: radial-gradient(circle, rgba(255, 255, 255, .26) 1px, transparent 1.5px); background-size: 26px 26px; opacity: .55; }
+/* FINAL-LENS: the picture is the camera's own, in true colour in every look: no filter, no ink and no dot grid over the video (the
+   grey filter and the dot grid that stood here turned the feed almost black and white). The marks sit on the picture, never a wash. */
+html .hud.lens .lensview video, html .hud.lens .lensview canvas.lensstill { filter: none; mix-blend-mode: normal; opacity: 1; }
+/* THE CARDS: one for each thing the frame holds, under the one line, each with the keys that do its job */
+html .lenscards { display: flex; flex-direction: column; gap: var(--g-s-1); width: 100%; }
+html .lenscards[hidden] { display: none; }
+html .lenscard { box-sizing: border-box; width: 100%; padding: var(--g-s-1) var(--g-s-2); background: var(--g-plate-fill); border-radius: var(--g-radius-mark); box-shadow: inset 0 0 0 var(--g-hair) var(--g-line-faint); }
+html .lenscard .lc-head { margin: 0 0 var(--g-s-half); font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--g-accent-text); overflow-wrap: anywhere; }
+html .lenscard .lc-line, html .lenscard .lc-answer { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .lenscard .lc-steps { margin: var(--g-s-half) 0; padding-left: var(--g-s-3); font: var(--g-t-body); color: var(--g-ink-2); }
+html .lenscard .lc-answer { font-weight: 700; }
+html .lenscard .lc-body { display: flex; flex-direction: column; gap: var(--g-s-half); }
+html .lenscard .lc-small { margin: 0; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--g-ink-3); overflow-wrap: anywhere; }
+html .lenscard .lc-warn { margin: 0; font: var(--g-t-body); letter-spacing: var(--g-tr-body); color: var(--g-amber); overflow-wrap: anywhere; }
+html .lenscard .lc-keys { display: flex; flex-wrap: wrap; gap: var(--g-s-1); margin-top: var(--g-s-1); }
+html #app .lenscard .lc-keys > :is(button.g-key, a.g-key) { display: inline-flex; align-items: center; justify-content: center; flex: 0 1 auto; max-width: 100%; height: auto !important; min-height: var(--g-target) !important; min-width: var(--g-target); box-sizing: border-box; border-radius: var(--g-radius-key) !important; padding: 0 var(--g-s-2); font: var(--g-t-key) !important; letter-spacing: var(--g-tr-key); text-transform: uppercase !important; text-decoration: none; white-space: normal; text-align: left; color: var(--g-ink-1) !important; background: var(--g-plate-fill) !important; box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent) !important; }
+html #app .lenscard .lc-keys > button.g-key:disabled { color: var(--g-ink-4) !important; }
 html .lensplate, html .lensinplace { position: absolute; z-index: 5; box-sizing: border-box; background: var(--g-plate-strong-fill); border: var(--g-stroke) solid var(--g-accent); transition: opacity var(--g-dur-lock) linear; }
 html .lensplate { padding: var(--g-s-1) var(--g-s-2); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; pointer-events: auto; }
 html .lensplate[hidden], html .lensinplace[hidden] { display: none; }
@@ -8499,8 +8700,7 @@ html body.housed :is(.invnone, .rnone) .empty { border-top: 0; padding: var(--g-
 /* the held landing's line: what the open waits for, in the stamp's small type (shell/bootwords.ts) */
 #boot .bhold { margin: var(--g-s-1) 0 0; color: var(--g-ink-2); }
 #boot .bhold[hidden] { display: none; }
-/* ==========================================================================================================================
-   THE WALL (BRIEF-MACHINE-WALL; wall/screen.ts): this device as the second screen of his phone. Full screen over the app, in the world's
+/* ===================================================================================================================   THE WALL (BRIEF-MACHINE-WALL; wall/screen.ts): this device as the second screen of his phone. Full screen over the app, in the world's
    own canvas and ink; every size is the wall's unit (1 percent of the screen's width or 1.78 of its height, whichever is less: 19.2 px
    at 1,920 × 1,080, 12.8 px at 1,280 × 720) times a step, so the Machine's type is at least twice its phone size at both. The pictures
    are the Stage's own (show/stage.ts), drawn into a frame. Only the colours, lines and type of THE SYSTEM's tokens; nothing else.
@@ -8759,6 +8959,13 @@ html body .modal :is(.feltrow, .feltbody) button { min-height: 44px !important; 
 .wsblock[data-done="1"] .wsedit { color: var(--g-ink-3); text-decoration: line-through; }
 .wscheck { flex: none; width: var(--g-target); padding: 0; display: flex; align-items: center; justify-content: center; font: 700 18px/1 var(--g-font-text); }
 .wscheck[aria-checked="true"] { color: var(--g-accent-text); box-shadow: inset 0 0 0 var(--g-stroke) var(--g-accent); }
+.wsblock[data-t="callout"] { align-items: flex-start; gap: var(--g-s-1); padding: var(--g-s-1); border-radius: var(--g-radius-cell); background: color-mix(in srgb, var(--g-accent) 12%, transparent); border: var(--g-hair) solid color-mix(in srgb, var(--g-accent) 40%, transparent); }
+.wsblock[data-t="callout"][data-tone="tip"] { background: color-mix(in srgb, var(--g-ok) 12%, transparent); border-color: color-mix(in srgb, var(--g-ok) 45%, transparent); }
+.wsblock[data-t="callout"][data-tone="warn"] { background: color-mix(in srgb, var(--g-amber) 14%, transparent); border-color: color-mix(in srgb, var(--g-amber) 50%, transparent); }
+.wsedit.wscallout { flex: 1; min-width: 0; padding-top: var(--g-s-1); color: var(--g-ink-1); }
+.wstone { flex: none; width: var(--g-target); min-width: var(--g-target); min-height: var(--g-target); padding: 0; display: grid; place-items: center; border-radius: var(--g-radius-orb); font: 800 18px/1 var(--g-font-text); color: var(--g-accent-text); }
+.wstone[data-tone="tip"] { color: var(--g-ok); } .wstone[data-tone="warn"] { color: var(--g-amber); }
+.wsedit mark { background: color-mix(in srgb, var(--g-amber) 38%, transparent); color: inherit; }
 .wsdone { flex: none; align-self: center; font: var(--g-t-fine); color: var(--g-ink-3); }
 .wsblockkeys { flex: 0 0 100%; display: flex; flex-wrap: wrap; gap: var(--g-s-half); }
 .wsfmt { font-weight: 800; }
@@ -9356,6 +9563,306 @@ html #pg-gamestudio .gpPad button { min-height: 60px !important; min-width: 60px
 .gkask { margin-top: var(--g-s-2); }
 /* (a touch phone's `html button:not(…) { min-height: 40px !important }` is as specific: this one comes after it and wins) */
 html body .gkask button, html body .gkprops button { height: auto; min-height: var(--g-target) !important; min-width: var(--g-target) !important; }
+
+/* ==== THE PLAN AND HOME LANE (FINAL ROUND, planlane): one block per screen. Tokens only (var(--…)), no hex, no rgba(), no px radius. ==== */
+/* ==== [planlane:home] ==== */
+/* Today: an event's title and a to-do are his words, so they wrap onto a second line instead of being cut with "…"; a long single word breaks only when it must */
+html body .rctoday .rcev { height: auto; min-height: 38px; padding: 8px 0; }
+html body .rctoday .rcev .nm { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+/* the Roads and Gym tiles: the road's name and the line under it wrap too (nothing on Home is cut short) */
+html body .rcbody .rd b, html body .rcbody .rdclr { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+/* ONE INK: RECENT and FAVOURITES are whole words at BODY 21 (the label grows; the words beside it move over or under) */
+html body .inkl > .g-truth { width: auto; min-width: 96px; overflow-wrap: normal; word-break: normal; white-space: nowrap; }
+/* GROWN UP and ORBIT: the hour card's "Ask me" key grows round its words at BODY 21 (a 44 pt circle cut them at the card's edge) */
+html body #app :is(button.gnhourgo, button.orbhourgo) { width: auto; min-width: var(--g-target); padding: 0 var(--g-s-1); white-space: nowrap; border-radius: var(--g-radius-capsule); }
+/* a free square's words and the hour's to-do (a sentence, not a title) are never cut by the two-line clamp */
+html body #app :is(.eyefeed.free .eyeline, .mapcell.free .mcline, .gnhour[data-kind="todo"] .gnname, .mapcell.lit[data-what="todo"] .mcname, .eyefeed.sharp[data-what="todo"] .eyename) { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; text-overflow: clip; }
+html body .orbhour { grid-template-columns: minmax(0, 1fr) auto; }
+/* GROWN UP: the hour card's kicker ("Tonight · on your to-do list") wraps at BODY 21 instead of ending in "…" */
+html body .gnhourtext .gnkick { white-space: normal; overflow: visible; text-overflow: clip; }
+
+/* ==== [planlane:home end] ==== */
+
+/* ==== [planlane:agenda] ==== */
+/* TO-DO: each to-do a row (tick, its words as a key that opens the change box, a star, remove), the change box under it */
+html #pg-agenda .todoit { display: block; padding: 6px 0; }
+html #pg-agenda .todoit .todorow { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px; align-items: center; column-gap: 8px; }
+html #pg-agenda .todoit button.todotx { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; width: 100%; min-width: 0; height: auto; min-height: 44px !important; padding: 4px 0; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; background: none !important; box-shadow: none !important; border: 0; }
+html #pg-agenda .todoit button.todotx b, html #pg-agenda .todoit button.todotx small { text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; max-width: 100%; }
+html #pg-agenda .todoit button.todostar { font: 400 22px/1 var(--sf); color: var(--ink3); background: none !important; box-shadow: none !important; }
+html #pg-agenda .todoit button.todostar.on { color: var(--amber); }
+html #pg-agenda .todoit button.todox { background: none !important; box-shadow: none !important; color: var(--ink3); }
+html #pg-agenda .todoit .todoedit { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 4px; }
+html #pg-agenda .todoit .todoedit .keyrow.addev { padding: 0; }
+html #pg-agenda .todoit .todoedit .keyrow button { width: auto; min-width: 44px; padding: 0 14px; }
+html #pg-agenda .todoviews { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 8px; }
+html #pg-agenda .todoviews button.todoview { min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html #pg-agenda .todoviews button.todoview.on { color: var(--c); box-shadow: inset 0 0 0 2px var(--c) !important; }
+html #pg-agenda .agstale { margin: 0 0 8px; }
+html #pg-agenda .pn.todo .bd > .keyrow button { min-height: 44px !important; }
+/* DIARY: an event tapped open, whole, with its change box when it is his own */
+html #pg-agenda .rw.ev.evtap { cursor: pointer; }
+html #pg-agenda .rw.ev.evtap[aria-expanded="true"] { border-bottom-color: transparent; }
+html #pg-agenda .evcard { display: flex; flex-direction: column; gap: 6px; margin: 0 0 8px; padding: 12px 14px; border-radius: var(--rad); box-shadow: inset 0 0 0 1px var(--hair2); font: 400 15px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-agenda .evcard .evcardt { font: 600 17px/22px var(--sf); color: var(--ink); }
+html #pg-agenda .evcard small { font: 400 13px/18px var(--sf); color: var(--ink3); }
+html #pg-agenda .evcard .keyrow.addev { padding: 4px 0 0; }
+html #pg-agenda .evcard .keyrow button { min-height: 44px !important; padding: 0 14px; }
+/* the add and change boxes: a day-and-time box and its reminder each get the whole row (half a row cut "09:00 PM" and "15 min before") */
+html #pg-agenda .keyrow.addev > input[type="datetime-local"], html #pg-agenda .keyrow.addev:has(> input[type="datetime-local"]) > select { grid-column: 1 / -1; }
+/* MONTH → THIS WEEK: Monday to Sunday, each day a key with what it holds; today lit, gone days quieter */
+html #pg-agenda .pn.month .monwkh { display: block; padding: 16px 0 6px; font: 600 13px/18px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
+html #pg-agenda .pn.month .monweek { display: flex; flex-direction: column; gap: 2px; }
+html #pg-agenda .pn.month button.monwk { display: grid; grid-template-columns: minmax(64px, auto) minmax(0, 1fr); align-items: center; column-gap: 12px; width: 100%; min-height: 44px !important; height: auto; padding: 6px 10px; text-align: left; text-transform: none; letter-spacing: normal; white-space: normal; background: none !important; box-shadow: inset 0 -1px 0 var(--hair) !important; border-radius: 0; }
+html #pg-agenda .pn.month button.monwk b { font: 600 15px/20px var(--sf); color: var(--ink); text-transform: none; white-space: nowrap; }
+html #pg-agenda .pn.month button.monwk span { font: 400 15px/20px var(--sf); color: var(--ink2); text-transform: none; overflow-wrap: anywhere; white-space: normal; }
+html #pg-agenda .pn.month button.monwk.past b, html #pg-agenda .pn.month button.monwk.past span { color: var(--ink3); }
+html #pg-agenda .pn.month button.monwk.today b { color: var(--c); }
+html #pg-agenda .pn.month button.monwk.on { box-shadow: inset 0 0 0 2px var(--c) !important; border-radius: var(--rad); }
+
+html #pg-agenda .pn.todo .keyrow button { height: 44px; min-height: 44px !important; } /* CLEAR DONE and the rest of the list's keys at 44 pt */
+/* ==== [planlane:agenda end] ==== */
+
+/* ==== [planlane:brief] ==== */
+/* the headlines' and the weather's TRY AGAIN: a whole key, 44 pt, under the line that says what is wrong */
+html #pg-brief .brnewsdown .bract,
+html #pg-brief .pn.wx .bract { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+html #pg-brief .brnewsdown .bract button,
+html #pg-brief .pn.wx .bract button { min-height: 44px; min-width: 44px; }
+/* every key on the Brief is 44 pt in every look (The Ink's own key height rounds to 43 at BODY 21) */
+html #pg-brief :is(.bract, .tabs) button { min-height: 44px !important; }
+/* WEAR, SUN and TOMORROW are sentences: they wrap, never cut */
+html #pg-brief .pn.wx .rw.brwear .v,
+html #pg-brief .pn.wx .rw.brsun .v,
+html #pg-brief .pn.wx .rw.brtomorrow .v { white-space: normal; overflow-wrap: anywhere; }
+
+/* ==== [planlane:brief end] ==== */
+
+/* ==== [planlane:radio] ==== */
+/* a sleep timer a reload ended: said once, under now playing (the hero hides other notes) */
+html #pg-radio .pn.nowp .bd > .note.nplost { display: block; margin-top: 12px; font: 400 14px/19px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+/* FAVOURITES in his order: REORDER, then each one with its place, its name (wrapping) and ↑ ↓ (44 pt each) */
+html #pg-radio .pn.favs .favnote { display: block; margin: 4px 0 8px; font: 400 14px/19px var(--sf); color: var(--ink3); overflow-wrap: anywhere; }
+html #pg-radio .pn.favs .favmove { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+html #pg-radio .pn.favs .favmove .favno { font: 600 14px/1 var(--sf); color: var(--ink3); text-align: center; }
+html #pg-radio .pn.favs .favmove .favtx b { font: 600 16px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html #pg-radio .pn.favs .favmove .favkeys { display: flex; gap: 8px; }
+html #pg-radio .pn.favs .favmove .favkeys button { width: 44px; height: 44px; min-width: 44px; min-height: 44px !important; padding: 0; font-size: 18px; }
+html #pg-radio .pn.favs .favmove .favkeys button:disabled { opacity: .35; }
+html #pg-radio .pn.favs .keyrow.favorder { display: flex; justify-content: flex-end; padding: 8px 0 0; }
+html #pg-radio .pn.favs .keyrow.favorder button { min-height: 44px !important; height: 44px; padding: 0 16px; }
+
+/* NEAR ME: the word, his country (a 44 pt picker that takes the room), POPULAR */
+html #pg-radio .pn.stations > .keyrow.radnear { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 16px 8px; }
+html #pg-radio .pn.stations > .keyrow.radnear .lab { flex: none; margin: 0; }
+html #pg-radio .pn.stations > .keyrow.radnear select { flex: 1 1 140px; min-width: 0; height: 44px; min-height: 44px; padding: 0 12px; font: 400 16px/1 var(--sf); color: var(--ink); background: var(--fill); border: 1px solid var(--hair2); border-radius: var(--rad); }
+html #pg-radio .pn.stations > .keyrow.radnear button { flex: none; height: 44px; min-height: 44px !important; }
+html #pg-radio .pn.stations button { min-height: 44px !important; }
+/* ==== [planlane:radio end] ==== */
+
+/* ==== [planlane:markets] ==== */
+/* EDIT LIST in the crypto panel's foot: a 44 pt key; the foot wraps rather than going sideways */
+html #pg-markets .pn.coins > .ft { flex-wrap: wrap; }
+html #pg-markets .pn.coins > .ft button.mkeditl { height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: var(--rad); }
+/* YOUR COINS: the total and when it was read, each holding (its amount and today's move under its name, its worth on the right), the note */
+html #pg-markets .pn.held .mkheldtot { margin: 4px 0 6px; font: 400 15px/21px var(--sf); color: var(--ink2); }
+html #pg-markets .pn.held .mkheldtot b { font: 600 19px/25px var(--sf); color: var(--ink); }
+html #pg-markets .pn.held .rw .v small { font: 400 14px/18px var(--sf); color: var(--ink2); white-space: normal; overflow-wrap: anywhere; }
+html #pg-markets .pn.held .rw .n { white-space: nowrap; }
+html #pg-markets .pn.held .mkheldnote { margin: 8px 0 0; font: 400 13px/18px var(--sf); color: var(--ink2); }
+/* CONVERT under WHAT £1 BUYS: an amount, from, ⇄, to (each 44 pt; it wraps rather than going sideways), and the answer */
+html #pg-markets .pn.fx > .ft { display: block; }
+html #pg-markets .pn.fx .mkcv { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+html #pg-markets .pn.fx .mkcv > b { font: 600 15px var(--sf); color: var(--ink); }
+html #pg-markets .pn.fx .mkcvrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html #pg-markets .pn.fx .mkcvrow input.mkcvamt { flex: 1 1 90px; min-width: 0; min-height: 44px; font: 400 17px var(--sf); }
+html #pg-markets .pn.fx .mkcvrow select.mkcvsel { flex: 1 1 120px; min-width: 0; min-height: 44px; font: 400 16px var(--sf); color: var(--ink); background: var(--glass, transparent); border: 1px solid var(--line); border-radius: var(--rad); }
+html #pg-markets .pn.fx .mkcvrow button.mkcvswap { width: 44px; min-width: 44px; height: 44px; min-height: 44px !important; padding: 0; border-radius: var(--rad); font: 600 18px var(--sf) !important; }
+html #pg-markets .pn.fx .mkcvout { margin: 0; font: 400 15px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+/* The coin's sheet: its ranges (24H · 7D · 30D · 1Y), and what he has of it */
+html body .mkcoin .mkranges { display: flex; flex-wrap: wrap; gap: 6px; }
+html body .mkcoin .mkranges button { min-width: 56px; height: 44px; min-height: 44px !important; padding: 0 12px; border-radius: var(--rad); font: 600 15px var(--sf) !important; }
+html body .mkcoin .mkranges button[aria-pressed="true"] { color: var(--c); box-shadow: inset 0 0 0 1px var(--c) !important; }
+html body .mkcoin .mkrangebox { min-height: 160px; }
+html body .mkcoin .mkrangewait { padding: 24px 0; }
+html body .mkcoin .mkhold { display: flex; flex-direction: column; gap: 6px; padding: 12px 0 4px; border-top: 1px solid var(--hair); }
+html body .mkcoin .mkhold > b { font: 600 15px var(--sf); color: var(--ink); }
+html body .mkcoin .mkholdrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html body .mkcoin .mkholdrow input.mkamt { flex: 1 1 120px; min-width: 0; min-height: 44px; font: 400 17px var(--sf); }
+html body .mkcoin .mkholdrow .mksym { font: 600 15px var(--sf); color: var(--ink2); }
+html body .mkcoin .mkholdrow button { height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: var(--rad); }
+html body .mkcoin .mkholdrow button[hidden] { display: none; }
+html body .mkcoin .mkheldsay { margin: 0; }
+/* YOUR WATCHLIST: his coins in his order (↑ ↓ ✕, each 44 pt), then CoinGecko's search to add one */
+html body .mkedit { display: flex; flex-direction: column; gap: 10px; padding: 6px 20px 24px; }
+html body .mkedit .mknote { margin: 0; font: 400 15px/21px var(--sf); color: var(--ink2); }
+html body .mkedit .mkwlrow { display: flex; align-items: center; gap: 6px; min-height: 52px; border-bottom: 1px solid var(--hair); }
+html body .mkedit .mkwln { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+html body .mkedit .mkwln b { font: 600 16px/21px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html body .mkedit .mkwln small { font: 400 13px var(--sf); color: var(--ink2); }
+html body .mkedit button.mkmv { width: 44px; min-width: 44px; height: 44px; min-height: 44px !important; padding: 0; border-radius: var(--rad); font: 600 18px var(--sf) !important; }
+html body .mkedit button.mkadd { height: 44px; min-height: 44px !important; padding: 0 14px; border-radius: var(--rad); }
+html body .mkedit .mksearch { display: flex; gap: 8px; }
+html body .mkedit .mksearch input { flex: 1; min-width: 0; min-height: 44px; font: 400 17px var(--sf); }
+html body .mkedit .mksearch button { height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: var(--rad); }
+
+/* ==== [planlane:markets end] ==== */
+
+/* ==== [planlane:house] ==== */
+/* the HOUSE (its screen and its sheet): every key 44 pt, the glance, the scenes, the pins, ALL OFF, a thing not answering; tokens only */
+html .house .housectl button, html .house .housetop button, html .house .housectl select, html .house .housetick { min-height: 44px; }
+html .house .housecard.guarded { box-shadow: inset 0 0 0 1px var(--g-amber); }
+html .house .houseguard { color: var(--g-amber); }
+html .house .househd { display: flex; align-items: flex-start; gap: 8px; }
+html .house .househd > .househead { flex: 1 1 auto; min-width: 0; }
+html .house .housepin { flex: none; min-width: 44px; min-height: 44px; padding: 0; background: transparent; box-shadow: none; color: var(--ink2); font: 400 20px/1 var(--sf); }
+html .house .housepin.on { color: var(--g-amber); }
+html .house .houseroom > h4 { align-items: center; flex-wrap: wrap; }
+html .house .houseroom > h4 > span { flex: 1 1 auto; min-width: 0; }
+html .house .houseoff { flex: none; min-height: 44px; }
+html .house .houseglance { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--g-radius-key); box-shadow: inset 0 0 0 1px var(--hair); }
+html .house .houseglhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+html .house .houseglhead h4, html .house .housescenes h4 { margin: 0; color: var(--ink2); font: 600 12px/1.3 var(--sf); letter-spacing: .4px; }
+html .house .houseglrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+html .house .houseglrow small { flex: 0 0 auto; min-width: 8em; color: var(--ink2); font: 600 11px/1.3 var(--sf); letter-spacing: .4px; }
+html .house .houseglrow span { flex: 1 1 12em; min-width: 0; color: var(--ink); font: 400 13.5px/1.4 var(--sf); }
+html .house .housescenes { display: flex; flex-direction: column; gap: 6px; }
+html .house .housescenerow { display: flex; flex-wrap: wrap; gap: 6px; }
+html .house .housescene { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+html .house .housescene.guarded { box-shadow: inset 0 0 0 1px var(--g-amber); }
+html .house .housescenenote, html .house .housedown { color: var(--ink2); font: 400 12px/1.35 var(--sf); }
+
+/* ==== [planlane:house end] ==== */
+
+/* ==== [planlane:social] ==== */
+/* WRITE A POST: the box and the picture's words fill the width; the picture shown whole, never cropped; the lines wrap, never cut */
+html #pg-social .soccompose textarea, html #pg-social .soccompose input.socalt { width: 100%; box-sizing: border-box; max-width: 100%; }
+html #pg-social .soccompose .socthumb { display: block; max-width: 100%; max-height: 40vh; width: auto; height: auto; object-fit: contain; border: 1px solid var(--line2); border-radius: var(--rad); }
+html #pg-social .soccompose .pknote, html #pg-social .socsent .pklab, html #pg-social .socsent b { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html #pg-social .soccompose .soccount.bad { color: var(--r); }
+html #pg-social .soccompose .socmsg:empty, html #pg-social .soccompose .socpicl:empty, html #pg-social .soccompose .soccount:empty { display: none; }
+html #pg-social .soccompose .keyrow.wrapit { flex-wrap: wrap; }
+/* the picker itself is never drawn: ADD A PICTURE opens it (a general `input { display: block }` would otherwise show it) */
+html #pg-social .soccompose input[type='file'] { display: none !important; }
+html #pg-social .soccompose .keyrow button[aria-pressed='false'] { opacity: .85; }
+/* SENT TODAY: OPEN IT ON … is a key his thumb can hit (44 pt) */
+html #pg-social .socsent a.socopen { display: inline-flex; align-items: center; min-height: 44px; }
+/* LINKS' account panels when the brain is not answering */
+html .pn.socialpanel .socoff { white-space: normal; }
+
+/* ==== [planlane:social end] ==== */
+
+/* ==== [planlane:links] ==== */
+/* LINKS: the line that says when a connection was last tested sits quietly under its note; the reason a link is not working wraps whole */
+html #pg-links .lkcheck { display: block; color: var(--l2, var(--fg)); margin: 4px 0 2px; white-space: normal; }
+html #pg-links .note.lkwhy { color: var(--amber, var(--a)); white-space: normal; overflow-wrap: anywhere; }
+html #pg-links .keyrow.wrapit { flex-wrap: wrap; }
+html #pg-links .pn .bd .keyrow button { min-height: 44px; }
+/* each device's ✕ (stop notifying it) is a 44 pt key like the rest */
+html #pg-links .rw .n.del { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0; }
+/* ==== [planlane:links end] ==== */
+
+
+/* ---- POLISH 3: the Agenda's ADD key and sheet, a finished thing dimmed, the biggest text and reduced motion ---- */
+html #pg-agenda .agaddkey { min-height: var(--g-target) !important; min-width: var(--g-target); }
+html #pg-agenda .secpills .agaddkey { flex: none; }
+html .agaddsheet { display: flex; flex-direction: column; gap: var(--g-s-1); }
+html .agaddsheet input { min-height: var(--g-target); width: 100%; box-sizing: border-box; }
+html .agaddsheet .agsay { margin: 0; overflow-wrap: anywhere; }
+html #pg-agenda .rw.ev.past { opacity: .62; }
+html #pg-agenda .rw.ev .evt, html #pg-agenda .rw.ev .evloc, html #pg-agenda .rw.wrap .v { overflow-wrap: anywhere; min-width: 0; }
+html #pg-agenda .agoff { margin: var(--g-s-1) 0; }
+@media (prefers-reduced-motion: reduce) { html #pg-agenda .rcundo, html #pg-agenda .undo, html .agaddsheet { animation: none; } }
+html[data-motion="calm"] #pg-agenda .rcundo { animation: none; }
+html[data-body="21"] #pg-agenda .rw.ev { grid-template-columns: minmax(64px, auto) 3px minmax(0, 1fr) auto; }
+html[data-body="21"] #pg-agenda .hud .sub { overflow-wrap: anywhere; white-space: normal; }
+/* the report card readable: no mark under 12 px, a kind's name wraps instead of being cut, and at the biggest text the table is two columns */
+html .reportcard .rccat, html .reportcard .rcrow.rchd { font: 500 12px/16px var(--sf); letter-spacing: .04em; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; }
+html .reportcard .rcrow { min-width: 0; }
+html .reportcard .rcrow > * { min-width: 0; overflow-wrap: anywhere; }
+html[data-body="21"] .reportcard .rcrow { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); row-gap: 2px; }
+html[data-body="21"] .reportcard :is(.rcline, .rcsum, .rclegend, .note) { overflow-wrap: anywhere; white-space: normal; }
+/* a "?" on the pages drawn in the new system reads in its ink on every ground (Paper too), never the shell's */
+html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore summary, html :is(#pg-look, .gdial-head, #pg-settings .pn.themepn.pushed) .pkmore .pknote { color: var(--g-ink-2); }
+/* ---- end POLISH 3 ---- */
+html .watchers .wrow .k { flex: none; min-width: 58px; }
+/* [moneylane] THE MONEY APP (features/money/app.ts): the month, budgets, bills and trends. Tokens only: no hex, no rgba, no px radius. */
+.mnapp { gap: 12px; }
+.mnnav { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mnnav b { flex: 1 1 auto; min-width: 0; text-align: center; font: var(--g-t-head); color: var(--fg); overflow-wrap: anywhere; }
+.mnnav.mnhead b { text-align: left; }
+.mnnav button { flex: none; min-width: 44px; min-height: 44px; }
+.mnfigs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
+.mnfig { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: var(--g-radius-cell); background: var(--fill); border: 1px solid var(--line); }
+.mnfig .mnname { font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); text-transform: uppercase; color: var(--l2); overflow-wrap: anywhere; }
+.mnfig .mnval { font: var(--g-t-value); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mnfig[data-tone="ok"] .mnval { color: var(--ok); }
+.mnfig[data-tone="over"] .mnval { color: var(--g-red); }
+.mnhow { display: block; font: var(--g-t-caption); color: var(--l2); overflow-wrap: anywhere; }
+.mnmeter { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.mnline { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; min-width: 0; }
+.mnline b { font: var(--g-t-head); color: var(--fg); min-width: 0; overflow-wrap: anywhere; }
+.mnline span { font: var(--g-t-reading); color: var(--fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mnbar { position: relative; height: 8px; border-radius: var(--g-radius-capsule); background: var(--fill2, var(--fill)); overflow: hidden; }
+.mnbar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); border-radius: var(--g-radius-capsule); }
+.mnmeter[data-tone="ok"] .mnbar i { background: var(--ok); }
+.mnmeter[data-tone="soft"] .mnbar i { background: var(--amber, var(--c)); }
+.mnmeter[data-tone="over"] .mnbar i { background: var(--g-red); }
+.mnmeter .pkrow button { flex: 0 1 auto; }
+.mnsearch, .mnamount, .mnselect { min-height: 44px; min-width: 0; box-sizing: border-box; font: var(--g-t-body); }
+.mnsearch { width: 100%; }
+.mnamount { flex: 1 1 120px; }
+.mnselect { flex: 1 1 160px; }
+.mntxn { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left; border-radius: var(--g-radius-cell); background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--fg); }
+.mnwhat { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.mnwhat b { font: var(--g-t-head); overflow-wrap: anywhere; }
+.mnwhat small { font: var(--g-t-caption); color: var(--l2); overflow-wrap: anywhere; }
+.mnamt { flex: none; font: var(--g-t-reading); font-variant-numeric: tabular-nums; }
+.mnamt[data-tone="in"] { color: var(--ok); }
+.mndue { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.mnchips button { flex: 0 1 auto; min-height: 44px; }
+.mnup { color: var(--amber, var(--fg)); }
+html body .mnapp :is(button, input, select) { min-height: var(--g-target, 44px) !important; }
+html body .mnnav button { min-width: var(--g-target, 44px) !important; }
+/* [moneylane] the to-do list in a good to-do app's order (features/work/sheet.ts): the group heads, a late job in the warning colour */
+.pkitems .pktodohead { list-style: none; margin: 10px 0 2px; font: var(--g-t-tag); letter-spacing: var(--g-tr-tag); color: var(--l2); overflow-wrap: anywhere; }
+.pkitems .pkitem.late label { color: var(--amber, var(--fg)); }
+/* ===== FINAL ROUND · THE LEARN LANE (13 Nov): every key 44 pt on the reader, rehearse, the lab and the interpreter; at the
+   biggest text (BODY 21) the GYM's card names wrap instead of being cut with an ellipsis. Tokens only. */
+html :is(#pg-reader, #pg-rehearse, #pg-lab, #pg-interpreter, #pg-library, #pg-learning, #pg-coach) button { min-height: 44px !important; min-width: 44px; } /* (the phone-wide hover:none rule holds buttons at 40 px) */
+html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard :is(.gymname, .gymsay) { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+html:is([data-body="19"], [data-body="21"]) #pg-gym .gymcard .gymrl :is(.gymrate, .gymnext), html:is([data-body="19"], [data-body="21"]) #pg-gym .gymlvhd .k { white-space: normal; overflow: visible; text-overflow: clip; }
+/* the interpreter keeps the whole talk on screen (scrolls, newest at the foot); a translated line is a key that says it again */
+html .fxlines { justify-content: flex-start; overflow-y: auto; }
+html .fxlines > :first-child { margin-top: auto; }
+html button.fxline.again { display: block; width: 100%; min-height: 44px; padding: 0; text-align: inherit; text-transform: none; letter-spacing: normal; background: none; box-shadow: none; border: 0; border-radius: 0; color: var(--g-accent-text); font: var(--g-t-reading); }
+
+/* INTERPRETER: a translated line says itself again on a tap and has a COPY key; PHRASES, the short phrasebook */
+html .fxline.fxtwin { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--g-s-1); }
+html .fxline.fxtwin small { grid-column: 1 / -1; }
+html button.fxreplay { box-sizing: border-box; min-width: 0; min-height: var(--g-target); margin: 0; padding: 0; font: inherit; letter-spacing: normal; text-transform: none; text-align: start; white-space: normal; overflow-wrap: anywhere; color: inherit; background: none; border: 0; cursor: pointer; }
+html button.fxcopy { flex: none; display: flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: var(--g-target); min-height: var(--g-target); padding: 0; color: var(--g-ink-2); background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html button.fxcopy svg { width: var(--g-icon); height: var(--g-icon); stroke: currentColor; fill: none; stroke-width: var(--g-icon-stroke); }
+html .fxbook { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .fxbook button.fxbookkey { align-self: flex-start; min-width: var(--g-target); min-height: var(--g-target); }
+html .fxbook button.fxbookkey[aria-expanded="true"] { color: var(--g-accent-text); border-color: var(--g-accent); }
+html .fxphrases { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5em), 1fr)); gap: var(--g-s-1); min-width: 0; }
+html .fxphrases[hidden] { display: none; }
+html .fxphrases button.fxphrase { box-sizing: border-box; min-width: 0; min-height: var(--g-target); height: auto; padding: var(--g-s-half) var(--g-s-1); font: var(--g-t-body); letter-spacing: normal; text-transform: none; text-align: start; white-space: normal; overflow-wrap: anywhere; }
+
+/* REHEARSE: KEPT, the rehearsals he kept, newest first */
+html .rhkept { display: flex; flex-direction: column; gap: var(--g-s-1); min-width: 0; }
+html .rhkeptitem { display: flex; flex-direction: column; min-width: 0; background: var(--g-plate-fill); border: var(--g-hair) solid var(--g-line-faint); border-radius: var(--g-radius-key); }
+html button.rhkepthead { display: flex; flex-direction: column; align-items: flex-start; gap: var(--g-s-half); box-sizing: border-box; width: 100%; min-width: 0; min-height: var(--g-target); height: auto; padding: var(--g-s-1) var(--g-s-2); text-align: start; text-transform: none; letter-spacing: normal; white-space: normal; overflow-wrap: anywhere; color: var(--g-ink-1); background: none; border: 0; }
+html button.rhkepthead[aria-expanded="true"] .rhkeptsit { color: var(--g-accent-text); }
+html .rhkeptsit { font: var(--g-t-body); max-width: 100%; }
+html .rhkeptmeta { font: var(--g-t-caption); color: var(--g-ink-3); }
+html .rhkeptbody { display: flex; flex-direction: column; gap: var(--g-s-1); padding: 0 var(--g-s-2) var(--g-s-2); min-width: 0; }
+html .rhkeptbody ol, html .rhkeptbody ul { margin: 0; padding-left: var(--g-s-2); display: flex; flex-direction: column; gap: var(--g-s-half); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .rhkeptans small { display: block; font: var(--g-t-fine); letter-spacing: var(--g-tr-truth); color: var(--g-ink-3); }
+html .rhkeptbody .row button { min-height: var(--g-target); min-width: var(--g-target); height: auto; white-space: normal; }
+html .fxbooknote { margin: 0; font: var(--g-t-caption); color: var(--g-ink-3); }
+html .rhkeptbody ol.rhkeptans { list-style: none; padding-left: 0; }
 /* [recall] THE RECALL CARD, FIND and the index's line (features/memory/recallcard.ts): a row per turn or thing, each a 44 pt key that wraps
    rather than clips at BODY 21, FORGET / UNDO beside a turn; the RECALL chip under a reply that says "like you said on Tuesday" */
 html .recallcard, html .recallfind { display: flex; flex-direction: column; gap: var(--g-s-half); width: 100%; min-width: 0; }

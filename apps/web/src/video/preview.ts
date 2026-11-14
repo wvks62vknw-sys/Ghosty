@@ -94,8 +94,20 @@ export class Feeder {
     if (!e) return;
     const want = Math.min(Math.max(0, ms / 1000), Math.max(0, e.v.duration - 0.001));
     if (!e.v.seeking && Math.abs(e.v.currentTime - want) < 0.012 && e.v.readyState >= 2) return;
+    // [ci] 'seeked' says the element is at its time, not that its new picture is up: drawn straight after it, a slow decoder (CI's,
+    // or an old phone's) could hand over the frame before, so the same seek showed one picture one time and its neighbour the next
+    // (video2's shake measured 12.2 px on one run and 8.3 on the next: FINAL-CI 3). The seek waits for the frame itself to be shown
+    // (a moment at most, for a seek that lands on the picture already up).
+    const v = e.v as HTMLVideoElement & { requestVideoFrameCallback?(cb: () => void): number; cancelVideoFrameCallback?(h: number): void };
+    const shown = v.requestVideoFrameCallback
+      ? new Promise<void>((ok) => {
+          const h = v.requestVideoFrameCallback!(() => (clearTimeout(t), ok()));
+          const t = setTimeout(() => (v.cancelVideoFrameCallback?.(h), ok()), 400);
+        })
+      : null;
     e.v.currentTime = want;
     await once(e.v, 'seeked', 'error', 5000).catch(() => undefined);
+    if (shown) await shown;
   }
   drop(id: string): void {
     const e = this.els.get(id);
@@ -151,6 +163,8 @@ export interface PlayerOptions {
   still?: boolean;
   onTick?(t: number): void;
   onEnd?(): void;
+  /** The export's recorder: at the end the picture stays as it is (no seek back to the last frame, which would draw again later). */
+  stay?: boolean;
   /** The context was lost. */
   onLost?(): void;
   /** A reversed clip is playing: the preview seeks backwards and is rough (said once). */
@@ -318,7 +332,8 @@ export class Player {
       if (this.t >= this.end) {
         this.t = this.end;
         this.pause();
-        void this.seek(Math.max(0, this.end - 1)).then(() => this.o.onEnd?.());
+        if (this.o.stay) this.o.onEnd?.();
+        else void this.seek(Math.max(0, this.end - 1)).then(() => this.o.onEnd?.());
         return;
       }
       const plan = planFrame(this.project, this.t);

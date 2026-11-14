@@ -292,7 +292,7 @@ const CORE = '/vendor/clip/core.f16.bin';
   check((await eyeRow(page, 'eyes-name-large').count()) === 1 && order.length === 8 && order[order.indexOf('eyes-name-large') - 1] === 'eyes-name', `[sizes] the larger row is not beside the standard seven: ${order.join(', ')}`);
   const t = await eyeText(page, 'eyes-name-large');
   check(/Larger, \d+ MB, for a newer phone/.test(t) && /Get · \d+ MB/i.test(t) && /on Wi-Fi/.test(t), `[sizes] the second size does not say what it is and what it costs: ${t.slice(0, 200)}`);
-  check(/memory 8 GB · 8 cores · WebGPU yes\. A larger size would be chosen for it/.test(await caps(page)), `[sizes] the capability line: "${await caps(page)}"`);
+  check(/memory 8 GB · 8 cores · WebGPU yes; a larger size would be chosen for it/.test(await caps(page)), `[sizes] the capability line: "${await caps(page)}"`);
   check(/standard size \(the larger one is not on the phone yet\)/.test(await inUse(page)), `[sizes] before the fetch: "${await inUse(page)}"`);
   check(!asked.includes(CORE), '[sizes] looking at the panel fetched the larger model');
   await page.screenshot({ path: `${out}/eyes-larger.png`, timeout: 15000 }).catch(() => undefined);
@@ -317,9 +317,9 @@ const CORE = '/vendor/clip/core.f16.bin';
   await ctx.close();
 }
 for (const [name, o, re, larger] of [
-  ['safari', { mem: null, cores: 6, gpu: true }, /memory not reported · 6 cores · WebGPU yes\. A larger size is not chosen for it by itself: this browser does not say how much memory/, LARGER],
+  ['safari', { mem: null, cores: 6, gpu: true }, /memory not reported · 6 cores · WebGPU yes; a larger size is not chosen for it by itself: this browser does not say how much memory/, LARGER],
   ['4 GB', { mem: 4, cores: 8, gpu: true }, /memory 4 GB .* the phone says 4 GB of memory and a larger one wants 6/, LARGER],
-  ['no WebGPU', { mem: 8, cores: 8, gpu: false }, /WebGPU no\. A larger size is not chosen for it by itself: this browser has no WebGPU/, LARGER],
+  ['no WebGPU', { mem: 8, cores: 8, gpu: false }, /WebGPU no; a larger size is not chosen for it by itself: this browser has no WebGPU/, LARGER],
 ]) {
   const { ctx, page } = await phone(o);
   await page.evaluate((l) => (window.__ghostyEyesLarger = l), larger);
@@ -346,7 +346,7 @@ for (const [name, o, re, larger] of [
   const { ctx, page } = await phone({ mem: 8, cores: 8, gpu: true });
   await openEyes(page);
   check((await page.locator('#pg-settings .offeyes .wikioffer').count()) === 7 && (await page.locator('#pg-settings .offeyes .eyesize').count()) === 0, '[sizes none] a larger row or a choice is offered with no larger model (the standard seven only)');
-  check(/One size only for now: no larger free model with a clear licence is on this site yet/.test(await text(page.locator('#pg-settings .offeyes [data-eyes="one"]'))), '[sizes none] the panel does not say it is one size');
+  check(/^One size only for now: the Lens uses the one above on every phone\.$/.test(await text(page.locator('#pg-settings .offeyes [data-eyes="one"]'))) && /No larger free model with a clear licence is on this site yet/.test(((await page.locator('#pg-settings .offeyes [data-eyes="one"] + details.pkmore').textContent().catch(() => '')) ?? '')), '[sizes none] the panel does not say it is one size, with why behind its "?"');
   check(/memory 8 GB/.test(await caps(page)), `[sizes none] the phone is not read aloud: "${await caps(page)}"`);
   await ctx.close();
 }
@@ -420,7 +420,7 @@ for (const [name, mem] of [['4 GB', 4], ['12 GB', 12], ['no figure', null]]) {
   await openSystem(page);
   await page.locator('#pg-system .phonecard button[data-act="measure-brain"]').click();
   await page.waitForTimeout(500);
-  check(/nothing to time\. Nothing is downloaded for this/.test(await text(page.locator('#pg-system .phonecard .pcnote'))), '[brain none] no words for a brain that is not on the phone');
+  check(/^Nothing to time and nothing downloaded: no offline brain is here; GET one in SETTINGS\.$/.test(await text(page.locator('#pg-system .phonecard .pcnote'))), '[brain none] no words for a brain that is not on the phone');
   check(!asked.some((p) => /huggingface|webllm\/.*\.bin|resolve\/main/.test(p)), '[brain none] something was downloaded');
   await ctx.close();
 }
