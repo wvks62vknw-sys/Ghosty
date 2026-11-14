@@ -1,7 +1,7 @@
 # THE NEXT ROUND (14 November 2026): one shared brief for the seventeen lanes
 
 Seventeen cloud sessions work at once, one lane each, the same lanes as the final round. Each session has its own container and its own
-branch. All of them start from `claude/new-session-4erjve-next`, which is main (`58f0ccd2`, with #118 and #119 in it) plus this file and
+branch. All of them start from the integration branch `claude/new-session-4erjve-next`, which is main (`58f0ccd2`, with #118 and #119 in it) plus this file and
 `docs/build-plan/next/`.
 
 **Your work is in `docs/build-plan/next/<your lane>.md`.** It comes from THE MAP: your own lane's report, which 5 reviewers checked against
@@ -95,7 +95,7 @@ Where a screen has nothing behind it yet (a dead key, a promise the code does no
 Your file lists the items whose idea joins two lanes (`with:`). The lane that owns the id builds it into the other lane's area: small, additive, keeping that lane's intent, and saying so in the commit. The other lane's file lists what to expect under "Built into your area by other lanes". When you merge, keep both sides.
 
 ## Every session's protocol
-1. `git fetch origin claude/new-session-4erjve-next` and start your branch from it: `claude/new-session-4erjve-<lane>-next`. (Your old lane branch is done; do not reuse it.)
+1. Work on your own lane branch, `claude/new-session-4erjve-lane-<lane>`, the one your session pushes. First `git fetch origin claude/new-session-4erjve-next` and merge it into your lane branch (never a force-push; your MAP commit can stay, it is only a doc).
 2. Push your branch about every 45 minutes, so nothing is lost.
 3. Commit messages are plain English and end with the Co-Authored-By trailer your session gives you, exactly as in the final round. Nowhere else in a commit, a file or a report is a builder named except by tier.
 4. Each time a piece is whole and green:
