@@ -859,3 +859,9 @@ test('compare two versions (editors.u10): matched by block, changes coloured wor
   assert.deepEqual(K.restorePart(then, now, b.id).map((x) => x.id), [a.id, b.id, c.id, d.id], 'a gone block back in its old place');
   assert.deepEqual(K.restorePart(then, now, d.id).map((x) => x.id), [a.id, c.id], 'an added block taken out');
 });
+
+// The second review (14 Nov): a voice note whose document could not be kept keeps its recording, so TIDY IT NOW has something to try again.
+test('voice notes: the recording is let go only once its page or document was really kept', () => {
+  assert.equal(K.letGoOfRecording({ ok: true, words: 'A page.' }), true);
+  assert.equal(K.letGoOfRecording({ ok: false, words: 'This phone would not keep the document just now' }), false);
+});

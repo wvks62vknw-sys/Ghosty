@@ -113,8 +113,11 @@ export async function pwnedRange(prefix: string, fetcher: (url: string, init?: R
  */
 export const LOCK_KEY = 'security:lockdown';
 /** The tools that stay still while locked: everything that leaves (the brain's own SENSITIVE words) and changes to Ghosty itself. */
-export const LOCKED_TOOLS = /(send|email|message|post|publish|pay|purchase|buy|transfer|book|ship|social|propose_change|update_change|build_app|restore_version|schedule_task)/i;
-export const LOCKED_WORDS = 'Ghosty is locked: nothing that publishes, sends, pays or ships runs until you unlock it in Settings → Security.';
+export const LOCKED_TOOLS = /(send|email|message|post|publish|pay|purchase|buy|transfer|book|ship|social|propose_change|update_change|build_app|build_website|restore_version|schedule_task)/i;
+export const LOCKED_WORDS = 'Ghosty is locked: nothing that publishes, sends, pays, ships or waits for your APPROVE runs until you unlock it in Settings → Security.';
+/** Locked while locked: every tool named above, and every tool that asks for his APPROVE (risk 'confirm'), so a tool added later
+ * that acts cannot slip past the names. */
+export const lockedTool = (t: { name: string; risk?: string }): boolean => LOCKED_TOOLS.test(t.name) || t.risk === 'confirm';
 
 export async function lockedAt(storage: Pick<DurableObjectStorage, 'get'>): Promise<number | null> {
   try {

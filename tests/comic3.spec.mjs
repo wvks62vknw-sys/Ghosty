@@ -201,9 +201,8 @@ for (const vp of [PHONE, PHONE2]) {
     // a panel picked takes the finger for dragging; another page, and the page scrolls again
     await page.locator('#pg-comic .cxpage').scrollIntoViewIfNeeded();
     const bb = await page.locator('#pg-comic .cxpage').boundingBox();
-    await page.mouse.click(bb.x + bb.width * 0.5, bb.y + bb.height * 0.2);
-    await until(page, () => window.__ghosty.comic.editing.panel >= 0);
-    check(await page.evaluate(() => window.__ghosty.comic.editing.panel < 0 || document.querySelector('#pg-comic .cxpage').classList.contains('cxdrag')), `${T} (a) a panel picked: the page takes the finger for dragging`);
+    await page.mouse.click(bb.x + bb.width * 0.3, bb.y + bb.height * 0.7);
+    check(await until(page, () => window.__ghosty.comic.editing.panel >= 0 && document.querySelector('#pg-comic .cxpage').classList.contains('cxdrag')), `${T} (a) a panel picked: the page takes the finger for dragging (panel ${(await C(page)).editing.panel})`);
     await page.click('#pg-comic button[aria-label="Previous page"]');
     check(await until(page, () => !document.querySelector('#pg-comic .cxpage').classList.contains('cxdrag')), `${T} (a) another page: no panel picked, the page scrolls again`);
     // MAKE closed and opened again from the chat: the week lands on the screen he sees
@@ -351,10 +350,24 @@ for (const vp of [PHONE, PHONE2]) {
     await bar(page, `${T} (g) MAKE with its shapes`);
     // "make it a comic": what I last said becomes the comic
     await page.selectOption('#pg-comic select[aria-label="What to make"]', 'comic').catch(() => undefined);
+    // (his message found by when it was sent, data-at, and the reply after it waited for: never a fixed sleep)
+    const t0 = await page.evaluate(() => Date.now());
     await chat(page, 'what is the weather like');
-    await page.waitForTimeout(1500);
+    const said = await page.waitForFunction((t) => {
+      const msgs = [...document.querySelectorAll('#pg-core .msg')];
+      const mine = msgs.map((m) => m.classList.contains('me') && Number(m.dataset.at ?? 0) >= t).lastIndexOf(true);
+      if (mine < 0) return null;
+      const r = msgs.slice(mine + 1).find((m) => !m.classList.contains('me') && (m.textContent ?? '').replace(/\s+/g, ' ').trim().length > 20);
+      return r ? (r.textContent ?? '').replace(/\s+/g, ' ').trim() : null;
+    }, t0, { timeout: 20000 }).then((h) => h.jsonValue(), () => '');
+    check(!!said, `${T} (g) Ghosty answered first: "${said.slice(0, 60)}"`);
     await chat(page, 'make it a comic');
-    check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.pages > 0 && window.__ghosty.comic.editing.writing === false, null, 20000), `${T} (g) “make it a comic” makes what I last said into a comic`);
+    check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.pages > 0 && window.__ghosty.comic.editing.writing === false, null, 20000), `${T} (g) “make it a comic” makes a comic`);
+    // (the comic is made from that reply: its first words are the comic's opening caption)
+    await page.click('#pg-comic button[aria-label="Next page"]');
+    const p1 = await page.evaluate(() => (document.querySelector('#pg-comic .cxpage').getAttribute('aria-label') ?? '').replace(/\s+/g, ' '));
+    const head = (/as a comic: (.{24})/.exec(p1)?.[1] ?? '').trim();
+    check(head.length >= 20 && said.includes(head), `${T} (g) …made from what I last said ("${head}" is in the reply "${said.slice(0, 90)}")`);
     await ctx.close();
   }
 }
