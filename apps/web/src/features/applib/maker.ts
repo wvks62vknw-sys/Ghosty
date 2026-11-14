@@ -346,11 +346,12 @@ export const GAME_OPTIONS: Partial<Record<GameKind, { key: string; label: string
 // ---- registered with the Library (the ENGINE lane's registry loads this file by name): MAKE MY OWN opens App Maker in the
 // page it hands over, and his made apps join the Library's list. The page's body becomes a plain host, so the kit's own
 // scroll area is the one scroll area. (Read through the namespace, so this file builds before and after those hooks land.)
-const hooks = reg as unknown as { registerMaker?: (fn: (root: HTMLElement, from?: AppDef) => void | (() => void)) => void; registerAppSource?: (fn: () => AppDef[]) => void };
+const hooks = reg as unknown as { registerMaker?: (fn: (root: HTMLElement, from?: AppDef, words?: string) => void | (() => void)) => void; registerAppSource?: (fn: () => AppDef[]) => void };
 hooks.registerAppSource?.(myApps);
-hooks.registerMaker?.((root, from) => {
+// (a third argument, his words, opens a first draft from them: "make me an app for my vinyl")
+hooks.registerMaker?.((root, from, words) => {
   root.classList.add('al-makerhost');
   root.replaceChildren();
-  openMaker(root, { from, taken: () => LIBRARY.map((d) => d.id) });
+  openMaker(root, { from, words: from ? undefined : words, taken: () => LIBRARY.map((d) => d.id) });
   return () => root.classList.remove('al-makerhost');
 });
