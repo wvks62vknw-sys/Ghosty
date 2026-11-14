@@ -111,6 +111,41 @@ function zip(files) {
   end.writeUInt32LE(off, 16);
   return Buffer.concat([...locals, dir, end]);
 }
+/** A RAR 5 archive of these files, each stored (method 0), written here by hand from the RAR 5 format (no tool, nothing downloaded). */
+function rar5(files) {
+  const vint = (n) => {
+    const out = [];
+    do {
+      let b = n & 0x7f;
+      n = Math.floor(n / 128);
+      if (n) b |= 0x80;
+      out.push(b);
+    } while (n);
+    return Buffer.from(out);
+  };
+  const u32 = (n) => {
+    const b = Buffer.alloc(4);
+    b.writeUInt32LE(n >>> 0);
+    return b;
+  };
+  const block = (body) => {
+    // header: CRC32 of (size + body), the size of body as a vint, then body (type, flags, ...)
+    const size = vint(body.length);
+    const crc = crc32(Buffer.concat([size, body]));
+    return Buffer.concat([u32(crc), size, body]);
+  };
+  const parts = [Buffer.from([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00])];
+  parts.push(block(Buffer.concat([vint(1), vint(0), vint(0)])));
+  for (const { name, data } of files) {
+    const n = Buffer.from(name);
+    // type 2 (file), flags 0x02 (a data area follows), data size; file flags 0x04 (CRC32 present), unpacked size, attributes,
+    // the data's CRC32, compression info 0 (version 0, stored), host OS 1 (Unix), the name
+    const body = Buffer.concat([vint(2), vint(0x02), vint(data.length), vint(0x04), vint(data.length), vint(0o100644), u32(crc32(data)), vint(0), vint(1), vint(n.length), n]);
+    parts.push(block(body), data);
+  }
+  parts.push(block(Buffer.concat([vint(5), vint(0), vint(0)])));
+  return Buffer.concat(parts);
+}
 /** Unzip what the app made (stored or deflated), for reading it back. */
 function unzip(b) {
   const out = new Map();
@@ -158,7 +193,10 @@ const CBZ = zip([
   { name: 'Moon Patrol 01/ComicInfo.xml', data: Buffer.from('<ComicInfo><Title>Moon Patrol</Title></ComicInfo>') },
 ]);
 const PDF = pdf();
-const RAR = Buffer.concat([Buffer.from('Rar!\x1a\x07\x00', 'latin1'), Buffer.alloc(64, 7)]);
+const RAR = rar5([
+  { name: 'Night Flight/01.png', data: pagePng(W, H, [[20, 20, 560, 860]], [40, 40, 120]) },
+  { name: 'Night Flight/02.png', data: pagePng(W, H, [[20, 20, 560, 420], [20, 460, 560, 420]], [120, 40, 40]) },
+]);
 
 // ---------------------------------------------------------------- the Internet Archive, answered here
 const IA_DOCS = [
@@ -266,11 +304,19 @@ for (const vp of [PHONE, PHONE2]) {
   check(/“Moon Patrol 01” is on your shelf: 3 pages, from a CBZ file/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) it says so: "${await txt(page, '#pg-comic .cxnote')}"`);
   st = await take(page, [{ name: 'Night Watch.pdf', mimeType: 'application/pdf', buffer: PDF }]);
   check(st.import.state === 'done' && st.books === 2 && /2 pages, from a PDF/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a PDF is drawn into pages (${await txt(page, '#pg-comic .cxnote')})`);
-  st = await take(page, [{ name: 'Old Story.cbr', mimeType: 'application/octet-stream', buffer: RAR }]);
-  check(st.import.state === 'error' && /CBR file, packed with RAR/.test(st.error) && /Save it as a CBZ/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a real CBR is refused in words: "${st.error.slice(0, 80)}"`);
+  // a real CBR (a RAR 5 made here): the free RAR reader is offered with its size, waits on mobile data, then opens it
+  st = await take(page, [{ name: 'Night Flight.cbr', mimeType: 'application/octet-stream', buffer: RAR }]);
+  const getRar = page.locator('#pg-comic button[aria-label^="Get the free RAR reader"]');
+  check(st.import.state === 'rar' && /a CBR file, packed with RAR\. To open it, I need the free archive reader \(1\.1 MB, once/.test(st.error) && /^Get the RAR reader · /.test((await getRar.textContent()) ?? ''), `${T} (b) a CBR asks for the RAR reader, its size said: "${st.error.slice(0, 90)}" / "${await getRar.textContent()}"`);
+  await page.evaluate(() => Object.defineProperty(navigator, 'connection', { value: { type: 'cellular' }, configurable: true }));
+  await getRar.click();
+  check(await until(page, () => /You are on mobile data, and the RAR reader is 1\.1 MB: it waits for Wi-Fi/.test(document.querySelector('#pg-comic .cxnote')?.textContent ?? '')), `${T} (b) on mobile data the RAR reader waits for Wi-Fi`);
+  await page.evaluate(() => Object.defineProperty(navigator, 'connection', { value: { type: 'wifi' }, configurable: true }));
+  await getRar.click();
+  check(await until(page, () => window.__ghosty.comic.import.state === 'done' && /“Night Flight” is on your shelf: 2 pages, from a CBR file/.test(document.querySelector('#pg-comic .cxnote')?.textContent ?? ''), null, 30000), `${T} (b) on Wi-Fi the RAR reader opens the real CBR: "${await txt(page, '#pg-comic .cxnote')}"`);
   st = await take(page, [{ name: 'Zip Inside.cbr', mimeType: 'application/octet-stream', buffer: CBZ }]);
-  check(st.import.state === 'done' && st.books === 3 && /really a zip inside/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a .cbr that is really a zip is read`);
-  await bar(page, `${T} (b) the shelf with three comics`);
+  check(st.import.state === 'done' && st.books === 4 && /really a zip inside/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a .cbr that is really a zip is read`);
+  await bar(page, `${T} (b) the shelf with four comics`);
 
   // (c) the reader
   await page.locator('#pg-comic .cxbook', { hasText: 'Moon Patrol 01' }).locator('button', { hasText: /^Read$/ }).click();
@@ -303,17 +349,17 @@ for (const vp of [PHONE, PHONE2]) {
 
   // (d) a comic made from the chat
   await chat(page, 'make me a comic about a cat who wants to be an astronaut');
-  check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.id && window.__ghosty.comic.editing.pages === 4, null, 15000), `${T} (d) the chat's words make a whole comic and open it`);
+  check(await until(page, () => location.hash.startsWith('#comic') && window.__ghosty.comic.editing.id && window.__ghosty.comic.editing.pages === 4 && window.__ghosty.comic.editing.by === 'brain', null, 15000), `${T} (d) the chat's words make a whole comic and open it`);
   st = await C(page);
   check(st.editing.cast.length === 3 && st.editing.page === 0, `${T} (d) a cast of three (${st.editing.cast.join(', ')}) and the cover first`);
   check(/a cat who wants to be an astronaut/.test(await page.evaluate(() => [...document.querySelectorAll('#pg-comic .chatmsg, .log .msg, .log')].map((e) => e.textContent).join(' ')).catch(() => '')) || true, `${T} (d) the chat says what was made`);
   const cover = await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'));
-  check(/^The cover: /.test(cover) && /In which .+ tries to be an astronaut/.test(cover), `${T} (d) the cover has a title and its tagline: "${cover.slice(0, 90)}"`);
+  check(/^The cover: /.test(cover) && /Written for you: a cat who wants to be an astronaut/.test(cover), `${T} (d) the cover has a title and its tagline: "${cover.slice(0, 90)}"`);
   await page.click('#pg-comic button[aria-label="Next page"]');
   check(await until(page, () => window.__ghosty.comic.editing.page === 1 && window.__ghosty.comic.editing.panels === 3), `${T} (d) page 1 has three panels`);
   const p1 = await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'));
   const hero = st.editing.cast[0];
-  check(p1.includes(`${hero}: Today is the day. Today I become an astronaut!`), `${T} (d) the hero says what they want: "${p1.slice(0, 120)}"`);
+  check(p1.includes(`${hero}: Today everything changes!`), `${T} (d) the hero says what they want: "${p1.slice(0, 120)}"`);
   // the whole story: a beginning, the turn, the end
   const story = [];
   for (let i = 0; i < 4; i++) {
@@ -322,7 +368,7 @@ for (const vp of [PHONE, PHONE2]) {
     await page.waitForTimeout(60);
   }
   const all = story.join(' ');
-  check(/Attempt number one/.test(all) && /worst idea I have ever heard/.test(all) && /THE END/.test(all) && (all.match(/Who put that there\?/g) ?? []).length === 2, `${T} (d) the story has its tries, its turn, its end and its callback`);
+  check(/toaster/.test(story[0]) && /upside down/i.test(all) && /THE END/.test(all) && /take back everything I said about the toaster/.test(story[3]) && /Where can I get a diagram\?/.test(all), `${T} (d) Ghosty's script has its setup, its turn, its end and its callback, drawn with the same cast`);
   // edit a panel's line: tap the first panel of page 1
   await page.click('#pg-comic button[aria-label="Previous page"]');
   await page.click('#pg-comic button[aria-label="Previous page"]');
@@ -336,8 +382,35 @@ for (const vp of [PHONE, PHONE2]) {
   check(await until(page, () => /To the moon, or at least the shed roof!/.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (d) a line changed redraws the page`);
   await page.locator('#pg-comic .cxpanel input[aria-label="Sound effect"]').fill('BOING!');
   check(await until(page, () => /BOING!/.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (d) a sound effect added`);
+  // undo and redo (comic.u4): the line typed above, taken back and put back
+  await page.click('#pg-comic button[aria-label="Undo the last change"]');
+  check(await until(page, () => !/BOING!/.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))) && /To the moon, or at least the shed roof!/.test(await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (d) UNDO takes back the last change (the sound effect) and keeps the one before`);
+  await page.click('#pg-comic button[aria-label="Redo what was undone"]');
+  check(await until(page, () => /BOING!/.test(document.querySelector('#pg-comic .cxpage').getAttribute('aria-label'))), `${T} (d) REDO puts it back`);
+  // a finger drags a balloon (comic.u5)
+  {
+    await page.locator('#pg-comic .cxpage').scrollIntoViewIfNeeded();
+    const bx = (await C(page)).editing.boxes[0];
+    const r = await page.locator('#pg-comic .cxpage').boundingBox();
+    const k = r.width / 1000;
+    const sx = r.x + (bx.x + bx.w / 2) * k;
+    const sy = r.y + (bx.y + bx.h / 2) * k;
+    await page.mouse.move(sx, sy);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(sx + i * 6, sy + i * 8);
+    await page.mouse.up();
+    check(await until(page, (y0) => window.__ghosty.comic.editing.dragged >= 1 && window.__ghosty.comic.editing.boxes[0] && window.__ghosty.comic.editing.boxes[0].y > y0 + 20, bx.y), `${T} (d) a balloon dragged with a finger moves (and stays moved)`);
+  }
+  // his own photo behind the panel (comic.u7)
+  {
+    const chooser = page.waitForEvent('filechooser', { timeout: 8000 });
+    await page.click('#pg-comic button[aria-label="Put one of my own photos behind this panel"]');
+    await (await chooser).setFiles({ name: 'kitchen.png', mimeType: 'image/png', buffer: pagePng(320, 240, [[10, 10, 300, 220]], [200, 120, 60]) });
+    check(await until(page, () => window.__ghosty.comic.editing.photo === true && /Your photo is behind this panel/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `${T} (d) MY PHOTO BEHIND IT puts his photo behind the panel, kept on the phone`);
+  }
+  const b0 = (await C(page)).editing.balloons;
   await page.click('#pg-comic button[aria-label="Add a speech balloon to this panel"]');
-  check(await until(page, () => window.__ghosty.comic.editing.balloons >= 6), `${T} (d) ADD A LINE adds a balloon`);
+  check(await until(page, (n) => window.__ghosty.comic.editing.balloons === n + 1, b0), `${T} (d) ADD A LINE adds a balloon`);
   await page.click('#pg-comic button[aria-label="Add a panel to this page"]');
   check(await until(page, () => window.__ghosty.comic.editing.panels === 4), `${T} (d) ADD PANEL makes four`);
   await page.click('#pg-comic button[aria-label="Change this page’s panel grid"]');
@@ -360,7 +433,30 @@ for (const vp of [PHONE, PHONE2]) {
   await page.keyboard.press('Escape');
   await until(page, () => !document.querySelector('.cxread'));
   await goComic(page, 'shelf');
-  check(await until(page, () => window.__ghosty.comic.made === 1 && window.__ghosty.comic.books === 4), `${T} (d) the made comic is on the shelf, kept`);
+  check(await until(page, () => window.__ghosty.comic.made === 1 && window.__ghosty.comic.books === 5), `${T} (d) the made comic is on the shelf, kept`);
+
+  // the phone's own writer (when he picks it, or with no signal): the beats of the local story
+  if (vp.width === 440) {
+    await goComic(page, 'make');
+    if (await page.$('#pg-comic button[aria-label="Start a new comic from an idea"]')) await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
+    await page.selectOption('#pg-comic select[aria-label="Who writes it"]', 'phone');
+    await page.fill('#pg-comic textarea', 'a cat who wants to be an astronaut');
+    await page.click('#pg-comic button[aria-label="Make a whole comic from this idea"]');
+    check(await until(page, () => window.__ghosty.comic.editing.by === 'phone' && window.__ghosty.comic.editing.pages === 4), `${T} (d) WRITTEN HERE ON THE PHONE makes it with no brain`);
+    const words = [];
+    for (let i = 0; i < 5; i++) {
+      words.push(await page.evaluate(() => document.querySelector('#pg-comic .cxpage').getAttribute('aria-label')));
+      await page.click('#pg-comic button[aria-label="Next page"]');
+    }
+    const w = words.join(' ');
+    check(/Today I become an astronaut!/.test(w) && /Attempt number one/.test(w) && /worst idea I have ever heard/.test(w) && (w.match(/Who put that there\?/g) ?? []).length === 2, `${T} (d) the phone's story has its want, its tries, its turn and its callback`);
+    await page.click('#pg-comic button[aria-label="Start a new comic from an idea"]');
+    await page.selectOption('#pg-comic select[aria-label="Who writes it"]', 'ghosty');
+    await ctx.setOffline(true);
+    await page.click('#pg-comic button[aria-label^="Make a comic about a robot"]');
+    check(await until(page, () => window.__ghosty.comic.editing.by === 'phone' && /No signal, so I wrote this one here on the phone/.test(document.querySelector('#pg-comic .cxedit .cxnote')?.textContent ?? '')), `${T} (d) with no signal, the phone writes it and says so`);
+    await ctx.setOffline(false);
+  }
 
   // (e) the public-domain library
   await goComic(page, 'library');

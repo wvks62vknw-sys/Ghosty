@@ -3,11 +3,13 @@
  * fly", "draw a comic where…", "a comic book about pirates", "read a comic", "my comics", "import this comic", "open my CBZ",
  * "public domain comics", "find old western comics". Pure.
  */
-export type ComicAsk = { what: 'make'; idea: string } | { what: 'shelf' } | { what: 'import' } | { what: 'library'; words: string } | { what: 'open' };
+export type ComicAsk = { what: 'week' } | { what: 'make'; idea: string } | { what: 'shelf' } | { what: 'import' } | { what: 'library'; words: string } | { what: 'open' };
 
 export function comicAsked(text: string): ComicAsk | null {
   const t = text.trim().replace(/[.!?]+$/, '').replace(/^(?:hey ghosty[, ]+|ghosty[, ]+|ok(?:ay)?[, ]+|please[, ]+|can you |could you |will you |i want (?:you )?to |i(?:'|’)d like (?:you )?to |let(?:'|’)?s )/i, '').trim();
   if (!/\b(?:comic|comics|cbz|cbr|graphic novel|manga|cartoon strip|comic strip|comic book)\b/i.test(t)) return null;
+  // his week as a comic (from his own agenda)
+  if (/\b(?:my|this|the) week\b/i.test(t) && /\b(?:comic|comics|comic strip)\b/i.test(t) && !/\bread\b/i.test(t)) return { what: 'week' };
   // the library: free, old, public-domain, golden-age
   const lib = /^(?:find|get|show|search|browse|look for|download|open)?\s*(?:me\s+)?(?:some\s+)?(?:free|old|classic|vintage|golden[- ]age|public[- ]domain)\s+(?:(.+?)\s+)?comics?(?:\s+(?:about|with|from)\s+(.+))?$/i.exec(t)
     ?? /^(?:the\s+)?(?:public[- ]domain|free)\s+comic(?:s| library)$/i.exec(t)

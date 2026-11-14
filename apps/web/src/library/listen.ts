@@ -18,7 +18,7 @@ import type { LibraryDoc } from '../../../../packages/shared/src/protocol';
 import { onCutOff, readAloud, speak, stopSpeaking, type BookEngine, type SwitchWhy } from '../assistant/voice';
 import { buildBook, chapterName, clampPlace, piecesFrom, placeInfo, said, type Book, type Piece } from './book';
 import { passagesHere } from './local';
-import { readingPrefs, setPlace } from './place';
+import { readingPrefs, setPlace, speedNow } from './place';
 
 export type ReadState = 'idle' | 'reading' | 'cut' | 'stopped' | 'ended';
 export interface Reading {
@@ -41,6 +41,23 @@ export interface Reading {
   stoppedAt: number;
 }
 export const reading = createStore<Reading>({ doc: '', title: '', state: 'idle', n: 0, off: 0, lit: -1, engine: '', switched: '', only: false, finished: false, stoppedAt: 0 });
+
+/**
+ * THE SLEEP TIMER (learn.u5): reading stops after 15 or 30 minutes, at the sentence it is on, and says where it stopped, so the
+ * place is kept for the morning. It is a timer on this phone: a phone that locks and suspends the page stops the voice anyway.
+ */
+export const sleep = createStore({ minutes: 0, at: 0 });
+let sleepTimer = 0;
+export function setSleep(minutes: number): void {
+  clearTimeout(sleepTimer);
+  if (!minutes) return void sleep.set({ minutes: 0, at: 0 });
+  const at = Date.now() + minutes * 60_000;
+  sleep.set({ minutes, at });
+  sleepTimer = window.setTimeout(() => {
+    sleep.set({ minutes: 0, at: 0 });
+    if (reading.get().state === 'reading') void stopReading(true);
+  }, minutes * 60_000);
+}
 
 /** What the checks read (window.__ghosty.reader.listen): every piece as it began to be heard, cuts, resumes, first words. */
 export const listenLog = {
@@ -188,6 +205,8 @@ export function startReading(b: Book, from: { n: number; off: number }, opts: { 
     ghostyLeft: bookVoiceLeft,
     spent: spend,
     switchLine: SWITCH_LINE,
+    rate: speedNow(),
+    voiceName: readingPrefs.get().voices?.[b.id],
     onPiece: (i, engine) => {
       if (me !== run) return;
       const m = meta[i];

@@ -24,6 +24,8 @@ export interface ImportResult {
   doc: LibraryDoc;
   passages: number;
   note: string;
+  /** A book that comes a part at a time: the next part to ask for, or null when it was the last (absent: one go). */
+  next?: number | null;
 }
 
 async function readCapped(r: Response, max = MAX_BYTES): Promise<string> {
@@ -308,6 +310,7 @@ async function importGutenberg(lib: Library, id: number, offset: number, onProgr
   return {
     doc: lib.doc(doc.id)!,
     passages: n,
+    next: next < parts.length ? next : null,
     note: next < parts.length ? `Saved part ${next} of ${parts.length} ("${part[0]!.heading}" to "${part[part.length - 1]!.heading}", ${book.chapters.length} chapters in all). To continue, import again with offset ${next}.` : `That was the whole book: ${book.chapters.length} chapter${book.chapters.length === 1 ? '' : 's'}.${cut}`,
   };
 }

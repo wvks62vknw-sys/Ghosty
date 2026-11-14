@@ -43,6 +43,7 @@ import { raising, type Raising } from '../../../packages/shared/src/intent';
 import { moodEvent, moodLine, type Mood } from '../../../packages/shared/src/mood';
 import { feel, loadMood } from './mood';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
+import { classicsRoute } from './library/classics';
 import { trainingRoute } from './training/coach';
 import { loadStudy, matchDomains, noteGap, STUDY_KEY, studySession, studySummary, TOPIC_COUNT } from './library/study';
 import { runDigest } from './library/digest';
@@ -1519,6 +1520,8 @@ export class GhostyAgent {
       await dropPlace(this.storage, m[1]!);
       return json({ ok });
     }
+    // [learn.u6] THE CLASSICS SHOP: free public-domain books (Gutendex, Standard Ebooks' open new releases), added on his tap
+    if (path === '/library/classics' || path.startsWith('/library/classics/')) return classicsRoute(req, path, method, { lib });
     if (path === '/library/import' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { source?: string; offset?: number };
       try {

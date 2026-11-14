@@ -11,8 +11,10 @@
  *  - `forgetGist` / `restoreGist`: MEMORY → FORGET on a turn (memories.ts changeMemory, id `t:<at>`), with UNDO.
  * Words only, no model: the brain asks nothing new of anyone.
  */
-import { daysAgo, gistAsk, matchGists, RECALL_DAYS, RECALL_LINES, RECALL_WEEK, replyGist, type Gist, type RecallHit } from '../../../packages/shared/src/recall';
+import { dayWord, stampOf, daysAgo, gistAsk, matchGists, RECALL_DAYS, RECALL_LINES, RECALL_WEEK, replyGist, type Gist, type RecallHit } from '../../../packages/shared/src/recall';
 import type { ChatTurn } from '../../../packages/shared/src/protocol';
+import { EMBED_MODEL } from './library/store';
+import { cost, neurons } from './neurons';
 
 export const GISTS_KEY = 'recall:gists';
 const TURNS_KEY = 'turns';
@@ -122,4 +124,35 @@ export async function restoreGist(storage: DurableObjectStorage, g: Gist, now = 
   const list = (await loadGists(storage)).filter((x) => x.at !== g.at);
   list.push(g);
   await storage.put(GISTS_KEY, boundGists(list, now));
+}
+
+/**
+ * [recall] memory.u1: recall by meaning on the brain (Telegram, or a cold phone): his words and the newest 150 turns through the same free
+ * Workers AI embedding the library uses, only while the day's shared allowance has room (neurons.ts); none, or no room: [] (words stand).
+ */
+export async function meaningSearch(env: { AI?: { run(model: string, input: unknown): Promise<unknown> } }, storage: DurableObjectStorage, about: string, now: number, tz: string, k = 3): Promise<RecallHit[]> {
+  if (!env.AI || !about.trim()) return [];
+  const list = (await gistsNow(storage, now)).slice(-150);
+  if (!list.length) return [];
+  const texts = [about, ...list.map((g) => `${g.q}${g.a ? ` ${g.a}` : ''}`.slice(0, 300))];
+  const n = cost.embed(texts.reduce((s, t) => s + t.length, 0));
+  if (!(await neurons().room('embed', n))) return [];
+  await neurons().charge('embed', n);
+  try {
+    const r = (await env.AI.run(EMBED_MODEL, { text: texts, pooling: 'cls' })) as { data?: number[][] };
+    if (!Array.isArray(r?.data) || r.data.length !== texts.length) return [];
+    const unit = (v: number[]) => {
+      const m = Math.hypot(...v) || 1;
+      return v.map((x) => x / m);
+    };
+    const q = unit(r.data[0]!);
+    const scored = list.map((g, i) => ({ g, c: unit(r.data![i + 1]!).reduce((s, x, j) => s + x * q[j]!, 0) }));
+    return scored
+      .filter((x) => x.c >= 0.72)
+      .sort((a, b) => b.c - a.c)
+      .slice(0, k)
+      .map(({ g, c }) => ({ ...g, day: dayWord(g.at, now, tz), stamp: stampOf(g.at, g.via, tz), score: c }));
+  } catch {
+    return [];
+  }
 }
