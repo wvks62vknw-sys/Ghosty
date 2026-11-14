@@ -32,7 +32,7 @@ import { BARE, afterLine, askLine, progressLine, toolLine } from './narrate';
 import { continueIntent, stopIntent } from '../../../../packages/shared/src/intent';
 import { feelHere, setMood } from '../state/mood';
 import { localTurn, type LocalAnswer } from './local';
-import { REBOOT } from './phrases';
+import { NOTE_ASK, REBOOT } from './phrases';
 import { guardTurn } from './guard'; // [guardian] the panic phrase and the walk home (OWNER-ISSUES 55, 60)
 import { faceTurn } from '../features/lens/people'; // [guardian] PEOPLE: "this is Sam", "who's this?", "who am I?" (OWNER-ISSUES 56)
 import { argWords } from '../../../../packages/shared/src/abilities';
@@ -955,7 +955,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   // know, asking about his private things (money, health, messages, diary…) is answered here, kindly; no table and no brain sees it
   // (and every turn such a voice says is marked theirs: it stays out of his recall on this phone, features/memory/recall.ts)
   theirsNow = !!who && who !== 'owner';
-  if (who && who !== 'owner' && privateAsk(t)) {
+  // (a note someone else asks to keep is the notes' own question: assistant/voicenote.ts says it is not kept)
+  if (who && who !== 'owner' && privateAsk(t) && !NOTE_ASK.test(t.trim())) {
     const name = typeof who === 'object' ? who.name : null;
     await import('./local').then((m) => m.answer(t, keptLine(settings.get().name, name), { kind: 'can' }, { voice: opts.voice }));
     return;
@@ -978,7 +979,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   await flushUndo();
   // About Ghosty himself ("can you …?"): answered here from what is really there, with no model (assistant/local.ts)
   const localPriv = settings.get().offlineBrain === 'always' || !!opts.here;
-  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: localPriv }))) {
+  if (!opts.cloud && !opts.plain && (await localTurn(t, { voice: opts.voice, private: localPriv, who }))) {
     // [offline2] answered on the phone with no model: his own, on the independence meter too
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
     return;

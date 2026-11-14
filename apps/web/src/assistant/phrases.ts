@@ -84,6 +84,12 @@ export function findAsked(text: string): string | null {
  */
 export const SPEAKER_ASK = /^(?:(?:hey |ok |so )?(?:ghosty,? )?)(?:do you (?:know|recognise|recognize) (?:it's|its|it is|that it's|that its) me|(?:do|can|could) you (?:know|recognise|recognize|tell|hear) (?:my voice|it's me|its me|it is me|who i am|who's (?:talking|speaking)|who is (?:talking|speaking)|me by my voice|me from my voice|that it's me)|do you know (?:my voice|who's talking|who is talking|who's speaking|who is speaking|who i am|me)|who(?:'s| is) (?:talking|speaking)(?: (?:now|to you|right now))?|whose voice (?:is (?:this|that)|was that|is it)|(?:is|was) (?:that|this|it) me(?: (?:talking|speaking))?|did you recognise (?:me|my voice)|did you recognize (?:me|my voice)|how do you know it's me|are you sure it's me|who said that|who am i to you|recognise me|recognize me)[?.!]*$/i;
 
+/**
+ * [voice lane] SPOKEN NOTES KEPT AS HIS (voice.s9, with ci.s4): "note: buy milk", "note to self, call the garage", "jot this down: …".
+ * Said aloud and sure it was him: kept in his memory marked "by you"; typed: kept; another voice or not sure: not kept, and said why.
+ */
+export const NOTE_ASK = /^(?:(?:hey |ok )?(?:ghosty,? )?)(?:note to self|take a note|make a note|quick note|voice note|a note|jot (?:this |that )?down|write (?:this |that )?down|note)[:,.]?\s+(?:that\s+)?(.{2,300})$/i;
+
 /** "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked. */
 export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i;
 
@@ -94,6 +100,7 @@ export const LOCAL_ASKS = [
   { id: 'speaker', test: (t: string) => SPEAKER_ASK.test(t.trim().replace(/[’]/g, "'")) },
   // [voice lane] HIS OWN WORDINGS (voice.u1, assistant/learnwords.ts): a wording he taught opens its screen before any table reads it;
   // "my wordings" lists them; "forget the wording …" forgets one
+  { id: 'voicenote', test: (t: string) => NOTE_ASK.test(t.trim()) },
   { id: 'learned', test: (t: string) => !!learnedAsked(t) || !!learnedFor(storedLearned(), t) },
   // [awareness] "make that wall longer", "add a wardrobe there", "find me a replacement", "open that one": the words that point at what is
   // selected on the screen, acted on here with no model (assistant/thatone.ts); when nothing fitting is selected the next table, then the brain

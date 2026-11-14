@@ -321,4 +321,5 @@ test('his private things, as another voice asks about them: money, health, messa
   for (const t of ['what is the capital of France', 'play some music', 'tell me a joke', 'how tall is the eiffel tower', 'set a timer for 10 minutes', 'what time is it']) assert.ok(!H.privateAsk(t), `"${t}" is not private`);
   assert.equal(H.keptLine('Alex', 'Sam'), 'Sorry Sam, that’s Alex’s to see, so I keep it to him.');
   assert.equal(H.keptLine('boss', null), 'That’s his to see, so I keep it to him.');
+  assert.equal(H.keptLine('Boss', 'Sam'), 'Sorry Sam, that’s his to see, so I keep it to him.', 'the default name, however it is written');
 });

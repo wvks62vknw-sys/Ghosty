@@ -16,4 +16,4 @@ export const privateAsk = (text: string): boolean => text.trim().length > 0 && P
 
 /** The reply to someone else asking about his private things: kind, short, and no hint of what is there. */
 export const keptLine = (owner: string, who: string | null): string =>
-  `${who ? `Sorry ${who}, that’s` : 'That’s'} ${owner === 'boss' || !owner ? 'his' : `${owner}’s`} to see, so I keep it to him.`;
+  `${who ? `Sorry ${who}, that’s` : 'That’s'} ${!owner || owner.toLowerCase() === 'boss' ? 'his' : `${owner}’s`} to see, so I keep it to him.`;

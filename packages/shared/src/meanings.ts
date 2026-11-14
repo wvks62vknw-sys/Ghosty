@@ -348,3 +348,19 @@ export const MEANING_IDS = ['radio', 'radio-stop', 'radio screen', 'water', 'lig
 
 /** The note the brain is given beside his words when the phone read a meaning it cannot do itself (one short line). */
 export const meantNote = (m: Meant): string => (m.brain ? `\n\n(The phone read this as: ${m.brain}.)` : '');
+
+/**
+ * [voice.u11] THE SAME EVERYDAY WORDINGS ON TELEGRAM, for what Telegram can do: the note the brain is given beside his words
+ * ("give us a shout in ten" → a reminder in 10 minutes; "is it gonna chuck it down" → the weather). What only the phone can do (the
+ * radio, water kept on the phone, a screen) is named as such, so the brain says so instead of guessing. '' when nothing is read.
+ */
+export function telegramNote(text: string): string {
+  const m = meaningOf(text);
+  if (!m || isTwo(m)) return '';
+  const timer = m.id === 'timer' && m.say ? /^set a timer for (.+)$/.exec(m.say)?.[1] : '';
+  if (timer) return `(The phone read this as: remind me in ${timer}.)`;
+  if (m.brain) return `(The phone read this as: ${m.brain}.)`;
+  if (m.id === 'water') return '(The phone read this as: log a drink of water, which only the app on his phone keeps.)';
+  if (m.act === 'radio' || m.act === 'radio-named') return '(The phone read this as: play the radio, which only the app on his phone can do.)';
+  return '';
+}

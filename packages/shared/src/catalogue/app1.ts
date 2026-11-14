@@ -358,6 +358,12 @@ export const APP_1: Record<string, CatValue> = {
     say: ['Stop', 'Enough', 'Leave it'], scene: ['talking'], cat: 'talk',
     since: '2026-10-31',
   },
+  'phrase:voicenote': {
+    name: 'Spoken notes', line: 'You can say “note: buy milk” or “note to self, call the garage” and I write it down and keep it in Memory.',
+    more: 'Said aloud, it is marked “by you” only when this phone is sure the voice was yours; another voice’s note is not kept (type it instead). Typed notes are kept too.',
+    say: ['Note: buy milk', 'Note to self, call the garage'], scene: ['talking'], cat: 'talk',
+    since: '2026-11-14',
+  },
   'phrase:learned': {
     name: 'Your own wordings', line: 'You can say something your own way, then tap the screen you meant, and I offer to remember it: next time it opens straight away.',
     more: 'A small bar asks “Next time you say “money stuff”, open Money?” with REMEMBER IT and NO. Kept on this phone only. “My wordings” lists them with FORGET; anything that sends, pays or posts is never learned.',

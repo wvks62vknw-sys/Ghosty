@@ -185,7 +185,8 @@ function packAnswer(r: PackReply, opts: Opts): true {
 /** A read of the brain that gives up after six seconds (null), so the chat never hangs on it. */
 const within = <T>(p: Promise<T>, ms = 6000): Promise<T | null> => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]).catch(() => null);
 
-type Opts = { voice?: boolean; private?: boolean };
+/** (`who`: [voice lane] whose voice this turn was, as the phone judged it, for the tables that care: a spoken note) */
+type Opts = { voice?: boolean; private?: boolean; who?: import('./voiceknown').Label };
 
 /**
  * Each table's answer, by its id in assistant/phrases.ts LOCAL_ASKS (the order they are tried in): true when it answered,
@@ -194,6 +195,8 @@ type Opts = { voice?: boolean; private?: boolean };
  */
 const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> | boolean> = {
   // [voice lane] "do you know it's me?", "who's talking?": from the phone's own tag, truly (voiceknown.ts whoWords); never a lock
+  // [voice lane] a note he says (voice.s9): kept in his memory, marked "by you" only when the phone is sure the voice was his
+  voicenote: (text, opts) => import('./voicenote').then((m) => m.noteTurn(text, opts, answer)),
   // [voice lane] his own wordings (voice.u1): a taught wording opens its screen; "my wordings" lists them (assistant/learnwords.ts)
   learned: (text, opts) => import('./learnwords').then((m) => m.learnedTurn(text, opts, answer)),
   speaker: (text, opts) => import('./voiceknown').then((v) => answer(text, v.whoWords(!!opts.voice), { kind: 'can', go: [{ id: 'screen:settings', ask: -1, label: 'My voice', open: 'settings' }] }, opts)),

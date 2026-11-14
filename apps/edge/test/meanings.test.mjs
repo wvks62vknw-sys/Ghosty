@@ -12,7 +12,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts'), screenasks: at('../../web/src/assistant/screenasks.ts'), learned: at('../../../packages/shared/src/learned.ts'), amounts: at('../../../packages/shared/src/amounts.ts'), kitchen: at('../../../packages/shared/src/kitchen.ts'), trackcore: at('../../web/src/features/body/trackcore.ts') },
+  entryPoints: { meanings: at('../../../packages/shared/src/meanings.ts'), colours: at('../../../packages/shared/src/colours.ts'), themes: at('../../../packages/shared/src/themes.ts'), phrases: at('../../web/src/assistant/phrases.ts'), screenasks: at('../../web/src/assistant/screenasks.ts'), learned: at('../../../packages/shared/src/learned.ts'), amounts: at('../../../packages/shared/src/amounts.ts'), kitchen: at('../../../packages/shared/src/kitchen.ts'), trackcore: at('../../web/src/features/body/trackcore.ts'), house: at('../../../packages/shared/src/house.ts') },
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -29,6 +29,7 @@ const L = await import('./.build/meanings/learned.mjs');
 const AM = await import('./.build/meanings/amounts.mjs');
 const KI = await import('./.build/meanings/kitchen.mjs');
 const TC = await import('./.build/meanings/trackcore.mjs');
+const HO = await import('./.build/meanings/house.mjs');
 
 /** The table that answers words first on the phone (assistant/local.ts localTurn's order), or null. */
 const tableOf = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
@@ -429,4 +430,43 @@ test('when it is not sure whose voice it was, it says why in plain words (voice.
   assert.match(vk, /r\.who\.two \? 'two' : v\.secs < 0\.35 \* \(pcm\.length \/ RATE\) \? 'noisy' : 'close'/);
   assert.match(readFileSync(at('../../web/src/features/core/voicetag.ts'), 'utf8'), /if \(unknown && heard\.sure === false\) kids\.push\(truthLine\(BECAUSE\[heard\.because \?\? 'close'\]\)\);/);
   for (const f of ['voiceprint.ts', 'speakerjudge.ts']) assert.match(readFileSync(at(`../../web/src/assistant/${f}`), 'utf8'), /why: 'unsure', two: true/, `${f}: two claims say so`);
+});
+
+test('the same everyday wordings on Telegram, for what Telegram can do (voice.u11)', () => {
+  assert.equal(M.telegramNote('give us a shout in ten'), '(The phone read this as: remind me in 10 minutes.)');
+  assert.equal(M.telegramNote('give me a shout in a quarter of an hour'), '(The phone read this as: remind me in 15 minutes.)');
+  assert.equal(M.telegramNote('is it gonna chuck it down'), "(The phone read this as: what's the weather.)");
+  assert.match(M.telegramNote('put some tunes on'), /play the radio, which only the app on his phone can do/);
+  assert.match(M.telegramNote('log a pint'), /log a drink of water, which only the app on his phone keeps/);
+  assert.equal(M.telegramNote('what is the capital of France'), '');
+  assert.equal(M.telegramNote('play something'), '', 'two meanings: nothing guessed');
+  const tg = readFileSync(at('../src/telegram.ts'), 'utf8');
+  assert.match(tg, /const meant = images\.length \? '' : telegramNote\(text\);/);
+});
+
+test('his lights take the same plain colour words the app uses: "make the lights red" (voice.s6)', () => {
+  for (const [t, name, colour] of [['make the lights red', 'lights', 'red'], ['turn the bedroom lamp navy', 'bedroom lamp', 'blue'], ['lights to pink', 'lights', 'pink'], ['set the hall light to light blue', 'hall light', 'light blue'], ['change the kitchen lights to crimson', 'kitchen lights', 'red']]) {
+    const a = HO.houseAsked(t);
+    assert.deepEqual([a?.kind, a?.name, a?.colour], ['colour', name, colour], t);
+  }
+  for (const [t, kind] of [['turn the lights off', 'alloff'], ['turn the lights on', 'power'], ['dim the hall light to 30', 'dim']]) assert.equal(HO.houseAsked(t)?.kind, kind, `"${t}" is as it was`);
+  assert.equal(HO.houseAsked('make the lights grey'), null, 'a bulb has no grey: left to the brain');
+  // the call carries only whole numbers held to 0–255, and what is said back names the colour plainly
+  const s = HO.shapeCall('light', 'turn_on', 'light.hall', { rgb_color: [300, -5, 10.4], colour: 'red' });
+  assert.deepEqual(s.body, { entity_id: 'light.hall', rgb_color: [255, 0, 10] });
+  assert.equal(HO.doneWords({ name: 'Hall light', domain: 'light' }, 'turn_on', { rgb_color: [255, 0, 0] }), 'the Hall light is on, in red');
+  for (const k of Object.keys(HO.LIGHT_RGB)) assert.ok(TH.COLOUR_LABELS[k], `${k} is one of the app's colours`);
+});
+
+test('spoken notes are kept as his only when the phone is sure the voice was his (voice.s9, ci.s4)', () => {
+  const first = (t) => P.LOCAL_ASKS.find((a) => a.test(t))?.id ?? null;
+  for (const [t, note] of [['note: buy oat milk', 'buy oat milk'], ['note to self, call the garage', 'call the garage'], ['jot this down: the boiler code is in the drawer', 'the boiler code is in the drawer'], ['Ghosty, take a note that the meeting moved to Friday', 'the meeting moved to Friday']]) {
+    assert.equal(first(t), 'voicenote', t);
+    assert.equal(P.NOTE_ASK.exec(t)?.[1], note, t);
+  }
+  for (const t of ['make a note', 'a note', 'notes', 'what notes do I have']) assert.notEqual(first(t), 'voicenote', `"${t}" is not a note to keep`);
+  const vn = readFileSync(at('../../web/src/assistant/voicenote.ts'), 'utf8');
+  assert.match(vn, /if \(who !== 'owner'\) \{/, 'said aloud, only his own sure voice is kept');
+  assert.match(vn, /\(a note by you, said aloud on /);
+  assert.match(vn, /I only keep a spoken note when I’m sure it’s you\. Type it and I’ll keep it\./);
 });
