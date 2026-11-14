@@ -23,11 +23,13 @@ export const workTab: TabDef = {
       big: () => cardBig('work'),
       load: () => cardLoad('work'),
       sections: async () => {
-        const [m, j] = await Promise.all([import('./sheet'), import('./jobs')]);
+        const [m, j, mt] = await Promise.all([import('./sheet'), import('./jobs'), import('./meetings')]);
         return [
           { id: 'todo', label: 'To-do', parts: [{ title: m.WORK_TITLES.todo, pack: 'work', screen: 'todo', build: () => m.workScreen('todo') }] },
           // [moneynext] money.s8: each job applied for, its stage and a day to follow up
           { id: 'jobs', label: 'Jobs', parts: [{ title: j.JOBS_TITLE, pack: 'work', screen: 'jobs', build: () => j.jobsScreen() }] },
+          // [moneynext] money.s9: an agenda before, notes during, a summary after
+          { id: 'meetings', label: 'Meetings', parts: [{ title: mt.MEETINGS_TITLE, pack: 'work', screen: 'meetings', build: () => mt.meetingsScreen() }] },
           { id: 'interview', label: 'Interview', parts: [{ title: m.WORK_TITLES.interview, pack: 'work', screen: 'interview', build: () => m.workScreen('interview') }] },
           {
             id: 'doc',
