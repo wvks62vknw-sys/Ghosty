@@ -17,7 +17,6 @@ export const merge: Board = (p) => {
   let b = saved?.b ?? M.start(size, r);
   let score = saved?.score ?? 0;
   let reached = saved?.reached ?? false;
-  let undoState: { b: M.MergeBoard; score: number } | null = null;
   let fresh = -1;
   const els: HTMLElement[] = [];
   const board = grid(b.size, 'al-gmerge', b.cells.length, () => {
@@ -27,13 +26,11 @@ export const merge: Board = (p) => {
   });
   p.stage.append(board);
   const unswipe = swipe(board, go);
-  p.keys([{ word: 'Undo move', run: undo, label: 'Undo the last swipe' }]);
 
   function go(d: M.Dir): void {
     if (p.paused()) return;
     const m = M.move(b, d);
     if (!m.moved) return;
-    undoState = { b, score };
     b = m.board;
     score += m.gained;
     n++;
@@ -44,14 +41,6 @@ export const merge: Board = (p) => {
       p.notice(`${target.toLocaleString('en-GB')} reached. Keep going for a higher score.`, 'ok');
     }
     if (!M.canMove(b)) return p.end({ won: reached, score, words: reached ? `No moves left. Best tile ${M.best(b)}.` : `No moves left. Best tile ${M.best(b)}.` });
-    p.keep({ b, score, seed, n, reached });
-  }
-  function undo(): void {
-    if (!undoState || p.paused()) return p.notice('Nothing to undo.');
-    ({ b, score } = undoState);
-    undoState = null;
-    fresh = -1;
-    draw();
     p.keep({ b, score, seed, n, reached });
   }
   function draw(): void {

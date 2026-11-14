@@ -65,6 +65,9 @@ interface Kept {
 /** For the spec and the console: each game's live numbers. */
 export const playState: Record<string, { kind: string; score: number; paused: boolean; over: boolean; best: number | null; streak: number; line: string }> = {};
 
+/** The kinds where the kit's Undo takes back a move (never a guess in a word game, a memory flip or a real-time move). */
+const UNDOABLE = new Set(['sudoku', 'mines', 'merge', 'solitaire', 'nonogram', 'slide', 'lights']);
+
 const storeKey = (id: string) => `ghosty.app.${id}.play`;
 function load(id: string): Kept {
   try {
@@ -179,7 +182,27 @@ export function frame(k: KitApp, id: string, kind: string, opts: Opts, board: Bo
     pauseFns.forEach((f) => f(st.paused));
   }
 
-  function begin(resume: unknown, resumeSecs: number): void {
+  // the kit's own Undo and Redo keys step through the game's kept moves, for the kinds where taking a move back is fair
+  const undoable = UNDOABLE.has(kind);
+  let past: string[] = [];
+  let future: string[] = [];
+  const ownUndo = k.undo;
+  const ownRedo = k.redo;
+  const step = (from: string[], to: string[]): boolean => {
+    if (!undoable || st.over || st.paused || from.length < (from === past ? 2 : 1)) return false;
+    if (from === past) future.push(past.pop()!);
+    else past.push(future.pop()!);
+    begin(JSON.parse(past[past.length - 1]!), secs(), true);
+    return true;
+  };
+  k.undo = () => step(past, future);
+  k.redo = () => step(future, past);
+
+  function begin(resume: unknown, resumeSecs: number, history = false): void {
+    if (!history) {
+      past = [];
+      future = [];
+    }
     if (typeof stop === 'function') stop();
     pauseFns = [];
     st.over = false;
@@ -201,6 +224,14 @@ export function frame(k: KitApp, id: string, kind: string, opts: Opts, board: Bo
       resume,
       keep(state) {
         if (st.over) return;
+        if (undoable) {
+          const j = JSON.stringify(state);
+          if (past[past.length - 1] !== j) {
+            past.push(j);
+            if (past.length > 51) past.shift();
+            future = [];
+          }
+        }
         kept.save = { state, secs: Math.round(secs()), seed: seedNow };
         save(id, kept);
       },
@@ -269,6 +300,8 @@ export function frame(k: KitApp, id: string, kind: string, opts: Opts, board: Bo
 
   return () => {
     k.render = ownRender;
+    k.undo = ownUndo;
+    k.redo = ownRedo;
     document.removeEventListener('visibilitychange', onHide);
     if (typeof stop === 'function') stop();
   };
