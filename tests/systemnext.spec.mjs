@@ -384,6 +384,33 @@ for (const vp of [PHONE, PHONE2]) {
   await ctx.close();
 }
 
+// ================================================================== g. A LOG OF CAMERA, MIC AND LOCATION USE (polish3.u9)
+{
+  log('390: what was used, and where');
+  const { ctx, page } = await phone(PHONE2);
+  await ctx.grantPermissions(['geolocation'], { origin: base }).catch(() => undefined);
+  await ctx.setGeolocation({ latitude: 52.48, longitude: -1.9 }).catch(() => undefined);
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForSelector('#pg-settings .pn', { state: 'attached', timeout: 30000 });
+  await openPanel(page, 'settings', 'PERMISSIONS');
+  check(await until(page, () => /^USED RECENTLY/.test(document.querySelector('#pg-settings .permused')?.textContent ?? ''), null, 10000), `[390] [g] no USED RECENTLY: "${await text(page, '#pg-settings .permused')}"`);
+  check(/Nothing used yet: the camera, microphone and location have not been used\./.test(await text(page, '#pg-settings .permused')), `[390] [g] the empty list reads "${await text(page, '#pg-settings .permused')}"`);
+  // the position used on the Brief (as the app asks for it), then the list names it and the screen
+  await page.evaluate(() => (location.hash = 'brief'));
+  await page.waitForSelector('#pg-brief', { state: 'attached', timeout: 20000 });
+  await until(page, () => document.body.dataset.tab === 'brief', null, 10000);
+  const got = await page.evaluate(() => new Promise((ok) => navigator.geolocation.getCurrentPosition(() => ok(true), () => ok(false), { timeout: 5000 })));
+  check(got, '[390] [g] the test could not use the position');
+  await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'PERMISSIONS');
+  const row1 = await until(page, () => [...document.querySelectorAll('#pg-settings .permuse1')].some((r) => /^Location · Brief · \w{3} \d{1,2} \w{3}, \d\d:\d\d$/.test((r.textContent ?? '').trim())), null, 10000);
+  check(row1, `[390] [g] the use reads "${await text(page, '#pg-settings .permuse1')}"`);
+  await fit(page, '[390] [g]', '#pg-settings .permused');
+  await page.locator('#pg-settings button[data-act="clearuses"]').click().catch(() => problems.push('[390] [g] no CLEAR THE LIST'));
+  check(await until(page, () => /Nothing used yet/.test(document.querySelector('#pg-settings .permused')?.textContent ?? ''), null, 5000), '[390] [g] CLEAR THE LIST did not clear it');
+  await ctx.close();
+}
+
 // ================================================================== c. A HEADS-UP
 for (const vp of [PHONE, PHONE2]) {
   const W = vp.width;
@@ -411,4 +438,4 @@ const secs = ((Date.now() - t0) / 1000).toFixed(0);
 if (problems.length) {
   process.exitCode = 1;
   console.log(`PROBLEMS (${problems.length} of ${checks} checks):\n${problems.join('\n')}`);
-} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, what I keep about you with its forget keys and the memory document, a screen that got slower since the update, and a heads-up told once.`);
+} else console.log(`SYSTEM NEXT clean: ${checks} checks in ${secs} s: OFFLINE READY (the number, the pieces with sizes, the next download, GET IT, a kept pack counted, the chat, seven worlds and BODY 21), the backup kept as a file and read back, the comics and games you made in the backup, the saver holding a download and switched by voice, what I keep about you with its forget keys and the memory document, a screen that got slower since the update, the log of what the camera, microphone and location were used for, and a heads-up told once.`);

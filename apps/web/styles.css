@@ -9948,3 +9948,6 @@ html .rpsheet .rpitem[aria-checked="true"] .setknob::after { transform: translat
 html .trainhist .throw .thv { display: flex; align-items: center; gap: var(--g-s-1); flex-wrap: wrap; min-width: 0; }
 html .trainhist .throw .thv svg.spark { flex: none; width: 120px; height: 22px; }
 html .trainhist .throw .thv small { font: var(--g-t-caption); color: var(--g-ink-2); overflow-wrap: anywhere; }
+/* USED RECENTLY (features/settings/permissions.ts): each use, its screen and when */
+html .permused .permuse1 { display: flex; flex-wrap: wrap; gap: 0 var(--g-s-half); padding: var(--g-s-half) 0; border-bottom: var(--g-hair) solid var(--g-line-faint); font: var(--g-t-body); color: var(--g-ink-1); overflow-wrap: anywhere; }
+html .permused .permuse1 span { color: var(--g-ink-2); }
