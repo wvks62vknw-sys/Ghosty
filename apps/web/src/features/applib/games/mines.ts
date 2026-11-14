@@ -1,11 +1,11 @@
 /**
  * The MINES board. Options (GameConfig.options): rows (6 to 24, default 12), cols (6 to 16, default 9),
- * mines (default about 15% of the cells). Tap opens; FLAG mode (or a long press) marks a mine; tapping an open number
+ * mines (default about 15% of the cells), levels beginner | intermediate | expert (a picker), daily. Tap opens; FLAG mode (or a long press) marks a mine; tapping an open number
  * whose flags are all placed opens the rest around it. The first tap is always an opening.
  */
 import { h, clear } from '../../../core/dom';
 import * as M from '../../../../../../packages/shared/src/applib/games/mines';
-import { num } from '../../../../../../packages/shared/src/applib/games/rng';
+import { bool, num } from '../../../../../../packages/shared/src/applib/games/rng';
 import { type Board, fmtTime, grid } from './frame';
 
 export const mines: Board = (p) => {
@@ -14,7 +14,7 @@ export const mines: Board = (p) => {
   const count = num(p.opts, 'mines', Math.round(rows * cols * 0.15), 1, rows * cols - 9);
   const saved = p.resume as { g: M.Mines; seed: number } | null;
   const g = saved?.g ?? M.create(rows, cols, count);
-  const seed = saved?.seed ?? p.seed();
+  const seed = saved?.seed ?? p.seed(bool(p.opts, 'daily', false));
   let flagMode = false;
   const els: HTMLElement[] = [];
   const board = grid(g.cols, 'al-gmines', g.cells.length, (i) => {

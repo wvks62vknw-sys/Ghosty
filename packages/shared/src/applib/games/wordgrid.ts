@@ -3,7 +3,9 @@
  *   words: string[] (the words to hide, 3 to 10 letters; default a themed set drawn from the built-in list)
  *   size:  number (letters a side, 8 to 14, default 10)
  *   count: number (words hidden, 4 to 12, default 8)
- *   diagonal: boolean (words may run diagonally, default true; never backwards)
+ *   diagonal: boolean (words may run diagonally, default true)
+ *   backwards: boolean (words may also run backwards, default false)
+ *   themes: string[] with a word list under each theme's name (in place of words; a picker chooses the theme)
  * Every word is placed before the grid is filled, so every word listed is there to be found. He drags (or taps the
  * first and last letters) along a straight line to mark a word.
  */
@@ -16,7 +18,7 @@ export interface WordGrid {
   words: { word: string; cells: number[] }[];
 }
 
-export function build(pool: readonly string[], size: number, count: number, diagonal: boolean, seed: number): WordGrid {
+export function build(pool: readonly string[], size: number, count: number, diagonal: boolean, seed: number, backwards = false): WordGrid {
   const r: Rng = rng(seed);
   const dirs: [number, number][] = diagonal ? [[0, 1], [1, 0], [1, 1], [-1, 1]] : [[0, 1], [1, 0]];
   const clean = [...new Set(pool.map((w) => w.toLowerCase().replace(/[^a-z]/g, '')).filter((w) => w.length >= 3 && w.length <= size))];
@@ -32,7 +34,8 @@ export function build(pool: readonly string[], size: number, count: number, diag
       const r1 = r0 + dr * (w.length - 1);
       const c1 = c0 + dc * (w.length - 1);
       if (r1 < 0 || r1 >= size || c1 < 0 || c1 >= size) continue;
-      const cells = [...Array(w.length).keys()].map((k) => (r0 + dr * k) * size + c0 + dc * k);
+      const along = [...Array(w.length).keys()].map((k) => (r0 + dr * k) * size + c0 + dc * k);
+      const cells = backwards && r() < 0.5 ? along.reverse() : along;
       if (cells.some((c, k) => letters[c] && letters[c] !== w[k])) continue;
       cells.forEach((c, k) => (letters[c] = w[k]!));
       words.push({ word: w, cells });

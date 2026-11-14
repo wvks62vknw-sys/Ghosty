@@ -1,17 +1,18 @@
 /**
- * The MERGE board. Options (GameConfig.options): size (3 to 6, default 4), target (the winning tile, default 2048).
+ * The MERGE board. Options (GameConfig.options): size (3 to 6, default 4), sizes (a picker), target (the winning tile,
+ * default 2048), daily.
  * Swipe (or the arrow keys) slides every tile; reaching the target wins, and play can go on for a higher score.
  */
 import { h, clear } from '../../../core/dom';
 import * as M from '../../../../../../packages/shared/src/applib/games/merge';
-import { num, rng } from '../../../../../../packages/shared/src/applib/games/rng';
+import { bool, num, rng } from '../../../../../../packages/shared/src/applib/games/rng';
 import { type Board, grid, swipe } from './frame';
 
 export const merge: Board = (p) => {
   const size = num(p.opts, 'size', 4, 3, 6);
   const target = num(p.opts, 'target', 2048, 16, 131072);
   const saved = p.resume as { b: M.MergeBoard; score: number; seed: number; n: number; reached: boolean } | null;
-  const seed = saved?.seed ?? p.seed();
+  const seed = saved?.seed ?? p.seed(bool(p.opts, 'daily', false));
   let n = saved?.n ?? 0;
   const r = rng(seed + n);
   let b = saved?.b ?? M.start(size, r);

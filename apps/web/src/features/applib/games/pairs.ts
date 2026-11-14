@@ -1,10 +1,11 @@
 /**
- * The PAIRS board. Options (GameConfig.options): pairs (4 to 15, default 8), cols (2 to 6, default 4).
+ * The PAIRS board. Options (GameConfig.options): pairs (4 to 15, default 8), cols (2 to 6, default 4), levels (a
+ * picker of pair counts), set (faces: 'France|Paris' pairs two halves that match, shown as words).
  * Tap two cards; a match stays face up, a miss turns back after a moment. Fewer turns is a better score.
  */
 import { h, icon } from '../../../core/dom';
 import * as P from '../../../../../../packages/shared/src/applib/games/pairs';
-import { num } from '../../../../../../packages/shared/src/applib/games/rng';
+import { bool, list, num, rng, shuffle } from '../../../../../../packages/shared/src/applib/games/rng';
 import { type Board, fmtTime, grid } from './frame';
 
 /** The card faces: simple shapes, drawn in the world's stroke. */
@@ -29,12 +30,17 @@ export const FACES = [
 export const pairs: Board = (p) => {
   const count = num(p.opts, 'pairs', 8, 4, 15);
   const cols = num(p.opts, 'cols', 4, 2, 6);
-  const g: P.Pairs = (p.resume as P.Pairs | null) ?? P.deal(count, p.seed());
+  const set = list(p.opts, 'set');
+  const textSet = set.some((x) => x.includes('|')) || bool(p.opts, 'text', false);
+  const seed = p.seed();
+  const g: P.Pairs = (p.resume as P.Pairs | null) ?? P.deal(count, seed);
+  const faceSet = textSet ? shuffle(rng((g.cards[0] ?? 0) * 7919 + g.cards.length), set).slice(0, count) : [];
+  const words = textSet ? P.faces(g, faceSet) : [];
   g.up = [];
   let wait = 0;
   const els: HTMLElement[] = [];
   const board = grid(cols, 'al-gpairs', g.cards.length, (i) => {
-    const el = h('div.al-gpaircard', { role: 'gridcell', tabIndex: 0, 'aria-label': `Card ${i + 1}` }, h('span.al-gpairface', icon(FACES[g.cards[i]! % FACES.length]!)));
+    const el = h('div.al-gpaircard', { role: 'gridcell', tabIndex: 0, 'aria-label': `Card ${i + 1}` }, h('span.al-gpairface', textSet ? h('b.al-gpairword', words[i] ?? '') : icon(FACES[g.cards[i]! % FACES.length]!)));
     el.addEventListener('click', () => tap(i));
     els.push(el);
     return el;
