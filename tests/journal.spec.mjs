@@ -77,7 +77,7 @@ async function run(vp, body) {
   await page.evaluate(() => (location.hash = 'memory'));
   await page.waitForSelector('#pg-memory', { state: 'attached', timeout: 10000 });
   await openSection(page, 'memory', 'About you');
-  const row = page.locator('#pg-memory button', { hasText: 'OPEN MY JOURNAL' }).first();
+  const row = page.locator('#pg-memory .ak-card', { hasText: 'Journal' }).first();
   check(await row.isVisible().catch(() => false), `${T} [g] Memory has no JOURNAL row`);
   if (await row.isVisible().catch(() => false)) await row.click();
   await page.waitForFunction(() => location.hash.startsWith('#journal') && window.__ghosty?.journal?.state !== 'idle', null, { timeout: 10000 }).catch(async () => problems.push(`${T} [g] the row did not open the journal`));

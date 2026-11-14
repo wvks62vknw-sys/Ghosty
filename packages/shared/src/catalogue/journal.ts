@@ -8,7 +8,7 @@ const SINCE = '2026-11-14';
 
 export const JOURNAL_WORDS: Record<string, CatValue> = {
   'screen:journal': {
-    name: 'Journal: your own words, kept on the phone',
+    name: 'Your own private journal',
     line: 'You can keep a journal here, with photos, a voice note, a mood and a place on each entry, locked with Face ID if you like.',
     more: 'Memory → Journal. Several journals with their own colours, a calendar, On this day, your places, a streak, prompts for a blank page and a gentle daily nudge. Entries stay on this phone and in your encrypted backup unless you ask me about one.',
     say: ['New journal entry', 'Open my journal', 'Add to my journal: a good walk today'], scene: ['behind'], cat: 'do', since: SINCE,
@@ -20,7 +20,7 @@ export const JOURNAL_WORDS: Record<string, CatValue> = {
     say: ['Write in my journal', 'Dear diary, today was long'], scene: ['behind'], cat: 'do', since: SINCE,
   },
   'panel:journal:CALENDAR': {
-    name: 'A calendar of the days you wrote',
+    name: 'Calendar of days written',
     line: 'You can see a month with a dot on each day you wrote, and tap a day for its entries.',
     more: 'Memory → Journal → Calendar. The arrows move a month at a time; the count says how many days that month have an entry.',
     say: ['When did I write in my journal?'], scene: ['behind'], cat: 'do', since: SINCE,
@@ -38,7 +38,7 @@ export const JOURNAL_WORDS: Record<string, CatValue> = {
     say: ['Where have I written from?'], scene: ['behind'], cat: 'do', since: SINCE,
   },
   'panel:journal:JOURNAL SETTINGS': {
-    name: 'Journals, the lock, the nudge and the book',
+    name: 'Journals, lock and nudge',
     line: 'You can make more journals with their own colours, lock it with Face ID, set a daily nudge and print this year as a book.',
     more: 'The lock is a passkey made on this phone. The nudge sends only the time to my reminders, never your words. The book opens a clean page of the year, ready for Print → Save as PDF.',
     say: ['Lock my journal', 'Remind me to journal'], scene: ['behind'], cat: 'do', since: SINCE,

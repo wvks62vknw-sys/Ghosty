@@ -19,6 +19,8 @@ import { page } from '../../ui/page';
 import { sectionNow, sections } from '../../ui/sections';
 import { placesBlock } from './places';
 import { keepPanel } from './keep';
+import { homeCard } from '../../ui/appkit';
+import { journalTab } from '../journal';
 import { OFFLINE_SUB, PAGE_SUB } from './words';
 import { phrases } from '../lifeui';
 import { principlesEditor } from '../settings/principles';
@@ -234,7 +236,9 @@ export const memoryTab: TabDef = {
     const jrow = panel('JOURNAL', { grow: false, status: 'Your own words, on this phone' });
     jrow.el.dataset.go = 'journal';
     jrow.el.classList.add('gorow');
-    jrow.body.append(h('p.note', 'Write, add photos and a voice note, look back on this day. Kept here, locked with Face ID if you like.'), button('OPEN MY JOURNAL', () => go('journal'), 'on'));
+    // (the App Kit's Home card: its icon, its name and one line of what it holds; a tap opens it)
+    const jline = () => journalTab.now?.() || 'Write, add photos and a voice note, look back on this day.';
+    jrow.body.append(homeCard({ name: 'Journal', glyph: journalTab.icon, line: jline(), onTap: () => go('journal') }));
     P.left.append(addRow, phrases(['remember I take my coffee black']), jrow.el, mp.el, pr.el, pats.el, tl.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
