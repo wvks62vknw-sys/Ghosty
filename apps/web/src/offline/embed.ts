@@ -205,6 +205,9 @@ const onMobileData = (): boolean => {
 
 /** Download it (about 70 MB, once, on Wi-Fi), when the owner asks. It stays in memory for the index to start. */
 export async function downloadEmbedder(onProgress?: (frac: number, text: string) => void): Promise<void> {
+  // [next] the saver holds big downloads until he turns it off (state/saver.ts)
+  const sv = await import('../state/saver');
+  if (sv.held('search by meaning')) throw new Error(sv.SAVER_HELD);
   if (onMobileData()) throw new Error('This phone is on mobile data: Search by meaning downloads on Wi-Fi only (about 70 MB).');
   const t = testEmbedder();
   if (t) {
