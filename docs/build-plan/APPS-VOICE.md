@@ -41,6 +41,20 @@ HISTORY.
 - **OPEN** brings one back into the box.
 - **CLEAR HISTORY** has an undo.
 
+**Built on the App Kit's parts**
+- **The first run** shows a three-step tour, once.
+- **History rows** are the kit's list rows: tap one to open it, delete one with an undo.
+- **Empty, no match and errors** are the kit's state cards, each with what to do next ("Translate something", "Clear search",
+  "Try again").
+- **While it translates**, the kit's skeleton rows stand in.
+
+### Interpret: AUTO, a conversation with no key to hold
+- **One tap:** tap AUTO and I listen for whoever's turn it is, in their language. When they pause after speaking, I translate and say it
+  aloud, then listen for the other person.
+- **Its own voice:** I wait until the phone has finished speaking, so its own voice is never taken for theirs.
+- **It ends** after two quiet turns, on STOP AUTO, when either of you holds a key, or when you leave the screen.
+- **Nothing kept:** as before, nothing of the other person is kept.
+
 ### The brain's side
 - The translator route now takes a register (formal or casual) and asks for other ways to say it. A chat model does it when there is
   one, with your text kept as data to translate, never as instructions.
@@ -61,6 +75,8 @@ HISTORY.
 3. **Letters:** set INTO to Russian, then tap IN ENGLISH LETTERS.
 4. **History:** open HISTORY, search for a word, then tap OPEN.
 5. **By words:** say "open the translate app" or "show my phrasebook".
+6. **AUTO:** open SEE → INTERPRET, pick French for them, tap AUTO and just talk. Pause, and it says it in French, then listens for their
+   answer.
 
 ## Checks
 - **Typechecks:** web and edge, clean.
@@ -71,18 +87,24 @@ HISTORY.
   - the register and alternatives from a faked model, with the text kept as data and the plain fallback.
 - **Other brain tests:** meanings, catalogue, knowledge, ratchet, look and voiceknown.
 - **Specs:**
-  - `translatelane` is clean at 440 and 390 (54 checks): as you type, the language found, other ways, formal, LISTEN, star, the phrasebook
-    and its undo, a country's phrasebook, letters, the history with search, clear and undo, OPEN, no signal said in plain words,
-    CONVERSATION, every key at least 44 pt, and nothing off the side.
-  - `tabs`, `tabs2`, `hubcards`, `deck` and `nav` were updated to the new truth: SEE holds four, and the plan numbers 47 things.
+  - `translatelane` is clean at 440 and 390 (68 checks): the first run's tour; as you type; the language found; other ways; formal; LISTEN;
+    star; the phrasebook and its undo; a country's phrasebook; letters; the history with search, no match, clear and undo, and opening a
+    row; no signal said in plain words with TRY AGAIN; CONVERSATION; Interpret's AUTO both ways, with STOP and leaving; every key at least
+    44 pt; and nothing off the side.
+  - `further` (Interpret's own spec) is still clean.
+  - `tabs`, `tabs2`, `hubcards`, `deck` and `nav` were updated to the new truth and are clean: SEE holds four. With PAINT (MAKE's lane),
+    the plan numbers 48 things, and `finding.test` counts 59 screens.
+  - The full brain suite ran once: 2,366 passed. Its one red, the plan's count, is now updated to the new truth.
 
 ## What is left
 - **Offline packs (Mozilla's Bergamot):** not built.
   - They need the Bergamot translator (a WebAssembly engine) running in a worker, plus a pack manager (sizes, fetched only on his tap, on
     Wi-Fi, with the size said).
+  - The app's `_headers` can only be tightened, never relaxed. So the engine and the packs would have to come through the brain (it
+    fetches the public files and passes them on), never straight from Mozilla's servers.
   - That is a whole piece on its own. Without a signal, Translate uses the phone's own offline brain for now, roughly, and says so.
 - **Camera translation drawn over the picture:** CAMERA opens the Lens's own TRANSLATE. Drawing each translation over the sign itself is left.
-- **Auto conversation with no key to hold:** Interpret still uses its hold-to-talk keys.
-- **The App Kit:** CONSISTENCY's kit had not landed when this was built. Translate uses the shared page, keys and tokens, and moves onto
-  the kit when it lands.
+- **The App Kit's whole frame:** the kit's `app()` frame (its header, its single scroll area, the toolbar along the bottom) is made for
+  apps that are lists of things. Translate uses the kit's parts (the tour, list rows, state cards, skeletons) inside its own screen, so
+  it still has the shared page header rather than the kit's.
 - **Your Song, The Coach, Drum Pads:** not started this round.
