@@ -16,3 +16,10 @@ export function workspaceAsked(text: string): WorkspaceAsk | null {
   if (/^(?:open |show )?(?:my )?(?:workspace )?bin$/i.test(t)) return { what: 'bin' };
   return null;
 }
+/** "take a voice note", "turn my voice note into a page", "record a voice memo": the workspace's VOICE NOTE. */
+export function voiceNoteAsked(text: string): boolean {
+  const t = text.trim().replace(/[.!?]+$/, '');
+  return /^(?:please |ghosty,? )?(?:take|record|make|start|do) (?:a |me a |my )?(?:new |quick )?voice ?(?:note|memo)s?$/i.test(t)
+    || /^(?:please |ghosty,? )?(?:turn|make|tidy|change) (?:my|this|a|the) (?:last )?voice ?(?:note|memo|recording) (?:into|in to|to) (?:a |my )?(?:tidy |clean |neat )?(?:page|document|doc|notes?|workspace page)$/i.test(t)
+    || /^(?:my )?voice ?notes?$/i.test(t);
+}

@@ -38,7 +38,7 @@ import { LOCAL_ASKS, type LocalAsk } from './phrases';
 import { moneyAsked, MONEY_OPENS } from '../features/money/words';
 import { bodyTurn, creativeTurn, homeTurn, kitchenTurn, learningTurn, outsideTurn, peopleTurn, statementOrBox, workTurn, type PackReply } from './packs';
 import { chessRatingTurn, coachTurn } from './restb';
-import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, photoTurn, gameTurn } from './reste';
+import { convertTurn, docsTurn, numbersTurn, sheetsTurn, slidesTurn, workspaceTurn, voiceNoteTurn, photoTurn, gameTurn } from './reste';
 import { videoTurn } from './video';
 import { carFaultTurn, carViewTurn } from '../car/ask';
 import { fromMorse, morseAsked, toMorse } from '../morse/code';
@@ -367,6 +367,7 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
   sheets: async (text, opts) => packAnswer(await sheetsTurn(text), opts),
   slides: async (text, opts) => packAnswer(await slidesTurn(text), opts),
   workspace: async (text, opts) => packAnswer(await workspaceTurn(text), opts),
+  wsvoice: async (text, opts) => packAnswer(await voiceNoteTurn(text), opts),
   photoedit: async (text, opts) => packAnswer(await photoTurn(text), opts),
   video: async (text, opts) => packAnswer(await videoTurn(text), opts),
   gamestudio: async (text, opts) => packAnswer(await gameTurn(text), opts),

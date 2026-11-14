@@ -49,7 +49,7 @@ import { convertAsked } from '../convert/asks';
 import { docsAsked } from '../docs/asks';
 import { sheetsAsked } from '../sheets/asks';
 import { slidesAsked } from '../slides/asks';
-import { workspaceAsked } from '../workspace/asks';
+import { voiceNoteAsked, workspaceAsked } from '../workspace/asks';
 import { photoAsked } from '../photo/asks';
 import { videoAsked } from '../video/asks';
 import { gameAsked } from '../studio-game/asks';
@@ -172,6 +172,8 @@ export const LOCAL_ASKS = [
   { id: 'coach', test: (t: string) => coachAsked(t)?.what === 'lessons' },
   // [reste] the converter on the phone, and its units and numbers answered here with no model (assistant/reste.ts, convert/)
   { id: 'convert', test: (t: string) => !!convertAsked(t) },
+  // [editors] a voice note into a tidy page (workspace/voicenote.ts): "take a voice note", "turn my voice note into a page"
+  { id: 'wsvoice', test: (t: string) => voiceNoteAsked(t) },
   { id: 'docs', test: (t: string) => !!docsAsked(t) },
   { id: 'sheets', test: (t: string) => !!sheetsAsked(t) },
   { id: 'slides', test: (t: string) => !!slidesAsked(t) },

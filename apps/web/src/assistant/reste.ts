@@ -107,6 +107,14 @@ export async function workspaceTurn(text: string): Promise<PackReply> {
   return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: {} }] };
 }
 
+/** "take a voice note", "turn my voice note into a page": THE WORKSPACE’s VOICE NOTE open, one tap from RECORD (editors.s6). */
+export async function voiceNoteTurn(text: string): Promise<PackReply> {
+  const { openWorkspace } = await import('../workspace/sheet');
+  void openWorkspace({ what: 'voice' });
+  const reply = 'VOICE NOTE is open in your workspace: tap RECORD and talk, or CHOOSE A RECORDING from Voice Memos. I write it down and tidy it into a page, with the actions as to-dos.';
+  return { said: text, reply, go: [{ id: 'workspace', ask: -1, label: 'Open my workspace', run: 'open_workspace', args: { what: 'voice' } }] };
+}
+
 /** "edit a photo", "my photos": the photo editor, open on my photos. */
 export async function photoTurn(text: string): Promise<PackReply> {
   const ask = photoAsked(text) ?? { what: 'shelf' as const };

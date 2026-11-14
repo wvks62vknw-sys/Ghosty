@@ -645,3 +645,29 @@ test('comments, to-dos and blocks: a to-do ticked keeps its date, a comment is d
   assert.equal(K.wordsOf(ws.pages[p.page.id]), 4);
   assert.equal(K.setIcon(ws, p.page.id, 'nonsense').pages[p.page.id].icon, 'page', 'an icon is one of the house’s marks');
 });
+
+test('voice notes into tidy pages (editors.s6): the asks, the brain’s reply read, the phone’s own tidy, the page’s blocks', () => {
+  for (const t of ['take a voice note', 'Take a voice note.', 'record a voice memo', 'turn my voice note into a page', 'turn this voice note into a document', 'my voice notes']) assert.ok(K.voiceNoteAsked(t), t);
+  for (const t of ['send a voice note on telegram', 'what is a voice note', 'take a note']) assert.ok(!K.voiceNoteAsked(t), t);
+  const said = 'um so the kitchen tiles came today and they look great. I need to call the plumber on Monday. remember to order the grout';
+  const ask = K.tidyAsk(said);
+  assert.match(ask, /## To do/);
+  assert.ok(ask.includes(said), 'his words are the data');
+  const t = K.parseTidy('# Kitchen tiles\n\nThe tiles came today and look great.\n\n## To do\n- [ ] Call the plumber on Monday\n- [ ] Order the grout\n', said);
+  assert.equal(t.title, 'Kitchen tiles');
+  assert.deepEqual(t.actions, ['Call the plumber on Monday', 'Order the grout']);
+  assert.deepEqual(t.paras, ['The tiles came today and look great.']);
+  assert.equal(t.by, 'brain');
+  assert.equal(K.parseTidy('Sorry, I cannot help with that.', said), null, 'not the shape asked for: the phone tidies it');
+  const here = K.tidyHere(said);
+  assert.equal(here.by, 'phone');
+  assert.deepEqual(here.actions, ['Call the plumber on Monday', 'Order the grout']);
+  assert.ok(!/\bum\b/i.test(here.paras.join(' ')), 'the filler is gone');
+  assert.match(here.paras[0], /^So the kitchen tiles came today/);
+  const bs = K.voiceBlocks(t, Date.UTC(2026, 10, 14, 9));
+  assert.deepEqual(bs.map((b) => b.t), ['callout', 'p', 'h2', 'todo', 'todo', 'h2', 'quote']);
+  assert.equal(bs.at(-1).runs[0].text, said, 'what he said is kept word for word');
+  assert.equal(K.doneWords(t, 'page'), 'Done: “Kitchen tiles” is a page in your workspace, with 2 to-dos.');
+  assert.match(K.doneWords(here, 'document'), /in MY DOCUMENTS.*on this phone, as my brain was away\.$/);
+  assert.equal(K.clockWords(125_400), '2:05');
+});

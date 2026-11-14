@@ -7,3 +7,4 @@ export * from './search';
 export * from './context';
 export * from './csv';
 export * from './md';
+export * from './voicenote';

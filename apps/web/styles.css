@@ -8965,6 +8965,13 @@ html body .modal :is(.feltrow, .feltbody) button { min-height: 44px !important; 
 .wsedit.wscallout { flex: 1; min-width: 0; padding-top: var(--g-s-1); color: var(--g-ink-1); }
 .wstone { flex: none; width: var(--g-target); min-width: var(--g-target); min-height: var(--g-target); padding: 0; display: grid; place-items: center; border-radius: var(--g-radius-orb); font: 800 18px/1 var(--g-font-text); color: var(--g-accent-text); }
 .wstone[data-tone="tip"] { color: var(--g-ok); } .wstone[data-tone="warn"] { color: var(--g-amber); }
+/* [editors.s6] VOICE NOTE: the state line, the clock while recording, the kept recordings */
+.wsvoiceline { color: var(--g-ink-1); overflow-wrap: anywhere; }
+.wsvoice[data-state="recording"] .wsvoiceline, .wsvoice[data-state="listening"] .wsvoiceline, .wsvoice[data-state="writing"] .wsvoiceline { color: var(--g-accent-text); }
+.wsvoice[data-state="offline"] .wsvoiceline, .wsvoice[data-state="error"] .wsvoiceline { color: var(--g-amber); }
+.wsvoiceclock { font: var(--g-t-value); color: var(--g-ink-1); font-variant-numeric: tabular-nums; }
+.wsvoiceclock:empty { display: none; }
+.wsvoicek { display: flex; flex-direction: column; gap: var(--g-s-1); padding: var(--g-s-1) 0; border-top: var(--g-hair) solid var(--g-line-faint); overflow-wrap: anywhere; }
 .wsedit mark { background: color-mix(in srgb, var(--g-amber) 38%, transparent); color: inherit; }
 .wsdone { flex: none; align-self: center; font: var(--g-t-fine); color: var(--g-ink-3); }
 .wsblockkeys { flex: 0 0 100%; display: flex; flex-wrap: wrap; gap: var(--g-s-half); }

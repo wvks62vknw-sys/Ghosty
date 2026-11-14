@@ -31,6 +31,10 @@ import { fromTemplate, TEMPLATES } from './templates';
 import { dbView, propEditor, type Ctx } from './views';
 import { keepWhere, lastBackupAt, loadWorkspace, saveWorkspace, where, workspaceImageIds, room, roomWords } from './store';
 import { importCsv } from './csv';
+import { voiceBlocks, doneWords, type Tidy } from './voicenote';
+import { voicePanel, voiceState } from './voicesheet';
+import { newDoc, block as docBlock } from '../docs/model';
+import { saveDoc } from '../docs/store';
 import {
   addComment, backlinks, below, binDaysLeft, binned, children, deletePage, depth, duplicatePage, emptyBin, History, ICONS, insertBlock, isDb, isEmptyWorkspace, isInside, isRow, live, movePage, moveBlock,
   newPage, patchBlock, patchPage, projectOf, putPage, removeComment, restorePage, rowsOf, setIcon, setRuns, setTitle, shiftPage, tick, titleOf, trail, wblock, withBlocks, wordsOf, wText,
@@ -38,7 +42,7 @@ import {
 } from './model';
 
 export const WORKSPACE_TITLE = 'THE WORKSPACE';
-type WsAsk = { id?: string; what?: 'list' | 'project' | 'blank' | 'import' | 'due' | 'bin'; addDoc?: { text: string; title?: string }; template?: string };
+type WsAsk = { id?: string; what?: 'list' | 'project' | 'blank' | 'import' | 'due' | 'bin' | 'voice'; addDoc?: { text: string; title?: string }; template?: string };
 
 export const wsState = {
   open: false,
@@ -68,6 +72,7 @@ export const wsState = {
   failing: false,
   letGo: 0,
   json: '',
+  voice: voiceState,
 };
 let current: { close(): void } | null = null;
 /** "Saved" fades in once while this page is open (every later save is quiet). */
@@ -446,7 +451,40 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
         return b;
       }),
       key('BLANK', () => newBlank(parent), '', 'A blank page'));
-  let homePanel: '' | 'new' | 'export' | 'import' = '';
+  let homePanel: '' | 'new' | 'export' | 'import' | 'voice' = '';
+  // ---------------------------------------------------------------- VOICE NOTE (editors.s6): one panel for the whole sheet, so a recording survives a redraw
+  let voice: ReturnType<typeof voicePanel> | null = null;
+  const voiceMade = (t: Tidy, target: 'page' | 'document', at: number): string => {
+    const words = doneWords(t, target);
+    if (target === 'document') {
+      const d = newDoc(t.title, voiceBlocks(t, at).map((b) => docBlock(b.t === 'callout' ? 'quote' : (b.t as Block['t']), b.runs)), 'document', 'a voice note');
+      if (!saveDoc(d)) return 'This phone would not keep the document just now (its storage is full or blocked). Your recording is kept: TIDY IT NOW tries again.';
+      clear(status, `${words} `, key('OPEN IT', () => void import('../docs/sheet').then((m) => m.openDocs({ id: d.id })), 'on', `Open ${t.title}`));
+      wsState.said = words;
+      return words;
+    }
+    flush();
+    const r = newPage(ws(), { title: t.title, blocks: voiceBlocks(t, at), from: 'a voice note', icon: 'page' });
+    change(r.ws, 'none');
+    flush();
+    homePanel = '';
+    openPage(r.page.id);
+    // (opening a page starts its own undo, so UNDO here takes the new page away: into the BIN, as DELETE does)
+    const pid = r.page.id;
+    clear(status, `${words} `, key('UNDO', () => {
+      flush();
+      change(deletePage(ws(), pid), 'none');
+      flush();
+      showHome();
+      say('Taken away: the page sits in the BIN for 30 days.');
+    }, 'on', 'Undo: take the page away'));
+    wsState.said = words;
+    return words;
+  };
+  const voiceEl = (start = false): HTMLElement => {
+    if (!voice) voice = voicePanel({ made: voiceMade }, { start });
+    return voice.el;
+  };
   let query = '';
   const showHome = (): void => {
     flush();
@@ -496,6 +534,10 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
         homePanel = homePanel === 'export' ? '' : 'export';
         showHome();
       }),
+      key('VOICE NOTE', () => {
+        homePanel = homePanel === 'voice' ? '' : 'voice';
+        showHome();
+      }, '', 'Take a voice note: it becomes a tidy page'),
       key('BIN', () => showBin()),
       key('UNDO', doUndo), key('REDO', doRedo));
     clear(view,
@@ -504,7 +546,7 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
         ? h('div.wsempty', h('p.wsemptyline', 'No pages yet. A project gives you a board, notes, decisions and deadlines to start from.'), h('div.wsrow', key('START A PROJECT', () => startTemplate('project'), 'on'), key('START BLANK', () => newBlank())))
         : '',
       keys,
-      homePanel === 'new' ? templatesEl(null) : homePanel === 'export' ? exportPanel(null) : homePanel === 'import' ? importPanel() : '',
+      homePanel === 'new' ? templatesEl(null) : homePanel === 'export' ? exportPanel(null) : homePanel === 'import' ? importPanel() : homePanel === 'voice' ? voiceEl() : '',
       search, results,
       !empty && !query.trim() && recent.length
         ? h('section.wsrecent', { dataset: { part: 'recent' } }, h('small.wsh', 'RECENT'), h('div.wsrecentrow', ...recent.map((p) => {
@@ -1244,6 +1286,11 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     if (o.what === 'project') return startTemplate('project');
     if (o.what === 'blank') return newBlank();
     if (o.what === 'bin') return showBin();
+    if (o.what === 'voice') {
+      homePanel = 'voice';
+      voiceEl();
+      return showHome();
+    }
     if (o.what === 'import') {
       homePanel = 'import';
       showHome();
@@ -1289,6 +1336,8 @@ export function workspaceParts(hooks: { onChange?: () => void } = {}): { el: HTM
     paintState();
   };
   const stop = (): void => {
+    voice?.stop();
+    voice = null;
     flush();
     setLiveWork('workspace', null);
     clearTimeout(timer);

@@ -61,6 +61,14 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { open: 'docs' }, tryText: 'Opens my documents',
   },
   'phrase:workspace': { same: 'hub:workspace' },
+  'phrase:wsvoice': {
+    name: 'Voice notes into tidy pages',
+    line: 'You can talk for a few minutes and I turn it into a clean page, with every action you said pulled out as a to-do.',
+    more: 'Record with the phone’s own microphone, or choose a recording from Voice Memos. Your brain writes the words down, then I tidy them into a Workspace page or a Document: short paragraphs in your words, a TO DO list, and what you said word for word at the end. Offline, the recording is kept on this phone and tidied when you are back; once its page is made it is let go.',
+    say: ['Take a voice note', 'Turn my voice note into a page'],
+    scene: ['making', 'phone'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_workspace', args: { what: 'voice' } }, tryText: 'Opens a voice note',
+  },
   'hub:photo': {
     name: 'Edit and grade a photo',
     line: 'You can edit a photo here like a real editor: light, colour, curves, masks, healing, a crop, and a look saved for many.',
