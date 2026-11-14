@@ -401,3 +401,23 @@ test('a published page\'s check-up: the publish check on the live page, in plain
   assert.equal((await store.get('broken')).html.includes('<div><img'), true, 'nothing changed');
   assert.equal((await route('nope')).status, 404);
 });
+
+test('[security] the strip keeps only the picture: a detail block between scans and anything after the end marker are dropped', () => {
+  const seg = (m, body) => [0xff, m, ((body.length + 2) >> 8) & 0xff, (body.length + 2) & 0xff, ...body];
+  const gps = [...new TextEncoder().encode('Exif\0\0GPS 52.48 -1.90')];
+  const jpeg = new Uint8Array([
+    0xff, 0xd8, ...seg(0xe0, [0x4a, 0x46, 0x49, 0x46, 0]), ...seg(0xe1, gps), ...seg(0xdb, [0, 1, 2]),
+    ...seg(0xda, [1, 2, 3]), 0x11, 0xff, 0x00, 0x22, 0xff, 0xd0, 0x33, // first scan's data (a stuffed FF and a restart marker kept)
+    ...seg(0xe1, gps), // a detail block between scans
+    ...seg(0xda, [4, 5, 6]), 0x44, 0x55,
+    0xff, 0xd9, // the end
+    ...new TextEncoder().encode('MotionPhoto_Data GPS 52.48 -1.90'), 0xff, 0xd8, 0xff, 0xd9, // hidden extra after the end
+  ]);
+  const out = P.stripJpeg(jpeg);
+  assert.ok(out);
+  const txt = Buffer.from(out).toString('latin1');
+  assert.ok(!txt.includes('GPS') && !txt.includes('MotionPhoto'), 'no place, no hidden extra');
+  assert.deepEqual([...out.slice(-2)], [0xff, 0xd9], 'it ends at the end marker');
+  assert.ok(txt.includes('\x11\xff\x00\x22\xff\xd0\x33'), 'the picture data is untouched, stuffed bytes and restart markers kept');
+  assert.ok(txt.includes('JFIF'), 'the JFIF header is kept');
+});

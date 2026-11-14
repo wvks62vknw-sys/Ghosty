@@ -21,6 +21,7 @@ import { Meter } from './meter';
 import { speedSummary } from './speed'; // [speed]
 export { storageError } from './kv';
 import { parseEmailKey } from './integrations/mail';
+import { emailTest } from './emailtest';
 import { spotifyRoute } from './integrations/spotify';
 import { trafficRoute } from './integrations/traffic';
 import { transitRoute } from './integrations/transit';
@@ -68,7 +69,7 @@ import { photosRoute } from './sitephotos';
 import { pageUpload } from './sitepage'; // [sites] his own photos on his sites (NEXT ROUND sites.u12) // [sites] a game on his sites (BRIEF-KERNEL-3 item 6)
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
-import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
+import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, editEvent, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { abilitiesRoute } from './abilities'; // [abilities]
 import { keepTrail, trailRecorder, whyRoute } from './why'; // [abilities]
@@ -667,6 +668,8 @@ export class GhostyAgent {
           return json({ linked: true, problem: String((e as Error).message).slice(0, 200) });
         }
       }
+      // LINKS → EMAIL → TEST: one sign-in with what he linked, pass or fail as a reason code (emailtest.ts; never the server's text)
+      if (path === '/email/test' && method === 'POST') return json(await emailTest((n) => this.vault.lookup(n)));
       if (path.startsWith('/traffic/')) return await trafficRoute(path, method, this.vault);
       if (path.startsWith('/spotify/')) return await spotifyRoute(req, path, method, this.vault);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
@@ -1620,6 +1623,16 @@ export class GhostyAgent {
     }
     const ev = path.match(/^\/agenda\/events\/([\w-]+)$/);
     if (ev && method === 'DELETE') return json({ ok: !!(await removeEvent(this.storage, ev[1]!)) });
+    // [planlane2:timeline] change one of his events in place (the same id) and move its reminder with it (schedule.ts editEvent)
+    if (ev && method === 'POST') {
+      const start = body.start === undefined ? undefined : when(body.start);
+      if (start === null) return json({ error: 'start time not understood' }, 400);
+      const end = body.end === null ? null : body.end === undefined ? undefined : (when(body.end) ?? undefined);
+      const opt = (v: unknown) => (v === null || v === '' ? null : v === undefined ? undefined : String(v));
+      const remindMin = body.remindMin === null || body.remindMin === '' ? null : body.remindMin === undefined ? undefined : Number(body.remindMin);
+      const r = await editEvent(this.storage, ev[1]!, { title: body.title === undefined ? undefined : String(body.title), start, end, allDay: body.allDay === undefined ? undefined : !!body.allDay, location: opt(body.location), notes: opt(body.notes), remindMin }, tz, (e) => `${e.title} — ${e.allDay ? 'today' : `at ${fmtLocal(e.start, tz)}`}${e.location ? ` · ${e.location}` : ''}`);
+      return r ? json({ event: r.event }) : json({ error: 'not found' }, 404);
+    }
     if (path === '/jobs' && method === 'POST') {
       // The owner pressing a button in the Agenda tab IS the approval.
       const next = when(body.at);
