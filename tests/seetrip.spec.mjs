@@ -14,7 +14,11 @@
 //   f. RAIN RADAR (see.s3): RAIN in the bar plays the last two hours of radar frames over home, the slider moves through them, and the
 //      line for home says rain is coming in about 20 minutes (the quarter-hour forecast stood in); the line itself, read from source;
 //   g. THE WORLD in the morning Brief (see.c2): the threat level, the commute's road reports line and a fresh picture from the public
-//      camera nearest his saved home; every key 44 pt.
+//      camera nearest his saved home; every key 44 pt;
+//   h. FUEL & CHARGE on the map (see.s7): the overlay asks OpenStreetMap for the view and draws the fuel stations and chargers, said
+//      in one line; zoomed out it says to zoom in (the words read from source);
+//   i. the camera TIMELAPSE (see.u12, 440 only): after a minute of stills the card's TIMELAPSE plays them back;
+//   j. the space station's nudge (see.u4): its diary title and its words (read from source).
 //   BASE=http://localhost:8788 node tests/seetrip.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { PHONE, UK } from './nav.mjs';
@@ -102,6 +106,9 @@ async function phone(viewport) {
   await ctx.route(/\/api\/profile\/places$/, (route) => route.request().method() === 'GET' ? route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ places: [{ id: 'home', label: 'Home', query: 'Strand', address: 'Strand, London', lat: 51.5108, lon: -0.1236 }, { id: 'work', label: 'Work', query: 'Holborn', address: 'Holborn, London', lat: 51.5174, lon: -0.1201 }] }) }) : route.fallback());
   await ctx.route(/\/api\/guardian$/, (route) => (route.request().method() === 'GET' ? route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ places: [], checked: {}, failed: {}, tz: 'Europe/London', person: null, walk: null }) }) : route.fallback()));
   await ctx.route(/^https:\/\/(?!localhost)/, (route) => route.fulfill({ status: 404, body: '' }));
+  // (after the catch-all, so it is the one asked: Playwright takes the route added last)
+  // OpenStreetMap's fuel stations and chargers (Overpass, asked by the phone): two stations and a charger on the Strand
+  await ctx.route(/overpass-api\.de|overpass\.kumi\.systems/, (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ elements: [{ type: 'node', id: 1, lat: 51.511, lon: -0.122, tags: { amenity: 'fuel', name: 'Strand Fuel', brand: 'Shell', opening_hours: '24/7' } }, { type: 'node', id: 2, lat: 51.512, lon: -0.125, tags: { amenity: 'fuel', brand: 'BP' } }, { type: 'way', id: 3, center: { lat: 51.5105, lon: -0.121 }, tags: { amenity: 'charging_station', operator: 'Tesla', capacity: '8' } }] }) }));
   await ctx.grantPermissions(['geolocation']);
   await ctx.setGeolocation({ latitude: 51.523456, longitude: -0.143219, accuracy: 10 });
   const page = await ctx.newPage();
@@ -146,6 +153,7 @@ const bar = (page, scope) =>
 
 const W = await pure('apps/web/src/ui/tripwords.ts');
 const S = await pure('apps/web/src/features/eye/sets.ts');
+const F = await pure('apps/web/src/data/fuel.ts');
 // (the wall's empty line, read from the very source the page shows it from)
 const WALL_EMPTY = /export const WALL_EMPTY = '([^']+)'/.exec(readFileSync(new URL('../apps/web/src/features/eye/wall.ts', import.meta.url), 'utf8'))?.[1] ?? '';
 
@@ -165,6 +173,9 @@ const WALL_EMPTY = /export const WALL_EMPTY = '([^']+)'/.exec(readFileSync(new U
   for (const t of ['the wall', 'show me the cameras on the Strand', 'wall mode']) check(!S.WALL_ASK.test(t), `[c words] "${t}" was taken as the camera wall`);
   for (const t of ['rain radar', 'show me the rain map', 'replay the rain', 'weather radar']) check(S.RAIN_ASK.test(t), `[c words] "${t}" is not the rain radar`);
   for (const t of ['will it rain tomorrow', 'radar on']) check(!S.RAIN_ASK.test(t), `[c words] "${t}" was taken as the rain radar`);
+  // j. the space station's nudge
+  check(S.passTitle('ISS (ZARYA)', 61.4) === 'ISS passes over (61° high)', `[j nudge] the diary title reads "${S.passTitle('ISS (ZARYA)', 61.4)}"`);
+  check(/^In your diary: ISS at \d\d:\d\d, with a nudge 10 minutes before\.$/.test(S.passSaid('ISS (ZARYA)', Date.now() + 3600_000)), `[j nudge] the words read "${S.passSaid('ISS (ZARYA)', Date.now() + 3600_000)}"`);
   // the line for home, from the quarter hours (now, a dry spell, rain coming, raining now)
   const n0 = Date.UTC(2026, 10, 14, 9, 0);
   const q = (mm) => mm.map((m, i) => ({ t: n0 + i * 900_000, mm: m }));
@@ -311,6 +322,34 @@ for (const vp of [PHONE, PHONE2]) {
       if (vp === PHONE) await page.screenshot({ path: `${out}/seetrip-rain-${vp.width}.png` }).catch(() => undefined);
     }
     await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+  }
+  // h. FUEL & CHARGE on the map, over the Strand
+  {
+    await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+    await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyebot .btns button')].find((b) => /^map$/i.test((b.dataset.label || b.textContent).trim()))?.click());
+    const chip = await until(page, () => !!document.querySelector('.modal .fmchips button[data-overlay="fuel"]') && !!window.L, null, 15000);
+    if (check(chip, `${T} [h fuel] the map has no FUEL & CHARGE`)) {
+      await page.evaluate(() => document.querySelector('.modal .fmchips button[data-overlay="fuel"]')?.click());
+      const said = await until(page, () => /fuel stations? and \d car chargers? here/.test(document.querySelector('.modal .flathost')?.textContent ?? '') || /fuel station/.test(document.querySelector('.modal')?.textContent ?? ''), null, 10000);
+      const marks = await page.evaluate(() => document.querySelectorAll('.modal .leaflet-interactive.fuelmark').length);
+      check(said && marks === 3, `${T} [h fuel] the overlay drew ${marks} marks (want 3): "${(await text(page, '.modal')).slice(0, 200)}"`);
+      check(/2 fuel stations and 1 car charger here \(OpenStreetMap\)/.test(await text(page, '.modal')), `${T} [h fuel] its line: "${(await text(page, '.modal')).match(/\d+ fuel[^)]*\)/)?.[0] ?? 'none'}"`);
+    }
+    await page.evaluate(() => document.querySelectorAll('.modal').forEach((m) => m.remove()));
+  }
+  // i. the camera's TIMELAPSE (the last minute of stills, at 440 only: it takes three refreshes)
+  if (vp === PHONE) {
+    await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'cams', on: true }));
+    await page.evaluate(() => { const c = window.__ghosty.globe.cam; c.fly = null; c.follow = null; Object.assign(c, { lat: 51.511, lon: -0.123, range: 3 }); c.target = { lat: 51.511, lon: -0.123, range: 3, tilt: 0, hd: 0 }; });
+    await until(page, () => document.querySelectorAll('#pg-eye .camgrid:not([hidden]) .camview').length > 0, null, 20000);
+    await page.evaluate(() => document.querySelector('#pg-eye .camgrid:not([hidden]) .camview')?.click());
+    const ready = await until(page, () => { const b = document.querySelector('#pg-eye .eyeinfo button[data-act="timelapse"]'); return !!b && !b.hidden; }, null, 50000);
+    if (check(ready, `${T} [i timelapse] TIMELAPSE never offered itself after a minute of stills`)) {
+      await page.evaluate(() => document.querySelector('#pg-eye .eyeinfo button[data-act="timelapse"]')?.click());
+      check(await until(page, () => /^TIMELAPSE · the last \d+ s$/.test(document.querySelector('#pg-eye .eyeinfo .camstamp')?.textContent ?? ''), null, 3000), `${T} [i timelapse] the playback did not say what it plays: "${await text(page, '#pg-eye .eyeinfo .camstamp')}"`);
+    }
+    await page.evaluate(() => [...document.querySelectorAll('#pg-eye .eyeinfo button')].find((x) => x.textContent.trim() === '✕')?.click());
+    await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'cams', on: false }));
   }
   // b. no signal: the planner offers the kept journey, which opens with its warning
   await ctx.setOffline(true);
