@@ -17,6 +17,8 @@ import { syncTodos, todoPanel } from './todo';
 import { monthPanel } from './month';
 import { workDuePanel } from './workdue';
 import { timelinePanel } from './timeline';
+import { moveKeys } from './drag';
+import { calendarSheet, calendarsOf, colourOf, hiddenWords, setFeeds, visible } from './calendars';
 import { AHEAD_DAYS } from './todowords';
 import { goToPanel, sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
@@ -182,6 +184,8 @@ export const agendaTab: TabDef = {
     jp.el.insertBefore(h('div.keyrow.wrapit.addev', rText, rAt, rRep, button('SET', () => void addReminder())), jp.body);
     jp.el.insertBefore(jobUndo.el, jp.body);
 
+    // [planlane4:calendar] the diary's events from the calendars he shows
+    const shownDiary = () => visible(events);
     const paintEvents = () => {
       clear(ep.body);
       /* state: agenda.diary loading */
@@ -190,6 +194,10 @@ export const agendaTab: TabDef = {
       /* state: agenda.diary error */
       if (stale) ep.body.append(h('div.note.bad.agstale', { dataset: { case: 'keep', state: 'error' } }, 'I can’t reach your brain right now, so this is the last copy kept on this phone. Changes you make wait here and go when it’s back.'));
       if (errors.length) ep.body.append(h('div.note.bad', `Calendar problem: ${errors.join(' · ')}`));
+      // [planlane4:calendar] the calendars he hid (CALENDARS) are left out of the diary, and said
+      const hid = hiddenWords(calendarsOf(allEvents));
+      if (hid) ep.body.append(h('p.note.agcalhid', { dataset: { case: 'keep' } }, hid));
+      const events = shownDiary();
       if (!events.length) {
         /* state: agenda.diary empty */
         ep.body.append(empty('NONE', EMPTY_DAY.line, EMPTY_DAY.head));
@@ -208,7 +216,9 @@ export const agendaTab: TabDef = {
         const over = !e.allDay && (e.end ?? e.start) <= Date.now() && dayKey(e.start) === dayKey(Date.now());
         const soon = dayKey(e.start) === dayKey(Date.now()) && !e.allDay ? (live ? 'now' : until(e.start)) : '';
         const r = row(t, h('span', h('b.evt', e.title), e.location ? h('small.evloc', h('i.evsep', ' · '), e.location) : null, soon ? h('em.evin', soon) : null), e.source === 'mine' ? '✕' : e.source, { wrap: true });
-        r.classList.add('ev');
+        r.classList.add('ev', 'agcal');
+        // [planlane4:calendar] its calendar's colour down its edge
+        r.style.setProperty('--agcal', colourOf(e.source));
         if (soon) r.classList.add('soon');
         if (over) r.classList.add('past');
         if (e.source === 'mine') {
@@ -367,6 +377,8 @@ export const agendaTab: TabDef = {
       card.append(
         h('div.keyrow.wrapit.addev.evedit', ti, at, endAt, where),
         h('div.keyrow.wrapit.evpick', adKey, remSel),
+        // [planlane4:calendar] EARLIER / LATER by 15 minutes and A DAY LATER: a move in place without a drag (drag.ts), with UNDO
+        moveKeys(e, (t, fn) => evUndo.show(t, fn)),
         h('div.keyrow.wrapit', saveB, button('CLOSE', () => {
           openEv = '';
           evDraft = null;
@@ -514,6 +526,8 @@ export const agendaTab: TabDef = {
           }
           b.disabled = false;
         })),
+        // [planlane4:calendar] each calendar's colour and whether it shows (calendars.ts)
+        h('div.keyrow.agcalrow', button('COLOURS AND WHICH TO SHOW', () => calendarSheet(() => ({ events: allEvents, loaded, offline: stale })), 'agcalopen')),
         h('div.keyrow', button('HOW DO I GET THE LINK?', (b) => {
           help.hidden = !help.hidden;
           b.textContent = help.hidden ? 'HOW DO I GET THE LINK?' : 'HIDE';
@@ -548,6 +562,8 @@ export const agendaTab: TabDef = {
         events = a.events.filter((e) => e.start < cut.getTime() + 14 * 86400_000);
         jobs = a.jobs;
         feeds = a.feeds;
+        // [planlane4:calendar] the calendars CALENDARS lists, in the brain's order (each its own colour)
+        setFeeds(a.feeds.map((f) => f.name));
         errors = a.errors;
         // (no bare 0 beside an empty list: the list's own empty line says it)
         ep.setStatus(stale ? 'COPY' : events.length ? `${events.length}` : '', stale ? 'off' : 'ok');
@@ -580,6 +596,10 @@ export const agendaTab: TabDef = {
 
     // until the diary is read it says so (not an empty list that looks like nothing is on)
     paintEvents();
+    // [planlane4:calendar] an event moved (a drag on the timeline, EARLIER / LATER): the diary is read again
+    addEventListener('ghosty:agenda', () => void load());
+    // [planlane4:calendar] a calendar shown, hidden or coloured: the diary drawn again
+    addEventListener('ghosty:calendars', () => loaded && paintEvents());
 
     const suggest = h(
       'div.keyrow.wrapit.suggest',
