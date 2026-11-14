@@ -366,7 +366,7 @@ export const APP_1: Record<string, CatValue> = {
   },
   // [applib] APPS, THE APP LIBRARY's screen (lane ENGINE): every app as data, drawn by one engine on THE APP KIT
   'screen:apps': {
-    name: 'Apps: every app, kept on this phone',
+    name: 'Every app on this phone',
     line: 'You can find an app for almost anything in the Library, open it by saying its name, and pin your favourites to Home.',
     more: 'Featured apps, the families, and search as you type; each app has its page with OPEN and PIN TO HOME. Trackers, collections, checklists, calculators, timers, flash cards, counters and guides, each with sample entries and a three-step tour the first time, undo and redo, Recently deleted and export. Everything an app keeps stays on this phone.',
     say: ['Open the app library', 'Open wine cellar', 'Show my apps'], scene: ['phone'], cat: 'do',

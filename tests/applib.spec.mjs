@@ -71,7 +71,7 @@ const tryApp = async (page, def) => {
   await page.evaluate(() => new Promise((r) => setTimeout(r, 50)));
 };
 /** One scroll area, nothing sideways, every key 44 pt, the keys at the bottom, words never under a key. */
-const fit = (page, sel) => page.evaluate((sel) => {
+const FIT = (sel) => {
   const root = document.querySelector(sel);
   if (!root) return { missing: true };
   const scrollers = [...root.querySelectorAll('*')].filter((e) => { const s = getComputedStyle(e); return /(auto|scroll)/.test(s.overflowY) && e.scrollHeight > e.clientHeight + 1 && !e.closest('.ak-sheet'); });
@@ -79,7 +79,8 @@ const fit = (page, sel) => page.evaluate((sel) => {
   const small = keys.filter((b) => { const r = b.getBoundingClientRect(); return r.height < 43.5 || (b.matches('button') && r.width < 43.5); }).map((b) => (b.getAttribute('aria-label') || b.textContent || b.className).slice(0, 30));
   const wide = [...root.querySelectorAll('*')].filter((e) => { const r = e.getBoundingClientRect(); return r.width && (r.right > innerWidth + 0.5 || r.left < -0.5); }).map((e) => e.className.toString().slice(0, 30)).slice(0, 4);
   return { scrollers: scrollers.length, scroller: scrollers[0]?.className ?? '', small: small.slice(0, 5), wide, sideways: document.documentElement.scrollWidth > innerWidth };
-}, sel);
+};
+const fit = (page, sel) => page.evaluate(`(${FIT})(${JSON.stringify(sel)})`);
 const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wide.length && !m.sideways;
 
 // ── the Library screen ─────────────────────────────────────────────────────────────────────────
@@ -225,22 +226,30 @@ const fitOk = (m) => !m.missing && m.scrollers <= 1 && !m.small.length && !m.wid
 // ── every app in LIBRARY opens and draws ─────────────────────────────────────────────────────
 {
   const { ctx, page } = await open(SMALL, 'glass');
-  const ids = await page.evaluate(() => window.__ghosty.applib.ids().filter((id) => !id.startsWith('spec-')));
+  // (Ghosty's own screens open their own screens: the Library's search and the screen archetype's check cover them)
+  const ids = await page.evaluate(() => window.__ghosty.applib.ids().filter((id) => !id.startsWith('spec-') && !id.startsWith('ghosty-')));
   let bad = 0;
   const waiting = {};
-  for (const id of ids) {
-    const r = await page.evaluate(async (id) => {
-      const a = window.__ghosty.applib;
+  // (all in the page, in one go: each app opened, given two frames to draw, then measured)
+  const results = await page.evaluate(`(async () => {
+    const FIT = ${FIT};
+    const a = window.__ghosty.applib;
+    const out = [];
+    for (const id of ${JSON.stringify(ids)}) {
       a.open(id);
-      await new Promise((res) => setTimeout(res, 60));
-      return { hash: location.hash, eng: { ...a.engine } };
-    }, id);
-    if (r.hash.startsWith('#apps/') === false) { await page.evaluate(() => { location.hash = '#apps'; }); continue; }
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const eng = { ...a.engine };
+      out.push({ id, hash: location.hash, eng, m: location.hash.startsWith('#apps/') && !(eng.error === 'no renderer' && ['game', 'importer'].includes(eng.archetype)) ? FIT('#pg-apps') : null });
+      if (!location.hash.startsWith('#apps')) location.hash = '#apps';
+    }
+    return out;
+  })()`);
+  for (const r of results) {
+    if (!r.hash.startsWith('#apps/')) continue;
     // (a game or an importer before its lane's renderer lands is said in the summary, never passed off as drawn)
     if (r.eng.error === 'no renderer' && ['game', 'importer'].includes(r.eng.archetype)) { waiting[r.eng.archetype] = (waiting[r.eng.archetype] ?? 0) + 1; continue; }
-    const m = await fit(page, '#pg-apps');
-    const ok = fitOk(m) && !r.eng.error;
-    if (!ok && bad++ < 12) problems.push(`[every app] ${id}: ${r.eng.error || JSON.stringify(m)}`);
+    const ok = fitOk(r.m) && !r.eng.error;
+    if (!ok && bad++ < 12) problems.push(`[every app] ${r.id}: ${r.eng.error || JSON.stringify(r.m)}`);
   }
   if (bad > 12) problems.push(`[every app] and ${bad - 12} more`);
   notes.push(`${ids.length} apps opened`);
