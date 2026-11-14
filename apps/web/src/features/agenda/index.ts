@@ -18,6 +18,8 @@ import { monthPanel } from './month';
 import { AHEAD_DAYS } from './todowords';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
+import { tripKey } from '../../ui/tripsheet';
+
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -240,6 +242,8 @@ export const agendaTab: TabDef = {
         e.location ? h('span', `Where: ${e.location}`) : null,
         e.notes ? h('span', `Notes: ${e.notes}`) : null,
         h('small', waiting ? 'In your diary, not sent yet: it goes when the brain is back.' : mine ? `In your diary · ${remWords}` : `From your calendar “${e.source}”. Change it there: Ghosty only reads it.`));
+      // [see] GETTING THERE: an appointment with a place, still to come, to the whole journey (ui/tripsheet.ts, TRIP MODE)
+      if (e.location?.trim() && !e.allDay && e.start > Date.now()) card.append(h('div.row.wrap.evtrip', tripKey(e)));
       if (!mine) return card;
       const d = evDraft?.id === e.id ? evDraft : null;
       const ti = h('input', { value: d ? d.title : e.title, 'aria-label': 'Change the event', maxlength: '200' });

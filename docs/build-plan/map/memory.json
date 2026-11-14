@@ -1,0 +1,48 @@
+{"lane":"MEMORY",
+"features":[
+{"name":"Replies that remember the week","where":"HOME (any chat), or Telegram","say":["what was that train you found me on Tuesday?","remind me what we said about the boiler"],"does":"Every chat is kept as a short note for 30 days (your words and the first line of the answer); when you ask something, up to four matching notes from the last week go into the reply, so Ghosty can say 'like you said on Tuesday'.","status":"works","note":"Matching is by your words; matching by meaning on the brain is not built yet."},
+{"name":"RECALL button under a reply","where":"HOME → the chat log, under a reply that says 'like you said on …'","say":["(appears by itself)"],"does":"One tap opens the chat it means, or shows the quote if that chat has left the log.","status":"works","note":""},
+{"name":"What did I ask you about…?","where":"HOME chat, or ME → MEMORY → TIMELINE search box","say":["what did I ask you about trains?","when did I mention the boiler?","did I tell you about my knee?"],"does":"Answered on the phone in well under a second with no internet: each time you asked, its day and where (app or Telegram), best three first; a tap opens that chat.","status":"works","note":"If the phone's index has never been built and you are online, the brain answers instead."},
+{"name":"Find in my things","where":"HOME chat, or ME → MEMORY → TIMELINE search box","say":["find garden in my things","search my notes for invoice"],"does":"Searches your documents, workspace pages, decks, sheets and chats on the phone; a tap opens the thing at the matching paragraph.","status":"works","note":"Scanned pages count only once saved as a document; the jump bar does not search here yet."},
+{"name":"Recall on Telegram","where":"Telegram","say":["what did I ask you about trains?"],"does":"The brain lists the matching chats from the last 30 days with their day and where.","status":"works","note":""},
+{"name":"Forget a chat, with UNDO","where":"On a RECALL card row → FORGET; ME → MEMORY → RECENTLY FORGOTTEN","say":["(tap FORGET)"],"does":"That chat leaves recall on the phone and on the brain at once; UNDO brings it back for a day.","status":"works","note":""},
+{"name":"Clear conversation clears recall","where":"ME → MEMORY → CONVERSATION → CLEAR","say":["clear the conversation"],"does":"Clearing the conversation also clears the 30 days of notes and the phone's recall of those chats.","status":"works","note":""},
+{"name":"Chase a reply for me","where":"HOME chat; listed in PLAN → AGENDA → WATCHERS (under Spending on the phone)","say":["remind me to chase this if Sam doesn't reply by Thursday","chase it if they haven't answered by Friday"],"does":"Says once what it will do; at 9 am that day it looks in the mail you already linked for a reply from that person and tells you either 'Sam replied on Wednesday; nothing to chase' or reminds you with DRAFT A CHASE (sending still needs your tap).","status":"works","note":"It finds the mail by who sent it, not by the exact thread; with no mail linked it is a plain dated reminder and says so."},
+{"name":"What are you chasing?","where":"HOME chat","say":["what are you chasing?","any chases?"],"does":"Lists the chases still waiting, each with its morning.","status":"works","note":""},
+{"name":"Recall index size and CLEAR","where":"SYSTEM → STORAGE (Backup section)","say":["(look)"],"does":"Shows how big the phone's recall index is (kept only on the phone) with CLEAR; it rebuilds while the phone sits idle, on charge or above half battery.","status":"works","note":""},
+{"name":"Meaning search on the phone","where":"SETTINGS → OFFLINE BRAIN → Search by meaning (download on your tap, on Wi-Fi, size said)","say":["(download once)"],"does":"With the meaning model downloaded, recall and find also match by meaning, not just words, still on the phone.","status":"partial","note":"Meaning is only used once the model is already loaded; it never waits for it to load."},
+{"name":"Memory timeline, Me, Diary, Patterns, Lessons","where":"ME → MEMORY","say":["what do you remember about me?","remember I take my coffee black","forget that"],"does":"Everything Ghosty keeps about you, each with where it came from: edit, LOCK, FORGET with UNDO, FADING (keep or let go), the nightly diary, and patterns from your own chats.","status":"works","note":"Built before this round; the final round added the recall search above to it."}
+],
+"upward":[
+{"idea":"Recall by meaning on the brain too","why":"Telegram and a cold phone would find 'the trip north' when you said 'Leeds trains'","builds_on":"the 30-day notes and the free models the brain already uses","effort":"M"},
+{"idea":"A chase that follows the exact email thread","why":"no false 'replied' when the same person writes about something else","builds_on":"the chase watcher and the Brief's mail reading","effort":"M"},
+{"idea":"CHASE key on each mail in the Brief","why":"one tap instead of saying the sentence","builds_on":"the Brief's email line and the chase watcher","effort":"S"},
+{"idea":"Chase follow-ups: 'and again Monday if still nothing'","why":"holds a chase for a week without you minding it","builds_on":"the chase watcher's one-morning check","effort":"S"},
+{"idea":"A Week in review card from your own chats","why":"Sunday evening: what you asked about most, what you finished, what is still open","builds_on":"the 30-day notes and Patterns","effort":"M"},
+{"idea":"Open threads: questions you asked that never got a real answer","why":"nothing you meant to come back to is lost","builds_on":"the notes (your question plus the answer's first line)","effort":"M"},
+{"idea":"Recall shows the whole exchange in a card","why":"see what was said without leaving where you are","builds_on":"the RECALL card and the chat log","effort":"S"},
+{"idea":"Date words in the question: 'what did I ask last March about the car?'","why":"narrows recall the way you think about time","builds_on":"the day words recall already uses","effort":"S"},
+{"idea":"Find opens spreadsheets at the cell and decks at the slide","why":"lands exactly where the match is, like documents already do","builds_on":"Find's landing on a paragraph","effort":"S"},
+{"idea":"Jump bar runs Find from the third word","why":"search everything of yours from anywhere","builds_on":"the jump bar and the phone's index","effort":"S"},
+{"idea":"Pin a chat so it never fades from recall","why":"the important ones stay past 30 days","builds_on":"LOCK in the memory timeline","effort":"S"},
+{"idea":"Recall answers spoken back in one sentence","why":"hands-free in the car","builds_on":"the recall card and the phone's voice","effort":"S"}
+],
+"sideways":[
+{"idea":"Find in scanned pages and the Lens's read text as soon as they are read","why":"'where's that letter about the parking fine?' finds the photo you read","builds_on":"the scanner and the Lens's reading, and the phone index","effort":"M"},
+{"idea":"Find in your saved links and the library","why":"one search across everything you keep","builds_on":"the library's own search and the phone index","effort":"S"},
+{"idea":"Promise keeper: 'you said you'd send Jo the photos'","why":"reminds you of things YOU said you would do","builds_on":"your own words in the notes and reminders","effort":"M"},
+{"idea":"Chase anything, not just mail: 'if the parcel hasn't come by Friday'","why":"one way to hold any wait","builds_on":"the chase watcher and the parcel and page watchers","effort":"M"},
+{"idea":"Remember where I put it: 'the spare key is in the blue tin'","why":"ask later and it says where","builds_on":"remember, plus recall's search","effort":"S"},
+{"idea":"Export your memory as one tidy document","why":"your record, yours to keep","builds_on":"the Docs editor and the memory timeline","effort":"S"},
+{"idea":"Find by date: 'what was I doing on the 3rd?'","why":"your own day, rebuilt from chats, diary and reminders","builds_on":"the diary, the notes and the agenda","effort":"M"},
+{"idea":"Decision log: 'why did I pick the canal flat?'","why":"recalls the reasons you gave at the time","builds_on":"the notes and your principles","effort":"S"},
+{"idea":"Quiet hours for recall","why":"no 'like you said' lines when you want a clean answer","builds_on":"the recall line in replies","effort":"S"}
+],
+"cross":[
+{"idea":"Recall inside the editors: 'what did I say about the hedge?' while writing the letter","with":"EDITORS","why":"brings your earlier words into the document you are writing"},
+{"idea":"The Brief's mail line offers CHASE and shows chases due today","with":"PLAN AND HOME","why":"your mornings show what you are waiting on"},
+{"idea":"The money pack remembers what you asked about a bill","with":"MONEY AND PEOPLE","why":"'what did I ask about the energy bill?' sits next to the bill"},
+{"idea":"Learn and School recall what you studied and got wrong","with":"LEARN","why":"revision built from your own questions"},
+{"idea":"Spoken recall in the car","with":"VOICE, MEANINGS AND COLOURS","why":"many wordings of 'what did I ask' heard and answered aloud"},
+{"idea":"System's report card counts recall answered with no internet","with":"SYSTEM AND SETTINGS","why":"shows how much works offline"}
+]}

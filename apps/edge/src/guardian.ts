@@ -22,6 +22,7 @@ import { addJob, loadJobs, removeJob } from './schedule';
 import { loadLink } from './telegram';
 import { mailRoute } from './mailtriage';
 import { watchersRoute, watchersTick } from './watchers';
+import { keepTick } from './keep';
 import { wallRoute } from './wall'; // [wall] the second screen: its own file, mounted here with the other feature routes
 import { healthRoute } from './health'; // [health] the brain's health and the "that felt off" moments
 import { levelWord, loadConfig, loadWalk, loadWatch, nowOf, personRoute, WATCH_KEY, zoneOf, type GuardDeps } from './guardstate';
@@ -165,6 +166,8 @@ export async function watchTick(d: GuardDeps, opts: { quiet?: boolean; force?: b
   // [lifeeasier] the same hourly beat reads his WATCHERS (watchers.ts): a price down, a page changed, a strike on a status page; told once.
   // A look of his own (`quiet`, the tool's CHECK) only looks at his places.
   if (!opts.quiet) await watchersTick(d, { force: opts.force }).catch(() => undefined);
+  // [keep] and his word (keep.ts): a promise whose day has come, told once; on Sunday evening, the week's card (memory lane, additive)
+  if (!opts.quiet) await keepTick(d).catch(() => undefined);
   if (news.length) {
     await d.notify({ kind: 'error', title: news.length === 1 ? 'Warning near your places' : `${news.length} warnings near your places`, text: news.join('\n'), danger: true });
     for (const n of news) await observe(d.storage, { kind: 'place', text: n, via: 'guardian' }, now).catch(() => null);
