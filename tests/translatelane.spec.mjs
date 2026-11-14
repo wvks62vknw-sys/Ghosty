@@ -33,8 +33,58 @@ const ANSWERS = {
   fr: { text: 'Merci.', alts: [] },
 };
 
-async function phone(viewport, asked) {
+/** A stand-in recogniser that hears words as they are spoken (`window.__talk(t)`: interim, then final at the end), and a speaker. */
+const fakeEars = () => {
+  window.__rcs = [];
+  window.__said = [];
+  window.SpeechRecognition = window.webkitSpeechRecognition = class {
+    constructor() {
+      this.lang = '';
+      this.text = '';
+      this.over = false;
+    }
+    start() {
+      window.__rcs.push(this);
+    }
+    stop() {
+      setTimeout(() => {
+        if (this.text) this.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: this.text }], { isFinal: true })] });
+        this.over = true;
+        this.onend?.();
+      }, 10);
+    }
+    abort() {
+      this.over = true;
+      this.onend?.();
+    }
+  };
+  window.__talk = (t) => {
+    const rc = window.__rcs.at(-1);
+    rc.text = t;
+    rc.onresult?.({ resultIndex: 0, results: [Object.assign([{ transcript: t }], { isFinal: false })] });
+  };
+  window.SpeechSynthesisUtterance = class {
+    constructor(text) {
+      Object.assign(this, { text, voice: null, lang: '', rate: 1, pitch: 1, volume: 1 });
+    }
+  };
+  const synth = window.SpeechSynthesis?.prototype ?? window.speechSynthesis;
+  synth.getVoices = () => [
+    { name: 'Daniel', lang: 'en-GB', voiceURI: 'Daniel', localService: true, default: true },
+    { name: 'Thomas', lang: 'fr-FR', voiceURI: 'Thomas', localService: true, default: false },
+  ];
+  synth.speak = (u) => {
+    if (u.text.trim()) window.__said.push({ text: u.text, lang: u.lang });
+    setTimeout(() => {
+      u.onstart?.();
+      setTimeout(() => u.onend?.(), 20);
+    }, 5);
+  };
+};
+
+async function phone(viewport, asked, init = null) {
   const ctx = await browser.newContext({ viewport, screen: viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, ...UK, serviceWorkers: 'block' });
+  if (init) await ctx.addInitScript(init);
   await ctx.route('**/api/translate', async (route) => {
     const b = route.request().postDataJSON();
     asked.push(b);
@@ -176,9 +226,39 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await until(page, () => document.body.dataset.tab === 'interpreter', null, 8000, `[${W}] [modes] CONVERSATION did not open the interpreter`);
   log(`[${W}] translate: ${checks} checks`);
   await ctx.close();
+
+  // ---- INTERPRET's AUTO: no key to hold. It listens for whoever's turn it is, translates at their pause, says it, then listens
+  // for the other; holding a key, STOP AUTO or leaving the screen ends it.
+  const asked2 = [];
+  const two = await phone(viewport, asked2, fakeEars);
+  const p2 = two.page;
+  await p2.evaluate(() => (location.hash = 'interpreter'));
+  await until(p2, () => document.querySelector('#pg-interpreter [data-act="auto"]'), null, 8000, `[${W}] [auto] no AUTO key`);
+  await p2.evaluate(() => { const s = document.querySelector('#fxb'); s.value = 'fr'; s.dispatchEvent(new Event('change')); });
+  await p2.click('#pg-interpreter [data-act="auto"]');
+  await until(p2, () => window.__ghosty.interpreter.auto && window.__ghosty.interpreter.autoSide === 'near' && window.__rcs.at(-1)?.lang === 'en', null, 5000, `[${W}] [auto] AUTO did not start listening for him in English: ${JSON.stringify(await p2.evaluate(() => ({ auto: window.__ghosty.interpreter.auto, side: window.__ghosty.interpreter.autoSide, langs: window.__rcs.map((r) => r.lang) })))}`);
+  check(await p2.evaluate(() => document.querySelector('#pg-interpreter [data-act="auto"]').getAttribute('aria-pressed') === 'true' && document.querySelector('#pg-interpreter [data-act="auto"]').textContent === 'STOP AUTO'), `[${W}] [auto] the key does not show AUTO on`);
+  await p2.evaluate(() => window.__talk('Thank you'));
+  await until(p2, () => window.__ghosty.interpreter.lines.length === 1 && window.__ghosty.interpreter.lines[0].came === 'Merci.', null, 8000, `[${W}] [auto] his pause did not end the turn and translate it: ${JSON.stringify(await p2.evaluate(() => window.__ghosty.interpreter.lines))}`);
+  await until(p2, () => window.__said.some((x) => x.text === 'Merci.'), null, 5000, `[${W}] [auto] the French was not said aloud`);
+  await until(p2, () => window.__ghosty.interpreter.autoSide === 'far' && window.__rcs.at(-1)?.lang === 'fr' && !window.__rcs.at(-1).over, null, 8000, `[${W}] [auto] it did not then listen for them in French: ${JSON.stringify(await p2.evaluate(() => ({ side: window.__ghosty.interpreter.autoSide, langs: window.__rcs.map((r) => r.lang) })))}`);
+  await p2.evaluate(() => window.__talk('Derrière vous'));
+  await until(p2, () => window.__ghosty.interpreter.lines.length === 2 && window.__ghosty.interpreter.lines[1].from === 'far', null, 8000, `[${W}] [auto] their turn was not translated`);
+  await until(p2, () => window.__ghosty.interpreter.autoSide === 'near', null, 8000, `[${W}] [auto] it did not go back to listening for him`);
+  check(asked2.some((b) => b.text === 'Derrière vous' && b.to === 'en' && b.from === 'fr'), `[${W}] [auto] their words were not asked from French into English: ${JSON.stringify(asked2.at(-1))}`);
+  await p2.click('#pg-interpreter [data-act="auto"]');
+  check(await p2.evaluate(() => !window.__ghosty.interpreter.auto && window.__rcs.at(-1).over && !document.querySelector('#pg-interpreter .fxhalf.hearing')), `[${W}] [auto] STOP AUTO left it listening`);
+  for (const s of await p2.$$eval('#pg-interpreter [data-act="auto"]', (els) => els.filter((e) => e.offsetHeight < 44).map((e) => `${e.offsetWidth}×${e.offsetHeight}`))) check(false, `[${W}] [auto] the AUTO key is under 44 pt: ${s}`);
+  // (leaving the screen ends it, and nothing of the other person is kept)
+  await p2.click('#pg-interpreter [data-act="auto"]');
+  await until(p2, () => window.__ghosty.interpreter.auto, null, 4000, `[${W}] [auto] AUTO did not start again`);
+  await p2.evaluate(() => (location.hash = 'core'));
+  await until(p2, () => !window.__ghosty.interpreter.auto && window.__rcs.at(-1).over && window.__ghosty.interpreter.lines.length === 0, null, 5000, `[${W}] [auto] leaving the screen did not stop AUTO and let the lines go`);
+  log(`[${W}] auto: ${checks} checks`);
+  await two.ctx.close();
 }
 
 await browser.close();
 await standDown(base, KEY);
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `TRANSLATE run clean at 440 × 956 and 390 × 844: ${checks} checks (as he types, other ways, formal, letters, listen, the phrasebook by trip, a country's phrasebook, the history, the modes).`);
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `TRANSLATE run clean at 440 × 956 and 390 × 844: ${checks} checks (as he types, other ways, formal, letters, listen, the phrasebook by trip, a country's phrasebook, the history, the modes, and Interpret's AUTO).`);
 process.exit(problems.length ? 1 : 0);
