@@ -10321,9 +10321,11 @@ html #pg-social .socfollow .socfmsg:empty { display: none; }
 html #pg-social .socfollow .keyrow.wrapit { flex-wrap: wrap; }
 html #pg-social .socfollow .keyrow button[aria-pressed='false'] { opacity: .85; }
 /* LINKS' one health line: everything fine, or the one thing to fix first (wraps, never cut) */
-html #pg-links .lkhealth { margin: 0 0 8px; padding: 10px 12px; border: 1px solid var(--line2); border-radius: var(--rad); color: var(--ink); font: 500 14px/1.4 var(--sf); white-space: normal; overflow-wrap: anywhere; }
-html #pg-links .lkhealth[data-health='fix'] { border-color: var(--g-amber); }
-html #pg-links .lkhealth[data-health='ok'] { border-color: var(--ok); }
+/* (a card of the list's own kind: the hero's full width, lined up with the pills and the list card, set apart from the count above it;
+   the list card's own 20 pt corner and fill, its hairline tinted by the state) */
+html #pg-links .lkhealth { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; gap: var(--g-s-1); margin: var(--g-s-1) calc(-1 * var(--g-s-half)) var(--g-s-1); padding: 12px var(--g-s-2); border: 0; border-radius: 20px; background: var(--fill); box-shadow: inset 0 0 0 var(--g-hair) var(--hair); color: var(--ink); font: 500 14px/1.4 var(--sf); white-space: normal; overflow-wrap: anywhere; }
+html #pg-links .lkhealth[data-health='fix'] { box-shadow: inset 0 0 0 var(--g-hair) var(--g-amber); }
+html #pg-links .lkhealth[data-health='ok'] { box-shadow: inset 0 0 0 var(--g-hair) color-mix(in srgb, var(--ok) 40%, transparent); }
 /* ==== [planlane2:fixes end] ==== */
 
 
