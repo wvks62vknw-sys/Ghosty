@@ -21,6 +21,9 @@ export const MIN_GAP = 30;
 /** An event with no end is laid out as an hour long (what calendars assume), and said as having no end. */
 const endOf = (e: Pick<AgendaEventInfo, 'start' | 'end'>) => (e.end && e.end > e.start ? e.end : e.start + HOUR);
 const hm = (ms: number) => fmt.time(new Date(ms));
+/** (a box is drawn at least this long, so short neighbours sit side by side instead of one covering the other's words) */
+const MIN_BOX = HOUR;
+const drawnEnd = (e: Pick<AgendaEventInfo, 'start' | 'end'>) => Math.max(endOf(e), e.start + MIN_BOX);
 const midnight = (ms: number) => {
   const d = new Date(ms);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -81,19 +84,25 @@ export function columns<T extends Pick<AgendaEventInfo, 'start' | 'end'>>(events
     if (e.start >= clusterEnd) close();
     let col = ends.findIndex((x) => x <= e.start);
     if (col < 0) col = ends.push(0) - 1;
-    ends[col] = endOf(e);
+    ends[col] = drawnEnd(e);
     cluster.push({ e, col, cols: 1 });
-    clusterEnd = Math.max(clusterEnd === -Infinity ? 0 : clusterEnd, endOf(e));
+    clusterEnd = Math.max(clusterEnd === -Infinity ? 0 : clusterEnd, drawnEnd(e));
   }
   close();
   return out;
+}
+
+/** On that day at all: an event that began on an earlier day and is still running counts (a trip, a holiday), not only one that starts on it. */
+export function onDay(e: Pick<AgendaEventInfo, 'start' | 'end' | 'allDay'>, day: number): boolean {
+  const end = e.allDay ? (e.end && e.end > e.start ? e.end : dayAfter(midnight(e.start), 1)) : endOf(e);
+  return e.start < dayAfter(day, 1) && end > day;
 }
 
 /** The seven days from `day` laid out to plan: each day's events, to-dos due and free slots, and the week said in one line. */
 export function weekPlan(events: readonly AgendaEventInfo[], todos: readonly { text: string; due: string; done: boolean }[], day: number, now = Date.now()) {
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = dayAfter(day, i);
-    const evs = events.filter((e) => midnight(e.start) === d).sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || a.start - b.start);
+    const evs = events.filter((e) => onDay(e, d)).sort((a, b) => Number(!a.allDay) - Number(!b.allDay) || a.start - b.start);
     const gaps = freeGaps(evs, d, now);
     const free = gaps.reduce((n, g) => n + (g.to - g.from), 0);
     return { day: d, key: dayOf(d), events: evs, todos: todos.filter((t) => !t.done && t.due === dayOf(d)), gaps, free: Math.round(free / 60_000) };
@@ -113,7 +122,7 @@ const VIEW_KEY = 'ghosty.agenda.timeline';
  * The TIMELINE panel. `get` gives what the diary was given (the brain's next six weeks) and whether it is read yet;
  * `pick` opens an event whole in the diary (its change box), so a tap on the timeline is the way to change it.
  */
-export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: boolean; offline: boolean }, pick: (id: string) => void): { el: HTMLElement; paint(): void } {
+export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: boolean; offline: boolean; hasCopy: boolean }, pick: (id: string) => void): { el: HTMLElement; paint(): void } {
   const p = panel('TIMELINE', { grow: false, cls: 'timeline' });
   let view: View = 'today';
   try {
@@ -142,7 +151,7 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
 
   const dayView = (events: AgendaEventInfo[], day: number, now: number): HTMLElement[] => {
     const isToday = day === midnight(now);
-    const todays = events.filter((e) => midnight(e.start) === day);
+    const todays = events.filter((e) => onDay(e, day));
     const allDay = todays.filter((e) => e.allDay);
     const timed = todays.filter((e) => !e.allDay).sort((a, b) => a.start - b.start);
     const todos = dueOn(loadTodos(), dayOf(day));
@@ -151,16 +160,18 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
     // the free time said first: what he opens a timeline to find
     const freeLine = gaps.length
       ? gaps.map((g) => gapWords(g, day))
-      : [isToday && now >= at(day, SLEEP) ? 'The day is over: nothing more to plan today.' : 'No free gap of half an hour or more between 08:00 and 22:00.'];
+      : [isToday && now >= at(day, SLEEP) ? 'The day is over: nothing more to plan today.' : isToday && now > at(day, WAKE) ? 'No free half hour left before 22:00.' : 'No free gap of half an hour or more between 08:00 and 22:00.'];
     /* state: agenda.timeline empty */
     if (!todays.length && !todos.length) out.push(h('p.note.tlempty', { dataset: { case: 'keep', state: 'empty' } }, isToday ? 'Nothing in your diary for the rest of today.' : 'Nothing in your diary tomorrow.'));
     out.push(h('div.tlfree', { role: 'list', 'aria-label': 'Free time' }, ...freeLine.map((t) => h('span.tlgap', { role: 'listitem', dataset: { case: 'keep' } }, t))));
     if (allDay.length) out.push(h('div.tlallday', { role: 'list', 'aria-label': 'All day' }, ...allDay.map((e) => evRow(e, 'tlad', 'All day'))));
     if (todos.length) out.push(h('div.tltodo', { role: 'list', 'aria-label': 'To-dos due' }, ...todos.map((t) => h('span.tltd', { role: 'listitem', dataset: { case: 'keep' } }, h('span.tlwhen', 'To-do'), h('span', t.text)))));
     // the hours: from 08:00 (or the first thing, if earlier) to 22:00 (or the last thing's end)
-    const first = Math.min(WAKE, ...timed.map((e) => new Date(e.start).getHours()));
+    // (by the clock, not hours since midnight: a clock-change day has 23 or 25 of them; one that began yesterday starts the grid at 00:00)
+    const first = Math.min(WAKE, ...timed.map((e) => (e.start < day ? 0 : new Date(e.start).getHours())));
     const lastEnd = Math.max(at(day, SLEEP), ...timed.map((e) => Math.min(endOf(e), dayAfter(day, 1))));
-    const last = Math.min(24, Math.ceil((lastEnd - day) / HOUR - 0.001));
+    const le = new Date(lastEnd);
+    const last = lastEnd >= dayAfter(day, 1) ? 24 : Math.max(SLEEP, le.getHours() + (le.getMinutes() > 0 ? 1 : 0));
     const top = at(day, first);
     const span = last - first;
     // (each hour is a share of the grid's height, so the layout scales with his text size and never needs a px size)
@@ -190,13 +201,13 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
         h('b.tldayname', name),
         ...d.events.map((e) => evRow(e, 'tlwev', e.allDay ? 'All day' : `${hm(e.start)}${e.end ? `–${hm(e.end)}` : ''}`)),
         ...d.todos.map((t) => h('span.tltd', h('span.tlwhen', 'To-do'), h('span', t.text))),
-        h('small.tlwfree', { dataset: { case: 'keep' } }, d.gaps.length ? `Free ${free} · ${longGap(d.free)} in all` : d.day === midnight(now) && now >= at(d.day, SLEEP) ? 'The day is over.' : 'No free gap of half an hour or more.')));
+        h('small.tlwfree', { dataset: { case: 'keep' } }, d.gaps.length ? `Free ${free} · ${longGap(d.free)} in all` : d.day === midnight(now) && now >= at(d.day, SLEEP) ? 'The day is over.' : d.day === midnight(now) && now > at(d.day, WAKE) ? 'No free half hour left before 22:00.' : 'No free gap of half an hour or more.')));
     }
     return [h('p.tlweekline', { dataset: { case: 'keep' } }, w.line), list];
   };
 
   const paint = () => {
-    const { events, loaded, offline } = get();
+    const { events, loaded, offline, hasCopy } = get();
     const now = Date.now();
     const keys = (['today', 'tomorrow', 'week'] as View[]).map((v) => {
       const b = button(v === 'today' ? 'TODAY' : v === 'tomorrow' ? 'TOMORROW' : 'PLAN MY WEEK', () => setView(v), `tlkey${view === v ? ' on' : ''}`);
@@ -207,14 +218,14 @@ export function timelinePanel(get: () => { events: AgendaEventInfo[]; loaded: bo
     /* state: agenda.timeline loading */
     if (!loaded) return void clear(p.body, bar, h('p.note.wait', { dataset: { case: 'keep', state: 'loading' } }, 'Reading your diary to lay out the day.'));
     // no diary at all (the brain out of reach, no copy on this phone): no free time is guessed, only his to-dos due are shown
-    const blind = offline && !events.length;
+    const blind = offline && !hasCopy;
     const days = view === 'week' ? Array.from({ length: 7 }, (_, i) => dayAfter(now, i)) : [view === 'today' ? midnight(now) : dayAfter(now, 1)];
     const due = days.flatMap((d) => dueOn(loadTodos(), dayOf(d)));
     const body = blind
       ? due.length ? [h('div.tltodo', { role: 'list', 'aria-label': 'To-dos due' }, ...due.map((t) => h('span.tltd', { role: 'listitem', dataset: { case: 'keep' } }, h('span.tlwhen', 'To-do'), h('span', t.text))))] : []
       : view === 'week' ? weekView(events, now) : dayView(events, days[0]!, now);
     /* state: agenda.timeline offline */
-    const note = offline ? [h('p.note.bad.tlcopy', { dataset: { case: 'keep', state: 'offline' } }, events.length ? 'Laid out from the last copy of your diary on this phone: I can’t reach your brain right now.' : 'I can’t reach your brain and this phone has no copy of your diary yet, so only your to-dos show here. It fills in when I can.')] : [];
+    const note = offline ? [h('p.note.bad.tlcopy', { dataset: { case: 'keep', state: 'offline' } }, !blind ? 'Laid out from the last copy of your diary on this phone: I can’t reach your brain right now.' : 'I can’t reach your brain and this phone has no copy of your diary yet, so only your to-dos show here. It fills in when I can.')] : [];
     clear(p.body, bar, ...note, ...body);
   };
   // his list changed somewhere (the TO-DO panel, the chat): the to-dos beside the day follow it

@@ -45,7 +45,7 @@ export const APP_2: Record<string, CatValue> = {
   'panel:agenda:TIMELINE': {
     name: 'Your day by the hour', line: 'You can see today and tomorrow by the hour, with your free gaps said in words, and plan your week.',
     more: 'Two things at once sit side by side, all-day ones and your to-dos due sit at the top, and a line marks now. PLAN MY WEEK lays out the next seven days with each day’s free time, worked out on your phone. Tap an event to change it in place.',
-    say: ['When am I free tomorrow?', 'What’s on tomorrow?'], scene: ['morning'], cat: 'watch',
+    say: ['Plan my week', 'When am I free tomorrow?'], scene: ['morning'], cat: 'watch',
     since: '2026-11-14',
   },
   // ---- THE BRIEF

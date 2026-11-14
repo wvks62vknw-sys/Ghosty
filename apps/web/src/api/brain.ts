@@ -171,7 +171,9 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail|^\/guardian\/(?:health|feltoff)/.test(path);
+// (the diary's reads are not kept here: brain.agenda keeps its own copy and says when it shows it, and a month read (&from=) is never
+// shown as fresh from an old read)
+const cacheable = (path: string) => !/^\/agenda\?|^\/guardian\/wall|search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup|^\/guardian\/mail|^\/guardian\/(?:health|feltoff)/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;

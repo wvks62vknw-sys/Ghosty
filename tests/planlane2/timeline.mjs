@@ -27,6 +27,17 @@ export async function run(H) {
     check(JSON.stringify(cols) === JSON.stringify(['7:0/1', '10:0/2', '10:1/2', '14:0/1']), `[timeline pure] two at once side by side, the rest whole: ${JSON.stringify(cols)}`);
     const w = T.weekPlan([{ id: 'a', title: 'A', start: hr(10), end: hr(11), source: 'mine' }], [{ text: 'Post it', due: '2026-11-15', done: false }], new Date(2026, 10, 13).getTime(), new Date(2026, 10, 13, 9).getTime());
     check(/^1 event and 1 to-do in the next seven days; \d+ h free in the daytime\. Freest: /.test(w.line) && w.days.length === 7, `[timeline pure] the week said: ${w.line}`);
+
+    // an event running across three days (Sat 09:00 to Mon 17:00) and a holiday over the same days: the middle day is busy, not free
+    const trip = { id: 't', title: 'Trip', start: hr(9), end: new Date(2026, 10, 16, 17).getTime(), source: 'mine' };
+    const hol = { id: 'h', title: 'Holiday', start: day, end: new Date(2026, 10, 17).getTime(), allDay: true, source: 'mine' };
+    const sun = new Date(2026, 10, 15).getTime();
+    check(T.onDay(trip, sun) && T.onDay(hol, sun) && T.onDay(hol, new Date(2026, 10, 16).getTime()) && !T.onDay(hol, new Date(2026, 10, 17).getTime()), '[timeline pure] an event that began on an earlier day is on the days it runs through');
+    const wk = T.weekPlan([trip, hol], [], day, day);
+    check(wk.days[1].events.length === 2 && wk.days[1].free === 0 && wk.days[2].events.length === 2, `[timeline pure] the week counts the trip on Sunday and Monday: ${JSON.stringify(wk.days.map((d) => [d.events.length, d.free]))}`);
+    // two half-hour events back to back sit side by side (a box is drawn at least an hour long), never one over the other's words
+    const bb = T.columns([{ start: hr(10), end: hr(10, 30) }, { start: hr(10, 30), end: hr(11) }]).map((c) => `${c.col}/${c.cols}`);
+    check(JSON.stringify(bb) === JSON.stringify(['0/2', '1/2']), `[timeline pure] back-to-back short events side by side: ${JSON.stringify(bb)}`);
   }
 
   // ---- 2. on the screen, both sizes, BODY 21
@@ -84,7 +95,7 @@ export async function run(H) {
     if (tm.hour >= 8 && tm.hour < 22) check(/^Now \d\d:\d\d$/.test(nowLine ?? ''), `[timeline ${W}] the line at now: ${nowLine}`);
     else check(nowLine === null, `[timeline ${W}] no line at now outside the day's hours: ${nowLine}`);
     const tgaps = await page.$$eval('#pg-agenda .pn.timeline .tlgap', (s) => s.map((x) => x.textContent));
-    check(tgaps.length > 0 && tgaps.every((t) => /^(Free \d\d:\d\d–\d\d:\d\d \(.+\)|Free all day \(08:00–22:00\)|The day is over: nothing more to plan today\.|No free gap of half an hour or more between 08:00 and 22:00\.)$/.test(t)), `[timeline ${W}] today's free time said: ${JSON.stringify(tgaps)}`);
+    check(tgaps.length > 0 && tgaps.every((t) => /^(Free \d\d:\d\d–\d\d:\d\d \(.+\)|Free all day \(08:00–22:00\)|The day is over: nothing more to plan today\.|No free half hour left before 22:00\.|No free gap of half an hour or more between 08:00 and 22:00\.)$/.test(t)), `[timeline ${W}] today's free time said: ${JSON.stringify(tgaps)}`);
     // PLAN MY WEEK: seven days, each with its free slots, and the week in a line
     await page.click('#pg-agenda .pn.timeline button.tlkey:has-text("PLAN MY WEEK")');
     await page.waitForSelector('#pg-agenda .pn.timeline .tlweek', { timeout: 3000 }).catch(() => check(false, `[timeline ${W}] PLAN MY WEEK did not open`));
@@ -175,6 +186,14 @@ export async function run(H) {
         check(c && c.color !== c.bg, `[timeline ${world}] an event's words stand off its block: ${JSON.stringify(c)}`);
         if (world === 'ink' || world === 'glass') await page.locator('#pg-agenda .pn.timeline').screenshot({ path: `${H.out}/planlane2-timeline-${world}-390.png` }).catch(() => undefined);
       }
+    }
+    // the chat reaches it: "plan my week" opens PLAN MY WEEK and says the week; "when am I free tomorrow?" says tomorrow's free time
+    if (vp === PHONE2) {
+      const wr = await H.ask(page, 'plan my week', /in the next seven days/);
+      check(wr.ok, `[timeline chat] "plan my week" says the week: ${JSON.stringify(wr).slice(0, 300)}`);
+      check(await page.evaluate(() => localStorage.getItem('ghosty.agenda.timeline')) === 'week', '[timeline chat] "plan my week" opens PLAN MY WEEK');
+      const fr = await H.ask(page, 'When am I free tomorrow?', /Tomorrow: /);
+      check(fr.ok && /Free /.test(fr.text), `[timeline chat] "when am I free tomorrow?" says tomorrow's free time: ${JSON.stringify(fr).slice(0, 300)}`);
     }
     for (const id of made) await api(page, 'DELETE', `/agenda/events/${id}`);
     await ctx.close();

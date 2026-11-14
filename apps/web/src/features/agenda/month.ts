@@ -12,7 +12,7 @@ import { AHEAD_DAYS, beyondWords, dayLine, dayOf, monthGrid, pastWords, WEEKDAY_
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[] }): { el: HTMLElement; paint(): void } {
+export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[] }): { el: HTMLElement; paint(fresh?: boolean): void } {
   const p = panel('MONTH', { grow: false, cls: 'month' });
   let shift = 0; // months from this one: -1 the last, 1 the next, as far either way as he steps
   let picked = dayOf(Date.now());
@@ -20,16 +20,21 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
   const months = new Map<string, AgendaEventInfo[] | 'failed' | 'reading'>();
   // (a month whose read failed is tried again only when he steps to it, never in a loop of paints)
   let again = false;
+  // (months read before the diary was last loaded by a change or a visit: read again when shown, the old read shown until the new one comes)
+  const dirty = new Set<string>();
   const read = (y: number, m: number) => {
     const k = `${y}-${String(m + 1).padStart(2, '0')}`;
     const was = months.get(k);
-    if (was !== undefined && !(was === 'failed' && again)) return;
-    months.set(k, 'reading');
+    if (was !== undefined && !(was === 'failed' && again) && !(Array.isArray(was) && dirty.has(k))) return;
+    dirty.delete(k);
+    if (!Array.isArray(was)) months.set(k, 'reading');
     const from = new Date(y, m, 1).getTime();
-    const days = Math.round((new Date(y, m + 1, 1).getTime() - from) / 86400_000);
+    // (ceil: October's last day has 25 hours, so its days come to a little over 31 and the read must reach its last hour)
+    const days = Math.ceil((new Date(y, m + 1, 1).getTime() - from) / 86400_000);
     brain.agendaFrom(from, days).then((r) => months.set(k, r.events), () => months.set(k, 'failed')).finally(() => paint());
   };
-  const paint = () => {
+  const paint = (fresh = false) => {
+    if (fresh) for (const [k, v] of months) if (v !== 'reading') dirty.add(k);
     const { todos } = get();
     // (today read at each paint: a page left open past midnight moves on with the day)
     const now0 = new Date();
@@ -44,7 +49,9 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
     // read for the days outside that
     const d0 = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate()).getTime();
     const d1 = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate() + AHEAD_DAYS).getTime();
-    const events = [...(Array.isArray(own) ? own.filter((e) => e.start < d0 || e.start >= d1) : []), ...get().events];
+    // (by id, once: an event still running that began before today is in both reads)
+    const have = new Set(get().events.map((e) => e.id));
+    const events = [...(Array.isArray(own) ? own.filter((e) => !have.has(e.id) && (e.start < d0 || e.start >= d1)) : []), ...get().events];
     const byDay = new Map<string, AgendaEventInfo[]>();
     for (const e of events) {
       const k = dayOf(e.start);
@@ -99,7 +106,8 @@ export function monthPanel(get: () => { events: AgendaEventInfo[]; todos: Todo[]
     // (this month read whole: a day of it, gone or far, is said as it is; only when its read failed is the diary's six weeks the edge)
     const whole = Array.isArray(own) && picked.slice(0, 7) === mk;
     const far = !whole && pt >= startToday.getTime() + AHEAD_DAYS * 86400_000;
-    const gone = !whole && picked < today;
+    // (a day gone with nothing on is said as gone whatever was read, as THIS WEEK's row says it)
+    const gone = picked < today;
     const list = h('div.monlist', { 'aria-live': 'polite' },
       h('b.mdayline', { dataset: { case: 'keep' } }, dayLine(pt, evs.length, tds.length)),
       ...(gone && !evs.length ? [h('small.note', pastWords)] : far && !evs.length ? [h('small.note', beyondWords)] : []),
