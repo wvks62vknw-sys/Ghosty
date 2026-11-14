@@ -16,6 +16,33 @@ export interface NewThing {
 
 /** The lines written by hand for what he would notice (each landing adds its own), newest first. */
 export const WHATS_NEW: NewThing[] = [
+  { day: '2026-11-14', title: 'Mind maps in the Workspace', line: 'NEW PAGE → A MIND MAP (or “make a mind map”): an idea in the middle and its branches, and any branch becomes to-dos in one tap.' },
+  { day: '2026-11-14', title: 'Forms that fill a list', line: 'Open a Workspace database and tap FORM: its columns become questions, and each answer you fill in becomes a new row. Sign-up sheets, checklists, surveys of your own.' },
+  { day: '2026-11-14', title: 'Flashcards from your own notes', line: 'On a Workspace page, … → MAKE FLASHCARDS (or say “make flashcards from my notes”): “Term: meaning” lines, toggles and headings become cards in Learn’s revision.' },
+  { day: '2026-11-14', title: 'Workspace deadlines on your agenda', line: 'The due dates in your Workspace lists now show on the Agenda under your to-dos, late ones first, and the Brief says them in one line. Tap one to open its page.' },
+  { day: '2026-11-14', title: 'Toggles, synced blocks, your own templates', line: 'In the Workspace: a TOGGLE folds lines away, SYNC shows one block on several pages (change it once, it changes everywhere), and … → SAVE AS TEMPLATE puts your own page beside the five templates.' },
+  { day: '2026-11-14', title: 'Voice notes into tidy pages', line: 'Workspace → VOICE NOTE (or say “take a voice note”): talk for a few minutes and I turn it into a clean page or document, with the actions as to-dos. Offline, the recording waits on your phone.' },
+  // [editors grid] the NEXT ROUND's spreadsheet and presentation tools
+  { day: '2026-11-14', title: 'A table summed in one tap', line: 'Spreadsheets → SUMMARY: how much each month or at each shop, on its own sheet that keeps up with the table, and a chart of it in one more tap.' },
+  { day: '2026-11-14', title: 'Cells that colour themselves', line: 'Spreadsheets → RULES: overdue dates in red, the top ten in green, data bars and a colour scale, listed per sheet to edit or delete, and kept in Excel files.' },
+  { day: '2026-11-14', title: 'Give a talk with a TV', line: 'Presentations → PRESENT → ON A TV: the slide on the second screen, and on your phone this slide, the next one, your notes and the time.' },
+  { day: '2026-11-14', title: 'Slide builds go to PowerPoint', line: 'Presentations: what comes in on a tap, and the new MAGIC MOVE between slides, are kept in the PowerPoint file as its own animations and Morph, and come back when you open one.' },
+  // [editors paper] the next round's paper tools
+  { day: '2026-11-14', title: 'Coloured words', line: 'In a document choose some words, then WRITE → COLOUR: red, blue, green or orange, kept in the Word file, the PDF and the web page.' },
+  { day: '2026-11-14', title: 'Documents: a goal, a copy, a search', line: 'Set a word goal in PAGE and the line under the title counts towards it; it also says how many words you have chosen. MAKE A COPY duplicates a document, and MY DOCUMENTS has a search.' },
+  { day: '2026-11-14', title: 'Move whole sections', line: 'In a document, CONTENTS now has ▲ and ▼ by every heading: a section moves with everything under it, in one step UNDO takes back.' },
+  { day: '2026-11-14', title: 'Comments on your words', line: 'In a document choose some words, then WRITE → COMMENT. Reply, resolve, or ASK GHOSTY about that one sentence. Comments stay with the document and go into Word files as Word comments.' },
+  { day: '2026-11-14', title: 'Mail merge', line: 'In a document, MAIL MERGE: one letter with {{Name}} fields and a spreadsheet of names gives a copy for every row, as one PDF, one Word file or a file each.' },
+  { day: '2026-11-14', title: 'Fill in and sign PDFs', line: 'DOCUMENTS → FILL AND SIGN A PDF: type into a form’s boxes, tick them, sign with your finger, and save or share it. Your signature stays only if you say KEEP IT.' },
+  { day: '2026-11-14', title: 'Paper into a document', line: 'Scan a letter and INTO A DOCUMENT makes it a document you can edit, its headings and paragraphs kept; a receipt goes into a row of your Receipts spreadsheet.' },
+  // [editors, media] the next round's photo and video tools
+  { day: '2026-11-14', title: 'Photo changes you approve', line: 'Say “make this photo warmer” or tap FIX IT: each change is marked in the Photo editor, like +0.3 exposure, for you to accept or reject one by one.' },
+  { day: '2026-11-14', title: 'Fades and colour over time', line: 'VIDEO: each fade has its own length, 0.1 s up to a third of the clip, and KEY THE GRADE lets a clip’s colour change as it plays.' },
+  { day: '2026-11-14', title: 'Post an edited photo', line: 'PHOTO → EXPORT → DRAFT A POST puts the picture in a new post on SOCIAL. It goes out only when you tap APPROVE, every time.' },
+  { day: '2026-11-14', title: 'A photo film with music', line: 'VIDEO → PROJECT → PHOTO FILM: pick photos and a song, and I cut them to its beat with a slow zoom. Photos go into any video as still clips too.' },
+  { day: '2026-11-14', title: 'Freeze frame', line: 'VIDEO → SPLIT → FREEZE FRAME holds the picture at the playhead for two seconds, between the two halves of the clip.' },
+  { day: '2026-11-14', title: 'Photos twice the size', line: 'PHOTO → EXPORT → 2× BIGGER draws the picture up smoothly and sharpens it on your phone, for printing a small photo.' },
+  { day: '2026-11-14', title: 'Exports exactly as long as the video', line: 'A video you export now ends where your timeline ends, to the frame, its sound trimmed to match.' },
   // [comic] NEXT ROUND (comic.u3, u12)
   { day: '2026-11-14', title: 'Comics in a series, read aloud', line: 'COMIC: ISSUE 2 continues a comic with the same cast, numbered on its cover; READ ALOUD reads a comic you made panel by panel, a phone voice for each character, which you can pick in THE CAST.' },
   // [comic] NEXT ROUND (comic.c6, s12, u8, s5, s6, s2)
