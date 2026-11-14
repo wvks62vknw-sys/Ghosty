@@ -18,7 +18,7 @@
  * acted here as a job (`houseJob`), and the guarded set refused. A brain turn about the house gets its state as a fact for
  * that turn only (`houseTurnFacts`); the morning's piece may carry one line (`morningHouseLine`). No model is asked here.
  */
-import { houseAsked, houseFacts, houseLine, isGuarded, morningHouse, NOT_LINKED, policy, resolveAsk, shapeCall, doneWords, domainOf, toEntity, trailTool, HOUSE_WORDS, type HaState, type HouseEntity, type Origin } from '../../../packages/shared/src/house';
+import { houseAsked, houseFacts, houseLine, isGuarded, morningHouse, NOT_LINKED, offWords, policy, resolveAsk, shapeCall, doneWords, domainOf, toEntity, trailTool, HOUSE_WORDS, type HaState, type HouseEntity, type Origin } from '../../../packages/shared/src/house';
 import type { Vault } from './kernel/vault';
 import { keepTrail } from './why';
 
@@ -130,15 +130,19 @@ export async function readHouse(d: HouseDeps, fresh = false): Promise<HouseView>
   const marked = await loadMarked(d.storage);
   if (!link) return { linked: false, entities: [], marked, at: nowOf(d) };
   const now = nowOf(d);
-  if (!fresh && cache && cache.url === link.url && now - cache.at < TTL) return { ...cache.view, marked, entities: cache.view.entities.map((e) => ({ ...e, guarded: isGuarded(e, marked) })) };
+  if (!fresh && cache && cache.url === link.url && now - cache.at < TTL) {
+    const held = cache.view.entities;
+    return { ...cache.view, marked, entities: held.map((e) => ({ ...e, guarded: isGuarded(e, marked, held) })) };
+  }
   const states = await call(d, link, 'GET', '/api/states');
   if (!Array.isArray(states)) throw new HouseError('Your Home Assistant gave back something I could not read.');
   const areas = await areasOf(d, link);
-  const entities = (states as HaState[])
+  const read = (states as HaState[])
     .map((s) => toEntity(s, areas[s.entity_id] ?? ''))
     .filter((e): e is HouseEntity => !!e)
-    .slice(0, 400)
-    .map((e) => ({ ...e, guarded: isGuarded(e, marked) }));
+    .slice(0, 400);
+  // (a scene's members are looked up among his things, so a garage door is guarded by its class, whatever its id says)
+  const entities = read.map((e) => ({ ...e, guarded: isGuarded(e, marked, read) }));
   const view: HouseView = { linked: true, entities, marked, at: now };
   cache = { url: link.url, at: now, view };
   return view;
@@ -171,7 +175,7 @@ export async function houseAct(d: HouseDeps, req: { entity: string; service: str
   }
   const e: HouseEntity = view.entities.find((x) => x.id === id) ?? { id, domain, name: id.split('.')[1]?.replace(/_/g, ' ') ?? id, area: '', state: '', changed: 0 };
   const asked = (req.why ?? '').replace(/\s+/g, ' ').trim().slice(0, 200) || WHY_OF[req.origin];
-  const v = policy(e, service, { marked: view.marked, origin: req.origin, confirm: req.confirm === true });
+  const v = policy(e, service, { marked: view.marked, origin: req.origin, confirm: req.confirm === true, all: view.entities });
   if (!v.ok) {
     // a job turned away is kept, so WHY and his day say so; a chat's "needs your tap" is only an offer
     if (!v.needs) await keepTrail(d.storage, { at: nowOf(d), asked, steps: [{ tool: trailTool(e), args: `${e.name}: ${service.replace(/_/g, ' ')}`, ok: false, note: `refused: ${v.why}` }] }).catch(() => undefined);
@@ -200,7 +204,7 @@ export async function houseAct(d: HouseDeps, req: { entity: string; service: str
  */
 export async function houseJob(d: HouseDeps, job: { text: string; title: string }): Promise<string | null> {
   const ask = houseAsked(job.text);
-  if (!ask || ask.kind === 'sheet' || ask.kind === 'is' || ask.kind === 'temp') return null;
+  if (!ask || ['sheet', 'is', 'temp', 'lightson', 'opens', 'inside'].includes(ask.kind)) return null;
   if (!(await linkOf(d))) return `“${job.title}” is for your house, and your Home Assistant isn’t linked: ${NOT_LINKED}`;
   let view: HouseView;
   try {
@@ -209,6 +213,13 @@ export async function houseJob(d: HouseDeps, job: { text: string; title: string 
     return e instanceof HouseError ? e.message : 'I couldn’t read your house just now.';
   }
   const r = resolveAsk(ask, view.entities, view.marked, nowOf(d));
+  if (r.kind === 'many') {
+    // ALL OFF on a schedule: lights, fans and TVs only (never the guarded set, never a switch), each one kept in WHY
+    const done: string[] = [];
+    const failed: string[] = [];
+    for (const c of r.calls) ((await houseAct(d, { entity: c.entity.id, service: c.service, origin: 'job', why: `your scheduled job “${job.title.slice(0, 80)}”` })).ok ? done : failed).push(c.entity.name);
+    return offWords(r.room ? r.room.charAt(0).toUpperCase() + r.room.slice(1) : '', done, failed);
+  }
   if (r.kind !== 'act') return `“${job.title}”: ${r.text} Nothing was done.`;
   const out = await houseAct(d, { entity: r.entity.id, service: r.service, data: r.data, origin: 'job', why: `your scheduled job “${job.title.slice(0, 80)}”` });
   return out.text;

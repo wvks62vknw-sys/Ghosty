@@ -508,7 +508,7 @@ const slow = createServer((req, res) => {
   }, req.url.includes('slow') ? 8000 : req.url.includes('/a') ? 3500 : 4500);
 });
 await new Promise((r) => slow.listen(0, '127.0.0.1', r));
-const slowAsk = (k) => `read http://127.0.0.1:${slow.address().port}/a${k} and http://127.0.0.1:${slow.address().port}/b${k} together`;
+const slowAsk = (k) => `read http://slow.loopback.test:${slow.address().port}/a${k} and http://slow.loopback.test:${slow.address().port}/b${k} together`;
 const GENERIC = /^(?:thinking|thinking about the results|processing|working|working on it)(?:…|\.\.\.)?$|^$/i;
 if (part('narrate')) {
   const name = 'narrate';

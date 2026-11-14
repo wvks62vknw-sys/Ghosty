@@ -6,6 +6,7 @@
  */
 import { clear, h } from '../../core/dom';
 import { panel, toast } from '../../ui/components';
+import { para } from '../../ui/oneline';
 import { key, tag } from '../../ui/machine';
 import { WALL_SAYS, cleanCode, codeOk, type WallKind } from '../../../../../packages/shared/src/wall';
 import { leaveWall, pairWall, refreshWall, restWall, wallPhone } from '../../wall/phone';
@@ -26,11 +27,11 @@ export function wallPanel(): { el: HTMLElement; refresh(): void } {
     state.textContent = (await leaveWall()) ? WALL_SAYS.left : WALL_SAYS.none;
   }, { kind: 'ghost', label: 'Leave the wall: unpair it' });
   const unpaired = h('div.wallunpaired',
-    h('p.note', 'Open Ghosty on a television or a laptop with ?wall=1 at the end of its address. It shows a code: type it here, or say “pair the wall” and the code.'),
+    ...para('p.note', 'Open Ghosty on a television or a laptop with ?wall=1 at the end of its address. It shows a code: type it here, or say “pair the wall” and the code.'),
     h('div.keyrow.wrapit.wallpairrow', input, pairKey));
   const thumb = h('div.wallthumb', { dataset: { case: 'keep' } });
   const paired = h('div.wallpaired', thumb, h('div.row.wrap.wallbtns', restKey, leaveKey));
-  p.body.append(unpaired, paired, state, h('p.note.walllimit', 'It shows pictures and the one sentence they answer: never the camera, a face, where you are, what you spend or anyone’s messages. Hold anywhere on the wall for a second to unpair it there. To make that screen Ghosty again, open its address with ?wall=0.'));
+  p.body.append(unpaired, paired, state, ...para('p.note.walllimit', 'It shows pictures and the one sentence they answer: never the camera, a face, where you are, what you spend or anyone’s messages. Hold anywhere on the wall for a second to unpair it there. To make that screen Ghosty again, open its address with ?wall=0.'));
 
   let timer = 0;
   const paint = () => {

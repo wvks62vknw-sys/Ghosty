@@ -523,7 +523,7 @@ async function suite(viewport, first) {
   await page.waitForSelector('.peexport', { timeout: 10000 });
   await until(page, () => window.__ghosty.photoedit.export.phase === 'ready', null, 120000, `${at} (d) the RAW's export never got ready`);
   await page.getByRole('button', { name: /^the original$/i }).click();
-  await page.waitForTimeout(300);
+  await until(page, (n) => window.__ghosty.photoedit.export.format === 'original' && window.__ghosty.photoedit.export.bytes === n, dng.length, 10000, `${at} (d) THE ORIGINAL never took the file's own size`);
   const back = await downloaded(page, () => page.getByRole('button', { name: /^save$/i }).click());
   ok(back.bytes.equals(dng) && new RegExp(`^holiday-${W}\\.dng$`).test(back.name), `${at} (d) EXPORT ORIGINAL did not give the RAW back equal (${back.bytes.length} bytes against ${dng.length}, "${back.name}")`);
   await closeSheet(page);

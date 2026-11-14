@@ -41,7 +41,8 @@ export async function initApp(): Promise<void> {
     pushState.set({ status: 'unsupported' });
     return;
   }
-  // (a browser that blocks service workers, as a private window can, gives no registration back: then there is no push)
+  // (a browser that blocks service workers, as a private window can, gives no registration back: then there is no push; one whose
+  // registration carries no push at all is the same: unsupported here, never a throw)
   if (!reg) return pushState.set({ status: 'unsupported' });
   const supported = 'PushManager' in window && 'Notification' in window && !!reg.pushManager;
   pushState.set({ supported });
@@ -50,7 +51,7 @@ export async function initApp(): Promise<void> {
     return;
   }
   if (Notification.permission === 'denied') return pushState.set({ status: 'blocked' });
-  const sub = await reg.pushManager.getSubscription().catch(() => null);
+  const sub = await reg!.pushManager.getSubscription().catch(() => null);
   pushState.set({ status: sub && Notification.permission === 'granted' ? 'on' : 'off' });
   // Re-send an existing subscription (the brain may have dropped it, or this is a new brain).
   if (sub && Notification.permission === 'granted') void brain.pushSubscribe(sub.toJSON(), deviceLabel()).catch(() => undefined);
@@ -60,7 +61,7 @@ export async function initApp(): Promise<void> {
 export async function enablePush(): Promise<string> {
   const st = pushState.get().status;
   if (st === 'needs-install') return 'On iPhone: tap Share → "Add to Home Screen", open Ghosty from the new icon, then turn notifications on there.';
-  if (st === 'unsupported' || !reg) return 'This browser cannot receive notifications.';
+  if (st === 'unsupported' || !reg?.pushManager) return 'This browser cannot receive notifications.';
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') {
     pushState.set({ status: perm === 'denied' ? 'blocked' : 'off' });
@@ -87,7 +88,7 @@ export async function enablePush(): Promise<string> {
 }
 
 export async function disablePush(): Promise<void> {
-  const sub = await reg?.pushManager.getSubscription().catch(() => null);
+  const sub = await reg?.pushManager?.getSubscription().catch(() => null);
   if (sub) {
     await brain.pushUnsubscribe(sub.endpoint).catch(() => undefined);
     await sub.unsubscribe().catch(() => undefined);

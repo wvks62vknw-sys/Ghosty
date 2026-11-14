@@ -9,13 +9,14 @@ import { screenSays } from '../../shell/awareness';
 import { BUILD } from '../../state/build';
 import { button, confirmSheet, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { more } from '../lifeui';
 import { ledgerPanel } from './ledger';
 import { foresightPanel } from './foresight';
 import { loopsPanel } from './loops';
 import { reportCardPanel } from './reportcard';
 import { independencePanel } from './independence';
 import { healthPanels } from './health'; // [health] SYSTEM → HEALTH
-import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
+import { backupName, backUpNow, estimateSize, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
 import { trainingPanel } from './training';
 import { nightPanel } from './night';
@@ -24,6 +25,8 @@ import { speedCard } from './speed';
 import { phoneCard } from './phone';
 import { sectionNow, sections } from '../../ui/sections';
 import { sayError } from '../../ui/hisWords';
+import { waiting } from '../../ui/wait';
+import { backupKey, biggestLine, clockOf, frameLine, honestLine, meterValue, roomNow, roomToday, WAIT } from './words';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -77,15 +80,14 @@ export const systemTab: TabDef = {
     const paintKeys = () => {
       clear(kp.body);
       if (!status) {
-        kp.body.append(h('div.note', 'Brain not reachable. Check the connection in STATUS.'));
+        kp.body.append(h('div.note', 'Brain not reachable; check the connection in STATUS.'));
         return;
       }
       const missing = status.keys.filter((k) => k.need === 'needed' && !k.set);
       kp.setStatus(missing.length ? `${missing.length} NEEDED` : 'READY', missing.length ? 'mid' : 'ok');
       kp.body.append(
-        h('div.note', missing.length
-          ? 'You only need the two keys under NEEDED. Each takes about a minute: press HOW TO GET IT and follow the steps. Keys are encrypted in your brain and never shown again.'
-          : 'All set. The others are optional extras. Keys are encrypted in your brain and never shown again.'),
+        h('div.note', missing.length ? 'You need the two keys under NEEDED; each takes a minute.' : 'All set; the rest are optional.'),
+        more('Press HOW TO GET IT under a key and follow the steps; keys are encrypted in your brain and never shown again.'),
       );
       const block = (k: KeyStatus) => {
         const attrs = { placeholder: k.set ? 'saved — paste a new one to replace' : `paste here (${k.hint})`, autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': `${k.label} key` };
@@ -114,7 +116,7 @@ export const systemTab: TabDef = {
         });
         // A key is never shown again once saved, so a removal cannot be undone: said plainly first.
         const remove = k.set ? button('REMOVE', async () => {
-          if (!(await confirmSheet(`Remove the ${k.label} key?`, `It is wiped from Ghosty, not kept anywhere: what needs it stops working until you paste the key again (${k.link.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]} shows it).`, 'REMOVE'))) return;
+          if (!(await confirmSheet(`Remove the ${k.label} key?`, 'It is wiped from Ghosty, and what needs it stops until you paste the key again.', 'REMOVE'))) return;
           await brain.setKey(k.name, '');
           void load();
         }, 'warn') : null;
@@ -153,7 +155,7 @@ export const systemTab: TabDef = {
       clear(mp.body);
       if (!status) return;
       mp.setStatus(status.lastModel ? `LAST: ${status.lastModel}` : '', 'ok');
-      if (!status.models.length) mp.body.append(h('div.note', 'Add at least one AI key above. Gemini is the strongest free option for building things; Groq is the fastest for chat.'));
+      if (!status.models.length) mp.body.append(h('div.note', 'Add an AI key above to get a model.'), more('Gemini is the strongest free option for building things; Groq is the fastest for chat.'));
       for (const m of status.models) mp.body.append(row(m.provider.toUpperCase(), m.model, m.info, { tone: m.state === 'ok' ? 'up' : m.state === 'cool' ? undefined : 'dn' }));
     };
     // The free AI allowances right now (the brain's quota engine): room this minute, used today, when it resets.
@@ -167,12 +169,12 @@ export const systemTab: TabDef = {
       }
       const ready = cap.providers.filter((x) => !x.smallOnly && (x.state === 'ready' || x.state === 'busy')).length;
       rp.setStatus(!cap.providers.length ? 'NONE' : !ready ? 'FULL' : /busy/i.test(cap.summary) ? 'BUSY' : 'PLENTY', !ready ? 'mid' : 'ok');
-      rp.body.append(h('div.note.roomsum', cap.summary));
+      rp.body.append(h('div.note.roomsum', `${cap.summary.replace(/\.$/, '')} (as of ${clockOf(Date.now())}).`));
       const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
       const STATE: Record<ProviderRoom['state'], string> = { ready: 'READY', busy: 'BUSY', full: 'FULL', out: 'OUT TODAY' };
       for (const p of cap.providers) {
-        const now = p.roomNow === null ? 'no minute limit' : `room now ${p.roomNow} of ${p.perMinute} a minute`;
-        const today = `used today ${fmt.n(p.usedToday)}${p.perDay ? ` of ${fmt.n(p.perDay)}` : ''}`;
+        const now = p.roomNow === null ? 'no minute limit' : roomNow(p.roomNow, p.perMinute ?? 0);
+        const today = roomToday(fmt.n(p.usedToday), p.perDay ? fmt.n(p.perDay) : null);
         // Each model its own daily allowance: the best one's room, and how many are out (never one summed number).
         const best = p.dayLeft !== undefined ? `best model ${fmt.n(p.dayLeft)} left today` : '';
         const out = p.modelsOut ? `${p.modelsOut} of ${p.models} models out` : '';
@@ -209,11 +211,11 @@ export const systemTab: TabDef = {
       if (!m) return [];
       const pct = (n: number, of: number) => `${Math.min(999, Math.round((n / of) * 100))}%`;
       const resets = new Date(m.resetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const top = m.by.slice(0, 3).map((b) => `${b.label} ${fmt.n(b.r)}r/${fmt.n(b.w)}w`).join(' · ');
+      const top = biggestLine(m.by, (x) => fmt.n(x));
       const tone = m.level >= 1 ? 'bad' : m.level > 0.7 ? 'dn' : 'up';
       return [
-        row('DATABASE TODAY', `reads ${fmt.n(m.reads)} (${pct(m.reads, m.limits.reads)}) · writes ${fmt.n(m.writes)} (${pct(m.writes, m.limits.writes)})`, m.level >= 1 ? 'PAUSED' : m.level > 0.7 ? 'LOW' : 'OK', { tone }),
-        row('ALLOWANCE RESETS', `${resets} (midnight UTC)${top ? ` · biggest: ${top}` : ''}`, null, { wrap: true }),
+        row('DATABASE TODAY', meterValue(fmt.n(m.reads), fmt.n(m.limits.reads), pct(m.reads, m.limits.reads), fmt.n(m.writes), fmt.n(m.limits.writes), pct(m.writes, m.limits.writes), Date.now()), m.level >= 1 ? 'PAUSED' : m.level > 0.7 ? 'LOW' : 'OK', { tone, wrap: true }),
+        row('ALLOWANCE RESETS', `${resets} (midnight UTC)${top ? ` · most used by ${top}` : ''}`, null, { wrap: true }),
         ...(status?.waiting ? [row('KEYS WAITING', `${status.waiting} saved while memory was paused · in use now, written to the vault at ${resets}`, null, { wrap: true })] : []),
       ];
     };
@@ -237,7 +239,7 @@ export const systemTab: TabDef = {
         h('details.adv', h('summary', 'Advanced'),
           row('OWNER', status?.owner ?? '—'),
           row('PREVIEWS', status?.previews ?? 'not reported'),
-          row('FRAME RATE', `${Math.round(stats.fps)} fps @ ${Math.round(stats.scale * 100)}%`),
+          row('FRAME RATE', frameLine(stats.fps, stats.scale), null, { wrap: true }),
           ...meterRows(),
           row('BUILD', ver),
         ),
@@ -250,7 +252,7 @@ export const systemTab: TabDef = {
       if (newer) sp.body.append(button('RELOAD TO GET THE NEW VERSION', () => location.reload(), 'on'));
       if (ownerKey.get())
         sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', async () => {
-          if (!(await confirmSheet('Forget the owner key here?', 'This phone stops being able to talk to Ghosty’s brain until you type the owner key again. Nothing on the brain changes.', 'FORGET IT'))) return;
+          if (!(await confirmSheet('Forget the owner key here?', 'This phone can’t reach my brain until you type the key again; the brain is unchanged.', 'FORGET IT'))) return;
           ownerKey.set('');
           location.reload();
         }, 'warn'));
@@ -261,16 +263,17 @@ export const systemTab: TabDef = {
       const line = storageLine();
       clear(stp.body);
       stp.setStatus(line.ok ? 'PROTECTED' : 'AT RISK', line.ok ? 'ok' : 'mid');
-      stp.body.append(h(`div.note.storageline${line.ok ? '.good' : '.bad'}` as 'div', line.text));
+      stp.body.append(h(`div.note.storageline${line.ok ? '.good' : '.bad'}` as 'div', `${line.text} · as of ${clockOf(Date.now())}`));
       if (!line.ok) {
         stp.body.append(
           !storageState.get().supported ? '' : button('PROTECT', async (b) => {
             b.disabled = true;
             await checkStorage(true);
             b.disabled = false;
-            if (!storageState.get().persisted) toast('iPhone said no. Add Ghosty to your Home Screen (Share → Add to Home Screen), open it from there, then press PROTECT again.', 'warn');
+            if (!storageState.get().persisted) toast('iPhone said no; add Ghosty to your Home Screen, open it there and press PROTECT.', 'warn');
           }, 'on'),
-          h('div.note', 'Without this, Safari deletes what Ghosty keeps on this phone after 7 days without use. Your daily backup (below) can bring it back.'),
+          h('div.note', 'Without this, Safari clears what Ghosty keeps here after 7 days unused.'),
+          more('Add Ghosty to your Home Screen (Share, then Add to Home Screen) so iPhone keeps it. Your daily backup (below) can bring it back.'),
         );
       }
       // [recall] the recall index's size (features/memory/recall.ts), kept only on this phone; CLEAR, and it rebuilds at idle
@@ -300,6 +303,7 @@ export const systemTab: TabDef = {
       const known = lastBackup.get();
       const last = known && known.at > 0 ? known : null;
       bkp.setStatus(!last ? 'NONE YET' : last.ok ? `LAST ${fmt.ago(last.at).toUpperCase()}` : 'LAST TRY FAILED', last?.ok ? 'ok' : 'mid');
+      let backupBtn!: HTMLButtonElement;
       const msg = h('div.note.backupmsg', '');
       if (restored) {
         msg.textContent = restored;
@@ -307,9 +311,10 @@ export const systemTab: TabDef = {
         restored = null;
       }
       bkp.body.append(
-        h('div.note', 'Once a day Ghosty locks a copy of what lives only on this phone (courses, flashcards, plans, settings) with your owner key and keeps it in your brain. Only this phone can open it. Your chat, memory and agenda are kept by the brain itself.'),
+        h('div.note', 'Once a day I lock a copy of what lives only on this phone and keep it in your brain.'),
+        more('The copy holds courses, flashcards, plans, documents, photo edits, video projects and settings, locked with your owner key; only this phone can open it, and the photos and clips themselves stay here. Your chat, memory and agenda are kept by the brain itself.'),
         last ? row('LAST BACKUP', last.ok ? `${fmt.ago(last.at)}${last.size ? ` · ${sizeText(last.size)}` : ''}` : `failed ${fmt.ago(last.at)}: ${last.error ?? ''}`, null, { tone: last.ok ? 'up' : 'dn', wrap: true }) : '',
-        h('div.keyrow', button('BACK UP NOW', async (b) => {
+        h('div.keyrow', backupBtn = button('BACK UP NOW', async (b) => {
           // A phone with no backup record while the brain has copies may be a wiped one: ask first.
           if (!phoneTrusted() && ownerKey.get()) {
             const any = await listBackups().then((l) => l.length > 0).catch(() => false);
@@ -330,13 +335,19 @@ export const systemTab: TabDef = {
         }, 'on')),
         msg,
       );
+      // the size said before the tap: what this phone would send, as the sealed copy will be (an estimate)
+      void estimateSize().then((n) => {
+        if (mine === painting && backupBtn.isConnected) backupBtn.textContent = backupKey(sizeText(n));
+      });
       if (!ownerKey.get()) return;
+      const doneList = waiting(bkp.body, WAIT.backups);
       try {
         const list = await listBackups();
+        doneList();
         if (mine !== painting) return; // a newer paint has started: this one's list is stale
         bkp.body.append(h('div.lab', 'RESTORE FROM A BACKUP'));
         if (!list.length) bkp.body.append(h('div.note', 'No backups yet.'));
-        else if (!phoneTrusted()) bkp.body.append(h('div.note.bad.wiped', 'This phone has no record of backing up, but your brain has backups. If Safari cleared Ghosty (or this is a new phone), RESTORE the newest one first. The daily backup waits until then, so it never puts an empty phone over your good copies.'));
+        else if (!phoneTrusted()) bkp.body.append(h('div.note.bad.wiped', 'This phone has no backup record, but your brain has some: RESTORE the newest one first.'), more('If Safari cleared Ghosty or this is a new phone, restore first: the daily backup waits until then, so it never puts an empty phone over your good copies.'));
         for (const b of list) {
           const day = new Date(b.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
           const time = new Date(b.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -360,25 +371,45 @@ export const systemTab: TabDef = {
           bkp.body.append(r);
         }
       } catch (e) {
+        doneList();
         if (mine !== painting) return;
         const st = (e as { status?: number }).status;
         bkp.body.append(h('div.note', st === 404 ? 'The brain cannot keep backups yet: it needs an update first.' : st === 501 ? 'The brain cannot keep backups yet: it needs an update first.' : 'The list of backups needs the brain; it is not reachable right now.'));
       }
     };
 
+    // ONE HONEST LINE at the top (words.ts honestLine): WORKING, or the first thing that is not, with when it was read
+    const paintTop = () => {
+      const cap = status?.capacity;
+      const m = status?.meter;
+      const full = cap && cap.providers.length && cap.providers.every((x) => x.smallOnly || x.state === 'full' || x.state === 'out') ? Math.min(...cap.providers.map((x) => x.backAt ?? Infinity)) : 0;
+      const line = honestLine({
+        reached: !!status,
+        models: status?.models.filter((x) => x.state === 'ok').length ?? 0,
+        keys: status?.keys.filter((k) => k.set).length ?? 0,
+        needed: status?.keys.filter((k) => k.need === 'needed' && !k.set).length ?? 0,
+        ...(m ? { meter: { level: m.level, resetAt: m.resetAt } } : {}),
+        ...(full && Number.isFinite(full) ? { allFullUntil: full } : {}),
+        at: Date.now(),
+      });
+      P.big.dataset.case = 'keep';
+      P.big.dataset.state = line.ok ? 'working' : 'broken';
+      P.big.textContent = line.big;
+      P.sub.textContent = line.sub;
+    };
+
     const load = async () => {
       void checkStorage(false).then(paintStorage);
       void paintBackup();
+      const doneKeys = status ? () => undefined : waiting(kp.body, WAIT.keys);
       try {
         status = await brain.status();
-        P.big.textContent = status.models.some((m) => m.state === 'ok') ? 'ONLINE' : 'NO MODELS';
-        const nm = status.models.filter((m) => m.state === 'ok').length;
-        const nk = status.keys.filter((k) => k.set).length;
-        P.sub.textContent = `${nm ? `${nm} model${nm === 1 ? '' : 's'} ready` : 'No model ready yet'} · ${nk ? `${nk} key${nk === 1 ? '' : 's'} added` : 'no keys added yet'}`;
+        paintTop();
       } catch {
         status = null;
-        P.big.textContent = 'OFFLINE';
+        paintTop();
       }
+      doneKeys();
       paintKeys();
       paintModels();
       paintRoom();

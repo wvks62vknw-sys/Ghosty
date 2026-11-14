@@ -1,4 +1,10 @@
-# Where everything stands — 1 November 2026, 11:55 UK
+# Where everything stands — 1 November 2026, 11:55 UK (with entries to 13 November)
+
+> **13 Nov (FINAL-CONSISTENCY):** the newest state is at the end of this page and in WHATS-LEFT. Landed in the code since the last list
+> below: the CHAT pass, the TELEGRAM pass, BOOT AND ORB, THE EYE 2 and KERNEL 3; POLISH 3 was built and taken back out. Built from the
+> ideas list: the Sunday "what Ghosty learned" note, places and spending together, the Lens's nature diary, and the GYM on the phone's
+> chip. Counts as of 13 Nov: 152 browser specs (with consistency) and 151 brain test files (about 2,150 brain tests); older lines here that say "87" or
+> "104 brain tests" count test files on their day, and "1,816" counts tests.
 
 Plain words, one line a thing. UPGRADES.md has the detail of each (what changed, before, after, evidence).
 

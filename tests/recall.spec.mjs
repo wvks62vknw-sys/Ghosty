@@ -120,9 +120,12 @@ async function run(vp, body) {
   await page.waitForTimeout(400);
   const ask = (q) => page.evaluate(async (q) => {
     const n = document.querySelectorAll('.recallcard').length;
+    // (Ghosty's replies are .msg, his own words .msg.me: there is no .msg.ai, so the old wait ended at once on a first ask)
+    const m = document.querySelectorAll('.log .msg:not(.me)').length;
     const t0 = performance.now();
     await window.__ghosty.send(q);
-    while (document.querySelectorAll('.recallcard, .msg.ai').length && document.querySelectorAll('.recallcard').length <= n && performance.now() - t0 < 4000) await new Promise((r) => requestAnimationFrame(r));
+    // the log is drawn on the next frame (FINAL-CI 1): wait for the new card, or for the new reply that says nothing was found
+    while (document.querySelectorAll('.recallcard').length <= n && document.querySelectorAll('.log .msg:not(.me)').length <= m && performance.now() - t0 < 4000) await new Promise((r) => requestAnimationFrame(r));
     const cards = document.querySelectorAll('.recallcard');
     const last = cards[cards.length - 1];
     return { ms: Math.round(performance.now() - t0), rows: last && cards.length > n ? [...last.querySelectorAll('.recallrow')].map((r) => r.textContent ?? '') : [] };

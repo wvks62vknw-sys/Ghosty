@@ -70,6 +70,13 @@ number is labelled a first estimate, never medical advice.
   - Each answer has an OPEN IT key. "Remind me to drink water at 5" stays a reminder on the agenda. Beer, coffee and the like
     are never counted as water.
 
+- **A hostile check of the words.** Each misfire found was fixed and is now pinned in the spec:
+  - "add water to the shopping list" was logged as a drink;
+  - "I am 30" was kept as a weight (it is an age);
+  - "how much water does a cactus need" was answered as his own total;
+  - "I'm 85 kg" and "2 glasses of water" were missed;
+  - "drink water" and beer, wine and tea never count as water.
+
 ### KITCHEN: the pantry and the recipe book (features/kitchen/larder.ts), kept on the phone
 - **Pantry:**
   - fridge, freezer and cupboard, each thing with its use-by date;

@@ -24,6 +24,8 @@ await build({
   outdir: at('./.build/selftrain'),
   outbase: at('../../..'),
   outExtension: { '.js': '.mjs' },
+  // (as npm test's own esbuild steps do: the brain's mail connects through the Worker's sockets, which only exist on Cloudflare)
+  external: ['cloudflare:sockets'],
   logLevel: 'warning',
 });
 // (assets.ts on its own too: what the brain hands to Kaggle, read back by the tests below)

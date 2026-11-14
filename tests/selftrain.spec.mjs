@@ -46,7 +46,7 @@ let light = await page.evaluate(() => document.querySelector('#pg-system .selftr
 check(light === 'NEEDS 2 KEYS', `status light: "${light}"`);
 let text = await panelText();
 check(/Waiting for two keys: Kaggle and a Hugging Face write token/.test(text), `note: ${text.slice(0, 200)}`);
-check(/kaggle\.com → Settings → API Tokens → Generate New Token/.test(text) && /"Hugging Face token \(training\)"/.test(text) && /two private spaces/.test(text) && /only reach those two/.test(text), 'the steps say where each key is made (today\'s Kaggle page; a token for two private repos)');
+check(/kaggle\.com, Settings, API Tokens, Generate New Token/.test(text) && /"Hugging Face token \(training\)"/.test(text) && /two private spaces/.test(text) && /only reach those two/.test(text), 'the steps say where each key is made (today\'s Kaggle page; a token for two private repos)');
 check(await page.evaluate(() => [...document.querySelectorAll('#pg-system .selftrain button')].find((b) => b.textContent === 'TRAIN NOW')?.disabled === true), 'TRAIN NOW is off without the keys');
 check(await page.evaluate(() => [...document.querySelectorAll('#pg-system .selftrain button')].find((b) => b.textContent === 'ROLLBACK')?.disabled === true), 'ROLLBACK is off with nothing to go back to');
 await page.locator('#pg-system .selftrain').scrollIntoViewIfNeeded();
@@ -139,7 +139,7 @@ check(light === 'IDLE', `status light with keys: "${light}"`);
 const card = await page.evaluate(() => {
   const pn = document.querySelector('#pg-system .selftrain');
   const rows = [...pn.querySelectorAll('.rw')].map((r) => ({ area: r.dataset.area ?? '', model: r.dataset.model ?? '', k: r.querySelector('.k')?.textContent ?? '', v: r.querySelector('.v')?.textContent ?? '', n: r.querySelector('.n')?.textContent ?? '' }));
-  return { rows, text: pn.textContent ?? '' };
+  return { rows, text: pn.textContent ?? '', phone: pn.querySelector('.phoneuses')?.textContent ?? '' };
 });
 const area = (a) => card.rows.find((r) => r.area === a);
 check(area('gym')?.v === '31% → 38% (last week 31%) · 48 questions' && area('gym')?.n === '+7', `GYM row: ${JSON.stringify(area('gym'))}`);
@@ -151,13 +151,13 @@ check(card.rows.some((r) => /your 👍 and 👎/.test(r.v) && r.n === '9'), 'wha
 check(/HOW LONG: 3 h 3 min ON KAGGLE/.test(card.text), `how long: ${card.text.match(/HOW LONG[^O]*/)?.[0]}`);
 check(card.rows.some((r) => r.v === 'STaR samples the checker failed' && r.n === '5,120'), 'what was thrown away, and why');
 check(card.rows.some((r) => r.model === c('b') && r.n === 'RECOMMENDED') && card.rows.some((r) => r.model === c('a') && !r.n), 'the brains kept, week 2 recommended');
-check(/This phone is set to: /.test(card.text) && !/The phone uses/.test(card.text), 'what the phone is set to, said apart from what is recommended');
+check(/^Recommended: .+; this phone is set to .+\.$/.test(card.phone ?? '') && !/The phone uses/.test(card.text), 'what the phone is set to, said apart from what is recommended');
 check(!/Not tried for real yet/.test(card.text), 'a finished week is not called untried');
 check(card.rows.some((r) => r.k === 'STOCK'), 'the stock model kept as the fallback');
 check(card.rows.some((r) => r.k === 'GPU HOURS' && r.v === gpuLine && r.n === 'SMALLER RUN'), `the quota line: ${JSON.stringify(card.rows.find((r) => r.k === 'GPU HOURS'))}`);
 check(/Two GPUs: practice and tests on the second while he learned on the first, 52 min saved\. Done in 2 sessions: each saved its place and the next carried on\./.test(card.text), 'what ran where, and in how many sessions');
 // the daily GPU: offered once; ALLOW asks first, in plain words
-check(/THE DAILY GPU \(HUGGING FACE\)/.test(card.text) && /about 5 minutes of a big GPU every day/.test(card.text), 'the daily GPU is offered');
+check(/THE DAILY GPU \(HUGGING FACE\)/.test(card.text) && /about 5 minutes of GPU a day\./.test(card.text), 'the daily GPU is offered');
 await page.locator('#pg-system .selftrain .trainpool button', { hasText: 'ALLOW' }).click();
 await page.locator('.modal .confirm.sure').waitFor({ timeout: 5000 }).catch(() => problems.push('ALLOW did not ask first'));
 const sure = await page.evaluate(() => document.querySelector('.modal .confirm.sure')?.closest('.modal')?.textContent ?? '');

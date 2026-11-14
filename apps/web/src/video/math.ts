@@ -2,7 +2,7 @@
  * The video editor's maths (BRIEF-EDITOR-VIDEO), pure: keyframes, a transition's weights, the ducking curve, the chroma
  * distance, and the audio mix as a plan of gains over time (the live player and the export both read the same plan).
  */
-import { clipLen, place, type Channel, type Clip, type Key, type Project, type TransitionKind, type Transform } from './model';
+import { clipLen, fadeCap, place, type Channel, type Clip, type Key, type Project, type TransitionKind, type Transform } from './model';
 import { pictureAt, playTime, speedAt, type SpeedKey } from './ramp';
 export { paceAt, pictureAt, playTime, speedAt, type SpeedKey } from './ramp';
 
@@ -116,9 +116,13 @@ export function mixPlan(p: Project): Strand[] {
     const g: [number, number][] = [];
     const v = x.clip.volume;
     const next = pl[x.index + 1];
-    const fin = x.tin ? x.tin.len : 8;
-    const fout = next?.tin ? next.tin.len : 8;
-    g.push([x.start, x.tin ? 0 : v], [x.start + fin, v], [x.start + x.len - fout, v], [x.start + x.len, next?.tin ? 0 : v]);
+    // the clip's own fades (from and to black) take its sound with them, where no transition already does
+    const cap = fadeCap(x.clip);
+    const upIn = !x.tin && (x.clip.fade?.in ?? 0) > 0 ? Math.min(x.clip.fade!.in, cap) : 0;
+    const downOut = !next?.tin && (x.clip.fade?.out ?? 0) > 0 ? Math.min(x.clip.fade!.out, cap) : 0;
+    const fin = x.tin ? x.tin.len : upIn || 8;
+    const fout = next?.tin ? next.tin.len : downOut || 8;
+    g.push([x.start, x.tin || upIn ? 0 : v], [x.start + fin, v], [x.start + x.len - fout, v], [x.start + x.len, next?.tin || downOut ? 0 : v]);
     const ramp = (x.clip.tr.keys.speed ?? []) as SpeedKey[];
     // a ramp with its sound dropped plays none; a pitched one follows the speed (sampled every 100 ms of the clip's own time)
     if (ramp.length && x.clip.rampSound === 'drop') continue;

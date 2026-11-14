@@ -30,6 +30,7 @@ const STYLE: Record<TextT, { size: number; font: 'serif' | 'sans'; before: numbe
   p: { size: BODY, font: 'serif', before: 0, after: 8 },
   ul: { size: BODY, font: 'serif', before: 0, after: 3, indent: 18 },
   ol: { size: BODY, font: 'serif', before: 0, after: 3, indent: 18 },
+  todo: { size: BODY, font: 'serif', before: 0, after: 3, indent: 22 },
   quote: { size: BODY, font: 'serif', before: 2, after: 8, indent: 22, italic: true },
   right: { size: BODY, font: 'serif', before: 0, after: 2 },
 };
@@ -183,8 +184,8 @@ export function layoutPages(d: Doc, imageOf?: (id: string) => PdfImage | null): 
         const gaps = line.filter((p) => p.text === ' ').length;
         if (gaps) extra = Math.max(0, (room - lw) / gaps);
       }
-      if (i === 0 && (it.t === 'ul' || it.t === 'ol')) {
-        const mark = it.t === 'ul' ? '•' : `${it.n}.`;
+      if (i === 0 && (it.t === 'ul' || it.t === 'ol' || it.t === 'todo')) {
+        const mark = it.t === 'ul' ? '•' : it.t === 'todo' ? (it.b.ticked ? '[x]' : '[  ]') : `${it.n}.`;
         page.runs!.push({ x: M + indent - 4 - textWidth(mark, 'Times-Roman', s.size), y: base, text: mark, font: 'Times-Roman', size: s.size });
       }
       drawLine(line, x, base, s.size, extra, it.t === 'quote');

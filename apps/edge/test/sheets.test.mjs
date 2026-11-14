@@ -350,3 +350,15 @@ test('[sheets] CSV out and in: numbers stay numbers, quotes and commas and lines
   assert.equal(new Engine(semi).value('Sheet1', 'B3'), 4, 'a semicolon file is read as one');
   assert.equal(new Engine(fromCsv('', 'empty')).value('Sheet1', 'A1'), null);
 });
+
+// EDITORS lane review: a deleted line on another sheet leaves a bare #REF! that still reads (so the rest of the formula keeps moving),
+// and an inserted line keeps a whole-column range whole instead of breaking it, as Excel does; a single cell pushed off the sheet is gone.
+test('rows in and out: cross-sheet #REF! reads back, full-height ranges survive an insert', () => {
+  const gone = K.moveLinesIn("='Sheet 2'!B3+A5", 'Sheet1', 'Sheet 2', 'r', 2, -1);
+  assert.equal(gone, '=#REF!+A5');
+  assert.ok(K.tokenize(gone).length > 0, 'the formula with its #REF! is read');
+  assert.equal(K.moveLinesIn(gone, 'Sheet1', 'Sheet1', 'r', 0, 1), '=#REF!+A6', 'and A5 still follows a row put in above it');
+  assert.equal(K.moveLinesIn('=SUM(A1:A10000)', 'Sheet1', 'Sheet1', 'r', 4, 1), '=SUM(A1:A10000)');
+  assert.equal(K.moveLinesIn('=SUM(A3:A9)', 'Sheet1', 'Sheet1', 'r', 4, 1), '=SUM(A3:A10)');
+  assert.equal(K.moveLinesIn('=A10000', 'Sheet1', 'Sheet1', 'r', 4, 1), '=#REF!');
+});

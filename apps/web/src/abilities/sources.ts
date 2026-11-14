@@ -39,7 +39,7 @@ export const SCREEN_CAT: Record<string, AbilityCat> = {
   'area-ask': 'talk', 'area-see': 'see', 'area-make': 'build', 'area-learn': 'learn', 'area-plan': 'do', 'area-me': 'talk',
   // [tabs] LIFE and the screens the sheets became (BRIEF-TABS)
   'area-life': 'do', money: 'do', body: 'do', kitchen: 'do', people: 'know', work: 'do', creative: 'build', outside: 'watch', homeadmin: 'do',
-  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', sheets: 'do', slides: 'do', workspace: 'do', video: 'build', gamestudio: 'build', house: 'do',
+  learning: 'learn', coach: 'learn', social: 'talk', convert: 'build', docs: 'do', sheets: 'do', slides: 'do', workspace: 'do', video: 'build', gamestudio: 'build', comic: 'build', house: 'do',
   // [reader] THE READER (BRIEF-LIBRARY-READER): his books, read here or to him
   reader: 'learn',
 };
@@ -129,11 +129,14 @@ export function appItems({ tabs, hubs }: AppInput): CatItem[] {
   // (Reactor and Graphite since 18 Oct; the ten of BRIEF-THEMES joined with the design system, their words say when)
   for (const id of Object.keys(THEMES)) add({ id: `theme:${id}`, kind: 'theme', screen: 'settings', cat: 'talk', go: { open: 'settings', panel: 'THEME' }, since: '2026-10-18' });
   // [themes2] THE RECIPE (BRIEF-THEMES-2): each ground, each world, each switch, and the six directions (each a preset now that Orbit is built); each found where it is turned, Settings → Theme
-  const recipeGo = { open: 'settings', panel: 'THEME' } as const;
-  for (const g of GROUNDS) add({ id: `theme:ground:${g.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: recipeGo, since: '2026-11-07' });
-  for (const w of WORLDS) add({ id: `theme:world:${w.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: recipeGo, since: '2026-11-07' });
-  for (const sw of SWITCHES) add({ id: `theme:switch:${sw.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: recipeGo, since: '2026-11-07' });
-  for (const d of DIRECTIONS) add({ id: `theme:preset:${d.key}`, kind: 'theme', screen: d.preset ? 'settings' : 'look', cat: 'talk', go: d.preset ? recipeGo : { open: 'look' }, since: '2026-11-07' });
+  // [consistency] the worlds are picked by Settings → THEME's seven looks; the grounds, switches and presets live on THE LOOK → THEMES
+  // only (Settings → THEME has none of them since the gallery: FINAL-CONSISTENCY)
+  const lookGo = { open: 'settings', panel: 'THEME' } as const;
+  const recipeGo = { open: 'look', panel: 'THEMES' } as const;
+  for (const g of GROUNDS) add({ id: `theme:ground:${g.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: recipeGo, since: '2026-11-07' });
+  for (const w of WORLDS) add({ id: `theme:world:${w.key}`, kind: 'theme', screen: 'settings', cat: 'talk', go: lookGo, since: '2026-11-07' });
+  for (const sw of SWITCHES) add({ id: `theme:switch:${sw.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: recipeGo, since: '2026-11-07' });
+  for (const d of DIRECTIONS) add({ id: `theme:preset:${d.key}`, kind: 'theme', screen: 'look', cat: 'talk', go: d.preset ? recipeGo : { open: 'look' }, since: '2026-11-07' });
   for (const k of MOOD_KINDS) add({ id: `mood:${k}`, kind: 'mood', cat: 'talk', go: { run: 'open_me' }, since: '2026-10-31' });
   for (const a of APP_WIDE) add({ id: `app:${a.id}`, kind: 'app', cat: 'do' });
   return out;
