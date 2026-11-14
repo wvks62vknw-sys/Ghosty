@@ -60,6 +60,7 @@ export async function openClock(start: 'world' | 'stopwatch' | 'timer' = 'world'
       { id: 'c-tokyo', title: 'Tokyo', zone: 'Asia/Tokyo' },
     ],
     tour: ['These are sample cities, to show the time there.', 'Tap ✕ to delete one: Undo puts it back.', 'ADD A CITY finds any of seventy cities, with no signal.'],
+    settings: [{ id: 'seconds', label: 'Show seconds on the big clock', on: false }],
     actions: [{ word: 'Add a city', run: () => (pick('world'), cityIn.focus()) }],
   });
   k.el.insertBefore(stage, k.body);
@@ -218,7 +219,7 @@ export async function openClock(start: 'world' | 'stopwatch' | 'timer' = 'world'
 
   const paint = () => {
     const at = now();
-    big.textContent = timeIn(here(), at);
+    big.textContent = k.setting('seconds') ? new Intl.DateTimeFormat('en-GB', { timeZone: here(), hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date(at)) : timeIn(here(), at);
     date.textContent = new Date(at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
     if (shown === 'world') paintRows();
     if (shown === 'stopwatch' && w.running) swRead.textContent = lapWords(elapsed());

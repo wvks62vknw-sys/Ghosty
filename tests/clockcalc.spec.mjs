@@ -132,6 +132,13 @@ for (const [vp, tag] of [[PHONE, '440'], [PHONE2, '390']]) {
     check(await until(page, () => !document.querySelector('.clkhost .ak-row[data-id="c-dubai"]') && /Recently deleted/.test(document.querySelector('.clkhost .ak-notice')?.textContent ?? '')), `${tag} clock: ✕ did not delete Dubai with its notice`);
     await page.locator('.clkhost .ak-tools button', { hasText: 'Undo' }).click();
     check(await until(page, () => !!document.querySelector('.clkhost .ak-row[data-id="c-dubai"]')), `${tag} clock: Undo did not bring Dubai back`);
+    // the kit's settings: SHOW SECONDS puts the seconds on the big clock
+    await page.click('.clkhost .ak-head button[aria-label="Settings"]');
+    await page.click('.ak-switch[data-id="seconds"]');
+    check(await until(page, () => /^\d\d:\d\d:\d\d$/.test(document.querySelector('.clkbig')?.textContent ?? '')), `${tag} clock: SHOW SECONDS did not show the seconds`);
+    await page.click('.ak-switch[data-id="seconds"]');
+    await page.locator('.ak-sheet button', { hasText: 'Done' }).click();
+    check(await until(page, () => !document.querySelector('.ak-sheet') && !!document.querySelector('.modal .clkhost')), `${tag} clock: Done did not close the settings`);
     await fit(page, `${tag} clock world`, '.modal');
     if (tag === '440') await page.screenshot({ path: `${out}/clockcalc-clock-440.png` });
     await page.click('.clkseg [data-part="stopwatch"]');
