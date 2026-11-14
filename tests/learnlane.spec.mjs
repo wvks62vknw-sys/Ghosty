@@ -138,6 +138,34 @@ for (const vp of [PHONE, PHONE2]) {
       // marked for real: the stand-in gets every other question wrong on purpose, so right ones score and wrong ones do not
       const exact = (rec?.answers ?? []).filter((a) => a.how === 'exact');
       if (exact.length >= 2) check(exact.some((a) => a.got > 0) && exact.some((a) => a.got === 0) && !rec.top, `${T} [S3 marked for real] exact marks: ${JSON.stringify(exact.map((a) => a.got))}`);
+      // U1 · the paper as a worked-answers booklet: studied a question at a time, the working on his tap, kept on this phone
+      if (vp.width === 440 && rec) {
+        await openSection(page, 'school', 'Results').catch(() => undefined);
+        const rowKey = page.locator('#pg-school button.schrow').first();
+        if (await rowKey.isVisible().catch(() => false)) {
+          await rowKey.click();
+          const studyKey = page.locator('.schpaper button', { hasText: /^STUDY THE WORKED ANSWERS$/i });
+          check(await studyKey.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U1] no STUDY THE WORKED ANSWERS on the paper`);
+          await studyKey.click();
+          check(await until(page, () => window.__ghosty?.booklet?.of > 0 && !!document.querySelector('.bkstudy .bkq'), null, 8000), `${T} [U1] the booklet did not open`);
+          const n = await page.evaluate(() => window.__ghosty.booklet.of);
+          for (let k = 0; k < n; k++) {
+            check(!(await page.locator('.bkreveal').first().isVisible().catch(() => true)), `${T} [U1] question ${k + 1}: the working showed before his tap`);
+            await page.locator('.bkstudy button', { hasText: /^SHOW THE WORKING$/i }).click();
+            const working = (await page.locator('.bkstudy .bkworking').textContent().catch(() => '')) ?? '';
+            if (k === 0) check(/^Working:[\s\S]*\nAnswer: /.test(working), `${T} [U1] the working shown is not the full working: "${working.slice(0, 80)}"`);
+            await page.locator('.bkstudy button', { hasText: k % 2 ? /^STILL LEARNING$/i : /^GOT IT$/i }).click();
+          }
+          // (the phone keeps it a moment after the last tap: waited for, never a fixed sleep)
+          await until(page, () => JSON.parse(localStorage.getItem('ghosty.school.booklets') ?? '{}')?.list?.[0]?.studied === 1, null, 5000);
+          const end = await page.evaluate(() => ({ b: window.__ghosty.booklet, kept: JSON.parse(localStorage.getItem('ghosty.school.booklets') ?? '{}') }));
+          check(end.b.done && end.b.line === `You got ${Math.ceil(n / 2)} of ${n}. The ones still to learn come first next time.`, `${T} [U1] the end: ${JSON.stringify(end.b)}`);
+          const kept = end.kept?.list?.[0];
+          check(!!kept && kept.studied === 1 && kept.items.filter((x) => x.learning).length === Math.floor(n / 2), `${T} [U1] the booklet is not kept on this phone with what he marked: ${JSON.stringify(kept && { studied: kept.studied, learning: kept.items.filter((x) => x.learning).length })}`);
+          await page.keyboard.press('Escape').catch(() => undefined);
+          await page.keyboard.press('Escape').catch(() => undefined);
+        } else check(false, `${T} [U1] no result row to open`);
+      }
       // the result card says where it was sat
       const seeLine = await until(page, () => /online, in full working/.test(document.querySelector('#pg-school')?.textContent ?? '') || !!document.querySelector('#pg-school .schresult'), null, 8000);
       check(seeLine, `${T} [S3] no result card after the paper`);
@@ -157,6 +185,166 @@ for (const vp of [PHONE, PHONE2]) {
   await page.waitForTimeout(1500);
   const online = await page.locator('#pg-school .schbrain.online').count();
   check(online === 0, '[S4 no signal] SCHOOL still says the online model sits the papers');
+  await ctx.close();
+}
+
+// ================================================================ U2 · courses that pick up his mistakes (next round, learn.u2)
+// A course whose lesson 2 holds an answer he was SURE of and got wrong: the map's TODAY names lesson 2, says why, and its quiz
+// asks the brain for just the missed lessons. Stood in by routes: the course list, the course and the quiz request.
+const COURSE = { id: 'c-light', topic: 'light', title: 'Light and leaves', level: 'beginner', minutes: 10, summary: 'How leaves use light.', created: Date.now() - 86400000, updated: Date.now(), basis: 'library', lessons: [{ n: 1, title: 'What light is', goal: '', done: true, check: { q: 'What do leaves catch?', choices: ['Light', 'Sound', 'Smell'], answer: 0, why: 'Leaves catch light to make sugar.' }, pool: [{ id: 'p1', kind: 'mc', q: 'Which gas do leaves give out?', choices: ['Oxygen', 'Helium'], answer: 0 }] }, { n: 2, title: 'How leaves catch it', goal: '', done: true }, { n: 3, title: 'Sugar from light', goal: '', done: false }] };
+const SUMMARY = { id: 'c-light', topic: 'light', title: 'Light and leaves', level: 'beginner', minutes: 10, lessons: 3, done: 2, next: 3, nextTitle: 'Sugar from light', asked: 4, right: 2, cards: 0, due: 0, updated: Date.now(), stats: { lessons: { 1: { asked: 2, right: 1, recent: [1, 0], conf: ['sure', 'guess'] }, 2: { asked: 2, right: 1, recent: [0, 1], conf: ['sure', 'think'] } }, conf: { sure: { n: 2, right: 1 } } } };
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  const { ctx, page } = await phone(vp);
+  const quizAsked = [];
+  try {
+    await ctx.route('**/api/learn', (r) => (r.request().method() === 'GET' ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ courses: [SUMMARY], cards: [], quizzes: [], streak: { days: [], best: 0 }, tz: 'Europe/London' }) }) : r.fallback()));
+    await ctx.route('**/api/learn/course/c-light', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ course: COURSE }) }));
+    await ctx.route('**/api/learn/quiz', async (r) => {
+      quizAsked.push(JSON.parse(r.request().postData() ?? '{}'));
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ quiz: { id: 'q1', course: 'c-light', topic: 'Light and leaves', at: Date.now(), basis: 'written from the passages', sources: [], questions: [{ id: 'a', kind: 'mc', q: 'What do leaves catch?', choices: ['Light', 'Sound'], answer: 0, lesson: 2 }] } }) });
+    });
+    await go(page, 'learn');
+    const row = page.locator('#pg-learn button.learncourse').first();
+    check(await row.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U2] the course is not listed`);
+    // U3 · MY LEARNING MAP: the course's line, and the next thing (its misses, once the course is on the phone)
+    check(await until(page, () => [...document.querySelectorAll('#pg-learn .pn.learnmapall .lmrow')].some((r) => /Light and leaves/.test(r.textContent ?? '')), null, 8000), `${T} [U3] MY LEARNING MAP has no line for the course: "${await page.locator('#pg-learn .pn.learnmapall').textContent().catch(() => '')}"`);
+    await row.click();
+    const today = await until(page, () => !!document.querySelector('#pg-learn .learntoday[data-kind="misses"]'), null, 10000);
+    check(today, `${T} [U2 TODAY] no TODAY card for a course with misses`);
+    const t = await page.evaluate(() => ({ head: document.querySelector('#pg-learn .learntoday b')?.textContent ?? '', why: document.querySelector('#pg-learn .learntoday small')?.textContent ?? '', aim: window.__ghosty?.learn?.aim }));
+    check(t.head === '2. How leaves catch it', `${T} [U2 TODAY] names "${t.head}"`);
+    check(t.why === 'Lesson 2 again: 1 answer you were sure of but missed in your last answers there.', `${T} [U2 TODAY] says "${t.why}"`);
+    check(JSON.stringify(t.aim?.quiz) === '[2,1]', `${T} [U2 TODAY] the misses quiz covers ${JSON.stringify(t.aim?.quiz)}`);
+    await bar(page, `${T} [U2 course map]`, 'learn');
+    if (vp.width === 440) await page.screenshot({ path: `${out}/learnlane-today-440.png` }).catch(() => undefined);
+    await page.locator('#pg-learn .learntoday button', { hasText: /^QUIZ ME ON MY MISSES$/i }).click();
+    check(await until(page, () => !!document.querySelector('#pg-learn button.learnchoice'), null, 10000), `${T} [U2 quiz] the misses quiz did not open`);
+    check(quizAsked.length === 1 && JSON.stringify(quizAsked[0].lessons) === '[2,1]' && quizAsked[0].course === 'c-light', `${T} [U2 quiz] asked the brain for ${JSON.stringify(quizAsked)}`);
+    // S10 · quiz night, hosted from this course's own questions (the check and the pool), with no brain asked
+    if (vp.width === 440) {
+      // (a fresh open lands on COURSES; the course opened above is kept on this phone, its questions with it)
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
+      await go(page, 'learn');
+      const night = page.locator('#pg-learn button.learnnight');
+      check(await night.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [S10] no QUIZ NIGHT key under COURSES`);
+      await night.click();
+      await page.locator('.qnplayers input').nth(0).fill('Sam');
+      await page.locator('.qnplayers input').nth(1).fill('Jo');
+      await page.locator('.qnight button', { hasText: /^START THE QUIZ$/i }).click();
+      check(await until(page, () => window.__ghosty?.quiznight?.of === 2 && !!document.querySelector('.qnight .qnq'), null, 8000), `${T} [S10] the quiz did not start with the course's two questions: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.quiznight))}`);
+      await page.locator('.qnwho button', { hasText: /^SAM$/i }).click();
+      const after = await page.evaluate(() => ({ scores: window.__ghosty.quiznight.scores, line: window.__ghosty.quiznight.line }));
+      check(JSON.stringify(after.scores) === '[1,0]' && /^A point to Sam\. The answer: [AB]\) /.test(after.line), `${T} [S10] a point to Sam: ${JSON.stringify(after)}`);
+      await page.locator('.qnight button', { hasText: /^NEXT QUESTION$/i }).click();
+      await page.locator('.qnwho button', { hasText: /^NOBODY$/i }).click();
+      await page.locator('.qnight button', { hasText: /^THE RESULT$/i }).click();
+      check(await until(page, () => window.__ghosty?.quiznight?.winner === 'Sam wins with 1 point.', null, 5000), `${T} [S10] the winner line: "${await page.evaluate(() => window.__ghosty?.quiznight?.winner)}"`);
+      const smallKeys = await small(page, '.qnight');
+      check(!smallKeys.length, `${T} [S10] under 44 pt: ${smallKeys.join(', ')}`);
+    }
+  } catch (e) {
+    check(false, `${T} [U2] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
+// ================================================================ U6 · the classics shop (next round, learn.u6)
+// Nothing is listed until SHOW THE FREE CLASSICS; a book opens to its size (a header-only ask) and ADD TO MY SHELF carries
+// it; the book comes in parts until the last; nothing is fetched from anywhere else. Stood in by routes.
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  const { ctx, page } = await phone(vp);
+  const asked = [];
+  try {
+    await ctx.route('**/api/library/classics**', async (r) => {
+      const u = new URL(r.request().url());
+      asked.push(`${r.request().method()} ${u.pathname}${u.search}`);
+      const body = u.pathname.endsWith('/size') ? { id: 1342, bytes: 772000 }
+        : u.pathname.endsWith('/add') ? (() => { const b = JSON.parse(r.request().postData() ?? '{}'); return { next: b.offset >= 1 ? null : 1, note: 'ok', passages: 3 }; })()
+        : u.pathname.endsWith('/new') ? { books: [{ title: 'Persuasion', author: 'Jane Austen', link: 'https://standardebooks.org/ebooks/jane-austen/persuasion', line: '', gutenberg: 105 }] }
+        : { books: [{ id: 1342, title: 'Pride and Prejudice', authors: ['Jane Austen'], downloads: 50123, subjects: [] }], next: null };
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    });
+    await go(page, 'library');
+    await openSection(page, 'library', 'Add').catch(() => undefined);
+    const show = page.locator('#pg-library .pn.classics button', { hasText: /^SHOW THE FREE CLASSICS$/i });
+    check(await show.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U6] no SHOW THE FREE CLASSICS key`);
+    check(asked.length === 0, `${T} [U6] the classics were asked for before his tap: ${asked.join(' | ')}`);
+    await show.click();
+    check(await until(page, () => document.querySelectorAll('#pg-library .pn.classics .clrow').length === 1, null, 10000), `${T} [U6] the list did not draw`);
+    const head = page.locator('#pg-library .pn.classics button.clhead').first();
+    check(/Pride and Prejudice/.test((await head.textContent()) ?? '') && /Jane Austen/.test((await head.textContent()) ?? ''), `${T} [U6] the row reads "${await head.textContent()}"`);
+    check(!asked.some((a) => /\/size|\/add/.test(a)), `${T} [U6] a size or a book was asked for before the book was opened`);
+    await head.click();
+    const key = page.locator('#pg-library .pn.classics .clmore button', { hasText: /^ADD TO MY SHELF · 772 KB$/i });
+    check(await key.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U6 size] the key does not say the size: "${await page.locator('#pg-library .pn.classics .clmore').textContent().catch(() => '')}"`);
+    check(asked.filter((a) => /\/add/.test(a)).length === 0, `${T} [U6 size] the book came before ADD was tapped`);
+    await bar(page, `${T} [U6 classics]`, 'library');
+    if (vp.width === 440) await page.screenshot({ path: `${out}/learnlane-classics-440.png` }).catch(() => undefined);
+    await key.click();
+    check(await until(page, () => window.__ghosty?.classics?.added?.includes(1342), null, 10000), `${T} [U6 add] the book was not added`);
+    check(asked.filter((a) => /^POST \/api\/library\/classics\/add/.test(a)).length === 2, `${T} [U6 add] it should come in its two parts: ${asked.join(' | ')}`);
+    await page.locator('#pg-library .pn.classics button', { hasText: /^NEW FROM STANDARD EBOOKS$/i }).click();
+    check(await until(page, () => /Persuasion/.test(document.querySelector('#pg-library .pn.classics .cllist')?.textContent ?? ''), null, 10000), `${T} [U6 new] Standard Ebooks' new releases did not draw`);
+  } catch (e) {
+    check(false, `${T} [U6] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
+// ================================================================ S2 and U12 · Rehearse in another language, and his speaking week by week
+for (const vp of [PHONE, PHONE2]) {
+  const T = `[${vp.width}]`;
+  const { ctx, page } = await phone(vp);
+  try {
+    await go(page, 'rehearse');
+    const langs = await page.$$eval('#pg-rehearse select.rhlang:not(.rhmode) option', (os) => os.map((o) => [o.value, o.textContent]));
+    const modes = await page.$$eval('#pg-rehearse select.rhmode option', (os) => os.map((o) => o.value));
+    check(JSON.stringify(modes) === '["talk","debate"]', `${T} [S8] WHAT KIND offers ${JSON.stringify(modes)}`);
+    check(langs[0]?.[0] === 'en' && langs.some(([v, t]) => v === 'es' && /^Spanish: practise speaking it$/.test(t ?? '')) && langs.some(([v]) => v === 'fr'), `${T} [S2] the language picker offers ${JSON.stringify(langs.slice(0, 4))}`);
+    // a talk's numbers are kept and charted; what was said is not
+    await openSection(page, 'rehearse', 'Talk').catch(() => undefined);
+    await page.fill('#pg-rehearse textarea[name="talk"]', 'Um, so basically I want to talk about my car. It is red. Um, I fixed the brakes myself last week, and it stops well now.');
+    await page.fill('#pg-rehearse input[name="seconds"]', '12');
+    await page.locator('#pg-rehearse button[data-act="check"]').click();
+    check(await until(page, () => document.querySelectorAll('#pg-rehearse .rhchart .rhweek').length === 1, null, 5000), `${T} [U12] the week is not charted`);
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.talks') ?? '[]'));
+    check(kept.length === 1 && kept[0].fillers === 3 && kept[0].wpm > 0 && !JSON.stringify(kept).includes('brakes'), `${T} [U12] what is kept: ${JSON.stringify(kept)}`);
+    const trend = (await page.locator('#pg-rehearse .rhtrend').textContent()) ?? '';
+    check(trend === 'One week so far: talk again next week to see the change.', `${T} [U12] the trend says "${trend}"`);
+    await bar(page, `${T} [S2 U12 rehearse]`, 'rehearse');
+  } catch (e) {
+    check(false, `${T} [S2 U12] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
+  await ctx.close();
+}
+
+// ================================================================ S12 · revision days up to an exam: shown first, nothing added before ADD
+{
+  const T = '[440]';
+  const { ctx, page } = await phone(PHONE);
+  const added = [];
+  try {
+    await ctx.route('**/api/agenda/events', (r) => (r.request().method() === 'POST' ? (added.push(JSON.parse(r.request().postData() ?? '{}')), r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: { id: `e${added.length}`, title: 'x', start: 0 } }) })) : r.fallback()));
+    await go(page, 'learning');
+    await page.locator('#pg-learning .secpill[data-sec="plan"]').click({ force: true });
+    const subj = page.locator('#pg-learning .pkrevision input[type="text"]');
+    check(await subj.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [S12] no REVISION UP TO AN EXAM`);
+    const day = await page.evaluate(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(Date.now() + 16 * 86400000));
+    await subj.fill('driving theory');
+    await page.locator('#pg-learning .pkrevision input[type="date"]').fill(day);
+    check(await until(page, () => document.querySelectorAll('#pg-learning .pkrevlist li').length >= 10, null, 5000), `${T} [S12] no sessions listed for an exam in 16 days`);
+    const n = await page.locator('#pg-learning .pkrevlist li').count();
+    check(added.length === 0, `${T} [S12] something went in his days before ADD`);
+    await page.locator('#pg-learning .pkrevision button', { hasText: new RegExp(`^ADD ${n} SESSIONS TO MY DAYS$`, 'i') }).click();
+    check(await until(page, () => /^In your days: \d+ sessions of revision for driving theory, each with a reminder ten minutes before\.$/.test(document.querySelector('#pg-learning .pkrevision .pknote')?.textContent ?? ''), null, 10000), `${T} [S12] the line after ADD: "${await page.locator('#pg-learning .pkrevision .pknote').textContent().catch(() => '')}"`);
+    check(added.length === n && added.every((e) => e.title === 'Revise: driving theory' && e.remindMin === 10 && e.end - e.start === 20 * 60000), `${T} [S12] what went in: ${added.length} of ${n}, ${JSON.stringify(added[0])}`);
+    await bar(page, `${T} [S12 learning plan]`, 'learning');
+  } catch (e) {
+    check(false, `${T} [S12] stopped: ${String(e?.message ?? e).split('\n')[0].slice(0, 200)}`);
+  }
   await ctx.close();
 }
 

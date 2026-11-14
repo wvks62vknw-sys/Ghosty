@@ -15,6 +15,7 @@
  * "this is Sam" is the Lens's while PEOPLE is open (features/lens/people.ts).
  */
 import { canYouAsked, todayAsked, whyAsked } from '../../../../packages/shared/src/abilities';
+import { openingAsked } from '../shell/bootwords';
 import { foresightAsked, rightSaid } from '../../../../packages/shared/src/foresight';
 import { homeSaid, walkCancelled, walkStart } from '../../../../packages/shared/src/guardian';
 import { readingIntent, stopIntent } from '../../../../packages/shared/src/intent';
@@ -73,7 +74,7 @@ import { furtherAsked } from '../further/words';
 import { missedAsked, teachAsked, watcherAsked } from '../../../../packages/shared/src/lifeeasier';
 import { chaseAsked, chasingAsked, recallAsked } from '../../../../packages/shared/src/recall';
 import { TRIP_ASK } from '../ui/tripwords';
-import { setAsked } from '../features/eye/sets';
+import { RAIN_ASK, setAsked, WALL_ASK } from '../features/eye/sets';
 import { dayAsked, dateSpan, promisesAsked, whereAsked, whereIn, whyAsked as whyChoseAsked } from '../../../../packages/shared/src/keep';
 
 /** [keep] Does his message ask about his word (the same test as features/memory/keep.ts keepAsked, kept pure here)? */
@@ -111,6 +112,9 @@ export const REBOOT = /^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.
 export const LOCAL_ASKS = [
   { id: 'carview', test: (t: string) => viewAsked(t) !== null },
   { id: 'carfault', test: (t: string) => symptomOf(t) !== null },
+  // [boot] "short opening", "the full film every time", "opening once a day", "how did the opening run?", "Sam's turn": the opening's own
+  // words, answered on the phone (shell/bootwords.ts openingAsked)
+  { id: 'opening', test: (t: string) => openingAsked(t) !== null },
   // [voice lane] "do you know it's me?": from the phone's own tag (before "can you…?" could call it an ability he lacks)
   { id: 'speaker', test: (t: string) => SPEAKER_ASK.test(t.trim().replace(/[’]/g, "'")) },
   // [voice lane] HIS OWN WORDINGS (voice.u1, assistant/learnwords.ts): a wording he taught opens its screen before any table reads it;
@@ -196,6 +200,10 @@ export const LOCAL_ASKS = [
   { id: 'trip', test: (t: string) => TRIP_ASK.test(t.trim()) },
   // [see] a one-tap layer set on God's Eye: "commute view", "storm layers", "sky mode" (features/eye/sets.ts)
   { id: 'layerset', test: (t: string) => setAsked(t) !== null },
+  // [see] his wall of up to nine public cameras: "my camera wall", "show my cameras" (features/eye/wall.ts)
+  // [see] the full-screen rain radar: "rain radar", "show me the rain map", "replay the rain" (features/eye/rain.ts)
+  { id: 'rainradar', test: (t: string) => RAIN_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
+  { id: 'camwall', test: (t: string) => WALL_ASK.test(t.trim().replace(/[?.!]+$/, '')) },
   { id: 'machine', test: (t: string) => machineAsked(t) },
   { id: 'workbench', test: (t: string) => !!workbenchAsked(t) },
   { id: 'foresight', test: (t: string) => !!foresightAsked(t) },

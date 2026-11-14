@@ -100,6 +100,9 @@ export function speedCard(): SpeedCard {
     }
     // ---- small rows: screens, the start, the round trip
     clear(rows);
+    // [ci] NEXT ci.u3: the voice, timed on this phone today (his last word to my first; my last to the ear open again)
+    const v = phone?.voice;
+    if (v?.first || v?.reopen) rows.append(small('Voice', [v.first ? `first word ${dur(v.first.median)} after you stop` : '', v.reopen ? `ear open again ${dur(v.reopen.median)} after I finish` : ''].filter(Boolean).join(', '), 'voice'));
     if (phone?.screens.length) {
       const shown = phone.screens.slice(0, 6);
       const slowest = shown.length > 1 ? shown.reduce((a, b) => (b.median > a.median ? b : a)) : null;
