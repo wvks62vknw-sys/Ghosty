@@ -26,6 +26,51 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_docs' }, tryText: 'Opens my documents',
   },
   'phrase:docs': { same: 'hub:docs' },
+  // [editors.s3] paper into an editable document, a receipt into a spreadsheet row
+  'phrase:docspaper': {
+    name: 'Scan paper into a document',
+    line: 'You can scan a letter into a document to edit, or a receipt into a new row of your spreadsheet.',
+    more: 'Lay the page flat and capture it in the scanner, then READ ALL. INTO A DOCUMENT keeps its headings, paragraphs, lists and the address on the right, as well as the reader can, ready to edit. RECEIPT TO SPREADSHEET shows the date, shop and total for you to check, and ADD ROW puts them in your Receipts spreadsheet. All of it stays on this phone.',
+    say: ['Scan this letter into a document', 'Scan a receipt into my spreadsheet', 'Turn this letter into a document I can edit'],
+    scene: ['making', 'money', 'phone'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_lens', args: { mode: 'document' } }, tryText: 'Opens the scanner on a page',
+  },
+  // [editors.s12] fill in and sign a PDF form
+  'phrase:docsfill': {
+    name: 'Fill in and sign a PDF',
+    line: 'You can type into a PDF form’s boxes, sign it with your finger and save or share it, without printing.',
+    more: 'Choose the PDF in DOCUMENTS → FILL AND SIGN A PDF. Its boxes come as fields to type into, tick or choose from, and its pages show what you wrote. SIGN lets you draw your signature and tap the page where it goes; it is kept for next time only if you press KEEP IT. I say which boxes I could not fill, like round-button choices. Nothing is sent anywhere.',
+    say: ['Fill in a PDF form', 'Sign this PDF', 'Fill and sign a form'],
+    scene: ['making', 'money', 'phone'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'fill' } }, tryText: 'Opens fill and sign',
+  },
+  // [editors.s2] mail merge
+  'phrase:docsmerge': {
+    name: 'One letter for every name',
+    line: 'You can write one letter and get a copy for every name and address in a spreadsheet, as one PDF, one Word file or a file each.',
+    more: 'In a document, MAIL MERGE: choose your spreadsheet (its first row names the columns, like Name and Address), tap where each name goes and the column’s key, and step through the copies to check them. A field with no column is said. Nothing is sent anywhere; the files are made here for you to print or share.',
+    say: ['Mail merge', 'Make this letter for everyone in my spreadsheet', 'Mail merge my letter from a spreadsheet'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'merge' } }, tryText: 'Opens mail merge',
+  },
+  // [editors.u1] comments on words
+  'phrase:docscomments': {
+    name: 'Comments on your words',
+    line: 'You can leave comments on any words in a document, reply to them, resolve them, and ask me about that one sentence.',
+    more: 'Choose some words and press COMMENT in WRITE: the words are marked in the page and the comment sits in COMMENTS, with replies. ASK GHOSTY sends only that sentence and the comment, and my answer comes as a reply, never as a change. Resolved ones fold away. Comments are kept with the document on this phone and go into a Word file as Word comments.',
+    say: ['Show the comments on my document', 'Comment on my letter', 'My document’s comments'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'comments' } }, tryText: 'Opens the comments',
+  },
+  // [editors.u13] move whole sections by heading
+  'phrase:docsoutline': {
+    name: 'Move whole sections',
+    line: 'You can see a document’s headings as its outline, jump to any of them, and move a whole section up or down.',
+    more: 'CONTENTS lists every heading. Tap one to jump there; ▲ and ▼ beside it move the heading with everything under it, its smaller headings too, past the section next to it. Each move is one step that UNDO takes back, and it is kept on this phone.',
+    say: ['Show the outline of my document', 'Move a section in my document', 'The headings in my report'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_docs', args: { what: 'outline' } }, tryText: 'Opens the contents',
+  },
   'hub:sheets': {
     name: 'Budgets and lists with formulas',
     line: 'You can keep a budget or a list with formulas that follow, open an Excel file, and hand one back that opens unchanged.',
@@ -35,6 +80,24 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_sheets' }, tryText: 'Opens my spreadsheets',
   },
   'phrase:sheets': { same: 'hub:sheets' },
+  // [editors grid, NEXT ROUND] colour by rules (editors.u2)
+  'deck:sheets:colour-cells-by-rules': {
+    name: 'Colour cells by rules',
+    line: 'You can have cells colour themselves: overdue dates red, the top ten green, bars that show how big each number is.',
+    more: 'Choose the cells, open RULES and pick one: more than, less than, between, equal to, contains, overdue, top or bottom, duplicates, data bars or a colour scale. The colours follow the numbers as they change. Each sheet lists its rules with EDIT and DELETE, UNDO takes any change back, and an Excel file keeps them both ways.',
+    say: ['Open my spreadsheets', 'Open a spreadsheet'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
+  // [editors grid, NEXT ROUND] one-tap table summaries (editors.u3)
+  'deck:sheets:summarise-a-table-in-one-tap': {
+    name: 'Summarise a table in one tap',
+    line: 'You can see how much went where each month, or at each shop, without writing a single formula.',
+    more: 'Choose a table, open SUMMARY and pick BY (each month of a date column, or each shop or category) and OF (the total, count or average of a column of numbers). The summary lands on a sheet of its own and follows the table: change a number, add a row or a new shop, and it keeps up. MAKE A CHART OF IT draws it as bars in one more tap.',
+    say: ['Open my spreadsheets', 'Start a household budget'],
+    scene: ['making', 'money'], cat: 'do', since: '2026-11-14',
+    go: { open: 'sheets' }, tryText: 'Opens my spreadsheets',
+  },
   'hub:slides': {
     name: 'Slides and talks',
     line: 'You can make a deck of slides from a report, or from scratch, give the talk with your notes in your hand, and send it as a PowerPoint file.',
@@ -44,10 +107,28 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { run: 'open_slides' }, tryText: 'Opens my slides',
   },
   'phrase:slides': { same: 'hub:slides' },
+  // [editors grid, NEXT ROUND] the builds and Magic Move carried in and out of PowerPoint (editors.u4)
+  'deck:slides:builds-and-magic-move-kept-in': {
+    name: 'Builds and Magic Move in PowerPoint',
+    line: 'You can have parts of a slide come in on a tap and glide between slides, and PowerPoint plays both the same way.',
+    more: 'On a slide, SLIDE sets how each part comes in: it appears, fades in or rises in. MAGIC MOVE glides what is on both slides from the last slide to its place. The PowerPoint file carries them as its own Appear, Fade, Fly In and Morph, and a PowerPoint file you open brings its animations in as builds, saying once what it could not keep.',
+    say: ['Open my slides', 'Open a PowerPoint file'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { open: 'slides' }, tryText: 'Opens my slides',
+  },
+  // [editors grid, NEXT ROUND] present with a TV and the phone (editors.u5)
+  'deck:slides:present-on-a-tv-from-your': {
+    name: 'Present on a TV',
+    line: 'You can put the slide on a TV while your phone shows this slide, the next one, your notes and the time.',
+    more: 'Start the talk with PRESENT, then tap ON A TV: the slide opens in a window of its own for the second screen, and a tap there fills it. NEXT and BACK on the phone move the TV along. If this phone cannot open a second screen I say so plainly, and the talk carries on on the phone with everything in your hand.',
+    say: ['Open my slides', 'My slides'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { open: 'slides' }, tryText: 'Opens my slides',
+  },
   'hub:workspace': {
     name: 'Pages, projects and databases',
     line: 'You can keep pages inside pages and a project with its tasks and dates, and I read all of it before I answer.',
-    more: 'Start a project and a board of tasks, notes, decisions and a calendar of deadlines appear, all over one list of rows. The same rows can be a table, a board, a calendar, a timeline or a gallery, and a column can work something out. Every page keeps sixty versions, a BIN holds deleted ones for thirty days, and it is all on this phone: only a question about a project leaves it, and I say how big first.',
+    more: 'Start a project and a board of tasks, notes, decisions and a calendar of deadlines appear, all over one list of rows. The same rows can be a table, a board, a calendar, a timeline or a gallery, and a column can work something out. A toggle folds lines away, a synced block shows the same words on several pages, and any page can be saved as a template of your own beside the five. Every page keeps sixty versions, a BIN holds deleted ones for thirty days, and it is all on this phone: only a question about a project leaves it, and I say how big first.',
     say: ['My workspace', 'Start a project', 'What is due this week in my project'],
     scene: ['making', 'school', 'money'], cat: 'do', since: '2026-11-12',
     go: { run: 'open_workspace' }, tryText: 'Opens my workspace',
@@ -61,6 +142,38 @@ export const RESTE_WORDS: Record<string, CatValue> = {
     go: { open: 'docs' }, tryText: 'Opens my documents',
   },
   'phrase:workspace': { same: 'hub:workspace' },
+  'phrase:wscards': {
+    name: 'Flashcards from your notes',
+    line: 'You can turn a page of your notes into flashcards for Learn’s revision, written the way you already write.',
+    more: 'On a Workspace page, tap … then MAKE FLASHCARDS, or pick one of your documents. A line like “Term: what it means”, a toggle with the answer inside it, a heading with the answer under it, or a two-column table each become a card, shown to you before they are made. Learn then brings each back just before you would forget it.',
+    say: ['Make flashcards from my notes', 'Turn this page into flashcards'],
+    scene: ['school', 'making'], cat: 'learn', since: '2026-11-14',
+    go: { run: 'open_workspace' }, tryText: 'Opens my workspace',
+  },
+  'phrase:wsform': {
+    name: 'Forms that fill a list',
+    line: 'You can fill in a form on your phone and each answer lands as a new row of one of your Workspace lists.',
+    more: 'Open a database in your Workspace and tap FORM: its columns are the questions (words, numbers, a choice, several choices, a date, a tick). ADD THIS ANSWER puts it in as a row and clears the form for the next one, with UNDO. Worked-out columns are left out and the form says so. Good for sign-up sheets, checklists and surveys of your own.',
+    say: ['Make a form', 'Make a sign-up sheet'],
+    scene: ['making', 'phone'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_workspace' }, tryText: 'Opens my workspace',
+  },
+  'phrase:wsmind': {
+    name: 'Mind maps that become to-dos',
+    line: 'You can plan on a mind map page, an idea in the middle with its branches, and turn any branch into to-dos in one tap.',
+    more: 'NEW PAGE → A MIND MAP, or ADD A BLOCK → MIND MAP on any page. Tap an idea to rename it, add a branch or delete one. MAKE TO-DOS puts its branches under the map as to-dos you can tick, with UNDO. It goes out to Markdown as a nested list any app reads, and comes back as a map.',
+    say: ['Make a mind map', 'Start a mind map about the garden'],
+    scene: ['making', 'school'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_workspace', args: { what: 'mind' } }, tryText: 'Opens a new mind map',
+  },
+  'phrase:wsvoice': {
+    name: 'Voice notes into tidy pages',
+    line: 'You can talk for a few minutes and I turn it into a clean page, with every action you said pulled out as a to-do.',
+    more: 'Record with the phone’s own microphone, or choose a recording from Voice Memos. Your brain writes the words down, then I tidy them into a Workspace page or a Document: short paragraphs in your words, a TO DO list, and what you said word for word at the end. Offline, the recording is kept on this phone and tidied when you are back; once its page is made it is let go.',
+    say: ['Take a voice note', 'Turn my voice note into a page'],
+    scene: ['making', 'phone'], cat: 'do', since: '2026-11-14',
+    go: { run: 'open_workspace', args: { what: 'voice' } }, tryText: 'Opens a voice note',
+  },
   'hub:photo': {
     name: 'Edit and grade a photo',
     line: 'You can edit a photo here like a real editor: light, colour, curves, masks, healing, a crop, and a look saved for many.',

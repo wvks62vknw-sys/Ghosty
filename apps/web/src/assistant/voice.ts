@@ -191,6 +191,8 @@ export interface SpokenStream {
   add(text: string): void;
   end(whole: string): void;
   drop(): void;
+  /** The reply broke off (the signal went, an error, a stop): what was queued is said to its end and nothing more is waited for. */
+  close(): void;
 }
 export function speakStream(opts: { owner?: string; brief?: boolean } = {}): SpokenStream {
   const choice = chosen();
@@ -260,6 +262,9 @@ export function speakStream(opts: { owner?: string; brief?: boolean } = {}): Spo
       if (token === speakToken) stopSpeaking();
       feed.closed = true;
       closedOk();
+    },
+    close() {
+      if (!feed.closed) close();
     },
   };
 }

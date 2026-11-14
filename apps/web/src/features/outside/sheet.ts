@@ -285,7 +285,13 @@ function walkView(args: Record<string, unknown>): HTMLElement {
   const go = named(button('Count reports', () => void walk(), 'on'), 'Count police reports along the walk');
   const home = named(button('Last way home', () => void last()), 'Find the last train or bus home');
   to.addEventListener('keydown', (e) => e.key === 'Enter' && void walk());
-  const el = h('div.pkcol', from, to, h('div.pkrow', go, home), tap, priv(), status, note('I count police reports within 100 m of each way, and say “fewer”, never “safe”.'), out, phrases(['toilets near me', 'I’m lost', 'I parked here']));
+  // the best hour for a walk today, from the forecast the phone already reads (body.s10)
+  const best = h('p.pknote.ow-best', { dataset: { walkhour: '' } });
+  void import('./walkhour').then((m) => m.walkHourLine()).then((r) => {
+    best.textContent = r.words;
+    best.dataset.walkhour = r.hour == null ? 'none' : String(r.hour);
+  }).catch(() => undefined);
+  const el = h('div.pkcol', best, from, to, h('div.pkrow', go, home), tap, priv(), status, note('I count police reports within 100 m of each way, and say “fewer”, never “safe”.'), out, phrases(['toilets near me', 'I’m lost', 'best time for a walk today']));
   return el;
 }
 

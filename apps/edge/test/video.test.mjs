@@ -434,3 +434,66 @@ test('the mp4 reader finds every sample of a flat file (the muxer\'s own) and of
   assert.equal(f.samples[1].key, false);
   assert.equal(Dx.demuxMp4(Uint8Array.from([0, 0, 0, 8, 102, 114, 101, 101])), null, 'not an mp4 with a video track');
 });
+
+test('the frame-by-frame file is exactly as long as the timeline: the last picture and the sound trimmed or padded to it', async () => {
+  const { exactLength } = await load('math');
+  // 54,901 ms at 30 frames a second: 1,647 whole frames would be 54,900 ms; the last picture stretched by 1 ms
+  const v = Array.from({ length: 1647 }, () => ({ dur: Math.round(1e6 / 30) }));
+  const a = Array.from({ length: Math.ceil((54.901 * 48000 + 2112) / 1024) }, () => ({ dur: 1024 }));
+  exactLength(v, a, 54901);
+  assert.equal(v.reduce((n, s) => n + s.dur, 0), 54_901_000, 'the pictures end at the timeline’s end, to the microsecond');
+  assert.equal(a.reduce((n, s) => n + s.dur, 0), Math.round(54.901 * 48000), 'the sound ends at the timeline’s end, to the sample');
+  assert.ok(a.every((s) => s.dur >= 1 && s.dur <= 1024), 'no packet of sound is longer than it was');
+  // too short a sound is padded on its last packet
+  const short = [{ dur: 1024 }, { dur: 1024 }];
+  exactLength([], short, 50);
+  assert.equal(short.reduce((n, s) => n + s.dur, 0), 2400);
+  // a picture never gets a duration of nothing
+  const one = [{ dur: 99999 }, { dur: 99999 }];
+  exactLength(one, [], 10);
+  assert.ok(one[1].dur >= 1);
+});
+
+test('the grade over time: keys followed in a straight line, the nearest key held outside them, and a split carries it on', async () => {
+  const Mo = await load('model');
+  const g = (exposure, temp, curve = [[0, 0], [1, 1]]) => ({ ...Mo.flatGrade(), exposure, temp, curve });
+  const c = { grade: g(0, 0), gradeKeys: [{ t: 1000, g: g(0, -0.5) }, { t: 3000, g: g(1, 0.5) }] };
+  assert.equal(Mo.gradeAt({ grade: g(0.3, 0) }, 500).exposure, 0.3, 'no keys: the one grade holds');
+  assert.equal(Mo.gradeAt(c, 0).temp, -0.5, 'before the first key, the first holds');
+  assert.equal(Mo.gradeAt(c, 9000).exposure, 1, 'after the last, the last holds');
+  const mid = Mo.gradeAt(c, 2000);
+  assert.ok(Math.abs(mid.exposure - 0.5) < 1e-9 && Math.abs(mid.temp) < 1e-9, 'halfway between the keys, halfway between their numbers');
+  // a key set within 40 ms is the same key; keys stay in time order
+  const clip = { ...c, gradeKeys: structuredClone(c.gradeKeys) };
+  Mo.upsertGradeKey(clip, 3020, g(2, 0));
+  Mo.upsertGradeKey(clip, 0, g(0, 0));
+  assert.deepEqual(clip.gradeKeys.map((k) => k.t), [0, 1000, 3000]);
+  assert.equal(clip.gradeKeys[2].g.exposure, 2);
+  // a split at 2 s: the second half starts with the grade at the cut and keeps the rest of the keys, shifted
+  const source = { id: 's1', name: 'a', kind: 'video', size: 1, dur: 6000, w: 640, h: 360, fps: 30, hasAudio: false };
+  const p0 = Mo.newProject();
+  const p = { ...p0, sources: { s1: source }, main: [{ ...Mo.newClip(source), gradeKeys: structuredClone(c.gradeKeys) }] };
+  const q = Mo.splitAt(p, 2000);
+  assert.ok(q && q.main.length === 2);
+  assert.deepEqual(q.main[1].gradeKeys.map((k) => k.t), [0, 1000]);
+  assert.ok(Math.abs(q.main[1].gradeKeys[0].g.exposure - 0.5) < 1e-9, 'the second half starts where the grade was at the cut');
+});
+
+test('a photo film: each photo held for whole beats (at least 1.8 s), a slow zoom each, the song from its first beat', async () => {
+  const Mo = await load('model');
+  const Ed = await load('edit');
+  const img = (id) => ({ id, name: `${id}.jpg`, kind: 'image', size: 1, dur: 600_000, w: 640, h: 360, fps: 30, hasAudio: false });
+  const song = { id: 'song', name: 'song.wav', kind: 'audio', size: 1, dur: 30_000, w: 0, h: 0, fps: 0, hasAudio: true };
+  assert.equal(Mo.newClip(img('a')).out, 3000, 'a photo lies in as a 3 s still clip');
+  const q = Ed.photoFilm(Mo.newProject(), [img('a'), img('b'), img('c')], song, { period: 500, first: 120 });
+  assert.deepEqual(q.main.map((c) => c.out - c.in), [2000, 2000, 2000], '120 a minute: four beats, 2 s a photo');
+  assert.deepEqual(q.main.map((c) => c.tr.keys.scale.map((k) => k.v)), [[1, 1.1], [1.1, 1], [1, 1.1]], 'in, out, in');
+  assert.equal(q.music.length, 1);
+  assert.equal(q.music[0].in, 120, 'the song from its first beat, so each cut lands on one');
+  assert.equal(q.music[0].len, 6000);
+  // a slow song (60 a minute): two beats; no beat found: two seconds
+  assert.deepEqual(Ed.photoFilm(Mo.newProject(), [img('a')], song, { period: 1000, first: 0 }).main.map((c) => c.out), [2000]);
+  assert.deepEqual(Ed.photoFilm(Mo.newProject(), [img('a'), img('b')], null, null).main.map((c) => c.out), [2000, 2000]);
+  // a fast one (150 a minute, 400 ms): five beats, still on the grid
+  assert.deepEqual(Ed.photoFilm(Mo.newProject(), [img('a'), img('b')], song, { period: 400, first: 0 }).main.map((c) => c.out), [2000, 2000]);
+});

@@ -2,14 +2,16 @@
  * THE .XLSX WRITER (BRIEF-EDITOR-SPREADSHEETS): a workbook as the zip of XML Excel, Numbers and Sheets open, written by the app's own code over
  * convert/zip.ts (the same pattern as the Documents' .docx): the workbook, a part for each sheet, the shared strings, the styles. Values, formulas
  * (as formulas, with Excel's `_xlfn.` names, so Excel works them out again too, and its own cached figures beside), number formats, bold and
- * italic, alignment, fills, column widths, row heights, the frozen first row, hidden rows (a filter) and named ranges. A chart is NOT written:
+ * italic, alignment, fills, column widths, row heights, the frozen first row, hidden rows (a filter), named ranges and the colour rules (as
+ * Excel's own conditionalFormatting, each fill a dxf: one for each of the house's five, in order). A chart is NOT written:
  * its numbers are in the file and the chart is in the PDF (the export sheet says so). Pure.
  */
 import { zipStore } from '../convert/zip';
 import { addr, fmtCode, isErr, sheetIndex, usedCols, usedRows, type Book, type Cell, type Fmt, type Sheet, type Val } from './model';
 import { Engine } from './formula';
 import { visibleRows } from './ops';
-import { colName, parseAddr, tokenize } from './tokens';
+import { colName, parseAddr, parseRange, tokenize } from './tokens';
+import { RULE_TONE, type Rule } from './rules';
 
 /** The five fills the house has, as the colours Excel is told (the design tokens' own values). */
 export const FILL_HEX = ['64D2FF', 'FFB340', '30D158', 'FF6961', 'A8A59E'] as const;
@@ -88,6 +90,34 @@ function cellXml(a: string, cell: Cell | undefined, v: Val, s: number, strings: 
   return `<c r="${a}"${style}><v>${v}</v></c>`;
 }
 
+/** A sheet's colour rules as Excel's conditionalFormatting elements (dxfId n-1 is the house's fill n). */
+export function rulesXml(rules: Rule[] | undefined): string {
+  let pri = 0;
+  return (rules ?? [])
+    .map((r) => {
+      const g = parseRange(r.range);
+      if (!g) return '';
+      const tl = addr(g.r1, g.c1);
+      const dxf = `dxfId="${(r.tone ?? RULE_TONE[r.kind]) - 1}" priority="${++pri}"`;
+      const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? String(v) : '0');
+      const words = String(r.a ?? '');
+      const q = words.replace(/"/g, '""');
+      const rule =
+        r.kind === 'over' ? `<cfRule type="cellIs" ${dxf} operator="greaterThan"><formula>${num(r.a)}</formula></cfRule>`
+        : r.kind === 'under' ? `<cfRule type="cellIs" ${dxf} operator="lessThan"><formula>${num(r.a)}</formula></cfRule>`
+        : r.kind === 'equal' ? `<cfRule type="cellIs" ${dxf} operator="equal"><formula>${num(r.a)}</formula></cfRule>`
+        : r.kind === 'between' ? `<cfRule type="cellIs" ${dxf} operator="between"><formula>${num(r.a)}</formula><formula>${num(r.b)}</formula></cfRule>`
+        : r.kind === 'contains' ? `<cfRule type="containsText" ${dxf} operator="containsText" text="${esc(words)}"><formula>${esc(`NOT(ISERROR(SEARCH("${q}",${tl})))`)}</formula></cfRule>`
+        : r.kind === 'overdue' ? `<cfRule type="expression" ${dxf}><formula>${esc(`AND(ISNUMBER(${tl}),${tl}>=1,INT(${tl})<TODAY())`)}</formula></cfRule>`
+        : r.kind === 'top' || r.kind === 'bottom' ? `<cfRule type="top10" ${dxf} rank="${Math.max(1, r.n ?? 10)}"${r.kind === 'bottom' ? ' bottom="1"' : ''}/>`
+        : r.kind === 'dupes' ? `<cfRule type="duplicateValues" ${dxf}/>`
+        : r.kind === 'bars' ? `<cfRule type="dataBar" priority="${pri}"><dataBar><cfvo type="min"/><cfvo type="max"/><color rgb="FF${FILL_HEX[0]}"/></dataBar></cfRule>`
+        : `<cfRule type="colorScale" priority="${pri}"><colorScale><cfvo type="min"/><cfvo type="max"/><color rgb="FF${FILL_HEX[3]}"/><color rgb="FF${FILL_HEX[2]}"/></colorScale></cfRule>`;
+      return `<conditionalFormatting sqref="${esc(r.range)}">${rule}</conditionalFormatting>`;
+    })
+    .join('');
+}
+
 function sheetXml(b: Book, s: Sheet, si: number, eng: Engine, st: Styles, strings: Map<string, number>): string {
   const rows = new Map<number, [number, string][]>();
   const put = (r: number, c: number, xml: string) => (rows.get(r) ?? rows.set(r, []).get(r)!).push([c, xml]);
@@ -120,7 +150,7 @@ function sheetXml(b: Book, s: Sheet, si: number, eng: Engine, st: Styles, string
   const used = usedCols(s);
   const dim = used && last ? `A1:${colName(used - 1)}${last}` : 'A1';
   const view = `<sheetViews><sheetView workbookViewId="0"${si === b.view.sheet ? ' tabSelected="1"' : ''}>${s.frozen ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft"/>' : ''}</sheetView></sheetViews>`;
-  return `${HEAD}<worksheet ${NS}><dimension ref="${dim}"/>${view}<sheetFormatPr defaultRowHeight="15"/>${cols ? `<cols>${cols}</cols>` : ''}<sheetData>${sheetData}</sheetData><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
+  return `${HEAD}<worksheet ${NS}><dimension ref="${dim}"/>${view}<sheetFormatPr defaultRowHeight="15"/>${cols ? `<cols>${cols}</cols>` : ''}<sheetData>${sheetData}</sheetData>${rulesXml(s.rules)}<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
 }
 
 /** The workbook as .xlsx bytes. */
@@ -132,7 +162,7 @@ export function writeXlsx(b: Book): Uint8Array {
   const sst = `${HEAD}<sst ${NS} count="${strings.size}" uniqueCount="${strings.size}">${[...strings.keys()].map((t) => `<si><t xml:space="preserve">${esc(t)}</t></si>`).join('')}</sst>`;
   const fills = `<fills count="7"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${FILL_HEX.map((h) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${h}"/><bgColor indexed="64"/></patternFill></fill>`).join('')}</fills>`;
   const fonts = '<fonts count="4"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><i/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><i/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts>';
-  const styles = `${HEAD}<styleSheet ${NS}>${st.codes.length ? `<numFmts count="${st.codes.length}">${st.codes.map((c, i) => `<numFmt numFmtId="${164 + i}" formatCode="${esc(c)}"/>`).join('')}</numFmts>` : ''}${fonts}${fills}<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${st.xfs.length}">${st.xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const styles = `${HEAD}<styleSheet ${NS}>${st.codes.length ? `<numFmts count="${st.codes.length}">${st.codes.map((c, i) => `<numFmt numFmtId="${164 + i}" formatCode="${esc(c)}"/>`).join('')}</numFmts>` : ''}${fonts}${fills}<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${st.xfs.length}">${st.xfs.join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="5">${FILL_HEX.map((h) => `<dxf><fill><patternFill patternType="solid"><bgColor rgb="FF${h}"/></patternFill></fill></dxf>`).join('')}</dxfs></styleSheet>`;
   const names = Object.entries(b.names).map(([n, ref]) => `<definedName name="${esc(n)}">${esc(ref)}</definedName>`).join('');
   const workbook = `${HEAD}<workbook ${NS}><workbookPr defaultThemeVersion="124226"/><bookViews><workbookView activeTab="${Math.max(0, Math.min(b.view.sheet, b.sheets.length - 1))}"/></bookViews><sheets>${b.sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>${names ? `<definedNames>${names}</definedNames>` : ''}<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`;
   const n = b.sheets.length;

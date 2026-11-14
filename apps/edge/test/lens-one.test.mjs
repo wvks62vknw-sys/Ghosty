@@ -706,3 +706,10 @@ test('(lens.u14) an address abroad goes on the map like a UK one: a street line 
   assert.deepEqual(addr('Friday 4 December 2026\nDoors at 7'), [], 'a year and a word is no address');
   assert.deepEqual(addr('12 High Street\nBirmingham B1 1AA'), ['12 High Street, Birmingham B1 1AA'], 'a UK address reads as before');
 });
+
+test('(review) a UK energy bill has prices, a total and VAT like a till receipt, but it is the bill: ADD TO MY BILLS, not INTO SPENDING', () => {
+  const bill = 'OCTOPUS ENERGY\nYour energy bill\nElectricity 312 kWh £98.40\nStanding charge £15.20\nVAT 5% £5.68\nTotal amount due £119.28\nPay by Direct Debit or card by 2 December 2026';
+  assert.equal(F.looksLikeReceipt(bill), true, 'it does look like a receipt by its prices');
+  assert.deepEqual(F.jobsOf({ text: bill, receipt: true, letter: true }), ['letter'], 'read as a bill too, the bill wins');
+  assert.deepEqual(F.jobsOf({ text: 'TOTAL 6.30 VISA', receipt: true, letter: false }), ['receipt'], 'a till receipt stays a receipt');
+});
