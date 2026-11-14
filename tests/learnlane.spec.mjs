@@ -138,6 +138,32 @@ for (const vp of [PHONE, PHONE2]) {
       // marked for real: the stand-in gets every other question wrong on purpose, so right ones score and wrong ones do not
       const exact = (rec?.answers ?? []).filter((a) => a.how === 'exact');
       if (exact.length >= 2) check(exact.some((a) => a.got > 0) && exact.some((a) => a.got === 0) && !rec.top, `${T} [S3 marked for real] exact marks: ${JSON.stringify(exact.map((a) => a.got))}`);
+      // U1 · the paper as a worked-answers booklet: studied a question at a time, the working on his tap, kept on this phone
+      if (vp.width === 440 && rec) {
+        await openSection(page, 'school', 'Results').catch(() => undefined);
+        const rowKey = page.locator('#pg-school button.schrow').first();
+        if (await rowKey.isVisible().catch(() => false)) {
+          await rowKey.click();
+          const studyKey = page.locator('.schpaper button', { hasText: /^STUDY THE WORKED ANSWERS$/i });
+          check(await studyKey.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false), `${T} [U1] no STUDY THE WORKED ANSWERS on the paper`);
+          await studyKey.click();
+          check(await until(page, () => window.__ghosty?.booklet?.of > 0 && !!document.querySelector('.bkstudy .bkq'), null, 8000), `${T} [U1] the booklet did not open`);
+          const n = await page.evaluate(() => window.__ghosty.booklet.of);
+          for (let k = 0; k < n; k++) {
+            check(!(await page.locator('.bkreveal').first().isVisible().catch(() => true)), `${T} [U1] question ${k + 1}: the working showed before his tap`);
+            await page.locator('.bkstudy button', { hasText: /^SHOW THE WORKING$/i }).click();
+            const working = (await page.locator('.bkstudy .bkworking').textContent().catch(() => '')) ?? '';
+            if (k === 0) check(/^Working:[\s\S]*\nAnswer: /.test(working), `${T} [U1] the working shown is not the full working: "${working.slice(0, 80)}"`);
+            await page.locator('.bkstudy button', { hasText: k % 2 ? /^STILL LEARNING$/i : /^GOT IT$/i }).click();
+          }
+          const end = await page.evaluate(() => ({ b: window.__ghosty.booklet, kept: JSON.parse(localStorage.getItem('ghosty.school.booklets') ?? '{}') }));
+          check(end.b.done && end.b.line === `You got ${Math.ceil(n / 2)} of ${n}. The ones still to learn come first next time.`, `${T} [U1] the end: ${JSON.stringify(end.b)}`);
+          const kept = end.kept?.list?.[0];
+          check(!!kept && kept.studied === 1 && kept.items.filter((x) => x.learning).length === Math.floor(n / 2), `${T} [U1] the booklet is not kept on this phone with what he marked: ${JSON.stringify(kept && { studied: kept.studied, learning: kept.items.filter((x) => x.learning).length })}`);
+          await page.keyboard.press('Escape').catch(() => undefined);
+          await page.keyboard.press('Escape').catch(() => undefined);
+        } else check(false, `${T} [U1] no result row to open`);
+      }
       // the result card says where it was sat
       const seeLine = await until(page, () => /online, in full working/.test(document.querySelector('#pg-school')?.textContent ?? '') || !!document.querySelector('#pg-school .schresult'), null, 8000);
       check(seeLine, `${T} [S3] no result card after the paper`);

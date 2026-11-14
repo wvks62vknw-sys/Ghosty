@@ -34,6 +34,7 @@ import { clear, h, icon } from '../../core/dom';
 import { mayUse, offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
 import { CHAIN, MODELS, NO_BRAIN, sitOffer, sitOfferWhy, sizeText, type ModelDef } from '../../offline/models';
 import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, type OfficialRow } from '../../school/official';
+import { booklets, bookletOf, forgetBooklet, keepBooklet, studyBooklet } from '../../school/booklet';
 import { brainLine, getForSit, NoOnline, notDownloaded, onlineLine, onlineReady, onlineSit, resumeNow, runOnline, runPaper, school, sitGen, sitPlan, sitPrefs, sitSubjects, sitting, stopSitting, type SitPaper } from '../../school/sit';
 import { brain, headers } from '../../api/brain';
 import { loadOffline, withModel } from '../../offline/brain';
@@ -528,7 +529,27 @@ export const schoolTab: TabDef = {
             h('span.schrowt', h('b', `${stageLabel(r.stage)} ${subjectName(r.subject).toLowerCase()}`), h('small', `${day(r.at)} · ${r.official ? 'official paper' : 'written by Ghosty'}${r.where === 'kaggle' ? ' · sat on the free GPU' : ''}${r.marked.pending ? ' · marks pending' : ''}`)),
             h('span.schrowg', h('b', r.marked.pending ? '…' : r.grade), h('small', `${r.raw}/${r.max}`)),
           ))),
+        bookletList(),
       );
+    }
+
+    /** [learn.u1] The worked-answers booklets kept on this phone: each one to study again, or let go. */
+    function bookletList(): HTMLElement | null {
+      const list = booklets.get().list;
+      if (!list.length) return h('small.note.schbknone', 'Open any paper and press STUDY THE WORKED ANSWERS: it becomes a booklet you can revise from, kept on this phone.');
+      return h('div.schbooklets', h('b.schbkhead', 'WORKED ANSWERS · kept on this phone'),
+        ...list.slice(0, 8).map((b) => {
+          const learning = b.items.filter((x) => x.learning).length;
+          const study = button('STUDY', () => studyBooklet(b), 'on');
+          study.setAttribute('aria-label', `Study ${b.title}`);
+          const drop = button('LET GO', () => {
+            forgetBooklet(b.id);
+            toast('Let go: the paper itself stays under RESULTS', 'ok');
+            if (view) paintResults(view);
+          });
+          drop.setAttribute('aria-label', `Let go of the booklet for ${b.title}`);
+          return h('div.schbk', h('span', h('b', { dataset: { case: 'keep' } }, b.title.split(' · ')[0]!), h('small', `${b.items.length} questions${b.studied ? ` · studied ${b.studied}× · last ${b.lastGot ?? 0} of ${b.items.length}` : ' · not studied yet'}${learning ? ` · ${learning} still learning` : ''}`)), h('span.keyrow', study, drop));
+        }));
     }
 
     /** Every question of a sat paper: his answer, the marks, the marker's note, and the right answer. */
@@ -540,8 +561,16 @@ export const schoolTab: TabDef = {
           const res = d.result;
           const byId = new Map(res.answers.map((a) => [a.id, a]));
           const passages = d.paper.passages ?? [];
+          // [learn.u1] the paper as a booklet to revise from: kept on this phone when he studies it
+          const studyKey = button('STUDY THE WORKED ANSWERS', () => {
+            const b = bookletOf(r.paperId, `${stageLabel(r.stage)} ${subjectName(r.subject).toLowerCase()} · ${res.grade}`, res.at, d.paper.items, new Map(res.answers.map((a) => [a.id, { given: d.given?.[a.id] ?? a.given, got: a.got, max: a.max }])), passages);
+            keepBooklet(b);
+            if (view) paintResults(view);
+            studyBooklet(booklets.get().list.find((x) => x.id === b.id) ?? b);
+          }, 'on');
           clear(
             body,
+            h('div.keyrow.schstudy', studyKey),
             h('div.schpaperhd', h('b', `${res.grade} · ${res.raw}/${res.max}`), h('small', `${d.paper.official ? `Official paper: ${d.paper.title.split(' · official ')[1] ?? d.paper.title}` : d.from === 'bank' ? 'Written by Ghosty from my checked question bank' : 'Written by Ghosty in the same style'} · sat ${day(res.at)} ${res.where === 'phone' ? 'on this phone' : res.where === 'online' ? 'online, in full working' : 'on the free GPU'} · ${res.model.split('@')[0]}`)),
             res.boundary ? h('div.schbound', res.boundary) : null,
             d.paper.boundaries ? h('div.note', `Boundaries: ${d.paper.boundaries}.`) : null,

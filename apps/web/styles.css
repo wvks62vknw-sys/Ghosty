@@ -9909,3 +9909,14 @@ html .qnq { font-size: 22px; line-height: 1.3; margin: 0; overflow-wrap: anywher
 html .qnchoices { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 html .qnreveal { margin: 0; color: var(--fg); }
 html .qnwho button, html .qnight .keyrow button { min-height: 44px; }
+/* SCHOOL · WORKED ANSWERS (learn.u1): booklets kept on the phone, studied a question at a time */
+html .schbooklets { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+html .schbkhead { color: var(--mute); letter-spacing: .06em; }
+html .schbk { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 10px; border-radius: 14px; background: var(--thin); }
+html .schbk small { display: block; color: var(--mute); }
+html .bkstudy { display: flex; flex-direction: column; gap: 8px; }
+html .bkhead { color: var(--mute); margin: 0; overflow-wrap: anywhere; }
+html .bkq { font-size: 19px; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
+html .bkopts { margin: 0; padding: 0; list-style: none; }
+html .bkworking { white-space: pre-wrap; overflow-wrap: anywhere; }
+html .bkstudy .keyrow button, html .schbk button { min-height: 44px; }
