@@ -17,6 +17,9 @@
  * home as he saved it in Settings (sunTimes, from his latitude and longitude), else 08:00 to 18:00.
  */
 import { colourWord, FANCY, PLAIN, TWO_WAYS } from './colours';
+import { screenOf } from './meanings';
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // ---------------------------------------------------------------- the ground
 
@@ -353,6 +356,8 @@ export interface LookAsk {
   back?: { generic: boolean };
   /** [voice.u7] "softer blue", "a bit deeper red", "a warmer colour": the neighbouring plain colour, in that direction. */
   shade?: { way: ShadeWay; from?: ColourKey };
+  /** [voice.u8] "make the money screen green": one screen keeps its own colour (null: back to his colour there). */
+  room?: { tab: string; label: string; colour: ColourKey | null };
   /** [voice.s10] "calm colours", "focus colours", "lively colours": a colour and its switches together, named plainly. */
   feel?: 'calm' | 'focus' | 'lively';
 }
@@ -430,6 +435,14 @@ export function lookAsked(text: string): LookAsk | null {
   if (!t0 || t0.length > 60) return null;
   // ---- the look before (voice.u9): plain about the look, or generic words that mean it just after a look change
   if (/^(?:put (?:the )?(?:colou?r|look|theme|old colou?r|old look) back|change (?:the )?(?:colou?r|look|theme) back|undo (?:the |that )?(?:colou?r|look|theme)(?: change)?|(?:back to |go back to )?(?:the )?(?:old|last|previous|earlier) (?:colou?r|look|theme|one)(?: back)?|i (?:liked|preferred) the (?:old|last|previous|other) (?:colou?r|look|theme|one)(?: better)?|revert (?:the )?(?:colou?r|look|theme))$/.test(t0)) return { back: { generic: false } };
+  // ---- a colour for one screen (voice.u8): "make the money screen green", "the radio page in red", "money screen back to normal"
+  const rm = /^(?:(?:make|turn|set|change|paint|colou?r) )?(?:the |my )?([a-z' -]{2,30}?) (?:screen|page|room|tab)(?: colou?r)? (?:to |in |into )?(?:a |an )?([a-z][a-z ]{1,20})$/.exec(t0);
+  if (rm) {
+    const sc = screenOf(`open the ${rm[1]}`);
+    const back = /^(?:normal|default|usual|my colou?r|the usual|back to normal|back|same as the rest)$/.test(rm[2]!.replace(/^back to /, 'back to '));
+    const c = back ? null : colourWord(rm[2]!);
+    if (sc && (back || c)) return { room: { tab: sc.tab, label: sc.label.replace(/^the /, ''), colour: c } };
+  }
   // ---- a shade by words (voice.u7): "a bit softer blue", "deeper red", "a warmer colour", "make it a bit softer" (the colour, said so)
   const sh = /^(?:make it |go |something |a |an |one )?(?:(?:little |tiny |touch |wee )?bit |touch |shade |little |lot )?(softer|paler|lighter|gentler|pastel|deeper|darker|richer|stronger|bolder|brighter|more vivid|more vibrant|punchier|warmer|cooler|colder)(?: shade of)? ([a-z][a-z ]{1,20}?)$/.exec(t0.replace(/^(?:make it|make the colour|go|switch to|change it to) /, ''));
   if (sh) {
@@ -578,6 +591,9 @@ export function applyAsk(r: Recipe, ask: LookAsk, o: { now?: number; home?: Home
     next.colour = ask.colour;
     const name = `${COLOUR_LABELS[ask.colour]}${ask.word ? ` (${ask.word})` : ''}`;
     said = r.colour === ask.colour ? `${name} is on already: nothing changed.` : `${name} now, instead of ${COLOUR_LABELS[r.colour].toLowerCase()}. Only my colour changed.`;
+  } else if (ask.room) {
+    // (the recipe itself is unchanged: the phone keeps the room's colour and shows it on that screen, state/roomcolour.ts)
+    said = ask.room.colour ? `${cap(ask.room.label)} keeps ${COLOUR_LABELS[ask.room.colour].toLowerCase()} from now on; everywhere else stays ${COLOUR_LABELS[r.colour].toLowerCase()}.` : `${cap(ask.room.label)} is back in your colour, ${COLOUR_LABELS[r.colour].toLowerCase()}.`;
   } else if (ask.shade) {
     const from = ask.shade.from ?? r.colour;
     const to = SHADES[from]?.[ask.shade.way];

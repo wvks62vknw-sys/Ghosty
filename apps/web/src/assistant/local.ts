@@ -224,6 +224,13 @@ const ANSWERS: Record<LocalAsk, (text: string, opts: Opts) => Promise<boolean> |
     if (looks?.kind === 'gallery') return answer(text, `Seven looks, each a whole HUD: ${LOOKS.map((l) => `${l.name}${l.built ? '' : ' (coming)'}`).join(', ')}. Settings › Theme has them as pictures. Say a look, or a colour.`, { kind: 'look', go: [{ id: 'screen:settings', ask: -1, label: 'Open Settings', open: 'settings' }] }, opts);
     const ask = lookAsked(text) ?? (looks?.kind === 'colour' ? { colour: looks.colour } : null);
     if (!ask) return false;
+    // [voice lane] A COLOUR FOR EACH ROOM (voice.u8): kept for that screen alone, his look unchanged
+    if (ask.room) {
+      const rc = await import('../state/roomcolour');
+      rc.setRoomColour(ask.room.tab, ask.room.colour);
+      const theme = await import('../state/theme');
+      return answer(text, applyAsk(theme.recipe(), ask).said, { kind: 'look', go: [{ id: `screen:${ask.room.tab}`, ask: -1, label: `Open ${ask.room.label}`, open: ask.room.tab }] }, opts);
+    }
     // [voice lane] UNDO THE LOOK BY WORDS (voice.u9): "put it back" just after a look change, "the old colour" any time
     if (ask.back) {
       if (ask.back.generic && !lastWasLook()) return false;

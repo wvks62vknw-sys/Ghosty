@@ -154,6 +154,15 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
   await say(page, 'a bit softer blue', /^Softer blue: light blue now\. Only my colour changed\.$/, `[${W}] [colours] softer blue`);
   check((await theme(page)) === 'ice', `[${W}] [colours] softer blue left the theme on ${await theme(page)}`);
   await say(page, 'put it back', /^Put back: Blue · /, `[${W}] [colours] put it back after the shade`);
+  // [voice.u8] a colour for one screen: shown there, his own colour everywhere else, his saved look unchanged
+  await say(page, 'make the money screen green', /^Money keeps green from now on; everywhere else stays blue\.$/, `[${W}] [colours] the money screen green`);
+  await page.evaluate(() => (location.hash = 'money'));
+  check(await page.waitForFunction(() => document.documentElement.dataset.theme === 'emerald', null, { timeout: 6000 }).then(() => true, () => false), `[${W}] [colours] Money did not show green (${await theme(page)})`);
+  await page.evaluate(() => (location.hash = 'core'));
+  check(await page.waitForFunction(() => document.documentElement.dataset.theme === 'reactor', null, { timeout: 6000 }).then(() => true, () => false), `[${W}] [colours] leaving Money did not put blue back (${await theme(page)})`);
+  check(await page.evaluate(() => window.__ghosty.settings.get().theme) === 'reactor', `[${W}] [colours] the room's colour changed his saved colour`);
+  await say(page, 'money screen back to normal', /^Money is back in your colour, blue\.$/, `[${W}] [colours] the money screen back to normal`);
+  check(await page.evaluate(() => window.__ghosty.roomcolour.roomColour('money') === null), `[${W}] [colours] Money kept its colour after "back to normal"`);
   await page.screenshot({ path: `${out}/voicelane-colours-${W}.png` });
   // Settings › Theme: every colour by its plain name
   await page.evaluate(() => (location.hash = 'settings'));

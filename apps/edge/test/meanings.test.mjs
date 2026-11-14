@@ -504,3 +504,17 @@ test('the same everyday asks in other languages he speaks reach the same abiliti
   }
   for (const t of ['pon la mesa', 'la musique classique est belle', 'mausam', 'gaana kaun sa hai']) assert.equal(M.meaningOf(t), null, `"${t}" is left to the brain`);
 });
+
+test('a colour for one screen: "make the money screen green", and back to normal (voice.u8)', () => {
+  const base = TH.recipeFrom('reactor');
+  for (const [t, tab, colour] of [['make the money screen green', 'money', 'emerald'], ['the radio page in red', 'radio', 'crimson'], ['set the settings page to purple', 'settings', 'violet'], ['money screen back to normal', 'money', null]]) {
+    const a = TH.lookAsked(t);
+    assert.deepEqual([a?.room?.tab, a?.room?.colour], [tab, colour], t);
+    assert.equal(TH.applyAsk(base, a).recipe.colour, 'reactor', `${t}: his own colour is unchanged`);
+  }
+  assert.equal(TH.applyAsk(base, TH.lookAsked('make the money screen green')).said, 'Money keeps green from now on; everywhere else stays blue.');
+  assert.equal(TH.lookAsked('make the screen red')?.colour, 'crimson', 'the screen as a whole is his colour');
+  assert.equal(TH.lookAsked('paint the fence green'), null);
+  const rc = readFileSync(at('../../web/src/state/roomcolour.ts'), 'utf8');
+  assert.match(rc, /applyRecipe\(\{ \.\.\.recipe\(\), colour: c \}, \{ save: false, remember: false \}\)/, 'shown unsaved, never his kept look');
+});

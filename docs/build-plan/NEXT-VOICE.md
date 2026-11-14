@@ -67,6 +67,11 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
 - At the end of a way it says so ("Blue is as deep as I go that way") and never makes a shade up.
 - A bare "a bit darker" is still the background, as before.
 
+### A colour for each room (voice.u8)
+- "Make the money screen green" keeps green for Money alone.
+- It shows while that screen is open, and your own colour comes back everywhere else; your saved look is never changed by it.
+- "Money screen back to normal" lets it go.
+
 ### Calm, focus or lively colours (voice.s10)
 - "Calm colours" gives light blue, the glow off and nothing moving.
 - "Focus colours" gives grey, no glow and a plain floor.
@@ -131,7 +136,6 @@ This lane leads the big move **Talk to it your own way**. Branch: `claude/new-se
   ON turn is now a sentence with nothing of yours in it, because one about your calendar is now kept on the phone.
 
 ## What is left (later items, listed for the next round)
-- **A colour for each room (voice.u8):** not built.
 - **More languages and abilities for voice.u10:** a first set is built (Spanish, French, Urdu/Hindi in English letters, for nine
   abilities); more abilities and Urdu in its own script are left.
 - **Settings for each person introduced (voice.s2):** not built.
