@@ -111,6 +111,41 @@ function zip(files) {
   end.writeUInt32LE(off, 16);
   return Buffer.concat([...locals, dir, end]);
 }
+/** A RAR 5 archive of these files, each stored (method 0), written here by hand from the RAR 5 format (no tool, nothing downloaded). */
+function rar5(files) {
+  const vint = (n) => {
+    const out = [];
+    do {
+      let b = n & 0x7f;
+      n = Math.floor(n / 128);
+      if (n) b |= 0x80;
+      out.push(b);
+    } while (n);
+    return Buffer.from(out);
+  };
+  const u32 = (n) => {
+    const b = Buffer.alloc(4);
+    b.writeUInt32LE(n >>> 0);
+    return b;
+  };
+  const block = (body) => {
+    // header: CRC32 of (size + body), the size of body as a vint, then body (type, flags, ...)
+    const size = vint(body.length);
+    const crc = crc32(Buffer.concat([size, body]));
+    return Buffer.concat([u32(crc), size, body]);
+  };
+  const parts = [Buffer.from([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00])];
+  parts.push(block(Buffer.concat([vint(1), vint(0), vint(0)])));
+  for (const { name, data } of files) {
+    const n = Buffer.from(name);
+    // type 2 (file), flags 0x02 (a data area follows), data size; file flags 0x04 (CRC32 present), unpacked size, attributes,
+    // the data's CRC32, compression info 0 (version 0, stored), host OS 1 (Unix), the name
+    const body = Buffer.concat([vint(2), vint(0x02), vint(data.length), vint(0x04), vint(data.length), vint(0o100644), u32(crc32(data)), vint(0), vint(1), vint(n.length), n]);
+    parts.push(block(body), data);
+  }
+  parts.push(block(Buffer.concat([vint(5), vint(0), vint(0)])));
+  return Buffer.concat(parts);
+}
 /** Unzip what the app made (stored or deflated), for reading it back. */
 function unzip(b) {
   const out = new Map();
@@ -158,7 +193,10 @@ const CBZ = zip([
   { name: 'Moon Patrol 01/ComicInfo.xml', data: Buffer.from('<ComicInfo><Title>Moon Patrol</Title></ComicInfo>') },
 ]);
 const PDF = pdf();
-const RAR = Buffer.concat([Buffer.from('Rar!\x1a\x07\x00', 'latin1'), Buffer.alloc(64, 7)]);
+const RAR = rar5([
+  { name: 'Night Flight/01.png', data: pagePng(W, H, [[20, 20, 560, 860]], [40, 40, 120]) },
+  { name: 'Night Flight/02.png', data: pagePng(W, H, [[20, 20, 560, 420], [20, 460, 560, 420]], [120, 40, 40]) },
+]);
 
 // ---------------------------------------------------------------- the Internet Archive, answered here
 const IA_DOCS = [
@@ -266,11 +304,19 @@ for (const vp of [PHONE, PHONE2]) {
   check(/“Moon Patrol 01” is on your shelf: 3 pages, from a CBZ file/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) it says so: "${await txt(page, '#pg-comic .cxnote')}"`);
   st = await take(page, [{ name: 'Night Watch.pdf', mimeType: 'application/pdf', buffer: PDF }]);
   check(st.import.state === 'done' && st.books === 2 && /2 pages, from a PDF/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a PDF is drawn into pages (${await txt(page, '#pg-comic .cxnote')})`);
-  st = await take(page, [{ name: 'Old Story.cbr', mimeType: 'application/octet-stream', buffer: RAR }]);
-  check(st.import.state === 'error' && /CBR file, packed with RAR/.test(st.error) && /Save it as a CBZ/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a real CBR is refused in words: "${st.error.slice(0, 80)}"`);
+  // a real CBR (a RAR 5 made here): the free RAR reader is offered with its size, waits on mobile data, then opens it
+  st = await take(page, [{ name: 'Night Flight.cbr', mimeType: 'application/octet-stream', buffer: RAR }]);
+  const getRar = page.locator('#pg-comic button[aria-label^="Get the free RAR reader"]');
+  check(st.import.state === 'rar' && /a CBR file, packed with RAR\. To open it, I need the free archive reader \(1\.1 MB, once/.test(st.error) && /^Get the RAR reader · /.test((await getRar.textContent()) ?? ''), `${T} (b) a CBR asks for the RAR reader, its size said: "${st.error.slice(0, 90)}" / "${await getRar.textContent()}"`);
+  await page.evaluate(() => Object.defineProperty(navigator, 'connection', { value: { type: 'cellular' }, configurable: true }));
+  await getRar.click();
+  check(await until(page, () => /You are on mobile data, and the RAR reader is 1\.1 MB: it waits for Wi-Fi/.test(document.querySelector('#pg-comic .cxnote')?.textContent ?? '')), `${T} (b) on mobile data the RAR reader waits for Wi-Fi`);
+  await page.evaluate(() => Object.defineProperty(navigator, 'connection', { value: { type: 'wifi' }, configurable: true }));
+  await getRar.click();
+  check(await until(page, () => window.__ghosty.comic.import.state === 'done' && /“Night Flight” is on your shelf: 2 pages, from a CBR file/.test(document.querySelector('#pg-comic .cxnote')?.textContent ?? ''), null, 30000), `${T} (b) on Wi-Fi the RAR reader opens the real CBR: "${await txt(page, '#pg-comic .cxnote')}"`);
   st = await take(page, [{ name: 'Zip Inside.cbr', mimeType: 'application/octet-stream', buffer: CBZ }]);
-  check(st.import.state === 'done' && st.books === 3 && /really a zip inside/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a .cbr that is really a zip is read`);
-  await bar(page, `${T} (b) the shelf with three comics`);
+  check(st.import.state === 'done' && st.books === 4 && /really a zip inside/.test(await txt(page, '#pg-comic .cxnote')), `${T} (b) a .cbr that is really a zip is read`);
+  await bar(page, `${T} (b) the shelf with four comics`);
 
   // (c) the reader
   await page.locator('#pg-comic .cxbook', { hasText: 'Moon Patrol 01' }).locator('button', { hasText: /^Read$/ }).click();
@@ -387,7 +433,7 @@ for (const vp of [PHONE, PHONE2]) {
   await page.keyboard.press('Escape');
   await until(page, () => !document.querySelector('.cxread'));
   await goComic(page, 'shelf');
-  check(await until(page, () => window.__ghosty.comic.made === 1 && window.__ghosty.comic.books === 4), `${T} (d) the made comic is on the shelf, kept`);
+  check(await until(page, () => window.__ghosty.comic.made === 1 && window.__ghosty.comic.books === 5), `${T} (d) the made comic is on the shelf, kept`);
 
   // the phone's own writer (when he picks it, or with no signal): the beats of the local story
   if (vp.width === 440) {

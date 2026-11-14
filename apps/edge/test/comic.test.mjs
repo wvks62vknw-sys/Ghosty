@@ -10,7 +10,7 @@ import { build } from 'esbuild';
 const at = (p) => new URL(p, import.meta.url).pathname;
 const S = '../../web/src/features/comic/';
 await build({
-  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`), script: at(`${S}script.ts`) },
+  entryPoints: { model: at(`${S}model.ts`), asks: at(`${S}asks.ts`), files: at(`${S}files.ts`), library: at(`${S}library.ts`), script: at(`${S}script.ts`), rar: at(`${S}rar.ts`) },
   outdir: at('./.build/comic/'),
   bundle: true,
   format: 'esm',
@@ -98,13 +98,17 @@ test('the chat: many wordings, one comic app', () => {
   for (const t of ['what is the weather', 'make me a poster', 'read me a book', 'that was comical']) assert.equal(k(t), null, `"${t}" is not the comic's`);
 });
 
-test('the files: a CBR (RAR) is said, not read; a zip named .cbr is read; a PDF and a picture are known by their bytes', () => {
+test('the files: a CBR (RAR) asks for the free RAR reader; a zip named .cbr is read; a PDF and a picture are known by their bytes', async () => {
   assert.equal(F.sniff(new Uint8Array([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07])), 'rar');
   assert.equal(F.sniff(new Uint8Array([0x50, 0x4b, 3, 4])), 'zip');
   assert.equal(F.sniff(new TextEncoder().encode('%PDF-1.4')), 'pdf');
   assert.equal(F.sniff(new Uint8Array([0xff, 0xd8, 0xff])), 'pic');
-  assert.match(F.CBR_WORDS, /no phone browser can open/);
-  assert.match(F.CBR_WORDS, /Save it as a CBZ/);
+  // a CBR asks for the free RAR reader, its size said, on his tap (rar.ts)
+  const R = await import(at('./.build/comic/rar.js'));
+  assert.equal(R.RAR_BYTES, 1073335);
+  const need = R.rarNeeded('rar');
+  assert.ok(R.isRarNeeded(need) && /free archive reader \(1\.1 MB, once/.test(need.message) && /GET THE RAR READER, on Wi-Fi/.test(need.message));
+  assert.ok(!R.isRarNeeded(new Error('x')));
 });
 
 test('the guided view: the panels of a drawn page are found in reading order (a wide one over two, then two over a wide one)', () => {

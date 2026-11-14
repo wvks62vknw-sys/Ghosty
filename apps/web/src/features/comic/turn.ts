@@ -27,7 +27,7 @@ export async function comicTurn(text: string): Promise<ComicReply> {
     open('shelf');
     if (app.hooks.askImport) app.hooks.askImport();
     else app.pending.import = true;
-    reply = 'COMIC → SHELF is open: tap IMPORT A COMIC and pick a CBZ, a PDF, pictures or a folder of them. A CBR can’t be opened in any browser, so save it as a CBZ first. It stays on this phone.';
+    reply = 'COMIC → SHELF is open: tap IMPORT A COMIC and pick a CBZ, a CBR, a PDF, pictures or a folder of them. A CBR needs the free RAR reader once (1.1 MB, on your tap, on Wi-Fi). It stays on this phone.';
   } else if (ask.what === 'library') {
     if (app.hooks.library) {
       open('library');

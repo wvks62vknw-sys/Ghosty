@@ -14,6 +14,7 @@ import { sayError } from '../../ui/hisWords';
 import { emptyState, lacksSignal, sizeWords, stateLine } from '../lifeui';
 import { drawCover, drawPage, hitOf, photosReady, type Drawn } from './art';
 import { cbzOf, importFiles, panelsOf, pdfOf, sniff } from './files';
+import { getRarReader, isRarNeeded, RAR_BYTES } from './rar';
 import { creditOf, fetchPd, fileOf, onMobileData, PD_QUERY, searchPd, type PdFile, type PdItem } from './library';
 import { blankPanel, comicFrom, hashOf, KINDS, layoutCount, lookFor, MAX_PANELS, MOODS, newId, PAGE_H, PAGE_W, panelRects, POSES, SCENES, scriptOf, SHOTS, SPECIES, TIMES, writeComic, type Balloon, type Comic, type Panel, type Species } from './model';
 import { openReader, type ReadSource } from './reader';
@@ -157,7 +158,7 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
   const pickFile = h('input', { type: 'file', accept: '.cbz,.cbr,.cb7,.cbt,.zip,.pdf,application/pdf,image/*', multiple: true, hidden: true }) as HTMLInputElement;
   const pickDir = h('input', { type: 'file', multiple: true, hidden: true }) as HTMLInputElement;
   pickDir.setAttribute('webkitdirectory', '');
-  const take = async (files: File[]) => {
+  const take = async (files: File[], opts: { rar?: boolean } = {}): Promise<void> => {
     if (!files.length) return;
     comicState.import.state = 'loading';
     /* state: comic.shelf loading */
@@ -166,7 +167,7 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
       const got = await importFiles(files, (w) => {
         comicState.import.words = w;
         clear(note, stateLine('loading', w));
-      });
+      }, 'file', undefined, opts);
       await keepBook(got.book, got.pages);
       comicState.import.state = 'done';
       comicState.last = got.book.title;
@@ -177,6 +178,23 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
       comicState.error = sayError(e, 'read that comic');
       /* state: comic.shelf error */
       clear(note, stateLine('error', comicState.error));
+      if (isRarNeeded(e)) {
+        // a CBR: the free archive reader, fetched only on his tap, its size said, never on mobile data
+        comicState.import.state = 'rar';
+        const get = key(`Get the RAR reader · ${sizeWords(RAR_BYTES)}`, async () => {
+          get.disabled = true;
+          clear(note, stateLine('loading', `Getting the RAR reader (${sizeWords(RAR_BYTES)})…`));
+          try {
+            await getRarReader();
+            await take(files, { rar: true });
+          } catch (e2) {
+            get.disabled = false;
+            comicState.import.state = 'error';
+            clear(note, stateLine('error', sayError(e2, 'get the RAR reader')), h('div.cxrow', get));
+          }
+        }, `Get the free RAR reader, ${sizeWords(RAR_BYTES)}, to open this CBR`);
+        note.append(h('div.cxrow', get));
+      }
     }
   };
   pickFile.addEventListener('change', () => void take([...(pickFile.files ?? [])]).finally(() => (pickFile.value = '')));
@@ -223,7 +241,7 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
   hooks.showShelf = () => void paint();
   hooks.importNow = () => pickFile.click();
   const lasting = h('p.cxnote', { hidden: true }, 'This browser keeps nothing after you leave (a private window), so your shelf lasts for this visit only.');
-  hooks.askImport = () => clear(note, h('span', 'Pick your comic: a CBZ, a PDF, pictures or a folder of them. CBR files can’t be opened in a browser; save them as CBZ first.'));
+  hooks.askImport = () => clear(note, h('span', 'Pick your comic: a CBZ, a CBR, a PDF, pictures or a folder of them. A CBR needs the free RAR reader once; I’ll offer it, with its size.'));
   void paint().then(() => {
     lasting.hidden = shelfInfo.lasting;
     if (pending.import) {
@@ -233,7 +251,7 @@ export function shelfPart(): { el: HTMLElement; stop(): void } {
   });
   const el = h('div.cx.cxcol',
     h('div.cxrow', key('Import a comic', () => pickFile.click(), 'Import a comic file: CBZ, PDF or pictures'), key('Import a folder', () => pickDir.click(), 'Import a folder of page pictures')),
-    h('p.cxsmall', 'CBZ, PDF, pictures or a folder of them. CBR (RAR) can’t be opened by any browser: save it as CBZ first. Everything stays on this phone.'),
+    h('p.cxsmall', 'CBZ, CBR, PDF, pictures or a folder of them. A CBR needs the free RAR reader once (1.1 MB, on your tap, on Wi-Fi). Everything stays on this phone.'),
     note, pickFile, pickDir, lasting, list,
   );
   return { el, stop: () => ((hooks.showShelf = undefined), (hooks.askImport = undefined)) };
