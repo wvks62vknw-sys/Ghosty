@@ -18,6 +18,8 @@ export interface NewThing {
 export const WHATS_NEW: NewThing[] = [
   // [lens] THE APPS ROUND: Photos
   { day: '2026-11-14', title: 'Photos, your own library', line: 'Photo → MY LIBRARY: your photos and videos in one private library on this phone, with albums, favourites, a 30-day Recently deleted, duplicates found, search by what’s in them, and memories that play as a short film.' },
+  // [paint] THE APPS ROUND, lane COMIC: PAINT, a real painting app (docs/build-plan/APPS-COMIC.md)
+  { day: '2026-11-14', title: 'Paint', line: 'MAKE → PAINT: draw with a finger or an Apple Pencil. Six brushes that follow your pressure, layers with blend modes, undo, colouring pages, and a time-lapse of every stroke you can save as a video.' },
   // [moneyapps] money, effortless
   { day: '2026-11-14', title: 'All your statements at once', line: 'MONEY → Statement → Pick files: choose many at once, CSV, OFX, QIF or PDF from any bank. Each says what it kept, and payments you already had are left out. Each shop on Month now has its own page.' },
   // [see] the APPS ROUND: the weather app
@@ -113,7 +115,7 @@ export const WHATS_NEW: NewThing[] = [
   // [ci] NEXT ci.u3
   { day: '2026-11-14', title: 'How quickly I answer out loud', line: 'System → SPEED now shows your spoken turns too: how soon my first word comes after you stop, and how soon I listen again after I finish. Timed on your phone, kept on your phone.' },
   // [learn, apps round] chess
-  { day: '2026-11-14', title: 'Chess puzzles and puzzle rush', line: 'GYM → chess → PUZZLES: real puzzles from Lichess’s free puzzle database, kept on your phone; a puzzle rating, and a three-minute rush with three lives.' },
+  { day: '2026-11-14', title: 'Chess, an app of its own', line: 'Say “open chess”: real puzzles from Lichess’s free database kept on your phone, a puzzle rating, a three-minute rush, today’s puzzle, and every puzzle you tried.' },
   // [learn, next round] learning that adapts and talks back (NEXT-LEARN.md)
   { day: '2026-11-14', title: 'Courses that pick up your mistakes', line: 'Each course’s map has TODAY: the lesson your answers say to look at again (a miss you were sure of counts most), with a quiz on just your misses.' },
   { day: '2026-11-14', title: 'Free classics for your shelf', line: 'Library → Add → CLASSICS: Project Gutenberg and Standard Ebooks’ newest, free. Each book’s size is said first, and it comes on your tap, on Wi-Fi.' },

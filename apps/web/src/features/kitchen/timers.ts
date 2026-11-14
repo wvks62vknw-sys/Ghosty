@@ -99,6 +99,18 @@ export function stopTimers(name = ''): number {
   changed();
   return k;
 }
+/** One more minute on a running timer (its lock-screen ring moved with it). */
+export function addMinute(id: string): void {
+  const t = list.find((x) => x.id === id && !x.done && !x.ringing);
+  if (!t) return;
+  t.end += 60_000;
+  t.secs += 60;
+  const old = t.job;
+  t.job = undefined;
+  changed();
+  if (old) unlock(old);
+  if (t.end - clockNow() >= 60_000) void lockFor(t);
+}
 export const stopTimer = (id: string): void => {
   unlock(list.find((t) => t.id === id)?.job);
   list = list.filter((t) => t.id !== id);

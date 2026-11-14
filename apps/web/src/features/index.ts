@@ -63,10 +63,12 @@ import { houseTab } from './house';
 import { gamestudioTab } from './gamestudio';
 // THE COMIC (FINAL ROUND, lane COMIC): his comics read, made and fetched from the public domain
 import { comicTab } from './comic';
+// PAINT (APPS ROUND, lane COMIC): a real painting app, the drawing core the Comic's inking uses too
+import { paintTab } from './paint';
 // [security] SECURITY (NEXT ROUND, lane SECURITY): every lock green, amber or red, every approval, the steps; a row of Settings
 import { securityTab } from './security';
 // [journal] JOURNAL (APPS ROUND, lane MEMORY): his own journal, Day One's kind, a row of Memory
 import { journalTab } from './journal';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, securityTab, journalTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, photosTab, videoTab, gamestudioTab, comicTab, houseTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, interpreterTab, labTab, rehearseTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, readerTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, workbenchTab, linksTab, settingsTab, lookTab, securityTab, journalTab, systemTab, arcadeTab, moneyTab, bodyTab, kitchenTab, peopleTab, workTab, creativeTab, outsideTab, homeadminTab, learningTab, coachTab, socialTab, convertTab, docsTab, sheetsTab, slidesTab, workspaceTab, photoTab, photosTab, videoTab, gamestudioTab, comicTab, paintTab, houseTab, ...HUB_TABS];

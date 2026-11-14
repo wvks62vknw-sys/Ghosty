@@ -528,6 +528,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // [paint] PAINT (features/paint): his paintings, colouring pages and the studio
+      id: 'open_paint',
+      title: 'Paint: draw and paint, colouring pages',
+      group: 'GO',
+      run: async () => {
+        const { go } = await import('../shell/tabs');
+        go('paint');
+      },
+    },
+    {
       // [gamestudio] THE GAME STUDIO (studio-game/): his games, and a new one
       id: 'open_gamestudio',
       title: 'Game studio: make a 2-D game',

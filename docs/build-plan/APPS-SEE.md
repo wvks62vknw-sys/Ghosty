@@ -52,4 +52,5 @@
 - **Today against the 30-year normal.** Today it is compared with yesterday instead.
 - **A personality from your CHARACTER dials.** For now it is one dry voice.
 - **The App Kit, in part.** The app uses the kit's Home card (in the Brief), its skeleton while loading, and its state cards for the empty and error states. Its own screens (the graph, ten days, the details) are drawn from the design tokens: the kit's list frame is built for lists of things, which a forecast isn't.
+- **Weather as a screen of its own** (a fifth screen in PLAN, with its deck, Jump bar and hub entries). It's built but not landed: five specs (deck, hubcards, tabs, tabs2 and nav) encode PLAN as four screens, and a hub card needs an instrument and two readings. It waits, whole, for a round with the budget to move those specs too. Today Weather opens full screen from the Brief's card and by voice.
 - **Section 2 of my file**, my other apps against their leaders, and **section 3**, the new apps: none started.
