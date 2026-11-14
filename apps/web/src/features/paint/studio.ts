@@ -86,7 +86,7 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
   const recent: string[] = [];
   let sym: Symmetry = 'off';
   let sel: Sel = null;
-  let selMode: 'free' | 'rect' = 'free';
+  let selMode: 'free' | 'rect' | 'wand' = 'free';
   let pendingText: { text: string; font: string; size: number } | null = null;
   let pencilSeen = false;
   let onMask = false;
@@ -323,8 +323,8 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
     openSheet('liquify', 'Liquify', h('div.pxrow', ...keys), h('p.pxsmall', 'Push moves the picture along your stroke. Twirl turns it round, pinch draws it in, expand swells it out.'));
   };
   const selectModes = (): void => {
-    const mode = (m: 'free' | 'rect', word: string, aria: string): HTMLButtonElement => { const b = key(word, () => { selMode = m; say(m === 'rect' ? 'Drag a box round the part to work on.' : 'Draw round the part to work on.'); selectModes(); }, aria); b.setAttribute('aria-pressed', String(selMode === m)); return b; };
-    openSheet('selectmode', 'Select', h('div.pxrow', mode('free', 'FREEHAND', 'Select by drawing round a part'), mode('rect', 'RECTANGLE', 'Select a rectangle')));
+    const mode = (m: 'free' | 'rect' | 'wand', word: string, aria: string): HTMLButtonElement => { const b = key(word, () => { selMode = m; say(m === 'rect' ? 'Drag a box round the part to work on.' : m === 'wand' ? 'Tap an area: everything of its colour joined to it is selected.' : 'Draw round the part to work on.'); selectModes(); }, aria); b.setAttribute('aria-pressed', String(selMode === m)); return b; };
+    openSheet('selectmode', 'Select', h('div.pxrow', mode('free', 'FREEHAND', 'Select by drawing round a part'), mode('rect', 'RECTANGLE', 'Select a rectangle'), mode('wand', 'BY COLOUR', 'Select an area of one colour with a tap')));
   };
   const textPanel = (): void => {
     const words = h('textarea', { rows: 2, maxLength: 200, placeholder: 'Your words', 'aria-label': 'The words to put on the painting' }) as HTMLTextAreaElement;
@@ -755,6 +755,14 @@ export function openStudio(host: HTMLElement, o: StudioOpts): { el: HTMLElement;
       say(`Took ${colour} from the picture.`);
       tool = 'brush'; paintState.tool = 'brush'; showSliders(); sync();
     } else if (tool === 'select') {
+      if (selMode === 'wand') {
+        lasso = [];
+        const got = d.x >= 0 && d.y >= 0 && d.x < p.w && d.y < p.h ? p.wand(d.x, d.y) : null;
+        sel = got;
+        say(got ? 'Selected the area of that colour. Tap SELECT for invert and clear.' : 'Nothing to select there.');
+        sync(); ask();
+        return;
+      }
       if (selMode === 'rect' && lasso.length >= 4) {
         const x0 = lasso[0]!, y0 = lasso[1]!, x1 = lasso[lasso.length - 2]!, y1 = lasso[lasso.length - 1]!;
         lasso = Math.abs(x1 - x0) > 4 && Math.abs(y1 - y0) > 4 ? [x0, y0, x1, y0, x1, y1, x0, y1, x0, y0, x0, y0] : [];

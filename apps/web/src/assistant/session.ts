@@ -999,6 +999,11 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
     return;
   }
+  // [applib] "open wine cellar": THE APP LIBRARY's app by its name, opened on the phone with no brain (features/applib/open.ts)
+  if (!opts.cloud && !opts.plain && (await import('../features/applib/open').then((m) => m.appTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
+    noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });
+    return;
+  }
   // [consistency] THE HELP DESK (assistant/helpdesk.ts): "how do I …?" with the exact taps and TRY IT; "what can I say here?"
   if (!opts.cloud && !opts.plain && (await import('./helpdesk').then((m) => m.helpTurn(t, { voice: opts.voice, private: localPriv })).catch(() => false))) {
     noteAnswer(LOCAL_MODEL, { kept: localPriv, cat: categorise(t) });

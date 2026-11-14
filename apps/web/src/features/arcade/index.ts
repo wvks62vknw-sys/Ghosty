@@ -386,8 +386,11 @@ export const arcadeTab: TabDef = {
       const act = h('button.arcact', { type: 'button' });
       const more = h('button.arcmore', { type: 'button', 'aria-label': `More about ${p.title}: licence, credit, delete`, 'aria-expanded': 'false' }, '⋯');
       const details = h('div.arcdetails', { hidden: true });
+      // its page (gamepage.ts), as the shelf's games have: the record, screenshots, trophies, how it plays, licence and credit
+      const pageEntry: ShelfEntry | null = baseEntry ? { ...baseEntry, id: p.id, title: p.title.toUpperCase(), line: p.line, ghosty: `A level pack by ${p.author}, over Freedoom: ${phase}.`, data: p.data, done: PACK_DONE } : null;
+      const opener = pageEntry ? titleKey({ 'aria-label': `${p.title}: its page, with screenshots, controls, trophies and licence` }, p.title) : null;
       const el = h('article.arccard.arcpack', { role: 'listitem', dataset: { level: p.id }, 'aria-label': `${p.title}, by ${p.author}` },
-        h('h4.arctitle', p.title),
+        h('h4.arctitle', opener ?? p.title),
         h('p.arcby', `by ${p.author}`),
         h('p.arcline', p.line),
         h('p.arcover', `Plays over Freedoom: ${phase}.`),
@@ -435,6 +438,7 @@ export const arcadeTab: TabDef = {
         details.hidden = !details.hidden;
         more.setAttribute('aria-expanded', String(!details.hidden));
       });
+      if (opener && pageEntry) opener.addEventListener('click', () => pageOf(pageEntry, act, () => score.textContent ?? ''));
       cards.set(key, { el, paint, of });
       paint();
       return el;
@@ -667,7 +671,7 @@ export const arcadeTab: TabDef = {
 
     // CONTINUE PLAYING: the games played lately, newest first, each with its key and its page
     const paintCont = () => {
-      const known = (id: string) => cards.get(id) ?? myCards.get(id) ?? null;
+      const known = (id: string) => cards.get(id) ?? cards.get(`level:${id}`) ?? myCards.get(id) ?? null;
       const list = recent(allStats(), 8).filter(([id]) => known(id)).slice(0, 4);
       contPanel.el.hidden = !list.length;
       contPanel.setStatus(list.length ? `${list.length} LATELY` : '');
